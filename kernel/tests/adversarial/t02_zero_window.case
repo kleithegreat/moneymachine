@@ -1,0 +1,2 @@
+{"mechanism": "T2", "source": "claude", "expect": "E_WINDOW"}
+{"dsl": 1, "name": "W0 witness: fade funding beyond 1bp/h", "mechanism": {"counterparty": "the side paying elevated funding", "predictions": ["none; stage 0 witness for replay mechanics"], "capacity": "0.1 of equity spread over 12 coins"}, "params": {"thr": {"value": 0.0001, "unit": "1/h"}, "size": {"value": 0.008333333333333333, "unit": "1"}}, "let": {"f": {"input": "funding"}}, "weight": {"op": "sign", "args": [{"op": "lag", "args": [{"input": "close"}], "hours": 0}]}}
