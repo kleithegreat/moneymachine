@@ -2,18 +2,26 @@
 
 ## Now
 
-Every stage is waiting on time or on GPT, so work proceeds on whatever does not depend on them.
-- **Stage 0:** the live recorder runs detached (`pgrep -af "python -m ingest.record"`, kill by PID only). It started 2026-10-19 04:57 UTC and was restarted at 07:03 to add aggregated books. C0.3 needs 24 h from 04:57; C0.7 needs 24 h of aggregated-book snapshots from 07:03. After that:
+Stages run in parallel wherever work does not depend on a wait. Detached processes (kill by PID only): `pgrep -af "python -m ingest.record"` (HL live recorder), `pgrep -af sources_record` (stage 5 forum and Snapshot recorder).
+
+- **Stage 0, from 2026-10-20 07:05 UTC:** C0.3 (from 04:57) and C0.7 (from 07:03) reach their 24 h.
   - `python -m ingest.availability data/live` (C0.3);
   - `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7);
-  - a second backfill, `python -m ingest.backfill data 200` (C0.4; its ingestion report is the judged C0.2/C0.5 evidence under the revised rules);
+  - a second backfill, `python -m ingest.backfill data 200` (C0.4; its ingestion report is the judged C0.2/C0.5 evidence);
   - the witness (C0.8);
-  - `python -m ingest.holdout data audit/holdout.json` (C0.9, already run for the first version);
-  - then stop the recorder.
-- **Stage 1:** done: C1.1, C1.2, C1.3, C1.6, C1.7, and C1.5 via the Opus substitute (a GPT checker rerun is pending; it timed out twice, and the third run has tools denied). Waiting: C1.4 and C1.8, after C0.7 (run with `MM_VENUE` unset and `cargo test --release --test bench -- --ignored`).
-- **Stage 2:** nulls frozen (`gate/nulls.json`). C2.1 fixed probes are running (`python -m gate.c21`). C2.4 and C2.5 need the C0.7 cost cells: `python -m gate.sweep c24`, then `calibrate`, then `c25`. C2.2 and C2.3 wait for GPT, with Opus as the fallback at the end.
-- **Stage 3:** criteria frozen; harness, daemon, mechanism check, joint holdout and audit are built (`gate/stage3.py`). Before C3.2: freeze the harness (record `harness.harness_hash()` in the Log), then run 20 `null_campaign`s with the C0.7 median cost cells (`gate.sweep.cost_cells()`). The real run (`real_campaign`) comes only after stage 2 exits.
-- **Stages 4 and 5:** criteria frozen. Next for 4: `kernel/CANONICAL.md`, the egg equivalence key and the C4.1/C4.2 tests. Next for 5: the source recorder is running (`pgrep -af sources_record`); find an unlock source; ingestion, mapping, as_of tombstones and DSL inputs.
+  - `python -m ingest.holdout data audit/holdout.json` (C0.9);
+  - stop the HL recorder.
+- **Stage 1:** done except C1.4 and C1.8, which follow C0.7. C1.5 (Opus substitute) passed; a GPT checker rerun is in `scratchpad/gpt-checker3`.
+- **Stage 2:** nulls frozen. C2.1's fixed probes pass. After C0.7: `python -m gate.sweep c24`, then `calibrate`, then `c25`, then the C2.1 top-5 probes. GPT DSR and null-generator implementations are running (`scratchpad/gpt-dsr`, `scratchpad/gpt-nulls`) for C2.2 and C2.3.
+- **Stage 3:** built. After C0.7: record `harness.harness_hash()` (the freeze), run 20 `stage3.null_campaign`s (C3.2), then `real_campaign` once stage 2 exits.
+- **Stage 4:** C4.1 and C4.2 done. The swarm is built. After the harness freeze: `python -m gate.stage4 10` (C4.5).
+- **Stage 5:** criteria frozen (one revision). The Discourse backfill runs (`data/sources_backfill1.*`). At ≥ 72 h of recording (2026-10-22 10:26 UTC):
+  - `python -m ingest.sources_avail analyze data/sources_live`;
+  - re-backfill, then `reconcile`;
+  - `python -m ingest.events data <version> data/sources_live admitted|prospective`;
+  - then C5.4 and C5.6 (extend nulls, probes and searcher to `forum_posts`).
+
+  Snapshot is prospective only (client-claimed time). Unlocks: no free source found so far (DefiLlama is paid; its adapters repo is gone).
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
