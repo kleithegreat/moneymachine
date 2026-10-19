@@ -205,12 +205,20 @@ fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>)
     Ok(out.into_iter().map(|(_, (_, r))| r).collect())
 }
 
-/// Load `store` at `version`. `holdout` is the holdout start in search mode, None in holdout mode.
-pub fn load(store: &Path, version: i64, venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market, LoadError> {
+/// Load the union of `stores` at `version`. `holdout` is the holdout start in search mode, None
+/// in holdout mode.
+pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market, LoadError> {
     let coin_ix: HashMap<&str, usize> = venue.coins.iter().enumerate().map(|(i, c)| (c.as_str(), i)).collect();
     let mut hasher = Sha256::new();
-    let f_rows = resolve(read_rows(&store.join("funding"), version, &mut hasher)?, &coin_ix, holdout)?;
-    let b_rows = resolve(read_rows(&store.join("bars_4h"), version, &mut hasher)?, &coin_ix, holdout)?;
+    let mut rows = |dataset: &str| -> Result<Vec<Row>, LoadError> {
+        let mut all = vec![];
+        for s in stores {
+            all.extend(read_rows(&s.join(dataset), version, &mut hasher)?);
+        }
+        Ok(all)
+    };
+    let f_rows = resolve(rows("funding")?, &coin_ix, holdout)?;
+    let b_rows = resolve(rows("bars_4h")?, &coin_ix, holdout)?;
     let mut funding = Vec::with_capacity(f_rows.len());
     for r in &f_rows {
         funding.push(Funding {

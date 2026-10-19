@@ -14,7 +14,7 @@ fn w0_median_under_100ms() {
     let venue = market::venue(&root.join("venue/hyperliquid")).unwrap();
     let store = root.join("data/store");
     let version: i64 = std::env::var("MM_VERSION").ok().and_then(|v| v.parse().ok()).unwrap_or(i64::MAX);
-    let m = market::load(&store, version, &venue, &policy, Some(policy.holdout_start)).unwrap();
+    let m = market::load(&[store], version, &venue, &policy, Some(policy.holdout_start)).unwrap();
     let prog = dsl::parse(&std::fs::read_to_string(root.join("kernel/strategies/w0.json")).unwrap()).unwrap();
     let end = policy.holdout_start.min(policy.w_end);
     let mut ms: Vec<f64> = (0..20)

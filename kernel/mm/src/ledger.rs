@@ -111,6 +111,15 @@ impl Ledger {
         Ok(self.conn.last_insert_rowid())
     }
 
+    /// Whether a holdout run over the window starting at `start` is already recorded.
+    pub fn holdout_used(&self, start: i64) -> rusqlite::Result<bool> {
+        self.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM experiments WHERE mode = 'holdout' AND window_start = ?1",
+            params![start],
+            |r| r.get(0),
+        )
+    }
+
     pub fn select(&mut self, campaign: &str, agent: &str, strategy_hash: &str, note: &str) -> rusqlite::Result<i64> {
         let seen: i64 = self.conn.query_row(
             "SELECT COALESCE(MAX(id), 0) FROM disclosures WHERE campaign = ?1 AND agent = ?2",

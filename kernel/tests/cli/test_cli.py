@@ -86,7 +86,7 @@ def test_rejection_is_disclosed_without_data(market, tmp_path):
     bad.write_text(W0.read_text().replace('"input": "funding"', '"input": "next_open"'))
     ledger = tmp_path / "l.sqlite"
     r = mm(tmp_path / "nonexistent", "eval", str(bad), "--campaign", "c", "--agent", "a", ledger=ledger)
-    assert r.returncode == 1 and json.loads(r.stderr)["code"] == "E_UNKNOWN_INPUT"
+    assert r.returncode == 1 and json.loads(r.stdout)["code"] == "E_UNKNOWN_INPUT"
     kinds = [k for (k,) in sqlite3.connect(ledger).execute("SELECT kind FROM disclosures")]
     assert kinds == ["reject"]
 
@@ -97,7 +97,7 @@ def test_copied_holdout_rows_abort_search_mode(market, tmp_path):
     for f in (copy / "holdout" / "bars_4h").glob("*.parquet"):
         shutil.copy(f, copy / "store" / "bars_4h" / f"{int(f.stem) + 1}.parquet")
     r = evaluate(copy, tmp_path / "l.sqlite")
-    assert r.returncode == 1 and json.loads(r.stderr)["code"] == "R_HOLDOUT"
+    assert r.returncode == 1 and json.loads(r.stdout)["code"] == "R_HOLDOUT"
 
 
 def test_holdout_store_itself_aborts_search_mode(market, tmp_path):
@@ -107,4 +107,36 @@ def test_holdout_store_itself_aborts_search_mode(market, tmp_path):
     r = subprocess.run([str(MM), "eval", str(W0), "--campaign", "c", "--agent", "a", "--store", str(m / "holdout"),
                         "--venue", str(m / "venue"), "--policy", str(m / "policy.json"), "--ledger", str(tmp_path / "l.sqlite")],
                        capture_output=True, text=True)
-    assert r.returncode == 1 and json.loads(r.stderr)["code"] == "R_HOLDOUT"
+    assert r.returncode == 1 and json.loads(r.stdout)["code"] == "R_HOLDOUT"
+
+
+def test_batch_eval_one_line_per_program(market, tmp_path):
+    batch = tmp_path / "b.jsonl"
+    good = json.dumps(json.loads(W0.read_text()))
+    batch.write_text(good + "\n" + good.replace('"input": "funding"', '"input": "nope"') + "\n" + good + "\n")
+    ledger = tmp_path / "l.sqlite"
+    r = evaluate(market, ledger, batch)
+    lines = [json.loads(l) for l in r.stdout.splitlines()]
+    assert r.returncode == 1 and len(lines) == 3
+    assert lines[1]["code"] == "E_UNKNOWN_INPUT" and lines[0]["disclosure"] == lines[2]["disclosure"]
+    kinds = [k for (k,) in sqlite3.connect(ledger).execute("SELECT kind FROM disclosures ORDER BY id")]
+    assert kinds == ["eval", "reject", "eval"]
+
+
+def holdout(market, ledger):
+    m = Path(market)
+    return subprocess.run([str(MM), "holdout", str(W0), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
+                           "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
+                           "--policy", str(m / "policy.json"), "--ledger", str(ledger)], capture_output=True, text=True)
+
+
+def test_holdout_is_evaluated_once_over_its_window(market, tmp_path):
+    ledger = tmp_path / "l.sqlite"
+    r = holdout(market, ledger)
+    assert r.returncode == 0, r.stdout + r.stderr
+    out = json.loads(r.stdout)["disclosure"]
+    assert out["mode"] == "holdout" and out["result"]["steps"] == 10 * 6 - 1
+    again = holdout(market, ledger)
+    assert again.returncode == 1 and json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
+    row = sqlite3.connect(ledger).execute("SELECT mode, window_start FROM experiments").fetchall()
+    assert row == [("holdout", json.loads((Path(market) / "policy.json").read_text())["holdout_start"])]

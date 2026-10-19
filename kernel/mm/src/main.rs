@@ -14,9 +14,14 @@ USAGE:
       Type-check a strategy (kernel/DSL.md) without touching data.
   mm eval FILE --campaign C --agent A [--version V] [--store DIR] [--venue DIR]
           [--policy PATH] [--ledger PATH] [--trace OUT]
-      Evaluate a strategy on the search period and print its disclosed statistics.
+      Evaluate a strategy on the search period and print its disclosed statistics as one
+      JSON line. FILE is one strategy, or a .jsonl file with one strategy per line (one
+      output line each, in order). Exit code 1 if any line is a rejection or abort.
       --version is a dataset version (a fetchedAt cutoff in ms); default: the latest.
       --trace also writes the full event trace to OUT as JSON lines.
+  mm holdout FILE --campaign C --agent A --holdout-store DIR [same options as eval]
+      The gate's holdout step: evaluate the finalists in FILE over the holdout window,
+      once. Refused (R_HOLDOUT_SPENT) if this ledger has evaluated this holdout window before.
   mm select HASH --campaign C --agent A [--note TEXT] [--ledger PATH]
       Record that the agent chose to pursue strategy HASH, given what it has seen.
   mm check-fills FILE
@@ -163,105 +168,170 @@ fn check(a: &Args, ledger: &mut Ledger) -> ExitCode {
     }
 }
 
-fn eval(a: &Args, ledger: &mut Ledger) -> ExitCode {
-    let (Some(campaign), Some(agent)) = (a.opts.get("campaign"), a.opts.get("agent")) else {
-        eprintln!("{USAGE}");
-        return ExitCode::from(3);
-    };
-    let abort = |ledger: &mut Ledger, code: &str, msg: &str| {
-        let out = json!({"ok": false, "code": code, "message": msg}).to_string();
-        let kind = if code.starts_with("E_") { "reject" } else { "abort" };
-        emit(ledger.disclose(campaign, agent, kind, &out), &out, true, 1)
-    };
-    let text = match std::fs::read_to_string(&a.target) {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("cannot read {}: {e}", a.target);
-            return ExitCode::from(3);
-        }
-    };
-    let prog = match dsl::parse(&text) {
-        Ok(p) => p,
-        Err(r) => return abort(ledger, r.code.name(), &format!("{} at {}", r.msg, r.path)),
-    };
-    let store = PathBuf::from(a.get("store", "data/store"));
-    let load = || -> Result<_, LoadError> {
-        let policy = market::policy(Path::new(a.get("policy", "policy.json")))?;
-        let venue = market::venue(Path::new(a.get("venue", "venue/hyperliquid")))?;
-        let version = match a.opts.get("version") {
-            Some(v) => v.parse().map_err(|_| LoadError::Io("bad --version".into()))?,
-            None => latest_version(&store).ok_or_else(|| LoadError::Io("empty store".into()))?,
-        };
-        let m = market::load(&store, version, &venue, &policy, Some(policy.holdout_start))?;
-        Ok((policy, venue, version, m))
-    };
-    let (policy, venue, version, market) = match load() {
-        Ok(x) => x,
-        Err(LoadError::Holdout(m)) => return abort(ledger, "R_HOLDOUT", &m),
-        Err(LoadError::Io(m)) => {
-            eprintln!("load error: {m}");
-            return ExitCode::from(3);
-        }
-    };
-    let end = policy.holdout_start.min(policy.w_end);
-    let run = match sim::run(&prog, &market, &venue, &policy, end) {
-        Ok(r) => r,
-        Err(e) => return abort(ledger, e.code(), &format!("{e:?}")),
-    };
+struct Ctx {
+    policy: market::Policy,
+    venue: market::Venue,
+    version: i64,
+    market: market::Market,
+    mode: &'static str,
+    /// Steps whose equity time is after this are the disclosed result (the holdout window).
+    report_after: i64,
+    end: i64,
+    kernel: String,
+}
 
+fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
+    let policy = market::policy(Path::new(a.get("policy", "policy.json")))?;
+    let venue = market::venue(Path::new(a.get("venue", "venue/hyperliquid")))?;
+    let store = PathBuf::from(a.get("store", "data/store"));
+    let version = match a.opts.get("version") {
+        Some(v) => v.parse().map_err(|_| LoadError::Io("bad --version".into()))?,
+        None => latest_version(&store).ok_or_else(|| LoadError::Io("empty store".into()))?,
+    };
+    let (stores, holdout, report_after, end) = if mode == "holdout" {
+        let h = PathBuf::from(a.opts.get("holdout-store").ok_or_else(|| LoadError::Io("--holdout-store required".into()))?);
+        (vec![store, h], None, policy.holdout_start, policy.w_end)
+    } else {
+        (vec![store], Some(policy.holdout_start), i64::MIN, policy.holdout_start.min(policy.w_end))
+    };
+    let market = market::load(&stores, version, &venue, &policy, holdout)?;
+    Ok(Ctx { policy, venue, version, market, mode, report_after, end, kernel: kernel_hash() })
+}
+
+fn programs(path: &str) -> std::io::Result<Vec<String>> {
+    let text = std::fs::read_to_string(path)?;
+    Ok(if path.ends_with(".jsonl") { text.lines().filter(|l| !l.trim().is_empty()).map(String::from).collect() } else { vec![text] })
+}
+
+/// Evaluate one checked program and commit its experiment, result and disclosure.
+fn evaluate(prog: &dsl::Program, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, ledger: &mut Ledger)
+    -> Result<String, (String, String)> {
+    let run = sim::run(prog, &c.market, &c.venue, &c.policy, c.end).map_err(|e| (e.code().to_string(), format!("{e:?}")))?;
+    let first = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).position(|t| t > c.report_after);
+    let k = first.unwrap_or(run.returns.len());
+    let run = sim::Run { returns: run.returns[k..].to_vec(), equity: run.equity[k..].to_vec(), trace: run.trace };
     let canonical = prog.canonical();
     let strategy_hash = sha256_hex(canonical.as_bytes());
     let params = json!(prog.param_values().into_iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>()).to_string();
-    let universe = json!(venue.coins).to_string();
-    let conventions = json!({"delta_ms": policy.delta, "decision_grid_ms": BAR, "fill": "open of first bar with openTime >= submission",
+    let universe = json!(c.venue.coins).to_string();
+    let conventions = json!({"delta_ms": c.policy.delta, "decision_grid_ms": BAR, "fill": "open of first bar with openTime >= submission",
                              "settlement": "hourly at open of containing 4h bar, before fills"}).to_string();
-    let kernel = kernel_hash();
+    let window = (c.report_after.max(c.policy.w_start), c.end);
     let identity = sha256_hex(
-        [&canonical, &params, &universe, &policy.w_start.to_string(), &end.to_string(), &version.to_string(),
-         &market.data_hash, &conventions, &venue.rules_hash, &venue.execution_hash, &kernel, "0"]
+        [&canonical, &params, &universe, &window.0.to_string(), &window.1.to_string(), &c.version.to_string(),
+         &c.market.data_hash, &conventions, &c.venue.rules_hash, &c.venue.execution_hash, &c.kernel, "0", c.mode]
             .join("\n")
             .as_bytes(),
     );
     let summary = summary(&run).to_string();
     let returns_bytes: Vec<u8> = run.returns.iter().flat_map(|r| r.to_le_bytes()).collect();
     let result_hash = sha256_hex(&[summary.as_bytes(), &returns_bytes].concat());
-    let trace_text = a.opts.get("trace").map(|_| {
-        run.trace.iter().map(|e| event_json(e, &venue.coins).to_string()).collect::<Vec<_>>().join("\n") + "\n"
-    });
+    let trace_text = trace_path.map(|_| run.trace.iter().map(|e| event_json(e, &c.venue.coins).to_string()).collect::<Vec<_>>().join("\n") + "\n");
     let content = json!({
-        "strategy": strategy_hash, "identity": identity, "result_hash": result_hash,
+        "strategy": strategy_hash, "identity": identity, "result_hash": result_hash, "mode": c.mode,
         "result": serde_json::from_str::<Value>(&summary).unwrap(),
         "trace_sha256": trace_text.as_ref().map(|t| sha256_hex(t.as_bytes())),
     });
     let e = Experiment {
         campaign,
         agent,
-        mode: "search",
+        mode: c.mode,
         strategy_hash: &strategy_hash,
         canonical: &canonical,
         params: &params,
         universe: &universe,
-        window: (policy.w_start, end),
-        dataset_version: version,
-        data_hash: &market.data_hash,
+        window,
+        dataset_version: c.version,
+        data_hash: &c.market.data_hash,
         conventions: &conventions,
-        rules_hash: &venue.rules_hash,
-        execution_hash: &venue.execution_hash,
-        kernel: &kernel,
+        rules_hash: &c.venue.rules_hash,
+        execution_hash: &c.venue.execution_hash,
+        kernel: &c.kernel,
         seed: 0,
         identity: &identity,
         mechanism: &prog.mechanism.to_string(),
     };
-    let committed = ledger.disclose_result(&e, &run.returns, &summary, &result_hash, &content.to_string());
-    if committed.is_ok() {
-        if let (Some(path), Some(t)) = (a.opts.get("trace"), &trace_text) {
-            if let Err(err) = std::fs::write(path, t) {
-                eprintln!("cannot write trace: {err}");
+    let id = ledger
+        .disclose_result(&e, &run.returns, &summary, &result_hash, &content.to_string())
+        .map_err(|err| ("R_LEDGER".to_string(), err.to_string()))?;
+    if let (Some(path), Some(t)) = (trace_path, &trace_text) {
+        if let Err(err) = std::fs::write(path, t) {
+            eprintln!("cannot write trace: {err}");
+        }
+    }
+    Ok(json!({"experiment": id, "disclosure": content}).to_string())
+}
+
+/// `eval` and `holdout`: one output line per program, each committed before it is printed.
+fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
+    let (Some(campaign), Some(agent)) = (a.opts.get("campaign"), a.opts.get("agent")) else {
+        eprintln!("{USAGE}");
+        return ExitCode::from(3);
+    };
+    let texts = match programs(&a.target) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("cannot read {}: {e}", a.target);
+            return ExitCode::from(3);
+        }
+    };
+    let mut ctx: Option<Ctx> = None;
+    let mut status = 0;
+    for text in texts {
+        let outcome = match dsl::parse(&text) {
+            Err(r) => Err((r.code.name().to_string(), format!("{} at {}", r.msg, r.path))),
+            Ok(prog) => {
+                if ctx.is_none() {
+                    let c = match load_ctx(a, mode) {
+                        Ok(c) => c,
+                        Err(LoadError::Holdout(m)) => {
+                            let out = json!({"ok": false, "code": "R_HOLDOUT", "message": m}).to_string();
+                            return emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1);
+                        }
+                        Err(LoadError::Io(m)) => {
+                            eprintln!("load error: {m}");
+                            return ExitCode::from(3);
+                        }
+                    };
+                    if mode == "holdout" {
+                        match ledger.holdout_used(c.report_after) {
+                            Ok(false) => {}
+                            Ok(true) => {
+                                let out = json!({"ok": false, "code": "R_HOLDOUT_SPENT", "message": "this holdout window was already evaluated"}).to_string();
+                                return emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1);
+                            }
+                            Err(e) => {
+                                eprintln!("R_LEDGER: {e}");
+                                return ExitCode::from(2);
+                            }
+                        }
+                    }
+                    ctx = Some(c);
+                }
+                evaluate(&prog, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), ledger)
+            }
+        };
+        match outcome {
+            Ok(line) => println!("{line}"),
+            Err((code, _)) if code == "R_LEDGER" => {
+                eprintln!("R_LEDGER");
+                return ExitCode::from(2);
+            }
+            Err((code, msg)) => {
+                status = 1;
+                let out = json!({"ok": false, "code": code, "message": msg}).to_string();
+                let kind = if code.starts_with("E_") { "reject" } else { "abort" };
+                match ledger.disclose(campaign, agent, kind, &out) {
+                    Ok(_) => println!("{out}"),
+                    Err(e) => {
+                        eprintln!("R_LEDGER: {e}");
+                        return ExitCode::from(2);
+                    }
+                }
             }
         }
     }
-    let out = committed.as_ref().map(|id| json!({"experiment": id, "disclosure": content}).to_string()).unwrap_or_default();
-    emit(committed, &out, false, 0)
+    ExitCode::from(status)
 }
 
 fn select(a: &Args, ledger: &mut Ledger) -> ExitCode {
@@ -383,7 +453,8 @@ fn main() -> ExitCode {
     };
     match a.cmd.as_str() {
         "check" => check(&a, &mut ledger),
-        "eval" => eval(&a, &mut ledger),
+        "eval" => eval(&a, &mut ledger, "search"),
+        "holdout" => eval(&a, &mut ledger, "holdout"),
         "select" => select(&a, &mut ledger),
         _ => {
             println!("{USAGE}");

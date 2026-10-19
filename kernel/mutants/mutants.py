@@ -37,7 +37,7 @@ MUTANTS = {
         (SIM, "        self.funding -= paid;\n", ""),
         (SIM, "        if (e1 - e2).abs() > ACCOUNTING_TOLERANCE {", "        if false {")]),
     "I6 print before commit": ("pytest -q kernel/tests/cli/test_cli.py -k unwritable", [
-        (MAIN, "    let committed = ledger.disclose_result(", "    println!(\"{content}\");\n    let committed = ledger.disclose_result(")]),
+        (MAIN, "    let id = ledger\n        .disclose_result(", "    println!(\"{content}\");\n    let id = ledger\n        .disclose_result(")]),
     "I7 wall clock in result": ("pytest -q kernel/tests/cli/test_cli.py -k fresh_processes", [
         (MAIN, "    json!({\n        \"steps\": r.len(),",
          "    json!({\n        \"at\": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,\n        \"steps\": r.len(),")]),
