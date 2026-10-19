@@ -23,8 +23,10 @@ def polls(live_dir):
 
 def analyze(live_dir):
     seen, versions, first_poll, last_poll = {}, {}, {}, {}
-    gaps, items, edits = [], [], []
+    gaps, items, edits, offsets = [], [], [], []
     for poll in polls(live_dir):
+        if poll["source"] == "clock" and isinstance(poll["data"].get("offset_ms"), float):
+            offsets.append(abs(poll["data"]["offset_ms"]))
         if poll["source"] != "discourse" or not isinstance(poll["data"], list):
             continue
         forum = poll["key"]
@@ -52,6 +54,7 @@ def analyze(live_dir):
         "edits": len(edits), "edit_failures": [e for e in edits if not e["ok"]],
         "item_slack_ms": sorted(RULE_MS - i["lag_ms"] for i in items)[:5],
         "max_poll_gap_minutes": round(span_h * 60, 1),
+        "clock_offset_ms": {"max_abs": max(offsets), "n": len(offsets)} if offsets else None,
         "hours_recorded": round((max(last_poll.values(), default=0) - min(first_poll.values(), default=0)) / 3_600_000, 1),
         "validated": len(items) >= MIN_ITEMS and all(i["ok"] for i in items) and all(e["ok"] for e in edits),
     }
