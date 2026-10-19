@@ -28,9 +28,10 @@ def _hash(row):
 
 
 class Store:
-    def __init__(self, root, event_before=None):
+    def __init__(self, root, event_before=None, key=KEY):
         self.root = Path(root)
         self.event_before = event_before
+        self.key = list(key)
         self._cache = {}
 
     def _files(self, dataset):
@@ -49,16 +50,17 @@ class Store:
         """Append the changed rows of df (KEY + knownAt + values); return how many."""
         if self.event_before is not None and df.height and df["eventTime"].max() >= self.event_before:
             raise ValueError(f"{self.root} refuses rows with eventTime >= {self.event_before}")
-        values = [c for c in df.columns if c not in KEY + META]
+        values = [c for c in df.columns if c not in self.key + ["eventTime"] + META]
+        cols = list(dict.fromkeys(self.key + ["eventTime", "knownAt"] + values))
         df = df.with_columns(
-            pl.Series("hash", [_hash(r) for r in df.select(KEY + ["knownAt"] + values).iter_rows(named=True)]),
+            pl.Series("hash", [_hash(r) for r in df.select(cols).iter_rows(named=True)]),
             pl.lit(fetched_at, pl.Int64).alias("fetchedAt"),
             pl.lit(source).alias("source"),
         )
         old = self.revisions(dataset)
         if old is not None:
-            latest = old.sort("fetchedAt").group_by(KEY).last().select(KEY + ["hash"])
-            df = df.join(latest, on=KEY + ["hash"], how="anti")
+            latest = old.sort("fetchedAt").group_by(self.key).last().select(self.key + ["hash"])
+            df = df.join(latest, on=self.key + ["hash"], how="anti")
         if df.height == 0:
             return 0
         path = self.root / dataset / f"{fetched_at}.parquet"
@@ -75,7 +77,7 @@ class Store:
         if df is None:
             return df
         return (df.filter((pl.col("fetchedAt") <= version) & (pl.col("knownAt") <= t))
-                .sort("fetchedAt").group_by(KEY, maintain_order=True).last())
+                .sort("fetchedAt").group_by(self.key, maintain_order=True).last())
 
 
 def stores(data_root):
