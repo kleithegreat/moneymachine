@@ -95,6 +95,7 @@ Later campaigns must stay within 400 evaluations.
 - **SPA:** arch `SPA`, studentized, over all N against flat (zero returns), using the "consistent" p-value. Stationary bootstrap, mean block length 6 steps, 1,000 replications, seed derived from the campaign id. Rejects at α = 0.05; if it does not reject, nothing is promoted.
 - **StepM:** arch `StepM` on the screened set, with the same bootstrap and α = 0.05.
 - **Mechanism check:** skipped, since searchers state no mechanisms. This only adds promotions, so stage 2's false-promotion rates are upper bounds and its power figures overstate what stage 3 will see.
+  - *Revision 2026-10-19 (wording only; no stage 2 result judged yet):* "This only adds promotions" is false in general. Removing finalists shrinks Holm's m, so a mechanism check can turn a non-promotion into a promotion. C2's rates are calibration for the procedure without the check, not strict upper bounds for an arm that has one. Under the complete null, Holm stays valid on any family chosen without holdout data.
 - **Holdout:** all finalists, once. Promoted if net holdout return > 0 and the one-sided stationary-bootstrap p-value for mean > 0 (block 6, 10,000 replications) passes Holm at α = 0.05.
 
 **Runs.** Seeds come from SHA-256 of a committed campaign id. Every market started counts, and a crash or timeout counts as a promotion. A rerun after any gate or null change uses fresh ids and is logged. Every bound below is a one-sided 95% Clopper–Pearson bound, unless stated otherwise.
