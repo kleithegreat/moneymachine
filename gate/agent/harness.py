@@ -110,9 +110,13 @@ def run_agent(market, ledger, campaign, workdir, budget=100, prompt=PROMPT, agen
         proc.wait()
     daemon.close()
     shutil.rmtree(home)
-    return {"campaign": campaign, "agent": agent, "spent": daemon.spent, "history_calls": daemon.history_calls, "turns": turns, "stopped": stopped, "exit": proc.returncode,
-            "seconds": round(time.time() - started), "harness": harness_hash(),
-            "transcript_sha256": hashlib.sha256(transcript.read_bytes()).hexdigest()}
+    run = {"campaign": campaign, "agent": agent, "spent": daemon.spent, "history_calls": daemon.history_calls, "turns": turns,
+           "stopped": stopped, "exit": proc.returncode, "seconds": round(time.time() - started), "harness": harness_hash(),
+           "transcript_sha256": hashlib.sha256(transcript.read_bytes()).hexdigest()}
+    (workdir / "run.json").write_text(json.dumps(run))
+    subprocess.run([str(REPO / "kernel/target/release/mm"), "disclose", str(workdir / "run.json"), "--campaign", campaign,
+                    "--agent", agent, "--kind", "run", "--ledger", str(ledger)], check=True, capture_output=True)
+    return run
 
 
 def run_swarm(market, ledger, campaign, workdir, agents=4, budget=100):

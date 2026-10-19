@@ -53,6 +53,7 @@ def swarm_campaign(i, cost_cells):
 if __name__ == "__main__":
     from gate.sweep import cost_cells
 
+    stage3.check_frozen()
     out = OUT / "c45.jsonl"
     done = {json.loads(l)["id"] for l in open(out)} if out.exists() else set()
     for i in range(int(sys.argv[1])):
