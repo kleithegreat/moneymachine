@@ -458,3 +458,56 @@ impl Checker {
         Ok((op, ty))
     }
 }
+
+impl Program {
+    /// Canonical text of the strategy: the DAG reachable from `weight` in post-order, with
+    /// params by name and unit. Let names, declaration order and dead lets do not matter.
+    pub fn canonical(&self) -> String {
+        let mut order: Vec<usize> = vec![];
+        let mut seen = vec![false; self.nodes.len()];
+        fn visit(p: &Program, i: usize, seen: &mut Vec<bool>, order: &mut Vec<usize>) {
+            if seen[i] {
+                return;
+            }
+            seen[i] = true;
+            if let Node::Op(_, args) = &p.nodes[i] {
+                for &a in args {
+                    visit(p, a, seen, order);
+                }
+            }
+            order.push(i);
+        }
+        visit(self, self.weight, &mut seen, &mut order);
+        let pos: HashMap<usize, usize> = order.iter().enumerate().map(|(k, &i)| (i, k)).collect();
+        let lines: Vec<String> = order
+            .iter()
+            .map(|&i| match &self.nodes[i] {
+                Node::Input(inp) => format!("input {}", inp.name()),
+                Node::Const(bits, u) => format!("const {:?} {u}", f64::from_bits(*bits)),
+                Node::Param(k) => format!("param {} {}", self.params[*k].name, self.params[*k].unit),
+                Node::Op(op, args) => {
+                    let a: Vec<String> = args.iter().map(|x| pos[x].to_string()).collect();
+                    let op = match op {
+                        Op::Convert(f) => format!("Convert({:?})", f64::from_bits(*f)),
+                        other => format!("{other:?}"),
+                    };
+                    format!("{op} {}", a.join(" "))
+                }
+            })
+            .collect();
+        lines.join("\n")
+    }
+
+    /// Params actually used by the canonical form, as (name, value), sorted by name.
+    pub fn param_values(&self) -> Vec<(String, f64)> {
+        let canon = self.canonical();
+        let mut v: Vec<(String, f64)> = self
+            .params
+            .iter()
+            .filter(|p| canon.lines().any(|l| l.starts_with(&format!("param {} ", p.name))))
+            .map(|p| (p.name.clone(), p.value))
+            .collect();
+        v.sort_by(|a, b| a.0.cmp(&b.0));
+        v
+    }
+}
