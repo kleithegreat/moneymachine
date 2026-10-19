@@ -79,7 +79,7 @@ def search_decision(ledger, campaign, agent=None):
     spa = SPA(np.zeros(len(r)), -r, block_size=BLOCK, reps=REPS, seed=seed)
     spa.compute()
     p = float(spa.pvalues["consistent"])
-    report.update(spa_p=p, screened=screened, max_dsr=max(dsrs.values()))
+    report.update(spa_p=p, screened=screened, max_dsr=max(dsrs.values()), top5=sorted(names, key=lambda h: -sharpes[h])[:5])
     finalists = stepm(r, screened, seed) if p <= ALPHA else []
     report["finalists"] = finalists
     report["effective_n"] = effective_n(r, sharpe_sd, p, seed, finalists)

@@ -35,15 +35,17 @@ def run_campaign(spec, keep=None):
                             "--ledger", str(ledger)], check=True, capture_output=True)
         programs = gate.programs(ledger, finalists)
         promoted, holdout = gate.holdout_decision(MM, root, ledger, spec["id"], programs)
+        top = gate.programs(ledger, report.get("top5", []))
         result = {"spent": spent, "search": report, "holdout": holdout,
-                  "promoted": [{"hash": h, "program": programs[h]} for h in promoted]}
+                  "promoted": [{"hash": h, "program": programs[h]} for h in promoted],
+                  "top5": [{"hash": h, "program": top[h]} for h in report.get("top5", [])]}
         if keep:
             shutil.copytree(root, Path(keep) / spec["id"], dirs_exist_ok=True)
     except Exception:
         result = {"crash": traceback.format_exc()}
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    out = {k: v for k, v in spec.items() if k != "params"}
+    out = {k: v for k, v in spec.items() if k not in ("params", "events")}
     return {**out, **result, "seconds": round(time.time() - t0, 1)}
 
 

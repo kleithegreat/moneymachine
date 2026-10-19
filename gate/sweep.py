@@ -2,10 +2,12 @@
 and C5.6's rerun of C2.4 (G400 on N2) with the real forum counts replayed.
 
 Every campaign result is appended to data/campaigns/<sweep>.jsonl and never rewritten. A rerun
-skips ids already recorded, so sweeps resume after an interruption.
+skips ids already recorded, so sweeps resume after an interruption. `truth` judges every C2.5
+promotion on 200 fresh years (truth.jsonl), and `report` applies C2.4 to C2.6 to the logs.
 """
 
 import json
+import math
 import sys
 from multiprocessing import Pool
 from pathlib import Path
@@ -13,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-from gate import campaign, probes
+from gate import c21, campaign
 from gate.markets import generate, store_events, write
 
 OUT = Path("data/campaigns")
@@ -112,6 +114,80 @@ def c56_specs(events, markets=300):
     return [{**spec(f"c56-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
 
 
+def results(name):
+    return [json.loads(l) for l in open(OUT / f"{name}.jsonl")]
+
+
+def cp_upper(k, n, level=0.95):
+    return 1.0 if k >= n else float(stats.beta.ppf(level, k + 1, n - k))
+
+
+def cp_interval(k, n, level=0.95):
+    a = (1 - level) / 2
+    return [0.0 if k == 0 else float(stats.beta.ppf(a, k, n - k + 1)), 1.0 if k == n else float(stats.beta.ppf(1 - a, k + 1, n - k))]
+
+
+def truth_id(campaign_id, h):
+    return f"{campaign_id}-{h}"
+
+
+def truth():
+    """C2.5: whether each promotion of the mixed sweep is true, appended to truth.jsonl."""
+    path, betas = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
+    done = recorded(path)
+    with open(path, "a") as fh:
+        for r in results("c25"):
+            _, model, s, _ = r["id"].split("-")
+            for p in r.get("promoted", []):
+                tid = truth_id(r["id"], p["hash"])
+                if tid not in done:
+                    fh.write(json.dumps({"id": tid, "true": is_true(p["program"], model, betas[f"{model}-{s[1:]}"], tid)}) + "\n")
+                    fh.flush()
+
+
+def report_c24():
+    cells = {}
+    for r in results("c24"):
+        _, model, searcher, _ = r["id"].split("-")
+        c = cells.setdefault(f"{model}-{searcher}", {"n": 0, "promoted": 0, "spa_and_finalists": 0})
+        c["n"] += 1
+        c["promoted"] += campaign.promoted_anything(r)
+        c["spa_and_finalists"] += bool(r.get("crash")) or bool(r["search"]["finalists"])
+    for c in cells.values():
+        c["promoted_upper"], c["spa_upper"] = cp_upper(c["promoted"], c["n"]), cp_upper(c["spa_and_finalists"], c["n"])
+        c["pass"] = c["n"] == 300 and c["promoted_upper"] <= 0.05 and c["spa_upper"] <= 0.10
+    return cells
+
+
+def report_c25():
+    """FDR (crash = one false promotion) with a one-sided Hoeffding bound, and power, per cell."""
+    true = {t["id"]: t["true"] for t in results("truth")}
+    cells = {}
+    for r in results("c25"):
+        _, model, s, _ = r["id"].split("-")
+        ts = [False] if r.get("crash") else [true[truth_id(r["id"], p["hash"])] for p in r["promoted"]]
+        c = cells.setdefault(f"{model}-{s}", {"n": 0, "fdp": [], "with_true": 0})
+        c["n"] += 1
+        c["fdp"].append(ts.count(False) / max(len(ts), 1))
+        c["with_true"] += any(ts)
+    for c in cells.values():
+        fdr = float(np.mean(c.pop("fdp")))
+        c.update(fdr=fdr, fdr_upper=fdr + math.sqrt(math.log(20) / (2 * c["n"])), power=c["with_true"] / c["n"],
+                 power_ci=cp_interval(c["with_true"], c["n"]))
+        c["pass_fdr"] = c["n"] == 100 and c["fdr_upper"] <= 0.20
+    return cells
+
+
+def c21_top5_programs(first=20):
+    """The in-sample top-5 strategies of the first 20 C2.4 campaigns in c24_specs() order."""
+    by_id = {r["id"]: r for r in results("c24")}
+    out = []
+    for s in c24_specs()[:first]:
+        for rank, p in enumerate(by_id[s["id"]].get("top5", [])):
+            out.append({**p["program"], "name": f"top5-{s['id']}-{rank}"})
+    return out
+
+
 def c25_specs(betas, markets=100):
     return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
             for i in range(markets)]
@@ -132,3 +208,11 @@ if __name__ == "__main__":
         run_all(c56_specs(store_events(str(data_root / "store"), version, coins)), OUT / "c56.jsonl")
     elif what == "c25":
         run_all(c25_specs(json.loads((OUT / "betas.json").read_text())), OUT / "c25.jsonl")
+    elif what == "truth":
+        truth()
+    elif what == "c21top":
+        c21.main("audit/stage2/c21-top5.json", c21_top5_programs())
+    elif what == "report":
+        c25 = report_c25() if (OUT / "c25.jsonl").exists() else None
+        out = {"c24": report_c24(), "c25": c25, "c26_pass": c25 is not None and c25["N2-s3"]["power"] >= 0.30}
+        print(json.dumps(out, indent=1))
