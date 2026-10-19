@@ -24,7 +24,7 @@ MAX_TURNS = 200
 WALL_SECONDS = 2 * 3600
 PROMPT = "Read brief.md in this directory and do exactly what it says."
 TOOLS = ["--tools", "Read,Write,Bash",
-         "--allowedTools", "Bash(./mm-agent:*)", "Read(./**)", "Write(./**)",
+         "--allowedTools", "Bash(./mm-agent:*)", "Read(//work/**)", "Write(//work/**)", "Edit(//work/**)",
          "--disallowedTools", "WebFetch", "WebSearch", "Edit", "Glob", "Grep", "Task", "NotebookEdit",
          "--permission-mode", "dontAsk", "--strict-mcp-config", "--setting-sources", "",
          "--no-session-persistence"]

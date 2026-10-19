@@ -30,4 +30,5 @@ hurt you, so prefer a few distinct, well-motivated hypotheses.
    most credible. They must already have been evaluated.
 5. Stop.
 
-You have only this directory and `./mm-agent`. No other command or file is available.
+You have only this directory and `./mm-agent`. No other command or file is available. Write
+files with the Write tool, and run each `./mm-agent` command on its own: no pipes, `;` or `&&`.

@@ -42,12 +42,13 @@ def seed_of(text):
     return int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], "little")
 
 
-def candidates(ledger, campaign):
-    """Distinct strategies evaluated in search mode that filled at least once: {hash: (returns, program)}."""
+def candidates(ledger, campaign, agent=None):
+    """Distinct strategies an arm evaluated in search mode that filled at least once: {hash: returns}."""
     db = sqlite3.connect(ledger)
     rows = db.execute(
         "SELECT e.strategy_hash, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
-        "WHERE e.campaign = ? AND e.mode = 'search' ORDER BY e.id", (campaign,)).fetchall()
+        "WHERE e.campaign = ? AND e.mode = 'search' AND (? IS NULL OR e.agent = ?) ORDER BY e.id",
+        (campaign, agent, agent)).fetchall()
     out = {}
     for h, blob, summary in rows:
         if h not in out and json.loads(summary)["fills"] > 0:
@@ -55,9 +56,9 @@ def candidates(ledger, campaign):
     return out
 
 
-def search_decision(ledger, campaign):
+def search_decision(ledger, campaign, agent=None):
     """Screen, SPA and StepM on the search period. Returns the finalists' strategy hashes and a report."""
-    cands = candidates(ledger, campaign)
+    cands = candidates(ledger, campaign, agent)
     n = len(cands)
     report = {"n": n, "spa_p": None, "screened": [], "finalists": []}
     if n == 0:
@@ -68,7 +69,7 @@ def search_decision(ledger, campaign):
     sharpe_sd = float(sharpes.std(ddof=1)) if n > 1 else 0.0
     dsrs = {h: dsr(r[h], n, sharpe_sd) for h in names}
     screened = [h for h in names if dsrs[h] >= DSR_MIN]
-    seed = seed_of(campaign)
+    seed = seed_of(campaign + (agent or ""))
     spa = SPA(np.zeros(len(r)), -r, block_size=BLOCK, reps=REPS, seed=seed)
     spa.compute()
     p = float(spa.pvalues["consistent"])
@@ -107,28 +108,41 @@ def holm(pvalues):
     return adjusted
 
 
-def holdout_decision(mm, market, ledger, campaign, finalists_programs):
-    """Evaluate the frozen finalists on the holdout once; promote by net return > 0 and Holm."""
-    if not finalists_programs:
-        return [], {}
+def holdout_run(mm, market, ledger, campaign, programs, holdout_from=None):
+    """The single holdout batch: {hash: (net returns, total return)} for every frozen finalist."""
+    if not programs:
+        return {}
     m = Path(market)
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
-        fh.write("".join(json.dumps(p) + "\n" for p in finalists_programs.values()))
+        fh.write("".join(json.dumps(p) + "\n" for p in programs.values()))
+    extra = ["--holdout-from", str(holdout_from)] if holdout_from else []
     out = subprocess.run([str(mm), "holdout", fh.name, "--campaign", campaign, "--agent", "gate",
                           "--store", str(m / "store"), "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
-                          "--policy", str(m / "policy.json"), "--ledger", str(ledger)], capture_output=True, text=True)
+                          "--policy", str(m / "policy.json"), "--ledger", str(ledger), *extra], capture_output=True, text=True)
     Path(fh.name).unlink()
     if out.returncode != 0:
         raise RuntimeError(out.stdout + out.stderr)
     db = sqlite3.connect(ledger)
-    hashes = list(finalists_programs)
-    rets, totals = [], []
-    for line, h in zip(out.stdout.splitlines(), hashes):
+    results = {}
+    for line, h in zip(out.stdout.splitlines(), programs):
         exp = json.loads(line)["experiment"]
         blob, summary = db.execute("SELECT returns, summary FROM results WHERE experiment_id = ?", (exp,)).fetchone()
-        rets.append(np.frombuffer(blob, "<f8"))
-        totals.append(json.loads(summary)["total_return"])
-    p = np.array([holdout_pvalue(r, seed_of(campaign + h)) for r, h in zip(rets, hashes)])
+        results[h] = (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"])
+    return results
+
+
+def promote(results, campaign):
+    """Net holdout return > 0 and the one-sided bootstrap p-value passing Holm across `results`."""
+    if not results:
+        return [], {}
+    hashes = list(results)
+    p = np.array([holdout_pvalue(results[h][0], seed_of(campaign + h)) for h in hashes])
     adj = holm(p)
-    promoted = [h for h, t, a in zip(hashes, totals, adj) if t > 0 and a <= ALPHA]
-    return promoted, {"holdout_p": p.tolist(), "holm": adj.tolist(), "holdout_total_return": totals}
+    promoted = [h for h, a in zip(hashes, adj) if results[h][1] > 0 and a <= ALPHA]
+    return promoted, {"holdout_p": dict(zip(hashes, p.tolist())), "holm": dict(zip(hashes, adj.tolist())),
+                      "holdout_total_return": {h: results[h][1] for h in hashes}}
+
+
+def holdout_decision(mm, market, ledger, campaign, finalists_programs, holdout_from=None):
+    """Evaluate the frozen finalists on the holdout once; promote by net return > 0 and Holm."""
+    return promote(holdout_run(mm, market, ledger, campaign, finalists_programs, holdout_from), campaign)
