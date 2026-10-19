@@ -23,6 +23,7 @@ MODEL = "claude-opus-5-5"
 MAX_TURNS = 200
 WALL_SECONDS = 2 * 3600
 PROMPT = "Read brief.md in this directory and do exactly what it says."
+SWARM_PROMPT = "Read brief.md and swarm.md in this directory and do exactly what they say."
 TOOLS = ["--tools", "Read,Write,Bash",
          "--allowedTools", "Bash(./mm-agent:*)", "Read(//work/**)", "Write(//work/**)", "Edit(//work/**)",
          "--disallowedTools", "WebFetch", "WebSearch", "Edit", "Glob", "Grep", "Task", "NotebookEdit",
@@ -34,11 +35,12 @@ def claude_binary():
     return str(Path(shutil.which("claude")).resolve())
 
 
-def build_workspace(workdir):
+def build_workspace(workdir, swarm=False):
     work, home = Path(workdir) / "work", Path(workdir) / "home"
     (home / ".claude").mkdir(parents=True)
     work.mkdir(parents=True)
-    for src, dst in [(REPO / "kernel/DSL.md", "DSL.md"), (HERE / "brief.md", "brief.md"), (HERE / "research.md", "research.md")]:
+    files = [(REPO / "kernel/DSL.md", "DSL.md"), (HERE / "brief.md", "brief.md"), (HERE / "research.md", "research.md")]
+    for src, dst in files + ([(HERE / "swarm.md", "swarm.md")] if swarm else []):
         shutil.copy(src, work / dst)
     (work / "mm-agent").write_text(f"#!{sys.executable}\n" + (HERE / "client.py").read_text())
     os.chmod(work / "mm-agent", 0o755)
@@ -78,17 +80,17 @@ def sandbox_command(work, home, argv):
 def harness_hash():
     """Identity of the frozen harness: brief, notes, client, daemon, this file, model and flags."""
     h = hashlib.sha256()
-    for f in ("brief.md", "research.md", "client.py", "daemon.py", "harness.py"):
+    for f in ("brief.md", "research.md", "swarm.md", "client.py", "daemon.py", "harness.py"):
         h.update((HERE / f).read_bytes())
     h.update(json.dumps([MODEL, MAX_TURNS, WALL_SECONDS, PROMPT, TOOLS]).encode())
     return h.hexdigest()
 
 
-def run_agent(market, ledger, campaign, workdir, budget=100, prompt=PROMPT):
+def run_agent(market, ledger, campaign, workdir, budget=100, prompt=PROMPT, agent="A", swarm=None):
     workdir = Path(workdir)
-    work, home = build_workspace(workdir)
-    daemon = Daemon(work / "mm-agent.sock", REPO / "kernel/target/release/mm", market, ledger, campaign, "A", budget,
-                    workdir / "daemon.log").serve()
+    work, home = build_workspace(workdir, swarm is not None)
+    daemon = Daemon(work / "mm-agent.sock", REPO / "kernel/target/release/mm", market, ledger, campaign, agent, budget,
+                    workdir / "daemon.log", swarm).serve()
     argv = [claude_binary(), "-p", prompt, "--model", MODEL, "--output-format", "stream-json", "--verbose", *TOOLS]
     transcript = workdir / "transcript.jsonl"
     turns, started, stopped = 0, time.time(), "finished"
@@ -108,6 +110,19 @@ def run_agent(market, ledger, campaign, workdir, budget=100, prompt=PROMPT):
         proc.wait()
     daemon.close()
     shutil.rmtree(home)
-    return {"campaign": campaign, "spent": daemon.spent, "turns": turns, "stopped": stopped, "exit": proc.returncode,
+    return {"campaign": campaign, "agent": agent, "spent": daemon.spent, "history_calls": daemon.history_calls, "turns": turns, "stopped": stopped, "exit": proc.returncode,
             "seconds": round(time.time() - started), "harness": harness_hash(),
             "transcript_sha256": hashlib.sha256(transcript.read_bytes()).hexdigest()}
+
+
+def run_swarm(market, ledger, campaign, workdir, agents=4, budget=100):
+    """K agents in parallel, each in its own sandbox and socket, sharing one history (stage 4)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from gate.agent.daemon import Swarm
+
+    swarm = Swarm()
+    with ThreadPoolExecutor(agents) as pool:
+        runs = list(pool.map(lambda i: run_agent(market, ledger, campaign, Path(workdir) / f"A{i + 1}", budget,
+                                                 SWARM_PROMPT, f"A{i + 1}", swarm), range(agents)))
+    return {"runs": runs, "evaluations": len(swarm.snapshot()), "records": swarm.snapshot()}

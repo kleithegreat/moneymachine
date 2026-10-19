@@ -4,7 +4,7 @@ import json
 import socket
 import sys
 
-USAGE = """usage: ./mm-agent check FILE | eval FILE | select FILE [FILE ...] | budget"""
+USAGE = """usage: ./mm-agent check FILE | eval FILE | select FILE [FILE ...] | budget | history"""
 
 
 def call(req):
@@ -21,7 +21,7 @@ def call(req):
 
 
 def main(argv):
-    if len(argv) < 1 or argv[0] not in ("check", "eval", "select", "budget"):
+    if len(argv) < 1 or argv[0] not in ("check", "eval", "select", "budget", "history"):
         print(USAGE)
         return 2
     cmd, files = argv[0], argv[1:]

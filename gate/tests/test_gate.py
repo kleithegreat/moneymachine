@@ -62,3 +62,13 @@ def test_parameter_variants_are_separate_trials(tmp_path):
     assert len(cands) == 2
     progs = gate.programs(ledger, list(cands))
     assert sorted(p["params"]["size"]["value"] for p in progs.values()) == [0.01, 0.02]
+
+
+def test_clusters_and_effective_n():
+    import pandas as pd
+    rng = np.random.default_rng(4)
+    base = rng.normal(0, 0.01, 500)
+    r = pd.DataFrame({"a": base, "b": base + rng.normal(0, 1e-4, 500), "c": rng.normal(0, 0.01, 500), "z": np.zeros(500)})
+    assert gate.clusters(r, 0.9) == 3
+    report = gate.effective_n(r, 0.02, 0.5, 1, [])
+    assert [v["n"] for v in report["by_n"].values()] == [4, 3, 3] and report["fragile"] == []

@@ -28,6 +28,9 @@ USAGE:
       (R_HOLDOUT_SPENT) if this ledger has evaluated an overlapping holdout window before.
   mm select HASH --campaign C --agent A [--note TEXT] [--ledger PATH]
       Record that the agent chose to pursue strategy HASH, given what it has seen.
+  mm disclose FILE --campaign C --agent A --kind KIND [--ledger PATH]
+      Record FILE's content as a disclosure to agent A (for gate infrastructure such as the
+      swarm's shared history); prints the disclosure id once committed.
   mm check-fills FILE
       Check fills against invariants I2/I3 and the I9 order cap, one JSON case per line
       (kernel/tests/timing/FORMAT.md); print one verdict per line. Reads no market data.
@@ -380,6 +383,20 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
     ExitCode::from(status)
 }
 
+fn disclose(a: &Args, ledger: &mut Ledger) -> ExitCode {
+    let (Some(campaign), Some(agent), Some(kind)) = (a.opts.get("campaign"), a.opts.get("agent"), a.opts.get("kind")) else {
+        eprintln!("{USAGE}");
+        return ExitCode::from(3);
+    };
+    let Ok(content) = std::fs::read_to_string(&a.target) else {
+        eprintln!("cannot read {}", a.target);
+        return ExitCode::from(3);
+    };
+    let r = ledger.disclose(campaign, agent, kind, &content);
+    let out = r.as_ref().map(|id| json!({"disclosure": id}).to_string()).unwrap_or_default();
+    emit(r, &out, false, 0)
+}
+
 fn select(a: &Args, ledger: &mut Ledger) -> ExitCode {
     let (Some(campaign), Some(agent)) = (a.opts.get("campaign"), a.opts.get("agent")) else {
         eprintln!("{USAGE}");
@@ -502,6 +519,7 @@ fn main() -> ExitCode {
         "eval" => eval(&a, &mut ledger, "search"),
         "holdout" => eval(&a, &mut ledger, "holdout"),
         "select" => select(&a, &mut ledger),
+        "disclose" => disclose(&a, &mut ledger),
         _ => {
             println!("{USAGE}");
             ExitCode::from(3)

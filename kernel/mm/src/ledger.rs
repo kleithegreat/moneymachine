@@ -56,6 +56,7 @@ fn now() -> i64 {
 impl Ledger {
     pub fn open(path: &Path) -> rusqlite::Result<Ledger> {
         let conn = Connection::open(path)?;
+        conn.busy_timeout(std::time::Duration::from_secs(60))?;
         conn.execute_batch(SCHEMA)?;
         for t in TABLES {
             for op in ["UPDATE", "DELETE"] {

@@ -42,13 +42,16 @@ def mechanism_check(market, ledger, campaign, programs):
     return out
 
 
-def audit(run_dir, ledger, campaign):
-    """C3.1 for one arm A run: daemon log vs ledger rows, and no tool call outside the permitted set."""
+def audit(run_dir, ledger, campaign, agent="A"):
+    """C3.1 for one agent run: daemon log vs ledger rows, and no tool call outside the permitted set."""
     log = [json.loads(l) for l in open(Path(run_dir) / "daemon.log")]
     evals = sum(e["cmd"] == "eval" and e["response"].get("code") != "BUDGET" for e in log)
+    histories = sum(e["cmd"] == "history" and e["response"].get("ok", False) for e in log)
     db = sqlite3.connect(ledger)
-    rows = db.execute("SELECT COUNT(*) FROM disclosures WHERE campaign = ? AND agent = 'A' AND kind IN ('eval', 'reject', 'abort')",
-                      (campaign,)).fetchone()[0]
+    rows = db.execute("SELECT COUNT(*) FROM disclosures WHERE campaign = ? AND agent = ? AND kind IN ('eval', 'reject', 'abort')",
+                      (campaign, agent)).fetchone()[0]
+    history_rows = db.execute("SELECT COUNT(*) FROM disclosures WHERE campaign = ? AND agent = ? AND kind = 'history'",
+                              (campaign, agent)).fetchone()[0]
     tools, denied = [], []
     for line in open(Path(run_dir) / "transcript.jsonl"):
         try:
@@ -59,7 +62,8 @@ def audit(run_dir, ledger, campaign):
             tools += [c["name"] for c in d["message"]["content"] if c.get("type") == "tool_use"]
         if d.get("type") == "result":
             denied = d.get("permission_denials", [])
-    return {"daemon_evals": evals, "ledger_rows": rows, "match": evals == rows, "tools": sorted(set(tools)),
+    return {"daemon_evals": evals, "ledger_rows": rows, "history_calls": histories, "history_rows": history_rows,
+            "match": evals == rows and histories == history_rows, "tools": sorted(set(tools)),
             "outside_permitted": sorted(set(tools) - PERMITTED), "denials": len(denied)}
 
 

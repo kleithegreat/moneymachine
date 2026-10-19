@@ -80,13 +80,44 @@ def search_decision(ledger, campaign, agent=None):
     spa.compute()
     p = float(spa.pvalues["consistent"])
     report.update(spa_p=p, screened=screened, max_dsr=max(dsrs.values()))
-    if p > ALPHA or not screened:
-        return [], report
-    stepm = StepM(np.zeros(len(r)), -r[screened], size=ALPHA, block_size=BLOCK, reps=REPS, seed=seed)
-    stepm.compute()
-    finalists = [h for h in screened if h in set(stepm.superior_models)]
+    finalists = stepm(r, screened, seed) if p <= ALPHA else []
     report["finalists"] = finalists
+    report["effective_n"] = effective_n(r, sharpe_sd, p, seed, finalists)
     return finalists, report
+
+
+def stepm(r, screened, seed):
+    if not screened:
+        return []
+    st = StepM(np.zeros(len(r)), -r[screened], size=ALPHA, block_size=BLOCK, reps=REPS, seed=seed)
+    st.compute()
+    return [h for h in screened if h in set(st.superior_models)]
+
+
+def clusters(r, threshold):
+    """Complete-linkage clusters at |rho| >= threshold; zero-variance series are singletons."""
+    from scipy.cluster.hierarchy import fcluster, linkage
+    from scipy.spatial.distance import squareform
+
+    varying = [c for c in r.columns if r[c].std() > 0]
+    if len(varying) < 2:
+        return len(r.columns)
+    d = 1 - np.abs(np.nan_to_num(np.corrcoef(r[varying].to_numpy().T)))
+    np.fill_diagonal(d, 0)
+    labels = fcluster(linkage(squareform(np.clip(d, 0, None), checks=False), "complete"), 1 - threshold, "distance")
+    return len(set(labels)) + len(r.columns) - len(varying)
+
+
+def effective_n(r, sharpe_sd, spa_p, seed, official):
+    """Screen and StepM rerun at each effective-N estimate (SPA does not depend on N)."""
+    out = {"spa_p": spa_p, "by_n": {}}
+    for name, n in [("raw", len(r.columns)), ("cluster_0.9", clusters(r, 0.9)), ("cluster_0.5", clusters(r, 0.5))]:
+        screened = [h for h in r.columns if dsr(r[h], n, sharpe_sd) >= DSR_MIN]
+        finalists = stepm(r, screened, seed) if spa_p <= ALPHA else []
+        out["by_n"][name] = {"n": n, "screened": len(screened), "finalists": finalists}
+    status = [set(v["finalists"]) for v in out["by_n"].values()]
+    out["fragile"] = sorted(set().union(*status) - set.intersection(*status))
+    return out
 
 
 def programs(ledger, keys):

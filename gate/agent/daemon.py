@@ -15,13 +15,31 @@ from pathlib import Path
 
 FIELDS = ("sharpe_annualized", "fills", "total_return", "max_drawdown")
 MAX_REQUEST = 1 << 20
+HISTORY_LIMIT = 20
+
+
+class Swarm:
+    """The swarm's shared, sequence-numbered record of every evaluation (stage 4)."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.records = []
+
+    def add(self, record):
+        with self.lock:
+            self.records.append({"seq": len(self.records) + 1, **record})
+
+    def snapshot(self):
+        with self.lock:
+            return list(self.records)
 
 
 class Daemon:
-    def __init__(self, socket_path, mm, market, ledger, campaign, agent, budget, log_path):
+    def __init__(self, socket_path, mm, market, ledger, campaign, agent, budget, log_path, swarm=None):
         self.socket_path, self.mm, self.market, self.ledger = Path(socket_path), str(mm), Path(market), Path(ledger)
         self.campaign, self.agent, self.budget, self.log_path = campaign, agent, budget, Path(log_path)
         self.spent = 0
+        self.swarm, self.history_calls = swarm, 0
         self.lock = threading.Lock()
         self.evaluated = {}
         m = self.market
@@ -46,10 +64,31 @@ class Daemon:
             return {"ok": False, "code": "KERNEL", "message": "kernel stopped"}
         d = json.loads(line)
         if "disclosure" not in d:
-            return {"ok": False, "code": d.get("code"), "message": d.get("message", "")[:500]}
+            out = {"ok": False, "code": d.get("code"), "message": d.get("message", "")[:500]}
+            if self.swarm:
+                self.swarm.add({"agent": self.agent, "program": text, "code": out["code"]})
+            return out
         self.evaluated[hashlib.sha256(text.encode()).hexdigest()] = d["disclosure"]["strategy"]
         r = d["disclosure"]["result"]
-        return {"ok": True, **{k: r[k] for k in FIELDS}, "remaining": self.budget - self.spent}
+        fields = {k: r[k] for k in FIELDS}
+        if self.swarm:
+            self.swarm.add({"agent": self.agent, "equivalence": d["disclosure"]["equivalence"], "program": text, **fields})
+        return {"ok": True, **fields, "remaining": self.budget - self.spent}
+
+    def history(self):
+        if self.swarm is None:
+            return {"ok": False, "message": "no shared history in this campaign"}
+        if self.history_calls >= HISTORY_LIMIT:
+            return {"ok": False, "code": "HISTORY_LIMIT", "message": f"at most {HISTORY_LIMIT} history calls"}
+        self.history_calls += 1
+        records = self.swarm.snapshot()
+        payload = {"ok": True, "through": records[-1]["seq"] if records else 0, "evaluations": records}
+        with tempfile.NamedTemporaryFile("w", suffix=".json") as fh:
+            fh.write(json.dumps(payload))
+            fh.flush()
+            subprocess.run([self.mm, "disclose", fh.name, "--campaign", self.campaign, "--agent", self.agent,
+                            "--kind", "history", "--ledger", str(self.ledger)], check=True, capture_output=True)
+        return payload
 
     def check(self, text):
         with tempfile.NamedTemporaryFile("w", suffix=".json") as fh:
@@ -78,6 +117,8 @@ class Daemon:
                 out = self.check(texts[0])
             elif cmd == "select":
                 out = self.select(texts)
+            elif cmd == "history":
+                out = self.history()
             elif cmd == "budget":
                 out = {"remaining": self.budget - self.spent}
             else:

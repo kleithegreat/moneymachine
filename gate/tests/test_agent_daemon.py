@@ -68,3 +68,27 @@ def test_bad_requests(daemon):
     d, _ = daemon
     assert not call(d.socket_path, {"cmd": "holdout", "programs": ["{}"]})["ok"]
     assert not call(d.socket_path, {"cmd": "eval", "programs": ["{}", "{}"]})["ok"]
+
+
+def test_swarm_history_is_shared_logged_and_capped(tmp_path):
+    from gate.agent.daemon import HISTORY_LIMIT, Swarm
+    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    market = write_market(tmp_path / "m", market_id="swarm", days=40, holdout_days=10)
+    swarm, ledger = Swarm(), tmp_path / "l.sqlite"
+    ds = [Daemon(tmp_path / f"{a}.sock", MM, market, ledger, "camp", a, 5, tmp_path / f"{a}.log", swarm).serve()
+          for a in ("A1", "A2")]
+    try:
+        call(ds[0].socket_path, {"cmd": "eval", "programs": [json.dumps(W0)]})
+        call(ds[0].socket_path, {"cmd": "eval", "programs": ["{}"]})
+        h = call(ds[1].socket_path, {"cmd": "history"})
+        assert h["through"] == 2 and [e["agent"] for e in h["evaluations"]] == ["A1", "A1"]
+        assert "equivalence" in h["evaluations"][0] and h["evaluations"][1]["code"] == "E_PARSE"
+        assert "share_true" not in json.dumps(h) and "exposures_true" not in json.dumps(h)
+        rows = sqlite3.connect(ledger).execute("SELECT agent, content FROM disclosures WHERE kind = 'history'").fetchall()
+        assert len(rows) == 1 and rows[0][0] == "A2" and json.loads(rows[0][1]) == h
+        for _ in range(HISTORY_LIMIT - 1):
+            call(ds[1].socket_path, {"cmd": "history"})
+        assert call(ds[1].socket_path, {"cmd": "history"})["code"] == "HISTORY_LIMIT"
+    finally:
+        for d in ds:
+            d.close()
