@@ -9,9 +9,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from arch import arch_model
-from scipy import stats
 from statsmodels.tsa.regime_switching.markov_regression import MarkovRegression
 
+from gate import markets
 from ingest.store import HOLDOUT_START, Store
 
 HOUR = 3_600_000
@@ -39,17 +39,11 @@ def bar_innovations(bars, funding, coins):
 
 
 def fit_garch(r):
-    res = arch_model(100 * r.dropna(), mean="Zero", vol="GARCH", p=1, q=1, dist="t").fit(disp="off")
-    return {"omega": res.params["omega"] / 1e4, "alpha": res.params["alpha[1]"], "beta": res.params["beta[1]"]}, \
-        r.dropna() / (res.conditional_volatility / 100)
-
-
-def fit_funding(f):
-    x, y = f[:-1], f[1:]
-    phi, a = np.polyfit(x, y, 1)
-    resid = y - (a + phi * x)
-    nu, _, scale = stats.t.fit(resid, floc=0)
-    return {"mu": a / (1 - phi), "phi": phi, "s": scale, "nu": float(np.clip(nu, 2.5, 30))}
+    """(alpha, beta) from a GARCH-t fit; omega by variance targeting (NULLS.md)."""
+    r = r.dropna()
+    res = arch_model(100 * r, mean="Zero", vol="GARCH", p=1, q=1, dist="t").fit(disp="off")
+    a, b = res.params["alpha[1]"], res.params["beta[1]"]
+    return {"omega": r.var() * (1 - a - b), "alpha": a, "beta": b}, r / (res.conditional_volatility / 100)
 
 
 def mean_pairwise_corr(df):
@@ -61,11 +55,9 @@ def fit(data_root, version, coins):
     bars, funding = frames(data_root, version)
     r = bar_innovations(bars, funding, coins)
     long_enough = [c for c in coins if r[c].count() >= MIN_BARS]
-    garch, z, fund = {}, {}, {}
+    garch, z = {}, {}
     for c in long_enough:
         garch[c], z[c] = fit_garch(r[c])
-        f = funding[funding.coin == c].sort_values("eventTime").fundingRate.to_numpy()
-        fund[c] = fit_funding(f)
     med = lambda d, k: float(np.median([d[c][k] for c in long_enough]))
     per = lambda d, k: [d[c][k] if c in d else med(d, k) for c in coins]
     lam = float(np.sqrt(max(mean_pairwise_corr(pd.DataFrame(z)), 0.0)))
@@ -74,7 +66,8 @@ def fit(data_root, version, coins):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         ms = MarkovRegression(mkt.to_numpy(), k_regimes=2, trend="n", switching_variance=True).fit(disp=False)
-    variances = np.array([ms.params[f"sigma2[{j}]"] for j in range(2)])
+    named = dict(zip(ms.model.param_names, ms.params))
+    variances = np.array([named[f"sigma2[{j}]"] for j in range(2)])
     trans = ms.regime_transition[:, :, 0]
     order = np.argsort(variances)
     m = np.sqrt(variances[order] / mkt.var())
@@ -84,16 +77,20 @@ def fit(data_root, version, coins):
     sigma_bar = r.std()
     big = (r.abs() / sigma_bar) > 5
     excess = (r.abs() - 5 * sigma_bar)[big]
+    short = [c for c in coins if c not in long_enough]
+    fund, prem = markets.store_funding(str(Path(data_root) / "store"), version, tuple(long_enough))
+    source = {"store": str(Path(data_root) / "store"), "version": version, "coins": coins, "short": short,
+              "block_hours": 168, "sha256": hashlib.sha256(np.ascontiguousarray(np.r_[fund, prem]).tobytes()).hexdigest()}
     params = {
         "coins": coins,
         "fitted_on": {"version": version, "search_end": HOLDOUT_START, "short_history_coins": [c for c in coins if c not in long_enough]},
         "N2": {"garch": {k: per(garch, k) for k in ("omega", "alpha", "beta")}, "lambda": lam,
-               "funding": {k: per(fund, k) for k in ("mu", "phi", "s", "nu")}},
+               "funding": source},
         "N3": {"regime": {"P": P.tolist(), "m": m.tolist(), "rho": [max(x, 0.0) for x in rho],
                           "sigma": [float(sigma_bar[c]) if c in long_enough else float(np.median(sigma_bar[long_enough])) for c in coins],
                           "p_jump": float(big[long_enough].to_numpy().mean()),
                           "k_jump": float(np.nanmean(excess[long_enough].to_numpy()))},
-               "funding": {k: per(fund, k) for k in ("mu", "phi", "s", "nu")}},
+               "funding": source},
     }
     return params
 

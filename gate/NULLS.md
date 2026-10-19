@@ -49,9 +49,13 @@ Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 
 - **Wicks:** high = max(o, c) · (1 + |u₁|), low = min(o, c) · (1 − |u₂|), with u₁, u₂ ~
   N(0, (σ_t / 2)²) independent of everything else.
 - **Volume:** lognormal with log-mean 10 and log-sd 0.5, i.i.d.
-- **Funding:** an AR(1) per coin on the hourly grid:
-  f_h = μ_f + φ (f_{h−1} − μ_f) + s_f · t_ν_f, clipped to ±0.04.
-- **Premium:** premium_h = f_h − 1.25e-5 + N(0, (1e-4)²), i.i.d.
+- **Funding and premium:** a stationary block bootstrap (geometric blocks, mean 168 h) of the
+  real hourly funding and premium of U over the search part of the stage 0 store. Blocks start at
+  the same time for every coin, so cross-coin structure is kept, and synthetic coin S_i takes U's
+  i-th coin. The short-history coin's slot (FTM) draws its blocks independently from the other
+  coins' series. Real funding sits exactly at the 1.25e-5 interest floor about half the time,
+  with fat-tailed, skewed excursions, which no simple parametric model reproduces. Funding is
+  exogenous to ε here, so resampling it keeps every no-edge property.
 - **Seeds:** numpy `default_rng(seed)`, with the seed taken from the first 8 bytes of
   SHA-256(market id). Draws are made in a fixed order: per bar, then per coin.
 
@@ -64,15 +68,16 @@ x ~ N(0, 1) truncated at ±8, with σ_t = 0.02. Funding and premium are 0.
 GARCH(1,1) per coin i: σ²_{i,t} = ω_i + α_i ε²_{i,t−1} + β_i σ²_{i,t−1}, with σ²_{i,0} =
 ω_i / (1 − α_i − β_i), and σ capped at 0.0625. Innovations come from a common factor:
 x_i = λ z_m + √(1 − λ²) z_i, where z_m and the z_i are i.i.d. standardized Student-t with
-ν = 5, each truncated at ±8. Funding follows the AR(1) above with per-coin parameters.
+ν = 5, each truncated at ±8. Funding and premium are bootstrapped as above.
 
 Fitting uses the search part of the stage 0 store only. Synthetic coin S_i takes the
 parameters of U's i-th coin, in U order:
-- (ω_i, α_i, β_i): `arch.arch_model(100 · r, mean="Zero", vol="GARCH", dist="t")` on
-  r = c / o − 1 − (f₁ + f₂ + f₃) − f₄ c / o, rescaled back from percent;
-- λ: √ of the mean pairwise correlation of the standardized residuals, floored at 0;
-- (μ_f, φ, s_f, ν_f): OLS of f_h on f_{h−1}, with ν_f from a t fit to the residuals by
-  `scipy.stats.t.fit`, floc = 0, clipped to [2.5, 30].
+- (α_i, β_i): `arch.arch_model(100 · r, mean="Zero", vol="GARCH", dist="t")` on
+  r = c / o − 1 − (f₁ + f₂ + f₃) − f₄ c / o;
+- ω_i by variance targeting, ω_i = s_i² (1 − α_i − β_i), with s_i² the sample variance of r_i.
+  Fat-tailed near-integrated fits otherwise overstate unconditional volatility (BTC: 2.0% vs
+  0.99% per 4h);
+- λ: √ of the mean pairwise correlation of the standardized residuals, floored at 0.
 
 ## N3
 
@@ -83,7 +88,7 @@ A hidden two-state Markov chain s_t ∈ {L, H} with transition matrix P, shared 
 - Jumps: J_i = B_i · K_i / σ_{i,t}, where B_i ~ Bernoulli(p_j) and K_i ~ Laplace(0, k_j)
   truncated at ±0.2. The jump has scale k_j in ε units and is symmetric.
 
-ε is clipped as in the common pieces. Funding is as in N2.
+ε is clipped as in the common pieces. Funding and premium are bootstrapped as above.
 
 Fitting uses the search part only:
 - σ̄_i: the sample sd of r_i;
@@ -97,9 +102,10 @@ Fitting uses the search part only:
 ## Planted signal (mixed markets)
 
 On the planted coins, x gets an added mean: ε = clip(σ_t · x + β · g_t, −0.5, 0.5). Here
-g_t = −clip(f_{b−4h} / 1e-4, −1, 1) is driven by the funding settled at the previous 4h
-boundary, which is known at that boundary's decision tick. The oracle is
-`gate/strategies/oracle.json`: weight = −clip(funding / 1e-4, −1, 1) · 0.1. The DSL has no coin
+g_t = −clip((f_{b−4h} − 1.25e-5) / 1e-4, −1, 1) is driven by how far the funding settled at the
+previous 4h boundary, which is known at that boundary's decision tick, sits from the interest
+floor. The oracle is
+`gate/strategies/oracle.json`: weight = −clip((funding − 1.25e-5) / 1e-4, −1, 1) · 0.1. The DSL has no coin
 identity, so the oracle trades all 12 coins and earns its edge on the planted ones. β is
 calibrated so that the oracle's annualized net Sharpe through the kernel is s, on ≥ 200
 simulated years.

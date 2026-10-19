@@ -1,6 +1,7 @@
 """Synthetic markets N1, N2, N3 and planted signals (gate/NULLS.md), in the kernel's store format:
 <root>/{store, holdout, venue, policy.json}."""
 
+import functools
 import hashlib
 import json
 from pathlib import Path
@@ -43,17 +44,58 @@ def truncated_normal(rng, shape, bound=8.0):
     return x
 
 
-def funding_paths(rng, p, coins, hours):
-    """AR(1) per coin on the hourly grid, clipped to the cap; zero when p is None."""
-    f = np.zeros((hours, coins))
-    if p is None:
-        return f
-    mu, phi, s, nu = (np.asarray(p[k], float) for k in ("mu", "phi", "s", "nu"))
-    f[0] = mu
-    shocks = np.stack([rng.standard_t(nu[i], hours) for i in range(coins)], axis=1) * s
-    for h in range(1, hours):
-        f[h] = np.clip(mu + phi * (f[h - 1] - mu) + shocks[h], -CAP, CAP)
-    return f
+@functools.lru_cache(maxsize=4)
+def store_funding(store, version, coins):
+    """Hourly funding and premium of `coins` over the search part of a store: (T x K, T x K)."""
+    from ingest.store import HOLDOUT_START, W_START, Store
+
+    df = Store(store).as_of("funding", HOLDOUT_START, version).to_pandas()
+    grid = np.arange(W_START, HOLDOUT_START, HOUR)
+    piv = {k: df.pivot(index="eventTime", columns="coin", values=k).reindex(grid)[list(coins)].to_numpy()
+           for k in ("fundingRate", "premium")}
+    return piv["fundingRate"], piv["premium"]
+
+
+def funding_source(spec):
+    """(F, P) source arrays and, per synthetic coin, its source column (None: independent blocks)."""
+    if "arrays" in spec:
+        F, P = spec["arrays"]
+    else:
+        long = tuple(c for c in spec["coins"] if c not in spec["short"])
+        F, P = store_funding(spec["store"], spec["version"], long)
+    cols, k = [], 0
+    for c in spec["coins"]:
+        cols.append(None if c in spec.get("short", ()) else k)
+        k += c not in spec.get("short", ())
+    return np.nan_to_num(F, nan=1.25e-5), np.nan_to_num(P), cols
+
+
+def block_indices(rng, n, length, mean_block):
+    idx = np.empty(n, int)
+    i = 0
+    while i < n:
+        start, size = rng.integers(length), rng.geometric(1 / mean_block)
+        take = min(size, n - i)
+        idx[i:i + take] = (start + np.arange(take)) % length
+        i += take
+    return idx
+
+
+def funding_paths(rng, spec, coins, hours):
+    """Stationary block bootstrap of real funding and premium (NULLS.md); zeros when spec is None."""
+    if spec is None:
+        return np.zeros((hours, coins)), np.zeros((hours, coins))
+    F, P, cols = funding_source(spec)
+    T, K = F.shape
+    joint = block_indices(rng, hours, T, spec["block_hours"])
+    f, p = np.empty((hours, coins)), np.empty((hours, coins))
+    for i, col in enumerate(cols):
+        if col is None:
+            idx = block_indices(rng, hours, T * K, spec["block_hours"])
+            f[:, i], p[:, i] = F.T.reshape(-1)[idx], P.T.reshape(-1)[idx]
+        else:
+            f[:, i], p[:, i] = F[joint, col], P[joint, col]
+    return np.clip(f, -CAP, CAP), p
 
 
 def generate(model, params, market_id, days, planted=(), beta=0.0):
@@ -62,7 +104,7 @@ def generate(model, params, market_id, days, planted=(), beta=0.0):
     coins = 12
     n = days * 6
     hours = n * 4 + 1
-    f = funding_paths(rng, None if model == "N1" else params["funding"], coins, hours)
+    f, premium = funding_paths(rng, None if model == "N1" else params["funding"], coins, hours)
     eps = np.zeros((n, coins))
     sig = np.zeros((n, coins))
     if model == "N1":
@@ -95,7 +137,7 @@ def generate(model, params, market_id, days, planted=(), beta=0.0):
     for k in range(n):
         if model == "N2":
             sig[k] = np.minimum(np.sqrt(var), SIGMA_MAX)
-        signal = -np.clip(f[4 * k - 4] / 1e-4, -1, 1) if k else np.zeros(coins)
+        signal = -np.clip((f[4 * k - 4] - 1.25e-5) / 1e-4, -1, 1) if k else np.zeros(coins)
         eps[k] = np.clip(sig[k] * x[k] + planted_mask * beta * signal, -EPS_MAX, EPS_MAX)
         if model == "N2":
             var = omega + alpha * eps[k] ** 2 + beta_g * var
@@ -111,7 +153,6 @@ def generate(model, params, market_id, days, planted=(), beta=0.0):
     high = np.maximum(o, c) * (1 + w[0])
     low = np.minimum(o, c) * (1 - w[1])
     volume = rng.lognormal(10, 0.5, (n, coins))
-    premium = f - 1.25e-5 + rng.normal(0, 1e-4, f.shape) if model != "N1" else np.zeros_like(f)
     return {"open": o, "close": c, "high": high, "low": low, "volume": volume, "funding": f, "premium": premium,
             "eps": eps, "sigma": sig}
 

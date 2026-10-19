@@ -13,7 +13,10 @@ from gate import markets
 
 REPO = Path(__file__).resolve().parents[2]
 MM = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
-FUNDING = {"mu": [1.25e-5] * 12, "phi": [0.9] * 12, "s": [2e-4] * 12, "nu": [4.0] * 12}
+_rng = np.random.default_rng(0)
+_F = np.where(_rng.random((2000, 11)) < 0.5, 1.25e-5, _rng.standard_t(3, (2000, 11)) * 3e-5)
+FUNDING = {"arrays": (_F, _F * 8 + _rng.normal(0, 1e-5, _F.shape)), "coins": [f"C{i}" for i in range(12)],
+           "short": ["C8"], "block_hours": 168}
 N2 = {"funding": FUNDING, "lambda": 0.5, "garch": {"omega": [4e-5] * 12, "alpha": [0.08] * 12, "beta": [0.9] * 12}}
 N3 = {"funding": FUNDING, "regime": {"P": [[0.98, 0.02], [0.05, 0.95]], "m": [0.7, 1.8], "rho": [0.3, 0.7],
                                      "sigma": [0.02] * 12, "p_jump": 0.002, "k_jump": 0.05}}
@@ -64,8 +67,13 @@ def test_innovations_are_null(model, params):
 
 
 def test_planted_signal_shifts_the_mean():
-    a = markets.generate("N2", N2, "planted", days=365, planted=(0, 1), beta=0.02)
-    signal = -np.clip(a["funding"][4 * np.arange(1, a["eps"].shape[0]) - 4] / 1e-4, -1, 1)
+    beta = 0.02
+    a = markets.generate("N2", N2, "planted", days=730, planted=(0, 1), beta=beta)
+    signal = -np.clip((a["funding"][4 * np.arange(1, a["eps"].shape[0]) - 4] - 1.25e-5) / 1e-4, -1, 1)
     e = a["eps"][1:]
-    slope = [np.polyfit(signal[:, i], e[:, i], 1)[0] for i in range(12)]
-    assert abs(slope[0] - 0.02) < 0.004 and abs(slope[1] - 0.02) < 0.004 and max(abs(s) for s in slope[2:]) < 0.004
+    for i in range(12):
+        x, y = signal[:, i], e[:, i]
+        slope = np.polyfit(x, y, 1)[0]
+        se = (y - slope * x).std() / (x.std() * np.sqrt(len(x)))
+        assert abs(slope - (beta if i < 2 else 0.0)) < 4 * se, (i, slope, se)
+    assert all(np.polyfit(signal[:, i], e[:, i], 1)[0] > 0 for i in (0, 1))
