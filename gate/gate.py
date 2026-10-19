@@ -33,7 +33,7 @@ def dsr(returns, n_trials, sharpe_sd):
     s0 = 0.0 if n_trials <= 1 else sharpe_sd * ((1 - EULER) * norm.ppf(1 - 1 / n_trials)
                                                  + EULER * norm.ppf(1 - 1 / (n_trials * np.e)))
     var = 1 - skew * s + (kurt - 1) / 4 * s**2
-    if var <= 0:
+    if var <= 1e-12 * (1 + abs(skew * s) + (kurt - 1) / 4 * s**2):
         return 0.0
     return float(norm.cdf((s - s0) * np.sqrt(t - 1) / np.sqrt(var)))
 

@@ -24,15 +24,22 @@ def seed_of(market_id):
     return int.from_bytes(hashlib.sha256(market_id.encode()).digest()[:8], "little")
 
 
+@functools.lru_cache(maxsize=8)
+def truncated_t_sd(nu, bound):
+    """Standard deviation of Student-t(nu) conditional on |x| <= bound."""
+    from scipy import stats
+
+    return float(np.sqrt(stats.t(nu).expect(lambda x: x * x, lb=-bound, ub=bound, conditional=True)))
+
+
 def truncated_t(rng, nu, shape, bound=8.0):
-    """Standardized Student-t (unit variance), truncated symmetrically at +-bound by resampling."""
-    scale = np.sqrt((nu - 2) / nu)
-    x = rng.standard_t(nu, shape) * scale
+    """Student-t(nu) truncated symmetrically at +-bound by resampling, then scaled to unit variance."""
+    x = rng.standard_t(nu, shape)
     bad = np.abs(x) > bound
     while bad.any():
-        x[bad] = rng.standard_t(nu, bad.sum()) * scale
+        x[bad] = rng.standard_t(nu, bad.sum())
         bad = np.abs(x) > bound
-    return x
+    return x / truncated_t_sd(nu, bound)
 
 
 def truncated_normal(rng, shape, bound=8.0):
@@ -145,14 +152,14 @@ def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
         raise ValueError(model)
     planted_mask = np.zeros(coins, bool)
     planted_mask[list(planted)] = True
-    var = omega / (1 - alpha - beta_g) if model == "N2" else None
+    var = np.minimum(omega / (1 - alpha - beta_g), SIGMA_MAX**2) if model == "N2" else None
     for k in range(n):
         if model == "N2":
-            sig[k] = np.minimum(np.sqrt(var), SIGMA_MAX)
+            sig[k] = np.sqrt(var)
         signal = -np.clip((f[4 * k - 4] - 1.25e-5) / 1e-4, -1, 1) if k else np.zeros(coins)
         eps[k] = np.clip(sig[k] * x[k] + planted_mask * beta * signal, -EPS_MAX, EPS_MAX)
         if model == "N2":
-            var = omega + alpha * eps[k] ** 2 + beta_g * var
+            var = np.minimum(omega + alpha * eps[k] ** 2 + beta_g * var, SIGMA_MAX**2)
     f1, f2, f3, f4 = (f[4 * np.arange(n) + i] for i in (1, 2, 3, 4))
     o = np.empty((n, coins))
     c = np.empty((n, coins))

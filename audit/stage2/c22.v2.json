@@ -1,0 +1,51 @@
+{
+ "N2": {
+  "ours": {
+   "mean_abs_eps": 0.01460110363072719,
+   "kurtosis": 9.680289718442973,
+   "acf1_abs_eps": 0.2187515193704803,
+   "cross_corr": 0.6478459441157568,
+   "funding_ar": 0.8242633708327238
+  },
+  "gpt": {
+   "mean_abs_eps": 0.014610010168588532,
+   "kurtosis": 9.197089978907075,
+   "acf1_abs_eps": 0.21845392112489215,
+   "cross_corr": 0.6477215169914934,
+   "funding_ar": 0.8288686705028017
+  },
+  "within_tolerance": {
+   "mean_abs_eps": true,
+   "kurtosis": true,
+   "acf1_abs_eps": true,
+   "cross_corr": true,
+   "funding_ar": true
+  },
+  "gpt_regression_min_p": 0.22036007075665265
+ },
+ "N3": {
+  "ours": {
+   "mean_abs_eps": 0.014908965666139341,
+   "kurtosis": 9.873243527878241,
+   "acf1_abs_eps": 0.12643921608641712,
+   "cross_corr": 0.6849391804282164,
+   "funding_ar": 0.8232496097687814
+  },
+  "gpt": {
+   "mean_abs_eps": 0.01493024878057063,
+   "kurtosis": 9.686019869081633,
+   "acf1_abs_eps": 0.1265239772177417,
+   "cross_corr": 0.6862863447831936,
+   "funding_ar": 0.8205667756276941
+  },
+  "within_tolerance": {
+   "mean_abs_eps": true,
+   "kurtosis": true,
+   "acf1_abs_eps": true,
+   "cross_corr": true,
+   "funding_ar": true
+  },
+  "gpt_regression_min_p": 0.03192858608182385
+ },
+ "pass": true
+}
