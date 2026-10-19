@@ -2,7 +2,7 @@
 
 Conventions (stage 0 criteria, C0.8 as revised):
 - decision at t_d = B + DELTA from as_of(t_d): funding settled at B, bar ending at B;
-- fill at B + 4h at the open of the bar starting there, moved by the taker cost model, plus fee;
+- fill at B + 4h at the open of the bar starting there (unfilled if it recorded no trade), moved by the taker cost model, plus fee;
 - funding settles hourly on the position held, before any fill at the same instant, priced at
   the open of the 4h bar containing the hour (oracle prices are not in the public history);
 - maintenance margin is checked at each bar's adverse extreme; a coin leaving U is closed at
@@ -80,7 +80,7 @@ def run(data_root, version):
 
     bars = search.as_of("bars_4h", HOLDOUT_START, version)
     funding = search.as_of("funding", HOLDOUT_START, version)
-    bar = {(c, t): (o, h, l, cl) for c, t, o, h, l, cl in bars.select("coin", "openTime", "open", "high", "low", "close").iter_rows()}
+    bar = {(c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()}
     rate_at = {(c, t): r for c, t, r in funding.select("coin", "eventTime", "fundingRate").iter_rows()}
 
     book, trace, worst, pending, marks = Book(), [], 0.0, {}, {}
@@ -96,7 +96,7 @@ def run(data_root, version):
     b = W_START
     while b + 2 * BAR <= HOLDOUT_START:
         for coin, qty in pending.items():
-            if (coin, b) in bar:
+            if (coin, b) in bar and bar[(coin, b)][4] > 0:
                 execute(b, coin, qty, bar[(coin, b)][0], "fill")
             else:
                 trace.append({"t": b, "type": "unfilled", "coin": coin, "qty": qty})

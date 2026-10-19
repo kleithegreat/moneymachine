@@ -29,6 +29,35 @@ Frozen 2026-10-19, before any market data was fetched. Thresholds come from rese
 
 Exit when C0.1 to C0.9 all hold. If C0.2, C0.3, or C0.5 fails for this family, stop and pre-register a different family.
 
+### Stage 1: kernel MVP
+
+Frozen 2026-10-19, before any kernel code was written.
+
+**Scope.** `kernel/` is a Rust workspace with a CLI, `mm`. Strategies are JSON ASTs, and the kernel type-checks and interprets them for the stage 0 family: hourly funding and premium, 4h bars, U, decisions at B + δ, taker fills, and costs and rules from `venue/hyperliquid/`. `kernel/INVARIANTS.md` states the invariants and a threat-model matrix (attack mechanism → invariant → expected rejection code). `kernel/DSL.md` and `mm --help` are all that an agent, or the GPT red team, gets besides the paper.
+
+Invariants:
+- **I1 causality:** every value a decision reads has knownAt ≤ t_decision under the dataset version.
+- **I2 timing:** every fill satisfies max knownAt of the decision's inputs ≤ t_decision ≤ t_submission ≤ t_fill.
+- **I3 fill:** each fill names its source bar (coin, openTime). That bar is the first bar with openTime ≥ t_submission, its openTime is ≤ t_fill, and it recorded at least one trade, otherwise the order is unfilled. The fill price is the bar's open moved adversely by the cost model for the order's side and size. The fill records the side and the versions of the cost model and the rules.
+- **I4 units:** a program type-checks only if every operation is dimensionally consistent. Rates of different time bases never combine without an explicit conversion. The output is a dimensionless target weight.
+- **I5 accounting:** equity = cash + Σ position · mark, where mark is the last closed bar's close. At every 4h step, equity equals initial + realized + unrealized − fees + funding as computed by an independent average-entry ledger, within an absolute $1e-5.
+- **I6 ledger:** every result-bearing output (stdout, stderr, files, errors that carry statistics) passes through one disclosure path. That path commits the experiment row and the disclosure row in one transaction before anything is emitted. If the commit fails, nothing result-bearing is emitted. The ledger rejects UPDATE and DELETE. Type-check rejections are logged without touching data.
+- **I7 determinism:** the same experiment identity gives a byte-identical result across fresh processes. The identity pins the content hashes of the dataset files at or before the version, rules.json, execution.json, and the kernel build.
+- **I8 holdout:** search mode rejects any row with eventTime ≥ the holdout start, whatever path it came from. That covers decision inputs, fills, funding, and valuation.
+- **I9 portfolio:** order notional ≤ $10k, gross leverage ≤ 2× equity, sizes truncated to szDecimals, minimum notional enforced (except for exact closes), and maintenance margin checked at each bar's adverse extreme with liquidation. A non-finite weight means hold, and it is recorded rather than crashing.
+
+Criteria:
+- **C1.1 Mutants.** For each of I1–I9, at least one patch in `kernel/mutants/` admits a specific prohibited behavior. For each patch, a named test that detects that behavior fails, while the unpatched suite passes. A runner script shows all mutants caught, and the result is recorded in the log.
+- **C1.2 Adversarial suite.** `kernel/tests/adversarial/` holds at least 30 programs covering at least 15 distinct mechanisms from the threat matrix. Each attack sits inside an otherwise valid program and declares its expected rejection code. At least 10 programs come from a GPT red team given only the paper, `DSL.md`, and `mm --help`. Every program is rejected with exactly its expected code. A parse error counts only where the mechanism is syntactic. Any evasion is a kernel bug, fixed per §1, after which the program stays in the suite.
+- **C1.3 Hand fixtures.** At least 8 hand-computed scenarios match exactly, each with its expected cash, positions, fees, funding, and equity worked out in the test: funding settlement, position reversal, fees, delayed fill, zero-trade (unfilled) bar, liquidation, delisting closeout, and min-notional/rounding.
+- **C1.4 Differential replay.** `mm` replays W0 on the stage 0 dataset version, and its trace (decisions, fills, funding, equity) matches the stage 0 Python witness to $1e-6 at every step. Every disagreement found along the way is resolved with its root cause recorded.
+- **C1.5 Independent timing checker.** GPT implements an I2/I3 trace checker from the paper and INVARIANTS.md alone. A generator produces at least 1,000 traces with source bars, at least half with labeled planted violations, including wrong-bar, early-bar, zero-trade-bar, and time-order violations. Both checkers match the labels on all of them.
+- **C1.6 Ledger and identity.** Tests show: triggers reject UPDATE and DELETE; the experiment row holds every identity field in paper §5 plus the I7 hashes; a read-only or failing ledger makes `mm eval` emit no statistics and exit nonzero; and two fresh processes produce byte-identical results.
+- **C1.7 Leak canary (supporting).** The synthetic market is 12 coins over 550 days with i.i.d. Gaussian 4h log returns, σ = 2%, zero funding, and production costs. Seeds are 5 fixed and 5 drawn at test time and logged. Every adversarial program that is admitted, plus 20 random valid programs, has annualized net Sharpe ≤ 4 on every seed (Sharpe is 0 for no trades or zero variance). A deliberately leaking evaluator, compiled only into this test, exceeds 20.
+- **C1.8 Speed (supporting).** On this machine in a release build: data load is excluded; interpretation and all runtime checks are included; the ledger commit is excluded; no caching; W0 over the search part of W; median of 20 runs in one process ≤ 100 ms.
+
+Exit when C1.1 to C1.8 all hold.
+
 ## Blockers
 
 ## Log
