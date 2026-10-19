@@ -4,11 +4,13 @@ Appends raw polls as JSONL. From each hour boundary H, every coin's funding is p
 every 30 s until the row settled at H appears; at 4h boundaries the same is done for the
 bar closing at H. Each is polled once more at H + 10 min as the reference final value.
 L2 books are polled every 30 s per coin, at full precision and aggregated to 4 significant figures
-(deeper, with conservative bucket prices), logging the server time for clock offset.
+(deeper, with conservative bucket prices), logging the server time for clock offset. L2 runs on its
+own thread and rate budget, so boundary polls never delay it.
 """
 
 import json
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -17,6 +19,7 @@ from ingest.hl import HOUR, Info
 POLL = 30_000
 VERIFY_AFTER = 600_000
 BAR = 4 * HOUR
+L2_BUDGET = 120
 
 
 def now_ms():
@@ -24,8 +27,10 @@ def now_ms():
 
 
 class Recorder:
-    def __init__(self, info, coins, out_dir):
-        self.info, self.coins, self.out = info, coins, Path(out_dir)
+    def __init__(self, budget, coins, out_dir):
+        self.info, self.l2_info = Info(budget - L2_BUDGET), Info(L2_BUDGET)
+        self.coins, self.out = coins, Path(out_dir)
+        self.write = threading.Lock()
         self.out.mkdir(parents=True, exist_ok=True)
         self.hour = now_ms() // HOUR * HOUR
         self.pending = {}
@@ -34,7 +39,7 @@ class Recorder:
 
     def log(self, rec):
         day = time.strftime("%Y%m%d", time.gmtime(rec["sent"] / 1000))
-        with open(self.out / f"polls-{day}.jsonl", "a") as f:
+        with self.write, open(self.out / f"polls-{day}.jsonl", "a") as f:
             f.write(json.dumps(rec) + "\n")
 
     def poll(self, kind, coin, boundary, purpose):
@@ -51,8 +56,8 @@ class Recorder:
 
     def poll_l2(self, coin):
         sent = now_ms()
-        book = self.info.l2_book(coin)
-        agg = self.info.l2_book(coin, sig_figs=4)
+        book = self.l2_info.l2_book(coin)
+        agg = self.l2_info.l2_book(coin, sig_figs=4)
         self.log({"kind": "l2", "coin": coin, "sent": sent, "recv": now_ms(), "data": book, "agg": agg})
 
     @staticmethod
@@ -80,22 +85,29 @@ class Recorder:
             for kind in kinds:
                 for c in self.coins:
                     self.poll(kind, c, at - VERIFY_AFTER, "verify")
+
+    def step_l2(self):
         for c in self.coins:
             if now_ms() - self.last_l2[c] >= POLL:
                 self.last_l2[c] = now_ms()
                 self.poll_l2(c)
 
 
-def main(universe_path, out_dir, budget):
-    coins = json.loads(Path(universe_path).read_text())["universe"]
-    rec = Recorder(Info(int(budget)), coins, out_dir)
+def forever(step):
     while True:
         try:
-            rec.step()
+            step()
         except Exception as e:
             print(time.strftime("%FT%T"), "error", repr(e), file=sys.stderr, flush=True)
             time.sleep(5)
         time.sleep(0.5)
+
+
+def main(universe_path, out_dir, budget):
+    coins = json.loads(Path(universe_path).read_text())["universe"]
+    rec = Recorder(int(budget), coins, out_dir)
+    threading.Thread(target=forever, args=(rec.step_l2,), daemon=True).start()
+    forever(rec.step)
 
 
 if __name__ == "__main__":

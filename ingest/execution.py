@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ingest.availability import load
+from ingest.availability import judged, window
 
 SIZES = (1_000, 10_000)
 QUANTILE = 0.95
@@ -89,11 +89,11 @@ def fill_missing(model, coins):
 
 if __name__ == "__main__":
     live_dir, model_out = sys.argv[1:]
-    model, report = calibrate_and_validate(costs_by_cell(load(live_dir)))
+    model, report = calibrate_and_validate(costs_by_cell(judged(live_dir)))
     coins = json.loads((Path(__file__).resolve().parents[1] / "data" / "universe.json").read_text())["universe"]
     model, flagged = fill_missing(model, coins)
     with open(model_out, "w") as f:
         json.dump({"quantile": QUANTILE, "calibration_fraction": CALIBRATION, "no_live_book_cellwise_max": flagged,
                    "cost_bps_ex_fee": model}, f, indent=1)
         f.write("\n")
-    print(json.dumps(report, indent=1))
+    print(json.dumps({"window": window(live_dir), **report}, indent=1))

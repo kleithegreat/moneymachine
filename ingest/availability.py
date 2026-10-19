@@ -1,4 +1,8 @@
-"""C0.3: from recorder polls, when each settled funding row and closed bar was first observed."""
+"""C0.3: from recorder polls, when each settled funding row and closed bar was first observed.
+
+C0.3 and C0.7 are judged on the first 24 h after RECORDING_FROM (the restart with L2 on its own
+thread) in which no coin's L2 poll gap exceeds MAX_GAP (PROGRESS.md, C0.7 revision of 2026-10-19).
+"""
 
 import json
 import sys
@@ -10,6 +14,10 @@ from ingest.hl import HOUR
 from ingest.store import DELTA
 
 BAR = 4 * HOUR
+RECORDING_FROM = 1792435373620
+SPAN = 24 * HOUR
+MAX_GAP = 60_000
+VERIFY_AFTER = 600_000
 
 
 def load(live_dir):
@@ -17,6 +25,36 @@ def load(live_dir):
         with open(p) as f:
             for line in f:
                 yield json.loads(line)
+
+
+def window(live_dir, after=RECORDING_FROM):
+    """(start, end) of the judged span, or None while no complete one exists yet."""
+    sent = defaultdict(list)
+    for p in load(live_dir):
+        if p["kind"] == "l2" and p["sent"] >= after:
+            sent[p["coin"]].append(p["sent"])
+    if not sent:
+        return None
+    gaps = sorted((a, b) for ts in sent.values() for a, b in zip(sorted(ts), sorted(ts)[1:]) if b - a > MAX_GAP)
+    start = max(min(ts) for ts in sent.values())
+    for a, b in gaps:
+        if a < start + SPAN and b > start:
+            start = max(start, b)
+    end = start + SPAN
+    return (start, end) if all(max(ts) >= end - MAX_GAP for ts in sent.values()) else None
+
+
+def judged(live_dir):
+    """The polls C0.3 and C0.7 judge: L2 snapshots inside the window, and the boundaries whose
+    first and verify polls both fall inside it."""
+    span = window(live_dir)
+    if span is None:
+        sys.exit("no complete 24 h window yet")
+    start, end = span
+    for p in load(live_dir):
+        if start <= (p["sent"] if p["kind"] == "l2" else p["boundary"]) and \
+                (p["sent"] < end if p["kind"] == "l2" else p["boundary"] + VERIFY_AFTER < end):
+            yield p
 
 
 def _value(kind, data, boundary):
@@ -66,4 +104,4 @@ def analyze(polls):
 
 
 if __name__ == "__main__":
-    print(json.dumps(analyze(load(sys.argv[1])), indent=1))
+    print(json.dumps({"window": window(sys.argv[1]), **analyze(judged(sys.argv[1]))}, indent=1))
