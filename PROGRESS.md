@@ -2,7 +2,7 @@
 
 ## Now
 
-Stage 0 (feasibility). Next: pre-register stage 0 criteria, GPT review, commit.
+Stage 0 (feasibility). Next: source probe + manifest (C0.1), live recorder (C0.3, C0.7) started early since it needs ≥ 24 h.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> -f <file> "<prompt>"`.
 
@@ -24,6 +24,7 @@ Frozen 2026-10-19, before any market data was fetched. Thresholds come from rese
 - **C0.6 Venue rules.** A versioned rules file covers, for the base fee tier and for U: taker fee, funding interval, payment convention, and cap; size decimals and minimum order notional; maintenance margin; and the liquidation trigger. Each rule carries a source URL and an effective-from date. Where a rule's history before its documented date is unknown, a stated conservative bound applies (highest fee, highest maintenance margin) and is flagged.
 - **C0.7 Execution model.** A per-coin taker cost model (bps from mid = half-spread + depth impact, plus fee) is calibrated from the chronologically first 70% of at least 24 h of forward-recorded L2 snapshots (at least 1 per coin per minute). On the last 30%, for each coin in U, each side, and each of $1k and $10k: the model cost is at or above the observed walk-the-book cost from mid in at least 90% of snapshots, and the median excess is at most 3 bps. If the recorded depth cannot fill an order, that snapshot counts as a miss. Applying the model to earlier history is a stated limitation.
 - **C0.8 End-to-end witness.** W0 replays over the search part of W from $10k. The fill reference is the open of the bar starting at B, adjusted by the C0.7 model and C0.6 rules. Liquidation is checked at each bar's adverse extreme. The replay emits a decision → order → fill → position → funding/fee → equity trace in which equity equals initial + Σ trade PnL − Σ fees + Σ funding, to 1e-9 relative, at every step. Every input a decision used has knownAt ≤ t_d.
+  - *Revision 2026-10-19, before any data was fetched:* the open of the bar starting at B is a trade from about B, which comes before t_d = B + δ. That breaks the paper's t_decision ≤ t_fill. The fill reference is now the open of the first bar starting after t_d (the bar at B + 4h), and fill time is B + 4h. Decisions therefore execute one bar late. With 4h bars as the finest history, this is the earliest price provably after t_d.
 - **C0.9 Holdout.** The last 180 days of W, [2026-04-03, 2026-09-30), live only under `data/holdout/`, and their content hash is recorded when written. A test shows that the search store cannot return any row with eventTime in the holdout. Agent-side isolation is a deployment criterion for stage 3.
 
 Exit when C0.1 to C0.9 all hold. If C0.2, C0.3, or C0.5 fails for this family, stop and pre-register a different family.
