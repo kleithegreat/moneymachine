@@ -13,10 +13,11 @@ from pathlib import Path
 
 import polars as pl
 
-DELTA = 120_000
-W_START = 1727654400000  # 2024-09-30
-HOLDOUT_START = 1775174400000  # 2026-04-03
-W_END = 1790726400000  # 2026-09-30
+_POLICY = json.loads((Path(__file__).parent.parent / "policy.json").read_text())
+DELTA = _POLICY["delta_ms"]
+W_START = _POLICY["w_start"]
+HOLDOUT_START = _POLICY["holdout_start"]
+W_END = _POLICY["w_end"]
 
 KEY = ["coin", "eventTime"]
 META = ["knownAt", "fetchedAt", "source", "hash"]

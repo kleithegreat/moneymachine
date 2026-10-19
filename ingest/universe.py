@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 
 from ingest.hl import DAY, Info
+from ingest.store import W_START
 
-W_START = 1727654400000  # 2024-09-30
 RANK_START = W_START - 30 * DAY
 SIZE = 12
 
