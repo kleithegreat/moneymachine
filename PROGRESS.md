@@ -13,7 +13,7 @@ Every stage is waiting on time or on GPT, so work proceeds on whatever does not 
 - **Stage 1:** done: C1.1, C1.3, C1.6, C1.7, and C1.5 via the Opus substitute. Waiting: C1.2 (≥ 10 GPT red-team programs; GPT blocked), and C1.4 and C1.8 (after C0.7: run with `MM_VENUE` unset and `cargo test --release --test bench -- --ignored`).
 - **Stage 2:** nulls frozen (`gate/nulls.json`). C2.1 fixed probes are running (`python -m gate.c21`). C2.4 and C2.5 need the C0.7 cost cells: `python -m gate.sweep c24`, then `calibrate`, then `c25`. C2.2 and C2.3 wait for GPT, with Opus as the fallback at the end.
 - **Stage 3:** criteria frozen; harness, daemon, mechanism check, joint holdout and audit are built (`gate/stage3.py`). Before C3.2: freeze the harness (record `harness.harness_hash()` in the Log), then run 20 `null_campaign`s with the C0.7 median cost cells (`gate.sweep.cost_cells()`). The real run (`real_campaign`) comes only after stage 2 exits.
-- **Stages 4 and 5:** criteria frozen. Next for 4: `kernel/CANONICAL.md`, the egg equivalence key and the C4.1/C4.2 tests. Next for 5: start the live source recorders early, since they become the next forward holdout.
+- **Stages 4 and 5:** criteria frozen. Next for 4: `kernel/CANONICAL.md`, the egg equivalence key and the C4.1/C4.2 tests. Next for 5: the source recorder is running (`pgrep -af sources_record`); find an unlock source; ingestion, mapping, as_of tombstones and DSL inputs.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
@@ -290,6 +290,11 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Log
 
+- 2026-10-19: Stage 5 sources probed after the criteria froze.
+  - Discourse: 7 public forums reachable (BTC delvingbitcoin, ETH ethresear.ch, SOL, SUI, TIA, AAVE, BNB).
+  - Snapshot: only `aavedao.eth` (AAVE) among U.
+  - DefiLlama emissions (the unlock candidate): both endpoints return 402, paid only, so it fails C5.1. The fallback to try is its open-source emissions-adapters repo (the GitHub API returned Not Found; to be located).
+  - Rules fixed in `venue/sources/`. The live recorder `ingest/sources_record.py` runs detached from 10:26 UTC (`data/sources_live`).
 - 2026-10-19: GPT is available again (10:11 UTC). Its stage 4 review exposed an N-undercount. Strategy identity hashes params by name, not value, and the gate deduplicated candidates by strategy hash, so parameter variants collapsed into one trial. The gate now keys trials by (strategy, params), and the exact submitted program lives on each experiment row instead of on strategies. No campaign had run yet.
 - 2026-10-19: C2.1, fixed-probe part, passes on the frozen nulls (`audit/stage2/c21-fixed-probes.v2.json`). HC3 regression min p: N1 0.059, N2 0.116, N3 0.020 (> 0.001). Max probe |z|: 1.97, 3.13, 2.28 (< 3.7). v1 had NaN z for N1 probes that never trade, now 0. Still to do: the C2.4 top-5 strategy probes.
 - 2026-10-19: Stage 3 harness isolation probe (`data/stage3/isolation-s70v`). Reads outside the workspace, `ls /`, chained commands and WebFetch were denied or absent. The daemon log matched its 2 calls. Deviation: Claude Code allows read-only shell commands on workspace files (`cat brief.md`) as equivalent to the permitted Read, so in practice Bash is not limited to `./mm-agent`. The bwrap filesystem (`gate/tests/test_sandbox.py`) is the real boundary. Found and fixed: the agent CLI had inherited the operator's stdin, which leaked harness text into its prompt; stdin is now /dev/null.
