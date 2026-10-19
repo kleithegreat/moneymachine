@@ -128,3 +128,13 @@ mean is exactly zero under every null. Dollar PnL of a compounding strategy also
 but it is so right-skewed across markets that a z-test on it is invalid (a 10-year N2 trial with
 0.96× buy-and-hold had z = −10.6 on dollars, with the kernel's dollar PnL equal to Σ q·o·ε to
 1e-10). The regression's F-test uses HC3-robust covariance, since ε is heteroskedastic by design.
+
+## Event inputs (stage 5)
+
+Where the real store carries `events_forum`, a market can replay it (`markets.store_events`). The
+mapped coins' hourly counts over the search part, on the hours every one of them is covered, are
+block-bootstrapped jointly with mean block 24 h, from their own random stream. They are therefore
+independent of ε, and the price, funding and ε paths are identical with or without them. Coins
+without a forum get no rows, so the input is undefined for them. C2.1's regression adds, per
+covered coin, the last 4 hours' count and the mean count over up to 48 hours. Its probes add the sign
+of the count's deviation from its 48 h mean and the sign of count − 1.

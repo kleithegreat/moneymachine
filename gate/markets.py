@@ -63,6 +63,17 @@ def store_funding(store, version, coins):
     return piv["fundingRate"], piv["premium"]
 
 
+def store_events(store, version, coins, block_hours=24):
+    """event_paths spec from the real forum counts of `coins` (U's order) over the search part, on the
+    hours every mapped coin is covered."""
+    from ingest.store import HOLDOUT_START, Store
+
+    piv = Store(store).as_of("events_forum", HOLDOUT_START, version).to_pandas().pivot(
+        index="eventTime", columns="coin", values="count")
+    have = [c for c in coins if c in piv.columns]
+    return {"arrays": piv[have].dropna().to_numpy(), "coins": [coins.index(c) for c in have], "block_hours": block_hours}
+
+
 def funding_source(spec):
     """(F, P) source arrays and, per synthetic coin, its source column (None: independent blocks)."""
     if "arrays" in spec:

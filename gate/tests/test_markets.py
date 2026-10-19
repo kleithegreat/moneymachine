@@ -90,3 +90,20 @@ def test_event_series_reach_the_kernel(tmp_path):
     trace = run_mm(root, s, tmp_path)
     coins = {e["coin"] for e in trace if e["type"] == "fill"}
     assert coins and coins <= {"S0", "S3"}
+
+
+def test_store_events_reads_the_search_part_on_common_coverage(tmp_path):
+    import polars as pl
+
+    from ingest.store import HOLDOUT_START, stores, write_split
+
+    H = 3_600_000
+    hours = list(range(HOLDOUT_START - 10 * H, HOLDOUT_START + 5 * H, H))
+    rows = [(c, t, t, float(i + 10 * (c == "AAVE"))) for c in ("BTC", "AAVE") for i, t in enumerate(hours)
+            if not (c == "AAVE" and t < HOLDOUT_START - 6 * H)]
+    df = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "knownAt": pl.Int64, "count": pl.Float64}, orient="row")
+    search, holdout = stores(tmp_path)
+    write_split(search, holdout, "events_forum", df, 5, "t")
+    spec = markets.store_events(str(tmp_path / "store"), 5, ("BTC", "ETH", "AAVE"))
+    assert spec["coins"] == [0, 2]
+    assert spec["arrays"].tolist() == [[float(i), float(i + 10)] for i in range(4, 10)]

@@ -2,6 +2,8 @@
 
 G<budget>: random-plus-genetic search. H<budget>: a hill-climber on in-sample Sharpe. Each sees
 only DISCLOSED from each evaluation, and every evaluation goes through `mm eval` and the ledger.
+Features draw on the inputs the market carries: the forum-activity feature exists only where the
+store has `events_forum`.
 """
 
 import copy
@@ -23,7 +25,6 @@ def op(name, *args, **extra):
     return {"op": name, "args": list(args), **extra}
 
 
-FEATURES = 6
 PRICES = ("open", "high", "low", "close")
 
 
@@ -41,7 +42,15 @@ def compile_feature(kind, price, h):
     if kind == 4:
         v = {"input": "volume"}
         return op("sub", op("div", v, op("mean", v, hours=h)), const(1))
-    return op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"})
+    if kind == 5:
+        return op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"})
+    e, mean = {"input": "forum_posts"}, op("mean", {"input": "forum_posts"}, hours=h)
+    return op("div", op("sub", e, mean), op("add", mean, const(1.0, "ev")))
+
+
+def features(market):
+    """How many feature kinds the market's inputs support."""
+    return 7 if (Path(market) / "store" / "events_forum").exists() else 6
 
 
 def compile_node(n):
@@ -69,30 +78,26 @@ def compile_genome(g):
             "weight": op("mul", w, const(g["size"]))}
 
 
-def random_feature(rng):
-    return ["feat", rng.randrange(FEATURES), rng.choice(PRICES), rng.choice(WINDOWS)]
-
-
-def random_node(rng, depth):
+def random_node(rng, depth, nf):
     if depth == 0 or rng.random() < 0.3:
-        return random_feature(rng)
+        return ["feat", rng.randrange(nf), rng.choice(PRICES), rng.choice(WINDOWS)]
     k = rng.randrange(7)
-    a = random_node(rng, depth - 1)
+    a = random_node(rng, depth - 1, nf)
     if k == 0:
         return ["neg", a]
     if k in (1, 2):
-        return [("sub", "mul")[k - 1], a, random_node(rng, depth - 1)]
+        return [("sub", "mul")[k - 1], a, random_node(rng, depth - 1, nf)]
     if k == 3:
         return ["smooth", rng.choice(["mean", "ema"]), rng.choice(WINDOWS), a]
     if k == 4:
         return ["xsdemean", a]
     if k == 5:
         return ["xsrank", a]
-    return ["cond", a, random_node(rng, depth - 1), random_node(rng, depth - 1)]
+    return ["cond", a, random_node(rng, depth - 1, nf), random_node(rng, depth - 1, nf)]
 
 
-def random_genome(rng):
-    return {"sig": random_node(rng, rng.randint(0, 3)), "size": rng.choice(SIZES), "squash": rng.choice(["sign", "clip"])}
+def random_genome(rng, nf):
+    return {"sig": random_node(rng, rng.randint(0, 3), nf), "size": rng.choice(SIZES), "squash": rng.choice(["sign", "clip"])}
 
 
 def children(n):
@@ -121,13 +126,13 @@ def put(n, p, new):
     return n
 
 
-def mutate(rng, g):
+def mutate(rng, g, nf):
     g = copy.deepcopy(g)
     r = rng.random()
     p = rng.choice(list(paths(g["sig"])))
     node = get(g["sig"], p)
     if r < 0.35:
-        g["sig"] = put(g["sig"], p, random_node(rng, rng.randint(0, 2)))
+        g["sig"] = put(g["sig"], p, random_node(rng, rng.randint(0, 2), nf))
     elif r < 0.7 and node[0] in ("feat", "smooth"):
         node[2 if node[0] == "smooth" else 3] = rng.choice(WINDOWS)
     elif r < 0.85:
@@ -180,8 +185,8 @@ class Evaluator:
         return len(self.seen)
 
 
-def genetic(evaluate, budget, rng, population=20):
-    pop = [random_genome(rng) for _ in range(population)]
+def genetic(evaluate, budget, rng, nf, population=20):
+    pop = [random_genome(rng, nf) for _ in range(population)]
     scored = list(zip(pop, evaluate(pop)))
     for _ in range(100 * budget):
         if evaluate.spent >= budget:
@@ -192,17 +197,17 @@ def genetic(evaluate, budget, rng, population=20):
         while len(children) < min(population, budget - evaluate.spent):
             r = rng.random()
             child = (crossover(rng, rng.choice(parents), rng.choice(parents)) if r < 0.3
-                     else mutate(rng, rng.choice(parents)) if r < 0.8 else random_genome(rng))
+                     else mutate(rng, rng.choice(parents), nf) if r < 0.8 else random_genome(rng, nf))
             children.append(child)
         scored = scored[: population // 2] + list(zip(children, evaluate(children)))
 
 
-def hill_climb(evaluate, budget, rng):
-    best = random_genome(rng)
+def hill_climb(evaluate, budget, rng, nf):
+    best = random_genome(rng, nf)
     best_score = evaluate([best])[0]["sharpe_annualized"]
     stall = 0
     while evaluate.spent < budget and stall < 4 * budget:
-        cand = mutate(rng, best)
+        cand = mutate(rng, best, nf)
         score = evaluate([cand])[0]["sharpe_annualized"]
         stall += 1
         if score > best_score:
@@ -215,7 +220,7 @@ def run(searcher, mm, market, ledger, campaign, seed):
     evaluate = Evaluator(mm, market, ledger, campaign, searcher)
     rng = random.Random(seed)
     try:
-        (genetic if kind == "G" else hill_climb)(evaluate, budget, rng)
+        (genetic if kind == "G" else hill_climb)(evaluate, budget, rng, features(market))
     finally:
         evaluate.close()
     return evaluate.spent

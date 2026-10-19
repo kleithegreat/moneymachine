@@ -19,8 +19,10 @@ P_MIN = 0.001
 
 
 def observables(a, k0=7):
-    """Per coin: X (bars k0.., features known at each bar's open) and y = epsilon of that bar."""
+    """Per coin: X (bars k0.., features known at each bar's open) and y = epsilon of that bar. Forum
+    counts, where the coin has them, enter as the last 4 hours' sum and the mean over up to 48 hours."""
     o, c, h, l, v, f, p, e = (a[x] for x in ("open", "close", "high", "low", "volume", "funding", "premium", "eps"))
+    ev = a.get("forum_posts")
     n, coins = o.shape
     ret = c / o - 1
     k = np.arange(k0, n)
@@ -28,14 +30,18 @@ def observables(a, k0=7):
     for i in range(coins):
         cols = [f[4 * k - 1, i], p[4 * k - 1, i]] + [ret[k - j, i] for j in range(1, 7)] + [
             (h[k - 1, i] - l[k - 1, i]) / c[k - 1, i], np.log(v[k - 1, i]), ret[k - 1].mean(axis=1)]
+        if ev is not None and not np.isnan(ev[:, i]).any():
+            cum = np.r_[0.0, np.cumsum(ev[:, i])]
+            first = np.maximum(4 * k - 47, 0)
+            cols += [cum[4 * k + 1] - cum[4 * k - 3], (cum[4 * k + 1] - cum[first]) / (4 * k + 1 - first)]
         out.append((np.column_stack(cols), e[k, i]))
     return out
 
 
-def regression_pvalues(model, params):
+def regression_pvalues(model, params, events=None):
     rows = None
     for m in range(MARKETS):
-        a = markets.generate(model, params, f"probe-reg-{model}-{m}", YEARS_PER_MARKET * 365)
+        a = markets.generate(model, params, f"probe-reg-{model}-{m}", YEARS_PER_MARKET * 365, events=events)
         obs = observables(a)
         rows = obs if rows is None else [(np.vstack([X0, X]), np.r_[y0, y]) for (X0, y0), (X, y) in zip(rows, obs)]
     pvalues = []
@@ -57,8 +63,12 @@ def sign_probe(name, feature, size=0.05):
     return program(name, op("mul", op("sign", feature), const(size)))
 
 
-def probes():
+def probes(events=False):
     ps = [program("buy-and-hold", const(0.08))]
+    if events:
+        e, mean = {"input": "forum_posts"}, op("mean", {"input": "forum_posts"}, hours=48)
+        ps.append(sign_probe("sign-forum-activity", op("div", op("sub", e, mean), op("add", mean, const(1.0, "ev")))))
+        ps.append(sign_probe("sign-forum-burst", op("sub", e, const(1.0, "ev"))))
     for x in ("open", "high", "low", "close"):
         ps.append(sign_probe(f"sign-{x}-return", ret(x, 4)))
     ps.append(sign_probe("sign-funding", op("div", {"input": "funding"}, const(1e-4, "1/h"))))
@@ -75,12 +85,13 @@ def probes():
     return ps
 
 
-def gross_pnl(mm, programs, model, params, market_id, cost_cells):
+def gross_pnl(mm, programs, model, params, market_id, cost_cells, events=None):
     """Mean per-step gross return (after funding, before fees and slippage) of each program on one
     fresh market. Per-step returns have zero conditional mean under a null; dollar PnL of a
     compounding strategy is too skewed across markets for a z-test."""
     with tempfile.TemporaryDirectory() as tmp:
-        root = markets.write(Path(tmp) / "m", markets.generate(model, params, market_id, YEARS_PER_MARKET * 365), 0, cost_cells)
+        root = markets.write(Path(tmp) / "m", markets.generate(model, params, market_id, YEARS_PER_MARKET * 365, events=events), 0,
+                             cost_cells)
         batch = Path(tmp) / "p.jsonl"
         batch.write_text("".join(json.dumps(p) + "\n" for p in programs))
         out = subprocess.run([str(mm), "eval", str(batch), "--campaign", market_id, "--agent", "probe",
@@ -96,8 +107,8 @@ def gross_pnl(mm, programs, model, params, market_id, cost_cells):
         return results
 
 
-def probe_zscores(mm, programs, model, params, cost_cells, tag=""):
-    g = np.array([gross_pnl(mm, programs, model, params, f"probe{tag}-{model}-{m}", cost_cells) for m in range(MARKETS)])
+def probe_zscores(mm, programs, model, params, cost_cells, tag="", events=None):
+    g = np.array([gross_pnl(mm, programs, model, params, f"probe{tag}-{model}-{m}", cost_cells, events) for m in range(MARKETS)])
     mean, se = g.mean(axis=0), g.std(axis=0, ddof=1) / np.sqrt(MARKETS)
     z = np.divide(mean, se, out=np.zeros_like(mean), where=se > 0)
     if np.any((se == 0) & (mean != 0)):
