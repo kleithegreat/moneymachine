@@ -57,9 +57,6 @@ def analyze(live_dir):
     }
 
 
-if __name__ == "__main__":
-    print(json.dumps(analyze(sys.argv[1]), indent=1))
-
 
 def reconcile(data_root, live_dir, version):
     """Re-backfill (store version `version`) against what the recorder saw live, over the live window."""
@@ -85,3 +82,9 @@ def reconcile(data_root, live_dir, version):
                  and (k not in live or live[k][0] > created + RULE_MS)]
     return {"live_items": len(live), "deleted": len(missing), "edited": len(changed), "backdated": len(backdated),
             "backdated_examples": backdated[:10]}
+
+
+if __name__ == "__main__":
+    cmd, *args = sys.argv[1:]
+    out = analyze(*args) if cmd == "analyze" else reconcile(args[0], args[1], int(args[2]))
+    print(json.dumps(out, indent=1))
