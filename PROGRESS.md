@@ -296,6 +296,8 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Blockers
 
+- **Stage 5 unlock source (2026-10-19).** Both of DefiLlama's emission endpoints return 402 (paid only). Its open-source emissions-adapters repo returns 404 and is absent from the org's public repo list, so the pre-registered candidate fails C5.1. Untried fallback: on-chain vesting contracts read through public RPCs, per coin (SUI, TIA, WLD), whose times are protocol-enforced. That is substantial per-coin work. If it is not done, unlocks are recorded as a blocked category at stage 5 exit, which the exit rule allows.
+
 - **GPT unavailable (2026-10-19 ~05:30 UTC).** `opencode run` answers "The usage limit has been reached" for gpt-6.1-sol and gpt-6.1-sol-fast. Lost: the stage 1 red team, the independent fill checker, and the stage 2 criteria review. Fallback, per the session instructions: fresh-context Opus subagents, each given only a scratch directory of materials and told not to read the repo. That is weaker independence (same model family) and trust-based isolation. C1.2 ("≥ 10 programs from a GPT red team") and C1.5 ("GPT implements") name GPT, so they stay open until GPT is retried. Retry with the trivial PONG call before each GPT-dependent step.
   - The Opus red-team fallback produced nothing: a safety classifier stopped the subagent and told it not to produce that content again, even reworded. It was not retried in another form. C1.2's ≥ 10 external programs wait for GPT.
 

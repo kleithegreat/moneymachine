@@ -1,0 +1,7 @@
+{
+ "version": 1,
+ "key": "snapshot space id",
+ "rows": [
+  {"space": "aavedao.eth", "coin": "AAVE", "valid_from": null, "valid_to": null}
+ ]
+}

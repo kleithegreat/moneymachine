@@ -1,10 +1,13 @@
-"""Stage 5: hourly forum-post counts per coin (`events_forum`) from the raw Discourse revisions and
-the live recorder, under the admissibility rule (PROGRESS.md, Stage 5, as revised).
+"""Stage 5: hourly event counts per coin from the raw revisions and the live recorder, under the
+admissibility rule (PROGRESS.md, Stage 5, as revised): `events_forum` from Discourse posts, and
+`events_governance` from Snapshot proposals.
 
-An item's knownAt is created + 600 s if the source passed C5.3 (`admitted`), otherwise its earliest
-witness: the first live observation or the first fetch that saw it. Counts are written for every
-hour of the source's coverage, so zero means no posts, and hours outside coverage have no row
-(the input is undefined there).
+An item's knownAt is created + 600 s if the source passed C5.3 (`admitted`). Otherwise it is the
+earliest witness (the first live observation or the first fetch that saw it), and only items
+created after the first live poll count, since older ones are not new events. Snapshot's created time is
+client-claimed, so it is never admitted. Counts are written for every hour of the source's
+coverage, so zero means no events, and hours outside coverage have no row (the input is undefined
+there).
 """
 
 import hashlib
@@ -21,46 +24,77 @@ from ingest.store import HOLDOUT_START, Store, stores, write_split
 
 HOUR = 3_600_000
 RULE_MS = 600_000
-MAP = Path(__file__).resolve().parents[1] / "venue/sources/discourse_map.json"
+VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
+SOURCES = {
+    "discourse": {"dataset": "events_forum", "map": VENUE / "discourse_map.json", "key": "forum"},
+    "snapshot": {"dataset": "events_governance", "map": VENUE / "snapshot_map.json", "key": "space"},
+}
 
 
-def items(data_root, version, live_dir):
-    """One row per post: forum, id, created, first witness."""
-    raw = Store(Path(data_root) / "sources", key=["forum", "upstream_id"]).revisions("discourse")
-    raw = raw.filter(pl.col("fetchedAt") <= version)
-    first = {(r["forum"], r["upstream_id"]): (r["eventTime"], r["fetchedAt"])
-             for r in raw.group_by(["forum", "upstream_id"]).agg(pl.col("eventTime").first(), pl.col("fetchedAt").min()).iter_rows(named=True)}
+def live_items(live_dir, source, version):
+    """(key, id) -> (created, first observed) from the recorder."""
+    out = {}
     for poll in polls(live_dir):
-        if poll["source"] != "discourse" or not isinstance(poll["data"], list) or poll["recv"] > version:
+        if poll["source"] != source or poll["recv"] > version:
             continue
-        for p in poll["data"]:
+        data = poll["data"] if source == "discourse" else (poll["data"].get("data") or {}).get("proposals")
+        if not isinstance(data, list):
+            continue
+        for p in data:
+            created = ms(p["created_at"]) if source == "discourse" else p["created"] * 1000
             key = (poll["key"], p["id"])
-            created, witness = first.get(key, (ms(p["created_at"]), poll["recv"]))
-            first[key] = (created, min(witness, poll["recv"]))
+            out[key] = (created, min(out.get(key, (0, poll["recv"]))[1], poll["recv"]))
+    return out
+
+
+def items(data_root, version, live_dir, source="discourse"):
+    """One row per item: (key, id) -> (created, first witness), from backfilled revisions and live polls."""
+    first = {}
+    if source == "discourse":
+        raw = Store(Path(data_root) / "sources", key=["forum", "upstream_id"]).revisions("discourse")
+        if raw is not None:
+            raw = raw.filter(pl.col("fetchedAt") <= version)
+            first = {(r["forum"], r["upstream_id"]): (r["eventTime"], r["fetchedAt"])
+                     for r in raw.group_by(["forum", "upstream_id"]).agg(pl.col("eventTime").first(), pl.col("fetchedAt").min()).iter_rows(named=True)}
+    for key, (created, seen) in live_items(live_dir, source, version).items():
+        c, w = first.get(key, (created, seen))
+        first[key] = (c, min(w, seen))
     return first
 
 
-def coverage(data_root, version, live_dir, admitted):
-    """[start, end) per forum: from the backfill's start if admitted, else from the first live poll."""
+def coverage(data_root, version, live_dir, admitted, source="discourse"):
+    """(first live poll, start, end) per key: hours [start, end], from the backfill's start if admitted, else from the first live poll,
+    to the last live poll. The first hour counted lies wholly after the start, so items that already
+    existed at the first poll are not counted as new, and a recording gap at the end is not read as
+    zero events."""
     from ingest.sources_backfill import START
 
-    live_start = {}
+    first, last = {}, {}
     for poll in polls(live_dir):
-        if poll["source"] == "discourse" and poll["recv"] <= version:
-            live_start.setdefault(poll["key"], poll["recv"])
-    return {f: ((START if admitted else s) // HOUR * HOUR + HOUR, version // HOUR * HOUR) for f, s in live_start.items()}
+        if poll["source"] == source and poll["recv"] <= version:
+            first.setdefault(poll["key"], poll["recv"])
+            last[poll["key"]] = poll["recv"]
+    ceil = lambda t: -(-t // HOUR) * HOUR
+    return {k: (s, ceil(START if admitted else s) + HOUR, last[k] // HOUR * HOUR) for k, s in first.items()}
 
 
-def derive(data_root, version, live_dir, admitted):
-    mapping = json.loads(MAP.read_text())
-    coin_of = {r["forum"]: r["coin"] for r in mapping["rows"]}
+def derive(data_root, version, live_dir, admitted, source="discourse"):
+    spec = SOURCES[source]
+    admitted = admitted and source == "discourse"
+    coin_of = {r[spec["key"]]: r["coin"] for r in json.loads(spec["map"].read_text())["rows"]}
     code = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-    map_hash = hashlib.sha256(MAP.read_bytes()).hexdigest()
+    map_hash = hashlib.sha256(spec["map"].read_bytes()).hexdigest()
+    cover = coverage(data_root, version, live_dir, admitted, source)
     known = {}
-    for (forum, _), (created, witness) in items(data_root, version, live_dir).items():
-        known.setdefault(forum, []).append(created + RULE_MS if admitted else witness)
+    for (key, _), (created, witness) in items(data_root, version, live_dir, source).items():
+        if admitted:
+            known.setdefault(key, []).append(created + RULE_MS)
+        elif key in cover and created >= cover[key][0]:
+            known.setdefault(key, []).append(witness)
     rows = []
-    for forum, (start, end) in coverage(data_root, version, live_dir, admitted).items():
+    for forum, (_, start, end) in cover.items():
+        if forum not in coin_of:
+            continue
         hours = np.arange(start, end + 1, HOUR)
         k = np.sort(np.array(known.get(forum, []), dtype=np.int64))
         counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")
@@ -69,12 +103,12 @@ def derive(data_root, version, live_dir, admitted):
     return pl.DataFrame(rows)
 
 
-def main(data_root, version, live_dir, admitted):
-    df = derive(data_root, int(version), live_dir, admitted == "admitted")
+def main(data_root, version, live_dir, admitted, source="discourse"):
+    df = derive(data_root, int(version), live_dir, admitted == "admitted", source)
     search, holdout = stores(data_root)
     fetched_at = int(time.time() * 1000)
-    print(json.dumps({"version": fetched_at, "rows": df.height,
-                      "written(search, holdout)": write_split(search, holdout, "events_forum", df, fetched_at, "derived:discourse")}))
+    written = write_split(search, holdout, SOURCES[source]["dataset"], df, fetched_at, f"derived:{source}")
+    print(json.dumps({"version": fetched_at, "rows": df.height, "written(search, holdout)": written}))
 
 
 if __name__ == "__main__":
