@@ -16,7 +16,8 @@ USAGE:
           [--policy PATH] [--ledger PATH] [--trace OUT]
       Evaluate a strategy on the search period and print its disclosed statistics as one
       JSON line. FILE is one strategy, or a .jsonl file with one strategy per line (one
-      output line each, in order). Exit code 1 if any line is a rejection or abort.
+      output line each, in order), or - to read JSONL from stdin and answer each line as it
+      arrives. Exit code 1 if any line is a rejection or abort.
       --version is a dataset version (a fetchedAt cutoff in ms); default: the latest.
       --trace also writes the full event trace to OUT as JSON lines.
   mm holdout FILE --campaign C --agent A --holdout-store DIR [same options as eval]
@@ -198,9 +199,19 @@ fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
     Ok(Ctx { policy, venue, version, market, mode, report_after, end, kernel: kernel_hash() })
 }
 
-fn programs(path: &str) -> std::io::Result<Vec<String>> {
+/// The programs to evaluate: one file, a .jsonl file (one per line), or `-` to stream JSONL from
+/// stdin, answering each line before reading the next.
+fn programs(path: &str) -> std::io::Result<Box<dyn Iterator<Item = String>>> {
+    if path == "-" {
+        use std::io::BufRead;
+        return Ok(Box::new(std::io::stdin().lock().lines().map_while(Result::ok).filter(|l| !l.trim().is_empty())));
+    }
     let text = std::fs::read_to_string(path)?;
-    Ok(if path.ends_with(".jsonl") { text.lines().filter(|l| !l.trim().is_empty()).map(String::from).collect() } else { vec![text] })
+    Ok(if path.ends_with(".jsonl") {
+        Box::new(text.lines().filter(|l| !l.trim().is_empty()).map(String::from).collect::<Vec<_>>().into_iter())
+    } else {
+        Box::new(std::iter::once(text))
+    })
 }
 
 /// Evaluate one checked program and commit its experiment, result and disclosure.

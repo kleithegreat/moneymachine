@@ -140,3 +140,19 @@ def test_holdout_is_evaluated_once_over_its_window(market, tmp_path):
     assert again.returncode == 1 and json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
     row = sqlite3.connect(ledger).execute("SELECT mode, window_start FROM experiments").fetchall()
     assert row == [("holdout", json.loads((Path(market) / "policy.json").read_text())["holdout_start"])]
+
+
+def test_stream_eval_answers_each_line(market, tmp_path):
+    m = Path(market)
+    p = subprocess.Popen([str(MM), "eval", "-", "--campaign", "c", "--agent", "a", "--store", str(m / "store"),
+                          "--venue", str(m / "venue"), "--policy", str(m / "policy.json"), "--ledger", str(tmp_path / "l.sqlite")],
+                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+    good = json.dumps(json.loads(W0.read_text()))
+    p.stdin.write(good + "\n")
+    p.stdin.flush()
+    first = json.loads(p.stdout.readline())
+    p.stdin.write(good.replace('"input": "funding"', '"input": "nope"') + "\n")
+    p.stdin.flush()
+    second = json.loads(p.stdout.readline())
+    p.stdin.close()
+    assert p.wait() == 1 and "disclosure" in first and second["code"] == "E_UNKNOWN_INPUT"

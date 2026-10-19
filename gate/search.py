@@ -8,7 +8,6 @@ import copy
 import json
 import random
 import subprocess
-import tempfile
 from pathlib import Path
 
 DISCLOSED = ("sharpe_annualized",)
@@ -146,31 +145,35 @@ def crossover(rng, a, b):
 
 
 class Evaluator:
-    """Runs batches through `mm eval` and returns only the disclosed statistics."""
+    """Streams programs through one `mm eval -` process and returns only the disclosed statistics."""
 
     def __init__(self, mm, market, ledger, campaign, agent):
-        self.mm, self.market, self.ledger, self.campaign, self.agent = mm, Path(market), ledger, campaign, agent
+        m = Path(market)
+        self.proc = subprocess.Popen(
+            [str(mm), "eval", "-", "--campaign", campaign, "--agent", agent, "--store", str(m / "store"),
+             "--venue", str(m / "venue"), "--policy", str(m / "policy.json"), "--ledger", str(ledger)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
         self.seen = {}
 
     def __call__(self, genomes):
-        batch = [compile_genome(g) for g in genomes]
-        new = [s for s in batch if json.dumps(s, sort_keys=True) not in self.seen]
-        if new:
-            with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
-                fh.write("".join(json.dumps(s) + "\n" for s in new))
-            m = self.market
-            out = subprocess.run([str(self.mm), "eval", fh.name, "--campaign", self.campaign, "--agent", self.agent,
-                                  "--store", str(m / "store"), "--venue", str(m / "venue"),
-                                  "--policy", str(m / "policy.json"), "--ledger", str(self.ledger)],
-                                 capture_output=True, text=True)
-            Path(fh.name).unlink()
-            if out.returncode == 2:
-                raise RuntimeError(out.stderr)
-            for s, line in zip(new, out.stdout.splitlines()):
+        out = []
+        for g in genomes:
+            text = json.dumps(compile_genome(g), sort_keys=True)
+            if text not in self.seen:
+                self.proc.stdin.write(text + "\n")
+                self.proc.stdin.flush()
+                line = self.proc.stdout.readline()
+                if not line:
+                    raise RuntimeError(f"mm eval exited with {self.proc.wait()}")
                 d = json.loads(line)
                 stats = d["disclosure"]["result"] if "disclosure" in d else {}
-                self.seen[json.dumps(s, sort_keys=True)] = {k: stats.get(k, float("-inf")) for k in DISCLOSED}
-        return [self.seen[json.dumps(s, sort_keys=True)] for s in batch]
+                self.seen[text] = {k: stats.get(k, float("-inf")) for k in DISCLOSED}
+            out.append(self.seen[text])
+        return out
+
+    def close(self):
+        self.proc.stdin.close()
+        self.proc.wait()
 
     @property
     def spent(self):
@@ -211,5 +214,8 @@ def run(searcher, mm, market, ledger, campaign, seed):
     kind, budget = searcher[0], int(searcher[1:])
     evaluate = Evaluator(mm, market, ledger, campaign, searcher)
     rng = random.Random(seed)
-    (genetic if kind == "G" else hill_climb)(evaluate, budget, rng)
+    try:
+        (genetic if kind == "G" else hill_climb)(evaluate, budget, rng)
+    finally:
+        evaluate.close()
     return evaluate.spent
