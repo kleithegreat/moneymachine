@@ -84,7 +84,7 @@ def stores(data_root):
     return Store(root / "store", event_before=HOLDOUT_START), Store(root / "holdout")
 
 
-def write_split(search, holdout, dataset, df, fetched_at, source):
-    split = pl.col("eventTime") < HOLDOUT_START
+def write_split(search, holdout, dataset, df, fetched_at, source, holdout_start=HOLDOUT_START):
+    split = pl.col("eventTime") < holdout_start
     return (search.write(dataset, df.filter(split), fetched_at, source),
             holdout.write(dataset, df.filter(~split), fetched_at, source))

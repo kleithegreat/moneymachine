@@ -2,7 +2,9 @@
 
 ## Now
 
-Stage 0 (feasibility). Running: live recorder (detached; `pgrep -f ingest.record`; started 2026-10-19 04:57 UTC; needs ≥ 24 h, then stop it) and first backfill (version in `data/reports/`). Next: C0.2/C0.5 report from backfill; after 24 h: `python -m ingest.availability data/live` (C0.3), `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7), second backfill (C0.4), witness (C0.8), holdout hash (C0.9).
+Stage 0 (feasibility), waiting on time. The live recorder runs detached (`pgrep -f ingest.record`, started 2026-10-19 04:57 UTC; stop it after ≥ 24 h), and the first backfill is running (its version goes in `data/reports/`). After the backfill: the C0.2/C0.5 report. After 24 h: `python -m ingest.availability data/live` (C0.3), `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7), a second backfill (C0.4), the witness `python -m ingest.witness data <version> <out>` (C0.8), and `python -m ingest.holdout data audit/holdout.json` (C0.9).
+
+Stage 1 (kernel MVP) is running in parallel. Its criteria are frozen; the only stage 0 output it waits on is the data for C1.4/C1.8. Done so far: DSL type checker plus 35 adversarial cases, interpreter, simulator, ledger, CLI, 8 hand fixtures (C1.3), the leak canary (C1.7), and CLI ledger tests (C1.6). Next: mutants (C1.1), GPT red team (C1.2), GPT independent timing checker (C1.5), then C1.4/C1.8 on real data.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 

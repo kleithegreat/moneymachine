@@ -29,7 +29,6 @@ decisions, orders, fills, settlements and equity marks.
 | `E_BOOL` | boolean where a number is needed, or the reverse |
 | `E_WINDOW` | `hours` missing, not an integer, or outside 1–4380 |
 | `E_REF` | undefined, forward or cyclic `ref`, or undefined `param` |
-| `E_CONST` | non-finite constant or param value |
 | `E_SIZE` | more than 4096 nodes or nesting deeper than 64 |
 
 ## Threat matrix
@@ -49,7 +48,7 @@ decisions, orders, fills, settlements and equity marks.
 | T11 | `log`/`exp` of a dimensional value | I4 | `E_DIMENSIONLESS` |
 | T12 | boolean weight or boolean arithmetic | I4 | `E_BOOL` |
 | T13 | forward or cyclic `let` | I4 | `E_REF` |
-| T14 | non-finite constant | I4 | `E_CONST` |
+| T14 | non-finite constant (JSON cannot express one; out-of-range literals fail to parse) | I4 | `E_PARSE` |
 | T15 | huge or deep program | I4 | `E_SIZE` |
 | T16 | `--store` pointing at holdout files, or a copy of them | I8 | `R_HOLDOUT` |
 | T17 | ledger unwritable (read-only file) while asking for results | I6 | `R_LEDGER`, no statistics on any channel |
