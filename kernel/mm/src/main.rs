@@ -204,7 +204,7 @@ fn programs(path: &str) -> std::io::Result<Vec<String>> {
 }
 
 /// Evaluate one checked program and commit its experiment, result and disclosure.
-fn evaluate(prog: &dsl::Program, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, ledger: &mut Ledger)
+fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, ledger: &mut Ledger)
     -> Result<String, (String, String)> {
     let run = sim::run(prog, &c.market, &c.venue, &c.policy, c.end).map_err(|e| (e.code().to_string(), format!("{e:?}")))?;
     let first = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).position(|t| t > c.report_after);
@@ -238,6 +238,7 @@ fn evaluate(prog: &dsl::Program, c: &Ctx, campaign: &str, agent: &str, trace_pat
         mode: c.mode,
         strategy_hash: &strategy_hash,
         canonical: &canonical,
+        program: text,
         params: &params,
         universe: &universe,
         window,
@@ -308,7 +309,7 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
                     }
                     ctx = Some(c);
                 }
-                evaluate(&prog, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), ledger)
+                evaluate(&prog, &text, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), ledger)
             }
         };
         match outcome {

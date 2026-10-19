@@ -1,0 +1,215 @@
+"""Baseline searchers over the DSL (stage 2 calibration; the stage 3 baseline).
+
+G<budget>: random-plus-genetic search. H<budget>: a hill-climber on in-sample Sharpe. Each sees
+only DISCLOSED from each evaluation, and every evaluation goes through `mm eval` and the ledger.
+"""
+
+import copy
+import json
+import random
+import subprocess
+import tempfile
+from pathlib import Path
+
+DISCLOSED = ("sharpe_annualized",)
+WINDOWS = (4, 8, 12, 24, 48, 96, 168, 336)
+SIZES = (0.02, 0.05, 0.1)
+
+
+def const(x, unit="1"):
+    return {"const": x, "unit": unit}
+
+
+def op(name, *args, **extra):
+    return {"op": name, "args": list(args), **extra}
+
+
+FEATURES = 6
+PRICES = ("open", "high", "low", "close")
+
+
+def compile_feature(kind, price, h):
+    if kind == 0:
+        x = {"input": price}
+        return op("sub", op("div", x, op("lag", x, hours=h)), const(1))
+    if kind == 1:
+        return op("div", {"input": "funding"}, const(1e-4, "1/h"))
+    if kind == 2:
+        f = {"input": "funding"}
+        return op("div", op("sub", f, op("mean", f, hours=h)), op("std", f, hours=max(h, 8)))
+    if kind == 3:
+        return op("mul", {"input": "premium"}, const(1e3))
+    if kind == 4:
+        v = {"input": "volume"}
+        return op("sub", op("div", v, op("mean", v, hours=h)), const(1))
+    return op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"})
+
+
+def compile_node(n):
+    """Genome node (a JSON list) -> dimensionless DSL expression."""
+    tag = n[0]
+    if tag == "feat":
+        return compile_feature(*n[1:])
+    if tag == "neg":
+        return op("neg", compile_node(n[1]))
+    if tag in ("sub", "mul"):
+        return op(tag, compile_node(n[1]), compile_node(n[2]))
+    if tag == "smooth":
+        return op(n[1], compile_node(n[3]), hours=n[2])
+    if tag == "xsdemean":
+        return op("xs_demean", compile_node(n[1]))
+    if tag == "xsrank":
+        return op("sub", op("xs_rank", compile_node(n[1])), const(0.5))
+    return op("if", op("gt", compile_node(n[1]), const(0.0)), compile_node(n[2]), op("neg", compile_node(n[3])))
+
+
+def compile_genome(g):
+    sig = compile_node(g["sig"])
+    w = op("sign", sig) if g["squash"] == "sign" else op("clip", sig, const(-1.0), const(1.0))
+    return {"dsl": 1, "name": "search", "mechanism": {"counterparty": "unstated", "predictions": [], "capacity": "-"},
+            "weight": op("mul", w, const(g["size"]))}
+
+
+def random_feature(rng):
+    return ["feat", rng.randrange(FEATURES), rng.choice(PRICES), rng.choice(WINDOWS)]
+
+
+def random_node(rng, depth):
+    if depth == 0 or rng.random() < 0.3:
+        return random_feature(rng)
+    k = rng.randrange(7)
+    a = random_node(rng, depth - 1)
+    if k == 0:
+        return ["neg", a]
+    if k in (1, 2):
+        return [("sub", "mul")[k - 1], a, random_node(rng, depth - 1)]
+    if k == 3:
+        return ["smooth", rng.choice(["mean", "ema"]), rng.choice(WINDOWS), a]
+    if k == 4:
+        return ["xsdemean", a]
+    if k == 5:
+        return ["xsrank", a]
+    return ["cond", a, random_node(rng, depth - 1), random_node(rng, depth - 1)]
+
+
+def random_genome(rng):
+    return {"sig": random_node(rng, rng.randint(0, 3)), "size": rng.choice(SIZES), "squash": rng.choice(["sign", "clip"])}
+
+
+def children(n):
+    """Indices of a node's child nodes."""
+    return {"feat": [], "neg": [1], "sub": [1, 2], "mul": [1, 2], "smooth": [3], "xsdemean": [1], "xsrank": [1],
+            "cond": [1, 2, 3]}[n[0]]
+
+
+def paths(n, p=()):
+    yield p
+    for i in children(n):
+        yield from paths(n[i], p + (i,))
+
+
+def get(n, p):
+    for i in p:
+        n = n[i]
+    return n
+
+
+def put(n, p, new):
+    if not p:
+        return new
+    n = copy.deepcopy(n)
+    get(n, p[:-1])[p[-1]] = new
+    return n
+
+
+def mutate(rng, g):
+    g = copy.deepcopy(g)
+    r = rng.random()
+    p = rng.choice(list(paths(g["sig"])))
+    node = get(g["sig"], p)
+    if r < 0.35:
+        g["sig"] = put(g["sig"], p, random_node(rng, rng.randint(0, 2)))
+    elif r < 0.7 and node[0] in ("feat", "smooth"):
+        node[2 if node[0] == "smooth" else 3] = rng.choice(WINDOWS)
+    elif r < 0.85:
+        g["squash"] = rng.choice(["sign", "clip"])
+    else:
+        g["size"] = rng.choice(SIZES)
+    return g
+
+
+def crossover(rng, a, b):
+    donor = get(b["sig"], rng.choice(list(paths(b["sig"]))))
+    child = copy.deepcopy(a)
+    child["sig"] = put(a["sig"], rng.choice(list(paths(a["sig"]))), copy.deepcopy(donor))
+    return child
+
+
+class Evaluator:
+    """Runs batches through `mm eval` and returns only the disclosed statistics."""
+
+    def __init__(self, mm, market, ledger, campaign, agent):
+        self.mm, self.market, self.ledger, self.campaign, self.agent = mm, Path(market), ledger, campaign, agent
+        self.seen = {}
+
+    def __call__(self, genomes):
+        batch = [compile_genome(g) for g in genomes]
+        new = [s for s in batch if json.dumps(s, sort_keys=True) not in self.seen]
+        if new:
+            with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
+                fh.write("".join(json.dumps(s) + "\n" for s in new))
+            m = self.market
+            out = subprocess.run([str(self.mm), "eval", fh.name, "--campaign", self.campaign, "--agent", self.agent,
+                                  "--store", str(m / "store"), "--venue", str(m / "venue"),
+                                  "--policy", str(m / "policy.json"), "--ledger", str(self.ledger)],
+                                 capture_output=True, text=True)
+            Path(fh.name).unlink()
+            if out.returncode == 2:
+                raise RuntimeError(out.stderr)
+            for s, line in zip(new, out.stdout.splitlines()):
+                d = json.loads(line)
+                stats = d["disclosure"]["result"] if "disclosure" in d else {}
+                self.seen[json.dumps(s, sort_keys=True)] = {k: stats.get(k, float("-inf")) for k in DISCLOSED}
+        return [self.seen[json.dumps(s, sort_keys=True)] for s in batch]
+
+    @property
+    def spent(self):
+        return len(self.seen)
+
+
+def genetic(evaluate, budget, rng, population=20):
+    pop = [random_genome(rng) for _ in range(population)]
+    scored = list(zip(pop, evaluate(pop)))
+    for _ in range(100 * budget):
+        if evaluate.spent >= budget:
+            break
+        scored.sort(key=lambda x: -x[1]["sharpe_annualized"])
+        parents = [s for s, _ in scored[: population // 2]]
+        children = []
+        while len(children) < min(population, budget - evaluate.spent):
+            r = rng.random()
+            child = (crossover(rng, rng.choice(parents), rng.choice(parents)) if r < 0.3
+                     else mutate(rng, rng.choice(parents)) if r < 0.8 else random_genome(rng))
+            children.append(child)
+        scored = scored[: population // 2] + list(zip(children, evaluate(children)))
+
+
+def hill_climb(evaluate, budget, rng):
+    best = random_genome(rng)
+    best_score = evaluate([best])[0]["sharpe_annualized"]
+    stall = 0
+    while evaluate.spent < budget and stall < 4 * budget:
+        cand = mutate(rng, best)
+        score = evaluate([cand])[0]["sharpe_annualized"]
+        stall += 1
+        if score > best_score:
+            best, best_score, stall = cand, score, 0
+
+
+def run(searcher, mm, market, ledger, campaign, seed):
+    """Run searcher 'G100', 'G400' or 'H400' on a market; every evaluation lands in the ledger."""
+    kind, budget = searcher[0], int(searcher[1:])
+    evaluate = Evaluator(mm, market, ledger, campaign, searcher)
+    rng = random.Random(seed)
+    (genetic if kind == "G" else hill_climb)(evaluate, budget, rng)
+    return evaluate.spent

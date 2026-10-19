@@ -6,7 +6,8 @@ use std::path::Path;
 const TABLES: [&str; 5] = ["strategies", "experiments", "results", "disclosures", "selections"];
 
 const SCHEMA: &str = "
-CREATE TABLE IF NOT EXISTS strategies(hash TEXT PRIMARY KEY, canonical TEXT NOT NULL, created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS strategies(hash TEXT PRIMARY KEY, canonical TEXT NOT NULL, program TEXT NOT NULL,
+  created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS experiments(
   id INTEGER PRIMARY KEY, created INTEGER NOT NULL, campaign TEXT NOT NULL, agent TEXT NOT NULL, mode TEXT NOT NULL,
   strategy_hash TEXT NOT NULL, params TEXT NOT NULL, universe TEXT NOT NULL, window_start INTEGER NOT NULL,
@@ -31,6 +32,8 @@ pub struct Experiment<'a> {
     pub mode: &'a str,
     pub strategy_hash: &'a str,
     pub canonical: &'a str,
+    /// The submitted program text; the first one seen for a canonical hash is kept.
+    pub program: &'a str,
     pub params: &'a str,
     pub universe: &'a str,
     pub window: (i64, i64),
@@ -75,8 +78,8 @@ impl Ledger {
         let tx = self.conn.transaction()?;
         let t = now();
         tx.execute(
-            "INSERT OR IGNORE INTO strategies(hash, canonical, created) VALUES (?1, ?2, ?3)",
-            params![e.strategy_hash, e.canonical, t],
+            "INSERT OR IGNORE INTO strategies(hash, canonical, program, created) VALUES (?1, ?2, ?3, ?4)",
+            params![e.strategy_hash, e.canonical, e.program, t],
         )?;
         tx.execute(
             "INSERT INTO experiments(created, campaign, agent, mode, strategy_hash, params, universe, window_start,
