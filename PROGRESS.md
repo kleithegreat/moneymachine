@@ -12,7 +12,7 @@ Stages run in parallel wherever work does not depend on a wait. Detached process
   - `python -m ingest.holdout data audit/holdout.json` (C0.9);
   - stop the HL recorder.
 - **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
-- **Stage 2:** nulls frozen. C2.1's fixed probes pass. After C0.7: `python -m gate.sweep c24`, then `calibrate`, then `c25`, then the C2.1 top-5 probes. C2.2 and C2.3 are met. C2.1's fixed probes are being re-run on the corrected generator (`data/campaigns/c21-fixed-probes.v3.json`).
+- **Stage 2:** nulls frozen. C2.1's fixed probes pass. After C0.7: `python -m gate.sweep c24`, then `calibrate`, then `c25`, then the C2.1 top-5 probes. C2.2 and C2.3 are met. C2.1's fixed probes pass (v3).
 - **Stage 3:** built. After C0.7: record `harness.harness_hash()` (the freeze), run 20 `stage3.null_campaign`s (C3.2), then `real_campaign` once stage 2 exits.
 - **Stage 4:** C4.1 and C4.2 done. The swarm is built. After the harness freeze: `python -m gate.stage4 10` (C4.5).
 - **Stage 5:** criteria frozen (one revision). The Discourse backfill runs (`data/sources_backfill1.*`). At ≥ 72 h of recording (2026-10-22 10:26 UTC):
@@ -304,6 +304,7 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Log
 
+- 2026-10-19: C2.1's fixed-probe part passes on the corrected generator (`audit/stage2/c21-fixed-probes.v3.json`). HC3 regression min p: N1 0.059, N2 0.012, N3 0.034. Max |z|: 1.97, 1.79, 2.13. Still to do: the C2.4 top-5 probes.
 - 2026-10-19: C2.3 met. GPT's independent DSR (`gate/tests/gpt_dsr.py`, tools denied) agrees with the gate's to 1e-9 on 1,000 random cases and the edge cases (N = 1, T = 10, zero variance, extreme skew and kurtosis, and degenerate two-point series at Sharpe = 2/skew). That last case exposed an ill-conditioned spec, now fixed by a dated revision to the gate's DSR (relative-tolerance degenerate rule); GPT updated its code from the revised spec.
 - 2026-10-19: C2.2 met (`audit/stage2/c22.v2.json`). GPT's independent N2/N3 generators pass C2.1's regression and agree on every tolerance stat. The first comparison (`c22.json`) failed on N2 kurtosis, and robust stats then showed GPT's median |ε| consistently 1.5–9% higher. Both causes were deviations in *my* generator: (1) it scaled the truncated t to unit variance *before* truncating, so x had variance < 1; (2) it capped σ but not the GARCH recursion's state. Both are fixed, and NULLS.md now states the two points explicitly. No campaign had run. C2.1's fixed probes, produced with the old generator, are being re-run (v3).
 - 2026-10-19: C1.5 met as written. GPT's independent fill checker (`kernel/tests/timing/gpt_checker.py`, tools denied) matches the labels on all 20,000 cases, as do the kernel's checker and the Opus one. The two earlier GPT attempts had silently outlived their timeouts. `--format json` streaming now shows progress.
