@@ -62,6 +62,7 @@ Exit when C1.1 to C1.8 all hold.
 
 ## Log
 
+- 2026-10-19: Commit 855260e (`criteria: stage 1`) also carries an unrelated 3-line witness.py fix (the zero-trade fill bar), swept in by `commit -a`. The criteria text in it is unaffected. Criteria commits now stage PROGRESS.md only.
 - 2026-10-19: U = BTC ETH SOL SUI kPEPE TIA WIF AAVE FTM(delisted) WLD POPCAT BNB (`data/universe.json`). Survivorship: 10 delisted eligible perps lack full daily bars in the ranking window (MATIC 10/30, about $51M extrapolated vs. the #12 cutoff of $213M; RNDR had been renamed RENDER; the other 8 are micro-caps with 0 bars). None plausibly ranks top 12.
 - 2026-10-19: The holdout rule (nothing reads `data/holdout/`) means C0.2/C0.5 for the holdout part of W run on the fetched frames at ingestion, before the split-write, and report counts only. The search part is also checked through the real `as_of`.
 - 2026-10-19: `nix develop` verified (cargo 1.95, rustc 1.95, python 3.13, arch 8.0.0, sqlite 3.51); flake.lock committed; GPT 6.1 Sol reachable.
