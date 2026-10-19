@@ -44,10 +44,9 @@ def test_kernel_checker_matches_labels(cases):
     assert mismatches(cs, [json.loads(l)["verdict"] for l in out.splitlines()]) == []
 
 
-@pytest.mark.parametrize("module", ["gpt_checker"])
-def test_independent_checkers_match_labels(cases, module):
+def test_gpt_checker_matches_labels(cases):
     _, cs = cases
-    spec = importlib.util.spec_from_file_location(module, HERE / f"{module}.py")
+    spec = importlib.util.spec_from_file_location("gpt_checker", HERE / "gpt_checker.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert mismatches(cs, [mod.check(json.loads(json.dumps(c))) for c in cs]) == []
