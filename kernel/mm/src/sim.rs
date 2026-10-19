@@ -49,6 +49,8 @@ pub struct Fill {
     pub coin: usize,
     pub qty: f64,
     pub inputs_known: i64,
+    /// Price the order was sized at: the close of the bar ending at the decision's boundary.
+    pub decision_price: f64,
     pub decided: i64,
     pub submitted: i64,
     pub filled: i64,
@@ -169,7 +171,7 @@ pub fn check_fill(f: &Fill, market: &Market, venue: &Venue) -> Result<(), Abort>
             if !ok {
                 return Err(Abort::Fill(format!("{f:?} vs {bar:?}")));
             }
-            if f.qty.abs() * f.reference > MAX_ORDER_NOTIONAL * (1.0 + 1e-12) {
+            if f.qty.abs() * f.decision_price > MAX_ORDER_NOTIONAL * (1.0 + 1e-12) {
                 return Err(Abort::Portfolio(format!("order notional {f:?}")));
             }
         }
@@ -190,6 +192,7 @@ pub fn check_fill(f: &Fill, market: &Market, venue: &Venue) -> Result<(), Abort>
 struct Order {
     coin: usize,
     qty: f64,
+    price: f64,
     inputs_known: i64,
     decided: i64,
 }
@@ -223,6 +226,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             coin,
             qty,
             inputs_known: t,
+            decision_price: reference,
             decided: t,
             submitted: t,
             filled: t,
@@ -305,6 +309,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
                         coin: o.coin,
                         qty: o.qty,
                         inputs_known: o.inputs_known,
+                        decision_price: o.price,
                         decided: o.decided,
                         submitted: o.decided,
                         filled: b + BAR,
@@ -359,7 +364,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             }
             if qty != 0.0 && (qty.abs() * price >= venue.min_notional || w == 0.0) {
                 trace.push(Event::Decision { t: t_d, coin: c, weight: w, qty });
-                orders.entry(big_b + BAR).or_default().push(Order { coin: c, qty, inputs_known: machine.max_known, decided: t_d });
+                orders.entry(big_b + BAR).or_default().push(Order { coin: c, qty, price, inputs_known: machine.max_known, decided: t_d });
             }
         }
         b += BAR;
