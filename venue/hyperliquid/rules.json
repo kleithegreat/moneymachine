@@ -1,0 +1,237 @@
+{
+ "venue": "hyperliquid",
+ "fetched": "2026-10-19",
+ "rules": {
+  "taker_fee": {
+   "value": 0.00045,
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/fees",
+   "effective_from": "2026-10-19",
+   "flag": "base tier was 0.035% before an undated change; the higher 0.045% is applied to all of W"
+  },
+  "maker_fee": {
+   "value": 0.00015,
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/fees",
+   "effective_from": "2026-10-19",
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "funding_interval_ms": {
+   "value": 3600000,
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding",
+   "effective_from": "2026-10-19",
+   "flag": "fundingHistory is hourly from 2023-05; checked in data"
+  },
+  "funding_convention": {
+   "value": "payment = size * oracle_price * rate; rate > 0 means longs pay shorts",
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding",
+   "effective_from": "2026-10-19"
+  },
+  "funding_cap_per_hour": {
+   "value": 0.04,
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding",
+   "effective_from": "2026-10-19",
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "min_order_notional_usd": {
+   "value": 10.0,
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/error-responses",
+   "effective_from": "2026-10-19",
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W",
+   "note": "reduce-only orders that exactly close a position are exempt"
+  },
+  "size_rounding": {
+   "value": "truncate toward zero to szDecimals",
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size",
+   "effective_from": "2026-10-19"
+  },
+  "maintenance_margin": {
+   "value": "1 / (2 * maxLeverage of the margin tier containing the position notional)",
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/liquidations",
+   "effective_from": "2026-10-19",
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "liquidation_trigger": {
+   "value": "account equity at mark < total maintenance margin (cross)",
+   "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/trading/liquidations",
+   "effective_from": "2026-10-19",
+   "flag": "historical marks unavailable; evaluator uses each bar's adverse extreme"
+  }
+ },
+ "coins": {
+  "BTC": {
+   "szDecimals": 5,
+   "maxLeverage": 40,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 40
+    },
+    {
+     "lowerBound": "150000000.0",
+     "maxLeverage": 20
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "ETH": {
+   "szDecimals": 4,
+   "maxLeverage": 25,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 25
+    },
+    {
+     "lowerBound": "100000000.0",
+     "maxLeverage": 15
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "SOL": {
+   "szDecimals": 2,
+   "maxLeverage": 20,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 20
+    },
+    {
+     "lowerBound": "70000000.0",
+     "maxLeverage": 10
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "SUI": {
+   "szDecimals": 1,
+   "maxLeverage": 10,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 10
+    },
+    {
+     "lowerBound": "20000000.0",
+     "maxLeverage": 5
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "kPEPE": {
+   "szDecimals": 0,
+   "maxLeverage": 10,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 10
+    },
+    {
+     "lowerBound": "20000000.0",
+     "maxLeverage": 5
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "TIA": {
+   "szDecimals": 1,
+   "maxLeverage": 5,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 5
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "WIF": {
+   "szDecimals": 0,
+   "maxLeverage": 5,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 5
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "AAVE": {
+   "szDecimals": 2,
+   "maxLeverage": 10,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 10
+    },
+    {
+     "lowerBound": "20000000.0",
+     "maxLeverage": 5
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "FTM": {
+   "szDecimals": 0,
+   "maxLeverage": 10,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 10
+    }
+   ],
+   "delisted": true,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "WLD": {
+   "szDecimals": 1,
+   "maxLeverage": 10,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 10
+    },
+    {
+     "lowerBound": "20000000.0",
+     "maxLeverage": 5
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "POPCAT": {
+   "szDecimals": 0,
+   "maxLeverage": 3,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 3
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  },
+  "BNB": {
+   "szDecimals": 3,
+   "maxLeverage": 10,
+   "marginTiers": [
+    {
+     "lowerBound": "0.0",
+     "maxLeverage": 10
+    },
+    {
+     "lowerBound": "3000000.0",
+     "maxLeverage": 5
+    }
+   ],
+   "delisted": false,
+   "flag": "history before 2026-10-19 unknown; current value applied to all of W"
+  }
+ }
+}
