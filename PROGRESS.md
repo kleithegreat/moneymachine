@@ -2,9 +2,17 @@
 
 ## Now
 
-Stage 0 (feasibility), waiting on time. The live recorder runs detached (`pgrep -f ingest.record`, started 2026-10-19 04:57 UTC; stop it after ≥ 24 h), and the first backfill is running (its version goes in `data/reports/`). After the backfill: the C0.2/C0.5 report. After 24 h: `python -m ingest.availability data/live` (C0.3), `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7), a second backfill (C0.4), the witness `python -m ingest.witness data <version> <out>` (C0.8), and `python -m ingest.holdout data audit/holdout.json` (C0.9).
-
-Stage 1 (kernel MVP) is running in parallel. Its criteria are frozen; the only stage 0 output it waits on is the data for C1.4/C1.8. Done so far: DSL type checker plus 35 adversarial cases, interpreter, simulator, ledger, CLI, 8 hand fixtures (C1.3), the leak canary (C1.7), and CLI ledger tests (C1.6). Next: mutants (C1.1), GPT red team (C1.2), GPT independent timing checker (C1.5), then C1.4/C1.8 on real data.
+Every stage is waiting on time or on GPT, so work proceeds on whatever does not depend on them.
+- **Stage 0:** the live recorder runs detached (`pgrep -af "python -m ingest.record"`, kill by PID only). It started 2026-10-19 04:57 UTC and was restarted at 07:03 to add aggregated books. C0.3 needs 24 h from 04:57; C0.7 needs 24 h of aggregated-book snapshots from 07:03. After that:
+  - `python -m ingest.availability data/live` (C0.3);
+  - `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7);
+  - a second backfill, `python -m ingest.backfill data 200` (C0.4; its ingestion report is the judged C0.2/C0.5 evidence under the revised rules);
+  - the witness (C0.8);
+  - `python -m ingest.holdout data audit/holdout.json` (C0.9, already run for the first version);
+  - then stop the recorder.
+- **Stage 1:** done: C1.1, C1.3, C1.6, C1.7, and C1.5 via the Opus substitute. Waiting: C1.2 (≥ 10 GPT red-team programs; GPT blocked), and C1.4 and C1.8 (after C0.7: run with `MM_VENUE` unset and `cargo test --release --test bench -- --ignored`).
+- **Stage 2:** nulls frozen (`gate/nulls.json`). C2.1 fixed probes are running (`python -m gate.c21`). C2.4 and C2.5 need the C0.7 cost cells: `python -m gate.sweep c24`, then `calibrate`, then `c25`. C2.2 and C2.3 wait for GPT, with Opus as the fallback at the end.
+- **Stage 3:** criteria frozen. Next: the kernel `prediction` field and mechanism report (`--mechanism`), `--holdout-from` with an overlap-refusing spent check, and the bwrap harness with the `mm-agent` daemon.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
