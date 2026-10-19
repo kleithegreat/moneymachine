@@ -13,7 +13,7 @@ Every stage is waiting on time or on GPT, so work proceeds on whatever does not 
 - **Stage 1:** done: C1.1, C1.3, C1.6, C1.7, and C1.5 via the Opus substitute. Waiting: C1.2 (≥ 10 GPT red-team programs; GPT blocked), and C1.4 and C1.8 (after C0.7: run with `MM_VENUE` unset and `cargo test --release --test bench -- --ignored`).
 - **Stage 2:** nulls frozen (`gate/nulls.json`). C2.1 fixed probes are running (`python -m gate.c21`). C2.4 and C2.5 need the C0.7 cost cells: `python -m gate.sweep c24`, then `calibrate`, then `c25`. C2.2 and C2.3 wait for GPT, with Opus as the fallback at the end.
 - **Stage 3:** criteria frozen; harness, daemon, mechanism check, joint holdout and audit are built (`gate/stage3.py`). Before C3.2: freeze the harness (record `harness.harness_hash()` in the Log), then run 20 `null_campaign`s with the C0.7 median cost cells (`gate.sweep.cost_cells()`). The real run (`real_campaign`) comes only after stage 2 exits.
-- **Stages 4 and 5:** criteria drafts are in `data/drafts/criteria4.md` and `criteria5.md` (not yet frozen). Opus reviews were launched at session end, and their results may be lost. Re-review (GPT if available), revise once, then commit each alone as `criteria: stage N`.
+- **Stages 4 and 5:** criteria frozen. Next for 4: `kernel/CANONICAL.md`, the egg equivalence key and the C4.1/C4.2 tests. Next for 5: start the live source recorders early, since they become the next forward holdout.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
@@ -236,6 +236,52 @@ Rejected:
   Each campaign also reports its evaluations, cross-agent history use, finalists and holdout results, beside H400's C2.4 N2 distribution. With 10 runs the 95% bound is about 0.39, and the result is stated as a smoke test only.
 
 Exit when C4.1 to C4.5 all hold.
+
+### Stage 5: data integration
+
+Frozen 2026-10-19, before any candidate source was probed. Reviewed by GPT and by a fresh-context Opus subagent.
+
+**Scope and decisions.** U is not extended. One source per category is integrated for U, each classified at exit as *historically replayable*, *prospective only*, or *blocked*. The pre-registered candidates, in order, are:
+- governance: Snapshot (public GraphQL hub);
+- token unlocks: DefiLlama's emissions data;
+- discussion: the public Discourse forums of U's protocols.
+
+A fallback is used only if a candidate fails C5.1, and the reason is recorded. A source is *usable* if at least one coin of U maps to it with at least 20 items in the search part of W. Otherwise it can be at most prospective. Stage 5 does no return-linked work. Derived-input definitions, entity mappings and knownAt rules are frozen before any strategy is evaluated on the new inputs. Stage 3 spent the real holdout, so the new sources' live recordings become the next forward holdout.
+
+**Historical admissibility.** Each source's timestamps are classified as protocol-enforced, server-set or client-claimed. A row's knownAt is the later of:
+- the rule applied to its claimed time, used only if that time is protocol-enforced or server-set and the C5.3 live test has passed;
+- its earliest witnessed time: our own fetchedAt, a third-party archive capture time (Wayback CDX), or a protocol-enforced time.
+
+Content is known no earlier than its last edit. A row with no admissible claimed time and no earlier witness gets knownAt = fetchedAt, so it is usable only prospectively. Items that vanish upstream become tombstone revisions. Deletions before our first fetch cannot be recovered and are stated as survivorship. For scheduled events, eventTime is when the information was published or revised, and the scheduled date is a value field. I8 therefore applies to publication times, unchanged.
+
+**Criteria.**
+- **C5.1 Sources.** `venue/sources/<name>.md` gives:
+  - the endpoint;
+  - the terms clause relied on;
+  - rate limits, with the observed limit used when none is documented, and requests held at no more than half of either;
+  - history depth;
+  - the timestamp class of each time field;
+  - the knownAt rule, fixed before any live measurement.
+
+  The entity mapping is a versioned file keyed by stable upstream ids (space id, protocol slug, contract address), never by tickers. Each mapping row has a validity interval, and U's unit conventions are noted (kPEPE = 1000 PEPE). A hand-labeled sample of at least 50 items per source, labeled before any returns are computed, reports precision and recall. A golden set of known collisions and rebrands resolves as declared.
+- **C5.2 Revisions and lineage.** Rows are immutable revisions with source, upstream id, fetchedAt and a content hash. Edits are new revisions, and disappearances are tombstones. `as_of(t)` returns the content live at t, and tests cover edits, tombstones and restorations at exact boundaries. Derived inputs are computed by versioned code whose hash, along with the mapping file's, is part of the dataset version. A byte-identical recompute test reproduces every derived input from the store.
+- **C5.3 Availability.** Each source has a live recorder that polls every 5 minutes or less, keeps an uptime and gap log, logs clock offset (< 1 s), checks pagination for dropped items, and runs from its first start until stage 5 exits, for at least 72 h. Results are pooled over all items the source publishes, not just U's.
+  - The rule must hold for 100% of observed new items and of observed edit revisions, with the denominator and the rule's slack (knownAt − first observed) reported.
+  - Fewer than 30 observed items means the rule is unvalidated, and the source can be at most prospective.
+  - A rule revised after measurement must pass on a fresh recording segment.
+  - A live-versus-backfill reconciliation re-backfills the live window and reports missing items (deletions), changed content (edits), and items claimed inside the window but not seen live in time (backdated).
+- **C5.4 Coverage.** Coverage intervals are stored as data per source and coin. Inputs are undefined, never 0, outside coverage or for unmapped coins. Per coin of U, the report gives event counts in the search part and in the live window, gaps, and each source's classification.
+- **C5.5 Kernel integration.**
+  - Event sources enter the DSL as per-tick aggregates: the count of items with knownAt in (τ − 1h, τ], under a new base unit `ev` for counts.
+  - Unlock schedules enter as values from the revision known at τ (for example, the fraction of circulating supply unlocking within the next 30 days, with the circulating supply also as known at τ).
+  - One generic causal op, hours since a boolean last held, measured on the tick clock, joins the DSL.
+  - DSL.md documents every input's unit, missingness and freshness.
+  - I1 and I8 hold. Data-layer mutants must each be caught: as_of returning latest content, knownAt equal to the claimed time with no lag, dropped tombstones, schedules read from the latest revision, and an aggregation window admitting (τ, τ + 1h].
+  - An independent implementation (GPT, or a fresh-context Opus subagent if GPT is unavailable), written from DSL.md and the source docs alone, matches every derived input exactly on synthetic event streams with boundary cases.
+  - A strategy using an input absent from the dataset version is rejected with `R_INPUT_UNAVAILABLE`.
+- **C5.6 Calibration extended.** The null markets replay the real event series independently of ε. C2.1's regression and probes are extended to the new inputs and pass. The C2.4 complete-null rate for G400 on N2 is rerun with the new inputs available, over 300 markets, with an upper bound ≤ 0.05. Every strategy counts toward N, whatever inputs it uses.
+
+Exit when C5.1–C5.6 hold for every source classified historically replayable or prospective, and every blocked category is recorded under Blockers with what was tried.
 
 ## Blockers
 
