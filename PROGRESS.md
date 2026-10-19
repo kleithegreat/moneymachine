@@ -11,7 +11,7 @@ Stages run in parallel wherever work does not depend on a wait. Detached process
   - the witness (C0.8);
   - `python -m ingest.holdout data audit/holdout.json` (C0.9);
   - stop the HL recorder.
-- **Stage 1:** done except C1.4 and C1.8, which follow C0.7. C1.5 (Opus substitute) passed; a GPT checker rerun is in `scratchpad/gpt-checker3`.
+- **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
 - **Stage 2:** nulls frozen. C2.1's fixed probes pass. After C0.7: `python -m gate.sweep c24`, then `calibrate`, then `c25`, then the C2.1 top-5 probes. GPT DSR and null-generator implementations are running (`scratchpad/gpt-dsr`, `scratchpad/gpt-nulls`) for C2.2 and C2.3.
 - **Stage 3:** built. After C0.7: record `harness.harness_hash()` (the freeze), run 20 `stage3.null_campaign`s (C3.2), then `real_campaign` once stage 2 exits.
 - **Stage 4:** C4.1 and C4.2 done. The swarm is built. After the harness freeze: `python -m gate.stage4 10` (C4.5).
@@ -303,6 +303,8 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Log
 
+- 2026-10-19: C1.5 met as written. GPT's independent fill checker (`kernel/tests/timing/gpt_checker.py`, tools denied) matches the labels on all 20,000 cases, as do the kernel's checker and the Opus one. The two earlier GPT attempts had silently outlived their timeouts. `--format json` streaming now shows progress.
+- 2026-10-19: Null markets can carry block-bootstrapped real event counts, independent of ε (C5.6 groundwork).
 - 2026-10-19: Dry run, on a provisional cost table from about 4 h of aggregated books: C1.4 passes (the kernel matches the witness at every step on version 1792385868856) and C1.8 gives a W0 median of 14.7 ms (i5-11400). Both get re-run as judged evidence on the final C0.7 model. Three kernel–witness disagreements were found on the way, all in the witness:
   1. It read listed intervals from the pre-revision ingestion report. It now applies the current rule to the store's bars.
   2. Its sizing arithmetic ordered operations differently from W0's DSL encoding, so near-integer truncation flipped a kPEPE order by one coin. It now uses the DSL's order.

@@ -98,7 +98,19 @@ def funding_paths(rng, spec, coins, hours):
     return np.clip(f, -CAP, CAP), p
 
 
-def generate(model, params, market_id, days, planted=(), beta=0.0):
+def event_paths(rng, spec, coins, hours):
+    """Hourly event counts per coin, block-bootstrapped from real counts independently of epsilon
+    (stage 5): {"arrays": (T x K counts), "coins": [synthetic coin index per column], "block_hours"}.
+    Synthetic coins without a column get no rows (the input is undefined there)."""
+    counts, cols = np.asarray(spec["arrays"], float), spec["coins"]
+    idx = block_indices(rng, hours, counts.shape[0], spec["block_hours"])
+    out = np.full((hours, coins), np.nan)
+    for k, c in enumerate(cols):
+        out[:, c] = counts[idx, k]
+    return out
+
+
+def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
     """Arrays for one market: per-bar o, c, high, low, volume and hourly funding, premium."""
     rng = np.random.default_rng(seed_of(market_id))
     coins = 12
@@ -153,7 +165,8 @@ def generate(model, params, market_id, days, planted=(), beta=0.0):
     high = np.maximum(o, c) * (1 + w[0])
     low = np.minimum(o, c) * (1 - w[1])
     volume = rng.lognormal(10, 0.5, (n, coins))
-    return {"open": o, "close": c, "high": high, "low": low, "volume": volume, "funding": f, "premium": premium,
+    forum = event_paths(np.random.default_rng(seed_of(market_id + "/events")), events, coins, hours) if events else None
+    return {"forum_posts": forum, "open": o, "close": c, "high": high, "low": low, "volume": volume, "funding": f, "premium": premium,
             "eps": eps, "sigma": sig}
 
 
@@ -186,6 +199,12 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
     search, holdout = Store(root / "store", event_before=holdout_start), Store(root / "holdout")
     write_split(search, holdout, "funding", funding, fetched_at, "synthetic", holdout_start)
     write_split(search, holdout, "bars_4h", bars, fetched_at, "synthetic", holdout_start)
+    if arrays.get("forum_posts") is not None:
+        ev = arrays["forum_posts"]
+        rows = [(names[c], int(t * HOUR), float(ev[t, c])) for c in range(coins) for t in range(hours) if not np.isnan(ev[t, c])]
+        events = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "count": pl.Float64}, orient="row")
+        events = events.with_columns(pl.col("eventTime").alias("knownAt")).select("coin", "eventTime", "knownAt", "count")
+        write_split(search, holdout, "events_forum", events, fetched_at, "synthetic", holdout_start)
     venue = root / "venue"
     venue.mkdir(parents=True, exist_ok=True)
     rules = {"rules": {"taker_fee": {"value": taker_fee}, "min_order_notional_usd": {"value": 10.0}},

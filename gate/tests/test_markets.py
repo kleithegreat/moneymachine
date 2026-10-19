@@ -76,3 +76,17 @@ def test_planted_signal_shifts_the_mean():
         se = (y - slope * x).std() / (x.std() * np.sqrt(len(x)))
         assert abs(slope - (beta if i < 2 else 0.0)) < 4 * se, (i, slope, se)
     assert all(np.polyfit(signal[:, i], e[:, i], 1)[0] > 0 for i in (0, 1))
+
+
+def test_event_series_reach_the_kernel(tmp_path):
+    counts = np.random.default_rng(1).poisson(0.3, (500, 2))
+    events = {"arrays": counts, "coins": [0, 3], "block_hours": 24}
+    arrays = markets.generate("N1", None, "events", days=30, events=events)
+    root = markets.write(tmp_path / "m", arrays, 0, {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")})
+    w = {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
+        {"op": "mean", "args": [{"input": "forum_posts"}], "hours": 24}, {"const": 0.3, "unit": "ev"}]}]}, {"const": 0.1, "unit": "1"}]}
+    s = tmp_path / "s.json"
+    s.write_text(json.dumps({"dsl": 1, "name": "ev", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"}, "weight": w}))
+    trace = run_mm(root, s, tmp_path)
+    coins = {e["coin"] for e in trace if e["type"] == "fill"}
+    assert coins and coins <= {"S0", "S3"}
