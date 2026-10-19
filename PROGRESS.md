@@ -253,6 +253,9 @@ A fallback is used only if a candidate fails C5.1, and the reason is recorded. A
 - its earliest witnessed time: our own fetchedAt, a third-party archive capture time (Wayback CDX), or a protocol-enforced time.
 
 Content is known no earlier than its last edit. A row with no admissible claimed time and no earlier witness gets knownAt = fetchedAt, so it is usable only prospectively. Items that vanish upstream become tombstone revisions. Deletions before our first fetch cannot be recovered and are stated as survivorship. For scheduled events, eventTime is when the information was published or revised, and the scheduled date is a value field. I8 therefore applies to publication times, unchanged.
+  - *Revision 2026-10-19, before any C5 evidence:* the "later of" list wrongly includes our own fetchedAt as a witness. Read literally, every backfilled row would get knownAt = fetchedAt, so even a server-set source that passed the live test would be unusable historically. That contradicts the paragraph's own last sentence. Intended rule:
+    - knownAt = the later of the claimed-time rule (when admissible) and any *independent* witness (an archive capture or a protocol-enforced time), which can only make it later;
+    - our fetchedAt applies only to rows with neither an admissible claim nor an independent witness.
 
 **Criteria.**
 - **C5.1 Sources.** `venue/sources/<name>.md` gives:
