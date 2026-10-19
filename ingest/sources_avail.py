@@ -57,7 +57,6 @@ def analyze(live_dir):
     }
 
 
-
 def reconcile(data_root, live_dir, version):
     """Re-backfill (store version `version`) against what the recorder saw live, over the live window."""
     import polars as pl

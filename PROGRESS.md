@@ -298,7 +298,7 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Blockers
 
-- **Stage 5 unlock source (2026-10-19).** Both of DefiLlama's emission endpoints return 402 (paid only). Its open-source emissions-adapters repo returns 404 and is absent from the org's public repo list, so the pre-registered candidate fails C5.1. Untried fallback: on-chain vesting contracts read through public RPCs, per coin (SUI, TIA, WLD), whose times are protocol-enforced. That is substantial per-coin work. If it is not done, unlocks are recorded as a blocked category at stage 5 exit, which the exit rule allows.
+- **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Building the per-coin fallback is a human call.
 
 ## Log
 
