@@ -4,21 +4,16 @@ updated + 600 s. Posts already present in a forum's first poll are not new, so t
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
+
+from ingest.live import ms, read
 
 RULE_MS = 600_000
 MIN_ITEMS = 30
 
 
-def ms(iso):
-    return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000)
-
-
 def polls(live_dir):
-    for p in sorted(Path(live_dir).glob("sources-*.jsonl")):
-        for line in open(p):
-            yield json.loads(line)
+    return read(live_dir, "sources")
 
 
 def analyze(live_dir):
@@ -66,23 +61,23 @@ def reconcile(data_root, live_dir, version):
 
     from ingest.store import Store, live
 
-    live, first_poll = {}, {}
+    seen, first_poll = {}, {}
     for poll in polls(live_dir):
         if poll["source"] != "discourse" or not isinstance(poll["data"], list):
             continue
         first_poll.setdefault(poll["key"], poll["recv"])
         for p in poll["data"]:
-            live.setdefault((poll["key"], p["id"]), (poll["recv"], p["cooked_sha256"], ms(p["created_at"])))
+            seen.setdefault((poll["key"], p["id"]), (poll["recv"], p["cooked_sha256"], ms(p["created_at"])))
     raw = Store(Path(data_root) / "sources", key=["forum", "upstream_id"]).revisions("discourse")
     latest = raw.filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(["forum", "upstream_id"]).last().filter(live(raw))
     backfill = {(r["forum"], r["upstream_id"]): (r["eventTime"], r["content_sha256"]) for r in latest.iter_rows(named=True)}
-    window_end = max(seen for seen, _, _ in live.values()) if live else 0
-    missing = [k for k in live if k not in backfill and live[k][2] >= first_poll[k[0]]]
-    changed = [k for k in live if k in backfill and backfill[k][1] != live[k][1]]
+    window_end = max(t for t, _, _ in seen.values()) if seen else 0
+    missing = [k for k in seen if k not in backfill and seen[k][2] >= first_poll[k[0]]]
+    changed = [k for k in seen if k in backfill and backfill[k][1] != seen[k][1]]
     backdated = [k for k, (created, _) in backfill.items()
                  if k[0] in first_poll and first_poll[k[0]] <= created <= window_end - RULE_MS
-                 and (k not in live or live[k][0] > created + RULE_MS)]
-    return {"live_items": len(live), "deleted": len(missing), "edited": len(changed), "backdated": len(backdated),
+                 and (k not in seen or seen[k][0] > created + RULE_MS)]
+    return {"live_items": len(seen), "deleted": len(missing), "edited": len(changed), "backdated": len(backdated),
             "backdated_examples": backdated[:10]}
 
 

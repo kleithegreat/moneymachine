@@ -7,10 +7,10 @@ thread) in which no coin's L2 poll gap exceeds MAX_GAP (PROGRESS.md, C0.7 revisi
 import json
 import sys
 from collections import defaultdict
-from pathlib import Path
 
 from ingest.backfill import funding_known
 from ingest.hl import HOUR
+from ingest.live import read
 from ingest.store import DELTA
 
 BAR = 4 * HOUR
@@ -21,10 +21,7 @@ VERIFY_AFTER = 600_000
 
 
 def load(live_dir):
-    for p in sorted(Path(live_dir).glob("polls-*.jsonl")):
-        with open(p) as f:
-            for line in f:
-                yield json.loads(line)
+    return read(live_dir, "polls")
 
 
 def window(live_dir, after=RECORDING_FROM):

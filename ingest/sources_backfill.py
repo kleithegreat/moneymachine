@@ -10,21 +10,17 @@ import hashlib
 import json
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 
 import httpx
 import polars as pl
 
+from ingest.live import ms
+from ingest.sources_record import FORUMS
 from ingest.store import W_START, Store
 
-MAP = Path(__file__).resolve().parents[1] / "venue/sources/discourse_map.json"
 START = W_START - 30 * 86_400_000
 PAUSE = 2.0
-
-
-def ms(iso):
-    return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000)
 
 
 def backfill(forum, http, fetched_at):
@@ -46,7 +42,7 @@ def backfill(forum, http, fetched_at):
 
 
 def main(data_root):
-    forums = [r["forum"] for r in json.loads(MAP.read_text())["rows"]]
+    forums = FORUMS
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-backfill (read-only)"})
     fetched_at = int(time.time() * 1000)
     rows = []

@@ -14,16 +14,14 @@ from pathlib import Path
 
 import httpx
 
+from ingest.live import now_ms
+
 FORUMS = ["delvingbitcoin.org", "ethresear.ch", "forum.solana.com", "forums.sui.io", "forum.celestia.org",
           "governance.aave.com", "forum.bnbchain.org"]
 SPACES = ["aavedao.eth"]
 POLL = 300
 QUERY = ('{ proposals(first: 20, where: {space: "%s"}, orderBy: "created", orderDirection: desc) '
          '{ id created updated start end state author ipfs } }')
-
-
-def now_ms():
-    return int(time.time() * 1000)
 
 
 def clock_offset_ms():

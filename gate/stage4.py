@@ -4,7 +4,6 @@
 import json
 import sys
 import time
-from pathlib import Path
 
 from gate import gate, markets, stage3, sweep
 from gate.agent import harness

@@ -10,7 +10,8 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from ingest.sources_avail import ms, polls
+from ingest.live import ms
+from ingest.sources_avail import polls
 from ingest.store import Store, live, stores, write_split
 
 HOUR = 3_600_000

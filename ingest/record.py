@@ -15,15 +15,12 @@ import time
 from pathlib import Path
 
 from ingest.hl import HOUR, Info
+from ingest.live import now_ms
 
 POLL = 30_000
 VERIFY_AFTER = 600_000
 BAR = 4 * HOUR
 L2_BUDGET = 120
-
-
-def now_ms():
-    return int(time.time() * 1000)
 
 
 class Recorder:
