@@ -1,10 +1,8 @@
-"""C5.5: the derivation (ingest/events.py) and an independent implementation written from
-venue/sources/derived.md alone agree exactly on synthetic event streams."""
+"""C5.5: the derivation (ingest/events.py) and GPT's independent implementation (derived/independent.py,
+written from venue/sources/*.md and DSL.md alone, tools denied) agree exactly on synthetic event streams."""
 
 import importlib.util
 from pathlib import Path
-
-import pytest
 
 from ingest import events
 
@@ -31,7 +29,6 @@ def test_cases_exercise_the_boundaries():
     assert any(not ours(c) and c["polls"] for c in cs)
 
 
-@pytest.mark.skipif(not (HERE / "independent.py").exists(), reason="no independent implementation yet")
 def test_independent_implementation_agrees():
     other = load("independent")
     bad = [(i, c) for i, c in enumerate(load("gen").generate(2000, 55))

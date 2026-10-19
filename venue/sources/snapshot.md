@@ -12,6 +12,5 @@ client-claimed unless the hub's validation of message timestamps is established,
 anchor backfill on its own. `start` and `end` are values (the scheduled voting window), not
 availability times.
 
-knownAt rule, fixed 2026-10-19 before any live measurement: knownAt = max(`created` + 600 s,
-earliest witness). Until a witness or validated hub enforcement is established, backfilled
-proposals are usable only prospectively, with knownAt = fetchedAt.
+knownAt rule: `created` is never admitted, so a proposal is known at its earliest observation by
+the recorder or a fetch, and only proposals created after the first poll count (`derived.md`).

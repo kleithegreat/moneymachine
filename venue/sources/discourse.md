@@ -22,5 +22,6 @@ Timestamp classes: `created_at` and `updated_at` are server-set by Discourse. Im
 edits can rewrite them; the live reconciliation measures how often.
 
 knownAt rule, fixed 2026-10-19 before any live measurement: a post's existence is known at
-`created_at` + 600 s. Its content is known at `updated_at` + 600 s. Deleted posts become
-tombstones when they stop appearing on re-polls of their topic.
+`created_at` + 600 s. Its content is known at `updated_at` + 600 s. The rule is admitted only if
+C5.3 validates it; otherwise a post is known at its earliest observation (`derived.md`). Raw
+revisions are known when fetched, and a post the backfill no longer lists becomes a tombstone.
