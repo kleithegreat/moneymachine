@@ -43,17 +43,23 @@ def seed_of(text):
 
 
 def candidates(ledger, campaign, agent=None):
-    """Distinct strategies an arm evaluated in search mode that filled at least once: {hash: returns}."""
+    """Distinct trials an arm evaluated in search mode that filled at least once: {trial key: returns}."""
     db = sqlite3.connect(ledger)
     rows = db.execute(
-        "SELECT e.strategy_hash, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
+        "SELECT e.strategy_hash, e.params, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
         "WHERE e.campaign = ? AND e.mode = 'search' AND (? IS NULL OR e.agent = ?) ORDER BY e.id",
         (campaign, agent, agent)).fetchall()
     out = {}
-    for h, blob, summary in rows:
-        if h not in out and json.loads(summary)["fills"] > 0:
-            out[h] = np.frombuffer(blob, "<f8")
+    for h, params, blob, summary in rows:
+        key = trial_key(h, params)
+        if key not in out and json.loads(summary)["fills"] > 0:
+            out[key] = np.frombuffer(blob, "<f8")
     return out
+
+
+def trial_key(strategy_hash, params):
+    """A statistical trial is a strategy with its parameter values: same structure, other values, other trial."""
+    return strategy_hash if params == "[]" else hashlib.sha256(f"{strategy_hash}{params}".encode()).hexdigest()
 
 
 def search_decision(ledger, campaign, agent=None):
@@ -83,10 +89,14 @@ def search_decision(ledger, campaign, agent=None):
     return finalists, report
 
 
-def programs(ledger, hashes):
-    """The submitted programs of the given strategies, as recorded in the ledger."""
+def programs(ledger, keys):
+    """The submitted program of each trial: the first experiment whose (strategy, params) has that key."""
     db = sqlite3.connect(ledger)
-    return {h: json.loads(db.execute("SELECT program FROM strategies WHERE hash = ?", (h,)).fetchone()[0]) for h in hashes}
+    rows = db.execute("SELECT strategy_hash, params, program FROM experiments WHERE mode = 'search' ORDER BY id").fetchall()
+    found = {}
+    for h, params, program in rows:
+        found.setdefault(trial_key(h, params), json.loads(program))
+    return {k: found[k] for k in keys}
 
 
 def holdout_pvalue(r, seed):

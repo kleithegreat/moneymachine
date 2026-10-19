@@ -35,3 +35,30 @@ def test_holdout_pvalue_sanity():
     assert gate.holdout_pvalue(rng.normal(0.01, 0.01, 1000), 1) < 0.001
     p = [gate.holdout_pvalue(rng.normal(0, 0.01, 300), s) for s in range(40)]
     assert 0.2 < np.mean(p) < 0.8
+
+
+def test_parameter_variants_are_separate_trials(tmp_path):
+    import json, subprocess
+    from pathlib import Path
+    from gate.markets import write_market
+    repo = Path(__file__).resolve().parents[2]
+    subprocess.run(["cargo", "build", "-q", "--release"], cwd=repo / "kernel", check=True)
+    m = write_market(tmp_path / "m", market_id="params", days=40)
+    base = json.loads((repo / "kernel/strategies/w0.json").read_text())
+    base["weight"] = {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
+        {"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}]}]}, {"param": "size"}]}
+    batch = tmp_path / "b.jsonl"
+    lines = []
+    for size in (0.01, 0.02, 0.01):
+        b = json.loads(json.dumps(base))
+        b["params"]["size"]["value"] = size
+        lines.append(json.dumps(b))
+    batch.write_text("\n".join(lines) + "\n")
+    ledger = tmp_path / "l.sqlite"
+    subprocess.run([str(repo / "kernel/target/release/mm"), "eval", str(batch), "--campaign", "c", "--agent", "a",
+                    "--store", str(m / "store"), "--venue", str(m / "venue"), "--policy", str(m / "policy.json"),
+                    "--ledger", str(ledger)], check=True, capture_output=True)
+    cands = gate.candidates(ledger, "c")
+    assert len(cands) == 2
+    progs = gate.programs(ledger, list(cands))
+    assert sorted(p["params"]["size"]["value"] for p in progs.values()) == [0.01, 0.02]
