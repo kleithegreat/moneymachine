@@ -1,0 +1,427 @@
+{
+ "per_key": {
+  "aavedao.eth": {
+   "coin": "AAVE",
+   "n": 50,
+   "concerns_mapped": 50,
+   "none": 0,
+   "uncertain": 8,
+   "precision": 1.0
+  }
+ },
+ "per_coin": {
+  "AAVE": {
+   "labeled": 50,
+   "in_mapped_key": 50,
+   "recall_within_sample": 1.0
+  },
+  "kPEPE": {
+   "labeled": 1,
+   "in_mapped_key": 0,
+   "recall_within_sample": 0.0
+  }
+ },
+ "labels": [
+  {
+   "space": "aavedao.eth",
+   "id": "0x79de5212e90a562918f72d47809bba5af1221cce4a8cd6dd38b89f38984e90ee",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x2eca177d50449f541586d4816d27022b73417952f8c5996d99f500cf0c7ec1c3",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x0777eb4701023508c03825e2779e6189326ed9b3d1eb6e187d1f6e0f8d154605",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x04a921887dcb54ec68ceb231e7cc2f64eac443b8cde47f0f5eecbd51b3cffef1",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xf95bc210e3e93c2112c694cb158db22c93504155b48c03d9358e4c41c33ee782",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x8023477ae0364be4df4a24b5ef633bdd49121db0ceeacff6322872d557c7239b",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x6cee22e2a5651aa003e3dda2ada5dcd91478b5b8372c5b6a4a15498a30202e31",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "QmbfxdR8yABDQpjKmXyDbnquWC8AJbdFajjR4zrX3Ss5R5",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x4ed87e13f34a9173181112b26448042dafd2bc01713cefc0b08e6721ded36906",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x166051b26be60fa3a64d7815b848b9b670a284b3da01c2d440c7815c400d7950",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xf87cf0761b27becf6c8d18bbb457c9e6bf6b7aa436cdb0d197ad2d93a495ed04",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xe6fbf8d933858a15ddb4ae6101ccaec3e16d01c8e9172fc2aa8a51972ec67837",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xc039953e4f18804bb017876d27621da1ab3e4de53acd3b32d0f1fe94d4bbb6a0",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x42427bb7b34346db123038a2418963298fa45b75901fb63b8044cf6910b204f1",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xa3f5b45c0238ae1363eb50ffbd59dd19b07c2ce52b7afd21179d6e1416a8ed4c",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x33c3a9a274522309942b2fbc09ce0fde734d7ae9803bd78d0cc17471a281cbd1",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xac80b6d5488c4949e30013d8ed88189ed48b64cb47580bee46921b28e3899bb7",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xb9b28f57f7633dd6b987de9abcede23da62fe4fab6b002f189b8b25a7c02ea93",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x98bdd30f645b2981320f82c671ae9fee31ee771766c13cd2627b66a22f0d438e",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xe1e852c6d86fac7d9706c4db2629fa8c198611e0e6c3e6a678723b7187507b6d",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x1730ba3a2dd1f7b0b00cfae01b0c9f1bb7494b848c5de517275e2c72cf8c7b4d",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xc21365ae6088b884a30f6195941d37961e618eec49fc8baa9476252711377d27",
+   "assets": [
+    "AAVE",
+    "PEPE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x874b2ca906e3910ab8ee3751bef0057fc4b45c6e5b5e70edd256291bb74a163b",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xcbb588f0030f7726da3d065a30c2500652bbd0def6ca5f5f17a82daca777578e",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x9403b7f704ade0d6510591e4846fd85c84b19d134c0814511af914751ecfad5d",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x2d95f68ace3009c73bdc7b3715c2ede496dc8466e42dc047fb092e45a389e29f",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xc17bc863a09c72152c1ac25d09fcee4748b58eb2e10e70886e20e77ad4d8fad0",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x966224adf46330dedcae298bb7ee2d5850de5892828158870b85f3f5b1bca9db",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x0c5427caf17d21b321a3b62362d085e580446b136b0eccf7f4dc377856025486",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x2e93ddd01ba5ec415b0962907b7c65def947d1ed94f1e5b402c5578560b1dddb",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xceae27bbaf42658a1b46baec664c66c09f9cba4f9452ed2d2bed6f6ce5c66e35",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x5aff6836eb2e2e7a664ab996a75e115dc1d2362d32bd4b1a3d8d68b1833db702",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x112aaa499108a4f0eca0caebf90060d32d97cba877cf095473da8ff0822f30fb",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xc16cfd8f6da91d8e16de9722c5ed4f0b81d038a3e3f676a1d96327e22fb1ecd9",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "QmYQymgFwor9woCfLcE3ZBTxVEKGvMEDLp4Cb2GfsL1wvA",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x35000224ed8069f6a279aa38a5932701b044b5b84b51387f921d4eec7dc1c1bb",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xf593f2df83cc0b5bdc3920ef2c782f6b2a6f87a6603c26a5d778e3ede4d40021",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x80a2e4e23afa0536c198acc18bb90f2cbb9a28d06e5ab9f2999eb49503232c5f",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x072626bc11a5fed75e8f0783e4bb601d6ccbc65621e8607e90ba53a9d59cb97b",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xa7bc42ca1f658655e9998d22d616133da734bad0e6caae9c7d016ad97abf1451",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": true
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x1d5029f1b99b62843590e28d027a1a5aa21f4fe19f175284197c58779db14027",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x947d0cc1f659001bcf6045dec2d82737b55fe05f8ede4aabe63bec6fcbed3095",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x3263dbee34f5afe513a1a6c5bcd5207684cee03473e1b3d7616993dbd87ab881",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xb80935da09635bb06455d3db1a34aac2af287b621c10745b0ea7087d7fdfeccc",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "QmYQEh4vstJADjSK2b8nyK1otFG6R4rh9VHszU5xUEw26S",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x02653e0e1f4f2e8da5e283df62d39c1b795bbe6cbaa08e09b8f31eaca03a45e0",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xeb3572580924976867073ad9c8012cb9e52093c76dafebd7d3aebf318f2576fb",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x844e6490591165e166fe511c1c527798369a21394fd93812d299cc320ec91dd5",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0xb1086fea9d6f4c2fcde0362768e4cd8c2bc1a42a1897704ac5639490f1ef895e",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  },
+  {
+   "space": "aavedao.eth",
+   "id": "0x15cbc6b6c5b4ef76a1fb8cf8747460bf327c459fa01b69907fab0119457939a8",
+   "assets": [
+    "AAVE"
+   ],
+   "uncertain": false
+  }
+ ]
+}
