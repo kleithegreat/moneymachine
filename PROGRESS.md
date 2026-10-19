@@ -2,9 +2,9 @@
 
 ## Now
 
-Stage 0 (feasibility). Next: source probe + manifest (C0.1), live recorder (C0.3, C0.7) started early since it needs ≥ 24 h.
+Stage 0 (feasibility). Running: live recorder (detached; `pgrep -f ingest.record`; started 2026-10-19 04:57 UTC; needs ≥ 24 h, then stop it) and first backfill (version in `data/reports/`). Next: C0.2/C0.5 report from backfill; after 24 h: `python -m ingest.availability data/live` (C0.3), `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7), second backfill (C0.4), witness (C0.8), holdout hash (C0.9).
 
-GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> -f <file> "<prompt>"`.
+GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
 ## Criteria
 
@@ -33,4 +33,6 @@ Exit when C0.1 to C0.9 all hold. If C0.2, C0.3, or C0.5 fails for this family, s
 
 ## Log
 
+- 2026-10-19: U = BTC ETH SOL SUI kPEPE TIA WIF AAVE FTM(delisted) WLD POPCAT BNB (`data/universe.json`). Survivorship: 10 delisted eligible perps lack full daily bars in the ranking window (MATIC 10/30, about $51M extrapolated vs. the #12 cutoff of $213M; RNDR had been renamed RENDER; the other 8 are micro-caps with 0 bars). None plausibly ranks top 12.
+- 2026-10-19: The holdout rule (nothing reads `data/holdout/`) means C0.2/C0.5 for the holdout part of W run on the fetched frames at ingestion, before the split-write, and report counts only. The search part is also checked through the real `as_of`.
 - 2026-10-19: `nix develop` verified (cargo 1.95, rustc 1.95, python 3.13, arch 8.0.0, sqlite 3.51); flake.lock committed; GPT 6.1 Sol reachable.
