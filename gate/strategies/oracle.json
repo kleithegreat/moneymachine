@@ -1,0 +1,59 @@
+{
+ "dsl": 1,
+ "name": "oracle: fade funding deviation from the interest floor",
+ "mechanism": {
+  "counterparty": "planted: price drift opposes funding deviation",
+  "predictions": [
+   "edge proportional to the funding deviation"
+  ],
+  "capacity": "0.1 of equity per coin"
+ },
+ "weight": {
+  "op": "mul",
+  "args": [
+   {
+    "op": "neg",
+    "args": [
+     {
+      "op": "clip",
+      "args": [
+       {
+        "op": "div",
+        "args": [
+         {
+          "op": "sub",
+          "args": [
+           {
+            "input": "funding"
+           },
+           {
+            "const": 1.25e-05,
+            "unit": "1/h"
+           }
+          ]
+         },
+         {
+          "const": 0.0001,
+          "unit": "1/h"
+         }
+        ]
+       },
+       {
+        "const": -1.0,
+        "unit": "1"
+       },
+       {
+        "const": 1.0,
+        "unit": "1"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "const": 0.1,
+    "unit": "1"
+   }
+  ]
+ }
+}
