@@ -12,7 +12,7 @@ H = 3_600_000
 
 def setup(tmp_path, posts, live):
     raw = Store(tmp_path / "data" / "sources", key=["forum", "upstream_id"])
-    raw.write("discourse", pl.DataFrame([{"forum": "ethresear.ch", "upstream_id": i, "eventTime": c, "knownAt": c,
+    raw.write("discourse", pl.DataFrame([{"forum": "ethresear.ch", "upstream_id": i, "eventTime": c,
                                           "topic_id": 1, "post_number": 1, "updated": c, "version": 1, "content_sha256": "x"}
                                          for i, c in posts]), fetched_at=100 * H, source="t")
     live_dir = tmp_path / "live"
@@ -45,3 +45,19 @@ def test_counts_follow_admissibility(tmp_path, monkeypatch):
     p = dict(prospective.select("eventTime", "count").iter_rows())
     assert prospective["eventTime"].max() == 120 * H and prospective["count"].sum() == 1 and p[96 * H] == 1
     assert events.derive(root, 120 * H, live_dir, True).equals(admitted)
+
+
+def test_stored_derivation_recomputes_byte_identically(tmp_path, monkeypatch):
+    """C5.2: the derived dataset in the store is reproduced exactly from the raw store and recordings."""
+    from ingest.store import _hash, stores
+
+    monkeypatch.setattr("ingest.sources_backfill.START", 0)
+    live = [{"source": "discourse", "key": "ethresear.ch", "sent": t * H, "recv": t * H,
+             "data": [{"id": 9, "created_at": iso(30 * H + 7), "updated_at": iso(30 * H + 7), "version": 1}]} for t in (20, 40)]
+    root, live_dir = setup(tmp_path, [(1, 10 * H + 5), (2, 33 * H)], live)
+    events.main(root, str(100 * H), live_dir, "admitted")
+    stored = stores(root)[0].revisions("events_forum").sort("eventTime")
+    again = events.derive(root, 100 * H, live_dir, True)
+    assert again["count"].sum() == 3
+    assert stored.height == again.height > 0
+    assert stored["hash"].to_list() == [_hash(r) for r in again.sort("eventTime").iter_rows(named=True)]

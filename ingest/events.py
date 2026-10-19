@@ -11,7 +11,7 @@ import numpy as np
 import polars as pl
 
 from ingest.sources_avail import ms, polls
-from ingest.store import Store, stores, write_split
+from ingest.store import Store, live, stores, write_split
 
 HOUR = 3_600_000
 RULE_MS = 600_000
@@ -28,7 +28,7 @@ def records(data_root, live_dir, source, version):
     if source == "discourse":
         raw = Store(Path(data_root) / "sources", key=["forum", "upstream_id"]).revisions("discourse")
         if raw is not None:
-            obs += raw.filter(pl.col("fetchedAt") <= version).select("forum", "upstream_id", "eventTime", "fetchedAt").rows()
+            obs += raw.filter((pl.col("fetchedAt") <= version) & live(raw)).select("forum", "upstream_id", "eventTime", "fetchedAt").rows()
     for poll in polls(live_dir):
         if poll["source"] != source or poll["recv"] > version:
             continue

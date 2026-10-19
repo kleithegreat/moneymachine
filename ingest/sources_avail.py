@@ -62,7 +62,7 @@ def reconcile(data_root, live_dir, version):
     """Re-backfill (store version `version`) against what the recorder saw live, over the live window."""
     import polars as pl
 
-    from ingest.store import Store
+    from ingest.store import Store, live
 
     live, first_poll = {}, {}
     for poll in polls(live_dir):
@@ -72,7 +72,7 @@ def reconcile(data_root, live_dir, version):
         for p in poll["data"]:
             live.setdefault((poll["key"], p["id"]), (poll["recv"], p["cooked_sha256"], ms(p["created_at"])))
     raw = Store(Path(data_root) / "sources", key=["forum", "upstream_id"]).revisions("discourse")
-    latest = raw.filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(["forum", "upstream_id"]).last()
+    latest = raw.filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(["forum", "upstream_id"]).last().filter(live(raw))
     backfill = {(r["forum"], r["upstream_id"]): (r["eventTime"], r["content_sha256"]) for r in latest.iter_rows(named=True)}
     window_end = max(seen for seen, _, _ in live.values()) if live else 0
     missing = [k for k in live if k not in backfill and live[k][2] >= first_poll[k[0]]]

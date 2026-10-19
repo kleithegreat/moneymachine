@@ -70,3 +70,27 @@ def test_search_store_refuses_holdout(tmp_path):
     assert search.revisions("f")["eventTime"].max() < HOLDOUT_START
     assert search.as_of("f", 2**62, 2**62)["eventTime"].max() < HOLDOUT_START
     assert holdout.revisions("f")["eventTime"].min() >= HOLDOUT_START
+
+
+def posts(ids, content="a"):
+    return pl.DataFrame([{"forum": "f", "upstream_id": i, "eventTime": i * H, "sha": content} for i in ids],
+                        schema={"forum": pl.Utf8, "upstream_id": pl.Int64, "eventTime": pl.Int64, "sha": pl.Utf8})
+
+
+def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path):
+    """C5.2: a raw source revision is known when fetched; content live at t is the latest fetched by t."""
+    s = Store(tmp_path, key=["forum", "upstream_id"])
+    whole = pl.col("forum") == "f"
+    edited = pl.when(pl.col("upstream_id") == 3).then(pl.lit("b")).otherwise(pl.col("sha")).alias("sha")
+    assert s.write("p", posts([1, 2, 3]), 100, "t", complete=whole) == 3
+    assert s.write("p", posts([1, 3]).with_columns(edited), 200, "t", complete=whole) == 2
+    assert s.write("p", posts([1, 2, 3]), 300, "t", complete=whole) == 2
+    assert s.write("p", posts([1]), 400, "t", complete=pl.col("forum") == "other") == 0
+    view = lambda t, v=10**9: {r["upstream_id"]: r["sha"] for r in s.as_of("p", t, v).iter_rows(named=True)}
+    assert view(99) == {}
+    assert view(100) == view(199) == {1: "a", 2: "a", 3: "a"}
+    assert view(200) == view(299) == {1: "a", 3: "b"}
+    assert view(300) == {1: "a", 2: "a", 3: "a"}
+    assert view(300, 299) == {1: "a", 3: "b"} and view(250, 199) == {1: "a", 2: "a", 3: "a"}
+    tomb = s.revisions("p").filter(pl.col("tombstone").is_not_null())
+    assert tomb.select("upstream_id", "eventTime", "knownAt", "fetchedAt").rows() == [(2, 2 * H, 200, 200)]

@@ -1,8 +1,9 @@
 """Stage 5: backfill Discourse post metadata (no text) from W's start, as immutable revisions.
 
-Rows are keyed by (forum, upstream_id). eventTime and knownAt hold the server-set created time
-(the claim); each revision's fetchedAt is our witness. Admissible availability times are derived
-from both later (C5.3), so an unchanged post refetched later is not a new revision.
+Rows are keyed by (forum, upstream_id). eventTime holds the server-set created time (the claim),
+and a revision is known when fetched (our witness). Admissible availability times are derived from
+both later (venue/sources/derived.md). Each forum's fetch is complete back to START, so a post it no
+longer lists becomes a tombstone.
 """
 
 import hashlib
@@ -35,8 +36,7 @@ def backfill(forum, http, fetched_at):
         if not page:
             return rows
         for p in page:
-            rows.append({"forum": forum, "upstream_id": p["id"], "eventTime": ms(p["created_at"]),
-                         "knownAt": ms(p["created_at"]), "topic_id": p["topic_id"], "post_number": p["post_number"],
+            rows.append({"forum": forum, "upstream_id": p["id"], "eventTime": ms(p["created_at"]), "topic_id": p["topic_id"], "post_number": p["post_number"],
                          "updated": ms(p["updated_at"]), "version": p.get("version") or 1,
                          "content_sha256": hashlib.sha256((p.get("cooked") or "").encode()).hexdigest()})
         before = min(p["id"] for p in page)
@@ -55,7 +55,8 @@ def main(data_root):
         print(forum, len(got), file=sys.stderr, flush=True)
         rows += got
     store = Store(Path(data_root) / "sources", key=["forum", "upstream_id"])
-    print(json.dumps({"version": fetched_at, "written": store.write("discourse", pl.DataFrame(rows), fetched_at, "discourse-posts")}))
+    written = store.write("discourse", pl.DataFrame(rows), fetched_at, "discourse-posts", complete=pl.col("forum").is_in(forums))
+    print(json.dumps({"version": fetched_at, "written": written}))
 
 
 if __name__ == "__main__":

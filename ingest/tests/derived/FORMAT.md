@@ -1,0 +1,15 @@
+# Derived-input test cases (C5.5)
+
+One JSON object per line, holding the records of `venue/sources/derived.md`, already cut at the
+dataset version:
+
+- `observations`: `[key, id, created, at]` lists, in no particular order. `key` is a string, `id` an
+  integer; ids may repeat across keys, and an item is a (key, id) pair.
+- `polls`: an object mapping key to its successful poll times, in no particular order. Keys absent
+  here have no polls.
+- `coin_of`: the mapping, an object from key to coin. Distinct keys map to distinct coins.
+- `admitted`: whether the source's claimed creation times are admitted.
+- `start`: the backfill start used for admitted coverage.
+
+All times are integer milliseconds. The expected output is the list of `[coin, tau, count]` rows,
+one per covered hour, in any order.

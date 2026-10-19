@@ -1,5 +1,5 @@
-"""C1.1 mutants: each one disables an invariant's check and makes the kernel commit the
-prohibited behavior; its named test must then fail, while the unpatched tree passes it.
+"""C1.1 and C5.5 mutants: each one disables an invariant's check and makes the kernel or the data layer
+commit the prohibited behavior; its named test must then fail, while the unpatched tree passes it.
 
 Run inside nix develop: `python kernel/mutants/mutants.py`. Each mutant is a list of exact,
 unique (file, old, new) replacements applied to a fresh copy of the working tree.
@@ -16,6 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 FX = "cd kernel && cargo test -q --release --test fixtures"
 SIM, MACHINE, MAIN, MARKET, DSL = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "market", "dsl"])
 EVENTS = "ingest/events.py"
+STORE = "ingest/store.py"
 I2 = "    if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.submitted <= f.filled) {"
 
 MUTANTS = {
@@ -57,6 +58,10 @@ MUTANTS = {
     "C5 derivation counts future items": ("pytest -q ingest/tests/test_events.py", [
         (EVENTS, 'counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")',
          'counts = np.searchsorted(k, hours + HOUR, side="right") - np.searchsorted(k, hours, side="right")')]),
+    "C5 as_of returns the latest content": ("pytest -q ingest/tests/test_store.py", [
+        (STORE, '(pl.col("fetchedAt") <= version) & (pl.col("knownAt") <= t)', '(pl.col("fetchedAt") <= version)')]),
+    "C5 tombstones dropped": ("pytest -q ingest/tests/test_store.py", [
+        (STORE, "complete & live(latest)", "complete & pl.lit(False)")]),
 }
 
 
@@ -72,7 +77,7 @@ def main():
     ignore = shutil.ignore_patterns(".git", "data", "target", "target-mutants", "__pycache__", ".hypothesis")
     missed = 0
     for name, (test, edits) in MUTANTS.items():
-        slug = name.split()[0]
+        slug = "-".join(name.split())
         with tempfile.TemporaryDirectory() as wt:
             shutil.copytree(REPO, wt, ignore=ignore, dirs_exist_ok=True, copy_function=shutil.copy)
             clean = run(test, wt, logs / f"{slug}.clean.log")
