@@ -186,6 +186,57 @@ Each arm has a budget of 100 evaluations. An evaluation is any `mm eval` call, i
 
 Exit when C3.1 to C3.4 all hold. Zero promotions is an acceptable outcome.
 
+### Stage 4: swarm and canonicalization
+
+Frozen 2026-10-19, before any stage 4 code was written. The draft was reviewed by GPT; an earlier Opus review was cut off by a rate limit.
+
+**Scope.** Stage 3 spends the only real holdout. A real-data swarm campaign needs a later holdout of at least 90 days after 2026-09-30, plus a model whose knowledge ends before it, so stage 4 includes none. Stage 4 is infrastructure plus a swarm-scale null smoke test. It claims no calibrated error rates, mixed-market FDR or power for the swarm.
+
+**Equivalence key.** The stage 0–3 strategy hash stays as is. A new, versioned equivalence key comes from equality saturation (`egg`) with a fixed rule set R, deterministic insertion order, work limits counted in iterations and nodes (never wall time), and extraction of the term with the fewest nodes, ties broken by a total order on serialized terms that includes the float bits. The key is pinned by: R's hash, the canonicalizer version, the egg version, the limits, and the extraction order. A statistical trial is (equivalence key, parameter values).
+
+Every rule in R must be exact under the kernel's semantics: IEEE-754 doubles with signed zeros, undefined propagation, `if` evaluating both branches every tick, windows with running sums and periodic exact recompute, xs ops over listed coins with defined values, and Rust's `f64::min`/`max`. `kernel/CANONICAL.md` gives each rule its argument and lists rejected laws with counterexamples. Candidates the review found exact:
+- `neg(neg x) = x`, `abs(abs x) = abs x`, `abs(neg x) = abs x`;
+- `mul(x, 1) = x`, `div(x, 1) = x`, `sub(x, +0) = x`;
+- commutativity of `add` and `mul`;
+- `not(not c) = c`, `and`/`or` commutativity;
+- `if(not c, a, b) = if(c, b, a)`;
+- `gt(a, b) = lt(b, a)`, `ge(a, b) = le(b, a)`;
+- `lag(lag(x, a), b) = lag(x, a + b)` when a + b ≤ 4380.
+
+Rejected:
+- associativity and distributivity;
+- `x + 0` (fails at −0.0);
+- `min`/`max` commutativity (signed-zero ties);
+- `if(c, x, x) = x` (fails when c is undefined);
+- `xs_demean` idempotence;
+- composed `convert`s;
+- anything through a window or xs op.
+
+**Swarm.** K = 4 arm A agents run in parallel, each in its own sandbox with its own workspace and its own daemon socket, so the socket determines agent identity. The stage 3 harness is extended by one command, `history`. It returns a snapshot up to a committed sequence number of every swarm evaluation: sequence, agent, equivalence key, program text, and the four disclosed fields. Rejections are included. Mechanism-test results never are. There are at most 20 `history` calls per agent, and each reply's payload and recipient are logged as a ledger disclosure, so what each agent knew can be reconstructed. The budget is 400 evaluations, 100 per agent, reserved atomically before execution. Free checks and evaluations are counted separately. The harness, history contract and limits are frozen and hashed before C4.5.
+
+**Gate and effective N.** The gate runs once over all evaluations of all agents, whatever they select. N_raw is the number of trials that filled; evaluations with zero fills are reported too, since they also disclose information. Clusters come from complete linkage on |ρ| of aligned per-step returns, with zero-variance series as singletons, at thresholds 0.9 and 0.5. SPA is reported once. The screen and StepM are rerun at each N. A finalist is fragile if its status differs across the three N values.
+
+**Criteria.**
+- **C4.1 Rules are exact.** For each rule in R:
+  - over at least 1,000 random well-typed programs (frozen generator and seeds), rewriting at a random matching position leaves every node's per-tick value stream (bit patterns, with undefined values) and the run's returns, trace and summary bitwise identical on 3 synthetic markets (N1, N2, N3);
+  - plus targeted cases: signed zeros, undefined conditions, window warm-up, coins listing and delisting, and running-sum recompute boundaries.
+- **C4.2 Canonicalization works.** On 1,000 pairs built by up to 10 random rule applications (frozen generator), plus at least 20 hand-built equivalent pairs, ≥ 99% share an equivalence key, and every failure is explained. Every rejected law's counterexample pair, whose semantics provably differ, has distinct keys. Re-running the canonicalizer in a fresh process gives the same key for every program.
+- **C4.3 Swarm isolation and accounting.**
+  - Each agent passes the C3.1 audit.
+  - Tests show that agents cannot reach each other's workspaces or sockets, and that injecting history text cannot change the daemon's behavior.
+  - `history` replies match their ledger rows one to one.
+  - Evaluations total ≤ 400, with ≤ 100 per agent.
+  - At least one agent per campaign received history containing another agent's evaluations.
+- **C4.4 Effective-N report.** Every C4.5 campaign records N_raw, the cluster counts, zero-fill evaluations, the SPA p-value, the screen and StepM decisions at each N, and fragility flags. Stage 1–3 invariant tests still pass with the equivalence key in use.
+- **C4.5 Swarm null smoke test.** 10 swarm campaigns on fresh N2 null markets:
+  - search days [0, 550), holdout report window [640, 730) days;
+  - every started campaign counts, and a crash, or fewer than 200 evaluations, counts as a promotion;
+  - pass if at most 1 promotes.
+
+  Each campaign also reports its evaluations, cross-agent history use, finalists and holdout results, beside H400's C2.4 N2 distribution. With 10 runs the 95% bound is about 0.39, and the result is stated as a smoke test only.
+
+Exit when C4.1 to C4.5 all hold.
+
 ## Blockers
 
 - **GPT unavailable (2026-10-19 ~05:30 UTC).** `opencode run` answers "The usage limit has been reached" for gpt-6.1-sol and gpt-6.1-sol-fast. Lost: the stage 1 red team, the independent fill checker, and the stage 2 criteria review. Fallback, per the session instructions: fresh-context Opus subagents, each given only a scratch directory of materials and told not to read the repo. That is weaker independence (same model family) and trust-based isolation. C1.2 ("≥ 10 programs from a GPT red team") and C1.5 ("GPT implements") name GPT, so they stay open until GPT is retried. Retry with the trivial PONG call before each GPT-dependent step.
