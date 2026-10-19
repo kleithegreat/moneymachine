@@ -15,6 +15,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 FX = "cd kernel && cargo test -q --release --test fixtures"
 SIM, MACHINE, MAIN, MARKET, DSL = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "market", "dsl"])
+EVENTS = "ingest/events.py"
 I2 = "    if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.submitted <= f.filled) {"
 
 MUTANTS = {
@@ -49,6 +50,13 @@ MUTANTS = {
         (SIM, "        if !(gross <= MAX_GROSS * (1.0 + 1e-12)) {", "        if false {"),
         (SIM, "            if qty.abs() * price > MAX_ORDER_NOTIONAL {", "            if false {"),
         (SIM, "    if f.why == Why::Fill && f.qty.abs() * f.decision_price > MAX_ORDER_NOTIONAL * (1.0 + 1e-12) {", "    if false {")]),
+    "I1 events delivered early": ("cd kernel && cargo test -q --release --test events counts_are_fresh_only_and_respect_known_at", [
+        (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
+    "C5 derivation without the availability lag": ("pytest -q ingest/tests/test_events.py", [
+        (EVENTS, "RULE_MS = 600_000", "RULE_MS = 0")]),
+    "C5 derivation counts future items": ("pytest -q ingest/tests/test_events.py", [
+        (EVENTS, 'counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")',
+         'counts = np.searchsorted(k, hours + HOUR, side="right") - np.searchsorted(k, hours, side="right")')]),
 }
 
 

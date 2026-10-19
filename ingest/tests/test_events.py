@@ -28,15 +28,16 @@ def iso(t):
 
 def test_counts_follow_admissibility(tmp_path, monkeypatch):
     monkeypatch.setattr("ingest.sources_backfill.START", 0)
-    posts = [(1, 10 * H + 5), (2, 10 * H + 1_000_000), (3, 11 * H + 10)]
+    posts = [(1, 10 * H + 5), (2, 10 * H + 1_000_000), (3, 11 * H + 10), (5, 13 * H - 300_000)]
     live = [{"source": "discourse", "key": "ethresear.ch", "sent": 90 * H, "recv": 90 * H,
              "data": [{"id": 4, "created_at": iso(89 * H + 1), "updated_at": iso(89 * H + 1), "version": 1}]}]
     root, live_dir = setup(tmp_path, posts, live)
     admitted = events.derive(root, 120 * H, live_dir, True)
     by_hour = dict(admitted.select("eventTime", "count").iter_rows())
-    assert by_hour[11 * H] == 2 and by_hour[12 * H] == 1 and by_hour[90 * H] == 1
+    assert by_hour[11 * H] == 2 and by_hour[12 * H] == 1 and by_hour[13 * H] == 0 and by_hour[14 * H] == 1
+    assert by_hour[10 * H] == 0 and by_hour[90 * H] == 1
     assert admitted["eventTime"].min() == H
     prospective = events.derive(root, 120 * H, live_dir, False)
     assert prospective["eventTime"].min() == 91 * H
-    assert dict(prospective.select("eventTime", "count").iter_rows())[100 * H] == 3
+    assert dict(prospective.select("eventTime", "count").iter_rows())[100 * H] == 4
     assert events.derive(root, 120 * H, live_dir, True).equals(admitted)
