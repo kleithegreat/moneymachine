@@ -120,6 +120,63 @@ Later campaigns must stay within 400 evaluations.
 
 Exit when C2.1 to C2.6 all hold.
 
+### Stage 3: single-agent research
+
+Frozen 2026-10-19, before any stage 3 code was written. The draft was reviewed by a fresh-context Opus subagent because GPT was unavailable.
+
+**One campaign, two arms.** Both arms run on the stage 0 data: U, the search part of W, the stage 1 dataset version, and venue/hyperliquid.
+- **Arm A:** an LLM research agent proposes mechanism-backed DSL strategies.
+- **Arm B:** the stage 2 searcher G100 (same code hash) does the same search.
+
+Each arm has a budget of 100 evaluations. An evaluation is any `mm eval` call, including duplicates, rejections and strategies with zero fills. `mm check` calls are free, since they touch no data. Each arm passes the stage 2 search gate separately, with its own N, SPA and StepM. Arm A then gets the mechanism check. The finalists of both arms are frozen, then evaluated together in one `mm holdout` batch. Holm is applied within each arm, so each arm's error claim is a per-arm family-wise error rate. This is one campaign with two pre-registered arms; it reads the paper's "once per campaign" rule as one holdout query batch with no feedback between arms. After this campaign the holdout is spent.
+
+**Holdout after the model's knowledge.** Arm A's model (pinned id `claude-opus-5-5`, knowledge cutoff June 2026) may have seen data up to its cutoff. That is an unlogged channel into history, which null markets cannot detect. The stage 3 holdout window is therefore [2026-07-01, 2026-09-30), for both arms. Neither arm sees results from [2026-04-03, 2026-07-01). Arm A's error control rests on this post-cutoff holdout and on the stage 2 holdout test being valid. It does not rest on C3.2.
+
+**Harness (arm A).** The harness is frozen and hashed before C3.2. The hash covers the brief text, model id, CLI flags, permission set, turn limit (200) and wall-time limit (2 h), and the `mm-agent` client and daemon. A change means rerunning C3.2 with fresh campaign ids.
+- **Sandbox:** the agent runs `claude -p` inside bubblewrap. Its filesystem holds only its workspace (DSL.md, the paper's research-direction and mechanism sections, the brief, and the `mm-agent` client) and a private HOME, with no repo, no `data/`, no ledger, no user settings, memory or MCP.
+- **Tools:** Read and Write inside the workspace, and Bash only for `./mm-agent`. WebFetch, WebSearch and every other tool are disabled.
+- **`mm-agent`:** a thin client that talks over a unix socket to a daemon outside the sandbox. The daemon:
+  - fixes the store, ledger, campaign and agent;
+  - accepts strategy text only;
+  - enforces the budget;
+  - discloses only `sharpe_annualized`, `fills`, `total_return` and `max_drawdown` per evaluation, or the rejection code;
+  - logs every call with its payload hash.
+
+  This disclosure set is richer than G100's (Sharpe only). That difference is stated and is not covered by stage 2's calibration.
+- **Records:** the agent's full transcript and its final selection of up to 10 finalist candidates are stored, and their hashes are recorded in the ledger.
+- **One attempt:** arm A runs once on real data. A crash, timeout or early stop ends the arm with whatever it evaluated. A rerun would need a new, later holdout.
+
+**Mechanism check (arm A).** A candidate's strategy file must have carried, from its first evaluation, a structured `prediction`: a DSL boolean `condition` (type-checked, and not part of strategy identity). The claim is that mean net return per (coin, decision) exposure is higher where the condition held at the decision. The kernel computes, on the search period, the original strategy's per-coin return over each decision interval, split by the condition. It is logged but never disclosed to the agent, and does not count toward N or the budget. The check fails if either branch holds less than 10% or more than 90% of exposures, or if the difference is ≤ 0. A failing candidate is removed before the freeze. Each finalist's difference on the holdout is reported too.
+
+**Criteria.**
+- **C3.1 Isolation.** OS-level tests, run as the sandboxed agent would run, show that the sandbox cannot read the repo, `data/`, the ledger or the real HOME, and has no tool but its workspace and `mm-agent`. Daemon tests show that it rejects:
+  - overrides of the store, ledger, campaign or agent;
+  - a 101st evaluation;
+  - any disclosure field outside the set.
+
+  For every arm A run (null and real), the daemon's call log matches the arm's ledger rows one to one. A transcript audit finds no tool call outside the permitted set.
+- **C3.2 Smoke calibration.** 20 campaigns run arm A's frozen procedure on fresh N2 null markets, with W's timeline and a holdout from day 640 of 730, mirroring the real campaign's post-cutoff window. Every started campaign counts, and a crash counts as a promotion. Pass if at most 2 campaigns promote. Also reported, against G100's C2.4 N2 distribution:
+  - SPA p-values;
+  - maximum in-sample DSR;
+  - screened counts.
+
+  This is a smoke test (20 runs bound the rate only to about 0.28) and is stated as such.
+- **C3.3 Real run.** Both arms complete once on real data in the order C3.1 → C3.2 → freeze → both arms → both freezes → one holdout batch. The ledger holds every arm A disclosure, its transcript hash, its selection, and each candidate's prediction, mechanism-check result and holdout result.
+- **C3.4 Honest comparison.** A report gives, per arm:
+  - evaluations;
+  - distinct canonical strategies;
+  - N;
+  - SPA p-value;
+  - screened count;
+  - finalists;
+  - mechanism failures;
+  - each finalist's holdout return, bootstrap p-value and Holm-adjusted p-value;
+  - promotions.
+
+  It states that one campaign per arm supports no claim that either generator is better. A reviewer (GPT, or a fresh-context Opus subagent if GPT is unavailable), given the frozen criteria and the report, finds no claim beyond the evidence.
+
+Exit when C3.1 to C3.4 all hold. Zero promotions is an acceptable outcome.
+
 ## Blockers
 
 - **GPT unavailable (2026-10-19 ~05:30 UTC).** `opencode run` answers "The usage limit has been reached" for gpt-6.1-sol and gpt-6.1-sol-fast. Lost: the stage 1 red team, the independent fill checker, and the stage 2 criteria review. Fallback, per the session instructions: fresh-context Opus subagents, each given only a scratch directory of materials and told not to read the repo. That is weaker independence (same model family) and trust-based isolation. C1.2 ("≥ 10 programs from a GPT red team") and C1.5 ("GPT implements") name GPT, so they stay open until GPT is retried. Retry with the trivial PONG call before each GPT-dependent step.
