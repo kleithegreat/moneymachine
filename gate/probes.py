@@ -98,5 +98,8 @@ def gross_pnl(mm, programs, model, params, market_id, cost_cells):
 
 def probe_zscores(mm, programs, model, params, cost_cells, tag=""):
     g = np.array([gross_pnl(mm, programs, model, params, f"probe{tag}-{model}-{m}", cost_cells) for m in range(MARKETS)])
-    z = g.mean(axis=0) / (g.std(axis=0, ddof=1) / np.sqrt(MARKETS))
+    mean, se = g.mean(axis=0), g.std(axis=0, ddof=1) / np.sqrt(MARKETS)
+    z = np.divide(mean, se, out=np.zeros_like(mean), where=se > 0)
+    if np.any((se == 0) & (mean != 0)):
+        raise ValueError("a probe has constant nonzero gross return across markets")
     return {p["name"]: float(x) for p, x in zip(programs, z)}

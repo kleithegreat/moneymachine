@@ -190,6 +190,8 @@ pub struct Program {
     pub nodes: Vec<Node>,
     pub types: Vec<Ty>,
     pub weight: usize,
+    /// The pre-registered mechanism condition, a boolean node; not part of the strategy's identity.
+    pub prediction: Option<usize>,
     pub params: Vec<Param>,
     pub mechanism: Value,
 }
@@ -324,7 +326,7 @@ fn unit(v: &Value, path: &str) -> Result<Unit, Reject> {
 
 impl Checker {
     fn program(mut self, v: &Value) -> Result<Program, Reject> {
-        let m = fields(v, "$", &["dsl", "name", "mechanism", "weight"], &["params", "let"])?;
+        let m = fields(v, "$", &["dsl", "name", "mechanism", "weight"], &["params", "let", "prediction"])?;
         if m["dsl"] != Value::from(1) {
             return reject(Code::Parse, "$.dsl", "dsl must be 1");
         }
@@ -361,10 +363,22 @@ impl Checker {
             Ty::Num(u) => return reject(Code::Dimensionless, "$.weight", format!("weight has unit {u}, needs 1")),
             Ty::Bool => return reject(Code::Bool, "$.weight", "weight is boolean"),
         }
+        let prediction = match m.get("prediction") {
+            None => None,
+            Some(p) => {
+                let p = fields(p, "$.prediction", &["condition"], &[])?;
+                let c = self.expr(&p["condition"], "$.prediction.condition", 1)?;
+                if self.types[c] != Ty::Bool {
+                    return reject(Code::Bool, "$.prediction.condition", "condition must be boolean");
+                }
+                Some(c)
+            }
+        };
         Ok(Program {
             nodes: self.nodes,
             types: self.types,
             weight: w,
+            prediction,
             params: self.params,
             mechanism: m["mechanism"].clone(),
         })

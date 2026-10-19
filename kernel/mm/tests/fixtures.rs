@@ -91,9 +91,13 @@ impl Spec {
     }
 
     fn run(&self, weight: &str) -> Result<sim::Run, sim::Abort> {
+        self.run_with(weight, "")
+    }
+
+    fn run_with(&self, weight: &str, extra: &str) -> Result<sim::Run, sim::Abort> {
         let prog = dsl::parse(&format!(
             r#"{{"dsl": 1, "name": "fixture", "mechanism": {{"counterparty": "-", "predictions": [], "capacity": "-"}},
-                "weight": {weight}}}"#
+                "weight": {weight}{extra}}}"#
         ))
         .unwrap();
         let (m, v, p, end) = self.build();
@@ -280,4 +284,29 @@ fn timing_order_holds_for_every_fill() {
         assert!(x.inputs_known <= x.decided && x.decided <= x.submitted && x.submitted <= x.filled, "{x:?}");
         assert!(x.decided < x.filled);
     }
+}
+
+
+/// Mechanism exposures: labeled by the condition at the deciding tick, and summing to total PnL.
+#[test]
+fn mechanism_exposures_attribute_all_pnl() {
+    let mut s = Spec::new(&[100.0, 100.0, 110.0, 105.0, 120.0, 115.0, 118.0], &[100.0, 110.0, 105.0, 120.0, 115.0, 118.0, 118.0]);
+    s.funding = (1..28).map(|h| (h, 0.0002, if (h / 4) % 2 == 0 { 1.0 } else { -1.0 })).collect();
+    let cond = r#", "prediction": {"condition": {"op": "gt", "args": [{"input": "premium"}, {"const": 0, "unit": "1"}]}}"#;
+    let run = s.run_with(HALF, cond).unwrap();
+    let mut equity_prev = 10_000.0;
+    let mut attributed = 0.0;
+    let marks: Vec<f64> = run.trace.iter().filter_map(|e| if let Event::Equity { equity, .. } = e { Some(*equity) } else { None }).collect();
+    // One coin, so each step with a position has exactly one exposure; scale it back to dollars.
+    let mut k = 0;
+    for (i, e) in marks.iter().enumerate() {
+        let prev = if i == 0 { 10_000.0 } else { marks[i - 1] };
+        if i >= marks.len() - run.exposures.len() {
+            attributed += run.exposures[k].1 * prev;
+            k += 1;
+        }
+        equity_prev = *e;
+    }
+    assert!((attributed - (equity_prev - 10_000.0)).abs() < 1e-6, "{attributed} vs {}", equity_prev - 10_000.0);
+    assert!(run.exposures.iter().any(|(c, _)| *c) && run.exposures.iter().any(|(c, _)| !*c));
 }

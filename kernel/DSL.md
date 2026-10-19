@@ -23,7 +23,7 @@ strategy and no way to run host-language code.
 }
 ```
 
-Top-level fields, all required except `params` and `let`. Unknown fields are rejected everywhere.
+Top-level fields, all required except `params`, `let` and `prediction`. Unknown fields are rejected everywhere.
 
 | Field | Meaning |
 |---|---|
@@ -33,6 +33,7 @@ Top-level fields, all required except `params` and `let`. Unknown fields are rej
 | `params` | name → `{"value": number, "unit": unit}`, referenced by `{"param": name}` |
 | `let` | name → expression, referenced by `{"ref": name}`. A let may reference only lets defined before it, so there are no cycles |
 | `weight` | expression of unit `1`: the target position for each coin as a fraction of account equity (positive is long) |
+| `prediction` | optional `{"condition": boolean expression}`: the pre-registered mechanism claim that the strategy earns more, per coin and decision interval, when the condition holds at the decision. It is not part of the strategy's identity, and its test is never shown to the agent |
 
 ## Time and evaluation
 

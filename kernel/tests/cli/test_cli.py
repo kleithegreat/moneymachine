@@ -156,3 +156,34 @@ def test_stream_eval_answers_each_line(market, tmp_path):
     second = json.loads(p.stdout.readline())
     p.stdin.close()
     assert p.wait() == 1 and "disclosure" in first and second["code"] == "E_UNKNOWN_INPUT"
+
+
+def test_holdout_from_and_overlap(market, tmp_path):
+    ledger = tmp_path / "l.sqlite"
+    m = Path(market)
+    policy = json.loads((m / "policy.json").read_text())
+    later = policy["holdout_start"] + 5 * 24 * 3_600_000
+    base = [str(MM), "holdout", str(W0), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
+            "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--policy", str(m / "policy.json"),
+            "--ledger", str(ledger)]
+    r = subprocess.run(base + ["--holdout-from", str(later)], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert json.loads(r.stdout)["disclosure"]["result"]["steps"] == 5 * 6 - 1
+    again = subprocess.run(base, capture_output=True, text=True)
+    assert json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
+
+
+def test_mechanism_report(market, tmp_path):
+    s = json.loads(W0.read_text())
+    s["prediction"] = {"condition": {"op": "gt", "args": [{"input": "premium"}, {"const": 0, "unit": "1"}]}}
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps(s))
+    plain = json.loads(evaluate(market, tmp_path / "a.sqlite", p).stdout)["disclosure"]
+    assert "mechanism" not in plain["result"]
+    m = Path(market)
+    r = subprocess.run([str(MM), "eval", str(p), "--campaign", "c", "--agent", "gate", "--mechanism", "on",
+                        "--store", str(m / "store"), "--venue", str(m / "venue"), "--policy", str(m / "policy.json"),
+                        "--ledger", str(tmp_path / "b.sqlite")], capture_output=True, text=True)
+    mech = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
+    assert set(mech) >= {"exposures_true", "exposures_false", "mean_true", "mean_false", "share_true", "pass"}
+    assert plain["strategy"] == json.loads(r.stdout)["disclosure"]["strategy"]

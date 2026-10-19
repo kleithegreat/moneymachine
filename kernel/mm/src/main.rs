@@ -20,9 +20,12 @@ USAGE:
       arrives. Exit code 1 if any line is a rejection or abort.
       --version is a dataset version (a fetchedAt cutoff in ms); default: the latest.
       --trace also writes the full event trace to OUT as JSON lines.
-  mm holdout FILE --campaign C --agent A --holdout-store DIR [same options as eval]
-      The gate's holdout step: evaluate the finalists in FILE over the holdout window,
-      once. Refused (R_HOLDOUT_SPENT) if this ledger has evaluated this holdout window before.
+      --mechanism on adds the test of each strategy's `prediction` (for the gate; never
+      passed to an agent).
+  mm holdout FILE --campaign C --agent A --holdout-store DIR [--holdout-from MS] [same options as eval]
+      The gate's holdout step: evaluate the finalists in FILE over the holdout window, once.
+      The window starts at the policy's holdout start, or later with --holdout-from. Refused
+      (R_HOLDOUT_SPENT) if this ledger has evaluated an overlapping holdout window before.
   mm select HASH --campaign C --agent A [--note TEXT] [--ledger PATH]
       Record that the agent chose to pursue strategy HASH, given what it has seen.
   mm check-fills FILE
@@ -194,7 +197,11 @@ fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
     };
     let (stores, holdout, report_after, end) = if mode == "holdout" {
         let h = PathBuf::from(a.opts.get("holdout-store").ok_or_else(|| LoadError::Io("--holdout-store required".into()))?);
-        (vec![store, h], None, policy.holdout_start, policy.w_end)
+        let from = match a.opts.get("holdout-from") {
+            Some(v) => v.parse::<i64>().map_err(|_| LoadError::Io("bad --holdout-from".into()))?.max(policy.holdout_start),
+            None => policy.holdout_start,
+        };
+        (vec![store, h], None, from, policy.w_end)
     } else {
         (vec![store], Some(policy.holdout_start), i64::MIN, policy.holdout_start.min(policy.w_end))
     };
@@ -218,7 +225,18 @@ fn programs(path: &str) -> std::io::Result<Box<dyn Iterator<Item = String>>> {
 }
 
 /// Evaluate one checked program and commit its experiment, result and disclosure.
-fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, ledger: &mut Ledger)
+fn mechanism_report(exposures: &[(bool, f64)]) -> Value {
+    let branch = |b: bool| {
+        let r: Vec<f64> = exposures.iter().filter(|(c, _)| *c == b).map(|(_, r)| *r).collect();
+        (r.len(), if r.is_empty() { f64::NAN } else { r.iter().sum::<f64>() / r.len() as f64 })
+    };
+    let ((n_t, m_t), (n_f, m_f)) = (branch(true), branch(false));
+    let share = n_t as f64 / (n_t + n_f).max(1) as f64;
+    json!({"exposures_true": n_t, "exposures_false": n_f, "mean_true": m_t, "mean_false": m_f, "share_true": share,
+           "pass": (0.1..=0.9).contains(&share) && m_t > m_f})
+}
+
+fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, mechanism: bool, ledger: &mut Ledger)
     -> Result<String, (String, String)> {
     let run = sim::run(prog, &c.market, &c.venue, &c.policy, c.end).map_err(|e| (e.code().to_string(), format!("{e:?}")))?;
     let first = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).position(|t| t > c.report_after);
@@ -227,6 +245,7 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
         returns: run.returns[k..].to_vec(),
         gross_returns: run.gross_returns[k..].to_vec(),
         equity: run.equity[k..].to_vec(),
+        exposures: run.exposures,
         trace: run.trace,
     };
     let canonical = prog.canonical();
@@ -242,7 +261,11 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
             .join("\n")
             .as_bytes(),
     );
-    let summary = summary(&run).to_string();
+    let mut summary = summary(&run);
+    if mechanism {
+        summary["mechanism"] = mechanism_report(&run.exposures);
+    }
+    let summary = summary.to_string();
     let returns_bytes: Vec<u8> = run.returns.iter().flat_map(|r| r.to_le_bytes()).collect();
     let result_hash = sha256_hex(&[summary.as_bytes(), &returns_bytes].concat());
     let trace_text = trace_path.map(|_| run.trace.iter().map(|e| event_json(e, &c.venue.coins).to_string()).collect::<Vec<_>>().join("\n") + "\n");
@@ -314,10 +337,10 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
                         }
                     };
                     if mode == "holdout" {
-                        match ledger.holdout_used(c.report_after) {
+                        match ledger.holdout_used(c.report_after, c.end) {
                             Ok(false) => {}
                             Ok(true) => {
-                                let out = json!({"ok": false, "code": "R_HOLDOUT_SPENT", "message": "this holdout window was already evaluated"}).to_string();
+                                let out = json!({"ok": false, "code": "R_HOLDOUT_SPENT", "message": "an overlapping holdout window was already evaluated"}).to_string();
                                 return emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1);
                             }
                             Err(e) => {
@@ -328,7 +351,7 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
                     }
                     ctx = Some(c);
                 }
-                evaluate(&prog, &text, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), ledger)
+                evaluate(&prog, &text, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), a.opts.contains_key("mechanism"), ledger)
             }
         };
         match outcome {

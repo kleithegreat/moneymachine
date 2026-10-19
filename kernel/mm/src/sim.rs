@@ -82,6 +82,8 @@ struct Book {
     fees: f64,
     slippage: f64,
     funding: f64,
+    /// Per-coin cash flows (trades, fees, funding), for per-coin PnL attribution.
+    coin_cash: BTreeMap<usize, f64>,
 }
 
 impl Book {
@@ -106,6 +108,7 @@ impl Book {
         }
         self.cash -= qty * price + fee;
         self.fees += fee;
+        *self.coin_cash.entry(coin).or_default() -= qty * price + fee;
     }
 
     fn costs(&self) -> f64 {
@@ -116,7 +119,13 @@ impl Book {
         let paid = self.pos.get(&coin).copied().unwrap_or(0.0) * price * rate;
         self.cash -= paid;
         self.funding -= paid;
+        *self.coin_cash.entry(coin).or_default() -= paid;
         paid
+    }
+
+    fn coin_value(&self, coin: usize, marks: &[f64]) -> f64 {
+        let q = self.pos.get(&coin).copied().unwrap_or(0.0);
+        self.coin_cash.get(&coin).copied().unwrap_or(0.0) + if q != 0.0 { q * marks[coin] } else { 0.0 }
     }
 
     fn equity(&self, marks: &[f64]) -> f64 {
@@ -136,6 +145,9 @@ pub struct Run {
     /// The same before fees and slippage: (change in equity + that step's costs) / previous equity.
     pub gross_returns: Vec<f64>,
     pub equity: Vec<f64>,
+    /// Per (coin, decision interval) with a position: the prediction condition at the decision
+    /// that set it, and the coin's net PnL over the interval over the previous equity.
+    pub exposures: Vec<(bool, f64)>,
 }
 
 fn truncate(x: f64, decimals: i32) -> f64 {
@@ -214,6 +226,10 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
     let mut orders: BTreeMap<i64, Vec<Order>> = BTreeMap::new();
     let (mut returns, mut gross_returns, mut equity_path) = (vec![], vec![], vec![]);
     let (mut prev_equity, mut prev_costs) = (INITIAL, 0.0);
+    let mut exposures = vec![];
+    let (mut cond_latest, mut cond_held): (Vec<Option<bool>>, Vec<Option<bool>>) = (vec![None; n], vec![None; n]);
+    let mut value_prev = vec![0.0; n];
+    let mut held_prev: Vec<bool> = vec![false; n];
 
     let execute = |book: &mut Book, trace: &mut Vec<Event>, f: Fill| -> Result<(), Abort> {
         check_fill(&f, market, venue)?;
@@ -301,6 +317,15 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             return Err(Abort::Accounting(format!("at {}: {e1} vs {e2}", b + BAR)));
         }
         trace.push(Event::Equity { t: b + BAR, equity: e1, reconciled: e2 });
+        for c in 0..n {
+            let v = book.coin_value(c, &marks);
+            if held_prev[c] {
+                if let Some(cond) = cond_held[c] {
+                    exposures.push((cond, (v - value_prev[c]) / prev_equity));
+                }
+            }
+            value_prev[c] = v;
+        }
         returns.push(e1 / prev_equity - 1.0);
         gross_returns.push((e1 - prev_equity + book.costs() - prev_costs) / prev_equity);
         equity_path.push(e1);
@@ -338,6 +363,11 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             machine.tick(&(0..n).map(|c| listed(c, h)).collect::<Vec<_>>());
         }
 
+        for c in 0..n {
+            held_prev[c] = book.pos.contains_key(&c);
+        }
+        cond_held.clone_from(&cond_latest);
+
         let big_b = b + BAR;
         let t_d = big_b + policy.delta;
         let mut weights = vec![];
@@ -347,6 +377,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
                 continue;
             }
             let fresh = machine.funding[c].is_some_and(|f| f.event == big_b) && machine.bar[c].is_some_and(|x| x.event == big_b);
+            cond_latest[c] = machine.condition(c);
             if !fresh {
                 trace.push(Event::Hold { t: t_d, coin: c, why: "stale" });
                 continue;
@@ -377,5 +408,5 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
         b += BAR;
     }
-    Ok(Run { trace, returns, gross_returns, equity: equity_path })
+    Ok(Run { trace, returns, gross_returns, equity: equity_path, exposures })
 }

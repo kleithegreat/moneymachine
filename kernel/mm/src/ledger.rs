@@ -114,11 +114,11 @@ impl Ledger {
         Ok(self.conn.last_insert_rowid())
     }
 
-    /// Whether a holdout run over the window starting at `start` is already recorded.
-    pub fn holdout_used(&self, start: i64) -> rusqlite::Result<bool> {
+    /// Whether a holdout run over a window overlapping [start, end) is already recorded.
+    pub fn holdout_used(&self, start: i64, end: i64) -> rusqlite::Result<bool> {
         self.conn.query_row(
-            "SELECT COUNT(*) > 0 FROM experiments WHERE mode = 'holdout' AND window_start = ?1",
-            params![start],
+            "SELECT COUNT(*) > 0 FROM experiments WHERE mode = 'holdout' AND window_start < ?2 AND window_end > ?1",
+            params![start, end],
             |r| r.get(0),
         )
     }

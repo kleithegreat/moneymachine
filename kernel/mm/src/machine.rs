@@ -266,6 +266,11 @@ impl<'p> Machine<'p> {
     pub fn weight(&self, c: usize) -> Option<f64> {
         self.vals[self.prog.weight][c]
     }
+
+    /// The prediction condition for coin c at this tick (None if absent or undefined).
+    pub fn condition(&self, c: usize) -> Option<bool> {
+        self.prog.prediction.and_then(|i| self.vals[i][c]).map(|v| v != 0.0)
+    }
 }
 
 fn rank(xs: &[(usize, f64)], v: f64) -> f64 {
