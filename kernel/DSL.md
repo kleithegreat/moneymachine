@@ -63,7 +63,8 @@ Portfolio rules applied by the kernel, not the strategy:
 
 ## Units
 
-A unit is a product of base units with integer exponents: `usd`, `coin`, `h`, `d`, `y`.
+A unit is a product of base units with integer exponents: `usd`, `coin`, `h`, `d`, `y`, and
+`ev` for counts of events.
 Syntax: `1`, `usd`, `usd/coin`, `1/h`, `coin*usd/h^2`. The time units are distinct
 base units, so a rate per hour and a rate per year are different types.
 
@@ -83,6 +84,8 @@ Every expression is a JSON object of one of these forms:
 | `{"input": "premium"}`: premium reported with that funding row | `1` |
 | `{"input": "open" \| "high" \| "low" \| "close"}`: of the latest closed 4h bar | `usd/coin` |
 | `{"input": "volume"}`: of the latest closed 4h bar | `coin` |
+| `{"input": "forum_posts"}`: posts on the coin's mapped protocol forum whose availability time falls in the hour ending at this tick (`venue/sources/discourse.md`); defined only at that hour's tick, never held, and undefined outside the source's coverage or for unmapped coins | `ev` |
+| `{"input": "gov_proposals"}`: governance proposals for the coin (`venue/sources/snapshot.md`), with the same semantics | `ev` |
 | `{"const": number, "unit": unit}` | as given |
 | `{"param": name}`, `{"ref": name}` | of the target |
 | `{"op": name, "args": [...], ...}` | below |
@@ -104,6 +107,7 @@ Every expression is a JSON object of one of these forms:
 | `ema` | 1 | `hours`: integer 1–4380 | exponential mean with α = 2 / (hours + 1) |
 | `xs_mean` `xs_demean` | 1 | | across listed coins with a defined value at this tick |
 | `xs_rank` | 1 of unit `1` | | rank in [0, 1] across those coins (ties averaged; a single coin gets 0.5) |
+| `hours_since` | 1 boolean | | unit `h`: hours since the last tick at which the condition held (0 at that tick); undefined until it first holds, and an undefined condition counts as not holding |
 
 Every expression is evaluated at every tick, so windows see every tick. `std` uses the
 population formula. A window is undefined until it holds `hours` samples, and while any
@@ -116,5 +120,6 @@ An undefined condition makes it undefined. Booleans cannot be the weight.
 
 See `mm --help`. `mm check FILE` type-checks a strategy without touching data.
 `mm eval FILE --campaign C --agent A` evaluates it on the search period and prints its
-disclosed statistics. Every check and evaluation is recorded in the ledger before
+disclosed statistics. A strategy reading an event input that the store does not carry is
+rejected with `R_INPUT_UNAVAILABLE`, never run on missing data. Every check and evaluation is recorded in the ledger before
 anything is printed.
