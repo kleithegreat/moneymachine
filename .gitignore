@@ -1,5 +1,7 @@
 data/
 target/
+target-mutants/
 .direnv/
 result
 __pycache__/
+.hypothesis/

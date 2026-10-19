@@ -12,7 +12,7 @@ One JSON object per line:
           "source_open": ms, "reference": x, "price": x, "fee": x}}
 ```
 
-All bars belong to the fill's coin. `event` is the bar's close time. `cost_bps[side][0]`
+All bars belong to the fill's coin, sorted by `open_time`, at most one per `open_time`. `event` is the bar's close time. `cost_bps[side][0]`
 applies when |qty| · reference ≤ 1000, `[1]` otherwise. Prices compare exactly, as IEEE
 doubles: price must equal `reference * (1.0 + s * bps / 1e4)` computed in that order, and fee
 `abs(qty) * price * taker_fee`.

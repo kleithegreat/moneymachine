@@ -13,7 +13,7 @@ import pytest
 from gate.synth import write_market
 
 REPO = Path(__file__).resolve().parents[3]
-MM = REPO / "kernel" / "target" / "release" / "mm"
+MM = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
 W0 = REPO / "kernel" / "strategies" / "w0.json"
 IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end", "dataset_version", "data_hash",
             "conventions", "rules_hash", "execution_hash", "kernel", "seed", "identity", "mechanism"]

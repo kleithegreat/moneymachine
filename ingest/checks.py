@@ -28,10 +28,13 @@ def _gaps(present, start, end, step):
     return gaps
 
 
-def listed_intervals(funding, w_start, w_end, delisted):
-    """[start, end) per coin: W, cut at the last settlement for delisted coins."""
-    last = dict(funding.group_by("coin").agg(pl.col("eventTime").max()).iter_rows())
-    return {c: (w_start, last[c] + HOUR if c in delisted else w_end) for c in last}
+def listed_intervals(bars, w_start, w_end, delisted):
+    """[start, end) per coin: W, cut for delisted coins at the close of their last traded bar.
+
+    Funding rows do not mark delisting: the venue keeps writing zero rows afterwards.
+    """
+    last = dict(bars.filter(pl.col("trades") > 0).group_by("coin").agg(pl.col("eventTime").max()).iter_rows())
+    return {c: (w_start, last[c] if c in delisted else w_end) for c in last}
 
 
 def coverage(funding, bars, intervals):

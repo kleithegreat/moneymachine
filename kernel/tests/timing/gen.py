@@ -52,12 +52,19 @@ def valid_fill(rng, case):
             "price": p, "fee": abs(qty) * p * case["taker_fee"]}
 
 
+def closeout_reference(why, qty, bar):
+    return bar["close"] if why == "delisting" else (bar["high"] if qty > 0 else bar["low"])
+
+
 def valid_closeout(rng, case):
-    src = rng.choice(case["bars"])
+    bars = case["bars"]
+    i = rng.randrange(len(bars))
+    src = bars[i]
+    nxt = bars[i + 1]["event"] if i + 1 < len(bars) else src["event"] + BAR
+    t = rng.randint(src["event"], nxt - 1)
     qty = round(rng.choice([1, -1]) * rng.uniform(0.01, 100), 3) or 0.001
     why = rng.choice(["liquidation", "delisting"])
-    reference = src["close"] if why == "delisting" or rng.random() < 0.3 else (src["high"] if qty > 0 else src["low"])
-    t = src["event"] + rng.choice([0, 0, rng.randint(0, BAR)])
+    reference = closeout_reference(why, qty, src)
     p = price(reference, qty, case["cost_bps"])
     return {"why": why, "qty": qty, "inputs_known": t, "decision_price": reference, "decided": t, "submitted": t,
             "filled": t, "source_open": src["open_time"], "reference": reference, "price": p,
@@ -79,9 +86,11 @@ def plant(rng, case, f):
     kinds = ["known_after_decision", "submitted_before_decision", "filled_before_submission"]
     if f["why"] == "fill":
         kinds += ["later_bar", "bar_before_submission", "bar_after_fill", "zero_trades", "reference_is_close",
-                  "price_ulp", "wrong_bucket", "wrong_side", "fee_off", "missing_bar", "notional_cap"]
+                  "price_ulp", "wrong_bucket", "wrong_side", "fee_off", "missing_bar", "notional_cap",
+                  "rolled_to_later_bar", "zero_qty"]
     else:
-        kinds += ["closeout_wrong_extreme", "closeout_bar_not_closed", "price_ulp", "fee_off"]
+        kinds += ["closeout_wrong_reference", "closeout_bar_not_closed", "closeout_stale_bar", "price_ulp", "fee_off",
+                  "zero_qty"]
     kind = rng.choice(kinds)
     src = bar_at(case, f["source_open"])
     if kind == "known_after_decision":
@@ -151,13 +160,35 @@ def plant(rng, case, f):
             return None
         refresh(f, case)
         return "R_PORTFOLIO", kind
-    if kind == "closeout_wrong_extreme":
-        f["reference"] = src["low"] if f["qty"] > 0 else src["high"]
+    if kind == "closeout_wrong_reference":
+        right = closeout_reference(f["why"], f["qty"], src)
+        f["reference"] = rng.choice([x for x in (src["close"], src["high"], src["low"]) if x != right])
         refresh(f, case)
         return "R_FILL", kind
     if kind == "closeout_bar_not_closed":
         f["filled"] = src["event"] - rng.randint(1, BAR)
         f["submitted"] = f["decided"] = f["inputs_known"] = f["filled"]
+        return "R_FILL", kind
+    if kind == "closeout_stale_bar":
+        earlier = [b for b in bars if b["open_time"] < f["source_open"]]
+        if not earlier:
+            return None
+        b = rng.choice(earlier)
+        f["source_open"], f["reference"] = b["open_time"], closeout_reference(f["why"], f["qty"], b)
+        refresh(f, case)
+        return "R_FILL", kind
+    if kind == "rolled_to_later_bar":
+        later = [b for b in bars if b["open_time"] > f["source_open"]]
+        if not later:
+            return None
+        src["trades"] = 0
+        b = later[0]
+        f["source_open"], f["reference"], f["filled"] = b["open_time"], b["open"], max(f["filled"], b["open_time"])
+        refresh(f, case)
+        return "R_FILL", kind
+    if kind == "zero_qty":
+        f["qty"] = 0.0
+        refresh(f, case)
         return "R_FILL", kind
 
 

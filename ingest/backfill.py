@@ -50,7 +50,7 @@ def main(data_root, budget):
         print(coin, len(funding), len(bars), file=sys.stderr, flush=True)
     funding, bars = funding_frame(funding), bar_frame(bars, fetched_at)
 
-    intervals = checks.listed_intervals(funding, W_START, W_END, delisted & set(coins))
+    intervals = checks.listed_intervals(bars, W_START, W_END, delisted & set(coins))
     report = {
         "version": fetched_at,
         "intervals": intervals,

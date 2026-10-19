@@ -157,34 +157,28 @@ pub fn check_fill(f: &Fill, market: &Market, venue: &Venue) -> Result<(), Abort>
     };
     let bar = market.bars[bi];
     let fee = f.qty.abs() * f.price * venue.taker_fee;
-    match f.why {
+    let priced = f.qty != 0.0 && f.price == fill_price(venue, f.coin, f.qty, f.reference) && f.fee == fee;
+    let times = &market.bar_times[f.coin];
+    let ok = match f.why {
         Why::Fill => {
-            let times = &market.bar_times[f.coin];
-            let earlier = times.partition_point(|&t| t < f.submitted) < times.partition_point(|&t| t < bar.open_time);
-            let ok = bar.open_time >= f.submitted
-                && !earlier
-                && bar.open_time <= f.filled
-                && bar.trades >= 1
-                && f.reference == bar.open
-                && f.price == fill_price(venue, f.coin, f.qty, bar.open)
-                && f.fee == fee;
-            if !ok {
-                return Err(Abort::Fill(format!("{f:?} vs {bar:?}")));
-            }
-            if f.qty.abs() * f.decision_price > MAX_ORDER_NOTIONAL * (1.0 + 1e-12) {
-                return Err(Abort::Portfolio(format!("order notional {f:?}")));
-            }
+            let first = times.get(times.partition_point(|&t| t < f.submitted)).copied();
+            first == Some(bar.open_time) && bar.open_time <= f.filled && bar.trades >= 1 && f.reference == bar.open
         }
         Why::Liquidation | Why::Delisting => {
-            let allowed = [bar.close, if f.qty > 0.0 { bar.high } else { bar.low }];
-            let ok = bar.event <= f.filled
-                && allowed.contains(&f.reference)
-                && f.price == fill_price(venue, f.coin, f.qty, f.reference)
-                && f.fee == fee;
-            if !ok {
-                return Err(Abort::Fill(format!("{f:?} vs {bar:?}")));
-            }
+            let latest = times.iter().rev().find(|&&t| market.bars[market.bar_at[&(f.coin, t)]].event <= f.filled);
+            let reference = match f.why {
+                Why::Delisting => bar.close,
+                _ if f.qty > 0.0 => bar.high,
+                _ => bar.low,
+            };
+            latest == Some(&bar.open_time) && f.reference == reference
         }
+    };
+    if !(ok && priced) {
+        return Err(Abort::Fill(format!("{f:?} vs {bar:?}")));
+    }
+    if f.why == Why::Fill && f.qty.abs() * f.decision_price > MAX_ORDER_NOTIONAL * (1.0 + 1e-12) {
+        return Err(Abort::Portfolio(format!("order notional {f:?}")));
     }
     Ok(())
 }
@@ -265,29 +259,31 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
                 }
             }
         }
-        let this_bar = |c: usize| market.bar_at.get(&(c, b)).map(|&i| market.bars[i]);
-        for (&c, _) in book.pos.iter() {
-            if let Some(bar) = this_bar(c) {
-                marks[c] = bar.close;
-            }
-        }
-        let adverse: BTreeMap<usize, f64> = book
-            .pos
+        let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
+        let latest: BTreeMap<usize, crate::market::Bar> = held
             .iter()
-            .map(|(&c, &q)| (c, this_bar(c).map_or(marks[c], |bar| if q > 0.0 { bar.low } else { bar.high })))
+            .filter_map(|&(c, _)| {
+                let times = &market.bar_times[c];
+                let k = times.partition_point(|&t| t <= b).checked_sub(1)?;
+                Some((c, market.bars[market.bar_at[&(c, times[k])]]))
+            })
             .collect();
-        let eq_adverse = book.cash + book.pos.iter().map(|(c, q)| q * adverse[c]).sum::<f64>();
-        let maintenance: f64 = book.pos.iter().map(|(c, q)| q.abs() * adverse[c] / (2.0 * venue.rules[*c].min_tier_leverage)).sum();
-        if !book.pos.is_empty() && eq_adverse < maintenance {
-            let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
-            for (c, q) in held {
-                execute(&mut book, &mut trace, closeout(c, -q, adverse[&c], Why::Liquidation, b + BAR, b))?;
+        for (&c, bar) in &latest {
+            marks[c] = bar.close;
+        }
+        let adverse = |c: usize, q: f64| latest.get(&c).map_or(marks[c], |bar| if q > 0.0 { bar.low } else { bar.high });
+        let eq_adverse = book.cash + held.iter().map(|&(c, q)| q * adverse(c, q)).sum::<f64>();
+        let maintenance: f64 = held.iter().map(|&(c, q)| q.abs() * adverse(c, q) / (2.0 * venue.rules[c].min_tier_leverage)).sum();
+        if !held.is_empty() && eq_adverse < maintenance {
+            for &(c, q) in &held {
+                let bar = latest[&c];
+                execute(&mut book, &mut trace, closeout(c, -q, adverse(c, q), Why::Liquidation, b + BAR, bar.open_time))?;
             }
         }
         let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
         for (c, q) in held {
             if b + BAR >= market.intervals[c].1 {
-                execute(&mut book, &mut trace, closeout(c, -q, marks[c], Why::Delisting, b + BAR, b))?;
+                execute(&mut book, &mut trace, closeout(c, -q, marks[c], Why::Delisting, b + BAR, latest[&c].open_time))?;
             }
         }
 

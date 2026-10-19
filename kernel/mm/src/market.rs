@@ -73,7 +73,8 @@ pub struct Market {
     pub rate_at: HashMap<(usize, i64), f64>,
     /// Sorted bar openTimes per coin.
     pub bar_times: Vec<Vec<i64>>,
-    /// Listed interval [start, end) per coin, cut at the search end.
+    /// Listed interval [start, end) per coin, cut at the search end. A delisted coin's ends at
+    /// the close of its last traded bar; the venue keeps writing zero funding rows after it.
     pub intervals: Vec<(i64, i64)>,
     pub data_hash: String,
 }
@@ -238,12 +239,11 @@ pub fn load(store: &Path, version: i64, venue: &Venue, policy: &Policy, holdout:
     let end = holdout.unwrap_or(policy.w_end).min(policy.w_end);
     let intervals = (0..venue.coins.len())
         .map(|c| {
-            let last = funding.iter().filter(|f| f.coin == c).map(|f| f.event).max();
-            match (venue.rules[c].delisted, last) {
-                (true, Some(l)) => (policy.w_start, (l + HOUR).min(end)),
-                (true, None) => (policy.w_start, policy.w_start),
-                (false, _) => (policy.w_start, end),
+            if !venue.rules[c].delisted {
+                return (policy.w_start, end);
             }
+            let last = bars.iter().filter(|b| b.coin == c && b.trades > 0).map(|b| b.event).max();
+            (policy.w_start, last.unwrap_or(policy.w_start).min(end))
         })
         .collect();
     let bar_at = bars.iter().enumerate().map(|(i, b)| ((b.coin, b.open_time), i)).collect();

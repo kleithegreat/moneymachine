@@ -75,8 +75,9 @@ def run(data_root, version):
     search, _ = stores(root)
     report = json.loads((root / "reports" / f"stage0-ingest-{version}.json").read_text())
     intervals = {c: (s, min(e, HOLDOUT_START)) for c, (s, e) in report["intervals"].items()}
-    rules = json.loads(Path("venue/hyperliquid/rules.json").read_text())
-    cost = json.loads(Path("venue/hyperliquid/execution.json").read_text())["cost_bps_ex_fee"]
+    venue = Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"
+    rules = json.loads((venue / "rules.json").read_text())
+    cost = json.loads((venue / "execution.json").read_text())["cost_bps_ex_fee"]
     fee_rate = rules["rules"]["taker_fee"]["value"]
     min_notional = rules["rules"]["min_order_notional_usd"]["value"]
 

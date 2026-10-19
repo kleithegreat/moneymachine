@@ -241,3 +241,43 @@ fn leverage_scale_and_notional_cap() {
     let d = run.trace.iter().find_map(|e| if let Event::Decision { weight, .. } = e { Some(*weight) } else { None });
     assert_eq!(d, Some(2.0));
 }
+
+/// I5: every equity mark reconciles with the independent average-entry ledger.
+#[test]
+fn equity_reconciles_every_step() {
+    let mut s = Spec::new(&[100.0, 100.0, 110.0, 120.0, 90.0, 95.0, 100.0], &[100.0, 110.0, 120.0, 90.0, 95.0, 100.0, 100.0]);
+    s.funding = (1..28).map(|h| (h, 0.0005 * if h % 3 == 0 { -1.0 } else { 1.0 }, if h % 8 < 4 { 1.0 } else { -1.0 })).collect();
+    let w = r#"{"op": "mul", "args": [{"op": "sign", "args": [{"input": "premium"}]}, {"const": 0.4, "unit": "1"}]}"#;
+    let run = s.run(w).unwrap();
+    let marks: Vec<(f64, f64)> =
+        run.trace.iter().filter_map(|e| if let Event::Equity { equity, reconciled, .. } = e { Some((*equity, *reconciled)) } else { None }).collect();
+    assert!(marks.len() >= 4 && fills(&run).len() >= 3);
+    assert!(run.trace.iter().any(|e| matches!(e, Event::Funding { paid, .. } if *paid != 0.0)));
+    for (e, r) in marks {
+        assert!((e - r).abs() <= 1e-9, "{e} vs {r}");
+    }
+}
+
+/// I1: the decision at 4h+d sees bar 0 (up), not bar 1 (down) or later, and goes long.
+#[test]
+fn decision_sees_only_closed_bars() {
+    let s = Spec::new(&[100.0, 110.0, 90.0, 95.0, 95.0], &[110.0, 90.0, 95.0, 95.0, 95.0]);
+    let w = r#"{"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [{"input": "close"}, {"input": "open"}]}]}, {"const": 0.5, "unit": "1"}]}"#;
+    let run = s.run(w).unwrap();
+    let first = run.trace.iter().find_map(|e| if let Event::Decision { t, weight, .. } = e { Some((*t, *weight)) } else { None });
+    assert_eq!(first, Some((4 * HOUR + DELTA, 0.5)));
+}
+
+/// I2: every fill in a busy run is ordered known <= decided <= submitted <= filled.
+#[test]
+fn timing_order_holds_for_every_fill() {
+    let mut s = Spec::new(&[100.0, 100.0, 110.0, 120.0, 90.0, 95.0, 100.0], &[100.0, 110.0, 120.0, 90.0, 95.0, 100.0, 100.0]);
+    s.funding = (1..28).map(|h| (h, 0.0, if h % 8 < 4 { 1.0 } else { -1.0 })).collect();
+    let run = s.run(r#"{"op": "mul", "args": [{"op": "sign", "args": [{"input": "premium"}]}, {"const": 0.4, "unit": "1"}]}"#).unwrap();
+    let f = fills(&run);
+    assert!(f.len() >= 3);
+    for x in f {
+        assert!(x.inputs_known <= x.decided && x.decided <= x.submitted && x.submitted <= x.filled, "{x:?}");
+        assert!(x.decided < x.filled);
+    }
+}
