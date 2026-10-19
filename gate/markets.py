@@ -1,5 +1,5 @@
 """Synthetic markets N1, N2, N3 and planted signals (gate/NULLS.md), in the kernel's store format:
-<root>/{store, holdout, venue, policy.json}."""
+<root>/{store (with its policy.json), holdout, venue}."""
 
 import functools
 import hashlib
@@ -193,7 +193,7 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
                            "delisted": False} for c in names}}
     (venue / "rules.json").write_text(json.dumps(rules))
     (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: cost_cells for c in names}}))
-    (root / "policy.json").write_text(json.dumps(
+    (root / "store" / "policy.json").write_text(json.dumps(
         {"delta_ms": DELTA, "w_start": 0, "holdout_start": holdout_start, "w_end": w_end}))
     return root
 

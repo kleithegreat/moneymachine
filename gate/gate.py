@@ -159,7 +159,7 @@ def holdout_run(mm, market, ledger, campaign, programs, holdout_from=None):
     extra = ["--holdout-from", str(holdout_from)] if holdout_from else []
     out = subprocess.run([str(mm), "holdout", fh.name, "--campaign", campaign, "--agent", "gate",
                           "--store", str(m / "store"), "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
-                          "--policy", str(m / "policy.json"), "--ledger", str(ledger), *extra], capture_output=True, text=True)
+                          "--ledger", str(ledger), *extra], capture_output=True, text=True)
     Path(fh.name).unlink()
     if out.returncode != 0:
         raise RuntimeError(out.stdout + out.stderr)

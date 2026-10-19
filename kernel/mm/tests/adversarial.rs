@@ -25,6 +25,12 @@ fn type_checker_rejects_with_expected_code() {
     let mut failures = vec![];
     for (name, hdr, prog) in cases() {
         let expect = hdr["expect"].as_str().unwrap();
+        if expect == "ADMITTED" {
+            if let Err(r) = mm::dsl::parse(&prog) {
+                failures.push(format!("{name}: expected to type-check, got {r}"));
+            }
+            continue;
+        }
         if !expect.starts_with("E_") {
             continue;
         }

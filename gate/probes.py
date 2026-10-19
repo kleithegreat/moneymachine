@@ -85,7 +85,7 @@ def gross_pnl(mm, programs, model, params, market_id, cost_cells):
         batch.write_text("".join(json.dumps(p) + "\n" for p in programs))
         out = subprocess.run([str(mm), "eval", str(batch), "--campaign", market_id, "--agent", "probe",
                               "--store", str(root / "store"), "--venue", str(root / "venue"),
-                              "--policy", str(root / "policy.json"), "--ledger", str(Path(tmp) / "l.sqlite")],
+                              "--ledger", str(Path(tmp) / "l.sqlite")],
                              capture_output=True, text=True)
         results = []
         for line in out.stdout.splitlines():

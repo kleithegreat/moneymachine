@@ -55,9 +55,9 @@ order is unfilled. Funding settles every hour on the position held, at the open 
 the 4h bar containing that hour. Settlement comes before a fill at the same instant.
 
 Portfolio rules applied by the kernel, not the strategy:
-- If Σ|weight| > 2 across coins, all weights are scaled down to Σ|weight| = 2.
+- If Σ|weight| > 2 across coins, all weights are scaled down to Σ|weight| = 2. The scaling divides by the largest |weight| first, so finite huge weights never overflow.
 - An order's notional is capped at $10,000; the position moves toward the target by at most that much per decision.
-- Sizes are truncated toward zero to the coin's size decimals. Orders under $10 notional are dropped, except a weight of exactly 0, which closes the position in full.
+- Sizes are truncated toward zero to the coin's size decimals. Orders under $10 notional are dropped, except a weight of exactly 0 (or −0), which closes the position in full, subject to the $10,000 order cap: a larger position closes over several decisions.
 - Maintenance margin is checked at each bar's adverse extreme, and a breach liquidates every position at those prices.
 - A coin that is delisted is closed at its last bar's close.
 

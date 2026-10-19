@@ -10,7 +10,7 @@ use std::time::Instant;
 #[ignore]
 fn w0_median_under_100ms() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let policy = market::policy(&root.join("policy.json")).unwrap();
+    let policy = market::policy(&root.join("data/store/policy.json")).unwrap();
     let venue = market::venue(&root.join("venue/hyperliquid")).unwrap();
     let store = root.join("data/store");
     let version: i64 = std::env::var("MM_VERSION").ok().and_then(|v| v.parse().ok()).unwrap_or(i64::MAX);

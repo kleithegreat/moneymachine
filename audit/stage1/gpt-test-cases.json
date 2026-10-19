@@ -1,0 +1,1349 @@
+[
+ {
+  "name": "closed-bar-input-versus-future-fill-bar",
+  "mechanism": "Use a fixture whose consecutive 4h bars have sharply different opens and closes. The signal compares the latest close with its value one hourly tick ago. This detects accidentally exposing the developing bar, backdating the latest closed bar, or filling at the close that generated the decision.",
+  "expected_if_kernel_correct": "Inputs contain only the latest delivered closed bar. A held close normally equals lag(close,1) between deliveries. A decision at H+120s fills no earlier than the open at H+4h, with adverse taker costs and fees; it cannot fill at H or at the observed close.",
+  "program": {
+   "dsl": 1,
+   "name": "closed-bar-input-versus-future-fill-bar",
+   "mechanism": {
+    "counterparty": "Synthetic timing-test counterparty",
+    "predictions": [
+     "Signals change only when delivered observations change"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "sign",
+      "args": [
+       {
+        "op": "sub",
+        "args": [
+         {
+          "input": "close"
+         },
+         {
+          "op": "lag",
+          "args": [
+           {
+            "input": "close"
+           }
+          ],
+          "hours": 1
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "hourly-inclusive-window-on-held-bars",
+  "mechanism": "Supply closed-bar values that alternate between two levels. At a bar-delivery tick, mean(close,4) must include the new value once and the previous held value three times. This catches counting source observations or decision intervals instead of hourly ticks, and excluding the current tick.",
+  "expected_if_kernel_correct": "After warmup, the four-sample mean at a normal delivery boundary is (new_close+3*old_close)/4. The window is undefined before four tick samples exist. No future values are used to populate startup windows.",
+  "program": {
+   "dsl": 1,
+   "name": "hourly-inclusive-window-on-held-bars",
+   "mechanism": {
+    "counterparty": "Synthetic window-test counterparty",
+    "predictions": [
+     "The signal follows hourly sample-and-hold arithmetic"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "sign",
+      "args": [
+       {
+        "op": "sub",
+        "args": [
+         {
+          "input": "close"
+         },
+         {
+          "op": "mean",
+          "args": [
+           {
+            "input": "close"
+           }
+          ],
+          "hours": 4
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "availability-boundary-and-immutable-revisions",
+  "mechanism": "Replay otherwise identical datasets with a funding observation knownAt exactly equal to a decision tick versus one millisecond later. Also supply a later revision with the same event time but a substantially different value. A fetchedAt dataset cutoff must not substitute for historical availability filtering.",
+  "expected_if_kernel_correct": "The equality-boundary observation is delivered before evaluation; the observation one millisecond later is not. Missing current-hour funding prevents trading at that decision. A revision unavailable at an earlier tick cannot change that tick's signal, even when the selected dataset version includes the revision.",
+  "program": {
+   "dsl": 1,
+   "name": "availability-boundary-and-immutable-revisions",
+   "mechanism": {
+    "counterparty": "Synthetic funding-test counterparty",
+    "predictions": [
+     "Only delivered funding determines the direction"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "neg",
+      "args": [
+       {
+        "op": "sign",
+        "args": [
+         {
+          "input": "funding"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "hourly-state-with-four-hour-decisions",
+  "mechanism": "Make premium alternate every hour while every required decision-boundary bar and funding row arrives on time. This separates hourly expression evaluation from the four-hour order schedule and catches trading at every signal change or advancing state only on decisions.",
+  "expected_if_kernel_correct": "The one-hour lag advances every hourly tick. Orders are generated only at H in {00,04,08,12,16,20} UTC, at H+120s. Intermediate premium changes affect state but do not themselves generate orders.",
+  "program": {
+   "dsl": 1,
+   "name": "hourly-state-with-four-hour-decisions",
+   "mechanism": {
+    "counterparty": "Synthetic clock-test counterparty",
+    "predictions": [
+     "Hourly state and decision times remain distinct"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "sign",
+      "args": [
+       {
+        "op": "sub",
+        "args": [
+         {
+          "input": "premium"
+         },
+         {
+          "op": "lag",
+          "args": [
+           {
+            "input": "premium"
+           }
+          ],
+          "hours": 1
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "unselected-if-branch-still-advances-state",
+  "mechanism": "Keep premium negative for several hours, then positive. The rolling sum is nested inside the previously unselected branch. An implementation that lazily skips that branch will fail to warm its state and may later compute a different strategy.",
+  "expected_if_kernel_correct": "Every expression is evaluated on every tick. The nested sum advances while unselected and is ready after four defined samples. Only undefined-value propagation is selective: undefined values in an unselected branch do not make the if result undefined.",
+  "program": {
+   "dsl": 1,
+   "name": "unselected-if-branch-still-advances-state",
+   "mechanism": {
+    "counterparty": "Synthetic conditional-state counterparty",
+    "predictions": [
+     "Conditional selection does not stop window clocks"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "op": "clip",
+      "args": [
+       {
+        "op": "sum",
+        "args": [
+         {
+          "input": "premium"
+         }
+        ],
+        "hours": 4
+       },
+       {
+        "const": -0.1,
+        "unit": "1"
+       },
+       {
+        "const": 0.1,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "undefined-selected-weight-holds-position",
+  "mechanism": "First establish a position while premium is positive, then make premium nonpositive. The selected branch becomes division by zero. Treating undefined as zero would manufacture a liquidation, potentially avoiding subsequent funding or losses.",
+  "expected_if_kernel_correct": "Division by zero is undefined. When that branch is selected, the kernel holds the existing position with no strategy trade. When it is unselected, it does not poison the finite branch. Normal funding and liquidation rules continue to apply to held positions.",
+  "program": {
+   "dsl": 1,
+   "name": "undefined-selected-weight-holds-position",
+   "mechanism": {
+    "counterparty": "Synthetic undefined-value counterparty",
+    "predictions": [
+     "Undefined targets preserve existing positions"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     },
+     {
+      "op": "div",
+      "args": [
+       {
+        "const": 1,
+        "unit": "1"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "cross-sectional-delivery-barrier-and-stale-members",
+  "mechanism": "Use several listed coins with asynchronous funding delivery, including one whose latest premium remains defined but whose current-hour funding is missing. Permute source-row and coin iteration order. This catches computing cross-sectional statistics before all eligible observations are delivered, or silently replacing the documented cohort with only currently tradable coins.",
+  "expected_if_kernel_correct": "Cross-sectional evaluation uses the tick's fully delivered snapshot and is invariant to iteration order. Defined held values from listed coins remain eligible for xs_mean. A coin missing required current funding or its boundary bar does not trade, even if its resulting weight is defined.",
+  "program": {
+   "dsl": 1,
+   "name": "cross-sectional-delivery-barrier-and-stale-members",
+   "mechanism": {
+    "counterparty": "Synthetic cross-sectional counterparty",
+    "predictions": [
+     "The same snapshot produces the same demeaned signals"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "clip",
+    "args": [
+     {
+      "op": "xs_demean",
+      "args": [
+       {
+        "input": "premium"
+       }
+      ]
+     },
+     {
+      "const": -0.1,
+      "unit": "1"
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "rank-ties-undefined-exclusion-and-historical-listings",
+  "mechanism": "Use tied positive premiums, a zero premium, a later listing, and a delisting. The ratio premium/abs(premium) is undefined at zero and otherwise produces ties. This probes future-universe leakage, accidental inclusion of undefined values, tie ordering, and singleton behavior.",
+  "expected_if_kernel_correct": "Only coins listed at the tick with a defined argument contribute to ranking. Undefined ratios are excluded, ties are averaged, and a singleton receives 0.5. Future listings and already delisted coins cannot affect current ranks. The undefined coin's target remains undefined and does not trigger a trade.",
+  "program": {
+   "dsl": 1,
+   "name": "rank-ties-undefined-exclusion-and-historical-listings",
+   "mechanism": {
+    "counterparty": "Synthetic ranking-test counterparty",
+    "predictions": [
+     "Historical membership and averaged ties determine ranks"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "sub",
+    "args": [
+     {
+      "op": "xs_rank",
+      "args": [
+       {
+        "op": "div",
+        "args": [
+         {
+          "input": "premium"
+         },
+         {
+          "op": "abs",
+          "args": [
+           {
+            "input": "premium"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "const": 0.5,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "maximum-lag-and-window-startup-boundary",
+  "mechanism": "Run a fixture spanning at least 4381 hourly ticks, with a distinctive first sample. This catches off-by-one startup, reading pre-start or future data to initialize history, and confusing a 4380-sample inclusive window with a 4380-tick lag.",
+  "expected_if_kernel_correct": "With the first evaluated tick indexed 0, mean(premium,4380) first becomes defined at tick 4379 if every sample is defined; lag(premium,4380) first becomes defined at tick 4380. The final expression is undefined before both operands are available.",
+  "program": {
+   "dsl": 1,
+   "name": "maximum-lag-and-window-startup-boundary",
+   "mechanism": {
+    "counterparty": "Synthetic history-boundary counterparty",
+    "predictions": [
+     "Lag and inclusive-window startup differ by one tick"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "clip",
+    "args": [
+     {
+      "op": "sub",
+      "args": [
+       {
+        "op": "lag",
+        "args": [
+         {
+          "input": "premium"
+         }
+        ],
+        "hours": 4380
+       },
+       {
+        "op": "mean",
+        "args": [
+         {
+          "input": "premium"
+         }
+        ],
+        "hours": 4380
+       }
+      ]
+     },
+     {
+      "const": -0.1,
+      "unit": "1"
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "negative-lag-cannot-be-a-lead",
+  "mechanism": "A negative lag is an obvious future-data access if runtime indexing is reached without strict validation. Repeat the boundary-validation test with hours 0 and 4381.",
+  "expected_if_kernel_correct": "Reject during checking: lag hours must be an integer from 1 through 4380. No market data is touched and no backtest statistics are produced.",
+  "program": {
+   "dsl": 1,
+   "name": "negative-lag-cannot-be-a-lead",
+   "mechanism": {
+    "counterparty": "Synthetic validation counterparty",
+    "predictions": [
+     "Invalid temporal parameters are rejected"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "lag",
+    "args": [
+     {
+      "input": "premium"
+     }
+    ],
+    "hours": -1
+   }
+  }
+ },
+ {
+  "name": "ema-counts-defined-samples-without-future-seeding",
+  "mechanism": "Alternate premium between zero and nonzero values so the EMA input alternates between undefined and defined. Insert long undefined runs, and use different future suffixes after an identical prefix. This catches wall-clock warmup, state reset on missing values, branch-skipped evaluation, and initialization from future history.",
+  "expected_if_kernel_correct": "For hours=3, alpha is 0.5. The EMA is undefined until three defined input samples have been seen; undefined samples leave its state unchanged. Identical delivered prefixes produce identical states regardless of future suffix. The precise initial seed is not specified, so an exact seeded numerical oracle requires an additional documented convention.",
+  "program": {
+   "dsl": 1,
+   "name": "ema-counts-defined-samples-without-future-seeding",
+   "mechanism": {
+    "counterparty": "Synthetic EMA-test counterparty",
+    "predictions": [
+     "Undefined samples do not advance EMA warmup"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "ema",
+      "args": [
+       {
+        "op": "div",
+        "args": [
+         {
+          "input": "premium"
+         },
+         {
+          "op": "abs",
+          "args": [
+           {
+            "input": "premium"
+           }
+          ]
+         }
+        ]
+       }
+      ],
+      "hours": 3
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "exact-hour-to-year-conversion-factor",
+  "mechanism": "For known nonzero funding, the annualized rate divided by the hourly rate has numeric value 8760 and unit h/y. Dividing by an explicitly typed 8760 h/y should give 1. This probes inverted conversion factors, 360-day years, erased dimensions, and accidental repeated annualization.",
+  "expected_if_kernel_correct": "Accept the units and obtain a weight approximately 0.1 for nonzero finite funding, subject to ordinary floating-point rounding. Zero funding makes the ratio undefined and therefore holds the position. Conversion changes time units only and uses 365*24 hours per year.",
+  "program": {
+   "dsl": 1,
+   "name": "exact-hour-to-year-conversion-factor",
+   "mechanism": {
+    "counterparty": "Synthetic unit-conversion counterparty",
+    "predictions": [
+     "Equivalent time bases produce the same dimensionless ratio"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "div",
+      "args": [
+       {
+        "op": "div",
+        "args": [
+         {
+          "op": "convert",
+          "args": [
+           {
+            "input": "funding"
+           }
+          ],
+          "to": "1/y"
+         },
+         {
+          "input": "funding"
+         }
+        ]
+       },
+       {
+        "const": 8760,
+        "unit": "h/y"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "dead-branch-does-not-bypass-unit-checking",
+  "mechanism": "Place a funding-rate parameter in an unselected branch whose other branch is dimensionless. Runtime selective undefined handling must not become selective type checking or allow parameters to have their declared units erased.",
+  "expected_if_kernel_correct": "Reject before data access because if branches have different units, 1 versus 1/h. A statically true condition does not make an ill-typed branch valid.",
+  "program": {
+   "dsl": 1,
+   "name": "dead-branch-does-not-bypass-unit-checking",
+   "mechanism": {
+    "counterparty": "Synthetic type-checking counterparty",
+    "predictions": [
+     "All branches obey dimensional typing"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "params": {
+    "rate": {
+     "value": 0.1,
+     "unit": "1/h"
+    }
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "const": 1,
+        "unit": "1"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     },
+     {
+      "param": "rate"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "parameter-booleans-are-not-numbers",
+  "mechanism": "Some host languages accept booleans as numeric values. A boolean parameter can therefore sneak through number validation and become a full-equity position. Also exercise the same validation on unused parameter declarations.",
+  "expected_if_kernel_correct": "Reject: a parameter value must be a JSON number, and true is a boolean. Validation must not depend on host-language integer subclass behavior.",
+  "program": {
+   "dsl": 1,
+   "name": "parameter-booleans-are-not-numbers",
+   "mechanism": {
+    "counterparty": "Synthetic parameter-validation counterparty",
+    "predictions": [
+     "Parameter values retain their JSON types"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "params": {
+    "size": {
+     "value": true,
+     "unit": "1"
+    }
+   },
+   "weight": {
+    "param": "size"
+   }
+  }
+ },
+ {
+  "name": "exact-zero-closes-subminimum-residual",
+  "mechanism": "Establish a position, then arrange that its remaining notional is below $10 when premium changes sign and the target becomes exactly zero. This catches dropping the close as a dust order or implementing zero as no signal.",
+  "expected_if_kernel_correct": "An exact-zero target closes the residual in full despite the $10 minimum. It remains subject to documented decision/fill timing, no-trade-bar behavior, adverse costs, taker fees, and funding until the position actually closes.",
+  "program": {
+   "dsl": 1,
+   "name": "exact-zero-closes-subminimum-residual",
+   "mechanism": {
+    "counterparty": "Synthetic residual-close counterparty",
+    "predictions": [
+     "Zero targets close residual positions"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     },
+     {
+      "const": 0,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "negative-zero-is-an-exact-zero-target",
+  "mechanism": "After opening a position, select a literal -0.0 target. Bitwise zero checks or sign-sensitive order construction can incorrectly leave a position open, create a short-zero order, or give signed zeros different economic semantics.",
+  "expected_if_kernel_correct": "The literal -0.0 is finite and numerically exactly zero, so it receives the same close behavior as 0.0. It cannot bypass fees or execution timing. Canonicalizing its sign is harmless only if trading behavior is preserved.",
+  "program": {
+   "dsl": 1,
+   "name": "negative-zero-is-an-exact-zero-target",
+   "mechanism": {
+    "counterparty": "Synthetic signed-zero counterparty",
+    "predictions": [
+     "Signed zeros have identical position-target semantics"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     },
+     {
+      "const": -0.0,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "full-zero-close-versus-universal-order-cap",
+  "mechanism": "Use several decisions to accumulate a position worth more than $10,000, then select zero. The language separately says every order is capped at $10,000 and that exactly zero closes the position in full. An implementation may exploit or inconsistently resolve this tension.",
+  "expected_if_kernel_correct": "This exposes a specification ambiguity: a single full close above $10,000 and a universal per-order cap cannot both hold. The suite should require an explicit rule for zero-close caps or order splitting before assigning a unique size verdict. Under either interpretation, costs, timing, funding, and unfilled-order rules still apply.",
+  "program": {
+   "dsl": 1,
+   "name": "full-zero-close-versus-universal-order-cap",
+   "mechanism": {
+    "counterparty": "Synthetic close-cap counterparty",
+    "predictions": [
+     "Large closes have an explicit auditable cap policy"
+    ],
+    "capacity": "Synthetic fixture accumulated over multiple decisions"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 2,
+      "unit": "1"
+     },
+     {
+      "const": 0,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "tiny-nonzero-is-not-the-zero-close-exception",
+  "mechanism": "First open a position, then select a tiny nonzero target. Test both a sizable position reduction and a sub-$10 residual reduction. Epsilon comparisons or size rounding can accidentally promote a nonzero target to the privileged exact-zero close path.",
+  "expected_if_kernel_correct": "The target 1e-308 is nonzero. Ordinary $10,000 order caps, size-decimal truncation toward zero, and the $10 minimum apply. A subminimum reduction is dropped; merely rounding its target size to zero must not grant the explicit exact-zero-weight exception.",
+  "program": {
+   "dsl": 1,
+   "name": "tiny-nonzero-is-not-the-zero-close-exception",
+   "mechanism": {
+    "counterparty": "Synthetic near-zero counterparty",
+    "predictions": [
+     "Only exact zero receives the zero-target exception"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     },
+     {
+      "const": 1e-308,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "reversal-costs-and-funding-before-same-instant-fill",
+  "mechanism": "Alternate funding signs at decision boundaries and insert nonzero funding settlements at fill boundaries. Position reversals probe whether turnover is charged on the actual change in position and whether a new position incorrectly receives funding that settled before its fill.",
+  "expected_if_kernel_correct": "Each order fills at the next eligible 4h open with adverse taker execution and a fee on executed notional. At the same timestamp, funding settles on the pre-fill position before the reversal. Funding information just delivered cannot retroactively change who paid that settlement.",
+  "program": {
+   "dsl": 1,
+   "name": "reversal-costs-and-funding-before-same-instant-fill",
+   "mechanism": {
+    "counterparty": "Synthetic funding-timing counterparty",
+    "predictions": [
+     "Reversals pay turnover costs and preserve settlement ordering"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "neg",
+      "args": [
+       {
+        "op": "sign",
+        "args": [
+         {
+          "input": "funding"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "const": 0.25,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "future-fill-bar-recorded-no-trade",
+  "mechanism": "Provide fresh decision inputs but make the designated H+4h fill bar record no trade, despite having a stored open price. A simulator may otherwise treat any populated OHLC row as executable liquidity or substitute the observed prior close.",
+  "expected_if_kernel_correct": "The order is unfilled. Neither the stored open nor any prior-bar price authorizes a fill. The documentation does not specify a retry policy, so subsequent behavior must not be assigned an invented automatic retry rule.",
+  "program": {
+   "dsl": 1,
+   "name": "future-fill-bar-recorded-no-trade",
+   "mechanism": {
+    "counterparty": "Synthetic no-trade-bar counterparty",
+    "predictions": [
+     "A recorded price without a trade cannot fill an order"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "const": 0.1,
+    "unit": "1"
+   }
+  }
+ },
+ {
+  "name": "nonzero-bar-volume-does-not-establish-capacity",
+  "mechanism": "Use a traded fill bar with negligible volume or a single tiny trade, and enough equity for a $10,000 order. This probes the gap between a nonempty bar and evidence that the requested size could execute at the modeled price.",
+  "expected_if_kernel_correct": "The documented DSL supplies a notional cap, adverse taker costs, and a no-trade-bar rule, but no explicit participation-rate, depth, or partial-fill constraint. A full $10,000 fill can therefore expose an execution-model gap without violating an explicit DSL volume rule. Do not invent a documented depth rejection that is absent.",
+  "program": {
+   "dsl": 1,
+   "name": "nonzero-bar-volume-does-not-establish-capacity",
+   "mechanism": {
+    "counterparty": "Synthetic thin-market counterparty",
+    "predictions": [
+     "Executable capacity should constrain modeled fills"
+    ],
+    "capacity": "Intentionally larger than the fixture's traded liquidity"
+   },
+   "weight": {
+    "const": 2,
+    "unit": "1"
+   }
+  }
+ },
+ {
+  "name": "gross-weight-limit-does-not-net-longs-against-shorts",
+  "mechanism": "Give multiple coins positive and negative premiums so their raw weights are +2 and -2. Net exposure can be zero while gross exposure is excessive; using abs(sum(weights)) instead of sum(abs(weights)) would evade the portfolio rule.",
+  "expected_if_kernel_correct": "All finite target weights are scaled proportionally whenever their absolute sum exceeds 2. In a two-coin fixture with weights +2 and -2, the scaled targets are +1 and -1, before order caps and size rules. Coin iteration order cannot alter the scaling.",
+  "program": {
+   "dsl": 1,
+   "name": "gross-weight-limit-does-not-net-longs-against-shorts",
+   "mechanism": {
+    "counterparty": "Synthetic gross-exposure counterparty",
+    "predictions": [
+     "Opposite signs do not cancel gross target exposure"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "sign",
+      "args": [
+       {
+        "input": "premium"
+       }
+      ]
+     },
+     {
+      "const": 2,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "finite-huge-weights-overflow-the-gross-norm",
+  "mechanism": "Evaluate the finite JSON literal 1e308 on two or more listed coins. A naive floating-point sum of absolute weights overflows, after which multiplying by 2/infinity can turn every target into zero and accidentally trigger full-close exceptions.",
+  "expected_if_kernel_correct": "The kernel must safely normalize finite huge targets, or explicitly abort rather than silently derive bogus zero targets from internal overflow. For N identical finite targets, proportional normalization gives 2/N per coin. It must never submit enormous uncapped orders.",
+  "program": {
+   "dsl": 1,
+   "name": "finite-huge-weights-overflow-the-gross-norm",
+   "mechanism": {
+    "counterparty": "Synthetic numeric-stability counterparty",
+    "predictions": [
+     "Gross normalization remains meaningful for finite inputs"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "const": 1e+308,
+    "unit": "1"
+   }
+  }
+ },
+ {
+  "name": "runtime-overflow-is-not-a-tradable-target",
+  "mechanism": "Open a position under one premium sign and then select exp(1000). This produces a non-finite result in conventional floating-point evaluation and probes whether clipping, normalization, or serialization converts it into a usable or zero target.",
+  "expected_if_kernel_correct": "If evaluation produces a non-finite or undefined weight, the documented action is to hold the current position without a strategy trade. A numeric-domain failure must not manufacture a fill, silently flatten the position, or stop funding and margin checks.",
+  "program": {
+   "dsl": 1,
+   "name": "runtime-overflow-is-not-a-tradable-target",
+   "mechanism": {
+    "counterparty": "Synthetic non-finite-target counterparty",
+    "predictions": [
+     "Non-finite targets do not become orders"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     },
+     {
+      "op": "exp",
+      "args": [
+       {
+        "const": 1000,
+        "unit": "1"
+       }
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "zero-times-undefined-cannot-be-folded-to-close",
+  "mechanism": "Start with positive premium to establish a position, then select 0*(premium/premium) at premium zero. An algebraic canonicalizer may incorrectly apply 0*x=0, changing an undefined hold instruction into an exact-zero full close.",
+  "expected_if_kernel_correct": "At premium zero, division is undefined and multiplication propagates undefined. The position is held, not closed. Any canonicalization must preserve undefined propagation, trading behavior, fees, and timing.",
+  "program": {
+   "dsl": 1,
+   "name": "zero-times-undefined-cannot-be-folded-to-close",
+   "mechanism": {
+    "counterparty": "Synthetic rewrite-soundness counterparty",
+    "predictions": [
+     "Algebraic rewrites preserve undefined target semantics"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "if",
+    "args": [
+     {
+      "op": "gt",
+      "args": [
+       {
+        "input": "premium"
+       },
+       {
+        "const": 0,
+        "unit": "1"
+       }
+      ]
+     },
+     {
+      "const": 0.1,
+      "unit": "1"
+     },
+     {
+      "op": "mul",
+      "args": [
+       {
+        "const": 0,
+        "unit": "1"
+       },
+       {
+        "op": "div",
+        "args": [
+         {
+          "input": "premium"
+         },
+         {
+          "input": "premium"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "maintenance-margin-uses-adverse-extremes",
+  "mechanism": "Use bars whose closes recover but whose low breaches maintenance for longs or whose high breaches it for shorts. Include multiple positions and optionally a later undefined signal. Checking only closes, only decision ticks, or only the currently evaluated coin can conceal liquidation.",
+  "expected_if_kernel_correct": "Maintenance is checked at each bar's adverse extreme. A breach liquidates every position at the documented adverse prices. Holding because a target is undefined does not exempt a position from maintenance checks. The threshold comes from the venue fixture, not from a strategy parameter.",
+  "program": {
+   "dsl": 1,
+   "name": "maintenance-margin-uses-adverse-extremes",
+   "mechanism": {
+    "counterparty": "Synthetic margin-test counterparty",
+    "predictions": [
+     "Intrabar adverse excursions can liquidate recovered positions"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mul",
+    "args": [
+     {
+      "op": "sign",
+      "args": [
+       {
+        "input": "premium"
+       }
+      ]
+     },
+     {
+      "const": 2,
+      "unit": "1"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "name": "delisting-close-versus-retrospective-execution",
+  "mechanism": "Hold a position into delisting, with the last bar closing before the delisting becomes knowable. Compare identical historical prefixes with different later delisting metadata. This probes future-universe leakage and whether a documented forced close assumes a retrospectively executable last-close trade.",
+  "expected_if_kernel_correct": "The literal DSL requires closing a delisted coin at its last bar's close and removing it from subsequent listed-coin operations. Earlier signals must not change because of future delisting information. If the delisting was only knowable after that close, executable closure at that price is an unresolved modeling gap in the documented rule.",
+  "program": {
+   "dsl": 1,
+   "name": "delisting-close-versus-retrospective-execution",
+   "mechanism": {
+    "counterparty": "Synthetic delisting-test counterparty",
+    "predictions": [
+     "Future delistings do not alter earlier decisions"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "const": 0.1,
+    "unit": "1"
+   }
+  }
+ },
+ {
+  "name": "duplicate-weight-parser-differential",
+  "mechanism": "A checker, canonicalizer, ledger serializer, and evaluator might disagree about whether the first or last duplicate weight wins. That could log a harmless strategy but evaluate a different one.",
+  "expected_if_kernel_correct": "Duplicate-member handling is not explicitly specified. The robust behavior is rejection before evaluation. If duplicates are accepted, every component must use one identical parsed meaning and record the actual evaluated strategy; first-wins versus last-wins disagreement is a failure.",
+  "program": null,
+  "program_text": "{\"dsl\":1,\"name\":\"duplicate-weight-parser-differential\",\"mechanism\":{\"counterparty\":\"Synthetic parser-test counterparty\",\"predictions\":[\"Parsing and evaluation agree\"],\"capacity\":\"Synthetic fixture\"},\"weight\":{\"const\":0,\"unit\":\"1\"},\"weight\":{\"const\":2,\"unit\":\"1\"}}"
+ },
+ {
+  "name": "escaped-duplicate-member-and-unit-validation",
+  "mechanism": "The keys unit and \\u0075nit decode to the same JSON member name. A raw-text duplicate detector may miss this while different downstream parsers choose different dimensional interpretations.",
+  "expected_if_kernel_correct": "Prefer rejection of the decoded duplicate member. If an acceptance policy exists, parsing, dimensional checking, canonical identity, and evaluation must agree on the same value. The escaped spelling must not create an independent hidden unit field.",
+  "program": null,
+  "program_text": "{\"dsl\":1,\"name\":\"escaped-duplicate-member-and-unit-validation\",\"mechanism\":{\"counterparty\":\"Synthetic escaped-key counterparty\",\"predictions\":[\"Decoded member names have consistent meaning\"],\"capacity\":\"Synthetic fixture\"},\"weight\":{\"const\":0.1,\"unit\":\"1/h\",\"\\u0075nit\":\"1\"}}"
+ },
+ {
+  "name": "nonstandard-json-nan-literal",
+  "mechanism": "Some JSON decoders accept NaN and Infinity extensions. Such values may bypass validation, poison identity hashing or gross normalization, or produce invalid result JSON. Repeat with Infinity and -Infinity.",
+  "expected_if_kernel_correct": "Reject as invalid standard JSON before evaluation. A decoder's permissive non-finite extension must not silently extend the documented JSON language. Any rejection disclosure must follow the ledger-before-output rule.",
+  "program": null,
+  "program_text": "{\"dsl\":1,\"name\":\"nonstandard-json-nan-literal\",\"mechanism\":{\"counterparty\":\"Synthetic nonstandard-JSON counterparty\",\"predictions\":[\"Only standard JSON numbers are accepted\"],\"capacity\":\"Synthetic fixture\"},\"weight\":{\"const\":NaN,\"unit\":\"1\"}}"
+ },
+ {
+  "name": "unicode-long-metadata-and-let-order",
+  "mechanism": "The valid let order z then a is intentionally opposite alphabetical order, and the parameter names use distinct Latin and Cyrillic characters. The long free-text name contains Unicode and a newline. This catches sorting lets before validation, Unicode-confusable name conflation, text truncation changing identity, or unsafe ledger serialization.",
+  "expected_if_kernel_correct": "Accept the backward references in their supplied order. Latin a and Cyrillic \u0430 remain distinct identifiers. The resulting weight is 0.1. Free-text name changes do not alter strategy identity, and all metadata is treated as text. Any resource-limit rejection must be explicit and cannot disclose unlogged results.",
+  "program": {
+   "dsl": 1,
+   "name": "unicode-long-metadata-\u03b1-\u7814\u7a76-\ud83d\ude42-abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\nsecond-line",
+   "mechanism": {
+    "counterparty": "Synthetic text and identifier counterparty",
+    "predictions": [
+     "Text serialization preserves exact identifiers and program order"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "params": {
+    "a": {
+     "value": 0.1,
+     "unit": "1"
+    },
+    "\u0430": {
+     "value": 0.2,
+     "unit": "1"
+    }
+   },
+   "let": {
+    "z": {
+     "param": "\u0430"
+    },
+    "a": {
+     "op": "sub",
+     "args": [
+      {
+       "ref": "z"
+      },
+      {
+       "param": "a"
+      }
+     ]
+    }
+   },
+   "weight": {
+    "ref": "a"
+   }
+  }
+ },
+ {
+  "name": "forward-let-reference-is-not-a-topological-sort-request",
+  "mechanism": "A runtime that collects all lets and then topologically sorts them may accept a program prohibited by the documented ordered-binding rule. Parser and canonicalizer disagreement can also give check and eval different outcomes.",
+  "expected_if_kernel_correct": "Reject because early references later before later is defined. Acyclicity alone is insufficient; only references to preceding let bindings are allowed.",
+  "program": {
+   "dsl": 1,
+   "name": "forward-let-reference-is-not-a-topological-sort-request",
+   "mechanism": {
+    "counterparty": "Synthetic let-validation counterparty",
+    "predictions": [
+     "Let references obey source order"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "let": {
+    "early": {
+     "ref": "later"
+    },
+    "later": {
+     "const": 0.1,
+     "unit": "1"
+    }
+   },
+   "weight": {
+    "ref": "early"
+   }
+  }
+ },
+ {
+  "name": "boolean-window-length-is-not-one-hour",
+  "mechanism": "Use true for hours. Host-language validators that treat booleans as integers can silently accept it as 1 and thereby change temporal semantics. Related probes should distinguish booleans, strings, and numeric integer representations.",
+  "expected_if_kernel_correct": "Reject: true is a JSON boolean, not an integer window length. This must happen before market-data access.",
+  "program": {
+   "dsl": 1,
+   "name": "boolean-window-length-is-not-one-hour",
+   "mechanism": {
+    "counterparty": "Synthetic window-validation counterparty",
+    "predictions": [
+     "Window lengths retain strict JSON types"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "op": "mean",
+    "args": [
+     {
+      "input": "premium"
+     }
+    ],
+    "hours": true
+   }
+  }
+ },
+ {
+  "name": "eval-store-alias-must-not-open-reserved-period",
+  "mechanism": "Command-line-only fixture: case.json is an ordinary valid strategy, and fixture-reserved-store contains rows from the campaign's reserved holdout. Selecting a store or a very late fetchedAt cutoff must not redefine the permitted search window or expose holdout data as research results.",
+  "expected_if_kernel_correct": "Evaluation remains restricted to the policy's search period. Reserved rows are excluded or the source is rejected; --version changes dataset revision availability, not authorization to evaluate later event times. Any output is recorded before disclosure.",
+  "program": null,
+  "cli": [
+   "mm",
+   "eval",
+   "case.json",
+   "--campaign",
+   "C",
+   "--agent",
+   "A",
+   "--store",
+   "fixture-reserved-store",
+   "--version",
+   "2000000000000"
+  ]
+ },
+ {
+  "name": "policy-override-can-reclassify-holdout",
+  "mechanism": "Command-line-only fixture: alternate-policy.json classifies the existing campaign's reserved interval as search data. The CLI advertises arbitrary policy paths but does not describe whether a campaign is bound to a particular policy or whether agents may choose policy files.",
+  "expected_if_kernel_correct": "A deployment enforcing the paper's frozen holdout must reject an unauthorized policy change or bind it to a distinct authorized campaign configuration without releasing the original holdout. The CLI documentation alone leaves policy authority unspecified; accepting agent-controlled reclassification is a design gap, not a documented safe holdout mechanism.",
+  "program": null,
+  "cli": [
+   "mm",
+   "eval",
+   "case.json",
+   "--campaign",
+   "C",
+   "--agent",
+   "A",
+   "--policy",
+   "alternate-policy.json"
+  ]
+ },
+ {
+  "name": "holdout-from-cannot-move-start-earlier",
+  "mechanism": "Invoke holdout with --holdout-from 0 when the policy holdout starts later. A direct override rather than a lower-bound clamp could include earlier data or bypass overlap detection. In a second fixture, preload the ledger with an overlapping holdout evaluation.",
+  "expected_if_kernel_correct": "The effective holdout start cannot precede the policy start: reject the earlier argument or retain the policy lower bound. If the resulting window overlaps a previous holdout window in the same ledger, refuse with R_HOLDOUT_SPENT. No holdout results may be disclosed through an agent-facing path.",
+  "program": null,
+  "cli": [
+   "mm",
+   "holdout",
+   "finalists.jsonl",
+   "--campaign",
+   "C",
+   "--agent",
+   "A",
+   "--holdout-store",
+   "fixture-holdout-store",
+   "--holdout-from",
+   "0",
+   "--ledger",
+   "fixture-spent-ledger.sqlite"
+  ]
+ },
+ {
+  "name": "fresh-ledger-resets-ledger-local-holdout-budget",
+  "mechanism": "After an overlapping holdout evaluation has been recorded in the normal ledger, invoke the same holdout against a different fresh ledger path. Campaign and agent renaming can be tested as additional variants. A per-ledger budget does not establish a global once-only holdout guarantee.",
+  "expected_if_kernel_correct": "The help explicitly scopes R_HOLDOUT_SPENT to this ledger, so a fresh-ledger run may succeed under the documented local rule. That exposes a deployment gap relative to the paper's spent-holdout guarantee unless ledger selection is controlled or holdout consumption is tracked by a nonresettable authority. Switching only campaign or agent within the already spent ledger must not bypass its overlap check.",
+  "program": null,
+  "cli": [
+   "mm",
+   "holdout",
+   "finalists.jsonl",
+   "--campaign",
+   "C2",
+   "--agent",
+   "A2",
+   "--holdout-store",
+   "fixture-holdout-store",
+   "--ledger",
+   "fixture-fresh-ledger.sqlite"
+  ]
+ },
+ {
+  "name": "mechanism-and-trace-disclosure-channel",
+  "mechanism": "Request the gate-only prediction test together with a full event trace through eval. A detailed trace or an added JSON field can leak a mechanism result that the DSL says is never shown to the agent, even when the ordinary summary suppresses it. Trace output can also escape disclosure accounting.",
+  "expected_if_kernel_correct": "The agent-facing path must not disclose the prediction test through stdout, errors, trace content, or accessible side effects. Gate-only access must be controlled or sensitive results suppressed. Every disclosed trace and statistic must be accounted for before disclosure; the documentation does not specify the access-control mechanism.",
+  "program": {
+   "dsl": 1,
+   "name": "mechanism-and-trace-disclosure-channel",
+   "mechanism": {
+    "counterparty": "Synthetic disclosure-test counterparty",
+    "predictions": [
+     "Conditional performance is evaluated only for the gate"
+    ],
+    "capacity": "Synthetic fixture"
+   },
+   "weight": {
+    "const": 0.1,
+    "unit": "1"
+   },
+   "prediction": {
+    "condition": {
+     "op": "gt",
+     "args": [
+      {
+       "input": "premium"
+      },
+      {
+       "const": 0,
+       "unit": "1"
+      }
+     ]
+    }
+   }
+  },
+  "cli": [
+   "mm",
+   "eval",
+   "case.json",
+   "--campaign",
+   "C",
+   "--agent",
+   "A",
+   "--mechanism",
+   "on",
+   "--trace",
+   "fixture-trace.jsonl"
+  ]
+ },
+ {
+  "name": "ledger-failure-must-precede-all-result-output",
+  "mechanism": "Use /dev/full as the ledger destination, or an equivalent fixture that fails during ledger writes. Include --trace to detect evaluators that stream results or create an informative trace before committing the required ledger record.",
+  "expected_if_kernel_correct": "A ledger-recording failure produces exit code 2 and no result disclosure. In particular, no statistics or market-derived trace may escape before successful recording. Non-result diagnostics must not contain the computed result. The same ledger-before-output guarantee should be exercised for check and rejection paths.",
+  "program": null,
+  "cli": [
+   "mm",
+   "eval",
+   "case.json",
+   "--campaign",
+   "C",
+   "--agent",
+   "A",
+   "--ledger",
+   "/dev/full",
+   "--trace",
+   "fixture-trace.jsonl"
+  ]
+ },
+ {
+  "name": "jsonl-line-isolation-and-per-disclosure-commit",
+  "mechanism": "Feed stdin three JSONL lines: a valid ordinary strategy, the duplicate-weight raw JSON from this suite, and another valid strategy. Repeat with ledger failure injected before the third disclosure. Streaming and error recovery can cause an unlogged result, reuse a prior parsed program, or apply inconsistent duplicate-key policies.",
+  "expected_if_kernel_correct": "Each processed line has its own correctly associated strategy, verdict, and prior ledger record, and outputs retain input order. If duplicate-key policy rejects the middle line, the run reports a rejection and exits 1 unless a ledger failure requires exit 2. If ledger recording fails, the affected result is not disclosed. Already disclosed committed lines do not authorize later uncommitted outputs.",
+  "program": null,
+  "cli": [
+   "mm",
+   "eval",
+   "-",
+   "--campaign",
+   "C",
+   "--agent",
+   "A",
+   "--ledger",
+   "fixture-stream-ledger.sqlite"
+  ]
+ }
+]

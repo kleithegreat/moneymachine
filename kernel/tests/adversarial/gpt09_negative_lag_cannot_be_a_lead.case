@@ -1,0 +1,2 @@
+{"mechanism": "GPT", "source": "gpt", "expect": "E_WINDOW", "name": "negative-lag-cannot-be-a-lead", "why": "A negative lag is an obvious future-data access if runtime indexing is reached without strict validation. Repeat the boundary-validation test with hours 0 and 4381."}
+{"dsl": 1, "name": "negative-lag-cannot-be-a-lead", "mechanism": {"counterparty": "Synthetic validation counterparty", "predictions": ["Invalid temporal parameters are rejected"], "capacity": "Synthetic fixture"}, "weight": {"op": "lag", "args": [{"input": "premium"}], "hours": -1}}

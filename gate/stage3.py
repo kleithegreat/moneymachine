@@ -35,8 +35,7 @@ def mechanism_check(market, ledger, campaign, programs):
         p = m / f"mech-{h[:16]}.json"
         p.write_text(json.dumps(prog))
         r = subprocess.run([str(MM), "eval", str(p), "--campaign", campaign, "--agent", "gate-mechanism", "--mechanism", "on",
-                            "--store", str(m / "store"), "--venue", str(m / "venue"), "--policy", str(m / "policy.json"),
-                            "--ledger", str(ledger)], capture_output=True, text=True, check=True)
+                            "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)], capture_output=True, text=True, check=True)
         out[h] = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
         p.unlink()
     return out
@@ -110,7 +109,7 @@ def real_campaign(data_root, version, cid="stage3-real"):
     market = work / "m"
     market.mkdir()
     for name, target in [("store", Path(data_root) / "store"), ("holdout", Path(data_root) / "holdout"),
-                         ("venue", REPO / "venue/hyperliquid"), ("policy.json", REPO / "policy.json")]:
+                         ("venue", REPO / "venue/hyperliquid")]:
         (market / name).symlink_to(Path(target).resolve())
     ledger = work / "ledger.sqlite"
     run, report_a, mech, kept_a = arm_a(market, ledger, cid, work / "run")

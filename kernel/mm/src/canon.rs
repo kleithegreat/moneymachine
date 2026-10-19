@@ -51,6 +51,7 @@ fn op_symbol(op: &Op) -> String {
             Op::XsMean => "xs_mean",
             Op::XsDemean => "xs_demean",
             Op::XsRank => "xs_rank",
+            Op::HoursSince => "hours_since",
             Op::Convert(_) | Op::Window(..) => unreachable!(),
         }
         .to_string(),

@@ -1,21 +1,21 @@
 //! Units as integer exponent vectors over base units. Time units are distinct bases,
-//! so a per-hour and a per-year rate differ until explicitly converted.
+//! so a per-hour and a per-year rate differ until explicitly converted. `ev` counts events.
 
 use std::fmt;
 
-pub const BASES: [&str; 5] = ["usd", "coin", "h", "d", "y"];
+pub const BASES: [&str; 6] = ["usd", "coin", "h", "d", "y", "ev"];
 const TIME: [usize; 3] = [2, 3, 4];
 const HOURS_PER: [f64; 3] = [1.0, 24.0, 8760.0];
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
-pub struct Unit(pub [i8; 5]);
+pub struct Unit(pub [i8; 6]);
 
 impl Unit {
-    pub const ONE: Unit = Unit([0; 5]);
+    pub const ONE: Unit = Unit([0; 6]);
 
     pub fn base(name: &str) -> Option<Unit> {
         let i = BASES.iter().position(|b| *b == name)?;
-        let mut e = [0; 5];
+        let mut e = [0; 6];
         e[i] = 1;
         Some(Unit(e))
     }
@@ -40,8 +40,8 @@ impl Unit {
     }
 
     fn zip(self, o: Unit, f: impl Fn(i8, i8) -> Option<i8>) -> Option<Unit> {
-        let mut e = [0; 5];
-        for i in 0..5 {
+        let mut e = [0; 6];
+        for i in 0..6 {
             e[i] = f(self.0[i], o.0[i])?;
         }
         Some(Unit(e))
@@ -50,7 +50,7 @@ impl Unit {
     /// Factor that converts a value in `self` to `to`, if they differ only in time units
     /// and have the same total time exponent.
     pub fn conversion(self, to: Unit) -> Option<f64> {
-        let non_time_equal = (0..5).filter(|i| !TIME.contains(i)).all(|i| self.0[i] == to.0[i]);
+        let non_time_equal = (0..6).filter(|i| !TIME.contains(i)).all(|i| self.0[i] == to.0[i]);
         let total = |u: Unit| TIME.iter().map(|&i| u.0[i] as i32).sum::<i32>();
         if !non_time_equal || total(self) != total(to) {
             return None;

@@ -1,6 +1,6 @@
 # Kernel invariants
 
-Times are UTC milliseconds. The holdout start, δ and W come from `policy.json`.
+Times are UTC milliseconds. The holdout start, δ and W come from the store's own `policy.json`, written at ingestion, never from the caller.
 A run is one strategy evaluated on one dataset version. Its trace is the ordered list of
 decisions, orders, fills, settlements and equity marks.
 

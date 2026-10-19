@@ -56,8 +56,7 @@ def test_parameter_variants_are_separate_trials(tmp_path):
     batch.write_text("\n".join(lines) + "\n")
     ledger = tmp_path / "l.sqlite"
     subprocess.run([str(repo / "kernel/target/release/mm"), "eval", str(batch), "--campaign", "c", "--agent", "a",
-                    "--store", str(m / "store"), "--venue", str(m / "venue"), "--policy", str(m / "policy.json"),
-                    "--ledger", str(ledger)], check=True, capture_output=True)
+                    "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)], check=True, capture_output=True)
     cands = gate.candidates(ledger, "c")
     assert len(cands) == 2
     progs = gate.programs(ledger, list(cands))

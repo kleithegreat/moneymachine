@@ -78,6 +78,7 @@ fn market(seed: u64, early: bool) -> (Market, Venue, Policy, i64) {
         rate_at: funding.iter().map(|f| ((f.coin, f.event), f.rate)).collect(),
         bar_times,
         intervals: vec![(0, end); COINS],
+        events: std::collections::HashMap::new(),
         funding,
         bars,
         data_hash: String::new(),

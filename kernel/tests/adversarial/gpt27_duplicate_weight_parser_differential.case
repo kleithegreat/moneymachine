@@ -1,0 +1,2 @@
+{"mechanism": "GPT", "source": "gpt", "expect": "E_PARSE", "name": "duplicate-weight-parser-differential", "why": "A checker, canonicalizer, ledger serializer, and evaluator might disagree about whether the first or last duplicate weight wins. That could log a harmless strategy but evaluate a different one."}
+{"dsl":1,"name":"duplicate-weight-parser-differential","mechanism":{"counterparty":"Synthetic parser-test counterparty","predictions":["Parsing and evaluation agree"],"capacity":"Synthetic fixture"},"weight":{"const":0,"unit":"1"},"weight":{"const":2,"unit":"1"}}

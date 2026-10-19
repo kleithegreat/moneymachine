@@ -10,7 +10,7 @@ Every stage is waiting on time or on GPT, so work proceeds on whatever does not 
   - the witness (C0.8);
   - `python -m ingest.holdout data audit/holdout.json` (C0.9, already run for the first version);
   - then stop the recorder.
-- **Stage 1:** done: C1.1, C1.3, C1.6, C1.7, and C1.5 via the Opus substitute. Waiting: C1.2 (≥ 10 GPT red-team programs; GPT blocked), and C1.4 and C1.8 (after C0.7: run with `MM_VENUE` unset and `cargo test --release --test bench -- --ignored`).
+- **Stage 1:** done: C1.1, C1.2, C1.3, C1.6, C1.7, and C1.5 via the Opus substitute (a GPT checker rerun is pending; it timed out twice, and the third run has tools denied). Waiting: C1.4 and C1.8, after C0.7 (run with `MM_VENUE` unset and `cargo test --release --test bench -- --ignored`).
 - **Stage 2:** nulls frozen (`gate/nulls.json`). C2.1 fixed probes are running (`python -m gate.c21`). C2.4 and C2.5 need the C0.7 cost cells: `python -m gate.sweep c24`, then `calibrate`, then `c25`. C2.2 and C2.3 wait for GPT, with Opus as the fallback at the end.
 - **Stage 3:** criteria frozen; harness, daemon, mechanism check, joint holdout and audit are built (`gate/stage3.py`). Before C3.2: freeze the harness (record `harness.harness_hash()` in the Log), then run 20 `null_campaign`s with the C0.7 median cost cells (`gate.sweep.cost_cells()`). The real run (`real_campaign`) comes only after stage 2 exits.
 - **Stages 4 and 5:** criteria frozen. Next for 4: `kernel/CANONICAL.md`, the egg equivalence key and the C4.1/C4.2 tests. Next for 5: the source recorder is running (`pgrep -af sources_record`); find an unlock source; ingestion, mapping, as_of tombstones and DSL inputs.
@@ -290,6 +290,12 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Log
 
+- 2026-10-19: C1.2 met. GPT's red team (`audit/stage1/gpt-test-cases.json`, 40 cases) produced 34 program cases, now in `kernel/tests/adversarial/gpt*.case`: 8 rejected with matching codes and 25 admitted probes that the leak canary passes. Its CLI cases are covered by named tests. Three kernel weaknesses it found are fixed at the root:
+  1. `--policy` let the caller move the holdout boundary. The policy is now the store's own `policy.json`, the flag is gone, and unknown options are refused.
+  2. The holdout-spent record lived in the caller-chosen ledger, so a fresh ledger could reuse the holdout. It now lives in `<holdout>/spent.jsonl`, and the ledger check is gone.
+  3. Huge finite weights overflowed the gross sum to infinity, which scaled them to a silent close. Scaling now divides by the largest weight first.
+
+  Earlier attempts: OpenAI's filter flagged the "red team" wording, and two runs hung on tool permissions. GPT now runs with `opencode.json` denying edit, bash and webfetch, which also keeps it from reading the repo.
 - 2026-10-19: C4.1 and C4.2 met (`kernel/mm/tests/rules.rs`, `canon.rs`).
   - All 16 rules of R are bitwise exact (probe value streams and run outcomes) on 1,000 programs × 3 markets each.
   - 0 of 1,000 rewritten programs got a different key; 20 hand-built pairs merge; all 10 rejected-law counterexamples stay distinct; keys are stable across fresh processes.

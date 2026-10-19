@@ -46,6 +46,17 @@ pub struct Bar {
     pub trades: i64,
 }
 
+/// An hourly event count: items whose knownAt falls in (event - 1h, event], known at `known`.
+#[derive(Clone, Copy, Debug)]
+pub struct Event {
+    pub coin: usize,
+    pub event: i64,
+    pub known: i64,
+    pub count: f64,
+}
+
+pub const EVENT_DATASETS: [&str; 2] = ["events_forum", "events_governance"];
+
 #[derive(Debug)]
 pub struct CoinRules {
     pub sz_decimals: i32,
@@ -76,6 +87,8 @@ pub struct Market {
     /// Listed interval [start, end) per coin, cut at the search end. A delisted coin's ends at
     /// the close of its last traded bar; the venue keeps writing zero funding rows after it.
     pub intervals: Vec<(i64, i64)>,
+    /// Event datasets present in the store, by name; an absent name means the input is unavailable.
+    pub events: HashMap<&'static str, Vec<Event>>,
     pub data_hash: String,
 }
 
@@ -213,12 +226,25 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
     let mut rows = |dataset: &str| -> Result<Vec<Row>, LoadError> {
         let mut all = vec![];
         for s in stores {
-            all.extend(read_rows(&s.join(dataset), version, &mut hasher)?);
+            if s.join(dataset).exists() || !dataset.starts_with("events_") {
+                all.extend(read_rows(&s.join(dataset), version, &mut hasher)?);
+            }
         }
         Ok(all)
     };
     let f_rows = resolve(rows("funding")?, &coin_ix, holdout)?;
     let b_rows = resolve(rows("bars_4h")?, &coin_ix, holdout)?;
+    let mut events = HashMap::new();
+    for ds in EVENT_DATASETS {
+        if !stores.iter().any(|s| s.join(ds).exists()) {
+            continue;
+        }
+        let mut v = vec![];
+        for r in resolve(rows(ds)?, &coin_ix, holdout)? {
+            v.push(Event { coin: coin_ix[text(&r, "coin")?], event: long(&r, "eventTime")?, known: long(&r, "knownAt")?, count: double(&r, "count")? });
+        }
+        events.insert(ds, v);
+    }
     let mut funding = Vec::with_capacity(f_rows.len());
     for r in &f_rows {
         funding.push(Funding {
@@ -264,5 +290,5 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
         t.sort();
     }
     let data_hash = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    Ok(Market { funding, bars, bar_at, rate_at, bar_times, intervals, data_hash })
+    Ok(Market { funding, bars, bar_at, rate_at, bar_times, intervals, events, data_hash })
 }

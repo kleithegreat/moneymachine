@@ -70,14 +70,34 @@ pub enum Input {
     Low,
     Close,
     Volume,
+    ForumPosts,
+    Proposals,
 }
 
 impl Input {
-    pub const ALL: [Input; 7] =
-        [Input::Funding, Input::Premium, Input::Open, Input::High, Input::Low, Input::Close, Input::Volume];
+    pub const ALL: [Input; 9] = [
+        Input::Funding,
+        Input::Premium,
+        Input::Open,
+        Input::High,
+        Input::Low,
+        Input::Close,
+        Input::Volume,
+        Input::ForumPosts,
+        Input::Proposals,
+    ];
 
     pub fn name(self) -> &'static str {
-        ["funding", "premium", "open", "high", "low", "close", "volume"][self as usize]
+        ["funding", "premium", "open", "high", "low", "close", "volume", "forum_posts", "gov_proposals"][self as usize]
+    }
+
+    /// The store dataset of an event input (hourly counts); None for funding and bar inputs.
+    pub fn event_dataset(self) -> Option<&'static str> {
+        match self {
+            Input::ForumPosts => Some("events_forum"),
+            Input::Proposals => Some("events_governance"),
+            _ => None,
+        }
     }
 
     fn unit(self) -> Unit {
@@ -85,6 +105,7 @@ impl Input {
             Input::Funding => "1/h",
             Input::Premium => "1",
             Input::Volume => "coin",
+            Input::ForumPosts | Input::Proposals => "ev",
             _ => "usd/coin",
         };
         Unit::parse(u).unwrap()
@@ -131,6 +152,7 @@ pub enum Op {
     XsMean,
     XsDemean,
     XsRank,
+    HoursSince,
 }
 
 const OPS: &[(&str, Op, usize)] = &[
@@ -166,6 +188,7 @@ const OPS: &[(&str, Op, usize)] = &[
     ("xs_mean", Op::XsMean, 1),
     ("xs_demean", Op::XsDemean, 1),
     ("xs_rank", Op::XsRank, 1),
+    ("hours_since", Op::HoursSince, 1),
 ];
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -522,6 +545,10 @@ impl Checker {
                 };
                 return Ok((Op::Window(w, h as u32), Ty::Num(u)));
             }
+            Op::HoursSince => {
+                boolean(0)?;
+                Ty::Num(Unit::base("h").unwrap())
+            }
             Op::XsMean | Op::XsDemean => Ty::Num(num(0)?),
             Op::XsRank => Ty::Num(one(num(0)?)?),
         };
@@ -578,6 +605,17 @@ impl Program {
             .map(|p| (p.name.clone(), p.value))
             .collect();
         v.sort_by(|a, b| a.0.cmp(&b.0));
+        v
+    }
+}
+
+impl Program {
+    /// Event datasets this program reads (for R_INPUT_UNAVAILABLE).
+    pub fn event_datasets(&self) -> Vec<&'static str> {
+        let mut v: Vec<&'static str> =
+            self.nodes.iter().filter_map(|n| if let Node::Input(i) = n { i.event_dataset() } else { None }).collect();
+        v.sort();
+        v.dedup();
         v
     }
 }

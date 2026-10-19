@@ -26,8 +26,7 @@ def run_mm(root, strategy, tmp_path):
     subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
     trace = tmp_path / "t.jsonl"
     r = subprocess.run([str(MM), "eval", str(strategy), "--campaign", "c", "--agent", "a", "--store", str(root / "store"),
-                        "--venue", str(root / "venue"), "--policy", str(root / "policy.json"),
-                        "--ledger", str(tmp_path / "l.sqlite"), "--trace", str(trace)], capture_output=True, text=True)
+                        "--venue", str(root / "venue"), "--ledger", str(tmp_path / "l.sqlite"), "--trace", str(trace)], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     return [json.loads(l) for l in trace.read_text().splitlines()]
 

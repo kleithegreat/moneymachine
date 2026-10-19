@@ -79,8 +79,15 @@ class Store:
 
 
 def stores(data_root):
-    """The search store (refuses holdout rows) and the holdout store."""
+    """The search store (refuses holdout rows) and the holdout store. The search store carries the
+    policy the kernel enforces, so a caller cannot choose a different holdout boundary."""
     root = Path(data_root)
+    bound = root / "store" / "policy.json"
+    bound.parent.mkdir(parents=True, exist_ok=True)
+    if not bound.exists():
+        bound.write_text(json.dumps(_POLICY, indent=1) + "\n")
+    if json.loads(bound.read_text()) != _POLICY:
+        raise ValueError(f"{bound} differs from the repository policy")
     return Store(root / "store", event_before=HOLDOUT_START), Store(root / "holdout")
 
 

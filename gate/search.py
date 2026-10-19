@@ -151,7 +151,7 @@ class Evaluator:
         m = Path(market)
         self.proc = subprocess.Popen(
             [str(mm), "eval", "-", "--campaign", campaign, "--agent", agent, "--store", str(m / "store"),
-             "--venue", str(m / "venue"), "--policy", str(m / "policy.json"), "--ledger", str(ledger)],
+             "--venue", str(m / "venue"), "--ledger", str(ledger)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
         self.seen = {}
 

@@ -13,7 +13,7 @@ USAGE:
   mm check FILE [--campaign C] [--agent A] [--ledger PATH]
       Type-check a strategy (kernel/DSL.md) without touching data.
   mm eval FILE --campaign C --agent A [--version V] [--store DIR] [--venue DIR]
-          [--policy PATH] [--ledger PATH] [--trace OUT]
+          [--ledger PATH] [--trace OUT]
       Evaluate a strategy on the search period and print its disclosed statistics as one
       JSON line. FILE is one strategy, or a .jsonl file with one strategy per line (one
       output line each, in order), or - to read JSONL from stdin and answer each line as it
@@ -25,7 +25,8 @@ USAGE:
   mm holdout FILE --campaign C --agent A --holdout-store DIR [--holdout-from MS] [same options as eval]
       The gate's holdout step: evaluate the finalists in FILE over the holdout window, once.
       The window starts at the policy's holdout start, or later with --holdout-from. Refused
-      (R_HOLDOUT_SPENT) if this ledger has evaluated an overlapping holdout window before.
+      (R_HOLDOUT_SPENT) if the holdout store records an overlapping window as already
+      evaluated, whichever ledger did it.
   mm select HASH --campaign C --agent A [--note TEXT] [--ledger PATH]
       Record that the agent chose to pursue strategy HASH, given what it has seen.
   mm disclose FILE --campaign C --agent A --kind KIND [--ledger PATH]
@@ -35,8 +36,8 @@ USAGE:
       Check fills against invariants I2/I3 and the I9 order cap, one JSON case per line
       (kernel/tests/timing/FORMAT.md); print one verdict per line. Reads no market data.
 
-Defaults: --store data/store, --venue venue/hyperliquid, --policy policy.json,
---ledger data/ledger.sqlite. Every result is recorded in the ledger before it is
+Defaults: --store data/store, --venue venue/hyperliquid, --ledger data/ledger.sqlite. The
+holdout boundary comes from the store's own policy.json. Every result is recorded in the ledger before it is
 printed; if recording fails, no result is printed and the exit code is 2.
 Exit codes: 0 ok, 1 rejected or aborted (reason printed), 2 ledger failure, 3 usage.";
 
@@ -192,9 +193,9 @@ struct Ctx {
 }
 
 fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
-    let policy = market::policy(Path::new(a.get("policy", "policy.json")))?;
-    let venue = market::venue(Path::new(a.get("venue", "venue/hyperliquid")))?;
     let store = PathBuf::from(a.get("store", "data/store"));
+    let policy = market::policy(&store.join("policy.json"))?;
+    let venue = market::venue(Path::new(a.get("venue", "venue/hyperliquid")))?;
     let version = match a.opts.get("version") {
         Some(v) => v.parse().map_err(|_| LoadError::Io("bad --version".into()))?,
         None => latest_version(&store).ok_or_else(|| LoadError::Io("empty store".into()))?,
@@ -215,6 +216,24 @@ fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
 
 /// The programs to evaluate: one file, a .jsonl file (one per line), or `-` to stream JSONL from
 /// stdin, answering each line before reading the next.
+/// Claim [start, end) of a holdout store before evaluating it: false if an overlapping window
+/// was already claimed. The record lives with the data, so a fresh ledger cannot reuse it.
+fn claim_holdout(store: &Path, start: i64, end: i64, campaign: &str) -> std::io::Result<bool> {
+    use std::io::Write;
+    let log = store.join("spent.jsonl");
+    let text = std::fs::read_to_string(&log).unwrap_or_default();
+    for line in text.lines() {
+        let v: Value = serde_json::from_str(line).map_err(std::io::Error::other)?;
+        if v["start"].as_i64().unwrap_or(i64::MIN) < end && v["end"].as_i64().unwrap_or(i64::MAX) > start {
+            return Ok(false);
+        }
+    }
+    let mut f = std::fs::OpenOptions::new().append(true).create(true).open(&log)?;
+    writeln!(f, "{}", json!({"start": start, "end": end, "campaign": campaign}))?;
+    f.sync_all()?;
+    Ok(true)
+}
+
 fn programs(path: &str) -> std::io::Result<Box<dyn Iterator<Item = String>>> {
     if path == "-" {
         use std::io::BufRead;
@@ -343,15 +362,16 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
                         }
                     };
                     if mode == "holdout" {
-                        match ledger.holdout_used(c.report_after, c.end) {
-                            Ok(false) => {}
-                            Ok(true) => {
+                        let h = PathBuf::from(&a.opts["holdout-store"]);
+                        match claim_holdout(&h, c.report_after, c.end, campaign) {
+                            Ok(true) => {}
+                            Ok(false) => {
                                 let out = json!({"ok": false, "code": "R_HOLDOUT_SPENT", "message": "an overlapping holdout window was already evaluated"}).to_string();
                                 return emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1);
                             }
                             Err(e) => {
-                                eprintln!("R_LEDGER: {e}");
-                                return ExitCode::from(2);
+                                eprintln!("cannot record holdout use: {e}");
+                                return ExitCode::from(3);
                             }
                         }
                     }
@@ -471,6 +491,7 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
         rate_at: HashMap::new(),
         bar_times,
         intervals: vec![(i64::MIN, i64::MAX)],
+        events: HashMap::new(),
         funding: vec![],
         bars,
         data_hash: String::new(),
@@ -499,11 +520,18 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
     Some((fill, market, venue))
 }
 
+const OPTIONS: [&str; 10] =
+    ["campaign", "agent", "ledger", "version", "store", "venue", "trace", "mechanism", "holdout-store", "holdout-from"];
+
 fn main() -> ExitCode {
     let Some(a) = parse_args() else {
         println!("{USAGE}");
         return ExitCode::from(3);
     };
+    if let Some(k) = a.opts.keys().find(|k| !OPTIONS.contains(&k.as_str()) && !(a.cmd == "select" && *k == "note") && !(a.cmd == "disclose" && *k == "kind")) {
+        eprintln!("unknown option --{k}\n{USAGE}");
+        return ExitCode::from(3);
+    }
     if a.cmd == "check-fills" {
         return check_fills(&a.target);
     }

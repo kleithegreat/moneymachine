@@ -87,6 +87,7 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
         rate_at: funding.iter().map(|f| ((f.coin, f.event), f.rate)).collect(),
         bar_times,
         intervals,
+        events: std::collections::HashMap::new(),
         funding,
         bars,
         data_hash: String::new(),
@@ -241,7 +242,7 @@ fn streams(p: &dsl::Program, m: &Market, end: i64) -> Vec<Option<u64>> {
             bi += 1;
         }
         let listed: Vec<bool> = (0..COINS).map(|c| m.intervals[c].0 <= h && h < m.intervals[c].1).collect();
-        machine.tick(&listed);
+        machine.tick(&listed, h);
         out.extend((0..COINS).map(|c| machine.value(probe, c).map(f64::to_bits)));
     }
     out

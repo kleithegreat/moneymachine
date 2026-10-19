@@ -4,7 +4,7 @@
 //! node for every listed coin; values are `None` when undefined or non-finite.
 
 use crate::dsl::{Input, Node, Op, Program, Window};
-use crate::market::{Bar, Funding};
+use crate::market::{Bar, Event, Funding, HOUR};
 use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq)]
@@ -115,6 +115,11 @@ pub struct Machine<'p> {
     wins: Vec<Vec<Option<Win>>>,
     pub funding: Vec<Option<Funding>>,
     pub bar: Vec<Option<Bar>>,
+    /// Latest delivered hourly event row per (event input, coin).
+    events: Vec<Vec<Option<Event>>>,
+    /// Per node and coin: the last hour a `hours_since` condition held.
+    since: Vec<Vec<Option<i64>>>,
+    hour: i64,
     /// Largest knownAt delivered so far, over all coins.
     pub max_known: i64,
 }
@@ -140,6 +145,9 @@ impl<'p> Machine<'p> {
             wins,
             funding: vec![None; coins],
             bar: vec![None; coins],
+            events: vec![vec![None; coins]; 2],
+            since: vec![vec![None; coins]; prog.nodes.len()],
+            hour: i64::MIN,
             max_known: i64::MIN,
         }
     }
@@ -162,11 +170,24 @@ impl<'p> Machine<'p> {
         Ok(())
     }
 
+    /// `slot` is 0 for forum posts, 1 for governance proposals.
+    pub fn deliver_event(&mut self, slot: usize, e: Event, tick: i64) -> Result<(), Causality> {
+        if e.known > tick {
+            return Err(Causality { known: e.known, tick });
+        }
+        self.max_known = self.max_known.max(e.known);
+        self.events[slot][e.coin] = Some(e);
+        Ok(())
+    }
+
     fn input(&self, i: Input, c: usize) -> Option<f64> {
+        let fresh = |slot: usize| self.events[slot][c].filter(|e| e.event == self.hour).map(|e| e.count);
         match i {
+            Input::ForumPosts => fresh(0),
+            Input::Proposals => fresh(1),
             Input::Funding => self.funding[c].map(|f| f.rate),
             Input::Premium => self.funding[c].map(|f| f.premium),
-            _ => self.bar[c].map(|b| match i {
+            Input::Open | Input::High | Input::Low | Input::Close | Input::Volume => self.bar[c].map(|b| match i {
                 Input::Open => b.open,
                 Input::High => b.high,
                 Input::Low => b.low,
@@ -176,9 +197,19 @@ impl<'p> Machine<'p> {
         }
     }
 
-    /// Evaluate every node once for the listed coins; unlisted coins get `None`.
-    pub fn tick(&mut self, listed: &[bool]) {
+    /// Evaluate every node once for the listed coins at hour `hour`; unlisted coins get `None`.
+    pub fn tick(&mut self, listed: &[bool], hour: i64) {
+        self.hour = hour;
         for i in 0..self.prog.nodes.len() {
+            if let Node::Op(Op::HoursSince, args) = &self.prog.nodes[i] {
+                for c in 0..self.coins {
+                    if listed[c] && self.vals[args[0]][c].is_some_and(|v| v != 0.0) {
+                        self.since[i][c] = Some(hour);
+                    }
+                    self.vals[i][c] = if listed[c] { self.since[i][c].map(|t| ((hour - t) / HOUR) as f64) } else { None };
+                }
+                continue;
+            }
             let node = &self.prog.nodes[i];
             if let Node::Op(op @ (Op::XsMean | Op::XsDemean | Op::XsRank), args) = node {
                 let xs: Vec<(usize, f64)> =
@@ -264,7 +295,7 @@ impl<'p> Machine<'p> {
                 }
                 Op::Convert(f) => Some(a(0)? * f64::from_bits(*f)),
                 Op::Window(..) => a(0),
-                Op::XsMean | Op::XsDemean | Op::XsRank => unreachable!(),
+                Op::XsMean | Op::XsDemean | Op::XsRank | Op::HoursSince => unreachable!(),
             },
         }
     }

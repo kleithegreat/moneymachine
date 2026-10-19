@@ -44,8 +44,9 @@ MUTANTS = {
     "I8 holdout rows admitted": ("pytest -q kernel/tests/cli/test_cli.py -k copied_holdout", [
         (MARKET, "            if event >= h {", "            if false {")]),
     "I9 no leverage or notional limit": (f"{FX} leverage_scale_and_notional_cap", [
-        (SIM, "        let scale = if gross > MAX_GROSS { MAX_GROSS / gross } else { 1.0 };", "        let scale = 1.0;"),
-        (SIM, "        if gross * scale > MAX_GROSS * (1.0 + 1e-12) {", "        if false {"),
+        (SIM, "        let scaled = |w: f64| if relative * largest > MAX_GROSS { w / largest * (MAX_GROSS / relative) } else { w };",
+         "        let scaled = |w: f64| w;"),
+        (SIM, "        if !(gross <= MAX_GROSS * (1.0 + 1e-12)) {", "        if false {"),
         (SIM, "            if qty.abs() * price > MAX_ORDER_NOTIONAL {", "            if false {"),
         (SIM, "    if f.why == Why::Fill && f.qty.abs() * f.decision_price > MAX_ORDER_NOTIONAL * (1.0 + 1e-12) {", "    if false {")]),
 }

@@ -1,0 +1,2 @@
+{"mechanism": "GPT", "source": "gpt", "expect": "E_PARSE", "name": "nonstandard-json-nan-literal", "why": "Some JSON decoders accept NaN and Infinity extensions. Such values may bypass validation, poison identity hashing or gross normalization, or produce invalid result JSON. Repeat with Infinity and -Infinity."}
+{"dsl":1,"name":"nonstandard-json-nan-literal","mechanism":{"counterparty":"Synthetic nonstandard-JSON counterparty","predictions":["Only standard JSON numbers are accepted"],"capacity":"Synthetic fixture"},"weight":{"const":NaN,"unit":"1"}}

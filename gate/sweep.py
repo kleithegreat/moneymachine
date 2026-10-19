@@ -70,7 +70,7 @@ def net_returns(program, model, beta, market_id, years):
         p.write_text(json.dumps(program))
         out = subprocess.run([campaign.MM, "eval", str(p), "--campaign", market_id, "--agent", "truth",
                               "--store", str(root / "store"), "--venue", str(root / "venue"),
-                              "--policy", str(root / "policy.json"), "--ledger", str(Path(tmp) / "l.sqlite")],
+                              "--ledger", str(Path(tmp) / "l.sqlite")],
                              capture_output=True, text=True, check=True)
         import sqlite3
 

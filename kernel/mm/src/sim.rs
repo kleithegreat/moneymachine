@@ -23,6 +23,7 @@ pub enum Abort {
     Fill(String),
     Accounting(String),
     Portfolio(String),
+    InputUnavailable(String),
 }
 
 impl Abort {
@@ -33,6 +34,7 @@ impl Abort {
             Abort::Fill(_) => "R_FILL",
             Abort::Accounting(_) => "R_ACCOUNTING",
             Abort::Portfolio(_) => "R_PORTFOLIO",
+            Abort::InputUnavailable(_) => "R_INPUT_UNAVAILABLE",
         }
     }
 }
@@ -213,7 +215,23 @@ struct Order {
 
 pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64) -> Result<Run, Abort> {
     let n = venue.coins.len();
+    for ds in prog.event_datasets() {
+        if !market.events.contains_key(ds) {
+            return Err(Abort::InputUnavailable(format!("dataset {ds} is not in this store")));
+        }
+    }
     let mut machine = Machine::new(prog, n);
+    let event_slots: Vec<(usize, &Vec<crate::market::Event>)> = crate::market::EVENT_DATASETS
+        .iter()
+        .enumerate()
+        .filter_map(|(slot, ds)| market.events.get(ds).map(|v| (slot, v)))
+        .collect();
+    let mut e_order: Vec<(i64, usize, usize, usize)> = event_slots
+        .iter()
+        .flat_map(|(slot, v)| v.iter().enumerate().map(move |(i, e)| (e.known, e.coin, *slot, i)))
+        .collect();
+    e_order.sort();
+    let mut ei = 0;
     let mut f_order: Vec<usize> = (0..market.funding.len()).collect();
     f_order.sort_by_key(|&i| (market.funding[i].known, market.funding[i].coin, market.funding[i].event));
     let mut b_order: Vec<usize> = (0..market.bars.len()).collect();
@@ -265,12 +283,18 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             machine.deliver_bar(market.bars[b_order[bi]], tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
             bi += 1;
         }
+        while ei < e_order.len() && e_order[ei].0 <= tick {
+            let (_, _, slot, i) = e_order[ei];
+            let ev = event_slots.iter().find(|(s, _)| *s == slot).unwrap().1[i];
+            machine.deliver_event(slot, ev, tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
+            ei += 1;
+        }
         Ok(())
     };
 
     let listed = |c: usize, t: i64| market.intervals[c].0 <= t && t < market.intervals[c].1;
     deliver_until(&mut machine, policy.w_start + policy.delta)?;
-    machine.tick(&(0..n).map(|c| listed(c, policy.w_start)).collect::<Vec<_>>());
+    machine.tick(&(0..n).map(|c| listed(c, policy.w_start)).collect::<Vec<_>>(), policy.w_start);
 
     let mut b = policy.w_start;
     while b + 2 * BAR <= end {
@@ -360,7 +384,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
             let tick = h + policy.delta;
             deliver_until(&mut machine, tick)?;
-            machine.tick(&(0..n).map(|c| listed(c, h)).collect::<Vec<_>>());
+            machine.tick(&(0..n).map(|c| listed(c, h)).collect::<Vec<_>>(), h);
         }
 
         for c in 0..n {
@@ -387,13 +411,15 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
                 None => trace.push(Event::Hold { t: t_d, coin: c, why: "undefined" }),
             }
         }
-        let gross: f64 = weights.iter().map(|(_, w)| w.abs()).sum();
-        let scale = if gross > MAX_GROSS { MAX_GROSS / gross } else { 1.0 };
-        if gross * scale > MAX_GROSS * (1.0 + 1e-12) {
+        let largest = weights.iter().map(|(_, w)| w.abs()).fold(0.0, f64::max);
+        let relative: f64 = weights.iter().map(|(_, w)| w.abs() / largest).sum();
+        let scaled = |w: f64| if relative * largest > MAX_GROSS { w / largest * (MAX_GROSS / relative) } else { w };
+        let gross: f64 = weights.iter().map(|(_, w)| scaled(*w).abs()).sum();
+        if !(gross <= MAX_GROSS * (1.0 + 1e-12)) {
             return Err(Abort::Portfolio(format!("gross {gross} at {t_d}")));
         }
         for (c, w) in weights {
-            let w = w * scale;
+            let w = scaled(w);
             let price = machine.bar[c].unwrap().close;
             let held = book.pos.get(&c).copied().unwrap_or(0.0);
             let dec = venue.rules[c].sz_decimals;

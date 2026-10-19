@@ -70,6 +70,7 @@ impl Spec {
             rate_at: funding.iter().map(|f| ((f.coin, f.event), f.rate)).collect(),
             bar_times,
             intervals: vec![(0, self.delisted_at.unwrap_or(end))],
+            events: std::collections::HashMap::new(),
             funding,
             bars,
             data_hash: String::new(),
@@ -309,4 +310,14 @@ fn mechanism_exposures_attribute_all_pnl() {
     }
     assert!((attributed - (equity_prev - 10_000.0)).abs() < 1e-6, "{attributed} vs {}", equity_prev - 10_000.0);
     assert!(run.exposures.iter().any(|(c, _)| *c) && run.exposures.iter().any(|(c, _)| !*c));
+}
+
+
+/// Finite huge weights do not overflow the gross norm into a silent close (GPT red team).
+#[test]
+fn huge_finite_weights_scale_without_overflow() {
+    let run = Spec::new(&[100.0; 5], &[100.0; 5]).run(r#"{"const": 1e308, "unit": "1"}"#).unwrap();
+    let d = run.trace.iter().find_map(|e| if let Event::Decision { weight, .. } = e { Some(*weight) } else { None });
+    assert_eq!(d, Some(2.0));
+    assert!(fills(&run)[0].qty > 0.0);
 }
