@@ -14,13 +14,14 @@ Stages run in parallel wherever work does not depend on a wait. Detached process
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). After C0.7: `python -m gate.sweep c24`, then `calibrate`, then `c25`, then the C2.1 top-5 probes.
 - **Stage 3:** built. After C0.7: record `harness.harness_hash()` (the freeze), run 20 `stage3.null_campaign`s (C3.2), then `real_campaign` once stage 2 exits.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). The swarm is built. After the harness freeze: `python -m gate.stage4 10` (C4.5).
-- **Stage 5:** criteria frozen (one revision). The Discourse backfill runs (`data/sources_backfill1.*`). At ≥ 72 h of recording (2026-10-22 10:26 UTC):
-  - `python -m ingest.sources_avail analyze data/sources_live`;
-  - re-backfill, then `reconcile`;
-  - `python -m ingest.events data <version> data/sources_live admitted|prospective`;
-  - then C5.4 and C5.6 (extend nulls, probes and searcher to `forum_posts`).
+- **Stage 5:** C5.1 (labeled samples, golden set), C5.2's store and recompute tests, and C5.5's independent derivation and mutants are done. C5.6's code is ready. At ≥ 72 h of recording (2026-10-22 10:26 UTC):
+  - `python -m ingest.sources_avail analyze data/sources_live` (C5.3);
+  - re-backfill (`python -m ingest.sources_backfill data`), then `python -m ingest.sources_avail reconcile data data/sources_live <backfill version>`;
+  - `python -m ingest.events data <version> data/sources_live admitted|prospective` (Discourse), and `... prospective snapshot`;
+  - `python -m ingest.sources_report data <version> data/sources_live admitted|prospective` (C5.4).
+  - After stage 2 exits, if Discourse is admitted: `python -m gate.c21 audit/stage5/c56-probes.json data <version>` and `python -m gate.sweep c56 data <version>` (C5.6). If it is prospective only, its counts all lie in the forward holdout, so the search part has none to replay and C5.6 is vacuous for it.
 
-  Snapshot is prospective only (client-claimed time). Unlocks: no free source found so far (DefiLlama is paid; its adapters repo is gone).
+  Snapshot is prospective only (client-claimed time). Unlocks: blocked (see Blockers).
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
