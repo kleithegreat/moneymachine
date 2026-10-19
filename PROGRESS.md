@@ -303,6 +303,10 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Log
 
+- 2026-10-19: Dry run, on a provisional cost table from about 4 h of aggregated books: C1.4 passes (the kernel matches the witness at every step on version 1792385868856) and C1.8 gives a W0 median of 14.7 ms (i5-11400). Both get re-run as judged evidence on the final C0.7 model. Three kernel–witness disagreements were found on the way, all in the witness:
+  1. It read listed intervals from the pre-revision ingestion report. It now applies the current rule to the store's bars.
+  2. Its sizing arithmetic ordered operations differently from W0's DSL encoding, so near-integer truncation flipped a kPEPE order by one coin. It now uses the DSL's order.
+  3. It iterated coins in a different order. It now uses venue order.
 - 2026-10-19: C1.2 met. GPT's red team (`audit/stage1/gpt-test-cases.json`, 40 cases) produced 34 program cases, now in `kernel/tests/adversarial/gpt*.case`: 8 rejected with matching codes and 25 admitted probes that the leak canary passes. Its CLI cases are covered by named tests. Three kernel weaknesses it found are fixed at the root:
   1. `--policy` let the caller move the holdout boundary. The policy is now the store's own `policy.json`, the flag is gone, and unknown options are refused.
   2. The holdout-spent record lived in the caller-chosen ledger, so a fresh ledger could reuse the holdout. It now lives in `<holdout>/spent.jsonl`, and the ledger check is gone.

@@ -11,10 +11,11 @@ use std::time::Instant;
 fn w0_median_under_100ms() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let policy = market::policy(&root.join("data/store/policy.json")).unwrap();
-    let venue = market::venue(&root.join("venue/hyperliquid")).unwrap();
+    let venue_dir = std::env::var("MM_VENUE").map(std::path::PathBuf::from).unwrap_or_else(|_| root.join("venue/hyperliquid"));
+    let venue = market::venue(&venue_dir).unwrap();
     let store = root.join("data/store");
     let version: i64 = std::env::var("MM_VERSION").ok().and_then(|v| v.parse().ok()).unwrap_or(i64::MAX);
-    let m = market::load(&[store], version, &venue, &policy, Some(policy.holdout_start)).unwrap();
+    let m = market::load(&[store.clone()], version, &venue, &policy, Some(policy.holdout_start)).unwrap();
     let prog = dsl::parse(&std::fs::read_to_string(root.join("kernel/strategies/w0.json")).unwrap()).unwrap();
     let end = policy.holdout_start.min(policy.w_end);
     let mut ms: Vec<f64> = (0..20)

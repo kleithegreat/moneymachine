@@ -20,12 +20,13 @@ from pathlib import Path
 import polars as pl
 
 from ingest.hl import HOUR
-from ingest.store import DELTA, HOLDOUT_START, W_START, stores
+from ingest import checks
+from ingest.store import DELTA, HOLDOUT_START, W_END, W_START, stores
 
 BAR = 4 * HOUR
 INITIAL = 10_000.0
 THRESHOLD = 1e-4
-WEIGHT = 0.1
+SIZE = 0.008333333333333333  # W0's per-coin weight, 0.1 / |U|, as the literal in kernel/strategies/w0.json
 
 
 def truncate(x, decimals):
@@ -74,8 +75,6 @@ class Book:
 def run(data_root, version, venue=Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"):
     root = Path(data_root)
     search, _ = stores(root)
-    report = json.loads((root / "reports" / f"stage0-ingest-{version}.json").read_text())
-    intervals = {c: (s, min(e, HOLDOUT_START)) for c, (s, e) in report["intervals"].items()}
     venue = Path(venue)
     rules = json.loads((venue / "rules.json").read_text())
     cost = json.loads((venue / "execution.json").read_text())["cost_bps_ex_fee"]
@@ -84,6 +83,9 @@ def run(data_root, version, venue=Path(__file__).resolve().parents[1] / "venue" 
 
     bars = search.as_of("bars_4h", HOLDOUT_START, version)
     funding = search.as_of("funding", HOLDOUT_START, version)
+    delisted = {c for c, r in rules["coins"].items() if r["delisted"]}
+    listed = checks.listed_intervals(bars, W_START, W_END, delisted)
+    intervals = {c: (listed[c][0], min(listed[c][1], HOLDOUT_START)) for c in rules["coins"] if c in listed}
     bar = {(c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()}
     rate_at = {(c, t): r for c, t, r in funding.select("coin", "eventTime", "fundingRate").iter_rows()}
 
@@ -142,7 +144,8 @@ def run(data_root, version, venue=Path(__file__).resolve().parents[1] / "venue" 
             known = [f["knownAt"].item(), p["knownAt"].item()]
             assert max(known) <= t_d
             rate, price = f["fundingRate"].item(), p["close"].item()
-            target = -math.copysign(WEIGHT * e1 / (len(intervals) * price), rate) if abs(rate) > THRESHOLD else 0.0
+            w = -math.copysign(1.0, rate) * SIZE if abs(rate) > THRESHOLD else 0.0
+            target = w * e1 / price if w else 0.0
             held = book.pos.get(coin, 0.0)
             qty = -held if target == 0.0 else truncate(target - held, rules["coins"][coin]["szDecimals"])
             if qty and (abs(qty) * price >= min_notional or target == 0.0):
