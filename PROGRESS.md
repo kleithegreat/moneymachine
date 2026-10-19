@@ -14,7 +14,7 @@ Stages run in parallel wherever work does not depend on a wait. Detached process
 - **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). After C0.7: `python -m gate.sweep c24`, then `calibrate`, then `c25`, then the C2.1 top-5 probes.
 - **Stage 3:** built. After C0.7: record `harness.harness_hash()` (the freeze), run 20 `stage3.null_campaign`s (C3.2), then `real_campaign` once stage 2 exits.
-- **Stage 4:** C4.1 and C4.2 done. The swarm is built. After the harness freeze: `python -m gate.stage4 10` (C4.5).
+- **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). The swarm is built. After the harness freeze: `python -m gate.stage4 10` (C4.5).
 - **Stage 5:** criteria frozen (one revision). The Discourse backfill runs (`data/sources_backfill1.*`). At ≥ 72 h of recording (2026-10-22 10:26 UTC):
   - `python -m ingest.sources_avail analyze data/sources_live`;
   - re-backfill, then `reconcile`;
