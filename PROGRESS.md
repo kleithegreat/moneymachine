@@ -4,13 +4,12 @@
 
 Stages run in parallel wherever work does not depend on a wait. Detached processes (kill by PID only): `pgrep -af "python -m ingest.record"` (HL live recorder), `pgrep -af sources_record` (stage 5 forum and Snapshot recorder).
 
-- **Stage 0, from 2026-10-20 07:05 UTC:** C0.3 (from 04:57) and C0.7 (from 07:03) reach their 24 h.
+- **Stage 0, from 2026-10-20 18:45 UTC** (the judged 24 h window after the 18:42:53 restart, if no L2 gap over 60 s restarts it; `python -c "from ingest.availability import window; print(window('data/live'))"` shows it):
   - `python -m ingest.availability data/live` (C0.3);
   - `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7);
-  - a second backfill, `python -m ingest.backfill data 200` (C0.4; its ingestion report is the judged C0.2/C0.5 evidence);
+  - stop the HL recorder (by PID) so the second backfill has the rate budget alone, then `python -m ingest.backfill data 200` (C0.4; its ingestion report is the judged C0.2/C0.5 evidence);
   - the witness (C0.8);
-  - `python -m ingest.holdout data audit/holdout.json` (C0.9);
-  - stop the HL recorder.
+  - `python -m ingest.holdout data audit/holdout.json` (C0.9).
 - **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). After C0.7: `python -m gate.sweep c24`, then `calibrate`, then `c25`, then the C2.1 top-5 probes.
 - **Stage 3:** built. After C0.7: record `harness.harness_hash()` (the freeze), run 20 `stage3.null_campaign`s (C3.2), then `real_campaign` once stage 2 exits.

@@ -84,7 +84,7 @@ Every expression is a JSON object of one of these forms:
 | `{"input": "premium"}`: premium reported with that funding row | `1` |
 | `{"input": "open" \| "high" \| "low" \| "close"}`: of the latest closed 4h bar | `usd/coin` |
 | `{"input": "volume"}`: of the latest closed 4h bar | `coin` |
-| `{"input": "forum_posts"}`: posts on the coin's mapped protocol forum whose availability time falls in the hour ending at this tick (`venue/sources/discourse.md`); defined only at that hour's tick, never held, and undefined outside the source's coverage or for unmapped coins | `ev` |
+| `{"input": "forum_posts"}`: posts on the coin's mapped protocol forum whose availability time falls in the hour ending at this tick (`venue/sources/discourse.md`, derived as in `venue/sources/derived.md`); defined only at that hour's tick, never held, and undefined outside the source's coverage or for unmapped coins | `ev` |
 | `{"input": "gov_proposals"}`: governance proposals for the coin (`venue/sources/snapshot.md`), with the same semantics | `ev` |
 | `{"const": number, "unit": unit}` | as given |
 | `{"param": name}`, `{"ref": name}` | of the target |
