@@ -1,4 +1,5 @@
-"""Stage 2 sweeps: C2.4 (complete null), C2.5/C2.6 (mixed and power), oracle calibration, truth.
+"""Stage 2 sweeps: C2.4 (complete null), C2.5/C2.6 (mixed and power), oracle calibration, truth;
+and C5.6's rerun of C2.4 (G400 on N2) with the real forum counts replayed.
 
 Every campaign result is appended to data/campaigns/<sweep>.jsonl and never rewritten. A rerun
 skips ids already recorded, so sweeps resume after an interruption.
@@ -13,7 +14,7 @@ import numpy as np
 from scipy import stats
 
 from gate import campaign, probes
-from gate.markets import generate, write
+from gate.markets import generate, store_events, write
 
 OUT = Path("data/campaigns")
 PLANTED = (0, 1)
@@ -107,6 +108,10 @@ def is_true(program, model, beta, tag):
     return bool(lo > 0)
 
 
+def c56_specs(events, markets=300):
+    return [{**spec(f"c56-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
+
+
 def c25_specs(betas, markets=100):
     return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
             for i in range(markets)]
@@ -121,5 +126,9 @@ if __name__ == "__main__":
         betas = {f"{m}-{s}": calibrate_beta(m, s) for m in ("N2", "N3") for s in (1, 2, 3)}
         (OUT / "betas.json").write_text(json.dumps(betas, indent=1))
         print(betas)
+    elif what == "c56":
+        data_root, version = Path(sys.argv[2]), int(sys.argv[3])
+        coins = tuple(json.loads((data_root / "universe.json").read_text())["universe"])
+        run_all(c56_specs(store_events(str(data_root / "store"), version, coins)), OUT / "c56.jsonl")
     elif what == "c25":
         run_all(c25_specs(json.loads((OUT / "betas.json").read_text())), OUT / "c25.jsonl")

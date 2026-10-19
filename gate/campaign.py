@@ -25,7 +25,7 @@ def run_campaign(spec, keep=None):
     work = Path(tempfile.mkdtemp(prefix="campaign-"))
     try:
         root = markets.write(work / "m", markets.generate(spec["model"], spec["params"], spec["id"], spec["days"],
-                                                          spec.get("planted", ()), spec.get("beta", 0.0)),
+                                                          spec.get("planted", ()), spec.get("beta", 0.0), spec.get("events")),
                              spec["holdout_days"], spec["cost_cells"])
         ledger = root / "ledger.sqlite"
         spent = search.run(spec["searcher"], MM, root, ledger, spec["id"], markets.seed_of(spec["id"]))
