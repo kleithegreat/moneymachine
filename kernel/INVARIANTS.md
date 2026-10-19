@@ -8,7 +8,7 @@ decisions, orders, fills, settlements and equity marks.
 |---|---|---|---|
 | I1 | Every observation delivered to a strategy at tick τ has knownAt ≤ τ under the run's dataset version. A strategy reads nothing else. | The machine accepts input only through `deliver(obs, τ)`, which aborts if obs.knownAt > τ. The DSL has no clock, lead, index or path access. | `R_CAUSALITY` |
 | I2 | For each fill: max knownAt of the decision's inputs ≤ t_decision ≤ t_submission ≤ t_fill. | Trace check after every fill. | `R_TIMING` |
-| I3 | Each fill names its source bar (coin, openTime). That bar is the first bar of the coin with openTime ≥ t_submission, openTime ≤ t_fill, and trades ≥ 1. Price = open · (1 ± cost(coin, side, notional)/1e4): a buy pays more, a sell receives less. The fill records side, cost model hash and rules hash. Otherwise the order is unfilled. | Trace check after every fill, against the bar table. | `R_FILL` |
+| I3 | A decision's fill names its source bar (coin, openTime). That bar is the first bar of the coin with openTime ≥ t_submission, openTime ≤ t_fill, and trades ≥ 1; otherwise the order is unfilled. reference = the bar's open. price = reference · (1 + s · bps / 1e4), with s = +1 for a buy (qty > 0) and −1 for a sell, and bps = cost[coin][side][bucket], where the bucket is "1000" if \|qty\| · reference ≤ 1000 and "10000" otherwise. fee = \|qty\| · price · taker_fee. A liquidation or delisting closeout names the bar whose close or adverse extreme it uses (high when buying back, low when selling), with that bar's eventTime ≤ t_fill, and the same price and fee formulas. | Trace check after every fill, against the bar table. | `R_FILL` |
 | I4 | A program runs only if it type-checks: every operation is dimensionally consistent (DSL.md, Units), time bases differ unless converted, and `weight` has unit `1`. | Type checker before any data is opened. | `E_*` (below) |
 | I5 | Equity = cash + Σ qty · mark, with mark the coin's last closed bar close. At every 4h step, \|equity − (initial + realized + unrealized − fees + funding)\| ≤ $1e-5, where the right side comes from an independent average-entry ledger. | Check at every step. | `R_ACCOUNTING` |
 | I6 | Every result-bearing output goes through `disclose()`. It commits the experiment row, the result row and the disclosure row in one SQLite transaction before writing anything. If the commit fails, it writes no statistic and exits nonzero. The ledger tables have triggers that abort UPDATE and DELETE. A type-check rejection is disclosed (`kind = reject`) without opening data. | `disclose()` is the only writer of stdout results; triggers. | `R_LEDGER` |
@@ -20,7 +20,7 @@ decisions, orders, fills, settlements and equity marks.
 
 | Code | Meaning |
 |---|---|
-| `E_PARSE` | not valid DSL JSON: unknown or missing field, wrong JSON type, `dsl` ≠ 1 |
+| `E_PARSE` | not valid DSL JSON: unknown, missing or duplicate field, wrong JSON type, `dsl` ≠ 1 |
 | `E_UNKNOWN_INPUT` | input not in the schema |
 | `E_UNKNOWN_OP` | op not in DSL.md |
 | `E_ARITY` | wrong number of args |
@@ -55,6 +55,7 @@ decisions, orders, fills, settlements and equity marks.
 | T18 | window longer than the cap | I1 | `E_WINDOW` |
 | T19 | unknown top-level field (`"execution": {...}`, `"fill": "close"`) | I1/I3 | `E_PARSE` |
 | T20 | `xs_rank` of a dimensional value | I4 | `E_DIMENSIONLESS` |
+| T21 | duplicate object keys, which parsers resolve differently (the ledger's record and the run could disagree) | I6/I7 | `E_PARSE` |
 
 Portfolio attacks (huge weights, many coins at full size, sign flips every bar) are not
 rejected. They are clamped under I9, and tests check the trace against I9.

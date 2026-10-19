@@ -19,6 +19,9 @@ USAGE:
       --trace also writes the full event trace to OUT as JSON lines.
   mm select HASH --campaign C --agent A [--note TEXT] [--ledger PATH]
       Record that the agent chose to pursue strategy HASH, given what it has seen.
+  mm check-fills FILE
+      Check fills against invariants I2/I3 and the I9 order cap, one JSON case per line
+      (kernel/tests/timing/FORMAT.md); print one verdict per line. Reads no market data.
 
 Defaults: --store data/store, --venue venue/hyperliquid, --policy policy.json,
 --ledger data/ledger.sqlite. Every result is recorded in the ledger before it is
@@ -271,11 +274,106 @@ fn select(a: &Args, ledger: &mut Ledger) -> ExitCode {
     emit(r, &out, false, 0)
 }
 
+fn check_fills(path: &str) -> ExitCode {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        eprintln!("cannot read {path}");
+        return ExitCode::from(3);
+    };
+    for line in text.lines().filter(|l| !l.trim().is_empty()) {
+        let c: Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("bad case: {e}");
+                return ExitCode::from(3);
+            }
+        };
+        let verdict = match fill_case(&c) {
+            Some((f, m, v)) => sim::check_fill(&f, &m, &v).err().map_or("ok", |e| e.code()),
+            None => "bad-case",
+        };
+        println!("{}", json!({"id": c["id"], "verdict": verdict}));
+    }
+    ExitCode::SUCCESS
+}
+
+fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
+    let num = |v: &Value| v.as_f64();
+    let int = |v: &Value| v.as_i64();
+    let bars: Vec<market::Bar> = c["bars"]
+        .as_array()?
+        .iter()
+        .map(|b| {
+            Some(market::Bar {
+                coin: 0,
+                open_time: int(&b["open_time"])?,
+                event: int(&b["event"])?,
+                known: int(&b["event"])?,
+                open: num(&b["open"])?,
+                high: num(&b["high"])?,
+                low: num(&b["low"])?,
+                close: num(&b["close"])?,
+                volume: 0.0,
+                trades: int(&b["trades"])?,
+            })
+        })
+        .collect::<Option<_>>()?;
+    let cost = &c["cost_bps"];
+    let venue = market::Venue {
+        taker_fee: num(&c["taker_fee"])?,
+        min_notional: 10.0,
+        coins: vec!["X".into()],
+        rules: vec![market::CoinRules {
+            sz_decimals: 8,
+            min_tier_leverage: 1.0,
+            delisted: false,
+            cost_bps: [[num(&cost["buy"][0])?, num(&cost["buy"][1])?], [num(&cost["sell"][0])?, num(&cost["sell"][1])?]],
+        }],
+        rules_hash: String::new(),
+        execution_hash: String::new(),
+    };
+    let mut bar_times = vec![bars.iter().map(|b| b.open_time).collect::<Vec<_>>()];
+    bar_times[0].sort();
+    let market = market::Market {
+        bar_at: bars.iter().enumerate().map(|(i, b)| ((0, b.open_time), i)).collect(),
+        rate_at: HashMap::new(),
+        bar_times,
+        intervals: vec![(i64::MIN, i64::MAX)],
+        funding: vec![],
+        bars,
+        data_hash: String::new(),
+    };
+    let f = &c["fill"];
+    let why = match f["why"].as_str()? {
+        "fill" => Why::Fill,
+        "liquidation" => Why::Liquidation,
+        "delisting" => Why::Delisting,
+        _ => return None,
+    };
+    let fill = sim::Fill {
+        why,
+        coin: 0,
+        qty: num(&f["qty"])?,
+        inputs_known: int(&f["inputs_known"])?,
+        decision_price: num(&f["decision_price"])?,
+        decided: int(&f["decided"])?,
+        submitted: int(&f["submitted"])?,
+        filled: int(&f["filled"])?,
+        source_open: int(&f["source_open"])?,
+        reference: num(&f["reference"])?,
+        price: num(&f["price"])?,
+        fee: num(&f["fee"])?,
+    };
+    Some((fill, market, venue))
+}
+
 fn main() -> ExitCode {
     let Some(a) = parse_args() else {
         println!("{USAGE}");
         return ExitCode::from(3);
     };
+    if a.cmd == "check-fills" {
+        return check_fills(&a.target);
+    }
     let mut ledger = match Ledger::open(Path::new(a.get("ledger", "data/ledger.sqlite"))) {
         Ok(l) => l,
         Err(e) => {

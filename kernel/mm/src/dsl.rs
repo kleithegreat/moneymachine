@@ -227,8 +227,61 @@ pub fn parse(text: &str) -> Result<Program, Reject> {
     if text.len() > MAX_BYTES || json_depth(text) > MAX_JSON_DEPTH {
         return reject(Code::Size, "$", "program too large or too deeply nested");
     }
-    let v: Value = serde_json::from_str(text).or_else(|e| reject(Code::Parse, "$", e.to_string()))?;
+    let v = serde_json::from_str::<Strict>(text).or_else(|e| reject(Code::Parse, "$", e.to_string()))?.0;
     Checker::default().program(&v)
+}
+
+/// JSON that rejects duplicate object keys, which parsers resolve differently.
+struct Strict(Value);
+
+impl<'de> serde::Deserialize<'de> for Strict {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_any(StrictVisitor).map(Strict)
+    }
+}
+
+struct StrictVisitor;
+
+impl<'de> serde::de::Visitor<'de> for StrictVisitor {
+    type Value = Value;
+
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("JSON")
+    }
+    fn visit_bool<E>(self, v: bool) -> Result<Value, E> {
+        Ok(Value::Bool(v))
+    }
+    fn visit_i64<E>(self, v: i64) -> Result<Value, E> {
+        Ok(Value::from(v))
+    }
+    fn visit_u64<E>(self, v: u64) -> Result<Value, E> {
+        Ok(Value::from(v))
+    }
+    fn visit_f64<E>(self, v: f64) -> Result<Value, E> {
+        Ok(Value::from(v))
+    }
+    fn visit_str<E>(self, v: &str) -> Result<Value, E> {
+        Ok(Value::from(v))
+    }
+    fn visit_unit<E>(self) -> Result<Value, E> {
+        Ok(Value::Null)
+    }
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut a: A) -> Result<Value, A::Error> {
+        let mut v = vec![];
+        while let Some(Strict(x)) = a.next_element()? {
+            v.push(x);
+        }
+        Ok(Value::Array(v))
+    }
+    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut a: A) -> Result<Value, A::Error> {
+        let mut m = Map::new();
+        while let Some((k, Strict(x))) = a.next_entry::<String, Strict>()? {
+            if m.insert(k.clone(), x).is_some() {
+                return Err(serde::de::Error::custom(format!("duplicate key `{k}`")));
+            }
+        }
+        Ok(Value::Object(m))
+    }
 }
 
 #[derive(Default)]
