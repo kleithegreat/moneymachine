@@ -5,6 +5,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from ingest.backfill import funding_known
 from ingest.hl import HOUR
 from ingest.store import DELTA
 
@@ -44,7 +45,11 @@ def analyze(polls):
             continue
         first = min((p["recv"] for p in ps if _value(kind, p["data"], boundary) == ref[0]), default=None)
         events[(kind, coin)] += 1
-        if first is None or first > boundary + DELTA:
+        known = boundary + DELTA
+        if kind == "funding":
+            reported = [r["time"] for p in ps for r in p["data"] if r["time"] // HOUR * HOUR == boundary]
+            known = funding_known(min(reported)) if reported else known
+        if first is None or first > known:
             failures.append({"kind": kind, "coin": coin, "boundary": boundary, "first_observed": first,
                              "lag_ms": None if first is None else first - boundary})
     lags = sorted(min(p["recv"] for p in ps if _value(k, p["data"], b) is not None) - b

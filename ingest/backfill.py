@@ -14,9 +14,17 @@ from ingest.store import DELTA, HOLDOUT_START, W_END, W_START, stores, write_spl
 BAR = 4 * HOUR
 
 
+SETTLEMENT_LATENCY = 60_000
+
+
+def funding_known(reported):
+    """The hour + DELTA, unless the venue stamped the settlement late (C0.3, revised)."""
+    return max(reported // HOUR * HOUR + DELTA, reported + SETTLEMENT_LATENCY)
+
+
 def funding_frame(rows):
     return pl.DataFrame(
-        [{"coin": r["coin"], "eventTime": r["time"] // HOUR * HOUR, "knownAt": r["time"] // HOUR * HOUR + DELTA,
+        [{"coin": r["coin"], "eventTime": r["time"] // HOUR * HOUR, "knownAt": funding_known(r["time"]),
           "fundingRate": float(r["fundingRate"]), "premium": float(r["premium"]), "reportedTime": r["time"]}
          for r in rows],
         schema={"coin": pl.Utf8, "eventTime": pl.Int64, "knownAt": pl.Int64, "fundingRate": pl.Float64,

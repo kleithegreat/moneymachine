@@ -1,0 +1,12 @@
+[
+ {
+  "path": "holdout/bars_4h/1792385868856.parquet",
+  "sha256": "4aa8742a6f7d88e1badd4950fbdc4bfe7f6f1b140b7ebdd0d97ab44680161de5",
+  "recorded": "2026-10-19T06:50:12Z"
+ },
+ {
+  "path": "holdout/funding/1792385868856.parquet",
+  "sha256": "96be710f21d2c40fcac9a8208a6120e45e628e6fb5ededf2b58f791a9c5ceec9",
+  "recorded": "2026-10-19T06:50:12Z"
+ }
+]

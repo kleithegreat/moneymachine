@@ -45,3 +45,9 @@ def test_replay_view_matches_keys(tmp_path):
     by_view = checks.replay_completeness(f, b, iv, view)
     assert by_keys["failure_list"] == by_view["failure_list"] == [(0, "A"), (12 * HOUR, "A"), (24 * HOUR, "A")]
     assert s.as_of("funding", 12 * HOUR + DELTA - 1, 1)["eventTime"].max() == 11 * HOUR
+
+
+def test_late_settlement_delays_known_at():
+    on_time, late = funding_frame([{"coin": "A", "time": 5 * HOUR + 48, "fundingRate": "0", "premium": "0"},
+                                   {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}])["knownAt"]
+    assert on_time == 5 * HOUR + DELTA and late == 6 * HOUR + 887_645 + 60_000
