@@ -12,7 +12,8 @@ Every stage is waiting on time or on GPT, so work proceeds on whatever does not 
   - then stop the recorder.
 - **Stage 1:** done: C1.1, C1.3, C1.6, C1.7, and C1.5 via the Opus substitute. Waiting: C1.2 (≥ 10 GPT red-team programs; GPT blocked), and C1.4 and C1.8 (after C0.7: run with `MM_VENUE` unset and `cargo test --release --test bench -- --ignored`).
 - **Stage 2:** nulls frozen (`gate/nulls.json`). C2.1 fixed probes are running (`python -m gate.c21`). C2.4 and C2.5 need the C0.7 cost cells: `python -m gate.sweep c24`, then `calibrate`, then `c25`. C2.2 and C2.3 wait for GPT, with Opus as the fallback at the end.
-- **Stage 3:** criteria frozen. Next: the kernel `prediction` field and mechanism report (`--mechanism`), `--holdout-from` with an overlap-refusing spent check, and the bwrap harness with the `mm-agent` daemon.
+- **Stage 3:** criteria frozen; harness, daemon, mechanism check, joint holdout and audit are built (`gate/stage3.py`). Before C3.2: freeze the harness (record `harness.harness_hash()` in the Log), then run 20 `null_campaign`s with the C0.7 median cost cells (`gate.sweep.cost_cells()`). The real run (`real_campaign`) comes only after stage 2 exits.
+- **Stages 4 and 5:** criteria drafts are in `data/drafts/criteria4.md` and `criteria5.md` (not yet frozen). Opus reviews were launched at session end, and their results may be lost. Re-review (GPT if available), revise once, then commit each alone as `criteria: stage N`.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
