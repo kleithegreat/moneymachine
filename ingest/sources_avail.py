@@ -59,3 +59,29 @@ def analyze(live_dir):
 
 if __name__ == "__main__":
     print(json.dumps(analyze(sys.argv[1]), indent=1))
+
+
+def reconcile(data_root, live_dir, version):
+    """Re-backfill (store version `version`) against what the recorder saw live, over the live window."""
+    import polars as pl
+
+    from ingest.store import Store
+
+    live, first_poll = {}, {}
+    for poll in polls(live_dir):
+        if poll["source"] != "discourse" or not isinstance(poll["data"], list):
+            continue
+        first_poll.setdefault(poll["key"], poll["recv"])
+        for p in poll["data"]:
+            live.setdefault((poll["key"], p["id"]), (poll["recv"], p["cooked_sha256"], ms(p["created_at"])))
+    raw = Store(Path(data_root) / "sources", key=["forum", "upstream_id"]).revisions("discourse")
+    latest = raw.filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(["forum", "upstream_id"]).last()
+    backfill = {(r["forum"], r["upstream_id"]): (r["eventTime"], r["content_sha256"]) for r in latest.iter_rows(named=True)}
+    window_end = max(seen for seen, _, _ in live.values()) if live else 0
+    missing = [k for k in live if k not in backfill and live[k][2] >= first_poll[k[0]]]
+    changed = [k for k in live if k in backfill and backfill[k][1] != live[k][1]]
+    backdated = [k for k, (created, _) in backfill.items()
+                 if k[0] in first_poll and first_poll[k[0]] <= created <= window_end - RULE_MS
+                 and (k not in live or live[k][0] > created + RULE_MS)]
+    return {"live_items": len(live), "deleted": len(missing), "edited": len(changed), "backdated": len(backdated),
+            "backdated_examples": backdated[:10]}
