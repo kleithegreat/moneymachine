@@ -61,6 +61,62 @@ Criteria:
 
 Exit when C1.1 to C1.8 all hold.
 
+### Stage 2: null, mixed, and power calibration
+
+Frozen 2026-10-19, before any stage 2 code was written. The draft was reviewed by a fresh-context Opus subagent because GPT was unavailable (see Blockers).
+
+**No edge.** Write f₁..f₄ for a bar's hourly funding rates. The kernel settles f₁..f₃ at the bar's open and f₄ at the next bar's open, on the position held through the bar. A market model has no edge if, for every coin and bar, opens equal the previous close and E[close · (1 − f₄) − open · (1 + f₁ + f₂ + f₃) | F_open] = 0, where F_open is everything observable at the bar's open, for every coin and every lag. Then every DSL position earns zero expected gross PnL, so expected net PnL is ≤ 0, with equality only for strategies that never fill. `gate/NULLS.md` derives this from the kernel's settlement code for each model, including liquidation at the adverse extreme, unfilled orders, rounding and the $10k cap.
+
+**Null models.** Each is specified exactly in `gate/NULLS.md`. Its spec and its fitted parameters are hashed and committed before the first campaign. Common to all:
+- the price equation close = open · (1 + f₁ + f₂ + f₃ + ε) / (1 − f₄), with ε conditionally symmetric and mean zero given F_open, and |ε| ≤ 0.5;
+- funding generated within the venue cap;
+- premium, wicks (from the bar's own path), and volume independent of future ε;
+- trades ≥ 1 in every bar, and no delistings;
+- 12 coins on W's timeline (550 search days, 180 holdout days), production fees, and for every coin the median over U of each C0.7 cost cell.
+
+The models:
+- **N1** (smoke test): ε i.i.d. Gaussian with σ = 2%, truncated at ±8σ; zero funding and premium.
+- **N2:** GARCH(1,1) volatility; standardized Student-t innovations with ν = 5, truncated symmetrically at ±8; a common factor for cross-coin correlation; funding an AR(1) with t innovations, clipped to the cap; premium = funding plus independent noise. Fit to the search part of the stage 0 data.
+- **N3:** two-state Markov regime-switching volatility and correlation, plus symmetric jumps; funding as in N2. Fit as N2.
+
+**Planted signals.** In a mixed market, k = 2 of the 12 coins get ε with conditional mean β · g(F_open). Here g is a fixed funding-reversal function of the last settled funding rate, and its oracle strategy is a pinned DSL file. β is set so that the oracle's annualized net Sharpe is s, measured through the kernel on ≥ 200 simulated years.
+
+**Searchers.** These calibrate the stage 3 baseline. Each is pinned by the hash of its code and of the set of statistics disclosed to it, and every evaluation goes through `mm` and the ledger:
+- **G100 and G400:** random-plus-genetic search over the DSL at budgets of 100 and 400 evaluations, adaptive on the disclosed in-sample summary.
+- **H400:** a hill-climber that perturbs the in-sample-best program, to maximize in-sample Sharpe, over 400 evaluations.
+
+Later campaigns must stay within 400 evaluations.
+
+**Gate.** Its parameters are fixed here:
+- **N:** the number of distinct canonical strategies evaluated that filled at least once. This is the largest effective-N estimate. Counts from correlation clusters at |ρ| ≥ 0.9 and 0.5 are reported only as fragility diagnostics.
+- **Screen:** DSR ≥ 0.95 on 4h returns, with T the number of 4h steps and S0 = σ_S · ((1 − γ) Φ⁻¹(1 − 1/N) + γ Φ⁻¹(1 − 1/(N e))). Here γ is the Euler–Mascheroni constant, σ_S is the cross-sectional standard deviation of the per-period Sharpe ratios of the N strategies, and γ̂₄ is ordinary kurtosis. A non-positive variance term gives DSR = 0.
+- **SPA:** arch `SPA`, studentized, over all N against flat (zero returns), using the "consistent" p-value. Stationary bootstrap, mean block length 6 steps, 1,000 replications, seed derived from the campaign id. Rejects at α = 0.05; if it does not reject, nothing is promoted.
+- **StepM:** arch `StepM` on the screened set, with the same bootstrap and α = 0.05.
+- **Mechanism check:** skipped, since searchers state no mechanisms. This only adds promotions, so stage 2's false-promotion rates are upper bounds and its power figures overstate what stage 3 will see.
+- **Holdout:** all finalists, once. Promoted if net holdout return > 0 and the one-sided stationary-bootstrap p-value for mean > 0 (block 6, 10,000 replications) passes Holm at α = 0.05.
+
+**Runs.** Seeds come from SHA-256 of a committed campaign id. Every market started counts, and a crash or timeout counts as a promotion. A rerun after any gate or null change uses fresh ids and is logged. Every bound below is a one-sided 95% Clopper–Pearson bound, unless stated otherwise.
+
+**Criteria.**
+- **C2.1 Nulls are null.** For each of N1–N3 and each coin, an OLS regression of the next bar's ε on lagged observables over 200 independent simulated years has an F-test p > 0.001: funding, premium, returns at lags 1–6, wick ranges, volume, and the cross-coin mean return. Probes are then run on 200 fresh simulated years per model:
+  - buy-and-hold per coin;
+  - one single-input sign strategy per DSL input and per xs op;
+  - a martingale-sizing strategy;
+  - the in-sample top-5 strategies of the first 20 C2.4 campaigns.
+
+  Every probe's mean gross PnL (after funding, before fees and costs) has |z| < 3.7, with its SE taken across independent markets.
+- **C2.2 Independent null generators.** GPT implements N2 and N3 from `gate/NULLS.md` and the frozen parameters alone. If GPT is still unavailable when the rest of stage 2 is met, a fresh-context Opus subagent substitutes, and this is recorded. Both implementations pass C2.1's regression test. On 100 simulated years, they agree within these tolerances: mean |ε| ± 5%, kurtosis of ε ± 20%, lag-1 autocorrelation of |ε| ± 0.05, mean cross-coin correlation ± 0.05, funding AR coefficient ± 0.05.
+- **C2.3 Independent DSR.** GPT, with the same fallback, implements the DSR from the paper and the formula above. The inputs number 1,000 random cases plus edge cases: N = 1, T = 10, extreme skew and kurtosis, and a non-positive variance term. The two implementations agree to 1e-9 on all of them, once each disagreement is resolved with its root cause recorded.
+- **C2.4 Complete null.** For each of N1–N3 and each searcher in {G100, G400, H400}, over 300 markets:
+  - the probability of promoting anything has upper bound ≤ 0.05, so at most 8 promotions;
+  - the probability that SPA rejects and finalists exist has upper bound ≤ 0.10.
+- **C2.5 Mixed sweep.** For each base in {N2, N3}, each s ∈ {1, 2, 3}, and searcher G400, over 100 markets:
+  - FDR = the mean over markets of V / max(R, 1), with a Hoeffding upper bound ≤ 0.20, so a point estimate ≤ 0.078. R counts promotions and V false ones.
+  - A promotion is true only if its mean net return over 200 fresh simulated years of the same model is positive, with a 99% CI excluding 0. Anything else is false.
+- **C2.6 Power.** In C2.5's runs, the rate of markets with at least one true promotion is reported with CIs for every cell. At s = 3 its point estimate is ≥ 0.30 on N2.
+
+Exit when C2.1 to C2.6 all hold.
+
 ## Blockers
 
 - **GPT unavailable (2026-10-19 ~05:30 UTC).** `opencode run` answers "The usage limit has been reached" for gpt-6.1-sol and gpt-6.1-sol-fast. Lost: the stage 1 red team, the independent fill checker, and the stage 2 criteria review. Fallback, per the session instructions: fresh-context Opus subagents, each given only a scratch directory of materials and told not to read the repo. That is weaker independence (same model family) and trust-based isolation. C1.2 ("≥ 10 programs from a GPT red team") and C1.5 ("GPT implements") name GPT, so they stay open until GPT is retried. Retry with the trivial PONG call before each GPT-dependent step.
