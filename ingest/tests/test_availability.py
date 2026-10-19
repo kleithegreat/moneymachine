@@ -27,3 +27,15 @@ def test_window_restarts_after_a_gap_and_needs_a_full_span(tmp_path):
     assert availability.window(root, after=t0 + SPAN + MAX_GAP) is None
     edge = write(tmp_path, {"A": list(range(t0, t0 + SPAN - MAX_GAP + 1, S))})
     assert availability.window(edge, after=t0) == (t0, t0 + SPAN)
+
+
+def test_a_late_boundary_poll_restarts_the_window(tmp_path):
+    t0 = 10 * SPAN
+    write(tmp_path, {"A": list(range(t0, t0 + 2 * SPAN, S))})
+    b = t0 + 3_600_000
+    with open(tmp_path / "polls-x.jsonl", "a") as f:
+        for recv in (b + 5_000, b + 45_001):
+            f.write(json.dumps({"kind": "funding", "coin": "A", "boundary": b, "purpose": "first", "sent": recv, "recv": recv}) + "\n")
+        f.write(json.dumps({"kind": "funding", "coin": "A", "boundary": b + 3_600_000, "purpose": "first",
+                            "sent": b + 3_600_000 + 35_000, "recv": b + 3_600_000 + 35_000}) + "\n")
+    assert availability.window(tmp_path, after=t0) == (b + 45_001, b + 45_001 + SPAN)

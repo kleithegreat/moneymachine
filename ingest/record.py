@@ -1,8 +1,10 @@
 """Live recorder for the availability check (C0.3) and execution calibration (C0.7).
 
-Appends raw polls as JSONL. From each hour boundary H, every coin's funding is polled
-every 30 s until the row settled at H appears; at 4h boundaries the same is done for the
-bar closing at H. Each is polled once more at H + 10 min as the reference final value.
+Appends raw polls as JSONL. Only listed coins are polled. From H + 5 s after each hour boundary H
+(settled rows have always been visible by H + 2 s), every coin's funding is polled every 30 s
+until the row settled at H appears; at 4h boundaries the same is done for the bar closing at H.
+Each is polled once more at H + 10 min as the reference final value. The recorder spends the
+client's whole budget, so nothing else may query the venue while it runs.
 L2 books are polled every 30 s per coin, at full precision and aggregated to 4 significant figures
 (deeper, with conservative bucket prices), logging the server time for clock offset. L2 runs on its
 own thread and rate budget, so boundary polls never delay it.
@@ -14,10 +16,11 @@ import threading
 import time
 from pathlib import Path
 
-from ingest.hl import HOUR, Info
+from ingest.hl import BUDGET_PER_MIN, HOUR, Info
 from ingest.live import now_ms
 
 POLL = 30_000
+FIRST_AFTER = 5_000
 VERIFY_AFTER = 600_000
 BAR = 4 * HOUR
 L2_BUDGET = 120
@@ -69,7 +72,7 @@ class Recorder:
             kinds = self.kinds(h)
             for kind in kinds:
                 for c in self.coins:
-                    self.pending[(kind, c)] = (h, 0)
+                    self.pending[(kind, c)] = (h, h + FIRST_AFTER - POLL)
                 self.verify.append((h + VERIFY_AFTER, kinds))
         for (kind, c), (b, last) in list(self.pending.items()):
             if now_ms() - last >= POLL:
@@ -100,9 +103,10 @@ def forever(step):
         time.sleep(0.5)
 
 
-def main(universe_path, out_dir, budget):
-    coins = json.loads(Path(universe_path).read_text())["universe"]
-    rec = Recorder(int(budget), coins, out_dir)
+def main(universe_path, rules_path, out_dir):
+    delisted = json.loads(Path(rules_path).read_text())["coins"]
+    coins = [c for c in json.loads(Path(universe_path).read_text())["universe"] if not delisted[c]["delisted"]]
+    rec = Recorder(BUDGET_PER_MIN, coins, out_dir)
     threading.Thread(target=forever, args=(rec.step_l2,), daemon=True).start()
     forever(rec.step)
 

@@ -1,7 +1,8 @@
 """C0.3: from recorder polls, when each settled funding row and closed bar was first observed.
 
-C0.3 and C0.7 are judged on the first 24 h after RECORDING_FROM (the restart with L2 on its own
-thread) in which no coin's L2 poll gap exceeds MAX_GAP (PROGRESS.md, C0.7 revision of 2026-10-19).
+C0.3 and C0.7 are judged on the first 24 h after RECORDING_FROM (the last recorder restart) in which
+no coin's L2 poll gap exceeds MAX_GAP and no boundary poll comes more than BOUNDARY_GAP after the
+boundary or the previous poll of the same row (PROGRESS.md, C0.7 revisions of 2026-10-19).
 """
 
 import json
@@ -14,9 +15,10 @@ from ingest.live import read
 from ingest.store import DELTA
 
 BAR = 4 * HOUR
-RECORDING_FROM = 1792435373620
+RECORDING_FROM = 1792440985867
 SPAN = 24 * HOUR
 MAX_GAP = 60_000
+BOUNDARY_GAP = 35_000
 VERIFY_AFTER = 600_000
 
 
@@ -26,13 +28,18 @@ def load(live_dir):
 
 def window(live_dir, after=RECORDING_FROM):
     """(start, end) of the judged span, or None while no complete one exists yet."""
-    sent = defaultdict(list)
+    sent, rows = defaultdict(list), defaultdict(list)
     for p in load(live_dir):
         if p["kind"] == "l2" and p["sent"] >= after:
             sent[p["coin"]].append(p["sent"])
+        elif p["kind"] != "l2" and p["purpose"] == "first" and p["boundary"] >= after:
+            rows[(p["kind"], p["coin"], p["boundary"])].append(p["recv"])
     if not sent:
         return None
-    gaps = sorted((a, b) for ts in sent.values() for a, b in zip(sorted(ts), sorted(ts)[1:]) if b - a > MAX_GAP)
+    gaps = [(a, b) for ts in sent.values() for a, b in zip(sorted(ts), sorted(ts)[1:]) if b - a > MAX_GAP]
+    gaps += [(a, b) for (_, _, boundary), ts in rows.items() for a, b in zip([boundary] + sorted(ts), sorted(ts))
+             if b - a > BOUNDARY_GAP]
+    gaps.sort()
     start = max(min(ts) for ts in sent.values())
     for a, b in gaps:
         if a < start + SPAN and b > start:
