@@ -83,7 +83,7 @@ def run(data_root, version):
     bar = {(c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()}
     rate_at = {(c, t): r for c, t, r in funding.select("coin", "eventTime", "fundingRate").iter_rows()}
 
-    book, trace, worst, pending, marks = Book(), [], 0.0, {}, {}
+    book, trace, worst, orders, marks = Book(), [], 0.0, {}, {}
 
     def execute(t, coin, qty, ref, why):
         side = "buy" if qty > 0 else "sell"
@@ -95,12 +95,11 @@ def run(data_root, version):
 
     b = W_START
     while b + 2 * BAR <= HOLDOUT_START:
-        for coin, qty in pending.items():
+        for coin, qty in orders.pop(b, {}).items():
             if (coin, b) in bar and bar[(coin, b)][4] > 0:
                 execute(b, coin, qty, bar[(coin, b)][0], "fill")
             else:
                 trace.append({"t": b, "type": "unfilled", "coin": coin, "qty": qty})
-        pending = {}
         for h in range(b + HOUR, b + BAR + HOUR, HOUR):
             for coin in list(book.pos):
                 if (coin, h) in rate_at and (coin, h - h % BAR) in bar:
@@ -142,7 +141,7 @@ def run(data_root, version):
             held = book.pos.get(coin, 0.0)
             qty = -held if target == 0.0 else truncate(target - held, rules["coins"][coin]["szDecimals"])
             if qty and (abs(qty) * price >= min_notional or target == 0.0):
-                pending[coin] = qty
+                orders.setdefault(b + 2 * BAR, {})[coin] = qty
                 trace.append({"t": t_d, "type": "decision", "coin": coin, "rate": rate, "price": price,
                               "qty": qty, "inputs_knownAt": known})
         b += BAR

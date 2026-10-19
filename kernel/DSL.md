@@ -104,10 +104,12 @@ Every expression is a JSON object of one of these forms:
 | `xs_mean` `xs_demean` | 1 | | across listed coins with a defined value at this tick |
 | `xs_rank` | 1 of unit `1` | | rank in [0, 1] across those coins (ties averaged; a single coin gets 0.5) |
 
-`std` uses the population formula. A window that has not yet filled is undefined, and
-any operation with an undefined argument is undefined. One exception: `if` evaluates
-only the branch its condition selects, and an undefined condition is undefined.
-Booleans cannot be the weight.
+Every expression is evaluated at every tick, so windows see every tick. `std` uses the
+population formula. A window is undefined until it holds `hours` samples, and while any
+of them is undefined. `ema` is undefined until it has seen `hours` defined samples; an
+undefined sample leaves its state unchanged. Any operation with an undefined argument is
+undefined, except `if`: an undefined value in the branch it does not select is ignored.
+An undefined condition makes it undefined. Booleans cannot be the weight.
 
 ## CLI
 
