@@ -34,3 +34,16 @@ def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path):
     c = stage3.comparison({"id": "c", "A": arm(2, {"h": {"pass": False}}), "B": arm(1, {})}, ledger)
     assert c["A"]["distinct_canonical"] == 1 and c["A"]["evaluations"] == 2 and c["A"]["mechanism_failures"] == ["h"]
     assert c["B"]["holdout"]["h"] == {"return": 0.01, "p": 0.2, "holm": 0.3} and c["statement"] == stage3.NO_CLAIM
+
+
+def test_c45_report_counts_short_and_crashed_campaigns(tmp_path, monkeypatch):
+    from gate import stage4
+
+    monkeypatch.setattr(stage4, "OUT", tmp_path)
+    monkeypatch.setattr(sweep, "OUT", tmp_path)
+    rows = [{"id": f"c45-N2-{i}", "counts_as_promotion": i == 9, "evaluations": 300, "search": {"spa_p": 0.3, "max_dsr": 0.0, "screened": []}}
+            for i in range(10)]
+    (tmp_path / "c45.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (tmp_path / "c24.jsonl").write_text("")
+    r = stage4.report_c45()
+    assert (r["n"], r["counted_promotions"], r["pass"]) == (10, 1, True) and r["h400_c24_n2"]["spa_p"] is None

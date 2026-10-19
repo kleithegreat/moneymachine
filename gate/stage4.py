@@ -1,11 +1,12 @@
-"""Stage 4 C4.5: swarm null smoke campaigns (4 sandboxed agents sharing history) on N2 markets."""
+"""Stage 4 C4.5: swarm null smoke campaigns (4 sandboxed agents sharing history) on N2 markets.
+`python -m gate.stage4 N` runs campaigns 0..N-1; `report` applies C4.5."""
 
 import json
 import sys
 import time
 from pathlib import Path
 
-from gate import gate, markets, stage3
+from gate import gate, markets, stage3, sweep
 from gate.agent import harness
 
 OUT = stage3.OUT
@@ -50,13 +51,24 @@ def swarm_campaign(i, cost_cells):
     return result
 
 
-if __name__ == "__main__":
-    from gate.sweep import cost_cells
+def report_c45():
+    rows = [json.loads(l) for l in open(OUT / "c45.jsonl")]
+    promoted = sum(r["counts_as_promotion"] for r in rows)
+    h400 = [r for r in sweep.results("c24") if r["id"].startswith("c24-N2-H400-")]
+    return {"n": len(rows), "counted_promotions": promoted, "pass": len(rows) == 10 and promoted <= 1,
+            "evaluations": [r.get("evaluations") for r in rows], "cross_agent_history": [r.get("cross_agent_history") for r in rows],
+            "swarm": stage3.summary(rows), "h400_c24_n2": stage3.summary(h400),
+            "statement": "With 10 runs the 95% bound is about 0.39; this is a smoke test only."}
 
+
+if __name__ == "__main__":
+    if sys.argv[1] == "report":
+        print(json.dumps(report_c45(), indent=1))
+        sys.exit()
     stage3.check_frozen()
     out = OUT / "c45.jsonl"
     done = {json.loads(l)["id"] for l in open(out)} if out.exists() else set()
     for i in range(int(sys.argv[1])):
         if f"c45-N2-{i}" not in done:
             with open(out, "a") as fh:
-                fh.write(json.dumps(swarm_campaign(i, cost_cells())) + "\n")
+                fh.write(json.dumps(swarm_campaign(i, sweep.cost_cells())) + "\n")
