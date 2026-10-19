@@ -1,6 +1,6 @@
 """Stage 5: backfill Discourse post metadata (no text) from W's start, as immutable revisions.
 
-Rows are keyed by (source, upstream_id). eventTime and knownAt hold the server-set created time
+Rows are keyed by (forum, upstream_id). eventTime and knownAt hold the server-set created time
 (the claim); each revision's fetchedAt is our witness. Admissible availability times are derived
 from both later (C5.3), so an unchanged post refetched later is not a new revision.
 """
@@ -35,7 +35,7 @@ def backfill(forum, http, fetched_at):
         if not page:
             return rows
         for p in page:
-            rows.append({"source": forum, "upstream_id": p["id"], "eventTime": ms(p["created_at"]),
+            rows.append({"forum": forum, "upstream_id": p["id"], "eventTime": ms(p["created_at"]),
                          "knownAt": ms(p["created_at"]), "topic_id": p["topic_id"], "post_number": p["post_number"],
                          "updated": ms(p["updated_at"]), "version": p.get("version") or 1,
                          "content_sha256": hashlib.sha256((p.get("cooked") or "").encode()).hexdigest()})
@@ -54,7 +54,7 @@ def main(data_root):
         got = backfill(forum, http, fetched_at)
         print(forum, len(got), file=sys.stderr, flush=True)
         rows += got
-    store = Store(Path(data_root) / "sources", key=["source", "upstream_id"])
+    store = Store(Path(data_root) / "sources", key=["forum", "upstream_id"])
     print(json.dumps({"version": fetched_at, "written": store.write("discourse", pl.DataFrame(rows), fetched_at, "discourse-posts")}))
 
 
