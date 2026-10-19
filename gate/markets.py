@@ -1,0 +1,163 @@
+"""Synthetic markets N1, N2, N3 and planted signals (gate/NULLS.md), in the kernel's store format:
+<root>/{store, holdout, venue, policy.json}."""
+
+import hashlib
+import json
+from pathlib import Path
+
+import numpy as np
+import polars as pl
+
+from ingest.store import Store, write_split
+
+HOUR = 3_600_000
+BAR = 4 * HOUR
+DELTA = 120_000
+DAY = 24 * HOUR
+CAP = 0.04
+EPS_MAX = 0.5
+SIGMA_MAX = 0.0625
+
+
+def seed_of(market_id):
+    return int.from_bytes(hashlib.sha256(market_id.encode()).digest()[:8], "little")
+
+
+def truncated_t(rng, nu, shape, bound=8.0):
+    """Standardized Student-t (unit variance), truncated symmetrically at +-bound by resampling."""
+    scale = np.sqrt((nu - 2) / nu)
+    x = rng.standard_t(nu, shape) * scale
+    bad = np.abs(x) > bound
+    while bad.any():
+        x[bad] = rng.standard_t(nu, bad.sum()) * scale
+        bad = np.abs(x) > bound
+    return x
+
+
+def truncated_normal(rng, shape, bound=8.0):
+    x = rng.standard_normal(shape)
+    bad = np.abs(x) > bound
+    while bad.any():
+        x[bad] = rng.standard_normal(bad.sum())
+        bad = np.abs(x) > bound
+    return x
+
+
+def funding_paths(rng, p, coins, hours):
+    """AR(1) per coin on the hourly grid, clipped to the cap; zero when p is None."""
+    f = np.zeros((hours, coins))
+    if p is None:
+        return f
+    mu, phi, s, nu = (np.asarray(p[k], float) for k in ("mu", "phi", "s", "nu"))
+    f[0] = mu
+    shocks = np.stack([rng.standard_t(nu[i], hours) for i in range(coins)], axis=1) * s
+    for h in range(1, hours):
+        f[h] = np.clip(mu + phi * (f[h - 1] - mu) + shocks[h], -CAP, CAP)
+    return f
+
+
+def generate(model, params, market_id, days, planted=(), beta=0.0):
+    """Arrays for one market: per-bar o, c, high, low, volume and hourly funding, premium."""
+    rng = np.random.default_rng(seed_of(market_id))
+    coins = 12
+    n = days * 6
+    hours = n * 4 + 1
+    f = funding_paths(rng, None if model == "N1" else params["funding"], coins, hours)
+    eps = np.zeros((n, coins))
+    sig = np.zeros((n, coins))
+    if model == "N1":
+        sig[:] = 0.02
+        x = truncated_normal(rng, (n, coins))
+    elif model == "N2":
+        g = params["garch"]
+        omega, alpha, beta_g = (np.asarray(g[k], float) for k in ("omega", "alpha", "beta"))
+        lam = params["lambda"]
+        x = lam * truncated_t(rng, 5, (n, 1)) + np.sqrt(1 - lam**2) * truncated_t(rng, 5, (n, coins))
+    elif model == "N3":
+        r = params["regime"]
+        P = np.asarray(r["P"], float)
+        m = np.asarray(r["m"], float)
+        rho = np.asarray(r["rho"], float)
+        state = np.zeros(n, int)
+        u = rng.random(n)
+        for k in range(1, n):
+            state[k] = state[k - 1] if u[k] < P[state[k - 1], state[k - 1]] else 1 - state[k - 1]
+        sig[:] = np.minimum(np.asarray(r["sigma"], float)[None, :] * m[state][:, None], SIGMA_MAX)
+        zm, zi = truncated_t(rng, 5, (n, 1)), truncated_t(rng, 5, (n, coins))
+        rs = rho[state][:, None]
+        jumps = (rng.random((n, coins)) < r["p_jump"]) * np.clip(rng.laplace(0, r["k_jump"], (n, coins)), -0.2, 0.2)
+        x = np.sqrt(rs) * zm + np.sqrt(1 - rs) * zi + jumps / sig
+    else:
+        raise ValueError(model)
+    planted_mask = np.zeros(coins, bool)
+    planted_mask[list(planted)] = True
+    var = omega / (1 - alpha - beta_g) if model == "N2" else None
+    for k in range(n):
+        if model == "N2":
+            sig[k] = np.minimum(np.sqrt(var), SIGMA_MAX)
+        signal = -np.clip(f[4 * k - 4] / 1e-4, -1, 1) if k else np.zeros(coins)
+        eps[k] = np.clip(sig[k] * x[k] + planted_mask * beta * signal, -EPS_MAX, EPS_MAX)
+        if model == "N2":
+            var = omega + alpha * eps[k] ** 2 + beta_g * var
+    f1, f2, f3, f4 = (f[4 * np.arange(n) + i] for i in (1, 2, 3, 4))
+    o = np.empty((n, coins))
+    c = np.empty((n, coins))
+    px = np.full(coins, 100.0)
+    for k in range(n):
+        o[k] = px
+        c[k] = px * (1 + f1[k] + f2[k] + f3[k] + eps[k]) / (1 - f4[k])
+        px = c[k]
+    w = np.abs(rng.standard_normal((2, n, coins))) * sig / 2
+    high = np.maximum(o, c) * (1 + w[0])
+    low = np.minimum(o, c) * (1 - w[1])
+    volume = rng.lognormal(10, 0.5, (n, coins))
+    premium = f - 1.25e-5 + rng.normal(0, 1e-4, f.shape) if model != "N1" else np.zeros_like(f)
+    return {"open": o, "close": c, "high": high, "low": low, "volume": volume, "funding": f, "premium": premium,
+            "eps": eps, "sigma": sig}
+
+
+def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=1):
+    """Write a generated market; rows from the last `holdout_days` go to <root>/holdout."""
+    root = Path(root)
+    n, coins = arrays["open"].shape
+    hours = arrays["funding"].shape[0]
+    names = [f"S{i}" for i in range(coins)]
+    k = np.arange(n)
+    bars = pl.DataFrame({
+        "coin": np.repeat(names, n),
+        "eventTime": np.tile((k + 1) * BAR, coins),
+        "knownAt": np.tile((k + 1) * BAR + DELTA, coins),
+        "openTime": np.tile(k * BAR, coins),
+        **{col: arrays[col].T.reshape(-1) for col in ("open", "high", "low", "close", "volume")},
+        "trades": np.full(n * coins, 100),
+    })
+    h = np.arange(hours)
+    funding = pl.DataFrame({
+        "coin": np.repeat(names, hours),
+        "eventTime": np.tile(h * HOUR, coins),
+        "knownAt": np.tile(h * HOUR + DELTA, coins),
+        "fundingRate": arrays["funding"].T.reshape(-1),
+        "premium": arrays["premium"].T.reshape(-1),
+        "reportedTime": np.tile(h * HOUR, coins),
+    })
+    w_end = n * BAR + HOUR
+    holdout_start = n * BAR - holdout_days * DAY if holdout_days else w_end
+    search, holdout = Store(root / "store", event_before=holdout_start), Store(root / "holdout")
+    write_split(search, holdout, "funding", funding, fetched_at, "synthetic", holdout_start)
+    write_split(search, holdout, "bars_4h", bars, fetched_at, "synthetic", holdout_start)
+    venue = root / "venue"
+    venue.mkdir(parents=True, exist_ok=True)
+    rules = {"rules": {"taker_fee": {"value": taker_fee}, "min_order_notional_usd": {"value": 10.0}},
+             "coins": {c: {"szDecimals": 3, "maxLeverage": 10, "marginTiers": [{"lowerBound": "0.0", "maxLeverage": 10}],
+                           "delisted": False} for c in names}}
+    (venue / "rules.json").write_text(json.dumps(rules))
+    (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: cost_cells for c in names}}))
+    (root / "policy.json").write_text(json.dumps(
+        {"delta_ms": DELTA, "w_start": 0, "holdout_start": holdout_start, "w_end": w_end}))
+    return root
+
+
+def write_market(root, market_id="test", days=60, holdout_days=0, model="N1", params=None,
+                 cost_cells=None, planted=(), beta=0.0):
+    cells = cost_cells or {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
+    return write(root, generate(model, params, market_id, days, planted, beta), holdout_days, cells)

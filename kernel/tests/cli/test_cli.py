@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from gate.synth import write_market
+from gate.markets import write_market
 
 REPO = Path(__file__).resolve().parents[3]
 MM = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
@@ -22,7 +22,7 @@ IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end",
 @pytest.fixture(scope="module")
 def market(tmp_path_factory):
     subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
-    return write_market(tmp_path_factory.mktemp("m"), seed=7, coins=3, days=40, holdout_days=10)
+    return write_market(tmp_path_factory.mktemp("m"), market_id="cli", days=40, holdout_days=10)
 
 
 def test_holdout_is_split_off(market):
