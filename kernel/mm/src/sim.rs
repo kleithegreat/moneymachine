@@ -3,7 +3,8 @@
 //! Event order per 4h bar [b, b + 4h): funding settlements at b + 1h ..= b + 4h; marks at
 //! the bar's close; margin check at its adverse extreme; delisting closeouts; the I5 check
 //! and equity at B = b + 4h; fills at B of the orders decided at b + delta; machine ticks at
-//! H + delta for H in (b, B]; and the decision at B + delta, filled at B + 4h.
+//! H + delta for H in (b, B]; and the decision at B + delta, filled at B + 4h. A fill happens
+//! only if a later bar will mark it, so the last equity mark accounts for every fill.
 
 use crate::dsl::Program;
 use crate::machine::Machine;
@@ -296,7 +297,8 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         equity_path.push(e1);
         prev_equity = e1;
 
-        for o in orders.remove(&(b + BAR)).unwrap_or_default() {
+        let fills = orders.remove(&(b + BAR)).unwrap_or_default();
+        for o in if b + 3 * BAR <= end { fills } else { vec![] } {
             match market.bar_at.get(&(o.coin, b + BAR)).map(|&i| market.bars[i]) {
                 Some(bar) if bar.trades >= 1 => {
                     let price = fill_price(venue, o.coin, o.qty, bar.open);

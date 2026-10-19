@@ -43,7 +43,8 @@ def test_funding_passes_through_exactly(tmp_path):
     funding = [e for e in trace if e["type"] == "funding"]
     assert len(fills) > 50 and any(abs(e["paid"]) > 0 for e in funding)
     last = [e for e in trace if e["type"] == "equity"][-1]
-    costs = sum(e["fee"] + e["qty"] * (e["price"] - e["ref"]) for e in fills if e["t"] < last["t"])
+    costs = sum(e["fee"] + e["qty"] * (e["price"] - e["ref"]) for e in fills)
+    assert all(e["t"] < last["t"] for e in fills)
     assert abs(last["equity"] - (10_000 - costs)) < 1e-6, (last["equity"], 10_000 - costs)
 
 

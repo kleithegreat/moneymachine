@@ -104,13 +104,14 @@ fn summary(run: &sim::Run) -> Value {
         peak = peak.max(e);
         mdd = mdd.max(1.0 - e / peak);
     }
-    let (mut fills, mut fees, mut funding, mut holds, mut turnover) = (0, 0.0, 0.0, 0, 0.0);
+    let (mut fills, mut fees, mut funding, mut holds, mut turnover, mut slippage) = (0, 0.0, 0.0, 0, 0.0, 0.0);
     for e in &run.trace {
         match e {
             Event::Fill(f) => {
                 fills += 1;
                 fees += f.fee;
                 turnover += f.qty.abs() * f.price;
+                slippage += f.qty * (f.price - f.reference);
             }
             Event::Funding { paid, .. } => funding -= paid,
             Event::Hold { .. } => holds += 1,
@@ -127,6 +128,7 @@ fn summary(run: &sim::Run) -> Value {
         "fees": fees,
         "funding": funding,
         "turnover": turnover,
+        "slippage": slippage,
         "holds": holds,
     })
 }

@@ -2,7 +2,8 @@
 
 Conventions (stage 0 criteria, C0.8 as revised), per 4h bar [b, b + 4h): funding settlements
 at b + 1h ..= b + 4h, marks at its close, margin check, delisting closeouts, equity at b + 4h,
-then fills at b + 4h of the orders decided at b + delta, then the decision at b + 4h + delta.
+then fills at b + 4h of the orders decided at b + delta (only if a later bar will mark them),
+then the decision at b + 4h + delta.
 - decision at t_d = B + DELTA from as_of(t_d): funding settled at B, bar ending at B;
 - fill at B + 4h at the open of the bar starting there (unfilled if it recorded no trade), moved by the taker cost model, plus fee;
 - funding settles hourly on the position held, before any fill at the same instant, priced at
@@ -121,7 +122,7 @@ def run(data_root, version):
         worst = max(worst, abs(e1 - e2) / abs(e1))
         trace.append({"t": b + BAR, "type": "equity", "equity": e1, "reconciled": e2})
 
-        for coin, qty in orders.pop(b + BAR, {}).items():
+        for coin, qty in (orders.pop(b + BAR, {}) if b + 3 * BAR <= HOLDOUT_START else {}).items():
             if (coin, b + BAR) in bar and bar[(coin, b + BAR)][4] > 0:
                 execute(b + BAR, coin, qty, bar[(coin, b + BAR)][0], "fill")
             else:

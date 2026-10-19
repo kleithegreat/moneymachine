@@ -107,5 +107,8 @@ simulated years.
 Clipping a non-centered ε biases its mean toward 0 by at most P(|σx + βg| > 0.5) · 0.5. That
 is negligible at these σ and is absorbed by calibrating β through the kernel.
 
+A coin of U with fewer than 1,000 traded bars in the search part (FTM, delisted 2025-01)
+takes the median over the other coins of every per-coin parameter.
+
 Parameters are written to `gate/nulls.json` with their sha256 before the first campaign, and
 never changed afterwards. A change means new campaign ids, logged.
