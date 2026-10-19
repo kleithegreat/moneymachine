@@ -129,6 +129,7 @@ fn summary(run: &sim::Run) -> Value {
         "funding": funding,
         "turnover": turnover,
         "slippage": slippage,
+        "gross_return_mean": run.gross_returns.iter().sum::<f64>() / n,
         "holds": holds,
     })
 }
@@ -222,7 +223,12 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     let run = sim::run(prog, &c.market, &c.venue, &c.policy, c.end).map_err(|e| (e.code().to_string(), format!("{e:?}")))?;
     let first = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).position(|t| t > c.report_after);
     let k = first.unwrap_or(run.returns.len());
-    let run = sim::Run { returns: run.returns[k..].to_vec(), equity: run.equity[k..].to_vec(), trace: run.trace };
+    let run = sim::Run {
+        returns: run.returns[k..].to_vec(),
+        gross_returns: run.gross_returns[k..].to_vec(),
+        equity: run.equity[k..].to_vec(),
+        trace: run.trace,
+    };
     let canonical = prog.canonical();
     let strategy_hash = sha256_hex(canonical.as_bytes());
     let params = json!(prog.param_values().into_iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>()).to_string();

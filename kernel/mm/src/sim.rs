@@ -80,6 +80,7 @@ struct Book {
     entry: BTreeMap<usize, f64>,
     realized: f64,
     fees: f64,
+    slippage: f64,
     funding: f64,
 }
 
@@ -107,6 +108,10 @@ impl Book {
         self.fees += fee;
     }
 
+    fn costs(&self) -> f64 {
+        self.fees + self.slippage
+    }
+
     fn settle(&mut self, coin: usize, price: f64, rate: f64) -> f64 {
         let paid = self.pos.get(&coin).copied().unwrap_or(0.0) * price * rate;
         self.cash -= paid;
@@ -128,6 +133,8 @@ pub struct Run {
     pub trace: Vec<Event>,
     /// Equity return of each 4h step.
     pub returns: Vec<f64>,
+    /// The same before fees and slippage: (change in equity + that step's costs) / previous equity.
+    pub gross_returns: Vec<f64>,
     pub equity: Vec<f64>,
 }
 
@@ -205,12 +212,13 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
     let mut marks = vec![f64::NAN; n];
     let mut trace = vec![];
     let mut orders: BTreeMap<i64, Vec<Order>> = BTreeMap::new();
-    let (mut returns, mut equity_path) = (vec![], vec![]);
-    let mut prev_equity = INITIAL;
+    let (mut returns, mut gross_returns, mut equity_path) = (vec![], vec![], vec![]);
+    let (mut prev_equity, mut prev_costs) = (INITIAL, 0.0);
 
     let execute = |book: &mut Book, trace: &mut Vec<Event>, f: Fill| -> Result<(), Abort> {
         check_fill(&f, market, venue)?;
         book.fill(f.coin, f.qty, f.price, f.fee);
+        book.slippage += f.qty * (f.price - f.reference);
         trace.push(Event::Fill(f));
         Ok(())
     };
@@ -294,8 +302,10 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
         trace.push(Event::Equity { t: b + BAR, equity: e1, reconciled: e2 });
         returns.push(e1 / prev_equity - 1.0);
+        gross_returns.push((e1 - prev_equity + book.costs() - prev_costs) / prev_equity);
         equity_path.push(e1);
         prev_equity = e1;
+        prev_costs = book.costs();
 
         let fills = orders.remove(&(b + BAR)).unwrap_or_default();
         for o in if b + 3 * BAR <= end { fills } else { vec![] } {
@@ -367,5 +377,5 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
         b += BAR;
     }
-    Ok(Run { trace, returns, equity: equity_path })
+    Ok(Run { trace, returns, gross_returns, equity: equity_path })
 }

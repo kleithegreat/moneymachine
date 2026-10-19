@@ -112,3 +112,12 @@ takes the median over the other coins of every per-coin parameter.
 
 Parameters are written to `gate/nulls.json` with their sha256 before the first campaign, and
 never changed afterwards. A change means new campaign ids, logged.
+
+## C2.1 test units
+
+The probes' PnL unit is the per-step gross return (change in equity plus that step's fees and
+slippage, over the previous equity; `gross_return_mean` in `mm eval`'s summary). Its conditional
+mean is exactly zero under every null. Dollar PnL of a compounding strategy also has mean zero,
+but it is so right-skewed across markets that a z-test on it is invalid (a 10-year N2 trial with
+0.96× buy-and-hold had z = −10.6 on dollars, with the kernel's dollar PnL equal to Σ q·o·ε to
+1e-10). The regression's F-test uses HC3-robust covariance, since ε is heteroskedastic by design.
