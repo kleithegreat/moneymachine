@@ -250,8 +250,14 @@ impl<'p> Machine<'p> {
                 Op::Ge => b(a(0)? >= a(1)?),
                 Op::Lt => b(a(0)? < a(1)?),
                 Op::Le => b(a(0)? <= a(1)?),
-                Op::And => b(a(0)? != 0.0 && a(1)? != 0.0),
-                Op::Or => b(a(0)? != 0.0 || a(1)? != 0.0),
+                Op::And => {
+                    let (x, y) = (a(0)?, a(1)?);
+                    b(x != 0.0 && y != 0.0)
+                }
+                Op::Or => {
+                    let (x, y) = (a(0)?, a(1)?);
+                    b(x != 0.0 || y != 0.0)
+                }
                 Op::Not => b(a(0)? == 0.0),
                 Op::If => {
                     if a(0)? != 0.0 { a(1) } else { a(2) }
@@ -265,6 +271,11 @@ impl<'p> Machine<'p> {
 
     pub fn weight(&self, c: usize) -> Option<f64> {
         self.vals[self.prog.weight][c]
+    }
+
+    /// A node's value for coin c at this tick.
+    pub fn value(&self, node: usize, c: usize) -> Option<f64> {
+        self.vals[node][c]
     }
 
     /// The prediction condition for coin c at this tick (None if absent or undefined).

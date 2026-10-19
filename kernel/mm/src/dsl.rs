@@ -193,6 +193,8 @@ pub struct Program {
     /// The pre-registered mechanism condition, a boolean node; not part of the strategy's identity.
     pub prediction: Option<usize>,
     pub params: Vec<Param>,
+    /// Let names and their nodes, in declaration order.
+    pub lets: Vec<(String, usize)>,
     pub mechanism: Value,
 }
 
@@ -380,6 +382,7 @@ impl Checker {
             weight: w,
             prediction,
             params: self.params,
+            lets: self.lets,
             mechanism: m["mechanism"].clone(),
         })
     }

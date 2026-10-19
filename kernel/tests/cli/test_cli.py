@@ -187,3 +187,18 @@ def test_mechanism_report(market, tmp_path):
     mech = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
     assert set(mech) >= {"exposures_true", "exposures_false", "mean_true", "mean_false", "share_true", "pass"}
     assert plain["strategy"] == json.loads(r.stdout)["disclosure"]["strategy"]
+
+
+def test_equivalence_key_is_stable_across_processes(tmp_path):
+    import random
+    from gate import search
+    rng = random.Random(5)
+    keys = []
+    for i in range(40):
+        p = tmp_path / f"p{i}.json"
+        p.write_text(json.dumps(search.compile_genome(search.random_genome(rng))))
+        runs = [json.loads(subprocess.run([str(MM), "check", str(p), "--ledger", str(tmp_path / f"l{k}.sqlite")],
+                                          capture_output=True, text=True).stdout)["equivalence"] for k in range(2)]
+        assert runs[0] == runs[1]
+        keys.append(runs[0])
+    assert len(set(keys)) > 30

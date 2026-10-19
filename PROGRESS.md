@@ -290,6 +290,10 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Log
 
+- 2026-10-19: C4.1 and C4.2 met (`kernel/mm/tests/rules.rs`, `canon.rs`).
+  - All 16 rules of R are bitwise exact (probe value streams and run outcomes) on 1,000 programs × 3 markets each.
+  - 0 of 1,000 rewritten programs got a different key; 20 hand-built pairs merge; all 10 rejected-law counterexamples stay distinct; keys are stable across fresh processes.
+  - C4.1 found a kernel bug: `and`/`or` short-circuited, so `and(false, undefined)` was false while `and(undefined, false)` was undefined, against DSL.md. Both arguments are now evaluated before combining.
 - 2026-10-19: Stage 5 sources probed after the criteria froze.
   - Discourse: 7 public forums reachable (BTC delvingbitcoin, ETH ethresear.ch, SOL, SUI, TIA, AAVE, BNB).
   - Snapshot: only `aavedao.eth` (AAVE) among U.

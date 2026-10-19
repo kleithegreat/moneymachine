@@ -165,7 +165,8 @@ fn check(a: &Args, ledger: &mut Ledger) -> ExitCode {
     };
     match dsl::parse(&text) {
         Ok(p) => {
-            let out = json!({"ok": true, "strategy": sha256_hex(p.canonical().as_bytes())}).to_string();
+            let out = json!({"ok": true, "strategy": sha256_hex(p.canonical().as_bytes()),
+                             "equivalence": mm::canon::equivalence_key(&p)}).to_string();
             emit(ledger.disclose(campaign, agent, "check", &out), &out, false, 0)
         }
         Err(r) => {
