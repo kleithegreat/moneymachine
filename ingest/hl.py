@@ -48,8 +48,11 @@ class Info:
     def meta(self):
         return self.post({"type": "meta"})
 
-    def l2_book(self, coin):
-        return self.post({"type": "l2Book", "coin": coin}, weight=2)
+    def l2_book(self, coin, sig_figs=None):
+        body = {"type": "l2Book", "coin": coin}
+        if sig_figs:
+            body["nSigFigs"] = sig_figs
+        return self.post(body, weight=2)
 
     def funding(self, coin, start, end=None):
         """All settled funding rows with start <= time < end, paginated by 500."""

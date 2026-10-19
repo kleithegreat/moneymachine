@@ -71,12 +71,12 @@ class Book:
         return INITIAL + self.realized + unrealized - self.fees + self.funding
 
 
-def run(data_root, version):
+def run(data_root, version, venue=Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"):
     root = Path(data_root)
     search, _ = stores(root)
     report = json.loads((root / "reports" / f"stage0-ingest-{version}.json").read_text())
     intervals = {c: (s, min(e, HOLDOUT_START)) for c, (s, e) in report["intervals"].items()}
-    venue = Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"
+    venue = Path(venue)
     rules = json.loads((venue / "rules.json").read_text())
     cost = json.loads((venue / "execution.json").read_text())["cost_bps_ex_fee"]
     fee_rate = rules["rules"]["taker_fee"]["value"]
@@ -154,8 +154,8 @@ def run(data_root, version):
 
 
 if __name__ == "__main__":
-    data_root, version, out = sys.argv[1:]
-    trace, worst = run(data_root, int(version))
+    data_root, version, out, *venue = sys.argv[1:]
+    trace, worst = run(data_root, int(version), *venue)
     Path(out).write_text("\n".join(json.dumps(r) for r in trace) + "\n")
     eq = [r for r in trace if r["type"] == "equity"]
     print(json.dumps({"steps": len(eq), "final_equity": eq[-1]["equity"], "worst_reconciliation_rel": worst,

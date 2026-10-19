@@ -19,8 +19,9 @@ def stage0_version():
     return int(reports[0].stem.rsplit("-", 1)[1]) if reports else None
 
 
+VENUE = Path(os.environ.get("MM_VENUE", REPO / "venue" / "hyperliquid"))
 pytestmark = pytest.mark.skipif(
-    stage0_version() is None or not (REPO / "venue/hyperliquid/execution.json").exists(),
+    stage0_version() is None or not (VENUE / "execution.json").exists(),
     reason="needs the stage 0 backfill in data/ and the C0.7 execution model")
 
 
@@ -33,11 +34,11 @@ def test_kernel_matches_witness(tmp_path):
     subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
     out = tmp_path / "trace.jsonl"
     r = subprocess.run([str(MM), "eval", str(REPO / "kernel/strategies/w0.json"), "--campaign", "stage1-differential",
-                        "--agent", "test", "--version", str(version), "--trace", str(out),
+                        "--agent", "test", "--version", str(version), "--trace", str(out), "--venue", str(VENUE),
                         "--ledger", str(tmp_path / "l.sqlite")], cwd=REPO, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     kernel = [json.loads(l) for l in out.read_text().splitlines()]
-    py, worst = witness.run(REPO / "data", version)
+    py, worst = witness.run(REPO / "data", version, VENUE)
     assert worst <= 1e-9
 
     ke, pe = by_type(kernel, {"equity"}), by_type(py, {"equity"})

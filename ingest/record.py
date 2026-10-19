@@ -3,7 +3,8 @@
 Appends raw polls as JSONL. From each hour boundary H, every coin's funding is polled
 every 30 s until the row settled at H appears; at 4h boundaries the same is done for the
 bar closing at H. Each is polled once more at H + 10 min as the reference final value.
-L2 books are polled every 30 s per coin, logging the server time for clock offset.
+L2 books are polled every 30 s per coin, at full precision and aggregated to 4 significant figures
+(deeper, with conservative bucket prices), logging the server time for clock offset.
 """
 
 import json
@@ -28,7 +29,7 @@ class Recorder:
         self.out.mkdir(parents=True, exist_ok=True)
         self.hour = now_ms() // HOUR * HOUR
         self.pending = {}
-        self.verify = []
+        self.verify = [(self.hour + VERIFY_AFTER, self.kinds(self.hour))] if now_ms() < self.hour + VERIFY_AFTER else []
         self.last_l2 = {c: 0 for c in coins}
 
     def log(self, rec):
@@ -51,14 +52,19 @@ class Recorder:
     def poll_l2(self, coin):
         sent = now_ms()
         book = self.info.l2_book(coin)
-        self.log({"kind": "l2", "coin": coin, "sent": sent, "recv": now_ms(), "data": book})
+        agg = self.info.l2_book(coin, sig_figs=4)
+        self.log({"kind": "l2", "coin": coin, "sent": sent, "recv": now_ms(), "data": book, "agg": agg})
+
+    @staticmethod
+    def kinds(h):
+        return ["funding"] + (["bar"] if h % BAR == 0 else [])
 
     def step(self):
         t = now_ms()
         h = t // HOUR * HOUR
         if h > self.hour:
             self.hour = h
-            kinds = ["funding"] + (["bar"] if h % BAR == 0 else [])
+            kinds = self.kinds(h)
             for kind in kinds:
                 for c in self.coins:
                     self.pending[(kind, c)] = (h, 0)
