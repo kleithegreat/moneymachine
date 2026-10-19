@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS experiments(
   strategy_hash TEXT NOT NULL, params TEXT NOT NULL, universe TEXT NOT NULL, window_start INTEGER NOT NULL,
   window_end INTEGER NOT NULL, dataset_version INTEGER NOT NULL, data_hash TEXT NOT NULL, conventions TEXT NOT NULL,
   rules_hash TEXT NOT NULL, execution_hash TEXT NOT NULL, kernel TEXT NOT NULL, seed INTEGER NOT NULL,
-  identity TEXT NOT NULL, mechanism TEXT NOT NULL, program TEXT NOT NULL);
+  identity TEXT NOT NULL, mechanism TEXT NOT NULL, program TEXT NOT NULL, equivalence TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS results(experiment_id INTEGER PRIMARY KEY, returns BLOB NOT NULL, summary TEXT NOT NULL,
   result_hash TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS disclosures(id INTEGER PRIMARY KEY, created INTEGER NOT NULL, campaign TEXT NOT NULL,
@@ -33,6 +33,8 @@ pub struct Experiment<'a> {
     pub canonical: &'a str,
     /// The exact submitted program text.
     pub program: &'a str,
+    /// The equivalence key (kernel/CANONICAL.md).
+    pub equivalence: &'a str,
     pub params: &'a str,
     pub universe: &'a str,
     pub window: (i64, i64),
@@ -83,12 +85,12 @@ impl Ledger {
         tx.execute(
             "INSERT INTO experiments(created, campaign, agent, mode, strategy_hash, params, universe, window_start,
              window_end, dataset_version, data_hash, conventions, rules_hash, execution_hash, kernel, seed, identity, mechanism,
-             program)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+             program, equivalence)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
             params![
                 t, e.campaign, e.agent, e.mode, e.strategy_hash, e.params, e.universe, e.window.0, e.window.1,
                 e.dataset_version, e.data_hash, e.conventions, e.rules_hash, e.execution_hash, e.kernel, e.seed,
-                e.identity, e.mechanism, e.program
+                e.identity, e.mechanism, e.program, e.equivalence
             ],
         )?;
         let id = tx.last_insert_rowid();

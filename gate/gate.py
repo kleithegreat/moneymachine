@@ -46,7 +46,7 @@ def candidates(ledger, campaign, agent=None):
     """Distinct trials an arm evaluated in search mode that filled at least once: {trial key: returns}."""
     db = sqlite3.connect(ledger)
     rows = db.execute(
-        "SELECT e.strategy_hash, e.params, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
+        "SELECT e.equivalence, e.params, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
         "WHERE e.campaign = ? AND e.mode = 'search' AND (? IS NULL OR e.agent = ?) ORDER BY e.id",
         (campaign, agent, agent)).fetchall()
     out = {}
@@ -57,9 +57,9 @@ def candidates(ledger, campaign, agent=None):
     return out
 
 
-def trial_key(strategy_hash, params):
-    """A statistical trial is a strategy with its parameter values: same structure, other values, other trial."""
-    return strategy_hash if params == "[]" else hashlib.sha256(f"{strategy_hash}{params}".encode()).hexdigest()
+def trial_key(equivalence, params):
+    """A statistical trial is an equivalence class (kernel/CANONICAL.md) with its parameter values."""
+    return equivalence if params == "[]" else hashlib.sha256(f"{equivalence}{params}".encode()).hexdigest()
 
 
 def search_decision(ledger, campaign, agent=None):
@@ -92,7 +92,7 @@ def search_decision(ledger, campaign, agent=None):
 def programs(ledger, keys):
     """The submitted program of each trial: the first experiment whose (strategy, params) has that key."""
     db = sqlite3.connect(ledger)
-    rows = db.execute("SELECT strategy_hash, params, program FROM experiments WHERE mode = 'search' ORDER BY id").fetchall()
+    rows = db.execute("SELECT equivalence, params, program FROM experiments WHERE mode = 'search' ORDER BY id").fetchall()
     found = {}
     for h, params, program in rows:
         found.setdefault(trial_key(h, params), json.loads(program))

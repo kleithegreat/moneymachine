@@ -250,6 +250,7 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     };
     let canonical = prog.canonical();
     let strategy_hash = sha256_hex(canonical.as_bytes());
+    let equivalence = mm::canon::equivalence_key(prog);
     let params = json!(prog.param_values().into_iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>()).to_string();
     let universe = json!(c.venue.coins).to_string();
     let conventions = json!({"delta_ms": c.policy.delta, "decision_grid_ms": BAR, "fill": "open of first bar with openTime >= submission",
@@ -270,7 +271,7 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     let result_hash = sha256_hex(&[summary.as_bytes(), &returns_bytes].concat());
     let trace_text = trace_path.map(|_| run.trace.iter().map(|e| event_json(e, &c.venue.coins).to_string()).collect::<Vec<_>>().join("\n") + "\n");
     let content = json!({
-        "strategy": strategy_hash, "identity": identity, "result_hash": result_hash, "mode": c.mode,
+        "strategy": strategy_hash, "equivalence": equivalence, "identity": identity, "result_hash": result_hash, "mode": c.mode,
         "result": serde_json::from_str::<Value>(&summary).unwrap(),
         "trace_sha256": trace_text.as_ref().map(|t| sha256_hex(t.as_bytes())),
     });
@@ -281,6 +282,7 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
         strategy_hash: &strategy_hash,
         canonical: &canonical,
         program: text,
+        equivalence: &equivalence,
         params: &params,
         universe: &universe,
         window,
