@@ -17,7 +17,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
 
   Failing stage 0 is an acceptable outcome. The criteria are judged as written, never reread to pass, and a failure of C0.2, C0.3 or C0.5 means the exit rule: stop and pre-register a different family.
 - **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
-- **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The locked holdout calibration v1 failed (sparse cells at 0.05, see the Log). Calibration v2 is committed (revision and table, see the Log), and its locked run is in progress (about 9 h); it must pass before any sweep. After C0.7 and a passing locked run: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
+- **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The locked holdout calibration v1 failed (sparse cells at 0.05, see the Log). Calibration v2 is committed (revision and table, see the Log), and its locked run `holdout-calibration-locked-v2.1` is in progress (about 9 h); it must pass before any sweep. After C0.7 and a passing locked run: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
 - **Stage 5:** C5.1, C5.2's store and recompute tests, and C5.5's independent derivation and mutants are done. C5.6's code is ready. At ≥ 72 h of recording (2026-10-22 10:26 UTC):
@@ -678,6 +678,8 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
   - **Proposed fix.** Key interning on the node's full identity, including the target. Reject a conversion whose factor is not finite and nonzero (E_UNIT). Both are kernel changes, so they wait: stage 6 does not modify the engine. They also change the kernel hash, so they belong before the first judged run that records it.
 
 ## Log
+
+- 2026-10-20 19:30 UTC: The first locked v2 run crashed after its first cell (`gate.size.main` still called `.tolist()` on the new work-file format), before any p-value was written or seen. Per calibration v2's failure rule it is rerun under the new id `holdout-calibration-locked-v2.1` (new seeds, same generators, levels and limits); `main` now has a test.
 
 - 2026-10-20: Calibration v2 table committed: `gate/holdout_calibration.json`, 27 cells (the 18 v1 cells, reproduced byte for byte from the development work file, plus 9 development-v2 cells), sha256 0ca961cb467688f18827de66c9968e8d40f2fa2bdbd280ac5c4bebc1d20ffd75. The locked v2 run started on it (`holdout-size locked-v2 data/calibration/locked-v2.json audit/stage2/holdout-size-locked-v2.json`).
 

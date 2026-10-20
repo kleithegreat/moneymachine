@@ -101,7 +101,7 @@ SUITES = {
         },
     },
     "locked-v2": {
-        "id": "holdout-calibration-locked-v2", "series": 20000, "pvalue": "holdout_pvalue",
+        "id": "holdout-calibration-locked-v2.1", "series": 20000, "pvalue": "holdout_pvalue",
         "generators": {
             "sparse_long": lambda rng, m, n: _garch(rng, m, n, 0.08, 0.9, 4) * _active(rng, m, n, 1 / 160, 1 / 12),
             "very_sparse": lambda rng, m, n: _t(rng, 4, (m, n)) * _active(rng, m, n, 1 / 129, 1 / 4),
@@ -171,7 +171,7 @@ def main(suite, work, audit):
     for gen in SUITES[suite]["generators"]:
         for n in LENGTHS:
             if f"{gen}/{n}" not in pvalues:
-                pvalues[f"{gen}/{n}"] = cell(suite, gen, n).tolist()
+                pvalues[f"{gen}/{n}"] = cell(suite, gen, n)
                 path.write_text(json.dumps(pvalues))
                 print(gen, n, flush=True)
     Path(audit).write_text(json.dumps({"suite": suite, "id": SUITES[suite]["id"], **report(pvalues)}, indent=1) + "\n")

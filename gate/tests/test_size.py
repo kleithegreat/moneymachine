@@ -34,3 +34,12 @@ def test_a_cell_runs_end_to_end():
     c = size.cell("locked-v2", "very_sparse", 540, m=4, workers=2, chunk=2)
     p = np.array(c["p"])
     assert p.shape == (4,) and ((p > 0) & (p <= 1)).all() and len(c["active"]) == 4
+
+
+def test_main_writes_work_and_report(tmp_path, monkeypatch):
+    monkeypatch.setitem(size.SUITES, "tiny", {"id": "tiny", "series": 4, "pvalue": "bootstrap_pvalue",
+                                               "generators": {"g": size.SUITES["locked-v2"]["generators"]["very_sparse"]}})
+    monkeypatch.setattr(size, "LENGTHS", (540,))
+    monkeypatch.setattr(size, "cell", lambda suite, gen, n: {"p": [0.5] * 4, "active": [540] * 4})
+    size.main("tiny", tmp_path / "work.json", tmp_path / "audit.json")
+    assert (tmp_path / "audit.json").exists() and "g/540" in (tmp_path / "work.json").read_text()
