@@ -1,6 +1,7 @@
 import Ref.Spec
 import Ref.Proof.Units
 import Ref.Proof.Checker
+import Ref.Proof.Fills
 
 /-!
 The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
@@ -126,7 +127,7 @@ theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (p p' : Program) (
 fill is its order's scheduled bar's open, after its decision, and its recorded input bound is the
 decision machine's latest knownAt, no later than the decision. A closeout is at its own time, from
 the coin's latest closed bar: the adverse extreme for a liquidation, the close for a delisting. -/
-theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
+theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (hA : m.Admissible)
     (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
     (r : Run α) (hr : run N p m v pol stop = .ok r) :
     ∀ f, Event.fill f ∈ r.trace.toList →
@@ -141,7 +142,11 @@ theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mark
         f.inputsKnown = f.filled ∧ f.decided = f.filled ∧ f.submitted = f.filled ∧
         ∃ bar, latestClosed m f.coin f.filled = some bar ∧ f.sourceOpen = bar.openTime ∧
           ∃ q, f.qty = N.neg q ∧ f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero q then bar.l else bar.h)) := by
-  sorry
+  unfold run at hr
+  cases hs : (Ctx.make p m v pol stop).steps N (Ctx.make p m v pol stop).bounds.length <;>
+    simp only [hs, bind, Except.bind, pure, Except.pure, reduceCtorEq, Except.ok.injEq] at hr
+  subst hr
+  exact (steps_inv4 N p m hA v pol stop _ (Nat.le_refl _) _ hs).fills
 
 /-- Exactly once: every order whose due step runs (B + 3·BAR ≤ stop, with B its decision's boundary)
 has exactly one later resolution in the trace, the fill at its scheduled bar if that bar exists and

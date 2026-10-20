@@ -246,6 +246,24 @@ theorem steps_eq (N : NumOps α) (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.len
   rw [bounds_take c j hj]
   simp
 
+/-- The first 4j hourly ticks followed by step j's four ticks are the first 4(j + 1) hourly ticks. -/
+theorem proj_succ (N : NumOps α) (c : Ctx α) (j : Nat) (s t : SState α)
+    (ht : (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 (4 * j))) = .ok t) (hp : t.proj = s.proj)
+    (q : SState α) (hq : c.tickLoop N (c.pol.wStart + ↑j * BAR) (List.range' 1 4) s = .ok q) :
+    ∃ t', (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 (4 * (j + 1)))) = .ok t' ∧ t'.proj = q.proj := by
+  have hr : List.range' 1 (4 * (j + 1)) = List.range' 1 (4 * j) ++ List.range' (1 + 4 * j) 4 := by
+    rw [List.range'_append_1, Nat.mul_succ]
+  have hb : c.pol.wStart + ↑(4 * j) * HOUR = c.pol.wStart + ↑j * BAR := by
+    simp only [BAR]; push_cast; rw [Int.mul_comm 4, Int.mul_assoc]
+  refine ⟨t.graft q, ?_, proj_graft _ _⟩
+  have hf : c.tickLoop N c.pol.wStart (List.range' 1 (4 * j) ++ List.range' (1 + 4 * j) 4) =
+      fun x => c.tickLoop N c.pol.wStart (List.range' 1 (4 * j)) x >>= c.tickLoop N c.pol.wStart (List.range' (1 + 4 * j) 4) :=
+    funext fun x => tickLoop_append N c _ _ _ x
+  rw [hr, hf, ← bind_assoc, ht]
+  show c.tickLoop N c.pol.wStart (List.range' (1 + 4 * j) 4) t = _
+  rw [tickLoop_shift, hb, ← graft_self t s hp, tickLoop_graft, hq]
+  rfl
+
 /-- After j steps the simulator's machine and cursors are those of the first 4j hourly ticks. -/
 theorem steps_proj (N : NumOps α) (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.length) :
     Except.Holds (c.steps N j)
@@ -268,19 +286,9 @@ theorem steps_proj (N : NumOps α) (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.l
     simp only [Except.forIn_append_yield _ _ _ _ F, ← bind_assoc, ← hsj]
     refine Except.Holds.bind (ih (by omega)) fun r ⟨t, ht, hp⟩ => ?_
     simp only [List.map_cons, List.map_nil, List.forIn_cons, List.forIn_nil, bind_assoc, pure_bind, bind_pure]
-    refine (step_proj N c r _).conseq fun r' ⟨q, hq, hpq⟩ => ?_
-    have hr : List.range' 1 (4 * (j + 1)) = List.range' 1 (4 * j) ++ List.range' (1 + 4 * j) 4 := by
-      rw [List.range'_append_1, Nat.mul_succ]
-    have hb : c.pol.wStart + ↑(4 * j) * HOUR = c.pol.wStart + ↑j * BAR := by
-      simp only [BAR]; push_cast; rw [Int.mul_comm 4, Int.mul_assoc]
-    refine ⟨t.graft q, ?_, hpq.symm ▸ proj_graft _ _⟩
-    have hf : c.tickLoop N c.pol.wStart (List.range' 1 (4 * j) ++ List.range' (1 + 4 * j) 4) =
-        fun x => c.tickLoop N c.pol.wStart (List.range' 1 (4 * j)) x >>= c.tickLoop N c.pol.wStart (List.range' (1 + 4 * j) 4) :=
-      funext fun x => tickLoop_append N c _ _ _ x
-    rw [hr, hf, ← bind_assoc, ht]
-    show c.tickLoop N c.pol.wStart (List.range' (1 + 4 * j) 4) t = _
-    rw [tickLoop_shift, hb, ← graft_self t r hp, tickLoop_graft, hq]
-    rfl
+    exact (step_proj N c r _).conseq fun r' ⟨q, hq, hpq⟩ =>
+      let ⟨t', ht', hp'⟩ := proj_succ N c j r t ht hp q hq
+      ⟨t', ht', hp'.trans hpq.symm⟩
 
 /-- The schedule unrolled: preflight and the first tick, then the hourly ticks. -/
 theorem Ctx.machineAfter_eq (N : NumOps α) (c : Ctx α) (n : Nat) :

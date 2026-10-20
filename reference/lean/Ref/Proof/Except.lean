@@ -69,6 +69,18 @@ theorem ite {c : Prop} [Decidable c] {x y : Except ε β} (hx : Holds x Q) (hy :
     Holds (if c then x else y) Q := by
   split <;> assumption
 
+theorem ite_cond {c : Prop} [Decidable c] {x y : Except ε β} (hx : c → Holds x Q) (hy : ¬c → Holds y Q) :
+    Holds (if c then x else y) Q := by
+  split
+  · exact hx ‹_›
+  · exact hy ‹_›
+
+/-- An `if` without `else` in a do block: both branches continue with the same k. -/
+theorem join {c : Prop} [Decidable c] {R : β → Prop} {x : Except ε β} {b : β} {k : β → Except ε γ}
+    {Q : γ → Prop} (hx : Holds x R) (hb : R b) (hk : ∀ b, R b → Holds (k b) Q) :
+    Holds (if c then x >>= k else k b) Q :=
+  ite (bind hx hk) (hk b hb)
+
 theorem throw' (e : ε) : Holds (throw e : Except ε β) Q := by
   intro b h; cases h
 

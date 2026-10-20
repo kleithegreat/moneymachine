@@ -231,4 +231,321 @@ theorem marks_set (ix : Index α) (bars : Array (BarRow α)) (b : Int) (held : L
   rw [latestOf_fst ix bars b (y := x') (by simp at h2; rw [← h1, hzc, h2])] at hx
   rw [hx'] at hx; cases hx; rfl
 
+/-- A held coin with a bar opened by b: its latest bar, found by the index, and its mark after the marks loop. -/
+theorem held_latest (m : Market α) (hA : m.Admissible) (b : Int) (held : List (Nat × α)) (mk : Array α)
+    (hmk : mk.size = m.intervals.size)
+    (hpos : ∀ x ∈ held, ∃ bar ∈ m.bars.toList, bar.coin = x.1 ∧ bar.openTime ≤ b) (x : Nat × α) (hx : x ∈ held) :
+    ∃ bar' i, ∃ hi : i < m.bars.size,
+      assoc? (held.filterMap (latestOf (m.index m.intervals.size) m.bars b)) x.1 = some bar' ∧ m.bars[i] = bar' ∧
+      (m.index m.intervals.size).barAt[(x.1, bar'.openTime)]? = some i ∧
+      ((held.filterMap (latestOf (m.index m.intervals.size) m.bars b)).foldl (fun mk y => mk.set! y.1 y.2.c) mk)[x.1]! =
+        bar'.c := by
+  obtain ⟨bar', i, hi, hlat, hbi, hix⟩ := latestOf_some m hA b x (hpos x hx)
+  refine ⟨bar', i, hi, assoc_latest _ _ b x.1 bar' held ⟨x.2, by simpa using hx⟩
+    (fun q => by rw [latestOf_fst _ _ b (x := (x.1, q)) (y := x) rfl]; exact hlat), hbi, hix, ?_⟩
+  obtain ⟨bar, hbar, hbc, -⟩ := hpos x hx
+  exact marks_set _ _ b held mk x.1 bar' (List.mem_filterMap.mpr ⟨x, hx, hlat⟩)
+    (by rw [hmk, ← hbc]; exact hA.barCoin bar hbar)
+
+/-! ## The invariant across steps -/
+
+/-- What holds before the step at boundary wStart + j·BAR. -/
+structure Inv4 (N : NumOps α) (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) (j : Nat)
+    (s : SState α) : Prop where
+  fills : ∀ f, Event.fill f ∈ s.trace.toList → FillLaw N p m v pol stop f
+  orders : ∀ e ∈ s.orders, e.1 = pol.wStart + ↑j * BAR + BAR ∧ e.2.decided = pol.wStart + ↑j * BAR + pol.delta ∧
+    ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta = e.2.decided ∧
+      (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = e.2.inputsKnown
+  pos : ∀ x ∈ s.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = x.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR
+  marks : s.marks.size = m.intervals.size
+  proj : ∃ t, ((Ctx.make p m v pol stop).start N >>=
+    (Ctx.make p m v pol stop).tickLoop N pol.wStart (List.range' 1 (4 * j))) = .ok t ∧ t.proj = s.proj
+
+omit [Inhabited α] in
+theorem fill_mem_push {t : Array (Event α)} {e : Event α} {f : Fill α} (h : Event.fill f ∈ (t.push e).toList) :
+    Event.fill f ∈ t.toList ∨ e = Event.fill f := by
+  simp only [Array.toList_push, List.mem_append, List.mem_singleton] at h
+  rcases h with h | h
+  · exact Or.inl h
+  · exact Or.inr h.symm
+
+/-- A state with no new fills, the same orders, positions and marks, and the same machine and cursors keeps the
+invariant. -/
+theorem Inv4.frame {N : NumOps α} {p : Program} {m : Market α} {v : Venue α} {pol : Policy} {stop : Int} {j : Nat}
+    {s s' : SState α} (h : Inv4 N p m v pol stop j s)
+    (htr : ∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s.trace.toList ∨ FillLaw N p m v pol stop f)
+    (ho : s'.orders = s.orders) (hp : s'.book.pos = s.book.pos) (hm : s'.marks.size = s.marks.size)
+    (hpr : s'.proj = s.proj) : Inv4 N p m v pol stop j s' where
+  fills f hf := (htr f hf).elim (h.fills f) id
+  orders := ho ▸ h.orders
+  pos := hp ▸ h.pos
+  marks := hm ▸ h.marks
+  proj := hpr ▸ h.proj
+
+theorem execute_spec (N : NumOps α) (c : Ctx α) (s r : SState α) (f : Fill α) (h : c.execute N s f = .ok r) :
+    checkFill N f c.m c.ix c.v = .ok () ∧ r.trace = s.trace.push (.fill f) ∧ r.orders = s.orders ∧
+      r.marks = s.marks ∧ r.proj = s.proj ∧ r.book.pos = (s.book.fill N f.coin f.qty f.price f.fee).pos := by
+  unfold Ctx.execute at h
+  cases hc : checkFill N f c.m c.ix c.v with
+  | error e => rw [hc] at h; cases h
+  | ok u => rw [hc] at h; cases h; exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
+
+omit [Inhabited α] in
+theorem holds_throw_bind {ε β γ : Type} {e : ε} {f : β → Except ε γ} {Q : γ → Prop} :
+    Except.Holds ((throw e : Except ε β) >>= f) Q := by
+  intro r h; cases h
+
+omit [Inhabited α] in
+theorem size_fold_set (l : List (Nat × BarRow α)) (mk : Array α) :
+    (l.foldl (fun mk y => mk.set! y.1 y.2.c) mk).size = mk.size := by
+  induction l generalizing mk with
+  | nil => rfl
+  | cons y l ih => rw [List.foldl_cons, ih, Array.set!_eq_setIfInBounds, Array.size_setIfInBounds]
+
+/-- A step's ticks from a state with s's machine and cursors: the state's own fields with the ticked machine. -/
+theorem tickLoop_bind_graft {γ : Type} {Q : γ → Prop} (N : NumOps α) (c : Ctx α) (b : Int) (ks : List Nat)
+    (s s₃ : SState α) (g : SState α → Except Abort γ) (h : s₃.proj = s.proj)
+    (hg : ∀ r, c.tickLoop N b ks s = .ok r → Except.Holds (g (s₃.graft r)) Q) :
+    Except.Holds (c.tickLoop N b ks s₃ >>= g) Q := by
+  rw [← graft_self s₃ s h, tickLoop_graft]
+  cases ht : c.tickLoop N b ks s with
+  | error e => intro x hx; simp [Except.map, bind, Except.bind] at hx
+  | ok r => exact hg r ht
+
+omit [Inhabited α] in
+theorem marks_loop (l : List (Nat × BarRow α)) (s : SState α) :
+    forIn l s (fun x s => (pure (ForInStep.yield { s with marks := s.marks.set! x.1 x.2.c }) :
+      Except Abort (ForInStep (SState α)))) = .ok { s with marks := l.foldl (fun mk y => mk.set! y.1 y.2.c) s.marks } := by
+  induction l generalizing s with
+  | nil => rfl
+  | cons x l ih => rw [List.forIn_cons, List.foldl_cons]; exact ih _
+
+theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)
+    (stop : Int) (j : Nat) (s : SState α) (h : Inv4 N p m v pol stop j s) :
+    Except.Holds ((Ctx.make p m v pol stop).step N s (pol.wStart + ↑j * BAR)) (Inv4 N p m v pol stop (j + 1)) := by
+  have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
+  unfold Ctx.step
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range']
+  -- 1. funding: settlements change cash and push funding events only
+  refine Except.Holds.bind (R := fun s₁ => Inv4 N p m v pol stop j s₁ ∧ s₁.marks = s.marks)
+    (Except.Holds.forIn_list _ _ _ _ ⟨h, rfl⟩ fun k _ s₀ ⟨h₀, hm₀⟩ => ?_) fun s₁ ⟨h₁, hm₁⟩ => ?_
+  · refine Except.Holds.bind (Except.Holds.forIn_list _ _ _ (fun s' => Inv4 N p m v pol stop j s' ∧ s'.marks = s.marks)
+      ⟨h₀, hm₀⟩ fun x _ s' ⟨h', hm'⟩ => ?_) fun s'' h'' => Except.Holds.pure _ h''
+    split
+    · refine Except.Holds.pure _ ⟨h'.frame (fun f hf => ?_) rfl rfl rfl rfl, hm'⟩
+      rcases fill_mem_push hf with hf | hf
+      · exact Or.inl hf
+      · cases hf
+    · exact Except.Holds.pure _ ⟨h', hm'⟩
+  -- 2. marks: the latest bar's close for each held coin
+  rw [marks_loop]
+  refine Except.Holds.bind (Except.Holds.ok _ rfl) fun s₂ hs₂ => ?_
+  subst hs₂
+  simp only [← latestOf.eq_1]
+  have HL : ∀ x ∈ s₁.book.pos, ∃ bar' i, ∃ hi : i < m.bars.size,
+      assoc? (List.filterMap (fun x => latestOf (Ctx.make p m v pol stop).ix (Ctx.make p m v pol stop).m.bars
+        (pol.wStart + ↑j * BAR) x) s₁.book.pos) x.1 = some bar' ∧ m.bars[i] = bar' ∧
+      (m.index m.intervals.size).barAt[(x.1, bar'.openTime)]? = some i ∧
+      (List.foldl (fun mk y => mk.set! y.fst y.snd.c) s₁.marks (List.filterMap (fun x => latestOf
+        (Ctx.make p m v pol stop).ix (Ctx.make p m v pol stop).m.bars (pol.wStart + ↑j * BAR) x) s₁.book.pos))[x.1]! =
+        bar'.c :=
+    held_latest m hA _ s₁.book.pos s₁.marks h₁.marks h₁.pos
+  have hmk₂ := size_fold_set (List.filterMap (fun x => latestOf (Ctx.make p m v pol stop).ix
+    (Ctx.make p m v pol stop).m.bars (pol.wStart + ↑j * BAR) x) s₁.book.pos) s₁.marks
+  rw [h₁.marks] at hmk₂
+  generalize List.filterMap (fun x => latestOf (Ctx.make p m v pol stop).ix (Ctx.make p m v pol stop).m.bars
+    (pol.wStart + ↑j * BAR) x) s₁.book.pos = L at HL hmk₂ ⊢
+  generalize List.foldl (fun mk y => mk.set! y.fst y.snd.c) s₁.marks L = mk₂ at HL hmk₂ ⊢
+  -- closeouts keep: old fills or lawful ones, orders, marks, the machine, and only coins held before
+  let J : SState α → Prop := fun s' =>
+    (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
+    s'.orders = s₁.orders ∧ s'.marks = mk₂ ∧ s'.proj = s₁.proj ∧ ∀ y ∈ s'.book.pos, ∃ q, (y.1, q) ∈ s₁.book.pos
+  have J_exec : ∀ s' r (f : Fill α), J s' → (Ctx.make p m v pol stop).execute N s' f = .ok r →
+      FillLaw N p m v pol stop f → (∃ q, (f.coin, q) ∈ s₁.book.pos) → J r := by
+    intro s' r f hJ hr hlaw hc
+    obtain ⟨-, htr, ho, hmk, hpr, hpos⟩ := execute_spec N _ s' r f hr
+    refine ⟨fun g hg => ?_, ho.trans hJ.2.1, hmk.trans hJ.2.2.1, hpr.trans hJ.2.2.2.1, fun y hy => ?_⟩
+    · rw [htr] at hg
+      rcases fill_mem_push hg with hg | hg
+      · exact hJ.1 g hg
+      · cases hg; exact Or.inr hlaw
+    · rw [hpos] at hy
+      rcases fill_pos N _ _ _ _ _ _ hy with ⟨q, hq⟩ | hq
+      · exact hJ.2.2.2.2 (y.1, q) hq
+      · rw [hq]; exact hc
+  -- 3. liquidation of every held coin
+  have hJ₂ : J { s₁ with marks := mk₂ } := ⟨fun f hf => Or.inl hf, rfl, rfl, rfl, fun y hy => ⟨y.2, hy⟩⟩
+  refine Except.Holds.join (R := J) (Except.Holds.forIn_list _ _ _ J hJ₂ fun x hx s' hJ => ?_) hJ₂ fun s₃ hJ₃ => ?_
+  · refine Except.Holds.bind (R := J) (fun r hr => ?_) fun r hr => Except.Holds.pure _ hr
+    obtain ⟨bar', i, hi, has, hbi, hix, -⟩ := HL x hx
+    rw [has] at hr
+    have hchk := (execute_spec N _ s' r _ hr).1
+    refine J_exec s' r _ hJ hr (closeout_law N p m hA v pol stop x.1 x.2 _ .liquidation (by decide) _ _ hchk bar' i hi
+      (by simpa using hix) hbi (by simp)) ⟨x.2, by simp only [Ctx.closeout]; exact hx⟩
+  -- 4. delisting of held coins whose listing ends
+  refine Except.Holds.bind (R := J) (Except.Holds.forIn_list _ _ _ J hJ₃ fun x hx s' hJ => ?_) fun s₄ hJ₄ => ?_
+  · refine Except.Holds.ite ?_ (Except.Holds.pure _ hJ)
+    refine Except.Holds.bind (R := J) (fun r hr => ?_) fun r hr => Except.Holds.pure _ hr
+    obtain ⟨q, hq⟩ := hJ₃.2.2.2.2 x hx
+    obtain ⟨bar', i, hi, has, hbi, hix, hmk⟩ := HL (x.1, q) hq
+    rw [has, hJ.2.2.1, hmk] at hr
+    have hchk := (execute_spec N _ s' r _ hr).1
+    exact J_exec s' r _ hJ hr (closeout_law N p m hA v pol stop x.1 x.2 _ .delisting (by decide) _ _ hchk bar' i hi
+      (by simpa using hix) hbi (by simp)) ⟨q, by simp only [Ctx.closeout]; exact hq⟩
+  -- 5. accounting
+  refine Except.Holds.ite holds_throw_bind ?_
+  -- 6. fills of the orders due now; every pending order is due now
+  let K : SState α → Prop := fun s' =>
+    (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
+    s'.orders = [] ∧ s'.marks.size = m.intervals.size ∧ s'.proj = s₁.proj ∧
+    ∀ y ∈ s'.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = y.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR + BAR
+  have hK₅ : ∀ (s' : SState α), s'.trace = s₄.trace.push (.equity (pol.wStart + ↑j * BAR + BAR)
+      (Book.equity N s₄.book s₄.marks) (Book.reconciled N s₄.book s₄.marks)) →
+      s'.orders = s₄.orders.filter (fun x => x.fst != pol.wStart + ↑j * BAR + BAR) → s'.marks = s₄.marks →
+      s'.proj = s₄.proj → s'.book = s₄.book → K s' := by
+    intro s' htr ho hm hpr hb
+    refine ⟨fun f hf => ?_, ?_, by rw [hm, hJ₄.2.2.1, hmk₂], hpr.trans hJ₄.2.2.2.1, fun y hy => ?_⟩
+    · rw [htr] at hf
+      rcases fill_mem_push hf with hf | hf
+      · exact hJ₄.1 f hf
+      · cases hf
+    · rw [ho, hJ₄.2.1, List.filter_eq_nil_iff]
+      intro e he; simp [(h₁.orders e he).1]
+    · rw [hb] at hy
+      obtain ⟨q, hq⟩ := hJ₄.2.2.2.2 y hy
+      obtain ⟨bar, hbar, hbc, hbo⟩ := h₁.pos _ hq
+      exact ⟨bar, hbar, hbc, by omega⟩
+  have K_push : ∀ s' (e : Event α), (∀ f, e ≠ .fill f) → K s' → K { s' with trace := s'.trace.push e } := by
+    intro s' e he hK
+    refine ⟨fun f hf => ?_, hK.2.1, hK.2.2.1, hK.2.2.2.1, hK.2.2.2.2⟩
+    rcases fill_mem_push hf with hf | hf
+    · exact hK.1 f hf
+    · exact absurd hf (he f)
+  refine Except.Holds.join (R := K) (Except.Holds.forIn_list _ _ _ K (hK₅ _ rfl rfl rfl rfl rfl)
+    fun o ho s' hK => ?_) (hK₅ _ rfl rfl rfl rfl rfl) fun s₆ hK₆ => ?_
+  · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ho
+    obtain ⟨he, hed⟩ := List.mem_filter.mp he
+    rw [hJ₄.2.1] at he
+    obtain ⟨-, hdec, hmach⟩ := h₁.orders e he
+    split
+    · rename_i i hbi
+      refine Except.Holds.ite_cond (fun htr => ?_) fun _ => Except.Holds.pure _ (K_push _ _ (fun f h => by cases h) hK)
+      refine Except.Holds.bind (R := K) (fun r hr => ?_) fun r hr => Except.Holds.pure _ hr
+      obtain ⟨hchk, htr', ho', hmk', hpr', hpos'⟩ := execute_spec N _ s' r _ hr
+      have hlaw := ordinary_law N p m hA v pol stop e.2 (pol.wStart + (j : Int) * BAR) i hbi htr hchk hdec hmach
+      obtain ⟨hi', hcoin, hopen⟩ := barAt_sound m _ hbi
+      refine ⟨fun f hf => ?_, ho'.trans hK.2.1, by rw [hmk']; exact hK.2.2.1, hpr'.trans hK.2.2.2.1, fun y hy => ?_⟩
+      · rw [htr'] at hf
+        rcases fill_mem_push hf with hf | hf
+        · exact hK.1 f hf
+        · cases hf; exact Or.inr hlaw
+      · rw [hpos'] at hy
+        rcases fill_pos N _ _ _ _ _ _ hy with ⟨q, hq⟩ | hq
+        · exact hK.2.2.2.2 (y.1, q) hq
+        · exact ⟨m.bars[i], Array.getElem_mem_toList hi', by rw [hcoin, hq], by rw [hopen]; omega⟩
+    · exact Except.Holds.pure _ (K_push _ _ (fun f h => by cases h) hK)
+  -- 7. the step's four hourly ticks
+  refine tickLoop_bind_graft N _ (pol.wStart + (j : Int) * BAR) (List.range' 1 4) s₁ s₆ _ hK₆.2.2.2.1
+    fun r hr => ?_
+  -- 8. decisions: holds and weights
+  let D : SState α → Prop := fun s' =>
+    (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
+    s'.orders = [] ∧ s'.marks.size = m.intervals.size ∧ s'.proj = r.proj ∧
+    ∀ y ∈ s'.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = y.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR + BAR
+  have D_push : ∀ s' (e : Event α), (∀ f, e ≠ .fill f) → D s' → D { s' with trace := s'.trace.push e } := by
+    intro s' e he hD
+    refine ⟨fun f hf => ?_, hD.2.1, hD.2.2.1, hD.2.2.2.1, hD.2.2.2.2⟩
+    rcases fill_mem_push hf with hf | hf
+    · exact hD.1 f hf
+    · exact absurd hf (he f)
+  refine Except.Holds.bind (R := fun (st : SState α × List (Nat × α)) => D st.1)
+    (Except.Holds.forIn_list _ _ _ (fun (st : SState α × List (Nat × α)) => D st.1)
+      ⟨hK₆.1, hK₆.2.1, hK₆.2.2.1, proj_graft _ _, hK₆.2.2.2.2⟩ fun c₀ _ st hD => ?_) fun st hD => ?_
+  · refine Except.Holds.ite (Except.Holds.pure _ hD) (Except.Holds.ite
+      (Except.Holds.pure _ (D_push _ _ (fun f h => by cases h) hD)) ?_)
+    split
+    · exact Except.Holds.pure _ hD
+    · exact Except.Holds.pure _ (D_push _ _ (fun f h => by cases h) hD)
+  -- 9. the portfolio cap
+  refine Except.Holds.ite holds_throw_bind ?_
+  -- 10. orders, each recording the machine after this step's ticks
+  obtain ⟨t, ht, hp⟩ := h₁.proj
+  obtain ⟨t', ht', hp'⟩ := proj_succ N _ j s₁ t ht hp r hr
+  have hmach : ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta =
+      pol.wStart + ↑j * BAR + BAR + pol.delta ∧
+      (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = r.machine.maxKnown := by
+    refine ⟨4 * (j + 1), t'.machine, by simp only [BAR, HOUR]; push_cast; omega, ?_, by rw [(proj_eq hp').1]⟩
+    rw [Ctx.machineAfter_eq, ht']; rfl
+  let O : SState α → Prop := fun s' =>
+    (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
+    (∀ e ∈ s'.orders, e.1 = pol.wStart + ↑j * BAR + BAR + BAR ∧ e.2.decided = pol.wStart + ↑j * BAR + BAR + pol.delta ∧
+      ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta = e.2.decided ∧
+        (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = e.2.inputsKnown) ∧
+    s'.marks.size = m.intervals.size ∧ s'.proj = r.proj ∧
+    ∀ y ∈ s'.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = y.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR + BAR
+  have O_order : ∀ s' (c₀ : Nat) (w q pr : α), O s' →
+      O { s' with trace := s'.trace.push (.decision (pol.wStart + ↑j * BAR + BAR + pol.delta) c₀ w q),
+                  orders := s'.orders ++ [(pol.wStart + ↑j * BAR + BAR + BAR,
+                    ⟨c₀, q, pr, s'.machine.maxKnown, pol.wStart + ↑j * BAR + BAR + pol.delta⟩)] } := by
+    intro s' c₀ w q pr hO
+    refine ⟨fun f hf => ?_, fun e he => ?_, hO.2.2.1, hO.2.2.2.1, hO.2.2.2.2⟩
+    · rcases fill_mem_push hf with hf | hf
+      · exact hO.1 f hf
+      · cases hf
+    · simp only [List.mem_append, List.mem_singleton] at he
+      rcases he with he | rfl
+      · exact hO.2.1 e he
+      · refine ⟨rfl, rfl, ?_⟩
+        obtain ⟨n, ms, hn, hms, hk⟩ := hmach
+        exact ⟨n, ms, hn, hms, by rw [hk, (proj_eq hO.2.2.2.1).1]⟩
+  refine Except.Holds.bind (R := O) (Except.Holds.forIn_list _ _ _ O
+    ⟨hD.1, by rw [hD.2.1]; simp, hD.2.2.1, hD.2.2.2.1, hD.2.2.2.2⟩ fun x _ s' hO => ?_) fun s₈ hO₈ => ?_
+  · refine Except.Holds.ite ?_ ?_ <;>
+      exact Except.Holds.ite (Except.Holds.pure _ (O_order _ _ _ _ _ hO)) (Except.Holds.pure _ hO)
+  have hj1 : pol.wStart + ((j + 1 : Nat) : Int) * BAR = pol.wStart + ↑j * BAR + BAR := by
+    push_cast; rw [Int.add_mul, Int.one_mul, Int.add_assoc]
+  refine Except.Holds.pure _ ⟨fun f hf => ?_, fun e he => ?_, fun y hy => ?_, hO₈.2.2.1, ⟨t', ht', ?_⟩⟩
+  · exact (hO₈.1 f hf).elim (h₁.fills f) id
+  · rw [hj1]; exact hO₈.2.1 e he
+  · rw [hj1]; exact hO₈.2.2.2.2 y hy
+  · rw [hp', hO₈.2.2.2.1]
+
+theorem start_inv4 (N : NumOps α) (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) :
+    Except.Holds ((Ctx.make p m v pol stop).start N) (Inv4 N p m v pol stop 0) := by
+  intro s hs
+  have ht : ((Ctx.make p m v pol stop).start N >>=
+      (Ctx.make p m v pol stop).tickLoop N pol.wStart (List.range' 1 (4 * 0))) = .ok s := by
+    rw [hs]; rfl
+  unfold Ctx.start at hs
+  rw [← graft_self ((Ctx.make p m v pol stop).state0 N) _ rfl, deliver_graft] at hs
+  split at hs
+  · cases hs
+  generalize (Ctx.make p m v pol stop).deliver _ _ = d at hs
+  cases d <;> simp only [Except.map, bind, Except.bind, pure, Except.pure, Except.ok.injEq, reduceCtorEq] at hs
+  subst hs
+  refine ⟨fun f hf => ?_, fun e he => ?_, fun x hx => ?_, ?_, _, ht, rfl⟩
+  · simp [SState.graft, Ctx.state0] at hf
+  · simp [SState.graft, Ctx.state0] at he
+  · simp [SState.graft, Ctx.state0] at hx
+  · simp [SState.graft, Ctx.state0, Ctx.coins]; rfl
+
+theorem steps_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)
+    (stop : Int) (j : Nat) (hj : j ≤ (Ctx.make p m v pol stop).bounds.length) :
+    Except.Holds ((Ctx.make p m v pol stop).steps N j) (Inv4 N p m v pol stop j) := by
+  induction j with
+  | zero =>
+    rw [steps_eq N _ 0 hj]
+    simp only [List.range_zero, List.map_nil, List.forIn_nil, bind_pure]
+    exact start_inv4 N p m v pol stop
+  | succ j ih =>
+    have F : ∀ b r, Except.Holds (do let r ← (Ctx.make p m v pol stop).step N r b; pure (ForInStep.yield r) :
+        Except Abort _) (fun st => ∃ v, st = ForInStep.yield v) :=
+      fun _ _ => Except.Holds.bind (fun _ _ => trivial) fun v _ => Except.Holds.pure _ ⟨v, rfl⟩
+    have hsj := steps_eq N (Ctx.make p m v pol stop) j (by omega)
+    rw [steps_eq N _ (j + 1) hj, List.range_succ, List.map_append]
+    simp only [Except.forIn_append_yield _ _ _ _ F, ← bind_assoc, ← hsj]
+    refine Except.Holds.bind (ih (by omega)) fun r hr => ?_
+    simp only [List.map_cons, List.map_nil, List.forIn_cons, List.forIn_nil, bind_assoc, pure_bind, bind_pure]
+    exact step_inv4 N p m hA v pol stop j r hr
+
 end Ref
