@@ -458,6 +458,10 @@ Frozen 2026-10-20, before any Lean or Bend code existed. GPT reviewed the draft,
   - **Exit.** Successful exit requires the winner to have all five laws accepted. Otherwise there is no adoption, and the blocker is recorded. The winner and its differential harness move to `reference/`.
 
 Exit when C6.1 to C6.5 hold.
+- *Revision 2026-10-20, during C6.1's review and before any proof:* GPT's review of the formal statements found three places where the frozen stage 6 text contradicts the immutable engine, which this stage may not change. The laws are restated to match the engine.
+  - **History.** `mm` resolves revisions in the store before a run: per (dataset, coin, eventTime) it takes the revision with the largest fetchedAt ≤ the version, carrying that revision's knownAt. A run receives one record per key, and earlier revisions are never delivered. L1's records are these resolved rows (dataset, coin, eventTime, knownAt, value, plus each event's slot and index), and its prefix is their ordered delivery prefix. Non-interference across revisions is the store's property, tested by C0.4 and C5.2, not stage 6's.
+  - **L4's selected bar.** As INVARIANTS.md's I3 states ("its openTime is ≤ t_fill"), an ordinary order decided at B + δ has the scheduled fill time B + BAR, and its selected bar is the coin's bar opening at B + BAR. If that bar is missing or has no trade, the order is unfilled and never rolls to a later bar. Orders due after the run's last step are not resolved within the run, since its horizon ends first. L4's converse covers the orders whose due step runs.
+  - **L5's certificate interface.** It is the adapter's binding flag for each event source. The core funding and bar datasets are always present, because the loader fails otherwise; this is an adapter invariant.
 - *Revision 2026-10-20, before any stage 6 code or result:* C6.4 is judged per kernel, as the eligibility test C6.5 already uses it as. The stage exits when:
   - C6.1 holds;
   - C6.2 and C6.3 are reported for both kernels;
