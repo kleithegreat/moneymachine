@@ -1,6 +1,6 @@
 import Ref.Sim
 import Ref.Units
-import Ref.Proof.Errors
+import Ref.Proof.Sim
 import Ref.Proof.Checker
 
 /-!
@@ -137,7 +137,17 @@ theorem L1_simulator (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : 
     (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (j : Nat) (s : SState α)
     (hj : j ≤ (Ctx.make p m v pol stop).bounds.length) (h : (Ctx.make p m v pol stop).steps N j = .ok s) :
     (Ctx.make p m v pol stop).machineAfter N (4 * j) = .ok s.machine := by
-  sorry
+  obtain ⟨t, ht, hp⟩ := steps_proj N _ j hj s h
+  have hm : (Ctx.make p m v pol stop).machineAfter N (4 * j) =
+      ((Ctx.make p m v pol stop).start N >>=
+        (Ctx.make p m v pol stop).tickLoop N (Ctx.make p m v pol stop).pol.wStart (List.range' 1 (4 * j))).map (·.machine) := by
+    unfold Ctx.machineAfter Ctx.tickLoop
+    have hz : [1:4 * j + 1].size = 4 * j := by simp [Std.Legacy.Range.size]
+    simp only [Std.Legacy.Range.forIn_eq_forIn_range', hz]
+    simp only [bind, Except.bind, Except.map, pure, Except.pure]
+    split <;> (try rfl)
+  rw [hm, ht]
+  exact congrArg (fun x => Except.ok x.1) hp
 
 /-- Equal delivery prefixes and execution views through step k's decision give the same observations
 at every step through it: the same trace, or the same rejection. -/
