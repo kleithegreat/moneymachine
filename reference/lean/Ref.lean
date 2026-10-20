@@ -12,5 +12,6 @@ import Ref.Proof.Prefix
 import Ref.Proof.Eval
 import Ref.Proof.Units
 import Ref.Proof.Index
+import Ref.Proof.Fills
 import Ref.Proof.Checker
 import Ref.Laws
