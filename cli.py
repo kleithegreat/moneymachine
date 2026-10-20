@@ -79,6 +79,9 @@ COMMANDS = {
     "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),
     "agent-summary": ("gate.agent.campaigns", "summary", ["name", "out"], "an agent or swarm null series beside its baseline"),
     "mutants": ("cli", "mutants", [], "apply each mutant to a copy of the tree; its named test must fail"),
+    "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
+    "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),
+    "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),
 }
 
 TYPES = {"int": int, "admission": lambda s: {"admitted": True, "prospective": False}[s]}
