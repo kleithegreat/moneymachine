@@ -4,7 +4,7 @@
 
 Stages run in parallel wherever work does not depend on a wait. Detached processes (kill by PID only): `pgrep -af "python -m ingest.record"` (HL live recorder), `pgrep -af sources_record` (stage 5 forum and Snapshot recorder).
 
-- **Stage 0, from 2026-10-20 20:17 UTC** (the judged 24 h window after the 20:16:25 restart, unless a gap restarts it; `python -c "from ingest.availability import window; print(window('data/live'))"` shows it):
+- **Stage 0, from 2026-10-21 00:20 UTC** (the judged 24 h window after the 00:19:10 restart, unless a gap restarts it; `python -c "from ingest.availability import window; print(window('data/live'))"` shows it):
   - `python -m ingest.availability data/live` (C0.3);
   - `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7);
   - stop the HL recorder (by PID) so the second backfill has the rate budget alone, then `python -m ingest.backfill data 200` (C0.4; its ingestion report is the judged C0.2/C0.5 evidence);

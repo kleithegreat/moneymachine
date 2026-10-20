@@ -2,7 +2,8 @@
 
 Appends raw polls as JSONL. Only listed coins are polled. From H + 5 s after each hour boundary H
 (settled rows have always been visible by H + 2 s), every coin's funding is polled every 30 s
-until the row settled at H appears; at 4h boundaries the same is done for the bar closing at H.
+until the row settled at H appears; at 4h boundaries the same is done for the bar closing at H,
+which is closed once H has passed (the store's rule).
 Each is polled once more at H + 10 min as the reference final value. The recorder spends the
 client's whole budget, so nothing else may query the venue while it runs.
 L2 books are polled every 30 s per coin, at full precision and aggregated to 4 significant figures
@@ -48,8 +49,8 @@ class Recorder:
             data = self.info.post({"type": "fundingHistory", "coin": coin, "startTime": boundary - 1}, per_items=20)
             found = any(r["time"] // HOUR * HOUR == boundary for r in data)
         else:
-            data = self.info.candles(coin, "4h", boundary - BAR, boundary + BAR)
-            found = any(c["t"] == boundary - BAR for c in data) and any(c["t"] == boundary for c in data)
+            data = self.info.candles(coin, "4h", boundary - BAR, boundary)
+            found = any(c["t"] == boundary - BAR for c in data)
         self.log({"kind": kind, "coin": coin, "boundary": boundary, "purpose": purpose,
                   "sent": sent, "recv": now_ms(), "found": found, "data": data})
         return found

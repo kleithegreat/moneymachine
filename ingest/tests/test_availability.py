@@ -39,3 +39,12 @@ def test_a_late_boundary_poll_restarts_the_window(tmp_path):
         f.write(json.dumps({"kind": "funding", "coin": "A", "boundary": b + 3_600_000, "purpose": "first",
                             "sent": b + 3_600_000 + 35_000, "recv": b + 3_600_000 + 35_000}) + "\n")
     assert availability.window(tmp_path, after=t0) == (b + 45_001, b + 45_001 + SPAN)
+
+
+def test_a_bar_is_observed_once_its_close_has_passed_without_waiting_for_the_next_bar():
+    b = 10 * SPAN
+    bar = {"t": b - 4 * 3_600_000, "o": "1", "h": "2", "l": "0.5", "c": "1.5", "v": "9", "n": 3}
+    polls = [{"kind": "bar", "coin": "A", "boundary": b, "purpose": p, "sent": t, "recv": t, "data": [bar]}
+             for p, t in (("first", b + 5_000), ("verify", b + 600_000))]
+    out = availability.analyze(polls)
+    assert out["failures"] == [] and out["first_observed_lag_ms"]["max"] == 5_000

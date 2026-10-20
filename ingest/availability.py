@@ -15,7 +15,7 @@ from ingest.live import read
 from ingest.store import DELTA
 
 BAR = 4 * HOUR
-RECORDING_FROM = 1792440985867
+RECORDING_FROM = 1792455550295
 SPAN = 24 * HOUR
 MAX_GAP = 60_000
 BOUNDARY_GAP = 35_000
@@ -65,8 +65,6 @@ def _value(kind, data, boundary):
     if kind == "funding":
         rows = [r for r in data if r["time"] // HOUR * HOUR == boundary]
         return json.dumps([rows[0]["fundingRate"], rows[0]["premium"]]) if rows else None
-    if not any(c["t"] == boundary for c in data):
-        return None
     rows = [c for c in data if c["t"] == boundary - BAR]
     return json.dumps([rows[0][k] for k in "ohlcvn"]) if rows else None
 

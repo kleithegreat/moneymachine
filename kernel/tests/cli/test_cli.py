@@ -199,7 +199,7 @@ def test_equivalence_key_is_stable_across_processes(tmp_path):
     keys = []
     for i in range(40):
         p = tmp_path / f"p{i}.json"
-        p.write_text(json.dumps(search.compile_genome(search.random_genome(rng))))
+        p.write_text(json.dumps(search.compile_genome(search.random_genome(rng, 6))))
         runs = [json.loads(subprocess.run([str(MM), "check", str(p), "--ledger", str(tmp_path / f"l{k}.sqlite")],
                                           capture_output=True, text=True).stdout)["equivalence"] for k in range(2)]
         assert runs[0] == runs[1]
