@@ -7,5 +7,6 @@ import Ref.Sim
 import Ref.Units
 import Ref.Proof.Except
 import Ref.Proof.Sim
+import Ref.Proof.Prefix
 import Ref.Proof.Checker
 import Ref.Laws

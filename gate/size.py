@@ -1,7 +1,8 @@
 """Direct calibration of the holdout test's size (PROGRESS.md, Stage 2, revisions of 2026-10-20).
 
-Two suites of zero-mean series at holdout lengths: `development`, measuring the bootstrap p-value (its
-results are the committed calibration table, gate/holdout_calibration.json), and `locked`, whose
+Suites of zero-mean series at holdout lengths: `development` (and `development-v2`, its sparser additions after the
+locked v1 failure), measuring the bootstrap p-value (its results are the committed calibration table,
+gate/holdout_calibration.json), and `locked`, whose
 generators played no part in designing the test, judging the calibrated holdout p-value once. Each cell (generator x
 length) is resumable: finished cells are kept in a work file.
 """
@@ -67,6 +68,14 @@ SUITES = {
             "vol_triple_half": lambda rng, m, n: rng.standard_normal((m, n)) * _sd_step(n, n // 2, 3.0),
             "ar1_02": lambda rng, m, n: _ar1(rng, m, n, 0.2),
             "zero_inflated": lambda rng, m, n: _garch(rng, m, n, 0.1, 0.85, 5) * _active(rng, m, n, 1 / 12, 1 / 4),
+        },
+    },
+    "development-v2": {
+        "id": "holdout-calibration-v2", "series": 4000, "pvalue": "bootstrap_pvalue",
+        "generators": {
+            "sparse10": lambda rng, m, n: _t(rng, 5, (m, n)) * _active(rng, m, n, 1 / 36, 1 / 4),
+            "sparse5": lambda rng, m, n: _garch(rng, m, n, 0.1, 0.85, 5) * _active(rng, m, n, 1 / 76, 1 / 4),
+            "sparse5_long": lambda rng, m, n: _garch(rng, m, n, 0.1, 0.85, 5) * _active(rng, m, n, 1 / 228, 1 / 12),
         },
     },
     "locked": {

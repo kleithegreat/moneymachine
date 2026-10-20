@@ -1,6 +1,6 @@
 import Ref.Sim
 import Ref.Units
-import Ref.Proof.Sim
+import Ref.Proof.Prefix
 import Ref.Proof.Checker
 
 /-!
@@ -100,6 +100,15 @@ def Ctx.umachineAfter (N : NumOps α) (c : Ctx α) (n : Nat) : Except (Abort ⊕
     u ← ({ u with m := s.machine }.tick N c.p (c.mask h) h).mapError .inr
   return u
 
+/-- The schedule unrolled: preflight and the first tick, then the hourly ticks. -/
+theorem Ctx.machineAfter_eq (N : NumOps α) (c : Ctx α) (n : Nat) :
+    c.machineAfter N n = (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 n)).map (·.machine) := by
+  unfold Ctx.machineAfter Ctx.tickLoop
+  have hz : [1:n + 1].size = n := by simp [Std.Legacy.Range.size]
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range', hz]
+  simp only [bind, Except.bind, Except.map, pure, Except.pure]
+  split <;> (try rfl)
+
 /-- The decision tick of step k (0-based): its boundary plus BAR plus δ. -/
 def Ctx.decisionTime (c : Ctx α) (k : Nat) : Int := c.pol.wStart + ((k : Int) + 1) * BAR + c.pol.delta
 
@@ -129,7 +138,22 @@ theorem L1_values (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m�
     (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
         = (Ctx.make p m₂ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
     ∀ k ≤ n, (Ctx.make p m₁ v pol stop).machineAfter N k = (Ctx.make p m₂ v pol stop).machineAfter N k := by
-  sorry
+  intro k hk
+  simp only [Ctx.deliveryPrefix, Prod.mk.injEq] at hP
+  have A : Agree (Ctx.make p m₁ v pol stop) (Ctx.make p m₂ v pol stop) (pol.wStart + (n : Int) * HOUR + pol.delta) :=
+    { p := rfl, pol := rfl, intervals := hI, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2,
+      f₁ := fRows_sorted .., f₂ := fRows_sorted .., b₁ := bRows_sorted .., b₂ := bRows_sorted ..,
+      e₁ := eRows_sorted .., e₂ := eRows_sorted .. }
+  have hT : ∀ k' ∈ List.range' 1 k, pol.wStart + ↑k' * HOUR + pol.delta ≤ pol.wStart + (n : Int) * HOUR + pol.delta := by
+    intro k' hk'
+    simp only [List.mem_range'_1] at hk'
+    have : (k' : Int) ≤ n := by omega
+    simp only [HOUR]; omega
+  have h0 : (Ctx.make p m₁ v pol stop).pol.wStart + (Ctx.make p m₁ v pol stop).pol.delta ≤
+      pol.wStart + (n : Int) * HOUR + pol.delta := by simp only [Ctx.make, HOUR]; omega
+  rw [Ctx.machineAfter_eq, Ctx.machineAfter_eq]
+  exact map_machine (bind_agree (start_agree N A h0).1 (start_agree N A h0).2
+    fun r₁ r₂ hr hri => tickLoop_agree N A pol.wStart (List.range' 1 k) hT hr hri).1
 
 /-- The simulator's machine is that schedule: after j steps, it is the machine after the tick at
 wStart + 4j·HOUR. -/
@@ -138,15 +162,7 @@ theorem L1_simulator (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : 
     (hj : j ≤ (Ctx.make p m v pol stop).bounds.length) (h : (Ctx.make p m v pol stop).steps N j = .ok s) :
     (Ctx.make p m v pol stop).machineAfter N (4 * j) = .ok s.machine := by
   obtain ⟨t, ht, hp⟩ := steps_proj N _ j hj s h
-  have hm : (Ctx.make p m v pol stop).machineAfter N (4 * j) =
-      ((Ctx.make p m v pol stop).start N >>=
-        (Ctx.make p m v pol stop).tickLoop N (Ctx.make p m v pol stop).pol.wStart (List.range' 1 (4 * j))).map (·.machine) := by
-    unfold Ctx.machineAfter Ctx.tickLoop
-    have hz : [1:4 * j + 1].size = 4 * j := by simp [Std.Legacy.Range.size]
-    simp only [Std.Legacy.Range.forIn_eq_forIn_range', hz]
-    simp only [bind, Except.bind, Except.map, pure, Except.pure]
-    split <;> (try rfl)
-  rw [hm, ht]
+  rw [Ctx.machineAfter_eq, ht]
   exact congrArg (fun x => Except.ok x.1) hp
 
 /-- Equal delivery prefixes and execution views through step k's decision give the same observations
