@@ -633,6 +633,12 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 ## Log
 
+- 2026-10-20: Stage 6 Bend finding (`reference/bend/FINDINGS.md`, with reproductions). The pinned Bend 2.0.37 cannot state the frozen laws' quantification over every number structure in a form `--verdict` accepts:
+  - functions are affine and never `Data`, so an abstract operation cannot be reused;
+  - erased parameters cannot run;
+  - `--verdict` refuses a law over a template-bound operation, as an implementation/kernel mismatch.
+
+  Bend laws could cover only its own `F32` instance, which is weaker than the frozen statements, so C6.3 counts 0 by construction. Together with the missing binary64 (C6.4), this is recorded for C6.5, and no Bend model is built.
 - 2026-10-20: The holdout test's development calibration finished (72,000 series, about 1 h), and the test was oversized (see the stage 2 revision). The calibration table `gate/holdout_calibration.json` (sha256 e2d6ebb83feb86c7b1f535ecbf7ec87c7d56b09aef1aedfa867feba23017a6d3) holds its 18 cells' bootstrap p-values, as integers over 10,001. The locked run judges the calibrated p-value.
 - 2026-10-20: C10.4 met. GPT, given `thesis/SCORING.md` and the stage 10 criteria alone, wrote `thesis/tests/gpt_scoring.py`. On the run after the C10.4 tolerance revision, it agrees with `thesis/scoring.py` on all 1,000 generated sets: exactly on outcomes, exclusions, counts and clusters; within 1e-12 · max(1, |a|, |b|) on scores; and on which scores are undefined. Every listed boundary case occurs. The first run's mass disagreement on base-rate window counts was a generator bug: its daily bars were not on midnight, which SCORING.md requires.
 - 2026-10-20: C10.3's fixtures were committed (30214dc) before `thesis/positions.py`. Running them found two errors in the hand derivations, not the code. The costs case bucketed the exit by N, though the cell follows each fill's traded notional (as in the kernel's I3 and the criteria), so a $1,100 exit uses the 20 bps cell. The funding case's 10 · 2e-4 · 100 was written as 0.02; its rate is now 2e-5, matching the stated derivation. Both corrections are in the same commit as the code.
