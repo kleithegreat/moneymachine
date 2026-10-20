@@ -35,8 +35,9 @@ def test_c24_bound_admits_at_most_8_of_300():
 
 
 def test_holdout_test_locked_calibration():
-    r = load("stage2/holdout-size-locked.json")
-    assert r["suite"] == "locked" and len(r["cells"]) == len(size.SUITES["locked"]["generators"]) * len(size.LENGTHS)
+    r = load("stage2/holdout-size-locked-v2.json")
+    assert r["suite"] == "locked-v2"
+    assert len(r["cells"]) == len(size.SUITES["locked-v2"]["generators"]) * len(size.LENGTHS)
     assert abs(r["confidence"] - (1 - 0.05 / 54)) < 1e-15
     for name, c in r["cells"].items():
         assert c["series"] == 20000, name

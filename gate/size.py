@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-from gate.gate import bootstrap_pvalue, campaign_seed, holdout_pvalue
+from gate.gate import CALIBRATION, bootstrap_pvalue, campaign_seed, floor, holdout_pvalue
 
 LENGTHS = (540, 546, 1080)
 BURN = 500
@@ -34,6 +34,16 @@ def _garch(rng, m, n, a, b, nu):
     for t in range(n + BURN):
         out[:, t] = np.sqrt(var) * z[:, t]
         var = (1 - a - b) + a * out[:, t] ** 2 + b * var
+    return out[:, BURN:]
+
+
+def _garch_exposed(rng, m, n, a, b, nu, threshold):
+    """A GARCH-t series, exposed (nonzero) exactly while its conditional variance exceeds `threshold`."""
+    z = _t(rng, nu, (m, n + BURN))
+    out, var = np.empty_like(z), np.ones(m)
+    for t in range(n + BURN):
+        out[:, t] = np.sqrt(var) * z[:, t] * (var > threshold)
+        var = (1 - a - b) + a * (np.sqrt(var) * z[:, t]) ** 2 + b * var
     return out[:, BURN:]
 
 
@@ -90,6 +100,18 @@ SUITES = {
             + (rng.random((m, n)) < 0.01) * rng.choice([-10.0, 10.0], (m, n)),
         },
     },
+    "locked-v2": {
+        "id": "holdout-calibration-locked-v2", "series": 20000, "pvalue": "holdout_pvalue",
+        "generators": {
+            "sparse_long": lambda rng, m, n: _garch(rng, m, n, 0.08, 0.9, 4) * _active(rng, m, n, 1 / 160, 1 / 12),
+            "very_sparse": lambda rng, m, n: _t(rng, 4, (m, n)) * _active(rng, m, n, 1 / 129, 1 / 4),
+            "rare_loss": lambda rng, m, n: 0.1 + rng.standard_normal((m, n)) - 20.0 * (rng.random((m, n)) < 0.005),
+            "noisy_sparse": lambda rng, m, n: 0.05 * rng.standard_normal((m, n))
+            + _t(rng, 5, (m, n)) * _active(rng, m, n, 1 / 36, 1 / 4),
+            "endogenous": lambda rng, m, n: _garch_exposed(rng, m, n, 0.1, 0.85, 5, 1.5),
+            "persistent": lambda rng, m, n: _ar1(rng, m, n, 0.8),
+        },
+    },
 }
 
 
@@ -101,15 +123,20 @@ def _pvalues(args):
     return [PVALUES[kind](r, campaign_seed(f"{tag}/{start + i}")) for i, r in enumerate(rows)]
 
 
-def cell(suite, gen, n, m=None, workers=None, chunk=50):
+def series(suite, gen, n, m=None):
     spec = SUITES[suite]
-    m = m or spec["series"]
     tag = f"{spec['id']}/{gen}/{n}"
     rng = np.random.default_rng(int.from_bytes(hashlib.sha256(tag.encode()).digest()[:8], "little"))
-    series = spec["generators"][gen](rng, m, n)
-    jobs = [(spec["pvalue"], tag, series[i:i + chunk], i) for i in range(0, m, chunk)]
+    return tag, spec["generators"][gen](rng, m or spec["series"], n)
+
+
+def cell(suite, gen, n, m=None, workers=None, chunk=50):
+    """A cell's p-values and each series' count of nonzero steps."""
+    tag, xs = series(suite, gen, n, m)
+    jobs = [(SUITES[suite]["pvalue"], tag, xs[i:i + chunk], i) for i in range(0, len(xs), chunk)]
     with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
-        return np.concatenate([p for p in pool.map(_pvalues, jobs)])
+        p = np.concatenate([p for p in pool.map(_pvalues, jobs)])
+    return {"p": p.tolist(), "active": np.count_nonzero(xs, axis=1).tolist()}
 
 
 def cp_upper(k, m, confidence):
@@ -122,15 +149,19 @@ def report(pvalues):
     k = len(pvalues) * len(JUDGED)
     confidence = 1 - 0.05 / k
     cells = {}
-    for c, p in pvalues.items():
-        p = np.asarray(p)
+    for c, w in pvalues.items():
+        p, active = np.asarray(w["p"]), np.asarray(w["active"])
+        n = int(c.rsplit("/", 1)[1])
+        eligible = active >= floor(n)
         out = {}
         for u in JUDGED + REPORTED:
             count = int((p <= u).sum())
-            out[str(u)] = {"rejections": count, "rate": count / len(p)}
+            out[str(u)] = {"rejections": count, "rate": count / len(p),
+                           "eligible_rate": float((p[eligible] <= u).mean()) if eligible.any() else None}
             if u in JUDGED:
                 out[str(u)]["upper"] = cp_upper(count, len(p), confidence)
-        cells[c] = {"series": len(p), "levels": out}
+        cells[c] = {"series": len(p), "levels": out, "floored": float((~eligible).mean()),
+                    "mean_active_share": float(active.mean() / n)}
     return {"judged_pairs": k, "confidence": confidence, "cells": cells}
 
 
@@ -144,4 +175,15 @@ def main(suite, work, audit):
                 path.write_text(json.dumps(pvalues))
                 print(gen, n, flush=True)
     Path(audit).write_text(json.dumps({"suite": suite, "id": SUITES[suite]["id"], **report(pvalues)}, indent=1) + "\n")
+
+
+def table(development, development_v2):
+    """The calibration table (gate/holdout_calibration.json): each development cell's bootstrap p-values as integers
+    over 10,001, sorted."""
+    cells = {}
+    for work in (development, development_v2):
+        for c, w in json.loads(Path(work).read_text()).items():
+            cells[c] = sorted(round(p * 10_001) for p in w["p"])
+    CALIBRATION.write_text(json.dumps({"id": "holdout-calibration-v2", "denominator": 10_001,
+                                       "cells": dict(sorted(cells.items()))}) + "\n")
 

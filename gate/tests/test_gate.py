@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 
@@ -42,13 +43,25 @@ def test_bootstrap_pvalue_sanity():
 
 def test_holdout_pvalue_is_the_worst_development_monte_carlo_pvalue(monkeypatch):
     denominator, cells = gate._calibration()
-    assert denominator == 10_001 and len(cells) == 18 and all(len(c) == 4000 for c in cells)
+    assert denominator == 10_001 and len(cells) == 27 and all(len(c) == 4000 for c in cells)
     raw = iter([1 / 10_001, 0.05, 0.0500999, 1.0])
     monkeypatch.setattr(gate, "bootstrap_pvalue", lambda r, seed: next(raw))
-    p = [gate.holdout_pvalue(None, 0) for _ in range(4)]
+    p = [gate.holdout_pvalue(np.ones(540), 0) for _ in range(4)]
     assert p[0] == max((1 + int((c <= 1).sum())) / 4001 for c in cells) and p[0] >= 1 / 4001
     assert p[0] <= p[1] <= p[2] <= p[3] == 1.0
     assert p[1] == max((1 + int((c <= 500).sum())) / 4001 for c in cells) > 0.05
+
+
+def test_holdout_series_under_the_activity_floor_is_untested(monkeypatch):
+    monkeypatch.setattr(gate, "bootstrap_pvalue", lambda r, seed: 1 / 10_001)
+    assert [gate.floor(n) for n in (540, 546, 1080)] == [27, 28, 54]
+    sparse = np.zeros(540)
+    sparse[:26] = 1.0
+    assert gate.holdout_pvalue(sparse, 0) == 1.0
+    sparse[26] = 1.0
+    assert gate.holdout_pvalue(sparse, 0) == gate.min_holdout_pvalue() < 0.05 / 33
+    with pytest.raises(ValueError):
+        gate.holdout_pvalue(np.r_[np.ones(539), np.nan], 0)
 
 
 def test_long_run_sd_is_white_noise_sd_and_never_negative():

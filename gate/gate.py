@@ -3,6 +3,7 @@
 import functools
 import hashlib
 import json
+import math
 import sqlite3
 import subprocess
 import tempfile
@@ -172,12 +173,29 @@ def _calibration():
     return c["denominator"], [np.array(ks) for ks in c["cells"].values()]
 
 
+def floor(n):
+    """The fewest nonzero steps a holdout series of n steps needs to be tested (calibration v2's scope)."""
+    return math.ceil(0.05 * n)
+
+
 def holdout_pvalue(r, seed):
     """The bootstrap p-value calibrated on the development suite: the largest, over its generators, Monte Carlo
-    p-value of the bootstrap p-value against that generator's null distribution (Stage 2, revision 2026-10-20)."""
+    p-value of the bootstrap p-value against that generator's null distribution; 1 for a series under the
+    activity floor (Stage 2, calibration v2)."""
+    r = np.asarray(r)
+    if not np.isfinite(r).all():
+        raise ValueError("non-finite holdout return")
+    if np.count_nonzero(r) < floor(len(r)):
+        return 1.0
     denominator, cells = _calibration()
     k = round(bootstrap_pvalue(r, seed) * denominator)
     return max((1 + int(np.searchsorted(ks, k, side="right"))) / (len(ks) + 1) for ks in cells)
+
+
+def min_holdout_pvalue():
+    """The smallest calibrated p-value any series can get."""
+    _, cells = _calibration()
+    return max((1 + int(np.searchsorted(ks, 1, side="right"))) / (len(ks) + 1) for ks in cells)
 
 
 def holm(pvalues):
@@ -248,7 +266,9 @@ def promote(results, campaign):
     adj = holm(p)
     promoted = [h for h, a in zip(hashes, adj) if results[h][1] > 0 and a <= ALPHA]
     return promoted, {"holdout_p": dict(zip(hashes, p.tolist())), "holm": dict(zip(hashes, adj.tolist())),
-                      "holdout_total_return": {h: results[h][1] for h in hashes}}
+                      "holdout_total_return": {h: results[h][1] for h in hashes},
+                      "holdout_nonzero_steps": {h: int(np.count_nonzero(results[h][0])) for h in hashes},
+                      "min_holdout_p": min_holdout_pvalue()}
 
 
 def with_diagnostics(decision, results):
