@@ -635,6 +635,12 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 ## Blockers
 
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
+- **Checker: overflowed conversions share a node (2026-10-20, found proving L2).**
+  - **What happens.** mm interns a `convert` node by its operator and factor bits, not by its target unit.
+  - **Where it breaks.** DSL.md promises "the exact factor", but powi overflows for large time exponents. For example, the factor from `1` to `y^100/h^100` and the factor to `y^101/h^101` both come out as 0.
+  - **The result.** The second convert reuses the first one's node and type, so `add` of the two passes the unit check. `mm check` and refmm both accept `{"op":"add","args":[convert(1,"y^100/h^100"), convert(1,"y^101/h^101")]}`.
+  - **Impact.** Only degenerate values (0, ∞, NaN), and no timing leak. L2 still holds, because it is stated over the stored types.
+  - **Proposed fix.** Key interning on the node's full identity, including the target. Reject a conversion whose factor is not finite and nonzero (E_UNIT). Both are kernel changes, so they wait: stage 6 does not modify the engine. They also change the kernel hash, so they belong before the first judged run that records it.
 
 ## Log
 
