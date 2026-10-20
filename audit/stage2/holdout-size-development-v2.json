@@ -1,0 +1,260 @@
+{
+ "suite": "development-v2",
+ "id": "holdout-calibration-v2",
+ "judged_pairs": 27,
+ "confidence": 0.9981481481481481,
+ "cells": {
+  "sparse10/540": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 309,
+     "rate": 0.07725,
+     "upper": 0.09026578673600635
+    },
+    "0.01": {
+     "rejections": 83,
+     "rate": 0.02075,
+     "upper": 0.028164420928277183
+    },
+    "0.005": {
+     "rejections": 44,
+     "rate": 0.011,
+     "upper": 0.016690625943326036
+    },
+    "0.001": {
+     "rejections": 9,
+     "rate": 0.00225
+    },
+    "0.0005": {
+     "rejections": 4,
+     "rate": 0.001
+    }
+   }
+  },
+  "sparse10/546": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 307,
+     "rate": 0.07675,
+     "upper": 0.08973022793020105
+    },
+    "0.01": {
+     "rejections": 86,
+     "rate": 0.0215,
+     "upper": 0.02902709962608971
+    },
+    "0.005": {
+     "rejections": 47,
+     "rate": 0.01175,
+     "upper": 0.01759618827256687
+    },
+    "0.001": {
+     "rejections": 9,
+     "rate": 0.00225
+    },
+    "0.0005": {
+     "rejections": 4,
+     "rate": 0.001
+    }
+   }
+  },
+  "sparse10/1080": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 286,
+     "rate": 0.0715,
+     "upper": 0.08409746044031097
+    },
+    "0.01": {
+     "rejections": 71,
+     "rate": 0.01775,
+     "upper": 0.024690570586242463
+    },
+    "0.005": {
+     "rejections": 41,
+     "rate": 0.01025,
+     "upper": 0.015779560272905842
+    },
+    "0.001": {
+     "rejections": 10,
+     "rate": 0.0025
+    },
+    "0.0005": {
+     "rejections": 6,
+     "rate": 0.0015
+    }
+   }
+  },
+  "sparse5/540": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 356,
+     "rate": 0.089,
+     "upper": 0.10281089398621923
+    },
+    "0.01": {
+     "rejections": 88,
+     "rate": 0.022,
+     "upper": 0.029601058097889023
+    },
+    "0.005": {
+     "rejections": 46,
+     "rate": 0.0115,
+     "upper": 0.017294912926225738
+    },
+    "0.001": {
+     "rejections": 5,
+     "rate": 0.00125
+    },
+    "0.0005": {
+     "rejections": 4,
+     "rate": 0.001
+    }
+   }
+  },
+  "sparse5/546": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 368,
+     "rate": 0.092,
+     "upper": 0.1060024268803295
+    },
+    "0.01": {
+     "rejections": 89,
+     "rate": 0.02225,
+     "upper": 0.029887700648425317
+    },
+    "0.005": {
+     "rejections": 42,
+     "rate": 0.0105,
+     "upper": 0.016083894899473268
+    },
+    "0.001": {
+     "rejections": 9,
+     "rate": 0.00225
+    },
+    "0.0005": {
+     "rejections": 4,
+     "rate": 0.001
+    }
+   }
+  },
+  "sparse5/1080": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 315,
+     "rate": 0.07875,
+     "upper": 0.09187156906176977
+    },
+    "0.01": {
+     "rejections": 91,
+     "rate": 0.02275,
+     "upper": 0.030460330512038565
+    },
+    "0.005": {
+     "rejections": 45,
+     "rate": 0.01125,
+     "upper": 0.016993065003742123
+    },
+    "0.001": {
+     "rejections": 8,
+     "rate": 0.002
+    },
+    "0.0005": {
+     "rejections": 4,
+     "rate": 0.001
+    }
+   }
+  },
+  "sparse5_long/540": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 284,
+     "rate": 0.071,
+     "upper": 0.08356007586633275
+    },
+    "0.01": {
+     "rejections": 15,
+     "rate": 0.00375,
+     "upper": 0.0075096514309612875
+    },
+    "0.005": {
+     "rejections": 7,
+     "rate": 0.00175,
+     "upper": 0.004666015786316432
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0
+    }
+   }
+  },
+  "sparse5_long/546": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 292,
+     "rate": 0.073,
+     "upper": 0.08570862029558779
+    },
+    "0.01": {
+     "rejections": 31,
+     "rate": 0.00775,
+     "upper": 0.012694345569311424
+    },
+    "0.005": {
+     "rejections": 8,
+     "rate": 0.002,
+     "upper": 0.005039906223593893
+    },
+    "0.001": {
+     "rejections": 1,
+     "rate": 0.00025
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0
+    }
+   }
+  },
+  "sparse5_long/1080": {
+   "series": 4000,
+   "levels": {
+    "0.05": {
+     "rejections": 332,
+     "rate": 0.083,
+     "upper": 0.09641425925709948
+    },
+    "0.01": {
+     "rejections": 64,
+     "rate": 0.016,
+     "upper": 0.02264446090149634
+    },
+    "0.005": {
+     "rejections": 25,
+     "rate": 0.00625,
+     "upper": 0.010796587730850262
+    },
+    "0.001": {
+     "rejections": 3,
+     "rate": 0.00075
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0
+    }
+   }
+  }
+ }
+}
