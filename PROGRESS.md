@@ -34,7 +34,12 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
   - `thesis-report audit/stage10/report.json` at exit, plus the GPT reviewer.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
-- **Stage 6 (c):** criteria frozen; Lean v4.34.0 and Bend 2.0.37 pinned in the flake. Next is C6.1: `reference/SEMANTICS.md`, resolved against mm's code, plus each kernel's formal law statements, GPT-reviewed and committed alone as `criteria: stage 6 laws`. Run `bend guide` before writing any Bend.
+- **Stage 6 (c):** criteria frozen, with the C6.4 per-kernel revision. Lean v4.34.0 and Bend 2.0.37 are pinned. `reference/SEMANTICS.md` is drafted against mm's source, with measured details: min/max ties return the first argument, and sums are left folds from −0.0.
+  - **The Lean model** (`reference/lean`) has a strict JSON front end and checker, the machine and the simulator over an abstract number structure, and a binary64 executable `refmm`.
+    - Its verdicts agree with `mm check` on all 372 checked programs.
+    - Its runs agree bit for bit with `mm` on 31 programs over 120 days. `reference/mmdump` links mm as a library to export the resolved market and the trace.
+  - **Laws.** The Lean statements of L1 to L5 (`Ref/Laws.lean`) are under GPT review. After that, one revision, then `criteria: stage 6 laws` (Lean), then proofs.
+  - **Bend.** The Bend model and its statements follow under the same rule, starting with `bend guide`, already read. Bend has no binary64, so it cannot pass C6.4.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
