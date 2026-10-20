@@ -88,6 +88,7 @@ Criteria:
 - **C1.4 Differential replay.** `mm` replays W0 on the stage 0 dataset version, and its trace (decisions, fills, funding, equity) matches the stage 0 Python witness to $1e-6 at every step. Every disagreement found along the way is resolved with its root cause recorded.
 - **C1.5 Independent timing checker.** GPT implements an I2/I3 trace checker from the paper and INVARIANTS.md alone. A generator produces at least 1,000 traces with source bars, at least half with labeled planted violations, including wrong-bar, early-bar, zero-trade-bar, and time-order violations. Both checkers match the labels on all of them.
 - **C1.6 Ledger and identity.** Tests show: triggers reject UPDATE and DELETE; the experiment row holds every identity field in paper §5 plus the I7 hashes; a read-only or failing ledger makes `mm eval` emit no statistics and exit nonzero; and two fresh processes produce byte-identical results.
+  - *Revision 2026-10-20 (wording only):* paper revision 5 renumbered its sections. Paper §5 (experiment identity) is now §7, and §6 (the gate) is now §8.
 - **C1.7 Leak canary (supporting).** The synthetic market is 12 coins over 550 days with i.i.d. Gaussian 4h log returns, σ = 2%, zero funding, and production costs. Seeds are 5 fixed and 5 drawn at test time and logged. Every adversarial program that is admitted, plus 20 random valid programs, has annualized net Sharpe ≤ 4 on every seed (Sharpe is 0 for no trades or zero variance). A deliberately leaking evaluator, compiled only into this test, exceeds 20.
 - **C1.8 Speed (supporting).** On this machine in a release build: data load is excluded; interpretation and all runtime checks are included; the ledger commit is excluded; no caching; W0 over the search part of W; median of 20 runs in one process ≤ 100 ms.
 
@@ -128,6 +129,36 @@ Later campaigns must stay within 400 evaluations.
 - **Mechanism check:** skipped, since searchers state no mechanisms. This only adds promotions, so stage 2's false-promotion rates are upper bounds and its power figures overstate what stage 3 will see.
   - *Revision 2026-10-19 (wording only; no stage 2 result judged yet):* "This only adds promotions" is false in general. Removing finalists shrinks Holm's m, so a mechanism check can turn a non-promotion into a promotion. C2's rates are calibration for the procedure without the check, not strict upper bounds for an arm that has one. Under the complete null, Holm stays valid on any family chosen without holdout data.
 - **Holdout:** all finalists, once. Promoted if net holdout return > 0 and the one-sided stationary-bootstrap p-value for mean > 0 (block 6, 10,000 replications) passes Holm at α = 0.05.
+  - *Revision 2026-10-20 (paper revision 5), before any C2.4 to C2.6 run.* This changes the holdout test's algorithm and adds a direct-calibration exit requirement. It does not change any frozen significance level, search budget, selection cutoff, or C2.4 to C2.6 target. Every started campaign still counts, and a crash or timeout still counts as a promotion.
+    - **Selection versus inference.** SPA, StepM, the DSR screen and the mechanism check are selection rules only. They decide which candidates reach the holdout, and C2.4 to C2.6 measure how the whole procedure behaves, but their p-values and scores support no inferential claim after adaptive search. The holdout batch, with Holm across the frozen finalists, is the only inference. Holm bounds family-wise error only if the finalists' holdout p-values are valid given everything used to select them. The earlier mechanism-check revision's "Holm stays valid" carries that condition.
+    - **Error claims are per campaign.** A campaign's false-promotion rate is claimed only for its own finalist family on its own holdout. In stage 2 that family is the campaign's frozen finalists. Stage 3 keeps its frozen design: one joint holdout batch with Holm within each arm, so its claims are per arm, not a 5% family-wise bound across both arms. No project-wide claim is made, and every promotion is reported beside the number of campaigns run.
+    - **The tested series.** The tested series is the finalist's per-4h-step net return from the kernel (`results.returns`) over the holdout report window. Every step is included, flat steps and no-trade steps too; the steps are the ones the kernel emits.
+    - **The test.** It is a one-sided, studentized stationary block bootstrap of that series' mean, using `arch.bootstrap.StationaryBootstrap` (version pinned by `flake.lock`). The mean block is 6, there are 10,000 resamples, and the integer seed is the first 4 bytes, little-endian, of SHA-256(campaign id + finalist strategy hash), as in the committed `gate.promote`.
+      - Let x_t = r_t − r̄. For 0 ≤ k < n, γ̂(k) = n⁻¹ Σ_{t>k} x_t x_{t−k}, with no wrap-around. Then σ̂² = γ̂(0) + 2 Σ_{k=1}^{min(36, n−1)} (1 − k/37)(5/6)^k γ̂(k).
+      - The weights, extended by zero beyond lag 36, are a product of a Bartlett and an AR(1) sequence. Both are positive definite, so σ̂² ≥ 0 in exact arithmetic.
+      - The statistic is T = r̄/σ̂. Each resample gives T* = (r̄* − r̄)/σ̂*, with σ̂* computed the same way. The p-value is p = (1 + #{T* ≥ T}) / 10,001.
+      - A series with σ̂ = 0 gets p = 1. A resample with σ̂* = 0 gets T* = +∞ if r̄* ≥ r̄, and −∞ otherwise.
+      - A negative or non-finite computed variance is an implementation failure, not a result.
+      - The block length and the lag window are fixed, so no general finite-sample or asymptotic validity is claimed. Calibration measures the test's rejection rates under the generators below, and passing supports only those stated bounds.
+    - **Development calibration (reported only).** Lengths are 540 (C3.2's and C4.5's [640, 730)-day windows), 546 (stage 3's real [2026-07-01, 2026-09-30)) and 1,080 (stage 2's 180 days). There are 4,000 series per generator and length. Student-t innovations are standardized to variance 1. The generators are:
+      - i.i.d. N(0, 1);
+      - i.i.d. t₃;
+      - GARCH(1,1), with ω = 1 − α − β, α = 0.1, β = 0.85, t₅ innovations, initial variance 1, and 500 burn-in steps;
+      - N(0, 1) with the standard deviation tripled from step ⌊n/2⌋;
+      - AR(1) with φ = 0.2, N(0, 1) innovations, starting at 0 with 500 burn-in steps;
+      - zero-inflated: a stationary two-state chain with P(flat → active) = 1/12 and P(active → flat) = 1/4, over a latent GARCH-t₅ process that evolves at every step, with return 0 while flat.
+
+      Development results may inform a redesign, which takes a new dated revision before the locked run.
+    - **Locked calibration (judged; added to stage 2's exit).** It runs once, before any C2.4 run, on the frozen test. It uses the same three lengths and 20,000 series per cell. Its generators were not used to design the test:
+      - Gaussian AR(1) with φ = 0.3 and 500 burn-in steps;
+      - i.i.d. t₄;
+      - GARCH(1,1) with α = 0.05, β = 0.93 and t₄ innovations, as above;
+      - N(0, 1) with the standard deviation doubled from step ⌈2n/3⌉;
+      - sparse: a stationary chain with P(flat → active) = 1/36 and P(active → flat) = 1/4, active returns i.i.d. t₅, and 0 while flat;
+      - jumps: N(0, 1) plus, with probability 0.01 per step, an independent jump of ±10 with equal probability.
+
+      Seeds come from SHA-256 of `holdout-calibration-locked-v1` and the cell name. For each of the K = 54 cells (generator × length × level u ∈ {0.05, 0.01, 0.005}), the one-sided Clopper–Pearson upper bound on P(p ≤ u), at confidence 1 − 0.05/54, must not exceed 0.0625, 0.015 or 0.01 respectively. Rejection counts at 0.001 and 0.0005 are reported. Holm levels below 0.005, reachable when a campaign has more than 10 finalists, are checked only through C2.4 to C2.6's whole-procedure runs. A failed locked run stays recorded as a failure; any redesign gets a new dated version and a new locked suite before it is judged.
+    - These series tests supplement C2.4 to C2.6, which judge the whole procedure, and do not replace them.
 
 **Runs.** Seeds come from SHA-256 of a committed campaign id. Every market started counts, and a crash or timeout counts as a promotion. A rerun after any gate or null change uses fresh ids and is logged. Every bound below is a one-sided 95% Clopper–Pearson bound, unless stated otherwise.
 
@@ -205,6 +236,9 @@ Each arm has a budget of 100 evaluations. An evaluation is any `mm eval` call, i
   - promotions.
 
   It states that one campaign per arm supports no claim that either generator is better. A reviewer (GPT, or a fresh-context Opus subagent if GPT is unavailable), given the frozen criteria and the report, finds no claim beyond the evidence.
+  - *Revision 2026-10-20 (paper revision 5; reported, never judged):* two diagnostics per finalist are added. They are recorded only after the promotion decisions are committed. They never change promotion, finalist selection or the judged report, and any later operational use is recorded separately.
+    - **Holdout return at twice the cost table.** It comes from the same holdout batch, as a full evaluator rerun with every C0.7 cost-table entry doubled, so costs also affect later equity and orders. Fees and funding are unchanged.
+    - **Relative-range coverage.** For each coin, take the closed interval from the minimum to the maximum (high − low)/open over that coin's 4h bars inside the C0.7 calibration span. Report the fraction of its holdout bars that fall inside that interval, with numerator, denominator and missing-bar count. This measures relative-range coverage only, not every market condition that drives execution costs.
 
 Exit when C3.1 to C3.4 all hold. Zero promotions is an acceptable outcome.
 
