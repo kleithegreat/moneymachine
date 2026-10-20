@@ -475,6 +475,7 @@ Exit when C6.1 to C6.5 hold.
   - **What the model does.** Following `mm`, it takes the adverse extreme of the held position q, which the fill closes with qty = −q: `if 0 < q then low else high`.
   - **Why they differ.** Equating the two needs `lt 0 (neg q) = ¬ lt 0 q`, a numeric law L4 does not assume. The engine's check only compares the reference with `N.eq`, not equality. A structure where `lt` is always false and `eq` always true passes the run and breaks the clause.
   - **The fix.** The clause now states the construction: f.qty = −q for some q, and f.reference is the bar's close for a delisting, otherwise `if 0 < q then low else high`. That is I3's "adverse extreme of the position". No model definition and no other law changes, and on binary64 the two readings agree for every nonzero non-NaN q.
+- *Revision 2026-10-20, while proving L1 and before any L1 proof:* L1_simulator is false for j beyond the run. `steps j` runs `bounds.take j`, so it stops after the run's last step, while `machineAfter (4j)` keeps delivering and ticking. The statement now assumes j ≤ bounds.length, the steps a run actually takes. Nothing else changes: L4 uses it only at decisions the run made, and L1_decisions does not use it.
 
 ### Stage 10: thesis track
 

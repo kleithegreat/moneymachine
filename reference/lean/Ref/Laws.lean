@@ -135,7 +135,7 @@ theorem L1_values (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m�
 wStart + 4j·HOUR. -/
 theorem L1_simulator (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
     (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (j : Nat) (s : SState α)
-    (h : (Ctx.make p m v pol stop).steps N j = .ok s) :
+    (hj : j ≤ (Ctx.make p m v pol stop).bounds.length) (h : (Ctx.make p m v pol stop).steps N j = .ok s) :
     (Ctx.make p m v pol stop).machineAfter N (4 * j) = .ok s.machine := by
   sorry
 
