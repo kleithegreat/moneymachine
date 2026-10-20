@@ -1,0 +1,9 @@
+name = "ref"
+defaultTargets = ["Ref", "refmm"]
+
+[[lean_lib]]
+name = "Ref"
+
+[[lean_exe]]
+name = "refmm"
+root = "Main"
