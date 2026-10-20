@@ -24,7 +24,7 @@ The one exception is the audit record (§3): pre-registered criteria, the experi
 
 ## 3. This project
 
-The spec is `docs/whitepaper.tex`. Build its roadmap, stages 0 through 5, in order. When the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record the divergence under Blockers in `PROGRESS.md` before changing the paper to match.
+The spec is `docs/whitepaper.tex` (`nix build .#whitepaper` renders `docs/whitepaper.pdf`; rebuild and commit it with every change). Build its roadmap, stages 0 through 10, in the order the roadmap gives: stages 6 and 10 run alongside the pilot (0 to 5), and stages 7 to 9 start only after stage 5 exits. When the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record the divergence under Blockers in `PROGRESS.md` before changing the paper to match.
 
 ### Nobody is watching
 
@@ -40,7 +40,7 @@ Before any work on stage N, write its exit criteria under Criteria: measurable, 
 
 ### Holdout
 
-Once stage 0 settles the data, reserve the most recent period as `data/holdout/`. Nothing reads it except the gate's holdout step, once per campaign, exactly as paper §6 describes. A spent holdout is never reused.
+Once stage 0 settles the data, reserve the most recent period as `data/holdout/`. Nothing reads it except the gate's holdout step, once per campaign, exactly as paper §8 describes. A spent holdout is never reused.
 
 ### Tech
 
@@ -70,4 +70,4 @@ Never point GPT at the repo when independence matters, or it reads your source. 
 ### Hard limits
 
 - Public market data only, read-only, within each source's rate limits and terms. No VPNs, proxies, or other ways around access restrictions.
-- No private keys, wallets, order signing, or order placement, live or testnet. Stage 6 is a human decision: stop after stage 5.
+- No private keys, wallets, order signing, or order placement, live or testnet. Stage 11 (paper or live trading) is a human decision: stop after stage 10.

@@ -44,6 +44,20 @@
           };
         });
 
+      packages = forAll (pkgs: {
+        whitepaper = pkgs.runCommand "whitepaper.pdf" {
+          nativeBuildInputs = [
+            (pkgs.texliveBasic.withPackages (ps: with ps; [
+              latexmk lm microtype amsmath booktabs tools enumitem listings xcolor pgf hyperref geometry
+            ]))
+          ];
+        } ''
+          cp ${./docs/whitepaper.tex} whitepaper.tex
+          latexmk -pdf -interaction=nonstopmode -halt-on-error whitepaper.tex
+          cp whitepaper.pdf $out
+        '';
+      });
+
       formatter = forAll (pkgs: pkgs.nixfmt-rfc-style);
     };
 }

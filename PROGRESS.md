@@ -310,14 +310,12 @@ Exit when C5.1–C5.6 hold for every source classified historically replayable o
 
 ## Blockers
 
-- **C0.7 covers one regime (2026-10-19, before any C0.7 judgment).** The cost model is calibrated and validated on 24 h of live books, then applied to all of W, where Hyperliquid has no historical book data. C0.7 names this only as a limitation and does not test costs across calm and volatile periods. If books thin out when markets move, backtests understate costs exactly when a strategy trades most, in the search and in the holdout alike. C0.7 is judged as written. Proposed (a human call):
-  - restart the HL recorder after the second backfill and report the frozen model's coverage on each later recorded day, as a regime diagnostic;
-  - report each stage 3 finalist's holdout return at 2× the cost table beside the judged one.
-
-- **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Building the per-coin fallback is a human call.
+- **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
 
+- 2026-10-20: Paper revision 5. The roadmap now runs through stage 10 (6 reference kernels, 7 sources as a language feature, 8 multi-asset, 9 cross-domain exploration, 10 thesis track); stage 11, paper or live trading, is a human decision. Its `.tex` was swept into commit a624a69 by a `git add -A`; `docs/whitepaper.pdf` is built by `nix build .#whitepaper`.
+- 2026-10-20: Human decisions on the blockers. Both C0.7 proposals are approved: the HL recorder restarts after the second backfill and keeps recording as a regime diagnostic, and holdout returns at 2× costs are reported after the promotion decision only. Unlocks stay blocked.
 - 2026-10-19: Changes from an outside review.
   - Discourse forums map to a coin only at C5.1 precision ≥ 0.8, fixed before any return on the new inputs. That unmaps ethresear.ch (0.66) and forum.bnbchain.org (0.58) (mapping version 2). Both are still recorded and backfilled for C5.3.
   - The recorders' and analyses' shared helpers (clock, ISO time, JSONL reader) are unified in `ingest/live.py`. The paired modules otherwise stay, because the HL venue and the forum/Snapshot sources differ in API, records and availability rules.
