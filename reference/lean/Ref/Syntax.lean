@@ -18,9 +18,10 @@ def one : Dim := ⟨[0, 0, 0, 0, 0, 0]⟩
 def base (name : String) : Option Dim :=
   (bases.idxOf? name).map fun i => ⟨(List.range 6).map fun j => if j == i then 1 else 0⟩
 def inI8 (x : Int) : Bool := -128 ≤ x && x ≤ 127
+/-- Exponentwise, over two units with the same bases (the engine's are fixed arrays of six). -/
 def zip (f : Int → Int → Int) (a b : Dim) : Option Dim :=
   let e := List.zipWith f a.e b.e
-  if e.all inI8 then some ⟨e⟩ else none
+  if a.e.length == b.e.length && e.all inI8 then some ⟨e⟩ else none
 def mul := zip (· + ·)
 def div := zip (· - ·)
 def sqrt (u : Dim) : Option Dim := if u.e.all (· % 2 == 0) then some ⟨u.e.map (· / 2)⟩ else none

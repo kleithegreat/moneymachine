@@ -508,6 +508,9 @@ Exit when C6.1 to C6.5 hold.
 - *Revision 2026-10-20, while proving L3 and before any L3 proof:* L3_rewrite is false over an arbitrary lawful `NumOps`.
   - **Why.** R v1's obligations hold on finite operands. The model, like `mm`, stores every node value through `finite` except `hours_since` and `xs_rank`. Take a lawful structure whose `ofInt` is non-finite, and x = hours_since(…). Then `neg(neg x)` is Undef while x is defined, and `negNeg` changes the weight downstream of it.
   - **The fix.** The model filters those two outputs too. In binary64 they are always finite, so the filter is the identity on every value `mm` produces, and no binary64 behavior changes. The differential test now runs an `hours_since` program bit for bit. SEMANTICS.md §1 and §4 say so. L2_units' proof is updated, and no law statement changes.
+- *Revision 2026-10-20, while proving L3 and before any L3 proof:* L3_rewrite's `p'.WF` is false for a WF program with a unit of other than six exponents.
+  - **Why.** The model's `Dim` is a list, and `Dim.zip` truncated to the shorter one. So with a seven-exponent u, `mul(x, 1)` had a six-exponent type, and redirecting its users to x broke their typing. L3 assumes only `p.WF`, which never fixes a unit's length.
+  - **The fix.** `zip` is now undefined for units of unequal length, as for the engine's fixed `[i8; 6]`. Every unit the checker produces has six exponents, so no verdict or run changes, and the differential tests agree.
 
 ### Stage 10: thesis track
 
