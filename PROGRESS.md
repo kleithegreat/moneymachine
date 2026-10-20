@@ -609,6 +609,7 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 ## Log
 
+- 2026-10-20: C10.3's fixtures were committed (30214dc) before `thesis/positions.py`. Running them found two errors in the hand derivations, not the code. The costs case bucketed the exit by N, though the cell follows each fill's traded notional (as in the kernel's I3 and the criteria), so a $1,100 exit uses the 20 bps cell. The funding case's 10 · 2e-4 · 100 was written as 0.02; its rate is now 2e-5, matching the stated derivation. Both corrections are in the same commit as the code.
 - 2026-10-20: Paper revision 5. The roadmap now runs through stage 10 (6 reference kernels, 7 sources as a language feature, 8 multi-asset, 9 cross-domain exploration, 10 thesis track); stage 11, paper or live trading, is a human decision. Its `.tex` was swept into commit a624a69 by a `git add -A`; `docs/whitepaper.pdf` is built by `nix build .#whitepaper`.
 - 2026-10-20: Human decisions on the blockers. Both C0.7 proposals are approved: the HL recorder restarts after the second backfill and keeps recording as a regime diagnostic, and holdout returns at 2× costs are reported after the promotion decision only. Unlocks stay blocked.
 - 2026-10-19: Changes from an outside review.

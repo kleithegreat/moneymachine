@@ -112,9 +112,9 @@ def test_discretionary_exit_is_scored_as_managed_only():
 def test_funding_coincident_with_entry_and_exit():
     # q = 10 from the 11h open. Funding at 11h (0.001) comes before the entry: not paid.
     # 12h: rate 1e-4 on q = 10 at the 12h open (100): the long pays 0.1.
-    # 21h: rate -2e-4, before the 21h discretionary exit: the long receives 0.02.
+    # 21h: rate -2e-5, before the 21h discretionary exit: the long receives 10 * 2e-5 * 100 = 0.02.
     # Flat prices: managed = (-0.1 + 0.02) / 1000 = -8e-5. Held to 96h with no other rows: the same, o = 0.
-    funding = {"X": {11 * H: 0.001, 12 * H: 1e-4, 21 * H: -2e-4}}
+    funding = {"X": {11 * H: 0.001, 12 * H: 1e-4, 21 * H: -2e-5}}
     out = run([thesis("a", 10 * H + 30 * MIN, [["X", 1]])], {"X": flat(100)},
               exits=[{"id": "a", "t_x": 20 * H + 10 * MIN}], funding=funding)
     a = out["theses"]["a"]
@@ -124,15 +124,16 @@ def test_funding_coincident_with_entry_and_exit():
 
 
 def test_costs_and_fees_on_entry_and_exit():
-    # N = 1000 <= $1k: the "1000" cells (10 bps); fee 0.1%. q = N / ref = 10.
-    # Buy at 100 * 1.001 = 100.1, fee 10 * 100.1 * 0.001 = 1.001. Sell at 110 * 0.999 = 109.89,
-    # fee 1.0989. R_net = (10 * (109.89 - 100.1) - 1.001 - 1.0989) / 1000 = 0.0958001.
+    # The cell follows each fill's traded notional |q| * ref; fee 0.1%. q = N / ref = 10.
+    # Buy: 10 * 100 = $1,000, the "1000" cell (10 bps): 100 * 1.001 = 100.1, fee 10 * 100.1 * 0.001 = 1.001.
+    # Sell: 10 * 110 = $1,100, the "10000" cell (20 bps): 110 * 0.998 = 109.78, fee 1.0978.
+    # R_net = (10 * (109.78 - 100.1) - 1.001 - 1.0978) / 1000 = 0.0947012.
     costs = {"buy": {"1000": 10.0, "10000": 20.0}, "sell": {"1000": 10.0, "10000": 20.0}}
     bars = {"X": flat(100, **{f"h{h}": (110, 110) for h in range(96, 200)})}
     out = run([thesis("a", 10 * H + 30 * MIN, [["X", 1]])], bars, fee=0.001, costs=costs)
     a = out["theses"]["a"]
     assert a["entry"]["legs"][0]["fill"] == pytest.approx(100.1, abs=1e-12)
-    assert a["outcome"]["R_net"] == pytest.approx(0.0958001, abs=1e-12)
+    assert a["outcome"]["R_net"] == pytest.approx(0.0947012, abs=1e-12)
     reconciles(out)
 
 
