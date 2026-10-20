@@ -28,7 +28,13 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
   - After stage 2 exits, if Discourse is admitted: `probes audit/stage5/c56-probes.json data <version>` and `sweep events data <version>` (C5.6). If it is prospective only, its counts all lie in the forward holdout, so the search part has none to replay and C5.6 is vacuous for it.
 
   Snapshot is prospective only (client-claimed time). Unlocks: blocked (see Blockers).
-- **Stage 10 (b), stage 6 (c):** not started; criteria first.
+- **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until 2026-10-21 00:30 UTC) and C0.7's `execution.json`:
+  - one dry main session under a scratch data root to check the harness end to end (not counted), and `harness.audit` checked against a real transcript;
+  - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days start), and `thesis-run` detached;
+  - `thesis-report audit/stage10/report.json` at exit, plus the GPT reviewer.
+
+  The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
+- **Stage 6 (c):** criteria frozen; Lean v4.34.0 and Bend 2.0.37 pinned in the flake. Next is C6.1: `reference/SEMANTICS.md`, resolved against mm's code, plus each kernel's formal law statements, GPT-reviewed and committed alone as `criteria: stage 6 laws`. Run `bend guide` before writing any Bend.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
