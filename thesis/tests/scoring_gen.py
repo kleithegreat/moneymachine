@@ -27,7 +27,7 @@ def generate_set(rng, kind):
     hourly_start = now - 120 * DAY
     test = {"account": {"fee": 0.0 if flat else 0.00045, "costs": {m: ({"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}} if flat else COSTS) for m in markets}},
             "hourly": {m: series(rng, hourly_start, now - HOUR + 1, HOUR, flat, 0.0 if flat else 0.002) for m in markets},
-            "daily": {m: series(rng, now - history, now - DAY + 1, DAY, flat, 0.03) for m in markets},
+            "daily": {m: series(rng, (now - history) // DAY * DAY, now // DAY * DAY - DAY + 1, DAY, flat, 0.03) for m in markets},
             "funding": {m: [] if flat else [[h, round(rng.gauss(0, 1e-4), 8)] for h in sorted(rng.sample(range(now - 400 * DAY, now, HOUR), 300))]
                         for m in markets},
             "now": now, "theses": []}
