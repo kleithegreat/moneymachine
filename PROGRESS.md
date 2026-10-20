@@ -6,7 +6,7 @@ Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages r
 
 Order while waiting on recording windows (human, 2026-10-20): (a) behavior-preserving cleanup, finished before the first judged run that records a kernel or harness hash (C1.4, stage 2 sweeps, the harness freeze); otherwise it waits until stage 5 exits; (b) stage 10, the thesis track; (c) stage 6, the reference kernels. Stages 7 to 9 start after stage 5 exits.
 
-- **Cleanup (a):** done so far: event inputs in one table; one constants module; one `mm` resolver; seed functions named; modules by concept; one CLI; criterion checks in `criteria/`. Each step is byte-identical on a fingerprint of seeds, genomes, null markets, written stores, kernel, holdout and mechanism results, traces and check codes. Left: the kernel's post-decision holdout diagnostics (2× costs and calibrated-range coverage, C3.4 revision), then `cli mutants`.
+- **Cleanup (a):** done. Every step was byte-identical on a fingerprint of seeds, genomes, null markets, written stores, kernel, holdout and mechanism results, traces and check codes, and all 14 mutants are caught.
 - **Stage 0, from 2026-10-21 00:20 UTC** (the judged 24 h window after the 00:19:10 restart, unless a gap restarts it; `python -c "from ingest.availability import window; print(window('data/live'))"` shows it):
   - `availability data/live audit/stage0/availability.json` (C0.3);
   - `execution data/live venue/hyperliquid/execution.json audit/stage0/execution.json` (C0.7);
@@ -17,7 +17,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
 
   Failing stage 0 is an acceptable outcome. The criteria are judged as written, never reread to pass, and a failure of C0.2, C0.3 or C0.5 means the exit rule: stop and pre-register a different family.
 - **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
-- **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test was revised for paper revision 5 (studentized). Its development calibration is running (`holdout-size development data/calibration/development.json audit/stage2/holdout-size-development.json`); the locked run (`holdout-size locked …`, about 3 h on 12 cores) comes after it and before any sweep. After C0.7: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
+- **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The locked holdout calibration v1 failed (sparse cells at 0.05, see the Log). Redesign v2 (sparser development cells, an activity floor, locked suite v2) is drafted and under GPT review; after its one revision it is committed as a stage 2 revision, then the v2 development cells, then the v2 locked run, all before any sweep. After C0.7 and a passing locked run: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
 - **Stage 5:** C5.1, C5.2's store and recompute tests, and C5.5's independent derivation and mutants are done. C5.6's code is ready. At ≥ 72 h of recording (2026-10-22 10:26 UTC):
@@ -38,8 +38,8 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
   - **The Lean model** (`reference/lean`) has a strict JSON front end and checker, the machine and the simulator over an abstract number structure, and a binary64 executable `refmm`.
     - Its verdicts agree with `mm check` on all 372 checked programs.
     - Its runs agree bit for bit with `mm` on 31 programs over 120 days. `reference/mmdump` links mm as a library to export the resolved market and the trace.
-  - **Laws.** The Lean statements of L1 to L5 (`Ref/Laws.lean`) are under GPT review. After that, one revision, then `criteria: stage 6 laws` (Lean), then proofs.
-  - **Bend.** The Bend model and its statements follow under the same rule, starting with `bend guide`, already read. Bend has no binary64, so it cannot pass C6.4.
+  - **Laws** (`Ref/Laws.lean`, frozen, with two dated revisions: L4's liquidation reference and L1_simulator's step range). Proved, with `#print axioms` ⊆ {propext, Classical.choice, Quot.sound}: L5_binding, L2_checker, L1_simulator. Proof libraries live in `Ref/Proof/` (`Except`: Avoids/Holds logic; `Sim`: grafting, tick loops, steps; `Checker`: a Hoare logic for the checker). Next: L4_fills and L4_orders (they need `Market.index` lookups and order bookkeeping), then L1_values, L1_decisions, L2_units, L3.
+  - **Bend:** C6.3 counts 0 by construction (Log, Bend finding); no Bend model is built.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 
@@ -649,6 +649,9 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
   - **Proposed fix.** Key interning on the node's full identity, including the target. Reject a conversion whose factor is not finite and nonzero (E_UNIT). Both are kernel changes, so they wait: stage 6 does not modify the engine. They also change the kernel hash, so they belong before the first judged run that records it.
 
 ## Log
+
+- 2026-10-20: The locked holdout calibration v1 failed (`audit/stage2/holdout-size-locked.json`, 360,000 series). 52 of 54 judged pairs pass; sparse/540 and sparse/546 at u = 0.05 do not (rates 0.0595 and 0.0602, upper bounds 0.0648 and 0.0656 against 0.0625). Every other cell's rate at 0.05 is at most 0.0514, at 0.01 at most 0.0117, at 0.005 at most 0.0043. The development family's sparsest generator was 25% active, the locked one 10%: the max-over-cells calibration did not cover sparser activity. Stays recorded as a failure; redesign v2 follows as a dated revision.
+- 2026-10-20: Stage 6 proving found two frozen statements false as written, and both now have dated revisions: L4_fills' liquidation reference needs a numeric law it does not assume, and L1_simulator fails past the run's last step. A checker hole also surfaced: conversions whose factor overflows intern to one node (Blockers).
 
 - 2026-10-20: Stage 6 Bend finding (`reference/bend/FINDINGS.md`, with reproductions). The pinned Bend 2.0.37 cannot state the frozen laws' quantification over every number structure in a form `--verdict` accepts:
   - functions are affine and never `Data`, so an abstract operation cannot be reused;
