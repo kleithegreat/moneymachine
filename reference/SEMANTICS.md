@@ -98,8 +98,10 @@ With a(k) the value of argument k at this tick for this coin, any Undef argument
 except as noted [machine.rs `eval`]:
 
 - add, sub, mul: the IEEE operation. div: Undef if a(1) = 0, else a(0)/a(1).
-- min, max: Rust `f64::min`/`max` (with no NaN reachable, this is the IEEE minNum/maxNum
-  comparison; a signed-zero tie may return either zero, and the engine's result is the reference).
+- min(a, b) = b if b < a, else a. max(a, b) = b if a < b, else a. A tie, including −0 against +0,
+  returns the first argument. This is what the engine's release build computes for `f64::min` and
+  `f64::max`, measured with rustc -O on this toolchain: min(−0, +0) = −0, min(+0, −0) = +0, and the
+  same for max.
 - neg: −x. abs: |x| (the sign bit cleared). sign: 1 if x > 0, −1 if x < 0, else 0 (so sign(−0) = 0).
 - log: Undef unless x > 0, else ln x. exp: e^x. sqrt: Undef unless x ≥ 0, else √x (√−0 = −0).
 - clip(x, lo, hi) = min(max(x, lo), hi), with min and max as above.
