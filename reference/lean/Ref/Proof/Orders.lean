@@ -297,30 +297,24 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
     refine ⟨?_, ho.trans hQ.2⟩
     unfold LedgerAt; rw [htr, ho]
     exact hQ.1.push' rfl (by simp [rkey, Ctx.closeout, hwhy])
-  -- 1. funding
   refine Except.Holds.bind (R := Q) (Except.Holds.forIn_list _ _ _ _ ⟨h, rfl⟩ fun k _ s₀ hQ₀ => ?_) fun s₁ hQ₁ => ?_
   · refine Except.Holds.bind (Except.Holds.forIn_list _ _ _ Q hQ₀ fun x _ s' hQ => ?_) fun s'' h'' =>
       Except.Holds.pure _ h''
     split
     · exact Except.Holds.pure _ ⟨hQ.1.push' rfl rfl, hQ.2⟩
     · exact Except.Holds.pure _ hQ
-  -- 2. marks
   rw [marks_loop]
   refine Except.Holds.bind (Except.Holds.ok _ rfl) fun s₂ hs₂ => ?_
   subst hs₂
-  -- 3. liquidation
   refine Except.Holds.join (R := Q) (fun _ => Except.Holds.forIn_list _ _ _ Q hQ₁ fun x hx s' hQ => ?_) (fun _ => hQ₁)
     fun s₃ hQ₃ => ?_
   · exact Except.Holds.bind (R := Q) (fun r hr => Q_close _ _ _ _ _ _ _ _ (by decide) hQ hr) fun r hr =>
       Except.Holds.pure _ hr
-  -- 4. delisting
   refine Except.Holds.bind (R := Q) (Except.Holds.forIn_list _ _ _ Q hQ₃ fun x hx s' hQ => ?_) fun s₄ hQ₄ => ?_
   · refine Except.Holds.ite ?_ (Except.Holds.pure _ hQ)
     exact Except.Holds.bind (R := Q) (fun r hr => Q_close _ _ _ _ _ _ _ _ (by decide) hQ hr) fun r hr =>
       Except.Holds.pure _ hr
-  -- 5. accounting
   refine Except.Holds.ite holds_throw_bind ?_
-  -- 6. fills: each due order resolves, or every one is dropped past the run's last fills
   let I : List (Order α) → SState α → Prop := fun rest s' =>
     Ledger m pol.delta stop s'.trace.toList rest (pol.wStart + ↑j * BAR + pol.delta) ∧ s'.orders = [] ∧
       ∀ o ∈ rest, o.decided = pol.wStart + ↑j * BAR + pol.delta
@@ -368,9 +362,7 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
     have I_drop : ∀ l s', I l s' → I [] s' := fun l s' ⟨hL, ho, hd⟩ =>
       ⟨hL.drop fun o hmem => by rw [hd o hmem]; omega, ho, by simp⟩
     exact I_drop _ _ (hI₅ _ _ rfl rfl rfl rfl)
-  -- 7. ticks
   refine tickLoop_bind_graft N _ (pol.wStart + (j : Int) * BAR) (List.range' 1 4) s₆ s₆ _ rfl fun r _ => ?_
-  -- 8. decisions: holds, and weights with distinct coins
   let W : List Nat → SState α × List (Nat × α) → Prop := fun rest st =>
     (Ledger m pol.delta stop st.1.trace.toList [] (pol.wStart + ↑j * BAR + pol.delta) ∧ st.1.orders = []) ∧
       rest.Nodup ∧ (st.2.map (·.1)).Nodup ∧ ∀ x ∈ st.2, x.1 ∉ rest
@@ -397,9 +389,7 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
     split
     · exact Except.Holds.pure _ ⟨_, rfl, W_add _ _ _ _ hW⟩
     · exact Except.Holds.pure _ ⟨_, rfl, W_skip _ _ _ (W_hold _ _ _ _ _ hW)⟩
-  -- 9. the portfolio cap
   refine Except.Holds.ite holds_throw_bind ?_
-  -- 10. orders, each with its decision under a fresh key
   let O : List (Nat × α) → SState α → Prop := fun rest s' =>
     Ledger m pol.delta stop s'.trace.toList (s'.orders.map (·.2)) (pol.wStart + ↑j * BAR + BAR + pol.delta) ∧
       (∀ e ∈ s'.trace.toList, ∀ c', dkey e = some (pol.wStart + ↑j * BAR + BAR + pol.delta, c') → c' ∉ rest.map (·.1)) ∧

@@ -1,7 +1,7 @@
 import Ref.Spec
 import Ref.Proof.Units
 import Ref.Proof.Checker
-import Ref.Proof.Orders
+import Ref.Proof.View
 
 /-!
 The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
@@ -64,7 +64,22 @@ theorem L1_decisions (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁
         = (Ctx.make p m₂ v pol stop).execView ((Ctx.make p m₂ v pol stop).decisionTime k)) :
     ∀ j ≤ k + 1, ((Ctx.make p m₁ v pol stop).steps N j).map (·.trace)
       = ((Ctx.make p m₂ v pol stop).steps N j).map (·.trace) := by
-  sorry
+  intro j hj
+  simp only [Ctx.deliveryPrefix, Prod.mk.injEq] at hP
+  simp only [Ctx.execView, Prod.mk.injEq] at hE
+  have A : Agree (Ctx.make p m₁ v pol stop) (Ctx.make p m₂ v pol stop) ((Ctx.make p m₁ v pol stop).decisionTime k) :=
+    { p := rfl, pol := rfl, intervals := hI, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2,
+      f₁ := fRows_sorted .., f₂ := fRows_sorted .., b₁ := bRows_sorted .., b₂ := bRows_sorted ..,
+      e₁ := eRows_sorted .., e₂ := eRows_sorted .. }
+  have S : SameView m₁ m₂ ((Ctx.make p m₁ v pol stop).decisionTime k) :=
+    { A₁ := ‹m₁.Admissible›, A₂ := ‹m₂.Admissible›, intervals := hI, rates := hE.1, closed := hE.2.1,
+      opened := hE.2.2.1 }
+  have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
+  have hjT : pol.wStart + ↑j * BAR + pol.delta ≤ (Ctx.make p m₁ v pol stop).decisionTime k := by
+    have : (j : Int) ≤ (k : Int) + 1 := by omega
+    have := Int.mul_le_mul_of_nonneg_right this (Int.le_of_lt hBAR)
+    simp only [Ctx.decisionTime, Ctx.make]; omega
+  rw [steps_view N p v pol stop S A (Int.le_of_lt ‹pol.Valid›.delta.1) j hjT]
 
 /-! ## L2 unit soundness -/
 

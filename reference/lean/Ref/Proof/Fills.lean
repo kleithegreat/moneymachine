@@ -326,7 +326,6 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
   have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
   unfold Ctx.step
   simp only [Std.Legacy.Range.forIn_eq_forIn_range']
-  -- 1. funding: settlements change cash and push funding events only
   refine Except.Holds.bind (R := fun s₁ => Inv4 N p m v pol stop j s₁ ∧ s₁.marks = s.marks)
     (Except.Holds.forIn_list _ _ _ _ ⟨h, rfl⟩ fun k _ s₀ ⟨h₀, hm₀⟩ => ?_) fun s₁ ⟨h₁, hm₁⟩ => ?_
   · refine Except.Holds.bind (Except.Holds.forIn_list _ _ _ (fun s' => Inv4 N p m v pol stop j s' ∧ s'.marks = s.marks)
@@ -337,7 +336,6 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
       · exact Or.inl hf
       · cases hf
     · exact Except.Holds.pure _ ⟨h', hm'⟩
-  -- 2. marks: the latest bar's close for each held coin
   rw [marks_loop]
   refine Except.Holds.bind (Except.Holds.ok _ rfl) fun s₂ hs₂ => ?_
   subst hs₂
@@ -356,7 +354,6 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
   generalize List.filterMap (fun x => latestOf (Ctx.make p m v pol stop).ix (Ctx.make p m v pol stop).m.bars
     (pol.wStart + ↑j * BAR) x) s₁.book.pos = L at HL hmk₂ ⊢
   generalize List.foldl (fun mk y => mk.set! y.fst y.snd.c) s₁.marks L = mk₂ at HL hmk₂ ⊢
-  -- closeouts keep: old fills or lawful ones, orders, marks, the machine, and only coins held before
   let J : SState α → Prop := fun s' =>
     (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
     s'.orders = s₁.orders ∧ s'.marks = mk₂ ∧ s'.proj = s₁.proj ∧ ∀ y ∈ s'.book.pos, ∃ q, (y.1, q) ∈ s₁.book.pos
@@ -373,7 +370,6 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
       rcases fill_pos N _ _ _ _ _ _ hy with ⟨q, hq⟩ | hq
       · exact hJ.2.2.2.2 (y.1, q) hq
       · rw [hq]; exact hc
-  -- 3. liquidation of every held coin
   have hJ₂ : J { s₁ with marks := mk₂ } := ⟨fun f hf => Or.inl hf, rfl, rfl, rfl, fun y hy => ⟨y.2, hy⟩⟩
   refine Except.Holds.join (R := J) (fun _ => Except.Holds.forIn_list _ _ _ J hJ₂ fun x hx s' hJ => ?_) (fun _ => hJ₂)
     fun s₃ hJ₃ => ?_
@@ -383,7 +379,6 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
     have hchk := (execute_spec N _ s' r _ hr).1
     refine J_exec s' r _ hJ hr (closeout_law N p m hA v pol stop x.1 x.2 _ .liquidation (by decide) _ _ hchk bar' i hi
       (by simpa using hix) hbi (by simp)) ⟨x.2, by simp only [Ctx.closeout]; exact hx⟩
-  -- 4. delisting of held coins whose listing ends
   refine Except.Holds.bind (R := J) (Except.Holds.forIn_list _ _ _ J hJ₃ fun x hx s' hJ => ?_) fun s₄ hJ₄ => ?_
   · refine Except.Holds.ite ?_ (Except.Holds.pure _ hJ)
     refine Except.Holds.bind (R := J) (fun r hr => ?_) fun r hr => Except.Holds.pure _ hr
@@ -393,9 +388,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
     have hchk := (execute_spec N _ s' r _ hr).1
     exact J_exec s' r _ hJ hr (closeout_law N p m hA v pol stop x.1 x.2 _ .delisting (by decide) _ _ hchk bar' i hi
       (by simpa using hix) hbi (by simp)) ⟨q, by simp only [Ctx.closeout]; exact hq⟩
-  -- 5. accounting
   refine Except.Holds.ite holds_throw_bind ?_
-  -- 6. fills of the orders due now; every pending order is due now
   let K : SState α → Prop := fun s' =>
     (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
     s'.orders = [] ∧ s'.marks.size = m.intervals.size ∧ s'.proj = s₁.proj ∧
@@ -445,10 +438,8 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
         · exact hK.2.2.2.2 (y.1, q) hq
         · exact ⟨m.bars[i], Array.getElem_mem_toList hi', by rw [hcoin, hq], by rw [hopen]; omega⟩
     · exact Except.Holds.pure _ (K_push _ _ (fun f h => by cases h) hK)
-  -- 7. the step's four hourly ticks
   refine tickLoop_bind_graft N _ (pol.wStart + (j : Int) * BAR) (List.range' 1 4) s₁ s₆ _ hK₆.2.2.2.1
     fun r hr => ?_
-  -- 8. decisions: holds and weights
   let D : SState α → Prop := fun s' =>
     (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
     s'.orders = [] ∧ s'.marks.size = m.intervals.size ∧ s'.proj = r.proj ∧
@@ -467,9 +458,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
     split
     · exact Except.Holds.pure _ hD
     · exact Except.Holds.pure _ (D_push _ _ (fun f h => by cases h) hD)
-  -- 9. the portfolio cap
   refine Except.Holds.ite holds_throw_bind ?_
-  -- 10. orders, each recording the machine after this step's ticks
   obtain ⟨t, ht, hp⟩ := h₁.proj
   obtain ⟨t', ht', hp'⟩ := proj_succ N _ j s₁ t ht hp r hr
   have hmach : ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta =
