@@ -75,6 +75,27 @@ structure URel (N : NumOps α) (p : Program) (u : UState α) (m : MState α) : P
   winNode : ∀ (i c : Nat) (w : Win α), u.m.wins[i]![c]! = some w → ∃ k h args, p.nodes[i]! = .op (.window k h) args
   shape : u.wtag.size = u.m.wins.size ∧ ∀ i : Nat, u.wtag[i]!.size = u.m.wins[i]!.size
 
+/-- `hours_since` reads a boolean and counts hours. -/
+theorem opTy_hoursSince {ts : List Ty} {to : Option Dim} {t : Ty} (hty : opTy .hoursSince ts to = some t) :
+    ts[0]? = some .bool ∧ t = .num (Dim.base "h").get! := by
+  simp only [opTy] at hty
+  split at hty
+  · rename_i hb; simp at hb hty; exact ⟨hb, hty.symm⟩
+  · cases hty
+
+/-- A window node is numeric, over at least one hour. -/
+theorem opTy_window {k : Window} {h : Nat} {ts : List Ty} {to : Option Dim} {t : Ty}
+    (hty : opTy (.window k h) ts to = some t) : (∃ d, t = .num d) ∧ 1 ≤ h := by
+  simp only [opTy] at hty
+  split at hty
+  · rename_i hh
+    refine ⟨?_, by simp at hh; omega⟩
+    revert hty
+    cases ts[0]? with
+    | none => simp
+    | some x => cases x <;> simp; intro hx; exact ⟨_, hx.symm⟩
+  · cases hty
+
 omit [Inhabited α] in
 /-- Two loops, one failing and one total, that step in lockstep under a relation. -/
 theorem forIn_rel {ε β σ τ : Type} (l : List β) (F : β → σ → Except ε (ForInStep σ)) (G : β → τ → Id (ForInStep τ))
@@ -220,6 +241,23 @@ theorem URel_update (N : NumOps α) (p : Program) {u : UState α} {m : MState α
   · simp only [Array.size_modify, size_modify_set]
     exact hR.shape
 
+/-- A raw value written on both sides, with the same `since` state, keeps the relation. -/
+theorem URel_raw (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) (i c : Nat)
+    (v : TVal α) (hv : ∀ x t, v = some (x, t) → t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b))
+    (S : Array (Array (Option Int))) :
+    URel N p (UState.mk { u.m with since := S } (u.tv.modify i (fun row => row.set! c v)) u.wtag)
+      ({ m with
+          vals := m.vals.modify i (fun row => row.set! c (v.map Prod.fst))
+          since := S } : MState α) := by
+  refine ⟨?_, hR.wins, rfl, hR.funding, hR.bar, hR.events, hR.hour, hR.maxKnown, ?_, hR.tags, hR.blank,
+    hR.winNode, hR.shape⟩
+  · simp only [eraseTV_modify, hR.vals]
+  · intro j k x t hx
+    rw [get_modify_set] at hx
+    split at hx
+    · rename_i hc; obtain ⟨rfl, -, -, rfl⟩ := hc; exact hv x t hx
+    · exact hR.tagged j k x t hx
+
 omit [Inhabited α] in
 theorem step_of_loop {ε β σ τ : Type} {l : List β} {F : β → σ → Except ε (ForInStep σ)} {G : β → τ → Id (ForInStep τ)}
     {R : σ → τ → Prop} {u : σ} {m : τ} (h : ∃ u', forIn l u F = .ok u' ∧ R u' (forIn (m := Id) l m G)) :
@@ -236,17 +274,19 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
   refine forIn_rel _ _ _ (URel N p) ?_ _ _ ?_
   · intro i hi u m hR
     have hi' : i < p.nodes.size := by simp at hi; omega
+    have hWi := hW.2.2.2.2.2 i hi'
     cases hn : p.nodes[i]! with
     | input inp =>
+      have hev := fun (u : UState α) (_ : Tagged N p u.tv) c => evalU_leaf N p u.m u.tv i c hW hi' (by simp [hn])
       refine step_of_loop (forIn_rel _ _ _ (URel N p) ?_ u m hR)
       intro c hc u m hR
-      obtain ⟨r, hr, he, ht⟩ := evalU_leaf N p u.m u.tv i c hW hi' (by simp [hn])
-      have hev : MState.eval N p m i c = r.map (·.1) := by
+      obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
+      have hev' : MState.eval N p m i c = r.map (·.1) := by
         rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
           hR.bar.symm hR.events.symm hR.hour.symm i c
       have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
       by_cases hl : listed[c]! = true
-      · simp only [hl, ite_true, hr, hev, bind, Except.bind, hwm]
+      · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
         cases hw : u.m.wins[i]![c]! with
         | none =>
           refine ⟨_, _, rfl, rfl, ?_⟩
@@ -263,7 +303,191 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
         rw [modify_set_self, modify_set_self] at key
         cases hw : u.m.wins[i]![c]! <;> simp only [Bool.not_false, ite_true] <;> refine ⟨_, _, rfl, rfl, ?_⟩ <;>
           simpa [hw] using key
-    | _ => sorry
+    | const bits d =>
+      have hev := fun (u : UState α) (_ : Tagged N p u.tv) c => evalU_leaf N p u.m u.tv i c hW hi' (by simp [hn])
+      refine step_of_loop (forIn_rel _ _ _ (URel N p) ?_ u m hR)
+      intro c hc u m hR
+      obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
+      have hev' : MState.eval N p m i c = r.map (·.1) := by
+        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
+          hR.bar.symm hR.events.symm hR.hour.symm i c
+      have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
+      by_cases hl : listed[c]! = true
+      · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
+        cases hw : u.m.wins[i]![c]! with
+        | none =>
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          have key := URel_update N p hR i c r ht (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c) (by simp [hw])
+            (by simp [hw])
+          rw [modify_set_self, modify_set_self] at key
+          simpa [hw] using key
+        | some w =>
+          obtain ⟨_, _, _, hn'⟩ := hR.winNode i c w hw
+          rw [hn] at hn'; cases hn'
+      · simp only [hl, Bool.false_eq_true, ite_false, hwm, pure, Except.pure, bind, Except.bind]
+        have key := URel_update N p hR i c none (by simp) (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c)
+          (fun w' ht hw' => hR.blank i c w' ht hw') (fun w' hw' => hR.winNode i c w' hw')
+        rw [modify_set_self, modify_set_self] at key
+        cases hw : u.m.wins[i]![c]! <;> simp only [Bool.not_false, ite_true] <;> refine ⟨_, _, rfl, rfl, ?_⟩ <;>
+          simpa [hw] using key
+    | param k =>
+      have hev := fun (u : UState α) (_ : Tagged N p u.tv) c => evalU_leaf N p u.m u.tv i c hW hi' (by simp [hn])
+      refine step_of_loop (forIn_rel _ _ _ (URel N p) ?_ u m hR)
+      intro c hc u m hR
+      obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
+      have hev' : MState.eval N p m i c = r.map (·.1) := by
+        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
+          hR.bar.symm hR.events.symm hR.hour.symm i c
+      have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
+      by_cases hl : listed[c]! = true
+      · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
+        cases hw : u.m.wins[i]![c]! with
+        | none =>
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          have key := URel_update N p hR i c r ht (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c) (by simp [hw])
+            (by simp [hw])
+          rw [modify_set_self, modify_set_self] at key
+          simpa [hw] using key
+        | some w =>
+          obtain ⟨_, _, _, hn'⟩ := hR.winNode i c w hw
+          rw [hn] at hn'; cases hn'
+      · simp only [hl, Bool.false_eq_true, ite_false, hwm, pure, Except.pure, bind, Except.bind]
+        have key := URel_update N p hR i c none (by simp) (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c)
+          (fun w' ht hw' => hR.blank i c w' ht hw') (fun w' hw' => hR.winNode i c w' hw')
+        rw [modify_set_self, modify_set_self] at key
+        cases hw : u.m.wins[i]![c]! <;> simp only [Bool.not_false, ite_true] <;> refine ⟨_, _, rfl, rfl, ?_⟩ <;>
+          simpa [hw] using key
+    | op o args =>
+      rw [hn] at hWi
+      cases o
+      case window k h =>
+        have hev := fun (u : UState α) (hT : Tagged N p u.tv) c =>
+          evalU_op N p u.m u.tv i c _ args hn _ hWi.2 hT (by simp)
+        obtain ⟨⟨d, hd⟩, -⟩ := opTy_window hWi.2
+        refine step_of_loop (forIn_rel _ _ _ (URel N p) ?_ u m hR)
+        intro c hc u m hR
+        obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
+        have hev' : MState.eval N p m i c = r.map (·.1) := by
+          rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
+            hR.bar.symm hR.events.symm hR.hour.symm i c
+        have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
+        by_cases hl : listed[c]! = true
+        · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
+          cases hw : u.m.wins[i]![c]! with
+          | none =>
+            refine ⟨_, _, rfl, rfl, ?_⟩
+            have key := URel_update N p hR i c r ht (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c) (by simp [hw])
+              (by simp [hw])
+            rw [modify_set_self, modify_set_self] at key
+            simpa [hw] using key
+          | some w =>
+            simp only [Bool.not_true, Bool.false_eq_true, ite_false]
+            have tagged_out : ∀ (o : Val α), ∀ x' t'', (o.map (·, p.types[i]!)) = some (x', t'') →
+                t'' = p.types[i]! ∧ (t'' = .bool → ∃ b, x' = N.truth b) := by
+              intro o x' t'' ho; cases o <;> simp at ho; obtain ⟨-, rfl⟩ := ho; simp [hd]
+            rcases r with _ | ⟨x, t⟩ <;> rcases hwt : u.wtag[i]![c]! with _ | t'
+            · obtain ⟨hb', hout⟩ := push_blank N w (hR.blank i c w hwt hw)
+              simp only [Option.map_none, hout, pure, Except.pure]
+              refine ⟨_, _, rfl, rfl, ?_⟩
+              have key := URel_update N p hR i c none (by simp) (some (w.push N none).1) none (by simp)
+                (fun w' _ h => by cases h; exact hb') (fun w' _ => hR.winNode i c w hw)
+              simpa [hout] using key
+            · have ht' := hR.tags i c t' hwt; subst ht'
+              simp only [Option.map_none, pure, Except.pure]
+              refine ⟨_, _, rfl, rfl, ?_⟩
+              · have key := URel_update N p hR i c (((w.push N none).2).map (·, p.types[i]!))
+                  (tagged_out _) (some (w.push N none).1) (some p.types[i]!) (by simp) (by simp)
+                  (fun w' _ => hR.winNode i c w hw)
+                cases ho : (w.push N none).2 <;> simpa [ho] using key
+            · obtain ⟨rfl, -⟩ := ht x t rfl
+              simp only [Option.map_some, pure, Except.pure]
+              refine ⟨_, _, rfl, rfl, ?_⟩
+              · have key := URel_update N p hR i c (((w.push N (some x)).2).map (·, p.types[i]!))
+                  (tagged_out _) (some (w.push N (some x)).1) (some p.types[i]!) (by simp) (by simp)
+                  (fun w' _ => hR.winNode i c w hw)
+                cases ho : (w.push N (some x)).2 <;> simpa [ho] using key
+            · obtain ⟨rfl, -⟩ := ht x t rfl
+              have ht' := hR.tags i c t' hwt; subst ht'
+              simp only [Option.map_some, beq_self_eq_true, ite_true, pure, Except.pure]
+              refine ⟨_, _, rfl, rfl, ?_⟩
+              · have key := URel_update N p hR i c (((w.push N (some x)).2).map (·, p.types[i]!))
+                  (tagged_out _) (some (w.push N (some x)).1) (some p.types[i]!) (by simp) (by simp)
+                  (fun w' _ => hR.winNode i c w hw)
+                cases ho : (w.push N (some x)).2 <;> simpa [ho] using key
+        · simp only [hl, Bool.false_eq_true, ite_false, hwm, pure, Except.pure, bind, Except.bind]
+          have key := URel_update N p hR i c none (by simp) (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c)
+            (fun w' ht hw' => hR.blank i c w' ht hw') (fun w' hw' => hR.winNode i c w' hw')
+          rw [modify_set_self, modify_set_self] at key
+          cases hw : u.m.wins[i]![c]! <;> simp only [Bool.not_false, ite_true] <;> refine ⟨_, _, rfl, rfl, ?_⟩ <;>
+            simpa [hw] using key
+      case hoursSince =>
+        obtain ⟨hb, hti⟩ := opTy_hoursSince hWi.2
+        obtain ⟨a, rest, rfl⟩ : ∃ a rest, args = a :: rest := by
+          cases args with
+          | nil => simp at hb
+          | cons a rest => exact ⟨a, rest, rfl⟩
+        simp only [List.map_cons, List.getElem?_cons_zero, Option.some.injEq] at hb
+        refine step_of_loop (forIn_rel _ _ _ (URel N p) ?_ u m hR)
+        intro c hc u m hR
+        have hva : m.vals[a]![c]! = (u.tv[a]![c]!).map (·.1) := by rw [← hR.vals, eraseTV_get]
+        have hsm : m.since = u.m.since := hR.since.symm
+        simp only [List.getElem!_cons_zero, hva, hsm]
+        have hv : ∀ S : Array (Array (Option Int)), ∀ x t,
+            (if listed[c]! = true then (S[i]![c]!).map (fun t => (N.ofInt ((hour - t) / HOUR), Ty.num (Dim.base "h").get!))
+              else none) = some (x, t) → t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b) := by
+          intro S x t hx; split at hx <;> simp at hx; obtain ⟨-, -, -, rfl⟩ := hx; simp [hti]
+        rcases hu : u.tv[a]![c]! with _ | ⟨x, t⟩
+        · simp only [Option.map_none, pure, Except.pure, bind, Except.bind, Bool.and_false, Bool.false_eq_true,
+            ite_false]
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          have key := URel_raw N p hR i c _ (hv u.m.since) u.m.since
+          rw [show ({ u.m with since := u.m.since } : MState α) = u.m from rfl] at key
+          by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Function.comp_def] at key ⊢ <;> exact key
+        · obtain ⟨rfl, -⟩ := hR.tagged a c x t hu
+          rw [hb]
+          simp only [Option.map_some, pure, Except.pure, bind, Except.bind]
+          by_cases hf : (listed[c]! && !N.isZero x) = true
+          · simp only [hf, ite_true]
+            refine ⟨_, _, rfl, rfl, ?_⟩
+            have key := URel_raw N p hR i c _ (hv (u.m.since.modify i fun row => row.set! c (some hour)))
+              (u.m.since.modify i fun row => row.set! c (some hour))
+            by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Function.comp_def] at key ⊢ <;> exact key
+          · simp only [hf, Bool.false_eq_true, ite_false]
+            refine ⟨_, _, rfl, rfl, ?_⟩
+            have key := URel_raw N p hR i c _ (hv u.m.since) u.m.since
+            rw [show ({ u.m with since := u.m.since } : MState α) = u.m from rfl] at key
+            by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Function.comp_def] at key ⊢ <;> exact key
+      case xsMean => sorry
+      case xsDemean => sorry
+      case xsRank => sorry
+      all_goals
+        have hev := fun (u : UState α) (hT : Tagged N p u.tv) c =>
+          evalU_op N p u.m u.tv i c _ args hn _ hWi.2 hT (by simp)
+        refine step_of_loop (forIn_rel _ _ _ (URel N p) ?_ u m hR)
+        intro c hc u m hR
+        obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
+        have hev' : MState.eval N p m i c = r.map (·.1) := by
+          rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
+            hR.bar.symm hR.events.symm hR.hour.symm i c
+        have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
+        by_cases hl : listed[c]! = true
+        · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
+          cases hw : u.m.wins[i]![c]! with
+          | none =>
+            refine ⟨_, _, rfl, rfl, ?_⟩
+            have key := URel_update N p hR i c r ht (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c) (by simp [hw])
+              (by simp [hw])
+            rw [modify_set_self, modify_set_self] at key
+            simpa [hw] using key
+          | some w =>
+            obtain ⟨_, _, _, hn'⟩ := hR.winNode i c w hw
+            rw [hn] at hn'; cases hn'
+        · simp only [hl, Bool.false_eq_true, ite_false, hwm, pure, Except.pure, bind, Except.bind]
+          have key := URel_update N p hR i c none (by simp) (u.m.wins[i]![c]!) (u.wtag[i]![c]!) (hR.tags i c)
+            (fun w' ht hw' => hR.blank i c w' ht hw') (fun w' hw' => hR.winNode i c w' hw')
+          rw [modify_set_self, modify_set_self] at key
+          cases hw : u.m.wins[i]![c]! <;> simp only [Bool.not_false, ite_true] <;> refine ⟨_, _, rfl, rfl, ?_⟩ <;>
+            simpa [hw] using key
   · exact { h with hour := rfl }
 
 end Ref
