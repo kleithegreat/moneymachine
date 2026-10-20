@@ -139,10 +139,14 @@ def number : Parser Value := do
   | some b => return .float b
   | none => throw "number out of range"
 
-partial def value : Parser Value := do
+/-- serde_json's recursion limit: a container opened at nesting depth 128 or more is an error. -/
+def maxNesting := 127
+
+partial def value (depth : Nat := 0) : Parser Value := do
   ws
   match ← peek with
   | some '{' =>
+    if depth + 1 > maxNesting then throw "recursion limit exceeded"
     discard next; ws
     if (← peek) == some '}' then discard next; return .obj #[]
     let mut kvs := #[]
@@ -150,7 +154,7 @@ partial def value : Parser Value := do
       ws; expect '"'
       let k ← strBody ""
       ws; expect ':'
-      let v ← value
+      let v ← value (depth + 1)
       if kvs.any (·.1 == k) then throw s!"duplicate key {k}"
       kvs := kvs.push (k, v)
       ws
@@ -160,11 +164,12 @@ partial def value : Parser Value := do
       | _ => throw "expected , or }"
     return .obj kvs
   | some '[' =>
+    if depth + 1 > maxNesting then throw "recursion limit exceeded"
     discard next; ws
     if (← peek) == some ']' then discard next; return .arr #[]
     let mut xs := #[]
     repeat
-      xs := xs.push (← value)
+      xs := xs.push (← value (depth + 1))
       ws
       match ← next with
       | ',' => pure ()

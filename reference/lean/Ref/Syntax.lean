@@ -238,9 +238,10 @@ def typeOp (op : Op) (ts : List Ty) (kvs : Array (String × Value)) : Check (Op 
   | .xsMean | .xsDemean => return (op, .num (← num 0))
   | .xsRank => return (op, .num (← one (← num 0)))
 
-partial def expr (v : Value) (depth : Nat) : Check Nat := do
+def expr (v : Value) (depth : Nat) : Check Nat := do
   modify fun st => { st with parsed := st.parsed + 1 }
-  if depth > maxDepth || (← get).parsed > maxNodes then fail .size
+  if hd : depth > maxDepth then fail .size else
+  if (← get).parsed > maxNodes then fail .size
   let .obj kvs := v | fail .parse
   let has (k : String) := kvs.any (·.1 == k)
   if has "input" then
@@ -277,6 +278,8 @@ partial def expr (v : Value) (depth : Nat) : Check Nat := do
   let ts := ix.toList.map fun i => types[i]!
   let (op, ty) ← typeOp op ts kvs
   intern (.op op ix.toList) ty
+termination_by maxDepth + 1 - depth
+decreasing_by omega
 
 def program (v : Value) : Check Program := do
   let kvs ← fields v ["dsl", "name", "mechanism", "weight"] ["params", "let", "prediction"]

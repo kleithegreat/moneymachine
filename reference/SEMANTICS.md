@@ -24,9 +24,14 @@ Every node's value at a tick passes through `finite`: a non-finite number (±∞
 
 ## 2. Programs and typing
 
-A program is the JSON document of DSL.md, parsed strictly. Duplicate keys, unknown fields,
-non-finite numbers, a size above 1 MiB, JSON nesting deeper than 136, more than 4,096 parsed
-expressions, or expression depth above 64 are rejected [dsl.rs `parse`, `expr`]. Expressions are
+A program is the JSON document of DSL.md, parsed strictly, with checks in this order
+[dsl.rs `parse`, `expr`; serde_json]:
+1. A text above 1 MiB, or with brackets nested more than 136 deep (counted outside strings), is
+   E_SIZE.
+2. Otherwise, a container opened at nesting depth 128 or more is E_PARSE, from serde_json's
+   recursion limit. So are syntax errors, duplicate keys, unknown or missing fields, and non-finite
+   numbers.
+3. More than 4,096 parsed expressions, or expression depth above 64, is E_SIZE. Expressions are
 hash-consed into a DAG whose nodes precede their users. `let` entries are checked in declaration
 order, and a `ref` names only an earlier let.
 
