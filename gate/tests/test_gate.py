@@ -35,6 +35,17 @@ def test_holdout_pvalue_sanity():
     assert gate.holdout_pvalue(rng.normal(0.01, 0.01, 1000), 1) < 0.001
     p = [gate.holdout_pvalue(rng.normal(0, 0.01, 300), s) for s in range(40)]
     assert 0.2 < np.mean(p) < 0.8
+    assert gate.holdout_pvalue(np.zeros(300), 1) == 1.0
+    assert gate.holdout_pvalue(np.r_[np.zeros(299), 0.01], 1) >= 1 / (1 + gate.HOLDOUT_REPS)
+
+
+def test_long_run_sd_is_white_noise_sd_and_never_negative():
+    rng = np.random.default_rng(4)
+    assert abs(gate.long_run_sd(rng.normal(0, 1, 200_000)) - 1) < 0.02
+    alternating = np.tile([1.0, -1.0], 500)
+    assert gate.long_run_sd(alternating) >= 0
+    x = rng.normal(0, 1, (50, 40))
+    assert np.allclose(gate.long_run_sd(x), [gate.long_run_sd(row) for row in x])
 
 
 def test_parameter_variants_are_separate_trials(tmp_path):

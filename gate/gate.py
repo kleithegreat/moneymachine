@@ -17,6 +17,7 @@ DSR_MIN = 0.95
 BLOCK = 6
 REPS = 1000
 HOLDOUT_REPS = 10_000
+LAGS = 36
 EULER = 0.5772156649015329
 
 
@@ -130,12 +131,30 @@ def programs(ledger, keys):
     return {k: found[k] for k in keys}
 
 
+def long_run_sd(x):
+    """sqrt of sum over |k| <= LAGS of w_k * gamma(k) along the last axis, w_k = (1 - |k|/(LAGS + 1)) (1 - 1/BLOCK)^|k|:
+    a product of positive-definite sequences over biased autocovariances, so never negative."""
+    x = x - x.mean(axis=-1, keepdims=True)
+    n = x.shape[-1]
+    var = (x * x).sum(axis=-1) / n
+    for k in range(1, min(LAGS, n - 1) + 1):
+        var = var + 2 * (1 - k / (LAGS + 1)) * (1 - 1 / BLOCK) ** k * (x[..., k:] * x[..., :-k]).sum(axis=-1) / n
+    return np.sqrt(np.maximum(var, 0.0))
+
+
 def holdout_pvalue(r, seed):
-    """One-sided stationary-bootstrap p-value for mean(r) > 0."""
+    """One-sided studentized stationary-bootstrap p-value for mean(r) > 0 (PROGRESS.md, Stage 2, revision 2026-10-20)."""
     r = np.asarray(r, float)
+    sd = long_run_sd(r)
+    if sd == 0:
+        return 1.0
+    t = r.mean() / sd
     bs = StationaryBootstrap(BLOCK, r, seed=seed)
-    means = np.array([x[0][0].mean() for x in bs.bootstrap(HOLDOUT_REPS)])
-    return float(((means - r.mean()) >= r.mean()).mean())
+    x = r[np.array([bs.update_indices() for _ in range(HOLDOUT_REPS)])]
+    dev, sds = x.mean(axis=1) - r.mean(), long_run_sd(x)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ts = np.where(sds > 0, dev / sds, np.where(dev > 0, np.inf, -np.inf))
+    return float((1 + (ts >= t).sum()) / (1 + HOLDOUT_REPS))
 
 
 def holm(pvalues):

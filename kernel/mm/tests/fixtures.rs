@@ -287,6 +287,25 @@ fn timing_order_holds_for_every_fill() {
     }
 }
 
+/// Paper Figure 2: for a decision at B + δ, the bar opening at B is never the fill source; the
+/// fill is at the open of the bar opening at B + 4h (distinct opens make the price tell them apart).
+#[test]
+fn bar_opening_at_the_decision_boundary_is_never_the_fill_source() {
+    let opens = [100.0, 101.0, 112.0, 123.0, 94.0, 97.0, 102.0, 99.0];
+    let mut s = Spec::new(&opens, &[101.0, 112.0, 123.0, 94.0, 97.0, 102.0, 99.0, 99.0]);
+    s.funding = (1..32).map(|h| (h, 0.0, if h % 8 < 4 { 1.0 } else { -1.0 })).collect();
+    let run = s.run(r#"{"op": "mul", "args": [{"op": "sign", "args": [{"input": "premium"}]}, {"const": 0.4, "unit": "1"}]}"#).unwrap();
+    let f: Vec<_> = fills(&run).into_iter().filter(|x| x.why == Why::Fill).collect();
+    assert!(f.len() >= 3);
+    for x in f {
+        let b = x.decided - DELTA;
+        assert_eq!(b % BAR, 0, "{x:?}");
+        assert_ne!(x.source_open, b, "{x:?}");
+        assert_eq!(x.source_open, b + BAR, "{x:?}");
+        assert_eq!(x.reference, opens[((b + BAR) / BAR) as usize], "{x:?}");
+    }
+}
+
 
 /// Mechanism exposures: labeled by the condition at the deciding tick, and summing to total PnL.
 #[test]
