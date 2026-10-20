@@ -20,7 +20,9 @@ order. That is Rust's float `Sum` on this toolchain (rustc 1.95): the sum of not
 the sum of [−0.0] is −0.0.
 
 Every node's value at a tick passes through `finite`: a non-finite number (±∞, NaN) becomes Undef
-[machine.rs `tick`, `finite`]. No NaN or infinity is ever stored, compared or delivered by a node.
+[machine.rs `tick`, `finite`]. The exceptions are `hours_since` and `xs_rank`, whose outputs the engine
+stores unfiltered; they are always finite in binary64 (§4). Intermediate results inside an operator or
+a window's state can be non-finite; only stored node values are filtered.
 
 ## 2. Programs and typing
 
@@ -31,9 +33,12 @@ A program is the JSON document of DSL.md, parsed strictly, with checks in this o
 2. Otherwise, a container opened at nesting depth 128 or more is E_PARSE, from serde_json's
    recursion limit. So are syntax errors, duplicate keys, unknown or missing fields, and non-finite
    numbers.
-3. More than 4,096 parsed expressions, or expression depth above 64, is E_SIZE. Expressions are
-hash-consed into a DAG whose nodes precede their users. `let` entries are checked in declaration
-order, and a `ref` names only an earlier let.
+3. More than 4,096 parsed expressions, or expression depth above 64, is E_SIZE.
+
+Expressions are hash-consed into a DAG whose nodes precede their users. `let` entries are checked in
+declaration order, and a `ref` names only an earlier let. A constant's value is normalized by one
+binary64 addition of +0, so a literal −0 becomes +0. A parameter's value keeps its parsed bits, so a
+parameter of −0 stays −0.
 
 A unit is an integer exponent vector over (usd, coin, h, d, y, ev) [units.rs]. The types are
 `Num(unit)` and `Bool`. The signature table [dsl.rs `type_op`] is:
@@ -66,8 +71,11 @@ reported.
 
 - **Records.** An observation is a funding row (coin, eventTime, knownAt, rate, premium), a bar
   (coin, openTime, eventTime = openTime + BAR, knownAt, open, high, low, close, volume, trades), or
-  an event count (input, coin, eventTime, knownAt, count). The store resolves revisions first, so
-  per (dataset, coin, eventTime) one row reaches the simulator [market.rs `resolve`].
+  an event count (input, coin, eventTime, knownAt, count). The store resolves revisions before a
+  run [market.rs `resolve`]: per (dataset, coin, eventTime), the revision with the largest fetchedAt ≤
+  the version, with that revision's knownAt. A run receives exactly one row per key; earlier
+  revisions are never delivered. The adapter supplies the rows; an admissible market has unique keys,
+  bars with eventTime = openTime + BAR, and coin and slot indices within range.
 - **Delivery order.** Each stream is sorted by (knownAt, coin, eventTime): funding, bars, then each
   event input in EVENT_INPUTS order (sorted by knownAt, coin, slot, index). Before the tick at time
   τ, every row with knownAt ≤ τ is delivered, funding first, then bars, then events [sim.rs
@@ -88,13 +96,13 @@ mask L (coin c listed iff interval_start(c) ≤ H < interval_end(c)) evaluates t
 order. Per node i and coin c:
 
 - **hours_since(cond).** If c is listed and cond[c] is defined and nonzero at this tick, last[i][c]
-  becomes H. The value is (H − last)/HOUR as a number if c is listed and last is set; otherwise
-  Undef. The state persists across unlisted ticks.
+  becomes H. The value is the integer (H − last) div HOUR converted to a number, if c is listed and
+  last is set; otherwise Undef. It is not filtered. The state persists across unlisted ticks.
 - **xs ops.** Let X be the listed coins whose argument is defined, with their values, in coin
   order. If X is empty, every coin is Undef. Otherwise mean = (Σ values, summed in coin order)/|X|:
   - xs_mean gives finite(mean) to every coin in X;
   - xs_demean gives finite(v − mean);
-  - xs_rank gives 0.5 if |X| = 1, else (#{x < v} + (#{x = v} − 1)/2)/(|X| − 1).
+  - xs_rank gives 1/2 if |X| = 1, else (#{x < v} + (#{x = v} − 1)/2)/(|X| − 1), unfiltered.
 
   Coins outside X are Undef. These ops hold no window state.
 - **Every other node.** If c is unlisted, the value is Undef, and the node's window (if any) is not
@@ -119,8 +127,13 @@ except as noted [machine.rs `eval`]:
 - not: 1 if x = 0, else 0.
 - if(c, a, b): Undef if c is Undef; else a(1) if c ≠ 0, else a(2). The unselected branch's value
   is not read, but it is evaluated at this tick like every node.
-- convert: x · f, f the exact factor between the time units (1 d = 24 h, 1 y = 365 d), rounded once
-  to binary64 when checked.
+- convert: x · f. The factor f is fixed when the program is checked, as the engine computes it
+  [units.rs `conversion`]: hours(u) = ((1 · 1^e_h) · 24^e_d) · 8760^e_y, each power by compiler-rt's
+  `__powidf2` (Rust's `powi`): multiply by the base on each odd bit of |e|, halving |e| and squaring
+  the base, and take the reciprocal for negative e. Then f = hours(from) / hours(to). A non-finite f is
+  accepted by the checker, and x · f is then filtered by `finite` like any node value. Conversion
+  nodes are interned by (factor bits, argument), as the engine does, so of two conversions that share
+  both, the first one's target unit applies.
 - Window nodes: the pointwise value is a(0), then pushed (below).
 
 ## 6. Windows
@@ -132,7 +145,8 @@ A window node with n = `hours` keeps per-coin state, pushed once per listed tick
   once the buffer holds n + 1, else Undef.
 - **mean, sum, std.**
   - **State.** A buffer of the last n pushed values; running `sum` and `sumsq` over its defined
-    values; a count of Undef values; and `since_exact`.
+    values, both starting at +0; a count of Undef values, starting at 0; and `since_exact`, starting
+    at 0.
   - **On a push.** Append the value and add it (or count it Undef). If the buffer exceeds n, remove
     the front and subtract it (or uncount it). Then increment since_exact. If since_exact ≥ n, set
     since_exact = 0 and recompute sum and sumsq exactly, as left-to-right sums over the buffer's
@@ -140,13 +154,15 @@ A window node with n = `hours` keeps per-coin state, pushed once per listed tick
   - **Output.** Undef if the buffer holds fewer than n values or any Undef. Otherwise:
     - sum: sum;
     - mean: m = sum/n;
-    - std: √max(sumsq/n − m², 0), the population form.
+    - std: √max(sumsq/n − m², 0), the population form. When sumsq/n − m² is NaN (sumsq and m²
+      both overflow), max returns 0, so the output is 0 (§5's max, measured).
 - **min_over, max_over.** The output is Undef until n values have been pushed, or if any of the
   last n pushed values was Undef. Otherwise it is the minimum (maximum) of the last n. On equal
   values, the engine keeps the later one (it pops `b >= v` for min and `b <= v` for max), which
   matters only for signed zeros.
 - **ema.**
-  - **State.** α = 2/(n + 1), the running value s, and the count `seen` of defined values pushed.
+  - **State.** α = 2/(n + 1), the running value s (starting at +0), and the count `seen` of defined
+    values pushed (starting at 0).
   - **On a push.** An Undef push leaves the state and outputs Undef. A defined x sets s = x if
     seen = 0, else s = α·x + (1 − α)·s, then increments seen.
   - **Output.** s once seen ≥ n, else Undef.
@@ -174,21 +190,26 @@ b + 2·BAR ≤ end, each step does, in order:
      funding. If |e1 − e2| > 1e-5, abort with R_ACCOUNTING. Record Equity(b + BAR, e1, e2).
    - **Returns.** Append the return e1/previous − 1 and the gross return (e1 − previous + costs −
      previous costs)/previous, with costs = fees + slippage.
-6. **Fills.** Orders decided at the previous decision are due at b + BAR. They are executed only if
-   b + 3·BAR ≤ end; otherwise they are dropped unrecorded. For each due order, in decision order:
-   if the coin's bar opening at b + BAR exists with trades ≥ 1, fill at that bar's open. Otherwise
-   record Unfilled.
+6. **Fills.** Orders decided at the previous decision (at b + δ) are due now, at b + BAR, their
+   scheduled fill time. They are executed only if b + 3·BAR ≤ end; otherwise the run's horizon ends
+   first, and they are dropped unresolved (only their Decision record exists). For each due order,
+   in decision order, the selected bar is the coin's bar opening at b + BAR. That is INVARIANTS.md's
+   I3: the first bar opening at or after submission, with openTime ≤ the scheduled fill time. If it
+   exists with trades ≥ 1, fill at its open. Otherwise record Unfilled; the order never rolls to a
+   later bar.
 7. **Ticks.** For H = b + HOUR, …, b + BAR: deliver up to H + δ, then tick (§4).
 8. **Decision** at t_d = B + δ, with B = b + BAR.
    - **Eligibility.** A coin is eligible if start(c) ≤ B and B + 2·BAR ≤ end(c).
    - **Holds.** An eligible coin holds as `stale` unless its held funding row and held bar both have
      eventTime B. It holds as `undefined` if its weight is Undef. The others give (c, w).
    - **Scaling.** largest = max |w|, and relative = Σ |w|/largest. If relative · largest > 2, each
-     w becomes w/largest · (2/relative). If the scaled gross exceeds 2 · (1 + 1e-12), abort with
-     R_PORTFOLIO.
+     w becomes w/largest · (2/relative). Unless the scaled gross is ≤ 2 · (1 + 1e-12), abort with
+     R_PORTFOLIO (a NaN gross aborts).
    - **Order quantity.** For each (c, w) in coin order, with price = the held bar's close and
      held = q[c]: qty = −held if w = 0 (either sign), else trunc(w · e1/price − held) to szDecimals.
-     If |qty| · price > 10,000, qty = sign(qty) · trunc(10,000/price).
+     If |qty| · price > 10,000, qty = signum(qty) · truncate_d(10,000/price), where
+     truncate_d(x) = trunc(x · 10^d)/10^d with d the coin's szDecimals. A weight of exactly 0 (a
+     close) skips the first truncation and the minimum notional, but not this cap.
    - **Orders.** An order is placed if qty ≠ 0 and (|qty| · price ≥ min notional or w = 0). It is
      recorded as Decision(t_d, c, w, qty) and due at B + BAR, with inputs_known = max_known and
      decided = t_d.
@@ -208,10 +229,12 @@ b + 2·BAR ≤ end, each step does, in order:
 ## 8. Binding preflight
 
 Sources(s) is the set of event inputs named by any node of the program's DAG, which includes let
-bodies and the prediction condition [dsl.rs `event_datasets`]. A source is bound if its dataset is
-present in the run's store, and the stage 6 certificate interface is that presence (the pilot's
-store adapter). Before any delivery or tick, if some source in Sources(s) is unbound, the run's
-result is R_INPUT_UNAVAILABLE with no trace [sim.rs `run`].
+bodies and the prediction condition [dsl.rs `event_datasets`]. The core funding and bar datasets are
+always present: the loader fails without them, an adapter invariant. For each event source the adapter
+supplies a binding flag. In the pilot it is set when the source's dataset is in the store, and that
+flag is stage 6's certificate interface, trusted as given. Before any delivery or tick, if some source
+in Sources(s) is not bound, the run's result is R_INPUT_UNAVAILABLE, with no trace [sim.rs `run`].
+Otherwise the run proceeds, and missing observations follow the operator semantics.
 
 ## 9. Decide
 
