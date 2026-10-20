@@ -347,6 +347,102 @@ Content is known no earlier than its last edit. A row with no admissible claimed
 
 Exit when C5.1–C5.6 hold for every source classified historically replayable or prospective, and every blocked category is recorded under Blockers with what was tried.
 
+### Stage 6: verified reference kernels
+
+Frozen 2026-10-20, before any Lean or Bend code existed. GPT reviewed the draft, and this is the one revision.
+
+**Scope.** Paper §6: two reference kernels, one in Lean 4 and one in Bend 2, each define a formal and executable model of the pilot's strategy language and simulator, and prove the same five laws. The Rust engine `mm` is not modified in this stage (a human instruction).
+- **Toolchains.** Pinned in `flake.nix` by content hash:
+  - Lean v4.34.0 (Lake 5.0.0), the version Bend's `--verdict` requires;
+  - Bend 2.0.37 with its bundled `bendtt.lean` checker.
+
+  The mm build compared against is recorded. A toolchain change needs a dated revision before further judged work.
+- **Outcome.** The comparison's winner becomes the reference kernel in `reference/`, differential-tested against `mm` permanently. The loser leaves the active tree, while its specifications, proof evidence and comparison report are kept. The engine is not replaced.
+
+**Semantic contract.** Before any proof, `reference/SEMANTICS.md` is written and frozen. It is reviewed by GPT and committed with each kernel's formal statements of the laws, as `criteria: stage 6 laws`.
+- **What it fixes.** It resolves DSL.md and INVARIANTS.md against the immutable engine, and fixes:
+  - **The program:** the full DSL v1 syntax, the type-checking judgment with a complete signature table, and the initial state.
+  - **The clock:** the delivery order of observations, ticks τ = H + 120 s, and every node evaluated once per tick, including nodes in unselected `if` branches.
+  - **Operators:** each operator's transition equation, with initial state, output, state update, unit, and behavior on undefined and non-finite inputs. That includes the windows' exact numerical algorithms as `mm` computes them (running sums with periodic exact recompute), EMA seeding, cross-sectional membership, order and rank ties, and `hours_since` state.
+  - **Decisions:** the decision and hold rules, including the freshness rule. A held older input never satisfies the requirement for funding and a bar at the current boundary.
+  - **The portfolio:** scaling, the order cap, truncation, minimum notional and exact closes, funding settlement order, marks, margin, liquidation, delisting, fees, costs and accounting.
+  - **Binding preflight.**
+- **Conformance and non-vacuity.** Every well-typed program within the published resource limits is supported. Undefined values and runtime rejections occur only under enumerated conditions, and evaluation over a finite tick sequence terminates. Concrete conformance examples are included: defined values, a nonzero decision with its ordinary fill, and an available-source run that passes preflight. No kernel may replace these definitions with relations constrained only by the laws.
+- **Changes.** A later change to any referenced definition takes a dated revision, as a changed law does.
+
+**The laws.** Each kernel states them formally, matched one to one with this prose.
+- **L1 Non-interference.**
+  - **Setup.** Fix a well-typed program, its parameters, the runtime configuration, the start, the initial state and the universe schedule.
+  - **Prefixes.** P_t(h) is the ordered delivery prefix of the observation records eligible by tick t. Each record carries its source, input, coin, observation identity, revision identity, eventTime, knownAt, tie-break sequence and value. Prefix equality keeps multiplicity and order. A revision is delivered when it becomes available and does not overwrite earlier delivered history, and warm-up uses nothing outside the prefix.
+  - **Values.** For all admissible histories h₁ and h₂ and every tick t: if P_t(h₁) = P_t(h₂), then every node's value and the machine state agree at every tick through t. In particular, the raw target weights agree at every decision tick through t.
+  - **Decisions.** If the initial portfolio and the execution, rule and universe prefixes through t also agree, then every decision record through t agrees: holds with their reasons, scaled targets and submitted quantities. This does not claim equal fills after t.
+- **L2 Unit soundness.** For every program the frozen checker accepts, every schema-conforming history and every tick:
+  - the unit-instrumented evaluation never fails with a unit or type mismatch;
+  - every defined numeric value carries its static unit, and every defined boolean is a boolean.
+
+  The instrumented evaluator performs the specified operand checks and unit transformations; it does not assign the expected unit by construction. Erasing its units gives the same values, transitions and non-unit errors as the executable evaluator. Domain errors and undefined values occur exactly where the operator semantics specify.
+- **L3 Rewrite soundness.** For every rule schema of R version 1 (all twelve rows of CANONICAL.md), every well-typed substitution satisfying its side conditions, and every well-typed containing DAG context: the rewritten program is well-typed and has the same externally observable trading behavior.
+  - **Equivalence.** From corresponding initial states, for every admissible history, universe schedule, parameter assignment and execution configuration, the two programs give identical weight streams, decision and hold records, orders, fills, fees, settlements and equity traces. Retained nodes have identical value streams under an explicit node correspondence. Stateful descendants receive the same tick inputs even in unselected branches.
+  - **Obligations.** Each rule has its own listed semantic obligation: typing side conditions, definedness, and the numeric or boolean identity it needs. The numeric identities are neg(neg x) = x, abs(abs x) = abs x, abs(neg x) = abs x, x · 1 = x, x / 1 = x, x − (+0) = x, and commutativity of add and mul. The boolean obligations cover strict `and`/`or`, `not` involution, `if`/`not` duality and the comparison dualities, under the frozen undefined semantics.
+  - **Abstract version.** The law is proved over every numeric structure satisfying the obligations.
+  - **Binary64 version.** A binary64 claim is counted only once the rounding mode, signed zeros, non-finite intermediates and NaN handling are specified, and the obligations are established for reachable values under them.
+- **L4 Fill ordering.**
+  - **Cause.** Every fill has a nonzero quantity and a cause: an ordinary order, a liquidation or a delisting.
+  - **Ordinary fills.** For an ordinary order, submittedAt = decidedAt. The selected bar is the first bar of its coin with openTime ≥ submittedAt, not filtered by trade count. If there is none, or it has trades < 1, the order is unfilled and does not roll.
+  - **Fill terms.** Otherwise filledAt = the selected bar's openTime, and every observation in the decision's transitive input lineage has knownAt ≤ decidedAt. The reference is the bar's open. The bucket is "1000" when |qty| · reference ≤ 1000, else "10000". The price is reference · (1 + side · bps/10⁴), and the fee is |qty| · price · taker fee.
+  - **Both directions.** Every ordinary fill follows this rule, and every valid submitted order whose selected bar has a trade produces exactly this fill.
+  - **Closeouts.** Liquidation and delisting fills satisfy their own I3 source-bar and reference rules and I2's closeout times.
+- **L5 Binding.**
+  - **Sources.** Sources(s) follows the frozen dependency rule, covering every input occurrence, including unused lets and the prediction.
+  - **Preflight.** After checking and before any tick, preflight checks every source. If any is unbound, or lacks an accepted certificate under the stage's certificate interface, the result is `R_INPUT_UNAVAILABLE` with no trace or partial result; the rejection may still be ledgered.
+  - **Converse.** If every source passes, evaluation proceeds, and missing observations follow the operator semantics. The stage 6 certificate interface is a trusted flag from the pilot's store adapter, so the claim is conditional on that adapter. Certificate authenticity and validity are not claimed (stage 7).
+
+**Proof acceptance.**
+- **Lean.**
+  - A clean `lake build` passes on the pinned toolchain. Each scored theorem has the exact frozen statement.
+  - Its transitive dependencies contain no `sorryAx`, new axiom or unapproved trusted principle. The recorded `#print axioms` of each scored theorem is a subset of {propext, Quot.sound, Classical.choice}.
+  - Numeric operations and their laws are explicit quantified hypotheses in the reviewed statements.
+  - Abstract and binary64-instance theorems are reported separately. The executable used in C6.4 is the same definitions, and any extraction, foreign numeric code or adapter is named as part of the implementation boundary.
+- **Bend.**
+  - Each scored law corresponds explicitly to the frozen statement and semantics.
+  - Its exact proof artifact completes `bend --verdict` on the pinned toolchain, with no fuel exhaustion, skipped obligations or unapproved assumptions. The invocation, exit status, full output, dependency hashes and translated theorem are archived, and the translated statement is audited against the law.
+  - Everyday-checker success, or verdict success for another declaration, does not count.
+  - Trust in the translation, the statement correspondence and the Lean-based checker is reported separately.
+
+**Criteria.**
+- **C6.1 Contract and laws frozen.** SEMANTICS.md and each kernel's formal statements are GPT-reviewed and committed alone, as `criteria: stage 6 laws`, before any proof. Changes take dated revisions, and proofs of old statements do not count.
+- **C6.2 Lean.** L1 to L5 are proved under the Lean acceptance rule. L3 counts only with every R v1 rule.
+- **C6.3 Bend.** L1 to L5 are proved under the Bend acceptance rule, with the same L3 rule.
+- **C6.4 Differential agreement.**
+  - **Corpus.** Generator revisions, seeds, program and market manifests, initial states and warm-up are frozen before the judged run. The corpus is:
+    - at least 1,000 programs from the frozen stage 4 generator;
+    - deterministic operator and boundary cases;
+    - W0 and stage 2's probes;
+    - all of this on N1, N2 and N3 markets of 550 days, long enough for the 4,380 h windows and nested lags to become defined.
+
+    The deterministic cases cover:
+    - every operator, both `if` branches, and stateful nodes in unselected branches;
+    - undefined and resumed inputs, EMA seeding, rank ties and listing changes;
+    - conversions, signed zeros and non-finite intermediates;
+    - revision and timestamp ties;
+    - empty first eligible bars, caps, truncation and zero-target closes;
+    - settlements, liquidations, delistings and binding failures.
+  - **Exact comparisons.** These are compared exactly in every case: type-checker verdicts and codes (including every `kernel/tests/adversarial` case), definedness, value category, booleans, units, holds and trades, traded coins, order quantities, fill source bars and times, closeout events, and signed zeros where the semantics distinguish them. Non-finite values are compared under the frozen policy.
+  - **Numeric comparisons.** Finite numbers, money and equity are equal bit for bit. The one exception is outputs depending on `log`, `exp` or `sqrt` where a kernel's math library is shown to differ from mm's: those use |x − y| ≤ max(1e-12, 1e-9 · max(|x|, |y|)), and the differing library is named before the judged run.
+  - **Pass.** No waiver: every case must agree. Each failure reports its first numeric and first discrete divergence. Coverage is reported: defined outputs, decisions, orders, fills and exercised rejection paths.
+- **C6.5 Comparison and adoption.**
+  - **Report.** The report gives, per kernel:
+    - every law's result, including partial progress;
+    - trust notes;
+    - the replay benchmark: W0 on the 550-day N2 market, median of 5, on frozen hardware, threads, flags and inputs, with end-to-end and evaluator-only times separately;
+    - null-simulation throughput, counting completed program-market-years only;
+    - effort per milestone: elapsed time, active agent time, sessions and retries, failures included;
+    - the differential results.
+  - **Ranking.** Only kernels passing C6.4 are eligible. Rank eligible kernels by accepted-law count; on a tie, Lean wins. Performance and effort do not change the ranking.
+  - **Exit.** Successful exit requires the winner to have all five laws accepted. Otherwise there is no adoption, and the blocker is recorded. The winner and its differential harness move to `reference/`.
+
+Exit when C6.1 to C6.5 hold.
+
 ### Stage 10: thesis track
 
 Frozen 2026-10-20, before any stage 10 code existed and before any thesis was registered. GPT reviewed the draft, and this is the one revision.
