@@ -63,7 +63,7 @@ fn missing_dataset_is_input_unavailable() {
         intervals: vec![(0, 10 * HOUR)], events: Default::default(), data_hash: String::new(),
     };
     let venue = mm::market::Venue { taker_fee: 0.0, min_notional: 10.0, coins: vec!["X".into()],
-        rules: vec![mm::market::CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[0.0; 2]; 2] }],
+        rules: vec![mm::market::CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[0.0; 2]; 2], calibration_range: None }],
         rules_hash: String::new(), execution_hash: String::new() };
     let policy = mm::market::Policy { delta: DELTA, w_start: 0, holdout_start: i64::MAX, w_end: 100 * HOUR };
     match mm::sim::run(&p, &market, &venue, &policy, 100 * HOUR) {

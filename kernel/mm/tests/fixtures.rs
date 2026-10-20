@@ -84,6 +84,7 @@ impl Spec {
                 min_tier_leverage: self.leverage,
                 delisted: self.delisted_at.is_some(),
                 cost_bps: [[10.0, 10.0], [10.0, 10.0]],
+                calibration_range: None,
             }],
             rules_hash: String::new(),
             execution_hash: String::new(),

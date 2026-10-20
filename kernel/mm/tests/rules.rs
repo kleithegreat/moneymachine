@@ -97,7 +97,7 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
         min_notional: 10.0,
         coins: (0..COINS).map(|c| format!("S{c}")).collect(),
         rules: (0..COINS)
-            .map(|c| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: variant == 2 && c == COINS - 1, cost_bps: [[2.0, 4.0], [2.0, 4.0]] })
+            .map(|c| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: variant == 2 && c == COINS - 1, cost_bps: [[2.0, 4.0], [2.0, 4.0]], calibration_range: None })
             .collect(),
         rules_hash: String::new(),
         execution_hash: String::new(),

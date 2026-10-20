@@ -56,16 +56,18 @@ pub struct Event {
     pub count: f64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CoinRules {
     pub sz_decimals: i32,
     pub min_tier_leverage: f64,
     pub delisted: bool,
     /// Cost in bps from the reference price, ex fee, for [buy, sell] x [<= $1k, <= $10k].
     pub cost_bps: [[f64; 2]; 2],
+    /// [min, max] of (high - low) / open over the coin's 4h bars in the cost model's calibration span.
+    pub calibration_range: Option<(f64, f64)>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Venue {
     pub taker_fee: f64,
     pub min_notional: f64,
@@ -133,6 +135,7 @@ pub fn venue(dir: &Path) -> Result<Venue, LoadError> {
             min_tier_leverage: min_lev,
             delisted: r["delisted"].as_bool().unwrap_or(false),
             cost_bps: [[cell("buy", "1000")?, cell("buy", "10000")?], [cell("sell", "1000")?, cell("sell", "10000")?]],
+            calibration_range: exec["calibration_relative_range"][c].as_array().and_then(|r| Some((r.first()?.as_f64()?, r.get(1)?.as_f64()?))),
         });
         coins.push(c.clone());
     }
@@ -144,6 +147,17 @@ pub fn venue(dir: &Path) -> Result<Venue, LoadError> {
         rules_hash,
         execution_hash,
     })
+}
+
+impl Venue {
+    /// The same venue with every cost-table entry multiplied by `k` (fees unchanged).
+    pub fn costs_scaled(&self, k: f64) -> Venue {
+        let mut v = self.clone();
+        for r in &mut v.rules {
+            r.cost_bps = r.cost_bps.map(|side| side.map(|x| x * k));
+        }
+        v
+    }
 }
 
 type Row = HashMap<String, Field>;

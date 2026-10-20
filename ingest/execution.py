@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from ingest.availability import judged, window
+from ingest.policy import BAR
 
 SIZES = (1_000, 10_000)
 QUANTILE = 0.95
@@ -86,11 +87,27 @@ def fill_missing(model, coins):
 
 
 
+def relative_ranges(polls, report):
+    """Per coin, [min, max] of (high - low)/open over its recorded 4h bars inside its calibration span,
+    from the reference (verify) polls."""
+    spans = {key.split(":")[0]: r["calibration_span"] for key, r in report.items() if r["calibration_span"]}
+    ranges = defaultdict(list)
+    for p in polls:
+        if p["kind"] == "bar" and p["purpose"] == "verify" and p["coin"] in spans:
+            start, end = spans[p["coin"]]
+            for c in p["data"]:
+                if c["t"] == p["boundary"] - BAR and start <= c["t"] and c["t"] + BAR <= end:
+                    ranges[p["coin"]].append((float(c["h"]) - float(c["l"])) / float(c["o"]))
+    return {coin: [min(r), max(r)] for coin, r in sorted(ranges.items())}
+
+
 def calibrate(live_dir, model_out, report_out):
     """The cost model from the judged L2 snapshots to `model_out`, its held-out validation to `report_out`."""
-    model, report = calibrate_and_validate(costs_by_cell(judged(live_dir)))
+    polls = list(judged(live_dir))
+    model, report = calibrate_and_validate(costs_by_cell(polls))
     coins = json.loads((Path(__file__).resolve().parents[1] / "data" / "universe.json").read_text())["universe"]
     model, flagged = fill_missing(model, coins)
     Path(model_out).write_text(json.dumps({"quantile": QUANTILE, "calibration_fraction": CALIBRATION,
-                                           "no_live_book_cellwise_max": flagged, "cost_bps_ex_fee": model}, indent=1) + "\n")
+                                           "no_live_book_cellwise_max": flagged, "cost_bps_ex_fee": model,
+                                           "calibration_relative_range": relative_ranges(polls, report)}, indent=1) + "\n")
     Path(report_out).write_text(json.dumps({"window": window(live_dir), **report}, indent=1) + "\n")

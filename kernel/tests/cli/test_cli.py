@@ -128,9 +128,9 @@ def test_batch_eval_one_line_per_program(market, tmp_path):
     assert kinds == ["eval", "reject", "eval"]
 
 
-def holdout(market, ledger):
+def holdout(market, ledger, strategy=W0):
     m = Path(market)
-    return subprocess.run([str(MM), "holdout", str(W0), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
+    return subprocess.run([str(MM), "holdout", str(strategy), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
                            "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
                            "--ledger", str(ledger)], capture_output=True, text=True)
 
@@ -146,6 +146,27 @@ def test_holdout_is_evaluated_once_over_its_window(tmp_path):
     assert again.returncode == 1 and json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
     row = sqlite3.connect(ledger).execute("SELECT mode, window_start FROM experiments").fetchall()
     assert row == [("holdout", json.loads((Path(market) / "store" / "policy.json").read_text())["holdout_start"])]
+
+
+def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path):
+    """C3.4 revision: a full rerun at twice the cost table and calibrated-range coverage, outside the judged result."""
+    plain, ranged = (write_market(tmp_path / name, market_id="diag", days=40, holdout_days=10) for name in ("a", "b"))
+    execution = Path(ranged) / "venue" / "execution.json"
+    e = json.loads(execution.read_text())
+    e["calibration_relative_range"] = {"S0": [0.0, 1.0], "S1": [5.0, 6.0]}
+    execution.write_text(json.dumps(e))
+    momentum = dict(json.loads(W0.read_text()), weight={"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
+        {"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}]}]}, {"const": 0.5, "unit": "1"}]})
+    strategy = tmp_path / "momentum.json"
+    strategy.write_text(json.dumps(momentum))
+    out = {m: json.loads(holdout(m, tmp_path / f"{Path(m).name}.sqlite", strategy).stdout)["disclosure"] for m in (plain, ranged)}
+    assert out[plain]["result"] == out[ranged]["result"]
+    d = out[ranged]["diagnostics"]
+    assert d["total_return_2x_costs"] < out[ranged]["result"]["total_return"]
+    bars = 10 * 6
+    assert d["relative_range_coverage"]["S0"] == {"inside": bars, "bars": bars, "missing": 0}
+    assert d["relative_range_coverage"]["S1"]["inside"] == 0 and d["relative_range_coverage"]["S2"] is None
+    assert out[plain]["diagnostics"]["relative_range_coverage"]["S0"] is None
 
 
 def test_stream_eval_answers_each_line(market, tmp_path):

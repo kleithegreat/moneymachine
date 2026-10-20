@@ -187,8 +187,8 @@ def real(data_root, version, cid="stage3-real"):
     gate.freeze(ledger, cid, kept_a, "frozen finalist A")
     gate.freeze(ledger, cid, kept_b, "frozen finalist B")
     results = gate.holdout_run(market, ledger, cid, {**kept_a, **kept_b}, REAL_REPORT_FROM)
-    promoted_a, holdout_a = gate.promote({h: results[h] for h in kept_a}, cid + "A")
-    promoted_b, holdout_b = gate.promote({h: results[h] for h in kept_b}, cid + "B")
+    promoted_a, holdout_a = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_a}, cid + "A"), results)
+    promoted_b, holdout_b = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_b}, cid + "B"), results)
     result = {"id": cid, "version": int(version), "agent_run": run, "audit": audit_run(work / "run", ledger, cid),
               "A": {"evaluations": run["spent"], "search": report_a, "mechanism": mech, "kept": list(kept_a),
                     "holdout": holdout_a, "promoted": promoted_a},

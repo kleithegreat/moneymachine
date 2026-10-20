@@ -201,7 +201,7 @@ def mechanism_check(market, ledger, campaign, programs):
 
 
 def holdout_run(market, ledger, campaign, programs, holdout_from=None):
-    """The single holdout batch: {hash: (net returns, total return)} for every frozen finalist."""
+    """The single holdout batch: {hash: (net returns, total return, diagnostics)} for every frozen finalist."""
     if not programs:
         return {}
     m = Path(market)
@@ -217,9 +217,9 @@ def holdout_run(market, ledger, campaign, programs, holdout_from=None):
     db = sqlite3.connect(ledger)
     results = {}
     for line, h in zip(out.stdout.splitlines(), programs):
-        exp = json.loads(line)["experiment"]
-        blob, summary = db.execute("SELECT returns, summary FROM results WHERE experiment_id = ?", (exp,)).fetchone()
-        results[h] = (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"])
+        d = json.loads(line)
+        blob, summary = db.execute("SELECT returns, summary FROM results WHERE experiment_id = ?", (d["experiment"],)).fetchone()
+        results[h] = (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], d["disclosure"]["diagnostics"])
     return results
 
 
@@ -235,6 +235,13 @@ def promote(results, campaign):
                       "holdout_total_return": {h: results[h][1] for h in hashes}}
 
 
+def with_diagnostics(decision, results):
+    """The promotion decision, then the diagnostics it never read (PROGRESS.md, C3.4 revision)."""
+    promoted, report = decision
+    return promoted, {**report, "diagnostics": {h: results[h][2] for h in report.get("holdout_p", {})}}
+
+
 def holdout_decision(market, ledger, campaign, finalists_programs, holdout_from=None):
     """Evaluate the frozen finalists on the holdout once; promote by net return > 0 and Holm."""
-    return promote(holdout_run(market, ledger, campaign, finalists_programs, holdout_from), campaign)
+    results = holdout_run(market, ledger, campaign, finalists_programs, holdout_from)
+    return with_diagnostics(promote(results, campaign), results)

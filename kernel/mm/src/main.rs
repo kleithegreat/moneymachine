@@ -98,6 +98,43 @@ fn latest_version(store: &Path) -> Option<i64> {
         .max()
 }
 
+/// The run restricted to the steps whose equity time is after `after` (the disclosed window).
+fn reported(run: sim::Run, after: i64) -> sim::Run {
+    let first = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).position(|t| t > after);
+    let k = first.unwrap_or(run.returns.len());
+    sim::Run {
+        returns: run.returns[k..].to_vec(),
+        gross_returns: run.gross_returns[k..].to_vec(),
+        equity: run.equity[k..].to_vec(),
+        exposures: run.exposures,
+        trace: run.trace,
+    }
+}
+
+/// Reported beside a holdout result, never judged (PROGRESS.md, C3.4 revision): the return of a full
+/// rerun with every cost-table entry doubled, and per coin the holdout 4h bars whose (high - low)/open
+/// lies within the range the cost model was calibrated on.
+fn holdout_diagnostics(prog: &dsl::Program, c: &Ctx) -> Value {
+    let stressed = match sim::run(prog, &c.market, &c.venue.costs_scaled(2.0), &c.policy, c.end) {
+        Ok(run) => summary(&reported(run, c.report_after))["total_return"].clone(),
+        Err(e) => json!({"abort": e.code()}),
+    };
+    let mut coverage = serde_json::Map::new();
+    for (i, coin) in c.venue.coins.iter().enumerate() {
+        let Some((lo, hi)) = c.venue.rules[i].calibration_range else {
+            coverage.insert(coin.clone(), Value::Null);
+            continue;
+        };
+        let (start, stop) = (c.report_after.max(c.market.intervals[i].0), c.end.min(c.market.intervals[i].1));
+        let first = start + (BAR - start.rem_euclid(BAR)) % BAR;
+        let expected = if stop > first { (stop - first) / BAR } else { 0 };
+        let bars: Vec<_> = c.market.bars.iter().filter(|b| b.coin == i && b.open_time >= first && b.open_time + BAR <= stop).collect();
+        let inside = bars.iter().filter(|b| (lo..=hi).contains(&((b.high - b.low) / b.open))).count();
+        coverage.insert(coin.clone(), json!({"inside": inside, "bars": bars.len(), "missing": expected - bars.len() as i64}));
+    }
+    json!({"total_return_2x_costs": stressed, "relative_range_coverage": coverage})
+}
+
 fn summary(run: &sim::Run) -> Value {
     let r = &run.returns;
     let n = r.len() as f64;
@@ -262,15 +299,7 @@ fn mechanism_report(exposures: &[(bool, f64)]) -> Value {
 fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, mechanism: bool, ledger: &mut Ledger)
     -> Result<String, (String, String)> {
     let run = sim::run(prog, &c.market, &c.venue, &c.policy, c.end).map_err(|e| (e.code().to_string(), format!("{e:?}")))?;
-    let first = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).position(|t| t > c.report_after);
-    let k = first.unwrap_or(run.returns.len());
-    let run = sim::Run {
-        returns: run.returns[k..].to_vec(),
-        gross_returns: run.gross_returns[k..].to_vec(),
-        equity: run.equity[k..].to_vec(),
-        exposures: run.exposures,
-        trace: run.trace,
-    };
+    let run = reported(run, c.report_after);
     let canonical = prog.canonical();
     let strategy_hash = sha256_hex(canonical.as_bytes());
     let equivalence = mm::canon::equivalence_key(prog);
@@ -293,11 +322,14 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     let returns_bytes: Vec<u8> = run.returns.iter().flat_map(|r| r.to_le_bytes()).collect();
     let result_hash = sha256_hex(&[summary.as_bytes(), &returns_bytes].concat());
     let trace_text = trace_path.map(|_| run.trace.iter().map(|e| event_json(e, &c.venue.coins).to_string()).collect::<Vec<_>>().join("\n") + "\n");
-    let content = json!({
+    let mut content = json!({
         "strategy": strategy_hash, "equivalence": equivalence, "identity": identity, "result_hash": result_hash, "mode": c.mode,
         "result": serde_json::from_str::<Value>(&summary).unwrap(),
         "trace_sha256": trace_text.as_ref().map(|t| sha256_hex(t.as_bytes())),
     });
+    if c.mode == "holdout" {
+        content["diagnostics"] = holdout_diagnostics(prog, c);
+    }
     let e = Experiment {
         campaign,
         agent,
@@ -480,6 +512,7 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
             min_tier_leverage: 1.0,
             delisted: false,
             cost_bps: [[num(&cost["buy"][0])?, num(&cost["buy"][1])?], [num(&cost["sell"][0])?, num(&cost["sell"][1])?]],
+            calibration_range: None,
         }],
         rules_hash: String::new(),
         execution_hash: String::new(),

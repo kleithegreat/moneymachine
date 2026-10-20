@@ -88,7 +88,7 @@ fn market(seed: u64, early: bool) -> (Market, Venue, Policy, i64) {
         min_notional: 10.0,
         coins: (0..COINS).map(|c| format!("S{c}")).collect(),
         rules: (0..COINS)
-            .map(|_| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[2.0, 4.0], [2.0, 4.0]] })
+            .map(|_| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[2.0, 4.0], [2.0, 4.0]], calibration_range: None })
             .collect(),
         rules_hash: String::new(),
         execution_hash: String::new(),
