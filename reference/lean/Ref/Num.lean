@@ -17,6 +17,10 @@ structure NumOps (α : Type) where
   log : α → α
   exp : α → α
   sqrt : α → α
+  /-- Rounds toward zero. -/
+  trunc : α → α
+  /-- The sign bit (true for −0). -/
+  signBit : α → Bool
   lt : α → α → Bool
   le : α → α → Bool
   eq : α → α → Bool
@@ -43,6 +47,8 @@ def min (a b : α) : α := if N.lt b a then b else a
 def max (a b : α) : α := if N.lt a b then b else a
 def clip (x lo hi : α) : α := N.min (N.max x lo) hi
 def keep (x : α) : Val α := if N.finite x then some x else none
+/-- Rust's `signum`: −1 when the sign bit is set (−0 included), else 1. -/
+def signum (x : α) : α := if N.signBit x then N.neg N.one else N.one
 
 end NumOps
 end Ref

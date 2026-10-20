@@ -8,24 +8,24 @@ parser check for check so that verdicts and rejection codes agree.
 namespace Ref
 
 /-- Exponents over (usd, coin, h, d, y, ev); each must stay within the engine's i8. -/
-structure Unit where
+structure Dim where
   e : List Int
   deriving DecidableEq, Repr, Inhabited
 
-namespace Unit
+namespace Dim
 def bases : List String := ["usd", "coin", "h", "d", "y", "ev"]
-def one : Unit := ⟨[0, 0, 0, 0, 0, 0]⟩
-def base (name : String) : Option Unit :=
+def one : Dim := ⟨[0, 0, 0, 0, 0, 0]⟩
+def base (name : String) : Option Dim :=
   (bases.idxOf? name).map fun i => ⟨(List.range 6).map fun j => if j == i then 1 else 0⟩
 def inI8 (x : Int) : Bool := -128 ≤ x && x ≤ 127
-def zip (f : Int → Int → Int) (a b : Unit) : Option Unit :=
+def zip (f : Int → Int → Int) (a b : Dim) : Option Dim :=
   let e := List.zipWith f a.e b.e
   if e.all inI8 then some ⟨e⟩ else none
 def mul := zip (· + ·)
 def div := zip (· - ·)
-def sqrt (u : Unit) : Option Unit := if u.e.all (· % 2 == 0) then some ⟨u.e.map (· / 2)⟩ else none
+def sqrt (u : Dim) : Option Dim := if u.e.all (· % 2 == 0) then some ⟨u.e.map (· / 2)⟩ else none
 
-def product (s : String) : Option Unit :=
+def product (s : String) : Option Dim :=
   if s == "1" then some one else
   (s.splitOn "*").foldlM (init := one) fun u factor =>
     match factor.splitOn "^" with
@@ -37,7 +37,7 @@ def product (s : String) : Option Unit :=
         (List.range k.natAbs).foldlM (init := u) fun u _ => if k > 0 then mul u b else div u b
     | _ => none
 
-def parse (s : String) : Option Unit :=
+def parse (s : String) : Option Dim :=
   let s := String.mk (s.toList.filter (!·.isWhitespace))
   match s.splitOn "/" with
   | [n] => product n
@@ -56,14 +56,14 @@ def powi (a : Float) (b : Int) : Float := Id.run do
 
 /-- The conversion factor's bits, as the engine computes it, if the units differ only in time units
 with the same total time exponent. -/
-def conversion (fr to : Unit) : Option UInt64 :=
+def conversion (fr to : Dim) : Option UInt64 :=
   let time := [2, 3, 4]
   let nonTime := [0, 1, 5].all fun i => fr.e[i]! == to.e[i]!
-  let total (u : Unit) := time.foldl (fun s i => s + u.e[i]!) 0
+  let total (u : Dim) := time.foldl (fun s i => s + u.e[i]!) 0
   if !nonTime || total fr != total to then none else
-  let hours (u : Unit) := (time.zip [1.0, 24.0, 8760.0]).foldl (fun p (i, h) => p * powi h (u.e[i]!)) 1.0
+  let hours (u : Dim) := (time.zip [1.0, 24.0, 8760.0]).foldl (fun p (i, h) => p * powi h (u.e[i]!)) 1.0
   some (hours fr / hours to).toBits
-end Unit
+end Dim
 
 inductive Input where
   | funding | premium | «open» | high | low | close | volume
@@ -79,12 +79,12 @@ def Input.parse (name : String) : Option Input :=
   | "low" => some .low | "close" => some .close | "volume" => some .volume
   | _ => (eventInputs.findIdx? (·.1 == name)).map .event
 
-def Input.unit : Input → Unit
-  | .funding => (Unit.parse "1/h").get!
-  | .premium => Unit.one
-  | .volume => (Unit.base "coin").get!
-  | .event _ => (Unit.base "ev").get!
-  | _ => (Unit.parse "usd/coin").get!
+def Input.unit : Input → Dim
+  | .funding => (Dim.parse "1/h").get!
+  | .premium => Dim.one
+  | .volume => (Dim.base "coin").get!
+  | .event _ => (Dim.base "ev").get!
+  | _ => (Dim.parse "usd/coin").get!
 
 inductive Window where
   | lag | mean | sum | std | minOver | maxOver | ema
@@ -100,13 +100,13 @@ inductive Op where
 
 inductive Node where
   | input (i : Input)
-  | const (bits : UInt64) (u : Unit)
+  | const (bits : UInt64) (u : Dim)
   | param (k : Nat)
   | op (o : Op) (args : List Nat)
   deriving DecidableEq, Repr, Inhabited
 
 inductive Ty where
-  | num (u : Unit)
+  | num (u : Dim)
   | bool
   deriving DecidableEq, Repr, Inhabited
 
@@ -146,7 +146,7 @@ open Json
 structure CState where
   nodes : Array Node := #[]
   types : Array Ty := #[]
-  params : Array (String × UInt64 × Unit) := #[]
+  params : Array (String × UInt64 × Dim) := #[]
   lets : Array (String × Nat) := #[]
   parsed : Nat := 0
 
@@ -181,9 +181,9 @@ def number (v : Value) : Check UInt64 := do
   if !finiteBits b then fail .parse
   return b
 
-def unitOf (v : Value) : Check Unit := do
+def unitOf (v : Value) : Check Dim := do
   let s ← asString v
-  let some u := Unit.parse s | fail .unit
+  let some u := Dim.parse s | fail .unit
   return u
 
 def intern (n : Node) (t : Ty) : Check Nat := do
@@ -197,23 +197,23 @@ def intern (n : Node) (t : Ty) : Check Nat := do
 def normalizeZero (b : UInt64) : UInt64 := (Float.ofBits b + 0.0).toBits
 
 def typeOp (op : Op) (ts : List Ty) (kvs : Array (String × Value)) : Check (Op × Ty) := do
-  let num (k : Nat) : Check Unit := match ts[k]! with
+  let num (k : Nat) : Check Dim := match ts[k]! with
     | .num u => pure u
     | .bool => fail .bool
   let boolean (k : Nat) : Check PUnit := match ts[k]! with
     | .bool => pure ⟨⟩
     | .num _ => fail .bool
-  let same (a b : Unit) : Check Unit := if a == b then pure a else fail .unit
-  let one (u : Unit) : Check Unit := if u == Unit.one then pure u else fail .dimensionless
-  let opt (x : Option Unit) : Check Unit := match x with | some u => pure u | none => fail .unit
+  let same (a b : Dim) : Check Dim := if a == b then pure a else fail .unit
+  let one (u : Dim) : Check Dim := if u == Dim.one then pure u else fail .dimensionless
+  let opt (x : Option Dim) : Check Dim := match x with | some u => pure u | none => fail .unit
   match op with
   | .add | .sub | .min | .max => return (op, .num (← same (← num 0) (← num 1)))
-  | .mul => return (op, .num (← opt (Unit.mul (← num 0) (← num 1))))
-  | .div => return (op, .num (← opt (Unit.div (← num 0) (← num 1))))
+  | .mul => return (op, .num (← opt (Dim.mul (← num 0) (← num 1))))
+  | .div => return (op, .num (← opt (Dim.div (← num 0) (← num 1))))
   | .neg | .abs => return (op, .num (← num 0))
-  | .sign => do discard (num 0); return (op, .num Unit.one)
+  | .sign => do discard (num 0); return (op, .num Dim.one)
   | .log | .exp => return (op, .num (← one (← num 0)))
-  | .sqrt => return (op, .num (← opt (Unit.sqrt (← num 0))))
+  | .sqrt => return (op, .num (← opt (Dim.sqrt (← num 0))))
   | .clip => return (op, .num (← same (← same (← num 0) (← num 1)) (← num 2)))
   | .gt | .ge | .lt | .le => do discard (same (← num 0) (← num 1)); return (op, .bool)
   | .and | .or => do boolean 0; boolean 1; return (op, .bool)
@@ -227,14 +227,14 @@ def typeOp (op : Op) (ts : List Ty) (kvs : Array (String × Value)) : Check (Op 
   | .convert _ => do
       let to ← unitOf (field kvs "to")
       let fr ← num 0
-      let some f := Unit.conversion fr to | fail .unit
+      let some f := Dim.conversion fr to | fail .unit
       return (.convert f, .num to)
   | .window w _ => do
       let u ← num 0
       let some h := (match field kvs "hours" with | .int i => if 1 ≤ i && i ≤ maxHours then some i.toNat else none | _ => none)
         | fail .window
       return (.window w h, .num u)
-  | .hoursSince => do boolean 0; return (op, .num (Unit.base "h").get!)
+  | .hoursSince => do boolean 0; return (op, .num (Dim.base "h").get!)
   | .xsMean | .xsDemean => return (op, .num (← num 0))
   | .xsRank => return (op, .num (← one (← num 0)))
 
@@ -304,7 +304,7 @@ def program (v : Value) : Check Program := do
       modify fun st => { st with lets := st.lets.push (name, i) }
   let w ← expr (field kvs "weight") 1
   match (← get).types[w]! with
-  | .num u => if u != Unit.one then fail .dimensionless
+  | .num u => if u != Dim.one then fail .dimensionless
   | .bool => fail .bool
   let pred ← match v.get? "prediction" with
     | none => pure none
