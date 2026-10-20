@@ -375,7 +375,8 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
       · rw [hq]; exact hc
   -- 3. liquidation of every held coin
   have hJ₂ : J { s₁ with marks := mk₂ } := ⟨fun f hf => Or.inl hf, rfl, rfl, rfl, fun y hy => ⟨y.2, hy⟩⟩
-  refine Except.Holds.join (R := J) (Except.Holds.forIn_list _ _ _ J hJ₂ fun x hx s' hJ => ?_) hJ₂ fun s₃ hJ₃ => ?_
+  refine Except.Holds.join (R := J) (fun _ => Except.Holds.forIn_list _ _ _ J hJ₂ fun x hx s' hJ => ?_) (fun _ => hJ₂)
+    fun s₃ hJ₃ => ?_
   · refine Except.Holds.bind (R := J) (fun r hr => ?_) fun r hr => Except.Holds.pure _ hr
     obtain ⟨bar', i, hi, has, hbi, hix, -⟩ := HL x hx
     rw [has] at hr
@@ -421,8 +422,8 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
     rcases fill_mem_push hf with hf | hf
     · exact hK.1 f hf
     · exact absurd hf (he f)
-  refine Except.Holds.join (R := K) (Except.Holds.forIn_list _ _ _ K (hK₅ _ rfl rfl rfl rfl rfl)
-    fun o ho s' hK => ?_) (hK₅ _ rfl rfl rfl rfl rfl) fun s₆ hK₆ => ?_
+  refine Except.Holds.join (R := K) (fun _ => Except.Holds.forIn_list _ _ _ K (hK₅ _ rfl rfl rfl rfl rfl)
+    fun o ho s' hK => ?_) (fun _ => hK₅ _ rfl rfl rfl rfl rfl) fun s₆ hK₆ => ?_
   · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ho
     obtain ⟨he, hed⟩ := List.mem_filter.mp he
     rw [hJ₄.2.1] at he
@@ -510,42 +511,28 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
   · rw [hj1]; exact hO₈.2.2.2.2 y hy
   · rw [hp', hO₈.2.2.2.1]
 
+/-- The start has an empty trace, no orders or positions, and a mark slot per coin. -/
+theorem start_state (N : NumOps α) (c : Ctx α) : Except.Holds (c.start N)
+    (fun s => s.trace = #[] ∧ s.orders = [] ∧ s.book.pos = [] ∧ s.marks.size = c.coins) := by
+  intro s hs
+  unfold Ctx.start at hs
+  rw [← graft_self (c.state0 N) _ rfl, deliver_graft] at hs
+  split at hs
+  · cases hs
+  generalize c.deliver _ _ = d at hs
+  cases d <;> simp only [Except.map, bind, Except.bind, pure, Except.pure, Except.ok.injEq, reduceCtorEq] at hs
+  subst hs
+  simp [SState.graft, Ctx.state0]
+
 theorem start_inv4 (N : NumOps α) (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) :
     Except.Holds ((Ctx.make p m v pol stop).start N) (Inv4 N p m v pol stop 0) := by
   intro s hs
-  have ht : ((Ctx.make p m v pol stop).start N >>=
-      (Ctx.make p m v pol stop).tickLoop N pol.wStart (List.range' 1 (4 * 0))) = .ok s := by
-    rw [hs]; rfl
-  unfold Ctx.start at hs
-  rw [← graft_self ((Ctx.make p m v pol stop).state0 N) _ rfl, deliver_graft] at hs
-  split at hs
-  · cases hs
-  generalize (Ctx.make p m v pol stop).deliver _ _ = d at hs
-  cases d <;> simp only [Except.map, bind, Except.bind, pure, Except.pure, Except.ok.injEq, reduceCtorEq] at hs
-  subst hs
-  refine ⟨fun f hf => ?_, fun e he => ?_, fun x hx => ?_, ?_, _, ht, rfl⟩
-  · simp [SState.graft, Ctx.state0] at hf
-  · simp [SState.graft, Ctx.state0] at he
-  · simp [SState.graft, Ctx.state0] at hx
-  · simp [SState.graft, Ctx.state0, Ctx.coins]; rfl
+  obtain ⟨htr, ho, hp, hm⟩ := start_state N _ s hs
+  exact ⟨by simp [htr], by simp [ho], by simp [hp], hm, s, by rw [hs]; rfl, rfl⟩
 
 theorem steps_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)
     (stop : Int) (j : Nat) (hj : j ≤ (Ctx.make p m v pol stop).bounds.length) :
-    Except.Holds ((Ctx.make p m v pol stop).steps N j) (Inv4 N p m v pol stop j) := by
-  induction j with
-  | zero =>
-    rw [steps_eq N _ 0 hj]
-    simp only [List.range_zero, List.map_nil, List.forIn_nil, bind_pure]
-    exact start_inv4 N p m v pol stop
-  | succ j ih =>
-    have F : ∀ b r, Except.Holds (do let r ← (Ctx.make p m v pol stop).step N r b; pure (ForInStep.yield r) :
-        Except Abort _) (fun st => ∃ v, st = ForInStep.yield v) :=
-      fun _ _ => Except.Holds.bind (fun _ _ => trivial) fun v _ => Except.Holds.pure _ ⟨v, rfl⟩
-    have hsj := steps_eq N (Ctx.make p m v pol stop) j (by omega)
-    rw [steps_eq N _ (j + 1) hj, List.range_succ, List.map_append]
-    simp only [Except.forIn_append_yield _ _ _ _ F, ← bind_assoc, ← hsj]
-    refine Except.Holds.bind (ih (by omega)) fun r hr => ?_
-    simp only [List.map_cons, List.map_nil, List.forIn_cons, List.forIn_nil, bind_assoc, pure_bind, bind_pure]
-    exact step_inv4 N p m hA v pol stop j r hr
+    Except.Holds ((Ctx.make p m v pol stop).steps N j) (Inv4 N p m v pol stop j) :=
+  steps_induct N _ _ (start_inv4 N p m v pol stop) (step_inv4 N p m hA v pol stop) j hj
 
 end Ref

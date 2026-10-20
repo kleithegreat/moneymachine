@@ -173,6 +173,27 @@ theorem filterMap_range_prefix {β : Type} (n : Nat) (P : Nat → Prop) [Decidab
       simp [h, this, List.range_succ]
     · simp [h]
 
+/-- In a range, the count of a predicate that once false stays false, and is false at the end, fails it. -/
+theorem countP_range_not (n : Nat) (P : Nat → Prop) [DecidablePred P] (hP : ∀ k, P (k + 1) → P k) (hn : ¬P n) :
+    ¬P ((List.range n).countP P) := by
+  induction n with
+  | zero => simpa using hn
+  | succ n ih =>
+    rw [List.range_succ, List.countP_append]
+    by_cases h : P n
+    · have all : ∀ d k, P (k + d) → P k := by
+        intro d
+        induction d with
+        | zero => exact fun _ h => h
+        | succ d ihd => exact fun k h => ihd k (hP _ (by rwa [← Nat.add_assoc] at h))
+      have : (List.range n).countP P = n := by
+        rw [List.countP_eq_length.mpr fun k hk => ?_]
+        · simp
+        obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le (List.mem_range.mp hk)
+        simpa using all (d + 1) k (by rw [Nat.succ_add] at h; rwa [← Nat.add_assoc])
+      simpa [h, this] using hn
+    · simpa [h] using ih h
+
 omit [Inhabited α] in
 theorem bounds_eq (c : Ctx α) : c.bounds = (List.range c.bounds.length).map fun i => c.pol.wStart + ↑i * BAR := by
   have h := filterMap_range_prefix (((c.stop - c.pol.wStart) / BAR).toNat + 1)
@@ -180,6 +201,19 @@ theorem bounds_eq (c : Ctx α) : c.bounds = (List.range c.bounds.length).map fun
     (fun k hk => by simp only [BAR, HOUR] at hk ⊢; push_cast at hk; omega)
   unfold Ctx.bounds at *
   simp only [h, List.length_map, List.length_range]
+
+omit [Inhabited α] in
+/-- The run's steps end at the first boundary with no room for a step. -/
+theorem bounds_end (c : Ctx α) : c.stop < c.pol.wStart + ↑c.bounds.length * BAR + 2 * BAR := by
+  have h := countP_range_not (((c.stop - c.pol.wStart) / BAR).toNat + 1)
+    (fun k : Nat => c.pol.wStart + ↑k * BAR + 2 * BAR ≤ c.stop)
+    (fun k hk => by simp only [BAR, HOUR] at hk ⊢; push_cast at hk; omega)
+    (by simp only [BAR, HOUR]; push_cast; omega)
+  have hl := congrArg List.length (bounds_eq c)
+  unfold Ctx.bounds at hl ⊢
+  rw [filterMap_range_prefix _ _ _ (fun k hk => by simp only [BAR, HOUR] at hk ⊢; push_cast at hk; omega)] at hl ⊢
+  simp only [List.length_map, List.length_range] at h ⊢
+  omega
 
 omit [Inhabited α] in
 theorem bounds_take (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.length) :
@@ -264,19 +298,15 @@ theorem proj_succ (N : NumOps α) (c : Ctx α) (j : Nat) (s t : SState α)
   rw [tickLoop_shift, hb, ← graft_self t s hp, tickLoop_graft, hq]
   rfl
 
-/-- After j steps the simulator's machine and cursors are those of the first 4j hourly ticks. -/
-theorem steps_proj (N : NumOps α) (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.length) :
-    Except.Holds (c.steps N j)
-      (fun s => ∃ t, (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 (4 * j))) = .ok t ∧ t.proj = s.proj) := by
+/-- A property of the start that each step carries to the next holds after every j steps. -/
+theorem steps_induct (N : NumOps α) (c : Ctx α) (I : Nat → SState α → Prop) (h0 : Except.Holds (c.start N) (I 0))
+    (hs : ∀ j s, I j s → Except.Holds (c.step N s (c.pol.wStart + ↑j * BAR)) (I (j + 1))) (j : Nat)
+    (hj : j ≤ c.bounds.length) : Except.Holds (c.steps N j) (I j) := by
   induction j with
   | zero =>
     rw [steps_eq N c 0 hj]
-    intro s hs
-    refine ⟨s, ?_, rfl⟩
-    simp only [bind, pure] at hs
-    cases h : c.start N with
-    | error e => rw [h] at hs; cases hs
-    | ok s' => rw [h] at hs; cases hs; rfl
+    simp only [List.range_zero, List.map_nil, List.forIn_nil, bind_pure]
+    exact h0
   | succ j ih =>
     have F : ∀ b r, Except.Holds (do let r ← c.step N r b; pure (ForInStep.yield r) : Except Abort _)
         (fun st => ∃ v, st = ForInStep.yield v) :=
@@ -284,11 +314,19 @@ theorem steps_proj (N : NumOps α) (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.l
     have hsj := steps_eq N c j (by omega)
     rw [steps_eq N c (j + 1) hj, List.range_succ, List.map_append]
     simp only [Except.forIn_append_yield _ _ _ _ F, ← bind_assoc, ← hsj]
-    refine Except.Holds.bind (ih (by omega)) fun r ⟨t, ht, hp⟩ => ?_
+    refine Except.Holds.bind (ih (by omega)) fun r hr => ?_
     simp only [List.map_cons, List.map_nil, List.forIn_cons, List.forIn_nil, bind_assoc, pure_bind, bind_pure]
-    exact (step_proj N c r _).conseq fun r' ⟨q, hq, hpq⟩ =>
-      let ⟨t', ht', hp'⟩ := proj_succ N c j r t ht hp q hq
-      ⟨t', ht', hp'.trans hpq.symm⟩
+    exact hs j r hr
+
+/-- After j steps the simulator's machine and cursors are those of the first 4j hourly ticks. -/
+theorem steps_proj (N : NumOps α) (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.length) :
+    Except.Holds (c.steps N j)
+      (fun s => ∃ t, (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 (4 * j))) = .ok t ∧ t.proj = s.proj) := by
+  refine steps_induct N c (fun j s => ∃ t, (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 (4 * j))) = .ok t ∧
+    t.proj = s.proj) (fun s hs => ⟨s, by rw [hs]; rfl, rfl⟩) (fun j r ⟨t, ht, hp⟩ => ?_) j hj
+  exact (step_proj N c r _).conseq fun r' ⟨q, hq, hpq⟩ =>
+    let ⟨t', ht', hp'⟩ := proj_succ N c j r t ht hp q hq
+    ⟨t', ht', hp'.trans hpq.symm⟩
 
 /-- The schedule unrolled: preflight and the first tick, then the hourly ticks. -/
 theorem Ctx.machineAfter_eq (N : NumOps α) (c : Ctx α) (n : Nat) :

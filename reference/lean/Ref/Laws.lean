@@ -1,7 +1,7 @@
 import Ref.Spec
 import Ref.Proof.Units
 import Ref.Proof.Checker
-import Ref.Proof.Fills
+import Ref.Proof.Orders
 
 /-!
 The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
@@ -152,7 +152,7 @@ theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mark
 has exactly one later resolution in the trace, the fill at its scheduled bar if that bar exists and
 traded and otherwise its Unfilled record; and every ordinary fill has exactly one earlier decision
 it resolves. -/
-theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
+theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (hA : m.Admissible)
     (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
     (r : Run α) (hr : run N p m v pol stop = .ok r) :
     let resolves (t : Int) (c : Nat) (q : α) (e : Event α) : Prop :=
@@ -165,7 +165,44 @@ theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mar
     (∀ (j : Nat) (f : Fill α), r.trace[j]? = some (Event.fill f) → f.why = .fill →
       ∃ (i : Nat) (w : α), i < j ∧ r.trace[i]? = some (Event.decision f.decided f.coin w f.qty) ∧
         ∀ (i' : Nat) (w' : α), r.trace[i']? = some (Event.decision f.decided f.coin w' f.qty) → i' = i) := by
-  sorry
+  intro resolves
+  unfold run at hr
+  cases hs : (Ctx.make p m v pol stop).steps N (Ctx.make p m v pol stop).bounds.length <;>
+    simp only [hs, bind, Except.bind, pure, Except.pure, reduceCtorEq, Except.ok.injEq] at hr
+  subst hr
+  rename_i s
+  obtain ⟨h4, hL⟩ := steps_ledger N p m hA v pol stop _ (Nat.le_refl _) s hs
+  have hend : stop < pol.wStart + ↑(Ctx.make p m v pol stop).bounds.length * BAR + 2 * BAR :=
+    bounds_end (Ctx.make p m v pol stop)
+  have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
+  have tl : ∀ {i : Nat} {x : Event α}, s.trace[i]? = some x → s.trace.toList[i]? = some x := fun h =>
+    (Array.getElem?_toList ..).trans h
+  refine ⟨fun i t c w q hi hstop => ?_, fun j f hj hw => ?_⟩
+  · have hres : Resolved pol.delta s.trace.toList i t c q := by
+      rcases hL.fate i t c w q (tl hi) with ⟨o, ho, rfl, -, -⟩ | hres | hstop'
+      · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ho
+        have := (h4.orders e he).2.1
+        omega
+      · exact hres
+      · omega
+    obtain ⟨j, hij, e, hj, hre⟩ := hres
+    refine ⟨⟨j, hij, e, (Array.getElem?_toList ..).symm.trans hj, hre, fun j' e' hj' hre' =>
+      key_index hL.rnodup (tl hj') hj (rkey_of_resolves hre') (rkey_of_resolves hre)⟩, ⟨fun ⟨bar, hbar, htr⟩ => ?_, ?_⟩⟩
+    · rcases hre with ⟨f, rfl, hw, hc, hd, -⟩ | rfl
+      · exact ⟨f, List.mem_of_getElem? hj, hw, hc, hd⟩
+      · exact absurd htr (by have := hL.unfilled _ c q (List.mem_of_getElem? hj) bar hbar; omega)
+    · rintro ⟨f, hf, hw, rfl, rfl⟩
+      obtain ⟨-, -, -, -, -, -, hfill, -⟩ := h4.fills f hf
+      obtain ⟨-, hfl, ⟨bar, hbar, htr, -⟩, -⟩ := hfill hw
+      exact ⟨bar, hfl ▸ hbar, htr⟩
+  · obtain ⟨i, w, q, hij, hi, hre⟩ := hL.cause j (.fill f) f.decided f.coin (tl hj) (by simp [rkey, hw])
+    have hq : q = f.qty := by
+      rcases hre with ⟨f', hf', -, -, -, hq⟩ | h
+      · cases hf'; exact hq.symm
+      · cases h
+    subst hq
+    exact ⟨i, w, hij, (Array.getElem?_toList ..).symm.trans hi, fun i' w' hi' =>
+      key_index hL.dnodup (tl hi') hi rfl rfl⟩
 
 /-! ## L5 binding -/
 

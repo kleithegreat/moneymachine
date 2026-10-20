@@ -77,9 +77,12 @@ theorem ite_cond {c : Prop} [Decidable c] {x y : Except ε β} (hx : c → Holds
 
 /-- An `if` without `else` in a do block: both branches continue with the same k. -/
 theorem join {c : Prop} [Decidable c] {R : β → Prop} {x : Except ε β} {b : β} {k : β → Except ε γ}
-    {Q : γ → Prop} (hx : Holds x R) (hb : R b) (hk : ∀ b, R b → Holds (k b) Q) :
+    {Q : γ → Prop} (hx : c → Holds x R) (hb : ¬c → R b) (hk : ∀ b, R b → Holds (k b) Q) :
     Holds (if c then x >>= k else k b) Q :=
-  ite (bind hx hk) (hk b hb)
+  ite_cond (fun h => bind (hx h) hk) fun h => hk b (hb h)
+
+theorem and {x : Except ε β} {Q' : β → Prop} (h : Holds x Q) (h' : Holds x Q') : Holds x (fun b => Q b ∧ Q' b) :=
+  fun b hb => ⟨h b hb, h' b hb⟩
 
 theorem throw' (e : ε) : Holds (throw e : Except ε β) Q := by
   intro b h; cases h
@@ -97,6 +100,18 @@ theorem forIn_list {σ : Type} (l : List β) (init : σ) (f : β → σ → Exce
     cases r with
     | done s => exact ok s hr
     | yield s => exact ih s hr fun a' ha' => hf a' (by simp [ha'])
+
+/-- A loop whose body always continues, with an invariant on the elements still to come. -/
+theorem forIn_suffix {σ : Type} (l : List β) (init : σ) (f : β → σ → Except ε (ForInStep σ)) (I : List β → σ → Prop)
+    (h0 : I l init) (hf : ∀ a rest s, I (a :: rest) s → Holds (f a s) (fun r => ∃ v, r = .yield v ∧ I rest v)) :
+    Holds (forIn l init f) (I []) := by
+  induction l generalizing init with
+  | nil => exact ok init h0
+  | cons a as ih =>
+    simp only [List.forIn_cons]
+    refine bind (hf a as init h0) fun r ⟨v, hr, hv⟩ => ?_
+    subst hr
+    exact ih v hv
 
 end Except.Holds
 
