@@ -1,21 +1,109 @@
 import Ref.Sim
+import Ref.Units
 
 /-!
-The five laws of stage 6 (PROGRESS.md, Stage 6), stated over the model of reference/SEMANTICS.md.
-Each is quantified over every number structure `N` (the binary64 instance is `floatOps`); L3's
-obligations are explicit hypotheses. These statements are frozen with SEMANTICS.md before any proof.
+The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
+reference/SEMANTICS.md. Each holds for every number structure `N`; L3's obligations are explicit
+hypotheses. Abstract statements are proved here; the binary64 instance (`floatOps`) is not, because
+Lean's `Float` is opaque, and it is tested instead (C6.4). These statements and the definitions they
+use are frozen with SEMANTICS.md before any proof.
 -/
 
 namespace Ref
 
 variable {α : Type} [Inhabited α]
 
-/-- Programs the frozen checker accepts, from parsed JSON. -/
-def WellTyped (p : Program) : Prop := ∃ v st, (program v).run {} = .ok (p, st)
+/-! ## Admissible inputs -/
+
+/-- Programs the frozen checker accepts. -/
+def CheckerAccepted (p : Program) : Prop := ∃ text, check text = .ok p
+
+/-- The typing rule of one operator over its arguments' types (SEMANTICS.md §2). -/
+def opTy (o : Op) (ts : List Ty) (to : Option Dim) : Option Ty :=
+  let num (k : Nat) : Option Dim := match ts[k]? with | some (.num u) => some u | _ => none
+  let isBool (k : Nat) : Bool := ts[k]? == some .bool
+  match o with
+  | .add | .sub | .min | .max => do let a ← num 0; let b ← num 1; if a == b then some (.num a) else none
+  | .mul => do return .num (← Dim.mul (← num 0) (← num 1))
+  | .div => do return .num (← Dim.div (← num 0) (← num 1))
+  | .neg | .abs => do return .num (← num 0)
+  | .sign => do discard (num 0); return .num Dim.one
+  | .log | .exp => do let a ← num 0; if a == Dim.one then some (.num a) else none
+  | .sqrt => do return .num (← Dim.sqrt (← num 0))
+  | .clip => do let a ← num 0; let b ← num 1; let c ← num 2; if a == b && b == c then some (.num a) else none
+  | .gt | .ge | .lt | .le => do let a ← num 0; let b ← num 1; if a == b then some .bool else none
+  | .and | .or => if isBool 0 && isBool 1 then some .bool else none
+  | .not => if isBool 0 then some .bool else none
+  | .ite => if !isBool 0 then none else match (ts[1]? : Option Ty), (ts[2]? : Option Ty) with
+    | some .bool, some .bool => some .bool
+    | some (.num a), some (.num b) => if a == b then some (.num a) else none
+    | _, _ => none
+  | .convert f => do
+    let a ← num 0; let t ← to
+    if Dim.conversion a t == some f then some (.num t) else none
+  | .window _ h => if 1 ≤ h && h ≤ maxHours then do return .num (← num 0) else none
+  | .xsMean | .xsDemean => do return .num (← num 0)
+  | .xsRank => do let a ← num 0; if a == Dim.one then some (.num a) else none
+  | .hoursSince => if isBool 0 then some (.num (Dim.base "h").get!) else none
+
+/-- Structural well-formedness: sizes agree, arguments precede their users, every node is typed by
+its rule, the weight is a dimensionless number and the prediction a boolean. -/
+def Program.WF (p : Program) : Prop :=
+  p.types.size = p.nodes.size ∧ p.convTo.size = p.nodes.size ∧
+  p.weight < p.nodes.size ∧ p.types[p.weight]! = .num Dim.one ∧
+  (∀ q, p.prediction = some q → q < p.nodes.size ∧ p.types[q]! = .bool) ∧
+  ∀ i < p.nodes.size, match p.nodes[i]! with
+    | .input inp => p.types[i]! = .num inp.unit
+    | .const _ u => p.types[i]! = .num u
+    | .param k => k < p.params.size ∧ p.types[i]! = .num p.params[k]!.2
+    | .op o args => (∀ a ∈ args, a < i) ∧ opTy o (args.map (p.types[·]!)) p.convTo[i]! = some p.types[i]!
+
+/-- An admissible market: unique keys, correctly timed bars, coin and slot indices in range. -/
+structure Market.Admissible (m : Market α) : Prop where
+  fundingKeys : (m.funding.toList.map fun f => (f.coin, f.event)).Nodup
+  barKeys : (m.bars.toList.map fun b => (b.coin, b.openTime)).Nodup
+  eventKeys : (m.events.toList.map fun e => (e.slot, e.coin, e.event)).Nodup
+  barEvent : ∀ b ∈ m.bars.toList, b.event = b.openTime + BAR
+  fundingCoin : ∀ f ∈ m.funding.toList, f.coin < m.intervals.size
+  barCoin : ∀ b ∈ m.bars.toList, b.coin < m.intervals.size
+  eventIndex : ∀ e ∈ m.events.toList, e.coin < m.intervals.size ∧ e.slot < eventInputs.length
+
+structure Venue.Valid (v : Venue α) (coins : Nat) : Prop where
+  sizes : v.szDecimals.size = coins ∧ v.minTierLeverage.size = coins ∧ v.costBps.size = coins
+  cells : ∀ c < coins, v.costBps[c]!.size = 2 ∧ ∀ s < 2, v.costBps[c]![s]!.size = 2
+
+structure Policy.Valid (pol : Policy) : Prop where
+  delta : 0 < pol.delta ∧ pol.delta < HOUR
+
+/-! ## The machine's schedule, alone and instrumented -/
+
+/-- The machine after the tick at hour wStart + n·HOUR: the engine's schedule of deliveries and
+ticks, which never reads the book. -/
+def Ctx.machineAfter (N : NumOps α) (c : Ctx α) (n : Nat) : Except Abort (MState α) := do
+  let mut s ← c.start N
+  for k in [1:n + 1] do
+    let h := c.pol.wStart + (k : Int) * HOUR
+    s ← c.deliver s (h + c.pol.delta)
+    s := { s with machine := s.machine.tick N c.p (c.mask h) h }
+  return s.machine
+
+/-- The same schedule with the unit-instrumented tick. -/
+def Ctx.umachineAfter (N : NumOps α) (c : Ctx α) (n : Nat) : Except (Abort ⊕ UnitError) (UState α) := do
+  if !c.bound then throw (.inl .inputUnavailable)
+  let mut u := UState.init N c.p c.coins
+  let mut s := c.state0 N
+  for k in [0:n + 1] do
+    let h := c.pol.wStart + (k : Int) * HOUR
+    s ← (c.deliver { s with machine := u.m } (h + c.pol.delta)).mapError .inl
+    u ← ({ u with m := s.machine }.tick N c.p (c.mask h) h).mapError .inr
+  return u
+
+/-- The decision tick of step k (0-based): its boundary plus BAR plus δ. -/
+def Ctx.decisionTime (c : Ctx α) (k : Nat) : Int := c.pol.wStart + ((k : Int) + 1) * BAR + c.pol.delta
 
 /-! ## L1 non-interference -/
 
-/-- The ordered delivery prefix by time t (SEMANTICS.md §3): every funding row, bar and bound
+/-- The ordered delivery prefix by time t (SEMANTICS.md §3): every resolved funding row, bar and bound
 event row with knownAt ≤ t, in delivery order, with multiplicity. -/
 def Ctx.deliveryPrefix (c : Ctx α) (t : Int) : List (FundingRow α) × List (BarRow α) × List (EventRow α) :=
   ((c.fOrder.toList.map (c.m.funding[·]!)).filter (·.known ≤ t),
@@ -31,95 +119,79 @@ def Ctx.execView (c : Ctx α) (t : Int) :
    (c.m.bars.toList.filter (·.openTime ≤ t)).map (fun b => (b.coin, b.openTime, b.o, b.trades)),
    c.m.intervals)
 
-/-- The machine after the tick at hour wStart + n·HOUR: the engine's schedule of deliveries and
-ticks, which never reads the book. -/
-def Ctx.machineAfter (N : NumOps α) (c : Ctx α) (n : Nat) : Except Abort (MState α) := do
-  let mut s ← c.start N
-  for k in [1:n + 1] do
-    let h := c.pol.wStart + (k : Int) * HOUR
-    s ← c.deliver s (h + c.pol.delta)
-    s := { s with machine := s.machine.tick N c.p (c.mask h) h }
-  return s.machine
-
-/-- The decision tick of step k (0-based): its boundary plus BAR plus δ. -/
-def Ctx.decisionTime (c : Ctx α) (k : Nat) : Int := c.pol.wStart + ((k : Int) + 1) * BAR + c.pol.delta
-
-theorem L1_values (N : NumOps α) (p : Program) (_ : WellTyped p) (m₁ m₂ : Market α) (v : Venue α) (pol : Policy)
-    (stop : Int) (n : Nat)
+/-- Equal delivery prefixes give equal machine states (values, windows, held inputs, `hours_since`
+state) at every tick through t. -/
+theorem L1_values (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m₂ : Market α)
+    (_ : m₁.Admissible) (_ : m₂.Admissible) (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (n : Nat)
     (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
     (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
         = (Ctx.make p m₂ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
     ∀ k ≤ n, (Ctx.make p m₁ v pol stop).machineAfter N k = (Ctx.make p m₂ v pol stop).machineAfter N k := by
   sorry
 
-theorem L1_decisions (N : NumOps α) (p : Program) (_ : WellTyped p) (m₁ m₂ : Market α) (v : Venue α) (pol : Policy)
+/-- The simulator's machine is that schedule: after j steps, it is the machine after the tick at
+wStart + 4j·HOUR. -/
+theorem L1_simulator (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
+    (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (j : Nat) (s : SState α)
+    (h : (Ctx.make p m v pol stop).steps N j = .ok s) :
+    (Ctx.make p m v pol stop).machineAfter N (4 * j) = .ok s.machine := by
+  sorry
+
+/-- Equal delivery prefixes and execution views through step k's decision give the same observations
+at every step through it: the same trace, or the same rejection. -/
+theorem L1_decisions (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m₂ : Market α)
+    (_ : m₁.Admissible) (_ : m₂.Admissible) (v : Venue α) (_ : v.Valid m₁.intervals.size) (pol : Policy) (_ : pol.Valid)
     (stop : Int) (k : Nat)
     (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
     (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix ((Ctx.make p m₁ v pol stop).decisionTime k)
         = (Ctx.make p m₂ v pol stop).deliveryPrefix ((Ctx.make p m₂ v pol stop).decisionTime k))
     (hE : (Ctx.make p m₁ v pol stop).execView ((Ctx.make p m₁ v pol stop).decisionTime k)
         = (Ctx.make p m₂ v pol stop).execView ((Ctx.make p m₂ v pol stop).decisionTime k)) :
-    ((Ctx.make p m₁ v pol stop).steps N (k + 1)).map (·.trace)
-      = ((Ctx.make p m₂ v pol stop).steps N (k + 1)).map (·.trace) := by
+    ∀ j ≤ k + 1, ((Ctx.make p m₁ v pol stop).steps N j).map (·.trace)
+      = ((Ctx.make p m₂ v pol stop).steps N j).map (·.trace) := by
   sorry
 
 /-! ## L2 unit soundness -/
 
-/-- The dynamic unit semantics: the tag of node i's defined values, computed from its arguments'
-tags with DSL.md's operand checks and unit transformations, or `none` on a unit error. -/
-def dynTag (p : Program) : Nat → Option Ty
-  | i =>
-    match p.nodes[i]! with
-    | .input inp => some (.num inp.unit)
-    | .const _ u => some (.num u)
-    | .param k => if k < p.params.size then some p.types[i]! else none
-    | .op o args =>
-      let tag (k : Nat) : Option Ty := if h : args[k]! < i then dynTag p args[k]! else none
-      let num (k : Nat) : Option Dim := match tag k with | some (.num u) => some u | _ => none
-      let bool (k : Nat) : Bool := tag k == some .bool
-      match o with
-      | .add | .sub | .min | .max => do let a ← num 0; let b ← num 1; if a == b then some (.num a) else none
-      | .mul => do let a ← num 0; let b ← num 1; return .num (← Dim.mul a b)
-      | .div => do let a ← num 0; let b ← num 1; return .num (← Dim.div a b)
-      | .neg | .abs => do return .num (← num 0)
-      | .sign => do discard (num 0); return .num Dim.one
-      | .log | .exp => do let a ← num 0; if a == Dim.one then some (.num a) else none
-      | .sqrt => do return .num (← Dim.sqrt (← num 0))
-      | .clip => do let a ← num 0; let b ← num 1; let c ← num 2; if a == b && b == c then some (.num a) else none
-      | .gt | .ge | .lt | .le => do let a ← num 0; let b ← num 1; if a == b then some .bool else none
-      | .and | .or => if bool 0 && bool 1 then some .bool else none
-      | .not => if bool 0 then some .bool else none
-      | .ite => if !bool 0 then none else match tag 1, tag 2 with
-        | some .bool, some .bool => some .bool
-        | some (.num a), some (.num b) => if a == b then some (.num a) else none
-        | _, _ => none
-      | .convert _ => match p.types[i]! with
-        | .num to => do let a ← num 0; discard (Dim.conversion a to); return .num to
-        | .bool => none
-      | .window _ _ => do return .num (← num 0)
-      | .xsMean | .xsDemean => do return .num (← num 0)
-      | .xsRank => do let a ← num 0; if a == Dim.one then some (.num a) else none
-      | .hoursSince => if bool 0 then some (.num (Dim.base "h").get!) else none
-termination_by i => i
-decreasing_by all_goals assumption
+/-- The instrumented machine never raises a unit error; its defined values carry their nodes' static
+types, booleans are canonical, and erasing the tags gives the executable machine's values and state
+(or the same rejection). -/
+theorem L2_units (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
+    (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (n : Nat) :
+    let c := Ctx.make p m v pol stop
+    (∀ e, c.umachineAfter N n ≠ .error (.inr e)) ∧
+    (∀ a, c.umachineAfter N n = .error (.inl a) ↔ c.machineAfter N n = .error a) ∧
+    (∀ u, c.umachineAfter N n = .ok u →
+      ∃ ms, c.machineAfter N n = .ok ms ∧ u.erase = ms.vals ∧ u.m.wins = ms.wins ∧ u.m.since = ms.since ∧
+        u.m.funding = ms.funding ∧ u.m.bar = ms.bar ∧ u.m.events = ms.events ∧
+        ∀ i < p.nodes.size, ∀ (coin : Nat) (x : α) (t : Ty), u.tv[i]![coin]! = some (x, t) →
+          t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b)) := by
+  sorry
 
-theorem L2_units (p : Program) (_ : WellTyped p) : ∀ i < p.nodes.size, dynTag p i = some p.types[i]! := by
+/-- The checker's programs are well-formed. -/
+theorem L2_checker (p : Program) (_ : CheckerAccepted p) : p.WF := by
   sorry
 
 /-! ## L3 rewrite soundness -/
 
-/-- The number identities R version 1 relies on, with finiteness preserved (SEMANTICS.md §1). -/
+/-- The obligations of R version 1 (kernel/CANONICAL.md), on finite operands, with finiteness
+preserved where a rule removes or reorders an operation. -/
 structure NumOps.Lawful (N : NumOps α) : Prop where
-  neg_neg : ∀ x, N.neg (N.neg x) = x
-  abs_abs : ∀ x, N.abs (N.abs x) = N.abs x
-  abs_neg : ∀ x, N.abs (N.neg x) = N.abs x
-  mul_one : ∀ x, N.mul x (N.ofBits 0x3FF0000000000000) = x
-  div_one : ∀ x, N.div x (N.ofBits 0x3FF0000000000000) = x
-  sub_zero : ∀ x, N.sub x (N.ofBits 0) = x
+  neg_neg : ∀ x, N.finite x → N.neg (N.neg x) = x
+  abs_abs : ∀ x, N.finite x → N.abs (N.abs x) = N.abs x
+  abs_neg : ∀ x, N.finite x → N.abs (N.neg x) = N.abs x
+  mul_one : ∀ x, N.finite x → N.mul x (N.ofBits 0x3FF0000000000000) = x
+  div_one : ∀ x, N.finite x → N.div x (N.ofBits 0x3FF0000000000000) = x
+  sub_zero : ∀ x, N.finite x → N.sub x (N.ofBits 0) = x
   add_comm : ∀ x y, N.add x y = N.add y x
   mul_comm : ∀ x y, N.mul x y = N.mul y x
+  finite_neg : ∀ x, N.finite x → N.finite (N.neg x)
+  finite_abs : ∀ x, N.finite x → N.finite (N.abs x)
+  finite_one : N.finite (N.ofBits 0x3FF0000000000000)
+  finite_zero : N.finite (N.ofBits 0)
   one_ne_zero : N.isZero (N.ofBits 0x3FF0000000000000) = false
   truth_zero : ∀ b, N.isZero (N.truth b) = !b
+  finite_truth : ∀ b, N.finite (N.truth b)
 
 /-- The rule schemas of R version 1 (kernel/CANONICAL.md), each direction a separate schema. -/
 inductive Rule where
@@ -139,7 +211,7 @@ def Program.insertAt (p : Program) (k : Nat) (n : Node) (t : Ty) : Program :=
   let f (j : Nat) := if j ≥ k then j + 1 else j
   let shift (n : Node) := match n with | .op o args => .op o (args.map f) | n => n
   { p with nodes := (p.nodes.map shift).insertIdx! k n, types := p.types.insertIdx! k t,
-           weight := f p.weight, prediction := p.prediction.map f }
+           convTo := p.convTo.insertIdx! k none, weight := f p.weight, prediction := p.prediction.map f }
 
 def isConst (p : Program) (j : Nat) (bits : UInt64) (u : Dim) : Bool := p.nodes[j]! == .const bits u
 
@@ -171,53 +243,86 @@ def Rule.apply (r : Rule) (p : Program) (i : Nat) : Option Program :=
   | .leGe, .op .le [a, b] => some { p with nodes := p.nodes.set! i (.op .ge [b, a]) }
   | _, _ => none
 
-/-- The rewritten program is well-typed, and every run is identical: weights, holds, decisions,
-orders, fills, fees, settlements, equity and returns, or the same abort. -/
-theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (p p' : Program) (i : Nat) (_ : WellTyped p)
-    (h : r.apply p i = some p') :
-    (∀ j < p'.nodes.size, dynTag p' j = some p'.types[j]!) ∧
-    ∀ (m : Market α) (v : Venue α) (pol : Policy) (stop : Int), run N p' m v pol stop = run N p m v pol stop := by
+/-- Where each original node lives in the rewritten program. -/
+def Rule.corr (r : Rule) (i j : Nat) : Nat := if r == .ifNotRev && j ≥ i then j + 1 else j
+
+/-- Rewriting keeps a well-formed program well-formed; at every tick every original node's values
+equal its corresponding node's; and every step's observations are identical (the same trace, or the
+same rejection), hence the whole run. -/
+theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (p p' : Program) (i : Nat) (_ : p.WF)
+    (h : r.apply p i = some p') (m : Market α) (_ : m.Admissible) (v : Venue α) (pol : Policy) (_ : pol.Valid)
+    (stop : Int) :
+    p'.WF ∧
+    (∀ n, ((Ctx.make p' m v pol stop).machineAfter N n).isOk = ((Ctx.make p m v pol stop).machineAfter N n).isOk ∧
+      ∀ ms ms', (Ctx.make p m v pol stop).machineAfter N n = .ok ms → (Ctx.make p' m v pol stop).machineAfter N n = .ok ms' →
+        ∀ k < p.nodes.size, ms'.vals[r.corr i k]! = ms.vals[k]!) ∧
+    (∀ j, ((Ctx.make p' m v pol stop).steps N j).map (·.trace) = ((Ctx.make p m v pol stop).steps N j).map (·.trace)) ∧
+    run N p' m v pol stop = run N p m v pol stop := by
   sorry
 
 /-! ## L4 fill ordering -/
 
-def firstBarAtOrAfter (m : Market α) (coin : Nat) (t : Int) : Option (BarRow α) :=
-  let bars := (m.bars.toList.filter (fun b => b.coin == coin && t ≤ b.openTime))
-  bars.foldl (fun acc b => match acc with | some a => if b.openTime < a.openTime then some b else acc | none => some b) none
+def barAt (m : Market α) (coin : Nat) (t : Int) : Option (BarRow α) :=
+  m.bars.toList.find? fun b => b.coin == coin && b.openTime == t
 
-/-- Every ordinary fill is the order's selected bar's open, after its decision, priced and charged by
-the cost table; every closeout uses its own reference; every delivered observation was known at the
-decision. -/
-theorem L4_fills (N : NumOps α) (p : Program) (_ : WellTyped p) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int)
+/-- The latest bar of a coin with eventTime ≤ t. -/
+def latestClosed (m : Market α) (coin : Nat) (t : Int) : Option (BarRow α) :=
+  (m.bars.toList.filter fun b => b.coin == coin && b.event ≤ t).foldl
+    (fun acc b => match acc with | some a => if a.openTime < b.openTime then some b else acc | none => some b) none
+
+/-- Every fill is nonzero, ordered in time, priced by the cost table and charged the fee. An ordinary
+fill is its order's scheduled bar's open, after its decision, and its recorded input bound is the
+decision machine's latest knownAt, no later than the decision. A closeout is at its own time, from
+the coin's latest closed bar: the adverse extreme for a liquidation, the close for a delisting. -/
+theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
+    (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
     (r : Run α) (hr : run N p m v pol stop = .ok r) :
-    ∀ e ∈ r.trace.toList, ∀ f, e = .fill f →
+    ∀ f, Event.fill f ∈ r.trace.toList →
       N.isZero f.qty = false ∧ f.inputsKnown ≤ f.decided ∧ f.decided ≤ f.submitted ∧ f.submitted ≤ f.filled ∧
       f.price = fillPrice N v f.coin f.qty f.reference ∧ f.fee = N.mul (N.mul (N.abs f.qty) f.price) v.takerFee ∧
       (f.why = .fill →
-        f.submitted = f.decided ∧
-        ∃ bar, firstBarAtOrAfter m f.coin f.submitted = some bar ∧ bar.trades ≥ 1 ∧
-          f.sourceOpen = bar.openTime ∧ f.filled = bar.openTime ∧ f.reference = bar.o) := by
+        f.submitted = f.decided ∧ f.filled = f.decided - pol.delta + BAR ∧
+        (∃ bar, barAt m f.coin f.filled = some bar ∧ bar.trades ≥ 1 ∧ f.sourceOpen = bar.openTime ∧ f.reference = bar.o) ∧
+        ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta = f.decided ∧
+          (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = f.inputsKnown) ∧
+      (f.why ≠ .fill →
+        f.inputsKnown = f.filled ∧ f.decided = f.filled ∧ f.submitted = f.filled ∧
+        ∃ bar, latestClosed m f.coin f.filled = some bar ∧ f.sourceOpen = bar.openTime ∧
+          f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero f.qty then bar.h else bar.l)) := by
   sorry
 
-/-- The converse: an order decided at t = B + δ is due at B + BAR. Once its step runs
-(B + 3·BAR ≤ stop), it is filled if its selected bar opens at B + BAR and traded, and is recorded
-unfilled otherwise; it never rolls to a later bar. -/
-theorem L4_orders (N : NumOps α) (p : Program) (_ : WellTyped p) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int)
+/-- Exactly once: every order whose due step runs (B + 3·BAR ≤ stop, with B its decision's boundary)
+has exactly one later resolution in the trace, the fill at its scheduled bar if that bar exists and
+traded and otherwise its Unfilled record; and every ordinary fill has exactly one earlier decision
+it resolves. -/
+theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
+    (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
     (r : Run α) (hr : run N p m v pol stop = .ok r) :
-    ∀ t c w q, Event.decision t c w q ∈ r.trace.toList → t - pol.delta + 3 * BAR ≤ stop →
-      (∃ bar, firstBarAtOrAfter m c t = some bar ∧ bar.openTime = t - pol.delta + BAR ∧ bar.trades ≥ 1 ∧
-        ∃ f, Event.fill f ∈ r.trace.toList ∧ f.why = .fill ∧ f.coin = c ∧ f.decided = t ∧ f.qty = q ∧ f.filled = bar.openTime) ∨
-      ((∀ bar, firstBarAtOrAfter m c t = some bar → bar.openTime ≠ t - pol.delta + BAR ∨ bar.trades < 1) ∧
-        Event.unfilled (t - pol.delta + BAR) c q ∈ r.trace.toList) := by
+    let resolves (t : Int) (c : Nat) (q : α) (e : Event α) : Prop :=
+      (∃ f : Fill α, e = Event.fill f ∧ f.why = .fill ∧ f.coin = c ∧ f.decided = t ∧ f.qty = q) ∨ e = Event.unfilled (t - pol.delta + BAR) c q
+    (∀ (i : Nat) (t : Int) (c : Nat) (w q : α), r.trace[i]? = some (Event.decision t c w q) → t - pol.delta + 3 * BAR ≤ stop →
+      (∃ j : Nat, i < j ∧ ∃ e : Event α, r.trace[j]? = some e ∧ resolves t c q e ∧
+        ∀ (j' : Nat) (e' : Event α), r.trace[j']? = some e' → resolves t c q e' → j' = j) ∧
+      ((∃ bar, barAt m c (t - pol.delta + BAR) = some bar ∧ bar.trades ≥ 1) ↔
+        ∃ f : Fill α, Event.fill f ∈ r.trace.toList ∧ f.why = .fill ∧ f.coin = c ∧ f.decided = t)) ∧
+    (∀ (j : Nat) (f : Fill α), r.trace[j]? = some (Event.fill f) → f.why = .fill →
+      ∃ (i : Nat) (w : α), i < j ∧ r.trace[i]? = some (Event.decision f.decided f.coin w f.qty) ∧
+        ∀ (i' : Nat) (w' : α), r.trace[i']? = some (Event.decision f.decided f.coin w' f.qty) → i' = i) := by
   sorry
 
 /-! ## L5 binding -/
 
 /-- A run is refused as unavailable exactly when some event source the program names is unbound,
-before any delivery or tick; with every source bound, that refusal never occurs. -/
-theorem L5_binding (N : NumOps α) (p : Program) (_ : WellTyped p) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) :
+before any delivery or tick; with every source bound, preflight passes and the run is the ordinary
+evaluation. -/
+theorem L5_binding (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (v : Venue α) (pol : Policy)
+    (stop : Int) :
     (run N p m v pol stop = .error .inputUnavailable ↔ ∃ s ∈ p.eventSlots, s ∉ m.bound) ∧
-    ((∃ s ∈ p.eventSlots, s ∉ m.bound) → (Ctx.make p m v pol stop).start N = .error .inputUnavailable) := by
+    ((∃ s ∈ p.eventSlots, s ∉ m.bound) → (Ctx.make p m v pol stop).start N = .error .inputUnavailable) ∧
+    ((∀ s ∈ p.eventSlots, s ∈ m.bound) →
+      (Ctx.make p m v pol stop).start N = (do
+        let s ← (Ctx.make p m v pol stop).deliver ((Ctx.make p m v pol stop).state0 N) (pol.wStart + pol.delta)
+        return { s with machine := s.machine.tick N p ((Ctx.make p m v pol stop).mask pol.wStart) pol.wStart })) := by
   sorry
 
 end Ref

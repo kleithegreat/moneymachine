@@ -271,16 +271,21 @@ def Ctx.closeout (c : Ctx α) (coin : Nat) (qty ref : α) (why : Why) (t sourceO
   { why, coin, qty, inputsKnown := t, decisionPrice := ref, decided := t, submitted := t, filled := t, sourceOpen,
     reference := ref, price, fee := N.mul (N.mul (N.abs qty) price) c.v.takerFee }
 
-/-- The binding preflight, then the first delivery and tick (SEMANTICS.md §4, §8). -/
-def Ctx.start (c : Ctx α) : Except Abort (SState α) := do
-  if c.p.eventSlots.any (!c.m.bound.contains ·) then throw .inputUnavailable
+/-- Whether every event source the program reads is bound (SEMANTICS.md §8). -/
+def Ctx.bound (c : Ctx α) : Bool := !c.p.eventSlots.any (!c.m.bound.contains ·)
+
+/-- The state before any delivery. -/
+def Ctx.state0 (c : Ctx α) : SState α :=
   let book0 : Book α :=
     { cash := initial N, pos := [], entry := [], realized := N.zero, fees := N.zero, slippage := N.zero, funding := N.zero }
-  let s : SState α :=
-    { machine := MState.init N c.p c.coins, book := book0, marks := Array.replicate c.coins (N.div N.zero N.zero),
-      trace := #[], orders := [], returns := #[], gross := #[], equity := #[], prevEquity := initial N,
-      prevCosts := N.zero, fi := 0, bi := 0, ei := 0 }
-  let s ← c.deliver s (c.pol.wStart + c.pol.delta)
+  { machine := MState.init N c.p c.coins, book := book0, marks := Array.replicate c.coins (N.div N.zero N.zero),
+    trace := #[], orders := [], returns := #[], gross := #[], equity := #[], prevEquity := initial N,
+    prevCosts := N.zero, fi := 0, bi := 0, ei := 0 }
+
+/-- The binding preflight, then the first delivery and tick (SEMANTICS.md §4, §8). -/
+def Ctx.start (c : Ctx α) : Except Abort (SState α) := do
+  if !c.bound then throw .inputUnavailable
+  let s ← c.deliver (c.state0 N) (c.pol.wStart + c.pol.delta)
   return { s with machine := s.machine.tick N c.p (c.mask c.pol.wStart) c.pol.wStart }
 
 /-- One 4h step from b (SEMANTICS.md §7, items 1 to 8). -/
