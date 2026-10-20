@@ -19,11 +19,10 @@ from pathlib import Path
 
 import polars as pl
 
-from ingest.hl import HOUR
 from ingest import checks
-from ingest.store import DELTA, HOLDOUT_START, W_END, W_START, stores
+from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START
+from ingest.store import stores
 
-BAR = 4 * HOUR
 INITIAL = 10_000.0
 THRESHOLD = 1e-4
 SIZE = 0.008333333333333333  # W0's per-coin weight, 0.1 / |U|, as the literal in kernel/strategies/w0.json

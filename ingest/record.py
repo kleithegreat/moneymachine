@@ -17,13 +17,13 @@ import threading
 import time
 from pathlib import Path
 
-from ingest.hl import BUDGET_PER_MIN, HOUR, Info
+from ingest.hl import BUDGET_PER_MIN, Info
 from ingest.live import now_ms
+from ingest.policy import BAR, HOUR
 
 POLL = 30_000
 FIRST_AFTER = 5_000
 VERIFY_AFTER = 600_000
-BAR = 4 * HOUR
 L2_BUDGET = 120
 
 

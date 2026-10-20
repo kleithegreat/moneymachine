@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 import statsmodels.api as sm
 
-from gate import gpt_nulls, markets, probes
+from gate import markets, probes
+from gate.tests import gpt_nulls
 
 YEARS, MARKET_DAYS = 100, 3650
 TOL = {"mean_abs_eps": ("rel", 0.05), "kurtosis": ("rel", 0.20), "acf1_abs_eps": ("abs", 0.05),

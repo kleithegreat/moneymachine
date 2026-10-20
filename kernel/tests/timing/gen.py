@@ -6,9 +6,7 @@ import json
 import random
 import sys
 
-HOUR = 3_600_000
-BAR = 4 * HOUR
-DELTA = 120_000
+from ingest.policy import BAR, HOUR
 
 
 def price(reference, qty, cost):

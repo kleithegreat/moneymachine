@@ -2,17 +2,16 @@
 it, so with zero innovations a held position's gross PnL is zero; and innovations are null."""
 
 import json
-import os
 import subprocess
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from gate import markets
+from gate import kernel, markets
+from gate.kernel import MM
 
 REPO = Path(__file__).resolve().parents[2]
-MM = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
 _rng = np.random.default_rng(0)
 _F = np.where(_rng.random((2000, 11)) < 0.5, 1.25e-5, _rng.standard_t(3, (2000, 11)) * 3e-5)
 FUNDING = {"arrays": (_F, _F * 8 + _rng.normal(0, 1e-5, _F.shape)), "coins": [f"C{i}" for i in range(12)],
@@ -23,7 +22,7 @@ N3 = {"funding": FUNDING, "regime": {"P": [[0.98, 0.02], [0.05, 0.95]], "m": [0.
 
 
 def run_mm(root, strategy, tmp_path):
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     trace = tmp_path / "t.jsonl"
     r = subprocess.run([str(MM), "eval", str(strategy), "--campaign", "c", "--agent", "a", "--store", str(root / "store"),
                         "--venue", str(root / "venue"), "--ledger", str(tmp_path / "l.sqlite"), "--trace", str(trace)], capture_output=True, text=True)
@@ -95,9 +94,9 @@ def test_event_series_reach_the_kernel(tmp_path):
 def test_store_events_reads_the_search_part_on_common_coverage(tmp_path):
     import polars as pl
 
-    from ingest.store import HOLDOUT_START, stores, write_split
+    from ingest.policy import HOLDOUT_START, HOUR as H
+    from ingest.store import stores, write_split
 
-    H = 3_600_000
     hours = list(range(HOLDOUT_START - 10 * H, HOLDOUT_START + 5 * H, H))
     rows = [(c, t, t, float(i + 10 * (c == "AAVE"))) for c in ("BTC", "AAVE") for i, t in enumerate(hours)
             if not (c == "AAVE" and t < HOLDOUT_START - 6 * H)]

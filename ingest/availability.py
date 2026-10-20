@@ -10,11 +10,9 @@ import sys
 from collections import defaultdict
 
 from ingest.backfill import funding_known
-from ingest.hl import HOUR
 from ingest.live import read
-from ingest.store import DELTA
+from ingest.policy import BAR, DELTA, HOUR
 
-BAR = 4 * HOUR
 RECORDING_FROM = 1792455550295
 SPAN = 24 * HOUR
 MAX_GAP = 60_000

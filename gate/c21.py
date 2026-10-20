@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 from gate import markets, probes
+from gate.kernel import MM
 
-MM = "kernel/target/release/mm"
 
 
 def main(out, extra_programs=None, events=None):

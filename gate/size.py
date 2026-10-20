@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-from gate.gate import holdout_pvalue, seed_of
+from gate.gate import campaign_seed, holdout_pvalue
 
 LENGTHS = (540, 546, 1080)
 BURN = 500
@@ -86,7 +86,7 @@ SUITES = {
 
 def _pvalues(args):
     tag, rows, start = args
-    return [holdout_pvalue(r, seed_of(f"{tag}/{start + i}")) for i, r in enumerate(rows)]
+    return [holdout_pvalue(r, campaign_seed(f"{tag}/{start + i}")) for i, r in enumerate(rows)]
 
 
 def cell(suite, gen, n, m=None, workers=None, chunk=50):

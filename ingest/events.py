@@ -11,10 +11,10 @@ import numpy as np
 import polars as pl
 
 from ingest.live import ms
+from ingest.policy import HOUR
 from ingest.sources_avail import polls
 from ingest.store import Store, live, stores, write_split
 
-HOUR = 3_600_000
 RULE_MS = 600_000
 VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
 SOURCES = {

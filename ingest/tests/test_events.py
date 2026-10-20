@@ -5,9 +5,9 @@ import json
 import polars as pl
 
 from ingest import events
+from ingest.policy import HOUR as H
 from ingest.store import Store
 
-H = 3_600_000
 
 
 def setup(tmp_path, posts, live):

@@ -4,8 +4,8 @@ import json
 import sys
 from pathlib import Path
 
-from ingest.hl import DAY, Info
-from ingest.store import W_START
+from ingest.hl import Info
+from ingest.policy import DAY, W_START
 
 RANK_START = W_START - 30 * DAY
 SIZE = 12

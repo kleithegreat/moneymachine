@@ -39,13 +39,11 @@ def test_c25_fdr_and_power(tmp_path, monkeypatch):
 
 
 def test_campaign_records_top5_and_serializes_with_events():
-    import subprocess
-
     import numpy as np
 
-    from gate import campaign
+    from gate import campaign, kernel
 
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=campaign.REPO / "kernel", check=True)
+    kernel.build()
     events = {"arrays": np.random.default_rng(0).poisson(2.0, (300, 1)).astype(float), "coins": [0], "block_hours": 24}
     r = campaign.run_campaign({"id": "smoke", "model": "N1", "params": None, "searcher": "G10", "days": 40, "holdout_days": 10,
                                "cost_cells": {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}, "events": events})

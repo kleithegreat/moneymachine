@@ -9,18 +9,15 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from ingest.policy import BAR, DAY, DELTA, HOLDOUT_START, HOUR, W_START
 from ingest.store import Store, write_split
 
-HOUR = 3_600_000
-BAR = 4 * HOUR
-DELTA = 120_000
-DAY = 24 * HOUR
 CAP = 0.04
 EPS_MAX = 0.5
 SIGMA_MAX = 0.0625
 
 
-def seed_of(market_id):
+def market_seed(market_id):
     return int.from_bytes(hashlib.sha256(market_id.encode()).digest()[:8], "little")
 
 
@@ -54,8 +51,6 @@ def truncated_normal(rng, shape, bound=8.0):
 @functools.lru_cache(maxsize=4)
 def store_funding(store, version, coins):
     """Hourly funding and premium of `coins` over the search part of a store: (T x K, T x K)."""
-    from ingest.store import HOLDOUT_START, W_START, Store
-
     df = Store(store).as_of("funding", HOLDOUT_START, version).to_pandas()
     grid = np.arange(W_START, HOLDOUT_START, HOUR)
     piv = {k: df.pivot(index="eventTime", columns="coin", values=k).reindex(grid)[list(coins)].to_numpy()
@@ -66,8 +61,6 @@ def store_funding(store, version, coins):
 def store_events(store, version, coins, block_hours=24):
     """event_paths spec from the real forum counts of `coins` (U's order) over the search part, on the
     hours every mapped coin is covered."""
-    from ingest.store import HOLDOUT_START, Store
-
     piv = Store(store).as_of("events_forum", HOLDOUT_START, version).to_pandas().pivot(
         index="eventTime", columns="coin", values="count")
     have = [c for c in coins if c in piv.columns]
@@ -130,7 +123,7 @@ def event_paths(rng, spec, coins, hours):
 
 def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
     """Arrays for one market: per-bar o, c, high, low, volume and hourly funding, premium."""
-    rng = np.random.default_rng(seed_of(market_id))
+    rng = np.random.default_rng(market_seed(market_id))
     coins = 12
     n = days * 6
     hours = n * 4 + 1
@@ -183,7 +176,7 @@ def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
     high = np.maximum(o, c) * (1 + w[0])
     low = np.minimum(o, c) * (1 - w[1])
     volume = rng.lognormal(10, 0.5, (n, coins))
-    forum = event_paths(np.random.default_rng(seed_of(market_id + "/events")), events, coins, hours) if events else None
+    forum = event_paths(np.random.default_rng(market_seed(market_id + "/events")), events, coins, hours) if events else None
     return {"forum_posts": forum, "open": o, "close": c, "high": high, "low": low, "volume": volume, "funding": f, "premium": premium,
             "eps": eps, "sigma": sig}
 

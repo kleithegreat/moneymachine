@@ -5,10 +5,10 @@ import json
 import polars as pl
 
 from ingest import sources_avail
+from ingest.policy import HOUR as H
 from ingest.store import Store
 from ingest.tests.test_events import iso
 
-H = 3_600_000
 
 
 def post(i, created, sha="a"):

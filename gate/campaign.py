@@ -4,7 +4,6 @@ A crash is recorded as a result with "crash" set; C2.4 counts it as a promotion.
 """
 
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -14,9 +13,8 @@ import traceback
 from pathlib import Path
 
 from gate import gate, markets, search
+from gate.kernel import MM
 
-REPO = Path(__file__).resolve().parents[1]
-MM = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
 
 
 def run_campaign(spec, keep=None):
@@ -28,7 +26,7 @@ def run_campaign(spec, keep=None):
                                                           spec.get("planted", ()), spec.get("beta", 0.0), spec.get("events")),
                              spec["holdout_days"], spec["cost_cells"])
         ledger = root / "ledger.sqlite"
-        spent = search.run(spec["searcher"], MM, root, ledger, spec["id"], markets.seed_of(spec["id"]))
+        spent = search.run(spec["searcher"], MM, root, ledger, spec["id"], markets.market_seed(spec["id"]))
         finalists, report = gate.search_decision(ledger, spec["id"])
         for h in finalists:
             subprocess.run([str(MM), "select", h, "--campaign", spec["id"], "--agent", "gate", "--note", "finalist",

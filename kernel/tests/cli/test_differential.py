@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
+from gate.kernel import MM, build
 from ingest import witness
 
 REPO = Path(__file__).resolve().parents[3]
-MM = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
 TOL = 1e-6
 
 
@@ -31,7 +31,7 @@ def by_type(events, kinds):
 
 def test_kernel_matches_witness(tmp_path):
     version = stage0_version()
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    build()
     out = tmp_path / "trace.jsonl"
     r = subprocess.run([str(MM), "eval", str(REPO / "kernel/strategies/w0.json"), "--campaign", "stage1-differential",
                         "--agent", "test", "--version", str(version), "--trace", str(out), "--venue", str(VENUE),

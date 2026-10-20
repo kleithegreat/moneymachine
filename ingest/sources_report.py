@@ -5,7 +5,7 @@ import json
 import sys
 
 from ingest import events
-from ingest.store import HOLDOUT_START, W_START
+from ingest.policy import HOLDOUT_START, W_START
 
 GAP_MS = 600_000
 

@@ -2,9 +2,9 @@ import polars as pl
 import pytest
 from hypothesis import given, settings, strategies as st
 
-from ingest.store import DELTA, HOLDOUT_START, Store, stores, write_split
+from ingest.policy import DELTA, HOLDOUT_START, HOUR as H
+from ingest.store import Store, stores, write_split
 
-H = 3_600_000
 
 
 def rows(coins, hours, value=0.0):

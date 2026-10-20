@@ -1,4 +1,4 @@
-"""The statistical gate of paper §6 with the stage 2 parameters (PROGRESS.md, Stage 2, Gate)."""
+"""The statistical gate of paper §8 with the stage 2 parameters (PROGRESS.md, Stage 2, Gate)."""
 
 import hashlib
 import json
@@ -22,7 +22,7 @@ EULER = 0.5772156649015329
 
 
 def dsr(returns, n_trials, sharpe_sd):
-    """Deflated Sharpe ratio of one per-period return series (paper §6, Bailey-López de Prado S0)."""
+    """Deflated Sharpe ratio of one per-period return series (paper §8, Bailey-López de Prado S0)."""
     r = np.asarray(returns, float)
     t = r.size
     sd = r.std(ddof=1)
@@ -39,7 +39,7 @@ def dsr(returns, n_trials, sharpe_sd):
     return float(norm.cdf((s - s0) * np.sqrt(t - 1) / np.sqrt(var)))
 
 
-def seed_of(text):
+def campaign_seed(text):
     return int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], "little")
 
 
@@ -76,7 +76,7 @@ def search_decision(ledger, campaign, agent=None):
     sharpe_sd = float(sharpes.std(ddof=1)) if n > 1 else 0.0
     dsrs = {h: dsr(r[h], n, sharpe_sd) for h in names}
     screened = [h for h in names if dsrs[h] >= DSR_MIN]
-    seed = seed_of(campaign + (agent or ""))
+    seed = campaign_seed(campaign + (agent or ""))
     spa = SPA(np.zeros(len(r)), -r, block_size=BLOCK, reps=REPS, seed=seed)
     spa.compute()
     p = float(spa.pvalues["consistent"])
@@ -198,7 +198,7 @@ def promote(results, campaign):
     if not results:
         return [], {}
     hashes = list(results)
-    p = np.array([holdout_pvalue(results[h][0], seed_of(campaign + h)) for h in hashes])
+    p = np.array([holdout_pvalue(results[h][0], campaign_seed(campaign + h)) for h in hashes])
     adj = holm(p)
     promoted = [h for h, a in zip(hashes, adj) if results[h][1] > 0 and a <= ALPHA]
     return promoted, {"holdout_p": dict(zip(hashes, p.tolist())), "holm": dict(zip(hashes, adj.tolist())),

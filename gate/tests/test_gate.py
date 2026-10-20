@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 
-from gate import gate
+from gate import gate, kernel
 
 
 def test_dsr_single_trial_is_psr():
@@ -53,7 +53,7 @@ def test_parameter_variants_are_separate_trials(tmp_path):
     from pathlib import Path
     from gate.markets import write_market
     repo = Path(__file__).resolve().parents[2]
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=repo / "kernel", check=True)
+    mm = kernel.build()
     m = write_market(tmp_path / "m", market_id="params", days=40)
     base = json.loads((repo / "kernel/strategies/w0.json").read_text())
     base["weight"] = {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
@@ -66,7 +66,7 @@ def test_parameter_variants_are_separate_trials(tmp_path):
         lines.append(json.dumps(b))
     batch.write_text("\n".join(lines) + "\n")
     ledger = tmp_path / "l.sqlite"
-    subprocess.run([str(repo / "kernel/target/release/mm"), "eval", str(batch), "--campaign", "c", "--agent", "a",
+    subprocess.run([str(mm), "eval", str(batch), "--campaign", "c", "--agent", "a",
                     "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)], check=True, capture_output=True)
     cands = gate.candidates(ledger, "c")
     assert len(cands) == 2

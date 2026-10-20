@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from ingest.live import ms, read
+from ingest.policy import HOUR
 
 RULE_MS = 600_000
 MIN_ITEMS = 30
@@ -42,7 +43,7 @@ def analyze(live_dir):
                 versions[key] = (post["version"], post["updated_at"])
                 lag = poll["recv"] - ms(post["updated_at"])
                 edits.append({"forum": forum, "id": post["id"], "lag_ms": lag, "ok": lag <= RULE_MS})
-    span_h = max(gaps, default=0) / 3_600_000
+    span_h = max(gaps, default=0) / HOUR
     return {
         "forums": sorted(first_poll),
         "new_items": len(items), "item_failures": [i for i in items if not i["ok"]],
@@ -50,7 +51,7 @@ def analyze(live_dir):
         "item_slack_ms": sorted(RULE_MS - i["lag_ms"] for i in items)[:5],
         "max_poll_gap_minutes": round(span_h * 60, 1),
         "clock_offset_ms": {"max_abs": max(offsets), "n": len(offsets)} if offsets else None,
-        "hours_recorded": round((max(last_poll.values(), default=0) - min(first_poll.values(), default=0)) / 3_600_000, 1),
+        "hours_recorded": round((max(last_poll.values(), default=0) - min(first_poll.values(), default=0)) / HOUR, 1),
         "validated": len(items) >= MIN_ITEMS and all(i["ok"] for i in items) and all(e["ok"] for e in edits),
     }
 

@@ -8,11 +8,9 @@ from pathlib import Path
 import polars as pl
 
 from ingest import checks
-from ingest.hl import HOUR, Info
-from ingest.store import DELTA, HOLDOUT_START, W_END, W_START, stores, write_split
-
-BAR = 4 * HOUR
-
+from ingest.hl import Info
+from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START
+from ingest.store import stores, write_split
 
 SETTLEMENT_LATENCY = 60_000
 

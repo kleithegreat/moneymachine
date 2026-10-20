@@ -2,11 +2,13 @@
 
 import importlib.util
 import json
-import os
 import subprocess
 from pathlib import Path
 
 import pytest
+
+from gate import kernel
+from gate.kernel import MM
 
 HERE = Path(__file__).parent
 REPO = HERE.parents[2]
@@ -17,7 +19,7 @@ spec.loader.exec_module(gen)
 
 @pytest.fixture(scope="module")
 def cases(tmp_path_factory):
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     path = tmp_path_factory.mktemp("t") / "cases.jsonl"
     cs = gen.generate(2000, 11)
     path.write_text("".join(json.dumps(c) + "\n" for c in cs))
@@ -38,8 +40,7 @@ def test_labels_cover_every_violation(cases):
 
 def test_kernel_checker_matches_labels(cases):
     path, cs = cases
-    mm = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
-    out = subprocess.run([str(mm), "check-fills", str(path)],
+    out = subprocess.run([str(MM), "check-fills", str(path)],
                          capture_output=True, text=True, check=True).stdout
     assert mismatches(cs, [json.loads(l)["verdict"] for l in out.splitlines()]) == []
 

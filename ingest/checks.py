@@ -6,10 +6,8 @@ counts, gaps and boolean outcomes, so the holdout's values are never read afterw
 
 import polars as pl
 
-from ingest.hl import HOUR
-from ingest.store import DELTA
+from ingest.policy import BAR, DELTA, HOUR
 
-BAR = 4 * HOUR
 FUNDING_CAP = 0.04
 
 

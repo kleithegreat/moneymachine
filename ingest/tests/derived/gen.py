@@ -2,7 +2,8 @@
 
 import random
 
-H = 3_600_000
+from ingest.policy import HOUR as H
+
 LAG = 600_000
 
 

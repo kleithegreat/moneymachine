@@ -4,7 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from gate import stage3, sweep
+from gate import kernel, stage3, sweep
 from gate.markets import write_market
 
 REPO = Path(__file__).resolve().parents[2]
@@ -23,7 +23,7 @@ def test_c32_report_counts_crashes(tmp_path, monkeypatch):
 
 
 def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path):
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     m = write_market(tmp_path / "m", days=30)
     ledger = tmp_path / "l.sqlite"
     for agent in ("A", "A", "G100"):

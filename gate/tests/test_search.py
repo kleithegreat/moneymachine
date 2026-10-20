@@ -8,14 +8,14 @@ from pathlib import Path
 
 import numpy as np
 
-from gate import markets, search
+from gate import kernel, markets, search
+from gate.kernel import MM
 
 REPO = Path(__file__).resolve().parents[2]
-MM = REPO / "kernel/target/release/mm"
 
 
 def test_event_feature_runs_where_events_exist(tmp_path):
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     events = {"arrays": np.random.default_rng(0).poisson(2.0, (500, 2)).tolist(), "coins": [0, 3], "block_hours": 24}
     plain = markets.write_market(tmp_path / "plain", days=30)
     with_events = markets.write(tmp_path / "ev", markets.generate("N1", None, "ev", 30, events=events), 0,

@@ -5,12 +5,12 @@ import time
 
 import httpx
 
+from ingest.policy import DAY, HOUR
+
 URL = "https://api.hyperliquid.xyz/info"
 DOCUMENTED_WEIGHT_PER_MIN = 1200
 BUDGET_PER_MIN = DOCUMENTED_WEIGHT_PER_MIN // 2
 
-HOUR = 3_600_000
-DAY = 24 * HOUR
 INTERVAL_MS = {"1h": HOUR, "4h": 4 * HOUR, "1d": DAY}
 
 

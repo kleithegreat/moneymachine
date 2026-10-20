@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 from gate.agent.daemon import Daemon
+from gate.kernel import MM
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -89,7 +90,7 @@ def harness_hash():
 def run_agent(market, ledger, campaign, workdir, budget=100, prompt=PROMPT, agent="A", swarm=None):
     workdir = Path(workdir)
     work, home = build_workspace(workdir, swarm is not None)
-    daemon = Daemon(work / "mm-agent.sock", REPO / "kernel/target/release/mm", market, ledger, campaign, agent, budget,
+    daemon = Daemon(work / "mm-agent.sock", MM, market, ledger, campaign, agent, budget,
                     workdir / "daemon.log", swarm).serve()
     argv = [claude_binary(), "-p", prompt, "--model", MODEL, "--output-format", "stream-json", "--verbose", *TOOLS]
     transcript = workdir / "transcript.jsonl"
@@ -114,7 +115,7 @@ def run_agent(market, ledger, campaign, workdir, budget=100, prompt=PROMPT, agen
            "stopped": stopped, "exit": proc.returncode, "seconds": round(time.time() - started), "harness": harness_hash(),
            "transcript_sha256": hashlib.sha256(transcript.read_bytes()).hexdigest()}
     (workdir / "run.json").write_text(json.dumps(run))
-    subprocess.run([str(REPO / "kernel/target/release/mm"), "disclose", str(workdir / "run.json"), "--campaign", campaign,
+    subprocess.run([str(MM), "disclose", str(workdir / "run.json"), "--campaign", campaign,
                     "--agent", agent, "--kind", "run", "--ledger", str(ledger)], check=True, capture_output=True)
     return run
 

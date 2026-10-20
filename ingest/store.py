@@ -14,11 +14,8 @@ from pathlib import Path
 
 import polars as pl
 
-_POLICY = json.loads((Path(__file__).parent.parent / "policy.json").read_text())
-DELTA = _POLICY["delta_ms"]
-W_START = _POLICY["w_start"]
-HOLDOUT_START = _POLICY["holdout_start"]
-W_END = _POLICY["w_end"]
+from ingest.policy import HOLDOUT_START, POLICY
+
 
 KEY = ["coin", "eventTime"]
 META = ["knownAt", "fetchedAt", "source", "hash"]
@@ -105,8 +102,8 @@ def stores(data_root):
     bound = root / "store" / "policy.json"
     bound.parent.mkdir(parents=True, exist_ok=True)
     if not bound.exists():
-        bound.write_text(json.dumps(_POLICY, indent=1) + "\n")
-    if json.loads(bound.read_text()) != _POLICY:
+        bound.write_text(json.dumps(POLICY, indent=1) + "\n")
+    if json.loads(bound.read_text()) != POLICY:
         raise ValueError(f"{bound} differs from the repository policy")
     return Store(root / "store", event_before=HOLDOUT_START), Store(root / "holdout")
 

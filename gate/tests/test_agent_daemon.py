@@ -3,16 +3,16 @@
 import json
 import socket
 import sqlite3
-import subprocess
 from pathlib import Path
 
 import pytest
 
+from gate import kernel
 from gate.agent.daemon import FIELDS, Daemon
+from gate.kernel import MM
 from gate.markets import write_market
 
 REPO = Path(__file__).resolve().parents[2]
-MM = REPO / "kernel/target/release/mm"
 W0 = json.loads((REPO / "kernel/strategies/w0.json").read_text())
 
 
@@ -25,7 +25,7 @@ def call(sock, req):
 
 @pytest.fixture
 def daemon(tmp_path):
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
     d = Daemon(tmp_path / "a.sock", MM, market, tmp_path / "l.sqlite", "camp", "A", 3, tmp_path / "log.jsonl").serve()
     yield d, tmp_path
@@ -72,7 +72,7 @@ def test_bad_requests(daemon):
 
 def test_swarm_history_is_shared_logged_and_capped(tmp_path):
     from gate.agent.daemon import HISTORY_LIMIT, Swarm
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     market = write_market(tmp_path / "m", market_id="swarm", days=40, holdout_days=10)
     swarm, ledger = Swarm(), tmp_path / "l.sqlite"
     ds = [Daemon(tmp_path / f"{a}.sock", MM, market, ledger, "camp", a, 5, tmp_path / f"{a}.log", swarm).serve()
@@ -98,7 +98,7 @@ def test_history_injection_cannot_change_daemon_behavior(tmp_path):
     """C4.3: text one agent submits reaches others only as data: it cannot add kernel requests,
     forge another agent's records, or move any daemon's budget, history count or responses."""
     from gate.agent.daemon import Swarm
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     market = write_market(tmp_path / "m", market_id="inject", days=40, holdout_days=10)
     swarm, ledger = Swarm(), tmp_path / "l.sqlite"
     ds = [Daemon(tmp_path / f"{a}.sock", MM, market, ledger, "camp", a, 3, tmp_path / f"{a}.log", swarm).serve()

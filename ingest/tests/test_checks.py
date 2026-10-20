@@ -2,10 +2,9 @@ import polars as pl
 
 from ingest import checks
 from ingest.backfill import bar_frame, funding_frame
-from ingest.hl import HOUR
-from ingest.store import DELTA, Store
+from ingest.policy import BAR, DELTA, HOUR
+from ingest.store import Store
 
-BAR = 4 * HOUR
 
 
 def frames(hours, skip_funding=(), skip_bars=()):

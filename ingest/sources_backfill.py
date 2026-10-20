@@ -17,9 +17,10 @@ import polars as pl
 
 from ingest.live import ms
 from ingest.sources_record import FORUMS
-from ingest.store import W_START, Store
+from ingest.policy import DAY, W_START
+from ingest.store import Store
 
-START = W_START - 30 * 86_400_000
+START = W_START - 30 * DAY
 PAUSE = 2.0
 
 

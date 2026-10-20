@@ -12,10 +12,9 @@ from arch import arch_model
 from statsmodels.tsa.regime_switching.markov_regression import MarkovRegression
 
 from gate import markets
-from ingest.store import HOLDOUT_START, Store
+from ingest.policy import HOLDOUT_START, HOUR
+from ingest.store import Store
 
-HOUR = 3_600_000
-BAR = 4 * HOUR
 MIN_BARS = 1000
 
 

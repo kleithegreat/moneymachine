@@ -10,10 +10,12 @@ from pathlib import Path
 
 import pytest
 
+from gate import kernel
+from ingest.policy import DAY
+from gate.kernel import MM
 from gate.markets import write_market
 
 REPO = Path(__file__).resolve().parents[3]
-MM = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "kernel" / "target")) / "release" / "mm"
 W0 = REPO / "kernel" / "strategies" / "w0.json"
 IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end", "dataset_version", "data_hash",
             "conventions", "rules_hash", "execution_hash", "kernel", "seed", "identity", "mechanism", "equivalence"]
@@ -21,7 +23,7 @@ IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end",
 
 @pytest.fixture(scope="module")
 def market(tmp_path_factory):
-    subprocess.run(["cargo", "build", "-q", "--release"], cwd=REPO / "kernel", check=True)
+    kernel.build()
     return write_market(tmp_path_factory.mktemp("m"), market_id="cli", days=40, holdout_days=10)
 
 
@@ -167,7 +169,7 @@ def test_holdout_from_and_overlap(tmp_path):
     ledger = tmp_path / "l.sqlite"
     m = Path(market)
     policy = json.loads((m / "store" / "policy.json").read_text())
-    later = policy["holdout_start"] + 5 * 24 * 3_600_000
+    later = policy["holdout_start"] + 5 * DAY
     base = [str(MM), "holdout", str(W0), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
             "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--ledger", str(ledger)]
     r = subprocess.run(base + ["--holdout-from", str(later)], capture_output=True, text=True)

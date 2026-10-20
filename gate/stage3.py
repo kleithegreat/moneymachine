@@ -13,12 +13,12 @@ import time
 from pathlib import Path
 
 from gate import gate, markets, search, sweep
+from gate.kernel import MM
 from gate.agent import harness
+from ingest.policy import DAY
 
 REPO = Path(__file__).resolve().parents[1]
-MM = REPO / "kernel/target/release/mm"
 OUT = REPO / "data" / "stage3"
-DAY = 24 * 3_600_000
 BUDGET = 100
 NULL_REPORT_FROM_DAY = 640
 REAL_REPORT_FROM = 1782864000000  # 2026-07-01, after the agent model's knowledge cutoff (June 2026)
@@ -117,7 +117,7 @@ def real_campaign(data_root, version, cid="stage3-real"):
         (market / name).symlink_to(Path(target).resolve())
     ledger = work / "ledger.sqlite"
     run, report_a, mech, kept_a = arm_a(market, ledger, cid, work / "run")
-    spent_b = search.run("G100", MM, market, ledger, cid, markets.seed_of(cid))
+    spent_b = search.run("G100", MM, market, ledger, cid, markets.market_seed(cid))
     finalists_b, report_b = gate.search_decision(ledger, cid, "G100")
     kept_b = gate.programs(ledger, finalists_b)
     freeze(ledger, cid, kept_a, "A")
