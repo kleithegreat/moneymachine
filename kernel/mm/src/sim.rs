@@ -6,7 +6,7 @@
 //! H + delta for H in (b, B]; and the decision at B + delta, filled at B + 4h. A fill happens
 //! only if a later bar will mark it, so the last equity mark accounts for every fill.
 
-use crate::dsl::Program;
+use crate::dsl::{Program, EVENT_INPUTS};
 use crate::machine::Machine;
 use crate::market::{Market, Policy, Venue, BAR, HOUR};
 use std::collections::BTreeMap;
@@ -221,11 +221,8 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
     }
     let mut machine = Machine::new(prog, n);
-    let event_slots: Vec<(usize, &Vec<crate::market::Event>)> = crate::market::EVENT_DATASETS
-        .iter()
-        .enumerate()
-        .filter_map(|(slot, ds)| market.events.get(ds).map(|v| (slot, v)))
-        .collect();
+    let event_slots: Vec<(usize, &Vec<crate::market::Event>)> =
+        EVENT_INPUTS.iter().enumerate().filter_map(|(slot, (_, ds))| market.events.get(ds).map(|v| (slot, v))).collect();
     let mut e_order: Vec<(i64, usize, usize, usize)> = event_slots
         .iter()
         .flat_map(|(slot, v)| v.iter().enumerate().map(move |(i, e)| (e.known, e.coin, *slot, i)))

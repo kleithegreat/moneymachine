@@ -61,6 +61,11 @@ pub enum Ty {
     Bool,
 }
 
+/// Event inputs, as (DSL name, store dataset): hourly counts defined only at their own hour's tick
+/// (DSL.md). An event input is declared here and nowhere else; the machine, the loader and the
+/// simulator index event inputs by their row in this table.
+pub const EVENT_INPUTS: [(&str, &str); 2] = [("forum_posts", "events_forum"), ("gov_proposals", "events_governance")];
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Input {
     Funding,
@@ -70,45 +75,50 @@ pub enum Input {
     Low,
     Close,
     Volume,
-    ForumPosts,
-    Proposals,
+    /// A row of EVENT_INPUTS.
+    Event(usize),
 }
 
-impl Input {
-    pub const ALL: [Input; 9] = [
-        Input::Funding,
-        Input::Premium,
-        Input::Open,
-        Input::High,
-        Input::Low,
-        Input::Close,
-        Input::Volume,
-        Input::ForumPosts,
-        Input::Proposals,
-    ];
+/// Held inputs: (DSL name, input, unit). Each holds its latest delivered value.
+const HELD: [(&str, Input, &str); 7] = [
+    ("funding", Input::Funding, "1/h"),
+    ("premium", Input::Premium, "1"),
+    ("open", Input::Open, "usd/coin"),
+    ("high", Input::High, "usd/coin"),
+    ("low", Input::Low, "usd/coin"),
+    ("close", Input::Close, "usd/coin"),
+    ("volume", Input::Volume, "coin"),
+];
 
-    pub fn name(self) -> &'static str {
-        ["funding", "premium", "open", "high", "low", "close", "volume", "forum_posts", "gov_proposals"][self as usize]
+impl Input {
+    pub fn parse(name: &str) -> Option<Input> {
+        HELD.iter()
+            .find(|h| h.0 == name)
+            .map(|h| h.1)
+            .or_else(|| EVENT_INPUTS.iter().position(|e| e.0 == name).map(Input::Event))
     }
 
-    /// The store dataset of an event input (hourly counts); None for funding and bar inputs.
+    pub fn name(self) -> &'static str {
+        match self {
+            Input::Event(slot) => EVENT_INPUTS[slot].0,
+            held => HELD.iter().find(|h| h.1 == held).unwrap().0,
+        }
+    }
+
+    /// The store dataset of an event input; None for held inputs.
     pub fn event_dataset(self) -> Option<&'static str> {
         match self {
-            Input::ForumPosts => Some("events_forum"),
-            Input::Proposals => Some("events_governance"),
+            Input::Event(slot) => Some(EVENT_INPUTS[slot].1),
             _ => None,
         }
     }
 
     fn unit(self) -> Unit {
-        let u = match self {
-            Input::Funding => "1/h",
-            Input::Premium => "1",
-            Input::Volume => "coin",
-            Input::ForumPosts | Input::Proposals => "ev",
-            _ => "usd/coin",
-        };
-        Unit::parse(u).unwrap()
+        Unit::parse(match self {
+            Input::Event(_) => "ev",
+            held => HELD.iter().find(|h| h.1 == held).unwrap().2,
+        })
+        .unwrap()
     }
 }
 
@@ -429,10 +439,10 @@ impl Checker {
         if m.contains_key("input") {
             let m = fields(v, path, &["input"], &[])?;
             let name = string(&m["input"], path)?;
-            let Some(inp) = Input::ALL.iter().find(|i| i.name() == name) else {
+            let Some(inp) = Input::parse(name) else {
                 return reject(Code::UnknownInput, path, format!("unknown input `{name}`"));
             };
-            return Ok(self.intern(Node::Input(*inp), Ty::Num(inp.unit())));
+            return Ok(self.intern(Node::Input(inp), Ty::Num(inp.unit())));
         }
         if m.contains_key("const") {
             let m = fields(v, path, &["const", "unit"], &[])?;

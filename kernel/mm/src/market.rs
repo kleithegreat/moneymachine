@@ -4,6 +4,7 @@
 //! largest fetchedAt <= version. In search mode any row with eventTime >= holdout start
 //! aborts the load (I8), whichever file it came from.
 
+use crate::dsl::EVENT_INPUTS;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::record::Field;
 use serde_json::Value;
@@ -54,8 +55,6 @@ pub struct Event {
     pub known: i64,
     pub count: f64,
 }
-
-pub const EVENT_DATASETS: [&str; 2] = ["events_forum", "events_governance"];
 
 #[derive(Debug)]
 pub struct CoinRules {
@@ -223,24 +222,24 @@ fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>)
 pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market, LoadError> {
     let coin_ix: HashMap<&str, usize> = venue.coins.iter().enumerate().map(|(i, c)| (c.as_str(), i)).collect();
     let mut hasher = Sha256::new();
-    let mut rows = |dataset: &str| -> Result<Vec<Row>, LoadError> {
+    let mut rows = |dataset: &str, required: bool| -> Result<Vec<Row>, LoadError> {
         let mut all = vec![];
         for s in stores {
-            if s.join(dataset).exists() || !dataset.starts_with("events_") {
+            if required || s.join(dataset).exists() {
                 all.extend(read_rows(&s.join(dataset), version, &mut hasher)?);
             }
         }
         Ok(all)
     };
-    let f_rows = resolve(rows("funding")?, &coin_ix, holdout)?;
-    let b_rows = resolve(rows("bars_4h")?, &coin_ix, holdout)?;
+    let f_rows = resolve(rows("funding", true)?, &coin_ix, holdout)?;
+    let b_rows = resolve(rows("bars_4h", true)?, &coin_ix, holdout)?;
     let mut events = HashMap::new();
-    for ds in EVENT_DATASETS {
+    for (_, ds) in EVENT_INPUTS {
         if !stores.iter().any(|s| s.join(ds).exists()) {
             continue;
         }
         let mut v = vec![];
-        for r in resolve(rows(ds)?, &coin_ix, holdout)? {
+        for r in resolve(rows(ds, false)?, &coin_ix, holdout)? {
             v.push(Event { coin: coin_ix[text(&r, "coin")?], event: long(&r, "eventTime")?, known: long(&r, "knownAt")?, count: double(&r, "count")? });
         }
         events.insert(ds, v);

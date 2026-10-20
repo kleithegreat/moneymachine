@@ -3,7 +3,7 @@
 //! Observations enter only through `deliver`, which enforces I1. `tick` evaluates every
 //! node for every listed coin; values are `None` when undefined or non-finite.
 
-use crate::dsl::{Input, Node, Op, Program, Window};
+use crate::dsl::{Input, Node, Op, Program, Window, EVENT_INPUTS};
 use crate::market::{Bar, Event, Funding, HOUR};
 use std::collections::VecDeque;
 
@@ -145,7 +145,7 @@ impl<'p> Machine<'p> {
             wins,
             funding: vec![None; coins],
             bar: vec![None; coins],
-            events: vec![vec![None; coins]; 2],
+            events: vec![vec![None; coins]; EVENT_INPUTS.len()],
             since: vec![vec![None; coins]; prog.nodes.len()],
             hour: i64::MIN,
             max_known: i64::MIN,
@@ -170,7 +170,7 @@ impl<'p> Machine<'p> {
         Ok(())
     }
 
-    /// `slot` is 0 for forum posts, 1 for governance proposals.
+    /// `slot` is the event input's row in EVENT_INPUTS.
     pub fn deliver_event(&mut self, slot: usize, e: Event, tick: i64) -> Result<(), Causality> {
         if e.known > tick {
             return Err(Causality { known: e.known, tick });
@@ -183,8 +183,7 @@ impl<'p> Machine<'p> {
     fn input(&self, i: Input, c: usize) -> Option<f64> {
         let fresh = |slot: usize| self.events[slot][c].filter(|e| e.event == self.hour).map(|e| e.count);
         match i {
-            Input::ForumPosts => fresh(0),
-            Input::Proposals => fresh(1),
+            Input::Event(slot) => fresh(slot),
             Input::Funding => self.funding[c].map(|f| f.rate),
             Input::Premium => self.funding[c].map(|f| f.premium),
             Input::Open | Input::High | Input::Low | Input::Close | Input::Volume => self.bar[c].map(|b| match i {
