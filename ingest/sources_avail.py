@@ -2,15 +2,12 @@
 pre-registered rule (venue/sources/discourse.md): existence known at created + 600 s, content at
 updated + 600 s. Posts already present in a forum's first poll are not new, so they are skipped."""
 
-import json
-import sys
 from pathlib import Path
 
 from ingest.live import ms, read
 from ingest.policy import HOUR
 
 RULE_MS = 600_000
-MIN_ITEMS = 30
 
 
 def polls(live_dir):
@@ -52,7 +49,6 @@ def analyze(live_dir):
         "max_poll_gap_minutes": round(span_h * 60, 1),
         "clock_offset_ms": {"max_abs": max(offsets), "n": len(offsets)} if offsets else None,
         "hours_recorded": round((max(last_poll.values(), default=0) - min(first_poll.values(), default=0)) / HOUR, 1),
-        "validated": len(items) >= MIN_ITEMS and all(i["ok"] for i in items) and all(e["ok"] for e in edits),
     }
 
 
@@ -81,8 +77,3 @@ def reconcile(data_root, live_dir, version):
     return {"live_items": len(seen), "deleted": len(missing), "edited": len(changed), "backdated": len(backdated),
             "backdated_examples": backdated[:10]}
 
-
-if __name__ == "__main__":
-    cmd, *args = sys.argv[1:]
-    out = analyze(*args) if cmd == "analyze" else reconcile(args[0], args[1], int(args[2]))
-    print(json.dumps(out, indent=1))

@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import sys
 import warnings
 from pathlib import Path
 
@@ -94,9 +93,10 @@ def fit(data_root, version, coins):
     return params
 
 
-if __name__ == "__main__":
-    data_root, version, out = sys.argv[1], int(sys.argv[2]), Path(sys.argv[3])
+
+def write(data_root, version, out):
+    """Fit to the search part of the store at `version`; returns the file's sha256 (the frozen hash)."""
     coins = list(json.loads((Path(__file__).resolve().parents[1] / "venue/hyperliquid/rules.json").read_text())["coins"])
-    text = json.dumps(fit(data_root, version, coins), indent=1, default=float) + "\n"
-    out.write_text(text)
-    print(hashlib.sha256(text.encode()).hexdigest())
+    text = json.dumps(fit(data_root, int(version), coins), indent=1, default=float) + "\n"
+    Path(out).write_text(text)
+    return hashlib.sha256(text.encode()).hexdigest()

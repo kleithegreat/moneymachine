@@ -14,7 +14,6 @@ then the decision at b + 4h + delta.
 
 import json
 import math
-import sys
 from pathlib import Path
 
 import polars as pl
@@ -25,6 +24,7 @@ from ingest.store import stores
 
 INITIAL = 10_000.0
 THRESHOLD = 1e-4
+VENUE = Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"
 SIZE = 0.008333333333333333  # W0's per-coin weight, 0.1 / |U|, as the literal in kernel/strategies/w0.json
 
 
@@ -71,7 +71,7 @@ class Book:
         return INITIAL + self.realized + unrealized - self.fees + self.funding
 
 
-def run(data_root, version, venue=Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"):
+def run(data_root, version, venue=VENUE):
     root = Path(data_root)
     search, _ = stores(root)
     venue = Path(venue)
@@ -155,11 +155,11 @@ def run(data_root, version, venue=Path(__file__).resolve().parents[1] / "venue" 
     return trace, worst
 
 
-if __name__ == "__main__":
-    data_root, version, out, *venue = sys.argv[1:]
-    trace, worst = run(data_root, int(version), *venue)
+
+def replay(data_root, version, out, venue=VENUE):
+    """W0's trace to `out`; returns its summary."""
+    trace, worst = run(data_root, int(version), venue)
     Path(out).write_text("\n".join(json.dumps(r) for r in trace) + "\n")
     eq = [r for r in trace if r["type"] == "equity"]
-    print(json.dumps({"steps": len(eq), "final_equity": eq[-1]["equity"], "worst_reconciliation_rel": worst,
-                      "fills": sum(r["type"] == "fill" for r in trace),
-                      "holds": sum(r["type"] == "hold" for r in trace)}))
+    return {"steps": len(eq), "final_equity": eq[-1]["equity"], "worst_reconciliation_rel": worst,
+            "fills": sum(r["type"] == "fill" for r in trace), "holds": sum(r["type"] == "hold" for r in trace)}

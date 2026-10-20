@@ -1,22 +1,26 @@
-"""Stage 2 sweeps: C2.4 (complete null), C2.5/C2.6 (mixed and power), oracle calibration, truth;
-and C5.6's rerun of C2.4 (G400 on N2) with the real forum counts replayed.
+"""Sweeps of baseline-searcher campaigns on simulated markets: the complete null, mixed markets with
+planted signals (with the oracle's beta calibrated to a target Sharpe, and each promotion judged
+true or false on fresh years), and the complete null with real event counts replayed.
 
 Every campaign result is appended to data/campaigns/<sweep>.jsonl and never rewritten. A rerun
-skips ids already recorded, so sweeps resume after an interruption. `truth` judges every C2.5
-promotion on 200 fresh years (truth.jsonl), and `report` applies C2.4 to C2.6 to the logs.
+skips ids already recorded, so sweeps resume after an interruption. Campaign ids are committed:
+seeds derive from them.
 """
 
 import json
 import math
-import sys
+import sqlite3
+import subprocess
+import tempfile
 from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
 from scipy import stats
 
-from gate import c21, campaign
-from gate.markets import generate, store_events, write
+from gate import campaign
+from gate.kernel import MM
+from gate.markets import generate, write
 
 OUT = Path("data/campaigns")
 PLANTED = (0, 1)
@@ -24,6 +28,7 @@ DAYS, HOLDOUT_DAYS = 730, 180
 TRUTH_MARKETS, TRUTH_YEARS = 20, 10
 ORACLE = Path("gate/strategies/oracle.json")
 PER_YEAR = 365 * 6
+TOP5_CAMPAIGNS = 20
 
 
 def params():
@@ -56,27 +61,31 @@ def spec(cid, model, searcher, planted=(), beta=0.0):
             "beta": beta, "cost_cells": cost_cells(), "days": DAYS, "holdout_days": HOLDOUT_DAYS}
 
 
-def c24_specs(markets=300):
+def null_specs(markets=300):
     return [spec(f"c24-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
             for i in range(markets)]
 
 
+def mixed_specs(betas, markets=100):
+    return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
+            for i in range(markets)]
+
+
+def events_specs(events, markets=300):
+    return [{**spec(f"c56-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
+
+
 def net_returns(program, model, beta, market_id, years):
     """Per-step net returns of a program on one fresh market without holdout."""
-    import subprocess
-    import tempfile
-
     with tempfile.TemporaryDirectory() as tmp:
         root = write(Path(tmp) / "m", generate(model, params().get(model), market_id, years * 365, PLANTED, beta), 0,
                      cost_cells())
         p = Path(tmp) / "p.json"
         p.write_text(json.dumps(program))
-        out = subprocess.run([campaign.MM, "eval", str(p), "--campaign", market_id, "--agent", "truth",
+        out = subprocess.run([MM, "eval", str(p), "--campaign", market_id, "--agent", "truth",
                               "--store", str(root / "store"), "--venue", str(root / "venue"),
                               "--ledger", str(Path(tmp) / "l.sqlite")],
                              capture_output=True, text=True, check=True)
-        import sqlite3
-
         exp = json.loads(out.stdout)["experiment"]
         blob = sqlite3.connect(Path(tmp) / "l.sqlite").execute(
             "SELECT returns FROM results WHERE experiment_id = ?", (exp,)).fetchone()[0]
@@ -102,6 +111,11 @@ def calibrate_beta(model, target, lo=0.0, hi=0.05, steps=12):
     return (lo + hi) / 2
 
 
+def betas():
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "betas.json").write_text(json.dumps({f"{m}-{s}": calibrate_beta(m, s) for m in ("N2", "N3") for s in (1, 2, 3)}, indent=1))
+
+
 def is_true(program, model, beta, tag):
     """True iff mean net return over 200 fresh years is positive with a 99% CI excluding 0."""
     means = np.array([net_returns(program, model, beta, f"truth-{tag}-{i}", TRUTH_YEARS).mean()
@@ -110,12 +124,9 @@ def is_true(program, model, beta, tag):
     return bool(lo > 0)
 
 
-def c56_specs(events, markets=300):
-    return [{**spec(f"c56-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
-
-
 def results(name):
-    return [json.loads(l) for l in open(OUT / f"{name}.jsonl")]
+    path = OUT / f"{name}.jsonl"
+    return [json.loads(l) for l in open(path)] if path.exists() else []
 
 
 def cp_upper(k, n, level=0.95):
@@ -132,22 +143,24 @@ def truth_id(campaign_id, h):
 
 
 def truth():
-    """C2.5: whether each promotion of the mixed sweep is true, appended to truth.jsonl."""
-    path, betas = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
+    """Whether each promotion of the mixed sweep is true, appended to truth.jsonl."""
+    path, beta = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
     done = recorded(path)
     with open(path, "a") as fh:
-        for r in results("c25"):
+        for r in results("mixed"):
             _, model, s, _ = r["id"].split("-")
             for p in r.get("promoted", []):
                 tid = truth_id(r["id"], p["hash"])
                 if tid not in done:
-                    fh.write(json.dumps({"id": tid, "true": is_true(p["program"], model, betas[f"{model}-{s[1:]}"], tid)}) + "\n")
+                    fh.write(json.dumps({"id": tid, "true": is_true(p["program"], model, beta[f"{model}-{s[1:]}"], tid)}) + "\n")
                     fh.flush()
 
 
-def report_c24():
+def null_summary(name="null"):
+    """Per (model, searcher): campaigns, promoting campaigns (a crash promotes), campaigns where SPA
+    rejected and finalists existed, and one-sided 95% Clopper-Pearson upper bounds on both rates."""
     cells = {}
-    for r in results("c24"):
+    for r in results(name):
         _, model, searcher, _ = r["id"].split("-")
         c = cells.setdefault(f"{model}-{searcher}", {"n": 0, "promoted": 0, "spa_and_finalists": 0})
         c["n"] += 1
@@ -155,15 +168,15 @@ def report_c24():
         c["spa_and_finalists"] += bool(r.get("crash")) or bool(r["search"]["finalists"])
     for c in cells.values():
         c["promoted_upper"], c["spa_upper"] = cp_upper(c["promoted"], c["n"]), cp_upper(c["spa_and_finalists"], c["n"])
-        c["pass"] = c["n"] == 300 and c["promoted_upper"] <= 0.05 and c["spa_upper"] <= 0.10
     return cells
 
 
-def report_c25():
-    """FDR (crash = one false promotion) with a one-sided Hoeffding bound, and power, per cell."""
+def mixed_summary():
+    """Per (model, s): FDR (a crash is one false promotion) with a one-sided Hoeffding upper bound
+    at 95% over markets, and the rate of markets with a true promotion with its 95% CI."""
     true = {t["id"]: t["true"] for t in results("truth")}
     cells = {}
-    for r in results("c25"):
+    for r in results("mixed"):
         _, model, s, _ = r["id"].split("-")
         ts = [False] if r.get("crash") else [true[truth_id(r["id"], p["hash"])] for p in r["promoted"]]
         c = cells.setdefault(f"{model}-{s}", {"n": 0, "fdp": [], "with_true": 0})
@@ -174,45 +187,34 @@ def report_c25():
         fdr = float(np.mean(c.pop("fdp")))
         c.update(fdr=fdr, fdr_upper=fdr + math.sqrt(math.log(20) / (2 * c["n"])), power=c["with_true"] / c["n"],
                  power_ci=cp_interval(c["with_true"], c["n"]))
-        c["pass_fdr"] = c["n"] == 100 and c["fdr_upper"] <= 0.20
     return cells
 
 
-def c21_top5_programs(first=20):
-    """The in-sample top-5 strategies of the first 20 C2.4 campaigns in c24_specs() order."""
-    by_id = {r["id"]: r for r in results("c24")}
+def summary(out):
+    Path(out).write_text(json.dumps({"null": null_summary(), "mixed": mixed_summary(), "events": null_summary("events")},
+                                    indent=1) + "\n")
+
+
+def top5_programs(first=TOP5_CAMPAIGNS):
+    """The in-sample top-5 strategies of the first `first` complete-null campaigns in null_specs() order."""
+    by_id = {r["id"]: r for r in results("null")}
     out = []
-    for s in c24_specs()[:first]:
+    for s in null_specs()[:first]:
         for rank, p in enumerate(by_id[s["id"]].get("top5", [])):
             out.append({**p["program"], "name": f"top5-{s['id']}-{rank}"})
     return out
 
 
-def c25_specs(betas, markets=100):
-    return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
-            for i in range(markets)]
+def sweep(name, data_root=None, version=None):
+    """Run the `null`, `mixed` or `events` sweep (events: real forum counts at a dataset version)."""
+    from gate.markets import store_events
 
-
-if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
-    what = sys.argv[1]
-    if what == "c24":
-        run_all(c24_specs(), OUT / "c24.jsonl")
-    elif what == "calibrate":
-        betas = {f"{m}-{s}": calibrate_beta(m, s) for m in ("N2", "N3") for s in (1, 2, 3)}
-        (OUT / "betas.json").write_text(json.dumps(betas, indent=1))
-        print(betas)
-    elif what == "c56":
-        data_root, version = Path(sys.argv[2]), int(sys.argv[3])
-        coins = tuple(json.loads((data_root / "universe.json").read_text())["universe"])
-        run_all(c56_specs(store_events(str(data_root / "store"), version, coins)), OUT / "c56.jsonl")
-    elif what == "c25":
-        run_all(c25_specs(json.loads((OUT / "betas.json").read_text())), OUT / "c25.jsonl")
-    elif what == "truth":
-        truth()
-    elif what == "c21top":
-        c21.main("audit/stage2/c21-top5.json", c21_top5_programs())
-    elif what == "report":
-        c25 = report_c25() if (OUT / "c25.jsonl").exists() else None
-        out = {"c24": report_c24(), "c25": c25, "c26_pass": c25 is not None and c25["N2-s3"]["power"] >= 0.30}
-        print(json.dumps(out, indent=1))
+    if name == "null":
+        specs = null_specs()
+    elif name == "mixed":
+        specs = mixed_specs(json.loads((OUT / "betas.json").read_text()))
+    else:
+        coins = tuple(json.loads((Path(data_root) / "universe.json").read_text())["universe"])
+        specs = events_specs(store_events(str(Path(data_root) / "store"), int(version), coins))
+    run_all(specs, OUT / f"{name}.jsonl")

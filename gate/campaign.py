@@ -1,12 +1,9 @@
-"""One stage 2 campaign: market -> searcher -> gate -> holdout, appended to a campaign log.
+"""One baseline-searcher campaign on a simulated market: market -> searcher -> gate -> holdout.
 
-A crash is recorded as a result with "crash" set; C2.4 counts it as a promotion.
+A crash is recorded as a result with "crash" set, and counts as a promotion.
 """
 
-import json
 import shutil
-import subprocess
-import sys
 import tempfile
 import time
 import traceback
@@ -14,7 +11,6 @@ from pathlib import Path
 
 from gate import gate, markets, search
 from gate.kernel import MM
-
 
 
 def run_campaign(spec, keep=None):
@@ -28,11 +24,9 @@ def run_campaign(spec, keep=None):
         ledger = root / "ledger.sqlite"
         spent = search.run(spec["searcher"], MM, root, ledger, spec["id"], markets.market_seed(spec["id"]))
         finalists, report = gate.search_decision(ledger, spec["id"])
-        for h in finalists:
-            subprocess.run([str(MM), "select", h, "--campaign", spec["id"], "--agent", "gate", "--note", "finalist",
-                            "--ledger", str(ledger)], check=True, capture_output=True)
+        gate.freeze(ledger, spec["id"], finalists, "finalist")
         programs = gate.programs(ledger, finalists)
-        promoted, holdout = gate.holdout_decision(MM, root, ledger, spec["id"], programs)
+        promoted, holdout = gate.holdout_decision(root, ledger, spec["id"], programs)
         top = gate.programs(ledger, report.get("top5", []))
         result = {"spent": spent, "search": report, "holdout": holdout,
                   "promoted": [{"hash": h, "program": programs[h]} for h in promoted],
@@ -50,7 +44,3 @@ def run_campaign(spec, keep=None):
 def promoted_anything(result):
     return bool(result.get("crash")) or bool(result.get("promoted"))
 
-
-if __name__ == "__main__":
-    spec = json.loads(sys.argv[1])
-    print(json.dumps(run_campaign(spec)))

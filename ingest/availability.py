@@ -8,6 +8,7 @@ boundary or the previous poll of the same row (PROGRESS.md, C0.7 revisions of 20
 import json
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 from ingest.backfill import funding_known
 from ingest.live import read
@@ -103,5 +104,7 @@ def analyze(polls):
     }
 
 
-if __name__ == "__main__":
-    print(json.dumps({"window": window(sys.argv[1]), **analyze(judged(sys.argv[1]))}, indent=1))
+
+def report(live_dir, out):
+    """The judged window and the analysis of the polls inside it."""
+    Path(out).write_text(json.dumps({"window": window(live_dir), **analyze(judged(live_dir))}, indent=1) + "\n")

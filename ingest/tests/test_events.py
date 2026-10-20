@@ -55,7 +55,7 @@ def test_stored_derivation_recomputes_byte_identically(tmp_path, monkeypatch):
     live = [{"source": "discourse", "key": "delvingbitcoin.org", "sent": t * H, "recv": t * H,
              "data": [{"id": 9, "created_at": iso(30 * H + 7), "updated_at": iso(30 * H + 7), "version": 1}]} for t in (20, 40)]
     root, live_dir = setup(tmp_path, [(1, 10 * H + 5), (2, 33 * H)], live)
-    events.main(root, str(100 * H), live_dir, "admitted")
+    events.main(root, 100 * H, live_dir, True)
     stored = stores(root)[0].revisions("events_forum").sort("eventTime")
     again = events.derive(root, 100 * H, live_dir, True)
     assert again["count"].sum() == 3

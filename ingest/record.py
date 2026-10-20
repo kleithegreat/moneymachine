@@ -111,6 +111,3 @@ def main(universe_path, rules_path, out_dir):
     threading.Thread(target=forever, args=(rec.step_l2,), daemon=True).start()
     forever(rec.step)
 
-
-if __name__ == "__main__":
-    main(*sys.argv[1:])

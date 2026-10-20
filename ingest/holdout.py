@@ -5,7 +5,6 @@ Hashes file bytes without parsing them, so no holdout value is read.
 
 import hashlib
 import json
-import sys
 import time
 from pathlib import Path
 
@@ -22,6 +21,3 @@ def main(data_root, audit_path):
     audit.parent.mkdir(exist_ok=True)
     audit.write_text(json.dumps(entries, indent=1) + "\n")
 
-
-if __name__ == "__main__":
-    main(*sys.argv[1:])

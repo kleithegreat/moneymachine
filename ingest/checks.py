@@ -49,8 +49,6 @@ def coverage(funding, bars, intervals):
             "max_gap_h": max([(b_ - a) / HOUR for a, b_ in fg + bg], default=0),
             "funding_gaps": fg, "bar_gaps": bg,
         }
-        out[coin]["pass"] = (out[coin]["funding_missing"] <= 0.01 * n_f and out[coin]["bars_missing"] <= 0.01 * n_b
-                             and out[coin]["max_gap_h"] <= 24)
     return out
 
 

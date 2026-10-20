@@ -7,7 +7,6 @@ longer lists becomes a tombstone.
 """
 
 import hashlib
-import json
 import sys
 import time
 from pathlib import Path
@@ -53,8 +52,5 @@ def main(data_root):
         rows += got
     store = Store(Path(data_root) / "sources", key=["forum", "upstream_id"])
     written = store.write("discourse", pl.DataFrame(rows), fetched_at, "discourse-posts", complete=pl.col("forum").is_in(forums))
-    print(json.dumps({"version": fetched_at, "written": written}))
+    return {"version": fetched_at, "written": written}
 
-
-if __name__ == "__main__":
-    main(sys.argv[1])

@@ -1,5 +1,5 @@
-"""C2.1: the null markets have no edge. A joint regression of each coin's next-bar epsilon on what is
-observable at the bar's open, and DSL probes whose gross PnL must be indistinguishable from zero."""
+"""Probes of the null markets' lack of edge: a joint regression of each coin's next-bar epsilon on what
+is observable at the bar's open, and DSL probes whose mean gross PnL is z-scored across markets."""
 
 import json
 import subprocess
@@ -10,12 +10,11 @@ import numpy as np
 import statsmodels.api as sm
 
 from gate import markets
+from gate.kernel import MM
 from gate.search import const, op
 
 YEARS_PER_MARKET = 10
 MARKETS = 20
-Z_MAX = 3.7
-P_MIN = 0.001
 
 
 def observables(a, k0=7):
@@ -38,10 +37,10 @@ def observables(a, k0=7):
     return out
 
 
-def regression_pvalues(model, params, events=None):
+def pooled_pvalues(arrays):
+    """Per coin, the HC3 F-test p-value of epsilon on the observables, pooled over markets."""
     rows = None
-    for m in range(MARKETS):
-        a = markets.generate(model, params, f"probe-reg-{model}-{m}", YEARS_PER_MARKET * 365, events=events)
+    for a in arrays:
         obs = observables(a)
         rows = obs if rows is None else [(np.vstack([X0, X]), np.r_[y0, y]) for (X0, y0), (X, y) in zip(rows, obs)]
     pvalues = []
@@ -49,6 +48,11 @@ def regression_pvalues(model, params, events=None):
         X = X[:, X.std(axis=0) > 0]
         pvalues.append(float(sm.OLS(y, sm.add_constant(X)).fit(cov_type="HC3").f_pvalue) if X.shape[1] else 1.0)
     return pvalues
+
+
+def regression_pvalues(model, params, events=None):
+    return pooled_pvalues(markets.generate(model, params, f"probe-reg-{model}-{m}", YEARS_PER_MARKET * 365, events=events)
+                          for m in range(MARKETS))
 
 
 def program(name, weight):
@@ -114,3 +118,18 @@ def probe_zscores(mm, programs, model, params, cost_cells, tag="", events=None):
     if np.any((se == 0) & (mean != 0)):
         raise ValueError("a probe has constant nonzero gross return across markets")
     return {p["name"]: float(x) for p, x in zip(programs, z)}
+
+
+def run(out, extra_programs=None, events=None):
+    """Regression p-values and probe z-scores per null model on the frozen parameters. With `events`
+    (markets.store_events), the markets replay real event counts and event probes join."""
+    params = json.loads(Path("gate/nulls.json").read_text())
+    cells = {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
+    programs = probes(events is not None) + (extra_programs or [])
+    result = {}
+    for model in ("N1", "N2", "N3"):
+        p = params.get(model)
+        pv = regression_pvalues(model, p, events)
+        z = probe_zscores(MM, programs, model, p, cells, tag="-c21", events=events)
+        result[model] = {"regression_p": pv, "min_p": min(pv), "z": z, "max_abs_z": max(abs(v) for v in z.values())}
+    Path(out).write_text(json.dumps(result, indent=1))

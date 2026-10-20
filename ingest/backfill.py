@@ -75,11 +75,8 @@ def main(data_root, budget):
 
     search_intervals = {c: (s, min(e, HOLDOUT_START)) for c, (s, e) in intervals.items()}
     report["replay_search_as_of"] = checks.replay_completeness(funding, bars, search_intervals, view)
-    out = root / "reports" / f"stage0-ingest-{fetched_at}.json"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text(json.dumps(report, indent=1))
-    print(out)
+    out = Path(__file__).resolve().parents[1] / "audit" / "stage0" / f"ingest-{fetched_at}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=1) + "\n")
+    return str(out)
 
-
-if __name__ == "__main__":
-    main(*sys.argv[1:])

@@ -1,7 +1,6 @@
 """Write venue/hyperliquid/rules.json: documented venue rules plus per-coin rules from `meta`."""
 
 import json
-import sys
 import time
 from pathlib import Path
 
@@ -52,8 +51,8 @@ def build(info, coins, today):
     }
 
 
-if __name__ == "__main__":
-    data_root, out = sys.argv[1:]
+
+def write(data_root, out):
     coins = json.loads((Path(data_root) / "universe.json").read_text())["universe"]
     rules = build(Info(), coins, time.strftime("%Y-%m-%d", time.gmtime()))
     Path(out).parent.mkdir(parents=True, exist_ok=True)

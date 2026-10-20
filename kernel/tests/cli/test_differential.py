@@ -15,8 +15,9 @@ TOL = 1e-6
 
 
 def stage0_version():
-    reports = sorted((REPO / "data" / "reports").glob("stage0-ingest-*.json"))
-    return int(reports[0].stem.rsplit("-", 1)[1]) if reports else None
+    """The latest stage 0 dataset version: the judged second fetch once it exists."""
+    reports = sorted((REPO / "audit" / "stage0").glob("ingest-*.json"))
+    return int(reports[-1].stem.rsplit("-", 1)[1]) if reports else None
 
 
 VENUE = Path(os.environ.get("MM_VENUE", REPO / "venue" / "hyperliquid"))

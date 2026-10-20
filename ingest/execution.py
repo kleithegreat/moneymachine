@@ -10,7 +10,6 @@ snapshot where neither book fills the order has infinite cost. A coin without a 
 
 import json
 import math
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -74,7 +73,6 @@ def calibrate_and_validate(cells):
             "n_cal": int(k), "n_test": int(len(test)), "model_bps": q, "coverage": coverage,
             "median_excess_bps": excess, "test_median_bps": float(np.median(finite)) if len(finite) else math.inf,
             "calibration_span": [times[0], times[k - 1]] if k else None,
-            "pass": coverage >= 0.9 and excess <= 3.0,
         }
     return model, report
 
@@ -87,13 +85,12 @@ def fill_missing(model, coins):
     return {c: model.get(c, worst) for c in coins}, flagged
 
 
-if __name__ == "__main__":
-    live_dir, model_out = sys.argv[1:]
+
+def calibrate(live_dir, model_out, report_out):
+    """The cost model from the judged L2 snapshots to `model_out`, its held-out validation to `report_out`."""
     model, report = calibrate_and_validate(costs_by_cell(judged(live_dir)))
     coins = json.loads((Path(__file__).resolve().parents[1] / "data" / "universe.json").read_text())["universe"]
     model, flagged = fill_missing(model, coins)
-    with open(model_out, "w") as f:
-        json.dump({"quantile": QUANTILE, "calibration_fraction": CALIBRATION, "no_live_book_cellwise_max": flagged,
-                   "cost_bps_ex_fee": model}, f, indent=1)
-        f.write("\n")
-    print(json.dumps({"window": window(live_dir), **report}, indent=1))
+    Path(model_out).write_text(json.dumps({"quantile": QUANTILE, "calibration_fraction": CALIBRATION,
+                                           "no_live_book_cellwise_max": flagged, "cost_bps_ex_fee": model}, indent=1) + "\n")
+    Path(report_out).write_text(json.dumps({"window": window(live_dir), **report}, indent=1) + "\n")

@@ -1,7 +1,7 @@
 """C1.1 and C5.5 mutants: each one disables an invariant's check and makes the kernel or the data layer
 commit the prohibited behavior; its named test must then fail, while the unpatched tree passes it.
 
-Run inside nix develop: `python kernel/mutants/mutants.py`. Each mutant is a list of exact,
+Run inside nix develop: `python -m cli mutants`. Each mutant is a list of exact,
 unique (file, old, new) replacements applied to a fresh copy of the working tree.
 """
 
@@ -93,6 +93,3 @@ def main():
         print(("caught " if ok else "MISSED ") + name + ("" if ok else f" (clean={clean}, mutated={mutated})"), flush=True)
     sys.exit(1 if missed else 0)
 
-
-if __name__ == "__main__":
-    main()

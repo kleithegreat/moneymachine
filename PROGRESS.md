@@ -2,28 +2,33 @@
 
 ## Now
 
-Stages run in parallel wherever work does not depend on a wait. Detached processes (kill by PID only): `pgrep -af "python -m ingest.record"` (HL live recorder), `pgrep -af sources_record` (stage 5 forum and Snapshot recorder).
+Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. Detached processes (kill by PID only): `pgrep -af "ingest.record"` (HL live recorder), `pgrep -af sources_record` (stage 5 recorder).
 
+Order while waiting on recording windows (human, 2026-10-20): (a) behavior-preserving cleanup, finished before the first judged run that records a kernel or harness hash (C1.4, stage 2 sweeps, the harness freeze); otherwise it waits until stage 5 exits; (b) stage 10, the thesis track; (c) stage 6, the reference kernels. Stages 7 to 9 start after stage 5 exits.
+
+- **Cleanup (a):** done so far: event inputs in one table; one constants module; one `mm` resolver; seed functions named; modules by concept; one CLI; criterion checks in `criteria/`. Each step is byte-identical on a fingerprint of seeds, genomes, null markets, written stores, kernel, holdout and mechanism results, traces and check codes. Left: the kernel's post-decision holdout diagnostics (2× costs and calibrated-range coverage, C3.4 revision), then `cli mutants`.
 - **Stage 0, from 2026-10-21 00:20 UTC** (the judged 24 h window after the 00:19:10 restart, unless a gap restarts it; `python -c "from ingest.availability import window; print(window('data/live'))"` shows it):
-  - `python -m ingest.availability data/live` (C0.3);
-  - `python -m ingest.execution data/live venue/hyperliquid/execution.json` (C0.7);
-  - stop the HL recorder (by PID) so the second backfill has the rate budget alone, then `python -m ingest.backfill data 200` (C0.4; its ingestion report is the judged C0.2/C0.5 evidence);
-  - the witness (C0.8);
-  - `python -m ingest.holdout data audit/holdout.json` (C0.9).
+  - `availability data/live audit/stage0/availability.json` (C0.3);
+  - `execution data/live venue/hyperliquid/execution.json audit/stage0/execution.json` (C0.7);
+  - stop the HL recorder (by PID) so the second backfill has the rate budget alone, then `backfill data 200` (C0.4; its report in `audit/stage0/` is the judged C0.2/C0.5 evidence), then restart the recorder as a regime diagnostic and report the frozen cost model's coverage on each later recorded day;
+  - `witness data <version> data/witness.jsonl > audit/stage0/witness.json` (C0.8);
+  - `holdout-hashes data audit/holdout.json` (C0.9);
+  - `pytest criteria/test_stage0.py`.
 
   Failing stage 0 is an acceptable outcome. The criteria are judged as written, never reread to pass, and a failure of C0.2, C0.3 or C0.5 means the exit rule: stop and pre-register a different family.
 - **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
-- **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). After C0.7, record the searcher hash, then `python -m gate.sweep` with `c24`, `calibrate`, `c25`, `truth`, `c21top` (C2.1's top-5 probes), and `report` (C2.4 to C2.6).
-- **Stage 3:** built. After C0.7: `python -m gate.stage3 freeze` (writes `audit/stage3/harness.json`; commit it), `null 20` (C3.2), `report`. Once stage 2 exits: `real data <version>` (C3.3, C3.4; the comparison goes to `audit/stage3/real.json`), then the reviewer.
-- **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). The swarm is built. After the harness freeze: `python -m gate.stage4 10`, then `report` (C4.4, C4.5).
-- **Stage 5:** C5.1 (labeled samples, golden set), C5.2's store and recompute tests, and C5.5's independent derivation and mutants are done. C5.6's code is ready. At ≥ 72 h of recording (2026-10-22 10:26 UTC):
-  - `python -m ingest.sources_avail analyze data/sources_live` (C5.3);
-  - re-backfill (`python -m ingest.sources_backfill data`), then `python -m ingest.sources_avail reconcile data data/sources_live <backfill version>`;
-  - `python -m ingest.events data <version> data/sources_live admitted|prospective` (Discourse), and `... prospective snapshot`;
-  - `python -m ingest.sources_report data <version> data/sources_live admitted|prospective` (C5.4).
-  - After stage 2 exits, if Discourse is admitted: `python -m gate.c21 audit/stage5/c56-probes.json data <version>` and `python -m gate.sweep c56 data <version>` (C5.6). If it is prospective only, its counts all lie in the forward holdout, so the search part has none to replay and C5.6 is vacuous for it.
+- **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test was revised for paper revision 5 (studentized). Its development calibration is running (`holdout-size development data/calibration/development.json audit/stage2/holdout-size-development.json`); the locked run (`holdout-size locked …`, about 3 h on 12 cores) comes after it and before any sweep. After C0.7: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
+- **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
+- **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
+- **Stage 5:** C5.1, C5.2's store and recompute tests, and C5.5's independent derivation and mutants are done. C5.6's code is ready. At ≥ 72 h of recording (2026-10-22 10:26 UTC):
+  - `sources-availability data/sources_live > audit/stage5/sources-availability.json` (C5.3);
+  - `sources-backfill data`, then `sources-reconcile data data/sources_live <backfill version>`;
+  - `events data <version> data/sources_live admitted|prospective` (Discourse), and `… prospective snapshot`;
+  - `sources-coverage data <version> data/sources_live admitted|prospective` (C5.4).
+  - After stage 2 exits, if Discourse is admitted: `probes audit/stage5/c56-probes.json data <version>` and `sweep events data <version>` (C5.6). If it is prospective only, its counts all lie in the forward holdout, so the search part has none to replay and C5.6 is vacuous for it.
 
   Snapshot is prospective only (client-claimed time). Unlocks: blocked (see Blockers).
+- **Stage 10 (b), stage 6 (c):** not started; criteria first.
 
 GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
 

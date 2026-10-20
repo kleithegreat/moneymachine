@@ -25,8 +25,8 @@ Field semantics:
 - Delisted coins: `fundingHistory` keeps their history. `candleSnapshot` coverage
   varies (MATIC and RNDR have no 4h bars after 2024-09-30, while FTM and MKR do).
 
-Reproduce: `python -m ingest.universe data/universe.json`, then
-`python -m ingest.backfill data 200`.
+Reproduce: `python -m cli universe data/universe.json`, then
+`python -m cli backfill data 200`.
 
 Rolling retention means the 4h bars at the start of W drop out of the API around
 2027-01. Our first fetch is the only lasting copy, so the store is append-only.

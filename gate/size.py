@@ -8,7 +8,6 @@ length) is resumable: finished cells are kept in a work file.
 import hashlib
 import json
 import multiprocessing
-import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -19,7 +18,7 @@ from gate.gate import campaign_seed, holdout_pvalue
 
 LENGTHS = (540, 546, 1080)
 BURN = 500
-LIMITS = {0.05: 0.0625, 0.01: 0.015, 0.005: 0.01}
+JUDGED = (0.05, 0.01, 0.005)
 REPORTED = (0.001, 0.0005)
 
 
@@ -105,23 +104,21 @@ def cp_upper(k, m, confidence):
 
 
 def report(pvalues):
-    """Per cell and level: rejection count and the one-sided Clopper-Pearson upper bound at
-    confidence 1 - 0.05/K over the K judged (cell, level) pairs; passed iff every bound is within LIMITS."""
-    k = len(pvalues) * len(LIMITS)
+    """Per cell and level: rejection count and rate, and at the judged levels the one-sided
+    Clopper-Pearson upper bound at confidence 1 - 0.05/K over the K judged (cell, level) pairs."""
+    k = len(pvalues) * len(JUDGED)
     confidence = 1 - 0.05 / k
-    cells, ok = {}, True
+    cells = {}
     for c, p in pvalues.items():
         p = np.asarray(p)
         out = {}
-        for u in list(LIMITS) + list(REPORTED):
+        for u in JUDGED + REPORTED:
             count = int((p <= u).sum())
             out[str(u)] = {"rejections": count, "rate": count / len(p)}
-            if u in LIMITS:
+            if u in JUDGED:
                 out[str(u)]["upper"] = cp_upper(count, len(p), confidence)
-                ok &= out[str(u)]["upper"] <= LIMITS[u]
         cells[c] = {"series": len(p), "levels": out}
-    return {"judged_pairs": k, "confidence": confidence, "limits": {str(u): v for u, v in LIMITS.items()},
-            "cells": cells, "passed": bool(ok)}
+    return {"judged_pairs": k, "confidence": confidence, "cells": cells}
 
 
 def main(suite, work, audit):
@@ -135,6 +132,3 @@ def main(suite, work, audit):
                 print(gen, n, flush=True)
     Path(audit).write_text(json.dumps({"suite": suite, "id": SUITES[suite]["id"], **report(pvalues)}, indent=1) + "\n")
 
-
-if __name__ == "__main__":
-    main(*sys.argv[1:])

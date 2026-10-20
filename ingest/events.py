@@ -3,7 +3,6 @@
 
 import hashlib
 import json
-import sys
 import time
 from pathlib import Path
 
@@ -83,12 +82,9 @@ def derive(data_root, version, live_dir, admitted, source="discourse"):
 
 
 def main(data_root, version, live_dir, admitted, source="discourse"):
-    df = derive(data_root, int(version), live_dir, admitted == "admitted", source)
+    df = derive(data_root, version, live_dir, admitted, source)
     search, holdout = stores(data_root)
     fetched_at = int(time.time() * 1000)
     written = write_split(search, holdout, SOURCES[source]["dataset"], df, fetched_at, f"derived:{source}")
-    print(json.dumps({"version": fetched_at, "rows": df.height, "written(search, holdout)": written}))
+    return {"version": fetched_at, "rows": df.height, "written(search, holdout)": written}
 
-
-if __name__ == "__main__":
-    main(*sys.argv[1:])

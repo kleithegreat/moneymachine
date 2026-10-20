@@ -8,7 +8,6 @@ import hashlib
 import json
 import re
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -59,6 +58,3 @@ def main(out_dir):
                 fh.write(json.dumps({"source": source, "key": key, "sent": sent, "recv": now_ms(), "data": data}) + "\n")
         time.sleep(max(0, POLL - (time.time() - started)))
 
-
-if __name__ == "__main__":
-    main(sys.argv[1])

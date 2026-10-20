@@ -30,8 +30,8 @@ def rank(info):
     return sorted(rows, key=lambda r: -r["usd_volume"])
 
 
-if __name__ == "__main__":
+
+def write(out):
     ranked = rank(Info())
-    out = {"rule": "top 12 by sum(close*volume) of 1d bars in [RANK_START, W_START), first funding < RANK_START",
-           "universe": [r["coin"] for r in ranked[:SIZE]], "ranked": ranked}
-    Path(sys.argv[1]).write_text(json.dumps(out, indent=1))
+    Path(out).write_text(json.dumps({"rule": "top 12 by sum(close*volume) of 1d bars in [RANK_START, W_START), first funding < RANK_START",
+                                     "universe": [r["coin"] for r in ranked[:SIZE]], "ranked": ranked}, indent=1))

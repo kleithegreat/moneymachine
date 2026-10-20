@@ -13,6 +13,8 @@ from arch.bootstrap import SPA, StationaryBootstrap, StepM
 from scipy.signal import fftconvolve
 from scipy.stats import norm
 
+from gate.kernel import MM
+
 ALPHA = 0.05
 DSR_MIN = 0.95
 BLOCK = 6
@@ -173,7 +175,32 @@ def holm(pvalues):
     return adjusted
 
 
-def holdout_run(mm, market, ledger, campaign, programs, holdout_from=None):
+def freeze(ledger, campaign, hashes, note):
+    """Record each finalist's selection in the ledger before the holdout is opened."""
+    for h in hashes:
+        subprocess.run([str(MM), "select", h, "--campaign", campaign, "--agent", "gate", "--note", note,
+                        "--ledger", str(ledger)], check=True, capture_output=True)
+
+
+def mechanism_check(market, ledger, campaign, programs):
+    """For each finalist: its pre-registered prediction tested on the search period (never disclosed to agents)."""
+    m = Path(market)
+    out = {}
+    for h, prog in programs.items():
+        if "prediction" not in prog:
+            out[h] = {"pass": False, "reason": "no prediction"}
+            continue
+        p = m / f"mech-{h[:16]}.json"
+        p.write_text(json.dumps(prog))
+        r = subprocess.run([str(MM), "eval", str(p), "--campaign", campaign, "--agent", "gate-mechanism", "--mechanism", "on",
+                            "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)],
+                           capture_output=True, text=True, check=True)
+        out[h] = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
+        p.unlink()
+    return out
+
+
+def holdout_run(market, ledger, campaign, programs, holdout_from=None):
     """The single holdout batch: {hash: (net returns, total return)} for every frozen finalist."""
     if not programs:
         return {}
@@ -181,7 +208,7 @@ def holdout_run(mm, market, ledger, campaign, programs, holdout_from=None):
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
         fh.write("".join(json.dumps(p) + "\n" for p in programs.values()))
     extra = ["--holdout-from", str(holdout_from)] if holdout_from else []
-    out = subprocess.run([str(mm), "holdout", fh.name, "--campaign", campaign, "--agent", "gate",
+    out = subprocess.run([str(MM), "holdout", fh.name, "--campaign", campaign, "--agent", "gate",
                           "--store", str(m / "store"), "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
                           "--ledger", str(ledger), *extra], capture_output=True, text=True)
     Path(fh.name).unlink()
@@ -208,6 +235,6 @@ def promote(results, campaign):
                       "holdout_total_return": {h: results[h][1] for h in hashes}}
 
 
-def holdout_decision(mm, market, ledger, campaign, finalists_programs, holdout_from=None):
+def holdout_decision(market, ledger, campaign, finalists_programs, holdout_from=None):
     """Evaluate the frozen finalists on the holdout once; promote by net return > 0 and Holm."""
-    return promote(holdout_run(mm, market, ledger, campaign, finalists_programs, holdout_from), campaign)
+    return promote(holdout_run(market, ledger, campaign, finalists_programs, holdout_from), campaign)

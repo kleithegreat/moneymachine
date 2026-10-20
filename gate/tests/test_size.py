@@ -18,11 +18,13 @@ def test_chains_have_the_declared_flat_share():
     assert abs(1 - size._active(rng, 2000, 1080, 1 / 36, 1 / 4).mean() - 0.9) < 0.01
 
 
-def test_report_judges_each_level_against_its_limit():
+def test_report_bounds_each_judged_level_over_all_judged_pairs():
     exact = {f"a/{n}": np.linspace(0, 1, 20000) for n in size.LENGTHS}
-    assert size.report(exact)["passed"]
-    oversized = {**exact, "a/540": np.r_[np.zeros(300), np.ones(19700)]}
-    assert not size.report(oversized)["passed"]
+    r = size.report(exact)
+    assert r["judged_pairs"] == 9 and r["confidence"] == 1 - 0.05 / 9
+    level = r["cells"]["a/540"]["levels"]["0.05"]
+    assert level["rejections"] == 1000 and 0.05 < level["upper"] < 0.06
+    assert "upper" not in r["cells"]["a/540"]["levels"]["0.001"]
 
 
 def test_a_cell_runs_end_to_end():
