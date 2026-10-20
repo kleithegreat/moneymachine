@@ -213,7 +213,7 @@ def MState.tick (p : Program) (m : MState α) (listed : Array Bool) (hour : Int)
         let cond := m.vals[args[0]!]![c]!
         if listed[c]! && (match cond with | some v => !N.isZero v | none => false) then
           m := { m with since := m.since.modify i fun row => row.set! c (some hour) }
-        let v := if listed[c]! then m.since[i]![c]!.map fun t => N.ofInt ((hour - t) / HOUR) else none
+        let v := if listed[c]! then m.since[i]![c]!.bind fun t => N.keep (N.ofInt ((hour - t) / HOUR)) else none
         m := { m with vals := m.vals.modify i fun row => row.set! c v }
     | .op o@(.xsMean) args | .op o@(.xsDemean) args | .op o@(.xsRank) args =>
       let xs := (List.range coins).filterMap fun c => if listed[c]! then (m.vals[args[0]!]![c]!).map (c, ·) else none
@@ -224,7 +224,7 @@ def MState.tick (p : Program) (m : MState α) (listed : Array Bool) (hour : Int)
         | some (_, v) => match o with
           | .xsMean => N.keep mean
           | .xsDemean => N.keep (N.sub v mean)
-          | _ => some (rank N values v)
+          | _ => N.keep (rank N values v)
       m := { m with vals := m.vals.set! i (if xs.isEmpty then Array.replicate coins none else out.toArray) }
     | _ =>
       for c in [0:coins] do

@@ -20,9 +20,10 @@ order. That is Rust's float `Sum` on this toolchain (rustc 1.95): the sum of not
 the sum of [−0.0] is −0.0.
 
 Every node's value at a tick passes through `finite`: a non-finite number (±∞, NaN) becomes Undef
-[machine.rs `tick`, `finite`]. The exceptions are `hours_since` and `xs_rank`, whose outputs the engine
-stores unfiltered; they are always finite in binary64 (§4). Intermediate results inside an operator or
-a window's state can be non-finite; only stored node values are filtered.
+[machine.rs `tick`, `finite`]. The engine skips the filter for `hours_since` and `xs_rank`, whose
+outputs are always finite in binary64 (§4); the model filters them too, which is the identity there.
+Intermediate results inside an operator or a window's state can be non-finite; only stored node values
+are filtered.
 
 ## 2. Programs and typing
 
@@ -97,12 +98,12 @@ order. Per node i and coin c:
 
 - **hours_since(cond).** If c is listed and cond[c] is defined and nonzero at this tick, last[i][c]
   becomes H. The value is the integer (H − last) div HOUR converted to a number, if c is listed and
-  last is set; otherwise Undef. It is not filtered. The state persists across unlisted ticks.
+  last is set; otherwise Undef. Then finite() is applied. The state persists across unlisted ticks.
 - **xs ops.** Let X be the listed coins whose argument is defined, with their values, in coin
   order. If X is empty, every coin is Undef. Otherwise mean = (Σ values, summed in coin order)/|X|:
   - xs_mean gives finite(mean) to every coin in X;
   - xs_demean gives finite(v − mean);
-  - xs_rank gives 1/2 if |X| = 1, else (#{x < v} + (#{x = v} − 1)/2)/(|X| − 1), unfiltered.
+  - xs_rank gives finite of 1/2 if |X| = 1, else of (#{x < v} + (#{x = v} − 1)/2)/(|X| − 1).
 
   Coins outside X are Undef. These ops hold no window state.
 - **Every other node.** If c is unlisted, the value is Undef, and the node's window (if any) is not

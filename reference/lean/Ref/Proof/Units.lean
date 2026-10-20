@@ -502,16 +502,22 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
         have hsm : m.since = u.m.since := hR.since.symm
         simp only [List.getElem!_cons_zero, hva, hsm]
         have hv : ∀ S : Array (Array (Option Int)), ∀ x t,
-            (if listed[c]! = true then (S[i]![c]!).map (fun t => (N.ofInt ((hour - t) / HOUR), Ty.num (Dim.base "h").get!))
+            (if listed[c]! = true then (S[i]![c]!).bind (fun t =>
+              (N.keep (N.ofInt ((hour - t) / HOUR))).map (·, Ty.num (Dim.base "h").get!))
               else none) = some (x, t) → t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b) := by
-          intro S x t hx; split at hx <;> simp at hx; obtain ⟨-, -, -, rfl⟩ := hx; simp [hti]
+          intro S x t hx
+          split at hx
+          · simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff, Prod.mk.injEq] at hx
+            obtain ⟨-, -, -, -, -, rfl⟩ := hx
+            simp [hti]
+          · cases hx
         rcases hu : u.tv[a]![c]! with _ | ⟨x, t⟩
         · simp only [Option.map_none, pure, Except.pure, bind, Except.bind, Bool.and_false, Bool.false_eq_true,
             ite_false]
           refine ⟨_, _, rfl, rfl, ?_⟩
           have key := URel_raw N p hR i c _ (hv u.m.since) u.m.since
           rw [show ({ u.m with since := u.m.since } : MState α) = u.m from rfl] at key
-          by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Function.comp_def] at key ⊢ <;> exact key
+          by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Option.map_bind, Function.comp_def] at key ⊢ <;> exact key
         · obtain ⟨rfl, -⟩ := hR.tagged a c x t hu
           rw [hb]
           simp only [Option.map_some, pure, Except.pure, bind, Except.bind]
@@ -520,12 +526,12 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
             refine ⟨_, _, rfl, rfl, ?_⟩
             have key := URel_raw N p hR i c _ (hv (u.m.since.modify i fun row => row.set! c (some hour)))
               (u.m.since.modify i fun row => row.set! c (some hour))
-            by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Function.comp_def] at key ⊢ <;> exact key
+            by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Option.map_bind, Function.comp_def] at key ⊢ <;> exact key
           · simp only [hf, Bool.false_eq_true, ite_false]
             refine ⟨_, _, rfl, rfl, ?_⟩
             have key := URel_raw N p hR i c _ (hv u.m.since) u.m.since
             rw [show ({ u.m with since := u.m.since } : MState α) = u.m from rfl] at key
-            by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Function.comp_def] at key ⊢ <;> exact key
+            by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Option.map_bind, Function.comp_def] at key ⊢ <;> exact key
       case xsMean =>
         dsimp only
         obtain ⟨d, hd0, hti, -⟩ := opTy_xs (Or.inl rfl) hWi.2

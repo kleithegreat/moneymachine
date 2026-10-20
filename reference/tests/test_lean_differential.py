@@ -52,7 +52,11 @@ def test_runs_agree_bit_for_bit(tmp_path):
     root = markets.write(tmp_path / "m", markets.generate("N2", params["N2"], "lean-smoke", 45, (0, 1), 0.01, ev), 5,
                          {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")})
     rng = random.Random(9)
-    programs = [json.loads((REPO / "kernel/strategies/w0.json").read_text())] + probes(True)[:6]
+    w0 = json.loads((REPO / "kernel/strategies/w0.json").read_text())
+    since = {**w0, "name": "hours since funding was positive", "weight": {"op": "mul", "args": [
+        {"op": "hours_since", "args": [{"op": "gt", "args": [{"input": "funding"}, {"const": 0, "unit": "1/h"}]}]},
+        {"const": 0.0005, "unit": "1/h"}]}}
+    programs = [w0, since] + probes(True)[:6]
     programs += [search.compile_genome(search.random_genome(rng, 7)) for _ in range(6)]
     bad = []
     for k, prog in enumerate(programs):

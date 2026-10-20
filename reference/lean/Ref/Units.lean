@@ -127,7 +127,8 @@ def UState.tick (p : Program) (u : UState α) (listed : Array Bool) (hour : Int)
           | some (_, .num _) => throw ⟨i, c⟩
           | none => pure false
         if fire then u := { u with m := { u.m with since := u.m.since.modify i fun row => row.set! c (some hour) } }
-        let v : TVal α := if listed[c]! then u.m.since[i]![c]!.map fun t => (N.ofInt ((hour - t) / HOUR), .num (Dim.base "h").get!) else none
+        let v : TVal α := if listed[c]! then u.m.since[i]![c]!.bind fun t =>
+          (N.keep (N.ofInt ((hour - t) / HOUR))).map (·, .num (Dim.base "h").get!) else none
         u := { u with tv := u.tv.modify i fun row => row.set! c v }
     | .op o@(.xsMean) args | .op o@(.xsDemean) args | .op o@(.xsRank) args =>
       let xs := (List.range coins).filterMap fun c => if listed[c]! then (u.tv[args[0]!]![c]!).map (c, ·) else none
@@ -142,7 +143,7 @@ def UState.tick (p : Program) (u : UState α) (listed : Array Bool) (hour : Int)
         | some (_, (v, _)) => match o with
           | .xsMean => (N.keep mean).map (·, .num d)
           | .xsDemean => (N.keep (N.sub v mean)).map (·, .num d)
-          | _ => some (rank N values v, .num d)
+          | _ => (N.keep (rank N values v)).map (·, .num d)
       u := { u with tv := u.tv.set! i (if xs.isEmpty then Array.replicate coins none else out.toArray) }
     | _ =>
       for c in [0:coins] do

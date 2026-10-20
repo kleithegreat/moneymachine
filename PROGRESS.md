@@ -505,6 +505,9 @@ Exit when C6.1 to C6.5 hold.
   - **Why they differ.** Equating the two needs `lt 0 (neg q) = ¬ lt 0 q`, a numeric law L4 does not assume. The engine's check only compares the reference with `N.eq`, not equality. A structure where `lt` is always false and `eq` always true passes the run and breaks the clause.
   - **The fix.** The clause now states the construction: f.qty = −q for some q, and f.reference is the bar's close for a delisting, otherwise `if 0 < q then low else high`. That is I3's "adverse extreme of the position". No model definition and no other law changes, and on binary64 the two readings agree for every nonzero non-NaN q.
 - *Revision 2026-10-20, while proving L1 and before any L1 proof:* L1_simulator is false for j beyond the run. `steps j` runs `bounds.take j`, so it stops after the run's last step, while `machineAfter (4j)` keeps delivering and ticking. The statement now assumes j ≤ bounds.length, the steps a run actually takes. Nothing else changes: L4 uses it only at decisions the run made, and L1_decisions does not use it.
+- *Revision 2026-10-20, while proving L3 and before any L3 proof:* L3_rewrite is false over an arbitrary lawful `NumOps`.
+  - **Why.** R v1's obligations hold on finite operands. The model, like `mm`, stores every node value through `finite` except `hours_since` and `xs_rank`. Take a lawful structure whose `ofInt` is non-finite, and x = hours_since(…). Then `neg(neg x)` is Undef while x is defined, and `negNeg` changes the weight downstream of it.
+  - **The fix.** The model filters those two outputs too. In binary64 they are always finite, so the filter is the identity on every value `mm` produces, and no binary64 behavior changes. The differential test now runs an `hours_since` program bit for bit. SEMANTICS.md §1 and §4 say so. L2_units' proof is updated, and no law statement changes.
 
 ### Stage 10: thesis track
 
