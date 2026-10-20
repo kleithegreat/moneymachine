@@ -470,6 +470,11 @@ Exit when C6.1 to C6.5 hold.
   - C6.5's report and adoption are done.
 
   Reason: the pinned Bend 2.0.37 has no binary64 type, only `Nat`, `U32` and `F32` over bit-list words. Its executable model therefore cannot meet C6.4's exact comparisons with `mm`'s f64 arithmetic, and software binary64 over bit lists is far too slow for C6.4's corpus. Read literally, "exit when C6.1 to C6.5 hold" would make the stage unexitable because of a missing number type, not because of any law or the engine. Bend's numeric gap is reported as a comparison finding.
+- *Revision 2026-10-20, while proving L4 and before any L4 proof:* L4_fills' closeout clause is false over an arbitrary `NumOps`, and so cannot be proved as frozen.
+  - **What the statement says.** It phrases a liquidation's reference by the fill's own sign: `if 0 < f.qty then high else low`.
+  - **What the model does.** Following `mm`, it takes the adverse extreme of the held position q, which the fill closes with qty = −q: `if 0 < q then low else high`.
+  - **Why they differ.** Equating the two needs `lt 0 (neg q) = ¬ lt 0 q`, a numeric law L4 does not assume. The engine's check only compares the reference with `N.eq`, not equality. A structure where `lt` is always false and `eq` always true passes the run and breaks the clause.
+  - **The fix.** The clause now states the construction: f.qty = −q for some q, and f.reference is the bar's close for a delisting, otherwise `if 0 < q then low else high`. That is I3's "adverse extreme of the position". No model definition and no other law changes, and on binary64 the two readings agree for every nonzero non-NaN q.
 
 ### Stage 10: thesis track
 

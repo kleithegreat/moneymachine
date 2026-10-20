@@ -313,7 +313,7 @@ theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mark
       (f.why ≠ .fill →
         f.inputsKnown = f.filled ∧ f.decided = f.filled ∧ f.submitted = f.filled ∧
         ∃ bar, latestClosed m f.coin f.filled = some bar ∧ f.sourceOpen = bar.openTime ∧
-          f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero f.qty then bar.h else bar.l)) := by
+          ∃ q, f.qty = N.neg q ∧ f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero q then bar.l else bar.h)) := by
   sorry
 
 /-- Exactly once: every order whose due step runs (B + 3·BAR ≤ stop, with B its decision's boundary)
