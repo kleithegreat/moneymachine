@@ -140,7 +140,7 @@ structure Index (α : Type) where
 
 def Market.index (m : Market α) (coins : Nat) : Index α :=
   { barAt := m.bars.foldl (init := (HashMap.emptyWithCapacity, 0)) (fun (h, i) b => (h.insert (b.coin, b.openTime) i, i + 1)) |>.1
-    barTimes := (Array.range coins).map fun c => ((m.bars.filter (·.coin == c)).map (·.openTime)).qsort (· < ·)
+    barTimes := (Array.range coins).map fun c => ((m.bars.filter (·.coin == c)).map (·.openTime)).mergeSort (· ≤ ·)
     rateAt := m.funding.foldl (init := HashMap.emptyWithCapacity) fun h f => h.insert (f.coin, f.event) f.rate }
 
 /-- First index in a sorted array whose element satisfies `p` (monotone): Rust's partition_point. -/
@@ -188,10 +188,10 @@ structure SState (α : Type) where
   bi : Nat
   ei : Nat
 
-/-- Lexicographic order on equal-length integer keys. -/
-def lexLt : List Int → List Int → Bool
-  | a :: as, b :: bs => a < b || (a == b && lexLt as bs)
-  | _, _ => false
+/-- Lexicographic order (≤) on equal-length integer keys. -/
+def lexLe : List Int → List Int → Bool
+  | a :: as, b :: bs => a < b || (a == b && lexLe as bs)
+  | _, _ => true
 
 /-- Everything a run fixes before its first step. -/
 structure Ctx (α : Type) where
@@ -207,15 +207,15 @@ structure Ctx (α : Type) where
 
 def Ctx.make (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) : Ctx α :=
   { p, m, v, pol, stop, ix := m.index m.intervals.size
-    fOrder := (Array.range m.funding.size).qsort fun i j =>
+    fOrder := (Array.range m.funding.size).mergeSort fun i j =>
       let a := m.funding[i]!; let b := m.funding[j]!
-      lexLt [a.known, a.coin, a.event] [b.known, b.coin, b.event]
-    bOrder := (Array.range m.bars.size).qsort fun i j =>
+      lexLe [a.known, a.coin, a.event] [b.known, b.coin, b.event]
+    bOrder := (Array.range m.bars.size).mergeSort fun i j =>
       let a := m.bars[i]!; let b := m.bars[j]!
-      lexLt [a.known, a.coin, a.event] [b.known, b.coin, b.event]
-    eOrder := (Array.range m.events.size).filter (m.bound.contains m.events[·]!.slot) |>.qsort fun i j =>
+      lexLe [a.known, a.coin, a.event] [b.known, b.coin, b.event]
+    eOrder := (Array.range m.events.size).filter (m.bound.contains m.events[·]!.slot) |>.mergeSort fun i j =>
       let a := m.events[i]!; let b := m.events[j]!
-      lexLt [a.known, a.coin, a.slot, i] [b.known, b.coin, b.slot, j] }
+      lexLe [a.known, a.coin, a.slot, i] [b.known, b.coin, b.slot, j] }
 
 def Ctx.coins (c : Ctx α) : Nat := c.m.intervals.size
 
