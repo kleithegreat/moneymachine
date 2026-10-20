@@ -334,4 +334,54 @@ theorem map_machine {x₁ x₂ : Except Abort (SState α)} (h : x₁.map SState.
     x₁.map (·.machine) = x₂.map (·.machine) := by
   cases x₁ <;> cases x₂ <;> simp_all [Except.map, SState.proj]
 
+/-- The machine's per-node state: values, windows and `hours_since` marks, which delivery never reads. -/
+def MState.withLocal (m : MState α) (X : Array (Array (Val α))) (W : Array (Array (Option (Win α))))
+    (S : Array (Array (Option Int))) : MState α := { m with vals := X, wins := W, since := S }
+
+omit [Inhabited α] in
+/-- A cursor walk whose step ignores the per-node state carries any per-node state through. -/
+theorem cursorLoop_local {R : Type} (rows : List R) (known : R → Int) (step : MState α → R → Int → Except Causality (MState α))
+    (X : Array (Array (Val α))) (W : Array (Array (Option (Win α)))) (S : Array (Array (Option Int)))
+    (hstep : ∀ m r t, step (m.withLocal X W S) r t = (step m r t).map (·.withLocal X W S))
+    (t : Int) (m : MState α) (i : Nat) :
+    cursorLoop rows known step t (m.withLocal X W S, i) =
+      (cursorLoop rows known step t (m, i)).map fun x => (x.1.withLocal X W S, x.2) := by
+  induction h : rows.length - i generalizing m i with
+  | zero => rw [cursorLoop, cursorLoop, dif_neg (by omega), dif_neg (by omega)]; rfl
+  | succ k ih =>
+    rw [cursorLoop, cursorLoop, dif_pos (by omega), dif_pos (by omega)]
+    split
+    · rfl
+    · rw [hstep]
+      cases step m rows[i] t with
+      | error e => rfl
+      | ok m' => exact ih m' (i + 1) (by omega)
+
+theorem deliver_local (c : Ctx α) (s : SState α) (t : Int) (X : Array (Array (Val α)))
+    (W : Array (Array (Option (Win α)))) (S : Array (Array (Option Int))) :
+    c.deliver { s with machine := s.machine.withLocal X W S } t =
+      (c.deliver s t).map fun r => { r with machine := r.machine.withLocal X W S } := by
+  simp only [Ctx.deliver, deliverFunding_cursor, deliverBars_cursor, deliverEvents_cursor]
+  rw [cursorLoop_local _ _ _ X W S (fun m r t => by simp [MState.deliverFunding, MState.withLocal]; split <;> rfl)]
+  cases cursorLoop c.fRows FundingRow.known MState.deliverFunding t (s.machine, s.fi) with
+  | error e => rfl
+  | ok x =>
+    simp only [Except.map, bind, Except.bind]
+    rw [cursorLoop_local _ _ _ X W S (fun m r t => by simp [MState.deliverBar, MState.withLocal]; split <;> rfl)]
+    cases cursorLoop c.bRows BarRow.known MState.deliverBar t (x.1, s.bi) with
+    | error e => rfl
+    | ok y =>
+      simp only [Except.map]
+      rw [cursorLoop_local _ _ _ X W S (fun m r t => by simp [MState.deliverEvent, MState.withLocal]; split <;> rfl)]
+      cases cursorLoop c.eRows EventRow.known MState.deliverEvent t (y.1, s.ei) <;> rfl
+
+/-- Delivery leaves the per-node state as it was. -/
+theorem deliver_keeps_local (c : Ctx α) (s r : SState α) (t : Int) (h : c.deliver s t = .ok r) :
+    r.machine.vals = s.machine.vals ∧ r.machine.wins = s.machine.wins ∧ r.machine.since = s.machine.since := by
+  have e := deliver_local c s t s.machine.vals s.machine.wins s.machine.since
+  rw [show ({ s with machine := s.machine.withLocal s.machine.vals s.machine.wins s.machine.since } : SState α) = s
+    from rfl, h] at e
+  simp only [Except.map, Except.ok.injEq] at e
+  rw [e]; exact ⟨rfl, rfl, rfl⟩
+
 end Ref

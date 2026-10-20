@@ -1,4 +1,5 @@
 import Ref.Proof.Eval
+import Ref.Proof.Prefix
 
 /-! The unit-instrumented machine against the executable one (L2): tagged values carry their static types,
 evaluation never raises a unit error on a well-formed program, and erasing the tags gives the executable
@@ -82,6 +83,12 @@ theorem opTy_hoursSince {ts : List Ty} {to : Option Dim} {t : Ty} (hty : opTy .h
   split at hty
   · rename_i hb; simp at hb hty; exact ⟨hb, hty.symm⟩
   · cases hty
+
+/-- The cross-sectional mean and demeaned value keep their argument's unit. -/
+theorem opTy_xs {o : Op} (ho : o = .xsMean ∨ o = .xsDemean ∨ o = .xsRank) {ts : List Ty} {to : Option Dim} {t : Ty}
+    (hty : opTy o ts to = some t) : ∃ d, ts[0]? = some (.num d) ∧ t = .num d ∧ (o = .xsRank → d = Dim.one) := by
+  rcases ho with rfl | rfl | rfl <;> simp only [opTy] at hty <;> revert hty <;> cases ts[0]? <;> simp <;>
+    rename_i x <;> cases x <;> simp <;> intros <;> subst_vars <;> simp
 
 /-- A window node is numeric, over at least one hour. -/
 theorem opTy_window {k : Window} {h : Nat} {ts : List Ty} {to : Option Dim} {t : Ty}
@@ -257,6 +264,68 @@ theorem URel_raw (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (
     split at hx
     · rename_i hc; obtain ⟨rfl, -, -, rfl⟩ := hc; exact hv x t hx
     · exact hR.tagged j k x t hx
+
+omit [Inhabited α] in
+theorem eraseTV_set (tv : Array (Array (TVal α))) (i : Nat) (row : Array (TVal α)) :
+    eraseTV (tv.set! i row) = (eraseTV tv).set! i (row.map (·.map (·.1))) := by
+  unfold eraseTV
+  apply Array.ext
+  · simp
+  · intro j h₁ h₂
+    simp only [Array.set!_eq_setIfInBounds, Array.getElem_map]
+    simp only [Array.set!_eq_setIfInBounds, Array.size_map, Array.size_setIfInBounds] at h₁
+    rw [Array.getElem_setIfInBounds h₁, Array.getElem_setIfInBounds (by simpa using h₁)]
+    split <;> simp
+
+omit [Inhabited α] in
+theorem get_set {β : Type} [Inhabited β] (xs : Array (Array β)) (i j k : Nat) (row : Array β) :
+    (xs.set! i row)[j]![k]! = if j = i ∧ i < xs.size then row[k]! else xs[j]![k]! := by
+  simp only [Array.set!_eq_setIfInBounds]
+  by_cases hj : j < xs.size
+  · rw [getElem!_pos _ j (by simpa using hj), getElem!_pos xs j hj, Array.getElem_setIfInBounds hj]
+    by_cases hij : i = j
+    · subst hij; simp [hj]
+    · simp [hij, Ne.symm hij]
+  · rw [getElem!_neg _ j (by simpa using hj), getElem!_neg xs j hj]
+    split <;> simp_all
+
+/-- A whole node row written on both sides keeps the relation, if the written values are tagged by the
+node's type. -/
+theorem URel_setRow (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) (i : Nat)
+    (row : Array (TVal α)) (rowM : Array (Val α))
+    (hrow : ∀ (k : Nat) x t, row[k]! = some (x, t) → t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b))
+    (he : row.map (·.map (·.1)) = rowM) :
+    URel N p { u with tv := u.tv.set! i row } { m with vals := m.vals.set! i rowM } := by
+  subst he
+  refine ⟨?_, hR.wins, hR.since, hR.funding, hR.bar, hR.events, hR.hour, hR.maxKnown, ?_, hR.tags, hR.blank,
+    hR.winNode, hR.shape⟩
+  · simp only [eraseTV_set, hR.vals]
+  · intro j k x t hx
+    rw [get_set] at hx
+    split at hx
+    · rename_i hc; obtain ⟨rfl, -⟩ := hc; exact hrow k x t hx
+    · exact hR.tagged j k x t hx
+
+theorem mapM_const {ε β γ : Type} (xs : List β) (f : β → Except ε γ) (d : γ) (h : ∀ x ∈ xs, f x = .ok d) :
+    xs.mapM f = .ok (xs.map fun _ => d) := by
+  induction xs with
+  | nil => rfl
+  | cons x xs ih =>
+    rw [List.mapM_cons, h x (by simp), ih fun y hy => h y (by simp [hy])]
+    rfl
+
+omit [Inhabited α] in
+theorem replicate_none_get {β : Type} (n k : Nat) : (Array.replicate n (none : Option β))[k]! = none := by
+  by_cases hk : k < n
+  · rw [getElem!_pos _ k (by simpa using hk)]; simp
+  · rw [getElem!_neg _ k (by simpa using hk)]; rfl
+
+omit [Inhabited α] in
+theorem getElem!_some_mem {β : Type} (a : Array (Option β)) (k : Nat) {y : β} (h : a[k]! = some y) :
+    some y ∈ a.toList := by
+  by_cases hk : k < a.size
+  · rw [getElem!_pos a k hk] at h; rw [← h]; exact Array.getElem_mem_toList hk
+  · rw [getElem!_neg a k hk] at h; cases h
 
 omit [Inhabited α] in
 theorem step_of_loop {ε β σ τ : Type} {l : List β} {F : β → σ → Except ε (ForInStep σ)} {G : β → τ → Id (ForInStep τ)}
@@ -457,9 +526,184 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
             have key := URel_raw N p hR i c _ (hv u.m.since) u.m.since
             rw [show ({ u.m with since := u.m.since } : MState α) = u.m from rfl] at key
             by_cases hl : listed[c]! = true <;> simp [hl, Option.map_map, Function.comp_def] at key ⊢ <;> exact key
-      case xsMean => sorry
-      case xsDemean => sorry
-      case xsRank => sorry
+      case xsMean =>
+        dsimp only
+        obtain ⟨d, hd0, hti, -⟩ := opTy_xs (Or.inl rfl) hWi.2
+        obtain ⟨a, rest, rfl⟩ : ∃ a rest, args = a :: rest := by
+          cases args with
+          | nil => simp at hd0
+          | cons a rest => exact ⟨a, rest, rfl⟩
+        simp only [List.map_cons, List.getElem?_cons_zero, Option.some.injEq] at hd0
+        simp only [List.getElem!_cons_zero]
+        have hX : ∀ x ∈ List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+            else none) (List.range listed.size), x.2.2 = .num d := by
+          intro x hx
+          simp only [List.mem_filterMap, List.mem_range] at hx
+          obtain ⟨c, -, hc⟩ := hx
+          split at hc
+          · cases hv : u.tv[a]![c]! with
+            | none => rw [hv] at hc; cases hc
+            | some y => rw [hv] at hc; cases hc; rw [(hR.tagged a c y.1 y.2 hv).1, hd0]
+          · cases hc
+        rw [mapM_const _ _ d fun x hx => by simp [hX x hx]; rfl]
+        have hvm : ∀ c : Nat, m.vals[a]![c]! = Option.map Prod.fst (u.tv[a]![c]! : TVal α) := fun c => by
+          rw [← hR.vals, eraseTV_get]
+        have hXM : List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) m.vals[a]![c]!
+            else none) (List.range listed.size) =
+            (List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+              else none) (List.range listed.size)).map (fun x => (x.1, x.2.1)) := by
+          rw [List.map_filterMap]; congr 1; funext c; rw [hvm]; split <;> simp [Option.map_map, Function.comp_def]
+        rw [hXM]
+        generalize List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+          else none) (List.range listed.size) = X at hX ⊢
+        simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
+        cases X with
+        | nil =>
+          simp only [List.map_nil, List.all_nil, Bool.not_true, Bool.false_eq_true, ite_false, List.isEmpty_nil,
+            Bool.not_true, Bool.and_false, ite_true]
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          exact URel_setRow N p hR i _ _ (by simp [replicate_none_get]) (by simp)
+        | cons x0 X =>
+          simp only [List.map_cons, List.headD_cons, List.isEmpty_cons, Bool.false_eq_true, ite_false]
+          rw [if_neg (by simp), if_neg (by simp)]
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          refine URel_setRow N p hR i _ _ ?_ ?_
+          · intro k x t hx
+            have hm := getElem!_some_mem _ k hx
+            simp only [List.toList_toArray, List.mem_map] at hm
+            obtain ⟨c, -, hc⟩ := hm
+            split at hc
+            · cases hc
+            · simp at hc; (try obtain ⟨_, -, -, rfl⟩ := hc); (try obtain ⟨-, rfl⟩ := hc); simp [hti]
+          · rw [List.map_toArray]
+            congr 1
+            simp only [List.map_map]
+            apply List.map_congr_left
+            intro c _
+            simp only [Function.comp_def]
+            rw [show (x0.fst, x0.snd.fst) :: List.map (fun x => (x.fst, x.snd.fst)) X =
+              (x0 :: X).map (fun x => (x.fst, x.snd.fst)) from rfl, List.find?_map]
+            rcases hf : List.find? (fun x => x.fst == c) (x0 :: X) with _ | ⟨c', v, t⟩ <;>
+              simp [Function.comp_def, hf]
+      case xsDemean =>
+        dsimp only
+        obtain ⟨d, hd0, hti, -⟩ := opTy_xs (Or.inr (Or.inl rfl)) hWi.2
+        obtain ⟨a, rest, rfl⟩ : ∃ a rest, args = a :: rest := by
+          cases args with
+          | nil => simp at hd0
+          | cons a rest => exact ⟨a, rest, rfl⟩
+        simp only [List.map_cons, List.getElem?_cons_zero, Option.some.injEq] at hd0
+        simp only [List.getElem!_cons_zero]
+        have hX : ∀ x ∈ List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+            else none) (List.range listed.size), x.2.2 = .num d := by
+          intro x hx
+          simp only [List.mem_filterMap, List.mem_range] at hx
+          obtain ⟨c, -, hc⟩ := hx
+          split at hc
+          · cases hv : u.tv[a]![c]! with
+            | none => rw [hv] at hc; cases hc
+            | some y => rw [hv] at hc; cases hc; rw [(hR.tagged a c y.1 y.2 hv).1, hd0]
+          · cases hc
+        rw [mapM_const _ _ d fun x hx => by simp [hX x hx]; rfl]
+        have hvm : ∀ c : Nat, m.vals[a]![c]! = Option.map Prod.fst (u.tv[a]![c]! : TVal α) := fun c => by
+          rw [← hR.vals, eraseTV_get]
+        have hXM : List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) m.vals[a]![c]!
+            else none) (List.range listed.size) =
+            (List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+              else none) (List.range listed.size)).map (fun x => (x.1, x.2.1)) := by
+          rw [List.map_filterMap]; congr 1; funext c; rw [hvm]; split <;> simp [Option.map_map, Function.comp_def]
+        rw [hXM]
+        generalize List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+          else none) (List.range listed.size) = X at hX ⊢
+        simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
+        cases X with
+        | nil =>
+          simp only [List.map_nil, List.all_nil, Bool.not_true, Bool.false_eq_true, ite_false, List.isEmpty_nil,
+            Bool.not_true, Bool.and_false, ite_true]
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          exact URel_setRow N p hR i _ _ (by simp [replicate_none_get]) (by simp)
+        | cons x0 X =>
+          simp only [List.map_cons, List.headD_cons, List.isEmpty_cons, Bool.false_eq_true, ite_false]
+          rw [if_neg (by simp), if_neg (by simp)]
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          refine URel_setRow N p hR i _ _ ?_ ?_
+          · intro k x t hx
+            have hm := getElem!_some_mem _ k hx
+            simp only [List.toList_toArray, List.mem_map] at hm
+            obtain ⟨c, -, hc⟩ := hm
+            split at hc
+            · cases hc
+            · simp at hc; (try obtain ⟨_, -, -, rfl⟩ := hc); (try obtain ⟨-, rfl⟩ := hc); simp [hti]
+          · rw [List.map_toArray]
+            congr 1
+            simp only [List.map_map]
+            apply List.map_congr_left
+            intro c _
+            simp only [Function.comp_def]
+            rw [show (x0.fst, x0.snd.fst) :: List.map (fun x => (x.fst, x.snd.fst)) X =
+              (x0 :: X).map (fun x => (x.fst, x.snd.fst)) from rfl, List.find?_map]
+            rcases hf : List.find? (fun x => x.fst == c) (x0 :: X) with _ | ⟨c', v, t⟩ <;>
+              simp [Function.comp_def, hf]
+      case xsRank =>
+        dsimp only
+        obtain ⟨d, hd0, hti, hd1⟩ := opTy_xs (Or.inr (Or.inr rfl)) hWi.2
+        have hd1' := hd1 rfl
+        obtain ⟨a, rest, rfl⟩ : ∃ a rest, args = a :: rest := by
+          cases args with
+          | nil => simp at hd0
+          | cons a rest => exact ⟨a, rest, rfl⟩
+        simp only [List.map_cons, List.getElem?_cons_zero, Option.some.injEq] at hd0
+        simp only [List.getElem!_cons_zero]
+        have hX : ∀ x ∈ List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+            else none) (List.range listed.size), x.2.2 = .num d := by
+          intro x hx
+          simp only [List.mem_filterMap, List.mem_range] at hx
+          obtain ⟨c, -, hc⟩ := hx
+          split at hc
+          · cases hv : u.tv[a]![c]! with
+            | none => rw [hv] at hc; cases hc
+            | some y => rw [hv] at hc; cases hc; rw [(hR.tagged a c y.1 y.2 hv).1, hd0]
+          · cases hc
+        rw [mapM_const _ _ d fun x hx => by simp [hX x hx]; rfl]
+        have hvm : ∀ c : Nat, m.vals[a]![c]! = Option.map Prod.fst (u.tv[a]![c]! : TVal α) := fun c => by
+          rw [← hR.vals, eraseTV_get]
+        have hXM : List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) m.vals[a]![c]!
+            else none) (List.range listed.size) =
+            (List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+              else none) (List.range listed.size)).map (fun x => (x.1, x.2.1)) := by
+          rw [List.map_filterMap]; congr 1; funext c; rw [hvm]; split <;> simp [Option.map_map, Function.comp_def]
+        rw [hXM]
+        generalize List.filterMap (fun c => if listed[c]! = true then Option.map (fun x => (c, x)) u.tv[a]![c]!
+          else none) (List.range listed.size) = X at hX ⊢
+        simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
+        cases X with
+        | nil =>
+          simp only [List.map_nil, List.all_nil, Bool.not_true, Bool.false_eq_true, ite_false, List.isEmpty_nil,
+            Bool.not_true, Bool.and_false, ite_true]
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          exact URel_setRow N p hR i _ _ (by simp [replicate_none_get]) (by simp)
+        | cons x0 X =>
+          simp only [List.map_cons, List.headD_cons, List.isEmpty_cons, Bool.false_eq_true, ite_false]
+          rw [if_neg (by simp), if_neg (by simp [hd1'])]
+          refine ⟨_, _, rfl, rfl, ?_⟩
+          refine URel_setRow N p hR i _ _ ?_ ?_
+          · intro k x t hx
+            have hm := getElem!_some_mem _ k hx
+            simp only [List.toList_toArray, List.mem_map] at hm
+            obtain ⟨c, -, hc⟩ := hm
+            split at hc
+            · cases hc
+            · simp at hc; (try obtain ⟨_, -, -, rfl⟩ := hc); (try obtain ⟨-, rfl⟩ := hc); simp [hti]
+          · rw [List.map_toArray]
+            congr 1
+            simp only [List.map_map]
+            apply List.map_congr_left
+            intro c _
+            simp only [Function.comp_def]
+            rw [show (x0.fst, x0.snd.fst) :: List.map (fun x => (x.fst, x.snd.fst)) X =
+              (x0 :: X).map (fun x => (x.fst, x.snd.fst)) from rfl, List.find?_map]
+            rcases hf : List.find? (fun x => x.fst == c) (x0 :: X) with _ | ⟨c', v, t⟩ <;>
+              simp [Function.comp_def, hf]
       all_goals
         have hev := fun (u : UState α) (hT : Tagged N p u.tv) c =>
           evalU_op N p u.m u.tv i c _ args hn _ hWi.2 hT (by simp)
@@ -489,5 +733,158 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
           cases hw : u.m.wins[i]![c]! <;> simp only [Bool.not_false, ite_true] <;> refine ⟨_, _, rfl, rfl, ?_⟩ <;>
             simpa [hw] using key
   · exact { h with hour := rfl }
+
+omit [Inhabited α] in
+theorem init_wins (N : NumOps α) (p : Program) (coins i c : Nat) (w : Win α)
+    (h : (MState.init N p coins).wins[i]![c]! = some w) :
+    ∃ k hh args, p.nodes[i]! = .op (.window k hh) args ∧ w = Win.new N k hh := by
+  simp only [MState.init] at h
+  by_cases hi : i < p.nodes.size
+  · rw [getElem!_pos _ i (by simpa using hi), Array.getElem_map, ← getElem!_pos p.nodes i hi] at h
+    split at h
+    · rename_i k hh args hn
+      by_cases hc : c < coins
+      · rw [getElem!_pos _ c (by simpa using hc)] at h; simp at h
+        exact ⟨k, hh, args, hn, h.symm⟩
+      · rw [getElem!_neg _ c (by simpa using hc)] at h; cases h
+    · by_cases hc : c < coins
+      · rw [getElem!_pos _ c (by simpa using hc)] at h; simp at h
+      · rw [getElem!_neg _ c (by simpa using hc)] at h; cases h
+  · rw [getElem!_neg _ i (by simpa using hi)] at h; cases h
+
+omit [Inhabited α] in
+theorem nested_none_get {β : Type} (n k i c : Nat) : (Array.replicate n (Array.replicate k (none : Option β)))[i]![c]! = none := by
+  by_cases hi : i < n
+  · rw [getElem!_pos _ i (by simpa using hi)]; simp only [Array.getElem_replicate]; exact replicate_none_get k c
+  · rw [getElem!_neg _ i (by simpa using hi)]; rfl
+
+theorem init_rel (N : NumOps α) (p : Program) (hW : p.WF) (coins : Nat) :
+    URel N p (UState.init N p coins) (MState.init N p coins) := by
+  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [eraseTV, UState.init, MState.init]
+  · intro j k x t hx; simp [UState.init, nested_none_get] at hx
+  · intro j k t ht; simp [UState.init, nested_none_get] at ht
+  · intro j k w _ hw
+    obtain ⟨kd, hh, args, hn, rfl⟩ := init_wins N p coins j k w hw
+    have hj : j < p.nodes.size := by
+      by_cases hj : j < p.nodes.size
+      · exact hj
+      · rw [getElem!_neg _ j hj] at hn; cases hn
+    have h1 := (opTy_window (by have := hW.2.2.2.2.2 j hj; rw [hn] at this; exact this.2)).2
+    cases kd <;> simp [Win.new, Win.Blank] <;> omega
+  · intro j k w hw
+    obtain ⟨kd, hh, args, hn, -⟩ := init_wins N p coins j k w hw
+    exact ⟨kd, hh, args, hn⟩
+  · constructor
+    · simp [UState.init, MState.init]
+    · intro i
+      simp only [UState.init, MState.init]
+      by_cases hi : i < p.nodes.size
+      · rw [getElem!_pos _ i (by simpa using hi), getElem!_pos _ i (by simpa using hi), Array.getElem_map]
+        simp only [Array.getElem_replicate, Array.size_replicate]
+        split <;> simp
+      · rw [getElem!_neg _ i (by simpa using hi), getElem!_neg _ i (by simpa using hi)]; rfl
+
+/-- An instrumented result against an executable one: both succeed related, or both fail with the same
+abort; a unit error has no counterpart. -/
+def Corr {σ τ : Type} (R : σ → τ → Prop) : Except (Abort ⊕ UnitError) σ → Except Abort τ → Prop
+  | .ok a, .ok b => R a b
+  | .error (.inl a), .error b => a = b
+  | _, _ => False
+
+omit [Inhabited α] in
+theorem forIn_corr {β σ τ : Type} (l : List β) (F : β → σ → Except (Abort ⊕ UnitError) (ForInStep σ))
+    (G : β → τ → Except Abort (ForInStep τ)) (R : σ → τ → Prop)
+    (hF : ∀ a u m, R u m → Corr (fun x y => ∃ x' y', x = .yield x' ∧ y = .yield y' ∧ R x' y') (F a u) (G a m)) :
+    ∀ u m, R u m → Corr R (forIn l u F) (forIn l m G) := by
+  induction l with
+  | nil => intro u m h; exact h
+  | cons a l ih =>
+    intro u m h
+    have hs := hF a u m h
+    simp only [List.forIn_cons]
+    cases hFu : F a u with
+    | error e =>
+      cases hGm : G a m with
+      | error e' => rw [hFu, hGm] at hs; cases e with
+        | inl a' => exact hs
+        | inr _ => exact hs.elim
+      | ok y => rw [hFu, hGm] at hs; cases e <;> exact hs.elim
+    | ok x =>
+      cases hGm : G a m with
+      | error e' => rw [hFu, hGm] at hs; exact hs.elim
+      | ok y =>
+        rw [hFu, hGm] at hs
+        obtain ⟨x', y', rfl, rfl, hxy⟩ := hs
+        exact ih x' y' hxy
+
+theorem URel_machine (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) :
+    u.m = m.withLocal u.m.vals m.wins m.since := by
+  have h₁ := hR.wins; have h₂ := hR.since; have h₃ := hR.funding; have h₄ := hR.bar; have h₅ := hR.events
+  have h₆ := hR.hour; have h₇ := hR.maxKnown
+  generalize u.m = um at *
+  cases um; cases m; simp_all [MState.withLocal]
+
+/-- Preflight's first tick is hour 0 of the schedule. -/
+theorem start_tickLoop (N : NumOps α) (c : Ctx α) (n : Nat) :
+    (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 n)) =
+      if !c.bound then .error .inputUnavailable else c.tickLoop N c.pol.wStart (List.range' 0 (n + 1)) (c.state0 N) := by
+  unfold Ctx.start
+  rw [List.range'_succ]
+  cases c.bound
+  · rfl
+  · simp only [Bool.not_true, Bool.false_eq_true, ite_false, Ctx.tickLoop, List.forIn_cons]
+    simp only [show ((0 : Nat) : Int) * HOUR = 0 by simp, Int.add_zero, Nat.zero_add, bind_assoc, pure_bind]
+    rfl
+
+omit [Inhabited α] in
+/-- After a delivery that kept the per-node state, the instrumented state with the delivered machine is still
+related to it. -/
+theorem URel_deliver (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) (m' : MState α)
+    (hv : m'.vals = m.vals) (hw : m'.wins = m.wins) (hs : m'.since = m.since) :
+    URel N p ⟨m'.withLocal u.m.vals m.wins m.since, u.tv, u.wtag⟩ m' := by
+  have hwu : u.m.wins = m.wins := hR.wins
+  refine ⟨hR.vals.trans hv.symm, hw.symm, hs.symm, rfl, rfl, rfl, rfl, rfl, hR.tagged, hR.tags, ?_, ?_, ?_⟩
+  · intro i c w ht hw'; exact hR.blank i c w ht (by rw [hwu]; exact hw')
+  · intro i c w hw'; exact hR.winNode i c w (by rw [hwu]; exact hw')
+  · simp only [MState.withLocal]; rw [← hwu]; exact hR.shape
+
+omit [Inhabited α] in
+theorem Corr_map {σ τ σ' τ' : Type} {R : σ → τ → Prop} {S : σ' → τ' → Prop} {x : Except (Abort ⊕ UnitError) σ}
+    {y : Except Abort τ} (f : σ → σ') (g : τ → τ') (h : Corr R x y) (hR : ∀ a b, R a b → S (f a) (g b)) :
+    Corr S (x >>= fun a => pure (f a)) (y.map g) := by
+  cases x with
+  | error e => cases y with
+    | error e' => cases e <;> exact h
+    | ok b => cases e <;> exact h.elim
+  | ok a => cases y with
+    | error e' => exact h.elim
+    | ok b => exact hR a b h
+
+/-- The instrumented schedule against the executable one. -/
+theorem umachine_corr (N : NumOps α) (c : Ctx α) (hW : c.p.WF) (n : Nat) :
+    Corr (fun u ms => URel N c.p u ms) (c.umachineAfter N n) (c.machineAfter N n) := by
+  rw [Ctx.machineAfter_eq, start_tickLoop]
+  unfold Ctx.umachineAfter Ctx.tickLoop
+  have hz : [0:n + 1].size = n + 1 := by simp [Std.Legacy.Range.size]
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range', hz]
+  cases c.bound
+  · rfl
+  · simp only [Bool.not_true, Bool.false_eq_true, ite_false]
+    refine Corr_map (·.1) (·.machine) (forIn_corr _ _ _
+      (fun (us : UState α × SState α) (s' : SState α) => URel N c.p us.1 s'.machine ∧ { us.2 with machine := s'.machine } = s')
+      ?_ (UState.init N c.p c.coins, c.state0 N) (c.state0 N) ⟨init_rel N c.p hW c.coins, rfl⟩) (fun a b h => h.1)
+    intro k us s' ⟨hR, hs⟩
+    have e : ∀ X, ({ us.2 with machine := X } : SState α) = { s' with machine := X } := by intro X; rw [← hs]
+    rw [e us.1.m, URel_machine N c.p hR, deliver_local]
+    cases hd : c.deliver s' (c.pol.wStart + ↑k * HOUR + c.pol.delta) with
+    | error a => rfl
+    | ok r =>
+      obtain ⟨hv, hw, hsn⟩ := deliver_keeps_local c s' r _ hd
+      obtain ⟨u', hu', hR'⟩ := tick_rel N c.p hW (c.mask (c.pol.wStart + ↑k * HOUR)) (c.pol.wStart + ↑k * HOUR)
+        _ _ (URel_deliver N c.p hR r.machine hv hw hsn)
+      simp only [Except.map, Except.mapError, bind, Except.bind, pure, Except.pure]
+      rw [hu']
+      exact ⟨_, _, rfl, rfl, hR', rfl⟩
 
 end Ref

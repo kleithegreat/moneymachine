@@ -1,5 +1,5 @@
 import Ref.Spec
-import Ref.Proof.Prefix
+import Ref.Proof.Units
 import Ref.Proof.Checker
 
 /-!
@@ -80,7 +80,24 @@ theorem L2_units (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mark
         u.m.funding = ms.funding ∧ u.m.bar = ms.bar ∧ u.m.events = ms.events ∧
         ∀ i < p.nodes.size, ∀ (coin : Nat) (x : α) (t : Ty), u.tv[i]![coin]! = some (x, t) →
           t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b)) := by
-  sorry
+  intro c
+  obtain ⟨_, hp⟩ := ‹CheckerAccepted p›
+  have hc := umachine_corr N c (check_wf hp) n
+  generalize c.umachineAfter N n = x at hc ⊢
+  generalize c.machineAfter N n = y at hc ⊢
+  cases x with
+  | error e => cases y with
+    | error a => cases e with
+      | inl a' => simp only [Corr] at hc; subst hc; simp
+      | inr e' => exact hc.elim
+    | ok ms => cases e <;> exact hc.elim
+  | ok u => cases y with
+    | error a => exact hc.elim
+    | ok ms =>
+      refine ⟨by simp, by simp, fun u' hu => ?_⟩
+      cases hu
+      exact ⟨ms, rfl, hc.vals, hc.wins, hc.since, hc.funding, hc.bar, hc.events,
+        fun i _ coin x t h => hc.tagged i coin x t h⟩
 
 /-- The checker's programs are well-formed. -/
 theorem L2_checker (p : Program) (_ : CheckerAccepted p) : p.WF := by
