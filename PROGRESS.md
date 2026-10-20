@@ -584,6 +584,7 @@ The thesis is written with `mm disclose --kind thesis` to the thesis ledger, who
   - on which scores are undefined.
 
   The boundary cases are: R_net exactly 0, a horizon on a missing bar, chaining clusters, touching intervals, fewer than 10 base-rate windows, a size-zero thesis and B_ref = 0. Any ambiguity found is resolved, and this section is revised by dated revision before live registration.
+  - *Revision 2026-10-20, during C10.4's first differential run:* "within 1e-12" did not say absolute or relative. Skill is a ratio and grows large when B_ref is small. The first run's only disagreement, after a generator fix (its daily bars were not on midnight, as SCORING.md requires), was a skill of −9751.869120430718 against −9751.86912043072, one unit in the last place. No summation order can meet an absolute 1e-12 at that magnitude. Finite scores now agree when |a − b| ≤ 1e-12 · max(1, |a|, |b|). C10.4 is judged on a run after this revision.
 - **C10.5 Live operation.** The observation window is the first 28 consecutive UTC days after the harness freeze. It needs:
   - at least 20 accepted main theses, each with a completed conditional ablation or a reported failure;
   - every full no-reading session that was due, run or reported missed;
