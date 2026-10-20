@@ -612,6 +612,10 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 ## Blockers
 
+- **Bend 2 has no binary64 (2026-10-20, before any stage 6 code).** `bend base --types` for the pinned 2.0.37 lists `Nat`, `U32` and `F32` only, the latter two over the bit-list `Word`. Its executable model therefore cannot reproduce `mm`'s f64 arithmetic for C6.4's exact comparisons. Software binary64 over bit lists would be far too slow for C6.4's corpus, and foreign C is barred from `--verdict` code. The C6.3 proofs are unaffected, since the laws are proved over an abstract number structure.
+  - **The ambiguity.** C6.5 says only kernels passing C6.4 are eligible, which anticipates a kernel failing it. "Exit when C6.1 to C6.5 hold" can be read as requiring both to pass.
+  - **Proposed dated revision, before any stage 6 result.** C6.4 is judged per kernel, as eligibility. Stage exit requires the adopted kernel to pass C6.4 and all five laws, with C6.2 and C6.3 reported for both kernels. Under this reading, a Bend kernel without binary64 is ineligible, and Lean is adopted if it meets both.
+  - **Next step.** Appended as a revision when stage 6's C6.1 work starts. Bend's numeric gap is recorded either way as a comparison finding.
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
