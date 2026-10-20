@@ -180,6 +180,35 @@ Later campaigns must stay within 400 evaluations.
     - **The fix: direct calibration.** Let p_raw be the studentized bootstrap p-value specified above. The holdout p-value is now p = max over the 18 development cells c of (1 + #{development p_raw in c ≤ p_raw}) / 4,001. The development p_raw values are committed as `gate/holdout_calibration.json`, with its sha256 in the Log.
     - **Why it is valid.** For each generator this is the Monte Carlo p-value of p_raw against that generator's null distribution, which is valid when the null is that generator. The maximum is valid and conservative across the family.
     - **What stays.** Block 6, 10,000 resamples, the seed, Holm, α = 0.05, the net-return condition, and the locked suite's generators, sizes, levels and limits are unchanged. The locked suite now judges p.
+  - *Revision 2026-10-20, after the locked run v1 failed and before any C2.4 run (calibration v2). GPT reviewed the draft, and this is its one revision.*
+    - **What failed.** Locked v1 (`audit/stage2/holdout-size-locked.json`) passed 52 of its 54 judged pairs. sparse/540 and sparse/546 failed at u = 0.05: rates 0.0595 and 0.0602, with upper bounds 0.0648 and 0.0656 against 0.0625. That is a failure to certify the registered bound, not proof that the true rate exceeds it. The run stays recorded as a failure.
+    - **What development showed afterwards (post-v1, reported only).** Three sparse generators were added at the three lengths (`audit/stage2/holdout-size-development-v2.json`):
+      - sparse10: P(flat → active) = 1/36, P(active → flat) = 1/4, i.i.d. t₅;
+      - sparse5: 1/76 and 1/4, over the GARCH-t₅ latent;
+      - sparse5_long: 1/228 and 1/12, over the GARCH-t₅ latent.
+
+      Under the v1 calibration, sparse10/540 rejects 0.060 at 0.05 and sparse5/540 rejects 0.065, so the oversizing is real and reproducible. The long-episode cell rejects 0.045, so short active bursts are the hard direction. The explanation (few active episodes) is a hypothesis these runs support, not a proof.
+    - **The v2 test.** The raw p-value is unchanged.
+      - **The calibration table.** It is now the 18 v1 development cells, byte for byte with the same seeds, plus the 9 development-v2 cells: 27 cells of 4,000 series, in `gate/holdout_calibration.json` with its new sha256 in the Log.
+      - **The calibrated p.** It is the maximum, over the 27 cells, of (1 + #{p_raw ≤ observed}) / 4,001.
+      - **The cost.** In development, a Gaussian series rejects about 0.023 at 0.05.
+      - **The minimum attainable calibrated p.** It is 0.0015, so Holm can reject only in a campaign with at most 33 finalists. Every campaign reports its finalist count against that limit.
+    - **The activity floor (a scope rule, not a coverage claim).** A finalist's holdout series is untested, and gets p = 1, when it has fewer than ⌈0.05 n⌉ steps whose stored net return is not exactly 0.0 (27, 28 and 54 at n = 540, 546 and 1,080).
+      - A floored finalist stays in its campaign's frozen Holm family with p = 1. Raising a p-value can never add a rejection.
+      - Every finalist's nonzero-step count is reported.
+      - The floor does not make sparser or otherwise uncovered series valid. It only marks where the calibration's evidence stops.
+      - A non-finite return in the series is an implementation failure, not a result.
+    - **What a pass means.** The calibrated p is a Monte Carlo p-value against each development generator. Its guarantee averages over the calibration draws and is not conditional on the committed table. A locked pass supports only the measured rejection bounds for the locked generators, at the judged levels. It does not show superuniformity at every Holm level, or validity for return laws outside these families or conditional on search. Paper §8's sentence on asymptotic validity is narrowed to match.
+    - **Locked suite v2.** Its id is `holdout-calibration-locked-v2`. It uses the same three lengths, 20,000 series per cell, levels, limits and confidence (K = 54, 1 − 0.05/54). Its generators were chosen after seeing v1's failure and the development-v2 results, but before any v2 locked draw, and none is a development generator:
+      - long-episode sparse: P(active → flat) = 1/12, P(flat → active) = 1/160 (about 7% active, mean episode 12), active returns from a GARCH(1,1) with α = 0.08, β = 0.9 and t₄ innovations;
+      - very sparse: P(active → flat) = 1/4, P(flat → active) = 1/129 (about 3% active), active returns i.i.d. t₄, so most series fall under the floor;
+      - rare loss: i.i.d. 0.1 + N(0, 1), minus 20 with probability 0.005 (mean 0, negatively skewed);
+      - noisy sparse: N(0, 0.05²) at every step plus sparse10-style t₅ bursts (1/36, 1/4), so the floor never applies;
+      - endogenous exposure: the GARCH-t₅ latent of the development generators, active exactly when its conditional variance exceeds 1.5;
+      - persistent: Gaussian AR(1) with φ = 0.8.
+
+      Every chain starts from its stationary distribution, and every GARCH has initial variance 1 and 500 burn-in steps. A series under the floor counts as a non-rejection, as in the gate. The per-cell floor rate, the rejection rate among eligible series (a diagnostic only), and the realized activity are reported beside the judged unconditional bounds.
+    - **Failure handling.** A crash, a missing series or an incomplete cell invalidates the run, which is then rerun under a new id and logged; series are never dropped. A failed v2 run stays recorded as a failure, and any v3 needs a new locked suite. The 95% confidence holds for this v2 suite alone, not jointly across redesign attempts.
 
 **Runs.** Seeds come from SHA-256 of a committed campaign id. Every market started counts, and a crash or timeout counts as a promotion. A rerun after any gate or null change uses fresh ids and is logged. Every bound below is a one-sided 95% Clopper–Pearson bound, unless stated otherwise.
 
