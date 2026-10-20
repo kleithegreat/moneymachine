@@ -139,7 +139,9 @@ def long_run_sd(x):
     var = (x * x).sum(axis=-1) / n
     for k in range(1, min(LAGS, n - 1) + 1):
         var = var + 2 * (1 - k / (LAGS + 1)) * (1 - 1 / BLOCK) ** k * (x[..., k:] * x[..., :-k]).sum(axis=-1) / n
-    return np.sqrt(np.maximum(var, 0.0))
+    if not np.all(np.isfinite(var) & (var >= 0)):
+        raise ArithmeticError("long-run variance negative or non-finite")
+    return np.sqrt(var)
 
 
 def holdout_pvalue(r, seed):
@@ -153,7 +155,7 @@ def holdout_pvalue(r, seed):
     x = r[np.array([bs.update_indices() for _ in range(HOLDOUT_REPS)])]
     dev, sds = x.mean(axis=1) - r.mean(), long_run_sd(x)
     with np.errstate(divide="ignore", invalid="ignore"):
-        ts = np.where(sds > 0, dev / sds, np.where(dev > 0, np.inf, -np.inf))
+        ts = np.where(sds > 0, dev / sds, np.where(dev >= 0, np.inf, -np.inf))
     return float((1 + (ts >= t).sum()) / (1 + HOLDOUT_REPS))
 
 
