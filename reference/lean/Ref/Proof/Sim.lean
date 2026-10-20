@@ -1,4 +1,4 @@
-import Ref.Sim
+import Ref.Spec
 import Ref.Proof.Except
 
 /-! Facts about the simulator: no step raises R_INPUT_UNAVAILABLE, and delivery and ticks touch only the
@@ -281,6 +281,15 @@ theorem steps_proj (N : NumOps α) (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.l
     show c.tickLoop N c.pol.wStart (List.range' (1 + 4 * j) 4) t = _
     rw [tickLoop_shift, hb, ← graft_self t r hp, tickLoop_graft, hq]
     rfl
+
+/-- The schedule unrolled: preflight and the first tick, then the hourly ticks. -/
+theorem Ctx.machineAfter_eq (N : NumOps α) (c : Ctx α) (n : Nat) :
+    c.machineAfter N n = (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 n)).map (·.machine) := by
+  unfold Ctx.machineAfter Ctx.tickLoop
+  have hz : [1:n + 1].size = n := by simp [Std.Legacy.Range.size]
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range', hz]
+  simp only [bind, Except.bind, Except.map, pure, Except.pure]
+  split <;> (try rfl)
 
 end
 end Ref

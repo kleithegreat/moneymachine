@@ -5,6 +5,7 @@ import Ref.Machine
 import Ref.Float
 import Ref.Sim
 import Ref.Units
+import Ref.Spec
 import Ref.Proof.Except
 import Ref.Proof.Sim
 import Ref.Proof.Prefix

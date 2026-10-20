@@ -1,7 +1,8 @@
-import Ref.Syntax
+import Ref.Spec
 
 /-! What the checker's accepted programs satisfy: a Hoare logic for `Check`, and the invariant every
-checker step keeps on its state, for any typing rule that `typeOp` agrees with. -/
+checker step keeps on its state; with `typeOp` agreeing with `opTy`, they are well-formed (L2's checker
+half). -/
 
 namespace Ref
 
@@ -146,30 +147,27 @@ theorem getElem!_push_eq {β} [Inhabited β] (xs : Array β) (y : β) {n : Nat} 
     (xs.push y)[n]! = y := by
   subst h; simp
 
-/-- A typing rule: an operator's result type from its arguments' types and its conversion target. -/
-abbrev TypeRule := Op → List Ty → Option Dim → Option Ty
-
-/-- Node i is typed by its rule, its parameter declared and its arguments before it. -/
-def NodeOK (rule : TypeRule) (nparams : Nat) (punit : Nat → Dim) (nodes : Array Node) (types : Array Ty)
+/-- Node i is typed by `opTy`, its parameter declared and its arguments before it. -/
+def NodeOK (nparams : Nat) (punit : Nat → Dim) (nodes : Array Node) (types : Array Ty)
     (convTo : Array (Option Dim)) (i : Nat) : Prop :=
   match nodes[i]! with
   | .input inp => types[i]! = .num inp.unit
   | .const _ u => types[i]! = .num u
   | .param k => k < nparams ∧ types[i]! = .num (punit k)
-  | .op o args => (∀ a ∈ args, a < i) ∧ rule o (args.map (types[·]!)) convTo[i]! = some types[i]!
+  | .op o args => (∀ a ∈ args, a < i) ∧ opTy o (args.map (types[·]!)) convTo[i]! = some types[i]!
 
 /-- What every checker step keeps: aligned arrays, typed nodes and bindings to existing nodes. -/
-structure Inv (rule : TypeRule) (st : CState) : Prop where
+structure Inv (st : CState) : Prop where
   types : st.types.size = st.nodes.size
   convTo : st.convTo.size = st.nodes.size
-  nodes : ∀ i < st.nodes.size, NodeOK rule st.params.size (st.params[·]!.2.2) st.nodes st.types st.convTo i
+  nodes : ∀ i < st.nodes.size, NodeOK st.params.size (st.params[·]!.2.2) st.nodes st.types st.convTo i
   lets : ∀ x ∈ st.lets, x.2 < st.nodes.size
 
-theorem NodeOK.push {rule : TypeRule} {np np' : Nat} {pu pu' : Nat → Dim} {nodes : Array Node} {types : Array Ty}
+theorem NodeOK.push {np np' : Nat} {pu pu' : Nat → Dim} {nodes : Array Node} {types : Array Ty}
     {convTo : Array (Option Dim)} {i : Nat} (n : Node) (t : Ty) (to : Option Dim) (hi : i < nodes.size)
     (ht : types.size = nodes.size) (hc : convTo.size = nodes.size) (hnp : np ≤ np') (hpu : ∀ k < np, pu' k = pu k)
-    (h : NodeOK rule np pu nodes types convTo i) :
-    NodeOK rule np' pu' (nodes.push n) (types.push t) (convTo.push to) i := by
+    (h : NodeOK np pu nodes types convTo i) :
+    NodeOK np' pu' (nodes.push n) (types.push t) (convTo.push to) i := by
   unfold NodeOK at *
   rw [getElem!_push_lt _ _ hi, getElem!_push_lt _ _ (ht ▸ hi)]
   split at h
@@ -181,9 +179,9 @@ theorem NodeOK.push {rule : TypeRule} {np np' : Nat} {pu pu' : Nat → Dim} {nod
     congr 1
     exact List.map_congr_left fun a ha => getElem!_push_lt _ _ (by have := h.1 a ha; omega)
 
-theorem NodeOK.params {rule : TypeRule} {np np' : Nat} {pu pu' : Nat → Dim} {nodes : Array Node} {types : Array Ty}
+theorem NodeOK.params {np np' : Nat} {pu pu' : Nat → Dim} {nodes : Array Node} {types : Array Ty}
     {convTo : Array (Option Dim)} {i : Nat} (hnp : np ≤ np') (hpu : ∀ k < np, pu' k = pu k)
-    (h : NodeOK rule np pu nodes types convTo i) : NodeOK rule np' pu' nodes types convTo i := by
+    (h : NodeOK np pu nodes types convTo i) : NodeOK np' pu' nodes types convTo i := by
   unfold NodeOK at *
   split at h
   · exact h
@@ -207,13 +205,13 @@ theorem Frame.typeAt (j : Nat) (t : Ty) : Frame (fun st => j < st.nodes.size ∧
   ⟨fun _ _ _ _ hs ⟨hj, ht⟩ => ⟨by simp; omega, by simp only; rw [getElem!_push_lt _ _ (by omega)]; exact ht⟩,
    fun _ h => h⟩
 
-/-- The node a step adds at the end is typed by its rule. -/
-def NewOK (rule : TypeRule) (st : CState) (n : Node) (t : Ty) (to : Option Dim) : Prop :=
-  NodeOK rule st.params.size (st.params[·]!.2.2) (st.nodes.push n) (st.types.push t) (st.convTo.push to) st.nodes.size
+/-- The node a step adds at the end is typed by `opTy`. -/
+def NewOK (st : CState) (n : Node) (t : Ty) (to : Option Dim) : Prop :=
+  NodeOK st.params.size (st.params[·]!.2.2) (st.nodes.push n) (st.types.push t) (st.convTo.push to) st.nodes.size
 
-theorem intern_spec (rule : TypeRule) (n : Node) (t : Ty) (to : Option Dim) {S : CState → Prop} (hS : Frame S) :
-    Spec (fun st => Inv rule st ∧ S st ∧ NewOK rule st n t to) (intern n t to)
-      (fun i st => Inv rule st ∧ S st ∧ i < st.nodes.size) := by
+theorem intern_spec (n : Node) (t : Ty) (to : Option Dim) {S : CState → Prop} (hS : Frame S) :
+    Spec (fun st => Inv st ∧ S st ∧ NewOK st n t to) (intern n t to)
+      (fun i st => Inv st ∧ S st ∧ i < st.nodes.size) := by
   intro st ⟨hI, hS', hn⟩ i st' h
   unfold intern at h
   simp only [bind, StateT.bind, get, getThe, MonadStateOf.get, StateT.get, pure, set, MonadStateOf.set,
@@ -255,11 +253,32 @@ macro "tsimp" : tactic => `(tactic| simp [typeOp, bind, StateT.bind, pure, State
   MonadExceptOf.throw, StateT.lift, Except.pure, StateT.ite_run, StateT.discard_run, Except.ok_eq_bind, eq_ite_iff',
   and_assoc, exists_and_left, exists_eq_left, Functor.map, Except.map] at h)
 
-/-- typeOp agrees with the rule wherever the arguments match the operator's arity. -/
-def TypeOpSound (rule : TypeRule) : Prop :=
-  ∀ name op arity ts kvs, (name, op, arity) ∈ ops → ts.length = arity → ∀ st op' ty st',
+/-- typeOp agrees with opTy wherever the arguments match the operator's arity. -/
+theorem typeOp_sound :
+    ∀ name op arity ts kvs, (name, op, arity) ∈ ops → ts.length = arity → ∀ st op' ty st',
     typeOp op ts kvs st = .ok ((op', ty), st') →
-    st' = st ∧ rule op' ts (match (generalizing := false) op', ty with | .convert _, .num u => some u | _, _ => none) = some ty
+    st' = st ∧ opTy op' ts (match (generalizing := false) op', ty with | .convert _, .num u => some u | _, _ => none) = some ty := by
+  intro name op arity ts kvs hmem hlen st op' ty st' h
+  simp only [ops, List.mem_cons, Prod.mk.injEq, List.not_mem_nil, or_false] at hmem
+  rcases hmem with ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+    ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+    ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+    ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+    ⟨-, rfl, rfl⟩
+  all_goals rcases ts with _ | ⟨a, _ | ⟨b, _ | ⟨c, _ | ⟨d, _⟩⟩⟩⟩ <;> simp at hlen
+  all_goals (try cases a) <;> (try cases b) <;> (try cases c)
+  all_goals replace h := h.symm
+  all_goals tsimp
+  all_goals try (simp_all [opTy]; done)
+  all_goals try (simp_all [opTy]; rfl)
+  all_goals try (generalize hm : Dim.mul _ _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+  all_goals try (generalize hm : Dim.div _ _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+  all_goals try (generalize hm : Dim.sqrt _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+  all_goals try (obtain ⟨a, b, hab, h⟩ := h; obtain rfl := unitOf_keeps _ _ _ _ hab.symm
+                 generalize hm : Dim.conversion _ _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+  all_goals try (generalize field kvs "hours" = j at h; cases j <;> tsimp; rename_i i
+                 by_cases hw : 1 ≤ i ∧ i ≤ (maxHours : Int) <;> simp [hw] at h <;> tsimp <;> simp_all [opTy] <;> omega)
+  all_goals try grind [opTy]
 
 theorem Spec.fail_bind {β γ} {P : CState → Prop} {Q : γ → CState → Prop} {c : Code} {f : β → Check γ} :
     Spec P (fail c >>= f) Q := by
@@ -305,29 +324,29 @@ macro "step" : tactic => `(tactic| first
   | with_reducible_and_instances refine Spec.ite ?_ ?_
   | split)
 
-theorem expr_spec (rule : TypeRule) (hrule : TypeOpSound rule) (v : Json.Value) (depth : Nat) {S : CState → Prop} (hS : Frame S) :
-    Spec (fun st => Inv rule st ∧ S st) (expr v depth)
-      (fun i st => Inv rule st ∧ S st ∧ i < st.nodes.size) := by
+theorem expr_spec (v : Json.Value) (depth : Nat) {S : CState → Prop} (hS : Frame S) :
+    Spec (fun st => Inv st ∧ S st) (expr v depth)
+      (fun i st => Inv st ∧ S st ∧ i < st.nodes.size) := by
   unfold expr
-  refine Spec.bind (Spec.modify' (Q := fun _ st => Inv rule st ∧ S st)
+  refine Spec.bind (Spec.modify' (Q := fun _ st => Inv st ∧ S st)
     fun st h => ⟨⟨h.1.1, h.1.2, h.1.3, h.1.4⟩, hS.2 st h.2⟩) fun _ => ?_
   split
   · exact Spec.fail'
   rename_i hd
   dsimp only
   repeat' step
-  · refine (intern_spec rule _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
+  · refine (intern_spec _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
     simp only [and_assoc] at hp
     obtain ⟨hI, hst, -⟩ := hp
     refine ⟨hI, hst, ?_⟩
     simp [NewOK, NodeOK, getElem!_push_eq _ _ hI.types]
-  · refine (intern_spec rule _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
+  · refine (intern_spec _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
     simp only [and_assoc] at hp
     obtain ⟨hI, hst, -⟩ := hp
     refine ⟨hI, hst, ?_⟩
     simp [NewOK, NodeOK, getElem!_push_eq _ _ hI.types]
   · rename_i hf _
-    refine (intern_spec rule _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
+    refine (intern_spec _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
     simp only [and_assoc] at hp
     obtain ⟨hI, hst, -, -, -, -, -, rfl, rfl⟩ := hp
     refine ⟨hI, hst, ?_⟩
@@ -339,13 +358,13 @@ theorem expr_spec (rule : TypeRule) (hrule : TypeOpSound rule) (v : Json.Value) 
     obtain ⟨hI, hst, -, -, -, -, -, -, rfl⟩ := hp
     exact ⟨hI, hst, hI.lets _ (Array.mem_of_find?_eq_some hl)⟩
   · rename_i op arity hfind kvs' _ args _
-    refine Spec.bind (R := fun ix st => Inv rule st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
+    refine Spec.bind (R := fun ix st => Inv st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
       ix.size = arity) ?_ fun ix => ?_
     · rw [← Array.forIn_toList]
-      refine Spec.conseq (Spec.forIn_yield args.toList #[] _ (fun rest ix st => Inv rule st ∧ S st ∧
+      refine Spec.conseq (Spec.forIn_yield args.toList #[] _ (fun rest ix st => Inv st ∧ S st ∧
           (∀ j ∈ ix, j < st.nodes.size) ∧ ix.size + rest.length = arity) fun a rest ix => ?_) ?_ ?_
       · refine Spec.intro fun st0 ⟨_, hS0, hix0, hsz0⟩ => ?_
-        refine Spec.bind (Spec.conseq (expr_spec rule hrule a (depth + 1) (hS.and (Frame.le st0.nodes.size)))
+        refine Spec.bind (Spec.conseq (expr_spec a (depth + 1) (hS.and (Frame.le st0.nodes.size)))
           (fun st h => ?_) (fun i st h => h)) fun i => Spec.pure' fun st ⟨hI, ⟨hS', hle⟩, hi⟩ => ?_
         · subst h; exact ⟨‹_›, hS0, Nat.le_refl _⟩
         · refine ⟨_, rfl, hI, hS', fun j hj => ?_, by simp at hsz0 ⊢; omega⟩
@@ -361,13 +380,13 @@ theorem expr_spec (rule : TypeRule) (hrule : TypeOpSound rule) (v : Json.Value) 
       · intro ix st ⟨hI, hst, hix, hsz⟩
         exact ⟨hI, hst, hix, by simpa using hsz⟩
     · refine Spec.get_bind fun s0 => ?_
-      refine Spec.bind (R := fun r st => Inv rule st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
-          st = s0 ∧ rule r.1 (ix.toList.map (s0.types[·]!))
+      refine Spec.bind (R := fun r st => Inv st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
+          st = s0 ∧ opTy r.1 (ix.toList.map (s0.types[·]!))
             (match r.1, r.2 with | .convert _, .num u => some u | _, _ => none) = some r.2) ?_ fun r => ?_
       · intro st ⟨⟨hI, hst, hix, hsz⟩, hs⟩ r st' h
-        obtain ⟨rfl, hr⟩ := hrule _ _ _ _ _ (List.mem_of_find?_eq_some hfind) (by simp [hsz]) st r.1 r.2 st' h
+        obtain ⟨rfl, hr⟩ := typeOp_sound _ _ _ _ _ (List.mem_of_find?_eq_some hfind) (by simp [hsz]) st r.1 r.2 st' h
         exact ⟨hI, hst, hix, hs, hr⟩
-      · refine (intern_spec rule _ _ _ hS).conseq (fun st ⟨hI, hst, hix, hs, hr⟩ => ⟨hI, hst, ?_⟩) (fun _ _ h => h)
+      · refine (intern_spec _ _ _ hS).conseq (fun st ⟨hI, hst, hix, hs, hr⟩ => ⟨hI, hst, ?_⟩) (fun _ _ h => h)
         subst hs
         simp only [NewOK, NodeOK, getElem!_push_eq _ _ rfl, getElem!_push_eq _ _ hI.types,
           getElem!_push_eq _ _ hI.convTo]
@@ -383,13 +402,13 @@ theorem Frame.of {s : CState} {j : Nat} {t : Ty} (_ : s.types[j]! = t) :
 
 theorem Frame.true : Frame (fun _ => True) := ⟨fun _ _ _ _ _ _ => trivial, fun _ _ => trivial⟩
 
-theorem Inv.pushParam {rule : TypeRule} {st : CState} (x : String × UInt64 × Dim) (h : Inv rule st) :
-    Inv rule { st with params := st.params.push x } :=
+theorem Inv.pushParam {st : CState} (x : String × UInt64 × Dim) (h : Inv st) :
+    Inv { st with params := st.params.push x } :=
   ⟨h.types, h.convTo, fun i hi => (h.nodes i hi).params (by simp) fun k hk => by
     simp only; rw [getElem!_push_lt _ _ hk], h.lets⟩
 
-theorem Inv.pushLet {rule : TypeRule} {st : CState} (name : String) {i : Nat} (h : Inv rule st) (hi : i < st.nodes.size) :
-    Inv rule { st with lets := st.lets.push (name, i) } :=
+theorem Inv.pushLet {st : CState} (name : String) {i : Nat} (h : Inv st) (hi : i < st.nodes.size) :
+    Inv { st with lets := st.lets.push (name, i) } :=
   ⟨h.types, h.convTo, h.nodes, fun x hx => by
     rcases Array.mem_push.mp hx with hx | rfl
     · exact h.lets x hx
@@ -399,11 +418,11 @@ theorem Spec.pure_bind {β γ : Type} {P : CState → Prop} {Q : γ → CState �
     (h : Spec P (f b) Q) : Spec P (pure b >>= f) Q := h
 
 /-- A loop that keeps the invariant, then the rest. -/
-theorem Spec.loop {β σ γ : Type} {rule : TypeRule} {P : CState → Prop} {Q : γ → CState → Prop} {xs : Array β} {init : σ}
-    {f : β → σ → Check (ForInStep σ)} {g : σ → Check γ} (hP : ∀ st, P st → Inv rule st)
-    (hf : ∀ a ∈ xs, ∀ s, Spec (Inv rule) (f a s) (fun _ => Inv rule)) (hg : ∀ s, Spec (Inv rule) (g s) Q) :
+theorem Spec.loop {β σ γ : Type} {P : CState → Prop} {Q : γ → CState → Prop} {xs : Array β} {init : σ}
+    {f : β → σ → Check (ForInStep σ)} {g : σ → Check γ} (hP : ∀ st, P st → Inv st)
+    (hf : ∀ a ∈ xs, ∀ s, Spec (Inv) (f a s) (fun _ => Inv)) (hg : ∀ s, Spec (Inv) (g s) Q) :
     Spec P (forIn xs init f >>= g) Q :=
-  Spec.bind (Spec.conseq (Spec.forIn_array xs init f (fun _ => Inv rule) hf) hP (fun _ _ h => h)) hg
+  Spec.bind (Spec.conseq (Spec.forIn_array xs init f (fun _ => Inv) hf) hP (fun _ _ h => h)) hg
 
 set_option hygiene false in
 /-- The invariant out of a precondition that conjoins it with branch facts. -/
@@ -413,21 +432,21 @@ set_option hygiene false in
 /-- `step`, the program's loops over parameters and bindings, and expressions under any frame. -/
 macro "pstep" : tactic => `(tactic| first
   | step
-  | with_reducible_and_instances refine Spec.loop (rule := rule) (fun st h => ?_) (fun _ _ _ => ?_) (fun _ => ?_)
-  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv rule st)
+  | with_reducible_and_instances refine Spec.loop (fun st h => ?_) (fun _ _ _ => ?_) (fun _ => ?_)
+  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv st)
       fun st h => Inv.pushParam _ h) fun _ => ?_
-  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv rule st)
+  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv st)
       fun st h => Inv.pushLet _ h.1 h.2.2) fun _ => ?_
   | with_reducible_and_instances exact Spec.pure' (b := ForInStep.yield _) fun _ h => h
   | with_reducible_and_instances refine Spec.pure_bind ?_
-  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec rule hrule (Prod.snd _) 1 Frame.true)
+  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec (Prod.snd _) 1 Frame.true)
       (fun st h => ⟨?_, trivial⟩) (fun _ _ h => h)) fun _ => ?_
-  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec rule hrule (field _ "weight") 1 Frame.true)
+  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec (field _ "weight") 1 Frame.true)
       (fun st h => ⟨?_, trivial⟩) (fun _ _ h => h)) fun _ => ?_)
 
 set_option maxHeartbeats 4000000 in
-theorem program_spec (rule : TypeRule) (hrule : TypeOpSound rule) (v : Json.Value) :
-    Spec (Inv rule) (program v) (fun p st => Inv rule st ∧ p.nodes = st.nodes ∧ p.types = st.types ∧
+theorem program_spec (v : Json.Value) :
+    Spec (Inv) (program v) (fun p st => Inv st ∧ p.nodes = st.nodes ∧ p.types = st.types ∧
       p.convTo = st.convTo ∧ p.params = st.params.map (·.2) ∧ p.weight < st.nodes.size ∧
       st.types[p.weight]! = .num Dim.one ∧ ∀ q, p.prediction = some q → q < st.nodes.size ∧ st.types[q]! = .bool) := by
   unfold program
@@ -446,7 +465,7 @@ theorem program_spec (rule : TypeRule) (hrule : TypeOpSound rule) (v : Json.Valu
       obtain ⟨hI0, -, hw0, rfl, hu⟩ := h0
       simp only [bne_iff_ne, ne_eq, Decidable.not_not] at hu
       subst hu
-      refine Spec.bind (Spec.conseq (expr_spec rule hrule _ 1 (Frame.of ‹(_ : CState).types[_]! = Ty.num Dim.one›))
+      refine Spec.bind (Spec.conseq (expr_spec _ 1 (Frame.of ‹(_ : CState).types[_]! = Ty.num Dim.one›))
         (fun st h => by subst h; exact ⟨hI0, hw0, ‹_›⟩) (fun _ _ h => h)) fun c => ?_
       refine Spec.get_bind fun s => Spec.ite Spec.fail_bind (Spec.pure_bind (Spec.get_bind fun s' => ?_))
       refine Spec.pure' fun st h => ?_
@@ -455,11 +474,8 @@ theorem program_spec (rule : TypeRule) (hrule : TypeOpSound rule) (v : Json.Valu
       simp only [bne_iff_ne, ne_eq, Decidable.not_not] at hb
       exact ⟨hI, rfl, rfl, rfl, rfl, hw, hty, fun q hq => by cases hq; exact ⟨hc, hb⟩⟩
 
-/-- A program the checker accepts satisfies the well-formedness clauses under any rule `typeOp` agrees with. -/
-theorem check_wf (rule : TypeRule) (hrule : TypeOpSound rule) {text : String} {p : Program} (h : check text = .ok p) :
-    p.types.size = p.nodes.size ∧ p.convTo.size = p.nodes.size ∧ p.weight < p.nodes.size ∧
-    p.types[p.weight]! = .num Dim.one ∧ (∀ q, p.prediction = some q → q < p.nodes.size ∧ p.types[q]! = .bool) ∧
-    ∀ i < p.nodes.size, NodeOK rule p.params.size (p.params[·]!.2) p.nodes p.types p.convTo i := by
+/-- The checker's programs are well-formed. -/
+theorem check_wf {text : String} {p : Program} (h : check text = .ok p) : p.WF := by
   unfold check at h
   split at h
   · cases h
@@ -469,8 +485,9 @@ theorem check_wf (rule : TypeRule) (hrule : TypeOpSound rule) {text : String} {p
   split at h
   · rename_i r st hr
     cases h
-    have hI0 : Inv rule {} := ⟨rfl, rfl, fun _ h => by simp at h, fun _ h => by simp at h⟩
-    obtain ⟨hI, hn, ht, hc, hp, hw, hty, hpred⟩ := program_spec rule hrule v {} hI0 _ _ hr
+    have hI0 : Inv {} := ⟨rfl, rfl, fun _ h => by simp at h, fun _ h => by simp at h⟩
+    obtain ⟨hI, hn, ht, hc, hp, hw, hty, hpred⟩ := program_spec v {} hI0 _ _ hr
+    unfold Program.WF
     rw [hn, ht, hc, hp]
     refine ⟨hI.types, hI.convTo, hw, hty, hpred, fun i hi => (hI.nodes i hi).params (by simp) fun k hk => ?_⟩
     rw [getElem!_pos _ k (by simpa using hk), getElem!_pos _ k hk, Array.getElem_map]
