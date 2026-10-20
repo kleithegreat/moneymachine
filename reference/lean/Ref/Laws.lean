@@ -46,7 +46,7 @@ def Ctx.decisionTime (c : Ctx α) (k : Nat) : Int := c.pol.wStart + ((k : Int) +
 
 theorem L1_values (N : NumOps α) (p : Program) (_ : WellTyped p) (m₁ m₂ : Market α) (v : Venue α) (pol : Policy)
     (stop : Int) (n : Nat)
-    (hI : m₁.intervals = m₂.intervals) (hB : m₁.present = m₂.present)
+    (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
     (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
         = (Ctx.make p m₂ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
     ∀ k ≤ n, (Ctx.make p m₁ v pol stop).machineAfter N k = (Ctx.make p m₂ v pol stop).machineAfter N k := by
@@ -54,7 +54,7 @@ theorem L1_values (N : NumOps α) (p : Program) (_ : WellTyped p) (m₁ m₂ : M
 
 theorem L1_decisions (N : NumOps α) (p : Program) (_ : WellTyped p) (m₁ m₂ : Market α) (v : Venue α) (pol : Policy)
     (stop : Int) (k : Nat)
-    (hI : m₁.intervals = m₂.intervals) (hB : m₁.present = m₂.present)
+    (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
     (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix ((Ctx.make p m₁ v pol stop).decisionTime k)
         = (Ctx.make p m₂ v pol stop).deliveryPrefix ((Ctx.make p m₂ v pol stop).decisionTime k))
     (hE : (Ctx.make p m₁ v pol stop).execView ((Ctx.make p m₁ v pol stop).decisionTime k)
@@ -216,8 +216,8 @@ theorem L4_orders (N : NumOps α) (p : Program) (_ : WellTyped p) (m : Market α
 /-- A run is refused as unavailable exactly when some event source the program names is unbound,
 before any delivery or tick; with every source bound, that refusal never occurs. -/
 theorem L5_binding (N : NumOps α) (p : Program) (_ : WellTyped p) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) :
-    (run N p m v pol stop = .error .inputUnavailable ↔ ∃ s ∈ p.eventSlots, s ∉ m.present) ∧
-    ((∃ s ∈ p.eventSlots, s ∉ m.present) → (Ctx.make p m v pol stop).start N = .error .inputUnavailable) := by
+    (run N p m v pol stop = .error .inputUnavailable ↔ ∃ s ∈ p.eventSlots, s ∉ m.bound) ∧
+    ((∃ s ∈ p.eventSlots, s ∉ m.bound) → (Ctx.make p m v pol stop).start N = .error .inputUnavailable) := by
   sorry
 
 end Ref

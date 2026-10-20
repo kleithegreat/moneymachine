@@ -43,8 +43,12 @@ variable {α : Type} (N : NumOps α)
 
 def truth (b : Bool) : α := if b then N.one else N.zero
 def sign (x : α) : α := if N.lt N.zero x then N.one else if N.lt x N.zero then N.neg N.one else N.zero
-def min (a b : α) : α := if N.lt b a then b else a
-def max (a b : α) : α := if N.lt a b then b else a
+/-- NaN is the one value unequal to itself. -/
+def isNaN (x : α) : Bool := !N.eq x x
+/-- The engine's `f64::min`/`max` (rustc -O, measured): a NaN operand yields the other operand; a tie,
+signed zeros included, yields the first. -/
+def min (a b : α) : α := if N.isNaN a then b else if N.isNaN b then a else if N.lt b a then b else a
+def max (a b : α) : α := if N.isNaN a then b else if N.isNaN b then a else if N.lt a b then b else a
 def clip (x lo hi : α) : α := N.min (N.max x lo) hi
 def keep (x : α) : Val α := if N.finite x then some x else none
 /-- Rust's `signum`: −1 when the sign bit is set (−0 included), else 1. -/

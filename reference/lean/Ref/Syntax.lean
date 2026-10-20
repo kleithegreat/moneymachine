@@ -44,15 +44,17 @@ def parse (s : String) : Option Dim :=
   | n :: rest => do let d ← product (String.intercalate "/" rest); let n ← product n; div n d
   | [] => none
 
+/-- The loop of compiler-rt's __powidf2: multiply r by a on odd bits, then halve n and square a. -/
+def powiGo (r a : Float) (n : Nat) : Float :=
+  let r := if n % 2 == 1 then r * a else r
+  if h : n / 2 = 0 then r else powiGo r (a * a) (n / 2)
+termination_by n
+decreasing_by omega
+
 /-- compiler-rt's __powidf2, which Rust's `powi` lowers to. -/
-def powi (a : Float) (b : Int) : Float := Id.run do
-  let mut (r, a, n) := ((1 : Float), a, b.natAbs)
-  repeat
-    if n % 2 == 1 then r := r * a
-    n := n / 2
-    if n == 0 then break
-    a := a * a
-  return if b < 0 then 1 / r else r
+def powi (a : Float) (b : Int) : Float :=
+  let r := powiGo 1 a b.natAbs
+  if b < 0 then 1 / r else r
 
 /-- The conversion factor's bits, as the engine computes it, if the units differ only in time units
 with the same total time exponent. -/
@@ -114,7 +116,10 @@ inductive Ty where
 structure Program where
   nodes : Array Node
   types : Array Ty
-  params : Array UInt64
+  /-- Each parameter's value bits and declared unit. -/
+  params : Array (UInt64 × Dim)
+  /-- The declared target unit of each conversion node (`none` for other nodes). -/
+  convTo : Array (Option Dim)
   weight : Nat
   prediction : Option Nat
   deriving Inhabited
@@ -146,6 +151,7 @@ open Json
 structure CState where
   nodes : Array Node := #[]
   types : Array Ty := #[]
+  convTo : Array (Option Dim) := #[]
   params : Array (String × UInt64 × Dim) := #[]
   lets : Array (String × Nat) := #[]
   parsed : Nat := 0
@@ -186,12 +192,12 @@ def unitOf (v : Value) : Check Dim := do
   let some u := Dim.parse s | fail .unit
   return u
 
-def intern (n : Node) (t : Ty) : Check Nat := do
+def intern (n : Node) (t : Ty) (to : Option Dim := none) : Check Nat := do
   let st ← get
   match st.nodes.findIdx? (· == n) with
   | some i => return i
   | none =>
-    set { st with nodes := st.nodes.push n, types := st.types.push t }
+    set { st with nodes := st.nodes.push n, types := st.types.push t, convTo := st.convTo.push to }
     return st.nodes.size
 
 def normalizeZero (b : UInt64) : UInt64 := (Float.ofBits b + 0.0).toBits
@@ -277,7 +283,8 @@ def expr (v : Value) (depth : Nat) : Check Nat := do
   let types := (← get).types
   let ts := ix.toList.map fun i => types[i]!
   let (op, ty) ← typeOp op ts kvs
-  intern (.op op ix.toList) ty
+  let to := match op, ty with | .convert _, .num u => some u | _, _ => none
+  intern (.op op ix.toList) ty to
 termination_by maxDepth + 1 - depth
 decreasing_by omega
 
@@ -317,7 +324,8 @@ def program (v : Value) : Check Program := do
       if (← get).types[c]! != .bool then fail .bool
       pure (some c)
   let st ← get
-  return { nodes := st.nodes, types := st.types, params := st.params.map (·.2.1), weight := w, prediction := pred }
+  return { nodes := st.nodes, types := st.types, params := st.params.map (·.2), convTo := st.convTo, weight := w,
+           prediction := pred }
 
 /-- Parse and check a program's text: the program, or the engine's rejection code. -/
 def check (text : String) : Except Code Program :=

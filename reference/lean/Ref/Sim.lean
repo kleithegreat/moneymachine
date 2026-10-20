@@ -58,7 +58,7 @@ structure Market (α : Type) where
   bars : Array (BarRow α)
   events : Array (EventRow α)
   /-- Event slots whose dataset is in the store (bound). -/
-  present : List Nat
+  bound : List Nat
   intervals : Array (Int × Int)
 
 structure Policy where
@@ -213,7 +213,7 @@ def Ctx.make (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop :
     bOrder := (Array.range m.bars.size).qsort fun i j =>
       let a := m.bars[i]!; let b := m.bars[j]!
       lexLt [a.known, a.coin, a.event] [b.known, b.coin, b.event]
-    eOrder := (Array.range m.events.size).filter (m.present.contains m.events[·]!.slot) |>.qsort fun i j =>
+    eOrder := (Array.range m.events.size).filter (m.bound.contains m.events[·]!.slot) |>.qsort fun i j =>
       let a := m.events[i]!; let b := m.events[j]!
       lexLt [a.known, a.coin, a.slot, i] [b.known, b.coin, b.slot, j] }
 
@@ -223,22 +223,42 @@ def Ctx.listed (c : Ctx α) (coin : Nat) (t : Int) : Bool := c.m.intervals[coin]
 
 def Ctx.mask (c : Ctx α) (t : Int) : Array Bool := (Array.range c.coins).map (c.listed · t)
 
-/-- Deliver every row known by `tick` that has not been delivered yet (SEMANTICS.md §3). -/
-def Ctx.deliver (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) := do
-  let mut s := s
-  while h : s.fi < c.fOrder.size do
+def Ctx.deliverFunding (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) :=
+  if h : s.fi < c.fOrder.size then
     let f := c.m.funding[c.fOrder[s.fi]]!
-    if f.known > tick then break
-    s := { s with machine := ← (s.machine.deliverFunding f tick).mapError (fun _ => Abort.causality), fi := s.fi + 1 }
-  while h : s.bi < c.bOrder.size do
+    if f.known > tick then .ok s else
+    match s.machine.deliverFunding f tick with
+    | .error _ => .error .causality
+    | .ok mach => c.deliverFunding { s with machine := mach, fi := s.fi + 1 } tick
+  else .ok s
+termination_by c.fOrder.size - s.fi
+
+def Ctx.deliverBars (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) :=
+  if h : s.bi < c.bOrder.size then
     let b := c.m.bars[c.bOrder[s.bi]]!
-    if b.known > tick then break
-    s := { s with machine := ← (s.machine.deliverBar b tick).mapError (fun _ => Abort.causality), bi := s.bi + 1 }
-  while h : s.ei < c.eOrder.size do
+    if b.known > tick then .ok s else
+    match s.machine.deliverBar b tick with
+    | .error _ => .error .causality
+    | .ok mach => c.deliverBars { s with machine := mach, bi := s.bi + 1 } tick
+  else .ok s
+termination_by c.bOrder.size - s.bi
+
+def Ctx.deliverEvents (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) :=
+  if h : s.ei < c.eOrder.size then
     let e := c.m.events[c.eOrder[s.ei]]!
-    if e.known > tick then break
-    s := { s with machine := ← (s.machine.deliverEvent e tick).mapError (fun _ => Abort.causality), ei := s.ei + 1 }
-  return s
+    if e.known > tick then .ok s else
+    match s.machine.deliverEvent e tick with
+    | .error _ => .error .causality
+    | .ok mach => c.deliverEvents { s with machine := mach, ei := s.ei + 1 } tick
+  else .ok s
+termination_by c.eOrder.size - s.ei
+
+/-- Deliver every row known by `tick` that has not been delivered yet: funding, then bars, then
+events, each in delivery order (SEMANTICS.md §3). -/
+def Ctx.deliver (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) := do
+  let s ← c.deliverFunding s tick
+  let s ← c.deliverBars s tick
+  c.deliverEvents s tick
 
 def Ctx.execute (c : Ctx α) (s : SState α) (f : Fill α) : Except Abort (SState α) := do
   checkFill N f c.m c.ix c.v
@@ -253,7 +273,7 @@ def Ctx.closeout (c : Ctx α) (coin : Nat) (qty ref : α) (why : Why) (t sourceO
 
 /-- The binding preflight, then the first delivery and tick (SEMANTICS.md §4, §8). -/
 def Ctx.start (c : Ctx α) : Except Abort (SState α) := do
-  if c.p.eventSlots.any (!c.m.present.contains ·) then throw .inputUnavailable
+  if c.p.eventSlots.any (!c.m.bound.contains ·) then throw .inputUnavailable
   let book0 : Book α :=
     { cash := initial N, pos := [], entry := [], realized := N.zero, fees := N.zero, slippage := N.zero, funding := N.zero }
   let s : SState α :=

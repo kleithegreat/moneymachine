@@ -37,7 +37,7 @@ def market (v : Value) : Market Float × Venue Float × Policy × Int :=
       minTierLeverage := (arr! (get! ven "min_tier_leverage")).map bits!
       costBps := (arr! (get! ven "cost_bps")).map fun c => (arr! c).map fun s => (arr! s).map bits! }
   let pol := get! v "policy"
-  ({ funding := f, bars := b, events := e, present := (arr! (get! v "present")).toList.map fun x => (int! x).toNat, intervals := iv },
+  ({ funding := f, bars := b, events := e, bound := (arr! (get! v "present")).toList.map fun x => (int! x).toNat, intervals := iv },
    venue, { delta := int! (get! pol "delta"), wStart := int! (get! pol "w_start") }, int! (get! pol "end"))
 
 def fb (x : Float) : String := toString x.toBits.toNat

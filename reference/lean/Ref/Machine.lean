@@ -169,7 +169,7 @@ def MState.eval (p : Program) (m : MState α) (i : Nat) (c : Nat) : Val α :=
   match p.nodes[i]! with
   | .input inp => m.input inp c
   | .const bits _ => some (N.ofBits bits)
-  | .param k => some (N.ofBits p.params[k]!)
+  | .param k => some (N.ofBits p.params[k]!.1)
   | .op o _ => match o with
     | .add => do return N.add (← arg 0) (← arg 1)
     | .sub => do return N.sub (← arg 0) (← arg 1)
