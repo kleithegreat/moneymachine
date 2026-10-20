@@ -15,6 +15,10 @@ A value is `Num(x)`, `Bool(b)` or `Undef`. The engine stores booleans as 1.0 and
 yields 1.0 or 0.0, and boolean operators read any nonzero as true [machine.rs `eval`]. A boolean
 node therefore always holds 1.0, 0.0 or Undef.
 
+Every sum Σ over a sequence of numbers in this file is the left fold from −0.0, in the stated
+order. That is Rust's float `Sum` on this toolchain (rustc 1.95): the sum of nothing is −0.0, and
+the sum of [−0.0] is −0.0.
+
 Every node's value at a tick passes through `finite`: a non-finite number (±∞, NaN) becomes Undef
 [machine.rs `tick`, `finite`]. No NaN or infinity is ever stored, compared or delivered by a node.
 
