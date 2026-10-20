@@ -347,6 +347,166 @@ Content is known no earlier than its last edit. A row with no admissible claimed
 
 Exit when C5.1–C5.6 hold for every source classified historically replayable or prospective, and every blocked category is recorded under Blockers with what was tried.
 
+### Stage 10: thesis track
+
+Frozen 2026-10-20, before any stage 10 code existed and before any thesis was registered. GPT reviewed the draft, and this is the one revision.
+
+**Scope.** This stage implements paper §12's forward-only, event-driven theses on Hyperliquid perpetuals, both core and builder-deployed (HIP-3: equities, indices, commodities, FX).
+- **Data.** Prices come from the public, read-only info API.
+- **Positions.** Paper positions only: no keys, no wallets, no orders, live or testnet.
+- **What the stage does.** It registers, sizes, marks, resolves and scores theses, and it logs every disclosure to an agent.
+- **Exit claim.** Stage exit is an operational claim only.
+- **Skill claim.** None is made before 200 resolved main-agent clusters within one frozen track version. That is a minimum evidence floor, not proof of independence, power or skill; the paper's sample of about 194 is illustrative. Reports stay descriptive unless a separate inferential protocol is frozen before its outcomes accrue. That protocol would fix the primary comparator, hypothesis, weighting, dependence assumptions, multiplicity and stopping rule.
+
+**Agents and harness.**
+- **The main agent.** It runs `claude-opus-5-5` (knowledge cutoff June 2026) in stage 3's arm A sandbox: bubblewrap, the workspace only, Read and Write there, Bash only for `./thesis-agent`, and no web tools.
+- **The daemon.** The client talks to a daemon outside the sandbox, which offers:
+  - `markets`: eligible markets, each with its last completed 1h close and its time;
+  - `prices MARKET`: completed daily bars before now;
+  - `fetch URL`;
+  - `register FILE`;
+  - `positions`;
+  - `exit ID REASON`.
+- **Sessions.** A session starts daily at 00:10 UTC, at most one per UTC date. It is gated by a tiny model call, as in stage 3. Turn limit 100, wall limit 1 h, at most 2 accepted registrations. A crash, timeout or early stop consumes that date. Missed sessions are reported.
+- **The full no-reading agent.** After each main session, a separate sandboxed session with the same brief and limits but without `fetch` registers its own theses, at most 2. It sees the same market and price snapshot, and is scored separately.
+- **The conditional ablation.** For each accepted main thesis, a fresh no-fetch instance states its probability for the identical outcome. It sees only:
+  - the exposure, its direction and the entry convention;
+  - the horizon and the outcome definition;
+  - price data available at t_r.
+
+  It never sees the main agent's probability, catalyst, sources, rationale or transcript. A failed ablation is a reported missing pair; it never removes the main thesis from scoring.
+- **The freeze.** A manifest is hashed and frozen before the first session. It covers:
+  - prompts and workspace inputs;
+  - the model id and the returned model metadata;
+  - flags, permissions and limits;
+  - the client and daemon code;
+  - the ablation and benchmark definitions;
+  - the cost rules and the scoring code.
+
+  A behavior-affecting change starts a new track version. Versions are never pooled.
+
+**Disclosure log.** Every daemon call, including rejected and failed ones, gets an append-only record before any response bytes are released: session id, request id, daemon UTC time, the canonical request, status, and the sha256 of the exact response bytes. Those bytes are retained.
+- **Fetches** also record the URL, redirect chain, final URL, start and end times, HTTP status and raw-body sha256.
+- **Sources.** Each source a thesis cites must be a retrieval already disclosed to that session.
+
+**The retrieval proxy.**
+- **What it serves.** Public, unauthenticated document reads only. It has no keys, cookies, authorization headers or credentials, and refuses URLs containing userinfo. It is GET only, with no caller-supplied headers or body.
+- **Destinations.** Every initial and redirected destination is resolved and validated. Only globally routable addresses are used, and the connected peer must be a validated address. Private, loopback, link-local, reserved and metadata addresses are refused, for IPv4 and IPv6. At most 5 redirects are followed, each revalidated.
+- **Politeness.** robots.txt is honored, failing closed. There is at most 1 request per 5 s per host, daemon-wide.
+- **Exchange reads.** These go only through a separate fixed-host adapter permitting only the frozen `/info` request types (`meta`, `perpDexs`, `candleSnapshot`, `fundingHistory`). It has no signing, account or order operation.
+
+**Registration.** A thesis gives:
+- **Exposure.** One eligible market with sign w ∈ {−1, +1}, or a spread of two distinct eligible markets with weights +1 and −1.
+- **Resolution time T.** A UTC midnight with 72 h ≤ T − t_r ≤ 1,440 h.
+- **Claim.** p ∈ [0.01, 0.99].
+- **Catalyst.** Catalyst text and a catalyst id.
+- **Invalidation loss.** L ∈ [0.01, 0.50].
+- **Sources.** Retrieval ids.
+
+Values that are not finite, or fall outside these bounds, are refused. An eligible market is listed and not delisted at t_r, with at least 90 completed daily bars before t_r.
+
+The daemon assigns the thesis id and t_r from its own clock at the atomic commit. Eligibility, baseline inputs and sizing are evaluated as of t_r, and the risk reservation is made in the same serialized transaction. The request can supply no time.
+
+The thesis is written with `mm disclose --kind thesis` to the thesis ledger, whose triggers reject UPDATE and DELETE. Its content is canonical JSON (sorted keys, no whitespace), and its sha256 is logged. A retry with the same request id returns the original registration; changed content under that id is refused. Accepted theses cannot be cancelled or removed from scoring.
+
+**Positions and outcome.**
+- **Entry and fixed quantities.** Each leg j enters at the open of the first 1h bar with openTime ≥ t_r + δ, where δ = 120 s, at price P_j,e. Its quantity is fixed at q_j = w_j N / P_j,e, with no rebalancing. The gross return is R_gross(u) = Σ_j w_j (P_j(u)/P_j,e − 1), per N; a spread's gross notional is 2N.
+- **Sizing.** E_r is the latest reconciled paper equity at t_r (initial $10,000). The risk budget is b = 0.01 E_r and N = b / L. The probability p is not a sizing input.
+- **Admission cap.** Each funded thesis reserves b from registration until its position is fully closed, including the pending-entry period. A thesis is admitted only if the existing reservations plus b are at most 0.05 E_r. Otherwise its size is zero permanently, and admission follows commit order. This caps nominal budgets at admission. It does not bound realized losses, and no position is resized when equity falls. If E_r ≤ 0, every new thesis has size zero.
+- **Invalidation.** It triggers when the close of a 1h bar ending at B gives R_gross ≤ −L. It becomes actionable at B + δ, and the position exits at the first 1h open at or after B + δ; the open simultaneous with the invalidating close is never used.
+- **Discretionary exits.** An `exit` committed at t_x is an append-only decision that never amends the thesis. It exits at the first 1h open at or after t_x + δ.
+- **Horizon exit.** This is scheduled at registration, at the first 1h open at or after T.
+- **Missing bars.** These never cause an earlier price to be used.
+- **Costs and funding.**
+  - Fees and execution costs are charged on each leg's traded notional at entry and exit. That is the taker fee plus the coin's C0.7 cost cell. A coin without one uses the maximum cell over U, an explicitly unvalidated fallback, flagged in every result that depends on it.
+  - Funding applies hourly from fundingHistory: it is paid on q_j at the 1h open of the settled hour, with longs paying positive rates. At an identical timestamp the order is: funding, then exits, then entries.
+  - Data a result needs that is missing leaves it unresolved, never assumed zero.
+- **Outcome.** The probability predicts the as-registered net return R_net: the hypothetical fixed-quantity position from the scheduled entry to the horizon exit, including price PnL, funding, fees and execution costs, per N. Invalidation and discretionary exits are ignored, and the same computation is done for size-zero theses. o = 1 if R_net > 0; exactly 0 gives o = 0.
+- **Score views.** One Brier score per probability, against o. Position performance is reported two ways:
+  - **as registered:** held to the horizon;
+  - **as managed:** with invalidation and discretionary exits.
+
+  No Brier score is computed for the managed view.
+- **Accounting.** Paper equity reconciles hourly within 1e-9 dollars: initial cash plus realized and unrealized PnL plus funding, less fees and costs.
+
+**Baselines.**
+- **Base rate.** It uses at most 3 years of daily bars available before t_r, with the same exposure, signs, spread construction and net-outcome definition.
+  - **Windows.** Non-overlapping windows of the holding duration, rounded to whole days, with entry and exit at daily opens, anchored backward from the last completed daily open. Funding is summed over each window, and costs are charged as above. An incomplete window is omitted without moving the others.
+  - **Estimate.** With m ≥ 10 complete windows, of which x are positive, p_ref = (x + 1)/(m + 2). Otherwise the base rate is unavailable: that thesis is excluded from base-rate skill, and the exclusions are counted. m, the history span and the omitted windows are recorded.
+  - **Interpretation.** The base rate is a frozen historical comparator, not a calibrated probability. No interval treats windows as independent.
+- **Conditional ablation and full no-reading agent.** As above. The conditional comparison measures probability assessment given the main agent's chosen task, not the value of reading for choosing exposures and horizons; the full no-reading agent addresses that.
+- **Frozen benchmark.**
+  - Every Monday at 00:00 UTC, BTC, ETH, xyz:XYZ100, xyz:GOLD and flx:OIL are processed in that order. Each is long if its last completed daily close is above the close 20 UTC days earlier, otherwise short. The horizon is the Monday 21 days later, L = 0.10, and p is its base rate.
+  - A market with a missing close, or without a base rate, is skipped and logged. Missed runs are logged, never backdated.
+  - It uses its own $10,000 paper account with the same sizing and cap.
+  - Its Brier score is descriptive, not a head-to-head forecast comparison. Its paper return is compared over the same calendar interval.
+- **Market-implied probabilities.** Not used, since there is no free source for these exposures. The report says so.
+
+**Scoring.**
+- **Point scores.** Brier scores are thesis-weighted means. Each paired comparison uses the identical resolved theses with both forecasts, and reports its coverage. Skill is 1 − B/B_ref; if B_ref = 0, skill is undefined and B, B_ref and B − B_ref are reported.
+- **Clusters.** Over all accepted main theses registered by the report's cutoff, including unresolved and size-zero ones, two theses are linked if they:
+  - came from the same session;
+  - share a catalyst id; or
+  - share a market leg with intersecting closed intervals [t_r, T].
+
+  The clusters are the connected components. A cluster counts as resolved only when every thesis in it is resolved. Each report records its graph, the cluster sizes and the largest cluster's share. The cluster count is a sample-size proxy, not proof of independence.
+- **Intervals.** Resample the resolved clusters with replacement (the original count), keeping each sampled cluster's theses with their multiplicity. Recompute the thesis-weighted scores, the paired loss difference and skill, 10,000 times, with a frozen NumPy PCG64 seed of 10. Report percentile 95% intervals. Replicates where the ratio is undefined are counted. With fewer than 2 resolved clusters, no interval is given. The intervals are descriptive.
+- **Portfolio returns.** Reported without intervals.
+
+**Criteria.**
+- **C10.1 Registration.** Tests show that:
+  - every bound refuses an invalid thesis, including an ineligible market, a non-finite value and a supplied time;
+  - a registered thesis is a ledger row whose canonical content matches its logged sha256;
+  - UPDATE and DELETE fail;
+  - retries return the original thesis and never change t_r, and changed content under a request id is refused;
+  - concurrent registrations get a deterministic commit order, and reservations at the cap are exact;
+  - delayed processing never backdates a thesis.
+- **C10.2 Disclosure log, proxy and sandbox.**
+  - The sandbox passes C3.1's OS-level tests, adapted to the thesis workspace.
+  - Tests show:
+    - a disclosure record is committed before its bytes are released;
+    - credentials are refused, and so are private, loopback, link-local, reserved and metadata destinations, both directly and after a redirect or a rebinding resolution;
+    - robots.txt disallows and failures are honored, and the per-host spacing holds;
+    - the exchange adapter rejects any request type outside its list and any other host.
+  - Per session, every transcript client call maps to exactly one daemon call record. The transcript has no tool call outside Read, Write and `./thesis-agent`.
+- **C10.3 Positions.** Fixtures with hand-derived results are committed before the position code. They cover:
+  - the entry bar;
+  - sizing;
+  - the cap with simultaneous registrations, and a pending-entry reservation;
+  - falling equity;
+  - invalidation, including the rejected open simultaneous with the invalidating close, and a gap through L;
+  - a discretionary exit;
+  - funding coincident with an entry and an exit;
+  - a short and a spread;
+  - a horizon on a missing bar;
+  - a size-zero hypothetical outcome.
+
+  Identifiers, times and outcomes match exactly, money within 1e-9 dollars, and the equity reconciles hourly.
+- **C10.4 Independent scoring.** GPT receives this specification and the input schema alone. It implements the outcome, base rate, Brier and skill, clustering and the cluster bootstrap's point statistics. On 1,000 test sets from a frozen generator and seed, the two implementations agree:
+  - exactly on outcomes, exclusions, missing statuses and cluster membership;
+  - within 1e-12 on finite scores;
+  - on which scores are undefined.
+
+  The boundary cases are: R_net exactly 0, a horizon on a missing bar, chaining clusters, touching intervals, fewer than 10 base-rate windows, a size-zero thesis and B_ref = 0. Any ambiguity found is resolved, and this section is revised by dated revision before live registration.
+- **C10.5 Live operation.** The observation window is the first 28 consecutive UTC days after the harness freeze. It needs:
+  - at least 20 accepted main theses, each with a completed conditional ablation or a reported failure;
+  - every full no-reading session that was due, run or reported missed;
+  - 4 executed benchmark batches, each listing every market as registered or skipped with its reason;
+  - every horizon in the window with a score or an explicit missing-data status within 2 h of T, and scored within 2 h of the data becoming available;
+  - at least 10 resolved main theses at exit, reached by continuing the frozen track;
+  - links throughout: every accepted registration to exactly one ledger row; every disclosure to its response bytes; every resolution and management decision to its thesis;
+  - static checks and runtime network tests showing that every reachable exchange operation is an approved public read, and that order, signing, authenticated, redirect-bypass and other-host requests are refused.
+- **C10.6 Honest report.** The report enumerates:
+  - sessions, registrations, rejected attempts and size-zero theses;
+  - failed or missing ablations and unresolved outcomes;
+  - skips and fallbacks;
+  - thesis and cluster counts and paired coverage;
+  - track versions.
+
+  It separates forecast scoring from position performance, and stage completion from skill evidence, and it states the no-claim floor. A reviewer (GPT), given these criteria and the report, finds no claim beyond the evidence. The review supplements the mechanical checks; it does not replace them.
+
+Exit when C10.1 to C10.6 hold. The track keeps running after exit.
+
 ## Blockers
 
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
