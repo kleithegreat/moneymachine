@@ -170,6 +170,11 @@ Later campaigns must stay within 400 evaluations.
 
       Seeds come from SHA-256 of `holdout-calibration-locked-v1` and the cell name. For each of the K = 54 cells (generator × length × level u ∈ {0.05, 0.01, 0.005}), the one-sided Clopper–Pearson upper bound on P(p ≤ u), at confidence 1 − 0.05/54, must not exceed 0.0625, 0.015 or 0.01 respectively. Rejection counts at 0.001 and 0.0005 are reported. Holm levels below 0.005, reachable when a campaign has more than 10 finalists, are checked only through C2.4 to C2.6's whole-procedure runs. A failed locked run stays recorded as a failure; any redesign gets a new dated version and a new locked suite before it is judged.
     - These series tests supplement C2.4 to C2.6, which judge the whole procedure, and do not replace them.
+  - *Revision 2026-10-20, after the development calibration and before the locked run:* the development suite (`audit/stage2/holdout-size-development.json`) found the studentized test oversized at the levels Holm uses.
+    - **What it found.** Rejection rates reached 0.065 at 0.05, 0.016 at 0.01 and 0.0103 at 0.005, worst for the zero-inflated, volatility-break and heavy-tailed series. Even some Gaussian cells were high (0.0155 at 0.01). The locked limits would likely fail.
+    - **The fix: direct calibration.** Let p_raw be the studentized bootstrap p-value specified above. The holdout p-value is now p = max over the 18 development cells c of (1 + #{development p_raw in c ≤ p_raw}) / 4,001. The development p_raw values are committed as `gate/holdout_calibration.json`, with its sha256 in the Log.
+    - **Why it is valid.** For each generator this is the Monte Carlo p-value of p_raw against that generator's null distribution, which is valid when the null is that generator. The maximum is valid and conservative across the family.
+    - **What stays.** Block 6, 10,000 resamples, the seed, Holm, α = 0.05, the net-return condition, and the locked suite's generators, sizes, levels and limits are unchanged. The locked suite now judges p.
 
 **Runs.** Seeds come from SHA-256 of a committed campaign id. Every market started counts, and a crash or timeout counts as a promotion. A rerun after any gate or null change uses fresh ids and is logged. Every bound below is a one-sided 95% Clopper–Pearson bound, unless stated otherwise.
 
