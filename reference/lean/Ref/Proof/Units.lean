@@ -342,6 +342,8 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
   simp only [Std.Legacy.Range.forIn_eq_forIn_range', bind_pure, Id.run]
   refine forIn_rel _ _ _ (URel N p) ?_ _ _ ?_
   · intro i hi u m hR
+    unfold MState.tickNode
+    simp only [Std.Legacy.Range.forIn_eq_forIn_range']
     have hi' : i < p.nodes.size := by simp at hi; omega
     have hWi := hW.2.2.2.2.2 i hi'
     cases hn : p.nodes[i]! with

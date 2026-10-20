@@ -135,14 +135,12 @@ theorem bind_keep_ite (N : NumOps α) (b : Bool) (v : Val α) :
     (if b = true then v else none).bind N.keep = if b = true then v.bind N.keep else none := by
   cases b <;> rfl
 
-theorem tick_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (hour : Int) (m : MState α)
-    (hs : Shape p L m) : Done N p L m p.nodes.size (m.tick N p L hour) ∧ (m.tick N p L hour).hour = hour := by
-  unfold MState.tick
-  simp only [Std.Legacy.Range.forIn_eq_forIn_range', Id.run, bind_pure]
-  rw [range_size]
-  refine forIn_range0 _ _ _ (fun k s => Done N p L m k s ∧ s.hour = hour)
-    ⟨⟨⟨hs.size, hs.rows, hs.wins⟩, rfl, rfl, rfl, rfl, fun a ha => absurd ha (Nat.not_lt_zero a)⟩, rfl⟩
-    fun k hk s ⟨hd, hh⟩ => ?_
+/-- One node's step keeps the tick's invariant and writes its row. -/
+theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (hour : Int) (m : MState α)
+    {k : Nat} (hk : k < p.nodes.size) {s : MState α} (hd : Done N p L m k s) (hh : s.hour = hour) :
+    ∃ y, MState.tickNode N p L hour k s = .yield y ∧ Done N p L m (k + 1) y ∧ y.hour = hour := by
+  unfold MState.tickNode
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range']
   split
   · rename_i args hn
     refine ⟨_, rfl, ?_⟩
@@ -380,5 +378,14 @@ theorem tick_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (ho
           have hL : L[c]! = false := by rw [getElem!_neg L c (by omega)]; rfl
           rw [hnone, hL]
           exact ⟨Or.inl rfl, fun _ => rfl, fun _ => rfl⟩
+
+theorem tick_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (hour : Int) (m : MState α)
+    (hs : Shape p L m) : Done N p L m p.nodes.size (m.tick N p L hour) ∧ (m.tick N p L hour).hour = hour := by
+  unfold MState.tick
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range']
+  rw [range_size]
+  exact forIn_range0 _ _ _ (fun k s => Done N p L m k s ∧ s.hour = hour)
+    ⟨⟨⟨hs.size, hs.rows, hs.wins⟩, rfl, rfl, rfl, rfl, fun a ha => absurd ha (Nat.not_lt_zero a)⟩, rfl⟩
+    fun k hk s ⟨hd, hh⟩ => tickNode_spec N p hp L hour m hk hd hh
 
 end Ref

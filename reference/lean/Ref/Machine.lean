@@ -202,38 +202,42 @@ def rank (xs : List α) (v : α) : α :=
   let equal := (xs.filter fun x => N.eq x v).length
   N.div (N.add (N.ofNat below) (N.div (N.sub (N.ofNat equal) N.one) (N.ofNat 2))) (N.sub (N.ofNat xs.length) N.one)
 
-/-- One tick at hour `hour` with listing mask `listed` (SEMANTICS.md §4). -/
-def MState.tick (p : Program) (m : MState α) (listed : Array Bool) (hour : Int) : MState α := Id.run do
-  let mut m := { m with hour := hour }
+/-- Node i's step of a tick at hour `hour` with listing mask `listed` (SEMANTICS.md §4). -/
+def MState.tickNode (p : Program) (listed : Array Bool) (hour : Int) (i : Nat) (m : MState α) :
+    Id (ForInStep (MState α)) := do
+  let mut m := m
   let coins := listed.size
-  for i in [0:p.nodes.size] do
-    match p.nodes[i]! with
-    | .op .hoursSince args =>
-      for c in [0:coins] do
-        let cond := m.vals[args[0]!]![c]!
-        if listed[c]! && (match cond with | some v => !N.isZero v | none => false) then
-          m := { m with since := m.since.modify i fun row => row.set! c (some hour) }
-        let v := if listed[c]! then m.since[i]![c]!.bind fun t => N.keep (N.ofInt ((hour - t) / HOUR)) else none
-        m := { m with vals := m.vals.modify i fun row => row.set! c v }
-    | .op o@(.xsMean) args | .op o@(.xsDemean) args | .op o@(.xsRank) args =>
-      let xs := (List.range coins).filterMap fun c => if listed[c]! then (m.vals[args[0]!]![c]!).map (c, ·) else none
-      let values := xs.map (·.2)
-      let mean := N.div (total N values) (N.ofNat xs.length)
-      let out := (List.range coins).map fun c => match xs.find? (·.1 == c) with
-        | none => none
-        | some (_, v) => match o with
-          | .xsMean => N.keep mean
-          | .xsDemean => N.keep (N.sub v mean)
-          | _ => N.keep (rank N values v)
-      m := { m with vals := m.vals.set! i (if xs.isEmpty then Array.replicate coins none else out.toArray) }
-    | _ =>
-      for c in [0:coins] do
-        let v := if listed[c]! then m.eval N p i c else none
-        let (v, w) := match m.wins[i]![c]! with
-          | some w => if listed[c]! then let (w', out) := w.push N v; (out, some w') else (v, some w)
-          | none => (v, none)
-        m := { m with vals := m.vals.modify i (fun row => row.set! c (v.bind N.keep)),
-                      wins := m.wins.modify i (fun row => row.set! c w) }
-  return m
+  match p.nodes[i]! with
+  | .op .hoursSince args =>
+    for c in [0:coins] do
+      let cond := m.vals[args[0]!]![c]!
+      if listed[c]! && (match cond with | some v => !N.isZero v | none => false) then
+        m := { m with since := m.since.modify i fun row => row.set! c (some hour) }
+      let v := if listed[c]! then m.since[i]![c]!.bind fun t => N.keep (N.ofInt ((hour - t) / HOUR)) else none
+      m := { m with vals := m.vals.modify i fun row => row.set! c v }
+  | .op o@(.xsMean) args | .op o@(.xsDemean) args | .op o@(.xsRank) args =>
+    let xs := (List.range coins).filterMap fun c => if listed[c]! then (m.vals[args[0]!]![c]!).map (c, ·) else none
+    let values := xs.map (·.2)
+    let mean := N.div (total N values) (N.ofNat xs.length)
+    let out := (List.range coins).map fun c => match xs.find? (·.1 == c) with
+      | none => none
+      | some (_, v) => match o with
+        | .xsMean => N.keep mean
+        | .xsDemean => N.keep (N.sub v mean)
+        | _ => N.keep (rank N values v)
+    m := { m with vals := m.vals.set! i (if xs.isEmpty then Array.replicate coins none else out.toArray) }
+  | _ =>
+    for c in [0:coins] do
+      let v := if listed[c]! then m.eval N p i c else none
+      let (v, w) := match m.wins[i]![c]! with
+        | some w => if listed[c]! then let (w', out) := w.push N v; (out, some w') else (v, some w)
+        | none => (v, none)
+      m := { m with vals := m.vals.modify i (fun row => row.set! c (v.bind N.keep)),
+                    wins := m.wins.modify i (fun row => row.set! c w) }
+  return .yield m
+
+/-- One tick: every node in index order. -/
+def MState.tick (p : Program) (m : MState α) (listed : Array Bool) (hour : Int) : MState α :=
+  forIn (m := Id) [0:p.nodes.size] { m with hour := hour } (MState.tickNode N p listed hour)
 
 end Ref
