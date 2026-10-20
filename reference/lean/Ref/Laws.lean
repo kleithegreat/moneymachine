@@ -1,6 +1,7 @@
 import Ref.Sim
 import Ref.Units
 import Ref.Proof.Errors
+import Ref.Proof.Checker
 
 /-!
 The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
@@ -171,7 +172,30 @@ theorem L2_units (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mark
 
 /-- The checker's programs are well-formed. -/
 theorem L2_checker (p : Program) (_ : CheckerAccepted p) : p.WF := by
-  sorry
+  have sound : TypeOpSound opTy := by
+    intro name op arity ts kvs hmem hlen st op' ty st' h
+    simp only [ops, List.mem_cons, Prod.mk.injEq, List.not_mem_nil, or_false] at hmem
+    rcases hmem with ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+      ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+      ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+      ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ | ⟨-, rfl, rfl⟩ |
+      ⟨-, rfl, rfl⟩
+    all_goals rcases ts with _ | ⟨a, _ | ⟨b, _ | ⟨c, _ | ⟨d, _⟩⟩⟩⟩ <;> simp at hlen
+    all_goals (try cases a) <;> (try cases b) <;> (try cases c)
+    all_goals replace h := h.symm
+    all_goals tsimp
+    all_goals try (simp_all [opTy]; done)
+    all_goals try (simp_all [opTy]; rfl)
+    all_goals try (generalize hm : Dim.mul _ _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+    all_goals try (generalize hm : Dim.div _ _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+    all_goals try (generalize hm : Dim.sqrt _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+    all_goals try (obtain ⟨a, b, hab, h⟩ := h; obtain rfl := unitOf_keeps _ _ _ _ hab.symm
+                   generalize hm : Dim.conversion _ _ = o at h; cases o <;> tsimp <;> simp_all [opTy]; done)
+    all_goals try (generalize field kvs "hours" = j at h; cases j <;> tsimp; rename_i i
+                   by_cases hw : 1 ≤ i ∧ i ≤ (maxHours : Int) <;> simp [hw] at h <;> tsimp <;> simp_all [opTy] <;> omega)
+    all_goals try grind [opTy]
+  obtain ⟨_, h⟩ := ‹CheckerAccepted p›
+  exact check_wf opTy sound h
 
 /-! ## L3 rewrite soundness -/
 
