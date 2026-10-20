@@ -5,4 +5,5 @@ import Ref.Machine
 import Ref.Float
 import Ref.Sim
 import Ref.Units
+import Ref.Proof.Errors
 import Ref.Laws

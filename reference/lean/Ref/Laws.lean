@@ -1,5 +1,6 @@
 import Ref.Sim
 import Ref.Units
+import Ref.Proof.Errors
 
 /-!
 The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
@@ -323,6 +324,13 @@ theorem L5_binding (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Ma
       (Ctx.make p m v pol stop).start N = (do
         let s ← (Ctx.make p m v pol stop).deliver ((Ctx.make p m v pol stop).state0 N) (pol.wStart + pol.delta)
         return { s with machine := s.machine.tick N p ((Ctx.make p m v pol stop).mask pol.wStart) pol.wStart })) := by
-  sorry
+  refine ⟨⟨fun hr => ?_, fun h => ?_⟩, fun h => start_unbound N _ h, fun h => start_bound N _ h⟩
+  · refine Classical.byContradiction fun hn => ?_
+    have hb : ∀ s ∈ p.eventSlots, s ∈ m.bound := fun s hs => Classical.byContradiction fun hm => hn ⟨s, hs, hm⟩
+    have hs : Except.Avoids .inputUnavailable ((Ctx.make p m v pol stop).start N) := by
+      rw [start_bound N _ hb]
+      exact .bind (deliver_avoids _ _ _) fun _ => .pure _
+    exact Except.Avoids.bind (steps_avoids_of_start N _ _ hs) (fun _ => .pure _) hr
+  · simp only [run, Ctx.steps, start_unbound N (Ctx.make p m v pol stop) h]; rfl
 
 end Ref
