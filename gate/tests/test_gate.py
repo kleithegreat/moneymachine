@@ -36,6 +36,7 @@ def test_holdout_pvalue_sanity():
     p = [gate.holdout_pvalue(rng.normal(0, 0.01, 300), s) for s in range(40)]
     assert 0.2 < np.mean(p) < 0.8
     assert gate.holdout_pvalue(np.zeros(300), 1) == 1.0
+    assert gate.holdout_pvalue(np.full(1080, 0.1), 1) == 1.0
     assert gate.holdout_pvalue(np.r_[np.zeros(299), 0.01], 1) >= 1 / (1 + gate.HOLDOUT_REPS)
 
 

@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from arch.bootstrap import SPA, StationaryBootstrap, StepM
+from scipy.signal import fftconvolve
 from scipy.stats import norm
 
 ALPHA = 0.05
@@ -132,13 +133,15 @@ def programs(ledger, keys):
 
 
 def long_run_sd(x):
-    """sqrt of sum over |k| <= LAGS of w_k * gamma(k) along the last axis, w_k = (1 - |k|/(LAGS + 1)) (1 - 1/BLOCK)^|k|:
-    a product of positive-definite sequences over biased autocovariances, so never negative."""
+    """sqrt of sum over |k| <= LAGS of w_k * gamma(k) along the last axis, w_k = (1 - |k|/(LAGS + 1)) (1 - 1/BLOCK)^|k|,
+    with gamma the biased autocovariance: the quadratic form x'Wx/n of the demeaned series, W the banded Toeplitz
+    matrix of w. The weights are a product of positive-definite sequences, so it is never negative."""
+    constant = x.max(axis=-1) == x.min(axis=-1)
     x = x - x.mean(axis=-1, keepdims=True)
     n = x.shape[-1]
-    var = (x * x).sum(axis=-1) / n
-    for k in range(1, min(LAGS, n - 1) + 1):
-        var = var + 2 * (1 - k / (LAGS + 1)) * (1 - 1 / BLOCK) ** k * (x[..., k:] * x[..., :-k]).sum(axis=-1) / n
+    k = np.arange(-min(LAGS, n - 1), min(LAGS, n - 1) + 1)
+    w = (1 - np.abs(k) / (LAGS + 1)) * (1 - 1 / BLOCK) ** np.abs(k)
+    var = np.where(constant, 0.0, (x * fftconvolve(x, w.reshape((1,) * (x.ndim - 1) + (-1,)), mode="same", axes=-1)).sum(axis=-1) / n)
     if not np.all(np.isfinite(var) & (var >= 0)):
         raise ArithmeticError("long-run variance negative or non-finite")
     return np.sqrt(var)
