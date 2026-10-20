@@ -15,6 +15,7 @@ import Ref.Proof.Index
 import Ref.Proof.Fills
 import Ref.Proof.Orders
 import Ref.Proof.View
+import Ref.Proof.Tick
 import Ref.Proof.Rewrite
 import Ref.Proof.Checker
 import Ref.Laws
