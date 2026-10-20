@@ -30,14 +30,25 @@ def test_holm_matches_statsmodels():
     assert np.allclose(gate.holm(p), multipletests(p, method="holm")[1])
 
 
-def test_holdout_pvalue_sanity():
+def test_bootstrap_pvalue_sanity():
     rng = np.random.default_rng(3)
-    assert gate.holdout_pvalue(rng.normal(0.01, 0.01, 1000), 1) < 0.001
-    p = [gate.holdout_pvalue(rng.normal(0, 0.01, 300), s) for s in range(40)]
+    assert gate.bootstrap_pvalue(rng.normal(0.01, 0.01, 1000), 1) < 0.001
+    p = [gate.bootstrap_pvalue(rng.normal(0, 0.01, 300), s) for s in range(40)]
     assert 0.2 < np.mean(p) < 0.8
-    assert gate.holdout_pvalue(np.zeros(300), 1) == 1.0
-    assert gate.holdout_pvalue(np.full(1080, 0.1), 1) == 1.0
-    assert gate.holdout_pvalue(np.r_[np.zeros(299), 0.01], 1) >= 1 / (1 + gate.HOLDOUT_REPS)
+    assert gate.bootstrap_pvalue(np.zeros(300), 1) == 1.0
+    assert gate.bootstrap_pvalue(np.full(1080, 0.1), 1) == 1.0
+    assert gate.bootstrap_pvalue(np.r_[np.zeros(299), 0.01], 1) >= 1 / (1 + gate.HOLDOUT_REPS)
+
+
+def test_holdout_pvalue_is_the_worst_development_monte_carlo_pvalue(monkeypatch):
+    denominator, cells = gate._calibration()
+    assert denominator == 10_001 and len(cells) == 18 and all(len(c) == 4000 for c in cells)
+    raw = iter([1 / 10_001, 0.05, 0.0500999, 1.0])
+    monkeypatch.setattr(gate, "bootstrap_pvalue", lambda r, seed: next(raw))
+    p = [gate.holdout_pvalue(None, 0) for _ in range(4)]
+    assert p[0] == max((1 + int((c <= 1).sum())) / 4001 for c in cells) and p[0] >= 1 / 4001
+    assert p[0] <= p[1] <= p[2] <= p[3] == 1.0
+    assert p[1] == max((1 + int((c <= 500).sum())) / 4001 for c in cells) > 0.05
 
 
 def test_long_run_sd_is_white_noise_sd_and_never_negative():

@@ -1,7 +1,8 @@
-"""Direct calibration of the holdout test's size (PROGRESS.md, Stage 2, revision of 2026-10-20).
+"""Direct calibration of the holdout test's size (PROGRESS.md, Stage 2, revisions of 2026-10-20).
 
-Two suites of zero-mean series at holdout lengths: `development`, reported only, and `locked`,
-whose generators played no part in designing the test, judged once. Each cell (generator x
+Two suites of zero-mean series at holdout lengths: `development`, measuring the bootstrap p-value (its
+results are the committed calibration table, gate/holdout_calibration.json), and `locked`, whose
+generators played no part in designing the test, judging the calibrated holdout p-value once. Each cell (generator x
 length) is resumable: finished cells are kept in a work file.
 """
 
@@ -14,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-from gate.gate import campaign_seed, holdout_pvalue
+from gate.gate import bootstrap_pvalue, campaign_seed, holdout_pvalue
 
 LENGTHS = (540, 546, 1080)
 BURN = 500
@@ -58,7 +59,7 @@ def _sd_step(n, start, factor):
 
 SUITES = {
     "development": {
-        "id": "holdout-calibration-v1", "series": 4000,
+        "id": "holdout-calibration-v1", "series": 4000, "pvalue": "bootstrap_pvalue",
         "generators": {
             "gaussian": lambda rng, m, n: rng.standard_normal((m, n)),
             "t3": lambda rng, m, n: _t(rng, 3, (m, n)),
@@ -69,7 +70,7 @@ SUITES = {
         },
     },
     "locked": {
-        "id": "holdout-calibration-locked-v1", "series": 20000,
+        "id": "holdout-calibration-locked-v1", "series": 20000, "pvalue": "holdout_pvalue",
         "generators": {
             "ar1_03": lambda rng, m, n: _ar1(rng, m, n, 0.3),
             "t4": lambda rng, m, n: _t(rng, 4, (m, n)),
@@ -83,9 +84,12 @@ SUITES = {
 }
 
 
+PVALUES = {"bootstrap_pvalue": bootstrap_pvalue, "holdout_pvalue": holdout_pvalue}
+
+
 def _pvalues(args):
-    tag, rows, start = args
-    return [holdout_pvalue(r, campaign_seed(f"{tag}/{start + i}")) for i, r in enumerate(rows)]
+    kind, tag, rows, start = args
+    return [PVALUES[kind](r, campaign_seed(f"{tag}/{start + i}")) for i, r in enumerate(rows)]
 
 
 def cell(suite, gen, n, m=None, workers=None, chunk=50):
@@ -94,7 +98,7 @@ def cell(suite, gen, n, m=None, workers=None, chunk=50):
     tag = f"{spec['id']}/{gen}/{n}"
     rng = np.random.default_rng(int.from_bytes(hashlib.sha256(tag.encode()).digest()[:8], "little"))
     series = spec["generators"][gen](rng, m, n)
-    jobs = [(tag, series[i:i + chunk], i) for i in range(0, m, chunk)]
+    jobs = [(spec["pvalue"], tag, series[i:i + chunk], i) for i in range(0, m, chunk)]
     with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
         return np.concatenate([p for p in pool.map(_pvalues, jobs)])
 

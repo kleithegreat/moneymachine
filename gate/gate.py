@@ -1,5 +1,6 @@
 """The statistical gate of paper §8 with the stage 2 parameters (PROGRESS.md, Stage 2, Gate)."""
 
+import functools
 import hashlib
 import json
 import sqlite3
@@ -21,6 +22,7 @@ BLOCK = 6
 REPS = 1000
 HOLDOUT_REPS = 10_000
 LAGS = 36
+CALIBRATION = Path(__file__).resolve().parent / "holdout_calibration.json"
 EULER = 0.5772156649015329
 
 
@@ -149,7 +151,7 @@ def long_run_sd(x):
     return np.sqrt(var)
 
 
-def holdout_pvalue(r, seed):
+def bootstrap_pvalue(r, seed):
     """One-sided studentized stationary-bootstrap p-value for mean(r) > 0 (PROGRESS.md, Stage 2, revision 2026-10-20)."""
     r = np.asarray(r, float)
     sd = long_run_sd(r)
@@ -162,6 +164,20 @@ def holdout_pvalue(r, seed):
     with np.errstate(divide="ignore", invalid="ignore"):
         ts = np.where(sds > 0, dev / sds, np.where(dev >= 0, np.inf, -np.inf))
     return float((1 + (ts >= t).sum()) / (1 + HOLDOUT_REPS))
+
+
+@functools.lru_cache(maxsize=1)
+def _calibration():
+    c = json.loads(CALIBRATION.read_text())
+    return c["denominator"], [np.array(ks) for ks in c["cells"].values()]
+
+
+def holdout_pvalue(r, seed):
+    """The bootstrap p-value calibrated on the development suite: the largest, over its generators, Monte Carlo
+    p-value of the bootstrap p-value against that generator's null distribution (Stage 2, revision 2026-10-20)."""
+    denominator, cells = _calibration()
+    k = round(bootstrap_pvalue(r, seed) * denominator)
+    return max((1 + int(np.searchsorted(ks, k, side="right"))) / (len(ks) + 1) for ks in cells)
 
 
 def holm(pvalues):
