@@ -12,8 +12,20 @@ cannot be stated in a form that `bend --verdict` accepts. Each file here reprodu
 | `first_order_law.bend` | An ordinary first-order law over `Nat` | Both checks pass (ALL PROOFS CHECK). |
 
 An erased parameter (`-f`) can appear only in types and proofs, never in a model function's running
-body. So a Bend model can be written only for a concrete number type, and Bend's own `F32` is the
-nearest to the engine. Laws over that instance are weaker than the frozen statements, which quantify
-over every N, and C6.3's acceptance rule does not count a weaker statement. Under this toolchain,
-Bend's accepted law count is therefore 0 by construction. This is a C6.5 comparison finding
-(expressiveness and checker trust), alongside Bend's lack of binary64, which bars it from C6.4.
+body, so a Bend model must use a concrete number type.
+
+## Over a concrete type (human decision, 2026-10-21)
+
+L1, L4 and L5 are structural, so they are stated over a concrete exact number type instead. The verdict
+kernel accepts structural induction over concrete `Data` types: `concrete_binding.bend` models an
+L5-shaped run (a preflight over list membership, then a step loop that may fail with another error)
+and proves that it fails as unavailable exactly when a slot is unbound. `bend concrete_binding.bend
+--verdict` prints ALL PROOFS CHECK. What the toolchain requires of such a model:
+
+- matches follow parameter order, so each function takes the value it splits first;
+- `Data` arguments a proof uses more than once are marked `+`, in laws as in code;
+- Base's list functions are templates, which `--verdict` refuses in laws, so the model uses its own
+  monomorphic recursions.
+
+So the laws are expressible. A faithful port of the model's machine and simulator, and the proofs of
+L1, L4 and L5 over it, are the remaining work.
