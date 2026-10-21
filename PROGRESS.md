@@ -685,6 +685,10 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 ## Log
 
+- 2026-10-21 00:35 UTC, before the locked v2.1 result is read (human decision 2: say whether v2's design used results from the suite that judges it). It did not. No v2 locked draw existed when v2 was designed and committed (949b308). The first locked-v2 run crashed after one cell, before any p-value was written, and no v2.1 cell value has been read: only the cell names in its log. So locked-v2 is not spent and judges v2 as registered. The design did use locked v1's results, and v1 is spent (failed, recorded):
+  - v1's failing generator `sparse` (t₅ bursts at 1/36, 1/4) is identical to development-v2's `sparse10`, which is now a calibration-table cell;
+  - locked-v2's `noisy_sparse` is that same generator plus N(0, 0.05²) at every step. So its cell is close to a calibration cell and is weaker evidence than the others, though no locked-v2 result informed it.
+
 - 2026-10-20 19:30 UTC: The first locked v2 run crashed after its first cell (`gate.size.main` still called `.tolist()` on the new work-file format), before any p-value was written or seen. Per calibration v2's failure rule it is rerun under the new id `holdout-calibration-locked-v2.1` (new seeds, same generators, levels and limits); `main` now has a test.
 
 - 2026-10-20: Calibration v2 table committed: `gate/holdout_calibration.json`, 27 cells (the 18 v1 cells, reproduced byte for byte from the development work file, plus 9 development-v2 cells), sha256 0ca961cb467688f18827de66c9968e8d40f2fa2bdbd280ac5c4bebc1d20ffd75. The locked v2 run started on it (`holdout-size locked-v2 data/calibration/locked-v2.json audit/stage2/holdout-size-locked-v2.json`).
