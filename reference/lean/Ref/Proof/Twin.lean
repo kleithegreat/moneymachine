@@ -41,6 +41,22 @@ theorem eval_mapArgs (N : NumOps α) {p p' : Program} {k : Nat} (σ : Nat → Na
     simp only [Node.mapArgs, harg]
   | _ => rfl
 
+/-- The window a node keeps, if any. -/
+def Node.win : Node → Option (Window × Nat)
+  | .op (.window w h) _ => some (w, h)
+  | _ => none
+
+theorem win_point {n : Node} (h : n.isPoint = true) : n.win = none := by
+  cases n with
+  | op o args => cases o <;> first | rfl | cases h
+  | _ => rfl
+
+theorem slot_mapArgs (σ : Nat → Nat) (n : Node) : (n.mapArgs σ).slot = n.slot := by cases n <;> rfl
+theorem win_mapArgs (σ : Nat → Nat) (n : Node) : (n.mapArgs σ).win = n.win := by
+  cases n with
+  | op o args => cases o <;> rfl
+  | _ => rfl
+
 /-- p' is p with node i rewritten in place and its uses redirected to node j ≤ i (j = i: none redirected): the
 nodes before agree, node i evaluates alike, and node j holds node i's value. -/
 structure Twin (N : NumOps α) (p p' : Program) (i j : Nat) : Prop where
@@ -57,6 +73,9 @@ structure Twin (N : NumOps α) (p p' : Program) (i j : Nat) : Prop where
     MState.eval N p' s i c = MState.eval N p s i c
   identAt : j < i → ∀ (L : Array Bool) (m s : MState α), Done N p L m i s → ∀ c : Nat,
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[j]![c]!
+  slot : ∀ k : Nat, p'.nodes[k]!.slot = p.nodes[k]!.slot
+  win : ∀ k : Nat, p'.nodes[k]!.win = p.nodes[k]!.win
+  weight : p'.weight = if p.weight == i then j else p.weight
 
 /-- The loop invariant of a node's coin loop: the rows before it and the inputs stay as they were. -/
 def Before (k : Nat) (s t : MState α) : Prop :=
@@ -223,12 +242,16 @@ theorem twin_redirect (N : NumOps α) {p : Program} (hp : p.WF) {i j : Nat} (hi 
     have := (WF.op hp hi h).1 a ha
     simp [show a ≠ i by omega]
   identAt _ := hid
+  slot k := by rw [redirect_node, slot_mapArgs]
+  win k := by rw [redirect_node, win_mapArgs]
+  weight := rfl
 
 omit [Inhabited α] in
 /-- Replacing node i by a node of its type that evaluates alike is a twin. -/
 theorem twin_set (N : NumOps α) {p : Program} (hp : p.WF) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
     (ha : ∀ a ∈ args, a < i) (ht : opTy o (args.map (p.types[·]!)) p.convTo[i]! = some p.types[i]!)
-    (hpt : p.nodes[i]!.isPoint = true) (hpt' : (Node.op o args).isPoint = true)
+    (hpt : p.nodes[i]!.isPoint = true) (hpt' : (Node.op o args).isPoint = true) {o₀ : Op} {args₀ : List Nat}
+    (hold : p.nodes[i]! = .op o₀ args₀)
     (hev : ∀ (L : Array Bool) (m s : MState α), Done N p L m i s → ∀ c : Nat, L[c]! = true →
       MState.eval N { p with nodes := p.nodes.set! i (.op o args) } s i c = MState.eval N p s i c) :
     Twin N p { p with nodes := p.nodes.set! i (.op o args) } i i where
@@ -247,6 +270,17 @@ theorem twin_set (N : NumOps α) {p : Program} (hp : p.WF) {i : Nat} (hi : i < p
     rw [Array.getElem!_set!_self _ _ _ hi]; exact hpt'
   evalAt := hev
   identAt h := absurd h (Nat.lt_irrefl i)
+  slot k := by
+    show (p.nodes.set! i (.op o args))[k]!.slot = _
+    by_cases hk : k = i
+    · subst hk; rw [Array.getElem!_set!_self _ _ _ hi, hold]; rfl
+    · rw [Array.getElem!_set!_ne _ _ _ _ (Ne.symm hk)]
+  win k := by
+    show (p.nodes.set! i (.op o args))[k]!.win = _
+    by_cases hk : k = i
+    · subst hk; rw [Array.getElem!_set!_self _ _ _ hi, win_point hpt', win_point hpt]
+    · rw [Array.getElem!_set!_ne _ _ _ _ (Ne.symm hk)]
+  weight := by show p.weight = _; by_cases h : p.weight = i <;> simp [h]
 
 /-! Each rule's identity at node i, on the rows a tick has written before it. -/
 
@@ -521,7 +555,7 @@ theorem apply_twin (N : NumOps α) (hN : N.Lawful) {r : Rule} {p p' : Program} {
       obtain ⟨hai, hti⟩ := WF.op hp hi hn
       obtain ⟨hxa, hta⟩ := WF.op hp ha hx
       simp only [List.mem_singleton, forall_eq, List.map_cons, List.map_nil] at hai hxa hti hta
-      refine ⟨i, twin_set N hp hi (by simp; omega) ?_ (by rw [hn]; try rfl) rfl (absNeg_eval N hN hp hn hx)⟩
+      refine ⟨i, twin_set N hp hi (by simp; omega) ?_ (by rw [hn]; try rfl) rfl hn (absNeg_eval N hN hp hn hx)⟩
       simp only [List.map_cons, List.map_nil]
       rw [← opTy_unary (Or.inl rfl) hta]; exact hti
     next => cases h
@@ -564,28 +598,28 @@ theorem apply_twin (N : NumOps α) (hN : N.Lawful) {r : Rule} {p p' : Program} {
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_comm (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
   next _ _ a b hn =>
     cases h
     have hi := op_lt hn
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_comm (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
   next _ _ a b hn =>
     cases h
     have hi := op_lt hn
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_comm (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
   next _ _ a b hn =>
     cases h
     have hi := op_lt hn
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_comm (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => comm_eval N hN (by simp) hi hn s c⟩
   next _ _ a hn =>
     split at h
     next c hc =>
@@ -606,7 +640,7 @@ theorem apply_twin (N : NumOps α) (hN : N.Lawful) {r : Rule} {p p' : Program} {
       obtain ⟨hca, hta⟩ := WF.op hp hnc hc
       simp only [List.mem_singleton, forall_eq, List.map_cons, List.map_nil] at hca hti hta
       have hnci := hai nc (by simp)
-      refine ⟨i, twin_set N hp hi (fun x hx => ?_) ?_ (by rw [hn]; try rfl) rfl (ifNot_eval N hN hp hn hc)⟩
+      refine ⟨i, twin_set N hp hi (fun x hx => ?_) ?_ (by rw [hn]; try rfl) rfl hn (ifNot_eval N hN hp hn hc)⟩
       · simp only [List.mem_cons, List.not_mem_nil, or_false] at hx
         rcases hx with rfl | rfl | rfl
         · omega
@@ -623,28 +657,65 @@ theorem apply_twin (N : NumOps α) (hN : N.Lawful) {r : Rule} {p p' : Program} {
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_flip (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
   next _ _ a b hn =>
     cases h
     have hi := op_lt hn
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_flip (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
   next _ _ a b hn =>
     cases h
     have hi := op_lt hn
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_flip (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
   next _ _ a b hn =>
     cases h
     have hi := op_lt hn
     obtain ⟨hai, hti⟩ := WF.op hp hi hn
     simp only [List.map_cons, List.map_nil] at hti
     exact ⟨i, twin_set N hp hi (fun x hx => hai x (by simp at hx ⊢; omega)) (by simpa using opTy_flip (by simp) hti)
-      (by rw [hn]; try rfl) rfl fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
+      (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
   next => cases h
 
+theorem slots_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) : p'.eventSlots = p.eventSlots := by
+  have hm : p'.nodes.toList.map Node.slot = p.nodes.toList.map Node.slot := by
+    apply List.ext_getElem (by simp [T.size])
+    intro k h₁ h₂
+    simp only [List.getElem_map, Array.getElem_toList]
+    have := T.slot k
+    rwa [getElem!_pos p'.nodes k (by simpa using h₁), getElem!_pos p.nodes k (by simpa using h₂)] at this
+  have e : ∀ q : Program, q.nodes.toList.filterMap Node.slot = (q.nodes.toList.map Node.slot).filterMap id := by
+    intro q; rw [List.filterMap_map]; rfl
+  unfold Program.eventSlots
+  rw [e, e, hm]
+
+theorem win_none {n : Node} (h : ∀ w k args, n ≠ .op (.window w k) args) : n.win = none := by
+  cases n with
+  | op o args => cases o <;> first | rfl | exact absurd rfl (h _ _ _)
+  | _ => rfl
+
+theorem init_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) (coins : Nat) :
+    MState.init N p' coins = MState.init N p coins := by
+  unfold MState.init
+  rw [T.size]
+  congr 1
+  apply ext_bang (by simp [T.size])
+  intro k
+  rcases Nat.lt_or_ge k p.nodes.size with hk | hk
+  · rw [getElem!_pos (p'.nodes.map _) k (by simp [T.size]; omega), getElem!_pos (p.nodes.map _) k (by simpa using hk)]
+    simp only [Array.getElem_map]
+    have hw := T.win k
+    rw [getElem!_pos p'.nodes k (by rw [T.size]; exact hk), getElem!_pos p.nodes k hk] at hw
+    generalize p'.nodes[k]'(by rw [T.size]; exact hk) = a at hw ⊢
+    generalize p.nodes[k] = b at hw ⊢
+    split <;> split
+    · simp only [Node.win, Option.some.injEq, Prod.mk.injEq] at hw; rw [hw.1, hw.2]
+    · rename_i hne; rw [win_none hne] at hw; cases hw
+    · rename_i hne _ _ _ _; rw [win_none hne] at hw; cases hw
+    · rfl
+  · rw [getElem!_neg (p'.nodes.map _) k (by simp [T.size]; omega), getElem!_neg (p.nodes.map _) k (by simp; omega)]
 end Ref

@@ -77,9 +77,13 @@ def initial : α := N.ofNat 10000
 def maxGross : α := N.ofNat 2
 def maxOrderNotional : α := N.ofNat 10000
 
+/-- The event slot a node reads, if it is an event input. -/
+def Node.slot : Node → Option Nat
+  | .input (.event s) => some s
+  | _ => none
+
 /-- Event slots the program reads (SEMANTICS.md §8). -/
-def Program.eventSlots (p : Program) : List Nat :=
-  (p.nodes.toList.filterMap fun n => match n with | .input (.event s) => some s | _ => none).eraseDups
+def Program.eventSlots (p : Program) : List Nat := (p.nodes.toList.filterMap Node.slot).eraseDups
 
 def truncate (x : α) (dec : Nat) : α :=
   let f := N.ofNat (10 ^ dec)
