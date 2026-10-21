@@ -113,7 +113,8 @@ theorem step_twin (b : Int) (s : SState α) (hs : Good p m.intervals.size i j s)
   have e₇ : (Ctx.make p' m v pol stop).mask = (Ctx.make p m v pol stop).mask := rfl
   have e₈ : Ctx.execute N (Ctx.make p' m v pol stop) = Ctx.execute N (Ctx.make p m v pol stop) := rfl
   have e₉ : Ctx.closeout N (Ctx.make p' m v pol stop) = Ctx.closeout N (Ctx.make p m v pol stop) := rfl
-  simp only [e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈, e₉]
+  have e₁₀ : Ctx.bankrupt N (Ctx.make p' m v pol stop) = Ctx.bankrupt N (Ctx.make p m v pol stop) := rfl
+  simp only [e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈, e₉, e₁₀]
   have hexec : ∀ s' f r, (Ctx.make p m v pol stop).execute N s' f = .ok r → r.proj = s'.proj :=
     fun s' f => execute_proj N _ s' f
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.forIn _ _ _ _ _ rfl fun k hk s₀ h₀ => ?_) fun s₁ h₁ => ?_
@@ -128,8 +129,10 @@ theorem step_twin (b : Int) (s : SState α) (hs : Good p m.intervals.size i j s)
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.forIn _ _ _ _ _ h₃ fun x _ s' h' => ?_) fun s₄ h₄ => ?_
   · exact EqH.ite (fun _ => EqH.bind (R := fun r => r.proj = s.proj) (EqH.refl fun r hr => (hexec _ _ r hr).trans h')
       fun r hr => EqH.pure _ hr) fun _ => EqH.pure _ h'
+  refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.refl (bankrupt_proj N _ s₄ b _ _ _ h₄)) fun s₅ h₅ => ?_
   refine EqH.ite (fun _ => EqH.throw_bind) fun _ => ?_
-  refine EqH.join (R := fun s' => s'.proj = s.proj) (fun _ => EqH.forIn _ _ _ _ _ h₄ fun o _ s' h' => ?_) (fun _ => h₄)
+  refine EqH.ite (fun _ => EqH.throw_bind) fun _ => ?_
+  refine EqH.join (R := fun s' => s'.proj = s.proj) (fun _ => EqH.forIn _ _ _ _ _ h₅ fun o _ s' h' => ?_) (fun _ => h₅)
     fun s₆ h₆ => ?_
   · split
     · exact EqH.ite (fun _ => EqH.bind (R := fun r => r.proj = s.proj)

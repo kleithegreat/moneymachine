@@ -561,8 +561,14 @@ theorem step_view (N : NumOps α) (p : Program) (v : Venue α) (pol : Policy) (s
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.forIn _ _ _ _ _ h₃ fun x _ s' h' => ?_) fun s₄ h₄ => ?_
   · exact EqH.ite (fun _ => EqH.bind (R := fun r => r.proj = s.proj) (EqH.refl fun r hr => (hexec _ _ r hr).trans h')
       fun r hr => EqH.pure _ hr) fun _ => EqH.pure _ h'
+  have hbk : ∀ s' adv lat, (Ctx.make p m₁ v pol stop).bankrupt N s' b adv lat =
+      (Ctx.make p m₂ v pol stop).bankrupt N s' b adv lat := by
+    intro s' adv lat; unfold Ctx.bankrupt; simp only [hex _ _ (hfilled ..)]; rfl
+  refine EqH.bind (R := fun s' => s'.proj = s.proj) ?_ fun s₅ h₅ => ?_
+  · rw [hbk]; exact EqH.refl (bankrupt_proj N _ s₄ b _ _ _ h₄)
   refine EqH.ite (fun _ => EqH.throw_bind) fun _ => ?_
-  refine EqH.join (R := fun s' => s'.proj = s.proj) (fun _ => EqH.forIn _ _ _ _ _ h₄ fun o _ s' h' => ?_) (fun _ => h₄)
+  refine EqH.ite (fun _ => EqH.throw_bind) fun _ => ?_
+  refine EqH.join (R := fun s' => s'.proj = s.proj) (fun _ => EqH.forIn _ _ _ _ _ h₅ fun o _ s' h' => ?_) (fun _ => h₅)
     fun s₆ h₆ => ?_
   · rcases S.lookupC p v pol stop o.coin (t := b + BAR) (by omega) with ⟨e₁, e₂⟩ | ⟨i₁, i₂, e₁, e₂, ho⟩
     · rw [e₁, e₂]; exact EqH.pure _ h'

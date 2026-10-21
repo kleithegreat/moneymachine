@@ -194,6 +194,27 @@ fn liquidation_at_adverse_extreme() {
     assert!(close(liq.qty, 95.0) && close(liq.reference, 170.0) && close(liq.price, 170.17) && liq.filled == 16 * HOUR);
 }
 
+/// A liquidation past zero equity is a bankruptcy: the venue absorbs the shortfall, the order due at that
+/// step is unfilled, and the step returns exactly -1, with 0 after it.
+#[test]
+fn bankruptcy_caps_the_loss_at_equity() {
+    let mut s = Spec::new(&[100.0; 6], &[100.0; 6]);
+    s.leverage = 1.0;
+    s.highs = Some(vec![101.0, 101.0, 101.0, 300.0, 101.0, 101.0]);
+    let run = s.run(r#"{"const": -0.95, "unit": "1"}"#).unwrap();
+    let f = fills(&run);
+    // Sold 95 at 8h at 99.9 (fee 9.4905): cash 19481.0095. At 12h equity is 9981.0095, so the 12h+d
+    // decision buys back 0.180 at 16h. Bar 3's high 300 liquidates first: 95 bought at 300.3, fee
+    // 28.5285, cash -9076.019. The venue absorbs it, so equity at 16h is 0 and the 16h order is unfilled.
+    let liq = f.iter().find(|x| x.why == Why::Liquidation).unwrap();
+    assert!(close(liq.qty, 95.0) && close(liq.price, 300.3) && liq.filled == 16 * HOUR);
+    assert!(!f.iter().any(|x| x.why == Why::Fill && x.filled == 16 * HOUR));
+    assert!(run.trace.iter().any(|e| matches!(e, Event::Unfilled { t, qty, .. } if *t == 16 * HOUR && close(*qty, 0.18))));
+    assert_eq!(equity_at(&run, 16 * HOUR), 0.0);
+    assert!(run.trace.iter().any(|e| matches!(e, Event::Equity { t, reconciled, .. } if *t == 16 * HOUR && reconciled.abs() < 1e-9)));
+    assert_eq!(&run.returns[run.returns.len() - 2..], &[-1.0, 0.0]);
+}
+
 /// A delisted coin is closed at its last bar's close.
 #[test]
 fn delisting_closeout() {

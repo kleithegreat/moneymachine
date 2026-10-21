@@ -20,4 +20,5 @@ import Ref.Proof.Rewrite
 import Ref.Proof.Twin
 import Ref.Proof.TwinRun
 import Ref.Proof.Checker
+import Ref.Proof.Bound
 import Ref.Laws

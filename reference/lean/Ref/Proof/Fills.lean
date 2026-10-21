@@ -388,6 +388,19 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
     have hchk := (execute_spec N _ s' r _ hr).1
     exact J_exec s' r _ hJ hr (closeout_law N p m hA v pol stop x.1 x.2 _ .delisting (by decide) _ _ hchk bar' i hi
       (by simpa using hix) hbi (by simp)) ⟨q, by simp only [Ctx.closeout]; exact hq⟩
+  refine Except.Holds.bind (R := J) ?_ fun s₄ hJ₄ => ?_
+  · unfold Ctx.bankrupt
+    refine Except.Holds.ite (Except.Holds.pure _ hJ₄) ?_
+    refine Except.Holds.bind (R := J) (Except.Holds.forIn_list _ _ _ J hJ₄ fun x hx s' hJ => ?_)
+      fun s' hJ' => Except.Holds.pure _ ⟨hJ'.1, hJ'.2.1, hJ'.2.2.1, hJ'.2.2.2.1, hJ'.2.2.2.2⟩
+    refine Except.Holds.bind (R := J) (fun r hr => ?_) fun r hr => Except.Holds.pure _ hr
+    obtain ⟨q, hq⟩ := hJ₄.2.2.2.2 x hx
+    obtain ⟨bar', i, hi, has, hbi, hix, -⟩ := HL (x.1, q) hq
+    rw [has] at hr
+    have hchk := (execute_spec N _ s' r _ hr).1
+    exact J_exec s' r _ hJ hr (closeout_law N p m hA v pol stop x.1 x.2 _ .liquidation (by decide) _ _ hchk bar' i hi
+      (by simpa using hix) hbi (by simp [has])) ⟨q, by simp only [Ctx.closeout]; exact hq⟩
+  refine Except.Holds.ite holds_throw_bind ?_
   refine Except.Holds.ite holds_throw_bind ?_
   let K : SState α → Prop := fun s' =>
     (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
@@ -426,6 +439,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
       refine Except.Holds.ite_cond (fun htr => ?_) fun _ => Except.Holds.pure _ (K_push _ _ (fun f h => by cases h) hK)
       refine Except.Holds.bind (R := K) (fun r hr => ?_) fun r hr => Except.Holds.pure _ hr
       obtain ⟨hchk, htr', ho', hmk', hpr', hpos'⟩ := execute_spec N _ s' r _ hr
+      have htr : m.bars[i]!.trades ≥ 1 := by simpa [Ctx.make] using (Bool.and_eq_true_iff.mp htr).1
       have hlaw := ordinary_law N p m hA v pol stop e.2 (pol.wStart + (j : Int) * BAR) i hbi htr hchk hdec hmach
       obtain ⟨hi', hcoin, hopen⟩ := barAt_sound m _ hbi
       refine ⟨fun f hf => ?_, ho'.trans hK.2.1, by rw [hmk']; exact hK.2.2.1, hpr'.trans hK.2.2.2.1, fun y hy => ?_⟩
@@ -502,7 +516,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
 
 /-- The start has an empty trace, no orders or positions, and a mark slot per coin. -/
 theorem start_state (N : NumOps α) (c : Ctx α) : Except.Holds (c.start N)
-    (fun s => s.trace = #[] ∧ s.orders = [] ∧ s.book.pos = [] ∧ s.marks.size = c.coins) := by
+    (fun s => s.trace = #[] ∧ s.orders = [] ∧ s.book.pos = [] ∧ s.marks.size = c.coins ∧ s.equity = #[]) := by
   intro s hs
   unfold Ctx.start at hs
   rw [← graft_self (c.state0 N) _ rfl, deliver_graft] at hs
@@ -516,7 +530,7 @@ theorem start_state (N : NumOps α) (c : Ctx α) : Except.Holds (c.start N)
 theorem start_inv4 (N : NumOps α) (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) :
     Except.Holds ((Ctx.make p m v pol stop).start N) (Inv4 N p m v pol stop 0) := by
   intro s hs
-  obtain ⟨htr, ho, hp, hm⟩ := start_state N _ s hs
+  obtain ⟨htr, ho, hp, hm, -⟩ := start_state N _ s hs
   exact ⟨by simp [htr], by simp [ho], by simp [hp], hm, s, by rw [hs]; rfl, rfl⟩
 
 theorem steps_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)

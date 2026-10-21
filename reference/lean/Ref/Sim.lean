@@ -38,12 +38,12 @@ inductive Event (α : Type) where
   deriving Inhabited
 
 inductive Abort where
-  | causality | timing | fill | accounting | portfolio | inputUnavailable
+  | causality | timing | fill | accounting | portfolio | bound | inputUnavailable
   deriving DecidableEq, Repr
 
 def Abort.code : Abort → String
   | .causality => "R_CAUSALITY" | .timing => "R_TIMING" | .fill => "R_FILL" | .accounting => "R_ACCOUNTING"
-  | .portfolio => "R_PORTFOLIO" | .inputUnavailable => "R_INPUT_UNAVAILABLE"
+  | .portfolio => "R_PORTFOLIO" | .bound => "R_BOUND" | .inputUnavailable => "R_INPUT_UNAVAILABLE"
 
 structure Venue (α : Type) where
   takerFee : α
@@ -105,6 +105,8 @@ structure Book (α : Type) where
   fees : α
   slippage : α
   funding : α
+  /-- Shortfalls the venue absorbed at bankruptcy. -/
+  absorbed : α
 
 def assoc? {β} (l : List (Nat × β)) (k : Nat) : Option β := (l.find? (·.1 == k)).map (·.2)
 def assocSet {β} (l : List (Nat × β)) (k : Nat) (v : β) : List (Nat × β) :=
@@ -135,7 +137,10 @@ def Book.equity (b : Book α) (marks : Array α) : α :=
 
 def Book.reconciled (b : Book α) (marks : Array α) : α :=
   let unrealized := total N (b.pos.map fun (c, q) => N.mul q (N.sub marks[c]! (assoc? b.entry c).get!))
-  N.add (N.sub (N.add (N.add (initial N) b.realized) unrealized) b.fees) b.funding
+  N.add (N.add (N.sub (N.add (N.add (initial N) b.realized) unrealized) b.fees) b.funding) b.absorbed
+
+/-- Losses are capped at equity: once flat, the venue absorbs a negative balance. -/
+def Book.absorb (b : Book α) : Book α := { b with absorbed := N.sub b.absorbed b.cash, cash := N.zero }
 
 structure Index (α : Type) where
   barAt : HashMap (Nat × Int) Nat
@@ -275,13 +280,24 @@ def Ctx.closeout (c : Ctx α) (coin : Nat) (qty ref : α) (why : Why) (t sourceO
   { why, coin, qty, inputsKnown := t, decisionPrice := ref, decided := t, submitted := t, filled := t, sourceOpen,
     reference := ref, price, fee := N.mul (N.mul (N.abs qty) price) c.v.takerFee }
 
+/-- Bankruptcy (SEMANTICS.md §7, item 5): unless equity is positive, every position still held is liquidated
+at its adverse price and the venue absorbs the negative balance. -/
+def Ctx.bankrupt (c : Ctx α) (s : SState α) (b : Int) (adverse : Nat → α → α) (latest : List (Nat × BarRow α)) :
+    Except Abort (SState α) := do
+  if N.lt N.zero (s.book.equity N s.marks) then return s
+  let mut t := s
+  for (coin, q) in s.book.pos do
+    t ← c.execute N t (c.closeout N coin (N.neg q) (adverse coin q) .liquidation (b + BAR) (assoc? latest coin).get!.openTime)
+  return { t with book := t.book.absorb N }
+
 /-- Whether every event source the program reads is bound (SEMANTICS.md §8). -/
 def Ctx.bound (c : Ctx α) : Bool := !c.p.eventSlots.any (!c.m.bound.contains ·)
 
 /-- The state before any delivery. -/
 def Ctx.state0 (c : Ctx α) : SState α :=
   let book0 : Book α :=
-    { cash := initial N, pos := [], entry := [], realized := N.zero, fees := N.zero, slippage := N.zero, funding := N.zero }
+    { cash := initial N, pos := [], entry := [], realized := N.zero, fees := N.zero, slippage := N.zero, funding := N.zero,
+      absorbed := N.zero }
   { machine := MState.init N c.p c.coins, book := book0, marks := Array.replicate c.coins (N.div N.zero N.zero),
     trace := #[], orders := [], returns := #[], gross := #[], equity := #[], prevEquity := initial N,
     prevCosts := N.zero, fi := 0, bi := 0, ei := 0 }
@@ -292,7 +308,7 @@ def Ctx.start (c : Ctx α) : Except Abort (SState α) := do
   let s ← c.deliver (c.state0 N) (c.pol.wStart + c.pol.delta)
   return { s with machine := s.machine.tick N c.p (c.mask c.pol.wStart) c.pol.wStart }
 
-/-- One 4h step from b (SEMANTICS.md §7, items 1 to 8). -/
+/-- One 4h step from b (SEMANTICS.md §7, items 1 to 9). -/
 def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) := do
   let p := c.p
   let m := c.m
@@ -338,16 +354,20 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   for (c, q) in s.book.pos do
     if b + BAR ≥ m.intervals[c]!.2 then
       s ← execute s (closeout c (N.neg q) s.marks[c]! .delisting (b + BAR) (assoc? latest c).get!.openTime)
-  -- 5. accounting
+  -- 5. bankruptcy
+  s ← c.bankrupt N s b adverse latest
+  -- 6. accounting
   let e1 := s.book.equity N s.marks
   let e2 := s.book.reconciled N s.marks
-  if N.lt (N.ofBits 0x3EE4F8B588E368F1) (N.abs (N.sub e1 e2)) then throw .accounting
+  if !N.le (N.abs (N.sub e1 e2)) (N.ofBits 0x3EE4F8B588E368F1) then throw .accounting
   let costs := N.add s.book.fees s.book.slippage
-  s := { s with trace := s.trace.push (.equity (b + BAR) e1 e2),
-                returns := s.returns.push (N.sub (N.div e1 s.prevEquity) N.one),
-                gross := s.gross.push (N.div (N.sub (N.add (N.sub e1 s.prevEquity) costs) s.prevCosts) s.prevEquity),
+  let (r, g) := if N.lt N.zero s.prevEquity then
+      (if N.lt N.zero e1 then N.sub (N.div e1 s.prevEquity) N.one else N.neg N.one, N.div (N.sub (N.add (N.sub e1 s.prevEquity) costs) s.prevCosts) s.prevEquity)
+    else (N.zero, N.zero)
+  if !N.le (N.neg N.one) r then throw .bound
+  s := { s with trace := s.trace.push (.equity (b + BAR) e1 e2), returns := s.returns.push r, gross := s.gross.push g,
                 equity := s.equity.push e1, prevEquity := e1, prevCosts := costs }
-  -- 6. fills
+  -- 7. fills
   let due := (s.orders.filter (·.1 == b + BAR)).map (·.2)
   s := { s with orders := s.orders.filter (·.1 != b + BAR) }
   if b + 3 * BAR ≤ stop then
@@ -355,7 +375,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
       match ix.barAt[(o.coin, b + BAR)]? with
       | some i =>
         let bar := m.bars[i]!
-        if bar.trades ≥ 1 then
+        if bar.trades ≥ 1 && N.lt N.zero e1 then
           let price := fillPrice N v o.coin o.qty bar.o
           let f : Fill α := {
             why := .fill
@@ -373,12 +393,12 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
           s ← execute s f
         else s := { s with trace := s.trace.push (.unfilled (b + BAR) o.coin o.qty) }
       | none => s := { s with trace := s.trace.push (.unfilled (b + BAR) o.coin o.qty) }
-  -- 7. ticks
+  -- 8. ticks
   for k in [1:5] do
     let h := b + k * HOUR
     s ← deliver s (h + pol.delta)
     s := { s with machine := s.machine.tick N p (mask h) h }
-  -- 8. decision
+  -- 9. decision
   let bigB := b + BAR
   let td := bigB + pol.delta
   let mut weights : List (Nat × α) := []

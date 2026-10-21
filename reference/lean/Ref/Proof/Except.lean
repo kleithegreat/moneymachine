@@ -29,6 +29,19 @@ theorem ite {c : Prop} [Decidable c] {x y : Except ε β} (hx : Avoids e x) (hy 
     Avoids e (if c then x else y) := by
   split <;> assumption
 
+theorem ite_cond {c : Prop} [Decidable c] {x y : Except ε β} (hx : c → Avoids e x) (hy : ¬c → Avoids e y) :
+    Avoids e (if c then x else y) := by
+  split
+  · exact hx ‹_›
+  · exact hy ‹_›
+
+theorem throw_bind {e' : ε} {f : β → Except ε γ} (h : e' ≠ e) : Avoids e ((MonadExcept.throw e' : Except ε β) >>= f) := by
+  intro h'; cases h'; exact h rfl
+
+theorem join {c : Prop} [Decidable c] {x : Except ε β} {b : β} {k : β → Except ε γ} (hx : Avoids e x)
+    (hk : ∀ b, Avoids e (k b)) : Avoids e (if c then x >>= k else k b) :=
+  ite (bind hx hk) (hk b)
+
 theorem forIn_list {σ : Type} (l : List β) (init : σ) (f : β → σ → Except ε (ForInStep σ))
     (hf : ∀ b s, Avoids e (f b s)) : Avoids e (forIn l init f) := by
   induction l generalizing init with

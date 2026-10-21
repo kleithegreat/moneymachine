@@ -11,25 +11,30 @@ open _root_.Ref.Except in
 section
 variable {α : Type} [Inhabited α]
 
-theorem deliverFunding_avoids (c : Ctx α) (s : SState α) (tick : Int) :
-    Avoids .inputUnavailable (c.deliverFunding s tick) := by
+theorem deliverFunding_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
+    Avoids e (c.deliverFunding s tick) := by
+  have := he.symm
   fun_induction Ctx.deliverFunding c s tick <;> simp_all [Avoids]
 
-theorem deliverBars_avoids (c : Ctx α) (s : SState α) (tick : Int) :
-    Avoids .inputUnavailable (c.deliverBars s tick) := by
+theorem deliverBars_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
+    Avoids e (c.deliverBars s tick) := by
+  have := he.symm
   fun_induction Ctx.deliverBars c s tick <;> simp_all [Avoids]
 
-theorem deliverEvents_avoids (c : Ctx α) (s : SState α) (tick : Int) :
-    Avoids .inputUnavailable (c.deliverEvents s tick) := by
+theorem deliverEvents_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
+    Avoids e (c.deliverEvents s tick) := by
+  have := he.symm
   fun_induction Ctx.deliverEvents c s tick <;> simp_all [Avoids]
 
-theorem deliver_avoids (c : Ctx α) (s : SState α) (tick : Int) : Avoids .inputUnavailable (c.deliver s tick) := by
+theorem deliver_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
+    Avoids e (c.deliver s tick) := by
   unfold Ctx.deliver
-  exact Avoids.bind (deliverFunding_avoids _ _ _) fun _ =>
-    Avoids.bind (deliverBars_avoids _ _ _) fun _ => deliverEvents_avoids _ _ _
+  exact Avoids.bind (deliverFunding_avoids _ _ _ he) fun _ =>
+    Avoids.bind (deliverBars_avoids _ _ _ he) fun _ => deliverEvents_avoids _ _ _ he
 
-theorem checkFill_avoids (N : NumOps α) (f : Fill α) (m : Market α) (ix : Index α) (v : Venue α) :
-    Avoids .inputUnavailable (checkFill N f m ix v) := by
+theorem checkFill_avoids (N : NumOps α) (f : Fill α) (m : Market α) (ix : Index α) (v : Venue α) {e : Abort}
+    (ht : e ≠ .timing) (hf : e ≠ .fill) (hp : e ≠ .portfolio) : Avoids e (checkFill N f m ix v) := by
+  have := ht.symm; have := hf.symm; have := hp.symm
   unfold checkFill
   simp only [Avoids]
   repeat' split
@@ -41,8 +46,8 @@ macro "avoid" : tactic => `(tactic| repeat (first
   | exact Except.Avoids.ok _
   | exact Except.Avoids.pure _
   | (apply Except.Avoids.throw; decide)
-  | exact deliver_avoids _ _ _
-  | exact checkFill_avoids _ _ _ _ _
+  | exact deliver_avoids _ _ _ (by decide)
+  | exact checkFill_avoids _ _ _ _ _ (by decide) (by decide) (by decide)
   | (refine Except.Avoids.ite ?_ ?_)
   | (refine Except.Avoids.bind ?_ (fun _ => ?_))
   | (refine Except.Avoids.forIn_list _ _ _ (fun _ _ => ?_))
@@ -50,7 +55,7 @@ macro "avoid" : tactic => `(tactic| repeat (first
 
 theorem step_avoids (N : NumOps α) (c : Ctx α) (s : SState α) (b : Int) :
     Avoids .inputUnavailable (c.step N s b) := by
-  unfold Ctx.step Ctx.execute Ctx.closeout
+  unfold Ctx.step Ctx.bankrupt Ctx.execute Ctx.closeout
   simp only [Std.Legacy.Range.forIn_eq_forIn_range']
   avoid
 
@@ -250,6 +255,15 @@ theorem Holds.execute_bind {γ : Type} {Q : γ → Prop} (N : NumOps α) (c : Ct
     (hg : ∀ r, r.proj = X → Except.Holds (g r) Q) : Except.Holds (c.execute N s f >>= g) Q :=
   Except.Holds.bind (execute_proj N c s f) fun r hr => hg r (hr.trans hs)
 
+/-- Bankruptcy keeps the machine and cursors. -/
+theorem bankrupt_proj (N : NumOps α) (c : Ctx α) (s : SState α) (b : Int) (adverse : Nat → α → α)
+    (latest : List (Nat × BarRow α)) (X : MState α × Nat × Nat × Nat) (hs : s.proj = X) :
+    Except.Holds (c.bankrupt N s b adverse latest) (fun r => r.proj = X) := by
+  unfold Ctx.bankrupt
+  refine Except.Holds.ite (Except.Holds.pure _ hs) (Except.Holds.bind
+    (Holds.forIn_proj _ _ _ _ hs fun _ r hr => ?_) fun _ h => Except.Holds.pure _ h)
+  exact Holds.execute_bind N c r _ X _ hr fun _ h => Except.Holds.pure _ h
+
 set_option hygiene false in
 /-- One step of walking the simulator step: loops keep the machine and cursors, executions keep them,
 and branches split. -/
@@ -262,6 +276,7 @@ macro "pwalk" : tactic => `(tactic| first
   | (refine Except.Holds.bind (Holds.forIn_proj _ _ _ _ ‹_› fun _ _ _ => ?_) fun _ _ => ?_)
   | (refine Except.Holds.bind (Holds.forIn_projPair _ _ _ _ ‹_› fun _ _ _ => ?_) fun _ _ => ?_)
   | (refine Holds.execute_bind _ _ _ _ _ _ ‹_› fun _ _ => ?_)
+  | (refine Except.Holds.bind (bankrupt_proj _ _ _ _ _ _ _ ‹_›) fun _ _ => ?_)
   | (refine Except.Holds.ite ?_ ?_)
   | split)
 

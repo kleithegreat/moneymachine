@@ -172,7 +172,7 @@ A window node with n = `hours` keeps per-coin state, pushed once per listed tick
 
 Let V be the venue's coins in rules.json order; intervals [start, end) per coin as loaded
 [market.rs]. The book: cash = 10,000; positions q[c] (absent means 0); and an average-entry ledger
-(entry[c], realized, fees, funding) [sim.rs `Book`]. Marks start as NaN. With b = w_start, and while
+(entry[c], realized, fees, funding, absorbed) [sim.rs `Book`]. Marks start as NaN. With b = w_start, and while
 b + 2·BAR ≤ end, each step does, in order:
 
 1. **Funding.** For h = b + HOUR, b + 2·HOUR, …, b + BAR, and for each coin c holding a position (in
@@ -186,20 +186,24 @@ b + 2·BAR ≤ end, each step does, in order:
    liquidated: a fill of −q at reference = adverse, at time b + BAR, from latest(c).
 4. **Delisting.** For each position with b + BAR ≥ end(c): a fill of −q at reference = mark, at
    time b + BAR, from latest(c).
-5. **Accounting.**
+5. **Bankruptcy.** If e = cash + Σ q · mark is not > 0 (NaN included), every position still held is
+   liquidated as in step 3. Then absorbed −= cash and cash = 0 (losses are capped at equity), and the
+   order due at this step is unfilled (step 7).
+6. **Accounting.**
    - **Equity.** e1 = cash + Σ q · mark. e2 = 10,000 + realized + Σ q · (mark − entry) − fees +
-     funding. If |e1 − e2| > 1e-5, abort with R_ACCOUNTING. Record Equity(b + BAR, e1, e2).
-   - **Returns.** Append the return e1/previous − 1 and the gross return (e1 − previous + costs −
-     previous costs)/previous, with costs = fees + slippage.
-6. **Fills.** Orders decided at the previous decision (at b + δ) are due now, at b + BAR, their
+     funding + absorbed. Unless |e1 − e2| ≤ 1e-5, abort with R_ACCOUNTING. Record Equity(b + BAR, e1, e2).
+   - **Returns.** If previous > 0, the return is e1/previous − 1 if e1 > 0 and −1 otherwise, and the gross return is
+     (e1 − previous + costs − previous costs)/previous, with costs = fees + slippage; otherwise both
+     are 0. Unless the return is ≥ −1, abort with R_BOUND. Append both.
+7. **Fills.** Orders decided at the previous decision (at b + δ) are due now, at b + BAR, their
    scheduled fill time. They are executed only if b + 3·BAR ≤ end; otherwise the run's horizon ends
    first, and they are dropped unresolved (only their Decision record exists). For each due order,
    in decision order, the selected bar is the coin's bar opening at b + BAR. That is INVARIANTS.md's
    I3: the first bar opening at or after submission, with openTime ≤ the scheduled fill time. If it
-   exists with trades ≥ 1, fill at its open. Otherwise record Unfilled; the order never rolls to a
+   exists with trades ≥ 1 and e1 > 0, fill at its open. Otherwise record Unfilled; the order never rolls to a
    later bar.
-7. **Ticks.** For H = b + HOUR, …, b + BAR: deliver up to H + δ, then tick (§4).
-8. **Decision** at t_d = B + δ, with B = b + BAR.
+8. **Ticks.** For H = b + HOUR, …, b + BAR: deliver up to H + δ, then tick (§4).
+9. **Decision** at t_d = B + δ, with B = b + BAR.
    - **Eligibility.** A coin is eligible if start(c) ≤ B and B + 2·BAR ≤ end(c).
    - **Holds.** An eligible coin holds as `stale` unless its held funding row and held bar both have
      eventTime B. It holds as `undefined` if its weight is Undef. The others give (c, w).
@@ -239,7 +243,7 @@ Otherwise the run proceeds, and missing observations follow the operator semanti
 
 ## 9. Decide
 
-decide(s, h, t), for a decision tick t = B + δ, is the sequence of decision records of step 8 at t:
+decide(s, h, t), for a decision tick t = B + δ, is the sequence of decision records of step 9 at t:
 each eligible coin's hold (with its reason) or (w, scaled w, qty), as the run from w_start produces
 them. raw(s, h, t) is the vector of each listed coin's weight value at the tick H = B, before any
 scaling.

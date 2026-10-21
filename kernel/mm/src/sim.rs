@@ -15,6 +15,8 @@ pub const INITIAL: f64 = 10_000.0;
 pub const MAX_GROSS: f64 = 2.0;
 pub const MAX_ORDER_NOTIONAL: f64 = 10_000.0;
 pub const ACCOUNTING_TOLERANCE: f64 = 1e-5;
+/// B: no step loses more than the account's equity, so every step return is at least −B.
+pub const LOSS_BOUND: f64 = 1.0;
 
 #[derive(Debug, PartialEq)]
 pub enum Abort {
@@ -23,6 +25,7 @@ pub enum Abort {
     Fill(String),
     Accounting(String),
     Portfolio(String),
+    Bound(String),
     InputUnavailable(String),
 }
 
@@ -34,6 +37,7 @@ impl Abort {
             Abort::Fill(_) => "R_FILL",
             Abort::Accounting(_) => "R_ACCOUNTING",
             Abort::Portfolio(_) => "R_PORTFOLIO",
+            Abort::Bound(_) => "R_BOUND",
             Abort::InputUnavailable(_) => "R_INPUT_UNAVAILABLE",
         }
     }
@@ -84,6 +88,8 @@ struct Book {
     fees: f64,
     slippage: f64,
     funding: f64,
+    /// Shortfalls the venue absorbed when the account went bankrupt.
+    absorbed: f64,
     /// Per-coin cash flows (trades, fees, funding), for per-coin PnL attribution.
     coin_cash: BTreeMap<usize, f64>,
 }
@@ -136,7 +142,13 @@ impl Book {
 
     fn reconciled(&self, marks: &[f64]) -> f64 {
         let unrealized: f64 = self.pos.iter().map(|(&c, q)| q * (marks[c] - self.entry[&c])).sum();
-        INITIAL + self.realized + unrealized - self.fees + self.funding
+        INITIAL + self.realized + unrealized - self.fees + self.funding + self.absorbed
+    }
+
+    /// Losses are capped at the account's equity: once flat, the venue absorbs a negative balance.
+    fn absorb(&mut self) {
+        self.absorbed -= self.cash;
+        self.cash = 0.0;
     }
 }
 
@@ -333,8 +345,16 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             }
         }
 
+        if !(book.equity(&marks) > 0.0) {
+            let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
+            for (c, q) in held {
+                execute(&mut book, &mut trace, closeout(c, -q, adverse(c, q), Why::Liquidation, b + BAR, latest[&c].open_time))?;
+            }
+            book.absorb();
+        }
+
         let (e1, e2) = (book.equity(&marks), book.reconciled(&marks));
-        if (e1 - e2).abs() > ACCOUNTING_TOLERANCE {
+        if !((e1 - e2).abs() <= ACCOUNTING_TOLERANCE) {
             return Err(Abort::Accounting(format!("at {}: {e1} vs {e2}", b + BAR)));
         }
         trace.push(Event::Equity { t: b + BAR, equity: e1, reconciled: e2 });
@@ -347,8 +367,16 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             }
             value_prev[c] = v;
         }
-        returns.push(e1 / prev_equity - 1.0);
-        gross_returns.push((e1 - prev_equity + book.costs() - prev_costs) / prev_equity);
+        let (r, gross) = if prev_equity > 0.0 {
+            (if e1 > 0.0 { e1 / prev_equity - 1.0 } else { -LOSS_BOUND }, (e1 - prev_equity + book.costs() - prev_costs) / prev_equity)
+        } else {
+            (0.0, 0.0)
+        };
+        if !(r >= -LOSS_BOUND) {
+            return Err(Abort::Bound(format!("return {r} at {}", b + BAR)));
+        }
+        returns.push(r);
+        gross_returns.push(gross);
         equity_path.push(e1);
         prev_equity = e1;
         prev_costs = book.costs();
@@ -356,7 +384,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         let fills = orders.remove(&(b + BAR)).unwrap_or_default();
         for o in if b + 3 * BAR <= end { fills } else { vec![] } {
             match market.bar_at.get(&(o.coin, b + BAR)).map(|&i| market.bars[i]) {
-                Some(bar) if bar.trades >= 1 => {
+                Some(bar) if bar.trades >= 1 && e1 > 0.0 => {
                     let price = fill_price(venue, o.coin, o.qty, bar.open);
                     let f = Fill {
                         why: Why::Fill,

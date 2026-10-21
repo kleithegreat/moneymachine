@@ -59,6 +59,7 @@ Portfolio rules applied by the kernel, not the strategy:
 - An order's notional is capped at $10,000; the position moves toward the target by at most that much per decision.
 - Sizes are truncated toward zero to the coin's size decimals. Orders under $10 notional are dropped, except a weight of exactly 0 (or −0), which closes the position in full, subject to the $10,000 order cap: a larger position closes over several decisions.
 - Maintenance margin is checked at each bar's adverse extreme, and a breach liquidates every position at those prices.
+- Losses are capped at equity: a step that ends with equity ≤ 0 closes the account (the venue absorbs the shortfall, and the order due then is unfilled), and every later return is 0. No step return is below −1.
 - A coin that is delisted is closed at its last bar's close.
 
 ## Units

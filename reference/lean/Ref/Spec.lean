@@ -201,4 +201,16 @@ def latestClosed (m : Market α) (coin : Nat) (t : Int) : Option (BarRow α) :=
   (m.bars.toList.filter fun b => b.coin == coin && b.event ≤ t).foldl
     (fun acc b => match acc with | some a => if a.openTime < b.openTime then some b else acc | none => some b) none
 
+/-! ## L6 bounded loss (added 2026-10-21 with I10) -/
+
+/-- The facts about numbers the loss bound needs. Each holds in binary64: an equity within the accounting
+tolerance of another value is finite; a finite positive equity over a positive previous equity, minus 1,
+is at least −1 (the quotient is ≥ +0, or +∞); and −1 ≤ −1, −1 ≤ 0. -/
+structure NumOps.Bounded (N : NumOps α) : Prop where
+  acc_finite : ∀ x y, N.le (N.abs (N.sub x y)) (N.ofBits 0x3EE4F8B588E368F1) = true → N.finite x = true
+  ret : ∀ x y, N.finite x = true → N.lt N.zero x = true → N.lt N.zero y = true →
+    N.le (N.neg N.one) (N.sub (N.div x y) N.one) = true
+  floor : N.le (N.neg N.one) (N.neg N.one) = true
+  flat : N.le (N.neg N.one) N.zero = true
+
 end Ref

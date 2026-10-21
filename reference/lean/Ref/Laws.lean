@@ -3,6 +3,7 @@ import Ref.Proof.Units
 import Ref.Proof.Checker
 import Ref.Proof.View
 import Ref.Proof.TwinRun
+import Ref.Proof.Bound
 
 /-!
 The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
@@ -174,8 +175,8 @@ theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mark
 
 /-- Exactly once: every order whose due step runs (B + 3·BAR ≤ stop, with B its decision's boundary)
 has exactly one later resolution in the trace, the fill at its scheduled bar if that bar exists and
-traded and otherwise its Unfilled record; and every ordinary fill has exactly one earlier decision
-it resolves. -/
+traded and the due step's equity is positive, and otherwise its Unfilled record; and every ordinary fill
+has exactly one earlier decision it resolves. (Revision 2026-10-21: the solvency condition, I10.) -/
 theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (hA : m.Admissible)
     (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
     (r : Run α) (hr : run N p m v pol stop = .ok r) :
@@ -184,7 +185,9 @@ theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mar
     (∀ (i : Nat) (t : Int) (c : Nat) (w q : α), r.trace[i]? = some (Event.decision t c w q) → t - pol.delta + 3 * BAR ≤ stop →
       (∃ j : Nat, i < j ∧ ∃ e : Event α, r.trace[j]? = some e ∧ resolves t c q e ∧
         ∀ (j' : Nat) (e' : Event α), r.trace[j']? = some e' → resolves t c q e' → j' = j) ∧
-      ((∃ bar, barAt m c (t - pol.delta + BAR) = some bar ∧ bar.trades ≥ 1) ↔
+      ((∃ bar, barAt m c (t - pol.delta + BAR) = some bar ∧ bar.trades ≥ 1) ∧
+        (∃ (k : Nat) (e : α), r.equity[k]? = some e ∧ t - pol.delta + BAR = pol.wStart + ((k : Int) + 1) * BAR ∧
+          N.lt N.zero e = true) ↔
         ∃ f : Fill α, Event.fill f ∈ r.trace.toList ∧ f.why = .fill ∧ f.coin = c ∧ f.decided = t)) ∧
     (∀ (j : Nat) (f : Fill α), r.trace[j]? = some (Event.fill f) → f.why = .fill →
       ∃ (i : Nat) (w : α), i < j ∧ r.trace[i]? = some (Event.decision f.decided f.coin w f.qty) ∧
@@ -195,7 +198,7 @@ theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mar
     simp only [hs, bind, Except.bind, pure, Except.pure, reduceCtorEq, Except.ok.injEq] at hr
   subst hr
   rename_i s
-  obtain ⟨h4, hL⟩ := steps_ledger N p m hA v pol stop _ (Nat.le_refl _) s hs
+  obtain ⟨h4, hL, hF, -⟩ := steps_ledger N p m hA v pol stop _ (Nat.le_refl _) s hs
   have hend : stop < pol.wStart + ↑(Ctx.make p m v pol stop).bounds.length * BAR + 2 * BAR :=
     bounds_end (Ctx.make p m v pol stop)
   have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
@@ -211,14 +214,21 @@ theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Mar
       · omega
     obtain ⟨j, hij, e, hj, hre⟩ := hres
     refine ⟨⟨j, hij, e, (Array.getElem?_toList ..).symm.trans hj, hre, fun j' e' hj' hre' =>
-      key_index hL.rnodup (tl hj') hj (rkey_of_resolves hre') (rkey_of_resolves hre)⟩, ⟨fun ⟨bar, hbar, htr⟩ => ?_, ?_⟩⟩
+      key_index hL.rnodup (tl hj') hj (rkey_of_resolves hre') (rkey_of_resolves hre)⟩,
+      ⟨fun ⟨⟨bar, hbar, htr⟩, k, e, hk, ht, hpos⟩ => ?_, ?_⟩⟩
     · rcases hre with ⟨f, rfl, hw, hc, hd, -⟩ | rfl
       · exact ⟨f, List.mem_of_getElem? hj, hw, hc, hd⟩
-      · exact absurd htr (by have := hL.unfilled _ c q (List.mem_of_getElem? hj) bar hbar; omega)
+      · rcases hL.unfilled _ c q (List.mem_of_getElem? hj) with hno | ⟨k', e', hk', ht', hneg⟩
+        · exact absurd htr (by have := hno bar hbar; omega)
+        · have hkk : k = k' := by unfold BAR HOUR at ht ht'; omega
+          subst hkk
+          rw [hk] at hk'; cases hk'
+          rw [hpos] at hneg; cases hneg
     · rintro ⟨f, hf, hw, rfl, rfl⟩
       obtain ⟨-, -, -, -, -, -, hfill, -⟩ := h4.fills f hf
       obtain ⟨-, hfl, ⟨bar, hbar, htr, -⟩, -⟩ := hfill hw
-      exact ⟨bar, hfl ▸ hbar, htr⟩
+      obtain ⟨k, e, hk, ht, hpos⟩ := hF f hf hw
+      exact ⟨⟨bar, hfl ▸ hbar, htr⟩, k, e, hk, hfl ▸ ht, hpos⟩
   · obtain ⟨i, w, q, hij, hi, hre⟩ := hL.cause j (.fill f) f.decided f.coin (tl hj) (by simp [rkey, hw])
     have hq : q = f.qty := by
       rcases hre with ⟨f', hf', -, -, -, hq⟩ | h
@@ -246,8 +256,22 @@ theorem L5_binding (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Ma
     have hb : ∀ s ∈ p.eventSlots, s ∈ m.bound := fun s hs => Classical.byContradiction fun hm => hn ⟨s, hs, hm⟩
     have hs : Except.Avoids .inputUnavailable ((Ctx.make p m v pol stop).start N) := by
       rw [start_bound N _ hb]
-      exact .bind (deliver_avoids _ _ _) fun _ => .pure _
+      exact .bind (deliver_avoids _ _ _ (by decide)) fun _ => .pure _
     exact Except.Avoids.bind (steps_avoids_of_start N _ _ hs) (fun _ => .pure _) hr
   · simp only [run, Ctx.steps, start_unbound N (Ctx.make p m v pol stop) h]; rfl
+
+/-! ## L6 bounded loss (added 2026-10-21 with I10) -/
+
+/-- Losses are capped at equity: R_BOUND, the check every step return passes before it is recorded (return
+≥ −1), never fires. A step's return is its finite positive equity over a positive previous equity, minus 1;
+−1 at a bankruptcy; or 0 once the account is closed. So every return of a run is at least −B, B = 1. -/
+theorem L6_bounded (N : NumOps α) (hB : N.Bounded) (p : Program) (m : Market α) (v : Venue α) (pol : Policy)
+    (stop : Int) : run N p m v pol stop ≠ .error .bound := by
+  unfold run Ctx.steps
+  refine Except.Avoids.bind (Except.Avoids.bind ?_ fun _ => Except.Avoids.bind (Except.Avoids.forIn_list _ _ _
+    fun b s => Except.Avoids.bind (step_bounded N hB _ s b) fun _ => Except.Avoids.pure _) fun _ => Except.Avoids.pure _)
+    fun _ => Except.Avoids.pure _
+  unfold Ctx.start
+  bwalk
 
 end Ref

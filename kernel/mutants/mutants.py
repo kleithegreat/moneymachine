@@ -37,7 +37,7 @@ MUTANTS = {
          "            Op::Add | Op::Sub | Op::Min | Op::Max => {\n                num(1)?;\n                Ty::Num(num(0)?)\n            }")]),
     "I5 funding off the books": (f"{FX} equity_reconciles_every_step", [
         (SIM, "        self.funding -= paid;\n", ""),
-        (SIM, "        if (e1 - e2).abs() > ACCOUNTING_TOLERANCE {", "        if false {")]),
+        (SIM, "        if !((e1 - e2).abs() <= ACCOUNTING_TOLERANCE) {", "        if false {")]),
     "I6 print before commit": ("pytest -q kernel/tests/cli/test_cli.py -k unwritable", [
         (MAIN, "    let id = ledger\n        .disclose_result(", "    println!(\"{content}\");\n    let id = ledger\n        .disclose_result(")]),
     "I7 wall clock in result": ("pytest -q kernel/tests/cli/test_cli.py -k fresh_processes", [
@@ -51,6 +51,9 @@ MUTANTS = {
         (SIM, "        if !(gross <= MAX_GROSS * (1.0 + 1e-12)) {", "        if false {"),
         (SIM, "            if qty.abs() * price > MAX_ORDER_NOTIONAL {", "            if false {"),
         (SIM, "    if f.why == Why::Fill && f.qty.abs() * f.decision_price > MAX_ORDER_NOTIONAL * (1.0 + 1e-12) {", "    if false {")]),
+    "I10 losses beyond equity": (f"{FX} bankruptcy_caps_the_loss_at_equity", [
+        (SIM, "        if !(book.equity(&marks) > 0.0) {", "        if false {"),
+        (SIM, "        if !(r >= -LOSS_BOUND) {", "        if false {")]),
     "I1 events delivered early": ("cd kernel && cargo test -q --release --test events counts_are_fresh_only_and_respect_known_at", [
         (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
     "C5 derivation without the availability lag": ("pytest -q ingest/tests/test_events.py", [
