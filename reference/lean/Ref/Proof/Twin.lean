@@ -47,6 +47,7 @@ structure Twin (N : NumOps α) (p p' : Program) (i j : Nat) : Prop where
   wf : p.WF
   wf' : p'.WF
   ji : j ≤ i
+  ilt : i < p.nodes.size
   size : p'.nodes.size = p.nodes.size
   params : p'.params = p.params
   others : ∀ k, k ≠ i → p'.nodes[k]! = p.nodes[k]!.mapArgs fun a => if a == i then j else a
@@ -85,6 +86,99 @@ theorem tickNode_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p
     refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht => ⟨?_, _, rfl, ?_⟩
     · simp only [he t ht c]
     · exact ⟨fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩
-  · sorry
+  · have hn := T.others k hki
+    have hrow : ∀ o args, p.nodes[k]! = .op o args → ∀ t, Before k s t → ∀ a ∈ args,
+        t.vals[if a == i then j else a]! = t.vals[a]! := by
+      intro o args h t ht a ha
+      have hak : a < k := (WF.op T.wf hk h).1 a ha
+      by_cases hai : a = i
+      · subst hai
+        simp only [beq_self_eq_true, ite_true]
+        rw [ht.1 _ (by have := T.ji; omega), ht.1 _ hak, hid hak]
+      · simp [hai]
+    have hev : ∀ t, Before k s t → ∀ c, MState.eval N p' t k c = MState.eval N p t k c := fun t ht c =>
+      eval_mapArgs N _ hn T.params (fun o args h => hrow o args h t ht) c
+    unfold MState.tickNode
+    simp only [Std.Legacy.Range.forIn_eq_forIn_range']
+    rw [hn]
+    cases h : p.nodes[k]! with
+    | op o args =>
+      have hr := hrow o args h
+      have hr0 : ∀ t, Before k s t → t.vals[(args.map fun a => if a == i then j else a)[0]!]! = t.vals[args[0]!]! := by
+        intro t ht
+        cases args with
+        | nil => rfl
+        | cons a _ => exact hr t ht a (by simp)
+      simp only [Node.mapArgs]
+      cases o <;> dsimp only
+      all_goals first
+        | (rw [hr0 s ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩]; done)
+        | (congr 1
+           exact forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht =>
+             ⟨by simp only [hev t ht c], _, rfl,
+               fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩)
+        | (congr 1
+           refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht => ?_
+           rw [hr0 t ht]
+           refine ⟨rfl, ?_⟩
+           split <;> (split <;> exact ⟨_, rfl, fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩))
+    | _ =>
+      simp only [Node.mapArgs]
+      congr 1
+      refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht => ⟨?_, _, rfl, ?_⟩
+      · simp only [hev t ht c]
+      · exact ⟨fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩
+
+/-- Two loops over s, s+1, … agree, and the first keeps an invariant indexed by the next element. -/
+theorem forIn_range_congr {σ : Type} (s n : Nat) (init : σ) (f g : Nat → σ → Id (ForInStep σ)) (I : Nat → σ → Prop)
+    (h0 : I s init) (hf : ∀ k, s ≤ k → k < s + n → ∀ x, I k x → f k x = g k x ∧ ∃ y, f k x = .yield y ∧ I (k + 1) y) :
+    forIn (m := Id) (List.range' s n) init f = forIn (m := Id) (List.range' s n) init g ∧
+      I (s + n) (forIn (m := Id) (List.range' s n) init f) := by
+  induction n generalizing s init with
+  | zero => exact ⟨rfl, h0⟩
+  | succ n ih =>
+    obtain ⟨he, y, hy, hI⟩ := hf s (Nat.le_refl _) (by omega) init h0
+    rw [List.range'_succ, List.forIn_cons, List.forIn_cons, ← he, hy]
+    obtain ⟨e, h⟩ := ih (s + 1) y hI fun k h1 h2 x hx => hf k (by omega) (by omega) x hx
+    refine ⟨e, ?_⟩
+    rwa [show s + 1 + n = s + (n + 1) by omega] at h
+
+theorem ext_bang {β : Type} [Inhabited β] {a b : Array β} (hs : a.size = b.size) (h : ∀ c : Nat, a[c]! = b[c]!) : a = b := by
+  apply Array.ext hs
+  intro c h₁ h₂
+  have := h c
+  rwa [getElem!_pos a c h₁, getElem!_pos b c h₂] at this
+
+/-- The rewritten program ticks to the same machine, in which node i's row is node j's. -/
+theorem tick_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) (L : Array Bool) (hour : Int)
+    (m : MState α) (hs : Shape p L m) :
+    m.tick N p' L hour = m.tick N p L hour ∧ (m.tick N p L hour).vals[i]! = (m.tick N p L hour).vals[j]! := by
+  unfold MState.tick
+  rw [T.size]
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range']
+  rw [range_size]
+  have := forIn_range_congr 0 p.nodes.size { m with hour := hour } (MState.tickNode N p L hour)
+    (MState.tickNode N p' L hour)
+    (fun k x => Done N p L m k x ∧ x.hour = hour ∧ (i < k → x.vals[i]! = x.vals[j]!))
+    ⟨⟨⟨hs.size, hs.rows, hs.wins⟩, rfl, rfl, rfl, rfl, fun a ha => absurd ha (Nat.not_lt_zero a)⟩, rfl,
+      fun h => absurd h (Nat.not_lt_zero i)⟩
+    fun k _ hk x ⟨hd, hh, hid⟩ => by
+      refine ⟨(tickNode_twin T L hour m (by omega) hd hid).symm, ?_⟩
+      obtain ⟨y, hy, hd', hh', hrows⟩ := tickNode_spec N p T.wf L hour m (by omega) hd hh
+      refine ⟨y, hy, hd', hh', fun hik => ?_⟩
+      rcases Nat.lt_or_ge i k with hik' | hik'
+      · rw [hrows i (by omega), hrows j (by have := T.ji; omega)]; exact hid hik'
+      · obtain rfl : i = k := by omega
+        rcases Nat.lt_or_ge j i with hji | hji
+        · refine ext_bang (by rw [hd'.shape.rows i (by omega), hd'.shape.rows j (by omega)]) fun c => ?_
+          obtain ⟨-, -, hpt⟩ := hd'.rows i (by omega) c
+          rw [hpt T.point, hrows j (by omega)]
+          rw [eval_rows N p T.wf (m₂ := x) (fun b hb => hrows b (by omega)) (hd'.funding.trans hd.funding.symm)
+            (hd'.bar.trans hd.bar.symm) (hd'.events.trans hd.events.symm) (hh'.trans hh.symm)]
+          exact T.identAt hji L m x hd c
+        · obtain rfl : j = i := by have := T.ji; omega
+          rfl
+  rw [← this.1]
+  exact ⟨rfl, this.2.2.2 (by simpa using T.ilt)⟩
 
 end Ref
