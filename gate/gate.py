@@ -1,9 +1,7 @@
 """The statistical gate of paper §8 with the stage 2 parameters (PROGRESS.md, Stage 2, Gate)."""
 
-import functools
 import hashlib
 import json
-import math
 import sqlite3
 import subprocess
 import tempfile
@@ -11,8 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from arch.bootstrap import SPA, StationaryBootstrap, StepM
-from scipy.signal import fftconvolve
+from arch.bootstrap import SPA, StepM
 from scipy.stats import norm
 
 from gate.kernel import MM
@@ -21,9 +18,7 @@ ALPHA = 0.05
 DSR_MIN = 0.95
 BLOCK = 6
 REPS = 1000
-HOLDOUT_REPS = 10_000
-LAGS = 36
-CALIBRATION = Path(__file__).resolve().parent / "holdout_calibration.json"
+LOSS_BOUND = 1.0
 EULER = 0.5772156649015329
 
 
@@ -137,65 +132,24 @@ def programs(ledger, keys):
     return {k: found[k] for k in keys}
 
 
-def long_run_sd(x):
-    """sqrt of sum over |k| <= LAGS of w_k * gamma(k) along the last axis, w_k = (1 - |k|/(LAGS + 1)) (1 - 1/BLOCK)^|k|,
-    with gamma the biased autocovariance: the quadratic form x'Wx/n of the demeaned series, W the banded Toeplitz
-    matrix of w. The weights are a product of positive-definite sequences, so it is never negative."""
-    constant = x.max(axis=-1) == x.min(axis=-1)
-    x = x - x.mean(axis=-1, keepdims=True)
-    n = x.shape[-1]
-    k = np.arange(-min(LAGS, n - 1), min(LAGS, n - 1) + 1)
-    w = (1 - np.abs(k) / (LAGS + 1)) * (1 - 1 / BLOCK) ** np.abs(k)
-    var = np.where(constant, 0.0, (x * fftconvolve(x, w.reshape((1,) * (x.ndim - 1) + (-1,)), mode="same", axes=-1)).sum(axis=-1) / n)
-    if not np.all(np.isfinite(var) & (var >= 0)):
-        raise ArithmeticError("long-run variance negative or non-finite")
-    return np.sqrt(var)
-
-
-def bootstrap_pvalue(r, seed):
-    """One-sided studentized stationary-bootstrap p-value for mean(r) > 0 (PROGRESS.md, Stage 2, revision 2026-10-20)."""
+def holdout_pvalues(r):
+    """Testing by betting (PROGRESS.md, Stage 2, calibration v3) along the last axis: wealth prod(1 + λ_t r_t)
+    with the aGRAPA bet λ_t = clip(S_{t-1} / Q_{t-1}, 0, 1/(2B)) from the past sums of r and r², and
+    p = min(1, 1 / max wealth). Valid at every level by Ville's inequality when E[r_t | past] <= 0 and r_t >= -B."""
     r = np.asarray(r, float)
-    sd = long_run_sd(r)
-    if sd == 0:
-        return 1.0
-    t = r.mean() / sd
-    bs = StationaryBootstrap(BLOCK, r, seed=seed)
-    x = r[np.array([bs.update_indices() for _ in range(HOLDOUT_REPS)])]
-    dev, sds = x.mean(axis=1) - r.mean(), long_run_sd(x)
+    if not (np.isfinite(r).all() and (r >= -LOSS_BOUND).all()):
+        raise ValueError("holdout return non-finite or below -B")
+    zero = np.zeros(r.shape[:-1] + (1,))
+    s = np.concatenate([zero, np.cumsum(r, axis=-1)[..., :-1]], axis=-1)
+    q = np.concatenate([zero, np.cumsum(r * r, axis=-1)[..., :-1]], axis=-1)
     with np.errstate(divide="ignore", invalid="ignore"):
-        ts = np.where(sds > 0, dev / sds, np.where(dev >= 0, np.inf, -np.inf))
-    return float((1 + (ts >= t).sum()) / (1 + HOLDOUT_REPS))
+        bet = np.where(q > 0, np.clip(s / q, 0.0, 0.5 / LOSS_BOUND), 0.0)
+    wealth = np.cumprod(1 + bet * r, axis=-1).max(axis=-1, initial=1.0)
+    return 1 / wealth
 
 
-@functools.lru_cache(maxsize=1)
-def _calibration():
-    c = json.loads(CALIBRATION.read_text())
-    return c["denominator"], [np.array(ks) for ks in c["cells"].values()]
-
-
-def floor(n):
-    """The fewest nonzero steps a holdout series of n steps needs to be tested (calibration v2's scope)."""
-    return math.ceil(0.05 * n)
-
-
-def holdout_pvalue(r, seed):
-    """The bootstrap p-value calibrated on the development suite: the largest, over its generators, Monte Carlo
-    p-value of the bootstrap p-value against that generator's null distribution; 1 for a series under the
-    activity floor (Stage 2, calibration v2)."""
-    r = np.asarray(r)
-    if not np.isfinite(r).all():
-        raise ValueError("non-finite holdout return")
-    if np.count_nonzero(r) < floor(len(r)):
-        return 1.0
-    denominator, cells = _calibration()
-    k = round(bootstrap_pvalue(r, seed) * denominator)
-    return max((1 + int(np.searchsorted(ks, k, side="right"))) / (len(ks) + 1) for ks in cells)
-
-
-def min_holdout_pvalue():
-    """The smallest calibrated p-value any series can get."""
-    _, cells = _calibration()
-    return max((1 + int(np.searchsorted(ks, 1, side="right"))) / (len(ks) + 1) for ks in cells)
+def holdout_pvalue(r):
+    return float(holdout_pvalues(r))
 
 
 def holm(pvalues):
@@ -257,18 +211,16 @@ def holdout_run(market, ledger, campaign, programs, holdout_from=None):
     return results
 
 
-def promote(results, campaign):
-    """Net holdout return > 0 and the one-sided bootstrap p-value passing Holm across `results`."""
+def promote(results):
+    """Net holdout return > 0 and the betting p-value passing Holm across `results`."""
     if not results:
         return [], {}
     hashes = list(results)
-    p = np.array([holdout_pvalue(results[h][0], campaign_seed(campaign + h)) for h in hashes])
+    p = np.array([holdout_pvalue(results[h][0]) for h in hashes])
     adj = holm(p)
     promoted = [h for h, a in zip(hashes, adj) if results[h][1] > 0 and a <= ALPHA]
     return promoted, {"holdout_p": dict(zip(hashes, p.tolist())), "holm": dict(zip(hashes, adj.tolist())),
-                      "holdout_total_return": {h: results[h][1] for h in hashes},
-                      "holdout_nonzero_steps": {h: int(np.count_nonzero(results[h][0])) for h in hashes},
-                      "min_holdout_p": min_holdout_pvalue()}
+                      "holdout_total_return": {h: results[h][1] for h in hashes}}
 
 
 def with_diagnostics(decision, results):
@@ -280,4 +232,4 @@ def with_diagnostics(decision, results):
 def holdout_decision(market, ledger, campaign, finalists_programs, holdout_from=None):
     """Evaluate the frozen finalists on the holdout once; promote by net return > 0 and Holm."""
     results = holdout_run(market, ledger, campaign, finalists_programs, holdout_from)
-    return with_diagnostics(promote(results, campaign), results)
+    return with_diagnostics(promote(results), results)

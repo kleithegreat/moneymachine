@@ -333,7 +333,7 @@ Multiplicity is then estimated from this history, and those estimates are checke
 
 \section{The statistical gate}\label{sec:gate}
 
-Individually valid tests do not make a valid combined procedure. The gate therefore separates selection from inference. Everything computed on the search period, including the screen, SPA, Romano--Wolf, and the mechanism check, is a selection rule: it decides which candidates reach the holdout, and its behavior is calibrated by simulation (Section~\ref{sec:roadmap}), but it supports no error claim on its own. Romano--Wolf's guarantees, for example, do not survive applying it to a family that was itself chosen on the same data. The only inferential step is the holdout batch: finalists frozen without any holdout data are tested once on that untouched period, with Holm's correction across them. Each campaign runs a fixed gate written down before it starts, and its error rate is claimed only for its finalist family on its holdout, under the holdout test's sampling assumptions.
+Individually valid tests do not make a valid combined procedure. The gate therefore separates selection from inference. Everything computed on the search period, including the screen, SPA, Romano--Wolf, and the mechanism check, is a selection rule: it decides which candidates reach the holdout, and its behavior is calibrated by simulation (Section~\ref{sec:roadmap}), but it supports no error claim on its own. Romano--Wolf's guarantees, for example, do not survive applying it to a family that was itself chosen on the same data. The only inferential step is the holdout batch: finalists frozen without any holdout data are tested once on that untouched period, with Holm's correction across them. Each campaign runs a fixed gate written down before it starts, and its error rate is claimed only for its finalist family on its holdout, under the holdout test's scope assumption that losses are capped at equity.
 \begin{enumerate}
   \item \textbf{Search period only.} Agents see results from a research period. The holdout period is never shown to them.
   \item \textbf{Screen.} Candidates must pass a deflated Sharpe threshold computed at each of several effective-$N$ estimates, using the largest. That is conservative only relative to the estimators chosen, not a guaranteed bound.
@@ -345,21 +345,25 @@ Individually valid tests do not make a valid combined procedure. The gate theref
   \item \textbf{No recycling.} A strategy modified after its holdout result cannot be retested on that holdout. A holdout used by one campaign is spent: the next campaign evaluates on a later period, and the old holdout becomes part of its search data.
 \end{enumerate}
 
-\paragraph{The holdout test.} For each finalist $i$, the null hypothesis is that its net return has non-positive mean on the holdout, given everything the search revealed:
+\paragraph{The holdout test.} For each finalist $i$, the null hypothesis is that at every step of the holdout its net return has non-positive mean given everything before that step, which includes everything the search revealed:
 \begin{equation}
-  H_{0,i}:\ \E\big[r^{\mathrm{net}}_{i,t} \mid \mathcal{F}_{\mathrm{search}}\big] \le 0 .
+  H_{0,i}:\ \E\big[r^{\mathrm{net}}_{i,t} \mid \mathcal{F}_{t-1}\big] \le 0 \quad \text{for every } t, \qquad \mathcal{F}_{t-1} \supseteq \mathcal{F}_{\mathrm{search}} .
 \end{equation}
-Because finalists are frozen using search data only, each is a fixed strategy given $\mathcal{F}_{\mathrm{search}}$, so the test needs only $p$-values that are valid for a fixed strategy:
+This is what having no edge means: a return that can be predicted to be positive at some step is an edge, since a strategy conditioning on the prediction would exploit it. Because finalists are frozen using search data only, each is a fixed strategy given $\mathcal{F}_{\mathrm{search}}$, so the test needs only $p$-values that are valid for a fixed strategy:
 \begin{equation}
   P\big(p_i \le u \mid \mathcal{F}_{\mathrm{search}}, H_{0,i}\big) \le u \quad \text{for all } u \in [0,1].
 \end{equation}
-The gate uses a one-sided, studentized stationary block bootstrap of the holdout net-return series. Its usual justification is asymptotic, for stationary and weakly dependent series; with a fixed block length and lag window no general validity is claimed, and volatility that changes within the holdout, or a strategy that trades only in a few short bursts, weakens it further. The test is therefore calibrated directly, by running it on many simulated holdout-length series with zero mean, including heteroskedastic, heavy-tailed and sparse ones, and judged on a separate locked suite. Its claims cover those families only, and a series with too few nonzero returns is not tested at all. Holm's correction then bounds the probability of any false promotion among the finalists, provided the $p$-values are valid; it cannot repair invalid ones. A holdout of a few months gives little power, so zero promotions is the expected outcome even for a modest real edge.
+No test of a mean is both valid for every finite-mean distribution and powerful \cite{bahadur1956}: small steady gains with a rare large loss look like an edge whenever the loss is missing from the sample. The gate therefore makes one scope assumption explicit and enforces it. Losses are capped at account equity, as on the venue, so every per-step net return satisfies $r_t \ge -1$; the kernel enforces the cap, and its reference model proves that it holds. Under that bound the gate tests by betting \cite{waudbysmith2024}. A bettor starts with wealth 1 and at each step stakes a fraction $\lambda_t \in [0, 1/2]$ of its wealth on the next return, chosen from earlier returns only, so its wealth is $K_t = \prod_{s \le t} (1 + \lambda_s r_s)$. The gate's bet is the plug-in Kelly fraction, the sum of past returns over the sum of their squares, truncated to $[0, 1/2]$. Under $H_{0,i}$, $K$ is a nonnegative supermartingale from 1, so by Ville's inequality \cite{ville1939}, $P(\max_t K_t \ge 1/u) \le u$, and
+\begin{equation}
+  p_i = \min\big(1,\ 1/\max_t K_t\big)
+\end{equation}
+is valid at every level. That holds for every return process in the null, with any dependence, heteroskedasticity or sparsity, and with no simulation. The test is still run once on a locked suite of null series that was specified independently and implemented by another model. That suite checks the implementation and the bound, not the validity argument. Holm's correction then bounds the probability of any false promotion among the finalists. Validity costs power, and on a holdout of a few months the cost is large. With $n = 546$ four-hour steps, a finalist reaches $p \le 0.05$ only with a mean return near 1\% per step. Even an untruncated Kelly bet would need an annualized Sharpe ratio near 5, and any valid test faces the same limit at that length. Zero promotions is therefore the expected outcome, even for a real edge of ordinary size.
 
 \paragraph{How many simulated campaigns.} With no false promotions in $n$ independent complete-null campaigns, the exact one-sided 95\% upper bound on the promotion probability is
 \begin{equation}
   1 - 0.05^{1/n},
 \end{equation}
-so 59 campaigns are needed to support a bound below 5\%, and 299 to support 1\%. Because inference rests on the holdout test, the expensive part of the pipeline, the research agent, does not need to be in most of these runs. Calibration uses hundreds of campaigns driven by cheap baseline searchers, together with direct calibration of the holdout test; agent-driven campaigns are smoke tests that report the much weaker bounds they support. With no promotions observed, 20 agent campaigns bound the rate only to about 14\%.
+so 59 campaigns are needed to support a bound below 5\%, and 299 to support 1\%. Because inference rests on the holdout test, the expensive part of the pipeline, the research agent, does not need to be in most of these runs. Calibration uses hundreds of campaigns driven by cheap baseline searchers, together with a locked check of the holdout test; agent-driven campaigns are smoke tests that report the much weaker bounds they support. With no promotions observed, 20 agent campaigns bound the rate only to about 14\%.
 
 \paragraph{Across campaigns.} Error control is per campaign. A project that runs many campaigns will promote some noise even if every campaign is calibrated: under the complete null, 20 independent campaigns at 5\% each promote at least one false strategy with probability $1 - 0.95^{20} \approx 64\%$. The ledger therefore reports every promotion beside the number of campaigns run. If a claim about the whole project is wanted, it is family-wise: campaign $j$ is tested at level $\alpha_j$ with $\sum_j \alpha_j \le \alpha$, for example $\alpha_j = \alpha\, 2^{-j}$, which bounds the probability of any false promotion across all campaigns. The budget is fixed before the first real campaign, and it makes later campaigns progressively harder to pass. Sequential procedures such as alpha-investing \cite{foster2008} control a different and weaker quantity, the marginal false discovery rate, and are not a substitute for this guarantee. Successive holdouts are later periods, so campaigns are naturally ordered in time.
 
@@ -555,6 +559,7 @@ Stages 0 and 2, and their repetitions in stage 8, matter most and are the easies
 \begin{thebibliography}{99}
 \small
 \bibitem{alfred} Federal Reserve Bank of St.\ Louis. ALFRED: Archival Federal Reserve Economic Data. Online database.
+\bibitem{bahadur1956} R.~R.~Bahadur and L.~J.~Savage. The nonexistence of certain statistical procedures in nonparametric problems. \emph{Annals of Mathematical Statistics}, 1956.
 \bibitem{bailey2017} D.~H. Bailey, J.~Borwein, M.~L\'opez de Prado, and Q.~J. Zhu. The probability of backtest overfitting. \emph{Journal of Computational Finance}, 2017.
 \bibitem{bailey2014} D.~H. Bailey and M.~L\'opez de Prado. The deflated Sharpe ratio: correcting for selection bias, backtest overfitting, and non-normality. \emph{Journal of Portfolio Management}, 2014.
 \bibitem{bend2} Higher Order Company. Bend 2, version 2.0.37. \url{https://github.com/bendlang/bend}, 2026.
@@ -587,6 +592,8 @@ Stages 0 and 2, and their repetitions in stage 8, matter most and are the easies
 \bibitem{sullivan1999} R.~Sullivan, A.~Timmermann, and H.~White. Data-snooping, technical trading rule performance, and the bootstrap. \emph{Journal of Finance}, 1999.
 \bibitem{tetlock2015} P.~E. Tetlock and D.~Gardner. \emph{Superforecasting: The Art and Science of Prediction}. Crown, 2015.
 \bibitem{wang2023} S.~Wang et~al. Alpha-GPT: human-AI interactive alpha mining for quantitative investment. arXiv:2308.00016, 2023.
+\bibitem{ville1939} J.~Ville. \emph{\'Etude critique de la notion de collectif}. Gauthier-Villars, 1939.
+\bibitem{waudbysmith2024} I.~Waudby-Smith and A.~Ramdas. Estimating means of bounded random variables by betting. \emph{Journal of the Royal Statistical Society, Series B}, 2024.
 \bibitem{white2000} H.~White. A reality check for data snooping. \emph{Econometrica}, 2000.
 \bibitem{willsey2021} M.~Willsey et~al. egg: fast and extensible equality saturation. \emph{Proceedings of the ACM on Programming Languages (POPL)}, 2021.
 \end{thebibliography}

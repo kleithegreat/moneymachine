@@ -6,7 +6,7 @@ import math
 import pytest
 
 from criteria.evidence import load
-from gate import size, sweep
+from gate import locked_v3, sweep
 
 P_MIN, Z_MAX = 0.001, 3.7
 TOLERANCE = {"mean_abs_eps": ("rel", 0.05), "kurtosis": ("rel", 0.20), "acf1_abs_eps": ("abs", 0.05),
@@ -35,10 +35,10 @@ def test_c24_bound_admits_at_most_8_of_300():
 
 
 def test_holdout_test_locked_calibration():
-    r = load("stage2/holdout-size-locked-v2.json")
-    assert r["suite"] == "locked-v2"
-    assert len(r["cells"]) == len(size.SUITES["locked-v2"]["generators"]) * len(size.LENGTHS)
-    assert abs(r["confidence"] - (1 - 0.05 / 54)) < 1e-15
+    r = load("stage2/holdout-size-locked-v3.json")
+    assert r["suite"] == "holdout-calibration-locked-v3"
+    assert len(r["cells"]) == len(locked_v3.GENERATORS) * len(locked_v3.LENGTHS)
+    assert abs(r["confidence"] - (1 - 0.05 / (3 * len(r["cells"])))) < 1e-15
     for name, c in r["cells"].items():
         assert c["series"] == 20000, name
         for u, limit in {"0.05": 0.0625, "0.01": 0.015, "0.005": 0.01}.items():

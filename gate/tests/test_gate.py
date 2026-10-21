@@ -31,46 +31,28 @@ def test_holm_matches_statsmodels():
     assert np.allclose(gate.holm(p), multipletests(p, method="holm")[1])
 
 
-def test_bootstrap_pvalue_sanity():
-    rng = np.random.default_rng(3)
-    assert gate.bootstrap_pvalue(rng.normal(0.01, 0.01, 1000), 1) < 0.001
-    p = [gate.bootstrap_pvalue(rng.normal(0, 0.01, 300), s) for s in range(40)]
-    assert 0.2 < np.mean(p) < 0.8
-    assert gate.bootstrap_pvalue(np.zeros(300), 1) == 1.0
-    assert gate.bootstrap_pvalue(np.full(1080, 0.1), 1) == 1.0
-    assert gate.bootstrap_pvalue(np.r_[np.zeros(299), 0.01], 1) >= 1 / (1 + gate.HOLDOUT_REPS)
+def test_holdout_pvalue_bets_the_truncated_plug_in_on_the_past():
+    # Bets 0, then clip(0.1/0.01) = 0.5, then clip(0.2/0.02) = 0.5: wealth 1, 1.05, 1.05 * 0.975.
+    assert gate.holdout_pvalue([0.1, 0.1, -0.05]) == 1 / 1.05
+    assert gate.holdout_pvalue([]) == 1.0
+    assert gate.holdout_pvalue(np.zeros(540)) == 1.0
+    assert gate.holdout_pvalue(np.full(546, -0.01)) == 1.0
+    assert gate.holdout_pvalue(np.full(546, 0.05)) == pytest.approx(1 / 1.025 ** 545, rel=1e-12)
+    assert gate.holdout_pvalue(np.r_[0.01, -1.0, np.zeros(10)]) == 1.0
 
 
-def test_holdout_pvalue_is_the_worst_development_monte_carlo_pvalue(monkeypatch):
-    denominator, cells = gate._calibration()
-    assert denominator == 10_001 and len(cells) == 27 and all(len(c) == 4000 for c in cells)
-    raw = iter([1 / 10_001, 0.05, 0.0500999, 1.0])
-    monkeypatch.setattr(gate, "bootstrap_pvalue", lambda r, seed: next(raw))
-    p = [gate.holdout_pvalue(np.ones(540), 0) for _ in range(4)]
-    assert p[0] == max((1 + int((c <= 1).sum())) / 4001 for c in cells) and p[0] >= 1 / 4001
-    assert p[0] <= p[1] <= p[2] <= p[3] == 1.0
-    assert p[1] == max((1 + int((c <= 500).sum())) / 4001 for c in cells) > 0.05
+def test_holdout_pvalue_rejects_returns_outside_its_scope():
+    for bad in ([0.1, np.nan], [0.1, np.inf], [0.1, -1.0000001]):
+        with pytest.raises(ValueError):
+            gate.holdout_pvalue(bad)
 
 
-def test_holdout_series_under_the_activity_floor_is_untested(monkeypatch):
-    monkeypatch.setattr(gate, "bootstrap_pvalue", lambda r, seed: 1 / 10_001)
-    assert [gate.floor(n) for n in (540, 546, 1080)] == [27, 28, 54]
-    sparse = np.zeros(540)
-    sparse[:26] = 1.0
-    assert gate.holdout_pvalue(sparse, 0) == 1.0
-    sparse[26] = 1.0
-    assert gate.holdout_pvalue(sparse, 0) == gate.min_holdout_pvalue() < 0.05 / 33
-    with pytest.raises(ValueError):
-        gate.holdout_pvalue(np.r_[np.ones(539), np.nan], 0)
-
-
-def test_long_run_sd_is_white_noise_sd_and_never_negative():
-    rng = np.random.default_rng(4)
-    assert abs(gate.long_run_sd(rng.normal(0, 1, 200_000)) - 1) < 0.02
-    alternating = np.tile([1.0, -1.0], 500)
-    assert gate.long_run_sd(alternating) >= 0
-    x = rng.normal(0, 1, (50, 40))
-    assert np.allclose(gate.long_run_sd(x), [gate.long_run_sd(row) for row in x])
+def test_holdout_pvalues_are_valid_on_a_fair_martingale_and_vectorized():
+    rng = np.random.default_rng(5)
+    x = np.where(rng.random((20_000, 546)) < 0.5, 0.01, -0.01)
+    p = gate.holdout_pvalues(x)
+    assert (p <= 0.05).mean() < 0.05 and (p <= 0.01).mean() < 0.01
+    assert all(gate.holdout_pvalue(x[i]) == p[i] for i in range(20))
 
 
 def test_parameter_variants_are_separate_trials(tmp_path):
