@@ -31,7 +31,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
 - **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until 2026-10-21 00:30 UTC) and C0.7's `execution.json`:
   - one dry main session under a scratch data root to check the harness end to end (not counted), and `harness.audit` checked against a real transcript;
   - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days start), and `thesis-run` detached;
-  - `thesis-report audit/stage10/report.json` at exit, plus the GPT reviewer.
+  - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
 - **Stage 6 (c):** criteria frozen, with the C6.4 per-kernel revision. Lean v4.34.0 and Bend 2.0.37 are pinned. `reference/SEMANTICS.md` is drafted against mm's source, with measured details: min/max ties return the first argument, and sums are left folds from −0.0.
@@ -684,6 +684,8 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
   - **Proposed fix.** Key interning on the node's full identity, including the target. Reject a conversion whose factor is not finite and nonzero (E_UNIT). Both are kernel changes, so they wait: stage 6 does not modify the engine. They also change the kernel hash, so they belong before the first judged run that records it.
 
 ## Log
+
+- 2026-10-21: Human decisions. (1) The mm checker hole is fixed now, in mm and the Lean model, before C1.4 or any judged run records the kernel hash (authorized as a kernel change outside stage 6). (2) Before judging holdout-test v2, record whether its design used the judging suite's results (recorded below). (3) Bend gets a real attempt at L1, L4 and L5 over a concrete exact number type or an explicit record of operations, checked with `--verdict`; if it still cannot express them, the specific checker failure is recorded and the Bend work deleted. (4) The thesis track keeps running after its 28-day window; day 28 is a first review, not the end.
 
 - 2026-10-21 00:35 UTC, before the locked v2.1 result is read (human decision 2: say whether v2's design used results from the suite that judges it). It did not. No v2 locked draw existed when v2 was designed and committed (949b308). The first locked-v2 run crashed after one cell, before any p-value was written, and no v2.1 cell value has been read: only the cell names in its log. So locked-v2 is not spent and judges v2 as registered. The design did use locked v1's results, and v1 is spent (failed, recorded):
   - v1's failing generator `sparse` (t₅ bursts at 1/36, 1/4) is identical to development-v2's `sparse10`, which is now a calibration-table cell;
