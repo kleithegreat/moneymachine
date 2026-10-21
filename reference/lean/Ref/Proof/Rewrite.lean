@@ -154,18 +154,11 @@ theorem insert_size {β : Type} (xs : Array β) {k : Nat} (hk : k ≤ xs.size) (
     (xs.insertIdx! k x).size = xs.size + 1 := by
   rw [Array.insertIdx!, dif_pos hk, Array.size_insertIdx]
 
-/-- `ifNotRev` keeps a program well-formed: the inserted negation, then the swapped `if` after it. -/
-theorem ifNotRev_wf {p : Program} (hp : p.WF) {i c b a : Nat} (hi : i < p.nodes.size)
-    (hn : p.nodes[i]! = .op .ite [c, b, a]) :
-    { p.insertAt i (.op .not [c]) .bool with
-      nodes := (p.insertAt i (.op .not [c]) .bool).nodes.set! (i + 1) (.op .ite [i, a, b]) }.WF := by
-  obtain ⟨hargs, hty⟩ := WF.op hp hi hn
+/-- Inserting a boolean negation of an earlier boolean node at i, shifting later indices, keeps a program
+well-formed. -/
+theorem insert_wf {p : Program} (hp : p.WF) {i c : Nat} (hi : i < p.nodes.size) (hc : c < i)
+    (hcb : p.types[c]! = .bool) : (p.insertAt i (.op .not [c]) .bool).WF := by
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hp
-  have hc : c < i := hargs c (by simp)
-  have hb : b < i := hargs b (by simp)
-  have ha : a < i := hargs a (by simp)
-  simp only [List.map_cons, List.map_nil] at hty
-  obtain ⟨hcb, hite⟩ := opTy_ite (to' := p.convTo[i]!) hty
   have hiT : i ≤ p.types.size := by omega
   have hiC : i ≤ p.convTo.size := by omega
   have hiN : ∀ g : Node → Node, i ≤ (p.nodes.map g).size := fun g => by simp; omega
@@ -175,44 +168,29 @@ theorem ifNotRev_wf {p : Program} (hp : p.WF) {i c b a : Nat} (hi : i < p.nodes.
   have hlow : ∀ j < i, f j = j := fun j hj => by simp only [f]; rw [if_neg (by omega)]
   unfold Program.insertAt
   dsimp only
-  refine ⟨by rw [Array.size_set!, insert_size _ (hiN _), insert_size _ hiT]; simp [h1],
-    by rw [Array.size_set!, insert_size _ (hiN _), insert_size _ hiC]; simp [h2],
-    by rw [Array.size_set!, insert_size _ (hiN _)]; simp only [Array.size_map]; split <;> omega,
+  refine ⟨by rw [insert_size _ (hiN _), insert_size _ hiT]; simp [h1],
+    by rw [insert_size _ (hiN _), insert_size _ hiC]; simp [h2],
+    by rw [insert_size _ (hiN _)]; simp only [Array.size_map]; split <;> omega,
     by rw [hT]; exact h4, fun q hq => ?_, fun k hk => ?_⟩
   · simp only [Option.map_eq_some_iff] at hq
     obtain ⟨q', hq', rfl⟩ := hq
     obtain ⟨hq1, hq2⟩ := h5 q' hq'
-    exact ⟨by rw [Array.size_set!, insert_size _ (hiN _)]; simp only [Array.size_map]; split <;> omega, by rw [hT]; exact hq2⟩
-  · rw [Array.size_set!, insert_size _ (hiN _), Array.size_map] at hk
-    have hsz : ∀ g : Node → Node, i + 1 < ((p.nodes.map g).insertIdx! i (.op .not [c])).size := fun g => by
-      rw [insert_size _ (hiN _)]; simp; omega
-    have hT' : ∀ j < i, (p.types.insertIdx! i Ty.bool)[j]! = p.types[j]! := fun j hj => by
-      have := hT j; rw [hlow j hj] at this; exact this
-    have hcases : k = i ∨ k = i + 1 ∨ ∃ k₀ < p.nodes.size, k₀ ≠ i ∧ f k₀ = k := by
+    exact ⟨by rw [insert_size _ (hiN _)]; simp only [Array.size_map]; split <;> omega, by rw [hT]; exact hq2⟩
+  · rw [insert_size _ (hiN _), Array.size_map] at hk
+    have hcases : k = i ∨ ∃ k₀ < p.nodes.size, f k₀ = k := by
       rcases Nat.lt_trichotomy k i with h | h | h
-      · exact Or.inr (Or.inr ⟨k, by omega, by omega, hlow k h⟩)
+      · exact Or.inr ⟨k, by omega, hlow k h⟩
       · exact Or.inl h
-      · rcases Nat.lt_or_ge (i + 1) k with h' | h'
-        · exact Or.inr (Or.inr ⟨k - 1, by omega, by omega, by simp only [f]; rw [if_pos (by omega)]; omega⟩)
-        · exact Or.inr (Or.inl (by omega))
-    rcases hcases with rfl | rfl | ⟨k₀, hk₀, hne, rfl⟩
-    · rw [Array.getElem!_set!_ne _ _ _ _ (by omega), insert_get _ (hiN _)]
+      · exact Or.inr ⟨k - 1, by omega, by simp only [f]; rw [if_pos (by omega)]; omega⟩
+    rcases hcases with rfl | ⟨k₀, hk₀, rfl⟩
+    · rw [insert_get _ (hiN _)]
       simp only [Nat.lt_irrefl, ite_false, ite_true]
       refine ⟨fun x hx => by simp at hx; omega, ?_⟩
       simp only [List.map_cons, List.map_nil]
-      rw [hT' c hc, hcb, show (p.types.insertIdx! k Ty.bool)[k]! = Ty.bool by rw [insert_get _ hiT]; simp]
+      rw [show (p.types.insertIdx! k Ty.bool)[c]! = p.types[c]! by have := hT c; rwa [hlow c hc] at this, hcb,
+        show (p.types.insertIdx! k Ty.bool)[k]! = Ty.bool by rw [insert_get _ hiT]; simp]
       simp [opTy]
-    · rw [Array.getElem!_set!_self _ _ _ (hsz _)]
-      refine ⟨fun x hx => by simp at hx; omega, ?_⟩
-      simp only [List.map_cons, List.map_nil]
-      rw [show (p.types.insertIdx! i Ty.bool)[i]! = Ty.bool by rw [insert_get _ hiT]; simp, hT' a ha, hT' b hb,
-        show (p.types.insertIdx! i Ty.bool)[i + 1]! = p.types[i]! by
-          have := hT i; simp only [f, ge_iff_le, Nat.le_refl, ite_true] at this; exact this,
-        show (p.convTo.insertIdx! i none)[i + 1]! = p.convTo[i]! by
-          have := hC i; simp only [f, ge_iff_le, Nat.le_refl, ite_true] at this; exact this]
-      exact hite
-    · rw [Array.getElem!_set!_ne _ _ _ _ (by simp only [f]; split <;> omega), insert_shift _ (hiN _),
-        getElem!_pos _ k₀ (by simpa using hk₀), Array.getElem_map, hT]
+    · rw [insert_shift _ (hiN _), getElem!_pos _ k₀ (by simpa using hk₀), Array.getElem_map, hT]
       have := h6 k₀ hk₀
       rw [getElem!_pos p.nodes k₀ hk₀] at this
       cases hn₀ : p.nodes[k₀] with
