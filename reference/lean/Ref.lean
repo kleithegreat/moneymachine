@@ -19,6 +19,8 @@ import Ref.Proof.Tick
 import Ref.Proof.Rewrite
 import Ref.Proof.Twin
 import Ref.Proof.TwinRun
+import Ref.Proof.Insert
+import Ref.Proof.InsertRun
 import Ref.Proof.Checker
 import Ref.Proof.Bound
 import Ref.Laws
