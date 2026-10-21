@@ -1,0 +1,638 @@
+{
+ "suite": "locked-v2",
+ "id": "holdout-calibration-locked-v2.1",
+ "judged_pairs": 54,
+ "confidence": 0.9990740740740741,
+ "cells": {
+  "sparse_long/540": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 441,
+     "rate": 0.02205,
+     "eligible_rate": 0.036698011150869604,
+     "upper": 0.02547329110747898
+    },
+    "0.01": {
+     "rejections": 34,
+     "rate": 0.0017,
+     "eligible_rate": 0.002829325122742781,
+     "upper": 0.002815547557642719
+    },
+    "0.005": {
+     "rejections": 8,
+     "rate": 0.0004,
+     "eligible_rate": 0.000665723558292419,
+     "upper": 0.0010634090005036258
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.39915,
+   "mean_active_share": 0.06955851851851852
+  },
+  "sparse_long/546": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 466,
+     "rate": 0.0233,
+     "eligible_rate": 0.039747526441487546,
+     "upper": 0.02681096981037587
+    },
+    "0.01": {
+     "rejections": 40,
+     "rate": 0.002,
+     "eligible_rate": 0.0034118048447628795,
+     "upper": 0.0031909513150164583
+    },
+    "0.005": {
+     "rejections": 9,
+     "rate": 0.00045,
+     "eligible_rate": 0.0007676560900716479,
+     "upper": 0.0011386062139494592
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.4138,
+   "mean_active_share": 0.06936181318681318
+  },
+  "sparse_long/1080": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 545,
+     "rate": 0.02725,
+     "eligible_rate": 0.039627717588889694,
+     "upper": 0.03102245724577318
+    },
+    "0.01": {
+     "rejections": 66,
+     "rate": 0.0033,
+     "eligible_rate": 0.004798952955718752,
+     "upper": 0.004766532069754964
+    },
+    "0.005": {
+     "rejections": 21,
+     "rate": 0.00105,
+     "eligible_rate": 0.001526939576819603,
+     "upper": 0.0019756464585636273
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.31235,
+   "mean_active_share": 0.07005601851851852
+  },
+  "very_sparse/540": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 147,
+     "rate": 0.00735,
+     "eligible_rate": 0.047929572872513856,
+     "upper": 0.00942937438282538
+    },
+    "0.01": {
+     "rejections": 19,
+     "rate": 0.00095,
+     "eligible_rate": 0.006194978806651451,
+     "upper": 0.0018418070068810168
+    },
+    "0.005": {
+     "rejections": 4,
+     "rate": 0.0002,
+     "eligible_rate": 0.0013042060645582002,
+     "upper": 0.0007446291313494757
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.84665,
+   "mean_active_share": 0.029991296296296297
+  },
+  "very_sparse/546": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 143,
+     "rate": 0.00715,
+     "eligible_rate": 0.05078125,
+     "upper": 0.009203975109364854
+    },
+    "0.01": {
+     "rejections": 20,
+     "rate": 0.001,
+     "eligible_rate": 0.007102272727272727,
+     "upper": 0.001908928962840211
+    },
+    "0.005": {
+     "rejections": 6,
+     "rate": 0.0003,
+     "eligible_rate": 0.002130681818181818,
+     "upper": 0.000908371501077592
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.8592,
+   "mean_active_share": 0.030108516483516486
+  },
+  "very_sparse/1080": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 76,
+     "rate": 0.0038,
+     "eligible_rate": 0.04274465691788527,
+     "upper": 0.00535756491391582
+    },
+    "0.01": {
+     "rejections": 14,
+     "rate": 0.0007,
+     "eligible_rate": 0.007874015748031496,
+     "upper": 0.0014988913620186995
+    },
+    "0.005": {
+     "rejections": 4,
+     "rate": 0.0002,
+     "eligible_rate": 0.0022497187851518562,
+     "upper": 0.0007446291313494757
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.9111,
+   "mean_active_share": 0.02997462962962963
+  },
+  "rare_loss/540": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 1018,
+     "rate": 0.0509,
+     "eligible_rate": 0.0509,
+     "upper": 0.05591746967805083
+    },
+    "0.01": {
+     "rejections": 517,
+     "rate": 0.02585,
+     "eligible_rate": 0.02585,
+     "upper": 0.029532286831986866
+    },
+    "0.005": {
+     "rejections": 353,
+     "rate": 0.01765,
+     "eligible_rate": 0.01765,
+     "upper": 0.02074140594317774
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "rare_loss/546": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 994,
+     "rate": 0.0497,
+     "eligible_rate": 0.0497,
+     "upper": 0.054663571515422255
+    },
+    "0.01": {
+     "rejections": 495,
+     "rate": 0.02475,
+     "eligible_rate": 0.02475,
+     "upper": 0.02835956065052167
+    },
+    "0.005": {
+     "rejections": 311,
+     "rate": 0.01555,
+     "eligible_rate": 0.01555,
+     "upper": 0.018467474914710177
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "rare_loss/1080": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 643,
+     "rate": 0.03215,
+     "eligible_rate": 0.03215,
+     "upper": 0.03621952065761352
+    },
+    "0.01": {
+     "rejections": 217,
+     "rate": 0.01085,
+     "eligible_rate": 0.01085,
+     "upper": 0.01332703393149837
+    },
+    "0.005": {
+     "rejections": 118,
+     "rate": 0.0059,
+     "eligible_rate": 0.0059,
+     "upper": 0.007786314946353322
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "noisy_sparse/540": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 903,
+     "rate": 0.04515,
+     "eligible_rate": 0.04515,
+     "upper": 0.04990196859941198
+    },
+    "0.01": {
+     "rejections": 224,
+     "rate": 0.0112,
+     "eligible_rate": 0.0112,
+     "upper": 0.013712893913817062
+    },
+    "0.005": {
+     "rejections": 87,
+     "rate": 0.00435,
+     "eligible_rate": 0.00435,
+     "upper": 0.006001026578082604
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "noisy_sparse/546": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 862,
+     "rate": 0.0431,
+     "eligible_rate": 0.0431,
+     "upper": 0.0477525807047553
+    },
+    "0.01": {
+     "rejections": 217,
+     "rate": 0.01085,
+     "eligible_rate": 0.01085,
+     "upper": 0.01332703393149837
+    },
+    "0.005": {
+     "rejections": 89,
+     "rate": 0.00445,
+     "eligible_rate": 0.00445,
+     "upper": 0.006117369592366383
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "noisy_sparse/1080": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 748,
+     "rate": 0.0374,
+     "eligible_rate": 0.0374,
+     "upper": 0.041761103150216264
+    },
+    "0.01": {
+     "rejections": 192,
+     "rate": 0.0096,
+     "eligible_rate": 0.0096,
+     "upper": 0.011943833258917807
+    },
+    "0.005": {
+     "rejections": 76,
+     "rate": 0.0038,
+     "eligible_rate": 0.0038,
+     "upper": 0.00535756491391582
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "endogenous/540": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 590,
+     "rate": 0.0295,
+     "eligible_rate": 0.0355271873306437,
+     "upper": 0.03341222558309649
+    },
+    "0.01": {
+     "rejections": 66,
+     "rate": 0.0033,
+     "eligible_rate": 0.003974227735292346,
+     "upper": 0.004766532069754964
+    },
+    "0.005": {
+     "rejections": 12,
+     "rate": 0.0006,
+     "eligible_rate": 0.0007225868609622449,
+     "upper": 0.001357402609265593
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.16965,
+   "mean_active_share": 0.11405175925925926
+  },
+  "endogenous/546": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 627,
+     "rate": 0.03135,
+     "eligible_rate": 0.03793103448275862,
+     "upper": 0.035372815807142466
+    },
+    "0.01": {
+     "rejections": 65,
+     "rate": 0.00325,
+     "eligible_rate": 0.003932244404113733,
+     "upper": 0.004707061231585489
+    },
+    "0.005": {
+     "rejections": 16,
+     "rate": 0.0008,
+     "eligible_rate": 0.0009679370840895341,
+     "upper": 0.0016376855075896286
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.1735,
+   "mean_active_share": 0.11433626373626374
+  },
+  "endogenous/1080": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 659,
+     "rate": 0.03295,
+     "eligible_rate": 0.035411069317571195,
+     "upper": 0.03706558546280841
+    },
+    "0.01": {
+     "rejections": 104,
+     "rate": 0.0052,
+     "eligible_rate": 0.0055883933369156365,
+     "upper": 0.006984480716149762
+    },
+    "0.005": {
+     "rejections": 32,
+     "rate": 0.0016,
+     "eligible_rate": 0.0017195056421278883,
+     "upper": 0.0026889851595434714
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0695,
+   "mean_active_share": 0.11392601851851851
+  },
+  "persistent/540": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 870,
+     "rate": 0.0435,
+     "eligible_rate": 0.0435,
+     "upper": 0.0481721841526892
+    },
+    "0.01": {
+     "rejections": 198,
+     "rate": 0.0099,
+     "eligible_rate": 0.0099,
+     "upper": 0.012276578479467178
+    },
+    "0.005": {
+     "rejections": 84,
+     "rate": 0.0042,
+     "eligible_rate": 0.0042,
+     "upper": 0.005826154624709206
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "persistent/546": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 877,
+     "rate": 0.04385,
+     "eligible_rate": 0.04385,
+     "upper": 0.0485392521903501
+    },
+    "0.01": {
+     "rejections": 219,
+     "rate": 0.01095,
+     "eligible_rate": 0.01095,
+     "upper": 0.013437339808909612
+    },
+    "0.005": {
+     "rejections": 97,
+     "rate": 0.00485,
+     "eligible_rate": 0.00485,
+     "upper": 0.0065809664310785415
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  },
+  "persistent/1080": {
+   "series": 20000,
+   "levels": {
+    "0.05": {
+     "rejections": 821,
+     "rate": 0.04105,
+     "eligible_rate": 0.04105,
+     "upper": 0.04560043539378197
+    },
+    "0.01": {
+     "rejections": 180,
+     "rate": 0.009,
+     "eligible_rate": 0.009,
+     "upper": 0.01127672805437769
+    },
+    "0.005": {
+     "rejections": 82,
+     "rate": 0.0041,
+     "eligible_rate": 0.0041,
+     "upper": 0.00570932524087259
+    },
+    "0.001": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    },
+    "0.0005": {
+     "rejections": 0,
+     "rate": 0.0,
+     "eligible_rate": 0.0
+    }
+   },
+   "floored": 0.0,
+   "mean_active_share": 1.0
+  }
+ }
+}
