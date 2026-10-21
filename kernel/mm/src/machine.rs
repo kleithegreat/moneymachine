@@ -292,7 +292,7 @@ impl<'p> Machine<'p> {
                 Op::If => {
                     if a(0)? != 0.0 { a(1) } else { a(2) }
                 }
-                Op::Convert(f) => Some(a(0)? * f64::from_bits(*f)),
+                Op::Convert(f, _) => Some(a(0)? * f64::from_bits(*f)),
                 Op::Window(..) => a(0),
                 Op::XsMean | Op::XsDemean | Op::XsRank | Op::HoursSince => unreachable!(),
             },

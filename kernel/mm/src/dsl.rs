@@ -156,8 +156,8 @@ pub enum Op {
     Or,
     Not,
     If,
-    /// Scale factor stored as raw bits so the op can be hashed.
-    Convert(u64),
+    /// Scale factor as raw bits, and the target unit: two converts are one node only if both agree.
+    Convert(u64, Unit),
     Window(Window, u32),
     XsMean,
     XsDemean,
@@ -187,7 +187,7 @@ const OPS: &[(&str, Op, usize)] = &[
     ("or", Op::Or, 2),
     ("not", Op::Not, 1),
     ("if", Op::If, 3),
-    ("convert", Op::Convert(0), 1),
+    ("convert", Op::Convert(0, Unit::ONE), 1),
     ("lag", Op::Window(Window::Lag, 0), 1),
     ("mean", Op::Window(Window::Mean, 0), 1),
     ("sum", Op::Window(Window::Sum, 0), 1),
@@ -475,7 +475,7 @@ impl Checker {
         };
         let extra: &[&str] = match op {
             Op::Window(..) => &["hours"],
-            Op::Convert(_) => &["to"],
+            Op::Convert(..) => &["to"],
             _ => &[],
         };
         let m = fields(v, path, &[&["op", "args"][..], extra].concat(), &[])?;
@@ -540,13 +540,13 @@ impl Checker {
                     _ => return reject(Code::Bool, path, "`if` branches differ in kind"),
                 }
             }
-            Op::Convert(_) => {
+            Op::Convert(..) => {
                 let to = unit(&m["to"], path)?;
                 let from = num(0)?;
                 let Some(f) = from.conversion(to) else {
                     return reject(Code::Unit, path, format!("cannot convert {from} to {to}"));
                 };
-                return Ok((Op::Convert(f.to_bits()), Ty::Num(to)));
+                return Ok((Op::Convert(f.to_bits(), to), Ty::Num(to)));
             }
             Op::Window(w, _) => {
                 let u = num(0)?;
@@ -595,7 +595,7 @@ impl Program {
                 Node::Op(op, args) => {
                     let a: Vec<String> = args.iter().map(|x| pos[x].to_string()).collect();
                     let op = match op {
-                        Op::Convert(f) => format!("Convert({:?})", f64::from_bits(*f)),
+                        Op::Convert(f, to) => format!("Convert({:?} {to})", f64::from_bits(*f)),
                         other => format!("{other:?}"),
                     };
                     format!("{op} {}", a.join(" "))

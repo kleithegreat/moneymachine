@@ -676,13 +676,6 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 ## Blockers
 
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
-- **Checker: overflowed conversions share a node (2026-10-20, found proving L2).**
-  - **What happens.** mm interns a `convert` node by its operator and factor bits, not by its target unit.
-  - **Where it breaks.** DSL.md promises "the exact factor", but powi overflows for large time exponents. For example, the factor from `1` to `y^100/h^100` and the factor to `y^101/h^101` both come out as 0.
-  - **The result.** The second convert reuses the first one's node and type, so `add` of the two passes the unit check. `mm check` and refmm both accept `{"op":"add","args":[convert(1,"y^100/h^100"), convert(1,"y^101/h^101")]}`.
-  - **Impact.** Only degenerate values (0, ∞, NaN), and no timing leak. L2 still holds, because it is stated over the stored types.
-  - **Proposed fix.** Key interning on the node's full identity, including the target. Reject a conversion whose factor is not finite and nonzero (E_UNIT). Both are kernel changes, so they wait: stage 6 does not modify the engine. They also change the kernel hash, so they belong before the first judged run that records it.
-
 - **Stage 2: the holdout test has no locked pass (2026-10-21).**
   - **What failed.** Locked v2.1 failed only on rare_loss (0.1 + N(0, 1), minus 20 with probability 0.005; mean 0) at n = 540 and 546, at u = 0.01 and 0.005.
   - **Why (an explanation the numbers fit, not a proof).** P(no loss in n steps) = 0.995ⁿ is 0.067 at 540 and 0.0045 at 1,080. A series with no loss is N(0.1, 1), which a mean test rejects about half the time at 1% when n = 540, so that alone gives about 0.03. The observed holdout returns are then indistinguishable from a real edge. This is the peso problem: no test on the holdout series alone can control size against a null whose losses are expected less than about 3 times in the window. It is a scope limit of the gate, not a calibration defect the table can fix.
@@ -690,6 +683,8 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
   - **Blocks.** Every stage 2 sweep (C2.4 to C2.6), and through them the stage 2 exit, stage 3's real campaign and C5.6. Stage 0, stage 1's C1.4 and C1.8, stage 3's null series, stage 6 and stage 10 do not depend on it.
 
 ## Log
+
+- 2026-10-21: The checker hole is fixed (human decision 1). mm's `Op::Convert` now carries its target unit with the factor, so interning, the strategy's canonical text and the equivalence-key symbol (`convert/<factor bits>/<unit>`, CANONICAL.md) tell two conversions apart by target. `kernel/tests/adversarial/t22_convert_overflow_shares_node.case` (add of converts to y^100/h^100 and y^101/h^101, both factors 0) type-checked before the fix and is now E_UNIT. The Lean model's `intern` keys a node with its target likewise, and its verdict on the case agrees with mm. This changes the kernel hash and the strategy hash of programs with a conversion; no judged run had recorded either.
 
 - 2026-10-21 00:52 UTC: The locked holdout calibration v2.1 failed (`audit/stage2/holdout-size-locked-v2.json`, 360,000 series). 50 of 54 judged pairs pass; rare_loss/540 and rare_loss/546 fail at u = 0.01 (rates 0.0259 and 0.0248, upper bounds 0.0295 and 0.0284 against 0.015) and at u = 0.005 (0.0176 and 0.0155, bounds 0.0207 and 0.0185 against 0.010). rare_loss/1080 passes. Every other cell passes at every level; the largest other bound is 0.0559 at 0.05, 0.0137 at 0.01 and 0.0066 at 0.005. Stays recorded as a failure; any v3 needs a new locked suite.
 

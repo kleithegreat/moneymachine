@@ -193,9 +193,10 @@ def unitOf (v : Value) : Check Dim := do
   let some u := Dim.parse s | fail .unit
   return u
 
+/-- The index of node n with conversion target `to`, added if new: the engine interns a node with its target. -/
 def intern (n : Node) (t : Ty) (to : Option Dim := none) : Check Nat := do
   let st ← get
-  match st.nodes.findIdx? (· == n) with
+  match (st.nodes.zip st.convTo).findIdx? (· == (n, to)) with
   | some i => return i
   | none =>
     set { st with nodes := st.nodes.push n, types := st.types.push t, convTo := st.convTo.push to }

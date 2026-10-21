@@ -13,7 +13,7 @@ const ZERO: &str = "const/0000000000000000/";
 
 fn op_symbol(op: &Op) -> String {
     match op {
-        Op::Convert(f) => format!("convert/{f:016x}"),
+        Op::Convert(f, to) => format!("convert/{f:016x}/{to}"),
         Op::Window(w, h) => {
             let name = match w {
                 Window::Lag => "lag",
@@ -52,7 +52,7 @@ fn op_symbol(op: &Op) -> String {
             Op::XsDemean => "xs_demean",
             Op::XsRank => "xs_rank",
             Op::HoursSince => "hours_since",
-            Op::Convert(_) | Op::Window(..) => unreachable!(),
+            Op::Convert(..) | Op::Window(..) => unreachable!(),
         }
         .to_string(),
     }

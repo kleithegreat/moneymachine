@@ -2,7 +2,7 @@
 
 The strategy hash of stages 0–3 is unchanged. The equivalence key is a second, versioned identity:
 1. Build the `weight` DAG as an `egg` term. Each node is a symbol plus children: `input/close`,
-   `const/<f64 bits hex>/<unit>`, `param/<name>/<unit>`, `lag/<hours>`, `convert/<factor bits hex>`,
+   `const/<f64 bits hex>/<unit>`, `param/<name>/<unit>`, `lag/<hours>`, `convert/<factor bits hex>/<unit>`,
    and the op names of DSL.md otherwise.
 2. Saturate with the rule set R below, with deterministic limits (30 iterations, 20,000 nodes,
    no time limit).

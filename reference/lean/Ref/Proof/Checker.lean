@@ -216,11 +216,13 @@ theorem intern_spec (n : Node) (t : Ty) (to : Option Dim) {S : CState → Prop} 
   unfold intern at h
   simp only [bind, StateT.bind, get, getThe, MonadStateOf.get, StateT.get, pure, set, MonadStateOf.set,
     Except.bind, Except.pure] at h
-  cases hj : st.nodes.findIdx? (· == n) with
+  cases hj : (st.nodes.zip st.convTo).findIdx? (· == (n, to)) with
   | some j =>
     simp only [hj, StateT.pure] at h
     obtain ⟨rfl, rfl⟩ := h
-    exact ⟨hI, hS', Array.findIdx?_eq_some_iff_getElem.mp hj |>.1⟩
+    have := (Array.findIdx?_eq_some_iff_getElem.mp hj).1
+    simp only [Array.size_zip] at this
+    exact ⟨hI, hS', by omega⟩
   | none =>
     simp only [hj, StateT.bind, StateT.set, StateT.pure] at h
     obtain ⟨rfl, rfl⟩ := h
