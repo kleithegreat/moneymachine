@@ -2,6 +2,7 @@ import Ref.Spec
 import Ref.Proof.Units
 import Ref.Proof.Checker
 import Ref.Proof.View
+import Ref.Proof.TwinRun
 
 /-!
 The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
@@ -134,7 +135,15 @@ theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (p p' : Program) (
         ∀ k < p.nodes.size, ms'.vals[r.corr i k]! = ms.vals[k]!) ∧
     (∀ j, ((Ctx.make p' m v pol stop).steps N j).map (·.trace) = ((Ctx.make p m v pol stop).steps N j).map (·.trace)) ∧
     run N p' m v pol stop = run N p m v pol stop := by
-  sorry
+  by_cases hr : r = .ifNotRev
+  · sorry
+  obtain ⟨j, T⟩ := apply_twin N hN ‹p.WF› h hr
+  have hc : ∀ k, r.corr i k = k := fun k => by simp [Rule.corr, hr]
+  refine ⟨T.wf', fun n => ?_, fun j => by rw [steps_twin T m v pol stop], run_twin T m v pol stop⟩
+  rw [machineAfter_twin T m v pol stop n]
+  refine ⟨rfl, fun ms ms' h₁ h₂ k _ => ?_⟩
+  rw [h₁, Except.ok.injEq] at h₂
+  rw [hc, h₂]
 
 /-! ## L4 fill ordering -/
 
