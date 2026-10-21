@@ -49,3 +49,13 @@ def test_a_bar_is_observed_once_its_close_has_passed_without_waiting_for_the_nex
              for p, t in (("first", b + 5_000), ("verify", b + 600_000))]
     out = availability.analyze(polls)
     assert out["failures"] == [] and out["first_observed_lag_ms"]["max"] == 5_000
+
+
+def test_the_clock_record_reports_offsets_gaps_and_how_long_one_exchange_is_reported():
+    m = 60_000
+    start, end = 100 * m, 200 * m
+    readings = [(t * m, 5.0 if t < 140 else -7.0) for t in range(95, 206, 5)] + [(10 * m, 900.0)]
+    c = availability.clock(readings, (start, end))
+    assert c["max_abs_ms"] == 7.0 and c["brackets"] and c["max_gap_min"] == 5
+    assert c["exchanges"] == 2 and c["max_unchanged_min"] == 65
+    assert not availability.clock(readings[2:], (start, end))["brackets"]

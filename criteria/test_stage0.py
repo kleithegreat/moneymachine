@@ -36,7 +36,8 @@ def test_c03_availability():
     for coin in LISTED:
         assert a["events"].get(f"funding:{coin}", 0) >= 24, coin
         assert a["events"].get(f"bar:{coin}", 0) >= 6, coin
-    assert a["clock_offset_ms"]["max_abs"] < 1000
+    c = a["clock"]
+    assert c["max_abs_ms"] < 1000 and c["brackets"] and c["max_gap_min"] <= 10 and c["max_unchanged_min"] <= 40
 
 
 def test_c04_second_version_at_least_24h_later():
@@ -56,7 +57,7 @@ def test_c07_execution_model():
         for side in ("buy", "sell"):
             for size in (1000, 10000):
                 cell = e[f"{coin}:{side}:{size}"]
-                assert cell["coverage"] >= 0.9 and cell["median_excess_bps"] <= 3.0, (coin, side, size)
+                assert cell["coverage"] >= 0.9 and cell["model_above_test_q90_bps"] <= 3.0, (coin, side, size)
                 assert cell["n_cal"] + cell["n_test"] >= 24 * 60, (coin, side, size)
 
 

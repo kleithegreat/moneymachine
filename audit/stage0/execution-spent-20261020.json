@@ -1,0 +1,534 @@
+{
+ "window": [
+  1792481981142,
+  1792568381142
+ ],
+ "ETH:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 0.6127325830740382,
+  "coverage": 0.9766627771295215,
+  "median_excess_bps": 0.4083381017250254,
+  "test_median_bps": 0.20439448134901284,
+  "calibration_span": [
+   1792481981142,
+   1792542428584
+  ]
+ },
+ "ETH:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 0.9307113445866655,
+  "coverage": 0.9731621936989499,
+  "median_excess_bps": 0.7263001510282585,
+  "test_median_bps": 0.20441119355840698,
+  "calibration_span": [
+   1792481981142,
+   1792542428584
+  ]
+ },
+ "ETH:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 0.5764831101096046,
+  "coverage": 0.9789964994165694,
+  "median_excess_bps": 0.3720969838394428,
+  "test_median_bps": 0.20438612627016184,
+  "calibration_span": [
+   1792481981142,
+   1792542428584
+  ]
+ },
+ "ETH:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 0.8142852991288585,
+  "coverage": 0.9789964994165694,
+  "median_excess_bps": 0.6098908177787354,
+  "test_median_bps": 0.20439448135012306,
+  "calibration_span": [
+   1792481981142,
+   1792542428584
+  ]
+ },
+ "BTC:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 857,
+  "model_bps": 0.27666322150343703,
+  "coverage": 0.9743290548424738,
+  "median_excess_bps": 0.21627346602048902,
+  "test_median_bps": 0.060389755482948004,
+  "calibration_span": [
+   1792481996154,
+   1792542452345
+  ]
+ },
+ "BTC:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 857,
+  "model_bps": 0.6331823392091707,
+  "coverage": 0.9754959159859977,
+  "median_excess_bps": 0.5727882071027146,
+  "test_median_bps": 0.060394132106456055,
+  "calibration_span": [
+   1792481996154,
+   1792542452345
+  ]
+ },
+ "BTC:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 857,
+  "model_bps": 0.32767447057713284,
+  "coverage": 0.9486581096849475,
+  "median_excess_bps": 0.26728252686236686,
+  "test_median_bps": 0.06039194371476597,
+  "calibration_span": [
+   1792481996154,
+   1792542452345
+  ]
+ },
+ "BTC:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 857,
+  "model_bps": 0.5523064932833055,
+  "coverage": 0.9474912485414235,
+  "median_excess_bps": 0.49191236117684944,
+  "test_median_bps": 0.060394132106456055,
+  "calibration_span": [
+   1792481996154,
+   1792542452345
+  ]
+ },
+ "SOL:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 1.3697292449044163,
+  "coverage": 0.9824970828471412,
+  "median_excess_bps": 0.8982757537912001,
+  "test_median_bps": 0.4714534911132162,
+  "calibration_span": [
+   1792482006208,
+   1792542429656
+  ]
+ },
+ "SOL:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 1.6830693487968063,
+  "coverage": 0.9754959159859977,
+  "median_excess_bps": 1.211348984628824,
+  "test_median_bps": 0.47172036416798235,
+  "calibration_span": [
+   1792482006208,
+   1792542429656
+  ]
+ },
+ "SOL:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 1.3531860268045648,
+  "coverage": 0.9486581096849475,
+  "median_excess_bps": 0.8816880778195202,
+  "test_median_bps": 0.4714979489850446,
+  "calibration_span": [
+   1792482006208,
+   1792542429656
+  ]
+ },
+ "SOL:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 1.436816566448007,
+  "coverage": 0.9638273045507585,
+  "median_excess_bps": 0.9652296765627622,
+  "test_median_bps": 0.4715868898852449,
+  "calibration_span": [
+   1792482006208,
+   1792542429656
+  ]
+ },
+ "SUI:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 2.086852464957545,
+  "coverage": 0.9684947491248541,
+  "median_excess_bps": 1.1156958173907938,
+  "test_median_bps": 0.971156647566751,
+  "calibration_span": [
+   1792482008882,
+   1792542430756
+  ]
+ },
+ "SUI:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.746574313283624,
+  "coverage": 0.969661610268378,
+  "median_excess_bps": 1.4845974045218924,
+  "test_median_bps": 2.2619769087617314,
+  "calibration_span": [
+   1792482008882,
+   1792542430756
+  ]
+ },
+ "SUI:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 2.378472953711297,
+  "coverage": 0.9626604434072346,
+  "median_excess_bps": 1.4050474694327075,
+  "test_median_bps": 0.9734254842785894,
+  "calibration_span": [
+   1792482008882,
+   1792542430756
+  ]
+ },
+ "SUI:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.7612627510841268,
+  "coverage": 0.9731621936989499,
+  "median_excess_bps": 1.9776135436411213,
+  "test_median_bps": 1.7836492074430055,
+  "calibration_span": [
+   1792482008882,
+   1792542430756
+  ]
+ },
+ "kPEPE:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.2464019045574943,
+  "coverage": 0.9906651108518086,
+  "median_excess_bps": 2.1361543193476606,
+  "test_median_bps": 1.1102475852098337,
+  "calibration_span": [
+   1792482009392,
+   1792542431205
+  ]
+ },
+ "kPEPE:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 4.960282715786857,
+  "coverage": 0.9836639439906651,
+  "median_excess_bps": 2.573345906686786,
+  "test_median_bps": 2.386936809100071,
+  "calibration_span": [
+   1792482009392,
+   1792542431205
+  ]
+ },
+ "kPEPE:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.2479913150618156,
+  "coverage": 0.9918319719953326,
+  "median_excess_bps": 2.1379902050611133,
+  "test_median_bps": 1.1100011100007023,
+  "calibration_span": [
+   1792482009392,
+   1792542431205
+  ]
+ },
+ "kPEPE:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 4.957080044549755,
+  "coverage": 0.9894982497082847,
+  "median_excess_bps": 2.402380749590982,
+  "test_median_bps": 2.5546992949587732,
+  "calibration_span": [
+   1792482009392,
+   1792542431205
+  ]
+ },
+ "TIA:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.9882659160039857,
+  "coverage": 0.9766627771295215,
+  "median_excess_bps": 2.3740479211764587,
+  "test_median_bps": 1.614217994827527,
+  "calibration_span": [
+   1792482009804,
+   1792542432115
+  ]
+ },
+ "TIA:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 10.577900473061064,
+  "coverage": 0.9719953325554259,
+  "median_excess_bps": 3.452940929193904,
+  "test_median_bps": 7.12495954386716,
+  "calibration_span": [
+   1792482009804,
+   1792542432115
+  ]
+ },
+ "TIA:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.8292498338499126,
+  "coverage": 0.9731621936989499,
+  "median_excess_bps": 2.282945837686068,
+  "test_median_bps": 1.5463039961638447,
+  "calibration_span": [
+   1792482009804,
+   1792542432115
+  ]
+ },
+ "TIA:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 10.059447383428122,
+  "coverage": 0.9778296382730455,
+  "median_excess_bps": 3.7907664697811594,
+  "test_median_bps": 6.268680913646962,
+  "calibration_span": [
+   1792482009804,
+   1792542432115
+  ]
+ },
+ "WIF:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.592373794496506,
+  "coverage": 0.9848308051341891,
+  "median_excess_bps": 1.8131879926075456,
+  "test_median_bps": 1.7791858018889606,
+  "calibration_span": [
+   1792482010313,
+   1792542434035
+  ]
+ },
+ "WIF:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 9.926966991207209,
+  "coverage": 0.9463243873978997,
+  "median_excess_bps": 3.1454444088496736,
+  "test_median_bps": 6.781522582357535,
+  "calibration_span": [
+   1792482010313,
+   1792542434035
+  ]
+ },
+ "WIF:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 3.1287969570359397,
+  "coverage": 0.9813302217036173,
+  "median_excess_bps": 1.6734047288313736,
+  "test_median_bps": 1.4553922282045662,
+  "calibration_span": [
+   1792482010313,
+   1792542434035
+  ]
+ },
+ "WIF:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 7.565806879147319,
+  "coverage": 0.9591598599766628,
+  "median_excess_bps": 2.537255959191853,
+  "test_median_bps": 5.028550919955466,
+  "calibration_span": [
+   1792482010313,
+   1792542434035
+  ]
+ },
+ "AAVE:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 2.050560731861051,
+  "coverage": 0.9673278879813302,
+  "median_excess_bps": 1.4037302014613395,
+  "test_median_bps": 0.6468305303997113,
+  "calibration_span": [
+   1792482010900,
+   1792542436483
+  ]
+ },
+ "AAVE:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 4.2973276520696935,
+  "coverage": 0.9836639439906651,
+  "median_excess_bps": 2.226989842042393,
+  "test_median_bps": 2.0703378100273007,
+  "calibration_span": [
+   1792482010900,
+   1792542436483
+  ]
+ },
+ "AAVE:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 2.2614745677895787,
+  "coverage": 0.9533255542590432,
+  "median_excess_bps": 1.2734652999846219,
+  "test_median_bps": 0.9880092678049568,
+  "calibration_span": [
+   1792482010900,
+   1792542436483
+  ]
+ },
+ "AAVE:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 4.804168347494198,
+  "coverage": 0.9369894982497082,
+  "median_excess_bps": 1.553564304233035,
+  "test_median_bps": 3.2506040432611627,
+  "calibration_span": [
+   1792482010900,
+   1792542436483
+  ]
+ },
+ "WLD:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 2.8608150405418087,
+  "coverage": 0.9848308051341891,
+  "median_excess_bps": 1.768043622583093,
+  "test_median_bps": 1.0927714179587156,
+  "calibration_span": [
+   1792482011440,
+   1792542438409
+  ]
+ },
+ "WLD:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 5.028156870670042,
+  "coverage": 0.9883313885647608,
+  "median_excess_bps": 2.5012149683512064,
+  "test_median_bps": 2.5269419023188355,
+  "calibration_span": [
+   1792482011440,
+   1792542438409
+  ]
+ },
+ "WLD:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 2.4772246870563563,
+  "coverage": 0.9848308051341891,
+  "median_excess_bps": 1.6163579664418837,
+  "test_median_bps": 0.8608667206144727,
+  "calibration_span": [
+   1792482011440,
+   1792542438409
+  ]
+ },
+ "WLD:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 4.453223038460852,
+  "coverage": 0.9859976662777129,
+  "median_excess_bps": 2.6082048786124634,
+  "test_median_bps": 1.8450181598483884,
+  "calibration_span": [
+   1792482011440,
+   1792542438409
+  ]
+ },
+ "POPCAT:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 11.870951339190139,
+  "coverage": 0.9311551925320887,
+  "median_excess_bps": 4.759609683571142,
+  "test_median_bps": 7.111341655618997,
+  "calibration_span": [
+   1792482012363,
+   1792542439892
+  ]
+ },
+ "POPCAT:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 22.09960445348713,
+  "coverage": 0.9066511085180864,
+  "median_excess_bps": 4.951983939867066,
+  "test_median_bps": 17.147620513620065,
+  "calibration_span": [
+   1792482012363,
+   1792542439892
+  ]
+ },
+ "POPCAT:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 10.672443465308268,
+  "coverage": 0.9579929988331388,
+  "median_excess_bps": 5.246814923115517,
+  "test_median_bps": 5.425628542192751,
+  "calibration_span": [
+   1792482012363,
+   1792542439892
+  ]
+ },
+ "POPCAT:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 19.541649199464885,
+  "coverage": 0.9393232205367561,
+  "median_excess_bps": 5.925507445305735,
+  "test_median_bps": 13.61614175415915,
+  "calibration_span": [
+   1792482012363,
+   1792542439892
+  ]
+ },
+ "BNB:buy:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 0.8027618988037943,
+  "coverage": 0.9813302217036173,
+  "median_excess_bps": 0.6024744751642608,
+  "test_median_bps": 0.20028742363953356,
+  "calibration_span": [
+   1792482012874,
+   1792542440919
+  ]
+ },
+ "BNB:buy:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 2.45291315470908,
+  "coverage": 0.9941656942823804,
+  "median_excess_bps": 1.775762431721617,
+  "test_median_bps": 0.6771507229874629,
+  "calibration_span": [
+   1792482012874,
+   1792542440919
+  ]
+ },
+ "BNB:sell:1000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 0.8198177271911966,
+  "coverage": 0.9603267211201867,
+  "median_excess_bps": 0.6850014144177408,
+  "test_median_bps": 0.13481631277345585,
+  "calibration_span": [
+   1792482012874,
+   1792542440919
+  ]
+ },
+ "BNB:sell:10000": {
+  "n_cal": 1998,
+  "n_test": 857,
+  "model_bps": 1.9918680711228376,
+  "coverage": 0.9801633605600933,
+  "median_excess_bps": 1.6547432068148016,
+  "test_median_bps": 0.337124864308036,
+  "calibration_span": [
+   1792482012874,
+   1792542440919
+  ]
+ }
+}

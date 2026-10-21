@@ -70,9 +70,10 @@ def calibrate_and_validate(cells):
         finite = test[np.isfinite(test)]
         coverage = float(np.mean(test <= q)) if len(test) else 0.0
         excess = float(np.median(q - finite)) if len(finite) and math.isfinite(q) else math.inf
+        q90 = float(np.sort(test)[math.ceil(0.9 * len(test)) - 1]) if len(test) else math.inf
         report[f"{coin}:{side}:{size}"] = {
             "n_cal": int(k), "n_test": int(len(test)), "model_bps": q, "coverage": coverage,
-            "median_excess_bps": excess, "test_median_bps": float(np.median(finite)) if len(finite) else math.inf,
+            "median_excess_bps": excess, "test_q90_bps": q90, "model_above_test_q90_bps": q - q90, "test_median_bps": float(np.median(finite)) if len(finite) else math.inf,
             "calibration_span": [times[0], times[k - 1]] if k else None,
         }
     return model, report

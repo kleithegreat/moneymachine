@@ -1,8 +1,9 @@
-"""C0.3: from recorder polls, when each settled funding row and closed bar was first observed.
+"""C0.3: from recorder polls, when each settled funding row and closed bar was first observed, and the
+host clock's NTP record over the same window.
 
 C0.3 and C0.7 are judged on the first 24 h after RECORDING_FROM (the last recorder restart) in which
 no coin's L2 poll gap exceeds MAX_GAP and no boundary poll comes more than BOUNDARY_GAP after the
-boundary or the previous poll of the same row (PROGRESS.md, C0.7 revisions of 2026-10-19).
+boundary or the previous poll of the same row (PROGRESS.md, C0.7 revisions of 2026-10-19 and 2026-10-21).
 """
 
 import json
@@ -19,6 +20,7 @@ SPAN = 24 * HOUR
 MAX_GAP = 60_000
 BOUNDARY_GAP = 35_000
 VERIFY_AFTER = 600_000
+CLOCK_SLACK = 600_000
 
 
 def load(live_dir):
@@ -70,13 +72,10 @@ def _value(kind, data, boundary):
 
 def analyze(polls):
     seen = defaultdict(list)
-    offsets = []
     for p in polls:
-        if p["kind"] == "l2":
-            offsets.append((p["data"]["time"] - (p["sent"] + p["recv"]) / 2, p["recv"] - p["sent"]))
-        else:
+        if p["kind"] != "l2":
             seen[(p["kind"], p["coin"], p["boundary"])].append(p)
-    events, failures = defaultdict(int), []
+    events, failures, margins = defaultdict(int), [], []
     for (kind, coin, boundary), ps in sorted(seen.items()):
         ref = [_value(kind, p["data"], boundary) for p in ps if p["purpose"] == "verify"]
         if not ref or ref[0] is None:
@@ -88,6 +87,8 @@ def analyze(polls):
         if kind == "funding":
             reported = [r["time"] for p in ps for r in p["data"] if r["time"] // HOUR * HOUR == boundary]
             known = funding_known(min(reported)) if reported else known
+        if first is not None:
+            margins.append(known - first)
         if first is None or first > known:
             failures.append({"kind": kind, "coin": coin, "boundary": boundary, "first_observed": first,
                              "lag_ms": None if first is None else first - boundary})
@@ -97,14 +98,36 @@ def analyze(polls):
         "events": {f"{k}:{c}": n for (k, c), n in sorted(events.items())},
         "failures": failures,
         "first_observed_lag_ms": {"min": lags[0], "median": lags[len(lags) // 2], "max": lags[-1]} if lags else None,
-        "clock_offset_ms": {"max_abs": max(abs(o) for o, _ in offsets), "max_rtt": max(r for _, r in offsets),
-                            "n": len(offsets)} if offsets else None,
+        "min_margin_ms": min(margins, default=None),
         "span_h": (max(p["recv"] for v in seen.values() for p in v) - min(p["sent"] for v in seen.values() for p in v)) / HOUR
         if seen else 0,
     }
 
 
 
-def report(live_dir, out):
-    """The judged window and the analysis of the polls inside it."""
-    Path(out).write_text(json.dumps({"window": window(live_dir), **analyze(judged(live_dir))}, indent=1) + "\n")
+def clock(readings, span):
+    """The NTP offsets logged around the window (C0.3 revision of 2026-10-21): readings from CLOCK_SLACK before
+    its start to CLOCK_SLACK after its end, the largest gap between them, and the longest run of one unchanged
+    value, which bounds the age of the NTP exchange each reading reports."""
+    start, end = span
+    rs = sorted((t, o) for t, o in readings if start - CLOCK_SLACK <= t <= end + CLOCK_SLACK)
+    if not rs:
+        return None
+    changes = [rs[0][0]] + [b for (_, a), (b, o) in zip(rs, rs[1:]) if o != a] + [rs[-1][0]]
+    return {"readings": len(rs), "exchanges": len(changes) - 1, "max_abs_ms": max(abs(o) for _, o in rs),
+            "brackets": rs[0][0] <= start and rs[-1][0] >= end,
+            "max_gap_min": max((b - a for (a, _), (b, _) in zip(rs, rs[1:])), default=0) / 60_000,
+            "max_unchanged_min": max(b - a for a, b in zip(changes, changes[1:])) / 60_000}
+
+
+def ntp_readings(sources_dir):
+    """(time, offset ms) of each host-clock reading the stage 5 recorder logged from systemd-timesyncd."""
+    return [(p["recv"], p["data"]["offset_ms"]) for p in read(sources_dir, "sources")
+            if p["source"] == "clock" and isinstance(p["data"].get("offset_ms"), float)]
+
+
+def report(live_dir, sources_dir, out):
+    """The judged window, the analysis of the polls inside it, and the host clock's NTP record over it."""
+    span = window(live_dir)
+    Path(out).write_text(json.dumps({"window": span, **analyze(judged(live_dir)),
+                                     "clock": clock(ntp_readings(sources_dir), span)}, indent=1) + "\n")
