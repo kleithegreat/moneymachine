@@ -7,7 +7,7 @@ Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages r
 Order while waiting on recording windows (human, 2026-10-20): (a) behavior-preserving cleanup, finished before the first judged run that records a kernel or harness hash (C1.4, stage 2 sweeps, the harness freeze); otherwise it waits until stage 5 exits; (b) stage 10, the thesis track; (c) stage 6, the reference kernels. Stages 7 to 9 start after stage 5 exits.
 
 - **Cleanup (a):** done. Every step was byte-identical on a fingerprint of seeds, genomes, null markets, written stores, kernel, holdout and mechanism results, traces and check codes, and all 14 mutants are caught.
-- **Stage 0, from 2026-10-21 00:20 UTC** (the judged 24 h window after the 00:19:10 restart, unless a gap restarts it; `python -c "from ingest.availability import window; print(window('data/live'))"` shows it):
+- **Stage 0, from 2026-10-21 07:40 UTC.** Two recorder gaps on 2026-10-20 (06:00–06:22 and 07:27–07:39 UTC, the second during a DNS outage) restarted the judged 24 h window at 07:39:41, so it ends 2026-10-21 07:39:41 UTC, unless a later gap restarts it again. `python -c "from ingest.availability import window; print(window('data/live'))"` shows it once it is complete. Then:
   - `availability data/live audit/stage0/availability.json` (C0.3);
   - `execution data/live venue/hyperliquid/execution.json audit/stage0/execution.json` (C0.7);
   - stop the HL recorder (by PID) so the second backfill has the rate budget alone, then `backfill data 200` (C0.4; its report in `audit/stage0/` is the judged C0.2/C0.5 evidence), then restart the recorder as a regime diagnostic and report the frozen cost model's coverage on each later recorded day;
@@ -28,7 +28,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
   - After stage 2 exits, if Discourse is admitted: `probes audit/stage5/c56-probes.json data <version>` and `sweep events data <version>` (C5.6). If it is prospective only, its counts all lie in the forward holdout, so the search part has none to replay and C5.6 is vacuous for it.
 
   Snapshot is prospective only (client-claimed time). Unlocks: blocked (see Blockers).
-- **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until 2026-10-21 00:30 UTC) and C0.7's `execution.json`:
+- **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until it closes, 2026-10-21 07:40 UTC) and C0.7's `execution.json`:
   - one dry main session under a scratch data root to check the harness end to end (not counted), and `harness.audit` checked against a real transcript;
   - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days start), and `thesis-run` detached;
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
