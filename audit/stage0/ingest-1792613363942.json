@@ -1,0 +1,301 @@
+{
+ "version": 1792613363942,
+ "intervals": {
+  "BNB": [
+   1727654400000,
+   1790726400000
+  ],
+  "ETH": [
+   1727654400000,
+   1790726400000
+  ],
+  "BTC": [
+   1727654400000,
+   1790726400000
+  ],
+  "TIA": [
+   1727654400000,
+   1790726400000
+  ],
+  "FTM": [
+   1727654400000,
+   1736654400000
+  ],
+  "WIF": [
+   1727654400000,
+   1790726400000
+  ],
+  "kPEPE": [
+   1727654400000,
+   1790726400000
+  ],
+  "POPCAT": [
+   1727654400000,
+   1790726400000
+  ],
+  "AAVE": [
+   1727654400000,
+   1790726400000
+  ],
+  "SOL": [
+   1727654400000,
+   1790726400000
+  ],
+  "WLD": [
+   1727654400000,
+   1790726400000
+  ],
+  "SUI": [
+   1727654400000,
+   1790726400000
+  ]
+ },
+ "coverage": {
+  "BNB": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "ETH": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "BTC": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "TIA": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "FTM": {
+   "funding_expected": 2500,
+   "funding_missing": 0,
+   "bars_expected": 625,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "WIF": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "kPEPE": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "POPCAT": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "AAVE": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "SOL": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "WLD": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  },
+  "SUI": {
+   "funding_expected": 17520,
+   "funding_missing": 0,
+   "bars_expected": 4380,
+   "bars_missing": 0,
+   "max_gap_h": 0,
+   "funding_gaps": [],
+   "bar_gaps": []
+  }
+ },
+ "integrity": {
+  "funding_duplicate_keys": 0,
+  "bar_duplicate_keys": 0,
+  "bars_misaligned": 0,
+  "bars_ohlc_inconsistent": 0,
+  "bars_negative_volume": 0,
+  "funding_over_cap": 0,
+  "funding_reported_lag_ms": [
+   0,
+   887645
+  ],
+  "funding_modal_rate": 1.25e-05,
+  "funding_premium_corr": 0.8200579705428847,
+  "funding_positive_when_premium_gt_5bp": [
+   29192,
+   29192
+  ]
+ },
+ "replay_from_keys": {
+  "pairs": 48805,
+  "failures": 12,
+  "fraction_ok": 0.9997541235529147,
+  "failure_list": [
+   [
+    1727654400000,
+    "BNB"
+   ],
+   [
+    1727654400000,
+    "ETH"
+   ],
+   [
+    1727654400000,
+    "BTC"
+   ],
+   [
+    1727654400000,
+    "TIA"
+   ],
+   [
+    1727654400000,
+    "FTM"
+   ],
+   [
+    1727654400000,
+    "WIF"
+   ],
+   [
+    1727654400000,
+    "kPEPE"
+   ],
+   [
+    1727654400000,
+    "POPCAT"
+   ],
+   [
+    1727654400000,
+    "AAVE"
+   ],
+   [
+    1727654400000,
+    "SOL"
+   ],
+   [
+    1727654400000,
+    "WLD"
+   ],
+   [
+    1727654400000,
+    "SUI"
+   ]
+  ]
+ },
+ "written(search, holdout)": {
+  "funding": [
+   24,
+   0
+  ],
+  "bars_4h": [
+   0,
+   0
+  ]
+ },
+ "replay_search_as_of": {
+  "pairs": 36925,
+  "failures": 12,
+  "fraction_ok": 0.9996750169262018,
+  "failure_list": [
+   [
+    1727654400000,
+    "BNB"
+   ],
+   [
+    1727654400000,
+    "ETH"
+   ],
+   [
+    1727654400000,
+    "BTC"
+   ],
+   [
+    1727654400000,
+    "TIA"
+   ],
+   [
+    1727654400000,
+    "FTM"
+   ],
+   [
+    1727654400000,
+    "WIF"
+   ],
+   [
+    1727654400000,
+    "kPEPE"
+   ],
+   [
+    1727654400000,
+    "POPCAT"
+   ],
+   [
+    1727654400000,
+    "AAVE"
+   ],
+   [
+    1727654400000,
+    "SOL"
+   ],
+   [
+    1727654400000,
+    "WLD"
+   ],
+   [
+    1727654400000,
+    "SUI"
+   ]
+  ]
+ }
+}
