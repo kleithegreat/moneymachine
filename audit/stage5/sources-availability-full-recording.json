@@ -1,0 +1,28 @@
+{
+ "forums": [
+  "delvingbitcoin.org",
+  "ethresear.ch",
+  "forum.bnbchain.org",
+  "forum.celestia.org",
+  "forum.solana.com",
+  "forums.sui.io",
+  "governance.aave.com"
+ ],
+ "new_items": 36,
+ "item_failures": [],
+ "edits": 12,
+ "edit_failures": [],
+ "item_slack_ms": [
+  318838,
+  321372,
+  331735,
+  335375,
+  342619
+ ],
+ "max_poll_gap_minutes": 200.0,
+ "clock_offset_ms": {
+  "max_abs": 4900.766,
+  "n": 860
+ },
+ "hours_recorded": 80.1
+}
