@@ -9,6 +9,7 @@ dataset version:
   here have no polls.
 - `coin_of`: the mapping, an object from key to coin. Distinct keys map to distinct coins.
 - `margin`: the source's margin in milliseconds, added to an item's earliest observation to give its knownAt.
+- `version`: the dataset version V. Every observation and poll is at or before it.
 
 All times are integer milliseconds. The expected output is the list of `[coin, tau, count]` rows,
 one per covered hour, in any order.

@@ -61,6 +61,8 @@ MUTANTS = {
     "C5 derivation counts future items": ("pytest -q ingest/tests/test_events.py", [
         (EVENTS, 'counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")',
          'counts = np.searchsorted(k, hours + HOUR, side="right") - np.searchsorted(k, hours, side="right")')]),
+    "C5 coverage reads a later poll": ("pytest -q ingest/tests/test_derived.py -k later", [
+        (EVENTS, 'np.searchsorted(p, b, side="right") - 1', 'np.searchsorted(p, b + GAP, side="right") - 1')]),
     "C5 as_of returns the latest content": ("pytest -q ingest/tests/test_store.py", [
         (STORE, '.filter(pl.col("knownAt") <= t))', ')')]),
     "C5 tombstones dropped": ("pytest -q ingest/tests/test_store.py", [

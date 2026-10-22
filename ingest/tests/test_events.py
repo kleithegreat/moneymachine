@@ -26,29 +26,39 @@ def iso(t):
     return datetime.fromtimestamp(t / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def poll(t, items=()):
+    return {"source": "discourse", "key": "delvingbitcoin.org", "sent": t, "recv": t,
+            "data": [{"id": i, "created_at": iso(c), "updated_at": iso(c), "version": 1} for i, c in items]}
+
+
+def every_5_min(start, end, skip=()):
+    return [poll(t) for t in range(start, end + 1, 300_000) if not any(a <= t < b for a, b in skip)]
+
+
 def test_counts_are_prospective_with_the_margin(tmp_path):
     posts = [(1, 10 * H + 5), (2, 10 * H + 1_000_000)]
-    live = [{"source": "discourse", "key": "delvingbitcoin.org", "sent": 90 * H, "recv": 90 * H,
-             "data": [{"id": 4, "created_at": iso(89 * H + 1), "updated_at": iso(89 * H + 1), "version": 1}]},
-            {"source": "discourse", "key": "delvingbitcoin.org", "sent": 95 * H + 7, "recv": 95 * H + 7,
-             "data": [{"id": 6, "created_at": iso(95 * H), "updated_at": iso(95 * H), "version": 1}]},
-            {"source": "discourse", "key": "delvingbitcoin.org", "sent": 97 * H - 30_000, "recv": 97 * H - 30_000,
-             "data": [{"id": 7, "created_at": iso(96 * H), "updated_at": iso(96 * H), "version": 1}]},
-            {"source": "discourse", "key": "delvingbitcoin.org", "sent": 120 * H, "recv": 120 * H, "data": []}]
+    live = every_5_min(90 * H, 120 * H) + [poll(90 * H, [(4, 89 * H + 1)]), poll(95 * H + 7, [(6, 95 * H)]),
+                                           poll(97 * H - 30_000, [(7, 96 * H)])]
     root, live_dir = setup(tmp_path, posts, live)
     df = events.derive(root, 120 * H, live_dir)
     p = dict(df.select("eventTime", "count").iter_rows())
-    assert df["eventTime"].min() == 91 * H and df["eventTime"].max() == 120 * H
+    assert df["eventTime"].min() == 92 * H and df["eventTime"].max() == 120 * H and df.height == 29
     assert p[96 * H] == 1 and p[97 * H] == 0 and p[98 * H] == 1 and df["count"].sum() == 2
     assert events.derive(root, 120 * H, live_dir).equals(df)
+
+
+def test_hours_a_recording_gap_touches_are_undefined(tmp_path):
+    live = every_5_min(90 * H, 110 * H, skip=[(100 * H + 1, 100 * H + 40 * 60_000)])
+    root, live_dir = setup(tmp_path, [(1, 10 * H)], live)
+    hours = set(events.derive(root, 110 * H, live_dir)["eventTime"])
+    assert {100 * H, 102 * H} <= hours and 101 * H not in hours
 
 
 def test_stored_derivation_recomputes_byte_identically(tmp_path):
     """C5.2: the derived dataset in the store is reproduced exactly from the raw store and recordings."""
     from ingest.store import _hash, stores
 
-    live = [{"source": "discourse", "key": "delvingbitcoin.org", "sent": t * H, "recv": t * H,
-             "data": [{"id": 9, "created_at": iso(30 * H + 7), "updated_at": iso(30 * H + 7), "version": 1}]} for t in (20, 40)]
+    live = every_5_min(20 * H, 40 * H) + [poll(t * H, [(9, 30 * H + 7)]) for t in (31, 40)]
     root, live_dir = setup(tmp_path, [(1, 10 * H + 5), (2, 33 * H)], live)
     events.main(root, 100 * H, live_dir)
     stored = stores(root)[0].revisions("events_forum").sort("eventTime")

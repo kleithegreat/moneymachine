@@ -15,6 +15,7 @@ from ingest.sources_avail import polls
 from ingest.store import Store, live, stores, write_split
 
 VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
+GAP = 600_000
 SOURCES = {
     "discourse": {"dataset": "events_forum", "map": VENUE / "discourse_map.json", "key": "forum", "margin": 60_000},
     "snapshot": {"dataset": "events_governance", "map": VENUE / "snapshot_map.json", "key": "space", "margin": 0},
@@ -50,18 +51,28 @@ def items(obs):
     return first
 
 
-def counts(obs, polled, coin_of, margin):
-    """[(coin, hour, count)] over each covered key's hours: items created since the key's first poll, each known
-    `margin` ms after its earliest observation."""
+def covered(times, margin, version):
+    """The hours τ <= version whose witness window [τ - HOUR - margin, τ - margin] the polls cover: every
+    instant in it has a poll within the last GAP ms, at or before it."""
+    p = np.unique(np.array(times, dtype=np.int64))
+    hours = np.arange(-(-(p[0] + HOUR + margin) // HOUR) * HOUR, version // HOUR * HOUR + 1, HOUR)
+    a, b = hours - HOUR - margin, hours - margin
+    ia, ib = np.searchsorted(p, a, side="right") - 1, np.searchsorted(p, b, side="right") - 1
+    gaps = np.concatenate([[0], np.cumsum(np.diff(p) > GAP)])
+    return hours[(b - p[ib] < GAP) & (gaps[ib] == gaps[ia])]
+
+
+def counts(obs, polled, coin_of, margin, version):
+    """[(coin, hour, count)] over each mapped key's covered hours: items created since the key's first poll, each
+    known `margin` ms after its earliest observation."""
     first = items(obs)
-    ceil = lambda t: -(-t // HOUR) * HOUR
     out = []
     for key, times in sorted(polled.items()):
         if key not in coin_of:
             continue
         s = min(times)
         k = np.sort(np.array([w + margin for (fk, _), (c, w) in first.items() if fk == key and c >= s], dtype=np.int64))
-        hours = np.arange(ceil(s) + HOUR, max(times) // HOUR * HOUR + 1, HOUR)
+        hours = covered(times, margin, version)
         counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")
         out += [(coin_of[key], int(h), int(n)) for h, n in zip(hours, counts)]
     return out
@@ -73,7 +84,7 @@ def derive(data_root, version, live_dir, source="discourse"):
     code = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     map_hash = hashlib.sha256(spec["map"].read_bytes()).hexdigest()
     obs, polled = records(data_root, live_dir, source, version)
-    rows = counts(obs, polled, coin_of, spec["margin"])
+    rows = counts(obs, polled, coin_of, spec["margin"], version)
     return pl.DataFrame([{"coin": c, "eventTime": h, "count": float(n), "code_sha256": code,
                           "map_sha256": map_hash} for c, h, n in rows])
 
