@@ -1,0 +1,31 @@
+{
+ "manifest_sha256": "20d9a894b5e7cf95f251753dcc50369efb28caa993dd83db32014e090a972187",
+ "programs": 1186,
+ "verdict_disagreements": [],
+ "verdict_codes": {
+  "ok": 1125,
+  "E_UNIT": 10,
+  "E_BOOL": 3,
+  "E_DIMENSIONLESS": 8,
+  "E_UNKNOWN_OP": 4,
+  "E_WINDOW": 10,
+  "E_UNKNOWN_INPUT": 4,
+  "E_REF": 6,
+  "E_PARSE": 14,
+  "E_SIZE": 2
+ },
+ "runs": 3179,
+ "run_disagreements": [],
+ "coverage": {
+  "equity": 10305544,
+  "hold": 4596290,
+  "decision": 42639945,
+  "fill": 42625979,
+  "funding": 351326683,
+  "unfilled": 133,
+  "delisting": 38,
+  "abort R_INPUT_UNAVAILABLE": 3,
+  "liquidation": 4
+ },
+ "pass": true
+}
