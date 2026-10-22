@@ -356,3 +356,22 @@ fn rewritten_programs_share_a_key() {
     }
     assert!(failures.len() <= 10, "{} of 1000 rewritten programs got a different key", failures.len());
 }
+
+/// C6.4's corpus from this generator: `C64_N` programs (both sides of rule instances, rules in turn)
+/// from seed `C64_SEED`, one JSON per line, to the file `C64_CORPUS`. Run with `--ignored`.
+#[test]
+#[ignore]
+fn emit_c64_corpus() {
+    let var = |k: &str| std::env::var(k).unwrap_or_else(|_| panic!("{k} is not set"));
+    let mut rng = Rng(var("C64_SEED").parse().unwrap());
+    let mut out = String::new();
+    for i in 0..var("C64_N").parse::<usize>().unwrap() / 2 {
+        let (lhs, rhs, is_bool) = instance(RULES[i % RULES.len()], &mut rng);
+        let seed = rng.next();
+        for side in [lhs, rhs] {
+            out += &program(side, &mut Rng(seed), is_bool);
+            out.push('\n');
+        }
+    }
+    std::fs::write(var("C64_CORPUS"), out).unwrap();
+}

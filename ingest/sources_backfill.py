@@ -1,8 +1,8 @@
 """Stage 5: backfill Discourse post metadata (no text) from W's start, as immutable revisions.
 
 Rows are keyed by (forum, upstream_id). eventTime holds the server-set created time (the claim),
-and a revision is known when fetched (our witness). Admissible availability times are derived from
-both later (venue/sources/derived.md). Each forum's fetch is complete back to START, so a post it no
+and a revision is known when fetched (our witness). No claimed time is admitted: the derivation
+(venue/sources/derived.md) reads a revision only as our observation at fetchedAt. Each forum's fetch is complete back to START, so a post it no
 longer lists becomes a tombstone.
 """
 

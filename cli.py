@@ -78,6 +78,8 @@ COMMANDS = {
     "agent-null": ("gate.agent.campaigns", "run_series", ["name", "n:int"], "agent or swarm null campaigns (paced, resumable)"),
     "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),
     "agent-summary": ("gate.agent.campaigns", "summary", ["name", "out"], "an agent or swarm null series beside its baseline"),
+    "c64-freeze": ("reference.c64", "freeze", ["seed", "n?"], "freeze C6.4's differential corpus and manifest, once"),
+    "c64-run": ("reference.c64", "run", ["out", "workers?"], "C6.4's judged run of mm against refmm on the frozen corpus"),
     "mutants": ("cli", "mutants", [], "apply each mutant to a copy of the tree; its named test must fail"),
     "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
     "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),
