@@ -89,7 +89,7 @@ impl Spec {
             rules_hash: String::new(),
             execution_hash: String::new(),
         };
-        (market, venue, Policy { delta: DELTA, w_start: 0, holdout_start: i64::MAX, w_end: end }, end)
+        (market, venue, Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: end }, end)
     }
 
     fn run(&self, weight: &str) -> Result<sim::Run, sim::Abort> {

@@ -9,23 +9,15 @@ import polars as pl
 
 from ingest import checks
 from ingest.hl import Info
-from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START
+from ingest.policy import BAR, HOLDOUT_START, HOUR, W_END, W_START
 from ingest.store import stores, write_split
-
-SETTLEMENT_LATENCY = 60_000
-
-
-def funding_known(reported):
-    """The hour + DELTA, unless the venue stamped the settlement late (C0.3, revised)."""
-    return max(reported // HOUR * HOUR + DELTA, reported + SETTLEMENT_LATENCY)
-
 
 def funding_frame(rows):
     return pl.DataFrame(
-        [{"coin": r["coin"], "eventTime": r["time"] // HOUR * HOUR, "knownAt": funding_known(r["time"]),
+        [{"coin": r["coin"], "eventTime": r["time"] // HOUR * HOUR,
           "fundingRate": float(r["fundingRate"]), "premium": float(r["premium"]), "reportedTime": r["time"]}
          for r in rows],
-        schema={"coin": pl.Utf8, "eventTime": pl.Int64, "knownAt": pl.Int64, "fundingRate": pl.Float64,
+        schema={"coin": pl.Utf8, "eventTime": pl.Int64, "fundingRate": pl.Float64,
                 "premium": pl.Float64, "reportedTime": pl.Int64},
     )
 
@@ -33,11 +25,11 @@ def funding_frame(rows):
 def bar_frame(rows, fetched_at):
     closed = [c for c in rows if c["t"] + BAR <= fetched_at]
     return pl.DataFrame(
-        [{"coin": c["s"], "eventTime": c["t"] + BAR, "knownAt": c["t"] + BAR + DELTA, "openTime": c["t"],
+        [{"coin": c["s"], "eventTime": c["t"] + BAR, "openTime": c["t"],
           "open": float(c["o"]), "high": float(c["h"]), "low": float(c["l"]), "close": float(c["c"]),
           "volume": float(c["v"]), "trades": int(c["n"])}
          for c in closed],
-        schema={"coin": pl.Utf8, "eventTime": pl.Int64, "knownAt": pl.Int64, "openTime": pl.Int64,
+        schema={"coin": pl.Utf8, "eventTime": pl.Int64, "openTime": pl.Int64,
                 "open": pl.Float64, "high": pl.Float64, "low": pl.Float64, "close": pl.Float64,
                 "volume": pl.Float64, "trades": pl.Int64},
     )

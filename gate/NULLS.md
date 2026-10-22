@@ -3,8 +3,8 @@
 Synthetic markets use the kernel's store format (`gate/synth.py`): 12 coins `S0..S11`, W's
 timeline (`policy.json`), and every bar with `trades = 100`. There are no delistings. The fee is
 the production taker fee, and every coin gets, per cost cell, the median over U of the C0.7
-cell. Times are those of the stage 0 store: bars at k · 4h, funding at every hour, both
-knownAt = eventTime + δ.
+cell. Times are those of the stage 0 store: bars at k · 4h, funding at every hour and reported on
+the hour, so both are known at eventTime + δ by the policy's rule.
 
 ## Kernel accounting this must match
 

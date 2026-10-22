@@ -102,7 +102,7 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
         rules_hash: String::new(),
         execution_hash: String::new(),
     };
-    (m, v, Policy { delta: DELTA, w_start: 0, holdout_start: i64::MAX, w_end: end }, end)
+    (m, v, Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: end }, end)
 }
 
 fn c(x: f64) -> Value {

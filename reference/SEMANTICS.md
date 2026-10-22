@@ -74,7 +74,10 @@ reported.
   (coin, openTime, eventTime = openTime + BAR, knownAt, open, high, low, close, volume, trades), or
   an event count (input, coin, eventTime, knownAt, count). The store resolves revisions before a
   run [market.rs `resolve`]: per (dataset, coin, eventTime), the revision with the largest fetchedAt ≤
-  the version, with that revision's knownAt. A run receives exactly one row per key; earlier
+  the version. Its knownAt is computed from its observed fields by the policy's rule [market.rs
+  `known`]: a funding row at max(reportedTime floored to the hour + δ, reportedTime +
+  `settlement_latency_ms`), a bar at eventTime + δ, an event count at eventTime. A stored knownAt
+  is never read. A run receives exactly one row per key; earlier
   revisions are never delivered. The adapter supplies the rows; an admissible market has unique keys,
   bars with eventTime = openTime + BAR, and coin and slot indices within range.
 - **Delivery order.** Each stream is sorted by (knownAt, coin, eventTime): funding, bars, then each

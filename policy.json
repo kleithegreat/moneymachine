@@ -1,5 +1,6 @@
 {
  "delta_ms": 120000,
+ "settlement_latency_ms": 60000,
  "w_start": 1727654400000,
  "holdout_start": 1775174400000,
  "w_end": 1790726400000

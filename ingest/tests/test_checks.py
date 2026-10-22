@@ -3,7 +3,7 @@ import polars as pl
 from ingest import checks
 from ingest.backfill import bar_frame, funding_frame
 from ingest.policy import BAR, DELTA, HOUR
-from ingest.store import Store
+from ingest.store import Store, known_at
 
 
 
@@ -48,5 +48,5 @@ def test_replay_view_matches_keys(tmp_path):
 
 def test_late_settlement_delays_known_at():
     on_time, late = funding_frame([{"coin": "A", "time": 5 * HOUR + 48, "fundingRate": "0", "premium": "0"},
-                                   {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}])["knownAt"]
+                                   {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}]).select(known_at("funding")).to_series()
     assert on_time == 5 * HOUR + DELTA and late == 6 * HOUR + 887_645 + 60_000

@@ -75,7 +75,7 @@ def replay_completeness(funding, bars, intervals, view=None):
     """(B, coin) pairs whose view at B + DELTA lacks the funding at B or the bar ending at B.
 
     view(dataset, t) -> {coin: latest eventTime known at t}. With view=None it is derived
-    from keys and knownAt alone, which is how the holdout is checked at ingestion.
+    from keys alone, which is how the holdout is checked at ingestion.
     """
     def from_keys(df):
         return {c: set(g["eventTime"]) for (c,), g in df.group_by("coin")}

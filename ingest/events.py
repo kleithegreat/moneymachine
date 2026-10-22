@@ -74,7 +74,7 @@ def derive(data_root, version, live_dir, source="discourse"):
     map_hash = hashlib.sha256(spec["map"].read_bytes()).hexdigest()
     obs, polled = records(data_root, live_dir, source, version)
     rows = counts(obs, polled, coin_of, spec["margin"])
-    return pl.DataFrame([{"coin": c, "eventTime": h, "knownAt": h, "count": float(n), "code_sha256": code,
+    return pl.DataFrame([{"coin": c, "eventTime": h, "count": float(n), "code_sha256": code,
                           "map_sha256": map_hash} for c, h, n in rows])
 
 

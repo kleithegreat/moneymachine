@@ -16,12 +16,13 @@ for the item weight after it).
 | `l2Book` | execution calibration (recorder) | 2 | none | snapshot only; 20 levels per side |
 
 Field semantics:
-- `fundingHistory.time` is the settlement stamp, a few ms after the hour. Stored
-  eventTime is the hour, knownAt = hour + 120 s. `fundingRate` is per hour, and
+- `fundingHistory.time` is the settlement stamp, usually a few ms after the hour, sometimes
+  minutes late. Stored eventTime is the hour and reportedTime the stamp; the store computes
+  knownAt = max(hour + 120 s, reportedTime + 60 s) (`ingest.store.known_at`). `fundingRate` is per hour, and
   positive means longs pay shorts ([funding](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding)).
 - `candleSnapshot` `t`/`T` are the bar's open and close (ms, `T = t + interval - 1`). The
-  last bar returned may be unclosed. Stored eventTime is `t + interval`, and only bars
-  with `t + interval <= fetchedAt` are stored.
+  last bar returned may be unclosed. Stored eventTime is `t + interval`, known 120 s later, and
+  only bars with `t + interval <= fetchedAt` are stored.
 - Delisted coins: `fundingHistory` keeps their history. `candleSnapshot` coverage
   varies (MATIC and RNDR have no 4h bars after 2024-09-30, while FTM and MKR do).
 

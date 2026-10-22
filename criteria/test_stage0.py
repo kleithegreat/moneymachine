@@ -46,9 +46,10 @@ def test_c04_second_version_at_least_24h_later():
 
 
 def test_c05_replay_completeness():
+    """The as_of view is recomputed under C0.4's amendment of 2026-10-22."""
     report = judged_ingest()[-1]
-    for view in ("replay_from_keys", "replay_search_as_of"):
-        assert report[view]["fraction_ok"] >= 0.99, view
+    assert report["replay_from_keys"]["fraction_ok"] >= 0.99
+    assert load(f"stage0/replay-as-of-amended-{report['version']}.json")["replay_search_as_of"]["fraction_ok"] >= 0.99
 
 
 def test_c07_execution_model():

@@ -65,7 +65,7 @@ fn missing_dataset_is_input_unavailable() {
     let venue = mm::market::Venue { taker_fee: 0.0, min_notional: 10.0, coins: vec!["X".into()],
         rules: vec![mm::market::CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[0.0; 2]; 2], calibration_range: None }],
         rules_hash: String::new(), execution_hash: String::new() };
-    let policy = mm::market::Policy { delta: DELTA, w_start: 0, holdout_start: i64::MAX, w_end: 100 * HOUR };
+    let policy = mm::market::Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: 100 * HOUR };
     match mm::sim::run(&p, &market, &venue, &policy, 100 * HOUR) {
         Err(e) => assert_eq!(e.code(), "R_INPUT_UNAVAILABLE"),
         Ok(_) => panic!("a program needing an absent dataset ran"),

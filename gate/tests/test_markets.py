@@ -98,9 +98,9 @@ def test_store_events_reads_the_search_part_on_common_coverage(tmp_path):
     from ingest.store import stores, write_split
 
     hours = list(range(HOLDOUT_START - 10 * H, HOLDOUT_START + 5 * H, H))
-    rows = [(c, t, t, float(i + 10 * (c == "AAVE"))) for c in ("BTC", "AAVE") for i, t in enumerate(hours)
+    rows = [(c, t, float(i + 10 * (c == "AAVE"))) for c in ("BTC", "AAVE") for i, t in enumerate(hours)
             if not (c == "AAVE" and t < HOLDOUT_START - 6 * H)]
-    df = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "knownAt": pl.Int64, "count": pl.Float64}, orient="row")
+    df = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "count": pl.Float64}, orient="row")
     search, holdout = stores(tmp_path)
     write_split(search, holdout, "events_forum", df, 5, "t")
     spec = markets.store_events(str(tmp_path / "store"), 5, ("BTC", "ETH", "AAVE"))

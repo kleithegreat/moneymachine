@@ -1,8 +1,9 @@
 //! Market data for one run: the store resolved at a dataset version, plus venue files.
 //!
 //! Resolution matches `ingest/store.py`: per (coin, eventTime) key, the revision with the
-//! largest fetchedAt <= version. In search mode any row with eventTime >= holdout start
-//! aborts the load (I8), whichever file it came from.
+//! largest fetchedAt <= version, known at the time `known` computes from its observed fields (a
+//! stored knownAt is never read). In search mode any row with eventTime >= holdout start aborts
+//! the load (I8), whichever file it came from.
 
 use crate::dsl::EVENT_INPUTS;
 use parquet::file::reader::{FileReader, SerializedFileReader};
@@ -19,6 +20,7 @@ pub const BAR: i64 = 4 * HOUR;
 #[derive(Debug)]
 pub struct Policy {
     pub delta: i64,
+    pub settlement_latency: i64,
     pub w_start: i64,
     pub holdout_start: i64,
     pub w_end: i64,
@@ -115,7 +117,7 @@ fn json(path: &Path) -> Result<(Value, String), LoadError> {
 pub fn policy(path: &Path) -> Result<Policy, LoadError> {
     let (v, _) = json(path)?;
     let get = |k: &str| v[k].as_i64().ok_or_else(|| io(format!("policy.json: missing {k}")));
-    Ok(Policy { delta: get("delta_ms")?, w_start: get("w_start")?, holdout_start: get("holdout_start")?, w_end: get("w_end")? })
+    Ok(Policy { delta: get("delta_ms")?, settlement_latency: get("settlement_latency_ms")?, w_start: get("w_start")?, holdout_start: get("holdout_start")?, w_end: get("w_end")? })
 }
 
 pub fn venue(dir: &Path) -> Result<Venue, LoadError> {
@@ -207,6 +209,18 @@ fn text<'a>(r: &'a Row, k: &str) -> Result<&'a str, LoadError> {
     }
 }
 
+/// A revision's knownAt from its observed fields, by the policy's rule (`known_at` in `ingest/store.py`).
+fn known(dataset: &str, r: &Row, policy: &Policy) -> Result<i64, LoadError> {
+    Ok(match dataset {
+        "funding" => {
+            let reported = long(r, "reportedTime")?;
+            (reported.div_euclid(HOUR) * HOUR + policy.delta).max(reported + policy.settlement_latency)
+        }
+        "bars_4h" => long(r, "eventTime")? + policy.delta,
+        _ => long(r, "eventTime")?,
+    })
+}
+
 /// Latest revision per key, in deterministic (coin, eventTime) order.
 fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>) -> Result<Vec<Row>, LoadError> {
     let mut best: HashMap<(usize, i64), (i64, Row)> = HashMap::new();
@@ -254,7 +268,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
         }
         let mut v = vec![];
         for r in resolve(rows(ds, false)?, &coin_ix, holdout)? {
-            v.push(Event { coin: coin_ix[text(&r, "coin")?], event: long(&r, "eventTime")?, known: long(&r, "knownAt")?, count: double(&r, "count")? });
+            v.push(Event { coin: coin_ix[text(&r, "coin")?], event: long(&r, "eventTime")?, known: known(ds, &r, policy)?, count: double(&r, "count")? });
         }
         events.insert(ds, v);
     }
@@ -263,7 +277,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
         funding.push(Funding {
             coin: coin_ix[text(r, "coin")?],
             event: long(r, "eventTime")?,
-            known: long(r, "knownAt")?,
+            known: known("funding", r, policy)?,
             rate: double(r, "fundingRate")?,
             premium: double(r, "premium")?,
         });
@@ -274,7 +288,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
             coin: coin_ix[text(r, "coin")?],
             open_time: long(r, "openTime")?,
             event: long(r, "eventTime")?,
-            known: long(r, "knownAt")?,
+            known: known("bars_4h", r, policy)?,
             open: double(r, "open")?,
             high: double(r, "high")?,
             low: double(r, "low")?,

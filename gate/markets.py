@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from ingest.policy import BAR, DAY, DELTA, HOLDOUT_START, HOUR, W_START
+from ingest.policy import BAR, DAY, HOLDOUT_START, HOUR, POLICY, W_START
 from ingest.store import Store, write_split
 
 CAP = 0.04
@@ -191,7 +191,6 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
     bars = pl.DataFrame({
         "coin": np.repeat(names, n),
         "eventTime": np.tile((k + 1) * BAR, coins),
-        "knownAt": np.tile((k + 1) * BAR + DELTA, coins),
         "openTime": np.tile(k * BAR, coins),
         **{col: arrays[col].T.reshape(-1) for col in ("open", "high", "low", "close", "volume")},
         "trades": np.full(n * coins, 100),
@@ -200,7 +199,6 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
     funding = pl.DataFrame({
         "coin": np.repeat(names, hours),
         "eventTime": np.tile(h * HOUR, coins),
-        "knownAt": np.tile(h * HOUR + DELTA, coins),
         "fundingRate": arrays["funding"].T.reshape(-1),
         "premium": arrays["premium"].T.reshape(-1),
         "reportedTime": np.tile(h * HOUR, coins),
@@ -214,7 +212,6 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
         ev = arrays["forum_posts"]
         rows = [(names[c], int(t * HOUR), float(ev[t, c])) for c in range(coins) for t in range(hours) if not np.isnan(ev[t, c])]
         events = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "count": pl.Float64}, orient="row")
-        events = events.with_columns(pl.col("eventTime").alias("knownAt")).select("coin", "eventTime", "knownAt", "count")
         write_split(search, holdout, "events_forum", events, fetched_at, "synthetic", holdout_start)
     venue = root / "venue"
     venue.mkdir(parents=True, exist_ok=True)
@@ -223,8 +220,7 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
                            "delisted": False} for c in names}}
     (venue / "rules.json").write_text(json.dumps(rules))
     (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: cost_cells for c in names}}))
-    (root / "store" / "policy.json").write_text(json.dumps(
-        {"delta_ms": DELTA, "w_start": 0, "holdout_start": holdout_start, "w_end": w_end}))
+    (root / "store" / "policy.json").write_text(json.dumps(POLICY | {"w_start": 0, "holdout_start": holdout_start, "w_end": w_end}))
     return root
 
 

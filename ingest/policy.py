@@ -8,6 +8,7 @@ HOUR = 3_600_000
 DAY = 24 * HOUR
 BAR = 4 * HOUR
 DELTA = POLICY["delta_ms"]
+SETTLEMENT_LATENCY = POLICY["settlement_latency_ms"]
 W_START = POLICY["w_start"]
 HOLDOUT_START = POLICY["holdout_start"]
 W_END = POLICY["w_end"]
