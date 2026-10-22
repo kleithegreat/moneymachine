@@ -1,4 +1,4 @@
-"""Stage 5 derivation: hourly counts by knownAt, admissibility switch, coverage, and recompute."""
+"""Stage 5 derivation: hourly counts by knownAt (prospective, with the source's margin), coverage, and recompute."""
 
 import json
 
@@ -26,38 +26,33 @@ def iso(t):
     return datetime.fromtimestamp(t / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def test_counts_follow_admissibility(tmp_path, monkeypatch):
-    monkeypatch.setattr("ingest.sources_backfill.START", 0)
-    posts = [(1, 10 * H + 5), (2, 10 * H + 1_000_000), (3, 11 * H + 10), (5, 13 * H - 300_000)]
+def test_counts_are_prospective_with_the_margin(tmp_path):
+    posts = [(1, 10 * H + 5), (2, 10 * H + 1_000_000)]
     live = [{"source": "discourse", "key": "delvingbitcoin.org", "sent": 90 * H, "recv": 90 * H,
              "data": [{"id": 4, "created_at": iso(89 * H + 1), "updated_at": iso(89 * H + 1), "version": 1}]},
             {"source": "discourse", "key": "delvingbitcoin.org", "sent": 95 * H + 7, "recv": 95 * H + 7,
              "data": [{"id": 6, "created_at": iso(95 * H), "updated_at": iso(95 * H), "version": 1}]},
+            {"source": "discourse", "key": "delvingbitcoin.org", "sent": 97 * H - 30_000, "recv": 97 * H - 30_000,
+             "data": [{"id": 7, "created_at": iso(96 * H), "updated_at": iso(96 * H), "version": 1}]},
             {"source": "discourse", "key": "delvingbitcoin.org", "sent": 120 * H, "recv": 120 * H, "data": []}]
     root, live_dir = setup(tmp_path, posts, live)
-    admitted = events.derive(root, 120 * H, live_dir, True)
-    by_hour = dict(admitted.select("eventTime", "count").iter_rows())
-    assert by_hour[11 * H] == 2 and by_hour[12 * H] == 1 and by_hour[13 * H] == 0 and by_hour[14 * H] == 1
-    assert by_hour[10 * H] == 0 and by_hour[90 * H] == 1 and by_hour[96 * H] == 1
-    assert admitted["eventTime"].min() == H
-    prospective = events.derive(root, 120 * H, live_dir, False)
-    assert prospective["eventTime"].min() == 91 * H
-    p = dict(prospective.select("eventTime", "count").iter_rows())
-    assert prospective["eventTime"].max() == 120 * H and prospective["count"].sum() == 1 and p[96 * H] == 1
-    assert events.derive(root, 120 * H, live_dir, True).equals(admitted)
+    df = events.derive(root, 120 * H, live_dir)
+    p = dict(df.select("eventTime", "count").iter_rows())
+    assert df["eventTime"].min() == 91 * H and df["eventTime"].max() == 120 * H
+    assert p[96 * H] == 1 and p[97 * H] == 0 and p[98 * H] == 1 and df["count"].sum() == 2
+    assert events.derive(root, 120 * H, live_dir).equals(df)
 
 
-def test_stored_derivation_recomputes_byte_identically(tmp_path, monkeypatch):
+def test_stored_derivation_recomputes_byte_identically(tmp_path):
     """C5.2: the derived dataset in the store is reproduced exactly from the raw store and recordings."""
     from ingest.store import _hash, stores
 
-    monkeypatch.setattr("ingest.sources_backfill.START", 0)
     live = [{"source": "discourse", "key": "delvingbitcoin.org", "sent": t * H, "recv": t * H,
              "data": [{"id": 9, "created_at": iso(30 * H + 7), "updated_at": iso(30 * H + 7), "version": 1}]} for t in (20, 40)]
     root, live_dir = setup(tmp_path, [(1, 10 * H + 5), (2, 33 * H)], live)
-    events.main(root, 100 * H, live_dir, True)
+    events.main(root, 100 * H, live_dir)
     stored = stores(root)[0].revisions("events_forum").sort("eventTime")
-    again = events.derive(root, 100 * H, live_dir, True)
-    assert again["count"].sum() == 3
+    again = events.derive(root, 100 * H, live_dir)
+    assert again["count"].sum() == 1
     assert stored.height == again.height > 0
     assert stored["hash"].to_list() == [_hash(r) for r in again.sort("eventTime").iter_rows(named=True)]

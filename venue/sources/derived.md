@@ -16,10 +16,9 @@ Only observations and polls at or before V count.
 An item is a (key, id) pair. Its claimed creation time `created` is the one carried by its earliest
 observation (ties: the smallest claim), and its witness `w` is the time of that observation.
 
-- **Admitted** (Discourse after passing C5.3; Snapshot never, since its creation time is
-  client-claimed): knownAt = `created` + 600 000.
-- **Prospective** (everything else): only items with `created` ≥ the key's first poll count (older
-  items are not new events), and knownAt = `w`.
+Both sources are prospective (stage 5 amendment of 2026-10-22). Only items with `created` ≥ the key's first
+poll count, since older items are not new events. An item's knownAt is `w` plus the source's margin:
+60 000 for Discourse and 0 for Snapshot.
 
 ## Coverage
 
@@ -27,11 +26,10 @@ A key has coverage only if it has at least one poll and maps to a coin of U
 (`discourse_map.json`, `snapshot_map.json`). With s its first poll and L its last, the hours
 counted are every τ on the hour grid (multiples of 3 600 000) with
 
-    ceil_hour(a) + 3 600 000 ≤ τ ≤ floor_hour(L)
+    ceil_hour(s) + 3 600 000 ≤ τ ≤ floor_hour(L)
 
-where a is s, or the backfill's start (2024-08-31T00:00Z, 1725062400000) when admitted.
 `ceil_hour` and `floor_hour` round to the grid, leaving exact multiples unchanged. The first hour
-lies wholly after a, so items that existed before it are not read as new. The last hour ends at
+lies wholly after s, so items that existed before it are not read as new. The last hour ends at
 or before the last poll, so a recording gap at the end is not read as zero events.
 
 ## Count

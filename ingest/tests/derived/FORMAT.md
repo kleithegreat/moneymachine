@@ -8,8 +8,7 @@ dataset version:
 - `polls`: an object mapping key to its successful poll times, in no particular order. Keys absent
   here have no polls.
 - `coin_of`: the mapping, an object from key to coin. Distinct keys map to distinct coins.
-- `admitted`: whether the source's claimed creation times are admitted.
-- `start`: the backfill start used for admitted coverage.
+- `margin`: the source's margin in milliseconds, added to an item's earliest observation to give its knownAt.
 
 All times are integer milliseconds. The expected output is the list of `[coin, tau, count]` rows,
 one per covered hour, in any order.

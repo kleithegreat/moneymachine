@@ -17,14 +17,13 @@ def load(name):
 
 
 def ours(c):
-    return sorted(map(tuple, events.counts([tuple(o) for o in c["observations"]], c["polls"], c["coin_of"],
-                                           c["admitted"], c["start"])))
+    return sorted(map(tuple, events.counts([tuple(o) for o in c["observations"]], c["polls"], c["coin_of"], c["margin"])))
 
 
 def test_cases_exercise_the_boundaries():
     cs = load("gen").generate(2000, 55)
     rows = [r for c in cs for r in ours(c)]
-    assert sum(c["admitted"] for c in cs) > 800 and len(rows) > 20_000
+    assert sum(c["margin"] > 0 for c in cs) > 800 and len(rows) > 20_000
     assert sum(n > 0 for _, _, n in rows) > 2_000 and sum(n == 0 for _, _, n in rows) > 2_000
     assert any(not ours(c) and c["polls"] for c in cs)
 

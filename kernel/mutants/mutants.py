@@ -56,8 +56,8 @@ MUTANTS = {
         (SIM, "        if !(r >= -LOSS_BOUND) {", "        if false {")]),
     "I1 events delivered early": ("cd kernel && cargo test -q --release --test events counts_are_fresh_only_and_respect_known_at", [
         (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
-    "C5 derivation without the availability lag": ("pytest -q ingest/tests/test_events.py", [
-        (EVENTS, "RULE_MS = 600_000", "RULE_MS = 0")]),
+    "C5 derivation without the availability margin": ("pytest -q ingest/tests/test_events.py", [
+        (EVENTS, '"key": "forum", "margin": 60_000}', '"key": "forum", "margin": 0}')]),
     "C5 derivation counts future items": ("pytest -q ingest/tests/test_events.py", [
         (EVENTS, 'counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")',
          'counts = np.searchsorted(k, hours + HOUR, side="right") - np.searchsorted(k, hours, side="right")')]),

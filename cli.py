@@ -39,8 +39,8 @@ def mutants():
     module.main()
 
 
-# name: (module, function, arguments, help). An argument is "name", "name:int" or "name:admission"
-# (admitted or prospective, passed as a bool); a trailing "?" makes it optional.
+# name: (module, function, arguments, help). An argument is "name" or "name:int"; a trailing "?" makes it
+# optional.
 COMMANDS = {
     "universe": ("ingest.universe", "write", ["out"], "rank the stage 0 universe U into OUT"),
     "rules": ("ingest.rules", "write", ["data_root", "out"], "write the venue rules for U to OUT"),
@@ -58,9 +58,9 @@ COMMANDS = {
     "sources-availability": ("ingest.sources_avail", "analyze", ["live_dir"], "Discourse availability against its rule"),
     "sources-reconcile": ("ingest.sources_avail", "reconcile", ["data_root", "live_dir", "version:int"],
                           "a re-backfill against what was recorded live"),
-    "events": ("ingest.events", "main", ["data_root", "version:int", "live_dir", "admitted:admission", "source?"],
+    "events": ("ingest.events", "main", ["data_root", "version:int", "live_dir", "source?"],
                "derive hourly event counts per coin into the store"),
-    "sources-coverage": ("ingest.sources_coverage", "report", ["data_root", "version:int", "live_dir", "admitted:admission"],
+    "sources-coverage": ("ingest.sources_coverage", "report", ["data_root", "version:int", "live_dir"],
                          "per-coin event counts, coverage, gaps and classification"),
     "labels-sample": ("ingest.labels", "sample", ["source", "data_root", "out"], "draw items for blind labeling"),
     "labels-evaluate": ("ingest.labels", "evaluate", ["source", "sample_path", "labels_path"], "precision and recall of a mapping"),
@@ -84,7 +84,7 @@ COMMANDS = {
     "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),
 }
 
-TYPES = {"int": int, "admission": lambda s: {"admitted": True, "prospective": False}[s]}
+TYPES = {"int": int}
 
 
 def main(argv):

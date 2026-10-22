@@ -16,7 +16,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test is calibration v3 (human decision 2026-10-21): returns bounded below at B = 1 by kernel I10, a betting test, and GPT's locked suite, which it passed (Log). Calibrations v1 and v2.1 failed and stay recorded. After C0.7: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
-- **Stage 5:** C5.1, C5.2's store and recompute tests, and C5.5's independent derivation and mutants are done. C5.6's code is ready. C5.3 failed as written for Discourse (Blockers: a proposal awaits a human decision). The recorder keeps running until stage 5 exits. C5.4, `sources-backfill`/`sources-reconcile`, `events` and `sources-coverage` follow that decision.
+- **Stage 5:** C5.1, C5.2's store and recompute tests, and C5.5's independent derivation and mutants are done. Under the amendment of 2026-10-22, Discourse and Snapshot are both prospective only, and C5.6 is vacuous for both. GPT's independent derivation of the revised rule agrees (C5.5). The recorder keeps running until stage 5 exits. Next: `events data <version> data/sources_live`, `events … snapshot` and `sources-coverage data <version> data/sources_live` (C5.4), and C5.3's reported figures.
 
   Snapshot is prospective only (client-claimed time). Unlocks: blocked (see Blockers).
 - **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until it closes, 2026-10-21 07:40 UTC) and C0.7's `execution.json`:
@@ -422,6 +422,14 @@ Content is known no earlier than its last edit. A row with no admissible claimed
   - A strategy using an input absent from the dataset version is rejected with `R_INPUT_UNAVAILABLE`.
 - **C5.6 Calibration extended.** The null markets replay the real event series independently of ε. C2.1's regression and probes are extended to the new inputs and pass. The C2.4 complete-null rate for G400 on N2 is rerun with the new inputs available, over 300 markets, with an upper bound ≤ 0.05. Every strategy counts toward N, whatever inputs it uses.
 
+- *Amendment 2026-10-22, after C5.3 failed as written for Discourse (human decision; a labeled amendment, not a pass of the original).*
+  - **What failed** (`audit/stage5/sources-availability-full-recording.json`). The knownAt rule held for every observed item (36) and edit (12). But one NTP reading was −4.9 s, and realized poll gaps reached 200 min. A strict reading of "polls every 5 minutes" also fails on jitter alone: the median gap is 300.03 s.
+  - **The amendment.** Discourse is classified *prospective only*. Its claimed times are never admitted, and an item is known 60 s after its earliest observation (fetchedAt + 60 s). Snapshot is unaffected: prospective, known at its earliest observation.
+    - For prospective sources, C5.3's polling, clock and reconciliation figures are reported, not judged.
+    - C5.6 is vacuous for both sources: their counts lie in the forward holdout, so the search part has none to replay.
+    - The derivation keeps only the prospective rule (`venue/sources/derived.md`).
+  - **Why it cannot increase false discoveries.** No historical replay is admitted. A later knownAt, and items known only from our own observation, can only remove information a strategy could use.
+
 Exit when C5.1–C5.6 hold for every source classified historically replayable or prospective, and every blocked category is recorded under Blockers with what was tried.
 
 ### Stage 6: verified reference kernels
@@ -712,27 +720,6 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 ## Blockers
 
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
-
-- **Stage 5: C5.3 failed as written for Discourse (2026-10-22).**
-  - **What was read** (`audit/stage5/sources-availability-full-recording.json`, 80.1 h from 2026-10-19 10:26 UTC):
-    - The knownAt rule held for 100% of observed new items (36) and edit revisions (12), with at least 319 s of slack.
-    - One NTP exchange logged a host clock offset of −4.9 s (2026-10-20 02:18 to 02:32 UTC, 4 readings). The other 856 readings were under 1 s.
-    - Realized forum poll gaps reached 195 to 200 min in the 2026-10-19 network outage, and 10 to 25 min at other times.
-  - **The wall.** The recorder sleeps to a 300 s cycle. Realized gaps have a median of 300.03 s, and 51% exceed 300 s by milliseconds. Read as realized polling, "polls every 5 minutes or less" cannot be met by any recorder on a 5-minute cadence, even without outages. Read as a schedule, it is a relaxation chosen after the outage was seen.
-  - **Rejected amendment.** I drafted one that judged a fresh clock-clean 72 h segment and read the polling clause as the schedule. GPT's review showed it fails the standing rule:
-    - the schedule reading relaxes the criterion;
-    - a gap can hide transient items and overwritten edits, which never enter the denominator, so zero observed failures does not show compliance;
-    - choosing a clean segment is selection.
-
-    It was not adopted.
-  - **Proposed redesign (human decision).**
-    - Discourse is classified *prospective only*: no claimed time is admitted for history, and items are known from our own fetch.
-    - For prospective sources, knownAt = fetchedAt + 60 s. The margin covers the measured clock excursion and loop jitter. A later knownAt and no historical replay can only remove information, so this cannot increase false discoveries.
-    - C5.3's polling and clock figures are then reported, not judged, for prospective sources.
-    - C5.6 is vacuous for Discourse, because its counts all lie in the forward holdout.
-    - Snapshot is already prospective only.
-    - This is an amendment, and is labeled as one.
-  - **Blocks.** Stage 5's exit (C5.3, then C5.4's classification and report). Nothing else depends on it.
 
 - **Stage 0/1: two definitions of "the data at version V known at t" (2026-10-22).**
   - **What broke.** A dry C1.4 run on the second fetch (version 1792613363942, provisional cost table) failed. Equity first diverges by $1.99 after the 2025-07-27 12:00 UTC boundary, at the 20:00 step, and differs by up to $2.04 overall.

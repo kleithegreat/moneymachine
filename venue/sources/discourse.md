@@ -24,6 +24,8 @@ Timestamp classes: `created_at` and `updated_at` are server-set by Discourse. Im
 edits can rewrite them; the live reconciliation measures how often.
 
 knownAt rule, fixed 2026-10-19 before any live measurement: a post's existence is known at
-`created_at` + 600 s. Its content is known at `updated_at` + 600 s. The rule is admitted only if
-C5.3 validates it; otherwise a post is known at its earliest observation (`derived.md`). Raw
-revisions are known when fetched, and a post the backfill no longer lists becomes a tombstone.
+`created_at` + 600 s, and its content at `updated_at` + 600 s. C5.3 failed as written (a −4.9 s clock reading,
+and realized poll gaps). Under the stage 5 amendment of 2026-10-22, the claimed times are therefore never
+admitted. Discourse is prospective only, and a post is known 60 s after its earliest observation
+(`derived.md`). The claimed-time rule is still measured and reported. Raw revisions are known when fetched,
+and a post the backfill no longer lists becomes a tombstone.

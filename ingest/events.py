@@ -14,11 +14,10 @@ from ingest.policy import HOUR
 from ingest.sources_avail import polls
 from ingest.store import Store, live, stores, write_split
 
-RULE_MS = 600_000
 VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
 SOURCES = {
-    "discourse": {"dataset": "events_forum", "map": VENUE / "discourse_map.json", "key": "forum"},
-    "snapshot": {"dataset": "events_governance", "map": VENUE / "snapshot_map.json", "key": "space"},
+    "discourse": {"dataset": "events_forum", "map": VENUE / "discourse_map.json", "key": "forum", "margin": 60_000},
+    "snapshot": {"dataset": "events_governance", "map": VENUE / "snapshot_map.json", "key": "space", "margin": 0},
 }
 
 
@@ -51,8 +50,9 @@ def items(obs):
     return first
 
 
-def counts(obs, polled, coin_of, admitted, start):
-    """[(coin, hour, count)] over each covered key's hours."""
+def counts(obs, polled, coin_of, margin):
+    """[(coin, hour, count)] over each covered key's hours: items created since the key's first poll, each known
+    `margin` ms after its earliest observation."""
     first = items(obs)
     ceil = lambda t: -(-t // HOUR) * HOUR
     out = []
@@ -60,29 +60,26 @@ def counts(obs, polled, coin_of, admitted, start):
         if key not in coin_of:
             continue
         s = min(times)
-        k = np.sort(np.array([c + RULE_MS if admitted else w for (fk, _), (c, w) in first.items()
-                              if fk == key and (admitted or c >= s)], dtype=np.int64))
-        hours = np.arange(ceil(start if admitted else s) + HOUR, max(times) // HOUR * HOUR + 1, HOUR)
+        k = np.sort(np.array([w + margin for (fk, _), (c, w) in first.items() if fk == key and c >= s], dtype=np.int64))
+        hours = np.arange(ceil(s) + HOUR, max(times) // HOUR * HOUR + 1, HOUR)
         counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")
         out += [(coin_of[key], int(h), int(n)) for h, n in zip(hours, counts)]
     return out
 
 
-def derive(data_root, version, live_dir, admitted, source="discourse"):
-    from ingest.sources_backfill import START
-
+def derive(data_root, version, live_dir, source="discourse"):
     spec = SOURCES[source]
     coin_of = {r[spec["key"]]: r["coin"] for r in json.loads(spec["map"].read_text())["rows"]}
     code = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     map_hash = hashlib.sha256(spec["map"].read_bytes()).hexdigest()
     obs, polled = records(data_root, live_dir, source, version)
-    rows = counts(obs, polled, coin_of, admitted and source == "discourse", START)
+    rows = counts(obs, polled, coin_of, spec["margin"])
     return pl.DataFrame([{"coin": c, "eventTime": h, "knownAt": h, "count": float(n), "code_sha256": code,
                           "map_sha256": map_hash} for c, h, n in rows])
 
 
-def main(data_root, version, live_dir, admitted, source="discourse"):
-    df = derive(data_root, version, live_dir, admitted, source)
+def main(data_root, version, live_dir, source="discourse"):
+    df = derive(data_root, version, live_dir, source)
     search, holdout = stores(data_root)
     fetched_at = int(time.time() * 1000)
     written = write_split(search, holdout, SOURCES[source]["dataset"], df, fetched_at, f"derived:{source}")
