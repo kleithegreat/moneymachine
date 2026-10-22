@@ -1,24 +1,29 @@
 import Base
+import ./bin.bend as B
 
 # The concrete exact number type the Bend laws are stated over (FINDINGS.md, human decision of
-# 2026-10-21): integers with a sign bit, so +0 and -0 differ as in binary64, plus the infinities and NaN.
-# Every operation of the Lean model's NumOps is total here. L1, L4 and L5 are structural, so they hold
-# for this one instance; they are weaker than the Lean laws, which hold for every NumOps.
+# 2026-10-21): integers with a sign bit, so +0 and -0 differ as in binary64, plus the infinities and NaN,
+# with binary magnitudes (bin.bend). Every operation of the Lean model's NumOps is total here. L1, L4 and
+# L5 are structural, so they hold for this one instance; they are weaker than the Lean laws, which hold
+# for every NumOps.
 type Num is Data:
   NaN{}
-  Fin{neg: Bool, mag: Nat}
+  Fin{neg: Bool, mag: B.Bin}
   Inf{neg: Bool}
 
 type Z is Data:
-  Z{neg: Bool, mag: Nat}
+  Z{neg: Bool, mag: B.Bin}
 
 def zero() -> Num:
-  Fin{False{}, 0n}
+  Fin{False{}, B.BE{}}
 
 def one() -> Num:
-  Fin{False{}, 1n}
+  Fin{False{}, B.B1{B.BE{}}}
 
-def of_nat(n: Nat) -> Num:
+def of_nat(+n: Nat) -> Num:
+  Fin{False{}, B.of_nat(n)}
+
+def of_bin(+n: B.Bin) -> Num:
   Fin{False{}, n}
 
 def of_z(+z: Z) -> Num:
@@ -45,21 +50,21 @@ def abs(+x: Num) -> Num:
       Inf{False{}}
 
 # Signed magnitude sum: a - b when the signs differ.
-def diff(+a: Nat, +b: Nat) -> Num:
-  Bool.pick(Num, Nat.is_ge(a, b), Fin{False{}, Nat.sub(a, b)}, Fin{True{}, Nat.sub(b, a)})
+def diff(+a: B.Bin, +b: B.Bin) -> Num:
+  Bool.pick(Num, B.le(b, a), Fin{False{}, B.sub(a, b)}, Fin{True{}, B.sub(b, a)})
 
-def signed_sum(+an: Bool, +a: Nat, +bn: Bool, +b: Nat) -> Num:
+def signed_sum(+an: Bool, +a: B.Bin, +bn: Bool, +b: B.Bin) -> Num:
   match an:
     case False{}:
       match bn:
         case False{}:
-          Fin{False{}, Nat.add(a, b)}
+          Fin{False{}, B.add(a, b)}
         case True{}:
           diff(a, b)
     case True{}:
       match bn:
         case True{}:
-          Fin{True{}, Nat.add(a, b)}
+          Fin{True{}, B.add(a, b)}
         case False{}:
           diff(b, a)
 
@@ -98,15 +103,15 @@ def mul(+x: Num, +y: Num) -> Num:
         case Inf{yn}:
           Inf{Bool.xor(neg, yn)}
         case Fin{yn, ym}:
-          Bool.pick(Num, Nat.is_eq(ym, 0n), NaN{}, Inf{Bool.xor(neg, yn)})
+          Bool.pick(Num, B.is_zero(ym), NaN{}, Inf{Bool.xor(neg, yn)})
     case Fin{neg, mag}:
       match y:
         case NaN{}:
           NaN{}
         case Inf{yn}:
-          Bool.pick(Num, Nat.is_eq(mag, 0n), NaN{}, Inf{Bool.xor(neg, yn)})
+          Bool.pick(Num, B.is_zero(mag), NaN{}, Inf{Bool.xor(neg, yn)})
         case Fin{yn, ym}:
-          Fin{Bool.xor(neg, yn), Nat.mul(mag, ym)}
+          Fin{Bool.xor(neg, yn), B.mul(mag, ym)}
 
 # Truncating division; x/0 is NaN for x = 0 and a signed infinity otherwise; finite/inf is 0.
 def div(+x: Num, +y: Num) -> Num:
@@ -126,11 +131,11 @@ def div(+x: Num, +y: Num) -> Num:
         case NaN{}:
           NaN{}
         case Inf{yn}:
-          Fin{Bool.xor(neg, yn), 0n}
+          Fin{Bool.xor(neg, yn), B.BE{}}
         case Fin{yn, ym}:
-          Bool.pick(Num, Nat.is_eq(ym, 0n),
-            Bool.pick(Num, Nat.is_eq(mag, 0n), NaN{}, Inf{Bool.xor(neg, yn)}),
-            Fin{Bool.xor(neg, yn), Nat.div(mag, ym)})
+          Bool.pick(Num, B.is_zero(ym),
+            Bool.pick(Num, B.is_zero(mag), NaN{}, Inf{Bool.xor(neg, yn)}),
+            Fin{Bool.xor(neg, yn), B.div(mag, ym)})
 
 def is_nan(+x: Num) -> Bool:
   match x:
@@ -155,7 +160,7 @@ def is_zero(+x: Num) -> Bool:
     case NaN{}:
       False{}
     case Fin{neg, mag}:
-      Nat.is_eq(mag, 0n)
+      B.is_zero(mag)
     case Inf{neg}:
       False{}
 
@@ -168,21 +173,24 @@ def sign_bit(+x: Num) -> Bool:
     case Inf{neg}:
       neg
 
-# A real-number key for ordering: (rank, magnitude), with -inf < negatives < 0 < positives < +inf.
-def lt_fin(+an: Bool, +a: Nat, +bn: Bool, +b: Nat) -> Bool:
+# Order on signed magnitudes, with -0 = +0.
+def lt_fin(+an: Bool, +a: B.Bin, +bn: Bool, +b: B.Bin) -> Bool:
   match an:
     case False{}:
       match bn:
         case False{}:
-          Nat.is_lt(a, b)
+          B.lt(a, b)
         case True{}:
           False{}
     case True{}:
       match bn:
         case True{}:
-          Nat.is_lt(b, a)
+          B.lt(b, a)
         case False{}:
-          Bool.not(Bool.and(Nat.is_eq(a, 0n), Nat.is_eq(b, 0n)))
+          Bool.not(Bool.and(B.is_zero(a), B.is_zero(b)))
+
+def eq_fin(+an: Bool, +a: B.Bin, +bn: Bool, +b: B.Bin) -> Bool:
+  Bool.pick(Bool, B.is_zero(a), B.is_zero(b), Bool.and(Bool.not(Bool.xor(an, bn)), B.eq(a, b)))
 
 def lt(+x: Num, +y: Num) -> Bool:
   match x:
@@ -228,7 +236,7 @@ def eq(+x: Num, +y: Num) -> Bool:
         case Inf{yn}:
           False{}
         case Fin{yn, ym}:
-          Bool.pick(Bool, Nat.is_eq(mag, 0n), Nat.is_eq(ym, 0n), Bool.and(Bool.not(Bool.xor(neg, yn)), Nat.is_eq(mag, ym)))
+          eq_fin(neg, mag, yn, ym)
 
 def le(+x: Num, +y: Num) -> Bool:
   Bool.or(lt(x, y), eq(x, y))
@@ -247,33 +255,33 @@ def trunc(+x: Num) -> Num:
   x
 
 # A program constant's binary64 bits, read as an integer.
-def of_bits(bits: Nat) -> Num:
+def of_bits(+bits: B.Bin) -> Num:
   Fin{False{}, bits}
 
 # Times (ms), which the model keeps as integers.
-def z(n: Nat) -> Z:
-  Z{False{}, n}
+def z(+n: Nat) -> Z:
+  Z{False{}, B.of_nat(n)}
 
 def zneg(+a: Z) -> Z:
   match a:
     case Z{neg, mag}:
       Z{Bool.not(neg), mag}
 
-def zdiff(+a: Nat, +b: Nat) -> Z:
-  Bool.pick(Z, Nat.is_ge(a, b), Z{False{}, Nat.sub(a, b)}, Z{True{}, Nat.sub(b, a)})
+def zdiff(+a: B.Bin, +b: B.Bin) -> Z:
+  Bool.pick(Z, B.le(b, a), Z{False{}, B.sub(a, b)}, Z{True{}, B.sub(b, a)})
 
-def zsum(+an: Bool, +am: Nat, +bn: Bool, +bm: Nat) -> Z:
+def zsum(+an: Bool, +am: B.Bin, +bn: Bool, +bm: B.Bin) -> Z:
   match an:
     case False{}:
       match bn:
         case False{}:
-          Z{False{}, Nat.add(am, bm)}
+          Z{False{}, B.add(am, bm)}
         case True{}:
           zdiff(am, bm)
     case True{}:
       match bn:
         case True{}:
-          Z{True{}, Nat.add(am, bm)}
+          Z{True{}, B.add(am, bm)}
         case False{}:
           zdiff(bm, am)
 
@@ -292,7 +300,7 @@ def zmul(+a: Z, +b: Z) -> Z:
     case Z{an, am}:
       match b:
         case Z{bn, bm}:
-          Z{Bool.xor(an, bn), Nat.mul(am, bm)}
+          Z{Bool.xor(an, bn), B.mul(am, bm)}
 
 def zlt(+a: Z, +b: Z) -> Bool:
   match a:
@@ -306,7 +314,7 @@ def zeq(+a: Z, +b: Z) -> Bool:
     case Z{an, am}:
       match b:
         case Z{bn, bm}:
-          Bool.pick(Bool, Nat.is_eq(am, 0n), Nat.is_eq(bm, 0n), Bool.and(Bool.not(Bool.xor(an, bn)), Nat.is_eq(am, bm)))
+          eq_fin(an, am, bn, bm)
 
 def zle(+a: Z, +b: Z) -> Bool:
   Bool.or(zlt(a, b), zeq(a, b))
@@ -314,23 +322,28 @@ def zle(+a: Z, +b: Z) -> Bool:
 def zmax(+a: Z, +b: Z) -> Z:
   Bool.pick(Z, zlt(a, b), b, a)
 
-# Truncating division, as Lean's Int `/` is not; the model only divides nonnegative times by HOUR.
+# Truncating division and remainder; the model divides only nonnegative times by HOUR and BAR.
 def zdiv(+a: Z, +b: Z) -> Z:
   match a:
     case Z{an, am}:
       match b:
         case Z{bn, bm}:
-          Z{Bool.xor(an, bn), Nat.div(am, bm)}
+          Z{Bool.xor(an, bn), B.div(am, bm)}
 
 def zmod(+a: Z, +b: Z) -> Z:
   match a:
     case Z{an, am}:
       match b:
         case Z{bn, bm}:
-          Z{an, Nat.mod(am, bm)}
+          Z{an, B.mod(am, bm)}
+
+def z_to_nat(+a: Z) -> Nat:
+  match a:
+    case Z{neg, mag}:
+      Bool.pick(Nat, neg, 0n, B.to_nat(mag))
 
 def HOUR() -> Z:
-  Z{False{}, 3600000n}
+  Z{False{}, B.mul(B.of_nat(3600n), B.of_nat(1000n))}
 
 def BAR() -> Z:
-  Z{False{}, 14400000n}
+  Z{False{}, B.mul(B.of_nat(4n), B.mul(B.of_nat(3600n), B.of_nat(1000n)))}

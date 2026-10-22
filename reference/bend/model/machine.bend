@@ -1,4 +1,5 @@
 import Base
+import ./bin.bend as B
 import ./num.bend as N
 
 # The causal machine (reference/SEMANTICS.md §3–§6), ported from the Lean model's Ref/Machine.lean
@@ -87,7 +88,7 @@ type Op is Data:
   Or{}
   Not{}
   Ite{}
-  Convert{factor: Nat}
+  Convert{factor: B.Bin}
   OWindow{w: WKind, hours: Nat}
   XsMean{}
   XsDemean{}
@@ -96,14 +97,14 @@ type Op is Data:
 
 type Node is Data:
   NInput{i: Input}
-  NConst{bits: Nat}
+  NConst{bits: B.Bin}
   NParam{k: Nat}
   NOp{o: Op, args: List<&2, Nat>}
 
 # The parts of a checked program the machine and the simulator read: types and units only gate the
 # checker, which the laws take as given.
 type Program is Data:
-  Program{nodes: List<&2, Node>, params: List<&2, Nat>, weight: Nat}
+  Program{nodes: List<&2, Node>, params: List<&2, B.Bin>, weight: Nat}
 
 # A value: Some number, or None (undefined).
 type Val is Data:
@@ -351,7 +352,7 @@ def init_wins(+coins: Nat, +nodes: +List<Node>) -> List<&2, List<&2, Maybe<&2, W
 def init(+p: Program, +coins: Nat) -> MState:
   match p:
     case Program{nodes, params, weight}:
-      MState{rep(List<&2, Val>, len(Node, nodes), rep(Val, coins, VNone{})), init_wins(coins, nodes), rep(List<&2, Maybe<&2, N.Z>>, len(Node, nodes), rep(Maybe<&2, N.Z>, coins, None{})), rep(Maybe<&2, FundingRow>, coins, None{}), rep(Maybe<&2, BarRow>, coins, None{}), rep(List<&2, Maybe<&2, EventRow>>, 2n, rep(Maybe<&2, EventRow>, coins, None{})), N.z(0n), N.Z{True{}, Nat.pow(2n, 63n)}}
+      MState{rep(List<&2, Val>, len(Node, nodes), rep(Val, coins, VNone{})), init_wins(coins, nodes), rep(List<&2, Maybe<&2, N.Z>>, len(Node, nodes), rep(Maybe<&2, N.Z>, coins, None{})), rep(Maybe<&2, FundingRow>, coins, None{}), rep(Maybe<&2, BarRow>, coins, None{}), rep(List<&2, Maybe<&2, EventRow>>, 2n, rep(Maybe<&2, EventRow>, coins, None{})), N.z(0n), N.Z{True{}, B.pow2(63n)}}
 
 # An observation known after the tick: the engine's R_CAUSALITY.
 type MRes is Data:
@@ -594,14 +595,14 @@ def row(+m: MState, +k: Nat) -> List<&2, Val>:
 def argv(+m: MState, +args: +List<Nat>, +k: Nat, +c: Nat) -> Val:
   at(Val, row(m, at(Nat, args, k, 0n)), c, VNone{})
 
-def eval_node(+nd: Node, +params: +List<Nat>, +m: MState, +c: Nat) -> Val:
+def eval_node(+nd: Node, +params: +List<B.Bin>, +m: MState, +c: Nat) -> Val:
   match nd:
     case NInput{inp}:
       input(m, inp, c)
     case NConst{bits}:
       VSome{N.of_bits(bits)}
     case NParam{k}:
-      VSome{N.of_bits(at(Nat, params, k, 0n))}
+      VSome{N.of_bits(at(B.Bin, params, k, B.BE{}))}
     case NOp{o, args}:
       eval_op(o, argv(m, args, 0n, c), argv(m, args, 1n, c), argv(m, args, 2n, c))
 
@@ -610,7 +611,7 @@ def node_at(+p: Program, +i: Nat) -> Node:
     case Program{nodes, params, weight}:
       at(Node, nodes, i, NInput{IFunding{}})
 
-def params_of(+p: Program) -> List<&2, Nat>:
+def params_of(+p: Program) -> List<&2, B.Bin>:
   match p:
     case Program{nodes, params, weight}:
       params

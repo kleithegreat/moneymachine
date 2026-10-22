@@ -1,4 +1,5 @@
 import Base
+import ./bin.bend as B
 import ./num.bend as N
 import ./machine.bend as M
 
@@ -51,17 +52,20 @@ type Policy is Data:
 type Run is Data:
   Run{trace: List<&2, SEvent>, returns: List<&2, N.Num>, gross: List<&2, N.Num>, equity: List<&2, N.Num>}
 
+def ten_thousand() -> N.Num:
+  N.of_bin(B.mul(B.of_nat(100n), B.of_nat(100n)))
+
 def initial() -> N.Num:
-  N.of_nat(10000n)
+  ten_thousand()
 
 def max_gross() -> N.Num:
   N.of_nat(2n)
 
 def max_order_notional() -> N.Num:
-  N.of_nat(10000n)
+  ten_thousand()
 
 def truncate(+x: N.Num, +dec: Nat) -> N.Num:
-  N.div(N.trunc(N.mul(x, N.of_nat(Nat.pow(10n, dec)))), N.of_nat(Nat.pow(10n, dec)))
+  N.div(N.trunc(N.mul(x, N.of_bin(B.pow(B.of_nat(10n), dec)))), N.of_bin(B.pow(B.of_nat(10n), dec)))
 
 def venue_costs(+v: Venue) -> List<&2, List<&2, List<&2, N.Num>>>:
   match v:
@@ -77,7 +81,7 @@ def signum(+x: N.Num) -> N.Num:
   Bool.pick(N.Num, N.sign_bit(x), N.neg(N.one()), N.one())
 
 def fill_price(+v: Venue, +coin: Nat, +qty: N.Num, +ref: N.Num) -> N.Num:
-  N.mul(ref, N.add(N.one(), N.div(N.mul(signum(qty), cost_bps(v, coin, qty, ref)), N.of_nat(10000n))))
+  N.mul(ref, N.add(N.one(), N.div(N.mul(signum(qty), cost_bps(v, coin, qty, ref)), ten_thousand())))
 
 # A (coin, value) entry of an association list, kept sorted by coin.
 type Entry is Data:
@@ -370,15 +374,12 @@ def latest_time(+m: Market, +coin: Nat, +rev: +List<N.Z>, +filled: N.Z) -> Maybe
       Bool.pick(Maybe<&2, N.Z>, N.zle(bar_event(bar_index(m, get_nat(bar_at(market_bars(m), coin, h), 0n))), filled), Some{h}, latest_time(m, coin, rest, filled))
 
 
-# A 64-bit constant from its two 32-bit halves (Bend's Nat literals stop at 2^32 - 1).
-def bits(+hi: Nat, +lo: Nat) -> Nat:
-  Nat.add(Nat.mul(hi, Nat.pow(2n, 32n)), lo)
-
+# The engine's 1e-12 order slack (0x3D719799812DEA11) and 1e-5 accounting tolerance (0x3EE4F8B588E368F1).
 def order_slack() -> N.Num:
-  N.of_bits(bits(1030854553n, 2167269905n))
+  N.of_bits(B.word(61n, 113n, 151n, 153n, 129n, 45n, 234n, 17n))
 
 def accounting_tolerance() -> N.Num:
-  N.of_bits(bits(1055193269n, 2296604913n))
+  N.of_bits(B.word(62n, 228n, 248n, 181n, 136n, 227n, 104n, 241n))
 
 def check_priced(+v: Venue, +coin: Nat, +qty: N.Num, +ref: N.Num, +price: N.Num, +fee: N.Num) -> Bool:
   Bool.and(Bool.not(N.is_zero(qty)), Bool.and(N.eq(price, fill_price(v, coin, qty, ref)), N.eq(fee, N.mul(N.mul(N.abs(qty), price), taker_fee(v)))))
@@ -1359,13 +1360,8 @@ def bounds_go(+k: Nat, +j: Nat, +c: Ctx) -> List<&2, N.Z>:
         Con{N.zadd(pol_start(ctx_pol(c)), N.zmul(N.z(j), N.BAR())), bounds_go(r, Nat.add(j, 1n), c)},
         bounds_go(r, Nat.add(j, 1n), c))
 
-def zto_nat(+z: N.Z) -> Nat:
-  match z:
-    case N.Z{neg, mag}:
-      Bool.pick(Nat, neg, 0n, mag)
-
 def bounds(+c: Ctx) -> List<&2, N.Z>:
-  bounds_go(Nat.add(zto_nat(N.zdiv(N.zsub(ctx_stop(c), pol_start(ctx_pol(c))), N.BAR())), 1n), 0n, c)
+  bounds_go(Nat.add(N.z_to_nat(N.zdiv(N.zsub(ctx_stop(c), pol_start(ctx_pol(c))), N.BAR())), 1n), 0n, c)
 
 def step_then(+c: Ctx, +b: N.Z, +r: SRes) -> SRes:
   match r:

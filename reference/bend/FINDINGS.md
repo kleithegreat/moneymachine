@@ -27,5 +27,29 @@ and proves that it fails as unavailable exactly when a slot is unbound. `bend co
 - Base's list functions are templates, which `--verdict` refuses in laws, so the model uses its own
   monomorphic recursions.
 
-So the laws are expressible. A faithful port of the model's machine and simulator, and the proofs of
-L1, L4 and L5 over it, are the remaining work.
+So the laws are expressible.
+
+## The port (2026-10-22)
+
+`model/` ports the Lean model's machine and simulator definition for definition: `num.bend` (the number type),
+`bin.bend`, `machine.bend` and `sim.bend`. `LAWS.bend` states the laws over it, and `PROOF.bend` proves them.
+What the toolchain forced:
+
+- **Binary magnitudes.** `Nat` is unary, both in the checker and at run time. Times are milliseconds and some
+  constants are 64-bit words, and expanding those overflowed the checker's stack. Magnitudes and times are
+  therefore binary naturals (`bin.bend`), and constants are assembled from bytes. The model still cannot run on
+  real data (it was killed for memory on a one-coin smoke run), so it is a proof model only. That agrees with C6.4's
+  revision.
+- **No match on a computed value.** Every `if` on a computed condition is a `Bool.pick` or a helper def. A proof
+  through it passes that condition explicitly, since Bend infers no arguments.
+- **Matches in parameter order**, and no mutual recursion. The cursor walks compute the next state eagerly and
+  combine it with the error afterwards, which gives Lean's early exit.
+- **Stable insertion sort** for the delivery orders, and last-insert-wins association lists for the index's
+  HashMaps. Both give the same results as Lean's mergeSort and HashMap.
+
+**L5 is proved** (`bend model/PROOF.bend --verdict`: ALL PROOFS CHECK).
+- `L5_binding`: a run is refused as unavailable exactly when some event slot the program reads is unbound.
+  The Lean statement's unused `CheckerAccepted` hypothesis is omitted, so this is stronger.
+- `L5_preflight`: the start is that refusal or the ordinary first delivery and tick.
+- The proof threads one fact through every function of the step: a result is never the unavailable refusal
+  unless its input was.
