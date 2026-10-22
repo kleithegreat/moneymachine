@@ -12,7 +12,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
   - after that window, the recorder keeps running as a regime diagnostic at ≤ 480/min, reporting the frozen cost model's coverage on each later recorded day.
 
   C0.2, C0.4, C0.5 and C0.9 are met (Log). Failing stage 0 is an acceptable outcome. The criteria are judged as written, never reread to pass, and a failure of C0.2, C0.3 or C0.5 means the exit rule: stop and pre-register a different family.
-- **Stage 1:** done except C1.4 and C1.8, which follow C0.7 (both already pass a dry run on provisional costs).
+- **Stage 1:** done except C1.4 and C1.8, which follow C0.7. A dry C1.4 on the second fetch fails: `mm` and the store's `as_of` resolve corrected revisions differently (Blockers).
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test is calibration v3 (human decision 2026-10-21): returns bounded below at B = 1 by kernel I10, a betting test, and GPT's locked suite, which it passed (Log). Calibrations v1 and v2.1 failed and stay recorded. After C0.7: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
@@ -733,6 +733,26 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
     - Snapshot is already prospective only.
     - This is an amendment, and is labeled as one.
   - **Blocks.** Stage 5's exit (C5.3, then C5.4's classification and report). Nothing else depends on it.
+
+- **Stage 0/1: two definitions of "the data at version V known at t" (2026-10-22).**
+  - **What broke.** A dry C1.4 run on the second fetch (version 1792613363942, provisional cost table) failed. Equity first diverges by $1.99 after the 2025-07-27 12:00 UTC boundary, at the 20:00 step, and differs by up to $2.04 overall.
+    - The second fetch wrote 24 corrected funding revisions under C0.3's revision: same rate, later knownAt (for 2025-07-27 12:00, reportedTime + 60 s = 12:02:50.963).
+    - `mm` resolves each key to its latest revision fetched by V, then delivers it at that knownAt. So the 12:02:00 decision holds as stale.
+    - The store's `as_of(t, V)` (C0.4's definition) filters knownAt ≤ t first, then takes the latest. So it returns the first fetch's revision, whose knownAt (12:02:00) came from the superseded rule. The witness, and C0.5's `as_of` replay, read it there and trade. That is the exposure the C0.3 revision was written to remove.
+    - `market.rs` says its resolution matches `store.py`. It does not when a later revision has a later knownAt.
+  - **Why neither side is simply right.**
+    - mm's "latest revision governs" is right for these corrections. It would be wrong for stage 5's Discourse edits: C5.2 requires `as_of(t)` to show a post's earlier content before an edit's knownAt.
+    - The store's rule is right for edits. It leaks for availability corrections.
+    - The two cases differ in one thing: whether the later revision changes the content or only its availability.
+  - **Proposed redesign (amendment; recommended).**
+    - A later revision whose content equals the one before it supersedes that one's availability claim: a corrected knownAt replaces the old one, and is never a second, earlier state.
+    - Revisions whose content differs stay separate states, each known from its own knownAt. Edits are unchanged.
+    - `as_of` and `mm`'s loader both implement this one rule.
+    - On today's data it reproduces `mm`'s behaviour exactly: the only multi-revision keys are these 24, all identical in content.
+    - It removes exposure and never adds any, so it cannot increase false discoveries.
+    - C0.4's `as_of` definition gets a labeled amendment, and the C0.5 `as_of` replay is re-run under it. The 12 affected (coin, boundary) pairs become replay holds, and C0.5 stays ≥ 99%.
+  - **Alternative.** Make knownAt derived rather than stored: computed at read time from raw fields by the version's rule, so every revision of a key agrees by construction. This is cleaner in principle. It also changes the store, the ingest pipeline and `mm`'s loader, and it needs every first-fetch row's reported time.
+  - **Blocks.** C1.4 (and through it stage 1's exit), the judged C0.5 `as_of` view, and C0.8's witness. C0.3 and C0.7 do not depend on it.
 
 ## Log
 
