@@ -15,7 +15,7 @@ from ingest.backfill import funding_known
 from ingest.live import read
 from ingest.policy import BAR, DELTA, HOUR
 
-RECORDING_FROM = 1792455550295
+RECORDING_FROM = 1792617764170
 SPAN = 24 * HOUR
 MAX_GAP = 60_000
 BOUNDARY_GAP = 35_000

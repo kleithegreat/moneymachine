@@ -36,7 +36,7 @@ The only status document. Read it first in every session; it is how you resume a
 
 ### Pre-registered criteria
 
-Before any work on stage N, write its exit criteria under Criteria: measurable, with thresholds, fixed before you see any result they will judge. Have GPT review them (below), revise once, then commit them alone as `criteria: stage N`. After that commit, never edit or delete those lines. If a criterion proves wrong, append a dated revision beneath it saying why, and judge the stage only on evidence produced after the revision. A stage is done when its criteria are met as written. Never redefine done.
+Before any work on stage N, write its exit criteria under Criteria: measurable, with thresholds, fixed before you see any result they will judge. Have GPT review them (below), revise once, then commit them alone as `criteria: stage N`. After that commit, never edit or delete those lines. If a criterion proves wrong, append a dated revision beneath it saying why, and judge the stage only on evidence produced after the revision. After a criterion fails, it may be amended only if the change cannot increase false discoveries, and the amendment is labeled as an amendment, never as a pass of the original. A stage is done when its criteria are met as written. Never redefine done.
 
 ### Holdout
 
