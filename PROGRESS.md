@@ -30,7 +30,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
     - Its verdicts agree with `mm check` on all 372 checked programs.
     - Its runs agree bit for bit with `mm` on 31 programs over 120 days. `reference/mmdump` links mm as a library to export the resolved market and the trace.
   - **Laws:** C6.2 is met for Lean (`audit/stage6/lean-axioms.txt`). L1_values, L1_simulator, L1_decisions, L2_units, L2_checker, L3_rewrite (every R v1 rule), L4_fills, L4_orders, L5_binding and the added L6_bounded are proved after a clean `lake build`, each with `#print axioms` ⊆ {propext, Classical.choice, Quot.sound}. Statements are in `Ref/Laws.lean`, with dated revisions: L4's liquidation reference, L1_simulator's step range, and L4_orders' solvency condition with I10. The frozen definitions are in `Ref/Spec.lean`, and the proof libraries in `Ref/Proof/`. `Twin`/`TwinRun` cover the 16 rules that rewrite in place. `Insert`/`InsertRun` cover `ifNotRev`, an insertion that keeps every old row one place on through every tick and step (a relational reading of the two runs), followed by an in-place twin.
-  - **Bend:** the model is ported to `reference/bend/model/` over a concrete exact number type with binary magnitudes (FINDINGS.md: why binary, why a proof model only). L5 (binding and preflight) is proved under `--verdict`. L1 and L4 first need a verified integer library in Bend: canonical binary naturals, with ring and order lemmas (FINDINGS.md). The library is large, and Bend is ineligible for adoption anyway (no binary64, C6.4 revision).
+  - **Bend:** stopped at L5 by human decision. The comparison is recorded in `audit/stage6/bend.md` (L5 proved under `--verdict`; unary `Nat`, no integers, no binary64; port at `69e91e0`), and the work is deleted from the tree. Lean is the reference kernel. Next: C6.4's differential corpus and C6.5's report.
 - **Stage 7 candidate sources (human, 2026-10-22; no work before stage 5 exits).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
@@ -755,6 +755,8 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
   - **Blocks.** C1.4 (and through it stage 1's exit), the judged C0.5 `as_of` view, and C0.8's witness. C0.3 and C0.7 do not depend on it.
 
 ## Log
+
+- 2026-10-22: Stage 6, Bend stopped at L5 (human decision). C6.3: Bend proves L5 under `--verdict` over a concrete number type, and no other law. L1 and L4 need a verified integer library first. Bend is ineligible for adoption (no binary64). The record is `audit/stage6/bend.md`, the port is commit `69e91e0`, and `reference/bend/` is deleted per paper §6.
 
 - 2026-10-22 19:38 UTC: Both recorders stopped from 19:00:35 to 19:37:32 UTC. A Bend smoke run of mine grew to 8.7 GB resident and set off the kernel OOM killer, and systemd then killed every process in the session's scope, the recorders included. They were restarted as `python -m cli record …` and `python -m cli sources-record data/sources_live`. The gap restarts stage 0's window, now ending 2026-10-23 19:37:32 UTC, and is in stage 5's gap log. Heavy jobs now run under a memory cap.
 
