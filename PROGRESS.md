@@ -2,12 +2,12 @@
 
 ## Now
 
-Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. Detached processes (kill by PID only): `pgrep -af "cli record"` (HL live recorder), `pgrep -af sources_record` (stage 5 recorder).
+Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. Detached processes (kill by PID only): `pgrep -af "cli record"` (HL live recorder), `pgrep -af "cli sources-record"` (stage 5 recorder). They share the session's cgroup, so an OOM kill of any process in it stops them too: run heavy jobs under a memory cap (`ulimit -v`).
 
 Order while waiting on recording windows (human, 2026-10-20): (a) behavior-preserving cleanup, finished before the first judged run that records a kernel or harness hash (C1.4, stage 2 sweeps, the harness freeze); otherwise it waits until stage 5 exits; (b) stage 10, the thesis track; (c) stage 6, the reference kernels. Stages 7 to 9 start after stage 5 exits.
 
 - **Cleanup (a):** done. Every step was byte-identical on a fingerprint of seeds, genomes, null markets, written stores, kernel, holdout and mechanism results, traces and check codes, and all 14 mutants are caught.
-- **Stage 0.** The window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC was judged and is spent: C0.3 found no late value, but its clock instrument was invalid; C0.7 met coverage in every cell but exceeded the 3 bps median excess in 7 (stage 0 revision of 2026-10-21; Log). The second backfill finished at 2026-10-21 22:00 UTC (version 1792613363942). The recorder restarted at 21:22:44 UTC (`RECORDING_FROM`) as `python -m cli record data/universe.json venue/hyperliquid/rules.json data/live`. A 60.7 s WIF L2 gap (connection reset, 2026-10-22 12:52:31 UTC) restarted the window, which now ends 2026-10-23 12:53:32 UTC unless another gap restarts it. Then:
+- **Stage 0.** The window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC was judged and is spent: C0.3 found no late value, but its clock instrument was invalid; C0.7 met coverage in every cell but exceeded the 3 bps median excess in 7 (stage 0 revision of 2026-10-21; Log). The second backfill finished at 2026-10-21 22:00 UTC (version 1792613363942). The recorder restarted at 21:22:44 UTC (`RECORDING_FROM`) as `python -m cli record data/universe.json venue/hyperliquid/rules.json data/live`. Two gaps restarted the window. A 60.7 s WIF L2 gap (connection reset) came at 2026-10-22 12:52:31 UTC. Then both recorders were down from 19:00:35 to 19:37:32 UTC (Log: a run of mine was killed for memory, and the OOM kill took the session's processes with it). The window now ends 2026-10-23 19:37:32 UTC unless another gap restarts it. Then:
   - once `window('data/live')` returns a span: `availability data/live data/sources_live audit/stage0/availability.json` (C0.3), `execution data/live venue/hyperliquid/execution.json audit/stage0/execution.json` (C0.7), then `witness data 1792613363942 data/witness.jsonl > audit/stage0/witness.json` (C0.8, on the frozen cost model), `pytest criteria/test_stage0.py`;
   - after that window, the recorder keeps running as a regime diagnostic at ≤ 480/min, reporting the frozen cost model's coverage on each later recorded day.
 
@@ -755,6 +755,8 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
   - **Blocks.** C1.4 (and through it stage 1's exit), the judged C0.5 `as_of` view, and C0.8's witness. C0.3 and C0.7 do not depend on it.
 
 ## Log
+
+- 2026-10-22 19:38 UTC: Both recorders stopped from 19:00:35 to 19:37:32 UTC. A Bend smoke run of mine grew to 8.7 GB resident and set off the kernel OOM killer, and systemd then killed every process in the session's scope, the recorders included. They were restarted as `python -m cli record …` and `python -m cli sources-record data/sources_live`. The gap restarts stage 0's window, now ending 2026-10-23 19:37:32 UTC, and is in stage 5's gap log. Heavy jobs now run under a memory cap.
 
 - 2026-10-22: C6.3 progress. Bend proves L5 under `--verdict`, over a definition-for-definition port of the Lean model's machine and simulator (`reference/bend/model/`). Unary `Nat` overflowed the checker on the model's 64-bit constants, so magnitudes are binary. The Bend model is a proof model only, since it cannot execute on real data.
 
