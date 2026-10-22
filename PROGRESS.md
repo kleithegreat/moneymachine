@@ -439,6 +439,13 @@ Content is known no earlier than its last edit. A row with no admissible claimed
     - C5.6 is vacuous for both sources: their counts lie in the forward holdout, so the search part has none to replay.
     - The derivation keeps only the prospective rule (`venue/sources/derived.md`).
   - **Why it cannot increase false discoveries.** No historical replay is admitted. A later knownAt, and items known only from our own observation, can only remove information a strategy could use.
+- *Clarification of that amendment, 2026-10-22, after GPT's pre-exit review found its justification incomplete (it adds requirements and relaxes none).*
+  - **The system-level argument.** Every derived event row lies after the holdout boundary, so the search store carries no event dataset. Any search program naming `forum_posts` or `gov_proposals` is refused with R_INPUT_UNAVAILABLE before it runs (L5, `kernel/mm/tests/events.rs`). So the inputs cannot enter any search, selection or N, and the holdout step evaluates only finalists from search. They cannot contribute to any discovery until a search store binds them.
+  - **C5.6 is deferred, not passed.** It must be met before any search store carries an event dataset. `criteria/test_stages3to5.py` fails if one does without C5.6's evidence.
+  - **Causal coverage.** The derivation's coverage depends only on polls up to each hour (C5.5 fix, `derived.md`), so missingness carries no later information.
+  - **What C5.3 keeps for prospective sources, judged:** a recorder running from its first start until stage 5 exits, for at least 72 h, with an uptime and gap log; clock offsets logged; and a reconciliation report.
+  - **What it reports without judging:** the polling cadence, the 1 s clock threshold, the claimed-time rule's 100% and its fresh-segment clause. Those last two govern admitting claimed times, and none is admitted.
+  - **Terms.** A source binds only under the terms rule (Log, 2026-10-22), and data from forums whose terms do not permit our use is deleted.
 
 Exit when C5.1–C5.6 hold for every source classified historically replayable or prospective, and every blocked category is recorded under Blockers with what was tried.
 

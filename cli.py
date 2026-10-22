@@ -55,7 +55,7 @@ COMMANDS = {
     "holdout-hashes": ("ingest.holdout", "main", ["data_root", "audit_path"], "record the sha256 of new holdout files"),
     "sources-record": ("ingest.sources_record", "main", ["out_dir"], "the live forum and Snapshot recorder (runs until killed)"),
     "sources-backfill": ("ingest.sources_backfill", "main", ["data_root"], "backfill Discourse post metadata as revisions"),
-    "sources-availability": ("ingest.sources_avail", "analyze", ["live_dir"], "Discourse availability against its rule"),
+    "sources-availability": ("ingest.sources_avail", "analyze", ["live_dir", "source?"], "C5.3's reported availability figures for one source"),
     "sources-reconcile": ("ingest.sources_avail", "reconcile", ["data_root", "live_dir", "version:int"],
                           "a re-backfill against what was recorded live"),
     "events": ("ingest.events", "main", ["data_root", "version:int", "live_dir", "source?"],

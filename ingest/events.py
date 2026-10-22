@@ -9,9 +9,8 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from ingest.live import ms
+from ingest.live import ms, read
 from ingest.policy import HOUR
-from ingest.sources_avail import polls
 from ingest.store import Store, live, stores, write_split
 
 VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
@@ -20,6 +19,10 @@ SOURCES = {
     "discourse": {"dataset": "events_forum", "map": VENUE / "discourse_map.json", "key": "forum", "margin": 60_000},
     "snapshot": {"dataset": "events_governance", "map": VENUE / "snapshot_map.json", "key": "space", "margin": 0},
 }
+
+
+def polls(live_dir):
+    return read(live_dir, "sources")
 
 
 def records(data_root, live_dir, source, version):

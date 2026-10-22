@@ -1,0 +1,312 @@
+{
+ "discourse": {
+  "classification": "prospective",
+  "version": 1792704806859,
+  "per_coin": {
+   "BTC": {
+    "mapped_key": "delvingbitcoin.org",
+    "raw_items_created_in_search_part": 2214,
+    "search_part_rows": 0,
+    "live_counted_items": 14,
+    "covered_hours": 74,
+    "covered_intervals": [
+     [
+      1792411200000,
+      1792414800000
+     ],
+     [
+      1792432800000,
+      1792461600000
+     ],
+     [
+      1792468800000,
+      1792476000000
+     ],
+     [
+      1792486800000,
+      1792695600000
+     ],
+     [
+      1792702800000,
+      1792702800000
+     ]
+    ],
+    "recording_gaps": [
+     [
+      1792415216887,
+      1792426916489
+     ],
+     [
+      1792462353814,
+      1792462953818
+     ],
+     [
+      1792475853820,
+      1792477358843
+     ],
+     [
+      1792480953993,
+      1792482154254
+     ],
+     [
+      1792695454023,
+      1792697848857
+     ]
+    ]
+   },
+   "ETH": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "SOL": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "SUI": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "kPEPE": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "TIA": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "WIF": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "AAVE": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "FTM": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "WLD": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "POPCAT": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "BNB": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   }
+  },
+  "recorded_unmapped_keys": {}
+ },
+ "snapshot": {
+  "classification": "prospective",
+  "version": 1792704806859,
+  "per_coin": {
+   "BTC": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "ETH": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "SOL": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "SUI": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "kPEPE": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "TIA": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "WIF": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "AAVE": {
+    "mapped_key": "aavedao.eth",
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 3,
+    "covered_hours": 75,
+    "covered_intervals": [
+     [
+      1792411200000,
+      1792414800000
+     ],
+     [
+      1792432800000,
+      1792476000000
+     ],
+     [
+      1792486800000,
+      1792695600000
+     ],
+     [
+      1792702800000,
+      1792702800000
+     ]
+    ],
+    "recording_gaps": [
+     [
+      1792414928228,
+      1792426690268
+     ],
+     [
+      1792475867777,
+      1792477370866
+     ],
+     [
+      1792480965130,
+      1792482165016
+     ],
+     [
+      1792695473329,
+      1792697859583
+     ]
+    ]
+   },
+   "FTM": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "WLD": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "POPCAT": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   },
+   "BNB": {
+    "mapped_key": null,
+    "raw_items_created_in_search_part": 0,
+    "search_part_rows": 0,
+    "live_counted_items": 0,
+    "covered_hours": 0,
+    "covered_intervals": [],
+    "recording_gaps": []
+   }
+  },
+  "recorded_unmapped_keys": {}
+ },
+ "unlocks": {
+  "classification": "blocked",
+  "reason": "see Blockers"
+ }
+}

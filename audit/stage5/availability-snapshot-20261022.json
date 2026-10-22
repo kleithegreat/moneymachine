@@ -1,0 +1,36 @@
+{
+ "source": "snapshot",
+ "keys": [
+  "aavedao.eth"
+ ],
+ "window": [
+  1792405626476,
+  1792704867905
+ ],
+ "hours_recorded": 83.1,
+ "poll_gaps_s": {
+  "n": 946,
+  "min": 33.849,
+  "p50": 300.183,
+  "p90": 303.052,
+  "max": 11762.04,
+  "over_10_min": 4
+ },
+ "new_items_claimed_lag_ms": {
+  "n": 3,
+  "min": 132524,
+  "p50": 189357,
+  "p90": 189357,
+  "max": 271481
+ },
+ "edits_claimed_lag_ms": {
+  "n": 0
+ },
+ "claimed_rule_failures": null,
+ "operative_rule": "knownAt = first observation + 0 ms",
+ "operative_slack_ms": 0,
+ "clock_offset_ms": {
+  "max_abs": 4900.766,
+  "n": 889
+ }
+}

@@ -1,0 +1,43 @@
+{
+ "source": "discourse",
+ "keys": [
+  "delvingbitcoin.org"
+ ],
+ "window": [
+  1792405616302,
+  1792704867416
+ ],
+ "hours_recorded": 83.1,
+ "poll_gaps_s": {
+  "n": 945,
+  "min": 37.482,
+  "p50": 299.989,
+  "p90": 300.373,
+  "max": 11699.602,
+  "over_10_min": 5
+ },
+ "new_items_claimed_lag_ms": {
+  "n": 16,
+  "min": 8551,
+  "p50": 154175,
+  "p90": 268265,
+  "max": 281162
+ },
+ "edits_claimed_lag_ms": {
+  "n": 4,
+  "min": 82305,
+  "p50": 272629,
+  "p90": 272629,
+  "max": 296883
+ },
+ "claimed_rule_failures": {
+  "items": 0,
+  "edits": 0
+ },
+ "operative_rule": "knownAt = first observation + 60000 ms",
+ "operative_slack_ms": 60000,
+ "clock_offset_ms": {
+  "max_abs": 4900.766,
+  "n": 889
+ }
+}
