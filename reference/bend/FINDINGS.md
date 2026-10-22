@@ -53,3 +53,15 @@ What the toolchain forced:
 - `L5_preflight`: the start is that refusal or the ordinary first delivery and tick.
 - The proof threads one fact through every function of the step: a result is never the unavailable refusal
   unless its input was.
+
+**What L1 and L4 need next (2026-10-22).** L5 needed no arithmetic. Every remaining law does:
+- L1_simulator equates a step's tick at (wStart + j·BAR) + k·HOUR with the hourly schedule's tick at
+  wStart + (4j + k)·HOUR. The machine stores the hour, so equal values must be equal terms.
+- L1_values needs the delivery orders to be sorted, which needs the order on times to be transitive and total.
+- L4_orders needs decision times to be strictly increasing.
+- L4_fills contains L1_simulator's clause.
+
+In Lean these facts came from `Int`. Base has no integers, so Bend first needs a verified integer library over
+canonical binary naturals: no leading zeros, with associativity, commutativity and distributivity of addition and
+multiplication, and an order that is transitive and total. Only then can those law proofs start. The library is
+a project of its own, several thousand lines of proof terms with no tactics.
