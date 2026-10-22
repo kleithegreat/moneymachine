@@ -1,0 +1,11 @@
+# clean `lake build` of reference/lean, Lean 4.34.0, 2026-10-22; #print axioms of every scored law
+'Ref.L1_values' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L1_simulator' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L1_decisions' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L2_units' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L2_checker' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L3_rewrite' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L4_fills' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L4_orders' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L5_binding' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Ref.L6_bounded' depends on axioms: [propext, Classical.choice, Quot.sound]

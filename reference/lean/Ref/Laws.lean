@@ -3,6 +3,7 @@ import Ref.Proof.Units
 import Ref.Proof.Checker
 import Ref.Proof.View
 import Ref.Proof.TwinRun
+import Ref.Proof.InsertRun
 import Ref.Proof.Bound
 
 /-!
@@ -137,7 +138,7 @@ theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (p p' : Program) (
     (∀ j, ((Ctx.make p' m v pol stop).steps N j).map (·.trace) = ((Ctx.make p m v pol stop).steps N j).map (·.trace)) ∧
     run N p' m v pol stop = run N p m v pol stop := by
   by_cases hr : r = .ifNotRev
-  · sorry
+  · subst hr; exact ifNotRev_sound N hN ‹p.WF› h m v pol stop
   obtain ⟨j, T⟩ := apply_twin N hN ‹p.WF› h hr
   have hc : ∀ k, r.corr i k = k := fun k => by simp [Rule.corr, hr]
   refine ⟨T.wf', fun n => ?_, fun j => by rw [steps_twin T m v pol stop], run_twin T m v pol stop⟩

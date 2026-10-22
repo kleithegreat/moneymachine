@@ -1,9 +1,9 @@
 import Ref.Proof.Insert
 import Ref.Proof.TwinRun
 
-/-! L3 for `ifNotRev`, second part: the program with a negation inserted at i runs alike. Its machine keeps
-every old row one place on (`Ins`) after every delivery, tick and step, and every other part of its state is
-equal, so its schedule, steps and traces are p's. -/
+/-! L3 for `ifNotRev`: the program with a negation inserted at i runs alike. Its machine keeps every old row one
+place on (`Ins`) after every delivery, tick and step, and every other part of its state is equal, so its
+schedule, steps and traces are p's. Rewriting node i + 1 in place then gives a twin (`ifNotRev_sound`). -/
 
 namespace Ref
 variable {α : Type} [Inhabited α]
@@ -315,4 +315,89 @@ theorem steps_ins (n : Nat) :
     RelH.bind (step_ins N P m v pol stop bb hxy) fun x y h => RelH.pure h) fun x y h => RelH.pure h
 end
 
+
+/-- `ite(c, b, a)` at i + 1 equals `ite(not c, a, b)`, its negation sitting at i, on the rows a tick has written. -/
+theorem ifNotRev_eval (N : NumOps α) (hN : N.Lawful) {q : Program} {i c a b : Nat}
+    (hn : q.nodes[i + 1]! = .op .ite [c, b, a]) (hc : q.nodes[i]! = .op .not [c]) (L : Array Bool) (m s : MState α)
+    (hd : Done N q L m (i + 1) s) (c' : Nat) (hl : L[c']! = true) :
+    MState.eval N { q with nodes := q.nodes.set! (i + 1) (.op .ite [i, a, b]) } s (i + 1) c' =
+      MState.eval N q s (i + 1) c' := by
+  have hi := op_lt hn
+  simp only [MState.eval, hn, Array.getElem!_set!_self _ _ _ hi, List.getElem!_cons_zero, List.getElem!_cons_succ]
+  rw [row_listed hd (Nat.lt_succ_self i) (by rw [hc]; try rfl) hl]
+  simp only [MState.eval, hc, List.getElem!_cons_zero]
+  generalize s.vals[c]![c']! = C
+  cases C with
+  | none => rfl
+  | some v =>
+    simp only [NumOps.keep, hN.finite_truth, Option.bind_some, ite_true, bind, Option.bind, hN.truth_zero]
+    cases N.isZero v <;> rfl
+
+theorem RelH.eq_of {ε β : Type} {x y : Except ε β} (h : RelH x y (· = ·)) : x = y := by
+  cases x <;> cases y <;> simp only [RelH] at h <;> first | exact h.elim | rw [h]
+
+/-- L3 for `ifNotRev`: an insertion of `not c` at i, then node i + 1 rewritten in place. -/
+theorem ifNotRev_sound (N : NumOps α) (hN : N.Lawful) {p p' : Program} {i : Nat} (hp : p.WF)
+    (h : Rule.ifNotRev.apply p i = some p') (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) :
+    p'.WF ∧
+    (∀ n, ((Ctx.make p' m v pol stop).machineAfter N n).isOk = ((Ctx.make p m v pol stop).machineAfter N n).isOk ∧
+      ∀ ms ms', (Ctx.make p m v pol stop).machineAfter N n = .ok ms → (Ctx.make p' m v pol stop).machineAfter N n = .ok ms' →
+        ∀ k < p.nodes.size, ms'.vals[Rule.ifNotRev.corr i k]! = ms.vals[k]!) ∧
+    (∀ j, ((Ctx.make p' m v pol stop).steps N j).map (·.trace) = ((Ctx.make p m v pol stop).steps N j).map (·.trace)) ∧
+    run N p' m v pol stop = run N p m v pol stop := by
+  unfold Rule.apply at h
+  split at h
+  all_goals first | contradiction | (cases h; done) | skip
+  rename_i c b a _ hn
+  simp only [Option.some.injEq] at h
+  subst h
+  have hi := op_lt hn
+  obtain ⟨hai, hti⟩ := WF.op hp hi hn
+  have hci : c < i := hai c (by simp)
+  have hbi : b < i := hai b (by simp)
+  have hai' : a < i := hai a (by simp)
+  simp only [List.map_cons, List.map_nil] at hti
+  have hcb := (opTy_ite (to' := p.convTo[i]!) hti).1
+  have hq : (p.insertAt i (.op .not [c]) .bool).WF := insert_wf hp hi hci hcb
+  have P : InsProg p (p.insertAt i (.op .not [c]) .bool) i := insProg_of (by omega) (by omega)
+  have hn₁ : (p.insertAt i (.op .not [c]) .bool).nodes[i + 1]! = .op .ite [c, b, a] := by
+    have := P.node i hi
+    rw [shift_ge (Nat.le_refl i), hn] at this
+    rw [this]; simp [Node.mapArgs, shift_lt hci, shift_lt hbi, shift_lt hai']
+  have hc₁ : (p.insertAt i (.op .not [c]) .bool).nodes[i]! = .op .not [c] := ins_new (by omega)
+  have hiT : i ≤ p.types.size := by obtain ⟨h1, h2, h3, -⟩ := hp; omega
+  have hiC : i ≤ p.convTo.size := by obtain ⟨h1, h2, h3, -⟩ := hp; omega
+  have hT : ∀ j, (p.insertAt i (.op .not [c]) .bool).types[shift i j]! = p.types[j]! := fun j => insert_shift _ hiT _ j
+  have hC : (p.insertAt i (.op .not [c]) .bool).convTo[i + 1]! = p.convTo[i]! := by
+    have := insert_shift p.convTo hiC (none : Option Dim) i; rwa [if_pos (Nat.le_refl i)] at this
+  have hTi : (p.insertAt i (.op .not [c]) .bool).types[i]! = .bool := by
+    show (p.types.insertIdx! i .bool)[i]! = .bool; rw [insert_get _ hiT]; simp
+  have T := twin_set N hq (i := i + 1) (by rw [P.size]; omega) (o := .ite) (args := [i, a, b])
+    (fun x hx => by simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; omega)
+    (by
+      have ha := hT a; have hb := hT b; have hi1 := hT i
+      rw [shift_lt hai'] at ha; rw [shift_lt hbi] at hb; rw [shift_ge (Nat.le_refl i)] at hi1
+      simp only [List.map_cons, List.map_nil, hTi, ha, hb, hi1, hC]
+      exact (opTy_ite hti).2)
+    (by rw [hn₁]; rfl) rfl hn₁ (ifNotRev_eval N hN hn₁ hc₁)
+  have hcorr : ∀ k, Rule.ifNotRev.corr i k = shift i k := fun k => by simp [Rule.corr, shift]
+  refine ⟨T.wf', fun n => ?_, fun j => ?_, ?_⟩
+  · rw [machineAfter_twin T m v pol stop n]
+    have R := machineAfter_ins N P m v pol stop n
+    refine ⟨?_, fun ms ms' h₁ h₂ k _ => ?_⟩
+    · revert R
+      cases (Ctx.make p m v pol stop).machineAfter N n <;>
+        cases (Ctx.make (p.insertAt i (.op .not [c]) .bool) m v pol stop).machineAfter N n <;> simp [RelH, Except.isOk, Except.toBool]
+    · rw [h₁, h₂] at R
+      rw [hcorr]; exact R.vals k
+  · rw [steps_twin T m v pol stop]
+    exact (RelH.map (steps_ins N P m v pol stop j) fun a b hab => by
+      obtain ⟨M, rfl, -⟩ := hab.exists; rfl).symm
+  · rw [run_twin T m v pol stop]
+    refine (RelH.eq_of ?_).symm
+    unfold run
+    dsimp only
+    rw [show (Ctx.make (p.insertAt i (.op .not [c]) .bool) m v pol stop).bounds = (Ctx.make p m v pol stop).bounds from rfl]
+    exact RelH.bind (steps_ins N P m v pol stop _) fun a b hab => by
+      obtain ⟨M, rfl, -⟩ := hab.exists; rfl
 end Ref
