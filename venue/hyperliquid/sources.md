@@ -31,3 +31,35 @@ Reproduce: `python -m cli universe data/universe.json`, then
 
 Rolling retention means the 4h bars at the start of W drop out of the API around
 2027-01. Our first fetch is the only lasting copy, so the store is append-only.
+
+## Terms: api.hyperliquid.xyz
+
+- URL: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api
+- Retrieved: 2026-10-22
+- Basis: official API
+
+> Documentation for the Hyperliquid public API
+>
+> The following rate limits apply per IP address: REST requests share an aggregated weight limit of 1200 per minute.
+
+The API docs carry no terms of their own. The Terms of Use (https://app.hyperliquid.xyz/terms, "Last updated
+on June 15, 2026", read from the app's `TermsOfUse` bundle on 2026-10-22) govern the web Interface:
+
+> 1.1 The Interface facilitates interaction with Hyperliquid, a decentralized, permissionless, and
+> community-driven blockchain ("Hyperliquid"). [...] The Interface is not the exclusive means of accessing Hyperliquid.
+>
+> 1.6 The Interface is not available to "Restricted Persons." For the purposes of these Terms, Restricted
+> Persons include: (a) persons or entities who reside in, are located in, are incorporated in, or have a
+> registered office in the United States of America or Ontario, Canada; [...] Restricted Persons are strictly
+> prohibited from accessing or using the Interface described herein.
+>
+> 3.1.5 Circumvention of Restrictions. Activity that attempts to bypass, evade, or circumvent any restrictions
+> imposed by the Interface or the Company. This includes but is not limited to: (a) using technologies such as
+> VPNs, proxies, or other methods to conceal your location; [...]
+>
+> 3.1.8 Automated or High-Frequency Abuses. Activity that employs bots, scripts, or other automated methods to
+> interact with the Interface in ways that exceed reasonable usage, bypass rate limits, cause denial-of-service
+> conditions, or disrupt the normal functioning of Hyperliquid or related systems.
+
+The operator is in the United States. Whether 1.6 reaches read-only use of the public info API is open,
+awaiting a human decision (Blockers). We never use the Interface, a VPN or a proxy.

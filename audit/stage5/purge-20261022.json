@@ -1,0 +1,227 @@
+{
+ "date": "2026-10-22",
+ "reason": "Human decision of 2026-10-22: data from Discourse forums whose terms do not permit our automated use is never used, and the raw content and everything derived from it is deleted. forum.solana.com, forums.sui.io, governance.aave.com and forum.bnbchain.org (Discourse's standard terms, Acceptable Use item 5) say: \"You may not automate access to the forum, or monitor the forum, such as with a web crawler, browser plug-in or add-on, or other computer program that is not a web browser.\" forum.celestia.org's terms (celestia.org) forbid \"automation software (bots)\". ethresear.ch's terms are silent, and silence is not permission. delvingbitcoin.org's terms permit it (\"You may automate access to the forum, or monitor the forum\"), so its rows are kept.",
+ "forums_removed": [
+  "forum.solana.com",
+  "forums.sui.io",
+  "governance.aave.com",
+  "forum.bnbchain.org",
+  "forum.celestia.org",
+  "ethresear.ch"
+ ],
+ "not_purged": "Git history keeps the earlier committed versions of audit/stage5/c51-discourse.json and audit/stage5/sources-availability-full-recording.json (post ids, labels and aggregate counts; no post text). The coverage and reconcile reports were never committed. Rewriting the pushed history is left to a human.",
+ "files": [
+  {
+   "file": "data/sources/discourse/1792408757368.parquet",
+   "action": "rewritten: banned forums' rows removed",
+   "sha256_before": "b694f991ed043207dfe60eb392fc1caba802c0fd721dad6cc0f23c1fafa93756",
+   "sha256_after": "837347c46fc789f59a93e050f0b59d32cbc2c61c31727a0aead3ac17fc01a529",
+   "rows_before": 16690,
+   "rows_after": 3287,
+   "removed_rows_by_forum": {
+    "ethresear.ch": 3189,
+    "forum.bnbchain.org": 194,
+    "forums.sui.io": 1151,
+    "forum.celestia.org": 298,
+    "governance.aave.com": 8230,
+    "forum.solana.com": 341
+   }
+  },
+  {
+   "file": "data/sources/discourse/1792701110136.parquet",
+   "action": "rewritten: banned forums' rows removed",
+   "sha256_before": "aefa21e9c2c025bee49566ac2a44cb81d6024d966ee5ec96e005b8a3df35352f",
+   "sha256_after": "745165992a187d410570780351ed9104d647e0051a4431f46b56f885c49c3897",
+   "rows_before": 39,
+   "rows_after": 16,
+   "removed_rows_by_forum": {
+    "forum.celestia.org": 2,
+    "forum.bnbchain.org": 1,
+    "governance.aave.com": 15,
+    "ethresear.ch": 5
+   }
+  },
+  {
+   "file": "data/sources_live/sources-20261019.jsonl",
+   "action": "rewritten: banned forums' poll lines removed",
+   "sha256_before": "b5c439dceb1b1c22e8b59846e7ab542d24cc262eb40975528c5e8e1c2728aa0b",
+   "sha256_after": "4753f3df4be38045947e08738f6102f5119ec93a495f5ef4f0c857132c9addc3",
+   "lines_before": 1373,
+   "lines_after": 389,
+   "removed_lines_by_forum": {
+    "ethresear.ch": 164,
+    "forum.solana.com": 164,
+    "forums.sui.io": 164,
+    "forum.celestia.org": 164,
+    "governance.aave.com": 164,
+    "forum.bnbchain.org": 164
+   }
+  },
+  {
+   "file": "data/sources_live/sources-20261020.jsonl",
+   "action": "rewritten: banned forums' poll lines removed",
+   "sha256_before": "478c4d6f9c973902604c12a8e8d25fae70547039e60228280699e1cc669841cb",
+   "sha256_after": "49663c7e84f79fcaf128c28b648b99d26fcad9fdfc4003a631b904f5d83baf59",
+   "lines_before": 2592,
+   "lines_after": 864,
+   "removed_lines_by_forum": {
+    "ethresear.ch": 288,
+    "forum.solana.com": 288,
+    "forums.sui.io": 288,
+    "forum.celestia.org": 288,
+    "governance.aave.com": 288,
+    "forum.bnbchain.org": 288
+   }
+  },
+  {
+   "file": "data/sources_live/sources-20261021.jsonl",
+   "action": "rewritten: banned forums' poll lines removed",
+   "sha256_before": "559fa9acda05726c8301b895b6cc7116a19be69fdcb8dc5d83f684699f357e41",
+   "sha256_after": "7bb1cce89a1bf3b682136fc3a307768ef784f45c8549aa1a7c73c585ba4a8100",
+   "lines_before": 2592,
+   "lines_after": 864,
+   "removed_lines_by_forum": {
+    "ethresear.ch": 288,
+    "forum.solana.com": 288,
+    "forums.sui.io": 288,
+    "forum.celestia.org": 288,
+    "governance.aave.com": 288,
+    "forum.bnbchain.org": 288
+   }
+  },
+  {
+   "file": "data/sources_live/sources-20261022.jsonl",
+   "action": "rewritten: banned forums' poll lines removed",
+   "sha256_before": "6ed10ed66ce823c71fb6ed31e45a7616acc0b5b43a099bfe7415bcd0650880d9",
+   "sha256_after": "19c1345c6553094ecfec371ae68c59986bd45069f04138e4cb496f7128b3021d",
+   "lines_before": 2229,
+   "lines_after": 747,
+   "removed_lines_by_forum": {
+    "ethresear.ch": 247,
+    "forum.solana.com": 247,
+    "forums.sui.io": 247,
+    "forum.celestia.org": 247,
+    "governance.aave.com": 247,
+    "forum.bnbchain.org": 247
+   }
+  },
+  {
+   "file": "data/stage5/label_sample.json",
+   "action": "rewritten: banned forums' sampled post texts removed",
+   "sha256_before": "0d86d93ca447658bfd8bebc0c4b7a9d8ddb2898bbc065197068824b9e4758ef7",
+   "sha256_after": "d2fde5da6550beb6c7fd5cd808991038ce9a752701eb7482d12bf87bcb7735a8",
+   "items_before": 350,
+   "items_after": 50,
+   "removed_items_by_forum": {
+    "forums.sui.io": 50,
+    "forum.solana.com": 50,
+    "ethresear.ch": 50,
+    "forum.celestia.org": 50,
+    "forum.bnbchain.org": 50,
+    "governance.aave.com": 50
+   }
+  },
+  {
+   "file": "audit/stage5/c51-discourse.json",
+   "action": "rewritten: banned forums' labels and summaries removed",
+   "sha256_before": "7fb5906fb8dc5d77f4b5a96136ea6c5fec1c05152300655f9eeb95a308752637",
+   "sha256_after": "087687a9455625ce030ececb8345d5d381873bbd4b57aad92a920cf594235b7d",
+   "labels_before": 350,
+   "labels_after": 50,
+   "removed_summaries": {
+    "forums.sui.io": {
+     "coin": "SUI",
+     "n": 50,
+     "concerns_mapped": 42,
+     "none": 8,
+     "uncertain": 12,
+     "precision": 0.84
+    },
+    "forum.solana.com": {
+     "coin": "SOL",
+     "n": 50,
+     "concerns_mapped": 46,
+     "none": 3,
+     "uncertain": 19,
+     "precision": 0.92
+    },
+    "ethresear.ch": {
+     "coin": "ETH",
+     "n": 50,
+     "concerns_mapped": 33,
+     "none": 16,
+     "uncertain": 26,
+     "precision": 0.66
+    },
+    "forum.celestia.org": {
+     "coin": "TIA",
+     "n": 50,
+     "concerns_mapped": 46,
+     "none": 4,
+     "uncertain": 11,
+     "precision": 0.92
+    },
+    "forum.bnbchain.org": {
+     "coin": "BNB",
+     "n": 50,
+     "concerns_mapped": 29,
+     "none": 21,
+     "uncertain": 18,
+     "precision": 0.58
+    },
+    "governance.aave.com": {
+     "coin": "AAVE",
+     "n": 50,
+     "concerns_mapped": 44,
+     "none": 5,
+     "uncertain": 10,
+     "precision": 0.88
+    }
+   }
+  },
+  {
+   "file": "data/holdout/events_forum/1792701059079.parquet",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "d8934f3601fb3b69e64bc57172da91b89826d4c28a083dd8a721e23f1f2dbf63"
+  },
+  {
+   "file": "audit/stage5/coverage-1792701055113.json",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "0304280d30ef1010399b184696c35703b60cba81016744592ac88a1c5758bd6f"
+  },
+  {
+   "file": "audit/stage5/reconcile-1792701110136.json",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "3930dbebda90f3b53c2629eccd014a161c2a51337b5478a90c01c0fa0dda18e3"
+  },
+  {
+   "file": "audit/stage5/sources-availability-full-recording.json",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "b5a56714ebb04aeb86002241a8923a459652fe5711fc528b0c36ed3180b1ffc8"
+  },
+  {
+   "file": "data/tmp/coverage.json",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "0304280d30ef1010399b184696c35703b60cba81016744592ac88a1c5758bd6f"
+  },
+  {
+   "file": "data/tmp/reconcile.json",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "3930dbebda90f3b53c2629eccd014a161c2a51337b5478a90c01c0fa0dda18e3"
+  },
+  {
+   "file": "data/tmp/sources-backfill.err",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "53049d8a3ea0cbe549b196a79928942c57a4df33272f523d27d558e956cd1ee4"
+  },
+  {
+   "file": "data/tmp/sources-backfill.json",
+   "action": "deleted: derived wholly or partly from banned forums",
+   "sha256_before": "2739e1e82ee4f05ca7ed1eed0992184e7983d121fb02b4d85bb60af46a0ac463"
+  },
+  {
+   "file": "data/tmp/gpt5.JLS9",
+   "action": "deleted: a review packet holding copies of the files above"
+  }
+ ]
+}

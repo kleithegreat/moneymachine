@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from ingest.policy import BAR, DAY, HOUR, POLICY
+from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
 
 COST = {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}

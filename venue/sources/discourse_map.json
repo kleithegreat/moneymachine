@@ -1,11 +1,7 @@
 {
- "version": 2,
+ "version": 3,
  "key": "forum host",
  "rows": [
-  {"forum": "delvingbitcoin.org", "coin": "BTC", "valid_from": null, "valid_to": null},
-  {"forum": "forum.solana.com", "coin": "SOL", "valid_from": null, "valid_to": null},
-  {"forum": "forums.sui.io", "coin": "SUI", "valid_from": null, "valid_to": null},
-  {"forum": "forum.celestia.org", "coin": "TIA", "valid_from": null, "valid_to": null},
-  {"forum": "governance.aave.com", "coin": "AAVE", "valid_from": null, "valid_to": null}
+  {"forum": "delvingbitcoin.org", "coin": "BTC", "valid_from": null, "valid_to": null}
  ]
 }

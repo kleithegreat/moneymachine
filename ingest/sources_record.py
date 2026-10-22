@@ -17,6 +17,7 @@ from ingest.live import now_ms
 
 FORUMS = ["delvingbitcoin.org"]
 SPACES = ["aavedao.eth"]
+HUB = "https://hub.snapshot.org/graphql"
 POLL = 300
 QUERY = ('{ proposals(first: 20, where: {space: "%s"}, orderBy: "created", orderDirection: desc) '
          '{ id created updated start end state author ipfs } }')
@@ -39,7 +40,7 @@ def main(out_dir):
     while True:
         started = time.time()
         jobs = [("discourse", f, lambda f=f: reply(http.get(f"https://{f}/posts.json"))) for f in FORUMS]
-        jobs += [("snapshot", s, lambda s=s: reply(http.post("https://hub.snapshot.org/graphql", json={"query": QUERY % s})))
+        jobs += [("snapshot", s, lambda s=s: reply(http.post(HUB, json={"query": QUERY % s})))
                  for s in SPACES]
         jobs += [("clock", "timesyncd", lambda: {"offset_ms": clock_offset_ms()})]
         for source, key, request in jobs:
