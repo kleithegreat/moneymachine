@@ -1,0 +1,43 @@
+{
+ "seed": 20261022,
+ "generated": 1024,
+ "generator": {
+  "file": "kernel/mm/tests/rules.rs",
+  "git_blob": "5b6e7a90eee4fec00071fa431fdcaae01fe44051"
+ },
+ "corpus_sha256": "93ae6d8b3c7adc78a3479fcb41829f005d62ef69ef3020b95a5f03b80e7be270",
+ "markets": {
+  "N1": {
+   "store_sha256": "be5ab6cb3bf860244e2e5cf0ccaf46ecc1d0d3d29a9b021935faa4574ff67f26",
+   "version": 1,
+   "spec": "null model N1, 550 days, id c64-N1-20261022"
+  },
+  "N2": {
+   "store_sha256": "0279c6a9f67a7a0194274228cc1204a6d1f5f9b1453154ac80d072abb5723488",
+   "version": 1,
+   "spec": "null model N2, 550 days, id c64-N2-20261022"
+  },
+  "N3": {
+   "store_sha256": "28851a2b773b3c6ba5bf2981368700d9020b62f96b15300793137839475937ef",
+   "version": 1,
+   "spec": "null model N3, 550 days, id c64-N3-20261022"
+  },
+  "edge": {
+   "store_sha256": "03220ff51428f2906ee4924ecde9d9096446ead7f405559e53162c56ed1c37d1",
+   "version": 2,
+   "spec": "reference/c64_cases.py edge"
+  },
+  "liquidation": {
+   "store_sha256": "f9e9601ba6a71839e219f73784b25323c23f05ab18947d0fe929f31b51a568d0",
+   "version": 1,
+   "spec": "reference/c64_cases.py liquidation"
+  },
+  "ruin": {
+   "store_sha256": "bfd2dd6100f6307ea84cc7f47553e8c1b7a5c74343b07790894188311842d16f",
+   "version": 1,
+   "spec": "reference/c64_cases.py ruin"
+  }
+ },
+ "initial_state": "kernel defaults: equity 10,000 USD, flat, from the market's w_start; no warm-up beyond each window's own",
+ "numeric_policy": "bit-for-bit on every float, log/exp/sqrt included: no math library is declared different"
+}
