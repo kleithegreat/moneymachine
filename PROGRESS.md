@@ -885,6 +885,20 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 
 ## Blockers
 
+- **Stage 8 (multi-asset) needs data access decisions (2026-10-23; recorded early, no stage 8 work yet).**
+  - **The problem:** long point-in-time histories of equities, indices and commodities mostly come from vendors that need a registered API key (Tiingo, Alpha Vantage, Nasdaq Data Link, FRED) or whose terms forbid automated access to their web pages (Yahoo, and likely Stooq).
+  - **Needs a human decision:** keys and accounts are outside autonomous scope (CLAUDE.md §3, rule 2), and so are paid vendors. The Hyperliquid decision of 2026-10-23 excludes paid vendors for the pilot.
+  - **Keyless official APIs to certify first, once stage 8 begins:**
+    - ECB Data Portal (SDMX, FX and rates);
+    - BIS data portal;
+    - World Bank and IMF data APIs;
+    - Treasury Fiscal Data (already certified for stage 10);
+    - CFTC public reporting (certified);
+    - Hyperliquid's HIP-3 markets (already in use).
+
+    These cover macro, rates, FX and positioning, not long equity or commodity price histories.
+  - **Blocks:** stage 8's equity, index and commodity universes. Proposed: the human chooses a key-based source, or approves the keyless subset as stage 8's first scope.
+
 - **Stage 10 retrieval sources not yet certified (2026-10-23; human decisions needed).** The proxy fetches only from entries with certified terms (`thesis/SOURCES.md`): GDELT, Treasury Fiscal Data's API, CFTC's public-reporting API and the Fed Board's RSS feeds. The others named in the decision of 2026-10-23 cannot be certified without a human step:
   - **SEC EDGAR and BLS** answer 403 to our agent. Both require a declared User-Agent carrying a contact email, so their policy pages could not be read either. Using the operator's email there is the human's decision. I neither sent it nor impersonated a browser.
   - **FRED/ALFRED** did not answer our requests (TLS connected, no response). Its API needs a key, i.e. an account.
