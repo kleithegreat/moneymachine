@@ -1,6 +1,6 @@
 # Stage 6: comparison and adoption (C6.5)
 
-Two reference kernels were attempted: Lean 4 (v4.34.0) and Bend 2 (2.0.37). Lean is the candidate for adoption. The Rust
+Two reference kernels were attempted: Lean 4 (v4.34.0) and Bend 2 (2.0.37). Lean is adopted (2026-10-23). The Rust
 engine `mm` is unchanged by this stage.
 
 ## Laws
@@ -153,7 +153,15 @@ Intervals run between consecutive milestone commits (UTC).
 
 Only Lean passes C6.4, so only Lean is eligible. Under the C6.1 amendment of 2026-10-23, Bend has no accepted law.
 Lean has all five laws, plus L6, under their stated assumptions (L3 `Lawful`, L6 `Bounded`). Lean is adopted as the
-reference kernel (`reference/lean`) when this report's review accepts it. Its differential harness stays in
+reference kernel (`reference/lean`), after GPT's third review (`gpt-exit-review.md`). Its differential harness stays in
 `reference/`: `differential.py`, `edge_markets.py`, `mmdump/`, `benchmark.py`, `tests/test_lean_differential.py`,
 `tests/test_resolution.py` and `tests/test_differential.py`. The Bend work left the tree on 2026-10-22, and its
 record is kept in `bend.md`.
+
+## Known limitation
+
+C6.5 asks for a frozen thread configuration. The benchmark sampled thread counts (up to 4 in the end-to-end
+processes) but did not prescribe or enforce a configuration. The cargo test executable that times `mm`'s
+evaluator is not among the hashed binaries. These are performance-reproducibility gaps. Performance changes
+neither the ranking nor any decision, so they cannot change a false-discovery or leakage outcome. They are
+recorded, not fixed (CLAUDE.md §3, rule 3).

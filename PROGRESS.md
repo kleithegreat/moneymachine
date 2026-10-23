@@ -21,15 +21,6 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
-- **Stage 6 (c):** Lean is the candidate for adoption, and C6.2 is met for it (`audit/stage6/lean-axioms.txt`). Bend stopped at L5 by human decision (`audit/stage6/bend.md`). GPT's two reviews rejected the exit, and their fixes are logged:
-  - exact node streams, the corpus inventory, the frozen benchmark identity;
-  - Bend's translated theorem;
-  - the amendments for Bend's statements and for effort.
-  - **C6.4:** the third judged run passed (Log).
-  - **Next:**
-    - `benchmark-freeze` (it needs `kernel/` and `reference/` clean), then `benchmark-run audit/stage6/benchmark.json`, capped, with nothing else heavy running;
-    - the report's differential, performance and adoption sections (`audit/stage6/report.md`);
-    - GPT's third review, judged under CLAUDE.md's rule 3.
 - **Stage 7 candidate sources (human, 2026-10-22; no work before stage 5 exits).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
@@ -864,6 +855,11 @@ Exit when C7.1 to C7.7 hold.
 
 Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous operation).
 
+- **2026-10-23: stage 6 exits with Lean adopted, and C6.5's frozen thread configuration recorded as a known limitation.**
+  - **Why:** the same exit was rejected for the third time, and the remaining gap is performance reproducibility, which changes neither the ranking nor any decision (rule 3).
+  - **GPT:** "accept Lean's selection and proceed with adoption, recording the benchmark configuration issue as a known limitation".
+  - **Reverse:** reopen stage 6, pin a thread configuration (environment and process affinity, checked in `reference/benchmark.py`), and rerun `benchmark-freeze` and `benchmark-run`.
+
 - **2026-10-23: stages 7 to 9 keep their kernel changes off `main` until the pilot's judged runs are done.**
   - **What:** stage 7's criteria are pre-registered now. Its kernel-changing code stays on a branch until C1.4, the stage 2 sweeps, stage 3's campaigns and stage 4's swarm smoke have recorded their kernel hash.
   - **Why:** the paper begins stages 7 to 9 after the pilot so that "every judged pilot result comes from one frozen kernel". Stage 5 exited before those pilot runs.
@@ -909,6 +905,11 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
+
+- 2026-10-23: **Stage 6 done; Lean adopted** as the reference kernel (`reference/lean`). The report is `audit/stage6/report.md`; GPT's third review is `audit/stage6/gpt-exit-review.md`.
+  - C6.1 is met under its amendment, C6.2 met, C6.3 not met (reported; the revised rule allows it), C6.4 met (third run).
+  - C6.5 is met except its frozen thread configuration, which is a known limitation recorded under rule 3, not a pass.
+  - Bend was stopped at L5 and deleted, with its record in `audit/stage6/bend.md`. The differential harness stays in `reference/`.
 
 - 2026-10-23: C6.4's third judged run on the corpus frozen in `e2ddba4` (seed 20261024) passed (`audit/stage6/differential-report.json`). All 1,196 verdicts and all 3,372 runs agree, with node value streams compared byte for byte (11.36 billion defined values) beside the trace, returns and node types, and nothing missing from the corpus inventory.
 
