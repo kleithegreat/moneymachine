@@ -259,7 +259,6 @@ def test_event_inputs_only_in_the_holdout_are_unbound_in_search(tmp_path):
     """Stage 5's deferral of C5.6: with every event row past the holdout boundary, search cannot read them."""
     import numpy as np
     from gate import markets
-    from ingest.policy import HOUR
 
     ev = {"arrays": np.random.default_rng(1).poisson(2.0, (24 * 30, 3)).astype(float), "coins": [0, 1, 2], "block_hours": 24}
     arrays = markets.generate("N1", None, "unbound", 40, events=ev)

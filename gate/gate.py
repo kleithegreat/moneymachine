@@ -84,7 +84,7 @@ def search_decision(ledger, campaign, agent=None):
     report.update(spa_p=p, screened=screened, max_dsr=max(dsrs.values()), top5=sorted(names, key=lambda h: -sharpes[h])[:5])
     finalists = stepm(r, screened, seed) if p <= ALPHA else []
     report["finalists"] = finalists
-    report["effective_n"] = effective_n(r, sharpe_sd, p, seed, finalists)
+    report["effective_n"] = effective_n(r, sharpe_sd, p, seed)
     return finalists, report
 
 
@@ -110,7 +110,7 @@ def clusters(r, threshold):
     return len(set(labels)) + len(r.columns) - len(varying)
 
 
-def effective_n(r, sharpe_sd, spa_p, seed, official):
+def effective_n(r, sharpe_sd, spa_p, seed):
     """Screen and StepM rerun at each effective-N estimate (SPA does not depend on N)."""
     out = {"spa_p": spa_p, "by_n": {}}
     for name, n in [("raw", len(r.columns)), ("cluster_0.9", clusters(r, 0.9)), ("cluster_0.5", clusters(r, 0.5))]:
