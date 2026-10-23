@@ -36,8 +36,25 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
     - Its runs agree bit for bit with `mm` on 31 programs over 120 days. `reference/mmdump` links mm as a library to export the resolved market and the trace.
   - **Laws:** C6.2 is met for Lean (`audit/stage6/lean-axioms.txt`). L1_values, L1_simulator, L1_decisions, L2_units, L2_checker, L3_rewrite (every R v1 rule), L4_fills, L4_orders, L5_binding and the added L6_bounded are proved after a clean `lake build`, each with `#print axioms` ⊆ {propext, Classical.choice, Quot.sound}. Statements are in `Ref/Laws.lean`, with dated revisions: L4's liquidation reference, L1_simulator's step range, and L4_orders' solvency condition with I10. The frozen definitions are in `Ref/Spec.lean`, and the proof libraries in `Ref/Proof/`. `Twin`/`TwinRun` cover the 16 rules that rewrite in place. `Insert`/`InsertRun` cover `ifNotRev`, an insertion that keeps every old row one place on through every tick and step (a relational reading of the two runs), followed by an in-place twin.
   - **Bend:** stopped at L5 by human decision. The comparison is recorded in `audit/stage6/bend.md` (L5 proved under `--verdict`; unary `Nat`, no integers, no binary64; port at `69e91e0`), and the work is deleted from the tree. Lean is the reference kernel.
-  - **C6.4 met for Lean** (Log, 2026-10-22).
-  - **C6.5:** report `audit/stage6/c65-report.md`, benchmark `c65-bench.json`. Lean is adopted. GPT's review of the stage 6 evidence is pending (`data/tmp/gpt6.AE04/reply.txt`); stage 6 exits on it, then comes the erasure pass (human decision of 2026-10-23).
+  - **C6.4: the judged run of 2026-10-22 does not qualify.** All 1,186 verdicts and 3,179 runs agreed, but GPT's review (2026-10-23) found that the corpus misses parts of the criterion as written:
+    - the deterministic cases ran on the 40-day `edge` and 20-day crash markets, not on N1/N2/N3;
+    - `sum`, `std`, `min_over` and `max_over` had no deterministic case;
+    - three signed-zero cases used a literal `-0.0`, which normalizes to `+0.0`;
+    - only the emitted trace was compared, not every node's definedness, value category, booleans and units;
+    - the frozen market hash left out the venue files;
+    - `pass` did not enforce the corpus's own completeness, and the divergence diagnostics had gaps.
+
+    Next: a new corpus that meets every component, frozen afresh, with per-node stream digests from both kernels and checked units, then a new judged run.
+  - **C6.5:** a draft report (`audit/stage6/c65-report.md`) and benchmark (`c65-bench.json`). GPT's review found it incomplete:
+    - the effort per milestone lacks active time and session counts, which are recoverable from the session transcripts' timestamps;
+    - the benchmark's configuration was not frozen before the run, and it read W0 from the tree rather than the corpus;
+    - "export" also runs mm's simulator;
+    - there is no Bend trust account or archived L5 `--verdict` artifacts;
+    - L3's `Lawful` and L6's `Bounded` assumptions are not stated.
+
+    Adoption waits on C6.4.
+  - **C6.1:** `SEMANTICS.md` §5 still describes conversion interning before the fix of 2026-10-21. It needs a dated revision.
+  - After stage 6 exits comes the erasure pass (human decision of 2026-10-23).
 - **Stage 7 candidate sources (human, 2026-10-22; no work before stage 5 exits).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
@@ -759,7 +776,7 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 - 2026-10-23: Hyperliquid (human decision): keep using the read-only public info API. Clause 1.6 of its Terms of Use restricts the web Interface; our use is read-only public market data with no account, no trading and no VPN. Revisit if Hyperliquid publishes API terms, and before any step toward execution. No paid data vendors (Tardis etc.).
 
-- 2026-10-22: C6.4 met for Lean (`audit/stage6/c64-report.json`, on the corpus frozen in `9c8abfc`). All 1,186 verdicts agree: 1,125 accepted, and 61 rejected under 9 distinct codes. All 3,179 runs agree bit for bit (trace, returns, gross returns), with no waiver and no math-library exception. Coverage: 42.6M decisions, 42.6M fills, 4.6M holds, 351M settlements, 4 liquidations, 38 delistings, 133 unfilled orders and 3 R_INPUT_UNAVAILABLE aborts.
+- 2026-10-22: C6.4's judged run (`audit/stage6/c64-report.json`, on the corpus frozen in `9c8abfc`) agreed everywhere. GPT's stage 6 review (2026-10-23) found that the corpus misses parts of C6.4 as written, so the run does not qualify, though no disagreement was found (Now, stage 6). All 1,186 verdicts agree: 1,125 accepted, and 61 rejected under 9 distinct codes. All 3,179 runs agree bit for bit (trace, returns, gross returns), with no waiver and no math-library exception. Coverage: 42.6M decisions, 42.6M fills, 4.6M holds, 351M settlements, 4 liquidations, 38 delistings, 133 unfilled orders and 3 R_INPUT_UNAVAILABLE aborts.
 
 - 2026-10-22: Terms (human decisions). Five Discourse forums forbid automated access, and ethresear.ch's terms are silent. Since 2026-10-19 the recorder and backfill had fetched all six. They are no longer fetched (recorder restarted by the human at 21:14 UTC on delvingbitcoin.org only), and their raw rows, poll lines, sampled texts, derived counts and the audit files derived from them are deleted. `audit/stage5/purge-20261022.json` lists every file with its hashes and removed counts. Terms are now a certification requirement (paper §5): a source's doc quotes the permitting clause with URL and retrieval date, or shows an official API whose terms allow it, and `ingest/tests/test_terms.py` fails for any fetched host without that evidence. Snapshot qualifies as an official API; Hyperliquid is open (Blockers); the Wayback CDX is named in C5's text but never used.
 

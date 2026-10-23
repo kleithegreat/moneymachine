@@ -1,4 +1,6 @@
-# Stage 6: comparison and adoption (C6.5)
+# Stage 6: comparison and adoption (C6.5), draft
+
+Draft, superseded on review (PROGRESS.md, stage 6, 2026-10-23): the C6.4 run below does not qualify, and the effort and benchmark sections are incomplete.
 
 Two reference kernels were attempted: Lean 4 (v4.34.0) and Bend 2 (2.0.37). Lean is adopted. The Rust
 engine `mm` is unchanged by this stage.
