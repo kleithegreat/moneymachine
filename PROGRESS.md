@@ -679,6 +679,35 @@ The thesis is written with `mm disclose --kind thesis` to the thesis ledger, who
   - **Hourly bars of a builder market.** The 1h bar opening at H is (open, close) = (mark_m(H), mark_m(H + 1 h)). It exists only when both marks exist and H + 1 h has passed. Every rule above that uses 1h opens or closes (entry, invalidation, exits, the funding mark, `markets`) therefore uses marks for these markets. A missing mark gives a missing bar, which never causes an earlier price to be used.
   - **Unchanged.** Core markets keep their 1h trade candles. Daily bars, eligibility (90 completed daily bars), base rates and the `prices` command keep daily candles for every market. SCORING.md's input is still hourly bars, so C10.3's fixtures and C10.4's independent scorer apply as judged. New fixtures cover the mark-bar construction: the sampling window, a missing mark, a sample received late, and a bar whose closing mark is missing.
   - **No backfill.** The venue's API keeps no history of marks, so a builder market has hourly bars only from the start of recording; no earlier mark is reconstructed.
+- *Revision of that revision, 2026-10-23, after GPT's review and before the freeze; it replaces it.* Builder-deployed (HIP-3) markets use sampled venue mark prices as hourly reference prices. Core markets keep 1h trade candles. Daily candles remain the input to eligibility, `prices`, base rates and the benchmark's direction.
+  - **Request types.** The exchange adapter also permits the public, read-only `metaAndAssetCtxs`; every other "Exchange reads" term is unchanged.
+  - **Sampling.** For every builder dex and hour boundary H, a request is sent at H + 5 s. Every attempt is archived append-only with its dex, send time, complete-receipt time and the response.
+  - **Sealing.** The reference for H is sealed at H + 5 min.
+    - **Candidates:** samples sent in [H, H + 5 min) and completely received by H + 5 min.
+    - **Selection:** the earliest send time, ties broken by archive order. M_m(H) is market m's finite, positive `markPx` in that sample. If there is no candidate, or the selected sample lacks a valid mark for m, M_m(H) is missing; no other sample substitutes for one market.
+    - **Finality:** a sealed reference, present or missing, never changes, and late responses are kept but never used.
+    - **Meaning:** M_m(H) is a post-boundary sample assigned to H for paper accounting, not the venue's mark at exactly H and not an executable price. It is available at H + 5 min.
+  - **Opening references and bars.**
+    - M_m(H), once sealed and present, is the opening reference for H on its own. The bar opening at H has open M_m(H), and close M_m(H + 1 h) once that is sealed and present; until then its close is null.
+    - A missing later mark never erases, moves or invalidates an earlier opening reference or fill.
+    - Entries, horizon exits and discretionary exits use opening references exactly as they use 1h opens. Each is committed before its boundary H, so its fill uses no later information.
+  - **Decision inputs.** A price informs a decision only once it is available.
+    - **Sizing:** E_r uses, for each builder leg, references available by t_r (an opening reference from H + 5 min, a close from H + 1 h + 5 min).
+    - **Invalidation:** for a bar ending at B, the check runs once every leg's closing reference is available, and the actionability time is the later of B + δ and that availability. With a 5-minute seal this still selects the next opening boundary, and the open simultaneous with the invalidating close is never used.
+  - **Funding.** Funding at hour h is valued at M_m(h). If M_m(h) is missing, the latest earlier reference is used, the same convention core markets have, and it is stated as such. Funding is a paper accounting entry, never a decision input.
+  - **Prolonged gaps.** If no opening reference exists between entry and the horizon (e ≥ x), the thesis is unresolved. This holds for every market, and SCORING.md states it.
+  - **Snapshots.** Every market and price snapshot includes only references available at its cutoff. The full no-reading agent receives the main session's identical snapshot, and the conditional ablation's cutoff is t_r.
+  - **Daily-history exception.** Eligibility does not imply any hourly mark history before recording began. A builder market's base rate is a daily-candle historical comparator for a mark-referenced live outcome, not a historical reconstruction of it, and reports say so.
+  - **No backfill.** No reference is reconstructed before recording began.
+  - **Scoring.** SCORING.md's hourly rows may carry a null close. Its mark rule skips null closes, and e ≥ x leaves a thesis unresolved. GPT implements the revised SCORING.md afresh, and C10.4 is judged again on its 1,000 sets, with the generator covering null closes and builder markets. New C10.3 fixtures cover:
+    - sealing: out-of-order receipt, receipt after the seal, ties;
+    - an opening reference whose next mark is missing;
+    - a valid reference after a missing one;
+    - invalidation awaiting its closing reference;
+    - sizing at a t_r inside a seal window;
+    - funding with a missing reference;
+    - a mixed core and builder spread;
+    - e ≥ x.
 - **Accounting.** Paper equity reconciles hourly within 1e-9 dollars: initial cash plus realized and unrealized PnL plus funding, less fees and costs.
 
 **Baselines.**
