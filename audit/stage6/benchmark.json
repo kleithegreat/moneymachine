@@ -1,0 +1,60 @@
+{
+ "manifest_sha256": "b327a9eceb0037afb85874421b31e663b08f4394ba6e057f575e9de8160da64f",
+ "commit": "77f9a48bbbb5c706f38913dd6995c254788f28bd",
+ "replay_w0_ms": {
+  "mm": {
+   "end_to_end_median": 900.0919190002605,
+   "end_to_end": [
+    923.620197980199,
+    894.2968180053867,
+    900.7117110304534,
+    900.0919190002605,
+    888.1103839958087
+   ],
+   "evaluator_median": 15.979821000000001,
+   "evaluator": [
+    16.788511,
+    15.753692,
+    15.720858000000002,
+    15.979821000000001,
+    16.142632
+   ]
+  },
+  "refmm": {
+   "end_to_end_median": 2915.5020469916053,
+   "end_to_end": [
+    3212.284617999103,
+    2915.5020469916053,
+    2865.892423025798,
+    2880.9272600337863,
+    2938.782624027226
+   ],
+   "evaluator_median": 652.126625,
+   "evaluator": [
+    701.440411,
+    660.707159,
+    651.231461,
+    652.126625,
+    643.404338
+   ]
+  },
+  "mmdump_load_write_and_mm_run_median": 800.1046340214089
+ },
+ "throughput": {
+  "mm": {
+   "programs": 100,
+   "completed": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 4.383605133,
+   "per_second": 34.37465897018999
+  },
+  "refmm": {
+   "programs": 100,
+   "completed": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 216.312199381,
+   "per_second": 0.6966085682548189
+  }
+ },
+ "agree_on_completion": true
+}

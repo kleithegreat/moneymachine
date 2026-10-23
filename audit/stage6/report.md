@@ -1,6 +1,4 @@
-# Stage 6: comparison and adoption (C6.5), draft
-
-Draft, superseded on review (PROGRESS.md, stage 6, 2026-10-23): the C6.4 run below does not qualify, and the effort and benchmark sections are incomplete.
+# Stage 6: comparison and adoption (C6.5)
 
 Two reference kernels were attempted: Lean 4 (v4.34.0) and Bend 2 (2.0.37). Lean is adopted. The Rust
 engine `mm` is unchanged by this stage.
@@ -40,7 +38,9 @@ engine `mm` is unchanged by this stage.
   - the JSON front end (`Main.lean`), which parses the program and the market.
 - **The implementation boundary:** `reference/mmdump`, a Rust adapter that links `mm` as a library. It loads
   the store with `mm`'s own loader, exporting the resolved market every float as its bits, and runs `mm`'s
-  simulator for the comparison. So store resolution, knownAt computation and the venue files are `mm`'s,
+  simulator for the comparison. For the node streams it drives `mm`'s own `Machine` through `mm`'s public API,
+  re-implementing only `sim::run`'s delivery order. So store resolution, knownAt computation and the venue
+  files are `mm`'s,
   checked by C0.4/C5.2 and `reference/tests/test_resolution.py`, not by stage 6. The executable `refmm` uses
   the same definitions as the proofs (`Ref/Spec.lean`).
 
@@ -56,32 +56,45 @@ engine `mm` is unchanged by this stage.
   has the invocation, the binary's store path, every model file's sha256, the output (ALL PROOFS CHECK) and
   exit status 0.
 
-## Differential results (C6.4, met for Lean)
+## Differential results (C6.4)
 
-`c64-report.json`, on the corpus frozen in `c64-manifest.json` (commit `9c8abfc`, seed 20261022):
-
-- **Verdicts:** 1,186 programs agree exactly: 1,125 accepted, and 61 rejected under 9 distinct codes.
-- **Runs:** all 3,179 agree bit for bit (trace, returns, gross returns). There is no waiver and no
-  math-library exception.
-- **Coverage:** 42.6M decisions, 42.6M fills, 4.6M holds, 351M settlements, 4 liquidations, 38 delistings,
-  133 unfilled orders and 3 R_INPUT_UNAVAILABLE aborts.
+`differential-report.json`, on the corpus frozen in `differential-manifest.json` (commit `2eac75f`, seed
+20261023, harness at `c007644`).
+- **The corpus:** 1,024 programs from the frozen stage 4 generator; W0 and stage 2's probes; 69 deterministic
+  cases on their own markets (`edge`, `liquidation`, `ruin`) and on each of N1, N2 and N3 (550 days each); every
+  rejection path and every adversarial case. `pass` also checks the corpus's completeness, and nothing is
+  missing.
+- **Verdicts:** 1,196 programs agree exactly: 1,135 accepted, and 61 rejected under 9 distinct codes.
+- **Runs:** all 3,372 agree bit for bit, with no waiver and no math-library exception. Each comparison covers:
+  - the trace (decisions, holds, fills with their source bars and times, closeouts, unfilled orders,
+    settlements, equity), returns and gross returns;
+  - every node's static type (value category and unit);
+  - a digest of every node's value stream: definedness and bits, every coin, every tick of the machine's
+    schedule.
+- **Coverage:** 11.5 billion defined node values, 43.5M decisions, 43.5M fills, 4.9M holds, 353M settlements,
+  16 liquidations, 45 delistings, 159 unfilled orders and 6 R_INPUT_UNAVAILABLE aborts.
+- **An earlier run that did not qualify.** `c64-manifest.json` and `c64-report.json` (2026-10-22) record a run
+  that also agreed everywhere, but on a corpus GPT's review found incomplete (PROGRESS.md, stage 6).
 
 Bend is not eligible: it has no binary64, so it cannot pass C6.4.
 
-## Performance (`c65-bench.json`)
+## Performance (`benchmark.json`)
 
-Measured on an Intel i5-11400, one thread, release builds, one process at a time, on C6.4's frozen 550-day N2
-market.
+The configuration was frozen before any measurement (`benchmark-manifest.json`, commit `77f9a48`): an Intel
+i5-11400, one thread, rustc and Lean versions, release profiles, the differential manifest's digest, and the
+corpus's W0 and first 100 generated programs. The run refused to measure if any of them changed. It used the
+frozen 550-day N2 market, one process at a time, with nothing else heavy running.
 
 | | mm | refmm |
 |---|---|---|
-| W0 replay, evaluator only (median of 5) | 29.3 ms | 1,467.6 ms |
-| W0 replay, end to end (median of 5) | 1,618.1 ms (`mm eval`: parquet load, run, ledger) | 5,990.0 ms (`refmm run`: JSON parse, run, trace) |
-| Market export by `mmdump` (median of 5) | | 1,479.9 ms |
-| Null-simulation throughput, evaluator only | 13.2 program-market-years/s | 0.21 program-market-years/s |
+| W0 replay, evaluator only (median of 5) | 16.0 ms | 652.1 ms |
+| W0 replay, end to end (median of 5) | 900.1 ms (`mm eval`: parquet load, run, ledger) | 2,915.5 ms (`refmm run`: JSON parse, run, node digests, trace) |
+| `mmdump` (median of 5): load, write the market JSON, run `mm` and its node digests | 800.1 ms | |
+| Null-simulation throughput, evaluator only | 34.4 program-market-years/s | 0.70 program-market-years/s |
 
-Throughput counts completed runs only: 100 of the corpus's first 100 generated programs completed on both
-kernels, so 150.7 program-market-years each. Bend has no executable model that runs on real data.
+Throughput counts completed runs only: 100 of 100 programs completed on both kernels, 150.7
+program-market-years each. Bend has no executable model that runs on real data. The draft's figures
+(`c65-bench.json`, 2026-10-23) were measured while other work loaded the machine, and are superseded.
 
 ## Effort
 
@@ -125,6 +138,6 @@ milestone commits (UTC commit times).
 ## Ranking and adoption
 
 Only Lean passes C6.4, so only Lean is eligible. It has all five laws, plus L6. Lean is adopted as the
-reference kernel (`reference/lean`). Its differential harness (`reference/c64.py`, `reference/c64_cases.py`,
-`reference/tests/test_lean_differential.py`, `test_resolution.py`) stays in `reference/`. The Bend work left
+reference kernel (`reference/lean`). Its differential harness stays in `reference/`: `differential.py`,
+`edge_markets.py`, `mmdump/`, `benchmark.py`, `tests/test_lean_differential.py` and `tests/test_resolution.py`. The Bend work left
 the tree on 2026-10-22, and its record is kept in `bend.md`.
