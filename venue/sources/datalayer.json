@@ -26,6 +26,10 @@
    "url": "https://www.eia.gov/opendata/bulk/manifest.txt"},
   {"name": "eia-petroleum", "doc": "venue/sources/eia.md", "every_h": 24,
    "url": "https://www.eia.gov/opendata/bulk/PET.zip"},
+  {"name": "polymarket-active", "doc": "venue/sources/polymarket.md", "every_h": 3,
+   "url": "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=500&order=volume24hr&ascending=false"},
+  {"name": "polymarket-resolved", "doc": "venue/sources/polymarket.md", "every_h": 3,
+   "url": "https://gamma-api.polymarket.com/markets?closed=true&limit=500&order=closedTime&ascending=false"},
   {"name": "treasury-avg-rates", "doc": "thesis/SOURCES.md", "every_h": 24,
    "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates?sort=-record_date&page%5Bsize%5D=200"}
  ]

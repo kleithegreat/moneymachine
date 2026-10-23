@@ -1270,7 +1270,6 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Hyperliquid's official archives:** requester-pays S3, so an AWS account and transfer costs.
   - **Ethereum on BigQuery:** a Google Cloud account.
   - **Ethereum or Polygon node:** a 2–4 TB NVMe; 91 GB are free.
-  - **Polymarket's APIs (needs a human decision, like Hyperliquid's of 2026-10-23):** `polymarket.com/tos` renders without its text, no API terms were found, and trading is blocked in the US ("Trading is blocked in the United States on polymarket.com"). Secondary sources say the terms bar US persons from the international product. Whether reading its public market-data API (Gamma markets, CLOB price history) from the US is permitted is the human's call; nothing has been fetched. Polymarket US, the regulated product, may publish its own API terms.
   - **What runs meanwhile:** the HL info API recording.
 
 - **Free sources that need the human's registration (stages 8 and 10; human decision 2026-10-23: they wait for the human to register).** Once registered, keys go in `.keys.env` at the repo root (gitignored), one `NAME=value` per line, and the fetchers read them from there:
@@ -1284,6 +1283,8 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Paid or institutional data** (equities, index constituents, futures contracts) comes later, by the human's choice (`docs/data-access.md`).
 
 ## Log
+
+- 2026-10-23: **Polymarket (human decision)**, on the same basis as Hyperliquid: use the read-only public data API, with no account, no trading, a US IP and no VPN. The clauses found are in `venue/sources/polymarket.md`. Active markets (top 500 by 24 h volume) and the 500 latest resolutions are recorded every 3 h as the stage 10 baseline. Data-layer bodies are now stored gzip-compressed.
 
 - 2026-10-23: **C10.4 met again under the builder-market revision.** GPT (tools denied, from the revised SCORING.md and the stage 10 criteria alone; `~/.cache/mm-gpt/s10scorer.3g4b`) wrote a fresh `thesis/tests/gpt_scoring.py`, which replaces the earlier one. On 1,000 sets from the extended generator (seed 1010), which now includes null closes and no opening reference before the horizon, it agrees with `thesis/scoring.py` on every outcome, exclusion, count and cluster, and within 1e-12 · max(1, |a|, |b|) on scores. The hand-derived fixtures for the revision also pass: sealing, missing and late marks, sizing inside a seal window, invalidation awaiting its closing reference, funding with a missing reference, a mixed spread, and e ≥ x.
 

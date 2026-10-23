@@ -24,7 +24,7 @@ def test_poll_keeps_the_body_content_addressed_with_its_times(tmp_path):
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b"<data/>")))
     feed = {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}
     rec = datalayer.poll(http, feed, tmp_path)
-    assert (tmp_path / "raw" / rec["sha256"]).read_bytes() == b"<data/>"
+    assert datalayer.body(tmp_path, rec["sha256"]) == b"<data/>"
     assert rec["status"] == 200 and rec["sent"] <= rec["recv"]
     assert [p["feed"] for p in live.read(tmp_path, "datalayer")] == ["ecb-exr"]
     assert datalayer.last_polls(tmp_path) == {"ecb-exr": rec["sent"]}
@@ -37,7 +37,7 @@ def test_discover_fetches_the_index_then_the_release_it_names(tmp_path):
     feed = next(f for f in datalayer.feeds()["feeds"] if f["name"] == "gdelt-events")
     rec = datalayer.poll(http, feed, tmp_path)
     assert rec["url"] == "https://data.gdeltproject.org/gdeltv2/20261023184500.export.CSV.zip"
-    assert (tmp_path / "raw" / rec["sha256"]).read_bytes() == b"zip"
+    assert datalayer.body(tmp_path, rec["sha256"]) == b"zip"
     assert [p["feed"] for p in live.read(tmp_path, "datalayer")] == ["gdelt-events/index", "gdelt-events"]
     assert set(datalayer.last_polls(tmp_path)) == {"gdelt-events"}
 
