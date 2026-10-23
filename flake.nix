@@ -42,14 +42,13 @@
               jq
               git
               tools.lean
-              tools.bend
             ];
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
           };
         });
 
       packages = forAll (pkgs: {
-        # Pinned reference-kernel toolchains (stage 6): Lean v4.34.0, the version Bend's --verdict requires.
+        # The adopted reference kernel's toolchain (stage 6): Lean v4.34.0.
         lean = pkgs.stdenv.mkDerivation {
           pname = "lean";
           version = "4.34.0";
@@ -62,22 +61,6 @@
           unpackPhase = "tar --zstd -xf $src";
           installPhase = "cp -r lean-4.34.0-linux $out";
           autoPatchelfIgnoreMissingDeps = true;
-        };
-        # A Bun single-file executable: patching its ELF breaks the embedded program, so it runs
-        # unmodified in an FHS environment.
-        bend = pkgs.buildFHSEnv {
-          name = "bend";
-          targetPkgs = p: [ p.stdenv.cc.cc.lib ];
-          runScript = "${pkgs.stdenv.mkDerivation {
-            pname = "bend-dist";
-            version = "2.0.37";
-            src = pkgs.fetchurl {
-              url = "https://github.com/bendlang/bend/releases/download/v2.0.37/bend-2.0.37-linux-x64.tar.gz";
-              sha256 = "0ig4qd9w3zpwcjazhq687lah7nxq1i3kzqmdbqqsrjcvldjj9hw4";
-            };
-            dontFixup = true;
-            installPhase = "cp -r . $out";
-          }}/bin/bend";
         };
         whitepaper = pkgs.runCommand "whitepaper.pdf" {
           nativeBuildInputs = [

@@ -1,6 +1,6 @@
 # Stage 6: the Bend reference kernel (C6.3 and C6.5's Bend column)
 
-Bend 2.0.37, pinned in the flake. The work stopped at L5 by human decision on 2026-10-22, and was then
+Bend 2.0.37, pinned in the flake until stage 6 exited (2026-10-23; the last commit with it is `f9d8fa9`). The work stopped at L5 by human decision on 2026-10-22, and was then
 deleted from the tree per paper §6. The final state is commit `7ffc32c`, and the proved port is `69e91e0`.
 `git show 7ffc32c:reference/bend/FINDINGS.md` has the findings and their reproductions.
 
