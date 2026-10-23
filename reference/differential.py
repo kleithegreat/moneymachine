@@ -1,7 +1,7 @@
 """C6.4: `mm` against the Lean reference kernel `refmm` on a frozen corpus (PROGRESS.md, stage 6).
 
-`freeze` writes the corpus (`audit/stage6/differential-corpus.jsonl`) and its manifest before the judged run.
-`run` rebuilds every market from the manifest and checks each against its frozen hash (store and venue). It
+`run` takes the corpus frozen in `audit/stage6/differential-corpus.jsonl` (its generator and freeze are in git at
+the manifest's commit). It rebuilds every market from the manifest and checks each against its frozen hash (store and venue). It
 then compares every program's verdict, and every run through `mmdump` (mm's own loader, simulator and
 machine) and `refmm`. A run's output is the trace, returns, gross returns, each node's static type and the count of
 defined node values, every float as its bits, and a stream file holding every node's value (definedness and
@@ -12,7 +12,6 @@ run. Both are compared byte for byte. `pass` also requires the corpus to hold ev
 import filecmp
 import hashlib
 import json
-import os
 import shutil
 import subprocess
 import tempfile
@@ -28,7 +27,6 @@ REPO = Path(__file__).resolve().parents[1]
 AUDIT = REPO / "audit" / "stage6"
 REF = REPO / "reference/lean/.lake/build/bin/refmm"
 DUMP = REPO / "reference/mmdump/target/release/mmdump"
-GENERATOR = "kernel/mm/tests/rules.rs"
 NULLS = ("N1", "N2", "N3")
 DAYS = 550
 EVENT_COINS = [0, 4, 7]
@@ -44,18 +42,6 @@ def build():
     kernel.build()
     subprocess.run(["lake", "build"], cwd=REPO / "reference/lean", check=True, capture_output=True)
     subprocess.run(["cargo", "build", "--release", "--offline", "-q"], cwd=REPO / "reference/mmdump", check=True)
-
-
-def generated(seed, n):
-    with tempfile.TemporaryDirectory() as d:
-        out = Path(d) / "corpus.jsonl"
-        env = os.environ | {"CORPUS_SEED": str(seed), "CORPUS_N": str(n), "CORPUS_OUT": str(out)}
-        subprocess.run(["cargo", "test", "-q", "--release", "--test", "rules", "emit_differential_corpus", "--", "--ignored"],
-                       cwd=REPO / "kernel", env=env, check=True, capture_output=True)
-        programs = out.read_text().splitlines()
-    if len(programs) != n:
-        raise ValueError(f"the generator emitted {len(programs)} programs, not {n}")
-    return programs
 
 
 def null_market(root, model, seed):
@@ -74,19 +60,6 @@ def market_hash(root):
             h.update(str(f.relative_to(root)).encode())
             h.update(hashlib.sha256(f.read_bytes()).digest())
     return h.hexdigest()
-
-
-def corpus(seed, n):
-    """[(name, program text, [market names])]: generated programs, W0 and the probes on the null markets; every
-    deterministic case on its own market and the null markets; rejections and adversarial cases checked only."""
-    w0 = (REPO / "kernel/strategies/w0.json").read_text()
-    out = [(f"gen-{i}", p, list(NULLS)) for i, p in enumerate(generated(seed, n))]
-    out += [("W0", w0, list(NULLS))] + [(f"probe-{p['name']}", json.dumps(p), list(NULLS)) for p in probes.probes(True)]
-    out += [(f"case-{k}", json.dumps(p), ms) for k, p, ms in edge_markets.cases(NULLS)]
-    out += [(f"reject-{k}", json.dumps(p), []) for k, p in edge_markets.rejections().items()]
-    out += [(f"adversarial-{f.stem}", f.read_text().split("\n", 1)[1], [])
-            for f in sorted((REPO / "kernel/tests/adversarial").glob("*.case"))]
-    return out
 
 
 def expected():
@@ -115,34 +88,6 @@ def markets_of(seed, work):
     roots = {m: null_market(work / m, m, seed) for m in NULLS}
     roots |= {m: f(work / m) for m, f in edge_markets.MARKETS.items()}
     return roots
-
-
-def freeze(seed, n="1024", audit=AUDIT, minimum=1000):
-    """Write the corpus and manifest of the judged run, once."""
-    audit = Path(audit)
-    manifest = audit / MANIFEST
-    if manifest.exists():
-        raise FileExistsError(manifest)
-    build()
-    items = corpus(int(seed), int(n))
-    missing = complete([{"name": k, "program": p, "markets": ms} for k, p, ms in items], int(n), minimum)
-    if missing:
-        raise ValueError(f"incomplete corpus: {missing}")
-    with tempfile.TemporaryDirectory() as d:
-        hashes = {m: market_hash(r) for m, r in markets_of(int(seed), Path(d)).items()}
-    blob = subprocess.run(["git", "hash-object", GENERATOR], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip()
-    audit.mkdir(parents=True, exist_ok=True)
-    (audit / CORPUS).write_text("".join(json.dumps({"name": k, "program": p, "markets": ms}) + "\n" for k, p, ms in items))
-    manifest.write_text(json.dumps({
-        "seed": int(seed), "generated": int(n), "minimum": minimum, "generator": {"file": GENERATOR, "git_blob": blob},
-        "corpus_sha256": sha((audit / CORPUS).read_text()),
-        "markets": {m: {"market_sha256": h, "version": edge_markets.VERSIONS.get(m, 1),
-                        "spec": f"null model {m}, {DAYS} days, id differential-{m}-{seed}" if m in NULLS else f"reference/edge_markets.py {m}"}
-                    for m, h in hashes.items()},
-        "initial_state": "kernel defaults: equity 10,000 USD, flat, from the market's w_start; no warm-up beyond each window's own",
-        "numeric_policy": "bit-for-bit on every float, log/exp/sqrt included: no math library is declared different",
-    }, indent=1) + "\n")
-    return str(manifest)
 
 
 def verdict_mm(path):
