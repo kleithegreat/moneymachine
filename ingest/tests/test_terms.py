@@ -1,12 +1,11 @@
-"""Terms certification (paper §5): a source binds only if its doc quotes the clause permitting our automated
-use, with its URL and retrieval date, or shows it is an official API whose terms allow it. Every host the
-code fetches must have such a section."""
+"""Terms certification (paper §5): every place the code fetches from automatically has a certified Terms section
+(ingest/terms.py), and a section without its evidence is not certified."""
 
-import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-from ingest import hl, sources_record
+from ingest import hl, sources_record, terms
+from thesis import retrieval
 
 REPO = Path(__file__).resolve().parents[2]
 FETCHED = {
@@ -16,27 +15,27 @@ FETCHED = {
 }
 
 
-def terms(doc):
-    """host -> its `## Terms: host` section's text."""
-    return dict(re.findall(r"^## Terms: (\S+)\n(.*?)(?=^## |\Z)", doc, re.M | re.S))
-
-
-def certified(section):
-    return (re.search(r"^- URL: https://\S+$", section, re.M) is not None
-            and re.search(r"^- Retrieved: \d{4}-\d{2}-\d{2}$", section, re.M) is not None
-            and re.search(r"^- Basis: (permitting clause|official API)$", section, re.M) is not None
-            and re.search(r"^> \S", section, re.M) is not None)
-
-
 def test_every_fetched_host_has_certified_terms():
     missing = [(doc, host) for doc, hosts in FETCHED.items() for host in hosts
-               if not certified(terms((REPO / doc).read_text()).get(host, ""))]
+               if not terms.certified(terms.sections((REPO / doc).read_text()).get(host, ""))]
     assert not missing
+
+
+def test_every_retrieval_entry_is_certified():
+    entries = terms.sections(retrieval.SOURCES.read_text())
+    assert entries and all(terms.certified(s) for s in entries.values())
 
 
 def test_a_section_without_its_evidence_fails():
     good = "- URL: https://x.org/tos\n- Retrieved: 2026-10-22\n- Basis: permitting clause\n\n> You may automate access.\n"
-    assert certified(good)
+    assert terms.certified(good)
     for drop in ("- URL", "- Retrieved", "- Basis", "> "):
-        assert not certified("\n".join(l for l in good.splitlines() if not l.startswith(drop)))
-    assert not certified(good.replace("permitting clause", "silence"))
+        assert not terms.certified("\n".join(l for l in good.splitlines() if not l.startswith(drop)))
+    assert not terms.certified(good.replace("permitting clause", "silence"))
+
+
+def test_a_prefix_entry_admits_only_its_prefix():
+    entries = {"api.x.org", "www.y.gov/feeds/"}
+    assert terms.admits(entries, "api.x.org", "/anything") and terms.admits(entries, "www.y.gov", "/feeds/a.xml")
+    assert not terms.admits(entries, "www.y.gov", "/newsevents/a.htm") and not terms.admits(entries, "x.org", "/")
+    assert not terms.admits(entries, "evil.api.x.org", "/") and not terms.admits(entries, "www.y.gov.evil", "/feeds/")

@@ -27,7 +27,7 @@ TOOLS = ["--tools", "Read,Write,Bash",
          "--permission-mode", "dontAsk", "--strict-mcp-config", "--setting-sources", "", "--no-session-persistence"]
 BRIEFS = {"main": "brief.md", "noread": "brief-noread.md", "ablation": "brief-ablation.md"}
 FROZEN = ("brief.md", "brief-noread.md", "brief-ablation.md", "client.py", "daemon.py", "harness.py", "registry.py",
-          "positions.py", "scoring.py", "retrieval.py", "market.py", "runner.py")
+          "positions.py", "scoring.py", "retrieval.py", "SOURCES.md", "market.py", "runner.py")
 
 
 def manifest_hash():

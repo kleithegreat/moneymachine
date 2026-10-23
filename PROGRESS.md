@@ -739,11 +739,18 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 ## Blockers
 
-- **Stage 10: the retrieval proxy reads arbitrary sites (2026-10-22).** It honors robots.txt, but robots.txt is not terms, and under the terms rule (Log, 2026-10-22) a source binds only with a quoted permitting clause or an official API. Before `thesis-run` starts, the proxy needs an allowlist of hosts with certified terms (`test_terms.py`'s format). Blocks: the stage 10 start.
+- **Stage 10 retrieval sources not yet certified (2026-10-23; human decisions needed).** The proxy fetches only from entries with certified terms (`thesis/SOURCES.md`): GDELT, Treasury Fiscal Data's API, CFTC's public-reporting API and the Fed Board's RSS feeds. The others named in the decision of 2026-10-23 cannot be certified without a human step:
+  - **SEC EDGAR and BLS** answer 403 to our agent. Both require a declared User-Agent carrying a contact email, so their policy pages could not be read either. Using the operator's email there is the human's decision. I neither sent it nor impersonated a browser.
+  - **FRED/ALFRED** did not answer our requests (TLS connected, no response). Its API needs a key, i.e. an account.
+  - **EIA and BEA**: their APIs need a registered key, and the proxy sends no credential by design. EIA's reuse policy covers the data's use ("You may use and/or distribute any of our data"), not automated access.
+  - **Federal Reserve releases beyond the RSS feeds**: the Board's policy permits copying, not automated access. Only `/feeds/` is certified.
+  - **Treasury beyond Fiscal Data**: `home.treasury.gov`'s policies page has no access clause; only the Fiscal Data API is certified.
 
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
+
+- 2026-10-23: Stage 10 retrieval allowlist (human decision 4). The proxy refuses any host or path without certified terms, on every redirect hop (`thesis/SOURCES.md`, parsed by `ingest/terms.py`, which `test_terms` also uses). Certified: GDELT, Treasury Fiscal Data API, CFTC public reporting API, Fed Board RSS feeds. The rest are in Blockers. The allowlist is part of the track identity (`harness.FROZEN`), and the brief names the open sources.
 
 - 2026-10-23: Hyperliquid (human decision): keep using the read-only public info API. Clause 1.6 of its Terms of Use restricts the web Interface; our use is read-only public market data with no account, no trading and no VPN. Revisit if Hyperliquid publishes API terms, and before any step toward execution. No paid data vendors (Tardis etc.).
 

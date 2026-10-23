@@ -35,7 +35,7 @@ def fetcher(pages, clock=None):
     t = [0.0]
     sleeps = []
     f = retrieval.Fetcher(resolve=resolve, connect=Web(pages), clock=clock or (lambda: t[0]),
-                          sleep=lambda s: (sleeps.append(s), t.__setitem__(0, t[0] + s)))
+                          sleep=lambda s: (sleeps.append(s), t.__setitem__(0, t[0] + s)), allowed=set(PUBLIC) | {"169.254.169.254"})
     return f, sleeps
 
 
@@ -112,3 +112,16 @@ def test_a_connection_whose_peer_differs_is_refused(monkeypatch):
     monkeypatch.setattr(socket, "create_connection", lambda *a, **k: Sock())
     with pytest.raises(retrieval.Refused):
         retrieval.pinned_socket("93.184.215.14", 443)
+
+
+def test_refuses_hosts_without_certified_terms_on_every_hop():
+    pages = {("example.org", "/robots.txt"): (404, None, b""), ("example.org", "/a"): (302, "https://docs.example.org/b", b"")}
+    f = retrieval.Fetcher(resolve=resolve, connect=Web(pages), clock=lambda: 0.0, sleep=lambda s: None, allowed={"example.org"})
+    assert "certified terms" in f.fetch("https://docs.example.org/x")["refused"] and f.connect.calls == []
+    out = f.fetch("https://example.org/a")
+    assert "certified terms" in out["refused"] and all(h == "example.org" for h, _, _ in f.connect.calls)
+
+
+def test_the_default_allowlist_is_the_certified_sources():
+    assert retrieval.Fetcher().allowed == {"api.gdeltproject.org", "data.gdeltproject.org", "api.fiscaldata.treasury.gov",
+                                           "publicreporting.cftc.gov", "www.federalreserve.gov/feeds/"}

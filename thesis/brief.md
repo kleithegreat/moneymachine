@@ -10,9 +10,12 @@ Your only tool is `./thesis-agent` in this directory (use it through Bash). Comm
   markets on equities, indices, commodities and FX, named like `xyz:GOLD`), each with its last completed
   hourly close and that close's time.
 - `./thesis-agent prices MARKET`: the market's completed daily bars, as [openTime ms, open, close].
-- `./thesis-agent fetch URL`: read one public web page (news, central-bank and statistics releases, filings,
-  exchange notices). Public pages only, no logins. Each fetch returns a `retrieval_id`. Requests to one
-  site are spaced 5 s apart, and sites that disallow automated reading are refused.
+- `./thesis-agent fetch URL`: read one URL from a source whose terms permit automated reading. Only these
+  are open: the GDELT news APIs and data files (`api.gdeltproject.org`, `data.gdeltproject.org`), the
+  Treasury's Fiscal Data API (`api.fiscaldata.treasury.gov`), the CFTC's Commitments of Traders API
+  (`publicreporting.cftc.gov`), and the Federal Reserve Board's RSS feeds (`www.federalreserve.gov/feeds/`).
+  Anything else is refused. No logins. Each fetch returns a `retrieval_id`. Requests to one site are spaced
+  5 s apart.
 - `./thesis-agent register FILE`: register the thesis in FILE (JSON, below).
 - `./thesis-agent positions`: your account's theses and their state.
 - `./thesis-agent exit ID REASON`: close one of your open positions early. This is logged as a separate

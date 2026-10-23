@@ -2,8 +2,9 @@
 
 Every hop's host is resolved and every address validated as globally routable; the connection is made
 to a validated address itself (so a second resolution cannot redirect it), and the connected peer is
-checked again. URLs with userinfo, other schemes or other ports are refused. No credential, cookie or
-caller header is ever sent. robots.txt is honored and fails closed; requests are spaced at least
+checked again. Only places with certified terms (SOURCES.md) are fetched, checked on every hop. URLs with
+userinfo, other schemes or other ports are refused. No credential, cookie or caller header is ever sent.
+robots.txt is honored and fails closed; requests are spaced at least
 SPACING seconds per host across the whole daemon; at most MAX_REDIRECTS redirects are followed.
 """
 
@@ -14,8 +15,12 @@ import ssl
 import threading
 import time
 import urllib.robotparser
+from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
+from ingest import terms
+
+SOURCES = Path(__file__).with_name("SOURCES.md")
 USER_AGENT = "moneymachine-thesis-research (read-only)"
 SPACING = 5.0
 MAX_REDIRECTS = 5
@@ -95,8 +100,9 @@ class PinnedHTTPS(http.client.HTTPSConnection):
 class Fetcher:
     """The daemon-wide fetcher: spacing per host, robots cache, and the hop-by-hop validation."""
 
-    def __init__(self, resolve=socket.getaddrinfo, connect=None, clock=time.monotonic, sleep=time.sleep):
+    def __init__(self, resolve=socket.getaddrinfo, connect=None, clock=time.monotonic, sleep=time.sleep, allowed=None):
         self.resolve, self.clock, self.sleep = resolve, clock, sleep
+        self.allowed = terms.allowlist(SOURCES) if allowed is None else allowed
         self.connect = connect or self._connect
         self.lock = threading.Lock()
         self.last = {}
@@ -155,7 +161,10 @@ class Fetcher:
         chain, current = [], url
         try:
             for _ in range(MAX_REDIRECTS + 1):
-                validated_addresses(check_url(current)[0].hostname, self.resolve)
+                parts, _ = check_url(current)
+                if not terms.admits(self.allowed, parts.hostname, parts.path or "/"):
+                    raise Refused(f"{parts.hostname}{parts.path} has no certified terms (SOURCES.md)")
+                validated_addresses(parts.hostname, self.resolve)
                 if not self._allowed(current):
                     raise Refused(f"robots.txt disallows {current}")
                 status, location, ctype, body = self._get(current)
