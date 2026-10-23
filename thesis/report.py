@@ -56,7 +56,7 @@ def account_report(track, account, now):
 def write(track, now, out):
     calls = [c for _, _, c in track.ledger.records("call")]
     report = {
-        "version": track.version, "as_of": now,
+        "version": track.version, "as_of": now, "qualifications": "PROGRESS.md, Qualifications, stage 10",
         "sessions": [c for _, _, c in track.ledger.records("session_end")],
         "sessions_missed": [c for _, _, c in track.ledger.records("session_missed")],
         "registration_attempts": sum(c["request"].get("cmd") == "register" for c in calls if isinstance(c["request"], dict)),

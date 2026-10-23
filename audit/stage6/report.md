@@ -165,3 +165,5 @@ processes) but did not prescribe or enforce a configuration. The cargo test exec
 evaluator is not among the hashed binaries. These are performance-reproducibility gaps. Performance changes
 neither the ranking nor any decision, so they cannot change a false-discovery or leakage outcome. They are
 recorded, not fixed (CLAUDE.md §3, rule 3).
+
+Qualifications: this stage's entries are listed in PROGRESS.md, Qualifications, stage 6 (added 2026-10-23).

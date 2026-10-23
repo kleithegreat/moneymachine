@@ -202,8 +202,8 @@ def mixed_summary():
 
 
 def summary(out):
-    Path(out).write_text(json.dumps({"null": null_summary(), "mixed": mixed_summary(), "events": null_summary("events")},
-                                    indent=1) + "\n")
+    Path(out).write_text(json.dumps({"null": null_summary(), "mixed": mixed_summary(), "events": null_summary("events"),
+                                     "qualifications": "PROGRESS.md, Qualifications, stage 2"}, indent=1) + "\n")
 
 
 def top5_programs(first=TOP5_CAMPAIGNS):

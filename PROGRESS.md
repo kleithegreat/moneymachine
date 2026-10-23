@@ -2,13 +2,13 @@
 
 ## Now
 
-Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. The whole suite before a commit: `systemd-run --user --scope -p MemoryMax=8G choom -n 1000 -- nix develop -c python -m cli check`, which runs pytest over 6 workers (`pytest-xdist`), the kernel's cargo tests and the mutants (4 slots, each with its own cargo target) concurrently, with logs in `data/check/`. Detached processes (kill by PID only): `pgrep -af "cli record"` (HL live recorder), `pgrep -af "cli sources-record"` (stage 5 recorder). An OOM kill (the kernel's, or systemd-oomd's of a whole cgroup) once took them down with a heavy job of mine. So every heavy job (builds of the Lean kernel, C6.4/C6.5 runs, sweeps, null series, simulations) runs in its own capped scope, first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G choom -n 1000 -- nix develop -c …`. While a judged window is open, no heavy job starts uncapped. The recorders' negative OOMScoreAdjust needs root (human decision 3 of 2026-10-23): `sudo choom -n -900 -p $(pgrep -f 'cli record ') && sudo choom -n -900 -p $(pgrep -f 'cli sources-record')`, rerun after any recorder restart.
+Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. The whole suite before a commit: `systemd-run --user --scope -p MemoryMax=8G choom -n 1000 -- nix develop -c python -m cli check`, which runs pytest over 6 workers (`pytest-xdist`), the kernel's cargo tests and the mutants (4 slots, each with its own cargo target) concurrently, with logs in `data/check/`. Detached recorders: the HL live recorder (`data/live`) and the stage 5 recorder (`data/sources_live`). Each records its pid and arguments in `<out_dir>/recorder.json` and stops between polls on SIGTERM. Restart one only with `python -m cli recorder-restart <out_dir> [budget]` (human decision 2026-10-23), uncapped and outside any scope; never with ad hoc kills. An OOM kill (the kernel's, or systemd-oomd's of a whole cgroup) once took them down with a heavy job of mine. So every heavy job (builds of the Lean kernel, C6.4/C6.5 runs, sweeps, null series, simulations) runs in its own capped scope, first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G choom -n 1000 -- nix develop -c …`. While a judged window is open, no heavy job starts uncapped. The recorders' negative OOMScoreAdjust needs root (human decision 3 of 2026-10-23): `sudo choom -n -900 -p $(pgrep -f 'cli record ') && sudo choom -n -900 -p $(pgrep -f 'cli sources-record')`, rerun after any recorder restart.
 
 Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
 
 - **Stage 0.** The window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC was judged and is spent: C0.3 found no late value, but its clock instrument was invalid; C0.7 met coverage in every cell but exceeded the 3 bps median excess in 7 (stage 0 revision of 2026-10-21; Log). The second backfill finished at 2026-10-21 22:00 UTC (version 1792613363942). The recorder restarted at 21:22:44 UTC (`RECORDING_FROM`) as `python -m cli record data/universe.json venue/hyperliquid/rules.json data/live`. Two gaps restarted the window. A 60.7 s WIF L2 gap (connection reset) came at 2026-10-22 12:52:31 UTC. Then both recorders were down from 19:00:35 to 19:37:32 UTC (Log: a run of mine was killed for memory, and the OOM kill took the session's processes with it). The window now ends 2026-10-23 19:37:39.59 UTC (C0.3/C0.7 amendment of 2026-10-23) unless another gap restarts it. Then:
   - a resumable runner, `data/tmp/stage0-close.sh` (untracked; started 2026-10-23 05:35 UTC in the background), sleeps until 19:38 UTC, then runs these steps in capped scopes, skipping any whose output exists. After a reset, rerun it if its log `data/tmp/stage0-close.log` has no "done" line. The steps, once `window('data/live', 'data/sources_live')` returns a span: `availability data/live data/sources_live audit/stage0/availability.json` (C0.3), `execution data/live data/sources_live venue/hyperliquid/execution.json audit/stage0/execution.json` (C0.7), then `witness data 1792613363942 data/witness.jsonl > audit/stage0/witness.json` (C0.8, on the frozen cost model), `pytest criteria/test_stage0.py`;
-  - after that window, the recorder keeps running as a regime diagnostic at ≤ 480/min, reporting the frozen cost model's coverage on each later recorded day. To get there, restart it as `python -m cli record data/universe.json venue/hyperliquid/rules.json data/live 480`. This is needed before `thesis-run`, and must wait until after the stage 0 runner has judged the window.
+  - after that window, the recorder keeps running as a regime diagnostic at ≤ 480/min, reporting the frozen cost model's coverage on each later recorded day. It is restarted (`recorder-restart data/live 480`) only once the window has closed and C0.3's evidence is captured, and only when something will share the HL budget: the stage 10 dry session or `thesis-run` (human decision 2026-10-23). The two running recorders predate pidfiles, so theirs were written by hand from their verified command lines. They have no SIGTERM handler, so this first restart terminates them at once; check that the last line of the day's polls file parses.
   - **After the stage 0 results are reviewed and committed,** `data/tmp/after-c07.sh` (untracked, resumable, stops at the first failure) runs the critical path in capped scopes: C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the stage 2 sweeps through `sweep-summary`.
 
   C0.2, C0.4, C0.5 and C0.9 are met (Log). Failing stage 0 is an acceptable outcome. The criteria are judged as written, never reread to pass, and a failure of C0.2, C0.3 or C0.5 means the exit rule: stop and pre-register a different family.
@@ -22,7 +22,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
-- **Stages 7 to 9:** criteria frozen. Implementation waits for the pilot's judged runs (autonomous decision, below); stage 8 also has a data-access blocker.
+- **Stages 7 to 9:** criteria frozen. Implementation waits for the pilot's judged runs (autonomous decision, below). Stage 8 starts with keyless sources (human decision 2026-10-23); its scope manifest, which may use only documentation, terms, schemas and catalog metadata, is drafted meanwhile at `data/tmp/stage8/scope.md`. Keyed sources are under Blockers.
 - **Stage 7 candidate sources (human, 2026-10-22).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
@@ -1099,6 +1099,35 @@ Exit when C9.1 to C9.6 hold and at least one registered real campaign has run fi
 frozen cross-domain finalist, exercising the declared source, mechanism, type, boundary and confirmation paths.
 Zero confirmed hypotheses is an acceptable outcome; zero finalists tested is not an exit.
 
+## Qualifications
+
+Every criterion failed as written, every labeled amendment and every known limitation, by stage (human decision 2026-10-23). The details sit beside each criterion; this is the list. Every stage report and the final report cite it, and no result is reported without its stage's entries.
+
+- **Stage 0.**
+  - The window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC is spent. C0.3 found no late value but its clock instrument was invalid, so the window does not qualify. C0.7 met coverage but exceeded the 3 bps median-excess limit in 7 cells, a failure as written. The revision of 2026-10-21, a post-result amendment, replaced the instrument and the limit. A pass under it is a pass of the amendment.
+  - C0.4 amendment (2026-10-22, after a dry C1.4 failed): knownAt is computed from each revision's fields, and `as_of` takes the latest revision before the availability filter.
+  - C0.3/C0.7 amendment (2026-10-23): a clock-log gap over 10 minutes restarts the window.
+- **Stage 1.**
+  - C1.7 amendment (2026-10-23, after a chance failure on a drawn seed): the canary market is a martingale. C1.7 is met only under it.
+- **Stage 2.**
+  - The locked holdout calibrations v1 and v2.1 failed and stay recorded. v3, the betting test, was adopted by human decision and passed a fresh locked suite.
+  - C2.2's first comparison failed on N2 kurtosis because of two errors in my generator. Both were fixed before the passing comparison.
+  - The stage 2 searchers state no mechanisms, so the mechanism check is skipped there. Stage 2's power figures therefore overstate what stage 3 will see.
+- **Stage 5.**
+  - C5.3 failed as written for Discourse. The exit is met under the amendment of 2026-10-22 and its clarification.
+  - C5.6's calibration is deferred. It must pass before any search store carries an event dataset, and `criteria/test_stages3to5.py` fails otherwise.
+  - The 2026-10-19 migration's predecessor hash was never recorded.
+  - Unlocks are a blocked category (no free source).
+- **Stage 6.**
+  - C6.1 is judged for Lean only, under the amendment of 2026-10-23; Bend's L5 is reported but is not an accepted law.
+  - C6.3 is not met.
+  - C6.5's effort is a proxy recovered afterwards (same amendment).
+  - C6.5's frozen thread configuration is a known limitation under autonomy rule 3, not a pass.
+  - C6.4's first two judged runs agreed everywhere but did not qualify: the first corpus was incomplete, and the second compared digests rather than exact streams.
+  - L1, L3 and L4 were false as frozen and were revised before their proofs.
+- **Stage 10.**
+  - C10.4's tolerance was revised during its first differential run, after a one-ulp disagreement was seen.
+
 ## Decisions taken autonomously
 
 Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous operation).
@@ -1129,37 +1158,29 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 
 ## Blockers
 
-- **Stage 8 (multi-asset) needs data access decisions (2026-10-23; recorded early, no stage 8 work yet).**
-  - **The problem:** long point-in-time histories of equities, indices and commodities mostly come from vendors that need a registered API key (Tiingo, Alpha Vantage, Nasdaq Data Link, FRED) or whose terms forbid automated access to their web pages (Yahoo, and likely Stooq).
-  - **Needs a human decision:** keys and accounts are outside autonomous scope (CLAUDE.md §3, rule 2), and so are paid vendors. The Hyperliquid decision of 2026-10-23 excludes paid vendors for the pilot.
-  - **Keyless official APIs to certify first, once stage 8 begins:**
-    - ECB Data Portal (SDMX, FX and rates);
-    - BIS data portal;
-    - World Bank and IMF data APIs;
-    - Treasury Fiscal Data (already certified for stage 10);
-    - CFTC public reporting (certified);
-    - Hyperliquid's HIP-3 markets (already in use).
-
-    These cover macro, rates, FX and positioning, not long equity or commodity price histories.
-  - **Blocks:** stage 8's equity, index and commodity universes. Proposed: the human chooses a key-based source, or approves the keyless subset as stage 8's first scope.
-
-- **Stage 10 retrieval sources not yet certified (2026-10-23; human decisions needed).** The proxy fetches only from entries with certified terms (`thesis/SOURCES.md`): GDELT, Treasury Fiscal Data's API, CFTC's public-reporting API and the Fed Board's RSS feeds. The others named in the decision of 2026-10-23 cannot be certified without a human step:
-  - **SEC EDGAR and BLS** answer 403 to our agent. Both require a declared User-Agent carrying a contact email, so their policy pages could not be read either. Using the operator's email there is the human's decision. I neither sent it nor impersonated a browser.
-  - **FRED/ALFRED** did not answer our requests (TLS connected, no response). Its API needs a key, i.e. an account.
-  - **EIA and BEA**: their APIs need a registered key, and the proxy sends no credential by design. EIA's reuse policy covers the data's use ("You may use and/or distribute any of our data"), not automated access.
-  - **Federal Reserve releases beyond the RSS feeds**: the Board's policy permits copying, not automated access. Only `/feeds/` is certified.
-  - **Treasury beyond Fiscal Data**: `home.treasury.gov`'s policies page has no access clause; only the Fiscal Data API is certified.
+- **Sources that need a key, an account or the operator's identity (stages 8 and 10; left for the human, decision of 2026-10-23).** Nothing autonomous uses them.
+  - **FRED/ALFRED, EIA and BEA:** their APIs need a registered key. FRED also never answered our requests (TLS connected, no response).
+  - **SEC EDGAR and BLS:** both return 403 to our agent and require a User-Agent with a contact email. Using the operator's email is the human's call, and I neither sent one nor impersonated a browser.
+  - **Equity, index and commodity price histories:** the vendors need keys (Tiingo, Alpha Vantage, Nasdaq Data Link), or their terms forbid automated access to their pages (Yahoo, likely Stooq). Paid equity data is deferred.
+  - **Not certifiable by terms either:** the Fed Board's pages beyond `/feeds/` (its policy permits copying, not automated access), and `home.treasury.gov` beyond the Fiscal Data API (no access clause).
+  - **Consequence:** stage 8 starts with keyless official sources (ECB Data Portal, BIS, World Bank, IMF, Treasury Fiscal Data, CFTC public reporting, Hyperliquid's HIP-3 markets). These cover macro, rates, FX and positioning, so its equity, index and commodity classes stay blocked. The stage 10 proxy keeps the certified four (GDELT, Fiscal Data, CFTC, the Fed's RSS feeds).
 
 ## Log
+
+- 2026-10-23: **Human decisions.**
+  1. C1.7 amended: the canary market is a martingale, the threshold stays at 4, and the failing seed is fixed. C1.7 is met under the amendment (`audit/stage1/c17-amended.txt`).
+  2. The HL recorder is restarted only after the window closes and C0.3's evidence is captured, and only when something shares its budget. Restarts go through `recorder-restart` (pidfiles).
+  3. One Qualifications list, which every stage report and the final report cite.
+  4. Stage 8 starts with keyless sources. Keyed sources wait under Blockers, and paid equity data is deferred.
 
 - 2026-10-23: **GPT independence check.** Since the session scratchpad went away (2026-10-22), GPT's directories had been under `data/tmp`, inside the repo, and `opencode` read the repo's PROGRESS.md in five runs: `derived3`, the third stage 6 review, the stage 7 and stage 8 criteria reviews, and a stage 9 attempt.
   - The only independence-critical one, `derived3` (stage 5's coverage rule), was superseded by `derived4`, whose log shows no outside read, and `ingest/tests/derived/independent.py` comes from `derived4`.
   - Reviews get our context anyway.
   - Fixed: GPT's directories are under `~/.cache/mm-gpt`, and `external_directory` is denied.
 
-- 2026-10-23: **Stage 6 done; Lean adopted** as the reference kernel (`reference/lean`). C6.1 met under its amendment, C6.2 met, C6.3 not met (reported; the revised rule allows it), C6.4 met on its third judged run (corpus `e2ddba4`; the two earlier runs agreed but did not qualify), C6.5 met except its frozen thread configuration (a known limitation under rule 3, not a pass). Bend stopped at L5 and was deleted (`audit/stage6/bend.md`). Report, evidence and GPT's review: `audit/stage6/`.
+- 2026-10-23: **Stage 6 done; Lean adopted** as the reference kernel (`reference/lean`). C6.2 and C6.4 met (C6.4 on its third judged run, corpus `e2ddba4`); the rest under Qualifications, stage 6. Bend stopped at L5 and was deleted (`audit/stage6/bend.md`). Report, evidence and GPT's review: `audit/stage6/`.
 
-- 2026-10-23: **Stage 5 done** under the amendment of 2026-10-22 and its clarification (evidence and GPT's fourth review: `audit/stage5/`). Discourse (delvingbitcoin.org → BTC) and Snapshot (aavedao.eth → AAVE) are prospective only; unlocks are blocked (DefiLlama is paid; human decision 2026-10-20: the RPC fallback is not built). Five Discourse forums and ethresear.ch were purged on their terms (human decision 2026-10-22, `audit/stage5/purge-20261022.json`), and derived files superseded by the window-ends-at-the-tick rule were deleted from the holdout store (hashes in `c007644`'s Log). Standing qualifications: the original C5.3 stays failed for Discourse; C5.6 is deferred and must pass before any search store carries an event dataset (`criteria/test_stages3to5.py`); the 2026-10-19 migration's predecessor hash was never recorded.
+- 2026-10-23: **Stage 5 done** under the amendment of 2026-10-22 and its clarification (evidence and GPT's fourth review: `audit/stage5/`). Discourse (delvingbitcoin.org → BTC) and Snapshot (aavedao.eth → AAVE) are prospective only; unlocks are blocked (DefiLlama is paid; human decision 2026-10-20: the RPC fallback is not built). Five Discourse forums and ethresear.ch were purged on their terms (human decision 2026-10-22, `audit/stage5/purge-20261022.json`), and derived files superseded by the window-ends-at-the-tick rule were deleted from the holdout store (hashes in `c007644`'s Log). Qualifications: stage 5 under Qualifications.
 
 - 2026-10-23: Erasure pass (human decision; done during the judged C6.4 run, touching no binary it uses).
   - The research agents (`gate/agent`) and the thesis agents (`thesis/`) now share one sandbox, `sandbox/`. It holds one in-sandbox client configured by each track's command spec, one Unix-socket server, and the session code: workspace, tool flags, bubblewrap command, run loop, transcript reading and identity hash.
