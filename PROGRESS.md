@@ -740,6 +740,126 @@ The thesis is written with `mm disclose --kind thesis` to the thesis ledger, who
 
 Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
+### Stage 7: sources as a language feature
+
+Frozen 2026-10-23, before any stage 7 code. GPT reviewed the draft, and this is the one revision.
+
+**Scope.** Paper §5 and roadmap item 7. A data source is a typed declaration; a feed binds to it only through a certificate issued by the certification verifier and recorded in the ledger. Every existing feed moves onto declarations, and the per-feed code paths they replace are deleted.
+- **Ordering.** Implementation begins only after stage 5 exits (done 2026-10-23) and the pilot's judged runs that record a kernel hash are complete: C1.4, the stage 2 sweeps, stage 3's campaigns and stage 4's swarm smoke. The baseline commit, build hashes and baseline outputs (C7.4) are recorded before implementation.
+- **Supported subset.** Fields are numeric with a unit in the frozen DSL unit grammar. The entity domain is the run's coins, reached through a certified entity mapping. Enum fields, non-coin entity types and many-to-many relationships are out of scope for stage 7, recorded as a gap from the paper. A declaration using them is rejected explicitly.
+- **Evidence rule.** Before the first judged run of any criterion, its baseline identities, fixture inventory, generation procedure, seeds, mandatory coverage classes, expected outcomes and comparison procedure are committed. Every selected case counts. A missing case, skipped test, crash, timeout or malformed output fails the criterion. A failed judged run stays recorded, and a rerun gets a new identity. Development runs are iterative and never judged.
+- **Migrated feeds.** Their certificates keep the thresholds, applicability decisions, dated amendments and limitations frozen by stages 0 and 5. Stage 7 claims no new pre-registration for them, and a feed binds only for the scope its passing evidence supports. For a new feed, the declaration, feed specification, thresholds and applicability decisions are committed before any return-conditioned evaluation or selection involving it (choosing a mapping, keyword set, lag or coverage window by its correlation with returns counts as return-conditioned).
+
+- **C7.1 Declarations.**
+  - A declaration is a versioned, schema-validated file under `sources/`. It defines:
+    - the entity-key domain;
+    - each field's name, numeric type and unit;
+    - missing-value semantics, where missing is never zero;
+    - the cadence: a held grid with its period, or event aggregates fresh only at their tick;
+    - the availability rule, in the C7.6 language;
+    - the revision semantics.
+  - Binding validates the feed against the schema and its certified mapping, and never coerces entities or units.
+  - DSL input names are declared field names, unique across declarations.
+  - No production code (ingestion, kernel, reference kernel, or generated code) selects typing, delivery, availability, revision or binding behavior by a concrete source, dataset or field identifier. Two checks show this:
+    - a frozen registry, with every declared name and its programs renamed consistently, gives identical semantic outputs;
+    - a scan finds no declared name as a literal in production code (supporting evidence).
+  - A declaration is a contract, not evidence: a field's point-in-time validity comes only from certification (C7.3).
+- **C7.2 Checking, binding and preflight.**
+  - `mm check` types a program from the declarations alone, reading no feed, binding, certificate or store.
+  - Every source a program names is in its required set: in the weight, in any let (used or not), in any branch, and in the prediction condition.
+  - The market data the simulator itself uses (bars for fills and marks, funding for settlement) is also required to be certified.
+  - Before any delivery or evaluation, preflight checks every required binding and certificate. A declared but unbound source gives `R_INPUT_UNAVAILABLE`; a binding without a valid, matching, in-scope certificate gives `R_UNCERTIFIED`.
+  - A refusal emits no result-bearing output and is recorded through the ledger.
+  - A bound feed with no observation for an entity and tick follows the declaration's missing and coverage semantics. It is never filled with zero, and an event value is never held past its tick.
+  - Positive controls: the same programs, fully bound and certified, evaluate.
+- **C7.3 Certificates.**
+  - **Issuance.** Only the certification verifier issues a certificate, from an evidence bundle. The feed builder may submit evidence but cannot issue or assert a pass.
+    - The verifier takes the required tests from a frozen applicability policy covering paper §5's six categories: terms, availability, revisions, entity mapping, coverage and extractor validation.
+    - It recomputes every machine-checkable result and checks the integrity of external evidence: terms quotes per `ingest/terms.py`, blind labels with their labeler's independence recorded.
+    - It rejects a missing, failed, unverifiable or empty-sample test. An inapplicability decision needs a justification of a frozen kind, which the verifier checks.
+    - Each test has a frozen metric, predicate or threshold, sample procedure, minimum sample and evidence window.
+  - **Identity.** A certificate pins:
+    - the declaration and rule-language versions;
+    - the feed specification and data-manifest hashes, and the dataset cutoff;
+    - producer and transformation versions;
+    - mapping and coverage artifacts;
+    - the revision policy and upstream certificates;
+    - extractor model and prompt hashes, where they apply;
+    - evidence hashes and the verifier's version;
+    - the certified entity, field and time scope.
+  - **Availability.** Feed-supplied timestamps are not authoritative. The effective rule is the paper's: the later of the claimed-time rule, used only where the claimed time is protocol-enforced or server-set and a live test passed, and any independent witness. Rows without qualifying evidence are prospective-only. No rule backdates a later-observed revision.
+  - **Lifecycle.** A change to any pinned artifact, or use beyond the certified scope, needs a new certificate. Supersession records are append-only. Earlier experiments stay reproducible, and new evaluations cannot use a superseded certificate.
+  - Each run's identity records its certificate ids.
+- **C7.4 Existing feeds migrated, behavior preserved.**
+  - **Feeds.** Hyperliquid funding and premium, the 4h bars, `events_forum` and `events_governance` move onto declarations and certificates, bound for the scope their stage 0 and stage 5 evidence supports. Insufficient evidence is a blocker, not a pass.
+  - **Derived feeds.** The event counts are versioned transformations with declared upstream dependencies (raw observations and polls). A derived value is available no earlier than its latest required input plus its processing delay. The per-feed code paths are deleted: `EVENT_INPUTS`, the per-input enum variants, and the per-dataset branches in `market.rs` and `ingest/store.py`.
+  - **Derived fixtures.** A frozen fixture set from `derived.md` passes. It covers:
+    - pre-first-poll items excluded;
+    - earliest-observation and claim tie-breaks;
+    - both margins;
+    - records after the cutoff excluded;
+    - the window ending at the tick;
+    - polls exactly 10 minutes apart and gaps;
+    - no coverage inferred from a later poll;
+    - zero only for covered mapped hours;
+    - undefined elsewhere;
+    - lineage hashes.
+  - **Baseline.** Captured before implementation on the stage 0 dataset version (1792613363942) and C6.4's frozen markets: W0, every stage 2 probe, and the first 200 programs of the frozen C6.4 corpus.
+    - After migration, these are byte-identical: deliveries with their knownAt, definedness, node streams, decisions, fills, accounting traces and returns.
+    - The comparison uses a frozen projection that removes only enumerated identity fields: kernel, declaration, binding and certificate ids.
+    - The suite must deliver every migrated field, both event feeds, covered zero counts, uncovered hours, revisions, tombstones and availability boundaries, or it fails.
+    - No spent holdout is used.
+- **C7.5 New feeds without code changes.**
+  - After the generic implementation is frozen, a synthetic source is added through declarations, data and certification evidence only, with no change to any production, ingestion, reference-kernel or generated code. It has:
+    - a previously unused field name;
+    - a previously unused unit combination;
+    - a distinct cadence;
+    - its own availability rule.
+  - It produces nonempty deliveries, and a strategy on it changes output exactly at hand-specified ticks.
+  - **Substitutability:** one checked strategy evaluates against two certified feeds of one declaration without changing its source references.
+  - Incompatible schemas, units and entity mappings are rejected.
+- **C7.6 The rule language.**
+  - A versioned, deterministic AST language, frozen before its implementations. It is total or explicitly rejecting:
+    - typed timestamps and durations in integer ms since the Unix epoch;
+    - floors on the hour grid with a fixed origin, and an exact boundary convention;
+    - no implicit conversions;
+    - overflow, absent fields and invalid values rejected;
+    - no host code, I/O, clock or randomness;
+    - cross-source references only through declared derived dependencies.
+  - GPT implements it from the spec alone. A frozen suite then has to match exactly across Python, Rust and that independent implementation:
+    - at least 1,000 distinct valid (rule, row) pairs, at least 100 of them exercising each of floors, maxima, offsets and composition;
+    - hand-computed cases at exact boundaries and ±1 ms, missing fields, invalid types, overflow and negative timestamps;
+    - a malformed-rule suite whose rules must all be rejected.
+  - The full resolver is tested the same way. `store.as_of` and `mm`'s loader agree on at least 1,000 frozen queries over multi-revision fixtures, covering:
+    - the latest revision chosen before the availability filter, with no fallback to an older revision;
+    - tombstones and cutoffs;
+    - corrected rules.
+- **C7.7 Reference kernel, laws and attacks.**
+  - The Lean semantics are parameterized by validated declarations and bindings. The binding law states that evaluation is undefined whenever a required source lacks a valid, matching, in-scope certificate.
+  - Every stage 6 law keeps its guarantee for every admitted declaration, held and event cadences included. Each law whose referenced definitions change is reviewed, revised if needed, independently reviewed and frozen before its proof. A proof of an older or weaker statement does not count.
+  - A fresh C6.4 corpus, frozen before its run and including novel declarations, valid and invalid bindings, revisions and coverage boundaries, agrees exactly.
+  - All I1–I10 and C5 mutants are still caught.
+  - Named tests, each with a positive control and an expected code or exact outcome, reached at the check they target, catch:
+    1. forged ledger passes;
+    2. missing tests, or an unjustified inapplicability;
+    3. changed thresholds or policy;
+    4. a certificate replayed against another manifest, mapping, extractor or rule;
+    5. use outside the certified scope;
+    6. data changed after validation;
+    7. a failed issuance or ledger commit before output;
+    8. a missing source hidden in an unused let or an inactive branch;
+    9. uncertified execution data;
+    10. a feed timestamp posing as trusted availability;
+    11. backdated revisions, superseded-rule outputs and old-revision fallback;
+    12. future-dependent coverage or mapping;
+    13. a derived feed available before an upstream input;
+    14. timestamp overflow or a malformed rule exposing data early;
+    15. holdout data reached through a declaration, binding, dataset alias or derived dependency;
+    16. zero-filling, holding an event value past its tick, or a held value expiring wrongly.
+  - GPT red-teams declarations from the paper and the CLI usage alone. Every attack it finds becomes a permanent test.
+
+Exit when C7.1 to C7.7 hold.
+
 ## Decisions taken autonomously
 
 Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous operation).
