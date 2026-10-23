@@ -12,6 +12,7 @@ DOCUMENTED_WEIGHT_PER_MIN = 1200
 BUDGET_PER_MIN = DOCUMENTED_WEIGHT_PER_MIN // 2
 
 INTERVAL_MS = {"1h": HOUR, "4h": 4 * HOUR, "1d": DAY}
+TIMEOUT = 10  # s: one hung request plus the recorder's 5 s back-off stays under C0.3's 60 s gap limit
 
 
 class Info:
@@ -19,7 +20,7 @@ class Info:
         self.budget = budget_per_min
         self.spent = []
         self.lock = threading.Lock()
-        self.http = httpx.Client(timeout=30)
+        self.http = httpx.Client(timeout=TIMEOUT)
 
     def _charge(self, weight):
         with self.lock:
