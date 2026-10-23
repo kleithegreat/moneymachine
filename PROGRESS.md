@@ -1158,10 +1158,11 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 
 ## Blockers
 
-- **Sources that need a key, an account or the operator's identity (stages 8 and 10; left for the human, decision of 2026-10-23).** Nothing autonomous uses them.
+- **Sources that need a key, an account, a permission request or the operator's identity (stages 8 and 10; left for the human, decision of 2026-10-23).** Nothing autonomous uses them.
   - **FRED/ALFRED, EIA and BEA:** their APIs need a registered key. FRED also never answered our requests (TLS connected, no response).
   - **SEC EDGAR and BLS:** both return 403 to our agent and require a User-Agent with a contact email. Using the operator's email is the human's call, and I neither sent one nor impersonated a browser.
   - **Equity, index and commodity price histories:** the vendors need keys (Tiingo, Alpha Vantage, Nasdaq Data Link), or their terms forbid automated access to their pages (Yahoo, likely Stooq). Paid equity data is deferred.
+  - **IMF data:** its terms say "The IMF prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, read 2026-10-23). Asking for that permission is the human's call.
   - **Not certifiable by terms either:** the Fed Board's pages beyond `/feeds/` (its policy permits copying, not automated access), and `home.treasury.gov` beyond the Fiscal Data API (no access clause).
   - **Consequence:** stage 8 starts with keyless official sources (ECB Data Portal, BIS, World Bank, IMF, Treasury Fiscal Data, CFTC public reporting, Hyperliquid's HIP-3 markets). These cover macro, rates, FX and positioning, so its equity, index and commodity classes stay blocked. The stage 10 proxy keeps the certified four (GDELT, Fiscal Data, CFTC, the Fed's RSS feeds).
 
