@@ -1,35 +1,23 @@
 """The Lean reference kernel agrees with mm: verdicts and codes on every adversarial case and generated
-program, and bit-exact runs (trace, returns, gross returns) on a short null market. A smoke version
-of C6.4, which is judged on its own frozen corpus."""
+program, and exact runs (trace, returns, node types and streams) on a short null market, through the
+differential harness. A smoke version of C6.4, which is judged on its own frozen corpus."""
 
 import json
 import random
 import subprocess
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-from gate import kernel, markets, search
-from gate.kernel import MM
+from gate import markets, search
 from gate.probes import probes
-
-REPO = Path(__file__).resolve().parents[2]
-REF = REPO / "reference/lean/.lake/build/bin/refmm"
-DUMP = REPO / "reference/mmdump/target/release/mmdump"
+from reference import differential
+from reference.differential import REF, REPO, verdict_mm
 
 
 @pytest.fixture(scope="module", autouse=True)
 def built():
-    kernel.build()
-    subprocess.run(["lake", "build"], cwd=REPO / "reference/lean", check=True, capture_output=True)
-    subprocess.run(["cargo", "build", "--release", "--offline", "-q"], cwd=REPO / "reference/mmdump", check=True)
-
-
-def verdict_mm(path):
-    r = subprocess.run([str(MM), "check", str(path)], capture_output=True, text=True)
-    d = json.loads((r.stdout + r.stderr).strip().splitlines()[-1])
-    return "ok" if d.get("ok") else d["code"]
+    differential.build()
 
 
 def test_verdicts_agree(tmp_path):
@@ -58,14 +46,5 @@ def test_runs_agree_bit_for_bit(tmp_path):
         {"const": 0.0005, "unit": "1/h"}]}}
     programs = [w0, since] + probes(True)[:6]
     programs += [search.compile_genome(search.random_genome(rng, 7)) for _ in range(6)]
-    bad = []
-    for k, prog in enumerate(programs):
-        pf = tmp_path / "p.json"
-        pf.write_text(json.dumps(prog))
-        subprocess.run([str(DUMP), pf, root / "store", root / "venue", "1", tmp_path / "mk.json", tmp_path / "a.json",
-                        tmp_path / "sa.bin"], check=True)
-        subprocess.run([str(REF), "run", pf, tmp_path / "mk.json", tmp_path / "b.json", tmp_path / "sb.bin"], check=True)
-        a, b = json.loads((tmp_path / "a.json").read_text()), json.loads((tmp_path / "b.json").read_text())
-        if a != b or (tmp_path / "sa.bin").read_bytes() != (tmp_path / "sb.bin").read_bytes():
-            bad.append(k)
-    assert bad == []
+    results = differential.chunk(list(range(len(programs))), [json.dumps(p) for p in programs], "smoke", root, 1, tmp_path)
+    assert [name for name, _, agreed, _, _ in results if not agreed] == []

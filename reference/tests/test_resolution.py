@@ -22,8 +22,9 @@ def test_loader_matches_as_of(tmp_path):
                 .select("coin", "eventTime", "fundingRate", "premium", pl.col("reportedTime") + LATE))
     assert store.write("funding", restated, 2, "t") == restated.height
     subprocess.run(["cargo", "build", "--release", "--offline", "-q"], cwd=REPO / "reference/mmdump", check=True)
-    subprocess.run([DUMP, REPO / "kernel/strategies/w0.json", root / "store", root / "venue", "2",
-                    tmp_path / "market.json", tmp_path / "trace.json", tmp_path / "streams.bin"], check=True)
+    (tmp_path / "list").write_text(f"{REPO / 'kernel/strategies/w0.json'}\n")
+    (tmp_path / "out").mkdir()
+    subprocess.run([DUMP, tmp_path / "list", root / "store", root / "venue", "2", tmp_path / "market.json", tmp_path / "out"], check=True)
     loaded = json.loads((tmp_path / "market.json").read_text())
     for dataset, rows, event, known in (("funding", loaded["funding"], 1, 2), ("bars_4h", loaded["bars"], 2, 3)):
         view = store.as_of(dataset, 2**62, 2)

@@ -3,8 +3,9 @@ import Ref
 /-!
 refmm: the Lean reference kernel's executable, on binary64.
   refmm check PROGRAM                 the verdict: `ok` or the rejection code
-  refmm run PROGRAM MARKET OUT STREAMS  the run on a market exported by reference/mmdump: its trace to OUT, every
-                                      node's value stream to STREAMS
+  refmm run PROGRAMS MARKET OUT_DIR   on a market exported by reference/mmdump, each program listed in PROGRAMS
+                                      (one path per line): the i-th's output to OUT_DIR/i.json, its node streams to
+                                      OUT_DIR/i.bin
   refmm bench PROGRAM MARKET REPS     evaluator-only milliseconds of REPS runs (`null` if not completed)
                                       written in mmdump's format (every float as its bits)
 -/
@@ -100,20 +101,25 @@ def main (args : List String) : IO UInt32 := do
     match Ref.check (← IO.FS.readFile path) with
     | .ok _ => IO.println "ok"; return 0
     | .error c => IO.println c.name; return 1
-  | ["run", prog, mkt, out, streams] =>
+  | ["run", programs, mkt, outDir] =>
     let some v := (Json.parse (← IO.FS.readFile mkt)).toOption | IO.eprintln "bad market"; return 3
     let (m, venue, pol, stop) := market v
-    let result ← match Ref.check (← IO.FS.readFile prog) with
-      | .error c => pure s!"\{\"reject\":\"{c.name}\"}"
-      | .ok p => match Ref.run floatOps p m venue pol stop with
-        | .error a => pure s!"\{\"abort\":\"{a.code}\"}"
-        | .ok r => do
-          let defined ← IO.FS.withFile streams .write fun h => writeStreams h p m venue pol stop
-          let nodes := match defined with
-            | .ok n => s!"\{\"defined\":{n}}"
-            | .error a => s!"\"{a.code}\""
-          pure s!"\{\"trace\":{list (r.trace.map eventJson)},\"returns\":{list (r.returns.map fb)},\"gross_returns\":{list (r.grossReturns.map fb)},\"types\":{list (p.types.map tyJson)},\"nodes\":{nodes}}"
-    IO.FS.writeFile out result
+    let paths := (← IO.FS.readFile programs).splitOn "\n" |>.filter (· ≠ "")
+    let mut i := 0
+    for prog in paths do
+      let streams : System.FilePath := outDir ++ s!"/{i}.bin"
+      let result ← match Ref.check (← IO.FS.readFile prog) with
+        | .error c => pure s!"\{\"reject\":\"{c.name}\"}"
+        | .ok p => match Ref.run floatOps p m venue pol stop with
+          | .error a => pure s!"\{\"abort\":\"{a.code}\"}"
+          | .ok r => do
+            let defined ← IO.FS.withFile streams .write fun h => writeStreams h p m venue pol stop
+            let nodes := match defined with
+              | .ok n => s!"\{\"defined\":{n}}"
+              | .error a => s!"\"{a.code}\""
+            pure s!"\{\"trace\":{list (r.trace.map eventJson)},\"returns\":{list (r.returns.map fb)},\"gross_returns\":{list (r.grossReturns.map fb)},\"types\":{list (p.types.map tyJson)},\"nodes\":{nodes}}"
+      IO.FS.writeFile (outDir ++ s!"/{i}.json") result
+      i := i + 1
     return 0
   | ["bench", prog, mkt, reps] =>
     let some v := (Json.parse (← IO.FS.readFile mkt)).toOption | IO.eprintln "bad market"; return 3
@@ -127,4 +133,4 @@ def main (args : List String) : IO UInt32 := do
       ms := ms.push (toString (((← IO.monoNanosNow) - t0).toFloat / 1e6))
     IO.println (list ms)
     return 0
-  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAM MARKET OUT STREAMS | refmm bench PROGRAM MARKET REPS"; return 2
+  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAMS MARKET OUT_DIR | refmm bench PROGRAM MARKET REPS"; return 2

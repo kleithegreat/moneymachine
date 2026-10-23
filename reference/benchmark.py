@@ -124,10 +124,12 @@ def run(out):
     (work / "w0.json").write_text(w0)
     mm_e2e = [wall([str(kernel.MM), "eval", str(work / "w0.json"), "--campaign", "benchmark", "--agent", "bench",
                     "--store", str(store), "--venue", str(venue), "--ledger", str(work / f"l{i}.sqlite")]) for i in range(REPS)]
-    mmdump = [wall([str(diff.DUMP), str(work / "w0.json"), str(store), str(venue), "1", str(work / "mk.json"), str(work / "a.json"),
-                    str(work / "sa.bin")]) for _ in range(REPS)]
-    ref_e2e = [wall([str(diff.REF), "run", str(work / "w0.json"), str(work / "mk.json"), str(work / "b.json"), str(work / "sb.bin")])
-               for _ in range(REPS)]
+    (work / "list").write_text(f"{work / 'w0.json'}\n")
+    (work / "a").mkdir()
+    (work / "b").mkdir()
+    mmdump = [wall([str(diff.DUMP), str(work / "list"), str(store), str(venue), "1", str(work / "mk.json"), str(work / "a")])
+              for _ in range(REPS)]
+    ref_e2e = [wall([str(diff.REF), "run", str(work / "list"), str(work / "mk.json"), str(work / "b")]) for _ in range(REPS)]
     mm_eval = mm_evaluator(store, venue, [w0], REPS, work)[0]
     ref_eval = ref_evaluator(w0, work / "mk.json", REPS, work)
     mm_tp = mm_evaluator(store, venue, programs, 1, work)

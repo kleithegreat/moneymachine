@@ -2,7 +2,9 @@
 //! `mm`'s simulator, and writes the resolved market (the reference kernels' input) and the trace,
 //! every float as its bits. `mm` itself is used as a library and is not modified.
 //!
-//! usage: mmdump PROGRAM STORE VENUE VERSION MARKET_OUT TRACE_OUT STREAMS_OUT
+//! usage: mmdump PROGRAMS STORE VENUE VERSION MARKET_OUT OUT_DIR
+//! PROGRAMS lists program files, one path per line; for the i-th, OUT_DIR/i.json holds its output and OUT_DIR/i.bin
+//! its node streams (written when it runs). The market is loaded and written once.
 
 use mm::dsl::{Program, Ty, EVENT_INPUTS};
 use mm::machine::Machine;
@@ -107,11 +109,12 @@ fn write_streams(out: &mut impl Write, prog: &Program, m: &Market, n: usize, pol
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
-    let text = std::fs::read_to_string(&a[1]).unwrap();
+    let programs: Vec<String> = std::fs::read_to_string(&a[1]).unwrap().lines().filter(|l| !l.is_empty()).map(String::from).collect();
     let store = PathBuf::from(&a[2]);
     let policy = market::policy(&store.join("policy.json")).unwrap();
     let venue = market::venue(Path::new(&a[3])).unwrap();
     let version: i64 = a[4].parse().unwrap();
+    let out_dir = PathBuf::from(&a[6]);
     let m = market::load(&[store], version, &venue, &policy, Some(policy.holdout_start)).unwrap();
     let end = policy.holdout_start.min(policy.w_end);
     let slots: Vec<usize> = mm::dsl::EVENT_INPUTS.iter().enumerate().filter(|(_, (_, ds))| m.events.contains_key(ds)).map(|(i, _)| i).collect();
@@ -131,20 +134,24 @@ fn main() {
         "policy": {"delta": policy.delta, "w_start": policy.w_start, "end": end, "bar": BAR},
     });
     std::fs::write(&a[5], market_json.to_string()).unwrap();
-    let out = match mm::dsl::parse(&text) {
-        Err(r) => json!({"reject": r.code.name()}),
-        Ok(p) => match sim::run(&p, &m, &venue, &policy, end) {
-            Err(e) => json!({"abort": e.code()}),
-            Ok(run) => json!({"trace": run.trace.iter().map(event).collect::<Vec<_>>(),
-                              "returns": run.returns.iter().map(|x| b(*x)).collect::<Vec<_>>(),
-                              "gross_returns": run.gross_returns.iter().map(|x| b(*x)).collect::<Vec<_>>(),
-                              "types": p.types.iter().map(ty).collect::<Vec<_>>(),
-                              "nodes": match write_streams(&mut BufWriter::new(File::create(&a[7]).unwrap()), &p, &m,
-                                                           venue.coins.len(), &policy, end) {
-                                  Ok(defined) => json!({"defined": defined}),
-                                  Err(e) => json!(e),
-                              }}),
-        },
-    };
-    std::fs::write(&a[6], out.to_string()).unwrap();
+    for (i, path) in programs.iter().enumerate() {
+        let text = std::fs::read_to_string(path).unwrap();
+        let streams = out_dir.join(format!("{i}.bin"));
+        let out = match mm::dsl::parse(&text) {
+            Err(r) => json!({"reject": r.code.name()}),
+            Ok(p) => match sim::run(&p, &m, &venue, &policy, end) {
+                Err(e) => json!({"abort": e.code()}),
+                Ok(run) => json!({"trace": run.trace.iter().map(event).collect::<Vec<_>>(),
+                                  "returns": run.returns.iter().map(|x| b(*x)).collect::<Vec<_>>(),
+                                  "gross_returns": run.gross_returns.iter().map(|x| b(*x)).collect::<Vec<_>>(),
+                                  "types": p.types.iter().map(ty).collect::<Vec<_>>(),
+                                  "nodes": match write_streams(&mut BufWriter::new(File::create(&streams).unwrap()), &p, &m,
+                                                               venue.coins.len(), &policy, end) {
+                                      Ok(defined) => json!({"defined": defined}),
+                                      Err(e) => json!(e),
+                                  }}),
+            },
+        };
+        std::fs::write(out_dir.join(format!("{i}.json")), out.to_string()).unwrap();
+    }
 }
