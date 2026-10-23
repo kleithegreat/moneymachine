@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from gate.markets import FLAT_COST
+from gate.markets import FLAT_COST, write_venue
 from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
 
@@ -43,13 +43,7 @@ def _write(root, bars, funding, coins, delisted=(), events=None, revisions=None)
     if revisions:
         store.write("funding", pl.DataFrame(revisions), 2, "edge-markets")
     (root / "store" / "policy.json").write_text(json.dumps(POLICY | {"w_start": 0, "holdout_start": end, "w_end": end}))
-    venue = root / "venue"
-    venue.mkdir(parents=True, exist_ok=True)
-    rules = {"rules": {"taker_fee": {"value": 0.00045}, "min_order_notional_usd": {"value": 10.0}},
-             "coins": {c: {"szDecimals": sz, "maxLeverage": lev, "marginTiers": [{"lowerBound": "0.0", "maxLeverage": lev}],
-                           "delisted": c in delisted} for c, (sz, lev) in coins.items()}}
-    (venue / "rules.json").write_text(json.dumps(rules))
-    (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: FLAT_COST for c in coins}}))
+    write_venue(root, {c: (sz, lev, c in delisted) for c, (sz, lev) in coins.items()}, FLAT_COST)
     return root
 
 

@@ -221,15 +221,20 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
         rows = [(names[c], int(t * HOUR), float(ev[t, c])) for c in range(coins) for t in range(hours) if not np.isnan(ev[t, c])]
         events = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "count": pl.Float64}, orient="row")
         write_split(search, holdout, "events_forum", events, fetched_at, "synthetic", holdout_start)
-    venue = root / "venue"
-    venue.mkdir(parents=True, exist_ok=True)
-    rules = {"rules": {"taker_fee": {"value": taker_fee}, "min_order_notional_usd": {"value": 10.0}},
-             "coins": {c: {"szDecimals": 3, "maxLeverage": 10, "marginTiers": [{"lowerBound": "0.0", "maxLeverage": 10}],
-                           "delisted": False} for c in names}}
-    (venue / "rules.json").write_text(json.dumps(rules))
-    (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: cost_cells for c in names}}))
+    write_venue(root, {c: (3, 10, False) for c in names}, cost_cells, taker_fee)
     (root / "store" / "policy.json").write_text(json.dumps(POLICY | {"w_start": 0, "holdout_start": holdout_start, "w_end": w_end}))
     return root
+
+
+def write_venue(root, coins, cost_cells, taker_fee=0.00045):
+    """<root>/venue: rules for {coin: (szDecimals, maxLeverage, delisted)} and every coin at `cost_cells`."""
+    venue = Path(root) / "venue"
+    venue.mkdir(parents=True, exist_ok=True)
+    rules = {"rules": {"taker_fee": {"value": taker_fee}, "min_order_notional_usd": {"value": 10.0}},
+             "coins": {c: {"szDecimals": sz, "maxLeverage": lev, "marginTiers": [{"lowerBound": "0.0", "maxLeverage": lev}],
+                           "delisted": delisted} for c, (sz, lev, delisted) in coins.items()}}
+    (venue / "rules.json").write_text(json.dumps(rules))
+    (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: cost_cells for c in coins}}))
 
 
 def write_market(root, market_id="test", days=60, holdout_days=0, model="N1", params=None,
