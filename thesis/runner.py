@@ -17,7 +17,7 @@ from ingest.live import now_ms
 from ingest.policy import DAY, HOUR
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
-from thesis.market import Exchange, Market
+from thesis.market import MARK_OFFSET, Exchange, Market
 from thesis.retrieval import Fetcher
 
 REPO = Path(__file__).resolve().parents[1]
@@ -178,6 +178,16 @@ class Track:
         return any(c["date"] == monday for _, _, c in self.ledger.records("skip", "benchmark")) or \
             any(th["session"] == f"benchmark-{monday}" for th in self.ledger.theses("benchmark"))
 
+    def marker(self):
+        """Builder markets' mark samples at H + MARK_OFFSET every hour (stage 10 revision of 2026-10-23)."""
+        while True:
+            now = now_ms()
+            time.sleep((now // HOUR * HOUR + HOUR + MARK_OFFSET - now) / 1000)
+            try:
+                self.market.record_marks()
+            except Exception as e:
+                print(time.strftime("%FT%T"), "marks", repr(e), flush=True)
+
     def resolver(self):
         while True:
             self.resolve(now_ms())
@@ -189,6 +199,7 @@ class Track:
         if frozen.get("manifest") != harness.manifest_hash():
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
         threading.Thread(target=self.resolver, daemon=True).start()
+        threading.Thread(target=self.marker, daemon=True).start()
         while True:
             now = now_ms()
             date = now // DAY * DAY
