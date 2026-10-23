@@ -104,10 +104,12 @@ def forever(step):
         time.sleep(0.5)
 
 
-def main(universe_path, rules_path, out_dir):
+def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
+    """`budget` per minute in all; after stage 0's window it drops to 480 so the thesis track's 120 fits under half
+    the documented limit."""
     delisted = json.loads(Path(rules_path).read_text())["coins"]
     coins = [c for c in json.loads(Path(universe_path).read_text())["universe"] if not delisted[c]["delisted"]]
-    rec = Recorder(BUDGET_PER_MIN, coins, out_dir)
+    rec = Recorder(budget, coins, out_dir)
     threading.Thread(target=forever, args=(rec.step_l2,), daemon=True).start()
     forever(rec.step)
 

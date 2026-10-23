@@ -66,7 +66,7 @@ COMMANDS = {
     "rules": ("ingest.rules", "write", ["data_root", "out"], "write the venue rules for U to OUT"),
     "backfill": ("ingest.backfill", "main", ["data_root", "budget:int"],
                  "fetch W for U into the store as one dataset version; the ingestion report goes to audit/stage0/"),
-    "record": ("ingest.record", "main", ["universe_path", "rules_path", "out_dir"], "the live Hyperliquid recorder (runs until killed)"),
+    "record": ("ingest.record", "main", ["universe_path", "rules_path", "out_dir", "budget:int?"], "the live Hyperliquid recorder (runs until killed)"),
     "availability": ("ingest.availability", "report", ["live_dir", "sources_dir", "out"],
                      "first observations of settled funding and closed bars in the judged window, and the NTP clock record over it"),
     "execution": ("ingest.execution", "calibrate", ["live_dir", "sources_dir", "model_out", "report_out"],
