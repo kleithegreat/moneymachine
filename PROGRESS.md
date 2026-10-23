@@ -4,11 +4,10 @@
 
 Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. The whole suite before a commit: `systemd-run --user --scope -p MemoryMax=8G choom -n 1000 -- nix develop -c python -m cli check`, which runs pytest over 6 workers (`pytest-xdist`), the kernel's cargo tests and the mutants (4 slots, each with its own cargo target) concurrently, with logs in `data/check/`. Detached processes (kill by PID only): `pgrep -af "cli record"` (HL live recorder), `pgrep -af "cli sources-record"` (stage 5 recorder). An OOM kill (the kernel's, or systemd-oomd's of a whole cgroup) once took them down with a heavy job of mine. So every heavy job (builds of the Lean kernel, C6.4/C6.5 runs, sweeps, null series, simulations) runs in its own capped scope, first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G choom -n 1000 -- nix develop -c …`. While a judged window is open, no heavy job starts uncapped. The recorders' negative OOMScoreAdjust needs root (human decision 3 of 2026-10-23): `sudo choom -n -900 -p $(pgrep -f 'cli record ') && sudo choom -n -900 -p $(pgrep -f 'cli sources-record')`, rerun after any recorder restart.
 
-Order while waiting on recording windows (human, 2026-10-20): (a) behavior-preserving cleanup, finished before the first judged run that records a kernel or harness hash (C1.4, stage 2 sweeps, the harness freeze); otherwise it waits until stage 5 exits; (b) stage 10, the thesis track; (c) stage 6, the reference kernels. Stages 7 to 9 start after stage 5 exits.
+Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
 
-- **Cleanup (a):** done. Every step was byte-identical on a fingerprint of seeds, genomes, null markets, written stores, kernel, holdout and mechanism results, traces and check codes, and all 14 mutants are caught.
 - **Stage 0.** The window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC was judged and is spent: C0.3 found no late value, but its clock instrument was invalid; C0.7 met coverage in every cell but exceeded the 3 bps median excess in 7 (stage 0 revision of 2026-10-21; Log). The second backfill finished at 2026-10-21 22:00 UTC (version 1792613363942). The recorder restarted at 21:22:44 UTC (`RECORDING_FROM`) as `python -m cli record data/universe.json venue/hyperliquid/rules.json data/live`. Two gaps restarted the window. A 60.7 s WIF L2 gap (connection reset) came at 2026-10-22 12:52:31 UTC. Then both recorders were down from 19:00:35 to 19:37:32 UTC (Log: a run of mine was killed for memory, and the OOM kill took the session's processes with it). The window now ends 2026-10-23 19:37:39.59 UTC (C0.3/C0.7 amendment of 2026-10-23) unless another gap restarts it. Then:
-  - once `window('data/live', 'data/sources_live')` returns a span: `availability data/live data/sources_live audit/stage0/availability.json` (C0.3), `execution data/live data/sources_live venue/hyperliquid/execution.json audit/stage0/execution.json` (C0.7), then `witness data 1792613363942 data/witness.jsonl > audit/stage0/witness.json` (C0.8, on the frozen cost model), `pytest criteria/test_stage0.py`;
+  - a resumable runner, `data/tmp/stage0-close.sh` (untracked; started 2026-10-23 05:35 UTC in the background), sleeps until 19:38 UTC, then runs these steps in capped scopes, skipping any whose output exists. After a reset, rerun it if its log `data/tmp/stage0-close.log` has no "done" line. The steps, once `window('data/live', 'data/sources_live')` returns a span: `availability data/live data/sources_live audit/stage0/availability.json` (C0.3), `execution data/live data/sources_live venue/hyperliquid/execution.json audit/stage0/execution.json` (C0.7), then `witness data 1792613363942 data/witness.jsonl > audit/stage0/witness.json` (C0.8, on the frozen cost model), `pytest criteria/test_stage0.py`;
   - after that window, the recorder keeps running as a regime diagnostic at ≤ 480/min, reporting the frozen cost model's coverage on each later recorded day.
 
   C0.2, C0.4, C0.5 and C0.9 are met (Log). Failing stage 0 is an acceptable outcome. The criteria are judged as written, never reread to pass, and a failure of C0.2, C0.3 or C0.5 means the exit rule: stop and pre-register a different family.
@@ -16,55 +15,25 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test is calibration v3 (human decision 2026-10-21): returns bounded below at B = 1 by kernel I10, a betting test, and GPT's locked suite, which it passed (Log). Calibrations v1 and v2.1 failed and stay recorded. After C0.7: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
-- **Stage 5:** only delvingbitcoin.org (BTC) and Snapshot (AAVE) remain under the terms rule. GPT's third review (2026-10-23) keeps C5.1 and C5.4 met, and C5.6 met as a deferral. It found one real defect, now fixed: the derivation counted the hour ending at H, while C5.5 and DSL.md count the hour ending at the tick H + δ. Counts now cover knownAt in (H + δ − 1h, H + δ], each row known at H + δ.
-  - The knownAt rule for event rows is eventTime + δ, in `store.known_at` and `mm`'s loader (`market.rs`). That is a one-line loader change made in stage 5, outside stage 6's no-change scope.
-  - The prefix-stability test is restated at the tick.
-  - A fresh independent implementation from GPT agrees on 2,000 cases.
-  - The other points are done: raw file hashes in each lineage manifest, and an identity note for the rewritten raw versions (`audit/stage5/version-identity.md`). The store's edit, tombstone and restoration test now runs under both key schemas.
-  - **At exit,** with the exit cut E:
-    - `sources-backfill data`, `sources-backfill data snapshot`;
-    - `events data E data/sources_live` for both sources, then `events-verify` on each lineage (saved);
-    - `sources-availability` for both, `sources-reconcile` for both at their new backfill versions, `sources-coverage data E`;
-    - then GPT's review.
-  - The recorder keeps running until stage 5 exits.
-
-  Snapshot is prospective only (client-claimed time). Unlocks: blocked (see Blockers).
+- **Stage 5:** prospective sources: delvingbitcoin.org (BTC) and Snapshot (AAVE); unlocks blocked (Blockers). GPT has reviewed three times. C5.1 and C5.4 are met, and C5.6 met as a deferral. The fixes since are logged.
+  - **The exit procedure** ran from 2026-10-23 05:33 UTC: re-backfills, derivation at the exit cut, `events-verify` saved, availability, reconciliation and coverage, into `audit/stage5/*exit*`, `verify-*`, `reconcile-*` and `coverage-*`.
+  - **Next:** GPT's review of that evidence. That is a fourth rejection at most, so CLAUDE.md's rule 3 decides what remains.
+  - The sources recorder keeps running past exit, since it also writes C0.3's clock log.
 - **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until it closes, now 2026-10-23 19:37 UTC) and C0.7's `execution.json`:
   - one dry main session under a scratch data root to check the harness end to end (not counted), and `harness.audit` checked against a real transcript;
   - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days start), and `thesis-run` detached;
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
-- **Stage 6 (c):** criteria frozen, with the C6.4 per-kernel revision. Lean v4.34.0 and Bend 2.0.37 are pinned. `reference/SEMANTICS.md` is drafted against mm's source, with measured details: min/max ties return the first argument, and sums are left folds from −0.0.
-  - **The Lean model** (`reference/lean`) has a strict JSON front end and checker, the machine and the simulator over an abstract number structure, and a binary64 executable `refmm`.
-    - Its verdicts agree with `mm check` on all 372 checked programs.
-    - Its runs agree bit for bit with `mm` on 31 programs over 120 days. `reference/mmdump` links mm as a library to export the resolved market and the trace.
-  - **Laws:** C6.2 is met for Lean (`audit/stage6/lean-axioms.txt`). L1_values, L1_simulator, L1_decisions, L2_units, L2_checker, L3_rewrite (every R v1 rule), L4_fills, L4_orders, L5_binding and the added L6_bounded are proved after a clean `lake build`, each with `#print axioms` ⊆ {propext, Classical.choice, Quot.sound}. Statements are in `Ref/Laws.lean`, with dated revisions: L4's liquidation reference, L1_simulator's step range, and L4_orders' solvency condition with I10. The frozen definitions are in `Ref/Spec.lean`, and the proof libraries in `Ref/Proof/`. `Twin`/`TwinRun` cover the 16 rules that rewrite in place. `Insert`/`InsertRun` cover `ifNotRev`, an insertion that keeps every old row one place on through every tick and step (a relational reading of the two runs), followed by an in-place twin.
-  - **Bend:** stopped at L5 by human decision. The comparison is recorded in `audit/stage6/bend.md` (L5 proved under `--verdict`; unary `Nat`, no integers, no binary64; port at `69e91e0`), and the work is deleted from the tree. Lean is the reference kernel.
-  - **C6.4: the judged run of 2026-10-22 does not qualify.** All 1,186 verdicts and 3,179 runs agreed, but GPT's review (2026-10-23) found that the corpus misses parts of the criterion as written:
-    - the deterministic cases ran on the 40-day `edge` and 20-day crash markets, not on N1/N2/N3;
-    - `sum`, `std`, `min_over` and `max_over` had no deterministic case;
-    - three signed-zero cases used a literal `-0.0`, which normalizes to `+0.0`;
-    - only the emitted trace was compared, not every node's definedness, value category, booleans and units;
-    - the frozen market hash left out the venue files;
-    - `pass` did not enforce the corpus's own completeness, and the divergence diagnostics had gaps.
-
-    Done since:
-    - both kernels emit each node's static type, a digest of each node's value stream (definedness and bits, every coin, every tick of the machine's schedule) and a count of defined values;
-    - the harness (`reference/differential.py`, `edge_markets.py`) runs every deterministic case on N1/N2/N3 too, adds `lag`, `mean`, `sum`, `std`, `min_over`, `max_over`, `ema` and computed signed zeros;
-    - it hashes venue files with the store, and `pass` requires the corpus to be complete;
-    - the divergence report covers every field.
-
-    Next: a development run, then `differential-freeze` with a fresh seed, and `differential-run` capped in the background.
-  - **C6.5:** a draft report (`audit/stage6/c65-report.md`) and benchmark (`c65-bench.json`). GPT's review found it incomplete:
-    - the effort per milestone lacks active time and session counts, which are recoverable from the session transcripts' timestamps;
-    - the benchmark's configuration was not frozen before the run, and it read W0 from the tree rather than the corpus;
-    - "export" also runs mm's simulator;
-    - there is no Bend trust account or archived L5 `--verdict` artifacts;
-    - L3's `Lawful` and L6's `Bounded` assumptions are not stated.
-
-    Adoption waits on C6.4.
-  - **C6.1:** conversion interning now has its dated revision in `SEMANTICS.md` §5 and the stage 6 criteria. Bend's L5 `--verdict` was re-run at `69e91e0` and archived (`audit/stage6/bend-l5-verdict.txt`).
+- **Stage 6 (c):** Lean is the candidate for adoption, and C6.2 is met for it (`audit/stage6/lean-axioms.txt`). Bend stopped at L5 by human decision (`audit/stage6/bend.md`). GPT's two reviews rejected the exit, and their fixes are logged:
+  - exact node streams, the corpus inventory, the frozen benchmark identity;
+  - Bend's translated theorem;
+  - the amendments for Bend's statements and for effort.
+  - **Now:** the third judged C6.4 run (corpus frozen at seed 20261024) runs in the background, writing `audit/stage6/differential-report.json`.
+  - **Next:**
+    - `benchmark-freeze` (it needs `kernel/` and `reference/` clean), then `benchmark-run audit/stage6/benchmark.json`, capped, with nothing else heavy running;
+    - the report's differential, performance and adoption sections (`audit/stage6/report.md`);
+    - GPT's third review, judged under CLAUDE.md's rule 3.
 - **Stage 7 candidate sources (human, 2026-10-22; no work before stage 5 exits).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
