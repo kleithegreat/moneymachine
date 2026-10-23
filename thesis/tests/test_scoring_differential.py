@@ -47,3 +47,7 @@ def test_the_sets_cover_every_boundary_case():
     assert any(r["scores"]["ablation"]["B_ref"] == 0 for r in results)
     assert any(len(c["members"]) >= 3 for r in results for c in r["clusters"])
     assert any(not c["resolved"] for r in results for c in r["clusters"])
+    assert any(r[2] is None for s in sets for rows in s["hourly"].values() for r in rows)
+    gapped = [res["theses"][s["theses"][0]["id"]] for i, (s, res) in enumerate(zip(sets, results))
+              if scoring_gen.KINDS[i % len(scoring_gen.KINDS)] == "no_opening_to_horizon"]
+    assert gapped and all(t["outcome"] is None for t in gapped)

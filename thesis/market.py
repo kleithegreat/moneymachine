@@ -9,6 +9,7 @@ dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from thos
 
 import hashlib
 import json
+import math
 from pathlib import Path
 
 from ingest.hl import Info
@@ -26,15 +27,22 @@ def builder(market):
     return ":" in market
 
 
-def mark_bars(samples, now):
-    """[[H, mark(H), mark(H + 1 h)]] from (sent, recv, markPx) samples: mark(H) is the earliest sample sent in
-    [H, H + MARK_WINDOW) and received by `now`; a bar needs both marks."""
-    mark = {}
-    for sent, recv, px in sorted(samples):
+def seal(samples):
+    """{H: markPx} sealed at H + MARK_WINDOW from (sent, recv, markPx) samples in archive order: the earliest
+    sample sent in [H, H + MARK_WINDOW) and received by then, ties in archive order; a missing or invalid mark
+    in it leaves H missing (stage 10 revision of 2026-10-23)."""
+    out = {}
+    for sent, recv, px in sorted(samples, key=lambda s: s[0]):
         h = sent // HOUR * HOUR
-        if recv <= now and sent < h + MARK_WINDOW and h not in mark:
-            mark[h] = px
-    return [[h, mark[h], mark[h + HOUR]] for h in sorted(mark) if h + HOUR in mark and h + HOUR <= now]
+        if h not in out and recv <= h + MARK_WINDOW:
+            out[h] = px
+    return {h: px for h, px in out.items() if px is not None and math.isfinite(px) and px > 0}
+
+
+def mark_bars(samples, now):
+    """[[H, M(H), M(H + 1 h) or None]] for every reference sealed by `now` (M(H + 1 h) only once it is sealed too)."""
+    m = {h: px for h, px in seal(samples).items() if h + MARK_WINDOW <= now}
+    return [[h, px, m.get(h + HOUR)] for h, px in sorted(m.items())]
 
 
 class Exchange(Info):
@@ -87,11 +95,16 @@ class Market:
             if dex:
                 sent = now_ms()
                 meta, ctxs = self.x.post({"type": "metaAndAssetCtxs", "dex": dex["name"]})
-                marks = {a["name"]: float(c["markPx"]) for a, c in zip(meta["universe"], ctxs) if c.get("markPx") is not None}
+                marks = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None for a, c in zip(meta["universe"], ctxs)}
                 append(self.root / "marks", "marks", sent, {"sent": sent, "recv": now_ms(), "dex": dex["name"], "marks": marks})
 
     def marks(self, market):
-        return [(s["sent"], s["recv"], s["marks"][market]) for s in read(self.root / "marks", "marks") if market in s["marks"]]
+        """(sent, recv, markPx or None) of every sample of the market's dex, in archive order."""
+        dex = market.split(":")[0]
+        return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks") if s["dex"] == dex]
+
+    def lag(self, market):
+        return MARK_WINDOW if builder(market) else 0
 
     def bars(self, market, interval, now=None):
         """[[openTime, open, close]] of completed bars up to `now`; a builder market's 1h bars are its marks."""

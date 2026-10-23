@@ -158,3 +158,69 @@ def test_horizon_on_a_missing_bar_uses_the_next_open_and_unresolved_until_data()
     assert out["theses"]["a"]["exit"]["t"] == 97 * H and out["theses"]["a"]["outcome"]["R_net"] == pytest.approx(0.2)
     early = run([thesis("a", 10 * H + 30 * MIN, [["X", 1]])], {"X": flat(100, end=96)}, now=96 * H + 30 * MIN)
     assert early["theses"]["a"]["outcome"] is None and early["theses"]["a"]["exit"] is None
+
+
+# Builder (HIP-3) markets, stage 10 revision of 2026-10-23: a bar opening at h is (M(h), M(h + 1h) or None), and a
+# reference M(h) is available to a decision only from h + 5 min (W).
+W = 5 * MIN
+
+
+def marked(marks, end=200):
+    """Builder bars from {hour: mark}; every other hour up to `end` keeps the last given mark."""
+    m, last = {}, None
+    for h in range(end + 1):
+        if h in marks:
+            last = marks[h]
+        if last is not None and marks.get(h, last) is not None:
+            m[h] = marks.get(h, last)
+    return {h * H: (px, m.get(h + 1)) for h, px in m.items() if h < end}
+
+
+def run_marked(theses, bars, funding=None, now=200 * H):
+    account = {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO_COSTS for m in bars}}
+    lag = {m: W if ":" in m else 0 for m in bars}
+    return positions.run(account, theses, [], {"bars": bars, "funding": funding or {}, "lag": lag}, now)
+
+
+def test_sizing_inside_a_seal_window_uses_only_available_marks():
+    # a: N = 100/0.5 = 200, entry at M(1) = 100, q = 2. b registers at 3h + 1 min: M(3) = 150 is sealed only at
+    # 3h + 5 min and the 2h bar's close (also M(3)) with it, so b sees M(2) = 110: E_r = 9800 + 2 * 110 = 10,020,
+    # b = 100.2, N = 200.4. Marking with M(3) would have given 10,100 and N = 202.
+    bars = {"xyz:B": marked({1: 100.0, 2: 110.0, 3: 150.0})}
+    out = run_marked([thesis("a", 0, [["xyz:B", 1]], L=0.5), thesis("b", 3 * H + MIN, [["xyz:B", 1]], L=0.5)], bars)
+    assert out["theses"]["a"]["entry"]["legs"][0]["q"] == 2
+    assert out["theses"]["b"]["N"] == pytest.approx(200.4, abs=1e-9)
+
+
+def test_invalidation_waits_for_the_closing_reference_and_exits_at_the_next_opening():
+    # L = 0.05, N = 2000, q = 20 at M(1) = 100. The 1h bar's close M(2) = 94 gives R = -0.06; it is available at
+    # 2h + 5 min, so the exit is the 3h opening reference M(3) = 93, never M(2).
+    bars = {"xyz:C": marked({1: 100.0, 2: 94.0, 3: 93.0})}
+    a = run_marked([thesis("a", 0, [["xyz:C", 1]], L=0.05)], bars)["theses"]["a"]
+    assert a["exit"]["reason"] == "invalidation" and a["exit"]["t"] == 3 * H and a["exit"]["legs"][0]["ref"] == 93.0
+    early = run_marked([thesis("a", 0, [["xyz:C", 1]], L=0.05)], bars, now=2 * H + W - 1)["theses"]["a"]
+    assert early["exit"] is None
+
+
+def test_no_opening_reference_before_the_horizon_leaves_the_thesis_unresolved():
+    # Bars stop after 9h and resume at the 96h horizon: e = x = 96h, so the outcome is null (e >= x).
+    bars = {"X": {h * H: (100.0, 100.0) for h in list(range(10)) + list(range(96, 200))}}
+    out = run([thesis("a", 20 * H, [["X", 1]])], bars)
+    assert out["theses"]["a"]["outcome"] is None
+
+
+def test_funding_with_a_missing_reference_uses_the_latest_earlier_one():
+    # L = 0.1, N = 1000, q = 10 at M(1) = 100. M(2) is missing, so funding at 2h (rate 0.001) is valued at M(1):
+    # -10 * 0.001 * 100 = -1, R_net = -0.001 with every other mark at 100.
+    bars = {"xyz:F": marked({1: 100.0, 2: None, 3: 100.0})}
+    a = run_marked([thesis("a", 0, [["xyz:F", 1]])], bars, funding={"xyz:F": {2 * H: 0.001}})["theses"]["a"]
+    assert a["outcome"]["R_net"] == pytest.approx(-0.001, abs=1e-12) and a["outcome"]["o"] == 0
+
+
+def test_a_mixed_core_and_builder_spread():
+    # N = 1000: q_X = 10 at 100 and q_B = -20 at M(1) = 50. At the 96h horizon X is 110 and M(96) = 55:
+    # 10 * 10 - 20 * 5 = 0, so R_net = 0 and o = 0.
+    bars = {"X": flat(100, **{f"h{h}": (110.0, 110.0) for h in range(96, 200)}),
+            "xyz:B": marked({1: 50.0, 96: 55.0})}
+    a = run_marked([thesis("a", 0, [["X", 1], ["xyz:B", -1]], L=0.1)], bars)["theses"]["a"]
+    assert a["outcome"]["R_net"] == pytest.approx(0.0, abs=1e-12) and a["outcome"]["o"] == 0

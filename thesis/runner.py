@@ -49,7 +49,8 @@ class Track:
 
     def data(self, markets, now):
         return {"bars": {m: scoring.bars(self.market.bars(m, "1h", now)) for m in markets},
-                "funding": {m: dict(self.market.funding(m, now)) for m in markets}}
+                "funding": {m: dict(self.market.funding(m, now)) for m in markets},
+                "lag": {m: self.market.lag(m) for m in markets}}
 
     def markets_of(self, account):
         return sorted({m for th in self.ledger.theses(account) for m, _ in th["legs"]})
@@ -67,7 +68,7 @@ class Track:
             d = [r for r in self.market.bars(m, "1d", now) if r[0] + DAY <= now]
             if len(d) < registry.MIN_DAILY_BARS:
                 continue
-            h = self.market.bars(m, "1h", now)
+            h = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
             if h:
                 markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
                 daily[m] = d

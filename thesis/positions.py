@@ -2,9 +2,11 @@
 cap, entry, invalidation, discretionary and horizon exits, funding, costs, the hourly account, and
 each thesis's as-registered outcome.
 
-Data: `bars[market]` is {openTime: (open, close)} of completed 1h bars; `funding[market]` is
-{hour: rate}. A price is known at a bar's open (its openTime) and at its close (openTime + 1h). At
-an hour, funding settles first, then exits, then entries. Fills move the reference open adversely
+Data: `bars[market]` is {openTime: (open, close)} of 1h bars, where a close may be None (a builder market's next
+mark is missing); `funding[market]` is {hour: rate}; `lag[market]` is how long after a price's time it becomes
+available to a decision (0 for candles, the mark seal for builder markets). Fills use a bar's open at its
+openTime; sizing and invalidation use only prices available by then. At an hour, funding settles first, then
+exits, then entries. Fills move the reference open adversely
 by the coin's cost cell ("1000" if |q| * ref <= 1000, else "10000") and pay the taker fee.
 """
 
@@ -13,10 +15,14 @@ from ingest.policy import DELTA, HOUR
 RISK, CAP = 0.01, 0.05
 
 
-def mark(bars, t):
-    """The latest price known at t: the last bar opened by t, at its close if that has passed, else at its open."""
-    s = max((s for s in bars if s <= t), default=None)
-    return None if s is None else bars[s][1] if s + HOUR <= t else bars[s][0]
+def mark(bars, t, lag=0):
+    """The latest price available at t: the last bar whose open is available by t, at its close if that is
+    available and not None, else at its open."""
+    s = max((s for s in bars if s + lag <= t), default=None)
+    if s is None:
+        return None
+    o, c = bars[s]
+    return c if c is not None and s + HOUR + lag <= t else o
 
 
 def first_open(bars, t, now):
@@ -40,7 +46,7 @@ def outcome(th, n, account, data, now):
     for market, w in th["legs"]:
         bars, cells = data["bars"].get(market, {}), account["costs"][market]
         e, x = first_open(bars, th["t_r"] + DELTA, now), first_open(bars, th["T"], now)
-        if e is None or x is None:
+        if e is None or x is None or e >= x:
             return None
         q = w * n / bars[e][0]
         pin, fin, _ = fill(bars[e][0], q, cells, account["fee"])
@@ -57,7 +63,7 @@ class Account:
     """One paper account: cash, open legs, risk reservations, and an independent PnL ledger."""
 
     def __init__(self, account, data):
-        self.account, self.bars = account, data["bars"]
+        self.account, self.bars, self.lag = account, data["bars"], data.get("lag", {})
         self.cash = account["initial"]
         self.realized = self.funding = self.fees = self.costs = 0.0
         self.positions = {}
@@ -65,8 +71,10 @@ class Account:
     def legs(self):
         return [l for p in self.positions.values() for l in p["legs"] if l["open"]]
 
-    def equity(self, t):
-        return self.cash + sum(l["q"] * mark(self.bars[l["market"]], t) for l in self.legs())
+    def equity(self, t, available=False):
+        """Marked at t; with `available`, only from prices a decision at t could see."""
+        return self.cash + sum(l["q"] * mark(self.bars[l["market"]], t, self.lag.get(l["market"], 0) if available else 0)
+                               for l in self.legs())
 
     def reconciled(self, t):
         unrealized = sum(l["q"] * (mark(self.bars[l["market"]], t) - l["ref"]) for l in self.legs())
@@ -129,7 +137,7 @@ def run(account, theses, exits, data, now):
                     {"market": l["market"], "ref": l["ref"], "fill": l["fill"], "q": l["q"]} for l in p["legs"]]}
         while queue and queue[0]["t_r"] < h + HOUR and queue[0]["t_r"] <= now:
             th = queue.pop(0)
-            e_r = acct.equity(th["t_r"])
+            e_r = acct.equity(th["t_r"], available=True)
             b = RISK * e_r
             n = b / th["L"] if e_r > 0 else RISK * account["initial"] / th["L"]
             out[th["id"]]["N"] = n
@@ -147,9 +155,13 @@ def run(account, theses, exits, data, now):
         if close <= now:
             for p in acct.positions.values():
                 if not p["closed"] and p["entry"] is not None and "invalidation" not in p["triggers"]:
-                    r = sum(l["w"] * (mark(bars[l["market"]], close) / l["ref"] - 1) for l in p["legs"])
+                    seen = close + max(acct.lag.get(l["market"], 0) for l in p["legs"])
+                    if seen > now:
+                        continue
+                    r = sum(l["w"] * (mark(bars[l["market"]], seen, acct.lag.get(l["market"], 0)) / l["ref"] - 1)
+                            for l in p["legs"])
                     if r <= -p["L"]:
-                        p["triggers"]["invalidation"] = close + DELTA
+                        p["triggers"]["invalidation"] = max(close + DELTA, seen)
             equity.append((close, acct.equity(close), acct.reconciled(close)))
         h += HOUR
     for th in theses:

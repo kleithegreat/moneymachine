@@ -28,6 +28,9 @@ class FakeMarket:
     def funding(self, market, now=None):
         return []
 
+    def lag(self, market):
+        return 0
+
 
 @pytest.fixture
 def track(tmp_path, monkeypatch):

@@ -1,11 +1,14 @@
 """C10.4 test sets for thesis/SCORING.md, dense in boundary cases: a net return of exactly 0, a horizon
 on a missing bar, clusters chaining through overlaps, touching intervals, fewer than 10 base-rate
-windows, size-zero (hypothetical N) theses, and B_ref = 0 (flat prices without costs give o = 0, and the one paired ablation says 0)."""
+windows, size-zero (hypothetical N) theses, and B_ref = 0 (flat prices without costs give o = 0, and the one paired ablation says 0).
+Since the stage 10 revision of 2026-10-23 also: hourly rows with a null close (a builder market's missing next mark),
+and no opening reference between entry and the horizon (e >= x)."""
 
 import random
 
 HOUR, DAY, DELTA = 3_600_000, 86_400_000, 120_000
-KINDS = ("zero_return", "missing_horizon_bar", "chain", "touching", "short_history", "size_zero", "b_ref_zero", "random")
+KINDS = ("zero_return", "missing_horizon_bar", "chain", "touching", "short_history", "size_zero", "b_ref_zero", "random",
+         "null_close", "no_opening_to_horizon")
 COSTS = {"buy": {"1000": 2.0, "10000": 5.0}, "sell": {"1000": 3.0, "10000": 6.0}}
 
 
@@ -58,6 +61,13 @@ def generate_set(rng, kind):
     if kind == "missing_horizon_bar":
         m = ts[0]["legs"][0][0]
         test["hourly"][m] = [r for r in test["hourly"][m] if r[0] != ts[0]["T"]]
+    if kind == "null_close":
+        for m in markets:
+            test["hourly"][m] = [[t, o, None if rng.random() < 0.05 else c] for t, o, c in test["hourly"][m]]
+    if kind == "no_opening_to_horizon":
+        th = ts[0]
+        for m, _ in th["legs"]:
+            test["hourly"][m] = [r for r in test["hourly"][m] if not th["t_r"] + DELTA <= r[0] < th["T"]]
     if kind == "size_zero":
         ts[0]["N"] = round(0.01 * 10_000 / 0.5, 2)
     if kind == "b_ref_zero":

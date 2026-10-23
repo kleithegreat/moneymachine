@@ -10,7 +10,7 @@ returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY
 {
   "account": {"fee": 0.00045,
               "costs": {"<market>": {"buy": {"1000": bps, "10000": bps}, "sell": {"1000": bps, "10000": bps}}}},
-  "hourly": {"<market>": [[openTime, open, close], ...]},
+  "hourly": {"<market>": [[openTime, open, close | null], ...]},
   "daily": {"<market>": [[openTime, open, close], ...]},
   "funding": {"<market>": [[hour, rate], ...]},
   "now": ms,
@@ -19,7 +19,7 @@ returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY
 }
 ```
 
-- **Bars.** Hourly bars open at multiples of HOUR, and daily bars at multiples of DAY. A market may have missing bars.
+- **Bars.** Hourly bars open at multiples of HOUR, and daily bars at multiples of DAY. A market may have missing bars. An hourly close may be null: the bar has an opening price but no closing price (a builder market whose next mark is missing). Daily closes are never null.
 - **Thesis order.** Theses are listed in registration (commit) order.
 - **N.** N is the thesis's notional per leg, set at registration (size-zero theses have a hypothetical N).
 - **p_ablation.** p_ablation is the conditional ablation's probability, or null if it is missing.
@@ -27,7 +27,7 @@ returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY
 ## Outcome (as registered)
 
 For each leg (market m, sign w):
-- **Times.** The entry time e is the first hourly openTime ≥ t_r + δ, and the exit time x is the first hourly openTime ≥ T. Only bars with openTime ≤ now count. If either does not exist, the thesis is unresolved (outcome null).
+- **Times.** The entry time e is the first hourly openTime ≥ t_r + δ, and the exit time x is the first hourly openTime ≥ T. Only bars with openTime ≤ now count. If either does not exist, or e ≥ x, the thesis is unresolved (outcome null).
 - **Quantity.** q = w · N / open(e).
 - **Fills.** Trading quantity k at reference price r:
   - the side is buy if k > 0, else sell;
@@ -35,7 +35,7 @@ For each leg (market m, sign w):
   - the price is r · (1 + bps/10⁴) for a buy and r · (1 − bps/10⁴) for a sell;
   - the fee is |k| · price · fee.
 - **Leg contribution.** The entry is a fill of q at open(e), and the exit a fill of −q at open(x). The leg contributes q · (exit price − entry price) − entry fee − exit fee.
-- **Funding.** For every funding row (h, rate) of m with e < h ≤ x, the leg contributes −q · rate · mark(h). Here mark(t) uses the hourly bars: take the last bar with openTime s ≤ t; it is its close if s + HOUR ≤ t, otherwise its open.
+- **Funding.** For every funding row (h, rate) of m with e < h ≤ x, the leg contributes −q · rate · mark(h). Here mark(t) uses the hourly bars: take the last bar with openTime s ≤ t; it is its close if s + HOUR ≤ t and that close is not null, otherwise its open.
 - **Result.** R_net = (sum of the leg contributions) / N, and o = 1 if R_net > 0, else 0.
 
 ## Base rate

@@ -22,7 +22,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days and the benchmark's Mondays start at its `frozen` time), and `thesis-run` detached;
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
-  - **Before the freeze (human decision 2026-10-23): builder (HIP-3) markets are marked at the venue's mark price.** The dated C10 revision (Criteria, stage 10) is written. Hourly bars of a builder market are built from hourly `metaAndAssetCtxs` samples, so SCORING.md and C10.4's scorer are unchanged. Next: the adapter and recording, then the mark-bar fixtures, before `thesis-freeze`.
+  - **Builder (HIP-3) markets are marked at the venue's mark price** (human decision 2026-10-23; the C10 revision, replaced once after GPT's review). Built and tested before the freeze: `metaAndAssetCtxs` sampled hourly by `thesis-run`'s marker thread and sealed at H + 5 min; lagged sizing and invalidation; the revised SCORING.md; new C10.3 fixtures; C10.4 re-judged (Log). Mark recording starts with `thesis-run`, so no builder market has hourly bars before then.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
 - **Stages 7 to 9:** criteria frozen; kernel changes wait for the pilot's judged runs (autonomous decision, below). Human decision 2026-10-23: start with as much free data as possible, designed for extension.
@@ -1283,6 +1283,8 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Paid or institutional data** (equities, index constituents, futures contracts) comes later, by the human's choice (`docs/data-access.md`).
 
 ## Log
+
+- 2026-10-23: **C10.4 met again under the builder-market revision.** GPT (tools denied, from the revised SCORING.md and the stage 10 criteria alone; `~/.cache/mm-gpt/s10scorer.3g4b`) wrote a fresh `thesis/tests/gpt_scoring.py`, which replaces the earlier one. On 1,000 sets from the extended generator (seed 1010), which now includes null closes and no opening reference before the horizon, it agrees with `thesis/scoring.py` on every outcome, exclusion, count and cluster, and within 1e-12 · max(1, |a|, |b|) on scores. The hand-derived fixtures for the revision also pass: sealing, missing and late marks, sizing inside a seal window, invalidation awaiting its closing reference, funding with a missing reference, a mixed spread, and e ≥ x.
 
 - 2026-10-23 20:20 UTC: **Stage 0's window restarted again.**
   - **Cause:** at 06:08:19 UTC the host's DNS resolver logged a fault ("Using degraded feature set UDP instead of UDP+EDNS0"). Every coin's L2 polling stalled for 48 to 77 s, past the 60 s limit on BTC (69.6 s), BNB (69.4 s), POPCAT (77.3 s), WLD (65.9 s) and ETH (59.4 s, then 48.4 s), with request times up to 21.7 s.
