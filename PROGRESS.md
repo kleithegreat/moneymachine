@@ -1019,6 +1019,84 @@ record confirms it. Trading is stage 11, the human's decision.
 Exit when C8.1 to C8.7 hold for every admitted class and claimed projection, and every blocked or unattempted
 class is recorded under Blockers with what was tried.
 
+### Stage 9: cross-domain exploration
+
+Scope: roadmap item 9 and paper §8 (exploration across domains). Agents explore cross-source relationships
+freely on a search period; at most k finalists, fixed in advance, are confirmed once on an untouched period after
+an embargo, with Holm across k. Zero confirmed hypotheses is an acceptable outcome. Implementation begins after
+stage 8 exits, since the design needs long multi-asset histories and certified sources. GPT reviewed the draft
+(2026-10-23); this version adopts its points.
+
+- **C9.1 Campaign manifest.** Before the first campaign-specific search observation or evaluation is disclosed,
+  an immutable manifest and its hash are committed to the ledger. It fixes: the admitted domains and sources; the
+  search, embargo, optional intermediate and final confirmation periods; k (1 ≤ k ≤ 5); the search budget and
+  stopping rule; what the searcher is shown; the finalist-selection rule and tie-breaks; the mechanism rubric
+  (C9.3); the confirmation rule (C9.4); and failure handling. Nothing in it changes after search begins; a
+  changed design is a new campaign and cannot reuse a period the old one disclosed. "Free exploration" removes
+  the DSR, SPA and ranking screens, not the budget, the information boundary or the ledger, and stage 2's
+  searchers keep their frozen budgets. Every period comes from data certified under stages 7 and 8.
+- **C9.2 Information boundary.** Before any reserved observation is inspected, the campaign's boundary is
+  committed under C8.6: target returns, auxiliary data, universe and source-selection inputs, labels, release
+  calendars, vintages, caches, external retrievals and earlier campaigns' disclosures. The embargo is derived
+  from the longest end-to-end dependency the admitted programs allow (composed lags and windows, forward labels,
+  overlapping positions, the instruments' calendars and publication times), and a frozen suite of its
+  maximum-length and asynchronous-boundary cases finds zero forbidden overlaps. Certification of reserved data
+  happens behind the boundary: no value, diagnostic, fitted parameter or error derived from it reaches anything
+  making campaign decisions, and a period already disclosed to that process is ineligible. Access tests follow
+  C8.6's evidence rule (inventory, fixtures, expected deliveries and denials frozen first; every path including
+  aliases, derived sources, other domains, vintages, metadata and error channels, caches; zero unauthorized
+  deliveries; a missing case, crash or timeout fails). Every search evaluation is ledgered with what the agent
+  saw, and no search-period statistic is reported as evidence. The eligible searchers and retrieval channels are
+  named in the manifest, since these tests cannot show a period was unknown to an unrestricted model.
+- **C9.3 Finalists and mechanisms.** At most k finalists, chosen by the committed rule. Before any confirmation
+  disclosure each is frozen: canonical program and build, parameters, sources and certificate versions, universe
+  and asset selection, cadence, execution and cost configuration, and its mechanism record. Any later change
+  disqualifies it. The record names the distinct domains, the transmission channel, the predicted direction and
+  timing, and when it should hold; the domain classification and acceptance rubric are frozen before search, and
+  renaming, aliasing or transforming a source does not create a domain. Any empirical mechanism check runs on
+  search data before freezing. The record is never reinterpreted after confirmation, and a confirmation supports
+  a mechanism-backed predictive hypothesis, not a causal claim. Each finalist passes the source, type and
+  return-bound checks first; a frozen checker suite (cross-domain level pairings, aliases and transforms that
+  evade the differencing rule of paper §4, well-typed controls) matches every expected rejection and acceptance.
+- **C9.4 Confirmation.** All finalists are tested together, once per confirmation stage. A finalist passes a
+  stage only if its net return over the whole committed window is positive and its C2 v3 betting p-value passes
+  Holm at α = 0.05; every emitted step counts, and each stage starts from wealth one. At the first stage Holm runs
+  across the k committed slots, unused slots at p = 1. With an intermediate period, the passing finalists advance
+  automatically and unchanged, and Holm at the final stage runs across all that advanced; one that becomes
+  untestable stays in the family at p = 1. No reranking, replacement, window extension or choice among passers.
+  Only a final pass is a confirmation. The claim rests on v3's conditional null (nonpositive expected net return
+  given everything revealed so far, including search and intermediate results) with returns bounded below at −1
+  under C8.4; the embargo prevents overlap and is not claimed to make periods independent. Any decision taken
+  after confirmation access outside this rule fails the campaign.
+- **C9.5 Calibrated in simulation first.** Before the judged simulation, a reviewed annex fixes every generator,
+  fitting procedure and dependence tolerance (search data only, inheriting C8.5's), campaign lengths and
+  embargo, searcher and disclosure interface, finalist and mechanism rule, planted signals and their analytic
+  truth, seeds, cell list and sample sizes. Development and judged runs use separate seeds. Each judged campaign
+  runs the full procedure (search by the agent harness or stage 2 searchers under the same mechanism and finalist
+  rules, embargo, every confirmation stage, Holm), for every configuration claimed for real use.
+  - Complete null: each generator is shown analytically to give every admitted predictable strategy nonpositive
+    conditional expected net PnL, and includes persistent volatility, cross-domain dependence, asynchronous
+    observations and dependence across both embargo boundaries. Per cell, at least 300 campaigns, fixed in
+    advance; the exact one-sided 95% (Clopper-Pearson) upper bound on P(at least one confirmation) is ≤ 0.05.
+  - Mixed: planted cross-domain signals at two or more strengths. The judged quantity is the campaign FDR
+    E[V/max(R,1)], not a pooled fraction. Per cell, n ≥ 400 campaigns fixed in advance, and
+    mean FDP + sqrt(log(M/0.05)/(2n)) ≤ 0.10 in every one of the M mixed cells.
+  - Power: the rate of campaigns with at least one true confirmation is reported with CIs at every strength;
+    at the strongest, its point estimate is ≥ 0.30 (as C2.6).
+  - Every started campaign counts; a crash, timeout or malformed output counts as a false confirmation in the
+    error rates and as no success in power.
+- **C9.6 Reporting.** A campaign is registered before its first search disclosure and reported however it ends,
+  including campaigns with no finalists and abandoned ones: manifest and artifact hashes, budget and evaluations
+  used, finalist and mechanism decisions, every confirmation disclosure, family sizes, p-values and Holm
+  decisions, failures, and every period consumed. A reserved period is spent once anything derived from it,
+  partial or diagnostic, reaches a decision-maker; stopping, crashing or renaming does not restore it. Claims are
+  per campaign and confirmation family, shown beside the number of campaigns attempted; a project-wide claim
+  needs the gate's separate precommitted budget.
+
+Exit when C9.1 to C9.6 hold and at least one registered real campaign has run final confirmation on at least one
+frozen cross-domain finalist, exercising the declared source, mechanism, type, boundary and confirmation paths.
+Zero confirmed hypotheses is an acceptable outcome; zero finalists tested is not an exit.
+
 ## Decisions taken autonomously
 
 Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous operation).
