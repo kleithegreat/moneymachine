@@ -1,7 +1,7 @@
 # openFDA (keyless data layer; stage 9 candidate)
 
 `https://api.fda.gov`, read-only, no key for low volume. In scope: drug enforcement reports (recalls),
-`/drug/enforcement.json`, the latest 100 by `report_date`, recorded daily (`docs/stage9-candidates.md`).
+`/drug/enforcement.json`, the latest 100 by `report_date`, recorded daily as a stage 9 cross-domain source.
 
 Timestamp classes:
 - `report_date`, `recall_initiation_date` and `center_classification_date` are values, not availability times.

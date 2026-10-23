@@ -1,7 +1,7 @@
 # NOAA National Weather Service API (keyless data layer; stage 9 candidate)
 
 `https://api.weather.gov`, read-only, no key. In scope: active weather alerts (`/alerts/active`, GeoJSON),
-recorded every 3 hours (about 2 MB a poll) as a cross-domain event source (`docs/stage9-candidates.md`).
+recorded every 3 hours (about 2 MB a poll) as a stage 9 cross-domain event source.
 
 Timestamp classes:
 - Each alert carries `sent`, `effective`, `onset` and `expires`. These are values set by the issuing office, not
