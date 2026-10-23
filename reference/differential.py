@@ -98,13 +98,15 @@ def expected():
 
 
 def complete(items, generated_n, minimum=1000):
-    """What the corpus lacks against C6.4's list, or []: every expected item on exactly its markets, and at
-    least `minimum` (0 for a development run) distinct generated programs on every null market."""
+    """What the corpus lacks against C6.4's list, or []: every expected item on exactly its markets, all
+    `generated_n` generated programs on every null market, and at least `minimum` (0 for a development run) of
+    them distinct (both sides of a rewrite instance can coincide)."""
     by = {it["name"]: it for it in items}
     missing = [f"{k} on {ms}" for k, ms in expected().items() if k not in by or sorted(by[k]["markets"]) != sorted(ms)]
     gen = [it for it in items if it["name"].startswith("gen-")]
-    if len(gen) < max(generated_n, minimum) or len({it.get("program") for it in gen}) < len(gen):
-        missing.append(f"{len(gen)} generated programs, {len({it.get('program') for it in gen})} distinct, of {max(generated_n, minimum)}")
+    distinct = len({it.get("program") for it in gen})
+    if len(gen) < generated_n or distinct < minimum:
+        missing.append(f"{len(gen)} generated programs of {generated_n}, {distinct} distinct of at least {minimum}")
     missing += [f"{it['name']} not on every null market" for it in gen if sorted(it["markets"]) != sorted(NULLS)]
     return missing
 
