@@ -45,6 +45,10 @@
             ];
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
           };
+          # The HL recorder alone (`python -m cli record`), for hosts that only record (ops/oci).
+          recorder = pkgs.mkShell {
+            packages = [ (pkgs.python313.withPackages (ps: [ ps.httpx ])) ];
+          };
         });
 
       packages = forAll (pkgs: {
