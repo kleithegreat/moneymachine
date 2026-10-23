@@ -31,7 +31,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
     - Options-flow "unusual" labels are vendor-derived, so they are usable only as recorded forward. Only timestamped raw prints can be backtested.
     - Check that the API terms allow automated use and storage before building anything.
 
-GPT: `opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background.
+GPT: `timeout 3600 opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background, always under `timeout`: one call hung for 8 hours with no output on 2026-10-23. A waiter must also end when the call exits, and work goes on meanwhile; a GPT review is never the only thing running.
 
 ## Criteria
 
