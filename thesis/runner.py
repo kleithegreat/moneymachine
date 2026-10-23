@@ -22,7 +22,6 @@ from thesis.retrieval import Fetcher
 REPO = Path(__file__).resolve().parents[1]
 ROOT = REPO / "data" / "thesis"
 FROZEN = REPO / "audit" / "stage10" / "manifest.json"
-NOT_BEFORE = 1792542600000  # 2026-10-21 00:30 UTC: the stage 0 recorder has the venue budget to itself until then
 SESSION_OFFSET = 10 * 60_000
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
@@ -182,27 +181,26 @@ class Track:
 
     def resolver(self):
         while True:
-            if now_ms() >= NOT_BEFORE:
-                self.resolve(now_ms())
+            self.resolve(now_ms())
             time.sleep(300)
 
     def run(self):
         """Forever: resolutions on their own thread; the Monday benchmark and the daily sessions here."""
-        if not FROZEN.exists() or json.loads(FROZEN.read_text())["manifest"] != harness.manifest_hash():
+        frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
+        if frozen.get("manifest") != harness.manifest_hash():
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
         threading.Thread(target=self.resolver, daemon=True).start()
         while True:
             now = now_ms()
-            if now >= NOT_BEFORE:
-                date = now // DAY * DAY
-                monday = date - ((date // DAY + 3) % 7) * DAY
-                if monday >= NOT_BEFORE - DAY and not self.benchmarked(monday):
-                    if now - monday < DAY:
-                        self.benchmark(monday)
-                    else:
-                        self.ledger.disclose("skip", "benchmark", {"date": monday, "market": None, "reason": "run missed"})
-                if now >= date + SESSION_OFFSET and not self.started("main", date) and not self.missed(date):
-                    self.day(date)
+            date = now // DAY * DAY
+            monday = date - ((date // DAY + 3) % 7) * DAY
+            if monday > frozen["frozen"] - DAY and not self.benchmarked(monday):
+                if now - monday < DAY:
+                    self.benchmark(monday)
+                else:
+                    self.ledger.disclose("skip", "benchmark", {"date": monday, "market": None, "reason": "run missed"})
+            if now >= date + SESSION_OFFSET and not self.started("main", date) and not self.missed(date):
+                self.day(date)
             time.sleep(60)
 
     def missed(self, date):
