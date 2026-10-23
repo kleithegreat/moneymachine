@@ -22,6 +22,10 @@
    "url": "https://api.weather.gov/alerts/active", "accept": "application/geo+json"},
   {"name": "openfda-drug-enforcement", "doc": "venue/sources/openfda.md", "every_h": 24,
    "url": "https://api.fda.gov/drug/enforcement.json?sort=report_date:desc&limit=100"},
+  {"name": "eia-manifest", "doc": "venue/sources/eia.md", "every_h": 6,
+   "url": "https://www.eia.gov/opendata/bulk/manifest.txt"},
+  {"name": "eia-petroleum", "doc": "venue/sources/eia.md", "every_h": 24,
+   "url": "https://www.eia.gov/opendata/bulk/PET.zip"},
   {"name": "treasury-avg-rates", "doc": "thesis/SOURCES.md", "every_h": 24,
    "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates?sort=-record_date&page%5Bsize%5D=200"}
  ]
