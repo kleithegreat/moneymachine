@@ -58,7 +58,7 @@ engine `mm` is unchanged by this stage.
 
 ## Differential results (C6.4)
 
-`differential-report.json`, on the corpus frozen in `differential-manifest.json` (commit `2eac75f`, seed
+`differential-run2-report.json`, on the corpus frozen in `differential-run2-manifest.json` (commit `2eac75f`, seed
 20261023, harness at `c007644`).
 - **The corpus:** 1,024 programs from the frozen stage 4 generator; W0 and stage 2's probes; 69 deterministic
   cases on their own markets (`edge`, `liquidation`, `ruin`) and on each of N1, N2 and N3 (550 days each); every
