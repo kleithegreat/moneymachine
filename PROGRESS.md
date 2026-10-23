@@ -129,6 +129,7 @@ Criteria:
 - **C1.6 Ledger and identity.** Tests show: triggers reject UPDATE and DELETE; the experiment row holds every identity field in paper §5 plus the I7 hashes; a read-only or failing ledger makes `mm eval` emit no statistics and exit nonzero; and two fresh processes produce byte-identical results.
   - *Revision 2026-10-20 (wording only):* paper revision 5 renumbered its sections. Paper §5 (experiment identity) is now §7, and §6 (the gate) is now §8.
 - **C1.7 Leak canary (supporting).** The synthetic market is 12 coins over 550 days with i.i.d. Gaussian 4h log returns, σ = 2%, zero funding, and production costs. Seeds are 5 fixed and 5 drawn at test time and logged. Every adversarial program that is admitted, plus 20 random valid programs, has annualized net Sharpe ≤ 4 on every seed (Sharpe is 0 for no trades or zero variance). A deliberately leaking evaluator, compiled only into this test, exceeds 20.
+  - **Amendment (2026-10-23, human decision; labeled as an amendment, not a pass of the original).** The market is a martingale: log returns are Gaussian with σ = 2% and mean −σ²/2, so a bar's expected price change is zero. The threshold stays at 4. Seed 12549401516693113639 joins the fixed seeds (6 fixed, 5 drawn). Why: Gaussian log returns with zero mean give each bar an arithmetic mean of exp(σ²/2) − 1, an edge any long-biased program harvests (a constant long averaged Sharpe 1.47, sd 0.77, over 300 seeds), and on that seed every constant-weight case reached 4.258 without reading any data. On the martingale market the same program averages −0.15, sd 0.77. C1.7 is judged only on runs after this amendment: `audit/stage1/c17-amended.txt`.
 - **C1.8 Speed (supporting).** On this machine in a release build: data load is excluded; interpretation and all runtime checks are included; the ledger commit is excluded; no caching; W0 over the search part of W; median of 20 runs in one process ≤ 100 ms.
 
 Exit when C1.1 to C1.8 all hold.
@@ -1127,11 +1128,6 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Reverse:** `complete()` in `reference/differential.py` (`f7f9091`).
 
 ## Blockers
-
-- **C1.7's canary fails by chance for programs that cannot leak (2026-10-23; criterion change needs a human decision).**
-  - **What broke:** a routine `cli check` drew canary seed 12549401516693113639. On it, every constant-weight adversarial case (gpt19, gpt20, gpt26, gpt30, gpt37) reached an annualized Sharpe of 4.258 > 4. A constant weight reads no data, so this is the market's realization, not a leak.
-  - **Why:** C1.7 fixes i.i.d. Gaussian 4h *log* returns, so each bar's arithmetic mean is exp(σ²/2) − 1 ≈ 2·10⁻⁴. A constant long harvests it: over 300 seeds the gpt19 case averages Sharpe 1.47, sd 0.77, max 3.73. Five drawn seeds per check therefore fail by chance a few times in ten thousand per program family, and the check just did. C1.7's judged pass stands. The test stays as written, and this failure is recorded here rather than dropped because the next check, on fresh seeds, passed.
-  - **Proposed redesign:** zero arithmetic drift (close = open · exp(σZ − σ²/2)), with the threshold kept at 4, and more fixed seeds. It is not decided autonomously: removing the drift lowers a long-biased leak's Sharpe by about 1.5, so a leak adding 2.5 to 4 would pass the new canary but fail the old one. That can loosen detection (CLAUDE.md §3, rule 2).
 
 - **Stage 8 (multi-asset) needs data access decisions (2026-10-23; recorded early, no stage 8 work yet).**
   - **The problem:** long point-in-time histories of equities, indices and commodities mostly come from vendors that need a registered API key (Tiingo, Alpha Vantage, Nasdaq Data Link, FRED) or whose terms forbid automated access to their web pages (Yahoo, and likely Stooq).

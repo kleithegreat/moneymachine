@@ -1,5 +1,6 @@
-//! C1.7 leak canary. 12 coins, 550 days of i.i.d. Gaussian 4h log returns (sigma 2%), zero
-//! funding, production fee and a production-like cost table. No admitted program may reach an
+//! C1.7 leak canary (as amended 2026-10-23). 12 coins, 550 days of i.i.d. 4h prices that are a
+//! martingale: log returns Gaussian with sigma 2% and mean -sigma^2/2, so no program has an edge.
+//! Zero funding, production fee and a production-like cost table. No admitted program may reach an
 //! annualized net Sharpe above 4 on any seed. The leaking evaluator is the same kernel fed bars
 //! whose timestamps claim they were known two bars early (so a decision sees the bar its order
 //! will be held through), which must exceed 20.
@@ -14,7 +15,7 @@ const DELTA: i64 = 120_000;
 const COINS: usize = 12;
 const DAYS: i64 = 550;
 const SIGMA: f64 = 0.02;
-const FIXED_SEEDS: [u64; 5] = [1, 2, 3, 4, 5];
+const FIXED_SEEDS: [u64; 6] = [1, 2, 3, 4, 5, 12549401516693113639];
 
 struct Rng(u64);
 
@@ -49,7 +50,7 @@ fn market(seed: u64, early: bool) -> (Market, Venue, Policy, i64) {
         let mut px = 100.0;
         for k in 0..n_bars {
             let open = px;
-            let close = open * (SIGMA * rng.normal()).exp();
+            let close = open * (SIGMA * rng.normal() - SIGMA * SIGMA / 2.0).exp();
             let wick = (SIGMA * rng.normal()).abs() * 0.5;
             bars.push(Bar {
                 coin: c,
