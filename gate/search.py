@@ -7,12 +7,18 @@ store has `events_forum`.
 """
 
 import copy
+import hashlib
 import json
 import random
 import subprocess
 from pathlib import Path
 
 DISCLOSED = ("sharpe_annualized",)
+
+
+def identity():
+    """The searchers' pin (stage 2): sha256 of this code and of the statistics disclosed to them."""
+    return hashlib.sha256(Path(__file__).read_bytes() + json.dumps(DISCLOSED).encode()).hexdigest()
 WINDOWS = (4, 8, 12, 24, 48, 96, 168, 336)
 SIZES = (0.02, 0.05, 0.1)
 

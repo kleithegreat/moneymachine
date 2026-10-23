@@ -172,6 +172,7 @@ def real(data_root, version, cid="stage3-real"):
         (market / name).symlink_to(Path(target).resolve())
     ledger = work / "ledger.sqlite"
     run, report_a, mech, kept_a = arm_a(market, ledger, cid, work / "run")
+    sweep.require_frozen_searcher()
     spent_b = search.run("G100", MM, market, ledger, cid, markets.market_seed(cid))
     finalists_b, report_b = gate.search_decision(ledger, cid, "G100")
     kept_b = gate.programs(ledger, finalists_b)

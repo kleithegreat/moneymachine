@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-from gate import campaign
+from gate import campaign, search
 from gate.kernel import MM
 from gate.markets import generate, write
 
@@ -46,7 +46,24 @@ def recorded(path):
     return {json.loads(l)["id"] for l in open(path)} if path.exists() else set()
 
 
+SEARCHER = Path(__file__).resolve().parents[1] / "audit/stage2/searcher.json"
+
+
+def freeze_searcher():
+    """Record the searchers' pin before the first judged sweep, once."""
+    if SEARCHER.exists():
+        raise FileExistsError(SEARCHER)
+    SEARCHER.write_text(json.dumps({"searcher": search.identity(), "disclosed": list(search.DISCLOSED)}, indent=1) + "\n")
+    return str(SEARCHER)
+
+
+def require_frozen_searcher():
+    if not SEARCHER.exists() or json.loads(SEARCHER.read_text())["searcher"] != search.identity():
+        raise SystemExit(f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change")
+
+
 def run_all(specs, path, workers=10):
+    require_frozen_searcher()
     done = recorded(path)
     todo = [s for s in specs if s["id"] not in done]
     with Pool(workers) as pool, open(path, "a") as fh:

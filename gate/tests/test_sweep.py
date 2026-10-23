@@ -46,3 +46,21 @@ def test_campaign_records_top5_and_serializes_with_events():
     assert "crash" not in r, r.get("crash")
     assert 1 <= len(r["top5"]) <= 5 and all("weight" in p["program"] for p in r["top5"])
     json.dumps(r)
+
+
+def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path, monkeypatch):
+    import json
+
+    import pytest
+
+    from gate import search
+
+    monkeypatch.setattr(sweep, "SEARCHER", tmp_path / "searcher.json")
+    with pytest.raises(SystemExit):
+        sweep.run_all([], tmp_path / "x.jsonl")
+    sweep.freeze_searcher()
+    sweep.run_all([], tmp_path / "x.jsonl")
+    monkeypatch.setattr(search, "DISCLOSED", ("sharpe_annualized", "fills"))
+    with pytest.raises(SystemExit):
+        sweep.run_all([], tmp_path / "x.jsonl")
+    assert json.loads((tmp_path / "searcher.json").read_text())["disclosed"] == ["sharpe_annualized"]
