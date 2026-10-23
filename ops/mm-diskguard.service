@@ -1,0 +1,7 @@
+[Unit]
+Description=moneymachine disk-space guard
+
+[Service]
+Type=oneshot
+Environment=PATH=/etc/profiles/per-user/kevin/bin:/run/current-system/sw/bin
+ExecStart=/home/kevin/repos/moneymachine/ops/diskguard.sh

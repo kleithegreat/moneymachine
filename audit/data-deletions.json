@@ -1,0 +1,111 @@
+{
+ "recorded": "2026-10-23",
+ "note": "Regenerable or duplicate files under data/ deleted after their hashes were recorded here (human decision of 2026-10-23: data housekeeping). A directory's sha256 hashes its files' relative paths and sha256s in sorted order.",
+ "deleted": [
+  {
+   "path": "data/tmp/a.json",
+   "sha256": "6b28cd0a7c9f6edbed195fa74556a87cdd917e3b724032ef17cb4757dbf09fd3",
+   "bytes": 22041321,
+   "what": "stage 6 development differential output",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/b.json",
+   "sha256": "6b28cd0a7c9f6edbed195fa74556a87cdd917e3b724032ef17cb4757dbf09fd3",
+   "bytes": 22041321,
+   "what": "stage 6 development differential output (identical to a.json)",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/mk.json",
+   "sha256": "3ecb8b59e84a28b602fbbc203f3e80976f99d9cfe8b1708427d35b2be5169464",
+   "bytes": 16531452,
+   "what": "stage 6 development market listing",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/c64dev",
+   "sha256": "6ae3f456eba3c2cea2b7e522106d3c14edfef103ab0c88d12f0130283c3719b2",
+   "bytes": 629919,
+   "what": "stage 6 C6.4 development run",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/c64dev.jsonl",
+   "sha256": "6f6c91188c457c11143a6ffbf3acd3cfd5325327be60f08994f97e609138a1c4",
+   "bytes": 4047,
+   "what": "stage 6 C6.4 development corpus",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/c64m",
+   "sha256": "cd6a36f27a8041015e3ca0b7ed05c6483452934dba96379f9865457e0dfca773",
+   "bytes": 10237512,
+   "what": "stage 6 development markets",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/cases",
+   "sha256": "1b548e5ed5b12fd9d370c6e789510ab37bdd2e1b6ed06532abbb57de89555fab",
+   "bytes": 473511,
+   "what": "stage 6 edge-case development output",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/cases2",
+   "sha256": "b9bd10a967d7d4bac3f675906b0a4a4b53a4adf9a16b405fad2db59f10782bbd",
+   "bytes": 389,
+   "what": "stage 6 edge-case development output",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/crash",
+   "sha256": "1d4ecdad2a7d322e899ef467ba72a47e8070dbd8a277fed235e5b239a6e6c045",
+   "bytes": 131877,
+   "what": "stage 6 crash reproduction scratch",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/diffdev",
+   "sha256": "99be9efd9cb61dd0ea0730c89fb50dff3ee2e1e3125b228567415857cae9ff51",
+   "bytes": 632535,
+   "what": "stage 6 differential development run",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/diffdev2",
+   "sha256": "0b50d1a9c1b164038915ece471bdbdcb2b6a29641c0e902efcdb7a2512ec3e69",
+   "bytes": 634600,
+   "what": "stage 6 differential development run",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/diffdev3",
+   "sha256": "34ac1964fdf553da4b56a3ce7ceec0eaf1ba608b30fb173616ae695ea64c1f8d",
+   "bytes": 641507,
+   "what": "stage 6 differential development run",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/nodecheck",
+   "sha256": "080f878d1a4c6cce8614e82dd71af5ce5c6de1ac3cb9720034a4fe934fc82c66",
+   "bytes": 1735013,
+   "what": "stage 6 node-stream development check",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/tmp/bendwt",
+   "sha256": "656fb641374a5d503839d95f7b12985f34e774d1d631947ee8beae83943ad914",
+   "bytes": 498356,
+   "what": "Bend work tree (Bend removed in stage 6)",
+   "rebuild": "development output of reference/differential.py on the stage 6 corpora at the commits of 2026-10-22/23; the judged runs are in audit/stage6"
+  },
+  {
+   "path": "data/reports/stage0-ingest-1792385868856.json",
+   "sha256": "1dde356d1f862b4bc605cdb2dd72cdde90588dcb2adccaa2e886d3c048ad9538",
+   "bytes": 261951,
+   "what": "byte-identical copy of audit/stage0/ingest-1792385868856.json",
+   "rebuild": "the audit copy"
+  }
+ ]
+}
