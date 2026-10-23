@@ -851,6 +851,173 @@ Frozen 2026-10-23, before any stage 7 code. GPT reviewed the draft, and this is 
 
 Exit when C7.1 to C7.7 hold.
 
+### Stage 8: multi-asset research
+
+Frozen 2026-10-23, before any stage 8 code or data. GPT reviewed the draft, and this is the one revision.
+
+**Scope.** Roadmap item 8 and paper §9. Research moves to underlying assets with long histories (equities, indices,
+commodities, macro and rates), with the kernel generalized to their instruments. Results on underlyings are
+signal studies. A projection onto a venue market is labeled model-dependent until that market's own forward
+record confirms it. Trading is stage 11, the human's decision.
+- **Ordering.** Implementation begins only after stage 7 exits and the pilot's judged runs (C7's ordering clause)
+  are complete.
+- **Scope manifest.** Committed before any new market observation is inspected. For each of the four classes it
+  names:
+  - its proposed sources;
+  - its instruments, or its role as a feature;
+  - its universe rule;
+  - the jurisdictions and venues considered;
+  - the source-selection procedure.
+
+  Selection may use documentation, terms, schemas and catalog metadata, never returns, signals or calibration
+  results. The manifest marks each class admitted, blocked or unattempted. A blocked class records the sources
+  tried and the requirement unmet (data access needing keys or paid vendors is under Blockers). An empty admitted
+  scope is not a pass, and a partial one is reported as "stage 8 completed for [scope]; the rest blocked".
+- **Class annexes.** Each admitted class has an annex, reviewed by GPT and committed before its market
+  observations are fetched. It fixes:
+  - the research window and minimum history (years or eligible observations, chosen from the intended study);
+  - the search and holdout boundaries;
+  - the witness family and strategy, and the decision cadence;
+  - the required fields, and the expected-observation denominator (scheduled closures and absent releases are
+    not missing);
+  - the maximum gap in eligible observations;
+  - the recording procedure and its duration and event minima;
+  - the execution and accounting assumptions.
+
+  An unfinished annex is a blocked prerequisite, not leave to choose thresholds after seeing results.
+- **Evidence rule (as C7's).** Before each judged run, its specification, artifact identities, fixture inventory,
+  sampling procedure, seeds, minimum samples, thresholds and expected outcomes are committed. Every selected case
+  counts. A missing case, skipped mandatory category, crash, timeout or malformed result fails the criterion. A
+  failed run stays recorded, and a rerun gets a new identity.
+
+- **C8.1 Point-in-time universes.**
+  - Each universe's rule is frozen before its data is inspected: eligibility, ranking window, rebalance
+    schedule, information cutoff, tie-breaks, stable identifiers, entry and exit policies.
+  - The candidate population is a certified historical listing or contract registry, not the assets that
+    happen to have price files. Membership and ranking inputs are resolved as known at the decision time, with
+    publication, effective and observation times kept distinct.
+  - **Audit:** at least 100 preselected dates across the window (every date if fewer), plus every
+    membership-change boundary in a frozen event sample. At each, the whole expected set is compared with
+    independent historical membership or listing evidence. Zero unexplained omissions, additions, identifier
+    collisions or interval errors are allowed. The audit must include assets absent today and identifier or
+    lifecycle changes; a mandatory category with no instance blocks that claim. The result supports sampled
+    completeness only, and is reported as such.
+  - **Fixtures** for delisting, merger, expiry, suspension and missing terminal prices. A position never
+    vanishes, never gets an unsupported recovery value, and is never closed at a last price known to be the last.
+  - **Prefix invariance:** adding records available after t changes no universe or decision through t, on a
+    frozen suite, with zero differences.
+- **C8.2 Certified sources and transformations.** Every feed is declared and certified under C7.3, with the
+  terms rule. Every transformation is a declared, certified derived source with its information use and
+  availability.
+  - **Equities and indices:**
+    - raw prices are the execution basis;
+    - corporate actions carry announcement, ex or effective, payment and observation times;
+    - decision inputs use point-in-time adjustments, or a frozen argument and test shows the computation is
+      invariant to later adjustments (a vendor's currently adjusted history alone is not enough);
+    - hand-computed fixtures (splits, cash dividends, merger and spin-off consideration, delisting proceeds)
+      reconcile shares, cash, receivables and marks, with no omitted or doubled distribution;
+    - each index series states price, gross or net total return, currency and tax basis, and an index level is
+      never an executable instrument.
+  - **Commodities:**
+    - individual contracts are certified with their multipliers, ticks, currencies, last-trade dates and
+      delivery constraints;
+    - the roll decision uses only information available at it;
+    - a continuous series is a feature only, while PnL uses the held contracts with explicit closing and opening
+      trades and their costs, so a splice is never a trade or a cash flow;
+    - fixtures cover rolls, expiry, missing observations, and zero or negative prices where admitted.
+  - **Macro and rates:**
+    - each observation separates its reference period, its vintage, its actual publication time and later
+      corrections;
+    - the release calendar is its own certified source with revision history, and actual releases are never
+      backdated to scheduled times;
+    - fixtures cover first releases, revisions, benchmark revisions, postponed releases, date-only timestamps,
+      timezone changes and simultaneous releases;
+    - at every tested decision the value returned is exactly the latest vintage then available;
+    - observation, vintage and correction keys are frozen before resolution is implemented, and tested against an
+      independently built publication history, with no future-vintage substitution and no revival of a
+      superseded record.
+- **C8.3 Feasibility per class.** Stage 0's protections hold under each annex:
+  - at most 1% missing per required entity and field over eligible observations;
+  - no gap beyond the annex maximum;
+  - zero unexplained duplicate keys, unit errors or integrity violations;
+  - the store's boundaries checked on at least 1,000 frozen queries;
+  - every decision input within its certified availability rule;
+  - replay completeness of at least 99% of eligible decision-entity pairs;
+  - an independent witness that reconciles to relative 1e-9 (with a frozen absolute tolerance near zero) and
+    exercises nonzero positions, fills and every applicable accounting mechanism (synthetic fixtures for
+    mechanisms absent from history).
+  - Cost models fitted to quotes pre-register their cells, minimum observations, chronological split and
+    acceptance statistics, or inherit C0.7 as amended, named exactly. An unsupported cost, borrow or fill is a
+    limitation or a blocker, never "conservative" without a derivation and a defined domain.
+- **C8.4 The kernel generalized.**
+  - **Entity domains.** The new entity domains and relationships (securities, contracts, series, memberships)
+    are enumerated. The affected stage 7 contracts are revised, reviewed and frozen before implementation, and
+    identifiers are never coerced into coins.
+  - **Instrument kinds.** Each kind freezes its timezone and calendar versions, sessions and auctions, decision
+    and execution times, settlement and cash flows, currency conversion, units and position lifecycle.
+  - **Fixtures**, nonempty or with a verified inapplicability, cover holidays, daylight-saving shifts, early
+    closes, overnight sessions, unscheduled closures, halts, stale marks, asynchronous closes, corporate actions,
+    rolls and settlement.
+  - **Timing.** No fill occurs in a closed or halted session or before its decision. No signal on a close fills
+    in that close's auction unless its timing rules allow it. Cross-sectional decisions use each market's actual
+    availability time.
+  - **The holdout test's assumption.** Before a configuration reaches the gate, it is proved that its returns
+    satisfy the holdout test's lower bound (−1, I10) under its modeled contractual mechanics, with no invented
+    debt cancellation. Configurations without it are blocked from that procedure.
+  - **Invariants.** I1–I10 are restated per kind where they assume a perpetual, with dated revisions, and each
+    has a mutant caught by a named test.
+  - **Reference kernel.** The Lean model follows, and C7.7's rule applies: changed definitions are reviewed and
+    frozen before proof. A freshly frozen multi-asset C6.4 corpus agrees exactly, with its size, mandatory cases
+    and projection frozen first.
+  - **The pilot reproduces.** Its results reproduce bit for bit on the generalized kernel, on C6.4's frozen
+    markets and the stage 0 dataset version, with no spent holdout reopened.
+- **C8.5 Calibration repeated.**
+  - **No-edge condition.** Per instrument kind it is derived from the generalized kernel's self-financing
+    accounting and filtration, including dividends, funding, financing, borrow, FX, multipliers, rolls and
+    settlement. It implies nonpositive conditional expected net PnL for every admitted predictable DSL strategy.
+    Observables, membership, coverage and calendars reveal no future innovation.
+  - **Generators.** Fitted only to certified search data. The dependence statistics are frozen before the fit is
+    judged, with their estimators, minimum samples and tolerances: within and between sectors, between classes,
+    volatility persistence, tails and regimes where modeled, and asynchronous sessions. Unsupported dimensions
+    are reported.
+  - **Independent implementation.** GPT implements the generators from the spec, and they agree within frozen
+    tolerances on every judged statistic.
+  - **Whole-procedure simulation.** It uses the admitted dynamic universes, calendars, cadences, costs,
+    missingness and selection rules. Planted signals cover the claimed scope, cross-asset signals included where
+    claimed. C2's frozen complete-null, mixed false-discovery and power targets hold, and changing any is a
+    labeled, reviewed revision before its evidence.
+  - **The holdout test.** C8 inherits C2's v3 betting test and its assumptions. A locked suite, specified apart
+    from the design generators and implemented by GPT from the spec, judges it once before any real multi-asset
+    campaign. Its lengths match the actual windows, and its cells, seeds, series counts, levels and simultaneous
+    confidence are committed first.
+- **C8.6 Holdouts and information boundaries.**
+  - **Boundaries.** Holdout boundaries and each campaign's complete information boundary (target returns,
+    auxiliary sources, universe inputs, transformations, labels, overlapping intervals) are committed before any
+    reserved observation is inspected.
+  - **Joint reservation.** Jointly researched classes share a calendar-time reservation, or an isolation scheme is
+    shown to keep every reserved observation from any selection decision of its campaign. Embargoes cover
+    forward-looking labels and overlapping holds.
+  - **No access paths.** Frozen tests attempt access through another class, an alias, a derived source, a
+    corporate-action table or a vintage, and require zero unauthorized deliveries. Hashing and ingestion checks
+    disclose no holdout-derived diagnostic to the research process.
+  - **Use.** The finalist family and the multiplicity rule are frozen before holdout access, and a spent holdout is
+    never reused. Every campaign's counts, failures, promotions and class choices are reported beside its
+    per-campaign claims.
+- **C8.7 Execution mappings.** For each venue-market projection claimed:
+  - operator eligibility is established from the venue's documented terms within the hard limits;
+  - the mapping (units, currency, contract terms, corporate-action treatment) is certified;
+  - before the judged recording window, its duration, minimum samples, tracking-error metrics and thresholds are
+    frozen, along with closed-hours and reopening-gap tests, funding and cost assumptions, and handling of halts,
+    oracles, parameter changes and delistings;
+  - no category passes on an empty sample;
+  - a closed-hours strategy cannot be validated from underlying prices that do not exist in those hours.
+
+  If no eligible mapping can be certified, signal-study completion is reported separately and this requirement
+  stays blocked.
+
+Exit when C8.1 to C8.7 hold for every admitted class and claimed projection, and every blocked or unattempted
+class is recorded under Blockers with what was tried.
+
 ## Decisions taken autonomously
 
 Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous operation).
