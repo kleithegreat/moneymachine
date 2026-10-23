@@ -1216,6 +1216,14 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 
 ## Blockers
 
+- **On-chain sources: hardware, accounts and money (2026-10-23; human decision: on-chain is a priority family).** Assessment in `docs/onchain.md`.
+  - **Hyperliquid node:** needs 16 vCPUs, 128 GB of RAM and about 100 GB of logs a day; this machine has 12 threads and 15 GB.
+  - **Hyperliquid's official archives:** requester-pays S3, so an AWS account and transfer costs.
+  - **Ethereum on BigQuery:** a Google Cloud account.
+  - **Ethereum or Polygon node:** a 2–4 TB NVMe; 91 GB are free.
+  - **Polymarket's APIs:** need their terms read first (data layer).
+  - **What runs meanwhile:** the HL info API recording.
+
 - **Free sources that need the human's registration (stages 8 and 10; human decision 2026-10-23: they wait for the human to register).** Once registered, keys go in `.keys.env` at the repo root (gitignored), one `NAME=value` per line, and the fetchers read them from there:
   - `FRED_API_KEY` (FRED/ALFRED). Unlocks macro and rates at the backtest tier's data bar (C8.2): ALFRED's real-time periods give each value's vintage, and release dates come from the same API. It also unlocks FRED series for the stage 10 proxy.
   - `BLS_API_KEY`. Labor and price series and the BLS release schedule, the C8.2 release calendar.
