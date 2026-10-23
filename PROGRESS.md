@@ -22,7 +22,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
-- **Stages 7 to 9:** criteria frozen. Implementation waits for the pilot's judged runs (autonomous decision, below). Stage 8 starts with keyless sources (human decision 2026-10-23); its scope manifest (documentation, terms, schemas and catalog metadata only) is drafted at `data/tmp/stage8/scope.md` and revised once after GPT's review (`data/tmp/stage8/gpt-review.md`). The draft proposes ECB FX reference-rate signal studies (macro and rates); equities, indices and commodities are blocked (C8.2 needs contracts and rolls, which the keyless benchmarks lack). It is committed once its verification list is done; ECB EXR's population and the BIS dataflows are verified; series dates and feature vintages are open. Keyed sources are under Blockers.
+- **Stages 7 to 9:** criteria frozen. Implementation waits for the pilot's judged runs (autonomous decision, below). Stage 8 is parked until then (human decision 2026-10-23); its open items are under Blockers, and data access is the human's decision then (`docs/data-access.md`).
 - **Stage 7 candidate sources (human, 2026-10-22).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
@@ -1157,6 +1157,11 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Reverse:** `complete()` in `reference/differential.py` (`f7f9091`).
 
 ## Blockers
+
+- **Stage 8 scoping is parked until the pilot's judged runs are done (human decision 2026-10-23).** At resumption the human decides data access first (`docs/data-access.md`). The keyless draft is `data/tmp/stage8/scope.md`, with GPT's review in `gpt-review.md` beside it. It proposes ECB FX reference-rate signal studies and blocks equities, indices and commodities. Open items:
+  - **ECB series dates:** the SDMX API has no availability endpoint, so series start and end dates are not obtainable as metadata. Dating by first and last observation is observation access and needs a reviewed procedure, or the ECB's documented history of its reference-rate list.
+  - **Policy-rate announcement times:** BIS WS_CBPOL series carry effective dates, not announcement times, and no vintages. Historical use needs release evidence, or it stays blocked.
+  - **Remaining catalog checks:** ECB YC series and revision policy; the CFTC traders-in-financial-futures dataset's history and contract identifiers; Treasury average interest rates (endpoint, categories, revisions); the ECB publication calendar source.
 
 - **Sources that need a key, an account, a permission request or the operator's identity (stages 8 and 10; left for the human, decision of 2026-10-23).** Nothing autonomous uses them.
   - **FRED/ALFRED, EIA and BEA:** their APIs need a registered key. FRED also never answered our requests (TLS connected, no response).
