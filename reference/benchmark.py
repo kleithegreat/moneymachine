@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import platform
+import shutil
 import statistics
 import subprocess
 import tempfile
@@ -131,6 +132,7 @@ def run(out):
     ref_eval = ref_evaluator(w0, work / "mk.json", REPS, work)
     mm_tp = mm_evaluator(store, venue, programs, 1, work)
     ref_tp = [ref_evaluator(p, work / "mk.json", 1, work) for p in programs]
+    shutil.rmtree(work)
     med = statistics.median
     report = {
         "manifest_sha256": hashlib.sha256(MANIFEST.read_bytes()).hexdigest(), "end_to_end_threads_sampled_max": max(THREADS),
