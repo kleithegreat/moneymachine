@@ -783,6 +783,8 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 ## Log
 
+- 2026-10-23: C6.4's judged run on the corpus frozen in `2eac75f` passed (`audit/stage6/differential-report.json`). All 1,196 verdicts agree (1,135 accepted, 61 rejected under 9 codes), and all 3,372 runs agree bit for bit on the trace, returns, gross returns, every node's static type and every node's value stream, with no missing corpus component. Coverage: 11.5 billion defined node values, 43.5M decisions and fills, 4.9M holds, 353M settlements, 16 liquidations, 45 delistings, 159 unfilled orders and 6 R_INPUT_UNAVAILABLE aborts. GPT's review of the stage 6 evidence decides whether C6.4 is met.
+
 - 2026-10-23: Erasure pass (human decision; done during the judged C6.4 run, touching no binary it uses).
   - The research agents (`gate/agent`) and the thesis agents (`thesis/`) now share one sandbox, `sandbox/`. It holds one in-sandbox client configured by each track's command spec, one Unix-socket server, and the session code: workspace, tool flags, bubblewrap command, run loop, transcript reading and identity hash.
   - The tracks keep only what genuinely differs:
