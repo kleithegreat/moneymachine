@@ -744,6 +744,12 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous operation).
 
+- **2026-10-23: stages 7 to 9 keep their kernel changes off `main` until the pilot's judged runs are done.**
+  - **What:** stage 7's criteria are pre-registered now. Its kernel-changing code stays on a branch until C1.4, the stage 2 sweeps, stage 3's campaigns and stage 4's swarm smoke have recorded their kernel hash.
+  - **Why:** the paper begins stages 7 to 9 after the pilot so that "every judged pilot result comes from one frozen kernel". Stage 5 exited before those pilot runs.
+  - **GPT:** not asked; this follows the paper's text.
+  - **Reverse:** merge the branch earlier, and accept that the pilot's later judged runs record a different kernel hash.
+
 - **2026-10-23: event rows known at eventTime + δ, in `mm`'s loader and the store (stage 5).**
   - **What:** event counts cover knownAt in (H + δ − 1h, H + δ], and each row is known at its tick. That is a one-line change to `market.rs`'s knownAt rule, made in stage 5 despite stage 6's "mm not modified" instruction.
   - **Why:** C5.5 and DSL.md define the window as ending at the tick. The old window ended at H and counted items up to 120 s late. No leak either way.
