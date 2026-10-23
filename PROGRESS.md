@@ -27,7 +27,11 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **Keyless data layer:** `data/datalayer`, from 2026-10-23 18:39 UTC, about 30 MB a day. Feeds are declared in `venue/sources/datalayer.json`: ECB EXR, BIS, CFTC (3 reports), Treasury, GDELT events, NWS alerts, openFDA, EIA (manifest and petroleum), Polymarket (active and resolved). Bodies are gzip-compressed under `raw/<sha256>.gz`. ECB and every other source without past versions are prospective only.
 - **Data.** `data/` is about 650 MB with 105 GB free, and the hourly `mm-diskguard.timer` (`ops/diskguard.sh`) adds a Blockers line below 20 GB. Regenerable and duplicate files were deleted with their hashes in `audit/data-deletions.json`. After stage 0: `live.read` learns `.jsonl.zst`, and closed day files (about 410 MB of polls) are compressed with zstd once their plain sha256s are recorded in `audit/`.
 - **Redundant recording.** Only the HL recorder is getting a second host. The data layer and the stage 5 sources keep no past versions upstream and run on this PC alone; extending the cloud host to them follows once its HL recorder is stable.
-- **Second HL recorder on Oracle Cloud (human, 2026-10-23), in progress.** Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`, alerts on actual and forecast ≥ $1). Files are in `ops/oci/`. SSH is open only from this PC's IP, and the VM never connects to the PC. Remaining: nix, the repo through a read-only deploy key, `data/universe.json`, the systemd unit at 480/min, then this PC's pull timer.
+- **Second HL recorder on Oracle Cloud (human, 2026-10-23), running since 2026-10-23 21:57 UTC.** It is an Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`).
+  - `mm-recorder.service` runs `nix develop .#recorder` at 480/min, capped at 600 MB. `mm-clock.timer` logs the VM's NTP offset every 5 min.
+  - This PC pulls both every 10 min (`mm-oci-pull.timer`) into `data/live-oci/<instance>/`; a failed pull adds a Blockers line.
+  - Its snapshots count only for windows starting after the merge amendment's conditions hold (`audit/criteria.md`, C0.3/C0.7).
+  - Setup and the idle-reclamation risk: `ops/oci/provision.sh`.
 
 ## Blockers
 
