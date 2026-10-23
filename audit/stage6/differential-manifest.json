@@ -1,0 +1,44 @@
+{
+ "seed": 20261024,
+ "generated": 1024,
+ "minimum": 1000,
+ "generator": {
+  "file": "kernel/mm/tests/rules.rs",
+  "git_blob": "b4f0e98b30ae8a780ffc07a716a4fd57f90a4551"
+ },
+ "corpus_sha256": "1a6b059fd7cdc354e25b108075a5f35f19acca4c38d976dbb70ee2665e9d8a23",
+ "markets": {
+  "N1": {
+   "market_sha256": "b9927e145361807b7d65608889f76835eeabce6b0273c26c22d8a35fbf406f22",
+   "version": 1,
+   "spec": "null model N1, 550 days, id differential-N1-20261024"
+  },
+  "N2": {
+   "market_sha256": "fe02d2b1232da111f9cc0868cf4c7e3478cf25aa95f5cf5901b17a716f00fc78",
+   "version": 1,
+   "spec": "null model N2, 550 days, id differential-N2-20261024"
+  },
+  "N3": {
+   "market_sha256": "322894f598ff2459d75a4b926c045308cb097ee05c39e2d30b4aa1ea44ca7b69",
+   "version": 1,
+   "spec": "null model N3, 550 days, id differential-N3-20261024"
+  },
+  "edge": {
+   "market_sha256": "b70b7df5b3710a58162c25784f433afbb711bc1cce61593898b4993903bd6cfb",
+   "version": 2,
+   "spec": "reference/edge_markets.py edge"
+  },
+  "liquidation": {
+   "market_sha256": "8bf01f6a0eaef0589017e299f01ff613b007f975596171f441a3db97e99ad076",
+   "version": 1,
+   "spec": "reference/edge_markets.py liquidation"
+  },
+  "ruin": {
+   "market_sha256": "55a77ff2e4c7eb2d03b61a7232c79d1f6c1483c59b1102259a428e24bc41d690",
+   "version": 1,
+   "spec": "reference/edge_markets.py ruin"
+  }
+ },
+ "initial_state": "kernel defaults: equity 10,000 USD, flat, from the market's w_start; no warm-up beyond each window's own",
+ "numeric_policy": "bit-for-bit on every float, log/exp/sqrt included: no math library is declared different"
+}
