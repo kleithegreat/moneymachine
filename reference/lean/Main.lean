@@ -4,6 +4,7 @@ import Ref
 refmm: the Lean reference kernel's executable, on binary64.
   refmm check PROGRAM                 the verdict: `ok` or the rejection code
   refmm run PROGRAM MARKET OUT        the run on a market exported by reference/mmdump, its trace
+  refmm bench PROGRAM MARKET REPS     evaluator-only milliseconds of REPS runs (`null` if not completed)
                                       written in mmdump's format (every float as its bits)
 -/
 
@@ -70,4 +71,16 @@ def main (args : List String) : IO UInt32 := do
         | .ok r => s!"\{\"trace\":{list (r.trace.map eventJson)},\"returns\":{list (r.returns.map fb)},\"gross_returns\":{list (r.grossReturns.map fb)}}"
     IO.FS.writeFile out result
     return 0
-  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAM MARKET OUT"; return 2
+  | ["bench", prog, mkt, reps] =>
+    let some v := (Json.parse (← IO.FS.readFile mkt)).toOption | IO.eprintln "bad market"; return 3
+    let (m, venue, pol, stop) := market v
+    let .ok p := Ref.check (← IO.FS.readFile prog) | IO.println "null"; return 0
+    let mut ms := #[]
+    for i in [0:reps.toNat!] do
+      let t0 ← IO.monoNanosNow
+      let .ok r := Ref.run floatOps p m venue pol (stop + if i > reps.toNat! then 1 else 0) | IO.println "null"; return 0
+      if r.returns.isEmpty then IO.println "null"; return 0
+      ms := ms.push (toString (((← IO.monoNanosNow) - t0).toFloat / 1e6))
+    IO.println (list ms)
+    return 0
+  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAM MARKET OUT | refmm bench PROGRAM MARKET REPS"; return 2

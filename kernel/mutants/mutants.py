@@ -58,6 +58,8 @@ MUTANTS = {
         (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
     "C5 derivation without the availability margin": ("pytest -q ingest/tests/test_events.py", [
         (EVENTS, '"key": "forum", "margin": 60_000}', '"key": "forum", "margin": 0}')]),
+    "C5 knownAt from the claimed time": ("pytest -q ingest/tests/test_events.py", [
+        (EVENTS, '[w + margin for (fk, _), (c, w) in first.items()', '[c + margin for (fk, _), (c, w) in first.items()')]),
     "C5 derivation counts future items": ("pytest -q ingest/tests/test_events.py", [
         (EVENTS, 'counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")',
          'counts = np.searchsorted(k, hours + HOUR, side="right") - np.searchsorted(k, hours, side="right")')]),

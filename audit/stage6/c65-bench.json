@@ -1,0 +1,74 @@
+{
+ "hardware": {
+  "cpu": "11th Gen Intel(R) Core(TM) i5-11400 @ 2.60GHz",
+  "logical_cpus": 12,
+  "kernel": "6.18.56",
+  "threads": 1
+ },
+ "builds": {
+  "mm": "cargo --release (kernel/Cargo.toml profile)",
+  "refmm": "lake build (reference/lean, Lean 4.34.0)"
+ },
+ "input": {
+  "market": "C6.4 N2",
+  "store_sha256": "0279c6a9f67a7a0194274228cc1204a6d1f5f9b1453154ac80d072abb5723488",
+  "days": 550
+ },
+ "replay_w0_ms": {
+  "mm": {
+   "end_to_end_median": 1618.1390850106254,
+   "end_to_end": [
+    1609.8885360406712,
+    1596.9401839538477,
+    1835.4968720232137,
+    1621.7327929916792,
+    1618.1390850106254
+   ],
+   "evaluator_median": 29.314861,
+   "evaluator": [
+    32.159938,
+    29.314861,
+    28.593978,
+    28.697543,
+    32.494402
+   ]
+  },
+  "refmm": {
+   "end_to_end_median": 5990.004963998217,
+   "end_to_end": [
+    7739.201324002352,
+    5802.073276019655,
+    6074.295562983025,
+    5990.004963998217,
+    5638.677793031093
+   ],
+   "evaluator_median": 1467.643682,
+   "evaluator": [
+    1540.398506,
+    1467.643682,
+    1551.152355,
+    1430.30288,
+    1460.323525
+   ],
+   "mmdump_export_median": 1479.895550000947
+  }
+ },
+ "throughput": {
+  "programs": "the first 100 generated programs of the C6.4 corpus",
+  "mm": {
+   "programs": 100,
+   "completed": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 11.456958403,
+   "per_second": 13.152263123115864
+  },
+  "refmm": {
+   "programs": 100,
+   "completed": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 709.1409233359999,
+   "per_second": 0.21248940309069275
+  }
+ },
+ "agree_on_completion": true
+}
