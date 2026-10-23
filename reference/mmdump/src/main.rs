@@ -2,13 +2,15 @@
 //! `mm`'s simulator, and writes the resolved market (the reference kernels' input) and the trace,
 //! every float as its bits. `mm` itself is used as a library and is not modified.
 //!
-//! usage: mmdump PROGRAM STORE VENUE VERSION MARKET_OUT TRACE_OUT
+//! usage: mmdump PROGRAM STORE VENUE VERSION MARKET_OUT TRACE_OUT STREAMS_OUT
 
 use mm::dsl::{Program, Ty, EVENT_INPUTS};
 use mm::machine::Machine;
 use mm::market::{self, Market, Policy, BAR, HOUR};
 use mm::sim::{self, Event, Why};
 use serde_json::{json, Value};
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn b(x: f64) -> Value {
@@ -28,13 +30,14 @@ fn event(e: &Event) -> Value {
     }
 }
 
-const FNV_PRIME: u64 = 1099511628211;
-
-/// FNV-1a over a definedness byte and, if defined, the value's eight bytes, low byte first.
-fn fnv_val(h: u64, v: Option<f64>) -> u64 {
+/// A value as bytes: 0 if undefined, else 1 and its eight bytes, low byte first.
+fn push_val(b: &mut Vec<u8>, v: Option<f64>) {
     match v {
-        None => h.wrapping_mul(FNV_PRIME),
-        Some(x) => (0..8).fold((h ^ 1).wrapping_mul(FNV_PRIME), |h, i| (h ^ ((x.to_bits() >> (8 * i)) & 0xff)).wrapping_mul(FNV_PRIME)),
+        None => b.push(0),
+        Some(x) => {
+            b.push(1);
+            b.extend_from_slice(&x.to_bits().to_le_bytes());
+        }
     }
 }
 
@@ -45,10 +48,10 @@ fn ty(t: &Ty) -> String {
     }
 }
 
-/// Per node, the digest of its value for every coin at every tick of the machine's schedule (wStart, then
-/// each hour of every step), driving mm's own `Machine` with `sim::run`'s delivery order, and how many values
-/// were defined.
-fn node_digests(prog: &Program, m: &Market, n: usize, policy: &Policy, end: i64) -> Result<(Vec<u64>, u64), String> {
+/// Every node's value for every coin at every tick of the machine's schedule (wStart, then each hour of every
+/// step), written to `out`, driving mm's own `Machine` with `sim::run`'s delivery order; returns how many were
+/// defined.
+fn write_streams(out: &mut impl Write, prog: &Program, m: &Market, n: usize, policy: &Policy, end: i64) -> Result<u64, String> {
     let mut machine = Machine::new(prog, n);
     let slots: Vec<(usize, &Vec<market::Event>)> =
         EVENT_INPUTS.iter().enumerate().filter_map(|(slot, (_, ds))| m.events.get(ds).map(|v| (slot, v))).collect();
@@ -77,24 +80,29 @@ fn node_digests(prog: &Program, m: &Market, n: usize, policy: &Policy, end: i64)
         Ok(())
     };
     let mask = |h: i64| (0..n).map(|c| m.intervals[c].0 <= h && h < m.intervals[c].1).collect::<Vec<_>>();
-    let fold = |ds: &mut Vec<u64>, defined: &mut u64, machine: &Machine| {
-        for (i, d) in ds.iter_mut().enumerate() {
-            *d = (0..n).fold(*d, |d, c| fnv_val(d, machine.value(i, c)));
-            *defined += (0..n).filter(|&c| machine.value(i, c).is_some()).count() as u64;
+    let mut defined = 0;
+    let mut emit = |out: &mut dyn Write, machine: &Machine| -> Result<(), String> {
+        let mut b = vec![];
+        for i in 0..prog.nodes.len() {
+            for c in 0..n {
+                let v = machine.value(i, c);
+                defined += v.is_some() as u64;
+                push_val(&mut b, v);
+            }
         }
+        out.write_all(&b).map_err(|e| e.to_string())
     };
-    let (mut ds, mut defined) = (vec![14695981039346656037u64; prog.nodes.len()], 0);
     deliver(&mut machine, policy.w_start + policy.delta)?;
     machine.tick(&mask(policy.w_start), policy.w_start);
-    fold(&mut ds, &mut defined, &machine);
+    emit(out, &machine)?;
     let steps = (0..).map(|k| policy.w_start + k * BAR).take_while(|b| b + 2 * BAR <= end).count() as i64;
     for k in 1..=4 * steps {
         let h = policy.w_start + k * HOUR;
         deliver(&mut machine, h + policy.delta)?;
         machine.tick(&mask(h), h);
-        fold(&mut ds, &mut defined, &machine);
+        emit(out, &machine)?;
     }
-    Ok((ds, defined))
+    Ok(defined)
 }
 
 fn main() {
@@ -131,8 +139,9 @@ fn main() {
                               "returns": run.returns.iter().map(|x| b(*x)).collect::<Vec<_>>(),
                               "gross_returns": run.gross_returns.iter().map(|x| b(*x)).collect::<Vec<_>>(),
                               "types": p.types.iter().map(ty).collect::<Vec<_>>(),
-                              "nodes": match node_digests(&p, &m, venue.coins.len(), &policy, end) {
-                                  Ok((ds, defined)) => json!({"digests": ds, "defined": defined}),
+                              "nodes": match write_streams(&mut BufWriter::new(File::create(&a[7]).unwrap()), &p, &m,
+                                                           venue.coins.len(), &policy, end) {
+                                  Ok(defined) => json!({"defined": defined}),
                                   Err(e) => json!(e),
                               }}),
         },

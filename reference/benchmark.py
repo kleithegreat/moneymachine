@@ -1,9 +1,10 @@
 """C6.5's measurements on the differential corpus's frozen N2 market (550 days): the W0 replay benchmark (median
 of 5, end to end and evaluator only) and null-simulation throughput in completed program-market-years per second.
 
-`freeze` records the hardware, threads, build identities and inputs before any measurement
-(`audit/stage6/benchmark-manifest.json`); `run` refuses to measure if any of them changed. Both kernels run
-single-threaded, one process at a time. `mm` end to end is `mm eval` (parquet load, run, ledger). `refmm` end to
+`freeze` builds, then records the hardware, toolchains, the git trees of `kernel/` and `reference/` (which must
+be clean), the built binaries' sha256 and the inputs before any measurement (`audit/stage6/benchmark-manifest.json`);
+`run` builds again and refuses to measure if any of them differs. Each timed process's thread count is
+sampled while it runs and reported; processes run one at a time. `mm` end to end is `mm eval` (parquet load, run, ledger). `refmm` end to
 end is `refmm run` on the market `mmdump` writes. `mmdump`, timed separately, loads the store, writes that
 market and also runs `mm`'s simulator and machine. Evaluator-only times exclude loading.
 """
@@ -27,10 +28,25 @@ REPS = 5
 THROUGHPUT_PROGRAMS = 100
 
 
+THREADS = []
+
+
 def wall(cmd):
+    """Milliseconds of one run of `cmd`, sampling its thread count into THREADS while it runs."""
     t = time.perf_counter()
-    subprocess.run(cmd, check=True, capture_output=True)
-    return (time.perf_counter() - t) * 1e3
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    most = 0
+    while proc.poll() is None:
+        try:
+            most = max(most, len(os.listdir(f"/proc/{proc.pid}/task")))
+        except OSError:
+            pass
+        time.sleep(0.002)
+    ms = (time.perf_counter() - t) * 1e3
+    if proc.returncode:
+        raise subprocess.CalledProcessError(proc.returncode, cmd)
+    THREADS.append(most)
+    return ms
 
 
 def version(cmd):
@@ -44,10 +60,12 @@ def configuration():
     programs = [it["program"] for it in corpus if it["name"].startswith("gen-")][:THROUGHPUT_PROGRAMS]
     cpu = next((l.split(":", 1)[1].strip() for l in Path("/proc/cpuinfo").read_text().splitlines() if l.startswith("model name")), None)
     return {
-        "hardware": {"cpu": cpu, "logical_cpus": os.cpu_count(), "kernel": platform.release(), "threads": 1},
-        "builds": {"commit": version(["git", "rev-parse", "HEAD"]), "rustc": version(["rustc", "--version"]),
-                   "lean": version(["lean", "--version"]), "mm_profile": "release (kernel/Cargo.toml)",
-                   "refmm": "lake build (reference/lean/lakefile.toml)"},
+        "hardware": {"cpu": cpu, "logical_cpus": os.cpu_count(), "kernel": platform.release()},
+        "builds": {"rustc": version(["rustc", "--version"]), "lean": version(["lean", "--version"]),
+                   "trees": {d: version(["git", "rev-parse", f"HEAD:{d}"]) for d in ("kernel", "reference")},
+                   "dirty": version(["git", "status", "--porcelain", "kernel", "reference"]),
+                   "binaries": {str(b.relative_to(REPO)): hashlib.sha256(b.read_bytes()).hexdigest()
+                                for b in (kernel.MM, diff.REF, diff.DUMP)}},
         "inputs": {"differential_manifest_sha256": diff.sha((diff.AUDIT / diff.MANIFEST).read_text()),
                    "w0_sha256": diff.sha(w0), "throughput_programs_sha256": diff.sha("\n".join(programs)),
                    "reps": REPS, "throughput_programs": THROUGHPUT_PROGRAMS},
@@ -57,7 +75,11 @@ def configuration():
 def freeze():
     if MANIFEST.exists():
         raise FileExistsError(MANIFEST)
-    MANIFEST.write_text(json.dumps(configuration()[0], indent=1) + "\n")
+    diff.build()
+    config = configuration()[0]
+    if config["builds"]["dirty"]:
+        raise ValueError("kernel/ or reference/ has uncommitted changes")
+    MANIFEST.write_text(json.dumps(config, indent=1) + "\n")
     return str(MANIFEST)
 
 
@@ -89,8 +111,7 @@ def run(out):
     frozen = json.loads(MANIFEST.read_text())
     diff.build()
     now, w0, programs = configuration()
-    changed = [k for k in ("hardware", "inputs") if now[k] != frozen[k]]
-    changed += [k for k in ("rustc", "lean", "mm_profile", "refmm") if now["builds"][k] != frozen["builds"][k]]
+    changed = [k for k in ("hardware", "inputs", "builds") if now[k] != frozen[k]]
     if changed:
         raise ValueError(f"the configuration differs from the frozen one: {changed}")
     manifest = json.loads((diff.AUDIT / diff.MANIFEST).read_text())
@@ -102,16 +123,17 @@ def run(out):
     (work / "w0.json").write_text(w0)
     mm_e2e = [wall([str(kernel.MM), "eval", str(work / "w0.json"), "--campaign", "benchmark", "--agent", "bench",
                     "--store", str(store), "--venue", str(venue), "--ledger", str(work / f"l{i}.sqlite")]) for i in range(REPS)]
-    mmdump = [wall([str(diff.DUMP), str(work / "w0.json"), str(store), str(venue), "1", str(work / "mk.json"), str(work / "a.json")])
-              for _ in range(REPS)]
-    ref_e2e = [wall([str(diff.REF), "run", str(work / "w0.json"), str(work / "mk.json"), str(work / "b.json")]) for _ in range(REPS)]
+    mmdump = [wall([str(diff.DUMP), str(work / "w0.json"), str(store), str(venue), "1", str(work / "mk.json"), str(work / "a.json"),
+                    str(work / "sa.bin")]) for _ in range(REPS)]
+    ref_e2e = [wall([str(diff.REF), "run", str(work / "w0.json"), str(work / "mk.json"), str(work / "b.json"), str(work / "sb.bin")])
+               for _ in range(REPS)]
     mm_eval = mm_evaluator(store, venue, [w0], REPS, work)[0]
     ref_eval = ref_evaluator(w0, work / "mk.json", REPS, work)
     mm_tp = mm_evaluator(store, venue, programs, 1, work)
     ref_tp = [ref_evaluator(p, work / "mk.json", 1, work) for p in programs]
     med = statistics.median
     report = {
-        "manifest_sha256": hashlib.sha256(MANIFEST.read_bytes()).hexdigest(), "commit": now["builds"]["commit"],
+        "manifest_sha256": hashlib.sha256(MANIFEST.read_bytes()).hexdigest(), "end_to_end_threads_sampled_max": max(THREADS),
         "replay_w0_ms": {
             "mm": {"end_to_end_median": med(mm_e2e), "end_to_end": mm_e2e, "evaluator_median": med(mm_eval), "evaluator": mm_eval},
             "refmm": {"end_to_end_median": med(ref_e2e), "end_to_end": ref_e2e, "evaluator_median": med(ref_eval), "evaluator": ref_eval},

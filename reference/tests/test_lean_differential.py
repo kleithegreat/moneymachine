@@ -62,9 +62,10 @@ def test_runs_agree_bit_for_bit(tmp_path):
     for k, prog in enumerate(programs):
         pf = tmp_path / "p.json"
         pf.write_text(json.dumps(prog))
-        subprocess.run([str(DUMP), pf, root / "store", root / "venue", "1", tmp_path / "mk.json", tmp_path / "a.json"], check=True)
-        subprocess.run([str(REF), "run", pf, tmp_path / "mk.json", tmp_path / "b.json"], check=True)
+        subprocess.run([str(DUMP), pf, root / "store", root / "venue", "1", tmp_path / "mk.json", tmp_path / "a.json",
+                        tmp_path / "sa.bin"], check=True)
+        subprocess.run([str(REF), "run", pf, tmp_path / "mk.json", tmp_path / "b.json", tmp_path / "sb.bin"], check=True)
         a, b = json.loads((tmp_path / "a.json").read_text()), json.loads((tmp_path / "b.json").read_text())
-        if a != b:
+        if a != b or (tmp_path / "sa.bin").read_bytes() != (tmp_path / "sb.bin").read_bytes():
             bad.append(k)
     assert bad == []

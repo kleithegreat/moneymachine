@@ -3,7 +3,8 @@ import Ref
 /-!
 refmm: the Lean reference kernel's executable, on binary64.
   refmm check PROGRAM                 the verdict: `ok` or the rejection code
-  refmm run PROGRAM MARKET OUT        the run on a market exported by reference/mmdump, its trace
+  refmm run PROGRAM MARKET OUT STREAMS  the run on a market exported by reference/mmdump: its trace to OUT, every
+                                      node's value stream to STREAMS
   refmm bench PROGRAM MARKET REPS     evaluator-only milliseconds of REPS runs (`null` if not completed)
                                       written in mmdump's format (every float as its bits)
 -/
@@ -59,33 +60,39 @@ def tyJson : Ty → String
   | .bool => "\"bool\""
   | .num u => "\"num:" ++ ",".intercalate (u.e.map toString) ++ "\""
 
-def fnvPrime : UInt64 := 1099511628211
-
-/-- FNV-1a over a definedness byte and, if defined, the value's eight bytes, low byte first. -/
-def fnvVal (h : UInt64) : Option Float → UInt64
-  | none => h * fnvPrime
+/-- A value as bytes: 0 if undefined, else 1 and its eight bytes, low byte first. -/
+def pushVal (b : ByteArray) : Option Float → ByteArray
+  | none => b.push 0
   | some x => Id.run do
-    let mut h := (h ^^^ 1) * fnvPrime
+    let mut b := b.push 1
     for i in [0:8] do
-      h := (h ^^^ ((x.toBits >>> (8 * i).toUInt64) &&& 0xff)) * fnvPrime
-    return h
+      b := b.push (x.toBits >>> (8 * i).toUInt64).toUInt8
+    return b
 
-/-- Per node, the digest of its value for every coin at every tick of the machine's schedule: wStart, then
-each hour of every step (`Ctx.machineAfter`'s schedule over the run's steps), and how many values were defined. -/
-def nodeDigests (p : Program) (m : Market Float) (v : Venue Float) (pol : Policy) (stop : Int) : Except Abort (Array UInt64 × Nat) := do
+/-- One tick's node values (nodes in order, each coin in order) as bytes, and how many are defined. -/
+def tickBytes (ms : MState Float) : ByteArray × Nat :=
+  ms.vals.foldl (fun acc row => row.foldl (fun (b, n) x => (pushVal b x, if x.isSome then n + 1 else n)) acc) (ByteArray.empty, 0)
+
+/-- Every node's value for every coin at every tick of the machine's schedule (wStart, then each hour of every
+step: `Ctx.machineAfter`'s schedule over the run's steps), written to `h`; returns how many were defined. -/
+def writeStreams (h : IO.FS.Handle) (p : Program) (m : Market Float) (v : Venue Float) (pol : Policy) (stop : Int) :
+    IO (Except Abort Nat) := do
   let c := Ctx.make p m v pol stop
-  let fold (ds : Array UInt64) (ms : MState Float) : Array UInt64 := ds.mapIdx fun i h => ms.vals[i]!.foldl fnvVal h
-  let defined (ms : MState Float) : Nat := ms.vals.foldl (fun n row => row.foldl (fun n x => if x.isSome then n + 1 else n) n) 0
-  let mut s ← c.start floatOps
-  let mut ds := fold (Array.replicate p.nodes.size 14695981039346656037) s.machine
-  let mut n := defined s.machine
+  let mut s ← match c.start floatOps with
+    | .error a => return .error a
+    | .ok s => pure s
+  let (b0, n0) := tickBytes s.machine
+  h.write b0
+  let mut n := n0
   for k in [1:4 * c.bounds.length + 1] do
-    let h := pol.wStart + (k : Int) * HOUR
-    s ← c.deliver s (h + pol.delta)
-    s := { s with machine := s.machine.tick floatOps p (c.mask h) h }
-    ds := fold ds s.machine
-    n := n + defined s.machine
-  return (ds, n)
+    let hr := pol.wStart + (k : Int) * HOUR
+    match c.deliver s (hr + pol.delta) with
+    | .error a => return .error a
+    | .ok s' => s := { s' with machine := s'.machine.tick floatOps p (c.mask hr) hr }
+    let (b, d) := tickBytes s.machine
+    h.write b
+    n := n + d
+  return .ok n
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -93,18 +100,19 @@ def main (args : List String) : IO UInt32 := do
     match Ref.check (← IO.FS.readFile path) with
     | .ok _ => IO.println "ok"; return 0
     | .error c => IO.println c.name; return 1
-  | ["run", prog, mkt, out] =>
+  | ["run", prog, mkt, out, streams] =>
     let some v := (Json.parse (← IO.FS.readFile mkt)).toOption | IO.eprintln "bad market"; return 3
     let (m, venue, pol, stop) := market v
-    let result := match Ref.check (← IO.FS.readFile prog) with
-      | .error c => s!"\{\"reject\":\"{c.name}\"}"
+    let result ← match Ref.check (← IO.FS.readFile prog) with
+      | .error c => pure s!"\{\"reject\":\"{c.name}\"}"
       | .ok p => match Ref.run floatOps p m venue pol stop with
-        | .error a => s!"\{\"abort\":\"{a.code}\"}"
-        | .ok r =>
-          let nodes := match nodeDigests p m venue pol stop with
-            | .ok (ds, n) => s!"\{\"digests\":{list (ds.map toString)},\"defined\":{n}}"
+        | .error a => pure s!"\{\"abort\":\"{a.code}\"}"
+        | .ok r => do
+          let defined ← IO.FS.withFile streams .write fun h => writeStreams h p m venue pol stop
+          let nodes := match defined with
+            | .ok n => s!"\{\"defined\":{n}}"
             | .error a => s!"\"{a.code}\""
-          s!"\{\"trace\":{list (r.trace.map eventJson)},\"returns\":{list (r.returns.map fb)},\"gross_returns\":{list (r.grossReturns.map fb)},\"types\":{list (p.types.map tyJson)},\"nodes\":{nodes}}"
+          pure s!"\{\"trace\":{list (r.trace.map eventJson)},\"returns\":{list (r.returns.map fb)},\"gross_returns\":{list (r.grossReturns.map fb)},\"types\":{list (p.types.map tyJson)},\"nodes\":{nodes}}"
     IO.FS.writeFile out result
     return 0
   | ["bench", prog, mkt, reps] =>
@@ -119,4 +127,4 @@ def main (args : List String) : IO UInt32 := do
       ms := ms.push (toString (((← IO.monoNanosNow) - t0).toFloat / 1e6))
     IO.println (list ms)
     return 0
-  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAM MARKET OUT | refmm bench PROGRAM MARKET REPS"; return 2
+  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAM MARKET OUT STREAMS | refmm bench PROGRAM MARKET REPS"; return 2

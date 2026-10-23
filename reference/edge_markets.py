@@ -199,9 +199,6 @@ def weights():
     return {k: v if "dsl" in v else program(k, v) for k, v in out.items()}
 
 
-REQUIRED = tuple(weights())
-
-
 def cases(nulls):
     """[(name, program, [markets])]: every weight on `edge` and on each null market, and the lifecycle programs on
     the crash markets."""

@@ -3,12 +3,13 @@
 `freeze` writes the corpus (`audit/stage6/differential-corpus.jsonl`) and its manifest before the judged run.
 `run` rebuilds every market from the manifest and checks each against its frozen hash (store and venue). It
 then compares every program's verdict, and every run through `mmdump` (mm's own loader, simulator and
-machine) and `refmm`. A run's output holds the trace, returns, gross returns, each node's static type, a digest
-of each node's value stream (definedness and bits, every coin, every tick) and the count of defined values,
-every float as its bits. So equal output is bit-for-bit agreement on all of them. `pass` also requires the
-corpus to be complete as C6.4 lists it.
+machine) and `refmm`. A run's output is the trace, returns, gross returns, each node's static type and the count of
+defined node values, every float as its bits, and a stream file holding every node's value (definedness and
+bits) for every coin at every tick of the machine's schedule, a replay of that schedule beside the simulator
+run. Both are compared byte for byte. `pass` also requires the corpus to hold every expected component.
 """
 
+import filecmp
 import hashlib
 import json
 import os
@@ -88,21 +89,23 @@ def corpus(seed, n):
     return out
 
 
+def expected():
+    """name -> markets of every corpus item but the generated programs."""
+    out = {"W0": list(NULLS)} | {f"probe-{p['name']}": list(NULLS) for p in probes.probes(True)}
+    out |= {f"case-{k}": ms for k, _, ms in edge_markets.cases(NULLS)}
+    out |= {f"reject-{k}": [] for k in edge_markets.rejections()}
+    return out | {f"adversarial-{f.stem}": [] for f in sorted((REPO / "kernel/tests/adversarial").glob("*.case"))}
+
+
 def complete(items, generated_n, minimum=1000):
-    """C6.4's corpus components, or the list of what is missing (`minimum` generated programs, 0 for a development run)."""
-    by = {}
-    for it in items:
-        by.setdefault(it["name"].split("-", 1)[0], []).append(it)
-    missing = []
-    if len(by.get("gen", [])) < max(generated_n, minimum):
-        missing.append(f"fewer than {max(generated_n, minimum)} generated programs")
-    for kind in ("gen", "W0", "probe"):
-        if not by.get(kind) or any(set(NULLS) - set(it["markets"]) for it in by[kind]):
-            missing.append(f"{kind} not on every null market")
-    cases = {it["name"][5:] for it in by.get("case", []) if set(NULLS) <= set(it["markets"])}
-    missing += [f"case {k} not on every null market" for k in edge_markets.REQUIRED if k not in cases]
-    if not by.get("adversarial") or not by.get("reject"):
-        missing.append("verdict cases")
+    """What the corpus lacks against C6.4's list, or []: every expected item on exactly its markets, and at
+    least `minimum` (0 for a development run) distinct generated programs on every null market."""
+    by = {it["name"]: it for it in items}
+    missing = [f"{k} on {ms}" for k, ms in expected().items() if k not in by or sorted(by[k]["markets"]) != sorted(ms)]
+    gen = [it for it in items if it["name"].startswith("gen-")]
+    if len(gen) < max(generated_n, minimum) or len({it.get("program") for it in gen}) < len(gen):
+        missing.append(f"{len(gen)} generated programs, {len({it.get('program') for it in gen})} distinct, of {max(generated_n, minimum)}")
+    missing += [f"{it['name']} not on every null market" for it in gen if sorted(it["markets"]) != sorted(NULLS)]
     return missing
 
 
@@ -120,7 +123,7 @@ def freeze(seed, n="1024", audit=AUDIT, minimum=1000):
         raise FileExistsError(manifest)
     build()
     items = corpus(int(seed), int(n))
-    missing = complete([{"name": k, "markets": ms} for k, _, ms in items], int(n), minimum)
+    missing = complete([{"name": k, "program": p, "markets": ms} for k, p, ms in items], int(n), minimum)
     if missing:
         raise ValueError(f"incomplete corpus: {missing}")
     with tempfile.TemporaryDirectory() as d:
@@ -170,14 +173,27 @@ def divergence(a, b):
             first.setdefault("numeric", (key, i, xs[i], ys[i]))
         if len(xs) != len(ys):
             first.setdefault("discrete", (f"{key} length", min(len(xs), len(ys)), len(xs), len(ys)))
-    na, nb = a.get("nodes"), b.get("nodes")
-    if na != nb:
-        if isinstance(na, dict) and isinstance(nb, dict):
-            i = next((i for i, (x, y) in enumerate(zip(na["digests"], nb["digests"])) if x != y), None)
-            first.setdefault("numeric", ("node stream", i, na["digests"][i], nb["digests"][i]) if i is not None
-                             else ("defined values", 0, na["defined"], nb["defined"]))
-        else:
-            first.setdefault("discrete", ("nodes", 0, na, nb))
+    if a.get("nodes") != b.get("nodes"):
+        first.setdefault("discrete", ("nodes", 0, a.get("nodes"), b.get("nodes")))
+    return first
+
+
+def stream_divergence(sa, sb, nodes, coins):
+    """The first discrete (definedness) and first numeric (bits) difference between two stream files, as
+    (field, (tick, node, coin), mm, ref)."""
+    first, xs, ys = {}, Path(sa).read_bytes(), Path(sb).read_bytes()
+    i = j = k = 0
+    while i < len(xs) and j < len(ys) and len(first) < 2:
+        x = None if xs[i] == 0 else xs[i + 1:i + 9].hex()
+        y = None if ys[j] == 0 else ys[j + 1:j + 9].hex()
+        at = (k // (nodes * coins), k // coins % nodes, k % coins)
+        if (x is None) != (y is None):
+            first.setdefault("discrete", ("node definedness", at, x, y))
+        elif x != y:
+            first.setdefault("numeric", ("node value bits", at, x, y))
+        i, j, k = i + (1 if x is None else 9), j + (1 if y is None else 9), k + 1
+    if (i < len(xs)) != (j < len(ys)):
+        first.setdefault("discrete", ("stream length", k, len(xs), len(ys)))
     return first
 
 
@@ -196,11 +212,18 @@ def one(name, text, market, root, version, tmp):
     d = Path(tempfile.mkdtemp(dir=tmp))
     p = d / "p.json"
     p.write_text(text)
-    subprocess.run([str(DUMP), p, root / "store", root / "venue", str(version), d / "mk.json", d / "a.json"], check=True, capture_output=True)
-    subprocess.run([str(REF), "run", p, d / "mk.json", d / "b.json"], check=True, capture_output=True)
+    subprocess.run([str(DUMP), p, root / "store", root / "venue", str(version), d / "mk.json", d / "a.json", d / "sa.bin"],
+                   check=True, capture_output=True)
+    subprocess.run([str(REF), "run", p, d / "mk.json", d / "b.json", d / "sb.bin"], check=True, capture_output=True)
     a, b = json.loads((d / "a.json").read_text()), json.loads((d / "b.json").read_text())
+    has = [(d / f).exists() for f in ("sa.bin", "sb.bin")]
+    same = has[0] == has[1] and (not has[0] or filecmp.cmp(d / "sa.bin", d / "sb.bin", shallow=False))
+    first = divergence(a, b) if a != b else {}
+    if not same:
+        coins = len(json.loads((d / "mk.json").read_text())["venue"]["sz_decimals"])
+        first |= stream_divergence(d / "sa.bin", d / "sb.bin", len(a["types"]), coins) if all(has) else {"discrete": ("stream file", 0, *has)}
     shutil.rmtree(d)
-    return name, market, a == b, divergence(a, b) if a != b else {}, coverage(a)
+    return name, market, a == b and same, first, coverage(a)
 
 
 def run(out, workers="4", audit=AUDIT):

@@ -1,6 +1,6 @@
 # Stage 6: comparison and adoption (C6.5)
 
-Two reference kernels were attempted: Lean 4 (v4.34.0) and Bend 2 (2.0.37). Lean is adopted. The Rust
+Two reference kernels were attempted: Lean 4 (v4.34.0) and Bend 2 (2.0.37). Lean is the candidate for adoption. The Rust
 engine `mm` is unchanged by this stage.
 
 ## Laws
@@ -11,7 +11,7 @@ engine `mm` is unchanged by this stage.
 | L2 unit soundness (`L2_units`, `L2_checker`) | proved | out of scope (human decision of 2026-10-21) |
 | L3 rewrite soundness, every R v1 rule (`L3_rewrite`) | proved, abstract version | out of scope |
 | L4 fill ordering (`L4_fills`, `L4_orders`) | proved | not proved (same reason as L1) |
-| L5 binding (`L5_binding`) | proved | proved under `--verdict`, over one concrete exact number type |
+| L5 binding (`L5_binding`) | proved | verdict run succeeded over one concrete exact number type; not an accepted law, since the statement was never frozen with review (C6.1 amendment of 2026-10-23) |
 | L6 bounded returns (`L6_bounded`, added with I10) | proved | not attempted |
 
 - **Lean (C6.2 met).** Every law is proved after a clean `lake build`. L3 assumes the number structure is
@@ -24,7 +24,7 @@ engine `mm` is unchanged by this stage.
   claimed for the binary64 instance: Lean's `Float` is opaque to the kernel, so L3's numeric obligations
   cannot be established for it. Binary64 behavior is supported only empirically, by C6.4's bit-exact agreement
   with `mm` (below) and by C4.1's exactness tests.
-- **Bend (C6.3, reported).** It proves L5 only. The record and findings are in `bend.md`: unary `Nat`
+- **Bend (C6.3, reported; not met).** Its only verdict run is L5's, archived with its BendTT translation and an audit against the frozen law (`bend-l5-verdict.txt`, `bend-l5-PROOF.bendtt`, `bend-l5-translated.md`). The record and findings are in `bend.md`: unary `Nat`
   overflowed the checker, there are no integers and no binary64, and the language has constraints. The port
   is at commit `69e91e0`.
 
@@ -98,42 +98,43 @@ program-market-years each. Bend has no executable model that runs on real data. 
 
 ## Effort
 
-Recovered from the session transcripts (`audit/stage6/effort.py`, output `effort.json`), between consecutive
-milestone commits (UTC commit times).
-- **Elapsed** is wall time.
-- **Active** is the sum of the gaps of at most 5 minutes between consecutive transcript events. A tool run
-  longer than 5 minutes (a long Lean build) writes no events and is not counted, and the agent's other work in
-  the same interval (for example stage 2's calibration v3 during `ifNotRev`) is counted. So it is the session's
-  activity in the interval, not stage 6's alone.
-- **Sessions** are the distinct transcripts with events in the interval. **Compactions** are context
-  compactions there.
+Per-milestone active agent time and retries were not instrumented while the work ran, so this element is unmet as
+written. It is reported as a proxy recovered afterwards (C6.5 amendment of 2026-10-23; `effort.py`, `effort.json`).
+Intervals run between consecutive milestone commits (UTC).
+- **Active** is the sum over each session transcript of its gaps of at most 5 minutes. It excludes tool runs
+  longer than that (long Lean builds) and includes any other work in the interval: stage 2's calibration v3 during
+  `ifNotRev`, and the Bend port, which was written while that proof built.
+- **Commits** and **revisions or in-progress steps** come from git, and stand in for retries.
 
-| Milestone | Commit | Elapsed (h) | Active (h) | Sessions | Compactions |
-|---|---|---|---|---|---|
-| contract, checker | `2c23055` | 0.9 | 0.73 | 1 | 0 |
-| model, binary64, mmdump | `7a0b899` | 0.2 | 0.2 | 1 | 0 |
-| laws frozen | `cb095f7` | 0.41 | 0.4 | 1 | 0 |
-| L5 | `7180965` | 0.18 | 0.17 | 1 | 1 |
-| L2_checker | `bd7c734` | 3.44 | 0.81 | 1 | 0 |
-| L1_simulator | `48fc965` | 7.63 | 0.82 | 1 | 0 |
-| L1_values | `4101f32` | 0.24 | 0.23 | 1 | 0 |
-| L2_units | `c5a9657` | 2.03 | 2.03 | 1 | 0 |
-| L4_fills | `10915f9` | 3.08 | 0.62 | 1 | 1 |
-| L4_orders | `b37f429` | 0.37 | 0.27 | 1 | 0 |
-| L1_decisions | `22c8697` | 0.44 | 0.43 | 1 | 0 |
-| L3 in-place rules | `cc495f7` | 4.88 | 1.37 | 1 | 0 |
-| L3 ifNotRev, C6.2 | `06df060` | 41.16 | 1.63 | 1 | 1 |
-| Bend L5 | `69e91e0` | 0.48 | 0.48 | 1 | 0 |
-| Bend stopped | `e0453e0` | 0.5 | 0.22 | 1 | 0 |
-| C6.4 harness v1, first judged run | `f08380a` | 2.65 | 1.29 | 3 | 2 |
+| Milestone | Commit | Elapsed (h) | Active (h) | Sessions | Commits | Revisions or in-progress steps |
+|---|---|---|---|---|---|---|
+| contract, checker | `2c23055` | 0.9 | 0.73 | 1 | 18 | 3 |
+| model, binary64, mmdump | `7a0b899` | 0.2 | 0.2 | 1 | 2 | 0 |
+| laws frozen | `cb095f7` | 0.41 | 0.4 | 1 | 9 | 1 |
+| L5 | `7180965` | 0.18 | 0.17 | 1 | 3 | 2 |
+| L2_checker | `bd7c734` | 3.44 | 0.81 | 1 | 1 | 0 |
+| L1_simulator | `48fc965` | 7.63 | 0.82 | 1 | 4 | 2 |
+| L1_values | `4101f32` | 0.24 | 0.23 | 1 | 2 | 0 |
+| L2_units | `c5a9657` | 2.03 | 2.03 | 1 | 4 | 2 |
+| L4_fills | `10915f9` | 3.08 | 0.62 | 1 | 10 | 4 |
+| L4_orders | `b37f429` | 0.37 | 0.27 | 1 | 1 | 0 |
+| L1_decisions | `22c8697` | 0.44 | 0.43 | 1 | 1 | 0 |
+| L3 in-place rules | `cc495f7` | 4.88 | 1.37 | 1 | 16 | 10 |
+| L3 ifNotRev, C6.2 | `06df060` | 41.16 | 1.63 | 1 | 12 | 5 |
+| Bend machine port | `dedfffa` | 0.16 | 0.16 | 1 | 2 | 1 |
+| Bend simulator port | `2fb8517` | 0.21 | 0.21 | 1 | 1 | 1 |
+| Bend L5 | `69e91e0` | 0.12 | 0.11 | 1 | 1 | 0 |
+| Bend stopped | `e0453e0` | 0.5 | 0.22 | 1 | 4 | 1 |
+| C6.4 v1 run | `f08380a` | 2.65 | 1.4 | 3 | 10 | 1 |
+| C6.4 v2 judged run | `1981f94` | 6.31 | 1.03 | 1 | 10 | 2 |
 
-**Retries and failures:**
-- L1_simulator, L4_fills, L4_orders and L3 took dated law or model revisions (stage 6 criteria).
-- L3 found a checker hole, fixed in `mm` and the model.
-- The `ifNotRev` proof failed several times: the do-notation join duplicated its continuation, loop-lemma
-  shapes did not match, and elaboration timed out until the states were destructured.
-- Bend: unary `Nat` overflowed the checker, and a smoke run was killed for memory (`bend.md`).
-- The first C6.4 corpus did not qualify (PROGRESS.md, stage 6).
+**Failures recorded:**
+- dated law and model revisions for L1_simulator, L4_fills, L4_orders and L3 (stage 6 criteria);
+- a checker hole found by L3 and fixed in `mm` and the model;
+- `ifNotRev`'s failed proof attempts (a duplicated do-notation continuation, mismatched loop-lemma shapes,
+  elaboration timeouts);
+- Bend's unary `Nat` overflow and its smoke run's OOM kill;
+- two C6.4 corpora that did not qualify on review (PROGRESS.md, stage 6).
 
 ## Ranking and adoption
 

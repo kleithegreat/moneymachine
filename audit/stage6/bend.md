@@ -31,15 +31,21 @@ deleted from the tree per paper §6. The final state is commit `7ffc32c`, and th
 
 ## Effort
 
-| Milestone | Elapsed | Commit |
+Commit times are UTC. *Corrected 2026-10-23:* this table first gave local dates and estimated durations
+("about 1.5 h", "about 1 h") that the commit times do not support. The port was written while Lean's `ifNotRev`
+proof was building, before its commits, so the agent time is not separable. The recovered proxy is in
+`effort.json` and `report.md`.
+
+| Milestone | Commit time (UTC) | Commit |
 |---|---|---|
-| Expressiveness finding (abstract numbers) | 2026-10-19 | `761e2e5` |
-| Concrete-type probe | 2026-10-20 | `a624ddc` |
-| Machine port (≈ 880 lines) | 2026-10-22, about 1.5 h of agent time | `dedfffa` |
-| Simulator port (≈ 1,400 lines) | 2026-10-22, about 1 h | `2fb8517` |
-| L5 proof (≈ 600 lines, after moving to binary magnitudes) | 2026-10-22, about 1 h | `69e91e0` |
+| Expressiveness finding (abstract numbers) | 2026-10-20 03:00 | `761e2e5` |
+| Concrete-type probe | 2026-10-21 01:02 | `a624ddc` |
+| Machine port (≈ 880 lines) | 2026-10-22 18:49 | `dedfffa` |
+| Simulator port (≈ 1,400 lines) | 2026-10-22 19:02 | `2fb8517` |
+| L5 proof (≈ 600 lines, after moving to binary magnitudes) | 2026-10-22 19:09 | `69e91e0` |
 
 ## C6.4 and C6.5
 
-Bend is not eligible: it has no binary64, so it cannot pass C6.4, and it has one of the five laws. Lean, with
-every law proved (`audit/stage6/lean-axioms.txt`), is the reference kernel.
+Bend is not eligible: it has no binary64, so it cannot pass C6.4. Its L5 verdict run succeeded, but it is not an
+accepted law, since its statement was never frozen with review (C6.1 amendment of 2026-10-23). Lean, with every law
+proved (`audit/stage6/lean-axioms.txt`), is the candidate for adoption.

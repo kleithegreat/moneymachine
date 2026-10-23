@@ -5,7 +5,8 @@
   "elapsed_h": 0.9,
   "active_h": 0.73,
   "sessions": 1,
-  "compactions": 0
+  "commits": 18,
+  "revisions_or_in_progress": 3
  },
  {
   "milestone": "model, binary64, mmdump",
@@ -13,7 +14,8 @@
   "elapsed_h": 0.2,
   "active_h": 0.2,
   "sessions": 1,
-  "compactions": 0
+  "commits": 2,
+  "revisions_or_in_progress": 0
  },
  {
   "milestone": "laws frozen",
@@ -21,7 +23,8 @@
   "elapsed_h": 0.41,
   "active_h": 0.4,
   "sessions": 1,
-  "compactions": 0
+  "commits": 9,
+  "revisions_or_in_progress": 1
  },
  {
   "milestone": "L5",
@@ -29,7 +32,8 @@
   "elapsed_h": 0.18,
   "active_h": 0.17,
   "sessions": 1,
-  "compactions": 1
+  "commits": 3,
+  "revisions_or_in_progress": 2
  },
  {
   "milestone": "L2_checker",
@@ -37,7 +41,8 @@
   "elapsed_h": 3.44,
   "active_h": 0.81,
   "sessions": 1,
-  "compactions": 0
+  "commits": 1,
+  "revisions_or_in_progress": 0
  },
  {
   "milestone": "L1_simulator",
@@ -45,7 +50,8 @@
   "elapsed_h": 7.63,
   "active_h": 0.82,
   "sessions": 1,
-  "compactions": 0
+  "commits": 4,
+  "revisions_or_in_progress": 2
  },
  {
   "milestone": "L1_values",
@@ -53,7 +59,8 @@
   "elapsed_h": 0.24,
   "active_h": 0.23,
   "sessions": 1,
-  "compactions": 0
+  "commits": 2,
+  "revisions_or_in_progress": 0
  },
  {
   "milestone": "L2_units",
@@ -61,7 +68,8 @@
   "elapsed_h": 2.03,
   "active_h": 2.03,
   "sessions": 1,
-  "compactions": 0
+  "commits": 4,
+  "revisions_or_in_progress": 2
  },
  {
   "milestone": "L4_fills",
@@ -69,7 +77,8 @@
   "elapsed_h": 3.08,
   "active_h": 0.62,
   "sessions": 1,
-  "compactions": 1
+  "commits": 10,
+  "revisions_or_in_progress": 4
  },
  {
   "milestone": "L4_orders",
@@ -77,7 +86,8 @@
   "elapsed_h": 0.37,
   "active_h": 0.27,
   "sessions": 1,
-  "compactions": 0
+  "commits": 1,
+  "revisions_or_in_progress": 0
  },
  {
   "milestone": "L1_decisions",
@@ -85,7 +95,8 @@
   "elapsed_h": 0.44,
   "active_h": 0.43,
   "sessions": 1,
-  "compactions": 0
+  "commits": 1,
+  "revisions_or_in_progress": 0
  },
  {
   "milestone": "L3 in-place rules",
@@ -93,7 +104,8 @@
   "elapsed_h": 4.88,
   "active_h": 1.37,
   "sessions": 1,
-  "compactions": 0
+  "commits": 16,
+  "revisions_or_in_progress": 10
  },
  {
   "milestone": "L3 ifNotRev, C6.2",
@@ -101,15 +113,35 @@
   "elapsed_h": 41.16,
   "active_h": 1.63,
   "sessions": 1,
-  "compactions": 1
+  "commits": 12,
+  "revisions_or_in_progress": 5
+ },
+ {
+  "milestone": "Bend machine port",
+  "commit": "dedfffa",
+  "elapsed_h": 0.16,
+  "active_h": 0.16,
+  "sessions": 1,
+  "commits": 2,
+  "revisions_or_in_progress": 1
+ },
+ {
+  "milestone": "Bend simulator port",
+  "commit": "2fb8517",
+  "elapsed_h": 0.21,
+  "active_h": 0.21,
+  "sessions": 1,
+  "commits": 1,
+  "revisions_or_in_progress": 1
  },
  {
   "milestone": "Bend L5",
   "commit": "69e91e0",
-  "elapsed_h": 0.48,
-  "active_h": 0.48,
+  "elapsed_h": 0.12,
+  "active_h": 0.11,
   "sessions": 1,
-  "compactions": 0
+  "commits": 1,
+  "revisions_or_in_progress": 0
  },
  {
   "milestone": "Bend stopped",
@@ -117,14 +149,25 @@
   "elapsed_h": 0.5,
   "active_h": 0.22,
   "sessions": 1,
-  "compactions": 0
+  "commits": 4,
+  "revisions_or_in_progress": 1
  },
  {
-  "milestone": "C6.4 harness v1, first judged run",
+  "milestone": "C6.4 v1 run",
   "commit": "f08380a",
   "elapsed_h": 2.65,
-  "active_h": 1.29,
+  "active_h": 1.4,
   "sessions": 3,
-  "compactions": 2
+  "commits": 10,
+  "revisions_or_in_progress": 1
+ },
+ {
+  "milestone": "C6.4 v2 judged run",
+  "commit": "1981f94",
+  "elapsed_h": 6.31,
+  "active_h": 1.03,
+  "sessions": 1,
+  "commits": 10,
+  "revisions_or_in_progress": 2
  }
 ]
