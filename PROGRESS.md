@@ -32,7 +32,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
     - Options-flow "unusual" labels are vendor-derived, so they are usable only as recorded forward. Only timestamped raw prints can be backtested.
     - Check that the API terms allow automated use and storage before building anything.
 
-GPT: `timeout 3600 opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh tmp dir> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background, always under `timeout`: one call hung for 8 hours with no output on 2026-10-23. A waiter must also end when the call exits, and work goes on meanwhile; a GPT review is never the only thing running.
+GPT: `timeout 3600 opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh dir under ~/.cache/mm-gpt, never inside the repo> "<prompt>" -f <file>` (message before `-f`, which takes an array). Run it in the background, always under `timeout`: one call hung for 8 hours with no output on 2026-10-23. A waiter must also end when the call exits, and work goes on meanwhile; a GPT review is never the only thing running. Its `opencode.json` denies `edit`, `bash`, `webfetch` and `external_directory`.
 
 ## Criteria
 
@@ -1073,6 +1073,11 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
+
+- 2026-10-23: **GPT independence check.** Since the session scratchpad went away (2026-10-22), GPT's directories had been under `data/tmp`, inside the repo, and `opencode` read the repo's PROGRESS.md in five runs: `derived3`, the third stage 6 review, the stage 7 and stage 8 criteria reviews, and a stage 9 attempt.
+  - The only independence-critical one, `derived3` (stage 5's coverage rule), was superseded by `derived4`, whose log shows no outside read, and `ingest/tests/derived/independent.py` comes from `derived4`.
+  - Reviews get our context anyway.
+  - Fixed: GPT's directories are under `~/.cache/mm-gpt`, and `external_directory` is denied.
 
 - 2026-10-23: **Stage 6 done; Lean adopted** as the reference kernel (`reference/lean`). The report is `audit/stage6/report.md`; GPT's third review is `audit/stage6/gpt-exit-review.md`.
   - C6.1 is met under its amendment, C6.2 met, C6.3 not met (reported; the revised rule allows it), C6.4 met (third run).
