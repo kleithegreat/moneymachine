@@ -58,43 +58,56 @@ engine `mm` is unchanged by this stage.
 
 ## Differential results (C6.4)
 
-`differential-run2-report.json`, on the corpus frozen in `differential-run2-manifest.json` (commit `2eac75f`, seed
-20261023, harness at `c007644`).
-- **The corpus:** 1,024 programs from the frozen stage 4 generator; W0 and stage 2's probes; 69 deterministic
-  cases on their own markets (`edge`, `liquidation`, `ruin`) and on each of N1, N2 and N3 (550 days each); every
-  rejection path and every adversarial case. `pass` also checks the corpus's completeness, and nothing is
-  missing.
-- **Verdicts:** 1,196 programs agree exactly: 1,135 accepted, and 61 rejected under 9 distinct codes.
-- **Runs:** all 3,372 agree bit for bit, with no waiver and no math-library exception. Each comparison covers:
-  - the trace (decisions, holds, fills with their source bars and times, closeouts, unfilled orders,
-    settlements, equity), returns and gross returns;
-  - every node's static type (value category and unit);
-  - a digest of every node's value stream: definedness and bits, every coin, every tick of the machine's
-    schedule.
-- **Coverage:** 11.5 billion defined node values, 43.5M decisions, 43.5M fills, 4.9M holds, 353M settlements,
-  16 liquidations, 45 delistings, 159 unfilled orders and 6 R_INPUT_UNAVAILABLE aborts.
-- **An earlier run that did not qualify.** `c64-manifest.json` and `c64-report.json` (2026-10-22) record a run
-  that also agreed everywhere, but on a corpus GPT's review found incomplete (PROGRESS.md, stage 6).
+`differential-report.json`, on the corpus frozen in `differential-manifest.json` (commit `e2ddba4`, seed 20261024,
+harness at `f7f9091`).
+- **The corpus.** `pass` checks it against the expected inventory (`reference/differential.py`, `complete`), and
+  nothing is missing. It holds:
+  - 1,024 programs from the frozen stage 4 generator, at least 1,000 of them distinct, each on N1, N2 and N3
+    (550 days each);
+  - W0 and stage 2's probes, on the same three markets;
+  - 61 deterministic cases on `edge` and on N1, N2 and N3, plus 8 lifecycle variants on `liquidation` and `ruin`;
+  - every rejection path and every adversarial case.
+- **Verdicts:** 1,196 programs agree exactly.
+- **Runs:** all 3,372 agree, with no waiver and no math-library exception.
+  - The trace (decisions, holds, fills with their source bars and times, closeouts, unfilled orders,
+    settlements, equity), returns, gross returns and every node's static type (value category and unit) are
+    compared exactly.
+  - Every node's value for every coin at every tick of the machine's schedule is written by both kernels as
+    definedness plus bits, and the two files are compared byte for byte. A difference would be located by tick,
+    node and coin, as discrete (definedness) or numeric (bits).
+  - These streams come from replaying the machine's schedule beside the simulator run, not from inside it. For
+    Lean, `L1_simulator` proves a step's machine is its four scheduled ticks. For `mm`, the replay drives `mm`'s
+    own `Machine` in `sim::run`'s delivery order, and no theorem connects the two.
+- **Coverage:** 11.36 billion defined node values, 45.1M decisions, 45.1M fills, 4.5M holds, 360M settlements,
+  4 liquidations, 45 delistings, 159 unfilled orders and 6 R_INPUT_UNAVAILABLE aborts.
+- **Earlier runs that did not qualify,** though each agreed everywhere:
+  - `c64-*` (2026-10-22), whose corpus was incomplete;
+  - `differential-run2-*` (2026-10-23), which compared node streams as 64-bit digests.
 
 Bend is not eligible: it has no binary64, so it cannot pass C6.4.
 
 ## Performance (`benchmark.json`)
 
-The configuration was frozen before any measurement (`benchmark-manifest.json`, commit `77f9a48`): an Intel
-i5-11400, one thread, rustc and Lean versions, release profiles, the differential manifest's digest, and the
-corpus's W0 and first 100 generated programs. The run refused to measure if any of them changed. It used the
-frozen 550-day N2 market, one process at a time, with nothing else heavy running.
+The configuration was frozen before any measurement (`benchmark-manifest.json`, commit `0f1b7df`), and the run
+refused to measure if any part of it differed when rebuilt. It pins:
+- the CPU (Intel i5-11400), the rustc and Lean versions, and the git trees of `kernel/` and `reference/` (clean);
+- the sha256 of the built `mm`, `refmm` and `mmdump`;
+- the differential manifest's digest, and the corpus's W0 and first 100 generated programs.
+
+The market is the frozen 550-day N2. Processes ran one at a time with nothing else heavy running. Each timed
+end-to-end process's thread count was sampled while it ran; the largest seen was 4, so no single-thread claim is
+made.
 
 | | mm | refmm |
 |---|---|---|
-| W0 replay, evaluator only (median of 5) | 16.0 ms | 652.1 ms |
-| W0 replay, end to end (median of 5) | 900.1 ms (`mm eval`: parquet load, run, ledger) | 2,915.5 ms (`refmm run`: JSON parse, run, node digests, trace) |
-| `mmdump` (median of 5): load, write the market JSON, run `mm` and its node digests | 800.1 ms | |
-| Null-simulation throughput, evaluator only | 34.4 program-market-years/s | 0.70 program-market-years/s |
+| W0 replay, evaluator only (median of 5) | 16.0 ms | 632.9 ms |
+| W0 replay, end to end (median of 5) | 916.2 ms (`mm eval`: parquet load, run, ledger) | 2,838.6 ms (`refmm run`: JSON parse, run, node streams, trace) |
+| `mmdump` (median of 5): load, write the market JSON, run `mm` and its node streams | 810.0 ms | |
+| Null-simulation throughput, evaluator only | 34.1 program-market-years/s | 0.66 program-market-years/s |
 
 Throughput counts completed runs only: 100 of 100 programs completed on both kernels, 150.7
-program-market-years each. Bend has no executable model that runs on real data. The draft's figures
-(`c65-bench.json`, 2026-10-23) were measured while other work loaded the machine, and are superseded.
+program-market-years each. Bend has no executable model that runs on real data. The earlier figures
+(`c65-bench.json`, `benchmark-run1.json`) were measured without these identity checks, and are superseded.
 
 ## Effort
 
@@ -138,7 +151,9 @@ Intervals run between consecutive milestone commits (UTC).
 
 ## Ranking and adoption
 
-Only Lean passes C6.4, so only Lean is eligible. It has all five laws, plus L6. Lean is adopted as the
-reference kernel (`reference/lean`). Its differential harness stays in `reference/`: `differential.py`,
-`edge_markets.py`, `mmdump/`, `benchmark.py`, `tests/test_lean_differential.py` and `tests/test_resolution.py`. The Bend work left
-the tree on 2026-10-22, and its record is kept in `bend.md`.
+Only Lean passes C6.4, so only Lean is eligible. Under the C6.1 amendment of 2026-10-23, Bend has no accepted law.
+Lean has all five laws, plus L6, under their stated assumptions (L3 `Lawful`, L6 `Bounded`). Lean is adopted as the
+reference kernel (`reference/lean`) when this report's review accepts it. Its differential harness stays in
+`reference/`: `differential.py`, `edge_markets.py`, `mmdump/`, `benchmark.py`, `tests/test_lean_differential.py`,
+`tests/test_resolution.py` and `tests/test_differential.py`. The Bend work left the tree on 2026-10-22, and its
+record is kept in `bend.md`.

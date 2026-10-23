@@ -1,0 +1,60 @@
+{
+ "manifest_sha256": "7077c186b184218f0359bf77642d13afcb26a643d4405db26054d498bd771f4c",
+ "end_to_end_threads_sampled_max": 4,
+ "replay_w0_ms": {
+  "mm": {
+   "end_to_end_median": 916.1630630260333,
+   "end_to_end": [
+    917.2017709934153,
+    915.7823369605467,
+    916.1630630260333,
+    911.6709060035646,
+    938.778358977288
+   ],
+   "evaluator_median": 15.955293,
+   "evaluator": [
+    16.674136999999998,
+    16.079898,
+    15.913289,
+    15.894193000000001,
+    15.955293
+   ]
+  },
+  "refmm": {
+   "end_to_end_median": 2838.631679012906,
+   "end_to_end": [
+    3193.556115962565,
+    3510.81480900757,
+    2780.517614039127,
+    2776.4518720214255,
+    2838.631679012906
+   ],
+   "evaluator_median": 632.868774,
+   "evaluator": [
+    684.938131,
+    624.973999,
+    634.166763,
+    632.868774,
+    625.237806
+   ]
+  },
+  "mmdump_load_write_and_mm_run_median": 810.0134340347722
+ },
+ "throughput": {
+  "mm": {
+   "programs": 100,
+   "completed": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 4.422081066,
+   "per_second": 34.07556968265885
+  },
+  "refmm": {
+   "programs": 100,
+   "completed": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 228.38658974999998,
+   "per_second": 0.6597801196287153
+  }
+ },
+ "agree_on_completion": true
+}
