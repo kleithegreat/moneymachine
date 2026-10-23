@@ -20,7 +20,7 @@ from scipy import stats
 
 from gate import campaign, search
 from gate.kernel import MM
-from gate.markets import generate, write
+from gate.markets import generate, null_params, store_events, write
 
 OUT = Path("data/campaigns")
 PLANTED = (0, 1)
@@ -29,10 +29,6 @@ TRUTH_MARKETS, TRUTH_YEARS = 20, 10
 ORACLE = Path("gate/strategies/oracle.json")
 PER_YEAR = 365 * 6
 TOP5_CAMPAIGNS = 20
-
-
-def params():
-    return json.loads(Path("gate/nulls.json").read_text())
 
 
 def cost_cells():
@@ -74,7 +70,7 @@ def run_all(specs, path, workers=10):
 
 
 def spec(cid, model, searcher, planted=(), beta=0.0):
-    return {"id": cid, "model": model, "params": params().get(model), "searcher": searcher, "planted": list(planted),
+    return {"id": cid, "model": model, "params": null_params().get(model), "searcher": searcher, "planted": list(planted),
             "beta": beta, "cost_cells": cost_cells(), "days": DAYS, "holdout_days": HOLDOUT_DAYS}
 
 
@@ -95,7 +91,7 @@ def events_specs(events, markets=300):
 def net_returns(program, model, beta, market_id, years):
     """Per-step net returns of a program on one fresh market without holdout."""
     with tempfile.TemporaryDirectory() as tmp:
-        root = write(Path(tmp) / "m", generate(model, params().get(model), market_id, years * 365, PLANTED, beta), 0,
+        root = write(Path(tmp) / "m", generate(model, null_params().get(model), market_id, years * 365, PLANTED, beta), 0,
                      cost_cells())
         p = Path(tmp) / "p.json"
         p.write_text(json.dumps(program))
@@ -224,8 +220,6 @@ def top5_programs(first=TOP5_CAMPAIGNS):
 
 def sweep(name, data_root=None, version=None):
     """Run the `null`, `mixed` or `events` sweep (events: real forum counts at a dataset version)."""
-    from gate.markets import store_events
-
     OUT.mkdir(parents=True, exist_ok=True)
     if name == "null":
         specs = null_specs()

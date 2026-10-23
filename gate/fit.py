@@ -81,7 +81,7 @@ def fit(data_root, version, coins):
               "block_hours": 168, "sha256": hashlib.sha256(np.ascontiguousarray(np.r_[fund, prem]).tobytes()).hexdigest()}
     params = {
         "coins": coins,
-        "fitted_on": {"version": version, "search_end": HOLDOUT_START, "short_history_coins": [c for c in coins if c not in long_enough]},
+        "fitted_on": {"version": version, "search_end": HOLDOUT_START, "short_history_coins": short},
         "N2": {"garch": {k: per(garch, k) for k in ("omega", "alpha", "beta")}, "lambda": lam,
                "funding": source},
         "N3": {"regime": {"P": P.tolist(), "m": m.tolist(), "rho": [max(x, 0.0) for x in rho],

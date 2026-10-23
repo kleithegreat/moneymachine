@@ -2,13 +2,13 @@
 
 import json
 import sys
-import time
 from pathlib import Path
 
 import polars as pl
 
 from ingest import checks
 from ingest.hl import Info
+from ingest.live import now_ms
 from ingest.policy import BAR, HOLDOUT_START, HOUR, W_END, W_START
 from ingest.store import stores, write_split
 
@@ -40,7 +40,7 @@ def main(data_root, budget):
     coins = json.loads((root / "universe.json").read_text())["universe"]
     info = Info(int(budget))
     delisted = {a["name"] for a in info.meta()["universe"] if a.get("isDelisted")}
-    fetched_at = int(time.time() * 1000)
+    fetched_at = now_ms()
     funding, bars = [], []
     for coin in coins:
         funding += info.funding(coin, W_START, W_END)

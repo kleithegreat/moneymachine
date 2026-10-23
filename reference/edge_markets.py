@@ -21,10 +21,9 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from gate.markets import FLAT_COST
 from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
-
-COST = {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
 
 
 def _walk(rng, n, flat=()):
@@ -50,7 +49,7 @@ def _write(root, bars, funding, coins, delisted=(), events=None, revisions=None)
              "coins": {c: {"szDecimals": sz, "maxLeverage": lev, "marginTiers": [{"lowerBound": "0.0", "maxLeverage": lev}],
                            "delisted": c in delisted} for c, (sz, lev) in coins.items()}}
     (venue / "rules.json").write_text(json.dumps(rules))
-    (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: COST for c in coins}}))
+    (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: FLAT_COST for c in coins}}))
     return root
 
 

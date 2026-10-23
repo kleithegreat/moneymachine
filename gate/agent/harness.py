@@ -51,4 +51,4 @@ def run_swarm(market, ledger, campaign, workdir, agents=4, budget=100):
     with ThreadPoolExecutor(agents) as pool:
         runs = list(pool.map(lambda i: run_agent(market, ledger, campaign, Path(workdir) / f"A{i + 1}", budget,
                                                  SWARM_PROMPT, f"A{i + 1}", swarm), range(agents)))
-    return {"runs": runs, "evaluations": len(swarm.snapshot()), "records": swarm.snapshot()}
+    return {"runs": runs, "evaluations": len(swarm.snapshot())}

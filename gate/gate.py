@@ -12,6 +12,7 @@ import pandas as pd
 from arch.bootstrap import SPA, StepM
 from scipy.stats import norm
 
+from gate import markets
 from gate.kernel import MM
 
 ALPHA = 0.05
@@ -38,10 +39,6 @@ def dsr(returns, n_trials, sharpe_sd):
     if var <= 1e-12 * (1 + abs(skew * s) + (kurt - 1) / 4 * s**2):
         return 0.0
     return float(norm.cdf((s - s0) * np.sqrt(t - 1) / np.sqrt(var)))
-
-
-def campaign_seed(text):
-    return int.from_bytes(hashlib.sha256(text.encode()).digest()[:4], "little")
 
 
 def candidates(ledger, campaign, agent=None):
@@ -77,7 +74,7 @@ def search_decision(ledger, campaign, agent=None):
     sharpe_sd = float(sharpes.std(ddof=1)) if n > 1 else 0.0
     dsrs = {h: dsr(r[h], n, sharpe_sd) for h in names}
     screened = [h for h in names if dsrs[h] >= DSR_MIN]
-    seed = campaign_seed(campaign + (agent or ""))
+    seed = markets.seed(campaign + (agent or "")) & 0xFFFFFFFF
     spa = SPA(np.zeros(len(r)), -r, block_size=BLOCK, reps=REPS, seed=seed)
     spa.compute()
     p = float(spa.pvalues["consistent"])

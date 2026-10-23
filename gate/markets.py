@@ -17,8 +17,16 @@ EPS_MAX = 0.5
 SIGMA_MAX = 0.0625
 
 
-def market_seed(market_id):
-    return int.from_bytes(hashlib.sha256(market_id.encode()).digest()[:8], "little")
+NULLS = Path(__file__).resolve().parent / "nulls.json"
+FLAT_COST = {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
+
+
+def null_params():
+    return json.loads(NULLS.read_text())
+
+
+def seed(text):
+    return int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "little")
 
 
 @functools.lru_cache(maxsize=8)
@@ -123,7 +131,7 @@ def event_paths(rng, spec, coins, hours):
 
 def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
     """Arrays for one market: per-bar o, c, high, low, volume and hourly funding, premium."""
-    rng = np.random.default_rng(market_seed(market_id))
+    rng = np.random.default_rng(seed(market_id))
     coins = 12
     n = days * 6
     hours = n * 4 + 1
@@ -176,7 +184,7 @@ def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
     high = np.maximum(o, c) * (1 + w[0])
     low = np.minimum(o, c) * (1 - w[1])
     volume = rng.lognormal(10, 0.5, (n, coins))
-    forum = event_paths(np.random.default_rng(market_seed(market_id + "/events")), events, coins, hours) if events else None
+    forum = event_paths(np.random.default_rng(seed(market_id + "/events")), events, coins, hours) if events else None
     return {"forum_posts": forum, "open": o, "close": c, "high": high, "low": low, "volume": volume, "funding": f, "premium": premium,
             "eps": eps, "sigma": sig}
 
@@ -226,5 +234,4 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
 
 def write_market(root, market_id="test", days=60, holdout_days=0, model="N1", params=None,
                  cost_cells=None, planted=(), beta=0.0):
-    cells = cost_cells or {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
-    return write(root, generate(model, params, market_id, days, planted, beta), holdout_days, cells)
+    return write(root, generate(model, params, market_id, days, planted, beta), holdout_days, cost_cells or FLAT_COST)

@@ -123,13 +123,12 @@ def probe_zscores(mm, programs, model, params, cost_cells, tag="", events=None):
 def run(out, extra_programs=None, events=None):
     """Regression p-values and probe z-scores per null model on the frozen parameters. With `events`
     (markets.store_events), the markets replay real event counts and event probes join."""
-    params = json.loads(Path("gate/nulls.json").read_text())
-    cells = {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
+    params = markets.null_params()
     programs = probes(events is not None) + (extra_programs or [])
     result = {}
     for model in ("N1", "N2", "N3"):
         p = params.get(model)
         pv = regression_pvalues(model, p, events)
-        z = probe_zscores(MM, programs, model, p, cells, tag="-c21", events=events)
+        z = probe_zscores(MM, programs, model, p, markets.FLAT_COST, tag="-c21", events=events)
         result[model] = {"regression_p": pv, "min_p": min(pv), "z": z, "max_abs_z": max(abs(v) for v in z.values())}
     Path(out).write_text(json.dumps(result, indent=1))

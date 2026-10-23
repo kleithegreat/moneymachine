@@ -59,11 +59,11 @@ def generated(seed, n):
 
 
 def null_market(root, model, seed):
-    params = json.loads((REPO / "gate/nulls.json").read_text())
+    params = markets.null_params()
     ev = {"arrays": np.random.default_rng(seed).poisson(2.0, (24 * 60, len(EVENT_COINS))).astype(float),
           "coins": EVENT_COINS, "block_hours": 24}
     arrays = markets.generate(model, params.get(model), f"differential-{model}-{seed}", DAYS, events=ev)
-    return markets.write(root, arrays, 0, edge_markets.COST)
+    return markets.write(root, arrays, 0, markets.FLAT_COST)
 
 
 def market_hash(root):

@@ -18,6 +18,7 @@ from pathlib import Path
 from gate import gate, markets, search, sweep
 from gate.agent import harness
 from gate.kernel import MM
+from ingest.live import now_ms
 from ingest.policy import DAY
 from sandbox import session
 
@@ -39,7 +40,7 @@ def freeze_harness():
     if FROZEN.exists():
         sys.exit(f"{FROZEN} exists: the harness is frozen once")
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
-    FROZEN.write_text(json.dumps({"harness": harness.harness_hash(), "frozen": int(time.time() * 1000)}, indent=1) + "\n")
+    FROZEN.write_text(json.dumps({"harness": harness.harness_hash(), "frozen": now_ms()}, indent=1) + "\n")
 
 
 def check_frozen():
@@ -73,18 +74,20 @@ def cross_agent_history(run_dirs):
     return False
 
 
-def arm_a(market, ledger, campaign, run_dir):
-    run = harness.run_agent(market, ledger, campaign, run_dir, budget=BUDGET)
-    finalists, report = gate.search_decision(ledger, campaign, "A")
+def screened(market, ledger, campaign, agent=None):
+    """The search decision, then the mechanism check: (report, mechanism results, kept finalists)."""
+    finalists, report = gate.search_decision(ledger, campaign, agent)
     programs = gate.programs(ledger, finalists)
     mech = gate.mechanism_check(market, ledger, campaign, programs)
-    kept = {h: p for h, p in programs.items() if mech[h]["pass"]}
-    return run, report, mech, kept
+    return report, mech, {h: p for h, p in programs.items() if mech[h]["pass"]}
+
+
+def arm_a(market, ledger, campaign, run_dir):
+    return harness.run_agent(market, ledger, campaign, run_dir, budget=BUDGET), *screened(market, ledger, campaign, "A")
 
 
 def null_market(cid, cost_cells):
-    params = json.loads((REPO / "gate/nulls.json").read_text())["N2"]
-    return markets.write(OUT / cid / "m", markets.generate("N2", params, cid, NULL_DAYS), NULL_HOLDOUT_DAYS, cost_cells)
+    return markets.write(OUT / cid / "m", markets.generate("N2", markets.null_params()["N2"], cid, NULL_DAYS), NULL_HOLDOUT_DAYS, cost_cells)
 
 
 def agent_null(cid, cost_cells):
@@ -101,10 +104,7 @@ def swarm_null(cid, cost_cells):
     market = null_market(cid, cost_cells)
     ledger = OUT / cid / "ledger.sqlite"
     swarm = harness.run_swarm(market, ledger, cid, OUT / cid / "swarm")
-    finalists, report = gate.search_decision(ledger, cid)
-    programs = gate.programs(ledger, finalists)
-    mech = gate.mechanism_check(market, ledger, cid, programs)
-    kept = {h: p for h, p in programs.items() if mech[h]["pass"]}
+    report, mech, kept = screened(market, ledger, cid)
     gate.freeze(ledger, cid, kept, "frozen finalist swarm")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, NULL_REPORT_FROM_DAY * DAY)
     run_dirs = [OUT / cid / "swarm" / r["agent"] for r in swarm["runs"]]
@@ -128,16 +128,12 @@ def available():
         return False
 
 
-def recorded(path):
-    return {json.loads(l)["id"] for l in open(path)} if path.exists() else set()
-
-
 def run_series(name, n):
     """Campaigns `{name}-null-N2-0` .. n - 1, resumable and paced (module docstring)."""
     check_frozen()
     OUT.mkdir(parents=True, exist_ok=True)
     log = OUT / f"{name}-null.jsonl"
-    done = recorded(log)
+    done = sweep.recorded(log)
     for i in range(n):
         cid = f"{name}-null-N2-{i}"
         if cid in done:
@@ -173,7 +169,7 @@ def real(data_root, version, cid="stage3-real"):
     ledger = work / "ledger.sqlite"
     run, report_a, mech, kept_a = arm_a(market, ledger, cid, work / "run")
     sweep.require_frozen_searcher()
-    spent_b = search.run("G100", MM, market, ledger, cid, markets.market_seed(cid))
+    spent_b = search.run("G100", MM, market, ledger, cid, markets.seed(cid))
     finalists_b, report_b = gate.search_decision(ledger, cid, "G100")
     kept_b = gate.programs(ledger, finalists_b)
     gate.freeze(ledger, cid, kept_a, "frozen finalist A")

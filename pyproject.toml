@@ -1,3 +1,3 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["ingest", "gate", "kernel/tests", "criteria", "thesis", "reference"]
+testpaths = ["ingest", "gate", "kernel/tests", "criteria", "thesis", "reference", "sandbox"]

@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 from ingest import terms
+from ingest.live import now_ms
 
 SOURCES = Path(__file__).with_name("SOURCES.md")
 USER_AGENT = "moneymachine-thesis-research (read-only)"
@@ -157,7 +158,7 @@ class Fetcher:
     def fetch(self, url):
         """{"status", "url", "final_url", "redirects", "content_type", "body", "truncated", "started", "ended"} or
         a refusal: {"refused": reason, ...}. Times are wall-clock ms."""
-        started = int(time.time() * 1000)
+        started = now_ms()
         chain, current = [], url
         try:
             for _ in range(MAX_REDIRECTS + 1):
@@ -174,8 +175,8 @@ class Fetcher:
                     continue
                 return {"status": status, "url": url, "final_url": current, "redirects": chain, "content_type": ctype,
                         "body": body[:MAX_BYTES], "truncated": len(body) > MAX_BYTES,
-                        "started": started, "ended": int(time.time() * 1000)}
+                        "started": started, "ended": now_ms()}
             raise Refused(f"more than {MAX_REDIRECTS} redirects")
         except (Refused, OSError, http.client.HTTPException) as e:
             return {"refused": str(e) or type(e).__name__, "url": url, "final_url": current, "redirects": chain,
-                    "started": started, "ended": int(time.time() * 1000)}
+                    "started": started, "ended": now_ms()}

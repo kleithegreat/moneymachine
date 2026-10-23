@@ -3,15 +3,14 @@ null series (gate/null_suite.py, implemented from the spec alone), each cell (ge
 series scored once by the betting p-value. Finished cells are kept in a work file, so a run resumes.
 """
 
-import hashlib
 import json
 from pathlib import Path
 
 import numpy as np
-from scipy import stats
 
-from gate import null_suite
+from gate import markets, null_suite
 from gate.gate import holdout_pvalues
+from gate.sweep import cp_upper
 
 SERIES = 20_000
 JUDGED = (0.05, 0.01, 0.005)
@@ -20,12 +19,8 @@ REPORTED = (0.001, 0.0005)
 
 def series(gen, n, m=SERIES):
     tag = f"{null_suite.SUITE_ID}/{gen}/{n}"
-    rng = np.random.default_rng(int.from_bytes(hashlib.sha256(tag.encode()).digest()[:8], "little"))
+    rng = np.random.default_rng(markets.seed(tag))
     return null_suite.GENERATORS[gen](rng, m, n)
-
-
-def cp_upper(k, m, confidence):
-    return 1.0 if k >= m else float(stats.beta.ppf(confidence, k + 1, m - k))
 
 
 def report(pvalues):

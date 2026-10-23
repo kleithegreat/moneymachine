@@ -4,7 +4,7 @@ and skill against the base rate and the paired ablation, clusters, and the clust
 import numpy as np
 
 from ingest.policy import DAY
-from thesis.positions import outcome
+from thesis.positions import fill, outcome
 
 WINDOW_YEARS_DAYS = 1095
 MIN_WINDOWS = 10
@@ -26,10 +26,8 @@ def window_return(th, account, daily, funding, entry, exit_):
         cells = account["costs"][market]
         q = w * th["N"] / d[entry][0]
         for k, ref in ((q, d[entry][0]), (-q, d[exit_][0])):
-            side = "buy" if k > 0 else "sell"
-            bps = cells[side]["1000" if abs(k) * ref <= 1000 else "10000"]
-            price = ref * (1 + (bps if k > 0 else -bps) / 1e4)
-            total += -k * price - abs(k) * price * account["fee"]
+            price, fee, _ = fill(ref, k, cells, account["fee"])
+            total += -k * price - fee
         for h, rate in funding.get(market, {}).items():
             if entry < h <= exit_:
                 day = h // DAY * DAY
@@ -102,7 +100,7 @@ def score(test):
     """The SCORING.md output for one input set."""
     account, now = test["account"], test["now"]
     data = {"bars": {m: bars(r) for m, r in test["hourly"].items()},
-            "funding": {m: dict((h, r) for h, r in rows) for m, rows in test["funding"].items()}}
+            "funding": {m: dict(rows) for m, rows in test["funding"].items()}}
     daily = {m: bars(r) for m, r in test["daily"].items()}
     per, rows = {}, []
     for th in test["theses"]:

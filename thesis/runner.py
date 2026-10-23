@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from gate.agent.campaigns import RETRY, available
+from ingest.execution import fill_missing
 from ingest.live import now_ms
 from ingest.policy import DAY, HOUR
 from thesis import harness, positions, registry, scoring
@@ -25,7 +26,6 @@ FROZEN = REPO / "audit" / "stage10" / "manifest.json"
 SESSION_OFFSET = 10 * 60_000
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
-MIN_DAILY_BARS = registry.MIN_DAILY_BARS
 INITIAL = 10_000.0
 RESOLUTION_GRACE = 2 * HOUR
 MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
@@ -44,13 +44,12 @@ class Track:
         """Fee from the venue rules; each market's C0.7 cost cells, or the maximum over U (an unvalidated fallback)."""
         rules = json.loads((REPO / "venue/hyperliquid/rules.json").read_text())
         cells = json.loads((REPO / "venue/hyperliquid/execution.json").read_text())["cost_bps_ex_fee"]
-        worst = {s: {k: max(cells[c][s][k] for c in cells) for k in ("1000", "10000")} for s in ("buy", "sell")}
-        return {"initial": INITIAL, "fee": rules["rules"]["taker_fee"]["value"],
-                "costs": {m: cells.get(m, worst) for m in markets}, "fallback": sorted(set(markets) - set(cells))}
+        costs, fallback = fill_missing(cells, sorted(markets))
+        return {"initial": INITIAL, "fee": rules["rules"]["taker_fee"]["value"], "costs": costs, "fallback": fallback}
 
     def data(self, markets, now):
-        return {"bars": {m: {t: (o, c) for t, o, c in self.market.bars(m, "1h", now)} for m in markets},
-                "funding": {m: dict((h, r) for h, r in self.market.funding(m, now)) for m in markets}}
+        return {"bars": {m: scoring.bars(self.market.bars(m, "1h", now)) for m in markets},
+                "funding": {m: dict(self.market.funding(m, now)) for m in markets}}
 
     def markets_of(self, account):
         return sorted({m for th in self.ledger.theses(account) for m, _ in th["legs"]})
@@ -66,7 +65,7 @@ class Track:
             if delisted:
                 continue
             d = [r for r in self.market.bars(m, "1d", now) if r[0] + DAY <= now]
-            if len(d) < MIN_DAILY_BARS:
+            if len(d) < registry.MIN_DAILY_BARS:
                 continue
             h = self.market.bars(m, "1h", now)
             if h:
@@ -137,8 +136,8 @@ class Track:
             equity = self.replay("benchmark", monday)["equity"]
             n = 0.01 * (equity[-1][1] if equity else INITIAL) / 0.1
             probe = {"legs": [[m, w]], "t_r": now_ms(), "T": monday + 21 * DAY, "N": n}
-            daily = {m: {t: (o, c) for t, o, c in snapshot["daily"][m]}}
-            funding = {m: dict((h, r) for h, r in self.market.funding(m, monday))}
+            daily = {m: scoring.bars(snapshot["daily"][m])}
+            funding = {m: dict(self.market.funding(m, monday))}
             p_ref, _, _ = scoring.base_rate(probe, self.config([m]), daily, funding)
             if p_ref is None:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "no base rate"})

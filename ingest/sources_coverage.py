@@ -15,6 +15,10 @@ from ingest import events
 from ingest.policy import HOLDOUT_START, HOUR, W_START
 
 
+def gaps(polls):
+    return [[a, b] for a, b in zip(polls, polls[1:]) if b - a > events.GAP]
+
+
 def runs(hours):
     out = []
     for h in hours:
@@ -43,10 +47,10 @@ def report(data_root, version, live_dir):
             t = sorted(polled.get(key, []))
             per[coin] = {"mapped_key": key, "raw_items_created_in_search_part": raw.get(key, 0), "search_part_rows": 0,
                          "live_counted_items": sum(n for c, _, n in rows if c == coin), "covered_hours": len(hours),
-                         "covered_intervals": runs(hours), "recording_gaps": [[a, b] for a, b in zip(t, t[1:]) if b - a > events.GAP]}
+                         "covered_intervals": runs(hours), "recording_gaps": gaps(t)}
         unmapped = {k: {"raw_items_created_in_search_part": raw.get(k, 0),
-                        "recording_gaps": [[a, b] for a, b in zip(sorted(t), sorted(t)[1:]) if b - a > events.GAP]}
+                        "recording_gaps": gaps(sorted(t))}
                     for k, t in polled.items() if k not in coin_of}
         out[source] = {"classification": "prospective", "version": version, "per_coin": per, "recorded_unmapped_keys": unmapped}
-    out["unlocks"] = {"classification": "blocked", "reason": "see Blockers"}
+    out["unlocks"] = {"classification": "blocked", "reason": "no free source: DefiLlama is paid (human decision 2026-10-20)"}
     return out

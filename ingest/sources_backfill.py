@@ -14,7 +14,7 @@ from pathlib import Path
 import httpx
 import polars as pl
 
-from ingest.live import ms
+from ingest.live import ms, now_ms
 from ingest.sources_record import FORUMS, HUB, SPACES
 from ingest.policy import DAY, W_START
 from ingest.store import Store
@@ -57,7 +57,7 @@ def proposals(space, http):
 def main(data_root, source="discourse"):
     """One complete fetch from START of every recorded key of `source`, written as revisions."""
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-backfill (read-only)"})
-    fetched_at = int(time.time() * 1000)
+    fetched_at = now_ms()
     keys, key, fetch = (FORUMS, "forum", backfill) if source == "discourse" else (SPACES, "space", proposals)
     rows = []
     for k in keys:

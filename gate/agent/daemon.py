@@ -45,8 +45,8 @@ class Daemon:
         self.lock = threading.Lock()
         self.evaluated = {}
         m = self.market
-        self.common = ["--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(self.ledger)]
-        self.proc = subprocess.Popen([self.mm, "eval", "-", "--campaign", campaign, "--agent", agent, *self.common],
+        self.proc = subprocess.Popen([self.mm, "eval", "-", "--campaign", campaign, "--agent", agent, "--store", str(m / "store"),
+                                      "--venue", str(m / "venue"), "--ledger", str(self.ledger)],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 
     def log(self, cmd, payload, response):
