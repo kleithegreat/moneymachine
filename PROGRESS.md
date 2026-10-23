@@ -1149,8 +1149,6 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Federal Reserve releases beyond the RSS feeds**: the Board's policy permits copying, not automated access. Only `/feeds/` is certified.
   - **Treasury beyond Fiscal Data**: `home.treasury.gov`'s policies page has no access clause; only the Fiscal Data API is certified.
 
-- **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
-
 ## Log
 
 - 2026-10-23: **GPT independence check.** Since the session scratchpad went away (2026-10-22), GPT's directories had been under `data/tmp`, inside the repo, and `opencode` read the repo's PROGRESS.md in five runs: `derived3`, the third stage 6 review, the stage 7 and stage 8 criteria reviews, and a stage 9 attempt.
@@ -1158,23 +1156,9 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - Reviews get our context anyway.
   - Fixed: GPT's directories are under `~/.cache/mm-gpt`, and `external_directory` is denied.
 
-- 2026-10-23: **Stage 6 done; Lean adopted** as the reference kernel (`reference/lean`). The report is `audit/stage6/report.md`; GPT's third review is `audit/stage6/gpt-exit-review.md`.
-  - C6.1 is met under its amendment, C6.2 met, C6.3 not met (reported; the revised rule allows it), C6.4 met (third run).
-  - C6.5 is met except its frozen thread configuration, which is a known limitation recorded under rule 3, not a pass.
-  - Bend was stopped at L5 and deleted, with its record in `audit/stage6/bend.md`. The differential harness stays in `reference/`.
+- 2026-10-23: **Stage 6 done; Lean adopted** as the reference kernel (`reference/lean`). C6.1 met under its amendment, C6.2 met, C6.3 not met (reported; the revised rule allows it), C6.4 met on its third judged run (corpus `e2ddba4`; the two earlier runs agreed but did not qualify), C6.5 met except its frozen thread configuration (a known limitation under rule 3, not a pass). Bend stopped at L5 and was deleted (`audit/stage6/bend.md`). Report, evidence and GPT's review: `audit/stage6/`.
 
-- 2026-10-23: C6.4's third judged run on the corpus frozen in `e2ddba4` (seed 20261024) passed (`audit/stage6/differential-report.json`). All 1,196 verdicts and all 3,372 runs agree, with node value streams compared byte for byte (11.36 billion defined values) beside the trace, returns and node types, and nothing missing from the corpus inventory.
-
-- 2026-10-23: **Stage 5 done** (exit met under the amendment of 2026-10-22 and its clarification; GPT's fourth review, `audit/stage5/gpt-exit-review.md`).
-  - Discourse (delvingbitcoin.org → BTC) and Snapshot (aavedao.eth → AAVE) are prospective only; unlocks are blocked.
-  - Exit evidence: `audit/stage5/` (lineage manifests and identical recomputes, availability and reconciliation at the exit cut, coverage).
-  - **Standing qualifications:**
-    - the original C5.3 stays failed for Discourse;
-    - C5.6's calibration is deferred, and must pass before any search store carries an event dataset (`criteria/test_stages3to5.py` fails otherwise);
-    - the 2026-10-19 migration's predecessor hash was never recorded.
-  - The sources recorder keeps running for the thesis track and C0.3's clock log. Stages 7 to 9 may start (CLAUDE.md §3 priorities).
-
-- 2026-10-23: C6.4's judged run on the corpus frozen in `2eac75f` passed (`audit/stage6/differential-run2-report.json`). All 1,196 verdicts agree (1,135 accepted, 61 rejected under 9 codes), and all 3,372 runs agree bit for bit on the trace, returns, gross returns, every node's static type and every node's value stream, with no missing corpus component. Coverage: 11.5 billion defined node values, 43.5M decisions and fills, 4.9M holds, 353M settlements, 16 liquidations, 45 delistings, 159 unfilled orders and 6 R_INPUT_UNAVAILABLE aborts. GPT's second review (2026-10-23) found that it does not qualify either: node streams were compared as 64-bit digests, not exactly, so the diagnostics could not locate a difference. Both kernels now write exact stream files, compared byte for byte.
+- 2026-10-23: **Stage 5 done** under the amendment of 2026-10-22 and its clarification (evidence and GPT's fourth review: `audit/stage5/`). Discourse (delvingbitcoin.org → BTC) and Snapshot (aavedao.eth → AAVE) are prospective only; unlocks are blocked (DefiLlama is paid). Five Discourse forums and ethresear.ch were purged on their terms (human decision 2026-10-22, `audit/stage5/purge-20261022.json`), and derived files superseded by the window-ends-at-the-tick rule were deleted from the holdout store (hashes in `c007644`'s Log). Standing qualifications: the original C5.3 stays failed for Discourse; C5.6 is deferred and must pass before any search store carries an event dataset (`criteria/test_stages3to5.py`); the 2026-10-19 migration's predecessor hash was never recorded.
 
 - 2026-10-23: Erasure pass (human decision; done during the judged C6.4 run, touching no binary it uses).
   - The research agents (`gate/agent`) and the thesis agents (`thesis/`) now share one sandbox, `sandbox/`. It holds one in-sandbox client configured by each track's command spec, one Unix-socket server, and the session code: workspace, tool flags, bubblewrap command, run loop, transcript reading and identity hash.
@@ -1187,23 +1171,13 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 
 - 2026-10-23: Faster checks (human decision): `pytest-xdist` added to the flake, the mutants run 4 at a time with a cargo target per slot, and `cli check` runs pytest, cargo tests and mutants concurrently. The mutant "C5 derivation without the availability margin" escaped once the window moved to the tick, because its test item no longer sat where the margin decides the hour. The item now does, and the mutant is caught.
 
-- 2026-10-23: Stage 5's window now ends at the tick (C5.5, from GPT's third review). The derived event files made under the old hour-ending-at-H window are deleted from the holdout store, since a rule's superseded output is never read. Their sha256: `1792704810230.parquet` aad75c0d58ceb587…; `1792717828079.parquet` 50b40e7a99ece7a4…; `1792704810571.parquet` f709fe288d06f69c…; `1792717828430.parquet` c6a99339d38bb146…. Their lineage manifests and the coverage report built on them are deleted too (git keeps them). The exit procedure re-derives everything.
-
 - 2026-10-23: Stage 10 retrieval allowlist (human decision 4). The proxy refuses any host or path without certified terms, on every redirect hop (`thesis/SOURCES.md`, parsed by `ingest/terms.py`, which `test_terms` also uses). Certified: GDELT, Treasury Fiscal Data API, CFTC public reporting API, Fed Board RSS feeds. The rest are in Blockers. The allowlist is part of the track identity (`harness.FROZEN`), and the brief names the open sources.
 
 - 2026-10-23: Hyperliquid (human decision): keep using the read-only public info API. Clause 1.6 of its Terms of Use restricts the web Interface; our use is read-only public market data with no account, no trading and no VPN. Revisit if Hyperliquid publishes API terms, and before any step toward execution. No paid data vendors (Tardis etc.).
 
-- 2026-10-22: C6.4's judged run (`audit/stage6/c64-report.json`, on the corpus frozen in `9c8abfc`) agreed everywhere. GPT's stage 6 review (2026-10-23) found that the corpus misses parts of C6.4 as written, so the run does not qualify, though no disagreement was found (Now, stage 6). All 1,186 verdicts agree: 1,125 accepted, and 61 rejected under 9 distinct codes. All 3,179 runs agree bit for bit (trace, returns, gross returns), with no waiver and no math-library exception. Coverage: 42.6M decisions, 42.6M fills, 4.6M holds, 351M settlements, 4 liquidations, 38 delistings, 133 unfilled orders and 3 R_INPUT_UNAVAILABLE aborts.
-
-- 2026-10-22: Terms (human decisions). Five Discourse forums forbid automated access, and ethresear.ch's terms are silent. Since 2026-10-19 the recorder and backfill had fetched all six. They are no longer fetched (recorder restarted by the human at 21:14 UTC on delvingbitcoin.org only), and their raw rows, poll lines, sampled texts, derived counts and the audit files derived from them are deleted. `audit/stage5/purge-20261022.json` lists every file with its hashes and removed counts. Terms are now a certification requirement (paper §5): a source's doc quotes the permitting clause with URL and retrieval date, or shows an official API whose terms allow it, and `ingest/tests/test_terms.py` fails for any fetched host without that evidence. Snapshot qualifies as an official API; Hyperliquid is open (Blockers); the Wayback CDX is named in C5's text but never used.
-
 - 2026-10-22: C0.4 amended (human decision; Criteria). knownAt is computed from each revision's observed fields by the policy's rule, never stored, and `as_of` resolves keys as `mm` does. `data/store/policy.json` is rebound with `settlement_latency_ms`. C0.5's `as_of` view is re-run: 99.94%, with 11 new holds at the late 2025-07-27 12:00 UTC settlement. The dry C1.4 on version 1792613363942 passes.
 
-- 2026-10-22: Stage 6, Bend stopped at L5 (human decision). C6.3: Bend proves L5 under `--verdict` over a concrete number type, and no other law. L1 and L4 need a verified integer library first. Bend is ineligible for adoption (no binary64). The record is `audit/stage6/bend.md`, the port is commit `69e91e0`, and `reference/bend/` is deleted per paper §6.
-
 - 2026-10-22 19:38 UTC: Both recorders stopped from 19:00:35 to 19:37:32 UTC. A Bend smoke run of mine grew to 8.7 GB resident and set off the kernel OOM killer, and systemd then killed every process in the session's scope, the recorders included. They were restarted as `python -m cli record …` and `python -m cli sources-record data/sources_live`. The gap restarts stage 0's window, now ending 2026-10-23 19:37:32 UTC, and is in stage 5's gap log. Heavy jobs now run under a memory cap.
-
-- 2026-10-22: C6.2 met for Lean. L3_rewrite is proved for `ifNotRev`, the last R v1 rule, so every law, including the added L6_bounded, is proved with no `sorry`, and each `#print axioms` is within {propext, Classical.choice, Quot.sound} (`audit/stage6/lean-axioms.txt`, after a clean build). Runs still agree with `mm` bit for bit.
 
 - 2026-10-22: The second fetch of W (version 1792613363942, `audit/stage0/ingest-1792613363942.json`) is the judged C0.2/C0.4/C0.5 evidence, fetched 63 h after the first.
   - C0.2 met: every coin in U has 0 missing funding hours and 0 missing 4h bars within its listed interval, no gaps, and every integrity count is 0.
@@ -1237,52 +1211,60 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 - 2026-10-20: Calibration v2 table committed: `gate/holdout_calibration.json`, 27 cells (the 18 v1 cells, reproduced byte for byte from the development work file, plus 9 development-v2 cells), sha256 0ca961cb467688f18827de66c9968e8d40f2fa2bdbd280ac5c4bebc1d20ffd75. The locked v2 run started on it (`holdout-size locked-v2 data/calibration/locked-v2.json audit/stage2/holdout-size-locked-v2.json`).
 
 - 2026-10-20: The locked holdout calibration v1 failed (`audit/stage2/holdout-size-locked.json`, 360,000 series). 52 of 54 judged pairs pass; sparse/540 and sparse/546 at u = 0.05 do not (rates 0.0595 and 0.0602, upper bounds 0.0648 and 0.0656 against 0.0625). Every other cell's rate at 0.05 is at most 0.0514, at 0.01 at most 0.0117, at 0.005 at most 0.0043. The development family's sparsest generator was 25% active, the locked one 10%: the max-over-cells calibration did not cover sparser activity. Stays recorded as a failure; redesign v2 follows as a dated revision.
-- 2026-10-20: Stage 6 proving found two frozen statements false as written, and both now have dated revisions: L4_fills' liquidation reference needs a numeric law it does not assume, and L1_simulator fails past the run's last step. A checker hole also surfaced: conversions whose factor overflows intern to one node (Blockers).
 
 - 2026-10-20: The holdout test's development calibration finished (72,000 series, about 1 h), and the test was oversized (see the stage 2 revision). The calibration table `gate/holdout_calibration.json` (sha256 e2d6ebb83feb86c7b1f535ecbf7ec87c7d56b09aef1aedfa867feba23017a6d3) holds its 18 cells' bootstrap p-values, as integers over 10,001. The locked run judges the calibrated p-value.
+
 - 2026-10-20: C10.4 met. GPT, given `thesis/SCORING.md` and the stage 10 criteria alone, wrote `thesis/tests/gpt_scoring.py`. On the run after the C10.4 tolerance revision, it agrees with `thesis/scoring.py` on all 1,000 generated sets: exactly on outcomes, exclusions, counts and clusters; within 1e-12 · max(1, |a|, |b|) on scores; and on which scores are undefined. Every listed boundary case occurs. The first run's mass disagreement on base-rate window counts was a generator bug: its daily bars were not on midnight, which SCORING.md requires.
+
 - 2026-10-20: C10.3's fixtures were committed (30214dc) before `thesis/positions.py`. Running them found two errors in the hand derivations, not the code. The costs case bucketed the exit by N, though the cell follows each fill's traded notional (as in the kernel's I3 and the criteria), so a $1,100 exit uses the 20 bps cell. The funding case's 10 · 2e-4 · 100 was written as 0.02; its rate is now 2e-5, matching the stated derivation. Both corrections are in the same commit as the code.
+
 - 2026-10-20: Paper revision 5. The roadmap now runs through stage 10 (6 reference kernels, 7 sources as a language feature, 8 multi-asset, 9 cross-domain exploration, 10 thesis track); stage 11, paper or live trading, is a human decision. Its `.tex` was swept into commit a624a69 by a `git add -A`; `docs/whitepaper.pdf` is built by `nix build .#whitepaper`.
+
 - 2026-10-20: Human decisions on the blockers. Both C0.7 proposals are approved: the HL recorder restarts after the second backfill and keeps recording as a regime diagnostic, and holdout returns at 2× costs are reported after the promotion decision only. Unlocks stay blocked.
-- 2026-10-19: Changes from an outside review.
-  - Discourse forums map to a coin only at C5.1 precision ≥ 0.8, fixed before any return on the new inputs. That unmaps ethresear.ch (0.66) and forum.bnbchain.org (0.58) (mapping version 2). Both are still recorded and backfilled for C5.3.
-  - The recorders' and analyses' shared helpers (clock, ISO time, JSONL reader) are unified in `ingest/live.py`. The paired modules otherwise stay, because the HL venue and the forum/Snapshot sources differ in API, records and availability rules.
-  - pyflakes found that `reconcile`'s local dict shadowed the store's `live()`, which would have crashed the C5.3 reconciliation. It is fixed and now tested.
+
 - 2026-10-19, before any C2.4 run: stage 2's judgement is wired (`gate.sweep truth`, `report`, `c21top`, tested on the criteria's own numbers). Campaign results now keep the in-sample top 5 programs, which C2.1 probes, because a campaign's ledger is deleted after it runs. C2.1's "first 20 C2.4 campaigns" is read literally as the first 20 ids in the committed `c24_specs()` order (c24-N1-G100-0 to -19), fixed here before any result exists. C2.5's "point estimate ≤ 0.078" is the rounded form of its binding Hoeffding bound ≤ 0.20 (exact limit 0.0776).
-- 2026-10-19: C5.5's independent implementation is met for the derived counts. GPT (tools denied) wrote `ingest/tests/derived/independent.py` from `venue/sources/*.md` and DSL.md alone. It agrees exactly with `ingest/events.py` on 2,000 generated cases dense in boundary cases. As a power check, each of five one-token variations of the rule (≥ vs >, the coverage start, the tie rule, the window ends, the coverage end) changes 199 to 1,762 of the cases. GPT flagged that `snapshot.md` stated knownAt = max(created + 600 s, witness), which contradicts the stage 5 admissibility revision (an unadmitted claim never moves knownAt). The doc now states the witness rule. No strategy has used the input.
-- 2026-10-19: C5.2 store work. A complete fetch now tombstones the keys it no longer lists, and a later listing restores them. `as_of` hides tombstoned keys. Tests cover edits, tombstones and restorations at exact fetch boundaries, plus a byte-identical recompute of the stored derived input. Also found and fixed: raw Discourse revisions had carried knownAt = created, so `as_of(t)` would have shown edited content before the edit. A raw row without knownAt is now known when fetched, and the server's claims stay value columns for the derivation to judge. The one existing raw version (1792408757368) was migrated in place: same rows and fetchedAt. Mutants for as_of returning the latest content and for dropped tombstones are caught. The derivation rule now lives in `venue/sources/derived.md`, and `ingest/events.py` implements it as a pure function for C5.5's differential test.
-- 2026-10-19: C5.1 hand-labeled samples (`audit/stage5/c51-discourse.json`, `c51-snapshot.json`), labeled blind by fresh-context Opus subagents before any return on the new inputs. 50 random items per mapped key; the labeler saw text only, not the source. Precision (item concerns its key's coin): Snapshot aavedao.eth 1.00; Discourse delvingbitcoin 0.94, solana 0.92, celestia 0.92, aave 0.88, sui 0.84, ethresear 0.66, bnbchain 0.58. The last two carry many posts about no coin of U (general research, support and spam). Recall, measured within the sample frame (labeled mentions of a coin that sit in its own key): 0.94–1.00, with stray WLD and kPEPE mentions elsewhere. Items in unmapped keys lie outside the frame. The golden set (`ingest/tests/test_mapping.py`) passes.
+
 - 2026-10-19: C2.1's fixed-probe part passes on the corrected generator (`audit/stage2/c21-fixed-probes.v3.json`). HC3 regression min p: N1 0.059, N2 0.012, N3 0.034. Max |z|: 1.97, 1.79, 2.13. Still to do: the C2.4 top-5 probes.
+
 - 2026-10-19: C2.3 met. GPT's independent DSR (`gate/tests/gpt_dsr.py`, tools denied) agrees with the gate's to 1e-9 on 1,000 random cases and the edge cases (N = 1, T = 10, zero variance, extreme skew and kurtosis, and degenerate two-point series at Sharpe = 2/skew). That last case exposed an ill-conditioned spec, now fixed by a dated revision to the gate's DSR (relative-tolerance degenerate rule); GPT updated its code from the revised spec.
+
 - 2026-10-19: C2.2 met (`audit/stage2/c22.v2.json`). GPT's independent N2/N3 generators pass C2.1's regression and agree on every tolerance stat. The first comparison (`c22.json`) failed on N2 kurtosis, and robust stats then showed GPT's median |ε| consistently 1.5–9% higher. Both causes were deviations in *my* generator: (1) it scaled the truncated t to unit variance *before* truncating, so x had variance < 1; (2) it capped σ but not the GARCH recursion's state. Both are fixed, and NULLS.md now states the two points explicitly. No campaign had run. C2.1's fixed probes, produced with the old generator, are being re-run (v3).
+
 - 2026-10-19: C1.5 met as written. GPT's independent fill checker (`kernel/tests/timing/gpt_checker.py`, tools denied) matches the labels on all 20,000 cases, as do the kernel's checker and the Opus one. The two earlier GPT attempts had silently outlived their timeouts. `--format json` streaming now shows progress.
-- 2026-10-19: Null markets can carry block-bootstrapped real event counts, independent of ε (C5.6 groundwork).
+
 - 2026-10-19: Dry run, on a provisional cost table from about 4 h of aggregated books: C1.4 passes (the kernel matches the witness at every step on version 1792385868856) and C1.8 gives a W0 median of 14.7 ms (i5-11400). Both get re-run as judged evidence on the final C0.7 model. Three kernel–witness disagreements were found on the way, all in the witness:
   1. It read listed intervals from the pre-revision ingestion report. It now applies the current rule to the store's bars.
   2. Its sizing arithmetic ordered operations differently from W0's DSL encoding, so near-integer truncation flipped a kPEPE order by one coin. It now uses the DSL's order.
   3. It iterated coins in a different order. It now uses venue order.
+
 - 2026-10-19: C1.2 met. GPT's red team (`audit/stage1/gpt-test-cases.json`, 40 cases) produced 34 program cases, now in `kernel/tests/adversarial/gpt*.case`: 8 rejected with matching codes and 25 admitted probes that the leak canary passes. Its CLI cases are covered by named tests. Three kernel weaknesses it found are fixed at the root:
   1. `--policy` let the caller move the holdout boundary. The policy is now the store's own `policy.json`, the flag is gone, and unknown options are refused.
   2. The holdout-spent record lived in the caller-chosen ledger, so a fresh ledger could reuse the holdout. It now lives in `<holdout>/spent.jsonl`, and the ledger check is gone.
   3. Huge finite weights overflowed the gross sum to infinity, which scaled them to a silent close. Scaling now divides by the largest weight first.
 
   Earlier attempts: OpenAI's filter flagged the "red team" wording, and two runs hung on tool permissions. GPT now runs with `opencode.json` denying edit, bash and webfetch, which also keeps it from reading the repo.
+
 - 2026-10-19: C4.1 and C4.2 met (`kernel/mm/tests/rules.rs`, `canon.rs`).
   - All 16 rules of R are bitwise exact (probe value streams and run outcomes) on 1,000 programs × 3 markets each.
   - 0 of 1,000 rewritten programs got a different key; 20 hand-built pairs merge; all 10 rejected-law counterexamples stay distinct; keys are stable across fresh processes.
   - C4.1 found a kernel bug: `and`/`or` short-circuited, so `and(false, undefined)` was false while `and(undefined, false)` was undefined, against DSL.md. Both arguments are now evaluated before combining.
-- 2026-10-19: Stage 5 sources probed after the criteria froze.
-  - Discourse: 7 public forums reachable (BTC delvingbitcoin, ETH ethresear.ch, SOL, SUI, TIA, AAVE, BNB).
-  - Snapshot: only `aavedao.eth` (AAVE) among U.
-  - DefiLlama emissions (the unlock candidate): both endpoints return 402, paid only, so it fails C5.1 (see Blockers).
-  - Rules fixed in `venue/sources/`. The live recorder `ingest/sources_record.py` runs detached from 10:26 UTC (`data/sources_live`).
+
 - 2026-10-19: GPT is available again (10:11 UTC). Its stage 4 review exposed an N-undercount. Strategy identity hashes params by name, not value, and the gate deduplicated candidates by strategy hash, so parameter variants collapsed into one trial. The gate now keys trials by (strategy, params), and the exact submitted program lives on each experiment row instead of on strategies. No campaign had run yet.
+
 - 2026-10-19: Stage 3 harness isolation probe (`data/stage3/isolation-s70v`). Reads outside the workspace, `ls /`, chained commands and WebFetch were denied or absent. The daemon log matched its 2 calls. Deviation: Claude Code allows read-only shell commands on workspace files (`cat brief.md`) as equivalent to the permitted Read, so in practice Bash is not limited to `./mm-agent`. The bwrap filesystem (`gate/tests/test_sandbox.py`) is the real boundary. Found and fixed: the agent CLI had inherited the operator's stdin, which leaked harness text into its prompt; stdin is now /dev/null.
+
 - 2026-10-19: Null parameters frozen in `gate/nulls.json` (sha256 ebc7928421f5daab9447eac7149529996b06b915c4f80ed36cb03c8d1df6dddb), fit to search-part version 1792385868856. Spec changes made before freezing, after the first fit: GARCH ω by variance targeting (the raw fit overstated volatility 2×); funding and premium by joint block bootstrap of real data (an AR(1)-t fit was degenerate: about half of real hours sit exactly at the 1.25e-5 floor); the planted signal centered on that floor.
+
 - 2026-10-19: The mutants now live in `kernel/mutants/mutants.py` as exact-match edits applied to a fresh copy of the working tree. Hand-kept patches went stale with every kernel change. All 9 are still caught.
+
 - 2026-10-19: C1.1 met. `kernel/mutants/run.sh` catches all 9 mutants (I1–I9), each by its named test, with the clean tree passing every one. The first runs falsely reported 3 misses: `rsync -a` kept old mtimes, so the shared cargo target reused the previous mutant's build.
+
 - 2026-10-19: The C1.7 canary exposed an I9 flaw. The $10k order cap was checked at the fill price, but an order is sized at the decision price. It is now checked at the decision price (recorded on every fill). The first leak program (0.08 per coin) reached Sharpe 19.6 < 20 because compounding made the cap bind. Sized at 0.005, the leak reaches about 200 and honest runs about −5.
+
 - 2026-10-19: Commit 855260e (`criteria: stage 1`) also carries an unrelated 3-line witness.py fix (the zero-trade fill bar), swept in by `commit -a`. The criteria text in it is unaffected. Criteria commits now stage PROGRESS.md only.
+
 - 2026-10-19: U = BTC ETH SOL SUI kPEPE TIA WIF AAVE FTM(delisted) WLD POPCAT BNB (`data/universe.json`). Survivorship: 10 delisted eligible perps lack full daily bars in the ranking window (MATIC 10/30, about $51M extrapolated vs. the #12 cutoff of $213M; RNDR had been renamed RENDER; the other 8 are micro-caps with 0 bars). None plausibly ranks top 12.
+
 - 2026-10-19: The holdout rule (nothing reads `data/holdout/`) means C0.2/C0.5 for the holdout part of W run on the fetched frames at ingestion, before the split-write, and report counts only. The search part is also checked through the real `as_of`.
+
 - 2026-10-19: `nix develop` verified (cargo 1.95, rustc 1.95, python 3.13, arch 8.0.0, sqlite 3.51); flake.lock committed; GPT 6.1 Sol reachable.
