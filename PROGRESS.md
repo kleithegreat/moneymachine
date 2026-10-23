@@ -1105,7 +1105,7 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 - **2026-10-23: stage 6 exits with Lean adopted, and C6.5's frozen thread configuration recorded as a known limitation.**
   - **Why:** the same exit was rejected for the third time, and the remaining gap is performance reproducibility, which changes neither the ranking nor any decision (rule 3).
   - **GPT:** "accept Lean's selection and proceed with adoption, recording the benchmark configuration issue as a known limitation".
-  - **Reverse:** reopen stage 6, pin a thread configuration (environment and process affinity, checked in `reference/benchmark.py`), and rerun `benchmark-freeze` and `benchmark-run`.
+  - **Reverse:** reopen stage 6, restore `reference/benchmark.py` from git (deleted after `6e26fb7`), pin a thread configuration (environment and process affinity) in it, and rerun `benchmark-freeze` and `benchmark-run`.
 
 - **2026-10-23: stages 7 to 9 keep their kernel changes off `main` until the pilot's judged runs are done.**
   - **What:** stage 7's criteria are pre-registered now. Its kernel-changing code stays on a branch until C1.4, the stage 2 sweeps, stage 3's campaigns and stage 4's swarm smoke have recorded their kernel hash.
@@ -1127,6 +1127,11 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Reverse:** `complete()` in `reference/differential.py` (`f7f9091`).
 
 ## Blockers
+
+- **C1.7's canary fails by chance for programs that cannot leak (2026-10-23; criterion change needs a human decision).**
+  - **What broke:** a routine `cli check` drew canary seed 12549401516693113639. On it, every constant-weight adversarial case (gpt19, gpt20, gpt26, gpt30, gpt37) reached an annualized Sharpe of 4.258 > 4. A constant weight reads no data, so this is the market's realization, not a leak.
+  - **Why:** C1.7 fixes i.i.d. Gaussian 4h *log* returns, so each bar's arithmetic mean is exp(σ²/2) − 1 ≈ 2·10⁻⁴. A constant long harvests it: over 300 seeds the gpt19 case averages Sharpe 1.47, sd 0.77, max 3.73. Five drawn seeds per check therefore fail by chance a few times in ten thousand per program family, and the check just did. C1.7's judged pass stands. The test stays as written, and this failure is recorded here rather than dropped because the next check, on fresh seeds, passed.
+  - **Proposed redesign:** zero arithmetic drift (close = open · exp(σZ − σ²/2)), with the threshold kept at 4, and more fixed seeds. It is not decided autonomously: removing the drift lowers a long-biased leak's Sharpe by about 1.5, so a leak adding 2.5 to 4 would pass the new canary but fail the old one. That can loosen detection (CLAUDE.md §3, rule 2).
 
 - **Stage 8 (multi-asset) needs data access decisions (2026-10-23; recorded early, no stage 8 work yet).**
   - **The problem:** long point-in-time histories of equities, indices and commodities mostly come from vendors that need a registered API key (Tiingo, Alpha Vantage, Nasdaq Data Link, FRED) or whose terms forbid automated access to their web pages (Yahoo, and likely Stooq).
