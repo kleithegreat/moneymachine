@@ -16,7 +16,8 @@ engine `mm` is unchanged by this stage.
 | L5 binding (`L5_binding`) | proved | proved under `--verdict`, over one concrete exact number type |
 | L6 bounded returns (`L6_bounded`, added with I10) | proved | not attempted |
 
-- **Lean (C6.2 met).** Every law is proved after a clean `lake build`, with `#print axioms` ⊆ {propext,
+- **Lean (C6.2 met).** Every law is proved after a clean `lake build`. L3 assumes the number structure is
+  `Lawful` (its rewrite obligations), and L6 assumes it is `Bounded`. The others hold for every `NumOps`. Each has `#print axioms` ⊆ {propext,
   Classical.choice, Quot.sound} (`lean-axioms.txt`). The statements are `reference/lean/Ref/Laws.lean`, over
   every `NumOps` structure, with the dated revisions recorded under the stage 6 criteria: L4's liquidation
   reference, L1_simulator's step range, the finite filter on `hours_since` and `xs_rank`, `Dim.zip` on units
@@ -42,6 +43,18 @@ engine `mm` is unchanged by this stage.
   simulator for the comparison. So store resolution, knownAt computation and the venue files are `mm`'s,
   checked by C0.4/C5.2 and `reference/tests/test_resolution.py`, not by stage 6. The executable `refmm` uses
   the same definitions as the proofs (`Ref/Spec.lean`).
+
+## Trust notes (Bend)
+
+- **Trusted for L5:**
+  - Bend 2.0.37's front end, which translates the Bend source into BendTT;
+  - the bundled BendTT kernel `bendtt.lean`, checked by Lean 4.34.0 under `--verdict`;
+  - the correspondence between the Bend model and the Lean model's definitions. That was ported definition for
+    definition and audited by hand, not mechanically.
+- **Scope of the law:** it is stated over one concrete exact number type, not every number structure.
+- **Archived evidence:** `bend-l5-verdict.txt`, from re-running the proof at commit `69e91e0` on 2026-10-23. It
+  has the invocation, the binary's store path, every model file's sha256, the output (ALL PROOFS CHECK) and
+  exit status 0.
 
 ## Differential results (C6.4, met for Lean)
 
@@ -72,26 +85,42 @@ kernels, so 150.7 program-market-years each. Bend has no executable model that r
 
 ## Effort
 
-From commit times (UTC). The work ran in one long agent session (6 context compactions, resumed after usage
-limits) and its continuation. Active agent time is not metered separately, so the elapsed times between
-milestones include pauses.
+Recovered from the session transcripts (`audit/stage6/effort.py`, output `effort.json`), between consecutive
+milestone commits (UTC commit times).
+- **Elapsed** is wall time.
+- **Active** is the sum of the gaps of at most 5 minutes between consecutive transcript events. A tool run
+  longer than 5 minutes (a long Lean build) writes no events and is not counted, and the agent's other work in
+  the same interval (for example stage 2's calibration v3 during `ifNotRev`) is counted. So it is the session's
+  activity in the interval, not stage 6's alone.
+- **Sessions** are the distinct transcripts with events in the interval. **Compactions** are context
+  compactions there.
 
-| Milestone | Done | Commit | Retries and failures recorded |
-|---|---|---|---|
-| Contract, checker; verdicts agree on 79 adversarial cases | 2026-10-20 02:36 | `2c23055` | min/max ties and sum order measured against `mm` |
-| Model, binary64 executable, `mmdump` | 02:48 | `7a0b899` | |
-| Laws reviewed by GPT and frozen | 03:13 | `cb095f7` | 3 statements restated to the immutable engine |
-| L5 | 03:24 | `7180965` | |
-| L2_checker | 06:50 | `bd7c734` | |
-| L1_simulator, L1_values | 14:28, 14:42 | `48fc965`, `4101f32` | L1_simulator revised (step range) |
-| L2_units | 16:44 | `c5a9657` | |
-| L4_fills, L4_orders | 19:49, 20:11 | `10915f9`, `b37f429` | L4 revised (liquidation reference) |
-| L1_decisions | 20:37 | `22c8697` | |
-| L3, 16 in-place rules | 2026-10-21 01:30 | `cc495f7` | 2 model revisions (finite filter, `Dim.zip`); a checker hole found and fixed in `mm` and the model |
-| L3, `ifNotRev` (C6.2 met) | 2026-10-22 18:40 | `06df060` | do-notation join duplicated the continuation; loop-lemma shapes; elaboration timeouts |
-| C6.4 judged run | 2026-10-22 about 22:30 | `f08380a` | development run on another seed first |
+| Milestone | Commit | Elapsed (h) | Active (h) | Sessions | Compactions |
+|---|---|---|---|---|---|
+| contract, checker | `2c23055` | 0.9 | 0.73 | 1 | 0 |
+| model, binary64, mmdump | `7a0b899` | 0.2 | 0.2 | 1 | 0 |
+| laws frozen | `cb095f7` | 0.41 | 0.4 | 1 | 0 |
+| L5 | `7180965` | 0.18 | 0.17 | 1 | 1 |
+| L2_checker | `bd7c734` | 3.44 | 0.81 | 1 | 0 |
+| L1_simulator | `48fc965` | 7.63 | 0.82 | 1 | 0 |
+| L1_values | `4101f32` | 0.24 | 0.23 | 1 | 0 |
+| L2_units | `c5a9657` | 2.03 | 2.03 | 1 | 0 |
+| L4_fills | `10915f9` | 3.08 | 0.62 | 1 | 1 |
+| L4_orders | `b37f429` | 0.37 | 0.27 | 1 | 0 |
+| L1_decisions | `22c8697` | 0.44 | 0.43 | 1 | 0 |
+| L3 in-place rules | `cc495f7` | 4.88 | 1.37 | 1 | 0 |
+| L3 ifNotRev, C6.2 | `06df060` | 41.16 | 1.63 | 1 | 1 |
+| Bend L5 | `69e91e0` | 0.48 | 0.48 | 1 | 0 |
+| Bend stopped | `e0453e0` | 0.5 | 0.22 | 1 | 0 |
+| C6.4 harness v1, first judged run | `f08380a` | 2.65 | 1.29 | 3 | 2 |
 
-Bend's effort is in `bend.md`.
+**Retries and failures:**
+- L1_simulator, L4_fills, L4_orders and L3 took dated law or model revisions (stage 6 criteria).
+- L3 found a checker hole, fixed in `mm` and the model.
+- The `ifNotRev` proof failed several times: the do-notation join duplicated its continuation, loop-lemma
+  shapes did not match, and elaboration timed out until the states were destructured.
+- Bend: unary `Nat` overflowed the checker, and a smoke run was killed for memory (`bend.md`).
+- The first C6.4 corpus did not qualify (PROGRESS.md, stage 6).
 
 ## Ranking and adoption
 

@@ -55,6 +55,38 @@ def eventJson : Ref.Event Float → String
 
 def list (xs : Array String) : String := "[" ++ ",".intercalate xs.toList ++ "]"
 
+def tyJson : Ty → String
+  | .bool => "\"bool\""
+  | .num u => "\"num:" ++ ",".intercalate (u.e.map toString) ++ "\""
+
+def fnvPrime : UInt64 := 1099511628211
+
+/-- FNV-1a over a definedness byte and, if defined, the value's eight bytes, low byte first. -/
+def fnvVal (h : UInt64) : Option Float → UInt64
+  | none => h * fnvPrime
+  | some x => Id.run do
+    let mut h := (h ^^^ 1) * fnvPrime
+    for i in [0:8] do
+      h := (h ^^^ ((x.toBits >>> (8 * i).toUInt64) &&& 0xff)) * fnvPrime
+    return h
+
+/-- Per node, the digest of its value for every coin at every tick of the machine's schedule: wStart, then
+each hour of every step (`Ctx.machineAfter`'s schedule over the run's steps), and how many values were defined. -/
+def nodeDigests (p : Program) (m : Market Float) (v : Venue Float) (pol : Policy) (stop : Int) : Except Abort (Array UInt64 × Nat) := do
+  let c := Ctx.make p m v pol stop
+  let fold (ds : Array UInt64) (ms : MState Float) : Array UInt64 := ds.mapIdx fun i h => ms.vals[i]!.foldl fnvVal h
+  let defined (ms : MState Float) : Nat := ms.vals.foldl (fun n row => row.foldl (fun n x => if x.isSome then n + 1 else n) n) 0
+  let mut s ← c.start floatOps
+  let mut ds := fold (Array.replicate p.nodes.size 14695981039346656037) s.machine
+  let mut n := defined s.machine
+  for k in [1:4 * c.bounds.length + 1] do
+    let h := pol.wStart + (k : Int) * HOUR
+    s ← c.deliver s (h + pol.delta)
+    s := { s with machine := s.machine.tick floatOps p (c.mask h) h }
+    ds := fold ds s.machine
+    n := n + defined s.machine
+  return (ds, n)
+
 def main (args : List String) : IO UInt32 := do
   match args with
   | ["check", path] =>
@@ -68,7 +100,11 @@ def main (args : List String) : IO UInt32 := do
       | .error c => s!"\{\"reject\":\"{c.name}\"}"
       | .ok p => match Ref.run floatOps p m venue pol stop with
         | .error a => s!"\{\"abort\":\"{a.code}\"}"
-        | .ok r => s!"\{\"trace\":{list (r.trace.map eventJson)},\"returns\":{list (r.returns.map fb)},\"gross_returns\":{list (r.grossReturns.map fb)}}"
+        | .ok r =>
+          let nodes := match nodeDigests p m venue pol stop with
+            | .ok (ds, n) => s!"\{\"digests\":{list (ds.map toString)},\"defined\":{n}}"
+            | .error a => s!"\"{a.code}\""
+          s!"\{\"trace\":{list (r.trace.map eventJson)},\"returns\":{list (r.returns.map fb)},\"gross_returns\":{list (r.grossReturns.map fb)},\"types\":{list (p.types.map tyJson)},\"nodes\":{nodes}}"
     IO.FS.writeFile out result
     return 0
   | ["bench", prog, mkt, reps] =>

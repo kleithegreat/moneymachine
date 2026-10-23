@@ -1,4 +1,5 @@
-"""C6.4's deterministic cases: hand-built stores, each read by `mm`'s own loader, and the programs run on them.
+"""C6.4's deterministic cases: hand-built stores, each read by `mm`'s own loader, and the programs run on them
+and on the null markets.
 
 `edge` has four coins over 40 days:
 - E0 is a random walk with flat stretches and signed-zero funding.
@@ -36,12 +37,12 @@ def _write(root, bars, funding, coins, delisted=(), events=None, revisions=None)
     root = Path(root)
     end = max(b["eventTime"] for b in bars) + HOUR
     store = Store(root / "store")
-    store.write("bars_4h", pl.DataFrame(bars), 1, "c64")
-    store.write("funding", pl.DataFrame(funding), 1, "c64")
+    store.write("bars_4h", pl.DataFrame(bars), 1, "edge-markets")
+    store.write("funding", pl.DataFrame(funding), 1, "edge-markets")
     if events:
-        store.write("events_forum", pl.DataFrame(events), 1, "c64")
+        store.write("events_forum", pl.DataFrame(events), 1, "edge-markets")
     if revisions:
-        store.write("funding", pl.DataFrame(revisions), 2, "c64")
+        store.write("funding", pl.DataFrame(revisions), 2, "edge-markets")
     (root / "store" / "policy.json").write_text(json.dumps(POLICY | {"w_start": 0, "holdout_start": end, "w_end": end}))
     venue = root / "venue"
     venue.mkdir(parents=True, exist_ok=True)
@@ -159,6 +160,9 @@ def weights():
         "op-not-and-or": w(op("if", op("or", op("and", op("ge", R, c(0.1)), op("not", op("lt", F, c(0.0)))), op("le", P, c(-0.3))), c(1.0), c(-1.0))),
         "op-convert": w(op("mul", op("convert", inp("funding"), to="1/d"), c(100.0, "d"))),
         "op-convert-year": w(op("mul", op("convert", inp("funding"), to="1/y"), c(1.0, "y"))),
+        "op-lag": w(op("lag", R, hours=6)), "op-mean": w(op("mean", R, hours=6)), "op-sum": w(op("sum", R, hours=13)),
+        "op-std": w(op("std", R, hours=6), 2.0), "op-min-over": w(op("min_over", R, hours=24)), "op-max-over": w(op("max_over", R, hours=24)),
+        "op-ema": w(op("ema", R, hours=4)),
         "op-xs-mean": w(op("xs_mean", R)), "op-xs-demean": w(op("xs_demean", R)), "op-xs-rank": op("sub", op("xs_rank", R), c(0.5)),
         "op-xs-rank-ties": op("sub", op("xs_rank", inp("premium")), c(0.5)),
         "op-hours-since": w(op("div", op("hours_since", op("gt", F, c(0.5))), c(24.0, "h"))),
@@ -173,12 +177,15 @@ def weights():
         "nan-intermediate": w(op("add", NAN, R)),
         "nan-min-first": w(op("min", NAN, R)), "nan-max-second": w(op("max", R, NAN)),
         "infinite-weight": op("exp", c(1000.0)),
-        "signed-zero-weight": c(-0.0),
+        "literal-negative-zero-normalizes": c(-0.0),
         "signed-zero-neg": op("neg", c(0.0)),
-        "signed-zero-min-tie": op("min", c(0.0), c(-0.0)),
-        "signed-zero-sign": op("sign", op("mul", F, c(-0.0))),
+        "signed-zero-mul": op("mul", c(-1.0), c(0.0)),
+        "signed-zero-min-tie": op("min", op("neg", c(0.0)), c(0.0)),
+        "signed-zero-max-tie": op("max", c(0.0), op("neg", c(0.0))),
+        "signed-zero-sign": op("sign", op("neg", c(0.0))),
+        "signed-zero-add": op("add", op("neg", c(0.0)), op("neg", c(0.0))),
         "zero-target-close": op("if", op("gt", R, c(0.0)), c(0.5), c(0.0)),
-        "zero-target-close-negative-zero": op("if", op("gt", R, c(0.0)), c(-0.5), c(-0.0)),
+        "zero-target-close-negative-zero": op("if", op("gt", R, c(0.0)), c(-0.5), op("neg", c(0.0))),
         "reversal": w(op("sign", R), 0.5),
         "buy-and-hold": c(0.5),
         "gross-cap": c(5.0),
@@ -192,12 +199,16 @@ def weights():
     return {k: v if "dsl" in v else program(k, v) for k, v in out.items()}
 
 
-def cases():
-    """[(name, program, market)]: every weight on `edge`, and the lifecycle programs on the crash markets."""
+REQUIRED = tuple(weights())
+
+
+def cases(nulls):
+    """[(name, program, [markets])]: every weight on `edge` and on each null market, and the lifecycle programs on
+    the crash markets."""
     ws = weights()
-    out = [(k, p, "edge") for k, p in ws.items()]
+    out = [(k, p, ["edge", *nulls]) for k, p in ws.items()]
     for m in ("liquidation", "ruin"):
-        out += [(f"{k}@{m}", ws[k], m) for k in ("buy-and-hold", "gross-cap", "reversal", "input-forum")]
+        out += [(f"{k}@{m}", ws[k], [m]) for k in ("buy-and-hold", "gross-cap", "reversal", "input-forum")]
     return out
 
 

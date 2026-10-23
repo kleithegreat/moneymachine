@@ -23,6 +23,7 @@
             duckdb
             httpx
             pytest
+            pytest-xdist
             hypothesis
           ]);
         in

@@ -28,10 +28,8 @@ def known_at(dataset):
     if dataset == "funding":
         r = pl.col("reportedTime")
         return pl.max_horizontal(r // HOUR * HOUR + DELTA, r + SETTLEMENT_LATENCY)
-    if dataset == "bars_4h":
+    if dataset == "bars_4h" or dataset.startswith("events_"):
         return pl.col("eventTime") + DELTA
-    if dataset.startswith("events_"):
-        return pl.col("eventTime")
     return pl.col("fetchedAt")
 
 

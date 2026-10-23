@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 
 from ingest.live import ms, read
-from ingest.policy import HOUR
+from ingest.policy import DELTA, HOUR
 from ingest.store import Store, live, stores, write_split
 
 VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
@@ -56,11 +56,11 @@ def items(obs):
 
 
 def covered(times, margin, version):
-    """The hours τ <= version whose witness window [τ - HOUR - margin, τ - margin] the polls cover: every
-    instant in it has a poll within the last GAP ms, at or before it."""
+    """The hours τ whose tick τ + DELTA is <= version and whose witness window [τ + DELTA - HOUR - margin,
+    τ + DELTA - margin] the polls cover: every instant in it has a poll within the last GAP ms, at or before it."""
     p = np.unique(np.array(times, dtype=np.int64))
-    hours = np.arange(-(-(p[0] + HOUR + margin) // HOUR) * HOUR, version // HOUR * HOUR + 1, HOUR)
-    a, b = hours - HOUR - margin, hours - margin
+    hours = np.arange(-(-(p[0] + HOUR + margin - DELTA) // HOUR) * HOUR, (version - DELTA) // HOUR * HOUR + 1, HOUR)
+    a, b = hours + DELTA - HOUR - margin, hours + DELTA - margin
     ia, ib = np.searchsorted(p, a, side="right") - 1, np.searchsorted(p, b, side="right") - 1
     gaps = np.concatenate([[0], np.cumsum(np.diff(p) > GAP)])
     return hours[(b - p[ib] < GAP) & (gaps[ib] == gaps[ia])]
@@ -68,7 +68,7 @@ def covered(times, margin, version):
 
 def counts(obs, polled, coin_of, margin, version):
     """[(coin, hour, count)] over each mapped key's covered hours: items created since the key's first poll, each
-    known `margin` ms after its earliest observation."""
+    known `margin` ms after its earliest observation, counted at the tick whose hour ends at or after that."""
     first = items(obs)
     out = []
     for key, times in sorted(polled.items()):
@@ -77,7 +77,7 @@ def counts(obs, polled, coin_of, margin, version):
         s = min(times)
         k = np.sort(np.array([w + margin for (fk, _), (c, w) in first.items() if fk == key and c >= s], dtype=np.int64))
         hours = covered(times, margin, version)
-        counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")
+        counts = np.searchsorted(k, hours + DELTA, side="right") - np.searchsorted(k, hours + DELTA - HOUR, side="right")
         out += [(coin_of[key], int(h), int(n)) for h, n in zip(hours, counts)]
     return out
 
@@ -112,7 +112,9 @@ def main(data_root, version, live_dir, source="discourse", audit=AUDIT):
     dataset = SOURCES[source]["dataset"]
     written = write_split(search, holdout, dataset, df, fetched_at, f"derived:{source}")
     files = [s.root / dataset / f"{fetched_at}.parquet" for s in (search, holdout)]
+    raw = sorted((Path(data_root) / "sources" / source).glob("*.parquet"))
     out = {"source": source, "dataset": dataset, "version": fetched_at, **manifest(df), "written(search, holdout)": written,
+           "raw_files_sha256": {str(f.relative_to(data_root)): hashlib.sha256(f.read_bytes()).hexdigest() for f in raw},
            "files_sha256": {str(f.relative_to(data_root)): hashlib.sha256(f.read_bytes()).hexdigest() for f in files if f.exists()}}
     path = Path(audit) / f"lineage-{source}-{fetched_at}.json"
     path.write_text(json.dumps(out, indent=1) + "\n")

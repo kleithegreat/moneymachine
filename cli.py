@@ -32,6 +32,26 @@ def probes_top5(out):
     p.run(out, sweep.top5_programs())
 
 
+def check():
+    """The whole suite at once: pytest over 6 workers, the kernel's cargo tests and the mutants. Each writes its
+    log to data/check/; returns each part's last line, and exits nonzero if any part fails."""
+    import subprocess
+
+    logs = REPO / "data" / "check"
+    logs.mkdir(parents=True, exist_ok=True)
+    parts = {"pytest": (["pytest", "-q", "-n", "6", "--dist", "loadfile"], REPO),
+             "cargo": (["cargo", "test", "-q", "--release"], REPO / "kernel"),
+             "mutants": ([sys.executable, "-m", "cli", "mutants"], REPO)}
+    procs = {k: subprocess.Popen(cmd, cwd=cwd, stdout=open(logs / f"{k}.log", "w"), stderr=subprocess.STDOUT)
+             for k, (cmd, cwd) in parts.items()}
+    codes = {k: p.wait() for k, p in procs.items()}
+    out = {k: {"exit": c, "last": (logs / f"{k}.log").read_text().strip().splitlines()[-1:]} for k, c in codes.items()}
+    if any(codes.values()):
+        print(json.dumps(out, indent=1))
+        sys.exit(1)
+    return out
+
+
 def mutants():
     spec = importlib.util.spec_from_file_location("mutants", REPO / "kernel/mutants/mutants.py")
     module = importlib.util.module_from_spec(spec)
@@ -80,10 +100,12 @@ COMMANDS = {
     "agent-null": ("gate.agent.campaigns", "run_series", ["name", "n:int"], "agent or swarm null campaigns (paced, resumable)"),
     "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),
     "agent-summary": ("gate.agent.campaigns", "summary", ["name", "out"], "an agent or swarm null series beside its baseline"),
-    "c64-freeze": ("reference.c64", "freeze", ["seed", "n?"], "freeze C6.4's differential corpus and manifest, once"),
-    "c64-run": ("reference.c64", "run", ["out", "workers?"], "C6.4's judged run of mm against refmm on the frozen corpus"),
-    "c65-bench": ("reference.c65", "main", ["out"], "C6.5's replay benchmark and null-simulation throughput"),
+    "differential-freeze": ("reference.differential", "freeze", ["seed", "n?"], "freeze C6.4's differential corpus and manifest, once"),
+    "differential-run": ("reference.differential", "run", ["out", "workers?"], "C6.4's judged run of mm against refmm on the frozen corpus"),
+    "benchmark-freeze": ("reference.benchmark", "freeze", [], "freeze C6.5's benchmark configuration, once"),
+    "benchmark-run": ("reference.benchmark", "run", ["out"], "C6.5's replay benchmark and null-simulation throughput"),
     "mutants": ("cli", "mutants", [], "apply each mutant to a copy of the tree; its named test must fail"),
+    "check": ("cli", "check", [], "pytest, cargo tests and mutants concurrently (run it in a capped scope)"),
     "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
     "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),
     "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),

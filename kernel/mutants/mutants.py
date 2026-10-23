@@ -6,13 +6,16 @@ unique (file, old, new) replacements applied to a fresh copy of the working tree
 """
 
 import os
+import queue
 import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+LOGS = REPO / "data" / "mutants"
 FX = "cd kernel && cargo test -q --release --test fixtures"
 SIM, MACHINE, MAIN, MARKET, DSL = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "market", "dsl"])
 EVENTS = "ingest/events.py"
@@ -61,8 +64,8 @@ MUTANTS = {
     "C5 knownAt from the claimed time": ("pytest -q ingest/tests/test_events.py", [
         (EVENTS, '[w + margin for (fk, _), (c, w) in first.items()', '[c + margin for (fk, _), (c, w) in first.items()')]),
     "C5 derivation counts future items": ("pytest -q ingest/tests/test_events.py", [
-        (EVENTS, 'counts = np.searchsorted(k, hours, side="right") - np.searchsorted(k, hours - HOUR, side="right")',
-         'counts = np.searchsorted(k, hours + HOUR, side="right") - np.searchsorted(k, hours, side="right")')]),
+        (EVENTS, 'counts = np.searchsorted(k, hours + DELTA, side="right") - np.searchsorted(k, hours + DELTA - HOUR, side="right")',
+         'counts = np.searchsorted(k, hours + DELTA + HOUR, side="right") - np.searchsorted(k, hours + DELTA, side="right")')]),
     "C5 coverage reads a later poll": ("pytest -q ingest/tests/test_derived.py -k later", [
         (EVENTS, 'np.searchsorted(p, b, side="right") - 1', 'np.searchsorted(p, b + GAP, side="right") - 1')]),
     "C5 as_of returns the latest content": ("pytest -q ingest/tests/test_store.py", [
@@ -72,31 +75,50 @@ MUTANTS = {
 }
 
 
-def run(cmd, cwd, log):
+SLOTS = 4
+
+
+def run(cmd, cwd, log, env):
     with open(log, "w") as fh:
-        return subprocess.run(["bash", "-c", cmd], cwd=cwd, stdout=fh, stderr=subprocess.STDOUT).returncode
+        return subprocess.run(["bash", "-c", cmd], cwd=cwd, stdout=fh, stderr=subprocess.STDOUT, env=env).returncode
+
+
+def check(name, slot):
+    """Whether the mutant's named test passes on a clean copy of the tree and fails on the mutated one."""
+    test, edits = MUTANTS[name]
+    slug = "-".join(name.split())
+    env = os.environ | {"CARGO_TARGET_DIR": str(REPO / "kernel" / f"target-mutants-{slot}")}
+    ignore = shutil.ignore_patterns(".git", "data", "target", "target-mutants*", "__pycache__", ".hypothesis")
+    with tempfile.TemporaryDirectory() as wt:
+        shutil.copytree(REPO, wt, ignore=ignore, dirs_exist_ok=True, copy_function=shutil.copy)
+        clean = run(test, wt, LOGS / f"{slug}.clean.log", env)
+        for f, old, new in edits:
+            path = Path(wt) / f
+            text = path.read_text()
+            if text.count(old) != 1:
+                return f"{name}: edit does not match exactly once in {f}: {old!r}"
+            path.write_text(text.replace(old, new))
+        mutated = run(test, wt, LOGS / f"{slug}.mutated.log", env)
+    return ("caught " if clean == 0 and mutated != 0 else "MISSED ") + name + (
+        "" if clean == 0 and mutated != 0 else f" (clean={clean}, mutated={mutated})")
 
 
 def main():
-    os.environ["CARGO_TARGET_DIR"] = str(REPO / "kernel" / "target-mutants")
-    logs = REPO / "data" / "mutants"
-    logs.mkdir(parents=True, exist_ok=True)
-    ignore = shutil.ignore_patterns(".git", "data", "target", "target-mutants", "__pycache__", ".hypothesis")
-    missed = 0
-    for name, (test, edits) in MUTANTS.items():
-        slug = "-".join(name.split())
-        with tempfile.TemporaryDirectory() as wt:
-            shutil.copytree(REPO, wt, ignore=ignore, dirs_exist_ok=True, copy_function=shutil.copy)
-            clean = run(test, wt, logs / f"{slug}.clean.log")
-            for f, old, new in edits:
-                path = Path(wt) / f
-                text = path.read_text()
-                if text.count(old) != 1:
-                    sys.exit(f"{name}: edit does not match exactly once in {f}: {old!r}")
-                path.write_text(text.replace(old, new))
-            mutated = run(test, wt, logs / f"{slug}.mutated.log")
-        ok = clean == 0 and mutated != 0
-        missed += not ok
-        print(("caught " if ok else "MISSED ") + name + ("" if ok else f" (clean={clean}, mutated={mutated})"), flush=True)
-    sys.exit(1 if missed else 0)
+    """Every mutant, SLOTS at a time; each slot keeps its own cargo target, reused across its mutants."""
+    LOGS.mkdir(parents=True, exist_ok=True)
+    slots = queue.Queue()
+    for i in range(SLOTS):
+        slots.put(i)
 
+    def one(name):
+        slot = slots.get()
+        try:
+            return check(name, slot)
+        finally:
+            slots.put(slot)
+
+    with ThreadPoolExecutor(SLOTS) as pool:
+        results = list(pool.map(one, MUTANTS))
+    for r in results:
+        print(r, flush=True)
+    sys.exit(0 if all(r.startswith("caught ") for r in results) else 1)

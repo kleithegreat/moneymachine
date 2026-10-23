@@ -22,22 +22,24 @@ poll count, since older items are not new events. An item's knownAt is `w` plus 
 
 ## Coverage
 
-A key has coverage only if it maps to a coin of U (`discourse_map.json`, `snapshot_map.json`).
-With m the source's margin, the witness window of an hour τ on the grid (multiples of 3 600 000)
-is [a, b] with a = τ − 3 600 000 − m and b = τ − m: an item counts at τ exactly when its witness
-falls in (a, b]. τ is covered when τ ≤ V and the key was being polled throughout that window: for
-every instant t in [a, b], the key has a poll p with t − 600 000 < p ≤ t. Equivalently: the key has
-a poll at or before a, no two consecutive polls from the last such one to b are more than 600 000
-apart, and its last poll at or before b is later than b − 600 000.
+Each hour τ on the grid (multiples of 3 600 000) has its tick T = τ + δ, with δ = 120 000 (the kernel's
+tick, DSL.md). A key has coverage only if it maps to a coin of U (`discourse_map.json`,
+`snapshot_map.json`). With m the source's margin, the witness window of τ is [a, b] with
+a = T − 3 600 000 − m and b = T − m: an item counts at τ exactly when its witness falls in (a, b].
+τ is covered when T ≤ V and the key was being polled throughout that window: for every instant t in
+[a, b], the key has a poll p with t − 600 000 < p ≤ t. Equivalently: the key has a poll at or before a,
+no two consecutive polls from the last such one to b are more than 600 000 apart, and its last poll at
+or before b is later than b − 600 000.
 
-Coverage at τ therefore depends only on polls at or before b ≤ τ, never on a later one. A first
+Coverage at τ therefore depends only on polls at or before b ≤ T, never on a later one. A first
 poll at s leaves every hour whose window starts before s uncovered, so items that existed before
 recording began are never read as new. A recording gap of more than 10 minutes leaves every
 hour whose window it touches uncovered, rather than read as zero events.
 
 ## Count
 
-At each covered τ, the count is the number of the key's items with knownAt in (τ − 3 600 000, τ].
-It is a row (coin, eventTime = τ, count), known at τ, and is written even when it is 0. Hours
-outside coverage, and coins with no mapped key, have no row, so the input is undefined there
-(DSL.md). Rows carry the sha256 of `ingest/events.py` and of the mapping file.
+At each covered τ, the count is the number of the key's items with knownAt in (T − 3 600 000, T]: the
+hour ending at τ's tick. It is a row (coin, eventTime = τ, count), known at T, and is written even when
+it is 0. Hours outside coverage, and coins with no mapped key, have no row, so the input is undefined
+there (DSL.md). Rows carry the sha256 of `ingest/events.py` and of the mapping file, the cut V, and the
+sha256 of the records read.

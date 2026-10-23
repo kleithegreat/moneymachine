@@ -21,14 +21,15 @@ def test_sandbox_view(tmp_path):
     assert "shadow" not in lines and "nixos" not in lines
 
 
-def test_swarm_agents_cannot_reach_each_other(tmp_path):
+def test_swarm_agents_cannot_reach_each_other(tmp_path, monkeypatch):
     """C4.3: an agent's sandbox sees neither another agent's workspace nor its socket."""
     import socket
     import sys
 
     (w1, h1), (w2, h2) = (harness.build_workspace(tmp_path / a, swarm=True) for a in ("A1", "A2"))
     other = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    other.bind(str(w2 / "mm-agent.sock"))
+    monkeypatch.chdir(w2)
+    other.bind("mm-agent.sock")
     other.listen()
     probe = ("import socket, os\n"
              f"for p in [{str(w2)!r}, {str(w2 / 'mm-agent.sock')!r}, {str(tmp_path)!r}]:\n"

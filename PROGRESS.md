@@ -2,7 +2,7 @@
 
 ## Now
 
-Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. Detached processes (kill by PID only): `pgrep -af "cli record"` (HL live recorder), `pgrep -af "cli sources-record"` (stage 5 recorder). An OOM kill (the kernel's, or systemd-oomd's of a whole cgroup) once took them down with a heavy job of mine. So every heavy job (builds of the Lean kernel, C6.4/C6.5 runs, sweeps, null series, simulations) runs in its own capped scope, first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G choom -n 1000 -- nix develop -c …`. While a judged window is open, no heavy job starts uncapped. The recorders' negative OOMScoreAdjust needs root (human decision 3 of 2026-10-23): `sudo choom -n -900 -p $(pgrep -f 'cli record ') && sudo choom -n -900 -p $(pgrep -f 'cli sources-record')`, rerun after any recorder restart.
+Scope: stages 0 to 10 (paper revision 5); stage 11 is a human decision. Stages run in parallel wherever work does not depend on a wait. Every command is `nix develop -c python -m cli <command>` (`-h` lists them). Criterion checks are tests in `criteria/` over the evidence committed under `audit/`; they skip until the evidence exists. The whole suite before a commit: `systemd-run --user --scope -p MemoryMax=8G choom -n 1000 -- nix develop -c python -m cli check`, which runs pytest over 6 workers (`pytest-xdist`), the kernel's cargo tests and the mutants (4 slots, each with its own cargo target) concurrently, with logs in `data/check/`. Detached processes (kill by PID only): `pgrep -af "cli record"` (HL live recorder), `pgrep -af "cli sources-record"` (stage 5 recorder). An OOM kill (the kernel's, or systemd-oomd's of a whole cgroup) once took them down with a heavy job of mine. So every heavy job (builds of the Lean kernel, C6.4/C6.5 runs, sweeps, null series, simulations) runs in its own capped scope, first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G choom -n 1000 -- nix develop -c …`. While a judged window is open, no heavy job starts uncapped. The recorders' negative OOMScoreAdjust needs root (human decision 3 of 2026-10-23): `sudo choom -n -900 -p $(pgrep -f 'cli record ') && sudo choom -n -900 -p $(pgrep -f 'cli sources-record')`, rerun after any recorder restart.
 
 Order while waiting on recording windows (human, 2026-10-20): (a) behavior-preserving cleanup, finished before the first judged run that records a kernel or harness hash (C1.4, stage 2 sweeps, the harness freeze); otherwise it waits until stage 5 exits; (b) stage 10, the thesis track; (c) stage 6, the reference kernels. Stages 7 to 9 start after stage 5 exits.
 
@@ -16,12 +16,17 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test is calibration v3 (human decision 2026-10-21): returns bounded below at B = 1 by kernel I10, a betting test, and GPT's locked suite, which it passed (Log). Calibrations v1 and v2.1 failed and stay recorded. After C0.7: record the searcher hash, then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
-- **Stage 5:** only delvingbitcoin.org (BTC) and Snapshot (AAVE) remain under the terms rule. GPT's second review (2026-10-23) found C5.1 and C5.4 met for both sources, and accepted the clarified amendment's argument in principle. The gaps it named are now evidenced:
-  - **C5.2:** lineage manifests with an identical recompute for both final derived versions (`audit/stage5/lineage-*`).
-  - **C5.3:** per-source reconciliation, uptime, failed-poll and drop checks (`availability-*-20261023.json`, `reconcile-*`).
-  - **C5.5:** both event inputs are refused when unbound, also through the CLI. The Snapshot boundary wording now matches `derived.md`.
-  - **C5.6:** the guard fails, rather than skips, without its evidence.
-  - C5.5's evidence map is `audit/stage5/c55-evidence.md`, with the added mutant "C5 knownAt from the claimed time" (all 17 mutants caught, 2026-10-23). Next: GPT's third review. The recorder keeps running until stage 5 exits.
+- **Stage 5:** only delvingbitcoin.org (BTC) and Snapshot (AAVE) remain under the terms rule. GPT's third review (2026-10-23) keeps C5.1 and C5.4 met, and C5.6 met as a deferral. It found one real defect, now fixed: the derivation counted the hour ending at H, while C5.5 and DSL.md count the hour ending at the tick H + δ. Counts now cover knownAt in (H + δ − 1h, H + δ], each row known at H + δ.
+  - The knownAt rule for event rows is eventTime + δ, in `store.known_at` and `mm`'s loader (`market.rs`). That is a one-line loader change made in stage 5, outside stage 6's no-change scope.
+  - The prefix-stability test is restated at the tick.
+  - A fresh independent implementation from GPT agrees on 2,000 cases.
+  - The other points are done: raw file hashes in each lineage manifest, and an identity note for the rewritten raw versions (`audit/stage5/version-identity.md`). The store's edit, tombstone and restoration test now runs under both key schemas.
+  - **At exit,** with the exit cut E:
+    - `sources-backfill data`, `sources-backfill data snapshot`;
+    - `events data E data/sources_live` for both sources, then `events-verify` on each lineage (saved);
+    - `sources-availability` for both, `sources-reconcile` for both at their new backfill versions, `sources-coverage data E`;
+    - then GPT's review.
+  - The recorder keeps running until stage 5 exits.
 
   Snapshot is prospective only (client-claimed time). Unlocks: blocked (see Blockers).
 - **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until it closes, now 2026-10-23 19:37 UTC) and C0.7's `execution.json`:
@@ -44,7 +49,13 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
     - the frozen market hash left out the venue files;
     - `pass` did not enforce the corpus's own completeness, and the divergence diagnostics had gaps.
 
-    Next: a new corpus that meets every component, frozen afresh, with per-node stream digests from both kernels and checked units, then a new judged run.
+    Done since:
+    - both kernels emit each node's static type, a digest of each node's value stream (definedness and bits, every coin, every tick of the machine's schedule) and a count of defined values;
+    - the harness (`reference/differential.py`, `edge_markets.py`) runs every deterministic case on N1/N2/N3 too, adds `lag`, `mean`, `sum`, `std`, `min_over`, `max_over`, `ema` and computed signed zeros;
+    - it hashes venue files with the store, and `pass` requires the corpus to be complete;
+    - the divergence report covers every field.
+
+    Next: a development run, then `differential-freeze` with a fresh seed, and `differential-run` capped in the background.
   - **C6.5:** a draft report (`audit/stage6/c65-report.md`) and benchmark (`c65-bench.json`). GPT's review found it incomplete:
     - the effort per milestone lacks active time and session counts, which are recoverable from the session transcripts' timestamps;
     - the benchmark's configuration was not frozen before the run, and it read W0 from the tree rather than the corpus;
@@ -53,7 +64,7 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
     - L3's `Lawful` and L6's `Bounded` assumptions are not stated.
 
     Adoption waits on C6.4.
-  - **C6.1:** `SEMANTICS.md` §5 still describes conversion interning before the fix of 2026-10-21. It needs a dated revision.
+  - **C6.1:** conversion interning now has its dated revision in `SEMANTICS.md` §5 and the stage 6 criteria. Bend's L5 `--verdict` was re-run at `69e91e0` and archived (`audit/stage6/bend-l5-verdict.txt`).
   - After stage 6 exits comes the erasure pass (human decision of 2026-10-23).
 - **Stage 7 candidate sources (human, 2026-10-22; no work before stage 5 exits).**
   - *Hyperliquid wallet cohorts.*
@@ -593,6 +604,7 @@ Exit when C6.1 to C6.5 hold.
 - *Revision 2026-10-20, while proving L3 and before any L3 proof:* L3_rewrite's `p'.WF` is false for a WF program with a unit of other than six exponents.
   - **Why.** The model's `Dim` is a list, and `Dim.zip` truncated to the shorter one. So with a seven-exponent u, `mul(x, 1)` had a six-exponent type, and redirecting its users to x broke their typing. L3 assumes only `p.WF`, which never fixes a unit's length.
   - **The fix.** `zip` is now undefined for units of unequal length, as for the engine's fixed `[i8; 6]`. Every unit the checker produces has six exponents, so no verdict or run changes, and the differential tests agree.
+- *Revision 2026-10-23, recording a change of 2026-10-21 that took no dated revision at the time (found by GPT's stage 6 review):* conversion nodes are interned by (factor bits, target unit, argument). Before commit `5f2b538` (2026-10-21, the checker hole fixed in `mm` and the Lean model together, authorized as a kernel change), they were interned by (factor bits, argument). `SEMANTICS.md` §5 now says so. No proof depended on the old interning, and every C6.4 run is on the fixed behavior.
 - *Revision 2026-10-21, with the I10 kernel change (stage 2 calibration v3, human decision of 2026-10-21):* the engine and the model now cap losses at equity. A step whose equity after margin and delisting is not positive liquidates what is still held at the adverse extreme, and the venue absorbs the negative balance. An order due at such a step is unfilled. The return is e1/previous − 1 while both are positive, −1 at the bankruptcy, and 0 after it, and a return below −1 aborts with R_BOUND. Accounting now fails on a non-finite difference.
   - **L4_orders.** As frozen, an order whose bar traded is filled. That is now false at a bankrupt step. The iff now also requires that the run's equity at the order's due step is positive. The rest of the law is unchanged, and an Unfilled record still resolves every due order exactly once.
   - **L6_bounded (new).** For every `NumOps` satisfying `NumOps.Bounded` (four facts that hold in binary64), no run aborts with R_BOUND. So every recorded return is ≥ −1.
@@ -771,6 +783,10 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
+
+- 2026-10-23: Faster checks (human decision): `pytest-xdist` added to the flake, the mutants run 4 at a time with a cargo target per slot, and `cli check` runs pytest, cargo tests and mutants concurrently. The mutant "C5 derivation without the availability margin" escaped once the window moved to the tick, because its test item no longer sat where the margin decides the hour. The item now does, and the mutant is caught.
+
+- 2026-10-23: Stage 5's window now ends at the tick (C5.5, from GPT's third review). The derived event files made under the old hour-ending-at-H window are deleted from the holdout store, since a rule's superseded output is never read. Their sha256: `1792704810230.parquet` aad75c0d58ceb587…; `1792717828079.parquet` 50b40e7a99ece7a4…; `1792704810571.parquet` f709fe288d06f69c…; `1792717828430.parquet` c6a99339d38bb146…. Their lineage manifests and the coverage report built on them are deleted too (git keeps them). The exit procedure re-derives everything.
 
 - 2026-10-23: Stage 10 retrieval allowlist (human decision 4). The proxy refuses any host or path without certified terms, on every redirect hop (`thesis/SOURCES.md`, parsed by `ingest/terms.py`, which `test_terms` also uses). Certified: GDELT, Treasury Fiscal Data API, CFTC public reporting API, Fed Board RSS feeds. The rest are in Blockers. The allowlist is part of the track identity (`harness.FROZEN`), and the brief names the open sources.
 

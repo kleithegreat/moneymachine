@@ -76,7 +76,7 @@ reported.
   run [market.rs `resolve`]: per (dataset, coin, eventTime), the revision with the largest fetchedAt ≤
   the version. Its knownAt is computed from its observed fields by the policy's rule [market.rs
   `known`]: a funding row at max(reportedTime floored to the hour + δ, reportedTime +
-  `settlement_latency_ms`), a bar at eventTime + δ, an event count at eventTime. A stored knownAt
+  `settlement_latency_ms`), a bar or an event count at eventTime + δ. A stored knownAt
   is never read. A run receives exactly one row per key; earlier
   revisions are never delivered. The adapter supplies the rows; an admissible market has unique keys,
   bars with eventTime = openTime + BAR, and coin and slot indices within range.
@@ -136,8 +136,10 @@ except as noted [machine.rs `eval`]:
   `__powidf2` (Rust's `powi`): multiply by the base on each odd bit of |e|, halving |e| and squaring
   the base, and take the reciprocal for negative e. Then f = hours(from) / hours(to). A non-finite f is
   accepted by the checker, and x · f is then filtered by `finite` like any node value. Conversion
-  nodes are interned by (factor bits, argument), as the engine does, so of two conversions that share
-  both, the first one's target unit applies.
+  nodes are interned by (factor bits, target unit, argument), as the engine does.
+  *Revision 2026-10-21, recorded here 2026-10-23:* before the fix (commit `5f2b538`, made in the engine and
+  the model together, adversarial case t22), they were interned by (factor bits, argument) only, so of two
+  conversions sharing both, the first one's target unit applied. Every C6.4 run is on the fixed behavior.
 - Window nodes: the pointwise value is a(0), then pushed (below).
 
 ## 6. Windows

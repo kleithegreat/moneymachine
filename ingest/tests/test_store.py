@@ -89,20 +89,21 @@ def test_search_store_refuses_holdout(tmp_path):
     assert holdout.revisions("bars_4h")["eventTime"].min() >= HOLDOUT_START
 
 
-def posts(ids, content="a"):
-    return pl.DataFrame([{"forum": "bars_4h", "upstream_id": i, "eventTime": i * H, "sha": content} for i in ids],
-                        schema={"forum": pl.Utf8, "upstream_id": pl.Int64, "eventTime": pl.Int64, "sha": pl.Utf8})
+def posts(ids, content="a", key="forum"):
+    return pl.DataFrame([{key: "f", "upstream_id": i, "eventTime": i * H, "sha": content} for i in ids],
+                        schema={key: pl.Utf8, "upstream_id": pl.Int64, "eventTime": pl.Int64, "sha": pl.Utf8})
 
 
-def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path):
+@pytest.mark.parametrize("key", ["forum", "space"])
+def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path, key):
     """C5.2: a raw source revision is known when fetched; content live at t is as_of(t, t), the latest fetched by t."""
-    s = Store(tmp_path, key=["forum", "upstream_id"])
-    whole = pl.col("forum") == "bars_4h"
+    s = Store(tmp_path, key=[key, "upstream_id"])
+    whole = pl.col(key) == "f"
     edited = pl.when(pl.col("upstream_id") == 3).then(pl.lit("b")).otherwise(pl.col("sha")).alias("sha")
-    assert s.write("p", posts([1, 2, 3]), 100, "t", complete=whole) == 3
-    assert s.write("p", posts([1, 3]).with_columns(edited), 200, "t", complete=whole) == 2
-    assert s.write("p", posts([1, 2, 3]), 300, "t", complete=whole) == 2
-    assert s.write("p", posts([1]), 400, "t", complete=pl.col("forum") == "other") == 0
+    assert s.write("p", posts([1, 2, 3], key=key), 100, "t", complete=whole) == 3
+    assert s.write("p", posts([1, 3], key=key).with_columns(edited), 200, "t", complete=whole) == 2
+    assert s.write("p", posts([1, 2, 3], key=key), 300, "t", complete=whole) == 2
+    assert s.write("p", posts([1], key=key), 400, "t", complete=pl.col(key) == "other") == 0
     view = lambda t, v=None: {r["upstream_id"]: r["sha"] for r in s.as_of("p", t, t if v is None else v).iter_rows(named=True)}
     assert view(99) == {}
     assert view(100) == view(199) == {1: "a", 2: "a", 3: "a"}

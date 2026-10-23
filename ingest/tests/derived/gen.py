@@ -2,21 +2,21 @@
 
 import random
 
-from ingest.policy import HOUR as H
+from ingest.policy import DELTA, HOUR as H
 
 MARGIN = 60_000
 GAP = 600_000
 
 
 def edge(rng, t):
-    """t moved onto, or one millisecond around, a nearby hour boundary or availability edge."""
-    b = (t // H + rng.choice([0, 1])) * H
+    """t moved onto, or one millisecond around, a nearby hour boundary, tick or availability edge."""
+    b = (t // H + rng.choice([0, 1])) * H + rng.choice([0, DELTA])
     return rng.choice([t, b, b - 1, b + 1, b - MARGIN, b - MARGIN + 1, b - MARGIN - 1])
 
 
 def window_edge(rng, t, margin):
     """t moved onto, or one millisecond around, a nearby hour's coverage-window edge, less up to a gap."""
-    b = (t // H + rng.choice([0, 1])) * H - margin - rng.choice([0, H])
+    b = (t // H + rng.choice([0, 1])) * H + DELTA - margin - rng.choice([0, H])
     return b - rng.choice([0, GAP, GAP - 1, GAP + 1]) + rng.choice([0, 1, -1])
 
 

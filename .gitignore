@@ -1,6 +1,6 @@
 data/
 target/
-target-mutants/
+target-mutants*/
 .direnv/
 result
 __pycache__/

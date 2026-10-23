@@ -216,8 +216,7 @@ fn known(dataset: &str, r: &Row, policy: &Policy) -> Result<i64, LoadError> {
             let reported = long(r, "reportedTime")?;
             (reported.div_euclid(HOUR) * HOUR + policy.delta).max(reported + policy.settlement_latency)
         }
-        "bars_4h" => long(r, "eventTime")? + policy.delta,
-        _ => long(r, "eventTime")?,
+        _ => long(r, "eventTime")? + policy.delta,
     })
 }
 

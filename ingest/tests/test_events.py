@@ -38,12 +38,12 @@ def every_5_min(start, end, skip=()):
 def test_counts_are_prospective_with_the_margin(tmp_path):
     posts = [(1, 10 * H + 5), (2, 10 * H + 1_000_000)]
     live = every_5_min(90 * H, 120 * H) + [poll(90 * H, [(4, 89 * H + 1)]), poll(95 * H + 7, [(6, 95 * H)]),
-                                           poll(97 * H - 30_000, [(7, 96 * H)])]
+                                           poll(97 * H + 90_000, [(7, 96 * H)])]
     root, live_dir = setup(tmp_path, posts, live)
     df = events.derive(root, 120 * H, live_dir)
     p = dict(df.select("eventTime", "count").iter_rows())
-    assert df["eventTime"].min() == 92 * H and df["eventTime"].max() == 120 * H and df.height == 29
-    assert p[96 * H] == 1 and p[97 * H] == 0 and p[98 * H] == 1 and df["count"].sum() == 2
+    assert df["eventTime"].min() == 91 * H and df["eventTime"].max() == 119 * H and df.height == 29
+    assert p[95 * H] == 1 and p[96 * H] == 0 and p[97 * H] == 0 and p[98 * H] == 1 and df["count"].sum() == 2
     assert events.derive(root, 120 * H, live_dir).equals(df)
 
 

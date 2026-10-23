@@ -1,0 +1,130 @@
+[
+ {
+  "milestone": "contract, checker",
+  "commit": "2c23055",
+  "elapsed_h": 0.9,
+  "active_h": 0.73,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "model, binary64, mmdump",
+  "commit": "7a0b899",
+  "elapsed_h": 0.2,
+  "active_h": 0.2,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "laws frozen",
+  "commit": "cb095f7",
+  "elapsed_h": 0.41,
+  "active_h": 0.4,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L5",
+  "commit": "7180965",
+  "elapsed_h": 0.18,
+  "active_h": 0.17,
+  "sessions": 1,
+  "compactions": 1
+ },
+ {
+  "milestone": "L2_checker",
+  "commit": "bd7c734",
+  "elapsed_h": 3.44,
+  "active_h": 0.81,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L1_simulator",
+  "commit": "48fc965",
+  "elapsed_h": 7.63,
+  "active_h": 0.82,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L1_values",
+  "commit": "4101f32",
+  "elapsed_h": 0.24,
+  "active_h": 0.23,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L2_units",
+  "commit": "c5a9657",
+  "elapsed_h": 2.03,
+  "active_h": 2.03,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L4_fills",
+  "commit": "10915f9",
+  "elapsed_h": 3.08,
+  "active_h": 0.62,
+  "sessions": 1,
+  "compactions": 1
+ },
+ {
+  "milestone": "L4_orders",
+  "commit": "b37f429",
+  "elapsed_h": 0.37,
+  "active_h": 0.27,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L1_decisions",
+  "commit": "22c8697",
+  "elapsed_h": 0.44,
+  "active_h": 0.43,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L3 in-place rules",
+  "commit": "cc495f7",
+  "elapsed_h": 4.88,
+  "active_h": 1.37,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "L3 ifNotRev, C6.2",
+  "commit": "06df060",
+  "elapsed_h": 41.16,
+  "active_h": 1.63,
+  "sessions": 1,
+  "compactions": 1
+ },
+ {
+  "milestone": "Bend L5",
+  "commit": "69e91e0",
+  "elapsed_h": 0.48,
+  "active_h": 0.48,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "Bend stopped",
+  "commit": "e0453e0",
+  "elapsed_h": 0.5,
+  "active_h": 0.22,
+  "sessions": 1,
+  "compactions": 0
+ },
+ {
+  "milestone": "C6.4 harness v1, first judged run",
+  "commit": "f08380a",
+  "elapsed_h": 2.65,
+  "active_h": 1.29,
+  "sessions": 3,
+  "compactions": 2
+ }
+]

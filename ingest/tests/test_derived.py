@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 
 from ingest import events
+from ingest.policy import DELTA
 
 HERE = Path(__file__).parent / "derived"
 
@@ -27,14 +28,14 @@ def cut(c, t):
 
 
 def test_rows_never_depend_on_later_records():
-    """I1 for the derivation: a row at tau is the same at every version from tau on."""
+    """I1 for the derivation: a row at tau is the same at every version from its tick tau + DELTA on."""
     rng = __import__("random").Random(8)
     for c in load("gen").generate(2000, 56):
         times = [o[3] for o in c["observations"]] + [p for ps in c["polls"].values() for p in ps]
         if not times:
             continue
         t = rng.choice(times) + rng.choice([0, 1, -1, 3_600_000])
-        assert [r for r in ours(c) if r[1] <= t] == ours(cut(c, min(t, c["version"])))
+        assert [r for r in ours(c) if r[1] + DELTA <= t] == ours(cut(c, min(t, c["version"])))
 
 
 def test_cases_exercise_the_boundaries():

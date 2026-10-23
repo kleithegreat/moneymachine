@@ -1,0 +1,14 @@
+invocation: bend PROOF.bend --verdict (cwd reference/bend/model at commit 69e91e0)
+date: 2026-10-23T02:11:26Z
+bend: /nix/store/ckjnsd1s1kq9vn5mpqrsjwas5hfmn38j-bend/bin/bend bend: unknown option --version (see bend --help) 
+files:
+ef0508cf455a6be69bfdfb5bf8fbcd975882e32f51f3f14d3c5406ee1bb02815  bin.bend
+a716d62a2ff16f147dfc04f2033a12af7c5d43c0f9ad1dff733cd9ea9f725b6e  LAWS.bend
+b12625fd8e699ecc09db423a877b7d89bbee26003760a8384b431aaa922da004  machine.bend
+0e02dfa7314fb05c8c43277a6e29569e227ec291b22f0e478f8cfa02fb8fc523  num.bend
+7f7f35afb8bb0116d35a84c47004e9612a591022f38e1187e325fcedb1fe3d97  PROOF.bend
+8becb1e48629dd4d6c3fad69b1ae88bcfb378a932e4f6df4e40396a5936a5a8e  sim.bend
+--- output ---
+ALL PROOFS CHECK
+bend 2.0.38 is available: run bend update
+exit=0
