@@ -25,7 +25,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - exact node streams, the corpus inventory, the frozen benchmark identity;
   - Bend's translated theorem;
   - the amendments for Bend's statements and for effort.
-  - **Now:** the third judged C6.4 run (corpus frozen at seed 20261024) runs in the background, writing `audit/stage6/differential-report.json`.
+  - **C6.4:** the third judged run passed (Log).
   - **Next:**
     - `benchmark-freeze` (it needs `kernel/` and `reference/` clean), then `benchmark-run audit/stage6/benchmark.json`, capped, with nothing else heavy running;
     - the report's differential, performance and adoption sections (`audit/stage6/report.md`);
@@ -909,6 +909,8 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
+
+- 2026-10-23: C6.4's third judged run on the corpus frozen in `e2ddba4` (seed 20261024) passed (`audit/stage6/differential-report.json`). All 1,196 verdicts and all 3,372 runs agree, with node value streams compared byte for byte (11.36 billion defined values) beside the trace, returns and node types, and nothing missing from the corpus inventory.
 
 - 2026-10-23: **Stage 5 done** (exit met under the amendment of 2026-10-22 and its clarification; GPT's fourth review, `audit/stage5/gpt-exit-review.md`).
   - Discourse (delvingbitcoin.org → BTC) and Snapshot (aavedao.eth → AAVE) are prospective only; unlocks are blocked.
