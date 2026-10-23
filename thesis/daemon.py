@@ -7,14 +7,17 @@ released. The daemon's clock sets every time; requests carry none.
 """
 
 import json
-import socketserver
 import threading
 from pathlib import Path
 
 from ingest.live import now_ms
+from sandbox.server import Server
 from thesis import registry
 
-MAX_REQUEST = 1 << 20
+SPEC = {"usage": "usage: ./thesis-agent markets | prices MARKET | fetch URL | register FILE | positions | exit ID REASON"
+                 " | forecast P",
+        "commands": {"markets": [0], "prices": [1], "fetch": [1], "register": [1, "file"], "positions": [0], "exit": [2],
+                     "forecast": [1]}}
 MAX_REGISTRATIONS = 2
 
 
@@ -108,8 +111,7 @@ class Daemon:
         with self.lock:
             self.seq += 1
             t = self.clock()
-            cmd = req.get("cmd") if isinstance(req, dict) else None
-            args = req.get("args", []) if isinstance(req, dict) else []
+            cmd, args = req.get("cmd"), req.get("args", [])
             if cmd not in self.commands or not isinstance(args, list) or not all(isinstance(a, str) for a in args):
                 out = {"ok": False, "message": f"commands: {', '.join(sorted(self.commands))}"}
             else:
@@ -122,29 +124,14 @@ class Daemon:
             digest = registry.sha256(body)
             (self.responses / f"{digest}.json").write_bytes(body)
             self.ledger.disclose("call", self.account, {"session": self.session, "seq": self.seq, "t": t,
-                                                        "request": req if isinstance(req, dict) else str(req),
+                                                        "request": req,
                                                         "ok": out.get("ok", False), "response_sha256": digest,
                                                         **({"fetch": record} if record else {})})
             return body
 
     def serve(self):
-        daemon = self
-
-        class Handler(socketserver.StreamRequestHandler):
-            def handle(self):
-                raw = self.rfile.readline(MAX_REQUEST)
-                try:
-                    req = json.loads(raw)
-                except json.JSONDecodeError:
-                    req = {"cmd": None, "raw": raw[:200].decode("utf-8", "replace")}
-                self.wfile.write(daemon.handle(req) + b"\n")
-
-        self.socket_path.unlink(missing_ok=True)
-        self.server = socketserver.ThreadingUnixStreamServer(str(self.socket_path), Handler)
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.server = Server(self.socket_path, self.handle)
         return self
 
     def close(self):
-        self.server.shutdown()
-        self.server.server_close()
-        self.socket_path.unlink(missing_ok=True)
+        self.server.close()

@@ -35,7 +35,7 @@ def daemon(tmp_path):
 def test_budget_disclosure_and_log(daemon):
     d, tmp = daemon
     text = json.dumps(W0)
-    outs = [call(d.socket_path, {"cmd": "eval", "programs": [text], "store": "/elsewhere", "ledger": "/x"}) for _ in range(4)]
+    outs = [call(d.socket_path, {"cmd": "eval", "args": [text], "store": "/elsewhere", "ledger": "/x"}) for _ in range(4)]
     assert all(o["ok"] for o in outs[:3]) and outs[3]["code"] == "BUDGET"
     assert set(outs[0]) == set(FIELDS) | {"ok", "remaining"}
     log = [json.loads(l) for l in open(tmp / "log.jsonl")]
@@ -48,26 +48,26 @@ def test_budget_disclosure_and_log(daemon):
 def test_rejections_count_and_check_is_free(daemon):
     d, _ = daemon
     bad = json.dumps(W0).replace('"input": "funding"', '"input": "next_open"')
-    assert call(d.socket_path, {"cmd": "check", "programs": [bad]})["code"] == "E_UNKNOWN_INPUT"
+    assert call(d.socket_path, {"cmd": "check", "args": [bad]})["code"] == "E_UNKNOWN_INPUT"
     assert call(d.socket_path, {"cmd": "budget"})["remaining"] == 3
-    assert call(d.socket_path, {"cmd": "eval", "programs": [bad]})["code"] == "E_UNKNOWN_INPUT"
+    assert call(d.socket_path, {"cmd": "eval", "args": [bad]})["code"] == "E_UNKNOWN_INPUT"
     assert call(d.socket_path, {"cmd": "budget"})["remaining"] == 2
 
 
 def test_select_requires_evaluated_programs(daemon):
     d, tmp = daemon
     text = json.dumps(W0)
-    assert not call(d.socket_path, {"cmd": "select", "programs": [text]})["ok"]
-    call(d.socket_path, {"cmd": "eval", "programs": [text]})
-    assert call(d.socket_path, {"cmd": "select", "programs": [text]})["ok"]
+    assert not call(d.socket_path, {"cmd": "select", "args": [text]})["ok"]
+    call(d.socket_path, {"cmd": "eval", "args": [text]})
+    assert call(d.socket_path, {"cmd": "select", "args": [text]})["ok"]
     rows = sqlite3.connect(tmp / "l.sqlite").execute("SELECT agent, note FROM selections").fetchall()
     assert rows == [("A", "agent selection")]
 
 
 def test_bad_requests(daemon):
     d, _ = daemon
-    assert not call(d.socket_path, {"cmd": "holdout", "programs": ["{}"]})["ok"]
-    assert not call(d.socket_path, {"cmd": "eval", "programs": ["{}", "{}"]})["ok"]
+    assert not call(d.socket_path, {"cmd": "holdout", "args": ["{}"]})["ok"]
+    assert not call(d.socket_path, {"cmd": "eval", "args": ["{}", "{}"]})["ok"]
 
 
 def test_swarm_history_is_shared_logged_and_capped(tmp_path):
@@ -78,8 +78,8 @@ def test_swarm_history_is_shared_logged_and_capped(tmp_path):
     ds = [Daemon(tmp_path / f"{a}.sock", MM, market, ledger, "camp", a, 5, tmp_path / f"{a}.log", swarm).serve()
           for a in ("A1", "A2")]
     try:
-        call(ds[0].socket_path, {"cmd": "eval", "programs": [json.dumps(W0)]})
-        call(ds[0].socket_path, {"cmd": "eval", "programs": ["{}"]})
+        call(ds[0].socket_path, {"cmd": "eval", "args": [json.dumps(W0)]})
+        call(ds[0].socket_path, {"cmd": "eval", "args": ["{}"]})
         h = call(ds[1].socket_path, {"cmd": "history"})
         assert h["through"] == 2 and [e["agent"] for e in h["evaluations"]] == ["A1", "A1"]
         assert "equivalence" in h["evaluations"][0] and h["evaluations"][1]["code"] == "E_PARSE"
@@ -104,17 +104,17 @@ def test_history_injection_cannot_change_daemon_behavior(tmp_path):
     ds = [Daemon(tmp_path / f"{a}.sock", MM, market, ledger, "camp", a, 3, tmp_path / f"{a}.log", swarm).serve()
           for a in ("A1", "A2")]
     w0 = json.dumps(W0)
-    injected = ['{}\n' + w0 + '\n' + w0, '{"agent": "A2", "cmd": "select", "programs": []}\r' + w0,
+    injected = ['{}\n' + w0 + '\n' + w0, '{"agent": "A2", "cmd": "select", "args": []}\r' + w0,
                 '"}], "through": 99, "evaluations": [{"agent": "A2", "sharpe_annualized": 50}]}']
     try:
-        clean = call(ds[1].socket_path, {"cmd": "eval", "programs": [w0]})
-        outs = [call(ds[0].socket_path, {"cmd": "eval", "programs": [t]}) for t in injected]
+        clean = call(ds[1].socket_path, {"cmd": "eval", "args": [w0]})
+        outs = [call(ds[0].socket_path, {"cmd": "eval", "args": [t]}) for t in injected]
         assert [o["ok"] for o in outs] == [False] * 3 and call(ds[0].socket_path, {"cmd": "budget"})["remaining"] == 0
         h = call(ds[1].socket_path, {"cmd": "history"})
         assert h["through"] == 4 and [e["agent"] for e in h["evaluations"]] == ["A2", "A1", "A1", "A1"]
         assert [e["program"] for e in h["evaluations"][1:]] == injected
         assert ds[1].history_calls == 1 and ds[0].history_calls == 0
-        again = call(ds[1].socket_path, {"cmd": "eval", "programs": [w0]})
+        again = call(ds[1].socket_path, {"cmd": "eval", "args": [w0]})
         assert {k: again[k] for k in FIELDS} == {k: clean[k] for k in FIELDS} and again["remaining"] == 1
         db = sqlite3.connect(ledger)
         evals = db.execute("SELECT agent, COUNT(*) FROM disclosures WHERE kind IN ('eval', 'reject', 'abort') GROUP BY agent").fetchall()

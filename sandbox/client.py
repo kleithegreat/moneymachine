@@ -1,17 +1,15 @@
-"""thesis-agent: a thesis agent's only tool. Talks to the daemon over ./thesis-agent.sock."""
+"""An agent's only tool inside the sandbox: one command per call, sent to its daemon over a Unix socket in
+the workspace. The workspace writes SPEC above this text: the socket's name, the usage line, and per command
+its arity (a count, or "+" for one or more) and whether its arguments are files to send as text."""
 
 import json
 import socket
 import sys
 
-USAGE = ("usage: ./thesis-agent markets | prices MARKET | fetch URL | register FILE | positions | exit ID REASON"
-         " | forecast P")
-ARITY = {"markets": 0, "prices": 1, "fetch": 1, "register": 1, "positions": 0, "exit": 2, "forecast": 1}
-
 
 def call(req):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.connect("thesis-agent.sock")
+    s.connect(SPEC["socket"])
     s.sendall(json.dumps(req).encode() + b"\n")
     out = b""
     while not out.endswith(b"\n"):
@@ -23,13 +21,14 @@ def call(req):
 
 
 def main(argv):
-    if not argv or argv[0] not in ARITY or len(argv) - 1 != ARITY[argv[0]]:
-        print(USAGE)
+    spec = SPEC["commands"].get(argv[0]) if argv else None
+    if spec is None or (len(argv) - 1 != spec[0] if spec[0] != "+" else len(argv) < 2):
+        print(SPEC["usage"])
         return 2
     args = argv[1:]
-    if argv[0] == "register":
+    if "file" in spec:
         try:
-            args = [open(args[0]).read()]
+            args = [open(a).read() for a in args]
         except OSError as e:
             print(json.dumps({"ok": False, "error": str(e)}))
             return 1

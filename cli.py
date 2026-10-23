@@ -95,7 +95,7 @@ COMMANDS = {
     "sweep": ("gate.sweep", "sweep", ["name", "data_root?", "version:int?"], "run the null, mixed or events sweep (resumable)"),
     "truth": ("gate.sweep", "truth", [], "judge each mixed-sweep promotion on fresh years"),
     "sweep-summary": ("gate.sweep", "summary", ["out"], "sweep counts and bounds"),
-    "holdout-size": ("gate.size", "main", ["work", "audit"], "the holdout test's locked calibration v3 (gate/locked_v3.py)"),
+    "holdout-size": ("gate.size", "main", ["work", "audit"], "the holdout test's locked calibration (gate/null_suite.py)"),
     "freeze-harness": ("gate.agent.campaigns", "freeze_harness", [], "record the agent harness hash, once"),
     "agent-null": ("gate.agent.campaigns", "run_series", ["name", "n:int"], "agent or swarm null campaigns (paced, resumable)"),
     "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),

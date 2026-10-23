@@ -6,16 +6,18 @@ FIELDS per evaluation (or a rejection code); and logs every call with its payloa
 
 import hashlib
 import json
-import socketserver
 import subprocess
 import tempfile
 import threading
 import time
 from pathlib import Path
 
+from sandbox.server import Server
+
 FIELDS = ("sharpe_annualized", "fills", "total_return", "max_drawdown")
-MAX_REQUEST = 1 << 20
 HISTORY_LIMIT = 20
+SPEC = {"usage": "usage: ./mm-agent check FILE | eval FILE | select FILE [FILE ...] | budget | history",
+        "commands": {"check": [1, "file"], "eval": [1, "file"], "select": ["+", "file"], "budget": [0], "history": [0]}}
 
 
 class Swarm:
@@ -108,7 +110,9 @@ class Daemon:
         return {"ok": True, "selected": len(hashes)}
 
     def handle(self, req):
-        cmd, texts = req.get("cmd"), req.get("programs", [])
+        cmd, texts = req.get("cmd"), req.get("args", [])
+        if not isinstance(texts, list) or not all(isinstance(t, str) for t in texts):
+            cmd, texts = None, []
         with self.lock:
             if cmd == "eval" and len(texts) == 1:
                 out = self.eval(texts[0])
@@ -123,28 +127,13 @@ class Daemon:
             else:
                 out = {"ok": False, "message": "bad request"}
             self.log(cmd, json.dumps(texts), out)
-        return out
+        return json.dumps(out).encode()
 
     def serve(self):
-        daemon = self
-
-        class Handler(socketserver.StreamRequestHandler):
-            def handle(self):
-                raw = self.rfile.readline(MAX_REQUEST)
-                try:
-                    out = daemon.handle(json.loads(raw))
-                except (json.JSONDecodeError, AttributeError):
-                    out = {"ok": False, "message": "bad request"}
-                self.wfile.write(json.dumps(out).encode() + b"\n")
-
-        self.socket_path.unlink(missing_ok=True)
-        self.server = socketserver.ThreadingUnixStreamServer(str(self.socket_path), Handler)
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.server = Server(self.socket_path, self.handle)
         return self
 
     def close(self):
-        self.server.shutdown()
-        self.server.server_close()
+        self.server.close()
         self.proc.stdin.close()
         self.proc.wait()
-        self.socket_path.unlink(missing_ok=True)

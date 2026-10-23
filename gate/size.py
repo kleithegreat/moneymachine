@@ -1,5 +1,5 @@
 """The holdout test's locked calibration v3 (PROGRESS.md, Stage 2, revision of 2026-10-21): GPT's suite of
-null series (gate/locked_v3.py, implemented from the spec alone), each cell (generator x length) of 20,000
+null series (gate/null_suite.py, implemented from the spec alone), each cell (generator x length) of 20,000
 series scored once by the betting p-value. Finished cells are kept in a work file, so a run resumes.
 """
 
@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
-from gate import locked_v3
+from gate import null_suite
 from gate.gate import holdout_pvalues
 
 SERIES = 20_000
@@ -19,9 +19,9 @@ REPORTED = (0.001, 0.0005)
 
 
 def series(gen, n, m=SERIES):
-    tag = f"{locked_v3.SUITE_ID}/{gen}/{n}"
+    tag = f"{null_suite.SUITE_ID}/{gen}/{n}"
     rng = np.random.default_rng(int.from_bytes(hashlib.sha256(tag.encode()).digest()[:8], "little"))
-    return locked_v3.GENERATORS[gen](rng, m, n)
+    return null_suite.GENERATORS[gen](rng, m, n)
 
 
 def cp_upper(k, m, confidence):
@@ -49,10 +49,10 @@ def report(pvalues):
 def main(work, audit):
     path = Path(work)
     pvalues = json.loads(path.read_text()) if path.exists() else {}
-    for gen in locked_v3.GENERATORS:
-        for n in locked_v3.LENGTHS:
+    for gen in null_suite.GENERATORS:
+        for n in null_suite.LENGTHS:
             if f"{gen}/{n}" not in pvalues:
                 pvalues[f"{gen}/{n}"] = holdout_pvalues(series(gen, n)).tolist()
                 path.write_text(json.dumps(pvalues))
                 print(gen, n, flush=True)
-    Path(audit).write_text(json.dumps({"suite": locked_v3.SUITE_ID, **report(pvalues)}, indent=1) + "\n")
+    Path(audit).write_text(json.dumps({"suite": null_suite.SUITE_ID, **report(pvalues)}, indent=1) + "\n")

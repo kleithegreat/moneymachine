@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 from gate.agent import harness
+from sandbox import session
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -13,7 +14,7 @@ def test_sandbox_view(tmp_path):
     secret_paths = [str(REPO), str(REPO / "data"), str(Path.home()), str(tmp_path), "/run", "/var"]
     script = "; ".join(f"test -e '{p}' && echo VISIBLE {p}" for p in secret_paths)
     script += "; n=0; for p in /proc/[0-9]*; do n=$((n+1)); done; echo $n; ls /work; ls -A /home; ls /etc"
-    r = subprocess.run(harness.sandbox_command(work, home, ["/bin/sh", "-c", script]), capture_output=True, text=True)
+    r = subprocess.run(session.sandbox_command(work, home, ["/bin/sh", "-c", script]), capture_output=True, text=True)
     assert "VISIBLE" not in r.stdout, r.stdout
     lines = r.stdout.split()
     assert int(lines[0]) <= 3
@@ -38,7 +39,7 @@ def test_swarm_agents_cannot_reach_each_other(tmp_path, monkeypatch):
              f"try:\n    s.connect({str(w2 / 'mm-agent.sock')!r}); print('CONNECTED')\n"
              "except OSError as e:\n    print('refused', e.errno)\n"
              "print(sorted(os.listdir('/work')))\n")
-    r = subprocess.run(harness.sandbox_command(w1, h1, [sys.executable, "-c", probe]), capture_output=True, text=True)
+    r = subprocess.run(session.sandbox_command(w1, h1, [sys.executable, "-c", probe]), capture_output=True, text=True)
     other.close()
     assert "VISIBLE" not in r.stdout and "CONNECTED" not in r.stdout and "refused" in r.stdout, r.stdout + r.stderr
     assert "mm-agent.sock" not in r.stdout.splitlines()[-1]

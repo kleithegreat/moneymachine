@@ -19,6 +19,7 @@ from gate import gate, markets, search, sweep
 from gate.agent import harness
 from gate.kernel import MM
 from ingest.policy import DAY
+from sandbox import session
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "data" / "agent"
@@ -26,7 +27,6 @@ FROZEN = REPO / "audit/stage3/harness.json"
 BUDGET = 100
 NULL_DAYS, NULL_HOLDOUT_DAYS, NULL_REPORT_FROM_DAY = 730, 180, 640
 REAL_REPORT_FROM = 1782864000000  # 2026-07-01, after the agent model's knowledge cutoff (June 2026)
-PERMITTED = {"Read", "Write", "Bash"}
 MIN_SWARM_EVALUATIONS = 200
 SPACING = 5 * 3600
 RETRY = 1800
@@ -57,19 +57,10 @@ def audit_run(run_dir, ledger, campaign, agent="A"):
                       (campaign, agent)).fetchone()[0]
     history_rows = db.execute("SELECT COUNT(*) FROM disclosures WHERE campaign = ? AND agent = ? AND kind = 'history'",
                               (campaign, agent)).fetchone()[0]
-    tools, denied = [], []
-    for line in open(Path(run_dir) / "transcript.jsonl"):
-        try:
-            d = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if d.get("type") == "assistant":
-            tools += [c["name"] for c in d["message"]["content"] if c.get("type") == "tool_use"]
-        if d.get("type") == "result":
-            denied = d.get("permission_denials", [])
+    use = session.tool_use(Path(run_dir) / "transcript.jsonl", harness.CLIENT)
     return {"daemon_evals": evals, "ledger_rows": rows, "history_calls": histories, "history_rows": history_rows,
-            "match": evals == rows and histories == history_rows, "tools": sorted(set(tools)),
-            "outside_permitted": sorted(set(tools) - PERMITTED), "denials": len(denied)}
+            "match": evals == rows and histories == history_rows,
+            **{k: use[k] for k in ("tools", "outside_permitted", "denials")}}
 
 
 def cross_agent_history(run_dirs):
@@ -130,7 +121,7 @@ def available():
     """Whether the agent model answers now: a tiny call before a campaign starts, so a spent
     subscription delays a campaign instead of interrupting one."""
     try:
-        r = subprocess.run([harness.claude_binary(), "-p", "Reply with OK.", "--model", harness.MODEL, "--output-format", "json"],
+        r = subprocess.run([session.claude_binary(), "-p", "Reply with OK.", "--model", harness.MODEL, "--output-format", "json"],
                            capture_output=True, text=True, timeout=300)
         return r.returncode == 0 and not json.loads(r.stdout).get("is_error", True)
     except (subprocess.TimeoutExpired, json.JSONDecodeError):

@@ -65,7 +65,6 @@ Order while waiting on recording windows (human, 2026-10-20): (a) behavior-prese
 
     Adoption waits on C6.4.
   - **C6.1:** conversion interning now has its dated revision in `SEMANTICS.md` §5 and the stage 6 criteria. Bend's L5 `--verdict` was re-run at `69e91e0` and archived (`audit/stage6/bend-l5-verdict.txt`).
-  - After stage 6 exits comes the erasure pass (human decision of 2026-10-23).
 - **Stage 7 candidate sources (human, 2026-10-22; no work before stage 5 exits).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
@@ -784,6 +783,15 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 ## Log
 
+- 2026-10-23: Erasure pass (human decision; done during the judged C6.4 run, touching no binary it uses).
+  - The research agents (`gate/agent`) and the thesis agents (`thesis/`) now share one sandbox, `sandbox/`. It holds one in-sandbox client configured by each track's command spec, one Unix-socket server, and the session code: workspace, tool flags, bubblewrap command, run loop, transcript reading and identity hash.
+  - The tracks keep only what genuinely differs:
+    - research: the budget, the disclosed fields, the per-run daemon log and the swarm history;
+    - thesis: the commands, ledger call records with stored responses, the retrieval allowlist.
+  - Both requests now carry `args`. The research harness's dead `Edit(//work/**)` permission is gone. Neither harness had been frozen, so no recorded identity changes.
+  - Renames: `reference/c64.py` → `differential.py`, `c64_cases.py` → `edge_markets.py`, `c65.py` → `benchmark.py`, `gate/locked_v3.py` → `gate/null_suite.py` (the suite's identity stays in its `SUITE_ID`).
+  - `docs/whitepaper.pdf` is no longer committed; `nix build .#whitepaper` renders it, and CLAUDE.md says so.
+
 - 2026-10-23: Faster checks (human decision): `pytest-xdist` added to the flake, the mutants run 4 at a time with a cargo target per slot, and `cli check` runs pytest, cargo tests and mutants concurrently. The mutant "C5 derivation without the availability margin" escaped once the window moved to the tick, because its test item no longer sat where the margin decides the hour. The item now does, and the mutant is caught.
 
 - 2026-10-23: Stage 5's window now ends at the tick (C5.5, from GPT's third review). The derived event files made under the old hour-ending-at-H window are deleted from the holdout store, since a rule's superseded output is never read. Their sha256: `1792704810230.parquet` aad75c0d58ceb587…; `1792717828079.parquet` 50b40e7a99ece7a4…; `1792704810571.parquet` f709fe288d06f69c…; `1792717828430.parquet` c6a99339d38bb146…. Their lineage manifests and the coverage report built on them are deleted too (git keeps them). The exit procedure re-derives everything.
@@ -813,7 +821,7 @@ Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
 - 2026-10-21 21:00 UTC: The locked holdout calibration v3 passed (`audit/stage2/holdout-size-locked-v3.json`, 660,000 series, 11 generators × 3 lengths). All 99 judged pairs pass. The test rejected 4 series in all, at 0.05 and all in right_tail/1080 (rate 0.0002, upper bound 0.0008). At 0.01 and 0.005 it rejected none, so every upper bound is 0.0004. The smallest p over all series was 0.037. It is far more conservative than its nominal level on these nulls, as Ville's bound allows, and it shows how little such a test can reject on holdout-length series. `criteria/test_stage2.py::test_holdout_test_locked_calibration` passes. Calibration v1 and v2.1 stay recorded as failures.
 
-- 2026-10-21: Calibration v3 implemented before any v3 run. The gate's holdout p-value is the pre-registered betting test (`gate.holdout_pvalues`), and the studentized bootstrap, the lag window, the calibration table and the activity floor are deleted. GPT wrote the locked suite `gate/locked_v3.py` (committed verbatim) from a spec alone, with tools denied. It has 11 generators: the 9 the spec required (peso, peso_noisy, ruin, left_tail, right_tail, garch_t, sparse_bursts, doubling, vol_regime) and 2 of its own: `gpt_a`, a crash whose hazard rises toward the horizon so 10% of paths show only gains, and `gpt_b`, which stops trading once the running mean looks significant. A check on 4,000 series per generator found every mean within 1.3 SE of 0, every value ≥ −1, and the truncated-t₄ variance exactly 64/35. Paper §8 now states the betting test, its scope assumption and Bahadur–Savage, and that power on a 91-day holdout is very low under any valid test.
+- 2026-10-21: Calibration v3 implemented before any v3 run. The gate's holdout p-value is the pre-registered betting test (`gate.holdout_pvalues`), and the studentized bootstrap, the lag window, the calibration table and the activity floor are deleted. GPT wrote the locked suite `gate/null_suite.py` (committed verbatim) from a spec alone, with tools denied. It has 11 generators: the 9 the spec required (peso, peso_noisy, ruin, left_tail, right_tail, garch_t, sparse_bursts, doubling, vol_regime) and 2 of its own: `gpt_a`, a crash whose hazard rises toward the horizon so 10% of paths show only gains, and `gpt_b`, which stops trading once the running mean looks significant. A check on 4,000 series per generator found every mean within 1.3 SE of 0, every value ≥ −1, and the truncated-t₄ variance exactly 64/35. Paper §8 now states the betting test, its scope assumption and Bahadur–Savage, and that power on a 91-day holdout is very low under any valid test.
 
 - 2026-10-21: I10, losses capped at equity (stage 2 calibration v3's scope assumption, B = 1), landed before C1.4 or any judged run recorded the kernel hash. A liquidation fills at the bar's adverse extreme, which can lie past the bankruptcy price, so `mm` could let equity go negative. Now a step whose equity is not positive is a bankruptcy: what is still held is liquidated, the venue absorbs the shortfall, the order due then is unfilled, and every later return is 0. A return below −1 aborts with R_BOUND, and accounting fails on a non-finite difference. Fixture `bankruptcy_caps_the_loss_at_equity` and mutant I10 cover it. The Lean model mirrors it, `L6_bounded` proves the check never fires, and `L4_orders` has a dated revision. Runs agree with `mm` bit for bit.
 
