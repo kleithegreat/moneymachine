@@ -22,8 +22,37 @@ policy for reference rates is certified as "never revised" with evidence.
 The fixing time is in the series' `TITLE_COMPL`: "ECB reference exchange rate, US dollar/Euro, 2.15 pm (C.E.T.)".
 It is a reference time, not a publication time.
 
+Series dates (2026-10-23, from each series' full history, fetched by the data layer into `data/datalayer/raw/`; dates
+only, since the values are prospective). Except as listed, a series runs from 1999-01-04 to 2026-10-23 with 7,183
+observations: AUD, CAD, CHF, CZK, DKK, GBP, HKD, HUF, IDR, JPY, KRW, MXN, MYR, NOK, NZD, PHP, PLN, SEK, SGD, THB, USD, ZAR.
+- ARS: 2000-01-13 to 2020-10-30, 5383 observations
+- BGN: 2000-07-19 to 2025-12-31, 6573 observations
+- BRL: 2000-01-13 to 2026-10-23, 6915 observations
+- CNY: 2000-01-13 to 2026-10-23, 6915 observations
+- CYP: 1999-01-04 to 2007-12-31, 2346 observations
+- DZD: 2000-01-13 to 2020-10-30, 5383 observations
+- EEK: 1999-01-04 to 2010-12-31, 3130 observations
+- GRD: 1999-01-04 to 2000-12-29, 520 observations
+- HRK: 2000-01-13 to 2022-12-30, 5941 observations
+- ILS: 2000-01-13 to 2026-10-23, 6915 observations
+- INR: 2000-01-13 to 2026-10-23, 6915 observations
+- ISK: 1999-01-04 to 2026-10-23, 4776 observations
+- LTL: 1999-01-04 to 2014-12-31, 4159 observations
+- LVL: 1999-01-04 to 2013-12-31, 3904 observations
+- MAD: 2000-01-13 to 2020-10-30, 5383 observations
+- MTL: 1999-01-04 to 2007-12-31, 2346 observations
+- RON: 1999-01-04 to 2026-10-23, 7121 observations
+- RUB: 1999-01-04 to 2022-03-01, 5994 observations
+- SIT: 1999-01-04 to 2006-12-29, 2085 observations
+- SKK: 1999-01-04 to 2008-12-31, 2608 observations
+- TRY: 1999-01-04 to 2026-10-23, 7121 observations
+- TWD: 2000-01-13 to 2020-10-30, 5383 observations
+
+A short count over a full span means missing fixings within it (ISK 4,776, RON and TRY 7,121), whose dates come from the recorded files. A last date before 2026-10-23
+means the series ceased: euro adoption, RUB's suspension from 2022-03-02, and the non-reference series ARS, DZD,
+MAD and TWD at 2020-10-30.
+
 Open items (PROGRESS.md, Now, data layer):
-- series start and end dates: the service has no `availableconstraint` endpoint;
 - the publication calendar and time;
 - YC series and revision policy.
 
