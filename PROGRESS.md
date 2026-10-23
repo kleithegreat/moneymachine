@@ -12,7 +12,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   1. `data/tmp/after-c07.sh` (untracked, resumable): C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the stage 2 sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`). Estimated 2 h, in an 8 GB scope.
   2. `data/tmp/stage10-start.sh`: `recorder-restart data/live 480` (the HL client's 10 s timeout takes effect then; check that the day's polls file still parses), then one uncounted dry main session. Check `harness.audit` against its transcript, then `thesis-freeze` (commit `audit/stage10/manifest.json`), then `thesis-run` detached in its own scope: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`. Builder (HIP-3) marks are recorded from then on.
   3. Stage 3: `freeze-harness`, `agent-null agent 20` (paced one campaign per 5 h), `agent-summary`. Stage 4's `agent-null swarm 10` after stage 3's series.
-  4. **Stage 3:** its holdout moved to [2026-11-01, 2027-01-31) (revision of 2026-10-23, after GPT's review), so the real run waits until early February 2027. Before C3.2 runs, its null schedule must change to the revision's exact intervals (search [0, 3300), embargo [3300, 4572), holdout [4572, 5118) on 853 days) in `gate/agent/campaigns.py`. `REAL_REPORT_FROM` and the holdout fetch also follow it.
+  4. **Stage 3** (revision of 2026-10-23, human decision): the holdout is [2026-08-01, 2026-09-30), 60 days from the reserved `data/holdout/`, and the real campaign is labeled a pipeline validation run, not a test for edge. Expected power is about zero (stated in the criteria). C3.2 mirrors it (holdout from day 670 of 730). The forward window [2026-11-01, 2027-01-31) is a later, separate confirmation for anything promoted.
   5. Stage 10's descriptive Polymarket baseline (C10 revision of 2026-10-23): an optional outcome-market field at registration, and the report's comparison, before `thesis-freeze`.
   6. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, docstrings that cite PROGRESS.md sections now in `audit/criteria.md`, `kernel/tests/timing/FORMAT.md` folded into its generator, `oci-cli` into the flake, `duckdb` out of it.
 - **Stages 1, 2, 5, 6, 10.**
@@ -26,6 +26,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **Stage 5 sources:** `data/sources_live`, delvingbitcoin.org, Snapshot and the clock log.
   - **Keyless data layer:** `data/datalayer`, from 2026-10-23 18:39 UTC, about 30 MB a day. Feeds are declared in `venue/sources/datalayer.json`: ECB EXR, BIS, CFTC (3 reports), Treasury, GDELT events, NWS alerts, openFDA, EIA (manifest and petroleum), Polymarket (active and resolved). Bodies are gzip-compressed under `raw/<sha256>.gz`. ECB and every other source without past versions are prospective only.
 - **Data.** `data/` is about 650 MB with 105 GB free, and the hourly `mm-diskguard.timer` (`ops/diskguard.sh`) adds a Blockers line below 20 GB. Regenerable and duplicate files were deleted with their hashes in `audit/data-deletions.json`. After stage 0: `live.read` learns `.jsonl.zst`, and closed day files (about 410 MB of polls) are compressed with zstd once their plain sha256s are recorded in `audit/`.
+- **Future option (human, 2026-10-23):** a research arm whose model has an earlier knowledge cutoff, which would free more historical holdout data than the current model's June 2026 cutoff allows.
 - **Redundant recording.** Only the HL recorder is getting a second host. The data layer and the stage 5 sources keep no past versions upstream and run on this PC alone; extending the cloud host to them follows once its HL recorder is stable.
 - **Second HL recorder on Oracle Cloud (human, 2026-10-23), running since 2026-10-23 21:57 UTC.** It is an Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`).
   - `mm-recorder.service` runs `nix develop .#recorder` at 480/min, capped at 600 MB. `mm-clock.timer` logs the VM's NTP offset every 5 min.
@@ -60,11 +61,6 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 ## Decisions awaiting the human's review
 
 Taken autonomously under CLAUDE.md's rules. Each gives what, why, what GPT said, and how to reverse it. They are removed once reviewed.
-
-- **2026-10-23: stage 3's holdout moved to [2026-11-01, 2027-01-31), so its real run waits until February 2027.**
-  - **Why:** zero margin after the June cutoff violated the paper's "generous margin". A September-to-December window would have overlapped the C0.7 execution table's late-October data, which searches use. A 60-day window is uncalibrated.
-  - **GPT:** extending forward is preferable to a later start, but the cost table must not overlap the holdout; it gave the two clean options this follows.
-  - **Reverse:** a later dated revision, before any stage 3 run, choosing another window. Nothing has run on any of them.
 
 - **2026-10-23: stage 6 exits with Lean adopted, and C6.5's frozen thread configuration recorded as a known limitation.**
   - **Why:** the same exit was rejected for the third time, and the remaining gap is performance reproducibility, which changes neither the ranking nor any decision (rule 3).

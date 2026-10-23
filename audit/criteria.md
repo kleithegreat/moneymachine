@@ -276,6 +276,21 @@ Each arm has a budget of 100 evaluations. An evaluation is any `mm eval` call, i
   - **Release.** The real campaign starts only after C3.1, C3.2 and the procedure freezes. Both arms and both finalist freezes precede one primary holdout evaluation and release. Primary promotion decisions are committed before the twice-cost and coverage diagnostics are released or used, and the diagnostic methods are fixed before the holdout is accessed.
   - **Error claims.** This revision is made without any holdout feedback and authorizes no further campaign or holdout opportunity. Holm claims remain per arm, so across both arms the union bound is twice the per-arm level. Moving the holdout later reduces possible overlap with training; on its own it does not prove an unchanged false-discovery probability, which still rests on the validity of the whole registered holdout procedure.
   - **Timing.** The real run waits for the fetch after 2027-01-31 (early February 2027).
+- *Revision of that revision, 2026-10-23 (human decision, before any stage 3 run: optimize for fast iteration where rigor permits); it replaces it.*
+  - **Holdout.** The stage 3 holdout is [2026-08-01T00:00:00Z, 2026-09-30T00:00:00Z), for both arms: 60 days, 360 decision steps, taken from the reserved `data/holdout/`, which no search has touched.
+    - It leaves a one-month margin after the model's stated June 2026 knowledge cutoff.
+    - It ends before the October data the C0.7 execution table is fitted on, so no data the searches use falls in or after the holdout's own period.
+    - The embargo is [2026-04-03, 2026-08-01): neither arm sees results from it. The search period, its dataset version and U are unchanged.
+  - **Validity at this length.** The betting test is anytime-valid, so its level holds at 360 steps. The v3 locked suite judged other lengths; this one is not separately calibrated.
+  - **Expected power, stated.** It is close to zero.
+    - For one finalist (no Holm), per-step net returns simulated as normal with the gate's own `holdout_pvalues`, 4,000 series per cell: the rejection rate at p ≤ 0.05 is 0 at 360 steps for an annualized Sharpe ratio up to 20 at a per-step volatility up to 2%. It is 0.006 at a mean of 1.07% per 4h step (volatility 5%), and 0.94 at 2.14%.
+    - At 546 steps the same means give 0.33 and 1.0.
+    - At the bet cap, reaching p ≤ 0.05 needs a mean net return of about 1.66% per 4h step at 360 steps, against 1.1% at 546.
+    - Zero promotions is therefore the expected outcome.
+  - **What the campaign is.** The real campaign is a pipeline validation run, not a test for edge. It checks that the agent harness, the ledger, the gate, the mechanism check and the holdout release work end to end on real data, under the error control they claim. This label appears in these criteria and in every stage 3 report and result file, and no result is described as evidence of edge or its absence.
+  - **Null calibration.** C3.2 mirrors these lengths on its 730-day null markets: search [0, 3300), embargo [3300, 4020) and holdout [4020, 4380), in 4h decision steps. Its holdout is reported from day 670, replacing "day 640 of 730".
+  - **Later confirmation.** The forward window [2026-11-01, 2027-01-31), after the execution table's data, is kept as a later, separate confirmation for anything this campaign promotes, under the ingestion, access and release rules of the replaced revision. It does not block stage 3.
+  - **Kept from the replaced revision.** The live-recordings exclusion, the release order, and per-arm Holm claims (union bound twice the per-arm level) all still apply.
 
 **Harness (arm A).** The harness is frozen and hashed before C3.2. The hash covers the brief text, model id, CLI flags, permission set, turn limit (200) and wall-time limit (2 h), and the `mm-agent` client and daemon. A change means rerunning C3.2 with fresh campaign ids.
 - **Sandbox:** the agent runs `claude -p` inside bubblewrap. Its filesystem holds only its workspace (DSL.md, the paper's research-direction and mechanism sections, the brief, and the `mm-agent` client) and a private HOME, with no repo, no `data/`, no ledger, no user settings, memory or MCP.

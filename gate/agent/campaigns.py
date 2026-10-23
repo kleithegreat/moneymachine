@@ -25,8 +25,9 @@ REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "data" / "agent"
 FROZEN = REPO / "audit/stage3/harness.json"
 BUDGET = 100
-NULL_DAYS, NULL_HOLDOUT_DAYS, NULL_REPORT_FROM_DAY = 730, 180, 640
-REAL_REPORT_FROM = 1782864000000  # 2026-07-01, after the agent model's knowledge cutoff (June 2026)
+NULL_DAYS, NULL_HOLDOUT_DAYS, NULL_REPORT_FROM_DAY = 730, 180, 670
+REAL_REPORT_FROM = 1785542400000  # 2026-08-01: a month after the agent model's June 2026 cutoff (stage 3 revision of 2026-10-23)
+LABEL = "pipeline validation run, not a test for edge (stage 3 revision of 2026-10-23)"
 MIN_SWARM_EVALUATIONS = 200
 SPACING = 5 * 3600
 RETRY = 1800
@@ -177,7 +178,7 @@ def real(data_root, version, cid="stage3-real"):
     results = gate.holdout_run(market, ledger, cid, {**kept_a, **kept_b}, REAL_REPORT_FROM)
     promoted_a, holdout_a = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_a}), results)
     promoted_b, holdout_b = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_b}), results)
-    result = {"id": cid, "version": int(version), "qualifications": "PROGRESS.md, Qualifications, stage 3", "agent_run": run, "audit": audit_run(work / "run", ledger, cid),
+    result = {"id": cid, "version": int(version), "label": LABEL, "qualifications": "PROGRESS.md, Qualifications, stage 3", "agent_run": run, "audit": audit_run(work / "run", ledger, cid),
               "A": {"evaluations": run["spent"], "search": report_a, "mechanism": mech, "kept": list(kept_a),
                     "holdout": holdout_a, "promoted": promoted_a},
               "B": {"evaluations": spent_b, "search": report_b, "kept": list(kept_b), "holdout": holdout_b,
@@ -232,5 +233,5 @@ def summary(name, out):
               "evaluations": [r.get("evaluations", r.get("agent_run", {}).get("spent")) for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],
               "spreads": spreads(rows), f"{searcher}_null_n2": spreads(baseline), "statement": SMOKE[name],
-              "qualifications": f"PROGRESS.md, Qualifications, stage {STAGE[name]}"}
+              "qualifications": f"PROGRESS.md, Qualifications, stage {STAGE[name]}"} | ({"label": LABEL} if name == "agent" else {})
     Path(out).write_text(json.dumps(report, indent=1) + "\n")
