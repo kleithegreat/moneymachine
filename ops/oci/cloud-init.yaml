@@ -1,0 +1,36 @@
+#cloud-config
+# The second Hyperliquid recorder (PROGRESS.md; ops/oci/provision.sh). The VM never connects to the operator's PC;
+# the PC pulls its recordings over SSH.
+package_update: true
+packages: [git, rsync, zstd]
+users:
+  - default
+  - name: mm
+    shell: /bin/bash
+    lock_passwd: true
+write_files:
+  - path: /etc/systemd/system/mm-recorder.service
+    content: |
+      [Unit]
+      Description=moneymachine Hyperliquid recorder (second host)
+      After=network-online.target nix-daemon.service
+      Wants=network-online.target
+      [Service]
+      User=mm
+      Environment=HOME=/home/mm
+      WorkingDirectory=/home/mm/moneymachine
+      ExecStart=/nix/var/nix/profiles/default/bin/nix --extra-experimental-features "nix-command flakes" develop --command python -m cli record data/universe.json venue/hyperliquid/rules.json /home/mm/live 480
+      Restart=always
+      RestartSec=30
+      KillSignal=SIGTERM
+      TimeoutStopSec=120
+      MemoryMax=2G
+      [Install]
+      WantedBy=multi-user.target
+runcmd:
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - curl -fsSL https://nixos.org/nix/install -o /tmp/nix-install && HOME=/root sh /tmp/nix-install --daemon --yes
+  - mkdir -p /home/mm/.ssh /home/mm/live && cp /home/ubuntu/.ssh/authorized_keys /home/mm/.ssh/ && chown -R mm:mm /home/mm
+  - sudo -u mm ssh-keygen -t ed25519 -N '' -C mm-oci-deploy -f /home/mm/.ssh/deploy
+  - sudo -u mm sh -c 'ssh-keyscan github.com >> /home/mm/.ssh/known_hosts'
+  - systemctl daemon-reload

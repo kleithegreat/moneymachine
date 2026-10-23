@@ -1,0 +1,7 @@
+[Unit]
+Description=Pull the cloud HL recorder's files (moneymachine)
+
+[Service]
+Type=oneshot
+Environment=PATH=/etc/profiles/per-user/kevin/bin:/run/current-system/sw/bin
+ExecStart=/home/kevin/repos/moneymachine/ops/oci/pull.sh

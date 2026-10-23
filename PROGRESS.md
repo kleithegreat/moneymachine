@@ -28,6 +28,8 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 ## Blockers
 
+- **Proposed for the human's decision: merging both HL recorders' snapshots for future windows.** The current stage 0 window is judged on the local recorder alone, as frozen. For any later window judged on recorded L2 snapshots (C0.3/C0.7 style), the proposal is a labeled amendment frozen before that window starts. The window's L2 series per coin would be the union of both hosts' snapshots, with a gap counted only where neither host has a snapshot within the limit, and every snapshot keeping its host and its own send and receive times. It is not adopted autonomously: by bridging one host's outages it lets more windows qualify, which loosens the window-restart rule (CLAUDE.md, rule 2).
+
 - **Free sources that need the human's registration (stages 8 and 10).** Keys go in `.keys.env` (gitignored), one `NAME=value` per line.
   - `FRED_API_KEY` (FRED/ALFRED): macro and rates at the backtest tier's data bar (C8.2), since ALFRED gives each value's vintage and release dates.
   - `BLS_API_KEY`: labor and prices, and the BLS release calendar.
