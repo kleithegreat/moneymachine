@@ -1,0 +1,22 @@
+{
+ "hardware": {
+  "cpu": "11th Gen Intel(R) Core(TM) i5-11400 @ 2.60GHz",
+  "logical_cpus": 12,
+  "kernel": "6.18.56",
+  "threads": 1
+ },
+ "builds": {
+  "commit": "1981f94abaa1d2f2d8f59fbe99cd2fda553c446b",
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14) (built from a source tarball)",
+  "lean": "Lean (version 4.34.0, x86_64-unknown-linux-gnu, commit 293d5d0c0c3f3dded4688b3ccd6a33939ac5102b, Release)",
+  "mm_profile": "release (kernel/Cargo.toml)",
+  "refmm": "lake build (reference/lean/lakefile.toml)"
+ },
+ "inputs": {
+  "differential_manifest_sha256": "b5a09fed85c89fc286b255fde3dea8a3c20c42998ed1d44077d548f85d25b040",
+  "w0_sha256": "03c5526c00ccc7cd83c6cec3959efc2bdada45f2c4b15acf8b78bb1931a6c4fa",
+  "throughput_programs_sha256": "aab2f9c289e99c26b7a3783abee9f985aaf74ea16207e5d6dfdd381a12c2149c",
+  "reps": 5,
+  "throughput_programs": 100
+ }
+}
