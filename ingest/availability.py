@@ -29,8 +29,9 @@ def load(live_dir):
     return read(live_dir, "polls")
 
 
-def window(live_dir, after=RECORDING_FROM):
-    """(start, end) of the judged span, or None while no complete one exists yet."""
+def window(live_dir, sources_dir, after=RECORDING_FROM):
+    """(start, end) of the judged span, or None while no complete one exists yet. A gap of more than CLOCK_SLACK
+    in the NTP log (`sources_dir`) restarts it, like an L2 gap (C0.3 amendment of 2026-10-23)."""
     sent, rows = defaultdict(list), defaultdict(list)
     for p in load(live_dir):
         if p["kind"] == "l2" and p["sent"] >= after:
@@ -42,6 +43,8 @@ def window(live_dir, after=RECORDING_FROM):
     gaps = [(a, b) for ts in sent.values() for a, b in zip(sorted(ts), sorted(ts)[1:]) if b - a > MAX_GAP]
     gaps += [(a, b) for (_, _, boundary), ts in rows.items() for a, b in zip([boundary] + sorted(ts), sorted(ts))
              if b - a > BOUNDARY_GAP]
+    clock = sorted(t for t, _ in ntp_readings(sources_dir))
+    gaps += [(a, b) for a, b in zip(clock, clock[1:]) if b - a > CLOCK_SLACK]
     gaps.sort()
     start = max(min(ts) for ts in sent.values())
     for a, b in gaps:
@@ -51,10 +54,10 @@ def window(live_dir, after=RECORDING_FROM):
     return (start, end) if all(max(ts) >= end - MAX_GAP for ts in sent.values()) else None
 
 
-def judged(live_dir):
+def judged(live_dir, sources_dir):
     """The polls C0.3 and C0.7 judge: L2 snapshots inside the window, and the boundaries whose
     first and verify polls both fall inside it."""
-    span = window(live_dir)
+    span = window(live_dir, sources_dir)
     if span is None:
         sys.exit("no complete 24 h window yet")
     start, end = span
@@ -129,6 +132,6 @@ def ntp_readings(sources_dir):
 
 def report(live_dir, sources_dir, out):
     """The judged window, the analysis of the polls inside it, and the host clock's NTP record over it."""
-    span = window(live_dir)
-    Path(out).write_text(json.dumps({"window": span, **analyze(judged(live_dir)),
+    span = window(live_dir, sources_dir)
+    Path(out).write_text(json.dumps({"window": span, **analyze(judged(live_dir, sources_dir)),
                                      "clock": clock(ntp_readings(sources_dir), span)}, indent=1) + "\n")

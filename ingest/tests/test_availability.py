@@ -23,11 +23,11 @@ def test_window_restarts_after_a_gap_and_needs_a_full_span(tmp_path):
     gap_at = t0 + HOUR
     holed = [t for t in steady if not gap_at < t < gap_at + MAX_GAP + S]
     root = write(tmp_path, {"A": steady, "B": holed})
-    start, end = availability.window(root, after=t0)
+    start, end = availability.window(root, root, after=t0)
     assert start == min(t for t in holed if t > gap_at) and end == start + SPAN
-    assert availability.window(root, after=t0 + SPAN + MAX_GAP) is None
+    assert availability.window(root, root, after=t0 + SPAN + MAX_GAP) is None
     edge = write(tmp_path, {"A": list(range(t0, t0 + SPAN - MAX_GAP + 1, S))})
-    assert availability.window(edge, after=t0) == (t0, t0 + SPAN)
+    assert availability.window(edge, edge, after=t0) == (t0, t0 + SPAN)
 
 
 def test_a_late_boundary_poll_restarts_the_window(tmp_path):
@@ -39,7 +39,18 @@ def test_a_late_boundary_poll_restarts_the_window(tmp_path):
             f.write(json.dumps({"kind": "funding", "coin": "A", "boundary": b, "purpose": "first", "sent": recv, "recv": recv}) + "\n")
         f.write(json.dumps({"kind": "funding", "coin": "A", "boundary": b + HOUR, "purpose": "first",
                             "sent": b + HOUR + 35_000, "recv": b + HOUR + 35_000}) + "\n")
-    assert availability.window(tmp_path, after=t0) == (b + 45_001, b + 45_001 + SPAN)
+    assert availability.window(tmp_path, tmp_path, after=t0) == (b + 45_001, b + 45_001 + SPAN)
+
+
+def test_a_clock_log_gap_restarts_the_window(tmp_path):
+    t0 = 10 * SPAN
+    write(tmp_path, {"A": list(range(t0, t0 + 2 * SPAN, S))})
+    restart = t0 + 200_000 + availability.CLOCK_SLACK + 1
+    readings = [t0 - 300_000, t0 + 200_000] + list(range(restart, t0 + 2 * SPAN, 300_000))
+    with open(tmp_path / "sources-x.jsonl", "w") as f:
+        for t in readings:
+            f.write(json.dumps({"source": "clock", "key": "timesyncd", "sent": t, "recv": t, "data": {"offset_ms": 1.5}}) + "\n")
+    assert availability.window(tmp_path, tmp_path, after=t0) == (restart, restart + SPAN)
 
 
 def test_a_bar_is_observed_once_its_close_has_passed_without_waiting_for_the_next_bar():

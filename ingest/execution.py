@@ -102,13 +102,13 @@ def relative_ranges(polls, report):
     return {coin: [min(r), max(r)] for coin, r in sorted(ranges.items())}
 
 
-def calibrate(live_dir, model_out, report_out):
+def calibrate(live_dir, sources_dir, model_out, report_out):
     """The cost model from the judged L2 snapshots to `model_out`, its held-out validation to `report_out`."""
-    polls = list(judged(live_dir))
+    polls = list(judged(live_dir, sources_dir))
     model, report = calibrate_and_validate(costs_by_cell(polls))
     coins = json.loads((Path(__file__).resolve().parents[1] / "data" / "universe.json").read_text())["universe"]
     model, flagged = fill_missing(model, coins)
     Path(model_out).write_text(json.dumps({"quantile": QUANTILE, "calibration_fraction": CALIBRATION,
                                            "no_live_book_cellwise_max": flagged, "cost_bps_ex_fee": model,
                                            "calibration_relative_range": relative_ranges(polls, report)}, indent=1) + "\n")
-    Path(report_out).write_text(json.dumps({"window": window(live_dir), **report}, indent=1) + "\n")
+    Path(report_out).write_text(json.dumps({"window": window(live_dir, sources_dir), **report}, indent=1) + "\n")

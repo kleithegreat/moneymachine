@@ -61,5 +61,7 @@ on June 15, 2026", read from the app's `TermsOfUse` bundle on 2026-10-22) govern
 > interact with the Interface in ways that exceed reasonable usage, bypass rate limits, cause denial-of-service
 > conditions, or disrupt the normal functioning of Hyperliquid or related systems.
 
-The operator is in the United States. Whether 1.6 reaches read-only use of the public info API is open,
-awaiting a human decision (Blockers). We never use the Interface, a VPN or a proxy.
+The operator is in the United States. Human decision of 2026-10-23: keep using the read-only public info API.
+Clause 1.6 restricts the web Interface; our use is read-only public market data, with no account, no trading,
+no VPN and no proxy. Revisit if Hyperliquid publishes API terms, and before any step toward execution. No paid
+data vendors (Tardis and the like) are used instead.

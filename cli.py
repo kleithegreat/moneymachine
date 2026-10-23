@@ -49,7 +49,7 @@ COMMANDS = {
     "record": ("ingest.record", "main", ["universe_path", "rules_path", "out_dir"], "the live Hyperliquid recorder (runs until killed)"),
     "availability": ("ingest.availability", "report", ["live_dir", "sources_dir", "out"],
                      "first observations of settled funding and closed bars in the judged window, and the NTP clock record over it"),
-    "execution": ("ingest.execution", "calibrate", ["live_dir", "model_out", "report_out"],
+    "execution": ("ingest.execution", "calibrate", ["live_dir", "sources_dir", "model_out", "report_out"],
                   "the taker cost model from the judged L2 snapshots, and its held-out validation"),
     "witness": ("ingest.witness", "replay", ["data_root", "version:int", "out"], "W0's independent replay"),
     "holdout-hashes": ("ingest.holdout", "main", ["data_root", "audit_path"], "record the sha256 of new holdout files"),
