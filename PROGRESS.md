@@ -12,7 +12,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   1. `data/tmp/after-c07.sh` (untracked, resumable): C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the stage 2 sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`). Estimated 2 h, in an 8 GB scope.
   2. `data/tmp/stage10-start.sh`: `recorder-restart data/live 480` (the HL client's 10 s timeout takes effect then; check that the day's polls file still parses), then one uncounted dry main session. Check `harness.audit` against its transcript, then `thesis-freeze` (commit `audit/stage10/manifest.json`), then `thesis-run` detached in its own scope: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`. Builder (HIP-3) marks are recorded from then on.
   3. Stage 3: `freeze-harness`, `agent-null agent 20` (paced one campaign per 5 h), `agent-summary`. Stage 4's `agent-null swarm 10` after stage 3's series.
-  4. **Before any stage 3 run:** stage 3's holdout starts 2026-07-01, but the agent model's knowledge cutoff is June 2026, a zero margin the paper says must be generous (§12). This bears on leakage, so it gets a dated revision before stage 3 runs (paper review of 2026-10-23, item 8). A later holdout start shortens the holdout and lowers power.
+  4. **Stage 3:** its holdout moved to [2026-11-01, 2027-01-31) (revision of 2026-10-23, after GPT's review), so the real run waits until early February 2027. Before C3.2 runs, its null schedule must change to the revision's exact intervals (search [0, 3300), embargo [3300, 4572), holdout [4572, 5118) on 853 days) in `gate/agent/campaigns.py`. `REAL_REPORT_FROM` and the holdout fetch also follow it.
   5. Stage 10's descriptive Polymarket baseline (C10 revision of 2026-10-23): an optional outcome-market field at registration, and the report's comparison, before `thesis-freeze`.
   6. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, docstrings that cite PROGRESS.md sections now in `audit/criteria.md`, `kernel/tests/timing/FORMAT.md` folded into its generator, `oci-cli` into the flake, `duckdb` out of it.
 - **Stages 1, 2, 5, 6, 10.**
@@ -60,6 +60,11 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 ## Decisions awaiting the human's review
 
 Taken autonomously under CLAUDE.md's rules. Each gives what, why, what GPT said, and how to reverse it. They are removed once reviewed.
+
+- **2026-10-23: stage 3's holdout moved to [2026-11-01, 2027-01-31), so its real run waits until February 2027.**
+  - **Why:** zero margin after the June cutoff violated the paper's "generous margin". A September-to-December window would have overlapped the C0.7 execution table's late-October data, which searches use. A 60-day window is uncalibrated.
+  - **GPT:** extending forward is preferable to a later start, but the cost table must not overlap the holdout; it gave the two clean options this follows.
+  - **Reverse:** a later dated revision, before any stage 3 run, choosing another window. Nothing has run on any of them.
 
 - **2026-10-23: stage 6 exits with Lean adopted, and C6.5's frozen thread configuration recorded as a known limitation.**
   - **Why:** the same exit was rejected for the third time, and the remaining gap is performance reproducibility, which changes neither the ranking nor any decision (rule 3).
