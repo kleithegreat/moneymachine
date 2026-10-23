@@ -14,6 +14,10 @@
    "url": "https://publicreporting.cftc.gov/resource/6dca-aqww.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"},
   {"name": "cftc-disaggregated", "doc": "thesis/SOURCES.md", "every_h": 6,
    "url": "https://publicreporting.cftc.gov/resource/72hh-3qpy.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"},
+  {"name": "gdelt-events", "doc": "thesis/SOURCES.md", "every_h": 0.25,
+   "discover": {"url": "https://data.gdeltproject.org/gdeltv2/lastupdate.txt",
+                "pattern": "data\\.gdeltproject\\.org(/gdeltv2/\\d{14}\\.export\\.CSV\\.zip)",
+                "template": "https://data.gdeltproject.org{}"}},
   {"name": "treasury-avg-rates", "doc": "thesis/SOURCES.md", "every_h": 24,
    "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates?sort=-record_date&page%5Bsize%5D=200"}
  ]
