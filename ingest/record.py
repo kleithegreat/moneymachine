@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 from ingest.hl import BUDGET_PER_MIN, Info
-from ingest.live import now_ms
+from ingest.live import append, now_ms
 from ingest.policy import BAR, HOUR
 
 POLL = 30_000
@@ -39,9 +39,8 @@ class Recorder:
         self.last_l2 = {c: 0 for c in coins}
 
     def log(self, rec):
-        day = time.strftime("%Y%m%d", time.gmtime(rec["sent"] / 1000))
-        with self.write, open(self.out / f"polls-{day}.jsonl", "a") as f:
-            f.write(json.dumps(rec) + "\n")
+        with self.write:
+            append(self.out, "polls", rec["sent"], rec)
 
     def poll(self, kind, coin, boundary, purpose):
         sent = now_ms()

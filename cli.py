@@ -14,24 +14,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent
 
 
-def probes(out, data_root=None, version=None):
-    from gate import markets
-    from gate import probes as p
-
-    events = None
-    if data_root:
-        coins = json.loads((Path(data_root) / "universe.json").read_text())["universe"]
-        events = markets.store_events(str(Path(data_root) / "store"), version, tuple(coins))
-    p.run(out, events=events)
-
-
-def probes_top5(out):
-    from gate import probes as p
-    from gate import sweep
-
-    p.run(out, sweep.top5_programs())
-
-
 def check():
     """The whole suite at once: pytest over 6 workers, the kernel's cargo tests and the mutants. Each writes its
     log to data/check/; returns each part's last line, and exits nonzero if any part fails."""
@@ -87,9 +69,9 @@ COMMANDS = {
     "labels-sample": ("ingest.labels", "sample", ["source", "data_root", "out"], "draw items for blind labeling"),
     "labels-evaluate": ("ingest.labels", "evaluate", ["source", "sample_path", "labels_path"], "precision and recall of a mapping"),
     "fit-nulls": ("gate.fit", "write", ["data_root", "version:int", "out"], "fit N2/N3 to the search part; prints the hash"),
-    "probes": ("cli", "probes", ["out", "data_root?", "version:int?"],
+    "probes": ("gate.probes", "run", ["out", "data_root?", "version:int?"],
                "null-market regression and probes; with a dataset, real event counts replayed"),
-    "probes-top5": ("cli", "probes_top5", ["out"], "the probes plus the complete-null sweep's first in-sample top-5 strategies"),
+    "probes-top5": ("gate.probes", "top5", ["out"], "the probes plus the complete-null sweep's first in-sample top-5 strategies"),
     "null-agreement": ("gate.tests.null_agreement", "run", ["out"], "our N2/N3 generators against GPT's"),
     "freeze-searcher": ("gate.sweep", "freeze_searcher", [], "record the stage 2 searchers' pin, once, before any sweep"),
     "betas": ("gate.sweep", "betas", [], "calibrate the planted signal's beta to the target Sharpes"),

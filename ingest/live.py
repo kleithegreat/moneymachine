@@ -1,4 +1,4 @@
-"""Live recordings: the clock the recorders stamp with, and the reader for their JSONL files."""
+"""Live recordings: the clock the recorders stamp with, and the writer and reader of their day JSONL files."""
 
 import json
 import time
@@ -12,6 +12,12 @@ def now_ms():
 
 def ms(iso):
     return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000)
+
+
+def append(live_dir, prefix, t, rec):
+    """Append `rec` to `<live_dir>/<prefix>-<UTC day of t ms>.jsonl`."""
+    with open(Path(live_dir) / f"{prefix}-{time.strftime('%Y%m%d', time.gmtime(t / 1000))}.jsonl", "a") as f:
+        f.write(json.dumps(rec, separators=(",", ":")) + "\n")
 
 
 def read(live_dir, prefix):

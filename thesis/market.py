@@ -7,11 +7,10 @@ Completed bars and funding rows are cached per market and extended incrementally
 
 import hashlib
 import json
-import time
 from pathlib import Path
 
 from ingest.hl import Info
-from ingest.live import now_ms
+from ingest.live import append, now_ms
 from ingest.policy import DAY, HOUR
 
 ALLOWED = frozenset({"meta", "perpDexs", "candleSnapshot", "fundingHistory"})
@@ -32,9 +31,8 @@ class Exchange(Info):
             raise PermissionError(f"request type {body.get('type')!r} is not an approved public read")
         out = super().post(body, weight, per_items)
         text = json.dumps(out, separators=(",", ":"))
-        with open(self.archive / f"info-{time.strftime('%Y%m%d', time.gmtime())}.jsonl", "a") as fh:
-            fh.write(json.dumps({"t": now_ms(), "request": body, "sha256": hashlib.sha256(text.encode()).hexdigest(),
-                                 "response": out}, separators=(",", ":")) + "\n")
+        t = now_ms()
+        append(self.archive, "info", t, {"t": t, "request": body, "sha256": hashlib.sha256(text.encode()).hexdigest(), "response": out})
         return out
 
 

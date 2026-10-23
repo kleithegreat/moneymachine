@@ -118,7 +118,23 @@ def probe_zscores(programs, model, params, cost_cells, tag="", events=None):
     return {p["name"]: float(x) for p, x in zip(programs, z)}
 
 
-def run(out, extra_programs=None, events=None):
+def run(out, data_root=None, version=None):
+    """The probes on null markets; with a dataset, its real event counts replayed."""
+    events = None
+    if data_root:
+        coins = json.loads((Path(data_root) / "universe.json").read_text())["universe"]
+        events = markets.store_events(str(Path(data_root) / "store"), version, tuple(coins))
+    measure(out, events=events)
+
+
+def top5(out):
+    """The probes plus the complete-null sweep's first in-sample top-5 strategies."""
+    from gate import sweep
+
+    measure(out, sweep.top5_programs())
+
+
+def measure(out, extra_programs=None, events=None):
     """Regression p-values and probe z-scores per null model on the frozen parameters. With `events`
     (markets.store_events), the markets replay real event counts and event probes join."""
     params = markets.null_params()

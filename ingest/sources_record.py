@@ -5,7 +5,6 @@ Each line: {"source", "key", "sent", "recv", "data"}. Analysis is offline (C5.3)
 """
 
 import hashlib
-import json
 import re
 import subprocess
 import time
@@ -13,7 +12,7 @@ from pathlib import Path
 
 import httpx
 
-from ingest.live import now_ms
+from ingest.live import append, now_ms
 
 FORUMS = ["delvingbitcoin.org"]
 SPACES = ["aavedao.eth"]
@@ -53,8 +52,6 @@ def main(out_dir):
                             for p in data["latest_posts"]]
             except Exception as e:
                 data = {"error": repr(e)}
-            day = time.strftime("%Y%m%d", time.gmtime(sent / 1000))
-            with open(out / f"sources-{day}.jsonl", "a") as fh:
-                fh.write(json.dumps({"source": source, "key": key, "sent": sent, "recv": now_ms(), "data": data}) + "\n")
+            append(out, "sources", sent, {"source": source, "key": key, "sent": sent, "recv": now_ms(), "data": data})
         time.sleep(max(0, POLL - (time.time() - started)))
 
