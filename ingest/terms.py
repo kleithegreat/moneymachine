@@ -1,27 +1,29 @@
-"""Terms certification (paper §5). A source doc has one `## Terms: <host>` or `## Terms: <host>/<path prefix>`
-section per place we fetch from automatically. A section is certified when it carries its evidence: the URL of
-the terms, the retrieval date, the basis (a clause permitting our automated use, or an official API whose terms
-allow it), and the quoted text."""
+"""Terms certification (paper §5) from the source-certificate registry `venue/sources.toml`: one record per place
+fetched automatically, with the URL of the terms, the retrieval date, the basis (a clause permitting our automated
+use, or an official API whose terms allow it) and the verbatim quote. A host `h/prefix` admits only that prefix."""
 
-import re
+import tomllib
+from datetime import date
 from pathlib import Path
 
-
-def sections(doc):
-    """`host[/prefix]` -> its section's text."""
-    return dict(re.findall(r"^## Terms: (\S+)\n(.*?)(?=^## |\Z)", doc, re.M | re.S))
+REGISTRY = Path(__file__).resolve().parents[1] / "venue" / "sources.toml"
+BASES = ("permitting clause", "official API")
 
 
-def certified(section):
-    return (re.search(r"^- URL: https://\S+$", section, re.M) is not None
-            and re.search(r"^- Retrieved: \d{4}-\d{2}-\d{2}$", section, re.M) is not None
-            and re.search(r"^- Basis: (permitting clause|official API)$", section, re.M) is not None
-            and re.search(r"^> \S", section, re.M) is not None)
+def registry(path=REGISTRY):
+    with open(path, "rb") as f:
+        return tomllib.load(f)
 
 
-def allowlist(path):
-    """The certified `host[/prefix]` entries of a source doc."""
-    return {k for k, s in sections(Path(path).read_text()).items() if certified(s)}
+def certified(record):
+    return (str(record.get("url", "")).startswith("https://") and isinstance(record.get("retrieved"), date)
+            and record.get("basis") in BASES and bool(str(record.get("quote", "")).strip()))
+
+
+def allowlist(source=None, retrieval=False, path=REGISTRY):
+    """The certified `host[/prefix]` entries of one source, of every source, or of the retrieval allowlist."""
+    return {t["host"] for name, s in registry(path).items() if source in (None, name)
+            for t in s.get("terms", []) if certified(t) and (not retrieval or t.get("retrieval"))}
 
 
 def admits(entries, host, path):

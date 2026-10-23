@@ -3,8 +3,8 @@ cadence, read-only, and keeps every response body gzip-compressed under `<out_di
 day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}. A body is known no earlier than
 its poll's recv; parsing into point-in-time revisions is offline, per source. A feed whose file name changes per
 release declares `discover`: an index URL, a pattern with one group, and a template the group fills; the index is
-logged as `<feed>/index`. Every URL fetched, discovered ones included, needs certified terms for its host in the
-feed's doc (`ingest/terms.py`), so adding a feed is a JSON entry and a terms record, no code.
+logged as `<feed>/index`. Every URL fetched, discovered ones included, needs certified terms for its host under the
+feed's source in `venue/sources.toml`, so adding a feed is a JSON entry and a terms record, no code.
 """
 
 import gzip
@@ -26,8 +26,8 @@ TICK = 60
 
 def certify(feed, url):
     u = urlsplit(url)
-    if u.scheme != "https" or not terms.admits(terms.allowlist(REPO / feed["doc"]), u.hostname, u.path):
-        raise PermissionError(f"{feed['name']}: {u.hostname}{u.path} has no certified terms in {feed['doc']}")
+    if u.scheme != "https" or not terms.admits(terms.allowlist(feed["source"]), u.hostname, u.path):
+        raise PermissionError(f"{feed['name']}: {u.hostname}{u.path} has no certified terms for source {feed['source']}")
 
 
 def feeds(path=FEEDS):

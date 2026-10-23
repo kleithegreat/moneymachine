@@ -1,0 +1,485 @@
+# Source certificates (paper §5): one record per place fetched automatically, read by ingest/terms.py and its
+# tests. A record is certified when it has a URL, a retrieval date, a basis ("permitting clause" or "official
+# API") and the verbatim quote. `retrieval = true` puts its host on the stage 10 proxy's allowlist. A host
+# `h/prefix` admits only that path prefix.
+
+[hyperliquid]
+description = '''
+# Hyperliquid data sources (stage 0 manifest, C0.1)
+
+All requests: `POST https://api.hyperliquid.xyz/info`, public, read-only, no auth.
+Documented limit: 1200 weight/min per IP, shared by all REST requests
+([rate limits](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits)).
+Our processes share one IP and together stay at or below 600/min: the backfill is
+held at 200/min, the recorder at 400/min, and one-off scripts at 600/min while
+nothing else runs (`ingest/hl.py` charges weight before each request and again
+for the item weight after it).
+
+| Endpoint | Used for | Weight (documented) | Pagination (documented / observed) | Retention (documented / observed 2026-10-19) |
+|---|---|---|---|---|
+| `meta` | universe, delisted flags, szDecimals, margin tables | 20 | none | current state only; earlier rule values are not available |
+| `fundingHistory` | settled hourly funding and premium | 20 + 1 per 20 items | 500 rows per response; continue from last `time` + 1 / same | not stated / BTC back to 2023-05-12, delisted coins included |
+| `candleSnapshot` | 1d bars (universe rule), 4h bars | 20 + 1 per 60 items | "500 elements" / one response held 5000 candles | "most recent 5000 candles" / 4h back to 2024-07-08, a rolling window; 1d back to 2023 |
+| `l2Book` | execution calibration (recorder) | 2 | none | snapshot only; 20 levels per side |
+
+Field semantics:
+- `fundingHistory.time` is the settlement stamp, usually a few ms after the hour, sometimes
+  minutes late. Stored eventTime is the hour and reportedTime the stamp; the store computes
+  knownAt = max(hour + 120 s, reportedTime + 60 s) (`ingest.store.known_at`). `fundingRate` is per hour, and
+  positive means longs pay shorts ([funding](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding)).
+- `candleSnapshot` `t`/`T` are the bar's open and close (ms, `T = t + interval - 1`). The
+  last bar returned may be unclosed. Stored eventTime is `t + interval`, known 120 s later, and
+  only bars with `t + interval <= fetchedAt` are stored.
+- Delisted coins: `fundingHistory` keeps their history. `candleSnapshot` coverage
+  varies (MATIC and RNDR have no 4h bars after 2024-09-30, while FTM and MKR do).
+
+Reproduce: `python -m cli universe data/universe.json`, then
+`python -m cli backfill data 200`.
+
+Rolling retention means the 4h bars at the start of W drop out of the API around
+2027-01. Our first fetch is the only lasting copy, so the store is append-only.'''
+
+[[hyperliquid.terms]]
+host = "api.hyperliquid.xyz"
+url = "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api"
+retrieved = 2026-10-22
+basis = "official API"
+quote = '''
+Documentation for the Hyperliquid public API
+
+The following rate limits apply per IP address: REST requests share an aggregated weight limit of 1200 per minute.
+1.1 The Interface facilitates interaction with Hyperliquid, a decentralized, permissionless, and
+community-driven blockchain ("Hyperliquid"). [...] The Interface is not the exclusive means of accessing Hyperliquid.
+
+1.6 The Interface is not available to "Restricted Persons." For the purposes of these Terms, Restricted
+Persons include: (a) persons or entities who reside in, are located in, are incorporated in, or have a
+registered office in the United States of America or Ontario, Canada; [...] Restricted Persons are strictly
+prohibited from accessing or using the Interface described herein.
+
+3.1.5 Circumvention of Restrictions. Activity that attempts to bypass, evade, or circumvent any restrictions
+imposed by the Interface or the Company. This includes but is not limited to: (a) using technologies such as
+VPNs, proxies, or other methods to conceal your location; [...]
+
+3.1.8 Automated or High-Frequency Abuses. Activity that employs bots, scripts, or other automated methods to
+interact with the Interface in ways that exceed reasonable usage, bypass rate limits, cause denial-of-service
+conditions, or disrupt the normal functioning of Hyperliquid or related systems.'''
+notes = '''
+The API docs carry no terms of their own. The Terms of Use (https://app.hyperliquid.xyz/terms, "Last updated
+on June 15, 2026", read from the app's `TermsOfUse` bundle on 2026-10-22) govern the web Interface:
+
+
+The operator is in the United States. Human decision of 2026-10-23: keep using the read-only public info API.
+Clause 1.6 restricts the web Interface; our use is read-only public market data, with no account, no trading,
+no VPN and no proxy. Revisit if Hyperliquid publishes API terms, and before any step toward execution. No paid
+data vendors (Tardis and the like) are used instead.'''
+
+[discourse]
+description = '''
+# Discourse forums (stage 5 discussion source)
+
+Public read-only JSON of each forum's `/posts.json` (the latest 50 posts, newest first), polled
+by `ingest/sources_record.py` every 5 minutes. We store post ids, topic ids, timestamps and
+content hashes only, not post text.
+
+A forum is fetched only if its own terms permit our automated use (Terms, below). Mapping
+version 3 has one forum:
+
+| Forum | Coin of U | Mapping key | C5.1 precision |
+|---|---|---|---|
+| delvingbitcoin.org | BTC | forum host | 0.94 |
+
+Forums whose terms do not permit automated access are never fetched, and what was fetched from
+them before this was checked is deleted (human decision 2026-10-22; `audit/stage5/purge-20261022.json`).
+That covers forum.solana.com, forums.sui.io, governance.aave.com and forum.bnbchain.org (Discourse's standard
+terms forbid it), forum.celestia.org (its terms forbid bots), and ethresear.ch (its terms are silent, which is
+not permission). Other coins of U have no reachable public forum.
+
+Rate limit: Discourse's default per-IP limit is 200 requests per minute and 50 per 10 seconds
+([global rate limits](https://meta.discourse.org/t/global-rate-limits-and-throttling-in-discourse/78612),
+retrieved 2026-10-22). We make 1 request per 5 minutes per forum, and the backfill waits 2 s between pages.
+
+History depth: `/posts.json?before=<id>` pages back to a forum's first post. The backfill stops at
+W's start minus 30 days (2024-08-31).
+
+Timestamp classes: `created_at` and `updated_at` are server-set by Discourse. Imports and admin
+edits can rewrite them; the live reconciliation measures how often.
+
+knownAt rule, fixed 2026-10-19 before any live measurement: a post's existence is known at
+`created_at` + 600 s, and its content at `updated_at` + 600 s. C5.3 failed as written (a −4.9 s clock reading,
+and realized poll gaps). Under the stage 5 amendment of 2026-10-22, the claimed times are therefore never
+admitted. Discourse is prospective only, and a post is known 60 s after its earliest observation
+(`derived.md`). The claimed-time rule is still measured and reported. Raw revisions are known when fetched,
+and a post the backfill no longer lists becomes a tombstone.'''
+
+[[discourse.terms]]
+host = "delvingbitcoin.org"
+url = "https://delvingbitcoin.org/tos"
+retrieved = 2026-10-22
+basis = "permitting clause"
+quote = '''
+You may automate access to the forum, or monitor the forum, such as with a web crawler, browser plug-in or
+add-on, or other computer program that is not a web browser.'''
+notes = '''
+The same terms forbid straining the forum "with an unreasonable volume of requests"; 1 request per
+5 minutes is far from that.'''
+
+[snapshot]
+description = '''
+# Snapshot (stage 5 governance source)
+
+Public GraphQL hub `https://hub.snapshot.org/graphql`, read-only, polled by
+`ingest/sources_record.py` every 5 minutes: the space's 20 newest proposals. Mapping:
+`aavedao.eth` → AAVE (987 proposals as of 2026-10-19). No other coin of U has a Snapshot space
+we found (aave.eth is empty; sui.eth, celestia.eth, worldcoin.eth, popcat.eth, bnbchain.eth and
+fantom.eth do not exist).
+
+Timestamp classes: a proposal's `created` comes from the author's signed message. It is
+client-claimed unless the hub's validation of message timestamps is established, so it cannot
+anchor backfill on its own. `start` and `end` are values (the scheduled voting window), not
+availability times.
+
+knownAt rule: `created` is never admitted, so a proposal is known at its earliest observation by
+the recorder or a fetch, and only proposals created at or after the first poll count (`derived.md`).
+
+Rate limit: "No API Key: 100 requests per minute" ([API keys](https://docs.snapshot.box/tools/api/api-keys),
+retrieved 2026-10-22). We make 1 request per 5 minutes. History depth: the `proposals` query pages back
+to a space's first proposal; it is not used, since Snapshot is prospective only.'''
+
+[[snapshot.terms]]
+host = "hub.snapshot.org"
+url = "https://docs.snapshot.box/tools/api"
+retrieved = 2026-10-22
+basis = "official API"
+quote = '''
+You can use the Hub GraphQL API to create flexible queries for the data you need to integrate with Snapshot.
+There is a limit of 100 requests per minute with the API, to get higher limits please apply for an API Key'''
+notes = "No separate terms of service for the hub were found (snapshot.box and docs.snapshot.box, 2026-10-22)."
+
+[ecb]
+description = '''
+# ECB Data Portal (keyless data layer; stage 8 signal-study tier)
+
+SDMX 2.1 REST web service at `https://data-api.ecb.europa.eu/service/`, read-only, no key. Dataflows in scope
+(`audit/stage8/scope-manifest.md`): EXR (euro foreign exchange reference rates, 44 daily series
+`D.<CUR>.EUR.SP00.A`, discontinued and suspended currencies included) and YC (euro area yield curves).
+
+Timestamp classes:
+- `TIME_PERIOD` is the reference date, a value and never an availability time.
+- The SDMX response carries no publication time. An observation is therefore known no earlier than our own
+  fetch of it, unless a past-version query (below) establishes an earlier, server-set time.
+
+Past versions: none recoverable through the API (checked 2026-10-23 on `D.USD.EUR.SP00.A`).
+- With `includeHistory=true`, SDMX-ML returns a single dataset with `action="Replace"`.
+- Its `validFromDate` is the response's own generation time: 18:25:15 and 18:47:54 UTC for requests made at
+  those times. It is not a version timestamp.
+- The full history came back as one version (7,183 observations).
+
+For point-in-time use, every value is therefore known no earlier than our own first fetch of it (prospective
+only). The full history serves to date the series, not as historical decision input, unless the ECB's revision
+policy for reference rates is certified as "never revised" with evidence.
+
+The fixing time is in the series' `TITLE_COMPL`: "ECB reference exchange rate, US dollar/Euro, 2.15 pm (C.E.T.)".
+It is a reference time, not a publication time.
+
+Series dates (2026-10-23, from each series' full history, fetched by the data layer into `data/datalayer/raw/`; dates
+only, since the values are prospective). Except as listed, a series runs from 1999-01-04 to 2026-10-23 with 7,183
+observations: AUD, CAD, CHF, CZK, DKK, GBP, HKD, HUF, IDR, JPY, KRW, MXN, MYR, NOK, NZD, PHP, PLN, SEK, SGD, THB, USD, ZAR.
+- ARS: 2000-01-13 to 2020-10-30, 5383 observations
+- BGN: 2000-07-19 to 2025-12-31, 6573 observations
+- BRL: 2000-01-13 to 2026-10-23, 6915 observations
+- CNY: 2000-01-13 to 2026-10-23, 6915 observations
+- CYP: 1999-01-04 to 2007-12-31, 2346 observations
+- DZD: 2000-01-13 to 2020-10-30, 5383 observations
+- EEK: 1999-01-04 to 2010-12-31, 3130 observations
+- GRD: 1999-01-04 to 2000-12-29, 520 observations
+- HRK: 2000-01-13 to 2022-12-30, 5941 observations
+- ILS: 2000-01-13 to 2026-10-23, 6915 observations
+- INR: 2000-01-13 to 2026-10-23, 6915 observations
+- ISK: 1999-01-04 to 2026-10-23, 4776 observations
+- LTL: 1999-01-04 to 2014-12-31, 4159 observations
+- LVL: 1999-01-04 to 2013-12-31, 3904 observations
+- MAD: 2000-01-13 to 2020-10-30, 5383 observations
+- MTL: 1999-01-04 to 2007-12-31, 2346 observations
+- RON: 1999-01-04 to 2026-10-23, 7121 observations
+- RUB: 1999-01-04 to 2022-03-01, 5994 observations
+- SIT: 1999-01-04 to 2006-12-29, 2085 observations
+- SKK: 1999-01-04 to 2008-12-31, 2608 observations
+- TRY: 1999-01-04 to 2026-10-23, 7121 observations
+- TWD: 2000-01-13 to 2020-10-30, 5383 observations
+
+A short count over a full span means missing fixings within it (ISK 4,776, RON and TRY 7,121), whose dates come from the recorded files. A last date before 2026-10-23
+means the series ceased: euro adoption, RUB's suspension from 2022-03-02, and the non-reference series ARS, DZD,
+MAD and TWD at 2020-10-30.
+
+Open items (PROGRESS.md, Now, data layer):
+- the publication calendar and time;
+- YC series and revision policy.'''
+
+[[ecb.terms]]
+host = "data-api.ecb.europa.eu"
+url = "https://www.ecb.europa.eu/stats/ecb_statistics/governance_and_quality_framework/html/usage_policy.en.html"
+retrieved = 2026-10-23
+basis = "official API"
+quote = '''
+The ESCB subscribes to a policy of free access and free reuse regarding its publicly released statistics
+All publicly available ESCB statistics may be reused free of charge on the condition that the source is quoted
+[and] the statistics (including metadata) are not modified.'''
+notes = '''
+The API is the ECB's documented distribution channel: "All disseminated data are available via the Statistical
+Data and Metadata eXchange (SDMX) API. We implement the SDMX 2.1 standard."
+(https://www.ecb.europa.eu/stats/ecb_statistics/accessing-our-data/html/index.en.html, retrieved 2026-10-23).
+Conditions: quote the source ("Source: ECB statistics"), keep values unmodified, and expect revisions. The
+policy also says access "may be restricted in exceptional circumstances ... if a user is acting in a manner
+contrary to the interests of other users", so requests are paced.'''
+
+[bis]
+description = '''
+# BIS data portal (keyless data layer; stage 8 signal-study tier)
+
+SDMX REST at `https://stats.bis.org/api/v1/`, read-only, no key. Dataflows in scope: `BIS:WS_CBPOL(1.0)`
+(central bank policy rates, 49 daily series by REF_AREA) and `BIS:WS_EER(1.0)` (effective exchange rates).
+
+Timestamp classes:
+- `TIME_PERIOD` is the reference date. For a policy rate it is the effective date, which comes after the
+  announcement, so it is never an availability time.
+- The series carry no announcement times and no vintages. Historical use needs release evidence, or the series
+  are prospective only from our first recording (open item: policy-rate announcement times).'''
+
+[[bis.terms]]
+host = "stats.bis.org"
+url = "https://data.bis.org/help/legal"
+retrieved = 2026-10-23
+basis = "official API"
+quote = '''
+The use of the statistics is unrestricted, provided that: if the statistics are reproduced, the BIS must be
+cited in your publication or product as the source of the statistics
+Use of the APIs constitutes agreement by users of the APIs ("Users") with the following terms and conditions:
+APIs are made available on an "as-is" basis.'''
+notes = '''
+Conditions: cite the BIS, do not imply endorsement, and use the most up-to-date API version. "The BIS reserves the
+right to limit or suspend any User's IP address access to the APIs at any time", so requests are paced.'''
+
+[worldbank]
+description = '''
+# World Bank (keyless data layer; stage 8 signal-study tier)
+
+Commodity Price Data (the Pink Sheet): monthly benchmark prices, with each month's release published as files.
+The exact distribution URLs and their catalog metadata are open items, to be verified before any fetch. The
+Indicators API (`api.worldbank.org/v2`) is used only if it carries the same series.
+
+Distribution (checked 2026-10-23):
+- The monthly workbook sits at `thedocs.worldbank.org/en/doc/<hash>/related/CMO-Historical-Data-Monthly.xlsx`,
+  and the hash changes with each release.
+- The only link to it found so far is on the Commodity Markets page, and reading that page automatically rests on
+  site terms that permit only "lawful, personal and non-commercial" use. So it is not fetched yet.
+- Past monthly releases look archived as PDFs on `thedocs.worldbank.org` (for example "CMO-Pink-Sheet-August-2023.pdf").
+  If their terms and coverage hold up, they could give the past versions (vintages) the workbook lacks.
+
+Timestamp classes:
+- A monthly value's reference month is a value, not an availability time.
+- Recent months are revised, and no historical vintages were found. Each value is known no earlier than our
+  first fetch of the release that carries it (prospective only), unless an archive of past releases is found and
+  certified.'''
+
+[[worldbank.terms]]
+host = "api.worldbank.org"
+url = "https://www.worldbank.org/ext/en/legal/terms-conditions/datasets"
+retrieved = 2026-10-23
+basis = "permitting clause"
+quote = '''
+Unless specifically labeled otherwise, these Datasets are provided to you under a Creative Commons Attribution
+4.0 International License (CC BY 4.0), with the additional terms below. You may use our application
+programming interfaces ("APIs") to facilitate access to the Datasets.'''
+notes = '''
+The World Bank's general terms (https://www.worldbank.org/en/about/legal/terms-of-use-for-datasets, retrieved
+2026-10-23) limit API use to "non-commercial uses of the Materials". They also forbid using the APIs "in a manner
+that exceeds reasonable request volume". Our use is non-commercial research at a few requests a day. Any stage 11
+use needs these terms read again.'''
+
+[nws]
+description = '''
+# NOAA National Weather Service API (keyless data layer; stage 9 candidate)
+
+`https://api.weather.gov`, read-only, no key. In scope: active weather alerts (`/alerts/active`, GeoJSON),
+recorded every 3 hours (about 2 MB a poll) as a stage 9 cross-domain event source.
+
+Timestamp classes:
+- Each alert carries `sent`, `effective`, `onset` and `expires`. These are values set by the issuing office, not
+  availability times.
+- An alert is known no earlier than our first fetch that contains it. No history is backfilled, so the source is
+  prospective only.'''
+
+[[nws.terms]]
+host = "api.weather.gov"
+url = "https://www.weather.gov/documentation/services-web-api"
+retrieved = 2026-10-23
+basis = "official API"
+quote = '''
+All of the information presented via the API is intended to be open data, free to use for any purpose.
+A User Agent is required to identify your application.'''
+notes = '''
+The page also says that any User-Agent value is accepted, and that the rate limit "is not public information, but
+allows a generous amount for typical use". We send our recorder's agent string, with no personal contact, every
+3 hours.'''
+
+[openfda]
+description = '''
+# openFDA (keyless data layer; stage 9 candidate)
+
+`https://api.fda.gov`, read-only, no key for low volume. In scope: drug enforcement reports (recalls),
+`/drug/enforcement.json`, the latest 100 by `report_date`, recorded daily as a stage 9 cross-domain source.
+
+Timestamp classes:
+- `report_date`, `recall_initiation_date` and `center_classification_date` are values, not availability times.
+- openFDA republishes its data weekly, and a record is known no earlier than our first fetch that contains it
+  (prospective only).'''
+
+[[openfda.terms]]
+host = "api.fda.gov"
+url = "https://open.fda.gov/terms/"
+retrieved = 2026-10-23
+basis = "permitting clause"
+quote = '''
+Use of the data made available via openFDA is generally unrestricted
+You can copy, modify, distribute, and perform the work, even for commercial purposes, all without asking permission.'''
+notes = '''
+Use may be limited to manage load ("Your use of openFDA may be subject to certain limitations on access, calls, or
+use"). We make one request a day. FDA asks, without requiring it, that credit be given.'''
+
+[eia]
+description = '''
+# U.S. Energy Information Administration bulk files (keyless data layer; stage 9 candidate)
+
+The API's bulk downloads at `https://www.eia.gov/opendata/bulk/` need no key (the keyed API itself waits for the
+human; Blockers). The manifest `manifest.txt` lists every dataset with its `last_updated` time and URL, and the
+files update "twice daily at 5 a.m. and 3 p.m. eastern time".
+
+In scope:
+- the manifest, every 6 h;
+- `PET.zip` (petroleum and other liquid fuels, about 56 MB), daily, stored only when it changes.
+
+Not recorded: `EBA.zip` (U.S. electric system operating data, hourly grid) is about 699 MB and is refreshed twice
+a day. Recording it daily would add about 250 GB a year, beyond this machine's free disk.
+
+Timestamp classes:
+- A series' period is a value. The manifest's `last_updated` is EIA's own claim about the file.
+- A value is known no earlier than our first fetch of a file that contains it (prospective only).'''
+
+[[eia.terms]]
+host = "www.eia.gov/opendata/bulk/"
+url = "https://www.eia.gov/opendata/bulkfiles.php"
+retrieved = 2026-10-23
+basis = "official API"
+quote = "EIA data is provided free of charge and should be used in compliance with our Copyrights and Reuse Policy."
+notes = '''
+The Copyrights and Reuse Policy (https://www.eia.gov/about/copyrights_reuse.php, retrieved 2026-10-23): "U.S.
+government publications are in the public domain and are not subject to copyright protection." and "You may use
+and/or distribute any of our data, files, databases, reports, graphs, charts, and other information products".
+EIA asks for an acknowledgment that includes the publication date.'''
+
+[polymarket]
+description = '''
+# Polymarket (keyless data layer; stage 10 market-implied baseline)
+
+Gamma markets API at `https://gamma-api.polymarket.com`, read-only, with no key or account. Recorded every 3 h:
+- active markets, top 500 by 24 h volume, with `outcomePrices`, `lastTradePrice`, `bestBid`, `bestAsk` and
+  `updatedAt`;
+- the 500 most recently closed markets, with their resolved `outcomePrices`, `closedTime` and
+  `umaResolutionStatus`.
+
+They serve as the stage 10 baseline: market-implied probabilities where a market matches a thesis, and its
+resolution.
+
+Timestamp classes:
+- `updatedAt`, `closedTime` and `endDate` are the server's values, not availability times.
+- A price or resolution is known no earlier than our first fetch that contains it. Nothing is backfilled, so the
+  source is prospective only.'''
+
+[[polymarket.terms]]
+host = "gamma-api.polymarket.com"
+url = "https://polymarket.com/tos"
+retrieved = 2026-10-23
+basis = "official API"
+quote = "Trading is blocked in the United States on polymarket.com."
+notes = '''
+That banner is the only text the terms page gave our fetcher; no API terms were found. Secondary sources say the
+terms bar US persons from the international product. The developer documentation
+(https://docs.polymarket.com/, retrieved 2026-10-23) shows the markets API read with no credentials
+(`curl https://gamma-api.polymarket.com/markets/keyset?closed=false&limit=5`).
+
+The operator is in the United States. Human decision of 2026-10-23, on the same basis as Hyperliquid's: use the
+read-only public data API, with no account, no trading, a US IP and no VPN. Revisit if Polymarket publishes API
+terms, or before any step toward trading.'''
+
+[gdelt]
+description = "GDELT; on the stage 10 retrieval allowlist."
+
+[[gdelt.terms]]
+host = "api.gdeltproject.org"
+url = "https://www.gdeltproject.org/about.html"
+retrieved = 2026-10-23
+basis = "permitting clause"
+quote = '''
+The GDELT Project is an open platform for research and analysis of global society and thus all datasets
+released by the GDELT Project are available for unlimited and unrestricted use for any academic, commercial,
+or governmental use of any kind without fee.'''
+notes = "Any use must cite the GDELT Project and link to https://www.gdeltproject.org/."
+retrieval = true
+
+[[gdelt.terms]]
+host = "data.gdeltproject.org"
+url = "https://www.gdeltproject.org/about.html"
+retrieved = 2026-10-23
+basis = "permitting clause"
+quote = '''
+all datasets released by the GDELT Project are available for unlimited and unrestricted use for any academic,
+commercial, or governmental use of any kind without fee.'''
+retrieval = true
+
+[treasury]
+description = "Treasury Fiscal Data API; on the stage 10 retrieval allowlist."
+
+[[treasury.terms]]
+host = "api.fiscaldata.treasury.gov"
+url = "https://fiscaldata.treasury.gov/api-documentation/"
+retrieved = 2026-10-23
+basis = "official API"
+quote = '''
+Our API is open, meaning that it does not require a user account or registration for a token. To begin
+using our API, you can type the GET, R, or Python request below directly into a web browser (or script in a
+data analysis tool), which will return a JSON-formatted response.
+
+The data is offered free, without restriction, and available to copy, adapt, redistribute, or otherwise use
+for non-commercial or commercial purposes.'''
+retrieval = true
+
+[cftc]
+description = "CFTC public reporting API; on the stage 10 retrieval allowlist."
+
+[[cftc.terms]]
+host = "publicreporting.cftc.gov"
+url = "https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm"
+retrieved = 2026-10-23
+basis = "official API"
+quote = '''
+Currently, we are not providing tokens to use the Public Reporting APIs. People who are using the API are
+generally using it successfully without using a token. As long as you are not overusing the API, you should be
+able to use the API without a token.'''
+retrieval = true
+
+[fed]
+description = "Federal Reserve Board RSS feeds; on the stage 10 retrieval allowlist."
+
+[[fed.terms]]
+host = "www.federalreserve.gov/feeds/"
+url = "https://www.federalreserve.gov/feeds/feeds.htm"
+retrieved = 2026-10-23
+basis = "permitting clause"
+quote = '''
+Users can subscribe to RSS feeds using software such as readers, or aggregators, which display the links,
+headlines, and a brief summary of the feed. [...] You will need to use software that acts as a reader, or
+aggregator, to view the feed.'''
+notes = '''
+Only the feeds: the Board's site policy permits copying its public-domain information ("may be copied and
+distributed without permission") but says nothing about automated access to its other pages.'''
+retrieval = true

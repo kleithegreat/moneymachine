@@ -1,37 +1,38 @@
-"""Terms certification (paper §5): every place the code fetches from automatically has a certified Terms section
-(ingest/terms.py), and a section without its evidence is not certified."""
+"""Terms certification (paper §5): every place the code fetches from automatically has a certified record in the
+registry `venue/sources.toml`, and a record without its evidence is not certified."""
 
-from pathlib import Path
+from datetime import date
 from urllib.parse import urlparse
 
-from ingest import hl, sources_record, terms
-from thesis import retrieval
+from ingest import datalayer, hl, sources_record, terms
 
-REPO = Path(__file__).resolve().parents[2]
 FETCHED = {
-    "venue/sources/discourse.md": sources_record.FORUMS,
-    "venue/sources/snapshot.md": [urlparse(sources_record.HUB).hostname],
-    "venue/hyperliquid/sources.md": [urlparse(hl.URL).hostname],
+    "discourse": sources_record.FORUMS,
+    "snapshot": [urlparse(sources_record.HUB).hostname],
+    "hyperliquid": [urlparse(hl.URL).hostname],
 }
 
 
 def test_every_fetched_host_has_certified_terms():
-    missing = [(doc, host) for doc, hosts in FETCHED.items() for host in hosts
-               if not terms.certified(terms.sections((REPO / doc).read_text()).get(host, ""))]
+    missing = [(source, host) for source, hosts in FETCHED.items() for host in hosts
+               if not terms.admits(terms.allowlist(source), host, "/")]
     assert not missing
+    assert datalayer.feeds()["feeds"]
 
 
-def test_every_retrieval_entry_is_certified():
-    entries = terms.sections(retrieval.SOURCES.read_text())
-    assert entries and all(terms.certified(s) for s in entries.values())
+def test_every_record_is_certified():
+    records = [t for s in terms.registry().values() for t in s.get("terms", [])]
+    assert records and all(terms.certified(t) for t in records)
 
 
-def test_a_section_without_its_evidence_fails():
-    good = "- URL: https://x.org/tos\n- Retrieved: 2026-10-22\n- Basis: permitting clause\n\n> You may automate access.\n"
+def test_a_record_without_its_evidence_fails():
+    good = {"host": "x.org", "url": "https://x.org/tos", "retrieved": date(2026, 10, 22), "basis": "permitting clause",
+            "quote": "You may automate access."}
     assert terms.certified(good)
-    for drop in ("- URL", "- Retrieved", "- Basis", "> "):
-        assert not terms.certified("\n".join(l for l in good.splitlines() if not l.startswith(drop)))
-    assert not terms.certified(good.replace("permitting clause", "silence"))
+    for drop in ("url", "retrieved", "basis", "quote"):
+        assert not terms.certified({k: v for k, v in good.items() if k != drop})
+    assert not terms.certified(good | {"basis": "silence"})
+    assert not terms.certified(good | {"url": "http://x.org/tos"})
 
 
 def test_a_prefix_entry_admits_only_its_prefix():

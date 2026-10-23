@@ -13,7 +13,7 @@ def test_every_declared_feed_has_certified_terms():
 
 
 def test_a_feed_without_certified_terms_is_refused(tmp_path):
-    spec = {"user_agent": "x", "feeds": [{"name": "x", "doc": "venue/sources/ecb.md", "every_h": 1,
+    spec = {"user_agent": "x", "feeds": [{"name": "x", "source": "ecb", "every_h": 1,
                                           "url": "https://example.org/data"}]}
     (tmp_path / "f.json").write_text(json.dumps(spec))
     with pytest.raises(PermissionError):
@@ -44,7 +44,7 @@ def test_discover_fetches_the_index_then_the_release_it_names(tmp_path):
 
 def test_a_discovered_url_without_certified_terms_is_refused(tmp_path):
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b"x")))
-    feed = {"name": "x", "doc": "thesis/SOURCES.md", "every_h": 1,
+    feed = {"name": "x", "source": "gdelt", "every_h": 1,
             "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"}}
     with pytest.raises(PermissionError):
         datalayer.poll(http, feed, tmp_path)

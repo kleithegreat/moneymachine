@@ -4,6 +4,7 @@ the session's brief, its task file (for an ablation) and `./thesis-agent`."""
 import json
 from pathlib import Path
 
+from ingest import terms
 from sandbox import session
 from thesis.daemon import SPEC
 
@@ -14,12 +15,12 @@ WALL_SECONDS = 3600
 CLIENT = "thesis-agent"
 BRIEFS = {"main": "brief.md", "noread": "brief-noread.md", "ablation": "brief-ablation.md"}
 FROZEN = ("brief.md", "brief-noread.md", "brief-ablation.md", "daemon.py", "harness.py", "registry.py",
-          "positions.py", "scoring.py", "retrieval.py", "SOURCES.md", "market.py", "runner.py")
+          "positions.py", "scoring.py", "retrieval.py", "market.py", "runner.py")
 
 
 def manifest_hash():
     """The track version's identity: briefs, daemon and pipeline code, the shared sandbox, model, limits and flags."""
-    return session.identity([HERE / f for f in FROZEN],
+    return session.identity([HERE / f for f in FROZEN] + [terms.REGISTRY],
                             [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS])
 
 
