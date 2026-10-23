@@ -11,7 +11,7 @@ import statsmodels.api as sm
 
 from gate import markets
 from gate.kernel import command
-from gate.search import const, op
+from gate.search import compile_feature, const, op
 
 YEARS_PER_MARKET = 10
 MARKETS = 20
@@ -59,10 +59,6 @@ def program(name, weight):
     return {"dsl": 1, "name": name, "mechanism": {"counterparty": "probe", "predictions": [], "capacity": "-"}, "weight": weight}
 
 
-def ret(x, h):
-    return op("sub", op("div", {"input": x}, op("lag", {"input": x}, hours=h)), const(1))
-
-
 def sign_probe(name, feature, size=0.05):
     return program(name, op("mul", op("sign", feature), const(size)))
 
@@ -70,20 +66,19 @@ def sign_probe(name, feature, size=0.05):
 def probes(events=False):
     ps = [program("buy-and-hold", const(0.08))]
     if events:
-        e, mean = {"input": "forum_posts"}, op("mean", {"input": "forum_posts"}, hours=48)
-        ps.append(sign_probe("sign-forum-activity", op("div", op("sub", e, mean), op("add", mean, const(1.0, "ev")))))
-        ps.append(sign_probe("sign-forum-burst", op("sub", e, const(1.0, "ev"))))
+        ps.append(sign_probe("sign-forum-activity", compile_feature(6, None, 48)))
+        ps.append(sign_probe("sign-forum-burst", op("sub", {"input": "forum_posts"}, const(1.0, "ev"))))
     for x in ("open", "high", "low", "close"):
-        ps.append(sign_probe(f"sign-{x}-return", ret(x, 4)))
+        ps.append(sign_probe(f"sign-{x}-return", compile_feature(0, x, 4)))
     ps.append(sign_probe("sign-funding", op("div", {"input": "funding"}, const(1e-4, "1/h"))))
     ps.append(sign_probe("sign-premium", {"input": "premium"}))
     ps.append(sign_probe("sign-volume", op("sub", op("div", {"input": "volume"}, op("mean", {"input": "volume"}, hours=48)), const(1))))
     ps.append(sign_probe("sign-range", op("sub", op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"}),
                                           op("mean", op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"}), hours=48))))
-    ps.append(sign_probe("xs-demean-return", op("xs_demean", ret("close", 24))))
-    ps.append(sign_probe("xs-rank-return", op("sub", op("xs_rank", ret("close", 24)), const(0.5))))
-    ps.append(sign_probe("xs-mean-return", op("xs_mean", ret("close", 4))))
-    drawdown = op("max", op("neg", ret("close", 96)), const(0.0))
+    ps.append(sign_probe("xs-demean-return", op("xs_demean", compile_feature(0, "close", 24))))
+    ps.append(sign_probe("xs-rank-return", op("sub", op("xs_rank", compile_feature(0, "close", 24)), const(0.5))))
+    ps.append(sign_probe("xs-mean-return", op("xs_mean", compile_feature(0, "close", 4))))
+    drawdown = op("max", op("neg", compile_feature(0, "close", 96)), const(0.0))
     ps.append(program("martingale-sizing", op("clip", op("mul", op("add", const(1.0), op("mul", drawdown, const(20.0))), const(0.05)),
                                               const(0.0), const(0.15))))
     return ps
