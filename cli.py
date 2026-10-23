@@ -59,6 +59,7 @@ COMMANDS = {
     "sources-backfill": ("ingest.sources_backfill", "main", ["data_root", "source?"], "backfill a source's item metadata as revisions"),
     "recorder-restart": ("ingest.live", "restart", ["out_dir", "budget:int?"],
                          "stop a recorder between polls (its pidfile) and start it again, optionally at a new budget"),
+    "datalayer-record": ("ingest.datalayer", "main", ["out_dir"], "the keyless data layer recorder (until SIGTERM; see recorder-restart)"),
     "sources-availability": ("ingest.sources_avail", "analyze", ["live_dir", "source?"], "C5.3's reported availability figures for one source"),
     "sources-reconcile": ("ingest.sources_avail", "reconcile", ["data_root", "live_dir", "version:int", "source?"],
                           "a re-backfill against what was recorded live"),
