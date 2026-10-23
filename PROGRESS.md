@@ -15,10 +15,6 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test is calibration v3 (human decision 2026-10-21): returns bounded below at B = 1 by kernel I10, a betting test, and GPT's locked suite, which it passed (Log). Calibrations v1 and v2.1 failed and stay recorded. After C0.7: `freeze-searcher` (commit `audit/stage2/searcher.json`), then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
-- **Stage 5:** prospective sources: delvingbitcoin.org (BTC) and Snapshot (AAVE); unlocks blocked (Blockers). GPT has reviewed three times. C5.1 and C5.4 are met, and C5.6 met as a deferral. The fixes since are logged.
-  - **The exit procedure** ran from 2026-10-23 05:33 UTC: re-backfills, derivation at the exit cut, `events-verify` saved, availability, reconciliation and coverage, into `audit/stage5/*exit*`, `verify-*`, `reconcile-*` and `coverage-*`.
-  - **Next:** GPT's review of that evidence. That is a fourth rejection at most, so CLAUDE.md's rule 3 decides what remains.
-  - The sources recorder keeps running past exit, since it also writes C0.3's clock log.
 - **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until it closes, now 2026-10-23 19:37 UTC) and C0.7's `execution.json`:
   - one dry main session under a scratch data root to check the harness end to end (not counted), and `harness.audit` checked against a real transcript;
   - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days start), and `thesis-run` detached;
@@ -773,6 +769,15 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 - **Stage 5 unlock source (2026-10-19).** DefiLlama's emission endpoints return 402 (paid only), and its emissions-adapters repo is gone (404, absent from the org's public repos), so the pre-registered candidate fails C5.1. The fallback, vesting state read through public RPCs, was weighed and not built. Per coin (SUI, TIA, WLD) it needs its own source docs, enumeration of the vesting accounts or contracts, and a schedule-revision store. On top of that come a new kernel input kind (values from the schedule revision known at τ) and its mutants, all for at most 3 of U's 12 coins. Unlocks are therefore recorded as a blocked category at stage 5 exit, which the exit rule allows. Human decision (2026-10-20): unlocks stay blocked, and the RPC fallback is not built.
 
 ## Log
+
+- 2026-10-23: **Stage 5 done** (exit met under the amendment of 2026-10-22 and its clarification; GPT's fourth review, `audit/stage5/gpt-exit-review.md`).
+  - Discourse (delvingbitcoin.org → BTC) and Snapshot (aavedao.eth → AAVE) are prospective only; unlocks are blocked.
+  - Exit evidence: `audit/stage5/` (lineage manifests and identical recomputes, availability and reconciliation at the exit cut, coverage).
+  - **Standing qualifications:**
+    - the original C5.3 stays failed for Discourse;
+    - C5.6's calibration is deferred, and must pass before any search store carries an event dataset (`criteria/test_stages3to5.py` fails otherwise);
+    - the 2026-10-19 migration's predecessor hash was never recorded.
+  - The sources recorder keeps running for the thesis track and C0.3's clock log. Stages 7 to 9 may start (CLAUDE.md §3 priorities).
 
 - 2026-10-23: C6.4's judged run on the corpus frozen in `2eac75f` passed (`audit/stage6/differential-run2-report.json`). All 1,196 verdicts agree (1,135 accepted, 61 rejected under 9 codes), and all 3,372 runs agree bit for bit on the trace, returns, gross returns, every node's static type and every node's value stream, with no missing corpus component. Coverage: 11.5 billion defined node values, 43.5M decisions and fills, 4.9M holds, 353M settlements, 16 liquidations, 45 delistings, 159 unfilled orders and 6 R_INPUT_UNAVAILABLE aborts. GPT's second review (2026-10-23) found that it does not qualify either: node streams were compared as 64-bit digests, not exactly, so the diagnostics could not locate a difference. Both kernels now write exact stream files, compared byte for byte.
 
