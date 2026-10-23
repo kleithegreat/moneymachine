@@ -4,6 +4,14 @@ Commodity Price Data (the Pink Sheet): monthly benchmark prices, with each month
 The exact distribution URLs and their catalog metadata are open items, to be verified before any fetch. The
 Indicators API (`api.worldbank.org/v2`) is used only if it carries the same series.
 
+Distribution (checked 2026-10-23):
+- The monthly workbook sits at `thedocs.worldbank.org/en/doc/<hash>/related/CMO-Historical-Data-Monthly.xlsx`,
+  and the hash changes with each release.
+- The only link to it found so far is on the Commodity Markets page, and reading that page automatically rests on
+  site terms that permit only "lawful, personal and non-commercial" use. So it is not fetched yet.
+- Past monthly releases look archived as PDFs on `thedocs.worldbank.org` (for example "CMO-Pink-Sheet-August-2023.pdf").
+  If their terms and coverage hold up, they could give the past versions (vintages) the workbook lacks.
+
 Timestamp classes:
 - A monthly value's reference month is a value, not an availability time.
 - Recent months are revised, and no historical vintages were found. Each value is known no earlier than our
