@@ -1,14 +1,20 @@
-# Data access for stage 8: options for the human's decision
+# Data access: free first, paid later
 
-Prepared 2026-10-23, while stage 8 is parked until the pilot's judged runs are done. Each option lists what it
-would unlock against the frozen stage 8 criteria (PROGRESS.md, Criteria, Stage 8), what it needs from the
-human, and its cost.
+Human decision of 2026-10-23: start with as much free data as possible, designed for extension, and add paid data
+later. The keyless sources (ECB, BIS, World Bank, CFTC, Treasury Fiscal Data, GDELT) are being certified and
+ingested now. Below are the next steps in order of cost: free keys, then institutional access, then paid vendors.
+Each option lists what it would unlock against the frozen stage 8 criteria and their signal-study amendment
+(PROGRESS.md, Criteria, Stage 8), what it needs from the human, and its cost.
+
+A **signal study** predicts a benchmark series and makes no execution claim. A **backtest** also needs C8.2's
+executable instrument histories. A source moves up a tier when better data arrives.
 
 Prices were found by web search on 2026-10-23. "Confirmed" means the vendor's own page states the price;
 anything else must be checked before buying. Nothing here has been signed up for, and no key has been requested.
+Keys go in `.keys.env` (gitignored) once registered.
 
 Every option still has to pass certification (C8.2 under C7.3): terms quoted, point-in-time availability, and
-revisions. A source that gives only today's adjusted history fails C8.2 for decision inputs, whatever it costs.
+revisions. A source that gives only today's adjusted history fails as a historical decision input at either tier.
 
 ## What is blocked today, and why
 
@@ -19,8 +25,9 @@ revisions. A source that gives only today's adjusted history fails C8.2 for deci
 | Commodities | Individual futures contracts with multipliers, ticks, last-trade dates, and roll decisions made on information then available | C8.2 |
 | Macro and rates | Vintages and actual publication times for each observation, and a certified release calendar with revision history | C8.2 |
 
-The keyless sources (ECB, BIS, CFTC, Treasury Fiscal Data) cover only FX reference-rate signal studies, and even
-those lack series dates and announcement times (Blockers).
+With keyless data alone, the reachable tier is signal studies: ECB FX reference rates, BIS policy and effective
+exchange rates, World Bank monthly commodity benchmarks, CFTC positioning, Treasury rates and GDELT events. Where a
+source has no recoverable past versions, it is usable only from the start of our own recording.
 
 ## Options
 

@@ -22,7 +22,11 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
-- **Stages 7 to 9:** criteria frozen. Implementation waits for the pilot's judged runs (autonomous decision, below). Stage 8 is parked until then (human decision 2026-10-23); its open items are under Blockers, and data access is the human's decision then (`docs/data-access.md`).
+- **Stages 7 to 9:** criteria frozen; kernel changes wait for the pilot's judged runs (autonomous decision, below). Human decision 2026-10-23: start with as much free data as possible, designed for extension.
+  - Stage 7's exit includes adding a real feed end to end with no change to `mm` (C7.5 amendment).
+  - Stage 8 has a signal-study tier (amendment), and sources move up a tier when better data arrives.
+  - **Data-layer work (fills the gaps in the critical path):** certify and ingest the keyless sources (ECB, BIS, World Bank, CFTC, Treasury Fiscal Data, GDELT), point-in-time and with past versions where they exist. The stage 8 scoping items belong to this work: ECB series dates, policy-rate announcement times, and the remaining catalog checks (ECB YC, CFTC traders in financial futures, Treasury average rates, the ECB publication calendar). The draft scope is `data/tmp/stage8/scope.md`, with GPT's review beside it.
+  - Keyed sources wait for the human's registration (Blockers); `docs/data-access.md` lists free options first, then paid.
 - **Stage 7 candidate sources (human, 2026-10-22).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
@@ -812,6 +816,10 @@ Frozen 2026-10-23, before any stage 7 code. GPT reviewed the draft, and this is 
   - It produces nonempty deliveries, and a strategy on it changes output exactly at hand-specified ticks.
   - **Substitutability:** one checked strategy evaluates against two certified feeds of one declaration without changing its source references.
   - Incompatible schemas, units and entity mappings are rejected.
+  - *Amendment 2026-10-23 (human decision, before any stage 7 code or result; a labeled amendment that adds requirements and relaxes none).* Extensibility is the stage's goal, so C7.5 also requires the operator's whole path, end to end:
+    - **Path.** The declaration is committed. The certificate is issued by the certification verifier from an evidence bundle and recorded in the ledger. The binding is recorded. A checked strategy then evaluates on the feed. Each step goes through the CLI, with no edit to any file outside `sources/`, the evidence bundle and the data.
+    - **Identity.** The `mm` binary's sha256 and the git trees of `kernel/`, `ingest/`, `reference/` and any generated code are recorded before and after, and are identical.
+    - **Real feed.** This is done for the synthetic source, and again for one real feed from the keyless data layer that fits stage 7's supported subset (for example a daily series held on a grid and mapped to every coin by a certified mapping). If no real feed fits the subset, that part is recorded as blocked, never passed.
 - **C7.6 The rule language.**
   - A versioned, deterministic AST language, frozen before its implementations. It is total or explicitly rejecting:
     - typed timestamps and durations in integer ms since the Unix epoch;
@@ -1021,6 +1029,16 @@ record confirms it. Trading is stage 11, the human's decision.
 Exit when C8.1 to C8.7 hold for every admitted class and claimed projection, and every blocked or unattempted
 class is recorded under Blockers with what was tried.
 
+- *Amendment 2026-10-23 (human decision, before any stage 8 code or result; a labeled amendment): the signal-study tier.* It adds a weaker, separately labeled claim class. Every executable-backtest claim keeps C8.2 as its bar, and the gate and its calibration are unchanged.
+  - **The claim.** A strategy's signal predicts a named benchmark series, for example a reference fixing, a policy rate or a monthly commodity benchmark. There is no execution, cost, capacity or venue claim. Every report labels it "signal study: predicts <series>; no execution claim", and it is never relabeled as a backtest.
+  - **Inputs.** Each decision input is certified under C7.3 with its point-in-time availability. A source with recoverable past versions is used at the vintage then available. A source without them is usable only from its certified recording start, never historically.
+  - **Target.** The benchmark as published, taken at the value available under its availability rule at the horizon's end. The target series, horizon and value rule are fixed in the class annex.
+  - **Score.** The returns of a zero-cost paper position in the benchmark, computed by the kernel's accounting with I10's loss cap, so C2 v3's lower bound (−1) holds.
+  - **What applies.** C8.1, C8.3 (without the cost model and fills), C8.5 calibrated for the tier's configuration, and C8.6 apply in full. C8.2's execution requirements (raw executable prices, contracts, rolls, held-contract PnL) and C8.7 do not.
+  - **Moving up a tier.** A class or source moves to the backtest tier only when data meeting C8.2 arrives, and it is judged there on fresh evidence. A signal-study result never counts toward a backtest claim.
+  - **Reporting.** The exit names its tier: "stage 8 completed for [scope] as signal studies" or "as backtests".
+  - **Why it cannot increase false discoveries.** It adds only a weaker claim, labeled apart. No backtest claim loses a requirement, and the statistical gate, its calibration and the holdout rules are unchanged.
+
 ### Stage 9: cross-domain exploration
 
 Scope: roadmap item 9 and paper §8 (exploration across domains). Agents explore cross-source relationships
@@ -1158,20 +1176,23 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
 
 ## Blockers
 
-- **Stage 8 scoping is parked until the pilot's judged runs are done (human decision 2026-10-23).** At resumption the human decides data access first (`docs/data-access.md`). The keyless draft is `data/tmp/stage8/scope.md`, with GPT's review in `gpt-review.md` beside it. It proposes ECB FX reference-rate signal studies and blocks equities, indices and commodities. Open items:
-  - **ECB series dates:** the SDMX API has no availability endpoint, so series start and end dates are not obtainable as metadata. Dating by first and last observation is observation access and needs a reviewed procedure, or the ECB's documented history of its reference-rate list.
-  - **Policy-rate announcement times:** BIS WS_CBPOL series carry effective dates, not announcement times, and no vintages. Historical use needs release evidence, or it stays blocked.
-  - **Remaining catalog checks:** ECB YC series and revision policy; the CFTC traders-in-financial-futures dataset's history and contract identifiers; Treasury average interest rates (endpoint, categories, revisions); the ECB publication calendar source.
-
-- **Sources that need a key, an account, a permission request or the operator's identity (stages 8 and 10; left for the human, decision of 2026-10-23).** Nothing autonomous uses them.
-  - **FRED/ALFRED, EIA and BEA:** their APIs need a registered key. FRED also never answered our requests (TLS connected, no response).
-  - **SEC EDGAR and BLS:** both return 403 to our agent and require a User-Agent with a contact email. Using the operator's email is the human's call, and I neither sent one nor impersonated a browser.
-  - **Equity, index and commodity price histories:** the vendors need keys (Tiingo, Alpha Vantage, Nasdaq Data Link), or their terms forbid automated access to their pages (Yahoo, likely Stooq). Paid equity data is deferred.
+- **Free sources that need the human's registration (stages 8 and 10; human decision 2026-10-23: they wait for the human to register).** Once registered, keys go in `.keys.env` at the repo root (gitignored), one `NAME=value` per line, and the fetchers read them from there:
+  - `FRED_API_KEY` (FRED/ALFRED). Unlocks macro and rates at the backtest tier's data bar (C8.2): ALFRED's real-time periods give each value's vintage, and release dates come from the same API. It also unlocks FRED series for the stage 10 proxy.
+  - `BLS_API_KEY`. Labor and price series and the BLS release schedule, the C8.2 release calendar.
+  - `BEA_API_KEY`. NIPA and GDP with release metadata.
+  - `EIA_API_KEY`. Energy spot prices, inventories and front-month settles as features and signal-study targets. They are not individual contracts, so commodity backtests stay blocked.
+  - `SEC_USER_AGENT` (EDGAR: a name and contact email the human chooses). Filing acceptance times, giving point-in-time fundamentals and corporate-action announcements, plus company identifiers as lifecycle evidence. No prices.
   - **IMF data:** its terms say "The IMF prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, read 2026-10-23). Asking for that permission is the human's call.
-  - **Not certifiable by terms either:** the Fed Board's pages beyond `/feeds/` (its policy permits copying, not automated access), and `home.treasury.gov` beyond the Fiscal Data API (no access clause).
-  - **Consequence:** stage 8 starts with keyless official sources (ECB Data Portal, BIS, World Bank, IMF, Treasury Fiscal Data, CFTC public reporting, Hyperliquid's HIP-3 markets). These cover macro, rates, FX and positioning, so its equity, index and commodity classes stay blocked. The stage 10 proxy keeps the certified four (GDELT, Fiscal Data, CFTC, the Fed's RSS feeds).
+  - **Not certifiable by terms:** the Fed Board's pages beyond `/feeds/` (its policy permits copying, not automated access), and `home.treasury.gov` beyond the Fiscal Data API (no access clause).
+  - **Paid or institutional data** (equities, index constituents, futures contracts) comes later, by the human's choice (`docs/data-access.md`).
 
 ## Log
+
+- 2026-10-23: **Human decision: free data first, designed for extension** (supersedes parking stage 8).
+  1. C7.5 is amended: a real feed end to end, with no change to `mm`.
+  2. Stage 8 has a signal-study tier, a labeled weaker claim; C8.2 stays the bar for backtests. The paper's multi-asset section states the two tiers.
+  3. The keyless sources are certified and ingested now as data-layer work. Kernel generalization still waits.
+  4. Keyed free sources wait for the human's registration, with keys read from `.keys.env`.
 
 - 2026-10-23: **Human decisions.**
   1. C1.7 amended: the canary market is a martingale, the threshold stays at 4, and the failing seed is fixed. C1.7 is met under the amendment (`audit/stage1/c17-amended.txt`).
