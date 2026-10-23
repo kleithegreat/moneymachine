@@ -15,7 +15,6 @@ from ingest.sources_record import HUB
 from ingest.store import Store
 
 PER_KEY = 50
-VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
 
 
 def clean(text):
@@ -34,7 +33,7 @@ def discourse(http, rng, data_root):
 
 def snapshot(http, rng, data_root):
     query = '{proposals(first: 1000, where: {space: "%s"}, orderBy: "created", orderDirection: asc) {id title body}}'
-    for row in json.loads((VENUE / "snapshot_map.json").read_text())["rows"]:
+    for row in json.loads(SOURCES["snapshot"]["map"].read_text())["rows"]:
         props = http.post(HUB, json={"query": query % row["space"]}).json()["data"]["proposals"]
         for p in rng.sample(props, min(PER_KEY, len(props))):
             yield {"space": row["space"], "id": p["id"], "text": clean(p["title"] + ". " + p["body"])}
