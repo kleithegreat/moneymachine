@@ -21,6 +21,8 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days and the benchmark's Mondays start at its `frozen` time), and `thesis-run` detached;
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
+  - **Before the freeze (human decision 2026-10-23): HIP-3 theses score on mark prices** from the info API wherever a matching market exists. The info API has no history of mark prices, so the thesis adapter records each scored market's `markPx` hourly, point in time (`metaAndAssetCtxs` per dex), and entry, exit and funding marks use it. Base rates keep daily candles. This needs a dated C10 revision, carried into SCORING.md, the C10.3 fixtures and GPT's independent scorer (C10.4 re-run), before `thesis-freeze`.
+
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
 - **Stages 7 to 9:** criteria frozen; kernel changes wait for the pilot's judged runs (autonomous decision, below). Human decision 2026-10-23: start with as much free data as possible, designed for extension.
   - Stage 7's exit includes adding a real feed end to end with no change to `mm` (C7.5 amendment).
@@ -30,6 +32,16 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
     - World Bank Pink Sheet: its file URL changes every month, and finding it by reading the Commodity Markets page relies on site terms that permit only "lawful, personal and non-commercial" use, not automation. The Data Catalog API, which the datasets terms' API clause covers, is to be verified instead;
     - offline parsers into point-in-time revisions.
   - Keyed sources wait for the human's registration (Blockers); `docs/data-access.md` lists free options first, then paid.
+- **Stage 9 cross-domain candidates (human, 2026-10-23), public domain, terms to be certified as usual:**
+  - NOAA weather;
+  - EIA hourly grid and energy (the bulk files; its API needs a key);
+  - NOAA/BOEM AIS (MarineCadastre);
+  - USDA crop reports;
+  - openFDA;
+  - ClinicalTrials.gov;
+  - Census international trade;
+  - EDGAR financial statement data sets, point in time by acceptance time (sec.gov needs a contact User-Agent, so they wait for the human);
+  - Wikimedia pageviews (its User-Agent policy asks for contact information, so they wait for the human too).
 - **Stage 7 candidate sources (human, 2026-10-22).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
