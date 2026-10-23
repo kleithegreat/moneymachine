@@ -17,9 +17,9 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
 - **Stage 2:** nulls frozen; C2.2 and C2.3 met; C2.1's fixed probes pass (v3). The holdout test is calibration v3 (human decision 2026-10-21): returns bounded below at B = 1 by kernel I10, a betting test, and GPT's locked suite, which it passed (Log). Calibrations v1 and v2.1 failed and stay recorded. After C0.7: `freeze-searcher` (commit `audit/stage2/searcher.json`), then `sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5 audit/stage2/c21-top5.json`, `sweep-summary audit/stage2/sweeps.json`.
 - **Stage 3:** built. After C0.7: `freeze-harness` (commit `audit/stage3/harness.json`), `agent-null agent 20` (paced one campaign per 5 h, resumable), `agent-summary agent audit/stage3/null-summary.json`. Once stage 2 exits: `agent-real data <version>` (C3.3, C3.4, to `audit/stage3/real.json`), then the reviewer.
 - **Stage 4:** C4.1 and C4.2 done; C4.3's isolation and injection tests pass (the per-campaign parts are judged on C4.5's runs). After the harness freeze, and after the stage 3 null series so the two never share a subscription window: `agent-null swarm 10`, `agent-summary swarm audit/stage4/null-summary.json`.
-- **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window (the venue is the recorder's until it closes, now 2026-10-23 19:37 UTC) and C0.7's `execution.json`:
-  - after the recorder is at 480/min (it takes the whole venue budget until then), one dry main session under a scratch root to check the harness end to end (not counted): `python data/tmp/stage10-dry.py data/tmp/thesis-dry` (untracked), with `harness.audit` checked against its transcript;
-  - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days and the benchmark's Mondays start at its `frozen` time), and `thesis-run` detached;
+- **Stage 10 (b):** criteria frozen. Built and tested: positions (C10.3 fixtures), registration and ledger (C10.1), retrieval proxy, daemon and client (C10.2), scoring (C10.4 met: GPT's independent scorer agrees on 1,000 sets), harness, runner, report. Next, after the stage 0 window closes (2026-10-24 06:09:58 UTC) and C0.7's `execution.json` exists:
+  - `data/tmp/stage10-start.sh` (untracked): `recorder-restart data/live 480` (the recorder takes the whole venue budget until then), a check that the polls files still parse, then one dry main session under a scratch root (not counted, `data/tmp/stage10-dry.py`). `harness.audit` is then checked against its transcript;
+  - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days and the benchmark's Mondays start at its `frozen` time), and `thesis-run` detached in its own scope: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`;
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   - **Builder (HIP-3) markets are marked at the venue's mark price** (human decision 2026-10-23; the C10 revision, replaced once after GPT's review). Built and tested before the freeze: `metaAndAssetCtxs` sampled hourly by `thesis-run`'s marker thread and sealed at H + 5 min; lagged sizing and invalidation; the revised SCORING.md; new C10.3 fixtures; C10.4 re-judged (Log). Mark recording starts with `thesis-run`, so no builder market has hourly bars before then.
@@ -43,16 +43,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
     - World Bank Pink Sheet: its file URL changes every month, and finding it by reading the Commodity Markets page relies on site terms that permit only "lawful, personal and non-commercial" use, not automation. The Data Catalog API, which the datasets terms' API clause covers, is to be verified instead;
     - offline parsers into point-in-time revisions.
   - Keyed sources wait for the human's registration (Blockers); `docs/data-access.md` lists free options first, then paid.
-- **Stage 9 cross-domain candidates (human, 2026-10-23), public domain, terms to be certified as usual:**
-  - NOAA weather;
-  - EIA hourly grid and energy (the bulk files; its API needs a key);
-  - NOAA/BOEM AIS (MarineCadastre);
-  - USDA crop reports;
-  - openFDA;
-  - ClinicalTrials.gov;
-  - Census international trade;
-  - EDGAR financial statement data sets, point in time by acceptance time (sec.gov needs a contact User-Agent, so they wait for the human);
-  - Wikimedia pageviews (its User-Agent policy asks for contact information, so they wait for the human too).
+- **Stage 9 cross-domain candidates (human, 2026-10-23):** public-domain sources, each with its terms status, in `docs/stage9-candidates.md`. NWS, openFDA and EIA's bulk files are recording.
 - **Stage 7 candidate sources (human, 2026-10-22).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
