@@ -60,9 +60,13 @@ def test_stored_derivation_recomputes_byte_identically(tmp_path):
 
     live = every_5_min(20 * H, 40 * H) + [poll(t * H, [(9, 30 * H + 7)]) for t in (31, 40)]
     root, live_dir = setup(tmp_path, [(1, 10 * H + 5), (2, 33 * H)], live)
-    events.main(root, 100 * H, live_dir)
+    out = events.main(root, 100 * H, live_dir, audit=tmp_path)
     stored = stores(root)[0].revisions("events_forum").sort("eventTime")
     again = events.derive(root, 100 * H, live_dir)
     assert again["count"].sum() == 1
     assert stored.height == again.height > 0
     assert stored["hash"].to_list() == [_hash(r) for r in again.sort("eventTime").iter_rows(named=True)]
+    lineage = tmp_path / f"lineage-discourse-{out['version']}.json"
+    assert out["cut"] == 100 * H and events.verify(lineage, root, live_dir)["identical"]
+    (live_dir / "sources-x.jsonl").write_text((live_dir / "sources-x.jsonl").read_text().replace(iso(30 * H + 7), iso(30 * H + 8)))
+    assert not events.verify(lineage, root, live_dir)["identical"]

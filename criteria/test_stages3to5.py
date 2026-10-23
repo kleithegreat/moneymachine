@@ -41,10 +41,24 @@ def test_c53_prospective_sources_reported():
     assert sorted((REPO / "audit/stage5").glob("reconcile-*.json"))
 
 
+def search_event_datasets(store):
+    return sorted(p.name for p in store.glob("events_*"))
+
+
+def test_the_c56_guard_sees_any_search_event_dataset(tmp_path):
+    assert search_event_datasets(tmp_path) == []
+    for ds in ("events_forum", "events_governance"):
+        (tmp_path / ds).mkdir()
+    assert search_event_datasets(tmp_path) == ["events_forum", "events_governance"]
+
+
 def test_c56_or_no_search_event_inputs():
-    """C5.6 is deferred while the search store carries no event dataset (clarification of 2026-10-22)."""
-    if not list((REPO / "data/store").glob("events_*")):
+    """C5.6 is deferred while the search store carries no event dataset (clarification of 2026-10-22): once
+    one exists, C5.6's evidence is required, and this fails without it."""
+    if not search_event_datasets(REPO / "data/store"):
         return
+    assert (REPO / "audit/stage5/c56-probes.json").exists() and (REPO / "audit/stage2/sweeps.json").exists(), \
+        "an event dataset is in the search store without C5.6's evidence"
     r = load("stage5/c56-probes.json")
     for model in ("N1", "N2", "N3"):
         assert min(r[model]["regression_p"]) > P_MIN and max(abs(z) for z in r[model]["z"].values()) < Z_MAX, model

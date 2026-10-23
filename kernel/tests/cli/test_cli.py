@@ -253,3 +253,22 @@ def test_holdout_from_cannot_move_earlier(tmp_path):
                         "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--holdout-from", "0",
                         "--ledger", str(tmp_path / "l.sqlite")], capture_output=True, text=True)
     assert json.loads(r.stdout)["disclosure"]["result"]["steps"] == 10 * 6 - 1
+
+
+def test_event_inputs_only_in_the_holdout_are_unbound_in_search(tmp_path):
+    """Stage 5's deferral of C5.6: with every event row past the holdout boundary, search cannot read them."""
+    import numpy as np
+    from gate import markets
+    from ingest.policy import HOUR
+
+    ev = {"arrays": np.random.default_rng(1).poisson(2.0, (24 * 30, 3)).astype(float), "coins": [0, 1, 2], "block_hours": 24}
+    arrays = markets.generate("N1", None, "unbound", 40, events=ev)
+    arrays["forum_posts"][: (40 - 10) * 24 + 1] = np.nan
+    root = markets.write(tmp_path / "m", arrays, 10, {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")})
+    assert not (root / "store" / "events_forum").exists() and list((root / "holdout" / "events_forum").glob("*.parquet"))
+    prog = tmp_path / "p.json"
+    prog.write_text(json.dumps({"dsl": 1, "name": "forum", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+                                "weight": {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
+                                    {"input": "forum_posts"}, {"const": 2, "unit": "ev"}]}]}, {"const": 0.05, "unit": "1"}]}}))
+    r = evaluate(root, tmp_path / "l.sqlite", prog)
+    assert r.returncode == 1 and "R_INPUT_UNAVAILABLE" in r.stdout + r.stderr

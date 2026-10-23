@@ -1,9 +1,9 @@
-"""Stage 5: backfill Discourse post metadata (no text) from W's start, as immutable revisions.
+"""Stage 5: backfill each source's item metadata (no text) from START, as immutable revisions.
 
-Rows are keyed by (forum, upstream_id). eventTime holds the server-set created time (the claim),
-and a revision is known when fetched (our witness). No claimed time is admitted: the derivation
-(venue/sources/derived.md) reads a revision only as our observation at fetchedAt. Each forum's fetch is complete back to START, so a post it no
-longer lists becomes a tombstone.
+Rows are keyed by (forum or space, upstream_id). eventTime holds the claimed created time, and a revision
+is known when fetched (our witness). No claimed time is admitted: the derivation (venue/sources/derived.md)
+reads a revision only as our observation at fetchedAt. Each key's fetch is complete back to START, so an item
+it no longer lists becomes a tombstone.
 """
 
 import hashlib
@@ -15,7 +15,7 @@ import httpx
 import polars as pl
 
 from ingest.live import ms
-from ingest.sources_record import FORUMS
+from ingest.sources_record import FORUMS, HUB, SPACES
 from ingest.policy import DAY, W_START
 from ingest.store import Store
 
@@ -23,7 +23,7 @@ START = W_START - 30 * DAY
 PAUSE = 2.0
 
 
-def backfill(forum, http, fetched_at):
+def backfill(forum, http):
     rows, before = [], None
     while True:
         r = http.get(f"https://{forum}/posts.json", params={"before": before} if before else None)
@@ -41,16 +41,30 @@ def backfill(forum, http, fetched_at):
         time.sleep(PAUSE)
 
 
-def main(data_root):
-    forums = FORUMS
+def proposals(space, http):
+    rows, skip = [], 0
+    while True:
+        query = ('{ proposals(first: 1000, skip: %d, where: {space: "%s", created_gte: %d}, orderBy: "created", '
+                 'orderDirection: asc) { id created updated } }') % (skip, space, START // 1000)
+        page = http.post(HUB, json={"query": query}).json()["data"]["proposals"]
+        rows += [{"space": space, "upstream_id": p["id"], "eventTime": p["created"] * 1000, "updated": p["updated"]} for p in page]
+        if len(page) < 1000:
+            return rows
+        skip += 1000
+        time.sleep(PAUSE)
+
+
+def main(data_root, source="discourse"):
+    """One complete fetch from START of every recorded key of `source`, written as revisions."""
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-backfill (read-only)"})
     fetched_at = int(time.time() * 1000)
+    keys, key, fetch = (FORUMS, "forum", backfill) if source == "discourse" else (SPACES, "space", proposals)
     rows = []
-    for forum in forums:
-        got = backfill(forum, http, fetched_at)
-        print(forum, len(got), file=sys.stderr, flush=True)
+    for k in keys:
+        got = fetch(k, http)
+        print(k, len(got), file=sys.stderr, flush=True)
         rows += got
-    store = Store(Path(data_root) / "sources", key=["forum", "upstream_id"])
-    written = store.write("discourse", pl.DataFrame(rows), fetched_at, "discourse-posts", complete=pl.col("forum").is_in(forums))
+    store = Store(Path(data_root) / "sources", key=[key, "upstream_id"])
+    written = store.write(source, pl.DataFrame(rows), fetched_at, f"{source}-backfill", complete=pl.col(key).is_in(keys))
     return {"version": fetched_at, "written": written}
 

@@ -14,6 +14,7 @@ from ingest.policy import HOUR
 from ingest.store import Store, live, stores, write_split
 
 VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
+AUDIT = Path(__file__).resolve().parents[1] / "audit/stage5"
 GAP = 600_000
 SOURCES = {
     "discourse": {"dataset": "events_forum", "map": VENUE / "discourse_map.json", "key": "forum", "margin": 60_000},
@@ -28,10 +29,10 @@ def polls(live_dir):
 def records(data_root, live_dir, source, version):
     """(observations, polls) at or before `version`: [(key, id, created, at)] and {key: [recv]}."""
     obs, polled = [], {}
-    if source == "discourse":
-        raw = Store(Path(data_root) / "sources", key=["forum", "upstream_id"]).revisions("discourse")
-        if raw is not None:
-            obs += raw.filter((pl.col("fetchedAt") <= version) & live(raw)).select("forum", "upstream_id", "eventTime", "fetchedAt").rows()
+    key = SOURCES[source]["key"]
+    raw = Store(Path(data_root) / "sources", key=[key, "upstream_id"]).revisions(source)
+    if raw is not None:
+        obs += raw.filter((pl.col("fetchedAt") <= version) & live(raw)).select(key, "upstream_id", "eventTime", "fetchedAt").rows()
     for poll in polls(live_dir):
         if poll["source"] != source or poll["recv"] > version:
             continue
@@ -81,21 +82,47 @@ def counts(obs, polled, coin_of, margin, version):
     return out
 
 
+def sha(x):
+    return hashlib.sha256(json.dumps(x, sort_keys=True).encode()).hexdigest()
+
+
 def derive(data_root, version, live_dir, source="discourse"):
+    """The derived rows at cut `version`, each carrying its lineage: the cut, and the hashes of this code, the
+    mapping file and the records read."""
     spec = SOURCES[source]
     coin_of = {r[spec["key"]]: r["coin"] for r in json.loads(spec["map"].read_text())["rows"]}
-    code = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-    map_hash = hashlib.sha256(spec["map"].read_bytes()).hexdigest()
     obs, polled = records(data_root, live_dir, source, version)
+    lineage = {"cut": version, "code_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+               "map_sha256": hashlib.sha256(spec["map"].read_bytes()).hexdigest(),
+               "inputs_sha256": sha([sorted(obs), {k: sorted(v) for k, v in polled.items()}])}
     rows = counts(obs, polled, coin_of, spec["margin"], version)
-    return pl.DataFrame([{"coin": c, "eventTime": h, "count": float(n), "code_sha256": code,
-                          "map_sha256": map_hash} for c, h, n in rows])
+    return pl.DataFrame([{"coin": c, "eventTime": h, "count": float(n)} | lineage for c, h, n in rows])
 
 
-def main(data_root, version, live_dir, source="discourse"):
+def manifest(df):
+    return {k: df[k][0] for k in ("cut", "code_sha256", "map_sha256", "inputs_sha256")} | {
+        "rows": df.height, "rows_sha256": sha(sorted(df.select("coin", "eventTime", "count").rows()))}
+
+
+def main(data_root, version, live_dir, source="discourse", audit=AUDIT):
+    """Write the derived version and its lineage manifest (`audit/stage5/lineage-<source>-<version>.json`)."""
     df = derive(data_root, version, live_dir, source)
     search, holdout = stores(data_root)
     fetched_at = int(time.time() * 1000)
-    written = write_split(search, holdout, SOURCES[source]["dataset"], df, fetched_at, f"derived:{source}")
-    return {"version": fetched_at, "rows": df.height, "written(search, holdout)": written}
+    dataset = SOURCES[source]["dataset"]
+    written = write_split(search, holdout, dataset, df, fetched_at, f"derived:{source}")
+    files = [s.root / dataset / f"{fetched_at}.parquet" for s in (search, holdout)]
+    out = {"source": source, "dataset": dataset, "version": fetched_at, **manifest(df), "written(search, holdout)": written,
+           "files_sha256": {str(f.relative_to(data_root)): hashlib.sha256(f.read_bytes()).hexdigest() for f in files if f.exists()}}
+    path = Path(audit) / f"lineage-{source}-{fetched_at}.json"
+    path.write_text(json.dumps(out, indent=1) + "\n")
+    return out
+
+
+def verify(lineage, data_root, live_dir):
+    """Recompute a derived version from the raw store and recordings at its cut, and compare it with its
+    manifest, without reading the stored rows."""
+    m = json.loads(Path(lineage).read_text())
+    again = manifest(derive(data_root, m["cut"], live_dir, m["source"]))
+    return {"lineage": str(lineage), "identical": all(again[k] == m[k] for k in again), "recomputed": again}
 

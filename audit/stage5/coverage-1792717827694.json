@@ -1,14 +1,14 @@
 {
  "discourse": {
   "classification": "prospective",
-  "version": 1792704806859,
+  "version": 1792717827694,
   "per_coin": {
    "BTC": {
     "mapped_key": "delvingbitcoin.org",
     "raw_items_created_in_search_part": 2214,
     "search_part_rows": 0,
-    "live_counted_items": 14,
-    "covered_hours": 74,
+    "live_counted_items": 16,
+    "covered_hours": 78,
     "covered_intervals": [
      [
       1792411200000,
@@ -28,7 +28,7 @@
      ],
      [
       1792702800000,
-      1792702800000
+      1792717200000
      ]
     ],
     "recording_gaps": [
@@ -158,7 +158,7 @@
  },
  "snapshot": {
   "classification": "prospective",
-  "version": 1792704806859,
+  "version": 1792717827694,
   "per_coin": {
    "BTC": {
     "mapped_key": null,
@@ -225,10 +225,10 @@
    },
    "AAVE": {
     "mapped_key": "aavedao.eth",
-    "raw_items_created_in_search_part": 0,
+    "raw_items_created_in_search_part": 241,
     "search_part_rows": 0,
     "live_counted_items": 3,
-    "covered_hours": 75,
+    "covered_hours": 79,
     "covered_intervals": [
      [
       1792411200000,
@@ -244,7 +244,7 @@
      ],
      [
       1792702800000,
-      1792702800000
+      1792717200000
      ]
     ],
     "recording_gaps": [

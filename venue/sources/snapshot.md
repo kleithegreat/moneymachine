@@ -12,7 +12,7 @@ anchor backfill on its own. `start` and `end` are values (the scheduled voting w
 availability times.
 
 knownAt rule: `created` is never admitted, so a proposal is known at its earliest observation by
-the recorder or a fetch, and only proposals created after the first poll count (`derived.md`).
+the recorder or a fetch, and only proposals created at or after the first poll count (`derived.md`).
 
 Rate limit: "No API Key: 100 requests per minute" ([API keys](https://docs.snapshot.box/tools/api/api-keys),
 retrieved 2026-10-22). We make 1 request per 5 minutes. History depth: the `proposals` query pages back

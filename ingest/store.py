@@ -77,7 +77,8 @@ class Store:
             latest = old.sort("fetchedAt").group_by(self.key).last()
             listed = df.select(self.key)
             current = latest.filter(live(latest))
-            df = df.join(current.select(self.key).with_columns(hashed(current)), on=self.key + ["hash"], how="anti")
+            if set(cols) <= set(current.columns):
+                df = df.join(current.select(self.key).with_columns(hashed(current)), on=self.key + ["hash"], how="anti")
             if complete is not None:
                 gone = (latest.filter(complete & live(latest)).join(listed, on=self.key, how="anti")
                         .select(list(dict.fromkeys(self.key + ["eventTime"])))

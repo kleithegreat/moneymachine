@@ -111,3 +111,7 @@ def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path):
     assert view(300, 299) == {1: "a", 3: "b"} and view(250, 199) == {1: "a", 2: "a", 3: "a"}
     tomb = s.revisions("p").filter(pl.col("tombstone").is_not_null())
     assert tomb.select("upstream_id", "eventTime", "fetchedAt").rows() == [(2, 2 * H, 200)]
+
+
+def test_a_new_column_makes_every_row_a_revision(store):
+    assert store.write("bars_4h", rows(["A", "B"], range(10)).with_columns(pl.lit("v2").alias("lineage")), 200, "t") == 20

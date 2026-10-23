@@ -56,18 +56,20 @@ fn counts_have_their_own_unit() {
 
 #[test]
 fn missing_dataset_is_input_unavailable() {
-    let p = prog(r#"{"op": "sign", "args": [{"op": "div", "args": [{"input": "gov_proposals"}, {"const": 1, "unit": "ev"}]}]}"#, "");
-    assert_eq!(p.event_datasets(), vec!["events_governance"]);
-    let market = mm::market::Market {
-        funding: vec![], bars: vec![], bar_at: Default::default(), rate_at: Default::default(), bar_times: vec![vec![]],
-        intervals: vec![(0, 10 * HOUR)], events: Default::default(), data_hash: String::new(),
-    };
-    let venue = mm::market::Venue { taker_fee: 0.0, min_notional: 10.0, coins: vec!["X".into()],
-        rules: vec![mm::market::CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[0.0; 2]; 2], calibration_range: None }],
-        rules_hash: String::new(), execution_hash: String::new() };
-    let policy = mm::market::Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: 100 * HOUR };
-    match mm::sim::run(&p, &market, &venue, &policy, 100 * HOUR) {
-        Err(e) => assert_eq!(e.code(), "R_INPUT_UNAVAILABLE"),
-        Ok(_) => panic!("a program needing an absent dataset ran"),
+    for (input, dataset) in [("forum_posts", "events_forum"), ("gov_proposals", "events_governance")] {
+        let p = prog(&format!(r#"{{"op": "sign", "args": [{{"op": "div", "args": [{{"input": "{input}"}}, {{"const": 1, "unit": "ev"}}]}}]}}"#), "");
+        assert_eq!(p.event_datasets(), vec![dataset]);
+        let market = mm::market::Market {
+            funding: vec![], bars: vec![], bar_at: Default::default(), rate_at: Default::default(), bar_times: vec![vec![]],
+            intervals: vec![(0, 10 * HOUR)], events: Default::default(), data_hash: String::new(),
+        };
+        let venue = mm::market::Venue { taker_fee: 0.0, min_notional: 10.0, coins: vec!["X".into()],
+            rules: vec![mm::market::CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[0.0; 2]; 2], calibration_range: None }],
+            rules_hash: String::new(), execution_hash: String::new() };
+        let policy = mm::market::Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: 100 * HOUR };
+        match mm::sim::run(&p, &market, &venue, &policy, 100 * HOUR) {
+            Err(e) => assert_eq!(e.code(), "R_INPUT_UNAVAILABLE"),
+            Ok(_) => panic!("a program needing an absent dataset ran"),
+        }
     }
 }

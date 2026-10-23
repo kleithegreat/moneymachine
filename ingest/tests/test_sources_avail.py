@@ -45,3 +45,16 @@ def test_availability_report_counts_new_items_and_edits(tmp_path):
     assert r["new_items_claimed_lag_ms"] == {"n": 1, "min": 60_000, "p50": 60_000, "p90": 60_000, "max": 60_000}
     assert r["edits_claimed_lag_ms"]["n"] == 1 and r["claimed_rule_failures"] == {"items": 0, "edits": 0}
     assert r["operative_slack_ms"] == 60_000
+    assert r["polls_without_overlap"] == 0 and r["failed_polls"] == 0
+    assert abs(r["uptime_fraction"] - 300_000 / (2 * H)) < 1e-12
+
+
+def test_a_poll_sharing_no_item_with_the_previous_one_is_counted(tmp_path):
+    live_dir = tmp_path / "live"
+    live_dir.mkdir()
+    polls = [(10 * H, [post(1, 10 * H - 5)]), (10 * H + 300_000, [post(1, 10 * H - 5), post(2, 10 * H)]),
+             (10 * H + 600_000, [post(3, 10 * H + 500_000)]), (10 * H + 900_000, None)]
+    (live_dir / "sources-x.jsonl").write_text("".join(json.dumps({"source": "discourse", "key": "f", "sent": t, "recv": t, "data": d}) + "\n"
+                                                      for t, d in polls))
+    r = sources_avail.analyze(live_dir)
+    assert r["polls_without_overlap"] == 1 and r["failed_polls"] == 1

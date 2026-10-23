@@ -1,0 +1,18 @@
+{
+ "source": "snapshot",
+ "dataset": "events_governance",
+ "version": 1792717828430,
+ "cut": 1792717827694,
+ "code_sha256": "538898275129d82714f6b3a84844690b90fe54e00900a62bdd668ad5355e8a06",
+ "map_sha256": "11408b2eb95e9805025ee64ad56907835e6fa731f47c4699cb83b9f1fbba0f22",
+ "inputs_sha256": "4893722aff491a9a90aa76b20332b9170733bffd1df09ca44e17eebb1f235b4d",
+ "rows": 79,
+ "rows_sha256": "746f6f786bc95384706fe86b481eb632f9c293301f4d112359215e2077e8264f",
+ "written(search, holdout)": [
+  0,
+  79
+ ],
+ "files_sha256": {
+  "holdout/events_governance/1792717828430.parquet": "c6a99339d38bb1461199f7676f120029cd5aa3b453dcc46050087d770707cb04"
+ }
+}
