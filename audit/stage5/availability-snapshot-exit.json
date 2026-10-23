@@ -5,18 +5,18 @@
  ],
  "window": [
   1792405626476,
-  1792717767853
+  1792733667636
  ],
- "hours_recorded": 86.7,
+ "hours_recorded": 91.1,
  "poll_gaps_s": {
-  "n": 989,
+  "n": 1042,
   "min": 33.849,
-  "p50": 300.143,
-  "p90": 303.022,
+  "p50": 300.116,
+  "p90": 302.944,
   "max": 11762.04,
   "over_10_min": 4
  },
- "uptime_fraction": 0.9460139851949202,
+ "uptime_fraction": 0.9486306261080164,
  "failed_polls": 45,
  "polls_without_overlap": 0,
  "new_items_claimed_lag_ms": {
@@ -34,6 +34,6 @@
  "operative_slack_ms": 0,
  "clock_offset_ms": {
   "max_abs": 4900.766,
-  "n": 932
+  "n": 985
  }
 }

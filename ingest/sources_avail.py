@@ -80,8 +80,8 @@ CONTENT = {"discourse": (lambda p: p["cooked_sha256"], "content_sha256"), "snaps
 
 def reconcile(data_root, live_dir, version, source="discourse"):
     """The re-backfill at store version `version` against what the recorder saw live up to it. Live items are
-    every item listed in a poll up to `version`; deleted, those created since their key's first poll that the
-    backfill lacks; edited, those whose content differs; backdated, backfilled items claimed inside the live
+    every item listed in a poll up to `version`, over the window from the first such poll to the last; deleted,
+    those created since their key's first poll that the backfill lacks; edited, those whose content differs; backdated, backfilled items claimed inside the live
     window but first seen live more than RULE_MS after their claim, or never."""
     import polars as pl
 
@@ -90,18 +90,18 @@ def reconcile(data_root, live_dir, version, source="discourse"):
     created, _, _ = FIELDS[source]
     live_content, stored_content = CONTENT[source]
     key = SOURCES[source]["key"]
-    seen, first_poll = {}, {}
+    seen, first_poll, window_end = {}, {}, 0
     for poll in polls(live_dir):
         posts = listed(source, poll) if poll["source"] == source and poll["recv"] <= version else None
         if not isinstance(posts, list):
             continue
         first_poll.setdefault(poll["key"], poll["recv"])
+        window_end = poll["recv"]
         for p in posts:
             seen.setdefault((poll["key"], p["id"]), (poll["recv"], live_content(p), created(p)))
     raw = Store(Path(data_root) / "sources", key=[key, "upstream_id"]).revisions(source)
     latest = raw.filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by([key, "upstream_id"]).last().filter(live(raw))
     backfill = {(r[key], r["upstream_id"]): (r["eventTime"], r[stored_content]) for r in latest.iter_rows(named=True)}
-    window_end = max(t for t, _, _ in seen.values()) if seen else 0
     missing = [k for k in seen if k not in backfill and seen[k][2] >= first_poll[k[0]]]
     changed = [k for k in seen if k in backfill and backfill[k][1] != seen[k][1]]
     backdated = [k for k, (claimed, _) in backfill.items()

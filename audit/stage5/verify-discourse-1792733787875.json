@@ -1,0 +1,12 @@
+{
+ "lineage": "audit/stage5/lineage-discourse-1792733787875.json",
+ "identical": true,
+ "recomputed": {
+  "cut": 1792733787006,
+  "code_sha256": "e3f1205303fe7e8e295f321824bacf76936847a16e8df77bf48954cda0821b23",
+  "map_sha256": "cc6354023060fd24504e6786e22ada3ecb9934534a9ee8af2877963de1a3d4f1",
+  "inputs_sha256": "037d9b39d47f81e033f4949ce4ccbcd7492c90d3a08cb4460b839b6e0b7d5a98",
+  "rows": 82,
+  "rows_sha256": "150fceb3916558d758dcf61db37b382fb4df658d518c2a8e953af618ecd8a1e1"
+ }
+}
