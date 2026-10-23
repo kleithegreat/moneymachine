@@ -12,8 +12,9 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   1. `data/tmp/after-c07.sh` (untracked, resumable): C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the stage 2 sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`). Estimated 2 h, in an 8 GB scope.
   2. `data/tmp/stage10-start.sh`: `recorder-restart data/live 480` (the HL client's 10 s timeout takes effect then; check that the day's polls file still parses), then one uncounted dry main session. Check `harness.audit` against its transcript, then `thesis-freeze` (commit `audit/stage10/manifest.json`), then `thesis-run` detached in its own scope: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`. Builder (HIP-3) marks are recorded from then on.
   3. Stage 3: `freeze-harness`, `agent-null agent 20` (paced one campaign per 5 h), `agent-summary`. Stage 4's `agent-null swarm 10` after stage 3's series.
-  4. Stage 10's descriptive Polymarket baseline (C10 revision of 2026-10-23): an optional outcome-market field at registration, and the report's comparison, before `thesis-freeze`.
-  5. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, docstrings that cite PROGRESS.md sections now in `audit/criteria.md`, the source-certificate registry, `oci-cli` into the flake, `duckdb` out of it.
+  4. **Before any stage 3 run:** stage 3's holdout starts 2026-07-01, but the agent model's knowledge cutoff is June 2026, a zero margin the paper says must be generous (§12). This bears on leakage, so it gets a dated revision before stage 3 runs (paper review of 2026-10-23, item 8). A later holdout start shortens the holdout and lowers power.
+  5. Stage 10's descriptive Polymarket baseline (C10 revision of 2026-10-23): an optional outcome-market field at registration, and the report's comparison, before `thesis-freeze`.
+  6. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, docstrings that cite PROGRESS.md sections now in `audit/criteria.md`, `kernel/tests/timing/FORMAT.md` folded into its generator, `oci-cli` into the flake, `duckdb` out of it.
 - **Stages 1, 2, 5, 6, 10.**
   - **Stage 1:** done except C1.4 and C1.8.
   - **Stage 2:** done except the sweeps; calibration v3 passed.
@@ -24,6 +25,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **HL, local:** `data/live`, 600/min until the window closes, then 480/min.
   - **Stage 5 sources:** `data/sources_live`, delvingbitcoin.org, Snapshot and the clock log.
   - **Keyless data layer:** `data/datalayer`, from 2026-10-23 18:39 UTC, about 30 MB a day. Feeds are declared in `venue/sources/datalayer.json`: ECB EXR, BIS, CFTC (3 reports), Treasury, GDELT events, NWS alerts, openFDA, EIA (manifest and petroleum), Polymarket (active and resolved). Bodies are gzip-compressed under `raw/<sha256>.gz`. ECB and every other source without past versions are prospective only.
+- **Redundant recording.** Only the HL recorder is getting a second host. The data layer and the stage 5 sources keep no past versions upstream and run on this PC alone; extending the cloud host to them follows once its HL recorder is stable.
 - **Second HL recorder on Oracle Cloud (human, 2026-10-23), in progress.** Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`, alerts on actual and forecast ≥ $1). Files are in `ops/oci/`. SSH is open only from this PC's IP, and the VM never connects to the PC. Remaining: nix, the repo through a read-only deploy key, `data/universe.json`, the systemd unit at 480/min, then this PC's pull timer.
 
 ## Blockers

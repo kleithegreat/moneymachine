@@ -907,6 +907,7 @@ record confirms it. Trading is stage 11, the human's decision.
   - the execution and accounting assumptions.
 
   An unfinished annex is a blocked prerequisite, not leave to choose thresholds after seeing results.
+  - *Revision 2026-10-23 (human decision of the same day: certify and ingest the keyless sources now as background data-layer work, before any annex).* Recording may start before a class annex, because a source without recoverable past versions is point in time only from our own recording. Until the class annex is frozen, nothing derived from those recordings is inspected beyond integrity: HTTP status, sizes, hashes, poll times and parse success. In particular no value, return, coverage-by-value, signal or calibration statistic is computed or looked at. Annex thresholds and windows therefore still precede every inspection of the observations they judge. The scope manifest was committed before any of this ingestion (`audit/stage8/scope-manifest.md`).
 - **Evidence rule (as C7's).** Before each judged run, its specification, artifact identities, fixture inventory,
   sampling procedure, seeds, minimum samples, thresholds and expected outcomes are committed. Every selected case
   counts. A missing case, skipped mandatory category, crash, timeout or malformed result fails the criterion. A
