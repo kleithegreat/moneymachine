@@ -36,7 +36,7 @@ def read(live_dir, prefix):
                 yield json.loads(line)
 
 
-def recording(out_dir, command, **args):
+def recording(out_dir, command, /, **args):
     """Record this recorder's pid, CLI command and arguments in `out_dir`; SIGTERM sets the returned event."""
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())

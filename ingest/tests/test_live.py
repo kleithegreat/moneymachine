@@ -51,3 +51,17 @@ def test_restart_refuses_a_budget_the_recorder_does_not_take(tmp_path):
     (tmp_path / live.PIDFILE).write_text(json.dumps({"pid": 0, "command": "sources-record", "args": {"out_dir": "x"}}))
     with pytest.raises(ValueError):
         live.restart(tmp_path, 480)
+
+
+def test_recording_writes_the_pidfile_with_out_dir_among_the_arguments(tmp_path):
+    import os
+    import signal
+
+    before = signal.getsignal(signal.SIGTERM)
+    try:
+        stop = live.recording(tmp_path, "sources-record", out_dir=str(tmp_path))
+        rec = json.loads((tmp_path / live.PIDFILE).read_text())
+        assert rec == {"pid": os.getpid(), "command": "sources-record", "args": {"out_dir": str(tmp_path)}}
+        assert not stop.is_set()
+    finally:
+        signal.signal(signal.SIGTERM, before)
