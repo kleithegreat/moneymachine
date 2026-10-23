@@ -12,7 +12,8 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   1. `data/tmp/after-c07.sh` (untracked, resumable): C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the stage 2 sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`). Estimated 2 h, in an 8 GB scope.
   2. `data/tmp/stage10-start.sh`: `recorder-restart data/live 480` (the HL client's 10 s timeout takes effect then; check that the day's polls file still parses), then one uncounted dry main session. Check `harness.audit` against its transcript, then `thesis-freeze` (commit `audit/stage10/manifest.json`), then `thesis-run` detached in its own scope: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`. Builder (HIP-3) marks are recorded from then on.
   3. Stage 3: `freeze-harness`, `agent-null agent 20` (paced one campaign per 5 h), `agent-summary`. Stage 4's `agent-null swarm 10` after stage 3's series.
-  4. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, docstrings that cite PROGRESS.md sections now in `audit/criteria.md`, the source-certificate registry, `oci-cli` into the flake, `duckdb` out of it.
+  4. Stage 10's descriptive Polymarket baseline (C10 revision of 2026-10-23): an optional outcome-market field at registration, and the report's comparison, before `thesis-freeze`.
+  5. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, docstrings that cite PROGRESS.md sections now in `audit/criteria.md`, the source-certificate registry, `oci-cli` into the flake, `duckdb` out of it.
 - **Stages 1, 2, 5, 6, 10.**
   - **Stage 1:** done except C1.4 and C1.8.
   - **Stage 2:** done except the sweeps; calibration v3 passed.

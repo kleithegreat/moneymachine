@@ -669,6 +669,7 @@ The thesis is written with `mm disclose --kind thesis` to the thesis ledger, who
   - It uses its own $10,000 paper account with the same sizing and cap.
   - Its Brier score is descriptive, not a head-to-head forecast comparison. Its paper return is compared over the same calendar interval.
 - **Market-implied probabilities.** Not used, since there is no free source for these exposures. The report says so.
+  - *Revision 2026-10-23 (human decision; before the freeze, any session or any registered thesis): a descriptive outcome-market baseline.* Polymarket's public market prices and resolutions are recorded every 3 h from 2026-10-23 (`venue/sources/polymarket.md`). A thesis may name one Polymarket market at registration as its outcome market. The report then shows that market's latest recorded price at or before t_r, and its resolution, beside p. The comparison is descriptive only: a Polymarket question rarely states the thesis's exact outcome, so no Brier or skill score uses it, and theses without a named market are unaffected.
 
 **Scoring.**
 - **Point scores.** Brier scores are thesis-weighted means. Each paired comparison uses the identical resolved theses with both forecasts, and reports its coverage. Skill is 1 − B/B_ref; if B_ref = 0, skill is undefined and B, B_ref and B − B_ref are reported.
