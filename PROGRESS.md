@@ -22,7 +22,7 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - then `thesis-freeze` (commit `audit/stage10/manifest.json`; C10.5's 28 days and the benchmark's Mondays start at its `frozen` time), and `thesis-run` detached;
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
-  - **Before the freeze (human decision 2026-10-23): HIP-3 theses score on mark prices** from the info API wherever a matching market exists. The info API has no history of mark prices, so the thesis adapter records each scored market's `markPx` hourly, point in time (`metaAndAssetCtxs` per dex), and entry, exit and funding marks use it. Base rates keep daily candles. This needs a dated C10 revision, carried into SCORING.md, the C10.3 fixtures and GPT's independent scorer (C10.4 re-run), before `thesis-freeze`.
+  - **Before the freeze (human decision 2026-10-23): builder (HIP-3) markets are marked at the venue's mark price.** The dated C10 revision (Criteria, stage 10) is written. Hourly bars of a builder market are built from hourly `metaAndAssetCtxs` samples, so SCORING.md and C10.4's scorer are unchanged. Next: the adapter and recording, then the mark-bar fixtures, before `thesis-freeze`.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
 - **Stages 7 to 9:** criteria frozen; kernel changes wait for the pilot's judged runs (autonomous decision, below). Human decision 2026-10-23: start with as much free data as possible, designed for extension.
@@ -673,6 +673,12 @@ The thesis is written with `mm disclose --kind thesis` to the thesis ledger, who
   - **as managed:** with invalidation and discretionary exits.
 
   No Brier score is computed for the managed view.
+- *Revision 2026-10-23 (human decision; before the freeze, any session or any registered thesis): builder-deployed (HIP-3) markets are marked at the venue's mark price.* Their trade candles have hours without trades, and on those hours "missing bars never cause an earlier price to be used" left theses unresolved.
+  - **Request types.** The exchange adapter also permits `metaAndAssetCtxs`, a public, read-only request that returns each market's mark price. All other "Exchange reads" terms are unchanged.
+  - **Recording.** From the freeze on, the track records every builder dex's `metaAndAssetCtxs` once an hour, sent at H + 5 s, with send and receive times, as an append-only archive. mark_m(H) is market m's `markPx` from the earliest sample sent in [H, H + 5 min) and received by the time it is used. If there is no such sample, mark_m(H) is missing.
+  - **Hourly bars of a builder market.** The 1h bar opening at H is (open, close) = (mark_m(H), mark_m(H + 1 h)). It exists only when both marks exist and H + 1 h has passed. Every rule above that uses 1h opens or closes (entry, invalidation, exits, the funding mark, `markets`) therefore uses marks for these markets. A missing mark gives a missing bar, which never causes an earlier price to be used.
+  - **Unchanged.** Core markets keep their 1h trade candles. Daily bars, eligibility (90 completed daily bars), base rates and the `prices` command keep daily candles for every market. SCORING.md's input is still hourly bars, so C10.3's fixtures and C10.4's independent scorer apply as judged. New fixtures cover the mark-bar construction: the sampling window, a missing mark, a sample received late, and a bar whose closing mark is missing.
+  - **No backfill.** The venue's API keeps no history of marks, so a builder market has hourly bars only from the start of recording; no earlier mark is reconstructed.
 - **Accounting.** Paper equity reconciles hourly within 1e-9 dollars: initial cash plus realized and unrealized PnL plus funding, less fees and costs.
 
 **Baselines.**
