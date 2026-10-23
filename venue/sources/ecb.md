@@ -9,12 +9,15 @@ Timestamp classes:
 - The SDMX response carries no publication time. An observation is therefore known no earlier than our own
   fetch of it, unless a past-version query (below) establishes an earlier, server-set time.
 
-Past versions (checked 2026-10-23 on `D.USD.EUR.SP00.A`, two observations): with `includeHistory=true`, SDMX-ML
-(generic data) returns each version as a dataset with `action="Replace"` and a server-set `validFromDate`. The CSV
-format ignores the parameter. The two latest observations were both stamped `2026-10-23T20:25:15.583+02:00`,
-after that day's fixing, so a version's `validFromDate` can be a reload time rather than first publication. It is
-a candidate knownAt witness only after a live test compares it with our own observation times (paper §5); until
-then the series are prospective from our first recording.
+Past versions: none recoverable through the API (checked 2026-10-23 on `D.USD.EUR.SP00.A`).
+- With `includeHistory=true`, SDMX-ML returns a single dataset with `action="Replace"`.
+- Its `validFromDate` is the response's own generation time: 18:25:15 and 18:47:54 UTC for requests made at
+  those times. It is not a version timestamp.
+- The full history came back as one version (7,183 observations).
+
+For point-in-time use, every value is therefore known no earlier than our own first fetch of it (prospective
+only). The full history serves to date the series, not as historical decision input, unless the ECB's revision
+policy for reference rates is certified as "never revised" with evidence.
 
 The fixing time is in the series' `TITLE_COMPL`: "ECB reference exchange rate, US dollar/Euro, 2.15 pm (C.E.T.)".
 It is a reference time, not a publication time.

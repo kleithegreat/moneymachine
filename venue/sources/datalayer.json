@@ -2,7 +2,7 @@
  "user_agent": "moneymachine-research-recorder (read-only)",
  "feeds": [
   {"name": "ecb-exr", "doc": "venue/sources/ecb.md", "every_h": 6,
-   "url": "https://data-api.ecb.europa.eu/service/data/EXR/D..EUR.SP00.A?lastNObservations=5&includeHistory=true",
+   "url": "https://data-api.ecb.europa.eu/service/data/EXR/D..EUR.SP00.A?lastNObservations=5",
    "accept": "application/vnd.sdmx.genericdata+xml;version=2.1"},
   {"name": "bis-cbpol", "doc": "venue/sources/bis.md", "every_h": 24,
    "url": "https://stats.bis.org/api/v1/data/WS_CBPOL/D..?lastNObservations=5"},

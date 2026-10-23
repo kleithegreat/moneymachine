@@ -26,10 +26,9 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - Stage 7's exit includes adding a real feed end to end with no change to `mm` (C7.5 amendment).
   - Stage 8 has a signal-study tier (amendment), and sources move up a tier when better data arrives.
   - **Data-layer work (fills the gaps in the critical path):** certify and ingest the keyless sources (ECB, BIS, World Bank, CFTC, Treasury Fiscal Data, GDELT), point-in-time and with past versions where they exist. The stage 8 scoping items belong to this work: ECB series dates, policy-rate announcement times, and the remaining catalog checks (ECB YC, CFTC traders in financial futures, Treasury average rates, the ECB publication calendar). Stage 8's scope manifest is committed before any ingestion (`audit/stage8/scope-manifest.md`, with GPT's review beside it): signal-study tier for ECB FX reference rates and World Bank commodity benchmarks; equities and indices blocked; commodity backtests blocked.
-  - **Data layer, running:** feeds are declared in `venue/sources/datalayer.json` (terms enforced per host), with bodies content-addressed under `data/datalayer/raw/` and poll times in `datalayer-*.jsonl`. Recorded so far: ECB EXR (latest 5 observations with past versions, every 6 h), BIS WS_CBPOL and WS_EER, CFTC TFF, legacy and disaggregated (latest 1,000 rows, every 6 h), and Treasury average rates. Next:
-    - World Bank Pink Sheet (distribution URL to verify);
-    - GDELT (two-step: `lastupdate.txt`, then the export file);
-    - full-history backfills (ECB with `includeHistory`), which also settle the ECB series dates now that the scope manifest is committed;
+  - **Data layer, running:** feeds are declared in `venue/sources/datalayer.json` (terms enforced per host), with bodies content-addressed under `data/datalayer/raw/` and poll times in `datalayer-*.jsonl`. Recorded so far: ECB EXR (latest 5 observations, every 6 h; the API keeps no past versions, so it is prospective only), GDELT 2.0 event exports (every 15 min), BIS WS_CBPOL and WS_EER, CFTC TFF, legacy and disaggregated (latest 1,000 rows, every 6 h), and Treasury average rates. Next:
+    - World Bank Pink Sheet: its file URL changes every month, and finding it by reading the Commodity Markets page relies on site terms that permit only "lawful, personal and non-commercial" use, not automation. The Data Catalog API, which the datasets terms' API clause covers, is to be verified instead;
+    - full-history fetches to date each ECB series (dates only; values stay prospective);
     - offline parsers into point-in-time revisions.
   - Keyed sources wait for the human's registration (Blockers); `docs/data-access.md` lists free options first, then paid.
 - **Stage 7 candidate sources (human, 2026-10-22).**
