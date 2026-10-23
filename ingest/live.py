@@ -54,8 +54,9 @@ def alive(pid, command):
 
 
 def restart(out_dir, budget=None, wait=300):
-    """Stop the recorder writing to `out_dir` (it finishes its current poll), then start it again detached with
-    the same arguments, `budget` replacing its rate budget."""
+    """Stop the recorder writing to `out_dir` (it finishes its current poll), then start it again with the same
+    arguments, `budget` replacing its rate budget, detached in its own systemd scope so that nothing killing the
+    caller's scope (an OOM kill, a session ending) takes it down."""
     import cli
 
     rec = json.loads((Path(out_dir) / PIDFILE).read_text())
@@ -71,7 +72,8 @@ def restart(out_dir, budget=None, wait=300):
                 raise TimeoutError(f"recorder {rec['pid']} still running {wait} s after SIGTERM")
             time.sleep(1)
     with open(Path(out_dir) / "recorder.log", "a") as log:
-        p = subprocess.Popen([sys.executable, "-m", "cli", rec["command"], *(str(args[a]) for a in names if a in args)],
-                             cwd=cli.REPO, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+        unit = f"mm-{rec['command']}-{int(time.time())}"
+        p = subprocess.Popen(["systemd-run", "--user", "--scope", "--quiet", f"--unit={unit}", sys.executable, "-m", "cli",
+                              rec["command"], *(str(args[a]) for a in names if a in args)], cwd=cli.REPO, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                              start_new_session=True)
-    return {"stopped": rec["pid"], "started": p.pid}
+    return {"stopped": rec["pid"], "started": p.pid, "unit": unit}

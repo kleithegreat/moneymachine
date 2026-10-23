@@ -30,9 +30,10 @@ def test_restart_stops_the_recorder_and_starts_it_with_the_new_budget(tmp_path, 
     (tmp_path / live.PIDFILE).write_text(json.dumps({"pid": old.pid, "command": "record", "args": args}))
     started = []
     monkeypatch.setattr(live.subprocess, "Popen", lambda argv, **kw: started.append(argv) or type("P", (), {"pid": 1})())
-    assert live.restart(tmp_path, 480, wait=10) == {"stopped": old.pid, "started": 1}
+    assert {k: v for k, v in live.restart(tmp_path, 480, wait=10).items() if k != "unit"} == {"stopped": old.pid, "started": 1}
     assert old.wait(timeout=5) == 0
-    assert started == [[sys.executable, "-m", "cli", "record", "u.json", "r.json", str(tmp_path), "480"]]
+    assert started[0][:4] == ["systemd-run", "--user", "--scope", "--quiet"]
+    assert started[0][5:] == [sys.executable, "-m", "cli", "record", "u.json", "r.json", str(tmp_path), "480"]
 
 
 def test_restart_leaves_an_unrelated_process_with_a_reused_pid_alone(tmp_path, monkeypatch):
@@ -43,7 +44,7 @@ def test_restart_leaves_an_unrelated_process_with_a_reused_pid_alone(tmp_path, m
     live.restart(tmp_path, wait=10)
     assert other.poll() is None
     other.kill()
-    assert started == [[sys.executable, "-m", "cli", "sources-record", "x"]]
+    assert started[0][5:] == [sys.executable, "-m", "cli", "sources-record", "x"]
 
 
 def test_restart_refuses_a_budget_the_recorder_does_not_take(tmp_path):
