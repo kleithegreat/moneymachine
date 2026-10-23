@@ -12,7 +12,7 @@ from pathlib import Path
 
 import httpx
 
-from ingest.live import append, now_ms
+from ingest.live import append, now_ms, recording
 
 FORUMS = ["delvingbitcoin.org"]
 SPACES = ["aavedao.eth"]
@@ -34,15 +34,17 @@ def reply(r):
 
 def main(out_dir):
     out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
+    stop = recording(out, "sources-record", out_dir=out_dir)
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-recorder (read-only)"})
-    while True:
+    while not stop.is_set():
         started = time.time()
         jobs = [("discourse", f, lambda f=f: reply(http.get(f"https://{f}/posts.json"))) for f in FORUMS]
         jobs += [("snapshot", s, lambda s=s: reply(http.post(HUB, json={"query": QUERY % s})))
                  for s in SPACES]
         jobs += [("clock", "timesyncd", lambda: {"offset_ms": clock_offset_ms()})]
         for source, key, request in jobs:
+            if stop.is_set():
+                break
             sent = now_ms()
             try:
                 data = request()
@@ -53,5 +55,5 @@ def main(out_dir):
             except Exception as e:
                 data = {"error": repr(e)}
             append(out, "sources", sent, {"source": source, "key": key, "sent": sent, "recv": now_ms(), "data": data})
-        time.sleep(max(0, POLL - (time.time() - started)))
+        stop.wait(max(0, POLL - (time.time() - started)))
 

@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 from ingest.hl import BUDGET_PER_MIN, Info
-from ingest.live import append, now_ms
+from ingest.live import append, now_ms, recording
 from ingest.policy import BAR, HOUR
 
 POLL = 30_000
@@ -93,14 +93,14 @@ class Recorder:
                 self.poll_l2(c)
 
 
-def forever(step):
-    while True:
+def forever(step, stop):
+    while not stop.is_set():
         try:
             step()
         except Exception as e:
             print(time.strftime("%FT%T"), "error", repr(e), file=sys.stderr, flush=True)
-            time.sleep(5)
-        time.sleep(0.5)
+            stop.wait(5)
+        stop.wait(0.5)
 
 
 def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
@@ -108,7 +108,10 @@ def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
     the documented limit."""
     delisted = json.loads(Path(rules_path).read_text())["coins"]
     coins = [c for c in json.loads(Path(universe_path).read_text())["universe"] if not delisted[c]["delisted"]]
+    stop = recording(out_dir, "record", universe_path=universe_path, rules_path=rules_path, out_dir=out_dir, budget=budget)
     rec = Recorder(budget, coins, out_dir)
-    threading.Thread(target=forever, args=(rec.step_l2,), daemon=True).start()
-    forever(rec.step)
+    l2 = threading.Thread(target=forever, args=(rec.step_l2, stop))
+    l2.start()
+    forever(rec.step, stop)
+    l2.join()
 
