@@ -1269,7 +1269,7 @@ Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous ope
   - **Hyperliquid's official archives:** requester-pays S3, so an AWS account and transfer costs.
   - **Ethereum on BigQuery:** a Google Cloud account.
   - **Ethereum or Polygon node:** a 2–4 TB NVMe; 91 GB are free.
-  - **Polymarket's APIs:** need their terms read first (data layer).
+  - **Polymarket's APIs (needs a human decision, like Hyperliquid's of 2026-10-23):** `polymarket.com/tos` renders without its text, no API terms were found, and trading is blocked in the US ("Trading is blocked in the United States on polymarket.com"). Secondary sources say the terms bar US persons from the international product. Whether reading its public market-data API (Gamma markets, CLOB price history) from the US is permitted is the human's call; nothing has been fetched. Polymarket US, the regulated product, may publish its own API terms.
   - **What runs meanwhile:** the HL info API recording.
 
 - **Free sources that need the human's registration (stages 8 and 10; human decision 2026-10-23: they wait for the human to register).** Once registered, keys go in `.keys.env` at the repo root (gitignored), one `NAME=value` per line, and the fetchers read them from there:
