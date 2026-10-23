@@ -30,6 +30,17 @@ The spec is `docs/whitepaper.tex` (`nix build .#whitepaper` renders the PDF; it 
 
 No human reviews your work between sessions. Never ask a question and wait for an answer. "STOP" in §1 means: write the blocker in `PROGRESS.md` (what broke, why, the redesign you propose), commit, then continue with work that does not depend on it, or end the session if nothing remains.
 
+### Autonomous operation
+
+The purpose is auditable agentic quant research: agents search freely, the kernel enforces proved invariants, the ledger records everything agents saw, and inference happens only on untouched holdouts. The crypto pilot (stages 0-5) validates the machinery; it is not expected to find tradeable edges, and on a 91-day holdout zero promotions is the expected and correct outcome. Real evidence comes from long multi-asset histories (stages 7-9, after stage 5 exits) and the forward thesis track (stage 10, whose evidence accrues only with time). Stage 11 is the human's: stop before it.
+
+1. **Decide for the human.** When something would normally wait for a human call, decide it by the standing rules (pre-registration; amendments only if they cannot increase false discoveries, labeled; the paper as spec; §1 re-derivation over patches), with GPT review where independence matters. Log each under "Decisions taken autonomously" in `PROGRESS.md`: what, why, what GPT said, how to reverse it. Prefer reversible choices.
+2. **Never decide alone**, and record under Blockers instead: anything crossing the hard limits (terms, keys, orders, VPNs), spending money, using the human's personal identity (for example an email in a User-Agent), deleting audit records, or loosening a frozen threshold. Then move on to other work.
+3. **GPT's reviews are evidence, not orders.** If the same exit is rejected a third time, ask whether the remaining issue could change a false-discovery or leakage outcome. If yes, fix it; if no, record it as a known limitation and move on. Don't polish indefinitely.
+4. **Priorities, in order:** the critical path (stage 0 judgments, then C1.4/C1.8, the stage 2 sweeps, the stage 3 freeze, null smoke and real campaign); the stage 10 start, using only sources already certified; the stage 5 and stage 6 exits; stage 4's swarm smoke; then stages 7-9 once stage 5 exits. A failed stage 0 is acceptable: follow its exit rule.
+5. **Resources:** run heavy jobs in capped scopes, never start uncapped heavy jobs during a judged window, and space agent campaigns so they don't exhaust the subscription mid-run. Every runner must be resumable.
+6. **Waiting:** when the only remaining work waits on a clock, wait in the background and keep doing independent work, including erasure (§2), rather than ending.
+
 ### PROGRESS.md
 
 The only status document. Read it first in every session; it is how you resume after a context reset or a usage limit. Four sections: **Now** (current stage and next step), **Criteria**, **Blockers**, **Log**. Prune it per §2: a finished stage collapses to one line in Log, and a resolved blocker is deleted. Criteria are exempt from pruning.

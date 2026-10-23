@@ -775,6 +775,10 @@ The thesis is written with `mm disclose --kind thesis` to the thesis ledger, who
 
 Exit when C10.1 to C10.6 hold. The track keeps running after exit.
 
+## Decisions taken autonomously
+
+Each: what, why, what GPT said, how to reverse it (CLAUDE.md §3, Autonomous operation).
+
 ## Blockers
 
 - **Stage 10 retrieval sources not yet certified (2026-10-23; human decisions needed).** The proxy fetches only from entries with certified terms (`thesis/SOURCES.md`): GDELT, Treasury Fiscal Data's API, CFTC's public-reporting API and the Fed Board's RSS feeds. The others named in the decision of 2026-10-23 cannot be certified without a human step:
