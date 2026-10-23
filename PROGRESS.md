@@ -22,7 +22,8 @@ Priorities and autonomy: CLAUDE.md §3, Autonomous operation.
   - at day 28, `thesis-report audit/stage10/report.json` plus the GPT reviewer: the judged C10.5/C10.6 evidence and the track's first review. The track keeps running after it (human decision 2026-10-21), and later reviews are reported separately without reopening the day-28 judgement.
 
   The thesis adapter takes 120/min. When the HL recorder restarts as a regime diagnostic, give it at most 480/min so the total stays at half the documented limit.
-- **Stage 7 candidate sources (human, 2026-10-22; no work before stage 5 exits).**
+- **Stages 7 to 9:** criteria frozen. Implementation waits for the pilot's judged runs (autonomous decision, below); stage 8 also has a data-access blocker.
+- **Stage 7 candidate sources (human, 2026-10-22).**
   - *Hyperliquid wallet cohorts.*
     - The cohort is always a rule the kernel evaluates point-in-time, never a list of wallets an agent chose. An example: the top N wallets by trailing net PnL as known at t, including wallets that later blew up.
     - Copy-following must model the lag after the wallet's own fills.
