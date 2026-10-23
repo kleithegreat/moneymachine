@@ -13,7 +13,7 @@ from arch.bootstrap import SPA, StepM
 from scipy.stats import norm
 
 from gate import markets
-from gate.kernel import MM
+from gate.kernel import command
 
 ALPHA = 0.05
 DSR_MIN = 0.95
@@ -163,8 +163,7 @@ def holm(pvalues):
 def freeze(ledger, campaign, hashes, note):
     """Record each finalist's selection in the ledger before the holdout is opened."""
     for h in hashes:
-        subprocess.run([str(MM), "select", h, "--campaign", campaign, "--agent", "gate", "--note", note,
-                        "--ledger", str(ledger)], check=True, capture_output=True)
+        subprocess.run(command("select", h, campaign, "gate", ledger, None, "--note", note), check=True, capture_output=True)
 
 
 def mechanism_check(market, ledger, campaign, programs):
@@ -177,8 +176,7 @@ def mechanism_check(market, ledger, campaign, programs):
             continue
         p = m / f"mech-{h[:16]}.json"
         p.write_text(json.dumps(prog))
-        r = subprocess.run([str(MM), "eval", str(p), "--campaign", campaign, "--agent", "gate-mechanism", "--mechanism", "on",
-                            "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)],
+        r = subprocess.run(command("eval", p, campaign, "gate-mechanism", ledger, m, "--mechanism", "on"),
                            capture_output=True, text=True, check=True)
         out[h] = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
         p.unlink()
@@ -189,13 +187,11 @@ def holdout_run(market, ledger, campaign, programs, holdout_from=None):
     """The single holdout batch: {hash: (net returns, total return, diagnostics)} for every frozen finalist."""
     if not programs:
         return {}
-    m = Path(market)
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
         fh.write("".join(json.dumps(p) + "\n" for p in programs.values()))
     extra = ["--holdout-from", str(holdout_from)] if holdout_from else []
-    out = subprocess.run([str(MM), "holdout", fh.name, "--campaign", campaign, "--agent", "gate",
-                          "--store", str(m / "store"), "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
-                          "--ledger", str(ledger), *extra], capture_output=True, text=True)
+    out = subprocess.run(command("holdout", fh.name, campaign, "gate", ledger, market, "--holdout-store",
+                                 str(Path(market) / "holdout"), *extra), capture_output=True, text=True)
     Path(fh.name).unlink()
     if out.returncode != 0:
         raise RuntimeError(out.stdout + out.stderr)

@@ -17,7 +17,6 @@ from pathlib import Path
 
 from gate import gate, markets, search, sweep
 from gate.agent import harness
-from gate.kernel import MM
 from ingest.live import now_ms
 from ingest.policy import DAY
 from sandbox import session
@@ -169,7 +168,7 @@ def real(data_root, version, cid="stage3-real"):
     ledger = work / "ledger.sqlite"
     run, report_a, mech, kept_a = arm_a(market, ledger, cid, work / "run")
     sweep.require_frozen_searcher()
-    spent_b = search.run("G100", MM, market, ledger, cid, markets.seed(cid))
+    spent_b = search.run("G100", market, ledger, cid, markets.seed(cid))
     finalists_b, report_b = gate.search_decision(ledger, cid, "G100")
     kept_b = gate.programs(ledger, finalists_b)
     gate.freeze(ledger, cid, kept_a, "frozen finalist A")

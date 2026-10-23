@@ -10,7 +10,7 @@ import numpy as np
 import statsmodels.api as sm
 
 from gate import markets
-from gate.kernel import MM
+from gate.kernel import command
 from gate.search import const, op
 
 YEARS_PER_MARKET = 10
@@ -89,7 +89,7 @@ def probes(events=False):
     return ps
 
 
-def gross_pnl(mm, programs, model, params, market_id, cost_cells, events=None):
+def gross_pnl(programs, model, params, market_id, cost_cells, events=None):
     """Mean per-step gross return (after funding, before fees and slippage) of each program on one
     fresh market. Per-step returns have zero conditional mean under a null; dollar PnL of a
     compounding strategy is too skewed across markets for a z-test."""
@@ -98,9 +98,7 @@ def gross_pnl(mm, programs, model, params, market_id, cost_cells, events=None):
                              cost_cells)
         batch = Path(tmp) / "p.jsonl"
         batch.write_text("".join(json.dumps(p) + "\n" for p in programs))
-        out = subprocess.run([str(mm), "eval", str(batch), "--campaign", market_id, "--agent", "probe",
-                              "--store", str(root / "store"), "--venue", str(root / "venue"),
-                              "--ledger", str(Path(tmp) / "l.sqlite")],
+        out = subprocess.run(command("eval", batch, market_id, "probe", Path(tmp) / "l.sqlite", root),
                              capture_output=True, text=True)
         results = []
         for line in out.stdout.splitlines():
@@ -111,8 +109,8 @@ def gross_pnl(mm, programs, model, params, market_id, cost_cells, events=None):
         return results
 
 
-def probe_zscores(mm, programs, model, params, cost_cells, tag="", events=None):
-    g = np.array([gross_pnl(mm, programs, model, params, f"probe{tag}-{model}-{m}", cost_cells, events) for m in range(MARKETS)])
+def probe_zscores(programs, model, params, cost_cells, tag="", events=None):
+    g = np.array([gross_pnl(programs, model, params, f"probe{tag}-{model}-{m}", cost_cells, events) for m in range(MARKETS)])
     mean, se = g.mean(axis=0), g.std(axis=0, ddof=1) / np.sqrt(MARKETS)
     z = np.divide(mean, se, out=np.zeros_like(mean), where=se > 0)
     if np.any((se == 0) & (mean != 0)):
@@ -129,6 +127,6 @@ def run(out, extra_programs=None, events=None):
     for model in ("N1", "N2", "N3"):
         p = params.get(model)
         pv = regression_pvalues(model, p, events)
-        z = probe_zscores(MM, programs, model, p, markets.FLAT_COST, tag="-c21", events=events)
+        z = probe_zscores(programs, model, p, markets.FLAT_COST, tag="-c21", events=events)
         result[model] = {"regression_p": pv, "min_p": min(pv), "z": z, "max_abs_z": max(abs(v) for v in z.values())}
     Path(out).write_text(json.dumps(result, indent=1))

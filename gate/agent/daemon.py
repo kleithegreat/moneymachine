@@ -12,6 +12,7 @@ import threading
 import time
 from pathlib import Path
 
+from gate.kernel import command
 from sandbox.server import Server
 
 FIELDS = ("sharpe_annualized", "fills", "total_return", "max_drawdown")
@@ -37,16 +38,14 @@ class Swarm:
 
 
 class Daemon:
-    def __init__(self, socket_path, mm, market, ledger, campaign, agent, budget, log_path, swarm=None):
-        self.socket_path, self.mm, self.market, self.ledger = Path(socket_path), str(mm), Path(market), Path(ledger)
+    def __init__(self, socket_path, market, ledger, campaign, agent, budget, log_path, swarm=None):
+        self.socket_path, self.market, self.ledger = Path(socket_path), Path(market), Path(ledger)
         self.campaign, self.agent, self.budget, self.log_path = campaign, agent, budget, Path(log_path)
         self.spent = 0
         self.swarm, self.history_calls = swarm, 0
         self.lock = threading.Lock()
         self.evaluated = {}
-        m = self.market
-        self.proc = subprocess.Popen([self.mm, "eval", "-", "--campaign", campaign, "--agent", agent, "--store", str(m / "store"),
-                                      "--venue", str(m / "venue"), "--ledger", str(self.ledger)],
+        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, self.ledger, self.market),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 
     def log(self, cmd, payload, response):
@@ -87,16 +86,15 @@ class Daemon:
         with tempfile.NamedTemporaryFile("w", suffix=".json") as fh:
             fh.write(json.dumps(payload))
             fh.flush()
-            subprocess.run([self.mm, "disclose", fh.name, "--campaign", self.campaign, "--agent", self.agent,
-                            "--kind", "history", "--ledger", str(self.ledger)], check=True, capture_output=True)
+            subprocess.run(command("disclose", fh.name, self.campaign, self.agent, self.ledger, None, "--kind", "history"),
+                           check=True, capture_output=True)
         return payload
 
     def check(self, text):
         with tempfile.NamedTemporaryFile("w", suffix=".json") as fh:
             fh.write(text)
             fh.flush()
-            out = subprocess.run([self.mm, "check", fh.name, "--campaign", self.campaign, "--agent", self.agent,
-                                  "--ledger", str(self.ledger)], capture_output=True, text=True)
+            out = subprocess.run(command("check", fh.name, self.campaign, self.agent, self.ledger), capture_output=True, text=True)
         line = (out.stdout or out.stderr).strip().splitlines()
         return json.loads(line[-1]) if line else {"ok": False, "code": "KERNEL"}
 
@@ -105,8 +103,8 @@ class Daemon:
         if len(texts) > 10 or None in hashes:
             return {"ok": False, "message": "select at most 10 strategies, each already evaluated (same file content)"}
         for h in hashes:
-            subprocess.run([self.mm, "select", h, "--campaign", self.campaign, "--agent", self.agent,
-                            "--note", "agent selection", "--ledger", str(self.ledger)], check=True, capture_output=True)
+            subprocess.run(command("select", h, self.campaign, self.agent, self.ledger, None, "--note", "agent selection"),
+                           check=True, capture_output=True)
         return {"ok": True, "selected": len(hashes)}
 
     def handle(self, req):

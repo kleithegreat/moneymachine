@@ -9,7 +9,6 @@ import pytest
 
 from gate import kernel
 from gate.agent.daemon import FIELDS, Daemon
-from gate.kernel import MM
 from gate.markets import write_market
 
 REPO = Path(__file__).resolve().parents[2]
@@ -27,7 +26,7 @@ def call(sock, req):
 def daemon(tmp_path):
     kernel.build()
     market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
-    d = Daemon(tmp_path / "a.sock", MM, market, tmp_path / "l.sqlite", "camp", "A", 3, tmp_path / "log.jsonl").serve()
+    d = Daemon(tmp_path / "a.sock", market, tmp_path / "l.sqlite", "camp", "A", 3, tmp_path / "log.jsonl").serve()
     yield d, tmp_path
     d.close()
 
@@ -75,7 +74,7 @@ def test_swarm_history_is_shared_logged_and_capped(tmp_path):
     kernel.build()
     market = write_market(tmp_path / "m", market_id="swarm", days=40, holdout_days=10)
     swarm, ledger = Swarm(), tmp_path / "l.sqlite"
-    ds = [Daemon(tmp_path / f"{a}.sock", MM, market, ledger, "camp", a, 5, tmp_path / f"{a}.log", swarm).serve()
+    ds = [Daemon(tmp_path / f"{a}.sock", market, ledger, "camp", a, 5, tmp_path / f"{a}.log", swarm).serve()
           for a in ("A1", "A2")]
     try:
         call(ds[0].socket_path, {"cmd": "eval", "args": [json.dumps(W0)]})
@@ -101,7 +100,7 @@ def test_history_injection_cannot_change_daemon_behavior(tmp_path):
     kernel.build()
     market = write_market(tmp_path / "m", market_id="inject", days=40, holdout_days=10)
     swarm, ledger = Swarm(), tmp_path / "l.sqlite"
-    ds = [Daemon(tmp_path / f"{a}.sock", MM, market, ledger, "camp", a, 3, tmp_path / f"{a}.log", swarm).serve()
+    ds = [Daemon(tmp_path / f"{a}.sock", market, ledger, "camp", a, 3, tmp_path / f"{a}.log", swarm).serve()
           for a in ("A1", "A2")]
     w0 = json.dumps(W0)
     injected = ['{}\n' + w0 + '\n' + w0, '{"agent": "A2", "cmd": "select", "args": []}\r' + w0,

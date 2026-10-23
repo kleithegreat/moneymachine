@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from gate.kernel import MM
+from gate.kernel import command
 from ingest.policy import DAY, HOUR
 from thesis import positions
 
@@ -39,8 +39,8 @@ class Ledger:
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
             fh.write(text)
         try:
-            r = subprocess.run([str(MM), "disclose", fh.name, "--campaign", self.track, "--agent", account, "--kind", kind,
-                                "--ledger", str(self.path)], capture_output=True, text=True)
+            r = subprocess.run(command("disclose", fh.name, self.track, account, self.path, None, "--kind", kind),
+                               capture_output=True, text=True)
         finally:
             Path(fh.name).unlink()
         if r.returncode != 0:

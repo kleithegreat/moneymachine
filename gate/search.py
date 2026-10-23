@@ -13,6 +13,8 @@ import random
 import subprocess
 from pathlib import Path
 
+from gate.kernel import command
+
 DISCLOSED = ("sharpe_annualized",)
 
 
@@ -158,12 +160,9 @@ def crossover(rng, a, b):
 class Evaluator:
     """Streams programs through one `mm eval -` process and returns only the disclosed statistics."""
 
-    def __init__(self, mm, market, ledger, campaign, agent):
-        m = Path(market)
-        self.proc = subprocess.Popen(
-            [str(mm), "eval", "-", "--campaign", campaign, "--agent", agent, "--store", str(m / "store"),
-             "--venue", str(m / "venue"), "--ledger", str(ledger)],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+    def __init__(self, market, ledger, campaign, agent):
+        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, ledger, market),
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
         self.seen = {}
 
     def __call__(self, genomes):
@@ -220,10 +219,10 @@ def hill_climb(evaluate, budget, rng, nf):
             best, best_score, stall = cand, score, 0
 
 
-def run(searcher, mm, market, ledger, campaign, seed):
+def run(searcher, market, ledger, campaign, seed):
     """Run searcher 'G100', 'G400' or 'H400' on a market; every evaluation lands in the ledger."""
     kind, budget = searcher[0], int(searcher[1:])
-    evaluate = Evaluator(mm, market, ledger, campaign, searcher)
+    evaluate = Evaluator(market, ledger, campaign, searcher)
     rng = random.Random(seed)
     try:
         (genetic if kind == "G" else hill_climb)(evaluate, budget, rng, features(market))

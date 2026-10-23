@@ -19,7 +19,7 @@ import numpy as np
 from scipy import stats
 
 from gate import campaign, search
-from gate.kernel import MM
+from gate.kernel import command
 from gate.markets import generate, null_params, store_events, write
 
 OUT = Path("data/campaigns")
@@ -95,9 +95,7 @@ def net_returns(program, model, beta, market_id, years):
                      cost_cells())
         p = Path(tmp) / "p.json"
         p.write_text(json.dumps(program))
-        out = subprocess.run([MM, "eval", str(p), "--campaign", market_id, "--agent", "truth",
-                              "--store", str(root / "store"), "--venue", str(root / "venue"),
-                              "--ledger", str(Path(tmp) / "l.sqlite")],
+        out = subprocess.run(command("eval", p, market_id, "truth", Path(tmp) / "l.sqlite", root),
                              capture_output=True, text=True, check=True)
         exp = json.loads(out.stdout)["experiment"]
         blob = sqlite3.connect(Path(tmp) / "l.sqlite").execute(

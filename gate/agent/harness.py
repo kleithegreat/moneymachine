@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 from gate.agent.daemon import SPEC, Daemon, Swarm
-from gate.kernel import MM
+from gate.kernel import command
 from sandbox import session
 
 HERE = Path(__file__).resolve().parent
@@ -32,14 +32,14 @@ def harness_hash():
 def run_agent(market, ledger, campaign, workdir, budget=100, prompt=session.PROMPT, agent="A", swarm=None):
     workdir = Path(workdir)
     work, home = build_workspace(workdir, swarm is not None)
-    daemon = Daemon(work / f"{CLIENT}.sock", MM, market, ledger, campaign, agent, budget, workdir / "daemon.log", swarm).serve()
+    daemon = Daemon(work / f"{CLIENT}.sock", market, ledger, campaign, agent, budget, workdir / "daemon.log", swarm).serve()
     s = session.run(workdir, work, home, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS, prompt)
     daemon.close()
     run = {"campaign": campaign, "agent": agent, "spent": daemon.spent, "history_calls": daemon.history_calls, **s,
            "harness": harness_hash()}
     (workdir / "run.json").write_text(json.dumps(run))
-    subprocess.run([str(MM), "disclose", str(workdir / "run.json"), "--campaign", campaign,
-                    "--agent", agent, "--kind", "run", "--ledger", str(ledger)], check=True, capture_output=True)
+    subprocess.run(command("disclose", workdir / "run.json", campaign, agent, ledger, None, "--kind", "run"),
+                   check=True, capture_output=True)
     return run
 
 

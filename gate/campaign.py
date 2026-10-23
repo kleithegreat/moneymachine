@@ -10,7 +10,6 @@ import traceback
 from pathlib import Path
 
 from gate import gate, markets, search
-from gate.kernel import MM
 
 
 def run_campaign(spec, keep=None):
@@ -22,7 +21,7 @@ def run_campaign(spec, keep=None):
                                                           spec.get("planted", ()), spec.get("beta", 0.0), spec.get("events")),
                              spec["holdout_days"], spec["cost_cells"])
         ledger = root / "ledger.sqlite"
-        spent = search.run(spec["searcher"], MM, root, ledger, spec["id"], markets.seed(spec["id"]))
+        spent = search.run(spec["searcher"], root, ledger, spec["id"], markets.seed(spec["id"]))
         finalists, report = gate.search_decision(ledger, spec["id"])
         gate.freeze(ledger, spec["id"], finalists, "finalist")
         programs = gate.programs(ledger, finalists)
