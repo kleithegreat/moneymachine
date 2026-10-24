@@ -70,3 +70,64 @@ def test_the_clock_record_reports_offsets_gaps_and_how_long_one_exchange_is_repo
     assert c["max_abs_ms"] == 7.0 and c["brackets"] and c["max_gap_min"] == 5
     assert c["exchanges"] == 2 and c["max_unchanged_min"] == 65
     assert not availability.clock(readings[2:], (start, end))["brackets"]
+
+
+def host(root, l2=(), boundary=(), clock=()):
+    """A host's directories: L2 (coin, sent) polls, boundary (kind, coin, boundary, purpose, recv) polls, clock times."""
+    root.mkdir(parents=True, exist_ok=True)
+    with open(root / "polls-x.jsonl", "w") as f:
+        for coin, t in l2:
+            f.write(json.dumps({"kind": "l2", "coin": coin, "sent": t, "recv": t}) + "\n")
+        for kind, coin, b, purpose, t in boundary:
+            f.write(json.dumps({"kind": kind, "coin": coin, "boundary": b, "purpose": purpose, "sent": t, "recv": t}) + "\n")
+    with open(root / "sources-x.jsonl", "w") as f:
+        for i, t in enumerate(clock):
+            f.write(json.dumps({"source": "clock", "key": "timesyncd", "sent": t, "recv": t, "data": {"offset_ms": 1.5 + i % 2}}) + "\n")
+    return root, root
+
+
+def test_merge_keeps_one_snapshot_per_slot_preferring_the_first_host_and_drops_unclocked_polls(tmp_path):
+    clock = list(range(0, 2 * SPAN, 300_000))
+    local = host(tmp_path / "local", [("A", 1_000), ("A", 31_000)], clock=clock)
+    oci = host(tmp_path / "oci", [("A", 2_000), ("A", 61_000), ("A", 2 * SPAN + 10 * availability.CLOCK_SLACK)], clock=clock)
+    polls = availability.merge([("local", *local), ("oci", *oci)])
+    assert sorted((p["host"], p["sent"]) for p in polls) == [("local", 1_000), ("local", 31_000), ("oci", 61_000)]
+
+
+def test_each_boundary_comes_from_the_first_host_whose_polls_are_complete(tmp_path):
+    b, clock = 10 * SPAN, list(range(10 * SPAN - 600_000, 10 * SPAN + 3_600_000, 300_000))
+    local = host(tmp_path / "local", boundary=[("funding", "A", b, "first", b + 5_000), ("funding", "A", b, "first", b + 45_000),
+                                              ("funding", "A", b, "verify", b + 600_000)], clock=clock)
+    oci = host(tmp_path / "oci", boundary=[("funding", "A", b, "first", b + 9_000), ("funding", "A", b, "verify", b + 600_000)],
+               clock=clock)
+    polls = availability.merge([("local", *local), ("oci", *oci)])
+    assert {p["host"] for p in polls} == {"oci"}
+    complete_local = host(tmp_path / "local2", boundary=[("funding", "A", b, "first", b + 30_000), ("funding", "A", b, "verify", b + 600_000)],
+                          clock=clock)
+    assert {p["host"] for p in availability.merge([("local", *complete_local), ("oci", *oci)])} == {"local"}
+
+
+def test_the_merged_window_starts_at_the_threshold_and_bridges_a_local_outage(tmp_path, monkeypatch):
+    t0 = 10 * SPAN
+    monkeypatch.setattr(availability, "THRESHOLD", t0)
+    steady = range(t0 - SPAN, t0 + 2 * SPAN, S)
+    clock = list(range(t0 - SPAN, t0 + 2 * SPAN, 300_000))
+    outage = (t0 + HOUR, t0 + 3 * HOUR)
+    local = host(tmp_path / "local", [("A", t) for t in steady if not outage[0] < t < outage[1]],
+                 clock=[t for t in clock if not outage[0] < t < outage[1]])
+    host(tmp_path / "oci" / "live", [("A", t) for t in steady], clock=())
+    host(tmp_path / "oci" / "clock", clock=clock)
+    assert availability.window(*local, after=t0) != (t0, t0 + SPAN)
+    window, hosts, polls = availability.judgment(*local, tmp_path / "oci")
+    assert window == (t0, t0 + SPAN)
+    assert [h[0] for h in hosts] == ["oci"]
+    assert {p["host"] for p in polls} == {"oci"}
+
+
+def test_a_complete_local_window_from_before_the_threshold_is_judged_alone(tmp_path, monkeypatch):
+    t0 = availability.RECORDING_FROM + SPAN
+    monkeypatch.setattr(availability, "THRESHOLD", t0 + HOUR)
+    clock = list(range(t0 - HOUR, t0 + 2 * SPAN, 300_000))
+    local = host(tmp_path / "local", [("A", t) for t in range(t0, t0 + 2 * SPAN, S)], clock=clock)
+    window, hosts, polls = availability.judgment(*local, tmp_path / "oci")
+    assert window == (t0, t0 + SPAN) and [h[0] for h in hosts] == ["local"]

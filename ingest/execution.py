@@ -10,12 +10,13 @@ snapshot where neither book fills the order has infinite cost. A coin without a 
 
 import json
 import math
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
 
-from ingest.availability import judged, window
+from ingest.availability import contributions, judgment
 from ingest.policy import BAR
 
 SIZES = (1_000, 10_000)
@@ -102,13 +103,16 @@ def relative_ranges(polls, report):
     return {coin: [min(r), max(r)] for coin, r in sorted(ranges.items())}
 
 
-def calibrate(live_dir, sources_dir, model_out, report_out):
+def calibrate(live_dir, sources_dir, model_out, report_out, oci_dir=None):
     """The cost model from the judged L2 snapshots to `model_out`, its held-out validation to `report_out`."""
-    polls = list(judged(live_dir, sources_dir))
+    judged = judgment(live_dir, sources_dir, oci_dir)
+    if judged is None:
+        sys.exit("no complete 24 h window yet")
+    window, hosts, polls = judged
     model, report = calibrate_and_validate(costs_by_cell(polls))
     coins = json.loads((Path(__file__).resolve().parents[1] / "data" / "universe.json").read_text())["universe"]
     model, flagged = fill_missing(model, coins)
     Path(model_out).write_text(json.dumps({"quantile": QUANTILE, "calibration_fraction": CALIBRATION,
                                            "no_live_book_cellwise_max": flagged, "cost_bps_ex_fee": model,
                                            "calibration_relative_range": relative_ranges(polls, report)}, indent=1) + "\n")
-    Path(report_out).write_text(json.dumps({"window": window(live_dir, sources_dir), **report}, indent=1) + "\n")
+    Path(report_out).write_text(json.dumps({"window": window, **contributions(hosts, polls), **report}, indent=1) + "\n")

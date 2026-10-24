@@ -36,8 +36,8 @@ def test_c03_availability():
     for coin in LISTED:
         assert a["events"].get(f"funding:{coin}", 0) >= 24, coin
         assert a["events"].get(f"bar:{coin}", 0) >= 6, coin
-    c = a["clock"]
-    assert c["max_abs_ms"] < 1000 and c["brackets"] and c["max_gap_min"] <= 10 and c["max_unchanged_min"] <= 40
+    for c in a["clock"].values():
+        assert c["max_abs_ms"] < 1000 and c["brackets"] and c["max_gap_min"] <= 10 and c["max_unchanged_min"] <= 40
 
 
 def test_c04_second_version_at_least_24h_later():
