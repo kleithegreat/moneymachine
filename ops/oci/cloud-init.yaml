@@ -19,7 +19,7 @@ write_files:
       User=mm
       Environment=HOME=/home/mm
       WorkingDirectory=/home/mm/moneymachine
-      ExecStart=/nix/var/nix/profiles/default/bin/nix --extra-experimental-features "nix-command flakes" develop .#recorder --command python -m cli record data/universe.json venue/hyperliquid/rules.json /home/mm/live 480
+      ExecStart=/nix/var/nix/profiles/default/bin/nix --extra-experimental-features "nix-command flakes" develop .#recorder --command python -m cli record data/universe.json venue/hyperliquid/rules.json /home/mm/live 600
       Restart=always
       RestartSec=30
       KillSignal=SIGTERM

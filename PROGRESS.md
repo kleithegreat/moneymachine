@@ -67,7 +67,11 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 Only decisions that could affect a statistical result or leakage, or that touch the hard limits. Others go straight to `audit/decisions.md`.
 
-None pending.
+- **2026-10-24 20:40 UTC (16:40 EDT): the merge amendment extended to boundary polls, and the cloud recorder raised to 600/min** (`audit/criteria.md`, C0.3/C0.7).
+  - **Why:** the human's direction that stage 0 not depend on this PC. The approved merge covered only L2 snapshots, so an outage of this PC at any boundary would still fail C0.3. At 480/min the cloud host's boundary polls fall behind at 4h boundaries.
+  - **The rule:** one host per boundary, chosen by completeness, never by which saw the value first, so C0.3's lateness measure is not biased.
+  - **GPT:** not asked; the conditions follow the approved merge.
+  - **Reverse:** a revision before the merged window is judged, keeping boundary polls local-only.
 
 ## Qualifications
 

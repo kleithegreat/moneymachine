@@ -59,6 +59,7 @@ Before any work on stage N, write its exit criteria in `audit/criteria.md`: meas
 ### Standing operating rules
 
 - **Terms.** A source is fetched automatically only if its certificate quotes a clause permitting our automated use, or shows an official API whose terms allow it (paper §5). Silent terms are not enough. A terms question, a 403, or any access restriction goes under Blockers and is never worked around.
+- **Times:** in every message, document and commit, write UTC with Eastern time beside it, e.g. 20:13 UTC (16:13 EDT).
 - **Heavy jobs** (builds, sweeps, simulations, differential runs) run capped and first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G choom -n 1000 -- nix develop -c ...`. Never start one uncapped during a judged window.
 - **Files in use.** Never delete or move a file a running process reads; check open handles first (`fuser`, `lsof`, or the process's code path).
 - **Recorders** run in their own systemd scopes. They are restarted only with `python -m cli recorder-restart <out_dir> [budget]` (pidfile, SIGTERM between polls), never with ad hoc kills.

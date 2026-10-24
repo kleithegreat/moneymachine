@@ -6,7 +6,7 @@
 #   by display name. Run as: nix shell nixpkgs#oci-cli -c ops/oci/provision.sh
 # - A budget, mm-free-tier-guard ($1 a month), alerts on actual or forecast spend of $1.
 # - cloud-init.yaml installs nix and swap, creates the `mm` user with its own read-only GitHub deploy key, and
-#   installs mm-recorder.service: the same recorder code at 480/min, restarted on failure, with a memory cap. Its
+#   installs mm-recorder.service: the same recorder code at 600/min, the stage 0 budget, half its own IP's limit, restarted on failure, with a memory cap. Its
 #   pidfile is /home/mm/live/recorder.json.
 # - The VM never connects to this PC. This PC pulls the VM's files every 10 minutes (pull.sh, mm-oci-pull.timer)
 #   into data/live-oci/<instance id>/, append-only, never deleting or truncating.
