@@ -96,7 +96,7 @@ def check(name, slot):
             path = Path(wt) / f
             text = path.read_text()
             if text.count(old) != 1:
-                return f"{name}: edit does not match exactly once in {f}: {old!r}"
+                return f"BROKEN {name}: edit does not match exactly once in {f}: {old!r}"
             path.write_text(text.replace(old, new))
         mutated = run(test, wt, LOGS / f"{slug}.mutated.log", env)
     return ("caught " if clean == 0 and mutated != 0 else "MISSED ") + name + (

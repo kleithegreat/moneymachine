@@ -16,7 +16,9 @@ REPO = Path(__file__).resolve().parent
 
 def check():
     """The whole suite at once: pytest over 6 workers, the kernel's cargo tests and the mutants. Each writes its
-    log to data/check/; returns each part's last line, and exits nonzero if any part fails."""
+    log to data/check/; returns each part's last line and the lines naming each failed test or mutant, and exits
+    nonzero if any part fails."""
+    import re
     import subprocess
 
     logs = REPO / "data" / "check"
@@ -27,7 +29,10 @@ def check():
     procs = {k: subprocess.Popen(cmd, cwd=cwd, stdout=open(logs / f"{k}.log", "w"), stderr=subprocess.STDOUT)
              for k, (cmd, cwd) in parts.items()}
     codes = {k: p.wait() for k, p in procs.items()}
-    out = {k: {"exit": c, "last": (logs / f"{k}.log").read_text().strip().splitlines()[-1:]} for k, c in codes.items()}
+    failure = re.compile(r"^(FAILED|ERROR|MISSED|BROKEN) |^test .* FAILED$")
+    lines = {k: (logs / f"{k}.log").read_text().strip().splitlines() for k in parts}
+    out = {k: {"exit": c, "last": lines[k][-1:], "failed": [l for l in lines[k] if failure.match(l)]}
+           for k, c in codes.items()}
     if any(codes.values()):
         print(json.dumps(out, indent=1))
         sys.exit(1)
