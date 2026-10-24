@@ -20,7 +20,7 @@ CLIENT = "mm-agent"
 
 def build_workspace(workdir, swarm=False):
     files = [REPO / "kernel/DSL.md", HERE / "brief.md", HERE / "research.md"] + ([HERE / "swarm.md"] if swarm else [])
-    return session.workspace(workdir, {f.name: f.read_text() for f in files}, CLIENT, SPEC)
+    session.workspace(workdir, {f.name: f.read_text() for f in files}, CLIENT, SPEC)
 
 
 def harness_hash():
@@ -31,9 +31,10 @@ def harness_hash():
 
 def run_agent(market, ledger, campaign, workdir, budget=100, prompt=session.PROMPT, agent="A", swarm=None):
     workdir = Path(workdir)
-    work, home = build_workspace(workdir, swarm is not None)
-    daemon = Daemon(work / f"{CLIENT}.sock", market, ledger, campaign, agent, budget, workdir / "daemon.log", swarm).serve()
-    s = session.run(workdir, work, home, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS, prompt)
+    build_workspace(workdir, swarm is not None)
+    daemon = Daemon(session.socket_path(workdir, CLIENT), market, ledger, campaign, agent, budget, workdir / "daemon.log",
+                    swarm).serve()
+    s = session.run(workdir, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS, prompt)
     daemon.close()
     run = {"campaign": campaign, "agent": agent, "spent": daemon.spent, "history_calls": daemon.history_calls, **s,
            "harness": harness_hash()}

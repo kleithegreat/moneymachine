@@ -28,14 +28,14 @@ def workspace(workdir, kind, task=None):
     files = {"brief.md": (HERE / BRIEFS[kind]).read_text()}
     if task is not None:
         files["task.json"] = json.dumps(task, indent=1)
-    return session.workspace(workdir, files, CLIENT, SPEC)
+    session.workspace(workdir, files, CLIENT, SPEC)
 
 
 def run_session(workdir, kind, start_daemon, task=None):
     """Run one session; `start_daemon(socket_path)` returns the session's serving daemon."""
-    work, home = workspace(workdir, kind, task)
-    daemon = start_daemon(work / f"{CLIENT}.sock")
-    s = session.run(workdir, work, home, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS)
+    workspace(workdir, kind, task)
+    daemon = start_daemon(session.socket_path(workdir, CLIENT))
+    s = session.run(workdir, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS)
     daemon.close()
     return {"kind": kind, **s, "manifest": manifest_hash()}
 

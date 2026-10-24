@@ -1,13 +1,14 @@
 """Terms certification (paper §5) from the source-certificate registry `venue/sources.toml`: one record per place
 fetched automatically, with the URL of the terms, the retrieval date, the basis (a clause permitting our automated
-use, or an official API whose terms allow it) and the verbatim quote. A host `h/prefix` admits only that prefix."""
+use, an official API whose terms allow it, or the operator's decision where the terms restrict the operator rather
+than the access) and the verbatim quote. A host `h/prefix` admits only that prefix."""
 
 import tomllib
 from datetime import date
 from pathlib import Path
 
 REGISTRY = Path(__file__).resolve().parents[1] / "venue" / "sources.toml"
-BASES = ("permitting clause", "official API")
+BASES = ("permitting clause", "official API", "operator decision")
 
 
 def registry(path=REGISTRY):

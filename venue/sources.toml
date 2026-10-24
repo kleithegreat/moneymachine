@@ -43,7 +43,7 @@ Rolling retention means the 4h bars at the start of W drop out of the API around
 host = "api.hyperliquid.xyz"
 url = "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api"
 retrieved = 2026-10-22
-basis = "official API"
+basis = "operator decision"
 quote = '''
 Documentation for the Hyperliquid public API
 
@@ -399,7 +399,7 @@ Timestamp classes:
 host = "gamma-api.polymarket.com"
 url = "https://polymarket.com/tos"
 retrieved = 2026-10-23
-basis = "official API"
+basis = "operator decision"
 quote = "Trading is blocked in the United States on polymarket.com."
 notes = '''
 That banner is the only text the terms page gave our fetcher; no API terms were found. Secondary sources say the
