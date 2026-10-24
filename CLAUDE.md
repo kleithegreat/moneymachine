@@ -63,7 +63,7 @@ Before any work on stage N, write its exit criteria in `audit/criteria.md`: meas
 - **Heavy jobs** (builds, sweeps, simulations, differential runs) run capped and first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G choom -n 1000 -- nix develop -c ...`. Never start one uncapped during a judged window.
 - **Files in use.** Never delete or move a file a running process reads; check open handles first (`fuser`, `lsof`, or the process's code path).
 - **Recorders** run in their own systemd scopes. They are restarted only with `python -m cli recorder-restart <out_dir> [budget]` (pidfile, SIGTERM between polls), never with ad hoc kills.
-- **GPT:** `timeout 3600 opencode run -m openai/gpt-6.1-sol --variant high --dir <fresh dir under ~/.cache/mm-gpt> "<prompt>" -f <files>`, with the message before `-f`. The directory is never inside the repo. Run it in the background; its waiter must end when the call exits.
+- **GPT** (opencode v2): from a fresh directory under `~/.cache/mm-gpt`, never inside the repo, run `timeout 3600 opencode run -m openai/gpt-6.1-sol#high "<prompt>" -f <files>`, with the message before `-f`. The working directory confines it: its `opencode.json` denials hold, including `external_directory` (checked 2026-10-24). Run it in the background; its waiter must end when the call exits.
 
 ### Holdout
 
@@ -88,7 +88,7 @@ Use GPT where independence matters, because a different model fails differently:
 - **Independent implementation.** For the DSR, the timing-invariant checker, and the null generators, have GPT implement from the paper alone, then differential-test against yours. A disagreement means at least one is wrong; find out which.
 - **Review.** Criteria before they are committed, and the evidence before a stage is marked done.
 
-The model is GPT 6.1 Sol at high reasoning effort, through `opencode run`. Find its exact model ID with `opencode models` and how to set the reasoning effort with `opencode run --help`, and record both in PROGRESS.md the first time. Copy only the files GPT should see into a fresh temporary directory and pass it with `--dir`, attaching files with `-f`.
+The model is GPT 6.1 Sol at high reasoning effort, through `opencode run` (command above). Copy only the files GPT should see into a fresh temporary directory, run from it, and attach files with `-f`.
 
 Put an `opencode.json` in that directory denying `edit`, `bash`, `webfetch` and `external_directory`, and ask for the deliverable in the reply. Otherwise `opencode run` can hang on a permission prompt, and GPT could use bash to read outside its directory.
 

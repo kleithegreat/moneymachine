@@ -38,8 +38,6 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 ## Blockers
 
-- **GPT unavailable since the reboot (2026-10-24 20:45 UTC (16:45 EDT)).** `opencode` is now v2.0.32: `--variant` and `--dir` are gone (the model takes `provider/model#variant`), and it reports "No authenticated integrations". The human logs in with `opencode auth login` (OpenAI). Then CLAUDE.md's GPT rule moves to the v2 syntax, after checking that a run confined by working directory still honors `opencode.json`'s denials. Pending GPT work: the critical-path review (packet in `~/.cache/mm-gpt/critpath.*`).
-
 - **Free sources that need the human's registration (stages 8 and 10).** Keys go in `.keys.env` (gitignored), one `NAME=value` per line.
   - `FRED_API_KEY` (FRED/ALFRED): macro and rates at the backtest tier's data bar (C8.2), since ALFRED gives each value's vintage and release dates.
   - `BLS_API_KEY`: labor and prices, and the BLS release calendar.
