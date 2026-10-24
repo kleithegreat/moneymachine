@@ -85,6 +85,16 @@ def test_fresh_processes_give_identical_results(market, tmp_path):
     assert a == b
 
 
+def test_identity_covers_every_policy_field(market, tmp_path):
+    """A policy change that can change a result, such as funding's settlement latency, changes the identity."""
+    copy = tmp_path / "m"
+    shutil.copytree(market, copy)
+    policy = json.loads((copy / "store" / "policy.json").read_text())
+    (copy / "store" / "policy.json").write_text(json.dumps(policy | {"settlement_latency_ms": policy["settlement_latency_ms"] + 1}))
+    a, b = (json.loads(evaluate(m, tmp_path / f"{i}.sqlite").stdout)["disclosure"]["identity"] for i, m in enumerate((market, copy)))
+    assert a != b
+
+
 def test_rejection_is_disclosed_without_data(market, tmp_path):
     bad = tmp_path / "bad.json"
     bad.write_text(W0.read_text().replace('"input": "funding"', '"input": "next_open"'))

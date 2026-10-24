@@ -315,7 +315,10 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     let equivalence = mm::canon::equivalence_key(prog);
     let params = json!(prog.param_values().into_iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>()).to_string();
     let universe = json!(c.venue.coins).to_string();
-    let conventions = json!({"delta_ms": c.policy.delta, "decision_grid_ms": BAR, "fill": "open of first bar with openTime >= submission",
+    let market::Policy { delta, settlement_latency, w_start, holdout_start, w_end } = &c.policy;
+    let conventions = json!({"delta_ms": delta, "settlement_latency_ms": settlement_latency, "w_start": w_start,
+                             "holdout_start": holdout_start, "w_end": w_end, "decision_grid_ms": BAR,
+                             "fill": "open of first bar with openTime >= submission",
                              "settlement": "hourly at open of containing 4h bar, before fills"}).to_string();
     let window = (c.report_after.max(c.policy.w_start), c.end);
     let identity = sha256_hex(
