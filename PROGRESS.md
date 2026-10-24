@@ -8,6 +8,10 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - `data/tmp/stage0-close.sh` (untracked, resumable, in the background) sleeps until 06:11 UTC, waits for `window()`, then runs `availability` (C0.3), `execution` (C0.7, writes `venue/hyperliquid/execution.json`), `witness` (C0.8) and `pytest criteria/test_stage0.py`. Its log is `data/tmp/stage0-close.log`; rerun it after a reset if the log has no "done" line.
   - The current window is judged on the local recorder alone, exactly as frozen. A failure of C0.2, C0.3 or C0.5 triggers the exit rule.
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
+- **After a reboot of this PC** (the human's dual boot), in order:
+  1. Restart the local recorders from their pidfiles (a dead pid just starts a new one): `nix develop -c python -m cli recorder-restart data/live`, then the same for `data/sources_live` and `data/datalayer`.
+  2. A reboot before stage 0's window closes restarts it: the new window ends 24 h after the HL recorder is back. Check `ingest.availability.window` before restarting the runner, and retarget `data/tmp/stage0-close.sh`'s sleep to that end rather than letting it poll.
+  3. The user timers (`mm-oci-pull`, `mm-diskguard`) run only while the human is logged in (`Linger=no`). The VM keeps recording meanwhile, and the next pull catches up.
 - **After stage 0 is committed, in order:**
   1. `data/tmp/after-c07.sh` (untracked, resumable): C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the stage 2 sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`). Estimated 2 h, in an 8 GB scope.
   2. `data/tmp/stage10-start.sh`: `recorder-restart data/live 480` (the HL client's 10 s timeout takes effect then; check that the day's polls file still parses), then one uncounted dry main session. Check `harness.audit` against its transcript, then `thesis-freeze` (commit `audit/stage10/manifest.json`), then `thesis-run` detached in its own scope: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`. Builder (HIP-3) marks are recorded from then on.
@@ -28,9 +32,10 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 - **Data.** `data/` is about 650 MB with 105 GB free, and the hourly `mm-diskguard.timer` (`ops/diskguard.sh`) adds a Blockers line below 20 GB. Regenerable and duplicate files were deleted with their hashes in `audit/data-deletions.json`. After stage 0: `live.read` learns `.jsonl.zst`, and closed day files (about 410 MB of polls) are compressed with zstd once their plain sha256s are recorded in `audit/`.
 - **Future option (human, 2026-10-23):** a research arm whose model has an earlier knowledge cutoff, which would free more historical holdout data than the current model's June 2026 cutoff allows.
 - **Redundant recording.** Only the HL recorder is getting a second host. The data layer and the stage 5 sources keep no past versions upstream and run on this PC alone; extending the cloud host to them follows once its HL recorder is stable.
-- **Second HL recorder on Oracle Cloud (human, 2026-10-23), running since 2026-10-23 21:57 UTC.** It is an Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`).
+- **Cloud VM (human, 2026-10-23): HL recorder since 21:57 UTC; data layer and stage 5 sources since 2026-10-24 01:43 UTC.** It is an Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`).
   - `mm-recorder.service` runs `nix develop .#recorder` at 480/min, capped at 600 MB. `mm-clock.timer` logs the VM's NTP offset every 5 min.
-  - This PC pulls both every 10 min (`mm-oci-pull.timer`) into `data/live-oci/<instance>/`; a failed pull adds a Blockers line.
+  - `mm-datalayer` and `mm-sources` duplicate this PC's data layer and stage 5 recorders, so a PC outage loses none of their data.
+  - This PC pulls all four directories every 10 min (`mm-oci-pull.timer`) into `data/live-oci/<instance>/`; a failed pull adds a Blockers line.
   - Its snapshots count only for windows starting after the merge amendment's conditions hold (`audit/criteria.md`, C0.3/C0.7).
   - Setup and the idle-reclamation risk: `ops/oci/provision.sh`.
 
