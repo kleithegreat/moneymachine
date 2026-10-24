@@ -223,6 +223,7 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
         write_split(search, holdout, "events_forum", events, fetched_at, "synthetic", holdout_start)
     write_venue(root, {c: (3, 10, False) for c in names}, cost_cells, taker_fee)
     (root / "store" / "policy.json").write_text(json.dumps(POLICY | {"w_start": 0, "holdout_start": holdout_start, "w_end": w_end}))
+    (root / "version").write_text(f"{fetched_at}\n")
     return root
 
 

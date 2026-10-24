@@ -163,6 +163,7 @@ def real(data_root, version, cid="stage3-real"):
     for name, target in [("store", Path(data_root) / "store"), ("holdout", Path(data_root) / "holdout"),
                          ("venue", REPO / "venue/hyperliquid")]:
         (market / name).symlink_to(Path(target).resolve())
+    (market / "version").write_text(f"{int(version)}\n")
     ledger = work / "ledger.sqlite"
     run, report_a, mech, kept_a = arm_a(market, ledger, cid, work / "run")
     sweep.require_frozen_searcher()

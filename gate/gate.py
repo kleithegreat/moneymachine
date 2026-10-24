@@ -1,6 +1,5 @@
 """The statistical gate of paper §8 with the stage 2 parameters (audit/criteria.md, stage 2, Gate)."""
 
-import hashlib
 import json
 import sqlite3
 import subprocess
@@ -46,13 +45,12 @@ def trials(ledger, campaign, agent=None):
     both from the key's first such evaluation."""
     db = sqlite3.connect(ledger)
     rows = db.execute(
-        "SELECT e.equivalence, e.params, r.returns, r.summary, e.program FROM experiments e "
+        "SELECT e.trial, r.returns, r.summary, e.program FROM experiments e "
         "JOIN results r ON r.experiment_id = e.id "
         "WHERE e.campaign = ? AND e.mode = 'search' AND (? IS NULL OR e.agent = ?) ORDER BY e.id",
         (campaign, agent, agent)).fetchall()
     out = {}
-    for h, params, blob, summary, program in rows:
-        key = trial_key(h, params)
+    for key, blob, summary, program in rows:
         if key not in out and json.loads(summary)["fills"] > 0:
             out[key] = (np.frombuffer(blob, "<f8"), json.loads(program))
     return out
@@ -66,11 +64,6 @@ def programs(ledger, campaign, keys, agent=None):
     """The submitted program of each of an arm's trials, from the evaluation `candidates` takes its returns from."""
     found = trials(ledger, campaign, agent)
     return {k: found[k][1] for k in keys}
-
-
-def trial_key(equivalence, params):
-    """A statistical trial is an equivalence class (kernel/CANONICAL.md) with its parameter values."""
-    return equivalence if params == "[]" else hashlib.sha256(f"{equivalence}{params}".encode()).hexdigest()
 
 
 def search_decision(ledger, campaign, agent=None):

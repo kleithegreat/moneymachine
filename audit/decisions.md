@@ -58,3 +58,12 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
     - **What:** `holm` raises on any p-value outside [0, 1] or NaN, where a NaN used to become an adjusted 0 and pass; `holdout_pvalues` raises on non-finite wealth.
     - **Why straight here:** it can only remove promotions.
     - **Reverse:** `gate/gate.py`.
+- **2026-10-24 23:20 UTC (19:20 EDT): before stage 3, from GPT's whole-project review.**
+  - **What:**
+    - finalist programs come from the arm's own trial rows (`gate.trials`), where an equivalent program from another arm could have supplied them;
+    - a selection's `seen_through` is the last disclosure of any agent;
+    - each market directory pins its dataset version (`version`), which every `mm` call passes;
+    - the kernel records each experiment's trial key (`experiments.trial`), replacing Python's `trial_key`;
+    - `mm holdout` reads its batch whole from a file and accepts it only if its trials are exactly the campaign's gate selections, before claiming the window under an exclusive lock (I11).
+  - **Why straight here:** each makes a frozen rule hold as written (one holdout batch of the frozen finalists), changes no threshold, and precedes every judged campaign.
+  - **Reverse:** `git revert` of the commit.

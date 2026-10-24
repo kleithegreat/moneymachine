@@ -24,9 +24,10 @@ USAGE:
       passed to an agent).
   mm holdout FILE --campaign C --agent A --holdout-store DIR [--holdout-from MS] [same options as eval]
       The gate's holdout step: evaluate the finalists in FILE over the holdout window, once.
-      The window starts at the policy's holdout start, or later with --holdout-from. Refused
-      (R_HOLDOUT_SPENT) if the holdout store records an overlapping window as already
-      evaluated, whichever ledger did it.
+      FILE (not stdin) is read whole first, and its trials must be exactly those agent A
+      selected in campaign C (R_HOLDOUT_FAMILY otherwise). The window starts at the policy's
+      holdout start, or later with --holdout-from. Refused (R_HOLDOUT_SPENT) if the holdout
+      store records an overlapping window as already evaluated, whichever ledger did it.
   mm select HASH --campaign C --agent A [--note TEXT] [--ledger PATH]
       Record that the agent chose to pursue strategy HASH, given what it has seen.
   mm disclose FILE --campaign C --agent A --kind KIND [--ledger PATH]
@@ -263,17 +264,19 @@ fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
 
 /// Claim [start, end) of a holdout store before evaluating it: false if an overlapping window
 /// was already claimed. The record lives with the data, so a fresh ledger cannot reuse it.
+/// The record is read, checked and appended under an exclusive lock.
 fn claim_holdout(store: &Path, start: i64, end: i64, campaign: &str) -> std::io::Result<bool> {
-    use std::io::Write;
-    let log = store.join("spent.jsonl");
-    let text = std::fs::read_to_string(&log).unwrap_or_default();
+    use std::io::{Read, Write};
+    let mut f = std::fs::OpenOptions::new().read(true).append(true).create(true).open(store.join("spent.jsonl"))?;
+    f.lock()?;
+    let mut text = String::new();
+    f.read_to_string(&mut text)?;
     for line in text.lines() {
         let v: Value = serde_json::from_str(line).map_err(std::io::Error::other)?;
         if v["start"].as_i64().unwrap_or(i64::MIN) < end && v["end"].as_i64().unwrap_or(i64::MAX) > start {
             return Ok(false);
         }
     }
-    let mut f = std::fs::OpenOptions::new().append(true).create(true).open(&log)?;
     writeln!(f, "{}", json!({"start": start, "end": end, "campaign": campaign}))?;
     f.sync_all()?;
     Ok(true)
@@ -313,7 +316,8 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     let canonical = prog.canonical();
     let strategy_hash = sha256_hex(canonical.as_bytes());
     let equivalence = mm::canon::equivalence_key(prog);
-    let params = json!(prog.param_values().into_iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>()).to_string();
+    let params = params_json(prog);
+    let trial = mm::ledger::trial(&equivalence, &params);
     let universe = json!(c.venue.coins).to_string();
     let market::Policy { delta, settlement_latency, w_start, holdout_start, w_end } = &c.policy;
     let conventions = json!({"delta_ms": delta, "settlement_latency_ms": settlement_latency, "w_start": w_start,
@@ -351,6 +355,7 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
         canonical: &canonical,
         program: text,
         equivalence: &equivalence,
+        trial: &trial,
         params: &params,
         universe: &universe,
         window,
@@ -375,13 +380,65 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     Ok(json!({"experiment": id, "disclosure": content}).to_string())
 }
 
+fn params_json(prog: &dsl::Program) -> String {
+    json!(prog.param_values().into_iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>()).to_string()
+}
+
+/// The context, or the exit after reporting why it could not be loaded.
+fn context(a: &Args, mode: &'static str, ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
+    match load_ctx(a, mode) {
+        Ok(c) => Ok(c),
+        Err(LoadError::Holdout(m)) => {
+            let out = json!({"ok": false, "code": "R_HOLDOUT", "message": m}).to_string();
+            Err(emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1))
+        }
+        Err(LoadError::Io(m)) => {
+            eprintln!("load error: {m}");
+            Err(ExitCode::from(3))
+        }
+    }
+}
+
+/// The holdout's one batch: refused unless its trials are exactly `agent`'s selections in `campaign`, then the
+/// window is claimed before anything is evaluated.
+fn open_holdout(a: &Args, texts: &[String], ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
+    let abort = |ledger: &mut Ledger, code: &str, message: &str| {
+        let out = json!({"ok": false, "code": code, "message": message}).to_string();
+        emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1)
+    };
+    let trials: Option<std::collections::BTreeSet<String>> = texts
+        .iter()
+        .map(|t| dsl::parse(t).ok().map(|p| mm::ledger::trial(&mm::canon::equivalence_key(&p), &params_json(&p))))
+        .collect();
+    let selected = ledger.selected(campaign, agent).map_err(|e| {
+        eprintln!("R_LEDGER: {e}");
+        ExitCode::from(2)
+    })?;
+    if trials.as_ref() != Some(&selected) || texts.len() != selected.len() {
+        return Err(abort(ledger, "R_HOLDOUT_FAMILY", "the batch is not exactly the campaign's frozen selections"));
+    }
+    let c = context(a, "holdout", ledger, campaign, agent)?;
+    match claim_holdout(Path::new(&a.opts["holdout-store"]), c.report_after, c.end, campaign) {
+        Ok(true) => Ok(c),
+        Ok(false) => Err(abort(ledger, "R_HOLDOUT_SPENT", "an overlapping holdout window was already evaluated")),
+        Err(e) => {
+            eprintln!("cannot record holdout use: {e}");
+            Err(ExitCode::from(3))
+        }
+    }
+}
+
 /// `eval` and `holdout`: one output line per program, each committed before it is printed.
 fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
     let (Some(campaign), Some(agent)) = (a.opts.get("campaign"), a.opts.get("agent")) else {
         eprintln!("{USAGE}");
         return ExitCode::from(3);
     };
-    let texts = match programs(&a.target) {
+    if mode == "holdout" && a.target == "-" {
+        eprintln!("holdout reads its batch from a file");
+        return ExitCode::from(3);
+    }
+    let mut texts = match programs(&a.target) {
         Ok(t) => t,
         Err(e) => {
             eprintln!("cannot read {}: {e}", a.target);
@@ -389,38 +446,24 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
         }
     };
     let mut ctx: Option<Ctx> = None;
+    if mode == "holdout" {
+        let batch: Vec<String> = texts.collect();
+        match open_holdout(a, &batch, ledger, campaign, agent) {
+            Ok(c) => ctx = Some(c),
+            Err(code) => return code,
+        }
+        texts = Box::new(batch.into_iter());
+    }
     let mut status = 0;
     for text in texts {
         let outcome = match dsl::parse(&text) {
             Err(r) => Err((r.code.name().to_string(), format!("{} at {}", r.msg, r.path))),
             Ok(prog) => {
                 if ctx.is_none() {
-                    let c = match load_ctx(a, mode) {
-                        Ok(c) => c,
-                        Err(LoadError::Holdout(m)) => {
-                            let out = json!({"ok": false, "code": "R_HOLDOUT", "message": m}).to_string();
-                            return emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1);
-                        }
-                        Err(LoadError::Io(m)) => {
-                            eprintln!("load error: {m}");
-                            return ExitCode::from(3);
-                        }
-                    };
-                    if mode == "holdout" {
-                        let h = PathBuf::from(&a.opts["holdout-store"]);
-                        match claim_holdout(&h, c.report_after, c.end, campaign) {
-                            Ok(true) => {}
-                            Ok(false) => {
-                                let out = json!({"ok": false, "code": "R_HOLDOUT_SPENT", "message": "an overlapping holdout window was already evaluated"}).to_string();
-                                return emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1);
-                            }
-                            Err(e) => {
-                                eprintln!("cannot record holdout use: {e}");
-                                return ExitCode::from(3);
-                            }
-                        }
+                    match context(a, mode, ledger, campaign, agent) {
+                        Ok(c) => ctx = Some(c),
+                        Err(code) => return code,
                     }
-                    ctx = Some(c);
                 }
                 evaluate(&prog, &text, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), a.opts.contains_key("mechanism"), ledger)
             }

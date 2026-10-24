@@ -20,7 +20,7 @@ from gate.markets import write_market
 REPO = Path(__file__).resolve().parents[3]
 W0 = REPO / "kernel" / "strategies" / "w0.json"
 IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end", "dataset_version", "data_hash",
-            "conventions", "rules_hash", "execution_hash", "kernel", "seed", "identity", "mechanism", "equivalence"]
+            "conventions", "rules_hash", "execution_hash", "kernel", "seed", "identity", "mechanism", "equivalence", "trial"]
 
 
 @pytest.fixture(scope="module")
@@ -151,11 +151,44 @@ def test_batch_eval_one_line_per_program(market, tmp_path):
     assert kinds == ["eval", "reject", "eval"]
 
 
-def holdout(market, ledger, strategy=W0):
+def freeze(market, ledger, strategy):
+    """Evaluate `strategy` in search mode and record the gate's selection of its trial."""
+    evaluate(market, ledger, strategy)
+    trial = sqlite3.connect(ledger).execute("SELECT trial FROM experiments ORDER BY id DESC").fetchone()[0]
+    subprocess.run(kernel.command("select", trial, "c", "gate", ledger, None, "--note", "frozen"), check=True, capture_output=True)
+
+
+def holdout(market, ledger, strategy=W0, *extra, frozen=True):
     m = Path(market)
+    if frozen:
+        freeze(market, ledger, strategy)
     return subprocess.run([str(MM), "holdout", str(strategy), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
                            "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
-                           "--ledger", str(ledger)], capture_output=True, text=True)
+                           "--ledger", str(ledger), *extra], capture_output=True, text=True)
+
+
+def holdout_returns(ledger):
+    blob = sqlite3.connect(ledger).execute(
+        "SELECT r.returns FROM results r JOIN experiments e ON e.id = r.experiment_id WHERE e.mode = 'holdout'").fetchone()[0]
+    return struct.unpack(f"<{len(blob) // 8}d", blob)
+
+
+def test_holdout_evaluates_exactly_the_frozen_selections_from_a_file(tmp_path):
+    market = write_market(tmp_path / "m", market_id="family", days=40, holdout_days=10)
+    ledger = tmp_path / "l.sqlite"
+    unfrozen = holdout(market, ledger, frozen=False)
+    assert json.loads(unfrozen.stdout)["code"] == "R_HOLDOUT_FAMILY"
+    freeze(market, ledger, W0)
+    batch = tmp_path / "b.jsonl"
+    batch.write_text(W0.read_text().replace("\n", "") + "\n" + momentum(tmp_path).read_text() + "\n")
+    extra = holdout(market, ledger, batch, frozen=False)
+    assert json.loads(extra.stdout)["code"] == "R_HOLDOUT_FAMILY"
+    m = Path(market)
+    stdin = subprocess.run([str(MM), "holdout", "-", "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
+                            "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--ledger", str(ledger)],
+                           input=W0.read_text(), capture_output=True, text=True)
+    assert stdin.returncode == 3 and not stdin.stdout
+    assert holdout(market, ledger, frozen=False).returncode == 0
 
 
 def test_holdout_is_evaluated_once_over_its_window(tmp_path):
@@ -167,7 +200,7 @@ def test_holdout_is_evaluated_once_over_its_window(tmp_path):
     assert out["mode"] == "holdout" and out["result"]["steps"] == 10 * 6 - 1
     again = holdout(market, ledger)
     assert again.returncode == 1 and json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
-    row = sqlite3.connect(ledger).execute("SELECT mode, window_start FROM experiments").fetchall()
+    row = sqlite3.connect(ledger).execute("SELECT mode, window_start FROM experiments WHERE mode = 'holdout'").fetchall()
     assert row == [("holdout", json.loads((Path(market) / "store" / "policy.json").read_text())["holdout_start"])]
 
 
@@ -220,19 +253,17 @@ def test_holdout_from_and_overlap(tmp_path):
     m = Path(market)
     policy = json.loads((m / "store" / "policy.json").read_text())
     later = policy["holdout_start"] + 5 * DAY
-    base = [str(MM), "holdout", str(momentum(tmp_path)), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
-            "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--ledger", str(ledger)]
-    r = subprocess.run(base + ["--holdout-from", str(later)], capture_output=True, text=True)
+    strategy = momentum(tmp_path)
+    r = holdout(m, ledger, strategy, "--holdout-from", str(later))
     assert r.returncode == 0, r.stdout + r.stderr
     result = json.loads(r.stdout)["disclosure"]["result"]
     assert result["steps"] == 5 * 6 - 1
-    blob = sqlite3.connect(ledger).execute("SELECT returns FROM results").fetchone()[0]
-    returns = struct.unpack(f"<{len(blob) // 8}d", blob)
+    returns = holdout_returns(ledger)
     assert result["total_return"] == pytest.approx(math.prod(1 + x for x in returns) - 1, abs=1e-12)
     assert result["final_equity"] == pytest.approx(10_000 * (1 + result["total_return"]), rel=1e-12)
     coins = len(json.loads((m / "venue" / "rules.json").read_text())["coins"])
     assert 0 < result["fills"] <= (5 * 6 + 1) * coins
-    again = subprocess.run(base, capture_output=True, text=True)
+    again = holdout(m, ledger, strategy, frozen=False)
     assert json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
 
 
@@ -284,10 +315,7 @@ def test_fresh_ledger_cannot_reuse_a_spent_holdout(tmp_path):
 
 def test_holdout_from_cannot_move_earlier(tmp_path):
     market = write_market(tmp_path / "m", market_id="clamp", days=40, holdout_days=10)
-    m = Path(market)
-    r = subprocess.run([str(MM), "holdout", str(W0), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
-                        "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--holdout-from", "0",
-                        "--ledger", str(tmp_path / "l.sqlite")], capture_output=True, text=True)
+    r = holdout(market, tmp_path / "l.sqlite", W0, "--holdout-from", "0")
     assert json.loads(r.stdout)["disclosure"]["result"]["steps"] == 10 * 6 - 1
 
 
