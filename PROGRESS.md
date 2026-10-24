@@ -8,6 +8,30 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - `mm-stage0.timer` (user timer, every 20 min) runs one `flock`-guarded pass of `data/tmp/stage0-close.sh` (untracked). From 2026-10-25 20:20 UTC (16:20 EDT) each pass pulls the cloud host's files and checks `availability.judgment`: the local-only window if it started before the merge threshold (2026-10-24 21:58:13 UTC (17:58 EDT)), else the merged window. Once one is complete it runs `availability` (C0.3), `execution` (C0.7), `witness` (C0.8) and `pytest criteria/test_stage0.py`, then writes `data/tmp/stage0-close.done`. This PC need not be up during the window, only at some time after it.
   - This window starts before the merge amendment's threshold (the VM's clock log reaches 24 h at about 2026-10-24 21:58 UTC), so it is judged on the local recorder alone, exactly as frozen. A failure of C0.2, C0.3 or C0.5 triggers the exit rule.
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
+- **Fixes from GPT's whole-project review of 2026-10-24** (reply: `~/.cache/mm-gpt/project.XShA/reply.txt`; each finding checked against the code by a subagent). Done: the OS-enforced sandbox, the terms basis, holdout results over the window only, kept calibration ledgers, interrupted campaigns as crashes, and Holm failing closed (`audit/decisions.md`). Still to do, each before the step it gates:
+  - **Before the sweeps:** the experiment identity hashes the whole policy (`settlement_latency_ms` is missing); NULLS.md's no-edge argument extended to I10's absorbed shortfalls, and each null campaign reports its total absorbed.
+  - **Before stage 3:**
+    - `gate.programs()` returns the program from the row `candidates()` picks, not the first match anywhere in the ledger;
+    - the gate's `select` records the global `seen_through`;
+    - every `mm` call of a campaign pins its dataset version;
+    - `mm holdout` evaluates exactly the campaign's frozen selections, read from the ledger as one batch, and stops accepting a program stream;
+    - `claim_holdout` locks `spent.jsonl`.
+  - **Before stage 4:** C4.5's report window [640, 730) differs from the runner's day 670; append a revision or run the swarm at 640.
+  - **Before the stage 10 start:** registration-time values become authoritative ledger records:
+    - sizing (b, N, size) is fixed at commit, and `positions.run` reads it;
+    - t_r is read inside one serialized ledger transaction, after the data fetch;
+    - p_ref is recorded at registration, and resolutions are the outcome of record that reports consume;
+    - missing funding hours leave an outcome unresolved (SCORING.md, the generator and C10.4 rerun);
+    - the manifest covers every loaded module and data file, read once;
+    - the resolver loop logs failures and continues, and cache writes are atomic;
+    - core candles are known at close + δ;
+    - the HL client charges weight per attempt.
+  - **After stage 0 is committed** (the store is runner-imported):
+    - a revision whose values differ from the key's first revision is known no earlier than its fetchedAt, in `store.py` and `market.rs`, with a differential test. Paper §5's "a later correction hides a value" is false until then, but no pilot store holds a changed value;
+    - `Store` reads its own `policy.json`;
+    - Rust skips tombstones;
+    - a held position with no funding row aborts the replay instead of settling zero.
+  - **Stages 7–9:** delisting becomes a record with its own knownAt (C8.1); the pilot's last-traded-bar rule is pre-registered and touches only FTM in the search period.
 - **Reboots of this PC** need no manual step. At login, `mm-recorders-up.service` (`ops/recorders-up.sh`) restarts any local recorder whose pidfile names no live process, and the user timers (`mm-stage0`, `mm-oci-pull`, `mm-diskguard`) resume (`Linger=no`, so they run only while the human is logged in). The cloud VM records throughout, and the next pull catches up.
 - **After stage 0 is committed, in order** (priorities of CLAUDE.md §3; order checked by GPT's critical-path review of 2026-10-24):
   1. **Stage 2.** `data/tmp/after-c07.sh` (untracked, resumable, fail-closed: it starts only once `data/tmp/stage0-close.done` records passed criteria and stage 0's outputs are committed). It runs C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`); estimated 2 h, in an 8 GB scope. Two checks come before reading the sweeps:
