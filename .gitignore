@@ -6,5 +6,4 @@ result
 __pycache__/
 .hypothesis/
 .pytest_cache/
-docs/whitepaper.pdf
 .keys.env

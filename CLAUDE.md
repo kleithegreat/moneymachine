@@ -24,7 +24,7 @@ The one exception is the audit record (§3): pre-registered criteria, the experi
 
 ## 3. This project
 
-The spec is `docs/whitepaper.tex` (`nix build .#whitepaper` renders the PDF; it is not committed). Build its roadmap, stages 0 through 10, in the order the roadmap gives: stages 6 and 10 run alongside the pilot (0 to 5), and stages 7 to 9 start only after stage 5 exits. When the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record the divergence under Blockers in `PROGRESS.md` before changing the paper to match.
+The spec is `docs/whitepaper.tex` (`nix build .#whitepaper` renders `docs/whitepaper.pdf`; rebuild and commit it with every change to the paper). Build its roadmap, stages 0 through 10, in the order the roadmap gives: stages 6 and 10 run alongside the pilot (0 to 5), and stages 7 to 9 start only after stage 5 exits. When the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record the divergence under Blockers in `PROGRESS.md` before changing the paper to match.
 
 ### Nobody is watching
 
