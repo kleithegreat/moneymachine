@@ -30,7 +30,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 - **Future option (human, 2026-10-23):** a research arm whose model has an earlier knowledge cutoff, which would free more historical holdout data than the current model's June 2026 cutoff allows.
 - **Redundant recording.** Only the HL recorder is getting a second host. The data layer and the stage 5 sources keep no past versions upstream and run on this PC alone; extending the cloud host to them follows once its HL recorder is stable.
 - **Cloud VM (human, 2026-10-23): HL recorder since 21:57 UTC; data layer and stage 5 sources since 2026-10-24 01:43 UTC.** It is an Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`).
-  - `mm-recorder.service` runs `nix develop .#recorder` at 480/min, capped at 600 MB. `mm-clock.timer` logs the VM's NTP offset every 5 min.
+  - `mm-recorder.service` runs `nix develop .#recorder` at 600/min (the stage 0 budget, from its own IP; raised 2026-10-24 20:35 UTC (16:35 EDT)), capped at 600 MB. `mm-clock.timer` logs the VM's NTP offset every 5 min.
   - `mm-datalayer` and `mm-sources` duplicate this PC's data layer and stage 5 recorders, so a PC outage loses none of their data.
   - This PC pulls all four directories every 10 min (`mm-oci-pull.timer`) into `data/live-oci/<instance>/`; a failed pull adds a Blockers line.
   - Its snapshots count only for windows starting after the merge amendment's conditions hold (`audit/criteria.md`, C0.3/C0.7).
