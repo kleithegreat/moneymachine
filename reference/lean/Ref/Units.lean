@@ -1,7 +1,7 @@
 import Ref.Machine
 
 /-!
-The unit-instrumented machine for L2 (PROGRESS.md, Stage 6): values carry their runtime category and
+The unit-instrumented machine for L2 (audit/criteria.md, stage 6): values carry their runtime category and
 unit, and every operation checks its operands' categories and units and computes its result's from
 them and from the program's declared parameter units and conversion targets, as DSL.md specifies.
 It never reads the checker's node types. A mismatch is a runtime unit error.

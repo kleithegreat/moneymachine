@@ -1,4 +1,4 @@
-"""The keyless data layer's recorder (PROGRESS.md, Now): polls each feed of `venue/sources/datalayer.json` on its
+"""The keyless data layer's recorder (paper §5, Acquisition): polls each feed of `venue/sources/datalayer.json` on its
 cadence, read-only, and keeps every response body gzip-compressed under `<out_dir>/raw/<sha256 of the body>.gz` beside a
 day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}. A body is known no earlier than
 its poll's recv; parsing into point-in-time revisions is offline, per source. A feed whose file name changes per

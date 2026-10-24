@@ -1,4 +1,4 @@
-"""Paper positions for registered theses (PROGRESS.md, Stage 10): admission under the concurrent risk
+"""Paper positions for registered theses (audit/criteria.md, stage 10): admission under the concurrent risk
 cap, entry, invalidation, discretionary and horizon exits, funding, costs, the hourly account, and
 each thesis's as-registered outcome.
 

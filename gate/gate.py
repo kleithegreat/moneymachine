@@ -1,4 +1,4 @@
-"""The statistical gate of paper §8 with the stage 2 parameters (PROGRESS.md, Stage 2, Gate)."""
+"""The statistical gate of paper §8 with the stage 2 parameters (audit/criteria.md, stage 2, Gate)."""
 
 import hashlib
 import json
@@ -130,7 +130,7 @@ def programs(ledger, keys):
 
 
 def holdout_pvalues(r):
-    """Testing by betting (PROGRESS.md, Stage 2, calibration v3) along the last axis: wealth prod(1 + λ_t r_t)
+    """Testing by betting (audit/criteria.md, stage 2, calibration v3) along the last axis: wealth prod(1 + λ_t r_t)
     with the aGRAPA bet λ_t = clip(S_{t-1} / Q_{t-1}, 0, 1/(2B)) from the past sums of r and r², and
     p = min(1, 1 / max wealth). Valid at every level by Ville's inequality when E[r_t | past] <= 0 and r_t >= -B."""
     r = np.asarray(r, float)
@@ -217,7 +217,7 @@ def promote(results):
 
 
 def with_diagnostics(decision, results):
-    """The promotion decision, then the diagnostics it never read (PROGRESS.md, C3.4 revision)."""
+    """The promotion decision, then the diagnostics it never read (audit/criteria.md, C3.4 revision)."""
     promoted, report = decision
     return promoted, {**report, "diagnostics": {h: results[h][2] for h in report.get("holdout_p", {})}}
 

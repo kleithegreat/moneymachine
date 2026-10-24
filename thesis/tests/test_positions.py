@@ -1,4 +1,4 @@
-"""C10.3: hand-derived position fixtures, written before the position code (PROGRESS.md, Stage 10).
+"""C10.3: hand-derived position fixtures, written before the position code (audit/criteria.md, stage 10).
 
 Times are in hours (H). A thesis enters at the first 1h open at or after t_r + 120 s; exits come at
 the first 1h open at or after their actionable time; funding, then exits, then entries at an hour.

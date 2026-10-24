@@ -7,7 +7,7 @@ import Ref.Proof.InsertRun
 import Ref.Proof.Bound
 
 /-!
-The five laws of stage 6 (PROGRESS.md, Stage 6, with its revisions), stated over the model of
+The five laws of stage 6 (audit/criteria.md, stage 6, with its revisions), stated over the model of
 reference/SEMANTICS.md and the definitions of `Ref/Spec.lean`. Each holds for every number structure `N`;
 L3's obligations are explicit hypotheses. Abstract statements are proved here; the binary64 instance
 (`floatOps`) is not, because Lean's `Float` is opaque, and it is tested instead (C6.4). These statements and

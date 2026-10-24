@@ -1,4 +1,4 @@
-"""The thesis track's runner (PROGRESS.md, Stage 10): for one frozen track version (named by the
+"""The thesis track's runner (audit/criteria.md, stage 10): for one frozen track version (named by the
 manifest hash), the daily main session at 00:10 UTC with an ablation per accepted thesis and then the
 full no-reading session; the Monday benchmark; hourly resolutions; and the report.
 

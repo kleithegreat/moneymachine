@@ -18,7 +18,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   3. Stage 3: `freeze-harness`, `agent-null agent 20` (paced one campaign per 5 h), `agent-summary`. Stage 4's `agent-null swarm 10` after stage 3's series.
   4. **Stage 3** (revision of 2026-10-23, human decision): the holdout is [2026-08-01, 2026-09-30), 60 days from the reserved `data/holdout/`, and the real campaign is labeled a pipeline validation run, not a test for edge. Expected power is about zero (stated in the criteria). C3.2 mirrors it (holdout from day 670 of 730). The forward window [2026-11-01, 2027-01-31) is a later, separate confirmation for anything promoted.
 
-  5. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, docstrings that cite PROGRESS.md sections now in `audit/criteria.md`, `kernel/tests/timing/FORMAT.md` folded into its generator, `oci-cli` into the flake, `duckdb` out of it.
+  5. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, `kernel/tests/timing/FORMAT.md` folded into its generator, `oci-cli` into the flake, `duckdb` out of it.
 - **Stages 1, 2, 5, 6, 10.**
   - **Stage 1:** done except C1.4 and C1.8.
   - **Stage 2:** done except the sweeps; calibration v3 passed.

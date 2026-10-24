@@ -50,7 +50,7 @@ theorem settle_pos (N : NumOps α) (b : Book α) (c : Nat) (pr r : α) : (b.sett
 
 /-! ## The law for one fill -/
 
-/-- L4_fills' clause for one fill (PROGRESS.md, Stage 6, with its revisions), verbatim. -/
+/-- L4_fills' clause for one fill (audit/criteria.md, stage 6, with its revisions), verbatim. -/
 def FillLaw (N : NumOps α) (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) (f : Fill α) : Prop :=
       N.isZero f.qty = false ∧ f.inputsKnown ≤ f.decided ∧ f.decided ≤ f.submitted ∧ f.submitted ≤ f.filled ∧
       f.price = fillPrice N v f.coin f.qty f.reference ∧ f.fee = N.mul (N.mul (N.abs f.qty) f.price) v.takerFee ∧

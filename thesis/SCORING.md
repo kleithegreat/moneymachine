@@ -1,6 +1,6 @@
 # Thesis scoring: input schema and rules
 
-This is the specification for C10.4 (PROGRESS.md, Stage 10). An implementation reads one test set and
+This is the specification for C10.4 (audit/criteria.md, stage 10). An implementation reads one test set and
 returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY = 86,400,000,
 δ = 120,000.
 

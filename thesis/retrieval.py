@@ -1,4 +1,4 @@
-"""The retrieval proxy (PROGRESS.md, Stage 10): public, unauthenticated GET reads for the thesis agents.
+"""The retrieval proxy (audit/criteria.md, stage 10): public, unauthenticated GET reads for the thesis agents.
 
 Every hop's host is resolved and every address validated as globally routable; the connection is made
 to a validated address itself (so a second resolution cannot redirect it), and the connected peer is

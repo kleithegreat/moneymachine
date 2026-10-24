@@ -1,4 +1,4 @@
-"""Market data for the thesis track through a fixed-host adapter (PROGRESS.md, Stage 10).
+"""Market data for the thesis track through a fixed-host adapter (audit/criteria.md, stage 10).
 
 The adapter is the venue's public info endpoint with only the frozen read request types; there is no
 signing, account or order operation anywhere. Every response is archived with its retrieval time.

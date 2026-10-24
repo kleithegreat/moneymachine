@@ -1,5 +1,5 @@
 """The thesis daemon: outside the sandbox, the only path from a thesis agent to markets, the web and the
-ledger (PROGRESS.md, Stage 10).
+ledger (audit/criteria.md, stage 10).
 
 Every call, rejected and failed ones included, is written to the ledger as a `call` record with the
 sha256 of the exact response bytes, which are stored under `responses/`, before the bytes are

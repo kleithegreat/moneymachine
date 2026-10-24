@@ -1,4 +1,4 @@
-"""C6.4: `mm` against the Lean reference kernel `refmm` on a frozen corpus (PROGRESS.md, stage 6).
+"""C6.4: `mm` against the Lean reference kernel `refmm` on a frozen corpus (audit/criteria.md, stage 6).
 
 `run` takes the corpus frozen in `audit/stage6/differential-corpus.jsonl` (its generator and freeze are in git at
 the manifest's commit). It rebuilds every market from the manifest and checks each against its frozen hash (store and venue). It

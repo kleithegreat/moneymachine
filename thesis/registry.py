@@ -1,4 +1,4 @@
-"""The thesis ledger and registration (PROGRESS.md, Stage 10).
+"""The thesis ledger and registration (audit/criteria.md, stage 10).
 
 Records are canonical JSON (sorted keys, no whitespace) written with `mm disclose` to an append-only
 ledger, one campaign per track version and one agent name per paper account. Kinds: `thesis`, `exit`,

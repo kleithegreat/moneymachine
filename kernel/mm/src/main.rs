@@ -111,7 +111,7 @@ fn reported(run: sim::Run, after: i64) -> sim::Run {
     }
 }
 
-/// Reported beside a holdout result, never judged (PROGRESS.md, C3.4 revision): the return of a full
+/// Reported beside a holdout result, never judged (audit/criteria.md, C3.4 revision): the return of a full
 /// rerun with every cost-table entry doubled, and per coin the holdout 4h bars whose (high - low)/open
 /// lies within the range the cost model was calibrated on.
 fn holdout_diagnostics(prog: &dsl::Program, c: &Ctx) -> Value {

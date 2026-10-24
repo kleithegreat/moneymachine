@@ -2,7 +2,7 @@ import Ref.Sim
 import Ref.Units
 
 /-!
-The definitions the stage 6 laws use (PROGRESS.md, Stage 6, with its revisions): admissible inputs, the
+The definitions the stage 6 laws use (audit/criteria.md, stage 6, with its revisions): admissible inputs, the
 machine's schedule alone and instrumented, delivery prefixes and execution views, the R version 1
 rewrite rules, and the bar lookups of L4. They are frozen with the laws (`Ref/Laws.lean`).
 -/

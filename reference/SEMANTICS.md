@@ -1,6 +1,6 @@
 # Semantics of the strategy language and simulator
 
-The semantic contract for stage 6 (PROGRESS.md, Stage 6). It resolves DSL.md and INVARIANTS.md
+The semantic contract for stage 6 (audit/criteria.md, stage 6). It resolves DSL.md and INVARIANTS.md
 against the immutable engine `mm` (kernel/mm/src at the commit that freezes this file), and both
 reference kernels implement exactly this. Where it and DSL.md read differently, this file states
 what the engine computes. Section references in brackets name the engine source.

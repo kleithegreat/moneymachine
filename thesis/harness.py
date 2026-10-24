@@ -1,4 +1,4 @@
-"""Thesis agent sessions in the shared sandbox (`sandbox/`; PROGRESS.md, Stage 10). The workspace holds only
+"""Thesis agent sessions in the shared sandbox (`sandbox/`; audit/criteria.md, stage 10). The workspace holds only
 the session's brief, its task file (for an ablation) and `./thesis-agent`."""
 
 import json

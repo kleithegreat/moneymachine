@@ -1,4 +1,4 @@
-"""The thesis track's report (PROGRESS.md, Stage 10, C10.6): what ran, what was registered and resolved,
+"""The thesis track's report (audit/criteria.md, stage 10, C10.6): what ran, what was registered and resolved,
 forecast scores against every baseline with cluster-bootstrap intervals, and position performance,
 for one track version. Forecast scoring and position performance are reported separately, and stage
 completion is not skill evidence."""
