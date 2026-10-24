@@ -9,13 +9,25 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - This window starts before the merge amendment's threshold (the VM's clock log reaches 24 h at about 2026-10-24 21:58 UTC), so it is judged on the local recorder alone, exactly as frozen. A failure of C0.2, C0.3 or C0.5 triggers the exit rule.
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
 - **Reboots of this PC** need no manual step. At login, `mm-recorders-up.service` (`ops/recorders-up.sh`) restarts any local recorder whose pidfile names no live process, and the user timers (`mm-stage0`, `mm-oci-pull`, `mm-diskguard`) resume (`Linger=no`, so they run only while the human is logged in). The cloud VM records throughout, and the next pull catches up.
-- **After stage 0 is committed, in order:**
-  1. `data/tmp/after-c07.sh` (untracked, resumable): C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the stage 2 sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`). Estimated 2 h, in an 8 GB scope.
-  2. `data/tmp/stage10-start.sh`: `recorder-restart data/live 480` (the HL client's 10 s timeout takes effect then; check that the day's polls file still parses), then one uncounted dry main session. Check `harness.audit` against its transcript, then `thesis-freeze` (commit `audit/stage10/manifest.json`), then `thesis-run` detached in its own scope: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`. Builder (HIP-3) marks are recorded from then on.
-  3. Stage 3: `freeze-harness`, `agent-null agent 20` (paced one campaign per 5 h), `agent-summary`. Stage 4's `agent-null swarm 10` after stage 3's series.
-  4. **Stage 3** (revision of 2026-10-23, human decision): the holdout is [2026-08-01, 2026-09-30), 60 days from the reserved `data/holdout/`, and the real campaign is labeled a pipeline validation run, not a test for edge. Expected power is about zero (stated in the criteria). C3.2 mirrors it (holdout from day 670 of 730). The forward window [2026-11-01, 2027-01-31) is a later, separate confirmation for anything promoted.
+- **After stage 0 is committed, in order** (priorities of CLAUDE.md §3; order checked by GPT's critical-path review of 2026-10-24):
+  1. **Stage 2.** `data/tmp/after-c07.sh` (untracked, resumable, fail-closed: it starts only once `data/tmp/stage0-close.done` records passed criteria and stage 0's outputs are committed). It runs C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`); estimated 2 h, in an 8 GB scope. Two checks come before reading the sweeps:
+     - how often I10's loss cap binds in the null sweeps, since limited liability can give a leveraged strategy a positive expected return under a true null;
+     - C2.6's feasibility (Blockers).
 
-  5. Code cleanup deferred by the human's timing rule: misplaced scripts (`audit/stage6/effort.py`), criterion- or version-named files, PROGRESS.md citations in the runner-imported files (`criteria/`, the stage 0 `ingest` modules, `cli.py`), `kernel/tests/timing/FORMAT.md` folded into its generator, `oci-cli` into the flake, `duckdb` out of it.
+     Then the stage 2 exit is judged and reviewed.
+  2. **Stage 3:** `freeze-harness`; then `agent-null agent 20` (C3.2, paced one campaign per 5 h, about 4 days, holdout from day 670 of 730); then `agent-summary`; then the real two-arm campaign (`agent-real`, C3.3/C3.4) with one joint holdout release on [2026-08-01, 2026-09-30). It is a pipeline validation run, not a test for edge. Its promotions are qualified ("historical holdout, costs fitted after it") and confirmed only on [2026-11-01, 2027-01-31).
+  3. **Stage 10 start** (alongside the paced stage 3 series, keeping agent sessions apart):
+     - run `data/tmp/stage10-start.sh`: `recorder-restart data/live 480`, a check that the day's polls file parses, then one uncounted dry main session;
+     - check `harness.audit` against its transcript;
+     - run `thesis-freeze` (commit `audit/stage10/manifest.json`);
+     - start `thesis-run` detached: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`.
+  4. **Stage 4:** `agent-null swarm 10` after stage 3's series.
+  5. **Code cleanup** deferred by the human's timing rule:
+     - misplaced scripts (`audit/stage6/effort.py`) and criterion- or version-named files;
+     - PROGRESS.md citations in the runner-imported files (`criteria/`, the stage 0 `ingest` modules, `cli.py`);
+     - `kernel/tests/timing/FORMAT.md` folded into its generator;
+     - `oci-cli` into the flake and `duckdb` out of it;
+     - the Python line-count report, and deletion of one-off scripts whose outputs are recorded.
 - **Stages 1, 2, 5, 6, 10.**
   - **Stage 1:** done except C1.4 and C1.8.
   - **Stage 2:** done except the sweeps; calibration v3 passed.
@@ -37,6 +49,11 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - Setup and the idle-reclamation risk: `ops/oci/provision.sh`.
 
 ## Blockers
+
+- **C2.6 will very likely fail as written; the human decides how to amend it (loosening a frozen threshold; found by GPT's critical-path review, 2026-10-24).**
+  - **The problem:** C2.6 requires power ≥ 0.30 at s = 3 on N2. Under calibration v3's betting test, simulated power is about 0 for an annualized Sharpe up to 20 at per-step volatility up to 2%, at both 360 and 546 steps (stage 3 revision of 2026-10-23). A planted Sharpe-3 signal cannot reach 0.30.
+  - **Proposed amendment** (before the mixed sweep is read): power is reported with confidence intervals at every strength, with no minimum. Or the target is restated as a per-step mean the test can detect, for example 2% per 4h step, where simulated power is 0.94. It cannot increase false discoveries, but it lowers a frozen bar, so it is not taken autonomously.
+  - **Blocks:** stage 2's exit as written.
 
 - **Free sources that need the human's registration (stages 8 and 10).** Keys go in `.keys.env` (gitignored), one `NAME=value` per line.
   - `FRED_API_KEY` (FRED/ALFRED): macro and rates at the backtest tier's data bar (C8.2), since ALFRED gives each value's vintage and release dates.
