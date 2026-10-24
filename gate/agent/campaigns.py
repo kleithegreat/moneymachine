@@ -25,7 +25,8 @@ REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "data" / "agent"
 FROZEN = REPO / "audit/stage3/harness.json"
 BUDGET = 100
-NULL_DAYS, NULL_HOLDOUT_DAYS, NULL_REPORT_FROM_DAY = 730, 180, 670
+NULL_DAYS, NULL_HOLDOUT_DAYS = 730, 180
+REPORT_FROM_DAY = {"agent": 670, "swarm": 640}  # C3.2 as revised on 2026-10-23; C4.5 as frozen
 REAL_REPORT_FROM = 1785542400000  # 2026-08-01: a month after the agent model's June 2026 cutoff (stage 3 revision of 2026-10-23)
 LABEL = "pipeline validation run, not a test for edge (stage 3 revision of 2026-10-23)"
 MIN_SWARM_EVALUATIONS = 200
@@ -95,7 +96,7 @@ def agent_null(cid, cost_cells):
     ledger = OUT / cid / "ledger.sqlite"
     run, report, mech, kept = arm_a(market, ledger, cid, OUT / cid / "run")
     gate.freeze(ledger, cid, kept, "frozen finalist A")
-    promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, NULL_REPORT_FROM_DAY * DAY)
+    promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["agent"] * DAY)
     return {"agent_run": run, "search": report, "mechanism": mech, "kept": list(kept), "holdout": holdout,
             "bankrupt": gate.bankrupt(ledger),
             "promoted": promoted, "audit": audit_run(OUT / cid / "run", ledger, cid), "counts_as_promotion": bool(promoted)}
@@ -107,7 +108,7 @@ def swarm_null(cid, cost_cells):
     swarm = harness.run_swarm(market, ledger, cid, OUT / cid / "swarm")
     report, mech, kept = screened(market, ledger, cid)
     gate.freeze(ledger, cid, kept, "frozen finalist swarm")
-    promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, NULL_REPORT_FROM_DAY * DAY)
+    promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["swarm"] * DAY)
     run_dirs = [OUT / cid / "swarm" / r["agent"] for r in swarm["runs"]]
     return {"runs": swarm["runs"], "evaluations": swarm["evaluations"], "search": report, "mechanism": mech,
             "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": cross_agent_history(run_dirs),
