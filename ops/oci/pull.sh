@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pulls the cloud recorder's files into data/live-oci/<instance id>/{live,clock}/ (ops/oci/provision.sh). Append-only:
+# Pulls the cloud recorder's files into data/live-oci/<instance id>/{live,clock,datalayer,sources_live}/ (ops/oci/provision.sh). Append-only:
 # nothing here is ever deleted or truncated, and a recreated VM lands in a new directory. A failed pull (for
 # example after this PC's public IP changes, which the VM's firewall checks) adds one line under PROGRESS.md's
 # Blockers; the next good pull removes it.
@@ -10,7 +10,7 @@ dest="data/live-oci/${MM_OCI_ID: -12}"
 mark="**Cloud recorder pull failing"
 ssh_cmd="ssh -i $HOME/.ssh/mm_oci_ed25519 -o BatchMode=yes -o ConnectTimeout=20"
 err=""
-for d in live clock; do
+for d in live clock datalayer sources_live; do
   mkdir -p "$dest/$d"
   out=$(rsync -a --append-verify --timeout=120 -e "$ssh_cmd" "mm@$MM_OCI_IP:/home/mm/$d/" "$dest/$d/" 2>&1) || err="$err $d: $(echo "$out" | tail -1)"
 done

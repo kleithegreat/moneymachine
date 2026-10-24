@@ -27,6 +27,42 @@ write_files:
       MemoryMax=600M
       [Install]
       WantedBy=multi-user.target
+  - path: /etc/systemd/system/mm-datalayer.service
+    content: |
+      [Unit]
+      Description=moneymachine keyless data layer recorder (second host)
+      After=network-online.target nix-daemon.service
+      Wants=network-online.target
+      [Service]
+      User=mm
+      Environment=HOME=/home/mm
+      WorkingDirectory=/home/mm/moneymachine
+      ExecStart=/nix/var/nix/profiles/default/bin/nix --extra-experimental-features "nix-command flakes" develop .#recorder --command python -m cli datalayer-record /home/mm/datalayer
+      Restart=always
+      RestartSec=30
+      KillSignal=SIGTERM
+      TimeoutStopSec=120
+      MemoryMax=300M
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/mm-sources.service
+    content: |
+      [Unit]
+      Description=moneymachine stage 5 sources recorder (second host)
+      After=network-online.target nix-daemon.service
+      Wants=network-online.target
+      [Service]
+      User=mm
+      Environment=HOME=/home/mm
+      WorkingDirectory=/home/mm/moneymachine
+      ExecStart=/nix/var/nix/profiles/default/bin/nix --extra-experimental-features "nix-command flakes" develop .#recorder --command python -m cli sources-record /home/mm/sources_live
+      Restart=always
+      RestartSec=30
+      KillSignal=SIGTERM
+      TimeoutStopSec=120
+      MemoryMax=300M
+      [Install]
+      WantedBy=multi-user.target
   - path: /etc/systemd/system/mm-clock.service
     content: |
       [Unit]
@@ -49,7 +85,7 @@ write_files:
 runcmd:
   - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
   - curl -fsSL https://nixos.org/nix/install -o /tmp/nix-install && HOME=/root sh /tmp/nix-install --daemon --yes
-  - mkdir -p /home/mm/.ssh /home/mm/live /home/mm/clock && cp /home/ubuntu/.ssh/authorized_keys /home/mm/.ssh/ && chown -R mm:mm /home/mm
+  - mkdir -p /home/mm/.ssh /home/mm/live /home/mm/clock /home/mm/datalayer /home/mm/sources_live && cp /home/ubuntu/.ssh/authorized_keys /home/mm/.ssh/ && chown -R mm:mm /home/mm
   - sudo -u mm ssh-keygen -t ed25519 -N '' -C mm-oci-deploy -f /home/mm/.ssh/deploy
   - sudo -u mm sh -c 'ssh-keyscan github.com >> /home/mm/.ssh/known_hosts'
   - systemctl daemon-reload
