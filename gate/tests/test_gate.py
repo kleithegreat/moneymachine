@@ -83,7 +83,7 @@ def test_parameter_variants_are_separate_trials(tmp_path):
                     "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)], check=True, capture_output=True)
     cands = gate.candidates(ledger, "c")
     assert len(cands) == 2
-    progs = gate.programs(ledger, list(cands))
+    progs = gate.programs(ledger, "c", list(cands))
     assert sorted(p["params"]["size"]["value"] for p in progs.values()) == [0.01, 0.02]
 
 

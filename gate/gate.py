@@ -41,19 +41,31 @@ def dsr(returns, n_trials, sharpe_sd):
     return float(norm.cdf((s - s0) * np.sqrt(t - 1) / np.sqrt(var)))
 
 
-def candidates(ledger, campaign, agent=None):
-    """Distinct trials an arm evaluated in search mode that filled at least once: {trial key: returns}."""
+def trials(ledger, campaign, agent=None):
+    """Distinct trials an arm evaluated in search mode that filled at least once: {trial key: (returns, program)},
+    both from the key's first such evaluation."""
     db = sqlite3.connect(ledger)
     rows = db.execute(
-        "SELECT e.equivalence, e.params, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
+        "SELECT e.equivalence, e.params, r.returns, r.summary, e.program FROM experiments e "
+        "JOIN results r ON r.experiment_id = e.id "
         "WHERE e.campaign = ? AND e.mode = 'search' AND (? IS NULL OR e.agent = ?) ORDER BY e.id",
         (campaign, agent, agent)).fetchall()
     out = {}
-    for h, params, blob, summary in rows:
+    for h, params, blob, summary, program in rows:
         key = trial_key(h, params)
         if key not in out and json.loads(summary)["fills"] > 0:
-            out[key] = np.frombuffer(blob, "<f8")
+            out[key] = (np.frombuffer(blob, "<f8"), json.loads(program))
     return out
+
+
+def candidates(ledger, campaign, agent=None):
+    return {k: r for k, (r, _) in trials(ledger, campaign, agent).items()}
+
+
+def programs(ledger, campaign, keys, agent=None):
+    """The submitted program of each of an arm's trials, from the evaluation `candidates` takes its returns from."""
+    found = trials(ledger, campaign, agent)
+    return {k: found[k][1] for k in keys}
 
 
 def trial_key(equivalence, params):
@@ -117,16 +129,6 @@ def effective_n(r, sharpe_sd, spa_p, seed):
     status = [set(v["finalists"]) for v in out["by_n"].values()]
     out["fragile"] = sorted(set().union(*status) - set.intersection(*status))
     return out
-
-
-def programs(ledger, keys):
-    """The submitted program of each trial: the first experiment whose (strategy, params) has that key."""
-    db = sqlite3.connect(ledger)
-    rows = db.execute("SELECT equivalence, params, program FROM experiments WHERE mode = 'search' ORDER BY id").fetchall()
-    found = {}
-    for h, params, program in rows:
-        found.setdefault(trial_key(h, params), json.loads(program))
-    return {k: found[k] for k in keys}
 
 
 def holdout_pvalues(r):

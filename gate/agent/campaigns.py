@@ -77,7 +77,7 @@ def cross_agent_history(run_dirs):
 def screened(market, ledger, campaign, agent=None):
     """The search decision, then the mechanism check: (report, mechanism results, kept finalists)."""
     finalists, report = gate.search_decision(ledger, campaign, agent)
-    programs = gate.programs(ledger, finalists)
+    programs = gate.programs(ledger, campaign, finalists, agent)
     mech = gate.mechanism_check(market, ledger, campaign, programs)
     return report, mech, {h: p for h, p in programs.items() if mech[h]["pass"]}
 
@@ -168,7 +168,7 @@ def real(data_root, version, cid="stage3-real"):
     sweep.require_frozen_searcher()
     spent_b = search.run("G100", market, ledger, cid, markets.seed(cid))
     finalists_b, report_b = gate.search_decision(ledger, cid, "G100")
-    kept_b = gate.programs(ledger, finalists_b)
+    kept_b = gate.programs(ledger, cid, finalists_b, "G100")
     gate.freeze(ledger, cid, kept_a, "frozen finalist A")
     gate.freeze(ledger, cid, kept_b, "frozen finalist B")
     results = gate.holdout_run(market, ledger, cid, {**kept_a, **kept_b}, REAL_REPORT_FROM)

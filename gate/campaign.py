@@ -29,9 +29,9 @@ def run_campaign(spec, out):
         spent = search.run(spec["searcher"], root, ledger, spec["id"], markets.seed(spec["id"]))
         finalists, report = gate.search_decision(ledger, spec["id"])
         gate.freeze(ledger, spec["id"], finalists, "finalist")
-        programs = gate.programs(ledger, finalists)
+        programs = gate.programs(ledger, spec["id"], finalists)
         promoted, holdout = gate.holdout_decision(root, ledger, spec["id"], programs)
-        top = gate.programs(ledger, report.get("top5", []))
+        top = gate.programs(ledger, spec["id"], report.get("top5", []))
         result = {"spent": spent, "search": report, "holdout": holdout, "bankrupt": gate.bankrupt(ledger),
                   "promoted": [{"hash": h, "program": programs[h]} for h in promoted],
                   "top5": [{"hash": h, "program": top[h]} for h in report.get("top5", [])]}

@@ -95,6 +95,17 @@ def test_identity_covers_every_policy_field(market, tmp_path):
     assert a != b
 
 
+def test_a_selection_records_every_disclosure_before_it(market, tmp_path):
+    """The gate selects after reading every agent's results, so seen_through is the last disclosure of any agent."""
+    ledger = tmp_path / "l.sqlite"
+    evaluate(market, ledger)
+    mm(market, "eval", str(W0), "--campaign", "c", "--agent", "b", ledger=ledger)
+    subprocess.run(kernel.command("select", "h", "c", "gate", ledger, None, "--note", "n"), check=True, capture_output=True)
+    db = sqlite3.connect(ledger)
+    last = db.execute("SELECT MAX(id) FROM disclosures").fetchone()[0]
+    assert db.execute("SELECT seen_through FROM selections").fetchall() == [(last,)]
+
+
 def test_rejection_is_disclosed_without_data(market, tmp_path):
     bad = tmp_path / "bad.json"
     bad.write_text(W0.read_text().replace('"input": "funding"', '"input": "next_open"'))

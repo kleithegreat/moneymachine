@@ -117,12 +117,10 @@ impl Ledger {
         Ok(self.conn.last_insert_rowid())
     }
 
+    /// Record a selection with `seen_through`, the last disclosure committed before it, of any agent: the gate
+    /// reads every agent's results, and an agent's own view is its disclosures up to that id.
     pub fn select(&mut self, campaign: &str, agent: &str, strategy_hash: &str, note: &str) -> rusqlite::Result<i64> {
-        let seen: i64 = self.conn.query_row(
-            "SELECT COALESCE(MAX(id), 0) FROM disclosures WHERE campaign = ?1 AND agent = ?2",
-            params![campaign, agent],
-            |r| r.get(0),
-        )?;
+        let seen: i64 = self.conn.query_row("SELECT COALESCE(MAX(id), 0) FROM disclosures", [], |r| r.get(0))?;
         self.conn.execute(
             "INSERT INTO selections(created, campaign, agent, strategy_hash, seen_through, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![now(), campaign, agent, strategy_hash, seen, note],
