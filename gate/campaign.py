@@ -32,7 +32,7 @@ def run_campaign(spec, out):
         programs = gate.programs(ledger, finalists)
         promoted, holdout = gate.holdout_decision(root, ledger, spec["id"], programs)
         top = gate.programs(ledger, report.get("top5", []))
-        result = {"spent": spent, "search": report, "holdout": holdout,
+        result = {"spent": spent, "search": report, "holdout": holdout, "bankrupt": gate.bankrupt(ledger),
                   "promoted": [{"hash": h, "program": programs[h]} for h in promoted],
                   "top5": [{"hash": h, "program": top[h]} for h in report.get("top5", [])]}
     except Exception:

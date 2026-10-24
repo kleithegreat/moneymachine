@@ -97,6 +97,7 @@ def agent_null(cid, cost_cells):
     gate.freeze(ledger, cid, kept, "frozen finalist A")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, NULL_REPORT_FROM_DAY * DAY)
     return {"agent_run": run, "search": report, "mechanism": mech, "kept": list(kept), "holdout": holdout,
+            "bankrupt": gate.bankrupt(ledger),
             "promoted": promoted, "audit": audit_run(OUT / cid / "run", ledger, cid), "counts_as_promotion": bool(promoted)}
 
 
@@ -110,6 +111,7 @@ def swarm_null(cid, cost_cells):
     run_dirs = [OUT / cid / "swarm" / r["agent"] for r in swarm["runs"]]
     return {"runs": swarm["runs"], "evaluations": swarm["evaluations"], "search": report, "mechanism": mech,
             "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": cross_agent_history(run_dirs),
+            "bankrupt": gate.bankrupt(ledger),
             "audits": {d.name: audit_run(d, ledger, cid, d.name) for d in run_dirs},
             "counts_as_promotion": bool(promoted) or swarm["evaluations"] < MIN_SWARM_EVALUATIONS}
 

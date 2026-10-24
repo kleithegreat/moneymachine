@@ -95,3 +95,14 @@ def test_clusters_and_effective_n():
     assert gate.clusters(r, 0.9) == 3
     report = gate.effective_n(r, 0.02, 0.5, 1)
     assert [v["n"] for v in report["by_n"].values()] == [4, 3, 3] and report["fragile"] == []
+
+
+def test_bankrupt_lists_experiments_reaching_minus_b(tmp_path):
+    import sqlite3
+
+    db = sqlite3.connect(tmp_path / "l.sqlite")
+    db.execute("CREATE TABLE results(experiment_id INTEGER PRIMARY KEY, returns BLOB)")
+    for i, r in enumerate(([0.01, -0.2], [0.02, -gate.LOSS_BOUND, 0.0]), 1):
+        db.execute("INSERT INTO results VALUES (?, ?)", (i, np.array(r, "<f8").tobytes()))
+    db.commit()
+    assert gate.bankrupt(tmp_path / "l.sqlite") == [2]

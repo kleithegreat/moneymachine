@@ -166,14 +166,16 @@ def truth():
 
 def null_summary(name="null"):
     """Per (model, searcher): campaigns, promoting campaigns (a crash promotes), campaigns where SPA
-    rejected and finalists existed, and one-sided 95% Clopper-Pearson upper bounds on both rates."""
+    rejected and finalists existed, one-sided 95% Clopper-Pearson upper bounds on both rates, and campaigns with
+    a bankrupt evaluation (NULLS.md, No edge)."""
     cells = {}
     for r in results(name):
         _, model, searcher, _ = r["id"].split("-")
-        c = cells.setdefault(f"{model}-{searcher}", {"n": 0, "promoted": 0, "spa_and_finalists": 0})
+        c = cells.setdefault(f"{model}-{searcher}", {"n": 0, "promoted": 0, "spa_and_finalists": 0, "bankrupt": 0})
         c["n"] += 1
         c["promoted"] += campaign.promoted_anything(r)
         c["spa_and_finalists"] += bool(r.get("crash")) or bool(r["search"]["finalists"])
+        c["bankrupt"] += bool(r.get("bankrupt"))
     for c in cells.values():
         c["promoted_upper"], c["spa_upper"] = cp_upper(c["promoted"], c["n"]), cp_upper(c["spa_and_finalists"], c["n"])
     return cells

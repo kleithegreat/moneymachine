@@ -147,6 +147,12 @@ def holdout_pvalues(r):
     return 1 / wealth
 
 
+def bankrupt(ledger):
+    """The experiments whose returns reach −B, I10's bankruptcy step (NULLS.md, No edge)."""
+    rows = sqlite3.connect(ledger).execute("SELECT experiment_id, returns FROM results").fetchall()
+    return [e for e, blob in rows if (np.frombuffer(blob, "<f8") <= -LOSS_BOUND).any()]
+
+
 def holdout_pvalue(r):
     return float(holdout_pvalues(r))
 

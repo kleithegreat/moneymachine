@@ -17,6 +17,7 @@ def test_null_summary_counts_crashes_as_promotions(tmp_path, monkeypatch):
     c = sweep.null_summary()["N2-G400"]
     assert (c["n"], c["promoted"], c["spa_and_finalists"]) == (300, 8, 21)
     assert c["promoted_upper"] == sweep.cp_upper(8, 300)
+    assert c["bankrupt"] == 0
 
 
 def test_mixed_summary_fdr_and_power(tmp_path, monkeypatch):
@@ -53,6 +54,7 @@ def test_campaign_records_top5_and_serializes_with_events(tmp_path):
     assert {p.name for p in (tmp_path / "smoke").iterdir()} <= {"ledger.sqlite.xz", "spent.jsonl.xz"}
     (tmp_path / "l.sqlite").write_bytes(lzma.decompress((tmp_path / "smoke" / "ledger.sqlite.xz").read_bytes()))
     assert sqlite3.connect(tmp_path / "l.sqlite").execute("SELECT count(*) FROM results").fetchone()[0] == r["spent"]
+    assert r["bankrupt"] == []
 
 
 def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path):

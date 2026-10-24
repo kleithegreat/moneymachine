@@ -37,7 +37,16 @@ the unliquidated PnL plus q · (low − c) ≤ 0 or q · (high − c) ≤ 0. Liq
 expected PnL.
 
 Fees and the cost model are paid on every fill. So every DSL strategy has expected net PnL ≤ 0,
-with equality only if it never fills.
+with equality only if it never fills, on an account without limited liability.
+
+Limited liability (I10) breaks that bound. When a step's losses exceed the account's equity, the
+venue absorbs the shortfall, and the step return is −B instead of the loss. Expected net PnL is
+then at most the expected absorbed shortfall, which is positive whenever bankruptcy has positive
+probability. With Σ|w| ≤ 2 (I9), bankruptcy needs a bar whose adverse move from the fill price
+exceeds half the price, which the null generators rarely produce. The no-edge property is
+therefore claimed only for evaluations that never go bankrupt. Each null campaign reports its
+evaluations with a step return of −B, and a promotion from such an evaluation is reported, not
+excused.
 
 Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 1.04 > 0.
 
