@@ -47,7 +47,7 @@ def call(d, cmd, *args):
 
 def thesis(**over):
     r = {"request_id": "r1", "legs": [["X", 1]], "T": 405 * DAY, "p": 0.6, "L": 0.1, "catalyst": "c", "catalyst_id": "c",
-         "sources": []}
+         "sources": [], "outcome_market": None}
     r.update(over)
     return json.dumps(r)
 

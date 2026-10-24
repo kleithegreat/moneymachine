@@ -21,7 +21,7 @@ DATA = {"bars": {m: {h * HOUR: (100.0, 100.0) for h in range(9000, 9700)} for m 
 
 def request(**over):
     r = {"request_id": "r1", "legs": [["X", 1]], "T": 405 * DAY, "p": 0.6, "L": 0.1, "catalyst": "a scheduled release",
-         "catalyst_id": "release", "sources": ["f1"]}
+         "catalyst_id": "release", "sources": ["f1"], "outcome_market": None}
     r.update(over)
     return r
 
@@ -42,6 +42,7 @@ def ledger(tmp_path):
     {"T": 405 * DAY + 1}, {"T": T_R + 71 * HOUR}, {"T": 461 * DAY}, {"T": 405.0 * DAY},
     {"p": 1.0}, {"p": 0.0}, {"p": math.nan}, {"p": math.inf}, {"p": "0.6"}, {"L": 0.6}, {"L": 0.005},
     {"catalyst": ""}, {"catalyst_id": "x" * 65}, {"sources": ["f9"]}, {"request_id": ""},
+    {"outcome_market": "will-it-rain"}, {"outcome_market": 512345}, {"outcome_market": "1" * 21},
 ])
 def test_invalid_fields_are_refused(ledger, over):
     th, errors = register(ledger, request(**over))

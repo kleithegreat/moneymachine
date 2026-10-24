@@ -1,11 +1,15 @@
 """The runner's ledger-driven schedule: resolutions once (or a missing-data status once), the frozen
 benchmark's rule and skips, ablation inputs cut at registration, and the Monday arithmetic."""
 
+import json
+import time
+
+import httpx
 import pytest
 
 from gate import kernel
 from ingest.policy import DAY, HOUR
-from thesis import runner
+from thesis import report, runner
 
 ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
 MONDAY = 20388 * DAY  # 1970-01-01 was a Thursday, so day 20388 is a Monday
@@ -100,3 +104,24 @@ def test_report_separates_forecasts_from_positions_and_states_the_floor(track, m
     assert b["theses"] == 4 and b["resolved"] == 4 and b["forecast"]["n_resolved"] == 4 and "as_managed_mean" in b["positions"]
     assert r["accounts"]["main"] == {"theses": 0} and report.NO_CLAIM in r["statements"]
     assert [s["market"] for s in r["benchmark_skips"]] == ["flx:OIL"]
+
+
+def test_outcome_markets_show_the_named_markets_prices_at_t_r_and_resolution(tmp_path):
+    from ingest import datalayer
+
+    def poll(feed, recv, markets):
+        http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, json=markets)))
+        rec = datalayer.get(http, feed, "https://gamma-api.polymarket.com/markets", None, tmp_path)
+        lines = (tmp_path / f"datalayer-{time.strftime('%Y%m%d', time.gmtime(rec['sent'] / 1000))}.jsonl")
+        rows = [json.loads(l) for l in lines.read_text().splitlines()]
+        rows[-1]["recv"] = recv
+        lines.write_text("".join(json.dumps(r) + "\n" for r in rows))
+
+    m = {"id": "7", "question": "Fed cut in December?", "outcomes": '["Yes", "No"]'}
+    poll("polymarket-active", 100, [m | {"outcomePrices": '["0.3", "0.7"]', "closed": False}])
+    poll("polymarket-active", 200, [m | {"outcomePrices": '["0.4", "0.6"]', "closed": False}])
+    poll("polymarket-resolved", 900, [m | {"outcomePrices": '["1", "0"]', "closed": True}])
+    theses = [{"id": "main-1", "p": 0.6, "t_r": 150, "outcome_market": "7"}, {"id": "main-2", "p": 0.5, "t_r": 150, "outcome_market": None}]
+    out = report.outcome_markets(theses, tmp_path)
+    assert out == {"main-1": {"market": "7", "p": 0.6, "question": "Fed cut in December?",
+                              "prices_at_t_r": {"Yes": "0.3", "No": "0.7"}, "resolution": {"Yes": "1", "No": "0"}}}

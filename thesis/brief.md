@@ -38,7 +38,8 @@ Thesis file:
  "L": 0.05,
  "catalyst": "what will happen, when, and why it should move this exposure",
  "catalyst_id": "a short label for the event or theme",
- "sources": ["<retrieval_id>", "..."]}
+ "sources": ["<retrieval_id>", "..."],
+ "outcome_market": null}
 ```
 
 - `legs`: one market with 1 (long) or -1 (short), or two different markets `[[A, 1], [B, -1]]` (long A,
@@ -50,6 +51,9 @@ Thesis file:
 - `L`: the loss (0.01 to 0.5, as a fraction of the position) at which the paper position is closed early.
   A tighter L means a larger position.
 - `sources`: retrieval ids from this session that the thesis relies on.
+- `outcome_market`: `null`, or the id of a Polymarket market whose question matches your thesis's outcome, found
+  with `fetch https://gamma-api.polymarket.com/markets?...`. Its price is shown beside your probability in the
+  report, for comparison only; it does not change your score.
 
 You are scored on calibration and accuracy (Brier score) against the exposure's historical base rate and
 against forecasters who read nothing, so a probability far from the base rate needs a real reason. Write

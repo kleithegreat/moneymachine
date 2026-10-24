@@ -6,12 +6,40 @@ completion is not skill evidence."""
 import json
 from pathlib import Path
 
+from ingest.datalayer import body
+from ingest.live import read
 from ingest.policy import HOUR
 from thesis import scoring
 
+DATALAYER = Path(__file__).resolve().parents[1] / "data" / "datalayer"
+
 NO_CLAIM = ("No skill claim is made: a claim needs at least 200 resolved main-agent clusters within one track version, "
             "and then a separately frozen inferential protocol. These scores are descriptive.")
-MARKET_IMPLIED = "Market-implied probabilities are not used: no free source covers these exposures."
+MARKET_IMPLIED = ("Outcome-market prices (Polymarket) appear beside a thesis's probability only where the thesis names a market. "
+                  "They are descriptive: a market's question rarely states the thesis's exact outcome, so no score uses them.")
+
+
+def outcome_markets(theses, root=DATALAYER):
+    """For each thesis naming a Polymarket market (stage 10 revision of 2026-10-23): the market's latest recorded
+    prices at or before t_r and, once it has closed, its resolution, from the data layer's recordings."""
+    named = {th["id"]: th["outcome_market"] for th in theses if th.get("outcome_market")}
+    seen = {}
+    if named:
+        for poll in read(root, "datalayer"):
+            if poll["feed"] in ("polymarket-active", "polymarket-resolved") and poll["status"] == 200:
+                for m in json.loads(body(root, poll["sha256"])):
+                    if m.get("id") in named.values():
+                        seen.setdefault(m["id"], []).append((poll["recv"], m["question"], json.loads(m["outcomes"]),
+                                                             json.loads(m["outcomePrices"]), bool(m.get("closed"))))
+    out = {}
+    for th in theses:
+        if th["id"] in named:
+            rows = sorted(seen.get(named[th["id"]], []))
+            before, closed = [r for r in rows if r[0] <= th["t_r"]], [r for r in rows if r[4]]
+            out[th["id"]] = {"market": named[th["id"]], "p": th["p"], "question": rows[-1][1] if rows else None,
+                             "prices_at_t_r": dict(zip(before[-1][2], before[-1][3])) if before else None,
+                             "resolution": dict(zip(closed[0][2], closed[0][3])) if closed else None}
+    return out
 
 
 def scoring_input(track, account, now):
@@ -66,6 +94,7 @@ def write(track, now, out):
         "overdue": [th["id"] for a in ("main", "noread", "benchmark") for th in track.ledger.theses(a)
                     if th["T"] + 2 * HOUR <= now and not any(c["id"] == th["id"] for _, _, c in track.ledger.records("resolution"))],
         "accounts": {a: account_report(track, a, now) for a in ("main", "noread", "benchmark")},
+        "outcome_markets": outcome_markets(track.ledger.theses("main")),
         "statements": [NO_CLAIM, MARKET_IMPLIED,
                        "The benchmark's Brier score is descriptive: its exposures and horizons differ from the agent's.",
                        "The conditional ablation measures probability assessment on the main agent's chosen tasks, not the value "

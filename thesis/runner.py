@@ -145,7 +145,7 @@ class Track:
                 continue
             request = {"request_id": f"benchmark-{monday}-{m}", "legs": [[m, w]], "T": monday + 21 * DAY, "p": p_ref,
                        "L": 0.1, "catalyst": "frozen benchmark: the sign of the 20-day return", "catalyst_id": "benchmark",
-                       "sources": []}
+                       "sources": [], "outcome_market": None}
             t_r = now_ms()
             config_markets = set(self.markets_of("benchmark")) | {m}
             _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, t_r, snapshot["listings"],

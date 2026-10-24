@@ -17,7 +17,7 @@ from gate.kernel import command
 from ingest.policy import DAY, HOUR
 from thesis import positions
 
-FIELDS = {"request_id", "legs", "T", "p", "L", "catalyst", "catalyst_id", "sources"}
+FIELDS = {"request_id", "legs", "T", "p", "L", "catalyst", "catalyst_id", "sources", "outcome_market"}
 MIN_DAILY_BARS = 90
 
 
@@ -100,6 +100,9 @@ def validate(request, t_r, listings, daily_bars, disclosed):
         errors.append("catalyst: 1 to 4000 characters")
     if not (isinstance(request["catalyst_id"], str) and 1 <= len(request["catalyst_id"]) <= 64):
         errors.append("catalyst_id: 1 to 64 characters")
+    market = request["outcome_market"]
+    if not (market is None or (isinstance(market, str) and market.isdigit() and len(market) <= 20)):
+        errors.append("outcome_market: null, or the id of a Polymarket market (digits)")
     sources = request["sources"]
     if not (isinstance(sources, list) and all(isinstance(s, str) for s in sources)):
         errors.append("sources: a list of retrieval ids")

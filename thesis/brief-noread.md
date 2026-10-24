@@ -32,7 +32,8 @@ Thesis file:
  "L": 0.05,
  "catalyst": "what will happen, when, and why it should move this exposure",
  "catalyst_id": "a short label for the event or theme",
- "sources": []}
+ "sources": [],
+ "outcome_market": null}
 ```
 
 - `legs`: one market with 1 (long) or -1 (short), or two different markets `[[A, 1], [B, -1]]` (long A,
@@ -44,6 +45,7 @@ Thesis file:
 - `L`: the loss (0.01 to 0.5, as a fraction of the position) at which the paper position is closed early.
   A tighter L means a larger position.
 - `sources`: always `[]` in this session.
+- `outcome_market`: always `null` in this session.
 
 You are scored on calibration and accuracy (Brier score) against the exposure's historical base rate and
 against other forecasters, so a probability far from the base rate needs a real reason. Write
