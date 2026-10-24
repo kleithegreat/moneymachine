@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from gate import gate, markets, search, sweep
+from gate import campaign, gate, markets, search, sweep
 from gate.agent import harness
 from ingest.live import now_ms
 from ingest.policy import DAY
@@ -134,25 +134,19 @@ def run_series(name, n):
     check_frozen()
     OUT.mkdir(parents=True, exist_ok=True)
     log = OUT / f"{name}-null.jsonl"
-    done = sweep.recorded(log)
-    for i in range(n):
-        cid = f"{name}-null-N2-{i}"
-        if cid in done:
-            continue
-        if (OUT / cid).exists():
-            result = {"crash": "interrupted before its result was recorded", "counts_as_promotion": True}
-        else:
-            while not available():
-                time.sleep(RETRY)
-            started = time.time()
-            try:
-                result = SERIES[name](cid, sweep.cost_cells())
-            except Exception as e:
-                result = {"crash": repr(e), "counts_as_promotion": True}
-            result["seconds"] = round(time.time() - started)
+    todo = campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT)
+    for k, cid in enumerate(todo):
+        while not available():
+            time.sleep(RETRY)
+        started = time.time()
+        try:
+            result = SERIES[name](cid, sweep.cost_cells())
+        except Exception as e:
+            result = {"crash": repr(e), "counts_as_promotion": True}
+        result["seconds"] = round(time.time() - started)
         with open(log, "a") as fh:
             fh.write(json.dumps({"id": cid, **result}) + "\n")
-        if i < n - 1 and "seconds" in result:
+        if k < len(todo) - 1:
             time.sleep(max(0, SPACING - result["seconds"]))
 
 

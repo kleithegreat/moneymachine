@@ -41,3 +41,20 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
     - the wall-time limit fires whether or not the agent prints.
   - **Why straight here:** it only removes channels, and no agent session has run yet. A real haiku session through it made one client call; `curl` and `python3` were denied, and the relay saw only api.anthropic.com.
   - **Reverse:** `git revert` of the commit.
+- **2026-10-24 22:30 UTC (18:30 EDT): fixes from GPT's whole-project review, before any judged sweep or campaign.**
+  - **Holdout return over the window only.**
+    - **What:** the kernel's holdout result is an account starting the reported window with INITIAL: equity rescaled by the equity just before the window, and only the window's events. Until now the window's equity was left in the full replay's units, so `total_return` (the promotion rule's "net holdout return > 0") included the search period's PnL; a test strategy showed −40.2% for a window whose own return was −0.35%. Fills, fees, funding and turnover also covered the full trace.
+    - **Why straight here:** it makes the frozen rule hold as written, and no judged evidence used the field.
+    - **Reverse:** `reported()` in `kernel/mm/src/main.rs`.
+  - **Calibration ledgers kept.**
+    - **What:** each baseline campaign runs in `data/campaigns/<sweep>/<id>/` and keeps its ledger and the holdout's spent record there, xz-compressed (about 7 MB for a G400 campaign); only the simulated market, which its id regenerates, is deleted. Until now the whole work directory was deleted, ledger included.
+    - **Why straight here:** CLAUDE.md never erases experiment ledgers.
+    - **Reverse:** `gate/campaign.py`.
+  - **Interrupted campaigns.**
+    - **What:** a campaign whose directory exists without a recorded result is recorded as a crash, which counts as a promotion, and is never rerun. One `campaign.resume` serves the sweeps and the agent series. Until now a killed sweep worker's campaign was silently rerun.
+    - **Why straight here:** it applies the frozen rule "every market started counts, crash = promotion" and can only add promotions.
+    - **Reverse:** `gate/campaign.py`.
+  - **Holm and the betting p-value fail closed.**
+    - **What:** `holm` raises on any p-value outside [0, 1] or NaN, where a NaN used to become an adjusted 0 and pass; `holdout_pvalues` raises on non-finite wealth.
+    - **Why straight here:** it can only remove promotions.
+    - **Reverse:** `gate/gate.py`.

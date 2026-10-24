@@ -142,6 +142,8 @@ def holdout_pvalues(r):
     with np.errstate(divide="ignore", invalid="ignore"):
         bet = np.where(q > 0, np.clip(s / q, 0.0, 0.5 / LOSS_BOUND), 0.0)
     wealth = np.cumprod(1 + bet * r, axis=-1).max(axis=-1, initial=1.0)
+    if not np.isfinite(wealth).all():
+        raise ValueError("holdout wealth non-finite")
     return 1 / wealth
 
 
@@ -150,13 +152,12 @@ def holdout_pvalue(r):
 
 
 def holm(pvalues):
-    order = np.argsort(pvalues)
-    m = len(pvalues)
-    adjusted = np.empty(m)
-    running = 0.0
-    for rank, i in enumerate(order):
-        running = max(running, (m - rank) * pvalues[i])
-        adjusted[i] = min(1.0, running)
+    p = np.asarray(pvalues, float)
+    if not ((p >= 0) & (p <= 1)).all():
+        raise ValueError("p-value outside [0, 1]")
+    order = np.argsort(p)
+    adjusted = np.empty(len(p))
+    adjusted[order] = np.minimum(1.0, np.maximum.accumulate((len(p) - np.arange(len(p))) * p[order]))
     return adjusted
 
 

@@ -2,7 +2,7 @@
 
 import json
 
-from gate import sweep
+from gate import campaign, sweep
 
 
 def write(path, rows):
@@ -34,18 +34,35 @@ def test_mixed_summary_fdr_and_power(tmp_path, monkeypatch):
     assert sweep.cp_interval(40, 100)[0] < 0.40 < sweep.cp_interval(40, 100)[1]
 
 
-def test_campaign_records_top5_and_serializes_with_events():
+def test_campaign_records_top5_and_serializes_with_events(tmp_path):
+    import lzma
+    import sqlite3
+
     import numpy as np
 
-    from gate import campaign, kernel
+    from gate import kernel
 
     kernel.build()
     events = {"arrays": np.random.default_rng(0).poisson(2.0, (300, 1)).astype(float), "coins": [0], "block_hours": 24}
     r = campaign.run_campaign({"id": "smoke", "model": "N1", "params": None, "searcher": "G10", "days": 40, "holdout_days": 10,
-                               "cost_cells": {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}, "events": events})
+                               "cost_cells": {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}, "events": events},
+                              tmp_path)
     assert "crash" not in r, r.get("crash")
     assert 1 <= len(r["top5"]) <= 5 and all("weight" in p["program"] for p in r["top5"])
     json.dumps(r)
+    assert {p.name for p in (tmp_path / "smoke").iterdir()} <= {"ledger.sqlite.xz", "spent.jsonl.xz"}
+    (tmp_path / "l.sqlite").write_bytes(lzma.decompress((tmp_path / "smoke" / "ledger.sqlite.xz").read_bytes()))
+    assert sqlite3.connect(tmp_path / "l.sqlite").execute("SELECT count(*) FROM results").fetchone()[0] == r["spent"]
+
+
+def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path):
+    log, out = tmp_path / "x.jsonl", tmp_path / "x"
+    (out / "b").mkdir(parents=True)
+    log.write_text(json.dumps({"id": "a", "promoted": []}) + "\n")
+    assert campaign.resume(["a", "b", "c"], log, out) == ["c"]
+    assert campaign.resume(["a", "b", "c"], log, out) == ["c"]
+    rows = [json.loads(l) for l in open(log)]
+    assert [r["id"] for r in rows] == ["a", "b"] and campaign.promoted_anything(rows[1])
 
 
 def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path, monkeypatch):

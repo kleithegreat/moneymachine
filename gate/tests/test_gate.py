@@ -31,6 +31,12 @@ def test_holm_matches_statsmodels():
     assert np.allclose(gate.holm(p), multipletests(p, method="holm")[1])
 
 
+def test_holm_refuses_a_p_value_outside_the_unit_interval():
+    for bad in (np.nan, -0.1, 1.5):
+        with pytest.raises(ValueError):
+            gate.holm([0.01, bad])
+
+
 def test_holdout_pvalue_bets_the_truncated_plug_in_on_the_past():
     # Bets 0, then clip(0.1/0.01) = 0.5, then clip(0.2/0.02) = 0.5: wealth 1, 1.05, 1.05 * 0.975.
     assert gate.holdout_pvalue([0.1, 0.1, -0.05]) == 1 / 1.05

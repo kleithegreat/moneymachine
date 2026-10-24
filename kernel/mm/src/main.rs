@@ -98,16 +98,26 @@ fn latest_version(store: &Path) -> Option<i64> {
         .max()
 }
 
-/// The run restricted to the steps whose equity time is after `after` (the disclosed window).
+/// The run restricted to the steps whose equity time is after `after` (the disclosed window), as an account that
+/// starts the window with INITIAL: equity rescaled by the equity just before it, and only the events after it.
 fn reported(run: sim::Run, after: i64) -> sim::Run {
-    let first = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).position(|t| t > after);
-    let k = first.unwrap_or(run.returns.len());
+    let times: Vec<i64> = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).collect();
+    let k = times.iter().position(|&t| t > after).unwrap_or(run.returns.len());
+    let (base, since) = if k == 0 { (sim::INITIAL, i64::MIN) } else { (run.equity[k - 1], times[k - 1]) };
     sim::Run {
         returns: run.returns[k..].to_vec(),
         gross_returns: run.gross_returns[k..].to_vec(),
-        equity: run.equity[k..].to_vec(),
+        equity: run.equity[k..].iter().map(|e| e * sim::INITIAL / base).collect(),
         exposures: run.exposures,
-        trace: run.trace,
+        trace: run.trace.into_iter().filter(|e| event_time(e) > since).collect(),
+    }
+}
+
+fn event_time(e: &Event) -> i64 {
+    match e {
+        Event::Decision { t, .. } | Event::Hold { t, .. } | Event::Unfilled { t, .. } | Event::Funding { t, .. }
+        | Event::Equity { t, .. } => *t,
+        Event::Fill(f) => f.filled,
     }
 }
 
@@ -251,8 +261,6 @@ fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
     Ok(Ctx { policy, venue, version, market, mode, report_after, end, kernel: kernel_hash() })
 }
 
-/// The programs to evaluate: one file, a .jsonl file (one per line), or `-` to stream JSONL from
-/// stdin, answering each line before reading the next.
 /// Claim [start, end) of a holdout store before evaluating it: false if an overlapping window
 /// was already claimed. The record lives with the data, so a fresh ledger cannot reuse it.
 fn claim_holdout(store: &Path, start: i64, end: i64, campaign: &str) -> std::io::Result<bool> {
@@ -271,6 +279,8 @@ fn claim_holdout(store: &Path, start: i64, end: i64, campaign: &str) -> std::io:
     Ok(true)
 }
 
+/// The programs to evaluate: one file, a .jsonl file (one per line), or `-` to stream JSONL from
+/// stdin, answering each line before reading the next.
 fn programs(path: &str) -> std::io::Result<Box<dyn Iterator<Item = String>>> {
     if path == "-" {
         use std::io::BufRead;

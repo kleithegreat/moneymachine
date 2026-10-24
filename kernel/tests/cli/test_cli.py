@@ -2,9 +2,11 @@
 no statistics without a committed disclosure, and identical results across processes."""
 
 import json
+import math
 import os
 import shutil
 import sqlite3
+import struct
 import subprocess
 from pathlib import Path
 
@@ -148,6 +150,15 @@ def test_holdout_is_evaluated_once_over_its_window(tmp_path):
     assert row == [("holdout", json.loads((Path(market) / "store" / "policy.json").read_text())["holdout_start"])]
 
 
+def momentum(tmp_path):
+    """A strategy that trades every bar."""
+    program = dict(json.loads(W0.read_text()), weight={"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
+        {"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}]}]}, {"const": 0.5, "unit": "1"}]})
+    path = tmp_path / "momentum.json"
+    path.write_text(json.dumps(program))
+    return path
+
+
 def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path):
     """C3.4 revision: a full rerun at twice the cost table and calibrated-range coverage, outside the judged result."""
     plain, ranged = (write_market(tmp_path / name, market_id="diag", days=40, holdout_days=10) for name in ("a", "b"))
@@ -155,10 +166,7 @@ def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path):
     e = json.loads(execution.read_text())
     e["calibration_relative_range"] = {"S0": [0.0, 1.0], "S1": [5.0, 6.0]}
     execution.write_text(json.dumps(e))
-    momentum = dict(json.loads(W0.read_text()), weight={"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
-        {"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}]}]}, {"const": 0.5, "unit": "1"}]})
-    strategy = tmp_path / "momentum.json"
-    strategy.write_text(json.dumps(momentum))
+    strategy = momentum(tmp_path)
     out = {m: json.loads(holdout(m, tmp_path / f"{Path(m).name}.sqlite", strategy).stdout)["disclosure"] for m in (plain, ranged)}
     assert out[plain]["result"] == out[ranged]["result"]
     d = out[ranged]["diagnostics"]
@@ -191,11 +199,18 @@ def test_holdout_from_and_overlap(tmp_path):
     m = Path(market)
     policy = json.loads((m / "store" / "policy.json").read_text())
     later = policy["holdout_start"] + 5 * DAY
-    base = [str(MM), "holdout", str(W0), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
+    base = [str(MM), "holdout", str(momentum(tmp_path)), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
             "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--ledger", str(ledger)]
     r = subprocess.run(base + ["--holdout-from", str(later)], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert json.loads(r.stdout)["disclosure"]["result"]["steps"] == 5 * 6 - 1
+    result = json.loads(r.stdout)["disclosure"]["result"]
+    assert result["steps"] == 5 * 6 - 1
+    blob = sqlite3.connect(ledger).execute("SELECT returns FROM results").fetchone()[0]
+    returns = struct.unpack(f"<{len(blob) // 8}d", blob)
+    assert result["total_return"] == pytest.approx(math.prod(1 + x for x in returns) - 1, abs=1e-12)
+    assert result["final_equity"] == pytest.approx(10_000 * (1 + result["total_return"]), rel=1e-12)
+    coins = len(json.loads((m / "venue" / "rules.json").read_text())["coins"])
+    assert 0 < result["fills"] <= (5 * 6 + 1) * coins
     again = subprocess.run(base, capture_output=True, text=True)
     assert json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
 

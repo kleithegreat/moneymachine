@@ -2,9 +2,9 @@
 planted signals (with the oracle's beta calibrated to a target Sharpe, and each promotion judged
 true or false on fresh years), and the complete null with real event counts replayed.
 
-Every campaign result is appended to data/campaigns/<sweep>.jsonl and never rewritten. A rerun
-skips ids already recorded, so sweeps resume after an interruption. Campaign ids are committed:
-seeds derive from them.
+Every campaign result is appended to data/campaigns/<sweep>.jsonl and never rewritten, and each campaign keeps
+its ledger in data/campaigns/<sweep>/<id>/. A rerun skips ids already recorded and records a started, unrecorded
+campaign as a crash, so sweeps resume after an interruption. Campaign ids are committed: seeds derive from them.
 """
 
 import json
@@ -12,6 +12,7 @@ import math
 import sqlite3
 import subprocess
 import tempfile
+from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -38,10 +39,6 @@ def cost_cells():
             for side in ("buy", "sell")}
 
 
-def recorded(path):
-    return {json.loads(l)["id"] for l in open(path)} if path.exists() else set()
-
-
 SEARCHER = Path(__file__).resolve().parents[1] / "audit/stage2/searcher.json"
 
 
@@ -60,10 +57,10 @@ def require_frozen_searcher():
 
 def run_all(specs, path, workers=10):
     require_frozen_searcher()
-    done = recorded(path)
-    todo = [s for s in specs if s["id"] not in done]
+    out = path.with_suffix("")
+    todo = set(campaign.resume([s["id"] for s in specs], path, out))
     with Pool(workers) as pool, open(path, "a") as fh:
-        for r in pool.imap_unordered(campaign.run_campaign, todo):
+        for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in todo]):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
             print(r["id"], "crash" if r.get("crash") else len(r["promoted"]), r["seconds"], flush=True)
@@ -156,7 +153,7 @@ def truth_id(campaign_id, h):
 def truth():
     """Whether each promotion of the mixed sweep is true, appended to truth.jsonl."""
     path, beta = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
-    done = recorded(path)
+    done = campaign.recorded(path)
     with open(path, "a") as fh:
         for r in results("mixed"):
             _, model, s, _ = r["id"].split("-")
