@@ -89,3 +89,15 @@ def test_swarm_agents_cannot_reach_each_other(tmp_path):
     other.close()
     assert "VISIBLE" not in r.stdout and "CONNECTED" not in r.stdout and "refused" in r.stdout, r.stdout + r.stderr
     assert "mm-agent.sock" not in r.stdout.splitlines()[-1]
+
+
+def test_closing_the_proxy_stops_its_thread(tmp_path):
+    import threading
+
+    before = threading.active_count()
+    Proxy(tmp_path / "e.sock", [], tmp_path / "e.log").close()
+    for _ in range(50):
+        if threading.active_count() == before:
+            break
+        threading.Event().wait(0.02)
+    assert threading.active_count() == before

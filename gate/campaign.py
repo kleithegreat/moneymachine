@@ -40,7 +40,7 @@ def run_campaign(spec, out):
     for kept in ("ledger.sqlite", "holdout/spent.jsonl"):
         if (root / kept).exists():
             (work / f"{Path(kept).name}.xz").write_bytes(lzma.compress((root / kept).read_bytes()))
-    shutil.rmtree(root)
+    shutil.rmtree(root, ignore_errors=True)
     out = {k: v for k, v in spec.items() if k not in ("params", "events")}
     return {**out, **result, "seconds": round(time.time() - t0, 1)}
 

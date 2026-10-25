@@ -197,6 +197,9 @@ def test_holdout_evaluates_exactly_the_frozen_selections_from_a_file(tmp_path):
                             "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--ledger", str(ledger)],
                            input=W0.read_text(), capture_output=True, text=True)
     assert stdin.returncode == 3 and not stdin.stdout
+    empty = tmp_path / "empty.jsonl"
+    empty.write_text("")
+    assert json.loads(holdout(market, tmp_path / "e.sqlite", empty, frozen=False).stdout)["code"] == "R_HOLDOUT_FAMILY"
     assert holdout(market, ledger, frozen=False).returncode == 0
 
 

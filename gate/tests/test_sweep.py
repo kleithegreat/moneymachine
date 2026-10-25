@@ -83,3 +83,9 @@ def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path, monkeypatch):
     with pytest.raises(SystemExit):
         sweep.run_all([], tmp_path / "x.jsonl")
     assert json.loads((tmp_path / "searcher.json").read_text())["disclosed"] == ["sharpe_annualized"]
+
+
+def test_a_campaign_crashing_before_its_market_exists_is_recorded_not_raised(tmp_path):
+    r = campaign.run_campaign({"id": "bad", "model": "no-such-model", "params": None, "searcher": "G10", "days": 40,
+                               "holdout_days": 10, "cost_cells": {}}, tmp_path)
+    assert r["crash"] and campaign.promoted_anything(r)

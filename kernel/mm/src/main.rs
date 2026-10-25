@@ -102,15 +102,20 @@ fn latest_version(store: &Path) -> Option<i64> {
 }
 
 /// The run restricted to the steps whose equity time is after `after` (the disclosed window), as an account that
-/// starts the window with INITIAL: equity rescaled by the equity just before it, and only the events after it.
+/// starts the window with INITIAL and compounds the window's returns (an account already bankrupt stays at 0), with
+/// only the events after the step before it.
 fn reported(run: sim::Run, after: i64) -> sim::Run {
     let times: Vec<i64> = run.trace.iter().filter_map(|e| if let Event::Equity { t, .. } = e { Some(*t) } else { None }).collect();
     let k = times.iter().position(|&t| t > after).unwrap_or(run.returns.len());
-    let (base, since) = if k == 0 { (sim::INITIAL, i64::MIN) } else { (run.equity[k - 1], times[k - 1]) };
+    let since = if k == 0 { i64::MIN } else { times[k - 1] };
+    let equity = run.returns[k..].iter().scan(sim::INITIAL, |e, r| {
+        *e *= 1.0 + r;
+        Some(*e)
+    });
     sim::Run {
+        equity: equity.collect(),
         returns: run.returns[k..].to_vec(),
         gross_returns: run.gross_returns[k..].to_vec(),
-        equity: run.equity[k..].iter().map(|e| e * sim::INITIAL / base).collect(),
         exposures: run.exposures,
         trace: run.trace.into_iter().filter(|e| event_time(e) > since).collect(),
     }
@@ -422,7 +427,7 @@ fn open_holdout(a: &Args, texts: &[String], ledger: &mut Ledger, campaign: &str,
         eprintln!("R_LEDGER: {e}");
         ExitCode::from(2)
     })?;
-    if trials.as_ref() != Some(&selected) || texts.len() != selected.len() {
+    if texts.is_empty() || trials.as_ref() != Some(&selected) || texts.len() != selected.len() {
         return Err(abort(ledger, "R_HOLDOUT_FAMILY", "the batch is not exactly the campaign's frozen selections"));
     }
     let c = context(a, "holdout", ledger, campaign, agent)?;

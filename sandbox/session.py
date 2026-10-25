@@ -107,29 +107,30 @@ def run(workdir, client, model, max_turns, wall_seconds, prompt=PROMPT):
     argv = [claude_binary(), "-p", prompt, "--model", model, "--output-format", "stream-json", "--verbose", *tools(client)]
     transcript = workdir / "transcript.jsonl"
     proxy = Proxy((workdir / "tool").resolve() / "egress.sock", HOSTS, workdir / "egress.log")
-    turns, started, stopped = 0, time.time(), "finished"
-    with open(transcript, "w") as out:
-        proc = subprocess.Popen(sandbox_command(workdir, client, argv), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, text=True)
-        expired = threading.Event()
-        timer = threading.Timer(wall_seconds, lambda: (expired.set(), proc.kill()))
-        timer.start()
-        for line in proc.stdout:
-            out.write(line)
-            try:
-                turns += json.loads(line).get("type") == "assistant"
-            except json.JSONDecodeError:
-                pass
-            if turns > max_turns:
-                stopped = "turn limit"
-                proc.kill()
-                break
-        proc.wait()
-        timer.cancel()
-    proxy.close()
-    stopped = "wall time" if expired.is_set() else stopped
-    shutil.rmtree(workdir / "home")
-    shutil.rmtree((workdir / "tool").resolve())
+    turns, started, stopped, expired = 0, time.time(), "finished", threading.Event()
+    try:
+        with open(transcript, "w") as out:
+            proc = subprocess.Popen(sandbox_command(workdir, client, argv), stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            timer = threading.Timer(wall_seconds, lambda: (expired.set(), proc.kill()))
+            timer.start()
+            for line in proc.stdout:
+                out.write(line)
+                try:
+                    turns += json.loads(line).get("type") == "assistant"
+                except json.JSONDecodeError:
+                    pass
+                if turns > max_turns:
+                    stopped = "turn limit"
+                    proc.kill()
+                    break
+            proc.wait()
+            timer.cancel()
+    finally:
+        proxy.close()
+        shutil.rmtree(workdir / "home", ignore_errors=True)
+        shutil.rmtree((workdir / "tool").resolve(), ignore_errors=True)
+    stopped = "wall time" if expired.is_set() and stopped == "finished" else stopped
     return {"turns": turns, "stopped": stopped, "exit": proc.returncode, "seconds": round(time.time() - started),
             "transcript_sha256": hashlib.sha256(transcript.read_bytes()).hexdigest()}
 

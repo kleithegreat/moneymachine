@@ -76,6 +76,8 @@ class Proxy:
         pipe(conn, upstream)
 
     def close(self):
+        """Stop accepting: shutting the socket down wakes the blocked accept, which close alone does not."""
+        self.server.shutdown(socket.SHUT_RDWR)
         self.server.close()
 
 
