@@ -45,7 +45,7 @@ class Daemon:
         self.swarm, self.history_calls = swarm, 0
         self.lock = threading.Lock()
         self.evaluated = {}
-        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, self.ledger, self.market),
+        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, self.ledger, self.market, "--disclose", ",".join(FIELDS)),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 
     def log(self, cmd, payload, response):
@@ -69,8 +69,7 @@ class Daemon:
                 self.swarm.add({"agent": self.agent, "program": text, "code": out["code"]})
             return out
         self.evaluated[hashlib.sha256(text.encode()).hexdigest()] = d["disclosure"]["strategy"]
-        r = d["disclosure"]["result"]
-        fields = {k: r[k] for k in FIELDS}
+        fields = d["disclosure"]["result"]
         if self.swarm:
             self.swarm.add({"agent": self.agent, "equivalence": d["disclosure"]["equivalence"], "program": text, **fields})
         return {"ok": True, **fields, "remaining": self.budget - self.spent}

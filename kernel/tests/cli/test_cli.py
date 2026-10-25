@@ -85,6 +85,15 @@ def test_fresh_processes_give_identical_results(market, tmp_path):
     assert a == b
 
 
+def test_the_committed_disclosure_holds_only_the_disclosed_fields(market, tmp_path):
+    ledger = tmp_path / "l.sqlite"
+    r = mm(market, "eval", str(W0), "--campaign", "c", "--agent", "a", "--disclose", "sharpe_annualized,fills", ledger=ledger)
+    out = json.loads(r.stdout)["disclosure"]
+    assert set(out["result"]) == {"sharpe_annualized", "fills"}
+    committed = sqlite3.connect(ledger).execute("SELECT content FROM disclosures").fetchone()[0]
+    assert json.loads(committed) == out
+
+
 def test_identity_covers_every_policy_field(market, tmp_path):
     """A policy change that can change a result, such as funding's settlement latency, changes the identity."""
     copy = tmp_path / "m"

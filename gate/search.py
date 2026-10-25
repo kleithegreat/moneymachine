@@ -161,7 +161,7 @@ class Evaluator:
     """Streams programs through one `mm eval -` process and returns only the disclosed statistics."""
 
     def __init__(self, market, ledger, campaign, agent):
-        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, ledger, market),
+        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, ledger, market, "--disclose", ",".join(DISCLOSED)),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
         self.seen = {}
 

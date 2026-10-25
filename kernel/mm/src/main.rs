@@ -22,6 +22,8 @@ USAGE:
       --trace also writes the full event trace to OUT as JSON lines.
       --mechanism on adds the test of each strategy's `prediction` (for the gate; never
       passed to an agent).
+      --disclose F1,F2,... discloses only those result fields, as committed to the ledger: what
+      an agent is shown.
   mm holdout FILE --campaign C --agent A --holdout-store DIR [--holdout-from MS] [same options as eval]
       The gate's holdout step: evaluate the finalists in FILE over the holdout window, once.
       FILE (not stdin) is read whole first, and its trials must be exactly those agent A
@@ -309,7 +311,8 @@ fn mechanism_report(exposures: &[(bool, f64)]) -> Value {
            "pass": (0.1..=0.9).contains(&share) && m_t > m_f})
 }
 
-fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, mechanism: bool, ledger: &mut Ledger)
+fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &str, trace_path: Option<&String>, mechanism: bool,
+    disclose: Option<&String>, ledger: &mut Ledger)
     -> Result<String, (String, String)> {
     let run = sim::run(prog, &c.market, &c.venue, &c.policy, c.end).map_err(|e| (e.code().to_string(), format!("{e:?}")))?;
     let run = reported(run, c.report_after);
@@ -339,9 +342,14 @@ fn evaluate(prog: &dsl::Program, text: &str, c: &Ctx, campaign: &str, agent: &st
     let returns_bytes: Vec<u8> = run.returns.iter().flat_map(|r| r.to_le_bytes()).collect();
     let result_hash = sha256_hex(&[summary.as_bytes(), &returns_bytes].concat());
     let trace_text = trace_path.map(|_| run.trace.iter().map(|e| event_json(e, &c.venue.coins).to_string()).collect::<Vec<_>>().join("\n") + "\n");
+    let mut result: serde_json::Map<String, Value> = serde_json::from_str(&summary).unwrap();
+    if let Some(fields) = disclose {
+        let fields: Vec<&str> = fields.split(',').collect();
+        result.retain(|k, _| fields.contains(&k.as_str()));
+    }
     let mut content = json!({
         "strategy": strategy_hash, "equivalence": equivalence, "identity": identity, "result_hash": result_hash, "mode": c.mode,
-        "result": serde_json::from_str::<Value>(&summary).unwrap(),
+        "result": result,
         "trace_sha256": trace_text.as_ref().map(|t| sha256_hex(t.as_bytes())),
     });
     if c.mode == "holdout" {
@@ -465,7 +473,8 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
                         Err(code) => return code,
                     }
                 }
-                evaluate(&prog, &text, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), a.opts.contains_key("mechanism"), ledger)
+                evaluate(&prog, &text, ctx.as_ref().unwrap(), campaign, agent, a.opts.get("trace"), a.opts.contains_key("mechanism"),
+                         a.opts.get("disclose"), ledger)
             }
         };
         match outcome {
@@ -609,8 +618,8 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
     Some((fill, market, venue))
 }
 
-const OPTIONS: [&str; 10] =
-    ["campaign", "agent", "ledger", "version", "store", "venue", "trace", "mechanism", "holdout-store", "holdout-from"];
+const OPTIONS: [&str; 11] =
+    ["campaign", "agent", "ledger", "version", "store", "venue", "trace", "mechanism", "holdout-store", "holdout-from", "disclose"];
 
 fn main() -> ExitCode {
     let Some(a) = parse_args() else {
