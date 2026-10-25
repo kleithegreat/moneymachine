@@ -4,9 +4,9 @@
 
 Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteria checks are tests in `criteria/` over evidence under `audit/`; they skip until the evidence exists. Frozen criteria and their revisions: `audit/criteria.md`. Intent: `docs/whitepaper.tex`. Process rules: `CLAUDE.md`.
 
-- **Stage 0 (critical path).** The spent window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC failed C0.7 as written (Qualifications). The window has restarted three times: a recorder outage on 2026-10-22, a host DNS fault at 2026-10-23 06:08 UTC (L2 stalls up to 77 s), and the human's reboot. The local recorders were down from about 2026-10-24 01:45 to 20:13 UTC; the cloud VM recorded HL, the data layer and the stage 5 sources throughout. The new local-only window starts at about 20:13 UTC and ends about **2026-10-25 20:13 UTC**, unless another gap restarts it. `window()` gives the exact end. C0.2, C0.4, C0.5 and C0.9 are met on the second fetch (version 1792613363942, `audit/stage0/ingest-1792613363942.json`).
+- **Stage 0 (critical path).** The spent window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC failed C0.7 as written (Qualifications). C0.2, C0.4, C0.5 and C0.9 are met on the second fetch (version 1792613363942, `audit/stage0/ingest-1792613363942.json`). The local-only window that began 2026-10-24 20:13 UTC broke: this PC was off from 2026-10-25 03:00 to 23:22 UTC. Windows from the merge threshold on are merged (human-approved, including boundary polls); the local host drops out of any window its clock-log hole touches. Hyperliquid itself failed for about 2 minutes (502s and read timeouts on the cloud host, L2 gaps up to 112 s across every coin at 2026-10-25 09:32 to 09:35 UTC), so the earliest complete window is cloud-only, about **[2026-10-25 09:35, 2026-10-26 09:35) UTC**, if no gap over 60 s follows.
   - `mm-stage0.timer` (user timer, every 20 min) runs one `flock`-guarded pass of `data/tmp/stage0-close.sh` (untracked). From 2026-10-25 20:20 UTC (16:20 EDT) each pass pulls the cloud host's files and checks `availability.judgment`: the local-only window if it started before the merge threshold (2026-10-24 21:58:13 UTC (17:58 EDT)), else the merged window. Once one is complete it runs `availability` (C0.3), `execution` (C0.7), `witness` (C0.8) and `pytest criteria/test_stage0.py`, then writes `data/tmp/stage0-close.done`. This PC need not be up during the window, only at some time after it.
-  - This window starts before the merge amendment's threshold (the VM's clock log reaches 24 h at about 2026-10-24 21:58 UTC), so it is judged on the local recorder alone, exactly as frozen. A failure of C0.2, C0.3 or C0.5 triggers the exit rule.
+  - A failure of C0.2, C0.3 or C0.5 triggers the exit rule. The runner counts a skipped criterion as not passed.
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
 - **Fixes from GPT's whole-project review of 2026-10-24** (reply: `~/.cache/mm-gpt/project.XShA/reply.txt`; each finding checked against the code by a subagent). The fixes gating the sweeps, stage 3, stage 4 and the stage 10 start are done (`audit/decisions.md`, 2026-10-24 and 25). Still to do, each before the step it gates:
   - **After stage 0 is committed** (the store is runner-imported):
@@ -56,10 +56,15 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 ## Blockers
 
-- **C2.6 will very likely fail as written; the human decides how to amend it (loosening a frozen threshold; found by GPT's critical-path review, 2026-10-24).**
-  - **The problem:** C2.6 requires power ≥ 0.30 at s = 3 on N2. Under calibration v3's betting test, simulated power is about 0 for an annualized Sharpe up to 20 at per-step volatility up to 2%, at both 360 and 546 steps (stage 3 revision of 2026-10-23). A planted Sharpe-3 signal cannot reach 0.30.
-  - **Proposed amendment** (before the mixed sweep is read): power is reported with confidence intervals at every strength, with no minimum. Or the target is restated as a per-step mean the test can detect, for example 2% per 4h step, where simulated power is 0.94. It cannot increase false discoveries, but it lowers a frozen bar, so it is not taken autonomously.
-  - **Blocks:** stage 2's exit as written.
+- **C2.6: the approved amendment is infeasible as written; the human chooses its replacement (2026-10-25).** The amendment (power ≥ 0.30 at an N2 oracle mean of 0.7% per 4h step) was committed, then suspended by a dated revision before any sweep (`audit/criteria.md`, C2.6).
+  - **The wall:** the betting test needs a mean near ln 20 / (0.5 × 1,080) ≈ 0.55% per step at stage 2's holdout length. The planted generator cannot produce that while the kernel runs. The frozen oracle (0.1 per coin) reaches 0.1% per step at β = 0.2 (Sharpe 9); at the gross cap of 2 it reaches 0.16% at β = 0.1 with 2% to 3% volatility; at β = 0.2 the kernel aborts (I5 numerics, below). A mean also needs a stated leverage, which the amendment left open.
+  - **Options:**
+    1. **Report only** (recommended): the full power curve over the Sharpe cells with Clopper-Pearson intervals and the test-alone curve, no minimum, and the stage 2 report states that the pilot cannot confirm ordinary edges at this holdout length.
+    2. **A long-holdout diagnostic cell:** simulated markets can have any holdout length at no cost. A cell with a 900-day holdout (5,400 steps, detectable mean about 0.11%) at a planted strength the generator reaches (the oracle at the gross cap, β about 0.07), with power ≥ 0.30 required there. It shows the machinery detects a planted edge when the data suffice, which the pilot's real holdout cannot.
+    3. **Both.**
+  - **Blocks:** stage 2's exit. The sweeps run as frozen (Sharpe cells); C2.6 as written is judged and reported either way.
+
+- **I5's absolute tolerance breaks at huge equity (kernel numerics, found 2026-10-25).** I5 compares two equity computations within an absolute $1e-5. Rounding exceeds that near $1e10 of equity, which only absurd compounding reaches. The mixed sweep's truth check, which runs promoted strategies for 10 years, could hit it, and would fail loudly. The fix is a tolerance relative to equity, in `sim.rs`, `reference/SEMANTICS.md` and the Lean model (`Sim.lean`, whose L6 proof uses the constant), with the proof rechecked. It is not taken now: stage 6's evidence covers the current constant.
 
 - **Free sources that need the human's registration (stages 8 and 10).** Keys go in `.keys.env` (gitignored), one `NAME=value` per line.
   - `FRED_API_KEY` (FRED/ALFRED): macro and rates at the backtest tier's data bar (C8.2), since ALFRED gives each value's vintage and release dates.
@@ -87,11 +92,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 Only decisions that could affect a statistical result or leakage, or that touch the hard limits. Others go straight to `audit/decisions.md`.
 
-- **2026-10-24 20:40 UTC (16:40 EDT): the merge amendment extended to boundary polls, and the cloud recorder raised to 600/min** (`audit/criteria.md`, C0.3/C0.7).
-  - **Why:** the human's direction that stage 0 not depend on this PC. The approved merge covered only L2 snapshots, so an outage of this PC at any boundary would still fail C0.3. At 480/min the cloud host's boundary polls fall behind at 4h boundaries.
-  - **The rule:** one host per boundary, chosen by completeness, never by which saw the value first, so C0.3's lateness measure is not biased.
-  - **GPT:** not asked; the conditions follow the approved merge.
-  - **Reverse:** a revision before the merged window is judged, keeping boundary polls local-only.
+None.
 
 ## Qualifications
 
