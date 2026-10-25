@@ -19,7 +19,8 @@ returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY
 }
 ```
 
-- **Bars.** Hourly bars open at multiples of HOUR, and daily bars at multiples of DAY. A market may have missing bars. An hourly close may be null: the bar has an opening price but no closing price (a builder market whose next mark is missing). Daily closes are never null.
+- **Bars.** Hourly bars open at multiples of HOUR, and daily bars at multiples of DAY. A market may have missing bars.
+- **Funding.** Funding settles every hour, so a market has a row for every hour (a multiple of HOUR) unless that row is missing. A missing row is missing data, never a zero rate. An hourly close may be null: the bar has an opening price but no closing price (a builder market whose next mark is missing). Daily closes are never null.
 - **Thesis order.** Theses are listed in registration (commit) order.
 - **N.** N is the thesis's notional per leg, set at registration (size-zero theses have a hypothetical N).
 - **p_ablation.** p_ablation is the conditional ablation's probability, or null if it is missing.
@@ -35,7 +36,7 @@ For each leg (market m, sign w):
   - the price is r · (1 + bps/10⁴) for a buy and r · (1 − bps/10⁴) for a sell;
   - the fee is |k| · price · fee.
 - **Leg contribution.** The entry is a fill of q at open(e), and the exit a fill of −q at open(x). The leg contributes q · (exit price − entry price) − entry fee − exit fee.
-- **Funding.** For every funding row (h, rate) of m with e < h ≤ x, the leg contributes −q · rate · mark(h). Here mark(t) uses the hourly bars: take the last bar with openTime s ≤ t; it is its close if s + HOUR ≤ t and that close is not null, otherwise its open.
+- **Funding.** For every hour h with e < h ≤ x, the leg contributes −q · rate · mark(h), where rate is m's funding row for h. If any of these rows is missing, the thesis is unresolved (outcome null). Here mark(t) uses the hourly bars: take the last bar with openTime s ≤ t; it is its close if s + HOUR ≤ t and that close is not null, otherwise its open.
 - **Result.** R_net = (sum of the leg contributions) / N, and o = 1 if R_net > 0, else 0.
 
 ## Base rate
@@ -44,7 +45,7 @@ For each leg (market m, sign w):
 - **Anchor.** a = the largest daily openTime ≤ t_r that every leg has. If there is none, the base rate is unavailable.
 - **Windows.** For k = 0, 1, 2, …, window k has exit day x_k = a − k · D · DAY and entry day e_k = x_k − D · DAY. It is considered only while e_k ≥ t_r − 1,095 · DAY.
 - **Completeness.** A window is complete if every leg has daily bars at e_k and x_k. Incomplete windows are omitted, and the others do not move.
-- **Window return.** It is computed as the outcome, with daily opens instead of hourly opens, the same N, fee and cost cells, and the leg's quantity q = w · N / daily open(e_k). Funding rows with e_k < h ≤ x_k are priced at the open of the daily bar with openTime ≤ h < openTime + DAY. If that daily bar is missing, the window is incomplete.
+- **Window return.** It is computed as the outcome, with daily opens instead of hourly opens, the same N, fee and cost cells, and the leg's quantity q = w · N / daily open(e_k). For every hour h with e_k < h ≤ x_k, the funding row for h is priced at the open of the daily bar with openTime ≤ h < openTime + DAY. If a funding row or that daily bar is missing, the window is incomplete.
 - **Estimate.** Let m be the number of complete windows and x the number with a window R_net > 0. If m ≥ 10, p_ref = (x + 1)/(m + 2); otherwise p_ref is null.
 
 ## Scores

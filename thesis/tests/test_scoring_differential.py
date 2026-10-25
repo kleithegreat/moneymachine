@@ -1,7 +1,7 @@
 """C10.4: GPT's independent scorer (gpt_scoring.py, written from thesis/SCORING.md and the stage 10
 criteria alone) agrees with ours on 1,000 boundary-dense test sets: exactly on outcomes, exclusions,
 counts and clusters, within 1e-12 * max(1, |a|, |b|) on finite scores (C10.4 revision), and on which
-scores are undefined."""
+scores are undefined; the sets cover every boundary case."""
 
 from thesis import scoring
 from thesis.tests import gpt_scoring, scoring_gen
@@ -29,25 +29,24 @@ def same(a, b, path="", out=None):
     return out
 
 
-def test_independent_scorer_agrees_on_1000_sets():
-    sets = scoring_gen.generate(1000)
-    disagreements = []
-    for i, s in enumerate(sets):
-        d = same(scoring.score(s), gpt_scoring.score(s))
+def test_independent_scorer_agrees_on_1000_sets_covering_every_boundary_case():
+    disagreements, seen = [], set()
+    for i, s in enumerate(scoring_gen.generate(1000)):
+        kind, ours = scoring_gen.KINDS[i % len(scoring_gen.KINDS)], scoring.score(s)
+        d = same(ours, gpt_scoring.score(s))
         if d:
-            disagreements.append((i, scoring_gen.KINDS[i % len(scoring_gen.KINDS)], d[:3]))
+            disagreements.append((i, kind, d[:3]))
+        theses = ours["theses"].values()
+        seen |= {"zero_return"} if any(t["outcome"] and t["outcome"]["R_net"] == 0 for t in theses) else set()
+        seen |= {"no_base_rate"} if any(t["p_ref"] is None and t["outcome"] for t in theses) else set()
+        seen |= {"base_rate"} if any(t["p_ref"] is not None and t["outcome"] for t in theses) else set()
+        seen |= {"b_ref_zero"} if ours["scores"]["ablation"]["B_ref"] == 0 else set()
+        seen |= {"chain"} if any(len(c["members"]) >= 3 for c in ours["clusters"]) else set()
+        seen |= {"unresolved_cluster"} if any(not c["resolved"] for c in ours["clusters"]) else set()
+        seen |= {"null_close"} if any(r[2] is None for rows in s["hourly"].values() for r in rows) else set()
+        if kind in ("no_opening_to_horizon", "missing_funding"):
+            assert ours["theses"][s["theses"][0]["id"]]["outcome"] is None, (i, kind)
+            seen.add(kind)
     assert disagreements == []
-
-
-def test_the_sets_cover_every_boundary_case():
-    sets = scoring_gen.generate(1000)
-    results = [scoring.score(s) for s in sets]
-    assert any(r["theses"][t]["outcome"] and r["theses"][t]["outcome"]["R_net"] == 0 for r in results for t in r["theses"])
-    assert any(r["theses"][t]["p_ref"] is None and r["theses"][t]["outcome"] for r in results for t in r["theses"])
-    assert any(r["scores"]["ablation"]["B_ref"] == 0 for r in results)
-    assert any(len(c["members"]) >= 3 for r in results for c in r["clusters"])
-    assert any(not c["resolved"] for r in results for c in r["clusters"])
-    assert any(r[2] is None for s in sets for rows in s["hourly"].values() for r in rows)
-    gapped = [res["theses"][s["theses"][0]["id"]] for i, (s, res) in enumerate(zip(sets, results))
-              if scoring_gen.KINDS[i % len(scoring_gen.KINDS)] == "no_opening_to_horizon"]
-    assert gapped and all(t["outcome"] is None for t in gapped)
+    assert seen == {"zero_return", "no_base_rate", "base_rate", "b_ref_zero", "chain", "unresolved_cluster", "null_close",
+                    "no_opening_to_horizon", "missing_funding"}

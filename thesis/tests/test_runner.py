@@ -30,7 +30,7 @@ class FakeMarket:
         return [[h * HOUR, 100.0, 100.0] for h in range(MONDAY // HOUR - 200, min(self.until, now or self.until) // HOUR)]
 
     def funding(self, market, now=None):
-        return []
+        return [[h * HOUR, 0.0] for h in range((MONDAY // DAY - 400) * 24, min(self.until, now or self.until) // HOUR + 1)]
 
     def lag(self, market):
         return 0
@@ -39,6 +39,7 @@ class FakeMarket:
 @pytest.fixture
 def track(tmp_path, monkeypatch):
     kernel.build()
+    monkeypatch.setattr(runner.harness, "manifest_hash", lambda: "0" * 64)
     t = runner.Track(tmp_path)
     t.market = FakeMarket(MONDAY + 40 * DAY)
     monkeypatch.setattr(t, "config", lambda markets: {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO for m in markets}, "fallback": []})
@@ -96,6 +97,7 @@ def test_report_separates_forecasts_from_positions_and_states_the_floor(track, m
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     track.benchmark(MONDAY)
     track.market.until = MONDAY + 30 * DAY
+    track.resolve(MONDAY + 30 * DAY)
     report.write(track, MONDAY + 30 * DAY, tmp_path / "r.json")
     import json
 
@@ -125,3 +127,13 @@ def test_outcome_markets_show_the_named_markets_prices_at_t_r_and_resolution(tmp
     out = report.outcome_markets(theses, tmp_path)
     assert out == {"main-1": {"market": "7", "p": 0.6, "question": "Fed cut in December?",
                               "prices_at_t_r": {"Yes": "0.3", "No": "0.7"}, "resolution": {"Yes": "1", "No": "0"}}}
+
+
+def test_the_manifest_covers_every_file_the_track_runs_on():
+    from thesis import harness
+
+    files = {str(p.relative_to(harness.REPO)) for p in harness.manifest_files()}
+    assert {"ingest/hl.py", "ingest/execution.py", "ingest/terms.py", "thesis/report.py", "thesis/positions.py",
+            "sandbox/session.py", "gate/kernel.py", "kernel/mm/src/ledger.rs", "venue/hyperliquid/execution.json",
+            "venue/hyperliquid/rules.json", "policy.json", "flake.lock", "thesis/brief.md"} <= files
+    assert not any(f.startswith(("thesis/tests", "data/")) for f in files)

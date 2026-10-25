@@ -2,7 +2,8 @@
 
 The adapter is the venue's public info endpoint with only the frozen read request types; there is no
 signing, account or order operation anywhere. Every response is archived with its retrieval time.
-Completed bars and funding rows are cached per market and extended incrementally. A builder (HIP-3) market's
+Completed bars and funding rows are cached per market and extended incrementally, each file rewritten atomically
+under a lock. A candle is known at its close plus δ (C0.3's rule). A builder (HIP-3) market's
 hourly bars are its recorded mark prices (stage 10 revision of 2026-10-23): `record_marks` samples every builder
 dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from those samples as known at `now`.
 """
@@ -10,11 +11,13 @@ dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from thos
 import hashlib
 import json
 import math
+import os
+import threading
 from pathlib import Path
 
 from ingest.hl import Info
 from ingest.live import append, now_ms, read
-from ingest.policy import DAY, HOUR
+from ingest.policy import DAY, DELTA, HOUR
 
 ALLOWED = frozenset({"meta", "perpDexs", "candleSnapshot", "fundingHistory", "metaAndAssetCtxs"})
 BUDGET_PER_MIN = 120
@@ -69,6 +72,7 @@ class Market:
     def __init__(self, root, exchange):
         self.root, self.x = Path(root), exchange
         (self.root / "marks").mkdir(parents=True, exist_ok=True)
+        self.lock = threading.Lock()
 
     def listings(self):
         """{market: delisted} over the core venue and every builder dex."""
@@ -80,14 +84,17 @@ class Market:
 
     def _cached(self, market, kind, fetch, now):
         path = self.root / market.replace(":", "_") / f"{kind}.json"
-        rows = json.loads(path.read_text()) if path.exists() else []
-        start = rows[-1][0] + 1 if rows else now - HISTORY[kind]
-        fresh = [r for r in fetch(start, now) if not rows or r[0] > rows[-1][0]]
-        if fresh:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            rows += fresh
-            path.write_text(json.dumps(rows, separators=(",", ":")))
-        return rows
+        with self.lock:
+            rows = json.loads(path.read_text()) if path.exists() else []
+            start = rows[-1][0] + 1 if rows else now - HISTORY[kind]
+            fresh = [r for r in fetch(start, now) if not rows or r[0] > rows[-1][0]]
+            if fresh:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                rows += fresh
+                tmp = path.with_suffix(".tmp")
+                tmp.write_text(json.dumps(rows, separators=(",", ":")))
+                os.replace(tmp, path)
+            return rows
 
     def record_marks(self):
         """One sample of every builder dex's mark prices, archived with its send and receive times."""
@@ -104,10 +111,10 @@ class Market:
         return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks") if s["dex"] == dex]
 
     def lag(self, market):
-        return MARK_WINDOW if builder(market) else 0
+        return MARK_WINDOW if builder(market) else DELTA
 
     def bars(self, market, interval, now=None):
-        """[[openTime, open, close]] of completed bars up to `now`; a builder market's 1h bars are its marks."""
+        """[[openTime, open, close]] of bars known by `now`; a builder market's 1h bars are its marks."""
         now = now or now_ms()
         if interval == "1h" and builder(market):
             return mark_bars(self.marks(market), now)
@@ -115,8 +122,8 @@ class Market:
 
         def fetch(start, end):
             return [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)
-                    if c["t"] + step <= end]
-        return [r for r in self._cached(market, interval, fetch, now) if r[0] + step <= now]
+                    if c["t"] + step + DELTA <= end]
+        return [r for r in self._cached(market, interval, fetch, now) if r[0] + step + DELTA <= now]
 
     def funding(self, market, now=None):
         """[[hour, rate]] of settled funding up to `now`."""

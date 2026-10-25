@@ -1,7 +1,8 @@
 """C10.4 (stage 10 revision of 2026-10-23): GPT's independent scorer, written by GPT 6.1 Sol from thesis/SCORING.md
-and the stage 10 criteria alone, tools denied (~/.cache/mm-gpt/s10scorer.3g4b). Committed verbatim below this note."""
+and the stage 10 criteria alone, tools denied (~/.cache/mm-gpt/s10scorer.3g4b), and updated by it on 2026-10-24 from
+the revised SCORING.md and its own previous file (~/.cache/mm-gpt/c104.3Rq2). Committed verbatim below this note."""
 
-"""Independent thesis scoring using only the Python standard library."""
+"""Independent C10.4 thesis scorer using only the Python standard library."""
 
 from bisect import bisect_left, bisect_right
 from math import floor, fsum
@@ -31,12 +32,8 @@ def score(test):
         for market, rows in test["daily"].items()
     }
     funding = {
-        market: sorted(rows, key=lambda row: row[0])
+        market: {hour: rate for hour, rate in rows}
         for market, rows in test["funding"].items()
-    }
-    funding_times = {
-        market: [row[0] for row in rows]
-        for market, rows in funding.items()
     }
 
     def fill(market, quantity, reference):
@@ -71,18 +68,22 @@ def score(test):
             -exit_fee,
         ]
 
-        rows = funding.get(market, ())
-        times = funding_times.get(market, ())
-        first = bisect_right(times, entry)
-        stop = bisect_right(times, exit_time)
+        rates = funding.get(market, {})
 
-        for index in range(first, stop):
-            hour, rate = rows[index]
+        # Entry and exit are hour boundaries. Funding excludes entry and
+        # includes exit; every intervening settlement must have a row.
+        for hour in range(entry + HOUR, exit_time + 1, HOUR):
+            if hour not in rates:
+                return None
+            rate = rates[hour]
+
             if use_daily:
                 day = (hour // DAY) * DAY
                 mark = daily_opens.get(market, {}).get(day)
             else:
                 mark = hourly_mark(market, hour)
+
+            # A zero funding rate does not excuse missing required price data.
             if mark is None:
                 return None
             contributions.append(-quantity * rate * mark)

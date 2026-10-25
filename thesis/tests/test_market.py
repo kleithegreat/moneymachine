@@ -86,4 +86,4 @@ def test_builder_markets_take_their_hourly_bars_from_recorded_marks(tmp_path, mo
     assert m.marks("xyz:GOLD") == [(5_000, 6_000, 2400.5), (H + 5_000, H + 6_000, 2400.5)]
     assert m.bars("xyz:GOLD", "1h", 2 * H) == [[0, 2400.5, 2400.5], [H, 2400.5, None]]
     assert m.bars("xyz:XYZ100", "1h", 2 * H) == []
-    assert (m.lag("xyz:GOLD"), m.lag("BTC")) == (market.MARK_WINDOW, 0)
+    assert (m.lag("xyz:GOLD"), m.lag("BTC")) == (market.MARK_WINDOW, market.DELTA)

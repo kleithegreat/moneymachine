@@ -1,31 +1,47 @@
 """Thesis agent sessions in the shared sandbox (`sandbox/`; audit/criteria.md, stage 10). The workspace holds only
 the session's brief, its task file (for an ablation) and `./thesis-agent`."""
 
+import functools
 import json
+import subprocess
+import sys
 from pathlib import Path
 
-from ingest import terms
 from sandbox import session
 from thesis.daemon import SPEC
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parent
 MODEL = "claude-opus-5-5"
 MAX_TURNS = 100
 WALL_SECONDS = 3600
 CLIENT = "thesis-agent"
 BRIEFS = {"main": "brief.md", "noread": "brief-noread.md", "ablation": "brief-ablation.md"}
-FROZEN = ("brief.md", "brief-noread.md", "brief-ablation.md", "daemon.py", "harness.py", "registry.py",
-          "positions.py", "scoring.py", "retrieval.py", "market.py", "runner.py")
+BRIEF_TEXT = {kind: (HERE / name).read_text() for kind, name in BRIEFS.items()}
+DATA = ("policy.json", "venue/hyperliquid/rules.json", "venue/hyperliquid/execution.json", "venue/sources.toml",
+        "thesis/SCORING.md", "flake.lock", "kernel/Cargo.lock")
 
 
+@functools.cache
+def manifest_files():
+    """Every repo module the runner and the report load (in a fresh interpreter, so the caller's imports do not
+    matter), the kernel's sources (it writes the ledger), the briefs and the data files the track reads."""
+    loaded = subprocess.run([sys.executable, "-c", "import sys, thesis.runner, thesis.report; print(*sorted({m.__file__ "
+                             "for m in list(sys.modules.values()) if getattr(m, '__file__', None)}), sep='\\n')"],
+                            cwd=REPO, capture_output=True, text=True, check=True).stdout.splitlines()
+    code = sorted(p.resolve() for p in map(Path, loaded) if p.resolve().is_relative_to(REPO))
+    return code + sorted((REPO / "kernel/mm/src").rglob("*.rs")) + [HERE / n for n in BRIEFS.values()] + [REPO / f for f in DATA]
+
+
+@functools.cache
 def manifest_hash():
-    """The track version's identity: briefs, daemon and pipeline code, the shared sandbox, model, limits and flags."""
-    return session.identity([HERE / f for f in FROZEN] + [terms.REGISTRY],
-                            [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS])
+    """The track version's identity: its files, model, limits and flags, hashed once per process, as the track
+    reads its files once."""
+    return session.identity(manifest_files(), [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS])
 
 
 def workspace(workdir, kind, task=None):
-    files = {"brief.md": (HERE / BRIEFS[kind]).read_text()}
+    files = {"brief.md": BRIEF_TEXT[kind]}
     if task is not None:
         files["task.json"] = json.dumps(task, indent=1)
     session.workspace(workdir, files, CLIENT, SPEC)

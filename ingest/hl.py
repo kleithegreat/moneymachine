@@ -33,8 +33,9 @@ class Info:
                 time.sleep(0.25)
 
     def post(self, body, weight=20, per_items=None):
-        self._charge(weight)
+        """One request, retried after a 429 or 5xx with backoff; every attempt is charged its weight."""
         for attempt in range(6):
+            self._charge(weight)
             r = self.http.post(URL, json=body)
             if r.status_code == 429 or r.status_code >= 500:
                 time.sleep(2**attempt)

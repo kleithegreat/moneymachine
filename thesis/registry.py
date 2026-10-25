@@ -11,11 +11,12 @@ import math
 import sqlite3
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
 
 from gate.kernel import command
 from ingest.policy import DAY, HOUR
-from thesis import positions
+from thesis import positions, scoring
 
 FIELDS = {"request_id", "legs", "T", "p", "L", "catalyst", "catalyst_id", "sources", "outcome_market"}
 MIN_DAILY_BARS = 90
@@ -33,6 +34,7 @@ class Ledger:
     def __init__(self, path, track):
         self.path, self.track = Path(path), track
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.lock = threading.Lock()
 
     def disclose(self, kind, account, content):
         text = canonical(content)
@@ -67,10 +69,9 @@ def number(x, lo, hi):
     return type(x) in (int, float) and math.isfinite(x) and lo <= x <= hi
 
 
-def validate(request, t_r, listings, daily_bars, disclosed):
+def validate(request, t_r, listings, daily, disclosed):
     """Errors for a registration request at t_r (empty if valid). `listings` is {market: delisted};
-    `daily_bars(market)` the completed daily openTimes known at t_r; `disclosed` the retrieval ids
-    already disclosed to the session."""
+    `daily` the session's daily bars per market; `disclosed` the retrieval ids already disclosed to the session."""
     if not isinstance(request, dict) or set(request) != FIELDS:
         return [f"fields must be exactly {sorted(FIELDS)}"]
     errors = []
@@ -87,7 +88,7 @@ def validate(request, t_r, listings, daily_bars, disclosed):
         for market, _ in legs:
             if market not in listings or listings[market]:
                 errors.append(f"legs: {market} is not listed")
-            elif len([t for t in daily_bars(market) if t + DAY <= t_r]) < MIN_DAILY_BARS:
+            elif len([t for t in daily.get(market, ()) if t + DAY <= t_r]) < MIN_DAILY_BARS:
                 errors.append(f"legs: {market} has fewer than {MIN_DAILY_BARS} completed daily bars")
     T = request["T"]
     if not (type(T) is int and T % DAY == 0 and 72 * HOUR <= T - t_r <= 1440 * HOUR):
@@ -111,20 +112,30 @@ def validate(request, t_r, listings, daily_bars, disclosed):
     return errors
 
 
-def register(ledger, account, session, request, t_r, listings, daily_bars, disclosed, account_config, data):
-    """Validate, size and commit one thesis; the caller serializes calls and supplies t_r from its clock.
-    Returns (thesis, None) or (None, errors). A retry of a request id returns the original thesis."""
-    existing = ledger.theses(account)
-    if isinstance(request, dict) and isinstance(request.get("request_id"), str):
-        for th in existing:
-            if th["request_id"] == request["request_id"]:
-                same = canonical({k: th[k] for k in FIELDS}) == canonical(request)
-                return (th, None) if same else (None, ["request_id: already used with different content"])
-    errors = validate(request, t_r, listings, daily_bars, disclosed)
-    if errors:
-        return None, errors
-    th = {**request, "id": f"{account}-{len(existing) + 1}", "account": account, "session": session, "t_r": t_r}
-    out = positions.run(account_config, existing + [th], ledger.exits(account), data, t_r)["theses"][th["id"]]
-    th.update(N=out["N"], size=out["size"])
-    ledger.disclose("thesis", account, th)
+def register(ledger, account, session, request, clock, listings, disclosed, config, data):
+    """Validate, size and commit one thesis. Under the ledger's lock, t_r is read from `clock`, then the thesis is
+    sized (`positions.admit`), given its base rate and committed, so commit order is t_r order and slow inputs never
+    backdate it. `data` (bars, funding, lag, and the session's daily bars) is fetched before the call, so it holds
+    nothing later than t_r. What is fixed here is recorded with the thesis: N, size and b, the fee and cost cells,
+    the cost fallbacks, and p_ref with its window counts. Returns (thesis, None) or (None, errors); a retry of a
+    request id returns the original thesis."""
+    with ledger.lock:
+        existing = ledger.theses(account)
+        if isinstance(request, dict) and isinstance(request.get("request_id"), str):
+            for th in existing:
+                if th["request_id"] == request["request_id"]:
+                    same = canonical({k: th[k] for k in FIELDS}) == canonical(request)
+                    return (th, None) if same else (None, ["request_id: already used with different content"])
+        t_r = clock()
+        errors = validate(request, t_r, listings, data["daily"], disclosed)
+        if errors:
+            return None, errors
+        markets = [m for m, _ in request["legs"]]
+        th = {**request, "id": f"{account}-{len(existing) + 1}", "account": account, "session": session, "t_r": t_r,
+              "fee": config["fee"], "costs": {m: config["costs"][m] for m in markets},
+              "fallback_costs": sorted(set(config["fallback"]) & set(markets))}
+        th.update(positions.admit(config["initial"], existing, ledger.exits(account), data, t_r, request["L"]))
+        p_ref, m, x = scoring.base_rate(th, data["daily"], data["funding"])
+        th.update(p_ref=p_ref, base_windows=m, base_positive=x)
+        ledger.disclose("thesis", account, th)
     return th, None

@@ -24,7 +24,7 @@ MAX_REGISTRATIONS = 2
 class Daemon:
     """One session's daemon. `snapshot` is the pre-session market snapshot: {"taken", "markets":
     {market: {"last_close", "t"}}, "daily": {market: [[t, open, close]]}, "listings"}. `positions(account, now)`
-    replays an account; `register_inputs(account, markets, t_r)` gives (config, data) for admission."""
+    replays an account; `register_inputs(account, markets, now)` fetches (config, data) for a registration."""
 
     def __init__(self, socket_path, session, account, ledger, snapshot, fetcher, responses, positions, register_inputs,
                  commands, clock=now_ms, ablation_of=None):
@@ -35,7 +35,7 @@ class Daemon:
         self.lock = threading.Lock()
         self.seq = 0
         self.retrievals = set()
-        self.registered = 0
+        self.registered = set()
         self.ablation_of, self.forecasted = ablation_of, False
 
     def markets(self, args):
@@ -61,23 +61,21 @@ class Daemon:
     def register(self, args):
         if len(args) != 1:
             return {"ok": False, "message": "register FILE"}
-        if self.registered >= MAX_REGISTRATIONS:
+        if len(self.registered) >= MAX_REGISTRATIONS:
             return {"ok": False, "message": f"at most {MAX_REGISTRATIONS} registrations per session"}
         try:
             request = json.loads(args[0])
         except json.JSONDecodeError as e:
             return {"ok": False, "message": f"not JSON: {e}"}
-        t_r = self.clock()
         markets = [l[0] for l in request.get("legs", []) if isinstance(l, list) and l and isinstance(l[0], str)] \
             if isinstance(request, dict) and isinstance(request.get("legs"), list) else []
-        config, data = self.register_inputs(self.account, markets, t_r)
-        daily = lambda m: [row[0] for row in self.snapshot["daily"].get(m, [])]
-        th, errors = registry.register(self.ledger, self.account, self.session, request, t_r, self.snapshot["listings"],
-                                       daily, self.retrievals, config, data)
+        config, data = self.register_inputs(self.account, markets, self.clock())
+        th, errors = registry.register(self.ledger, self.account, self.session, request, self.clock,
+                                       self.snapshot["listings"], self.retrievals, config, data)
         if errors:
             return {"ok": False, "errors": errors}
-        if th["t_r"] == t_r:
-            self.registered += 1
+        if th["session"] == self.session:
+            self.registered.add(th["id"])
         return {"ok": True, "thesis": th}
 
     def open_positions(self, args):

@@ -8,16 +8,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - `mm-stage0.timer` (user timer, every 20 min) runs one `flock`-guarded pass of `data/tmp/stage0-close.sh` (untracked). From 2026-10-25 20:20 UTC (16:20 EDT) each pass pulls the cloud host's files and checks `availability.judgment`: the local-only window if it started before the merge threshold (2026-10-24 21:58:13 UTC (17:58 EDT)), else the merged window. Once one is complete it runs `availability` (C0.3), `execution` (C0.7), `witness` (C0.8) and `pytest criteria/test_stage0.py`, then writes `data/tmp/stage0-close.done`. This PC need not be up during the window, only at some time after it.
   - This window starts before the merge amendment's threshold (the VM's clock log reaches 24 h at about 2026-10-24 21:58 UTC), so it is judged on the local recorder alone, exactly as frozen. A failure of C0.2, C0.3 or C0.5 triggers the exit rule.
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
-- **Fixes from GPT's whole-project review of 2026-10-24** (reply: `~/.cache/mm-gpt/project.XShA/reply.txt`; each finding checked against the code by a subagent). Done: the OS-enforced sandbox, the terms basis, holdout results over the window only, kept calibration ledgers, interrupted campaigns as crashes, Holm failing closed, the whole policy in the identity, bankrupt evaluations reported, programs scoped to the arm, the global `seen_through`, pinned dataset versions, the kernel-enforced holdout family and lock (I11), and the swarm series reporting from day 640 as C4.5 is frozen (NULLS.md; `audit/decisions.md`). Still to do, each before the step it gates:
-  - **Before the stage 10 start:** registration-time values become authoritative ledger records:
-    - sizing (b, N, size) is fixed at commit, and `positions.run` reads it;
-    - t_r is read inside one serialized ledger transaction, after the data fetch;
-    - p_ref is recorded at registration, and resolutions are the outcome of record that reports consume;
-    - missing funding hours leave an outcome unresolved (SCORING.md, the generator and C10.4 rerun);
-    - the manifest covers every loaded module and data file, read once;
-    - the resolver loop logs failures and continues, and cache writes are atomic;
-    - core candles are known at close + δ;
-    - the HL client charges weight per attempt.
+- **Fixes from GPT's whole-project review of 2026-10-24** (reply: `~/.cache/mm-gpt/project.XShA/reply.txt`; each finding checked against the code by a subagent). Done: the OS-enforced sandbox, the terms basis, holdout results over the window only, kept calibration ledgers, interrupted campaigns as crashes, Holm failing closed, the whole policy in the identity, bankrupt evaluations reported, programs scoped to the arm, the global `seen_through`, pinned dataset versions, the kernel-enforced holdout family and lock (I11), the swarm series reporting from day 640 as C4.5 is frozen, and the thesis track's registration records (C10.4 revision of 2026-10-25) (NULLS.md; `audit/decisions.md`). Still to do, each before the step it gates:
   - **After stage 0 is committed** (the store is runner-imported):
     - a revision whose values differ from the key's first revision is known no earlier than its fetchedAt, in `store.py` and `market.rs`, with a differential test. Paper §5's "a later correction hides a value" is false until then, but no pilot store holds a changed value;
     - `Store` reads its own `policy.json`;
@@ -132,3 +123,4 @@ Every criterion failed as written, every labeled amendment and every known limit
   - L1, L3 and L4 were false as frozen and were revised before their proofs.
 - **Stage 10.**
   - C10.4's tolerance was revised during its first differential run, after a one-ulp disagreement was seen.
+  - C10.4 was revised on 2026-10-25, before live registration: missing funding had counted as zero in both implementations. It is met on the run after that revision.

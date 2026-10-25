@@ -67,3 +67,19 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
     - `mm holdout` reads its batch whole from a file and accepts it only if its trials are exactly the campaign's gate selections, before claiming the window under an exclusive lock (I11).
   - **Why straight here:** each makes a frozen rule hold as written (one holdout batch of the frozen finalists), changes no threshold, and precedes every judged campaign.
   - **Reverse:** `git revert` of the commit.
+- **2026-10-24 22:27 UTC (18:27 EDT): correction to the times of the four entries above.** Their times were estimated, not read from the clock. Their commits give the actual times: the terms basis and the sandbox at 21:38 UTC (17:38 EDT, `5a44a4e`), the holdout-return fixes at 21:53 UTC (17:53 EDT, `db5b881`), and the before-stage-3 fixes at 22:22 UTC (18:22 EDT, `b2c0007`). From now on an entry's time is read from `date -u` when it is written.
+- **2026-10-25 01:54 UTC (2026-10-24 21:54 EDT): the thesis track records what registration decides, before the stage 10 start (GPT's whole-project review).**
+  - **What:**
+    - registration reads t_r from the clock under the ledger's lock, after the inputs are fetched, so commit order is t_r order and slow inputs never backdate a thesis;
+    - it records N, size, the reservation b, the fee, the cost cells, the cost fallbacks and p_ref with its window counts;
+    - replays size from those records (`positions.admit` is the only sizing), resolutions and fills use the recorded costs, and the report scores the resolution records and recorded base rates;
+    - a missing funding hour leaves an outcome, a base-rate window or a managed return unresolved (C10.4 revision of this time);
+    - candles are known at close + δ;
+    - the manifest covers every module the runner and report load, the kernel's sources and the data files, read once per process;
+    - the resolver and mark loops log failures and continue;
+    - cache writes are atomic and locked;
+    - one runner per root;
+    - the HL client charges every attempt.
+  - **Why straight here:** each makes a frozen stage 10 rule hold as written (C10.1's commit-time t_r and concurrency, "never assumed zero", the frozen track version), changes no threshold, and precedes any live registration. The C10.4 revision is the criterion's own path for an ambiguity found before live registration.
+  - **GPT:** found the gaps; it updated its own independent scorer from the revised SCORING.md, and the differential agrees on all 1,000 sets.
+  - **Reverse:** `git revert` of the commit.

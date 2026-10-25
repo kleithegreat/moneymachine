@@ -42,42 +42,34 @@ def outcome_markets(theses, root=DATALAYER):
     return out
 
 
-def scoring_input(track, account, now):
-    """thesis/SCORING.md input for one account, from the ledger and the market cache, as of `now`."""
-    theses = track.ledger.theses(account)
-    ablation = {c["thesis"]: c["p"] for _, _, c in track.ledger.records("ablation")}
-    markets = sorted({m for th in theses for m, _ in th["legs"]})
-    config = track.config(markets)
-    return {"account": {"fee": config["fee"], "costs": config["costs"]},
-            "hourly": {m: track.market.bars(m, "1h", now) for m in markets},
-            "daily": {m: track.market.bars(m, "1d", now) for m in markets},
-            "funding": {m: track.market.funding(m, now) for m in markets}, "now": now,
-            "theses": [{"id": th["id"], "session": th["session"], "catalyst_id": th["catalyst_id"], "legs": th["legs"],
-                        "t_r": th["t_r"], "T": th["T"], "N": th["N"], "p": th["p"], "p_ablation": ablation.get(th["id"])}
-                       for th in theses]}, config
-
-
 def account_report(track, account, now):
-    test, config = scoring_input(track, account, now)
-    if not test["theses"]:
+    """Forecast scores from the ledger's records: each thesis's p and p_ref as registered, its outcome as resolved."""
+    theses = track.ledger.theses(account)
+    if not theses:
         return {"theses": 0}
-    result = scoring.score(test)
+    ablation = {c["thesis"]: c["p"] for _, _, c in track.ledger.records("ablation")}
+    resolved = {c["id"]: c for _, _, c in track.ledger.records("resolution", account) if c["status"] == "resolved"}
+    rows = [{**{k: th[k] for k in ("id", "session", "catalyst_id", "legs", "t_r", "T", "p")}, "p_ablation": ablation.get(th["id"])}
+            for th in theses]
+    per = {th["id"]: {"outcome": resolved[th["id"]]["outcome"] if th["id"] in resolved else None, "p_ref": th["p_ref"]}
+           for th in theses}
+    result = scoring.summary(rows, per)
     replay = track.replay(account, now)
-    resolved = [t for t, r in result["theses"].items() if r["outcome"] is not None]
-    managed = [replay["theses"][t]["managed_return"] for t in replay["theses"] if replay["theses"][t]["managed_return"] is not None]
+    managed = [c["managed_return"] for c in resolved.values() if c["managed_return"] is not None]
     sizes = [len(c["members"]) for c in result["clusters"]]
     return {
-        "theses": len(test["theses"]), "size_zero": sum(th["size"] == 0 for th in track.ledger.theses(account)),
-        "resolved": len(resolved), "unresolved": len(test["theses"]) - len(resolved),
-        "base_rate_unavailable": sum(r["p_ref"] is None for r in result["theses"].values()),
-        "ablation_missing": sum(th["p_ablation"] is None for th in test["theses"]) if account == "main" else None,
+        "theses": len(theses), "size_zero": sum(th["size"] == 0 for th in theses),
+        "resolved": len(resolved), "unresolved": len(theses) - len(resolved),
+        "base_rate_unavailable": sum(th["p_ref"] is None for th in theses),
+        "ablation_missing": sum(r["p_ablation"] is None for r in rows) if account == "main" else None,
         "clusters": len(sizes), "resolved_clusters": sum(c["resolved"] for c in result["clusters"]),
-        "largest_cluster_share": max(sizes) / len(test["theses"]),
-        "forecast": result["scores"], "intervals": scoring.bootstrap(test, result),
-        "positions": {"as_registered_mean": (sum(result["theses"][t]["outcome"]["R_net"] for t in resolved) / len(resolved)) if resolved else None,
+        "largest_cluster_share": max(sizes) / len(theses),
+        "forecast": result["scores"], "intervals": scoring.bootstrap({"theses": rows}, result),
+        "positions": {"as_registered_mean": sum(c["outcome"]["R_net"] for c in resolved.values()) / len(resolved) if resolved else None,
                       "as_managed_mean": sum(managed) / len(managed) if managed else None,
-                      "equity": replay["equity"][-1][1] if replay["equity"] else None},
-        "cost_fallback_markets": config["fallback"],
+                      "equity": replay["equity"][-1][1] if replay["equity"] else None,
+                      "missing_funding_hours": len(replay["missing_funding"])},
+        "cost_fallback_theses": [th["id"] for th in theses if th["fallback_costs"]],
     }
 
 

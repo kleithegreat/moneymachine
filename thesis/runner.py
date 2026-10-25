@@ -6,6 +6,8 @@ The state is the ledger: a session is started once per UTC date, recorded when i
 consumes the date; a resolution or a missing-data status is recorded once per thesis.
 """
 
+import fcntl
+import functools
 import json
 import threading
 import time
@@ -40,24 +42,37 @@ class Track:
         self.market = Market(self.root / "market", Exchange(self.root / "exchange"))
         self.fetcher = Fetcher()
 
-    def config(self, markets):
-        """Fee from the venue rules; each market's C0.7 cost cells, or the maximum over U (an unvalidated fallback)."""
+    @functools.cached_property
+    def venue(self):
+        """The taker fee and the C0.7 cost cells, read once."""
         rules = json.loads((REPO / "venue/hyperliquid/rules.json").read_text())
         cells = json.loads((REPO / "venue/hyperliquid/execution.json").read_text())["cost_bps_ex_fee"]
+        return rules["rules"]["taker_fee"]["value"], cells
+
+    def config(self, markets):
+        """The fee, and each market's cost cells or the maximum over U (an unvalidated fallback)."""
+        fee, cells = self.venue
         costs, fallback = fill_missing(cells, sorted(markets))
-        return {"initial": INITIAL, "fee": rules["rules"]["taker_fee"]["value"], "costs": costs, "fallback": fallback}
+        return {"initial": INITIAL, "fee": fee, "costs": costs, "fallback": fallback}
 
     def data(self, markets, now):
         return {"bars": {m: scoring.bars(self.market.bars(m, "1h", now)) for m in markets},
                 "funding": {m: dict(self.market.funding(m, now)) for m in markets},
                 "lag": {m: self.market.lag(m) for m in markets}}
 
+    def inputs(self, account, markets, now, snapshot):
+        """A registration's (config, data): the account's and the new thesis's markets as of `now`, and the
+        session snapshot's daily bars."""
+        markets = set(self.markets_of(account)) | set(markets)
+        return self.config(markets), {**self.data(markets, now),
+                                      "daily": {m: scoring.bars(snapshot["daily"].get(m, [])) for m in markets}}
+
     def markets_of(self, account):
         return sorted({m for th in self.ledger.theses(account) for m, _ in th["legs"]})
 
-    def replay(self, account, now, extra=()):
-        markets = sorted(set(self.markets_of(account)) | set(extra))
-        return positions.run(self.config(markets), self.ledger.theses(account), self.ledger.exits(account), self.data(markets, now), now)
+    def replay(self, account, now):
+        return positions.run(INITIAL, self.ledger.theses(account), self.ledger.exits(account),
+                             self.data(self.markets_of(account), now), now)
 
     def snapshot(self, now):
         listings = self.market.listings()
@@ -65,7 +80,7 @@ class Track:
         for m, delisted in sorted(listings.items()):
             if delisted:
                 continue
-            d = [r for r in self.market.bars(m, "1d", now) if r[0] + DAY <= now]
+            d = self.market.bars(m, "1d", now)
             if len(d) < registry.MIN_DAILY_BARS:
                 continue
             h = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
@@ -79,8 +94,7 @@ class Track:
         return snap
 
     def daemon(self, socket_path, session, account, snapshot, commands, ablation_of=None):
-        inputs = lambda acct, markets, t_r: (self.config(set(self.markets_of(acct)) | set(markets)),
-                                             self.data(set(self.markets_of(acct)) | set(markets), t_r))
+        inputs = lambda acct, markets, now: self.inputs(acct, markets, now, snapshot)
         replay = lambda acct, now: {"theses": self.replay(acct, now)["theses"]}
         return Daemon(socket_path, session, account, self.ledger, snapshot, self.fetcher, self.root / "responses", replay,
                       inputs, commands, ablation_of=ablation_of).serve()
@@ -134,23 +148,19 @@ class Track:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "missing daily close"})
                 continue
             w = 1 if closes[last] > closes[before] else -1
+            config, data = self.inputs("benchmark", [m], now_ms(), snapshot)
             equity = self.replay("benchmark", monday)["equity"]
-            n = 0.01 * (equity[-1][1] if equity else INITIAL) / 0.1
-            probe = {"legs": [[m, w]], "t_r": now_ms(), "T": monday + 21 * DAY, "N": n}
-            daily = {m: scoring.bars(snapshot["daily"][m])}
-            funding = {m: dict(self.market.funding(m, monday))}
-            p_ref, _, _ = scoring.base_rate(probe, self.config([m]), daily, funding)
+            probe = {"legs": [[m, w]], "t_r": now_ms(), "T": monday + 21 * DAY, "N": 0.01 * (equity[-1][1] if equity else INITIAL) / 0.1,
+                     "costs": config["costs"], "fee": config["fee"]}
+            p_ref, _, _ = scoring.base_rate(probe, data["daily"], data["funding"])
             if p_ref is None:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "no base rate"})
                 continue
             request = {"request_id": f"benchmark-{monday}-{m}", "legs": [[m, w]], "T": monday + 21 * DAY, "p": p_ref,
                        "L": 0.1, "catalyst": "frozen benchmark: the sign of the 20-day return", "catalyst_id": "benchmark",
                        "sources": [], "outcome_market": None}
-            t_r = now_ms()
-            config_markets = set(self.markets_of("benchmark")) | {m}
-            _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, t_r, snapshot["listings"],
-                                          lambda x: [r[0] for r in snapshot["daily"].get(x, [])], set(),
-                                          self.config(config_markets), self.data(config_markets, t_r))
+            _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, now_ms,
+                                          snapshot["listings"], set(), config, data)
             if errors:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
 
@@ -161,17 +171,16 @@ class Track:
             theses = [th for th in self.ledger.theses(account) if th["T"] <= now]
             if not theses:
                 continue
-            markets = self.markets_of(account)
-            config, data = self.config(markets), self.data(markets, now)
-            managed = positions.run(config, self.ledger.theses(account), self.ledger.exits(account), data, now)["theses"]
+            data = self.data(self.markets_of(account), now)
+            managed = positions.run(INITIAL, self.ledger.theses(account), self.ledger.exits(account), data, now)["theses"]
             for th in theses:
                 if (th["id"], "resolved") in done:
                     continue
-                out = positions.outcome(th, th["N"], config, data, now)
+                out = positions.outcome(th, data, now)
                 if out is not None:
                     self.ledger.disclose("resolution", account, {"id": th["id"], "status": "resolved", "outcome": out,
                                                                  "managed_return": managed[th["id"]]["managed_return"],
-                                                                 "at": now, "fallback_costs": sorted(set(config["fallback"]) & {m for m, _ in th["legs"]})})
+                                                                 "at": now})
                 elif now >= th["T"] + RESOLUTION_GRACE and (th["id"], "missing data") not in done:
                     self.ledger.disclose("resolution", account, {"id": th["id"], "status": "missing data", "at": now})
 
@@ -179,28 +188,19 @@ class Track:
         return any(c["date"] == monday for _, _, c in self.ledger.records("skip", "benchmark")) or \
             any(th["session"] == f"benchmark-{monday}" for th in self.ledger.theses("benchmark"))
 
-    def marker(self):
-        """Builder markets' mark samples at H + MARK_OFFSET every hour (stage 10 revision of 2026-10-23)."""
-        while True:
-            now = now_ms()
-            time.sleep((now // HOUR * HOUR + HOUR + MARK_OFFSET - now) / 1000)
-            try:
-                self.market.record_marks()
-            except Exception as e:
-                print(time.strftime("%FT%T"), "marks", repr(e), flush=True)
-
-    def resolver(self):
-        while True:
-            self.resolve(now_ms())
-            time.sleep(300)
-
     def run(self):
-        """Forever: resolutions on their own thread; the Monday benchmark and the daily sessions here."""
+        """Forever: resolutions every 5 min and builder marks at H + MARK_OFFSET (stage 10 revision of 2026-10-23) on
+        their own threads; the Monday benchmark and the daily sessions here. One runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
         if frozen.get("manifest") != harness.manifest_hash():
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
-        threading.Thread(target=self.resolver, daemon=True).start()
-        threading.Thread(target=self.marker, daemon=True).start()
+        self.root.mkdir(parents=True, exist_ok=True)
+        lock = open(self.root / "run.lock", "w")
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        self.venue
+        threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000), daemon=True).start()
+        threading.Thread(target=forever, args=("marks", self.market.record_marks,
+                                               lambda now: now // HOUR * HOUR + HOUR + MARK_OFFSET - now), daemon=True).start()
         while True:
             now = now_ms()
             date = now // DAY * DAY
@@ -216,6 +216,16 @@ class Track:
 
     def missed(self, date):
         return any(c["date"] == date for _, _, c in self.ledger.records("session_missed"))
+
+
+def forever(name, step, wait):
+    """Run `step` after each `wait(now)` ms, forever; a failure is logged and the loop goes on."""
+    while True:
+        time.sleep(wait(now_ms()) / 1000)
+        try:
+            step()
+        except Exception as e:
+            print(time.strftime("%FT%T"), name, repr(e), flush=True)
 
 
 def freeze():

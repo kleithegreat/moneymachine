@@ -2,13 +2,14 @@
 on a missing bar, clusters chaining through overlaps, touching intervals, fewer than 10 base-rate
 windows, size-zero (hypothetical N) theses, and B_ref = 0 (flat prices without costs give o = 0, and the one paired ablation says 0).
 Since the stage 10 revision of 2026-10-23 also: hourly rows with a null close (a builder market's missing next mark),
-and no opening reference between entry and the horizon (e >= x)."""
+and no opening reference between entry and the horizon (e >= x). Since the C10.4 revision of 2026-10-24, funding is
+hourly over the last 150 days (zero rates on flat markets), and missing funding hours inside a holding period."""
 
 import random
 
 HOUR, DAY, DELTA = 3_600_000, 86_400_000, 120_000
 KINDS = ("zero_return", "missing_horizon_bar", "chain", "touching", "short_history", "size_zero", "b_ref_zero", "random",
-         "null_close", "no_opening_to_horizon")
+         "null_close", "no_opening_to_horizon", "missing_funding")
 COSTS = {"buy": {"1000": 2.0, "10000": 5.0}, "sell": {"1000": 3.0, "10000": 6.0}}
 
 
@@ -31,7 +32,7 @@ def generate_set(rng, kind):
     test = {"account": {"fee": 0.0 if flat else 0.00045, "costs": {m: ({"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}} if flat else COSTS) for m in markets}},
             "hourly": {m: series(rng, hourly_start, now - HOUR + 1, HOUR, flat, 0.0 if flat else 0.002) for m in markets},
             "daily": {m: series(rng, (now - history) // DAY * DAY, now // DAY * DAY - DAY + 1, DAY, flat, 0.03) for m in markets},
-            "funding": {m: [] if flat else [[h, round(rng.gauss(0, 1e-4), 8)] for h in sorted(rng.sample(range(now - 400 * DAY, now, HOUR), 300))]
+            "funding": {m: [(h, 0.0 if flat else round(rng.gauss(0, 1e-4), 8)) for h in range(now - 150 * DAY, now + 1, HOUR)]
                         for m in markets},
             "now": now, "theses": []}
     sessions, catalysts = [f"s{i}" for i in range(4)], [f"c{i}" for i in range(4)]
@@ -68,6 +69,11 @@ def generate_set(rng, kind):
         th = ts[0]
         for m, _ in th["legs"]:
             test["hourly"][m] = [r for r in test["hourly"][m] if not th["t_r"] + DELTA <= r[0] < th["T"]]
+    if kind == "missing_funding":
+        th = ts[0]
+        m = th["legs"][0][0]
+        gap = set(rng.sample(range(th["t_r"] // HOUR + 2, min(th["T"], now) // HOUR), 3))
+        test["funding"][m] = [r for r in test["funding"][m] if r[0] // HOUR not in gap]
     if kind == "size_zero":
         ts[0]["N"] = round(0.01 * 10_000 / 0.5, 2)
     if kind == "b_ref_zero":
@@ -78,5 +84,6 @@ def generate_set(rng, kind):
 
 
 def generate(n=1000, seed=1010):
+    """The test sets, one at a time: each holds hourly funding over 150 days."""
     rng = random.Random(seed)
-    return [generate_set(rng, KINDS[i % len(KINDS)]) for i in range(n)]
+    return (generate_set(rng, KINDS[i % len(KINDS)]) for i in range(n))

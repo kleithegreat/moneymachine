@@ -15,8 +15,10 @@ ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
 SNAPSHOT = {"taken": NOW - HOUR, "listings": {"X": False},
             "markets": {"X": {"last_close": 100.0, "t": NOW - HOUR}},
             "daily": {"X": [[t * DAY, 100.0, 100.0] for t in range(200, 400)]}}
-DATA = {"bars": {"X": {h * HOUR: (100.0, 100.0) for h in range(9000, 9700)}}, "funding": {}}
-CONFIG = {"initial": 10_000.0, "fee": 0.0, "costs": {"X": ZERO}}
+DATA = {"bars": {"X": positions.Bars({h * HOUR: (100.0, 100.0) for h in range(9000, 9700)})},
+        "funding": {"X": {h * HOUR: 0.0 for h in range(4800, 9700)}},
+        "daily": {"X": positions.Bars({t * DAY: (100.0, 100.0) for t in range(200, 400)})}}
+CONFIG = {"initial": 10_000.0, "fee": 0.0, "costs": {"X": ZERO}, "fallback": []}
 
 
 class Fetcher:
@@ -34,9 +36,9 @@ def make(tmp_path):
     clock = iter(range(NOW, NOW + 10_000, 7))
 
     def build(commands=("markets", "prices", "fetch", "register", "positions", "exit"), ablation_of=None):
-        replay = lambda account, now: positions.run(CONFIG, ledger.theses(account), ledger.exits(account), DATA, now)
+        replay = lambda account, now: positions.run(10_000.0, ledger.theses(account), ledger.exits(account), DATA, now)
         return thesis_daemon.Daemon(tmp_path / "s.sock", "s1", "main", ledger, SNAPSHOT, Fetcher(), tmp_path / "responses",
-                                    replay, lambda account, markets, t_r: (CONFIG, DATA), commands,
+                                    replay, lambda account, markets, now: (CONFIG, DATA), commands,
                                     clock=lambda: next(clock), ablation_of=ablation_of), ledger
     return build
 

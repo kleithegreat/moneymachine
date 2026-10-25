@@ -2,7 +2,8 @@
 
 Times are in hours (H). A thesis enters at the first 1h open at or after t_r + 120 s; exits come at
 the first 1h open at or after their actionable time; funding, then exits, then entries at an hour.
-Unless a case sets them, fees and costs are 0 and equity starts at $10,000, so b = $100.
+Unless a case sets them, fees and costs are 0, funding is a zero rate every hour, and equity starts at $10,000, so
+b = $100. Each thesis is sized as registration sizes it: in commit order, at its t_r (`positions.admit`).
 """
 
 import pytest
@@ -31,9 +32,18 @@ def thesis(i, t_r, legs, L=0.1, T=96, p=0.6):
     return {"id": i, "t_r": t_r, "legs": legs, "T": T * H, "L": L, "p": p}
 
 
-def run(theses, bars, exits=(), funding=None, fee=0.0, costs=None, now=200 * H):
-    account = {"initial": 10_000.0, "fee": fee, "costs": {m: costs or ZERO_COSTS for m in bars}}
-    return positions.run(account, theses, list(exits), {"bars": bars, "funding": funding or {}}, now)
+def run(theses, bars, exits=(), funding=None, fee=0.0, costs=None, now=200 * H, lag=None):
+    """Register `theses` in order, then replay them to `now`. Funding is zero every hour unless `funding` sets it,
+    and {market: {hour: None}} removes an hour."""
+    rates = {m: {h * H: 0.0 for h in range(200)} | (funding or {}).get(m, {}) for m in bars}
+    data = {"bars": {m: positions.Bars(b) for m, b in bars.items()},
+            "funding": {m: {h: r for h, r in rs.items() if r is not None} for m, rs in rates.items()}, "lag": lag or {}}
+    registered = []
+    for th in theses:
+        th = {**th, "fee": fee, "costs": {m: costs or ZERO_COSTS for m, _ in th["legs"]}}
+        registered.append(th | positions.admit(10_000.0, registered, list(exits), data, th["t_r"], th["L"]))
+    return positions.run(10_000.0, registered, list(exits), data, now)
+
 
 
 def reconciles(out):
@@ -113,7 +123,7 @@ def test_funding_coincident_with_entry_and_exit():
     # q = 10 from the 11h open. Funding at 11h (0.001) comes before the entry: not paid.
     # 12h: rate 1e-4 on q = 10 at the 12h open (100): the long pays 0.1.
     # 21h: rate -2e-5, before the 21h discretionary exit: the long receives 10 * 2e-5 * 100 = 0.02.
-    # Flat prices: managed = (-0.1 + 0.02) / 1000 = -8e-5. Held to 96h with no other rows: the same, o = 0.
+    # Flat prices: managed = (-0.1 + 0.02) / 1000 = -8e-5. Held to 96h at zero rates otherwise: the same, o = 0.
     funding = {"X": {11 * H: 0.001, 12 * H: 1e-4, 21 * H: -2e-5}}
     out = run([thesis("a", 10 * H + 30 * MIN, [["X", 1]])], {"X": flat(100)},
               exits=[{"id": "a", "t_x": 20 * H + 10 * MIN}], funding=funding)
@@ -177,9 +187,7 @@ def marked(marks, end=200):
 
 
 def run_marked(theses, bars, funding=None, now=200 * H):
-    account = {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO_COSTS for m in bars}}
-    lag = {m: W if ":" in m else 0 for m in bars}
-    return positions.run(account, theses, [], {"bars": bars, "funding": funding or {}, "lag": lag}, now)
+    return run(theses, bars, funding=funding, now=now, lag={m: W if ":" in m else 0 for m in bars})
 
 
 def test_sizing_inside_a_seal_window_uses_only_available_marks():
@@ -224,3 +232,12 @@ def test_a_mixed_core_and_builder_spread():
             "xyz:B": marked({1: 50.0, 96: 55.0})}
     a = run_marked([thesis("a", 0, [["X", 1], ["xyz:B", -1]], L=0.1)], bars)["theses"]["a"]
     assert a["outcome"]["R_net"] == pytest.approx(0.0, abs=1e-12) and a["outcome"]["o"] == 0
+
+
+def test_a_missing_funding_hour_leaves_the_outcome_and_the_managed_return_unresolved():
+    # The 30h row is missing while the position is open (entry 11h, discretionary exit 41h, horizon 96h).
+    out = run([thesis("a", 10 * H + 30 * MIN, [["X", 1]])], {"X": flat(100)}, exits=[{"id": "a", "t_x": 40 * H + 10 * MIN}],
+              funding={"X": {30 * H: None}})
+    a = out["theses"]["a"]
+    assert a["exit"]["t"] == 41 * H and a["managed_return"] is None and a["outcome"] is None
+    assert out["missing_funding"] == [[30 * H, "X"]]

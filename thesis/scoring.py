@@ -3,8 +3,8 @@ and skill against the base rate and the paired ablation, clusters, and the clust
 
 import numpy as np
 
-from ingest.policy import DAY
-from thesis.positions import fill, outcome
+from ingest.policy import DAY, HOUR
+from thesis.positions import Bars, fill, outcome
 
 WINDOW_YEARS_DAYS = 1095
 MIN_WINDOWS = 10
@@ -13,31 +13,29 @@ SEED = 10
 
 
 def bars(rows):
-    return {t: (o, c) for t, o, c in rows}
+    return Bars((t, (o, c)) for t, o, c in rows)
 
 
-def window_return(th, account, daily, funding, entry, exit_):
+def window_return(th, daily, funding, entry, exit_):
     """Net return per N of the fixed-quantity position between two daily opens, or None if incomplete."""
     total = 0.0
     for market, w in th["legs"]:
-        d = daily.get(market, {})
+        d, rates = daily.get(market, Bars()), funding.get(market, {})
         if entry not in d or exit_ not in d:
             return None
-        cells = account["costs"][market]
         q = w * th["N"] / d[entry][0]
         for k, ref in ((q, d[entry][0]), (-q, d[exit_][0])):
-            price, fee, _ = fill(ref, k, cells, account["fee"])
+            price, fee, _ = fill(ref, k, th["costs"][market], th["fee"])
             total += -k * price - fee
-        for h, rate in funding.get(market, {}).items():
-            if entry < h <= exit_:
-                day = h // DAY * DAY
-                if day not in d:
-                    return None
-                total -= q * rate * d[day][0]
+        for h in range(entry + HOUR, exit_ + 1, HOUR):
+            day = h // DAY * DAY
+            if h not in rates or day not in d:
+                return None
+            total -= q * rates[h] * d[day][0]
     return total / th["N"]
 
 
-def base_rate(th, account, daily, funding):
+def base_rate(th, daily, funding):
     """(p_ref, m, x): smoothed share of positive non-overlapping historical windows of the holding duration."""
     days = int(np.floor((th["T"] - th["t_r"]) / DAY + 0.5))
     common = set.intersection(*(set(t for t in daily.get(m, {}) if t <= th["t_r"]) for m, _ in th["legs"]))
@@ -47,7 +45,7 @@ def base_rate(th, account, daily, funding):
     m = x = 0
     k = 0
     while a - (k + 1) * days * DAY >= th["t_r"] - WINDOW_YEARS_DAYS * DAY:
-        r = window_return(th, account, daily, funding, a - (k + 1) * days * DAY, a - k * days * DAY)
+        r = window_return(th, daily, funding, a - (k + 1) * days * DAY, a - k * days * DAY)
         if r is not None:
             m += 1
             x += r > 0
@@ -102,15 +100,20 @@ def score(test):
     data = {"bars": {m: bars(r) for m, r in test["hourly"].items()},
             "funding": {m: dict(rows) for m, rows in test["funding"].items()}}
     daily = {m: bars(r) for m, r in test["daily"].items()}
-    per, rows = {}, []
-    for th in test["theses"]:
-        out = outcome(th, th["N"], account, data, now)
-        p_ref, m, x = base_rate(th, account, daily, data["funding"])
-        per[th["id"]] = {"outcome": out, "p_ref": p_ref, "m": m, "x": x}
-        if out is not None:
-            rows.append({"p": th["p"], "o": out["o"], "p_ref": p_ref, "p_ablation": th["p_ablation"]})
+    per = {}
+    for t in test["theses"]:
+        th = {**t, "costs": account["costs"], "fee": account["fee"]}
+        p_ref, m, x = base_rate(th, daily, data["funding"])
+        per[th["id"]] = {"outcome": outcome(th, data, now), "p_ref": p_ref, "m": m, "x": x}
+    return summary(test["theses"], per)
+
+
+def summary(theses, per):
+    """Scores and clusters of `theses` (with p and p_ablation) from each one's outcome and p_ref in `per`."""
+    rows = [{"p": th["p"], "o": per[th["id"]]["outcome"]["o"], "p_ref": per[th["id"]]["p_ref"], "p_ablation": th["p_ablation"]}
+            for th in theses if per[th["id"]]["outcome"] is not None]
     return {"theses": per, "scores": scores(rows),
-            "clusters": clusters(test["theses"], {k: v["outcome"] is not None for k, v in per.items()})}
+            "clusters": clusters(theses, {k: v["outcome"] is not None for k, v in per.items()})}
 
 
 def bootstrap(test, result):
