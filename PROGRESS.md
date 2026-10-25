@@ -69,7 +69,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - `SEC_USER_AGENT` (a name and contact email the human chooses): EDGAR filings and the financial statement data sets, point in time by acceptance time.
   - **Wikimedia pageviews:** its User-Agent policy asks for contact information.
   - **IMF:** "The IMF prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, 2026-10-23).
-- **Paid data (human's choice, after the free tier).** Norgate Data US Stocks Platinum (USD 630 a year, confirmed) is the planned purchase for equities and indices (delisted securities, historical constituents). Norgate futures (price unconfirmed) or Databento (usage-based, USD 125 of free credits) would cover commodity contracts. Permission questions for vendors whose terms are silent are drafted in `docs/permission-requests.md`, for the human to send.
+- **Paid data (human's choice, after the free tier).** Norgate Data US Stocks Platinum (USD 630 a year, confirmed) is the planned purchase for equities and indices (delisted securities, historical constituents). Norgate futures (price unconfirmed) or Databento (usage-based, USD 125 of free credits) would cover commodity contracts. Vendor permission requests are on hold (human, 2026-10-25); the human adds the free API keys to `.keys.env`.
 - **On-chain (priority family): hardware and accounts.**
   - **Hyperliquid node:** needs 16 vCPUs, 128 GB of RAM and about 100 GB of logs a day; this PC has 12 threads and 15 GB.
   - **Hyperliquid's archives (`s3://hyperliquid-archive`, `s3://hl-mainnet-node-data`):** requester-pays, so an AWS account and transfer costs.
