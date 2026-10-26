@@ -184,8 +184,12 @@ def Cx.closeout (cx : Cx) (coin : Nat) (qty ref : Float) (why : Why) (t sourceOp
   { why, coin, qty, inputsKnown := t, decisionPrice := ref, decided := t, submitted := t, filled := t, sourceOpen,
     reference := ref, price, fee := qty.abs * price * cx.takerFee }
 
-def Cx.mask (cx : Cx) (t : Int64) : Array Bool :=
-  (Array.range cx.coins).map fun c => cx.listFrom[c]! ≤ t && t < cx.listTo[c]!
+def Cx.maskFrom (cx : Cx) (t : Int64) (c : Nat) (acc : Array Bool) : Array Bool :=
+  if c < cx.coins then cx.maskFrom t (c + 1) (acc.push (cx.listFrom[c]! ≤ t && t < cx.listTo[c]!)) else acc
+termination_by cx.coins - c
+
+/-- Which coins are listed at t. -/
+def Cx.mask (cx : Cx) (t : Int64) : Array Bool := cx.maskFrom t 0 (Array.emptyWithCapacity cx.coins)
 
 /-- One 4h step from b (Ref `Ctx.step`, items 1 to 9). -/
 def Cx.step (cx : Cx) (s : S) (b : Int64) : Except Abort S := do
@@ -401,6 +405,11 @@ scan, as with Rust's stable sort). -/
     bs := b
   return src
 
+/-- 0, 1, …, n − 1. -/
+def iota (n : Nat) (i : Nat := 0) (acc : Array Nat := Array.emptyWithCapacity n) : Array Nat :=
+  if i < n then iota n (i + 1) (acc.push i) else acc
+termination_by n - i
+
 /-- (k1, c1, e1) ≤ (k2, c2, e2) lexicographically: the reference's `lexLe` on three keys. -/
 @[inline] def lexLe (k1 c1 e1 k2 c2 e2 : Int64) : Bool :=
   k1 < k2 || (k1 == k2 && (c1 < c2 || (c1 == c2 && e1 ≤ e2)))
@@ -411,21 +420,21 @@ scan, as with Rust's stable sort). -/
     if coin r < coins then acc.modify (coin r) (·.push r) else acc
 
 def barsByOpen (rows : Array BRow) : Array BRow :=
-  (msort (Array.range rows.size) fun i j => rows[i]!.openTime ≤ rows[j]!.openTime).map (rows[·]!)
+  (msort (iota rows.size) fun i j => rows[i]!.openTime ≤ rows[j]!.openTime).map (rows[·]!)
 
 def fundingByEvent (rows : Array FRow) : Array FRow :=
-  (msort (Array.range rows.size) fun i j => rows[i]!.event ≤ rows[j]!.event).map (rows[·]!)
+  (msort (iota rows.size) fun i j => rows[i]!.event ≤ rows[j]!.event).map (rows[·]!)
 
 /-- The fast context of a checked program on a loaded market (Ref `Ctx.make`). -/
 def Cx.make (p : Program) (mk : Mkt) (pol : Policy) (stop : Int) : Cx :=
   let coins := mk.listFrom.size
-  let fOrder := msort (Array.range mk.fr.size) fun i j =>
+  let fOrder := msort (iota mk.fr.size) fun i j =>
     let a := mk.fr[i]!; let b := mk.fr[j]!
     lexLe a.known (.ofNat a.coin) a.event b.known (.ofNat b.coin) b.event
-  let bOrder := msort (Array.range mk.br.size) fun i j =>
+  let bOrder := msort (iota mk.br.size) fun i j =>
     let a := mk.br[i]!; let b := mk.br[j]!
     lexLe a.known (.ofNat a.coin) a.event b.known (.ofNat b.coin) b.event
-  let eOrder := msort ((Array.range mk.er.size).filter (mk.bound.contains mk.er[·]!.slot)) fun i j =>
+  let eOrder := msort ((iota mk.er.size).filter (mk.bound.contains mk.er[·]!.slot)) fun i j =>
     let a := mk.er[i]!; let b := mk.er[j]!
     lexLe a.known (.ofNat a.coin) (.ofNat a.slot) b.known (.ofNat b.coin) (.ofNat b.slot)
   let slots := (p.nodes.toList.filterMap Node.slot).eraseDups

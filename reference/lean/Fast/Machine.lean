@@ -22,7 +22,8 @@ def NA : Float := 0 / 0
 
 @[inline] def isNaN (x : Float) : Bool := x != x
 @[inline] def def? (x : Float) : Bool := x == x
-@[inline] def keep (x : Float) : Float := if x.isFinite then x else NA
+/-- Finite iff x − x is 0 (∞ − ∞ and NaN − NaN are NaN). -/
+@[inline] def keep (x : Float) : Float := if x - x == 0 then x else NA
 @[inline] def truth (b : Bool) : Float := if b then 1 else 0
 @[inline] def fmin (a b : Float) : Float := if isNaN a then b else if isNaN b then a else if b < a then b else a
 @[inline] def fmax (a b : Float) : Float := if isNaN a then b else if isNaN b then a else if a < b then b else a
@@ -301,14 +302,49 @@ def rank (xs : FloatArray) (v : Float) : Float := Id.run do
     if x == v then equal := equal + 1
   return (Float.ofNat below + (Float.ofNat equal - 1) / Float.ofNat 2) / (Float.ofNat xs.size - 1)
 
-/-- Coins c, c+1, … of a pointwise node: its value from its arguments' (Ref `MState.eval`), kept. -/
-def points (cx : Cx) (m : M) (k : K) (listed : Array Bool) (base c : Nat) (val : FloatArray) : FloatArray :=
+/-- Coins c, c+1, … of an operation node from its argument rows r0, r1, r2 (Ref `MState.eval`), kept. -/
+@[specialize] def lanes (f : Float → Float → Float → Float) (coins r0 r1 r2 base : Nat) (listed : Array Bool) (c : Nat)
+    (val : FloatArray) : FloatArray :=
+  if c < coins then
+    let v := if listed[c]! then keep (f val[r0 + c]! val[r1 + c]! val[r2 + c]!) else NA
+    lanes f coins r0 r1 r2 base listed (c + 1) (val.set! (base + c) v)
+  else val
+termination_by coins - c
+
+/-- An operation node, with a loop specialized to its operation. -/
+def opLanes (o : Op) (coins r0 r1 r2 base : Nat) (listed : Array Bool) (val : FloatArray) : FloatArray :=
+  match o with
+  | .add => lanes (apply .add) coins r0 r1 r2 base listed 0 val
+  | .sub => lanes (apply .sub) coins r0 r1 r2 base listed 0 val
+  | .mul => lanes (apply .mul) coins r0 r1 r2 base listed 0 val
+  | .div => lanes (apply .div) coins r0 r1 r2 base listed 0 val
+  | .min => lanes (apply .min) coins r0 r1 r2 base listed 0 val
+  | .max => lanes (apply .max) coins r0 r1 r2 base listed 0 val
+  | .neg => lanes (apply .neg) coins r0 r1 r2 base listed 0 val
+  | .abs => lanes (apply .abs) coins r0 r1 r2 base listed 0 val
+  | .sign => lanes (apply .sign) coins r0 r1 r2 base listed 0 val
+  | .log => lanes (apply .log) coins r0 r1 r2 base listed 0 val
+  | .exp => lanes (apply .exp) coins r0 r1 r2 base listed 0 val
+  | .sqrt => lanes (apply .sqrt) coins r0 r1 r2 base listed 0 val
+  | .clip => lanes (apply .clip) coins r0 r1 r2 base listed 0 val
+  | .gt => lanes (apply .gt) coins r0 r1 r2 base listed 0 val
+  | .ge => lanes (apply .ge) coins r0 r1 r2 base listed 0 val
+  | .lt => lanes (apply .lt) coins r0 r1 r2 base listed 0 val
+  | .le => lanes (apply .le) coins r0 r1 r2 base listed 0 val
+  | .and => lanes (apply .and) coins r0 r1 r2 base listed 0 val
+  | .or => lanes (apply .or) coins r0 r1 r2 base listed 0 val
+  | .not => lanes (apply .not) coins r0 r1 r2 base listed 0 val
+  | .ite => lanes (apply .ite) coins r0 r1 r2 base listed 0 val
+  | o => lanes (apply o) coins r0 r1 r2 base listed 0 val
+
+/-- An input or constant node. -/
+def leaves (cx : Cx) (m : M) (k : K) (listed : Array Bool) (base c : Nat) (val : FloatArray) : FloatArray :=
   if c < cx.coins then
     let v := if !listed[c]! then NA else match k with
-      | .op o a0 a1 a2 => keep (apply o val[a0 * cx.coins + c]! val[a1 * cx.coins + c]! val[a2 * cx.coins + c]!)
       | .input i => keep (m.input cx i c)
       | .const x => keep x
-    points cx m k listed base (c + 1) (val.set! (base + c) v)
+      | .op .. => NA
+    leaves cx m k listed base (c + 1) (val.set! (base + c) v)
   else val
 termination_by cx.coins - c
 
@@ -360,7 +396,8 @@ def M.tick (cx : Cx) (m : M) (listed : Array Bool) (hour : Int64) : M := Id.run 
       let (v, w) := windows cx listed base a0 0 val wins
       val := v
       wins := w
-    | k => val := points cx m0 k listed base 0 val
+    | .op o a0 a1 a2 => val := opLanes o coins (a0 * coins) (a1 * coins) (a2 * coins) base listed val
+    | k => val := leaves cx m0 k listed base 0 val
   return { m0 with val, wins, since }
 
 end Fast
