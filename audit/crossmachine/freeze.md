@@ -30,3 +30,10 @@ sweep's recorded kernel; prodesk5 `82e44e46…`). No CPU-feature difference was 
 Fix (§1: one kernel, not a per-machine allowance): workers never build `mm`; they run this PC's binary, copied byte
 for byte (sha256 `0aff52fcf03dc63050c86a013b45cc0699e664c092c3e0f2e5cc572dcd231e3e`, built for generic x86-64).
 Same nine campaigns, same code, same comparison, with the `kernel` column now included as it always was.
+
+## Test 2 result, 2026-10-26 21:19 UTC (17:19 EDT): identical
+
+Run on prodesk5 21:15–21:18 UTC with the shipped binary: all nine campaigns identical (`result-2-compare.json`):
+result rows, return blobs, and every ledger column but the wall-clock `created`, kernel identity included. numpy
+dispatched X86_V2 and X86_V3 there against X86_V4 and AVX512_ICL here, without effect on any output. prodesk7 and
+gmktec (an AMD CPU) each run this same test before their first judged use.
