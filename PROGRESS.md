@@ -9,7 +9,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - A failure of C0.2, C0.3 or C0.5 triggers the exit rule. The runner counts a skipped criterion as not passed.
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
 - **Fixes from GPT's whole-project review of 2026-10-24** (reply: `~/.cache/mm-gpt/project.XShA/reply.txt`; each finding checked against the code by a subagent). The fixes gating the sweeps, stage 3, stage 4 and the stage 10 start are done (`audit/decisions.md`, 2026-10-24 and 25). Still to do, each before the step it gates:
-  - **After stage 0 is committed** (the store is runner-imported):
+  - **After stage 0 is committed, before C1.4 or any run that records the kernel hash** (human, 2026-10-25). The work is on branch `post-stage0`, kept off `main` because the store is runner-imported: the store and kernel changes and the resolution differential pass there, and the Lean proofs are partly updated (`Ref/Proof/View.lean` still fails). `data/tmp/after-c07.sh` refuses to start until the branch is merged.
     - a revision whose values differ from the key's first revision is known no earlier than its fetchedAt, in `store.py` and `market.rs`, with a differential test. Paper §5's "a later correction hides a value" is false until then, but no pilot store holds a changed value;
     - `Store` reads its own `policy.json`;
     - Rust skips tombstones;
