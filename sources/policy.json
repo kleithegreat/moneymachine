@@ -1,55 +1,220 @@
 {
  "policy": 1,
- "draft": "for GPT's review before freezing (kernel/CERTIFICATES.md §2)",
+ "draft": "not frozen: GPT's review (main: audit/stage7/policy-review-gpt.md) found its tests and justifications named in prose, not checkable. Redesign: each test and justification is a verifier procedure in code, with a versioned evidence schema; this file pins the verifier's hash, each test's numeric parameters, its population and window commitments, and the migrated feeds' per-category rules from the C7.4 annex. It freezes together with the verifier, after the rebase",
  "kinds": {
-  "history": {"terms": {"test": "terms-record"}, "availability": {"test": "live-first-seen"},
-              "revisions": {"test": "refetch-compare"}, "mapping": {"test": "blind-labels", "or": "identity-keyed"},
-              "coverage": {"test": "gaps"}, "extractor": {"justification": "not-extracted"}},
-  "recorded": {"terms": {"test": "terms-record"}, "availability": {"test": "recorder-bound"},
-               "revisions": {"justification": "prospective-only"}, "mapping": {"test": "blind-labels", "or": "identity-keyed"},
-               "coverage": {"test": "gaps"}, "extractor": {"justification": "not-extracted"}},
-  "derived": {"terms": {"justification": "derived-inherits"}, "availability": {"test": "lineage-bound"},
-              "revisions": {"justification": "derived-inherits"}, "mapping": {"test": "blind-labels", "or": "derived-inherits"},
-              "coverage": {"test": "gaps"}, "extractor": {"justification": "not-extracted"}}
+  "history": {
+   "terms": {
+    "test": "terms-record"
+   },
+   "availability": {
+    "test": "live-first-seen"
+   },
+   "revisions": {
+    "test": "refetch-compare"
+   },
+   "mapping": {
+    "test": "blind-labels",
+    "or": "identity-keyed"
+   },
+   "coverage": {
+    "test": "gaps"
+   },
+   "extractor": {
+    "justification": "not-extracted"
+   }
+  },
+  "recorded": {
+   "terms": {
+    "test": "terms-record"
+   },
+   "availability": {
+    "test": "recorder-bound"
+   },
+   "revisions": {
+    "justification": "prospective-only"
+   },
+   "mapping": {
+    "test": "blind-labels",
+    "or": "identity-keyed"
+   },
+   "coverage": {
+    "test": "gaps"
+   },
+   "extractor": {
+    "justification": "not-extracted"
+   }
+  },
+  "derived": {
+   "terms": {
+    "justification": "derived-inherits"
+   },
+   "availability": {
+    "test": "lineage-bound"
+   },
+   "revisions": {
+    "justification": "derived-inherits"
+   },
+   "mapping": {
+    "test": "blind-labels",
+    "or": "derived-inherits"
+   },
+   "coverage": {
+    "test": "gaps"
+   },
+   "extractor": {
+    "justification": "not-extracted"
+   }
+  }
  },
  "tests": {
   "terms-record": {
    "predicate": "every host and path prefix the feed specification fetches is admitted by a certified record of venue/sources.toml under the feed's source (ingest/terms.py: certified and admits)",
-   "sample": "every fetched URL in the evidence's poll logs", "minimum": 1, "window": "the evidence window", "evidence": ["poll logs", "feed specification"]},
+   "sample": "every fetched URL in the evidence's poll logs",
+   "minimum": 1,
+   "window": "the evidence window",
+   "evidence": [
+    "poll logs",
+    "feed specification"
+   ]
+  },
   "live-first-seen": {
    "metric": "per observation in the live window, its first-seen time (the receive time of the first poll returning it) minus the declaration's rule time",
    "threshold": "no observation is first seen after its rule time plus the source's tolerance; claimed times count only where protocol-enforced or server-set",
-   "sample": "every observation first seen in the window", "minimum": 1, "window": "a continuous live recording of at least 24 h without a clock-log gap over 10 min",
-   "evidence": ["poll logs with send and receive times", "clock log"]},
+   "sample": "every observation first seen in the window",
+   "minimum": 1,
+   "window": "a continuous live recording of at least 24 h without a clock-log gap over 10 min",
+   "evidence": [
+    "poll logs with send and receive times",
+    "clock log"
+   ]
+  },
   "recorder-bound": {
    "predicate": "the rule is bounded below by fetchedAt (its lower-bound set contains field fetchedAt) and every fetchedAt is a recorder's receive time in the authenticated poll logs",
-   "sample": "every revision", "minimum": 1, "window": "the certified scope", "evidence": ["poll logs", "store manifest"]},
+   "sample": "every revision",
+   "minimum": 1,
+   "window": "the certified scope",
+   "evidence": [
+    "poll logs",
+    "store manifest"
+   ]
+  },
   "lineage-bound": {
    "predicate": "for every derived row, its recorded lineage resolves at the cutoff to the selected upstream revisions, and its effective knownAt equals the rule's value with every dependency bound applied (RULES.md §6); the verifier recomputes the transformation",
-   "sample": "every derived row", "minimum": 1, "window": "the certified scope", "evidence": ["derived store", "lineage", "upstream certificates"]},
+   "sample": "every derived row",
+   "minimum": 1,
+   "window": "the certified scope",
+   "evidence": [
+    "derived store",
+    "lineage",
+    "upstream certificates"
+   ]
+  },
   "refetch-compare": {
    "metric": "per key, whether a re-fetch of the history at a later time returns the same observed values",
    "threshold": "reported, not judged: the resolver hides every changed value until its fetch (RULES.md §6); the test requires that the re-fetch was made and compared",
-   "sample": "every key of the certified scope", "minimum": 1, "window": "a re-fetch at least 24 h after the first", "evidence": ["both fetches' store revisions"]},
+   "sample": "every key of the certified scope",
+   "minimum": 1,
+   "window": "a re-fetch at least 24 h after the first",
+   "evidence": [
+    "both fetches' store revisions"
+   ]
+  },
   "blind-labels": {
    "metric": "precision of the entity mapping on a blind-labelled sample",
    "threshold": "precision >= 0.8 (stage 5's threshold), with each labeler's independence recorded",
-   "sample": "a uniform random sample of mapped records with a frozen seed", "minimum": 50, "window": "the certified scope",
-   "evidence": ["labels", "labeler records", "the mapping artifact"]},
+   "sample": "a uniform random sample of mapped records with a frozen seed",
+   "minimum": 50,
+   "window": "the certified scope",
+   "evidence": [
+    "labels",
+    "labeler records",
+    "the mapping artifact"
+   ]
+  },
   "gaps": {
    "metric": "per entity, the share of expected observations missing and the longest gap, against the declaration's cadence",
    "threshold": "at most 1% missing and no gap over 24 h (stage 0's C0.2), every gap listed; for event cadences, coverage intervals stored as data",
-   "sample": "every expected slot of the certified scope", "minimum": 1, "window": "the certified scope", "evidence": ["store manifest", "poll logs"]}
+   "sample": "every expected slot of the certified scope",
+   "minimum": 1,
+   "window": "the certified scope",
+   "evidence": [
+    "store manifest",
+    "poll logs"
+   ]
+  }
  },
- "justifications": ["identity-keyed", "prospective-only", "derived-inherits", "not-extracted"],
+ "justifications": [
+  "identity-keyed",
+  "prospective-only",
+  "derived-inherits",
+  "not-extracted"
+ ],
  "migrated": {
-  "hl-funding": {"criteria": ["C0.1", "C0.2", "C0.3", "C0.4", "C0.5", "C0.9"], "evidence": "audit/stage0/"},
-  "hl-bars-4h": {"criteria": ["C0.1", "C0.2", "C0.3", "C0.4", "C0.5", "C0.9"], "evidence": "audit/stage0/"},
-  "discourse-sightings": {"criteria": ["C5.1", "C5.2", "C5.3"], "evidence": "audit/stage5/"},
-  "discourse-polls": {"criteria": ["C5.1", "C5.3"], "evidence": "audit/stage5/"},
-  "snapshot-sightings": {"criteria": ["C5.1", "C5.2", "C5.3"], "evidence": "audit/stage5/"},
-  "snapshot-polls": {"criteria": ["C5.1", "C5.3"], "evidence": "audit/stage5/"},
-  "forum-events": {"criteria": ["C5.4", "C5.5"], "evidence": "audit/stage5/"},
-  "governance-events": {"criteria": ["C5.4", "C5.5"], "evidence": "audit/stage5/"}
+  "hl-funding": {
+   "criteria": [
+    "C0.1",
+    "C0.2",
+    "C0.3",
+    "C0.4",
+    "C0.5",
+    "C0.9"
+   ],
+   "evidence": "audit/stage0/"
+  },
+  "hl-bars-4h": {
+   "criteria": [
+    "C0.1",
+    "C0.2",
+    "C0.3",
+    "C0.4",
+    "C0.5",
+    "C0.9"
+   ],
+   "evidence": "audit/stage0/"
+  },
+  "discourse-sightings": {
+   "criteria": [
+    "C5.1",
+    "C5.2",
+    "C5.3"
+   ],
+   "evidence": "audit/stage5/"
+  },
+  "discourse-polls": {
+   "criteria": [
+    "C5.1",
+    "C5.3"
+   ],
+   "evidence": "audit/stage5/"
+  },
+  "snapshot-sightings": {
+   "criteria": [
+    "C5.1",
+    "C5.2",
+    "C5.3"
+   ],
+   "evidence": "audit/stage5/"
+  },
+  "snapshot-polls": {
+   "criteria": [
+    "C5.1",
+    "C5.3"
+   ],
+   "evidence": "audit/stage5/"
+  },
+  "forum-events": {
+   "criteria": [
+    "C5.4",
+    "C5.5"
+   ],
+   "evidence": "audit/stage5/"
+  },
+  "governance-events": {
+   "criteria": [
+    "C5.4",
+    "C5.5"
+   ],
+   "evidence": "audit/stage5/"
+  }
  }
 }
