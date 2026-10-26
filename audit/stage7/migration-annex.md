@@ -1,72 +1,111 @@
-# C7.4 migration annex (draft for review, 2026-10-26)
+# C7.4 migration annex (draft, revised 2026-10-26 from GPT's review)
 
 Required by `kernel/SOURCES.md` §9 before C7.4 is judged. It pins how the four existing feeds move onto declarations,
-bindings and certificates, and how preservation is compared. Nothing here changes any feed's data or semantics: a
-mismatch with the baseline blocks migration, and is never repaired by changing the baseline, widening a scope,
-dropping a case or projecting away another field.
+bindings and certificates, and how preservation is compared. It is frozen only together with a committed, populated
+**migration manifest** (§5): no placeholder, branch head, mutable directory or "latest" counts as a pin. Nothing here
+changes any feed's data or semantics. A mismatch with the baseline blocks migration, and is never repaired by changing
+the baseline, widening a scope, dropping a case or projecting away another field. GPT's review of the first draft:
+`audit/stage7/annex-review-gpt.md`.
 
-## 1. Declarations (branch `stage7`, `sources/`)
+## 1. Declarations
 
 | Declaration | Kind | Key | Fields (unit) | Cadence | Rule | Role |
 |---|---|---|---|---|---|---|
 | `hl-funding` 1 | history | coin, eventTime | `funding` ← fundingRate (1/h), `premium` ← premium (1) | held, 1 h, phase 0, slot eventTime | max(floor(reportedTime, 1 h) + δ, reportedTime + 60,000) | settlement: rate ← fundingRate |
-| `hl-bars-4h` 1 | history | coin, eventTime | `open` `high` `low` `close` (usd/coin), `volume` (coin) | held, 4 h, phase 0, slot eventTime | eventTime + δ | bars: openTime, open, high, low, close, trades |
-| `discourse-observations` 1 | recorded, evidence | key, id, observed | none | evidence | observed | none |
-| `discourse-polls` 1 | recorded, evidence | key, recv | none | evidence | recv | none |
-| `snapshot-observations` 1 | recorded, evidence | key, id, observed | none | evidence | observed | none |
-| `snapshot-polls` 1 | recorded, evidence | key, recv | none | evidence | recv | none |
-| `forum-events` 1 | derived | coin, eventTime | `forum_posts` ← count (ev) | event, slot eventTime | eventTime + δ | none |
-| `governance-events` 1 | derived | coin, eventTime | `gov_proposals` ← count (ev) | event, slot eventTime | eventTime + δ | none |
+| `hl-bars-4h` 1 | history | coin, eventTime | `open` `high` `low` `close` (usd/coin), `volume` (coin) | held, 4 h, phase 0, slot eventTime | eventTime + δ | bars: openTime ← openTime, open ← open, high ← high, low ← low, close ← close, trades ← trades |
+| `discourse-sightings`, `snapshot-sightings` 1 | recorded, evidence | key, id, observed, created | none | evidence | max(observed, fetchedAt) | none |
+| `discourse-polls`, `snapshot-polls` 1 | recorded, evidence | key, recv | none | evidence | max(recv, fetchedAt) | none |
+| `forum-events`, `governance-events` 1 | derived | coin, eventTime | `forum_posts`, `gov_proposals` ← count (ev) | event, slot eventTime | max(eventTime + δ, dep `recording`) | none |
 
-δ = 120,000 ms. The two venue rules are C0.3's, as amended for C0.4 (`audit/criteria.md`). The derived sources depend
-on their source's observations and polls with lag 0, and on the mapping artifact (`venue/sources/discourse_map.json`,
-`venue/sources/snapshot_map.json`, pinned by hash).
+δ = 120,000 ms. The venue rules are C0.3's as amended for C0.4 (`audit/criteria.md`). Each derived source declares
+one dependency, `recording`, spanning its sightings and polls sources, with lag 0; the rule names it, so it passes
+RULES.md §4. The sightings key includes the claim, so distinct sightings of an item at one observation time with
+different claims stay distinct records and are never reduced as revisions. Live sightings and polls are stored by the
+recorder itself, so a live record's `fetchedAt` is the poll's receive time; a backfill observation's observation time is
+its `fetchedAt`. Poll evidence holds successful live polls only.
 
 ## 2. The event transformation
 
 `ingest/events.py`, pinned by its SHA-256, computes the counts exactly as `venue/sources/derived.md` specifies, cut at
-the dataset version V:
-- an item is a (key, id) pair; its claimed creation time is that of its earliest observation (ties: the smallest
-  claim), and its witness w the time of that observation;
-- items with a claim before the key's first poll are excluded (pre-first-poll exclusion);
-- an item's knownAt is w plus the source's margin (60,000 ms for Discourse, 0 for Snapshot);
-- the hour τ has tick T = τ + δ and witness window (T − 3,600,000 − m, T − m];
-- τ is covered when T ≤ V and, for every instant t of the window, a poll p of the key has t − 600,000 < p ≤ t (polls
-  exactly 600,000 ms apart cover; a longer gap uncovers every hour it touches);
-- coverage never depends on a poll after the window, so a later poll never establishes coverage;
-- at a covered τ of a mapped coin, the count is the number of items with knownAt in (T − 3,600,000, T], written even
-  when 0; an uncovered hour or an unmapped coin has no row, and the input is undefined there;
-- records fetched after V are excluded.
+the dataset version V (records with fetchedAt ≤ V and, as `derived.md` says, observations and polls at or before V):
+- an item is a (key, id) pair, counted at most once; its claimed creation time is that of its earliest observation
+  (ties: the smallest claim), and its witness w the time of that observation;
+- items with a claim before the key's first successful poll are excluded;
+- an item's knownAt is w plus the margin m (60,000 ms for Discourse, 0 for Snapshot); count membership uses knownAt,
+  never the claim;
+- for the hour τ, T = τ + δ, a = T − 3,600,000 − m and b = T − m. An item counts at τ when its knownAt is in
+  (T − 3,600,000, T]. Coverage is tested over the closed interval [a, b]: τ is covered when T ≤ V, its key maps to a
+  coin of U, and for every instant t in [a, b] a successful live poll p has t − 600,000 < p ≤ t; equivalently a poll at
+  or before a, consecutive polls from the last such one through b at most 600,000 ms apart, and the last poll at or
+  before b later than b − 600,000. No poll after b establishes coverage;
+- at a covered τ, the count is written even when 0; an uncovered hour, or a coin with no mapped key, has no row.
 
-**Lineage.** Each count row records, per dependency, the identities of the upstream records it used: for observations,
-(key, id, observed) of every counted item; for polls, (key, recv) of every poll that establishes the window's coverage.
-It also records the mapping artifact's hash, and the SHA-256 of the sorted identity list (the lineage hash). The
-dependency time is the latest upstream knownAt among them, which is at most T − m ≤ T, so the rule eventTime + δ = T
-already satisfies RULES.md §6's dependency bound with lag 0. A zero count's lineage is its covering polls, never empty.
+**The mapping** (`venue/sources/discourse_map.json`, `venue/sources/snapshot_map.json`) is part of the transformation's
+pinned configuration, not time-varying data: one key per coin, chosen under stage 5's frozen procedure without return
+information, and applied to every hour as stage 5 applies it. Its manifest entry pins its bytes, its SHA-256, its exact
+key-to-coin assignments (one key to one coin; an unmapped key counts for no coin; no aggregation, broadcast or
+inference). That a mapping fixed in October applies to earlier hours is stage 5's design, kept as a limitation of the
+certificates' scope, not hidden.
+
+**Lineage.** Each row records the identities (upstream key and fetchedAt) of every upstream record it read: the
+sightings that determine each counted item's earliest observation and claim, the polls that fix the key's first poll,
+and every poll establishing coverage of [a, b], the one at or before a included. A count of zero still has its
+coverage polls, so its `recording` dependency is never empty. The resolver computes the dependency time from those
+identities under the upstream rules at V; availability is T only when every bound of RULES.md §6 is at most T.
+Otherwise the row is undefined at its tick and never moved to another tick: a mismatch that blocks migration. No record
+used is dropped from lineage because it would delay availability. Each row also keeps the legacy fields of
+`derived.md` (the SHA-256 of `ingest/events.py`, of the mapping file, the cut V and the SHA-256 of the records read, by
+the legacy encoding), and the lineage hash is added beside them, never in their place.
 
 ## 3. Bindings and certificates
 
-| Declaration | Dataset | Certificate evidence (stage 0 or 5) | Scope |
-|---|---|---|---|
-| `hl-funding`, `hl-bars-4h` | `data/store` at version 1792613363942 | C0.2 to C0.5 and C0.9 (`audit/stage0/ingest-1792613363942.json`, C0.3's availability evidence), with every dated amendment | U's coins, W's event-time interval; permitted use in search and holdout modes as the stage 0 split allows |
-| the evidence sources | `data/sources` and the live poll logs | C5.1 to C5.3 (`audit/stage5/`), with the amendment of 2026-10-22 | prospective only: from each key's first poll |
-| `forum-events`, `governance-events` | the derived store at the same version | C5.4 and C5.5 (`audit/stage5/`), the derived fixtures (`venue/sources/derived.md`) | the evidence sources' scope, mapped coins only |
+Each binding names an exact declaration version, an immutable data manifest and a verifier-issued certificate id. The
+stage 0 and stage 5 reports are evidence the verifier reads, never certificates themselves.
 
-Stage 7 claims no new pre-registration for these feeds: their thresholds, applicability decisions, amendments and
-limitations stay as stages 0 and 5 froze them, cited by reference in `sources/policy.json`.
+| Declarations | Evidence (stage 0 or 5) | Scope grants |
+|---|---|---|
+| `hl-funding`, `hl-bars-4h` | C0.2 to C0.5 and C0.9 (`audit/stage0/ingest-1792613363942.json`, C0.3's availability evidence), every dated amendment | each coin of U and declared or role column, W's event-time interval, use in search and holdout modes as the stage 0 split allows |
+| the sightings and polls | C5.1 to C5.3 (`audit/stage5/`), the amendment of 2026-10-22 | each mapped key, from its first successful poll (prospective only) |
+| `forum-events`, `governance-events` | C5.4 and C5.5 (`audit/stage5/`), the derived fixtures | each mapped coin, within its key's evidence grants |
+
+Each grant is explicit (entity, column, event-time interval, use interval, half-open integer ms), the cutoff is
+separate, and search or holdout authorization is checked independently (SOURCES.md §7). Evidence logs are immutable
+snapshots named in the manifest, never reopened live logs. Missing evidence or scope blocks migration.
 
 ## 4. The comparison
 
-- **Baseline:** the `main` commit the pilot's judged runs use, after the `post-stage0` merge (criteria revision of
-  2026-10-26), recorded with its build hashes before `stage7` is rebased onto it.
-- **Cases:** W0, every stage 2 probe, and the first 200 programs of the frozen C6.4 corpus (`reference/differential.py`),
-  on the stage 0 dataset version 1792613363942 and on C6.4's frozen markets (`reference/edge_markets.py`). No spent
-  holdout is used.
+- **Baseline:** before `stage7` is rebased onto the pilot's baseline commit (`main` after the `post-stage0` merge;
+  criteria revision of 2026-10-26), a comparison manifest records that commit, its build hashes and the captured
+  baseline outputs. Migration results cannot influence the commit's selection.
+- **Cases**, frozen before the first judged C7.4 run, with their exact program bytes: W0, every stage 2 probe listed by
+  name, and the first 200 programs of the C6.4 corpus in its frozen order, on dataset version 1792613363942 and on
+  C6.4's frozen markets, with the same universe, decision interval, warm-up and accounting horizon in both runs. No
+  spent holdout is used.
 - **Compared, byte for byte:** deliveries with their knownAt, definedness, node streams, decisions, fills, accounting
-  traces and returns.
-- **Projection:** removes only the kernel's build hash and the declaration, binding and certificate ids.
-- **Coverage:** the cases must between them deliver every migrated field, both event feeds, covered zero counts,
-  uncovered hours, revisions, tombstones and availability boundaries, or the comparison fails.
-- **Derived fixtures** (`derived.md`): pre-first-poll exclusion, the earliest-observation and claim tie-breaks, both
-  margins, records after the cutoff, the window ending at the tick, polls exactly 10 minutes apart and gaps, no
-  coverage from a later poll, zero only for covered mapped hours, undefined elsewhere, and lineage hashes.
+  traces and returns, over the complete expected inventory of artifacts and records.
+- **Projection:** a frozen allowlist of exact artifact paths and field locations for the kernel build hash and the
+  declaration, binding and certificate ids, never removal by field name. No sorting, rounding or other normalization.
+  The substituted identities are recorded beside the result.
+- **Coverage:** the manifest maps every class to named cases and expected observations or absences: every migrated
+  field and role column, both event feeds, positive and covered-zero counts, unmapped and uncovered absences, both
+  margins, the window's endpoints, revisions, tombstones, dependency bounds and availability boundaries. A class
+  without a case fails C7.4.
+- **Derived fixtures** have frozen raw inputs and hand-specified expected rows, counts, absences, times and hashes:
+  pre-first-poll exclusion; the earliest-observation and claim tie-breaks; both margins; records after the cutoff; the
+  window ending at the tick; a first poll at a and at a + 1 ms, a poll at b, a last poll exactly at b − 600,000, gaps of
+  600,000 and 600,001 ms, and a poll after b that would close a gap; zero only for covered mapped hours; undefined
+  elsewhere; lineage and legacy hashes.
+- **Failure:** a missing or extra artifact or record, a skipped case, a crash, a timeout, malformed output or any byte
+  difference fails the judged run, which stays recorded; a rerun has a new identity, and nothing regenerates a baseline.
+
+## 5. The migration manifest and completion
+
+The manifest, committed with this annex's freeze, pins every declaration file and its SHA-256, the registry bytes, each
+rule's exact bytes and hash, every Time column, evidence key, numeric and role schema, missing and revision setting,
+cadence grid and slot, field and role mapping, feed specification, producer and transformation hash, mapping and
+coverage artifact, data manifest and cutoff, and the exact criteria lines and evidence files it relies on.
+
+Migration is complete only when `EVENT_INPUTS`, the per-input enum variants and the per-dataset branches of
+`kernel/mm/src/market.rs` and `ingest/store.py` (enumerated in the manifest) are deleted, and a scan finds no declared
+name or equivalent identifier-selected behavior moved into another production, ingestion, reference-kernel or
+generated path.
