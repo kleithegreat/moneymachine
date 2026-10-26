@@ -1,10 +1,10 @@
-# Cross-machine bit-identity test, frozen 2026-10-26 21:05 UTC (17:05 EDT), before any run on a homelab worker
+# Cross-machine bit-identity test, frozen 2026-10-26 21:00 UTC (17:00 EDT), before any run on a homelab worker
 
 Human request of 2026-10-26: before any judged use of the homelab workers, run the same campaigns here and on a
 worker and compare them byte for byte; if they differ, pin the CPU feature set on every machine from the start of the
 next judged run, never mid-run, and retest.
 
-- **Code:** commit f2264a6, shipped to the worker as `git archive`. This PC's side is the stage 2 null sweep as
+- **Code:** commit f2264a6, shipped to the worker as `git archive`, with `ops/crossmachine.py` from the freeze commit. This PC's side is the stage 2 null sweep as
   recorded (`data/campaigns/null.jsonl` and `data/campaigns/null/<id>/ledger.sqlite.xz`, run 15:52–20:03 UTC from
   dbe192b's gate and kernel; f2264a6 changed only the pool size, and every task is seeded by its id).
 - **Worker:** prodesk5 (192.168.8.229, i5-8500T, no AVX-512). This PC: AVX-512, numpy dispatching
