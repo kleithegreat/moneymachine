@@ -20,7 +20,6 @@
             polars
             pyarrow
             statsmodels
-            duckdb
             httpx
             pytest
             pytest-xdist
@@ -38,7 +37,6 @@
               pkg-config
               sqlite
               python
-              duckdb
               jq
               git
               tools.lean
@@ -49,9 +47,10 @@
           recorder = pkgs.mkShell {
             packages = [ (pkgs.python313.withPackages (ps: [ ps.httpx ])) ];
           };
-          # Cloud data access: AWS (Hyperliquid's requester-pays archives) and BigQuery (public chain datasets).
+          # Cloud access: AWS (Hyperliquid's requester-pays archives), BigQuery (public chain datasets) and OCI (the
+          # recorder VM, ops/oci).
           cloud = pkgs.mkShell {
-            packages = [ pkgs.awscli2 pkgs.google-cloud-sdk pkgs.lz4
+            packages = [ pkgs.awscli2 pkgs.google-cloud-sdk pkgs.oci-cli pkgs.lz4
                          (pkgs.python313.withPackages (ps: [ ps.google-cloud-bigquery ps.packaging ps.boto3 ps.lz4 ps.numpy ps.polars ])) ];
           };
         });

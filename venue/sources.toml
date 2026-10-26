@@ -209,11 +209,7 @@ observations: AUD, CAD, CHF, CZK, DKK, GBP, HKD, HUF, IDR, JPY, KRW, MXN, MYR, N
 
 A short count over a full span means missing fixings within it (ISK 4,776, RON and TRY 7,121), whose dates come from the recorded files. A last date before 2026-10-23
 means the series ceased: euro adoption, RUB's suspension from 2022-03-02, and the non-reference series ARS, DZD,
-MAD and TWD at 2020-10-30.
-
-Open items (PROGRESS.md, Now, data layer):
-- the publication calendar and time;
-- YC series and revision policy.'''
+MAD and TWD at 2020-10-30.'''
 
 [[ecb.terms]]
 host = "data-api.ecb.europa.eu"
@@ -517,8 +513,8 @@ Cost (requester pays, us-east-1 to the internet): about $0.09 per GB transferred
 12 coins of U for one hour a day over the whole archive is about 15,000 files and 2 GB, about $0.20; every hour of
 every day for U is about 55 GB, about $5.
 
-Hyperliquid's documentation offers the archive publicly; downloads are within the human's approved $20 and await the
-proposed diagnostic's approval (PROGRESS.md).'''
+Hyperliquid's documentation offers the archive publicly; downloads are within the human's approved $20, and the
+human approved the C0.7 regime diagnostic and stage 3's archive cost table on 2026-10-26.'''
 
 [[hyperliquid-archive.terms]]
 host = "s3://hyperliquid-archive"

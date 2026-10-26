@@ -21,13 +21,8 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
      - the stage 2 report gives the power curve with intervals and the test-alone power, and states that the pilot cannot confirm ordinary edges at this holdout length (C2.6 amendment of 2026-10-26).
 
      Then the stage 2 exit is judged and reviewed.
-  3. **Stage 3:** first the archive cost table (stage 3 revision of 2026-10-26, human-approved): `nix develop .#cloud -c python -m ingest.archive equivalence`, and if it passes, `… table`, whose output becomes stage 3's cost table; then `freeze-harness`; then `agent-null agent 20` (C3.2, paced one campaign per 5 h, about 4 days, holdout from day 670 of 730); then `agent-summary`; then the real two-arm campaign (`agent-real`, C3.3/C3.4) with one joint holdout release on [2026-08-01, 2026-09-30). It is a pipeline validation run, not a test for edge. Its promotions are qualified ("historical holdout, costs fitted after it") and confirmed only on [2026-11-01, 2027-01-31).
+  3. **Stage 3:** the archive cost table lapsed: its frozen equivalence check failed on 2026-10-26 (`audit/stage3/archive-equivalence.json`), so stage 3 uses C0.7's table with its qualification. Then `freeze-harness`; then `agent-null agent 20` (C3.2, paced one campaign per 5 h, about 4 days, holdout from day 670 of 730); then `agent-summary`; then the real two-arm campaign (`agent-real`, C3.3/C3.4) with one joint holdout release on [2026-08-01, 2026-09-30). It is a pipeline validation run, not a test for edge. Its promotions are qualified ("historical holdout, costs fitted after it") and confirmed only on [2026-11-01, 2027-01-31).
   4. **Stage 4:** `agent-null swarm 10` after stage 3's series.
-  5. **Code cleanup** deferred by the human's timing rule:
-     - misplaced scripts (`audit/stage6/effort.py`) and criterion- or version-named files;
-     - PROGRESS.md citations in the runner-imported files (`criteria/`, the stage 0 `ingest` modules, `cli.py`);
-     - `oci-cli` into the flake and `duckdb` out of it;
-     - the Python line-count report, and deletion of one-off scripts whose outputs are recorded.
 - **Stages 1, 2, 5, 6, 10.**
   - **Stage 1:** done 2026-10-26. Every criterion's evidence ran at clean commit dbe192b (`audit/stage1/c1*.txt`), and GPT's five exit reviews (`audit/stage1/exit-review-gpt-1.md` to `-5.md`) found C1.1 to C1.8 met. Along the way: a second red-team round, admitted programs split from the rejection suite, complete hand-computed accounts, the full ordered trace compared in C1.4, GPT's checker reimplemented from the paper and INVARIANTS.md alone, and production costs in the canary.
   - **Stage 2:** done except the sweeps; calibration v3 passed.
@@ -59,7 +54,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **Result** (`audit/stage0/execution.json`): coverage is below 90% in 3 of 44 cells, all sells: BTC $1k 0.894, SUI $10k 0.882, kPEPE $10k 0.817. There the model is below the test period's q90 by 0.04, 0.10 and 0.49 bps, against a 4.5 bps taker fee. The amended excess limit holds in every cell. On the spent window of 2026-10-20 it was the reverse: coverage held and the excess limit failed (POPCAT, TIA, WIF).
   - **Why (development analysis of this now-spent window).** No single calibration quantile meets both limits. At q97.5 kPEPE's sell $10k cell covers 0.924, but POPCAT sits 3.4 to 4.7 bps above q90. At q99 every cell covers at least 0.967, but POPCAT and TIA's $10k buy exceed 3 bps. A constant fitted on 17 hours of one day cannot be both covering and tight, because costs drift within the day: kPEPE's sell $10k decile medians rise from 2.3 to 3.4 bps. Retrying windows until one passes would be fitting to the criterion.
   - **Proposed redesign.** Coverage is the side that matters for false discoveries; the excess limit only bounds lost power.
-    - (a) Fit the table on months of Hyperliquid's archived books, by the stage 3 revision's procedure once its equivalence check passes. Judge coverage out of sample on the live windows, and report the excess rather than judge it. This loosens a frozen threshold, so only the human can adopt it.
+    - (a) Fit the table on months of Hyperliquid's archived books, judge coverage out of sample on the live windows, and report the excess rather than judge it. This loosens a frozen threshold, so only the human can adopt it. The archive's equivalence check failed by design: its books are 5.4 s apart, so a live snapshot finds one within 1 s only about 37% of the time, below the 50% required (every coin matched about 30%). A check designed knowing that would be a post-result choice, so the human decides it too.
     - (b) Accept the failure as a qualification of the pilot. The pilot validates machinery, and the understatements are at most 0.5 bps.
     - The regime diagnostic (running) measures how the table fares across volatility regimes and quarters, which bears on both.
   - **Waits on this:** stage 2's sweeps (`freeze-searcher` freezes the table into the searcher) and stage 3.
@@ -103,6 +98,7 @@ Every criterion failed as written, every labeled amendment and every known limit
   - C2.2's first comparison failed on N2 kurtosis because of two errors in my generator. Both were fixed before the passing comparison.
   - The stage 2 searchers state no mechanisms, so the mechanism check is skipped there. Stage 2's power figures therefore overstate what stage 3 will see.
 - **Stage 3.**
+  - The archive cost table (revision of 2026-10-26) lapsed: its frozen equivalence check matched about 30% of each coin's live snapshots within 1 s, against 50% required, because the archive's books are 5.4 s apart. Stage 3 uses C0.7's table, qualified.
   - The holdout is [2026-08-01, 2026-09-30), one month after the agent model's June 2026 cutoff (revision of 2026-10-23), and expected power at its 360 steps is about zero. The real campaign is therefore a pipeline validation run, not a test for edge; anything it promotes is confirmed on [2026-11-01, 2027-01-31).
 - **Stage 5.**
   - C5.3 failed as written for Discourse. The exit is met under the amendment of 2026-10-22 and its clarification.
