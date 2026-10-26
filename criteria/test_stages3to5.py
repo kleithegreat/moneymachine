@@ -1,4 +1,4 @@
-"""Stage 3 to 5 criteria on the committed evidence (PROGRESS.md). C3.1, C4.1 to C4.3 and C5.2 and C5.5
+"""Stage 3 to 5 criteria (audit/criteria.md) on the committed evidence. C3.1, C4.1 to C4.3 and C5.2 and C5.5
 are tests of the code (gate/tests, kernel/mm/tests, ingest/tests); the agent audits are per campaign."""
 
 import json

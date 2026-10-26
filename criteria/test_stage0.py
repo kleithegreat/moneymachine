@@ -1,4 +1,4 @@
-"""Stage 0 criteria (PROGRESS.md, Stage 0) on the committed evidence. C0.1 and C0.6 are documents
+"""Stage 0 criteria (audit/criteria.md, Stage 0) on the committed evidence. C0.1 and C0.6 are documents
 (venue/hyperliquid/sources.md, rules.json); C0.4's store tests live in ingest/tests/test_store.py."""
 
 import json

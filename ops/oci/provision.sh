@@ -3,7 +3,7 @@
 # - This script creates the VM in the tenancy's home region (us-ashburn-1) from Always Free resources only:
 #   VCN, internet gateway and subnet, with SSH open only from this PC's current public IP. It tries
 #   VM.Standard.A1.Flex (1 OCPU, 6 GB) in each availability domain, then VM.Standard.E2.1.Micro. It is idempotent
-#   by display name. Run as: nix shell nixpkgs#oci-cli -c ops/oci/provision.sh
+#   by display name. Run as: nix develop .#cloud -c ops/oci/provision.sh
 # - A budget, mm-free-tier-guard ($1 a month), alerts on actual or forecast spend of $1.
 # - cloud-init.yaml installs nix and swap, creates the `mm` user with its own read-only GitHub deploy key, and
 #   installs mm-recorder.service: the same recorder code at 600/min, the stage 0 budget, half its own IP's limit, restarted on failure, with a memory cap. Its

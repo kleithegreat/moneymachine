@@ -1,5 +1,5 @@
 """Hyperliquid's requester-pays book archive (`venue/sources.toml`, `hyperliquid-archive`) and the C0.7 regime
-diagnostic on it (PROGRESS.md; human-approved 2026-10-26, a labeled diagnostic that decides nothing).
+diagnostic on it (human-approved 2026-10-26, a labeled diagnostic that decides nothing).
 
 `fetch` downloads chosen hours of chosen archive days for the coins of U (for the diagnostic, hours 0, 6, 12 and 18 of
 every day outside stage 3's holdout window) and reduces each coin-hour file at once to per-snapshot costs per C0.7 cell (C0.7's own `walk_cost` on the 20-level book;

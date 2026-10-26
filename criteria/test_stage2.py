@@ -1,4 +1,4 @@
-"""Stage 2 criteria (PROGRESS.md, Stage 2) on the committed evidence. C2.3 is
+"""Stage 2 criteria (audit/criteria.md, Stage 2) on the committed evidence. C2.3 is
 gate/tests/test_dsr_differential.py."""
 
 import math
