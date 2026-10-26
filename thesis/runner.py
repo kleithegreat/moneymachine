@@ -39,8 +39,10 @@ NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 class Track:
     def __init__(self, root=ROOT):
         self.root = Path(root)
-        self.version = f"thesis-{harness.manifest_hash()[:12]}"
-        self.ledger = registry.Ledger(self.root / "ledger.sqlite", self.version, pinned_kernel(self.root))
+        kernel = pinned_kernel(self.root)
+        self.manifest = harness.manifest_hash(kernel)
+        self.version = f"thesis-{self.manifest[:12]}"
+        self.ledger = registry.Ledger(self.root / "ledger.sqlite", self.version, kernel)
         self.market = Market(self.root / "market", Exchange(self.root / "exchange"))
         self.fetcher = Fetcher()
 
@@ -104,7 +106,7 @@ class Track:
     def session(self, kind, account, date, snapshot, commands, task=None, ablation_of=None):
         name = f"{kind}-{date}" if ablation_of is None else f"ablation-{ablation_of}"
         self.ledger.disclose("session", account, {"session": name, "kind": kind, "started": now_ms(),
-                                                  "manifest": harness.manifest_hash()})
+                                                  "manifest": self.manifest})
         run = harness.run_session(self.root / "sessions" / name, kind,
                                   lambda sock: self.daemon(sock, name, account, snapshot, commands, ablation_of), task)
         calls = [c for _, _, c in self.ledger.records("call", account) if c["session"] == name]
@@ -194,7 +196,7 @@ class Track:
         """Forever: resolutions every 5 min and builder marks at H + MARK_OFFSET (stage 10 revision of 2026-10-23) on
         their own threads; the Monday benchmark and the daily sessions here. One runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
-        if frozen.get("manifest") != harness.manifest_hash():
+        if frozen.get("manifest") != self.manifest:
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
         self.root.mkdir(parents=True, exist_ok=True)
         lock = open(self.root / "run.lock", "w")
@@ -243,12 +245,12 @@ def pinned_kernel(root, fresh=False):
 def freeze():
     """Record the manifest, with the kernel binary pinned: the start of a track version and of C10.5's observation
     window."""
-    pinned_kernel(ROOT, fresh=True)
+    manifest = harness.manifest_hash(pinned_kernel(ROOT, fresh=True))
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
     old = json.loads(FROZEN.read_text()) if FROZEN.exists() else None
-    if old and old["manifest"] == harness.manifest_hash():
+    if old and old["manifest"] == manifest:
         raise SystemExit("this manifest is already frozen")
-    FROZEN.write_text(json.dumps({"manifest": harness.manifest_hash(), "version": f"thesis-{harness.manifest_hash()[:12]}",
+    FROZEN.write_text(json.dumps({"manifest": manifest, "version": f"thesis-{manifest[:12]}",
                                   "frozen": now_ms(), "previous": old}, indent=1) + "\n")
 
 
