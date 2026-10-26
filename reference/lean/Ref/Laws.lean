@@ -196,28 +196,34 @@ theorem L5_text (reg : Registry) (_ : reg.Valid) (roles : Roles) (adm : Meta) (t
     inp.source ∈ adm.required reg roles p := by
   sorry
 
-/-- Under the trusted boundary, an admitted run evaluated the resolver's output on the stored bytes of datasets
-whose content identities its issued certificates name, and a search run opened no holdout dataset and no stored row
-at or after the holdout start. -/
-theorem L5_certified (N : NumOps α) (resolver : Stored → List Nat → Array (Obs α)) (hash : Cert → Hash)
-    (holdout : List Hash) (holdoutStart : Int) (st : Stored) (led : Ledger) (reg : Registry) (roles : Roles)
-    (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode)
-    (hT : Trusted resolver hash holdout holdoutStart st led adm ld) (r : Run α)
+/-- Under the trusted boundary, an admitted run evaluated the resolver's output, which depends only on the required
+datasets' stored rows, each observation from a stored row of its declaration with that row's availability; every
+required dataset is named by an issued, current certificate under the pinned policy and verifier; and a search run's
+required datasets are no holdout dataset and hold no stored row at or after the holdout start. -/
+theorem L5_certified (N : NumOps α) (knownAt : Stored → Nat → (Int × List (String × String)) → Int)
+    (value : String → Option α) (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash)
+    (holdout : List Hash) (holdoutStart : Int) (resolver : Stored → List Nat → Array (Obs α)) (st : Stored)
+    (led : Ledger) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α)
+    (pol : Policy) (stop : Int) (mode : Mode)
+    (hT : Trusted knownAt value coinOf hash policy verifier holdout holdoutStart reg resolver st led adm ld) (r : Run α)
     (h : run N reg roles text adm ld v pol stop mode = .ok r) :
     ∃ p, check reg.inputs text = .ok p ∧
       (Ctx.make reg roles p adm (resolver st (adm.required reg roles p)) v pol stop (adm.required reg roles p)).evaluate N = .ok r ∧
       ∀ s ∈ adm.required reg roles p, ∃ b k, adm.bindings s = some b ∧ adm.cert b.cert = some k ∧ k ∈ led.issued ∧
-        k.manifest = st.identity s ∧
+        k.manifest = st.identity s ∧ k.policy = policy ∧ k.verifier = verifier ∧
+        !(led.supersessions.any fun (x, pos) => x == k.id && decide (pos ≤ led.position)) ∧
         (mode = .search → st.identity s ∉ holdout ∧ ∀ row ∈ st.rows s, row.1 < holdoutStart) := by
   sorry
 
 /-! ## L6 bounded loss -/
 
 /-- Losses are capped at equity: R_BOUND, the check every step return passes before it is recorded (return ≥ −1),
-never fires. -/
-theorem L6_bounded (N : NumOps α) (hB : N.Bounded) (reg : Registry) (roles : Roles) (text : String) (adm : Meta)
-    (ld : Loader α) (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) :
-    run N reg roles text adm ld v pol stop mode ≠ .error .bound := by
+never fires, for every evaluation, as in version 1, and so for every run. -/
+theorem L6_bounded (N : NumOps α) (hB : N.Bounded) :
+    (∀ (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (pol : Policy)
+      (stop : Int) (req : List Nat), (Ctx.make reg roles p adm obs v pol stop req).evaluate N ≠ .error .bound) ∧
+    ∀ (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
+      (stop : Int) (mode : Mode), run N reg roles text adm ld v pol stop mode ≠ .error .bound := by
   sorry
 
 /-! ## L7 input reads -/

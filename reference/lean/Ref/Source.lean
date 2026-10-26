@@ -216,24 +216,45 @@ structure Stored where
   rows : Nat → List (Int × List (String × String))
   identity : Nat → Hash
 
-/-- The verifier's ledger: the certificates it issued and the supersessions it recorded. -/
+/-- The verifier's ledger: the certificates it issued, the supersessions it recorded, and its current position. -/
 structure Ledger where
   issued : List Cert
   supersessions : List (Hash × Nat)
+  position : Nat
 
-/-- The trusted admission boundary (laws-v2-draft.md §3): what the implementation guarantees outside the model, and
-the laws' safety statements assume. `resolver` is RULES.md §6 (checked by the C7.6 suite), `hash` the certificate
-payload hash, `holdout` and `holdoutStart` the frozen holdout configuration. `ld.rows` reading only the event-time
-column, and `ld.resolve` reading control columns as the certificates authorize, are the implementation's staging
-obligations (laws-v2-draft.md §8, rows 17 and 18). -/
-structure Trusted {α : Type} (resolver : Stored → List Nat → Array (Obs α)) (hash : Cert → Hash)
-    (holdout : List Hash) (holdoutStart : Int) (st : Stored) (led : Ledger) (adm : Meta) (ld : Loader α) : Prop where
+/-- A stored cell of a row, by column. -/
+def cellOf (row : Int × List (String × String)) (col : String) : Option String := (row.2.find? (·.1 == col)).map (·.2)
+
+/-- The trusted admission boundary (laws-v2-draft.md §1): what the implementation guarantees outside the model, and
+the laws' safety statements assume. Its parameters are the external semantics the obligations refer to: `knownAt`,
+RULES.md §6's effective availability of a stored row (checked by the C7.6 suite); `value`, a cell's parse; `coinOf`,
+the entity mapping; `hash`, the certificate payload hash; `policy` and `verifier`, the build-pinned hashes; and the
+frozen holdout configuration. Grants authorize the use of values in a run; decoding a bound dataset's rows during
+resolution is authorized by its valid, matching certificate (laws-v2-draft.md §1). The staging obligations (`rows`
+opening only the event-time column, `resolve` only bound datasets) are tested, §2 rows 17 and 18. A provider's
+venue-state attestation is the verifier's, authenticated through `ids` and `issued`. -/
+structure Trusted {α : Type} (knownAt : Stored → Nat → (Int × List (String × String)) → Int) (value : String → Option α)
+    (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash) (holdout : List Hash)
+    (holdoutStart : Int) (reg : Registry) (resolver : Stored → List Nat → Array (Obs α)) (st : Stored) (led : Ledger)
+    (adm : Meta) (ld : Loader α) : Prop where
   rows : ∀ req, ld.rows req = req.flatMap fun s => (st.rows s).map fun r => (s, r.1)
   resolve : ∀ req, ld.resolve req = resolver st req
+  /-- The resolver reads only the requested datasets. -/
+  confined : ∀ req (st' : Stored), (∀ s ∈ req, st'.rows s = st.rows s) → resolver st' req = resolver st req
+  /-- Every observation comes from a stored row of its own requested declaration: its key, entity, values, role
+  payload and knownAt are that row's. -/
+  provenance : ∀ req, ∀ o ∈ (resolver st req).toList, o.source ∈ req ∧ ∃ row ∈ st.rows o.source,
+    row.1 = o.key ∧ (cellOf row (reg.decls[o.source]!).entityColumn).bind coinOf = some o.coin ∧
+    o.known = knownAt st o.source row ∧
+    o.vals.toList = (reg.decls[o.source]!).fields.toList.map (fun f => (cellOf row f.2.1).bind value) ∧
+    ∀ r ∈ (reg.decls[o.source]!).roles, ∀ col ∈ r.2, o.role.isSome → ((cellOf row col.2).bind value).isSome
   identity : ∀ s b, adm.bindings s = some b → b.dataset = st.identity s
   ids : ∀ k ∈ adm.certs, k.id = hash k
   issued : ∀ k ∈ adm.certs, k ∈ led.issued
   supersessions : adm.supersessions = led.supersessions
+  /-- A new evaluation is admitted at the ledger's current position. -/
+  position : adm.position = led.position
+  pinned : adm.policy = policy ∧ adm.verifier = verifier
   frozenHoldout : adm.holdout = holdout ∧ adm.holdoutStart = holdoutStart
 
 end Ref

@@ -1,4 +1,4 @@
-# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 7)
+# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 8)
 
 C7.7 requires the Lean semantics to be parameterized by validated declarations and bindings; every stage 6 law to keep
 its guarantee for every admitted declaration, held and event cadences included; each law whose definitions change to
@@ -14,8 +14,9 @@ until the statements are frozen). This document keeps the design, the attacks, t
 ledger; it does not restate the Lean.
 
 Reviews: four fresh-context Opus reviews while GPT was unavailable (`laws-review-opus-1.md` to `-4.md`) and GPT's
-two (`laws-review-gpt-1.md` on revision 5, `laws-review-gpt-2.md` on revision 6's Lean). §10 records every finding
-of the last four, its answer, and whether it could change a false-discovery or leakage outcome (CLAUDE.md, rule 3).
+three (`laws-review-gpt-1.md` on revision 5, `-2.md` on revision 6's Lean, `-3.md` on revision 7's). §4 records
+every finding of the last five, its answer, and whether it could change a false-discovery or leakage outcome
+(CLAUDE.md, rule 3).
 
 ## 1. The design, from what the semantics reads
 
@@ -41,11 +42,18 @@ of the last four, its answer, and whether it could change a false-discovery or l
   program first (`R_INVALID`); then metadata only (stage 1), event times only (stage 2, I8), resolution, run
   admission (version 1's structural conditions, no value read) and scope, then evaluation.
 - **The trusted boundary is a Lean structure.** `Trusted` names what the implementation guarantees outside the model:
-  `rows` is the complete event-time inventory, `resolve` is RULES.md §6 on the stored bytes, bindings name the bytes'
-  content identities, certificate ids are payload hashes of issued certificates, supersessions are the ledger's,
-  and the holdout configuration is the frozen one. L5_certified states what an admitted run guarantees under it.
-  `mm` discharges it by content hashing, the C7.6 resolver suite, the ledger's append-only triggers and the staging
-  tests (§8, rows 17 and 18).
+  `rows` is the complete event-time inventory of the requested datasets; the resolver reads only the requested
+  datasets, and each observation comes from a stored row of its own declaration with that row's key, entity, field
+  values, role cells and RULES.md §6 knownAt; bindings name the bytes' content identities; certificate ids are payload
+  hashes of issued certificates; supersessions and the admission position are the ledger's current ones; policy and
+  verifier are the build-pinned hashes; the holdout configuration is the frozen one. L5_certified states what an
+  admitted run guarantees under it. `mm` discharges it by content hashing, the C7.6 resolver suite, the ledger's
+  append-only triggers and the staging tests (§2, rows 17 and 18). A provider's venue-state attestation is the
+  verifier's claim, authenticated as issued; its truth is the verifier's live-test obligation.
+- **What grants authorize.** Grants authorize the use of values in a run: every value of an observation the run
+  reads, from its first read. Decoding a bound dataset's rows during resolution is authorized by its valid, matching
+  certificate (the kernel-only boundary's deterministic processing); a decoded value no read observation carries
+  influences nothing (L5_shape: admission reads no value).
 
 ## 2. C7.7's named attacks: the law and the named `mm` test that catch each
 
@@ -86,26 +94,25 @@ Each test is committed with its expected code before its first judged run (C7 ev
   stored column; roles map role columns to stored columns. §4: key and slot distinct; every bound source is
   delivered; within a source by (knownAt, coin, event time) for held sources and (knownAt, coin, resolver position)
   for event sources; held reads the latest, event reads the latest
-  only if its slot is the current hour; the cross-source interleaving unobservable. §6: role columns non-null and
-  finite, the bars key on the 4h grid, providers distinct, checked at run admission (`R_BINDING`, `R_ROLES`); volume
-  is not a role column; execution reads role records at event or open time (§1). §7: the three stages of §4; a
+  only if its slot is the current hour; the cross-source interleaving unobservable. §6: providers distinct and a role
+  payload exactly on their records, checked at run admission (`R_BINDING`, `R_ROLES`); volume is not a role column;
+  execution reads role records at event or open time (§1). §7: the three stages of §4; a
   dataset's id is its content identity; grants cover value columns per read; control columns (availability, event,
   slot, entity, revision and tombstone) are authorized per dataset by the certificate's `controls`.
 - **CERTIFICATES.md.** §5: a certificate lists the control columns it authorizes for resolution (`controls`); a role
   certificate attests that each record's event time is the venue's application time
-  and its value the applied one; grants cover every column a run reads, availability and control columns included,
-  and the upstream records a derived observation's knownAt was bounded by; the policy and verifier hashes are
-  compiled into the kernel build. Supersession records are admission state, not part of a certificate's payload.
+  and its value the applied one (`venueState`); grants cover the value columns a run uses; the policy and verifier
+  hashes are compiled into the kernel build. Supersession records are admission state, not part of a certificate's payload.
 - **INVARIANTS.md.** I8 unchanged; added before it: a search run whose required datasets include a holdout dataset, by
-  content identity, is refused (`R_HOLDOUT`). New codes `R_UNCERTIFIED`, `R_BINDING`, `R_ROLES`.
+  content identity, is refused (`R_HOLDOUT`). New codes `R_UNCERTIFIED`, `R_BINDING`, `R_ROLES`, `R_INVALID`.
 - **SEMANTICS.md.** The latest-observation store and its reads, per-source delivery, the decision's reads from the
-  providers' delivered observations, the projections and the staged admission; §8's "core datasets always present"
+  providers' delivered observations, the projections and the staged admission; its §8's "core datasets always present"
   deleted.
 - **Migration annex §4.** The compared "deliveries" are one stream per source, each delivery with its tick and
   knownAt, in version 1's order (held: knownAt, coin, event time; event: knownAt, coin, array position, the resolver
   position being version 1's array order); the baseline is
   captured in that form. A migrated run binds every dataset version 1 would load, unread event feeds included. The
-  annex's grants must cover the accesses of §5 for the baseline runs; if they do not, the access footprint is refined,
+  annex's grants must cover the run's accesses (`Ctx.accesses`) for the baseline runs; if they do not, the access footprint is refined,
   never the evidence widened (GPT N2). Every migrated run's listing intervals equal the fixed baseline loader's
   (`market.rs::load`, a delisted coin ending at its last bar); if they cannot, migration is reported blocked (GPT N7).
 
@@ -117,16 +124,16 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 |---|---|---|
 | Opus-3 F1 row check later and narrower than I8 | leakage | stage 2 over every stored row's event time before resolution |
 | Opus-3 F2 cross-source order | no | per-source order; superseded by GPT B7's exact order |
-| Opus-3 F3, F4 availability columns, stored names | leakage | `Decl.columns`, stored names throughout |
+| Opus-3 F3, F4 availability columns, stored names | leakage | control columns (`Decl.controls`, authorized by `Cert.controls`), stored names throughout |
 | Opus-3 F5 dependency closure | leakage | one `required`, closed over delivered sources, programs and providers |
 | Opus-3 F6, F7 L7 range, hypotheses | no | `i < p.nodes.size`; version 1's domains kept (§7) |
 | Opus-3 F8 prose definitions | leakage via `lastTick` | written; the rest becomes Lean before review (N3) |
 | Opus-3 N1–N8 | no | taken (InputRef, policy in the build, placements, WF, named tests, erasure) |
 | Opus-4 maxKnown's initial value; R_ROLES first; per-position L5 | no | taken |
 | GPT B1 preflight order not enforced | leakage | staged `stage1`, `stage2`, `run` with a two-stage `Loader`; tests 17 and 18 |
-| GPT B2 certified bytes not linked to observations | leakage | `Loader.Faithful`, the explicit trusted boundary, discharged by content hashing, C7.6 and tests 6, 17, 18 |
+| GPT B2 certified bytes not linked to observations | leakage | `Trusted` (superseding the prose `Loader.Faithful`), discharged by content hashing, C7.6 and tests 6, 17, 18 |
 | GPT B3 late role observations affect decisions | leakage (if a provider is not venue state) | the execution-role contract: role records are venue state at event time, certified as such (§1, §9) |
-| GPT B4 slot and control columns unscoped | leakage | `slotColumn`; `Decl.columns` in every access; test 20 |
+| GPT B4 slot and control columns unscoped | leakage | `slotColumn` among `Decl.controls`, authorized by `Cert.controls`; test 20 |
 | GPT B5 upstream reads unscoped | leakage | upstream control columns authorized by the upstream certificate's `controls`; test 13 |
 | GPT B6 empty-window initialization read | leakage | `useEnd`; test 21 |
 | GPT B7 event tie order differs from version 1 | false discovery (decisions differ) | version 1's order (event time for held sources, array position for event sources; version 1's own split) and its event read; test 19 |
@@ -146,6 +153,13 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 | GPT-2 N6 cross-source order | no | per-source streams in C7.4 (§3); unobservable to the machine |
 | GPT-2 N7 listing intervals | false discovery if they differ | annex requires equality with the baseline loader's intervals, or migration is blocked (§3) |
 
-Recorded limitations, none able to change a false-discovery or leakage outcome: `maxKnown` (a fill's `inputsKnown`)
+| GPT-3 B1 resolver obligations unstated | leakage | `Trusted.confined` (reads only requested datasets) and `Trusted.provenance` (row, entity, values, role cells, RULES.md §6 knownAt) |
+| GPT-3 B2 admission position and policy unauthenticated | leakage | `Trusted.position` (the ledger's current position) and `Trusted.pinned`; `L5_certified` concludes them |
+| GPT-3 B3 decoded payloads without access | no (a decoded value no read observation carries influences no output) | recorded: grants authorize use, binding authorizes decoding (§1) |
+| GPT-3 L6 narrower than version 1 | no | `L6_bounded` for every evaluation, and for every run |
+| GPT-3 documentary inconsistencies | no | fixed (§1, §3, this table) |
+
+Recorded limitations, none able to change a false-discovery or leakage outcome: decoding during resolution is
+authorized by the binding, not by grants (GPT-3 B3); a provider's venue-state attestation is the verifier's claim; `maxKnown` (a fill's `inputsKnown`)
 may reflect a delivered event observation of a pre-window slot, a trace timestamp only; listing intervals from the
 venue-rules artifact (above); a held value's use is counted through `useEnd` even after replacement (safe direction).
