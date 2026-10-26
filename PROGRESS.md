@@ -29,7 +29,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
      - `oci-cli` into the flake and `duckdb` out of it;
      - the Python line-count report, and deletion of one-off scripts whose outputs are recorded.
 - **Stages 1, 2, 5, 6, 10.**
-  - **Stage 1:** every criterion's evidence was rerun at clean commit aeca1b2 (`audit/stage1/c1*.txt`, each headed by its run time and commit). GPT's third review (`audit/stage1/exit-review-gpt-3.md`) found C1.1, C1.2, C1.5, C1.7 and C1.8 met. The three issues it left on C1.3, C1.4 and C1.6 are fixed (an eighth complete fixture, the ordered trace and reconciliation, raw bytes and the dataset hash recomputed from the files); a fourth review of those three is running.
+  - **Stage 1:** done 2026-10-26. Every criterion's evidence ran at clean commit dbe192b (`audit/stage1/c1*.txt`), and GPT's five exit reviews (`audit/stage1/exit-review-gpt-1.md` to `-5.md`) found C1.1 to C1.8 met. Along the way: a second red-team round, admitted programs split from the rejection suite, complete hand-computed accounts, the full ordered trace compared in C1.4, GPT's checker reimplemented from the paper and INVARIANTS.md alone, and production costs in the canary.
   - **Stage 2:** done except the sweeps; calibration v3 passed.
   - **Stages 5 and 6:** done (Qualifications).
   - **Stage 10:** built and tested, C10.4 re-judged under the builder-market revision; waiting for the start sequence above.
@@ -96,6 +96,8 @@ Every criterion failed as written, every labeled amendment and every known limit
   - The judged window [2026-10-25 09:35:29, 2026-10-26 09:35:29) UTC failed C0.7's coverage in 3 of 44 cells (Blockers); stage 0 has not exited.
 - **Stage 1.**
   - C1.7 amendment (2026-10-23, after a chance failure on a drawn seed): the canary market is a martingale. C1.7 is met only under it.
+  - C1.6 is judged against the paper's experiment identity as it stood at C1.6's freeze; certificate and extractor versions, added to the paper later that day for stage 5's sources, have no ledger columns in the pilot kernel.
+  - C1.3's hand-computed values are compared to 1e-9, since decimal hand arithmetic is not exactly representable in binary floating point.
 - **Stage 2.**
   - The locked holdout calibrations v1 and v2.1 failed and stay recorded. v3, the betting test, was adopted by human decision and passed a fresh locked suite.
   - C2.2's first comparison failed on N2 kurtosis because of two errors in my generator. Both were fixed before the passing comparison.
