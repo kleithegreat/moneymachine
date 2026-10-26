@@ -114,3 +114,14 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Why:** the branch's fix (a missing payment aborts instead of paying zero) aborted every search run whose last step held a position. The store is half-open on bar close, so the bar opening at end − BAR closes at the holdout start and lives in the holdout, while the last step settles hour end − BAR at that bar's open. Fills already avoid this bar (`b + 3·BAR ≤ end`). The paper's rule for funding (§Prices: "valued at the latest earlier reference when the hour's own is missing") removes the case. On complete data every price is unchanged; only a missing price bar now settles at the earlier open instead of zero (main) or an abort (the branch), and it never reads a holdout row (I8).
 - **GPT:** not consulted; this follows the paper's stated rule and changes no result on complete data. It reaches GPT with the merged kernel in the next red-team round.
 - **Reverse:** revert the commit on `post-stage0` (3273063) before the merge.
+
+## 2026-10-26 15:51 UTC (11:51 EDT): stage 0 exits with C0.7's coverage failure as a qualification (human decision)
+
+- **What:** C0.7's coverage failure on the judged window (BTC sell $1k 0.894, SUI sell $10k 0.882, kPEPE sell $10k 0.817) is a recorded qualification of the pilot, never a pass, and stage 0 exits with it (`audit/criteria.md`, C0.7). Stage 2's sweeps and stage 3 proceed on C0.7's table. No redesigned archive equivalence check: the archive table lapsed when its frozen check failed (`audit/stage3/archive-equivalence.json`).
+- **Why (as proposed):** no single quantile of a one-day constant model met both of C0.7's limits on the spent window, so retrying windows would fit the criterion; the understatements are at most 0.5 bps against a 4.5 bps taker fee, and the pilot validates machinery.
+- **Reverse:** a C0.7 amendment adopted by the human, with the results that use the table rerun under it.
+
+## 2026-10-26 15:51 UTC (11:51 EDT): stage 10 runs on C0.7's committed table (human decision)
+
+- **What:** stage 10 (track `thesis-34a49c19a8f9`, frozen 2026-10-26 15:20:50 UTC) charges the committed C0.7 cells, and every stage 10 result carries C0.7's qualification. Moved from "Decisions awaiting the human's review".
+- **Reverse:** stop `thesis-run`, refit the table, and freeze a new track version.
