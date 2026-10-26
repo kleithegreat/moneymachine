@@ -6,6 +6,7 @@
  "spend_cap_usd": 100.0,
  "pulls": [
   {"name": "definition-monthly", "schema": "definition", "stype_in": "parent", "window": "first day of each month"},
-  {"name": "statistics-monthly", "schema": "statistics", "stype_in": "raw_symbol", "window": "each month, its first snapshot's outright futures"}
+  {"name": "statistics-monthly", "schema": "statistics", "stype_in": "raw_symbol", "window": "each month, its first snapshot's outright futures"},
+  {"name": "ohlcv-1d-monthly", "schema": "ohlcv-1d", "stype_in": "raw_symbol", "window": "each month, its first snapshot's outright futures"}
  ]
 }
