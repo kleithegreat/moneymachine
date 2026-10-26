@@ -43,3 +43,21 @@ queued for when GPT is available.
 **Not yet established:** a live probe of `execute` (reading a canary file outside the directory, and fetching a page)
 under the configs used before and after the fix. GPT reached its ChatGPT usage limit before the probes ran; they are
 queued (`~/.cache/mm-gpt/probe-*`, canary under `~/.cache/mm-gpt-canary/`).
+
+## Live probes, 2026-10-26 21:58 UTC (17:58 EDT), after GPT's return
+
+Each probe asked GPT, under one config, to read the canary `~/.cache/mm-gpt-canary/token.txt` (its value never in
+the prompt) and to fetch https://example.com by any tool; replies and configs are `probe-*.txt` and
+`probe-*.opencode.json` beside this file.
+
+| Config | Read outside its directory | Web |
+|---|---|---|
+| current (`probe-exec-after`: edit, bash, webfetch, external_directory, execute, task, subagent denied) | denied (`external_directory`) | none: `execute` unavailable, web search cancelled |
+| 2026-10-24 to 26 (`probe-exec-before`: execute, task, subagent not denied) | denied | **allowed** through `execute`'s `fetch()` (HTTP 200) |
+| before 2026-10-24 (`probe-readext-old`: external_directory not denied) | **allowed**: the canary returned exactly | allowed through `execute` |
+
+A second probe under the 2026-10-24 config (`probe-exec-before.txt`; the first reply is `probe-exec-before-1.txt`)
+tried every JavaScript file API in `execute` (`Deno`, `Bun`, `require`, `import`, `fetch("file://")`): none exists
+or works ("fetch cannot be used for filesystem access"). So `execute` reached the web but never the filesystem: the
+runs of 2026-10-24 to 26 could have looked things up online, not read the repository. This confirms the effect above:
+no independent implementation saw source code; `derived3` saw PROGRESS.md.
