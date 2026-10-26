@@ -42,7 +42,7 @@ USAGE:
       The same for resolver conformance cases (kernel/tests/rules/resolver_suite.py).
   mm check-fills FILE
       Check fills against invariants I2/I3 and the I9 order cap, one JSON case per line
-      (kernel/tests/timing/FORMAT.md); print one verdict per line. Reads no market data.
+      (kernel/INVARIANTS.md, Fill-check cases); print one verdict per line. Reads no market data.
 
 Defaults: --store data/store, --venue venue/hyperliquid, --ledger data/ledger.sqlite. The
 holdout boundary comes from the store's own policy.json. Every result is recorded in the ledger before it is

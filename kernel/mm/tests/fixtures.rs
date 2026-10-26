@@ -1,6 +1,8 @@
 //! C1.3: hand-computed scenarios. One coin X, 4h bars k = 0.. opening at k*BAR, cost
-//! 10 bps on every cell, fee 0.1%, min notional $10, szDecimals 3. Expected numbers are
-//! worked out by hand in the comments and asserted exactly (to 1e-9).
+//! 10 bps on every cell, fee 0.1%, min notional $10, szDecimals 3, initial equity $10,000. Expected
+//! numbers are worked out by hand in the comments; each scenario asserts the cash, position, fees,
+//! funding and equity behind one reported equity, to 1e-9 (decimal hand arithmetic is not exactly
+//! representable in binary floating point).
 
 use mm::dsl;
 use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
@@ -124,6 +126,36 @@ fn close(a: f64, b: f64) -> bool {
     (a - b).abs() < 1e-9
 }
 
+/// The account behind the equity reported at `t`: every fill and settlement before that equity in the trace, as
+/// (cash, position, fees, funding paid).
+fn account(run: &sim::Run, t: i64) -> (f64, f64, f64, f64) {
+    let (mut cash, mut pos, mut fees, mut funding) = (10_000.0, 0.0, 0.0, 0.0);
+    for e in &run.trace {
+        match e {
+            Event::Equity { t: u, .. } if *u == t => return (cash, pos, fees, funding),
+            Event::Fill(f) => {
+                cash -= f.qty * f.price + f.fee;
+                pos += f.qty;
+                fees += f.fee;
+            }
+            Event::Funding { paid, .. } => {
+                cash -= paid;
+                funding += paid;
+            }
+            _ => {}
+        }
+    }
+    panic!("no equity at {t}")
+}
+
+/// Asserts the hand-computed (cash, position, fees, funding, equity) behind the equity at `t`.
+fn assert_account(run: &sim::Run, t: i64, expect: (f64, f64, f64, f64, f64)) {
+    let (cash, pos, fees, funding) = account(run, t);
+    let got = (cash, pos, fees, funding, equity_at(run, t));
+    assert!(close(got.0, expect.0) && close(got.1, expect.1) && close(got.2, expect.2) && close(got.3, expect.3) && close(got.4, expect.4),
+            "at {t}: got {got:?}, expected {expect:?}");
+}
+
 /// Delayed fill, fees, funding settlement, mark-to-market and rebalancing.
 #[test]
 fn delayed_fill_fees_funding_and_rebalance() {
@@ -143,12 +175,24 @@ fn delayed_fill_fees_funding_and_rebalance() {
     let paid: f64 = run.trace.iter().filter_map(|e| if let Event::Funding { paid, .. } = e { Some(*paid) } else { None }).sum();
     assert!(close(paid, 5.5));
     // Equity at 12h: cash 10000 - 5505.5 - 5.5055 - 5.5 = 4483.4945, plus 50 * close2 120.
-    assert!(close(equity_at(&run, 12 * HOUR), 10483.4945));
+    assert_account(&run, 12 * HOUR, (4483.4945, 50.0, 5.5055, 5.5, 10483.4945));
     // 12h fill: +4.545 * 119.88 - fee 0.5448546. Equity at 16h = 5027.8042454 + 45.455 * 120.
     assert!(close(f[1].fee, 0.5448546));
     assert!(close(equity_at(&run, 16 * HOUR), 5027.8042454 + 45.455 * 120.0));
     // Decision at 12h+d: target 0.5 * 10483.4945 / 120 = 43.681227..., qty -1.773.
     assert!(close(f[2].qty, -1.773));
+}
+
+/// A short receives positive funding: the payment's sign follows the position's.
+#[test]
+fn short_receives_funding() {
+    let mut s = Spec::new(&[100.0; 5], &[100.0; 5]);
+    s.funding = vec![(10, 0.002, 0.0)];
+    let run = s.run(r#"{"const": -0.5, "unit": "1"}"#).unwrap();
+    // 4h+d: target -0.5 * 10000 / 100 = -50, sold at 8h at 99.9 (4995), fee 4.995: cash 14990.005. The 8h+d
+    // decision sizes on equity 10000 at 8h and holds. 10h: paid = -50 * open(bar 2) 100 * 0.002 = -10, so the
+    // short receives 10: cash 15000.005. Equity at 12h: 15000.005 - 50 * close2 100 = 10000.005.
+    assert_account(&run, 12 * HOUR, (15000.005, -50.0, 4.995, -10.0, 10000.005));
 }
 
 /// A fill bar with no trade leaves the order unfilled; the next decision re-targets.
@@ -161,6 +205,9 @@ fn zero_trade_bar_is_unfilled() {
     // Decision at 8h+d: held 0, target 0.5*10000/110 = 45.4545 -> 45.454, filled at 12h at 120.12.
     let f = fills(&run);
     assert!(close(f[0].qty, 45.454) && close(f[0].price, 120.12) && f[0].filled == 12 * HOUR);
+    // At 16h: paid 45.454 * 120.12 = 5459.93448 and fee 5.45993448, so cash 4534.60558552; marked at
+    // close3 120, equity 4534.60558552 + 5454.48 = 9989.08558552. No funding (every rate is 0).
+    assert_account(&run, 16 * HOUR, (4534.60558552, 45.454, 5.45993448, 0.0, 9989.08558552));
 }
 
 /// Reversal through zero: realized PnL on the closed part, new entry for the rest.
@@ -178,7 +225,7 @@ fn position_reversal() {
     // Equity at 16h: cash 6993.997 + 5994 - 5.994 = 12982.003, minus 30 * close 100 = 9982.003.
     // Independently: realized 30 * (99.9 - 100.1) = -6, unrealized -30 * (100 - 99.9) = -3,
     // fees 3.003 + 5.994: 10000 - 6 - 3 - 8.997 = 9982.003.
-    assert!(close(equity_at(&run, 16 * HOUR), 9982.003));
+    assert_account(&run, 16 * HOUR, (12982.003, -30.0, 8.997, 0.0, 9982.003));
 }
 
 /// Margin breach at a bar's adverse extreme liquidates at that extreme.
@@ -195,6 +242,9 @@ fn liquidation_at_adverse_extreme() {
     // 3331.0095 < maintenance 95 * 170 / 2 = 8075, so everything is bought back at 170 * 1.001.
     let liq = f.iter().find(|x| x.why == Why::Liquidation).unwrap();
     assert!(close(liq.qty, 95.0) && close(liq.reference, 170.0) && close(liq.price, 170.17) && liq.filled == 16 * HOUR);
+    // The 8h+d decision sizes on equity 10000 at 8h, so it holds -95. At 16h: paid 95 * 170.17 = 16166.15 and
+    // fee 16.16615, so cash 19481.0095 - 16182.31615 = 3298.69335, flat; fees 9.4905 + 16.16615 = 25.65665.
+    assert_account(&run, 16 * HOUR, (3298.69335, 0.0, 25.65665, 0.0, 3298.69335));
 }
 
 /// A liquidation past zero equity is a bankruptcy: the venue absorbs the shortfall, the order due at that
@@ -230,6 +280,9 @@ fn delisting_closeout() {
     assert!(close(d.qty, -50.0) && close(d.reference, 105.0) && close(d.price, 104.895) && d.filled == 16 * HOUR);
     // Decisions stop where the fill bar would end after delisting: only the 4h decision trades.
     assert_eq!(f.iter().filter(|x| x.why == Why::Fill).count(), 1);
+    // At 16h: bought for 5005 with fee 5.005 (cash 4989.995), closed for 50 * 104.895 = 5244.75 with fee
+    // 5.24475: cash 10229.50025, flat, fees 10.24975, no funding.
+    assert_account(&run, 16 * HOUR, (10229.50025, 0.0, 10.24975, 0.0, 10229.50025));
 }
 
 /// Truncation to szDecimals, the $10 minimum, and the exact close of weight 0.
@@ -246,6 +299,9 @@ fn rounding_min_notional_and_exact_close() {
     assert!(close(f[0].qty, 33.333));
     assert_eq!(f.len(), 2);
     assert!(close(f[1].qty, -33.333) && f[1].filled == 16 * HOUR);
+    // At 20h: bought 33.333 * 100.1 = 3336.6333 (fee 3.3366333), sold 33.333 * 99.9 = 3329.9667 (fee
+    // 3.3299667): cash 10000 - 3336.6333 - 3.3366333 + 3329.9667 - 3.3299667 = 9986.6668, flat, fees 6.6666.
+    assert_account(&run, 20 * HOUR, (9986.6668, 0.0, 6.6666, 0.0, 9986.6668));
 }
 
 /// Funding is priced at the open of the latest bar opened by its hour, and a held hour without a rate aborts.
@@ -259,6 +315,9 @@ fn settlement_price_and_missing_rate() {
     // open, 110: 50 * 110 * 0.001 = 5.5.
     let paid = run.trace.iter().find_map(|e| match e { Event::Funding { t, price, paid, .. } if *t == 12 * HOUR => Some((*price, *paid)), _ => None });
     assert!(paid.is_some_and(|(price, paid)| close(price, 110.0) && close(paid, 5.5)), "{paid:?}");
+    // The 8h+d order is unfilled (its bar is missing). At 12h: cash 10000 - 5505.5 - 5.5055 - 5.5 = 4483.4945,
+    // marked at close2 120: equity 10483.4945.
+    assert_account(&run, 12 * HOUR, (4483.4945, 50.0, 5.5055, 5.5, 10483.4945));
     let mut s = Spec::new(&[100.0, 100.0, 110.0, 120.0, 130.0], &[100.0, 110.0, 120.0, 130.0, 130.0]);
     s.missing_funding = vec![9];
     assert!(matches!(s.run(HALF), Err(sim::Abort::SettlementMissing(_))));

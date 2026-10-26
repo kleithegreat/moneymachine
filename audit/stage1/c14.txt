@@ -1,2 +1,5 @@
-.                                                                        [100%]
-1 passed in 174.39s (0:02:54)
+# 2026-10-26T13:36:22Z at commit dbe192b69db061c8b8075903f4d701605c4170cc (clean): pytest -q -s -p no:cacheprovider kernel/tests/cli/test_differential.py
+W0 on dataset version 1792613363942: equity 3299, decision 1033, hold 11, fill 1033, liquidation 0, delisting 1, unfilled 0, funding 4139
+.
+1 passed in 175.62s (0:02:55)
+exit 0

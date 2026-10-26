@@ -62,6 +62,7 @@ class Book:
         pay = self.pos.get(coin, 0.0) * price * rate
         self.cash -= pay
         self.funding -= pay
+        return pay
 
     def equity(self, marks):
         return self.cash + sum(q * marks[c] for c, q in self.pos.items())
@@ -89,6 +90,7 @@ def run(data_root, version, venue=VENUE):
     rate_at = {(c, t): r for c, t, r in funding.select("coin", "eventTime", "fundingRate").iter_rows()}
 
     book, trace, worst, orders, marks = Book(), [], 0.0, {}, {}
+    held_coins = lambda: sorted(book.pos, key=list(rules["coins"]).index)
 
     def execute(t, coin, qty, ref, why):
         side = "buy" if qty > 0 else "sell"
@@ -101,21 +103,21 @@ def run(data_root, version, venue=VENUE):
     b = W_START
     while b + 2 * BAR <= HOLDOUT_START:
         for h in range(b + HOUR, b + BAR + HOUR, HOUR):
-            for coin in list(book.pos):
+            for coin in held_coins():
                 if (coin, h) in rate_at and (coin, h - h % BAR) in bar:
                     px = bar[(coin, h - h % BAR)][0]
-                    book.settle(coin, px, rate_at[(coin, h)])
-                    trace.append({"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px})
-        for coin in list(book.pos):
+                    paid = book.settle(coin, px, rate_at[(coin, h)])
+                    trace.append({"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px, "paid": paid})
+        for coin in held_coins():
             if (coin, b) in bar:
                 marks[coin] = bar[(coin, b)][3]
         adverse = {c: bar[(c, b)][2] if q > 0 else bar[(c, b)][1] for c, q in book.pos.items() if (c, b) in bar}
         eq_adverse = book.cash + sum(q * adverse.get(c, marks[c]) for c, q in book.pos.items())
         mm = sum(abs(q) * adverse.get(c, marks[c]) / (2 * min(t["maxLeverage"] for t in rules["coins"][c]["marginTiers"])) for c, q in book.pos.items())
         if book.pos and eq_adverse < mm:
-            for coin in list(book.pos):
+            for coin in held_coins():
                 execute(b + BAR, coin, -book.pos[coin], adverse.get(coin, marks[coin]), "liquidation")
-        for coin in list(book.pos):
+        for coin in held_coins():
             if b + BAR >= intervals[coin][1]:
                 execute(b + BAR, coin, -book.pos[coin], marks[coin], "delisting")
 
@@ -149,7 +151,7 @@ def run(data_root, version, venue=VENUE):
             qty = -held if target == 0.0 else truncate(target - held, rules["coins"][coin]["szDecimals"])
             if qty and (abs(qty) * price >= min_notional or target == 0.0):
                 orders.setdefault(b + 2 * BAR, {})[coin] = qty
-                trace.append({"t": t_d, "type": "decision", "coin": coin, "rate": rate, "price": price,
+                trace.append({"t": t_d, "type": "decision", "coin": coin, "rate": rate, "price": price, "weight": w,
                               "qty": qty, "inputs_knownAt": known})
         b += BAR
     return trace, worst

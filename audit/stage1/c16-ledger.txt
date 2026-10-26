@@ -1,17 +1,36 @@
+# 2026-10-26T13:39:20Z at commit dbe192b69db061c8b8075903f4d701605c4170cc (clean): pytest -v -p no:cacheprovider kernel/tests/cli/test_cli.py
 ============================= test session starts ==============================
 platform linux -- Python 3.13.15, pytest-9.0.3, pluggy-1.6.0 -- /nix/store/cmlrhmi5dmg9051jg36i5qvf5p5ygqyv-python3-3.13.15-env/bin/python3.13
 hypothesis profile 'default'
 rootdir: /home/kevin/repos/moneymachine
 configfile: pyproject.toml
 plugins: anyio-4.13.0, xdist-3.8.0, hypothesis-6.151.10
-collecting ... collected 23 items / 17 deselected / 6 selected
+collecting ... collected 24 items
 
-kernel/tests/cli/test_cli.py::test_eval_records_identity_and_disclosure PASSED [ 16%]
-kernel/tests/cli/test_cli.py::test_ledger_rejects_update_and_delete PASSED [ 33%]
-kernel/tests/cli/test_cli.py::test_unwritable_ledger_emits_no_statistics PASSED [ 50%]
-kernel/tests/cli/test_cli.py::test_fresh_processes_give_identical_results PASSED [ 66%]
-kernel/tests/cli/test_cli.py::test_identity_covers_every_policy_field PASSED [ 83%]
-kernel/tests/cli/test_cli.py::test_fresh_ledger_cannot_reuse_a_spent_holdout PASSED [100%]
+kernel/tests/cli/test_cli.py::test_holdout_is_split_off PASSED           [  4%]
+kernel/tests/cli/test_cli.py::test_eval_records_identity_and_disclosure PASSED [  8%]
+kernel/tests/cli/test_cli.py::test_ledger_rejects_update_and_delete PASSED [ 12%]
+kernel/tests/cli/test_cli.py::test_unwritable_ledger_emits_no_statistics PASSED [ 16%]
+kernel/tests/cli/test_cli.py::test_fresh_processes_give_identical_results PASSED [ 20%]
+kernel/tests/cli/test_cli.py::test_a_changed_store_value_changes_the_data_hash_and_the_identity PASSED [ 25%]
+kernel/tests/cli/test_cli.py::test_the_committed_disclosure_holds_only_the_disclosed_fields PASSED [ 29%]
+kernel/tests/cli/test_cli.py::test_identity_covers_every_policy_field PASSED [ 33%]
+kernel/tests/cli/test_cli.py::test_a_selection_records_every_disclosure_before_it PASSED [ 37%]
+kernel/tests/cli/test_cli.py::test_rejection_is_disclosed_without_data PASSED [ 41%]
+kernel/tests/cli/test_cli.py::test_copied_holdout_rows_abort_search_mode PASSED [ 45%]
+kernel/tests/cli/test_cli.py::test_holdout_store_itself_aborts_search_mode PASSED [ 50%]
+kernel/tests/cli/test_cli.py::test_batch_eval_one_line_per_program PASSED [ 54%]
+kernel/tests/cli/test_cli.py::test_holdout_evaluates_exactly_the_frozen_selections_from_a_file PASSED [ 58%]
+kernel/tests/cli/test_cli.py::test_holdout_is_evaluated_once_over_its_window PASSED [ 62%]
+kernel/tests/cli/test_cli.py::test_holdout_reports_diagnostics_beside_an_unchanged_result PASSED [ 66%]
+kernel/tests/cli/test_cli.py::test_stream_eval_answers_each_line PASSED  [ 70%]
+kernel/tests/cli/test_cli.py::test_holdout_from_and_overlap PASSED       [ 75%]
+kernel/tests/cli/test_cli.py::test_mechanism_report PASSED               [ 79%]
+kernel/tests/cli/test_cli.py::test_equivalence_key_is_stable_across_processes PASSED [ 83%]
+kernel/tests/cli/test_cli.py::test_unknown_options_are_refused PASSED    [ 87%]
+kernel/tests/cli/test_cli.py::test_fresh_ledger_cannot_reuse_a_spent_holdout PASSED [ 91%]
+kernel/tests/cli/test_cli.py::test_holdout_from_cannot_move_earlier PASSED [ 95%]
+kernel/tests/cli/test_cli.py::test_event_inputs_only_in_the_holdout_are_unbound_in_search PASSED [100%]
 
-======================= 6 passed, 17 deselected in 1.61s =======================
+============================== 24 passed in 4.34s ==============================
 exit 0

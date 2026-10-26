@@ -1,4 +1,6 @@
-"""C1.4: `mm eval --trace` of W0 matches the stage 0 Python witness at every step."""
+"""C1.4: `mm eval --trace` of W0 matches the stage 0 Python witness at every step: the same events in the same order,
+and every decision, fill, funding settlement, equity and reconciliation value within $1e-6 (exactly where both read the
+same datum)."""
 
 import json
 import os
@@ -26,8 +28,15 @@ pytestmark = pytest.mark.skipif(
     reason="needs the stage 0 backfill in data/ and the C0.7 execution model")
 
 
+KINDS = ("equity", "decision", "hold", "fill", "liquidation", "delisting", "unfilled", "funding")
+
+
 def by_type(events, kinds):
     return [e for e in events if e["type"] in kinds]
+
+
+def steps(events):
+    return [(e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS)]
 
 
 def test_kernel_matches_witness(tmp_path):
@@ -41,21 +50,25 @@ def test_kernel_matches_witness(tmp_path):
     kernel = [json.loads(l) for l in out.read_text().splitlines()]
     py, worst = witness.run(REPO / "data", version, VENUE)
     assert worst <= 1e-9
+    assert steps(kernel) == steps(py)
+    print(f"W0 on dataset version {version}: " + ", ".join(f"{k} {len(by_type(py, {k}))}" for k in KINDS))
 
     ke, pe = by_type(kernel, {"equity"}), by_type(py, {"equity"})
     assert [e["t"] for e in ke] == [e["t"] for e in pe]
     assert max(abs(a["equity"] - b["equity"]) for a, b in zip(ke, pe)) <= TOL
+    assert max(abs(a["reconciled"] - b["reconciled"]) for a, b in zip(ke, pe)) <= TOL
 
     kf, pf = by_type(kernel, {"fill", "liquidation", "delisting"}), by_type(py, {"fill", "liquidation", "delisting"})
     assert [(e["type"], e["t"], e["coin"]) for e in kf] == [(e["type"], e["t"], e["coin"]) for e in pf]
     for a, b in zip(kf, pf):
-        assert abs(a["qty"] - b["qty"]) <= 1e-12 and abs(a["price"] - b["price"]) <= TOL * a["price"]
+        assert abs(a["qty"] - b["qty"]) <= 1e-12 and abs(a["price"] - b["price"]) <= TOL
         assert abs(a["fee"] - b["fee"]) <= TOL
 
     kd, pd = by_type(kernel, {"decision"}), by_type(py, {"decision"})
     assert [(e["t"], e["coin"], e["qty"]) for e in kd] == [(e["t"], e["coin"], e["qty"]) for e in pd]
+    assert all(abs(a["weight"] - b["weight"]) <= 1e-12 for a, b in zip(kd, pd))
 
     key = lambda e: (e["t"], e["coin"])
-    assert sorted(map(key, by_type(kernel, {"funding"}))) == sorted(map(key, by_type(py, {"funding"})))
-    assert sorted(map(key, by_type(kernel, {"hold"}))) == sorted(map(key, by_type(py, {"hold"})))
-    assert sorted(map(key, by_type(kernel, {"unfilled"}))) == sorted(map(key, by_type(py, {"unfilled"})))
+    kfund, pfund = sorted(by_type(kernel, {"funding"}), key=key), sorted(by_type(py, {"funding"}), key=key)
+    for a, b in zip(kfund, pfund):
+        assert (a["rate"], a["price"]) == (b["rate"], b["price"]) and abs(a["paid"] - b["paid"]) <= TOL, (a, b)

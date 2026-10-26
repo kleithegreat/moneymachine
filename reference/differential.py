@@ -67,7 +67,7 @@ def expected():
     out = {"W0": list(NULLS)} | {f"probe-{p['name']}": list(NULLS) for p in probes.probes(True)}
     out |= {f"case-{k}": ms for k, _, ms in edge_markets.cases(NULLS)}
     out |= {f"reject-{k}": [] for k in edge_markets.rejections()}
-    return out | {f"adversarial-{f.stem}": [] for f in sorted((REPO / "kernel/tests/adversarial").glob("*.case"))}
+    return out | {f"adversarial-{f.stem}": [] for d in ("adversarial", "admitted") for f in sorted((REPO / "kernel/tests" / d).glob("*.case"))}
 
 
 def complete(items, generated_n, minimum=1000):
