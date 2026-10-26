@@ -1,6 +1,6 @@
 """Labeled fill-check cases for C1.5. Each case is one fill with its coin's bars. Non-ok cases
 plant exactly one violation into an otherwise valid fill, so the label is known by
-construction. Format: kernel/tests/timing/FORMAT.md."""
+construction, carried in `label` and `kind` beside the case format of kernel/INVARIANTS.md (Fill-check cases)."""
 
 import json
 import random

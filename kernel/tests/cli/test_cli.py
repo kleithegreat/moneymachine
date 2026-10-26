@@ -1,6 +1,7 @@
-"""C1.6 at the CLI level, against a synthetic store: ledger triggers, identity fields,
-no statistics without a committed disclosure, and identical results across processes."""
+"""C1.6 at the CLI level, against a synthetic store: ledger triggers, identity fields and the content their hashes
+bind, no statistics without a committed disclosure, and byte-identical results across processes."""
 
+import hashlib
 import json
 import math
 import os
@@ -10,6 +11,7 @@ import struct
 import subprocess
 from pathlib import Path
 
+import polars as pl
 import pytest
 
 from gate import kernel
@@ -53,6 +55,9 @@ def test_eval_records_identity_and_disclosure(market, tmp_path):
     row = dict(zip([d[1] for d in db.execute("PRAGMA table_info(experiments)")],
                    db.execute("SELECT * FROM experiments").fetchone()))
     assert all(row[k] not in (None, "") for k in IDENTITY)
+    sha = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    assert (row["rules_hash"], row["execution_hash"], row["kernel"]) == \
+        (sha(Path(market) / "venue" / "rules.json"), sha(Path(market) / "venue" / "execution.json"), sha(MM))
     disclosed = db.execute("SELECT content FROM disclosures WHERE experiment_id = ?", (out["experiment"],)).fetchone()
     assert json.loads(disclosed[0]) == out["disclosure"]
 
@@ -70,19 +75,33 @@ def test_ledger_rejects_update_and_delete(market, tmp_path):
 
 
 def test_unwritable_ledger_emits_no_statistics(market, tmp_path):
-    ledger = tmp_path / "l.sqlite"
+    ledger, trace = tmp_path / "l.sqlite", tmp_path / "trace.jsonl"
     assert evaluate(market, ledger).returncode == 0
     os.chmod(ledger, 0o444)
-    r = evaluate(market, ledger)
+    r = mm(market, "eval", str(W0), "--campaign", "c", "--agent", "a", "--trace", str(trace), ledger=ledger)
     assert r.returncode == 2
-    assert r.stdout == ""
-    assert "R_LEDGER" in r.stderr and "sharpe" not in r.stderr.lower() and "equity" not in r.stderr.lower()
+    assert r.stdout == "" and not trace.exists()
+    assert len(r.stderr.splitlines()) == 1 and r.stderr.startswith("R_LEDGER")
 
 
 def test_fresh_processes_give_identical_results(market, tmp_path):
-    a = json.loads(evaluate(market, tmp_path / "a.sqlite").stdout)["disclosure"]
-    b = json.loads(evaluate(market, tmp_path / "b.sqlite").stdout)["disclosure"]
-    assert a == b
+    a, b = (evaluate(market, tmp_path / f"{k}.sqlite") for k in "ab")
+    assert a.returncode == 0 and a.stdout.encode() == b.stdout.encode()
+
+
+def test_a_changed_store_value_changes_the_data_hash_and_the_identity(market, tmp_path):
+    copy = tmp_path / "m"
+    shutil.copytree(market, copy)
+    f = sorted((copy / "store" / "funding").glob("*.parquet"))[0]
+    df = pl.read_parquet(f)
+    f.chmod(0o644)
+    df.with_columns(pl.when(pl.int_range(pl.len()) == 0).then(pl.col("fundingRate") + 1e-6).otherwise(pl.col("fundingRate"))
+                    .alias("fundingRate")).write_parquet(f)
+    rows = []
+    for i, m in enumerate((market, copy)):
+        assert evaluate(m, tmp_path / f"{i}.sqlite").returncode == 0
+        rows.append(sqlite3.connect(tmp_path / f"{i}.sqlite").execute("SELECT data_hash, identity FROM experiments").fetchone())
+    assert rows[0][0] != rows[1][0] and rows[0][1] != rows[1][1]
 
 
 def test_the_committed_disclosure_holds_only_the_disclosed_fields(market, tmp_path):

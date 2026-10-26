@@ -62,6 +62,7 @@ class Book:
         pay = self.pos.get(coin, 0.0) * price * rate
         self.cash -= pay
         self.funding -= pay
+        return pay
 
     def equity(self, marks):
         return self.cash + sum(q * marks[c] for c, q in self.pos.items())
@@ -104,8 +105,8 @@ def run(data_root, version, venue=VENUE):
             for coin in list(book.pos):
                 if (coin, h) in rate_at and (coin, h - h % BAR) in bar:
                     px = bar[(coin, h - h % BAR)][0]
-                    book.settle(coin, px, rate_at[(coin, h)])
-                    trace.append({"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px})
+                    paid = book.settle(coin, px, rate_at[(coin, h)])
+                    trace.append({"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px, "paid": paid})
         for coin in list(book.pos):
             if (coin, b) in bar:
                 marks[coin] = bar[(coin, b)][3]
@@ -149,7 +150,7 @@ def run(data_root, version, venue=VENUE):
             qty = -held if target == 0.0 else truncate(target - held, rules["coins"][coin]["szDecimals"])
             if qty and (abs(qty) * price >= min_notional or target == 0.0):
                 orders.setdefault(b + 2 * BAR, {})[coin] = qty
-                trace.append({"t": t_d, "type": "decision", "coin": coin, "rate": rate, "price": price,
+                trace.append({"t": t_d, "type": "decision", "coin": coin, "rate": rate, "price": price, "weight": w,
                               "qty": qty, "inputs_knownAt": known})
         b += BAR
     return trace, worst

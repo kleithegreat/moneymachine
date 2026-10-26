@@ -26,7 +26,6 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   5. **Code cleanup** deferred by the human's timing rule:
      - misplaced scripts (`audit/stage6/effort.py`) and criterion- or version-named files;
      - PROGRESS.md citations in the runner-imported files (`criteria/`, the stage 0 `ingest` modules, `cli.py`);
-     - `kernel/tests/timing/FORMAT.md` folded into its generator;
      - `oci-cli` into the flake and `duckdb` out of it;
      - the Python line-count report, and deletion of one-off scripts whose outputs are recorded.
 - **Stages 1, 2, 5, 6, 10.**

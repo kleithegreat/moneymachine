@@ -1,6 +1,7 @@
 //! C1.7 leak canary (as amended 2026-10-23). 12 coins, 550 days of i.i.d. 4h prices that are a
 //! martingale: log returns Gaussian with sigma 2% and mean -sigma^2/2, so no program has an edge.
-//! Zero funding, production fee and a production-like cost table. No admitted program may reach an
+//! Zero funding and production costs: the taker fee, minimum notional and each coin's C0.7 cost cells from
+//! venue/hyperliquid (synthetic coin i takes U's i-th coin's cells). No admitted program may reach an
 //! annualized net Sharpe above 4 on any seed. The leaking evaluator is the same kernel fed bars
 //! whose timestamps claim they were known two bars early (so a decision sees the bar its order
 //! will be held through), which must exceed 20.
@@ -84,15 +85,16 @@ fn market(seed: u64, early: bool) -> (Market, Venue, Policy, i64) {
         bars,
         data_hash: String::new(),
     };
+    let production = mm::market::venue(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../venue/hyperliquid")).unwrap();
+    assert_eq!(production.rules.len(), COINS);
     let v = Venue {
-        taker_fee: 0.00045,
-        min_notional: 10.0,
         coins: (0..COINS).map(|c| format!("S{c}")).collect(),
-        rules: (0..COINS)
-            .map(|_| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: [[2.0, 4.0], [2.0, 4.0]], calibration_range: None })
+        rules: production
+            .rules
+            .iter()
+            .map(|r| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: false, cost_bps: r.cost_bps, calibration_range: None })
             .collect(),
-        rules_hash: String::new(),
-        execution_hash: String::new(),
+        ..production
     };
     (m, v, Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: end }, end)
 }
@@ -137,15 +139,12 @@ fn scaled(w: &str, size: f64) -> String {
 
 fn admitted_programs() -> Vec<(String, dsl::Program)> {
     let mut out = vec![];
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/adversarial");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/admitted");
     for e in fs::read_dir(dir).unwrap() {
         let p = e.unwrap().path();
         let text = fs::read_to_string(&p).unwrap();
-        if let Some((_, prog)) = text.split_once('\n') {
-            if let Ok(prog) = dsl::parse(prog) {
-                out.push((p.display().to_string(), prog));
-            }
-        }
+        let (_, prog) = text.split_once('\n').unwrap();
+        out.push((p.display().to_string(), dsl::parse(prog).unwrap_or_else(|r| panic!("{}: {r}", p.display()))));
     }
     let mut rng = Rng(42);
     for i in 0..20 {

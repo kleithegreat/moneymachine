@@ -1,5 +1,5 @@
-//! Every case in kernel/tests/adversarial must be rejected with exactly its expected code, or type-check where it
-//! expects ADMITTED (C1.7 then runs it); each case's outcome is printed.
+//! C1.2: every case in kernel/tests/adversarial must be rejected with exactly its expected code; each case's outcome
+//! is printed. Red-team programs whose defence is at run time are in kernel/tests/admitted, which C1.7 runs.
 //! A case file is a JSON header line followed by the program text.
 
 use std::fs;

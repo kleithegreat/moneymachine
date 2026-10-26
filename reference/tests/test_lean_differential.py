@@ -21,7 +21,7 @@ def built():
 
 
 def test_verdicts_agree(tmp_path):
-    texts = [c.read_text().split("\n", 1)[1] for c in sorted((REPO / "kernel/tests/adversarial").glob("*.case"))]
+    texts = [c.read_text().split("\n", 1)[1] for d in ("adversarial", "admitted") for c in sorted((REPO / "kernel/tests" / d).glob("*.case"))]
     rng = random.Random(5)
     texts += [json.dumps(search.compile_genome(search.random_genome(rng, 7))) for _ in range(40)]
     bad = []
