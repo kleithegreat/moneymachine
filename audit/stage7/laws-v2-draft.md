@@ -24,8 +24,9 @@ Lean is reviewed by GPT before any freeze or proof (N3).
 - **Version 1's reads, per source.** Per source and coin the machine holds the latest delivered observation. A held
   input reads it; an event input reads it only if its slot is the current hour (version 1's single event row, which a
   later-delivered older correction replaces).
-- **Version 1's order.** Within a source, observations are delivered in (knownAt, coin, resolver position) order:
-  version 1's (knownAt, coin, feed, array index) with the feed fixed. Across sources the interleaving is unobservable
+- **Version 1's order.** Within a source, observations are delivered in (knownAt, coin, tie) order, the tie being the
+  event time for a held source and the resolver position for an event source: version 1 orders funding and bars by
+  (knownAt, coin, event time) and event feeds by (knownAt, coin, feed, array index). Across sources the interleaving is unobservable
   (stores are per source, `maxKnown` is a maximum, causality is per observation), so C7.4 compares one stream per
   source (§9).
 - **Staged admission, enforced by types.** Metadata checks take only metadata; I8's check takes only the time column
@@ -243,9 +244,10 @@ the same stages, tested by rows 17 and 18 of §8.
 def Ctx.make (reg roles p) (m : Meta) (obs : Array (Obs α)) (v pol stop) (req : List Nat) : Ctx α :=
   let obs := obs.filter (·.source ∈ m.delivered reg)
   { reg, roles, p, m, v, pol, stop, required := req, obs
-    oOrder := (Array.range obs.size).mergeSort fun i j =>          -- (knownAt, source, coin, resolver position)
+    oOrder := (Array.range obs.size).mergeSort fun i j =>          -- (knownAt, source, coin, tie): version 1's
       let x := obs[i]!; let y := obs[j]!
-      lexLe [x.known, x.source, x.coin, i] [y.known, y.source, y.coin, j]
+      let tie (o : Obs α) (k : Nat) : Int := if (reg.decls[o.source]!).cadence == .event then k else o.key
+      lexLe [x.known, x.source, x.coin, tie x i] [y.known, y.source, y.coin, tie y j]
     intervals := m.intervals
     ix := Index.of (obs.filterMap (barRow roles)) (obs.filterMap (rateRow roles)) m.intervals.size }
 
@@ -441,7 +443,8 @@ Each test is committed with its expected code before its first judged run (C7 ev
 - **SOURCES.md version 2.** §1: the `evidence` cadence; each declaration's availability columns (`fetchedAt`
   included), event-time column (evidence declarations included) and slot column (event sources); fields name their
   stored column; roles map role columns to stored columns. §4: key and slot distinct; every bound source is
-  delivered; within a source by (knownAt, coin, resolver position); held reads the latest, event reads the latest
+  delivered; within a source by (knownAt, coin, event time) for held sources and (knownAt, coin, resolver position)
+  for event sources; held reads the latest, event reads the latest
   only if its slot is the current hour; the cross-source interleaving unobservable. §6: role columns non-null and
   finite, the bars key on the 4h grid, providers distinct, checked at run admission (`R_BINDING`, `R_ROLES`); volume
   is not a role column; execution reads role records at event or open time (§1). §7: the three stages of §4; a
@@ -457,7 +460,8 @@ Each test is committed with its expected code before its first judged run (C7 ev
   providers' delivered observations, the projections and the staged admission; §8's "core datasets always present"
   deleted.
 - **Migration annex §4.** The compared "deliveries" are one stream per source, each delivery with its tick and
-  knownAt, in (knownAt, coin, resolver position) order, the position being version 1's array order; the baseline is
+  knownAt, in version 1's order (held: knownAt, coin, event time; event: knownAt, coin, array position, the resolver
+  position being version 1's array order); the baseline is
   captured in that form. A migrated run binds every dataset version 1 would load, unread event feeds included. The
   annex's grants must cover the accesses of §5 for the baseline runs; if they do not, the access footprint is refined,
   never the evidence widened (GPT N2).
@@ -482,7 +486,7 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 | GPT B4 slot and control columns unscoped | leakage | `slotColumn`; `Decl.columns` in every access; test 20 |
 | GPT B5 upstream reads unscoped | leakage | `Obs.lineage`; lineage accesses; test 13 |
 | GPT B6 empty-window initialization read | leakage | `useEnd`; test 21 |
-| GPT B7 event tie order differs from version 1 | false discovery (decisions differ) | version 1's order and its event read; test 19 |
+| GPT B7 event tie order differs from version 1 | false discovery (decisions differ) | version 1's order (event time for held sources, array position for event sources; version 1's own split) and its event read; test 19 |
 | GPT N1 positional L5.2 | no | `firstFailure` |
 | GPT N2 over-approximated accesses | no (C7.4 risk) | reads from delivery, not `min known key`; annex refines the footprint, never widens evidence |
 | GPT N3 incomplete definitions and signatures | no | the next step: compiling Lean with full signatures, reviewed by GPT before any freeze |
