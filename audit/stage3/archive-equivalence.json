@@ -1,0 +1,408 @@
+{
+ "coins": {
+  "BTC": {
+   "live": 16758,
+   "matched": 5115,
+   "matched_share": 0.30522735409953455,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5115,
+     "censoring_agree": 1.0,
+     "costed": 5115,
+     "cost_agree": 0.9867057673509286,
+     "pass": true
+    },
+    "buy:10000": {
+     "pairs": 5115,
+     "censoring_agree": 1.0,
+     "costed": 5115,
+     "cost_agree": 0.9794721407624634,
+     "pass": true
+    },
+    "sell:1000": {
+     "pairs": 5115,
+     "censoring_agree": 1.0,
+     "costed": 5115,
+     "cost_agree": 0.9853372434017595,
+     "pass": true
+    },
+    "sell:10000": {
+     "pairs": 5115,
+     "censoring_agree": 1.0,
+     "costed": 5115,
+     "cost_agree": 0.976930596285435,
+     "pass": true
+    }
+   },
+   "pass": false
+  },
+  "ETH": {
+   "live": 16758,
+   "matched": 5111,
+   "matched_share": 0.30498866213151926,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5111,
+     "censoring_agree": 1.0,
+     "costed": 5111,
+     "cost_agree": 0.977890823713559,
+     "pass": true
+    },
+    "buy:10000": {
+     "pairs": 5111,
+     "censoring_agree": 1.0,
+     "costed": 5111,
+     "cost_agree": 0.9684993152025044,
+     "pass": true
+    },
+    "sell:1000": {
+     "pairs": 5111,
+     "censoring_agree": 1.0,
+     "costed": 5111,
+     "cost_agree": 0.9761299158677362,
+     "pass": true
+    },
+    "sell:10000": {
+     "pairs": 5111,
+     "censoring_agree": 1.0,
+     "costed": 5111,
+     "cost_agree": 0.9659557816474271,
+     "pass": true
+    }
+   },
+   "pass": false
+  },
+  "SOL": {
+   "live": 16757,
+   "matched": 5080,
+   "matched_share": 0.3031568896580534,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5080,
+     "censoring_agree": 1.0,
+     "costed": 5080,
+     "cost_agree": 0.9688976377952756,
+     "pass": true
+    },
+    "buy:10000": {
+     "pairs": 5080,
+     "censoring_agree": 1.0,
+     "costed": 5080,
+     "cost_agree": 0.9488188976377953,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5080,
+     "censoring_agree": 1.0,
+     "costed": 5080,
+     "cost_agree": 0.9582677165354331,
+     "pass": true
+    },
+    "sell:10000": {
+     "pairs": 5080,
+     "censoring_agree": 1.0,
+     "costed": 5080,
+     "cost_agree": 0.9425196850393701,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "SUI": {
+   "live": 16757,
+   "matched": 5176,
+   "matched_share": 0.3088858387539536,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5176,
+     "censoring_agree": 1.0,
+     "costed": 5176,
+     "cost_agree": 0.8697836166924265,
+     "pass": false
+    },
+    "buy:10000": {
+     "pairs": 5176,
+     "censoring_agree": 1.0,
+     "costed": 5176,
+     "cost_agree": 0.8324961360123647,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5176,
+     "censoring_agree": 1.0,
+     "costed": 5176,
+     "cost_agree": 0.8643740340030912,
+     "pass": false
+    },
+    "sell:10000": {
+     "pairs": 5176,
+     "censoring_agree": 0.999806800618238,
+     "costed": 5175,
+     "cost_agree": 0.8278260869565217,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "kPEPE": {
+   "live": 16757,
+   "matched": 5104,
+   "matched_share": 0.3045891269320284,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5104,
+     "censoring_agree": 1.0,
+     "costed": 5104,
+     "cost_agree": 0.8285658307210031,
+     "pass": false
+    },
+    "buy:10000": {
+     "pairs": 5104,
+     "censoring_agree": 1.0,
+     "costed": 5104,
+     "cost_agree": 0.7823275862068966,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5104,
+     "censoring_agree": 1.0,
+     "costed": 5104,
+     "cost_agree": 0.8273902821316614,
+     "pass": false
+    },
+    "sell:10000": {
+     "pairs": 5104,
+     "censoring_agree": 1.0,
+     "costed": 5104,
+     "cost_agree": 0.7788009404388715,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "TIA": {
+   "live": 16756,
+   "matched": 5080,
+   "matched_share": 0.3031749820959656,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5080,
+     "censoring_agree": 1.0,
+     "costed": 5080,
+     "cost_agree": 0.7740157480314961,
+     "pass": false
+    },
+    "buy:10000": {
+     "pairs": 5080,
+     "censoring_agree": 0.9080708661417323,
+     "costed": 3055,
+     "cost_agree": 0.7986906710310966,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5080,
+     "censoring_agree": 1.0,
+     "costed": 5080,
+     "cost_agree": 0.7687007874015748,
+     "pass": false
+    },
+    "sell:10000": {
+     "pairs": 5080,
+     "censoring_agree": 0.9127952755905512,
+     "costed": 3200,
+     "cost_agree": 0.8103125,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "WIF": {
+   "live": 16755,
+   "matched": 5122,
+   "matched_share": 0.3056997911071322,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5122,
+     "censoring_agree": 1.0,
+     "costed": 5122,
+     "cost_agree": 0.8850058570870754,
+     "pass": false
+    },
+    "buy:10000": {
+     "pairs": 5122,
+     "censoring_agree": 0.9943381491604841,
+     "costed": 4998,
+     "cost_agree": 0.8893557422969187,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5122,
+     "censoring_agree": 1.0,
+     "costed": 5122,
+     "cost_agree": 0.8883248730964467,
+     "pass": false
+    },
+    "sell:10000": {
+     "pairs": 5122,
+     "censoring_agree": 0.9927762592737212,
+     "costed": 4993,
+     "cost_agree": 0.8798317644702583,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "AAVE": {
+   "live": 16756,
+   "matched": 5095,
+   "matched_share": 0.3040701838147529,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5095,
+     "censoring_agree": 1.0,
+     "costed": 5095,
+     "cost_agree": 0.8720314033366046,
+     "pass": false
+    },
+    "buy:10000": {
+     "pairs": 5095,
+     "censoring_agree": 1.0,
+     "costed": 5095,
+     "cost_agree": 0.830225711481845,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5095,
+     "censoring_agree": 1.0,
+     "costed": 5095,
+     "cost_agree": 0.8602551521099117,
+     "pass": false
+    },
+    "sell:10000": {
+     "pairs": 5095,
+     "censoring_agree": 1.0,
+     "costed": 5095,
+     "cost_agree": 0.8327772325809617,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "FTM": {
+   "live": 0,
+   "matched": 0,
+   "matched_share": 0.0,
+   "cells": {},
+   "pass": false
+  },
+  "WLD": {
+   "live": 16754,
+   "matched": 5087,
+   "matched_share": 0.30362898412319445,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5087,
+     "censoring_agree": 1.0,
+     "costed": 5087,
+     "cost_agree": 0.8130528798899155,
+     "pass": false
+    },
+    "buy:10000": {
+     "pairs": 5087,
+     "censoring_agree": 0.9976410458030274,
+     "costed": 5070,
+     "cost_agree": 0.772189349112426,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5087,
+     "censoring_agree": 1.0,
+     "costed": 5087,
+     "cost_agree": 0.818360526833104,
+     "pass": false
+    },
+    "sell:10000": {
+     "pairs": 5087,
+     "censoring_agree": 0.9992136819343425,
+     "costed": 5081,
+     "cost_agree": 0.7681558748277898,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "POPCAT": {
+   "live": 16753,
+   "matched": 5082,
+   "matched_share": 0.30334865397242283,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5082,
+     "censoring_agree": 1.0,
+     "costed": 5082,
+     "cost_agree": 0.7186147186147186,
+     "pass": false
+    },
+    "buy:10000": {
+     "pairs": 5082,
+     "censoring_agree": 0.8770169224714679,
+     "costed": 2684,
+     "cost_agree": 0.8848733233979136,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5082,
+     "censoring_agree": 1.0,
+     "costed": 5082,
+     "cost_agree": 0.7225501770956316,
+     "pass": false
+    },
+    "sell:10000": {
+     "pairs": 5082,
+     "censoring_agree": 0.9275875639512003,
+     "costed": 3983,
+     "cost_agree": 0.8794878232488075,
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  "BNB": {
+   "live": 16750,
+   "matched": 5075,
+   "matched_share": 0.3029850746268657,
+   "cells": {
+    "buy:1000": {
+     "pairs": 5075,
+     "censoring_agree": 1.0,
+     "costed": 5075,
+     "cost_agree": 0.9753694581280788,
+     "pass": true
+    },
+    "buy:10000": {
+     "pairs": 5075,
+     "censoring_agree": 1.0,
+     "costed": 5075,
+     "cost_agree": 0.9255172413793104,
+     "pass": false
+    },
+    "sell:1000": {
+     "pairs": 5075,
+     "censoring_agree": 1.0,
+     "costed": 5075,
+     "cost_agree": 0.9773399014778326,
+     "pass": true
+    },
+    "sell:10000": {
+     "pairs": 5075,
+     "censoring_agree": 1.0,
+     "costed": 5075,
+     "cost_agree": 0.9339901477832512,
+     "pass": false
+    }
+   },
+   "pass": false
+  }
+ },
+ "pass": false
+}
