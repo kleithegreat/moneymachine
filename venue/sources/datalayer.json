@@ -180,6 +180,36 @@
     "header": "User-Agent",
     "env": "SEC_USER_AGENT"
    }
+  },
+  {
+   "name": "rtdsm-real-gdp",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/routputMvQd.xlsx"
+  },
+  {
+   "name": "rtdsm-gdp-price-index",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/pMvQd.xlsx"
+  },
+  {
+   "name": "rtdsm-cpi",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/pcpiMvMd.xlsx"
+  },
+  {
+   "name": "rtdsm-payrolls",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/employMvMd.xlsx"
+  },
+  {
+   "name": "rtdsm-unemployment-rate",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/rucQvMd.xlsx"
   }
  ]
 }

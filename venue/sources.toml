@@ -635,3 +635,27 @@ quote = '''Data provided by the API is available under the CC0 1.0 license'''
 notes = '''
 "By using the API, you agree to Wikimedia's terms of use and privacy policy." "The API requires an HTTP User-Agent
 header for all requests." "Clients making requests without a User-Agent header may be blocked without notice."'''
+
+[philadelphia-fed-rtdsm]
+description = '''
+# Federal Reserve Bank of Philadelphia, Real-Time Data Set for Macroeconomists (data layer; stage 8 macro vintages)
+
+Each file holds, per vintage (a column), the whole history of one variable as published then: the macro vintages
+FRED's terms rule out (Blockers). Monthly vintages of real GDP (`routputMvQd`), the GDP price index (`pMvQd`), CPI
+(`pcpiMvMd`) and payroll employment (`employMvMd`), and quarterly vintages of the unemployment rate (`rucQvMd`). "All
+data are updated at the end of each month." Point-in-time use needs certification of each vintage's date against its
+release (stage 8 annex). Preferred citation: Croushore and Stark, "A Real-Time Data Set for Macroeconomists", Journal
+of Econometrics 105 (2001).'''
+
+[[philadelphia-fed-rtdsm.terms]]
+host = "www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/"
+url = "https://www.philadelphiafed.org/about-us/privacy-notice"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''The content provided on this website may be used for informational, educational, and research purposes only.'''
+notes = '''
+Our use is research. The same terms say "Some of the content on this website may be copyrighted. Permission to use
+such copyrighted material must be obtained from the owner." The data set's page carries only the site-wide footer
+"Copyright 2026. All rights reserved. Federal Reserve Bank of Philadelphia"; the Bank is the owner and the use stated
+above is the one it permits. Automated access is not forbidden, but "you may not engage in excessive access to the
+website in a way that could adversely affect the site for others": the recorder fetches five files once a day.'''
