@@ -7,6 +7,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 - **Stage 0 (critical path).** The spent window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC failed C0.7 as written (Qualifications). C0.2, C0.4, C0.5 and C0.9 are met on the second fetch (version 1792613363942, `audit/stage0/ingest-1792613363942.json`). The local-only window that began 2026-10-24 20:13 UTC broke: this PC was off from 2026-10-25 03:00 to 23:22 UTC. Windows from the merge threshold on are merged (human-approved, including boundary polls); the local host drops out of any window its clock-log hole touches. Hyperliquid itself failed for about 2 minutes (502s and read timeouts on the cloud host, L2 gaps up to 112 s across every coin at 2026-10-25 09:32 to 09:35 UTC), so the earliest complete window is cloud-only, about **[2026-10-25 09:35, 2026-10-26 09:35) UTC**, if no gap over 60 s follows.
   - `mm-stage0.timer` (user timer, every 20 min) runs one `flock`-guarded pass of `data/tmp/stage0-close.sh` (untracked). From 2026-10-25 20:20 UTC (16:20 EDT) each pass pulls the cloud host's files and checks `availability.judgment`: the local-only window if it started before the merge threshold (2026-10-24 21:58:13 UTC (17:58 EDT)), else the merged window. Once one is complete it runs `availability` (C0.3), `execution` (C0.7), `witness` (C0.8) and `pytest criteria/test_stage0.py`, then writes `data/tmp/stage0-close.done`. This PC need not be up during the window, only at some time after it.
   - A failure of C0.2, C0.3 or C0.5 triggers the exit rule. The runner counts a skipped criterion as not passed.
+  - If the window breaks again only because Hyperliquid itself was down (gaps on every coin, seen by both hosts), that goes under Blockers with a proposed amendment, never adopted autonomously (human, 2026-10-26).
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
 - **Fixes from GPT's whole-project review of 2026-10-24** (reply: `~/.cache/mm-gpt/project.XShA/reply.txt`; each finding checked against the code by a subagent). The fixes gating the sweeps, stage 3, stage 4 and the stage 10 start are done (`audit/decisions.md`, 2026-10-24 and 25). Still to do, each before the step it gates:
   - **After stage 0 is committed, before C1.4 or any run that records the kernel hash** (human, 2026-10-25). The work is on branch `post-stage0`, kept off `main` because the store is runner-imported: the store and kernel changes and the resolution differential pass there, and the Lean proofs are partly updated (`Ref/Proof/View.lean` still fails). `data/tmp/after-c07.sh` refuses to start until the branch is merged.
@@ -16,20 +17,21 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
     - a held position with no funding row aborts the replay instead of settling zero.
   - **Stages 7–9:** delisting becomes a record with its own knownAt (C8.1); the pilot's last-traded-bar rule is pre-registered and touches only FTM in the search period.
 - **Reboots of this PC** need no manual step. At login, `mm-recorders-up.service` (`ops/recorders-up.sh`) restarts any local recorder whose pidfile names no live process, and the user timers (`mm-stage0`, `mm-oci-pull`, `mm-diskguard`) resume (`Linger=no`, so they run only while the human is logged in). The cloud VM records throughout, and the next pull catches up.
-- **After stage 0 is committed, in order** (priorities of CLAUDE.md §3; order checked by GPT's critical-path review of 2026-10-24):
-  1. **Stage 2.** `data/tmp/after-c07.sh` (untracked, resumable, fail-closed: it starts only once `data/tmp/stage0-close.done` records passed criteria and stage 0's outputs are committed). It runs C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`); estimated 2 h, in an 8 GB scope. Two checks come before reading the sweeps:
-     - how often I10's loss cap binds in the null sweeps (`bankrupt` per campaign and in `null_summary`), since limited liability can give a leveraged strategy a positive expected return under a true null (NULLS.md);
-     - C2.6's feasibility (Blockers).
-
-     Then the stage 2 exit is judged and reviewed.
-  2. **Stage 3:** `freeze-harness`; then `agent-null agent 20` (C3.2, paced one campaign per 5 h, about 4 days, holdout from day 670 of 730); then `agent-summary`; then the real two-arm campaign (`agent-real`, C3.3/C3.4) with one joint holdout release on [2026-08-01, 2026-09-30). It is a pipeline validation run, not a test for edge. Its promotions are qualified ("historical holdout, costs fitted after it") and confirmed only on [2026-11-01, 2027-01-31).
-  3. **Stage 10 start** (alongside the paced stage 3 series, keeping agent sessions apart):
+- **After stage 0 is committed, in order** (priorities of CLAUDE.md §3 and the human's decisions of 2026-10-26):
+  1. **Stage 10 start** (human, 2026-10-26: as soon as stage 0's results are committed; it needs only the cost table). First move `fill_missing` out of `ingest/execution.py` into its own module, so the track's manifest no longer covers the store and the `post-stage0` merge does not change its version. Agent sessions are kept apart from stage 3's.
      - run `data/tmp/stage10-start.sh`: `recorder-restart data/live 480`, a check that the day's polls file parses, then one uncounted dry main session;
      - check `harness.audit` against its transcript;
      - run `thesis-freeze` (commit `audit/stage10/manifest.json`);
      - start `thesis-run` detached: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`.
-  4. **Stage 4:** `agent-null swarm 10` after stage 3's series.
-  5. **Code cleanup** deferred by the human's timing rule:
+  2. **Merge `post-stage0`**: the four correctness fixes, the Lean proofs rebuilt, and I5's tolerance made relative to equity (kernel, SEMANTICS.md, Lean). Before C1.4 or any run that records the kernel hash.
+  3. **Stage 2.** `data/tmp/after-c07.sh` (untracked, resumable, fail-closed: it starts only once `data/tmp/stage0-close.done` records passed criteria and stage 0's outputs are committed). It runs C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`); estimated 2 h, in an 8 GB scope. Two checks come before reading the sweeps:
+     - how often I10's loss cap binds in the null sweeps (`bankrupt` per campaign and in `null_summary`), since limited liability can give a leveraged strategy a positive expected return under a true null (NULLS.md);
+     - the stage 2 report gives the power curve with intervals and the test-alone power, and states that the pilot cannot confirm ordinary edges at this holdout length (C2.6 amendment of 2026-10-26; its N2-long cell needs the I5 fix, step 2).
+
+     Then the stage 2 exit is judged and reviewed.
+  4. **Stage 3:** `freeze-harness`; then `agent-null agent 20` (C3.2, paced one campaign per 5 h, about 4 days, holdout from day 670 of 730); then `agent-summary`; then the real two-arm campaign (`agent-real`, C3.3/C3.4) with one joint holdout release on [2026-08-01, 2026-09-30). It is a pipeline validation run, not a test for edge. Its promotions are qualified ("historical holdout, costs fitted after it") and confirmed only on [2026-11-01, 2027-01-31).
+  5. **Stage 4:** `agent-null swarm 10` after stage 3's series.
+  6. **Code cleanup** deferred by the human's timing rule:
      - misplaced scripts (`audit/stage6/effort.py`) and criterion- or version-named files;
      - PROGRESS.md citations in the runner-imported files (`criteria/`, the stage 0 `ingest` modules, `cli.py`);
      - `kernel/tests/timing/FORMAT.md` folded into its generator;
@@ -40,7 +42,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **Stage 2:** done except the sweeps; calibration v3 passed.
   - **Stages 5 and 6:** done (Qualifications).
   - **Stage 10:** built and tested, C10.4 re-judged under the builder-market revision; waiting for the start sequence above.
-- **Stages 7 to 9:** criteria frozen. Kernel changes wait for the pilot's judged runs (Decisions). Stage 8's scope manifest is committed (`audit/stage8/scope-manifest.md`).
+- **Stages 7 to 9:** criteria frozen. Stage 7 is being built on branch `stage7` (human, 2026-10-26); its kernel changes stay off `main` until the pilot's judged runs are done. Stage 8's scope manifest is committed (`audit/stage8/scope-manifest.md`).
 - **Recorders.** All are restarted only with `recorder-restart <out_dir> [budget]`.
   - **HL, local:** `data/live`, 600/min until the window closes, then 480/min.
   - **Stage 5 sources:** `data/sources_live`, delvingbitcoin.org, Snapshot and the clock log.
@@ -55,16 +57,6 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - Setup and the idle-reclamation risk: `ops/oci/provision.sh`.
 
 ## Blockers
-
-- **C2.6: the approved amendment is infeasible as written; the human chooses its replacement (2026-10-25).** The amendment (power ≥ 0.30 at an N2 oracle mean of 0.7% per 4h step) was committed, then suspended by a dated revision before any sweep (`audit/criteria.md`, C2.6).
-  - **The wall:** the betting test needs a mean near ln 20 / (0.5 × 1,080) ≈ 0.55% per step at stage 2's holdout length. The planted generator cannot produce that while the kernel runs. The frozen oracle (0.1 per coin) reaches 0.1% per step at β = 0.2 (Sharpe 9); at the gross cap of 2 it reaches 0.16% at β = 0.1 with 2% to 3% volatility; at β = 0.2 the kernel aborts (I5 numerics, below). A mean also needs a stated leverage, which the amendment left open.
-  - **Options:**
-    1. **Report only** (recommended): the full power curve over the Sharpe cells with Clopper-Pearson intervals and the test-alone curve, no minimum, and the stage 2 report states that the pilot cannot confirm ordinary edges at this holdout length.
-    2. **A long-holdout diagnostic cell:** simulated markets can have any holdout length at no cost. A cell with a 900-day holdout (5,400 steps, detectable mean about 0.11%) at a planted strength the generator reaches (the oracle at the gross cap, β about 0.07), with power ≥ 0.30 required there. It shows the machinery detects a planted edge when the data suffice, which the pilot's real holdout cannot.
-    3. **Both.**
-  - **Blocks:** stage 2's exit. The sweeps run as frozen (Sharpe cells); C2.6 as written is judged and reported either way.
-
-- **I5's absolute tolerance breaks at huge equity (kernel numerics, found 2026-10-25).** I5 compares two equity computations within an absolute $1e-5. Rounding exceeds that near $1e10 of equity, which only absurd compounding reaches. The mixed sweep's truth check, which runs promoted strategies for 10 years, could hit it, and would fail loudly. The fix is a tolerance relative to equity, in `sim.rs`, `reference/SEMANTICS.md` and the Lean model (`Sim.lean`, whose L6 proof uses the constant), with the proof rechecked. It is not taken now: stage 6's evidence covers the current constant.
 
 - **Free sources that need the human's registration (stages 8 and 10).** Keys go in `.keys.env` (gitignored), one `NAME=value` per line.
   - `FRED_API_KEY` (FRED/ALFRED): macro and rates at the backtest tier's data bar (C8.2), since ALFRED gives each value's vintage and release dates.
