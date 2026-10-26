@@ -26,15 +26,23 @@ struct Parser<'a> {
     text: &'a str,
     s: &'a [u8],
     i: usize,
+    /// The byte span of each top-level object member's value.
+    spans: BTreeMap<String, (usize, usize)>,
 }
 
 /// The value of a JSON text, or None if it is malformed.
 pub fn parse(text: &str) -> Option<Json> {
-    let mut p = Parser { text, s: text.as_bytes(), i: 0 };
+    parse_with_spans(text).map(|(v, _)| v)
+}
+
+/// The value of a JSON text and, if it is an object, the exact text of each of its members' values.
+pub fn parse_with_spans(text: &str) -> Option<(Json, BTreeMap<String, &str>)> {
+    let mut p = Parser { text, s: text.as_bytes(), i: 0, spans: BTreeMap::new() };
     p.space();
     let v = p.value(1)?;
     p.space();
-    (p.i == p.s.len()).then_some(v)
+    let spans = p.spans.iter().map(|(k, &(a, b))| (k.clone(), &text[a..b])).collect();
+    (p.i == p.s.len()).then_some((v, spans))
 }
 
 impl Parser<'_> {
@@ -92,7 +100,11 @@ impl Parser<'_> {
             if out.contains_key(&k) {
                 return None;
             }
+            let start = self.i;
             let v = self.value(depth + 1)?;
+            if depth == 1 {
+                self.spans.insert(k.clone(), (start, self.i));
+            }
             out.insert(k, v);
             self.space();
             let c = self.peek()?;

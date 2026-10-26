@@ -1,0 +1,17 @@
+{
+  "declaration": 1,
+  "name": "hl-funding",
+  "version": 1,
+  "entity": "coin",
+  "times": ["eventTime", "reportedTime"],
+  "fields": {
+    "funding": {"column": "fundingRate", "unit": "1/h"},
+    "premium": {"column": "premium", "unit": "1"}
+  },
+  "cadence": {"held": {"period_ms": 3600000, "phase_ms": 0, "slot": "eventTime"}},
+  "missing": "undefined",
+  "revisions": "latest",
+  "rule": {"rule": 1, "expr": {"max": [{"add": [{"floor": [{"field": "reportedTime"}, {"ms": 3600000}]}, {"ms": 120000}]}, {"add": [{"field": "reportedTime"}, {"ms": 60000}]}]}},
+  "depends": {},
+  "role": {"settlement": {"rate": "fundingRate"}}
+}

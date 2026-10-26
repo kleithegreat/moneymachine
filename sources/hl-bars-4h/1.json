@@ -1,0 +1,20 @@
+{
+  "declaration": 1,
+  "name": "hl-bars-4h",
+  "version": 1,
+  "entity": "coin",
+  "times": ["eventTime"],
+  "fields": {
+    "open": {"column": "open", "unit": "usd/coin"},
+    "high": {"column": "high", "unit": "usd/coin"},
+    "low": {"column": "low", "unit": "usd/coin"},
+    "close": {"column": "close", "unit": "usd/coin"},
+    "volume": {"column": "volume", "unit": "coin"}
+  },
+  "cadence": {"held": {"period_ms": 14400000, "phase_ms": 0, "slot": "eventTime"}},
+  "missing": "undefined",
+  "revisions": "latest",
+  "rule": {"rule": 1, "expr": {"add": [{"field": "eventTime"}, {"ms": 120000}]}},
+  "depends": {},
+  "role": {"bars": {"openTime": "openTime", "open": "open", "high": "high", "low": "low", "close": "close", "trades": "trades"}}
+}

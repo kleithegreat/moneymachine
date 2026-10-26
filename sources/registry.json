@@ -1,0 +1,13 @@
+{
+ "registry": 1,
+ "declarations": {
+  "hl-bars-4h": {
+   "version": 1,
+   "sha256": "c5f6ed32c5cf757df70890ba2442182fb45be25bec431f3237a423637f9e9ca1"
+  },
+  "hl-funding": {
+   "version": 1,
+   "sha256": "417ed408b230522544fda2c10bc00e08d937698bbd3ff49066528d20d659bffe"
+  }
+ }
+}
