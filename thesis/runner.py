@@ -17,7 +17,7 @@ from pathlib import Path
 from gate import kernel
 from ingest.fallback import fill_missing
 from ingest.live import now_ms
-from ingest.policy import DAY, HOUR
+from ingest.policy import DAY, DELTA, HOUR
 from sandbox import session
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
@@ -143,11 +143,13 @@ class Track:
         self.session("noread", "noread", date, snapshot, NOREAD_COMMANDS)
 
     def benchmark(self, monday):
-        """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order."""
+        """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order: each market's last daily
+        close known at that instant (a bar is known DELTA after it closes) against the close 20 days before it."""
         snapshot = self.snapshot(monday)
+        last = (monday - DELTA) // DAY * DAY - DAY
+        before = last - 20 * DAY
         for m in BENCHMARK:
             closes = {r[0]: r[2] for r in snapshot["daily"].get(m, [])}
-            last, before = monday - DAY, monday - 21 * DAY
             if m not in snapshot["markets"] or last not in closes or before not in closes:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "missing daily close"})
                 continue

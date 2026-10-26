@@ -28,6 +28,7 @@ FEEDS = REPO / "venue/sources/datalayer.json"
 KEYS = REPO / ".keys.env"
 REDACTED = b"<credential>"
 TICK = 60
+SPACING = 1  # seconds after each poll, so a burst of due feeds never hammers one host
 
 
 def certify(feed, url):
@@ -118,4 +119,5 @@ def main(out_dir):
                     break
                 if now_ms() - last.get(f["name"], 0) >= f["every_h"] * 3_600_000:
                     last[f["name"]] = poll(http, f, out_dir, keys)["sent"]
+                    stop.wait(SPACING)
             stop.wait(TICK)

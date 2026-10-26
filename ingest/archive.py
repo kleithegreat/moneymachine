@@ -14,6 +14,7 @@ Run it in the `cloud` dev shell, which holds boto3, lz4, numpy and polars.
 import bisect
 import datetime as dt
 import gzip
+import io
 import json
 import math
 from collections import defaultdict
@@ -84,7 +85,8 @@ def fetch(out_dir, coins, hours=HOURS, window=None, client=None):
                     obj = client.get_object(Bucket=BUCKET, Key=f"market_data/{d}/{h}/l2Book/{coin}.lz4", RequestPayer="requester")
                 except client.exceptions.NoSuchKey:
                     continue
-                rows = reduce(lz4.frame.decompress(obj["Body"].read()).decode().splitlines())
+                with io.TextIOWrapper(lz4.frame.open(obj["Body"]), encoding="utf-8") as lines:
+                    rows = reduce(lines)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(gzip.compress(json.dumps(rows).encode()))
 
@@ -101,9 +103,8 @@ def report(out_dir, table_path=REPO / "venue/hyperliquid/execution.json"):
         mids = np.array([m for _, m, _ in rows])
         if len(mids) > 1:
             vol[coin].setdefault(d, []).append(float(np.std(np.diff(np.log(mids)))))
-        for _, _, costs in rows:
-            for cell, c in costs.items():
-                per[(coin, cell)][d].append(c)
+        for cell in rows[0][2] if rows else ():
+            per[(coin, cell)][d].append(np.array([costs[cell] for _, _, costs in rows]))
     out = {}
     for (coin, cell), by_day in per.items():
         if coin not in table:
@@ -113,16 +114,16 @@ def report(out_dir, table_path=REPO / "venue/hyperliquid/execution.json"):
         rv = {d: float(np.mean(v)) for d, v in vol[coin].items()}
         cuts = np.quantile(list(rv.values()), [1 / 3, 2 / 3]) if rv else [math.inf, math.inf]
         groups = defaultdict(list)
-        for d, costs in by_day.items():
-            groups["all"] += costs
-            groups[f"vol-{'low' if rv.get(d, math.inf) <= cuts[0] else 'mid' if rv.get(d, math.inf) <= cuts[1] else 'high'}"] += costs
-            groups[f"{d[:4]}Q{(int(d[4:6]) - 1) // 3 + 1}"] += costs
-        out[f"{coin}:{cell}"] = {"table": entry, **{g: summary(cs, entry) for g, cs in sorted(groups.items())}}
+        for d, chunks in by_day.items():
+            for g in ("all", f"vol-{'low' if rv.get(d, math.inf) <= cuts[0] else 'mid' if rv.get(d, math.inf) <= cuts[1] else 'high'}",
+                      f"{d[:4]}Q{(int(d[4:6]) - 1) // 3 + 1}"):
+                groups[g] += chunks
+        out[f"{coin}:{cell}"] = {"table": entry, **{g: summary(np.concatenate(cs), entry) for g, cs in sorted(groups.items())}}
     return out
 
 
 def summary(costs, entry):
-    c = np.array(costs)
+    c = np.asarray(costs, dtype=float)
     costed = c[np.isfinite(c)]
     q = float(np.quantile(costed, QUANTILE, method="higher")) if len(costed) else None
     return {"snapshots": len(c), "censored": float(np.mean(~np.isfinite(c))),

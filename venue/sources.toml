@@ -492,6 +492,61 @@ Only the feeds: the Board's site policy permits copying its public-domain inform
 distributed without permission") but says nothing about automated access to its other pages.'''
 retrieval = true
 
+[fed-ddp]
+description = """
+# Federal Reserve Board Data Download Program (certified 2026-10-26; human request of 2026-10-26)
+
+Preformatted packages and whole-release SDMX files of H.15 (selected interest rates), H.10/G.5 (exchange rates),
+G.17 (industrial production), Z.1 (financial accounts) and policy rates, fetched only through the program's
+`Output.aspx` "direct download for automated systems" URLs (`venue/sources/datalayer.json`, feeds `fed-ddp-*`). The
+package identifiers were read once from each release's `Choose.aspx` page on 2026-10-26; the pages themselves are
+never fetched automatically. "Data are only available as currently published ... Pre-revision or real time data are
+not available" (help page), so our recording is the only point-in-time record: a package is known no earlier than its
+poll's recv. The Board announced on 2026-07-16 that it will "remove the "Build Your Package" (BYP) option from the DDP
+the week of November 9 ... in preparation for the eventual retirement of the DDP", pointing users to FRED (ruled out)
+or to each release's XML file.
+"""
+
+[[fed-ddp.terms]]
+host = "www.federalreserve.gov/datadownload/Output.aspx"
+url = "https://www.federalreserve.gov/datadownload/help/default.htm"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''
+[The direct download link] can be used by computer programs to retrieve the contents of the data package without
+actually using a browsing window. [...] It performs the same function as clicking the "Download file" button'''
+notes = '''
+The Board's site policy says its public-domain information "may be copied and distributed without permission" (see
+`fed`). The help page warns that "Downloading a large number of series may affect performance", so packages are
+polled at their release cadence, and whole-release files monthly (quarterly for Z.1).'''
+retrieval = true
+
+[nyfed]
+description = """
+# Federal Reserve Bank of New York reference rates (certified 2026-10-26; stage 8 scope manifest revision)
+
+SOFR, TGCR, BGCR and the SOFR averages and index (secured), EFFR and OBFR (unsecured), from the markets API
+(`markets.newyorkfed.org/api/rates/`, documented in its OpenAPI file `static/docs/markets-api.yml`): each rate's last
+ten values every 6 hours, and each family's whole history monthly. Rates are published about 8:00 a.m. ET, and
+"revisions are only effected on the same day as initial publication" (operating policy of 2018-04-16, per the source
+survey). Agent-readable: the terms grant reuse in any format or media. Series shorter than 15 years (SOFR from
+2018-04, OBFR, TGCR, BGCR) are prospective recording only under the stage 8 scope manifest.
+"""
+
+[[nyfed.terms]]
+host = "markets.newyorkfed.org/api/rates/"
+url = "https://www.newyorkfed.org/privacy/termsofuse"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''
+Access the Content, manually or through an automated process or device, provided your access does not have the effect
+of disabling, damaging, or interfering with the function of the Website [...] Download, store, and use Content in any
+format or media'''
+notes = '''
+Terms last updated 2023-06-09. Attribution on copying or distribution: "© [year] Federal Reserve Bank of New York". No
+rate limit and no AI clause.'''
+retrieval = true
+
 [hyperliquid-archive]
 description = '''
 # Hyperliquid's requester-pays S3 archives (surveyed 2026-10-26; nothing fetched beyond the survey)

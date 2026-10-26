@@ -1,0 +1,143 @@
+{
+ "unit_prices": [
+  {
+   "mode": "historical",
+   "unit_prices": {
+    "mbo": 1.8,
+    "mbp-1": 1.8,
+    "mbp-10": 0.5,
+    "tbbo": 28.0,
+    "trades": 28.0,
+    "bbo-1s": 18.0,
+    "bbo-1m": 18.0,
+    "ohlcv-1s": 70.0,
+    "ohlcv-1m": 70.0,
+    "ohlcv-1h": 190.0,
+    "ohlcv-1d": 190.0,
+    "definition": 1.7,
+    "statistics": 1.0,
+    "status": 4.0,
+    "cmbp-1": 1.8,
+    "cbbo-1s": 18.0,
+    "cbbo-1m": 18.0
+   }
+  },
+  {
+   "mode": "historical-streaming",
+   "unit_prices": {
+    "mbo": 1.8,
+    "mbp-1": 1.8,
+    "mbp-10": 0.5,
+    "tbbo": 28.0,
+    "trades": 28.0,
+    "bbo-1s": 18.0,
+    "bbo-1m": 18.0,
+    "ohlcv-1s": 70.0,
+    "ohlcv-1m": 70.0,
+    "ohlcv-1h": 190.0,
+    "ohlcv-1d": 190.0,
+    "definition": 1.7,
+    "statistics": 1.0,
+    "status": 4.0,
+    "cmbp-1": 1.8,
+    "cbbo-1s": 18.0,
+    "cbbo-1m": 18.0
+   }
+  },
+  {
+   "mode": "live",
+   "unit_prices": {
+    "mbo": 2.16,
+    "mbp-1": 2.16,
+    "mbp-10": 0.6,
+    "tbbo": 33.6,
+    "trades": 33.6,
+    "bbo-1s": 21.6,
+    "bbo-1m": 21.6,
+    "ohlcv-1s": 84.0,
+    "ohlcv-1m": 84.0,
+    "ohlcv-1h": 228.0,
+    "ohlcv-1d": 228.0,
+    "definition": 2.04,
+    "statistics": 1.2,
+    "status": 4.0,
+    "cmbp-1": 2.16,
+    "cbbo-1s": 21.6,
+    "cbbo-1m": 21.6
+   }
+  }
+ ],
+ "cost_statistics_parent_2010_2026": 56.43393047154,
+ "cost_ohlcv-1d_parent_2010_2026": 68.686189576983,
+ "cost_definition_one_day_samples": {
+  "2010-07-01": 0.019373640418,
+  "2014-07-01": 0.023735426366,
+  "2018-07-02": 0.029168311507,
+  "2022-07-01": 0.03512480855,
+  "2026-07-01": 0.03443242237
+ },
+ "ifeu_unit_prices": [
+  {
+   "mode": "historical",
+   "unit_prices": {
+    "mbo": 7.0,
+    "mbp-1": 7.0,
+    "mbp-10": 1.75,
+    "tbbo": 100.0,
+    "trades": 100.0,
+    "bbo-1s": 19.0,
+    "bbo-1m": 19.0,
+    "ohlcv-1s": 300.0,
+    "ohlcv-1m": 300.0,
+    "ohlcv-1h": 2400.0,
+    "ohlcv-1d": 2400.0,
+    "definition": 8.0,
+    "statistics": 25.0,
+    "status": 8.0
+   }
+  },
+  {
+   "mode": "historical-streaming",
+   "unit_prices": {
+    "mbo": 7.0,
+    "mbp-1": 7.0,
+    "mbp-10": 1.75,
+    "tbbo": 100.0,
+    "trades": 100.0,
+    "bbo-1s": 19.0,
+    "bbo-1m": 19.0,
+    "ohlcv-1s": 300.0,
+    "ohlcv-1m": 300.0,
+    "ohlcv-1h": 2400.0,
+    "ohlcv-1d": 2400.0,
+    "definition": 8.0,
+    "statistics": 25.0,
+    "status": 8.0
+   }
+  },
+  {
+   "mode": "live",
+   "unit_prices": {
+    "mbo": 8.4,
+    "mbp-1": 8.4,
+    "mbp-10": 2.1,
+    "tbbo": 120.0,
+    "trades": 120.0,
+    "bbo-1s": 22.8,
+    "bbo-1m": 22.8,
+    "ohlcv-1s": 360.0,
+    "ohlcv-1m": 360.0,
+    "ohlcv-1h": 2880.0,
+    "ohlcv-1d": 2880.0,
+    "definition": 9.6,
+    "statistics": 30.0,
+    "status": 9.6
+   }
+  }
+ ],
+ "cost_ifeu_statistics_BG_2018_2026": 1766.239892691374,
+ "cost_ifeu_ohlcv-1d_BG_2018_2026": 57.79287815094,
+ "cost_ifeu_definition_BG_2018_2026": 35.491456985474,
+ "datasets_count": 30,
+ "retrieved": "2026-10-26"
+}

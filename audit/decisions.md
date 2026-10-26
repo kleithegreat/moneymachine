@@ -114,3 +114,31 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Why:** the branch's fix (a missing payment aborts instead of paying zero) aborted every search run whose last step held a position. The store is half-open on bar close, so the bar opening at end − BAR closes at the holdout start and lives in the holdout, while the last step settles hour end − BAR at that bar's open. Fills already avoid this bar (`b + 3·BAR ≤ end`). The paper's rule for funding (§Prices: "valued at the latest earlier reference when the hour's own is missing") removes the case. On complete data every price is unchanged; only a missing price bar now settles at the earlier open instead of zero (main) or an abort (the branch), and it never reads a holdout row (I8).
 - **GPT:** not consulted; this follows the paper's stated rule and changes no result on complete data. It reaches GPT with the merged kernel in the next red-team round.
 - **Reverse:** revert the commit on `post-stage0` (3273063) before the merge.
+
+## 2026-10-26 15:51 UTC (11:51 EDT): stage 0 exits with C0.7's coverage failure as a qualification (human decision)
+
+- **What:** C0.7's coverage failure on the judged window (BTC sell $1k 0.894, SUI sell $10k 0.882, kPEPE sell $10k 0.817) is a recorded qualification of the pilot, never a pass, and stage 0 exits with it (`audit/criteria.md`, C0.7). Stage 2's sweeps and stage 3 proceed on C0.7's table. No redesigned archive equivalence check: the archive table lapsed when its frozen check failed (`audit/stage3/archive-equivalence.json`).
+- **Why (as proposed):** no single quantile of a one-day constant model met both of C0.7's limits on the spent window, so retrying windows would fit the criterion; the understatements are at most 0.5 bps against a 4.5 bps taker fee, and the pilot validates machinery.
+- **Reverse:** a C0.7 amendment adopted by the human, with the results that use the table rerun under it.
+
+## 2026-10-26 15:51 UTC (11:51 EDT): stage 10 runs on C0.7's committed table (human decision)
+
+- **What:** stage 10 (track `thesis-34a49c19a8f9`, frozen 2026-10-26 15:20:50 UTC) charges the committed C0.7 cells, and every stage 10 result carries C0.7's qualification. Moved from "Decisions awaiting the human's review".
+- **Reverse:** stop `thesis-run`, refit the table, and freeze a new track version.
+
+## 2026-10-26 17:25 UTC (13:25 EDT): the licensing boundary for stage 8 sources (human decision)
+
+- **What:** a source whose terms restrict AI or LLM use (CME data through Databento, Norgate, Nasdaq-originated data and the like) is *kernel-only*: its rows enter only the deterministic kernel and gate, and research agents see only aggregate kernel outputs, as the stage 3 brief already states ("You cannot see the data"). Sources whose terms allow it stay readable by agents. No written permission requests to vendors. The human accepts this reading of the terms; training is off on all of the human's Claude and ChatGPT accounts.
+  - **May cross:** full schemas and metadata; evaluation reports by year and regime, contribution by instrument and class, turnover, exposure, hit rate, results split by the strategy's own condition, drawdown timing; coarse descriptive statistics.
+  - **Never crosses:** anything that reconstructs rows, such as fine-resolution equity curves (a long-only single-instrument curve is the price series) or any per-date value lookup.
+  - **Design:** paper §9 (multi-asset research), written now: the role is a declaration field, and the boundary is a frozen list of permitted report fields with minimum aggregation, tested by attempted reconstruction from single and combined reports. Implementation follows stage 8's ordering.
+  - **This session:** small amounts of vendor data may be seen while debugging, but counts, hashes, schemas and test results are preferred to printed rows.
+- **Also decided:** the stage 8 scope manifest's selection rule 1 (keyless, no account) is superseded: accounts are fine under the human's name and email. The manifest is revised per its own rule (dated, reviewed, before affected evidence is inspected; `audit/stage8/scope-manifest.md`), from the documentation-only source survey (`audit/stage8/sources-survey/`). Purchases (Databento, Norgate, Massive) are undecided and listed under Blockers.
+- **Reverse:** a human decision; a source's role is a declaration field, so changing it is a new declaration version.
+
+## 2026-10-26 17:30 UTC (13:30 EDT): GPT's sandbox also denies `execute`, `task` and `subagent` (human request)
+
+- **What:** opencode's Code Mode tool `execute` runs JavaScript whose `fetch()` reaches the web without the `webfetch` permission, and its sub-agent tool was not denied either. Every GPT directory's `opencode.json` now also denies `execute`, `task` and `subagent` (CLAUDE.md, Subagents and GPT).
+- **Which past runs it could have touched** (`audit/gpt-sandbox/findings.md`, from opencode's session store): only the stage 8 documentation survey used `execute`, with web access allowed on purpose. Five runs from directories inside the repo, under configs written before `external_directory` was denied, read `PROGRESS.md`: four reviews, and `derived3`, GPT's independent implementation of the derived event counts (C5.5) on 2026-10-22. It saw status and criteria summaries, no source code. No other independent implementation or red-team round used a tool outside its directory.
+- **Queued for when GPT is available** (it hit its ChatGPT usage limit at about 17:20 UTC): the live probes of `execute` under the old and new configs, and a clean reimplementation of the event counts from `derived.md` alone, differential-tested against ours.
+- **Reverse:** the denials are configuration; removing them restores the gap.

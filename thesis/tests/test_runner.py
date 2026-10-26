@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from gate import kernel
-from ingest.policy import DAY, HOUR
+from ingest.policy import DAY, DELTA, HOUR
 from thesis import report, runner
 
 ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
@@ -23,10 +23,11 @@ class FakeMarket:
         return {m: False for m in runner.BENCHMARK} | {"X": False}
 
     def bars(self, market, interval, now=None):
+        """Daily bars known by `now`, as the real market's: a bar is known DELTA after its close."""
         if interval == "1d":
             up = market != "ETH"
             return [[t * DAY, 100.0 + (t if up else -t), 100.0 + (t + 1 if up else -t - 1)] for t in range(MONDAY // DAY - 400, MONDAY // DAY)
-                    if market != "flx:OIL" or t != MONDAY // DAY - 1]
+                    if (market != "flx:OIL" or t != MONDAY // DAY - 2) and (now is None or (t + 1) * DAY + DELTA <= now)]
         return [[h * HOUR, 100.0, 100.0] for h in range(MONDAY // HOUR - 200, min(self.until, now or self.until) // HOUR)]
 
     def funding(self, market, now=None):
