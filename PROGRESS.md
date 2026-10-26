@@ -10,11 +10,12 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - If the window breaks again only because Hyperliquid itself was down (gaps on every coin, seen by both hosts), that goes under Blockers with a proposed amendment, never adopted autonomously (human, 2026-10-26).
   - Until the results are reviewed and committed, nothing changes in code the runner imports, and the HL recorder is not restarted (human, 2026-10-23).
 - **Fixes from GPT's whole-project review of 2026-10-24** (reply: `~/.cache/mm-gpt/project.XShA/reply.txt`; each finding checked against the code by a subagent). The fixes gating the sweeps, stage 3, stage 4 and the stage 10 start are done (`audit/decisions.md`, 2026-10-24 and 25). Still to do, each before the step it gates:
-  - **After stage 0 is committed, before C1.4 or any run that records the kernel hash** (human, 2026-10-25). The work is on branch `post-stage0`, kept off `main` because the store is runner-imported: the store and kernel changes and the resolution differential pass there, and the Lean proofs are partly updated (`Ref/Proof/View.lean` still fails). `data/tmp/after-c07.sh` refuses to start until the branch is merged.
+  - **After stage 0 is committed, before C1.4 or any run that records the kernel hash** (human, 2026-10-25). The work is on branch `post-stage0`, kept off `main` because the store is runner-imported: it is complete, its full check passes (242), and the Lean proofs build. `data/tmp/after-c07.sh` refuses to start until the branch is merged.
     - a revision whose values differ from the key's first revision is known no earlier than its fetchedAt, in `store.py` and `market.rs`, with a differential test. Paper §5's "a later correction hides a value" is false until then, but no pilot store holds a changed value;
     - `Store` reads its own `policy.json`;
     - Rust skips tombstones;
-    - a held position with no funding row aborts the replay instead of settling zero.
+    - a held position with no funding row aborts the replay instead of settling zero, and funding is priced at the open of the coin's latest bar opened by its hour (`audit/decisions.md`, 2026-10-26 05:18 UTC);
+    - I5's tolerance is relative to equity (criteria revision of 2026-10-26 05:18 UTC).
   - **Stages 7–9:** delisting becomes a record with its own knownAt (C8.1); the pilot's last-traded-bar rule is pre-registered and touches only FTM in the search period.
 - **Reboots of this PC** need no manual step. At login, `mm-recorders-up.service` (`ops/recorders-up.sh`) restarts any local recorder whose pidfile names no live process, and the user timers (`mm-stage0`, `mm-oci-pull`, `mm-diskguard`) resume (`Linger=no`, so they run only while the human is logged in). The cloud VM records throughout, and the next pull catches up.
 - **After stage 0 is committed, in order** (priorities of CLAUDE.md §3 and the human's decisions of 2026-10-26):
@@ -24,7 +25,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
      - check `harness.audit` against its transcript;
      - run `thesis-freeze` (commit `audit/stage10/manifest.json`);
      - start `thesis-run` detached: `setsid systemd-run --user --scope --quiet --unit=mm-thesis-run-$(date +%s) nix develop -c python -m cli thesis-run >> data/thesis/run.log 2>&1 < /dev/null &`.
-  2. **Merge `post-stage0`**: the four correctness fixes, the Lean proofs rebuilt, and I5's tolerance made relative to equity (kernel, SEMANTICS.md, Lean). Before C1.4 or any run that records the kernel hash.
+  2. **Merge `post-stage0`** (worktree `../moneymachine-post`) before C1.4 or any run that records the kernel hash.
   3. **Stage 2.** `data/tmp/after-c07.sh` (untracked, resumable, fail-closed: it starts only once `data/tmp/stage0-close.done` records passed criteria and stage 0's outputs are committed). It runs C1.4 and C1.8 into `audit/stage1/`, `freeze-searcher`, then the sweeps (`sweep null`, `betas`, `sweep mixed`, `truth`, `probes-top5`, `sweep-summary`); estimated 2 h, in an 8 GB scope. Two checks come before reading the sweeps:
      - how often I10's loss cap binds in the null sweeps (`bankrupt` per campaign and in `null_summary`), since limited liability can give a leveraged strategy a positive expected return under a true null (NULLS.md);
      - the stage 2 report gives the power curve with intervals and the test-alone power, and states that the pilot cannot confirm ordinary edges at this holdout length (C2.6 amendment of 2026-10-26; its N2-long cell needs the I5 fix, step 2).
@@ -45,8 +46,8 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **Stage 10:** built and tested, C10.4 re-judged under the builder-market revision; waiting for the start sequence above.
 - **Stages 7 to 9:** criteria frozen. Stage 7 is being built on branch `stage7`, worktree `../moneymachine-stage7` (human, 2026-10-26); its kernel changes stay off `main` until the pilot's judged runs are done.
   - **Done there:** the rule language spec (`kernel/RULES.md` v1, reviewed by GPT and a labeled Opus review) with its frozen C7.6 suite, implemented in Python (`ingest/knownat.py`) and Rust (`mm rules`); GPT's independent implementation agrees on all 2,118 cases (development run). Declarations (`kernel/SOURCES.md` v1, with evidence declarations) and certificates (`kernel/CERTIFICATES.md` v1), both revised from GPT's review; the declaration reader and registry (`mm::source`); the two venue feeds declared.
-  - **Also done:** the C7.4 migration annex, revised from GPT's review and frozen later with its migration manifest; the resolver suite (C7.6: 30 hand cases and 1,200 generated queries, frozen first) with Python and Rust resolvers that agree on it; GPT's independent resolver is being written.
-  - **Next:** the three-way resolver differential; then, after the `post-stage0` merge and the rebase, the kernel generalization, the verifier and its policy, and the event feeds' lineage.
+  - **Also done:** the C7.4 migration annex, revised from GPT's review and frozen later with its migration manifest; the resolver suite (C7.6: 30 hand cases and 1,200 generated queries, frozen first) with Python, Rust and GPT's independent resolvers agreeing on all 332 cases (development run). GPT's review of the draft certification policy (`audit/stage7/policy-review-gpt.md`) found it unfreezable as prose: its tests become verifier code, and the policy pins that code and its parameters, freezing with the verifier.
+  - **Next:** after the `post-stage0` merge and the rebase, the kernel generalization, the verifier and its policy, and the event feeds' lineage.
   - **Judged runs** wait for the rebase onto the pilot's baseline commit. Stage 8's scope manifest is committed (`audit/stage8/scope-manifest.md`).
 - **Recorders.** All are restarted only with `recorder-restart <out_dir> [budget]`.
   - **HL, local:** `data/live`, 600/min until the window closes, then 480/min.

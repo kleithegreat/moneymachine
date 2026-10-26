@@ -107,3 +107,10 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
     - binding schema and unit validation, an executable policy, explicit supersession, the operator CLI, the registry and rule-byte identity, and a migration annex required before C7.4.
   - **Checked against the kernel:** a held input takes the last delivered observation whole, whatever its event time, and an event value counts only at the tick of its own hour (`machine.rs`), as the revision states.
   - **Reverse:** a version 2 of either document.
+
+## 2026-10-26 05:18 UTC (01:18 EDT): funding priced at the latest bar opened by its hour (branch `post-stage0`)
+
+- **What:** a held coin's funding at hour h is priced at the open of its latest bar opening at or before h, the lookup the marks already use, instead of the bar opening at h − (h mod BAR). A missing funding rate still aborts with `R_SETTLEMENT_MISSING`.
+- **Why:** the branch's fix (a missing payment aborts instead of paying zero) aborted every search run whose last step held a position. The store is half-open on bar close, so the bar opening at end − BAR closes at the holdout start and lives in the holdout, while the last step settles hour end − BAR at that bar's open. Fills already avoid this bar (`b + 3·BAR ≤ end`). The paper's rule for funding (§Prices: "valued at the latest earlier reference when the hour's own is missing") removes the case. On complete data every price is unchanged; only a missing price bar now settles at the earlier open instead of zero (main) or an abort (the branch), and it never reads a holdout row (I8).
+- **GPT:** not consulted; this follows the paper's stated rule and changes no result on complete data. It reaches GPT with the merged kernel in the next red-team round.
+- **Reverse:** revert the commit on `post-stage0` (3273063) before the merge.
