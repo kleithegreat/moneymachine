@@ -43,7 +43,10 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **Stage 2:** done except the sweeps; calibration v3 passed.
   - **Stages 5 and 6:** done (Qualifications).
   - **Stage 10:** built and tested, C10.4 re-judged under the builder-market revision; waiting for the start sequence above.
-- **Stages 7 to 9:** criteria frozen. Stage 7 is being built on branch `stage7` (human, 2026-10-26); its kernel changes stay off `main` until the pilot's judged runs are done. Stage 8's scope manifest is committed (`audit/stage8/scope-manifest.md`).
+- **Stages 7 to 9:** criteria frozen. Stage 7 is being built on branch `stage7`, worktree `../moneymachine-stage7` (human, 2026-10-26); its kernel changes stay off `main` until the pilot's judged runs are done.
+  - **Done there:** the rule language spec (`kernel/RULES.md` v1, reviewed by GPT and a labeled Opus review) with its frozen C7.6 suite, implemented in Python (`ingest/knownat.py`) and Rust (`mm rules`); GPT's independent implementation agrees on all 2,118 cases (development run). Declarations (`kernel/SOURCES.md` v1, with evidence declarations) and certificates (`kernel/CERTIFICATES.md` v1), both revised from GPT's review; the declaration reader and registry (`mm::source`); the two venue feeds declared.
+  - **Next:** GPT's review of the C7.4 migration annex (`audit/stage7/migration-annex.md`); the resolver suite (C7.6, at least 1,000 frozen queries); then, after the `post-stage0` merge and the rebase, the kernel generalization, the verifier and the event feeds' lineage.
+  - **Judged runs** wait for the rebase onto the pilot's baseline commit. Stage 8's scope manifest is committed (`audit/stage8/scope-manifest.md`).
 - **Recorders.** All are restarted only with `recorder-restart <out_dir> [budget]`.
   - **HL, local:** `data/live`, 600/min until the window closes, then 480/min.
   - **Stage 5 sources:** `data/sources_live`, delvingbitcoin.org, Snapshot and the clock log.
