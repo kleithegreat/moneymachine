@@ -197,3 +197,48 @@ exactly the criteria's list. Checks beyond it run only after the applicable anne
 already seen beyond the list is recorded in `audit/stage8/exposure.md`, and each class annex accounts for it
 (GPT B1). GPT's findings B1 and B3 to B9 are answered in a further revision before this manifest authorizes any
 research use; until then it authorizes recording only.
+
+## Revision 2026-10-26 22:18 UTC (18:18 EDT): answers to GPT's review B1 and B3 to B9
+
+Each answer narrows what this manifest authorizes; none widens it. Recording stays authorized; research use of any
+source or class needs every gate below met and a class annex frozen and reviewed.
+
+- **Status of every source and class** (N4). Four states, and a source moves forward only with the evidence named:
+  *recording authorized* (certified for automated retrieval and storage: the data-layer feeds, Databento's pulls);
+  *research proposed* (named below with a role); *annex blocked* (a gate below unmet); *admitted* (a frozen,
+  reviewed class annex). Nothing is admitted today.
+- **Exposure first** (B1). Prior exposure is judged by information, not by stage: any observation, diagnostic or
+  derived figure a participant or process that could influence a campaign has seen is listed in
+  `audit/stage8/exposure.md` before any selection it could influence, with the earlier sessions' data-layer work
+  compiled from their transcripts. A class annex places exposed evidence as search or spent and never as fresh.
+- **Permission per operation** (B3, B4). Admission of a kernel-only source needs a permissions record quoting the
+  governing clauses, upstream terms included (CME's for Databento, EIA's NYMEX series and Portara/CQG), for each
+  intended operation: acquisition, storage, deterministic transformation, generator fitting and calibration, kernel
+  evaluation, each report shown to an agent or reviewer, recipients, and retention or deletion at termination. A role
+  label or a quotation of a prohibition is not a permission. Databento's certification (operator decision,
+  2026-10-26) covers acquisition, storage and deterministic kernel processing; outputs shown to agents need their
+  own determination, which is the human's (`PROGRESS.md`, decisions awaiting review).
+- **Disclosure boundary** (B5). The operator's coding sessions are AI recipients. Their debugging allowance is the
+  human's rule and stands as written; this manifest adds that pre-annex disclosures from any recording stay within
+  the criteria's integrity list, and that each class annex freezes its report schema before reports exist.
+- **Norgate retention** (B6). Open, like every other vendor's, until the full clause 21, its definitions and its
+  survival terms are read; retention, disclosure, reuse and reproduction are judged artifact by artifact.
+- **Selection rules for proposed series** (B7). A research-proposed series meets rules 3 and 4 from catalog
+  metadata. Recording-only series (SOFR, OBFR, TGCR, BGCR and any series under fifteen catalog years) are labelled
+  as such and cannot enter research through recording alone. Dating a series from its first and last observations
+  does not replace catalog metadata unless a reviewed revision of this manifest allows it before the affected
+  evidence is accessed.
+- **Macro extension** (B8). Research proposed only for series named by stable identity with a target or feature
+  role, or chosen by a metadata-only population and eligibility rule frozen in a reviewed revision before any
+  selection-relevant diagnostic exists. Until then the extension is recording only; the ECB FX population and rule
+  stand unchanged.
+- **Index membership** (B9). Constituent-universe admission is blocked until independent historical membership or
+  listing evidence meets C8.1 with zero unexplained errors; Norgate checked against itself is not that evidence. An
+  ETF proxy study needs a metadata-only proxy-selection rule and stable identities frozen first (N2), audits the ETFs'
+  own population and lifecycle, and discharges no index-level or constituent claim.
+- **Purchases** (N1). A purchase is one prerequisite of a class, not its admission; certification, lifecycle,
+  accounting and audit gates remain.
+- **Exclusion reasons** (N3). Each exclusion points to its terms record, and the record says whether the source is
+  prohibited, not verified, or not selected.
+
+These answers go to GPT for review before this manifest authorizes any research use.
