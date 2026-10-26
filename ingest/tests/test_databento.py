@@ -16,8 +16,16 @@ PLAN = {"dataset": "GLBX.MDP3", "roots": ["CL", "GC"], "start": "2010-06-06", "s
 def test_windows_start_at_the_plan_start_then_each_month():
     assert [d.isoformat() for d in databento.months("2010-06-06", dt.date(2010, 9, 1))] == \
         ["2010-06-06", "2010-07-01", "2010-08-01", "2010-09-01"]
-    q = next(databento.requests(PLAN, PLAN["pulls"][0], dt.date(2010, 6, 30)))
-    assert (q["symbols"], q["start"], q["end"]) == ("CL.FUT,GC.FUT", "2010-06-06", "2010-06-07")
+    qs = list(databento.requests(PLAN, PLAN["pulls"][0], dt.date(2011, 1, 15)))
+    assert (qs[0]["symbols"], qs[0]["start"], qs[0]["end"]) == ("CL.FUT,GC.FUT", "2010-06-06", "2010-06-07")
+    assert (qs[-1]["start"], qs[-1]["end"]) == ("2011-01-02", "2011-01-03"), "a Saturday's snapshot moves to the Sunday"
+
+
+def test_a_pull_by_raw_symbol_takes_each_whole_month_for_its_snapshot_outrights():
+    pull = {"name": "s", "schema": "statistics", "stype_in": "raw_symbol"}
+    qs = list(databento.requests(PLAN, pull, dt.date(2010, 8, 1), {"2010-06": ["CLN0", "GCQ0"], "2010-07": ["CLQ0"]}))
+    assert [(q["symbols"], q["start"], q["end"]) for q in qs] == \
+        [("CLN0,GCQ0", "2010-06-06", "2010-07-01"), ("CLQ0", "2010-07-01", "2010-08-01")]
 
 
 def server(cost, calls):
@@ -49,3 +57,10 @@ def test_a_pull_resumes_from_its_manifest(tmp_path):
     databento.pull("d", tmp_path / "out", server(0.1, calls), plan, dt.date(2010, 8, 15))
     assert calls == ["/v0/metadata.get_cost", "/v0/timeseries.get_range"]
     assert len(open(tmp_path / "out" / "manifest.jsonl").readlines()) == 3
+
+
+def test_a_server_error_is_retried(monkeypatch):
+    monkeypatch.setattr(databento.time, "sleep", lambda s: None)
+    replies = iter([httpx.Response(504), httpx.Response(200, json=0.5)])
+    http = httpx.Client(transport=httpx.MockTransport(lambda req: next(replies)), base_url=databento.API)
+    assert databento.send(http, "metadata.get_cost", {}).json() == 0.5

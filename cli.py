@@ -58,7 +58,7 @@ COMMANDS = {
                      "first observations of settled funding and closed bars in the judged window, and the NTP clock record over it"),
     "execution": ("ingest.execution", "calibrate", ["live_dir", "sources_dir", "model_out", "report_out", "oci_dir?"],
                   "the taker cost model from the judged L2 snapshots, and its held-out validation"),
-    "databento-price": ("ingest.databento", "price", ["name", "out?"], "a declared Databento pull's cost from the free metadata calls"),
+    "databento-price": ("ingest.databento", "price", ["name", "out_dir", "out?"], "a declared Databento pull's cost from the free metadata calls"),
     "databento-pull": ("ingest.databento", "pull", ["name", "out_dir"], "a declared Databento pull, each request priced first, within the plan's spend cap (resumable)"),
     "witness": ("ingest.witness", "replay", ["data_root", "version:int", "out"], "W0's independent replay"),
     "holdout-hashes": ("ingest.holdout", "main", ["data_root", "audit_path"], "record the sha256 of new holdout files"),

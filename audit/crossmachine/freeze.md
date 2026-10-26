@@ -38,7 +38,7 @@ result rows, return blobs, and every ledger column but the wall-clock `created`,
 dispatched X86_V2 and X86_V3 there against X86_V4 and AVX512_ICL here, without effect on any output. prodesk7 and
 gmktec (an AMD CPU) each run this same test before their first judged use.
 
-## Test 2 on prodesk7 and gmktec, 2026-10-26 21:46 UTC (17:46 EDT): identical
+## Test 2 on prodesk7 and gmktec, 2026-10-26 21:39 UTC (17:39 EDT): identical
 
-Run 21:34–21:40 UTC with the same shipped binary: all nine campaigns identical on both (`result-2-compare-prodesk7.json`,
+Run from 21:34 UTC with the same shipped binary: all nine campaigns identical on both (`result-2-compare-prodesk7.json`,
 `result-2-compare-gmktec.json`), gmktec on an AMD Ryzen 5 3500U. numpy dispatched X86_V2 and X86_V3 on both.
