@@ -1,4 +1,4 @@
-# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 3)
+# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 4)
 
 C7.7 requires the Lean semantics to be parameterized by validated declarations and bindings; every stage 6 law to keep
 its guarantee for every admitted declaration, held and event cadences included; each law whose definitions change to
@@ -6,54 +6,48 @@ be revised, independently reviewed and frozen before its proof; and a binding la
 whenever a required source lacks a valid, matching, in-scope certificate. `Ref/Spec.lean` and `Ref/Laws.lean` stay
 frozen as version 1 until this draft is resolved.
 
-History: revision 1 was reviewed by a fresh-context Opus agent (11 defects, D1–D11); revision 2 re-derived the
-design and was reviewed by another (blocking B1–B5, further N1–N10). Revision 3 answers both reviews (§8). GPT's
-review is queued; whatever it finds is fixed then. Each answer is a design change, not a patch.
+History: three fresh-context Opus reviews (GPT unavailable; its review queued): `laws-review-opus-1.md` (D1–D11),
+`-2.md` (B1–B5, N1–N10), `-3.md` (F1–F8, N1–N8). Revision 4 answers the third (§10). It was the third rejection of this
+exit, so each finding's effect on a false-discovery or leakage outcome is recorded there (CLAUDE.md, rule 3).
 
 ## 1. The design, from what the semantics reads
 
 - **Everything a decision reads is delivered.** Inputs, the decision's freshness and its price are reads of delivered
-  observations, so a role provider's observations carry their role columns and are delivered like any source's.
-  Execution (scheduled-bar opens, marks, extremes, settlement) reads projections of the same observations, after the
-  decision.
-- **Cadence decides how a delivered observation is read.** The machine keeps, per source and coin, the observations
-  delivered so far. A held input reads the latest delivered; an event input reads the one whose slot is the current
-  hour. One store, two reads, both selected by the registry.
-- **Delivery is version 1's three loops, generalized.** At each tick, each delivered source's due observations are
-  delivered in registry order, and within a source in (knownAt, coin, key) order. Version 1 is the case of a registry
-  ordered funding, bars, events. Every bound source is delivered (version 1 delivers every event dataset in the
-  store), and every delivered source must be certified.
-- **Admission is a record, and everything about it is a definition.** It pins one binding per source, the
-  certificates, the supersession records at a ledger position, the admitted observations with their datasets, and the
-  holdout boundary. "Bound", "certified" and "authorized" are definitions over it, checked in an order that never
-  opens a payload before the payload-free checks pass.
+  observations; a role provider's observations carry their role columns and are delivered like any source's.
+  Execution (scheduled-bar opens, marks, extremes, settlement) reads projections of the same observations.
+- **Cadence decides how a delivered observation is read.** Per source and coin the machine keeps the observations
+  delivered so far; a held input reads the latest, an event input the one whose slot is the current hour.
+- **Delivery order is per source.** Within a source, observations are delivered in (knownAt, coin, key) order, which
+  is version 1's per-source order; across sources the order is fixed by (knownAt, source, coin, key) and is
+  unobservable (SOURCES.md §4): stores are per source, `maxKnown` is a maximum, and the causality check is per
+  observation. Version 1 does not deliver its sources in a uniform cross-source order either (it merges its two event
+  feeds by coin), so C7.4's delivery artifact is one stream per source (§9).
+- **Admission is a record; every check over it is a definition; nothing reads a payload before the payload-free
+  checks pass.** I8's row bound is checked on the time column of every stored row the run opens, before resolution,
+  as version 1 checks it at load.
 
 ## 2. Registry, roles and inputs
 
 ```lean
-inductive Cadence where
-  | held | event | evidence
-  deriving DecidableEq, Repr
+inductive Cadence where | held | event | evidence deriving DecidableEq, Repr
+inductive Role where | bars | settlement deriving DecidableEq, Repr
 
-inductive Role where
-  | bars | settlement
-  deriving DecidableEq, Repr
-
-/-- One active declaration (SOURCES.md §1): its file's hash and its rule bytes' hash (what a certificate must match),
-fields (input name and unit, in name order), cadence, dependencies (registry indices) and the roles it can provide. -/
+/-- One active declaration (SOURCES.md §1, version 2): its file's hash (which covers its rule bytes), its fields
+(input name, stored column, unit; in input-name order), the stored time columns its availability rule reads
+(`fetchedAt` excluded), the stored column holding its event time (for I8, also on evidence declarations), its
+cadence, dependencies (registry indices), and, per role it can provide, each role column's stored column. -/
 structure Decl where
   hash : Hash
-  rule : Hash
-  fields : Array (String × Dim)
+  fields : Array (String × String × Dim)
+  times : List String
+  eventColumn : String
   cadence : Cadence
   depends : List Nat
-  roles : List Role
+  roles : List (Role × List (String × String))
 
 structure Registry where
   decls : Array Decl
 
-/-- Every source reachable from `xs` through `depends`, `xs` included; `fuel` bounds the walk, and the registry's
-size suffices when its dependencies are acyclic. -/
 def Registry.closure (reg : Registry) : Nat → List Nat → List Nat
   | 0, xs => xs.eraseDups
   | fuel + 1, xs => (xs ++ reg.closure fuel (xs.flatMap fun s => (reg.decls[s]!).depends)).eraseDups
@@ -63,44 +57,48 @@ def Registry.Valid (reg : Registry) : Prop :=
   (∀ d ∈ reg.decls.toList, ∀ s ∈ d.depends, s < reg.decls.size) ∧
   (∀ s < reg.decls.size, s ∉ reg.closure reg.decls.size ((reg.decls[s]!).depends)) ∧
   (∀ d ∈ reg.decls.toList, (d.fields.toList.map (·.1)).Sorted (· < ·)) ∧
-  (∀ d ∈ reg.decls.toList, d.cadence = .evidence → d.fields.size = 0 ∧ d.roles = [])
+  (∀ d ∈ reg.decls.toList, d.cadence = .evidence → d.fields.size = 0 ∧ d.roles = []) ∧
+  (∀ d ∈ reg.decls.toList, ∀ r ∈ d.roles, r.1 = .bars → (r.2.map (·.1)) = ["open", "high", "low", "close", "trades"]) ∧
+  (∀ d ∈ reg.decls.toList, ∀ r ∈ d.roles, r.1 = .settlement → (r.2.map (·.1)) = ["rate"])
 
 structure Input where
   source : Nat
   field : Nat
   deriving DecidableEq, Repr
 
-/-- The run's role providers: distinct declarations, each listing its role. -/
 structure Roles where
   bars : Nat
   settlement : Nat
 
 def Roles.Valid (reg : Registry) (r : Roles) : Prop :=
   r.bars ≠ r.settlement ∧ r.bars < reg.decls.size ∧ r.settlement < reg.decls.size ∧
-  Role.bars ∈ (reg.decls[r.bars]!).roles ∧ Role.settlement ∈ (reg.decls[r.settlement]!).roles
+  ((reg.decls[r.bars]!).roles.any (·.1 == .bars)) ∧ ((reg.decls[r.settlement]!).roles.any (·.1 == .settlement))
+
+def Decl.roleColumns (d : Decl) : List String := d.roles.flatMap fun r => r.2.map (·.2)
 ```
 
 `check : Registry → String → Except Code Program` resolves an input name to its unique `⟨source, field⟩`; an
-undeclared name is `E_UNKNOWN_INPUT`. `Program.WF reg p` requires, for `.input inp`: `inp.source < reg.decls.size`,
-`inp.field <` its field count, and `p.types[i]! = .num` the declared unit; its unit and cadence are never stored on
-the program. `CheckerAccepted reg p := reg.Valid ∧ ∃ text, check reg text = .ok p`.
-`Program.sources p := (p.nodes.toList.filterMap fun n => match n with | .input i => some i.source | _ => none).eraseDups`.
+undeclared name is `E_UNKNOWN_INPUT`. `Program.WF reg p`: for `.input inp`, `inp.source < reg.decls.size`, `inp.field <`
+its field count, and `p.types[i]! = .num` the field's unit. `CheckerAccepted reg p := reg.Valid ∧ ∃ text, check reg
+text = .ok p`. `Program.sources p := (p.nodes.toList.filterMap fun n => match n with | .input i => some i.source | _ =>
+none).eraseDups`.
+
+**Input references in the text.** `InputRef (v : Json) (name : String)` holds when `{"input": name}` occurs in `v`'s
+`weight`, in the body of any `let` (used or not), or in `prediction.condition`, at any depth of the expression grammar
+(DSL.md), and nowhere else (not in names, mechanism text or other strings).
 
 ## 3. Observations and admission
 
 ```lean
-/-- A role provider's columns for one observation (SOURCES.md §6, version 2): a bar's open, extremes, close and trade
-count (its open time is key − BAR), or a settlement rate. -/
 inductive RolePayload (α : Type) where
-  | bar (o h l c : α) (trades : Int)
+  | bar (o h l c : α) (trades : Int)      -- open time is key − BAR
   | rate (r : α)
 
-/-- One resolved observation (RULES.md §6): its declaration and the dataset it was read from, coin, key (eventTime),
-slot (an event source's event hour; none otherwise), effective knownAt, one value per field (`none` for null), and its
-role payload if its source is a role provider. -/
+/-- One resolved observation (RULES.md §6): its declaration, coin, key (its event time), slot (an event source's
+event hour; none otherwise), effective knownAt, one value per field (`none` for null), and its role payload if its
+source is a role provider. -/
 structure Obs (α : Type) where
   source : Nat
-  dataset : DatasetId
   coin : Nat
   key : Int
   slot : Option Int
@@ -108,18 +106,15 @@ structure Obs (α : Type) where
   vals : Array (Option α)
   role : Option (RolePayload α)
 
-/-- A grant (CERTIFICATES.md §5): an entity, one stored column, an event-time interval and a permitted-use interval,
-both half-open. -/
 structure Grant where
   coin : Nat
-  column : String
+  column : String        -- a stored column
   event : Int × Int
   use : Int × Int
 
-/-- One access: the column read, the entity, the row's event time, and the interval over which it is used. -/
 structure Access where
   coin : Nat
-  column : String
+  column : String        -- a stored column
   event : Int
   use : Int × Int
 
@@ -127,173 +122,203 @@ def Grant.covers (g : Grant) (x : Access) : Bool :=
   g.coin == x.coin && g.column == x.column && g.event.1 ≤ x.event && x.event < g.event.2 &&
   g.use.1 ≤ x.use.1 && x.use.2 ≤ g.use.2
 
-/-- A certificate's payload as the verifier wrote it (CERTIFICATES.md §5); its id hashes this payload. -/
+/-- A certificate's payload as the verifier wrote it; its id is the hash of this payload. -/
 structure Cert where
   id : Hash
   decl : Hash
-  rule : Hash
-  manifest : Hash
+  manifest : Hash        -- the certified dataset's content identity
   policy : Hash
   verifier : Hash
   upstream : List Hash
   grants : List Grant
 
+/-- A binding: the bound dataset's content identity (the hash of its data manifest) and the certificate. -/
 structure Binding where
-  dataset : DatasetId
+  dataset : Hash
   cert : Hash
 
-inductive Mode where
-  | search | holdout
-  deriving DecidableEq
+inductive Mode where | search | holdout deriving DecidableEq
 
-/-- One admitted snapshot (SOURCES.md §7): one binding per source, the certificates and the supersession records
-(certificate id, ledger position) visible at the lifecycle check's position, each dataset's manifest hash and
-lineage, the frozen policy and verifier hashes, the holdout datasets and the holdout start, the listing intervals (from
-the venue-rules artifact the run identity pins), and the observations read from the bound datasets. -/
+/-- One admitted snapshot. `policy` and `verifier` are the hashes frozen with the criteria and compiled into the
+kernel build the run identity pins, never read from the files under test. `rows` lists (source, event time) for
+every stored row of every dataset the run opens (every revision, tombstone and coin, dependencies included), read
+from the time column alone, before any resolution. `obs` is the resolver's output for the delivered sources. -/
 structure Admission (α : Type) where
   bindings : Nat → Option Binding
   certs : List Cert
   supersessions : List (Hash × Nat)
   position : Nat
-  manifest : DatasetId → Hash
-  lineage : DatasetId → List DatasetId
   policy : Hash
   verifier : Hash
-  holdout : List DatasetId
+  holdout : List Hash
   holdoutStart : Int
   intervals : Array (Int × Int)
+  rows : List (Nat × Int)
   obs : Array (Obs α)
-```
 
-`DatasetId` is a content identity: a dataset's id is the hash of its data manifest, so a copy of a holdout dataset is
-the same dataset, and an alias is impossible.
-
-```lean
 def Admission.cert (a : Admission α) (h : Hash) : Option Cert := a.certs.find? (·.id == h)
 
-/-- A certificate is valid at the admission's position when no supersession record at or before it names it, and
-every upstream certificate is present and valid; `fuel` bounds the walk (the certificate count suffices), and a cycle
-exhausts it, which is invalid. -/
 def Admission.valid (a : Admission α) : Nat → Hash → Bool
   | 0, _ => false
   | fuel + 1, h => match a.cert h with
     | none => false
-    | some k => !(a.supersessions.any fun (x, pos) => x == h && pos ≤ a.position) &&
-                k.upstream.all (a.valid fuel ·)
+    | some k => !(a.supersessions.any fun (x, pos) => x == h && pos ≤ a.position) && k.upstream.all (a.valid fuel ·)
 
-/-- A certificate matches source s's binding: the declaration's file and rule bytes, the bound dataset's manifest,
-the frozen policy and verifier, and, for a derived source, upstream certificates that are exactly those bound for its
-dependencies. -/
 def Admission.matches (reg : Registry) (a : Admission α) (s : Nat) (b : Binding) (k : Cert) : Bool :=
-  k.id == b.cert && k.decl == (reg.decls[s]!).hash && k.rule == (reg.decls[s]!).rule &&
-  k.manifest == a.manifest b.dataset && k.policy == a.policy && k.verifier == a.verifier &&
+  k.decl == (reg.decls[s]!).hash && k.manifest == b.dataset && k.policy == a.policy && k.verifier == a.verifier &&
   k.upstream.toFinset == ((reg.decls[s]!).depends.filterMap fun d => (a.bindings d).map (·.cert)).toFinset
+
+/-- The admitted record is well-formed: certificate ids unique (an id is its payload's hash). -/
+def Admission.WF (a : Admission α) : Prop := (a.certs.map (·.id)).Nodup
 ```
 
-## 4. The context, its sets and its checks
-
-`Ctx.make reg roles p a v pol stop` fixes:
-
-- `deliveredSet := (List.range reg.decls.size).filter fun s => (a.bindings s).isSome ∧ (reg.decls[s]!).cadence ≠ .evidence`
-  (every bound, non-evidence source is delivered, as version 1 delivers every event dataset in the store);
-- `needed := reg.closure reg.decls.size (p.sources ++ [roles.bars, roles.settlement])` (what must be bound: the
-  program's sources, the role providers and their dependencies);
-- `certSet := (deliveredSet ++ needed).eraseDups` (what must be certified);
-- `obs := a.obs.filter (·.source ∈ deliveredSet)`;
-- `lastTick := pol.wStart + (number of ticks before stop) · HOUR + pol.delta` (the last tick the schedule runs);
-- `oOrder`: `obs` indices sorted by `(tickOf o.known, rank o.source, o.known, o.coin, o.key)`, where
-  `tickOf t` is the first tick at or after t and `rank` the source's registry index. Within a tick this is
-  version 1's order: each source's due observations in turn, each in (knownAt, coin, key) order. With unique keys
-  it is total.
-
-**Accesses.** Every read, per column, with the time it is first used:
+## 4. The context and its sets
 
 ```lean
+def Ctx.make (reg : Registry) (roles : Roles) (p : Program) (a : Admission α) (v : Venue α) (pol : Policy) (stop : Int) : Ctx α :=
+  let delivered := (List.range reg.decls.size).filter fun s => (a.bindings s).isSome && (reg.decls[s]!).cadence != .evidence
+  let obs := a.obs.filter (·.source ∈ delivered)
+  { reg, roles, p, a, v, pol, stop, delivered, obs
+    required := reg.closure reg.decls.size (delivered ++ p.sources ++ [roles.bars, roles.settlement])
+    oOrder := (Array.range obs.size).mergeSort fun i j =>
+      let x := obs[i]!; let y := obs[j]!
+      lexLe [x.known, x.source, x.coin, x.key] [y.known, y.source, y.coin, y.key]
+    intervals := a.intervals
+    ix := Index.of (obs.filterMap (barRow roles)) (obs.filterMap (rateRow roles)) a.intervals.size }
+
+/-- The schedule's step boundaries (version 1's `bounds`) and its last tick. -/
+def Ctx.lastTick (c : Ctx α) : Int := c.pol.wStart + (c.bounds.length : Int) * BAR + c.pol.delta
+def Ctx.firstTick (c : Ctx α) : Int := c.pol.wStart + c.pol.delta
+```
+
+`required` is the one set every check uses: every delivered source (every bound, non-evidence source, as version 1
+delivers every dataset in the store), the program's sources and the role providers, closed under dependencies, so
+every upstream dataset the resolver opens is bound, checked by identity and pinned by `matches`.
+
+**Accesses: what the run can read, per stored column, from when.** Only observations the run can read produce
+accesses, and an empty use interval produces none:
+
+```lean
+def Ctx.readable (c : Ctx α) (o : Obs α) : Bool :=
+  match (c.reg.decls[o.source]!).cadence with
+  | .held => o.known ≤ c.lastTick &&
+      (o.known ≥ c.firstTick || -- delivered during the run, or the latest delivered at the first tick
+       c.obs.all fun o' => !(o'.source == o.source && o'.coin == o.coin && o'.known ≤ c.firstTick &&
+                             lexLe [o.known, o.key] [o'.known, o'.key] && (o'.known, o'.key) != (o.known, o.key)))
+  | .event => o.known ≤ c.lastTick && o.slot.any fun h => c.pol.wStart ≤ h && h + c.pol.delta ≤ c.lastTick
+  | .evidence => false
+
 def Ctx.accesses (c : Ctx α) (s : Nat) : List Access :=
-  let start (t : Int) := max t (c.pol.wStart + c.pol.delta)
+  let d := c.reg.decls[s]!
+  let use (t : Int) : Int × Int := (max t c.firstTick, c.stop)
+  let cols (o : Obs α) (names : List String) (t : Int) : List Access :=
+    if (use t).1 < (use t).2 then names.map fun col => ⟨o.coin, col, o.key, use t⟩ else []
   c.obs.toList.filter (·.source == s) |>.flatMap fun o =>
-    -- fields: read from delivery (known ≤ lastTick) to stop
-    (if o.known ≤ c.lastTick then (c.reg.decls[s]!).fields.toList.map fun (col, _) =>
-       ⟨o.coin, col, o.key, (start o.known, c.stop)⟩ else []) ++
-    -- role columns: read by execution through stop, from their event time if earlier than delivery
+    (if c.readable o then cols o (d.fields.toList.map (·.2.1) ++ d.times) (min o.known o.key) else []) ++
     (match o.role with
-     | some (.bar ..) => [("open", o.key - BAR), ("trades", o.key - BAR), ("high", o.key), ("low", o.key),
-                          ("close", o.key)].map fun (col, t) => ⟨o.coin, col, o.key, (start (min o.known t), c.stop)⟩
-     | some (.rate _) => [⟨o.coin, "rate", o.key, (start (min o.known o.key), c.stop)⟩]
+     | some (.bar ..) => if o.key - BAR < c.stop then cols o d.roleColumns (min o.known (o.key - BAR)) else []
+     | some (.rate _) => if o.key ≤ c.stop then cols o d.roleColumns (min o.known o.key) else []
      | none => [])
 ```
 
-Each role read is listed for every observation in the admitted record (execution can read any of them through
-`stop`), whether or not its knownAt precedes the last tick. Mapping and coverage facts, availability-time columns and a
-derived source's upstream lineage are certified by the verifier at issuance (CERTIFICATES.md §3, `derived-inherits`),
-and are pinned here through `matches` (the dependencies' certificates); they are not run-time accesses.
+The fields' and the rule's time columns are read from delivery (or, for a held value carried into the run, from the
+first tick) to `stop`; a bar's role columns are read by execution from its open time (the scheduled-bar fill reads the
+open; marks and extremes later), a rate's from its event time, each through `stop`; every bar and rate up to `stop` counts, since marks read the
+latest closed bar however old. Mapping and coverage facts and a
+derived source's upstream lineage are certified by the verifier at issuance and pinned through `matches`.
+
+## 5. Preflight, in the order that never opens a payload early
 
 ```lean
-def Ctx.bound (c : Ctx α) (a : Admission α) : Bool := c.needed.all fun s => (a.bindings s).isSome
-
-def Ctx.authorizedIds (c : Ctx α) (a : Admission α) (mode : Mode) : Bool :=
-  mode == .holdout || c.certSet.all fun s => match a.bindings s with
-    | none => true
-    | some b => (b.dataset :: a.lineage b.dataset).all (· ∉ a.holdout)
-
-def Ctx.authorizedRows (c : Ctx α) (a : Admission α) (mode : Mode) : Bool :=
-  mode == .holdout || c.obs.all (·.key < a.holdoutStart)
-
-def Ctx.certified (c : Ctx α) (a : Admission α) : Bool :=
-  c.certSet.all fun s => match a.bindings s with
+def Ctx.bound (c : Ctx α) : Bool := c.required.all fun s => (c.a.bindings s).isSome
+def Ctx.authorizedIds (c : Ctx α) (mode : Mode) : Bool :=
+  mode == .holdout || c.required.all fun s => (c.a.bindings s).all (·.dataset ∉ c.a.holdout)
+def Ctx.certsMatch (c : Ctx α) : Bool :=
+  c.required.all fun s => match c.a.bindings s with
     | none => false
-    | some b => match a.cert b.cert with
-      | none => false
-      | some k => a.valid a.certs.length b.cert && a.matches c.reg s b k && (c.accesses s).all fun x => k.grants.any (·.covers x)
+    | some b => (c.a.cert b.cert).any fun k => c.a.valid c.a.certs.length b.cert && c.a.matches c.reg s b k
+def Ctx.authorizedRows (c : Ctx α) (mode : Mode) : Bool :=
+  mode == .holdout || c.a.rows.all (·.2 < c.a.holdoutStart)
+def Ctx.admissible (c : Ctx α) : Bool := ...  -- the run-admission clauses of §6, as a decidable predicate
+def Ctx.inScope (c : Ctx α) : Bool :=
+  c.required.all fun s => match c.a.bindings s with
+    | none => false
+    | some b => (c.a.cert b.cert).any fun k => (c.accesses s).all fun x => k.grants.any (·.covers x)
 
-def Ctx.preflight (c : Ctx α) (a : Admission α) (mode : Mode) : Except Abort Unit := do
-  if !c.bound a then throw .inputUnavailable           -- payload-free
-  if !c.authorizedIds a mode then throw .holdout        -- payload-free
-  -- the resolver runs here (RULES.md §6): its rejections (an invalid dataset, R_OVERFLOW) refuse the run
-  if !c.authorizedRows a mode then throw .holdout       -- the resolved rows (I8, generalized)
-  if !c.certified a then throw .uncertified
+def Ctx.preflight (c : Ctx α) (mode : Mode) : Except Abort Unit := do
+  if !c.bound then throw .inputUnavailable          -- bindings only
+  if !(c.roles.Valid c.reg) then throw .roles        -- registry only (R_ROLES)
+  if !c.authorizedIds mode then throw .holdout       -- dataset identities only
+  if !c.certsMatch then throw .uncertified           -- certificates, supersessions, hashes only
+  if !c.authorizedRows mode then throw .holdout      -- the time column of every stored row (I8)
+  -- the resolver runs here (RULES.md §6), outside the model; its rejections refuse the run
+  if !c.admissible then throw .binding               -- resolved observations' shape (R_BINDING)
+  if !c.inScope then throw .uncertified              -- grants against the accesses
 
-def Ctx.run (N) (c : Ctx α) (a : Admission α) (mode : Mode) : Except Abort (Run α) :=
-  c.preflight a mode *> c.evaluate N
+def Ctx.run (N) (c : Ctx α) (mode : Mode) : Except Abort (Run α) := c.preflight mode *> c.evaluate N
 ```
 
-`Abort` gains `.uncertified ↦ "R_UNCERTIFIED"`; `.holdout ↦ "R_HOLDOUT"`. The resolver is outside the Lean model
-(C7.6 tests it against `store.as_of` and the suites); the model receives its resolved observations. The binding check
-leaves `Ctx.start` and `Ctx.umachineAfter`.
+`Abort` gains `.uncertified ↦ "R_UNCERTIFIED"`, `.holdout ↦ "R_HOLDOUT"`, `.roles ↦ "R_ROLES"`,
+`.binding ↦ "R_BINDING"`. I8's frozen wording is unchanged; identity and lineage refusal is an addition before it.
 
-**Admissibility, each clause enforced by a named rejection** (SOURCES.md version 2, §5 below):
+## 6. Admissibility and the machine
 
-| Clause | Rejected where, with |
-|---|---|
-| `reg.Valid`; `roles.Valid reg` | registry and run admission, `E_REGISTRY` / `R_ROLES` |
-| observation keys `(source, coin, key)` unique | resolver, `R_INVALID_DATASET` (RULES.md §6) |
-| `o.source < size`, not evidence, `o.coin < intervals.size`, `vals.size` its field count | binding validation, `R_BINDING` |
-| `o.dataset = (bindings o.source).dataset` | admission, by construction (observations are read from the bound dataset) |
-| `role` present exactly for the providers, `.bar` for bars and `.rate` for settlement, every role column non-null | binding validation, `R_BINDING` |
-| bars provider: `key − BAR` on the 4h grid | binding validation, `R_BINDING` |
-| event source: `slot` some, on the hour grid, `(source, coin, slot)` unique; other sources: `slot` none | binding validation, `R_BINDING` |
-| every value and role payload finite or null | binding validation, `R_BINDING` |
-
-## 5. The machine and delivery
-
-`MState`'s `funding`, `bar` and `events` become `delivered : Array (Array (List (Obs α)))`, per source then coin,
-newest first. Delivery prepends.
+`Ctx.admissible` (run admission; the binding knows nothing of the run's roles, so these are run-time clauses):
+observation keys `(source, coin, key)` unique; every observation's coin `< intervals.size` (rows of coins outside U are
+excluded by the resolver, as version 1 does, and are still in `rows` for I8); `vals.size` the field count; every
+value and role payload finite or null; `role` present exactly for the two providers' observations, `.bar` for the
+bars provider with every role column non-null and `key − BAR` on the 4h grid, `.rate` for the settlement provider;
+an event source's `slot` some, on the hour grid, unique per (source, coin); other sources' `slot` none.
 
 ```lean
+/-- The machine: per source and coin, the observations delivered so far, newest first. -/
+structure MState (α : Type) where
+  vals : Array (Array (Val α))
+  wins : Array (Array (Option (Win α)))
+  since : Array (Array (Option Int))
+  delivered : Array (Array (List (Obs α)))
+  hour : Int
+  maxKnown : Int
+
+def MState.init (reg : Registry) (p : Program) (coins : Nat) : MState α :=
+  { vals := Array.replicate p.nodes.size (Array.replicate coins none)
+    wins := p.nodes.map fun n => match n with
+      | .op (.window w h) _ => Array.replicate coins (some (Win.new N w h)) | _ => Array.replicate coins none
+    since := Array.replicate p.nodes.size (Array.replicate coins none)
+    delivered := Array.replicate reg.decls.size (Array.replicate coins [])
+    hour := 0, maxKnown := 0 }
+
+def MState.deliver (m : MState α) (o : Obs α) (tick : Int) : Except Abort (MState α) :=
+  if o.known > tick then .error .causality
+  else .ok { m with delivered := m.delivered.modify o.source (·.modify o.coin (o :: ·)), maxKnown := max m.maxKnown o.known }
+
 def MState.input (reg : Registry) (m : MState α) (i : Input) (c : Nat) : Val α :=
   let ds := m.delivered[i.source]![c]!
   match (reg.decls[i.source]!).cadence with
   | .held => ds.head?.bind (·.vals[i.field]!)
   | .event => (ds.find? (·.slot == some m.hour)).bind (·.vals[i.field]!)
   | .evidence => none
+
+/-- Deliver every observation of `oOrder` due by `tick`, from position `s.oi`. -/
+def Ctx.deliver (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) := do
+  let mut s := s
+  while h : s.oi < c.oOrder.size do
+    let o := c.obs[c.oOrder[s.oi]]!
+    if o.known > tick then break
+    s := { s with machine := ← s.machine.deliver o tick, oi := s.oi + 1 }
+  return s
 ```
 
-Delivery at a tick delivers every observation of `oOrder` with `known ≤ tick` not yet delivered, each checked
-`known ≤ tick` (I1) and raising `maxKnown`. The decision (step 9) is fresh when the bars provider's and the settlement
-provider's latest delivered observations for the coin have `key = B`, and is priced at the bars provider's latest
-delivered close. Execution reads `bars c := c.obs.filterMap (barRow roles)` and `rates c := c.obs.filterMap (rateRow
-roles)` (the providers' observations with their payloads), which `barAt`, `latestClosed`, the index and settlement use
-as version 1 uses its tables:
+`SState`'s `fi`, `bi`, `ei` become one `oi`. `Ctx.start`, `Ctx.step` and `Ctx.evaluate` are version 1's with that
+delivery, and without the binding check (moved to preflight). In step 9 the decision is:
+
+```lean
+let latest (src : Nat) : Option (Obs α) := s.machine.delivered[src]![coin]!.head?
+let fresh := (latest c.roles.bars).any (·.key == bigB) && (latest c.roles.settlement).any (·.key == bigB)
+let price := match (latest c.roles.bars).bind (·.role) with | some (.bar _ _ _ cl _) => cl | _ => N.zero  -- fresh implies some
+```
+
+Execution reads the projections:
 
 ```lean
 def barRow (roles : Roles) (o : Obs α) : Option (BarRow α) := match o.role with
@@ -302,9 +327,13 @@ def barRow (roles : Roles) (o : Obs α) : Option (BarRow α) := match o.role wit
 def rateRow (roles : Roles) (o : Obs α) : Option (RateRow α) := match o.role with
   | some (.rate r) => if o.source == roles.settlement then some ⟨o.coin, o.key, o.known, r⟩ else none
   | _ => none
-
+def Ctx.bars (c : Ctx α) : List (BarRow α) := c.obs.toList.filterMap (barRow c.roles)
+def Ctx.rates (c : Ctx α) : List (RateRow α) := c.obs.toList.filterMap (rateRow c.roles)
+def barAt (c : Ctx α) (coin : Nat) (t : Int) : Option (BarRow α) := c.bars.find? fun b => b.coin == coin && b.openTime == t
+def latestClosed (c : Ctx α) (coin : Nat) (t : Int) : Option (BarRow α) :=
+  (c.bars.filter fun b => b.coin == coin && b.event ≤ t).foldl
+    (fun acc b => match acc with | some x => if x.openTime < b.openTime then some b else acc | none => some b) none
 def Ctx.deliveryPrefix (c : Ctx α) (t : Int) : List (Obs α) := (c.oOrder.toList.map (c.obs[·]!)).filter (·.known ≤ t)
-
 def Ctx.execView (c : Ctx α) (t : Int) :=
   ((c.rates.filter (·.event ≤ t)).map (fun r => (r.coin, r.event, r.rate)),
    c.bars.filter (fun b => b.openTime + BAR ≤ t),
@@ -313,106 +342,105 @@ def Ctx.execView (c : Ctx α) (t : Int) :=
 ```
 
 `BarRow` loses `v` (no execution read uses volume; it stays a DSL field). The listing intervals come from the
-venue-rules artifact the run identity pins; they are not a certified source, a known limitation until stage 8
-records delisting as a source with its own knownAt (C8.1).
+venue-rules artifact the run identity pins, and are not a certified source: a known limitation until stage 8 records
+delisting with its own knownAt (C8.1).
 
-## 6. Revised law statements
+## 7. Revised law statements
 
-Every law takes `reg`, `roles` with `CheckerAccepted reg p`, `roles.Valid reg` and `a.Admissible reg roles`, on
-`c := Ctx.make reg roles p a v pol stop`. L1–L4, L6 and L7 are stated on the preflight-free schedule (`machineAfter`,
-`steps`, `evaluate`), so they hold for every admissible record; L5 relates `run` to `evaluate`.
+On `c := Ctx.make reg roles p a v pol stop`. L1–L4 and L7 take `CheckerAccepted reg p`, `roles.Valid reg` and
+`c.admissible`; L5 takes nothing but its objects; L6 takes only `N.Bounded`, as version 1.
 
-- **L1 non-interference.** `L1_values`: equal intervals and equal delivery prefixes at tick `wStart + n·HOUR + δ` give
-  equal machines after every tick through it. `L1_simulator` unchanged in form. `L1_decisions`: equal delivery
-  prefixes and execution views at decision `k`'s time give equal traces through step `k + 1`. Version 1's `hB` is
-  gone (binding is preflight's).
-- **L2 unit soundness.** `L2_units` as version 1, its erasure clause `u.m.delivered = ms.delivered`. `L2_checker`:
+- **L1 non-interference.** `L1_values`: equal intervals and delivery prefixes at tick `wStart + n·HOUR + δ` give equal
+  machines after every tick through it. `L1_simulator` as version 1. `L1_decisions`: equal delivery prefixes and
+  execution views at decision `k`'s time give equal traces through step `k + 1`.
+- **L2 unit soundness.** `L2_units` as version 1, its erasure clause `u.m.delivered = ms.delivered`; `L2_checker`:
   `CheckerAccepted reg p → p.WF reg`.
 - **L3 rewrite soundness.** With `p.WF reg`, `r.apply p i = some p'`: `p'.WF reg`; equal node values at corresponding
-  nodes at every tick; equal traces at every step; `p'.sources` and `p.sources` equal as sets (the rules overwrite
-  only op nodes and insert only a `not`), so `needed`, `certSet` and `accesses` are equal and `run` is equal.
-- **L4 fill ordering.** `L4_fills` and `L4_orders` as version 1, on `c.evaluate N = .ok r`, reading the projections;
-  an ordinary fill's `inputsKnown` is the decision machine's `maxKnown`.
-- **L5 binding and admission.** For every admissible record:
-  0. *(C7.7's statement)* `c.run N a mode = .ok r → c.bound a ∧ c.authorizedIds a mode ∧ c.authorizedRows a mode ∧
-     c.certified a`;
-  1. `c.run N a mode = .error .inputUnavailable ↔ ¬ c.bound a`;
-  2. if bound: `c.run N a mode = .error .holdout ↔ ¬ (c.authorizedIds a mode ∧ c.authorizedRows a mode)`;
-  3. if bound and authorized: `c.run N a mode = .error .uncertified ↔ ¬ c.certified a`;
-  4. if bound, authorized and certified: `c.run N a mode = c.evaluate N`;
-  5. *(refusal non-interference)* preflight's result depends only on the bindings, certificates, supersessions,
-     position, manifests, lineage, policy, verifier, holdout datasets and start, and the access set: two admissions
-     that agree on these, and whose observations agree on everything but `vals` and role payload values, get the same
-     preflight result; and `.holdout` by identity depends on no observation at all;
-  6. *(on the text)* if `check reg text = .ok p` and an input name declared for source `s` occurs anywhere in `text` (a
-     let, used or not; a branch; the prediction), then `s ∈ p.sources`, hence `s ∈ c.needed`.
-- **L6 bounded loss.** As version 1, on `c.evaluate N`.
-- **L7 input reads (new).** For `H = wStart + n·HOUR`, `c.machineAfter N n = .ok ms`, `p.nodes[i]! = .input ⟨s, k⟩`,
-  and coin `x` listed at `H`: `ms.vals[i]![x]! = (r.bind (·.vals[k]!)).bind N.keep`, where `r` is the last observation
-  of `(s, x)` in `c.deliveryPrefix (H + δ)` if `s` is held, and the observation of `(s, x)` with `slot = some H` in
-  that prefix if `s` is an event source.
+  nodes; equal traces at every step; `p'.sources` and `p.sources` equal as sets, so `required` and `accesses`, hence
+  preflight and `run`, are equal.
+- **L4 fill ordering.** `L4_fills`, `L4_orders` as version 1 on `c.evaluate N = .ok r`, reading the projections; an
+  ordinary fill's `inputsKnown` is the decision machine's `maxKnown`.
+- **L5 binding and admission.**
+  0. `c.run N mode = .ok r → c.bound ∧ c.authorizedIds mode ∧ c.certsMatch ∧ c.authorizedRows mode ∧ c.admissible ∧ c.inScope`;
+  1. `c.run N mode = .error .inputUnavailable ↔ ¬ c.bound`;
+  2. each later refusal holds exactly when every earlier check passes and its own fails, in §5's order;
+  3. if all pass, `c.run N mode = c.evaluate N`;
+  4. *(refusal non-interference)* the checks through `.holdout` by row depend on no observation value: two admissions
+     equal but for `obs` get the same result from them; the remaining checks depend on observations' keys, slots,
+     knownAt, coins and the nullness and finiteness of their values, never on the values themselves;
+  5. *(the text)* if `check reg text = .ok p` and `InputRef (parse text) name` with `name` declared for `s`, then
+     `s ∈ p.sources`, hence `s ∈ c.required`.
+- **L6 bounded loss.** As version 1, with only `N.Bounded`, on `c.evaluate N`.
+- **L7 input reads.** For `H = wStart + n·HOUR`, `c.machineAfter N n = .ok ms`, `i < p.nodes.size`,
+  `p.nodes[i]! = .input ⟨s, k⟩` and coin `x` listed at `H`: `ms.vals[i]![x]! = (r.bind (·.vals[k]!)).bind N.keep`,
+  where `r` is the last observation of `(s, x)` in `c.deliveryPrefix (H + δ)` if `s` is held, and the observation of
+  `(s, x)` with `slot = some H` there if `s` is an event source.
 
-## 7. C7.7's named attacks: the law or test that catches each
+Under version 1's rules the store's event read cannot diverge from version 1's single held row: an event row's knownAt
+is eventTime + δ, raised only by fetchedAt, so an earlier hour's row is never delivered after the current hour's
+within a tick.
 
-| # | Attack | Caught by | Check targeted | Expected | Positive control |
+## 8. C7.7's named attacks: the law and the named `mm` test that catch each
+
+| # | Attack | Law / check | Named test (planned location) | Expected | Positive control |
 |---|---|---|---|---|---|
-| 1 | forged ledger passes | verifier and ledger test (`mm certify`) | certificates written only by the verifier, in its transaction | refused, no certificate | the verifier issuing from the same bundle |
-| 2 | missing tests or an unjustified inapplicability | verifier test | policy categories and justification kinds | issuance refused | a complete bundle issues |
-| 3 | changed thresholds or policy | `matches` (policy hash); verifier test | certificate pins the policy | `R_UNCERTIFIED` | the frozen policy |
-| 4 | replay against another manifest, mapping, extractor or rule | `matches` (manifest, rule, declaration, upstream); verifier test for mapping and extractor | certificate pins | `R_UNCERTIFIED` | the matching dataset |
-| 5 | use outside the certified scope | L5.3 via `accesses` and grants | per-column grants, use intervals | `R_UNCERTIFIED` | a run inside the grants |
-| 6 | data changed after validation | `matches` (manifest = content id of the bytes read); admission test recomputing the manifest | content identity | `R_UNCERTIFIED` | unchanged data |
-| 7 | failed issuance or ledger commit before output | verifier and ledger test | commit before output | no certificate, no output | a committed issuance |
-| 8 | a missing source in an unused let or an inactive branch | L5.1 with L5.6 | `needed` from the text | `R_INPUT_UNAVAILABLE` | the source bound |
-| 9 | uncertified execution data | L5.3 (role reads in `accesses`, providers in `needed`) | role providers certified | `R_UNCERTIFIED` | certified providers |
-| 10 | a feed timestamp posing as trusted availability | verifier test (availability basis) | rule and live test | issuance refused | a server-set time with a passing live test |
-| 11 | backdated revisions, superseded-rule outputs, old-revision fallback | C7.6 resolver suite and `store.as_of` agreement | RULES.md §6 | the selected revision's knownAt | the hand cases |
-| 12 | future-dependent coverage or mapping | verifier test (coverage and mapping by knownAt) | coverage evidence | issuance refused | coverage known in time |
-| 13 | a derived feed available before an upstream input | C7.6 resolver suite (dependency bounds); `matches` (upstream) | RULES.md §6 lag bounds | knownAt raised to the bound | lineage within bounds |
-| 14 | timestamp overflow, or a malformed rule exposing data early | C7.6 rule-language suite | RULES.md §5 | `R_OVERFLOW`, `E_RULE` | in-range rules |
-| 15 | holdout data through a declaration, binding, alias or derived dependency | L5.2 (identity and lineage; rows by key) | content identity, transitive lineage, I8 row bound | `R_HOLDOUT` | the search store |
-| 16 | zero-filling, an event held past its tick, a held value expiring wrongly | L7 | input reads | undefined, never zero | delivered values read as stated |
+| 1 | forged ledger passes | verifier writes certificates in its transaction | `kernel/mm/tests/certify.rs::forged_pass_is_not_authority` | no certificate | issuance from the same bundle |
+| 2 | missing tests, unjustified inapplicability | policy categories | `certify.rs::missing_test_refused` | issuance refused | a complete bundle |
+| 3 | changed thresholds or policy | `matches` (policy pinned in the build) | `certify.rs::changed_policy_uncertified` | `R_UNCERTIFIED` | the frozen policy |
+| 4 | replay against another manifest, mapping, extractor or rule | `matches` (declaration, manifest, upstream); verifier for mapping and extractor | `admission.rs::replayed_certificate` | `R_UNCERTIFIED` | the matching dataset |
+| 5 | use outside the certified scope | L5, `inScope` | `admission.rs::out_of_scope_access` | `R_UNCERTIFIED` | a run within its grants |
+| 6 | data changed after validation | `matches` (content identity of the bytes read) | `admission.rs::changed_data` | `R_UNCERTIFIED` | unchanged data |
+| 7 | failed issuance or ledger commit before output | commit before output | `certify.rs::failed_commit_emits_nothing` | no certificate, no output | a committed issuance |
+| 8 | a missing source in an unused let or inactive branch | L5.1, L5.5 | `admission.rs::unused_let_source_required` | `R_INPUT_UNAVAILABLE` | the source bound |
+| 9 | uncertified execution data | L5, providers in `required`, role accesses | `admission.rs::uncertified_role_provider` | `R_UNCERTIFIED` | certified providers |
+| 10 | feed timestamp posing as trusted availability | verifier availability basis; `inScope` on time columns | `certify.rs::claimed_time_without_live_test` | issuance refused, or `R_UNCERTIFIED` | a server-set time with a passing live test |
+| 11 | backdated revisions, superseded-rule outputs, old-revision fallback | C7.6 resolver suite | `kernel/tests/rules/test_three_implementations.py` | the selected revision's knownAt | the hand cases |
+| 12 | future-dependent coverage or mapping | verifier coverage and mapping by knownAt | `certify.rs::coverage_from_a_later_poll` | issuance refused | coverage known in time |
+| 13 | a derived feed before an upstream input | resolver dependency bounds; `matches` (upstream) | resolver suite; `admission.rs::upstream_mismatch` | knownAt raised; `R_UNCERTIFIED` | lineage within bounds |
+| 14 | timestamp overflow, malformed rule | C7.6 rule-language suite | `kernel/tests/rules/test_three_implementations.py` | `R_OVERFLOW`, `E_RULE` | in-range rules |
+| 15 | holdout through a declaration, binding, alias or derived dependency | L5, `authorizedIds` and `authorizedRows` over `required` | `admission.rs::holdout_copy_refused`, `holdout_dependency_refused` | `R_HOLDOUT` | the search store |
+| 16 | zero-filling, an event held past its tick, a held value expiring wrongly | L7; `inScope` for use after a grant | `machine.rs` tests `held_and_event_reads` | undefined, never zero | delivered values read as stated |
 
-Each named test lives beside the check it targets (`kernel/mm/tests`, `ingest/tests`, `kernel/tests/rules`) and is
-committed with its expected code before its first judged run (C7 evidence rule).
+Each test is committed with its expected code before its first judged run (C7 evidence rule).
 
-## 8. Spec changes that go with this (before any proof)
+## 9. Spec and annex changes that go with this (before any proof or baseline capture)
 
-- **SOURCES.md version 2.** §1: the `evidence` cadence; declarations carry their file hash and rule-bytes hash.
-  §4: an observation's key and slot are distinct (slot only for event sources, on the hour grid, unique per source and
-  coin); delivery per tick in registry order, within a source by (knownAt, coin, key); every bound source is
-  delivered. §6: role columns non-null and finite, the bars provider's key on the 4h grid, the two providers distinct,
-  checked at binding (`R_BINDING`); volume is not a role column. §7: the order unbound (`R_INPUT_UNAVAILABLE`), holdout
-  by identity and lineage (`R_HOLDOUT`), resolution, holdout by row (`R_HOLDOUT`), uncertified (`R_UNCERTIFIED`), all
-  before evaluation; a dataset's id is its content identity.
-- **CERTIFICATES.md version 2.** §5: grants are per column; supersession records are admission state, not part of a
-  certificate's payload; `matches` pins the policy, the verifier and the dependencies' certificates.
-- **INVARIANTS.md.** The I8 row: search mode refuses (`R_HOLDOUT`) a run whose bound datasets or their lineage include
-  a holdout dataset, by content identity, or whose resolved rows have eventTime ≥ the holdout start; the codes
-  `R_UNCERTIFIED`, `R_BINDING` and `R_ROLES`.
-- **SEMANTICS.md.** The delivered store and its two reads, the per-tick delivery order, the decision's reads from the
-  providers' delivered observations, the execution projections, and preflight; §8's "core datasets always present" is
-  deleted (role providers are required instead).
+- **SOURCES.md version 2.** §1: the `evidence` cadence; each declaration's `times` and its event-time column (for I8,
+  evidence declarations included); fields name their stored column; roles map role columns to stored columns. §4: key
+  and slot distinct (slot only for event sources, on the hour grid, unique per source and coin); every bound source is
+  delivered; within a source by (knownAt, coin, key), and the cross-source interleaving unobservable, as now. §6: role
+  columns non-null and finite, the bars key on the 4h grid, providers distinct, checked at run admission
+  (`R_BINDING`, `R_ROLES`); volume is not a role column. §7: §5's order, the certificates' validity and matching
+  checked before any row is read (as now: "before any observation is loaded"), grant scope after resolution; a
+  dataset's id is its content identity.
+- **CERTIFICATES.md.** §5: availability inputs (the rule's time columns) are granted like fields (the wording stands;
+  `accesses` now covers them); the policy and verifier hashes are compiled into the kernel build. Supersession
+  records are admission state, not part of a certificate's payload.
+- **INVARIANTS.md.** I8 unchanged; added before it: a search run whose required datasets include a holdout dataset, by
+  content identity, is refused (`R_HOLDOUT`). New codes `R_UNCERTIFIED`, `R_BINDING`, `R_ROLES`.
+- **SEMANTICS.md.** The delivered store and its reads, per-source delivery, the decision's reads from the providers'
+  delivered observations, the projections and preflight; §8's "core datasets always present" deleted.
+- **Migration annex §4.** The compared "deliveries" are one stream per source, each delivery with its tick and knownAt,
+  in (knownAt, coin, key) order; the baseline is captured in that form. The delivered set is every dataset the store
+  holds, so a migrated run binds every dataset version 1 would load, unread event feeds included.
 
-## 9. The reviews' findings and their answers
+## 10. The third review's findings, their answers, and their effect (CLAUDE.md, rule 3)
 
-| Finding | Answer |
-|---|---|
-| D1 role data in two homes | role payloads on delivered observations; projections for execution (§1, §5) |
-| D2 event observations lost out of order | the delivered store and its event read (§5) |
-| D3, B3 certification opaque; observations untied to bindings | `Admission` with one binding per source, `Obs.dataset`, content-identity manifests, `valid` and `matches` defined (§3) |
-| D4, N2 the required set | `deliveredSet`, `needed` and `certSet`, each defined (§4) |
-| D5, N1 delivery of unrequired sources; version 1 parity | every bound source delivered and certified; per-tick registry-order delivery, which is version 1's (§1, §4) |
-| D6 cadence and unit on the program | `Input := ⟨source, field⟩`; `WF reg` |
-| D7 slot versus key | `key` and `slot : Option Int` (§3) |
-| D8 preflight undefined | `preflight` and `run` (§4) |
-| D9, N3 input reads | L7, as an equation with `N.keep` |
-| D10 null role columns | non-null and finite, checked at binding |
-| D11, B1, B2 holdout | identity and lineage before any payload, resolver, then rows by key, then certificates (§4) |
-| B4 execution reads | per-column accesses with role reads from their event time through `stop` (§4) |
-| B5 elided definitions | all written (§2–§5) |
-| N4, N5, N6 L5's vacuous clauses | refusal non-interference, the text-level required set, C7.7's headline (§6) |
-| N7 `matches` | policy, verifier, upstream; supersessions in the admission (§3) |
-| N8 admissibility unenforced | each clause's rejection (§4 table) |
-| N9 use interval over-strict | from `max(known, wStart + δ)` |
-| N10 erasure | `Cert.source`, `RolePayload.bar.openTime`, `BarRow.v` and held sources' slot removed |
+| Finding | Could change a false-discovery or leakage outcome | Answer |
+|---|---|---|
+| F1 the row check later and narrower than I8 | leakage | `rows` (every stored row's time column, every opened dataset) checked before resolution; I8's wording kept (§3, §5) |
+| F2 cross-source order not version 1's | no | per-source order; cross-source unobservable; the annex's deliveries per source (§1, §9) |
+| F3 availability inputs unaccessed | leakage | `Decl.times` in `accesses` (§4) |
+| F4 access versus grant column names | no | fields and roles name stored columns; accesses emit them (§2, §4) |
+| F5 dependency closure | leakage | one `required`, closed over delivered sources too; `lineage` deleted (§4) |
+| F6 L7 out of range | no | `i < p.nodes.size` (§7) |
+| F7 new hypotheses on L5 and L6 | no | L5 none, L6 only `N.Bounded` (§7) |
+| F8 prose definitions | leakage via `lastTick` | `lastTick`, `Ctx.make`, `deliver`, `MState`, step 9, projections, `barAt`, `latestClosed` written; `Ctx.admissible`'s clauses listed (§4–§6) |
+| N1 text-level references | no | `InputRef` on the parsed JSON (§2) |
+| N2 policy and verifier from the file under test | leakage (attack 3, operator-only) | compiled into the build (§3) |
+| N3 admissibility placement | no | run admission, `R_BINDING` after resolution, `R_ROLES` first; out-of-U coins excluded, still I8-checked (§5, §6) |
+| N4 accesses over-approximate | no (safe direction; C7.4 at risk) | `readable`; empty use intervals dropped (§4) |
+| N5 certificate checks after loading | no | validity and matching before rows; scope after resolution (§5) |
+| N6 duplicate ids | no | `Admission.WF` (§3) |
+| N7 named tests | no | the table names an `mm` test per row (§8) |
+| N8 erasure | no | `manifest`, `Obs.dataset`, `lineage`, `rank`, `tickOf`, the redundant id and rule checks removed |
