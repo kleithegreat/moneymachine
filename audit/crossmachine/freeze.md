@@ -42,3 +42,14 @@ gmktec (an AMD CPU) each run this same test before their first judged use.
 
 Run from 21:34 UTC with the same shipped binary: all nine campaigns identical on both (`result-2-compare-prodesk7.json`,
 `result-2-compare-gmktec.json`), gmktec on an AMD Ryzen 5 3500U. numpy dispatched X86_V2 and X86_V3 on both.
+
+## Test 3, frozen 2026-10-26 23:49 UTC (19:49 EDT), before it runs: the mixed-campaign path
+
+Human request of 2026-10-26: before stage 2's mixed sweep fans out across this PC and the homelab, check the mixed
+path byte for byte on the workers. Campaigns (never judged; the mixed sweep's construction under ids `xm-…` with
+fixed test betas, `ops/crossmachine.py specs()`): xm-N2-s1-0 (beta 0.01), xm-N3-s3-0 (beta 0.03) and xm-N2-long-0
+(the long-holdout cell: 1,450-day market, 900-day holdout, beta 0.1). Each runs on this PC and on prodesk7, gmktec
+and prodesk5, with the same code (gate and kernel unchanged since f2264a6; harness from this commit) and the same
+`mm` (sha256 `0aff52fc…`). Comparison as test 2: result rows except `seconds`, ledgers except `created`, against
+this PC's run. Identical means all three identical on every worker; otherwise the mixed sweep and what follows run
+on this PC alone.
