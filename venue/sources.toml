@@ -484,3 +484,44 @@ notes = '''
 Only the feeds: the Board's site policy permits copying its public-domain information ("may be copied and
 distributed without permission") but says nothing about automated access to its other pages.'''
 retrieval = true
+
+[hyperliquid-archive]
+description = '''
+# Hyperliquid's requester-pays S3 archives (surveyed 2026-10-26; nothing fetched beyond the survey)
+
+Read with the AWS account the human configured (IAM user `hyperliquid-data`, S3 read-only, us-east-1, a $20 monthly
+budget that denies the user at 100%; spending approved up to $20 in total).
+
+- `s3://hyperliquid-archive/market_data/<YYYYMMDD>/<hour>/l2Book/<COIN>.lz4`: one file per coin and UTC hour, from
+  2023-04-15 to the day before the survey (1,266 dates). Each holds JSON lines `{"time", "ver_num", "raw": {"channel":
+  "l2Book", "data": {"coin", "time", "levels"}}}`, the same `l2Book` record our recorder polls, with 20 levels a side.
+  BTC on 2026-10-20 hour 0: 668 snapshots, a median of 5.4 s apart (at most 5.6 s), 250 KB compressed and 1.1 MB
+  raw. Coins listed at hour 12: 13 on 2023-04-15 (of U: BTC, ETH, SOL, BNB), 134 on 2024-06-01 and 198 on 2025-06-01
+  (all 12 of U). One hour of every coin is 5 MB (2023), 43 MB (2024) and 89 MB (2025) compressed.
+- `s3://hyperliquid-archive/asset_ctxs/<YYYYMMDD>.csv.lz4`: one file a day, 2.6 to 5.5 MB.
+- `s3://hyperliquid-archive/Testnet/`, and `s3://hl-mainnet-node-data/` with `node_fills`, `node_fills_by_block`,
+  `node_trades`, `misc_events_by_block`, `explorer_blocks` and `replica_cmds`, each split by hour.
+
+Cost (requester pays, us-east-1 to the internet): about $0.09 per GB transferred and $0.0004 per 1,000 GETs. The
+12 coins of U for one hour a day over the whole archive is about 15,000 files and 2 GB, about $0.20; every hour of
+every day for U is about 55 GB, about $5.
+
+Terms are not yet certified: no automated download beyond the survey until a terms record is added.'''
+
+[bigquery-crypto]
+description = '''
+# Google BigQuery public datasets `bigquery-public-data.crypto_ethereum` and `crypto_bitcoin` (checked 2026-10-26)
+
+Read with the human's Application Default Credentials in project `moneymachine-512800`, a BigQuery sandbox without
+billing (the `cloud` dev shell; the `bq` CLI needs a gcloud login, so access is through the Python client).
+
+- The tables are views with hidden definitions. On 2026-10-26 at 01:18 UTC the latest Ethereum block was 01:17:47
+  and the latest Bitcoin block 01:14:38, so both are current within minutes.
+- Ethereum `blocks` filters on `timestamp`; Bitcoin `blocks` on `timestamp_month`. Scanning Ethereum blocks since
+  2026-08-01 read 210 MB; Bitcoin, 16 MB. A query bills at least 10 MB, against the sandbox's 1 TB a month.
+- Query results come back through the API (7,566 rows in 5.3 s). The sandbox can create datasets and destination
+  tables, which expire within 60 days. Extraction to Cloud Storage needs a bucket, and so billing: not available.
+- Point-in-time use needs certification: the tables are rewritten in place, so a value's availability must come
+  from the block timestamp under a certified rule, not from the table.
+
+Terms are not yet certified: no automated research use until a terms record is added.'''
