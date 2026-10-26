@@ -1,0 +1,10 @@
+{
+ "node": "gmktec",
+ "cpu": "AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx",
+ "avx512": [],
+ "numpy": "2.4.4",
+ "numpy_dispatch": [
+  "X86_V2",
+  "X86_V3"
+ ]
+}
