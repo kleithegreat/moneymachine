@@ -10,8 +10,8 @@ A case is one key's revisions under one rule:
 are integers, strings, booleans or null, compared as values in correction detection), `deps` the times the resolver
 supplies for its dependencies, and `lags` each declared dependency's processing delay. The rule reads the row's fields
 and `fetchedAt`, which is the revision's fetchedAt and is always in the rule's context, never listed in `fields`. A
-malformed row of the selected or of the earliest eligible revision gives `R_ROW` (clarified 2026-10-26 02:38 UTC, before any judged
-run, from GPT's independent resolver). The result is
+malformed row of the selected or of the earliest eligible revision gives `R_ROW`, before the rule is evaluated
+(clarified 2026-10-26 02:38 UTC, before any judged run, from GPT's independent resolver). The result is
 
     {"selected": FETCHEDAT or null, "knownAt": INT or CODE or null, "visible": [BOOL per query]}
 
@@ -100,6 +100,8 @@ HAND = [
     case(rule(mx(add(f("eventTime"), {"ms": D}), f("fetchedAt"))), [rev(50 * H, row(1.0))], 50 * H, [K, 50 * H],
          {"selected": 50 * H, "knownAt": 50 * H, "visible": [False, True]}),
     case(BAR, [{"fetchedAt": 100, "tombstone": False, "row": "{", "deps": "{}"}, rev(200, row(1.0))], 200, [K],
+         {"selected": 200, "knownAt": "R_ROW", "visible": [False]}),
+    case(BAR, [{"fetchedAt": 100, "tombstone": False, "row": "{", "deps": "{}"}, rev(200, {"close": 1})], 200, [K],
          {"selected": 200, "knownAt": "R_ROW", "visible": [False]}),
 ]
 

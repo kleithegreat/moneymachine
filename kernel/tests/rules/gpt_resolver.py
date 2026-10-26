@@ -1,5 +1,6 @@
 """C7.6: GPT 6.1 Sol's independent implementation of the resolver of kernel/RULES.md §6 (and the rule language it applies),
-written from RULES.md and the resolver case format alone, with tools denied (~/.cache/mm-gpt/resolver.BUJv). Committed verbatim below this note."""
+written from RULES.md and the resolver case format alone, with tools denied, then updated by it for the format's two
+clarifications from the documents and its own previous file (~/.cache/mm-gpt/resolver.BUJv). Committed verbatim below this note."""
 
 """Availability-rule resolver for RULES.md and RESOLVER_CASES.md.
 
@@ -356,8 +357,12 @@ def _same_observed(left, right):
 
 
 def _effective_known_at(tree, selected, earliest, declared, lags):
-    # Both selected texts are completely read before expression evaluation.
+    # Validate both relevant rows and the selected deps before evaluating.
+    # A malformed earliest row must not be hidden by an expression rejection.
     row = _read_object(selected["row"])
+    original_row = (
+        row if selected is earliest else _read_object(earliest["row"])
+    )
     dependencies = _read_object(selected["deps"])
 
     # Recorder metadata is authoritative, not any similarly named row member.
@@ -365,7 +370,6 @@ def _effective_known_at(tree, selected, earliest, declared, lags):
     candidate = _evaluate(tree, row, dependencies)
 
     if selected is not earliest:
-        original_row = _read_object(earliest["row"])
         if not _same_observed(row, original_row):
             correction_bound = _checked(selected["fetchedAt"])
             candidate = max(candidate, correction_bound)
@@ -386,8 +390,9 @@ def resolve(case):
     The envelope supplies integer fetchedAt/version/query values, boolean
     tombstones, and a nonnegative integer lag for every declared dependency.
     Dependency times are supplied by each revision's deps JSON text.
+    fetchedAt is implicitly included in the rule's Time-field context.
     """
-    fields = set(case["fields"])
+    fields = set(case["fields"]) | {"fetchedAt"}
     declared = set(case["deps_declared"])
 
     # E_RULE precedes selection, duplicate detection, tombstones, and rows.

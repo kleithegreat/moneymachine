@@ -358,8 +358,8 @@ def effective(expr, selected, earliest, lags):
     if type(row) is not dict or type(deps) is not dict:
         return "R_ROW"
     try:
-        known = evaluate(expr, {**row, "fetchedAt": selected["fetchedAt"]}, deps)
         a, b = observed(selected), observed(earliest)
+        known = evaluate(expr, {**row, "fetchedAt": selected["fetchedAt"]}, deps)
         if any(typed(a.get(k)) != typed(b.get(k)) for k in a.keys() | b.keys()):
             known = max(known, selected["fetchedAt"])
         for d, lag in sorted(lags.items()):
