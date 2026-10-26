@@ -150,8 +150,9 @@ def run(workdir, client, model, max_turns, wall_seconds, prompt=PROMPT):
 
 
 def tool_use(transcript, client):
-    """The tools a transcript used, its calls of `./<client>`, those outside PERMITTED, and its permission denials."""
-    tools_, calls, denied = [], 0, []
+    """The tools a transcript used, its invocations of `./<client>` in the Bash commands that ran (a denied command never
+    reaches the daemon), those outside PERMITTED, and its permission denials."""
+    tools_, bash, denied = [], {}, []
     for line in open(transcript):
         try:
             d = json.loads(line)
@@ -161,11 +162,13 @@ def tool_use(transcript, client):
             for c in d["message"]["content"]:
                 if c.get("type") == "tool_use":
                     tools_.append(c["name"])
-                    calls += c["name"] == "Bash" and f"./{client}" in c.get("input", {}).get("command", "")
+                    if c["name"] == "Bash":
+                        bash[c["id"]] = c.get("input", {}).get("command", "").count(f"./{client}")
         if d.get("type") == "result":
             denied = d.get("permission_denials", [])
-    return {"tools": sorted(set(tools_)), "client_calls": calls, "outside_permitted": sorted(set(tools_) - PERMITTED),
-            "denials": len(denied)}
+    ran = set(bash) - {x.get("tool_use_id") for x in denied}
+    return {"tools": sorted(set(tools_)), "client_calls": sum(bash[i] for i in ran),
+            "outside_permitted": sorted(set(tools_) - PERMITTED), "denials": len(denied)}
 
 
 def identity(files, extra):
