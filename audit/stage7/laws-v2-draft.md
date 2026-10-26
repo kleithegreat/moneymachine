@@ -1,4 +1,4 @@
-# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 4)
+# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 5)
 
 C7.7 requires the Lean semantics to be parameterized by validated declarations and bindings; every stage 6 law to keep
 its guarantee for every admitted declaration, held and event cadences included; each law whose definitions change to
@@ -7,8 +7,9 @@ whenever a required source lacks a valid, matching, in-scope certificate. `Ref/S
 frozen as version 1 until this draft is resolved.
 
 History: three fresh-context Opus reviews (GPT unavailable; its review queued): `laws-review-opus-1.md` (D1–D11),
-`-2.md` (B1–B5, N1–N10), `-3.md` (F1–F8, N1–N8). Revision 4 answers the third (§10). It was the third rejection of this
-exit, so each finding's effect on a false-discovery or leakage outcome is recorded there (CLAUDE.md, rule 3).
+`-2.md` (B1–B5, N1–N10), `-3.md` (F1–F8, N1–N8), `-4.md` (accepted revision 4, nothing blocking). Revision 4 answered
+the third (§10), the third rejection of this exit, so each finding's effect on a false-discovery or leakage outcome is
+recorded there (CLAUDE.md, rule 3). Revision 5 takes the fourth review's corrections and records the rest (§11).
 
 ## 1. The design, from what the semantics reads
 
@@ -246,8 +247,8 @@ def Ctx.inScope (c : Ctx α) : Bool :=
     | some b => (c.a.cert b.cert).any fun k => (c.accesses s).all fun x => k.grants.any (·.covers x)
 
 def Ctx.preflight (c : Ctx α) (mode : Mode) : Except Abort Unit := do
-  if !c.bound then throw .inputUnavailable          -- bindings only
   if !(c.roles.Valid c.reg) then throw .roles        -- registry only (R_ROLES)
+  if !c.bound then throw .inputUnavailable          -- bindings only
   if !c.authorizedIds mode then throw .holdout       -- dataset identities only
   if !c.certsMatch then throw .uncertified           -- certificates, supersessions, hashes only
   if !c.authorizedRows mode then throw .holdout      -- the time column of every stored row (I8)
@@ -286,7 +287,7 @@ def MState.init (reg : Registry) (p : Program) (coins : Nat) : MState α :=
       | .op (.window w h) _ => Array.replicate coins (some (Win.new N w h)) | _ => Array.replicate coins none
     since := Array.replicate p.nodes.size (Array.replicate coins none)
     delivered := Array.replicate reg.decls.size (Array.replicate coins [])
-    hour := 0, maxKnown := 0 }
+    hour := 0, maxKnown := -(2 ^ 63) }   -- version 1's initial value
 
 def MState.deliver (m : MState α) (o : Obs α) (tick : Int) : Except Abort (MState α) :=
   if o.known > tick then .error .causality
@@ -362,8 +363,9 @@ On `c := Ctx.make reg roles p a v pol stop`. L1–L4 and L7 take `CheckerAccepte
   ordinary fill's `inputsKnown` is the decision machine's `maxKnown`.
 - **L5 binding and admission.**
   0. `c.run N mode = .ok r → c.bound ∧ c.authorizedIds mode ∧ c.certsMatch ∧ c.authorizedRows mode ∧ c.admissible ∧ c.inScope`;
-  1. `c.run N mode = .error .inputUnavailable ↔ ¬ c.bound`;
-  2. each later refusal holds exactly when every earlier check passes and its own fails, in §5's order;
+  1. *(removed: folded into 2)*
+  2. for the k-th check of §5's order, counted by position (`.holdout` and `.uncertified` each occur twice), `c.run`
+     refuses with that check's code exactly when checks 1 to k − 1 pass and check k fails;
   3. if all pass, `c.run N mode = c.evaluate N`;
   4. *(refusal non-interference)* the checks through `.holdout` by row depend on no observation value: two admissions
      equal but for `obs` get the same result from them; the remaining checks depend on observations' keys, slots,
@@ -418,6 +420,9 @@ Each test is committed with its expected code before its first judged run (C7 ev
   records are admission state, not part of a certificate's payload.
 - **INVARIANTS.md.** I8 unchanged; added before it: a search run whose required datasets include a holdout dataset, by
   content identity, is refused (`R_HOLDOUT`). New codes `R_UNCERTIFIED`, `R_BINDING`, `R_ROLES`.
+- **SOURCES.md §7 and CERTIFICATES.md §5, further.** Mapping and coverage facts and a derived source's transitive
+  inputs are no longer run-time accesses: the verifier certifies them at issuance and `matches` pins them by content
+  identity, which fixes derived knownAt. "Before any payload is opened" excepts I8's time-column row check.
 - **SEMANTICS.md.** The delivered store and its reads, per-source delivery, the decision's reads from the providers'
   delivered observations, the projections and preflight; §8's "core datasets always present" deleted.
 - **Migration annex §4.** The compared "deliveries" are one stream per source, each delivery with its tick and knownAt,
@@ -444,3 +449,28 @@ Each test is committed with its expected code before its first judged run (C7 ev
 | N6 duplicate ids | no | `Admission.WF` (§3) |
 | N7 named tests | no | the table names an `mm` test per row (§8) |
 | N8 erasure | no | `manifest`, `Obs.dataset`, `lineage`, `rank`, `tickOf`, the redundant id and rule checks removed |
+
+## 11. The fourth review: corrections taken, limitations recorded (CLAUDE.md, rule 3)
+
+Taken: `maxKnown` starts at version 1's −2^63 (negative timestamps, tested by C7.6, would otherwise abort ordinary
+fills); `R_ROLES` precedes the binding check, so `required` never reads an out-of-range role; L5's refusals are stated
+per position; §9 lists the certification of mapping, coverage and lineage at issuance and I8's exception to "before any
+payload".
+
+Recorded as known limitations, none able to change a false-discovery or leakage outcome:
+
+1. `maxKnown`, recorded as a fill's `inputsKnown`, takes the knownAt of delivered observations no access covers (an
+   event observation of a pre-window slot delivered inside the window). Only that trace timestamp is affected;
+   `inputsKnown ≤ decided` holds, and holdout rows are refused by the row check.
+2. An event source's slot column, and the event-time column of rows read only for their keys, are not accesses;
+   knownAt bounds every read.
+3. Version 1 ends a delisted coin's listing interval at its last traded bar (`market.rs::load`), not from the
+   venue-rules artifact alone; the migration annex reconciles this before C7.4's baseline. Version 1's look-ahead on
+   delisting stands, as already recorded.
+4. Role accesses cover every bar and rate before `stop`, and held values carried into the run keep pre-window keys:
+   the safe direction, but baseline runs may need wider grants than "W's event-time interval"; the annex settles the
+   grants or the bound before the baseline (a C7.4 risk, not a leakage one).
+5. With `stop ≤ firstTick`, every access is dropped while `start` still ticks once; nothing reaches the returns.
+
+Before any proof, not a limitation: `Ctx.admissible`'s clauses, `Index.of`, and `start`, `step` and `evaluate` with the
+single delivery cursor are written in Lean, and checked against this draft by the slice's own review.
