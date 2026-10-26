@@ -2982,6 +2982,61 @@
    "source": "fed-ddp",
    "every_h": 2160,
    "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&filetype=zip"
+  },
+  {
+   "name": "nyfed-sofr",
+   "source": "nyfed",
+   "every_h": 6,
+   "url": "https://markets.newyorkfed.org/api/rates/secured/sofr/last/10.json"
+  },
+  {
+   "name": "nyfed-tgcr",
+   "source": "nyfed",
+   "every_h": 6,
+   "url": "https://markets.newyorkfed.org/api/rates/secured/tgcr/last/10.json"
+  },
+  {
+   "name": "nyfed-bgcr",
+   "source": "nyfed",
+   "every_h": 6,
+   "url": "https://markets.newyorkfed.org/api/rates/secured/bgcr/last/10.json"
+  },
+  {
+   "name": "nyfed-sofrai",
+   "source": "nyfed",
+   "every_h": 6,
+   "url": "https://markets.newyorkfed.org/api/rates/secured/sofrai/last/10.json"
+  },
+  {
+   "name": "nyfed-effr",
+   "source": "nyfed",
+   "every_h": 6,
+   "url": "https://markets.newyorkfed.org/api/rates/unsecured/effr/last/10.json"
+  },
+  {
+   "name": "nyfed-obfr",
+   "source": "nyfed",
+   "every_h": 6,
+   "url": "https://markets.newyorkfed.org/api/rates/unsecured/obfr/last/10.json"
+  },
+  {
+   "name": "nyfed-secured-history",
+   "source": "nyfed",
+   "every_h": 720,
+   "url": "https://markets.newyorkfed.org/api/rates/secured/all/search.json?startDate=1990-01-01"
+  },
+  {
+   "name": "nyfed-unsecured-history",
+   "source": "nyfed",
+   "every_h": 720,
+   "url": "https://markets.newyorkfed.org/api/rates/unsecured/all/search.json?startDate=1990-01-01"
+  },
+  {
+   "name": "ecb-rtd",
+   "source": "ecb",
+   "every_h": 720,
+   "url": "https://data-api.ecb.europa.eu/service/data/RTD",
+   "accept": "text/csv"
   }
  ]
 }
