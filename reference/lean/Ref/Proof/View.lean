@@ -557,6 +557,10 @@ theorem step_view (N : NumOps α) (p : Program) (v : Venue α) (pol : Policy) (s
   refine (?_ : EqH _ _ (fun _ => True)).1
   unfold Ctx.step
   simp only [Std.Legacy.Range.forIn_eq_forIn_range']
+  have hlisted : (Ctx.make p m₁ v pol stop).listed = (Ctx.make p m₂ v pol stop).listed := by
+    funext c t; unfold Ctx.listed
+    rw [show (Ctx.make p m₁ v pol stop).m.intervals = (Ctx.make p m₂ v pol stop).m.intervals from S.intervals]
+  rw [hlisted]
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.forIn _ _ _ _ _ rfl fun k hk s₀ h₀ => ?_) fun s₁ h₁ => ?_
   · refine EqH.bind (EqH.forIn _ _ _ _ (fun s' => s'.proj = s.proj) h₀ fun x _ s' h' => ?_) fun s'' h'' => EqH.pure _ h''
     have hh : b + ↑k * HOUR ≤ T := by

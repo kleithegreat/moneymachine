@@ -60,7 +60,7 @@ impl Spec {
             })
             .collect();
         let funding: Vec<Funding> = (0..=n * 4)
-            .filter(|h| !self.missing_funding.contains(h))
+            .filter(|h| !self.missing_funding.contains(h) && self.delisted_at.is_none_or(|d| h * HOUR < d))
             .map(|h| {
                 let (rate, premium) = self.funding.iter().find(|f| f.0 == h).map_or((0.0, 0.0), |f| (f.1, f.2));
                 Funding { coin: 0, event: h * HOUR, known: h * HOUR + DELTA, rate, premium }
@@ -218,7 +218,7 @@ fn bankruptcy_caps_the_loss_at_equity() {
     assert_eq!(&run.returns[run.returns.len() - 2..], &[-1.0, 0.0]);
 }
 
-/// A delisted coin is closed at its last bar's close.
+/// A delisted coin is closed at its last bar's close; it owes no funding once delisted, where the venue has no rows.
 #[test]
 fn delisting_closeout() {
     let mut s = Spec::new(&[100.0; 6], &[100.0, 100.0, 100.0, 105.0, 100.0, 100.0]);

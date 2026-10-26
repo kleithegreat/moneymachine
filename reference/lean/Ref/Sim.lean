@@ -336,7 +336,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   -- 1. funding
   for k in [1:5] do
     let h := b + k * HOUR
-    for x in s.book.pos do
+    for x in s.book.pos.filter (c.listed ·.1 h) do
       let coin := x.1
       match ix.rateAt[(coin, h)]?, latestOf ix m.bars h x with
       | some rate, some (_, bar) =>

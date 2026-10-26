@@ -180,11 +180,11 @@ Let V be the venue's coins in rules.json order; intervals [start, end) per coin 
 (entry[c], realized, fees, funding, absorbed) [sim.rs `Book`]. Marks start as NaN. With b = w_start, and while
 b + 2·BAR ≤ end, each step does, in order:
 
-1. **Funding.** For h = b + HOUR, b + 2·HOUR, …, b + BAR, and for each coin c holding a position (in
-   coin order): a funding rate r for (c, h) must exist, priced at the open of c's latest bar opening at
-   or before h (the bar opening at h when it exists, else the latest earlier one), else abort with
-   R_SETTLEMENT_MISSING (a missing payment is never a zero one). paid = q[c] · open · r. cash −= paid
-   and funding −= paid.
+1. **Funding.** For h = b + HOUR, b + 2·HOUR, …, b + BAR, and for each coin c holding a position and
+   listed at h (in coin order; none is due after delisting): a funding rate r for (c, h) must exist,
+   priced at the open of c's latest bar opening at or before h (the bar opening at h when it exists,
+   else the latest earlier one), else abort with R_SETTLEMENT_MISSING (a missing payment is never a
+   zero one). paid = q[c] · open · r. cash −= paid and funding −= paid.
 2. **Marks.** For each held coin, latest(c) is the coin's last bar with openTime ≤ b, and the mark
    is its close.
 3. **Margin.** The adverse price is low(latest) for q > 0 and high(latest) for q < 0 (the mark if no

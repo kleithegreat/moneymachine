@@ -321,7 +321,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
     let mut b = policy.w_start;
     while b + 2 * BAR <= end {
         for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
-            let held: Vec<usize> = book.pos.keys().copied().collect();
+            let held: Vec<usize> = book.pos.keys().copied().filter(|&c| listed(c, h)).collect();
             for coin in held {
                 let (Some(&rate), Some(bar)) = (market.rate_at.get(&(coin, h)), latest_bar(market, coin, h)) else {
                     return Err(Abort::SettlementMissing(format!("coin {coin} at {h}: no funding row or no bar to price it")));
