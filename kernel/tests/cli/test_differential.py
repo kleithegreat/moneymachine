@@ -1,6 +1,6 @@
 """C1.4: `mm eval --trace` of W0 matches the stage 0 Python witness at every step: the same events in the same order,
 and every decision, fill, funding settlement, equity and reconciliation value within $1e-6 (exactly where both read the
-same datum). Events of one type at one instant touch one coin each, so the two may list their coins in any order."""
+same datum)."""
 
 import json
 import os
@@ -36,14 +36,7 @@ def by_type(events, kinds):
 
 
 def steps(events):
-    """The trace in order, as runs of one type at one instant, each with the set of coins it touches."""
-    out = []
-    for e in by_type(events, KINDS):
-        if out and out[-1][:2] == (e["t"], e["type"]):
-            out[-1][2].add(e.get("coin", ""))
-        else:
-            out.append((e["t"], e["type"], {e.get("coin", "")}))
-    return out
+    return [(e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS)]
 
 
 def test_kernel_matches_witness(tmp_path):
