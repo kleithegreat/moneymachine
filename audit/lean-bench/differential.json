@@ -1,0 +1,18 @@
+{
+ "corpus_sha256": "1a6b059fd7cdc354e25b108075a5f35f19acca4c38d976dbb70ee2665e9d8a23",
+ "runs": 3372,
+ "run_disagreements": [],
+ "coverage": {
+  "equity": 10901754,
+  "hold": 4548408,
+  "decision": 45104255,
+  "fill": 45090027,
+  "funding": 359733013,
+  "defined node values": 11360766973,
+  "abort R_INPUT_UNAVAILABLE": 6,
+  "unfilled": 159,
+  "delisting": 45,
+  "liquidation": 4
+ },
+ "agree": true
+}

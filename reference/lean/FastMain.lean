@@ -3,7 +3,8 @@ import Fast.Sim
 
 /-!
 fastmm: the fast Lean engine (Fast/), with refmm's `run` and `bench` interfaces (Main.lean); programs are checked
-by the reference checker.
+by the reference checker. `bench` times indexing and the run, not the conversion of the parsed market into Fast's
+rows (the counterpart of mm's load). `phases PROGRAM MARKET` prints the indexing and run times separately.
 -/
 
 open Ref Json Ref.Io
@@ -80,4 +81,4 @@ def main (args : List String) : IO UInt32 := do
       let t2 ← IO.monoNanosNow
       IO.println s!"make {(t1 - t0).toFloat / 1e6} run {(t2 - t1).toFloat / 1e6} trace {r.trace.size}"
     return 0
-  | _ => IO.eprintln "usage: fastmm run PROGRAMS MARKET OUT_DIR | fastmm bench PROGRAM MARKET REPS"; return 2
+  | _ => IO.eprintln "usage: fastmm run PROGRAMS MARKET OUT_DIR | fastmm bench PROGRAM MARKET REPS | fastmm phases PROGRAM MARKET"; return 2

@@ -1,0 +1,57 @@
+{
+ "w0_evaluator_ms": {
+  "mm": {
+   "median": 15.977852,
+   "runs": [
+    17.362866,
+    16.682524,
+    15.777894,
+    15.977852,
+    15.699641
+   ]
+  },
+  "fastmm": {
+   "median": 33.257279,
+   "runs": [
+    33.257279,
+    34.36023,
+    32.158784,
+    33.089262,
+    34.670999
+   ]
+  },
+  "refmm": {
+   "median": 660.191971,
+   "runs": [
+    636.34421,
+    650.798592,
+    660.191971,
+    663.993171,
+    666.610547
+   ]
+  }
+ },
+ "throughput": {
+  "mm": {
+   "completed": 100,
+   "of": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 4.516661173,
+   "per_second": 33.362018033945915
+  },
+  "fastmm": {
+   "completed": 100,
+   "of": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 9.327205622,
+   "per_second": 16.155420778054907
+  },
+  "refmm": {
+   "completed": 100,
+   "of": 100,
+   "program_market_years": 150.68493150684932,
+   "evaluator_seconds": 228.805564801,
+   "per_second": 0.6585719697766317
+  }
+ }
+}

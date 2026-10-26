@@ -42,7 +42,7 @@ def throughput(times):
 
 
 def main(work, out, ref_throughput=None):
-    work = Path(work)
+    work = Path(work).resolve()
     tp = sorted((work / "tp").glob("*.json"), key=lambda p: int(p.stem))
     w0 = {"mm": mm_times(work, [work / "w0.json"], REPS)[0],
           "fastmm": lean_times("fastmm", work / "w0.json", work, REPS),
