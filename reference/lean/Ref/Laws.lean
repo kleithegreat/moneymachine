@@ -1,17 +1,12 @@
 import Ref.Spec
-import Ref.Proof.Units
-import Ref.Proof.Checker
-import Ref.Proof.View
-import Ref.Proof.TwinRun
-import Ref.Proof.InsertRun
-import Ref.Proof.Bound
 
 /-!
-The five laws of stage 6 (audit/criteria.md, stage 6, with its revisions), stated over the model of
-reference/SEMANTICS.md and the definitions of `Ref/Spec.lean`. Each holds for every number structure `N`;
-L3's obligations are explicit hypotheses. Abstract statements are proved here; the binary64 instance
-(`floatOps`) is not, because Lean's `Float` is opaque, and it is tested instead (C6.4). These statements and
-the definitions they use are frozen with SEMANTICS.md before any proof.
+The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
+their revisions, C7.7). Each holds for every number structure `N`, every valid registry and roles, every admission
+metadata and every admissible array of resolved observations; L3's obligations and L6's are explicit hypotheses, as
+in version 1. The link from certified bytes to observations (`Loader.Faithful`, the draft's §3) is the trusted
+boundary outside the model: quantifying over every admissible observation array is the stronger statement. These
+statements are reviewed and frozen before any proof; `sorry` marks proofs not yet written.
 -/
 
 namespace Ref
@@ -20,259 +15,207 @@ variable {α : Type} [Inhabited α]
 
 /-! ## L1 non-interference -/
 
-/-- Equal delivery prefixes give equal machine states (values, windows, held inputs, `hours_since`
-state) at every tick through t. -/
-theorem L1_values (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m₂ : Market α)
-    (_ : m₁.Admissible) (_ : m₂.Admissible) (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (n : Nat)
-    (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
-    (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
-        = (Ctx.make p m₂ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
-    ∀ k ≤ n, (Ctx.make p m₁ v pol stop).machineAfter N k = (Ctx.make p m₂ v pol stop).machineAfter N k := by
-  intro k hk
-  simp only [Ctx.deliveryPrefix, Prod.mk.injEq] at hP
-  have A : Agree (Ctx.make p m₁ v pol stop) (Ctx.make p m₂ v pol stop) (pol.wStart + (n : Int) * HOUR + pol.delta) :=
-    { p := rfl, pol := rfl, intervals := hI, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2,
-      f₁ := fRows_sorted .., f₂ := fRows_sorted .., b₁ := bRows_sorted .., b₂ := bRows_sorted ..,
-      e₁ := eRows_sorted .., e₂ := eRows_sorted .. }
-  have hT : ∀ k' ∈ List.range' 1 k, pol.wStart + ↑k' * HOUR + pol.delta ≤ pol.wStart + (n : Int) * HOUR + pol.delta := by
-    intro k' hk'
-    simp only [List.mem_range'_1] at hk'
-    have : (k' : Int) ≤ n := by omega
-    simp only [HOUR]; omega
-  have h0 : (Ctx.make p m₁ v pol stop).pol.wStart + (Ctx.make p m₁ v pol stop).pol.delta ≤
-      pol.wStart + (n : Int) * HOUR + pol.delta := by simp only [Ctx.make, HOUR]; omega
-  rw [Ctx.machineAfter_eq, Ctx.machineAfter_eq]
-  exact map_machine (bind_agree (start_agree N A h0).1 (start_agree N A h0).2
-    fun r₁ r₂ hr hri => tickLoop_agree N A pol.wStart (List.range' 1 k) hT hr hri).1
+/-- Equal delivery prefixes give equal machine states (values, windows, held observations, `hours_since` state)
+at every tick through t. -/
+theorem L1_values (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
+    (_ : roles.valid reg = true) (adm : Meta) (obs₁ obs₂ : Array (Obs α)) (v : Venue α) (pol : Policy)
+    (_ : pol.Valid) (stop : Int) (req : List Nat) (n : Nat)
+    (_ : (Ctx.make reg roles p adm obs₁ v pol stop req).admissible N = true)
+    (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible N = true)
+    (hP : (Ctx.make reg roles p adm obs₁ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
+        = (Ctx.make reg roles p adm obs₂ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
+    ∀ k ≤ n, (Ctx.make reg roles p adm obs₁ v pol stop req).machineAfter N k
+      = (Ctx.make reg roles p adm obs₂ v pol stop req).machineAfter N k := by
+  sorry
 
-/-- The simulator's machine is that schedule: after j steps, it is the machine after the tick at
-wStart + 4j·HOUR. -/
-theorem L1_simulator (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
-    (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (j : Nat) (s : SState α)
-    (hj : j ≤ (Ctx.make p m v pol stop).bounds.length) (h : (Ctx.make p m v pol stop).steps N j = .ok s) :
-    (Ctx.make p m v pol stop).machineAfter N (4 * j) = .ok s.machine := by
-  obtain ⟨t, ht, hp⟩ := steps_proj N _ j hj s h
-  rw [Ctx.machineAfter_eq, ht]
-  exact congrArg (fun x => Except.ok x.1) hp
+/-- The simulator's machine is that schedule: after j steps, it is the machine after the tick at wStart + 4j·HOUR. -/
+theorem L1_simulator (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
+    (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (pol : Policy) (_ : pol.Valid)
+    (stop : Int) (req : List Nat) (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true)
+    (j : Nat) (s : SState α) (hj : j ≤ (Ctx.make reg roles p adm obs v pol stop req).bounds.length)
+    (h : (Ctx.make reg roles p adm obs v pol stop req).steps N j = .ok s) :
+    (Ctx.make reg roles p adm obs v pol stop req).machineAfter N (4 * j) = .ok s.machine := by
+  sorry
 
-/-- Equal delivery prefixes and execution views through step k's decision give the same observations
-at every step through it: the same trace, or the same rejection. -/
-theorem L1_decisions (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m₂ : Market α)
-    (_ : m₁.Admissible) (_ : m₂.Admissible) (v : Venue α) (_ : v.Valid m₁.intervals.size) (pol : Policy) (_ : pol.Valid)
-    (stop : Int) (k : Nat)
-    (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
-    (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix ((Ctx.make p m₁ v pol stop).decisionTime k)
-        = (Ctx.make p m₂ v pol stop).deliveryPrefix ((Ctx.make p m₂ v pol stop).decisionTime k))
-    (hE : (Ctx.make p m₁ v pol stop).execView ((Ctx.make p m₁ v pol stop).decisionTime k)
-        = (Ctx.make p m₂ v pol stop).execView ((Ctx.make p m₂ v pol stop).decisionTime k)) :
-    ∀ j ≤ k + 1, ((Ctx.make p m₁ v pol stop).steps N j).map (·.trace)
-      = ((Ctx.make p m₂ v pol stop).steps N j).map (·.trace) := by
-  intro j hj
-  simp only [Ctx.deliveryPrefix, Prod.mk.injEq] at hP
-  simp only [Ctx.execView, Prod.mk.injEq] at hE
-  have A : Agree (Ctx.make p m₁ v pol stop) (Ctx.make p m₂ v pol stop) ((Ctx.make p m₁ v pol stop).decisionTime k) :=
-    { p := rfl, pol := rfl, intervals := hI, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2,
-      f₁ := fRows_sorted .., f₂ := fRows_sorted .., b₁ := bRows_sorted .., b₂ := bRows_sorted ..,
-      e₁ := eRows_sorted .., e₂ := eRows_sorted .. }
-  have S : SameView m₁ m₂ ((Ctx.make p m₁ v pol stop).decisionTime k) :=
-    { A₁ := ‹m₁.Admissible›, A₂ := ‹m₂.Admissible›, intervals := hI, rates := hE.1, closed := hE.2.1,
-      opened := hE.2.2.1 }
-  have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
-  have hjT : pol.wStart + ↑j * BAR + pol.delta ≤ (Ctx.make p m₁ v pol stop).decisionTime k := by
-    have : (j : Int) ≤ (k : Int) + 1 := by omega
-    have := Int.mul_le_mul_of_nonneg_right this (Int.le_of_lt hBAR)
-    simp only [Ctx.decisionTime, Ctx.make]; omega
-  rw [steps_view N p v pol stop S A (Int.le_of_lt ‹pol.Valid›.delta.1) j hjT]
+/-- Equal delivery prefixes and execution views through step k's decision give the same observations at every
+step through it: the same trace, or the same rejection. -/
+theorem L1_decisions (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
+    (_ : roles.valid reg = true) (adm : Meta) (obs₁ obs₂ : Array (Obs α)) (v : Venue α)
+    (_ : v.Valid adm.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat) (k : Nat)
+    (_ : (Ctx.make reg roles p adm obs₁ v pol stop req).admissible N = true)
+    (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible N = true)
+    (hP : (Ctx.make reg roles p adm obs₁ v pol stop req).deliveryPrefix ((Ctx.make reg roles p adm obs₁ v pol stop req).decisionTime k)
+        = (Ctx.make reg roles p adm obs₂ v pol stop req).deliveryPrefix ((Ctx.make reg roles p adm obs₂ v pol stop req).decisionTime k))
+    (hE : (Ctx.make reg roles p adm obs₁ v pol stop req).execView ((Ctx.make reg roles p adm obs₁ v pol stop req).decisionTime k)
+        = (Ctx.make reg roles p adm obs₂ v pol stop req).execView ((Ctx.make reg roles p adm obs₂ v pol stop req).decisionTime k)) :
+    ∀ j ≤ k + 1, ((Ctx.make reg roles p adm obs₁ v pol stop req).steps N j).map (·.trace)
+      = ((Ctx.make reg roles p adm obs₂ v pol stop req).steps N j).map (·.trace) := by
+  sorry
 
 /-! ## L2 unit soundness -/
 
-/-- The instrumented machine never raises a unit error; its defined values carry their nodes' static
-types, booleans are canonical, and erasing the tags gives the executable machine's values and state
-(or the same rejection). -/
-theorem L2_units (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (_ : m.Admissible)
-    (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (n : Nat) :
-    let c := Ctx.make p m v pol stop
+/-- The instrumented machine never raises a unit error; its defined values carry their nodes' static types,
+booleans are canonical, and erasing the tags gives the executable machine's values and state (or the same
+rejection). -/
+theorem L2_units (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
+    (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (pol : Policy) (_ : pol.Valid)
+    (stop : Int) (req : List Nat) (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true) (n : Nat) :
+    let c := Ctx.make reg roles p adm obs v pol stop req
     (∀ e, c.umachineAfter N n ≠ .error (.inr e)) ∧
     (∀ a, c.umachineAfter N n = .error (.inl a) ↔ c.machineAfter N n = .error a) ∧
     (∀ u, c.umachineAfter N n = .ok u →
       ∃ ms, c.machineAfter N n = .ok ms ∧ u.erase = ms.vals ∧ u.m.wins = ms.wins ∧ u.m.since = ms.since ∧
-        u.m.funding = ms.funding ∧ u.m.bar = ms.bar ∧ u.m.events = ms.events ∧
+        u.m.latest = ms.latest ∧
         ∀ i < p.nodes.size, ∀ (coin : Nat) (x : α) (t : Ty), u.tv[i]![coin]! = some (x, t) →
           t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b)) := by
-  intro c
-  obtain ⟨_, hp⟩ := ‹CheckerAccepted p›
-  have hc := umachine_corr N c (check_wf hp) n
-  generalize c.umachineAfter N n = x at hc ⊢
-  generalize c.machineAfter N n = y at hc ⊢
-  cases x with
-  | error e => cases y with
-    | error a => cases e with
-      | inl a' => simp only [Corr] at hc; subst hc; simp
-      | inr e' => exact hc.elim
-    | ok ms => cases e <;> exact hc.elim
-  | ok u => cases y with
-    | error a => exact hc.elim
-    | ok ms =>
-      refine ⟨by simp, by simp, fun u' hu => ?_⟩
-      cases hu
-      exact ⟨ms, rfl, hc.vals, hc.wins, hc.since, hc.funding, hc.bar, hc.events,
-        fun i _ coin x t h => hc.tagged i coin x t h⟩
+  sorry
 
-/-- The checker's programs are well-formed. -/
-theorem L2_checker (p : Program) (_ : CheckerAccepted p) : p.WF := by
-  obtain ⟨_, h⟩ := ‹CheckerAccepted p›
-  exact check_wf h
+/-- The checker's programs are well-formed against the registry. -/
+theorem L2_checker (reg : Registry) (p : Program) (_ : CheckerAccepted reg p) : p.WF reg := by
+  sorry
 
 /-! ## L3 rewrite soundness -/
 
-/-- Rewriting keeps a well-formed program well-formed; at every tick every original node's values
-equal its corresponding node's; and every step's observations are identical (the same trace, or the
-same rejection), hence the whole run. -/
-theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (p p' : Program) (i : Nat) (_ : p.WF)
-    (h : r.apply p i = some p') (m : Market α) (_ : m.Admissible) (v : Venue α) (pol : Policy) (_ : pol.Valid)
-    (stop : Int) :
-    p'.WF ∧
-    (∀ n, ((Ctx.make p' m v pol stop).machineAfter N n).isOk = ((Ctx.make p m v pol stop).machineAfter N n).isOk ∧
-      ∀ ms ms', (Ctx.make p m v pol stop).machineAfter N n = .ok ms → (Ctx.make p' m v pol stop).machineAfter N n = .ok ms' →
+/-- Rewriting keeps a well-formed program well-formed and reading the same declarations; at every tick every
+original node's values equal its corresponding node's; every step's observations are identical (the same trace,
+or the same rejection); hence the whole run, admission included. -/
+theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (reg : Registry) (roles : Roles) (p p' : Program)
+    (i : Nat) (_ : p.WF reg) (h : r.apply p i = some p') (adm : Meta) (obs : Array (Obs α)) (v : Venue α)
+    (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true) :
+    p'.WF reg ∧ (∀ s, s ∈ p'.sources ↔ s ∈ p.sources) ∧
+    (∀ n, ((Ctx.make reg roles p' adm obs v pol stop req).machineAfter N n).isOk
+        = ((Ctx.make reg roles p adm obs v pol stop req).machineAfter N n).isOk ∧
+      ∀ ms ms', (Ctx.make reg roles p adm obs v pol stop req).machineAfter N n = .ok ms →
+        (Ctx.make reg roles p' adm obs v pol stop req).machineAfter N n = .ok ms' →
         ∀ k < p.nodes.size, ms'.vals[r.corr i k]! = ms.vals[k]!) ∧
-    (∀ j, ((Ctx.make p' m v pol stop).steps N j).map (·.trace) = ((Ctx.make p m v pol stop).steps N j).map (·.trace)) ∧
-    run N p' m v pol stop = run N p m v pol stop := by
-  by_cases hr : r = .ifNotRev
-  · subst hr; exact ifNotRev_sound N hN ‹p.WF› h m v pol stop
-  obtain ⟨j, T⟩ := apply_twin N hN ‹p.WF› h hr
-  have hc : ∀ k, r.corr i k = k := fun k => by simp [Rule.corr, hr]
-  refine ⟨T.wf', fun n => ?_, fun j => by rw [steps_twin T m v pol stop], run_twin T m v pol stop⟩
-  rw [machineAfter_twin T m v pol stop n]
-  refine ⟨rfl, fun ms ms' h₁ h₂ k _ => ?_⟩
-  rw [h₁, Except.ok.injEq] at h₂
-  rw [hc, h₂]
+    (∀ j, ((Ctx.make reg roles p' adm obs v pol stop req).steps N j).map (·.trace)
+        = ((Ctx.make reg roles p adm obs v pol stop req).steps N j).map (·.trace)) ∧
+    ∀ (ld : Loader α) (mode : Mode), run N reg roles p' adm ld v pol stop mode = run N reg roles p adm ld v pol stop mode := by
+  sorry
 
 /-! ## L4 fill ordering -/
 
-/-- Every fill is nonzero, ordered in time, priced by the cost table and charged the fee. An ordinary
-fill is its order's scheduled bar's open, after its decision, and its recorded input bound is the
-decision machine's latest knownAt, no later than the decision. A closeout is at its own time, from
-the coin's latest closed bar: the adverse extreme for a liquidation, the close for a delisting. -/
-theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (hA : m.Admissible)
-    (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
-    (r : Run α) (hr : run N p m v pol stop = .ok r) :
+/-- Every fill is nonzero, ordered in time, priced by the cost table and charged the fee. An ordinary fill is its
+order's scheduled bar's open, after its decision, and its recorded input bound is the decision machine's latest
+knownAt, no later than the decision. A closeout is at its own time, from the coin's latest closed bar: the adverse
+extreme for a liquidation, the close for a delisting. -/
+theorem L4_fills (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
+    (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (_ : v.Valid adm.intervals.size)
+    (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true)
+    (r : Run α) (hr : (Ctx.make reg roles p adm obs v pol stop req).evaluate N = .ok r) :
+    let c := Ctx.make reg roles p adm obs v pol stop req
     ∀ f, Event.fill f ∈ r.trace.toList →
       N.isZero f.qty = false ∧ f.inputsKnown ≤ f.decided ∧ f.decided ≤ f.submitted ∧ f.submitted ≤ f.filled ∧
       f.price = fillPrice N v f.coin f.qty f.reference ∧ f.fee = N.mul (N.mul (N.abs f.qty) f.price) v.takerFee ∧
       (f.why = .fill →
         f.submitted = f.decided ∧ f.filled = f.decided - pol.delta + BAR ∧
-        (∃ bar, barAt m f.coin f.filled = some bar ∧ bar.trades ≥ 1 ∧ f.sourceOpen = bar.openTime ∧ f.reference = bar.o) ∧
+        (∃ bar, barAt c f.coin f.filled = some bar ∧ bar.trades ≥ 1 ∧ f.sourceOpen = bar.openTime ∧ f.reference = bar.o) ∧
         ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta = f.decided ∧
-          (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = f.inputsKnown) ∧
+          c.machineAfter N n = .ok ms ∧ ms.maxKnown = f.inputsKnown) ∧
       (f.why ≠ .fill →
         f.inputsKnown = f.filled ∧ f.decided = f.filled ∧ f.submitted = f.filled ∧
-        ∃ bar, latestClosed m f.coin f.filled = some bar ∧ f.sourceOpen = bar.openTime ∧
+        ∃ bar, latestClosed c f.coin f.filled = some bar ∧ f.sourceOpen = bar.openTime ∧
           ∃ q, f.qty = N.neg q ∧ f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero q then bar.l else bar.h)) := by
-  unfold run at hr
-  cases hs : (Ctx.make p m v pol stop).steps N (Ctx.make p m v pol stop).bounds.length <;>
-    simp only [hs, bind, Except.bind, pure, Except.pure, reduceCtorEq, Except.ok.injEq] at hr
-  subst hr
-  exact (steps_inv4 N p m hA v pol stop _ (Nat.le_refl _) _ hs).fills
+  sorry
 
-/-- Exactly once: every order whose due step runs (B + 3·BAR ≤ stop, with B its decision's boundary)
-has exactly one later resolution in the trace, the fill at its scheduled bar if that bar exists and
-traded and the due step's equity is positive, and otherwise its Unfilled record; and every ordinary fill
-has exactly one earlier decision it resolves. (Revision 2026-10-21: the solvency condition, I10.) -/
-theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (hA : m.Admissible)
-    (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
-    (r : Run α) (hr : run N p m v pol stop = .ok r) :
-    let resolves (t : Int) (c : Nat) (q : α) (e : Event α) : Prop :=
-      (∃ f : Fill α, e = Event.fill f ∧ f.why = .fill ∧ f.coin = c ∧ f.decided = t ∧ f.qty = q) ∨ e = Event.unfilled (t - pol.delta + BAR) c q
-    (∀ (i : Nat) (t : Int) (c : Nat) (w q : α), r.trace[i]? = some (Event.decision t c w q) → t - pol.delta + 3 * BAR ≤ stop →
-      (∃ j : Nat, i < j ∧ ∃ e : Event α, r.trace[j]? = some e ∧ resolves t c q e ∧
-        ∀ (j' : Nat) (e' : Event α), r.trace[j']? = some e' → resolves t c q e' → j' = j) ∧
-      ((∃ bar, barAt m c (t - pol.delta + BAR) = some bar ∧ bar.trades ≥ 1) ∧
+/-- Exactly once: every order whose due step runs (B + 3·BAR ≤ stop, with B its decision's boundary) has exactly
+one later resolution in the trace, the fill at its scheduled bar if that bar exists and traded and the due step's
+equity is positive, and otherwise its Unfilled record; and every ordinary fill has exactly one earlier decision it
+resolves. -/
+theorem L4_orders (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
+    (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (_ : v.Valid adm.intervals.size)
+    (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true)
+    (r : Run α) (hr : (Ctx.make reg roles p adm obs v pol stop req).evaluate N = .ok r) :
+    let c := Ctx.make reg roles p adm obs v pol stop req
+    let resolves (t : Int) (coin : Nat) (q : α) (e : Event α) : Prop :=
+      (∃ f : Fill α, e = Event.fill f ∧ f.why = .fill ∧ f.coin = coin ∧ f.decided = t ∧ f.qty = q) ∨
+        e = Event.unfilled (t - pol.delta + BAR) coin q
+    (∀ (i : Nat) (t : Int) (coin : Nat) (w q : α), r.trace[i]? = some (Event.decision t coin w q) →
+      t - pol.delta + 3 * BAR ≤ stop →
+      (∃ j : Nat, i < j ∧ ∃ e : Event α, r.trace[j]? = some e ∧ resolves t coin q e ∧
+        ∀ (j' : Nat) (e' : Event α), r.trace[j']? = some e' → resolves t coin q e' → j' = j) ∧
+      ((∃ bar, barAt c coin (t - pol.delta + BAR) = some bar ∧ bar.trades ≥ 1) ∧
         (∃ (k : Nat) (e : α), r.equity[k]? = some e ∧ t - pol.delta + BAR = pol.wStart + ((k : Int) + 1) * BAR ∧
           N.lt N.zero e = true) ↔
-        ∃ f : Fill α, Event.fill f ∈ r.trace.toList ∧ f.why = .fill ∧ f.coin = c ∧ f.decided = t)) ∧
+        ∃ f : Fill α, Event.fill f ∈ r.trace.toList ∧ f.why = .fill ∧ f.coin = coin ∧ f.decided = t)) ∧
     (∀ (j : Nat) (f : Fill α), r.trace[j]? = some (Event.fill f) → f.why = .fill →
       ∃ (i : Nat) (w : α), i < j ∧ r.trace[i]? = some (Event.decision f.decided f.coin w f.qty) ∧
         ∀ (i' : Nat) (w' : α), r.trace[i']? = some (Event.decision f.decided f.coin w' f.qty) → i' = i) := by
-  intro resolves
-  unfold run at hr
-  cases hs : (Ctx.make p m v pol stop).steps N (Ctx.make p m v pol stop).bounds.length <;>
-    simp only [hs, bind, Except.bind, pure, Except.pure, reduceCtorEq, Except.ok.injEq] at hr
-  subst hr
-  rename_i s
-  obtain ⟨h4, hL, hF, -⟩ := steps_ledger N p m hA v pol stop _ (Nat.le_refl _) s hs
-  have hend : stop < pol.wStart + ↑(Ctx.make p m v pol stop).bounds.length * BAR + 2 * BAR :=
-    bounds_end (Ctx.make p m v pol stop)
-  have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
-  have tl : ∀ {i : Nat} {x : Event α}, s.trace[i]? = some x → s.trace.toList[i]? = some x := fun h =>
-    (Array.getElem?_toList ..).trans h
-  refine ⟨fun i t c w q hi hstop => ?_, fun j f hj hw => ?_⟩
-  · have hres : Resolved pol.delta s.trace.toList i t c q := by
-      rcases hL.fate i t c w q (tl hi) with ⟨o, ho, rfl, -, -⟩ | hres | hstop'
-      · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ho
-        have := (h4.orders e he).2.1
-        omega
-      · exact hres
-      · omega
-    obtain ⟨j, hij, e, hj, hre⟩ := hres
-    refine ⟨⟨j, hij, e, (Array.getElem?_toList ..).symm.trans hj, hre, fun j' e' hj' hre' =>
-      key_index hL.rnodup (tl hj') hj (rkey_of_resolves hre') (rkey_of_resolves hre)⟩,
-      ⟨fun ⟨⟨bar, hbar, htr⟩, k, e, hk, ht, hpos⟩ => ?_, ?_⟩⟩
-    · rcases hre with ⟨f, rfl, hw, hc, hd, -⟩ | rfl
-      · exact ⟨f, List.mem_of_getElem? hj, hw, hc, hd⟩
-      · rcases hL.unfilled _ c q (List.mem_of_getElem? hj) with hno | ⟨k', e', hk', ht', hneg⟩
-        · exact absurd htr (by have := hno bar hbar; omega)
-        · have hkk : k = k' := by unfold BAR HOUR at ht ht'; omega
-          subst hkk
-          rw [hk] at hk'; cases hk'
-          rw [hpos] at hneg; cases hneg
-    · rintro ⟨f, hf, hw, rfl, rfl⟩
-      obtain ⟨-, -, -, -, -, -, hfill, -⟩ := h4.fills f hf
-      obtain ⟨-, hfl, ⟨bar, hbar, htr, -⟩, -⟩ := hfill hw
-      obtain ⟨k, e, hk, ht, hpos⟩ := hF f hf hw
-      exact ⟨⟨bar, hfl ▸ hbar, htr⟩, k, e, hk, hfl ▸ ht, hpos⟩
-  · obtain ⟨i, w, q, hij, hi, hre⟩ := hL.cause j (.fill f) f.decided f.coin (tl hj) (by simp [rkey, hw])
-    have hq : q = f.qty := by
-      rcases hre with ⟨f', hf', -, -, -, hq⟩ | h
-      · cases hf'; exact hq.symm
-      · cases h
-    subst hq
-    exact ⟨i, w, hij, (Array.getElem?_toList ..).symm.trans hi, fun i' w' hi' =>
-      key_index hL.dnodup (tl hi') hi rfl rfl⟩
+  sorry
 
-/-! ## L5 binding -/
+/-! ## L5 binding and admission -/
 
-/-- A run is refused as unavailable exactly when some event source the program names is unbound,
-before any delivery or tick; with every source bound, preflight passes and the run is the ordinary
-evaluation. -/
-theorem L5_binding (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (v : Venue α) (pol : Policy)
-    (stop : Int) :
-    (run N p m v pol stop = .error .inputUnavailable ↔ ∃ s ∈ p.eventSlots, s ∉ m.bound) ∧
-    ((∃ s ∈ p.eventSlots, s ∉ m.bound) → (Ctx.make p m v pol stop).start N = .error .inputUnavailable) ∧
-    ((∀ s ∈ p.eventSlots, s ∈ m.bound) →
-      (Ctx.make p m v pol stop).start N = (do
-        let s ← (Ctx.make p m v pol stop).deliver ((Ctx.make p m v pol stop).state0 N) (pol.wStart + pol.delta)
-        return { s with machine := s.machine.tick N p ((Ctx.make p m v pol stop).mask pol.wStart) pol.wStart })) := by
-  refine ⟨⟨fun hr => ?_, fun h => ?_⟩, fun h => start_unbound N _ h, fun h => start_bound N _ h⟩
-  · refine Classical.byContradiction fun hn => ?_
-    have hb : ∀ s ∈ p.eventSlots, s ∈ m.bound := fun s hs => Classical.byContradiction fun hm => hn ⟨s, hs, hm⟩
-    have hs : Except.Avoids .inputUnavailable ((Ctx.make p m v pol stop).start N) := by
-      rw [start_bound N _ hb]
-      exact .bind (deliver_avoids _ _ _ (by decide)) fun _ => .pure _
-    exact Except.Avoids.bind (steps_avoids_of_start N _ _ hs) (fun _ => .pure _) hr
-  · simp only [run, Ctx.steps, start_unbound N (Ctx.make p m v pol stop) h]; rfl
+/-- A run that produces output passed every admission check: metadata, event times, run admission and scope. -/
+theorem L5_admitted (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α)
+    (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) (r : Run α)
+    (h : run N reg roles p adm ld v pol stop mode = .ok r) :
+    ∃ req, stage1 reg roles p adm mode = .ok req ∧ stage2 adm mode (ld.rows req) = .ok () ∧
+      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).admissible N = true ∧
+      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).inScope = true := by
+  sorry
 
-/-! ## L6 bounded loss (added 2026-10-21 with I10) -/
+/-- The run refuses with the first failing check's code, in the order of `firstFailure`; with none failing it is
+the evaluation. -/
+theorem L5_order (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α)
+    (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) :
+    (∀ k e, firstFailure N reg roles p adm ld v pol stop mode = some (k, e) → run N reg roles p adm ld v pol stop mode = .error e) ∧
+    (firstFailure N reg roles p adm ld v pol stop mode = none →
+      run N reg roles p adm ld v pol stop mode
+        = (Ctx.make reg roles p adm (ld.resolve (adm.required reg roles p)) v pol stop (adm.required reg roles p)).evaluate N) := by
+  sorry
 
-/-- Losses are capped at equity: R_BOUND, the check every step return passes before it is recorded (return
-≥ −1), never fires. A step's return is its finite positive equity over a positive previous equity, minus 1;
-−1 at a bankruptcy; or 0 once the account is closed. So every return of a run is at least −B, B = 1. -/
-theorem L6_bounded (N : NumOps α) (hB : N.Bounded) (p : Program) (m : Market α) (v : Venue α) (pol : Policy)
-    (stop : Int) : run N p m v pol stop ≠ .error .bound := by
-  unfold run Ctx.steps
-  refine Except.Avoids.bind (Except.Avoids.bind ?_ fun _ => Except.Avoids.bind (Except.Avoids.forIn_list _ _ _
-    fun b s => Except.Avoids.bind (step_bounded N hB _ s b) fun _ => Except.Avoids.pure _) fun _ => Except.Avoids.pure _)
-    fun _ => Except.Avoids.pure _
-  unfold Ctx.start
-  bwalk
+/-- The checks before resolution read no observation: two loaders with the same event-time rows fail at the same
+check among positions 1 to 5, or at none of them. -/
+theorem L5_staged (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld₁ ld₂ : Loader α)
+    (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows) :
+    (firstFailure N reg roles p adm ld₁ v pol stop mode).filter (·.1 ≤ 5)
+      = (firstFailure N reg roles p adm ld₂ v pol stop mode).filter (·.1 ≤ 5) := by
+  sorry
+
+/-- The checks after resolution never read an observation's values: resolutions of the same shape (the same keys,
+slots, knownAt, coins and lineage, with values null and finite in the same places) fail at the same check, or at
+none. -/
+theorem L5_shape (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld₁ ld₂ : Loader α)
+    (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows)
+    (hS : ∀ req, (ld₁.resolve req).size = (ld₂.resolve req).size ∧
+      ∀ i < (ld₁.resolve req).size, ((ld₁.resolve req)[i]!).sameShape N (ld₂.resolve req)[i]! = true) :
+    firstFailure N reg roles p adm ld₁ v pol stop mode = firstFailure N reg roles p adm ld₂ v pol stop mode := by
+  sorry
+
+/-- Every declaration the program text names, in an unused let or an inactive branch included, is required. -/
+theorem L5_text (reg : Registry) (roles : Roles) (adm : Meta) (text name : String) (p : Program) (inp : Input)
+    (h : check reg.inputs text = .ok p) (hR : InputRef text name) (hN : (name, inp) ∈ reg.inputs.toList) :
+    inp.source ∈ adm.required reg roles p := by
+  sorry
+
+/-! ## L6 bounded loss -/
+
+/-- Losses are capped at equity: R_BOUND, the check every step return passes before it is recorded (return ≥ −1),
+never fires. -/
+theorem L6_bounded (N : NumOps α) (hB : N.Bounded) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta)
+    (ld : Loader α) (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) :
+    run N reg roles p adm ld v pol stop mode ≠ .error .bound := by
+  sorry
+
+/-! ## L7 input reads -/
+
+/-- After the tick at hour H = wStart + n·HOUR, an input node's value for a coin listed at H is the field of the
+last observation of its declaration and coin delivered by H + δ, if the declaration is held; if it is an event
+source, the same only when that observation's slot is H; otherwise undefined. Never a default. -/
+theorem L7_reads (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : p.WF reg) (adm : Meta)
+    (obs : Array (Obs α)) (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true) (n : Nat) (ms : MState α)
+    (h : (Ctx.make reg roles p adm obs v pol stop req).machineAfter N n = .ok ms)
+    (i : Nat) (hi : i < p.nodes.size) (inp : Input) (hn : p.nodes[i]! = .input inp) (x : Nat)
+    (hx : (Ctx.make reg roles p adm obs v pol stop req).listed x (pol.wStart + (n : Int) * HOUR) = true) :
+    let r := (((Ctx.make reg roles p adm obs v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)).filter
+      fun o => o.source == inp.source && o.coin == x).getLast?
+    ms.vals[i]![x]! =
+      (if inp.event && !(r.any (·.slot == some (pol.wStart + (n : Int) * HOUR))) then none
+       else (r.bind (·.vals[inp.field]!)).bind N.keep) := by
+  sorry
 
 end Ref

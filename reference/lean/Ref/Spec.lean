@@ -2,9 +2,10 @@ import Ref.Sim
 import Ref.Units
 
 /-!
-The definitions the stage 6 laws use (audit/criteria.md, stage 6, with its revisions): admissible inputs, the
-machine's schedule alone and instrumented, delivery prefixes and execution views, the R version 1
-rewrite rules, and the bar lookups of L4. They are frozen with the laws (`Ref/Laws.lean`).
+The definitions the laws use (stage 6's, generalized over declarations by stage 7: audit/stage7/laws-v2-draft.md):
+admissible inputs, the machine's schedule alone and instrumented, delivery prefixes and execution views, the R
+version 1 rewrite rules, the bar lookups of L4, the first failing admission check, and the text's input
+references. They are frozen with the laws (`Ref/Laws.lean`).
 -/
 
 namespace Ref
@@ -12,9 +13,6 @@ namespace Ref
 variable {α : Type} [Inhabited α]
 
 /-! ## Admissible inputs -/
-
-/-- Programs the frozen checker accepts. -/
-def CheckerAccepted (p : Program) : Prop := ∃ text, check text = .ok p
 
 /-- The typing rule of one operator over its arguments' types (SEMANTICS.md §2). -/
 def opTy (o : Op) (ts : List Ty) (to : Option Dim) : Option Ty :=
@@ -44,27 +42,20 @@ def opTy (o : Op) (ts : List Ty) (to : Option Dim) : Option Ty :=
   | .xsRank => do let a ← num 0; if a == Dim.one then some (.num a) else none
   | .hoursSince => if isBool 0 then some (.num (Dim.base "h").get!) else none
 
-/-- Structural well-formedness: sizes agree, arguments precede their users, every node is typed by
-its rule, the weight is a dimensionless number and the prediction a boolean. -/
-def Program.WF (p : Program) : Prop :=
+/-- Structural well-formedness against a registry: sizes agree, arguments precede their users, every node is typed
+by its rule, every input is a declared field with its declaration's cadence flag and the field's unit, the weight is
+a dimensionless number and the prediction a boolean. -/
+def Program.WF (reg : Registry) (p : Program) : Prop :=
   p.types.size = p.nodes.size ∧ p.convTo.size = p.nodes.size ∧
   p.weight < p.nodes.size ∧ p.types[p.weight]! = .num Dim.one ∧
   (∀ q, p.prediction = some q → q < p.nodes.size ∧ p.types[q]! = .bool) ∧
   ∀ i < p.nodes.size, match p.nodes[i]! with
-    | .input inp => p.types[i]! = .num inp.unit
+    | .input inp => inp.source < reg.decls.size ∧ inp.field < (reg.decls[inp.source]!).fields.size ∧
+        inp.event = ((reg.decls[inp.source]!).cadence == .event) ∧
+        inp.unit = (reg.decls[inp.source]!).fields[inp.field]!.2.2 ∧ p.types[i]! = .num inp.unit
     | .const _ u => p.types[i]! = .num u
     | .param k => k < p.params.size ∧ p.types[i]! = .num p.params[k]!.2
     | .op o args => (∀ a ∈ args, a < i) ∧ opTy o (args.map (p.types[·]!)) p.convTo[i]! = some p.types[i]!
-
-/-- An admissible market: unique keys, correctly timed bars, coin and slot indices in range. -/
-structure Market.Admissible (m : Market α) : Prop where
-  fundingKeys : (m.funding.toList.map fun f => (f.coin, f.event)).Nodup
-  barKeys : (m.bars.toList.map fun b => (b.coin, b.openTime)).Nodup
-  eventKeys : (m.events.toList.map fun e => (e.slot, e.coin, e.event)).Nodup
-  barEvent : ∀ b ∈ m.bars.toList, b.event = b.openTime + BAR
-  fundingCoin : ∀ f ∈ m.funding.toList, f.coin < m.intervals.size
-  barCoin : ∀ b ∈ m.bars.toList, b.coin < m.intervals.size
-  eventIndex : ∀ e ∈ m.events.toList, e.coin < m.intervals.size ∧ e.slot < eventInputs.length
 
 structure Venue.Valid (v : Venue α) (coins : Nat) : Prop where
   sizes : v.szDecimals.size = coins ∧ v.minTierLeverage.size = coins ∧ v.costBps.size = coins
@@ -87,8 +78,7 @@ def Ctx.machineAfter (N : NumOps α) (c : Ctx α) (n : Nat) : Except Abort (MSta
 
 /-- The same schedule with the unit-instrumented tick. -/
 def Ctx.umachineAfter (N : NumOps α) (c : Ctx α) (n : Nat) : Except (Abort ⊕ UnitError) (UState α) := do
-  if !c.bound then throw (.inl .inputUnavailable)
-  let mut u := UState.init N c.p c.coins
+  let mut u := UState.init N c.p c.reg.decls.size c.coins
   let mut s := c.state0 N
   for k in [0:n + 1] do
     let h := c.pol.wStart + (k : Int) * HOUR
@@ -101,21 +91,19 @@ def Ctx.decisionTime (c : Ctx α) (k : Nat) : Int := c.pol.wStart + ((k : Int) +
 
 /-! ## L1 non-interference -/
 
-/-- The ordered delivery prefix by time t (SEMANTICS.md §3): every resolved funding row, bar and bound
-event row with knownAt ≤ t, in delivery order, with multiplicity. -/
-def Ctx.deliveryPrefix (c : Ctx α) (t : Int) : List (FundingRow α) × List (BarRow α) × List (EventRow α) :=
-  ((c.fOrder.toList.map (c.m.funding[·]!)).filter (·.known ≤ t),
-   (c.bOrder.toList.map (c.m.bars[·]!)).filter (·.known ≤ t),
-   (c.eOrder.toList.map (c.m.events[·]!)).filter (·.known ≤ t))
+/-- The ordered delivery prefix by time t (SEMANTICS.md §3): every delivered observation with knownAt ≤ t, in
+delivery order, with multiplicity. -/
+def Ctx.deliveryPrefix (c : Ctx α) (t : Int) : List (Obs α) :=
+  (c.oOrder.toList.map (c.obs[·]!)).filter (·.known ≤ t)
 
 /-- What execution reads by event time t: settled rates with eventTime ≤ t; every field of bars
 closed by t; the open and trade count of bars opened by t; and the listing intervals. -/
 def Ctx.execView (c : Ctx α) (t : Int) :
     List (Nat × Int × α) × List (BarRow α) × List (Nat × Int × α × Int) × Array (Int × Int) :=
-  ((c.m.funding.toList.filter (·.event ≤ t)).map (fun f => (f.coin, f.event, f.rate)),
-   c.m.bars.toList.filter (fun b => b.openTime + BAR ≤ t),
-   (c.m.bars.toList.filter (·.openTime ≤ t)).map (fun b => (b.coin, b.openTime, b.o, b.trades)),
-   c.m.intervals)
+  ((c.rates.toList.filter (·.event ≤ t)).map (fun f => (f.coin, f.event, f.rate)),
+   c.bars.toList.filter (fun b => b.openTime + BAR ≤ t),
+   (c.bars.toList.filter (·.openTime ≤ t)).map (fun b => (b.coin, b.openTime, b.o, b.trades)),
+   c.adm.intervals)
 
 /-! ## L3 rewrite soundness -/
 
@@ -193,12 +181,12 @@ def Rule.corr (r : Rule) (i j : Nat) : Nat := if r == .ifNotRev && j ≥ i then 
 
 /-! ## L4 fill ordering -/
 
-def barAt (m : Market α) (coin : Nat) (t : Int) : Option (BarRow α) :=
-  m.bars.toList.find? fun b => b.coin == coin && b.openTime == t
+def barAt (c : Ctx α) (coin : Nat) (t : Int) : Option (BarRow α) :=
+  c.bars.toList.find? fun b => b.coin == coin && b.openTime == t
 
 /-- The latest bar of a coin with eventTime ≤ t. -/
-def latestClosed (m : Market α) (coin : Nat) (t : Int) : Option (BarRow α) :=
-  (m.bars.toList.filter fun b => b.coin == coin && b.event ≤ t).foldl
+def latestClosed (c : Ctx α) (coin : Nat) (t : Int) : Option (BarRow α) :=
+  (c.bars.toList.filter fun b => b.coin == coin && b.event ≤ t).foldl
     (fun acc b => match acc with | some a => if a.openTime < b.openTime then some b else acc | none => some b) none
 
 /-! ## L6 bounded loss (added 2026-10-21 with I10) -/
@@ -212,5 +200,51 @@ structure NumOps.Bounded (N : NumOps α) : Prop where
     N.le (N.neg N.one) (N.sub (N.div x y) N.one) = true
   floor : N.le (N.neg N.one) (N.neg N.one) = true
   flat : N.le (N.neg N.one) N.zero = true
+
+/-! ## L5 binding and admission (stage 7) -/
+
+/-- The admission checks of `run` in order, by position: 1 roles, 2 unbound, 3 holdout by identity, 4 uncertified
+(validity and matching), 5 holdout by event time, 6 run admission, 7 scope. The first that fails, with its code. -/
+def firstFailure (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α)
+    (pol : Policy) (stop : Int) (mode : Mode) : Option (Nat × Abort) :=
+  if !roles.valid reg then some (1, .roles) else
+  let req := adm.required reg roles p
+  if !req.all (fun s => (adm.bindings s).isSome) then some (2, .inputUnavailable) else
+  if mode == .search && !req.all (fun s => (adm.bindings s).all (!adm.holdout.contains ·.dataset)) then some (3, .holdout) else
+  if !req.all (fun s => match adm.bindings s with
+      | none => false
+      | some b => (adm.cert b.cert).any fun k => adm.valid adm.certs.length b.cert && adm.matches reg s b k) then
+    some (4, .uncertified) else
+  if mode == .search && !(ld.rows req).all (fun r => decide (r.2 < adm.holdoutStart)) then some (5, .holdout) else
+  let c := Ctx.make reg roles p adm (ld.resolve req) v pol stop req
+  if !c.admissible N then some (6, .binding) else
+  if !c.inScope then some (7, .uncertified) else none
+
+/-- Two observations that differ at most in their values: the same declaration, coin, key, slot, knownAt and
+lineage, values null and finite in the same places, and role payloads of the same kind and finiteness. -/
+def Obs.sameShape (N : NumOps α) (a b : Obs α) : Bool :=
+  let flags (x : Option α) : Bool × Bool := (x.isSome, x.all N.finite)
+  let role (r : Option (RolePayload α)) : Option (Bool × Int) := match r with
+    | none => none
+    | some (.bar o h l c t) => some (N.finite o && N.finite h && N.finite l && N.finite c, t)
+    | some (.rate x) => some (N.finite x, -1)
+  a.source == b.source && a.coin == b.coin && a.key == b.key && a.slot == b.slot && a.known == b.known &&
+  a.lineage == b.lineage && a.vals.toList.map flags == b.vals.toList.map flags && role a.role == role b.role
+
+/-- `{"input": name}` occurs in the program text's weight, in any let's body (used or not), or in the prediction's
+condition, at any depth of the expression grammar (DSL.md). -/
+partial def Json.Value.mentions (name : String) : Json.Value → Bool
+  | .obj kvs => kvs.any fun (k, v) => (k == "input" && (match v with | .str x => x == name | _ => false)) || v.mentions name
+  | .arr vs => vs.any (·.mentions name)
+  | _ => false
+
+def InputRef (text : String) (name : String) : Prop :=
+  match Json.parse text with
+  | .ok (.obj kvs) =>
+    (kvs.any fun (k, v) => (k == "weight" || k == "let") && v.mentions name) ||
+    (kvs.any fun (k, v) => k == "prediction" && match v with
+      | .obj pk => pk.any fun (k', c) => k' == "condition" && c.mentions name
+      | _ => false)
+  | _ => False
 
 end Ref

@@ -68,26 +68,15 @@ def conversion (fr to : Dim) : Option UInt64 :=
   some (hours fr / hours to).toBits
 end Dim
 
-inductive Input where
-  | funding | premium | «open» | high | low | close | volume
-  /-- A row of the event-input table: 0 forum_posts (events_forum), 1 gov_proposals (events_governance). -/
-  | event (slot : Nat)
+/-- A declared input (SOURCES.md §1): its declaration's registry index, the field's position in it, whether the
+declaration is an event source, and the field's unit. The checker takes all four from the registry's input table;
+`Program.WF` ties them to the registry. -/
+structure Input where
+  source : Nat
+  field : Nat
+  event : Bool
+  unit : Dim
   deriving DecidableEq, Repr, Inhabited
-
-def eventInputs : List (String × String) := [("forum_posts", "events_forum"), ("gov_proposals", "events_governance")]
-
-def Input.parse (name : String) : Option Input :=
-  match name with
-  | "funding" => some .funding | "premium" => some .premium | "open" => some .open | "high" => some .high
-  | "low" => some .low | "close" => some .close | "volume" => some .volume
-  | _ => (eventInputs.findIdx? (·.1 == name)).map .event
-
-def Input.unit : Input → Dim
-  | .funding => (Dim.parse "1/h").get!
-  | .premium => Dim.one
-  | .volume => (Dim.base "coin").get!
-  | .event _ => (Dim.base "ev").get!
-  | _ => (Dim.parse "usd/coin").get!
 
 inductive Window where
   | lag | mean | sum | std | minOver | maxOver | ema
@@ -150,6 +139,8 @@ def maxHours := 4380
 open Json
 
 structure CState where
+  /-- The registry's input table: each declared input name and its input. -/
+  inputs : Array (String × Input) := #[]
   nodes : Array Node := #[]
   types : Array Ty := #[]
   convTo : Array (Option Dim) := #[]
@@ -255,7 +246,7 @@ def expr (v : Value) (depth : Nat) : Check Nat := do
   if has "input" then
     let kvs ← fields v ["input"] []
     let name ← asString (field kvs "input")
-    let some i := Input.parse name | fail .unknownInput
+    let some (_, i) := (← get).inputs.find? (·.1 == name) | fail .unknownInput
     return ← intern (.input i) (.num i.unit)
   if has "const" then
     let kvs ← fields v ["const", "unit"] []
@@ -330,11 +321,11 @@ def program (v : Value) : Check Program := do
            prediction := pred }
 
 /-- Parse and check a program's text: the program, or the engine's rejection code. -/
-def check (text : String) : Except Code Program :=
+def check (inputs : Array (String × Input)) (text : String) : Except Code Program :=
   if text.utf8ByteSize > 1 <<< 20 || Json.depth text > 2 * maxDepth + 8 then .error .size else
   match Json.parse text with
   | .error _ => .error .parse
-  | .ok v => match (program v).run {} with
+  | .ok v => match (program v).run { inputs } with
     | .ok (p, _) => .ok p
     | .error c => .error c
 

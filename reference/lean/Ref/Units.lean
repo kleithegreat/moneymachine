@@ -107,8 +107,8 @@ structure UState (α : Type) where
   tv : Array (Array (TVal α))
   wtag : Array (Array (Option Ty))
 
-def UState.init (p : Program) (coins : Nat) : UState α :=
-  { m := MState.init N p coins, tv := Array.replicate p.nodes.size (Array.replicate coins none),
+def UState.init (p : Program) (sources coins : Nat) : UState α :=
+  { m := MState.init N p sources coins, tv := Array.replicate p.nodes.size (Array.replicate coins none),
     wtag := Array.replicate p.nodes.size (Array.replicate coins none) }
 
 def keepT (x : TVal α) : TVal α := x.bind fun (v, t) => (N.keep v).map (·, t)

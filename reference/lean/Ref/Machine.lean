@@ -1,9 +1,10 @@
 import Ref.Num
-import Ref.Syntax
+import Ref.Source
 
 /-!
 The causal machine (reference/SEMANTICS.md §3–§6): delivery of observations, and one tick of every
 node for every coin, with the engine's window algorithms reproduced operation for operation.
+Per source and coin the machine holds the latest delivered observation (laws-v2-draft.md §6).
 -/
 
 namespace Ref
@@ -11,14 +12,7 @@ namespace Ref
 def HOUR : Int := 3600000
 def BAR : Int := 4 * HOUR
 
-structure FundingRow (α : Type) where
-  coin : Nat
-  event : Int
-  known : Int
-  rate : α
-  premium : α
-  deriving Inhabited
-
+/-- A bar as execution reads it: the bars provider's role payload (laws-v2-draft.md §6). -/
 structure BarRow (α : Type) where
   coin : Nat
   openTime : Int
@@ -28,16 +22,15 @@ structure BarRow (α : Type) where
   h : α
   l : α
   c : α
-  v : α
   trades : Int
   deriving Inhabited
 
-structure EventRow (α : Type) where
-  slot : Nat
+/-- A settlement rate as execution reads it: the settlement provider's role payload. -/
+structure RateRow (α : Type) where
   coin : Nat
   event : Int
   known : Int
-  count : α
+  rate : α
   deriving Inhabited
 
 inductive Win (α : Type) where
@@ -110,22 +103,19 @@ structure MState (α : Type) where
   vals : Array (Array (Val α))
   wins : Array (Array (Option (Win α)))
   since : Array (Array (Option Int))
-  funding : Array (Option (FundingRow α))
-  bar : Array (Option (BarRow α))
-  events : Array (Array (Option (EventRow α)))
+  /-- Per source and coin, the latest delivered observation. -/
+  latest : Array (Array (Option (Obs α)))
   hour : Int
   maxKnown : Int
   deriving Inhabited
 
-def MState.init (p : Program) (coins : Nat) : MState α :=
+def MState.init (p : Program) (sources coins : Nat) : MState α :=
   { vals := Array.replicate p.nodes.size (Array.replicate coins none)
     wins := p.nodes.map fun n => match n with
       | .op (.window w h) _ => Array.replicate coins (some (Win.new N w h))
       | _ => Array.replicate coins none
     since := Array.replicate p.nodes.size (Array.replicate coins none)
-    funding := Array.replicate coins none
-    bar := Array.replicate coins none
-    events := Array.replicate eventInputs.length (Array.replicate coins none)
+    latest := Array.replicate sources (Array.replicate coins none)
     hour := 0
     maxKnown := -(2 ^ 63) }
 
@@ -134,31 +124,17 @@ structure Causality where
   known : Int
   tick : Int
 
-def MState.deliverFunding (m : MState α) (f : FundingRow α) (tick : Int) : Except Causality (MState α) :=
-  if f.known > tick then .error ⟨f.known, tick⟩
-  else .ok { m with maxKnown := max m.maxKnown f.known, funding := m.funding.set! f.coin (some f) }
+def MState.deliver (m : MState α) (o : Obs α) (tick : Int) : Except Causality (MState α) :=
+  if o.known > tick then .error ⟨o.known, tick⟩
+  else .ok { m with maxKnown := max m.maxKnown o.known,
+                    latest := m.latest.modify o.source fun row => row.set! o.coin (some o) }
 
-def MState.deliverBar (m : MState α) (b : BarRow α) (tick : Int) : Except Causality (MState α) :=
-  if b.known > tick then .error ⟨b.known, tick⟩
-  else .ok { m with maxKnown := max m.maxKnown b.known, bar := m.bar.set! b.coin (some b) }
-
-def MState.deliverEvent (m : MState α) (e : EventRow α) (tick : Int) : Except Causality (MState α) :=
-  if e.known > tick then .error ⟨e.known, tick⟩
-  else .ok { m with maxKnown := max m.maxKnown e.known,
-                    events := m.events.modify e.slot fun row => row.set! e.coin (some e) }
-
+/-- Version 1's reads: a held input reads the latest observation; an event input reads it only if its slot is the
+current hour. -/
 def MState.input (m : MState α) (i : Input) (c : Nat) : Val α :=
-  match i with
-  | .funding => m.funding[c]!.map (·.rate)
-  | .premium => m.funding[c]!.map (·.premium)
-  | .open => m.bar[c]!.map (·.o)
-  | .high => m.bar[c]!.map (·.h)
-  | .low => m.bar[c]!.map (·.l)
-  | .close => m.bar[c]!.map (·.c)
-  | .volume => m.bar[c]!.map (·.v)
-  | .event s => match m.events[s]![c]! with
-    | some e => if e.event == m.hour then some e.count else none
-    | none => none
+  match m.latest[i.source]![c]! with
+  | some o => if !i.event || o.slot == some m.hour then o.vals[i.field]! else none
+  | none => none
 
 /-- The pointwise value of node i for coin c at this tick, from its arguments' values (§5). -/
 def MState.eval (p : Program) (m : MState α) (i : Nat) (c : Nat) : Val α :=

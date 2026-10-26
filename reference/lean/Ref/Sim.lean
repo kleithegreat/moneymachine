@@ -37,15 +37,6 @@ inductive Event (α : Type) where
   | equity (t : Int) (equity reconciled : α)
   deriving Inhabited
 
-inductive Abort where
-  | causality | timing | fill | accounting | portfolio | bound | inputUnavailable | settlementMissing
-  deriving DecidableEq, Repr
-
-def Abort.code : Abort → String
-  | .causality => "R_CAUSALITY" | .timing => "R_TIMING" | .fill => "R_FILL" | .accounting => "R_ACCOUNTING"
-  | .portfolio => "R_PORTFOLIO" | .bound => "R_BOUND" | .inputUnavailable => "R_INPUT_UNAVAILABLE"
-  | .settlementMissing => "R_SETTLEMENT_MISSING"
-
 structure Venue (α : Type) where
   takerFee : α
   minNotional : α
@@ -53,14 +44,6 @@ structure Venue (α : Type) where
   minTierLeverage : Array α
   /-- [coin][buy = 0, sell = 1][≤ $1k = 0, ≤ $10k = 1] bps. -/
   costBps : Array (Array (Array α))
-
-structure Market (α : Type) where
-  funding : Array (FundingRow α)
-  bars : Array (BarRow α)
-  events : Array (EventRow α)
-  /-- Event slots whose dataset is in the store (bound). -/
-  bound : List Nat
-  intervals : Array (Int × Int)
 
 structure Policy where
   delta : Int
@@ -77,14 +60,6 @@ variable {α : Type} [Inhabited α] (N : NumOps α)
 def initial : α := N.ofNat 10000
 def maxGross : α := N.ofNat 2
 def maxOrderNotional : α := N.ofNat 10000
-
-/-- The event slot a node reads, if it is an event input. -/
-def Node.slot : Node → Option Nat
-  | .input (.event s) => some s
-  | _ => none
-
-/-- Event slots the program reads (SEMANTICS.md §8). -/
-def Program.eventSlots (p : Program) : List Nat := (p.nodes.toList.filterMap Node.slot).eraseDups
 
 def truncate (x : α) (dec : Nat) : α :=
   let f := N.ofNat (10 ^ dec)
@@ -148,10 +123,10 @@ structure Index (α : Type) where
   barTimes : Array (Array Int)
   rateAt : HashMap (Nat × Int) α
 
-def Market.index (m : Market α) (coins : Nat) : Index α :=
-  { barAt := m.bars.foldl (init := (HashMap.emptyWithCapacity, 0)) (fun (h, i) b => (h.insert (b.coin, b.openTime) i, i + 1)) |>.1
-    barTimes := (Array.range coins).map fun c => ((m.bars.filter (·.coin == c)).map (·.openTime)).mergeSort (· ≤ ·)
-    rateAt := m.funding.foldl (init := HashMap.emptyWithCapacity) fun h f => h.insert (f.coin, f.event) f.rate }
+def Index.of (bars : Array (BarRow α)) (rates : Array (RateRow α)) (coins : Nat) : Index α :=
+  { barAt := bars.foldl (init := (HashMap.emptyWithCapacity, 0)) (fun (h, i) b => (h.insert (b.coin, b.openTime) i, i + 1)) |>.1
+    barTimes := (Array.range coins).map fun c => ((bars.filter (·.coin == c)).map (·.openTime)).mergeSort (· ≤ ·)
+    rateAt := rates.foldl (init := HashMap.emptyWithCapacity) fun h f => h.insert (f.coin, f.event) f.rate }
 
 /-- First index in a sorted array whose element satisfies `p` (monotone): Rust's partition_point. -/
 def partitionPoint (xs : Array Int) (p : Int → Bool) : Nat := (xs.findIdx? (!p ·)).getD xs.size
@@ -162,10 +137,10 @@ def latestOf (ix : Index α) (bars : Array (BarRow α)) (t : Int) (x : Nat × α
   else some (x.1, bars[ix.barAt[(x.1, ix.barTimes[x.1]![(partitionPoint ix.barTimes[x.1]! fun u => decide (u ≤ t)) - 1]!)]!]!)
 
 /-- I2 and I3 (and the I9 order cap) for one fill, recomputed from the source bars. -/
-def checkFill (f : Fill α) (m : Market α) (ix : Index α) (v : Venue α) : Except Abort Unit := do
+def checkFill (f : Fill α) (bars : Array (BarRow α)) (ix : Index α) (v : Venue α) : Except Abort Unit := do
   if !(f.inputsKnown ≤ f.decided && f.decided ≤ f.submitted && f.submitted ≤ f.filled) then throw .timing
   let some bi := ix.barAt[(f.coin, f.sourceOpen)]? | throw .fill
-  let bar := m.bars[bi]!
+  let bar := bars[bi]!
   let fee := N.mul (N.mul (N.abs f.qty) f.price) v.takerFee
   let priced := !N.isZero f.qty && N.eq f.price (fillPrice N v f.coin f.qty f.reference) && N.eq f.fee fee
   let times := ix.barTimes[f.coin]!
@@ -174,7 +149,7 @@ def checkFill (f : Fill α) (m : Market α) (ix : Index α) (v : Venue α) : Exc
       let first := times[partitionPoint times (· < f.submitted)]?
       first == some bar.openTime && bar.openTime ≤ f.filled && bar.trades ≥ 1 && N.eq f.reference bar.o
     | w =>
-      let latest := times.reverse.find? fun t => m.bars[ix.barAt[(f.coin, t)]!]!.event ≤ f.filled
+      let latest := times.reverse.find? fun t => bars[ix.barAt[(f.coin, t)]!]!.event ≤ f.filled
       let reference := if w == .delisting then bar.c else if N.lt N.zero f.qty then bar.h else bar.l
       latest == some bar.openTime && N.eq f.reference reference
   if !(ok && priced) then throw .fill
@@ -199,84 +174,73 @@ structure SState (α : Type) where
   equity : Array α
   prevEquity : α
   prevCosts : α
-  fi : Nat
-  bi : Nat
-  ei : Nat
+  /-- Observations delivered so far, as a position in the delivery order. -/
+  oi : Nat
 
 /-- Lexicographic order (≤) on equal-length integer keys. -/
 def lexLe : List Int → List Int → Bool
   | a :: as, b :: bs => a < b || (a == b && lexLe as bs)
   | _, _ => true
 
+/-- The bars provider's role records, as execution reads them. -/
+def barRow (roles : Roles) (o : Obs α) : Option (BarRow α) := match o.role with
+  | some (.bar op h l cl tr) => if o.source == roles.bars then some ⟨o.coin, o.key - BAR, o.key, o.known, op, h, l, cl, tr⟩ else none
+  | _ => none
+
+/-- The settlement provider's role records, as execution reads them. -/
+def rateRow (roles : Roles) (o : Obs α) : Option (RateRow α) := match o.role with
+  | some (.rate x) => if o.source == roles.settlement then some ⟨o.coin, o.key, o.known, x⟩ else none
+  | _ => none
+
 /-- Everything a run fixes before its first step. -/
 structure Ctx (α : Type) where
+  reg : Registry
+  roles : Roles
   p : Program
-  m : Market α
+  adm : Meta
   v : Venue α
   pol : Policy
   stop : Int
+  required : List Nat
+  obs : Array (Obs α)
+  oOrder : Array Nat
+  bars : Array (BarRow α)
+  rates : Array (RateRow α)
   ix : Index α
-  fOrder : Array Nat
-  bOrder : Array Nat
-  eOrder : Array Nat
 
-def Ctx.make (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) : Ctx α :=
-  { p, m, v, pol, stop, ix := m.index m.intervals.size
-    fOrder := (Array.range m.funding.size).mergeSort fun i j =>
-      let a := m.funding[i]!; let b := m.funding[j]!
-      lexLe [a.known, a.coin, a.event] [b.known, b.coin, b.event]
-    bOrder := (Array.range m.bars.size).mergeSort fun i j =>
-      let a := m.bars[i]!; let b := m.bars[j]!
-      lexLe [a.known, a.coin, a.event] [b.known, b.coin, b.event]
-    eOrder := (Array.range m.events.size).filter (m.bound.contains m.events[·]!.slot) |>.mergeSort fun i j =>
-      let a := m.events[i]!; let b := m.events[j]!
-      lexLe [a.known, a.coin, a.slot, i] [b.known, b.coin, b.slot, j] }
+/-- The delivered observations in version 1's order: (knownAt, source, coin, tie), the tie being the event time for
+a held source and the resolver position for an event source. -/
+def Ctx.make (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (resolved : Array (Obs α)) (v : Venue α)
+    (pol : Policy) (stop : Int) (required : List Nat) : Ctx α :=
+  let delivered := adm.delivered reg
+  let obs := resolved.filter (delivered.contains ·.source)
+  let tie (o : Obs α) (k : Nat) : Int := if (reg.decls[o.source]!).cadence == .event then k else o.key
+  let bars := obs.filterMap (barRow roles)
+  let rates := obs.filterMap (rateRow roles)
+  { reg, roles, p, adm, v, pol, stop, required, obs, bars, rates, ix := Index.of bars rates adm.intervals.size
+    oOrder := (Array.range obs.size).mergeSort fun i j =>
+      let x := obs[i]!; let y := obs[j]!
+      lexLe [x.known, x.source, x.coin, tie x i] [y.known, y.source, y.coin, tie y j] }
 
-def Ctx.coins (c : Ctx α) : Nat := c.m.intervals.size
+def Ctx.coins (c : Ctx α) : Nat := c.adm.intervals.size
 
-def Ctx.listed (c : Ctx α) (coin : Nat) (t : Int) : Bool := c.m.intervals[coin]!.1 ≤ t && t < c.m.intervals[coin]!.2
+def Ctx.listed (c : Ctx α) (coin : Nat) (t : Int) : Bool := c.adm.intervals[coin]!.1 ≤ t && t < c.adm.intervals[coin]!.2
 
 def Ctx.mask (c : Ctx α) (t : Int) : Array Bool := (Array.range c.coins).map (c.listed · t)
 
-def Ctx.deliverFunding (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) :=
-  if h : s.fi < c.fOrder.size then
-    let f := c.m.funding[c.fOrder[s.fi]]!
-    if f.known > tick then .ok s else
-    match s.machine.deliverFunding f tick with
+/-- Deliver every observation known by `tick` not delivered yet, in delivery order (SEMANTICS.md §3). -/
+def Ctx.deliver (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) :=
+  if h : s.oi < c.oOrder.size then
+    let o := c.obs[c.oOrder[s.oi]]!
+    if o.known > tick then .ok s else
+    match s.machine.deliver o tick with
     | .error _ => .error .causality
-    | .ok mach => c.deliverFunding { s with machine := mach, fi := s.fi + 1 } tick
+    | .ok mach => c.deliver { s with machine := mach, oi := s.oi + 1 } tick
   else .ok s
-termination_by c.fOrder.size - s.fi
-
-def Ctx.deliverBars (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) :=
-  if h : s.bi < c.bOrder.size then
-    let b := c.m.bars[c.bOrder[s.bi]]!
-    if b.known > tick then .ok s else
-    match s.machine.deliverBar b tick with
-    | .error _ => .error .causality
-    | .ok mach => c.deliverBars { s with machine := mach, bi := s.bi + 1 } tick
-  else .ok s
-termination_by c.bOrder.size - s.bi
-
-def Ctx.deliverEvents (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) :=
-  if h : s.ei < c.eOrder.size then
-    let e := c.m.events[c.eOrder[s.ei]]!
-    if e.known > tick then .ok s else
-    match s.machine.deliverEvent e tick with
-    | .error _ => .error .causality
-    | .ok mach => c.deliverEvents { s with machine := mach, ei := s.ei + 1 } tick
-  else .ok s
-termination_by c.eOrder.size - s.ei
-
-/-- Deliver every row known by `tick` that has not been delivered yet: funding, then bars, then
-events, each in delivery order (SEMANTICS.md §3). -/
-def Ctx.deliver (c : Ctx α) (s : SState α) (tick : Int) : Except Abort (SState α) := do
-  let s ← c.deliverFunding s tick
-  let s ← c.deliverBars s tick
-  c.deliverEvents s tick
+termination_by c.oOrder.size - s.oi
 
 def Ctx.execute (c : Ctx α) (s : SState α) (f : Fill α) : Except Abort (SState α) := do
-  checkFill N f c.m c.ix c.v
+  checkFill N f c.bars c.ix c.v
   let book := s.book.fill N f.coin f.qty f.price f.fee
   return { s with book := { book with slippage := N.add book.slippage (N.mul f.qty (N.sub f.price f.reference)) },
                   trace := s.trace.push (.fill f) }
@@ -296,21 +260,17 @@ def Ctx.bankrupt (c : Ctx α) (s : SState α) (b : Int) (adverse : Nat → α �
     t ← c.execute N t (c.closeout N coin (N.neg q) (adverse coin q) .liquidation (b + BAR) (assoc? latest coin).get!.openTime)
   return { t with book := t.book.absorb N }
 
-/-- Whether every event source the program reads is bound (SEMANTICS.md §8). -/
-def Ctx.bound (c : Ctx α) : Bool := !c.p.eventSlots.any (!c.m.bound.contains ·)
-
 /-- The state before any delivery. -/
 def Ctx.state0 (c : Ctx α) : SState α :=
   let book0 : Book α :=
     { cash := initial N, pos := [], entry := [], realized := N.zero, fees := N.zero, slippage := N.zero, funding := N.zero,
       absorbed := N.zero }
-  { machine := MState.init N c.p c.coins, book := book0, marks := Array.replicate c.coins (N.div N.zero N.zero),
+  { machine := MState.init N c.p c.reg.decls.size c.coins, book := book0, marks := Array.replicate c.coins (N.div N.zero N.zero),
     trace := #[], orders := [], returns := #[], gross := #[], equity := #[], prevEquity := initial N,
-    prevCosts := N.zero, fi := 0, bi := 0, ei := 0 }
+    prevCosts := N.zero, oi := 0 }
 
-/-- The binding preflight, then the first delivery and tick (SEMANTICS.md §4, §8). -/
+/-- The first delivery and tick (SEMANTICS.md §4). -/
 def Ctx.start (c : Ctx α) : Except Abort (SState α) := do
-  if !c.bound then throw .inputUnavailable
   let s ← c.deliver (c.state0 N) (c.pol.wStart + c.pol.delta)
   return { s with machine := s.machine.tick N c.p (c.mask c.pol.wStart) c.pol.wStart }
 
@@ -322,7 +282,9 @@ def accountingOk (N : NumOps α) (e1 e2 : α) : Bool :=
 /-- One 4h step from b (SEMANTICS.md §7, items 1 to 9). -/
 def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) := do
   let p := c.p
-  let m := c.m
+  let adm := c.adm
+  let roles := c.roles
+  let bars := c.bars
   let v := c.v
   let pol := c.pol
   let stop := c.stop
@@ -338,7 +300,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
     let h := b + k * HOUR
     for x in s.book.pos.filter (c.listed ·.1 h) do
       let coin := x.1
-      match ix.rateAt[(coin, h)]?, latestOf ix m.bars h x with
+      match ix.rateAt[(coin, h)]?, latestOf ix bars h x with
       | some rate, some (_, bar) =>
         let price := bar.o
         let (book, paid) := s.book.settle N coin price rate
@@ -346,7 +308,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
       | _, _ => throw .settlementMissing
   -- 2. marks
   let held := s.book.pos
-  let latest : List (Nat × BarRow α) := held.filterMap (latestOf ix m.bars b)
+  let latest : List (Nat × BarRow α) := held.filterMap (latestOf ix bars b)
   for (c, bar) in latest do
     s := { s with marks := s.marks.set! c bar.c }
   -- 3. margin
@@ -361,7 +323,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
       s ← execute s (closeout c (N.neg q) (adverse c q) .liquidation (b + BAR) (assoc? latest c).get!.openTime)
   -- 4. delisting
   for (c, q) in s.book.pos do
-    if b + BAR ≥ m.intervals[c]!.2 then
+    if b + BAR ≥ adm.intervals[c]!.2 then
       s ← execute s (closeout c (N.neg q) s.marks[c]! .delisting (b + BAR) (assoc? latest c).get!.openTime)
   -- 5. bankruptcy
   s ← c.bankrupt N s b adverse latest
@@ -383,7 +345,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
     for o in due do
       match ix.barAt[(o.coin, b + BAR)]? with
       | some i =>
-        let bar := m.bars[i]!
+        let bar := bars[i]!
         if bar.trades ≥ 1 && N.lt N.zero e1 then
           let price := fillPrice N v o.coin o.qty bar.o
           let f : Fill α := {
@@ -412,9 +374,11 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   let td := bigB + pol.delta
   let mut weights : List (Nat × α) := []
   for c in [0:coins] do
-    let (start, stop') := m.intervals[c]!
+    let (start, stop') := adm.intervals[c]!
     if !(start ≤ bigB && bigB + 2 * BAR ≤ stop') then continue
-    let fresh := (s.machine.funding[c]!.map (·.event == bigB)).getD false && (s.machine.bar[c]!.map (·.event == bigB)).getD false
+    let latestOf' (src : Nat) : Option (Obs α) := s.machine.latest[src]![c]!
+    let fresh := ((latestOf' roles.bars).map (·.key == bigB)).getD false &&
+      ((latestOf' roles.settlement).map (·.key == bigB)).getD false
     if !fresh then
       s := { s with trace := s.trace.push (.hold td c "stale") }
       continue
@@ -428,7 +392,9 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   if !(N.le gross (N.mul (maxGross N) (N.add N.one (N.ofBits 0x3D719799812DEA11)))) then throw .portfolio
   for (c, w) in weights do
     let w := scaled w
-    let price := s.machine.bar[c]!.get!.c
+    let price := match (s.machine.latest[roles.bars]![c]!).bind (·.role) with
+      | some (.bar _ _ _ cl _) => cl
+      | _ => N.zero
     let held := (assoc? s.book.pos c).getD N.zero
     let dec := v.szDecimals[c]!
     let mut qty := if N.isZero w then N.neg held else truncate N (N.sub (N.div (N.mul w e1) price) held) dec
@@ -452,10 +418,71 @@ def Ctx.steps (c : Ctx α) (k : Nat) : Except Abort (SState α) := do
     s ← c.step N s b
   return s
 
-/-- The run (SEMANTICS.md §7): its trace and returns, or the abort. -/
-def run (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) : Except Abort (Run α) := do
-  let c := Ctx.make p m v pol stop
+/-- Evaluation (SEMANTICS.md §7): its trace and returns, or the abort. -/
+def Ctx.evaluate (c : Ctx α) : Except Abort (Run α) := do
   let s ← c.steps N c.bounds.length
   return { trace := s.trace, returns := s.returns, grossReturns := s.gross, equity := s.equity }
+
+def Ctx.firstTick (c : Ctx α) : Int := c.pol.wStart + c.pol.delta
+def Ctx.lastTick (c : Ctx α) : Int := c.pol.wStart + (c.bounds.length : Int) * BAR + c.pol.delta
+/-- The end of every use interval: `stop`, or past the first tick, which `start` always runs. -/
+def Ctx.useEnd (c : Ctx α) : Int := max c.stop (c.firstTick + 1)
+
+/-- Run admission on resolved observations (R_BINDING), laws-v2-draft.md §5. -/
+def Ctx.admissible (c : Ctx α) : Bool :=
+  let keys := c.obs.toList.map fun o => (o.source, o.coin, o.key)
+  let finite (x : Option α) : Bool := x.all N.finite
+  let roleOk (o : Obs α) : Bool := match o.role with
+    | none => o.source != c.roles.bars && o.source != c.roles.settlement
+    | some (.bar op h l cl _) => o.source == c.roles.bars && N.finite op && N.finite h && N.finite l && N.finite cl &&
+        (o.key - BAR) % BAR == 0
+    | some (.rate x) => o.source == c.roles.settlement && N.finite x
+  let d (o : Obs α) := c.reg.decls[o.source]!
+  keys.eraseDups.length == keys.length &&
+  c.obs.all fun o =>
+    o.source < c.reg.decls.size && o.coin < c.coins && o.vals.size == (d o).fields.size && o.vals.all finite &&
+    roleOk o &&
+    (if (d o).cadence == .event then o.slot.any (· % HOUR == 0) else o.slot.isNone) &&
+    (c.obs.filter fun o' => o'.source == o.source && o'.coin == o.coin && o'.slot.isSome && o'.slot == o.slot).size ≤ 1 &&
+    o.lineage.all fun (u, _, _) => u ∈ c.reg.closure c.reg.decls.size (d o).depends
+
+/-- When the run first reads an observation: from delivery (or the first tick, for one carried in), or from
+execution's read of a role record by open or event time, whichever is earlier and before `useEnd`. -/
+def Ctx.readFrom (c : Ctx α) (o : Obs α) : Option Int :=
+  let delivered := if o.known ≤ c.lastTick then some (max o.known c.firstTick) else none
+  let executed := (match o.role with
+    | some (.bar ..) => some (o.key - BAR)
+    | some (.rate _) => some o.key
+    | none => none).filter (· < c.useEnd)
+  match delivered, executed with
+  | some a, some b => some (max (min a b) c.firstTick)
+  | some a, none => some (max a c.firstTick)
+  | none, some b => some (max b c.firstTick)
+  | none, none => none
+
+/-- Every column the run reads, with its use interval: each read observation's columns, and its lineage records'. -/
+def Ctx.accesses (c : Ctx α) : List (Nat × Access) :=
+  c.obs.toList.flatMap fun o => match c.readFrom o with
+    | none => []
+    | some t =>
+      ((c.reg.decls[o.source]!).columns.map fun col => (o.source, ⟨o.coin, col, o.key, (t, c.useEnd)⟩)) ++
+      o.lineage.flatMap fun (u, coin, key) =>
+        (c.reg.decls[u]!).lineageColumns.map fun col => (u, ⟨coin, col, key, (t, c.useEnd)⟩)
+
+def Ctx.inScope (c : Ctx α) : Bool :=
+  c.accesses.all fun (s, x) => match c.adm.bindings s with
+    | none => false
+    | some b => (c.adm.cert b.cert).any fun k => k.grants.any (·.covers x)
+
+/-- The run (laws-v2-draft.md §4): metadata checks, I8 on event times, resolution, run admission, scope, then
+evaluation. -/
+def run (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
+    (stop : Int) (mode : Mode) : Except Abort (Run α) := do
+  let req ← stage1 reg roles p adm mode
+  stage2 adm mode (ld.rows req)
+  let c := Ctx.make reg roles p adm (ld.resolve req) v pol stop req
+  if !c.admissible N then throw .binding
+  if !c.inScope then throw .uncertified
+  c.evaluate N
 
 end Ref
