@@ -210,6 +210,2778 @@
    "source": "philadelphia-fed-rtdsm",
    "every_h": 24,
    "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/rucQvMd.xlsx"
+  },
+  {
+   "name": "fed-ddp-h15-8e83f7f17c5c",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H15&series=8e83f7f17c5cea4d190d85ae6737639f&lastobs=52&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h15-bf17364827e3",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H15&series=bf17364827e38702b42a58cf8eaa3f78&lastobs=&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h15-c3ec77dedd37",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H15&series=c3ec77dedd37c9aa112f71c9eba34b50&lastobs=52&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h15-d7e27b7b09a3",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H15&series=d7e27b7b09a3a7feae95b9c61781fcd8&lastobs=12&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h15-all",
+   "source": "fed-ddp",
+   "every_h": 720,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H15&filetype=zip"
+  },
+  {
+   "name": "fed-ddp-h10-122e3bcb627e",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H10&series=122e3bcb627e8e53f1bf72a1a09cfb81&lastobs=10&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h10-60f32914ab61",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H10&series=60f32914ab61dfab590e0e470153e3ae&lastobs=10&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h10-847be2166a42",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H10&series=847be2166a425bda9b4d92465f797544&lastobs=120&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h10-c5d6e0edf324",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H10&series=c5d6e0edf324b2fb28d73bcacafaaa02&lastobs=120&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-h10-all",
+   "source": "fed-ddp",
+   "every_h": 720,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=H10&filetype=zip"
+  },
+  {
+   "name": "fed-ddp-g17-403cc340ea3a",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=403cc340ea3a19566b30770b9e4793ab&lastobs=7&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-5cb60ec97386",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=5cb60ec97386feba545193d03bcdd8d3&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-5d88c03b0036",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=5d88c03b0036f0334d78f6bafefc5101&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-6752c709e851",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=6752c709e85190bd7d0ad535100a4175&lastobs=7&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-75edc36fae13",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=75edc36fae13b9ecdb1266e03ab34902&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-76c32823f93e",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=76c32823f93e97ccaeea0d52038729dd&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-7e078b789047",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=7e078b78904711a9643a8205e3285cce&lastobs=7&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-809009461b1c",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=809009461b1cba2fd5b4cf5557d9d663&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-8ce166f4dc3b",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=8ce166f4dc3b23e990f8a17199399991&lastobs=7&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-b159a0c8c25a",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=b159a0c8c25ad095246256ba0d51c0b2&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-c9c9b803a7eb",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=c9c9b803a7ebf08b3b061b0aa917a03c&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-f213ee970e31",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=f213ee970e317c0f3cc80e775d35b8e5&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-f8ba62d9d249",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&series=f8ba62d9d2493aed0181b6a10cb61fd2&lastobs=&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-g17-all",
+   "source": "fed-ddp",
+   "every_h": 720,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=G17&filetype=zip"
+  },
+  {
+   "name": "fed-ddp-prates-c27939ee810c",
+   "source": "fed-ddp",
+   "every_h": 24,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=PRATES&series=c27939ee810cb2e929a920a6bd77d9f6&lastobs=&from=&to=&filetype=csv&label=include&layout=seriescolumn&type=package"
+  },
+  {
+   "name": "fed-ddp-prates-all",
+   "source": "fed-ddp",
+   "every_h": 720,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=PRATES&filetype=zip"
+  },
+  {
+   "name": "fed-ddp-z1-00e3ee1447f4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=00e3ee1447f4965360ae08baf521937b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0143c6857987",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0143c685798780e8379a4a0c350f6a49&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0183aaa508d5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0183aaa508d5020238ec1e63948f51a8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0255860ea688",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0255860ea6885e7a433b2d1716485dd7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0401d745d9ad",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0401d745d9ad4ded06bfa0839fc5d42d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-049f3b47ac6f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=049f3b47ac6fd516d998342d4f83656c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0511e19930f2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0511e19930f2b3f19b7c54cf42e05f9a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-051ff475acbb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=051ff475acbb55aed9c0a6aa826a4c63&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-05d1bc6d5e93",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=05d1bc6d5e933dfb8a92347b86a6f880&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-06980c00fab9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=06980c00fab964dd41a33f855964ffcf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-06da9a10da41",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=06da9a10da41bf28aaebcc8ad97b8e7d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-06dc02a7ff8b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=06dc02a7ff8bfd3a81fc072f61f0225c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-076d1ee03a56",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=076d1ee03a566548cc2fc13aead86233&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-088b1e81bdf4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=088b1e81bdf443c73231e042c3a744db&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-090893d688bc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=090893d688bc8d88148825d7d210667f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-09ea8cb09aad",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=09ea8cb09aad9d50dfad22cc42dd8c88&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0a2bdfef62fd",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0a2bdfef62fd8d7cf9b35b8e6f8b6107&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0a5784470ac6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0a5784470ac66d7d9417e7432615c1ee&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0ada68e5d654",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0ada68e5d654c69370952155216510af&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0b0d1393a041",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0b0d1393a04144bf5bc3f27a0ce7f467&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0b72bf273a61",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0b72bf273a61e16db464369ccc678ea6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0b9ca4befb9c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0b9ca4befb9c701c362ddf1c438fea6b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0cde9fd8cf00",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0cde9fd8cf0000ab26f258112edf1fdf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0d72629181ed",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0d72629181ed48b902b0bb804e6ff6fc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0d7607a40a9d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0d7607a40a9d78492c5783d958e0ba46&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0e2e449a162d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0e2e449a162df865cace00c7e8a1ed9c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-0ea8b2d0db97",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=0ea8b2d0db97931d6b5fdd265d5f9716&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-105c92d9ccdb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=105c92d9ccdbbde73ffbe563ebe3ef57&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1133321db3ec",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1133321db3ec9ed3cec21b21513d1c42&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-115d7be4a0e4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=115d7be4a0e45d7e5c0cdbbdda5d50df&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1318c285a590",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1318c285a59084fc196bbdfa98395c0a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-13ee39837e88",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=13ee39837e882d7e866d4538548b258a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-182410d537e6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=182410d537e63a023925c4bfcf3cb5c8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1872680eb918",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1872680eb91881b4e7d1cb07a40de861&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-188d43508a82",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=188d43508a82dbce8cda8c84400e0ddf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-18aacfd26f5c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=18aacfd26f5cbaa72889c82cadae0984&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-18c8c3f83749",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=18c8c3f8374926e01558186a42837290&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-18e5018f57cb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=18e5018f57cb4cea40269d8324eae2ac&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-191292ba3481",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=191292ba3481a505eb7c4a22135c0f73&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-19590619ef6a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=19590619ef6a1524ad1d89f3486145e7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-196bb31ef3ea",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=196bb31ef3ea4a679714be9648095e2e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1a221acb46bf",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1a221acb46bfa56e5d0775cb43fb8b4f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1a94bb38e113",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1a94bb38e113c66809ac44ae20a9c0cf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1b2b3a0a2158",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1b2b3a0a2158d90422a08ca060465d36&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1b366571353b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1b366571353b7d123a609be31f45c6a5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1bf479abfb64",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1bf479abfb64c3ffb8e3d070802675a4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1ce138892a3b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1ce138892a3bd1104d4b451a26a286c6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1dc1179c2467",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1dc1179c246788d713fe7c6304feb145&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1ed7425f2d97",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1ed7425f2d970f12bc032632ec701bc0&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1f3c67ecc240",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1f3c67ecc24013deac0938c2f28d915f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1f9a5dfb2edc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1f9a5dfb2edca7f685813531166de194&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-1fc6b33cc489",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=1fc6b33cc4891253b05c1d6f44557f41&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-206eea8e35df",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=206eea8e35dfb1b28344f6db86b9cf7a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-207204c439d3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=207204c439d373bee9b0ba0ad3faebd4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-207c4fcbfc01",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=207c4fcbfc013e57ca966a3cbcad4ddb&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-20f8ccdb8f84",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=20f8ccdb8f84b7a0ab4b3fe04c1e677c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-21495bfc80a8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=21495bfc80a8ff583c7a12279d3726fd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2181a8e13abd",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2181a8e13abd91e39b1c0ece1dbeecf7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2207caa17284",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2207caa172845e056c21b2ca992cf7a5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-22fb567ccca1",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=22fb567ccca10ccf90cf44b5cd7f07cd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2340c4e4de36",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2340c4e4de3602318a8ffbab7724ba8a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-23a63714491d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=23a63714491d7542961e213bbe033663&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-23fe287caf37",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=23fe287caf370d50991215d7119e7d4c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-24c3b390e824",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=24c3b390e8241d87ade3e1bacfe96d89&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2562d8878b9a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2562d8878b9a9be03b1d4eac88112a6d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2648755b2f86",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2648755b2f8631c57f048d501de2d6cd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2681848c564f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2681848c564f77981867459b3f40ca41&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-28214cb95b95",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=28214cb95b950fd1ad500c223934e53c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-284d425f3d91",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=284d425f3d91864a5d8fd9ef521874c5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2969fca3d1d4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2969fca3d1d4ed202b35a98e41fc7b13&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-299cde9bdce6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=299cde9bdce6b374e75fca0fb6cdc1f2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2a2327624a19",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2a2327624a19a08148b65cc3eeb44c20&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2afc8a21edcc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2afc8a21edcc01d43ac1da0f09706a5a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2bcf95f4bc24",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2bcf95f4bc24512c96f5e3b38552b9cb&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2c3e9f275e39",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2c3e9f275e39faaf95a8991d457c570f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2d4767ee7c9a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2d4767ee7c9a194f11bf2658e12698df&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2d7c11d77dd4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2d7c11d77dd4ee6b55d0e3e7dba866c5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2d7f95d1abef",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2d7f95d1abef7d355a8a1f40a5fb4bf3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2db785402f5b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2db785402f5b71dc68bc9d22eca29b64&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2de27d1f72db",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2de27d1f72dbe1b87e9f3bd66e7bf806&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2e458744d95f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2e458744d95f9f5f2d9c8ab334656774&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2e700a73650c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2e700a73650c6c78ed5966f24c161811&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2f757c28da2f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2f757c28da2f9cf3500c38f807eabdfc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2f86d5e05e2b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2f86d5e05e2bf2287cb72019f4d58618&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-2fdc4019f4e9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=2fdc4019f4e9f23571a83a02dc5f7c55&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-303e2ff082a1",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=303e2ff082a1b51fce597038a21ae7de&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-30429ee1bc71",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=30429ee1bc71202740e9b7e7a5eed2c7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-307cca4c0f7a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=307cca4c0f7a78f1db7fadccb22a76da&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-32167081e57d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=32167081e57d2dcca9e927be81ae5d60&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3221749d561c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3221749d561cc0ca31f3b55f7b0b0bb2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3303f4cd55e9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3303f4cd55e9364e1ec6d0b6eb34454f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-335333a94b64",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=335333a94b64e0505031a2566da7b6f8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-34eaed895fbe",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=34eaed895fbe9f600e4683dbbd5ae138&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-34f396016ede",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=34f396016ede88aba02f653ca2f5139d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-35a645585f95",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=35a645585f95f919de09f9f75fca9345&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-36bba75587df",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=36bba75587dfa45ea80acbe8182c5b39&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-376f945f72d0",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=376f945f72d0e02a9a6d32b4a0d613f7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-37bfb7d0852a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=37bfb7d0852aa06340c8f7f72c5b9b4c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3847cbbacac8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3847cbbacac8eb15ba6b834642d9805b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3929dde4fcef",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3929dde4fcef4a8126c8183d62bf0194&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3bda911f95b3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3bda911f95b355b411b2e91685e76582&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3c99858561a3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3c99858561a3a6c9be27db2ac4db5800&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3d271d30808a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3d271d30808ad0c719fb60084cea6b06&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3d6ad0170186",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3d6ad017018644d7ff1f8a721d9ed6d4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3edcfc1a5209",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3edcfc1a520921f457ce50f76c41a5d2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-3f003705f8bb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=3f003705f8bbdc97362ad14d2a769234&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-406237f683a3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=406237f683a325583a5e5c1b9ddc1425&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4113d34274ee",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4113d34274eee03b1fd2e3183eb826f9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-41297f6fbc24",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=41297f6fbc24cb163b4c31f427fb10a0&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-42214b438d67",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=42214b438d6702bf637c3b1bec3fb0a7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-42714406595a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=42714406595a5288927a2841202bf4ce&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-42d99dbc02d5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=42d99dbc02d5d886664b636199e6232e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-43370dcdfc26",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=43370dcdfc2641ecf859e07fc1a97b6d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4365b69250a2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4365b69250a238793484a753ac879b97&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-43e1df4e46d3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=43e1df4e46d36e9501b35cd92bc7266f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-44c17e6d93ea",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=44c17e6d93eac2b0d4306be786fd02b3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4505703572e3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4505703572e3641168272ba321484fac&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4593014ad46e",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4593014ad46eeb0a281cbb897d4fa008&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-459ea387b3bb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=459ea387b3bb97304ef09bc514e86b04&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-45bc740b0051",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=45bc740b00518086ee221e4cb9e27972&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-45ecda2794c2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=45ecda2794c25dd41439640208fff9bf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4634e7b0b399",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4634e7b0b399bc698c0f22a36c2fe2fc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4859bc17915f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4859bc17915f8c32d241e4f7a91dae38&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4a42b73756bf",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4a42b73756bfe037252078d8990fec22&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4a781e9badea",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4a781e9badea1bd4e28bd3c0a254df47&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4a8af7942b4c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4a8af7942b4c6be4c32ec83107eb6c83&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4d4603b731b9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4d4603b731b989fe08d0195d216a5e9a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4e773244c952",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4e773244c952c2eb044b514f15c3419c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4f2737097a8d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4f2737097a8d8f4823ddff693d68a415&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4f2823757fa0",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4f2823757fa0af8f4373a068946a63d3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-4fdf253b82b9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=4fdf253b82b9d2eee9a2105e4934fb92&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5058b4c1f316",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5058b4c1f316b7795a9322a038e5de64&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-507907f4076f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=507907f4076fc28c3e34199c6ea8a642&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-513eee8e6c70",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=513eee8e6c7059ef6d1ba028058a0e98&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-51947ad46868",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=51947ad46868334417505192c31b6831&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-51eac4436d89",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=51eac4436d893da45df7941ddebc0284&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-52218a689150",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=52218a689150dcd97a1e94f712e5a262&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-52afd487d14b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=52afd487d14b37c7ee365d6389c76a49&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-52e6457cb869",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=52e6457cb869e1769ec6fdf31ca4cf0e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-53233372a717",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=53233372a71713cdd3e88693e8a387dd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-541dca4114c3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=541dca4114c33ba50922e010f747d389&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-551e7dfea97f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=551e7dfea97fff844e2d605f0716a500&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-554169340307",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=554169340307bd358a0087e3c2a7acb1&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-555ec792e58c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=555ec792e58cc7d67267b795d1fba6c0&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-55bcb862ab74",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=55bcb862ab7439d2b1d06d66497a31a3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-55bd42aeb93d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=55bd42aeb93d718b18c1133552ab7f34&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5623012b7601",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5623012b76011f7cfeede0e10a72520e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-56274663b703",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=56274663b703976564f8941729da00b8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-57703fe16772",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=57703fe167722042ba7e2e63b205b59a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-584f3e76a3ec",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=584f3e76a3ec0db2c161751aeafd73b0&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-58a8bdfce20b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=58a8bdfce20b512ba081ebeb9348bfef&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-591b324261c1",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=591b324261c15858cc3b4a06536f8348&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5aa8e05b6b13",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5aa8e05b6b132ae2e81a316e769d6437&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5b65fa13b036",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5b65fa13b03609b815b76a2a6315c6fe&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5bac447d97f9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5bac447d97f99d40bcd7ddbeefb83812&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5c96a6e9b551",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5c96a6e9b551dd96b1fa247f448048d9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5ca7ffa7e49c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5ca7ffa7e49cd4f8bfcc539523debb97&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5d4bb6f425cc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5d4bb6f425ccc0f14e1cda01b89d0341&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5dc390d48f50",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5dc390d48f50bab36c91c51f5725cbe2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5dee70ec78c7",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5dee70ec78c7c47508f887435397c110&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5e5f041ab573",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5e5f041ab573cd1d59129677d624a66e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5f1b65e1ccf8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5f1b65e1ccf88108509094355bcf4d73&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5f4fce63b3d8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5f4fce63b3d8b005a19e4e7722e4d954&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-5fee7347fa08",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=5fee7347fa08edc6e17b42e60d9a5902&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-60b323100aee",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=60b323100aee88d052ca9034ada735a2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-615f0cc56786",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=615f0cc56786729b5ddb62070af097b6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-61913c581ca3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=61913c581ca3f28bf3a04a08f02a383e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6286012ab155",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6286012ab15511c4549c36a4011954f8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-629b0b11fd08",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=629b0b11fd080fbef54150cf20bafa39&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-635ac13b314f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=635ac13b314f8ffbfb428cf8b925e9ef&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-63c6c076c568",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=63c6c076c56838c3bbda657e2c7850ab&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-64779be11df5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=64779be11df595183603b41c2c224caf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-64cffc3cab76",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=64cffc3cab76f482bf6c85b5913f9ace&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-65da40e8159a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=65da40e8159a480056150a8d872a0e3d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6771987cdd26",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6771987cdd263a087b93a1fda46e4769&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6786c8f27223",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6786c8f272231d07624165d908d64198&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-679683b8f367",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=679683b8f367904cb6a9cd01f87dc83e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-67a2774afd9d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=67a2774afd9d1205bf114053d6dff76f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-67ea3ed42f07",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=67ea3ed42f079d5ae4e2a817b2d2d1fc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6842112b11e5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6842112b11e5557c48e9b7220d80e200&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6890992b82d5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6890992b82d5a66970dac1dde254931d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-698651f58f44",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=698651f58f44c2c5007d8360bc1a3e60&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-69f2fbde2d0f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=69f2fbde2d0f7edead82c7fabc8a433b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6b0208f09da9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6b0208f09da9c0c92e0ace655de1fb2b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6b15330a9e9b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6b15330a9e9b69f33b2b121a25e463e7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6b85fa054576",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6b85fa0545769a336fe3a31b40f2eb24&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6d5bd1fa98eb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6d5bd1fa98ebf04b3cbf5327e90fe655&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6da4942aee06",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6da4942aee06d87e64b38d0eeda54ad9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6dc22fef95cd",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6dc22fef95cde5643c79ff3c26edc40a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6e2358a34350",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6e2358a34350c1990fdb5e5861894453&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-6edb0d1a2f42",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=6edb0d1a2f42decee448057e172166dc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-701f9415bfb5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=701f9415bfb5385e322f85b76b55dac9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-71da11ca63f7",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=71da11ca63f781aeea199197f9b71f9a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-724d9f8930a6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=724d9f8930a6fc8c68cbff64f271cd75&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-736e60d29989",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=736e60d29989868924bf4a777f9e67cf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-73e3621039a6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=73e3621039a656646b8491877e07d8b8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7507feff79f8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7507feff79f867f10a88e01bf1747ccc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-75dfe2fff564",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=75dfe2fff564355b4a68f88908ffa643&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-76370e3765b5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=76370e3765b570a66959049aaaa90f2a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7692b9112391",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7692b91123918343ced0aa4bb3cc881d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7718355ba685",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7718355ba6850d966b49a41d64a5babf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-77438483f58d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=77438483f58d0d7e657211f5c7082f7b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7786778e3b4a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7786778e3b4a612f6368f4efe954e499&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-794ef3cb60b9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=794ef3cb60b9ed4a26424e4d912aadf9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7a7d4ea967e4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7a7d4ea967e427a1af797c8641dd5114&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7b02680dbcc8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7b02680dbcc8df9b4fd2b3daed7b32c5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7bb3dc68b035",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7bb3dc68b0350c7dc2e22a8519cf4c91&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7c570656df53",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7c570656df532d48eed7cd66bd66f0d9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7d58276f3921",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7d58276f39213899aba4226e693d9c35&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7daee58fa0a2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7daee58fa0a2c182a8f27e6b4b766e43&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7edb200acde6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7edb200acde668c021b475c98c6f0cdc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7f5a8211f694",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7f5a8211f694915381f350b5c1cecb5c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7f77696382c8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7f77696382c883b8efb69f273116af42&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7fc193c9cc96",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7fc193c9cc96886518042730e79240f7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7fdd4c7f7156",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7fdd4c7f71560be336c2172fdd170e75&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-7fe61daac978",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=7fe61daac9788cd3eeabea70d2cddbe1&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-80f2642a247b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=80f2642a247bd6df68ff80320de7b4e8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8120e3bdd2ec",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8120e3bdd2ecdcb2e0ceca26c07b023d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-81b29155841a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=81b29155841a8c8dbe55946013e8e90c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-81e91944b69a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=81e91944b69a831e1ab74ea842bc7c69&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-832195fdf1d0",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=832195fdf1d03cc9506d70f4389060bd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8507e2e4652a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8507e2e4652a5141af3ab395dfeb214b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8558160495e8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8558160495e861ea3a8d980e45b2944f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-859086e052b3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=859086e052b3bd2fe44278edb62de682&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-85916c7ff553",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=85916c7ff5536ea5a8a71f4c3eaa5e4d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-85f803f5a1a8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=85f803f5a1a8f3b23792f9cac02d978d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-866fb88b84cf",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=866fb88b84cfa76ded48ddf76da6bb15&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-87400a53f388",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=87400a53f388039f8faa19038441a24a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-876b982eb9b6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=876b982eb9b667dec4276914dbbfd94d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-87c64777255c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=87c64777255cea1366b01ff9ac274524&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-87d185964ae1",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=87d185964ae106389ef7b450f92b0597&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8804d4092a04",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8804d4092a04240168c013db13245173&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-886359337dcc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=886359337dcc8b76db52dd2f8f1e378a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-89055aba2135",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=89055aba213556d72b138f7c3b4a9a16&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8a1638a9a86b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8a1638a9a86b309ab46a96ab5a96eec2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8a473f12efda",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8a473f12efda21e75041a82921730bc6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8a52ce00047c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8a52ce00047ce0c2b715fe55d70b9144&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8a7316bc4950",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8a7316bc49503e5be84f1c569646eb58&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8a8d45ea299f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8a8d45ea299f5238fa6acbe72493c826&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8b59d76d297d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8b59d76d297d8df099b59d2319b33792&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8ba7a4683726",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8ba7a46837262587e26c7cb8aae7d468&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8bc3f812cf5a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8bc3f812cf5aa5fcf6c2e25b57eb7b81&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8c79e9ee1c44",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8c79e9ee1c44bdfa7bb65096b74af9c8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8cbfec271b7c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8cbfec271b7cd61aff17ecc76db13150&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8cce874ac6bd",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8cce874ac6bdad64be3dc92ad68a786d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8dbc57670950",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8dbc57670950bd536ef40ca26ddfb006&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8efe51b96708",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8efe51b96708457717d2d84132ffdace&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8f32820f4417",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8f32820f4417c072e99b65390232aecb&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8f8b5d5e9029",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8f8b5d5e90291e9bdd0d7efd0b4f4787&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-8fbbd7474593",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=8fbbd7474593b42cf3933f3e62546356&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9135bfb078a7",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9135bfb078a7c65a3a8ed226544325c8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9148027d92f6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9148027d92f61de6cae411b26053337e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9169e8753f1a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9169e8753f1a61f92206714c7f037ff5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-919e431ca771",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=919e431ca771440e4f2436ed65b75610&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-91d24b675726",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=91d24b6757268e05d9debe8b251980f5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-92e209e60418",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=92e209e60418268b9a85b8d9fb11c7c9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-92ef4ffe2824",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=92ef4ffe28248288837e04f9e43c048c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-934e0cca3825",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=934e0cca3825054bf188c81189c21ec2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-93679b6f80f6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=93679b6f80f632bca0e28c8c18782691&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-94890402404f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=94890402404f3aabe08dbe364c21f128&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-94cb368488d9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=94cb368488d9006728be5ce911bda9e4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-94df782a2726",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=94df782a2726bcb2a71b25446043b1a9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-95233ca06212",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=95233ca062124279d58c8f37cc1b1305&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-95be8b05b98d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=95be8b05b98d8913693807372cdcd83f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-967fbe8219e4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=967fbe8219e424258e185f8889a46fa6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-96b8157cf25b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=96b8157cf25b90e5a59233afe06db9a9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-96f47fe63c8f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=96f47fe63c8fd94c2337f7266d31f546&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-996ae7b7e4fc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=996ae7b7e4fcab1eaad8174f47196ad7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9ab87425317f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9ab87425317f01a8fa3c93744b05bf5a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9b0ed45c2e02",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9b0ed45c2e02851b35ea3aa2bf69bc65&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9cf81f97f156",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9cf81f97f156776d281c042f5bbff0f6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9d470d0515a8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9d470d0515a8d67626d066f5ef2c23ca&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9dd5d03842bd",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9dd5d03842bde51c01fa20ceb391f399&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9e5ded012982",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9e5ded012982d1ec1c6531a58967b648&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9ebade67693d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9ebade67693db8139dfe808cf6c3c2ea&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9f2d83e66992",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9f2d83e669923a3d1691b4e362f9f8b2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-9fceb3e63ae3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=9fceb3e63ae33f8a6a06986114d58a43&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a03f299e038a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a03f299e038aa62186555c7a424566e9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a148e5c4fd4c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a148e5c4fd4c35c513a0d2c733ed6649&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a15034bb2513",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a15034bb251376389007315113c988df&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a28fd6ff5818",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a28fd6ff58186c91e3e2987a889a772d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a2e2d88ac117",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a2e2d88ac117d63d687b1bf832d970ff&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a4024a8a96d3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a4024a8a96d368a054e71678b8854327&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a405ef4e5ece",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a405ef4e5ece050fb0789ecb77471d81&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a41e37c78a35",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a41e37c78a35c42fd839809d659ac004&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a440b40e7884",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a440b40e7884154987dd3f4390b9434d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a46e9d955685",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a46e9d9556853f5a1b38043d395dd82c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a47fe2493b1c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a47fe2493b1c91a9129fe7dd5992c5cb&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a6f01b83e2c4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a6f01b83e2c43ed4d197e648cce4b097&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a72a5beee425",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a72a5beee425db1f1c4a67e8eac0278c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a774f25d2b2d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a774f25d2b2d292469c78a373b8f339b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a8524445ed46",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a8524445ed461a8257eab6a06d84c9b6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a8f1db2cf65d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a8f1db2cf65dc90e7182b5f26988172d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a9c0ef542901",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a9c0ef542901f73383009f1660d502b1&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-a9f9a0ce4ae5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=a9f9a0ce4ae5af283d4cb51869788163&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-aa65466a9ab0",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=aa65466a9ab0f140cd7f0b12ed618701&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-abb11cf1f6c8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=abb11cf1f6c83cb34346ec2236a5032c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ac78f35950ae",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ac78f35950aed82be5548c96f1da6ae1&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ac9ecc444393",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ac9ecc444393c1a330cba7e3c1297e0c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ad8dc7be352a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ad8dc7be352a3d9709ed2a747ec6ad17&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ad91c7a21866",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ad91c7a2186658a189b8afbe30ed4892&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-adcc5627309c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=adcc5627309c57fababf7c769528ad55&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ae8ba3936483",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ae8ba39364833cc6aaa6a37487ac1276&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-aea2ad566cff",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=aea2ad566cff42eacb03d4d9e9099473&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-af149267bbaa",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=af149267bbaaad10e88c230d56cebc6b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-af712ae503d5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=af712ae503d5c34c9f14f7668dcf7db6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-af7c4b251dcf",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=af7c4b251dcffc83aa1e0e431d58bce4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-afee4c114191",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=afee4c114191c879b699c88eff229122&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b0aef9957abc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b0aef9957abc96b60b0ab5812b6f0fb1&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b2734a105301",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b2734a105301a7da8ed20d0c96514c37&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b3936d33592b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b3936d33592b8b6da9bf271872677e55&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b3a7e01b8af5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b3a7e01b8af53cc3e95ccb5121cdeab8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b51a0ac88be5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b51a0ac88be5d7478c3f1d713f699508&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b5ef4a5992bc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b5ef4a5992bc9abe05fb1d97e8388cdd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b635d6304dd7",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b635d6304dd7854c929901bbc498bd5e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b750cadf2359",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b750cadf23597ae2b14ccbb527bf59f4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b7a3ba529098",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b7a3ba529098a545d94164bb95e99930&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b8c7802c8db6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b8c7802c8db6015f19ebb9dd3471b57f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b9251f10c4ab",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b9251f10c4abbd98c7959961a7b949fa&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b92803dcf4e3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b92803dcf4e30ca1582c7f9d52241bfd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b978db015016",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b978db015016f0a4f5cef22b167acfee&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-b9d24f82b6dd",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=b9d24f82b6dd13c919b355f2bcdb2ac3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-bb62f4bc0588",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=bb62f4bc0588b849d2eec2804c9a0cbc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-bc6bbc9bc667",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=bc6bbc9bc667d8ddfc66395c6d85bdae&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-bd6026667d85",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=bd6026667d852e430fe368e845447d46&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c0c44817b0f3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c0c44817b0f344736fd5219c67daffd3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c0f5fc20e46e",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c0f5fc20e46e269206e19a2981f7f959&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c1f5b0878040",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c1f5b08780400edd942b9482f12e9714&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c23da97eb742",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c23da97eb742f5d5e7539c0415f3cb78&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c3e0b672f076",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c3e0b672f0764bf8814316a0108ef3cd&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c47f36c9aadf",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c47f36c9aadf324362492f2749654d8b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c630f1c1ded3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c630f1c1ded3e8c95b3690e897b642f6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c676590710ed",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c676590710ed06ae4a2acc4097b60907&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c67a9f4645ea",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c67a9f4645ea8f568f79bbe4a106de54&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c71a6daafafd",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c71a6daafafd63a18a6ec9c0140d47ac&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c7d3c71306cb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c7d3c71306cbbf5c7c3deb6c1bf8660e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c83c0c219fee",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c83c0c219fee0df61a60358cbc3246a8&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c87d60a6a1a2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c87d60a6a1a23e8050680fd296a02448&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c941638314e2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c941638314e247cc795548fbd8b06f86&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c97080b65195",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c97080b65195c158c5b2874c0efe27f1&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-c9f78fe725f2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=c9f78fe725f2751ccc7c280c2ef1e6db&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ca9345ac5b9b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ca9345ac5b9b2ffa6af0e8585913f21b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-cb165c2238d1",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=cb165c2238d115970ddc6251848ba864&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-cb7ef6e00d79",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=cb7ef6e00d79975e53b4efca7a807cde&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-cb9b606befae",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=cb9b606befae29ef3c8d4565df0ea772&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-cbf622d0f8d8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=cbf622d0f8d80366b862e14f1b086048&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ccd2c7d99629",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ccd2c7d99629996faac03677dd5b8e22&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ccd6506e1827",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ccd6506e1827be461f58bcfbfbec99eb&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ce4da652c8b7",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ce4da652c8b7c78a64cdce0c723b145a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ce67beb8168e",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ce67beb8168e2063c9532985d7eb1ab1&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-cea9bf75a3f0",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=cea9bf75a3f0b28b68699bbd54fff078&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d0a2b4292c01",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d0a2b4292c012aaa98f0df4a06630df4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d170b0d02f0e",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d170b0d02f0e2b52a73284ddeda990f7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d1a4a533017f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d1a4a533017fce787ffa6aff3fe86135&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d1b2c00734a5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d1b2c00734a597c7ea0d05e19a412fc3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d22e1a642096",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d22e1a642096724f50531692b66dbd2f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d36f02088539",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d36f020885394fb8e25a74fd89f53125&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d43af345d7f4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d43af345d7f4452c46183ba2ef419e9d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d45509c01358",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d45509c01358f9f639cecd56f6a0d4d4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d458bed6d39f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d458bed6d39f5750bb4ea02788057fe2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d47eb98e60ea",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d47eb98e60ea903b0ef6e1165b7f2dd3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d48f5031258c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d48f5031258c69d182d9a5538731a6a4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d5f9f237a2dc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d5f9f237a2dc638c8b8457d73048bac9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d7273a68f77e",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d7273a68f77e52c0bb018db3a977c16e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d73700015db7",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d73700015db7167be7ba3bdbedbddcec&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d7c4e54f7028",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d7c4e54f7028f0bf3c99ef40f5969860&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d7f8f188caaf",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d7f8f188caafb77307345938920c3474&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d86ef9641116",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d86ef9641116c8824036b3f5366fc995&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d8caef97738a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d8caef97738a782ea7f07872308c01c7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d965c99ab5fa",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d965c99ab5fae49c82872d64b9968e82&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-d9aef6e5ff13",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=d9aef6e5ff133298e0a8516fc401e157&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-da20ade79299",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=da20ade792993b94c2f73b066a0792d5&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-db20044e3437",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=db20044e34376287ec2dd92ab5f7868b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-db34f80b6b47",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=db34f80b6b4770e436e481a3b096a87f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-dc1a1cf1c658",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=dc1a1cf1c658701936fea0ed5e70885b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-dc4da4762a14",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=dc4da4762a141d5c5bcb16312886360c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-dc8915c4b5c3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=dc8915c4b5c3a9de8c2e3a65415cdb19&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-dce196f58d91",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=dce196f58d91756c7ac4211d333151d2&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-dd13fdc71f21",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=dd13fdc71f21738766d589d39ac0d78b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-dd8fb77dfe06",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=dd8fb77dfe061fe27663c78bd7ccccf7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-df6e6a40849b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=df6e6a40849b3772e29011fadeb16fe6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-dfc2deab13a5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=dfc2deab13a50a5f907f4f26265a3958&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e1f5bc7559b4",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e1f5bc7559b472b183b0d7b22588a05c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e2ce85433630",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e2ce85433630f02188eeb9709e678ee3&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e4c2356a1380",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e4c2356a138081b64fb7dfb0bd24f894&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e4d0b32999be",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e4d0b32999be90966c0e7330bc9e828f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e6f12382bda9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e6f12382bda9426581744082c726600b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e81168229d84",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e81168229d84bbb137ababa95dea1284&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e903cb044b82",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e903cb044b822ea947e9bc0a00785e06&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e94fdb5c74df",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e94fdb5c74df608888c6a9308136d785&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-e9ca59b43688",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=e9ca59b43688976fb6809fba9b2eae6b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ea3ce2d956d9",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ea3ce2d956d9e547736a249a7fc45dd0&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-eaa493c733f6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=eaa493c733f6e5b6495703de777ccdc7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-eabc5239c4b1",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=eabc5239c4b15cd564144deafde5883c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-eae541c27228",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=eae541c27228f632d322ed66c2c64360&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-eb18aa439c6c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=eb18aa439c6cbe28d7d43bffb5905f48&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ec10a8a91b2c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ec10a8a91b2cdb5189f12d8906394d57&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ecbf5d7022ee",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ecbf5d7022eed07ba2a85f7d10d7869e&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ecde25e043d8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ecde25e043d82c89bd065bf625e04d4b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-edad405433cc",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=edad405433ccf560993a08d7ba3f4840&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-edc8946527e3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=edc8946527e3aae098d08ece29c277df&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f096adafd2f6",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f096adafd2f65a050383f798495ab293&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f09b2a275fb8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f09b2a275fb872fdd338f84a8b74cb6a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f1d1a05ddccb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f1d1a05ddccba87525fe81e8dd5f0f5f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f21b3d8f4d3f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f21b3d8f4d3fdbc3008ca053fde0e8bf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f24a398dfe23",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f24a398dfe235d6ea66be4fe23973680&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f29f21490ea5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f29f21490ea5c96664ab0fbac01000d4&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f32c02be297f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f32c02be297fa1805f6d3d3cf6501e52&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f357cd92580b",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f357cd92580b576ed38ec79176811d02&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f4493fb610d0",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f4493fb610d0cf7171b24c66014da8a9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f4d60a950319",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f4d60a950319d2fdffd20a93ff2799ee&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f5d28b045cd1",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f5d28b045cd1cb8c84597e6dcb120088&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f5f0c4c0d47d",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f5f0c4c0d47d7cec4bb8912f12166fa0&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f6ac365c9b7e",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f6ac365c9b7ee9ff346303f440e46154&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f6cbc238ee25",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f6cbc238ee2518b9d1b171c894e84dbf&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f7b3702839f5",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f7b3702839f557185ec5c6f0a1a6fe0d&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f8218a03830a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f8218a03830a5344f6960df50835386f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f852c11ac6ea",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f852c11ac6ea86a7d1bff2afeb824e57&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-f9d314651056",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=f9d3146510563a0dc19d97f47b11f26a&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fa9b63b98943",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fa9b63b9894345f0716e5873be0fe96b&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fb22d57f2e4f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fb22d57f2e4f9f26ab2be2b2d55f4dff&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fb30eadc82f0",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fb30eadc82f018a7efda5a899c7bd7dc&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fb3e45275c2c",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fb3e45275c2ce762eb8929d24be7ed67&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fb7dbc1bccf2",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fb7dbc1bccf233342cfe2921f532536f&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fc935825cb53",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fc935825cb53a3efa21d5f6d449aa003&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fc9f5a0dc11f",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fc9f5a0dc11ff487414b55112c7a11f9&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fcae7d84b8eb",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fcae7d84b8ebc4aa6affd42e0e206940&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fd23ed23d37a",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fd23ed23d37adaca5e60b24c9dfb0b52&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fd3b27c1f760",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fd3b27c1f760871435835c19f40667d7&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fd3fb4196332",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fd3fb41963326259d3990a808521942c&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fd9856b12dfa",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fd9856b12dfa36d3736a7b2b139aa0b6&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fe354c3d4208",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fe354c3d420803392448004ea863b975&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-fed76839baf3",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=fed76839baf30167bb62c60f4c2ffd73&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ff19cfd706db",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ff19cfd706db31f34fbd880f310566f0&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-ff97a31a08f8",
+   "source": "fed-ddp",
+   "every_h": 168,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&series=ff97a31a08f8ec2dfea4d3b68322a118&lastobs=5&from=&to=&filetype=csv&label=include&layout=seriesrow&type=package"
+  },
+  {
+   "name": "fed-ddp-z1-all",
+   "source": "fed-ddp",
+   "every_h": 2160,
+   "url": "https://www.federalreserve.gov/datadownload/Output.aspx?rel=Z1&filetype=zip"
   }
  ]
 }

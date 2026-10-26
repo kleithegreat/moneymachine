@@ -109,3 +109,80 @@ indices or commodity contracts at the backtest tier. This is not a claim that ev
 - CFTC traders in financial futures: the API dataset's history and its currency contract identifiers, and the publication schedule as a schedule to verify against release evidence, not an availability rule.
 - Treasury average interest rates: the endpoint, categories, units, history and revision behavior.
 - The ECB reference-rate calendar source for "publication dates".
+
+## Revision 2026-10-26 (human decisions of 2026-10-26; before any stage 8 inspection of the sources it adds)
+
+RTDSM, BLS, BEA, EDGAR and ECB observations have been fetched for stage 10 and the data layer; the class annex records
+which of them any agent has seen and places them accordingly. This revision was written from the documentation-only
+survey of 2026-10-26 (`sources-survey/`: `combined-plan.md`, two Opus 5.5 reports and GPT 6.1 Sol's partial report,
+each claim with its URL; no observation fetched, nothing signed up for), and reviewed by a fresh-context Opus agent
+while GPT was unavailable (GPT's review queued). The text above stays as committed; where this revision differs, it
+governs.
+
+**Selection rule 1 is replaced** (human decision: accounts and keys are acceptable under the human's name and email,
+CLAUDE.md §3): *the source is an official publisher's or licensed vendor's documented API or machine-readable download;
+a key, an account or a contact field under the human's name and email is acceptable; purchases are the human's
+decision.* Rules 2 to 4 stand, rule 3 (15 years per proposed series) included.
+
+**Rule 2 is read with the licensing boundary** (human decision; paper, Multi-asset research). Each source's declaration
+records its role:
+- **agent-readable** only if its terms record quotes a grant covering reuse (public domain, CC BY, or equivalent);
+- **kernel-only** otherwise, if the record quotes clauses permitting storage and deterministic processing. Its rows
+  enter only deterministic code (ingestion, certification tests, kernel and gate). Research agents and reviewers see
+  only its permitted reports; the operator's coding sessions may see small amounts while debugging, preferring
+  counts, hashes, schemas and test results (human decision). Any field the terms name as restricted, metadata
+  included, does not cross;
+- **excluded** where its terms forbid even kernel-only use.
+
+The human classified CME data through Databento, Norgate and Nasdaq-originated data as kernel-only, and makes no
+permission requests. Two survey cautions are recorded against that reading: CME's Schedule 5 and notice DS-45, read
+only through search snippets, name "Information, including metadata" and "generating output"; and Nasdaq's Data AI
+Policy asks for "appropriate permission or license to use Nasdaq Information in the AI tool". Before any pull, each
+such source's full terms are read and quoted in its record.
+
+**Integrity**, wherever this manifest allows inspection only for integrity, means schema, row counts, hashes, key
+uniqueness, knownAt ordering and missingness counts, computed by deterministic code: no value distributions, returns,
+plots or row samples.
+
+### Sources reconsidered
+
+| Source | Route | Terms | Role | Status |
+|---|---|---|---|---|
+| Federal Reserve Board Data Download Program | `Output.aspx` direct downloads: preformatted packages and whole-release SDMX files of H.15, H.10, G.17, Z.1 and policy rates | automated retrieval permitted (help page); site information public domain, "may be copied and distributed without permission"; current vintage only; Build Your Package removed the week of 2026-11-09 | agent-readable | proposed: certified and recorded from 2026-10-26 (`venue/sources.toml`, `fed-ddp`); point-in-time only from our own recording |
+| NY Fed reference rates | markets API | automated access and storage explicitly allowed | agent-readable | proposed for series with at least 15 years in catalog metadata (EFFR, if verified); SOFR, OBFR, TGCR and BGCR are prospective recording only |
+| Treasury par yield curve | XML feed, from 1990 | silent | — | blocked on terms: admitted only once a permitting clause or official API terms are quoted |
+| OECD STES revisions | SDMX, monthly editions since 1999, about 38 countries | unread (403 to the survey) | — | blocked on terms (Blockers); never worked around |
+| ECB Real-Time Database, `includeHistory` | ECB SDMX | ECB reuse policy (certified, `ecb`) | agent-readable | proposed |
+| BLS | API and release schedules (certified, `bls`); archived releases | public domain; schedule pages certified; archived release pages to be certified | agent-readable | proposed for first prints and release times |
+| BEA | API (certified, `bea`); schedules and release archives | API terms certified; archive pages' terms not yet read | agent-readable (API) | API proposed; schedules and archives pending their terms |
+| EIA | bulk files and API (certified, `eia`) | EIA-originated series certified; its NYMEX futures prices are CME-sourced | agent-readable (EIA-originated) | EIA-originated series proposed; NYMEX-sourced series as CME below |
+| Philadelphia Fed RTDSM | vintages | certified (`philadelphia-fed-rtdsm`) | per its record | proposed; the stage 10 certificate is reused only where its coverage matches the stage 8 use |
+| SEC EDGAR | form-type index (Form 25, 8-A12B, 15, 8-K acceptance times) | certified (`sec`) | agent-readable | proposed for listing events and announcement times; certificate reused only where its coverage matches |
+| World Bank Pink Sheet | monthly and annual bulk workbooks | CC BY 4.0 | agent-readable | proposed (signal-study tier, as above); the Indicators API route is dropped, since it no longer carries the commodity series |
+| Databento GLBX.MDP3 | `definition`, `statistics`, optional `ohlcv-1d`, about 35 roots from June 2010; exact cost from `metadata.get_cost` before any pull | CME licence Schedule 5 and DS-45 (read through search snippets) prohibit ML/AI/LLM use; User Agreement §1.5 passes them through; §9.3 ends all use on termination | kernel-only (human decision), no CME field or metadata crossing | purchase pending (Blockers): about USD 6–25 of the USD 125 credit; full CME texts quoted before any pull |
+| Norgate US Stocks Platinum | prices from 1990 with delisted securities, permanent ids, splits and dividends on an ex-date basis (no declaration dates, delisting returns or merger terms), daily index membership (S&P 500 from 1957, prices from 1990) | EULA 2(iv), 8(iii): the LLM provider gains no rights to the data; cl. 21 permits Derived Data; Windows-only | kernel-only (human decision) | purchase pending (Blockers): USD 630 a year plus a Windows VM |
+| Massive Stocks Advanced | from 2003: delisted tickers with an as-of registry, dividends with declaration dates, FIGI and CIK; no index constituents | Market Data Terms (2024-10-09): personal, non-commercial use; delete on account termination; silent on AI | kernel-only | purchase pending (Blockers): USD 199 a month |
+| Portara/CQG | futures history | the only explicit AI grant found, but CME's terms pass through | kernel-only at best | excluded for now: about USD 7.7–11.6k for 35 roots, behind the CME question |
+| Tiingo (paid); Nasdaq Data Link and Sharadar | — | terms not retrievable (403) or not read; Nasdaq's AI policy applies to Sharadar | — | blocked on terms (Blockers) |
+| Alpha Vantage | — | not surveyed | — | excluded pending its terms |
+| FRED/ALFRED | API | storing and ML use forbidden | — | excluded |
+| WRDS (CRSP, Compustat) | — | data may not be loaded into LLMs except enterprise no-training instances | — | excluded |
+| LBMA; Nasdaq CHRIS; EODHD commodities; Tiingo free; Cboe and index-provider levels; Norgate futures; Massive futures | — | needs an IBA licence; deprecated; sourced from FRED; no storage; storage forbidden; CME-derived; about 7 years | — | excluded |
+
+Vendors that require deleting their data when an account ends (Norgate, Massive, Tiingo, Sharadar, SimFin, Databento,
+WRDS) make the audit record independent of vendor rows. Whether hashes and kernel outputs may be kept after
+termination is open for every vendor except Norgate (cl. 21 permits Derived Data); replaying a kernel-only result is
+possible only while subscribed.
+
+### Classes under this revision
+
+- **Equities:** blocked until the human decides a purchase. With Norgate, a universe rule from its delisted-inclusive
+  registry becomes possible, frozen in a reviewed class annex before any observation is inspected.
+- **Indices:** blocked as above. Index levels stay licence-restricted, so the class would change its instruments to
+  listed ETFs, labelled "ETF proxy for <index>" and never index-level; the proxy list and each ETF's start date (rule 3)
+  are frozen in the class annex. Norgate's index membership has no independent source, and is recorded as a
+  qualification; listings are audited against EDGAR Forms 25 and 8-A12B.
+- **Commodities:** the backtest tier stays blocked until the human decides on Databento and the CME terms are quoted.
+  The signal-study tier on the World Bank Pink Sheet stands.
+- **Macro and rates:** the signal-study tier is extended with the free sources proposed above, each certified and
+  recorded as data-layer work, inspected only for integrity until a class annex is frozen.
