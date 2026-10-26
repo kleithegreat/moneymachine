@@ -6,8 +6,10 @@ A case is one key's revisions under one rule:
      "revisions": [{"fetchedAt": INT, "tombstone": BOOL, "row": TEXT, "deps": TEXT}, ...],
      "version": V, "queries": [t, ...]}
 
-`row` holds the revision's stored columns other than fetchedAt and the tombstone flag (as a JSON object text), `deps` the
-times the resolver supplies for its dependencies, and `lags` each declared dependency's processing delay. The result is
+`row` holds the revision's stored columns other than fetchedAt and the tombstone flag (as a JSON object text whose values
+are integers, strings, booleans or null, compared as values in correction detection), `deps` the times the resolver
+supplies for its dependencies, and `lags` each declared dependency's processing delay. The rule reads the row's fields
+and `fetchedAt`, which is the revision's fetchedAt. The result is
 
     {"selected": FETCHEDAT or null, "knownAt": INT or CODE or null, "visible": [BOOL per query]}
 
@@ -43,7 +45,7 @@ def case(r, revisions, version, queries, expect, fields=("eventTime",), deps_dec
 
 E = 10 * H  # an eventTime
 K = E + D  # its rule time
-row = lambda v: {"eventTime": E, "close": v}
+row = lambda v: {"eventTime": E, "close": v if v is None else int(v)}
 
 HAND = [
     case(BAR, [rev(100, row(1.0))], 100, [K - 1, K, K + 1], {"selected": 100, "knownAt": K, "visible": [False, True, True]}),
@@ -70,7 +72,7 @@ HAND = [
     case(BAR, [rev(100, row(1.0)), rev(100, row(2.0))], 99, [K], {"selected": None, "knownAt": None, "visible": [False]}),
     case(BAR, [rev(100, row(1.0)), rev(200, row(1.0)), rev(200, row(2.0))], 150, [K],
          {"selected": 100, "knownAt": K, "visible": [True]}),
-    case(BAR, [rev(100, {"close": 1.0})], 100, [K], {"selected": 100, "knownAt": "R_FIELD_ABSENT", "visible": [False]}),
+    case(BAR, [rev(100, {"close": 1})], 100, [K], {"selected": 100, "knownAt": "R_FIELD_ABSENT", "visible": [False]}),
     case(BAR, [rev(100, {"eventTime": 4611686018427387903 - D + 1})], 100, [0],
          {"selected": 100, "knownAt": "R_OVERFLOW", "visible": [False]}),
     case(BAR, [rev(100, {"eventTime": E})], 100, [K], {"selected": 100, "knownAt": K, "visible": [True]}),
@@ -87,7 +89,7 @@ HAND = [
          {"selected": 100, "knownAt": "R_OVERFLOW", "visible": [False]}, deps_declared=("rec",), lags={"rec": 1}),
     case(TD, [rev(100, row(1.0), deps=json.dumps({"rec": K})), rev(50 * H, row(2.0), deps=json.dumps({"rec": K}))], 50 * H, [K, 50 * H],
          {"selected": 50 * H, "knownAt": 50 * H, "visible": [False, True]}, deps_declared=("rec",), lags={"rec": 0}),
-    case(BAR, [rev(100, row(1.0)), rev(200, {"eventTime": E, "close": 1.0, "extra": 5})], 200, [K, 200],
+    case(BAR, [rev(100, row(1.0)), rev(200, {"eventTime": E, "close": 1, "extra": 5})], 200, [K, 200],
          {"selected": 200, "knownAt": K, "visible": [True, False]}),
     case(BAR, [rev(200, row(1.0)), rev(100, row(2.0))], 200, [K], {"selected": 200, "knownAt": K, "visible": [True]}),
     case(BAR, [rev(200, row(2.0)), rev(100, row(1.0)), rev(300, row(1.0))], 300, [K], {"selected": 300, "knownAt": K, "visible": [True]}),
@@ -108,7 +110,7 @@ def generate(n_queries=1200, seed=20261026):
         revs, times = [], rng.sample(range(1, 80), rng.randint(1, 5))
         for k in times:
             tomb = rng.random() < 0.15
-            values = {"eventTime": E + base} if tomb else {"eventTime": E + base, "close": rng.choice((1.0, 1.0, 2.0, None))}
+            values = {"eventTime": E + base} if tomb else {"eventTime": E + base, "close": rng.choice((1, 1, 2, None))}
             deps = json.dumps({"rec": E + base + rng.choice((-H, 0, D, H, 30 * H))}) if derived else "{}"
             revs.append(rev(k * H, values, tomb, deps))
         version = rng.choice((0, rng.randint(1, 80))) * H
