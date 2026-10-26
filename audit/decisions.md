@@ -158,3 +158,9 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 
 - **What:** five registry records added today for the data layer (`fed-ddp`, `nyfed`, `databento`, `oecd`, `treasury-yields`) were marked `retrieval = true`, which puts a host on the thesis agents' fetch allowlist; they are set to `false`, restoring the allowlist exactly (`thesis/tests/test_retrieval.py` caught it). The running track (`thesis-95bfd9f7ebc9`) read its allowlist at its start, before any of them existed, so no session could fetch from them. Stage 10's manifest hashed all of `venue/sources.toml`, so any data-layer registry edit would make a restarted `thesis-run` refuse to start; the track's identity now includes the sorted retrieval allowlist it reads instead of the registry file. This changes the identity, so the track is refrozen.
 - **Reverse:** revert the harness change and refreeze.
+
+## 2026-10-26 21:54 UTC (17:54 EDT): mm's market-loader memory fix lands in stage 7's kernel rewrite (human decision)
+
+- **What:** the per-row `HashMap` loader (3.6 GB of `mm` for a ten-year market, `audit/stage2/campaign-profile/memory/`) is replaced by stage 7's generic loader, together with the profile's CPU speedups, instead of a patch to the current kernel. The pilot's remaining runs keep the current kernel: stage 3 is paced by the subscription, stage 5's events calibration fits at about 1 GB a campaign, and stage 8's calibration, which needs the fix, comes after stage 7.
+- **Why:** proposed by another Claude session and accepted by the human in this session ("i think this seems reasonable"); one loader rewrite instead of two, and no kernel change between the pilot's judged runs.
+- **Reverse:** patch the current loader between judged runs, with the corpus differential and a new cross-machine test.
