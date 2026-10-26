@@ -24,7 +24,7 @@ pub enum Cadence {
 
 #[derive(Debug)]
 pub struct Dependency {
-    pub source: String,
+    pub sources: Vec<String>,
     pub lag: i128,
 }
 
@@ -142,12 +142,14 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     let mut depends = BTreeMap::new();
     for (dep, v) in obj(&d["depends"])? {
         let v = obj(v)?;
-        exactly(v, &["source", "lag_ms"])?;
-        let (source, lag) = (text(&v["source"])?.to_string(), int(&v["lag_ms"])?);
-        if dep.is_empty() || !source_name(&source) || lag < 0 {
+        exactly(v, &["sources", "lag_ms"])?;
+        let Json::Arr(xs) = &v["sources"] else { return Err(format!("dependency {dep}: sources")) };
+        let sources: Vec<String> = xs.iter().map(|x| text(x).map(String::from)).collect::<Result<_, _>>()?;
+        let lag = int(&v["lag_ms"])?;
+        if dep.is_empty() || sources.is_empty() || !sources.iter().all(|s| source_name(s)) || lag < 0 {
             return Err(format!("dependency {dep}"));
         }
-        depends.insert(dep.clone(), Dependency { source, lag });
+        depends.insert(dep.clone(), Dependency { sources, lag });
     }
     let mut roles = BTreeMap::new();
     for (role, m) in obj(&d["role"])? {
@@ -196,7 +198,8 @@ pub fn registry(dir: &Path) -> Result<Vec<Declaration>, String> {
         }
     }
     let names: BTreeSet<&String> = out.iter().map(|d| &d.name).collect();
-    let deps: BTreeMap<&String, Vec<&String>> = out.iter().map(|d| (&d.name, d.depends.values().map(|x| &x.source).collect())).collect();
+    let deps: BTreeMap<&String, Vec<&String>> =
+        out.iter().map(|d| (&d.name, d.depends.values().flat_map(|x| &x.sources).collect())).collect();
     for d in &out {
         let mut seen = BTreeSet::new();
         let mut stack: Vec<&String> = vec![&d.name];

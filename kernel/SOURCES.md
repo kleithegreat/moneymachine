@@ -46,7 +46,7 @@ A declaration is one JSON file, read as RULES.md §1 reads JSON:
 | `missing` | must be `"undefined"` |
 | `revisions` | must be `"latest"`: RULES.md §6 |
 | `rule` | the availability rule document (RULES.md §3) |
-| `depends` | for a derived source, dependency name → `{"source": NAME, "lag_ms": D}` (§5); `{}` otherwise |
+| `depends` | for a derived source, dependency name → `{"sources": [NAME, …], "lag_ms": D}` (§5); `{}` otherwise |
 | `role` | the roles this declaration can provide (§6), each role column → stored column; `{}` if none |
 
 Rejected in version 1: other entity domains, enum or non-numeric fields, many-to-many relations, other missing or
@@ -104,7 +104,11 @@ operation is evaluated, so the interleaving of sources is unobservable.
 ## 5. Derived sources
 
 A derived source's rows are computed from upstream sources by a pinned transformation (code identified by hash; a
-declaration never loads or runs code). Each declared dependency names an upstream source and a processing lag D ≥ 0.
+declaration never loads or runs code). Each declared dependency names one or more upstream sources and a processing lag
+D ≥ 0; deps[d] is the latest effective knownAt among every upstream record the row read from any of them. (Revision of
+2026-10-26 02:15 UTC (22:15 EDT): a dependency spans sources, so that a key's recording, its sightings and its polls, is one dependency, whose
+read set is never empty for a covered window; with one source per dependency, a covered window without sightings had
+an empty observations dependency, and so no time.)
 - Each derived row records, per dependency, the immutable identities (key and fetchedAt) of every upstream revision it
   used, including the poll and coverage evidence that establishes the completeness of its aggregation window. A stored
   dependency time is a cache, never authority.
