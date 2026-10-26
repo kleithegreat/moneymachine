@@ -454,8 +454,8 @@ execution's read of a role record by open or event time, whichever is earlier an
 def Ctx.readFrom (c : Ctx α) (o : Obs α) : Option Int :=
   let delivered := if o.known ≤ c.lastTick then some (max o.known c.firstTick) else none
   let executed := (if !o.final then none else match o.role with
-    | some (.bar ..) => some (o.key - BAR)
-    | some (.rate _) => some o.key
+    | some (.bar ..) => if o.source == c.roles.bars then some (o.key - BAR) else none
+    | some (.rate _) => if o.source == c.roles.settlement then some o.key else none
     | none => none).filter (· < c.useEnd)
   match delivered, executed with
   | some a, some b => some (max (min a b) c.firstTick)

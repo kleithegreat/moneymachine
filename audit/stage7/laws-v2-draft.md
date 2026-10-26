@@ -197,6 +197,10 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 | GPT-7 correction test on undeclared columns | leakage | differences judged on declared columns only |
 | GPT-7 validity versus grouping identity | no (invalid datasets accepted) | validity checked on both identities |
 
+| GPT-8 retraction overflow fallback (`L8_known` false) | false law, leakage | out-of-range fetchedAt invalidates the dataset; no fallback |
+| GPT-8 first successful revision backdated | leakage | every revision after the key's first eligible one known no earlier than its fetchedAt |
+| GPT-8 execution scope on non-provider role records | false discovery (refusal) | execution reads, and scope, only the providers' final records |
+
 **Frozen** (human decision of 2026-10-26) at the commit recorded in `audit/stage7/laws-frozen.md`. The bitemporal
 resolver is reviewed by GPT after the freeze; a finding becomes a dated revision before any proof is judged.
 

@@ -41,3 +41,24 @@ no later than it. Changed definitions: `Obs` (its recording time), `Obs.sameShap
 | `reference/lean/Ref/Spec.lean` | `9094d3e65aae38d3a028c562833649bc6aee76acb4ed7da320039cef8500dfdc` |
 | `reference/lean/Ref/Laws.lean` | `ed3a941f92c094978b3fc03ce2adf6aeb831fe6f328e3a4a158b1f1e445f8e43` |
 | `kernel/RULES.md` | `a8432f37f7f81fcc135046ec9f8cea74d2f3aff025cd99a039e5366128fba636` |
+
+## Revision 2026-10-26 23:43 UTC (19:43 EDT), from GPT's eighth review (`laws-review-gpt-8.md`), before any proof
+
+Three findings: an out-of-range retraction time was replaced by a visible one, making `L8_known` false (now an
+eligible revision with an out-of-range fetchedAt invalidates the dataset, and retractions take no fallback); a key's
+first successful revision after failed ones was backdated (now every revision after the key's first eligible one is
+known no earlier than its fetchedAt); execution-time scope was assigned to role-capable records of declarations that
+are not the run's providers (now only the providers' final records). Statements unchanged; changed definitions:
+`Stored.validAt`, `timeline`, `Ctx.readFrom`. Hashes after this revision:
+
+| File | SHA-256 |
+|---|---|
+| `reference/lean/Ref/Source.lean` | `210cb1b039c7c9b544227ff8df0616b53050fb22ebb6ec4eb7d1107e45bd9d52` |
+| `reference/lean/Ref/Resolve.lean` | `0c19d78695b5d4afc7c9f58215fff7391faac92ed6653bd41b7398c384ec93cb` |
+| `reference/lean/Ref/Syntax.lean` | `fdc1c9f22336749f26d55a90f3d45c9aab51440f3d74e877196a5f416cd2f243` |
+| `reference/lean/Ref/Machine.lean` | `a466142cc5d8e4e05657027d77da33f7a05abb128ba58b00ba7e676bc636735c` |
+| `reference/lean/Ref/Sim.lean` | `2de32c9575b413d6f9d121ac256ffda6f480a0ea6afa1c4a165d9417eebaff23` |
+| `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
+| `reference/lean/Ref/Spec.lean` | `9094d3e65aae38d3a028c562833649bc6aee76acb4ed7da320039cef8500dfdc` |
+| `reference/lean/Ref/Laws.lean` | `ed3a941f92c094978b3fc03ce2adf6aeb831fe6f328e3a4a158b1f1e445f8e43` |
+| `kernel/RULES.md` | `3ad64611a208fd3225234cbd88593aab16c3f599f276402807b3f9318be728d2` |

@@ -50,13 +50,13 @@ def Stored.eligible (st : Stored) (s : Nat) (V : Int) (coin : Nat) (event : Int)
 def Stored.keys (st : Stored) (s : Nat) (V : Int) : List (Nat × Int) :=
   ((st.rows s).filterMap fun r => if decide (r.fetchedAt ≤ V) then r.coin.map (·, r.event) else none).eraseDups
 
-/-- A dataset is invalid if two eligible revisions of one key share a fetchedAt (RULES.md §6): a key being its entity
-and event, or, inside U, its coin and event. -/
+/-- A dataset is invalid if two eligible revisions of one key share a fetchedAt (RULES.md §6), a key being its entity
+and event or, inside U, its coin and event; or if an eligible revision's fetchedAt is out of range. -/
 def Stored.validAt (st : Stored) (s : Nat) (V : Int) : Bool :=
   let el := (st.rows s).filter fun r => decide (r.fetchedAt ≤ V)
   let ks := el.map fun r => (r.entity, r.event, r.fetchedAt)
   let cs := el.filterMap fun r => r.coin.map (·, r.event, r.fetchedAt)
-  ks.eraseDups.length == ks.length && cs.eraseDups.length == cs.length
+  ks.eraseDups.length == ks.length && cs.eraseDups.length == cs.length && el.all (inRange ·.fetchedAt)
 
 /-- A column's value as compared for corrections: an absent column is null. -/
 def cellAt (cells : List (String × Cell)) (col : String) : Cell := ((cells.find? (·.1 == col)).map (·.2)).getD .null
@@ -82,8 +82,8 @@ structure Entry where
   deriving Inhabited
 
 /-- A key's timeline (RULES.md §6, bitemporal revisions of 2026-10-26): its eligible revisions in fetchedAt order. A
-revision identical to the one before it adds nothing. The first is delivered at its rule's value; each later one is
-a correction, known no earlier than its fetchedAt; every one is known no earlier than the one it replaces and than
+revision identical to the one before it adds nothing. The key's first eligible revision is delivered at its rule's
+value; every later one, delivered first or not, is known no earlier than its fetchedAt; every one is known no earlier than the one it replaces and than
 each dependency's upstream knownAt plus its delay, the upstream deliveries counted being those recorded no later
 than the revision itself. A tombstone, or a revision whose rule evaluation is rejected or which `ok` rejects (an
 event source's slot or a role payload that does not decode), is delivered as a retraction at its fetchedAt (no
@@ -95,7 +95,7 @@ def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision →
     let upKnown (dep : Dep) (c : Nat) (e : Int) (by_ : Int) : Option Int :=
       ((timeline reg st V ok fuel dep.source c e).filter (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_))).foldl
         (fun acc x => some (match acc with | some a => Max.max a x.known | none => x.known)) none
-    let known (r : Revision) (prev : Option Int) : Except RuleError Int := do
+    let known (r : Revision) (later : Bool) (prev : Option Int) : Except RuleError Int := do
       if !ok s r then throw .unusable
       let ts ← d.deps.mapM fun dep =>
         let ups := ((r.upstream.find? (·.1 == dep.name)).map (·.2)).getD []
@@ -103,23 +103,20 @@ def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision →
         | [] => .error .unusable
         | t :: rest => .ok (rest.foldl Max.max t)
       let k ← d.rule.eval (("fetchedAt", .int r.fetchedAt) :: r.cells) (d.deps.map (·.name) |>.zip ts)
-      let k ← match prev with
-        | some p => do let f ← ranged r.fetchedAt; pure (Max.max (Max.max k f) p)
-        | none => pure k
+      let k ← if later then do let f ← ranged r.fetchedAt; pure (Max.max k f) else pure k
+      let k := match prev with | some p => Max.max k p | none => k
       (d.deps.zip ts).foldlM (fun k (dep, t) => do let b ← ranged (t + dep.lag); pure (Max.max k b)) k
     let step (acc : Option Revision × Option Int × List Entry) (r : Revision) :=
       let (last, prev, out) := acc
       if last.any (fun p => !differs d p r) then (some r, prev, out) else
-      let retract (k : Int) := match ranged k with
-        | .ok k => (some r, some k, out ++ [⟨r, k, true⟩])
-        | .error _ => (some r, prev, out ++ [⟨r, Max.max (2 ^ 62 - 1) (prev.getD 0), true⟩])
+      let retract (k : Int) := (some r, some k, out ++ [⟨r, k, true⟩])
       match prev with
       | none => if r.tombstone then (some r, none, out) else
-        match known r none with
+        match known r last.isSome none with
         | .ok k => (some r, some k, out ++ [⟨r, k, false⟩])
         | .error _ => (some r, none, out)
       | some p => if r.tombstone then retract (Max.max r.fetchedAt p) else
-        match known r (some p) with
+        match known r true (some p) with
         | .ok k => (some r, some k, out ++ [⟨r, k, false⟩])
         | .error _ => retract (Max.max r.fetchedAt p)
     ((st.eligible s V coin event).foldl step (none, none, [])).2.2

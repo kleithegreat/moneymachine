@@ -178,6 +178,9 @@ what the query sees:
 - **Order.** Deliveries at one knownAt are ordered by event time then recording time for held sources (version 1's),
   and by recording time then event time for event sources; never by stored row order.
 - A retraction's knownAt is range-checked like any bound.
+- Every eligible revision after a key's first is known no earlier than its fetchedAt, whether or not the revisions
+  before it were delivered (third revision, 2026-10-26 23:43 UTC, from GPT's eighth review); an eligible revision with an
+  out-of-range fetchedAt makes the dataset invalid.
 
 Execution's reads of each key's final revision are the stated exception: later-recorded evidence of the venue state
 applied at event time may change historical fills, funding, marks and equity, and through equity later order sizes.
