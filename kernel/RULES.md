@@ -165,6 +165,24 @@ the derivation bound, the range and dataset validity stand.
 A key with one revision resolves exactly as before. The reference is `reference/lean/Ref/Resolve.lean` (`timeline`,
 `resolveAll`); the C7.6 suites are revised to match before any judged run (`audit/criteria.md`, C7.6).
 
+### Revision 2026-10-26 23:39 UTC (19:39 EDT), second: causal lineage, decoding, declared columns
+
+From GPT's seventh review (`audit/stage7/laws-review-gpt-7.md`), so that no record fetched after a query time changes
+what the query sees:
+- **Derivation bound.** A dependency's upstream time is the latest knownAt among the upstream key's delivered
+  revisions, not retractions, recorded no later than the derived revision itself.
+- **Decoding.** A revision whose event slot or role payload does not decode is a retraction, like a rejected rule
+  evaluation; each delivered revision carries its own slot, and a retraction keeps the slot of what it retracts.
+- **Declared columns.** Whether a revision differs from the one before it is judged on the declaration's value and
+  control columns only (not `fetchedAt`, the revision or tombstone columns, or undeclared columns).
+- **Order.** Deliveries at one knownAt are ordered by event time then recording time for held sources (version 1's),
+  and by recording time then event time for event sources; never by stored row order.
+- A retraction's knownAt is range-checked like any bound.
+
+Execution's reads of each key's final revision are the stated exception: later-recorded evidence of the venue state
+applied at event time may change historical fills, funding, marks and equity, and through equity later order sizes.
+No other later record changes what a decision sees.
+
 ## 7. Conformance
 
 Implementations are compared on cases of the form

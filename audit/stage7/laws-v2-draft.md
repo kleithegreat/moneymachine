@@ -189,6 +189,14 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 
 | GPT-6 snapshot look-ahead (human decision, 2026-10-26) | leakage | bitemporal resolution: RULES.md §6 revised, `timeline` and `resolveAll` in Lean, C7.6 and C7.4 revised; the pilot keeps snapshot semantics as a qualification |
 
+| GPT-7 derived availability from later upstream corrections | leakage | upstream deliveries counted only if recorded no later than the derived revision; `L8_known` revised |
+| GPT-7 slots taken from any revision | leakage | slots decoded per revision; a retraction keeps the slot it retracts |
+| GPT-7 event ties by stored order | leakage | ties by recording time and event time, never stored order |
+| GPT-7 execution on final revisions | — (the stated venue-state exception) | stated precisely in RULES.md §6: later evidence of applied venue state may change historical accounting and later sizes; nothing else later changes a decision |
+| GPT-7 a future undecodable revision refuses an earlier run | false discovery (selection by refusal) | undecodable slot or role payload is a timed retraction; execution-time scope only on final revisions |
+| GPT-7 correction test on undeclared columns | leakage | differences judged on declared columns only |
+| GPT-7 validity versus grouping identity | no (invalid datasets accepted) | validity checked on both identities |
+
 **Frozen** (human decision of 2026-10-26) at the commit recorded in `audit/stage7/laws-frozen.md`. The bitemporal
 resolver is reviewed by GPT after the freeze; a finding becomes a dated revision before any proof is judged.
 

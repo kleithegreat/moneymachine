@@ -162,6 +162,8 @@ structure Obs (α : Type) where
   final : Bool
   /-- A tombstone or rejected revision: the key has no value from this delivery on. -/
   retraction : Bool
+  /-- The revision's fetchedAt: when it was recorded. -/
+  recorded : Int
   deriving Inhabited
 
 structure Grant where
@@ -310,6 +312,7 @@ each is final and a retraction. -/
 def Obs.sameShape {α : Type} (a b : Obs α) : Bool :=
   let kind (r : Option (RolePayload α)) : Nat := match r with | none => 0 | some (.bar ..) => 1 | some (.rate _) => 2
   a.source == b.source && a.coin == b.coin && a.key == b.key && a.slot == b.slot && a.known == b.known &&
-  a.vals.size == b.vals.size && kind a.role == kind b.role && a.final == b.final && a.retraction == b.retraction
+  a.vals.size == b.vals.size && kind a.role == kind b.role && a.final == b.final && a.retraction == b.retraction &&
+  a.recorded == b.recorded
 
 end Ref

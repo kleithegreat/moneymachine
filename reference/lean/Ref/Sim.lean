@@ -212,19 +212,21 @@ structure Ctx (α : Type) where
   rates : Array (RateRow α)
   ix : Index α
 
-/-- The delivered observations in version 1's order: (knownAt, source, coin, tie, position), the tie being the event
-time for a held source and the resolver position for an event source; a key's revisions follow in timeline order. -/
+/-- The delivered observations in order (knownAt, source, coin, tie), the tie being (event time, recording time) for
+a held source, version 1's, and (recording time, event time) for an event source, version 1's array order on an
+append-ordered store; it depends on the observations, never on stored row order. -/
 def Ctx.make (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (resolved : Array (Obs α)) (v : Venue α)
     (pol : Policy) (stop : Int) (required : List Nat) : Ctx α :=
   let delivered := adm.delivered reg
   let obs := resolved.filter (delivered.contains ·.source)
-  let tie (o : Obs α) (k : Nat) : Int := if (reg.decls[o.source]!).cadence == .event then k else o.key
+  let tie (o : Obs α) : List Int :=
+    if (reg.decls[o.source]!).cadence == .event then [o.recorded, o.key] else [o.key, o.recorded]
   let bars := obs.filterMap (barRow roles)
   let rates := obs.filterMap (rateRow roles)
   { reg, roles, p, adm, v, pol, stop, required, obs, bars, rates, ix := Index.of bars rates adm.intervals.size
     oOrder := (Array.range obs.size).mergeSort fun i j =>
       let x := obs[i]!; let y := obs[j]!
-      lexLe [x.known, x.source, x.coin, tie x i, i] [y.known, y.source, y.coin, tie y j, j] }
+      lexLe ([x.known, x.source, x.coin] ++ tie x ++ [(i : Int)]) ([y.known, y.source, y.coin] ++ tie y ++ [(j : Int)]) }
 
 def Ctx.coins (c : Ctx α) : Nat := c.adm.intervals.size
 
@@ -437,11 +439,11 @@ declaration and coin in range; one value per field; a role payload exactly on th
 retractions, of the provider's kind; a slot exactly on event sources' records. It reads no value. -/
 def Ctx.admissible (c : Ctx α) : Bool :=
   let keys := (c.obs.toList.filter (·.final)).map fun o => (o.source, o.coin, o.key)
-  let provider (o : Obs α) := o.source == c.roles.bars || o.source == c.roles.settlement
+  let capable (o : Obs α) (r : Role) := (c.reg.decls[o.source]!).roles.any (·.1 == r)
   let roleOk (o : Obs α) : Bool := match o.role with
-    | none => o.retraction || !provider o
-    | some (.bar ..) => o.source == c.roles.bars && !o.retraction
-    | some (.rate _) => o.source == c.roles.settlement && !o.retraction
+    | none => o.retraction || (c.reg.decls[o.source]!).roles.isEmpty
+    | some (.bar ..) => capable o .bars && !o.retraction
+    | some (.rate _) => capable o .settlement && !o.retraction
   keys.eraseDups.length == keys.length &&
   c.obs.all fun o =>
     o.source < c.reg.decls.size && o.coin < c.coins && o.vals.size == (c.reg.decls[o.source]!).fields.size &&
@@ -451,7 +453,7 @@ def Ctx.admissible (c : Ctx α) : Bool :=
 execution's read of a role record by open or event time, whichever is earlier and before `useEnd`. -/
 def Ctx.readFrom (c : Ctx α) (o : Obs α) : Option Int :=
   let delivered := if o.known ≤ c.lastTick then some (max o.known c.firstTick) else none
-  let executed := (match o.role with
+  let executed := (if !o.final then none else match o.role with
     | some (.bar ..) => some (o.key - BAR)
     | some (.rate _) => some o.key
     | none => none).filter (· < c.useEnd)

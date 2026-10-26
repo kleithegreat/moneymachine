@@ -231,21 +231,25 @@ theorem L6_bounded (N : NumOps α) (hB : N.Bounded) :
 
 /-- A key's timeline never goes back: its revisions are delivered in fetchedAt order, each known no earlier than the
 one it replaces, so the latest delivered revision is always the newest known. -/
-theorem L8_monotone (reg : Registry) (st : Stored) (V : Int) (fuel s coin : Nat) (event : Int) :
-    let tl := timeline reg st V fuel s coin event
+theorem L8_monotone (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision → Bool) (fuel s coin : Nat)
+    (event : Int) :
+    let tl := timeline reg st V ok fuel s coin event
     ∀ i, i + 1 < tl.length → (tl[i]!).rev.fetchedAt ≤ (tl[i + 1]!).rev.fetchedAt ∧ (tl[i]!).known ≤ (tl[i + 1]!).known := by
   sorry
 
 /-- Nothing is known before it was recorded or before what it was derived from: every delivered revision after a
 key's first, correction or retraction, is known no earlier than its fetchedAt; the first is never a retraction; and
-every delivered value is known no earlier than each dependency's upstream knownAt plus its delay. -/
-theorem L8_known (reg : Registry) (_ : reg.Valid) (st : Stored) (V : Int) (fuel s coin : Nat) (event : Int) :
-    let tl := timeline reg st V (fuel + 1) s coin event
+every delivered value is known no earlier than each dependency's upstream knownAt plus its delay, for the upstream
+deliveries recorded no later than the value itself (revised 2026-10-26, `audit/stage7/laws-frozen.md`). -/
+theorem L8_known (reg : Registry) (_ : reg.Valid) (st : Stored) (V : Int) (ok : Nat → Revision → Bool)
+    (fuel s coin : Nat) (event : Int) :
+    let tl := timeline reg st V ok (fuel + 1) s coin event
     (∀ i, 0 < i → i < tl.length → (tl[i]!).rev.fetchedAt ≤ (tl[i]!).known) ∧
     (∀ e ∈ tl.head?, e.retraction = false) ∧
     ∀ e ∈ tl, e.retraction = false → ∀ dep ∈ (reg.decls[s]!).deps,
       ∀ up ∈ ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [],
-      ∀ u ∈ timeline reg st V fuel dep.source up.1 up.2, u.retraction = false → u.known + dep.lag ≤ e.known := by
+      ∀ u ∈ timeline reg st V ok fuel dep.source up.1 up.2, u.retraction = false → u.rev.fetchedAt ≤ e.rev.fetchedAt →
+        u.known + dep.lag ≤ e.known := by
   sorry
 
 /-! ## L7 input reads -/

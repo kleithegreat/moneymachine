@@ -50,12 +50,13 @@ def Stored.eligible (st : Stored) (s : Nat) (V : Int) (coin : Nat) (event : Int)
 def Stored.keys (st : Stored) (s : Nat) (V : Int) : List (Nat × Int) :=
   ((st.rows s).filterMap fun r => if decide (r.fetchedAt ≤ V) then r.coin.map (·, r.event) else none).eraseDups
 
-/-- A dataset is invalid if two eligible revisions of one key (entity and event, inside U or not) share a fetchedAt
-(RULES.md §6). -/
+/-- A dataset is invalid if two eligible revisions of one key share a fetchedAt (RULES.md §6): a key being its entity
+and event, or, inside U, its coin and event. -/
 def Stored.validAt (st : Stored) (s : Nat) (V : Int) : Bool :=
   let el := (st.rows s).filter fun r => decide (r.fetchedAt ≤ V)
   let ks := el.map fun r => (r.entity, r.event, r.fetchedAt)
-  ks.eraseDups.length == ks.length
+  let cs := el.filterMap fun r => r.coin.map (·, r.event, r.fetchedAt)
+  ks.eraseDups.length == ks.length && cs.eraseDups.length == cs.length
 
 /-- A column's value as compared for corrections: an absent column is null. -/
 def cellAt (cells : List (String × Cell)) (col : String) : Cell := ((cells.find? (·.1 == col)).map (·.2)).getD .null
@@ -65,11 +66,11 @@ def Cell.sameValue : Cell → Cell → Bool
   | .num a, .num b => a == b || (a &&& 0x7FFFFFFFFFFFFFFF == 0 && b &&& 0x7FFFFFFFFFFFFFFF == 0)
   | a, b => a == b
 
-/-- Two revisions differ in some observed column (the stored columns other than `fetchedAt`, `source`, `hash` and the
-revision and tombstone columns `excluded` names), or in their tombstone flag. -/
-def differs (excluded : List String) (a b : Revision) : Bool :=
-  let cols := (a.cells.map (·.1) ++ b.cells.map (·.1)).eraseDups.filter
-    fun c => !(["fetchedAt", "source", "hash"] ++ excluded).contains c
+/-- Two revisions differ in one of the declaration's columns (value and control columns other than `fetchedAt` and
+the revision and tombstone columns), or in their tombstone flag; undeclared columns are never compared (RULES.md §6,
+revision of 2026-10-26, second). -/
+def differs (d : Decl) (a b : Revision) : Bool :=
+  let cols := (d.values ++ d.controls).eraseDups.filter fun c => !(["fetchedAt"] ++ d.revisionColumns).contains c
   a.tombstone != b.tombstone || cols.any fun c => !(cellAt a.cells c).sameValue (cellAt b.cells c)
 
 /-- One delivered revision of a key: the revision, its knownAt, and whether it retracts the key (a tombstone, or a
@@ -80,23 +81,25 @@ structure Entry where
   retraction : Bool
   deriving Inhabited
 
-/-- A key's timeline (RULES.md §6, bitemporal revision of 2026-10-26): its eligible revisions in fetchedAt order. A
+/-- A key's timeline (RULES.md §6, bitemporal revisions of 2026-10-26): its eligible revisions in fetchedAt order. A
 revision identical to the one before it adds nothing. The first is delivered at its rule's value; each later one is
 a correction, known no earlier than its fetchedAt; every one is known no earlier than the one it replaces and than
-each dependency's upstream knownAt plus its delay. A tombstone, or a revision whose rule evaluation is rejected, is
-delivered as a retraction at its fetchedAt (no earlier than what it replaces), and never falls back to an older
-value; one before any delivery adds nothing. -/
-def timeline (reg : Registry) (st : Stored) (V : Int) : Nat → Nat → Nat → Int → List Entry
+each dependency's upstream knownAt plus its delay, the upstream deliveries counted being those recorded no later
+than the revision itself. A tombstone, or a revision whose rule evaluation is rejected or which `ok` rejects (an
+event source's slot or a role payload that does not decode), is delivered as a retraction at its fetchedAt (no
+earlier than what it replaces), and never falls back to an older value; one before any delivery adds nothing. -/
+def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision → Bool) : Nat → Nat → Nat → Int → List Entry
   | 0, _, _, _ => []
   | fuel + 1, s, coin, event =>
     let d := reg.decls[s]!
-    let upKnown (dep : Dep) (c : Nat) (e : Int) : Option Int :=
-      ((timeline reg st V fuel dep.source c e).filter (!·.retraction)).foldl
+    let upKnown (dep : Dep) (c : Nat) (e : Int) (by_ : Int) : Option Int :=
+      ((timeline reg st V ok fuel dep.source c e).filter (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_))).foldl
         (fun acc x => some (match acc with | some a => Max.max a x.known | none => x.known)) none
     let known (r : Revision) (prev : Option Int) : Except RuleError Int := do
+      if !ok s r then throw .unusable
       let ts ← d.deps.mapM fun dep =>
         let ups := ((r.upstream.find? (·.1 == dep.name)).map (·.2)).getD []
-        match ups.filterMap (fun (c, e) => upKnown dep c e) with
+        match ups.filterMap (fun (c, e) => upKnown dep c e r.fetchedAt) with
         | [] => .error .unusable
         | t :: rest => .ok (rest.foldl Max.max t)
       let k ← d.rule.eval (("fetchedAt", .int r.fetchedAt) :: r.cells) (d.deps.map (·.name) |>.zip ts)
@@ -106,8 +109,10 @@ def timeline (reg : Registry) (st : Stored) (V : Int) : Nat → Nat → Nat → 
       (d.deps.zip ts).foldlM (fun k (dep, t) => do let b ← ranged (t + dep.lag); pure (Max.max k b)) k
     let step (acc : Option Revision × Option Int × List Entry) (r : Revision) :=
       let (last, prev, out) := acc
-      if last.any (fun p => !differs d.revisionColumns p r) then (some r, prev, out) else
-      let retract (k : Int) := (some r, some k, out ++ [⟨r, k, true⟩])
+      if last.any (fun p => !differs d p r) then (some r, prev, out) else
+      let retract (k : Int) := match ranged k with
+        | .ok k => (some r, some k, out ++ [⟨r, k, true⟩])
+        | .error _ => (some r, prev, out ++ [⟨r, Max.max (2 ^ 62 - 1) (prev.getD 0), true⟩])
       match prev with
       | none => if r.tombstone then (some r, none, out) else
         match known r none with
@@ -119,36 +124,48 @@ def timeline (reg : Registry) (st : Stored) (V : Int) : Nat → Nat → Nat → 
         | .error _ => retract (Max.max r.fetchedAt p)
     ((st.eligible s V coin event).foldl step (none, none, [])).2.2
 
+/-- The role payload of a revision for its declaration's first role, if its cells decode. -/
+def rolePayload {α : Type} (num : Cell → Option α) (d : Decl) (r : Revision) : Option (RolePayload α) :=
+  let cell (col : String) := cellAt r.cells col
+  match d.roles with
+  | [] => none
+  | (.bars, cols) :: _ => match cols.map (·.2) with
+    | [co, ch, cl, cc, ct] => match num (cell co), num (cell ch), num (cell cl), num (cell cc), cell ct with
+      | some o, some h, some l, some c, .int t => some (.bar o h l c t)
+      | _, _, _, _, _ => none
+    | _ => none
+  | (.settlement, cols) :: _ => match cols.map (·.2) with
+    | [cr] => (num (cell cr)).map .rate
+    | _ => none
+
+/-- An event source's slot as a revision stores it. -/
+def slotOf (d : Decl) (r : Revision) : Option Int :=
+  d.slotColumn.bind fun col => match cellAt r.cells col with | .int t => some t | _ => none
+
+/-- A revision decodes for its declaration: an event source's slot, and a role provider's payload. -/
+def decodes {α : Type} (num : Cell → Option α) (reg : Registry) (s : Nat) (r : Revision) : Bool :=
+  let d := reg.decls[s]!
+  (d.cadence != .event || (slotOf d r).isSome) && (d.roles.isEmpty || (rolePayload num d r).isSome)
+
 /-- The resolved observations of the requested datasets at version V: every entry of every key's timeline, in order,
-with the revision's values (`num` parses a cell as a number), slot and role payload (none for a retraction), its
-knownAt, and whether it is the key's final entry (execution reads final entries only); `none` if a requested dataset
-is invalid. -/
+with the revision's values (`num` parses a cell as a number), slot (a retraction keeps the slot of what it retracts)
+and role payload (none for a retraction), its knownAt and recording time, and whether it is the key's final entry
+(execution reads final entries only); `none` if a requested dataset is invalid. -/
 def resolveAll {α : Type} (num : Cell → Option α) (reg : Registry) (st : Stored) (V : Int) (req : List Nat) :
     Option (Array (Obs α)) :=
   if !req.all (st.validAt · V) then none else
   some (req.toArray.flatMap fun s =>
     let d := reg.decls[s]!
     (st.keys s V).toArray.flatMap fun (coin, event) =>
-      let es := timeline reg st V reg.decls.size s coin event
-      let slotOf (r : Revision) : Option Int := d.slotColumn.bind fun col => match cellAt r.cells col with
-        | .int t => some t
-        | _ => none
-      let slot := es.findSome? (slotOf ·.rev)
-      (es.zipIdx.map fun (e, i) =>
-        let cell (col : String) := cellAt e.rev.cells col
-        let role : Option (RolePayload α) := if e.retraction then none else match d.roles with
-          | [] => none
-          | (.bars, cols) :: _ => match cols.map (·.2) with
-            | [co, ch, cl, cc, ct] => match num (cell co), num (cell ch), num (cell cl), num (cell cc), cell ct with
-              | some o, some h, some l, some c, .int t => some (.bar o h l c t)
-              | _, _, _, _, _ => none
-            | _ => none
-          | (.settlement, cols) :: _ => match cols.map (·.2) with
-            | [cr] => (num (cell cr)).map .rate
-            | _ => none
-        ({ source := s, coin, key := event, known := e.known, role, slot := slot
-           vals := d.fields.map fun f => if e.retraction then none else num (cell f.2.1)
-           final := i + 1 == es.length, retraction := e.retraction } : Obs α)).toArray)
+      let es := timeline reg st V (decodes num reg) reg.decls.size s coin event
+      let step (acc : Option Int × List (Obs α)) (ei : Entry × Nat) :=
+        let (e, i) := ei
+        let slot := if e.retraction then acc.1 else slotOf d e.rev
+        (slot, acc.2 ++ [{ source := s, coin, key := event, known := e.known, slot, recorded := e.rev.fetchedAt
+                           role := if e.retraction then none else rolePayload num d e.rev
+                           vals := d.fields.map fun f => if e.retraction then none else num (cellAt e.rev.cells f.2.1)
+                           final := i + 1 == es.length, retraction := e.retraction }])
+      (es.zipIdx.foldl step (none, [])).2.toArray)
 
 /-- The verifier's ledger: the certificates it issued, the supersessions it recorded, and its current position. -/
 structure Ledger where
