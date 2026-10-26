@@ -96,3 +96,14 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
   - **Next, before any implementation:** freeze the C7.6 suite (hand cases with expected results, the generator, seeds and the comparison procedure). GPT's independent implementation follows from this document alone.
   - **Reverse:** a new rule-language version.
 - **2026-10-26 01:38 UTC (21:38 EDT): reviewed by the human.** The C0.7 regime diagnostic on Hyperliquid's archived books is approved, within the $20 budget, as a labeled diagnostic that decides nothing, to run after stage 0 is committed. A pre-holdout cost table for stage 3 is proposed for the human's review (PROGRESS.md).
+- **2026-10-26 02:01 UTC (22:01 EDT): stage 7's declarations (`kernel/SOURCES.md`) and certificates (`kernel/CERTIFICATES.md`) revised once from GPT's review and frozen as version 1 on branch `stage7`.**
+  - **What:** GPT's review (`audit/stage7/sources-review-gpt.md`) found 18 gaps; all were adopted:
+    - availability bases enforced through the rule, never overridden by a certificate;
+    - access authorization, holdouts included, separate from certification and over the whole transitive closure;
+    - scope as explicit grants (entity, column, event-time and use-time intervals), and certificates authoritative only as verifier-written ledger records;
+    - transitive preflight, derived lineage by upstream revision identities, and positive coverage evidence for zero counts;
+    - `derived-inherits` narrowed to properties the transformation provably preserves;
+    - a role contract table, held cadences with period, phase and slot column, and exact delivery order;
+    - binding schema and unit validation, an executable policy, explicit supersession, the operator CLI, the registry and rule-byte identity, and a migration annex required before C7.4.
+  - **Checked against the kernel:** a held input takes the last delivered observation whole, whatever its event time, and an event value counts only at the tick of its own hour (`machine.rs`), as the revision states.
+  - **Reverse:** a version 2 of either document.
