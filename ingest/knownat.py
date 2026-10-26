@@ -1,6 +1,6 @@
 """The availability rule language, version 1 (kernel/RULES.md §1-5: strict JSON reading, checking, and evaluation of
-a checked rule on a row) and its resolver (§6). `mm` implements the same language in Rust (`kernel/mm/src/rule.rs`); the C7.6 suite holds
-the two, and an independent third, to the same results."""
+a checked rule on a row) and its resolver (§6). `mm` implements both in Rust (`kernel/mm/src/rule.rs`); the C7.6
+suites hold the two, and an independent third, to the same results."""
 
 import json
 import sys
@@ -295,13 +295,7 @@ def result(case):
     except RuleError:
         return "E_RULE"
     try:
-        row, deps = parse(case["row"]), parse(case["deps"])
-    except Malformed:
-        return "R_ROW"
-    if type(row) is not dict or type(deps) is not dict:
-        return "R_ROW"
-    try:
-        return evaluate(expr, row, deps)
+        return evaluate(expr, obj(case["row"]), obj(case["deps"]))
     except Rejected as r:
         return r.code
 
@@ -315,15 +309,15 @@ def typed(v):
     return (type(v).__name__, v if type(v) is not Real else None)
 
 
-def observed(revision):
-    """A revision's observed columns, decoded (its row: every stored column but fetchedAt and the tombstone flag)."""
+def obj(text):
+    """A row or deps object text, decoded, or Rejected (R_ROW)."""
     try:
-        row = parse(revision["row"])
+        v = parse(text)
     except Malformed:
         raise Rejected("R_ROW")
-    if type(row) is not dict:
+    if type(v) is not dict:
         raise Rejected("R_ROW")
-    return row
+    return v
 
 
 def resolve(case):
@@ -352,15 +346,9 @@ def effective(expr, selected, earliest, lags):
     """The selected revision's effective knownAt: its rule's value, raised to its fetchedAt if it is a correction and to
     every dependency's time plus its lag; or the code of a rejection."""
     try:
-        row, deps = parse(selected["row"]), parse(selected["deps"])
-    except Malformed:
-        return "R_ROW"
-    if type(row) is not dict or type(deps) is not dict:
-        return "R_ROW"
-    try:
-        a, b = observed(selected), observed(earliest)
+        row, deps, first = obj(selected["row"]), obj(selected["deps"]), obj(earliest["row"])
         known = evaluate(expr, {**row, "fetchedAt": selected["fetchedAt"]}, deps)
-        if any(typed(a.get(k)) != typed(b.get(k)) for k in a.keys() | b.keys()):
+        if any(typed(row.get(k)) != typed(first.get(k)) for k in row.keys() | first.keys()):
             known = max(known, selected["fetchedAt"])
         for d, lag in sorted(lags.items()):
             known = max(known, ranged(deps[d] + lag))
