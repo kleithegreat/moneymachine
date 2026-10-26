@@ -1,0 +1,37 @@
+# perf record -F 499 of null campaign c24-N1-G400-272 on this PC, 2026-10-26 (perf-linux-7.3 from nixpkgs); absolute shares of all samples
+    55.16%  mm               mm                                               
+    12.09%  python3.13       _multiarray_umath.cpython-313-x86_64-linux-gnu.so
+    11.48%  python3.13       libpython3.13.so.1.0                             
+     7.07%  python3.13       liblzma.so.5.8.4                                 
+     4.87%  mm               libc.so.6                                        
+     2.15%  python3.13       libc.so.6                                        
+     2.03%  python3.13       libblas.so.3                                     
+     1.40%  python3.13       _lsprof.cpython-313-x86_64-linux-gnu.so          
+     0.97%  python3.13       libgomp.so.1.0.0                                 
+     0.74%  python3.13       ld-linux-x86-64.so.2                             
+
+    15.17%  [.] mm::machine::Machine::tick                                                                                                            
+    13.01%  [.] mm::sim::run                                                                                                                          
+     5.22%  [.] mm::sim::latest_bar                                                                                                                   
+     4.36%  [.] core::slice::sort::stable::merge::merge                                                                                               
+     2.87%  [.] <core::hash::sip::Hasher<S> as core::hash::Hasher>::write                                                                             
+     2.23%  [.] core::hash::BuildHasher::hash_one                                                                                                     
+     1.89%  [.] mm::sim::run::{{closure}}                                                                                                             
+     1.43%  [.] __memmove_evex_unaligned_erms                                                                                                         
+     1.42%  [.] core::slice::sort::stable::merge::merge                                                                                               
+     1.27%  [.] <alloc::vec::into_iter::IntoIter<T,A> as core::iter::traits::iterator::Iterator>::try_fold                                            
+     0.93%  [.] _int_malloc                                                                                                                           
+     0.65%  [.] mm::summary                                                                                                                           
+     0.56%  [.] core::slice::sort::stable::drift::sort                                                                                                
+     0.52%  [.] mm::sim::run::{{closure}}                                                                                                             
+     0.49%  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<T,I>>::from_iter                                         
+     0.43%  [.] malloc_consolidate                                                                                                                    
+     0.41%  [.] mm::sim::check_fill                                                                                                                   
+     0.32%  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<T,I>>::from_iter                                         
+     0.31%  [.] core::iter::adapters::filter::filter_try_fold::{{closure}}                                                                            
+     0.30%  [.] _int_free_chunk                                                                                                                       
+     0.28%  [.] realloc                                                                                                                               
+     0.27%  [.] _int_realloc                                                                                                                          
+     0.26%  [.] <alloc::vec::Vec<T> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<T,I>>::from_iter                                         
+     0.26%  [.] alloc::collections::btree::append::<impl alloc::collections::btree::node::NodeRef<alloc::collections::btree::node::marker::Owned,K,V,a
+     0.25%  [.] malloc                                                                                                                                
