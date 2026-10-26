@@ -75,7 +75,11 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 Only decisions that could affect a statistical result or leakage, or that touch the hard limits. Others go straight to `audit/decisions.md`.
 
-None.
+- **Proposed 2026-10-26: a regime diagnostic of C0.7's cost model on Hyperliquid's historical books** (labeled diagnostic; C0.7 and its table are unchanged). The archive holds the same `l2Book` records our recorder polls, a snapshot every ~5.4 s, from 2023-04-15 (`venue/sources.toml`, `hyperliquid-archive`).
+  - **Procedure, frozen before any download:** for each coin of U and every archive day it is listed, the files of hours 0, 6, 12 and 18 UTC. Each snapshot gives the cost per C0.7 cell (side × $1,000 or $10,000) by C0.7's own function. Regimes are terciles of each coin's daily realized volatility from our stored 4h bars, and calendar quarters. Reported per coin, cell and regime: the share of snapshots costing more than the table's entry, and the ratio of the regime's quantile (C0.7's frozen quantile) to the entry.
+  - **Cost:** about 8 GB and 60,000 GETs, about $0.75 of the approved $20.
+  - **Prerequisite:** a certified terms record for the archive.
+  - **Use:** it tells how far the October-fitted table can be trusted in other regimes (stage 3's qualification). It decides nothing.
 
 ## Qualifications
 
