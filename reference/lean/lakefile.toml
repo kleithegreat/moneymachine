@@ -7,3 +7,10 @@ name = "Ref"
 [[lean_exe]]
 name = "refmm"
 root = "Main"
+
+[[lean_lib]]
+name = "Fast"
+
+[[lean_exe]]
+name = "fastmm"
+root = "FastMain"
