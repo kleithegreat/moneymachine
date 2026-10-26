@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 from gate import kernel
-from ingest.execution import fill_missing
+from ingest.fallback import fill_missing
 from ingest.live import now_ms
 from ingest.policy import DAY, HOUR
 from sandbox import session

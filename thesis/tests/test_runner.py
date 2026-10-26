@@ -133,7 +133,7 @@ def test_the_manifest_covers_every_file_the_track_runs_on():
     from thesis import harness
 
     files = {str(p.relative_to(harness.REPO)) for p in harness.manifest_files()}
-    assert {"ingest/hl.py", "ingest/execution.py", "ingest/terms.py", "thesis/report.py", "thesis/positions.py",
+    assert {"ingest/hl.py", "ingest/fallback.py", "ingest/terms.py", "thesis/report.py", "thesis/positions.py",
             "sandbox/session.py", "gate/kernel.py", "data/thesis/bin/mm", "venue/hyperliquid/execution.json",
             "venue/hyperliquid/rules.json", "policy.json", "flake.lock", "thesis/brief.md"} <= files
     assert not any(f.startswith(("thesis/tests", "data/")) for f in files - {"data/thesis/bin/mm"})

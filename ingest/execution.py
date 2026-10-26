@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from ingest.availability import contributions, judgment
+from ingest.fallback import fill_missing
 from ingest.policy import BAR
 
 SIZES = (1_000, 10_000)
@@ -78,15 +79,6 @@ def calibrate_and_validate(cells):
             "calibration_span": [times[0], times[k - 1]] if k else None,
         }
     return model, report
-
-
-def fill_missing(model, coins):
-    """Coins without a live book get the cell-wise maximum over the calibrated coins."""
-    flagged = [c for c in coins if c not in model]
-    worst = {side: {size: max(model[c][side][size] for c in model) for size in model[next(iter(model))][side]}
-             for side in ("buy", "sell")}
-    return {c: model.get(c, worst) for c in coins}, flagged
-
 
 
 def relative_ranges(polls, report):
