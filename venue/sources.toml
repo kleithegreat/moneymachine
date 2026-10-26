@@ -506,7 +506,21 @@ Cost (requester pays, us-east-1 to the internet): about $0.09 per GB transferred
 12 coins of U for one hour a day over the whole archive is about 15,000 files and 2 GB, about $0.20; every hour of
 every day for U is about 55 GB, about $5.
 
-Terms are not yet certified: no automated download beyond the survey until a terms record is added.'''
+Hyperliquid's documentation offers the archive publicly; downloads are within the human's approved $20 and await the
+proposed diagnostic's approval (PROGRESS.md).'''
+
+[[hyperliquid-archive.terms]]
+host = "s3://hyperliquid-archive"
+url = "https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data"
+retrieved = 2026-10-26
+basis = "operator decision"
+quote = '''
+L2 book snapshots are available in market_data and asset contexts are available in asset_ctxs. Note that the
+requester of the data must pay for transfer costs. There is no guarantee of timely updates and data may be missing.'''
+notes = '''
+The documentation offers the archive for download, with the requester paying, and states no further terms. As for
+Hyperliquid's API, use of the read-only public data is the operator's decision: the human configured the AWS account
+and approved spending up to $20 (2026-10-26). Uploads come about once a month.'''
 
 [bigquery-crypto]
 description = '''
