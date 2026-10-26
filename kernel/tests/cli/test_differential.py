@@ -1,5 +1,6 @@
-"""C1.4: `mm eval --trace` of W0 matches the stage 0 Python witness at every step: the same events at each step, and
-every decision, fill, funding settlement and equity value within $1e-6 (exactly where both read the same datum)."""
+"""C1.4: `mm eval --trace` of W0 matches the stage 0 Python witness at every step: the same events in the same order,
+and every decision, fill, funding settlement, equity and reconciliation value within $1e-6 (exactly where both read the
+same datum). Events of one type at one instant touch one coin each, so the two may list their coins in any order."""
 
 import json
 import os
@@ -35,7 +36,14 @@ def by_type(events, kinds):
 
 
 def steps(events):
-    return sorted((e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS))
+    """The trace in order, as runs of one type at one instant, each with the set of coins it touches."""
+    out = []
+    for e in by_type(events, KINDS):
+        if out and out[-1][:2] == (e["t"], e["type"]):
+            out[-1][2].add(e.get("coin", ""))
+        else:
+            out.append((e["t"], e["type"], {e.get("coin", "")}))
+    return out
 
 
 def test_kernel_matches_witness(tmp_path):
@@ -55,6 +63,7 @@ def test_kernel_matches_witness(tmp_path):
     ke, pe = by_type(kernel, {"equity"}), by_type(py, {"equity"})
     assert [e["t"] for e in ke] == [e["t"] for e in pe]
     assert max(abs(a["equity"] - b["equity"]) for a, b in zip(ke, pe)) <= TOL
+    assert max(abs(a["reconciled"] - b["reconciled"]) for a, b in zip(ke, pe)) <= TOL
 
     kf, pf = by_type(kernel, {"fill", "liquidation", "delisting"}), by_type(py, {"fill", "liquidation", "delisting"})
     assert [(e["type"], e["t"], e["coin"]) for e in kf] == [(e["type"], e["t"], e["coin"]) for e in pf]

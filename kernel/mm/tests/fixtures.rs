@@ -183,6 +183,18 @@ fn delayed_fill_fees_funding_and_rebalance() {
     assert!(close(f[2].qty, -1.773));
 }
 
+/// A short receives positive funding: the payment's sign follows the position's.
+#[test]
+fn short_receives_funding() {
+    let mut s = Spec::new(&[100.0; 5], &[100.0; 5]);
+    s.funding = vec![(10, 0.002, 0.0)];
+    let run = s.run(r#"{"const": -0.5, "unit": "1"}"#).unwrap();
+    // 4h+d: target -0.5 * 10000 / 100 = -50, sold at 8h at 99.9 (4995), fee 4.995: cash 14990.005. The 8h+d
+    // decision sizes on equity 10000 at 8h and holds. 10h: paid = -50 * open(bar 2) 100 * 0.002 = -10, so the
+    // short receives 10: cash 15000.005. Equity at 12h: 15000.005 - 50 * close2 100 = 10000.005.
+    assert_account(&run, 12 * HOUR, (15000.005, -50.0, 4.995, -10.0, 10000.005));
+}
+
 /// A fill bar with no trade leaves the order unfilled; the next decision re-targets.
 #[test]
 fn zero_trade_bar_is_unfilled() {

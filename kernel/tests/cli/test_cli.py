@@ -35,15 +35,25 @@ def test_holdout_is_split_off(market):
     assert list((Path(market) / "holdout" / "bars_4h").glob("*.parquet"))
 
 
-def mm(market, *args, ledger):
+def mm(market, *args, ledger, text=True):
     m = Path(market)
     return subprocess.run([str(MM), *args, "--store", str(m / "store"), "--venue", str(m / "venue"),
                            "--ledger", str(ledger)],
-                          capture_output=True, text=True)
+                          capture_output=True, text=text)
 
 
-def evaluate(market, ledger, strategy=W0):
-    return mm(market, "eval", str(strategy), "--campaign", "c", "--agent", "a", ledger=ledger)
+def evaluate(market, ledger, strategy=W0, text=True):
+    return mm(market, "eval", str(strategy), "--campaign", "c", "--agent", "a", ledger=ledger, text=text)
+
+
+def data_hash(store, version):
+    """I7's dataset hash, recomputed from the files: for funding, the 4h bars and each event dataset present, in that
+    order, each file at or before `version` in version order, its name and the SHA-256 of its bytes."""
+    h = hashlib.sha256()
+    for dataset in ("funding", "bars_4h", "events_forum", "events_governance"):
+        for _, f in sorted((int(f.stem), f) for f in (Path(store) / dataset).glob("*.parquet") if int(f.stem) <= version):
+            h.update(f.name.encode() + hashlib.sha256(f.read_bytes()).digest())
+    return h.hexdigest()
 
 
 def test_eval_records_identity_and_disclosure(market, tmp_path):
@@ -58,6 +68,7 @@ def test_eval_records_identity_and_disclosure(market, tmp_path):
     sha = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
     assert (row["rules_hash"], row["execution_hash"], row["kernel"]) == \
         (sha(Path(market) / "venue" / "rules.json"), sha(Path(market) / "venue" / "execution.json"), sha(MM))
+    assert row["data_hash"] == data_hash(Path(market) / "store", row["dataset_version"])
     disclosed = db.execute("SELECT content FROM disclosures WHERE experiment_id = ?", (out["experiment"],)).fetchone()
     assert json.loads(disclosed[0]) == out["disclosure"]
 
@@ -85,8 +96,8 @@ def test_unwritable_ledger_emits_no_statistics(market, tmp_path):
 
 
 def test_fresh_processes_give_identical_results(market, tmp_path):
-    a, b = (evaluate(market, tmp_path / f"{k}.sqlite") for k in "ab")
-    assert a.returncode == 0 and a.stdout.encode() == b.stdout.encode()
+    a, b = (evaluate(market, tmp_path / f"{k}.sqlite", text=False) for k in "ab")
+    assert a.returncode == 0 and a.stdout == b.stdout
 
 
 def test_a_changed_store_value_changes_the_data_hash_and_the_identity(market, tmp_path):
