@@ -84,3 +84,14 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
   - **GPT:** found the gaps; it updated its own independent scorer from the revised SCORING.md, and the differential agrees on all 1,000 sets.
   - **Reverse:** `git revert` of the commit.
 - **2026-10-25 23:54 UTC (19:54 EDT): reviewed by the human.** Approved: the merge amendment's extension to boundary polls with the cloud recorder at 600/min (merged by completeness across clock-verified hosts, host-tagged, as specified), and the C2.6 amendment, which was then found infeasible before any sweep and is suspended (`audit/criteria.md`, C2.6; PROGRESS.md, Blockers). The human also put vendor permission requests on hold, and `docs/permission-requests.md` was deleted.
+- **2026-10-26 01:28 UTC (21:28 EDT): stage 7's rule language (`kernel/RULES.md`, C7.6) revised once from two reviews and frozen as version 1 on branch `stage7`.**
+  - **What:** GPT (`audit/stage7/rules-review-gpt.md`) and a fresh-context Opus subagent (`audit/stage7/rules-review-opus.md`; labeled, since GPT first seemed unavailable) reviewed the draft independently, and agreed on its defects: floor overflow, backdating by a floored time, undefined strict JSON, no code for a malformed row, and no resolver. The revision:
+    - adds a lower-bound check (every accepted rule is at least one named field and every declared dependency);
+    - puts the correction and derived-dependency bounds in the resolver, where no rule can remove them;
+    - defines JSON and integer spelling exactly, adds `R_ROW` and a precedence order, specifies the resolver, and fixes a conformance case format.
+  - **Choices between the reviews:**
+    - malformed rows get their own code (Opus), not `R_FIELD_TYPE` (GPT);
+    - integers longer than 19 digits may be treated as out of range, which is equivalent to GPT's unbounded exact value and avoids parser limits;
+    - there is no witness-or-fallback operator: an absent field rejects the row, and a certificate decides which rule (a claimed time, a witness, or `fetchedAt` alone for prospective use) covers which time scope.
+  - **Next, before any implementation:** freeze the C7.6 suite (hand cases with expected results, the generator, seeds and the comparison procedure). GPT's independent implementation follows from this document alone.
+  - **Reverse:** a new rule-language version.
