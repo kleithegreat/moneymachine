@@ -54,8 +54,8 @@ def test_an_interrupted_campaign_is_recorded_as_a_crash_and_none_starts_without_
     monkeypatch.setattr(campaigns.sweep, "cost_cells", lambda: {})
     monkeypatch.setattr(campaigns, "SPACING", 0)
     answers = iter([False, True, True])
-    monkeypatch.setattr(campaigns, "available", lambda: next(answers))
-    monkeypatch.setattr(campaigns, "RETRY", 0)
+    monkeypatch.setattr(campaigns.session, "available", lambda model: next(answers))
+    monkeypatch.setattr(campaigns.session, "RETRY", 0)
     (tmp_path / "agent-null-N2-0").mkdir()
     campaigns.run_series("agent", 3)
     rows = [json.loads(l) for l in open(tmp_path / "agent-null.jsonl")]

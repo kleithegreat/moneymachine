@@ -40,8 +40,22 @@ def tools(client):
             "--permission-mode", "dontAsk", "--strict-mcp-config", "--setting-sources", "", "--no-session-persistence"]
 
 
+RETRY = 1800
+
+
 def claude_binary():
     return str(Path(shutil.which("claude")).resolve())
+
+
+def available(model):
+    """Whether `model` answers now: a tiny call before a session starts, so a spent subscription delays a session
+    instead of interrupting one."""
+    try:
+        r = subprocess.run([claude_binary(), "-p", "Reply with OK.", "--model", model, "--output-format", "json"],
+                           capture_output=True, text=True, timeout=300)
+        return r.returncode == 0 and not json.loads(r.stdout).get("is_error", True)
+    except (subprocess.TimeoutExpired, json.JSONDecodeError):
+        return False
 
 
 def socket_path(workdir, client):

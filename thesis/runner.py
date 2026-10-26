@@ -9,14 +9,16 @@ consumes the date; a resolution or a missing-data status is recorded once per th
 import fcntl
 import functools
 import json
+import shutil
 import threading
 import time
 from pathlib import Path
 
-from gate.agent.campaigns import RETRY, available
+from gate import kernel
 from ingest.execution import fill_missing
 from ingest.live import now_ms
 from ingest.policy import DAY, HOUR
+from sandbox import session
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
 from thesis.market import MARK_OFFSET, Exchange, Market
@@ -38,7 +40,7 @@ class Track:
     def __init__(self, root=ROOT):
         self.root = Path(root)
         self.version = f"thesis-{harness.manifest_hash()[:12]}"
-        self.ledger = registry.Ledger(self.root / "ledger.sqlite", self.version)
+        self.ledger = registry.Ledger(self.root / "ledger.sqlite", self.version, pinned_kernel(self.root))
         self.market = Market(self.root / "market", Exchange(self.root / "exchange"))
         self.fetcher = Fetcher()
 
@@ -126,11 +128,11 @@ class Track:
 
     def day(self, date):
         """The main session, an ablation per accepted main thesis, then the full no-reading session."""
-        while not available():
+        while not session.available(harness.MODEL):
             if now_ms() >= date + DAY:
                 self.ledger.disclose("session_missed", "main", {"date": date, "reason": "the model was unavailable all day"})
                 return
-            time.sleep(RETRY)
+            time.sleep(session.RETRY)
         snapshot = self.snapshot(now_ms())
         name = self.session("main", "main", date, snapshot, MAIN_COMMANDS)
         for th in [t for t in self.ledger.theses("main") if t["session"] == name]:
@@ -228,8 +230,20 @@ def forever(name, step, wait):
             print(time.strftime("%FT%T"), name, repr(e), flush=True)
 
 
+def pinned_kernel(root, fresh=False):
+    """The track's own copy of the `mm` binary, which writes its ledger: copied from the current build when absent, or
+    afresh at a freeze, so later kernel builds never change a running track version."""
+    path = Path(root) / "bin" / "mm"
+    if fresh or not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(kernel.build(), path)
+    return path
+
+
 def freeze():
-    """Record the manifest: the start of a track version and of C10.5's observation window."""
+    """Record the manifest, with the kernel binary pinned: the start of a track version and of C10.5's observation
+    window."""
+    pinned_kernel(ROOT, fresh=True)
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
     old = json.loads(FROZEN.read_text()) if FROZEN.exists() else None
     if old and old["manifest"] == harness.manifest_hash():

@@ -31,7 +31,6 @@ REAL_REPORT_FROM = 1785542400000  # 2026-08-01: a month after the agent model's 
 LABEL = "pipeline validation run, not a test for edge (stage 3 revision of 2026-10-23)"
 MIN_SWARM_EVALUATIONS = 200
 SPACING = 5 * 3600
-RETRY = 1800
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
 SMOKE = {"agent": "20 runs bound the promotion rate only to about 0.28; this is a smoke test.",
          "swarm": "With 10 runs the 95% bound is about 0.39; this is a smoke test only."}
@@ -121,17 +120,6 @@ SERIES = {"agent": agent_null, "swarm": swarm_null}
 STAGE = {"agent": 3, "swarm": 4}
 
 
-def available():
-    """Whether the agent model answers now: a tiny call before a campaign starts, so a spent
-    subscription delays a campaign instead of interrupting one."""
-    try:
-        r = subprocess.run([session.claude_binary(), "-p", "Reply with OK.", "--model", harness.MODEL, "--output-format", "json"],
-                           capture_output=True, text=True, timeout=300)
-        return r.returncode == 0 and not json.loads(r.stdout).get("is_error", True)
-    except (subprocess.TimeoutExpired, json.JSONDecodeError):
-        return False
-
-
 def run_series(name, n):
     """Campaigns `{name}-null-N2-0` .. n - 1, resumable and paced (module docstring)."""
     check_frozen()
@@ -139,8 +127,8 @@ def run_series(name, n):
     log = OUT / f"{name}-null.jsonl"
     todo = campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT)
     for k, cid in enumerate(todo):
-        while not available():
-            time.sleep(RETRY)
+        while not session.available(harness.MODEL):
+            time.sleep(session.RETRY)
         started = time.time()
         try:
             result = SERIES[name](cid, sweep.cost_cells())
