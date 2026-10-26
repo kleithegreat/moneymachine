@@ -1,0 +1,10 @@
+{
+ "dataset": "GLBX.MDP3",
+ "roots": ["ES", "NQ", "YM", "RTY", "ZT", "ZF", "ZN", "ZB", "UB", "SR3", "GE", "6E", "6J", "6B", "6A", "6C", "6S",
+           "CL", "NG", "RB", "HO", "BZ", "GC", "SI", "HG", "PL", "PA", "ZC", "ZS", "ZW", "KE", "ZM", "ZL", "LE", "HE", "GF"],
+ "start": "2010-06-06",
+ "spend_cap_usd": 100.0,
+ "pulls": [
+  {"name": "definition-monthly", "schema": "definition", "stype_in": "parent", "window": "first day of each month"}
+ ]
+}

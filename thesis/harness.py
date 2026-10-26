@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ingest import terms
 from sandbox import session
 from thesis.daemon import SPEC
 
@@ -18,7 +19,7 @@ WALL_SECONDS = 3600
 CLIENT = "thesis-agent"
 BRIEFS = {"main": "brief.md", "noread": "brief-noread.md", "ablation": "brief-ablation.md"}
 BRIEF_TEXT = {kind: (HERE / name).read_text() for kind, name in BRIEFS.items()}
-DATA = ("policy.json", "venue/hyperliquid/rules.json", "venue/hyperliquid/execution.json", "venue/sources.toml",
+DATA = ("policy.json", "venue/hyperliquid/rules.json", "venue/hyperliquid/execution.json",
         "thesis/SCORING.md", "flake.lock", "kernel/Cargo.lock")
 
 
@@ -36,9 +37,10 @@ def manifest_files(kernel):
 
 @functools.cache
 def manifest_hash(kernel):
-    """The track version's identity: its files, model, limits and flags, hashed once per process, as the track
-    reads its files once."""
-    return session.identity(manifest_files(kernel), [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS])
+    """The track version's identity: its files, model, limits and flags, and the retrieval allowlist it reads from the
+    source registry (not the registry's other records), hashed once per process, as the track reads them once."""
+    return session.identity(manifest_files(kernel), [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS,
+                                                    sorted(terms.allowlist(retrieval=True))])
 
 
 def workspace(workdir, kind, task=None):

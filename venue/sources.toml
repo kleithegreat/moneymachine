@@ -519,7 +519,7 @@ notes = '''
 The Board's site policy says its public-domain information "may be copied and distributed without permission" (see
 `fed`). The help page warns that "Downloading a large number of series may affect performance", so packages are
 polled at their release cadence, and whole-release files monthly (quarterly for Z.1).'''
-retrieval = true
+retrieval = false
 
 [nyfed]
 description = """
@@ -545,7 +545,7 @@ format or media'''
 notes = '''
 Terms last updated 2023-06-09. Attribution on copying or distribution: "© [year] Federal Reserve Bank of New York". No
 rate limit and no AI clause.'''
-retrieval = true
+retrieval = false
 
 [databento]
 description = """
@@ -587,7 +587,7 @@ learning and/or artificial intelligence [...] is expressly prohibited"""
 notes = """
 Human decision of 2026-10-26: kernel-only under the licensing boundary (audit/decisions.md). Pulls are priced first and
 stay within the USD 125 credit; ICE data is not covered by this record (its policy licenses non-display use)."""
-retrieval = true
+retrieval = false
 
 [oecd]
 description = """
@@ -610,7 +610,7 @@ OECD-developed application programming interfaces ("APIs") to facilitate access 
 notes = """
 The OECD may limit an IP address "placing too great a strain on the infrastructure", so feeds poll modestly. Data with
 third-party ownership noted in their metadata are outside this record."""
-retrieval = true
+retrieval = false
 
 [treasury-yields]
 description = """
@@ -633,7 +633,7 @@ feed accepts GET requests, returns XML responses, and uses standard HTTP respons
 notes = """
 Human decision of 2026-10-26 (audit/decisions.md): a US federal government work in the public domain, published as a
 documented developer feed; the page states no terms of use."""
-retrieval = true
+retrieval = false
 
 [hyperliquid-archive]
 description = '''
