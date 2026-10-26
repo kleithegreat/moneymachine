@@ -181,9 +181,10 @@ Let V be the venue's coins in rules.json order; intervals [start, end) per coin 
 b + 2·BAR ≤ end, each step does, in order:
 
 1. **Funding.** For h = b + HOUR, b + 2·HOUR, …, b + BAR, and for each coin c holding a position (in
-   coin order): a funding rate r for (c, h) and a bar opening at h − (h mod BAR) must both exist, else
-   abort with R_SETTLEMENT_MISSING (a missing payment is never a zero one). paid = q[c] · open(that
-   bar) · r. cash −= paid and funding −= paid.
+   coin order): a funding rate r for (c, h) must exist, priced at the open of c's latest bar opening at
+   or before h (the bar opening at h when it exists, else the latest earlier one), else abort with
+   R_SETTLEMENT_MISSING (a missing payment is never a zero one). paid = q[c] · open · r. cash −= paid
+   and funding −= paid.
 2. **Marks.** For each held coin, latest(c) is the coin's last bar with openTime ≤ b, and the mark
    is its close.
 3. **Margin.** The adverse price is low(latest) for q > 0 and high(latest) for q < 0 (the mark if no
@@ -197,7 +198,8 @@ b + 2·BAR ≤ end, each step does, in order:
    order due at this step is unfilled (step 7).
 6. **Accounting.**
    - **Equity.** e1 = cash + Σ q · mark. e2 = 10,000 + realized + Σ q · (mark − entry) − fees +
-     funding + absorbed. Unless |e1 − e2| ≤ 1e-5, abort with R_ACCOUNTING. Record Equity(b + BAR, e1, e2).
+     funding + absorbed. Unless |e1 − e2| / max(|e1|, 10,000) ≤ 1e-9, abort with R_ACCOUNTING (a NaN or
+     infinite e1 fails). Record Equity(b + BAR, e1, e2).
    - **Returns.** If previous > 0, the return is e1/previous − 1 if e1 > 0 and −1 otherwise, and the gross return is
      (e1 − previous + costs − previous costs)/previous, with costs = fees + slippage; otherwise both
      are 0. Unless the return is ≥ −1, abort with R_BOUND. Append both.

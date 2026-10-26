@@ -14,7 +14,11 @@ use std::collections::BTreeMap;
 pub const INITIAL: f64 = 10_000.0;
 pub const MAX_GROSS: f64 = 2.0;
 pub const MAX_ORDER_NOTIONAL: f64 = 10_000.0;
-pub const ACCOUNTING_TOLERANCE: f64 = 1e-5;
+/// I5: the two equities agree within 1e-9 of max(|e1|, 10,000); a non-finite e1 fails.
+pub fn accounting_ok(e1: f64, e2: f64) -> bool {
+    let scale = if e1.abs() < 10_000.0 { 10_000.0 } else { e1.abs() };
+    (e1 - e2).abs() / scale <= 1e-9
+}
 /// B: no step loses more than the account's equity, so every step return is at least −B.
 pub const LOSS_BOUND: f64 = 1.0;
 
@@ -227,6 +231,13 @@ struct Order {
     decided: i64,
 }
 
+/// A coin's latest bar opened by t.
+fn latest_bar(market: &Market, c: usize, t: i64) -> Option<crate::market::Bar> {
+    let times = &market.bar_times[c];
+    let k = times.partition_point(|&u| u <= t).checked_sub(1)?;
+    Some(market.bars[market.bar_at[&(c, times[k])]])
+}
+
 pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64) -> Result<Run, Abort> {
     let n = venue.coins.len();
     for ds in prog.event_datasets() {
@@ -312,23 +323,17 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
             let held: Vec<usize> = book.pos.keys().copied().collect();
             for coin in held {
-                let (Some(&rate), Some(&i)) = (market.rate_at.get(&(coin, h)), market.bar_at.get(&(coin, h - h % BAR))) else {
+                let (Some(&rate), Some(bar)) = (market.rate_at.get(&(coin, h)), latest_bar(market, coin, h)) else {
                     return Err(Abort::SettlementMissing(format!("coin {coin} at {h}: no funding row or no bar to price it")));
                 };
-                let price = market.bars[i].open;
+                let price = bar.open;
                 let paid = book.settle(coin, price, rate);
                 trace.push(Event::Funding { t: h, coin, rate, price, paid });
             }
         }
         let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
-        let latest: BTreeMap<usize, crate::market::Bar> = held
-            .iter()
-            .filter_map(|&(c, _)| {
-                let times = &market.bar_times[c];
-                let k = times.partition_point(|&t| t <= b).checked_sub(1)?;
-                Some((c, market.bars[market.bar_at[&(c, times[k])]]))
-            })
-            .collect();
+        let latest: BTreeMap<usize, crate::market::Bar> =
+            held.iter().filter_map(|&(c, _)| Some((c, latest_bar(market, c, b)?))).collect();
         for (&c, bar) in &latest {
             marks[c] = bar.close;
         }
@@ -357,7 +362,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
 
         let (e1, e2) = (book.equity(&marks), book.reconciled(&marks));
-        if !((e1 - e2).abs() <= ACCOUNTING_TOLERANCE) {
+        if !accounting_ok(e1, e2) {
             return Err(Abort::Accounting(format!("at {}: {e1} vs {e2}", b + BAR)));
         }
         trace.push(Event::Equity { t: b + BAR, equity: e1, reconciled: e2 });

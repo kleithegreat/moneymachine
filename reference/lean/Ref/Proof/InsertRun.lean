@@ -254,7 +254,9 @@ theorem step_ins (b : Int) {s s' : SState α} (h : SRel i s s') :
   · obtain ⟨My, rfl, hIy⟩ := hxy.exists
     refine RelH.bind (RelH.forIn _ _ _ (SRel.same hIy) fun c _ x y hxy => ?_) fun a b hab => hab
     obtain ⟨My, rfl, hIy⟩ := hxy.exists
-    split <;> exact RelH.pure ⟨rfl, hIy⟩
+    split
+    · exact RelH.pure ⟨rfl, hIy⟩
+    · exact RelH.throw_bind
   obtain ⟨M₁, rfl, hI₁⟩ := h₁.exists
   rw [marks_loop, marks_loop]
   refine RelH.bind (R := SRel i) (RelH.ok ⟨rfl, hI₁⟩) fun s₂ s₂' h₂ => ?_
