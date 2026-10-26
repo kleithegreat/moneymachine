@@ -2,7 +2,8 @@
 implementation of it.
 
 - HAND: cases with hand-computed results, covering every code, its precedence, boundaries at ±1 ms, negative
-  timestamps, the ends of the range, floor underflow, JSON spelling, depth 64 against 65, and the size limit.
+  timestamps, the ends of the range, floor underflow, JSON spelling, depth 64 against 65, the size limit, and a field
+  sharing a dependency's name (added with RULES.md's clarification of 2026-10-26, before any judged run).
 - generate(): at least 1,000 distinct well-typed (rule, row) pairs from a fixed seed, at least 100 each containing a
   floor, a maximum, an offset and a composition (an operator inside another's operand). They have no expected
   results: the implementations must agree on them.
@@ -161,6 +162,8 @@ HAND = [
     case(rule(f("")), '{"t": 1}', "E_RULE"),
     case(rule(mx(f("t"), dep("e"))), '{"t": 1}', "E_RULE", deps_declared=("d",)),
     case(rule(f("t")), '{"t": 1}', "E_RULE", deps_declared=("d",)),
+    case(rule(f("d")), '{"d": 1}', "E_RULE", ("d",), deps_declared=("d",)),
+    case(rule(mx(f("d"), dep("d"))), '{"d": 1}', 4, ("d",), deps_declared=("d",), deps='{"d": 4}'),
     case(rule({"add": [ms(1), f("t")]}), '{"t": 1}', "E_RULE"),
     case(rule(add(f("t"), f("t"))), '{"t": 1}', "E_RULE"),
     case(rule(ms(5)), '{"t": 1}', "E_RULE"),

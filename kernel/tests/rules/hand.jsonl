@@ -85,6 +85,8 @@
 {"rule": "{\"rule\": 1, \"expr\": {\"field\": \"\"}}", "fields": ["t"], "deps_declared": [], "row": "{\"t\": 1}", "deps": "{}", "expect": "E_RULE"}
 {"rule": "{\"rule\": 1, \"expr\": {\"max\": [{\"field\": \"t\"}, {\"dep\": \"e\"}]}}", "fields": ["t"], "deps_declared": ["d"], "row": "{\"t\": 1}", "deps": "{}", "expect": "E_RULE"}
 {"rule": "{\"rule\": 1, \"expr\": {\"field\": \"t\"}}", "fields": ["t"], "deps_declared": ["d"], "row": "{\"t\": 1}", "deps": "{}", "expect": "E_RULE"}
+{"rule": "{\"rule\": 1, \"expr\": {\"field\": \"d\"}}", "fields": ["d"], "deps_declared": ["d"], "row": "{\"d\": 1}", "deps": "{}", "expect": "E_RULE"}
+{"rule": "{\"rule\": 1, \"expr\": {\"max\": [{\"field\": \"d\"}, {\"dep\": \"d\"}]}}", "fields": ["d"], "deps_declared": ["d"], "row": "{\"d\": 1}", "deps": "{\"d\": 4}", "expect": 4}
 {"rule": "{\"rule\": 1, \"expr\": {\"add\": [{\"ms\": 1}, {\"field\": \"t\"}]}}", "fields": ["t"], "deps_declared": [], "row": "{\"t\": 1}", "deps": "{}", "expect": "E_RULE"}
 {"rule": "{\"rule\": 1, \"expr\": {\"add\": [{\"field\": \"t\"}, {\"field\": \"t\"}]}}", "fields": ["t"], "deps_declared": [], "row": "{\"t\": 1}", "deps": "{}", "expect": "E_RULE"}
 {"rule": "{\"rule\": 1, \"expr\": {\"ms\": 5}}", "fields": ["t"], "deps_declared": [], "row": "{\"t\": 1}", "deps": "{}", "expect": "E_RULE"}

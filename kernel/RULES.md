@@ -69,9 +69,11 @@ and the set of its declared dependency names. Checking rejects the rule with `E_
 2. an expression has the wrong type for its position, or `expr` is not of type Time;
 3. a `field` name is not one of the context's Time fields, or a `dep` name not one of its dependencies;
 4. a constant is out of range, or a `floor` period is not a constant greater than 0;
-5. its **lower-bound set** is empty or lacks a declared dependency. The lower-bound set LB is:
-   LB(field f) = {f}; LB(dep d) = {d}; LB(add [e, D]) = LB(e); LB(max [e1, …]) = LB(e1) ∪ … ∪ LB(ek);
-   LB(floor …) = ∅.
+5. its **lower-bound set** is empty or lacks a declared dependency. The lower-bound set LB holds terms tagged by
+   kind: LB(field f) = {field f}; LB(dep d) = {dep d}; LB(add [e, D]) = LB(e); LB(max [e1, …]) = LB(e1) ∪ … ∪
+   LB(ek); LB(floor …) = ∅. Every declared dependency d must appear as dep d: a field with the same name does
+   not count. (Clarified 2026-10-26, before any judged run, after GPT's independent implementation read the
+   untagged notation literally.)
 
 Rule 5 makes every accepted rule's value at least one recorded time it names and at least every
 declared dependency's time, so a rule cannot backdate below what it reads: a floored time counts only
