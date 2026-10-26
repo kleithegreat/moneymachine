@@ -9,6 +9,7 @@ campaign as a crash, so sweeps resume after an interruption. Campaign ids are co
 
 import json
 import math
+import os
 import sqlite3
 import subprocess
 import tempfile
@@ -56,11 +57,26 @@ def require_frozen_searcher():
         raise SystemExit(f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change")
 
 
-def run_all(specs, path, workers=10):
+# Peak memory per task, measured 2026-10-26: a campaign (its market, searcher and mm evaluations; the long cell's
+# four-year markets included) and one ten-year calibration market with its evaluation.
+CAMPAIGN_BYTES, CALIBRATION_BYTES = 2_500_000_000, 4_200_000_000
+
+
+def workers(per_task):
+    """As many workers as cores, but only as many as the memory this process's cgroup allows (its MemoryMax, else the
+    machine's memory) holds at `per_task` bytes each. Results never depend on it: every task is seeded by its id."""
+    cgroup = Path("/proc/self/cgroup").read_text().split("::", 1)[1].strip()
+    cap = Path("/sys/fs/cgroup", cgroup.lstrip("/"), "memory.max")
+    machine = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    budget = min(machine, int(cap.read_text())) if cap.exists() and cap.read_text().strip() != "max" else machine
+    return max(1, min(os.cpu_count(), budget // per_task))
+
+
+def run_all(specs, path):
     require_frozen_searcher()
     out = path.with_suffix("")
     todo = set(campaign.resume([s["id"] for s in specs], path, out))
-    with Pool(workers) as pool, open(path, "a") as fh:
+    with Pool(workers(CAMPAIGN_BYTES)) as pool, open(path, "a") as fh:
         for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in todo]):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
@@ -147,7 +163,7 @@ def calibrate(key):
 
 def betas():
     OUT.mkdir(parents=True, exist_ok=True)
-    with Pool(len(CALIBRATIONS)) as pool:
+    with Pool(min(len(CALIBRATIONS), workers(CALIBRATION_BYTES))) as pool:
         values = pool.map(calibrate, list(CALIBRATIONS))
     (OUT / "betas.json").write_text(json.dumps(dict(zip(CALIBRATIONS, values)), indent=1))
 
