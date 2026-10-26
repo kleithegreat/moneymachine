@@ -3037,6 +3037,876 @@
    "every_h": 720,
    "url": "https://data-api.ecb.europa.eu/service/data/RTD",
    "accept": "text/csv"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1990",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1990"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1991",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1991"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1992",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1992"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1993",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1993"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1994",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1994"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1995",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1995"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1996",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1996"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1997",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1997"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1998",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1998"
+  },
+  {
+   "name": "treasury-yields-yield-curve-1999",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=1999"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2000",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2000"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2001",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2001"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2002",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2002"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2003",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2003"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2004",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2004"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2005",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2005"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2006",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2006"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2007",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2007"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2008",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2008"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2009",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2009"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2010",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2010"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2011",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2011"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2012",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2012"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2013",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2013"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2014",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2014"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2015",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2015"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2016",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2016"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2017",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2017"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2018",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2018"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2019",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2019"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2020",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2020"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2021",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2021"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2022",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2022"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2023",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2023"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2024",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2024"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2025",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2025"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2026",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2026"
+  },
+  {
+   "name": "treasury-yields-yield-curve-2027",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value=2027"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2002",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2002"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2003",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2003"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2004",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2004"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2005",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2005"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2006",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2006"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2007",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2007"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2008",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2008"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2009",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2009"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2010",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2010"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2011",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2011"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2012",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2012"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2013",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2013"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2014",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2014"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2015",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2015"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2016",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2016"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2017",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2017"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2018",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2018"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2019",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2019"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2020",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2020"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2021",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2021"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2022",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2022"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2023",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2023"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2024",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2024"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2025",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2025"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2026",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2026"
+  },
+  {
+   "name": "treasury-yields-bill-rates-2027",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_bill_rates&field_tdr_date_value=2027"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2000",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2000"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2001",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2001"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2002",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2002"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2003",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2003"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2004",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2004"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2005",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2005"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2006",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2006"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2007",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2007"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2008",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2008"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2009",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2009"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2010",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2010"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2011",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2011"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2012",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2012"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2013",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2013"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2014",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2014"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2015",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2015"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2016",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2016"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2017",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2017"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2018",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2018"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2019",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2019"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2020",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2020"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2021",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2021"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2022",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2022"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2023",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2023"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2024",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2024"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2025",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2025"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2026",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2026"
+  },
+  {
+   "name": "treasury-yields-long-term-rate-2027",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_long_term_rate&field_tdr_date_value=2027"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2003",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2003"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2004",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2004"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2005",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2005"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2006",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2006"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2007",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2007"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2008",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2008"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2009",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2009"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2010",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2010"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2011",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2011"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2012",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2012"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2013",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2013"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2014",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2014"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2015",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2015"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2016",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2016"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2017",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2017"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2018",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2018"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2019",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2019"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2020",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2020"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2021",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2021"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2022",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2022"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2023",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2023"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2024",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2024"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2025",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2025"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2026",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2026"
+  },
+  {
+   "name": "treasury-yields-real-yield-curve-2027",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_yield_curve&field_tdr_date_value=2027"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2000",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2000"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2001",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2001"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2002",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2002"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2003",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2003"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2004",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2004"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2005",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2005"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2006",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2006"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2007",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2007"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2008",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2008"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2009",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2009"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2010",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2010"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2011",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2011"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2012",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2012"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2013",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2013"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2014",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2014"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2015",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2015"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2016",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2016"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2017",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2017"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2018",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2018"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2019",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2019"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2020",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2020"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2021",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2021"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2022",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2022"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2023",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2023"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2024",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2024"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2025",
+   "source": "treasury-yields",
+   "every_h": 2160,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2025"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2026",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2026"
+  },
+  {
+   "name": "treasury-yields-real-long-term-2027",
+   "source": "treasury-yields",
+   "every_h": 6,
+   "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_real_long_term&field_tdr_date_value=2027"
   }
  ]
 }

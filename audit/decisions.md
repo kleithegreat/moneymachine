@@ -142,3 +142,14 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Which past runs it could have touched** (`audit/gpt-sandbox/findings.md`, from opencode's session store): only the stage 8 documentation survey used `execute`, with web access allowed on purpose. Five runs from directories inside the repo, under configs written before `external_directory` was denied, read `PROGRESS.md`: four reviews, and `derived3`, GPT's independent implementation of the derived event counts (C5.5) on 2026-10-22. It saw status and criteria summaries, no source code. No other independent implementation or red-team round used a tool outside its directory.
 - **Queued for when GPT is available** (it hit its ChatGPT usage limit at about 17:20 UTC): the live probes of `execute` under the old and new configs, and a clean reimplementation of the event counts from `derived.md` alone, differential-tested against ours.
 - **Reverse:** the denials are configuration; removing them restores the gap.
+
+## 2026-10-26 18:27 UTC (14:27 EDT): the Treasury par yield feed certified as a public-domain federal work (human decision)
+
+- **What:** the Treasury daily interest rate XML feed (par yield curve, bill rates, long-term rates, real yield curve, real long-term rates) is certified with basis "operator decision" (`venue/sources.toml`, `treasury-yields`): a US federal government work in the public domain, published as a documented developer feed whose page states no terms. Recorded by the data layer, one feed per data set and year. The blocker is removed.
+- **Reverse:** remove the record and its feeds.
+
+## 2026-10-26 18:27 UTC (14:27 EDT): Databento (CME) and OECD certified from the full terms the human saved in a browser
+
+- **Databento, CME futures (`databento`):** kernel-only, basis "operator decision" under the licensing boundary. Read in full: Databento's User Agreement and Exchange Data Policy, CME's Schedule 5 version 5.04 and notice DS-45 (PDFs in `data/terms/`, hashes in the record). The AI prohibition in these texts is Schedule 5 §7.1(c), the notice for public websites displaying CME data, which DS-45 places among the website-display updates; DS-45's other terms limit use to internal business purposes. CME's updated Subscriber Addendum, which governs subscribers of a distributor, is not among these texts. The human's reading stands: kernel-only use is internal deterministic processing. ICE is not covered.
+- **OECD (`oecd`):** agent-readable, basis "permitting clause": "you can extract from, download, copy, adapt, print, distribute, share and embed Data for any purpose" and "You may use one or more OECD-developed application programming interfaces". Its STES revisions are about 357 MB of CSV per country (all editions since 1999), so they are recorded quarterly, after stage 2's sweeps free memory. The blocker is removed.
+- **Reverse:** remove the records.

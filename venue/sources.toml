@@ -547,6 +547,94 @@ Terms last updated 2023-06-09. Attribution on copying or distribution: "© [year
 rate limit and no AI clause.'''
 retrieval = true
 
+[databento]
+description = """
+# Databento: CME Group futures (GLBX.MDP3), kernel-only (certified 2026-10-26 by human decision; stage 8 scope manifest)
+
+Read with the human's Databento account (`DATABENTO_API_KEY` in `.keys.env`), spending only the USD 125 sign-up credit:
+every pull is priced first with the free `metadata.get_cost` call (`audit/stage8/databento-pricing.json`). Role
+kernel-only (licensing boundary, paper Multi-asset research): rows enter only deterministic code; no CME field or
+metadata reaches a language model beyond the permitted reports. Nothing is inspected beyond integrity until a class
+annex is frozen.
+
+The terms as read, the CME texts from the human's browser downloads in `data/terms/` (gitignored), with their SHA-256:
+- Databento User Agreement (effective 2024-01-31): third-party data under the providers' terms (§1.5); "Customer may
+  no longer download, access, or use any Third-Party Data" after termination (§9.3(i)).
+- Databento Exchange Data Policy (2025-04-08): CME data more than 8 hours old is historical, outside the real-time
+  restrictions; it defers to CME's Schedule 5.
+- CME Schedule 5 to the Information License Agreement, version 5.04 (January 2026; `schedule-5-to-the-ila-january-2026.pdf`,
+  cfbea9ebe97d774e22841ee767875ad4b7279ea97088977a05612cdc010d249a): §7.1(c), the notice a licensee's public website
+  must display, prohibits use of "Information (including associated metadata) in any manner for any machine learning
+  and/or artificial intelligence [...] to generate any information, material, data, derived works, content, or output".
+- CME notice DS-45 (June 2026; `market-data-license-agreement-updates-june-2026.pdf`,
+  1de4ebbb2b3495395eff929a26b99b027eadabbd3287fdf0ce92005638ccb83e): that clarification belongs to the website-display
+  updates (effective 2027-01-01); the other updates (effective 2026-09-17) limit use "only for its internal business
+  purposes" and prohibit synthetic feeds. The updated Subscriber Addendum, which governs a subscriber receiving data
+  through a distributor, is not among these texts.
+The human's reading (licensing boundary, 2026-10-26): kernel-only use, rows never reaching a language model, is
+internal deterministic processing, not the AI use these clauses prohibit; no permission request is made.
+"""
+
+[[databento.terms]]
+host = "hist.databento.com/v0/"
+url = "https://databento.com/legal/04-00-00-user-agreement.html"
+retrieved = 2026-10-26
+basis = "operator decision"
+quote = """
+Customer may no longer download, access, or use any Third-Party Data [after termination, §9.3(i)]. [CME Schedule 5,
+§7.1(c), website display:] use of such Information (including associated metadata) in any manner for any machine
+learning and/or artificial intelligence [...] is expressly prohibited"""
+notes = """
+Human decision of 2026-10-26: kernel-only under the licensing boundary (audit/decisions.md). Pulls are priced first and
+stay within the USD 125 credit; ICE data is not covered by this record (its policy licenses non-display use)."""
+retrieval = true
+
+[oecd]
+description = """
+# OECD data (certified 2026-10-26 from the human's browser copy of the terms; agent-readable)
+
+The terms page returns 403 to automated fetchers; the human saved it in a browser on 2026-10-26
+(`data/terms/oecd-terms-and-conditions.pdf`, 740ce0c857fc11e5a51e7d5ae99107f68cba103c2bfef1ed09a8f9249a34a91d).
+Data are cited as the terms require: OECD (year), (dataset name), (data source) DOI or URL (accessed on (date)).
+"""
+
+[[oecd.terms]]
+host = "sdmx.oecd.org/public/rest/"
+url = "https://www.oecd.org/en/about/terms-conditions.html"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = """
+Except where additional restrictions apply as stated above, you can extract from, download, copy, adapt, print,
+distribute, share and embed Data for any purpose, even for commercial use. [...] You may use one or more
+OECD-developed application programming interfaces ("APIs") to facilitate access to the Data."""
+notes = """
+The OECD may limit an IP address "placing too great a strain on the infrastructure", so feeds poll modestly. Data with
+third-party ownership noted in their metadata are outside this record."""
+retrieval = true
+
+[treasury-yields]
+description = """
+# Treasury daily interest rate XML feed (certified 2026-10-26 by human decision)
+
+Par yield curve (from 1990), bill rates (2002), long-term rates (2000), real yield curve (2003) and real long-term
+rates (2000), one feed per data set and calendar year. The page documents the feed for programmatic GET requests with
+paging and states no terms; the human certified it as a US federal government work (public domain, 17 U.S.C. §105)
+published as a documented developer feed. Agent-readable. A new year's feeds are added each January.
+"""
+
+[[treasury-yields.terms]]
+host = "home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+url = "https://home.treasury.gov/treasury-daily-interest-rate-xml-feed"
+retrieved = 2026-10-26
+basis = "operator decision"
+quote = """
+The Treasury Daily Interest Rate Feed provides daily interest rate data in Extensible Markup Language (XML). Our data
+feed accepts GET requests, returns XML responses, and uses standard HTTP response codes."""
+notes = """
+Human decision of 2026-10-26 (audit/decisions.md): a US federal government work in the public domain, published as a
+documented developer feed; the page states no terms of use."""
+retrieval = true
+
 [hyperliquid-archive]
 description = '''
 # Hyperliquid's requester-pays S3 archives (surveyed 2026-10-26; nothing fetched beyond the survey)
