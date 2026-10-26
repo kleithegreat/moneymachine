@@ -225,29 +225,62 @@ structure Ledger where
 /-- A stored cell of a row, by column. -/
 def cellOf (row : Int × List (String × String)) (col : String) : Option String := (row.2.find? (·.1 == col)).map (·.2)
 
+/-- Two stores agree on the control columns of the requested datasets: the same rows, event times and control cells,
+whatever their value cells. -/
+def Stored.sameControls (reg : Registry) (req : List Nat) (a b : Stored) : Prop :=
+  ∀ s ∈ req, (a.rows s).length = (b.rows s).length ∧ ∀ i < (a.rows s).length,
+    ((a.rows s)[i]!).1 = ((b.rows s)[i]!).1 ∧
+    ∀ col ∈ (reg.decls[s]!).controls, cellOf (a.rows s)[i]! col = cellOf (b.rows s)[i]! col
+
+/-- Two observations of the same shape: declaration, coin, key, slot, knownAt, value count and role kind. -/
+def Obs.sameShape {α : Type} (a b : Obs α) : Bool :=
+  let kind (r : Option (RolePayload α)) : Nat := match r with | none => 0 | some (.bar ..) => 1 | some (.rate _) => 2
+  a.source == b.source && a.coin == b.coin && a.key == b.key && a.slot == b.slot && a.known == b.known &&
+  a.vals.size == b.vals.size && kind a.role == kind b.role
+
+/-- The role columns' stored names of a declaration for one role, in SOURCES.md §6's order. -/
+def Decl.roleCols (d : Decl) (role : Role) : List String :=
+  ((d.roles.find? (·.1 == role)).map (·.2.map (·.2))).getD []
+
 /-- The trusted admission boundary (laws-v2-draft.md §1): what the implementation guarantees outside the model, and
 the laws' safety statements assume. Its parameters are the external semantics the obligations refer to: `knownAt`,
-RULES.md §6's effective availability of a stored row (checked by the C7.6 suite); `value`, a cell's parse; `coinOf`,
-the entity mapping; `hash`, the certificate payload hash; `policy` and `verifier`, the build-pinned hashes; and the
+RULES.md §6's effective availability of a stored row (checked by the C7.6 suite); `value`, `integer` and `time`, a
+cell's parse as a number, a count and a timestamp; `coinOf`, the entity mapping; `hash`, the certificate payload hash; `policy` and `verifier`, the build-pinned hashes; and the
 frozen holdout configuration. Grants authorize the use of values in a run; decoding a bound dataset's rows during
 resolution is authorized by its valid, matching certificate (laws-v2-draft.md §1). The staging obligations (`rows`
 opening only the event-time column, `resolve` only bound datasets) are tested, §2 rows 17 and 18. A provider's
 venue-state attestation is the verifier's, authenticated through `ids` and `issued`. -/
 structure Trusted {α : Type} (knownAt : Stored → Nat → (Int × List (String × String)) → Int) (value : String → Option α)
-    (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash) (holdout : List Hash)
+    (integer time : String → Option Int) (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash) (holdout : List Hash)
     (holdoutStart : Int) (reg : Registry) (resolver : Stored → List Nat → Array (Obs α)) (st : Stored) (led : Ledger)
     (adm : Meta) (ld : Loader α) : Prop where
   rows : ∀ req, ld.rows req = req.flatMap fun s => (st.rows s).map fun r => (s, r.1)
   resolve : ∀ req, ld.resolve req = resolver st req
   /-- The resolver reads only the requested datasets. -/
   confined : ∀ req (st' : Stored), (∀ s ∈ req, st'.rows s = st.rows s) → resolver st' req = resolver st req
-  /-- Every observation comes from a stored row of its own requested declaration: its key, entity, values, role
-  payload and knownAt are that row's. -/
+  /-- Every observation comes from a stored row of its own requested declaration: its key, entity, slot, values,
+  role payload and knownAt are that row's. -/
   provenance : ∀ req, ∀ o ∈ (resolver st req).toList, o.source ∈ req ∧ ∃ row ∈ st.rows o.source,
-    row.1 = o.key ∧ (cellOf row (reg.decls[o.source]!).entityColumn).bind coinOf = some o.coin ∧
+    let d := reg.decls[o.source]!
+    let num (col : String) : Option α := (cellOf row col).bind value
+    row.1 = o.key ∧ (cellOf row d.entityColumn).bind coinOf = some o.coin ∧
+    o.slot = d.slotColumn.bind (fun col => (cellOf row col).bind time) ∧
     o.known = knownAt st o.source row ∧
-    o.vals.toList = (reg.decls[o.source]!).fields.toList.map (fun f => (cellOf row f.2.1).bind value) ∧
-    ∀ r ∈ (reg.decls[o.source]!).roles, ∀ col ∈ r.2, o.role.isSome → ((cellOf row col.2).bind value).isSome
+    o.vals.toList = d.fields.toList.map (fun f => num f.2.1) ∧
+    (match o.role with
+     | none => True
+     | some (.bar op h l c t) => match d.roleCols .bars with
+       | [co, ch, cl, cc, ct] => num co = some op ∧ num ch = some h ∧ num cl = some l ∧ num cc = some c ∧
+           (cellOf row ct).bind integer = some t
+       | _ => False
+     | some (.rate x) => match d.roleCols .settlement with
+       | [cr] => num cr = some x
+       | _ => False)
+  /-- Which rows the resolver selects, how many and in what order, and each one's key, slot, knownAt, coin and role
+  kind, depend on the requested datasets' control columns only, never on a value cell. -/
+  controlsOnly : ∀ req (st' : Stored), Stored.sameControls reg req st st' →
+    (resolver st' req).size = (resolver st req).size ∧
+    ∀ i < (resolver st req).size, ((resolver st' req)[i]!).sameShape (resolver st req)[i]! = true
   identity : ∀ s b, adm.bindings s = some b → b.dataset = st.identity s
   ids : ∀ k ∈ adm.certs, k.id = hash k
   issued : ∀ k ∈ adm.certs, k ∈ led.issued

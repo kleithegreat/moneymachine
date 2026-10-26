@@ -1,4 +1,4 @@
-# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 8)
+# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 9)
 
 C7.7 requires the Lean semantics to be parameterized by validated declarations and bindings; every stage 6 law to keep
 its guarantee for every admitted declaration, held and event cadences included; each law whose definitions change to
@@ -14,8 +14,8 @@ until the statements are frozen). This document keeps the design, the attacks, t
 ledger; it does not restate the Lean.
 
 Reviews: four fresh-context Opus reviews while GPT was unavailable (`laws-review-opus-1.md` to `-4.md`) and GPT's
-three (`laws-review-gpt-1.md` on revision 5, `-2.md` on revision 6's Lean, `-3.md` on revision 7's). §4 records
-every finding of the last five, its answer, and whether it could change a false-discovery or leakage outcome
+four (`laws-review-gpt-1.md` on revision 5, `-2.md` to `-4.md` on revisions 6 to 8's Lean). §4 records every
+finding of the last six, its answer, and whether it could change a false-discovery or leakage outcome
 (CLAUDE.md, rule 3).
 
 ## 1. The design, from what the semantics reads
@@ -43,8 +43,9 @@ every finding of the last five, its answer, and whether it could change a false-
   admission (version 1's structural conditions, no value read) and scope, then evaluation.
 - **The trusted boundary is a Lean structure.** `Trusted` names what the implementation guarantees outside the model:
   `rows` is the complete event-time inventory of the requested datasets; the resolver reads only the requested
-  datasets, and each observation comes from a stored row of its own declaration with that row's key, entity, field
-  values, role cells and RULES.md §6 knownAt; bindings name the bytes' content identities; certificate ids are payload
+  datasets; which rows it selects, how many, in what order and with what keys, slots, knownAt, coins and role kinds
+  depends on control columns only; and each observation comes from a stored row of its own declaration with that
+  row's key, entity, slot, field values, role payload and RULES.md §6 knownAt; bindings name the bytes' content identities; certificate ids are payload
   hashes of issued certificates; supersessions and the admission position are the ledger's current ones; policy and
   verifier are the build-pinned hashes; the holdout configuration is the frozen one. L5_certified states what an
   admitted run guarantees under it. `mm` discharges it by content hashing, the C7.6 resolver suite, the ledger's
@@ -52,8 +53,9 @@ every finding of the last five, its answer, and whether it could change a false-
   verifier's claim, authenticated as issued; its truth is the verifier's live-test obligation.
 - **What grants authorize.** Grants authorize the use of values in a run: every value of an observation the run
   reads, from its first read. Decoding a bound dataset's rows during resolution is authorized by its valid, matching
-  certificate (the kernel-only boundary's deterministic processing); a decoded value no read observation carries
-  influences nothing (L5_shape: admission reads no value).
+  certificate (the kernel-only boundary's deterministic processing), and resolution may not select by a value
+  (`Trusted.controlsOnly`): so a value reaches a run only as a read observation's value, which grants cover, and
+  never decides admission (`L5_controls`).
 
 ## 2. C7.7's named attacks: the law and the named `mm` test that catch each
 
@@ -155,11 +157,15 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 
 | GPT-3 B1 resolver obligations unstated | leakage | `Trusted.confined` (reads only requested datasets) and `Trusted.provenance` (row, entity, values, role cells, RULES.md §6 knownAt) |
 | GPT-3 B2 admission position and policy unauthenticated | leakage | `Trusted.position` (the ledger's current position) and `Trusted.pinned`; `L5_certified` concludes them |
-| GPT-3 B3 decoded payloads without access | no (a decoded value no read observation carries influences no output) | recorded: grants authorize use, binding authorizes decoding (§1) |
+| GPT-3 B3 decoded payloads without access | leakage (GPT-4: a resolver selecting by an ungranted value changes outputs) | `Trusted.controlsOnly` (selection, multiplicity, order and shape from control columns only) and `L5_controls` |
 | GPT-3 L6 narrower than version 1 | no | `L6_bounded` for every evaluation, and for every run |
 | GPT-3 documentary inconsistencies | no | fixed (§1, §3, this table) |
 
-Recorded limitations, none able to change a false-discovery or leakage outcome: decoding during resolution is
-authorized by the binding, not by grants (GPT-3 B3); a provider's venue-state attestation is the verifier's claim; `maxKnown` (a fill's `inputsKnown`)
+| GPT-4 provenance leaves role payloads and slots unbound | leakage | `Trusted.provenance` binds every role component (trade count included) and the slot to their stored cells |
+| GPT-4 B3 argument fails (selection by ungranted values) | leakage | as GPT-3 B3 above |
+| GPT-4: B2 closed, L6 restored, no false law | — | — |
+
+Recorded limitations, none able to change a false-discovery or leakage outcome: a provider's venue-state attestation
+is the verifier's claim; `maxKnown` (a fill's `inputsKnown`)
 may reflect a delivered event observation of a pre-window slot, a trace timestamp only; listing intervals from the
 venue-rules artifact (above); a held value's use is counted through `useEnd` even after replacement (safe direction).

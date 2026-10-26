@@ -201,11 +201,12 @@ datasets' stored rows, each observation from a stored row of its declaration wit
 required dataset is named by an issued, current certificate under the pinned policy and verifier; and a search run's
 required datasets are no holdout dataset and hold no stored row at or after the holdout start. -/
 theorem L5_certified (N : NumOps α) (knownAt : Stored → Nat → (Int × List (String × String)) → Int)
-    (value : String → Option α) (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash)
+    (value : String → Option α) (integer time : String → Option Int) (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash)
     (holdout : List Hash) (holdoutStart : Int) (resolver : Stored → List Nat → Array (Obs α)) (st : Stored)
     (led : Ledger) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α)
     (pol : Policy) (stop : Int) (mode : Mode)
-    (hT : Trusted knownAt value coinOf hash policy verifier holdout holdoutStart reg resolver st led adm ld) (r : Run α)
+    (hT : Trusted knownAt value integer time coinOf hash policy verifier holdout holdoutStart reg resolver st led adm ld)
+    (r : Run α)
     (h : run N reg roles text adm ld v pol stop mode = .ok r) :
     ∃ p, check reg.inputs text = .ok p ∧
       (Ctx.make reg roles p adm (resolver st (adm.required reg roles p)) v pol stop (adm.required reg roles p)).evaluate N = .ok r ∧
@@ -213,6 +214,20 @@ theorem L5_certified (N : NumOps α) (knownAt : Stored → Nat → (Int × List 
         k.manifest = st.identity s ∧ k.policy = policy ∧ k.verifier = verifier ∧
         !(led.supersessions.any fun (x, pos) => x == k.id && decide (pos ≤ led.position)) ∧
         (mode = .search → st.identity s ∉ holdout ∧ ∀ row ∈ st.rows s, row.1 < holdoutStart) := by
+  sorry
+
+/-- Under the trusted boundary, value cells never decide admission: two stores that agree on the requested datasets'
+control columns (rows, event times, control cells), admitted under the same metadata, fail at the same check or at
+none. -/
+theorem L5_controls (knownAt : Stored → Nat → (Int × List (String × String)) → Int) (value : String → Option α)
+    (integer time : String → Option Int) (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash)
+    (holdout : List Hash) (holdoutStart : Int) (resolver : Stored → List Nat → Array (Obs α)) (st₁ st₂ : Stored)
+    (led : Ledger) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld₁ ld₂ : Loader α) (v : Venue α)
+    (pol : Policy) (stop : Int) (mode : Mode)
+    (_ : Trusted knownAt value integer time coinOf hash policy verifier holdout holdoutStart reg resolver st₁ led adm ld₁)
+    (_ : Trusted knownAt value integer time coinOf hash policy verifier holdout holdoutStart reg resolver st₂ led adm ld₂)
+    (hC : ∀ req, Stored.sameControls reg req st₁ st₂) :
+    firstFailure reg roles text adm ld₁ v pol stop mode = firstFailure reg roles text adm ld₂ v pol stop mode := by
   sorry
 
 /-! ## L6 bounded loss -/

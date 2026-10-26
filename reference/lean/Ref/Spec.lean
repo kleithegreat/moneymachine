@@ -224,13 +224,6 @@ def firstFailure (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (
   if !c.admissible then some (6, .binding) else
   if !c.inScope then some (7, .uncertified) else none
 
-/-- Two observations that differ at most in their values: the same declaration, coin, key, slot and knownAt, as
-many values, and role payloads of the same kind. -/
-def Obs.sameShape (a b : Obs α) : Bool :=
-  let kind (r : Option (RolePayload α)) : Nat := match r with | none => 0 | some (.bar ..) => 1 | some (.rate _) => 2
-  a.source == b.source && a.coin == b.coin && a.key == b.key && a.slot == b.slot && a.known == b.known &&
-  a.vals.size == b.vals.size && kind a.role == kind b.role
-
 /-- `{"input": name}` occurs in the program text's weight, in any let's body (used or not), or in the prediction's
 condition, at any depth of the expression grammar (DSL.md). -/
 partial def Json.Value.mentions (name : String) : Json.Value → Bool
