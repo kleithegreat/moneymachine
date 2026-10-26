@@ -1,0 +1,13 @@
+ INFO nix-installer v3.24.1
+ INFO nix-installer v3.24.1
+ INFO Step: Create directory `/nix`
+ INFO Step: Install Determinate Nixd
+ INFO Step: Provision Nix
+ INFO Step: Create build users (UID 30001-30032) and group (GID 30000)
+ INFO Step: Configure Nix
+ INFO Step: Create directory `/etc/tmpfiles.d`
+ INFO Step: Configure the Determinate Nix daemon
+ INFO Step: Cleanup
+ INFO Running self test for shell sh
+ INFO Running self test for shell bash
+ INFO Running self test for shell zsh
