@@ -187,7 +187,7 @@ possible only while subscribed.
 - **Macro and rates:** the signal-study tier is extended with the free sources proposed above, each certified and
   recorded as data-layer work, inspected only for integrity until a class annex is frozen.
 
-## Revision 2026-10-26 22:06 UTC (18:06 EDT): integrity is the frozen list again (GPT review B2)
+## Revision 2026-10-26 22:04 UTC (18:04 EDT): integrity is the frozen list again (GPT review B2)
 
 GPT's review of the revision above (`audit/stage8/manifest-review-gpt.md`) found that its definition of
 **integrity** (adding row counts, key uniqueness, knownAt ordering and missingness counts) relaxes the frozen
