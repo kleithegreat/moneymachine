@@ -49,6 +49,9 @@ structure Policy where
   delta : Int
   wStart : Int
 
+/-- The tick offset is inside the hour. -/
+def Policy.valid (pol : Policy) : Bool := 0 < pol.delta && pol.delta < HOUR
+
 structure Run (α : Type) where
   trace : Array (Event α)
   returns : Array α
@@ -428,23 +431,19 @@ def Ctx.lastTick (c : Ctx α) : Int := c.pol.wStart + (c.bounds.length : Int) * 
 /-- The end of every use interval: `stop`, or past the first tick, which `start` always runs. -/
 def Ctx.useEnd (c : Ctx α) : Int := max c.stop (c.firstTick + 1)
 
-/-- Run admission on resolved observations (R_BINDING), laws-v2-draft.md §5. -/
+/-- Run admission on resolved observations (R_BINDING), version 1's structural conditions (laws-v2-draft.md §5):
+keys unique; declaration and coin in range; one value per field; a role payload exactly on the providers' records,
+of the provider's kind; a slot exactly on event sources' records. It reads no value. -/
 def Ctx.admissible (c : Ctx α) : Bool :=
   let keys := c.obs.toList.map fun o => (o.source, o.coin, o.key)
-  let finite (x : Option α) : Bool := x.all N.finite
   let roleOk (o : Obs α) : Bool := match o.role with
     | none => o.source != c.roles.bars && o.source != c.roles.settlement
-    | some (.bar op h l cl _) => o.source == c.roles.bars && N.finite op && N.finite h && N.finite l && N.finite cl &&
-        (o.key - BAR) % BAR == 0
-    | some (.rate x) => o.source == c.roles.settlement && N.finite x
-  let d (o : Obs α) := c.reg.decls[o.source]!
+    | some (.bar ..) => o.source == c.roles.bars
+    | some (.rate _) => o.source == c.roles.settlement
   keys.eraseDups.length == keys.length &&
   c.obs.all fun o =>
-    o.source < c.reg.decls.size && o.coin < c.coins && o.vals.size == (d o).fields.size && o.vals.all finite &&
-    roleOk o &&
-    (if (d o).cadence == .event then o.slot.any (· % HOUR == 0) else o.slot.isNone) &&
-    (c.obs.filter fun o' => o'.source == o.source && o'.coin == o.coin && o'.slot.isSome && o'.slot == o.slot).size ≤ 1 &&
-    o.lineage.all fun (u, _, _) => u ∈ c.reg.closure c.reg.decls.size (d o).depends
+    o.source < c.reg.decls.size && o.coin < c.coins && o.vals.size == (c.reg.decls[o.source]!).fields.size &&
+    roleOk o && ((c.reg.decls[o.source]!).cadence == .event) == o.slot.isSome
 
 /-- When the run first reads an observation: from delivery (or the first tick, for one carried in), or from
 execution's read of a role record by open or event time, whichever is earlier and before `useEnd`. -/
@@ -460,29 +459,37 @@ def Ctx.readFrom (c : Ctx α) (o : Obs α) : Option Int :=
   | none, some b => some (max b c.firstTick)
   | none, none => none
 
-/-- Every column the run reads, with its use interval: each read observation's columns, and its lineage records'. -/
+/-- Every value column the run uses, with its use interval: each read observation's value columns from its first
+read to `useEnd`. Control columns are authorized by the certificates' `controls` (stage 1). -/
 def Ctx.accesses (c : Ctx α) : List (Nat × Access) :=
   c.obs.toList.flatMap fun o => match c.readFrom o with
     | none => []
-    | some t =>
-      ((c.reg.decls[o.source]!).columns.map fun col => (o.source, ⟨o.coin, col, o.key, (t, c.useEnd)⟩)) ++
-      o.lineage.flatMap fun (u, coin, key) =>
-        (c.reg.decls[u]!).lineageColumns.map fun col => (u, ⟨coin, col, key, (t, c.useEnd)⟩)
+    | some t => (c.reg.decls[o.source]!).values.map fun col => (o.source, ⟨o.coin, col, o.key, (t, c.useEnd)⟩)
 
 def Ctx.inScope (c : Ctx α) : Bool :=
   c.accesses.all fun (s, x) => match c.adm.bindings s with
     | none => false
     | some b => (c.adm.cert b.cert).any fun k => k.grants.any (·.covers x)
 
-/-- The run (laws-v2-draft.md §4): metadata checks, I8 on event times, resolution, run admission, scope, then
-evaluation. -/
-def run (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
-    (stop : Int) (mode : Mode) : Except Abort (Run α) := do
+/-- Admission (laws-v2-draft.md §4): metadata checks, I8 on event times, resolution, run admission and scope. -/
+def admit (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
+    (stop : Int) (mode : Mode) : Except Abort (Ctx α) := do
   let req ← stage1 reg roles p adm mode
   stage2 adm mode (ld.rows req)
   let c := Ctx.make reg roles p adm (ld.resolve req) v pol stop req
-  if !c.admissible N then throw .binding
+  if !c.admissible then throw .binding
   if !c.inScope then throw .uncertified
-  c.evaluate N
+  return c
+
+def runProgram (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α)
+    (pol : Policy) (stop : Int) (mode : Mode) : Except Abort (Run α) := do
+  (← admit reg roles p adm ld v pol stop mode).evaluate N
+
+/-- The run from the program's text: a valid registry and policy, the checker, admission, evaluation. -/
+def run (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
+    (stop : Int) (mode : Mode) : Except Abort (Run α) := do
+  if !reg.valid || !pol.valid then throw .invalid
+  let p ← (check reg.inputs text).mapError fun _ => .invalid
+  runProgram N reg roles p adm ld v pol stop mode
 
 end Ref

@@ -61,8 +61,7 @@ structure Venue.Valid (v : Venue α) (coins : Nat) : Prop where
   sizes : v.szDecimals.size = coins ∧ v.minTierLeverage.size = coins ∧ v.costBps.size = coins
   cells : ∀ c < coins, v.costBps[c]!.size = 2 ∧ ∀ s < 2, v.costBps[c]![s]!.size = 2
 
-structure Policy.Valid (pol : Policy) : Prop where
-  delta : 0 < pol.delta ∧ pol.delta < HOUR
+def Policy.Valid (pol : Policy) : Prop := pol.valid = true
 
 /-! ## The machine's schedule, alone and instrumented -/
 
@@ -203,33 +202,34 @@ structure NumOps.Bounded (N : NumOps α) : Prop where
 
 /-! ## L5 binding and admission (stage 7) -/
 
-/-- The admission checks of `run` in order, by position: 1 roles, 2 unbound, 3 holdout by identity, 4 uncertified
-(validity and matching), 5 holdout by event time, 6 run admission, 7 scope. The first that fails, with its code. -/
-def firstFailure (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α)
+/-- The admission checks of `run` in order, by position: 0 registry, policy and program text (R_INVALID), 1 roles,
+2 unbound, 3 holdout by identity, 4 uncertified (validity and matching), 5 holdout by event time, 6 run admission,
+7 scope. The first that fails, with its code; `none` when all pass. -/
+def firstFailure (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α)
     (pol : Policy) (stop : Int) (mode : Mode) : Option (Nat × Abort) :=
+  if !reg.valid || !pol.valid then some (0, .invalid) else
+  match check reg.inputs text with
+  | .error _ => some (0, .invalid)
+  | .ok p =>
   if !roles.valid reg then some (1, .roles) else
   let req := adm.required reg roles p
   if !req.all (fun s => (adm.bindings s).isSome) then some (2, .inputUnavailable) else
   if mode == .search && !req.all (fun s => (adm.bindings s).all (!adm.holdout.contains ·.dataset)) then some (3, .holdout) else
   if !req.all (fun s => match adm.bindings s with
       | none => false
-      | some b => (adm.cert b.cert).any fun k => adm.valid adm.certs.length b.cert && adm.matches reg s b k) then
+      | some b => (adm.cert b.cert).any fun k => adm.valid adm.certs.length b.cert && adm.matches reg roles s b k) then
     some (4, .uncertified) else
   if mode == .search && !(ld.rows req).all (fun r => decide (r.2 < adm.holdoutStart)) then some (5, .holdout) else
   let c := Ctx.make reg roles p adm (ld.resolve req) v pol stop req
-  if !c.admissible N then some (6, .binding) else
+  if !c.admissible then some (6, .binding) else
   if !c.inScope then some (7, .uncertified) else none
 
-/-- Two observations that differ at most in their values: the same declaration, coin, key, slot, knownAt and
-lineage, values null and finite in the same places, and role payloads of the same kind and finiteness. -/
-def Obs.sameShape (N : NumOps α) (a b : Obs α) : Bool :=
-  let flags (x : Option α) : Bool × Bool := (x.isSome, x.all N.finite)
-  let role (r : Option (RolePayload α)) : Option (Bool × Int) := match r with
-    | none => none
-    | some (.bar o h l c t) => some (N.finite o && N.finite h && N.finite l && N.finite c, t)
-    | some (.rate x) => some (N.finite x, -1)
+/-- Two observations that differ at most in their values: the same declaration, coin, key, slot and knownAt, as
+many values, and role payloads of the same kind. -/
+def Obs.sameShape (a b : Obs α) : Bool :=
+  let kind (r : Option (RolePayload α)) : Nat := match r with | none => 0 | some (.bar ..) => 1 | some (.rate _) => 2
   a.source == b.source && a.coin == b.coin && a.key == b.key && a.slot == b.slot && a.known == b.known &&
-  a.lineage == b.lineage && a.vals.toList.map flags == b.vals.toList.map flags && role a.role == role b.role
+  a.vals.size == b.vals.size && kind a.role == kind b.role
 
 /-- `{"input": name}` occurs in the program text's weight, in any let's body (used or not), or in the prediction's
 condition, at any depth of the expression grammar (DSL.md). -/

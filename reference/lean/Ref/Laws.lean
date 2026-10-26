@@ -4,9 +4,10 @@ import Ref.Spec
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
 their revisions, C7.7). Each holds for every number structure `N`, every valid registry and roles, every admission
 metadata and every admissible array of resolved observations; L3's obligations and L6's are explicit hypotheses, as
-in version 1. The link from certified bytes to observations (`Loader.Faithful`, the draft's §3) is the trusted
-boundary outside the model: quantifying over every admissible observation array is the stronger statement. These
-statements are reviewed and frozen before any proof; `sorry` marks proofs not yet written.
+in version 1. The machine and simulator laws quantify over every admissible observation array; the binding laws
+state what admission checks, and `L5_certified` what an admitted run guarantees under the trusted boundary
+(`Trusted`, Source.lean), whose obligations the implementation discharges outside the model. These statements are
+reviewed and frozen before any proof; `sorry` marks proofs not yet written.
 -/
 
 namespace Ref
@@ -20,8 +21,8 @@ at every tick through t. -/
 theorem L1_values (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
     (_ : roles.valid reg = true) (adm : Meta) (obs₁ obs₂ : Array (Obs α)) (v : Venue α) (pol : Policy)
     (_ : pol.Valid) (stop : Int) (req : List Nat) (n : Nat)
-    (_ : (Ctx.make reg roles p adm obs₁ v pol stop req).admissible N = true)
-    (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible N = true)
+    (_ : (Ctx.make reg roles p adm obs₁ v pol stop req).admissible = true)
+    (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible = true)
     (hP : (Ctx.make reg roles p adm obs₁ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
         = (Ctx.make reg roles p adm obs₂ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
     ∀ k ≤ n, (Ctx.make reg roles p adm obs₁ v pol stop req).machineAfter N k
@@ -31,7 +32,7 @@ theorem L1_values (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program)
 /-- The simulator's machine is that schedule: after j steps, it is the machine after the tick at wStart + 4j·HOUR. -/
 theorem L1_simulator (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
     (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (pol : Policy) (_ : pol.Valid)
-    (stop : Int) (req : List Nat) (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true)
+    (stop : Int) (req : List Nat) (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible = true)
     (j : Nat) (s : SState α) (hj : j ≤ (Ctx.make reg roles p adm obs v pol stop req).bounds.length)
     (h : (Ctx.make reg roles p adm obs v pol stop req).steps N j = .ok s) :
     (Ctx.make reg roles p adm obs v pol stop req).machineAfter N (4 * j) = .ok s.machine := by
@@ -42,8 +43,8 @@ step through it: the same trace, or the same rejection. -/
 theorem L1_decisions (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
     (_ : roles.valid reg = true) (adm : Meta) (obs₁ obs₂ : Array (Obs α)) (v : Venue α)
     (_ : v.Valid adm.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat) (k : Nat)
-    (_ : (Ctx.make reg roles p adm obs₁ v pol stop req).admissible N = true)
-    (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible N = true)
+    (_ : (Ctx.make reg roles p adm obs₁ v pol stop req).admissible = true)
+    (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible = true)
     (hP : (Ctx.make reg roles p adm obs₁ v pol stop req).deliveryPrefix ((Ctx.make reg roles p adm obs₁ v pol stop req).decisionTime k)
         = (Ctx.make reg roles p adm obs₂ v pol stop req).deliveryPrefix ((Ctx.make reg roles p adm obs₂ v pol stop req).decisionTime k))
     (hE : (Ctx.make reg roles p adm obs₁ v pol stop req).execView ((Ctx.make reg roles p adm obs₁ v pol stop req).decisionTime k)
@@ -59,7 +60,7 @@ booleans are canonical, and erasing the tags gives the executable machine's valu
 rejection). -/
 theorem L2_units (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
     (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (pol : Policy) (_ : pol.Valid)
-    (stop : Int) (req : List Nat) (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true) (n : Nat) :
+    (stop : Int) (req : List Nat) (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible = true) (n : Nat) :
     let c := Ctx.make reg roles p adm obs v pol stop req
     (∀ e, c.umachineAfter N n ≠ .error (.inr e)) ∧
     (∀ a, c.umachineAfter N n = .error (.inl a) ↔ c.machineAfter N n = .error a) ∧
@@ -82,7 +83,7 @@ or the same rejection); hence the whole run, admission included. -/
 theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (reg : Registry) (roles : Roles) (p p' : Program)
     (i : Nat) (_ : p.WF reg) (h : r.apply p i = some p') (adm : Meta) (obs : Array (Obs α)) (v : Venue α)
     (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
-    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true) :
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible = true) :
     p'.WF reg ∧ (∀ s, s ∈ p'.sources ↔ s ∈ p.sources) ∧
     (∀ n, ((Ctx.make reg roles p' adm obs v pol stop req).machineAfter N n).isOk
         = ((Ctx.make reg roles p adm obs v pol stop req).machineAfter N n).isOk ∧
@@ -91,7 +92,8 @@ theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (reg : Registry) (
         ∀ k < p.nodes.size, ms'.vals[r.corr i k]! = ms.vals[k]!) ∧
     (∀ j, ((Ctx.make reg roles p' adm obs v pol stop req).steps N j).map (·.trace)
         = ((Ctx.make reg roles p adm obs v pol stop req).steps N j).map (·.trace)) ∧
-    ∀ (ld : Loader α) (mode : Mode), run N reg roles p' adm ld v pol stop mode = run N reg roles p adm ld v pol stop mode := by
+    ∀ (ld : Loader α) (mode : Mode),
+      runProgram N reg roles p' adm ld v pol stop mode = runProgram N reg roles p adm ld v pol stop mode := by
   sorry
 
 /-! ## L4 fill ordering -/
@@ -103,7 +105,7 @@ extreme for a liquidation, the close for a delisting. -/
 theorem L4_fills (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
     (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (_ : v.Valid adm.intervals.size)
     (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
-    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true)
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible = true)
     (r : Run α) (hr : (Ctx.make reg roles p adm obs v pol stop req).evaluate N = .ok r) :
     let c := Ctx.make reg roles p adm obs v pol stop req
     ∀ f, Event.fill f ∈ r.trace.toList →
@@ -127,7 +129,7 @@ resolves. -/
 theorem L4_orders (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
     (_ : roles.valid reg = true) (adm : Meta) (obs : Array (Obs α)) (v : Venue α) (_ : v.Valid adm.intervals.size)
     (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
-    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true)
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible = true)
     (r : Run α) (hr : (Ctx.make reg roles p adm obs v pol stop req).evaluate N = .ok r) :
     let c := Ctx.make reg roles p adm obs v pol stop req
     let resolves (t : Int) (coin : Nat) (q : α) (e : Event α) : Prop :=
@@ -148,56 +150,74 @@ theorem L4_orders (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program)
 
 /-! ## L5 binding and admission -/
 
-/-- A run that produces output passed every admission check: metadata, event times, run admission and scope. -/
-theorem L5_admitted (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α)
+/-- A run that produces output passed every admission check: a valid registry and policy, the checker, metadata,
+event times, run admission and scope. -/
+theorem L5_admitted (N : NumOps α) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α)
     (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) (r : Run α)
-    (h : run N reg roles p adm ld v pol stop mode = .ok r) :
-    ∃ req, stage1 reg roles p adm mode = .ok req ∧ stage2 adm mode (ld.rows req) = .ok () ∧
-      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).admissible N = true ∧
-      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).inScope = true := by
+    (h : run N reg roles text adm ld v pol stop mode = .ok r) :
+    reg.Valid ∧ pol.Valid ∧ ∃ p req, check reg.inputs text = .ok p ∧ stage1 reg roles p adm mode = .ok req ∧
+      stage2 adm mode (ld.rows req) = .ok () ∧
+      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).admissible = true ∧
+      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).inScope = true ∧
+      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).evaluate N = .ok r := by
   sorry
 
-/-- The run refuses with the first failing check's code, in the order of `firstFailure`; with none failing it is
-the evaluation. -/
-theorem L5_order (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α)
+/-- The run refuses with the first failing admission check's code, in the order of `firstFailure`; with none
+failing it is the evaluation of the checked program on the resolved observations. -/
+theorem L5_order (N : NumOps α) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α)
     (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) :
-    (∀ k e, firstFailure N reg roles p adm ld v pol stop mode = some (k, e) → run N reg roles p adm ld v pol stop mode = .error e) ∧
-    (firstFailure N reg roles p adm ld v pol stop mode = none →
-      run N reg roles p adm ld v pol stop mode
+    (∀ k e, firstFailure reg roles text adm ld v pol stop mode = some (k, e) →
+      run N reg roles text adm ld v pol stop mode = .error e) ∧
+    (firstFailure reg roles text adm ld v pol stop mode = none →
+      ∃ p, check reg.inputs text = .ok p ∧ run N reg roles text adm ld v pol stop mode
         = (Ctx.make reg roles p adm (ld.resolve (adm.required reg roles p)) v pol stop (adm.required reg roles p)).evaluate N) := by
   sorry
 
 /-- The checks before resolution read no observation: two loaders with the same event-time rows fail at the same
-check among positions 1 to 5, or at none of them. -/
-theorem L5_staged (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld₁ ld₂ : Loader α)
-    (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows) :
-    (firstFailure N reg roles p adm ld₁ v pol stop mode).filter (·.1 ≤ 5)
-      = (firstFailure N reg roles p adm ld₂ v pol stop mode).filter (·.1 ≤ 5) := by
+check among positions 0 to 5, or at none of them. -/
+theorem L5_staged (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld₁ ld₂ : Loader α) (v : Venue α)
+    (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows) :
+    (firstFailure reg roles text adm ld₁ v pol stop mode).filter (·.1 ≤ 5)
+      = (firstFailure reg roles text adm ld₂ v pol stop mode).filter (·.1 ≤ 5) := by
   sorry
 
 /-- The checks after resolution never read an observation's values: resolutions of the same shape (the same keys,
-slots, knownAt, coins and lineage, with values null and finite in the same places) fail at the same check, or at
-none. -/
-theorem L5_shape (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld₁ ld₂ : Loader α)
-    (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows)
+slots, knownAt, coins, value counts and role kinds) fail at the same check, or at none. -/
+theorem L5_shape (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld₁ ld₂ : Loader α) (v : Venue α)
+    (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows)
     (hS : ∀ req, (ld₁.resolve req).size = (ld₂.resolve req).size ∧
-      ∀ i < (ld₁.resolve req).size, ((ld₁.resolve req)[i]!).sameShape N (ld₂.resolve req)[i]! = true) :
-    firstFailure N reg roles p adm ld₁ v pol stop mode = firstFailure N reg roles p adm ld₂ v pol stop mode := by
+      ∀ i < (ld₁.resolve req).size, ((ld₁.resolve req)[i]!).sameShape (ld₂.resolve req)[i]! = true) :
+    firstFailure reg roles text adm ld₁ v pol stop mode = firstFailure reg roles text adm ld₂ v pol stop mode := by
   sorry
 
 /-- Every declaration the program text names, in an unused let or an inactive branch included, is required. -/
-theorem L5_text (reg : Registry) (roles : Roles) (adm : Meta) (text name : String) (p : Program) (inp : Input)
-    (h : check reg.inputs text = .ok p) (hR : InputRef text name) (hN : (name, inp) ∈ reg.inputs.toList) :
+theorem L5_text (reg : Registry) (_ : reg.Valid) (roles : Roles) (adm : Meta) (text name : String) (p : Program)
+    (inp : Input) (h : check reg.inputs text = .ok p) (hR : InputRef text name) (hN : (name, inp) ∈ reg.inputs.toList) :
     inp.source ∈ adm.required reg roles p := by
+  sorry
+
+/-- Under the trusted boundary, an admitted run evaluated the resolver's output on the stored bytes of datasets
+whose content identities its issued certificates name, and a search run opened no holdout dataset and no stored row
+at or after the holdout start. -/
+theorem L5_certified (N : NumOps α) (resolver : Stored → List Nat → Array (Obs α)) (hash : Cert → Hash)
+    (holdout : List Hash) (holdoutStart : Int) (st : Stored) (led : Ledger) (reg : Registry) (roles : Roles)
+    (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode)
+    (hT : Trusted resolver hash holdout holdoutStart st led adm ld) (r : Run α)
+    (h : run N reg roles text adm ld v pol stop mode = .ok r) :
+    ∃ p, check reg.inputs text = .ok p ∧
+      (Ctx.make reg roles p adm (resolver st (adm.required reg roles p)) v pol stop (adm.required reg roles p)).evaluate N = .ok r ∧
+      ∀ s ∈ adm.required reg roles p, ∃ b k, adm.bindings s = some b ∧ adm.cert b.cert = some k ∧ k ∈ led.issued ∧
+        k.manifest = st.identity s ∧
+        (mode = .search → st.identity s ∉ holdout ∧ ∀ row ∈ st.rows s, row.1 < holdoutStart) := by
   sorry
 
 /-! ## L6 bounded loss -/
 
 /-- Losses are capped at equity: R_BOUND, the check every step return passes before it is recorded (return ≥ −1),
 never fires. -/
-theorem L6_bounded (N : NumOps α) (hB : N.Bounded) (reg : Registry) (roles : Roles) (p : Program) (adm : Meta)
+theorem L6_bounded (N : NumOps α) (hB : N.Bounded) (reg : Registry) (roles : Roles) (text : String) (adm : Meta)
     (ld : Loader α) (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) :
-    run N reg roles p adm ld v pol stop mode ≠ .error .bound := by
+    run N reg roles text adm ld v pol stop mode ≠ .error .bound := by
   sorry
 
 /-! ## L7 input reads -/
@@ -207,7 +227,7 @@ last observation of its declaration and coin delivered by H + δ, if the declara
 source, the same only when that observation's slot is H; otherwise undefined. Never a default. -/
 theorem L7_reads (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : p.WF reg) (adm : Meta)
     (obs : Array (Obs α)) (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (req : List Nat)
-    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible N = true) (n : Nat) (ms : MState α)
+    (_ : (Ctx.make reg roles p adm obs v pol stop req).admissible = true) (n : Nat) (ms : MState α)
     (h : (Ctx.make reg roles p adm obs v pol stop req).machineAfter N n = .ok ms)
     (i : Nat) (hi : i < p.nodes.size) (inp : Input) (hn : p.nodes[i]! = .input inp) (x : Nat)
     (hx : (Ctx.make reg roles p adm obs v pol stop req).listed x (pol.wStart + (n : Int) * HOUR) = true) :
