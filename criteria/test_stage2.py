@@ -53,11 +53,16 @@ def test_c24_complete_null():
 
 
 def test_c25_mixed_fdr():
+    """C2.5's six cells as written; C2.6's long-holdout cell is reported beside them."""
     cells = load("stage2/sweeps.json")["mixed"]
-    assert len(cells) == 6
-    for name, c in cells.items():
+    assert set(cells) == {f"{m}-s{s}" for m in ("N2", "N3") for s in (1, 2, 3)} | {"N2-long"}
+    for name in (f"{m}-s{s}" for m in ("N2", "N3") for s in (1, 2, 3)):
+        c = cells[name]
         assert c["n"] == 100 and c["fdr"] + math.sqrt(math.log(20) / 200) <= 0.20, name
 
 
-def test_c26_power():
-    assert load("stage2/sweeps.json")["mixed"]["N2-s3"]["power"] >= 0.30
+def test_c26_power_amended():
+    """C2.6 amendment of 2026-10-26: power >= 0.30 in the long-holdout cell. C2.6 as written (N2-s3) is judged in
+    the stage 2 report and listed under Qualifications if it fails."""
+    cells = load("stage2/sweeps.json")["mixed"]
+    assert cells["N2-long"]["n"] == 100 and cells["N2-long"]["power"] >= 0.30

@@ -26,6 +26,7 @@ from gate.markets import generate, null_params, store_events, write
 OUT = Path("data/campaigns")
 PLANTED = (0, 1)
 DAYS, HOLDOUT_DAYS = 730, 180
+LONG_DAYS, LONG_HOLDOUT_DAYS, LONG_MEAN, LONG_YEARS = 1450, 900, 0.002, 2  # C2.6's long-holdout cell (amendment of 2026-10-26)
 TRUTH_MARKETS, TRUTH_YEARS = 20, 10
 ORACLE = Path("gate/strategies/oracle.json")
 PER_YEAR = 365 * 6
@@ -77,8 +78,11 @@ def null_specs(markets=300):
 
 
 def mixed_specs(betas, markets=100):
-    return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
-            for i in range(markets)]
+    """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long."""
+    return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
+            for i in range(markets)] + \
+        [spec(f"c25-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
+         for i in range(markets)]
 
 
 def events_specs(events, markets=300):
@@ -100,28 +104,52 @@ def net_returns(program, model, beta, market_id, years):
         return np.frombuffer(blob, "<f8")
 
 
+def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS):
+    """The oracle's per-step net returns over TRUTH_MARKETS fresh markets; `weight` replaces its per-coin weight."""
+    program = json.loads(ORACLE.read_text())
+    if weight is not None:
+        program["weight"]["args"][1]["const"] = weight
+    return np.concatenate([net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years) for i in range(TRUTH_MARKETS)])
+
+
 def oracle_sharpe(model, beta, tag):
     """Annualized net Sharpe of the oracle over TRUTH_MARKETS x TRUTH_YEARS simulated years."""
-    program = json.loads(ORACLE.read_text())
-    r = np.concatenate([net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", TRUTH_YEARS)
-                        for i in range(TRUTH_MARKETS)])
+    r = oracle_returns(model, beta, tag)
     return float(r.mean() / r.std(ddof=1) * np.sqrt(PER_YEAR))
 
 
-def calibrate_beta(model, target, lo=0.0, hi=0.05, steps=12):
-    """Bisection on beta so that the oracle's net Sharpe is `target` (monotone in beta)."""
+def oracle_cap_mean(beta):
+    """Mean net return per step of the oracle at the kernel's gross cap (weight 2.0) on N2, over TRUTH_MARKETS fresh
+    LONG_YEARS-year markets: the long-holdout cell's strength."""
+    return float(oracle_returns("N2", beta, "cal-long", weight=2.0, years=LONG_YEARS).mean())
+
+
+def bisect(f, target, lo, hi, steps):
+    """The point in [lo, hi] where the increasing f reaches target."""
     for _ in range(steps):
         mid = (lo + hi) / 2
-        if oracle_sharpe(model, mid, f"cal{target}") < target:
-            lo = mid
-        else:
-            hi = mid
+        lo, hi = (mid, hi) if f(mid) < target else (lo, mid)
     return (lo + hi) / 2
+
+
+def calibrate_beta(model, target):
+    """Beta for which the oracle's net Sharpe is `target`."""
+    return bisect(lambda b: oracle_sharpe(model, b, f"cal{target}"), target, 0.0, 0.05, 12)
+
+
+CALIBRATIONS = {**{f"{m}-s{s}": partial(calibrate_beta, m, s) for m in ("N2", "N3") for s in (1, 2, 3)},
+                "N2-long": partial(bisect, oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
+
+
+def calibrate(key):
+    return CALIBRATIONS[key]()
 
 
 def betas():
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "betas.json").write_text(json.dumps({f"{m}-{s}": calibrate_beta(m, s) for m in ("N2", "N3") for s in (1, 2, 3)}, indent=1))
+    with Pool(len(CALIBRATIONS)) as pool:
+        values = pool.map(calibrate, list(CALIBRATIONS))
+    (OUT / "betas.json").write_text(json.dumps(dict(zip(CALIBRATIONS, values)), indent=1))
 
 
 def is_true(program, model, beta, tag):
@@ -156,11 +184,11 @@ def truth():
     done = campaign.recorded(path)
     with open(path, "a") as fh:
         for r in results("mixed"):
-            _, model, s, _ = r["id"].split("-")
+            _, model, cell, _ = r["id"].split("-")
             for p in r.get("promoted", []):
                 tid = truth_id(r["id"], p["hash"])
                 if tid not in done:
-                    fh.write(json.dumps({"id": tid, "true": is_true(p["program"], model, beta[f"{model}-{s[1:]}"], tid)}) + "\n")
+                    fh.write(json.dumps({"id": tid, "true": is_true(p["program"], model, beta[f"{model}-{cell}"], tid)}) + "\n")
                     fh.flush()
 
 
