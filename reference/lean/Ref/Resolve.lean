@@ -45,15 +45,16 @@ end
 def Stored.eligible (st : Stored) (s : Nat) (V : Int) (coin : Nat) (event : Int) : List Revision :=
   (st.rows s).filter fun r => r.coin == some coin && r.event == event && decide (r.fetchedAt ≤ V)
 
-/-- The keys of a source within U, in order of first stored appearance. -/
-def Stored.keys (st : Stored) (s : Nat) : List (Nat × Int) :=
-  ((st.rows s).filterMap fun r => r.coin.map (·, r.event)).eraseDups
+/-- The keys of a source within U with an eligible revision, in order of their first eligible stored revision. -/
+def Stored.keys (st : Stored) (s : Nat) (V : Int) : List (Nat × Int) :=
+  ((st.rows s).filterMap fun r => if decide (r.fetchedAt ≤ V) then r.coin.map (·, r.event) else none).eraseDups
 
-/-- A dataset is invalid if two eligible revisions of one key share a fetchedAt (RULES.md §6). -/
+/-- A dataset is invalid if two eligible revisions of one key (entity and event, inside U or not) share a fetchedAt
+(RULES.md §6). -/
 def Stored.validAt (st : Stored) (s : Nat) (V : Int) : Bool :=
-  (st.keys s).all fun (c, e) =>
-    let fs := (st.eligible s V c e).map (·.fetchedAt)
-    fs.eraseDups.length == fs.length
+  let el := (st.rows s).filter fun r => decide (r.fetchedAt ≤ V)
+  let ks := el.map fun r => (r.entity, r.event, r.fetchedAt)
+  ks.eraseDups.length == ks.length
 
 /-- The selected revision of a key: the eligible one with the largest fetchedAt; `none` if no revision is eligible or
 the selected one is a tombstone. With it, the key's earliest eligible revision. -/
@@ -68,10 +69,17 @@ def Stored.select (st : Stored) (s : Nat) (V : Int) (coin : Nat) (event : Int) :
 /-- A column's value as compared for corrections: an absent column is null. -/
 def cellAt (cells : List (String × Cell)) (col : String) : Cell := ((cells.find? (·.1 == col)).map (·.2)).getD .null
 
-/-- The selected revision differs from the key's earliest in some observed column: a correction. -/
-def isCorrection (sel first : Revision) : Bool :=
-  let cols := (sel.cells.map (·.1) ++ first.cells.map (·.1)).eraseDups
-  cols.any fun c => cellAt sel.cells c != cellAt first.cells c
+/-- Equal as values: numbers by value (the two zeros are equal), everything else exactly. -/
+def Cell.sameValue : Cell → Cell → Bool
+  | .num a, .num b => a == b || (a &&& 0x7FFFFFFFFFFFFFFF == 0 && b &&& 0x7FFFFFFFFFFFFFFF == 0)
+  | a, b => a == b
+
+/-- The selected revision differs from the key's earliest in some observed column (the stored columns other than
+`fetchedAt`, `source`, `hash` and the revision and tombstone columns `excluded` names): a correction. -/
+def isCorrection (excluded : List String) (sel first : Revision) : Bool :=
+  let cols := (sel.cells.map (·.1) ++ first.cells.map (·.1)).eraseDups.filter
+    fun c => !(["fetchedAt", "source", "hash"] ++ excluded).contains c
+  cols.any fun c => !(cellAt sel.cells c).sameValue (cellAt first.cells c)
 
 /-- The effective knownAt of a key's selected revision (RULES.md §6): the rule's value on its row (with `fetchedAt`),
 raised to its fetchedAt if it is a correction and to every dependency's latest upstream knownAt plus its delay; a
@@ -81,22 +89,24 @@ def effectiveKnown (reg : Registry) (st : Stored) (V : Int) : Nat → Nat → Na
   | fuel + 1, s, coin, event => do
     let (sel, first) ← st.select s V coin event
     let d := reg.decls[s]!
-    let deps : Except RuleError (List (String × Int)) := d.deps.mapM fun dep =>
+    let times : Except RuleError (List Int) := d.deps.mapM fun dep =>
       let ups := ((sel.upstream.find? (·.1 == dep.name)).map (·.2)).getD []
-      let times := ups.filterMap fun (c, e) => match effectiveKnown reg st V fuel dep.source c e with
+      let ts := ups.filterMap fun (c, e) => match effectiveKnown reg st V fuel dep.source c e with
         | some (.ok t) => some t
         | _ => none
-      match times with
+      match ts with
       | [] => .error .unusable
-      | t :: ts => .ok (dep.name, ts.foldl Max.max t)
+      | t :: rest => .ok (rest.foldl Max.max t)
     return do
-      let ds ← deps
-      let k ← d.rule.eval (sel.cells ++ [("fetchedAt", .int sel.fetchedAt)]) ds
-      let k := if isCorrection sel first then Max.max k sel.fetchedAt else k
-      let k ← d.deps.foldlM (fun k dep => do
-        let t := ((ds.find? (·.1 == dep.name)).map (·.2)).getD k
-        ranged (Max.max k (t + dep.lag))) k
-      ranged k
+      let ts ← times
+      let k ← d.rule.eval (("fetchedAt", .int sel.fetchedAt) :: sel.cells) (d.deps.map (·.name) |>.zip ts)
+      let k ← if isCorrection d.revisionColumns sel first then do
+          let f ← ranged sel.fetchedAt
+          pure (Max.max k f)
+        else pure k
+      (d.deps.zip ts).foldlM (fun k (dep, t) => do
+        let b ← ranged (t + dep.lag)
+        pure (Max.max k b)) k
 
 /-- The resolved observations of the requested datasets at version V: per key with an observation whose rule
 evaluation succeeded, the selected revision's values (`num` parses a cell as a number), slot, role payload and
@@ -106,7 +116,7 @@ def resolveAll {α : Type} (num : Cell → Option α) (reg : Registry) (st : Sto
   if !req.all (st.validAt · V) then none else
   some (req.toArray.flatMap fun s =>
     let d := reg.decls[s]!
-    (st.keys s).toArray.filterMap fun (coin, event) => do
+    (st.keys s V).toArray.filterMap fun (coin, event) => do
       let (sel, _) ← st.select s V coin event
       let .ok known ← effectiveKnown reg st V reg.decls.size s coin event | none
       let cell (col : String) := cellAt sel.cells col
@@ -132,15 +142,21 @@ structure Ledger where
   position : Nat
 
 /-- The trusted admission boundary (laws-v2-draft.md §1): what the implementation guarantees outside the model, and
-the laws' safety statements assume. The loader's inventory is the stored revisions' event times; its resolution is
-`resolveAll` on the stored bytes at the pinned version (`num`, a cell's parse); bindings name the bytes' content
-identities; certificates are issued, their ids their payloads' hashes; supersessions and the admission position are
+the laws' safety statements assume. Declarations are the ones their hashes name, and stored revisions are decoded
+canonically (`declHash` stands for decoding a declaration file); the loader's inventory is the stored revisions'
+event times; its resolution is `resolveAll` on the stored bytes at the pinned version (`num`, a cell's parse);
+bindings name the bytes' content identities; certificates are issued, their ids their payloads' hashes; supersessions and the admission position are
 the ledger's current ones; policy, verifier and holdout are the pinned configuration. The staging obligations
 (`rows` opening only the event-time column) are tested, laws-v2-draft.md §2 rows 17 and 18; a provider's
 venue-state attestation is the verifier's claim, authenticated through `ids` and `issued`. -/
-structure Trusted {α : Type} (num : Cell → Option α) (hash : Cert → Hash) (policy verifier : Hash)
-    (holdout : List Hash) (holdoutStart : Int) (reg : Registry) (st : Stored) (led : Ledger) (adm : Meta)
-    (ld : Loader α) : Prop where
+structure Trusted {α : Type} (num : Cell → Option α) (hash : Cert → Hash) (declHash : Decl → Hash)
+    (policy verifier : Hash) (holdout : List Hash) (holdoutStart : Int) (reg : Registry) (st : Stored) (led : Ledger)
+    (adm : Meta) (ld : Loader α) : Prop where
+  /-- Each declaration, its rule included, is the one its hash names (the declaration file's bytes, decoded). -/
+  decls : ∀ s < reg.decls.size, (reg.decls[s]!).hash = declHash reg.decls[s]!
+  /-- Stored revisions are decoded canonically: column names unique, reserved names absent. -/
+  canonical : ∀ s, ∀ r ∈ st.rows s, (r.cells.map (·.1)).Nodup ∧
+    ∀ c ∈ r.cells.map (·.1), c ∉ ["fetchedAt", "source", "hash"] ++ (reg.decls[s]!).revisionColumns
   rows : ∀ req, ld.rows req = req.flatMap fun s => (st.rows s).map fun r => (s, r.event)
   resolve : ∀ req, ld.resolve req = resolveAll num reg st adm.version req
   identity : ∀ s b, adm.bindings s = some b → b.dataset = st.identity s

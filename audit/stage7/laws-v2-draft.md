@@ -1,4 +1,4 @@
-# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 10)
+# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 11)
 
 C7.7 requires the Lean semantics to be parameterized by validated declarations and bindings; every stage 6 law to keep
 its guarantee for every admitted declaration, held and event cadences included; each law whose definitions change to
@@ -45,7 +45,8 @@ finding of the last six, its answer, and whether it could change a false-discove
 - **Resolution is RULES.md §6, in Lean.** `resolveAll` selects each key's revision by fetchedAt and tombstone alone
   (L8_selection), computes its effective knownAt from the rule, raised by the correction and derivation bounds
   (L8_known: never before what it was resolved from), and builds each observation from the selected revision's cells.
-  A key whose rule evaluation is rejected has no observation; an invalid dataset refuses the run (`R_BINDING`).
+  A key whose rule evaluation is rejected has no observation; an invalid dataset refuses the run (`R_BINDING`); an
+  unchecked rule or a dependency cycle is an invalid registry (`R_INVALID`).
 - **The trusted boundary is a Lean structure, and small.** `Trusted` says the loader's inventory is the stored
   revisions' event times and its resolution is `resolveAll` on the stored bytes at the pinned version; bindings name
   the bytes' content identities; certificates are issued, their ids their payloads' hashes; supersessions and the
@@ -170,6 +171,17 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 
 | GPT-5 selection among revisions by an ungranted value | leakage | the abstract resolver replaced by RULES.md §6 in Lean (`Resolve.lean`): selection by fetchedAt and tombstone per key (L8_selection); `Trusted.controlsOnly` and `provenance` deleted, `Trusted.resolve` is equality with `resolveAll` |
 | GPT-5 selection by a control available later | leakage | per-key resolution; knownAt never before the revisions and upstream records it consults (L8_known) |
+
+| GPT-6 duplicate dependency names; `L8_known` false | false law, leakage | dependency names unique (`Decl.ruleOk`); times bound by position |
+| GPT-6 later tombstones, corrections and unused-column corrections change earlier decisions | leakage | RULES.md §6's snapshot semantics, shared by version 1: a blocker with bitemporal resolution proposed for the human (PROGRESS.md); the statements are not frozen until it is decided |
+| GPT-6 key order from revisions beyond the version | leakage (event tie order) | keys from eligible revisions only |
+| GPT-6 unchecked rules read unauthorized columns | leakage | RULES.md §4 checker in `Registry.valid` (types, declared fields and dependencies, constants, floor periods, max arity, lower-bound set) |
+| GPT-6 `fetchedAt` shadowing, reserved columns in corrections, number equality | leakage (delay) | recorder time first in the row; reserved and revision columns excluded; numbers compared as values; `Trusted.canonical` |
+| GPT-6 invalidity only for keys inside U | no (invalid datasets accepted) | checked over every entity |
+| GPT-6 correction bound's range | no | the fetchedAt bound range-checked on its own |
+| GPT-6 rule bytes not authenticated | leakage | `Trusted.decls` (declarations, rules included, are the ones their hashes name) |
+| GPT-6 R_ROW and JSON-level checks | no | outside the model: canonical decoding is a `Trusted` premise, the JSON layer the C7.6 suite's |
+| GPT-6 partial lineage, diagnostics, multi-role | no | RULES.md's existential "no usable upstream knownAt" kept; recorded |
 
 Recorded limitations, none able to change a false-discovery or leakage outcome: a provider's venue-state attestation
 is the verifier's claim; `maxKnown` (a fill's `inputsKnown`)

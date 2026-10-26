@@ -51,6 +51,46 @@ structure Decl where
 
 def Decl.depends (d : Decl) : List Nat := d.deps.map (·.source)
 
+inductive RTy where | time | duration deriving DecidableEq
+
+mutual
+/-- A rule expression's type in its declaration's context (RULES.md §4): Time fields (`times`), dependency names. -/
+def RuleExpr.ty (times deps : List String) : RuleExpr → Option RTy
+  | .field n => if times.contains n then some .time else none
+  | .dep n => if deps.contains n then some .time else none
+  | .ms n => if decide (0 ≤ n) && decide (n < 2 ^ 62) then some .duration else none
+  | .add t d => if t.ty times deps == some .time && d.ty times deps == some .duration then some .time else none
+  | .floor t p => match p with
+    | .ms n => if t.ty times deps == some .time && decide (0 < n) && decide (n < 2 ^ 62) then some .time else none
+    | _ => none
+  | .max xs => if 2 ≤ xs.length && xs.length ≤ 16 && RuleExpr.allTime times deps xs then some .time else none
+
+def RuleExpr.allTime (times deps : List String) : List RuleExpr → Bool
+  | [] => true
+  | x :: xs => x.ty times deps == some .time && RuleExpr.allTime times deps xs
+end
+
+mutual
+/-- The lower-bound set (RULES.md §4, rule 5): (is a dependency, name). -/
+def RuleExpr.lb : RuleExpr → List (Bool × String)
+  | .field n => [(false, n)]
+  | .dep n => [(true, n)]
+  | .ms _ => []
+  | .add t _ => t.lb
+  | .floor .. => []
+  | .max xs => RuleExpr.lbAll xs
+
+def RuleExpr.lbAll : List RuleExpr → List (Bool × String)
+  | [] => []
+  | x :: xs => x.lb ++ RuleExpr.lbAll xs
+end
+
+/-- The declaration's rule is checked (RULES.md §4) and its dependency names are unique. -/
+def Decl.ruleOk (d : Decl) : Bool :=
+  let names := d.deps.map (·.name)
+  names.eraseDups.length == names.length &&
+  d.rule.ty d.times names == some .time && !d.rule.lb.isEmpty && names.all (fun n => d.rule.lb.contains (true, n))
+
 /-- Value columns: what a run uses as data, authorized by grants over their use intervals. -/
 def Decl.values (d : Decl) : List String := d.fields.toList.map (·.2.1) ++ d.roles.flatMap (·.2.map (·.2))
 
@@ -78,7 +118,7 @@ roles, a slot column exactly for event sources, and role columns as SOURCES.md �
 def Registry.valid (reg : Registry) : Bool :=
   let names := reg.decls.toList.flatMap fun d => d.fields.toList.map (·.1)
   names.eraseDups.length == names.length &&
-  reg.decls.all (fun d => d.depends.all (· < reg.decls.size) && d.deps.all (decide <| 0 ≤ ·.lag)) &&
+  reg.decls.all (fun d => d.depends.all (· < reg.decls.size) && d.deps.all (decide <| 0 ≤ ·.lag) && d.ruleOk) &&
   (List.range reg.decls.size).all (fun s => !(reg.closure reg.decls.size (reg.decls[s]!).depends).contains s) &&
   reg.decls.all (fun d => d.cadence != .evidence || (d.fields.size == 0 && d.roles.isEmpty)) &&
   reg.decls.all (fun d => (d.cadence == .event) == d.slotColumn.isSome) &&
@@ -242,10 +282,11 @@ inductive Cell where
   | null
   deriving DecidableEq, Repr, Inhabited
 
-/-- One stored revision of a key (RULES.md §6): its entity (the coin of U it maps to, `none` outside U), event time,
-fetchedAt, tombstone flag and observed columns; for a derived source, per dependency name, the upstream keys
-(coin, event time) the row was computed from. -/
+/-- One stored revision of a key (RULES.md §6): its entity as stored and the coin of U it maps to (`none` outside U),
+event time, fetchedAt, tombstone flag and observed columns (never `fetchedAt`, `source`, `hash` or the tombstone
+column); for a derived source, per dependency name, the upstream keys (coin, event time) the row was computed from. -/
 structure Revision where
+  entity : String
   coin : Option Nat
   event : Int
   fetchedAt : Int

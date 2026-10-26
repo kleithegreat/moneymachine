@@ -202,10 +202,11 @@ theorem L5_text (reg : Registry) (_ : reg.Valid) (roles : Roles) (adm : Meta) (t
 bytes at the pinned version; every required dataset is named by an issued, current certificate under the pinned
 policy and verifier; and a search run's required datasets are no holdout dataset and hold no stored row at or after
 the holdout start. -/
-theorem L5_certified (N : NumOps α) (num : Cell → Option α) (hash : Cert → Hash) (policy verifier : Hash)
+theorem L5_certified (N : NumOps α) (num : Cell → Option α) (hash : Cert → Hash) (declHash : Decl → Hash)
+    (policy verifier : Hash)
     (holdout : List Hash) (holdoutStart : Int) (st : Stored) (led : Ledger) (reg : Registry) (roles : Roles)
     (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode)
-    (hT : Trusted num hash policy verifier holdout holdoutStart reg st led adm ld) (r : Run α)
+    (hT : Trusted num hash declHash policy verifier holdout holdoutStart reg st led adm ld) (r : Run α)
     (h : run N reg roles text adm ld v pol stop mode = .ok r) :
     ∃ p obs, check reg.inputs text = .ok p ∧ resolveAll num reg st adm.version (adm.required reg roles p) = some obs ∧
       (Ctx.make reg roles p adm obs v pol stop (adm.required reg roles p)).evaluate N = .ok r ∧
@@ -238,11 +239,12 @@ theorem L8_selection (st₁ st₂ : Stored) (s : Nat) (V : Int) (coin : Nat) (ev
       = ((st₂.select s V coin event).map fun (a, b) => (a.fetchedAt, b.fetchedAt)) := by
   sorry
 
-/-- An observation is never known before what it was resolved from: its effective knownAt is at least its rule's
-value, its fetchedAt if it is a correction, and every dependency's upstream knownAt plus its delay. -/
-theorem L8_known (reg : Registry) (st : Stored) (V : Int) (fuel s coin : Nat) (event k : Int) (sel first : Revision)
-    (hS : st.select s V coin event = some (sel, first)) (hK : effectiveKnown reg st V (fuel + 1) s coin event = some (.ok k)) :
-    (isCorrection sel first = true → sel.fetchedAt ≤ k) ∧
+/-- A resolved knownAt is never before what bounds it: its fetchedAt if it is a correction, and every usable upstream
+knownAt of each dependency plus its delay. -/
+theorem L8_known (reg : Registry) (_ : reg.Valid) (st : Stored) (V : Int) (fuel s coin : Nat) (event k : Int)
+    (sel first : Revision) (hS : st.select s V coin event = some (sel, first))
+    (hK : effectiveKnown reg st V (fuel + 1) s coin event = some (.ok k)) :
+    (isCorrection (reg.decls[s]!).revisionColumns sel first = true → sel.fetchedAt ≤ k) ∧
     ∀ dep ∈ (reg.decls[s]!).deps, ∀ up ∈ ((sel.upstream.find? (·.1 == dep.name)).map (·.2)).getD [],
       ∀ t, effectiveKnown reg st V fuel dep.source up.1 up.2 = some (.ok t) → t + dep.lag ≤ k := by
   sorry
