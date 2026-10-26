@@ -1,44 +1,17 @@
-path "/home/kevin/repos/moneymachine/kernel" does not contain a 'flake.nix', searching up
-warning: Git tree '/home/kevin/repos/moneymachine' is dirty
-    Finished `release` profile [optimized] target(s) in 0.05s
+# 2026-10-26T11:52:48Z at commit 571b542de82612ef8494ccc04e60ed8404aa25c9 (clean): bash -c cd kernel && cargo test --release --test adversarial -- --nocapture --test-threads 1
+    Finished `release` profile [optimized] target(s) in 0.06s
      Running tests/adversarial.rs (target/release/deps/adversarial-95ae2cf0ca88b260)
 
 running 2 tests
 test reference_strategies_type_check ... ok
-test type_checker_rejects_with_expected_code ... gpt00_closed_bar_input_versus_future_fill_bar	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt01_hourly_inclusive_window_on_held_bars	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt02_availability_boundary_and_immutable_revisions	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt03_hourly_state_with_four_hour_decisions	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt04_unselected_if_branch_still_advances_state	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt05_undefined_selected_weight_holds_position	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt06_cross_sectional_delivery_barrier_and_stale_members	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt07_rank_ties_undefined_exclusion_and_historical_listi	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt08_maximum_lag_and_window_startup_boundary	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt09_negative_lag_cannot_be_a_lead	GPT	gpt	expected E_WINDOW	got E_WINDOW
-gpt10_ema_counts_defined_samples_without_future_seeding	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt11_exact_hour_to_year_conversion_factor	GPT	gpt	expected ADMITTED	got ADMITTED
+test type_checker_rejects_with_expected_code ... gpt09_negative_lag_cannot_be_a_lead	GPT	gpt	expected E_WINDOW	got E_WINDOW
 gpt12_dead_branch_does_not_bypass_unit_checking	GPT	gpt	expected E_UNIT	got E_UNIT
 gpt13_parameter_booleans_are_not_numbers	GPT	gpt	expected E_PARSE	got E_PARSE
-gpt14_exact_zero_closes_subminimum_residual	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt15_negative_zero_is_an_exact_zero_target	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt16_full_zero_close_versus_universal_order_cap	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt17_tiny_nonzero_is_not_the_zero_close_exception	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt18_reversal_costs_and_funding_before_same_instant_fil	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt19_future_fill_bar_recorded_no_trade	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt20_nonzero_bar_volume_does_not_establish_capacity	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt21_gross_weight_limit_does_not_net_longs_against_shor	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt22_finite_huge_weights_overflow_the_gross_norm	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt23_runtime_overflow_is_not_a_tradable_target	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt24_zero_times_undefined_cannot_be_folded_to_close	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt25_maintenance_margin_uses_adverse_extremes	GPT	gpt	expected ADMITTED	got ADMITTED
-gpt26_delisting_close_versus_retrospective_execution	GPT	gpt	expected ADMITTED	got ADMITTED
 gpt27_duplicate_weight_parser_differential	GPT	gpt	expected E_PARSE	got E_PARSE
 gpt28_escaped_duplicate_member_and_unit_validation	GPT	gpt	expected E_PARSE	got E_PARSE
 gpt29_nonstandard_json_nan_literal	GPT	gpt	expected E_PARSE	got E_PARSE
-gpt30_unicode_long_metadata_and_let_order	GPT	gpt	expected ADMITTED	got ADMITTED
 gpt31_forward_let_reference_is_not_a_topological_sort_re	GPT	gpt	expected E_REF	got E_REF
 gpt32_boolean_window_length_is_not_one_hour	GPT	gpt	expected E_WINDOW	got E_WINDOW
-gpt37_mechanism_and_trace_disclosure_channel	GPT	gpt	expected ADMITTED	got ADMITTED
 gpt40_negative_lag	T1	gpt	expected E_WINDOW	got E_WINDOW
 gpt41_zero_lag	T2	gpt	expected E_WINDOW	got E_WINDOW
 gpt42_empty_window	T2	gpt	expected E_WINDOW	got E_WINDOW
@@ -101,6 +74,6 @@ t21_duplicate_weight	T21	claude	expected E_PARSE	got E_PARSE
 t22_convert_overflow_shares_node	checker	claude	expected E_UNIT	got E_UNIT
 ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
 exit 0

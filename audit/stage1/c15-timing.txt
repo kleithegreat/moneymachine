@@ -1,3 +1,4 @@
+# 2026-10-26T11:56:42Z at commit 571b542de82612ef8494ccc04e60ed8404aa25c9 (clean): pytest -v -s -p no:cacheprovider kernel/tests/timing
 ============================= test session starts ==============================
 platform linux -- Python 3.13.15, pytest-9.0.3, pluggy-1.6.0 -- /nix/store/cmlrhmi5dmg9051jg36i5qvf5p5ygqyv-python3-3.13.15-env/bin/python3.13
 hypothesis profile 'default'
@@ -6,9 +7,10 @@ configfile: pyproject.toml
 plugins: anyio-4.13.0, xdist-3.8.0, hypothesis-6.151.10
 collecting ... collected 3 items
 
-kernel/tests/timing/test_timing.py::test_labels_cover_every_violation PASSED [ 33%]
-kernel/tests/timing/test_timing.py::test_kernel_checker_matches_labels PASSED [ 66%]
-kernel/tests/timing/test_timing.py::test_gpt_checker_matches_labels PASSED [100%]
+kernel/tests/timing/test_timing.py::test_labels_cover_every_violation 2000 traces, 1159 with planted violations
+PASSED
+kernel/tests/timing/test_timing.py::test_kernel_checker_matches_labels PASSED
+kernel/tests/timing/test_timing.py::test_gpt_checker_matches_labels PASSED
 
-============================== 3 passed in 0.83s ===============================
+============================== 3 passed in 0.85s ===============================
 exit 0
