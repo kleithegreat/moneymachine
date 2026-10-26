@@ -1,0 +1,2 @@
+{"mechanism": "T13", "source": "gpt", "expect": "E_REF", "name": "forward-let-reference", "why": "Attempts dependency resolution outside the declared let order. First references later, which is defined only afterward; lets may reference only preceding lets."}
+{"dsl": 1, "name": "forward-let-reference", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns increase with premium."], "capacity": "Small."}, "let": {"first": {"ref": "later"}, "later": {"input": "premium"}}, "weight": {"ref": "first"}}

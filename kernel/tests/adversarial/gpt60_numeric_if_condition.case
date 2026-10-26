@@ -1,0 +1,2 @@
+{"mechanism": "T12", "source": "gpt", "expect": "E_BOOL", "name": "numeric-if-condition", "why": "Attempts host-language truthiness coercion of a dimensionless numeric input. If requires a boolean condition."}
+{"dsl": 1, "name": "numeric-if-condition", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns vary with premium."], "capacity": "Small."}, "weight": {"op": "if", "args": [{"input": "premium"}, {"const": 0.01, "unit": "1"}, {"const": 0, "unit": "1"}]}}

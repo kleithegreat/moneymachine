@@ -1,0 +1,2 @@
+{"mechanism": "T2", "source": "gpt", "expect": "E_WINDOW", "name": "boolean-lag-parameter", "why": "Attempts to exploit host-language treatment of true as integer 1. A JSON boolean is not the integer required by lag hours."}
+{"dsl": 1, "name": "boolean-lag-parameter", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns increase with earlier premium."], "capacity": "Small."}, "weight": {"op": "lag", "args": [{"input": "premium"}], "hours": true}}

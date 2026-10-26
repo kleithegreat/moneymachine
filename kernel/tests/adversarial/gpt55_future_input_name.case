@@ -1,0 +1,2 @@
+{"mechanism": "T5", "source": "gpt", "expect": "E_UNKNOWN_INPUT", "name": "future-input-name", "why": "Attempts to access the next close by naming an undeclared input. Only the enumerated input names are legal; this is not an unavailable certified-feed test."}
+{"dsl": 1, "name": "future-input-name", "mechanism": {"counterparty": "Price-sensitive traders.", "predictions": ["Returns increase with the named price signal."], "capacity": "Small."}, "weight": {"op": "sign", "args": [{"input": "future_close"}]}}

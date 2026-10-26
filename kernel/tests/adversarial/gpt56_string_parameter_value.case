@@ -1,0 +1,2 @@
+{"mechanism": "GPT", "source": "gpt", "expect": "E_PARSE", "name": "string-parameter-value", "why": "Attempts implicit numeric-string coercion in a parameter declaration. Parameter value must be a JSON number."}
+{"dsl": 1, "name": "string-parameter-value", "mechanism": {"counterparty": "Liquidity providers.", "predictions": ["Returns are positive for the fixed exposure."], "capacity": "Small."}, "params": {"size": {"value": "0.01", "unit": "1"}}, "weight": {"param": "size"}}

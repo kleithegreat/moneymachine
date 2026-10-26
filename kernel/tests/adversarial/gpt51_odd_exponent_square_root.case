@@ -1,0 +1,2 @@
+{"mechanism": "GPT", "source": "gpt", "expect": "E_UNIT", "name": "odd-exponent-square-root", "why": "Attempts to create fractional unit exponents by taking the square root of usd/coin. Sqrt requires every unit exponent to be even."}
+{"dsl": 1, "name": "odd-exponent-square-root", "mechanism": {"counterparty": "Price-sensitive traders.", "predictions": ["Returns increase with transformed price."], "capacity": "Small."}, "weight": {"op": "sign", "args": [{"op": "sqrt", "args": [{"input": "close"}]}]}}

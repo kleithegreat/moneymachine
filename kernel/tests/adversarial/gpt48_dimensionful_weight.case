@@ -1,0 +1,2 @@
+{"mechanism": "T8", "source": "gpt", "expect": "E_DIMENSIONLESS", "name": "dimensionful-weight", "why": "Uses a price directly as an equity fraction. Weight must have unit 1; runtime leverage scaling cannot repair a unit error."}
+{"dsl": 1, "name": "dimensionful-weight", "mechanism": {"counterparty": "Price-sensitive traders.", "predictions": ["Returns increase with price."], "capacity": "Small."}, "weight": {"input": "close"}}

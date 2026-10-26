@@ -204,6 +204,138 @@
 "expect": "ADMITTED"
 },
 {
+"file": "gpt40_negative_lag.case",
+"mechanism": "T1",
+"source": "gpt",
+"expect": "E_WINDOW"
+},
+{
+"file": "gpt41_zero_lag.case",
+"mechanism": "T2",
+"source": "gpt",
+"expect": "E_WINDOW"
+},
+{
+"file": "gpt42_empty_window.case",
+"mechanism": "T2",
+"source": "gpt",
+"expect": "E_WINDOW"
+},
+{
+"file": "gpt43_oversized_ema.case",
+"mechanism": "T18",
+"source": "gpt",
+"expect": "E_WINDOW"
+},
+{
+"file": "gpt44_fractional_window.case",
+"mechanism": "T2",
+"source": "gpt",
+"expect": "E_WINDOW"
+},
+{
+"file": "gpt45_boolean_lag_parameter.case",
+"mechanism": "T2",
+"source": "gpt",
+"expect": "E_WINDOW"
+},
+{
+"file": "gpt46_price_funding_addition.case",
+"mechanism": "T6",
+"source": "gpt",
+"expect": "E_UNIT"
+},
+{
+"file": "gpt47_hourly_annual_rate_mix.case",
+"mechanism": "T7",
+"source": "gpt",
+"expect": "E_UNIT"
+},
+{
+"file": "gpt48_dimensionful_weight.case",
+"mechanism": "T8",
+"source": "gpt",
+"expect": "E_DIMENSIONLESS"
+},
+{
+"file": "gpt49_boolean_weight.case",
+"mechanism": "T12",
+"source": "gpt",
+"expect": "E_BOOL"
+},
+{
+"file": "gpt50_dimensionful_logarithm.case",
+"mechanism": "T11",
+"source": "gpt",
+"expect": "E_DIMENSIONLESS"
+},
+{
+"file": "gpt51_odd_exponent_square_root.case",
+"mechanism": "GPT",
+"source": "gpt",
+"expect": "E_UNIT"
+},
+{
+"file": "gpt52_dimensionful_cross_sectional_rank.case",
+"mechanism": "T20",
+"source": "gpt",
+"expect": "E_DIMENSIONLESS"
+},
+{
+"file": "gpt53_non_time_unit_conversion.case",
+"mechanism": "T10",
+"source": "gpt",
+"expect": "E_UNIT"
+},
+{
+"file": "gpt54_unselected_branch_unit_mismatch.case",
+"mechanism": "GPT",
+"source": "gpt",
+"expect": "E_UNIT"
+},
+{
+"file": "gpt55_future_input_name.case",
+"mechanism": "T5",
+"source": "gpt",
+"expect": "E_UNKNOWN_INPUT"
+},
+{
+"file": "gpt56_string_parameter_value.case",
+"mechanism": "GPT",
+"source": "gpt",
+"expect": "E_PARSE"
+},
+{
+"file": "gpt57_forward_let_reference.case",
+"mechanism": "T13",
+"source": "gpt",
+"expect": "E_REF"
+},
+{
+"file": "gpt58_undeclared_parameter.case",
+"mechanism": "T13",
+"source": "gpt",
+"expect": "E_REF"
+},
+{
+"file": "gpt59_numeric_prediction_condition.case",
+"mechanism": "GPT",
+"source": "gpt",
+"expect": "E_BOOL"
+},
+{
+"file": "gpt60_numeric_if_condition.case",
+"mechanism": "T12",
+"source": "gpt",
+"expect": "E_BOOL"
+},
+{
+"file": "gpt61_same_close_fill_override.case",
+"mechanism": "T19",
+"source": "gpt",
+"expect": "E_PARSE"
+},
+{
 "file": "t01_negative_lag.case",
 "mechanism": "T1",
 "source": "claude",

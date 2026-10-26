@@ -1,0 +1,2 @@
+{"mechanism": "T11", "source": "gpt", "expect": "E_DIMENSIONLESS", "name": "dimensionful-logarithm", "why": "Applies log to a price and wraps the result in sign. Log requires a dimensionless argument regardless of the final output unit."}
+{"dsl": 1, "name": "dimensionful-logarithm", "mechanism": {"counterparty": "Price-sensitive traders.", "predictions": ["Returns increase with transformed price."], "capacity": "Small."}, "weight": {"op": "sign", "args": [{"op": "log", "args": [{"input": "close"}]}]}}

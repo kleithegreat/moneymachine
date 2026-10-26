@@ -1,0 +1,2 @@
+{"mechanism": "T10", "source": "gpt", "expect": "E_UNIT", "name": "non-time-unit-conversion", "why": "Attempts to erase price dimensions through convert. Convert may change time units only, not turn usd/coin into unit 1."}
+{"dsl": 1, "name": "non-time-unit-conversion", "mechanism": {"counterparty": "Price-sensitive traders.", "predictions": ["Returns increase with price."], "capacity": "Small."}, "weight": {"op": "convert", "args": [{"input": "close"}], "to": "1"}}

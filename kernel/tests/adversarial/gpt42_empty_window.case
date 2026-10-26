@@ -1,0 +1,2 @@
+{"mechanism": "T2", "source": "gpt", "expect": "E_WINDOW", "name": "empty-window", "why": "Requests a zero-sample mean, probing empty-window handling. Window hours must be at least 1; this is a static parameter violation, not a runtime undefined-value test."}
+{"dsl": 1, "name": "empty-window", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns increase with mean premium."], "capacity": "Small."}, "weight": {"op": "mean", "args": [{"input": "premium"}], "hours": 0}}

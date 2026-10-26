@@ -1,0 +1,2 @@
+{"mechanism": "T12", "source": "gpt", "expect": "E_BOOL", "name": "boolean-weight", "why": "Attempts implicit conversion of a comparison result into position weights 0 and 1. Booleans are explicitly forbidden as the weight."}
+{"dsl": 1, "name": "boolean-weight", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns are higher when premium is positive."], "capacity": "Small."}, "weight": {"op": "gt", "args": [{"input": "premium"}, {"const": 0, "unit": "1"}]}}
