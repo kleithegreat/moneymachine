@@ -1,0 +1,31 @@
+{
+ "id": "calibration-N2-0.01",
+ "seconds": 41.2,
+ "identical_to_sweep": null,
+ "phases_mb": {
+  "generate": {
+   "self": 426.5,
+   "children": 0.0,
+   "total": 426.5,
+   "self_at_start": 195.8
+  },
+  "write": {
+   "self": 782.4,
+   "children": 0.0,
+   "total": 782.4,
+   "self_at_start": 440.2
+  },
+  "mm_eval": {
+   "self": 691.3,
+   "children": 3592.9,
+   "total": 4259.5,
+   "self_at_start": 691.3
+  },
+  "setup": {
+   "self": 667.4,
+   "children": 0.0,
+   "total": 667.4,
+   "self_at_start": 0.0
+  }
+ }
+}
