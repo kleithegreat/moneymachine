@@ -165,6 +165,9 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 | GPT-4 B3 argument fails (selection by ungranted values) | leakage | as GPT-3 B3 above |
 | GPT-4: B2 closed, L6 restored, no false law | — | — |
 
+| GPT-5 selection among revisions by an ungranted value | leakage | the abstract resolver is replaced by RULES.md §6 itself in Lean (next revision): selection by fetchedAt and tombstone per key, availability with the correction and derivation bounds; the properties become theorems, and `Trusted` keeps only the inventory, the equality of the loader with the Lean resolver on the stored bytes, identities and the ledger |
+| GPT-5 selection by a control available later | leakage | as above: resolution is per key, and an observation's knownAt is at least that of every revision and upstream record it consults |
+
 Recorded limitations, none able to change a false-discovery or leakage outcome: a provider's venue-state attestation
 is the verifier's claim; `maxKnown` (a fill's `inputsKnown`)
 may reflect a delivered event observation of a pre-window slot, a trace timestamp only; listing intervals from the
