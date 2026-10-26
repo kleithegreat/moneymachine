@@ -186,3 +186,14 @@ possible only while subscribed.
   The signal-study tier on the World Bank Pink Sheet stands.
 - **Macro and rates:** the signal-study tier is extended with the free sources proposed above, each certified and
   recorded as data-layer work, inspected only for integrity until a class annex is frozen.
+
+## Revision 2026-10-26 22:06 UTC (18:06 EDT): integrity is the frozen list again (GPT review B2)
+
+GPT's review of the revision above (`audit/stage8/manifest-review-gpt.md`) found that its definition of
+**integrity** (adding row counts, key uniqueness, knownAt ordering and missingness counts) relaxes the frozen
+criteria revision of 2026-10-23, which allows only HTTP status, sizes, hashes, poll times and parse success before a
+class annex. That definition is withdrawn: wherever this manifest allows inspection only for integrity, integrity is
+exactly the criteria's list. Checks beyond it run only after the applicable annex choices are frozen. What was
+already seen beyond the list is recorded in `audit/stage8/exposure.md`, and each class annex accounts for it
+(GPT B1). GPT's findings B1 and B3 to B9 are answered in a further revision before this manifest authorizes any
+research use; until then it authorizes recording only.
