@@ -184,7 +184,10 @@ what the query sees:
 
 Execution's reads of each key's final revision are the stated exception: later-recorded evidence of the venue state
 applied at event time may change historical fills, funding, marks and equity, and through equity later order sizes.
-No other later record changes what a decision sees.
+Two further effects are by design, not leaks: a key's first revision is known at its rule's value, which may precede
+its fetchedAt (a backfill whose availability the certificate's basis governs, `CERTIFICATES.md`); and admission's
+checks (dataset validity, holdout, scope) are global over the run, so a later record can refuse a whole run, which
+then returns no output. No other later record changes what a decision sees (GPT's ninth review found none).
 
 ## 7. Conformance
 

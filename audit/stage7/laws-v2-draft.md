@@ -201,6 +201,8 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 | GPT-8 first successful revision backdated | leakage | every revision after the key's first eligible one known no earlier than its fetchedAt |
 | GPT-8 execution scope on non-provider role records | false discovery (refusal) | execution reads, and scope, only the providers' final records |
 
+| GPT-9: all three closed, no false law; a key's first revision known before its fetch; global admission refusing a run | no (certified backfill; refusal returns no output) | stated in RULES.md §6 as by design |
+
 **Frozen** (human decision of 2026-10-26) at the commit recorded in `audit/stage7/laws-frozen.md`. The bitemporal
 resolver is reviewed by GPT after the freeze; a finding becomes a dated revision before any proof is judged.
 
