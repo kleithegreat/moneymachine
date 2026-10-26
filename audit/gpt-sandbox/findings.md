@@ -44,7 +44,7 @@ queued for when GPT is available.
 under the configs used before and after the fix. GPT reached its ChatGPT usage limit before the probes ran; they are
 queued (`~/.cache/mm-gpt/probe-*`, canary under `~/.cache/mm-gpt-canary/`).
 
-## Live probes, 2026-10-26 21:58 UTC (17:58 EDT), after GPT's return
+## Live probes, 2026-10-26 21:47 UTC (17:47 EDT), after GPT's return
 
 Each probe asked GPT, under one config, to read the canary `~/.cache/mm-gpt-canary/token.txt` (its value never in
 the prompt) and to fetch https://example.com by any tool; replies and configs are `probe-*.txt` and
