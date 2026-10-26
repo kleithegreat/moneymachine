@@ -128,11 +128,6 @@ theorem partitionPoint_pos (xs : Array Int) (q : Int → Bool) (h0 : 0 < xs.size
     · simp [hq] at hnk
     · exact hpos
 
-/-- The step's lookup of a held coin's latest bar opened by b. -/
-def latestOf (ix : Index α) (bars : Array (BarRow α)) (b : Int) (x : Nat × α) : Option (Nat × BarRow α) :=
-  if (partitionPoint ix.barTimes[x.1]! (fun t => decide (t ≤ b)) == 0) = true then none
-  else some (x.1, bars[ix.barAt[(x.1, ix.barTimes[x.1]![(partitionPoint ix.barTimes[x.1]! fun t => decide (t ≤ b)) - 1]!)]!]!)
-
 /-- A coin with a bar opened by b has a latest bar, found by the index under its own openTime. -/
 theorem latestOf_some (m : Market α) (hA : m.Admissible) (b : Int) (x : Nat × α)
     (hx : ∃ bar ∈ m.bars.toList, bar.coin = x.1 ∧ bar.openTime ≤ b) :
@@ -335,11 +330,10 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
       rcases fill_mem_push hf with hf | hf
       · exact Or.inl hf
       · cases hf
-    · exact Except.Holds.pure _ ⟨h', hm'⟩
+    · exact Except.Holds.throw' _
   rw [marks_loop]
   refine Except.Holds.bind (Except.Holds.ok _ rfl) fun s₂ hs₂ => ?_
   subst hs₂
-  simp only [← latestOf.eq_1]
   have HL : ∀ x ∈ s₁.book.pos, ∃ bar' i, ∃ hi : i < m.bars.size,
       assoc? (List.filterMap (fun x => latestOf (Ctx.make p m v pol stop).ix (Ctx.make p m v pol stop).m.bars
         (pol.wStart + ↑j * BAR) x) s₁.book.pos) x.1 = some bar' ∧ m.bars[i] = bar' ∧

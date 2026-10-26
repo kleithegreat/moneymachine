@@ -2,8 +2,9 @@ import polars as pl
 
 from ingest import checks
 from ingest.backfill import bar_frame, funding_frame
-from ingest.policy import BAR, DELTA, HOUR
-from ingest.store import Store, known_at
+from ingest.policy import BAR, DELTA, HOUR, POLICY
+from ingest.store import known_at
+from ingest.tests.test_store import market_store
 
 
 
@@ -32,7 +33,7 @@ def test_unclosed_bar_dropped():
 
 def test_replay_view_matches_keys(tmp_path):
     f, b = frames(48, skip_funding={12}, skip_bars={20 * HOUR})
-    s = Store(tmp_path)
+    s = market_store(tmp_path)
     s.write("funding", f, 1, "t")
     s.write("bars_4h", b, 1, "t")
 
@@ -48,5 +49,5 @@ def test_replay_view_matches_keys(tmp_path):
 
 def test_late_settlement_delays_known_at():
     on_time, late = funding_frame([{"coin": "A", "time": 5 * HOUR + 48, "fundingRate": "0", "premium": "0"},
-                                   {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}]).select(known_at("funding")).to_series()
+                                   {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}]).select(known_at("funding", POLICY)).to_series()
     assert on_time == 5 * HOUR + DELTA and late == 6 * HOUR + 887_645 + 60_000

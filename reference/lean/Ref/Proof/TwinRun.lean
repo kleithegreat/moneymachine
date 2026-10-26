@@ -119,7 +119,9 @@ theorem step_twin (b : Int) (s : SState α) (hs : Good p m.intervals.size i j s)
     fun s' f => execute_proj N _ s' f
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.forIn _ _ _ _ _ rfl fun k hk s₀ h₀ => ?_) fun s₁ h₁ => ?_
   · refine EqH.bind (EqH.forIn _ _ _ _ (fun s' => s'.proj = s.proj) h₀ fun x _ s' h' => ?_) fun s'' h'' => EqH.pure _ h''
-    split <;> exact EqH.pure _ h'
+    split
+    · exact EqH.pure _ h'
+    · exact EqH.throw_bind
   rw [marks_loop]
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.refl (Except.Holds.ok _ h₁)) fun s₂ h₂ => ?_
   refine EqH.join (R := fun s' => s'.proj = s.proj) (fun _ => EqH.forIn _ _ _ _ _ h₂ fun x _ s' h' => ?_) (fun _ => h₂)

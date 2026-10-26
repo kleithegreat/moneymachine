@@ -216,6 +216,44 @@ theorem SameView.latest (S : SameView m₁ m₂ T) {b : Int} (hb : b + BAR ≤ T
     rw [← heq] at e₁ ⊢
     exact e₁.symm
 
+/-- A held coin's latest bar opened by t ≤ T is found in both markets or in neither, with the same fields fixed at
+the open. -/
+theorem SameView.latestOpened (S : SameView m₁ m₂ T) {t : Int} (ht : t ≤ T) (x : Nat × α) :
+    (latestOf (m₁.index m₁.intervals.size) m₁.bars t x).map (fun y => openFields y.2) =
+      (latestOf (m₂.index m₂.intervals.size) m₂.bars t x).map (fun y => openFields y.2) := by
+  unfold latestOf
+  have P₁ := pp_max (times m₁ x.1) (times_sorted' m₁ x.1) t
+  have P₂ := pp_max (times m₂ x.1) (times_sorted' m₂ x.1) t
+  have hiff : ∀ u ≤ t, u ∈ (times m₁ x.1).toList ↔ u ∈ (times m₂ x.1).toList := fun u hu => S.times_iff (by omega)
+  have bt₁ := fun u => barAt_time m₁ S.A₁ (c := x.1) (t := u)
+  have bt₂ := fun u => barAt_time m₂ S.A₂ (c := x.1) (t := u)
+  unfold times at P₁ P₂ hiff bt₁ bt₂
+  generalize (m₁.index m₁.intervals.size).barTimes[x.1]! = xs₁ at P₁ hiff bt₁ ⊢
+  generalize (m₂.index m₂.intervals.size).barTimes[x.1]! = xs₂ at P₂ hiff bt₂ ⊢
+  generalize hk₁ : partitionPoint xs₁ (fun u => decide (u ≤ t)) = k₁ at P₁
+  generalize hk₂ : partitionPoint xs₂ (fun u => decide (u ≤ t)) = k₂ at P₂
+  have hsz₁ := (pp_spec xs₁ (fun u => decide (u ≤ t))).1
+  have hsz₂ := (pp_spec xs₂ (fun u => decide (u ≤ t))).1
+  rw [hk₁] at hsz₁; rw [hk₂] at hsz₂
+  by_cases h₁ : k₁ = 0 <;> by_cases h₂ : k₂ = 0
+  · simp [h₁, h₂]
+  · obtain ⟨hle, -⟩ := P₂.2 (by omega) h₂
+    exact absurd hle (P₁.1 h₁ _ ((hiff _ hle).mpr (Array.getElem_mem_toList _)))
+  · obtain ⟨hle, -⟩ := P₁.2 (by omega) h₁
+    exact absurd hle (P₂.1 h₂ _ ((hiff _ hle).mp (Array.getElem_mem_toList _)))
+  · obtain ⟨hle₁, hmax₁⟩ := P₁.2 (by omega) h₁
+    obtain ⟨hle₂, hmax₂⟩ := P₂.2 (by omega) h₂
+    have hm₁ := Array.getElem_mem_toList (xs := xs₁) (i := k₁ - 1) (by omega)
+    have hm₂ := Array.getElem_mem_toList (xs := xs₂) (i := k₂ - 1) (by omega)
+    have heq : xs₁[k₁ - 1] = xs₂[k₂ - 1] := Int.le_antisymm (hmax₂ _ ((hiff _ hle₁).mp hm₁) hle₁)
+      (hmax₁ _ ((hiff _ hle₂).mpr hm₂) hle₂)
+    have ho := S.barAt_opened (c := x.1) (t := xs₁[k₁ - 1]) (by omega)
+    rw [bt₁ _ hm₁, heq, bt₂ _ hm₂] at ho
+    simp only [h₁, h₂, beq_iff_eq, ite_false, Option.map_some,
+      getElem!_pos xs₁ (k₁ - 1) (by omega), getElem!_pos xs₂ (k₂ - 1) (by omega)]
+    rw [heq]
+    simpa using ho
+
 /-- `checkFill` with its market reads named: the bar under the fill's source key, and whether a bar time is the
 first at or after submission, or the latest closed by the fill. -/
 def checkSpec (N : NumOps α) (f : Fill α) (v : Venue α) (ob : Option (BarRow α)) (first latest : Int → Bool) :
@@ -519,6 +557,10 @@ theorem step_view (N : NumOps α) (p : Program) (v : Venue α) (pol : Policy) (s
   refine (?_ : EqH _ _ (fun _ => True)).1
   unfold Ctx.step
   simp only [Std.Legacy.Range.forIn_eq_forIn_range']
+  have hlisted : (Ctx.make p m₁ v pol stop).listed = (Ctx.make p m₂ v pol stop).listed := by
+    funext c t; unfold Ctx.listed
+    rw [show (Ctx.make p m₁ v pol stop).m.intervals = (Ctx.make p m₂ v pol stop).m.intervals from S.intervals]
+  rw [hlisted]
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.forIn _ _ _ _ _ rfl fun k hk s₀ h₀ => ?_) fun s₁ h₁ => ?_
   · refine EqH.bind (EqH.forIn _ _ _ _ (fun s' => s'.proj = s.proj) h₀ fun x _ s' h' => ?_) fun s'' h'' => EqH.pure _ h''
     have hh : b + ↑k * HOUR ≤ T := by
@@ -526,21 +568,24 @@ theorem step_view (N : NumOps α) (p : Program) (v : Venue α) (pol : Policy) (s
       have : (k : Int) ≤ 4 := by omega
       simp only [BAR, HOUR] at hb ⊢; omega
     rw [S.rateC p v pol stop x.1 hh]
-    rcases S.lookupC p v pol stop x.1 (t := b + ↑k * HOUR - (b + ↑k * HOUR) % BAR)
-      (by have := Int.emod_nonneg (b + ↑k * HOUR) (by omega : BAR ≠ 0); omega) with ⟨h₁, h₂⟩ | ⟨i₁, i₂, h₁, h₂, ho⟩
-    · rw [h₁, h₂]
-      cases (Ctx.make p m₂ v pol stop).ix.rateAt[(x.1, b + ↑k * HOUR)]? <;> exact EqH.pure _ h'
-    · rw [h₁, h₂]
-      simp only [openFields, Prod.mk.injEq] at ho
+    have hl : (latestOf (Ctx.make p m₁ v pol stop).ix (Ctx.make p m₁ v pol stop).m.bars (b + ↑k * HOUR) x).map
+        (fun y => openFields y.2) =
+        (latestOf (Ctx.make p m₂ v pol stop).ix (Ctx.make p m₂ v pol stop).m.bars (b + ↑k * HOUR) x).map
+        (fun y => openFields y.2) := S.latestOpened hh x
+    cases h₁ : latestOf (Ctx.make p m₁ v pol stop).ix (Ctx.make p m₁ v pol stop).m.bars (b + ↑k * HOUR) x <;>
+      cases h₂ : latestOf (Ctx.make p m₂ v pol stop).ix (Ctx.make p m₂ v pol stop).m.bars (b + ↑k * HOUR) x <;>
+      rw [h₁, h₂] at hl <;> simp at hl
+    · cases (Ctx.make p m₂ v pol stop).ix.rateAt[(x.1, b + ↑k * HOUR)]? <;> exact EqH.refl (Except.Holds.throw' _)
+    · rename_i y₁ y₂
+      simp only [openFields, Prod.mk.injEq] at hl
       cases (Ctx.make p m₂ v pol stop).ix.rateAt[(x.1, b + ↑k * HOUR)]?
-      · exact EqH.pure _ h'
+      · exact EqH.refl (Except.Holds.throw' _)
       · dsimp only
-        rw [ho.2.2.1]
+        rw [hl.2.2.1]
         exact EqH.pure _ h'
   rw [marks_loop, marks_loop]
-  simp only [← latestOf.eq_1]
-  have hl : (fun x => latestOf (Ctx.make p m₁ v pol stop).ix (Ctx.make p m₁ v pol stop).m.bars b x) =
-      (fun x => latestOf (Ctx.make p m₂ v pol stop).ix (Ctx.make p m₂ v pol stop).m.bars b x) :=
+  have hl : latestOf (Ctx.make p m₁ v pol stop).ix (Ctx.make p m₁ v pol stop).m.bars b =
+      latestOf (Ctx.make p m₂ v pol stop).ix (Ctx.make p m₂ v pol stop).m.bars b :=
     funext fun x => S.latest (b := b) (by omega) x
   rw [hl]
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.refl (Except.Holds.ok _ h₁)) fun s₂ h₂ => ?_

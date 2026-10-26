@@ -351,7 +351,7 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
       Except.Holds.pure _ h''
     split
     · exact Except.Holds.pure _ (Q_push _ _ rfl rfl (fun f hf => by cases hf) hQ)
-    · exact Except.Holds.pure _ hQ
+    · exact Except.Holds.bind (R := fun _ => True) (Except.Holds.throw' _) fun _ _ => Except.Holds.pure _ hQ
   rw [marks_loop]
   refine Except.Holds.bind (Except.Holds.ok _ rfl) fun s₂ hs₂ => ?_
   subst hs₂
