@@ -1,5 +1,6 @@
-"""C5.5: the derivation (ingest/events.py) and GPT's independent implementation (derived/independent.py,
-written from venue/sources/*.md and DSL.md alone, tools denied) agree exactly on synthetic event streams."""
+"""C5.5: the derivation (ingest/events.py) and GPT's independent implementation (derived/independent.py, written
+from derived.md and the case format alone, every tool denied: audit/stage5/derived4/) agree exactly on synthetic
+event streams."""
 
 import importlib.util
 from pathlib import Path

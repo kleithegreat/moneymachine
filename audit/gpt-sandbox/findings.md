@@ -61,3 +61,6 @@ tried every JavaScript file API in `execute` (`Deno`, `Bun`, `require`, `import`
 or works ("fetch cannot be used for filesystem access"). So `execute` reached the web but never the filesystem: the
 runs of 2026-10-24 to 26 could have looked things up online, not read the repository. This confirms the effect above:
 no independent implementation saw source code; `derived3` saw PROGRESS.md.
+
+**Resolved 2026-10-26 22:03 UTC (18:03 EDT):** the clean reimplementation of the derived event counts agrees on every
+case and replaces `derived3`'s module (`audit/stage5/c55-evidence.md`).

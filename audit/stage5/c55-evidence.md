@@ -17,3 +17,11 @@ this file, and every mutant is caught by `python -m cli mutants` (log in PROGRES
 | Mutant: aggregation window admitting (τ, τ + 1h] | "C5 derivation counts future items" |
 | Independent implementation | `ingest/tests/derived/independent.py`, written by GPT from `derived.md` and `FORMAT.md` alone; `test_derived.py::test_independent_implementation_agrees` (2,000 cases, boundary-dense) |
 | `R_INPUT_UNAVAILABLE` for an absent input | `events.rs::missing_dataset_is_input_unavailable` (both inputs); `kernel/tests/cli/test_cli.py::test_event_inputs_only_in_the_holdout_are_unbound_in_search` (search store without the dataset, through `mm eval`) |
+
+## Clean independent implementation, 2026-10-26 22:03 UTC (18:03 EDT)
+
+The first independent implementation (`derived3`, 2026-10-22) ran under a config that let it read the repo's
+PROGRESS.md (`audit/gpt-sandbox/findings.md`). GPT reimplemented the counts from `derived.md` and the case format
+alone, under the config that denies every tool (`audit/stage5/derived4/`: inputs, config, reply). It agrees with
+`ingest/events.py` on all 2,000 boundary-dense cases of seed 55 and of seed 56, and replaces the earlier module as
+`ingest/tests/derived/independent.py`; `test_independent_implementation_agrees` passes with it.
