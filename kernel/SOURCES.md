@@ -52,6 +52,14 @@ A declaration is one JSON file, read as RULES.md §1 reads JSON:
 Rejected in version 1: other entity domains, enum or non-numeric fields, many-to-many relations, other missing or
 revision semantics. A declaration file that breaks any rule above is rejected whole.
 
+**Evidence declarations** (revision of 2026-10-26 02:03 UTC (22:03 EDT), before any implementation consumed this document: the event feeds'
+upstream observations and polls are keyed by forum host or Snapshot space, not by coin, so their lineage could not be
+declared). A declaration with `"entity": {"evidence": [K1, …]}`, a non-empty list of its stored key columns, declares
+records keyed by those columns rather than by (coin, `eventTime`). It must have `"fields": {}`, `"role": {}` and
+`"cadence": {"evidence": {}}`. It exposes no DSL input and fills no role: it exists only to be a dependency of a
+derived source, and is certified, bound and resolved like any other (RULES.md §6, with its own key columns as the key).
+No strategy reads it, so it does not widen version 1's entity domain for strategies.
+
 **The registry** is the immutable set of declarations a run uses: `sources/registry.json` lists, per declaration name,
 its active version and the SHA-256 of that version's file, which is retained under `sources/<name>/<version>.json`.
 Files under `sources/` that the registry does not list are not declarations. Within one registry: one active version
