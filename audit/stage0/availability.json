@@ -1,0 +1,51 @@
+{
+ "window": [
+  1792920929592,
+  1793007329592
+ ],
+ "hosts": {
+  "oci": 32219
+ },
+ "events": {
+  "bar:AAVE": 6,
+  "bar:BNB": 6,
+  "bar:BTC": 6,
+  "bar:ETH": 6,
+  "bar:POPCAT": 6,
+  "bar:SOL": 6,
+  "bar:SUI": 6,
+  "bar:TIA": 6,
+  "bar:WIF": 6,
+  "bar:WLD": 6,
+  "bar:kPEPE": 6,
+  "funding:AAVE": 24,
+  "funding:BNB": 24,
+  "funding:BTC": 24,
+  "funding:ETH": 24,
+  "funding:POPCAT": 24,
+  "funding:SOL": 24,
+  "funding:SUI": 24,
+  "funding:TIA": 24,
+  "funding:WIF": 24,
+  "funding:WLD": 24,
+  "funding:kPEPE": 24
+ },
+ "failures": [],
+ "first_observed_lag_ms": {
+  "min": 5194,
+  "median": 6795,
+  "max": 10318
+ },
+ "min_margin_ms": 109682,
+ "span_h": 23.16597416666667,
+ "clock": {
+  "oci": {
+   "readings": 282,
+   "exchanges": 43,
+   "max_abs_ms": 1.729,
+   "brackets": true,
+   "max_gap_min": 5.8344,
+   "max_unchanged_min": 36.99876666666667
+  }
+ }
+}

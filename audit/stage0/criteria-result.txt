@@ -1,0 +1,18 @@
+....F..                                                                  [100%]
+=================================== FAILURES ===================================
+___________________________ test_c07_execution_model ___________________________
+
+    def test_c07_execution_model():
+        e = load("stage0/execution.json")
+        for coin in LISTED:
+            for side in ("buy", "sell"):
+                for size in (1000, 10000):
+                    cell = e[f"{coin}:{side}:{size}"]
+>                   assert cell["coverage"] >= 0.9 and cell["model_above_test_q90_bps"] <= 3.0, (coin, side, size)
+E                   AssertionError: ('BTC', 'sell', 1000)
+E                   assert (0.8939393939393939 >= 0.9)
+
+criteria/test_stage0.py:61: AssertionError
+1 failed, 6 passed in 0.61s
+
+{"finished": "2026-10-26T09:48:12Z", "criteria_exit_code": 1, "criteria_skipped": 0, "criteria_passed": false}

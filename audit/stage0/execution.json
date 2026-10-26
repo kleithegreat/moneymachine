@@ -1,0 +1,625 @@
+{
+ "window": [
+  1792920929592,
+  1793007329592
+ ],
+ "hosts": {
+  "oci": 32219
+ },
+ "BTC:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.15883759104218242,
+  "coverage": 0.9137529137529138,
+  "median_excess_bps": 0.09633759104010764,
+  "test_q90_bps": 0.06297348186690144,
+  "model_above_test_q90_bps": 0.09586410917528099,
+  "test_median_bps": 0.06250000000207478,
+  "calibration_span": [
+   1792920929592,
+   1792981359115
+  ]
+ },
+ "BTC:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.3917743502945825,
+  "coverage": 0.9184149184149184,
+  "median_excess_bps": 0.32926888106410424,
+  "test_q90_bps": 0.26042317299967976,
+  "model_above_test_q90_bps": 0.13135117729490275,
+  "test_median_bps": 0.06250546923047828,
+  "calibration_span": [
+   1792920929592,
+   1792981359115
+  ]
+ },
+ "BTC:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.23327870664835437,
+  "coverage": 0.8939393939393939,
+  "median_excess_bps": 0.17077480015170732,
+  "test_q90_bps": 0.26832101016283083,
+  "model_above_test_q90_bps": -0.03504230351447646,
+  "test_median_bps": 0.06250390649664705,
+  "calibration_span": [
+   1792920929592,
+   1792981359115
+  ]
+ },
+ "BTC:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.49222399569837094,
+  "coverage": 0.9067599067599068,
+  "median_excess_bps": 0.4297028948246906,
+  "test_q90_bps": 0.43422645268464954,
+  "model_above_test_q90_bps": 0.0579975430137214,
+  "test_median_bps": 0.06252110087368035,
+  "calibration_span": [
+   1792920929592,
+   1792981359115
+  ]
+ },
+ "ETH:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.6354139322128916,
+  "coverage": 0.9592074592074592,
+  "median_excess_bps": 0.41955708847352113,
+  "test_q90_bps": 0.21755683672353143,
+  "model_above_test_q90_bps": 0.4178570954893601,
+  "test_median_bps": 0.21585684373937042,
+  "calibration_span": [
+   1792920945410,
+   1792981359987
+  ]
+ },
+ "ETH:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.8540438978554832,
+  "coverage": 0.958041958041958,
+  "median_excess_bps": 0.638070505677435,
+  "test_q90_bps": 0.43226419987885123,
+  "model_above_test_q90_bps": 0.42177969797663195,
+  "test_median_bps": 0.21597339217804823,
+  "calibration_span": [
+   1792920945410,
+   1792981359987
+  ]
+ },
+ "ETH:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.6302484427989086,
+  "coverage": 0.9382284382284383,
+  "median_excess_bps": 0.4144009174922303,
+  "test_q90_bps": 0.217623120281063,
+  "model_above_test_q90_bps": 0.41262532251784556,
+  "test_median_bps": 0.21584752530667828,
+  "calibration_span": [
+   1792920945410,
+   1792981359987
+  ]
+ },
+ "ETH:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.7683640260325308,
+  "coverage": 0.9358974358974359,
+  "median_excess_bps": 0.5523906338539275,
+  "test_q90_bps": 0.5571426483852449,
+  "model_above_test_q90_bps": 0.211221377647286,
+  "test_median_bps": 0.21597339217860334,
+  "calibration_span": [
+   1792920945410,
+   1792981359987
+  ]
+ },
+ "SOL:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 1.4120846908149964,
+  "coverage": 0.9440559440559441,
+  "median_excess_bps": 0.916397171009109,
+  "test_q90_bps": 0.4994256604917702,
+  "model_above_test_q90_bps": 0.9126590303232263,
+  "test_median_bps": 0.49568751980588743,
+  "calibration_span": [
+   1792920945737,
+   1792981364306
+  ]
+ },
+ "SOL:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 1.4781675778374748,
+  "coverage": 0.9347319347319347,
+  "median_excess_bps": 0.982185035203198,
+  "test_q90_bps": 1.2684886906799697,
+  "model_above_test_q90_bps": 0.20967888715750505,
+  "test_median_bps": 0.49598254263427677,
+  "calibration_span": [
+   1792920945737,
+   1792981364306
+  ]
+ },
+ "SOL:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 1.3222597035666972,
+  "coverage": 0.9184149184149184,
+  "median_excess_bps": 0.826498462180858,
+  "test_q90_bps": 0.9876543209863531,
+  "model_above_test_q90_bps": 0.3346053825803441,
+  "test_median_bps": 0.4957612413858392,
+  "calibration_span": [
+   1792920945737,
+   1792981364306
+  ]
+ },
+ "SOL:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 1.4791758690002599,
+  "coverage": 0.9289044289044289,
+  "median_excess_bps": 0.9831933263665382,
+  "test_q90_bps": 1.3984277111500631,
+  "model_above_test_q90_bps": 0.08074815785019673,
+  "test_median_bps": 0.49598254263372166,
+  "calibration_span": [
+   1792920945737,
+   1792981364306
+  ]
+ },
+ "SUI:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 1.8176428919813858,
+  "coverage": 0.965034965034965,
+  "median_excess_bps": 1.2155464982865904,
+  "test_q90_bps": 1.3097175234011438,
+  "model_above_test_q90_bps": 0.5079253685802421,
+  "test_median_bps": 0.6020963936947954,
+  "calibration_span": [
+   1792920946044,
+   1792981364610
+  ]
+ },
+ "SUI:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 3.145877927908103,
+  "coverage": 0.9522144522144522,
+  "median_excess_bps": 1.3585297695850596,
+  "test_q90_bps": 2.7538362609091926,
+  "model_above_test_q90_bps": 0.3920416669989102,
+  "test_median_bps": 1.7873481583230433,
+  "calibration_span": [
+   1792920946044,
+   1792981364610
+  ]
+ },
+ "SUI:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 1.9623233908971915,
+  "coverage": 0.9300699300699301,
+  "median_excess_bps": 1.2185844947787405,
+  "test_q90_bps": 1.6875846194686073,
+  "model_above_test_q90_bps": 0.27473877142858427,
+  "test_median_bps": 0.743738896118451,
+  "calibration_span": [
+   1792920946044,
+   1792981364610
+  ]
+ },
+ "SUI:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 3.4530291371992483,
+  "coverage": 0.8822843822843823,
+  "median_excess_bps": 1.2863710136523654,
+  "test_q90_bps": 3.5542612783079353,
+  "model_above_test_q90_bps": -0.10123214110868695,
+  "test_median_bps": 2.166658123546883,
+  "calibration_span": [
+   1792920946044,
+   1792981364610
+  ]
+ },
+ "kPEPE:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 3.068346734149685,
+  "coverage": 0.9487179487179487,
+  "median_excess_bps": 1.9014855747379045,
+  "test_q90_bps": 2.351834430855959,
+  "model_above_test_q90_bps": 0.716512303293726,
+  "test_median_bps": 1.1668611594117806,
+  "calibration_span": [
+   1792920946344,
+   1792981368427
+  ]
+ },
+ "kPEPE:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 5.1426408839705395,
+  "coverage": 0.9545454545454546,
+  "median_excess_bps": 2.032894054007084,
+  "test_q90_bps": 4.534761781156416,
+  "model_above_test_q90_bps": 0.6078791028141239,
+  "test_median_bps": 3.1097468299634556,
+  "calibration_span": [
+   1792920946344,
+   1792981368427
+  ]
+ },
+ "kPEPE:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 2.7190546674615845,
+  "coverage": 0.951048951048951,
+  "median_excess_bps": 1.5492489585622327,
+  "test_q90_bps": 2.3463162834358453,
+  "model_above_test_q90_bps": 0.3727383840257392,
+  "test_median_bps": 1.1698057088993519,
+  "calibration_span": [
+   1792920946344,
+   1792981368427
+  ]
+ },
+ "kPEPE:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 4.270302360362965,
+  "coverage": 0.817016317016317,
+  "median_excess_bps": 1.0707754188626906,
+  "test_q90_bps": 4.757844636116282,
+  "model_above_test_q90_bps": -0.48754227575331655,
+  "test_median_bps": 3.1995269415002747,
+  "calibration_span": [
+   1792920946344,
+   1792981368427
+  ]
+ },
+ "TIA:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 3.6073261573643656,
+  "coverage": 0.965034965034965,
+  "median_excess_bps": 1.5821737274579473,
+  "test_q90_bps": 2.9818461770725335,
+  "model_above_test_q90_bps": 0.625479980291832,
+  "test_median_bps": 2.0251524299064183,
+  "calibration_span": [
+   1792920946655,
+   1792981373274
+  ]
+ },
+ "TIA:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 10.146041304679443,
+  "coverage": 0.9825174825174825,
+  "median_excess_bps": 3.505945656605558,
+  "test_q90_bps": 8.696933139988872,
+  "model_above_test_q90_bps": 1.4491081646905712,
+  "test_median_bps": 6.640095648073885,
+  "calibration_span": [
+   1792920946655,
+   1792981373274
+  ]
+ },
+ "TIA:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 3.7429093245588962,
+  "coverage": 0.9708624708624709,
+  "median_excess_bps": 1.803589518708515,
+  "test_q90_bps": 2.9342564298884266,
+  "model_above_test_q90_bps": 0.8086528946704696,
+  "test_median_bps": 1.9393198058503813,
+  "calibration_span": [
+   1792920946655,
+   1792981373274
+  ]
+ },
+ "TIA:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 9.092153495094957,
+  "coverage": 0.921911421911422,
+  "median_excess_bps": 2.1208812262829557,
+  "test_q90_bps": 8.873791145637133,
+  "model_above_test_q90_bps": 0.2183623494578235,
+  "test_median_bps": 6.971272268812001,
+  "calibration_span": [
+   1792920946655,
+   1792981373274
+  ]
+ },
+ "WIF:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 3.9957048236360926,
+  "coverage": 0.9918414918414918,
+  "median_excess_bps": 2.057707723673863,
+  "test_q90_bps": 2.7765177929794937,
+  "model_above_test_q90_bps": 1.2191870306565988,
+  "test_median_bps": 1.9379970999622298,
+  "calibration_span": [
+   1792920947041,
+   1792981378589
+  ]
+ },
+ "WIF:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 9.07080971601859,
+  "coverage": 0.9673659673659674,
+  "median_excess_bps": 2.185226934270368,
+  "test_q90_bps": 8.249862444202893,
+  "model_above_test_q90_bps": 0.8209472718156974,
+  "test_median_bps": 6.885582781748223,
+  "calibration_span": [
+   1792920947041,
+   1792981378589
+  ]
+ },
+ "WIF:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 3.7431286276046194,
+  "coverage": 0.9836829836829837,
+  "median_excess_bps": 2.2966679698738224,
+  "test_q90_bps": 2.4446489857932185,
+  "model_above_test_q90_bps": 1.2984796418114009,
+  "test_median_bps": 1.446460657730797,
+  "calibration_span": [
+   1792920947041,
+   1792981378589
+  ]
+ },
+ "WIF:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 8.420756973552823,
+  "coverage": 0.9953379953379954,
+  "median_excess_bps": 3.359401769383874,
+  "test_q90_bps": 6.601309233826846,
+  "model_above_test_q90_bps": 1.8194477397259767,
+  "test_median_bps": 5.061355204168949,
+  "calibration_span": [
+   1792920947041,
+   1792981378589
+  ]
+ },
+ "AAVE:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 2.121146399924889,
+  "coverage": 0.9545454545454546,
+  "median_excess_bps": 1.0369794905751295,
+  "test_q90_bps": 1.7531383931568278,
+  "model_above_test_q90_bps": 0.36800800676806134,
+  "test_median_bps": 1.0841669093497597,
+  "calibration_span": [
+   1792920947347,
+   1792981382963
+  ]
+ },
+ "AAVE:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 4.713043084927371,
+  "coverage": 0.9533799533799534,
+  "median_excess_bps": 1.7302452802769874,
+  "test_q90_bps": 4.243245755515268,
+  "model_above_test_q90_bps": 0.4697973294121027,
+  "test_median_bps": 2.9827978046503834,
+  "calibration_span": [
+   1792920947347,
+   1792981382963
+  ]
+ },
+ "AAVE:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 2.3900650454145023,
+  "coverage": 0.9254079254079254,
+  "median_excess_bps": 1.2737444365906736,
+  "test_q90_bps": 2.1778296575369893,
+  "model_above_test_q90_bps": 0.21223538787751295,
+  "test_median_bps": 1.1163206088238287,
+  "calibration_span": [
+   1792920947347,
+   1792981382963
+  ]
+ },
+ "AAVE:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 4.98307427674316,
+  "coverage": 0.9335664335664335,
+  "median_excess_bps": 1.661753981082592,
+  "test_q90_bps": 4.739946698053554,
+  "model_above_test_q90_bps": 0.24312757868960588,
+  "test_median_bps": 3.321320295660568,
+  "calibration_span": [
+   1792920947347,
+   1792981382963
+  ]
+ },
+ "WLD:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 2.0479156602659643,
+  "coverage": 0.9498834498834499,
+  "median_excess_bps": 1.0234537788256226,
+  "test_q90_bps": 1.7014712054352898,
+  "model_above_test_q90_bps": 0.34644445483067443,
+  "test_median_bps": 1.0244618814403417,
+  "calibration_span": [
+   1792920947647,
+   1792981384328
+  ]
+ },
+ "WLD:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 4.215564903942148,
+  "coverage": 0.9731934731934732,
+  "median_excess_bps": 2.048724503578292,
+  "test_q90_bps": 3.059700126972764,
+  "model_above_test_q90_bps": 1.1558647769693842,
+  "test_median_bps": 2.1668404003638564,
+  "calibration_span": [
+   1792920947647,
+   1792981384328
+  ]
+ },
+ "WLD:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 2.168868067755625,
+  "coverage": 0.9417249417249417,
+  "median_excess_bps": 1.1184474103903552,
+  "test_q90_bps": 1.8044434419761668,
+  "model_above_test_q90_bps": 0.3644246257794581,
+  "test_median_bps": 1.0504206573652697,
+  "calibration_span": [
+   1792920947647,
+   1792981384328
+  ]
+ },
+ "WLD:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 4.120785553483053,
+  "coverage": 0.9557109557109557,
+  "median_excess_bps": 1.6944983815536663,
+  "test_q90_bps": 3.5554712940710775,
+  "model_above_test_q90_bps": 0.5653142594119753,
+  "test_median_bps": 2.4262871719293866,
+  "calibration_span": [
+   1792920947647,
+   1792981384328
+  ]
+ },
+ "POPCAT:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 10.65744309259431,
+  "coverage": 0.9755244755244755,
+  "median_excess_bps": 5.58081294246171,
+  "test_q90_bps": 7.982671097965799,
+  "model_above_test_q90_bps": 2.674771994628511,
+  "test_median_bps": 5.076630150132599,
+  "calibration_span": [
+   1792920948182,
+   1792981385724
+  ]
+ },
+ "POPCAT:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 23.013452164817316,
+  "coverage": 0.972027972027972,
+  "median_excess_bps": 6.862148042003913,
+  "test_q90_bps": 20.346183277411,
+  "model_above_test_q90_bps": 2.6672688874063155,
+  "test_median_bps": 16.151304122813404,
+  "calibration_span": [
+   1792920948182,
+   1792981385724
+  ]
+ },
+ "POPCAT:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 10.393920871443196,
+  "coverage": 0.9090909090909091,
+  "median_excess_bps": 3.9078099131256705,
+  "test_q90_bps": 10.099189968416633,
+  "model_above_test_q90_bps": 0.29473090302656324,
+  "test_median_bps": 6.486110958317526,
+  "calibration_span": [
+   1792920948182,
+   1792981385724
+  ]
+ },
+ "POPCAT:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 21.64266698957085,
+  "coverage": 0.9627039627039627,
+  "median_excess_bps": 6.315913359451477,
+  "test_q90_bps": 20.05528419171565,
+  "model_above_test_q90_bps": 1.5873827978551986,
+  "test_median_bps": 15.326753630119372,
+  "calibration_span": [
+   1792920948182,
+   1792981385724
+  ]
+ },
+ "BNB:buy:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 0.9510481223640177,
+  "coverage": 0.9731934731934732,
+  "median_excess_bps": 0.6800986372124118,
+  "test_q90_bps": 0.6650432061516831,
+  "model_above_test_q90_bps": 0.2860049162123346,
+  "test_median_bps": 0.2709494851516059,
+  "calibration_span": [
+   1792920948494,
+   1792981387029
+  ]
+ },
+ "BNB:buy:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 2.2893079665076144,
+  "coverage": 0.9708624708624709,
+  "median_excess_bps": 1.637001315037967,
+  "test_q90_bps": 1.6610404966477255,
+  "model_above_test_q90_bps": 0.6282674698598889,
+  "test_median_bps": 0.6523066514696474,
+  "calibration_span": [
+   1792920948494,
+   1792981387029
+  ]
+ },
+ "BNB:sell:1000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 1.0725631017582948,
+  "coverage": 0.9743589743589743,
+  "median_excess_bps": 0.7990824771747507,
+  "test_q90_bps": 0.6770389026544699,
+  "model_above_test_q90_bps": 0.39552419910382497,
+  "test_median_bps": 0.27348062458354416,
+  "calibration_span": [
+   1792920948494,
+   1792981387029
+  ]
+ },
+ "BNB:sell:10000": {
+  "n_cal": 1999,
+  "n_test": 858,
+  "model_bps": 2.2409526497013665,
+  "coverage": 0.9090909090909091,
+  "median_excess_bps": 1.1405394351282627,
+  "test_q90_bps": 2.115440390997314,
+  "model_above_test_q90_bps": 0.12551225870405247,
+  "test_median_bps": 1.1004132145731038,
+  "calibration_span": [
+   1792920948494,
+   1792981387029
+  ]
+ }
+}
