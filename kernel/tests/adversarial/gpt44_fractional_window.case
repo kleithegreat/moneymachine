@@ -1,0 +1,2 @@
+{"mechanism": "T2", "source": "gpt", "expect": "E_WINDOW", "name": "fractional-window", "why": "Attempts fractional-hour sampling through rounding or truncation. Window hours must be an integer."}
+{"dsl": 1, "name": "fractional-window", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns increase with cumulative premium."], "capacity": "Small."}, "weight": {"op": "sum", "args": [{"input": "premium"}], "hours": 1.5}}

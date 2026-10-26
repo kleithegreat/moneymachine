@@ -9,14 +9,16 @@ consumes the date; a resolution or a missing-data status is recorded once per th
 import fcntl
 import functools
 import json
+import shutil
 import threading
 import time
 from pathlib import Path
 
-from gate.agent.campaigns import RETRY, available
-from ingest.execution import fill_missing
+from gate import kernel
+from ingest.fallback import fill_missing
 from ingest.live import now_ms
 from ingest.policy import DAY, HOUR
+from sandbox import session
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
 from thesis.market import MARK_OFFSET, Exchange, Market
@@ -37,8 +39,10 @@ NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 class Track:
     def __init__(self, root=ROOT):
         self.root = Path(root)
-        self.version = f"thesis-{harness.manifest_hash()[:12]}"
-        self.ledger = registry.Ledger(self.root / "ledger.sqlite", self.version)
+        kernel = pinned_kernel(self.root)
+        self.manifest = harness.manifest_hash(kernel)
+        self.version = f"thesis-{self.manifest[:12]}"
+        self.ledger = registry.Ledger(self.root / "ledger.sqlite", self.version, kernel)
         self.market = Market(self.root / "market", Exchange(self.root / "exchange"))
         self.fetcher = Fetcher()
 
@@ -102,7 +106,7 @@ class Track:
     def session(self, kind, account, date, snapshot, commands, task=None, ablation_of=None):
         name = f"{kind}-{date}" if ablation_of is None else f"ablation-{ablation_of}"
         self.ledger.disclose("session", account, {"session": name, "kind": kind, "started": now_ms(),
-                                                  "manifest": harness.manifest_hash()})
+                                                  "manifest": self.manifest})
         run = harness.run_session(self.root / "sessions" / name, kind,
                                   lambda sock: self.daemon(sock, name, account, snapshot, commands, ablation_of), task)
         calls = [c for _, _, c in self.ledger.records("call", account) if c["session"] == name]
@@ -126,11 +130,11 @@ class Track:
 
     def day(self, date):
         """The main session, an ablation per accepted main thesis, then the full no-reading session."""
-        while not available():
+        while not session.available(harness.MODEL):
             if now_ms() >= date + DAY:
                 self.ledger.disclose("session_missed", "main", {"date": date, "reason": "the model was unavailable all day"})
                 return
-            time.sleep(RETRY)
+            time.sleep(session.RETRY)
         snapshot = self.snapshot(now_ms())
         name = self.session("main", "main", date, snapshot, MAIN_COMMANDS)
         for th in [t for t in self.ledger.theses("main") if t["session"] == name]:
@@ -190,9 +194,9 @@ class Track:
 
     def run(self):
         """Forever: resolutions every 5 min and builder marks at H + MARK_OFFSET (stage 10 revision of 2026-10-23) on
-        their own threads; the Monday benchmark and the daily sessions here. One runner per root."""
+        their own threads; the Monday benchmark and the daily sessions each minute (`schedule`). One runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
-        if frozen.get("manifest") != harness.manifest_hash():
+        if frozen.get("manifest") != self.manifest:
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
         self.root.mkdir(parents=True, exist_ok=True)
         lock = open(self.root / "run.lock", "w")
@@ -201,18 +205,19 @@ class Track:
         threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000), daemon=True).start()
         threading.Thread(target=forever, args=("marks", self.market.record_marks,
                                                lambda now: now // HOUR * HOUR + HOUR + MARK_OFFSET - now), daemon=True).start()
-        while True:
-            now = now_ms()
-            date = now // DAY * DAY
-            monday = date - ((date // DAY + 3) % 7) * DAY
-            if monday > frozen["frozen"] - DAY and not self.benchmarked(monday):
-                if now - monday < DAY:
-                    self.benchmark(monday)
-                else:
-                    self.ledger.disclose("skip", "benchmark", {"date": monday, "market": None, "reason": "run missed"})
-            if now >= date + SESSION_OFFSET and not self.started("main", date) and not self.missed(date):
-                self.day(date)
-            time.sleep(60)
+        forever("schedule", lambda: self.schedule(now_ms(), frozen["frozen"]), lambda now: 60_000)
+
+    def schedule(self, now, frozen):
+        """The Monday benchmark and the daily sessions due at `now`, for a track version frozen at `frozen`."""
+        date = now // DAY * DAY
+        monday = date - ((date // DAY + 3) % 7) * DAY
+        if monday > frozen - DAY and not self.benchmarked(monday):
+            if now - monday < DAY:
+                self.benchmark(monday)
+            else:
+                self.ledger.disclose("skip", "benchmark", {"date": monday, "market": None, "reason": "run missed"})
+        if now >= date + SESSION_OFFSET and not self.started("main", date) and not self.missed(date):
+            self.day(date)
 
     def missed(self, date):
         return any(c["date"] == date for _, _, c in self.ledger.records("session_missed"))
@@ -228,13 +233,25 @@ def forever(name, step, wait):
             print(time.strftime("%FT%T"), name, repr(e), flush=True)
 
 
+def pinned_kernel(root, fresh=False):
+    """The track's own copy of the `mm` binary, which writes its ledger: copied from the current build when absent, or
+    afresh at a freeze, so later kernel builds never change a running track version."""
+    path = Path(root) / "bin" / "mm"
+    if fresh or not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(kernel.build(), path)
+    return path
+
+
 def freeze():
-    """Record the manifest: the start of a track version and of C10.5's observation window."""
+    """Record the manifest, with the kernel binary pinned: the start of a track version and of C10.5's observation
+    window."""
+    manifest = harness.manifest_hash(pinned_kernel(ROOT, fresh=True))
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
     old = json.loads(FROZEN.read_text()) if FROZEN.exists() else None
-    if old and old["manifest"] == harness.manifest_hash():
+    if old and old["manifest"] == manifest:
         raise SystemExit("this manifest is already frozen")
-    FROZEN.write_text(json.dumps({"manifest": harness.manifest_hash(), "version": f"thesis-{harness.manifest_hash()[:12]}",
+    FROZEN.write_text(json.dumps({"manifest": manifest, "version": f"thesis-{manifest[:12]}",
                                   "frozen": now_ms(), "previous": old}, indent=1) + "\n")
 
 

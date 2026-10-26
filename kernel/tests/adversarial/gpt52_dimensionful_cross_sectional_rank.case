@@ -1,0 +1,2 @@
+{"mechanism": "T20", "source": "gpt", "expect": "E_DIMENSIONLESS", "name": "dimensionful-cross-sectional-rank", "why": "Attempts to launder an hourly funding rate into a dimensionless rank. Xs_rank requires its input itself to have unit 1."}
+{"dsl": 1, "name": "dimensionful-cross-sectional-rank", "mechanism": {"counterparty": "Leveraged traders.", "predictions": ["Returns vary with relative funding pressure."], "capacity": "Small."}, "weight": {"op": "xs_rank", "args": [{"input": "funding"}]}}

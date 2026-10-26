@@ -377,6 +377,17 @@ government publications are in the public domain and are not subject to copyrigh
 and/or distribute any of our data, files, databases, reports, graphs, charts, and other information products".
 EIA asks for an acknowledgment that includes the publication date.'''
 
+
+[[eia.terms]]
+host = "api.eia.gov/v2/"
+url = "https://www.eia.gov/opendata/terms-of-service.php"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''You may use the EIA API to develop a service to search, display, analyze, retrieve, view and otherwise "get" information from EIA data.'''
+notes = '''
+The keyed v2 API, with the human's key (`EIA_API_KEY`, sent as `api_key`, never logged). "You may not modify or falsely
+represent content accessed through the API and still claim the source is the EIA." No rate is published: requests
+must be throttled.'''
 [polymarket]
 description = '''
 # Polymarket (keyless data layer; stage 10 market-implied baseline)
@@ -484,3 +495,167 @@ notes = '''
 Only the feeds: the Board's site policy permits copying its public-domain information ("may be copied and
 distributed without permission") but says nothing about automated access to its other pages.'''
 retrieval = true
+
+[hyperliquid-archive]
+description = '''
+# Hyperliquid's requester-pays S3 archives (surveyed 2026-10-26; nothing fetched beyond the survey)
+
+Read with the AWS account the human configured (IAM user `hyperliquid-data`, S3 read-only, us-east-1, a $20 monthly
+budget that denies the user at 100%; spending approved up to $20 in total).
+
+- `s3://hyperliquid-archive/market_data/<YYYYMMDD>/<hour>/l2Book/<COIN>.lz4`: one file per coin and UTC hour, from
+  2023-04-15 to the day before the survey (1,266 dates). Each holds JSON lines `{"time", "ver_num", "raw": {"channel":
+  "l2Book", "data": {"coin", "time", "levels"}}}`, the same `l2Book` record our recorder polls, with 20 levels a side.
+  BTC on 2026-10-20 hour 0: 668 snapshots, a median of 5.4 s apart (at most 5.6 s), 250 KB compressed and 1.1 MB
+  raw. Coins listed at hour 12: 13 on 2023-04-15 (of U: BTC, ETH, SOL, BNB), 134 on 2024-06-01 and 198 on 2025-06-01
+  (all 12 of U). One hour of every coin is 5 MB (2023), 43 MB (2024) and 89 MB (2025) compressed.
+- `s3://hyperliquid-archive/asset_ctxs/<YYYYMMDD>.csv.lz4`: one file a day, 2.6 to 5.5 MB.
+- `s3://hyperliquid-archive/Testnet/`, and `s3://hl-mainnet-node-data/` with `node_fills`, `node_fills_by_block`,
+  `node_trades`, `misc_events_by_block`, `explorer_blocks` and `replica_cmds`, each split by hour.
+
+Cost (requester pays, us-east-1 to the internet): about $0.09 per GB transferred and $0.0004 per 1,000 GETs. The
+12 coins of U for one hour a day over the whole archive is about 15,000 files and 2 GB, about $0.20; every hour of
+every day for U is about 55 GB, about $5.
+
+Hyperliquid's documentation offers the archive publicly; downloads are within the human's approved $20 and await the
+proposed diagnostic's approval (PROGRESS.md).'''
+
+[[hyperliquid-archive.terms]]
+host = "s3://hyperliquid-archive"
+url = "https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data"
+retrieved = 2026-10-26
+basis = "operator decision"
+quote = '''
+L2 book snapshots are available in market_data and asset contexts are available in asset_ctxs. Note that the
+requester of the data must pay for transfer costs. There is no guarantee of timely updates and data may be missing.'''
+notes = '''
+The documentation offers the archive for download, with the requester paying, and states no further terms. As for
+Hyperliquid's API, use of the read-only public data is the operator's decision: the human configured the AWS account
+and approved spending up to $20 (2026-10-26). Uploads come about once a month.'''
+
+[bigquery-crypto]
+description = '''
+# Google BigQuery public datasets `bigquery-public-data.crypto_ethereum` and `crypto_bitcoin` (checked 2026-10-26)
+
+Read with the human's Application Default Credentials in project `moneymachine-512800`, a BigQuery sandbox without
+billing (the `cloud` dev shell; the `bq` CLI needs a gcloud login, so access is through the Python client).
+
+- The tables are views with hidden definitions. On 2026-10-26 at 01:18 UTC the latest Ethereum block was 01:17:47
+  and the latest Bitcoin block 01:14:38, so both are current within minutes.
+- Ethereum `blocks` filters on `timestamp`; Bitcoin `blocks` on `timestamp_month`. Scanning Ethereum blocks since
+  2026-08-01 read 210 MB; Bitcoin, 16 MB. A query bills at least 10 MB, against the sandbox's 1 TB a month.
+- Query results come back through the API (7,566 rows in 5.3 s). The sandbox can create datasets and destination
+  tables, which expire within 60 days. Extraction to Cloud Storage needs a bucket, and so billing: not available.
+- Point-in-time use needs certification: the tables are rewritten in place, so a value's availability must come
+  from the block timestamp under a certified rule, not from the table.
+
+Terms are not yet certified: no automated research use until a terms record is added.'''
+
+
+[bls]
+description = '''
+# U.S. Bureau of Labor Statistics: the Public Data API v2 and the release calendar (keyed data layer)
+
+Single series by GET with the human's key (`BLS_API_KEY`, sent as `registrationkey`, never logged): 500 queries a day,
+50 requests per 10 seconds. The API has no vintages: values are as published at each poll, footnoted when
+preliminary, so the source is prospective only. The release calendar (iCal, times Eastern) dates each release.
+Users "should cite the date that data were accessed or retrieved using the API".'''
+
+[[bls.terms]]
+host = "api.bls.gov/publicAPI/v2/"
+url = "https://www.bls.gov/developers/termsOfService.htm"
+retrieved = 2026-10-26
+basis = "official API"
+quote = '''Access to or use of BLS.gov services or its content constitutes acceptance to this Agreement. Data accessed through BLS.gov do not, and should not, include controls over its end use.'''
+notes = '''
+Required statement, for any report using the data: "BLS.gov cannot vouch for the data or analyses derived from these
+data after the data have been retrieved from BLS.gov." "Users may not modify or falsely represent content accessed
+through BLS.gov and still cite the source as BLS.gov."'''
+
+[[bls.terms]]
+host = "www.bls.gov/schedule/"
+url = "https://www.bls.gov/developers/termsOfService.htm"
+retrieved = 2026-10-26
+basis = "official API"
+quote = '''Access to or use of BLS.gov services or its content constitutes acceptance to this Agreement. Data accessed through BLS.gov do not, and should not, include controls over its end use.'''
+notes = '''
+The release calendar `bls.ics`, which the page itself invites users to load into a calendar program. Requests carry the
+human's contact identity as User-Agent (CLAUDE.md).'''
+
+[bea]
+description = '''
+# U.S. Bureau of Economic Analysis API (keyed data layer)
+
+NIPA tables by GET with the human's key (`BEA_API_KEY`, sent as `UserID`, never logged): at most 100 requests and
+100 MB a minute and 30 errors a minute. The API returns current values only, so the source is prospective only.'''
+
+[[bea.terms]]
+host = "apps.bea.gov/api/data"
+url = "https://apps.bea.gov/API/_pdf/bea_api_tos.pdf"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''You may use the BEA API to develop a service or service to search, display, analyze, retrieve, view and otherwise "get" information from BEA data.'''
+notes = '''
+Required notice: "This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by
+BEA." "You may not modify or falsely represent content accessed through the API and still claim the source is the
+BEA."'''
+
+[sec]
+description = '''
+# U.S. SEC EDGAR (keyless; contact User-Agent; data layer)
+
+The RSS feed of the latest XBRL filings, with each filing's acceptance time, recorded hourly: a prospective record of
+what was filed and when it was accepted. Requests carry the human's contact identity as User-Agent (`SEC_USER_AGENT`),
+at most 10 requests a second.'''
+
+[[sec.terms]]
+host = "www.sec.gov/Archives/edgar/"
+url = "https://www.sec.gov/privacy"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''Information presented on sec.gov is considered public information and may be copied or further distributed by users of the web site without the SEC’s permission.'''
+notes = '''
+"Current guidelines limit users to a total of no more than 10 requests per second, regardless of the number of
+machines used to submit requests." "The SEC does not allow "unclassified" bots or automated tools to crawl the site."
+The recorder identifies itself with the human's contact identity and fetches one feed an hour; it does not crawl.'''
+
+[wikimedia]
+description = '''
+# Wikimedia REST API pageviews (terms only; no feed yet)
+
+Daily pageviews from 2015-07-01, CC0. A client must send a User-Agent with contact information (the human's, per
+CLAUDE.md) and wait for each request before the next.'''
+
+[[wikimedia.terms]]
+host = "wikimedia.org/api/rest_v1/metrics/pageviews/"
+url = "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html"
+retrieved = 2026-10-26
+basis = "official API"
+quote = '''Data provided by the API is available under the CC0 1.0 license'''
+notes = '''
+"By using the API, you agree to Wikimedia's terms of use and privacy policy." "The API requires an HTTP User-Agent
+header for all requests." "Clients making requests without a User-Agent header may be blocked without notice."'''
+
+[philadelphia-fed-rtdsm]
+description = '''
+# Federal Reserve Bank of Philadelphia, Real-Time Data Set for Macroeconomists (data layer; stage 8 macro vintages)
+
+Each file holds, per vintage (a column), the whole history of one variable as published then: the macro vintages
+FRED's terms rule out (Blockers). Monthly vintages of real GDP (`routputMvQd`), the GDP price index (`pMvQd`), CPI
+(`pcpiMvMd`) and payroll employment (`employMvMd`), and quarterly vintages of the unemployment rate (`rucQvMd`). "All
+data are updated at the end of each month." Point-in-time use needs certification of each vintage's date against its
+release (stage 8 annex). Preferred citation: Croushore and Stark, "A Real-Time Data Set for Macroeconomists", Journal
+of Econometrics 105 (2001).'''
+
+[[philadelphia-fed-rtdsm.terms]]
+host = "www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/"
+url = "https://www.philadelphiafed.org/about-us/privacy-notice"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''The content provided on this website may be used for informational, educational, and research purposes only.'''
+notes = '''
+Our use is research. The same terms say "Some of the content on this website may be copyrighted. Permission to use
+such copyrighted material must be obtained from the owner." The data set's page carries only the site-wide footer
+"Copyright 2026. All rights reserved. Federal Reserve Bank of Philadelphia"; the Bank is the owner and the use stated
+above is the one it permits. Automated access is not forbidden, but "you may not engage in excessive access to the
+website in a way that could adversely affect the site for others": the recorder fetches five files once a day.'''

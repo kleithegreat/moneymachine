@@ -49,6 +49,11 @@
           recorder = pkgs.mkShell {
             packages = [ (pkgs.python313.withPackages (ps: [ ps.httpx ])) ];
           };
+          # Cloud data access: AWS (Hyperliquid's requester-pays archives) and BigQuery (public chain datasets).
+          cloud = pkgs.mkShell {
+            packages = [ pkgs.awscli2 pkgs.google-cloud-sdk pkgs.lz4
+                         (pkgs.python313.withPackages (ps: [ ps.google-cloud-bigquery ps.packaging ps.boto3 ps.lz4 ps.numpy ps.polars ])) ];
+          };
         });
 
       packages = forAll (pkgs: {

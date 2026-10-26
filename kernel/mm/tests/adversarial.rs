@@ -1,4 +1,5 @@
-//! Every case in kernel/tests/adversarial must be rejected with exactly its expected code.
+//! Every case in kernel/tests/adversarial must be rejected with exactly its expected code, or type-check where it
+//! expects ADMITTED (C1.7 then runs it); each case's outcome is printed.
 //! A case file is a JSON header line followed by the program text.
 
 use std::fs;
@@ -25,19 +26,10 @@ fn type_checker_rejects_with_expected_code() {
     let mut failures = vec![];
     for (name, hdr, prog) in cases() {
         let expect = hdr["expect"].as_str().unwrap();
-        if expect == "ADMITTED" {
-            if let Err(r) = mm::dsl::parse(&prog) {
-                failures.push(format!("{name}: expected to type-check, got {r}"));
-            }
-            continue;
-        }
-        if !expect.starts_with("E_") {
-            continue;
-        }
-        match mm::dsl::parse(&prog) {
-            Err(r) if r.code.name() == expect => {}
-            Err(r) => failures.push(format!("{name}: expected {expect}, got {r}")),
-            Ok(_) => failures.push(format!("{name}: expected {expect}, but it type-checked")),
+        let got = mm::dsl::parse(&prog).map_or_else(|r| r.code.name().to_string(), |_| "ADMITTED".to_string());
+        println!("{name}\t{}\t{}\texpected {expect}\tgot {got}", hdr["mechanism"].as_str().unwrap(), hdr["source"].as_str().unwrap());
+        if got != expect {
+            failures.push(format!("{name}: expected {expect}, got {got}"));
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));

@@ -14,7 +14,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from gate.kernel import command
+from gate.kernel import MM, command
 from ingest.policy import DAY, HOUR
 from thesis import positions, scoring
 
@@ -31,8 +31,8 @@ def sha256(text):
 
 
 class Ledger:
-    def __init__(self, path, track):
-        self.path, self.track = Path(path), track
+    def __init__(self, path, track, binary=MM):
+        self.path, self.track, self.binary = Path(path), track, binary
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
 
@@ -41,7 +41,8 @@ class Ledger:
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
             fh.write(text)
         try:
-            r = subprocess.run(command("disclose", fh.name, self.track, account, self.path, None, "--kind", kind),
+            r = subprocess.run(command("disclose", fh.name, self.track, account, self.path, None, "--kind", kind,
+                                       binary=self.binary),
                                capture_output=True, text=True)
         finally:
             Path(fh.name).unlink()

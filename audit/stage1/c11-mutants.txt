@@ -1,0 +1,18 @@
+caught I1 future bars delivered
+caught I2 submission before decision
+caught I3 fill at the close
+caught I4 add ignores units
+caught I5 funding off the books
+caught I6 print before commit
+caught I7 wall clock in result
+caught I8 holdout rows admitted
+caught I9 no leverage or notional limit
+caught I10 losses beyond equity
+caught I1 events delivered early
+caught C5 derivation without the availability margin
+caught C5 knownAt from the claimed time
+caught C5 derivation counts future items
+caught C5 coverage reads a later poll
+caught C5 as_of returns the latest content
+caught C5 tombstones dropped
+exit 0

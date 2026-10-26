@@ -38,12 +38,13 @@ inductive Event (α : Type) where
   deriving Inhabited
 
 inductive Abort where
-  | causality | timing | fill | accounting | portfolio | bound | inputUnavailable
+  | causality | timing | fill | accounting | portfolio | bound | inputUnavailable | settlementMissing
   deriving DecidableEq, Repr
 
 def Abort.code : Abort → String
   | .causality => "R_CAUSALITY" | .timing => "R_TIMING" | .fill => "R_FILL" | .accounting => "R_ACCOUNTING"
   | .portfolio => "R_PORTFOLIO" | .bound => "R_BOUND" | .inputUnavailable => "R_INPUT_UNAVAILABLE"
+  | .settlementMissing => "R_SETTLEMENT_MISSING"
 
 structure Venue (α : Type) where
   takerFee : α
@@ -154,6 +155,11 @@ def Market.index (m : Market α) (coins : Nat) : Index α :=
 
 /-- First index in a sorted array whose element satisfies `p` (monotone): Rust's partition_point. -/
 def partitionPoint (xs : Array Int) (p : Int → Bool) : Nat := (xs.findIdx? (!p ·)).getD xs.size
+
+/-- A held coin's latest bar opened by t, keyed by the coin. -/
+def latestOf (ix : Index α) (bars : Array (BarRow α)) (t : Int) (x : Nat × α) : Option (Nat × BarRow α) :=
+  if (partitionPoint ix.barTimes[x.1]! (fun u => decide (u ≤ t)) == 0) = true then none
+  else some (x.1, bars[ix.barAt[(x.1, ix.barTimes[x.1]![(partitionPoint ix.barTimes[x.1]! fun u => decide (u ≤ t)) - 1]!)]!]!)
 
 /-- I2 and I3 (and the I9 order cap) for one fill, recomputed from the source bars. -/
 def checkFill (f : Fill α) (m : Market α) (ix : Index α) (v : Venue α) : Except Abort Unit := do
@@ -308,6 +314,11 @@ def Ctx.start (c : Ctx α) : Except Abort (SState α) := do
   let s ← c.deliver (c.state0 N) (c.pol.wStart + c.pol.delta)
   return { s with machine := s.machine.tick N c.p (c.mask c.pol.wStart) c.pol.wStart }
 
+/-- I5: the two equities agree within 1e-9 of max(|e1|, 10,000); a non-finite e1 fails. -/
+def accountingOk (N : NumOps α) (e1 e2 : α) : Bool :=
+  let scale := if N.lt (N.abs e1) (N.ofNat 10000) then N.ofNat 10000 else N.abs e1
+  N.le (N.div (N.abs (N.sub e1 e2)) scale) (N.ofBits 0x3E112E0BE826D695)
+
 /-- One 4h step from b (SEMANTICS.md §7, items 1 to 9). -/
 def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) := do
   let p := c.p
@@ -325,19 +336,17 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   -- 1. funding
   for k in [1:5] do
     let h := b + k * HOUR
-    for (coin, _) in s.book.pos do
-      match ix.rateAt[(coin, h)]?, ix.barAt[(coin, h - h % BAR)]? with
-      | some rate, some i =>
-        let price := m.bars[i]!.o
+    for x in s.book.pos.filter (c.listed ·.1 h) do
+      let coin := x.1
+      match ix.rateAt[(coin, h)]?, latestOf ix m.bars h x with
+      | some rate, some (_, bar) =>
+        let price := bar.o
         let (book, paid) := s.book.settle N coin price rate
         s := { s with book, trace := s.trace.push (.funding h coin rate price paid) }
-      | _, _ => pure ()
+      | _, _ => throw .settlementMissing
   -- 2. marks
   let held := s.book.pos
-  let latest : List (Nat × BarRow α) := held.filterMap fun (c, _) =>
-    let times := ix.barTimes[c]!
-    let k := partitionPoint times (· ≤ b)
-    if k == 0 then none else some (c, m.bars[ix.barAt[(c, times[k - 1]!)]!]!)
+  let latest : List (Nat × BarRow α) := held.filterMap (latestOf ix m.bars b)
   for (c, bar) in latest do
     s := { s with marks := s.marks.set! c bar.c }
   -- 3. margin
@@ -359,7 +368,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   -- 6. accounting
   let e1 := s.book.equity N s.marks
   let e2 := s.book.reconciled N s.marks
-  if !N.le (N.abs (N.sub e1 e2)) (N.ofBits 0x3EE4F8B588E368F1) then throw .accounting
+  if !accountingOk N e1 e2 then throw .accounting
   let costs := N.add s.book.fees s.book.slippage
   let (r, g) := if N.lt N.zero s.prevEquity then
       (if N.lt N.zero e1 then N.sub (N.div e1 s.prevEquity) N.one else N.neg N.one, N.div (N.sub (N.add (N.sub e1 s.prevEquity) costs) s.prevCosts) s.prevEquity)

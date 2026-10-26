@@ -5,8 +5,11 @@ fetchedAt and source, with a hash of the content. A write appends only rows whos
 differs from the key's latest live revision, into a new read-only file. A key that a complete
 fetch no longer lists gets a tombstone revision (`tombstone` true, values null), and a later
 listing restores it. knownAt is never stored: `known_at` computes it from a revision's fields by
-the policy's rule. A dataset version is a fetchedAt cutoff; `as_of(t, version)` is the version's
-data known by t, and `as_of(t, t)` is the content live at t.
+the rule of the store's policy (`policy.json` in the search store, which also governs its holdout
+store). A revision whose observed values differ from its key's first revision is a correction: it is
+known no earlier than it was fetched, so before then the key is hidden, never shown with a value
+nobody had at that time. A dataset version is a fetchedAt cutoff; `as_of(t, version)` is the
+version's data known by t, and `as_of(t, t)` is the content live at t.
 """
 
 import hashlib
@@ -16,20 +19,26 @@ from pathlib import Path
 
 import polars as pl
 
-from ingest.policy import DELTA, HOLDOUT_START, HOUR, POLICY, SETTLEMENT_LATENCY
+from ingest.policy import HOLDOUT_START, HOUR, POLICY
 
 
 KEY = ["coin", "eventTime"]
 META = ["fetchedAt", "source", "hash"]
 
 
-def known_at(dataset):
-    """A revision's knownAt from its observed fields (C0.3; C0.4 as amended). `mm` applies the same rule."""
+def ruled(dataset):
+    """Whether a dataset's knownAt follows the policy's rule; any other is known when fetched."""
+    return dataset in ("funding", "bars_4h") or dataset.startswith("events_")
+
+
+def known_at(dataset, policy):
+    """A first revision's knownAt from its observed fields by `policy`'s rule (C0.3; C0.4 as amended). `mm` applies
+    the same rule."""
     if dataset == "funding":
         r = pl.col("reportedTime")
-        return pl.max_horizontal(r // HOUR * HOUR + DELTA, r + SETTLEMENT_LATENCY)
-    if dataset == "bars_4h" or dataset.startswith("events_"):
-        return pl.col("eventTime") + DELTA
+        return pl.max_horizontal(r // HOUR * HOUR + policy["delta_ms"], r + policy["settlement_latency_ms"])
+    if ruled(dataset):
+        return pl.col("eventTime") + policy["delta_ms"]
     return pl.col("fetchedAt")
 
 
@@ -42,11 +51,15 @@ def _hash(row):
 
 
 class Store:
-    def __init__(self, root, event_before=None, key=KEY):
+    def __init__(self, root, event_before=None, key=KEY, policy_root=None):
         self.root = Path(root)
         self.event_before = event_before
         self.key = list(key)
+        self.policy_root = Path(policy_root or root)
         self._cache = {}
+
+    def policy(self):
+        return json.loads((self.policy_root / "policy.json").read_text())
 
     def _files(self, dataset):
         d = self.root / dataset
@@ -96,12 +109,20 @@ class Store:
         return df.height
 
     def as_of(self, dataset, t, version):
-        """Per key, the latest revision fetched by `version`, unless a tombstone, if its knownAt is <= t."""
+        """Per key, the latest revision fetched by `version`, unless a tombstone, if its knownAt is <= t: the rule's
+        time, or for a correction the later of that and its fetchedAt."""
         df = self.revisions(dataset)
         if df is None:
             return df
-        return (df.filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(self.key, maintain_order=True).last()
-                .filter(live(df)).with_columns(known_at(dataset).alias("knownAt")).filter(pl.col("knownAt") <= t))
+        df = df.filter(pl.col("fetchedAt") <= version).sort("fetchedAt")
+        values = [c for c in df.columns if c not in self.key + META + ["tombstone"]]
+        first = df.group_by(self.key, maintain_order=True).first().select(self.key + [pl.col(c).alias(f"{c}#first") for c in values])
+        same = pl.all_horizontal([pl.col(c).eq_missing(pl.col(f"{c}#first")) for c in values])
+        rule = known_at(dataset, self.policy() if ruled(dataset) else None)
+        return (df.group_by(self.key, maintain_order=True).last().filter(live(df))
+                .join(first, on=self.key, how="left", maintain_order="left")
+                .with_columns(pl.when(same).then(rule).otherwise(pl.max_horizontal(rule, pl.col("fetchedAt"))).alias("knownAt"))
+                .drop([f"{c}#first" for c in values]).filter(pl.col("knownAt") <= t))
 
 
 def stores(data_root):
@@ -114,7 +135,7 @@ def stores(data_root):
         bound.write_text(json.dumps(POLICY, indent=1) + "\n")
     if json.loads(bound.read_text()) != POLICY:
         raise ValueError(f"{bound} differs from the repository policy")
-    return Store(root / "store", event_before=HOLDOUT_START), Store(root / "holdout")
+    return Store(root / "store", event_before=HOLDOUT_START), Store(root / "holdout", policy_root=root / "store")
 
 
 def write_split(search, holdout, dataset, df, fetched_at, source, holdout_start=HOLDOUT_START):

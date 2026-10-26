@@ -1,0 +1,2 @@
+{"mechanism": "T13", "source": "gpt", "expect": "E_REF", "name": "undeclared-parameter", "why": "Attempts fallback lookup or implicit creation of an undeclared parameter. A param expression must resolve to a declared parameter."}
+{"dsl": 1, "name": "undeclared-parameter", "mechanism": {"counterparty": "Liquidity providers.", "predictions": ["Returns are positive for the fixed exposure."], "capacity": "Small."}, "params": {"size": {"value": 0.01, "unit": "1"}}, "weight": {"param": "missing_size"}}

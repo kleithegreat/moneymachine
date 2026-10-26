@@ -1,0 +1,2 @@
+{"mechanism": "T19", "source": "gpt", "expect": "E_PARSE", "name": "same-close-fill-override", "why": "Attempts to introduce a same-close execution override through an extra top-level field. The static rejection follows the unknown-fields rule; actual fill ordering remains an evaluator responsibility."}
+{"dsl": 1, "name": "same-close-fill-override", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns increase with premium."], "capacity": "Small."}, "weight": {"input": "premium"}, "fill": "same-close"}

@@ -84,3 +84,33 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
   - **GPT:** found the gaps; it updated its own independent scorer from the revised SCORING.md, and the differential agrees on all 1,000 sets.
   - **Reverse:** `git revert` of the commit.
 - **2026-10-25 23:54 UTC (19:54 EDT): reviewed by the human.** Approved: the merge amendment's extension to boundary polls with the cloud recorder at 600/min (merged by completeness across clock-verified hosts, host-tagged, as specified), and the C2.6 amendment, which was then found infeasible before any sweep and is suspended (`audit/criteria.md`, C2.6; PROGRESS.md, Blockers). The human also put vendor permission requests on hold, and `docs/permission-requests.md` was deleted.
+- **2026-10-26 01:28 UTC (21:28 EDT): stage 7's rule language (`kernel/RULES.md`, C7.6) revised once from two reviews and frozen as version 1 on branch `stage7`.**
+  - **What:** GPT (`audit/stage7/rules-review-gpt.md`) and a fresh-context Opus subagent (`audit/stage7/rules-review-opus.md`; labeled, since GPT first seemed unavailable) reviewed the draft independently, and agreed on its defects: floor overflow, backdating by a floored time, undefined strict JSON, no code for a malformed row, and no resolver. The revision:
+    - adds a lower-bound check (every accepted rule is at least one named field and every declared dependency);
+    - puts the correction and derived-dependency bounds in the resolver, where no rule can remove them;
+    - defines JSON and integer spelling exactly, adds `R_ROW` and a precedence order, specifies the resolver, and fixes a conformance case format.
+  - **Choices between the reviews:**
+    - malformed rows get their own code (Opus), not `R_FIELD_TYPE` (GPT);
+    - integers longer than 19 digits may be treated as out of range, which is equivalent to GPT's unbounded exact value and avoids parser limits;
+    - there is no witness-or-fallback operator: an absent field rejects the row, and a certificate decides which rule (a claimed time, a witness, or `fetchedAt` alone for prospective use) covers which time scope.
+  - **Next, before any implementation:** freeze the C7.6 suite (hand cases with expected results, the generator, seeds and the comparison procedure). GPT's independent implementation follows from this document alone.
+  - **Reverse:** a new rule-language version.
+- **2026-10-26 01:38 UTC (21:38 EDT): reviewed by the human.** The C0.7 regime diagnostic on Hyperliquid's archived books is approved, within the $20 budget, as a labeled diagnostic that decides nothing, to run after stage 0 is committed. A pre-holdout cost table for stage 3 is proposed for the human's review (PROGRESS.md).
+- **2026-10-26 02:01 UTC (22:01 EDT): stage 7's declarations (`kernel/SOURCES.md`) and certificates (`kernel/CERTIFICATES.md`) revised once from GPT's review and frozen as version 1 on branch `stage7`.**
+  - **What:** GPT's review (`audit/stage7/sources-review-gpt.md`) found 18 gaps; all were adopted:
+    - availability bases enforced through the rule, never overridden by a certificate;
+    - access authorization, holdouts included, separate from certification and over the whole transitive closure;
+    - scope as explicit grants (entity, column, event-time and use-time intervals), and certificates authoritative only as verifier-written ledger records;
+    - transitive preflight, derived lineage by upstream revision identities, and positive coverage evidence for zero counts;
+    - `derived-inherits` narrowed to properties the transformation provably preserves;
+    - a role contract table, held cadences with period, phase and slot column, and exact delivery order;
+    - binding schema and unit validation, an executable policy, explicit supersession, the operator CLI, the registry and rule-byte identity, and a migration annex required before C7.4.
+  - **Checked against the kernel:** a held input takes the last delivered observation whole, whatever its event time, and an event value counts only at the tick of its own hour (`machine.rs`), as the revision states.
+  - **Reverse:** a version 2 of either document.
+
+## 2026-10-26 05:18 UTC (01:18 EDT): funding priced at the latest bar opened by its hour (branch `post-stage0`)
+
+- **What:** a held coin's funding at hour h is priced at the open of its latest bar opening at or before h, the lookup the marks already use, instead of the bar opening at h − (h mod BAR). A missing funding rate still aborts with `R_SETTLEMENT_MISSING`.
+- **Why:** the branch's fix (a missing payment aborts instead of paying zero) aborted every search run whose last step held a position. The store is half-open on bar close, so the bar opening at end − BAR closes at the holdout start and lives in the holdout, while the last step settles hour end − BAR at that bar's open. Fills already avoid this bar (`b + 3·BAR ≤ end`). The paper's rule for funding (§Prices: "valued at the latest earlier reference when the hour's own is missing") removes the case. On complete data every price is unchanged; only a missing price bar now settles at the earlier open instead of zero (main) or an abort (the branch), and it never reads a holdout row (I8).
+- **GPT:** not consulted; this follows the paper's stated rule and changes no result on complete data. It reaches GPT with the merged kernel in the next red-team round.
+- **Reverse:** revert the commit on `post-stage0` (3273063) before the merge.

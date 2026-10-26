@@ -33,19 +33,25 @@ class Info:
                 time.sleep(0.25)
 
     def post(self, body, weight=20, per_items=None):
-        """One request, retried after a 429 or 5xx with backoff; every attempt is charged its weight."""
+        """One request, retried after a 429, a 5xx or a transport error (a timeout, a dropped connection) with
+        backoff; every attempt is charged its weight."""
         for attempt in range(6):
+            if attempt:
+                time.sleep(2 ** (attempt - 1))
             self._charge(weight)
-            r = self.http.post(URL, json=body)
-            if r.status_code == 429 or r.status_code >= 500:
-                time.sleep(2**attempt)
+            try:
+                r = self.http.post(URL, json=body)
+            except httpx.TransportError:
+                if attempt == 5:
+                    raise
+                continue
+            if (r.status_code == 429 or r.status_code >= 500) and attempt < 5:
                 continue
             r.raise_for_status()
             out = r.json()
             if per_items and isinstance(out, list):
                 self._charge(len(out) // per_items)
             return out
-        r.raise_for_status()
 
     def meta(self):
         return self.post({"type": "meta"})

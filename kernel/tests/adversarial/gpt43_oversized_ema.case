@@ -1,0 +1,2 @@
+{"mechanism": "T18", "source": "gpt", "expect": "E_WINDOW", "name": "oversized-ema", "why": "Probes whether EMA initialization bypasses the shared window upper bound. EMA hours must not exceed 4380."}
+{"dsl": 1, "name": "oversized-ema", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns increase with smoothed premium."], "capacity": "Small."}, "weight": {"op": "ema", "args": [{"input": "premium"}], "hours": 4381}}

@@ -1,0 +1,2 @@
+{"mechanism": "T2", "source": "gpt", "expect": "E_WINDOW", "name": "zero-lag", "why": "Probes an off-by-one or identity-folding bypass: lag hours must be at least 1, even though direct current-tick input access is legal."}
+{"dsl": 1, "name": "zero-lag", "mechanism": {"counterparty": "Premium-sensitive traders.", "predictions": ["Returns increase with premium."], "capacity": "Small."}, "weight": {"op": "lag", "args": [{"input": "premium"}], "hours": 0}}

@@ -23,21 +23,22 @@ DATA = ("policy.json", "venue/hyperliquid/rules.json", "venue/hyperliquid/execut
 
 
 @functools.cache
-def manifest_files():
+def manifest_files(kernel):
     """Every repo module the runner and the report load (in a fresh interpreter, so the caller's imports do not
-    matter), the kernel's sources (it writes the ledger), the briefs and the data files the track reads."""
+    matter), the track's pinned kernel binary `kernel` (it writes the ledger), the briefs and the data files the track
+    reads."""
     loaded = subprocess.run([sys.executable, "-c", "import sys, thesis.runner, thesis.report; print(*sorted({m.__file__ "
                              "for m in list(sys.modules.values()) if getattr(m, '__file__', None)}), sep='\\n')"],
                             cwd=REPO, capture_output=True, text=True, check=True).stdout.splitlines()
     code = sorted(p.resolve() for p in map(Path, loaded) if p.resolve().is_relative_to(REPO))
-    return code + sorted((REPO / "kernel/mm/src").rglob("*.rs")) + [HERE / n for n in BRIEFS.values()] + [REPO / f for f in DATA]
+    return code + [Path(kernel)] + [HERE / n for n in BRIEFS.values()] + [REPO / f for f in DATA]
 
 
 @functools.cache
-def manifest_hash():
+def manifest_hash(kernel):
     """The track version's identity: its files, model, limits and flags, hashed once per process, as the track
     reads its files once."""
-    return session.identity(manifest_files(), [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS])
+    return session.identity(manifest_files(kernel), [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS])
 
 
 def workspace(workdir, kind, task=None):
@@ -53,7 +54,7 @@ def run_session(workdir, kind, start_daemon, task=None):
     daemon = start_daemon(session.socket_path(workdir, CLIENT))
     s = session.run(workdir, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS)
     daemon.close()
-    return {"kind": kind, **s, "manifest": manifest_hash()}
+    return {"kind": kind, **s}
 
 
 def audit(transcript, calls):

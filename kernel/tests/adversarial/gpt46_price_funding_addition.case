@@ -1,0 +1,2 @@
+{"mechanism": "T6", "source": "gpt", "expect": "E_UNIT", "name": "price-funding-addition", "why": "Adds a price to an hourly funding rate, then uses sign to conceal the invalid intermediate units behind a dimensionless output. Add requires identical units."}
+{"dsl": 1, "name": "price-funding-addition", "mechanism": {"counterparty": "Leveraged traders.", "predictions": ["Returns vary with funding pressure."], "capacity": "Small."}, "weight": {"op": "sign", "args": [{"op": "add", "args": [{"input": "close"}, {"input": "funding"}]}]}}

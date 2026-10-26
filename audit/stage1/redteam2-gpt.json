@@ -1,0 +1,745 @@
+{
+ "round": 2,
+ "date": "2026-10-26",
+ "model": "openai/gpt-6.1-sol#high",
+ "inputs": [
+  "docs/whitepaper.tex",
+  "kernel/DSL.md",
+  "mm --help (with check, eval and run)"
+ ],
+ "prompt": "You are a red team attacking a strategy kernel. whitepaper.tex is the project's paper, DSL.md the strategy language, and mm-help.txt the CLI's usage; you have nothing else, and you must not ask for the source. Your goal: strategies that leak future data, fill impossibly, break units or timing, or otherwise violate the paper's invariants, yet might pass the kernel's type checker (mm check). Write at least 15 attack programs. Each must be an otherwise valid strategy (a complete DSL document per DSL.md) with exactly one embedded attack, and each must be one the kernel SHOULD reject at type-check time if it is correct, with the exact rejection code DSL.md says it should produce. Use a parse-level attack only where the mechanism is genuinely syntactic. Prefer attacks that probe distinct mechanisms (lookahead, negative or zero lags, window edge cases, unit and time-base confusion, dimensionless output, input names, parameter typing, references and let ordering, JSON-level ambiguities, size limits, anything else you find in the spec). Do not include attacks whose defence is at run time rather than type-check time. Reply with a JSON array only (no prose before or after), each element {\"name\": short-kebab-name, \"mechanism\": what the attack tries and which rule it probes, \"expected_code\": the exact code, \"program\": the strategy as a JSON value, or \"program_text\": a string when the attack needs raw text that is not a single JSON value}. Do not write files.",
+ "note": "GPT returned expected_code null throughout (DSL.md names no type-check codes); the codes were assigned from kernel/INVARIANTS.md's code table and threat matrix and recorded before mm check ran",
+ "codes_assigned_at": "2026-10-26T11:21:18.226748+00:00",
+ "cases": [
+  {
+   "name": "negative-lag",
+   "mechanism": "Attempts future access through a negative lag; hours must be an integer from 1 through 4380. Specification limitation for this entire array: DSL.md supplies no type-check rejection codes, so expected_code is null rather than invented. Its only named code, R_INPUT_UNAVAILABLE, concerns evaluation and is excluded.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "negative-lag",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "lag",
+     "args": [
+      {
+       "input": "premium"
+      }
+     ],
+     "hours": -1
+    }
+   }
+  },
+  {
+   "name": "zero-lag",
+   "mechanism": "Probes an off-by-one or identity-folding bypass: lag hours must be at least 1, even though direct current-tick input access is legal.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "zero-lag",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "lag",
+     "args": [
+      {
+       "input": "premium"
+      }
+     ],
+     "hours": 0
+    }
+   }
+  },
+  {
+   "name": "empty-window",
+   "mechanism": "Requests a zero-sample mean, probing empty-window handling. Window hours must be at least 1; this is a static parameter violation, not a runtime undefined-value test.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "empty-window",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with mean premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "mean",
+     "args": [
+      {
+       "input": "premium"
+      }
+     ],
+     "hours": 0
+    }
+   }
+  },
+  {
+   "name": "oversized-ema",
+   "mechanism": "Probes whether EMA initialization bypasses the shared window upper bound. EMA hours must not exceed 4380.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "oversized-ema",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with smoothed premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "ema",
+     "args": [
+      {
+       "input": "premium"
+      }
+     ],
+     "hours": 4381
+    }
+   }
+  },
+  {
+   "name": "fractional-window",
+   "mechanism": "Attempts fractional-hour sampling through rounding or truncation. Window hours must be an integer.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "fractional-window",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with cumulative premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "sum",
+     "args": [
+      {
+       "input": "premium"
+      }
+     ],
+     "hours": 1.5
+    }
+   }
+  },
+  {
+   "name": "boolean-lag-parameter",
+   "mechanism": "Attempts to exploit host-language treatment of true as integer 1. A JSON boolean is not the integer required by lag hours.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "boolean-lag-parameter",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with earlier premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "lag",
+     "args": [
+      {
+       "input": "premium"
+      }
+     ],
+     "hours": true
+    }
+   }
+  },
+  {
+   "name": "price-funding-addition",
+   "mechanism": "Adds a price to an hourly funding rate, then uses sign to conceal the invalid intermediate units behind a dimensionless output. Add requires identical units.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "price-funding-addition",
+    "mechanism": {
+     "counterparty": "Leveraged traders.",
+     "predictions": [
+      "Returns vary with funding pressure."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "sign",
+     "args": [
+      {
+       "op": "add",
+       "args": [
+        {
+         "input": "close"
+        },
+        {
+         "input": "funding"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "hourly-annual-rate-mix",
+   "mechanism": "Subtracts annualized funding from hourly funding without converting both operands to the same time basis. The explicit conversion is valid; the subtraction is not.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "hourly-annual-rate-mix",
+    "mechanism": {
+     "counterparty": "Leveraged traders.",
+     "predictions": [
+      "Returns vary with funding pressure."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "sign",
+     "args": [
+      {
+       "op": "sub",
+       "args": [
+        {
+         "input": "funding"
+        },
+        {
+         "op": "convert",
+         "args": [
+          {
+           "input": "funding"
+          }
+         ],
+         "to": "1/y"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "dimensionful-weight",
+   "mechanism": "Uses a price directly as an equity fraction. Weight must have unit 1; runtime leverage scaling cannot repair a unit error.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "dimensionful-weight",
+    "mechanism": {
+     "counterparty": "Price-sensitive traders.",
+     "predictions": [
+      "Returns increase with price."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "input": "close"
+    }
+   }
+  },
+  {
+   "name": "boolean-weight",
+   "mechanism": "Attempts implicit conversion of a comparison result into position weights 0 and 1. Booleans are explicitly forbidden as the weight.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "boolean-weight",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns are higher when premium is positive."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "gt",
+     "args": [
+      {
+       "input": "premium"
+      },
+      {
+       "const": 0,
+       "unit": "1"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "dimensionful-logarithm",
+   "mechanism": "Applies log to a price and wraps the result in sign. Log requires a dimensionless argument regardless of the final output unit.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "dimensionful-logarithm",
+    "mechanism": {
+     "counterparty": "Price-sensitive traders.",
+     "predictions": [
+      "Returns increase with transformed price."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "sign",
+     "args": [
+      {
+       "op": "log",
+       "args": [
+        {
+         "input": "close"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "odd-exponent-square-root",
+   "mechanism": "Attempts to create fractional unit exponents by taking the square root of usd/coin. Sqrt requires every unit exponent to be even.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "odd-exponent-square-root",
+    "mechanism": {
+     "counterparty": "Price-sensitive traders.",
+     "predictions": [
+      "Returns increase with transformed price."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "sign",
+     "args": [
+      {
+       "op": "sqrt",
+       "args": [
+        {
+         "input": "close"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "dimensionful-cross-sectional-rank",
+   "mechanism": "Attempts to launder an hourly funding rate into a dimensionless rank. Xs_rank requires its input itself to have unit 1.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "dimensionful-cross-sectional-rank",
+    "mechanism": {
+     "counterparty": "Leveraged traders.",
+     "predictions": [
+      "Returns vary with relative funding pressure."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "xs_rank",
+     "args": [
+      {
+       "input": "funding"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "non-time-unit-conversion",
+   "mechanism": "Attempts to erase price dimensions through convert. Convert may change time units only, not turn usd/coin into unit 1.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "non-time-unit-conversion",
+    "mechanism": {
+     "counterparty": "Price-sensitive traders.",
+     "predictions": [
+      "Returns increase with price."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "convert",
+     "args": [
+      {
+       "input": "close"
+      }
+     ],
+     "to": "1"
+    }
+   }
+  },
+  {
+   "name": "unselected-branch-unit-mismatch",
+   "mechanism": "Hides a dimensionful branch behind a condition that is always true. If branches must have identical units; runtime nonselection does not waive static checking.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "unselected-branch-unit-mismatch",
+    "mechanism": {
+     "counterparty": "Liquidity providers.",
+     "predictions": [
+      "Returns are positive for the selected exposure."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "if",
+     "args": [
+      {
+       "op": "gt",
+       "args": [
+        {
+         "const": 1,
+         "unit": "1"
+        },
+        {
+         "const": 0,
+         "unit": "1"
+        }
+       ]
+      },
+      {
+       "const": 0,
+       "unit": "1"
+      },
+      {
+       "input": "close"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "future-input-name",
+   "mechanism": "Attempts to access the next close by naming an undeclared input. Only the enumerated input names are legal; this is not an unavailable certified-feed test.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "future-input-name",
+    "mechanism": {
+     "counterparty": "Price-sensitive traders.",
+     "predictions": [
+      "Returns increase with the named price signal."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "sign",
+     "args": [
+      {
+       "input": "future_close"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "string-parameter-value",
+   "mechanism": "Attempts implicit numeric-string coercion in a parameter declaration. Parameter value must be a JSON number.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "string-parameter-value",
+    "mechanism": {
+     "counterparty": "Liquidity providers.",
+     "predictions": [
+      "Returns are positive for the fixed exposure."
+     ],
+     "capacity": "Small."
+    },
+    "params": {
+     "size": {
+      "value": "0.01",
+      "unit": "1"
+     }
+    },
+    "weight": {
+     "param": "size"
+    }
+   }
+  },
+  {
+   "name": "forward-let-reference",
+   "mechanism": "Attempts dependency resolution outside the declared let order. First references later, which is defined only afterward; lets may reference only preceding lets.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "forward-let-reference",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with premium."
+     ],
+     "capacity": "Small."
+    },
+    "let": {
+     "first": {
+      "ref": "later"
+     },
+     "later": {
+      "input": "premium"
+     }
+    },
+    "weight": {
+     "ref": "first"
+    }
+   }
+  },
+  {
+   "name": "undeclared-parameter",
+   "mechanism": "Attempts fallback lookup or implicit creation of an undeclared parameter. A param expression must resolve to a declared parameter.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "undeclared-parameter",
+    "mechanism": {
+     "counterparty": "Liquidity providers.",
+     "predictions": [
+      "Returns are positive for the fixed exposure."
+     ],
+     "capacity": "Small."
+    },
+    "params": {
+     "size": {
+      "value": 0.01,
+      "unit": "1"
+     }
+    },
+    "weight": {
+     "param": "missing_size"
+    }
+   }
+  },
+  {
+   "name": "numeric-prediction-condition",
+   "mechanism": "Attempts to bypass checking of prediction metadata because it is excluded from strategy identity. Prediction condition must be boolean, not a dimensionless number.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "numeric-prediction-condition",
+    "mechanism": {
+     "counterparty": "Liquidity providers.",
+     "predictions": [
+      "Returns are higher under the registered condition."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "const": 0.01,
+     "unit": "1"
+    },
+    "prediction": {
+     "condition": {
+      "const": 1,
+      "unit": "1"
+     }
+    }
+   }
+  },
+  {
+   "name": "numeric-if-condition",
+   "mechanism": "Attempts host-language truthiness coercion of a dimensionless numeric input. If requires a boolean condition.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "numeric-if-condition",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns vary with premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "op": "if",
+     "args": [
+      {
+       "input": "premium"
+      },
+      {
+       "const": 0.01,
+       "unit": "1"
+      },
+      {
+       "const": 0,
+       "unit": "1"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "same-close-fill-override",
+   "mechanism": "Attempts to introduce a same-close execution override through an extra top-level field. The static rejection follows the unknown-fields rule; actual fill ordering remains an evaluator responsibility.",
+   "expected_code": null,
+   "program": {
+    "dsl": 1,
+    "name": "same-close-fill-override",
+    "mechanism": {
+     "counterparty": "Premium-sensitive traders.",
+     "predictions": [
+      "Returns increase with premium."
+     ],
+     "capacity": "Small."
+    },
+    "weight": {
+     "input": "premium"
+    },
+    "fill": "same-close"
+   }
+  }
+ ],
+ "expected": {
+  "negative-lag": "E_WINDOW",
+  "zero-lag": "E_WINDOW",
+  "empty-window": "E_WINDOW",
+  "oversized-ema": "E_WINDOW",
+  "fractional-window": "E_WINDOW",
+  "boolean-lag-parameter": "E_WINDOW",
+  "price-funding-addition": "E_UNIT",
+  "hourly-annual-rate-mix": "E_UNIT",
+  "dimensionful-weight": "E_DIMENSIONLESS",
+  "boolean-weight": "E_BOOL",
+  "dimensionful-logarithm": "E_DIMENSIONLESS",
+  "odd-exponent-square-root": "E_UNIT",
+  "dimensionful-cross-sectional-rank": "E_DIMENSIONLESS",
+  "non-time-unit-conversion": "E_UNIT",
+  "unselected-branch-unit-mismatch": "E_UNIT",
+  "future-input-name": "E_UNKNOWN_INPUT",
+  "string-parameter-value": "E_PARSE",
+  "forward-let-reference": "E_REF",
+  "undeclared-parameter": "E_REF",
+  "numeric-prediction-condition": "E_BOOL",
+  "numeric-if-condition": "E_BOOL",
+  "same-close-fill-override": "E_PARSE"
+ },
+ "results": [
+  {
+   "name": "negative-lag",
+   "expected": "E_WINDOW",
+   "got": "E_WINDOW"
+  },
+  {
+   "name": "zero-lag",
+   "expected": "E_WINDOW",
+   "got": "E_WINDOW"
+  },
+  {
+   "name": "empty-window",
+   "expected": "E_WINDOW",
+   "got": "E_WINDOW"
+  },
+  {
+   "name": "oversized-ema",
+   "expected": "E_WINDOW",
+   "got": "E_WINDOW"
+  },
+  {
+   "name": "fractional-window",
+   "expected": "E_WINDOW",
+   "got": "E_WINDOW"
+  },
+  {
+   "name": "boolean-lag-parameter",
+   "expected": "E_WINDOW",
+   "got": "E_WINDOW"
+  },
+  {
+   "name": "price-funding-addition",
+   "expected": "E_UNIT",
+   "got": "E_UNIT"
+  },
+  {
+   "name": "hourly-annual-rate-mix",
+   "expected": "E_UNIT",
+   "got": "E_UNIT"
+  },
+  {
+   "name": "dimensionful-weight",
+   "expected": "E_DIMENSIONLESS",
+   "got": "E_DIMENSIONLESS"
+  },
+  {
+   "name": "boolean-weight",
+   "expected": "E_BOOL",
+   "got": "E_BOOL"
+  },
+  {
+   "name": "dimensionful-logarithm",
+   "expected": "E_DIMENSIONLESS",
+   "got": "E_DIMENSIONLESS"
+  },
+  {
+   "name": "odd-exponent-square-root",
+   "expected": "E_UNIT",
+   "got": "E_UNIT"
+  },
+  {
+   "name": "dimensionful-cross-sectional-rank",
+   "expected": "E_DIMENSIONLESS",
+   "got": "E_DIMENSIONLESS"
+  },
+  {
+   "name": "non-time-unit-conversion",
+   "expected": "E_UNIT",
+   "got": "E_UNIT"
+  },
+  {
+   "name": "unselected-branch-unit-mismatch",
+   "expected": "E_UNIT",
+   "got": "E_UNIT"
+  },
+  {
+   "name": "future-input-name",
+   "expected": "E_UNKNOWN_INPUT",
+   "got": "E_UNKNOWN_INPUT"
+  },
+  {
+   "name": "string-parameter-value",
+   "expected": "E_PARSE",
+   "got": "E_PARSE"
+  },
+  {
+   "name": "forward-let-reference",
+   "expected": "E_REF",
+   "got": "E_REF"
+  },
+  {
+   "name": "undeclared-parameter",
+   "expected": "E_REF",
+   "got": "E_REF"
+  },
+  {
+   "name": "numeric-prediction-condition",
+   "expected": "E_BOOL",
+   "got": "E_BOOL"
+  },
+  {
+   "name": "numeric-if-condition",
+   "expected": "E_BOOL",
+   "got": "E_BOOL"
+  },
+  {
+   "name": "same-close-fill-override",
+   "expected": "E_PARSE",
+   "got": "E_PARSE"
+  }
+ ]
+}

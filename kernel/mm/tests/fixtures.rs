@@ -17,6 +17,7 @@ struct Spec {
     /// (hour index, rate, premium) for nonzero rows; every hour has a row unless listed in `missing`.
     funding: Vec<(i64, f64, f64)>,
     missing_funding: Vec<i64>,
+    missing_bars: Vec<usize>,
     leverage: f64,
     delisted_at: Option<i64>,
 }
@@ -31,6 +32,7 @@ impl Spec {
             trades: vec![1; opens.len()],
             funding: vec![],
             missing_funding: vec![],
+            missing_bars: vec![],
             leverage: 10.0,
             delisted_at: None,
         }
@@ -40,6 +42,7 @@ impl Spec {
         let n = self.opens.len() as i64;
         let end = n * BAR;
         let bars: Vec<Bar> = (0..n as usize)
+            .filter(|k| !self.missing_bars.contains(k))
             .map(|k| {
                 let (o, c) = (self.opens[k], self.closes[k]);
                 Bar {
@@ -57,7 +60,7 @@ impl Spec {
             })
             .collect();
         let funding: Vec<Funding> = (0..=n * 4)
-            .filter(|h| !self.missing_funding.contains(h))
+            .filter(|h| !self.missing_funding.contains(h) && self.delisted_at.is_none_or(|d| h * HOUR < d))
             .map(|h| {
                 let (rate, premium) = self.funding.iter().find(|f| f.0 == h).map_or((0.0, 0.0), |f| (f.1, f.2));
                 Funding { coin: 0, event: h * HOUR, known: h * HOUR + DELTA, rate, premium }
@@ -215,7 +218,7 @@ fn bankruptcy_caps_the_loss_at_equity() {
     assert_eq!(&run.returns[run.returns.len() - 2..], &[-1.0, 0.0]);
 }
 
-/// A delisted coin is closed at its last bar's close.
+/// A delisted coin is closed at its last bar's close; it owes no funding once delisted, where the venue has no rows.
 #[test]
 fn delisting_closeout() {
     let mut s = Spec::new(&[100.0; 6], &[100.0, 100.0, 100.0, 105.0, 100.0, 100.0]);
@@ -243,6 +246,32 @@ fn rounding_min_notional_and_exact_close() {
     assert!(close(f[0].qty, 33.333));
     assert_eq!(f.len(), 2);
     assert!(close(f[1].qty, -33.333) && f[1].filled == 16 * HOUR);
+}
+
+/// Funding is priced at the open of the latest bar opened by its hour, and a held hour without a rate aborts.
+#[test]
+fn settlement_price_and_missing_rate() {
+    let mut s = Spec::new(&[100.0, 100.0, 110.0, 120.0, 130.0, 130.0], &[100.0, 110.0, 120.0, 130.0, 130.0, 130.0]);
+    s.funding = vec![(12, 0.001, 0.0)];
+    s.missing_bars = vec![3];
+    let run = s.run(HALF).unwrap();
+    // Long 50 from the 8h fill at bar 2. Bar 3 (opening 12h) is missing, so the 12h payment is priced at bar 2's
+    // open, 110: 50 * 110 * 0.001 = 5.5.
+    let paid = run.trace.iter().find_map(|e| match e { Event::Funding { t, price, paid, .. } if *t == 12 * HOUR => Some((*price, *paid)), _ => None });
+    assert!(paid.is_some_and(|(price, paid)| close(price, 110.0) && close(paid, 5.5)), "{paid:?}");
+    let mut s = Spec::new(&[100.0, 100.0, 110.0, 120.0, 130.0], &[100.0, 110.0, 120.0, 130.0, 130.0]);
+    s.missing_funding = vec![9];
+    assert!(matches!(s.run(HALF), Err(sim::Abort::SettlementMissing(_))));
+}
+
+/// I5's tolerance: $1e-5 up to $10,000 of equity, 1e-9 of equity above it; a non-finite equity fails.
+#[test]
+fn accounting_tolerance_is_relative_above_initial_equity() {
+    assert!(sim::accounting_ok(100.0, 100.0 + 9e-6) && !sim::accounting_ok(100.0, 100.0 + 1.1e-5));
+    assert!(sim::accounting_ok(1e10, 1e10 + 9.0) && !sim::accounting_ok(1e10, 1e10 + 11.0));
+    for (a, b) in [(f64::INFINITY, 1.0), (f64::INFINITY, f64::INFINITY), (1.0, f64::INFINITY), (f64::NAN, f64::NAN), (1.0, f64::NAN)] {
+        assert!(!sim::accounting_ok(a, b), "{a} {b}");
+    }
 }
 
 /// Stale inputs and undefined weights hold.

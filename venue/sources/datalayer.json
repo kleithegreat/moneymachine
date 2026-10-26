@@ -1,36 +1,215 @@
 {
  "user_agent": "moneymachine-research-recorder (read-only)",
  "feeds": [
-  {"name": "ecb-exr", "source": "ecb", "every_h": 6,
+  {
+   "name": "ecb-exr",
+   "source": "ecb",
+   "every_h": 6,
    "url": "https://data-api.ecb.europa.eu/service/data/EXR/D..EUR.SP00.A?lastNObservations=5",
-   "accept": "application/vnd.sdmx.genericdata+xml;version=2.1"},
-  {"name": "bis-cbpol", "source": "bis", "every_h": 24,
-   "url": "https://stats.bis.org/api/v1/data/WS_CBPOL/D..?lastNObservations=5"},
-  {"name": "bis-eer", "source": "bis", "every_h": 24,
-   "url": "https://stats.bis.org/api/v1/data/WS_EER/D..?lastNObservations=5"},
-  {"name": "cftc-tff", "source": "cftc", "every_h": 6,
-   "url": "https://publicreporting.cftc.gov/resource/gpe5-46if.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"},
-  {"name": "cftc-legacy", "source": "cftc", "every_h": 6,
-   "url": "https://publicreporting.cftc.gov/resource/6dca-aqww.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"},
-  {"name": "cftc-disaggregated", "source": "cftc", "every_h": 6,
-   "url": "https://publicreporting.cftc.gov/resource/72hh-3qpy.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"},
-  {"name": "gdelt-events", "source": "gdelt", "every_h": 0.25,
-   "discover": {"url": "https://data.gdeltproject.org/gdeltv2/lastupdate.txt",
-                "pattern": "data\\.gdeltproject\\.org(/gdeltv2/\\d{14}\\.export\\.CSV\\.zip)",
-                "template": "https://data.gdeltproject.org{}"}},
-  {"name": "nws-alerts", "source": "nws", "every_h": 3,
-   "url": "https://api.weather.gov/alerts/active", "accept": "application/geo+json"},
-  {"name": "openfda-drug-enforcement", "source": "openfda", "every_h": 24,
-   "url": "https://api.fda.gov/drug/enforcement.json?sort=report_date:desc&limit=100"},
-  {"name": "eia-manifest", "source": "eia", "every_h": 6,
-   "url": "https://www.eia.gov/opendata/bulk/manifest.txt"},
-  {"name": "eia-petroleum", "source": "eia", "every_h": 24,
-   "url": "https://www.eia.gov/opendata/bulk/PET.zip"},
-  {"name": "polymarket-active", "source": "polymarket", "every_h": 3,
-   "url": "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=500&order=volume24hr&ascending=false"},
-  {"name": "polymarket-resolved", "source": "polymarket", "every_h": 3,
-   "url": "https://gamma-api.polymarket.com/markets?closed=true&limit=500&order=closedTime&ascending=false"},
-  {"name": "treasury-avg-rates", "source": "treasury", "every_h": 24,
-   "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates?sort=-record_date&page%5Bsize%5D=200"}
+   "accept": "application/vnd.sdmx.genericdata+xml;version=2.1"
+  },
+  {
+   "name": "bis-cbpol",
+   "source": "bis",
+   "every_h": 24,
+   "url": "https://stats.bis.org/api/v1/data/WS_CBPOL/D..?lastNObservations=5"
+  },
+  {
+   "name": "bis-eer",
+   "source": "bis",
+   "every_h": 24,
+   "url": "https://stats.bis.org/api/v1/data/WS_EER/D..?lastNObservations=5"
+  },
+  {
+   "name": "cftc-tff",
+   "source": "cftc",
+   "every_h": 6,
+   "url": "https://publicreporting.cftc.gov/resource/gpe5-46if.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"
+  },
+  {
+   "name": "cftc-legacy",
+   "source": "cftc",
+   "every_h": 6,
+   "url": "https://publicreporting.cftc.gov/resource/6dca-aqww.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"
+  },
+  {
+   "name": "cftc-disaggregated",
+   "source": "cftc",
+   "every_h": 6,
+   "url": "https://publicreporting.cftc.gov/resource/72hh-3qpy.json?$order=report_date_as_yyyy_mm_dd%20DESC,:id&$limit=1000"
+  },
+  {
+   "name": "gdelt-events",
+   "source": "gdelt",
+   "every_h": 0.25,
+   "discover": {
+    "url": "https://data.gdeltproject.org/gdeltv2/lastupdate.txt",
+    "pattern": "data\\.gdeltproject\\.org(/gdeltv2/\\d{14}\\.export\\.CSV\\.zip)",
+    "template": "https://data.gdeltproject.org{}"
+   }
+  },
+  {
+   "name": "nws-alerts",
+   "source": "nws",
+   "every_h": 3,
+   "url": "https://api.weather.gov/alerts/active",
+   "accept": "application/geo+json"
+  },
+  {
+   "name": "openfda-drug-enforcement",
+   "source": "openfda",
+   "every_h": 24,
+   "url": "https://api.fda.gov/drug/enforcement.json?sort=report_date:desc&limit=100"
+  },
+  {
+   "name": "eia-manifest",
+   "source": "eia",
+   "every_h": 6,
+   "url": "https://www.eia.gov/opendata/bulk/manifest.txt"
+  },
+  {
+   "name": "eia-petroleum",
+   "source": "eia",
+   "every_h": 24,
+   "url": "https://www.eia.gov/opendata/bulk/PET.zip"
+  },
+  {
+   "name": "polymarket-active",
+   "source": "polymarket",
+   "every_h": 3,
+   "url": "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=500&order=volume24hr&ascending=false"
+  },
+  {
+   "name": "polymarket-resolved",
+   "source": "polymarket",
+   "every_h": 3,
+   "url": "https://gamma-api.polymarket.com/markets?closed=true&limit=500&order=closedTime&ascending=false"
+  },
+  {
+   "name": "treasury-avg-rates",
+   "source": "treasury",
+   "every_h": 24,
+   "url": "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates?sort=-record_date&page%5Bsize%5D=200"
+  },
+  {
+   "name": "bls-cpi-u",
+   "source": "bls",
+   "every_h": 6,
+   "url": "https://api.bls.gov/publicAPI/v2/timeseries/data/CUUR0000SA0",
+   "auth": {
+    "param": "registrationkey",
+    "env": "BLS_API_KEY"
+   }
+  },
+  {
+   "name": "bls-unemployment-rate",
+   "source": "bls",
+   "every_h": 6,
+   "url": "https://api.bls.gov/publicAPI/v2/timeseries/data/LNS14000000",
+   "auth": {
+    "param": "registrationkey",
+    "env": "BLS_API_KEY"
+   }
+  },
+  {
+   "name": "bls-nonfarm-payrolls",
+   "source": "bls",
+   "every_h": 6,
+   "url": "https://api.bls.gov/publicAPI/v2/timeseries/data/CES0000000001",
+   "auth": {
+    "param": "registrationkey",
+    "env": "BLS_API_KEY"
+   }
+  },
+  {
+   "name": "bls-average-hourly-earnings",
+   "source": "bls",
+   "every_h": 6,
+   "url": "https://api.bls.gov/publicAPI/v2/timeseries/data/CES0500000003",
+   "auth": {
+    "param": "registrationkey",
+    "env": "BLS_API_KEY"
+   }
+  },
+  {
+   "name": "bls-release-calendar",
+   "source": "bls",
+   "every_h": 24,
+   "url": "https://www.bls.gov/schedule/news_release/bls.ics",
+   "auth": {
+    "header": "User-Agent",
+    "env": "SEC_USER_AGENT"
+   }
+  },
+  {
+   "name": "bea-gdp",
+   "source": "bea",
+   "every_h": 24,
+   "url": "https://apps.bea.gov/api/data?method=GetData&DataSetName=NIPA&TableName=T10101&Frequency=Q&Year=X&ResultFormat=JSON",
+   "auth": {
+    "param": "UserID",
+    "env": "BEA_API_KEY"
+   }
+  },
+  {
+   "name": "bea-personal-income",
+   "source": "bea",
+   "every_h": 24,
+   "url": "https://apps.bea.gov/api/data?method=GetData&DataSetName=NIPA&TableName=T20600&Frequency=M&Year=X&ResultFormat=JSON",
+   "auth": {
+    "param": "UserID",
+    "env": "BEA_API_KEY"
+   }
+  },
+  {
+   "name": "eia-natural-gas-storage",
+   "source": "eia",
+   "every_h": 24,
+   "url": "https://api.eia.gov/v2/natural-gas/stor/wkly/data/?frequency=weekly&data[0]=value&sort[0][column]=period&sort[0][direction]=desc&length=100",
+   "auth": {
+    "param": "api_key",
+    "env": "EIA_API_KEY"
+   }
+  },
+  {
+   "name": "sec-xbrl-filings",
+   "source": "sec",
+   "every_h": 1,
+   "url": "https://www.sec.gov/Archives/edgar/xbrlrss.all.xml",
+   "auth": {
+    "header": "User-Agent",
+    "env": "SEC_USER_AGENT"
+   }
+  },
+  {
+   "name": "rtdsm-real-gdp",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/routputMvQd.xlsx"
+  },
+  {
+   "name": "rtdsm-gdp-price-index",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/pMvQd.xlsx"
+  },
+  {
+   "name": "rtdsm-cpi",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/pcpiMvMd.xlsx"
+  },
+  {
+   "name": "rtdsm-payrolls",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/employMvMd.xlsx"
+  },
+  {
+   "name": "rtdsm-unemployment-rate",
+   "source": "philadelphia-fed-rtdsm",
+   "every_h": 24,
+   "url": "https://www.philadelphiafed.org/-/media/FRBP/Assets/Surveys-And-Data/real-time-data/data-files/xlsx/rucQvMd.xlsx"
+  }
  ]
 }

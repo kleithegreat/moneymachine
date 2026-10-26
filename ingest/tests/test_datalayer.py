@@ -48,3 +48,26 @@ def test_a_discovered_url_without_certified_terms_is_refused(tmp_path):
             "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"}}
     with pytest.raises(PermissionError):
         datalayer.poll(http, feed, tmp_path)
+
+
+def test_a_credential_is_sent_but_never_logged(tmp_path):
+    seen = []
+    http = httpx.Client(transport=httpx.MockTransport(lambda req: seen.append(req) or httpx.Response(200, content=b"{}")))
+    feed = {"name": "k", "url": "https://api.example.org/v1/x?series=A", "every_h": 1,
+            "auth": {"param": "api_key", "env": "K"}}
+    rec = datalayer.poll(http, feed, tmp_path, {"K": "s3cret"})
+    assert seen[0].url.params["api_key"] == "s3cret" and seen[0].url.params["series"] == "A"
+    ua = {"name": "u", "url": "https://api.example.org/v1/y", "every_h": 1, "auth": {"header": "User-Agent", "env": "U"}}
+    datalayer.poll(http, ua, tmp_path, {"U": "Name name@example.org"})
+    assert seen[1].headers["User-Agent"] == "Name name@example.org"
+    echo = {"name": "e", "url": "https://api.example.org/v1/z", "every_h": 1, "auth": {"param": "key", "env": "K"}}
+    echoed = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b'{"UserID": "s3cret"}')))
+    stored = datalayer.body(tmp_path, datalayer.poll(echoed, echo, tmp_path, {"K": "s3cret"})["sha256"])
+    assert stored == b'{"UserID": "<credential>"}'
+    logged = "".join(p.read_text() for p in tmp_path.glob("datalayer-*.jsonl"))
+    assert "s3cret" not in logged and "name@example.org" not in logged and rec["url"] == feed["url"]
+
+
+def test_secrets_reads_name_value_lines(tmp_path):
+    (tmp_path / "k.env").write_text("# keys\nA=1\n\nB=x=y\n")
+    assert datalayer.secrets(tmp_path / "k.env") == {"A": "1", "B": "x=y"}
