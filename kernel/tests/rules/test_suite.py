@@ -5,7 +5,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from kernel.tests.rules import suite
+from kernel.tests.rules import resolver_suite, suite
 
 HERE = Path(__file__).resolve().parent
 
@@ -25,3 +25,10 @@ def test_the_hand_cases_cover_every_code():
 def test_the_frozen_files_match_the_generator():
     lines = lambda name: [json.loads(l) for l in (HERE / name).read_text().splitlines()]
     assert lines("hand.jsonl") == suite.HAND and lines("generated.jsonl") == suite.generate()
+
+
+def test_the_resolver_suite_is_frozen_and_large_enough():
+    lines = lambda name: [json.loads(l) for l in (HERE / name).read_text().splitlines()]
+    gen = resolver_suite.generate()
+    assert sum(len(c["queries"]) for c in gen) + sum(len(c["queries"]) for c in resolver_suite.HAND) >= 1000
+    assert lines("resolver_hand.jsonl") == resolver_suite.HAND and lines("resolver_generated.jsonl") == gen
