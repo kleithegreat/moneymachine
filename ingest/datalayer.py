@@ -4,7 +4,9 @@ day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}.
 its poll's recv; parsing into point-in-time revisions is offline, per source. A feed whose file name changes per
 release declares `discover`: an index URL, a pattern with one group, and a template the group fills; the index is
 logged as `<feed>/index`. A feed may declare `auth`, `{"param" | "header": NAME, "env": VAR}`: the value of VAR in
-`.keys.env` (one `NAME=value` per line, gitignored) is sent as that query parameter or header, and never logged. Every
+`.keys.env` (one `NAME=value` per line, gitignored) is sent as that query parameter or header, never logged, and
+replaced by `<credential>` in the stored body before it is hashed (some APIs echo it). A host without a feed's key does not
+poll that feed. Every
 URL fetched, discovered ones included, needs certified terms for its host under the feed's source in
 `venue/sources.toml`, so adding a feed is a JSON entry and a terms record, no code.
 """
@@ -24,6 +26,7 @@ from ingest.live import append, now_ms, read, recording
 REPO = Path(__file__).resolve().parents[1]
 FEEDS = REPO / "venue/sources/datalayer.json"
 KEYS = REPO / ".keys.env"
+REDACTED = b"<credential>"
 TICK = 60
 
 
@@ -82,7 +85,7 @@ def poll(http, feed, out_dir, keys=None):
 
 
 def get(http, name, url, accept, out_dir, auth=({}, {})):
-    """One GET of `url`, logged without the credential `auth` adds."""
+    """One GET of `url`, logged and stored without the credential `auth` adds."""
     params, headers = auth
     sent = now_ms()
     try:
@@ -90,6 +93,8 @@ def get(http, name, url, accept, out_dir, auth=({}, {})):
         body, status = r.content, r.status_code
     except httpx.HTTPError as e:
         body, status = repr(e).encode(), None
+    for secret in [*params.values(), *headers.values()]:
+        body = body.replace(secret.encode(), REDACTED)
     digest = hashlib.sha256(body).hexdigest()
     raw = Path(out_dir) / "raw" / f"{digest}.gz"
     if not raw.exists():
@@ -103,10 +108,12 @@ def get(http, name, url, accept, out_dir, auth=({}, {})):
 def main(out_dir):
     stop = recording(out_dir, "datalayer-record", out_dir=out_dir)
     spec, keys = feeds(), secrets()
+    held = [f for f in spec["feeds"] if f.get("auth", {}).get("env", "") in keys or "auth" not in f]
+    print("not polled here, no key:", [f["name"] for f in spec["feeds"] if f not in held], flush=True)
     last = last_polls(out_dir)
     with httpx.Client(timeout=120, follow_redirects=False, headers={"User-Agent": spec["user_agent"]}) as http:
         while not stop.is_set():
-            for f in spec["feeds"]:
+            for f in held:
                 if stop.is_set():
                     break
                 if now_ms() - last.get(f["name"], 0) >= f["every_h"] * 3_600_000:

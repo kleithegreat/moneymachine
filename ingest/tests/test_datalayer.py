@@ -60,6 +60,10 @@ def test_a_credential_is_sent_but_never_logged(tmp_path):
     ua = {"name": "u", "url": "https://api.example.org/v1/y", "every_h": 1, "auth": {"header": "User-Agent", "env": "U"}}
     datalayer.poll(http, ua, tmp_path, {"U": "Name name@example.org"})
     assert seen[1].headers["User-Agent"] == "Name name@example.org"
+    echo = {"name": "e", "url": "https://api.example.org/v1/z", "every_h": 1, "auth": {"param": "key", "env": "K"}}
+    echoed = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b'{"UserID": "s3cret"}')))
+    stored = datalayer.body(tmp_path, datalayer.poll(echoed, echo, tmp_path, {"K": "s3cret"})["sha256"])
+    assert stored == b'{"UserID": "<credential>"}'
     logged = "".join(p.read_text() for p in tmp_path.glob("datalayer-*.jsonl"))
     assert "s3cret" not in logged and "name@example.org" not in logged and rec["url"] == feed["url"]
 

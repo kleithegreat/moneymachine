@@ -377,6 +377,17 @@ government publications are in the public domain and are not subject to copyrigh
 and/or distribute any of our data, files, databases, reports, graphs, charts, and other information products".
 EIA asks for an acknowledgment that includes the publication date.'''
 
+
+[[eia.terms]]
+host = "api.eia.gov/v2/"
+url = "https://www.eia.gov/opendata/terms-of-service.php"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''You may use the EIA API to develop a service to search, display, analyze, retrieve, view and otherwise "get" information from EIA data.'''
+notes = '''
+The keyed v2 API, with the human's key (`EIA_API_KEY`, sent as `api_key`, never logged). "You may not modify or falsely
+represent content accessed through the API and still claim the source is the EIA." No rate is published: requests
+must be throttled.'''
 [polymarket]
 description = '''
 # Polymarket (keyless data layer; stage 10 market-implied baseline)
@@ -539,3 +550,88 @@ billing (the `cloud` dev shell; the `bq` CLI needs a gcloud login, so access is 
   from the block timestamp under a certified rule, not from the table.
 
 Terms are not yet certified: no automated research use until a terms record is added.'''
+
+
+[bls]
+description = '''
+# U.S. Bureau of Labor Statistics: the Public Data API v2 and the release calendar (keyed data layer)
+
+Single series by GET with the human's key (`BLS_API_KEY`, sent as `registrationkey`, never logged): 500 queries a day,
+50 requests per 10 seconds. The API has no vintages: values are as published at each poll, footnoted when
+preliminary, so the source is prospective only. The release calendar (iCal, times Eastern) dates each release.
+Users "should cite the date that data were accessed or retrieved using the API".'''
+
+[[bls.terms]]
+host = "api.bls.gov/publicAPI/v2/"
+url = "https://www.bls.gov/developers/termsOfService.htm"
+retrieved = 2026-10-26
+basis = "official API"
+quote = '''Access to or use of BLS.gov services or its content constitutes acceptance to this Agreement. Data accessed through BLS.gov do not, and should not, include controls over its end use.'''
+notes = '''
+Required statement, for any report using the data: "BLS.gov cannot vouch for the data or analyses derived from these
+data after the data have been retrieved from BLS.gov." "Users may not modify or falsely represent content accessed
+through BLS.gov and still cite the source as BLS.gov."'''
+
+[[bls.terms]]
+host = "www.bls.gov/schedule/"
+url = "https://www.bls.gov/developers/termsOfService.htm"
+retrieved = 2026-10-26
+basis = "official API"
+quote = '''Access to or use of BLS.gov services or its content constitutes acceptance to this Agreement. Data accessed through BLS.gov do not, and should not, include controls over its end use.'''
+notes = '''
+The release calendar `bls.ics`, which the page itself invites users to load into a calendar program. Requests carry the
+human's contact identity as User-Agent (CLAUDE.md).'''
+
+[bea]
+description = '''
+# U.S. Bureau of Economic Analysis API (keyed data layer)
+
+NIPA tables by GET with the human's key (`BEA_API_KEY`, sent as `UserID`, never logged): at most 100 requests and
+100 MB a minute and 30 errors a minute. The API returns current values only, so the source is prospective only.'''
+
+[[bea.terms]]
+host = "apps.bea.gov/api/data"
+url = "https://apps.bea.gov/API/_pdf/bea_api_tos.pdf"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''You may use the BEA API to develop a service or service to search, display, analyze, retrieve, view and otherwise "get" information from BEA data.'''
+notes = '''
+Required notice: "This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by
+BEA." "You may not modify or falsely represent content accessed through the API and still claim the source is the
+BEA."'''
+
+[sec]
+description = '''
+# U.S. SEC EDGAR (keyless; contact User-Agent; data layer)
+
+The RSS feed of the latest XBRL filings, with each filing's acceptance time, recorded hourly: a prospective record of
+what was filed and when it was accepted. Requests carry the human's contact identity as User-Agent (`SEC_USER_AGENT`),
+at most 10 requests a second.'''
+
+[[sec.terms]]
+host = "www.sec.gov/Archives/edgar/"
+url = "https://www.sec.gov/privacy"
+retrieved = 2026-10-26
+basis = "permitting clause"
+quote = '''Information presented on sec.gov is considered public information and may be copied or further distributed by users of the web site without the SEC’s permission.'''
+notes = '''
+"Current guidelines limit users to a total of no more than 10 requests per second, regardless of the number of
+machines used to submit requests." "The SEC does not allow "unclassified" bots or automated tools to crawl the site."
+The recorder identifies itself with the human's contact identity and fetches one feed an hour; it does not crawl.'''
+
+[wikimedia]
+description = '''
+# Wikimedia REST API pageviews (terms only; no feed yet)
+
+Daily pageviews from 2015-07-01, CC0. A client must send a User-Agent with contact information (the human's, per
+CLAUDE.md) and wait for each request before the next.'''
+
+[[wikimedia.terms]]
+host = "wikimedia.org/api/rest_v1/metrics/pageviews/"
+url = "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html"
+retrieved = 2026-10-26
+basis = "official API"
+quote = '''Data provided by the API is available under the CC0 1.0 license'''
+notes = '''
+"By using the API, you agree to Wikimedia's terms of use and privacy policy." "The API requires an HTTP User-Agent
+header for all requests." "Clients making requests without a User-Agent header may be blocked without notice."'''
