@@ -53,3 +53,10 @@ and prodesk5, with the same code (gate and kernel unchanged since f2264a6; harne
 `mm` (sha256 `0aff52fc…`). Comparison as test 2: result rows except `seconds`, ledgers except `created`, against
 this PC's run. Identical means all three identical on every worker; otherwise the mixed sweep and what follows run
 on this PC alone.
+
+## Test 3 result, 2026-10-26 23:53 UTC (19:53 EDT): identical
+
+All three mixed-path campaigns, the long cell included, are identical on prodesk7, gmktec and prodesk5 against this
+PC (`result-3-compare-*.json`): result rows, return blobs and ledgers. Campaign times: this PC 42–44 s (one worker,
+beside the betas calibration); prodesk7 76–79 s and prodesk5 61–64 s (two workers each); gmktec 117–122 s (two
+workers). The mixed sweep may fan out.
