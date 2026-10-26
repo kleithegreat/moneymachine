@@ -1,10 +1,18 @@
+import json
+
 import polars as pl
 import pytest
 from hypothesis import given, settings, strategies as st
 
-from ingest.policy import DELTA, HOLDOUT_START, HOUR as H
+from ingest.policy import DELTA, HOLDOUT_START, HOUR as H, POLICY
 from ingest.store import Store, stores, write_split
 
+
+def market_store(path, **policy):
+    """A store holding venue datasets, with its own policy.json (the repository's, changed by `policy`)."""
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "policy.json").write_text(json.dumps(POLICY | policy))
+    return Store(path)
 
 
 def rows(coins, hours, value=0.0):
@@ -17,7 +25,7 @@ def rows(coins, hours, value=0.0):
 
 @pytest.fixture
 def store(tmp_path):
-    s = Store(tmp_path)
+    s = market_store(tmp_path)
     s.write("bars_4h", rows(["A", "B"], range(10)), fetched_at=100, source="t")
     return s
 
@@ -51,7 +59,7 @@ def test_files_are_immutable(store):
 @settings(max_examples=1000, deadline=None)
 @given(t=st.integers(min_value=-H, max_value=12 * H), version=st.sampled_from([50, 100, 200]))
 def test_as_of_never_leaks(tmp_path_factory, t, version):
-    s = Store(tmp_path_factory.mktemp("s"))
+    s = market_store(tmp_path_factory.mktemp("s"))
     s.write("bars_4h", rows(["A", "B"], range(10)), fetched_at=100, source="t")
     s.write("bars_4h", rows(["A"], range(4, 8), value=0.5), fetched_at=200, source="t")
     got = s.as_of("bars_4h", t, version)
@@ -68,13 +76,32 @@ def test_knownat_is_never_stored(tmp_path):
 
 def test_a_later_revision_governs_its_key(tmp_path):
     """mm's resolution: the latest revision by the cutoff, known by its own fields, never an earlier one."""
-    s = Store(tmp_path)
+    s = market_store(tmp_path)
     late = lambda r: pl.DataFrame({"coin": ["A"], "eventTime": [2 * H], "fundingRate": [0.0], "premium": [0.0], "reportedTime": [r]})
     s.write("funding", late(2 * H + 50), 100, "t")
     s.write("funding", late(2 * H + 887_645), 200, "t")
     assert s.as_of("funding", 2 * H + DELTA, 100)["knownAt"].to_list() == [2 * H + DELTA]
     assert s.as_of("funding", 2 * H + 887_645 + 60_000 - 1, 200).height == 0
     assert s.as_of("funding", 2 * H + 887_645 + 60_000, 200)["knownAt"].to_list() == [2 * H + 887_645 + 60_000]
+
+
+def test_a_corrected_value_is_hidden_until_it_was_fetched(tmp_path):
+    """Paper §5: a later correction hides a value rather than replacing it with something nobody had then; the
+    original value, restored, is known by the rule again."""
+    s = market_store(tmp_path)
+    s.write("bars_4h", rows(["A"], [3]), fetched_at=100, source="t")
+    s.write("bars_4h", rows(["A"], [3], value=7.0), fetched_at=50 * H, source="t")
+    assert s.as_of("bars_4h", 3 * H + DELTA, 100)["rate"].to_list() == [3.0]
+    assert s.as_of("bars_4h", 50 * H - 1, 50 * H).height == 0
+    assert s.as_of("bars_4h", 50 * H, 50 * H)["knownAt"].to_list() == [50 * H]
+    s.write("bars_4h", rows(["A"], [3]), fetched_at=60 * H, source="t")
+    assert s.as_of("bars_4h", 3 * H + DELTA, 60 * H)["knownAt"].to_list() == [3 * H + DELTA]
+
+
+def test_the_store_policy_governs_known_at(tmp_path):
+    s = market_store(tmp_path, delta_ms=DELTA + 1000)
+    s.write("bars_4h", rows(["A"], [3]), fetched_at=100, source="t")
+    assert s.as_of("bars_4h", 2**62, 100)["knownAt"].to_list() == [3 * H + DELTA + 1000]
 
 
 def test_search_store_refuses_holdout(tmp_path):

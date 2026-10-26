@@ -335,7 +335,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
       rcases fill_mem_push hf with hf | hf
       · exact Or.inl hf
       · cases hf
-    · exact Except.Holds.pure _ ⟨h', hm'⟩
+    · exact Except.Holds.throw' _
   rw [marks_loop]
   refine Except.Holds.bind (Except.Holds.ok _ rfl) fun s₂ hs₂ => ?_
   subst hs₂

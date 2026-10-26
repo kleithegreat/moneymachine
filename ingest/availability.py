@@ -15,7 +15,7 @@ from pathlib import Path
 import polars as pl
 
 from ingest.live import read
-from ingest.policy import BAR, HOUR
+from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import known_at
 
 RECORDING_FROM = 1792617764170
@@ -153,7 +153,7 @@ def analyze(polls):
         events[(kind, coin)] += 1
         reported = [r["time"] for p in ps for r in p["data"] if r["time"] // HOUR * HOUR == boundary] if kind == "funding" else []
         known = pl.DataFrame({"eventTime": [boundary], "reportedTime": [min(reported, default=boundary)]}).select(
-            known_at("funding" if kind == "funding" else "bars_4h")).item()
+            known_at("funding" if kind == "funding" else "bars_4h", POLICY)).item()
         if first is not None:
             margins.append(known - first)
         if first is None or first > known:

@@ -27,6 +27,7 @@ pub enum Abort {
     Portfolio(String),
     Bound(String),
     InputUnavailable(String),
+    SettlementMissing(String),
 }
 
 impl Abort {
@@ -39,6 +40,7 @@ impl Abort {
             Abort::Portfolio(_) => "R_PORTFOLIO",
             Abort::Bound(_) => "R_BOUND",
             Abort::InputUnavailable(_) => "R_INPUT_UNAVAILABLE",
+            Abort::SettlementMissing(_) => "R_SETTLEMENT_MISSING",
         }
     }
 }
@@ -310,11 +312,12 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
             let held: Vec<usize> = book.pos.keys().copied().collect();
             for coin in held {
-                if let (Some(&rate), Some(&i)) = (market.rate_at.get(&(coin, h)), market.bar_at.get(&(coin, h - h % BAR))) {
-                    let price = market.bars[i].open;
-                    let paid = book.settle(coin, price, rate);
-                    trace.push(Event::Funding { t: h, coin, rate, price, paid });
-                }
+                let (Some(&rate), Some(&i)) = (market.rate_at.get(&(coin, h)), market.bar_at.get(&(coin, h - h % BAR))) else {
+                    return Err(Abort::SettlementMissing(format!("coin {coin} at {h}: no funding row or no bar to price it")));
+                };
+                let price = market.bars[i].open;
+                let paid = book.settle(coin, price, rate);
+                trace.push(Event::Funding { t: h, coin, rate, price, paid });
             }
         }
         let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();

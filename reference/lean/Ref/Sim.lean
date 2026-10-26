@@ -38,12 +38,13 @@ inductive Event (α : Type) where
   deriving Inhabited
 
 inductive Abort where
-  | causality | timing | fill | accounting | portfolio | bound | inputUnavailable
+  | causality | timing | fill | accounting | portfolio | bound | inputUnavailable | settlementMissing
   deriving DecidableEq, Repr
 
 def Abort.code : Abort → String
   | .causality => "R_CAUSALITY" | .timing => "R_TIMING" | .fill => "R_FILL" | .accounting => "R_ACCOUNTING"
   | .portfolio => "R_PORTFOLIO" | .bound => "R_BOUND" | .inputUnavailable => "R_INPUT_UNAVAILABLE"
+  | .settlementMissing => "R_SETTLEMENT_MISSING"
 
 structure Venue (α : Type) where
   takerFee : α
@@ -331,7 +332,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
         let price := m.bars[i]!.o
         let (book, paid) := s.book.settle N coin price rate
         s := { s with book, trace := s.trace.push (.funding h coin rate price paid) }
-      | _, _ => pure ()
+      | _, _ => throw .settlementMissing
   -- 2. marks
   let held := s.book.pos
   let latest : List (Nat × BarRow α) := held.filterMap fun (c, _) =>

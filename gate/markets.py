@@ -213,7 +213,7 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
     })
     w_end = n * BAR + HOUR
     holdout_start = n * BAR - holdout_days * DAY if holdout_days else w_end
-    search, holdout = Store(root / "store", event_before=holdout_start), Store(root / "holdout")
+    search, holdout = Store(root / "store", event_before=holdout_start), Store(root / "holdout", policy_root=root / "store")
     write_split(search, holdout, "funding", funding, fetched_at, "synthetic", holdout_start)
     write_split(search, holdout, "bars_4h", bars, fetched_at, "synthetic", holdout_start)
     if arrays.get("forum_posts") is not None:

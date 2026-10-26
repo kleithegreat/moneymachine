@@ -209,19 +209,37 @@ fn text<'a>(r: &'a Row, k: &str) -> Result<&'a str, LoadError> {
     }
 }
 
-/// A revision's knownAt from its observed fields, by the policy's rule (`known_at` in `ingest/store.py`).
-fn known(dataset: &str, r: &Row, policy: &Policy) -> Result<i64, LoadError> {
-    Ok(match dataset {
+/// A revision's knownAt from its observed fields, by the policy's rule (`known_at` in `ingest/store.py`); a
+/// correction is known no earlier than it was fetched.
+fn known(dataset: &str, r: &Revision, policy: &Policy) -> Result<i64, LoadError> {
+    let rule = match dataset {
         "funding" => {
-            let reported = long(r, "reportedTime")?;
+            let reported = long(&r.row, "reportedTime")?;
             (reported.div_euclid(HOUR) * HOUR + policy.delta).max(reported + policy.settlement_latency)
         }
-        _ => long(r, "eventTime")? + policy.delta,
-    })
+        _ => long(&r.row, "eventTime")? + policy.delta,
+    };
+    Ok(if r.correction { rule.max(long(&r.row, "fetchedAt")?) } else { rule })
 }
 
-/// Latest revision per key, in deterministic (coin, eventTime) order.
-fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>) -> Result<Vec<Row>, LoadError> {
+/// A key's latest revision, and whether its observed values differ from the key's first revision's.
+struct Revision {
+    row: Row,
+    correction: bool,
+}
+
+/// Columns that are not observed values: the store's metadata, a legacy stored knownAt, and the tombstone flag.
+const NOT_VALUES: [&str; 5] = ["fetchedAt", "source", "hash", "knownAt", "tombstone"];
+
+fn same_values(a: &Row, b: &Row) -> bool {
+    let value = |r: &Row, k: &String| r.get(k).filter(|v| !matches!(v, Field::Null)).cloned();
+    a.keys().chain(b.keys()).filter(|k| !NOT_VALUES.contains(&k.as_str())).all(|k| value(a, k) == value(b, k))
+}
+
+/// Per key, the latest revision unless it is a tombstone, in deterministic (coin, eventTime) order (`as_of` in
+/// `ingest/store.py`).
+fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>) -> Result<Vec<Revision>, LoadError> {
+    let mut first: HashMap<(usize, i64), (i64, Row)> = HashMap::new();
     let mut best: HashMap<(usize, i64), (i64, Row)> = HashMap::new();
     for r in rows {
         let event = long(&r, "eventTime")?;
@@ -232,16 +250,16 @@ fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>)
         }
         let Some(&c) = coin_ix.get(text(&r, "coin")?) else { continue };
         let fetched = long(&r, "fetchedAt")?;
-        match best.get(&(c, event)) {
-            Some((f, _)) if *f >= fetched => {}
-            _ => {
-                best.insert((c, event), (fetched, r));
-            }
+        if first.get(&(c, event)).is_none_or(|(f, _)| *f > fetched) {
+            first.insert((c, event), (fetched, r.clone()));
+        }
+        if best.get(&(c, event)).is_none_or(|(f, _)| *f < fetched) {
+            best.insert((c, event), (fetched, r));
         }
     }
-    let mut out: Vec<_> = best.into_iter().collect();
+    let mut out: Vec<_> = best.into_iter().filter(|(_, (_, r))| !matches!(r.get("tombstone"), Some(Field::Bool(true)))).collect();
     out.sort_by_key(|(k, _)| *k);
-    Ok(out.into_iter().map(|(_, (_, r))| r).collect())
+    Ok(out.into_iter().map(|(k, (_, row))| Revision { correction: !same_values(&first[&k].1, &row), row }).collect())
 }
 
 /// Load the union of `stores` at `version`. `holdout` is the holdout start in search mode, None
@@ -267,27 +285,29 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
         }
         let mut v = vec![];
         for r in resolve(rows(ds, false)?, &coin_ix, holdout)? {
-            v.push(Event { coin: coin_ix[text(&r, "coin")?], event: long(&r, "eventTime")?, known: known(ds, &r, policy)?, count: double(&r, "count")? });
+            v.push(Event { coin: coin_ix[text(&r.row, "coin")?], event: long(&r.row, "eventTime")?, known: known(ds, &r, policy)?,
+                           count: double(&r.row, "count")? });
         }
         events.insert(ds, v);
     }
     let mut funding = Vec::with_capacity(f_rows.len());
     for r in &f_rows {
         funding.push(Funding {
-            coin: coin_ix[text(r, "coin")?],
-            event: long(r, "eventTime")?,
+            coin: coin_ix[text(&r.row, "coin")?],
+            event: long(&r.row, "eventTime")?,
             known: known("funding", r, policy)?,
-            rate: double(r, "fundingRate")?,
-            premium: double(r, "premium")?,
+            rate: double(&r.row, "fundingRate")?,
+            premium: double(&r.row, "premium")?,
         });
     }
     let mut bars = Vec::with_capacity(b_rows.len());
-    for r in &b_rows {
+    for rev in &b_rows {
+        let r = &rev.row;
         bars.push(Bar {
             coin: coin_ix[text(r, "coin")?],
             open_time: long(r, "openTime")?,
             event: long(r, "eventTime")?,
-            known: known("bars_4h", r, policy)?,
+            known: known("bars_4h", rev, policy)?,
             open: double(r, "open")?,
             high: double(r, "high")?,
             low: double(r, "low")?,

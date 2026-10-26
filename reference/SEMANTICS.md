@@ -181,8 +181,9 @@ Let V be the venue's coins in rules.json order; intervals [start, end) per coin 
 b + 2·BAR ≤ end, each step does, in order:
 
 1. **Funding.** For h = b + HOUR, b + 2·HOUR, …, b + BAR, and for each coin c holding a position (in
-   coin order): if a funding rate r exists for (c, h) and a bar opens at h − (h mod BAR), then
-   paid = q[c] · open(that bar) · r. cash −= paid and funding −= paid.
+   coin order): a funding rate r for (c, h) and a bar opening at h − (h mod BAR) must both exist, else
+   abort with R_SETTLEMENT_MISSING (a missing payment is never a zero one). paid = q[c] · open(that
+   bar) · r. cash −= paid and funding −= paid.
 2. **Marks.** For each held coin, latest(c) is the coin's last bar with openTime ≤ b, and the mark
    is its close.
 3. **Margin.** The adverse price is low(latest) for q > 0 and high(latest) for q < 0 (the mark if no
