@@ -62,3 +62,27 @@ def test_table_keeps_c07_for_a_cell_censored_anywhere(tmp_path):
     t = archive.table(tmp_path / "a", ["X"], c07)
     assert sorted(t["kept_from_c07"]) == ["X:buy:10000", "X:sell:10000"]
     assert t["cost_bps_ex_fee"]["X"]["buy"]["10000"] == 9.0 and math.isclose(t["cost_bps_ex_fee"]["X"]["buy"]["1000"], 100.0)
+
+
+def test_a_streamed_archive_file_reduces_as_a_whole_one():
+    import io
+
+    import lz4.frame
+
+    lines = [line([(99, 100 + k)], [(101, 50 + k)], t=k) for k in range(500)]
+    blob = lz4.frame.compress("\n".join(lines).encode())
+    with io.TextIOWrapper(lz4.frame.open(io.BytesIO(blob)), encoding="utf-8") as streamed:
+        assert archive.reduce(streamed) == archive.reduce(lz4.frame.decompress(blob).decode().splitlines())
+
+
+def test_report_summarizes_each_cell_by_regime(tmp_path):
+    t0 = 1792368000000
+    for day, sz in (("20261020", 100), ("20261021", 40)):
+        write_archive(tmp_path, day, 0, "X", [book(t0 + k * 5000, bid_sz=sz, ask_sz=sz) for k in range(10)])
+    table = tmp_path / "execution.json"
+    table.write_text(json.dumps({"cost_bps_ex_fee": {"X": {s: {"1000": 50.0, "10000": 50.0} for s in ("buy", "sell")}}}))
+    out = archive.report(tmp_path, table)["X:buy:10000"]
+    # Day one's asks ($10,100 at 101) fill $10,000 at 100 bps; day two's ($4,040) cannot.
+    assert {k: out["all"][k] for k in ("snapshots", "censored", "above_table")} == {"snapshots": 20, "censored": 0.5, "above_table": 1.0}
+    assert math.isclose(out["all"]["quantile_over_table"], 2.0)
+    assert out["2026Q4"] == out["all"] and out["vol-low"]["snapshots"] == 20

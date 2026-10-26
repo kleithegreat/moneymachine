@@ -21,6 +21,7 @@
             pyarrow
             statsmodels
             httpx
+            lz4
             pytest
             pytest-xdist
             hypothesis
