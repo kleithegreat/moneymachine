@@ -476,7 +476,8 @@ def admit (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Load
     (stop : Int) (mode : Mode) : Except Abort (Ctx α) := do
   let req ← stage1 reg roles p adm mode
   stage2 adm mode (ld.rows req)
-  let c := Ctx.make reg roles p adm (ld.resolve req) v pol stop req
+  let some obs := ld.resolve req | throw .binding
+  let c := Ctx.make reg roles p adm obs v pol stop req
   if !c.admissible then throw .binding
   if !c.inScope then throw .uncertified
   return c

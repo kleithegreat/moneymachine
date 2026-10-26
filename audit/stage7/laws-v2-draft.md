@@ -1,4 +1,4 @@
-# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 9)
+# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 10)
 
 C7.7 requires the Lean semantics to be parameterized by validated declarations and bindings; every stage 6 law to keep
 its guarantee for every admitted declaration, held and event cadences included; each law whose definitions change to
@@ -6,10 +6,11 @@ be revised, independently reviewed and frozen before its proof; and a binding la
 whenever a required source lacks a valid, matching, in-scope certificate.
 
 **The definitions and law statements are the Lean on branch `stage7`:** `reference/lean/Ref/Source.lean`
-(declarations, observations, certificates, admission metadata, the loader, the payload-free stages and the trusted
-boundary `Trusted`), `Machine.lean` (the latest observation per source and coin, its reads), `Sim.lean` (delivery,
+(declarations with their rules, observations, certificates, admission metadata, the loader, stored revisions and the
+payload-free stages), `Resolve.lean` (RULES.md §5–§6: rule evaluation, selection, effective knownAt, `resolveAll`,
+and the trusted boundary `Trusted`), `Machine.lean` (the latest observation per source and coin, its reads), `Sim.lean` (delivery,
 execution's role projections, run admission, accesses and scope, `admit`, `runProgram`, `run`), `Spec.lean`
-(`Program.WF`, prefixes, views, `firstFailure`, `sameShape`, `InputRef`) and `Laws.lean` (L1–L7, proofs `sorry`
+(`Program.WF`, prefixes, views, `firstFailure`, `InputRef`) and `Laws.lean` (L1–L8, proofs `sorry`
 until the statements are frozen). This document keeps the design, the attacks, the spec changes and the review
 ledger; it does not restate the Lean.
 
@@ -41,21 +42,23 @@ finding of the last six, its answer, and whether it could change a false-discove
 - **Staged admission, validated entry.** `run` takes the program text and checks the registry, the policy and the
   program first (`R_INVALID`); then metadata only (stage 1), event times only (stage 2, I8), resolution, run
   admission (version 1's structural conditions, no value read) and scope, then evaluation.
-- **The trusted boundary is a Lean structure.** `Trusted` names what the implementation guarantees outside the model:
-  `rows` is the complete event-time inventory of the requested datasets; the resolver reads only the requested
-  datasets; which rows it selects, how many, in what order and with what keys, slots, knownAt, coins and role kinds
-  depends on control columns only; and each observation comes from a stored row of its own declaration with that
-  row's key, entity, slot, field values, role payload and RULES.md §6 knownAt; bindings name the bytes' content identities; certificate ids are payload
-  hashes of issued certificates; supersessions and the admission position are the ledger's current ones; policy and
-  verifier are the build-pinned hashes; the holdout configuration is the frozen one. L5_certified states what an
-  admitted run guarantees under it. `mm` discharges it by content hashing, the C7.6 resolver suite, the ledger's
-  append-only triggers and the staging tests (§2, rows 17 and 18). A provider's venue-state attestation is the
-  verifier's claim, authenticated as issued; its truth is the verifier's live-test obligation.
+- **Resolution is RULES.md §6, in Lean.** `resolveAll` selects each key's revision by fetchedAt and tombstone alone
+  (L8_selection), computes its effective knownAt from the rule, raised by the correction and derivation bounds
+  (L8_known: never before what it was resolved from), and builds each observation from the selected revision's cells.
+  A key whose rule evaluation is rejected has no observation; an invalid dataset refuses the run (`R_BINDING`).
+- **The trusted boundary is a Lean structure, and small.** `Trusted` says the loader's inventory is the stored
+  revisions' event times and its resolution is `resolveAll` on the stored bytes at the pinned version; bindings name
+  the bytes' content identities; certificates are issued, their ids their payloads' hashes; supersessions and the
+  admission position are the ledger's current ones; policy, verifier and holdout are the pinned configuration.
+  L5_certified states what an admitted run guarantees under it. `mm` discharges it by content hashing, by agreeing
+  with the Lean resolver on the C7.6 suites (with the Python and Rust ones), by the ledger's append-only triggers, and
+  by the staging tests (§2, rows 17 and 18). A provider's venue-state attestation is the verifier's claim,
+  authenticated as issued.
 - **What grants authorize.** Grants authorize the use of values in a run: every value of an observation the run
-  reads, from its first read. Decoding a bound dataset's rows during resolution is authorized by its valid, matching
-  certificate (the kernel-only boundary's deterministic processing), and resolution may not select by a value
-  (`Trusted.controlsOnly`): so a value reaches a run only as a read observation's value, which grants cover, and
-  never decides admission (`L5_controls`).
+  reads, from its first read, at its (entity, column, event time), which covers every revision of that key.
+  Resolution decodes a bound dataset's rows under its valid, matching certificate (the kernel-only boundary's
+  deterministic processing); it selects by fetchedAt and tombstone, and the only comparison of values is the
+  correction test between revisions of one key, which can only delay that key's observation.
 
 ## 2. C7.7's named attacks: the law and the named `mm` test that catch each
 
@@ -157,7 +160,7 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 
 | GPT-3 B1 resolver obligations unstated | leakage | `Trusted.confined` (reads only requested datasets) and `Trusted.provenance` (row, entity, values, role cells, RULES.md §6 knownAt) |
 | GPT-3 B2 admission position and policy unauthenticated | leakage | `Trusted.position` (the ledger's current position) and `Trusted.pinned`; `L5_certified` concludes them |
-| GPT-3 B3 decoded payloads without access | leakage (GPT-4: a resolver selecting by an ungranted value changes outputs) | `Trusted.controlsOnly` (selection, multiplicity, order and shape from control columns only) and `L5_controls` |
+| GPT-3 B3 decoded payloads without access | leakage (GPT-4: a resolver selecting by an ungranted value changes outputs) | first `Trusted.controlsOnly`; now the concrete resolver (GPT-5 rows) |
 | GPT-3 L6 narrower than version 1 | no | `L6_bounded` for every evaluation, and for every run |
 | GPT-3 documentary inconsistencies | no | fixed (§1, §3, this table) |
 
@@ -165,8 +168,8 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 | GPT-4 B3 argument fails (selection by ungranted values) | leakage | as GPT-3 B3 above |
 | GPT-4: B2 closed, L6 restored, no false law | — | — |
 
-| GPT-5 selection among revisions by an ungranted value | leakage | the abstract resolver is replaced by RULES.md §6 itself in Lean (next revision): selection by fetchedAt and tombstone per key, availability with the correction and derivation bounds; the properties become theorems, and `Trusted` keeps only the inventory, the equality of the loader with the Lean resolver on the stored bytes, identities and the ledger |
-| GPT-5 selection by a control available later | leakage | as above: resolution is per key, and an observation's knownAt is at least that of every revision and upstream record it consults |
+| GPT-5 selection among revisions by an ungranted value | leakage | the abstract resolver replaced by RULES.md §6 in Lean (`Resolve.lean`): selection by fetchedAt and tombstone per key (L8_selection); `Trusted.controlsOnly` and `provenance` deleted, `Trusted.resolve` is equality with `resolveAll` |
+| GPT-5 selection by a control available later | leakage | per-key resolution; knownAt never before the revisions and upstream records it consults (L8_known) |
 
 Recorded limitations, none able to change a false-discovery or leakage outcome: a provider's venue-state attestation
 is the verifier's claim; `maxKnown` (a fill's `inputsKnown`)

@@ -1,4 +1,5 @@
 import Ref.Spec
+import Ref.Resolve
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -151,15 +152,15 @@ theorem L4_orders (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program)
 /-! ## L5 binding and admission -/
 
 /-- A run that produces output passed every admission check: a valid registry and policy, the checker, metadata,
-event times, run admission and scope. -/
+event times, resolution, run admission and scope. -/
 theorem L5_admitted (N : NumOps α) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α)
     (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) (r : Run α)
     (h : run N reg roles text adm ld v pol stop mode = .ok r) :
-    reg.Valid ∧ pol.Valid ∧ ∃ p req, check reg.inputs text = .ok p ∧ stage1 reg roles p adm mode = .ok req ∧
-      stage2 adm mode (ld.rows req) = .ok () ∧
-      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).admissible = true ∧
-      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).inScope = true ∧
-      (Ctx.make reg roles p adm (ld.resolve req) v pol stop req).evaluate N = .ok r := by
+    reg.Valid ∧ pol.Valid ∧ ∃ p req obs, check reg.inputs text = .ok p ∧ stage1 reg roles p adm mode = .ok req ∧
+      stage2 adm mode (ld.rows req) = .ok () ∧ ld.resolve req = some obs ∧
+      (Ctx.make reg roles p adm obs v pol stop req).admissible = true ∧
+      (Ctx.make reg roles p adm obs v pol stop req).inScope = true ∧
+      (Ctx.make reg roles p adm obs v pol stop req).evaluate N = .ok r := by
   sorry
 
 /-- The run refuses with the first failing admission check's code, in the order of `firstFailure`; with none
@@ -169,8 +170,9 @@ theorem L5_order (N : NumOps α) (reg : Registry) (roles : Roles) (text : String
     (∀ k e, firstFailure reg roles text adm ld v pol stop mode = some (k, e) →
       run N reg roles text adm ld v pol stop mode = .error e) ∧
     (firstFailure reg roles text adm ld v pol stop mode = none →
-      ∃ p, check reg.inputs text = .ok p ∧ run N reg roles text adm ld v pol stop mode
-        = (Ctx.make reg roles p adm (ld.resolve (adm.required reg roles p)) v pol stop (adm.required reg roles p)).evaluate N) := by
+      ∃ p obs, check reg.inputs text = .ok p ∧ ld.resolve (adm.required reg roles p) = some obs ∧
+        run N reg roles text adm ld v pol stop mode
+          = (Ctx.make reg roles p adm obs v pol stop (adm.required reg roles p)).evaluate N) := by
   sorry
 
 /-- The checks before resolution read no observation: two loaders with the same event-time rows fail at the same
@@ -181,12 +183,12 @@ theorem L5_staged (reg : Registry) (roles : Roles) (text : String) (adm : Meta) 
       = (firstFailure reg roles text adm ld₂ v pol stop mode).filter (·.1 ≤ 5) := by
   sorry
 
-/-- The checks after resolution never read an observation's values: resolutions of the same shape (the same keys,
-slots, knownAt, coins, value counts and role kinds) fail at the same check, or at none. -/
+/-- The checks after resolution never read an observation's values: resolutions of the same shape (both invalid,
+or the same keys, slots, knownAt, coins, value counts and role kinds) fail at the same check, or at none. -/
 theorem L5_shape (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld₁ ld₂ : Loader α) (v : Venue α)
     (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows)
-    (hS : ∀ req, (ld₁.resolve req).size = (ld₂.resolve req).size ∧
-      ∀ i < (ld₁.resolve req).size, ((ld₁.resolve req)[i]!).sameShape (ld₂.resolve req)[i]! = true) :
+    (hS : ∀ req, (ld₁.resolve req).isSome = (ld₂.resolve req).isSome ∧ ∀ o₁ o₂, ld₁.resolve req = some o₁ →
+      ld₂.resolve req = some o₂ → o₁.size = o₂.size ∧ ∀ i < o₁.size, (o₁[i]!).sameShape o₂[i]! = true) :
     firstFailure reg roles text adm ld₁ v pol stop mode = firstFailure reg roles text adm ld₂ v pol stop mode := by
   sorry
 
@@ -196,38 +198,21 @@ theorem L5_text (reg : Registry) (_ : reg.Valid) (roles : Roles) (adm : Meta) (t
     inp.source ∈ adm.required reg roles p := by
   sorry
 
-/-- Under the trusted boundary, an admitted run evaluated the resolver's output, which depends only on the required
-datasets' stored rows, each observation from a stored row of its declaration with that row's availability; every
-required dataset is named by an issued, current certificate under the pinned policy and verifier; and a search run's
-required datasets are no holdout dataset and hold no stored row at or after the holdout start. -/
-theorem L5_certified (N : NumOps α) (knownAt : Stored → Nat → (Int × List (String × String)) → Int)
-    (value : String → Option α) (integer time : String → Option Int) (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash)
-    (holdout : List Hash) (holdoutStart : Int) (resolver : Stored → List Nat → Array (Obs α)) (st : Stored)
-    (led : Ledger) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α)
-    (pol : Policy) (stop : Int) (mode : Mode)
-    (hT : Trusted knownAt value integer time coinOf hash policy verifier holdout holdoutStart reg resolver st led adm ld)
-    (r : Run α)
+/-- Under the trusted boundary, an admitted run evaluated RULES.md §6's resolution of the required datasets' stored
+bytes at the pinned version; every required dataset is named by an issued, current certificate under the pinned
+policy and verifier; and a search run's required datasets are no holdout dataset and hold no stored row at or after
+the holdout start. -/
+theorem L5_certified (N : NumOps α) (num : Cell → Option α) (hash : Cert → Hash) (policy verifier : Hash)
+    (holdout : List Hash) (holdoutStart : Int) (st : Stored) (led : Ledger) (reg : Registry) (roles : Roles)
+    (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode)
+    (hT : Trusted num hash policy verifier holdout holdoutStart reg st led adm ld) (r : Run α)
     (h : run N reg roles text adm ld v pol stop mode = .ok r) :
-    ∃ p, check reg.inputs text = .ok p ∧
-      (Ctx.make reg roles p adm (resolver st (adm.required reg roles p)) v pol stop (adm.required reg roles p)).evaluate N = .ok r ∧
+    ∃ p obs, check reg.inputs text = .ok p ∧ resolveAll num reg st adm.version (adm.required reg roles p) = some obs ∧
+      (Ctx.make reg roles p adm obs v pol stop (adm.required reg roles p)).evaluate N = .ok r ∧
       ∀ s ∈ adm.required reg roles p, ∃ b k, adm.bindings s = some b ∧ adm.cert b.cert = some k ∧ k ∈ led.issued ∧
         k.manifest = st.identity s ∧ k.policy = policy ∧ k.verifier = verifier ∧
         !(led.supersessions.any fun (x, pos) => x == k.id && decide (pos ≤ led.position)) ∧
-        (mode = .search → st.identity s ∉ holdout ∧ ∀ row ∈ st.rows s, row.1 < holdoutStart) := by
-  sorry
-
-/-- Under the trusted boundary, value cells never decide admission: two stores that agree on the requested datasets'
-control columns (rows, event times, control cells), admitted under the same metadata, fail at the same check or at
-none. -/
-theorem L5_controls (knownAt : Stored → Nat → (Int × List (String × String)) → Int) (value : String → Option α)
-    (integer time : String → Option Int) (coinOf : String → Option Nat) (hash : Cert → Hash) (policy verifier : Hash)
-    (holdout : List Hash) (holdoutStart : Int) (resolver : Stored → List Nat → Array (Obs α)) (st₁ st₂ : Stored)
-    (led : Ledger) (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld₁ ld₂ : Loader α) (v : Venue α)
-    (pol : Policy) (stop : Int) (mode : Mode)
-    (_ : Trusted knownAt value integer time coinOf hash policy verifier holdout holdoutStart reg resolver st₁ led adm ld₁)
-    (_ : Trusted knownAt value integer time coinOf hash policy verifier holdout holdoutStart reg resolver st₂ led adm ld₂)
-    (hC : ∀ req, Stored.sameControls reg req st₁ st₂) :
-    firstFailure reg roles text adm ld₁ v pol stop mode = firstFailure reg roles text adm ld₂ v pol stop mode := by
+        (mode = .search → st.identity s ∉ holdout ∧ ∀ row ∈ st.rows s, row.event < holdoutStart) := by
   sorry
 
 /-! ## L6 bounded loss -/
@@ -239,6 +224,27 @@ theorem L6_bounded (N : NumOps α) (hB : N.Bounded) :
       (stop : Int) (req : List Nat), (Ctx.make reg roles p adm obs v pol stop req).evaluate N ≠ .error .bound) ∧
     ∀ (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
       (stop : Int) (mode : Mode), run N reg roles text adm ld v pol stop mode ≠ .error .bound := by
+  sorry
+
+/-! ## L8 resolution (RULES.md §6) -/
+
+/-- Selection reads no cell: a key's selected revision is chosen among its eligible revisions by fetchedAt and
+tombstone alone, so two stores whose eligible revisions of the key have the same fetchedAt and tombstone flags, in
+the same order, select revisions at the same positions. -/
+theorem L8_selection (st₁ st₂ : Stored) (s : Nat) (V : Int) (coin : Nat) (event : Int)
+    (h : (st₁.eligible s V coin event).map (fun r => (r.fetchedAt, r.tombstone))
+       = (st₂.eligible s V coin event).map (fun r => (r.fetchedAt, r.tombstone))) :
+    ((st₁.select s V coin event).map fun (a, b) => (a.fetchedAt, b.fetchedAt))
+      = ((st₂.select s V coin event).map fun (a, b) => (a.fetchedAt, b.fetchedAt)) := by
+  sorry
+
+/-- An observation is never known before what it was resolved from: its effective knownAt is at least its rule's
+value, its fetchedAt if it is a correction, and every dependency's upstream knownAt plus its delay. -/
+theorem L8_known (reg : Registry) (st : Stored) (V : Int) (fuel s coin : Nat) (event k : Int) (sel first : Revision)
+    (hS : st.select s V coin event = some (sel, first)) (hK : effectiveKnown reg st V (fuel + 1) s coin event = some (.ok k)) :
+    (isCorrection sel first = true → sel.fetchedAt ≤ k) ∧
+    ∀ dep ∈ (reg.decls[s]!).deps, ∀ up ∈ ((sel.upstream.find? (·.1 == dep.name)).map (·.2)).getD [],
+      ∀ t, effectiveKnown reg st V fuel dep.source up.1 up.2 = some (.ok t) → t + dep.lag ≤ k := by
   sorry
 
 /-! ## L7 input reads -/

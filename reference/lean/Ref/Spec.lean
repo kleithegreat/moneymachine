@@ -203,7 +203,7 @@ structure NumOps.Bounded (N : NumOps α) : Prop where
 /-! ## L5 binding and admission (stage 7) -/
 
 /-- The admission checks of `run` in order, by position: 0 registry, policy and program text (R_INVALID), 1 roles,
-2 unbound, 3 holdout by identity, 4 uncertified (validity and matching), 5 holdout by event time, 6 run admission,
+2 unbound, 3 holdout by identity, 4 uncertified (validity and matching), 5 holdout by event time, 6 resolution and run admission (an invalid dataset, or a structural failure),
 7 scope. The first that fails, with its code; `none` when all pass. -/
 def firstFailure (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α)
     (pol : Policy) (stop : Int) (mode : Mode) : Option (Nat × Abort) :=
@@ -220,7 +220,10 @@ def firstFailure (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (
       | some b => (adm.cert b.cert).any fun k => adm.valid adm.certs.length b.cert && adm.matches reg roles s b k) then
     some (4, .uncertified) else
   if mode == .search && !(ld.rows req).all (fun r => decide (r.2 < adm.holdoutStart)) then some (5, .holdout) else
-  let c := Ctx.make reg roles p adm (ld.resolve req) v pol stop req
+  match ld.resolve req with
+  | none => some (6, .binding)
+  | some obs =>
+  let c := Ctx.make reg roles p adm obs v pol stop req
   if !c.admissible then some (6, .binding) else
   if !c.inScope then some (7, .uncertified) else none
 

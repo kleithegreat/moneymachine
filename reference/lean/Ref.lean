@@ -2,6 +2,7 @@ import Ref.Num
 import Ref.Json
 import Ref.Syntax
 import Ref.Source
+import Ref.Resolve
 import Ref.Machine
 import Ref.Float
 import Ref.Sim
