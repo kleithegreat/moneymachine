@@ -164,3 +164,10 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **What:** the per-row `HashMap` loader (3.6 GB of `mm` for a ten-year market, `audit/stage2/campaign-profile/memory/`) is replaced by stage 7's generic loader, together with the profile's CPU speedups, instead of a patch to the current kernel. The pilot's remaining runs keep the current kernel: stage 3 is paced by the subscription, stage 5's events calibration fits at about 1 GB a campaign, and stage 8's calibration, which needs the fix, comes after stage 7.
 - **Why:** proposed by another Claude session and accepted by the human in this session ("i think this seems reasonable"); one loader rewrite instead of two, and no kernel change between the pilot's judged runs.
 - **Reverse:** patch the current loader between judged runs, with the corpus differential and a new cross-machine test.
+
+## 2026-10-26 23:19 UTC (19:19 EDT): four human decisions on stage 7 and stage 8 (typed by the human in this session)
+
+1. **Pre-annex recording: approved.** The stage 8 recording exception extends to every certified source the human authorizes, with integrity-only inspection (labeled amendment in `audit/criteria.md`, stage 8). Databento's outright statistics and daily-bar pulls resume. *Reverse:* revoke the amendment and stop the pulls; recorded data is then not used before an annex.
+2. **Bitemporal resolution: approved.** Each revision is delivered at its own knownAt and a tombstone as a retraction: dated revisions of RULES.md §6 and C7.6, C7.4's identity limited to single-revision keys; the pilot keeps version 1's snapshot semantics, recorded as a qualification; stage 7's law statements are frozen. *Reverse:* a further dated revision before any proof is judged.
+3. **Kernel-only reports:** under the licensing boundary already decided, the frozen aggregate report fields derived from CME data may go to research agents and to GPT and Opus reviewers; raw rows never do.
+4. **Debugging allowance:** stands as written. For kernel-only sources, coding sessions default to integrity-only views; any accidental disclosure of rows is logged in `audit/stage8/exposure.md`.
