@@ -14,3 +14,19 @@ next judged run, never mid-run, and retest.
 - **Comparison (`ops/crossmachine.py compare`):** per campaign, equal result rows except `seconds`, and equal ledgers
   (every table, every row in rowid order, every column except the wall-clock `created`; return blobs byte for byte).
   Identical means all nine are identical on both; anything else is a difference, reported per campaign.
+
+## Test 1 result, 2026-10-26 21:14 UTC (17:14 EDT): not identical
+
+The first attempt crashed six campaigns before any comparison: N2 and N3 calibrate funding from `data/store`, which
+had not been shipped (it holds only search-period rows: every eventTime precedes the holdout start). Shipped, all nine
+reran (21:09–21:12 UTC). `result-1-compare.json`: every result row is identical (all fields but `seconds`), and every
+`results` row (return blobs and result hashes) is identical, on a machine without AVX-512. The ledgers differ only in
+`experiments.kernel` and the identities built from it (`experiments.identity`, the disclosures' `identity`): each
+machine compiled its own `mm`, and the binary embeds its source path, so its hash differs (here `0aff52fc…`, the
+sweep's recorded kernel; prodesk5 `82e44e46…`). No CPU-feature difference was observed.
+
+## Test 2, frozen 2026-10-26 21:14 UTC (17:14 EDT), before it runs
+
+Fix (§1: one kernel, not a per-machine allowance): workers never build `mm`; they run this PC's binary, copied byte
+for byte (sha256 `0aff52fcf03dc63050c86a013b45cc0699e664c092c3e0f2e5cc572dcd231e3e`, built for generic x86-64).
+Same nine campaigns, same code, same comparison, with the `kernel` column now included as it always was.
