@@ -158,6 +158,10 @@ structure Obs (α : Type) where
   known : Int
   vals : Array (Option α)
   role : Option (RolePayload α)
+  /-- The key's last delivered revision: what execution reads as venue state. -/
+  final : Bool
+  /-- A tombstone or rejected revision: the key has no value from this delivery on. -/
+  retraction : Bool
   deriving Inhabited
 
 structure Grant where
@@ -301,10 +305,11 @@ structure Stored where
   rows : Nat → List Revision
   identity : Nat → Hash
 
-/-- Two observations of the same shape: declaration, coin, key, slot, knownAt, value count and role kind. -/
+/-- Two observations of the same shape: declaration, coin, key, slot, knownAt, value count, role kind, and whether
+each is final and a retraction. -/
 def Obs.sameShape {α : Type} (a b : Obs α) : Bool :=
   let kind (r : Option (RolePayload α)) : Nat := match r with | none => 0 | some (.bar ..) => 1 | some (.rate _) => 2
   a.source == b.source && a.coin == b.coin && a.key == b.key && a.slot == b.slot && a.known == b.known &&
-  a.vals.size == b.vals.size && kind a.role == kind b.role
+  a.vals.size == b.vals.size && kind a.role == kind b.role && a.final == b.final && a.retraction == b.retraction
 
 end Ref

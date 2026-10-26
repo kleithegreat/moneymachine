@@ -227,26 +227,25 @@ theorem L6_bounded (N : NumOps α) (hB : N.Bounded) :
       (stop : Int) (mode : Mode), run N reg roles text adm ld v pol stop mode ≠ .error .bound := by
   sorry
 
-/-! ## L8 resolution (RULES.md §6) -/
+/-! ## L8 resolution (RULES.md §6, bitemporal revision of 2026-10-26) -/
 
-/-- Selection reads no cell: a key's selected revision is chosen among its eligible revisions by fetchedAt and
-tombstone alone, so two stores whose eligible revisions of the key have the same fetchedAt and tombstone flags, in
-the same order, select revisions at the same positions. -/
-theorem L8_selection (st₁ st₂ : Stored) (s : Nat) (V : Int) (coin : Nat) (event : Int)
-    (h : (st₁.eligible s V coin event).map (fun r => (r.fetchedAt, r.tombstone))
-       = (st₂.eligible s V coin event).map (fun r => (r.fetchedAt, r.tombstone))) :
-    ((st₁.select s V coin event).map fun (a, b) => (a.fetchedAt, b.fetchedAt))
-      = ((st₂.select s V coin event).map fun (a, b) => (a.fetchedAt, b.fetchedAt)) := by
+/-- A key's timeline never goes back: its revisions are delivered in fetchedAt order, each known no earlier than the
+one it replaces, so the latest delivered revision is always the newest known. -/
+theorem L8_monotone (reg : Registry) (st : Stored) (V : Int) (fuel s coin : Nat) (event : Int) :
+    let tl := timeline reg st V fuel s coin event
+    ∀ i, i + 1 < tl.length → (tl[i]!).rev.fetchedAt ≤ (tl[i + 1]!).rev.fetchedAt ∧ (tl[i]!).known ≤ (tl[i + 1]!).known := by
   sorry
 
-/-- A resolved knownAt is never before what bounds it: its fetchedAt if it is a correction, and every usable upstream
-knownAt of each dependency plus its delay. -/
-theorem L8_known (reg : Registry) (_ : reg.Valid) (st : Stored) (V : Int) (fuel s coin : Nat) (event k : Int)
-    (sel first : Revision) (hS : st.select s V coin event = some (sel, first))
-    (hK : effectiveKnown reg st V (fuel + 1) s coin event = some (.ok k)) :
-    (isCorrection (reg.decls[s]!).revisionColumns sel first = true → sel.fetchedAt ≤ k) ∧
-    ∀ dep ∈ (reg.decls[s]!).deps, ∀ up ∈ ((sel.upstream.find? (·.1 == dep.name)).map (·.2)).getD [],
-      ∀ t, effectiveKnown reg st V fuel dep.source up.1 up.2 = some (.ok t) → t + dep.lag ≤ k := by
+/-- Nothing is known before it was recorded or before what it was derived from: every delivered revision after a
+key's first, correction or retraction, is known no earlier than its fetchedAt; the first is never a retraction; and
+every delivered value is known no earlier than each dependency's upstream knownAt plus its delay. -/
+theorem L8_known (reg : Registry) (_ : reg.Valid) (st : Stored) (V : Int) (fuel s coin : Nat) (event : Int) :
+    let tl := timeline reg st V (fuel + 1) s coin event
+    (∀ i, 0 < i → i < tl.length → (tl[i]!).rev.fetchedAt ≤ (tl[i]!).known) ∧
+    (∀ e ∈ tl.head?, e.retraction = false) ∧
+    ∀ e ∈ tl, e.retraction = false → ∀ dep ∈ (reg.decls[s]!).deps,
+      ∀ up ∈ ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [],
+      ∀ u ∈ timeline reg st V fuel dep.source up.1 up.2, u.retraction = false → u.known + dep.lag ≤ e.known := by
   sorry
 
 /-! ## L7 input reads -/

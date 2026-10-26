@@ -1,4 +1,4 @@
-# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (draft, revision 11)
+# Stage 7, slice 1: the reference semantics generalized over declarations, and the laws restated (revision 12, frozen)
 
 C7.7 requires the Lean semantics to be parameterized by validated declarations and bindings; every stage 6 law to keep
 its guarantee for every admitted declaration, held and event cadences included; each law whose definitions change to
@@ -42,11 +42,14 @@ finding of the last six, its answer, and whether it could change a false-discove
 - **Staged admission, validated entry.** `run` takes the program text and checks the registry, the policy and the
   program first (`R_INVALID`); then metadata only (stage 1), event times only (stage 2, I8), resolution, run
   admission (version 1's structural conditions, no value read) and scope, then evaluation.
-- **Resolution is RULES.md §6, in Lean.** `resolveAll` selects each key's revision by fetchedAt and tombstone alone
-  (L8_selection), computes its effective knownAt from the rule, raised by the correction and derivation bounds
-  (L8_known: never before what it was resolved from), and builds each observation from the selected revision's cells.
-  A key whose rule evaluation is rejected has no observation; an invalid dataset refuses the run (`R_BINDING`); an
-  unchecked rule or a dependency cycle is an invalid registry (`R_INVALID`).
+- **Resolution is RULES.md §6 with its bitemporal revision, in Lean** (human decision of 2026-10-26). Each key's
+  eligible revisions are delivered in fetchedAt order at their own effective knownAt (`timeline`): a correction no
+  earlier than its fetchedAt and than the revision it replaces, every value no earlier than its dependencies'
+  upstream knownAt plus delay (L8_monotone, L8_known); a tombstone or rejected revision is a retraction, with no
+  fallback. Decisions see, at each tick, the latest revision known by then; execution reads each key's final revision
+  as venue state (`Obs.final`). A key with one revision resolves as in version 1 (C7.4's identity is limited to such
+  keys). An invalid dataset refuses the run (`R_BINDING`); an unchecked rule or a dependency cycle is an invalid
+  registry (`R_INVALID`).
 - **The trusted boundary is a Lean structure, and small.** `Trusted` says the loader's inventory is the stored
   revisions' event times and its resolution is `resolveAll` on the stored bytes at the pinned version; bindings name
   the bytes' content identities; certificates are issued, their ids their payloads' hashes; supersessions and the
@@ -58,8 +61,9 @@ finding of the last six, its answer, and whether it could change a false-discove
 - **What grants authorize.** Grants authorize the use of values in a run: every value of an observation the run
   reads, from its first read, at its (entity, column, event time), which covers every revision of that key.
   Resolution decodes a bound dataset's rows under its valid, matching certificate (the kernel-only boundary's
-  deterministic processing); it selects by fetchedAt and tombstone, and the only comparison of values is the
-  correction test between revisions of one key, which can only delay that key's observation.
+  deterministic processing); revisions are ordered by fetchedAt, and the only comparison of values is whether a
+  revision differs from the one before it, which decides only whether it is delivered and, being a correction, no
+  earlier than its fetchedAt.
 
 ## 2. C7.7's named attacks: the law and the named `mm` test that catch each
 
@@ -182,6 +186,11 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 | GPT-6 rule bytes not authenticated | leakage | `Trusted.decls` (declarations, rules included, are the ones their hashes name) |
 | GPT-6 R_ROW and JSON-level checks | no | outside the model: canonical decoding is a `Trusted` premise, the JSON layer the C7.6 suite's |
 | GPT-6 partial lineage, diagnostics, multi-role | no | RULES.md's existential "no usable upstream knownAt" kept; recorded |
+
+| GPT-6 snapshot look-ahead (human decision, 2026-10-26) | leakage | bitemporal resolution: RULES.md §6 revised, `timeline` and `resolveAll` in Lean, C7.6 and C7.4 revised; the pilot keeps snapshot semantics as a qualification |
+
+**Frozen** (human decision of 2026-10-26) at the commit recorded in `audit/stage7/laws-frozen.md`. The bitemporal
+resolver is reviewed by GPT after the freeze; a finding becomes a dated revision before any proof is judged.
 
 Recorded limitations, none able to change a false-discovery or leakage outcome: a provider's venue-state attestation
 is the verifier's claim; `maxKnown` (a fill's `inputsKnown`)

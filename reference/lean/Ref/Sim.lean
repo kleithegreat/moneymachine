@@ -185,14 +185,15 @@ def lexLe : List Int → List Int → Bool
   | a :: as, b :: bs => a < b || (a == b && lexLe as bs)
   | _, _ => true
 
-/-- The bars provider's role records, as execution reads them. -/
+/-- The bars provider's final role records, as execution reads them (venue state: the key's last revision). -/
 def barRow (roles : Roles) (o : Obs α) : Option (BarRow α) := match o.role with
-  | some (.bar op h l cl tr) => if o.source == roles.bars then some ⟨o.coin, o.key - BAR, o.key, o.known, op, h, l, cl, tr⟩ else none
+  | some (.bar op h l cl tr) =>
+    if o.source == roles.bars && o.final then some ⟨o.coin, o.key - BAR, o.key, o.known, op, h, l, cl, tr⟩ else none
   | _ => none
 
-/-- The settlement provider's role records, as execution reads them. -/
+/-- The settlement provider's final role records, as execution reads them. -/
 def rateRow (roles : Roles) (o : Obs α) : Option (RateRow α) := match o.role with
-  | some (.rate x) => if o.source == roles.settlement then some ⟨o.coin, o.key, o.known, x⟩ else none
+  | some (.rate x) => if o.source == roles.settlement && o.final then some ⟨o.coin, o.key, o.known, x⟩ else none
   | _ => none
 
 /-- Everything a run fixes before its first step. -/
@@ -211,8 +212,8 @@ structure Ctx (α : Type) where
   rates : Array (RateRow α)
   ix : Index α
 
-/-- The delivered observations in version 1's order: (knownAt, source, coin, tie), the tie being the event time for
-a held source and the resolver position for an event source. -/
+/-- The delivered observations in version 1's order: (knownAt, source, coin, tie, position), the tie being the event
+time for a held source and the resolver position for an event source; a key's revisions follow in timeline order. -/
 def Ctx.make (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (resolved : Array (Obs α)) (v : Venue α)
     (pol : Policy) (stop : Int) (required : List Nat) : Ctx α :=
   let delivered := adm.delivered reg
@@ -223,7 +224,7 @@ def Ctx.make (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (resolv
   { reg, roles, p, adm, v, pol, stop, required, obs, bars, rates, ix := Index.of bars rates adm.intervals.size
     oOrder := (Array.range obs.size).mergeSort fun i j =>
       let x := obs[i]!; let y := obs[j]!
-      lexLe [x.known, x.source, x.coin, tie x i] [y.known, y.source, y.coin, tie y j] }
+      lexLe [x.known, x.source, x.coin, tie x i, i] [y.known, y.source, y.coin, tie y j, j] }
 
 def Ctx.coins (c : Ctx α) : Nat := c.adm.intervals.size
 
@@ -380,8 +381,8 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
     let (start, stop') := adm.intervals[c]!
     if !(start ≤ bigB && bigB + 2 * BAR ≤ stop') then continue
     let latestOf' (src : Nat) : Option (Obs α) := s.machine.latest[src]![c]!
-    let fresh := ((latestOf' roles.bars).map (·.key == bigB)).getD false &&
-      ((latestOf' roles.settlement).map (·.key == bigB)).getD false
+    let fresh := ((latestOf' roles.bars).map (fun o => o.key == bigB && o.role.isSome)).getD false &&
+      ((latestOf' roles.settlement).map (fun o => o.key == bigB && o.role.isSome)).getD false
     if !fresh then
       s := { s with trace := s.trace.push (.hold td c "stale") }
       continue
@@ -431,15 +432,16 @@ def Ctx.lastTick (c : Ctx α) : Int := c.pol.wStart + (c.bounds.length : Int) * 
 /-- The end of every use interval: `stop`, or past the first tick, which `start` always runs. -/
 def Ctx.useEnd (c : Ctx α) : Int := max c.stop (c.firstTick + 1)
 
-/-- Run admission on resolved observations (R_BINDING), version 1's structural conditions (laws-v2-draft.md §5):
-keys unique; declaration and coin in range; one value per field; a role payload exactly on the providers' records,
-of the provider's kind; a slot exactly on event sources' records. It reads no value. -/
+/-- Run admission on resolved observations (R_BINDING), version 1's structural conditions: one final record per key;
+declaration and coin in range; one value per field; a role payload exactly on the providers' records that are not
+retractions, of the provider's kind; a slot exactly on event sources' records. It reads no value. -/
 def Ctx.admissible (c : Ctx α) : Bool :=
-  let keys := c.obs.toList.map fun o => (o.source, o.coin, o.key)
+  let keys := (c.obs.toList.filter (·.final)).map fun o => (o.source, o.coin, o.key)
+  let provider (o : Obs α) := o.source == c.roles.bars || o.source == c.roles.settlement
   let roleOk (o : Obs α) : Bool := match o.role with
-    | none => o.source != c.roles.bars && o.source != c.roles.settlement
-    | some (.bar ..) => o.source == c.roles.bars
-    | some (.rate _) => o.source == c.roles.settlement
+    | none => o.retraction || !provider o
+    | some (.bar ..) => o.source == c.roles.bars && !o.retraction
+    | some (.rate _) => o.source == c.roles.settlement && !o.retraction
   keys.eraseDups.length == keys.length &&
   c.obs.all fun o =>
     o.source < c.reg.decls.size && o.coin < c.coins && o.vals.size == (c.reg.decls[o.source]!).fields.size &&

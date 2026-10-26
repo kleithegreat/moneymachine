@@ -140,6 +140,31 @@ row is usable only prospectively), is the certificate's business (`CERTIFICATES.
 language's. A rule names its times; it never chooses among them by whether they are present: an absent
 field rejects the row.
 
+### Revision 2026-10-26 23:28 UTC (19:28 EDT), human decision: bitemporal resolution
+
+GPT's sixth review of stage 7's Lean (`audit/stage7/laws-review-gpt-6.md`) showed that the selection above lets
+information recorded after a query time change what the query sees: a correction fetched at F leaves its key with no
+observation before F; a later tombstone removes the key from the past; a differing unused column delays it. The
+resolver is therefore bitemporal. Selection and Visibility above are replaced by the following; rule evaluation,
+the derivation bound, the range and dataset validity stand.
+
+- **Timeline.** A key's eligible revisions (fetchedAt ≤ V), in fetchedAt order, each delivered at its own effective
+  knownAt. A revision identical to the one before it (no observed column differs, as values, an absent column
+  being null, and the same tombstone flag) adds nothing.
+- **Effective knownAt** of each delivered revision: the rule's value on its row, raised to its fetchedAt if it is not
+  the key's first delivered revision (it is then a correction of the one before it), to the knownAt of the revision
+  it replaces, and by the derivation bound, where a dependency's upstream time is the latest knownAt among the
+  upstream key's delivered revisions that are not retractions.
+- **Retractions.** A tombstone, or a revision whose rule evaluation is rejected, is delivered as a retraction (the key
+  has no value from then on) at its fetchedAt, raised to the knownAt of the revision it replaces; there is never a
+  fallback to an older revision. One before any delivered revision adds nothing.
+- **Visibility.** A query at time t sees the key's latest delivered revision with knownAt ≤ t, or nothing if that
+  is a retraction or none is delivered by t. Execution's reads of venue state (bars and settlement rates by event
+  time) use each key's final delivered revision.
+
+A key with one revision resolves exactly as before. The reference is `reference/lean/Ref/Resolve.lean` (`timeline`,
+`resolveAll`); the C7.6 suites are revised to match before any judged run (`audit/criteria.md`, C7.6).
+
 ## 7. Conformance
 
 Implementations are compared on cases of the form
