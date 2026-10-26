@@ -48,6 +48,8 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   - **Stage 5 sources:** `data/sources_live`, delvingbitcoin.org, Snapshot and the clock log.
   - **Keyless data layer:** `data/datalayer`, from 2026-10-23 18:39 UTC, about 30 MB a day. Feeds are declared in `venue/sources/datalayer.json`: ECB EXR, BIS, CFTC (3 reports), Treasury, GDELT events, NWS alerts, openFDA, EIA (manifest and petroleum), Polymarket (active and resolved). Bodies are gzip-compressed under `raw/<sha256>.gz`. ECB and every other source without past versions are prospective only.
 - **Data.** `data/` is about 650 MB with 105 GB free, and the hourly `mm-diskguard.timer` (`ops/diskguard.sh`) adds a Blockers line below 20 GB. Regenerable and duplicate files were deleted with their hashes in `audit/data-deletions.json`. After stage 0: `live.read` learns `.jsonl.zst`, and closed day files (about 410 MB of polls) are compressed with zstd once their plain sha256s are recorded in `audit/`.
+- **Keyed sources and cloud accounts (human, 2026-10-26).** `.keys.env` holds FRED, BLS, BEA, EIA and `SEC_USER_AGENT`; contact fields use the human's name and email (CLAUDE.md). The keyed sources are being certified and added to the data layer. AWS (IAM user `hyperliquid-data`, S3 read-only, us-east-1, $20 a month, denied at 100%; spending approved up to $20 in total) is for Hyperliquid's requester-pays archives: list and report before any download. Google Cloud (project `moneymachine-512800`, BigQuery sandbox, no billing) is for `crypto_ethereum` and `crypto_bitcoin`.
+- **Future option (human, 2026-10-26): proofs over tests.** The long-term target is an executable Lean engine whose laws cover the code that runs, replacing `mm`, with OCaml for untrusted plumbing; Parquet stays the data format (read from OCaml through DuckDB's C API or Arrow), and SQLite stays the ledger. No work now; revisit at stage 8's kernel generalization.
 - **Future option (human, 2026-10-23):** a research arm whose model has an earlier knowledge cutoff, which would free more historical holdout data than the current model's June 2026 cutoff allows.
 - **Cloud VM (human, 2026-10-23): HL recorder since 21:57 UTC; data layer and stage 5 sources since 2026-10-24 01:43 UTC.** It is an Always Free `VM.Standard.E2.1.Micro` `mm-recorder` in us-ashburn-1 (150.230.168.87; A1 had no capacity), with a $1 budget (`mm-free-tier-guard`).
   - `mm-recorder.service` runs `nix develop .#recorder` at 600/min (the stage 0 budget, from its own IP; raised 2026-10-24 20:35 UTC (16:35 EDT)), capped at 600 MB. `mm-clock.timer` logs the VM's NTP offset every 5 min.
@@ -58,20 +60,9 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 ## Blockers
 
-- **Free sources that need the human's registration (stages 8 and 10).** Keys go in `.keys.env` (gitignored), one `NAME=value` per line.
-  - `FRED_API_KEY` (FRED/ALFRED): macro and rates at the backtest tier's data bar (C8.2), since ALFRED gives each value's vintage and release dates.
-  - `BLS_API_KEY`: labor and prices, and the BLS release calendar.
-  - `BEA_API_KEY`: NIPA and GDP with release metadata.
-  - `EIA_API_KEY`: the keyed EIA API (the bulk files are already recorded).
-  - `SEC_USER_AGENT` (a name and contact email the human chooses): EDGAR filings and the financial statement data sets, point in time by acceptance time.
-  - **Wikimedia pageviews:** its User-Agent policy asks for contact information.
-  - **IMF:** "The IMF prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, 2026-10-23).
-- **Paid data (human's choice, after the free tier).** Norgate Data US Stocks Platinum (USD 630 a year, confirmed) is the planned purchase for equities and indices (delisted securities, historical constituents). Norgate futures (price unconfirmed) or Databento (usage-based, USD 125 of free credits) would cover commodity contracts. Vendor permission requests are on hold (human, 2026-10-25); the human adds the free API keys to `.keys.env`.
-- **On-chain (priority family): hardware and accounts.**
-  - **Hyperliquid node:** needs 16 vCPUs, 128 GB of RAM and about 100 GB of logs a day; this PC has 12 threads and 15 GB.
-  - **Hyperliquid's archives (`s3://hyperliquid-archive`, `s3://hl-mainnet-node-data`):** requester-pays, so an AWS account and transfer costs.
-  - **Ethereum and Polygon on BigQuery:** a Google Cloud account.
-  - **Ethereum or Polygon node:** a 2–4 TB NVMe.
+- **IMF:** "The IMF prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, 2026-10-23).
+- **Paid data (human's choice, after the free tier).** Norgate Data US Stocks Platinum (USD 630 a year, confirmed) is the planned purchase for equities and indices (delisted securities, historical constituents). Norgate futures (price unconfirmed) or Databento (usage-based, USD 125 of free credits) would cover commodity contracts. Vendor permission requests are on hold (human, 2026-10-25).
+- **On-chain (priority family): hardware.** A Hyperliquid node needs 16 vCPUs, 128 GB of RAM and about 100 GB of logs a day (this PC has 12 threads and 15 GB); an Ethereum or Polygon node needs a 2–4 TB NVMe.
 - **Sources not certifiable as they stand.**
   - **ClinicalTrials.gov:** no API or automation clause, and silent terms are not enough.
   - **usda.gov:** 403 to our fetcher, not worked around.
