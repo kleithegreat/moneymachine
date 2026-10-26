@@ -38,6 +38,8 @@ USAGE:
   mm rules -
       Evaluate availability-rule conformance cases (kernel/RULES.md §7), one JSON line each on stdin, and print
       each result: the Time as an integer, or the code. Reads no market data.
+  mm resolve -
+      The same for resolver conformance cases (kernel/tests/rules/resolver_suite.py).
   mm check-fills FILE
       Check fills against invariants I2/I3 and the I9 order cap, one JSON case per line
       (kernel/tests/timing/FORMAT.md); print one verdict per line. Reads no market data.
@@ -532,11 +534,15 @@ fn select(a: &Args, ledger: &mut Ledger) -> ExitCode {
     emit(r, &out, false, 0)
 }
 
-fn rules() -> ExitCode {
+fn rules(resolver: bool) -> ExitCode {
     use std::io::BufRead;
     let set = |v: &Value| v.as_array().map(|xs| xs.iter().filter_map(|x| x.as_str().map(String::from)).collect());
     for line in std::io::stdin().lock().lines().map_while(Result::ok) {
         let Ok(c) = serde_json::from_str::<Value>(&line) else { return ExitCode::from(3) };
+        if resolver {
+            println!("{}", mm::rule::resolve(&c));
+            continue;
+        }
         let text = |k: &str| c[k].as_str().unwrap_or_default().to_string();
         let (Some(fields), Some(deps)) = (set(&c["fields"]), set(&c["deps_declared"])) else { return ExitCode::from(3) };
         let out = match mm::rule::result(&text("rule"), &fields, &deps, &text("row"), &text("deps")) {
@@ -657,8 +663,8 @@ fn main() -> ExitCode {
     if a.cmd == "check-fills" {
         return check_fills(&a.target);
     }
-    if a.cmd == "rules" {
-        return rules();
+    if a.cmd == "rules" || a.cmd == "resolve" {
+        return rules(a.cmd == "resolve");
     }
     let mut ledger = match Ledger::open(Path::new(a.get("ledger", "data/ledger.sqlite"))) {
         Ok(l) => l,

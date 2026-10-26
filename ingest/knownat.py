@@ -1,5 +1,5 @@
-"""The availability rule language, version 1 (kernel/RULES.md §1-5): strict JSON reading, checking, and evaluation of
-a checked rule on a row. `mm` implements the same language in Rust (`kernel/mm/src/rule.rs`); the C7.6 suite holds
+"""The availability rule language, version 1 (kernel/RULES.md §1-5: strict JSON reading, checking, and evaluation of
+a checked rule on a row) and its resolver (§6). `mm` implements the same language in Rust (`kernel/mm/src/rule.rs`); the C7.6 suite holds
 the two, and an independent third, to the same results."""
 
 import json
@@ -306,10 +306,68 @@ def result(case):
         return r.code
 
 
-def main():
+def typed(v):
+    """A JSON value with its type kept, for comparisons where True must not equal 1."""
+    if type(v) is dict:
+        return ("obj", tuple(sorted((k, typed(x)) for k, x in v.items())))
+    if type(v) is list:
+        return ("arr", tuple(map(typed, v)))
+    return (type(v).__name__, v if type(v) is not Real else None)
+
+
+def observed(revision):
+    """A revision's observed columns, decoded (its row: every stored column but fetchedAt and the tombstone flag)."""
+    row = parse(revision["row"])
+    return row if type(row) is dict else {}
+
+
+def resolve(case):
+    """A resolver conformance case's result (RULES.md §6; kernel/tests/rules/resolver_suite.py): the selected revision's
+    fetchedAt, its effective knownAt or code, and its visibility at each query."""
+    try:
+        expr = check(case["rule"], [*case["fields"], "fetchedAt"], case["deps_declared"])
+    except RuleError:
+        return "E_RULE"
+    queries, version = case["queries"], case["version"]
+    eligible = [r for r in case["revisions"] if r["fetchedAt"] <= version]
+    if len({r["fetchedAt"] for r in eligible}) != len(eligible):
+        return "INVALID"
+    if not eligible:
+        return {"selected": None, "knownAt": None, "visible": [False] * len(queries)}
+    selected = max(eligible, key=lambda r: r["fetchedAt"])
+    earliest = min(eligible, key=lambda r: r["fetchedAt"])
+    if selected["tombstone"]:
+        return {"selected": selected["fetchedAt"], "knownAt": None, "visible": [False] * len(queries)}
+    known = effective(expr, selected, earliest, case["lags"])
+    return {"selected": selected["fetchedAt"], "knownAt": known,
+            "visible": [type(known) is int and known <= t for t in queries]}
+
+
+def effective(expr, selected, earliest, lags):
+    """The selected revision's effective knownAt: its rule's value, raised to its fetchedAt if it is a correction and to
+    every dependency's time plus its lag; or the code of a rejection."""
+    try:
+        row, deps = parse(selected["row"]), parse(selected["deps"])
+    except Malformed:
+        return "R_ROW"
+    if type(row) is not dict or type(deps) is not dict:
+        return "R_ROW"
+    try:
+        known = evaluate(expr, {**row, "fetchedAt": selected["fetchedAt"]}, deps)
+        a, b = observed(selected), observed(earliest)
+        if any(typed(a.get(k)) != typed(b.get(k)) for k in a.keys() | b.keys()):
+            known = max(known, selected["fetchedAt"])
+        for d, lag in sorted(lags.items()):
+            known = max(known, ranged(deps[d] + lag))
+        return known
+    except Rejected as r:
+        return r.code
+
+
+def main(fn=result):
     for line in sys.stdin:
-        print(json.dumps(result(json.loads(line))), flush=True)
+        print(json.dumps(fn(json.loads(line))), flush=True)
 
 
 if __name__ == "__main__":
-    main()
+    main(resolve if sys.argv[1:] == ["resolve"] else result)
