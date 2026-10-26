@@ -30,7 +30,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
      - `oci-cli` into the flake and `duckdb` out of it;
      - the Python line-count report, and deletion of one-off scripts whose outputs are recorded.
 - **Stages 1, 2, 5, 6, 10.**
-  - **Stage 1:** done except C1.4 and C1.8.
+  - **Stage 1:** C1.4 and C1.8 pass their judged runs (2026-10-26). GPT's exit review (`audit/stage1/exit-review-gpt-1.md`) found C1.2 not met: 8 GPT red-team programs are rejection cases, against the 10 required (its other 26 are admitted programs, which C1.7 judges). It found the other criteria not established from pass counts alone. Next: a second red-team round for rejection cases (running), then a second review with the test sources.
   - **Stage 2:** done except the sweeps; calibration v3 passed.
   - **Stages 5 and 6:** done (Qualifications).
   - **Stage 10:** built and tested, C10.4 re-judged under the builder-market revision; waiting for the start sequence above.

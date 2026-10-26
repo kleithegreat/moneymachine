@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.15, pytest-9.0.3, pluggy-1.6.0 -- /nix/store/cmlrhmi5dmg9051jg36i5qvf5p5ygqyv-python3-3.13.15-env/bin/python3.13
+hypothesis profile 'default'
+rootdir: /home/kevin/repos/moneymachine
+configfile: pyproject.toml
+plugins: anyio-4.13.0, xdist-3.8.0, hypothesis-6.151.10
+collecting ... collected 23 items / 17 deselected / 6 selected
+
+kernel/tests/cli/test_cli.py::test_eval_records_identity_and_disclosure PASSED [ 16%]
+kernel/tests/cli/test_cli.py::test_ledger_rejects_update_and_delete PASSED [ 33%]
+kernel/tests/cli/test_cli.py::test_unwritable_ledger_emits_no_statistics PASSED [ 50%]
+kernel/tests/cli/test_cli.py::test_fresh_processes_give_identical_results PASSED [ 66%]
+kernel/tests/cli/test_cli.py::test_identity_covers_every_policy_field PASSED [ 83%]
+kernel/tests/cli/test_cli.py::test_fresh_ledger_cannot_reuse_a_spent_holdout PASSED [100%]
+
+======================= 6 passed, 17 deselected in 1.61s =======================
+exit 0

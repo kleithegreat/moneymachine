@@ -1,0 +1,25 @@
+    Finished `release` profile [optimized] target(s) in 0.04s
+     Running tests/fixtures.rs (target/release/deps/fixtures-bff5a928c9d17d79)
+
+running 17 tests
+test accounting_tolerance_is_relative_above_initial_equity ... ok
+test liquidation_at_adverse_extreme ... ok
+test delisting_closeout ... ok
+test leverage_scale_and_notional_cap ... ok
+test decision_sees_only_closed_bars ... ok
+test bankruptcy_caps_the_loss_at_equity ... ok
+test mechanism_exposures_attribute_all_pnl ... ok
+test equity_reconciles_every_step ... ok
+test rounding_min_notional_and_exact_close ... ok
+test bar_opening_at_the_decision_boundary_is_never_the_fill_source ... ok
+test position_reversal ... ok
+test delayed_fill_fees_funding_and_rebalance ... ok
+test huge_finite_weights_scale_without_overflow ... ok
+test settlement_price_and_missing_rate ... ok
+test stale_and_undefined_hold ... ok
+test zero_trade_bar_is_unfilled ... ok
+test timing_order_holds_for_every_fill ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit 0

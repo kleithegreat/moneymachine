@@ -1,0 +1,10 @@
+    Finished `release` profile [optimized] target(s) in 0.04s
+     Running tests/adversarial.rs (target/release/deps/adversarial-95ae2cf0ca88b260)
+
+running 2 tests
+test reference_strategies_type_check ... ok
+test type_checker_rejects_with_expected_code ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+exit 0
