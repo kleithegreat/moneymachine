@@ -1,4 +1,4 @@
-# 2026-10-26T11:56:43Z at commit 571b542de82612ef8494ccc04e60ed8404aa25c9 (clean): pytest -v -p no:cacheprovider kernel/tests/cli/test_cli.py
+# 2026-10-26T12:20:46Z at commit aeca1b2d325d492e87dba4a82977274eaa54006f (clean): pytest -v -p no:cacheprovider kernel/tests/cli/test_cli.py
 ============================= test session starts ==============================
 platform linux -- Python 3.13.15, pytest-9.0.3, pluggy-1.6.0 -- /nix/store/cmlrhmi5dmg9051jg36i5qvf5p5ygqyv-python3-3.13.15-env/bin/python3.13
 hypothesis profile 'default'
@@ -32,5 +32,5 @@ kernel/tests/cli/test_cli.py::test_fresh_ledger_cannot_reuse_a_spent_holdout PAS
 kernel/tests/cli/test_cli.py::test_holdout_from_cannot_move_earlier PASSED [ 95%]
 kernel/tests/cli/test_cli.py::test_event_inputs_only_in_the_holdout_are_unbound_in_search PASSED [100%]
 
-============================== 24 passed in 4.36s ==============================
+============================== 24 passed in 4.40s ==============================
 exit 0

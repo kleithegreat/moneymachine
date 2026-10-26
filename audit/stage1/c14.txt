@@ -1,5 +1,5 @@
-# 2026-10-26T11:52:48Z at commit 571b542de82612ef8494ccc04e60ed8404aa25c9 (clean): pytest -q -s -p no:cacheprovider kernel/tests/cli/test_differential.py
+# 2026-10-26T12:17:50Z at commit aeca1b2d325d492e87dba4a82977274eaa54006f (clean): pytest -q -s -p no:cacheprovider kernel/tests/cli/test_differential.py
 W0 on dataset version 1792613363942: equity 3299, decision 1033, hold 11, fill 1033, liquidation 0, delisting 1, unfilled 0, funding 4139
 .
-1 passed in 232.82s (0:03:52)
+1 passed in 174.76s (0:02:54)
 exit 0

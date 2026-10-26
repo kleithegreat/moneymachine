@@ -1,5 +1,5 @@
-# 2026-10-26T11:52:48Z at commit 571b542de82612ef8494ccc04e60ed8404aa25c9 (clean): bash -c cd kernel && cargo test --release --test adversarial -- --nocapture --test-threads 1
-    Finished `release` profile [optimized] target(s) in 0.06s
+# 2026-10-26T12:17:50Z at commit aeca1b2d325d492e87dba4a82977274eaa54006f (clean): bash -c cd kernel && cargo test --release --test adversarial -- --nocapture --test-threads 1
+    Finished `release` profile [optimized] target(s) in 0.04s
      Running tests/adversarial.rs (target/release/deps/adversarial-95ae2cf0ca88b260)
 
 running 2 tests
@@ -74,6 +74,6 @@ t21_duplicate_weight	T21	claude	expected E_PARSE	got E_PARSE
 t22_convert_overflow_shares_node	checker	claude	expected E_UNIT	got E_UNIT
 ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
 exit 0

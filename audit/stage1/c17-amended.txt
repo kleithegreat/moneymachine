@@ -1,4 +1,4 @@
-# 2026-10-26T11:56:48Z at commit 571b542de82612ef8494ccc04e60ed8404aa25c9 (clean): bash -c cd kernel && cargo test --release --test canary -- --nocapture --test-threads 1
+# 2026-10-26T12:20:51Z at commit aeca1b2d325d492e87dba4a82977274eaa54006f (clean): bash -c cd kernel && cargo test --release --test canary -- --nocapture --test-threads 1
     Finished `release` profile [optimized] target(s) in 0.04s
      Running tests/canary.rs (target/release/deps/canary-af1cb36497c5561d)
 
@@ -10,9 +10,9 @@ seed 4: leaking Sharpe 199.48982727032987, honest -6.236960941312443
 seed 5: leaking Sharpe 197.95325715888268, honest -6.917930614706125
 seed 12549401516693113639: leaking Sharpe 197.46575489776959, honest -6.014051315381018
 ok
-test no_admitted_program_beats_the_canary ... canary drawn seeds: [12551110663047676125, 14344126472054488376, 16137142281061299639, 17930158090068110930, 1276429825365370660]
+test no_admitted_program_beats_the_canary ... canary drawn seeds: [12551120765794594788, 14344138018050966840, 16137155270307337902, 17930172522563709010, 1276445701110528537]
 ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.01s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.15s
 
 exit 0
