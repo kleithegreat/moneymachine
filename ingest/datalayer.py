@@ -3,8 +3,10 @@ cadence, read-only, and keeps every response body gzip-compressed under `<out_di
 day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}. A body is known no earlier than
 its poll's recv; parsing into point-in-time revisions is offline, per source. A feed whose file name changes per
 release declares `discover`: an index URL, a pattern with one group, and a template the group fills; the index is
-logged as `<feed>/index`. Every URL fetched, discovered ones included, needs certified terms for its host under the
-feed's source in `venue/sources.toml`, so adding a feed is a JSON entry and a terms record, no code.
+logged as `<feed>/index`. A feed may declare `auth`, `{"param" | "header": NAME, "env": VAR}`: the value of VAR in
+`.keys.env` (one `NAME=value` per line, gitignored) is sent as that query parameter or header, and never logged. Every
+URL fetched, discovered ones included, needs certified terms for its host under the feed's source in
+`venue/sources.toml`, so adding a feed is a JSON entry and a terms record, no code.
 """
 
 import gzip
@@ -21,6 +23,7 @@ from ingest.live import append, now_ms, read, recording
 
 REPO = Path(__file__).resolve().parents[1]
 FEEDS = REPO / "venue/sources/datalayer.json"
+KEYS = REPO / ".keys.env"
 TICK = 60
 
 
@@ -38,6 +41,21 @@ def feeds(path=FEEDS):
     return spec
 
 
+def secrets(path=KEYS):
+    """The `.keys.env` values, by name."""
+    lines = Path(path).read_text().splitlines() if Path(path).exists() else []
+    return dict(l.split("=", 1) for l in (l.strip() for l in lines) if l and not l.startswith("#"))
+
+
+def credentials(feed, keys):
+    """(query params, headers) carrying the feed's declared credential."""
+    auth = feed.get("auth")
+    if auth is None:
+        return {}, {}
+    value = keys[auth["env"]]
+    return ({auth["param"]: value}, {}) if "param" in auth else ({}, {auth["header"]: value})
+
+
 def body(out_dir, digest):
     """A recorded response body by its sha256."""
     return gzip.decompress((Path(out_dir) / "raw" / f"{digest}.gz").read_bytes())
@@ -48,24 +66,27 @@ def last_polls(out_dir):
     return {p["feed"].removesuffix("/index"): p["sent"] for p in read(out_dir, "datalayer")}
 
 
-def poll(http, feed, out_dir):
+def poll(http, feed, out_dir, keys=None):
     """Fetch the feed once (its index first, if it declares one); returns the last record."""
+    auth = credentials(feed, secrets() if keys is None else keys)
     if "discover" not in feed:
-        return get(http, feed["name"], feed["url"], feed.get("accept"), out_dir)
+        return get(http, feed["name"], feed["url"], feed.get("accept"), out_dir, auth)
     d = feed["discover"]
-    index = get(http, feed["name"] + "/index", d["url"], None, out_dir)
+    index = get(http, feed["name"] + "/index", d["url"], None, out_dir, auth)
     m = re.search(d["pattern"], body(out_dir, index["sha256"]).decode(errors="replace"))
     if index["status"] != 200 or m is None:
         return index
     url = d["template"].format(m.group(1))
     certify(feed, url)
-    return get(http, feed["name"], url, feed.get("accept"), out_dir)
+    return get(http, feed["name"], url, feed.get("accept"), out_dir, auth)
 
 
-def get(http, name, url, accept, out_dir):
+def get(http, name, url, accept, out_dir, auth=({}, {})):
+    """One GET of `url`, logged without the credential `auth` adds."""
+    params, headers = auth
     sent = now_ms()
     try:
-        r = http.get(url, headers={"Accept": accept} if accept else {})
+        r = http.get(httpx.URL(url).copy_merge_params(params), headers=headers | ({"Accept": accept} if accept else {}))
         body, status = r.content, r.status_code
     except httpx.HTTPError as e:
         body, status = repr(e).encode(), None
@@ -81,7 +102,7 @@ def get(http, name, url, accept, out_dir):
 
 def main(out_dir):
     stop = recording(out_dir, "datalayer-record", out_dir=out_dir)
-    spec = feeds()
+    spec, keys = feeds(), secrets()
     last = last_polls(out_dir)
     with httpx.Client(timeout=120, follow_redirects=False, headers={"User-Agent": spec["user_agent"]}) as http:
         while not stop.is_set():
@@ -89,5 +110,5 @@ def main(out_dir):
                 if stop.is_set():
                     break
                 if now_ms() - last.get(f["name"], 0) >= f["every_h"] * 3_600_000:
-                    last[f["name"]] = poll(http, f, out_dir)["sent"]
+                    last[f["name"]] = poll(http, f, out_dir, keys)["sent"]
             stop.wait(TICK)
