@@ -428,10 +428,7 @@ fn effective(e: &Expr, selected: &serde_json::Value, earliest: &serde_json::Valu
     let observed = row.clone();
     row.insert("fetchedAt".into(), Json::Int(Some(fetched)));
     let mut known = evaluate(e, &row, &deps)?;
-    let first = match parse(&text(earliest, "row")) {
-        Some(Json::Obj(m)) => m,
-        _ => BTreeMap::new(),
-    };
+    let Some(Json::Obj(first)) = parse(&text(earliest, "row")) else { return Err("R_ROW") };
     let keys: BTreeSet<&String> = observed.keys().chain(first.keys()).collect();
     if keys.iter().any(|k| observed.get(*k).unwrap_or(&Json::Null) != first.get(*k).unwrap_or(&Json::Null)) {
         known = known.max(fetched);

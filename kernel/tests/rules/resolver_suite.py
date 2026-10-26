@@ -9,7 +9,9 @@ A case is one key's revisions under one rule:
 `row` holds the revision's stored columns other than fetchedAt and the tombstone flag (as a JSON object text whose values
 are integers, strings, booleans or null, compared as values in correction detection), `deps` the times the resolver
 supplies for its dependencies, and `lags` each declared dependency's processing delay. The rule reads the row's fields
-and `fetchedAt`, which is the revision's fetchedAt. The result is
+and `fetchedAt`, which is the revision's fetchedAt and is always in the rule's context, never listed in `fields`. A
+malformed row of the selected or of the earliest eligible revision gives `R_ROW` (clarified 2026-10-26 02:38 UTC, before any judged
+run, from GPT's independent resolver). The result is
 
     {"selected": FETCHEDAT or null, "knownAt": INT or CODE or null, "visible": [BOOL per query]}
 
@@ -95,6 +97,10 @@ HAND = [
     case(BAR, [rev(200, row(2.0)), rev(100, row(1.0)), rev(300, row(1.0))], 300, [K], {"selected": 300, "knownAt": K, "visible": [True]}),
     case(rule(add(f("eventTime"), {"ms": D + 1000})), [rev(100, row(1.0)), rev(200, row(1.0))], 200, [K, K + 1000],
          {"selected": 200, "knownAt": K + 1000, "visible": [False, True]}),
+    case(rule(mx(add(f("eventTime"), {"ms": D}), f("fetchedAt"))), [rev(50 * H, row(1.0))], 50 * H, [K, 50 * H],
+         {"selected": 50 * H, "knownAt": 50 * H, "visible": [False, True]}),
+    case(BAR, [{"fetchedAt": 100, "tombstone": False, "row": "{", "deps": "{}"}, rev(200, row(1.0))], 200, [K],
+         {"selected": 200, "knownAt": "R_ROW", "visible": [False]}),
 ]
 
 

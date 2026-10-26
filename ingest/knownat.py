@@ -317,8 +317,13 @@ def typed(v):
 
 def observed(revision):
     """A revision's observed columns, decoded (its row: every stored column but fetchedAt and the tombstone flag)."""
-    row = parse(revision["row"])
-    return row if type(row) is dict else {}
+    try:
+        row = parse(revision["row"])
+    except Malformed:
+        raise Rejected("R_ROW")
+    if type(row) is not dict:
+        raise Rejected("R_ROW")
+    return row
 
 
 def resolve(case):
