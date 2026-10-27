@@ -97,16 +97,17 @@ def run(path, names="null,mixed", shard="0/1"):
     ks, n = set(map(int, ks.split(","))), int(n)
     names = names.split(",")
     recorded = {r["id"]: r for name in names for r in map(json.loads, open(ROUND1 / f"{name}.jsonl"))}
-    done = campaign.recorded(path)
     mine = [s for i, s in enumerate(specs()) if i % n in ks]
-    for name, per_task in (("null", NULL_BYTES), ("mixed", MIXED_BYTES)):
-        if name not in names:
-            continue
-        todo = [s | {"recorded": recorded[s["id"]]} for s in mine if s["sweep"] == name and s["id"] not in done]
-        with Pool(sweep.workers(per_task)) as pool, open(path, "a") as fh:
-            for r in pool.imap_unordered(preview, todo):
-                fh.write(json.dumps(r) + "\n")
-                fh.flush()
+    with campaign.exclusive(path) as fh:
+        done = campaign.recorded(path)
+        for name, per_task in (("null", NULL_BYTES), ("mixed", MIXED_BYTES)):
+            if name not in names:
+                continue
+            todo = [s | {"recorded": recorded[s["id"]]} for s in mine if s["sweep"] == name and s["id"] not in done]
+            with Pool(sweep.workers(per_task)) as pool:
+                for r in pool.imap_unordered(preview, todo):
+                    fh.write(json.dumps(r) + "\n")
+                    fh.flush()
 
 
 def summary(path, out):

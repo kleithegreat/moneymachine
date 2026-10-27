@@ -52,16 +52,23 @@ def recorded(path):
 
 
 @contextmanager
-def resume(ids, log, out):
-    """The ids still to run, for the duration of the run. One whose directory under `out` exists with no result in
-    `log` was started and interrupted: it is recorded as a crash, which counts as a promotion, and never rerun. That
-    holds only if no other run of `log` is alive, so the run holds an exclusive lock on `log` (released when its last
-    process, pool workers included, exits) and a second run fails at once."""
+def exclusive(log):
+    """`log` opened for appending under an exclusive lock held for the run's lifetime (released when its last process,
+    pool workers included, exits), so a second run of the same log fails at once."""
     with open(log, "a") as fh:
         try:
             fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise RuntimeError(f"another run of {log} is alive") from None
+        yield fh
+
+
+@contextmanager
+def resume(ids, log, out):
+    """The ids still to run, for the duration of the run. One whose directory under `out` exists with no result in
+    `log` was started and interrupted: it is recorded as a crash, which counts as a promotion, and never rerun. That
+    holds only if no other run of `log` is alive, which `exclusive` ensures."""
+    with exclusive(log) as fh:
         done, todo = recorded(log), []
         for i in ids:
             if i in done:
