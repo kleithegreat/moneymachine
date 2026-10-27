@@ -60,3 +60,11 @@ All three mixed-path campaigns, the long cell included, are identical on prodesk
 PC (`result-3-compare-*.json`): result rows, return blobs and ledgers. Campaign times: this PC 42–44 s (one worker,
 beside the betas calibration); prodesk7 76–79 s and prodesk5 61–64 s (two workers each); gmktec 117–122 s (two
 workers). The mixed sweep may fan out.
+
+## Test 4, frozen 2026-10-27 01:26 UTC (21:26 EDT), before it runs: the calibration path
+
+Human request of 2026-10-26: fan the betas calibration out only if the cross-machine evidence covers its path.
+`ops/calibration_check.py` computes `sweep.net_returns` (generation, write, `mm eval`) for the oracle on a ten-year N2
+market (beta 0.025, market xc-N2-0) and for the weight-2.0 oracle on a two-year long-cell market (beta 0.1,
+xc-long-0), never judged ids, printing the sha256 of each returns array. Identical means the same hashes on this
+PC, prodesk7, gmktec and prodesk5; then calibration keys may fan out, otherwise betas runs here.
