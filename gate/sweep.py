@@ -13,6 +13,7 @@ import os
 import sqlite3
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
@@ -123,12 +124,18 @@ def net_returns(program, model, beta, market_id, years):
         return np.frombuffer(blob, "<f8")
 
 
+# Markets evaluated at once within one calibration step (each seeded by its id, so the values never depend on it).
+THREADS = 1
+
+
 def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS):
     """The oracle's per-step net returns over TRUTH_MARKETS fresh markets; `weight` replaces its per-coin weight."""
     program = json.loads(ORACLE.read_text())
     if weight is not None:
         program["weight"]["args"][1]["const"] = weight
-    return np.concatenate([net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years) for i in range(TRUTH_MARKETS)])
+    with ThreadPoolExecutor(THREADS) as ex:
+        return np.concatenate(list(ex.map(lambda i: net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years),
+                                          range(TRUTH_MARKETS))))
 
 
 def oracle_sharpe(model, beta, tag):
@@ -168,7 +175,11 @@ def oracle_sharpe_for(model, target):
     return lambda b: oracle_sharpe(model, b, f"cal{target}")
 
 
-CALIBRATIONS = {**{f"{m}-s{s}": (oracle_sharpe_for(m, s), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2, 3)},
+# The s = 3 cells (audit/decisions.md, 2026-10-27): N2's oracle reaches Sharpe 3 only above 0.05, so its range is
+# [0, 0.08]; N3's cannot reach 3, so its cell is amended to s = 2.5 on [0.044, 0.06] (criteria, C2.5).
+CALIBRATIONS = {**{f"{m}-s{s}": (oracle_sharpe_for(m, s), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2)},
+                "N2-s3": (oracle_sharpe_for("N2", 3), 3, 0.0, 0.08, 12),
+                "N3-s3": (oracle_sharpe_for("N3", 2.5), 2.5, 0.044, 0.06, 12),
                 "N2-long": (oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
 
 
@@ -176,9 +187,11 @@ def calibrate(key):
     return bisect(key, *CALIBRATIONS[key])
 
 
-def betas(keys=None):
-    """Calibrate the given keys (comma-separated; all by default), resuming from STEPS; betas.json is written once
-    every key is calibrated."""
+def betas(keys=None, threads=1):
+    """Calibrate the given keys (comma-separated; all by default), resuming from STEPS, `threads` markets at a time in
+    each; betas.json is written once every key is calibrated."""
+    global THREADS
+    THREADS = int(threads)
     OUT.mkdir(parents=True, exist_ok=True)
     todo = keys.split(",") if keys else list(CALIBRATIONS)
     with Pool(min(len(todo), workers(CALIBRATION_BYTES))) as pool:

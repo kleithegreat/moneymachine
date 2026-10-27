@@ -84,7 +84,7 @@ COMMANDS = {
     "probes-top5": ("gate.probes", "top5", ["out"], "the probes plus the complete-null sweep's first in-sample top-5 strategies"),
     "null-agreement": ("gate.tests.null_agreement", "run", ["out"], "our N2/N3 generators against GPT's"),
     "freeze-searcher": ("gate.sweep", "freeze_searcher", [], "record the stage 2 searchers' pin, once, before any sweep"),
-    "betas": ("gate.sweep", "betas", ["keys?"], "calibrate the planted signal's betas (resumable; optional comma-separated keys)"),
+    "betas": ("gate.sweep", "betas", ["keys?", "threads:int?"], "calibrate the planted signal's betas (resumable; optional comma-separated keys, markets at a time)"),
     "sweep": ("gate.sweep", "sweep", ["name", "data_root?", "version:int?"], "run the null, mixed or events sweep (resumable)"),
     "truth": ("gate.sweep", "truth", [], "judge each mixed-sweep promotion on fresh years"),
     "sweep-summary": ("gate.sweep", "summary", ["out"], "sweep counts and bounds"),
