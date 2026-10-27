@@ -194,7 +194,7 @@ def latestClosed (c : Ctx α) (coin : Nat) (t : Int) : Option (BarRow α) :=
 is finite (an infinite or NaN one makes the checked quotient NaN); a finite positive equity over a positive previous equity, minus 1,
 is at least −1 (the quotient is ≥ +0, or +∞); and −1 ≤ −1, −1 ≤ 0. -/
 structure NumOps.Bounded (N : NumOps α) : Prop where
-  acc_finite : ∀ x y, accountingOk N x y = true → N.finite x = true
+  acc_finite : ∀ x y z, accountingOk N x y z = true → N.finite x = true
   ret : ∀ x y, N.finite x = true → N.lt N.zero x = true → N.lt N.zero y = true →
     N.le (N.neg N.one) (N.sub (N.div x y) N.one) = true
   floor : N.le (N.neg N.one) (N.neg N.one) = true

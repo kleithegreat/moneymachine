@@ -177,6 +177,8 @@ structure SState (α : Type) where
   equity : Array α
   prevEquity : α
   prevCosts : α
+  /-- The largest |equity| reached at an earlier step (I5's scale, revision of 2026-10-27). -/
+  peak : α
   /-- Observations delivered so far, as a position in the delivery order. -/
   oi : Nat
 
@@ -273,16 +275,17 @@ def Ctx.state0 (c : Ctx α) : SState α :=
       absorbed := N.zero }
   { machine := MState.init N c.p c.reg.decls.size c.coins, book := book0, marks := Array.replicate c.coins (N.div N.zero N.zero),
     trace := #[], orders := [], returns := #[], gross := #[], equity := #[], prevEquity := initial N,
-    prevCosts := N.zero, oi := 0 }
+    prevCosts := N.zero, peak := N.zero, oi := 0 }
 
 /-- The first delivery and tick (SEMANTICS.md §4). -/
 def Ctx.start (c : Ctx α) : Except Abort (SState α) := do
   let s ← c.deliver (c.state0 N) (c.pol.wStart + c.pol.delta)
   return { s with machine := s.machine.tick N c.p (c.mask c.pol.wStart) c.pol.wStart }
 
-/-- I5: the two equities agree within 1e-9 of max(|e1|, 10,000); a non-finite e1 fails. -/
-def accountingOk (N : NumOps α) (e1 e2 : α) : Bool :=
-  let scale := if N.lt (N.abs e1) (N.ofNat 10000) then N.ofNat 10000 else N.abs e1
+/-- I5: the two equities agree within 1e-9 of max(10,000, |e1|, `peak`), `peak` being the largest |e1| reached at an
+earlier step (revision of 2026-10-27); a non-finite e1 fails. -/
+def accountingOk (N : NumOps α) (e1 e2 peak : α) : Bool :=
+  let scale := N.max (N.max (N.ofNat 10000) (N.abs e1)) peak
   N.le (N.div (N.abs (N.sub e1 e2)) scale) (N.ofBits 0x3E112E0BE826D695)
 
 /-- One 4h step from b (SEMANTICS.md §7, items 1 to 9). -/
@@ -336,14 +339,14 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   -- 6. accounting
   let e1 := s.book.equity N s.marks
   let e2 := s.book.reconciled N s.marks
-  if !accountingOk N e1 e2 then throw .accounting
+  if !accountingOk N e1 e2 s.peak then throw .accounting
   let costs := N.add s.book.fees s.book.slippage
   let (r, g) := if N.lt N.zero s.prevEquity then
       (if N.lt N.zero e1 then N.sub (N.div e1 s.prevEquity) N.one else N.neg N.one, N.div (N.sub (N.add (N.sub e1 s.prevEquity) costs) s.prevCosts) s.prevEquity)
     else (N.zero, N.zero)
   if !N.le (N.neg N.one) r then throw .bound
   s := { s with trace := s.trace.push (.equity (b + BAR) e1 e2), returns := s.returns.push r, gross := s.gross.push g,
-                equity := s.equity.push e1, prevEquity := e1, prevCosts := costs }
+                equity := s.equity.push e1, prevEquity := e1, prevCosts := costs, peak := N.max s.peak (N.abs e1) }
   -- 7. fills
   let due := (s.orders.filter (·.1 == b + BAR)).map (·.2)
   s := { s with orders := s.orders.filter (·.1 != b + BAR) }
