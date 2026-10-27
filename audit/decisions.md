@@ -197,3 +197,9 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **What happened:** the resumed prodesk5 shard was started while the original was still running (my liveness check printed only the system unit's state and hid the user scope's). The resume recorded c25-N2-long-77 and c25-N2-long-81 as crashes; the original then recorded 77's result too, so 77 appears twice (the third campaign started before the stop had recorded its result).
 - **Decision:** each id's first record is its outcome, as the sweep's resume rule treats it, so 77 and 81 count as crashes (each counts as a promotion; conservative). The file as recorded is kept beside it (`fanout/mixed/prodesk5/mixed.jsonl.as-recorded` on prodesk5).
 - **Reverse:** take 77's later result instead; it can only lower the promotion count by one.
+
+## 2026-10-27 17:48 UTC (13:48 EDT): correction to the two entries above on prodesk5's mixed shard
+
+- **What was wrong:** the shard never stopped, and no memory limit was involved. It was alive, running c25-N2-long-77 and -81, when my faulty check (system unit only) read it as dead. The resume recorded those two as crashes (not three); the original then finished 77 with 0 promotions and died on `FileExistsError` for c25-N2-long-88, which the resume had created, killing 81 mid-run.
+- **Effect:** the recorded figures stand as decided (first record kept; both count as crashes). Without them, from 77's own result and 81's seeded rerun, N2-long's FDR is 0.00 instead of 0.02 (reported, not judged) and power is 0 either way (`audit/stage2/n2-long-crashes.md`).
+- **Fix:** `campaign.resume` now locks the sweep's log for the whole run (f668d2f).
