@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from gate import campaign, sweep
 
 
@@ -89,3 +91,23 @@ def test_a_campaign_crashing_before_its_market_exists_is_recorded_not_raised(tmp
     r = campaign.run_campaign({"id": "bad", "model": "no-such-model", "params": None, "searcher": "G10", "days": 40,
                                "holdout_days": 10, "cost_cells": {}}, tmp_path)
     assert r["crash"] and campaign.promoted_anything(r)
+
+
+def test_bisect_records_each_step_and_resumes(tmp_path, monkeypatch):
+    monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
+    calls = []
+
+    def f(x):
+        calls.append(x)
+        if len(calls) == 3:
+            raise RuntimeError("crash")
+        return x
+
+    with pytest.raises(RuntimeError):
+        sweep.bisect("k", f, 0.3, 0.0, 1.0, 6)
+    assert len(open(tmp_path / "steps.jsonl").readlines()) == 2
+    calls.clear()
+    full = sweep.bisect("k", lambda x: calls.append(x) or x, 0.3, 0.0, 1.0, 6)
+    assert len(calls) == 4 and abs(full - 0.3) < 1 / 2 ** 6
+    with pytest.raises(SystemExit, match="recorded at"):
+        sweep.bisect("k", lambda x: x, 0.3, 0.0, 2.0, 6)

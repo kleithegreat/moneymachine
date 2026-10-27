@@ -113,7 +113,10 @@ def net_returns(program, model, beta, market_id, years):
         p = Path(tmp) / "p.json"
         p.write_text(json.dumps(program))
         out = subprocess.run(command("eval", p, market_id, "truth", Path(tmp) / "l.sqlite", root),
-                             capture_output=True, text=True, check=True)
+                             capture_output=True, text=True)
+        if out.returncode:
+            raise RuntimeError(f"mm eval on {market_id} (beta {beta}) exited {out.returncode}: "
+                               f"{out.stdout.strip()[-1000:]} {out.stderr.strip()[-2000:]}")
         exp = json.loads(out.stdout)["experiment"]
         blob = sqlite3.connect(Path(tmp) / "l.sqlite").execute(
             "SELECT returns FROM results WHERE experiment_id = ?", (exp,)).fetchone()[0]
@@ -140,32 +143,48 @@ def oracle_cap_mean(beta):
     return float(oracle_returns("N2", beta, "cal-long", weight=2.0, years=LONG_YEARS).mean())
 
 
-def bisect(f, target, lo, hi, steps):
-    """The point in [lo, hi] where the increasing f reaches target."""
-    for _ in range(steps):
+STEPS = OUT / "betas-steps.jsonl"
+
+
+def bisect(key, f, target, lo, hi, steps):
+    """The point in [lo, hi] where the increasing f reaches target, each step's value recorded in STEPS as it is
+    computed, so a rerun resumes at the first unrecorded step (a crash loses at most one)."""
+    done = {r["step"]: r for r in map(json.loads, open(STEPS)) if r["key"] == key} if STEPS.exists() else {}
+    for k in range(steps):
         mid = (lo + hi) / 2
-        lo, hi = (mid, hi) if f(mid) < target else (lo, mid)
+        if k in done:
+            if done[k]["mid"] != mid:
+                raise SystemExit(f"{STEPS}: {key} step {k} was recorded at {done[k]['mid']}, not {mid}")
+            v = done[k]["value"]
+        else:
+            v = f(mid)
+            with open(STEPS, "a") as fh:
+                fh.write(json.dumps({"key": key, "step": k, "mid": mid, "value": v}) + "\n")
+        lo, hi = (mid, hi) if v < target else (lo, mid)
     return (lo + hi) / 2
 
 
-def calibrate_beta(model, target):
-    """Beta for which the oracle's net Sharpe is `target`."""
-    return bisect(lambda b: oracle_sharpe(model, b, f"cal{target}"), target, 0.0, 0.05, 12)
+def oracle_sharpe_for(model, target):
+    return lambda b: oracle_sharpe(model, b, f"cal{target}")
 
 
-CALIBRATIONS = {**{f"{m}-s{s}": partial(calibrate_beta, m, s) for m in ("N2", "N3") for s in (1, 2, 3)},
-                "N2-long": partial(bisect, oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
+CALIBRATIONS = {**{f"{m}-s{s}": (oracle_sharpe_for(m, s), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2, 3)},
+                "N2-long": (oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
 
 
 def calibrate(key):
-    return CALIBRATIONS[key]()
+    return bisect(key, *CALIBRATIONS[key])
 
 
-def betas():
+def betas(keys=None):
+    """Calibrate the given keys (comma-separated; all by default), resuming from STEPS; betas.json is written once
+    every key is calibrated."""
     OUT.mkdir(parents=True, exist_ok=True)
-    with Pool(min(len(CALIBRATIONS), workers(CALIBRATION_BYTES))) as pool:
-        values = pool.map(calibrate, list(CALIBRATIONS))
-    (OUT / "betas.json").write_text(json.dumps(dict(zip(CALIBRATIONS, values)), indent=1))
+    todo = keys.split(",") if keys else list(CALIBRATIONS)
+    with Pool(min(len(todo), workers(CALIBRATION_BYTES))) as pool:
+        values = dict(zip(todo, pool.map(calibrate, todo)))
+    if set(values) == set(CALIBRATIONS):
+        (OUT / "betas.json").write_text(json.dumps({k: values[k] for k in CALIBRATIONS}, indent=1))
 
 
 def is_true(program, model, beta, tag):
