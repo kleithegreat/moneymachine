@@ -1,0 +1,33 @@
+{
+ "identical": true,
+ "campaigns": {
+  "xm-N2-s1-0": {
+   "result": true,
+   "ledger": true
+  },
+  "xm-N2-s2-0": {
+   "result": true,
+   "ledger": true
+  },
+  "xm-N2-s3-0": {
+   "result": true,
+   "ledger": true
+  },
+  "xm-N3-s1-0": {
+   "result": true,
+   "ledger": true
+  },
+  "xm-N3-s2-0": {
+   "result": true,
+   "ledger": true
+  },
+  "xm-N3-s3-0": {
+   "result": true,
+   "ledger": true
+  },
+  "xm-N2-long-0": {
+   "result": true,
+   "ledger": true
+  }
+ }
+}

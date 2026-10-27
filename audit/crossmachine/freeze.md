@@ -94,3 +94,12 @@ Identical in both parts lets the mixed sweep use this binary; otherwise it does 
 every local ledger carries the new kernel `52db7b68…`, so the new binary ran. (b) On prodesk7, gmktec and prodesk5 the
 same binary matches this PC on all 12 campaigns, kernel identity included (`result-5b-compare-*.json`). The mixed sweep
 may use it.
+
+## Test 6, 2026-10-27 19:49 UTC (15:49 EDT): the revised gate path (screen, patched StepM, holdout)
+
+Asked for by the human's plan of 2026-10-27 before the round-r2 rerun, and not frozen here before it ran. At commit
+c301a1f, each host built the flake's shell (arch with upstream's StepM fix) and ran the seven never-judged mixed test
+specs (`xm-N2-s1-0` to `xm-N3-s3-0` and `xm-N2-long-0`, test betas). `xm-N2-long-0` exercises the whole revised
+path: SPA rejects, the screen admits and StepM keeps 113 finalists, and the holdout runs. `compare` against this PC:
+**identical** on prodesk7, gmktec and prodesk5, every result row except `seconds` and every ledger, kernel identity
+included (`result-6-compare-*.json`). The round-r2 sweeps may fan out.
