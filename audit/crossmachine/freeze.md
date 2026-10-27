@@ -68,3 +68,8 @@ Human request of 2026-10-26: fan the betas calibration out only if the cross-mac
 market (beta 0.025, market xc-N2-0) and for the weight-2.0 oracle on a two-year long-cell market (beta 0.1,
 xc-long-0), never judged ids, printing the sha256 of each returns array. Identical means the same hashes on this
 PC, prodesk7, gmktec and prodesk5; then calibration keys may fan out, otherwise betas runs here.
+
+## Test 4 result, 2026-10-27 01:28 UTC (21:28 EDT): identical
+
+Both markets' returns hash the same on this PC, prodesk7, gmktec and prodesk5 (xc-N2-0
+`cfbad50e…`, 21,899 steps; xc-long-0 `bfa46e0f…`, 4,379 steps). Calibration keys may fan out.
