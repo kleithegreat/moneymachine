@@ -203,3 +203,8 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **What was wrong:** the shard never stopped, and no memory limit was involved. It was alive, running c25-N2-long-77 and -81, when my faulty check (system unit only) read it as dead. The resume recorded those two as crashes (not three); the original then finished 77 with 0 promotions and died on `FileExistsError` for c25-N2-long-88, which the resume had created, killing 81 mid-run.
 - **Effect:** the recorded figures stand as decided (first record kept; both count as crashes). Without them, from 77's own result and 81's seeded rerun, N2-long's FDR is 0.00 instead of 0.02 (reported, not judged) and power is 0 either way (`audit/stage2/n2-long-crashes.md`).
 - **Fix:** `campaign.resume` now locks the sweep's log for the whole run (f668d2f).
+
+## 2026-10-27 18:32 UTC (14:32 EDT): human decision: fix the DSR screen before stage 3
+
+- **What:** C2.6 failed on the current sweeps (`audit/stage2/c26-failure.md`): the screen's benchmark grows with the cross-trial spread of Sharpe ratios, which a real edge widens, so nothing is screened. The human ruled it a design defect: re-derive the screen (benchmark from the Sharpe estimator's null sampling variance over the effective number of trials, never the observed spread), spec first with a dated human-approved revision, GPT's independent implementation and a differential test, an offline development preview on the existing ledgers, then a rerun of stage 2 with fresh ids on all four machines, judged only on evidence after the revision, and reviewed by GPT. Stage 3 starts after that exit.
+- **Recorded:** the failure stays in the audit record as it stands.
