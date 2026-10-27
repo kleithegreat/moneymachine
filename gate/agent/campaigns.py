@@ -125,20 +125,20 @@ def run_series(name, n):
     check_frozen()
     OUT.mkdir(parents=True, exist_ok=True)
     log = OUT / f"{name}-null.jsonl"
-    todo = campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT)
-    for k, cid in enumerate(todo):
-        while not session.available(harness.MODEL):
-            time.sleep(session.RETRY)
-        started = time.time()
-        try:
-            result = SERIES[name](cid, sweep.cost_cells())
-        except Exception as e:
-            result = {"crash": repr(e), "counts_as_promotion": True}
-        result["seconds"] = round(time.time() - started)
-        with open(log, "a") as fh:
-            fh.write(json.dumps({"id": cid, **result}) + "\n")
-        if k < len(todo) - 1:
-            time.sleep(max(0, SPACING - result["seconds"]))
+    with campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT) as todo:
+        for k, cid in enumerate(todo):
+            while not session.available(harness.MODEL):
+                time.sleep(session.RETRY)
+            started = time.time()
+            try:
+                result = SERIES[name](cid, sweep.cost_cells())
+            except Exception as e:
+                result = {"crash": repr(e), "counts_as_promotion": True}
+            result["seconds"] = round(time.time() - started)
+            with open(log, "a") as fh:
+                fh.write(json.dumps({"id": cid, **result}) + "\n")
+            if k < len(todo) - 1:
+                time.sleep(max(0, SPACING - result["seconds"]))
 
 
 def real(data_root, version, cid="stage3-real"):

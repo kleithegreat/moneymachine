@@ -76,9 +76,9 @@ def workers(per_task):
 def run_all(specs, path):
     require_frozen_searcher()
     out = path.with_suffix("")
-    todo = set(campaign.resume([s["id"] for s in specs], path, out))
-    with Pool(workers(CAMPAIGN_BYTES)) as pool, open(path, "a") as fh:
-        for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in todo]):
+    with campaign.resume([s["id"] for s in specs], path, out) as todo, Pool(workers(CAMPAIGN_BYTES)) as pool, \
+            open(path, "a") as fh:
+        for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in set(todo)]):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
             print(r["id"], "crash" if r.get("crash") else len(r["promoted"]), r["seconds"], flush=True)

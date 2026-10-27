@@ -63,10 +63,23 @@ def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path):
     log, out = tmp_path / "x.jsonl", tmp_path / "x"
     (out / "b").mkdir(parents=True)
     log.write_text(json.dumps({"id": "a", "promoted": []}) + "\n")
-    assert campaign.resume(["a", "b", "c"], log, out) == ["c"]
-    assert campaign.resume(["a", "b", "c"], log, out) == ["c"]
+    for _ in range(2):
+        with campaign.resume(["a", "b", "c"], log, out) as todo:
+            assert todo == ["c"]
     rows = [json.loads(l) for l in open(log)]
     assert [r["id"] for r in rows] == ["a", "b"] and campaign.promoted_anything(rows[1])
+
+
+def test_a_resume_refuses_while_another_run_of_the_log_is_alive(tmp_path):
+    import pytest
+
+    log, out = tmp_path / "x.jsonl", tmp_path / "x"
+    (out / "b").mkdir(parents=True)
+    with campaign.resume(["a", "b"], log, out):
+        with pytest.raises(RuntimeError, match="alive"):
+            with campaign.resume(["a", "b"], log, out):
+                pass
+    assert [json.loads(l)["id"] for l in open(log)] == ["b"]
 
 
 def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path, monkeypatch):

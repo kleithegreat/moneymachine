@@ -5,11 +5,13 @@ with the holdout's spent record; the simulated market is deleted, since its id r
 as a result with "crash" set, and counts as a promotion; so does a campaign started and never recorded.
 """
 
+import fcntl
 import json
 import lzma
 import shutil
 import time
 import traceback
+from contextlib import contextmanager
 from pathlib import Path
 
 from gate import gate, markets, search
@@ -49,11 +51,18 @@ def recorded(path):
     return {json.loads(l)["id"] for l in open(path)} if Path(path).exists() else set()
 
 
+@contextmanager
 def resume(ids, log, out):
-    """The ids still to run. One whose directory under `out` exists with no result in `log` was started and
-    interrupted: it is recorded as a crash, which counts as a promotion, and never rerun."""
-    done, todo = recorded(log), []
+    """The ids still to run, for the duration of the run. One whose directory under `out` exists with no result in
+    `log` was started and interrupted: it is recorded as a crash, which counts as a promotion, and never rerun. That
+    holds only if no other run of `log` is alive, so the run holds an exclusive lock on `log` (released when its last
+    process, pool workers included, exits) and a second run fails at once."""
     with open(log, "a") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError(f"another run of {log} is alive") from None
+        done, todo = recorded(log), []
         for i in ids:
             if i in done:
                 continue
@@ -62,7 +71,8 @@ def resume(ids, log, out):
                 fh.write(json.dumps(crash) + "\n")
             else:
                 todo.append(i)
-    return todo
+        fh.flush()
+        yield todo
 
 
 def promoted_anything(result):
