@@ -84,7 +84,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 Only decisions that could affect a statistical result or leakage, or that touch the hard limits. Others go straight to `audit/decisions.md`.
 
-None.
+- **The s = 3 calibrations saturated (C2.5; mixed sweep paused).** `betas` finished at 03:30 UTC, but N2-s3 and N3-s3 bisected to the top of their range: at β = 0.05 the oracle's net Sharpe is 2.36 (N2) and 2.09 (N3), not 3, and N3's curve turns down near the top (2.18 at 0.0492, then 2.08). The frozen criterion says β is set so that the oracle's net Sharpe is s; the range [0, 0.05] is only code. The mixed sweep had started its fan-out (03:31 UTC) and is **paused** (SIGSTOP on every shard; resumable without a crash, or discarded unjudged). A probe of β = 0.06 to 0.2 on both bases (running) shows whether Sharpe 3 exists: if it does, the s3 keys are re-bisected on a wider range from their recorded steps and the sweep restarts under a new plan; if not, C2.5's s = 3 cells and C2.6's s = 3 threshold cannot be met as written, which is the human's.
 
 ## Qualifications
 
