@@ -171,3 +171,10 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 2. **Bitemporal resolution: approved.** Each revision is delivered at its own knownAt and a tombstone as a retraction: dated revisions of RULES.md §6 and C7.6, C7.4's identity limited to single-revision keys; the pilot keeps version 1's snapshot semantics, recorded as a qualification; stage 7's law statements are frozen. *Reverse:* a further dated revision before any proof is judged.
 3. **Kernel-only reports:** under the licensing boundary already decided, the frozen aggregate report fields derived from CME data may go to research agents and to GPT and Opus reviewers; raw rows never do.
 4. **Debugging allowance:** stands as written. For kernel-only sources, coding sessions default to integrity-only views; any accidental disclosure of rows is logged in `audit/stage8/exposure.md`.
+
+## 2026-10-27 01:33 UTC (21:33 EDT): I5's tolerance scales with the run's peak equity (human decision, typed in this session)
+
+- **What:** I5 checks |equity − reconciled| ≤ 1e-9 · max($10,000, |equity|, the largest |equity| the run has reached), instead of the current equity alone. Dated revision in `kernel/INVARIANTS.md`; `mm` and stage 7's Lean reference follow.
+- **Why:** `betas` crashed on `R_ACCOUNTING` (β 0.25, market `oracle-cal-long-N2-10`, "0 vs -0.00044" after a bankruptcy): the reconciliation terms carry rounding error proportional to the magnitudes the run has reached (equity peaked at 10^10 times its start), so a correct run failed a tolerance scaled by current equity. Runs that did not abort are unchanged.
+- **Conditions (human):** before the mixed sweep uses the new `mm`, it reproduces a sample of the recorded null campaigns byte for byte (results and ledgers apart from the kernel identity), I5's mutant is still caught, and the cross-machine test is rerun with it on every worker.
+- **Reverse:** restore the current-equity scale; runs that hit the case abort again.

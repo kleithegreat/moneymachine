@@ -40,7 +40,7 @@ MUTANTS = {
          "            Op::Add | Op::Sub | Op::Min | Op::Max => {\n                num(1)?;\n                Ty::Num(num(0)?)\n            }")]),
     "I5 funding off the books": (f"{FX} equity_reconciles_every_step", [
         (SIM, "        self.funding -= paid;\n", ""),
-        (SIM, "        if !accounting_ok(e1, e2) {", "        if false {")]),
+        (SIM, "        if !accounting_ok(e1, e2, peak_equity) {", "        if false {")]),
     "I6 print before commit": ("pytest -q kernel/tests/cli/test_cli.py -k unwritable", [
         (MAIN, "    let id = ledger\n        .disclose_result(", "    println!(\"{content}\");\n    let id = ledger\n        .disclose_result(")]),
     "I7 wall clock in result": ("pytest -q kernel/tests/cli/test_cli.py -k fresh_processes", [

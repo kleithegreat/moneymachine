@@ -73,3 +73,17 @@ PC, prodesk7, gmktec and prodesk5; then calibration keys may fan out, otherwise 
 
 Both markets' returns hash the same on this PC, prodesk7, gmktec and prodesk5 (xc-N2-0
 `cfbad50e…`, 21,899 steps; xc-long-0 `bfa46e0f…`, 4,379 steps). Calibration keys may fan out.
+
+## Test 5, frozen 2026-10-27 01:42 UTC (21:42 EDT), before it runs: the I5 revision's binary
+
+Human decision of 2026-10-27: before the mixed sweep uses the new `mm` (I5 scaled by peak equity; sha256
+`52db7b687648b5fbad19ad52a76d40d3b8719a94483d12106b9081572107807c`, built from this commit's `kernel/mm/src/sim.rs`):
+- **(a) Reproduction.** On this PC it reruns 15 recorded null campaigns, test 2's nine and c24-N1-G100-150,
+  c24-N1-H400-200, c24-N2-G400-77, c24-N2-H400-38, c24-N3-G100-123, c24-N3-H400-299, compared with the null sweep's
+  records by `ops/crossmachine.py compare-kernel`: result rows except `seconds`, ledgers except `created` and the
+  kernel identity (the `kernel` and `identity` columns, the disclosures' `identity`; validated on test 1's
+  kernel-only difference, which it alone accepts).
+- **(b) Cross-machine.** The binary copied to every worker reruns test 2's nine and test 3's three, compared with this
+  PC's runs of the same binary by `compare` (kernel identity included).
+- I5's mutant was rerun on this tree before the freeze: caught.
+Identical in both parts lets the mixed sweep use this binary; otherwise it does not.

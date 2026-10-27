@@ -14,9 +14,10 @@ use std::collections::BTreeMap;
 pub const INITIAL: f64 = 10_000.0;
 pub const MAX_GROSS: f64 = 2.0;
 pub const MAX_ORDER_NOTIONAL: f64 = 10_000.0;
-/// I5: the two equities agree within 1e-9 of max(|e1|, 10,000); a non-finite e1 fails.
-pub fn accounting_ok(e1: f64, e2: f64) -> bool {
-    let scale = if e1.abs() < 10_000.0 { 10_000.0 } else { e1.abs() };
+/// I5: the two equities agree within 1e-9 of max(|e1|, 10,000, `peak`), `peak` being the largest |e1| the run reached
+/// at an earlier step (revision of 2026-10-27); a non-finite e1 fails.
+pub fn accounting_ok(e1: f64, e2: f64, peak: f64) -> bool {
+    let scale = 10_000.0_f64.max(e1.abs()).max(peak);
     (e1 - e2).abs() / scale <= 1e-9
 }
 /// B: no step loses more than the account's equity, so every step return is at least −B.
@@ -265,7 +266,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
     let mut trace = vec![];
     let mut orders: BTreeMap<i64, Vec<Order>> = BTreeMap::new();
     let (mut returns, mut gross_returns, mut equity_path) = (vec![], vec![], vec![]);
-    let (mut prev_equity, mut prev_costs) = (INITIAL, 0.0);
+    let (mut prev_equity, mut prev_costs, mut peak_equity) = (INITIAL, 0.0, 0.0_f64);
     let mut exposures = vec![];
     let (mut cond_latest, mut cond_held): (Vec<Option<bool>>, Vec<Option<bool>>) = (vec![None; n], vec![None; n]);
     let mut value_prev = vec![0.0; n];
@@ -362,9 +363,10 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
 
         let (e1, e2) = (book.equity(&marks), book.reconciled(&marks));
-        if !accounting_ok(e1, e2) {
+        if !accounting_ok(e1, e2, peak_equity) {
             return Err(Abort::Accounting(format!("at {}: {e1} vs {e2}", b + BAR)));
         }
+        peak_equity = peak_equity.max(e1.abs());
         trace.push(Event::Equity { t: b + BAR, equity: e1, reconciled: e2 });
         for c in 0..n {
             let v = book.coin_value(c, &marks);

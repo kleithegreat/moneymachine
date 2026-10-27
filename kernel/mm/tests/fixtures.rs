@@ -323,13 +323,16 @@ fn settlement_price_and_missing_rate() {
     assert!(matches!(s.run(HALF), Err(sim::Abort::SettlementMissing(_))));
 }
 
-/// I5's tolerance: $1e-5 up to $10,000 of equity, 1e-9 of equity above it; a non-finite equity fails.
+/// I5's tolerance: $1e-5 up to $10,000 of equity, 1e-9 of the larger of equity and its earlier peak above it; a
+/// non-finite equity fails.
 #[test]
 fn accounting_tolerance_is_relative_above_initial_equity() {
-    assert!(sim::accounting_ok(100.0, 100.0 + 9e-6) && !sim::accounting_ok(100.0, 100.0 + 1.1e-5));
-    assert!(sim::accounting_ok(1e10, 1e10 + 9.0) && !sim::accounting_ok(1e10, 1e10 + 11.0));
+    assert!(sim::accounting_ok(100.0, 100.0 + 9e-6, 0.0) && !sim::accounting_ok(100.0, 100.0 + 1.1e-5, 0.0));
+    assert!(sim::accounting_ok(1e10, 1e10 + 9.0, 0.0) && !sim::accounting_ok(1e10, 1e10 + 11.0, 0.0));
+    // The 2026-10-27 crash: equity 0 after a bankruptcy from a peak of 1e14, off by rounding.
+    assert!(sim::accounting_ok(0.0, -0.0004425048828125, 1e14) && !sim::accounting_ok(0.0, -0.0004425048828125, 0.0));
     for (a, b) in [(f64::INFINITY, 1.0), (f64::INFINITY, f64::INFINITY), (1.0, f64::INFINITY), (f64::NAN, f64::NAN), (1.0, f64::NAN)] {
-        assert!(!sim::accounting_ok(a, b), "{a} {b}");
+        assert!(!sim::accounting_ok(a, b, 1e14), "{a} {b}");
     }
 }
 
