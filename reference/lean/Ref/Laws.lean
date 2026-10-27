@@ -163,7 +163,28 @@ theorem L5_admitted (N : NumOps α) (reg : Registry) (roles : Roles) (text : Str
       (Ctx.make reg roles p adm obs v pol stop req).admissible = true ∧
       (Ctx.make reg roles p adm obs v pol stop req).inScope = true ∧
       (Ctx.make reg roles p adm obs v pol stop req).evaluate N = .ok r := by
-  sorry
+  unfold run runProgram admit at h
+  simp only [bind, Except.bind] at h
+  split at h <;> try contradiction
+  rename_i hv
+  have hv' : reg.valid = true ∧ pol.valid = true := by
+    revert hv; cases reg.valid <;> cases pol.valid <;> simp
+  split at h <;> try contradiction
+  rename_i hc
+  rcases hk : check reg.inputs text with e | p <;> simp only [hk, Except.mapError] at hc <;> try contradiction
+  injection hc with hc
+  subst hc
+  split at h <;> try contradiction
+  rename_i c hp
+  rcases h1 : stage1 reg roles p adm mode with e | req <;> simp only [h1] at hp <;> try contradiction
+  rcases h2 : stage2 adm mode (ld.rows req) with e | u <;> simp only [h2] at hp <;> try contradiction
+  rcases h3 : ld.resolve req with _ | obs <;> simp only [h3] at hp <;> try contradiction
+  cases hA : (Ctx.make reg roles p adm obs v pol stop req).admissible <;>
+    cases hS : (Ctx.make reg roles p adm obs v pol stop req).inScope <;>
+    simp only [hA, hS, Bool.not_false, Bool.not_true, ite_true, ite_false, throw, throwThe, MonadExceptOf.throw,
+      Except.pure, pure] at hp <;> try contradiction
+  cases hp
+  exact ⟨hv'.1, hv'.2, p, req, obs, rfl, h1, h2, h3, hA, hS, h⟩
 
 /-- The run refuses with the first failing admission check's code, in the order of `firstFailure`; with none
 failing it is the evaluation of the checked program on the resolved observations. -/
@@ -183,7 +204,9 @@ theorem L5_staged (reg : Registry) (roles : Roles) (text : String) (adm : Meta) 
     (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows) :
     (firstFailure reg roles text adm ld₁ v pol stop mode).filter (·.1 ≤ 5)
       = (firstFailure reg roles text adm ld₂ v pol stop mode).filter (·.1 ≤ 5) := by
-  sorry
+  unfold firstFailure
+  rw [hR]
+  repeat' (first | split | rfl | simp)
 
 /-- The checks after resolution never read an observation's values: resolutions of the same shape (both invalid,
 or the same keys, slots, knownAt, coins, value counts and role kinds) fail at the same check, or at none. -/
