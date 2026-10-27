@@ -103,3 +103,25 @@ specs (`xm-N2-s1-0` to `xm-N3-s3-0` and `xm-N2-long-0`, test betas). `xm-N2-long
 path: SPA rejects, the screen admits and StepM keeps 113 finalists, and the holdout runs. `compare` against this PC:
 **identical** on prodesk7, gmktec and prodesk5, every result row except `seconds` and every ledger, kernel identity
 included (`result-6-compare-*.json`). The round-r2 sweeps may fan out.
+
+## Test 7, frozen 2026-10-27 21:21 UTC (17:21 EDT), before it runs: the loader-memory candidate
+
+Human decision of 2026-10-27: land `mm`'s loader memory fix before round r2 (typed columns of 16-byte cells instead of a
+map per row, unread metadata columns not stored, resolution by a stable sort on the key), results bit-identical.
+Candidate: sha256 `3a732069413d050f334229e3e1bcf8d804f2e10ba21ad0365dd5187f6ed081b7`, built from the working tree with `CARGO_TARGET_DIR=kernel/target-loader` (two builds,
+same hash); its source is committed after (b) passes and must rebuild to this hash. Shipped until then: `52db7b68…`.
+- **(a) Reproduction.** `ops/crossmachine.py reproduce` reruns, with the candidate, the search phase of 25 recorded
+  first-round campaigns on markets regenerated from their ids: c24-{N1,N2,N3}-{G100,G400,H400}-{7,211} and
+  c25-{N2,N3}-s{1,2,3}-42 and c25-N2-long-42. Each ledger must equal the recorded one apart from `created` and the
+  kernel identity (the first round froze no finalist, so its ledgers are all kernel output), and must carry the
+  candidate's kernel identity.
+- **(b) Suite.** `cli check` with `CARGO_TARGET_DIR` at the candidate: pytest (kernel-calling tests run the
+  candidate), the kernel's cargo tests (I5's fixture among them) and every mutant caught; the only allowed failure
+  is the known C0.7 criterion.
+- **(c) Corpus differential.** C6.4's frozen corpus (`differential-run`), with `mmdump` rebuilt on the candidate's
+  loader: every verdict and every run equal to the Lean reference's, byte for byte.
+- **(d) Cross-machine.** The candidate copied byte for byte to prodesk7, gmktec and prodesk5 reruns the seven `xm-`
+  mixed test specs, compared by `compare` with this PC's candidate runs, kernel identity included.
+
+All four pass: the candidate becomes `kernel/target/release/mm` on every host and round r2's plan pins its hash.
+Any failure: it does not ship, and round r2 runs on `52db7b68…`.
