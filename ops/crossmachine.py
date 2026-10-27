@@ -27,7 +27,7 @@ def specs():
     with fixed test betas, the long-holdout cell included."""
     from gate import sweep
     test_betas = {f"{m}-s{k}": 0.01 * k for m in ("N2", "N3") for k in (1, 2, 3)} | {"N2-long": 0.1}
-    mixed = [s | {"id": s["id"].replace("c25-", "xm-", 1)} for s in sweep.mixed_specs(test_betas, markets=1)]
+    mixed = [s | {"id": "xm-" + s["id"].split("-", 1)[1]} for s in sweep.mixed_specs(test_betas, markets=1)]
     return sweep.null_specs() + mixed
 
 

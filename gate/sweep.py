@@ -26,6 +26,9 @@ from gate.kernel import command
 from gate.markets import generate, null_params, store_events, write
 
 OUT = Path("data/campaigns")
+# The sweeps' round, carried by every campaign id, so a rerun after a gate or null change draws fresh markets
+# (audit/criteria.md, stage 2, Runs). r2: the rerun under the screen's revision of 2026-10-27.
+ROUND = "r2"
 PLANTED = (0, 1)
 DAYS, HOLDOUT_DAYS = 730, 180
 LONG_DAYS, LONG_HOLDOUT_DAYS, LONG_MEAN, LONG_YEARS = 1450, 900, 0.002, 2  # C2.6's long-holdout cell (amendment of 2026-10-26)
@@ -90,20 +93,20 @@ def spec(cid, model, searcher, planted=(), beta=0.0):
 
 
 def null_specs(markets=300):
-    return [spec(f"c24-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
+    return [spec(f"c24{ROUND}-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
             for i in range(markets)]
 
 
 def mixed_specs(betas, markets=100):
     """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long."""
-    return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
+    return [spec(f"c25{ROUND}-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
             for i in range(markets)] + \
-        [spec(f"c25-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
+        [spec(f"c25{ROUND}-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
          for i in range(markets)]
 
 
 def events_specs(events, markets=300):
-    return [{**spec(f"c56-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
+    return [{**spec(f"c56{ROUND}-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
 
 
 def net_returns(program, model, beta, market_id, years):

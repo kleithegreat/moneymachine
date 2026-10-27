@@ -214,3 +214,15 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Spec home:** the human named SCORING.md and the paper. `thesis/SCORING.md` specifies only the stage 10 thesis track and has no screen; the gate's frozen spec is criteria stage 2, Gate, with paper §8. The revision went there (criteria revision of this date; paper §8), so the gate has one home. Reverse: move the Gate text into a spec file and point the criteria at it.
 - **Skew and kurtosis terms:** the human asked for the null sampling variance "with skew and kurtosis terms". In the Sharpe estimator's asymptotic variance those terms are multiplied by S, so at the null's boundary S = 0 they vanish and the variance is 1/(T − 1); they stay in each trial's own DSR denominator. Recorded in the revision's derivation. Reverse: none needed unless a finite-sample variance is preferred, which would only raise S0.
 - **Evidence:** C2.1's fixed probes and C2.2 do not involve the gate, so their evidence stands; C2.1's top-5 probes (drawn from C2.4 campaigns), C2.3 and C2.4 to C2.6 are judged on evidence after the revision. Cannot change a false-discovery outcome: the reused evidence is independent of the screen. Reverse: rerun C2.1's fixed probes and C2.2.
+
+## 2026-10-27 19:01 UTC (15:01 EDT): arch's StepM patched in the flake to upstream's fix (rule 1)
+
+- **What:** the screen preview hit a crash in `arch` 8.0.0's `StepM.compute`: its step-down loop compared the last step's rejection count with the number of models instead of the cumulative count, so once every screened model was superior it reran SPA on zero models (`ValueError: zero-size array`). It never ran before: the frozen screen admitted nothing. Upstream (bashtage/arch, main) has exactly this fix (`len(all_better_models) < self.k`); `flake.nix` applies it to arch until a release carries it, with a regression test (`test_stepm_keeps_every_model_when_all_are_superior`).
+- **Why rule 1:** it makes StepM what the spec names (arch's StepM, Romano and Wolf's step-down), and it cannot raise false discoveries: without it, such campaigns would crash, and a crash counts as a promotion. Every host runs the flake, so all get it.
+- **Reverse:** drop the override from `flake.nix`.
+
+## 2026-10-27 19:05 UTC (15:05 EDT): the first round's stage 2 evidence moves to audit/stage2/round1/, and its data to data/campaigns/round1/ (rule 1)
+
+- **What:** `sweeps.json`, `c21-top5.json`, `mixed-hosts.json`, `fanout-mixed.json` and `fanout-truth.json` moved by `git mv` (contents unchanged; history kept); the sweeps' results and kept ledgers moved within `data/campaigns/` to `round1/`. The rerun's evidence takes the canonical paths the criteria tests read, so they judge only the revised gate's round (r2), and skip until it exists. The sweeps' ids carry the round (`sweep.ROUND`), so no id repeats across rounds.
+- **Why rule 1:** a file move that keeps every record; it cannot change a false-discovery outcome.
+- **Reverse:** `git mv` back.

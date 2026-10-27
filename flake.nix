@@ -13,7 +13,15 @@
         let
           tools = self.packages.${pkgs.stdenv.hostPlatform.system};
           python = pkgs.python313.withPackages (ps: with ps; [
-            arch
+            # StepM's step-down stopped on the last step's rejection count instead of the cumulative one, and crashed
+            # once every model was superior. Upstream's fix (bashtage/arch, main), until a release carries it.
+            (arch.overridePythonAttrs (old: {
+              postPatch = (old.postPatch or "") + ''
+                substituteInPlace arch/bootstrap/multiple_comparison.py --replace-fail \
+                  "while better_models and (len(better_models) < self.k):" \
+                  "while better_models and (len(all_better_models) < self.k):"
+              '';
+            }))
             numpy
             scipy
             pandas

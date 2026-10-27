@@ -214,7 +214,7 @@ def summary(name, out):
     searcher = BASELINE[name]
     log = OUT / f"{name}-null.jsonl"
     rows = [json.loads(l) for l in open(log)] if log.exists() else []
-    baseline = [r for r in sweep.results("null") if r["id"].startswith(f"c24-N2-{searcher}-")]
+    baseline = [r for r in sweep.results("null") if r["id"].startswith(f"c24{sweep.ROUND}-N2-{searcher}-")]
     report = {"n": len(rows), "counted_promotions": sum(r["counts_as_promotion"] for r in rows),
               "evaluations": [r.get("evaluations", r.get("agent_run", {}).get("spent")) for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],

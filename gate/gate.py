@@ -22,22 +22,30 @@ LOSS_BOUND = 1.0
 EULER = 0.5772156649015329
 
 
-def dsr(returns, n_trials, sharpe_sd):
-    """Deflated Sharpe ratio of one per-period return series (paper §8, Bailey-López de Prado S0)."""
+def dsr(returns, n_trials):
+    """Deflated Sharpe ratio of one per-period return series (paper §8): S0 is the expected maximum of n_trials
+    null Sharpe estimates, each with the null sampling variance 1 / (T - 1). Computed on r / max |r|, to which every
+    statistic is invariant, so no finite input overflows."""
     r = np.asarray(returns, float)
-    t = r.size
-    sd = r.std(ddof=1)
-    if t < 3 or sd == 0:
+    if not np.isfinite(r).all():
+        raise ValueError("nonfinite return")
+    t, top = r.size, np.abs(r).max(initial=0.0)
+    if t < 3 or top == 0:
         return 0.0
-    s = r.mean() / sd
-    z = (r - r.mean()) / r.std(ddof=0)
-    skew, kurt = (z**3).mean(), (z**4).mean()
-    s0 = 0.0 if n_trials <= 1 else sharpe_sd * ((1 - EULER) * norm.ppf(1 - 1 / n_trials)
-                                                 + EULER * norm.ppf(1 - 1 / (n_trials * np.e)))
-    var = 1 - skew * s + (kurt - 1) / 4 * s**2
-    if var <= 1e-12 * (1 + abs(skew * s) + (kurt - 1) / 4 * s**2):
-        return 0.0
-    return float(norm.cdf((s - s0) * np.sqrt(t - 1) / np.sqrt(var)))
+    r = r / top
+    with np.errstate(over="raise", invalid="raise", divide="raise"):
+        sd = r.std(ddof=1)
+        if sd == 0:
+            return 0.0
+        s = r.mean() / sd
+        z = (r - r.mean()) / r.std(ddof=0)
+        skew, kurt = (z**3).mean(), (z**4).mean()
+        s0 = 0.0 if n_trials <= 1 else ((1 - EULER) * norm.ppf(1 - 1 / n_trials)
+                                        + EULER * norm.ppf(1 - 1 / (n_trials * np.e))) / np.sqrt(t - 1)
+        var = 1 - skew * s + (kurt - 1) / 4 * s**2
+        if var <= 1e-12 * (1 + abs(skew * s) + (kurt - 1) / 4 * s**2):
+            return 0.0
+        return float(norm.cdf((s - s0) * np.sqrt(t - 1) / np.sqrt(var)))
 
 
 def trials(ledger, campaign, agent=None):
@@ -76,8 +84,7 @@ def search_decision(ledger, campaign, agent=None):
     names = list(cands)
     r = pd.DataFrame({h: cands[h] for h in names})
     sharpes = r.mean() / r.std(ddof=1)
-    sharpe_sd = float(sharpes.std(ddof=1)) if n > 1 else 0.0
-    dsrs = {h: dsr(r[h], n, sharpe_sd) for h in names}
+    dsrs = {h: dsr(r[h], n) for h in names}
     screened = [h for h in names if dsrs[h] >= DSR_MIN]
     seed = markets.seed(campaign + (agent or "")) & 0xFFFFFFFF
     spa = SPA(np.zeros(len(r)), -r, block_size=BLOCK, reps=REPS, seed=seed)
@@ -86,7 +93,7 @@ def search_decision(ledger, campaign, agent=None):
     report.update(spa_p=p, screened=screened, max_dsr=max(dsrs.values()), top5=sorted(names, key=lambda h: -sharpes[h])[:5])
     finalists = stepm(r, screened, seed) if p <= ALPHA else []
     report["finalists"] = finalists
-    report["effective_n"] = effective_n(r, sharpe_sd, p, seed)
+    report["effective_n"] = effective_n(r, p, seed)
     return finalists, report
 
 
@@ -98,25 +105,30 @@ def stepm(r, screened, seed):
     return [h for h in screened if h in set(st.superior_models)]
 
 
-def clusters(r, threshold):
-    """Complete-linkage clusters at |rho| >= threshold; zero-variance series are singletons."""
+def cluster_labels(r, threshold):
+    """Each column's complete-linkage cluster at |rho| >= threshold; zero-variance series are singletons."""
     from scipy.cluster.hierarchy import fcluster, linkage
     from scipy.spatial.distance import squareform
 
     varying = [c for c in r.columns if r[c].std() > 0]
+    out = {c: ("single", c) for c in r.columns}
     if len(varying) < 2:
-        return len(r.columns)
+        return out
     d = 1 - np.abs(np.nan_to_num(np.corrcoef(r[varying].to_numpy().T)))
     np.fill_diagonal(d, 0)
     labels = fcluster(linkage(squareform(np.clip(d, 0, None), checks=False), "complete"), 1 - threshold, "distance")
-    return len(set(labels)) + len(r.columns) - len(varying)
+    return out | {c: int(k) for c, k in zip(varying, labels)}
 
 
-def effective_n(r, sharpe_sd, spa_p, seed):
+def clusters(r, threshold):
+    return len(set(cluster_labels(r, threshold).values()))
+
+
+def effective_n(r, spa_p, seed):
     """Screen and StepM rerun at each effective-N estimate (SPA does not depend on N)."""
     out = {"spa_p": spa_p, "by_n": {}}
     for name, n in [("raw", len(r.columns)), ("cluster_0.9", clusters(r, 0.9)), ("cluster_0.5", clusters(r, 0.5))]:
-        screened = [h for h in r.columns if dsr(r[h], n, sharpe_sd) >= DSR_MIN]
+        screened = [h for h in r.columns if dsr(r[h], n) >= DSR_MIN]
         finalists = stepm(r, screened, seed) if spa_p <= ALPHA else []
         out["by_n"][name] = {"n": n, "screened": len(screened), "finalists": finalists}
     status = [set(v["finalists"]) for v in out["by_n"].values()]

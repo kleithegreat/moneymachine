@@ -22,7 +22,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
     swarm = [{"id": f"swarm-null-N2-{i}", "counts_as_promotion": i == 9, "evaluations": 300,
               "search": {"spa_p": 0.3, "max_dsr": 0.0, "screened": []}} for i in range(10)]
     (tmp_path / "swarm-null.jsonl").write_text("".join(json.dumps(r) + "\n" for r in swarm))
-    (tmp_path / "null.jsonl").write_text(json.dumps({"id": "c24-N2-G100-0", "search": {"spa_p": 0.9, "max_dsr": 0.2, "screened": ["a"]}}) + "\n")
+    (tmp_path / "null.jsonl").write_text(json.dumps({"id": f"c24{sweep.ROUND}-N2-G100-0", "search": {"spa_p": 0.9, "max_dsr": 0.2, "screened": ["a"]}}) + "\n")
     s = {}
     for name in ("agent", "swarm"):
         campaigns.summary(name, tmp_path / f"{name}.json")
