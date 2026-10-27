@@ -81,3 +81,21 @@ form aborted. Hashes after this revision:
 | `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
 | `reference/lean/Ref/Spec.lean` | `178d804d1b70b4cecbf259cee9d9332fcd4c761076f2a86f3cffb318cd542951` |
 | `reference/lean/Ref/Laws.lean` | `ed3a941f92c094978b3fc03ce2adf6aeb831fe6f328e3a4a158b1f1e445f8e43` |
+
+## Revision 2026-10-27 14:57 UTC (10:57 EDT): `Program.WF`'s input clause regrouped (content unchanged)
+
+The input clause's four registry conditions are named `InputOK reg inp` and conjoined with the type condition, so
+the checker's per-node invariant matches the definition; the conditions themselves are unchanged. `L2_checker` is
+proved (`Proof/Checker.lean`, ported: the invariant carries the input table's well-formedness). Hashes after this
+revision:
+
+| File | SHA-256 |
+|---|---|
+| `reference/lean/Ref/Source.lean` | `210cb1b039c7c9b544227ff8df0616b53050fb22ebb6ec4eb7d1107e45bd9d52` |
+| `reference/lean/Ref/Resolve.lean` | `0c19d78695b5d4afc7c9f58215fff7391faac92ed6653bd41b7398c384ec93cb` |
+| `reference/lean/Ref/Syntax.lean` | `fdc1c9f22336749f26d55a90f3d45c9aab51440f3d74e877196a5f416cd2f243` |
+| `reference/lean/Ref/Machine.lean` | `a466142cc5d8e4e05657027d77da33f7a05abb128ba58b00ba7e676bc636735c` |
+| `reference/lean/Ref/Sim.lean` | `6274e84456526f6ff671a9e181b1c6d5181caf3093822083a31508930b56b3e6` |
+| `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
+| `reference/lean/Ref/Spec.lean` | `82cc1ae557735aba6790b489d0b41042ca529e311fd0e98769fe6892aa6096de` |
+| `reference/lean/Ref/Laws.lean` | `276ac1f06f6cd15ece2889a80f04fc9829fee3caba9d53e997941f59e538ac6c` |

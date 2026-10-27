@@ -6,6 +6,8 @@ half). -/
 
 namespace Ref
 
+variable {ok : Input → Prop}
+
 /-- Partial correctness: from a state satisfying P, a successful x ends in a state satisfying Q. -/
 def Spec {β} (P : CState → Prop) (x : Check β) (Q : β → CState → Prop) : Prop :=
   ∀ st, P st → ∀ b st', x st = .ok (b, st') → Q b st'
@@ -148,26 +150,28 @@ theorem getElem!_push_eq {β} [Inhabited β] (xs : Array β) (y : β) {n : Nat} 
   subst h; simp
 
 /-- Node i is typed by `opTy`, its parameter declared and its arguments before it. -/
-def NodeOK (nparams : Nat) (punit : Nat → Dim) (nodes : Array Node) (types : Array Ty)
+def NodeOK (ok : Input → Prop) (nparams : Nat) (punit : Nat → Dim) (nodes : Array Node) (types : Array Ty)
     (convTo : Array (Option Dim)) (i : Nat) : Prop :=
   match nodes[i]! with
-  | .input inp => types[i]! = .num inp.unit
+  | .input inp => ok inp ∧ types[i]! = .num inp.unit
   | .const _ u => types[i]! = .num u
   | .param k => k < nparams ∧ types[i]! = .num (punit k)
   | .op o args => (∀ a ∈ args, a < i) ∧ opTy o (args.map (types[·]!)) convTo[i]! = some types[i]!
 
-/-- What every checker step keeps: aligned arrays, typed nodes and bindings to existing nodes. -/
-structure Inv (st : CState) : Prop where
+/-- What every checker step keeps: aligned arrays, typed nodes (inputs among `ok`'s), bindings to existing nodes,
+and an input table of `ok` inputs. -/
+structure Inv (ok : Input → Prop) (st : CState) : Prop where
   types : st.types.size = st.nodes.size
   convTo : st.convTo.size = st.nodes.size
-  nodes : ∀ i < st.nodes.size, NodeOK st.params.size (st.params[·]!.2.2) st.nodes st.types st.convTo i
+  nodes : ∀ i < st.nodes.size, NodeOK ok st.params.size (st.params[·]!.2.2) st.nodes st.types st.convTo i
   lets : ∀ x ∈ st.lets, x.2 < st.nodes.size
+  inputs : ∀ x ∈ st.inputs, ok x.2
 
 theorem NodeOK.push {np np' : Nat} {pu pu' : Nat → Dim} {nodes : Array Node} {types : Array Ty}
     {convTo : Array (Option Dim)} {i : Nat} (n : Node) (t : Ty) (to : Option Dim) (hi : i < nodes.size)
     (ht : types.size = nodes.size) (hc : convTo.size = nodes.size) (hnp : np ≤ np') (hpu : ∀ k < np, pu' k = pu k)
-    (h : NodeOK np pu nodes types convTo i) :
-    NodeOK np' pu' (nodes.push n) (types.push t) (convTo.push to) i := by
+    (h : NodeOK ok np pu nodes types convTo i) :
+    NodeOK ok np' pu' (nodes.push n) (types.push t) (convTo.push to) i := by
   unfold NodeOK at *
   rw [getElem!_push_lt _ _ hi, getElem!_push_lt _ _ (ht ▸ hi)]
   split at h
@@ -181,7 +185,7 @@ theorem NodeOK.push {np np' : Nat} {pu pu' : Nat → Dim} {nodes : Array Node} {
 
 theorem NodeOK.params {np np' : Nat} {pu pu' : Nat → Dim} {nodes : Array Node} {types : Array Ty}
     {convTo : Array (Option Dim)} {i : Nat} (hnp : np ≤ np') (hpu : ∀ k < np, pu' k = pu k)
-    (h : NodeOK np pu nodes types convTo i) : NodeOK np' pu' nodes types convTo i := by
+    (h : NodeOK ok np pu nodes types convTo i) : NodeOK ok np' pu' nodes types convTo i := by
   unfold NodeOK at *
   split at h
   · exact h
@@ -206,12 +210,12 @@ theorem Frame.typeAt (j : Nat) (t : Ty) : Frame (fun st => j < st.nodes.size ∧
    fun _ h => h⟩
 
 /-- The node a step adds at the end is typed by `opTy`. -/
-def NewOK (st : CState) (n : Node) (t : Ty) (to : Option Dim) : Prop :=
-  NodeOK st.params.size (st.params[·]!.2.2) (st.nodes.push n) (st.types.push t) (st.convTo.push to) st.nodes.size
+def NewOK (ok : Input → Prop) (st : CState) (n : Node) (t : Ty) (to : Option Dim) : Prop :=
+  NodeOK ok st.params.size (st.params[·]!.2.2) (st.nodes.push n) (st.types.push t) (st.convTo.push to) st.nodes.size
 
 theorem intern_spec (n : Node) (t : Ty) (to : Option Dim) {S : CState → Prop} (hS : Frame S) :
-    Spec (fun st => Inv st ∧ S st ∧ NewOK st n t to) (intern n t to)
-      (fun i st => Inv st ∧ S st ∧ i < st.nodes.size) := by
+    Spec (fun st => Inv ok st ∧ S st ∧ NewOK ok st n t to) (intern n t to)
+      (fun i st => Inv ok st ∧ S st ∧ i < st.nodes.size) := by
   intro st ⟨hI, hS', hn⟩ i st' h
   unfold intern at h
   simp only [bind, StateT.bind, get, getThe, MonadStateOf.get, StateT.get, pure, set, MonadStateOf.set,
@@ -226,7 +230,7 @@ theorem intern_spec (n : Node) (t : Ty) (to : Option Dim) {S : CState → Prop} 
   | none =>
     simp only [hj, StateT.bind, StateT.set, StateT.pure] at h
     obtain ⟨rfl, rfl⟩ := h
-    refine ⟨⟨by simp [hI.types], by simp [hI.convTo], fun i hi => ?_, fun x hx => ?_⟩, hS.1 st n t to hI.types hS', by simp⟩
+    refine ⟨⟨by simp [hI.types], by simp [hI.convTo], fun i hi => ?_, fun x hx => ?_, hI.inputs⟩, hS.1 st n t to hI.types hS', by simp⟩
     · simp only [Array.size_push] at hi
       rcases Nat.lt_succ_iff_lt_or_eq.mp hi with hi | rfl
       · exact (hI.nodes i hi).push n t to hi hI.types hI.convTo (Nat.le_refl _) (fun _ _ => rfl)
@@ -327,11 +331,11 @@ macro "step" : tactic => `(tactic| first
   | split)
 
 theorem expr_spec (v : Json.Value) (depth : Nat) {S : CState → Prop} (hS : Frame S) :
-    Spec (fun st => Inv st ∧ S st) (expr v depth)
-      (fun i st => Inv st ∧ S st ∧ i < st.nodes.size) := by
+    Spec (fun st => Inv ok st ∧ S st) (expr v depth)
+      (fun i st => Inv ok st ∧ S st ∧ i < st.nodes.size) := by
   unfold expr
-  refine Spec.bind (Spec.modify' (Q := fun _ st => Inv st ∧ S st)
-    fun st h => ⟨⟨h.1.1, h.1.2, h.1.3, h.1.4⟩, hS.2 st h.2⟩) fun _ => ?_
+  refine Spec.bind (Spec.modify' (Q := fun _ st => Inv ok st ∧ S st)
+    fun st h => ⟨⟨h.1.1, h.1.2, h.1.3, h.1.4, h.1.5⟩, hS.2 st h.2⟩) fun _ => ?_
   split
   · exact Spec.fail'
   rename_i hd
@@ -339,9 +343,11 @@ theorem expr_spec (v : Json.Value) (depth : Nat) {S : CState → Prop} (hS : Fra
   repeat' step
   · refine (intern_spec _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
     simp only [and_assoc] at hp
-    obtain ⟨hI, hst, -⟩ := hp
+    obtain ⟨hI, hst, hx⟩ := hp
     refine ⟨hI, hst, ?_⟩
-    simp [NewOK, NodeOK, getElem!_push_eq _ _ hI.types]
+    simp only [NewOK, NodeOK, getElem!_push_eq _ _ rfl, getElem!_push_eq _ _ hI.types]
+    obtain ⟨-, -, -, rfl⟩ := hx
+    exact ⟨hI.inputs _ (Array.mem_of_find?_eq_some ‹_›), trivial⟩
   · refine (intern_spec _ _ _ hS).conseq (fun st hp => ?_) (fun _ _ h => h)
     simp only [and_assoc] at hp
     obtain ⟨hI, hst, -⟩ := hp
@@ -360,10 +366,10 @@ theorem expr_spec (v : Json.Value) (depth : Nat) {S : CState → Prop} (hS : Fra
     obtain ⟨hI, hst, -, -, -, -, -, -, rfl⟩ := hp
     exact ⟨hI, hst, hI.lets _ (Array.mem_of_find?_eq_some hl)⟩
   · rename_i op arity hfind kvs' _ args _
-    refine Spec.bind (R := fun ix st => Inv st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
+    refine Spec.bind (R := fun ix st => Inv ok st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
       ix.size = arity) ?_ fun ix => ?_
     · rw [← Array.forIn_toList]
-      refine Spec.conseq (Spec.forIn_yield args.toList #[] _ (fun rest ix st => Inv st ∧ S st ∧
+      refine Spec.conseq (Spec.forIn_yield args.toList #[] _ (fun rest ix st => Inv ok st ∧ S st ∧
           (∀ j ∈ ix, j < st.nodes.size) ∧ ix.size + rest.length = arity) fun a rest ix => ?_) ?_ ?_
       · refine Spec.intro fun st0 ⟨_, hS0, hix0, hsz0⟩ => ?_
         refine Spec.bind (Spec.conseq (expr_spec a (depth + 1) (hS.and (Frame.le st0.nodes.size)))
@@ -382,7 +388,7 @@ theorem expr_spec (v : Json.Value) (depth : Nat) {S : CState → Prop} (hS : Fra
       · intro ix st ⟨hI, hst, hix, hsz⟩
         exact ⟨hI, hst, hix, by simpa using hsz⟩
     · refine Spec.get_bind fun s0 => ?_
-      refine Spec.bind (R := fun r st => Inv st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
+      refine Spec.bind (R := fun r st => Inv ok st ∧ S st ∧ (∀ j ∈ ix, j < st.nodes.size) ∧
           st = s0 ∧ opTy r.1 (ix.toList.map (s0.types[·]!))
             (match r.1, r.2 with | .convert _, .num u => some u | _, _ => none) = some r.2) ?_ fun r => ?_
       · intro st ⟨⟨hI, hst, hix, hsz⟩, hs⟩ r st' h
@@ -404,27 +410,27 @@ theorem Frame.of {s : CState} {j : Nat} {t : Ty} (_ : s.types[j]! = t) :
 
 theorem Frame.true : Frame (fun _ => True) := ⟨fun _ _ _ _ _ _ => trivial, fun _ _ => trivial⟩
 
-theorem Inv.pushParam {st : CState} (x : String × UInt64 × Dim) (h : Inv st) :
-    Inv { st with params := st.params.push x } :=
+theorem Inv.pushParam {st : CState} (x : String × UInt64 × Dim) (h : Inv ok st) :
+    Inv ok { st with params := st.params.push x } :=
   ⟨h.types, h.convTo, fun i hi => (h.nodes i hi).params (by simp) fun k hk => by
-    simp only; rw [getElem!_push_lt _ _ hk], h.lets⟩
+    simp only; rw [getElem!_push_lt _ _ hk], h.lets, h.inputs⟩
 
-theorem Inv.pushLet {st : CState} (name : String) {i : Nat} (h : Inv st) (hi : i < st.nodes.size) :
-    Inv { st with lets := st.lets.push (name, i) } :=
+theorem Inv.pushLet {st : CState} (name : String) {i : Nat} (h : Inv ok st) (hi : i < st.nodes.size) :
+    Inv ok { st with lets := st.lets.push (name, i) } :=
   ⟨h.types, h.convTo, h.nodes, fun x hx => by
     rcases Array.mem_push.mp hx with hx | rfl
     · exact h.lets x hx
-    · exact hi⟩
+    · exact hi, h.inputs⟩
 
 theorem Spec.pure_bind {β γ : Type} {P : CState → Prop} {Q : γ → CState → Prop} {b : β} {f : β → Check γ}
     (h : Spec P (f b) Q) : Spec P (pure b >>= f) Q := h
 
 /-- A loop that keeps the invariant, then the rest. -/
 theorem Spec.loop {β σ γ : Type} {P : CState → Prop} {Q : γ → CState → Prop} {xs : Array β} {init : σ}
-    {f : β → σ → Check (ForInStep σ)} {g : σ → Check γ} (hP : ∀ st, P st → Inv st)
-    (hf : ∀ a ∈ xs, ∀ s, Spec (Inv) (f a s) (fun _ => Inv)) (hg : ∀ s, Spec (Inv) (g s) Q) :
+    {f : β → σ → Check (ForInStep σ)} {g : σ → Check γ} (hP : ∀ st, P st → Inv ok st)
+    (hf : ∀ a ∈ xs, ∀ s, Spec (Inv ok) (f a s) (fun _ => Inv ok)) (hg : ∀ s, Spec (Inv ok) (g s) Q) :
     Spec P (forIn xs init f >>= g) Q :=
-  Spec.bind (Spec.conseq (Spec.forIn_array xs init f (fun _ => Inv) hf) hP (fun _ _ h => h)) hg
+  Spec.bind (Spec.conseq (Spec.forIn_array xs init f (fun _ => Inv ok) hf) hP (fun _ _ h => h)) hg
 
 set_option hygiene false in
 /-- The invariant out of a precondition that conjoins it with branch facts. -/
@@ -434,21 +440,21 @@ set_option hygiene false in
 /-- `step`, the program's loops over parameters and bindings, and expressions under any frame. -/
 macro "pstep" : tactic => `(tactic| first
   | step
-  | with_reducible_and_instances refine Spec.loop (fun st h => ?_) (fun _ _ _ => ?_) (fun _ => ?_)
-  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv st)
+  | with_reducible_and_instances refine Spec.loop (ok := ok) (fun st h => ?_) (fun _ _ _ => ?_) (fun _ => ?_)
+  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv ok st)
       fun st h => Inv.pushParam _ h) fun _ => ?_
-  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv st)
+  | with_reducible_and_instances refine Spec.bind (Spec.modify' (Q := fun _ st => Inv ok st)
       fun st h => Inv.pushLet _ h.1 h.2.2) fun _ => ?_
   | with_reducible_and_instances exact Spec.pure' (b := ForInStep.yield _) fun _ h => h
   | with_reducible_and_instances refine Spec.pure_bind ?_
-  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec (Prod.snd _) 1 Frame.true)
+  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec (ok := ok) (Prod.snd _) 1 Frame.true)
       (fun st h => ⟨?_, trivial⟩) (fun _ _ h => h)) fun _ => ?_
-  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec (field _ "weight") 1 Frame.true)
+  | with_reducible_and_instances refine Spec.bind (Spec.conseq (expr_spec (ok := ok) (field _ "weight") 1 Frame.true)
       (fun st h => ⟨?_, trivial⟩) (fun _ _ h => h)) fun _ => ?_)
 
 set_option maxHeartbeats 4000000 in
 theorem program_spec (v : Json.Value) :
-    Spec (Inv) (program v) (fun p st => Inv st ∧ p.nodes = st.nodes ∧ p.types = st.types ∧
+    Spec (Inv ok) (program v) (fun p st => Inv ok st ∧ p.nodes = st.nodes ∧ p.types = st.types ∧
       p.convTo = st.convTo ∧ p.params = st.params.map (·.2) ∧ p.weight < st.nodes.size ∧
       st.types[p.weight]! = .num Dim.one ∧ ∀ q, p.prediction = some q → q < st.nodes.size ∧ st.types[q]! = .bool) := by
   unfold program
@@ -467,7 +473,7 @@ theorem program_spec (v : Json.Value) :
       obtain ⟨hI0, -, hw0, rfl, hu⟩ := h0
       simp only [bne_iff_ne, ne_eq, Decidable.not_not] at hu
       subst hu
-      refine Spec.bind (Spec.conseq (expr_spec _ 1 (Frame.of ‹(_ : CState).types[_]! = Ty.num Dim.one›))
+      refine Spec.bind (Spec.conseq (expr_spec (ok := ok) _ 1 (Frame.of ‹(_ : CState).types[_]! = Ty.num Dim.one›))
         (fun st h => by subst h; exact ⟨hI0, hw0, ‹_›⟩) (fun _ _ h => h)) fun c => ?_
       refine Spec.get_bind fun s => Spec.ite Spec.fail_bind (Spec.pure_bind (Spec.get_bind fun s' => ?_))
       refine Spec.pure' fun st h => ?_
@@ -476,8 +482,15 @@ theorem program_spec (v : Json.Value) :
       simp only [bne_iff_ne, ne_eq, Decidable.not_not] at hb
       exact ⟨hI, rfl, rfl, rfl, rfl, hw, hty, fun q hq => by cases hq; exact ⟨hc, hb⟩⟩
 
-/-- The checker's programs are well-formed. -/
-theorem check_wf {text : String} {p : Program} (h : check text = .ok p) : p.WF := by
+/-- Every entry of a registry's input table is an input the registry declares. -/
+theorem inputs_ok (reg : Registry) : ∀ x ∈ reg.inputs, InputOK reg x.2 := by
+  intro x hx
+  simp only [Registry.inputs, Array.mem_flatMap, Array.mem_map, Array.mem_range] at hx
+  obtain ⟨s, hs, k, hk, rfl⟩ := hx
+  exact ⟨hs, hk, rfl, rfl⟩
+
+/-- The checker's programs are well-formed against the registry whose input table it was given. -/
+theorem check_wf {reg : Registry} {text : String} {p : Program} (h : check reg.inputs text = .ok p) : p.WF reg := by
   unfold check at h
   split at h
   · cases h
@@ -487,8 +500,9 @@ theorem check_wf {text : String} {p : Program} (h : check text = .ok p) : p.WF :
   split at h
   · rename_i r st hr
     cases h
-    have hI0 : Inv {} := ⟨rfl, rfl, fun _ h => by simp at h, fun _ h => by simp at h⟩
-    obtain ⟨hI, hn, ht, hc, hp, hw, hty, hpred⟩ := program_spec v {} hI0 _ _ hr
+    have hI0 : Inv (InputOK reg) { inputs := reg.inputs } :=
+      ⟨rfl, rfl, fun _ h => by simp at h, fun _ h => by simp at h, inputs_ok reg⟩
+    obtain ⟨hI, hn, ht, hc, hp, hw, hty, hpred⟩ := program_spec v { inputs := reg.inputs } hI0 _ _ hr
     unfold Program.WF
     rw [hn, ht, hc, hp]
     refine ⟨hI.types, hI.convTo, hw, hty, hpred, fun i hi => (hI.nodes i hi).params (by simp) fun k hk => ?_⟩

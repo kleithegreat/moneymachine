@@ -42,6 +42,11 @@ def opTy (o : Op) (ts : List Ty) (to : Option Dim) : Option Ty :=
   | .xsRank => do let a ← num 0; if a == Dim.one then some (.num a) else none
   | .hoursSince => if isBool 0 then some (.num (Dim.base "h").get!) else none
 
+/-- An input the registry declares: its source and field exist, and its cadence flag and unit are the declaration's. -/
+def InputOK (reg : Registry) (inp : Input) : Prop :=
+  inp.source < reg.decls.size ∧ inp.field < (reg.decls[inp.source]!).fields.size ∧
+  inp.event = ((reg.decls[inp.source]!).cadence == .event) ∧ inp.unit = (reg.decls[inp.source]!).fields[inp.field]!.2.2
+
 /-- Structural well-formedness against a registry: sizes agree, arguments precede their users, every node is typed
 by its rule, every input is a declared field with its declaration's cadence flag and the field's unit, the weight is
 a dimensionless number and the prediction a boolean. -/
@@ -50,9 +55,7 @@ def Program.WF (reg : Registry) (p : Program) : Prop :=
   p.weight < p.nodes.size ∧ p.types[p.weight]! = .num Dim.one ∧
   (∀ q, p.prediction = some q → q < p.nodes.size ∧ p.types[q]! = .bool) ∧
   ∀ i < p.nodes.size, match p.nodes[i]! with
-    | .input inp => inp.source < reg.decls.size ∧ inp.field < (reg.decls[inp.source]!).fields.size ∧
-        inp.event = ((reg.decls[inp.source]!).cadence == .event) ∧
-        inp.unit = (reg.decls[inp.source]!).fields[inp.field]!.2.2 ∧ p.types[i]! = .num inp.unit
+    | .input inp => InputOK reg inp ∧ p.types[i]! = .num inp.unit
     | .const _ u => p.types[i]! = .num u
     | .param k => k < p.params.size ∧ p.types[i]! = .num p.params[k]!.2
     | .op o args => (∀ a ∈ args, a < i) ∧ opTy o (args.map (p.types[·]!)) p.convTo[i]! = some p.types[i]!

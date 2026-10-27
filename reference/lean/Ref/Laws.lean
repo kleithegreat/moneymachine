@@ -1,5 +1,6 @@
 import Ref.Spec
 import Ref.Resolve
+import Ref.Proof.Checker
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -73,8 +74,9 @@ theorem L2_units (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) 
   sorry
 
 /-- The checker's programs are well-formed against the registry. -/
-theorem L2_checker (reg : Registry) (p : Program) (_ : CheckerAccepted reg p) : p.WF reg := by
-  sorry
+theorem L2_checker (reg : Registry) (p : Program) (h : CheckerAccepted reg p) : p.WF reg := by
+  obtain ⟨_, _, hc⟩ := h
+  exact check_wf hc
 
 /-! ## L3 rewrite soundness -/
 
