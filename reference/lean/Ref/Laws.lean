@@ -1,6 +1,7 @@
 import Ref.Spec
 import Ref.Resolve
 import Ref.Proof.Checker
+import Ref.Proof.Admission
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -163,28 +164,12 @@ theorem L5_admitted (N : NumOps α) (reg : Registry) (roles : Roles) (text : Str
       (Ctx.make reg roles p adm obs v pol stop req).admissible = true ∧
       (Ctx.make reg roles p adm obs v pol stop req).inScope = true ∧
       (Ctx.make reg roles p adm obs v pol stop req).evaluate N = .ok r := by
-  unfold run runProgram admit at h
-  simp only [bind, Except.bind] at h
-  split at h <;> try contradiction
-  rename_i hv
-  have hv' : reg.valid = true ∧ pol.valid = true := by
-    revert hv; cases reg.valid <;> cases pol.valid <;> simp
-  split at h <;> try contradiction
-  rename_i hc
-  rcases hk : check reg.inputs text with e | p <;> simp only [hk, Except.mapError] at hc <;> try contradiction
-  injection hc with hc
-  subst hc
-  split at h <;> try contradiction
-  rename_i c hp
-  rcases h1 : stage1 reg roles p adm mode with e | req <;> simp only [h1] at hp <;> try contradiction
-  rcases h2 : stage2 adm mode (ld.rows req) with e | u <;> simp only [h2] at hp <;> try contradiction
-  rcases h3 : ld.resolve req with _ | obs <;> simp only [h3] at hp <;> try contradiction
-  cases hA : (Ctx.make reg roles p adm obs v pol stop req).admissible <;>
-    cases hS : (Ctx.make reg roles p adm obs v pol stop req).inScope <;>
-    simp only [hA, hS, Bool.not_false, Bool.not_true, ite_true, ite_false, throw, throwThe, MonadExceptOf.throw,
-      Except.pure, pure] at hp <;> try contradiction
-  cases hp
-  exact ⟨hv'.1, hv'.2, p, req, obs, rfl, h1, h2, h3, hA, hS, h⟩
+  unfold run at h
+  rcases hA : admission reg roles text adm ld v pol stop mode with ke | c <;>
+    simp only [hA, Except.mapError, bind, Except.bind] at h <;> try contradiction
+  obtain ⟨hr, hp, p, hk, hc⟩ := admission_ok hA
+  obtain ⟨req, obs, h1, h2, h3, rfl, had, hsc⟩ := admit_ok hc
+  exact ⟨hr, hp, p, req, obs, hk, h1, h2, h3, had, hsc, h⟩
 
 /-- The run refuses with the first failing admission check's code, in the order of `firstFailure`; with none
 failing it is the evaluation of the checked program on the resolved observations. -/
@@ -196,7 +181,27 @@ theorem L5_order (N : NumOps α) (reg : Registry) (roles : Roles) (text : String
       ∃ p obs, check reg.inputs text = .ok p ∧ ld.resolve (adm.required reg roles p) = some obs ∧
         run N reg roles text adm ld v pol stop mode
           = (Ctx.make reg roles p adm obs v pol stop (adm.required reg roles p)).evaluate N) := by
-  sorry
+  constructor
+  · intro k e h
+    unfold firstFailure failureOf at h
+    unfold run
+    split at h
+    · rename_i ke hA
+      injection h with h
+      subst h
+      simp only [hA, Except.mapError, bind, Except.bind]
+    · contradiction
+  · intro h
+    unfold firstFailure failureOf at h
+    split at h
+    · contradiction
+    · rename_i c hA
+      obtain ⟨-, -, p, hk, hc⟩ := admission_ok hA
+      obtain ⟨req, obs, h1, -, h3, rfl, -, -⟩ := admit_ok hc
+      obtain rfl := stage1_required h1
+      refine ⟨p, obs, hk, h3, ?_⟩
+      unfold run
+      simp only [hA, Except.mapError, bind, Except.bind]
 
 /-- The checks before resolution read no observation: two loaders with the same event-time rows fail at the same
 check among positions 0 to 5, or at none of them. -/
@@ -204,9 +209,12 @@ theorem L5_staged (reg : Registry) (roles : Roles) (text : String) (adm : Meta) 
     (pol : Policy) (stop : Int) (mode : Mode) (hR : ld₁.rows = ld₂.rows) :
     (firstFailure reg roles text adm ld₁ v pol stop mode).filter (·.1 ≤ 5)
       = (firstFailure reg roles text adm ld₂ v pol stop mode).filter (·.1 ≤ 5) := by
-  unfold firstFailure
-  rw [hR]
-  repeat' (first | split | rfl | simp)
+  unfold firstFailure admission
+  simp only [bind, Except.bind, Except.mapError, throw, throwThe, MonadExceptOf.throw]
+  cases reg.valid <;> cases pol.valid <;> simp only [Bool.not_false, Bool.not_true, Bool.or_false, Bool.or_true,
+    ite_true, ite_false] <;> try rfl
+  cases check reg.inputs text <;> simp only [Bool.false_eq_true, ite_false] <;> try rfl
+  rw [admit_early, admit_early, hR]
 
 /-- The checks after resolution never read an observation's values: resolutions of the same shape (both invalid,
 or the same keys, slots, knownAt, coins, value counts and role kinds) fail at the same check, or at none. -/

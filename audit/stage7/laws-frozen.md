@@ -99,3 +99,22 @@ revision:
 | `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
 | `reference/lean/Ref/Spec.lean` | `82cc1ae557735aba6790b489d0b41042ca529e311fd0e98769fe6892aa6096de` |
 | `reference/lean/Ref/Laws.lean` | `276ac1f06f6cd15ece2889a80f04fc9829fee3caba9d53e997941f59e538ac6c` |
+
+## Revision 2026-10-27 15:07 UTC (11:07 EDT): one admission, with positions (equivalent; statements unchanged)
+
+`firstFailure` restated the admission checks of `run` one by one, a second copy of the same logic. Now `admit`
+returns each refusal with its position (`Abort.position` for the metadata stage, whose codes are distinct within it),
+`admission` adds position 0, and `run`, `runProgram` and `firstFailure` are all defined from them; the order, codes
+and positions are those of the previous definitions. No law statement changes. Proved since: `L2_checker`,
+`L5_admitted`, `L5_order`, `L5_staged` (`Proof/Checker.lean`, `Proof/Admission.lean`). Hashes after this revision:
+
+| File | SHA-256 |
+|---|---|
+| `reference/lean/Ref/Source.lean` | `210cb1b039c7c9b544227ff8df0616b53050fb22ebb6ec4eb7d1107e45bd9d52` |
+| `reference/lean/Ref/Resolve.lean` | `0c19d78695b5d4afc7c9f58215fff7391faac92ed6653bd41b7398c384ec93cb` |
+| `reference/lean/Ref/Syntax.lean` | `fdc1c9f22336749f26d55a90f3d45c9aab51440f3d74e877196a5f416cd2f243` |
+| `reference/lean/Ref/Machine.lean` | `a466142cc5d8e4e05657027d77da33f7a05abb128ba58b00ba7e676bc636735c` |
+| `reference/lean/Ref/Sim.lean` | `d64a1a10c291f8d9168e46ed67bee1f376831ec6e0e10b1bef063e718f3fbc35` |
+| `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
+| `reference/lean/Ref/Spec.lean` | `45a00da2e54bbaf4aa266dc9fa2a8cc78c24232e6bd715fd1e921ce4a212b34c` |
+| `reference/lean/Ref/Laws.lean` | `b9272a12a0c2da161f17d9bfa76f71083306722f2da3a8f5e468c36fae9f3406` |

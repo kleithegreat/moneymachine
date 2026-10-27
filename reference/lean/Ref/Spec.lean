@@ -205,30 +205,12 @@ structure NumOps.Bounded (N : NumOps α) : Prop where
 
 /-! ## L5 binding and admission (stage 7) -/
 
-/-- The admission checks of `run` in order, by position: 0 registry, policy and program text (R_INVALID), 1 roles,
-2 unbound, 3 holdout by identity, 4 uncertified (validity and matching), 5 holdout by event time, 6 resolution and run admission (an invalid dataset, or a structural failure),
-7 scope. The first that fails, with its code; `none` when all pass. -/
+/-- The first failing admission check of `run`, with its position (0 registry, policy and program text; 1 roles;
+2 unbound; 3 holdout by identity; 4 uncertified; 5 holdout by event time; 6 resolution and run admission; 7 scope);
+`none` when all pass. -/
 def firstFailure (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α)
     (pol : Policy) (stop : Int) (mode : Mode) : Option (Nat × Abort) :=
-  if !reg.valid || !pol.valid then some (0, .invalid) else
-  match check reg.inputs text with
-  | .error _ => some (0, .invalid)
-  | .ok p =>
-  if !roles.valid reg then some (1, .roles) else
-  let req := adm.required reg roles p
-  if !req.all (fun s => (adm.bindings s).isSome) then some (2, .inputUnavailable) else
-  if mode == .search && !req.all (fun s => (adm.bindings s).all (!adm.holdout.contains ·.dataset)) then some (3, .holdout) else
-  if !req.all (fun s => match adm.bindings s with
-      | none => false
-      | some b => (adm.cert b.cert).any fun k => adm.valid adm.certs.length b.cert && adm.matches reg roles s b k) then
-    some (4, .uncertified) else
-  if mode == .search && !(ld.rows req).all (fun r => decide (r.2 < adm.holdoutStart)) then some (5, .holdout) else
-  match ld.resolve req with
-  | none => some (6, .binding)
-  | some obs =>
-  let c := Ctx.make reg roles p adm obs v pol stop req
-  if !c.admissible then some (6, .binding) else
-  if !c.inScope then some (7, .uncertified) else none
+  failureOf (admission reg roles text adm ld v pol stop mode)
 
 /-- `{"input": name}` occurs in the program text's weight, in any let's body (used or not), or in the prediction's
 condition, at any depth of the expression grammar (DSL.md). -/

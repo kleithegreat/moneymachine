@@ -478,26 +478,41 @@ def Ctx.inScope (c : Ctx α) : Bool :=
     | none => false
     | some b => (c.adm.cert b.cert).any fun k => k.grants.any (·.covers x)
 
-/-- Admission (laws-v2-draft.md §4): metadata checks, I8 on event times, resolution, run admission and scope. -/
+/-- An admission's failure, if it failed. -/
+def failureOf {β : Type} : Except (Nat × Abort) β → Option (Nat × Abort)
+  | .error ke => some ke
+  | .ok _ => none
+
+/-- The position of a metadata refusal in admission's order (laws-v2-draft.md §4). -/
+def Abort.position : Abort → Nat
+  | .roles => 1 | .inputUnavailable => 2 | .holdout => 3 | _ => 4
+
+/-- Admission of a checked program, each refusal with its position: metadata (1 to 4), event times (5, I8), resolution
+and run admission (6), scope (7). -/
 def admit (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
-    (stop : Int) (mode : Mode) : Except Abort (Ctx α) := do
-  let req ← stage1 reg roles p adm mode
-  stage2 adm mode (ld.rows req)
-  let some obs := ld.resolve req | throw .binding
+    (stop : Int) (mode : Mode) : Except (Nat × Abort) (Ctx α) := do
+  let req ← (stage1 reg roles p adm mode).mapError fun e => (e.position, e)
+  (stage2 adm mode (ld.rows req)).mapError ((5, ·))
+  let some obs := ld.resolve req | throw (6, .binding)
   let c := Ctx.make reg roles p adm obs v pol stop req
-  if !c.admissible then throw .binding
-  if !c.inScope then throw .uncertified
+  if !c.admissible then throw (6, .binding)
+  if !c.inScope then throw (7, .uncertified)
   return c
+
+/-- Admission from the program's text: a valid registry and policy and the checker (position 0), then `admit`. -/
+def admission (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α)
+    (pol : Policy) (stop : Int) (mode : Mode) : Except (Nat × Abort) (Ctx α) := do
+  if !reg.valid || !pol.valid then throw (0, .invalid)
+  let p ← (check reg.inputs text).mapError fun _ => (0, .invalid)
+  admit reg roles p adm ld v pol stop mode
 
 def runProgram (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) (ld : Loader α) (v : Venue α)
     (pol : Policy) (stop : Int) (mode : Mode) : Except Abort (Run α) := do
-  (← admit reg roles p adm ld v pol stop mode).evaluate N
+  (← (admit reg roles p adm ld v pol stop mode).mapError (·.2)).evaluate N
 
-/-- The run from the program's text: a valid registry and policy, the checker, admission, evaluation. -/
+/-- The run from the program's text: admission (refusing with the first failing check's code), then evaluation. -/
 def run (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
     (stop : Int) (mode : Mode) : Except Abort (Run α) := do
-  if !reg.valid || !pol.valid then throw .invalid
-  let p ← (check reg.inputs text).mapError fun _ => .invalid
-  runProgram N reg roles p adm ld v pol stop mode
+  (← (admission reg roles text adm ld v pol stop mode).mapError (·.2)).evaluate N
 
 end Ref
