@@ -1,7 +1,7 @@
 """Development preview of the revised DSR screen on the first round's ledgers (human decision of 2026-10-27; a
 labelled diagnostic, never evidence: stage 2 is judged only on the fresh-id rerun).
 
-    python ops/screen_preview.py run <out.jsonl> [null,mixed] [k/n]   resumable, one line per campaign; shard k of n
+    python ops/screen_preview.py run <out.jsonl> [null,mixed] [k,.../n]   resumable, one line per campaign; shards k of n
     python ops/screen_preview.py summary <out.jsonl> <summary.json>
 
 For each first-round campaign it reruns `gate.search_decision` (the revised screen; SPA, seeded by the campaign id,
@@ -91,11 +91,12 @@ def preview(spec):
 
 
 def run(path, names="null,mixed", shard="0/1"):
-    k, n = map(int, shard.split("/"))
+    ks, n = shard.split("/")
+    ks, n = set(map(int, ks.split(","))), int(n)
     names = names.split(",")
     recorded = {r["id"]: r for name in names for r in map(json.loads, open(ROUND1 / f"{name}.jsonl"))}
     done = campaign.recorded(path)
-    mine = [s for i, s in enumerate(specs()) if i % n == k]
+    mine = [s for i, s in enumerate(specs()) if i % n in ks]
     for name, per_task in (("null", NULL_BYTES), ("mixed", sweep.CAMPAIGN_BYTES)):
         if name not in names:
             continue
