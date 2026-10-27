@@ -185,3 +185,9 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 2. **N2-s3 bisected on [0, 0.08] (autonomous, rule 1: cannot change a false-discovery outcome, reversible).** On [0, 0.05] it saturated at the bound (Sharpe 2.36); N2's oracle reaches 3.01 at 0.08 and rises up to there, so the frozen criterion ("β is set so that the oracle's net Sharpe is s") is met at β 0.07261 (Sharpe 3.0). The range is code, not criterion. *Reverse:* restore [0, 0.05].
 3. **The paused partial mixed run is set aside unjudged (human decision).** Its plan (5769dc6) fixed the saturated s3 betas; its shards ran from 03:31 to 03:32 UTC and were paused. Their records move to `data/campaigns/fanout/mixed-aside-20261027/` on every host, are never merged or judged, and a fresh plan runs with the corrected betas.
 4. **Calibration markets run two at a time within a step (autonomous, rule 1).** `sweep.oracle_returns` evaluates its 20 markets through a small thread pool when asked; each market is seeded by its id, so the values are identical. *Reverse:* one at a time.
+
+## 2026-10-27 16:26 UTC (12:26 EDT): three crashes in the mixed sweep from a memory limit, recorded as the protocol says (rule 1)
+
+- **What:** prodesk5's mixed shard stopped silently after c25-N2-long-66 with 126 campaigns started and 123 recorded; two long-cell campaigns at once likely exceeded its 6 GB scope (each peaks near 2.5 GB). Under the sweep's frozen resume rule, a started, unrecorded campaign is recorded as a crash, which counts as a promotion, and is never rerun; the resumed shard did that and ran the 4 unstarted campaigns with one worker (4,900 MB cap).
+- **Why rule 1:** following the frozen rule cannot raise false discoveries (a crash counts against the searcher), and the crashes are reported as infrastructure failures beside the sweep's results.
+- **Reverse:** none needed; the rule is the protocol's.
