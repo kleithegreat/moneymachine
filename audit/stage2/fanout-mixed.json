@@ -1,9 +1,9 @@
 {
  "job": "mixed",
- "commit": "30f7c56606c385214c7636fa5527bc9f393d6eca",
+ "commit": "8c8153c1e63f0671c3ab45e6e15c030b468c4687",
  "mm_sha256": "52db7b687648b5fbad19ad52a76d40d3b8719a94483d12106b9081572107807c",
  "searcher": "865d29604485c3316efd08bc7bb42e1bd3f8654f2d022f7238e248afe0bbb3f5",
- "betas_sha256": "2cfaeaa02ecefe8b7842f9890014998c6169777c766bfeee772a57b77ebcf627",
+ "betas_sha256": "4de69bc39c0f7a7661e2070616a9199872e1eb4b2b68d9e3a80fab7d4db10819",
  "weights": {
   "pc": 290.0,
   "prodesk7": 160.0,
