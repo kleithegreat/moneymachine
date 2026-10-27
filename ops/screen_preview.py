@@ -28,8 +28,10 @@ from gate import campaign, gate, markets, sweep  # noqa: E402
 
 ROUND1 = sweep.OUT / "round1"
 FAMILIES = ("frozen", "best", "clusters")
-# Peak memory of a null campaign's preview: its ledger (about 0.8 GB measured) and, with finalists, its two-year market.
-NULL_BYTES = 1_500_000_000
+# Peak memory per task: a null campaign's preview, its ledger (about 0.8 GB measured) and, with finalists, its two-year
+# market; a mixed one, measured at 2.07 GiB for c25-N2-long-0 (140 finalists in one holdout batch) plus margin, since
+# four at 2.5 GB, with the page cache of their markets and ledgers, exceeded a 10 GB cap.
+NULL_BYTES, MIXED_BYTES = 1_500_000_000, 3_200_000_000
 
 
 def specs():
@@ -97,7 +99,7 @@ def run(path, names="null,mixed", shard="0/1"):
     recorded = {r["id"]: r for name in names for r in map(json.loads, open(ROUND1 / f"{name}.jsonl"))}
     done = campaign.recorded(path)
     mine = [s for i, s in enumerate(specs()) if i % n in ks]
-    for name, per_task in (("null", NULL_BYTES), ("mixed", sweep.CAMPAIGN_BYTES)):
+    for name, per_task in (("null", NULL_BYTES), ("mixed", MIXED_BYTES)):
         if name not in names:
             continue
         todo = [s | {"recorded": recorded[s["id"]]} for s in mine if s["sweep"] == name and s["id"] not in done]
