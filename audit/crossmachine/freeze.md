@@ -87,3 +87,10 @@ Human decision of 2026-10-27: before the mixed sweep uses the new `mm` (I5 scale
   PC's runs of the same binary by `compare` (kernel identity included).
 - I5's mutant was rerun on this tree before the freeze: caught.
 Identical in both parts lets the mixed sweep use this binary; otherwise it does not.
+
+## Test 5 result, 2026-10-27 02:01 UTC (22:01 EDT): identical
+
+(a) The new binary reproduces all 15 recorded null campaigns apart from the kernel identity (`result-5a-reproduction.json`);
+every local ledger carries the new kernel `52db7b68…`, so the new binary ran. (b) On prodesk7, gmktec and prodesk5 the
+same binary matches this PC on all 12 campaigns, kernel identity included (`result-5b-compare-*.json`). The mixed sweep
+may use it.
