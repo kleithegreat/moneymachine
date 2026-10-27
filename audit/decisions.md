@@ -191,3 +191,9 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **What:** prodesk5's mixed shard stopped silently after c25-N2-long-66 with 126 campaigns started and 123 recorded; two long-cell campaigns at once likely exceeded its 6 GB scope (each peaks near 2.5 GB). Under the sweep's frozen resume rule, a started, unrecorded campaign is recorded as a crash, which counts as a promotion, and is never rerun; the resumed shard did that and ran the 4 unstarted campaigns with one worker (4,900 MB cap).
 - **Why rule 1:** following the frozen rule cannot raise false discoveries (a crash counts against the searcher), and the crashes are reported as infrastructure failures beside the sweep's results.
 - **Reverse:** none needed; the rule is the protocol's.
+
+## 2026-10-27 16:37 UTC (12:37 EDT): correction to the previous entry: a concurrent resume, first record kept (rule 1)
+
+- **What happened:** the resumed prodesk5 shard was started while the original was still running (my liveness check printed only the system unit's state and hid the user scope's). The resume recorded c25-N2-long-77 and c25-N2-long-81 as crashes; the original then recorded 77's result too, so 77 appears twice (the third campaign started before the stop had recorded its result).
+- **Decision:** each id's first record is its outcome, as the sweep's resume rule treats it, so 77 and 81 count as crashes (each counts as a promotion; conservative). The file as recorded is kept beside it (`fanout/mixed/prodesk5/mixed.jsonl.as-recorded` on prodesk5).
+- **Reverse:** take 77's later result instead; it can only lower the promotion count by one.
