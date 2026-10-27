@@ -12,6 +12,7 @@ run. Both are compared byte for byte. `pass` also requires the corpus to hold ev
 import filecmp
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -26,7 +27,7 @@ from reference import edge_markets
 REPO = Path(__file__).resolve().parents[1]
 AUDIT = REPO / "audit" / "stage6"
 REF = REPO / "reference/lean/.lake/build/bin/refmm"
-DUMP = REPO / "reference/mmdump/target/release/mmdump"
+DUMP = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "reference/mmdump/target")) / "release" / "mmdump"
 NULLS = ("N1", "N2", "N3")
 DAYS = 550
 EVENT_COINS = [0, 4, 7]
@@ -53,10 +54,11 @@ def null_market(root, model, seed):
 
 
 def market_hash(root):
-    """Of every file of the market: the store, its policy and the venue's rules and execution model."""
+    """Of every file of the market: the store, its policy and the venue's rules and execution model. The `version`
+    pin, which markets gained after the corpus froze, is left out: it names the store version, whose files are hashed."""
     h = hashlib.sha256()
     for f in sorted(Path(root).rglob("*")):
-        if f.is_file():
+        if f.is_file() and f.relative_to(root) != Path("version"):
             h.update(str(f.relative_to(root)).encode())
             h.update(hashlib.sha256(f.read_bytes()).digest())
     return h.hexdigest()

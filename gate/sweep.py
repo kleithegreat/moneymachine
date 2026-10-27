@@ -92,16 +92,17 @@ def spec(cid, model, searcher, planted=(), beta=0.0):
             "beta": beta, "cost_cells": cost_cells(), "days": DAYS, "holdout_days": HOLDOUT_DAYS}
 
 
-def null_specs(markets=300):
-    return [spec(f"c24{ROUND}-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
+def null_specs(markets=300, rnd=ROUND):
+    return [spec(f"c24{rnd}-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
             for i in range(markets)]
 
 
-def mixed_specs(betas, markets=100):
-    """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long."""
-    return [spec(f"c25{ROUND}-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
+def mixed_specs(betas, markets=100, rnd=ROUND):
+    """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long (`rnd`: the round tag; the first
+    round had none)."""
+    return [spec(f"c25{rnd}-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
             for i in range(markets)] + \
-        [spec(f"c25{ROUND}-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
+        [spec(f"c25{rnd}-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
          for i in range(markets)]
 
 

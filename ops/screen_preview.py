@@ -35,10 +35,10 @@ NULL_BYTES, MIXED_BYTES = 1_500_000_000, 3_200_000_000
 
 
 def specs():
-    """The first round's specs: the current sweeps' specs under their round-one ids (no round tag)."""
+    """The first round's specs (no round tag in their ids)."""
     betas = json.loads((sweep.OUT / "betas.json").read_text())
-    return [s | {"id": s["id"].replace(sweep.ROUND, "", 1), "sweep": name}
-            for name, ss in (("null", sweep.null_specs()), ("mixed", sweep.mixed_specs(betas))) for s in ss]
+    return [s | {"sweep": name}
+            for name, ss in (("null", sweep.null_specs(rnd="")), ("mixed", sweep.mixed_specs(betas, rnd=""))) for s in ss]
 
 
 def promoted(family, holdout):

@@ -162,104 +162,198 @@ impl Venue {
     }
 }
 
-type Row = HashMap<String, Field>;
-
-fn read_rows(dir: &Path, version: i64, hasher: &mut Sha256) -> Result<Vec<Row>, LoadError> {
-    let mut files: Vec<(i64, PathBuf)> = fs::read_dir(dir)
-        .map_err(|e| io(format!("{}: {e}", dir.display())))?
-        .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|x| x == "parquet"))
-        .filter_map(|p| Some((p.file_stem()?.to_str()?.parse::<i64>().ok()?, p)))
-        .filter(|(f, _)| *f <= version)
-        .collect();
-    files.sort();
-    let mut rows = vec![];
-    for (_, p) in files {
-        let bytes = fs::read(&p).map_err(io)?;
-        hasher.update(p.file_name().unwrap().to_string_lossy().as_bytes());
-        hasher.update(Sha256::digest(&bytes));
-        let reader = SerializedFileReader::new(File::open(&p).map_err(io)?).map_err(io)?;
-        for row in reader.get_row_iter(None).map_err(io)? {
-            let row = row.map_err(io)?;
-            rows.push(row.get_column_iter().map(|(k, v)| (k.clone(), v.clone())).collect());
-        }
-    }
-    Ok(rows)
-}
-
-fn long(r: &Row, k: &str) -> Result<i64, LoadError> {
-    match r.get(k) {
-        Some(Field::Long(x)) => Ok(*x),
-        Some(Field::Int(x)) => Ok(*x as i64),
-        other => Err(io(format!("column {k}: {other:?}"))),
-    }
-}
-
-fn double(r: &Row, k: &str) -> Result<f64, LoadError> {
-    match r.get(k) {
-        Some(Field::Double(x)) => Ok(*x),
-        other => Err(io(format!("column {k}: {other:?}"))),
-    }
-}
-
-fn text<'a>(r: &'a Row, k: &str) -> Result<&'a str, LoadError> {
-    match r.get(k) {
-        Some(Field::Str(s)) => Ok(s),
-        other => Err(io(format!("column {k}: {other:?}"))),
-    }
-}
-
-/// A revision's knownAt from its observed fields, by the policy's rule (`known_at` in `ingest/store.py`); a
-/// correction is known no earlier than it was fetched.
-fn known(dataset: &str, r: &Revision, policy: &Policy) -> Result<i64, LoadError> {
-    let rule = match dataset {
-        "funding" => {
-            let reported = long(&r.row, "reportedTime")?;
-            (reported.div_euclid(HOUR) * HOUR + policy.delta).max(reported + policy.settlement_latency)
-        }
-        _ => long(&r.row, "eventTime")? + policy.delta,
-    };
-    Ok(if r.correction { rule.max(long(&r.row, "fetchedAt")?) } else { rule })
-}
-
-/// A key's latest revision, and whether its observed values differ from the key's first revision's.
-struct Revision {
-    row: Row,
-    correction: bool,
+/// One stored value: a parquet `Field` kept in 16 bytes (strings interned per dataset), or `Absent` where the
+/// row's file has no such column. Equality is `Field`'s: variants differ (`Int` is not `Long`) and NaN is unequal.
+#[derive(Clone, Debug)]
+enum Cell {
+    Absent,
+    Null,
+    Long(i64),
+    Int(i32),
+    Double(f64),
+    Bool(bool),
+    Str(u32),
+    Other(Box<Field>),
 }
 
 /// Columns that are not observed values: the store's metadata, a legacy stored knownAt, and the tombstone flag.
 const NOT_VALUES: [&str; 5] = ["fetchedAt", "source", "hash", "knownAt", "tombstone"];
+/// Of those, the ones never read: not stored at all (the files are hashed whole).
+const UNREAD: [&str; 3] = ["source", "hash", "knownAt"];
 
-fn same_values(a: &Row, b: &Row) -> bool {
-    let value = |r: &Row, k: &String| r.get(k).filter(|v| !matches!(v, Field::Null)).cloned();
-    a.keys().chain(b.keys()).filter(|k| !NOT_VALUES.contains(&k.as_str())).all(|k| value(a, k) == value(b, k))
+/// A dataset's rows, in read order (stores, then files by version, then rows), as columns.
+#[derive(Default)]
+struct Table {
+    names: Vec<String>,
+    cols: Vec<Vec<Cell>>,
+    strings: Vec<String>,
+    interned: HashMap<String, u32>,
+    rows: usize,
 }
 
-/// Per key, the latest revision unless it is a tombstone, in deterministic (coin, eventTime) order (`as_of` in
-/// `ingest/store.py`).
-fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>) -> Result<Vec<Revision>, LoadError> {
-    let mut first: HashMap<(usize, i64), (i64, Row)> = HashMap::new();
-    let mut best: HashMap<(usize, i64), (i64, Row)> = HashMap::new();
-    for r in rows {
-        let event = long(&r, "eventTime")?;
+impl Table {
+    fn read(&mut self, dir: &Path, version: i64, hasher: &mut Sha256) -> Result<(), LoadError> {
+        let mut files: Vec<(i64, PathBuf)> = fs::read_dir(dir)
+            .map_err(|e| io(format!("{}: {e}", dir.display())))?
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "parquet"))
+            .filter_map(|p| Some((p.file_stem()?.to_str()?.parse::<i64>().ok()?, p)))
+            .filter(|(f, _)| *f <= version)
+            .collect();
+        files.sort();
+        for (_, p) in files {
+            let bytes = fs::read(&p).map_err(io)?;
+            hasher.update(p.file_name().unwrap().to_string_lossy().as_bytes());
+            hasher.update(Sha256::digest(&bytes));
+            let reader = SerializedFileReader::new(File::open(&p).map_err(io)?).map_err(io)?;
+            for row in reader.get_row_iter(None).map_err(io)? {
+                for (k, v) in row.map_err(io)?.get_column_iter() {
+                    if UNREAD.contains(&k.as_str()) {
+                        continue;
+                    }
+                    let c = match self.names.iter().position(|n| n == k) {
+                        Some(c) => c,
+                        None => {
+                            self.names.push(k.clone());
+                            self.cols.push(vec![Cell::Absent; self.rows]);
+                            self.cols.len() - 1
+                        }
+                    };
+                    let cell = self.cell(v);
+                    self.cols[c].resize(self.rows, Cell::Absent);
+                    self.cols[c].push(cell);
+                }
+                self.rows += 1;
+            }
+        }
+        for col in self.cols.iter_mut() {
+            col.resize(self.rows, Cell::Absent);
+        }
+        Ok(())
+    }
+
+    fn cell(&mut self, v: &Field) -> Cell {
+        match v {
+            Field::Null => Cell::Null,
+            Field::Long(x) => Cell::Long(*x),
+            Field::Int(x) => Cell::Int(*x),
+            Field::Double(x) => Cell::Double(*x),
+            Field::Bool(x) => Cell::Bool(*x),
+            Field::Str(x) => Cell::Str(match self.interned.get(x) {
+                Some(&i) => i,
+                None => {
+                    self.strings.push(x.clone());
+                    self.interned.insert(x.clone(), self.strings.len() as u32 - 1);
+                    self.strings.len() as u32 - 1
+                }
+            }),
+            other => Cell::Other(Box::new(other.clone())),
+        }
+    }
+
+    fn get(&self, row: usize, k: &str) -> &Cell {
+        self.names.iter().position(|n| n == k).map_or(&Cell::Absent, |c| &self.cols[c][row])
+    }
+
+    /// The cell as the `Field` a row map would have held (None where absent), for comparison and messages.
+    fn field(&self, row: usize, k: &str) -> Option<Field> {
+        self.value(self.get(row, k))
+    }
+
+    fn value(&self, cell: &Cell) -> Option<Field> {
+        Some(match cell {
+            Cell::Absent => return None,
+            Cell::Null => Field::Null,
+            Cell::Long(x) => Field::Long(*x),
+            Cell::Int(x) => Field::Int(*x),
+            Cell::Double(x) => Field::Double(*x),
+            Cell::Bool(x) => Field::Bool(*x),
+            Cell::Str(i) => Field::Str(self.strings[*i as usize].clone()),
+            Cell::Other(f) => (**f).clone(),
+        })
+    }
+
+    fn long(&self, row: usize, k: &str) -> Result<i64, LoadError> {
+        match self.get(row, k) {
+            Cell::Long(x) => Ok(*x),
+            Cell::Int(x) => Ok(*x as i64),
+            _ => Err(io(format!("column {k}: {:?}", self.field(row, k).as_ref()))),
+        }
+    }
+
+    fn double(&self, row: usize, k: &str) -> Result<f64, LoadError> {
+        match self.get(row, k) {
+            Cell::Double(x) => Ok(*x),
+            _ => Err(io(format!("column {k}: {:?}", self.field(row, k).as_ref()))),
+        }
+    }
+
+    fn text(&self, row: usize, k: &str) -> Result<&str, LoadError> {
+        match self.get(row, k) {
+            Cell::Str(i) => Ok(&self.strings[*i as usize]),
+            _ => Err(io(format!("column {k}: {:?}", self.field(row, k).as_ref()))),
+        }
+    }
+
+    /// Whether two rows' observed values are equal, a missing column and a null alike.
+    fn same_values(&self, a: usize, b: usize) -> bool {
+        let value = |r: usize, c: usize| self.value(&self.cols[c][r]).filter(|v| !matches!(v, Field::Null));
+        (0..self.names.len()).filter(|&c| !NOT_VALUES.contains(&self.names[c].as_str())).all(|c| value(a, c) == value(b, c))
+    }
+}
+
+/// A key's latest revision (a row of its table), and whether its observed values differ from the key's first
+/// revision's.
+struct Revision {
+    row: usize,
+    correction: bool,
+}
+
+/// A revision's knownAt from its observed fields, by the policy's rule (`known_at` in `ingest/store.py`); a
+/// correction is known no earlier than it was fetched.
+fn known(dataset: &str, t: &Table, r: &Revision, policy: &Policy) -> Result<i64, LoadError> {
+    let rule = match dataset {
+        "funding" => {
+            let reported = t.long(r.row, "reportedTime")?;
+            (reported.div_euclid(HOUR) * HOUR + policy.delta).max(reported + policy.settlement_latency)
+        }
+        _ => t.long(r.row, "eventTime")? + policy.delta,
+    };
+    Ok(if r.correction { rule.max(t.long(r.row, "fetchedAt")?) } else { rule })
+}
+
+/// Per key, the latest revision unless it is a tombstone, in (coin, eventTime) order (`as_of` in
+/// `ingest/store.py`). Rows are checked in read order; a key's first and latest revisions are its earliest-read
+/// rows with the smallest and the largest fetchedAt, found by a stable sort on the key.
+fn resolve(t: &Table, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>) -> Result<Vec<Revision>, LoadError> {
+    let mut keyed = Vec::with_capacity(t.rows);
+    for row in 0..t.rows {
+        let event = t.long(row, "eventTime")?;
         if let Some(h) = holdout {
             if event >= h {
                 return Err(LoadError::Holdout(format!("row with eventTime {event} >= holdout start {h}")));
             }
         }
-        let Some(&c) = coin_ix.get(text(&r, "coin")?) else { continue };
-        let fetched = long(&r, "fetchedAt")?;
-        if first.get(&(c, event)).is_none_or(|(f, _)| *f > fetched) {
-            first.insert((c, event), (fetched, r.clone()));
+        let Some(&c) = coin_ix.get(t.text(row, "coin")?) else { continue };
+        keyed.push((c, event, t.long(row, "fetchedAt")?, row));
+    }
+    keyed.sort_by_key(|&(c, e, _, _)| (c, e));
+    let mut out = vec![];
+    for group in keyed.chunk_by(|a, b| (a.0, a.1) == (b.0, b.1)) {
+        let (mut first, mut best) = (group[0], group[0]);
+        for &g in &group[1..] {
+            if g.2 < first.2 {
+                first = g;
+            }
+            if g.2 > best.2 {
+                best = g;
+            }
         }
-        if best.get(&(c, event)).is_none_or(|(f, _)| *f < fetched) {
-            best.insert((c, event), (fetched, r));
+        if !matches!(t.get(best.3, "tombstone"), Cell::Bool(true)) {
+            out.push(Revision { row: best.3, correction: !t.same_values(first.3, best.3) });
         }
     }
-    let mut out: Vec<_> = best.into_iter().filter(|(_, (_, r))| !matches!(r.get("tombstone"), Some(Field::Bool(true)))).collect();
-    out.sort_by_key(|(k, _)| *k);
-    Ok(out.into_iter().map(|(k, (_, row))| Revision { correction: !same_values(&first[&k].1, &row), row }).collect())
+    Ok(out)
 }
 
 /// Load the union of `stores` at `version`. `holdout` is the holdout start in search mode, None
@@ -267,55 +361,61 @@ fn resolve(rows: Vec<Row>, coin_ix: &HashMap<&str, usize>, holdout: Option<i64>)
 pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market, LoadError> {
     let coin_ix: HashMap<&str, usize> = venue.coins.iter().enumerate().map(|(i, c)| (c.as_str(), i)).collect();
     let mut hasher = Sha256::new();
-    let mut rows = |dataset: &str, required: bool| -> Result<Vec<Row>, LoadError> {
-        let mut all = vec![];
+    let mut table = |dataset: &str, required: bool| -> Result<Table, LoadError> {
+        let mut t = Table::default();
         for s in stores {
             if required || s.join(dataset).exists() {
-                all.extend(read_rows(&s.join(dataset), version, &mut hasher)?);
+                t.read(&s.join(dataset), version, &mut hasher)?;
             }
         }
-        Ok(all)
+        Ok(t)
     };
-    let f_rows = resolve(rows("funding", true)?, &coin_ix, holdout)?;
-    let b_rows = resolve(rows("bars_4h", true)?, &coin_ix, holdout)?;
+    let f_table = table("funding", true)?;
+    let f_rows = resolve(&f_table, &coin_ix, holdout)?;
+    let b_table = table("bars_4h", true)?;
+    let b_rows = resolve(&b_table, &coin_ix, holdout)?;
     let mut events = HashMap::new();
     for (_, ds) in EVENT_INPUTS {
         if !stores.iter().any(|s| s.join(ds).exists()) {
             continue;
         }
+        let t = table(ds, false)?;
         let mut v = vec![];
-        for r in resolve(rows(ds, false)?, &coin_ix, holdout)? {
-            v.push(Event { coin: coin_ix[text(&r.row, "coin")?], event: long(&r.row, "eventTime")?, known: known(ds, &r, policy)?,
-                           count: double(&r.row, "count")? });
+        for r in resolve(&t, &coin_ix, holdout)? {
+            v.push(Event { coin: coin_ix[t.text(r.row, "coin")?], event: t.long(r.row, "eventTime")?, known: known(ds, &t, &r, policy)?,
+                           count: t.double(r.row, "count")? });
         }
         events.insert(ds, v);
     }
     let mut funding = Vec::with_capacity(f_rows.len());
     for r in &f_rows {
+        let t = &f_table;
         funding.push(Funding {
-            coin: coin_ix[text(&r.row, "coin")?],
-            event: long(&r.row, "eventTime")?,
-            known: known("funding", r, policy)?,
-            rate: double(&r.row, "fundingRate")?,
-            premium: double(&r.row, "premium")?,
+            coin: coin_ix[t.text(r.row, "coin")?],
+            event: t.long(r.row, "eventTime")?,
+            known: known("funding", t, r, policy)?,
+            rate: t.double(r.row, "fundingRate")?,
+            premium: t.double(r.row, "premium")?,
         });
     }
+    drop(f_table);
     let mut bars = Vec::with_capacity(b_rows.len());
     for rev in &b_rows {
-        let r = &rev.row;
+        let (t, r) = (&b_table, rev.row);
         bars.push(Bar {
-            coin: coin_ix[text(r, "coin")?],
-            open_time: long(r, "openTime")?,
-            event: long(r, "eventTime")?,
-            known: known("bars_4h", rev, policy)?,
-            open: double(r, "open")?,
-            high: double(r, "high")?,
-            low: double(r, "low")?,
-            close: double(r, "close")?,
-            volume: double(r, "volume")?,
-            trades: long(r, "trades")?,
+            coin: coin_ix[t.text(r, "coin")?],
+            open_time: t.long(r, "openTime")?,
+            event: t.long(r, "eventTime")?,
+            known: known("bars_4h", t, rev, policy)?,
+            open: t.double(r, "open")?,
+            high: t.double(r, "high")?,
+            low: t.double(r, "low")?,
+            close: t.double(r, "close")?,
+            volume: t.double(r, "volume")?,
+            trades: t.long(r, "trades")?,
         });
     }
+    drop(b_table);
     let end = holdout.unwrap_or(policy.w_end).min(policy.w_end);
     let intervals = (0..venue.coins.len())
         .map(|c| {

@@ -226,3 +226,15 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **What:** `sweeps.json`, `c21-top5.json`, `mixed-hosts.json`, `fanout-mixed.json` and `fanout-truth.json` moved by `git mv` (contents unchanged; history kept); the sweeps' results and kept ledgers moved within `data/campaigns/` to `round1/`. The rerun's evidence takes the canonical paths the criteria tests read, so they judge only the revised gate's round (r2), and skip until it exists. The sweeps' ids carry the round (`sweep.ROUND`), so no id repeats across rounds.
 - **Why rule 1:** a file move that keeps every record; it cannot change a false-discovery outcome.
 - **Reverse:** `git mv` back.
+
+## 2026-10-27 21:17 UTC (17:17 EDT): a candidate mm binary briefly replaced the shipped one (incident; rule 1)
+
+- **What happened:** building the loader-memory candidate with `cargo build --release` overwrote `kernel/target/release/mm` (shipped `52db7b68…`) with the candidate (`3a732069…`) from 21:11:57 to 21:16:48 UTC; I restored the shipped binary atomically from a worker's byte-identical copy. Exposed: only the development screen preview, whose holdout batches started in that window used the candidate (c25-N2-long-75 and -84 among them). Not exposed: the stage 10 track runs its own pinned binary (`data/thesis/bin/mm`, `0aff52fc…`) and its ledger has no experiments; no judged sweep was running.
+- **Effect and handling:** the candidate must be bit-identical to ship (its gate: the corpus differential and byte-for-byte reproduction of recorded campaigns). If it passes, those preview lines are unaffected; if not, the preview's campaigns from that window are rerun on the shipped binary. Candidates now build in their own target directory (`.gitignore`: `target*/`).
+- **Reverse:** none needed.
+
+## 2026-10-27 21:33 UTC (17:33 EDT): C6.4's corpus check leaves out the markets' version pin (rule 1)
+
+- **What:** running C6.4's frozen corpus differential for the loader candidate (test 7(c)), the null markets failed "does not rebuild as frozen". Every data file matched the frozen hash; the only difference was the two-byte `version` pin that market directories gained after the corpus froze (content `1`, the version their store files carry). The edge markets matched fully. So the judged C6.4 run had been unrunnable on `main` since that change. `reference/differential.py`'s `market_hash` now leaves the pin out; with that, all six markets match their frozen hashes.
+- **Why rule 1:** it restores the check's meaning (the frozen market data, hashed file by file) under the newer layout; nothing it verifies is loosened, and it cannot change a false-discovery outcome. Also: `DUMP` now honours `CARGO_TARGET_DIR` as `gate.kernel.MM` does, so a candidate's `mmdump` is the one run.
+- **Reverse:** hash the pin again (and rebuild the corpus's frozen hashes, which would need a new freeze).
