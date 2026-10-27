@@ -38,7 +38,7 @@ def specs():
 def run(out_dir, *ids):
     import numpy
     from numpy._core._multiarray_umath import __cpu_dispatch__, __cpu_features__
-    from gate import campaign, sweep
+    from gate import campaign, compute, sweep
     sweep.require_frozen_searcher()
     out = Path(out_dir)
     chosen = [s for s in specs() if s["id"] in ids]
@@ -47,7 +47,7 @@ def run(out_dir, *ids):
         "node": platform.node(), "cpu": next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), ""),
         "avx512": sorted(f for f in flags if f.startswith("avx512")), "numpy": numpy.__version__,
         "numpy_dispatch": [f for f in __cpu_dispatch__ if __cpu_features__.get(f)]}, indent=1) + "\n")
-    with Pool(sweep.workers(sweep.CAMPAIGN_BYTES)) as pool, open(out.with_suffix(".jsonl"), "a") as fh:
+    with Pool(compute.workers(sweep.CAMPAIGN_BYTES)) as pool, open(out.with_suffix(".jsonl"), "a") as fh:
         for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), chosen):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
@@ -82,12 +82,12 @@ def compare(a_jsonl, a_dir, b_jsonl, b_dir, *ids, ignore=("created",)):
 
 
 def reproduce(out_dir, *ids):
-    from gate import sweep
+    from gate import compute, sweep
 
     betas = json.loads((sweep.OUT / "betas.json").read_text())
     specs = {s["id"]: s | {"sweep": name} for name, ss in (("null", sweep.null_specs(rnd="")),
                                                            ("mixed", sweep.mixed_specs(betas, rnd=""))) for s in ss}
-    with Pool(sweep.workers(sweep.CAMPAIGN_BYTES)) as pool:
+    with Pool(compute.workers(sweep.CAMPAIGN_BYTES)) as pool:
         found = pool.map(partial(reproduce_one, out_dir=out_dir), [specs[i] for i in ids])
     print(json.dumps({"identical": all(same for _, same, _ in found), "kernels": sorted({k for _, _, ks in found for k in ks}),
                       "campaigns": {i: same for i, same, _ in found}}, indent=1))

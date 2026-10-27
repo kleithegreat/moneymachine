@@ -24,7 +24,7 @@ import pandas as pd
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from gate import campaign, gate, markets, sweep  # noqa: E402
+from gate import campaign, compute, gate, markets, sweep  # noqa: E402
 
 ROUND1 = sweep.OUT / "round1"
 FAMILIES = ("frozen", "best", "clusters")
@@ -104,7 +104,7 @@ def run(path, names="null,mixed", shard="0/1"):
             if name not in names:
                 continue
             todo = [s | {"recorded": recorded[s["id"]]} for s in mine if s["sweep"] == name and s["id"] not in done]
-            with Pool(sweep.workers(per_task)) as pool:
+            with Pool(compute.workers(per_task)) as pool:
                 for r in pool.imap_unordered(preview, todo):
                     fh.write(json.dumps(r) + "\n")
                     fh.flush()

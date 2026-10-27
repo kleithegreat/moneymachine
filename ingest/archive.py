@@ -18,6 +18,8 @@ import io
 import json
 import math
 from collections import defaultdict
+from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -91,28 +93,40 @@ def fetch(out_dir, coins, hours=HOURS, window=None, client=None):
                 path.write_bytes(gzip.compress(json.dumps(rows).encode()))
 
 
+# Peak memory of one coin's report: 1.93 GiB measured for its largest coin (SOL, 4,824 coin-hours), plus margin.
+REPORT_BYTES = 2_500_000_000
+
+
 def report(out_dir, table_path=REPO / "venue/hyperliquid/execution.json"):
     """Per coin and cell, by volatility tercile and by quarter: snapshots, the censored share, the share costing more
-    than the table, and the ratio of the C0.7 quantile of costed snapshots to the table's entry."""
+    than the table, and the ratio of the C0.7 quantile of costed snapshots to the table's entry. Coins are independent,
+    so each is reported by its own worker, holding only that coin's costs."""
+    from gate.compute import workers
+
     table = json.loads(Path(table_path).read_text())["cost_bps_ex_fee"]
+    coins = sorted({p.name.removesuffix(".json.gz") for p in Path(out_dir).glob("*/*/*.json.gz")} & set(table))
+    with Pool(workers(REPORT_BYTES)) as pool:
+        parts = pool.map(partial(coin_report, out_dir=out_dir, table=table), coins)
+    return {k: v for part in parts for k, v in part.items()}
+
+
+def coin_report(coin, out_dir, table):
     per = defaultdict(lambda: defaultdict(list))
-    vol = defaultdict(dict)
-    for path in sorted(Path(out_dir).glob("*/*/*.json.gz")):
-        d, coin = path.parts[-3], path.name.removesuffix(".json.gz")
+    vol = {}
+    for path in sorted(Path(out_dir).glob(f"*/*/{coin}.json.gz")):
+        d = path.parts[-3]
         rows = json.loads(gzip.decompress(path.read_bytes()))
         mids = np.array([m for _, m, _ in rows])
         if len(mids) > 1:
-            vol[coin].setdefault(d, []).append(float(np.std(np.diff(np.log(mids)))))
+            vol.setdefault(d, []).append(float(np.std(np.diff(np.log(mids)))))
         for cell in rows[0][2] if rows else ():
-            per[(coin, cell)][d].append(np.array([costs[cell] for _, _, costs in rows]))
+            per[cell][d].append(np.array([costs[cell] for _, _, costs in rows]))
+    rv = {d: float(np.mean(v)) for d, v in vol.items()}
+    cuts = np.quantile(list(rv.values()), [1 / 3, 2 / 3]) if rv else [math.inf, math.inf]
     out = {}
-    for (coin, cell), by_day in per.items():
-        if coin not in table:
-            continue
+    for cell, by_day in sorted(per.items()):
         side, size = cell.split(":")
         entry = table[coin][side][size]
-        rv = {d: float(np.mean(v)) for d, v in vol[coin].items()}
-        cuts = np.quantile(list(rv.values()), [1 / 3, 2 / 3]) if rv else [math.inf, math.inf]
         groups = defaultdict(list)
         for d, chunks in by_day.items():
             for g in ("all", f"vol-{'low' if rv.get(d, math.inf) <= cuts[0] else 'mid' if rv.get(d, math.inf) <= cuts[1] else 'high'}",

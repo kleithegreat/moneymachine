@@ -75,7 +75,9 @@ MUTANTS = {
 }
 
 
-SLOTS = 4
+# Peak memory of one slot (a cold cargo build of the copied tree, then the mutant's test): 1,725 MiB measured
+# 2026-10-27, with margin.
+SLOT_BYTES = 2_200_000_000
 
 
 def run(cmd, cwd, log, env):
@@ -88,7 +90,7 @@ def check(name, slot):
     test, edits = MUTANTS[name]
     slug = "-".join(name.split())
     env = os.environ | {"CARGO_TARGET_DIR": str(REPO / "kernel" / f"target-mutants-{slot}")}
-    ignore = shutil.ignore_patterns(".git", "data", "target", "target-mutants*", "__pycache__", ".hypothesis")
+    ignore = shutil.ignore_patterns(".git", "data", "target*", "__pycache__", ".hypothesis")
     with tempfile.TemporaryDirectory() as wt:
         shutil.copytree(REPO, wt, ignore=ignore, dirs_exist_ok=True, copy_function=shutil.copy)
         clean = run(test, wt, LOGS / f"{slug}.clean.log", env)
@@ -103,11 +105,15 @@ def check(name, slot):
         "" if clean == 0 and mutated != 0 else f" (clean={clean}, mutated={mutated})")
 
 
-def main():
-    """Every mutant, SLOTS at a time; each slot keeps its own cargo target, reused across its mutants."""
+def main(n=None):
+    """Every mutant, `n` at a time (by default as many as memory allows); each slot keeps its own cargo target, reused
+    across its mutants."""
+    from gate import compute
+
+    n = n or compute.workers(SLOT_BYTES)
     LOGS.mkdir(parents=True, exist_ok=True)
     slots = queue.Queue()
-    for i in range(SLOTS):
+    for i in range(n):
         slots.put(i)
 
     def one(name):
@@ -117,7 +123,7 @@ def main():
         finally:
             slots.put(slot)
 
-    with ThreadPoolExecutor(SLOTS) as pool:
+    with ThreadPoolExecutor(n) as pool:
         results = list(pool.map(one, MUTANTS))
     for r in results:
         print(r, flush=True)

@@ -9,7 +9,6 @@ campaign as a crash, so sweeps resume after an interruption. Campaign ids are co
 
 import json
 import math
-import os
 import sqlite3
 import subprocess
 import tempfile
@@ -22,6 +21,7 @@ import numpy as np
 from scipy import stats
 
 from gate import campaign, search
+from gate.compute import workers
 from gate.kernel import command
 from gate.markets import generate, null_params, store_events, write
 
@@ -64,16 +64,6 @@ def require_frozen_searcher():
 # Peak memory per task, measured 2026-10-26: a campaign (its market, searcher and mm evaluations; the long cell's
 # four-year markets included) and one ten-year calibration market with its evaluation.
 CAMPAIGN_BYTES, CALIBRATION_BYTES = 2_500_000_000, 4_200_000_000
-
-
-def workers(per_task):
-    """As many workers as cores, but only as many as the memory this process's cgroup allows (its MemoryMax, else the
-    machine's memory) holds at `per_task` bytes each. Results never depend on it: every task is seeded by its id."""
-    cgroup = Path("/proc/self/cgroup").read_text().split("::", 1)[1].strip()
-    cap = Path("/sys/fs/cgroup", cgroup.lstrip("/"), "memory.max")
-    machine = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
-    budget = min(machine, int(cap.read_text())) if cap.exists() and cap.read_text().strip() != "max" else machine
-    return max(1, min(os.cpu_count(), budget // per_task))
 
 
 def run_all(specs, path):
@@ -191,14 +181,15 @@ def calibrate(key):
     return bisect(key, *CALIBRATIONS[key])
 
 
-def betas(keys=None, threads=1):
-    """Calibrate the given keys (comma-separated; all by default), resuming from STEPS, `threads` markets at a time in
-    each; betas.json is written once every key is calibrated."""
+def betas(keys=None):
+    """Calibrate the given keys (comma-separated; all by default), resuming from STEPS, one process per key and as many
+    markets at a time in each as memory allows; betas.json is written once every key is calibrated."""
     global THREADS
-    THREADS = int(threads)
     OUT.mkdir(parents=True, exist_ok=True)
     todo = keys.split(",") if keys else list(CALIBRATIONS)
-    with Pool(min(len(todo), workers(CALIBRATION_BYTES))) as pool:
+    n = min(len(todo), workers(CALIBRATION_BYTES))
+    THREADS = max(1, workers(CALIBRATION_BYTES) // n)
+    with Pool(n) as pool:
         values = dict(zip(todo, pool.map(calibrate, todo)))
     if set(values) == set(CALIBRATIONS):
         (OUT / "betas.json").write_text(json.dumps({k: values[k] for k in CALIBRATIONS}, indent=1))

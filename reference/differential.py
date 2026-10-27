@@ -187,8 +187,24 @@ def chunk(names, texts, market, root, version, tmp):
     return out
 
 
-def run(out, workers="4", audit=AUDIT):
-    """The judged run on the frozen manifest; writes the report to `out`."""
+# Resident memory per task, measured 2026-10-27, with margin: a run chunk (mmdump 456 MiB, then refmm 512 MiB, on one
+# 550-day market; the stream files it writes are reclaimable page cache) and a verdict check (194 MiB, interpreter
+# included).
+CHUNK_BYTES, CHECK_BYTES = 700_000_000, 250_000_000
+
+
+def verdict(i, it, work):
+    f = work / "checks" / f"{i}.json"
+    f.write_text(it["program"])
+    ref = subprocess.run([str(REF), "check", str(f)], capture_output=True, text=True).stdout.strip()
+    return {"i": i, "name": it["name"], "mm": verdict_mm(f), "ref": ref}
+
+
+def run(out, audit=AUDIT):
+    """The judged run on the frozen manifest; writes the report to `out`. Resumable: each verdict and each chunk's runs
+    are recorded under `<out>.d/` as they finish, and a rerun skips what is recorded; pools are sized by memory."""
+    from gate import campaign, compute
+
     audit = Path(audit)
     manifest = json.loads((audit / MANIFEST).read_text())
     text = (audit / CORPUS).read_text()
@@ -197,28 +213,42 @@ def run(out, workers="4", audit=AUDIT):
     items = [json.loads(l) for l in text.splitlines()]
     build()
     work = Path(tempfile.mkdtemp(dir=REPO / "data"))
+    (work / "checks").mkdir()
     roots = markets_of(manifest["seed"], work)
     for m, r in roots.items():
         if market_hash(r) != manifest["markets"][m]["market_sha256"]:
             raise ValueError(f"market {m} does not rebuild as frozen")
-    verdicts, codes = [], {}
-    for it in items:
-        f = work / "check.json"
-        f.write_text(it["program"])
-        ref = subprocess.run([str(REF), "check", str(f)], capture_output=True, text=True).stdout.strip()
-        mm = verdict_mm(f)
-        codes[mm] = codes.get(mm, 0) + 1
-        if ref != mm:
-            verdicts.append({"name": it["name"], "mm": mm, "ref": ref})
+    done = Path(f"{out}.d")
+    (done / "chunks").mkdir(parents=True, exist_ok=True)
     by_market = {}
     for it in items:
         for m in it["markets"]:
             by_market.setdefault(m, []).append(it)
-    chunks = [(m, its[i:i + CHUNK]) for m, its in by_market.items() for i in range(0, len(its), CHUNK)]
-    with ThreadPoolExecutor(int(workers)) as pool:
-        results = [r for rs in pool.map(lambda c: chunk([it["name"] for it in c[1]], [it["program"] for it in c[1]], c[0],
-                                                       roots[c[0]], manifest["markets"][c[0]]["version"], work), chunks) for r in rs]
+    chunks = [(f"{m}-{k}", m, its[i:i + CHUNK]) for m, its in by_market.items() for k, i in enumerate(range(0, len(its), CHUNK))]
+
+    def run_chunk(c):
+        key, m, its = c
+        rs = chunk([it["name"] for it in its], [it["program"] for it in its], m, roots[m], manifest["markets"][m]["version"], work)
+        (done / "chunks" / f"{key}.tmp").write_text(json.dumps(rs))
+        (done / "chunks" / f"{key}.tmp").rename(done / "chunks" / f"{key}.json")
+
+    with campaign.exclusive(done / "verdicts.jsonl") as fh:
+        seen = {json.loads(l)["i"] for l in open(done / "verdicts.jsonl")}
+        with ThreadPoolExecutor(compute.workers(CHECK_BYTES)) as pool:
+            for v in pool.map(lambda x: verdict(*x, work), [(i, it) for i, it in enumerate(items) if i not in seen]):
+                fh.write(json.dumps(v) + "\n")
+                fh.flush()
+        with ThreadPoolExecutor(compute.workers(CHUNK_BYTES)) as pool:
+            list(pool.map(run_chunk, [c for c in chunks if not (done / "chunks" / f"{c[0]}.json").exists()]))
+        found = {v["i"]: v for v in map(json.loads, open(done / "verdicts.jsonl"))}
     shutil.rmtree(work)
+    verdicts, codes = [], {}
+    for i in range(len(items)):
+        v = found[i]
+        codes[v["mm"]] = codes.get(v["mm"], 0) + 1
+        if v["ref"] != v["mm"]:
+            verdicts.append({"name": v["name"], "mm": v["mm"], "ref": v["ref"]})
+    results = [r for key, _, _ in chunks for r in json.loads((done / "chunks" / f"{key}.json").read_text())]
     total = {}
     for *_, cov in results:
         for k, v in cov.items():

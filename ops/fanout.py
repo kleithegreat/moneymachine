@@ -25,7 +25,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from gate import campaign, kernel, search, sweep  # noqa: E402
+from gate import campaign, compute, kernel, search, sweep  # noqa: E402
 
 
 def sha256(path):
@@ -84,7 +84,7 @@ def run(path, host):
         return
     todo = [i for i in mine if i not in campaign.recorded(log)]
     by_id, betas = {r["id"]: r for r in sweep.results("mixed")}, json.loads((sweep.OUT / "betas.json").read_text())
-    with Pool(sweep.workers(sweep.CALIBRATION_BYTES)) as pool, open(log, "a") as fh:
+    with Pool(compute.workers(sweep.CALIBRATION_BYTES)) as pool, open(log, "a") as fh:
         for r in pool.imap_unordered(partial(truth_one, by_id=by_id, betas=betas), todo):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
