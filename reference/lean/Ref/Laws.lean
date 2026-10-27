@@ -247,7 +247,30 @@ theorem L5_certified (N : NumOps α) (num : Cell → Option α) (hash : Cert →
         k.manifest = st.identity s ∧ k.policy = policy ∧ k.verifier = verifier ∧
         !(led.supersessions.any fun (x, pos) => x == k.id && decide (pos ≤ led.position)) ∧
         (mode = .search → st.identity s ∉ holdout ∧ ∀ row ∈ st.rows s, row.event < holdoutStart) := by
-  sorry
+  obtain ⟨-, -, p, req, obs, hk, h1, h2, h3, -, -, he⟩ := L5_admitted N reg roles text adm ld v pol stop mode r h
+  obtain rfl := stage1_required h1
+  refine ⟨p, obs, hk, (hT.resolve _).symm.trans h3, he, fun s hs => ?_⟩
+  obtain ⟨b, k, hb, hkc, hv, hm, hhold⟩ := stage1_facts h1 s hs
+  have hkm : k ∈ adm.certs := List.mem_of_find?_eq_some hkc
+  have hkid : k.id = b.cert := by simpa using List.find?_some hkc
+  simp only [Meta.matches, Bool.and_eq_true, beq_iff_eq] at hm
+  have hsup : (adm.supersessions.any fun (x, pos) => x == b.cert && decide (pos ≤ adm.position)) = false := by
+    revert hv
+    cases hl : adm.certs.length with
+    | zero => simp [Meta.valid]
+    | succ n => simp only [Meta.valid, hkc, Bool.and_eq_true]; exact fun hv => by simpa using hv.1
+  obtain ⟨⟨⟨⟨⟨⟨-, hman⟩, hpol⟩, hver⟩, -⟩, -⟩, -⟩ := hm
+  refine ⟨b, k, hb, hkc, hT.issued k hkm, hman.trans (hT.identity s b hb), hpol.trans hT.pinned.1,
+    hver.trans hT.pinned.2, ?_, fun hmode => ⟨?_, fun row hrow => ?_⟩⟩
+  · rw [← hT.supersessions, ← hT.position, hkid]; simpa using hsup
+  · rw [← hT.identity s b hb, ← hT.frozenHoldout.1]; exact hhold hmode
+  · subst hmode
+    unfold stage2 at h2
+    split at h2 <;> try contradiction
+    rename_i hrows
+    simp only [beq_self_eq_true, Bool.true_and, Bool.not_eq_true', Bool.not_eq_false] at hrows
+    have := List.all_eq_true.mp hrows (s, row.event) (by rw [hT.rows]; exact List.mem_flatMap.mpr ⟨s, hs, List.mem_map.mpr ⟨row, hrow, rfl⟩⟩)
+    rw [← hT.frozenHoldout.2]; simpa using this
 
 /-! ## L6 bounded loss -/
 

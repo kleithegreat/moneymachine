@@ -65,4 +65,38 @@ theorem admit_early (reg : Registry) (roles : Roles) (p : Program) (adm : Meta) 
     cases hS : (Ctx.make reg roles p adm obs v pol stop req).inScope <;>
     simp [hA, hS, Option.filter, throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
 
+/-- What passing the metadata stage means, dataset by dataset. -/
+theorem stage1_facts {reg : Registry} {roles : Roles} {p : Program} {adm : Meta} {mode : Mode} {req : List Nat}
+    (h : stage1 reg roles p adm mode = .ok req) :
+    ∀ s ∈ req, ∃ b k, adm.bindings s = some b ∧ adm.cert b.cert = some k ∧
+      adm.valid adm.certs.length b.cert = true ∧ adm.matches reg roles s b k = true ∧
+      (mode = .search → b.dataset ∉ adm.holdout) := by
+  unfold stage1 at h
+  simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
+  split at h <;> try contradiction
+  split at h <;> try contradiction
+  rename_i hb
+  split at h <;> try contradiction
+  rename_i hh
+  split at h <;> try contradiction
+  rename_i hc
+  injection h with h
+  subst h
+  intro s hs
+  simp only [Bool.not_eq_true', Bool.not_eq_false] at hb hh hc
+  have hc' := List.all_eq_true.mp hc s hs
+  revert hc'
+  rcases hbs : adm.bindings s with _ | b
+  · simp
+  intro hc'
+  simp only [Option.any_eq_true] at hc'
+  obtain ⟨k, hk, hvk⟩ := hc'
+  simp only [Bool.and_eq_true] at hvk
+  refine ⟨b, k, rfl, hk, hvk.1, hvk.2, fun hm => ?_⟩
+  subst hm
+  simp only [beq_self_eq_true, Bool.true_and, Bool.not_eq_true', decide_eq_true_eq, Bool.not_eq_false] at hh
+  have := List.all_eq_true.mp hh s hs
+  simp only [hbs, Option.all_some, Bool.not_eq_true', Bool.not_eq_false] at this
+  simpa using this
+
 end Ref
