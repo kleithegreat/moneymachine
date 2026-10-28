@@ -169,13 +169,14 @@ def usage(work):
 
 def run_series(name, n):
     """Campaigns `{name}-null-N2-0` .. n - 1, resumable (a started, unrecorded id is recorded as a crash), each started
-    when the subscription has room for it (`wait_for_room`) and recorded with its usage and the windows around it."""
-    check_frozen()
+    when the subscription has room for it (`wait_for_room`) and the harness is still the frozen one, and recorded with
+    its usage and the windows around it."""
     OUT.mkdir(parents=True, exist_ok=True)
     log = OUT / f"{name}-null.jsonl"
     with campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT) as todo:
         for cid in todo:
             before = wait_for_room(log)
+            check_frozen()
             started = time.time()
             try:
                 result = SERIES[name](cid, sweep.cost_cells())
