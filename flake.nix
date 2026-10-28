@@ -7,33 +7,35 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      # The research environment: the dev shell's and the cluster image's, one closure.
+      pythonFor = pkgs: pkgs.python313.withPackages (ps: with ps; [
+        # StepM's step-down stopped on the last step's rejection count instead of the cumulative one, and crashed
+        # once every model was superior. Upstream's fix (bashtage/arch, main), until a release carries it.
+        (arch.overridePythonAttrs (old: {
+          postPatch = (old.postPatch or "") + ''
+            substituteInPlace arch/bootstrap/multiple_comparison.py --replace-fail \
+              "while better_models and (len(better_models) < self.k):" \
+              "while better_models and (len(all_better_models) < self.k):"
+          '';
+        }))
+        numpy
+        scipy
+        pandas
+        polars
+        pyarrow
+        statsmodels
+        httpx
+        lz4
+        pytest
+        pytest-xdist
+        hypothesis
+      ]);
     in
     {
       devShells = forAll (pkgs:
         let
           tools = self.packages.${pkgs.stdenv.hostPlatform.system};
-          python = pkgs.python313.withPackages (ps: with ps; [
-            # StepM's step-down stopped on the last step's rejection count instead of the cumulative one, and crashed
-            # once every model was superior. Upstream's fix (bashtage/arch, main), until a release carries it.
-            (arch.overridePythonAttrs (old: {
-              postPatch = (old.postPatch or "") + ''
-                substituteInPlace arch/bootstrap/multiple_comparison.py --replace-fail \
-                  "while better_models and (len(better_models) < self.k):" \
-                  "while better_models and (len(all_better_models) < self.k):"
-              '';
-            }))
-            numpy
-            scipy
-            pandas
-            polars
-            pyarrow
-            statsmodels
-            httpx
-            lz4
-            pytest
-            pytest-xdist
-            hypothesis
-          ]);
+          python = pythonFor pkgs;
         in
         {
           default = pkgs.mkShell {
@@ -49,6 +51,8 @@
               jq
               git
               tools.lean
+              kubectl
+              skopeo
             ];
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
           };
@@ -65,6 +69,19 @@
         });
 
       packages = forAll (pkgs: {
+        # The cluster's one image (CLAUDE.md, heavy jobs): the research environment and this commit's tree; `mm` is
+        # staged beside it as a content-addressed input, never built here (its identity embeds its build path).
+        image = pkgs.dockerTools.buildLayeredImage {
+          name = "moneymachine";
+          tag = self.shortRev or "dirty";
+          contents = [ (pythonFor pkgs) pkgs.coreutils pkgs.util-linux ];
+          extraCommands = "mkdir -p app scratch && cp -r ${self} app/repo";
+          config = {
+            User = "1000:100";
+            WorkingDir = "/app/repo";
+            Env = [ "HOME=/scratch" "PYTHONDONTWRITEBYTECODE=1" ];
+          };
+        };
         # The adopted reference kernel's toolchain (stage 6): Lean v4.34.0.
         lean = pkgs.stdenv.mkDerivation {
           pname = "lean";
