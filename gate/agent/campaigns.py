@@ -18,7 +18,7 @@ OUT = REPO / "data" / "agent"
 FROZEN = REPO / "audit/stage3/harness.json"
 REPORT_FROM_DAY = {"agent": 670, "swarm": 640}
 REAL_REPORT_FROM = 1785542400000  # 2026-08-01, a month after the agent model's knowledge cutoff
-LABEL = "pipeline validation run, not a test for edge (stage 3 revision of 2026-10-23)"
+LABEL = "pipeline validation run, not a test for edge; every promotion: historical holdout, costs fitted after it"
 MIN_SWARM_EVALUATIONS = 200
 SPACING = 5 * 3600
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
@@ -155,6 +155,7 @@ def real(data_root, version, cid="stage3-real"):
     promoted_a, holdout_a = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_a}), results)
     promoted_b, holdout_b = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_b}), results)
     result = {"id": cid, "version": int(version), "label": LABEL, "qualifications": "PROGRESS.md, Qualifications, stage 3", "agent_run": run, "audit": audit_run(work / "run", ledger, cid),
+              "bankrupt": gate.bankrupt(ledger),
               "A": {"evaluations": run["spent"], "search": report_a, "mechanism": mech, "kept": list(kept_a),
                     "holdout": holdout_a, "promoted": promoted_a},
               "B": {"evaluations": spent_b, "search": report_b, "kept": list(kept_b), "holdout": holdout_b,
