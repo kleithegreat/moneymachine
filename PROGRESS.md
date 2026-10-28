@@ -15,6 +15,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
   2. **Stage 3:** the erasure pass is done and proven (Python 12,365 to 12,333 lines with the pacing below, baseline 12,350; `audit/erasure/`: 32 r2 campaigns reproduced byte for byte on the cluster from the erased image, the corpus differential equal to test 7's, the suite with 17 mutants caught). The harness is frozen (`audit/stage3/harness.json`; its hash now covers the `claude` build's store path, checked before every campaign). Every promotion of the real campaign is qualified "historical holdout, costs fitted after it", and every campaign reports evaluations reaching −B (criteria, stage 3). The archive cost table lapsed (`audit/stage3/archive-equivalence.json`), so stage 3 uses C0.7's table with its qualification. Next: `agent-null agent 20` (C3.2, holdout from day 670 of 730), then `agent-summary`, then the real two-arm campaign (`agent-real`, C3.3/C3.4) with one joint holdout release on [2026-08-01, 2026-09-30). It is a pipeline validation run, not a test for edge; its promotions are confirmed only on [2026-11-01, 2027-01-31).
      - **Pacing** (`audit/decisions.md`): a campaign starts only when every subscription window has room for the most a recorded campaign used, at most 0.8 utilization. At 14:12 UTC (10:12 EDT) on 2026-10-28 the seven-day window stood at 0.90, resetting 2026-11-01 05:00 UTC (01:00 EDT), so the series waits for that reset. This session draws on the same window, so it spends sparingly until then.
      - **The thesis track's harness has the same gap:** its frozen manifest does not cover the `claude` build, which comes from the system profile and is resolved at every session. A system update of `claude-code` (now 2.1.304) would change the track's agent without a new track version. Closing it means a new track version (stage 10's call at its next freeze); until then, holding the system's `claude-code` keeps both tracks unchanged.
+  2a. **The move to the cluster** (human, 2026-10-28): the recorders, `thesis-run` and stage 3's series move to namespace `moneymachine-live` on the homelab cluster (`CLUSTER.md`). The design keeps bubblewrap inside user-namespaced runner pods, so stage 3's freeze and the thesis track's version stand, unless the credential gate fails. GPT reviewed it twice (`audit/cluster/`): the first design (session pods as the sandbox) was rejected, and the redesign leaves only build-time gates. It waits on the human's review of the design and of the two decisions below. The homelab advisor builds `CLUSTER.md` section 1. Stage 3's series was stopped before its first campaign (empty log, no campaign directory) and starts in the cluster.
   3. **Stage 4:** `agent-null swarm 10` after stage 3's series.
 - **Stages 1, 2, 5, 6, 10.**
   - **Stage 1:** done 2026-10-26. Every criterion's evidence ran at clean commit dbe192b (`audit/stage1/c1*.txt`), and GPT's five exit reviews (`audit/stage1/exit-review-gpt-1.md` to `-5.md`) found C1.1 to C1.8 met. Along the way: a second red-team round, admitted programs split from the rejection suite, complete hand-computed accounts, the full ordered trace compared in C1.4, GPT's checker reimplemented from the paper and INVARIANTS.md alone, and production costs in the canary.
@@ -75,7 +76,15 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 Only decisions that could affect a statistical result or leakage, or that touch the hard limits. Others go straight to `audit/decisions.md`.
 
-None.
+- **Credentials to the homelab** (`CLUSTER.md` sections 1 and 3). The human writes them as SOPS files, and Flux renders them as Secrets in `moneymachine-live`:
+  - the Cornell account's CLI credential (from `claude setup-token`), for the thesis and series runners and their sessions;
+  - `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT` for the datalayer recorder.
+  Nothing else moves: no `DATABENTO_API_KEY`, no FRED key. Reverse by deleting the Secrets and running the workloads back on this PC.
+- **C5.3, revision "hosts"**, to append before the cluster recorders start:
+  - **Hosts:** a source's recorder may run on several named hosts (this PC, the cluster, and for Hyperliquid the Oracle VM), effective from a stated UTC instant.
+  - **Coverage:** an interval is covered only between two consecutive successful, complete, clock-valid polls of one host no further apart than the source's cadence (at most 5 min). Every interval no host covers is a gap, whatever was backfilled later, and the first start stays the original.
+  - **History:** failures before the effective instant stand; a fresh 72 h segment after it must satisfy C5.3.
+  - **Report:** the original single-host result and the revised one, side by side.
 
 ## Qualifications
 
