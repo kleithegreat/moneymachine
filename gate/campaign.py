@@ -1,9 +1,5 @@
-"""One baseline-searcher campaign on a simulated market: market -> searcher -> gate -> holdout.
-
-A campaign runs in its own directory, whose existence marks it started. Its ledger is kept there, xz-compressed,
-with the holdout's spent record; the simulated market is deleted, since its id regenerates it. A crash is recorded
-as a result with "crash" set, and counts as a promotion; so does a campaign started and never recorded.
-"""
+"""One baseline-searcher campaign on a simulated market (market -> searcher -> gate -> holdout), in a directory whose
+existence marks it started; a crash, or a start never recorded, counts as a promotion."""
 
 import fcntl
 import json

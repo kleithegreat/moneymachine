@@ -19,7 +19,6 @@ DSR_MIN = 0.95
 BLOCK = 6
 REPS = 1000
 LOSS_BOUND = 1.0
-EULER = 0.5772156649015329
 
 
 def dsr(returns, n_trials):
@@ -40,8 +39,8 @@ def dsr(returns, n_trials):
         s = r.mean() / sd
         z = (r - r.mean()) / r.std(ddof=0)
         skew, kurt = (z**3).mean(), (z**4).mean()
-        s0 = 0.0 if n_trials <= 1 else ((1 - EULER) * norm.ppf(1 - 1 / n_trials)
-                                        + EULER * norm.ppf(1 - 1 / (n_trials * np.e))) / np.sqrt(t - 1)
+        s0 = 0.0 if n_trials <= 1 else ((1 - np.euler_gamma) * norm.ppf(1 - 1 / n_trials)
+                                        + np.euler_gamma * norm.ppf(1 - 1 / (n_trials * np.e))) / np.sqrt(t - 1)
         var = 1 - skew * s + (kurt - 1) / 4 * s**2
         if var <= 1e-12 * (1 + abs(skew * s) + (kurt - 1) / 4 * s**2):
             return 0.0

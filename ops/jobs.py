@@ -218,8 +218,9 @@ def resubmit(run):
 UNPACK_BYTES = 200_000_000
 
 
-def collect(*runs):
-    """A Job and its retries: every id once, each ledger on the record's kernel."""
+def collect(*runs, out=None):
+    """A Job and its retries, into `out` (the campaigns directory by default): every id once, each ledger on the
+    record's kernel."""
     from functools import partial
     from multiprocessing import Pool
 
@@ -240,11 +241,12 @@ def collect(*runs):
             found[cid] = p
     if set(found) != set(planned):
         raise SystemExit(f"missing {len(set(planned) - set(found))}, unplanned {len(set(found) - set(planned))}")
-    target = sw.OUT / f"{sweep_name}.jsonl"
+    out = Path(out or sw.OUT)
+    target = out / f"{sweep_name}.jsonl"
     if target.exists():
         raise SystemExit(f"{target} exists")
     with Pool(compute.workers(UNPACK_BYTES)) as pool:
-        rows = pool.map(partial(unpack, dest=sw.OUT / sweep_name, mm=mm), sorted(found.items()))
+        rows = pool.map(partial(unpack, dest=out / sweep_name, mm=mm), sorted(found.items()))
     target.write_text("".join(json.dumps(r) + "\n" for r in rows))
     print(json.dumps({"collected": len(rows), "file": str(target)}))
 

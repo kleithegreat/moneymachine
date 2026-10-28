@@ -1,7 +1,5 @@
-"""The holdout test's locked calibration v3 (audit/criteria.md, stage 2, revision of 2026-10-21): GPT's suite of
-null series (gate/null_suite.py, implemented from the spec alone), each cell (generator x length) of 20,000
-series scored once by the betting p-value. Finished cells are kept in a work file, so a run resumes.
-"""
+"""The holdout test's locked calibration: each cell (generator x length) of gate/null_suite.py's 20,000 null series
+scored once by the betting p-value; finished cells are kept in a work file, so a run resumes."""
 
 import json
 from pathlib import Path

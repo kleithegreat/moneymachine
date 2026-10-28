@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Pulls the cloud recorder's files into data/live-oci/<instance id>/{live,clock,datalayer,sources_live}/ (ops/oci/provision.sh). Append-only:
-# nothing here is ever deleted or truncated, and a recreated VM lands in a new directory. A failed pull (for
-# example after this PC's public IP changes, which the VM's firewall checks) adds one line under PROGRESS.md's
-# Blockers; the next good pull removes it.
+# Pulls the cloud recorder's files into data/live-oci/<instance id>/, append-only; a failed pull adds a line under
+# PROGRESS.md's Blockers, which the next good pull removes.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 . data/live-oci/host.env

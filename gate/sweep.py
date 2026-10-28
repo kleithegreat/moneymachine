@@ -1,11 +1,5 @@
-"""Sweeps of baseline-searcher campaigns on simulated markets: the complete null, mixed markets with
-planted signals (with the oracle's beta calibrated to a target Sharpe, and each promotion judged
-true or false on fresh years), and the complete null with real event counts replayed.
-
-Every campaign result is appended to data/campaigns/<sweep>.jsonl and never rewritten, and each campaign keeps
-its ledger in data/campaigns/<sweep>/<id>/. A rerun skips ids already recorded and records a started, unrecorded
-campaign as a crash, so sweeps resume after an interruption. Campaign ids are committed: seeds derive from them.
-"""
+"""Sweeps of baseline-searcher campaigns on simulated markets: the complete null, mixed markets with planted signals
+(the oracle's beta calibrated to a target, each promotion judged on fresh years), and the null with real event counts."""
 
 import json
 import math
@@ -26,12 +20,11 @@ from gate.kernel import command
 from gate.markets import generate, null_params, store_events, write
 
 OUT = Path("data/campaigns")
-# The sweeps' round, carried by every campaign id, so a rerun after a gate or null change draws fresh markets
-# (audit/criteria.md, stage 2, Runs). r2: the rerun under the screen's revision of 2026-10-27.
+# The sweeps' round, carried by every campaign id, so a rerun after a gate or null change draws fresh markets.
 ROUND = "r2"
 PLANTED = (0, 1)
 DAYS, HOLDOUT_DAYS = 730, 180
-LONG_DAYS, LONG_HOLDOUT_DAYS, LONG_MEAN, LONG_YEARS = 1450, 900, 0.002, 2  # C2.6's long-holdout cell (amendment of 2026-10-26)
+LONG_DAYS, LONG_HOLDOUT_DAYS, LONG_MEAN, LONG_YEARS = 1450, 900, 0.002, 2  # C2.6's long-holdout cell
 TRUTH_MARKETS, TRUTH_YEARS = 20, 10
 ORACLE = Path("gate/strategies/oracle.json")
 PER_YEAR = 365 * 6
@@ -61,9 +54,8 @@ def require_frozen_searcher():
         raise SystemExit(f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change")
 
 
-# Peak memory per task with mm 3a732069 (columnar loader), measured 2026-10-27, with margin: a campaign (684 MiB for the
-# long cell with 80 finalists through the holdout; 533 MiB for a null one) and one ten-year market's evaluation (936
-# MiB, as in calibration and truth).
+# Peak memory per task, measured, with margin: a campaign (684 MiB for the long cell with 80 finalists through the
+# holdout) and one ten-year market's evaluation (936 MiB, as in calibration and truth).
 CAMPAIGN_BYTES, CALIBRATION_BYTES = 1_000_000_000, 1_300_000_000
 
 
@@ -166,15 +158,10 @@ def bisect(key, f, target, lo, hi, steps):
     return (lo + hi) / 2
 
 
-def oracle_sharpe_for(model, target):
-    return lambda b: oracle_sharpe(model, b, f"cal{target}")
-
-
-# The s = 3 cells (audit/decisions.md, 2026-10-27): N2's oracle reaches Sharpe 3 only above 0.05, so its range is
-# [0, 0.08]; N3's cannot reach 3, so its cell is amended to s = 2.5 on [0.044, 0.06] (criteria, C2.5).
-CALIBRATIONS = {**{f"{m}-s{s}": (oracle_sharpe_for(m, s), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2)},
-                "N2-s3": (oracle_sharpe_for("N2", 3), 3, 0.0, 0.08, 12),
-                "N3-s3": (oracle_sharpe_for("N3", 2.5), 2.5, 0.044, 0.06, 12),
+# N2's oracle reaches Sharpe 3 only above 0.05, so its s3 range is [0, 0.08]; N3's never reaches 3, so its cell is 2.5.
+CALIBRATIONS = {**{f"{m}-s{s}": (partial(oracle_sharpe, m, tag=f"cal{s}"), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2)},
+                "N2-s3": (partial(oracle_sharpe, "N2", tag="cal3"), 3, 0.0, 0.08, 12),
+                "N3-s3": (partial(oracle_sharpe, "N3", tag="cal2.5"), 2.5, 0.044, 0.06, 12),
                 "N2-long": (oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
 
 

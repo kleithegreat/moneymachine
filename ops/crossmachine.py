@@ -7,9 +7,8 @@
 `compare` requires, per id, equal result rows except `seconds`, and equal ledgers: every table, every row in key
 order, every column except the wall-clock `created`, blobs byte for byte. `compare-kernel` also ignores the kernel
 identity (the `kernel` and `identity` columns and the disclosures' `identity`), for comparing two kernel builds.
-`reproduce` reruns first-round campaigns' searches on regenerated markets with the current `mm` (CARGO_TARGET_DIR
-picks a candidate build) and compares each ledger with the recorded one as `compare-kernel` does: the first round
-froze no finalist, so its ledgers hold exactly the search phase, all kernel output."""
+`reproduce` reruns first-round campaigns' searches with the current `mm` (CARGO_TARGET_DIR picks a candidate build) and
+compares each ledger with the recorded one as `compare-kernel` does; their ledgers hold only kernel output."""
 
 import json
 import lzma

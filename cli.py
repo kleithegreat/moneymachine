@@ -5,7 +5,6 @@ in the arguments are written by the function.
 """
 
 import argparse
-import importlib
 import importlib.util
 import json
 import os
@@ -15,8 +14,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent
 
 
-# Peak memory of a pytest worker and of the kernel's cargo tests, measured 2026-10-27 (2,294 MiB for six workers,
-# about 360 each; 203 MiB), with margin.
+# Peak memory of a pytest worker (about 360 MiB measured) and of the kernel's cargo tests (203 MiB), with margin.
 PYTEST_BYTES, CARGO_BYTES = 450_000_000, 300_000_000
 
 

@@ -1,16 +1,8 @@
-"""Agent campaigns: the single sandboxed research agent (arm A) and the swarm, on null markets as smoke
-tests, and the one real campaign (arm A against the G100 searcher, one holdout batch).
-
-Agent runs spend a usage-limited subscription, and an interrupted campaign still counts, so null
-series are resumable and paced: a campaign starts only after a tiny model call succeeds, campaign
-starts are SPACING apart, and a rerun skips recorded ids. A campaign whose work directory exists
-without a recorded result was started and interrupted, and is recorded as a crash. Every runner
-refuses a harness that differs from the frozen one.
-"""
+"""Agent campaigns: the sandboxed research agent (arm A) and the swarm on null markets as smoke tests, and the one
+real campaign (arm A against the G100 searcher, one holdout batch); null series are paced and resumable."""
 
 import json
 import sqlite3
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -24,10 +16,8 @@ from sandbox import session
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "data" / "agent"
 FROZEN = REPO / "audit/stage3/harness.json"
-BUDGET = 100
-NULL_DAYS, NULL_HOLDOUT_DAYS = 730, 180
-REPORT_FROM_DAY = {"agent": 670, "swarm": 640}  # C3.2 as revised on 2026-10-23; C4.5 as frozen
-REAL_REPORT_FROM = 1785542400000  # 2026-08-01: a month after the agent model's June 2026 cutoff (stage 3 revision of 2026-10-23)
+REPORT_FROM_DAY = {"agent": 670, "swarm": 640}
+REAL_REPORT_FROM = 1785542400000  # 2026-08-01, a month after the agent model's knowledge cutoff
 LABEL = "pipeline validation run, not a test for edge (stage 3 revision of 2026-10-23)"
 MIN_SWARM_EVALUATIONS = 200
 SPACING = 5 * 3600
@@ -83,11 +73,11 @@ def screened(market, ledger, campaign, agent=None):
 
 
 def arm_a(market, ledger, campaign, run_dir):
-    return harness.run_agent(market, ledger, campaign, run_dir, budget=BUDGET), *screened(market, ledger, campaign, "A")
+    return harness.run_agent(market, ledger, campaign, run_dir), *screened(market, ledger, campaign, "A")
 
 
 def null_market(cid, cost_cells):
-    return markets.write(OUT / cid / "m", markets.generate("N2", markets.null_params()["N2"], cid, NULL_DAYS), NULL_HOLDOUT_DAYS, cost_cells)
+    return markets.write(OUT / cid / "m", markets.generate("N2", markets.null_params()["N2"], cid, sweep.DAYS), sweep.HOLDOUT_DAYS, cost_cells)
 
 
 def agent_null(cid, cost_cells):

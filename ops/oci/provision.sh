@@ -1,18 +1,6 @@
 #!/usr/bin/env bash
-# The second Hyperliquid recorder (human decision 2026-10-23), on Oracle Cloud's Always Free tier.
-# - This script creates the VM in the tenancy's home region (us-ashburn-1) from Always Free resources only:
-#   VCN, internet gateway and subnet, with SSH open only from this PC's current public IP. It tries
-#   VM.Standard.A1.Flex (1 OCPU, 6 GB) in each availability domain, then VM.Standard.E2.1.Micro. It is idempotent
-#   by display name. Run as: nix develop .#cloud -c ops/oci/provision.sh
-# - A budget, mm-free-tier-guard ($1 a month), alerts on actual or forecast spend of $1.
-# - cloud-init.yaml installs nix and swap, creates the `mm` user with its own read-only GitHub deploy key, and
-#   installs mm-recorder.service: the same recorder code at 600/min, the stage 0 budget, half its own IP's limit, restarted on failure, with a memory cap. Its
-#   pidfile is /home/mm/live/recorder.json.
-# - The VM never connects to this PC. This PC pulls the VM's files every 10 minutes (pull.sh, mm-oci-pull.timer)
-#   into data/live-oci/<instance id>/, append-only, never deleting or truncating.
-# - Idle reclamation: Oracle may reclaim an Always Free instance that stays idle for 7 days, and a recorder is
-#   mostly idle. Load is never padded to avoid that. If the VM disappears, every pulled file stays here, and a
-#   recreated VM (this script again) lands in a new directory.
+# Creates the cloud Hyperliquid recorder's VM on Oracle's Always Free tier (VCN, gateway, subnet with SSH from this
+# PC's IP; A1.Flex, else E2.1.Micro; a $1 budget alert), idempotent by display name: nix develop .#cloud -c ops/oci/provision.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 T=$(sed -n 's/^tenancy=//p' ~/.oci/config)
@@ -37,8 +25,7 @@ INST=$(oci compute instance list -c "$T" --display-name mm-recorder --lifecycle-
 if [ -z "$INST" ]; then
   for AD in $(oci iam availability-domain list --query 'data[].name' --raw-output | tr -d '[]",'); do
     for SHAPE in VM.Standard.A1.Flex VM.Standard.E2.1.Micro; do
-      OS_SHAPE=$SHAPE
-      IMG=$(oci compute image list -c "$T" --operating-system "Canonical Ubuntu" --operating-system-version "24.04" --shape "$OS_SHAPE" --sort-by TIMECREATED --query 'data[0].id' --raw-output)
+      IMG=$(oci compute image list -c "$T" --operating-system "Canonical Ubuntu" --operating-system-version "24.04" --shape "$SHAPE" --sort-by TIMECREATED --query 'data[0].id' --raw-output)
       CFG=$([ "$SHAPE" = VM.Standard.A1.Flex ] && echo '--shape-config {"ocpus":1,"memoryInGBs":6}' || true)
       INST=$(oci compute instance launch -c "$T" --availability-domain "$AD" --display-name mm-recorder --shape "$SHAPE" $CFG \
         --image-id "$IMG" --subnet-id "$SUB" --assign-public-ip true --ssh-authorized-keys-file "$KEY.pub" \

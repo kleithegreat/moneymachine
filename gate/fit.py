@@ -17,13 +17,6 @@ from ingest.store import Store
 MIN_BARS = 1000
 
 
-def frames(data_root, version):
-    store = Store(Path(data_root) / "store")
-    bars = store.as_of("bars_4h", HOLDOUT_START, version).to_pandas()
-    funding = store.as_of("funding", HOLDOUT_START, version).to_pandas()
-    return bars, funding
-
-
 def bar_innovations(bars, funding, coins):
     """r = c/o - 1 - (f1 + f2 + f3) - f4 c/o per coin and bar (the generator's epsilon, inverted)."""
     f = funding.pivot(index="eventTime", columns="coin", values="fundingRate")
@@ -50,7 +43,9 @@ def mean_pairwise_corr(df):
 
 
 def fit(data_root, version, coins):
-    bars, funding = frames(data_root, version)
+    store = Store(Path(data_root) / "store")
+    bars = store.as_of("bars_4h", HOLDOUT_START, version).to_pandas()
+    funding = store.as_of("funding", HOLDOUT_START, version).to_pandas()
     r = bar_innovations(bars, funding, coins)
     long_enough = [c for c in coins if r[c].count() >= MIN_BARS]
     garch, z = {}, {}
