@@ -1,11 +1,9 @@
-"""Cross-machine bit-identity of null campaigns (`audit/crossmachine/freeze.md`).
+"""Bit-identity of campaigns across machines and kernel builds (`audit/crossmachine/freeze.md`).
 
-    python ops/crossmachine.py run <out_dir> <id>...        run campaigns <id> (null, or the mixed test specs) into <out_dir>
     python ops/crossmachine.py compare <a.jsonl> <a_dir> <b.jsonl> <b_dir> <id>...
     python ops/crossmachine.py compare-kernel <a.jsonl> <a_dir> <b.jsonl> <b_dir> <id>...   ignoring the kernel identity
     python ops/crossmachine.py reproduce <out_dir> <id>...   first-round campaigns' search phase against their records
 
-`run` writes <out_dir>.jsonl as the sweep does, plus <out_dir>.machine.json (CPU flags, numpy's SIMD dispatch).
 `compare` requires, per id, equal result rows except `seconds`, and equal ledgers: every table, every row in key
 order, every column except the wall-clock `created`, blobs byte for byte. `compare-kernel` also ignores the kernel
 identity (the `kernel` and `identity` columns and the disclosures' `identity`), for comparing two kernel builds.
@@ -15,7 +13,6 @@ froze no finalist, so its ledgers hold exactly the search phase, all kernel outp
 
 import json
 import lzma
-import platform
 import sqlite3
 import sys
 import tempfile
@@ -24,34 +21,6 @@ from multiprocessing import Pool
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-
-def specs():
-    """The null sweep's specs, and the mixed path's test specs: the mixed sweep's cells under ids `xm-…` (never judged)
-    with fixed test betas, the long-holdout cell included."""
-    from gate import sweep
-    test_betas = {f"{m}-s{k}": 0.01 * k for m in ("N2", "N3") for k in (1, 2, 3)} | {"N2-long": 0.1}
-    mixed = [s | {"id": "xm-" + s["id"].split("-", 1)[1]} for s in sweep.mixed_specs(test_betas, markets=1)]
-    return sweep.null_specs() + mixed
-
-
-def run(out_dir, *ids):
-    import numpy
-    from numpy._core._multiarray_umath import __cpu_dispatch__, __cpu_features__
-    from gate import campaign, compute, sweep
-    sweep.require_frozen_searcher()
-    out = Path(out_dir)
-    chosen = [s for s in specs() if s["id"] in ids]
-    flags = next((l.split(":", 1)[1].split() for l in open("/proc/cpuinfo") if l.startswith("flags")), [])
-    out.with_suffix(".machine.json").write_text(json.dumps({
-        "node": platform.node(), "cpu": next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), ""),
-        "avx512": sorted(f for f in flags if f.startswith("avx512")), "numpy": numpy.__version__,
-        "numpy_dispatch": [f for f in __cpu_dispatch__ if __cpu_features__.get(f)]}, indent=1) + "\n")
-    with Pool(compute.workers(sweep.CAMPAIGN_BYTES)) as pool, open(out.with_suffix(".jsonl"), "a") as fh:
-        for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), chosen):
-            fh.write(json.dumps(r) + "\n")
-            fh.flush()
-            print(r["id"], r["seconds"], flush=True)
 
 
 def rows(ledger_xz, ignore=("created",)):
@@ -111,5 +80,5 @@ def reproduce_one(spec, out_dir):
 
 
 if __name__ == "__main__":
-    {"run": run, "compare": compare, "reproduce": reproduce,
+    {"compare": compare, "reproduce": reproduce,
      "compare-kernel": partial(compare, ignore=("created", "kernel", "identity"))}[sys.argv[1]](*sys.argv[2:])

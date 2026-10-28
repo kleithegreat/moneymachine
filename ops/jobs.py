@@ -62,14 +62,12 @@ def push():
 
 
 def campaign_specs(sweep):
-    """A sweep's specs: `null`, `mixed`, or `xm`, the never-judged mixed test specs of ops/crossmachine.py."""
+    """A sweep's specs: `null`, `mixed`, or `xm`, the mixed cells under ids `xm-…` with fixed test betas, never judged."""
     from gate import sweep as sw
 
     if sweep == "xm":
-        sys.path.insert(0, str(REPO / "ops"))
-        import crossmachine
-
-        return [s for s in crossmachine.specs() if s["id"].startswith("xm-")]
+        betas = {f"{m}-s{k}": 0.01 * k for m in ("N2", "N3") for k in (1, 2, 3)} | {"N2-long": 0.1}
+        return [s | {"id": "xm-" + s["id"].split("-", 1)[1]} for s in sw.mixed_specs(betas, markets=1)]
     return sw.null_specs() if sweep == "null" else sw.mixed_specs(json.loads((sw.OUT / "betas.json").read_text()))
 
 
@@ -214,12 +212,16 @@ def resubmit(run):
         submit(retry, record["sweep"], record["image"], record["node"], missing)
 
 
+# Peak memory of unpacking one campaign: its decompressed ledger (25 MB the largest, held twice) and an interpreter.
+UNPACK_BYTES = 200_000_000
+
+
 def collect(*runs):
     """A Job and its retries: every id once, each ledger on the record's kernel."""
-    import lzma
-    import sqlite3
-    import tempfile
+    from functools import partial
+    from multiprocessing import Pool
 
+    from gate import compute
     from gate import sweep as sw
 
     records = [json.loads((RESULTS / r / "record.json").read_text()) for r in runs]
@@ -239,24 +241,33 @@ def collect(*runs):
     target = sw.OUT / f"{sweep_name}.jsonl"
     if target.exists():
         raise SystemExit(f"{target} exists")
-    rows = []
-    for cid in sorted(found):
-        with tarfile.open(found[cid]) as tar:
-            rows.append(json.loads(tar.extractfile("result.json").read()))
-            dest = sw.OUT / sweep_name / cid
-            dest.mkdir(parents=True, exist_ok=True)
-            for m in tar.getmembers():
-                if m.name != "result.json":
-                    (dest / m.name).write_bytes(tar.extractfile(m).read())
-        ledger = sw.OUT / sweep_name / cid / "ledger.sqlite.xz"
-        if ledger.exists():
-            with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
-                f.write(lzma.decompress(ledger.read_bytes()))
-                f.flush()
-                if {k for (k,) in sqlite3.connect(f.name).execute("select distinct kernel from experiments")} - {mm}:
-                    raise SystemExit(f"{cid}: a kernel other than the record's")
+    with Pool(compute.workers(UNPACK_BYTES)) as pool:
+        rows = pool.map(partial(unpack, dest=sw.OUT / sweep_name, mm=mm), sorted(found.items()))
     target.write_text("".join(json.dumps(r) + "\n" for r in rows))
     print(json.dumps({"collected": len(rows), "file": str(target)}))
+
+
+def unpack(item, dest, mm):
+    """One campaign's tar into `dest`/<id>/, its ledger checked to carry the record's kernel; returns its result."""
+    import lzma
+    import sqlite3
+    import tempfile
+
+    cid, path = item
+    with tarfile.open(path) as tar:
+        row = json.loads(tar.extractfile("result.json").read())
+        (dest / cid).mkdir(parents=True, exist_ok=True)
+        for m in tar.getmembers():
+            if m.name != "result.json":
+                (dest / cid / m.name).write_bytes(tar.extractfile(m).read())
+    ledger = dest / cid / "ledger.sqlite.xz"
+    if ledger.exists():
+        with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
+            f.write(lzma.decompress(ledger.read_bytes()))
+            f.flush()
+            if {k for (k,) in sqlite3.connect(f.name).execute("select distinct kernel from experiments")} - {mm}:
+                raise SystemExit(f"{cid}: a kernel other than the record's")
+    return row
 
 
 def join():
