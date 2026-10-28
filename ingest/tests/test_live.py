@@ -63,5 +63,7 @@ def test_recording_writes_the_pidfile_with_out_dir_among_the_arguments(tmp_path)
         rec = json.loads((tmp_path / live.PIDFILE).read_text())
         assert rec == {"pid": os.getpid(), "command": "sources-record", "args": {"out_dir": str(tmp_path)}}
         assert not stop.is_set()
+        with pytest.raises(SystemExit):
+            live.recording(tmp_path, "sources-record", out_dir=str(tmp_path))
     finally:
         signal.signal(signal.SIGTERM, before)

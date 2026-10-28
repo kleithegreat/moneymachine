@@ -1,6 +1,7 @@
 """Live recordings: the clock the recorders stamp with, the writer and reader of their day JSONL files, and
 each recorder's pidfile, through which `restart` stops it between polls and starts it again."""
 
+import fcntl
 import json
 import os
 import signal
@@ -37,10 +38,16 @@ def read(live_dir, prefix):
 
 
 def recording(out_dir, command, /, **args):
-    """Record this recorder's pid, CLI command and arguments in `out_dir`; SIGTERM sets the returned event."""
+    """Hold `out_dir`'s writer lock (exiting if another recorder holds it) and record this recorder's pid, CLI command
+    and arguments there; SIGTERM sets the returned event."""
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     Path(out_dir).mkdir(parents=True, exist_ok=True)
+    stop.lock = open(Path(out_dir) / ".writer.lock", "w")
+    try:
+        fcntl.flock(stop.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.exit(f"{out_dir} has a running writer")
     (Path(out_dir) / PIDFILE).write_text(json.dumps({"pid": os.getpid(), "command": command, "args": args}) + "\n")
     return stop
 

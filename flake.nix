@@ -75,11 +75,14 @@
         # staged beside it as a content-addressed input, never built here (its identity embeds its build path).
         # The live workloads (CLUSTER.md) run agent sessions in bubblewrap, which binds /bin and /usr into the sandbox:
         # those hold only /bin/sh and /usr/bin/env, as on the dev hosts, and every tool is on PATH. The Nix database
-        # serves the sandbox's closure query, read-only.
-        image = pkgs.dockerTools.buildLayeredImageWithNixDb {
+        # serves the sandbox's closure query, read-only; the tools reach it through a file naming them.
+        image = let
+          tools = with pkgs; [ (pythonFor pkgs) coreutils util-linux self.packages.${system}.claude-code bubblewrap sqlite
+                               rsync restic nix ];
+        in pkgs.dockerTools.buildLayeredImageWithNixDb {
           name = "moneymachine";
           tag = self.shortRev or "dirty";
-          contents = [ pkgs.dockerTools.binSh pkgs.dockerTools.usrBinEnv ];
+          contents = [ pkgs.dockerTools.binSh pkgs.dockerTools.usrBinEnv (pkgs.writeTextDir "share/tools" (toString tools)) ];
           extraCommands = "mkdir -p app scratch tmp && cp -r ${self} app/repo";
           config = {
             User = "1000:100";
@@ -88,8 +91,8 @@
               "HOME=/scratch"
               "PYTHONDONTWRITEBYTECODE=1"
               "NIX_REMOTE=local?read-only=true"
-              "PATH=${pkgs.lib.makeBinPath (with pkgs; [ (pythonFor pkgs) coreutils util-linux self.packages.${system}.claude-code
-                                                         bubblewrap sqlite rsync restic nix ])}"
+              "NIX_CONFIG=extra-experimental-features = read-only-local-store"
+              "PATH=${pkgs.lib.makeBinPath tools}:/bin:/usr/bin"
             ];
           };
         };
