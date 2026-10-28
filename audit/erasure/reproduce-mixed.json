@@ -1,0 +1,61 @@
+{
+ "identical": true,
+ "campaigns": {
+  "c25r2-N2-s1-0": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N2-s1-50": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N2-s2-0": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N2-s2-50": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N2-s3-0": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N2-s3-50": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N3-s1-0": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N3-s1-50": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N3-s2-0": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N3-s2-50": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N3-s3-0": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N3-s3-50": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N2-long-0": {
+   "result": true,
+   "ledger": true
+  },
+  "c25r2-N2-long-5": {
+   "result": true,
+   "ledger": true
+  }
+ }
+}
