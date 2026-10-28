@@ -21,6 +21,7 @@ import lzma
 import shutil
 import sys
 import tempfile
+from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 
