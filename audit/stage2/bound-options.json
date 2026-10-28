@@ -1,0 +1,1248 @@
+{
+ "label": "development diagnostic on the first round's campaigns; not evidence",
+ "floor": "returns floored at -B stand in for a kernel stop or an isolated margin",
+ "options": {
+  "B=1.0": {
+   "null": {
+    "n": 900,
+    "binding_steps": 0,
+    "steps": 971100,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    }
+   },
+   "N2-long": {
+    "n": 94,
+    "binding_steps": 0,
+    "steps": 80817631,
+    "frozen": {
+     "promoting": 6,
+     "with_true": 5,
+     "unknown": 0,
+     "fdr": 0.01,
+     "power": 0.05
+    },
+    "best": {
+     "promoting": 2,
+     "with_true": 0,
+     "unknown": 2,
+     "fdr": 0.02,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 6,
+     "with_true": 1,
+     "unknown": 5,
+     "fdr": 0.05,
+     "power": 0.01
+    }
+   },
+   "N2-s1": {
+    "n": 6,
+    "binding_steps": 0,
+    "steps": 195299,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s2": {
+    "n": 29,
+    "binding_steps": 0,
+    "steps": 1355224,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s3": {
+    "n": 84,
+    "binding_steps": 0,
+    "steps": 8679476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s1": {
+    "n": 3,
+    "binding_steps": 0,
+    "steps": 47476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s2": {
+    "n": 25,
+    "binding_steps": 0,
+    "steps": 1304511,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s3": {
+    "n": 49,
+    "binding_steps": 0,
+    "steps": 3705286,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   }
+  },
+  "B=0.2": {
+   "null": {
+    "n": 900,
+    "binding_steps": 4,
+    "steps": 971100,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    }
+   },
+   "N2-long": {
+    "n": 94,
+    "binding_steps": 5345,
+    "steps": 80817631,
+    "frozen": {
+     "promoting": 91,
+     "with_true": 60,
+     "unknown": 0,
+     "fdr": 0.31,
+     "power": 0.6
+    },
+    "best": {
+     "promoting": 53,
+     "with_true": 1,
+     "unknown": 51,
+     "fdr": 0.52,
+     "power": 0.01
+    },
+    "clusters": {
+     "promoting": 89,
+     "with_true": 19,
+     "unknown": 64,
+     "fdr": 0.7,
+     "power": 0.19
+    }
+   },
+   "N2-s1": {
+    "n": 6,
+    "binding_steps": 0,
+    "steps": 195299,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s2": {
+    "n": 29,
+    "binding_steps": 0,
+    "steps": 1355224,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s3": {
+    "n": 84,
+    "binding_steps": 0,
+    "steps": 8679476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s1": {
+    "n": 3,
+    "binding_steps": 0,
+    "steps": 47476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s2": {
+    "n": 25,
+    "binding_steps": 0,
+    "steps": 1304511,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s3": {
+    "n": 49,
+    "binding_steps": 1,
+    "steps": 3705286,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   }
+  },
+  "B=0.1": {
+   "null": {
+    "n": 900,
+    "binding_steps": 39,
+    "steps": 971100,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    }
+   },
+   "N2-long": {
+    "n": 94,
+    "binding_steps": 37448,
+    "steps": 80817631,
+    "frozen": {
+     "promoting": 94,
+     "with_true": 60,
+     "unknown": 0,
+     "fdr": 0.34,
+     "power": 0.6
+    },
+    "best": {
+     "promoting": 86,
+     "with_true": 1,
+     "unknown": 84,
+     "fdr": 0.85,
+     "power": 0.01
+    },
+    "clusters": {
+     "promoting": 93,
+     "with_true": 17,
+     "unknown": 70,
+     "fdr": 0.76,
+     "power": 0.17
+    }
+   },
+   "N2-s1": {
+    "n": 6,
+    "binding_steps": 0,
+    "steps": 195299,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s2": {
+    "n": 29,
+    "binding_steps": 0,
+    "steps": 1355224,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s3": {
+    "n": 84,
+    "binding_steps": 8,
+    "steps": 8679476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s1": {
+    "n": 3,
+    "binding_steps": 0,
+    "steps": 47476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s2": {
+    "n": 25,
+    "binding_steps": 2,
+    "steps": 1304511,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s3": {
+    "n": 49,
+    "binding_steps": 16,
+    "steps": 3705286,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   }
+  },
+  "B=0.05": {
+   "null": {
+    "n": 900,
+    "binding_steps": 407,
+    "steps": 971100,
+    "frozen": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "rate": 0.0011111111111111111
+    },
+    "best": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "rate": 0.0011111111111111111
+    },
+    "clusters": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "rate": 0.0011111111111111111
+    }
+   },
+   "N2-long": {
+    "n": 94,
+    "binding_steps": 142165,
+    "steps": 80817631,
+    "frozen": {
+     "promoting": 94,
+     "with_true": 63,
+     "unknown": 0,
+     "fdr": 0.31,
+     "power": 0.63
+    },
+    "best": {
+     "promoting": 94,
+     "with_true": 1,
+     "unknown": 92,
+     "fdr": 0.93,
+     "power": 0.01
+    },
+    "clusters": {
+     "promoting": 94,
+     "with_true": 17,
+     "unknown": 75,
+     "fdr": 0.77,
+     "power": 0.17
+    }
+   },
+   "N2-s1": {
+    "n": 6,
+    "binding_steps": 30,
+    "steps": 195299,
+    "frozen": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.01,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "fdr": 0.01,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "fdr": 0.01,
+     "power": 0.0
+    }
+   },
+   "N2-s2": {
+    "n": 29,
+    "binding_steps": 7,
+    "steps": 1355224,
+    "frozen": {
+     "promoting": 1,
+     "with_true": 1,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.01
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "fdr": 0.01,
+     "power": 0.0
+    }
+   },
+   "N2-s3": {
+    "n": 84,
+    "binding_steps": 325,
+    "steps": 8679476,
+    "frozen": {
+     "promoting": 16,
+     "with_true": 16,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.16
+    },
+    "best": {
+     "promoting": 4,
+     "with_true": 0,
+     "unknown": 4,
+     "fdr": 0.04,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 9,
+     "with_true": 3,
+     "unknown": 6,
+     "fdr": 0.06,
+     "power": 0.03
+    }
+   },
+   "N3-s1": {
+    "n": 3,
+    "binding_steps": 0,
+    "steps": 47476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s2": {
+    "n": 25,
+    "binding_steps": 32,
+    "steps": 1304511,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s3": {
+    "n": 49,
+    "binding_steps": 222,
+    "steps": 3705286,
+    "frozen": {
+     "promoting": 2,
+     "with_true": 2,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.02
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 2,
+     "with_true": 1,
+     "unknown": 1,
+     "fdr": 0.01,
+     "power": 0.01
+    }
+   }
+  },
+  "B=0.02": {
+   "null": {
+    "n": 900,
+    "binding_steps": 3039,
+    "steps": 971100,
+    "frozen": {
+     "promoting": 13,
+     "with_true": 0,
+     "unknown": 13,
+     "rate": 0.014444444444444444
+    },
+    "best": {
+     "promoting": 13,
+     "with_true": 0,
+     "unknown": 13,
+     "rate": 0.014444444444444444
+    },
+    "clusters": {
+     "promoting": 13,
+     "with_true": 0,
+     "unknown": 13,
+     "rate": 0.014444444444444444
+    }
+   },
+   "N2-long": {
+    "n": 94,
+    "binding_steps": 522397,
+    "steps": 80817631,
+    "frozen": {
+     "promoting": 94,
+     "with_true": 61,
+     "unknown": 0,
+     "fdr": 0.33,
+     "power": 0.61
+    },
+    "best": {
+     "promoting": 94,
+     "with_true": 1,
+     "unknown": 92,
+     "fdr": 0.93,
+     "power": 0.01
+    },
+    "clusters": {
+     "promoting": 94,
+     "with_true": 12,
+     "unknown": 79,
+     "fdr": 0.82,
+     "power": 0.12
+    }
+   },
+   "N2-s1": {
+    "n": 6,
+    "binding_steps": 533,
+    "steps": 195299,
+    "frozen": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.01,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "fdr": 0.01,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 1,
+     "with_true": 0,
+     "unknown": 1,
+     "fdr": 0.01,
+     "power": 0.0
+    }
+   },
+   "N2-s2": {
+    "n": 29,
+    "binding_steps": 378,
+    "steps": 1355224,
+    "frozen": {
+     "promoting": 4,
+     "with_true": 4,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.04
+    },
+    "best": {
+     "promoting": 1,
+     "with_true": 1,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.01
+    },
+    "clusters": {
+     "promoting": 3,
+     "with_true": 1,
+     "unknown": 2,
+     "fdr": 0.02,
+     "power": 0.01
+    }
+   },
+   "N2-s3": {
+    "n": 84,
+    "binding_steps": 6675,
+    "steps": 8679476,
+    "frozen": {
+     "promoting": 45,
+     "with_true": 45,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.45
+    },
+    "best": {
+     "promoting": 24,
+     "with_true": 0,
+     "unknown": 24,
+     "fdr": 0.24,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 27,
+     "with_true": 5,
+     "unknown": 22,
+     "fdr": 0.22,
+     "power": 0.05
+    }
+   },
+   "N3-s1": {
+    "n": 3,
+    "binding_steps": 0,
+    "steps": 47476,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s2": {
+    "n": 25,
+    "binding_steps": 661,
+    "steps": 1304511,
+    "frozen": {
+     "promoting": 4,
+     "with_true": 4,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.04
+    },
+    "best": {
+     "promoting": 2,
+     "with_true": 0,
+     "unknown": 2,
+     "fdr": 0.02,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 2,
+     "with_true": 0,
+     "unknown": 2,
+     "fdr": 0.02,
+     "power": 0.0
+    }
+   },
+   "N3-s3": {
+    "n": 49,
+    "binding_steps": 2545,
+    "steps": 3705286,
+    "frozen": {
+     "promoting": 17,
+     "with_true": 16,
+     "unknown": 0,
+     "fdr": 0.01,
+     "power": 0.16
+    },
+    "best": {
+     "promoting": 6,
+     "with_true": 0,
+     "unknown": 6,
+     "fdr": 0.06,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 12,
+     "with_true": 5,
+     "unknown": 7,
+     "fdr": 0.07,
+     "power": 0.05
+    }
+   }
+  },
+  "B=1,x10": {
+   "null": {
+    "n": 900,
+    "binding_steps": 0,
+    "steps": 971100,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "rate": 0.0
+    }
+   },
+   "N2-long": {
+    "n": 94,
+    "binding_steps": 0,
+    "steps": 10533449,
+    "frozen": {
+     "promoting": 26,
+     "with_true": 17,
+     "unknown": 0,
+     "fdr": 0.09,
+     "power": 0.17
+    },
+    "best": {
+     "promoting": 29,
+     "with_true": 1,
+     "unknown": 28,
+     "fdr": 0.28,
+     "power": 0.01
+    },
+    "clusters": {
+     "promoting": 26,
+     "with_true": 17,
+     "unknown": 0,
+     "fdr": 0.09,
+     "power": 0.17
+    }
+   },
+   "N2-s1": {
+    "n": 6,
+    "binding_steps": 0,
+    "steps": 7553,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s2": {
+    "n": 29,
+    "binding_steps": 0,
+    "steps": 104663,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N2-s3": {
+    "n": 84,
+    "binding_steps": 0,
+    "steps": 816803,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s1": {
+    "n": 3,
+    "binding_steps": 0,
+    "steps": 4316,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s2": {
+    "n": 25,
+    "binding_steps": 0,
+    "steps": 94952,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   },
+   "N3-s3": {
+    "n": 49,
+    "binding_steps": 0,
+    "steps": 346359,
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "unknown": 0,
+     "fdr": 0.0,
+     "power": 0.0
+    }
+   }
+  }
+ }
+}

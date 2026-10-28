@@ -80,7 +80,7 @@ Commands are `nix develop -c python -m cli <command>` (`-h` lists them). Criteri
 
 Only decisions that could affect a statistical result or leakage, or that touch the hard limits. Others go straight to `audit/decisions.md`.
 
-None.
+- **The holdout's loss bound B, and stage 2's way out (`audit/stage2/bound-options.md`; GPT's review appended there).** Stage 2 does not exit on round r2: C2.1 to C2.5 hold, C2.6 fails (power 0 in N2-s3, 0.05 in N2-long), because the holdout's bet cap with B = 1 hides small strategies' edges. Options, priced on round 1's campaigns (development): O1, I10 generalized to a per-step loss cap at B (venue-real as isolated margin), raises N2-long's power to 0.91 at B = 0.2 (0.60 on a cheap 5-market truth, all of whose 31 "false" first promotions are true on C2.5's 20 markets) with 0 of 900 null campaigns' best promoted, and reaches the Sharpe cells only at B = 0.05 (N2-s3 0.16; null 0.11%) or 0.02 (0.45; null 1.44%), where the margin no longer fits the searchers' sizes; O3 (10x sizes, B = 1) gives 0.17; Q waives C2.6 now and moves the bound into stage 7. **Recommended: Q, with O1 at B = 0.2 specified for stage 7**: no option rescues C2.6 as written, stage 3's 1,080-step holdout stays blind under any safe B, and stage 7 restates the laws anyway. O1 now would cost about a day of kernel work, five hours of cluster time and the proofs (which, as frozen, precede judged runs).
 
 ## Qualifications
 
