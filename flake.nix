@@ -83,7 +83,11 @@
           name = "moneymachine";
           tag = self.shortRev or "dirty";
           contents = [ pkgs.dockerTools.binSh pkgs.dockerTools.usrBinEnv (pkgs.writeTextDir "share/tools" (toString tools)) ];
-          extraCommands = "mkdir -p app scratch tmp && cp -r ${self} app/repo";
+          extraCommands = ''
+            mkdir -p app scratch tmp etc && cp -r ${self} app/repo
+            printf 'root:x:0:0::/root:/bin/sh\nlive:x:1000:100::/scratch:/bin/sh\n' > etc/passwd
+            printf 'root:x:0:\nusers:x:100:\n' > etc/group
+          '';
           config = {
             User = "1000:100";
             WorkingDir = "/app/repo";

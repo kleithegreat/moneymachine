@@ -1,0 +1,21 @@
+Traceback (most recent call last):
+  File "/app/repo/ops/live.py", line 314, in <module>
+    {"seed": seed, "seed-run": seed_run, "gate": gate, "gate-run": gate_run, "mirror": mirror, "verify": verify}[cmd](*args)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/app/repo/ops/live.py", line 278, in gate_run
+    run = session.run(work, harness.CLIENT, harness.MODEL, 3, 600, "Reply with the single word READY.")
+  File "/app/repo/sandbox/session.py", line 126, in run
+    proc = subprocess.Popen(sandbox_command(workdir, client, argv), stdin=subprocess.DEVNULL,
+                            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/repo/sandbox/session.py", line 103, in sandbox_command
+    binds = [a for p in store_paths() for a in ("--ro-bind", p, p)]
+                        ~~~~~~~~~~~^^
+  File "/app/repo/sandbox/session.py", line 89, in store_paths
+    out = subprocess.run(["nix-store", "-qR", *{os.path.realpath(r) for r in roots}], check=True, capture_output=True,
+          ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                         text=True).stdout
+                         ^^^^^^^^^^
+  File "/nix/store/38gjpy89h2r446zmkysph90nji4fr8f3-python3-3.13.15-env/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['nix-store', '-qR', '/nix/store/pwxj9ycwqd117yra6czifh3xfx5p88lh-bash-interactive-5.3p9/bin/bash', '/nix/store/bhv6xyvqw6gjs3j488gi1z6wdv18bdpa-coreutils-9.11/bin/coreutils', '/nix/store/38gjpy89h2r446zmkysph90nji4fr8f3-python3-3.13.15-env/bin/python3.13', '/nix/store/i3kd42j8yzl0vs99cp3qz6prvqkznpgp-claude-code-2.1.304/bin/claude']' returned non-zero exit status 1.
