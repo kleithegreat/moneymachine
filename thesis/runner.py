@@ -10,6 +10,7 @@ import fcntl
 import functools
 import json
 import shutil
+import signal
 import threading
 import time
 from pathlib import Path
@@ -39,6 +40,7 @@ NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 class Track:
     def __init__(self, root=ROOT):
         self.root = Path(root)
+        self.stop = threading.Event()
         kernel = pinned_kernel(self.root)
         self.manifest = harness.manifest_hash(kernel)
         self.version = f"thesis-{self.manifest[:12]}"
@@ -134,7 +136,8 @@ class Track:
             if now_ms() >= date + DAY:
                 self.ledger.disclose("session_missed", "main", {"date": date, "reason": "the model was unavailable all day"})
                 return
-            time.sleep(session.RETRY)
+            if self.stop.wait(session.RETRY):
+                return
         snapshot = self.snapshot(now_ms())
         name = self.session("main", "main", date, snapshot, MAIN_COMMANDS)
         for th in [t for t in self.ledger.theses("main") if t["session"] == name]:
@@ -195,8 +198,9 @@ class Track:
             any(th["session"] == f"benchmark-{monday}" for th in self.ledger.theses("benchmark"))
 
     def run(self):
-        """Forever: resolutions every 5 min and builder marks at H + MARK_OFFSET (stage 10 revision of 2026-10-23) on
-        their own threads; the Monday benchmark and the daily sessions each minute (`schedule`). One runner per root."""
+        """Until SIGTERM: resolutions every 5 min and builder marks at H + MARK_OFFSET on their own threads; the Monday
+        benchmark and the daily sessions each minute (`schedule`). On SIGTERM each loop finishes its current step (a day's
+        sessions included) and the runner exits. One runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
         if frozen.get("manifest") != self.manifest:
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
@@ -204,10 +208,16 @@ class Track:
         lock = open(self.root / "run.lock", "w")
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         self.venue
-        threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000), daemon=True).start()
-        threading.Thread(target=forever, args=("marks", self.market.record_marks,
-                                               lambda now: now // HOUR * HOUR + HOUR + MARK_OFFSET - now), daemon=True).start()
-        forever("schedule", lambda: self.schedule(now_ms(), frozen["frozen"]), lambda now: 60_000)
+        stop = self.stop
+        signal.signal(signal.SIGTERM, lambda *_: stop.set())
+        loops = [threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000, stop)),
+                 threading.Thread(target=forever, args=("marks", self.market.record_marks,
+                                                        lambda now: now // HOUR * HOUR + HOUR + MARK_OFFSET - now, stop))]
+        for t in loops:
+            t.start()
+        forever("schedule", lambda: self.schedule(now_ms(), frozen["frozen"]), lambda now: 60_000, stop)
+        for t in loops:
+            t.join()
 
     def schedule(self, now, frozen):
         """The Monday benchmark and the daily sessions due at `now`, for a track version frozen at `frozen`."""
@@ -225,10 +235,9 @@ class Track:
         return any(c["date"] == date for _, _, c in self.ledger.records("session_missed"))
 
 
-def forever(name, step, wait):
-    """Run `step` after each `wait(now)` ms, forever; a failure is logged and the loop goes on."""
-    while True:
-        time.sleep(wait(now_ms()) / 1000)
+def forever(name, step, wait, stop):
+    """Run `step` after each `wait(now)` ms until `stop` is set; a failure is logged and the loop goes on."""
+    while not stop.wait(wait(now_ms()) / 1000):
         try:
             step()
         except Exception as e:

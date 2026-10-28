@@ -57,7 +57,8 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     reads = iter([None, {"five_hour": [0.75, 100]}, {"five_hour": [0.2, 200]}, {"five_hour": [0.3, 200]},
                   {"five_hour": [0.75, 200]}, {"five_hour": [0.7, 200]}, {"five_hour": [0.75, 200]}])
     monkeypatch.setattr(campaigns, "windows", lambda: next(reads))
-    monkeypatch.setattr(campaigns.time, "sleep", slept.append)
+    monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False,
+                                                             "wait": lambda self, s: slept.append(s)})())
     monkeypatch.setattr(campaigns.time, "time", lambda: 0)
     (tmp_path / "agent-null-N2-0").mkdir()
     campaigns.run_series("agent", 3)

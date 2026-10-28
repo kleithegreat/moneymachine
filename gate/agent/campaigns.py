@@ -2,9 +2,11 @@
 real campaign (arm A against the G100 searcher, one holdout batch); null series are paced and resumable."""
 
 import json
+import signal
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -24,6 +26,7 @@ MIN_SWARM_EVALUATIONS = 200
 CEILING = 0.8  # the most of any subscription window a campaign may bring it to; the rest stays with the human
 FIRST_NEED = 0.5  # a campaign's assumed share of each window until one has been measured
 TOKENS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
+STOP = threading.Event()  # set by SIGTERM: the series ends between campaigns
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
 SMOKE = {"agent": "20 runs bound the promotion rate only to about 0.28; this is a smoke test.",
          "swarm": "With 10 runs the 95% bound is about 0.39; this is a smoke test only."}
@@ -145,15 +148,16 @@ def need(log):
 
 def wait_for_room(log):
     """Wait until every window's utilization plus `need(log)` (FIRST_NEED where unmeasured) is within CEILING, so no
-    campaign exhausts the subscription mid-run; return the windows last read."""
-    while True:
+    campaign exhausts the subscription mid-run; return the windows last read, or None once STOP is set."""
+    while not STOP.is_set():
         w = windows()
         if w is not None:
             used = need(log)
             full = [reset for k, (u, reset) in w.items() if u + used.get(k, FIRST_NEED) > CEILING]
             if not full:
                 return w
-        time.sleep(session.RETRY if w is None else max(60, min(full) - time.time()))
+        STOP.wait(session.RETRY if w is None else max(60, min(full) - time.time()))
+    return None
 
 
 def usage(work):
@@ -173,12 +177,15 @@ def usage(work):
 def run_series(name, n):
     """Campaigns `{name}-null-N2-0` .. n - 1, resumable (a started, unrecorded id is recorded as a crash), each started
     when the subscription has room for it (`wait_for_room`) and the harness is still the frozen one, and recorded with
-    its usage and the windows around it."""
+    its usage and the windows around it. SIGTERM ends the series between campaigns."""
+    signal.signal(signal.SIGTERM, lambda *_: STOP.set())
     OUT.mkdir(parents=True, exist_ok=True)
     log = OUT / f"{name}-null.jsonl"
     with campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT) as todo:
         for cid in todo:
             before = wait_for_room(log)
+            if before is None:
+                break
             check_frozen()
             started = time.time()
             try:

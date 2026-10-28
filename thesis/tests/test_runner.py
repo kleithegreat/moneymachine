@@ -2,6 +2,7 @@
 benchmark's rule and skips, ablation inputs cut at registration, and the Monday arithmetic."""
 
 import json
+import threading
 import time
 
 import httpx
@@ -147,3 +148,9 @@ def test_a_new_root_pins_its_kernel_before_hashing_it(tmp_path, monkeypatch):
     runner.harness.manifest_hash.cache_clear()
     runner.Track(tmp_path)
     assert tmp_path / "bin" / "mm" in hashed and (tmp_path / "bin" / "mm").exists()
+
+
+def test_a_loop_finishes_its_step_and_ends_when_stopped():
+    stop, steps = threading.Event(), []
+    runner.forever("t", lambda: (steps.append(1), stop.set()), lambda now: 0, stop)
+    assert steps == [1]
