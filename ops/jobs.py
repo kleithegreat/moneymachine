@@ -105,6 +105,20 @@ def manifest(run, ids, record, node=None):
                      "template": {"metadata": {"labels": {"moneymachine/run": run}}, "spec": pod}}}
 
 
+def stage_funding():
+    """The null models' funding source as the store yields it, staged under its frozen sha256 (gate/fit.py)."""
+    import numpy as np
+
+    from gate import markets
+
+    f = markets.null_params()["N2"]["funding"]
+    fund, prem = markets.store_funding(f["store"], f["version"], tuple(c for c in f["coins"] if c not in f["short"]))
+    h = stage(np.ascontiguousarray(np.r_[fund, prem]).tobytes())
+    if any(p.get("funding", {}).get("sha256", h) != h for p in markets.null_params().values()):
+        raise SystemExit("the staged funding source differs from the frozen null parameters'")
+    return h
+
+
 def submit(run, sweep, digest, node=None, ids=None):
     """One Indexed Job over the sweep's ids (or the given ones), its record written first."""
     ids = ids or [s["id"] for s in campaign_specs(sweep)]
@@ -114,7 +128,7 @@ def submit(run, sweep, digest, node=None, ids=None):
                   ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip(),
               "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
               "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()), "ids": stage(json.dumps(ids).encode()),
-              "node": node}
+              "funding": stage_funding(), "node": node}
     (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
     print(kubectl("apply", "-f", "-", stdin=json.dumps(manifest(run, ids, record, node))).strip())
 
@@ -127,7 +141,7 @@ def task(run):
     final = Path("/results") / run / f"{cid}.tar"
     if final.exists():
         return
-    for name in ("mm", "betas", "ids"):
+    for name in ("mm", "betas", "ids", "funding"):
         if sha256(Path("/inputs") / record[name]) != record[name]:
             raise SystemExit(f"input {name} does not match its hash")
     work = Path("/scratch/w")
@@ -146,6 +160,15 @@ def task(run):
 
     sweep.require_frozen_searcher()
     spec = next(s for s in campaign_specs(record["sweep"]) if s["id"] == cid)
+    funding = (spec["params"] or {}).get("funding")
+    if funding:
+        import numpy as np
+
+        from gate.markets import HOLDOUT_START, HOUR, W_START
+
+        t = len(range(W_START, HOLDOUT_START, HOUR))
+        both = np.frombuffer((Path("/inputs") / record["funding"]).read_bytes()).reshape(2 * t, -1)
+        funding["arrays"] = (both[:t], both[t:])
     result = campaign.run_campaign(spec, Path("/scratch/out"))
     tmp = final.with_name(f".{cid}.{os.environ.get('HOSTNAME', 'pod')}.tmp")
     with tarfile.open(tmp, "w") as tar:
