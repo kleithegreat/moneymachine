@@ -18,7 +18,7 @@ The swap rule: when a task replaces X with Y -- a refactor, a fix, a syntax chan
 
 Comments are where you fail hardest. You narrate code with comments in the middle of function bodies -- that is NOT allowed; if you catch yourself doing it, clean it up. You also accumulate comments and never remove them, clogging files. Be aggressive: keep only what is truly essential. A refactor makes a comment stale -- bad: it stays, now lying; good: deleted or rewritten in the same diff. A TODO gets done -- bad: the marker remains; good: it leaves with the fix.
 
-Prose rots the same way. Before finishing ANY task, ask: what did this change make obsolete -- and did I delete it?
+Prose rots the same way. Before finishing ANY task, and before each commit, ask: what did this change make obsolete -- and did I delete it, in the same commit? A commit that adds more lines than it removes says why in its message.
 
 The one exception is the audit record (§3): pre-registered criteria, the experiment ledger, campaign results, and spent holdouts are append-only. Erasure never touches them.
 
