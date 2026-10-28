@@ -39,7 +39,7 @@ The purpose is auditable agentic quant research: agents search freely, the kerne
 3. **GPT's reviews are evidence, not orders.** If the same exit is rejected a third time, ask whether the remaining issue could change a false-discovery or leakage outcome. If yes, fix it; if no, record it as a known limitation and move on. Don't polish indefinitely.
 4. **Priorities:** research as fast as possible, working every unblocked track at once; no track is favoured. When tracks compete for the same resource: the critical path (stage 2's exit, stage 3's freeze, its null series and real campaign), then stage 4's swarm smoke, then stages 7-9; stage 10 runs throughout.
 5. **Resources:** space agent campaigns by their measured token usage so they don't exhaust the subscription mid-run. Every runner is resumable.
-6. **Waiting:** heavy entry points block until their work ends; start them as background tasks of this session, so their exit wakes you (only the recorders are detached), and keep doing independent work, erasure included (§2), meanwhile.
+6. **Waiting:** heavy entry points block until their work ends; start them as background tasks of this session, so their exit wakes you (only the recorders are detached), and keep doing independent work, erasure included (§2), meanwhile. A decision waiting on the human blocks only the work that depends on it.
 
 ### Where information lives
 
