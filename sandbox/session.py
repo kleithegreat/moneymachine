@@ -2,7 +2,8 @@
 (thesis/). A track supplies its files, its tool's command spec, its daemon and its limits.
 
 A session's directory holds `work` (the workspace, /work), `tool` (read-only at /tool: the client, the egress relay
-and both sockets; a link to a short temporary path, since a socket's path is limited to 107 bytes) and `home` (/home/agent, holding only a copy of the CLI credentials). Inside the sandbox: those,
+and both sockets; a link to a short temporary path, since a socket's path is limited to 107 bytes) and `home` (/home/agent,
+empty). The CLI's credential is the runner's `CLAUDE_CODE_OAUTH_TOKEN`, the one variable passed in. Inside the sandbox: those,
 the Nix store paths the CLI, Python and coreutils need, read-only, and a minimal /etc. No repo, no data/, no ledger,
 no real HOME, no host environment, and no network but `egress.py`'s relay to the hosts in HOSTS. The agent's tools
 are Read and Write in the workspace and Bash for `./<client>` only, a read-only mount whose Python ignores the
@@ -65,10 +66,10 @@ def socket_path(workdir, client):
 
 def workspace(workdir, files, client, spec):
     """`workdir`/work holding `files` ({name in the workspace: text}), `workdir`/tool holding the client configured by
-    `spec` and the egress relay, and `workdir`/home holding a copy of the CLI credentials."""
+    `spec` and the egress relay, and an empty `workdir`/home."""
     workdir = Path(workdir)
     work, tool, home = workdir / "work", Path(tempfile.mkdtemp(prefix="mm-tool-")), workdir / "home"
-    for d in (work, home / ".claude", workdir / "etc"):
+    for d in (work, home, workdir / "etc"):
         d.mkdir(parents=True)
     (workdir / "tool").symlink_to(tool)
     for name, text in files.items():
@@ -79,9 +80,6 @@ def workspace(workdir, files, client, spec):
     shutil.copy(HERE / "egress.py", tool / "egress.py")
     for name, text in ETC.items():
         (workdir / "etc" / name).write_text(text)
-    creds = home / ".claude" / ".credentials.json"
-    shutil.copy(Path.home() / ".claude" / ".credentials.json", creds)
-    os.chmod(creds, 0o600)
 
 
 @functools.cache
@@ -111,6 +109,7 @@ def sandbox_command(workdir, client, argv):
             "--setenv", "HOME", "/home/agent", "--setenv", "PATH", sandbox_path(),
             "--setenv", "SHELL", str(Path(os.path.realpath("/bin/sh")).parent / "bash"),
             "--setenv", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1",
+            "--setenv", "CLAUDE_CODE_OAUTH_TOKEN", os.environ["CLAUDE_CODE_OAUTH_TOKEN"],
             "--chdir", "/work", sys.executable, "-I", "/tool/egress.py", "/tool/egress.sock", *argv]
 
 

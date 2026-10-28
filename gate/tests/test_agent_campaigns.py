@@ -70,3 +70,16 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     assert campaigns.need(tmp_path / "agent-null.jsonl")["five_hour"] == pytest.approx(0.1)
     campaigns.run_series("agent", 3)
     assert len(open(tmp_path / "agent-null.jsonl").readlines()) == 3
+
+
+def test_a_refreeze_names_its_predecessor_and_is_refused_once_a_campaign_started(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "OUT", tmp_path / "agent")
+    monkeypatch.setattr(campaigns, "FROZEN", tmp_path / "harness.json")
+    hashes = iter(["a", "b", "c"])
+    monkeypatch.setattr(campaigns.harness, "harness_hash", lambda: next(hashes))
+    campaigns.freeze_harness()
+    campaigns.freeze_harness()
+    assert json.loads((tmp_path / "harness.json").read_text())["previous"]["harness"] == "a"
+    (tmp_path / "agent" / "agent-null-N2-0").mkdir(parents=True)
+    with pytest.raises(SystemExit):
+        campaigns.freeze_harness()

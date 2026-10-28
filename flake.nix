@@ -53,6 +53,7 @@
               tools.lean
               kubectl
               skopeo
+              tools.claude-code
             ];
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
             shellHook = "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks";
@@ -69,19 +70,48 @@
           };
         });
 
-      packages = forAll (pkgs: {
+      packages = forAll (pkgs: let system = pkgs.stdenv.hostPlatform.system; in {
         # The cluster's one image (CLAUDE.md, heavy jobs): the research environment and this commit's tree; `mm` is
         # staged beside it as a content-addressed input, never built here (its identity embeds its build path).
-        image = pkgs.dockerTools.buildLayeredImage {
+        # The live workloads (CLUSTER.md) run agent sessions in bubblewrap, which binds /bin and /usr into the sandbox:
+        # those hold only /bin/sh and /usr/bin/env, as on the dev hosts, and every tool is on PATH. The Nix database
+        # serves the sandbox's closure query, read-only.
+        image = pkgs.dockerTools.buildLayeredImageWithNixDb {
           name = "moneymachine";
           tag = self.shortRev or "dirty";
-          contents = [ (pythonFor pkgs) pkgs.coreutils pkgs.util-linux ];
-          extraCommands = "mkdir -p app scratch && cp -r ${self} app/repo";
+          contents = [ pkgs.dockerTools.binSh pkgs.dockerTools.usrBinEnv ];
+          extraCommands = "mkdir -p app scratch tmp && cp -r ${self} app/repo";
           config = {
             User = "1000:100";
             WorkingDir = "/app/repo";
-            Env = [ "HOME=/scratch" "PYTHONDONTWRITEBYTECODE=1" ];
+            Env = [
+              "HOME=/scratch"
+              "PYTHONDONTWRITEBYTECODE=1"
+              "NIX_REMOTE=local?read-only=true"
+              "PATH=${pkgs.lib.makeBinPath (with pkgs; [ (pythonFor pkgs) coreutils util-linux self.packages.${system}.claude-code
+                                                         bubblewrap sqlite rsync restic nix ])}"
+            ];
           };
+        };
+        # Claude Code, pinned for the agent sessions' frozen harnesses (nixpkgs' packaging of the native binary).
+        claude-code = pkgs.stdenvNoCC.mkDerivation {
+          pname = "claude-code";
+          version = "2.1.304";
+          src = pkgs.fetchurl {
+            url = "https://downloads.claude.ai/claude-code-releases/2.1.304/linux-x64/claude.zst";
+            hash = "sha256-DzRo+ihfESZQ/rO+wpE0Jbe6XIPNTrQRtcdbQIZBa7Y=";
+          };
+          dontUnpack = true;
+          dontStrip = true;
+          nativeBuildInputs = [ pkgs.makeBinaryWrapper pkgs.zstd pkgs.autoPatchelfHook ];
+          installPhase = ''
+            mkdir -p $out/bin
+            unzstd -q $src -o $out/bin/claude
+            chmod 755 $out/bin/claude
+            wrapProgram $out/bin/claude --set DISABLE_AUTOUPDATER 1 --set DISABLE_INSTALLATION_CHECKS 1 \
+              --set USE_BUILTIN_RIPGREP 0 --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath [ pkgs.alsa-lib ]} \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.procps pkgs.ripgrep pkgs.bubblewrap pkgs.socat ]}
+          '';
         };
         # The adopted reference kernel's toolchain (stage 6): Lean v4.34.0.
         lean = pkgs.stdenv.mkDerivation {

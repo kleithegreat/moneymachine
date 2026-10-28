@@ -30,10 +30,13 @@ SMOKE = {"agent": "20 runs bound the promotion rate only to about 0.28; this is 
 
 
 def freeze_harness():
-    if FROZEN.exists():
-        sys.exit(f"{FROZEN} exists: the harness is frozen once")
+    """Record the harness hash. A refreeze names the freeze it supersedes, and only while no campaign was ever started."""
+    previous = json.loads(FROZEN.read_text()) if FROZEN.exists() else None
+    started = OUT.exists() and any(p.is_dir() or p.read_text().strip() for p in OUT.iterdir())
+    if previous and started:
+        sys.exit(f"{FROZEN}: a campaign has started under it, so a changed harness needs fresh campaign ids")
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
-    FROZEN.write_text(json.dumps({"harness": harness.harness_hash(), "frozen": now_ms()}, indent=1) + "\n")
+    FROZEN.write_text(json.dumps({"harness": harness.harness_hash(), "frozen": now_ms(), "previous": previous}, indent=1) + "\n")
 
 
 def check_frozen():

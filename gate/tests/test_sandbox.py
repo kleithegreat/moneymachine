@@ -8,11 +8,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from gate.agent import harness
 from sandbox import session
 from sandbox.egress import Proxy
 
 REPO = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(autouse=True)
+def token(monkeypatch):
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "test-token")
 
 
 def inside(workdir, script):
@@ -42,6 +49,7 @@ def test_only_the_closure_of_the_store_and_no_host_environment(tmp_path):
     assert {f"/nix/store/{p}" for p in store.split()} == set(session.store_paths())
     assert not any(p.endswith("-source") for p in store.split())
     assert "MM_SECRET" not in env and str(REPO) not in env
+    assert "CLAUDE_CODE_OAUTH_TOKEN=test-token" in env.split()
 
 
 def test_the_client_cannot_be_replaced_or_fed_modules(tmp_path):

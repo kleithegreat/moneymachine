@@ -37,10 +37,11 @@ def manifest_files(kernel):
 
 @functools.cache
 def manifest_hash(kernel):
-    """The track version's identity: its files, model, limits and flags, and the retrieval allowlist it reads from the
-    source registry (not the registry's other records), hashed once per process, as the track reads them once."""
+    """The track version's identity: its files, the `claude` build (its store path), model, limits and flags, and the
+    retrieval allowlist it reads from the source registry (not the registry's other records), hashed once per process,
+    as the track reads them once."""
     return session.identity(manifest_files(kernel), [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, session.tools(CLIENT), BRIEFS,
-                                                    sorted(terms.allowlist(retrieval=True))])
+                                                    sorted(terms.allowlist(retrieval=True)), session.claude_binary()])
 
 
 def workspace(workdir, kind, task=None):
