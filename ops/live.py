@@ -267,23 +267,36 @@ def reach(host, port):
 
 def gate_run(targets):
     """In a runner pod: the frozen hashes, the isolation tests, the sandbox's view, the network from the runner, the
-    subscription's windows, and one sandboxed session authenticated by the token alone."""
+    subscription's windows, and one sandboxed session authenticated by the token alone. Each part is recorded, its
+    error included, whether or not another fails."""
     from gate.agent import campaigns, harness
     from sandbox import session
 
-    tests = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "gate/tests/test_sandbox.py"],
-                           capture_output=True, text=True).stdout.strip().splitlines()
-    work = Path(tempfile.mkdtemp())
-    session.workspace(work, {}, harness.CLIENT, {})
-    run = session.run(work, harness.CLIENT, harness.MODEL, 3, 600, "Reply with the single word READY.")
-    result = [d for d in map(json.loads, open(work / "transcript.jsonl")) if d.get("type") == "result"]
-    print(json.dumps({
-        "harness": harness.harness_hash(), "frozen": json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"],
-        "tests": tests[-1] if tests else None, "view": view(), "windows": campaigns.windows(),
-        "network": {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
-        "session": {"stopped": run["stopped"], "exit": run["exit"], **({k: result[-1].get(k) for k in ("is_error", "result")}
-                                                                         if result else {}),
-                    "models": sorted(result[-1].get("modelUsage", {})) if result else []}}))
+    def session_record():
+        work = Path(tempfile.mkdtemp())
+        session.workspace(work, {}, harness.CLIENT, {})
+        run = session.run(work, harness.CLIENT, harness.MODEL, 3, 600, "Reply with the single word READY.")
+        lines = (work / "transcript.jsonl").read_text().splitlines()
+        events = [json.loads(l) for l in lines if l.startswith("{")]
+        result = [e for e in events if e.get("type") == "result"]
+        return {"stopped": run["stopped"], "exit": run["exit"], "other_output": [l for l in lines if not l.startswith("{")][:20],
+                **({k: result[-1].get(k) for k in ("is_error", "result")} if result else {}),
+                "models": sorted(result[-1].get("modelUsage", {})) if result else []}
+
+    parts = {
+        "harness": harness.harness_hash,
+        "frozen": lambda: json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"],
+        "tests": lambda: subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                                         "gate/tests/test_sandbox.py"], capture_output=True, text=True).stdout.strip().splitlines()[-12:],
+        "view": view, "windows": campaigns.windows, "network": lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
+        "session": session_record}
+    record = {}
+    for name, part in parts.items():
+        try:
+            record[name] = part()
+        except Exception as e:
+            record[name] = {"error": repr(e)}
+    print(json.dumps(record))
 
 
 # Reachable from a runner: the model API only; refused: every node's services, the API server, the registry, this
