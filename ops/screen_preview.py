@@ -8,7 +8,8 @@ labelled diagnostic, never evidence: stage 2 is judged only on the fresh-id reru
 `holdouts`, `truths` and `bounds` price the holdout's loss bound B for the human's decision: each mixed campaign's
 finalists' holdout returns (and every third null campaign's in-sample best), tested with the bet cap 1/(2B) on returns
 floored at -B, the floor standing in for a kernel stop or an isolated margin; and the cluster representatives at SCALE
-times their size with B = 1. Truths use the unscaled or scaled program, not the floored one.
+times their size with B = 1. A campaign's truth is that of the program its frozen family promotes first (the smallest
+p), over DEV_TRUTH_MARKETS fresh ten-year markets instead of C2.5's 20; the unscaled or scaled program, not the floored.
 
 For each first-round campaign it reruns `gate.search_decision` (the revised screen; SPA, seeded by the campaign id,
 must reproduce the recorded p-value) on the kept ledger. Where finalists exist, it regenerates the market from the
@@ -38,7 +39,7 @@ from gate import campaign, compute, gate, markets, sweep  # noqa: E402
 
 ROUND1 = sweep.OUT / "round1"
 FAMILIES = ("frozen", "best", "clusters")
-BOUNDS, SCALE = (1.0, 0.2, 0.1, 0.05, 0.02), 10.0
+BOUNDS, SCALE, DEV_TRUTH_MARKETS = (1.0, 0.2, 0.1, 0.05, 0.02), 10.0, 5
 # Peak memory per task with mm 3a732069: a mixed campaign's holdout batch, 778 MiB measured for c25-N2-long-1, plus
 # margin; a null campaign's is smaller.
 NULL_BYTES, MIXED_BYTES = 1_000_000_000, 1_000_000_000
@@ -224,7 +225,8 @@ def decide(cid, d, bound, scaled):
         rows = np.array([np.maximum(r[names.index(m)], -bound) for m in members])
         p, total = gate.holdout_pvalues(rows, bound), np.prod(1 + rows, axis=-1) - 1
         adj = gate.holm(p)
-        out[fam] = [m for m, a, t in zip(members, adj, total) if t > 0 and a <= gate.ALPHA]
+        out[fam] = sorted((m for m, a, t in zip(members, adj, total) if t > 0 and a <= gate.ALPHA),
+                          key=lambda m: p[members.index(m)])
     return out
 
 
@@ -237,11 +239,11 @@ def truths(out_dir):
     for cid, d in campaigns(out_dir):
         if cid.startswith("c25"):
             for bound, scaled in [(b, False) for b in BOUNDS] + [(1.0, True)]:
-                for names in decide(cid, d, bound, scaled).values():
-                    for m in names:
-                        if f"{cid}/{m}" not in done:
-                            _, model, cell, _ = cid.split("-")
-                            todo[f"{cid}/{m}"] = (json.loads(str(d["programs"][list(d["names"]).index(m)])), model, betas[f"{model}-{cell}"])
+                names = decide(cid, d, bound, scaled)["frozen"][:1]
+                for m in names:
+                    if f"{cid}/{m}" not in done:
+                        _, model, cell, _ = cid.split("-")
+                        todo[f"{cid}/{m}"] = (json.loads(str(d["programs"][list(d["names"]).index(m)])), model, betas[f"{model}-{cell}"])
     with Pool(compute.workers(sweep.CALIBRATION_BYTES)) as pool, open(cache, "a") as fh:
         for key, true in pool.imap_unordered(truth_one, todo.items()):
             fh.write(json.dumps({"id": key, "true": true}) + "\n")
@@ -250,7 +252,7 @@ def truths(out_dir):
 
 def truth_one(item):
     key, (program, model, beta) = item
-    return key, sweep.is_true(program, model, beta, "bound-" + key.replace("/", "-"))
+    return key, sweep.is_true(program, model, beta, "bound-" + key.replace("/", "-"), DEV_TRUTH_MARKETS)
 
 
 def bounds(out_dir, out):
@@ -268,7 +270,7 @@ def bounds(out_dir, out):
             c["binding_steps"] += int((rows < -bound).sum())
             c["steps"] += rows.size
             for f, names in decide(cid, d, bound, scaled).items():
-                ts = [truth.get(f"{cid}/{m}") for m in names]
+                ts = [truth.get(f"{cid}/{m}") for m in names[:1]]
                 c[f]["unknown"] += ts.count(None)
                 ts = [t is True for t in ts]
                 c[f]["promoting"] += bool(names)
