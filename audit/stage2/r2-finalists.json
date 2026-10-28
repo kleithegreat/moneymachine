@@ -1,0 +1,217 @@
+{
+ "label": "round r2: per cell, campaigns with SPA rejecting, with any screened candidate, with finalists, and the fragility diagnostics (finalists at each effective N; campaigns with fragile finalists)",
+ "cells": {
+  "null": {
+   "N1-G100": {
+    "n": 300,
+    "spa_rejects": 7,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 0,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 0
+    },
+    "n_raw_median": 44
+   },
+   "N1-G400": {
+    "n": 300,
+    "spa_rejects": 13,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 0,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 0
+    },
+    "n_raw_median": 228
+   },
+   "N1-H400": {
+    "n": 300,
+    "spa_rejects": 36,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 2,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 1,
+     "cluster_0.5": 2
+    },
+    "n_raw_median": 221
+   },
+   "N2-G100": {
+    "n": 300,
+    "spa_rejects": 20,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 0,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 0
+    },
+    "n_raw_median": 98
+   },
+   "N2-G400": {
+    "n": 300,
+    "spa_rejects": 18,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 2,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 2
+    },
+    "n_raw_median": 392
+   },
+   "N2-H400": {
+    "n": 300,
+    "spa_rejects": 60,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 3,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 3
+    },
+    "n_raw_median": 391
+   },
+   "N3-G100": {
+    "n": 300,
+    "spa_rejects": 15,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 1,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 1
+    },
+    "n_raw_median": 99
+   },
+   "N3-G400": {
+    "n": 300,
+    "spa_rejects": 31,
+    "screened_any": 0,
+    "finalists_any": 0,
+    "fragile_any": 1,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 1
+    },
+    "n_raw_median": 392
+   },
+   "N3-H400": {
+    "n": 300,
+    "spa_rejects": 58,
+    "screened_any": 1,
+    "finalists_any": 0,
+    "fragile_any": 1,
+    "by_n_finalists": {
+     "raw": 0,
+     "cluster_0.9": 0,
+     "cluster_0.5": 1
+    },
+    "n_raw_median": 392
+   }
+  },
+  "mixed": {
+   "N2-long": {
+    "n": 100,
+    "spa_rejects": 100,
+    "screened_any": 100,
+    "finalists_any": 100,
+    "fragile_any": 99,
+    "by_n_finalists": {
+     "raw": 100,
+     "cluster_0.9": 100,
+     "cluster_0.5": 100
+    },
+    "n_raw_median": 395
+   },
+   "N2-s1": {
+    "n": 100,
+    "spa_rejects": 26,
+    "screened_any": 24,
+    "finalists_any": 13,
+    "fragile_any": 15,
+    "by_n_finalists": {
+     "raw": 13,
+     "cluster_0.9": 13,
+     "cluster_0.5": 15
+    },
+    "n_raw_median": 393
+   },
+   "N2-s2": {
+    "n": 100,
+    "spa_rejects": 34,
+    "screened_any": 71,
+    "finalists_any": 25,
+    "fragile_any": 29,
+    "by_n_finalists": {
+     "raw": 25,
+     "cluster_0.9": 28,
+     "cluster_0.5": 29
+    },
+    "n_raw_median": 394
+   },
+   "N2-s3": {
+    "n": 100,
+    "spa_rejects": 76,
+    "screened_any": 100,
+    "finalists_any": 76,
+    "fragile_any": 75,
+    "by_n_finalists": {
+     "raw": 76,
+     "cluster_0.9": 76,
+     "cluster_0.5": 76
+    },
+    "n_raw_median": 394
+   },
+   "N3-s1": {
+    "n": 100,
+    "spa_rejects": 14,
+    "screened_any": 25,
+    "finalists_any": 3,
+    "fragile_any": 4,
+    "by_n_finalists": {
+     "raw": 3,
+     "cluster_0.9": 4,
+     "cluster_0.5": 5
+    },
+    "n_raw_median": 393
+   },
+   "N3-s2": {
+    "n": 100,
+    "spa_rejects": 31,
+    "screened_any": 84,
+    "finalists_any": 28,
+    "fragile_any": 28,
+    "by_n_finalists": {
+     "raw": 28,
+     "cluster_0.9": 28,
+     "cluster_0.5": 29
+    },
+    "n_raw_median": 393
+   },
+   "N3-s3": {
+    "n": 100,
+    "spa_rejects": 47,
+    "screened_any": 99,
+    "finalists_any": 47,
+    "fragile_any": 45,
+    "by_n_finalists": {
+     "raw": 47,
+     "cluster_0.9": 47,
+     "cluster_0.5": 47
+    },
+    "n_raw_median": 393
+   }
+  }
+ }
+}

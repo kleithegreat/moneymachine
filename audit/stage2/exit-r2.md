@@ -22,3 +22,21 @@ campaigns per cell), and the holdout's bet cap (B = 1) leaves their per-step mea
 **Stage 2 does not exit on r2.** C2.1 to C2.5 hold; C2.6 fails as written and as amended. The human's decision on the
 loss bound (`bound-options.md`; PROGRESS, decisions awaiting review) settles what follows: a round r3 under a new
 bound, or an exit with C2.6's failure as a recorded qualification (option Q).
+
+## Additions after GPT's first review (2026-10-28 12:33 UTC, 08:33 EDT; `exit-review-gpt-1.md`)
+
+- **Evidence supplied:** C2.1's fixed probes (`c21-fixed-probes.v3.json`); C2.2's (`c22.v2.json`); C2.3's run of GPT's
+  spec-only implementation of the revised screen (`c23-differential.txt`: 1,000 random cases and the edge cases, the
+  degenerate-variance, rescaling and nonfinite rules; `screen-impl-gpt-2.md`); the locked holdout calibration v3
+  (`holdout-size-locked-v3.json`, checked by `test_holdout_test_locked_calibration`, met); the fan-out plans with the
+  mixed plan's dated addendum (`fanout-null.json`, `fanout-mixed.json`), the host manifests and r2's truth file
+  (`truth-r2.jsonl`: 75 N2-long promotions, 54 true on 200 fresh years).
+- **r2's finalists** (`r2-finalists.json`, from r2's own records, replacing the preview's figures above): campaigns
+  with finalists per cell: N2-long 100, N2-s1 13, N2-s2 25, N2-s3 76, N3-s1 3, N3-s2 28, N3-s3 47; null 0 in every
+  cell. Fragility diagnostics (finalists at |ρ| ≥ 0.9 and 0.5 cluster counts; campaigns with fragile finalists) are there.
+- **Test-alone power** (`test-alone-power.json`; the betting test alone, normal per-step returns, 2,000 series per
+  cell): at 1,080 steps and 1% per-step volatility, 0 at means up to 0.3%, 0.02 at 0.5%, 0.39 at 0.55%, 0.92 at 0.6%,
+  and 0 at annualized Sharpe 1, 2 and 3. **The pilot cannot confirm ordinary edges at this holdout length**: the test
+  needs a mean near 0.55% net per 4h step, and a Sharpe of 1 to 3 is far below 0.1%.
+- **N3's cell** is reported as "N3, s = 2.5 (amended from 3)"; `sweeps.json` keeps the key N3-s3.
+- **Option Q** is not an exit under the frozen criteria: it would be a human-authorized waiver, never a pass as written.

@@ -1,0 +1,7 @@
+gate/tests/test_dsr_differential.py::test_edge_cases_are_exercised PASSED [ 16%]
+gate/tests/test_dsr_differential.py::test_dsr_implementations_agree PASSED [ 33%]
+gate/tests/test_dsr_differential.py::test_extreme_finite_returns_agree_without_overflow PASSED [ 50%]
+gate/tests/test_dsr_differential.py::test_both_refuse_a_nonfinite_return[nan] PASSED [ 66%]
+gate/tests/test_dsr_differential.py::test_both_refuse_a_nonfinite_return[inf] PASSED [ 83%]
+gate/tests/test_dsr_differential.py::test_both_refuse_a_nonfinite_return[-inf] PASSED [100%]
+============================== 6 passed in 4.33s ===============================
