@@ -143,3 +143,21 @@ Any failure: it does not ship, and round r2 runs on `52db7b68…`.
 Installed as `kernel/target/release/mm` (`3a732069…`) on this PC, prodesk7 and prodesk5, and on gmktec once its last
 preview campaigns end. The committed source (dd9580d) rebuilds to this hash. Measured with it: a ten-year evaluation
 936 MiB (was 4,279), a campaign 533 to 684 MiB (was about 1 to 2.5 GB); pools are sized from these.
+
+## Test 8, frozen 2026-10-28 02:05 UTC (22:05 EDT), before it runs: the cluster's Jobs path
+
+Human decision of 2026-10-28: judged sweeps move to Indexed Jobs (`ops/jobs.py`) on the cluster. Image
+`git.home.lab/admin/moneymachine@sha256:141bab45537de0344098fe574fd596701f7a80015cbc4f47de7eb56be821e4f8` (the
+dev shell's closure and commit 9f07a4e's tree, built by `nix build .#image`); inputs staged by sha256 (`mm`
+`3a732069…`, the betas, the id list, the null models' funding source under its frozen hash).
+- **(a) Every node.** On each of desktop, prodesk7, prodesk5 and gmktec, one Indexed Job of the seven never-judged
+  `xm-` specs pinned to that node; each node's collected results and ledgers must equal this PC's local test 7 runs
+  of the same specs with the same `mm` (`compare`, kernel identity included).
+- **(b) The failure path.** In one of those Jobs, one pod is deleted while its campaign runs. Its index must fail
+  with no result; `resubmit` must find and remove any partial file and rerun only that id, and the rerun's result
+  must equal this PC's.
+- **(c) Constraints.** Every submitted pod carries the priority class, the toleration, the restricted security
+  context, memory requests at the measured campaign peak with limits above, ephemeral-storage requests, and `choom
+  -n 1000` (checked on the submitted Job specs).
+
+All three pass: judged sweeps may run as Jobs. Until then the fan-out stays.
