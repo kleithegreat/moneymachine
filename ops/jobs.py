@@ -111,12 +111,11 @@ def stage_funding():
 
     from gate import markets
 
-    f = markets.null_params()["N2"]["funding"]
-    fund, prem = markets.store_funding(f["store"], f["version"], tuple(c for c in f["coins"] if c not in f["short"]))
-    h = stage(np.ascontiguousarray(np.r_[fund, prem]).tobytes())
-    if any(p.get("funding", {}).get("sha256", h) != h for p in markets.null_params().values()):
-        raise SystemExit("the staged funding source differs from the frozen null parameters'")
-    return h
+    for model in ("N2", "N3"):
+        f = markets.null_params()[model]["funding"]
+        fund, prem = markets.store_funding(f["store"], f["version"], tuple(c for c in f["coins"] if c not in f["short"]))
+        if stage(np.ascontiguousarray(np.r_[fund, prem]).tobytes()) != f["sha256"]:
+            raise SystemExit(f"{model}'s funding source differs from its frozen hash")
 
 
 def submit(run, sweep, digest, node=None, ids=None):
@@ -128,7 +127,8 @@ def submit(run, sweep, digest, node=None, ids=None):
                   ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip(),
               "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
               "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()), "ids": stage(json.dumps(ids).encode()),
-              "funding": stage_funding(), "node": node}
+              "node": node}
+    stage_funding()
     (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
     print(kubectl("apply", "-f", "-", stdin=json.dumps(manifest(run, ids, record, node))).strip())
 
@@ -141,7 +141,7 @@ def task(run):
     final = Path("/results") / run / f"{cid}.tar"
     if final.exists():
         return
-    for name in ("mm", "betas", "ids", "funding"):
+    for name in ("mm", "betas", "ids"):
         if sha256(Path("/inputs") / record[name]) != record[name]:
             raise SystemExit(f"input {name} does not match its hash")
     work = Path("/scratch/w")
@@ -167,7 +167,10 @@ def task(run):
         from gate.markets import HOLDOUT_START, HOUR, W_START
 
         t = len(range(W_START, HOLDOUT_START, HOUR))
-        both = np.frombuffer((Path("/inputs") / record["funding"]).read_bytes()).reshape(2 * t, -1)
+        data = (Path("/inputs") / funding["sha256"]).read_bytes()
+        if hashlib.sha256(data).hexdigest() != funding["sha256"]:
+            raise SystemExit("the funding source does not match its frozen hash")
+        both = np.frombuffer(data).reshape(2 * t, -1)
         funding["arrays"] = (both[:t], both[t:])
     result = campaign.run_campaign(spec, Path("/scratch/out"))
     tmp = final.with_name(f".{cid}.{os.environ.get('HOSTNAME', 'pod')}.tmp")
