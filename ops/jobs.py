@@ -1,18 +1,13 @@
-"""Sweeps as Indexed Jobs on the cluster (human decision of 2026-10-28; CLAUDE.md, heavy jobs).
+"""Sweeps as Indexed Jobs on the cluster.
 
-    python ops/jobs.py push                                   build the image (`nix build .#image`), push it, print its digest
-    python ops/jobs.py submit <run> <sweep> <digest> [node]   one Indexed Job over the sweep's campaign ids (null, mixed, xm)
-    python ops/jobs.py status <run>                           done, failed and missing ids
-    python ops/jobs.py resubmit <run>                         the missing ids again, after the integrity check
-    python ops/jobs.py collect <run>                          results into data/campaigns/<sweep>.jsonl and <sweep>/<id>/
-    python ops/jobs.py join | leave                           this PC (node `desktop`) in or out of the cluster
+    python ops/jobs.py push | join | leave
+    python ops/jobs.py submit <run> <sweep> <digest> [node]      sweep: null | mixed | xm
+    python ops/jobs.py status | resubmit <run>
+    python ops/jobs.py collect <run>...
 
-The image holds the research environment and the commit's tree; `mm`, the betas and each Job's id list are staged
-content-addressed into the `inputs` volume and checked by hash in every pod. A task runs one campaign in local scratch
-(SQLite never over NFS) and moves one file per campaign id, a tar of its result and kept files, into `results`
-atomically. A campaign crash is a result (exit 0); an OOM kill fails the index, and `resubmit` reruns it once no
-partial output remains (seeds come from the id, so a rerun is the same campaign). A submission's record, with the
-image digest and every input hash, is kept beside its results."""
+`mm`, the betas and each Job's id list are staged by sha256 and checked in every pod. A task runs one campaign in local
+scratch (SQLite never over NFS) and renames one tar per campaign id into the results volume. A campaign crash is a
+result; an OOM kill fails the index, and `resubmit` reruns it once no partial file remains."""
 
 import hashlib
 import io
@@ -30,11 +25,7 @@ REGISTRY = "git.home.lab/admin/moneymachine"
 AUTHFILE = Path.home() / ".config/containers/auth.json"
 NAMESPACE = "moneymachine"
 NODE = "desktop"
-# The namespace's quota (pods, CPUs, requested and limit memory) and each task's measured peak memory with mm 3a732069
-# (a null campaign 533 MiB, the long cell 684 MiB; 2026-10-27), with its limit above it and its scratch.
-QUOTA = {"pods": 48, "cpu": 34, "memory": 32 * 2**30, "limit": 40 * 2**30}
-PEAK = {"null": 560 * 2**20, "mixed": 720 * 2**20, "xm": 720 * 2**20}
-LIMIT, SCRATCH = 1100 * 2**20, 2**30
+SCRATCH = 2**30
 
 
 def kubectl(*args, stdin=None):
@@ -47,16 +38,8 @@ def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def stage(path):
-    """Copy a file into the inputs volume under its sha256 (once), and return the hash."""
-    h = sha256(path)
-    if not (INPUTS / h).exists():
-        shutil.copyfile(path, INPUTS / f".{h}.tmp")
-        (INPUTS / f".{h}.tmp").rename(INPUTS / h)
-    return h
-
-
-def stage_bytes(data):
+def stage(data):
+    """Write bytes into the inputs volume under their sha256 (once), and return the hash."""
     h = hashlib.sha256(data).hexdigest()
     if not (INPUTS / h).exists():
         (INPUTS / f".{h}.tmp").write_bytes(data)
@@ -90,11 +73,9 @@ def campaign_specs(sweep):
     return sw.null_specs() if sweep == "null" else sw.mixed_specs(json.loads((sw.OUT / "betas.json").read_text()))
 
 
-def parallelism(sweep):
-    return min(QUOTA["pods"], QUOTA["cpu"], QUOTA["memory"] // PEAK[sweep], QUOTA["limit"] // LIMIT)
+def manifest(run, ids, record, node=None):
+    from gate.sweep import CAMPAIGN_BYTES
 
-
-def manifest(run, sweep, ids, record, node=None):
     mib = lambda b: f"{b // 2**20}Mi"
     pod = {
         "priorityClassName": "moneymachine-batch",
@@ -107,8 +88,8 @@ def manifest(run, sweep, ids, record, node=None):
             "image": f"{REGISTRY}@{record['image']}",
             "command": ["choom", "-n", "1000", "--", "python", "/app/repo/ops/jobs.py", "task", run],
             "env": [{"name": "PYTHONPATH", "value": "/app/repo"}, {"name": "TMPDIR", "value": "/scratch/tmp"}],
-            "resources": {"requests": {"cpu": "1", "memory": mib(PEAK[sweep]), "ephemeral-storage": mib(SCRATCH)},
-                          "limits": {"memory": mib(LIMIT), "ephemeral-storage": mib(2 * SCRATCH)}},
+            "resources": {"requests": {"cpu": "1", "memory": mib(CAMPAIGN_BYTES), "ephemeral-storage": mib(SCRATCH)},
+                          "limits": {"memory": mib(CAMPAIGN_BYTES * 5 // 4), "ephemeral-storage": mib(2 * SCRATCH)}},
             "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
             "volumeMounts": [{"name": "inputs", "mountPath": "/inputs", "readOnly": True},
                              {"name": "results", "mountPath": "/results"},
@@ -119,26 +100,27 @@ def manifest(run, sweep, ids, record, node=None):
     if node:
         pod["nodeSelector"] = {"kubernetes.io/hostname": node}
     return {"apiVersion": "batch/v1", "kind": "Job", "metadata": {"name": f"mm-{run}", "labels": {"moneymachine/run": run}},
-            "spec": {"completionMode": "Indexed", "completions": len(ids), "parallelism": min(len(ids), parallelism(sweep)),
+            "spec": {"completionMode": "Indexed", "completions": len(ids), "parallelism": len(ids),
                      "backoffLimitPerIndex": 0, "ttlSecondsAfterFinished": 86400,
                      "template": {"metadata": {"labels": {"moneymachine/run": run}}, "spec": pod}}}
 
 
 def submit(run, sweep, digest, node=None, ids=None):
-    """One Indexed Job over the sweep's ids (or the given ones), its record (image, inputs) written first."""
+    """One Indexed Job over the sweep's ids (or the given ones), its record written first."""
     ids = ids or [s["id"] for s in campaign_specs(sweep)]
     out = RESULTS / run
     out.mkdir(parents=True, exist_ok=True)
     record = {"run": run, "sweep": sweep, "image": digest, "commit": subprocess.run(
                   ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip(),
-              "mm": stage(REPO / "kernel/target/release/mm"), "betas": stage(REPO / "data/campaigns/betas.json"),
-              "ids": stage_bytes(json.dumps(ids).encode()), "node": node}
+              "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
+              "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()), "ids": stage(json.dumps(ids).encode()),
+              "node": node}
     (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
-    print(kubectl("apply", "-f", "-", stdin=json.dumps(manifest(run, sweep, ids, record, node))).strip())
+    print(kubectl("apply", "-f", "-", stdin=json.dumps(manifest(run, ids, record, node))).strip())
 
 
 def task(run):
-    """In a pod: the campaign at this index, run in scratch, its outputs moved into results as one file."""
+    """In a pod: the campaign at this index."""
     record = json.loads((Path("/results") / run / "record.json").read_text())
     ids = json.loads((Path("/inputs") / record["ids"]).read_bytes())
     cid = ids[int(os.environ["JOB_COMPLETION_INDEX"])]
@@ -191,7 +173,7 @@ def status(run):
 
 
 def resubmit(run):
-    """The ids without a result, as a new Job, once the first Job is finished and no partial file remains."""
+    """The ids without a result, as a new Job, once the Job has no active pods and no partial file remains."""
     record, ids, done = state(run)
     job = json.loads(kubectl("get", "job", f"mm-{run}", "-o", "json"))["status"]
     if job.get("active"):
@@ -207,8 +189,7 @@ def resubmit(run):
 
 
 def collect(*runs):
-    """Every id once across the runs (a Job and its retries), each ledger on the record's kernel, into the sweep's
-    file in id order and its ledgers directory."""
+    """A Job and its retries: every id once, each ledger on the record's kernel."""
     sys.path.insert(0, str(REPO))
     import lzma
     import sqlite3
