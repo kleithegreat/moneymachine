@@ -15,13 +15,12 @@ Round r2: the revised DSR screen (criteria stage 2, Gate, revisions of 2026-10-2
 | C2.6 power | **failed** | as written, N2-s3 power 0 (≥ 0.30 required); as amended, N2-long 0.05 (5 of 100; 95% CP 0.016 to 0.113) |
 
 N2-long's 5 campaigns promoted 75 programs; 54 are true on C2.5's 200 fresh years, 21 false (FDR 0.006 over the
-cell's markets, reported only). The Sharpe cells promote nothing: their finalists reach the holdout (6 to 84
-campaigns per cell), and the holdout's bet cap (B = 1) leaves their per-step means undetectable
-(`bound-options.md`).
+cell's markets, reported only). The Sharpe cells promote nothing: their finalists reach the holdout (r2's counts
+below), and the holdout's bet cap (B = 1) leaves their per-step means undetectable (`bound-options.md`).
 
 **Stage 2 does not exit on r2.** C2.1 to C2.5 hold; C2.6 fails as written and as amended. The human's decision on the
 loss bound (`bound-options.md`; PROGRESS, decisions awaiting review) settles what follows: a round r3 under a new
-bound, or an exit with C2.6's failure as a recorded qualification (option Q).
+bound, or a human-authorized waiver of C2.6 (option Q), never an exit as written.
 
 ## Additions after GPT's first review (2026-10-28 12:33 UTC, 08:33 EDT; `exit-review-gpt-1.md`)
 
@@ -37,6 +36,7 @@ bound, or an exit with C2.6's failure as a recorded qualification (option Q).
 - **Test-alone power** (`test-alone-power.json`; the betting test alone, normal per-step returns, 2,000 series per
   cell): at 1,080 steps and 1% per-step volatility, 0 at means up to 0.3%, 0.02 at 0.5%, 0.39 at 0.55%, 0.92 at 0.6%,
   and 0 at annualized Sharpe 1, 2 and 3. **The pilot cannot confirm ordinary edges at this holdout length**: the test
-  needs a mean near 0.55% net per 4h step, and a Sharpe of 1 to 3 is far below 0.1%.
+  needs a mean near 0.55% net per 4h step, while an annualized Sharpe of 1 to 3 is a mean of 0.011% to 0.13% at per-step
+volatility 0.5% to 2%, where its power is 0 at either holdout length.
 - **N3's cell** is reported as "N3, s = 2.5 (amended from 3)"; `sweeps.json` keeps the key N3-s3.
 - **Option Q** is not an exit under the frozen criteria: it would be a human-authorized waiver, never a pass as written.
