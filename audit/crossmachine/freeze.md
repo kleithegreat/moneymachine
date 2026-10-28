@@ -161,3 +161,16 @@ dev shell's closure and commit 9f07a4e's tree, built by `nix build .#image`); in
   -n 1000` (checked on the submitted Job specs).
 
 All three pass: judged sweeps may run as Jobs. Until then the fan-out stays.
+
+## Test 8 result, 2026-10-28 04:38 UTC (00:38 EDT): all three parts pass; judged sweeps may run as Jobs
+
+- **(a)** On desktop, prodesk7, prodesk5 and gmktec, the seven `xm-` specs as node-pinned Indexed Jobs equal this PC's
+  test 7 runs, results and ledgers, kernel identity included (`result-8-compare-*.json`).
+- **(b)** In gmktec's Job, the pod of index 0 (`xm-N2-s1-0`) was deleted 51 s into its campaign: the index failed with no
+  result and no partial file; `resubmit` reran only that id (`mm-t8-gmktec-r1`), and its result is among gmktec's
+  identical seven.
+- **(c)** All five submitted Jobs carry the priority class, the toleration, the restricted security context, memory
+  requests at the measured campaign peak (953 Mi) with limits above (1,192 Mi), ephemeral-storage requests, `choom -n
+  1000` and the pinned image digest.
+
+The Runs revision of stage 2 (an infrastructure kill is rerun, not a crash) is in effect from here.
