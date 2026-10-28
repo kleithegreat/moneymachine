@@ -20,6 +20,7 @@ import tarfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
 INPUTS, RESULTS = Path("/srv/moneymachine/inputs"), Path("/srv/moneymachine/results")
 REGISTRY = "git.home.lab/admin/moneymachine"
 AUTHFILE = Path.home() / ".config/containers/auth.json"
@@ -62,7 +63,6 @@ def push():
 
 def campaign_specs(sweep):
     """A sweep's specs: `null`, `mixed`, or `xm`, the never-judged mixed test specs of ops/crossmachine.py."""
-    sys.path.insert(0, str(REPO))
     from gate import sweep as sw
 
     if sweep == "xm":
@@ -216,7 +216,6 @@ def resubmit(run):
 
 def collect(*runs):
     """A Job and its retries: every id once, each ledger on the record's kernel."""
-    sys.path.insert(0, str(REPO))
     import lzma
     import sqlite3
     import tempfile

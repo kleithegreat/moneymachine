@@ -223,17 +223,21 @@ def truth_id(campaign_id, h):
 
 
 def truth():
-    """Whether each promotion of the mixed sweep is true, appended to truth.jsonl."""
+    """Whether each promotion of the mixed sweep is true, appended to truth.jsonl as each is judged."""
     path, beta = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
-    done = campaign.recorded(path)
-    with open(path, "a") as fh:
-        for r in results("mixed"):
-            _, model, cell, _ = r["id"].split("-")
-            for p in r.get("promoted", []):
-                tid = truth_id(r["id"], p["hash"])
-                if tid not in done:
-                    fh.write(json.dumps({"id": tid, "true": is_true(p["program"], model, beta[f"{model}-{cell}"], tid)}) + "\n")
-                    fh.flush()
+    with campaign.exclusive(path) as fh:
+        done = campaign.recorded(path)
+        todo = [(truth_id(r["id"], p["hash"]), p["program"], r["id"].split("-")[1], beta["-".join(r["id"].split("-")[1:3])])
+                for r in results("mixed") for p in r.get("promoted", []) if truth_id(r["id"], p["hash"]) not in done]
+        with Pool(workers(CALIBRATION_BYTES)) as pool:
+            for tid, true in pool.imap_unordered(judge, todo):
+                fh.write(json.dumps({"id": tid, "true": true}) + "\n")
+                fh.flush()
+
+
+def judge(item):
+    tid, program, model, beta = item
+    return tid, is_true(program, model, beta, tid)
 
 
 def null_summary(name="null"):
