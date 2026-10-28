@@ -1,0 +1,520 @@
+{
+ "label": "development diagnostic on the first round's ledgers; not evidence",
+ "cells": {
+  "N1-G100": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 11,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N1-G400": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 14,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N1-H400": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 44,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N2-G100": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 11,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N2-G400": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 15,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N2-H400": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 58,
+   "spa_mismatch": 0,
+   "screened_any": 1,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N2-long": {
+   "n": 100,
+   "crashes": 2,
+   "spa": 94,
+   "spa_mismatch": 0,
+   "screened_any": 98,
+   "spa_and_finalists": 96,
+   "family": {
+    "frozen": {
+     "promoting": 8,
+     "with_true": 6,
+     "promoting_upper": 0.13971711921304591,
+     "fdr": 0.02,
+     "power": 0.06,
+     "power_ci": [
+      0.022334886071316385,
+      0.12602993458082296
+     ]
+    },
+    "best": {
+     "promoting": 4,
+     "with_true": 2,
+     "promoting_upper": 0.08919625015887987,
+     "fdr": 0.02,
+     "power": 0.02,
+     "power_ci": [
+      0.0024313368239425436,
+      0.07038393247107011
+     ]
+    },
+    "clusters": {
+     "promoting": 8,
+     "with_true": 6,
+     "promoting_upper": 0.13971711921304591,
+     "fdr": 0.02,
+     "power": 0.06,
+     "power_ci": [
+      0.022334886071316385,
+      0.12602993458082296
+     ]
+    }
+   },
+   "spa_upper": 0.9862233875351436
+  },
+  "N2-s1": {
+   "n": 100,
+   "crashes": 0,
+   "spa": 16,
+   "spa_mismatch": 0,
+   "screened_any": 26,
+   "spa_and_finalists": 6,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    }
+   },
+   "spa_upper": 0.1149852556079209
+  },
+  "N2-s2": {
+   "n": 100,
+   "crashes": 0,
+   "spa": 32,
+   "spa_mismatch": 0,
+   "screened_any": 80,
+   "spa_and_finalists": 29,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    }
+   },
+   "spa_upper": 0.3737283508457947
+  },
+  "N2-s3": {
+   "n": 100,
+   "crashes": 0,
+   "spa": 84,
+   "spa_mismatch": 0,
+   "screened_any": 100,
+   "spa_and_finalists": 84,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    }
+   },
+   "spa_upper": 0.8969888004843476
+  },
+  "N3-G100": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 9,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N3-G400": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 21,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N3-H400": {
+   "n": 300,
+   "crashes": 0,
+   "spa": 80,
+   "spa_mismatch": 0,
+   "screened_any": 0,
+   "spa_and_finalists": 0,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "best": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    },
+    "clusters": {
+     "promoting": 0,
+     "promoting_upper": 0.009936081944457708
+    }
+   },
+   "spa_upper": 0.009936081944457708
+  },
+  "N3-s1": {
+   "n": 100,
+   "crashes": 0,
+   "spa": 15,
+   "spa_mismatch": 0,
+   "screened_any": 13,
+   "spa_and_finalists": 3,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    }
+   },
+   "spa_upper": 0.07571079374983004
+  },
+  "N3-s2": {
+   "n": 100,
+   "crashes": 0,
+   "spa": 29,
+   "spa_mismatch": 0,
+   "screened_any": 87,
+   "spa_and_finalists": 25,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    }
+   },
+   "spa_upper": 0.33132155374566175
+  },
+  "N3-s3": {
+   "n": 100,
+   "crashes": 0,
+   "spa": 51,
+   "spa_mismatch": 0,
+   "screened_any": 96,
+   "spa_and_finalists": 49,
+   "family": {
+    "frozen": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "best": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    },
+    "clusters": {
+     "promoting": 0,
+     "with_true": 0,
+     "promoting_upper": 0.029513049607039925,
+     "fdr": 0.0,
+     "power": 0.0,
+     "power_ci": [
+      0.0,
+      0.03621669264517641
+     ]
+    }
+   },
+   "spa_upper": 0.5765893486978071
+  }
+ }
+}
