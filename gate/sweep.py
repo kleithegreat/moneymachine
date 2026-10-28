@@ -61,9 +61,10 @@ def require_frozen_searcher():
         raise SystemExit(f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change")
 
 
-# Peak memory per task, measured 2026-10-26: a campaign (its market, searcher and mm evaluations; the long cell's
-# four-year markets included) and one ten-year calibration market with its evaluation.
-CAMPAIGN_BYTES, CALIBRATION_BYTES = 2_500_000_000, 4_200_000_000
+# Peak memory per task with mm 3a732069 (columnar loader), measured 2026-10-27, with margin: a campaign (684 MiB for the
+# long cell with 80 finalists through the holdout; 533 MiB for a null one) and one ten-year market's evaluation (936
+# MiB, as in calibration and truth).
+CAMPAIGN_BYTES, CALIBRATION_BYTES = 1_000_000_000, 1_300_000_000
 
 
 def run_all(specs, path):

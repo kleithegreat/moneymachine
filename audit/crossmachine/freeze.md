@@ -125,3 +125,21 @@ same hash); its source is committed after (b) passes and must rebuild to this ha
 
 All four pass: the candidate becomes `kernel/target/release/mm` on every host and round r2's plan pins its hash.
 Any failure: it does not ship, and round r2 runs on `52db7b68…`.
+
+## Test 7 result, 2026-10-28 00:29 UTC (20:29 EDT): all four parts pass; the candidate ships
+
+- **(a)** All 25 first-round campaigns' search phases reproduce their recorded ledgers apart from `created` and the
+  kernel identity, and every reproduced ledger carries the candidate's (`result-7a-reproduce.json`).
+- **(b)** `cli check` on the candidate: only the known C0.7 criterion fails; 17 mutants caught, among them I8's,
+  which mutates the rewritten resolver's holdout line.
+- **(c)** All 1,196 verdicts and 3,372 runs of C6.4's frozen corpus equal the Lean reference's, byte for byte
+  (`result-7c-differential.json`), as in its judged report on the same manifest. That report's `pass` is false
+  only because `complete()` checks the frozen corpus against the live adversarial suite, which gained 22 rejection
+  cases (`adversarial-gpt40` to `gpt61`) after the freeze; the candidate checked those in (b). A fresh corpus is
+  stage 7's (PROGRESS). Running it first needed the market hash to leave out the `version` pin (`audit/decisions.md`).
+- **(d)** The candidate copied to prodesk7, gmktec and prodesk5 matches this PC on the seven `xm-` specs, kernel
+  identity included (`result-7d-compare-*.json`).
+
+Installed as `kernel/target/release/mm` (`3a732069…`) on this PC, prodesk7 and prodesk5, and on gmktec once its last
+preview campaigns end. The committed source (dd9580d) rebuilds to this hash. Measured with it: a ten-year evaluation
+936 MiB (was 4,279), a campaign 533 to 684 MiB (was about 1 to 2.5 GB); pools are sized from these.
