@@ -255,3 +255,9 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 ## 2026-10-28 06:07 UTC (02:07 EDT): correction to the entry above
 
 - The prodesk5 deletions summed to 107 paths (passes of 1, 34, 2 and 68, plus the two dev-shell environments), not 102; about 6 GB as stated.
+
+## 2026-10-28 13:42 UTC (09:42 EDT): human decision: option Q, with (a) to (c) (GPT's review attached)
+
+- **What:** stage 2 exits with C2.6's failure as a labelled qualification, a waiver of demonstrated sensitivity, never a pass (C2.1 to C2.5 met on round r2; `audit/stage2/exit-r2.md`). (a) Stage 3's qualification covers every promotion of its real campaign. (b) B = 1 stands, justified by NULLS.md's derivation (limited liability gives a null strategy at most the expected absorbed shortfall, so no-edge is claimed only for evaluations that never go bankrupt) and the measured rate (1 of 2,700 r2 null campaigns had an evaluation reach −B); stages 3 to 5 report it per campaign. (c) O1 (I10 generalized to a per-step loss cap at B = 0.2) is a provisional candidate for stage 7 only, carrying GPT's requirements; a better-powered B = 1 betting test is compared first, as development work behind the critical path.
+- **Evidence:** `audit/stage2/bound-options.md` and `bound-options.json` (development), GPT's review `audit/stage2/bound-review-gpt-1.md` (Q defensible as a waiver; O1 not established safe; stage 3's narrower qualification and loss absorption flagged), the recheck `bound-recheck.jsonl`.
+- **Reverse:** a round r3 under a decided bound, judged on fresh evidence; the waiver stays recorded either way.
