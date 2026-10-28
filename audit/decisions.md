@@ -245,3 +245,9 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Not moved:** gmktec's remaining null ids. Its running shard fixed its id list at start and has no drain channel; stopping it would kill campaigns in flight, which count as crashes in judged evidence. Its tail (about 04:10) stays; the cluster's test 8 can use the other hosts meanwhile. The Jobs path removes this limit (an Indexed Job's pods take the next index wherever there is room).
 - **Why it cannot affect a false-discovery outcome:** campaigns are deterministic by id, and cross-machine tests 1 to 7 are identical on every host.
 - **Reverse:** none needed; the original assignment is in git (6404245).
+
+## 2026-10-28 06:07 UTC (02:07 EDT): the SSH workers retired and cleaned up (the human's cleanup list); one ordering mistake on prodesk5
+
+- **Done:** `~/mm-worker` removed on prodesk7 (12 GB), gmktec (7.7 GB) and prodesk5 (11 GB); Determinate Nix uninstalled on prodesk7 and gmktec by its own uninstaller, then checked: no `/nix`, no Nix units, no build users, no shell hooks. Every result they held had been copied back and merged first.
+- **prodesk5 (its Nix predates us):** the list said to compute our dev profile's closure before deleting the folder; my command deleted the folder after the closure delete had refused (one shared path was live), losing the profile links that named our paths. I reconstructed "ours" as the closure of this flake's dev shell plus the one dead older dev-shell environment from our period (both holding this flake's Python environment and Rust toolchain), intersected with paths both dead and registered after we began (2026-10-26 20:00 UTC), and deleted those: 102 paths, about 6 GB. 158 more such paths are held only by other dead paths I cannot show are ours, so they stay for the host's own garbage collection; nothing live and nothing older than our arrival was touched.
+- **Reverse:** none needed; the cluster replaces the workers.
