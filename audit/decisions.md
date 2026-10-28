@@ -251,3 +251,7 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Done:** `~/mm-worker` removed on prodesk7 (12 GB), gmktec (7.7 GB) and prodesk5 (11 GB); Determinate Nix uninstalled on prodesk7 and gmktec by its own uninstaller, then checked: no `/nix`, no Nix units, no build users, no shell hooks. Every result they held had been copied back and merged first.
 - **prodesk5 (its Nix predates us):** the list said to compute our dev profile's closure before deleting the folder; my command deleted the folder after the closure delete had refused (one shared path was live), losing the profile links that named our paths. I reconstructed "ours" as the closure of this flake's dev shell plus the one dead older dev-shell environment from our period (both holding this flake's Python environment and Rust toolchain), intersected with paths both dead and registered after we began (2026-10-26 20:00 UTC), and deleted those: 102 paths, about 6 GB. 158 more such paths are held only by other dead paths I cannot show are ours, so they stay for the host's own garbage collection; nothing live and nothing older than our arrival was touched.
 - **Reverse:** none needed; the cluster replaces the workers.
+
+## 2026-10-28 06:07 UTC (02:07 EDT): correction to the entry above
+
+- The prodesk5 deletions summed to 107 paths (passes of 1, 34, 2 and 68, plus the two dev-shell environments), not 102; about 6 GB as stated.
