@@ -78,7 +78,7 @@
         # serves the sandbox's closure query, read-only; the tools reach it through a file naming them.
         image = let
           tools = with pkgs; [ (pythonFor pkgs) coreutils util-linux self.packages.${system}.claude-code bubblewrap sqlite
-                               rsync restic nix ];
+                               nix ];
         in pkgs.dockerTools.buildLayeredImageWithNixDb {
           name = "moneymachine";
           tag = self.shortRev or "dirty";

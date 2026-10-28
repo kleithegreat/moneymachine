@@ -48,3 +48,12 @@ def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_
     (live_dir / "polls-1.jsonl").write_text('{"a":9}\n{"a":2}\n{"a":3}\n')
     with pytest.raises(SystemExit):
         live.mirror(app, out)
+    (live_dir / "polls-1.jsonl").write_text('{"a":1}\n{"a":2}\n')
+    live.mirror(app, out)
+    live.verify(app, out)
+    (out / "hl/polls-1.jsonl").write_text('{"a":1}\n{"a":3}\n')
+    with pytest.raises(SystemExit):
+        live.verify(app, out)
+    (live_dir / "polls-1.jsonl").unlink()
+    with pytest.raises(SystemExit):
+        live.mirror(app, out)

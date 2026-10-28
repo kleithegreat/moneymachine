@@ -16,28 +16,27 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 
 - **Namespace** `moneymachine-live`, Pod Security `enforce: restricted`. No volume of `moneymachine` is mounted in it, so
   no licensed kernel-only data reaches it.
-- **Node profiles** on prodesk5, for the runner pods: a Localhost seccomp profile `moneymachine-bwrap.json` (in the
-  kubelet's seccomp directory), RuntimeDefault plus `unshare`, `clone`
-  and `clone3` with namespace flags, and `mount`, `pivot_root` and `umount2`, as bubblewrap needs; and a Localhost
-  AppArmor profile `moneymachine-bwrap` allowing `userns` creation and those mounts (Ubuntu 26.04 restricts unprivileged user namespaces).
+- **Node profiles**, installed on prodesk7 only, for the runner pods: the Localhost seccomp profile
+  `profiles/moneymachine-sandbox.json`, RuntimeDefault plus what bubblewrap needs (`unshare`, `clone` and `clone3` with
+  namespace flags, `mount`, `pivot_root`, `umount2`); and the Localhost AppArmor profile `moneymachine-sandbox`,
+  allowing `userns` creation and those mounts (Ubuntu 26.04 restricts unprivileged user namespaces).
   Restricted Pod Security admits both, and admits `procMount: Unmasked` for pods with `hostUsers: false`.
-- **PriorityClass** `moneymachine-live`: negative value, `preemptionPolicy: Never`, so homelab services always win.
-- **PVCs** on prodesk5 (the backed-up node), ReadWriteOnce: `hl` 50Gi, `sources` 5Gi, `datalayer` 20Gi, `thesis`
+- **PriorityClass** `moneymachine-live`: value −50, `preemptionPolicy: Never`, so homelab services always win.
+- **PVCs**, local-path, ReadWriteOnce, bound on the first pod's node (prodesk7), and not backed up: `hl` 50Gi, `sources` 5Gi, `datalayer` 20Gi, `thesis`
   20Gi, `agent` 20Gi. Every SQLite ledger lives on one of them, never on NFS.
 - **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi. This PC's NixOS
-  configuration creates and exports that directory beside `inputs` and `results`.
+  configuration exports that directory beside `inputs` and `results`. It holds the only copy of the live data.
 - **Secrets**, created by the advisor with kubectl from local files, outside Git:
   - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account;
   - `datalayer-keys`: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
-    (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key;
-  - `restic`: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD` and the repository backend's credentials, if any.
+    (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key.
 - **RBAC**: ServiceAccount `deployer`, its kubeconfig at this PC's `~/.kube/moneymachine-live.yaml`, may create, get, list, watch, update, patch and
-  delete statefulsets, jobs, cronjobs and pods, and get pods/log, in `moneymachine-live` only. It can therefore mount
+  delete statefulsets, jobs, cronjobs and pods; read pods/log and events; and read PVCs and the quota. It cannot read
+  Secrets. Its scope is `moneymachine-live` only. It can therefore mount
   every Secret and volume there: this PC is trusted with all live credentials and data. Workload pods run as
   ServiceAccount `live` with no permissions and `automountServiceAccountToken: false`.
 - **NetworkPolicies**: deny all ingress and egress; allow every pod egress on TCP 80 and 443 to 0.0.0.0/0 except
-  10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10 and 169.254.0.0/16, plus DNS to kube-dns; and the
-  `restic` pod egress to the restic repository only. That is stricter than this PC, which reaches the whole LAN.
+  10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10 and 169.254.0.0/16, plus DNS to kube-dns. That is stricter than this PC, which reaches the whole LAN.
   IPv6 egress is denied. The homelab confirms that no homelab service or licensed-data host is reachable at a public
   address from the pods.
 - **ResourceQuota**: 12 pods, 6 CPU and 12Gi memory requested.
@@ -52,13 +51,13 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
 | `agent-series` | Job | `cli agent-null agent 20` (stage 4: `swarm 10`) | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
-| `restic` | CronJob, hourly | section 5 | `thesis`, `agent` read-only | `restic` | 600 s |
+| `mirror-verify` | CronJob, daily | section 5 | the five and `mirror`, read-only | none | 600 s |
 
 - Each volume is mounted at its repo path (`hl` at `data/live`, `sources` at `data/sources_live`, `datalayer` at
   `data/datalayer`, `thesis` at `data/thesis`, `agent` at `data/agent`), so every command runs as it does here.
-- All run on prodesk5 with the `moneymachine-live` priority, as uid 1000, gid 100, read-only root and the commands in exec
+- All run on prodesk7 (a `kubernetes.io/hostname` node selector) with the `moneymachine-live` priority, as uid 1000, gid 100, read-only root and the commands in exec
   form (Python is PID 1). The thesis and series pods add `hostUsers: false`, `procMount: Unmasked` and the Localhost
-  profiles. The recorders, `mirror` and `restic` are ordinary restricted pods with RuntimeDefault: NFS takes no
+  profiles. The recorders and the mirror jobs are ordinary restricted pods with RuntimeDefault: NFS takes no
   idmapped mounts.
 - **One writer per directory.** Each writer holds an exclusive `flock` on a lock file in its directory and exits if it
   is held: the thesis runner and the series do already, and the recorders take one beside their pidfile. A pod on an
@@ -69,11 +68,11 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
   promotion), never rerun. The real campaign refuses an existing directory. The thesis runner records each date's
   sessions in its ledger and does not repeat one. A Kubernetes retry never becomes a fresh attempt.
-- **Clocks.** Each recorder keeps its own clock log, and prodesk5 runs NTP. The logged offset against the venue's
+- **Clocks.** Each recorder keeps its own clock log, and prodesk7 runs NTP. The logged offset against the venue's
   server time is the check (C5.3: under 1 s).
 - **Image** `moneymachine`, one for batch and live, built by `nix build .#image`, pushed and pinned by digest:
   - contents: the repo at `/app`, the Python env, `mm`, claude-code pinned in the flake at exactly 2.1.304,
-    bubblewrap, sqlite3, rsync, restic, and the Nix store database that the sandbox's closure query (`nix-store -qR`)
+    bubblewrap, sqlite3, and the Nix store database that the sandbox's closure query (`nix-store -qR`)
     reads;
   - writable `emptyDir` for `/tmp` and the sessions' work directories;
   - its `/bin` and `/usr`, which bubblewrap binds into the sandbox, hold what the PC's do: `/bin/sh` and `/usr/bin/env`.
@@ -84,9 +83,9 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   them into the volume and checks every sha256. It never overwrites a file with other content. The series finds `mm`
   through `CARGO_TARGET_DIR`; the thesis track pins its own copy.
 - **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); thesis 500m and 2Gi (4Gi); series 1 CPU and 3Gi
-  (6Gi); mirror and restic 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. The mirror reports volume usage,
+  (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. The mirror reports volume usage,
   and this PC's disk guard raises a blocker above 80 %.
-- **Availability.** One node holds every volume, so a prodesk5 outage stops everything. The Oracle VM is the only
+- **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
 ## 3. Credentials and usage
@@ -120,23 +119,24 @@ capabilities:
 - The stage 3 harness hash and the thesis manifest are computed in the pod. Each launch checks them against the frozen
   ones.
 
-## 5. Recorded data back to this PC, and backups
+## 5. The mirror on this PC: the live data's only copy
 
-The `mirror` CronJob (`concurrencyPolicy: Forbid`) runs every 10 minutes:
+The `mirror` CronJob (`concurrencyPolicy: Forbid`) runs every 10 minutes (`ops/live.py`, `mirror`). Any failed check
+stops the run:
+- Day files (`*.jsonl`) only grow: one that shrank, changed below its mirrored length, or vanished from the source is
+  refused.
+- Every copy's bytes are compared with the source's over the same length.
+- SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check.
+- Other files are copied whole when their size or mtime changes.
+- A mirrored file shorter than its manifest entry is refused.
 
-- It copies each volume into a new generation directory: day files with `rsync`, and each SQLite ledger with
-  `sqlite3 .backup`.
-- It hashes every file into the generation's manifest and writes that manifest last, so a generation without one is
-  incomplete. It also writes the volumes' usage.
-- Day files are append-only: a file that shrank, or changed below its old length, stops the run and is reported. SQLite
-  snapshots are point-in-time copies, compared by nothing.
-- When this PC is off, runs fail and the next one catches up; prodesk5's volumes stay the record.
-- On this PC, each mirrored recorder is one more host directory, read like `data/live-oci`'s from the latest complete
-  generation, and staged into batch inputs by hash as today.
+Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the volume's usage. It is written last,
+so readers trust only what it lists. The `mirror-verify` CronJob re-hashes daily every mirrored file, and every day
+file's source over its mirrored length, against the manifest.
 
-The `restic` CronJob (`concurrencyPolicy: Forbid`) runs hourly. It snapshots each live ledger with `sqlite3 .backup`
-into an emptyDir and runs `restic backup` of those snapshots to the homelab's repository. It does not depend on this
-PC. A restore can lose at most an hour of ledger rows. The homelab's own backup of prodesk5 covers the day files.
+When this PC is off, runs fail and the next one catches up. Until then, prodesk7's volumes hold the only copy of
+anything newer. On this PC, each mirrored recorder is one more host directory, read like `data/live-oci`'s through
+its manifest, and staged into batch inputs by hash as today.
 
 ## 6. Cut-over
 

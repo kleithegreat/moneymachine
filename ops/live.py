@@ -1,12 +1,12 @@
 """The live workloads on the homelab cluster (CLUSTER.md): their manifests, applied with the `deployer` account; the
-seeding of their volumes from this PC; the gates; and the mirror and backup steps that run in pods.
+seeding of their volumes from this PC; the gates; and the mirror steps that run in pods.
 
     python ops/live.py push                          build and push the image; prints its digest
     python ops/live.py apply <digest> <name>...      apply workloads (WORKLOADS' names)
     python ops/live.py seed <digest> <volume> <src:dest>...   copy files of this PC into a volume, checked by sha256
     python ops/live.py gate <digest> <Default|Unmasked>       the credential and sandbox gates in a runner pod
     python ops/live.py view                          the sandbox's view (namespaces, maps, mounts), as the gate records it
-In pods: `mirror`, `restic`, `seed-run <volume>`, `gate-run <targets>`.
+In pods: `mirror`, `verify`, `seed-run <volume>`, `gate-run <targets>`.
 """
 
 import hashlib
@@ -24,12 +24,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jobs  # noqa: E402
 
 REPO = jobs.REPO
-NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk5", "/app/repo"
+NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk7", "/app/repo"
 MIRROR = Path("/srv/moneymachine/mirror")
 VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data/datalayer", "thesis": "data/thesis",
            "agent": "data/agent"}
 LEDGERS = ("thesis", "agent")
-SECCOMP, APPARMOR = "moneymachine-bwrap.json", "moneymachine-bwrap"
+SECCOMP, APPARMOR = "profiles/moneymachine-sandbox.json", "moneymachine-sandbox"
 TOKEN = {"name": "CLAUDE_CODE_OAUTH_TOKEN", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": "CLAUDE_CODE_OAUTH_TOKEN"}}}
 PROC = "Unmasked"  # the runners' procMount, as the sandbox gate settled it
 
@@ -46,8 +46,8 @@ WORKLOADS = {
                      {"env": [{"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]}),
     "mirror": ("CronJob", ["ops/live.py", "mirror"], {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False}, False,
                ("200m", "256Mi", "512Mi"), 600, {"schedule": "*/10 * * * *"}),
-    "restic": ("CronJob", ["ops/live.py", "restic"], {v: False for v in LEDGERS}, False, ("200m", "256Mi", "512Mi"), 600,
-               {"schedule": "17 * * * *", "envFrom": [{"secretRef": {"name": "restic"}}]}),
+    "mirror-verify": ("CronJob", ["ops/live.py", "verify"], {**{v: True for v in VOLUMES}, "mirror": True}, False,
+                      ("200m", "256Mi", "512Mi"), 600, {"schedule": "41 3 * * *"}),
 }
 
 
@@ -56,7 +56,7 @@ def kubectl(*args, stdin=None):
 
 
 def pod_spec(name, digest, command, volumes, runner, size, grace, extra, proc=PROC):
-    """A restricted pod on prodesk5 running `python -m cli <command>` (or `python <script>`), each volume at its repo
+    """A restricted pod on prodesk7 running `python -m cli <command>` (or `python <script>`), each volume at its repo
     path; a runner (thesis, series, gates) also gets its own user namespace, the bubblewrap profiles and the token."""
     cpu, memory, limit = size
     mounts = [{"name": "tmp", "mountPath": "/tmp"}, {"name": "scratch", "mountPath": "/scratch"}]
@@ -79,7 +79,7 @@ def pod_spec(name, digest, command, volumes, runner, size, grace, extra, proc=PR
         "containers": [{
             "name": name, "image": f"{jobs.REGISTRY}@{digest}", "workingDir": APP,
             "command": ["python", *([] if script else ["-m", "cli"]), *command],
-            "env": [*([TOKEN] if runner else []), *extra.get("env", [])], "envFrom": extra.get("envFrom", []),
+            "env": [*([TOKEN] if runner else []), *extra.get("env", [])],
             "resources": {"requests": {"cpu": cpu, "memory": memory}, "limits": {"memory": limit}},
             "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
                                 "capabilities": {"drop": ["ALL"]}, **({"procMount": proc} if runner else {})},
@@ -113,7 +113,12 @@ def run_pod(name, spec):
     """Run one pod to completion; its log, and whether it succeeded. The pod is deleted afterwards."""
     spec["restartPolicy"] = "Never"
     kubectl("apply", "-f", "-", stdin=json.dumps({"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name}, "spec": spec}))
+    started = time.time()
     while (phase := kubectl("get", "pod", name, "-o", "jsonpath={.status.phase}")) not in ("Succeeded", "Failed"):
+        if phase == "Pending" and time.time() - started > 900:
+            state = kubectl("get", "pod", name, "-o", "jsonpath={.status}")
+            kubectl("delete", "pod", name, "--wait=false")
+            raise SystemExit(f"{name} still pending after 15 min: {state}")
         time.sleep(5)
     log = kubectl("logs", name)
     kubectl("delete", "pod", name, "--wait=false")
@@ -170,9 +175,12 @@ def seed_run(volume):
 
 
 def mirror(app=APP, out="/mirror"):
-    """Each volume into /mirror/<volume>: day files (*.jsonl) appended, and refused if one changed below its mirrored
-    length; SQLite ledgers as point-in-time snapshots; other files copied whole when they change. MANIFEST.json
-    (size and sha256 of each file, the volume's usage) is written last: a reader trusts only what it lists."""
+    """Each volume into /mirror/<volume>, the live data's only copy, every step checked; any failure stops the run:
+    - day files (*.jsonl) only grow: one that shrank, changed below its mirrored length or vanished is refused;
+    - every copy's bytes are compared with the source's over the same length;
+    - SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
+    - other files are copied whole when their size or mtime changes.
+    MANIFEST.json (size, mtime and sha256 of each file, the volume's usage) is written last: readers trust only it."""
     for vol, path in VOLUMES.items():
         src, dst = Path(app) / path, Path(out) / vol
         if not src.exists():
@@ -182,43 +190,54 @@ def mirror(app=APP, out="/mirror"):
         new = {}
         for f in sorted(p for p in src.rglob("*") if p.is_file() and p.name != ".writer.lock" and "-wal" not in p.name
                         and not p.name.endswith("-shm")):
-            rel, size, prev = str(f.relative_to(src)), f.stat().st_size, old.get(str(f.relative_to(src)))
-            (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+            rel, st = str(f.relative_to(src)), f.stat()
+            prev, target = old.get(rel), dst / rel
+            if prev and (not target.exists() or target.stat().st_size < prev["size"]):
+                raise SystemExit(f"{vol}/{rel}: the mirror lost bytes its manifest lists")
+            target.parent.mkdir(parents=True, exist_ok=True)
             if f.suffix == ".sqlite":
                 tmp = dst / f"{rel}.tmp"
                 with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(tmp) as b:
                     a.backup(b)
-                tmp.replace(dst / rel)
-                new[rel] = {"size": (dst / rel).stat().st_size, "sha256": sha256(dst / rel)}
+                    if b.execute("pragma integrity_check").fetchone()[0] != "ok":
+                        raise SystemExit(f"{vol}/{rel}: the snapshot fails SQLite's integrity check")
+                tmp.replace(target)
+                new[rel] = {"size": target.stat().st_size, "mtime": st.st_mtime_ns, "sha256": sha256(target)}
                 continue
-            if prev and size == prev["size"] and (dst / rel).exists():
+            if prev and st.st_size == prev["size"] and st.st_mtime_ns == prev["mtime"]:
                 new[rel] = prev
                 continue
             if f.suffix == ".jsonl" and prev:
-                if size < prev["size"] or sha256(f, prev["size"]) != prev["sha256"]:
+                if st.st_size < prev["size"] or sha256(f, prev["size"]) != prev["sha256"]:
                     raise SystemExit(f"{vol}/{rel} changed below its mirrored length {prev['size']}")
-                with open(f, "rb") as a, open(dst / rel, "r+b") as b:
+                with open(f, "rb") as a, open(target, "r+b") as b:
                     a.seek(prev["size"]), b.seek(prev["size"]), b.truncate()
                     shutil.copyfileobj(a, b)
             else:
-                shutil.copy2(f, dst / rel)
-            new[rel] = {"size": (dst / rel).stat().st_size, "sha256": sha256(dst / rel)}
+                shutil.copy2(f, target)
+            size = target.stat().st_size
+            if sha256(f, size) != (digest := sha256(target)):
+                raise SystemExit(f"{vol}/{rel}: the copy differs from its source")
+            new[rel] = {"size": size, "mtime": st.st_mtime_ns, "sha256": digest}
+        if gone := [r for r in old if r.endswith(".jsonl") and r not in new]:
+            raise SystemExit(f"{vol}: day files vanished from the source: {gone}")
         usage = shutil.disk_usage(src)
         (dst / "MANIFEST.json.tmp").write_text(json.dumps({"taken": int(time.time() * 1000), "files": new,
                                                            "used": usage.used, "total": usage.total}))
         (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
 
 
-def restic():
-    """Hourly: every live ledger, snapshotted with SQLite's backup, into the homelab's restic repository."""
-    snap = Path(tempfile.mkdtemp())
-    for vol in LEDGERS:
-        for f in (Path(APP) / VOLUMES[vol]).rglob("*.sqlite"):
-            out = snap / vol / f.relative_to(Path(APP) / VOLUMES[vol])
-            out.parent.mkdir(parents=True, exist_ok=True)
-            with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(out) as b:
-                a.backup(b)
-    subprocess.run(["restic", "backup", "--host", NAMESPACE, "--tag", "ledgers", "."], cwd=snap, check=True)
+def verify(app=APP, out="/mirror"):
+    """Daily: every mirrored file against its manifest's sha256, and every day file's source over the same length."""
+    for vol, path in VOLUMES.items():
+        if not (Path(out) / vol / "MANIFEST.json").exists():
+            continue
+        for rel, e in json.loads((Path(out) / vol / "MANIFEST.json").read_text())["files"].items():
+            if sha256(Path(out) / vol / rel, e["size"]) != e["sha256"]:
+                raise SystemExit(f"mirror {vol}/{rel} differs from its manifest")
+            if rel.endswith(".jsonl") and sha256(Path(app) / path / rel, e["size"]) != e["sha256"]:
+                raise SystemExit(f"source {vol}/{rel} differs from its manifest")
+    print("verified")
 
 
 VIEW = "cat /proc/self/uid_map /proc/self/gid_map /proc/self/status /proc/self/mountinfo; ls /proc/self/ns /proc"
@@ -292,4 +311,4 @@ if __name__ == "__main__":
     elif cmd == "view":
         print("\n".join(view()))
     else:
-        {"seed": seed, "seed-run": seed_run, "gate": gate, "gate-run": gate_run, "mirror": mirror, "restic": restic}[cmd](*args)
+        {"seed": seed, "seed-run": seed_run, "gate": gate, "gate-run": gate_run, "mirror": mirror, "verify": verify}[cmd](*args)
