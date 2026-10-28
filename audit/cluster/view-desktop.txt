@@ -1,0 +1,278 @@
+      1000          0          1
+       100          0          1
+Uid:	1000	1000	1000	1000
+Gid:	100	100	100	100
+Groups:	65534 65534 65534 65534 65534 100 65534 65534 
+NStgid:	4
+NSpid:	4
+NSpgid:	1
+NSsid:	1
+Kthread:	0
+HugetlbPages:	       0 kB
+CoreDumping:	0
+THP_enabled:	1
+untag_mask:	0xffffffffffffffff
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	0000000000000000
+CapAmb:	0000000000000000
+NoNewPrivs:	1
+Seccomp:	0
+Seccomp_filters:	0
+Speculation_Store_Bypass:	vulnerable
+SpeculationIndirectBranch:	always enabled
+x86_Thread_features:	
+x86_Thread_features_locked:	
+/ tmpfs
+/nix/store/00fs4zz9c0jjcvs62wg39b91dydz7zqb-libidn2-2.3.8 ext4
+/nix/store/04g5vymcgsnka23cxpl10q679g9yw6hv-pcre2-10.49 ext4
+/nix/store/0i3nsd1ifv7frfhif4nxcpj0kbnhf0b9-lapack-3 ext4
+/nix/store/0vw7gvcazcjqc762x7vg3l31cpx65l7i-gcc-15.3.0-libgcc ext4
+/nix/store/11pp5fjk82cfpx28d2yjaavii5r90and-google-cloud-cpp-2.44.0 ext4
+/nix/store/122wa42s5l63f9i5gframi7j1jyv7cxm-python3.13-tzdata-2026.2 ext4
+/nix/store/197ng8pyrgv127xl54xj72br0cqai35g-lz4-1.10.0-lib ext4
+/nix/store/1mf5zg36hyq1rp89ml8sr276ch34z4qa-util-linux-minimal-2.42.3-login ext4
+/nix/store/1s57mn4jqwvl1gmz1pajcm3s7wwjf7v2-python3.13-pytz-2026.1.post1 ext4
+/nix/store/26m941fkl59snrfvw92p1lgsndnfipa8-libcap-2.77-lib ext4
+/nix/store/2bdaw5in0adaqxpgp7b3x2yb11z0s591-gflags-2.2.2 ext4
+/nix/store/2gqnnd91l2dr402mp8qjlnd51m5hl8xw-python3.13-iniconfig-2.3.0 ext4
+/nix/store/2k9dj65vyanlvq863ks3ii7cjx82kfng-zlib-1.3.2-dev ext4
+/nix/store/38gjpy89h2r446zmkysph90nji4fr8f3-python3-3.13.15-env ext4
+/nix/store/38zqwl0c1yv1sz14smyhjkfifsbvdzil-qhull-2020.2 ext4
+/nix/store/3gayii5scnm5nxw226l11hhfv1z440sw-abseil-cpp-20260107.1-dev ext4
+/nix/store/3gnbcz1h1xxfby9khvv04ighy6nn4p4i-gdbm-1.26-lib ext4
+/nix/store/3hk1ngk4hsk4s53v2s7sg096irdania4-acl-2.4.0 ext4
+/nix/store/3kz2hypzh1f5x0v4jirzv8gmh41xzpaj-aws-c-io-0.27.2 ext4
+/nix/store/3q0w0x48vvmka9h4flz5x5dnhljvw6b3-libevent-2.1.13 ext4
+/nix/store/3sj8msrsym648f35mk3gb3pp385hhk8r-gcc-16.2.0-libgcc ext4
+/nix/store/44pqd91n666jq73qa5bysah145q88fdy-python3.13-statsmodels-0.14.6 ext4
+/nix/store/4h2rsqx694bjyj5qm9v4gwdgvwhxwgcp-libevent-2.1.13-openssl ext4
+/nix/store/4ijzlwhpk5bdj5rc3xarrgazsk2j91s5-crc32c-1.1.2 ext4
+/nix/store/4pkqr0mnicmd443gwvvf2arrrrr7r0iv-utf8proc-2.11.3 ext4
+/nix/store/4yscyhm4p5f87h9ii28hk4bay2c4n1sq-aws-crt-cpp-0.34.3 ext4
+/nix/store/501svqgx77ffkb9i25d0y3gjz10mc95p-python3.13-h11-0.16.0 ext4
+/nix/store/52zkl7ambd31fncmb8h1yljizzh2ihah-aws-c-cal-0.9.2 ext4
+/nix/store/5dakax2jkwpys3j3iq7iqrb5v9pfia4a-python3.13-attrs-26.1.0 ext4
+/nix/store/5mj6vbssmzp5y3xyvjxzd0bjha3a6hwz-libselinux-3.10 ext4
+/nix/store/5nizj4df94aby9r3rxdhspip4wj9gaqj-python3.13-pyarrow-23.0.0 ext4
+/nix/store/5s4ahr76fzx3p4z0fyhphskham55nkhb-nghttp3-1.15.0 ext4
+/nix/store/671dh91zx227fz6a3q3fp086y2w19r2z-python3.13-packaging-26.1 ext4
+/nix/store/6cl85g0yv5w4xi2m0p50f8lz1g2v040f-alsa-ucm-conf-1.2.15.3 ext4
+/nix/store/6cqd5cpqm7flgpi0fl4003j4ys5hja6v-aws-c-common-0.12.4 ext4
+/nix/store/6dbxpvmq0h5wklv708hpp7r6fb204zh0-c-ares-1.34.8-dev ext4
+/nix/store/6s4wm3zl2y0v5g998n2g88k1zh3vf2pr-zlib-1.3.2 ext4
+/nix/store/6wk3j44jkwnym3kg3fxlps0zfd7khnkz-azure-sdk-for-cpp-identity-1.13.3 ext4
+/nix/store/6x3vic5vm4jzp29yna1qkp0xmf3qm35i-nss-cacert-3.126 ext4
+/nix/store/7a2cjhcgzyym5zaz6m4fksw47qvm150w-gcc-16.2.0-lib ext4
+/nix/store/7hb639qc0cgc215kr10pgg6r3z0xrfk2-kmod-31 ext4
+/nix/store/7l09089ahshxjx4js3zswqk6azhx6ccq-openssl-3.6.5-dev ext4
+/nix/store/7x1bx9jcnpikp026m039132incf3d0p4-python3.13-pandas-2.3.3 ext4
+/nix/store/7yavjw7rxcjq319h0vcsbccdfpjr4yh6-python3.13-cffi-2.0.0 ext4
+/nix/store/7zbzvm0bwa2mh5dp3p5gasix417lysxc-zstd-1.5.7 ext4
+/nix/store/8lakgf27dgy0fxnn1zmijmpdpacajd30-aws-c-auth-0.9.1 ext4
+/nix/store/8rq2p4mj679q96bvisvlkddlkg0i46ka-python3.13-pytest-9.0.3 ext4
+/nix/store/9csszq0cch2npq0flybqmvkabb1dj3r4-libssh2-1.11.1 ext4
+/nix/store/9vlqal1w3jg03kbyx2gaqji3djzyfzd6-python3.13-hypothesis-6.151.10 ext4
+/nix/store/a9yy4409h8iahsp2dczybjcfzf1wfqrv-python3.13-python-dateutil-2.9.0.post0 ext4
+/nix/store/adygr6jyf3xbv37lnvm4lj4cy85g0ajg-mpdecimal-4.0.1 ext4
+/nix/store/anc26dy8hjdrzdix8xyd8fhzlhmlxqzk-boost-1.89.0 ext4
+/nix/store/b56ind0m3byv7pzby5mwsn5qsy1g6lqf-expat-2.8.5 ext4
+/nix/store/bhv6xyvqw6gjs3j488gi1z6wdv18bdpa-coreutils-9.11 ext4
+/nix/store/bx7jdvkba26sy20ryr4l617qqmzj9hff-libunistring-1.4.2 ext4
+/nix/store/c08hhkqb4mjfym8fi3x3ik08a7h1k2wg-gfortran-15.3.0-libgcc ext4
+/nix/store/c4hal5azha13zashr1m6ijhlniqw342s-aws-c-s3-0.8.7 ext4
+/nix/store/cb53sk2xsxfwsjbfkrdyz2kbi4p0f49n-libxcrypt-4.5.2 ext4
+/nix/store/cb987zkxvsv0490753ilrvn5yk7ylgxi-coreutils-9.12 ext4
+/nix/store/cdp8b7dhm4440cyfkzkl16iqiccf5m6m-python3.13-httpx-0.28.1 ext4
+/nix/store/d2ihjmxs4l9h2knhdy4k4gacwqbwbsvz-python3.13-execnet-2.1.2 ext4
+/nix/store/dkgik9w0xmk5lkp4rmm5z6hih300dzd1-python3.13-sortedcontainers-2.4.0 ext4
+/nix/store/dqj57l1prad38vjrad4bs9d977i4q5zm-gcc-15.3.0-lib ext4
+/nix/store/drxakd25lbv35flbk8f01bqq417j9czw-nghttp2-1.69.0-lib ext4
+/nix/store/fgl3vbk3yb37w5jb8rkvkhbwbnl83y0l-snappy-1.2.2 ext4
+/nix/store/fgybfh3vqcihaij76hgxhnrvbv5blha2-alsa-lib-1.2.15.3 ext4
+/nix/store/fsd4vbp9zjd9iaicq2fb9lpc1h5j973y-glibc-2.42-100 ext4
+/nix/store/g49nqr7si7n6z4jlh8cwyxxlggkj2i8p-publicsuffix-list-0-unstable-2026-05-13 ext4
+/nix/store/g5sdb0fb07vysknw4mrsf6ss2d3py8hz-socat-1.8.1.3 ext4
+/nix/store/g64gr9m6lhzp9aq393yv0sxlr5176jrc-brotli-1.2.0-lib ext4
+/nix/store/g6abir4kxzaz3k017zp624h7h99na6vl-python3.13-pycparser-3.00 ext4
+/nix/store/g6mvl9ns7k52zfv9pcfw3dbh65z3j7id-libunistring-1.4.2 ext4
+/nix/store/hf8a95j1jr8bjmxb93np94xlqwqr492x-libffi-3.8.0 ext4
+/nix/store/hj69j0vs9zjrc84s1c622ia03pmlb2ip-icu4c-76.1-dev ext4
+/nix/store/hr00izqgyfszlknsph42b42chvh7ln8r-procps-4.0.6 ext4
+/nix/store/hw26gin576lvhnmfkv5fqm4nayj9qwdi-util-linux-minimal-2.42.3-lib ext4
+/nix/store/hzwckv1kq2pqa7010zph0a6j0xfbyvwa-readline-8.3p3 ext4
+/nix/store/i3kd42j8yzl0vs99cp3qz6prvqkznpgp-claude-code-2.1.304 ext4
+/nix/store/il88laxnachq58yngqszb8y89k7mg6aw-blas-3 ext4
+/nix/store/im4iy501d49l5g9i4kmav3k91q998d9y-azure-sdk-for-cpp-storage-files-datalake-12.14.0 ext4
+/nix/store/izq1x1k2kaa1108d915rawdbw4kypzq4-python3.13-httpcore-1.0.9 ext4
+/nix/store/j7gw09i8msa13fvpv20j98hp6id9k2ql-acl-2.4.0 ext4
+/nix/store/j9436i4mh2hlhnlqlk59fq5dc2sprs4i-readline-8.3p3 ext4
+/nix/store/jmxrpp9mj5l669s0y4f4rfdh10ln51xj-ripgrep-15.1.0 ext4
+/nix/store/jnyfsf2mp08d1xyz2m72ic2vz2kcx0sd-bash-5.3p9 ext4
+/nix/store/jy00n3jp5xj8s40n1fbldmkcr5n7avxc-python3-3.13.15 ext4
+/nix/store/k0cq9kxpwnwczb2715h13cs0jgk7ph20-python3.13-pluggy-1.6.0 ext4
+/nix/store/k0fby92994cjcmj3npd562dy22qxnwdy-ngtcp2-1.22.1 ext4
+/nix/store/kwyi4bq5s2qgwbhz6cs4gjy57c2zdxws-bash-interactive-5.3p20 ext4
+/nix/store/kysvfcf8d8v26rr32xfqji8ri2lczlqk-openssl-3.6.5 ext4
+/nix/store/l1n6wi2lyzglvgzbwzw9n9w2pzkcj41i-xgcc-15.3.0-libgcc ext4
+/nix/store/l5y42bimjvvn8h3v5y40w13vv7y2p3k5-libidn2-2.3.8 ext4
+/nix/store/li44xlwsrrk6s3pcldlkhay2pqm4pa3a-azure-sdk-for-cpp-storage-blobs-12.16.0 ext4
+/nix/store/llvm5wk73mglpk5ippqgphk3yhp3d8c6-python3.13-idna-3.15 ext4
+/nix/store/lmnj7lp2dqpc7rw5mq5scrpig0irar6a-keyutils-1.6.3-lib ext4
+/nix/store/lq0jaw4axpjy96v5cqcn83fyks6w70mc-python3.13-pygments-2.20.0 ext4
+/nix/store/lxlgk884g7bjiy680n9insxx0xzpn0v3-s2n-tls-1.7.6 ext4
+/nix/store/m0cfkcagdk9bjk3dmd6yxz6cdyzphjww-python3.13-arch-8.0.0 ext4
+/nix/store/mkbbamycmw838fwxk21jz0nw3mhnmk16-tzdata-2026c ext4
+/nix/store/mm22hz4w37ndx2hvczd9qrrfg8i17cvy-sqlite-3.51.2 ext4
+/nix/store/mpl2alx0qfhhsxn0p28ff0ls95fnrfih-glog-0.7.1 ext4
+/nix/store/n4kh7cc8n3r2bvgv1dymwawq2faln3gs-re2-2025-11-05-dev ext4
+/nix/store/n79r9y9mxh7d1n4j3f0gjcba50cwwy9z-python3.13-patsy-1.0.2 ext4
+/nix/store/ndv550fkbmsfvdxax71d4d5d59x4lq80-openssl-3.6.5-bin ext4
+/nix/store/njxfvlf96zgywvdcmgymcnha48izsska-azure-sdk-for-cpp-storage-common-12.12.0 ext4
+/nix/store/nk466llm4q84ndikpain66202cldc1jk-grpc-1.80.0 ext4
+/nix/store/nlg0vijaii4b4h8y5z407fsadf8z36ds-openblas-0.3.33 ext4
+/nix/store/nmspkhpacjv3rihywrvbmqpcv9rxwk5q-blas-3-dev ext4
+/nix/store/nnnh2ks97pxsv3cswhmvir8vzi0gc63m-bubblewrap-0.12.0 ext4
+/nix/store/p1znwnkdzmbz8a4kk3b29677hdbmjycj-python3.13-property-cached-1.6.4 ext4
+/nix/store/pddqhhpjip4p5l93nxdkvbmm23fp7fd9-bzip2-1.0.8 ext4
+/nix/store/picd7882fdf3djp9k3jzfmldp10xp01x-gfortran-15.3.0-lib ext4
+/nix/store/piik0dwh5gcqnd0yp2dhhd6bvc6x0gcl-check-phase-thread-limit-hook ext4
+/nix/store/pkkjnyk4z46n18fkyqwlg24p272apb69-xgcc-16.2.0-libgcc ext4
+/nix/store/pnwvsvwppd1lsamcxmiw6g7fp1k1g2j0-attr-2.6.0 ext4
+/nix/store/ppvfdpfnmxyjn6jbcg04z1zq30n9ahvb-c-ares-1.34.8 ext4
+/nix/store/pqyiidz5mi73wv5f91d48s9plcqyj5bz-glibc-2.44-57 ext4
+/nix/store/q2f62lvphy4c7r7yiqr1hiisw1k5w79f-azure-sdk-for-cpp-core-1.16.3 ext4
+/nix/store/q3lhcbjc0bxxiqnhcp2vslmn9mh3f256-curl-8.22.0 ext4
+/nix/store/qb91r3j2aml97l0hqx608q57sk5dnfx2-alsa-topology-conf-1.2.5.1 ext4
+/nix/store/qdvf5rsmrbk2xmcmcnc9dja4p2ymqbsh-lapack-3-dev ext4
+/nix/store/qhqw0wskflcjnhhg7ap3xj42bq6z6mkg-aws-sdk-cpp-1.11.647 ext4
+/nix/store/qj6d02gigjlwrmki3hjxyx81cf4jpypd-gtest-1.17.0 ext4
+/nix/store/qms1wk1x5xbj2aal475s629mvd3dmm30-aws-c-event-stream-0.7.0 ext4
+/nix/store/r0kc5i7bcx4a513c2wczpsjxk0fyfs5i-python3.13-lz4-4.4.5 ext4
+/nix/store/r147dq099fvfjn2q95agm9q3vn2ngpcd-arrow-cpp-23.0.0 ext4
+/nix/store/r9nlzwasmr1hgcbrfzcp2b2cz33scij2-ncurses-6.6 ext4
+/nix/store/rb7vidqaarkkjyhwk59rnrn9wcsha3yk-protobuf-34.1 ext4
+/nix/store/rcvnjiaywqlx4d6ra1z4z537jpw3jvwy-libpsl-0.21.5 ext4
+/nix/store/rsrza5hkhi6bijvpgbpm4h2jwb3n19kk-thrift-0.24.0 ext4
+/nix/store/s5pd3fwy8857i6dzbdgyhwfacn9sk59h-python3.13-certifi-2026.01.04 ext4
+/nix/store/sckyz4ybwr1glhqw0xbr81rp2saqm943-python3.13-polars-1.40.1 ext4
+/nix/store/sm8adhnlan2wl1xap8i4v24p7r43iv7s-python3.13-anyio-4.13.0 ext4
+/nix/store/srcx149smw6dsqj2ymsh2dxdx82nv9bj-systemd-minimal-libs-260.5 ext4
+/nix/store/ss3pj4pa7q374jrl4xpyrpqyd5d4s35y-aws-c-compression-0.3.1 ext4
+/nix/store/v1z7l40cvbgmcxg2rgpff37zvbxscxfa-icu4c-76.1 ext4
+/nix/store/v3imdn9s2021ssh45ps62kksg2d1k7xm-xz-5.8.4 ext4
+/nix/store/vqq4ms2n4fk4w0ib9cdqhccjj8jfabrv-python3.13-numpy-2.4.4 ext4
+/nix/store/vs4bjcgq2r93adg875isf55hyn29dk09-gmp-with-cxx-6.3.0 ext4
+/nix/store/w4zvs3bl9rrgp5shd8c8ah0qyjry2cgc-aws-c-http-0.11.0 ext4
+/nix/store/w8b6idhzlpd5573p6md4dpap27c993ar-libxml2-2.15.4 ext4
+/nix/store/wga5sfqlg1x5pim6ym7qd6zzds0qmqv3-python3.13-six-1.17.0 ext4
+/nix/store/wpyc0r4d4idaq96y0dc1375ziabl4b38-ncurses-6.6 ext4
+/nix/store/x8cdfn1m3aa1p8m2gi6hqqmszn041r8y-python3.13-pytest-xdist-3.8.0 ext4
+/nix/store/xj8g46bl0ps12qw46gi9gacm493m3pff-gmp-with-cxx-6.3.0 ext4
+/nix/store/xjn1fpvsvi4md0d669dlx9kncpc3p2ms-aws-checksums-0.2.7 ext4
+/nix/store/xql1i59wn5n0v4hxx1xhji9p6zns8hsi-mailcap-2.1.54 ext4
+/nix/store/xvpdcmxbccnavnw2dciidp0zrknzr1db-zlib-1.3.2-static ext4
+/nix/store/y477wwg1qf03a8h2a81y76v9rainxzmr-abseil-cpp-20260107.1 ext4
+/nix/store/ydlz78x3ahgclpd3y8c1hvmcns8a3wb4-aws-c-sdkutils-0.2.4 ext4
+/nix/store/yf0hz9wbjp4is3911417c25blkf71bjd-libevent-2.1.13-dev ext4
+/nix/store/yfvrxfh24kxshxsvgic60893sy8h4shc-krb5-1.22.2-lib ext4
+/nix/store/ymha2aisd654nry75sk14d6qvfkdwwcv-python3.13-scipy-1.17.1 ext4
+/nix/store/ywyfkyrq9whdgb8kwywhaqwrmfv1gbxj-aws-c-mqtt-0.13.3 ext4
+/nix/store/zfsvnb0vxwck1hq55j4900f7rrpm5y9y-attr-2.6.0 ext4
+/nix/store/zqjng9f1p6ybfpdjpv2drijbykivjdka-re2-2025-11-05 ext4
+/etc/passwd tmpfs
+/etc/group tmpfs
+/etc/nsswitch.conf tmpfs
+/bin ext4
+/usr ext4
+/proc proc
+/dev tmpfs
+/dev/null devtmpfs
+/dev/zero devtmpfs
+/dev/full devtmpfs
+/dev/random devtmpfs
+/dev/urandom devtmpfs
+/dev/tty devtmpfs
+/dev/pts devpts
+/tmp tmpfs
+/home/agent tmpfs
+/work tmpfs
+/tool tmpfs
+/work/mm-agent tmpfs
+/proc:
+acpi
+allocinfo
+asound
+buddyinfo
+bus
+cgroups
+cmdline
+config.gz
+consoles
+cpuinfo
+crypto
+device-tree
+devices
+diskstats
+dma
+driver
+dynamic_debug
+execdomains
+fb
+filesystems
+fs
+interrupts
+iomem
+ioports
+irq
+kallsyms
+kcore
+key-users
+keys
+kmsg
+kpagecgroup
+kpagecount
+kpageflags
+loadavg
+locks
+meminfo
+misc
+modules
+mounts
+mtd
+mtrr
+net
+pagetypeinfo
+partitions
+pressure
+schedstat
+scsi
+self
+slabinfo
+softirqs
+stat
+swaps
+sys
+sysrq-trigger
+sysvipc
+thread-self
+timer_list
+tty
+uptime
+version
+vmallocinfo
+vmstat
+zoneinfo
+
+/proc/self/ns:
+cgroup
+ipc
+mnt
+net
+pid
+pid_for_children
+time
+time_for_children
+user
+uts

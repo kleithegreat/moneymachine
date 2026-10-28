@@ -30,9 +30,9 @@ NODE = "desktop"
 SCRATCH = 2**30
 
 
-def kubectl(*args, stdin=None):
-    env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube/moneymachine.yaml")}
-    return subprocess.run(["kubectl", "-n", NAMESPACE, *args], input=stdin, capture_output=True, text=True, env=env,
+def kubectl(*args, stdin=None, namespace=NAMESPACE, config="moneymachine.yaml"):
+    env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube" / config)}
+    return subprocess.run(["kubectl", "-n", namespace, *args], input=stdin, capture_output=True, text=True, env=env,
                           check=True).stdout
 
 

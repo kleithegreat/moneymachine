@@ -16,20 +16,22 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 
 - **Namespace** `moneymachine-live`, Pod Security `enforce: restricted`. No volume of `moneymachine` is mounted in it, so
   no licensed kernel-only data reaches it.
-- **Node profiles** on prodesk5, for the runner pods: a Localhost seccomp profile, RuntimeDefault plus `unshare`, `clone`
+- **Node profiles** on prodesk5, for the runner pods: a Localhost seccomp profile `moneymachine-bwrap.json` (in the
+  kubelet's seccomp directory), RuntimeDefault plus `unshare`, `clone`
   and `clone3` with namespace flags, and `mount`, `pivot_root` and `umount2`, as bubblewrap needs; and a Localhost
-  AppArmor profile allowing `userns` creation and those mounts (Ubuntu 26.04 restricts unprivileged user namespaces).
+  AppArmor profile `moneymachine-bwrap` allowing `userns` creation and those mounts (Ubuntu 26.04 restricts unprivileged user namespaces).
   Restricted Pod Security admits both, and admits `procMount: Unmasked` for pods with `hostUsers: false`.
 - **PriorityClass** `moneymachine-live`: negative value, `preemptionPolicy: Never`, so homelab services always win.
 - **PVCs** on prodesk5 (the backed-up node), ReadWriteOnce: `hl` 50Gi, `sources` 5Gi, `datalayer` 20Gi, `thesis`
   20Gi, `agent` 20Gi. Every SQLite ledger lives on one of them, never on NFS.
-- **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi.
+- **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi. This PC's NixOS
+  configuration creates and exports that directory beside `inputs` and `results`.
 - **Secrets**, created by the advisor with kubectl from local files, outside Git:
   - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account;
   - `datalayer-keys`: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
     (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key;
   - `restic`: `RESTIC_REPOSITORY`, `RESTIC_PASSWORD` and the repository backend's credentials, if any.
-- **RBAC**: ServiceAccount `deployer`, bound to this PC's kubeconfig, may create, get, list, watch, update, patch and
+- **RBAC**: ServiceAccount `deployer`, its kubeconfig at this PC's `~/.kube/moneymachine-live.yaml`, may create, get, list, watch, update, patch and
   delete statefulsets, jobs, cronjobs and pods, and get pods/log, in `moneymachine-live` only. It can therefore mount
   every Secret and volume there: this PC is trusted with all live credentials and data. Workload pods run as
   ServiceAccount `live` with no permissions and `automountServiceAccountToken: false`.
@@ -44,14 +46,16 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 
 | Name | Kind | Command | Volumes | Secret | Grace |
 |---|---|---|---|---|---|
-| `hl` | StatefulSet | `cli record … /data/hl` | `hl` | none | 300 s |
-| `sources` | StatefulSet | `cli sources-record /data/sources` | `sources` | none | 300 s |
-| `datalayer` | StatefulSet | `cli datalayer-record /data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
-| `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 4,200 s |
+| `hl` | StatefulSet | `cli record data/live/universe.json venue/hyperliquid/rules.json data/live 480` | `hl` | none | 300 s |
+| `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
+| `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
+| `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
 | `agent-series` | Job | `cli agent-null agent 20` (stage 4: `swarm 10`) | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
 | `restic` | CronJob, hourly | section 5 | `thesis`, `agent` read-only | `restic` | 600 s |
 
+- Each volume is mounted at its repo path (`hl` at `data/live`, `sources` at `data/sources_live`, `datalayer` at
+  `data/datalayer`, `thesis` at `data/thesis`, `agent` at `data/agent`), so every command runs as it does here.
 - All run on prodesk5 with the `moneymachine-live` priority, as uid 1000, gid 100, read-only root and the commands in exec
   form (Python is PID 1). The thesis and series pods add `hostUsers: false`, `procMount: Unmasked` and the Localhost
   profiles. The recorders, `mirror` and `restic` are ordinary restricted pods with RuntimeDefault: NFS takes no
@@ -59,8 +63,8 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **One writer per directory.** Each writer holds an exclusive `flock` on a lock file in its directory and exits if it
   is held: the thesis runner and the series do already, and the recorders take one beside their pidfile. A pod on an
   unreachable node is never force-deleted until the node is confirmed down.
-- **Stopping.** On SIGTERM, recorders stop between polls (as today), the thesis runner between sessions, and the series
-  between campaigns. Their waits wake on SIGTERM. The thesis StatefulSet uses `updateStrategy: OnDelete`, so a restart
+- **Stopping.** On SIGTERM, recorders stop between polls (as today), the thesis runner after its current step (a day's
+  sessions, at most four of an hour each, hence its grace), and the series between campaigns. Their waits wake on SIGTERM. The thesis StatefulSet uses `updateStrategy: OnDelete`, so a restart
   is always deliberate. Bubblewrap's `--die-with-parent` ends a session with its runner.
 - **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
   promotion), never rerun. The real campaign refuses an existing directory. The thesis runner records each date's
@@ -73,8 +77,12 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
     reads;
   - writable `emptyDir` for `/tmp` and the sessions' work directories;
   - its `/bin` and `/usr`, which bubblewrap binds into the sandbox, hold what the PC's do: `/bin/sh` and `/usr/bin/env`.
-  The dev shell carries the same claude-code, so the harness hash computed here equals the pod's. Each result records
-  the image digest beside the frozen hashes, not inside them.
+  The dev shell carries the same claude-code, so the harness hash and the thesis manifest computed here equal the
+  pod's. Each result records the image digest beside the frozen hashes, not inside them.
+- **Seeding.** `mm` is never in the image (its identity embeds its build path). `ops/live.py seed` delivers the exact
+  bytes, and `data/thesis` and `data/universe.json` at the move: files go through the mirror export, and a pod copies
+  them into the volume and checks every sha256. It never overwrites a file with other content. The series finds `mm`
+  through `CARGO_TARGET_DIR`; the thesis track pins its own copy.
 - **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); thesis 500m and 2Gi (4Gi); series 1 CPU and 3Gi
   (6Gi); mirror and restic 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. The mirror reports volume usage,
   and this PC's disk guard raises a blocker above 80 %.
@@ -144,12 +152,12 @@ PC. A restore can lose at most an hour of ledger rows. The homelab's own backup 
    - the cluster's last successful poll is under one cadence old;
    - pagination and clock checks pass;
    - a complete mirror generation contains the handoff instant.
-4. Thesis: after a UTC day's last session, stop it on this PC. Copy `data/thesis` (ledgers by `sqlite3 .backup`,
-   with nothing writing). Restore-test the copy, freeze the new track version in the pod, and start it. C10.5's window
-   counts from that freeze.
+4. Thesis: after a UTC day's last session, stop it on this PC. Freeze the new track version here (the freeze builds
+   and pins `mm`), commit, build the image, and seed `data/thesis` (ledgers by SQLite's backup, with nothing writing).
+   Then start it; its manifest check in the pod confirms the freeze. C10.5's window counts from that freeze.
    - Theses of the previous version keep resolving under their frozen rules, reported under their own version.
    - The day's sessions and dates are reconciled from the ledger before and after the move.
-5. Stage 3: in the pod, the harness is refrozen as a successor of the previous freeze (allowed only while no campaign
-   is recorded or started), then the series Job starts.
+5. Stage 3: the harness was refrozen here before any campaign (`audit/stage3/harness.json`). Seed `mm`; the series Job
+   checks the frozen hash at every campaign.
 6. After the handoff: delete what this replaces, and update CLAUDE.md's Recorders, Heavy-jobs and Waiting lines.
    Git keeps the old paths for rollback, and a rollback never reruns a consumed campaign or date.
