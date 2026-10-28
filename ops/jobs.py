@@ -2,10 +2,10 @@
 
     python ops/jobs.py push | join | leave
     python ops/jobs.py submit <run> <sweep> <digest> [node]      sweep: null | mixed | xm
-    python ops/jobs.py status | resubmit <run>
+    python ops/jobs.py resubmit <run>
     python ops/jobs.py collect <run>...
 
-`mm`, the betas and each Job's id list are staged by sha256 and checked in every pod. A task runs one campaign in local
+`submit` and `resubmit` block until the Job completes or fails. `mm`, the betas and each Job's id list are staged by sha256 and checked in every pod. A task runs one campaign in local
 scratch (SQLite never over NFS) and renames one tar per campaign id into the results volume. A campaign crash is a
 result; an OOM kill fails the index, and `resubmit` reruns it once no partial file remains."""
 
@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -129,6 +130,15 @@ def submit(run, sweep, digest, node=None, ids=None):
     stage_funding()
     (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
     print(kubectl("apply", "-f", "-", stdin=json.dumps(manifest(run, ids, record, node))).strip())
+    while not (ended := {c["type"] for c in job(run).get("conditions", []) if c["status"] == "True"} & {"Complete", "Failed"}):
+        time.sleep(30)
+    print(json.dumps({"run": run, "succeeded": job(run).get("succeeded", 0), "failedIndexes": job(run).get("failedIndexes", "")}))
+    if "Failed" in ended:
+        raise SystemExit(f"mm-{run}: an index failed; `resubmit {run}` reruns it after the integrity check")
+
+
+def job(run):
+    return json.loads(kubectl("get", "job", f"mm-{run}", "-o", "json"))["status"]
 
 
 def task(run):
@@ -189,18 +199,10 @@ def state(run):
     return record, ids, done
 
 
-def status(run):
-    record, ids, done = state(run)
-    job = json.loads(kubectl("get", "job", f"mm-{run}", "-o", "json"))["status"]
-    print(json.dumps({"ids": len(ids), "done": len(done), "missing": len(ids) - len(done),
-                      "active": job.get("active", 0), "failedIndexes": job.get("failedIndexes", "")}))
-
-
 def resubmit(run):
     """The ids without a result, as a new Job, once the Job has no active pods and no partial file remains."""
     record, ids, done = state(run)
-    job = json.loads(kubectl("get", "job", f"mm-{run}", "-o", "json"))["status"]
-    if job.get("active"):
+    if job(run).get("active"):
         raise SystemExit(f"mm-{run} still has active pods")
     partial = list((RESULTS / run).glob(".*.tmp"))
     for p in partial:
@@ -285,6 +287,6 @@ def leave():
 
 
 if __name__ == "__main__":
-    commands = {"push": push, "submit": submit, "task": task, "status": status, "resubmit": resubmit,
+    commands = {"push": push, "submit": submit, "task": task, "resubmit": resubmit,
                 "collect": collect, "join": join, "leave": leave}
     commands[sys.argv[1]](*sys.argv[2:])

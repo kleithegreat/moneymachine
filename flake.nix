@@ -55,6 +55,7 @@
               skopeo
             ];
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
+            shellHook = "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks";
           };
           # The HL recorder alone (`python -m cli record`), for hosts that only record (ops/oci).
           recorder = pkgs.mkShell {
