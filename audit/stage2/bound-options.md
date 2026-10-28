@@ -93,7 +93,7 @@ human's call. It saves the proof time (3 h to a day) off the critical path.
   promotion); stage 5 has no holdout criterion; stage 10's skill claim rests on resolved forecast clusters.
 - **Costs:** C2.6's purpose, showing the pipeline can detect an edge the holdout supports, stays unshown until stage 7.
   Until then a zero-promotion result in stages 3 to 5 cannot be told from blindness, so it says nothing about the pipeline's
-  sensitivity. Stage 3's real campaign (1,080 holdout steps) would be blind under O1 too for realistic edges (the Sharpe
+  sensitivity. Stage 3's real campaign (360 holdout steps, latest revision) would be blind under O1 too for realistic edges (the Sharpe
   cells promote nothing above B = 0.05), so Q costs least there.
 
 ## Recommendation
@@ -107,10 +107,10 @@ human's call. It saves the proof time (3 h to a day) off the critical path.
   1.44% at 0.02, rising as the floor cuts more null steps (0.04%, then 0.31%). And the venue's isolated margin cannot
   carry the searchers' sizes there (B = 0.05 fits only 0.02 per coin, 0.02 fits none), so realizing it would shrink the
   strategies and the power the table shows.
-- **Stage 3 stays blind under any safe option.** Its real campaign has a 1,080-step holdout, where B = 0.2 or 0.1
+- **Stage 3 stays blind under any safe option.** Its real campaign has a 360-step holdout, shorter than the Sharpe cells' 1,080, where B = 0.2 or 0.1
   promotes nothing in any Sharpe cell. Q costs stage 3 nothing it would otherwise have.
-- **B = 0.2 is the right bound for long holdouts.** It is venue-realizable at every searcher size, the floor never cut
-  a null step, no null campaign's best was promoted, and the long-holdout cell's power rises from 0.05 to 0.91. Stages
+- **B = 0.2 is the right bound for long holdouts.** It is venue-realizable at every searcher size, the floor cut 4 null
+  steps of about a million (0.0004%), no null campaign's best was promoted, and the long-holdout cell's power rises from 0.05 to 0.91. Stages
   7 to 9 bring the long histories it needs, and stage 7 rewrites the kernel and restates its law set (L6 among them)
   anyway, so the bound's proofs are done once.
 

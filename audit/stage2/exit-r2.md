@@ -37,6 +37,6 @@ bound, or a human-authorized waiver of C2.6 (option Q), never an exit as written
   cell): at 1,080 steps and 1% per-step volatility, 0 at means up to 0.3%, 0.02 at 0.5%, 0.39 at 0.55%, 0.92 at 0.6%,
   and 0 at annualized Sharpe 1, 2 and 3. **The pilot cannot confirm ordinary edges at this holdout length**: the test
   needs a mean near 0.55% net per 4h step, while an annualized Sharpe of 1 to 3 is a mean of 0.011% to 0.13% at per-step
-volatility 0.5% to 2%, where its power is 0 at either holdout length.
+volatility 0.5% to 2%: power 0 at 1,080 steps; at 5,400 steps it reaches 0.0045, 0.10 and 0.62 at 2% volatility.
 - **N3's cell** is reported as "N3, s = 2.5 (amended from 3)"; `sweeps.json` keeps the key N3-s3.
 - **Option Q** is not an exit under the frozen criteria: it would be a human-authorized waiver, never a pass as written.
