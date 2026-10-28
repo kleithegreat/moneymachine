@@ -484,6 +484,12 @@ Content is known no earlier than its last edit. A row with no admissible claimed
   - Fewer than 30 observed items means the rule is unvalidated, and the source can be at most prospective.
   - A rule revised after measurement must pass on a fresh recording segment.
   - A live-versus-backfill reconciliation re-backfills the live window and reports missing items (deletions), changed content (edits), and items claimed inside the window but not seen live in time (backdated).
+  - *Revision 2026-10-28 17:12 UTC (13:12 EDT), human decision, effective from this instant: hosts.* A source's recorder may run on several named hosts: this PC, the homelab cluster (`CLUSTER.md`), and for Hyperliquid the Oracle VM.
+    - **Coverage.** Availability is judged on one UTC timeline. An interval is covered only between two consecutive successful, complete, clock-valid polls of one host that are no further apart than the source's cadence (at most 5 min).
+    - **Gaps.** Every interval no host covers is a gap, whatever was backfilled later. The first start stays the original one.
+    - **Observations.** Every host's logs are kept. Duplicate items resolve deterministically by earliest valid observation, with no choice of hosts.
+    - **History.** Failures before this instant stand. A fresh 72 h segment after it must satisfy C5.3.
+    - **Report.** The original single-host result and the revised one are given side by side.
 - **C5.4 Coverage.** Coverage intervals are stored as data per source and coin. Inputs are undefined, never 0, outside coverage or for unmapped coins. Per coin of U, the report gives event counts in the search part and in the live window, gaps, and each source's classification.
 - **C5.5 Kernel integration.**
   - Event sources enter the DSL as per-tick aggregates: the count of items with knownAt in (τ − 1h, τ], under a new base unit `ev` for counts.

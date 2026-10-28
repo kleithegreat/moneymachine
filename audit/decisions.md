@@ -268,3 +268,14 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Why:** the human asked for pacing by measurement, net of this session's use (2026-10-27); the windows are that measurement, and token counts alone cannot be compared with limits the subscription does not state in tokens. Pacing only sets when a campaign starts, so it cannot change any false-discovery or leakage outcome; it prevents interrupted campaigns, which count as promotions. `sandbox/session.py` is untouched, since the thesis track's frozen manifest hashes it.
 - **Measured at decision time:** seven-day window 0.90, resetting 2026-11-01 05:00 UTC (01:00 EDT); five-hour 0.45. So the stage 3 null series cannot start before that reset.
 - **Reverse:** change `CEILING` or `FIRST_NEED`, or restore a fixed spacing; recorded results are unaffected.
+
+## 2026-10-28 17:12 UTC (13:12 EDT): human decisions on the move to the cluster (`CLUSTER.md`, GPT's reviews in `audit/cluster/`)
+
+- **Credentials move to the homelab.** The Cornell account's `claude setup-token` token as `CLAUDE_CODE_OAUTH_TOKEN`, and `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY`, `SEC_USER_AGENT`. The advisor creates the Secrets with kubectl from local files, outside Git. No Databento or FRED key moves.
+- **The credential reaches sessions as `CLAUDE_CODE_OAUTH_TOKEN`, passed by `sandbox/session.py`,** not as a copied `.credentials.json`: the CLI rotates refresh tokens, so a read-only copy dies within hours. One path, shared by stages 3 and 10. So:
+  - stage 3's harness is refrozen now, before any campaign (none has run: the series log is empty, with no campaign directory);
+  - stage 10 cuts a new track version at the move, and C10.5's window restarts at its freeze.
+- **C5.3, revision "hosts"**, appended under C5.3 as written in the design.
+- **Overlap.** Hyperliquid reconciles against the Oracle recorder, which is always on. The sources and datalayer recorders overlap 72 h or until the human's next reboot of this PC, whichever comes first; this PC's directories then close as hosts.
+- **Spec fixes.** The mirror CronJob is an ordinary restricted pod, since NFS takes no idmapped mounts. `moneymachine-live`'s PriorityClass is negative and never preempts. A restic instance backs up the live ledgers beside the mirror.
+- **Reverse:** run the workloads back on this PC from git, and delete the Secrets. The refreeze and the new track version are recorded and stay.
