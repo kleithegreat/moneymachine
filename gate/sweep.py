@@ -196,10 +196,10 @@ def betas(keys=None):
         (OUT / "betas.json").write_text(json.dumps({k: values[k] for k in CALIBRATIONS}, indent=1))
 
 
-def is_true(program, model, beta, tag, markets=TRUTH_MARKETS):
-    """True iff mean net return over `markets` fresh markets of TRUTH_YEARS is positive with a 99% CI excluding 0."""
+def is_true(program, model, beta, tag):
+    """True iff mean net return over 200 fresh years is positive with a 99% CI excluding 0."""
     means = np.array([net_returns(program, model, beta, f"truth-{tag}-{i}", TRUTH_YEARS).mean()
-                      for i in range(markets)])
+                      for i in range(TRUTH_MARKETS)])
     lo = means.mean() - stats.t.ppf(0.995, len(means) - 1) * means.std(ddof=1) / np.sqrt(len(means))
     return bool(lo > 0)
 

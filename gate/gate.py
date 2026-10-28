@@ -136,18 +136,18 @@ def effective_n(r, spa_p, seed):
     return out
 
 
-def holdout_pvalues(r, bound=LOSS_BOUND):
+def holdout_pvalues(r):
     """Testing by betting (audit/criteria.md, stage 2, calibration v3) along the last axis: wealth prod(1 + λ_t r_t)
     with the aGRAPA bet λ_t = clip(S_{t-1} / Q_{t-1}, 0, 1/(2B)) from the past sums of r and r², and
     p = min(1, 1 / max wealth). Valid at every level by Ville's inequality when E[r_t | past] <= 0 and r_t >= -B."""
     r = np.asarray(r, float)
-    if not (np.isfinite(r).all() and (r >= -bound).all()):
+    if not (np.isfinite(r).all() and (r >= -LOSS_BOUND).all()):
         raise ValueError("holdout return non-finite or below -B")
     zero = np.zeros(r.shape[:-1] + (1,))
     s = np.concatenate([zero, np.cumsum(r, axis=-1)[..., :-1]], axis=-1)
     q = np.concatenate([zero, np.cumsum(r * r, axis=-1)[..., :-1]], axis=-1)
     with np.errstate(divide="ignore", invalid="ignore"):
-        bet = np.where(q > 0, np.clip(s / q, 0.0, 0.5 / bound), 0.0)
+        bet = np.where(q > 0, np.clip(s / q, 0.0, 0.5 / LOSS_BOUND), 0.0)
     wealth = np.cumprod(1 + bet * r, axis=-1).max(axis=-1, initial=1.0)
     if not np.isfinite(wealth).all():
         raise ValueError("holdout wealth non-finite")
