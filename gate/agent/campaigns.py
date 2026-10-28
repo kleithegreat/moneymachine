@@ -3,6 +3,7 @@ real campaign (arm A against the G100 searcher, one holdout batch); null series 
 
 import json
 import sqlite3
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -20,7 +21,9 @@ REPORT_FROM_DAY = {"agent": 670, "swarm": 640}
 REAL_REPORT_FROM = 1785542400000  # 2026-08-01, a month after the agent model's knowledge cutoff
 LABEL = "pipeline validation run, not a test for edge; every promotion: historical holdout, costs fitted after it"
 MIN_SWARM_EVALUATIONS = 200
-SPACING = 5 * 3600
+CEILING = 0.8  # the most of any subscription window a campaign may bring it to; the rest stays with the human
+FIRST_NEED = 0.5  # a campaign's assumed share of each window until one has been measured
+TOKENS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
 SMOKE = {"agent": "20 runs bound the promotion rate only to about 0.28; this is a smoke test.",
          "swarm": "With 10 runs the 95% bound is about 0.39; this is a smoke test only."}
@@ -110,25 +113,78 @@ SERIES = {"agent": agent_null, "swarm": swarm_null}
 STAGE = {"agent": 3, "swarm": 4}
 
 
+def windows():
+    """The subscription's usage windows, {name: [utilization, resets_at]}, from one tiny model call; None if it fails."""
+    try:
+        out = subprocess.run([session.claude_binary(), "-p", "Reply with OK.", "--model", harness.MODEL, "--output-format",
+                              "stream-json", "--verbose"], capture_output=True, text=True, timeout=300).stdout
+    except subprocess.TimeoutExpired:
+        return None
+    for line in out.splitlines():
+        if '"rate_limit_event"' in line:
+            found = json.loads(line)["rate_limit_info"].get("unifiedWindows")
+            return found and {k: [w["utilization"], w["resetsAt"]] for k, w in found.items()}
+    return None
+
+
+def need(log):
+    """Per window, the most any campaign recorded in `log` used of it within one reset period. It counts the
+    subscription's other use meanwhile, so it overstates."""
+    used = {}
+    for row in map(json.loads, open(log)) if log.exists() else []:
+        w = row.get("windows", {})
+        for k, (u, reset) in (w.get("after") or {}).items():
+            before = (w.get("before") or {}).get(k)
+            if before and before[1] == reset:
+                used[k] = max(used.get(k, 0.0), u - before[0])
+    return used
+
+
+def wait_for_room(log):
+    """Wait until every window's utilization plus `need(log)` (FIRST_NEED where unmeasured) is within CEILING, so no
+    campaign exhausts the subscription mid-run; return the windows last read."""
+    while True:
+        w = windows()
+        if w is not None:
+            used = need(log)
+            full = [reset for k, (u, reset) in w.items() if u + used.get(k, FIRST_NEED) > CEILING]
+            if not full:
+                return w
+        time.sleep(session.RETRY if w is None else max(60, min(full) - time.time()))
+
+
+def usage(work):
+    """Tokens and cost summed over the result lines of every transcript under `work`."""
+    total = dict.fromkeys(TOKENS, 0) | {"cost_usd": 0.0}
+    for t in sorted(Path(work).rglob("transcript.jsonl")):
+        for line in open(t):
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if d.get("type") == "result":
+                total = {k: total[k] + d["usage"].get(k, 0) for k in TOKENS} | {"cost_usd": total["cost_usd"] + d["total_cost_usd"]}
+    return total
+
+
 def run_series(name, n):
-    """Campaigns `{name}-null-N2-0` .. n - 1, resumable and paced (module docstring)."""
+    """Campaigns `{name}-null-N2-0` .. n - 1, resumable (a started, unrecorded id is recorded as a crash), each started
+    when the subscription has room for it (`wait_for_room`) and recorded with its usage and the windows around it."""
     check_frozen()
     OUT.mkdir(parents=True, exist_ok=True)
     log = OUT / f"{name}-null.jsonl"
     with campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT) as todo:
-        for k, cid in enumerate(todo):
-            while not session.available(harness.MODEL):
-                time.sleep(session.RETRY)
+        for cid in todo:
+            before = wait_for_room(log)
             started = time.time()
             try:
                 result = SERIES[name](cid, sweep.cost_cells())
             except Exception as e:
                 result = {"crash": repr(e), "counts_as_promotion": True}
-            result["seconds"] = round(time.time() - started)
+            result |= {"seconds": round(time.time() - started), "usage": usage(OUT / cid),
+                       "windows": {"before": before, "after": windows()}}
             with open(log, "a") as fh:
                 fh.write(json.dumps({"id": cid, **result}) + "\n")
-            if k < len(todo) - 1:
-                time.sleep(max(0, SPACING - result["seconds"]))
 
 
 def real(data_root, version, cid="stage3-real"):
@@ -137,6 +193,7 @@ def real(data_root, version, cid="stage3-real"):
     work = OUT / cid
     if work.exists():
         sys.exit(f"{work} exists: arm A runs once on real data")
+    wait_for_room(OUT / "agent-null.jsonl")
     market = work / "m"
     market.mkdir(parents=True)
     for name, target in [("store", Path(data_root) / "store"), ("holdout", Path(data_root) / "holdout"),
@@ -155,7 +212,7 @@ def real(data_root, version, cid="stage3-real"):
     promoted_a, holdout_a = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_a}), results)
     promoted_b, holdout_b = gate.with_diagnostics(gate.promote({h: results[h] for h in kept_b}), results)
     result = {"id": cid, "version": int(version), "label": LABEL, "qualifications": "PROGRESS.md, Qualifications, stage 3", "agent_run": run, "audit": audit_run(work / "run", ledger, cid),
-              "bankrupt": gate.bankrupt(ledger),
+              "bankrupt": gate.bankrupt(ledger), "usage": usage(work),
               "A": {"evaluations": run["spent"], "search": report_a, "mechanism": mech, "kept": list(kept_a),
                     "holdout": holdout_a, "promoted": promoted_a},
               "B": {"evaluations": spent_b, "search": report_b, "kept": list(kept_b), "holdout": holdout_b,

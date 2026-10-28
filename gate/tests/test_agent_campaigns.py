@@ -4,6 +4,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from gate import kernel, sweep
 from gate.agent import campaigns
 from gate.kernel import MM
@@ -46,21 +48,25 @@ def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path):
     assert c["B"]["holdout"]["h"] == {"return": 0.01, "p": 0.2, "holm": 0.3} and c["statement"] == campaigns.NO_CLAIM
 
 
-def test_an_interrupted_campaign_is_recorded_as_a_crash_and_none_starts_without_the_model(tmp_path, monkeypatch):
+def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tmp_path, monkeypatch):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
-    started = []
+    started, slept = [], []
     monkeypatch.setitem(campaigns.SERIES, "agent", lambda cid, cells: started.append(cid) or {"counts_as_promotion": False})
     monkeypatch.setattr(campaigns.sweep, "cost_cells", lambda: {})
-    monkeypatch.setattr(campaigns, "SPACING", 0)
-    answers = iter([False, True, True])
-    monkeypatch.setattr(campaigns.session, "available", lambda model: next(answers))
-    monkeypatch.setattr(campaigns.session, "RETRY", 0)
+    reads = iter([None, {"five_hour": [0.75, 100]}, {"five_hour": [0.2, 200]}, {"five_hour": [0.3, 200]},
+                  {"five_hour": [0.75, 200]}, {"five_hour": [0.7, 200]}, {"five_hour": [0.75, 200]}])
+    monkeypatch.setattr(campaigns, "windows", lambda: next(reads))
+    monkeypatch.setattr(campaigns.time, "sleep", slept.append)
+    monkeypatch.setattr(campaigns.time, "time", lambda: 0)
     (tmp_path / "agent-null-N2-0").mkdir()
     campaigns.run_series("agent", 3)
     rows = [json.loads(l) for l in open(tmp_path / "agent-null.jsonl")]
     assert [r["id"] for r in rows] == ["agent-null-N2-0", "agent-null-N2-1", "agent-null-N2-2"]
     assert rows[0]["counts_as_promotion"] and "interrupted" in rows[0]["crash"]
     assert started == ["agent-null-N2-1", "agent-null-N2-2"]
+    assert slept == [campaigns.session.RETRY, 100, 200]
+    assert rows[1]["windows"] == {"before": {"five_hour": [0.2, 200]}, "after": {"five_hour": [0.3, 200]}}
+    assert campaigns.need(tmp_path / "agent-null.jsonl")["five_hour"] == pytest.approx(0.1)
     campaigns.run_series("agent", 3)
     assert len(open(tmp_path / "agent-null.jsonl").readlines()) == 3
