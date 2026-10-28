@@ -14,13 +14,15 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 
 ## 1. Homelab objects
 
-- **Namespace** `moneymachine-live`, Pod Security `enforce: restricted`. No volume of `moneymachine` is mounted in it, so
+- **Namespace** `moneymachine-live`, Pod Security `enforce: baseline` with `warn` and `audit: restricted`: baseline
+  admits `procMount: Unmasked` for user-namespaced pods, which restricted refuses. No volume of `moneymachine` is mounted in it, so
   no licensed kernel-only data reaches it.
 - **Node profiles**, installed on prodesk7 only, for the runner pods: the Localhost seccomp profile
   `profiles/moneymachine-sandbox.json`, RuntimeDefault plus what bubblewrap needs (`unshare`, `clone` and `clone3` with
   namespace flags, `mount`, `pivot_root`, `umount2`); and the Localhost AppArmor profile `moneymachine-sandbox`,
   allowing `userns` creation and those mounts (Ubuntu 26.04 restricts unprivileged user namespaces).
-  Restricted Pod Security admits both, and admits `procMount: Unmasked` for pods with `hostUsers: false`.
+  prodesk7 also sets `kernel.apparmor_restrict_unprivileged_userns=0` (live and persistent): Ubuntu's restriction
+  otherwise denies a nested user namespace's uid map under any pod profile (`audit/cluster/gate-diagnosis.md`).
 - **PriorityClass** `moneymachine-live`: value −50, `preemptionPolicy: Never`, so homelab services always win.
 - **PVCs**, local-path, ReadWriteOnce, bound on the first pod's node (prodesk7), and not backed up: `hl` 50Gi, `sources` 5Gi, `datalayer` 20Gi, `thesis`
   20Gi, `agent` 20Gi. Every SQLite ledger lives on one of them, never on NFS.
@@ -113,7 +115,10 @@ capabilities:
 - It also records the sandboxed process's UID/GID maps, capabilities, namespaces, mount table and `/proc`, beside
   the same record taken on this PC. Any difference is explained or fixed.
 - The seccomp and AppArmor profiles are committed in full. A missing profile makes the pod fail to start.
-- `procMount: Default` is tried first; Unmasked is used only if bubblewrap's `/proc` mount fails without it.
+- `procMount: Unmasked`: under `Default`, bubblewrap's `/proc` mount fails (`audit/cluster/gate-diagnosis.md`).
+- Signals: processes in the pod must be able to signal their own children (the harness ends a session by killing
+  bubblewrap, and bubblewrap's reaper ends by its parent-death signal), so the AppArmor profile allows signals among its
+  own, stacked label included.
 - From the runner pod, the network policy is tested on the cluster's actual dataplane: node addresses and their
   services, the API server, the LAN, this PC's NFS, IPv6, and a homelab service's public address all refused.
 - The stage 3 harness hash and the thesis manifest are computed in the pod. Each launch checks them against the frozen
