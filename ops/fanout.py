@@ -1,6 +1,6 @@
 """Fan a judged sweep out across hosts, and merge it back (human request of 2026-10-26; PROGRESS.md, homelab workers).
 
-    python ops/fanout.py plan <job> <plan.json> <host>=<campaigns per hour> ...   job: mixed | truth
+    python ops/fanout.py plan <job> <plan.json> <host>=<campaigns per hour> ...   job: null | mixed | truth
     python ops/fanout.py run <plan.json> <host>       on that host, from the plan's commit and binary
     python ops/fanout.py merge <plan.json> <dir>...   each dir a host's fanout/<job>/<host>: <job>.jsonl, <job>/<id>/
 
@@ -33,10 +33,16 @@ def sha256(path):
 
 
 def job_ids(job):
-    betas = json.loads((sweep.OUT / "betas.json").read_text())
-    if job == "mixed":
-        return [s["id"] for s in sweep.mixed_specs(betas)]
+    if job in CAMPAIGNS:
+        return [s["id"] for s in campaign_specs(job)]
     return [sweep.truth_id(r["id"], p["hash"]) for r in sweep.results("mixed") for p in r.get("promoted", [])]
+
+
+CAMPAIGNS = ("null", "mixed")
+
+
+def campaign_specs(job):
+    return sweep.null_specs() if job == "null" else sweep.mixed_specs(json.loads((sweep.OUT / "betas.json").read_text()))
 
 
 def assign(ids, weights):
@@ -78,9 +84,8 @@ def run(path, host):
     mine = [i for i, h in p["assignment"].items() if h == host]
     log = sweep.OUT / "fanout" / p["job"] / host / f"{p['job']}.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
-    if p["job"] == "mixed":
-        betas = json.loads((sweep.OUT / "betas.json").read_text())
-        sweep.run_all([s for s in sweep.mixed_specs(betas) if s["id"] in set(mine)], log)
+    if p["job"] in CAMPAIGNS:
+        sweep.run_all([s for s in campaign_specs(p["job"]) if s["id"] in set(mine)], log)
         return
     todo = [i for i in mine if i not in campaign.recorded(log)]
     by_id, betas = {r["id"]: r for r in sweep.results("mixed")}, json.loads((sweep.OUT / "betas.json").read_text())
@@ -111,7 +116,7 @@ def merge(path, *dirs):
     extra = set(rows) - set(p["assignment"])
     if missing or extra:
         raise SystemExit(f"missing {sorted(missing)[:5]} ({len(missing)}), unplanned {sorted(extra)[:5]} ({len(extra)})")
-    if job == "mixed":
+    if job in CAMPAIGNS:
         for i, d in where.items():
             ledger = d / job / i / "ledger.sqlite.xz"
             if ledger.exists() and kernels(ledger) - {p["mm_sha256"]}:
@@ -122,7 +127,7 @@ def merge(path, *dirs):
     with open(target, "w") as fh:
         for i in sorted(rows):
             fh.write(json.dumps(rows[i]) + "\n")
-    if job == "mixed":
+    if job in CAMPAIGNS:
         (sweep.OUT / job).mkdir(exist_ok=True)
         for i, d in where.items():
             if (d / job / i).exists():
