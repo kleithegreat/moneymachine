@@ -39,10 +39,9 @@ from gate import campaign, compute, gate, markets, sweep  # noqa: E402
 ROUND1 = sweep.OUT / "round1"
 FAMILIES = ("frozen", "best", "clusters")
 BOUNDS, SCALE = (1.0, 0.2, 0.1, 0.05, 0.02), 10.0
-# Peak memory per task: a null campaign's preview, its ledger (about 0.8 GB measured) and, with finalists, its two-year
-# market; a mixed one, measured at 2.07 GiB for c25-N2-long-0 (140 finalists in one holdout batch) plus margin, since
-# four at 2.5 GB, with the page cache of their markets and ledgers, exceeded a 10 GB cap.
-NULL_BYTES, MIXED_BYTES = 1_500_000_000, 3_200_000_000
+# Peak memory per task with mm 3a732069: a mixed campaign's holdout batch, 778 MiB measured for c25-N2-long-1, plus
+# margin; a null campaign's is smaller.
+NULL_BYTES, MIXED_BYTES = 1_000_000_000, 1_000_000_000
 
 
 def specs():
