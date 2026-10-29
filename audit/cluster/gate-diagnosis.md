@@ -27,3 +27,16 @@ capability dropped, default seccomp, `/proc` unmasked.
   output pipe open: a piped run took 300 s despite `timeout -s KILL 25`.
 - With `--as-pid-1` the leftover dies with the command (piped run: 0 s), but killing bubblewrap from outside still
   fails, so the harness's turn and wall-time limits would not hold. The profile must allow signals.
+
+## Pass, 2026-10-29 01:24 UTC (21:24 EDT): after the profile allows signals (Homelab ab692d7)
+
+`gate-unmasked.json`, image `sha256:97b2817f…`, procMount Unmasked:
+- the harness hash equals the frozen one (`c0565744d6ca`);
+- stage 3's six isolation tests pass;
+- from the runner, only `api.anthropic.com:443` is reachable;
+- a sandboxed `claude -p` authenticated by the Cornell token alone returns "READY" (`claude-opus-5-5`) and exits 0.
+
+Compared with this PC's view (`view-desktop.txt`), the identity maps, capabilities (none), `NoNewPrivs`,
+namespaces and mounted paths are the same. The pod adds a seccomp filter and fewer supplementary groups. The rest
+differs only benignly: backing filesystems (emptyDir rather than tmpfs), this PC's 12 extra store paths (NixOS's own
+`/bin/sh` closure), and kernel-specific `/proc` files.
