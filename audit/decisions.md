@@ -307,3 +307,8 @@ Transcribed as PROGRESS.md stated them (last at 342b9fd); dated by when the huma
 ## 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT): correction to the entry of 2026-10-28 14:14 UTC (10:14 EDT): whose windows pacing reads
 
 - Since the move, `wait_for_room` runs in the series pod with the Cornell account's token (`CLUSTER.md` section 3), so it reads and paces the Cornell account's windows, which the cluster's sandboxed sessions spend. Sessions on this PC run on the human's personal account (kevvinlei89@gmail.com) and no longer draw on that window; the human's 50 % stop for them applies to the personal account's seven-day window. Which account the entry's 0.90 reading was taken on is not recorded. At the sandbox gate the Cornell seven-day window read 0.92, resetting 2026-11-01 05:00 UTC (01:00 EDT) (`audit/cluster/gate-unmasked.json`).
+
+## 2026-10-30 17:30 UTC (13:30 EDT): GPT may build; the personal account's cap is gone (human)
+
+- GPT as a builder has a Claude builder's access (`opencode run --auto` in the repo or a worktree). The isolated directory and its denials now apply only to its independent checks, whose results depend on them. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check independently. No false-discovery or leakage outcome changes: frozen criteria and independent checks are as they were. Reverse by restoring CLAUDE.md's previous GPT section.
+- The 50 % stop on the personal account's seven-day window is withdrawn. Reverse by restoring the line in PROGRESS.md's Budget.
