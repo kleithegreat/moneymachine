@@ -2,6 +2,7 @@ import Ref.Spec
 import Ref.Resolve
 import Ref.Proof.Checker
 import Ref.Proof.Admission
+import Ref.Proof.Shape
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -223,7 +224,12 @@ theorem L5_shape (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (
     (hS : ∀ req, (ld₁.resolve req).isSome = (ld₂.resolve req).isSome ∧ ∀ o₁ o₂, ld₁.resolve req = some o₁ →
       ld₂.resolve req = some o₂ → o₁.size = o₂.size ∧ ∀ i < o₁.size, (o₁[i]!).sameShape o₂[i]! = true) :
     firstFailure reg roles text adm ld₁ v pol stop mode = firstFailure reg roles text adm ld₂ v pol stop mode := by
-  sorry
+  unfold firstFailure admission
+  simp only [bind, Except.bind, Except.mapError, throw, throwThe, MonadExceptOf.throw]
+  cases reg.valid <;> cases pol.valid <;> simp only [Bool.not_false, Bool.not_true, Bool.or_false, Bool.or_true,
+    ite_true, ite_false] <;> try rfl
+  cases check reg.inputs text <;> simp only <;> try rfl
+  exact admit_shape reg roles _ adm ld₁ ld₂ v pol stop mode hR hS
 
 /-- Every declaration the program text names, in an unused let or an inactive branch included, is required. -/
 theorem L5_text (reg : Registry) (_ : reg.Valid) (roles : Roles) (adm : Meta) (text name : String) (p : Program)
