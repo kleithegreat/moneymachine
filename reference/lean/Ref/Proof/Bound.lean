@@ -1,5 +1,5 @@
 import Ref.Spec
-import Ref.Proof.Except
+import Ref.Proof.Sim
 
 /-! L6, ported from version 1: evaluation and admission never raise R_BOUND. The return is built from a finite
 positive equity over a positive one, or is −1 or 0. -/
@@ -8,17 +8,6 @@ namespace Ref
 open _root_.Ref.Except
 
 variable {α : Type} [Inhabited α]
-
-private theorem deliver_avoids_bound (c : Ctx α) (s : SState α) (tick : Int) :
-    Avoids .bound (c.deliver s tick) := by
-  fun_induction Ctx.deliver c s tick <;> simp_all [Avoids]
-
-private theorem checkFill_avoids_bound (N : NumOps α) (f : Fill α) (bars : Array (BarRow α))
-    (ix : Index α) (v : Venue α) : Avoids .bound (checkFill N f bars ix v) := by
-  unfold checkFill
-  simp only [Avoids]
-  repeat' split
-  all_goals simp_all [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
 
 private theorem marks_loop_bound (l : List (Nat × BarRow α)) (s : SState α) :
     forIn l s (fun x s => (pure (ForInStep.yield { s with marks := s.marks.set! x.1 x.2.c }) :
@@ -41,8 +30,8 @@ macro "bwalk" : tactic => `(tactic| repeat (first
   | exact Except.Avoids.ok _
   | exact Except.Avoids.pure _
   | (apply Except.Avoids.throw; decide)
-   | exact deliver_avoids_bound _ _ _
-   | exact checkFill_avoids_bound _ _ _ _ _
+   | exact deliver_avoids _ _ _ (by decide)
+   | exact checkFill_avoids _ _ _ _ _ (by decide) (by decide) (by decide)
   | (refine Except.Avoids.bind ?_ (fun _ => ?_))
   | (refine Except.Avoids.forIn_list _ _ _ (fun _ _ => ?_))
   | (refine Except.Avoids.ite ?_ ?_)
@@ -74,7 +63,7 @@ theorem evaluate_bounded (N : NumOps α) (hB : N.Bounded) (c : Ctx α) : c.evalu
     fun b s => Avoids.bind (step_bounded N hB _ s b) fun _ => Avoids.pure _) fun _ => Avoids.pure _)
     fun _ => Avoids.pure _
   unfold Ctx.start
-  exact Avoids.bind (deliver_avoids_bound _ _ _) fun _ => Avoids.pure _
+  exact Avoids.bind (deliver_avoids _ _ _ (by decide)) fun _ => Avoids.pure _
 
 theorem admission_not_bound (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α)
     (v : Venue α) (pol : Policy) (stop : Int) (mode : Mode) :

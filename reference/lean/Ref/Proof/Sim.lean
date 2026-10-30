@@ -1,8 +1,7 @@
 import Ref.Spec
 import Ref.Proof.Except
 
-/-! Facts about the simulator: no step raises R_INPUT_UNAVAILABLE, and delivery and ticks touch only the
-machine and the delivery cursors. -/
+/-! The simulator's machine projection and hourly schedule, ported from version 1. -/
 
 namespace Ref
 
@@ -11,108 +10,34 @@ open _root_.Ref.Except in
 section
 variable {α : Type} [Inhabited α]
 
-theorem deliverFunding_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
-    Avoids e (c.deliverFunding s tick) := by
-  have := he.symm
-  fun_induction Ctx.deliverFunding c s tick <;> simp_all [Avoids]
-
-theorem deliverBars_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
-    Avoids e (c.deliverBars s tick) := by
-  have := he.symm
-  fun_induction Ctx.deliverBars c s tick <;> simp_all [Avoids]
-
-theorem deliverEvents_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
-    Avoids e (c.deliverEvents s tick) := by
-  have := he.symm
-  fun_induction Ctx.deliverEvents c s tick <;> simp_all [Avoids]
-
 theorem deliver_avoids (c : Ctx α) (s : SState α) (tick : Int) {e : Abort} (he : e ≠ .causality) :
     Avoids e (c.deliver s tick) := by
-  unfold Ctx.deliver
-  exact Avoids.bind (deliverFunding_avoids _ _ _ he) fun _ =>
-    Avoids.bind (deliverBars_avoids _ _ _ he) fun _ => deliverEvents_avoids _ _ _ he
+  have := he.symm
+  fun_induction Ctx.deliver c s tick <;> simp_all [Avoids]
 
-theorem checkFill_avoids (N : NumOps α) (f : Fill α) (m : Market α) (ix : Index α) (v : Venue α) {e : Abort}
-    (ht : e ≠ .timing) (hf : e ≠ .fill) (hp : e ≠ .portfolio) : Avoids e (checkFill N f m ix v) := by
+theorem checkFill_avoids (N : NumOps α) (f : Fill α) (bars : Array (BarRow α)) (ix : Index α) (v : Venue α) {e : Abort}
+    (ht : e ≠ .timing) (hf : e ≠ .fill) (hp : e ≠ .portfolio) : Avoids e (checkFill N f bars ix v) := by
   have := ht.symm; have := hf.symm; have := hp.symm
   unfold checkFill
   simp only [Avoids]
   repeat' split
   all_goals simp_all [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
 
-/-- Walk a do-block: binds, loops over lists, conditionals and matches, down to leaves that cannot
-raise R_INPUT_UNAVAILABLE. -/
-macro "avoid" : tactic => `(tactic| repeat (first
-  | exact Except.Avoids.ok _
-  | exact Except.Avoids.pure _
-  | (apply Except.Avoids.throw; decide)
-  | exact deliver_avoids _ _ _ (by decide)
-  | exact checkFill_avoids _ _ _ _ _ (by decide) (by decide) (by decide)
-  | (refine Except.Avoids.ite ?_ ?_)
-  | (refine Except.Avoids.bind ?_ (fun _ => ?_))
-  | (refine Except.Avoids.forIn_list _ _ _ (fun _ _ => ?_))
-  | split))
-
-theorem step_avoids (N : NumOps α) (c : Ctx α) (s : SState α) (b : Int) :
-    Avoids .inputUnavailable (c.step N s b) := by
-  unfold Ctx.step Ctx.bankrupt Ctx.execute Ctx.closeout
-  simp only [Std.Legacy.Range.forIn_eq_forIn_range']
-  avoid
-
-/-- Once preflight has passed, no later step raises R_INPUT_UNAVAILABLE. -/
-theorem steps_avoids_of_start (N : NumOps α) (c : Ctx α) (k : Nat) (h : Avoids .inputUnavailable (c.start N)) :
-    Avoids .inputUnavailable (c.steps N k) := by
-  unfold Ctx.steps
-  refine Avoids.bind h (fun _ => ?_)
-  refine Avoids.bind (Avoids.forIn_list _ _ _ (fun _ _ => ?_)) (fun _ => Avoids.pure _)
-  exact Avoids.bind (step_avoids _ _ _ _) (fun _ => Avoids.pure _)
-
-omit [Inhabited α] in
-theorem bound_false_iff (c : Ctx α) : c.bound = false ↔ ∃ s ∈ c.p.eventSlots, s ∉ c.m.bound := by
-  simp [Ctx.bound]
-
-theorem start_unbound (N : NumOps α) (c : Ctx α) (h : ∃ s ∈ c.p.eventSlots, s ∉ c.m.bound) :
-    c.start N = .error .inputUnavailable := by
-  simp [Ctx.start, (bound_false_iff c).2 h, throw, throwThe, MonadExceptOf.throw]; rfl
-
-theorem start_bound (N : NumOps α) (c : Ctx α) (h : ∀ s ∈ c.p.eventSlots, s ∈ c.m.bound) :
-    c.start N = (do
-      let s ← c.deliver (c.state0 N) (c.pol.wStart + c.pol.delta)
-      return { s with machine := s.machine.tick N c.p (c.mask c.pol.wStart) c.pol.wStart }) := by
-  have : c.bound = true := by
-    cases hb : c.bound
-    · obtain ⟨s, hs, hn⟩ := (bound_false_iff c).1 hb; exact absurd (h s hs) hn
-    · rfl
-  simp [Ctx.start, this]
-
 end
 section
 variable {α : Type} [Inhabited α]
 
 /-- The part of the simulator state that delivery and ticks touch: the machine and the cursors. -/
-def SState.proj (s : SState α) : MState α × Nat × Nat × Nat := (s.machine, s.fi, s.bi, s.ei)
+def SState.proj (s : SState α) : MState α × Nat := (s.machine, s.oi)
 
 /-- o's book, trace and accounts with s's machine and cursors. -/
-def SState.graft (o s : SState α) : SState α := { o with machine := s.machine, fi := s.fi, bi := s.bi, ei := s.ei }
+def SState.graft (o s : SState α) : SState α := { o with machine := s.machine, oi := s.oi }
 
-theorem deliverFunding_graft (c : Ctx α) (o s : SState α) (t : Int) :
-    c.deliverFunding (o.graft s) t = (c.deliverFunding s t).map o.graft := by
-  fun_induction Ctx.deliverFunding c s t <;> rw [Ctx.deliverFunding] <;> simp_all (config := { zetaDelta := true }) [SState.graft, Except.map]
-  all_goals intro; omega
-theorem deliverBars_graft (c : Ctx α) (o s : SState α) (t : Int) :
-    c.deliverBars (o.graft s) t = (c.deliverBars s t).map o.graft := by
-  fun_induction Ctx.deliverBars c s t <;> rw [Ctx.deliverBars] <;> simp_all (config := { zetaDelta := true }) [SState.graft, Except.map]
-  all_goals intro; omega
-theorem deliverEvents_graft (c : Ctx α) (o s : SState α) (t : Int) :
-    c.deliverEvents (o.graft s) t = (c.deliverEvents s t).map o.graft := by
-  fun_induction Ctx.deliverEvents c s t <;> rw [Ctx.deliverEvents] <;> simp_all (config := { zetaDelta := true }) [SState.graft, Except.map]
-  all_goals intro; omega
 theorem deliver_graft (c : Ctx α) (o s : SState α) (t : Int) :
     c.deliver (o.graft s) t = (c.deliver s t).map o.graft := by
-  simp only [Ctx.deliver, bind, Except.bind, deliverFunding_graft]
-  cases c.deliverFunding s t <;> simp [Except.map, deliverBars_graft]
-  rename_i s1
-  cases c.deliverBars s1 t <;> simp [Except.map, deliverEvents_graft]
+  fun_induction Ctx.deliver c s t <;> rw [Ctx.deliver] <;>
+    simp_all (config := { zetaDelta := true }) [SState.graft, Except.map]
+  all_goals intro; omega
 
 omit [Inhabited α] in
 theorem graft_self (o s : SState α) (h : o.proj = s.proj) : o.graft s = o := by
@@ -226,14 +151,14 @@ theorem bounds_take (c : Ctx α) (j : Nat) (hj : j ≤ c.bounds.length) :
   rw [bounds_eq c, ← List.map_take, List.take_range, Nat.min_eq_left hj]
 
 omit [Inhabited α] in
-theorem Holds.forIn_proj {β : Type} (X : MState α × Nat × Nat × Nat) (l : List β) (init : SState α)
+theorem Holds.forIn_proj {β : Type} (X : MState α × Nat) (l : List β) (init : SState α)
     (f : β → SState α → Except Abort (ForInStep (SState α))) (h0 : init.proj = X)
     (hf : ∀ a r, r.proj = X → Except.Holds (f a r) (fun st => st.value.proj = X)) :
     Except.Holds (forIn l init f) (fun r => r.proj = X) :=
   Except.Holds.forIn_list l init f _ h0 fun a _ r hr => hf a r hr
 
 omit [Inhabited α] in
-theorem Holds.forIn_projPair {β γ : Type} (X : MState α × Nat × Nat × Nat) (l : List β) (init : SState α × γ)
+theorem Holds.forIn_projPair {β γ : Type} (X : MState α × Nat) (l : List β) (init : SState α × γ)
     (f : β → SState α × γ → Except Abort (ForInStep (SState α × γ))) (h0 : init.1.proj = X)
     (hf : ∀ a r, r.1.proj = X → Except.Holds (f a r) (fun st => st.value.1.proj = X)) :
     Except.Holds (forIn l init f) (fun r => r.1.proj = X) :=
@@ -251,13 +176,13 @@ theorem Holds.tickLoop_bind {γ : Type} {Q : γ → Prop} (N : NumOps α) (c : C
   | ok r => exact hg r ht (s₃.graft r) (proj_graft _ _)
 
 theorem Holds.execute_bind {γ : Type} {Q : γ → Prop} (N : NumOps α) (c : Ctx α) (s : SState α) (f : Fill α)
-    (X : MState α × Nat × Nat × Nat) (g : SState α → Except Abort γ) (hs : s.proj = X)
+    (X : MState α × Nat) (g : SState α → Except Abort γ) (hs : s.proj = X)
     (hg : ∀ r, r.proj = X → Except.Holds (g r) Q) : Except.Holds (c.execute N s f >>= g) Q :=
   Except.Holds.bind (execute_proj N c s f) fun r hr => hg r (hr.trans hs)
 
 /-- Bankruptcy keeps the machine and cursors. -/
 theorem bankrupt_proj (N : NumOps α) (c : Ctx α) (s : SState α) (b : Int) (adverse : Nat → α → α)
-    (latest : List (Nat × BarRow α)) (X : MState α × Nat × Nat × Nat) (hs : s.proj = X) :
+    (latest : List (Nat × BarRow α)) (X : MState α × Nat) (hs : s.proj = X) :
     Except.Holds (c.bankrupt N s b adverse latest) (fun r => r.proj = X) := by
   unfold Ctx.bankrupt
   refine Except.Holds.ite (Except.Holds.pure _ hs) (Except.Holds.bind

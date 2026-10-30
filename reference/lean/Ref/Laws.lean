@@ -5,6 +5,7 @@ import Ref.Proof.Admission
 import Ref.Proof.Shape
 import Ref.Proof.Resolve
 import Ref.Proof.Bound
+import Ref.Proof.Sim
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -42,7 +43,9 @@ theorem L1_simulator (N : NumOps α) (reg : Registry) (roles : Roles) (p : Progr
     (j : Nat) (s : SState α) (hj : j ≤ (Ctx.make reg roles p adm obs v pol stop req).bounds.length)
     (h : (Ctx.make reg roles p adm obs v pol stop req).steps N j = .ok s) :
     (Ctx.make reg roles p adm obs v pol stop req).machineAfter N (4 * j) = .ok s.machine := by
-  sorry
+  obtain ⟨t, ht, hp⟩ := steps_proj N _ j hj s h
+  rw [Ctx.machineAfter_eq, ht]
+  exact congrArg (fun x => Except.ok x.1) hp
 
 /-- Equal delivery prefixes and execution views through step k's decision give the same observations at every
 step through it: the same trace, or the same rejection. -/
