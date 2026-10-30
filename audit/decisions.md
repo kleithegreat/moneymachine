@@ -312,3 +312,11 @@ Transcribed as PROGRESS.md stated them (last at 342b9fd); dated by when the huma
 
 - GPT as a builder has a Claude builder's access (`opencode run --auto` in the repo or a worktree). The isolated directory and its denials now apply only to its independent checks, whose results depend on them. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check independently. No false-discovery or leakage outcome changes: frozen criteria and independent checks are as they were. Reverse by restoring CLAUDE.md's previous GPT section.
 - The 50 % stop on the personal account's seven-day window is withdrawn. Reverse by restoring the line in PROGRESS.md's Budget.
+
+## 2026-10-30 18:50 UTC (14:50 EDT): CLAUDE.md's section 3 rewritten for an active human (human)
+
+- The human reviewed CLAUDE.md as outdated: they are usually present, the advisor chooses each builder's model, Lean and OCaml are where the stack ends, and the hard limits section goes. Sections 1 and 2 stay byte for byte, by their instruction.
+- A fresh Opus session reviewed it with the whole repo and drafted the replacement. GPT's review stopped at its usage limit before any finding, so it is queued for its reset, about 21:20 UTC (17:20 EDT).
+- Added beyond the notes, from that review: frozen identities are exempt from erasure, the holdout rule covers embargo and forward-window recordings as `audit/criteria.md` already does, and procedure defects are fixed only by the human as the paper says. These state existing rules; none loosens one.
+- New advisor rules from the human: consult a fresh Claude session and GPT before a decision, and name prior art when an idea is already well covered.
+- Reverse with `git revert` of this commit, keeping the C8.7 clarification, which stays true either way.

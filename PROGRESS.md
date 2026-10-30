@@ -13,7 +13,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min.
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (hourly; a Blockers line below 20 GB free) and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued; node `desktop` (this PC) NotReady.
-- **Budget.** Sessions on this PC run on the human's personal account (kevvinlei89@gmail.com), with no cap of ours (human, 2026-10-30). `campaigns.windows()` reads the logged-in account (`oauthAccount` in `~/.claude.json`); if it is not the personal one, stop. agent campaigns start only when both windows of a pooled account (TAMU, else Cornell) have room under 0.8. Cornell read 0.92 (seven-day) at 2026-10-29 01:24 UTC (2026-10-28 21:24 EDT) (`audit/cluster/gate-unmasked.json`), resetting 2026-11-01 05:00 UTC (01:00 EDT).
+- **Budget.** Sessions on this PC run on the human's personal account (kevvinlei89@gmail.com), with no cap of ours. Agent campaigns start only when both windows of a pooled account (TAMU, else Cornell) have room under 0.8. Cornell read 0.92 (seven-day) at 2026-10-29 01:24 UTC (2026-10-28 21:24 EDT) (`audit/cluster/gate-unmasked.json`), resetting 2026-11-01 05:00 UTC (01:00 EDT).
 
 ### Next, in order
 
@@ -52,6 +52,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 - **On-chain: hardware.** A Hyperliquid node: 16 vCPUs, 128 GB RAM, about 100 GB of logs a day; Ethereum or Polygon: 2–4 TB NVMe.
 - **Not certifiable as they stand:** ClinicalTrials.gov (no automation clause); usda.gov (403); MarineCadastre AIS (no terms; GBs a day); World Bank Pink Sheet (per-release URL on a page forbidding automation; its Data Catalog API unchecked); EIA hourly grid (about 699 MB twice a day).
 - **Stage 8 data gaps:** policy-rate announcement times (BIS: effective dates only), ECB YC series and revisions, CFTC TFF history, Treasury average rates' revisions, the ECB release calendar.
+- **Paper vs language plan:** paper §6 keeps the production engine; the plan is a Lean engine with OCaml (`audit/decisions.md`, 2026-10-26; human, 2026-10-30). Revise the paper.
 
 ## Decisions awaiting the human's review
 

@@ -1141,6 +1141,7 @@ record confirms it. Trading is stage 11, the human's decision.
     per-campaign claims.
 - **C8.7 Execution mappings.** For each venue-market projection claimed:
   - operator eligibility is established from the venue's documented terms within the hard limits;
+    - Revision 2026-10-30 (clarification, human): CLAUDE.md no longer has a hard limits section. "The hard limits" here means that section as it stood at commit 435fb2a. The meaning is unchanged, so this cannot increase false discoveries.
   - the mapping (units, currency, contract terms, corporate-action treatment) is certified;
   - before the judged recording window, its duration, minimum samples, tracking-error metrics and thresholds are
     frozen, along with closed-hours and reopening-gap tests, funding and cost assumptions, and handling of halts,
