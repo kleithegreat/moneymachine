@@ -56,12 +56,18 @@ def test_files_are_immutable(store):
     assert all(not (p.stat().st_mode & 0o222) for p in store._files("bars_4h"))
 
 
-@settings(max_examples=1000, deadline=None)
-@given(t=st.integers(min_value=-H, max_value=12 * H), version=st.sampled_from([50, 100, 200]))
-def test_as_of_never_leaks(tmp_path_factory, t, version):
+@pytest.fixture(scope="module")
+def revised(tmp_path_factory):
     s = market_store(tmp_path_factory.mktemp("s"))
     s.write("bars_4h", rows(["A", "B"], range(10)), fetched_at=100, source="t")
     s.write("bars_4h", rows(["A"], range(4, 8), value=0.5), fetched_at=200, source="t")
+    return s
+
+
+@settings(max_examples=1000, deadline=None)
+@given(t=st.integers(min_value=-H, max_value=12 * H), version=st.sampled_from([50, 100, 200]))
+def test_as_of_never_leaks(revised, t, version):
+    s = revised
     got = s.as_of("bars_4h", t, version)
     assert (got["knownAt"] <= t).all() and (got["fetchedAt"] <= version).all()
     latest = s.revisions("bars_4h").filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(["coin", "eventTime"]).last()

@@ -3,10 +3,16 @@ criteria alone) agrees with ours on 1,000 boundary-dense test sets: exactly on o
 counts and clusters, within 1e-12 * max(1, |a|, |b|) on finite scores (C10.4 revision), and on which
 scores are undefined; the sets cover every boundary case."""
 
+import multiprocessing
+import random
+from concurrent.futures import ProcessPoolExecutor
+
+from gate import compute
 from thesis import scoring
 from thesis.tests import gpt_scoring, scoring_gen
 
 TOL = 1e-12
+WORKER_BYTES = 400_000_000  # a part's peak, 150 MiB measured, with margin
 
 
 def same(a, b, path="", out=None):
@@ -29,9 +35,13 @@ def same(a, b, path="", out=None):
     return out
 
 
-def test_independent_scorer_agrees_on_1000_sets_covering_every_boundary_case():
-    disagreements, seen = [], set()
-    for i, s in enumerate(scoring_gen.generate(1000)):
+def judge(start, stop, state):
+    """(sets judged, disagreements, boundary cases seen, the stream's state after them) for one part of the stream."""
+    rng = random.Random()
+    rng.setstate(state)
+    disagreements, seen, n = [], set(), 0
+    for i, s in enumerate(scoring_gen.walk(rng, start, stop), start):
+        n += 1
         kind, ours = scoring_gen.KINDS[i % len(scoring_gen.KINDS)], scoring.score(s)
         d = same(ours, gpt_scoring.score(s))
         if d:
@@ -47,6 +57,16 @@ def test_independent_scorer_agrees_on_1000_sets_covering_every_boundary_case():
         if kind in ("no_opening_to_horizon", "missing_funding"):
             assert ours["theses"][s["theses"][0]["id"]]["outcome"] is None, (i, kind)
             seen.add(kind)
-    assert disagreements == []
-    assert seen == {"zero_return", "no_base_rate", "base_rate", "b_ref_zero", "chain", "unresolved_cluster", "null_close",
-                    "no_opening_to_horizon", "missing_funding"}
+    return n, disagreements, seen, rng.getstate()
+
+
+def test_independent_scorer_agrees_on_1000_sets_covering_every_boundary_case():
+    ends, states = scoring_gen.boundaries(), scoring_gen.read_states()
+    assert states[0] == random.Random(scoring_gen.SEED).getstate()
+    with ProcessPoolExecutor(compute.workers(WORKER_BYTES), mp_context=multiprocessing.get_context("spawn")) as pool:
+        parts = list(pool.map(judge, ends, ends[1:], states))
+    assert [p[3] for p in parts] == states[1:], "stale states: python -m thesis.tests.scoring_gen"
+    assert sum(p[0] for p in parts) == 1000
+    assert [d for p in parts for d in p[1]] == []
+    assert set().union(*(p[2] for p in parts)) == {"zero_return", "no_base_rate", "base_rate", "b_ref_zero", "chain", "unresolved_cluster", "null_close",
+                                                   "no_opening_to_horizon", "missing_funding"}

@@ -5,11 +5,15 @@ Since the stage 10 revision of 2026-10-23 also: hourly rows with a null close (a
 and no opening reference between entry and the horizon (e >= x). Since the C10.4 revision of 2026-10-24, funding is
 hourly over the last 150 days (zero rates on flat markets), and missing funding hours inside a holding period."""
 
+import json
 import random
+from pathlib import Path
 
 HOUR, DAY, DELTA = 3_600_000, 86_400_000, 120_000
 KINDS = ("zero_return", "missing_horizon_bar", "chain", "touching", "short_history", "size_zero", "b_ref_zero", "random",
          "null_close", "no_opening_to_horizon", "missing_funding")
+SEED = 1010
+STATES = Path(__file__).with_name("scoring_gen_states.json")
 COSTS = {"buy": {"1000": 2.0, "10000": 5.0}, "sell": {"1000": 3.0, "10000": 6.0}}
 
 
@@ -83,7 +87,30 @@ def generate_set(rng, kind):
     return test
 
 
-def generate(n=1000, seed=1010):
-    """The test sets, one at a time: each holds hourly funding over 150 days."""
-    rng = random.Random(seed)
-    return (generate_set(rng, KINDS[i % len(KINDS)]) for i in range(n))
+def boundaries(n=1000, chunks=16):
+    return [n * k // chunks for k in range(chunks + 1)]
+
+
+def walk(rng, start, stop):
+    """Sets start .. stop - 1 of the one stream, from the state `rng` holds after set start - 1."""
+    return (generate_set(rng, KINDS[i % len(KINDS)]) for i in range(start, stop))
+
+
+def write_states():
+    """The stream's state at each boundary, so that its parts can be generated apart. `python -m thesis.tests.scoring_gen`,
+    after any change to the generator; the test checks that each part ends where the next begins."""
+    rng, states = random.Random(SEED), []
+    ends = boundaries()
+    for start, stop in zip(ends, ends[1:]):
+        states.append(rng.getstate())
+        for _ in walk(rng, start, stop):
+            pass
+    STATES.write_text(json.dumps(states + [rng.getstate()]))
+
+
+def read_states():
+    return [(v, tuple(s), g) for v, s, g in json.loads(STATES.read_text())]
+
+
+if __name__ == "__main__":
+    write_states()
