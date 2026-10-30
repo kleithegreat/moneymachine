@@ -3,6 +3,7 @@ import Ref.Resolve
 import Ref.Proof.Checker
 import Ref.Proof.Admission
 import Ref.Proof.Shape
+import Ref.Proof.Resolve
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -297,7 +298,12 @@ theorem L8_monotone (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revis
     (event : Int) :
     let tl := timeline reg st V ok fuel s coin event
     ∀ i, i + 1 < tl.length → (tl[i]!).rev.fetchedAt ≤ (tl[i + 1]!).rev.fetchedAt ∧ (tl[i]!).known ≤ (tl[i + 1]!).known := by
-  sorry
+  dsimp only
+  intro i hi
+  have hs := timeline_ordered reg st V ok fuel s coin event
+  simpa only [getElem!_pos (timeline reg st V ok fuel s coin event) i (by omega),
+    getElem!_pos (timeline reg st V ok fuel s coin event) (i + 1) hi] using
+    (List.pairwise_iff_getElem.mp hs i (i + 1) (by omega) hi (by omega))
 
 /-- Nothing is known before it was recorded or before what it was derived from: every delivered revision after a
 key's first, correction or retraction, is known no earlier than its fetchedAt; the first is never a retraction; and
