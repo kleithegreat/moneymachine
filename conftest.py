@@ -1,21 +1,25 @@
-import re
-import resource
+import os
+import sys
+import threading
 from pathlib import Path
+from time import sleep
+
+PAGE = os.sysconf("SC_PAGE_SIZE")
 
 
-def data_size():
-    return int(re.search(r"VmData:\s+(\d+) kB", Path("/proc/self/status").read_text()).group(1)) * 1024
+def watch(limit, capture):
+    """Ends this process when its resident memory passes `limit`. Under xdist the run reports the worker's crash and its test."""
+    while int(Path("/proc/self/statm").read_text().split()[1]) * PAGE <= limit:
+        sleep(0.1)
+    capture.suspend_global_capture(in_=True)
+    print(f"worker_memory_gb exceeded: resident memory over {limit} bytes", file=sys.stderr, flush=True)
+    os._exit(1)
 
 
 def pytest_addoption(parser):
-    parser.addini("worker_memory_gb", "What each pytest process and its children may allocate beyond their imports, in GiB", default="4")
+    parser.addini("worker_memory_gb", "Resident memory at which a pytest process ends, in GiB (children are not counted)", default="2")
 
 
 def pytest_configure(config):
-    """RLIMIT_DATA over the reservations of numpy's and scipy's OpenBLAS, which scale with the host's cores (3.2 GiB on 12)."""
-    import numpy  # noqa: F401
-    import polars  # noqa: F401
-    import scipy.linalg  # noqa: F401
-
-    limit = data_size() + int(float(config.getini("worker_memory_gb")) * 2**30)
-    resource.setrlimit(resource.RLIMIT_DATA, (limit, resource.getrlimit(resource.RLIMIT_DATA)[1]))
+    limit = int(float(config.getini("worker_memory_gb")) * 2**30)
+    threading.Thread(target=watch, args=(limit, config.pluginmanager.getplugin("capturemanager")), daemon=True).start()

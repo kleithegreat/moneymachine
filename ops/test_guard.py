@@ -1,4 +1,4 @@
-"""The test guard: a runaway test ends at the timeout even if it ignores SIGTERM, and allocates only up to the limit."""
+"""The test guard: a runaway test ends at the timeout even if it ignores SIGTERM, and at the memory limit if it allocates."""
 
 import os
 import signal
@@ -26,6 +26,6 @@ def test_timeout_stops_a_test_that_ignores_sigterm(tmp_path):
 
 
 def test_memory_limit_stops_a_test_that_allocates(tmp_path):
-    p = start(tmp_path, "--timeout=60", "-o", "worker_memory_gb=1", "ops/runaway.py::test_allocates")
+    p = start(tmp_path, "--timeout=60", "-o", "worker_memory_gb=0.5", "ops/runaway.py::test_allocates")
     out, _ = p.communicate(timeout=120)
-    assert p.returncode == 1 and "MemoryError" in out and "Timeout" not in out, out
+    assert p.returncode == 1 and "worker_memory_gb exceeded" in out and "Timeout" not in out, out
