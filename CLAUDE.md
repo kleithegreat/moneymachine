@@ -46,7 +46,7 @@ The purpose is auditable agentic quant research: agents search freely, the kerne
 One home per kind of information; nothing is duplicated across them.
 - **Intent:** `docs/whitepaper.tex` only. It states current intent concisely; the history of how it got there is in git.
 - **Process rules:** this file, kept short.
-- **Status:** `PROGRESS.md`, the only status document. Read it first in every session; it is how you resume after a context reset or a usage limit. It has four sections: **Now**, **Blockers**, **Decisions awaiting the human's review**, and a **Qualifications** summary that points to the audit record. Keep it under 200 lines: prune per §2, delete a resolved blocker, and leave history to git.
+- **Status:** `PROGRESS.md`, the only status document. Read it first in every session; it is how you resume after a context reset or a usage limit. It has four sections: **Now**, **Blockers**, **Decisions awaiting the human's review**, and a **Qualifications** summary that points to the audit record. It holds current state only (what runs and how to inspect it, what comes next and its trigger), a finished stage as one line pointing to its evidence, within 12 KB (`ops/test_progress.py`): prune per §2, delete a resolved blocker, and leave history to git.
 - **Audit record:** `audit/`. Its centre is `audit/criteria.md`, every frozen criterion with its dated revisions and amendments, and `audit/decisions.md`, every autonomous decision. Both are append-only and never pruned. Evidence files sit beside them.
 - **Specs for independent implementers:** `DSL.md`, `INVARIANTS.md`, `NULLS.md`, `SCORING.md`, `SEMANTICS.md`, `CANONICAL.md`.
 - **Source certificates:** one structured registry (quoted clause, URL, retrieval date, basis), read by the terms tests.
