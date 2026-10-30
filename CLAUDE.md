@@ -64,7 +64,7 @@ Only the human may:
 
 Before any work on stage N, write its exit criteria in `audit/criteria.md`: measurable, with thresholds, fixed before you see any result they will judge. Have them reviewed, then commit them alone as `criteria: stage N`. Those lines are never edited. A wrong criterion gets a dated revision beneath it, and the stage is judged only on evidence produced after it. After a failure, a criterion may be amended only if that cannot increase false discoveries, labeled as an amendment, never as a pass of the original. A stage is done when its criteria are met as written. Never redefine done.
 
-Tests pass before every commit, except tests that report a recorded criterion failure.
+Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record.
 
 ### Holdout
 

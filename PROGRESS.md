@@ -37,7 +37,6 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 - Stage 0: exited 2026-10-26 with C0.7 qualified, by human decision (`audit/stage0/criteria-result.txt`). Stage 1: done 2026-10-26 (`audit/stage1/`).
 - Stage 2: exited 2026-10-28 with C2.6 waived, by human decision (`audit/stage2/exit-r2.md`).
-- Two criteria tests fail by design, reporting those failures: `criteria/test_stage0.py::test_c07_execution_model` and `criteria/test_stage2.py::test_c26_power_amended`.
 - Stage 3's preparation: erasure pass, harness freeze, C0.7 regime diagnostic (`audit/erasure/`, `audit/diagnostics/`).
 - Stage 5: exited under C5.3's amendment (`audit/stage5/`). Stage 6: exited 2026-10-23 with Lean adopted, human-reviewed (`audit/stage6/report.md`).
 - The move to the cluster: recorders handed off 2026-10-29 (`audit/cluster/handoff.md`).

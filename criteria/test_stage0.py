@@ -52,6 +52,8 @@ def test_c05_replay_completeness():
     assert load(f"stage0/replay-as-of-amended-{report['version']}.json")["replay_search_as_of"]["fraction_ok"] >= 0.99
 
 
+@pytest.mark.xfail(strict=True, raises=AssertionError,
+                   reason="C0.7's recorded failure, stage 0 exited with it qualified by human decision: 3 of 44 cells under its coverage (PROGRESS Qualifications, audit/stage0/criteria-result.txt)")
 def test_c07_execution_model():
     e = load("stage0/execution.json")
     for coin in LISTED:

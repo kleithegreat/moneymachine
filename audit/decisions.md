@@ -327,3 +327,17 @@ Transcribed as PROGRESS.md stated them (last at 342b9fd); dated by when the huma
 - GPT's view is queued with its CLAUDE.md review; it was at its usage limit. Reverse by adding the lock before anything reads those recordings beyond integrity.
 - Also: paper section 6 and the roadmap now state the language plan of 2026-10-26, which the paper had simply not caught up with (human, 2026-10-30). The Lean stage's criteria stay due when stage 7 nears its exit. Reverse with `git revert`.
 - Also: `mm-oci-pull` and `mm-diskguard` use OnCalendar. OnUnitActiveSec left them with no next run from 2026-10-30 04:31 UTC (00:31 EDT), with last-pull stale until they were run by hand at 18:47 UTC (14:47 EDT).
+
+## 2026-10-30 19:15 UTC (15:15 EDT): the two criteria tests that report recorded failures are strict xfails (human)
+
+- **What:** `criteria/test_stage0.py::test_c07_execution_model` (C0.7, qualified) and `criteria/test_stage2.py::test_c26_power_amended` (C2.6, waived) are `xfail(strict=True, raises=AssertionError)`, each reason naming its record. `audit/criteria.md` is untouched and neither criterion's result changes: both stay failed, as the record says, and the assertions are the same.
+- **Why:** a suite that always shows two failures hides a third. `strict` fails the suite if either test ever passes, so the evidence cannot change unnoticed, and `raises` keeps a missing or malformed evidence file a failure.
+- **Said:** the human directed it; no reviewer asked. It cannot change a false-discovery or leakage outcome.
+- **Reverse:** delete the two markers.
+
+## 2026-10-30 19:15 UTC (15:15 EDT): the witness reads as_of once (human)
+
+- **What:** `ingest/witness.py` takes each step's view from one `as_of(HOLDOUT_START, version)` with `knownAt <= t_d`, instead of calling `as_of(t_d, version)` twice per step. C1.4's check is otherwise unchanged. Trace sha256 and worst value identical; the argument and evidence are in `audit/stage1/witness-equivalence.md`.
+- **Why:** 162 of 184 profiled seconds were those calls; C1.4's test took about 3 minutes, now about 1 s.
+- **Said:** the human directed it, with this equivalence as its condition; no reviewer asked.
+- **Reverse:** `git revert 1f15657`.
