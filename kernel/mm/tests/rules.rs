@@ -258,22 +258,33 @@ fn outcome(p: &dsl::Program, m: &Market, v: &Venue, pol: &Policy, end: i64) -> S
 #[test]
 fn every_rule_is_exact() {
     let markets: Vec<_> = (0..3).map(|v| market(v, 7 + v as u64)).collect();
-    let mut nontrivial = vec![0usize; RULES.len()];
-    for (ri, rule) in RULES.iter().enumerate() {
-        let mut rng = Rng(1000 + ri as u64);
-        for i in 0..PER_RULE {
-            let (lhs, rhs, is_bool) = instance(rule, &mut rng);
-            let seed = rng.next();
-            let (a, b) = (program(lhs, &mut Rng(seed), is_bool), program(rhs, &mut Rng(seed), is_bool));
-            let (pa, pb) = (dsl::parse(&a).unwrap_or_else(|e| panic!("{rule} {i}: {e}\n{a}")), dsl::parse(&b).unwrap());
-            for (m, v, pol, end) in &markets {
-                let (sa, sb) = (streams(&pa, m, *end), streams(&pb, m, *end));
-                assert_eq!(sa, sb, "{rule} #{i}: probe streams differ\n{a}\n{b}");
-                nontrivial[ri] += sa.iter().any(|x| x.is_some()) as usize;
-                assert_eq!(outcome(&pa, m, v, pol, *end), outcome(&pb, m, v, pol, *end), "{rule} #{i}: outcomes differ");
-            }
-        }
-    }
+    let nontrivial: Vec<usize> = std::thread::scope(|scope| {
+        let markets = &markets;
+        let threads: Vec<_> = RULES
+            .iter()
+            .enumerate()
+            .map(|(ri, rule)| {
+                scope.spawn(move || {
+                    let mut rng = Rng(1000 + ri as u64);
+                    let mut nontrivial = 0;
+                    for i in 0..PER_RULE {
+                        let (lhs, rhs, is_bool) = instance(rule, &mut rng);
+                        let seed = rng.next();
+                        let (a, b) = (program(lhs, &mut Rng(seed), is_bool), program(rhs, &mut Rng(seed), is_bool));
+                        let (pa, pb) = (dsl::parse(&a).unwrap_or_else(|e| panic!("{rule} {i}: {e}\n{a}")), dsl::parse(&b).unwrap());
+                        for (m, v, pol, end) in markets {
+                            let (sa, sb) = (streams(&pa, m, *end), streams(&pb, m, *end));
+                            assert_eq!(sa, sb, "{rule} #{i}: probe streams differ\n{a}\n{b}");
+                            nontrivial += sa.iter().any(|x| x.is_some()) as usize;
+                            assert_eq!(outcome(&pa, m, v, pol, *end), outcome(&pb, m, v, pol, *end), "{rule} #{i}: outcomes differ");
+                        }
+                    }
+                    nontrivial
+                })
+            })
+            .collect();
+        threads.into_iter().map(|t| t.join().unwrap()).collect()
+    });
     for (ri, n) in nontrivial.iter().enumerate() {
         assert!(*n >= PER_RULE, "{}: only {n} runs with any defined probe value", RULES[ri]);
     }
