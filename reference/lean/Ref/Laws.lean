@@ -318,7 +318,7 @@ theorem L8_known (reg : Registry) (_ : reg.Valid) (st : Stored) (V : Int) (ok : 
       ∀ up ∈ ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [],
       ∀ u ∈ timeline reg st V ok fuel dep.source up.1 up.2, u.retraction = false → u.rev.fetchedAt ≤ e.rev.fetchedAt →
         u.known + dep.lag ≤ e.known := by
-  sorry
+  exact timeline_known reg st V ok fuel s coin event
 
 /-! ## L7 input reads -/
 
