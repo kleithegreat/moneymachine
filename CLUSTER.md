@@ -29,7 +29,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi. This PC's NixOS
   configuration exports that directory beside `inputs` and `results`. It holds the only copy of the live data.
 - **Secrets**, created by the advisor with kubectl from local files, outside Git:
-  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `TAMU`, the TAMU account's, which only `agent-series` reads (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
+  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `TAMU`, the TAMU account's, which only `agent-series` and `agent-real` read (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
   - `datalayer-keys`: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
     (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key.
 - **RBAC**: ServiceAccount `deployer`, its kubeconfig at this PC's `~/.kube/moneymachine-live.yaml`, may create, get, list, watch, update, patch and
@@ -52,6 +52,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
 | `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
 | `agent-series` | Job | `cli agent-null agent 20` (stage 4: `swarm 10`) | `agent` | `claude-token` | 9,000 s |
+| `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
 | `mirror-verify` | CronJob, daily | section 5 | the five and `mirror`, read-only | none | 600 s |
 
@@ -89,6 +90,16 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   and this PC's disk guard raises a blocker above 80 %.
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
+
+**`agent-real`** (stage 3's one real campaign) is the series' pod with `restartPolicy: Never` and `backoffLimit: 0`: a
+pod that dies is never a second attempt. It starts only after `agent-series` has completed, as both write `agent`.
+Its inputs are not in any volume: before applying it, seed the dataset version's store and the untouched holdout into
+`agent` (`ops/live.py seed <digest> agent data/store:real/store data/holdout:real/holdout`), so the holdout's
+`spent.jsonl` claim lives on the volume, and the mirror carries it to this PC. That claim is per store: the copy in
+this PC's `data/holdout` does not see it, and the holdout is released once, on one host. `agent-summary` is not a
+workload: its baseline (`data/campaigns/null.jsonl`) is on this PC, so it runs here, no model call, on the series log
+from the mirror (`/srv/moneymachine/mirror/agent/agent-null.jsonl`, sha256 checked against its `MANIFEST.json`, copied to
+`data/agent/`).
 
 ## 3. Credentials and usage
 

@@ -24,9 +24,22 @@ def test_manifests_keep_the_boundaries():
         assert c["securityContext"]["readOnlyRootFilesystem"] and c["securityContext"]["capabilities"] == {"drop": ["ALL"]}
         assert not spec["automountServiceAccountToken"] and spec["priorityClassName"] == live.NAMESPACE
         assert c["image"].startswith(live.jobs.REGISTRY + "@sha256:")
-    assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"thesis", "agent-series"}
+    assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"thesis", "agent-series", "agent-real"}
     assert live.manifest("thesis", "sha256:0")["spec"]["updateStrategy"] == {"type": "OnDelete"}
     json.dumps([live.manifest(n, "sha256:0") for n in live.WORKLOADS])
+
+
+def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool():
+    real, series = (live.manifest(n, "sha256:0")["spec"] for n in ("agent-real", "agent-series"))
+    spec = real["template"]["spec"]
+    assert real["backoffLimit"] == 0 and spec["restartPolicy"] == "Never"
+    assert series["backoffLimit"] == 20 and series["template"]["spec"]["restartPolicy"] == "OnFailure"
+    env = spec["containers"][0]["env"]
+    assert env == series["template"]["spec"]["containers"][0]["env"] and {e["name"] for e in env} >= {
+        "CLAUDE_CODE_OAUTH_TOKEN_TAMU", "CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "CARGO_TARGET_DIR"}
+    assert [v["name"] for v in spec["volumes"] if "persistentVolumeClaim" in v] == ["agent"]
+    command = spec["containers"][0]["command"]
+    assert command[-3:] == ["agent-real", "data/agent/real", "1792613363942"]
 
 
 def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_path):

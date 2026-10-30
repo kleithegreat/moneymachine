@@ -46,6 +46,8 @@ WORKLOADS = {
     "thesis": ("StatefulSet", ["thesis-run"], {"thesis": False, "datalayer": True}, True, ("500m", "2Gi", "4Gi"), 15_000, {}),
     "agent-series": ("Job", ["agent-null", "agent", "20"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
                      {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]}),
+    "agent-real": ("Job", ["agent-real", "data/agent/real", "1792613363942"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
+                   {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}], "once": True}),
     "mirror": ("CronJob", ["ops/live.py", "mirror"], {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False}, False,
                ("200m", "256Mi", "512Mi"), 600, {"schedule": "*/10 * * * *"}),
     "mirror-verify": ("CronJob", ["ops/live.py", "verify"], {**{v: True for v in VOLUMES}, "mirror": True}, False,
@@ -97,8 +99,9 @@ def manifest(name, digest):
         spec = {"replicas": 1, "serviceName": name, "selector": {"matchLabels": {"app": name}}, "template": template,
                 **({"updateStrategy": {"type": "OnDelete"}} if name == "thesis" else {})}
     elif kind == "Job":
-        template["spec"]["restartPolicy"] = "OnFailure"
-        spec = {"backoffLimit": 20, "template": template}
+        once = extra.get("once")
+        template["spec"]["restartPolicy"] = "Never" if once else "OnFailure"
+        spec = {"backoffLimit": 0 if once else 20, "template": template}
     else:
         template["spec"]["restartPolicy"] = "Never"
         spec = {"schedule": extra["schedule"], "concurrencyPolicy": "Forbid", "successfulJobsHistoryLimit": 1,
