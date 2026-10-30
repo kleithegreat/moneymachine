@@ -77,7 +77,7 @@ agent-readable sources the grant is quoted in the record.
 >   source-specific permission first. Covered today: acquisition, storage and deterministic kernel processing, by
 >   the certificates and the operator's certification of Databento (2026-10-26). Not covered, so not done:
 >   reports shown to any agent or reviewer (none may exist until an annex freezes their schema, within the human's
->   decision of 2026-10-26 17:25 UTC, `audit/decisions.md`), and retention of vendor-derived artifacts after
+>   decision of 2026-10-26 17:25 UTC (13:25 EDT), `audit/decisions.md`), and retention of vendor-derived artifacts after
 >   termination. If a source's terms prohibit an intended operation and no permission will be sought, the
 >   operation is excluded. This replaces the pointer to "decisions awaiting review", which is empty: the
 >   human decided the AI-output question on 2026-10-26.
