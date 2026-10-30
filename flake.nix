@@ -28,6 +28,7 @@
         lz4
         pytest
         pytest-xdist
+        pytest-timeout
         hypothesis
       ]);
     in

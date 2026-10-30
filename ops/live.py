@@ -288,7 +288,7 @@ def gate_run(targets):
     parts = {
         "harness": harness.harness_hash,
         "frozen": lambda: json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"],
-        "tests": lambda: subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+        "tests": lambda: subprocess.run([sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider",
                                          "gate/tests/test_sandbox.py"], capture_output=True, text=True).stdout.strip().splitlines()[-12:],
         "view": view, "windows": campaigns.windows, "network": lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
         "session": session_record}

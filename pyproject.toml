@@ -1,3 +1,6 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["ingest", "gate", "kernel/tests", "criteria", "thesis", "reference", "sandbox", "ops"]
+addopts = "-n auto"
+timeout = 600
+timeout_method = "thread"

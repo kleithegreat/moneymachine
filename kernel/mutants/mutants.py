@@ -41,12 +41,12 @@ MUTANTS = {
     "I5 funding off the books": (f"{FX} equity_reconciles_every_step", [
         (SIM, "        self.funding -= paid;\n", ""),
         (SIM, "        if !accounting_ok(e1, e2, peak_equity) {", "        if false {")]),
-    "I6 print before commit": ("pytest -q kernel/tests/cli/test_cli.py -k unwritable", [
+    "I6 print before commit": ("pytest -q -n0 kernel/tests/cli/test_cli.py -k unwritable", [
         (MAIN, "    let id = ledger\n        .disclose_result(", "    println!(\"{content}\");\n    let id = ledger\n        .disclose_result(")]),
-    "I7 wall clock in result": ("pytest -q kernel/tests/cli/test_cli.py -k fresh_processes", [
+    "I7 wall clock in result": ("pytest -q -n0 kernel/tests/cli/test_cli.py -k fresh_processes", [
         (MAIN, "    json!({\n        \"steps\": r.len(),",
          "    json!({\n        \"at\": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,\n        \"steps\": r.len(),")]),
-    "I8 holdout rows admitted": ("pytest -q kernel/tests/cli/test_cli.py -k copied_holdout", [
+    "I8 holdout rows admitted": ("pytest -q -n0 kernel/tests/cli/test_cli.py -k copied_holdout", [
         (MARKET, "            if event >= h {", "            if false {")]),
     "I9 no leverage or notional limit": (f"{FX} leverage_scale_and_notional_cap", [
         (SIM, "        let scaled = |w: f64| if relative * largest > MAX_GROSS { w / largest * (MAX_GROSS / relative) } else { w };",
@@ -59,18 +59,18 @@ MUTANTS = {
         (SIM, "        if !(r >= -LOSS_BOUND) {", "        if false {")]),
     "I1 events delivered early": ("cd kernel && cargo test -q --release --test events counts_are_fresh_only_and_respect_known_at", [
         (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
-    "C5 derivation without the availability margin": ("pytest -q ingest/tests/test_events.py", [
+    "C5 derivation without the availability margin": ("pytest -q -n0 ingest/tests/test_events.py", [
         (EVENTS, '"key": "forum", "margin": 60_000}', '"key": "forum", "margin": 0}')]),
-    "C5 knownAt from the claimed time": ("pytest -q ingest/tests/test_events.py", [
+    "C5 knownAt from the claimed time": ("pytest -q -n0 ingest/tests/test_events.py", [
         (EVENTS, '[w + margin for (fk, _), (c, w) in first.items()', '[c + margin for (fk, _), (c, w) in first.items()')]),
-    "C5 derivation counts future items": ("pytest -q ingest/tests/test_events.py", [
+    "C5 derivation counts future items": ("pytest -q -n0 ingest/tests/test_events.py", [
         (EVENTS, 'counts = np.searchsorted(k, hours + DELTA, side="right") - np.searchsorted(k, hours + DELTA - HOUR, side="right")',
          'counts = np.searchsorted(k, hours + DELTA + HOUR, side="right") - np.searchsorted(k, hours + DELTA, side="right")')]),
-    "C5 coverage reads a later poll": ("pytest -q ingest/tests/test_derived.py -k later", [
+    "C5 coverage reads a later poll": ("pytest -q -n0 ingest/tests/test_derived.py -k later", [
         (EVENTS, 'np.searchsorted(p, b, side="right") - 1', 'np.searchsorted(p, b + GAP, side="right") - 1')]),
-    "C5 as_of returns the latest content": ("pytest -q ingest/tests/test_store.py", [
+    "C5 as_of returns the latest content": ("pytest -q -n0 ingest/tests/test_store.py", [
         (STORE, '.filter(pl.col("knownAt") <= t))', ')')]),
-    "C5 tombstones dropped": ("pytest -q ingest/tests/test_store.py", [
+    "C5 tombstones dropped": ("pytest -q -n0 ingest/tests/test_store.py", [
         (STORE, "complete & live(latest)", "complete & pl.lit(False)")]),
 }
 
