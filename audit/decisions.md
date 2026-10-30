@@ -320,3 +320,10 @@ Transcribed as PROGRESS.md stated them (last at 342b9fd); dated by when the huma
 - Added beyond the notes, from that review: frozen identities are exempt from erasure, the holdout rule covers embargo and forward-window recordings as `audit/criteria.md` already does, and procedure defects are fixed only by the human as the paper says. These state existing rules; none loosens one.
 - New advisor rules from the human: consult a fresh Claude session and GPT before a decision, and name prior art when an idea is already well covered.
 - Reverse with `git revert` of this commit, keeping the C8.7 clarification, which stays true either way.
+
+## 2026-10-30 19:10 UTC (15:10 EDT): the forward window stays protected by rule, not a lock (advisor, by the human's delegation)
+
+- The frozen integrity-only rule for recordings of [2026-11-01, 2027-01-31) stands, and CLAUDE.md now states it. No technical lock is added: recordings sit on the cluster, in the mirror and in `data/live-oci`, and sessions here share a user with the mirror, so a real lock needs encryption or a second user. Research agents are already sandboxed from them. The window only confirms a stage 3 promotion, and it does not block stage 3.
+- GPT's view is queued with its CLAUDE.md review; it was at its usage limit. Reverse by adding the lock before anything reads those recordings beyond integrity.
+- Also: paper section 6 and the roadmap now state the language plan of 2026-10-26, which the paper had simply not caught up with (human, 2026-10-30). The Lean stage's criteria stay due when stage 7 nears its exit. Reverse with `git revert`.
+- Also: `mm-oci-pull` and `mm-diskguard` use OnCalendar. OnUnitActiveSec left them with no next run from 2026-10-30 04:31 UTC (00:31 EDT), with last-pull stale until they were run by hand at 18:47 UTC (14:47 EDT).

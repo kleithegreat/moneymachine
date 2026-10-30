@@ -28,7 +28,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
    -
 6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md` authorizes research use only after GPT's findings B1 and B3–B5 (`manifest-review-gpt-2.md`) close. Its re-review (`manifest-review-gpt-3.md`, 2026-10-30): all four still partly closed; not yet evaluated. Databento GLBX.MDP3 is complete for the plan (USD 34.48 spent; only the sign-up credit, at most USD 100, is allowed); ICE (also Databento) only if credit remains, after its licence (Blockers). Unblocked: recording OECD's STES revisions (certified; about 357 MB of CSV per country quarterly). Open: `includeHistory` (needs a class annex); BLS and BEA archived release pages need terms quotes.
-7. **When stage 7 nears its exit**: the Lean engine stage's criteria and paper revision (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
+7. **When stage 7 nears its exit**: the Lean engine stage's criteria (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
+8. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
@@ -52,7 +53,6 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 - **On-chain: hardware.** A Hyperliquid node: 16 vCPUs, 128 GB RAM, about 100 GB of logs a day; Ethereum or Polygon: 2–4 TB NVMe.
 - **Not certifiable as they stand:** ClinicalTrials.gov (no automation clause); usda.gov (403); MarineCadastre AIS (no terms; GBs a day); World Bank Pink Sheet (per-release URL on a page forbidding automation; its Data Catalog API unchecked); EIA hourly grid (about 699 MB twice a day).
 - **Stage 8 data gaps:** policy-rate announcement times (BIS: effective dates only), ECB YC series and revisions, CFTC TFF history, Treasury average rates' revisions, the ECB release calendar.
-- **Paper vs language plan:** paper §6 keeps the production engine; the plan is a Lean engine with OCaml (`audit/decisions.md`, 2026-10-26; human, 2026-10-30). Revise the paper.
 
 ## Decisions awaiting the human's review
 
