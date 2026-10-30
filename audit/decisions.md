@@ -341,3 +341,9 @@ Transcribed as PROGRESS.md stated them (last at 342b9fd); dated by when the huma
 - **Why:** 162 of 184 profiled seconds were those calls; C1.4's test took about 3 minutes, now about 1 s.
 - **Said:** the human directed it, with this equivalence as its condition; no reviewer asked.
 - **Reverse:** `git revert 1f15657`.
+
+## 2026-10-30 19:43 UTC (19:43 EDT): stage 8's debugging rule tightens, and the terms objection becomes a known limitation (human)
+
+- Accepted from `audit/stage8/manifest-revision-draft-2026-10-30.md` (B5): before a source's annex, integrity views only; after it, schemas, counts, hashes and test results; row samples only from agent-readable sources and search periods, each logged; none from kernel-only sources. This replaces the 2026-10-26 allowance once the revision is adopted. Reverse by restoring that allowance.
+- Accepted (B3/B4): GPT's objection, raised three times, that the human's reading of the CME and Nasdaq terms may be wrong is recorded as a known limitation, not a further gate. It cannot change a false-discovery or leakage outcome; it remains a licensing risk the human knowingly takes, and the reading is not thereby shown correct.
+- GPT's review of the draft is still queued; the revision is adopted into `scope-manifest.md` after it, under the manifest's own rule. A review finding on either point returns to the human.
