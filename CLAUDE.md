@@ -48,6 +48,7 @@ One home per kind of information; nothing is duplicated across them.
 - **Process rules:** this file, kept short.
 - **Status:** `PROGRESS.md`, the only status document. Read it first in every session; it is how you resume after a context reset or a usage limit. It has four sections: **Now**, **Blockers**, **Decisions awaiting the human's review**, and a **Qualifications** summary that points to the audit record. It holds current state only (what runs and how to inspect it, what comes next and its trigger), a finished stage as one line pointing to its evidence, within 12 KB (`ops/test_progress.py`): prune per §2, delete a resolved blocker, and leave history to git.
 - **Audit record:** `audit/`. Its centre is `audit/criteria.md`, every frozen criterion with its dated revisions and amendments, and `audit/decisions.md`, every autonomous decision. Both are append-only and never pruned. Evidence files sit beside them.
+- **History:** every session's transcript, browsable on this PC as a summary tree with `ctx view | zoom | grep` (dotfiles `docs/ctx.md`). It is a retrieval aid, never evidence: before relying on a summary, read the leaf (`ctx zoom <ref>`) and the audit record.
 - **Specs for independent implementers:** `DSL.md`, `INVARIANTS.md`, `NULLS.md`, `SCORING.md`, `SEMANTICS.md`, `CANONICAL.md`.
 - **Source certificates:** one structured registry (quoted clause, URL, retrieval date, basis), read by the terms tests.
 - **Everything else** that describes code lives in the code or test it describes.
