@@ -145,24 +145,6 @@ its manifest, and staged into batch inputs by hash as today.
 
 ## 6. Cut-over
 
-1. The homelab builds section 1; this repo builds the image and `ops/live.py`. Section 3's credential gate and section
-   4's sandbox gate pass first.
-2. The cluster recorders start, each in its own host directory.
-   - **Hyperliquid** reconciles against the Oracle recorder, which is always on, not against this PC.
-   - **Sources and datalayer** overlap with this PC's recorders for 72 h, or until the PC's next reboot, whichever
-     comes first.
-3. Handoff, per source: this PC's recorder stops, and its directory closes as a host. Its last poll is the handoff
-   instant, which is recorded. Before then:
-   - the overlap reconciles (the same items and revisions);
-   - the cluster's last successful poll is under one cadence old;
-   - pagination and clock checks pass;
-   - a complete mirror generation contains the handoff instant.
-4. Thesis: after a UTC day's last session, stop it on this PC. Freeze the new track version here (the freeze builds
-   and pins `mm`), commit, build the image, and seed `data/thesis` (ledgers by SQLite's backup, with nothing writing).
-   Then start it; its manifest check in the pod confirms the freeze. C10.5's window counts from that freeze.
-   - Theses of the previous version keep resolving under their frozen rules, reported under their own version.
-   - The day's sessions and dates are reconciled from the ledger before and after the move.
-5. Stage 3: the harness was refrozen here before any campaign (`audit/stage3/harness.json`). Seed `mm`; the series Job
-   checks the frozen hash at every campaign.
-6. After the handoff: delete what this replaces, and update CLAUDE.md's Recorders, Heavy-jobs and Waiting lines.
-   Git keeps the old paths for rollback, and a rollback never reruns a consumed campaign or date.
+Done 2026-10-30 (`audit/cluster/handoff.md`): the stage 3 harness was refrozen and the thesis track cut a new version
+at the move; this PC's recorders handed off at a reboot, after the overlaps reconciled. Git keeps the old paths for
+rollback, and a rollback never reruns a consumed campaign or date.

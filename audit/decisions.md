@@ -279,3 +279,10 @@ Append-only. Each entry gives what was decided, why, what GPT said and how to re
 - **Overlap.** Hyperliquid reconciles against the Oracle recorder, which is always on. The sources and datalayer recorders overlap 72 h or until the human's next reboot of this PC, whichever comes first; this PC's directories then close as hosts.
 - **Spec fixes.** The mirror CronJob is an ordinary restricted pod, since NFS takes no idmapped mounts. `moneymachine-live`'s PriorityClass is negative and never preempts. A restic instance backs up the live ledgers beside the mirror.
 - **Reverse:** run the workloads back on this PC from git, and delete the Secrets. The refreeze and the new track version are recorded and stay.
+
+## 2026-10-30 01:25 UTC (2026-10-29 21:25 EDT): the recorder handoff by reboot, and the move's deletions
+
+- **What:** this PC's `record`, `sources-record` and `datalayer-record` handed off to the cluster at the human's reboot (shutdown 2026-10-29 01:54 UTC (2026-10-28 21:54 EDT)), each at its last poll (`audit/cluster/handoff.md`), as the human directed. The 18:00 UTC (14:00 EDT) Hyperliquid handoff therefore needed no SIGTERM. Section 6's checks ran afterwards, against Oracle for Hyperliquid and against this PC's directories for sources and datalayer, and pass. The clock check is measured against Hyperliquid's server time, because the pods' `timesyncd` log holds only errors.
+- **Deleted:** `ops/recorders-up.sh`, `ops/mm-recorders-up.service` and the `recorder-restart` command. `ingest/live.py`'s `restart`, `alive` and pidfile stay until the next thesis refreeze, because the frozen track manifest hashes `ingest/live.py` and editing it would fork the track version. This PC's recorder directories stay as closed hosts, since stage 0's judged windows read them.
+- **Why:** with the local recorders gone, nothing on this PC starts or restarts a recorder. A deletion cannot change any false-discovery or leakage outcome.
+- **Reverse:** restore the files from git (`git show 6f3fcfe:ops/recorders-up.sh`) and start the recorders on this PC; the cluster's StatefulSets keep recording meanwhile.
