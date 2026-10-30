@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fresh builder sessions in place of long waits inside one (CLAUDE.md §3, Waiting).
 #   ops/builder.sh at <when> <task> [model]   a systemd user timer runs `run` at <when> (OnCalendar, e.g. "2026-11-01 05:30 UTC")
-#   ops/builder.sh run <task> [model]         start `claude -p --name "builder: <task>"` now; if a builder runs, retry in 30 minutes
+#   ops/builder.sh run <task> [model]         start `claude -p --name "builder: <task>"` now, inside the dev shell; if a builder runs, retry in 30 minutes
 # Every schedule, deferral, start and exit is a line of data/builder/log.tsv; a session's output is data/builder/<id>.out.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -25,8 +25,8 @@ run)
   id=$(cat /proc/sys/kernel/random/uuid)
   log start "$id"
   status=0
-  claude -p --name "builder: $task" --model "$model" --permission-mode auto --session-id "$id" \
-    "Fresh session, started by ops/builder.sh. Read CLAUDE.md and PROGRESS.md. Task: the wake-up \"$task\" in PROGRESS's Now." \
+  nix develop -c "$(command -v claude)" -p --name "builder: $task" --model "$model" --permission-mode auto --session-id "$id" \
+    "Fresh session, started by ops/builder.sh inside the dev shell: run commands directly, not through nix develop -c. Read CLAUDE.md and PROGRESS.md. Task: the wake-up \"$task\" in PROGRESS's Now." \
     > "data/builder/$id.out" 2>&1 < /dev/null || status=$?
   log "exit $status" "$id" ;;
 esac

@@ -53,7 +53,7 @@ def test_c05_replay_completeness():
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="C0.7's recorded failure, stage 0 exited with it qualified by human decision: 3 of 44 cells under its coverage (PROGRESS Qualifications, audit/stage0/criteria-result.txt)")
+                   reason="C0.7's qualification of 2026-10-26 (audit/criteria.md), by human decision: 3 of 44 cells under its coverage")
 def test_c07_execution_model():
     e = load("stage0/execution.json")
     for coin in LISTED:

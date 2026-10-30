@@ -62,7 +62,7 @@ def test_c25_mixed_fdr():
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="C2.6's recorded failure, waived by human decision: N2-long's power 0.05 against 0.30 (PROGRESS Qualifications, audit/stage2/exit-r2.md)")
+                   reason="C2.6's waiver of 2026-10-28 (audit/criteria.md), by human decision: N2-long's power 0.05 against 0.30")
 def test_c26_power_amended():
     """C2.6 amendment of 2026-10-26: power >= 0.30 in the long-holdout cell. C2.6 as written (N2-s3) is judged in
     the stage 2 report and listed under Qualifications if it fails."""
