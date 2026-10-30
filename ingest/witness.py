@@ -4,7 +4,8 @@ Conventions (stage 0 criteria, C0.8 as revised), per 4h bar [b, b + 4h): funding
 at b + 1h ..= b + 4h, marks at its close, margin check, delisting closeouts, equity at b + 4h,
 then fills at b + 4h of the orders decided at b + delta (only if a later bar will mark them),
 then the decision at b + 4h + delta.
-- decision at t_d = B + DELTA from as_of(t_d): funding settled at B, bar ending at B;
+- decision at t_d = B + DELTA from as_of(t_d): funding settled at B, bar ending at B. as_of's only use of t is its final
+  filter knownAt <= t, so that view is the rows of as_of(HOLDOUT_START), which t_d precedes, with knownAt <= t_d;
 - fill at B + 4h at the open of the bar starting there (unfilled if it recorded no trade), moved by the taker cost model, plus fee;
 - funding settles hourly on the position held, before any fill at the same instant, priced at
   the open of the 4h bar containing the hour (oracle prices are not in the public history);
@@ -15,8 +16,6 @@ then the decision at b + 4h + delta.
 import json
 import math
 from pathlib import Path
-
-import polars as pl
 
 from ingest import checks
 from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START
@@ -88,6 +87,8 @@ def run(data_root, version, venue=VENUE):
     intervals = {c: (listed[c][0], min(listed[c][1], HOLDOUT_START)) for c in rules["coins"] if c in listed}
     bar = {(c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()}
     rate_at = {(c, t): r for c, t, r in funding.select("coin", "eventTime", "fundingRate").iter_rows()}
+    funding_view = {(c, t): (k, r) for c, t, k, r in funding.select("coin", "eventTime", "knownAt", "fundingRate").iter_rows()}
+    bar_view = {(c, t): (k, r) for c, t, k, r in bars.select("coin", "eventTime", "knownAt", "close").iter_rows()}
 
     book, trace, worst, orders, marks = Book(), [], 0.0, {}, {}
     held_coins = lambda: sorted(book.pos, key=list(rules["coins"]).index)
@@ -132,19 +133,16 @@ def run(data_root, version, venue=VENUE):
                 trace.append({"t": b + BAR, "type": "unfilled", "coin": coin, "qty": qty})
 
         t_d = b + BAR + DELTA
-        view_f = search.as_of("funding", t_d, version)
-        view_b = search.as_of("bars_4h", t_d, version)
         for coin, (start, end) in intervals.items():
             if not (start <= b + BAR and b + 3 * BAR <= end):
                 continue
-            f = view_f.filter((pl.col("coin") == coin) & (pl.col("eventTime") == b + BAR))
-            p = view_b.filter((pl.col("coin") == coin) & (pl.col("eventTime") == b + BAR))
-            if f.height == 0 or p.height == 0:
+            f, p = funding_view.get((coin, b + BAR)), bar_view.get((coin, b + BAR))
+            if f is None or p is None or f[0] > t_d or p[0] > t_d:
                 trace.append({"t": t_d, "type": "hold", "coin": coin})
                 continue
-            known = [f["knownAt"].item(), p["knownAt"].item()]
+            known = [f[0], p[0]]
             assert max(known) <= t_d
-            rate, price = f["fundingRate"].item(), p["close"].item()
+            rate, price = f[1], p[1]
             w = -math.copysign(1.0, rate) * SIZE if abs(rate) > THRESHOLD else 0.0
             target = w * e1 / price if w else 0.0
             held = book.pos.get(coin, 0.0)
@@ -155,7 +153,6 @@ def run(data_root, version, venue=VENUE):
                               "qty": qty, "inputs_knownAt": known})
         b += BAR
     return trace, worst
-
 
 
 def replay(data_root, version, out, venue=VENUE):

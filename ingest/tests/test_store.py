@@ -69,6 +69,18 @@ def test_as_of_never_leaks(tmp_path_factory, t, version):
     assert got.sort(["coin", "eventTime"]).equals(expect.sort(["coin", "eventTime"]).select(got.columns))
 
 
+def test_a_view_is_the_latest_view_filtered_by_known_at(tmp_path):
+    """ingest/witness.py relies on this: t enters as_of only through knownAt <= t, with corrections and tombstones."""
+    s = market_store(tmp_path)
+    s.write("bars_4h", rows(["A", "B"], range(10)), fetched_at=100, source="t")
+    s.write("bars_4h", rows(["A"], range(4, 8), value=0.5), fetched_at=8 * H, source="t")
+    s.write("bars_4h", rows(["A"], range(10)), fetched_at=9 * H, source="t", complete=pl.col("coin") == "B")
+    for version in (100, 8 * H, 9 * H):
+        latest = s.as_of("bars_4h", 2**62, version)
+        for t in range(-H, 12 * H, H // 2):
+            assert s.as_of("bars_4h", t, version).equals(latest.filter(pl.col("knownAt") <= t))
+
+
 def test_knownat_is_never_stored(tmp_path):
     with pytest.raises(ValueError):
         Store(tmp_path).write("bars_4h", rows(["A"], [1]).with_columns(pl.lit(0).alias("knownAt")), 1, "t")
