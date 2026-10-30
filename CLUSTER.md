@@ -29,7 +29,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi. This PC's NixOS
   configuration exports that directory beside `inputs` and `results`. It holds the only copy of the live data.
 - **Secrets**, created by the advisor with kubectl from local files, outside Git:
-  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account;
+  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `TAMU`, the TAMU account's, which only `agent-series` reads (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
   - `datalayer-keys`: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
     (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key.
 - **RBAC**: ServiceAccount `deployer`, its kubeconfig at this PC's `~/.kube/moneymachine-live.yaml`, may create, get, list, watch, update, patch and
@@ -94,8 +94,9 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 
 The thesis and series pods take `CLAUDE_CODE_OAUTH_TOKEN` from `claude-token`, and `sandbox/session.py` passes it into
 each session's cleared environment. That is the only way a session gets a credential: no credential file is copied.
-Pacing (`wait_for_room`) runs in the series pod with the same token, so it reads the Cornell account's windows, which
-its sessions spend. Recorders hold no credential but `datalayer-keys`.
+Pacing (`wait_for_room`) runs in the series pod and reads each account's windows, TAMU first (the thesis track also
+draws on Cornell); it runs the next campaign on the first with room, and the series log records the account's name, never
+the token. Recorders hold no credential but `datalayer-keys`.
 
 **Gate:** a sandboxed session in the runner pod authenticates with the token alone, as the intended account and
 model, and the pacing probe reads that account's windows.

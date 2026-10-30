@@ -56,7 +56,10 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     monkeypatch.setattr(campaigns.sweep, "cost_cells", lambda: {})
     reads = iter([None, {"five_hour": [0.75, 100]}, {"five_hour": [0.2, 200]}, {"five_hour": [0.3, 200]},
                   {"five_hour": [0.75, 200]}, {"five_hour": [0.7, 200]}, {"five_hour": [0.75, 200]}])
-    monkeypatch.setattr(campaigns, "windows", lambda: next(reads))
+    monkeypatch.setattr(campaigns, "windows", lambda token=None: next(reads))
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN_TAMU", raising=False)
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "cornell")
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "x")
     monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False,
                                                              "wait": lambda self, s: slept.append(s)})())
     monkeypatch.setattr(campaigns.time, "time", lambda: 0)
@@ -67,10 +70,25 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     assert rows[0]["counts_as_promotion"] and "interrupted" in rows[0]["crash"]
     assert started == ["agent-null-N2-1", "agent-null-N2-2"]
     assert slept == [campaigns.session.RETRY, 100, 200]
+    assert rows[1]["account"] == "Cornell"
     assert rows[1]["windows"] == {"before": {"five_hour": [0.2, 200]}, "after": {"five_hour": [0.3, 200]}}
-    assert campaigns.need(tmp_path / "agent-null.jsonl")["five_hour"] == pytest.approx(0.1)
+    assert campaigns.need(tmp_path / "agent-null.jsonl", "Cornell")["five_hour"] == pytest.approx(0.1)
     campaigns.run_series("agent", 3)
     assert len(open(tmp_path / "agent-null.jsonl").readlines()) == 3
+
+
+def test_the_series_runs_on_the_first_account_with_room_tamu_first(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_TAMU", "tamu")
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "cornell")
+    used = {"tamu": {"five_hour": [0.9, 100]}, "cornell": {"five_hour": [0.1, 100]}}
+    monkeypatch.setattr(campaigns, "windows", lambda token=None: used[token])
+    monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False, "wait": lambda self, s: None})())
+    assert campaigns.wait_for_room(tmp_path / "log.jsonl") == ("Cornell", {"five_hour": [0.1, 100]})
+    assert campaigns.os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "cornell"
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "x")
+    used["tamu"] = {"five_hour": [0.1, 100]}
+    assert campaigns.wait_for_room(tmp_path / "log.jsonl")[0] == "TAMU"
+    assert campaigns.os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "tamu"
 
 
 def test_a_refreeze_names_its_predecessor_and_is_refused_once_a_campaign_started(tmp_path, monkeypatch):

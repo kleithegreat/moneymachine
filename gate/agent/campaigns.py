@@ -2,6 +2,7 @@
 real campaign (arm A against the G100 searcher, one holdout batch); null series are paced and resumable."""
 
 import json
+import os
 import signal
 import sqlite3
 import subprocess
@@ -25,6 +26,7 @@ LABEL = "pipeline validation run, not a test for edge; every promotion: historic
 MIN_SWARM_EVALUATIONS = 200
 CEILING = 0.8  # the most of any subscription window a campaign may bring it to; the rest stays with the human
 FIRST_NEED = 0.5  # a campaign's assumed share of each window until one has been measured
+ACCOUNTS = (("TAMU", "CLAUDE_CODE_OAUTH_TOKEN_TAMU"), ("Cornell", "CLAUDE_CODE_OAUTH_TOKEN_CORNELL"))  # in preference order: the thesis track also draws on Cornell
 TOKENS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
 STOP = threading.Event()  # set by SIGTERM: the series ends between campaigns
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
@@ -119,11 +121,13 @@ SERIES = {"agent": agent_null, "swarm": swarm_null}
 STAGE = {"agent": 3, "swarm": 4}
 
 
-def windows():
-    """The subscription's usage windows, {name: [utilization, resets_at]}, from one tiny model call; None if it fails."""
+def windows(token=None):
+    """The usage windows of the subscription behind `token` (default: the environment's), {name: [utilization,
+    resets_at]}, from one tiny model call; None if it fails."""
+    env = os.environ | ({"CLAUDE_CODE_OAUTH_TOKEN": token} if token else {})
     try:
         out = subprocess.run([session.claude_binary(), "-p", "Reply with OK.", "--model", harness.MODEL, "--output-format",
-                              "stream-json", "--verbose"], capture_output=True, text=True, timeout=300).stdout
+                              "stream-json", "--verbose"], capture_output=True, text=True, timeout=300, env=env).stdout
     except subprocess.TimeoutExpired:
         return None
     for line in out.splitlines():
@@ -133,11 +137,13 @@ def windows():
     return None
 
 
-def need(log):
-    """Per window, the most any campaign recorded in `log` used of it within one reset period. It counts the
-    subscription's other use meanwhile, so it overstates."""
+def need(log, account):
+    """Per window, the most any campaign `account` ran in `log` used of it within one reset period. It counts the
+    account's other use meanwhile, so it overstates."""
     used = {}
     for row in map(json.loads, open(log)) if log.exists() else []:
+        if row.get("account", "Cornell") != account:
+            continue
         w = row.get("windows", {})
         for k, (u, reset) in (w.get("after") or {}).items():
             before = (w.get("before") or {}).get(k)
@@ -147,16 +153,25 @@ def need(log):
 
 
 def wait_for_room(log):
-    """Wait until every window's utilization plus `need(log)` (FIRST_NEED where unmeasured) is within CEILING, so no
-    campaign exhausts the subscription mid-run; return the windows last read, or None once STOP is set."""
+    """Wait until some account, TAMU first, has every window's utilization plus its `need` (FIRST_NEED where unmeasured)
+    within CEILING, so no campaign exhausts a subscription mid-run. Set `CLAUDE_CODE_OAUTH_TOKEN`, the one sessions use, to that account's
+    token and return (account, windows last read); None once STOP is set."""
     while not STOP.is_set():
-        w = windows()
-        if w is not None:
-            used = need(log)
+        resets = []
+        for account, var in ACCOUNTS:
+            if var not in os.environ:
+                continue
+            w = windows(os.environ[var])
+            if w is None:
+                resets.append(time.time() + session.RETRY)
+                continue
+            used = need(log, account)
             full = [reset for k, (u, reset) in w.items() if u + used.get(k, FIRST_NEED) > CEILING]
             if not full:
-                return w
-        STOP.wait(session.RETRY if w is None else max(60, min(full) - time.time()))
+                os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = os.environ[var]
+                return account, w
+            resets.append(min(full))
+        STOP.wait(max(60, min(resets, default=time.time() + session.RETRY) - time.time()))
     return None
 
 
@@ -177,22 +192,23 @@ def usage(work):
 def run_series(name, n):
     """Campaigns `{name}-null-N2-0` .. n - 1, resumable (a started, unrecorded id is recorded as a crash), each started
     when the subscription has room for it (`wait_for_room`) and the harness is still the frozen one, and recorded with
-    its usage and the windows around it. SIGTERM ends the series between campaigns."""
+    its account, usage and the windows around it. SIGTERM ends the series between campaigns."""
     signal.signal(signal.SIGTERM, lambda *_: STOP.set())
     OUT.mkdir(parents=True, exist_ok=True)
     log = OUT / f"{name}-null.jsonl"
     with campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT) as todo:
         for cid in todo:
-            before = wait_for_room(log)
-            if before is None:
+            room = wait_for_room(log)
+            if room is None:
                 break
+            account, before = room
             check_frozen()
             started = time.time()
             try:
                 result = SERIES[name](cid, sweep.cost_cells())
             except Exception as e:
                 result = {"crash": repr(e), "counts_as_promotion": True}
-            result |= {"seconds": round(time.time() - started), "usage": usage(OUT / cid),
+            result |= {"seconds": round(time.time() - started), "usage": usage(OUT / cid), "account": account,
                        "windows": {"before": before, "after": windows()}}
             with open(log, "a") as fh:
                 fh.write(json.dumps({"id": cid, **result}) + "\n")

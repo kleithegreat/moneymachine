@@ -31,6 +31,8 @@ VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data
 LEDGERS = ("thesis", "agent")
 SECCOMP, APPARMOR = "profiles/moneymachine-sandbox.json", "moneymachine-sandbox"
 TOKEN = {"name": "CLAUDE_CODE_OAUTH_TOKEN", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": "CLAUDE_CODE_OAUTH_TOKEN"}}}
+POOL = [{"name": f"CLAUDE_CODE_OAUTH_TOKEN_{account.upper()}", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}}}
+        for account, key in (("TAMU", "TAMU"), ("Cornell", "CLAUDE_CODE_OAUTH_TOKEN"))]
 PROC = "Unmasked"  # the runners' procMount, as the sandbox gate settled it
 
 # name: (kind, command, {volume: read-only}, runner, (cpu, memory request, memory limit), grace seconds, extra)
@@ -43,7 +45,7 @@ WORKLOADS = {
                   ("100m", "256Mi", "512Mi"), 300, {"keys": True}),
     "thesis": ("StatefulSet", ["thesis-run"], {"thesis": False, "datalayer": True}, True, ("500m", "2Gi", "4Gi"), 15_000, {}),
     "agent-series": ("Job", ["agent-null", "agent", "20"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
-                     {"env": [{"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]}),
+                     {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]}),
     "mirror": ("CronJob", ["ops/live.py", "mirror"], {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False}, False,
                ("200m", "256Mi", "512Mi"), 600, {"schedule": "*/10 * * * *"}),
     "mirror-verify": ("CronJob", ["ops/live.py", "verify"], {**{v: True for v in VOLUMES}, "mirror": True}, False,
