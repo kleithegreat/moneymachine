@@ -60,7 +60,7 @@ theorem evalU_op (N : NumOps α) (p : Program) (m : MState α) (tv : Array (Arra
 
 omit [Inhabited α] in
 theorem evalU_leaf (N : NumOps α) (p : Program) (m : MState α) (tv : Array (Array (TVal α))) (i c : Nat)
-    (hW : p.WF) (hi : i < p.nodes.size) (hn : ∀ o args, p.nodes[i]! ≠ .op o args) :
+    {reg : Registry} (hW : p.WF reg) (hi : i < p.nodes.size) (hn : ∀ o args, p.nodes[i]! ≠ .op o args) :
     ∃ r, evalU N p m tv i c = .ok r ∧ r.map (·.1) = MState.eval N p { m with vals := eraseTV tv } i c ∧
       ∀ x t, r = some (x, t) → t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b) := by
   have h := hW.2.2.2.2.2 i hi
@@ -70,7 +70,7 @@ theorem evalU_leaf (N : NumOps α) (p : Program) (m : MState α) (tv : Array (Ar
     simp only [hn'] at h
     refine ⟨(m.input inp c).map (·, .num inp.unit), by simp only [evalU, hn']; rfl, ?_, ?_⟩
     · simp only [MState.eval, hn', Option.map_map]; cases inp <;> simp [MState.input, Function.comp_def]
-    · intro x t hx; simp at hx; obtain ⟨_, _, _, rfl⟩ := hx; simp [h]
+    · intro x t hx; simp at hx; obtain ⟨_, _, _, rfl⟩ := hx; simp [h.2]
   | const bits u =>
     simp only [hn'] at h
     exact ⟨some (N.ofBits bits, .num u), by simp only [evalU, hn']; rfl, by simp [MState.eval, hn'],

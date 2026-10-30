@@ -1,5 +1,5 @@
 import Ref.Proof.Eval
-import Ref.Proof.Prefix
+import Ref.Proof.Local
 
 /-! The unit-instrumented machine against the executable one (L2): tagged values carry their static types,
 evaluation never raises a unit error on a well-formed program, and erasing the tags gives the executable
@@ -65,9 +65,7 @@ structure URel (N : NumOps α) (p : Program) (u : UState α) (m : MState α) : P
   vals : eraseTV u.tv = m.vals
   wins : u.m.wins = m.wins
   since : u.m.since = m.since
-  funding : u.m.funding = m.funding
-  bar : u.m.bar = m.bar
-  events : u.m.events = m.events
+  latest : u.m.latest = m.latest
   hour : u.m.hour = m.hour
   maxKnown : u.m.maxKnown = m.maxKnown
   tagged : Tagged N p u.tv
@@ -121,10 +119,10 @@ theorem forIn_rel {ε β σ τ : Type} (l : List β) (F : β → σ → Except �
 
 omit [Inhabited α] in
 theorem eval_congr (N : NumOps α) (p : Program) {m₁ m₂ : MState α} (hv : m₁.vals = m₂.vals)
-    (hf : m₁.funding = m₂.funding) (hb : m₁.bar = m₂.bar) (he : m₁.events = m₂.events) (hh : m₁.hour = m₂.hour)
+    (hl : m₁.latest = m₂.latest) (hh : m₁.hour = m₂.hour)
     (i c : Nat) : MState.eval N p m₁ i c = MState.eval N p m₂ i c := by
   have hin : ∀ inp c, m₁.input inp c = m₂.input inp c := by
-    intro inp c; cases inp <;> simp [MState.input, hf, hb, he, hh]
+    intro inp c; simp [MState.input, hl, hh]
   simp only [MState.eval, hv, hin]
 
 omit [Inhabited α] in
@@ -218,7 +216,7 @@ theorem URel_update (N : NumOps α) (p : Program) {u : UState α} {m : MState α
       ({ m with
           vals := m.vals.modify i (fun row => row.set! c ((v.map Prod.fst).bind N.keep))
           wins := m.wins.modify i (fun row => row.set! c w) } : MState α) := by
-  refine ⟨?_, ?_, hR.since, hR.funding, hR.bar, hR.events, hR.hour, hR.maxKnown, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, hR.since, hR.latest, hR.hour, hR.maxKnown, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [eraseTV_modify, keepT_erase, hR.vals]
   · simp only [hR.wins]
   · intro j k x t hx
@@ -256,7 +254,7 @@ theorem URel_raw (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (
       ({ m with
           vals := m.vals.modify i (fun row => row.set! c (v.map Prod.fst))
           since := S } : MState α) := by
-  refine ⟨?_, hR.wins, rfl, hR.funding, hR.bar, hR.events, hR.hour, hR.maxKnown, ?_, hR.tags, hR.blank,
+  refine ⟨?_, hR.wins, rfl, hR.latest, hR.hour, hR.maxKnown, ?_, hR.tags, hR.blank,
     hR.winNode, hR.shape⟩
   · simp only [eraseTV_modify, hR.vals]
   · intro j k x t hx
@@ -297,7 +295,7 @@ theorem URel_setRow (N : NumOps α) (p : Program) {u : UState α} {m : MState α
     (he : row.map (·.map (·.1)) = rowM) :
     URel N p { u with tv := u.tv.set! i row } { m with vals := m.vals.set! i rowM } := by
   subst he
-  refine ⟨?_, hR.wins, hR.since, hR.funding, hR.bar, hR.events, hR.hour, hR.maxKnown, ?_, hR.tags, hR.blank,
+  refine ⟨?_, hR.wins, hR.since, hR.latest, hR.hour, hR.maxKnown, ?_, hR.tags, hR.blank,
     hR.winNode, hR.shape⟩
   · simp only [eraseTV_set, hR.vals]
   · intro j k x t hx
@@ -335,7 +333,7 @@ theorem step_of_loop {ε β σ τ : Type} {l : List β} {F : β → σ → Excep
   obtain ⟨u', hu, hR⟩ := h
   exact ⟨u', _, by rw [hu]; rfl, rfl, hR⟩
 
-theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool) (hour : Int) (u : UState α)
+theorem tick_rel (N : NumOps α) (p : Program) {reg : Registry} (hW : p.WF reg) (listed : Array Bool) (hour : Int) (u : UState α)
     (m : MState α) (h : URel N p u m) :
     ∃ u', u.tick N p listed hour = .ok u' ∧ URel N p u' (m.tick N p listed hour) := by
   unfold UState.tick MState.tick
@@ -353,8 +351,7 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
       intro c hc u m hR
       obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
       have hev' : MState.eval N p m i c = r.map (·.1) := by
-        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
-          hR.bar.symm hR.events.symm hR.hour.symm i c
+        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.latest.symm hR.hour.symm i c
       have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
       by_cases hl : listed[c]! = true
       · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
@@ -380,8 +377,7 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
       intro c hc u m hR
       obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
       have hev' : MState.eval N p m i c = r.map (·.1) := by
-        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
-          hR.bar.symm hR.events.symm hR.hour.symm i c
+        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.latest.symm hR.hour.symm i c
       have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
       by_cases hl : listed[c]! = true
       · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
@@ -407,8 +403,7 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
       intro c hc u m hR
       obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
       have hev' : MState.eval N p m i c = r.map (·.1) := by
-        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
-          hR.bar.symm hR.events.symm hR.hour.symm i c
+        rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.latest.symm hR.hour.symm i c
       have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
       by_cases hl : listed[c]! = true
       · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
@@ -439,8 +434,7 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
         intro c hc u m hR
         obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
         have hev' : MState.eval N p m i c = r.map (·.1) := by
-          rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
-            hR.bar.symm hR.events.symm hR.hour.symm i c
+          rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.latest.symm hR.hour.symm i c
         have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
         by_cases hl : listed[c]! = true
         · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
@@ -719,8 +713,7 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
         intro c hc u m hR
         obtain ⟨r, hr, he, ht⟩ := hev u hR.tagged c
         have hev' : MState.eval N p m i c = r.map (·.1) := by
-          rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.funding.symm
-            hR.bar.symm hR.events.symm hR.hour.symm i c
+          rw [he]; exact eval_congr N p (m₂ := { u.m with vals := eraseTV u.tv }) hR.vals.symm hR.latest.symm hR.hour.symm i c
         have hwm : m.wins[i]![c]! = u.m.wins[i]![c]! := by rw [hR.wins]
         by_cases hl : listed[c]! = true
         · simp only [hl, ite_true, hr, hev', bind, Except.bind, hwm]
@@ -743,8 +736,8 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
   · exact { h with hour := rfl }
 
 omit [Inhabited α] in
-theorem init_wins (N : NumOps α) (p : Program) (coins i c : Nat) (w : Win α)
-    (h : (MState.init N p coins).wins[i]![c]! = some w) :
+theorem init_wins (N : NumOps α) (p : Program) (sources coins i c : Nat) (w : Win α)
+    (h : (MState.init N p sources coins).wins[i]![c]! = some w) :
     ∃ k hh args, p.nodes[i]! = .op (.window k hh) args ∧ w = Win.new N k hh := by
   simp only [MState.init] at h
   by_cases hi : i < p.nodes.size
@@ -766,14 +759,14 @@ theorem nested_none_get {β : Type} (n k i c : Nat) : (Array.replicate n (Array.
   · rw [getElem!_pos _ i (by simpa using hi)]; simp only [Array.getElem_replicate]; exact replicate_none_get k c
   · rw [getElem!_neg _ i (by simpa using hi)]; rfl
 
-theorem init_rel (N : NumOps α) (p : Program) (hW : p.WF) (coins : Nat) :
-    URel N p (UState.init N p coins) (MState.init N p coins) := by
-  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩
+theorem init_rel (N : NumOps α) (p : Program) {reg : Registry} (hW : p.WF reg) (sources coins : Nat) :
+    URel N p (UState.init N p sources coins) (MState.init N p sources coins) := by
+  refine ⟨?_, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩
   · simp [eraseTV, UState.init, MState.init]
   · intro j k x t hx; simp [UState.init, nested_none_get] at hx
   · intro j k t ht; simp [UState.init, nested_none_get] at ht
   · intro j k w _ hw
-    obtain ⟨kd, hh, args, hn, rfl⟩ := init_wins N p coins j k w hw
+    obtain ⟨kd, hh, args, hn, rfl⟩ := init_wins N p sources coins j k w hw
     have hj : j < p.nodes.size := by
       by_cases hj : j < p.nodes.size
       · exact hj
@@ -781,7 +774,7 @@ theorem init_rel (N : NumOps α) (p : Program) (hW : p.WF) (coins : Nat) :
     have h1 := (opTy_window (by have := hW.2.2.2.2.2 j hj; rw [hn] at this; exact this.2)).2
     cases kd <;> simp [Win.new, Win.Blank] <;> omega
   · intro j k w hw
-    obtain ⟨kd, hh, args, hn, -⟩ := init_wins N p coins j k w hw
+    obtain ⟨kd, hh, args, hn, -⟩ := init_wins N p sources coins j k w hw
     exact ⟨kd, hh, args, hn⟩
   · constructor
     · simp [UState.init, MState.init]
@@ -828,7 +821,7 @@ theorem forIn_corr {β σ τ : Type} (l : List β) (F : β → σ → Except (Ab
 
 theorem URel_machine (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) :
     u.m = m.withLocal u.m.vals m.wins m.since := by
-  have h₁ := hR.wins; have h₂ := hR.since; have h₃ := hR.funding; have h₄ := hR.bar; have h₅ := hR.events
+  have h₁ := hR.wins; have h₂ := hR.since; have h₃ := hR.latest
   have h₆ := hR.hour; have h₇ := hR.maxKnown
   generalize u.m = um at *
   cases um; cases m; simp_all [MState.withLocal]
@@ -836,14 +829,12 @@ theorem URel_machine (N : NumOps α) (p : Program) {u : UState α} {m : MState �
 /-- Preflight's first tick is hour 0 of the schedule. -/
 theorem start_tickLoop (N : NumOps α) (c : Ctx α) (n : Nat) :
     (c.start N >>= c.tickLoop N c.pol.wStart (List.range' 1 n)) =
-      if !c.bound then .error .inputUnavailable else c.tickLoop N c.pol.wStart (List.range' 0 (n + 1)) (c.state0 N) := by
+      c.tickLoop N c.pol.wStart (List.range' 0 (n + 1)) (c.state0 N) := by
   unfold Ctx.start
   rw [List.range'_succ]
-  cases c.bound
-  · rfl
-  · simp only [Bool.not_true, Bool.false_eq_true, ite_false, Ctx.tickLoop, List.forIn_cons]
-    simp only [show ((0 : Nat) : Int) * HOUR = 0 by simp, Int.add_zero, Nat.zero_add, bind_assoc, pure_bind]
-    rfl
+  simp only [Ctx.tickLoop, List.forIn_cons]
+  simp only [show ((0 : Nat) : Int) * HOUR = 0 by simp, Int.add_zero, Nat.zero_add, bind_assoc, pure_bind]
+  rfl
 
 omit [Inhabited α] in
 /-- After a delivery that kept the per-node state, the instrumented state with the delivered machine is still
@@ -852,7 +843,7 @@ theorem URel_deliver (N : NumOps α) (p : Program) {u : UState α} {m : MState �
     (hv : m'.vals = m.vals) (hw : m'.wins = m.wins) (hs : m'.since = m.since) :
     URel N p ⟨m'.withLocal u.m.vals m.wins m.since, u.tv, u.wtag⟩ m' := by
   have hwu : u.m.wins = m.wins := hR.wins
-  refine ⟨hR.vals.trans hv.symm, hw.symm, hs.symm, rfl, rfl, rfl, rfl, rfl, hR.tagged, hR.tags, ?_, ?_, ?_⟩
+  refine ⟨hR.vals.trans hv.symm, hw.symm, hs.symm, rfl, rfl, rfl, hR.tagged, hR.tags, ?_, ?_, ?_⟩
   · intro i c w ht hw'; exact hR.blank i c w ht (by rw [hwu]; exact hw')
   · intro i c w hw'; exact hR.winNode i c w (by rw [hwu]; exact hw')
   · simp only [MState.withLocal]; rw [← hwu]; exact hR.shape
@@ -870,29 +861,27 @@ theorem Corr_map {σ τ σ' τ' : Type} {R : σ → τ → Prop} {S : σ' → τ
     | ok b => exact hR a b h
 
 /-- The instrumented schedule against the executable one. -/
-theorem umachine_corr (N : NumOps α) (c : Ctx α) (hW : c.p.WF) (n : Nat) :
+theorem umachine_corr (N : NumOps α) (c : Ctx α) (hW : c.p.WF c.reg) (n : Nat) :
     Corr (fun u ms => URel N c.p u ms) (c.umachineAfter N n) (c.machineAfter N n) := by
   rw [Ctx.machineAfter_eq, start_tickLoop]
   unfold Ctx.umachineAfter Ctx.tickLoop
   have hz : [0:n + 1].size = n + 1 := by simp [Std.Legacy.Range.size]
   simp only [Std.Legacy.Range.forIn_eq_forIn_range', hz]
-  cases c.bound
-  · rfl
-  · simp only [Bool.not_true, Bool.false_eq_true, ite_false]
-    refine Corr_map (·.1) (·.machine) (forIn_corr _ _ _
+  refine Corr_map (·.1) (·.machine) (forIn_corr _ _ _
       (fun (us : UState α × SState α) (s' : SState α) => URel N c.p us.1 s'.machine ∧ { us.2 with machine := s'.machine } = s')
-      ?_ (UState.init N c.p c.coins, c.state0 N) (c.state0 N) ⟨init_rel N c.p hW c.coins, rfl⟩) (fun a b h => h.1)
-    intro k us s' ⟨hR, hs⟩
-    have e : ∀ X, ({ us.2 with machine := X } : SState α) = { s' with machine := X } := by intro X; rw [← hs]
-    rw [e us.1.m, URel_machine N c.p hR, deliver_local]
-    cases hd : c.deliver s' (c.pol.wStart + ↑k * HOUR + c.pol.delta) with
-    | error a => rfl
-    | ok r =>
-      obtain ⟨hv, hw, hsn⟩ := deliver_keeps_local c s' r _ hd
-      obtain ⟨u', hu', hR'⟩ := tick_rel N c.p hW (c.mask (c.pol.wStart + ↑k * HOUR)) (c.pol.wStart + ↑k * HOUR)
-        _ _ (URel_deliver N c.p hR r.machine hv hw hsn)
-      simp only [Except.map, Except.mapError, bind, Except.bind, pure, Except.pure]
-      rw [hu']
-      exact ⟨_, _, rfl, rfl, hR', rfl⟩
+      ?_ (UState.init N c.p c.reg.decls.size c.coins, c.state0 N) (c.state0 N)
+      ⟨init_rel N c.p hW c.reg.decls.size c.coins, rfl⟩) (fun a b h => h.1)
+  intro k us s' ⟨hR, hs⟩
+  have e : ∀ X, ({ us.2 with machine := X } : SState α) = { s' with machine := X } := by intro X; rw [← hs]
+  rw [e us.1.m, URel_machine N c.p hR, deliver_local]
+  cases hd : c.deliver s' (c.pol.wStart + ↑k * HOUR + c.pol.delta) with
+  | error a => rfl
+  | ok r =>
+    obtain ⟨hv, hw, hsn⟩ := deliver_keeps_local c s' r _ hd
+    obtain ⟨u', hu', hR'⟩ := tick_rel N c.p hW (c.mask (c.pol.wStart + ↑k * HOUR)) (c.pol.wStart + ↑k * HOUR)
+      _ _ (URel_deliver N c.p hR r.machine hv hw hsn)
+    simp only [Except.map, Except.mapError, bind, Except.bind, pure, Except.pure]
+    rw [hu']
+    exact ⟨_, _, rfl, rfl, hR', rfl⟩
 
 end Ref

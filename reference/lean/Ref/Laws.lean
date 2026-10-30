@@ -6,6 +6,7 @@ import Ref.Proof.Shape
 import Ref.Proof.Resolve
 import Ref.Proof.Bound
 import Ref.Proof.Sim
+import Ref.Proof.Units
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -78,7 +79,28 @@ theorem L2_units (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) 
         u.m.latest = ms.latest ∧
         ∀ i < p.nodes.size, ∀ (coin : Nat) (x : α) (t : Ty), u.tv[i]![coin]! = some (x, t) →
           t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b)) := by
-  sorry
+  have hW : p.WF reg := check_wf (show CheckerAccepted reg p from ‹_›).2.choose_spec
+  have hc := umachine_corr N (Ctx.make reg roles p adm obs v pol stop req) hW n
+  cases hu : (Ctx.make reg roles p adm obs v pol stop req).umachineAfter N n with
+  | error e =>
+    cases hm : (Ctx.make reg roles p adm obs v pol stop req).machineAfter N n <;>
+      rw [hu, hm] at hc
+    · cases e with
+      | inl a =>
+        cases hc
+        simp [hu, hm]
+      | inr e => exact hc.elim
+    · cases e <;> exact hc.elim
+  | ok u =>
+    cases hm : (Ctx.make reg roles p adm obs v pol stop req).machineAfter N n with
+    | error a => rw [hu, hm] at hc; exact hc.elim
+    | ok ms =>
+      rw [hu, hm] at hc
+      refine ⟨by simp [hu], by simp [hu, hm], ?_⟩
+      intro u' hu'
+      have : u = u' := by simpa [hu] using hu'
+      subst u'
+      exact ⟨ms, hm, hc.vals, hc.wins, hc.since, hc.latest, fun i _ coin x t ht => hc.tagged i coin x t ht⟩
 
 /-- The checker's programs are well-formed against the registry. -/
 theorem L2_checker (reg : Registry) (p : Program) (h : CheckerAccepted reg p) : p.WF reg := by
