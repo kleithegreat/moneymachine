@@ -56,7 +56,7 @@ Log what, why, what they said, and how to reverse it. A reversible decision that
 
 Only the human may:
 - loosen a frozen threshold, or fix a defect in the procedure that a failure exposed (as a new version judged on fresh evidence, never a pass of the old);
-- spend beyond an approved budget (`audit/decisions.md`), or open accounts or keys;
+- spend beyond an approved budget (`audit/decisions.md`);
 - settle a terms question or a licence reading;
 - delete audit records.
 
@@ -72,7 +72,7 @@ Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper 
 
 ### Reviewers
 
-**Consulting** means the whole repo and history. Only two things are withheld: the holdout material above, and rows of kernel-only sources, which no model reads and only the frozen aggregate reports may cross (`audit/decisions.md`, licensing boundary, 2026-10-26). Run GPT from a clean worktree, which holds no `data/` and no token files.
+**Consulting** means the whole repo and history. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26, with its logged debugging allowance). Run GPT from a clean worktree, which holds no `data/` and no token files.
 
 **An independent check** is what a frozen criterion or paper §6 or §8 names (a red team, a differential implementation, a locked suite), plus the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo; put in it an `opencode.json` denying `edit`, `bash`, `webfetch`, `external_directory`, `execute`, `task` and `subagent`; from it, run `timeout 3600 opencode run -m <model> "<prompt>" -f <file> -f <file> ...` as a background task, taking the deliverable from the reply. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
 
@@ -82,7 +82,7 @@ Work that could change a false-discovery or leakage outcome gets an independent 
 
 ### Sources
 
-Fetch automatically only under a certificate that quotes a permitting clause or shows an official API allowing it (paper §5); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
+Fetch automatically only under a certificate that quotes a permitting clause or shows an official API allowing it (paper §5); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Accounts and contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
 
 ### Running things
 
