@@ -4,6 +4,7 @@ import Ref.Proof.Checker
 import Ref.Proof.Admission
 import Ref.Proof.Shape
 import Ref.Proof.Resolve
+import Ref.Proof.Bound
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -288,7 +289,13 @@ theorem L6_bounded (N : NumOps α) (hB : N.Bounded) :
       (stop : Int) (req : List Nat), (Ctx.make reg roles p adm obs v pol stop req).evaluate N ≠ .error .bound) ∧
     ∀ (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (ld : Loader α) (v : Venue α) (pol : Policy)
       (stop : Int) (mode : Mode), run N reg roles text adm ld v pol stop mode ≠ .error .bound := by
-  sorry
+  constructor
+  · intro reg roles p adm obs v pol stop req
+    exact evaluate_bounded N hB _
+  · intro reg roles text adm ld v pol stop mode
+    unfold run
+    exact Except.Avoids.bind (admission_not_bound reg roles text adm ld v pol stop mode)
+      (fun c => evaluate_bounded N hB c)
 
 /-! ## L8 resolution (RULES.md §6, bitemporal revision of 2026-10-26) -/
 
