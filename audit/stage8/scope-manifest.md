@@ -242,3 +242,44 @@ source or class needs every gate below met and a class annex frozen and reviewed
   prohibited, not verified, or not selected.
 
 These answers go to GPT for review before this manifest authorizes any research use.
+
+## Revision 2026-10-31 00:05 UTC (2026-10-30 20:05 EDT): answers to GPT's third review (B1, B3 to B5), adopted with GPT's wording corrections
+
+GPT's review of the draft is `audit/reviews/2026-10-30-gpt-stage8-draft.md`; the human accepted its corrections
+(`audit/decisions.md`, 2026-10-31 00:00 UTC (2026-10-30 20:00 EDT)). Written before any stage 8 inspection of what it
+affects. Each change narrows what this manifest authorizes; none widens it. Nothing is admitted, and every existing
+blocker stays. Where this revision differs from the text above, this revision stands.
+
+- **Exposure inventory before affected selection** (B1). Before the first class annex, and before any selection it
+  could influence (source, population, feature, window, transformation), `audit/stage8/exposure.md` is completed and
+  frozen as a campaign-relevant inventory. It incorporates every read recorded in the stage 10 thesis series' ledger
+  and every other recipient (sessions, subagents, GPT runs), by artifact, interval and recipient, and traces indirect
+  disclosures (a registry, a prompt attachment, a summary) and overlaps across sources. Without that inventory a class
+  stays annex blocked. The inventory is not needed to adopt this rule, only before the affected selection or annex
+  proceeds.
+- **Placement is not a prospective freeze** (B1). Placing exposed evidence as search or spent keeps freshness
+  accounting honest; it does not satisfy any requirement that a choice precede inspection. Each annex lists which of
+  its choices were made after exposure to evidence bearing on them, and the claims so blocked. The ECB
+  candidate-population and 750-date eligibility rules were committed in c2b0811 before the recorded ECB observation
+  disclosures and remain unchanged. This establishes chronology only for those rules, not prospective compliance for
+  other choices. Each annex adjudicates already-made and still-unmade choices against prior exposure and the
+  applicable freeze requirements; unsupported claims remain blocked. Search/spent placement supplies no retrospective
+  exemption.
+- **Permission before each operation, not only before admission** (B3, B4). Recording authorization is conditional on
+  acquisition and storage rights established by the source's certificate or permissions record before the fetch.
+  Every later operation (deterministic transformation, generator fitting and calibration, kernel evaluation, any
+  report shown to an agent or reviewer, retention after termination) needs its applicable source-specific permission
+  first. Coverage is source- and operation-specific. Databento GLBX.MDP3's acquisition, storage and deterministic
+  kernel processing rest on the recorded operator determination of 2026-10-26; ICE is excluded. No other operation is
+  deemed covered merely because it is deterministic. Aggregate AI-facing reports are human-approved in principle under
+  the decisions of 2026-10-26 17:25 UTC (13:25 EDT) and 23:19 UTC (19:19 EDT), but remain operationally blocked until
+  the applicable permissions record, frozen report schema and disclosure-safety prerequisites are satisfied.
+  Retention of vendor-derived artifacts after termination is not covered. If a source's terms prohibit an intended
+  operation and no permission will be sought, the operation is excluded. This replaces the pointer to "decisions
+  awaiting review", which is empty: the human decided the AI-output question on 2026-10-26 (`audit/decisions.md`).
+- **Disclosure to coding sessions** (B5). The debugging allowance is replaced. Before an annex freezes: the criteria's
+  integrity list only. After: schemas, counts, hashes and test results; row samples only from agent-readable sources
+  and only from search periods, each logged in `exposure.md`; never from a kernel-only source. Schemas, counts, hashes
+  and test results are disclosures subject to the applicable source permissions, phase restrictions and frozen
+  disclosure boundary; debugging creates no exception. Nothing derived from a holdout reaches the research process,
+  including integrity checks (C8.6).
