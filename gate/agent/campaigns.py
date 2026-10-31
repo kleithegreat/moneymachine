@@ -348,9 +348,10 @@ def evaluations(ledger, campaign, agent):
 
 
 def arm_a_evaluations(ledger, campaign, run_dir):
-    """Arm A's evaluations, as the ledger or the daemon's log counts them, whichever saw more: 0 means the session
-    evaluated nothing."""
-    return max(evaluations(ledger, campaign, "A"), sum(e["cmd"] == "eval" for e in daemon_log(run_dir)))
+    """Arm A's evaluations, as the ledger or the daemon's log counts them, whichever saw more (a request refused for
+    budget never reached the kernel): 0 means the session evaluated nothing."""
+    return max(evaluations(ledger, campaign, "A"),
+               sum(e["cmd"] == "eval" and e["response"].get("code") != "BUDGET" for e in daemon_log(run_dir)))
 
 
 def run_record(run_dir, ledger, campaign):

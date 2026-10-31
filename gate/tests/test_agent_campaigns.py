@@ -159,3 +159,11 @@ def test_a_freeze_is_refused_once_a_campaign_it_is_for_started_and_waits_for_the
         with pytest.raises(SystemExit):
             campaigns.freeze_harness()
         (out / started).rmdir()
+
+
+def test_a_budget_refusal_is_not_an_evaluation(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "evaluations", lambda ledger, campaign, agent: 0)
+    log = [{"cmd": "eval", "response": {"ok": True}}, {"cmd": "eval", "response": {"ok": False, "code": "E_TYPE"}},
+           {"cmd": "eval", "response": {"ok": False, "code": "BUDGET"}}, {"cmd": "check", "response": {"ok": True}}]
+    (tmp_path / "daemon.log").write_text("".join(json.dumps(e) + "\n" for e in log))
+    assert campaigns.arm_a_evaluations(None, "c", tmp_path) == 2
