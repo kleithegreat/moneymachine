@@ -27,3 +27,12 @@ No real session ran between the pin and v2, so the refreeze did not exercise the
 
 - The CLI moved before the pin: this PC's thesis sessions of 10-26 to 10-28 (`data/thesis/sessions/`) already report 2.1.304. The change happened between the 10-19 dry run (2.1.301) and 10-26; the 10-28 pin froze it.
 - Six of the mirror's twelve session directories are from before the track's freeze (2026-10-29 01:25 UTC (2026-10-28 21:25 EDT)). Since the freeze, `thesis-62476ec60a1b` ran 3 `main` and 3 `noread` sessions, with 27 and 14 client calls and no registration. The 61 and 32 calls above span three track versions. No agent of any version (`95bf…`, `ca50…`, `6247…`) has a thesis row; only the benchmark's 4, under `95bf…` and `ca50…`.
+
+## Cause revised, 10:35 UTC (06:35 EDT): an erasure dropped the rule, not the CLI
+
+The CLI is not the cause; "Cause" above and the corrections' CLI timing are superseded.
+
+- 2026-10-19 03:31 EDT, `977e01b` ("harness write permissions"): stage 3's allow list became `Read(//work/**)`, `Write(//work/**)`, `Edit(//work/**)`. The dry run of 03:30 EDT, written just before that commit, wrote with it.
+- 2026-10-19 22:26 EDT, `ed6bf09`: stage 10's harness took `Read(//work/**)`, `Write(//work/**)` without `Edit(//work/**)`; its agents never could write.
+- 2026-10-22 23:29 EDT, `3ba9535` (erasure pass, human decision: one sandbox package for both tracks): the merged `tools()` kept stage 10's list, dropping stage 3's `Edit(//work/**)`. Every stage 3 freeze since (two on 10-28) hashed the harness without it; no real session ran in between.
+- Reproduced today with the frozen sandbox: CLI 2.1.301 (built from the release URL the flake uses) with the frozen flags, Write denied; 2.1.304 with the dry run's earlier `Write(./**)`, Write denied; 2.1.304 with `Edit(//work/**)` added, the file written. The pinned binary behaves as on 10-19; the rule set changed.
