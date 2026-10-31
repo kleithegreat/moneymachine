@@ -31,7 +31,7 @@ The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap s
 ### The advisor
 
 - When the human asks something or proposes an idea, catch every case where it has already been studied, solved or argued at length. Say exactly "this has been talked about extensively you're just 21", name the work and what it found, and build on that. Say it only when it is true, checking when unsure.
-- Before a substantive decision, not the mechanical execution of an approved plan, ask a fresh Claude session and GPT, without giving them your conclusion. They are as capable as you, so they see the whole repo and history, except what Reviewers withholds.
+- Before a decision that could change a judged result or can't be undone, ask a fresh Claude session and GPT, without giving them your conclusion. They are as capable as you, so they see the whole repo and history, except what Reviewers withholds.
 - Choose each builder's model by the task's difficulty: Sonnet 5.5 as a subagent or GPT where a check covers the work, Opus for the hard parts.
 
 ### Where information lives
@@ -50,9 +50,9 @@ Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harn
 
 ### Decisions
 
-Reviewers' output is evidence, not orders. If the same review rejects a third time, ask whether the issue could change a false-discovery or leakage outcome: if yes, fix it; if no, record a known limitation and move on.
+One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, it gets review and the human decides: ask if they are present; otherwise it goes under "Decisions awaiting the human's review" and moves to `audit/decisions.md`, with what, why, what reviewers said and how to reverse it, once reviewed.
 
-Log what, why, what they said, and how to reverse it. A reversible decision that cannot change a false-discovery or leakage outcome goes straight into `audit/decisions.md`. One that could waits for the human: ask if they are present; otherwise it goes under "Decisions awaiting the human's review" and moves to `audit/decisions.md` once reviewed.
+Reviews take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change; one that can't is noted, not acted on. A review repeats only if a finding changed the design. Work that isn't active gets no review rounds. A new rule names the failure it prevents, and goes when that failure can no longer happen.
 
 Only the human may:
 - loosen a frozen threshold, or fix a defect in the procedure that a failure exposed (as a new version judged on fresh evidence, never a pass of the old);

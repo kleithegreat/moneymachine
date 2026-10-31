@@ -6,7 +6,7 @@ from pathlib import Path
 from ops.commitcheck import unpaired
 
 REPO = Path(__file__).resolve().parents[1]
-SINCE = "acf6a9b17742e0169ed9c8815fc89fcb185f2657"
+SINCE = "a71111fa92aee5acb33f73ec5c448d387020d6fd"
 
 
 def git(*args):

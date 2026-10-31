@@ -372,3 +372,8 @@ Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommen
 - **Mutants:** a mutant is `caught` only when the clean run passes and the mutated log shows the test failing by assertion (a panic in a Rust test file, or a failed pytest test with an AssertionError); a timeout, memory kill, collection or build error is `INCONCLUSIVE`. Rerun with the new rule: all 17 caught, none changed (the earlier logs also classify as caught).
 - **Said:** GPT, findings 2 and 3; none of it changes a false-discovery or leakage outcome.
 - **Reverse:** `git revert` the commit.
+
+## 2026-10-31 00:08 UTC (2026-10-30 20:08 EDT): the clock record is the five-line kernel read, and process follows one question (human)
+
+- Reverses item 2 of the entry at 2026-10-31 00:00 UTC (2026-10-30 20:00 EDT), which the advisor had recommended. Only C5.3's 72 h segment depends on the record, its 1 s figure is reported rather than judged, and there is no deadline, so an Ansible role and a typed offset/bound model outweighed the need. GPT's objection stands as a known limitation: the kernel's figure is the daemon's own bound and does not prove freshness. The withdrawn text stays in `audit/criteria.md` beneath a dated revision. The Homelab was not touched. Reverse by a further dated revision, using GPT's text.
+- CLAUDE.md: one question sets the process (could this change a judged result, or can't it be undone?), one review round by default, findings name the outcome they could change, no review rounds for inactive work, and rules name the failure they prevent. Why: the human, seeing agents build permits and ledgers instead of food. Reverse with `git revert`.
