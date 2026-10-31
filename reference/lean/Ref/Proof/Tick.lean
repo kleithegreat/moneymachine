@@ -34,12 +34,12 @@ theorem forIn_range_to {σ : Type} (n : Nat) (init : σ) (f : Nat → σ → Id 
   hP _ (forIn_range0 n init f I h0 hf)
 
 /-- An operator node's pointwise value reads only its arguments' rows and the inputs. -/
-theorem eval_rows (N : NumOps α) (p : Program) (hp : p.WF) {m₁ m₂ : MState α} {a : Nat}
+theorem eval_rows (N : NumOps α) (p : Program) {reg : Registry} (hp : p.WF reg) {m₁ m₂ : MState α} {a : Nat}
     (hv : ∀ b < a, m₁.vals[b]! = m₂.vals[b]!)
-    (hf : m₁.funding = m₂.funding) (hb : m₁.bar = m₂.bar) (he : m₁.events = m₂.events) (hh : m₁.hour = m₂.hour)
+    (hf : m₁.latest = m₂.latest) (hh : m₁.hour = m₂.hour)
     (c : Nat) : MState.eval N p m₁ a c = MState.eval N p m₂ a c := by
   have hin : ∀ inp c, m₁.input inp c = m₂.input inp c := by
-    intro inp c; cases inp <;> simp [MState.input, hf, hb, he, hh]
+    intro inp c; simp [MState.input, hf, hh]
   unfold MState.eval
   cases hn : p.nodes[a]! with
   | op o args =>
@@ -105,22 +105,20 @@ theorem range_size (n : Nat) : [:n].size = n := by simp [Std.Legacy.Range.size]
 /-- The state while a tick processes its nodes: rows before k done, the rest of the machine untouched. -/
 structure Done (N : NumOps α) (p : Program) (L : Array Bool) (m : MState α) (k : Nat) (s : MState α) : Prop where
   shape : Shape p L s
-  funding : s.funding = m.funding
-  bar : s.bar = m.bar
-  events : s.events = m.events
+  latest : s.latest = m.latest
   maxKnown : s.maxKnown = m.maxKnown
   rows : ∀ a < k, RowOK N p L s a
 
 /-- Writing row k keeps the rows before it done. -/
-theorem Done.write {N : NumOps α} {p : Program} (hp : p.WF) {L : Array Bool} {m : MState α} {k : Nat} {s y : MState α}
-    (h : Done N p L m k s) (hy : Shape p L y) (hv : ∀ b ≠ k, y.vals[b]! = s.vals[b]!) (hf : y.funding = s.funding)
-    (hb : y.bar = s.bar) (he : y.events = s.events) (hh : y.hour = s.hour) (hm : y.maxKnown = s.maxKnown)
+theorem Done.write {N : NumOps α} {p : Program} {reg : Registry} (hp : p.WF reg) {L : Array Bool} {m : MState α} {k : Nat} {s y : MState α}
+    (h : Done N p L m k s) (hy : Shape p L y) (hv : ∀ b ≠ k, y.vals[b]! = s.vals[b]!) (hf : y.latest = s.latest)
+    (hh : y.hour = s.hour) (hm : y.maxKnown = s.maxKnown)
     (hk : RowOK N p L y k) : Done N p L m (k + 1) y := by
-  refine ⟨hy, hf.trans h.funding, hb.trans h.bar, he.trans h.events, hm.trans h.maxKnown, fun a ha => ?_⟩
+  refine ⟨hy, hf.trans h.latest, hm.trans h.maxKnown, fun a ha => ?_⟩
   rcases Nat.lt_or_ge a k with ha' | ha'
   · intro c
     have hrow := hv a (by omega)
-    have heval := eval_rows N p hp (m₁ := y) (m₂ := s) (a := a) (fun b hb => hv b (by omega)) hf hb he hh c
+    have heval := eval_rows N p hp (m₁ := y) (m₂ := s) (a := a) (fun b hb => hv b (by omega)) hf hh c
     rw [hrow, heval]
     exact h.rows a ha' c
   · obtain rfl : a = k := by omega
@@ -136,7 +134,7 @@ theorem bind_keep_ite (N : NumOps α) (b : Bool) (v : Val α) :
   cases b <;> rfl
 
 /-- One node's step keeps the tick's invariant and writes its row. -/
-theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (hour : Int) (m : MState α)
+theorem tickNode_spec (N : NumOps α) (p : Program) {reg : Registry} (hp : p.WF reg) (L : Array Bool) (hour : Int) (m : MState α)
     {k : Nat} (hk : k < p.nodes.size) {s : MState α} (hd : Done N p L m k s) (hh : s.hour = hour) :
     ∃ y, MState.tickNode N p L hour k s = .yield y ∧ Done N p L m (k + 1) y ∧ y.hour = hour ∧
       ∀ b ≠ k, y.vals[b]! = s.vals[b]! := by
@@ -150,19 +148,19 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
     have hkr : s.vals[k]!.size = L.size := hd.shape.rows k hk
     let K : Nat → MState α → Prop := fun c₀ t =>
       t.vals.size = s.vals.size ∧ (∀ b ≠ k, t.vals[b]! = s.vals[b]!) ∧ t.vals[k]!.size = L.size ∧
-      t.wins = s.wins ∧ t.funding = s.funding ∧ t.bar = s.bar ∧ t.events = s.events ∧ t.hour = s.hour ∧
+      t.wins = s.wins ∧ t.latest = s.latest ∧ t.hour = s.hour ∧
       t.maxKnown = s.maxKnown ∧ ∀ c < c₀, Fin N (t.vals[k]![c]!) ∧ (L[c]! = false → t.vals[k]![c]! = none)
     refine forIn_range_to _ _ _ K (fun x => Done N p L m (k + 1) x ∧ x.hour = hour ∧ ∀ b ≠ k, x.vals[b]! = s.vals[b]!)
-      ⟨rfl, fun _ _ => rfl, hkr, rfl, rfl, rfl, rfl, rfl, rfl, fun c hc => absurd hc (Nat.not_lt_zero c)⟩
+      ⟨rfl, fun _ _ => rfl, hkr, rfl, rfl, rfl, rfl, fun c hc => absurd hc (Nat.not_lt_zero c)⟩
       (fun c hc t ht => ?_) (fun x hK => ?_)
-    · obtain ⟨hsz, hrows, hksz, hwins, hf, hb, he, hh', hm, hE⟩ := ht
+    · obtain ⟨hsz, hrows, hksz, hwins, hf, hh', hm, hE⟩ := ht
       have hkt : k < t.vals.size := by rw [hsz]; exact hkv
       have hct : c < t.vals[k]!.size := by rw [hksz]; exact hc
       have step : ∀ (S : Array (Array (Option Int))) (v : Val α), Fin N v → (L[c]! = false → v = none) →
           K (c + 1) { t with vals := t.vals.modify k (fun row => row.set! c v), since := S } := by
         intro S v hv hl
         refine ⟨by simp [hsz], fun b hb => by rw [modify_ne _ _ hb]; exact hrows b hb,
-          by rw [size_modify_set]; exact hksz, hwins, hf, hb, he, hh', hm, fun c' hc' => ?_⟩
+          by rw [size_modify_set]; exact hksz, hwins, hf, hh', hm, fun c' hc' => ?_⟩
         rw [get_modify_set]
         by_cases hcc : c' = c
         · subst hcc
@@ -179,9 +177,9 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
           (if L[c]! = true then (S[k]![c]!.bind fun t => N.keep (N.ofInt ((hour - t) / HOUR))) else none) = none := by
         intro S h; simp [h]
       split <;> (split <;> exact ⟨_, rfl, step _ _ (hv _) (hl _)⟩)
-    · obtain ⟨hsz, hrows, hksz, hwins, hf, hb, he, hh', hm, hE⟩ := hK
+    · obtain ⟨hsz, hrows, hksz, hwins, hf, hh', hm, hE⟩ := hK
       have hpt : p.nodes[k]!.isPoint = false := by rw [hn]; rfl
-      refine ⟨Done.write hp hd ⟨by rw [hsz, hd.shape.size], fun a ha => ?_, fun a ha hnw c => ?_⟩ hrows hf hb he hh' hm
+      refine ⟨Done.write hp hd ⟨by rw [hsz, hd.shape.size], fun a ha => ?_, fun a ha hnw c => ?_⟩ hrows hf hh' hm
         fun c => ?_, by rw [hh', hh], hrows⟩
       · by_cases hak : a = k
         · subst hak; exact hksz
@@ -197,7 +195,7 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
     have hpt : p.nodes[k]!.isPoint = false := by rw [hn]; rfl
     have hkv : k < s.vals.size := by rw [hd.shape.size]; exact hk
     refine ⟨Done.write hp hd ⟨by simp [hd.shape.size], fun a ha => ?_, fun a ha hnw c => hd.shape.wins a ha hnw c⟩
-      (fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)) rfl rfl rfl rfl rfl (fun c => ?_), hh,
+      (fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)) rfl rfl rfl (fun c => ?_), hh,
       fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)⟩
     · by_cases hak : a = k
       · subst hak
@@ -240,7 +238,7 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
     have hpt : p.nodes[k]!.isPoint = false := by rw [hn]; rfl
     have hkv : k < s.vals.size := by rw [hd.shape.size]; exact hk
     refine ⟨Done.write hp hd ⟨by simp [hd.shape.size], fun a ha => ?_, fun a ha hnw c => hd.shape.wins a ha hnw c⟩
-      (fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)) rfl rfl rfl rfl rfl (fun c => ?_), hh,
+      (fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)) rfl rfl rfl (fun c => ?_), hh,
       fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)⟩
     · by_cases hak : a = k
       · subst hak
@@ -283,7 +281,7 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
     have hpt : p.nodes[k]!.isPoint = false := by rw [hn]; rfl
     have hkv : k < s.vals.size := by rw [hd.shape.size]; exact hk
     refine ⟨Done.write hp hd ⟨by simp [hd.shape.size], fun a ha => ?_, fun a ha hnw c => hd.shape.wins a ha hnw c⟩
-      (fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)) rfl rfl rfl rfl rfl (fun c => ?_), hh,
+      (fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)) rfl rfl rfl (fun c => ?_), hh,
       fun b hb => Array.getElem!_set!_ne _ _ _ _ (Ne.symm hb)⟩
     · by_cases hak : a = k
       · subst hak
@@ -328,22 +326,22 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
     let K : Nat → MState α → Prop := fun c₀ t =>
       t.vals.size = s.vals.size ∧ (∀ b ≠ k, t.vals[b]! = s.vals[b]!) ∧ t.vals[k]!.size = L.size ∧
       (∀ b ≠ k, t.wins[b]! = s.wins[b]!) ∧ (p.nodes[k]!.isWin = false → ∀ c : Nat, t.wins[k]![c]! = none) ∧
-      t.funding = s.funding ∧ t.bar = s.bar ∧ t.events = s.events ∧ t.hour = s.hour ∧ t.maxKnown = s.maxKnown ∧
+      t.latest = s.latest ∧ t.hour = s.hour ∧ t.maxKnown = s.maxKnown ∧
       ∀ c < c₀, Fin N (t.vals[k]![c]!) ∧ (L[c]! = false → t.vals[k]![c]! = none) ∧
         (p.nodes[k]!.isPoint = true → t.vals[k]![c]! = if L[c]! = true then (s.eval N p k c).bind N.keep else none)
     refine forIn_range_to _ _ _ K (fun x => Done N p L m (k + 1) x ∧ x.hour = hour ∧ ∀ b ≠ k, x.vals[b]! = s.vals[b]!)
-      ⟨rfl, fun _ _ => rfl, hkr, fun _ _ => rfl, hd.shape.wins k hk, rfl, rfl, rfl, rfl, rfl,
+      ⟨rfl, fun _ _ => rfl, hkr, fun _ _ => rfl, hd.shape.wins k hk, rfl, rfl, rfl,
         fun c hc => absurd hc (Nat.not_lt_zero c)⟩ (fun c hc t ht => ?_) (fun x hK => ?_)
-    · obtain ⟨hsz, hrows, hksz, hwins, hwk, hf, hb, he, hh', hm, hE⟩ := ht
+    · obtain ⟨hsz, hrows, hksz, hwins, hwk, hf, hh', hm, hE⟩ := ht
       refine ⟨_, rfl, ?_⟩
       have hkt : k < t.vals.size := by rw [hsz]; exact hkv
       have hct : c < t.vals[k]!.size := by rw [hksz]; exact hc
       have hev : MState.eval N p t k c = MState.eval N p s k c :=
-        eval_rows N p hp (fun b hb => hrows b (by omega)) hf hb he hh' c
+        eval_rows N p hp (fun b hb => hrows b (by omega)) hf hh' c
       rw [hev]
       generalize hw : t.wins[k]![c]! = ow
       refine ⟨by simp [hsz], fun b hb => by rw [modify_ne _ _ hb]; exact hrows b hb, by rw [size_modify_set]; exact hksz,
-        fun b hb => by rw [modify_ne _ _ hb]; exact hwins b hb, fun hnw c' => ?_, hf, hb, he, hh', hm, fun c' hc' => ?_⟩
+        fun b hb => by rw [modify_ne _ _ hb]; exact hwins b hb, fun hnw c' => ?_, hf, hh', hm, fun c' hc' => ?_⟩
       · have hnone := hwk hnw c
         rw [hw] at hnone; subst hnone
         rw [get_modify_set]
@@ -364,8 +362,8 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
             exact bind_keep_ite N _ _
         · simp only [hcc, and_false, ite_false]
           exact hE c' (by omega)
-    · obtain ⟨hsz, hrows, hksz, hwins, hwk, hf, hb, he, hh', hm, hE⟩ := hK
-      refine ⟨Done.write hp hd ⟨by rw [hsz, hd.shape.size], fun a ha => ?_, fun a ha hnw c => ?_⟩ hrows hf hb he hh' hm
+    · obtain ⟨hsz, hrows, hksz, hwins, hwk, hf, hh', hm, hE⟩ := hK
+      refine ⟨Done.write hp hd ⟨by rw [hsz, hd.shape.size], fun a ha => ?_, fun a ha hnw c => ?_⟩ hrows hf hh' hm
         fun c => ?_, by rw [hh', hh], hrows⟩
       · by_cases hak : a = k
         · subst hak; exact hksz
@@ -374,7 +372,7 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
         · subst hak; exact hwk hnw c
         · rw [hwins a hak]; exact hd.shape.wins a ha hnw c
       · have heval : ∀ c, MState.eval N p _ k c = MState.eval N p s k c := fun c =>
-          eval_rows N p hp (fun b hb => hrows b (by omega)) hf hb he hh' c
+          eval_rows N p hp (fun b hb => hrows b (by omega)) hf hh' c
         rw [heval]
         rcases Nat.lt_or_ge c L.size with hc | hc
         · exact hE c hc
@@ -383,13 +381,13 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
           rw [hnone, hL]
           exact ⟨Or.inl rfl, fun _ => rfl, fun _ => rfl⟩
 
-theorem tick_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (hour : Int) (m : MState α)
+theorem tick_spec (N : NumOps α) (p : Program) {reg : Registry} (hp : p.WF reg) (L : Array Bool) (hour : Int) (m : MState α)
     (hs : Shape p L m) : Done N p L m p.nodes.size (m.tick N p L hour) ∧ (m.tick N p L hour).hour = hour := by
   unfold MState.tick
   simp only [Std.Legacy.Range.forIn_eq_forIn_range']
   rw [range_size]
   exact forIn_range0 _ _ _ (fun k s => Done N p L m k s ∧ s.hour = hour)
-    ⟨⟨⟨hs.size, hs.rows, hs.wins⟩, rfl, rfl, rfl, rfl, fun a ha => absurd ha (Nat.not_lt_zero a)⟩, rfl⟩
+    ⟨⟨⟨hs.size, hs.rows, hs.wins⟩, rfl, rfl, fun a ha => absurd ha (Nat.not_lt_zero a)⟩, rfl⟩
     fun k hk s ⟨hd, hh⟩ => let ⟨y, hy, hd', hh', _⟩ := tickNode_spec N p hp L hour m hk hd hh; ⟨y, hy, hd', hh'⟩
 
 end Ref

@@ -7,6 +7,7 @@ import Ref.Proof.Resolve
 import Ref.Proof.Bound
 import Ref.Proof.Sim
 import Ref.Proof.Units
+import Ref.Proof.Reads
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -368,6 +369,6 @@ theorem L7_reads (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) 
     ms.vals[i]![x]! =
       (if inp.event && !(r.any (·.slot == some (pol.wStart + (n : Int) * HOUR))) then none
        else (r.bind (·.vals[inp.field]!)).bind N.keep) := by
-  sorry
+   exact Reads.read_input N reg roles p ‹p.WF reg› adm obs v pol stop req ‹_› n ms h i hi inp hn x hx
 
 end Ref
