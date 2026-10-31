@@ -57,10 +57,10 @@ def check(model=MODEL):
             server.close()
         if run["exit"] != 0 or run["turns"] == 0:
             raise Unavailable(f"the canary session ended with exit {run['exit']} after {run['turns']} turns")
-        uses, denied, failed = session.calls(workdir / "transcript.jsonl")
+        uses, denied, ok = session.calls(workdir / "transcript.jsonl")
         asked = lambda name, **inp: [i for i, u in uses.items()
                                      if u["name"] == name and all(u["input"].get(k) == v for k, v in inp.items())]
-        succeeded = lambda ids: bool(ids) and not set(ids) & failed
+        succeeded = lambda ids: bool(ids) and set(ids) <= ok
         refused = lambda ids: bool(ids) and set(ids) <= set(denied)
         note = workdir / "work" / "note.txt"
         result = {"model": model, "cli": session.claude_binary(), "turns": run["turns"], "stopped": run["stopped"],

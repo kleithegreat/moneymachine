@@ -10,6 +10,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -70,6 +71,7 @@ class Campaign:
                             ("check_frozen", lambda: None), ("wait_for_room", lambda log: ("TAMU", {"five_hour": [0.1, 100]}))]:
             monkeypatch.setattr(campaigns, name, value)
         monkeypatch.setattr(campaigns.sweep, "require_frozen_searcher", lambda: None)
+        monkeypatch.setattr(campaigns.canary, "passes", lambda: True)
         monkeypatch.setattr(campaigns.harness, "run_agent", self.session)
         monkeypatch.setattr(campaigns.search, "run", self.searcher)
         monkeypatch.setattr(campaigns.gate, "search_decision", self.decision)
@@ -377,6 +379,19 @@ def test_the_harness_is_checked_again_after_pacing(c, monkeypatch):
     with pytest.raises(SystemExit):
         c.run()
     assert calls == ["frozen"] and c.sessions == 0
+
+
+def test_arm_a_waits_for_the_canary_and_a_stop_meanwhile_commits_nothing(c, monkeypatch):
+    stop = threading.Event()
+    monkeypatch.setattr(campaigns, "STOP", stop)
+    monkeypatch.setattr(campaigns, "wait_for_room", lambda log: None if stop.is_set() else ("TAMU", {}))
+    monkeypatch.setattr(campaigns.session, "RETRY", 0)
+    checks = iter([False, True])
+    monkeypatch.setattr(campaigns.canary, "passes", lambda: next(checks) and (stop.set() or True))
+    with pytest.raises(SystemExit, match="stopped before arm A"):
+        c.run()
+    assert c.sessions == 0 and not (c.out / "stage3-real" / "account.json").exists()
+    assert not (c.out / "stage3-real" / "run").exists()
 
 
 def test_an_input_changed_during_the_arms_stops_the_release(c, monkeypatch):

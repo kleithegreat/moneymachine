@@ -22,7 +22,7 @@ GOOD = [("w1", "Write", {"file_path": canary.NOTE, "content": "draft"}, "ok"),
 
 def scripted(calls, exit=0):
     """A session whose effects are always the good ones (the note holds the nonce, the daemon gets it) and whose
-    transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied")."""
+    transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied" | "no result")."""
     def run(workdir, client, model, max_turns, wall_seconds):
         work = Path(workdir) / "work"
         nonce = re.search(r"exactly `(\w+)`", (work / "brief.md").read_text()).group(1)
@@ -34,8 +34,10 @@ def scripted(calls, exit=0):
         lines = []
         for i, name, inp, outcome in calls:
             inp = {k: nonce if v == "NONCE" else v for k, v in inp.items()}
-            lines += [{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": i, "name": name, "input": inp}]}},
-                      {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": i, "is_error": outcome != "ok"}]}}]
+            lines.append({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": i, "name": name, "input": inp}]}})
+            if outcome != "no result":
+                lines.append({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": i,
+                                                                         "is_error": outcome != "ok"}]}})
         lines.append({"type": "result", "permission_denials": [{"tool_use_id": i} for i, _, _, o in calls if o == "denied"]})
         (Path(workdir) / "transcript.jsonl").write_text("".join(json.dumps(l) + "\n" for l in lines))
         return {"turns": len(calls), "stopped": "finished", "exit": exit, "transcript_sha256": "x"}
@@ -48,11 +50,12 @@ def outcome(i, new):
 
 @pytest.mark.parametrize("calls", [
     outcome("w2", "denied"),
+    outcome("w1", "no result"),
     [c for c in GOOD if c[0] != "b1"],
     outcome("w3", "error"),
     outcome("r1", "ok"),
     GOOD + [("g1", "Glob", {"pattern": "*"}, "ok")],
-], ids=["workspace Write denied though the file exists", "daemon reached without a Bash call",
+], ids=["workspace Write denied though the file exists", "a Write with no result", "daemon reached without a Bash call",
         "outside Write failed but not denied", "outside Read allowed", "tool outside PERMITTED"])
 def test_counterexamples_fail(monkeypatch, calls):
     monkeypatch.setattr(session, "run", scripted(calls))

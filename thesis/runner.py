@@ -130,33 +130,44 @@ class Track:
                 "markets": {m: {"last_close": d[-1][2], "t": d[-1][0] + DAY} for m, d in cutoff.items() if d}}
         return task, snap
 
-    def ready(self, date, account):
-        """Whether the model answers and the sandbox canary passes before `account`'s next session, retried every
-        session.RETRY: False on SIGTERM, or once the day is over, which is recorded as missed with the day's later
-        sessions."""
-        while not self.stop.is_set():
+    def ready(self, date):
+        """Whether a session of `date` may start now: the model answers and the sandbox canary passes, retried every
+        session.RETRY, with no SIGTERM and the day not over when they do."""
+        while not self.stop.is_set() and now_ms() < date + DAY:
             if session.available(harness.MODEL) and canary.passes():
-                return True
-            if now_ms() >= date + DAY:
-                self.ledger.disclose("session_missed", account, {"date": date, "reason": "the model was unavailable or the "
-                                     "sandbox canary failed until the day ended; the day's later sessions did not run"})
-                return False
+                return not self.stop.is_set() and now_ms() < date + DAY
             self.stop.wait(session.RETRY)
         return False
 
+    def miss(self, date, sessions):
+        """Each of `sessions` ([(account, session name)]) of `date` disclosed as missed, with why."""
+        reason = ("the runner stopped" if self.stop.is_set() else
+                  "the model was unavailable or the sandbox canary failed until the day ended")
+        for account, name in sessions:
+            self.ledger.disclose("session_missed", account, {"date": date, "session": name, "reason": reason})
+
     def day(self, date):
-        """The main session, an ablation per accepted main thesis, then the full no-reading session, each once `ready`."""
-        if not self.ready(date, "main"):
+        """The main session, an ablation per accepted main thesis, then the full no-reading session, each once `ready`.
+        Once one is not, every session of the date still to run is disclosed as missed, except on SIGTERM before the
+        main session, which leaves the date to the next start."""
+        noread = ("noread", f"noread-{date}")
+        if not self.ready(date):
+            if not self.stop.is_set():
+                self.miss(date, [("main", f"main-{date}"), noread])
             return
         snapshot = self.snapshot(now_ms())
         name = self.session("main", "main", date, snapshot, MAIN_COMMANDS)
-        for th in [t for t in self.ledger.theses("main") if t["session"] == name]:
-            if not self.ready(date, "ablation"):
+        theses = [t for t in self.ledger.theses("main") if t["session"] == name]
+        for k, th in enumerate(theses):
+            if not self.ready(date):
+                self.miss(date, [("ablation", f"ablation-{t['id']}") for t in theses[k:]] + [noread])
                 return
             task, snap = self.ablation_task(th, snapshot)
             self.session("ablation", "ablation", date, snap, ("prices", "forecast"), task, ablation_of=th["id"])
-        if self.ready(date, "noread"):
+        if self.ready(date):
             self.session("noread", "noread", date, snapshot, NOREAD_COMMANDS)
+        else:
+            self.miss(date, [noread])
 
     def benchmark(self, monday):
         """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order: each market's last daily

@@ -229,10 +229,10 @@ def wait_for_room(log):
 
 def ready(log):
     """`wait_for_room`, then the sandbox canary on the account it chose; after a failed canary, pacing starts over once
-    session.RETRY has passed. None once STOP is set."""
+    session.RETRY has passed. None once STOP is set, during the canary too."""
     while (room := wait_for_room(log)) is not None:
         if canary.passes():
-            return room
+            return None if STOP.is_set() else room
         STOP.wait(session.RETRY)
     return None
 
@@ -378,7 +378,9 @@ def both_arms(work, data_root, version, report_from, voids):
             (market / name).symlink_to(Path(target).resolve())
     (market / "version").write_text(f"{int(version)}\n")
     if not run_dir.exists():
-        account, before = wait_for_room(cohort("agent")[1])
+        if (room := ready(cohort("agent")[1])) is None:
+            sys.exit(f"{cid}: stopped before arm A started; nothing is committed")
+        account, before = room
         check_ready(work, data_root, version, report_from)
         write_json(work / "account.json", {"account": account, "windows": before})
         harness.run_agent(market, ledger, cid, run_dir)

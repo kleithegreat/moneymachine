@@ -151,8 +151,8 @@ def run(workdir, client, model, max_turns, wall_seconds, prompt=PROMPT):
 
 def calls(transcript):
     """A transcript's tool calls {id: {"name", "input"}}, the tool call id of each of its permission denials, and the
-    ids of the calls that failed (the denied ones included)."""
-    uses, denied, failed = {}, [], set()
+    ids of the calls that returned a result that is not an error and were not denied."""
+    uses, denied, ok = {}, [], set()
     for line in open(transcript):
         try:
             d = json.loads(line)
@@ -162,11 +162,11 @@ def calls(transcript):
         for c in content if isinstance(content, list) else []:
             if c.get("type") == "tool_use":
                 uses[c["id"]] = {"name": c["name"], "input": c.get("input", {})}
-            if c.get("type") == "tool_result" and c.get("is_error"):
-                failed.add(c["tool_use_id"])
+            if c.get("type") == "tool_result" and not c.get("is_error"):
+                ok.add(c["tool_use_id"])
         if d.get("type") == "result":
             denied = [x.get("tool_use_id") for x in d.get("permission_denials", [])]
-    return uses, denied, failed | set(denied)
+    return uses, denied, ok - set(denied)
 
 
 def tool_use(transcript, client):

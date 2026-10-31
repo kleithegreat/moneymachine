@@ -157,17 +157,44 @@ def test_a_loop_finishes_its_step_and_ends_when_stopped():
     assert steps == [1]
 
 
-def test_a_session_waits_for_the_model_and_the_canary_and_a_day_without_them_is_missed(track, monkeypatch):
-    clock = iter([MONDAY + HOUR, MONDAY + DAY])
-    monkeypatch.setattr(runner, "now_ms", lambda: next(clock))
+def test_readiness_waits_for_the_model_and_the_canary_and_refuses_a_stop_or_an_expired_day(track, monkeypatch):
+    clock = [MONDAY + HOUR]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
     monkeypatch.setattr(runner.session, "available", lambda model: True)
-    checks = iter([False, False, True])
+    checks = iter([False, True])
     monkeypatch.setattr(runner.canary, "passes", lambda: next(checks))
     waited = []
     monkeypatch.setattr(track.stop, "wait", waited.append)
-    assert not track.ready(MONDAY, "noread")
-    assert waited == [runner.session.RETRY]
-    assert [c["date"] for _, _, c in track.ledger.records("session_missed", "noread")] == [MONDAY]
-    assert track.ready(MONDAY + DAY, "main")
-    track.stop.set()
-    assert not track.ready(MONDAY + DAY, "main")
+    assert track.ready(MONDAY) and waited == [runner.session.RETRY]
+    monkeypatch.setattr(runner.canary, "passes", lambda: clock.__setitem__(0, MONDAY + DAY) or True)
+    assert not track.ready(MONDAY)
+    clock[0] = MONDAY + HOUR
+    monkeypatch.setattr(runner.canary, "passes", lambda: track.stop.set() or True)
+    assert not track.ready(MONDAY)
+
+
+@pytest.mark.parametrize("fails_at, stopped, missed", [
+    (0, False, ["main", "noread"]), (0, True, []), (1, True, ["ablation-t1", "ablation-t2", "noread"]),
+    (2, False, ["ablation-t2", "noread"]), (3, False, ["noread"])])
+def test_every_session_of_a_day_that_cannot_run_is_missed_but_a_stop_before_main_leaves_the_date(track, monkeypatch, fails_at,
+                                                                                                stopped, missed):
+    """Readiness holds for the first `fails_at` sessions (main, two ablations, noread), then fails by a stop or the
+    day's end."""
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + HOUR)
+    asked, ran = [], []
+
+    def ready(date):
+        asked.append(date)
+        if len(asked) > fails_at and stopped:
+            track.stop.set()
+        return len(asked) <= fails_at
+
+    monkeypatch.setattr(track, "ready", ready)
+    monkeypatch.setattr(track, "snapshot", lambda now: {})
+    monkeypatch.setattr(track, "ablation_task", lambda th, snapshot: ({}, {}))
+    monkeypatch.setattr(track.ledger, "theses", lambda account: [{"id": t, "session": f"main-{MONDAY}"} for t in ("t1", "t2")])
+    monkeypatch.setattr(track, "session", lambda kind, account, date, *a, ablation_of=None, **k:
+                        ran.append(ablation_of or kind) or f"{kind}-{date}")
+    track.day(MONDAY)
+    assert ran == ["main", "t1", "t2", "noread"][:fails_at]
+    assert [c["session"].split(f"-{MONDAY}")[0] for _, _, c in track.ledger.records("session_missed")] == missed
