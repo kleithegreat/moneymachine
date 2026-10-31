@@ -168,3 +168,19 @@ only by the proofs committed since. Hashes after this revision:
 | `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
 | `reference/lean/Ref/Spec.lean` | `0cbbf08f623c32ee30ee4abb917a749bffbbb675d7bde09b5b231a5a0ef7b6f6` |
 | `reference/lean/Ref/Laws.lean` | `c89ffc74da495c9f94de4a820e109c34b98637b974dc497d663eb6b0085b8797` |
+
+### L5_text revision: independent review and freeze (2026-10-31 06:10 UTC (02:10 EDT))
+
+Independently reviewed by GPT (`audit/stage7/l5-text-review-gpt-2026-10-31.md`), verdict FREEZE: the revision does not
+weaken L5_text, and `check`'s returned verdicts and codes are unchanged. Frozen at this time and merged into `stage7`
+(`stage7-l5` kept). Hashes of the changed definition files as they stand after the merge, unchanged from the table
+above except `Laws.lean`, which carries the L5_text proof:
+
+| File | SHA-256 |
+|---|---|
+| `reference/lean/Ref/Json.lean` | `3d166ad3e3b4a842bcb7f1c14353f34d057d50a61ee551fc78a47d55b33b4677` |
+| `reference/lean/Ref/Syntax.lean` | `fc2a095308ad30a8393f1453393130a94d5c875c0a1f2b266b06ab074dff1777` |
+| `reference/lean/Ref/Spec.lean` | `0cbbf08f623c32ee30ee4abb917a749bffbbb675d7bde09b5b231a5a0ef7b6f6` |
+| `reference/lean/Ref/Laws.lean` | `e3f38840330472c5728462fe61e55c2f4233bdec0eea081dba15d01fbb581d42` |
+
+The proof is re-checked after this freeze in `proof-validation-2026-10-31.md`; that re-check is what counts.

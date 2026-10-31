@@ -29,3 +29,13 @@ Validation ran in the foreground through `nix develop`, under a systemd scope wi
 
 No new frozen-law blocker was found. The earlier proof fragments were completed rather than replaced
 with axioms, alternative definitions or weaker statements.
+
+## After the L5_text merge and freeze (2026-10-31 06:10 UTC (02:10 EDT))
+
+Merge commit of `stage7-l5` into `stage7`; `Laws.lean` conflicted only in the import list (both kept). No proof needed repair.
+
+- `lake build Ref`: passes, 43 jobs, only linter warnings.
+- `#print axioms Ref.<law>` for all 18 laws: only `propext`, `Classical.choice`, `Quot.sound` (L8_known and L8_monotone: `propext`, `Quot.sound`). No `sorryAx`. This includes `L5_text`.
+- Theorem statements: all 18 match `8c230f2` byte for byte up to the `:=`. `L5_text`'s proof is the term `text_required ...` where `8c230f2` had `:= by sorry`, so its line ends `:=` rather than `:= by`.
+- SHA-256 of `Source, Resolve, Json, Syntax, Machine, Sim, Units, Spec` match `laws-frozen.md`'s latest table; `Laws.lean` matches the entry just added.
+- `lake build refmm`: still fails in `Main`, as before; not touched.
