@@ -5,7 +5,7 @@ import Ref.Proof.Rewrite
 
 namespace Ref
 
-variable {α : Type} [Inhabited α]
+variable {α : Type} [Inhabited α] {reg : Registry}
 
 /-- A node with its arguments renamed. -/
 def Node.mapArgs (σ : Nat → Nat) : Node → Node
@@ -51,7 +51,11 @@ theorem win_point {n : Node} (h : n.isPoint = true) : n.win = none := by
   | op o args => cases o <;> first | rfl | cases h
   | _ => rfl
 
-theorem slot_mapArgs (σ : Nat → Nat) (n : Node) : (n.mapArgs σ).slot = n.slot := by cases n <;> rfl
+def Node.source : Node → Option Nat
+  | .input inp => some inp.source
+  | _ => none
+
+theorem source_mapArgs (σ : Nat → Nat) (n : Node) : (n.mapArgs σ).source = n.source := by cases n <;> rfl
 theorem win_mapArgs (σ : Nat → Nat) (n : Node) : (n.mapArgs σ).win = n.win := by
   cases n with
   | op o args => cases o <;> rfl
@@ -60,8 +64,8 @@ theorem win_mapArgs (σ : Nat → Nat) (n : Node) : (n.mapArgs σ).win = n.win :
 /-- p' is p with node i rewritten in place and its uses redirected to node j ≤ i (j = i: none redirected): the
 nodes before agree, node i evaluates alike, and node j holds node i's value. -/
 structure Twin (N : NumOps α) (p p' : Program) (i j : Nat) : Prop where
-  wf : p.WF
-  wf' : p'.WF
+  wf : p.WF reg
+  wf' : p'.WF reg
   ji : j ≤ i
   ilt : i < p.nodes.size
   size : p'.nodes.size = p.nodes.size
@@ -73,15 +77,15 @@ structure Twin (N : NumOps α) (p p' : Program) (i j : Nat) : Prop where
     MState.eval N p' s i c = MState.eval N p s i c
   identAt : j < i → ∀ (L : Array Bool) (m s : MState α), Done N p L m i s → ∀ c : Nat,
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[j]![c]!
-  slot : ∀ k : Nat, p'.nodes[k]!.slot = p.nodes[k]!.slot
+  source : ∀ k : Nat, p'.nodes[k]!.source = p.nodes[k]!.source
   win : ∀ k : Nat, p'.nodes[k]!.win = p.nodes[k]!.win
   weight : p'.weight = if p.weight == i then j else p.weight
 
 /-- The loop invariant of a node's coin loop: the rows before it and the inputs stay as they were. -/
 def Before (k : Nat) (s t : MState α) : Prop :=
-  (∀ b < k, t.vals[b]! = s.vals[b]!) ∧ t.funding = s.funding ∧ t.bar = s.bar ∧ t.events = s.events ∧ t.hour = s.hour
+  (∀ b < k, t.vals[b]! = s.vals[b]!) ∧ t.latest = s.latest ∧ t.hour = s.hour
 
-theorem tickNode_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) (L : Array Bool) (hour : Int)
+theorem tickNode_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin (reg := reg) N p p' i j) (L : Array Bool) (hour : Int)
     (m : MState α) {k : Nat} (hk : k < p.nodes.size) {s : MState α} (hd : Done N p L m k s)
     (hid : i < k → s.vals[i]! = s.vals[j]!) :
     MState.tickNode N p' L hour k s = MState.tickNode N p L hour k s := by
@@ -92,9 +96,9 @@ theorem tickNode_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p
       intro t ht c
       by_cases hl : L[c]! = true
       · simp only [hl, ite_true]
-        rw [eval_rows N p' T.wf' (m₂ := s) (fun b hb => ht.1 b (by omega)) ht.2.1 ht.2.2.1 ht.2.2.2.1 ht.2.2.2.2,
+        rw [eval_rows N p' T.wf' (m₂ := s) (fun b hb => ht.1 b (by omega)) ht.2.1 ht.2.2,
           T.evalAt L m s hd c hl,
-          eval_rows N p T.wf (m₂ := s) (fun b hb => ht.1 b (by omega)) ht.2.1 ht.2.2.1 ht.2.2.2.1 ht.2.2.2.2]
+          eval_rows N p T.wf (m₂ := s) (fun b hb => ht.1 b (by omega)) ht.2.1 ht.2.2]
       · simp [hl]
     unfold MState.tickNode
     simp only [Std.Legacy.Range.forIn_eq_forIn_range']
@@ -102,7 +106,7 @@ theorem tickNode_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p
     split <;> rename_i hn' <;> (try (rw [hn'] at hp'; cases hp')) <;> split <;> rename_i hn <;>
       (try (rw [hn] at hp; cases hp))
     congr 1
-    refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht => ⟨?_, _, rfl, ?_⟩
+    refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl⟩ fun c _ t ht => ⟨?_, _, rfl, ?_⟩
     · simp only [he t ht c]
     · exact ⟨fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩
   · have hn := T.others k hki
@@ -131,20 +135,20 @@ theorem tickNode_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p
       simp only [Node.mapArgs]
       cases o <;> dsimp only
       all_goals first
-        | (rw [hr0 s ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩]; done)
+        | (rw [hr0 s ⟨fun _ _ => rfl, rfl, rfl⟩]; done)
         | (congr 1
-           exact forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht =>
+           exact forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl⟩ fun c _ t ht =>
              ⟨by simp only [hev t ht c], _, rfl,
                fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩)
         | (congr 1
-           refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht => ?_
+           refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl⟩ fun c _ t ht => ?_
            rw [hr0 t ht]
            refine ⟨rfl, ?_⟩
            split <;> (split <;> exact ⟨_, rfl, fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩))
     | _ =>
       simp only [Node.mapArgs]
       congr 1
-      refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl, rfl, rfl⟩ fun c _ t ht => ⟨?_, _, rfl, ?_⟩
+      refine forIn_congr_inv _ _ _ _ (Before k s) ⟨fun _ _ => rfl, rfl, rfl⟩ fun c _ t ht => ⟨?_, _, rfl, ?_⟩
       · simp only [hev t ht c]
       · exact ⟨fun b hb => by rw [modify_ne _ _ (by omega)]; exact ht.1 b hb, ht.2⟩
 
@@ -169,7 +173,7 @@ theorem ext_bang {β : Type} [Inhabited β] {a b : Array β} (hs : a.size = b.si
   rwa [getElem!_pos a c h₁, getElem!_pos b c h₂] at this
 
 /-- The rewritten program ticks to the same machine, in which node i's row is node j's. -/
-theorem tick_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) (L : Array Bool) (hour : Int)
+theorem tick_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin (reg := reg) N p p' i j) (L : Array Bool) (hour : Int)
     (m : MState α) (hs : Shape p L m) :
     m.tick N p' L hour = m.tick N p L hour ∧ (m.tick N p L hour).vals[i]! = (m.tick N p L hour).vals[j]! := by
   unfold MState.tick
@@ -179,7 +183,7 @@ theorem tick_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' 
   have := forIn_range_congr 0 p.nodes.size { m with hour := hour } (MState.tickNode N p L hour)
     (MState.tickNode N p' L hour)
     (fun k x => Done N p L m k x ∧ x.hour = hour ∧ (i < k → x.vals[i]! = x.vals[j]!))
-    ⟨⟨⟨hs.size, hs.rows, hs.wins⟩, rfl, rfl, rfl, rfl, fun a ha => absurd ha (Nat.not_lt_zero a)⟩, rfl,
+    ⟨⟨⟨hs.size, hs.rows, hs.wins⟩, rfl, rfl, fun a ha => absurd ha (Nat.not_lt_zero a)⟩, rfl,
       fun h => absurd h (Nat.not_lt_zero i)⟩
     fun k _ hk x ⟨hd, hh, hid⟩ => by
       refine ⟨(tickNode_twin T L hour m (by omega) hd hid).symm, ?_⟩
@@ -192,8 +196,8 @@ theorem tick_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' 
         · refine ext_bang (by rw [hd'.shape.rows i (by omega), hd'.shape.rows j (by omega)]) fun c => ?_
           obtain ⟨-, -, hpt⟩ := hd'.rows i (by omega) c
           rw [hpt T.point, hrows j (by omega)]
-          rw [eval_rows N p T.wf (m₂ := x) (fun b hb => hrows b (by omega)) (hd'.funding.trans hd.funding.symm)
-            (hd'.bar.trans hd.bar.symm) (hd'.events.trans hd.events.symm) (hh'.trans hh.symm)]
+          rw [eval_rows N p T.wf (m₂ := x) (fun b hb => hrows b (by omega)) (hd'.latest.trans hd.latest.symm)
+            (hh'.trans hh.symm)]
           exact T.identAt hji L m x hd c
         · obtain rfl : j = i := by have := T.ji; omega
           rfl
@@ -223,11 +227,11 @@ theorem redirect_node (p : Program) (i j k : Nat) :
   · rw [getElem!_neg _ k (by simp; omega), getElem!_neg p.nodes k (by omega)]; rfl
 
 /-- A redirect of node i's uses to node j is a twin when node j holds node i's value. -/
-theorem twin_redirect (N : NumOps α) {p : Program} (hp : p.WF) {i j : Nat} (hi : i < p.nodes.size) (hji : j < i)
+theorem twin_redirect (N : NumOps α) {p : Program} (hp : p.WF reg) {i j : Nat} (hi : i < p.nodes.size) (hji : j < i)
     (ht : p.types[j]! = p.types[i]!) (hpt : p.nodes[i]!.isPoint = true)
     (hid : ∀ (L : Array Bool) (m s : MState α), Done N p L m i s → ∀ c : Nat,
       (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[j]![c]!) :
-    Twin N p (p.redirect i j) i j where
+    Twin (reg := reg) N p (p.redirect i j) i j where
   wf := hp
   wf' := redirect_wf hp hji hi ht
   ji := Nat.le_of_lt hji
@@ -242,19 +246,19 @@ theorem twin_redirect (N : NumOps α) {p : Program} (hp : p.WF) {i j : Nat} (hi 
     have := (WF.op hp hi h).1 a ha
     simp [show a ≠ i by omega]
   identAt _ := hid
-  slot k := by rw [redirect_node, slot_mapArgs]
+  source k := by rw [redirect_node, source_mapArgs]
   win k := by rw [redirect_node, win_mapArgs]
   weight := rfl
 
 omit [Inhabited α] in
 /-- Replacing node i by a node of its type that evaluates alike is a twin. -/
-theorem twin_set (N : NumOps α) {p : Program} (hp : p.WF) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
+theorem twin_set (N : NumOps α) {p : Program} (hp : p.WF reg) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
     (ha : ∀ a ∈ args, a < i) (ht : opTy o (args.map (p.types[·]!)) p.convTo[i]! = some p.types[i]!)
     (hpt : p.nodes[i]!.isPoint = true) (hpt' : (Node.op o args).isPoint = true) {o₀ : Op} {args₀ : List Nat}
     (hold : p.nodes[i]! = .op o₀ args₀)
     (hev : ∀ (L : Array Bool) (m s : MState α), Done N p L m i s → ∀ c : Nat, L[c]! = true →
       MState.eval N { p with nodes := p.nodes.set! i (.op o args) } s i c = MState.eval N p s i c) :
-    Twin N p { p with nodes := p.nodes.set! i (.op o args) } i i where
+    Twin (reg := reg) N p { p with nodes := p.nodes.set! i (.op o args) } i i where
   wf := hp
   wf' := set_wf hp hi ha ht
   ji := Nat.le_refl i
@@ -270,8 +274,8 @@ theorem twin_set (N : NumOps α) {p : Program} (hp : p.WF) {i : Nat} (hi : i < p
     rw [Array.getElem!_set!_self _ _ _ hi]; exact hpt'
   evalAt := hev
   identAt h := absurd h (Nat.lt_irrefl i)
-  slot k := by
-    show (p.nodes.set! i (.op o args))[k]!.slot = _
+  source k := by
+    show (p.nodes.set! i (.op o args))[k]!.source = _
     by_cases hk : k = i
     · subst hk; rw [Array.getElem!_set!_self _ _ _ hi, hold]; rfl
     · rw [Array.getElem!_set!_ne _ _ _ _ (Ne.symm hk)]
@@ -294,7 +298,7 @@ theorem row_listed {N : NumOps α} {p : Program} {L : Array Bool} {m s : MState 
     s.vals[a]![c]! = (MState.eval N p s a c).bind N.keep := by
   rw [(hd.rows a ha c).2.2 hpt, hl]; rfl
 
-theorem negNeg_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i a x : Nat}
+theorem negNeg_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i a x : Nat}
     (hn : p.nodes[i]! = .op .neg [a]) (hx : p.nodes[a]! = .op .neg [x]) (L : Array Bool) (m s : MState α)
     (hd : Done N p L m i s) (c : Nat) :
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[x]![c]! := by
@@ -311,7 +315,7 @@ theorem negNeg_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {
     · rfl
     · simp [NumOps.keep, hv, hN.finite_neg v hv, hN.neg_neg v hv]
 
-theorem absAbs_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i a y : Nat}
+theorem absAbs_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i a y : Nat}
     (hn : p.nodes[i]! = .op .abs [a]) (hy : p.nodes[a]! = .op .abs [y]) (L : Array Bool) (m s : MState α)
     (hd : Done N p L m i s) (c : Nat) :
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[a]![c]! := by
@@ -334,7 +338,7 @@ theorem const_row {N : NumOps α} {p : Program} {L : Array Bool} {m s : MState �
   rw [row_listed hd hb (by rw [hn]; rfl) hl]
   simp [MState.eval, hn, NumOps.keep, hf]
 
-theorem mulOne_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i x k : Nat}
+theorem mulOne_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i x k : Nat}
     (hn : p.nodes[i]! = .op .mul [x, k]) (hk : p.nodes[k]! = .const 0x3FF0000000000000 Dim.one)
     (L : Array Bool) (m s : MState α) (hd : Done N p L m i s) (c : Nat) :
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[x]![c]! := by
@@ -349,7 +353,7 @@ theorem mulOne_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {
     · rfl
     · simp [NumOps.keep, hv, hN.mul_one v hv]
 
-theorem divOne_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i x k : Nat}
+theorem divOne_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i x k : Nat}
     (hn : p.nodes[i]! = .op .div [x, k]) (hk : p.nodes[k]! = .const 0x3FF0000000000000 Dim.one)
     (L : Array Bool) (m s : MState α) (hd : Done N p L m i s) (c : Nat) :
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[x]![c]! := by
@@ -364,7 +368,7 @@ theorem divOne_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {
     · simp [hN.one_ne_zero]
     · simp [NumOps.keep, hv, hN.one_ne_zero, hN.div_one v hv]
 
-theorem subZero_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i x k : Nat} {u : Dim}
+theorem subZero_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i x k : Nat} {u : Dim}
     (hn : p.nodes[i]! = .op .sub [x, k]) (hk : p.nodes[k]! = .const 0 u)
     (L : Array Bool) (m s : MState α) (hd : Done N p L m i s) (c : Nat) :
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[x]![c]! := by
@@ -400,7 +404,7 @@ theorem opTy_bool {o : Op} {ts : List Ty} {to : Option Dim} (h : opTy o ts to = 
     (repeat' split at h) <;> simp_all [Option.bind_eq_some_iff]
 
 /-- A boolean-typed row a tick has written holds Undef, 0 or 1. -/
-theorem canon_row (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {L : Array Bool} {m s : MState α} {k : Nat}
+theorem canon_row (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {L : Array Bool} {m s : MState α} {k : Nat}
     (hd : Done N p L m k s) : ∀ a < k, p.types[a]! = .bool → ∀ c : Nat, Truthy N (s.vals[a]![c]!) := by
   intro a
   induction a using Nat.strongRecOn with
@@ -414,7 +418,7 @@ theorem canon_row (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {L :
   cases hl : L[c]!
   · exact Or.inl ((hd.rows a hak c).2.1 hl)
   cases hn : p.nodes[a]! with
-  | input inp => rw [hn] at hw; rw [hw] at hty; cases hty
+  | input inp => rw [hn] at hw; rw [hw.2] at hty; cases hty
   | const _ u => rw [hn] at hw; rw [hw] at hty; cases hty
   | param k' => rw [hn] at hw; rw [hw.2] at hty; cases hty
   | op o args =>
@@ -455,7 +459,7 @@ theorem canon_row (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {L :
       | none => exact Or.inl rfl
       | some x => dsimp only [bind, Option.bind]; split <;> assumption
 
-theorem notNot_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i a b : Nat}
+theorem notNot_ident (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i a b : Nat}
     (hn : p.nodes[i]! = .op .not [a]) (ha : p.nodes[a]! = .op .not [b]) (L : Array Bool) (m s : MState α)
     (hd : Done N p L m i s) (c : Nat) :
     (if L[c]! = true then (MState.eval N p s i c).bind N.keep else none) = s.vals[b]![c]! := by
@@ -491,7 +495,7 @@ theorem flip_eval (N : NumOps α) {p : Program} {i a b : Nat} {o o' : Op}
     simp only [MState.eval, hn, Array.getElem!_set!_self _ _ _ hi, List.getElem!_cons_zero, List.getElem!_cons_succ] <;>
     generalize s.vals[a]![c]! = A <;> generalize s.vals[b]![c]! = B <;> cases A <;> cases B <;> rfl
 
-theorem absNeg_eval (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i a x : Nat}
+theorem absNeg_eval (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i a x : Nat}
     (hn : p.nodes[i]! = .op .abs [a]) (ha : p.nodes[a]! = .op .neg [x]) (L : Array Bool) (m s : MState α)
     (hd : Done N p L m i s) (c : Nat) (hl : L[c]! = true) :
     MState.eval N { p with nodes := p.nodes.set! i (.op .abs [x]) } s i c = MState.eval N p s i c := by
@@ -505,7 +509,7 @@ theorem absNeg_eval (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i
   · rfl
   · simp [NumOps.keep, hN.finite_neg v hv, hN.abs_neg v hv]
 
-theorem ifNot_eval (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i nc a b c₀ : Nat}
+theorem ifNot_eval (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF reg) {i nc a b c₀ : Nat}
     (hn : p.nodes[i]! = .op .ite [nc, a, b]) (hc : p.nodes[nc]! = .op .not [c₀]) (L : Array Bool) (m s : MState α)
     (hd : Done N p L m i s) (c : Nat) (hl : L[c]! = true) :
     MState.eval N { p with nodes := p.nodes.set! i (.op .ite [c₀, b, a]) } s i c = MState.eval N p s i c := by
@@ -522,8 +526,8 @@ theorem ifNot_eval (N : NumOps α) (hN : N.Lawful) {p : Program} (hp : p.WF) {i 
     cases N.isZero v <;> rfl
 
 /-- Every rule but `ifNotRev` rewrites node i in place: the result is a twin. -/
-theorem apply_twin (N : NumOps α) (hN : N.Lawful) {r : Rule} {p p' : Program} {i : Nat} (hp : p.WF)
-    (h : r.apply p i = some p') (hr : r ≠ .ifNotRev) : ∃ j, Twin N p p' i j := by
+theorem apply_twin (N : NumOps α) (hN : N.Lawful) {r : Rule} {p p' : Program} {i : Nat} (hp : p.WF reg)
+    (h : r.apply p i = some p') (hr : r ≠ .ifNotRev) : ∃ j, Twin (reg := reg) N p p' i j := by
   unfold Rule.apply at h
   split at h
   next _ _ a hn =>
@@ -681,16 +685,16 @@ theorem apply_twin (N : NumOps α) (hN : N.Lawful) {r : Rule} {p p' : Program} {
       (by rw [hn]; try rfl) rfl hn fun L m s hd c hl => flip_eval N (by simp) hi hn s c⟩
   next => cases h
 
-theorem slots_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) : p'.eventSlots = p.eventSlots := by
-  have hm : p'.nodes.toList.map Node.slot = p.nodes.toList.map Node.slot := by
+theorem sources_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin (reg := reg) N p p' i j) : p'.sources = p.sources := by
+  have hm : p'.nodes.toList.map Node.source = p.nodes.toList.map Node.source := by
     apply List.ext_getElem (by simp [T.size])
     intro k h₁ h₂
     simp only [List.getElem_map, Array.getElem_toList]
-    have := T.slot k
+    have := T.source k
     rwa [getElem!_pos p'.nodes k (by simpa using h₁), getElem!_pos p.nodes k (by simpa using h₂)] at this
-  have e : ∀ q : Program, q.nodes.toList.filterMap Node.slot = (q.nodes.toList.map Node.slot).filterMap id := by
+  have e : ∀ q : Program, q.nodes.toList.filterMap Node.source = (q.nodes.toList.map Node.source).filterMap id := by
     intro q; rw [List.filterMap_map]; rfl
-  unfold Program.eventSlots
+  change (p'.nodes.toList.filterMap Node.source).eraseDups = (p.nodes.toList.filterMap Node.source).eraseDups
   rw [e, e, hm]
 
 theorem win_none {n : Node} (h : ∀ w k args, n ≠ .op (.window w k) args) : n.win = none := by
@@ -698,8 +702,8 @@ theorem win_none {n : Node} (h : ∀ w k args, n ≠ .op (.window w k) args) : n
   | op o args => cases o <;> first | rfl | exact absurd rfl (h _ _ _)
   | _ => rfl
 
-theorem init_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) (coins : Nat) :
-    MState.init N p' coins = MState.init N p coins := by
+theorem init_twin {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin (reg := reg) N p p' i j) (sources coins : Nat) :
+    MState.init N p' sources coins = MState.init N p sources coins := by
   unfold MState.init
   rw [T.size]
   congr 1

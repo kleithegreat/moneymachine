@@ -4,8 +4,10 @@ import Ref.Spec
 
 namespace Ref
 
+variable {reg : Registry}
+
 /-- What WF says of an operator node. -/
-theorem WF.op {p : Program} (hp : p.WF) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
+theorem WF.op {p : Program} (hp : p.WF reg) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
     (h : p.nodes[i]! = .op o args) :
     (∀ a ∈ args, a < i) ∧ opTy o (args.map (p.types[·]!)) p.convTo[i]! = some p.types[i]! := by
   have := hp.2.2.2.2.2 i hi
@@ -13,8 +15,8 @@ theorem WF.op {p : Program} (hp : p.WF) {i : Nat} (hi : i < p.nodes.size) {o : O
   exact this
 
 /-- Redirecting the uses of node i to an earlier node j of the same type keeps a program well-formed. -/
-theorem redirect_wf {p : Program} (hp : p.WF) {i j : Nat} (hji : j < i) (hi : i < p.nodes.size)
-    (ht : p.types[j]! = p.types[i]!) : (p.redirect i j).WF := by
+theorem redirect_wf {p : Program} (hp : p.WF reg) {i j : Nat} (hji : j < i) (hi : i < p.nodes.size)
+    (ht : p.types[j]! = p.types[i]!) : (p.redirect i j).WF reg := by
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hp
   have hf : ∀ k, p.types[if k == i then j else k]! = p.types[k]! := by
     intro k; by_cases hk : k = i
@@ -48,9 +50,9 @@ theorem redirect_wf {p : Program} (hp : p.WF) {i j : Nat} (hji : j < i) (hi : i 
     | _ => rw [hn] at this; exact this
 
 /-- Replacing node i by an operator node typed as it was keeps a program well-formed. -/
-theorem set_wf {p : Program} (hp : p.WF) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
+theorem set_wf {p : Program} (hp : p.WF reg) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
     (ha : ∀ a ∈ args, a < i) (ht : opTy o (args.map (p.types[·]!)) p.convTo[i]! = some p.types[i]!) :
-    { p with nodes := p.nodes.set! i (.op o args) }.WF := by
+    { p with nodes := p.nodes.set! i (.op o args) }.WF reg := by
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hp
   refine ⟨by simp [h1], by simp [h2], by simpa using h3, h4, fun q hq => by simpa using h5 q hq, fun k hk => ?_⟩
   simp only [Array.size_set!] at hk
@@ -156,8 +158,8 @@ theorem insert_size {β : Type} (xs : Array β) {k : Nat} (hk : k ≤ xs.size) (
 
 /-- Inserting a boolean negation of an earlier boolean node at i, shifting later indices, keeps a program
 well-formed. -/
-theorem insert_wf {p : Program} (hp : p.WF) {i c : Nat} (hi : i < p.nodes.size) (hc : c < i)
-    (hcb : p.types[c]! = .bool) : (p.insertAt i (.op .not [c]) .bool).WF := by
+theorem insert_wf {p : Program} (hp : p.WF reg) {i c : Nat} (hi : i < p.nodes.size) (hc : c < i)
+    (hcb : p.types[c]! = .bool) : (p.insertAt i (.op .not [c]) .bool).WF reg := by
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hp
   have hiT : i ≤ p.types.size := by omega
   have hiC : i ≤ p.convTo.size := by omega
@@ -214,7 +216,7 @@ theorem isConst_eq {p : Program} {c : Nat} {bits : UInt64} {u : Dim} (h : isCons
   simpa [isConst] using h
 
 /-- A constant's node has its declared type. -/
-theorem WF.const {p : Program} (hp : p.WF) {c : Nat} {bits : UInt64} {u : Dim} (h : p.nodes[c]! = .const bits u) :
+theorem WF.const {p : Program} (hp : p.WF reg) {c : Nat} {bits : UInt64} {u : Dim} (h : p.nodes[c]! = .const bits u) :
     p.types[c]! = .num u := by
   rcases Nat.lt_or_ge c p.nodes.size with hc | hc
   · have := hp.2.2.2.2.2 c hc; rw [h] at this; exact this

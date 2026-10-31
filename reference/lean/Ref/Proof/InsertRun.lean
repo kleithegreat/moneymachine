@@ -77,13 +77,12 @@ structure InsProg (p q : Program) (i : Nat) : Prop where
   params : q.params = p.params
   new : ∃ c₀, q.nodes[i]! = .op .not [c₀]
   weight : q.weight = shift i p.weight
-  slots : q.eventSlots = p.eventSlots
 
 /-- States alike but for their machines, which correspond. -/
 def SRel (i : Nat) (a b : SState α) : Prop := b = { a with machine := b.machine } ∧ Ins i a.machine b.machine
 
 theorem Ins.local {i : Nat} {M M' : MState α} (h : Ins i M M') : M' = M.withLocal M'.vals M'.wins M'.since := by
-  have := h.funding; have := h.bar; have := h.events; have := h.hour; have := h.maxKnown
+  have := h.latest; have := h.hour; have := h.maxKnown
   cases M; cases M'
   simp_all [MState.withLocal]
 
@@ -105,15 +104,6 @@ theorem insProg_of {p : Program} {i c : Nat} (hi0 : 0 < i) (hi : i ≤ p.nodes.s
   params := rfl
   new := ⟨c, ins_new hi⟩
   weight := rfl
-  slots := by
-    unfold Program.eventSlots Program.insertAt
-    dsimp only
-    rw [Array.insertIdx!, dif_pos (by simpa using hi), Array.toList_insertIdx, filterMap_insertIdx _ _ _ _ rfl,
-      Array.toList_map, List.filterMap_map]
-    congr 1
-    congr 1
-    funext n
-    cases n <;> rfl
 
 theorem replicate_shift {β : Type} [Inhabited β] {i n : Nat} (hi : i ≤ n) (x : β) (k : Nat) :
     (Array.replicate (n + 1) x)[shift i k]! = (Array.replicate n x)[k]! := by
@@ -122,8 +112,8 @@ theorem replicate_shift {β : Type} [Inhabited β] {i n : Nat} (hi : i ≤ n) (x
   · rw [getElem!_pos _ _ (by simpa using hsz.mpr hk), getElem!_pos _ _ (by simpa using hk)]; simp
   · rw [getElem!_neg _ _ (by simpa using fun h => hk (hsz.mp h)), getElem!_neg _ _ (by simpa using hk)]
 
-theorem init_ins (N : NumOps α) {p q : Program} {i : Nat} (P : InsProg p q i) (coins : Nat) :
-    Ins i (MState.init N p coins) (MState.init N q coins) where
+theorem init_ins (N : NumOps α) {p q : Program} {i : Nat} (P : InsProg p q i) (sources coins : Nat) :
+    Ins i (MState.init N p sources coins) (MState.init N q sources coins) where
   vals k := by unfold MState.init; rw [P.size]; exact replicate_shift P.le _ k
   since k := by unfold MState.init; rw [P.size]; exact replicate_shift P.le _ k
   wins k := by
@@ -143,9 +133,7 @@ theorem init_ins (N : NumOps α) {p q : Program} {i : Nat} (P : InsProg p q i) (
   ival := by simpa [MState.init] using P.le
   iwin := by simpa [MState.init] using P.le
   isin := by simpa [MState.init] using P.le
-  funding := rfl
-  bar := rfl
-  events := rfl
+  latest := rfl
   hour := rfl
   maxKnown := rfl
 
@@ -170,7 +158,7 @@ theorem deliver_ins (c : Ctx α) {i : Nat} {a b : SState α} (h : SRel i a b) (t
       ival := by rw [hv]; exact hI.ival
       iwin := by rw [hw]; exact hI.iwin
       isin := by rw [hs]; exact hI.isin
-      funding := rfl, bar := rfl, events := rfl, hour := rfl, maxKnown := rfl }
+      latest := rfl, hour := rfl, maxKnown := rfl }
 
 theorem SRel.machine {i : Nat} {a b : SState α} (h : SRel i a b) {X X' : MState α} (hX : Ins i X X') :
     SRel i { a with machine := X } { b with machine := X' } := by
@@ -188,7 +176,7 @@ theorem execute_ins (N : NumOps α) (c : Ctx α) {i : Nat} {a b : SState α} (h 
     RelH (c.execute N a f) (c.execute N b f) (SRel i) := by
   obtain ⟨M', rfl, hI⟩ := h.exists
   unfold Ctx.execute
-  cases checkFill N f c.m c.ix c.v with
+  cases checkFill N f c.bars c.ix c.v with
   | error e => rfl
   | ok u => exact RelH.bind (RelH.ok (R := fun _ _ => True) trivial) fun _ _ _ => RelH.pure (SRel.same hI)
 
@@ -203,48 +191,46 @@ theorem bankrupt_ins (N : NumOps α) (c : Ctx α) {i : Nat} {a b : SState α} (h
   exact RelH.pure (SRel.same hI')
 
 section
-variable (N : NumOps α) {p q : Program} {i : Nat} (P : InsProg p q i) (m : Market α) (v : Venue α) (pol : Policy)
-  (stop : Int)
+variable (N : NumOps α) {p q : Program} {i : Nat} (P : InsProg p q i) (ctx : Ctx α)
 include P
+set_option quotPrecheck false
+local notation "C" => ({ ctx with p := p } : Ctx α)
+local notation "C'" => ({ ctx with p := q } : Ctx α)
 
 theorem tickLoop_ins (base : Int) (ks : List Nat) {a b : SState α} (h : SRel i a b) :
-    RelH ((Ctx.make p m v pol stop).tickLoop N base ks a) ((Ctx.make q m v pol stop).tickLoop N base ks b) (SRel i) := by
+    RelH ((C).tickLoop N base ks a) ((C').tickLoop N base ks b) (SRel i) := by
   unfold Ctx.tickLoop
   refine RelH.forIn _ _ _ h fun k _ a b hab => ?_
-  rw [deliver_prog p q]
+  rw [← deliver_prog p q ctx]
   refine RelH.bind (deliver_ins _ hab _) fun a b hab => ?_
   obtain ⟨c₀, hnew⟩ := P.new
   exact RelH.pure (hab.machine (tick_ins N P.pos P.le P.size P.node P.params hnew _ _ hab.2))
 
-theorem start_ins : RelH ((Ctx.make p m v pol stop).start N) ((Ctx.make q m v pol stop).start N) (SRel i) := by
+theorem start_ins : RelH ((C).start N) ((C').start N) (SRel i) := by
   unfold Ctx.start
-  have hb : (Ctx.make q m v pol stop).bound = (Ctx.make p m v pol stop).bound := by
-    simp only [Ctx.bound, Ctx.make, P.slots]
-  rw [hb]
-  refine RelH.ite (fun _ => RelH.throw_bind) fun _ => ?_
-  rw [deliver_prog p q]
-  have h0 : SRel i ((Ctx.make p m v pol stop).state0 N) ((Ctx.make q m v pol stop).state0 N) := ⟨rfl, init_ins N P _⟩
+  rw [← deliver_prog p q ctx]
+  have h0 : SRel i ((C).state0 N) ((C').state0 N) := ⟨rfl, init_ins N P _ _⟩
   refine RelH.bind (deliver_ins _ h0 _) fun a b hab => ?_
   obtain ⟨c₀, hnew⟩ := P.new
   exact RelH.pure (hab.machine (tick_ins N P.pos P.le P.size P.node P.params hnew _ _ hab.2))
 
 theorem machineAfter_ins (n : Nat) :
-    RelH ((Ctx.make p m v pol stop).machineAfter N n) ((Ctx.make q m v pol stop).machineAfter N n) (Ins i) := by
+    RelH ((C).machineAfter N n) ((C').machineAfter N n) (Ins i) := by
   rw [Ctx.machineAfter_eq, Ctx.machineAfter_eq]
-  exact RelH.map_rel (RelH.bind (start_ins N P m v pol stop) fun a b hab =>
-    tickLoop_ins N P m v pol stop pol.wStart (List.range' 1 n) hab) fun a b hab => hab.2
+  exact RelH.map_rel (RelH.bind (start_ins N P ctx) fun a b hab =>
+    tickLoop_ins N P ctx ctx.pol.wStart (List.range' 1 n) hab) fun a b hab => hab.2
 theorem step_ins (b : Int) {s s' : SState α} (h : SRel i s s') :
-    RelH ((Ctx.make p m v pol stop).step N s b) ((Ctx.make q m v pol stop).step N s' b) (SRel i) := by
-  have e₁ : (Ctx.make q m v pol stop).m = (Ctx.make p m v pol stop).m := rfl
-  have e₂ : (Ctx.make q m v pol stop).ix = (Ctx.make p m v pol stop).ix := rfl
-  have e₃ : (Ctx.make q m v pol stop).v = (Ctx.make p m v pol stop).v := rfl
-  have e₄ : (Ctx.make q m v pol stop).pol = (Ctx.make p m v pol stop).pol := rfl
-  have e₅ : (Ctx.make q m v pol stop).stop = (Ctx.make p m v pol stop).stop := rfl
-  have e₆ : (Ctx.make q m v pol stop).coins = (Ctx.make p m v pol stop).coins := rfl
-  have e₇ : (Ctx.make q m v pol stop).mask = (Ctx.make p m v pol stop).mask := rfl
-  have e₈ : Ctx.execute N (Ctx.make q m v pol stop) = Ctx.execute N (Ctx.make p m v pol stop) := rfl
-  have e₉ : Ctx.closeout N (Ctx.make q m v pol stop) = Ctx.closeout N (Ctx.make p m v pol stop) := rfl
-  have e₁₀ : Ctx.bankrupt N (Ctx.make q m v pol stop) = Ctx.bankrupt N (Ctx.make p m v pol stop) := rfl
+    RelH ((C).step N s b) ((C').step N s' b) (SRel i) := by
+  have e₁ : (C').bars = (C).bars := rfl
+  have e₂ : (C').ix = (C).ix := rfl
+  have e₃ : (C').v = (C).v := rfl
+  have e₄ : (C').pol = (C).pol := rfl
+  have e₅ : (C').stop = (C).stop := rfl
+  have e₆ : (C').coins = (C).coins := rfl
+  have e₇ : (C').mask = (C).mask := rfl
+  have e₈ : Ctx.execute N C' = Ctx.execute N C := rfl
+  have e₉ : Ctx.closeout N C' = Ctx.closeout N C := rfl
+  have e₁₀ : Ctx.bankrupt N C' = Ctx.bankrupt N C := rfl
   obtain ⟨hs, hI⟩ := h
   generalize s'.machine = M' at hs hI
   subst hs
@@ -258,7 +244,7 @@ theorem step_ins (b : Int) {s s' : SState α} (h : SRel i s s') :
     · exact RelH.pure ⟨rfl, hIy⟩
     · exact RelH.throw_bind
   obtain ⟨M₁, rfl, hI₁⟩ := h₁.exists
-  rw [marks_loop, marks_loop]
+  rw [marks_loop_rewrite, marks_loop_rewrite]
   refine RelH.bind (R := SRel i) (RelH.ok ⟨rfl, hI₁⟩) fun s₂ s₂' h₂ => ?_
   obtain ⟨M₂, rfl, hI₂⟩ := h₂.exists
   refine RelH.join (R := SRel i) (fun _ => RelH.forIn _ _ _ ⟨rfl, hI₂⟩ fun x _ a b hab =>
@@ -279,10 +265,10 @@ theorem step_ins (b : Int) {s s' : SState α} (h : SRel i s s') :
     · exact RelH.ite (fun _ => RelH.bind (execute_ins N _ ⟨rfl, hIb⟩ _) fun a b hab => RelH.pure hab)
         fun _ => RelH.pure ⟨rfl, hIb⟩
     · exact RelH.pure ⟨rfl, hIb⟩
-  refine RelH.bind (tickLoop_ins N P m v pol stop b (List.range' 1 4) h₆) fun r r' hr => ?_
+  refine RelH.bind (tickLoop_ins N P ctx b (List.range' 1 4) h₆) fun r r' hr => ?_
   obtain ⟨Mr, rfl, hIr⟩ := hr.exists
-  have hq : (Ctx.make q m v pol stop).p = q := rfl
-  have hp : (Ctx.make p m v pol stop).p = p := rfl
+  have hq : (C').p = q := rfl
+  have hp : (C).p = p := rfl
   refine RelH.bind (R := fun st st' => SRel i st.1 st'.1 ∧ st'.2 = st.2)
     (RelH.forIn _ _ _ ⟨⟨rfl, hIr⟩, rfl⟩ fun c _ st st' hst => ?_) fun st st' hst => ?_
   · obtain ⟨a, ws⟩ := st
@@ -292,7 +278,7 @@ theorem step_ins (b : Int) {s s' : SState α} (h : SRel i s s') :
     subst hws
     obtain ⟨Mb, rfl, hIb⟩ := hab.exists
     dsimp only
-    rw [hIb.funding, hIb.bar, hq, hp, P.weight, hIb.vals]
+    rw [hIb.latest, P.weight, hIb.vals]
     refine RelH.ite (fun _ => RelH.pure ⟨⟨rfl, hIb⟩, rfl⟩) fun _ => RelH.ite (fun _ => RelH.pure ⟨⟨rfl, hIb⟩, rfl⟩)
       fun _ => ?_
     cases a.machine.vals[p.weight]![c]! <;> exact RelH.pure ⟨⟨rfl, hIb⟩, rfl⟩
@@ -306,15 +292,15 @@ theorem step_ins (b : Int) {s s' : SState α} (h : SRel i s s') :
   refine RelH.bind (R := SRel i) (RelH.forIn _ _ _ ⟨rfl, hIb⟩ fun x _ a b hab => ?_) fun s₉ s₉' h₉ => RelH.pure h₉
   obtain ⟨Mc, rfl, hIc⟩ := hab.exists
   dsimp only
-  rw [hIc.bar, hIc.maxKnown]
+  rw [hIc.latest, hIc.maxKnown]
   repeat (first | exact RelH.pure ⟨rfl, hIc⟩ | refine RelH.ite (fun _ => ?_) (fun _ => ?_))
 
 theorem steps_ins (n : Nat) :
-    RelH ((Ctx.make p m v pol stop).steps N n) ((Ctx.make q m v pol stop).steps N n) (SRel i) := by
+    RelH ((C).steps N n) ((C').steps N n) (SRel i) := by
   unfold Ctx.steps
-  rw [show (Ctx.make q m v pol stop).bounds = (Ctx.make p m v pol stop).bounds from rfl]
-  exact RelH.bind (start_ins N P m v pol stop) fun a b hab => RelH.bind (RelH.forIn _ _ _ hab fun bb _ x y hxy =>
-    RelH.bind (step_ins N P m v pol stop bb hxy) fun x y h => RelH.pure h) fun x y h => RelH.pure h
+  rw [show (C').bounds = (C).bounds from rfl]
+  exact RelH.bind (start_ins N P ctx) fun a b hab => RelH.bind (RelH.forIn _ _ _ hab fun bb _ x y hxy =>
+    RelH.bind (step_ins N P ctx bb hxy) fun x y h => RelH.pure h) fun x y h => RelH.pure h
 end
 
 
@@ -338,15 +324,26 @@ theorem ifNotRev_eval (N : NumOps α) (hN : N.Lawful) {q : Program} {i c a b : N
 theorem RelH.eq_of {ε β : Type} {x y : Except ε β} (h : RelH x y (· = ·)) : x = y := by
   cases x <;> cases y <;> simp only [RelH] at h <;> first | exact h.elim | rw [h]
 
+theorem sources_insert {p : Program} {i c : Nat} (hi : i ≤ p.nodes.size) :
+    (p.insertAt i (.op .not [c]) .bool).sources = p.sources := by
+  unfold Program.sources Program.insertAt
+  dsimp only
+  rw [Array.insertIdx!, dif_pos (by simpa using hi), Array.toList_insertIdx,
+    filterMap_insertIdx _ _ _ _ rfl, Array.toList_map, List.filterMap_map]
+  congr 1
+  congr 1
+  funext n
+  cases n <;> rfl
+
 /-- L3 for `ifNotRev`: an insertion of `not c` at i, then node i + 1 rewritten in place. -/
-theorem ifNotRev_sound (N : NumOps α) (hN : N.Lawful) {p p' : Program} {i : Nat} (hp : p.WF)
-    (h : Rule.ifNotRev.apply p i = some p') (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) :
-    p'.WF ∧
-    (∀ n, ((Ctx.make p' m v pol stop).machineAfter N n).isOk = ((Ctx.make p m v pol stop).machineAfter N n).isOk ∧
-      ∀ ms ms', (Ctx.make p m v pol stop).machineAfter N n = .ok ms → (Ctx.make p' m v pol stop).machineAfter N n = .ok ms' →
-        ∀ k < p.nodes.size, ms'.vals[Rule.ifNotRev.corr i k]! = ms.vals[k]!) ∧
-    (∀ j, ((Ctx.make p' m v pol stop).steps N j).map (·.trace) = ((Ctx.make p m v pol stop).steps N j).map (·.trace)) ∧
-    run N p' m v pol stop = run N p m v pol stop := by
+theorem ifNotRev_sound (N : NumOps α) (hN : N.Lawful) {reg : Registry} {p p' : Program} {i : Nat} (hp : p.WF reg)
+    (h : Rule.ifNotRev.apply p i = some p') (ctx : Ctx α) :
+    p'.WF reg ∧ p'.sources = p.sources ∧
+    (∀ n, (({ ctx with p := p' } : Ctx α).machineAfter N n).isOk = (({ ctx with p := p } : Ctx α).machineAfter N n).isOk ∧
+      ∀ ms ms', ({ ctx with p := p } : Ctx α).machineAfter N n = .ok ms → ({ ctx with p := p' } : Ctx α).machineAfter N n = .ok ms' →
+         ∀ k < p.nodes.size, ms'.vals[Rule.ifNotRev.corr i k]! = ms.vals[k]!) ∧
+    (∀ j, (({ ctx with p := p' } : Ctx α).steps N j).map (·.trace) = (({ ctx with p := p } : Ctx α).steps N j).map (·.trace)) ∧
+    ({ ctx with p := p' } : Ctx α).evaluate N = ({ ctx with p := p } : Ctx α).evaluate N := by
   unfold Rule.apply at h
   split at h
   all_goals first | contradiction | (cases h; done) | skip
@@ -360,7 +357,7 @@ theorem ifNotRev_sound (N : NumOps α) (hN : N.Lawful) {p p' : Program} {i : Nat
   have hai' : a < i := hai a (by simp)
   simp only [List.map_cons, List.map_nil] at hti
   have hcb := (opTy_ite (to' := p.convTo[i]!) hti).1
-  have hq : (p.insertAt i (.op .not [c]) .bool).WF := insert_wf hp hi hci hcb
+  have hq : (p.insertAt i (.op .not [c]) .bool).WF reg := insert_wf hp hi hci hcb
   have P : InsProg p (p.insertAt i (.op .not [c]) .bool) i := insProg_of (by omega) (by omega)
   have hn₁ : (p.insertAt i (.op .not [c]) .bool).nodes[i + 1]! = .op .ite [c, b, a] := by
     have := P.node i hi
@@ -383,23 +380,23 @@ theorem ifNotRev_sound (N : NumOps α) (hN : N.Lawful) {p p' : Program} {i : Nat
       exact (opTy_ite hti).2)
     (by rw [hn₁]; rfl) rfl hn₁ (ifNotRev_eval N hN hn₁ hc₁)
   have hcorr : ∀ k, Rule.ifNotRev.corr i k = shift i k := fun k => by simp [Rule.corr, shift]
-  refine ⟨T.wf', fun n => ?_, fun j => ?_, ?_⟩
-  · rw [machineAfter_twin T m v pol stop n]
-    have R := machineAfter_ins N P m v pol stop n
+  refine ⟨T.wf', (sources_twin T).trans (sources_insert (by omega)), fun n => ?_, fun j => ?_, ?_⟩
+  · rw [machineAfter_twin T ctx n]
+    have R := machineAfter_ins N P ctx n
     refine ⟨?_, fun ms ms' h₁ h₂ k _ => ?_⟩
     · revert R
-      cases (Ctx.make p m v pol stop).machineAfter N n <;>
-        cases (Ctx.make (p.insertAt i (.op .not [c]) .bool) m v pol stop).machineAfter N n <;> simp [RelH, Except.isOk, Except.toBool]
+      cases ({ ctx with p := p } : Ctx α).machineAfter N n <;>
+        cases ({ ctx with p := p.insertAt i (.op .not [c]) .bool } : Ctx α).machineAfter N n <;> simp [RelH, Except.isOk, Except.toBool]
     · rw [h₁, h₂] at R
       rw [hcorr]; exact R.vals k
-  · rw [steps_twin T m v pol stop]
-    exact (RelH.map (steps_ins N P m v pol stop j) fun a b hab => by
+  · rw [steps_twin T ctx]
+    exact (RelH.map (steps_ins N P ctx j) fun a b hab => by
       obtain ⟨M, rfl, -⟩ := hab.exists; rfl).symm
-  · rw [run_twin T m v pol stop]
+  · rw [evaluate_twin T ctx]
     refine (RelH.eq_of ?_).symm
-    unfold run
+    unfold Ctx.evaluate
     dsimp only
-    rw [show (Ctx.make (p.insertAt i (.op .not [c]) .bool) m v pol stop).bounds = (Ctx.make p m v pol stop).bounds from rfl]
-    exact RelH.bind (steps_ins N P m v pol stop _) fun a b hab => by
+    rw [show ({ ctx with p := p.insertAt i (.op .not [c]) .bool } : Ctx α).bounds = ({ ctx with p := p } : Ctx α).bounds from rfl]
+    exact RelH.bind (steps_ins N P ctx _) fun a b hab => by
       obtain ⟨M, rfl, -⟩ := hab.exists; rfl
 end Ref

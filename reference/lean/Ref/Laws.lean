@@ -11,6 +11,7 @@ import Ref.Proof.Reads
 import Ref.Proof.Fills
 import Ref.Proof.Orders
 import Ref.Proof.Prefix
+import Ref.Proof.RewriteLaw
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -133,8 +134,12 @@ theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (reg : Registry) (
     (∀ j, ((Ctx.make reg roles p' adm obs v pol stop req).steps N j).map (·.trace)
         = ((Ctx.make reg roles p adm obs v pol stop req).steps N j).map (·.trace)) ∧
     ∀ (ld : Loader α) (mode : Mode),
-      runProgram N reg roles p' adm ld v pol stop mode = runProgram N reg roles p adm ld v pol stop mode := by
-  sorry
+       runProgram N reg roles p' adm ld v pol stop mode = runProgram N reg roles p adm ld v pol stop mode := by
+   obtain ⟨hw, hs, hm, ht, _⟩ := rewrite_sound N hN ‹p.WF reg› h
+     (Ctx.make reg roles p adm obs v pol stop req)
+   refine ⟨hw, fun s => by rw [hs], hm, ht, fun ld mode => ?_⟩
+   exact runProgram_congr N reg roles p p' hs adm ld v pol stop mode fun obs req =>
+     (rewrite_sound N hN ‹p.WF reg› h (Ctx.make reg roles p adm obs v pol stop req)).2.2.2.2
 
 /-! ## L4 fill ordering -/
 

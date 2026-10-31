@@ -83,9 +83,7 @@ structure Ins (i : Nat) (M M' : MState α) : Prop where
   ival : i ≤ M.vals.size
   iwin : i ≤ M.wins.size
   isin : i ≤ M.since.size
-  funding : M'.funding = M.funding
-  bar : M'.bar = M.bar
-  events : M'.events = M.events
+  latest : M'.latest = M.latest
   hour : M'.hour = M.hour
   maxKnown : M'.maxKnown = M.maxKnown
 
@@ -145,7 +143,7 @@ theorem arg (h : Ins i M M') (hi0 : 0 < i) (args : List Nat) (j : Nat) :
     exact this
 
 theorem input (h : Ins i M M') (inp : Input) (c : Nat) : M'.input inp c = M.input inp c := by
-  unfold MState.input; rw [h.funding, h.bar, h.events, h.hour]
+  unfold MState.input; rw [h.latest, h.hour]
 
 end Ins
 
