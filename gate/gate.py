@@ -196,16 +196,22 @@ def mechanism_check(market, ledger, campaign, programs):
     return out
 
 
-def holdout_run(market, ledger, campaign, programs, holdout_from=None):
-    """The single holdout batch: {hash: (net returns, total return, diagnostics)} for every frozen finalist."""
-    if not programs:
-        return {}
+def release(market, ledger, campaign, programs, holdout_from=None):
+    """The holdout's one `mm holdout` batch, as the finished process: the kernel claims the window, then evaluates."""
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
         fh.write("".join(json.dumps(p) + "\n" for p in programs.values()))
     extra = ["--holdout-from", str(holdout_from)] if holdout_from else []
     out = subprocess.run(command("holdout", fh.name, campaign, "gate", ledger, market, "--holdout-store",
                                  str(Path(market) / "holdout"), *extra), capture_output=True, text=True)
     Path(fh.name).unlink()
+    return out
+
+
+def holdout_run(market, ledger, campaign, programs, holdout_from=None):
+    """The single holdout batch: {hash: (net returns, total return, diagnostics)} for every frozen finalist."""
+    if not programs:
+        return {}
+    out = release(market, ledger, campaign, programs, holdout_from)
     if out.returncode != 0:
         raise RuntimeError(out.stdout + out.stderr)
     db = sqlite3.connect(ledger)
@@ -215,6 +221,25 @@ def holdout_run(market, ledger, campaign, programs, holdout_from=None):
         blob, summary = db.execute("SELECT returns, summary FROM results WHERE experiment_id = ?", (d["experiment"],)).fetchone()
         results[h] = (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], d["disclosure"]["diagnostics"])
     return results
+
+
+ABSENT = (np.zeros(0), 0.0, None)  # a finalist without a holdout result: p = 1 and return 0 in its family (C3.3)
+
+
+def committed_holdout(ledger, campaign):
+    """{trial: (net returns, total return, None)} of the campaign's committed holdout results; no diagnostics."""
+    rows = sqlite3.connect(ledger).execute(
+        "SELECT e.trial, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
+        "WHERE e.campaign = ? AND e.mode = 'holdout'", (campaign,)).fetchall()
+    return {t: (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], None) for t, blob, summary in rows}
+
+
+def committed_diagnostics(ledger, campaign):
+    """{trial: diagnostics}, stored with each holdout result; read only after the promotions are committed (C3.4)."""
+    rows = sqlite3.connect(ledger).execute(
+        "SELECT e.trial, d.content FROM disclosures d JOIN experiments e ON e.id = d.experiment_id "
+        "WHERE e.campaign = ? AND e.mode = 'holdout'", (campaign,)).fetchall()
+    return {t: json.loads(content)["diagnostics"] for t, content in rows}
 
 
 def promote(results):

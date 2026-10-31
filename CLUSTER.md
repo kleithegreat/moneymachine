@@ -69,7 +69,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   sessions, at most four of an hour each, hence its grace), and the series between campaigns. Their waits wake on SIGTERM. The thesis StatefulSet uses `updateStrategy: OnDelete`, so a restart
   is always deliberate. Bubblewrap's `--die-with-parent` ends a session with its runner.
 - **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
-  promotion), never rerun. The real campaign refuses an existing directory. The thesis runner records each date's
+  promotion), never rerun. The real campaign resumes its attempt and never repeats an arm or the release. The thesis runner records each date's
   sessions in its ledger and does not repeat one. A Kubernetes retry never becomes a fresh attempt.
 - **Clocks.** `sources` logs the node kernel's own bound on its clock error (`adjtimex`: `maxerror_ms`, `esterror_ms`,
   `unsynced`) every cycle as source "clock", key "kernel". It is a bound the kernel's NTP daemon reports, never an
@@ -93,15 +93,25 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
-**`agent-real`** (stage 3's one real campaign) is the series' pod with `restartPolicy: Never` and `backoffLimit: 0`: a
-pod that dies is never a second attempt. It starts only after `agent-series` has completed, as both write `agent`.
-Its inputs are not in any volume: before applying it, seed the dataset version's store and the untouched holdout into
-`agent` (`ops/live.py seed <digest> agent data/store:real/store data/holdout:real/holdout`), so the holdout's
-`spent.jsonl` claim lives on the volume, and the mirror carries it to this PC. That claim is per store: the copy in
-this PC's `data/holdout` does not see it, and the holdout is released once, on one host. `agent-summary` is not a
-workload: its baseline (`data/campaigns/null.jsonl`) is on this PC, so it runs here, no model call, on the series log
-from the mirror (`/srv/moneymachine/mirror/agent/agent-null.jsonl`, sha256 checked against its `MANIFEST.json`, copied to
-`data/agent/`).
+**`agent-real`** (stage 3's one real campaign) is the series' pod with `restartPolicy: Never` and `backoffLimit: 0`: it
+never restarts by itself. It holds the series' lock, so it cannot overlap it. Its inputs are not in any volume: seed the
+dataset version's store and the untouched holdout into `agent`. The cluster's `real/holdout/spent.jsonl` is then the
+one authoritative release store, and the claim is per store, so this PC's copy claims the window before `apply`, which
+makes any local use or re-seed fail closed:
+```
+python ops/live.py seed <digest> agent data/store:real/store data/holdout:real/holdout
+echo '{"start":1785542400000,"end":1790726400000,"campaign":"stage3-real"}' >> data/holdout/spent.jsonl
+python ops/live.py apply <digest> agent-real
+```
+To resume after a failed pod, delete the Job and apply it again: it skips what is done, and a claim naming the campaign
+means no second evaluation, only the report from `pre-release.json` and the ledger. A void attempt (`void.json`) moves
+to `stage3-real-2`. The report is `agent/stage3-real/real.json` in the mirror; check its sha256 against `MANIFEST.json`
+and copy it to `audit/stage3/real.json`. Its image needs `audit/stage3/null-summary.json` committed first; the
+series stays on its own digest.
+
+`agent-summary` is not a workload: its baseline (`data/campaigns/null.jsonl`) is on this PC, so it runs here, no model
+call, on the series log from the mirror (`/srv/moneymachine/mirror/agent/agent-null.jsonl`, sha256 checked against its
+`MANIFEST.json`, copied to `data/agent/`).
 
 ## 3. Credentials and usage
 

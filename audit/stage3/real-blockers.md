@@ -10,3 +10,5 @@ Redesign:
 - (c) a crash after the claim leaves ledger results, no report, and a `work` that refuses reruns: rebuild the report from the ledger;
 - (d) the claim is per store, and this PC's `data/holdout` never sees the cluster's: append it there after the release;
 - (e) the account that ran is not recorded.
+
+Closed 2026-10-31 by `audit/criteria.md`'s revisions of that date and `gate/agent/campaigns.py` `real` (tests: `gate/tests/test_agent_real.py`). Remedy (b) was replaced: arm A's exit does not block the release, only zero evaluations (void) or a failed audit. Remedy (d) moved before the apply (`CLUSTER.md` §2).
