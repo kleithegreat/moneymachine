@@ -12,6 +12,7 @@ import Ref.Proof.Fills
 import Ref.Proof.Orders
 import Ref.Proof.Prefix
 import Ref.Proof.RewriteLaw
+import Ref.Proof.View
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -69,8 +70,24 @@ theorem L1_decisions (N : NumOps α) (reg : Registry) (roles : Roles) (p : Progr
     (hE : (Ctx.make reg roles p adm obs₁ v pol stop req).execView ((Ctx.make reg roles p adm obs₁ v pol stop req).decisionTime k)
         = (Ctx.make reg roles p adm obs₂ v pol stop req).execView ((Ctx.make reg roles p adm obs₂ v pol stop req).decisionTime k)) :
     ∀ j ≤ k + 1, ((Ctx.make reg roles p adm obs₁ v pol stop req).steps N j).map (·.trace)
-      = ((Ctx.make reg roles p adm obs₂ v pol stop req).steps N j).map (·.trace) := by
-  sorry
+       = ((Ctx.make reg roles p adm obs₂ v pol stop req).steps N j).map (·.trace) := by
+   let c₁ := Ctx.make reg roles p adm obs₁ v pol stop req
+   let c₂ := Ctx.make reg roles p adm obs₂ v pol stop req
+   let T := pol.wStart + ((k : Int) + 1) * BAR + pol.delta
+   have hE' : c₁.execView T = c₂.execView T := hE
+   simp only [Ctx.execView, Prod.mk.injEq] at hE'
+   have S : SameView c₁ c₂ T := ⟨make_l4Valid reg roles p adm obs₁ v pol stop req ‹_›,
+     make_l4Valid reg roles p adm obs₂ v pol stop req ‹_›, hE'.2.2.2, rfl, hE'.1, hE'.2.1, hE'.2.2.1⟩
+   have A : Agree c₁ c₂ T := make_agree reg roles p adm obs₁ obs₂ v pol stop req T hP
+   have hp : pol.Valid := ‹_›
+   simp only [Policy.Valid, Policy.valid, Bool.and_eq_true, decide_eq_true_eq] at hp
+   intro j hj
+   have htime : pol.wStart + (j : Int) * BAR + pol.delta ≤ T := by
+     dsimp only [T]
+     simp only [BAR, HOUR]
+     omega
+   exact congrArg (fun e : Except Abort (SState α) => e.map (·.trace))
+     (steps_view p v pol stop N S A (by omega) j htime)
 
 /-! ## L2 unit soundness -/
 
