@@ -102,7 +102,7 @@ def main (args : List String) : IO UInt32 := do
     | .ok _ => IO.println "ok"; return 0
     | .error c => IO.println c.name; return 1
   | ["run", programs, mkt, outDir] =>
-    let some v := (Json.parse (← IO.FS.readFile mkt)).toOption | IO.eprintln "bad market"; return 3
+    let some v := (Json.parse (← IO.FS.readFile mkt)).toOption.filter (·.uniqueKeys) | IO.eprintln "bad market"; return 3
     let (m, venue, pol, stop) := market v
     let paths := (← IO.FS.readFile programs).splitOn "\n" |>.filter (· ≠ "")
     let mut i := 0
@@ -122,7 +122,7 @@ def main (args : List String) : IO UInt32 := do
       i := i + 1
     return 0
   | ["bench", prog, mkt, reps] =>
-    let some v := (Json.parse (← IO.FS.readFile mkt)).toOption | IO.eprintln "bad market"; return 3
+    let some v := (Json.parse (← IO.FS.readFile mkt)).toOption.filter (·.uniqueKeys) | IO.eprintln "bad market"; return 3
     let (m, venue, pol, stop) := market v
     let .ok p := Ref.check (← IO.FS.readFile prog) | IO.println "null"; return 0
     let mut ms := #[]

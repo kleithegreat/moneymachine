@@ -118,3 +118,53 @@ and positions are those of the previous definitions. No law statement changes. P
 | `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
 | `reference/lean/Ref/Spec.lean` | `45a00da2e54bbaf4aa266dc9fa2a8cc78c24232e6bd715fd1e921ce4a212b34c` |
 | `reference/lean/Ref/Laws.lean` | `b9272a12a0c2da161f17d9bfa76f71083306722f2da3a8f5e468c36fae9f3406` |
+
+## Revision 2026-10-31 02:50 UTC (22:50 EDT 2026-10-30): `L5_text` made provable at full strength; statements unchanged
+
+The law's statement and `InputRef`'s text are unchanged. Two gaps stopped any proof (`l5-text-blocker.md`; both reviews
+of 2026-10-30, `audit/reviews/2026-10-30-{opus,gpt}-agent-real-l5-text.md` on main). `mentions` was `partial`, so opaque.
+And the checker's duplicate-key refusal sat inside the opaque parser, so a proof had to cover a parsed value with two
+`weight`s, where `program` compiles the first and `mentions` sees both. Changed definitions:
+
+- `Json.Value.mentions` (`Spec.lean`): total, the same traversal, over `attach` with a termination proof.
+- `Json.value` (`Json.lean`): no longer refuses duplicate keys.
+- `Json.Value.uniqueKeys` (`Syntax.lean`, new): total, no object at any depth repeats a key.
+- `check` (`Syntax.lean`): refuses a parsed value failing `uniqueKeys` with `.parse`, before `program`. `refmm`'s market
+  files apply the same guard (`Main.lean`), so the rule has one home.
+
+Why this cannot weaken the guarantee:
+
+- `Value` has only finite terms, so the total `mentions` computes the partial one's function by the same equations, and
+  only `InputRef` calls it. `required` and admission do not read it.
+- `check` is the same function of the text. Every failure of the old parser was `.parse`, and now a duplicate gives
+  `.parse` from the guard or, if a later syntax error comes first, from the parser. Without duplicates the parser
+  returns the same value. The size check still comes first.
+- `InputRef` now holds of some text with duplicates, where it was `False`. `check` refuses that text, and the law
+  assumes `check` accepted, so no accepted program's obligations change.
+- None of the routes the reviews rejected is taken: no no-duplicates hypothesis, no axiom, `InputRef` not defined from
+  the compiled program, and unused lets, inactive branches and prediction conditions still count.
+
+Evidence, run in scratch (not an audit artifact, regenerable): stage7's `Json.lean` and `Syntax.lean` against these on
+1,291 texts (`kernel/tests/{adversarial,admitted}`, `kernel/strategies`, `audit/stage6/differential-corpus.jsonl`) and
+7,746 mutants of them with a duplicate key inserted at a random object, some followed by a syntax error or trailing text:
+identical verdicts on all 9,037. `mm check` agrees with the revised Lean on all 9,037. `refmm` does not build at this
+commit (`Main.lean` predates stage 7's definitions), so the guard in `Main.lean` is uncompiled and C6.4's harness did
+not run. The corpus held duplicate keys already (`gpt27`, `gpt28`). A new case in a compiled-away position, a duplicate
+inside an unused let, is a build-time check in `Proof/Text.lean`: a new `kernel/tests/adversarial` file would make stage
+6's frozen corpus report it missing under `differential.complete` on any rerun. `mm` gives it `E_PARSE` too.
+
+C7.7's independent review of this revision is queued for GPT, and any proof depending on it is not judged before then.
+`Json.lean` joins the table, since `check` and `InputRef` both depend on it. `Laws.lean` differs from the last table
+only by the proofs committed since. Hashes after this revision:
+
+| File | SHA-256 |
+|---|---|
+| `reference/lean/Ref/Source.lean` | `210cb1b039c7c9b544227ff8df0616b53050fb22ebb6ec4eb7d1107e45bd9d52` |
+| `reference/lean/Ref/Resolve.lean` | `0c19d78695b5d4afc7c9f58215fff7391faac92ed6653bd41b7398c384ec93cb` |
+| `reference/lean/Ref/Json.lean` | `3d166ad3e3b4a842bcb7f1c14353f34d057d50a61ee551fc78a47d55b33b4677` |
+| `reference/lean/Ref/Syntax.lean` | `fc2a095308ad30a8393f1453393130a94d5c875c0a1f2b266b06ab074dff1777` |
+| `reference/lean/Ref/Machine.lean` | `a466142cc5d8e4e05657027d77da33f7a05abb128ba58b00ba7e676bc636735c` |
+| `reference/lean/Ref/Sim.lean` | `d64a1a10c291f8d9168e46ed67bee1f376831ec6e0e10b1bef063e718f3fbc35` |
+| `reference/lean/Ref/Units.lean` | `d45c5906dc9c638892bbd002cc47eefb69ca2da25f45c3d057a36b19e07f5d54` |
+| `reference/lean/Ref/Spec.lean` | `0cbbf08f623c32ee30ee4abb917a749bffbbb675d7bde09b5b231a5a0ef7b6f6` |
+| `reference/lean/Ref/Laws.lean` | `c89ffc74da495c9f94de4a820e109c34b98637b974dc497d663eb6b0085b8797` |

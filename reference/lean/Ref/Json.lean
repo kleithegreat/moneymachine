@@ -1,8 +1,9 @@
 /-!
 Strict JSON for the reference kernel's front end (reference/SEMANTICS.md §2): objects keep every
-key in order so duplicates can be refused, integers that fit 64 bits stay integers (serde_json's
-`Number`), and other numbers are converted to binary64 with correct rounding (serde_json's
-`float_roundtrip`). Parsing is outside the laws; it exists for the differential test.
+key in order so `Value.uniqueKeys` (Syntax.lean) can refuse duplicates, integers that fit 64 bits
+stay integers (serde_json's `Number`), and other numbers are converted to binary64 with correct
+rounding (serde_json's `float_roundtrip`). Parsing is outside the laws; it exists for the
+differential test.
 -/
 
 namespace Ref.Json
@@ -155,7 +156,6 @@ partial def value (depth : Nat := 0) : Parser Value := do
       let k ← strBody ""
       ws; expect ':'
       let v ← value (depth + 1)
-      if kvs.any (·.1 == k) then throw s!"duplicate key {k}"
       kvs := kvs.push (k, v)
       ws
       match ← next with
