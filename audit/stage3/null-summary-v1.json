@@ -1,0 +1,76 @@
+{
+ "n": 20,
+ "counted_promotions": 20,
+ "evaluations": [
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null
+ ],
+ "cross_agent_history": [
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null
+ ],
+ "spreads": {
+  "spa_p": null,
+  "max_dsr": null,
+  "screened": null
+ },
+ "G100_null_n2": {
+  "spa_p": {
+   "n": 300,
+   "min": 0.0,
+   "median": 0.567,
+   "max": 1.0
+  },
+  "max_dsr": {
+   "n": 300,
+   "min": 0.014245792009703403,
+   "median": 0.1652977831606216,
+   "max": 0.8601871794103868
+  },
+  "screened": {
+   "n": 300,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "statement": "20 runs bound the promotion rate only to about 0.28; this is a smoke test.",
+ "qualifications": "PROGRESS.md, Qualifications, stage 3",
+ "label": "pipeline validation run, not a test for edge; every promotion: historical holdout, costs fitted after it"
+}

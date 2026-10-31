@@ -3,6 +3,8 @@ are tests of the code (gate/tests, kernel/mm/tests, ingest/tests); the agent aud
 
 import json
 
+import pytest
+
 from criteria.evidence import REPO, load
 from criteria.test_stage2 import P_MIN, Z_MAX
 from gate.agent import campaigns
@@ -11,6 +13,14 @@ from gate.agent import campaigns
 def test_c32_smoke_calibration():
     s = load("stage3/null-summary.json")
     assert s["n"] == 20 and s["counted_promotions"] <= 2 and s["statement"] == campaigns.SMOKE["agent"]
+
+
+@pytest.mark.xfail(strict=True, raises=AssertionError,
+                   reason="C3.2 v1 failed: its 20 campaigns crashed before any model call, each a promotion "
+                          "(audit/stage3/null-v1.jsonl, null-summary-v1.json)")
+def test_c32_v1_smoke_calibration():
+    s = load("stage3/null-summary-v1.json")
+    assert s["n"] == 20 and s["counted_promotions"] <= 2
 
 
 def test_c34_report_states_no_claim():
