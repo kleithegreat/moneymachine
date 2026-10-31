@@ -377,3 +377,7 @@ Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommen
 
 - Reverses item 2 of the entry at 2026-10-31 00:00 UTC (2026-10-30 20:00 EDT), which the advisor had recommended. Only C5.3's 72 h segment depends on the record, its 1 s figure is reported rather than judged, and there is no deadline, so an Ansible role and a typed offset/bound model outweighed the need. GPT's objection stands as a known limitation: the kernel's figure is the daemon's own bound and does not prove freshness. The withdrawn text stays in `audit/criteria.md` beneath a dated revision. The Homelab was not touched. Reverse by a further dated revision, using GPT's text.
 - CLAUDE.md: one question sets the process (could this change a judged result, or can't it be undone?), one review round by default, findings name the outcome they could change, no review rounds for inactive work, and rules name the failure they prevent. Why: the human, seeing agents build permits and ledgers instead of food. Reverse with `git revert`.
+
+## 2026-10-31 (2026-10-30 EDT): the cluster's clock acceptance in `audit/cluster/handoff.md` does not stand
+
+- The handoff's "about 5 ms" clock agreement, from Hyperliquid L2 medians, is not accepted as a clock check, per `audit/reviews/2026-10-30-gpt-witness-tests-clock.md`. The cluster's record is the kernel bound of the entry above (`CLUSTER.md`, Clocks). `handoff.md` is untouched. Reverse by a further entry.

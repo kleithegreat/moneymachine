@@ -58,3 +58,17 @@ def test_a_poll_sharing_no_item_with_the_previous_one_is_counted(tmp_path):
                                                       for t, d in polls))
     r = sources_avail.analyze(live_dir)
     assert r["polls_without_overlap"] == 1 and r["failed_polls"] == 1
+
+
+def test_kernel_clock_is_a_bound_and_validity_checked(tmp_path):
+    from ingest.sources_record import kernel_clock
+    read = kernel_clock()
+    assert set(read) == {"maxerror_ms", "esterror_ms", "unsynced"} and read["maxerror_ms"] >= 0
+    live_dir = tmp_path / "live"
+    live_dir.mkdir()
+    clock = lambda t, e, u: {"source": "clock", "key": "kernel", "sent": t, "recv": t, "data": {"maxerror_ms": e, "esterror_ms": 0.0, "unsynced": u}}
+    (live_dir / "sources-x.jsonl").write_text("".join(json.dumps(c) + "\n" for c in [clock(H, 5.0, False), clock(2 * H, 40.0, False)]))
+    r = sources_avail.analyze(live_dir)
+    assert r["clock_bound_ms"] == {"max_maxerror": 40.0, "n": 2, "valid": True} and r["clock_offset_ms"] is None
+    (live_dir / "sources-x.jsonl").write_text(json.dumps(clock(H, 5.0, True)) + "\n" + json.dumps(clock(2 * H, 1500.0, False)) + "\n")
+    assert sources_avail.analyze(live_dir)["clock_bound_ms"]["valid"] is False

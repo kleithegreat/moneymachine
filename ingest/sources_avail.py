@@ -30,11 +30,13 @@ def quantiles(xs):
 
 def analyze(live_dir, source="discourse"):
     created, revision, updated = FIELDS[source]
-    seen, versions, first_poll, last_poll, gaps, items, edits, offsets = set(), {}, {}, {}, [], [], [], []
+    seen, versions, first_poll, last_poll, gaps, items, edits, offsets, bounds = set(), {}, {}, {}, [], [], [], [], []
     failed, no_overlap, previous = 0, 0, {}
     for poll in polls(live_dir):
         if poll["source"] == "clock" and isinstance(poll["data"].get("offset_ms"), float):
             offsets.append(abs(poll["data"]["offset_ms"]))
+        if poll["source"] == "clock" and "maxerror_ms" in poll["data"]:
+            bounds.append(poll["data"])
         if poll["source"] != source:
             continue
         posts = listed(source, poll)
@@ -72,6 +74,8 @@ def analyze(live_dir, source="discourse"):
         "operative_rule": f"knownAt = first observation + {SOURCES[source]['margin']} ms",
         "operative_slack_ms": SOURCES[source]["margin"],
         "clock_offset_ms": {"max_abs": max(offsets), "n": len(offsets)} if offsets else None,
+        "clock_bound_ms": {"max_maxerror": max(b["maxerror_ms"] for b in bounds), "n": len(bounds),
+                           "valid": all(not b["unsynced"] and b["maxerror_ms"] < 1000 for b in bounds)} if bounds else None,
     }
 
 

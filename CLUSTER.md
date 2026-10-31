@@ -71,8 +71,10 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
   promotion), never rerun. The real campaign refuses an existing directory. The thesis runner records each date's
   sessions in its ledger and does not repeat one. A Kubernetes retry never becomes a fresh attempt.
-- **Clocks.** Each recorder keeps its own clock log, and prodesk7 runs NTP. The logged offset against the venue's
-  server time is the check (C5.3: under 1 s).
+- **Clocks.** `sources` logs the node kernel's own bound on its clock error (`adjtimex`: `maxerror_ms`, `esterror_ms`,
+  `unsynced`) every cycle as source "clock", key "kernel". It is a bound the kernel's NTP daemon reports, never an
+  offset against anything, and it does not prove freshness. C5.3's 72 h segment reports its maximum and requires
+  `unsynced` false and `maxerror_ms` under 1000. The Oracle VM keeps its own timesyncd offset log (`ops/oci/clocklog.py`).
 - **Image** `moneymachine`, one for batch and live, built by `nix build .#image`, pushed and pinned by digest:
   - contents: the repo at `/app`, the Python env, `mm`, claude-code pinned in the flake at exactly 2.1.304,
     bubblewrap, sqlite3, and the Nix store database that the sandbox's closure query (`nix-store -qR`)
