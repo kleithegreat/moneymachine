@@ -505,6 +505,7 @@ Content is known no earlier than its last edit. A row with no admissible claimed
     - On prodesk7 the clock record is the kernel's NTP state, read by the `sources` recorder with `adjtimex`, with readings at most 10 minutes apart. A reading is clock-valid when STA_UNSYNC is clear and maxerror < 1 s.
     - This is an error bound resting on the NTP daemon's own claim, not a measured offset, and a changing value does not prove a fresh NTP exchange. It is reported as a bound, never as an offset.
     - The fresh 72 h segment of the hosts revision starts at the first reading, is judged under this instrument, and is reported beside the original result. Polls from 2026-10-28 17:58 UTC (13:58 EDT) to that reading are not clock-valid; no earlier interval is qualified.
+    - *Correction 2026-10-31 00:11 UTC (2026-10-30 20:11 EDT):* "judged under this instrument" above means reported: the segment's 1 s figure is reported, as this stage's 2026-10-22 clarification says, so no reading fails anything. The stamp on the withdrawn revision reads later than the withdrawal; file order and git give the true order.
 - **C5.4 Coverage.** Coverage intervals are stored as data per source and coin. Inputs are undefined, never 0, outside coverage or for unmapped coins. Per coin of U, the report gives event counts in the search part and in the live window, gaps, and each source's classification.
 - **C5.5 Kernel integration.**
   - Event sources enter the DSL as per-tick aggregates: the count of items with knownAt in (τ − 1h, τ], under a new base unit `ev` for counts.
