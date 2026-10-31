@@ -13,7 +13,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued; node `desktop` (this PC) NotReady.
-- **Budget.** Agent campaigns start only when both windows of a pooled account (TAMU, else Cornell) have room under 0.8.
+- **Budget.** Agent campaigns start only when both windows of a pooled account (TAMU, else Cornell) have room under 0.8. Claude work on the account a campaign is running on can exhaust it mid-session, a counted crash: keep it light then.
 
 ### Next, in order
 
@@ -22,8 +22,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 2. **Stage 4 smoke**: `agent-null swarm`. Trigger: stage 3's series done.
 4. **The next thesis refreeze.** Trigger: any change that forks the track version anyway (each fork restarts C10.5's window). Bundle: delete `ingest/live.py`'s `restart`, `alive` and pidfile (dead since the move); log the benchmark's skips by cause (no reference prices before launch: xyz:XYZ100, xyz:GOLD; delisted: flx:OIL).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
-   1. Proofs: 17 of 18 frozen laws proved on `stage7` (`audit/stage7/proof-validation-2026-10-31.md` there). `L5_text` is proved on branch `stage7-l5` under a revision that C7.7 has independently reviewed (GPT, running) and frozen before the proof counts; then merge into `stage7` and recheck. Then `Eval.lean`: profile, then split.
-   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential.
+   1. Done: all 18 frozen laws proved (`audit/stage7/proof-validation-2026-10-31.md` there; `L5_text`'s revision independently reviewed and frozen first). `refmm` builds again (`e41559d`; it reads stage 6's market JSON through a fixed registry; smoke: 1,196 verdicts and 288 45-day runs agree with `mm`). `lake build Ref` 162 s → 72 s (`Eval.lean` split, `c205682`).
+   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't), and `refmm` is too slow for 550-day markets (one 64-program chunk over 20 CPU minutes): profile it before the judged run.
    3. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
    - Judged runs wait for the rebase onto the pilot's baseline commit.
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
