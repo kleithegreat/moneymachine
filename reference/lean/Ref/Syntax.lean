@@ -320,12 +320,24 @@ def program (v : Value) : Check Program := do
   return { nodes := st.nodes, types := st.types, params := st.params.map (·.2), convTo := st.convTo, weight := w,
            prediction := pred }
 
+/-- No object, at any depth, repeats a key: parsers resolve duplicates differently, and `field` reads the first. -/
+def Json.Value.uniqueKeys : Json.Value → Bool
+  | .obj kvs => (kvs.toList.map (·.1)).Nodup && kvs.attach.all fun ⟨(_, v), _⟩ => v.uniqueKeys
+  | .arr vs => vs.attach.all fun ⟨v, _⟩ => v.uniqueKeys
+  | _ => true
+termination_by v => v
+decreasing_by
+  all_goals
+    have := Array.sizeOf_lt_of_mem ‹_ ∈ _›
+    simp_all
+    omega
+
 /-- Parse and check a program's text: the program, or the engine's rejection code. -/
 def check (inputs : Array (String × Input)) (text : String) : Except Code Program :=
   if text.utf8ByteSize > 1 <<< 20 || Json.depth text > 2 * maxDepth + 8 then .error .size else
   match Json.parse text with
   | .error _ => .error .parse
-  | .ok v => match (program v).run { inputs } with
+  | .ok v => if !v.uniqueKeys then .error .parse else match (program v).run { inputs } with
     | .ok (p, _) => .ok p
     | .error c => .error c
 

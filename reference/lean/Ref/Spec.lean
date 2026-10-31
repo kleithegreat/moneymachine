@@ -214,10 +214,16 @@ def firstFailure (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (
 
 /-- `{"input": name}` occurs in the program text's weight, in any let's body (used or not), or in the prediction's
 condition, at any depth of the expression grammar (DSL.md). -/
-partial def Json.Value.mentions (name : String) : Json.Value → Bool
-  | .obj kvs => kvs.any fun (k, v) => (k == "input" && (match v with | .str x => x == name | _ => false)) || v.mentions name
-  | .arr vs => vs.any (·.mentions name)
+def Json.Value.mentions (name : String) : Json.Value → Bool
+  | .obj kvs => kvs.attach.any fun ⟨(k, v), _⟩ => (k == "input" && (match v with | .str x => x == name | _ => false)) || v.mentions name
+  | .arr vs => vs.attach.any fun ⟨v, _⟩ => v.mentions name
   | _ => false
+termination_by v => v
+decreasing_by
+  all_goals
+    have := Array.sizeOf_lt_of_mem ‹_ ∈ _›
+    simp_all
+    omega
 
 def InputRef (text : String) (name : String) : Prop :=
   match Json.parse text with

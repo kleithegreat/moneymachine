@@ -98,6 +98,8 @@ theorem check_wf {reg : Registry} {text : String} {p : Program} (h : check reg.i
   · cases h
   rename_i v _
   split at h
+  · cases h
+  split at h
   · rename_i r st hr
     cases h
     have hI0 : Inv (InputOK reg) { inputs := reg.inputs } :=

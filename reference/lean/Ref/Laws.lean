@@ -13,6 +13,7 @@ import Ref.Proof.Orders
 import Ref.Proof.Prefix
 import Ref.Proof.RewriteLaw
 import Ref.Proof.View
+import Ref.Proof.Text
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -363,8 +364,8 @@ theorem L5_shape (reg : Registry) (roles : Roles) (text : String) (adm : Meta) (
 /-- Every declaration the program text names, in an unused let or an inactive branch included, is required. -/
 theorem L5_text (reg : Registry) (_ : reg.Valid) (roles : Roles) (adm : Meta) (text name : String) (p : Program)
     (inp : Input) (h : check reg.inputs text = .ok p) (hR : InputRef text name) (hN : (name, inp) ∈ reg.inputs.toList) :
-    inp.source ∈ adm.required reg roles p := by
-  sorry
+    inp.source ∈ adm.required reg roles p :=
+  text_required reg ‹_› roles adm text name p inp h hR hN
 
 /-- Under the trusted boundary, an admitted run evaluated RULES.md §6's resolution of the required datasets' stored
 bytes at the pinned version; every required dataset is named by an issued, current certificate under the pinned
