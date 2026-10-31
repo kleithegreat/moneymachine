@@ -17,3 +17,5 @@ An arbitrary Boolean occurrence oracle is not sufficient: an oracle reporting an
 Proposed redesign, requiring a dated frozen-definition revision **before** any dependent proof: replace `mentions` with the same traversal as a total, terminating definition (with structural/well-founded recursion over JSON values and their children), exposing its recursion equations. Then prove that checker compilation retains every referenced input and that registry closure includes its source. Do not add an axiom, assume the desired implication, use an unchecked runtime decision as a proof, or weaken `L5_text`.
 
 Stopped on `L5_text`. It remains admitted by its original `sorry`; no new admission or frozen-definition change was made.
+
+2026-10-31 02:50 UTC (22:50 EDT 2026-10-30): superseded by the dated revision in `laws-frozen.md`. The claim above that sharing the parser result lets a proof avoid the parser's internals was wrong: the duplicate-key refusal had to leave the opaque parser too.
