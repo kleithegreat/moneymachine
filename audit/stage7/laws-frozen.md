@@ -184,3 +184,14 @@ above except `Laws.lean`, which carries the L5_text proof:
 | `reference/lean/Ref/Laws.lean` | `e3f38840330472c5728462fe61e55c2f4233bdec0eea081dba15d01fbb581d42` |
 
 The proof is re-checked after this freeze in `proof-validation-2026-10-31.md`; that re-check is what counts.
+
+## 06:44 UTC (02:44 EDT) 2026-10-31: `kernel/RULES.md`'s recorded hash, caught up
+
+`09ba199` (2026-10-26, with GPT's ninth review, `laws-review-gpt-9.md`) changed only prose in RULES.md §6: it states two
+effects as by design (a key's first revision known at its rule's value; admission refusing a whole run). No law statement
+or Lean definition changed, and every proof's validation since used the current file. The table above was not updated
+then; this records the file as it stands:
+
+| File | SHA-256 |
+|---|---|
+| `kernel/RULES.md` | `0f2fee31c078e0d36874ee40651edfa072b81d9241be218ae7e93e53f8342379` |
