@@ -10,6 +10,7 @@ import Ref.Proof.Units
 import Ref.Proof.Reads
 import Ref.Proof.Fills
 import Ref.Proof.Orders
+import Ref.Proof.Prefix
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -36,9 +37,13 @@ theorem L1_values (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program)
     (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible = true)
     (hP : (Ctx.make reg roles p adm obs₁ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
         = (Ctx.make reg roles p adm obs₂ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
-    ∀ k ≤ n, (Ctx.make reg roles p adm obs₁ v pol stop req).machineAfter N k
-      = (Ctx.make reg roles p adm obs₂ v pol stop req).machineAfter N k := by
-  sorry
+     ∀ k ≤ n, (Ctx.make reg roles p adm obs₁ v pol stop req).machineAfter N k
+       = (Ctx.make reg roles p adm obs₂ v pol stop req).machineAfter N k := by
+   intro k hk
+   apply machineAfter_agree N (make_agree reg roles p adm obs₁ obs₂ v pol stop req _ hP) k
+   change pol.wStart + (k : Int) * HOUR + pol.delta ≤ pol.wStart + (n : Int) * HOUR + pol.delta
+   simp only [HOUR]
+   omega
 
 /-- The simulator's machine is that schedule: after j steps, it is the machine after the tick at wStart + 4j·HOUR. -/
 theorem L1_simulator (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) (_ : CheckerAccepted reg p)
