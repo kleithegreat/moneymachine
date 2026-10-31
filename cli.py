@@ -101,7 +101,7 @@ COMMANDS = {
     "truth": ("gate.sweep", "truth", [], "judge each mixed-sweep promotion on fresh years"),
     "sweep-summary": ("gate.sweep", "summary", ["out"], "sweep counts and bounds"),
     "holdout-size": ("gate.size", "main", ["work", "audit"], "the holdout test's locked calibration (gate/null_suite.py)"),
-    "freeze-harness": ("gate.agent.campaigns", "freeze_harness", [], "record the agent harness hash, once"),
+    "freeze-harness": ("gate.agent.campaigns", "freeze_harness", [], "record the agent harness hash for the declared cohorts, after the sandbox canary"),
     "agent-null": ("gate.agent.campaigns", "run_series", ["name"], "the agent or swarm null series (paced, resumable)"),
     "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),
     "agent-summary": ("gate.agent.campaigns", "summary", ["name", "out"], "an agent or swarm null series beside its baseline"),

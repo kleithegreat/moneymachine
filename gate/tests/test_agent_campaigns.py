@@ -14,6 +14,10 @@ from gate.markets import write_market
 REPO = Path(__file__).resolve().parents[2]
 
 
+def failing_canary():
+    raise RuntimeError("the sandbox canary failed")
+
+
 def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, monkeypatch):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(sweep, "OUT", tmp_path)
@@ -54,6 +58,7 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
+    monkeypatch.setattr(campaigns.canary, "check", lambda: {})
     monkeypatch.setitem(campaigns.COHORTS, "agent", ("agent-null-2", 3))
     ids, log = campaigns.cohort("agent")
     started, slept = [], []
@@ -102,6 +107,16 @@ def test_a_missing_series_input_starts_nothing(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
+def test_a_failing_canary_starts_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "OUT", tmp_path)
+    monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
+    monkeypatch.setattr(campaigns.canary, "check", failing_canary)
+    monkeypatch.setattr(campaigns, "wait_for_room", lambda log: pytest.fail("paced"))
+    with pytest.raises(RuntimeError):
+        campaigns.run_series("agent")
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_the_series_runs_on_the_first_account_with_room_tamu_first(tmp_path, monkeypatch):
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_TAMU", "tamu")
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "cornell")
@@ -116,14 +131,26 @@ def test_the_series_runs_on_the_first_account_with_room_tamu_first(tmp_path, mon
     assert campaigns.os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "tamu"
 
 
-def test_a_refreeze_names_its_predecessor_and_is_refused_once_a_campaign_started(tmp_path, monkeypatch):
-    monkeypatch.setattr(campaigns, "OUT", tmp_path / "agent")
+def test_a_freeze_is_refused_once_a_campaign_it_is_for_started_and_waits_for_the_canary(tmp_path, monkeypatch):
+    out = tmp_path / "agent"
+    monkeypatch.setattr(campaigns, "OUT", out)
     monkeypatch.setattr(campaigns, "FROZEN", tmp_path / "harness.json")
+    monkeypatch.setitem(campaigns.COHORTS, "agent", ("agent-null-3", 2))
     hashes = iter(["a", "b", "c"])
     monkeypatch.setattr(campaigns.harness, "harness_hash", lambda: next(hashes))
+    monkeypatch.setattr(campaigns.canary, "check", failing_canary)
+    with pytest.raises(RuntimeError):
+        campaigns.freeze_harness()
+    assert not (tmp_path / "harness.json").exists()
+    monkeypatch.setattr(campaigns.canary, "check", lambda: {})
+    for earlier in ("agent-null-N2-0", "agent-null-2-N2-19", "stage3-real"):
+        (out / earlier).mkdir(parents=True)
+    (out / "stage3-real" / "void.json").write_text("{}")
     campaigns.freeze_harness()
     campaigns.freeze_harness()
     assert json.loads((tmp_path / "harness.json").read_text())["previous"]["harness"] == "a"
-    (tmp_path / "agent" / "agent-null-N2-0").mkdir(parents=True)
-    with pytest.raises(SystemExit):
-        campaigns.freeze_harness()
+    for started in ("agent-null-3-N2-1", "swarm-null-N2-0", "stage3-real-2"):
+        (out / started).mkdir()
+        with pytest.raises(SystemExit):
+            campaigns.freeze_harness()
+        (out / started).rmdir()

@@ -19,7 +19,7 @@ from gate import kernel
 from ingest.fallback import fill_missing
 from ingest.live import now_ms
 from ingest.policy import DAY, DELTA, HOUR
-from sandbox import session
+from sandbox import canary, session
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
 from thesis.market import MARK_OFFSET, Exchange, Market
@@ -198,12 +198,13 @@ class Track:
             any(th["session"] == f"benchmark-{monday}" for th in self.ledger.theses("benchmark"))
 
     def run(self):
-        """Until SIGTERM: resolutions every 5 min and builder marks at H + MARK_OFFSET on their own threads; the Monday
-        benchmark and the daily sessions each minute (`schedule`). On SIGTERM each loop finishes its current step (a day's
-        sessions included) and the runner exits. One runner per root."""
+        """Until SIGTERM, once the sandbox canary passes: resolutions every 5 min and builder marks at H + MARK_OFFSET on
+        their own threads; the Monday benchmark and the daily sessions each minute (`schedule`). On SIGTERM each loop
+        finishes its current step (a day's sessions included) and the runner exits. One runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
         if frozen.get("manifest") != self.manifest:
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
+        canary.check()
         self.root.mkdir(parents=True, exist_ok=True)
         lock = open(self.root / "run.lock", "w")
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -255,8 +256,9 @@ def pinned_kernel(root, fresh=False):
 
 
 def freeze():
-    """Record the manifest, with the kernel binary pinned: the start of a track version and of C10.5's observation
-    window."""
+    """Record the manifest, with the kernel binary pinned, once the sandbox canary passes: the start of a track version
+    and of C10.5's observation window."""
+    canary.check()
     manifest = harness.manifest_hash(pinned_kernel(ROOT, fresh=True))
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
     old = json.loads(FROZEN.read_text()) if FROZEN.exists() else None

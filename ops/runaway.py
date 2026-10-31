@@ -16,6 +16,7 @@ def series(tmp_path, monkeypatch, chunk):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "x"})
+    monkeypatch.setattr(campaigns.canary, "check", lambda: {})
     monkeypatch.setattr(campaigns, "windows", lambda token=None: {"five_hour": [0.99, 100]})
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "cornell")
     monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False, "wait": wait, "set": lambda self: None})())

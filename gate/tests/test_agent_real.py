@@ -464,7 +464,8 @@ def test_no_returns_mean_p_one():
 
 def series_in_the_pods_view():
     """One campaign of the agent series, run by `test_the_series_in_its_pods_view` inside the pod's view: everything
-    real but the model session (through the real daemon), pacing and the funding blob, synthetic and seeded here."""
+    real but the model sessions (the canary's, and the agent's through the real daemon), pacing and the funding blob,
+    synthetic and seeded here."""
     spec = markets.null_params()["N2"]
     t, k = len(range(W_START, HOLDOUT_START, HOUR)), len(set(spec["funding"]["coins"]) - set(spec["funding"]["short"]))
     blob = np.random.default_rng(0).normal(1.25e-5, 1e-5, (2 * t, k)).tobytes()
@@ -476,12 +477,15 @@ def series_in_the_pods_view():
     rooms = iter([("TAMU", {})])
     campaigns.wait_for_room = lambda log: next(rooms, None)
     campaigns.windows = lambda token=None: None
+    campaigns.canary.check = lambda: {}
     campaigns.harness.run_agent = lambda market, ledger, cid, workdir: {"spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent}
     campaigns.run_series("agent")
     rows = [json.loads(l) for l in open(campaigns.cohort("agent")[1])]
     assert len(rows) == 1 and "crash" not in rows[0] and rows[0]["audit"]["match"] and rows[0]["mm"] == campaigns.sha256(MM), rows
 
 
+@pytest.mark.xfail(strict=True, reason="candidate branch: sandbox/session.py's Edit(//work/**) forks the harness, and "
+                   "audit/stage3/harness.json is refrozen only if the human adopts it (audit/stage3/write-denied-2026-10-31.md)")
 def test_the_series_in_its_pods_view(tmp_path):
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
     kernel.build()

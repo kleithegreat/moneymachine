@@ -18,7 +18,7 @@ from gate.agent import harness
 from gate.kernel import MM, command
 from ingest.live import now_ms
 from ingest.policy import DAY
-from sandbox import session
+from sandbox import canary, session
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "data" / "agent"
@@ -41,11 +41,13 @@ SMOKE = {"agent": "20 runs bound the promotion rate only to about 0.28; this is 
 
 
 def freeze_harness():
-    """Record the harness hash. A refreeze names the freeze it supersedes, and only while no campaign was ever started."""
+    """Record the harness hash, naming the freeze it supersedes, once the sandbox canary passes. A freeze is for the
+    declared cohorts and the real attempt they lead to, so it is refused once any of them started: a changed harness
+    needs fresh ids in COHORTS."""
+    if started := [c for c in [*cohort("agent")[0], *cohort("swarm")[0], real_attempt()[0]] if (OUT / c).exists()]:
+        sys.exit(f"{started[0]} started under {FROZEN}, so a changed harness needs fresh campaign ids in COHORTS")
+    canary.check()
     previous = json.loads(FROZEN.read_text()) if FROZEN.exists() else None
-    started = OUT.exists() and any(p.is_dir() or p.read_text().strip() for p in OUT.iterdir())
-    if previous and started:
-        sys.exit(f"{FROZEN}: a campaign has started under it, so a changed harness needs fresh campaign ids")
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
     FROZEN.write_text(json.dumps({"harness": harness.harness_hash(), "frozen": now_ms(), "previous": previous}, indent=1) + "\n")
 
@@ -240,13 +242,14 @@ def usage(work):
 
 
 def run_series(name):
-    """The campaigns of `cohort(name)` once `series_inputs` resolve, resumable (a started, unrecorded id is recorded as a
-    crash), each started when the subscription has room for it (`wait_for_room`) and the harness is still the frozen
-    one, its directory made first as the mark that it started, and recorded with its account, usage, kernel and the
-    windows around it. SIGTERM ends the series between campaigns."""
+    """The campaigns of `cohort(name)` once `series_inputs` resolve and the sandbox canary passes, resumable (a started,
+    unrecorded id is recorded as a crash), each started when the subscription has room for it (`wait_for_room`) and the
+    harness is still the frozen one, its directory made first as the mark that it started, and recorded with its
+    account, usage, kernel and the windows around it. SIGTERM ends the series between campaigns."""
     signal.signal(signal.SIGTERM, lambda *_: STOP.set())
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = series_inputs()
+    canary.check()
     ids, log = cohort(name)
     with campaign.resume(ids, log, OUT) as todo:
         for cid in todo:
@@ -439,15 +442,21 @@ def report(work):
     return result
 
 
+def real_attempt():
+    """The real campaign's current attempt id and the void attempts before it."""
+    voids, n = [], 1
+    while (OUT / (cid := "stage3-real" if n == 1 else f"stage3-real-{n}") / "void.json").exists():
+        voids.append(cid)
+        n += 1
+    return cid, voids
+
+
 def real(data_root, version, report_from=REAL_REPORT_FROM):
     """The one real campaign: both arms, one holdout batch with Holm within each arm, its report. Running it again resumes
     the same attempt and never repeats an arm or the release; only a void attempt moves on to a fresh id."""
     OUT.mkdir(parents=True, exist_ok=True)
     with campaign.exclusive(cohort("agent")[1]):
-        voids, n = [], 1
-        while (OUT / (cid := "stage3-real" if n == 1 else f"stage3-real-{n}") / "void.json").exists():
-            voids.append(cid)
-            n += 1
+        cid, voids = real_attempt()
         work = OUT / cid
         if not (work / "pre-release.json").exists():
             both_arms(work, data_root, version, report_from, voids)

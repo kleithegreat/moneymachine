@@ -6,8 +6,9 @@ and both sockets; a link to a short temporary path, since a socket's path is lim
 empty). The CLI's credential is the runner's `CLAUDE_CODE_OAUTH_TOKEN`, the one variable passed in. Inside the sandbox: those,
 the Nix store paths the CLI, Python and coreutils need, read-only, and a minimal /etc. No repo, no data/, no ledger,
 no real HOME, no host environment, and no network but `egress.py`'s relay to the hosts in HOSTS. The agent's tools
-are Read and Write in the workspace and Bash for `./<client>` only, a read-only mount whose Python ignores the
-workspace's modules; no MCP servers, no setting sources, no web tools.
+are Read and Write in the workspace (the CLI permits Write by an Edit rule; the Edit tool itself is not exposed) and Bash
+for `./<client>` only, a read-only mount whose Python ignores the workspace's modules; no MCP servers, no setting
+sources, no web tools. `canary.py` checks this against a real session.
 """
 
 import functools
@@ -36,7 +37,7 @@ ETC = {"passwd": "agent:x:1000:100::/home/agent:/bin/sh\n", "group": "users:x:10
 
 def tools(client):
     return ["--tools", "Read,Write,Bash",
-            "--allowedTools", f"Bash(./{client}:*)", "Read(//work/**)", "Write(//work/**)",
+            "--allowedTools", f"Bash(./{client}:*)", "Read(//work/**)", "Edit(//work/**)",
             "--disallowedTools", "WebFetch", "WebSearch", "Edit", "Glob", "Grep", "Task", "NotebookEdit",
             "--permission-mode", "dontAsk", "--strict-mcp-config", "--setting-sources", "", "--no-session-persistence"]
 
@@ -148,26 +149,34 @@ def run(workdir, client, model, max_turns, wall_seconds, prompt=PROMPT):
             "transcript_sha256": hashlib.sha256(transcript.read_bytes()).hexdigest()}
 
 
-def tool_use(transcript, client):
-    """The tools a transcript used, its invocations of `./<client>` in the Bash commands that ran (a denied command never
-    reaches the daemon), those outside PERMITTED, and its permission denials."""
-    tools_, bash, denied = [], {}, []
+def calls(transcript):
+    """A transcript's tool calls {id: {"name", "input"}}, the ids of its permission denials, and the ids of the calls
+    that failed (the denied ones included)."""
+    uses, denied, failed = {}, set(), set()
     for line in open(transcript):
         try:
             d = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if d.get("type") == "assistant":
-            for c in d["message"]["content"]:
-                if c.get("type") == "tool_use":
-                    tools_.append(c["name"])
-                    if c["name"] == "Bash":
-                        bash[c["id"]] = c.get("input", {}).get("command", "").count(f"./{client}")
+        content = d.get("message", {}).get("content") if d.get("type") in ("assistant", "user") else None
+        for c in content if isinstance(content, list) else []:
+            if c.get("type") == "tool_use":
+                uses[c["id"]] = {"name": c["name"], "input": c.get("input", {})}
+            if c.get("type") == "tool_result" and c.get("is_error"):
+                failed.add(c["tool_use_id"])
         if d.get("type") == "result":
-            denied = d.get("permission_denials", [])
-    ran = set(bash) - {x.get("tool_use_id") for x in denied}
-    return {"tools": sorted(set(tools_)), "client_calls": sum(bash[i] for i in ran),
-            "outside_permitted": sorted(set(tools_) - PERMITTED), "denials": len(denied)}
+            denied = {x.get("tool_use_id") for x in d.get("permission_denials", [])}
+    return uses, denied, failed | denied
+
+
+def tool_use(transcript, client):
+    """The tools a transcript used, its invocations of `./<client>` in the Bash commands that ran (a denied command never
+    reaches the daemon), those outside PERMITTED, and its permission denials."""
+    uses, denied, _ = calls(transcript)
+    names = {u["name"] for u in uses.values()}
+    ran = [u["input"].get("command", "") for i, u in uses.items() if u["name"] == "Bash" and i not in denied]
+    return {"tools": sorted(names), "client_calls": sum(c.count(f"./{client}") for c in ran),
+            "outside_permitted": sorted(names - PERMITTED), "denials": len(denied)}
 
 
 def identity(files, extra):
