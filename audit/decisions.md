@@ -385,3 +385,12 @@ Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommen
 ## 2026-10-31 (2026-10-30 EDT): the sources poll target is 240 s (advisor)
 
 - C5.3's hosts revision covers an interval only between polls at most 5 minutes apart; a 300 s target missed that on jitter alone (287 of 575 gaps over 300 s). `POLL` is 240 s (Discourse and Snapshot allow 100 or more requests a minute, `venue/sources.toml`). Deployed with the kernel clock record, the 72 h segment having just begun. Reverse by setting `POLL` back to 300.
+
+## 2026-10-31 00:22 UTC (2026-10-30 20:22 EDT): three rules for `agent-real` (human)
+
+- From the fresh Claude review of its revisions (`audit/reviews/2026-10-31-claude-agent-real-revisions.md`), recorded in `audit/criteria.md`. GPT's review is queued before any run.
+- An attempt stopped from outside is not void and goes to the human; only a session that reached its own end can be void. It closes a repeatable stop with public prices in view. Because the code cannot tell an operator's stop from a dead pod, a dead pod goes to the human too.
+- A failed audit or a changed input blocks the release and goes to the human, with no further arm A attempt (the "complete" revision, as committed).
+- With zero finalists, stage 3 can exit with the release items empty, stating that the release path was not exercised.
+- This PC's claim line stays even if the holdout ends up unspent: the cluster's store can still release it, and removing the line would allow a second release. The mechanism reporting step gets no code until arm A has finalists.
+- Reverse any of these by a further dated revision before the run.

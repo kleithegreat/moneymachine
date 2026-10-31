@@ -152,6 +152,17 @@ def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c):
     assert [x["campaign"] for x in c.claims()] == ["stage3-real-2"]
 
 
+def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c):
+    c.evals = []
+    (c.out / "stage3-real/run").mkdir(parents=True)
+    with pytest.raises(SystemExit, match="goes to the human"):
+        c.run()
+    assert not (c.out / "stage3-real/void.json").exists() and c.sessions == 0 and c.searches == 0 and c.claims() == []
+    with pytest.raises(SystemExit, match="goes to the human"):
+        c.run()
+    assert not (c.out / "stage3-real-2").exists()
+
+
 def test_zero_finalists_make_no_claim_and_say_so(c):
     c.finalists = False
     c.run()

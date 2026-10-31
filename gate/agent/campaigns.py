@@ -327,6 +327,8 @@ def both_arms(work, data_root, version, report_from, voids):
     run = run_record(run_dir, ledger, cid)
     spent_a = max(evaluations(ledger, cid, "A"), sum(e["cmd"] == "eval" for e in daemon_log(run_dir)))
     if spent_a == 0:
+        if run.get("crashed"):
+            sys.exit(f"{cid}: arm A made no evaluation and was stopped from outside, so it is not void and the case goes to the human")
         write_json(work / "void.json", {"id": cid, "agent_run": run})
         sys.exit(f"{cid}: void, arm A made no evaluation (audit/criteria.md, One attempt); nothing claimed, a new attempt takes a fresh id")
     audit = audit_run(run_dir, ledger, cid)
