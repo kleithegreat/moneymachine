@@ -14,8 +14,8 @@ from gate.markets import write_market
 REPO = Path(__file__).resolve().parents[2]
 
 
-def failing_canary():
-    raise RuntimeError("the sandbox canary failed")
+def failing_canary(model=None):
+    raise campaigns.canary.Broken("the sandbox canary failed")
 
 
 def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, monkeypatch):
@@ -58,7 +58,7 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
-    monkeypatch.setattr(campaigns.canary, "check", lambda: {})
+    monkeypatch.setattr(campaigns.canary, "passes", lambda: True)
     monkeypatch.setitem(campaigns.COHORTS, "agent", ("agent-null-2", 3))
     ids, log = campaigns.cohort("agent")
     started, slept = [], []
@@ -107,14 +107,18 @@ def test_a_missing_series_input_starts_nothing(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
-def test_a_failing_canary_starts_nothing(tmp_path, monkeypatch):
+def test_a_failing_canary_starts_nothing_and_paces_again_after_a_wait(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
     monkeypatch.setattr(campaigns.canary, "check", failing_canary)
-    monkeypatch.setattr(campaigns, "wait_for_room", lambda log: pytest.fail("paced"))
-    with pytest.raises(RuntimeError):
-        campaigns.run_series("agent")
-    assert list(tmp_path.iterdir()) == []
+    monkeypatch.setattr(campaigns, "SERIES", {"agent": lambda cid, inputs: pytest.fail("started")})
+    slept = []
+    monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"wait": lambda self, s: slept.append(s)})())
+    monkeypatch.setattr(campaigns, "wait_for_room", lambda log: None if len(slept) == 2 else ("TAMU", {}))
+    campaigns.run_series("agent")
+    assert slept == [campaigns.session.RETRY] * 2
+    assert [p for p in tmp_path.iterdir() if p.is_dir()] == [] and campaigns.cohort("agent")[1].read_text() == ""
+    assert capsys.readouterr().out.count("SANDBOX CONTRACT BROKEN") == 2
 
 
 def test_the_series_runs_on_the_first_account_with_room_tamu_first(tmp_path, monkeypatch):
@@ -139,7 +143,7 @@ def test_a_freeze_is_refused_once_a_campaign_it_is_for_started_and_waits_for_the
     hashes = iter(["a", "b", "c"])
     monkeypatch.setattr(campaigns.harness, "harness_hash", lambda: next(hashes))
     monkeypatch.setattr(campaigns.canary, "check", failing_canary)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(campaigns.canary.Broken):
         campaigns.freeze_harness()
     assert not (tmp_path / "harness.json").exists()
     monkeypatch.setattr(campaigns.canary, "check", lambda: {})

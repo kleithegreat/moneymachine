@@ -227,6 +227,16 @@ def wait_for_room(log):
     return None
 
 
+def ready(log):
+    """`wait_for_room`, then the sandbox canary on the account it chose; after a failed canary, pacing starts over once
+    session.RETRY has passed. None once STOP is set."""
+    while (room := wait_for_room(log)) is not None:
+        if canary.passes():
+            return room
+        STOP.wait(session.RETRY)
+    return None
+
+
 def usage(work):
     """Tokens and cost summed over the result lines of every transcript under `work`."""
     total = dict.fromkeys(TOKENS, 0) | {"cost_usd": 0.0}
@@ -242,18 +252,17 @@ def usage(work):
 
 
 def run_series(name):
-    """The campaigns of `cohort(name)` once `series_inputs` resolve and the sandbox canary passes, resumable (a started,
-    unrecorded id is recorded as a crash), each started when the subscription has room for it (`wait_for_room`) and the
-    harness is still the frozen one, its directory made first as the mark that it started, and recorded with its
-    account, usage, kernel and the windows around it. SIGTERM ends the series between campaigns."""
+    """The campaigns of `cohort(name)` once `series_inputs` resolve, resumable (a started, unrecorded id is recorded as a
+    crash), each started when its account is `ready` and the harness is still the frozen one, its directory made first
+    as the mark that it started, and recorded with its account, usage, kernel and the windows around it. SIGTERM ends
+    the series between campaigns."""
     signal.signal(signal.SIGTERM, lambda *_: STOP.set())
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = series_inputs()
-    canary.check()
     ids, log = cohort(name)
     with campaign.resume(ids, log, OUT) as todo:
         for cid in todo:
-            room = wait_for_room(log)
+            room = ready(log)
             if room is None:
                 break
             account, before = room

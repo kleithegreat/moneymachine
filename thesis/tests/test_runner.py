@@ -1,5 +1,6 @@
 """The runner's ledger-driven schedule: resolutions once (or a missing-data status once), the frozen
-benchmark's rule and skips, ablation inputs cut at registration, and the Monday arithmetic."""
+benchmark's rule and skips, ablation inputs cut at registration, the Monday arithmetic, and the wait for a
+session's readiness."""
 
 import json
 import threading
@@ -154,3 +155,19 @@ def test_a_loop_finishes_its_step_and_ends_when_stopped():
     stop, steps = threading.Event(), []
     runner.forever("t", lambda: (steps.append(1), stop.set()), lambda now: 0, stop)
     assert steps == [1]
+
+
+def test_a_session_waits_for_the_model_and_the_canary_and_a_day_without_them_is_missed(track, monkeypatch):
+    clock = iter([MONDAY + HOUR, MONDAY + DAY])
+    monkeypatch.setattr(runner, "now_ms", lambda: next(clock))
+    monkeypatch.setattr(runner.session, "available", lambda model: True)
+    checks = iter([False, False, True])
+    monkeypatch.setattr(runner.canary, "passes", lambda: next(checks))
+    waited = []
+    monkeypatch.setattr(track.stop, "wait", waited.append)
+    assert not track.ready(MONDAY, "noread")
+    assert waited == [runner.session.RETRY]
+    assert [c["date"] for _, _, c in track.ledger.records("session_missed", "noread")] == [MONDAY]
+    assert track.ready(MONDAY + DAY, "main")
+    track.stop.set()
+    assert not track.ready(MONDAY + DAY, "main")

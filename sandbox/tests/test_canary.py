@@ -1,5 +1,5 @@
-"""The sandbox canary: its verdict on scripted sessions, and against the real CLI only when asked (MM_CANARY=1, with
-CLAUDE_CODE_OAUTH_TOKEN), since that spends a few model turns."""
+"""The sandbox canary: its verdict on scripted sessions, counterexamples included, and against the real CLI only when
+asked (MM_CANARY=1, with CLAUDE_CODE_OAUTH_TOKEN), since that spends a few model turns."""
 
 import json
 import os
@@ -11,10 +11,18 @@ import pytest
 
 from sandbox import canary, session
 
+GOOD = [("w1", "Write", {"file_path": canary.NOTE, "content": "draft"}, "ok"),
+        ("w2", "Write", {"file_path": canary.NOTE, "content": "NONCE"}, "ok"),
+        ("b1", "Bash", {"command": canary.SEND}, "ok"),
+        ("w3", "Write", {"file_path": canary.OUTSIDE[0], "content": "x"}, "denied"),
+        ("w4", "Write", {"file_path": canary.OUTSIDE[1], "content": "x"}, "denied"),
+        ("r1", "Read", {"file_path": canary.OUTSIDE_READ}, "denied"),
+        ("b2", "Bash", {"command": canary.TOUCH}, "denied")]
 
-def scripted(outside_denied):
-    """A session that writes the note, sends it through the client, is refused the second outside Write by an error
-    and the first by a denial (if `outside_denied`), and is denied `touch`."""
+
+def scripted(calls, exit=0):
+    """A session whose effects are always the good ones (the note holds the nonce, the daemon gets it) and whose
+    transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied")."""
     def run(workdir, client, model, max_turns, wall_seconds):
         work = Path(workdir) / "work"
         nonce = re.search(r"exactly `(\w+)`", (work / "brief.md").read_text()).group(1)
@@ -23,24 +31,42 @@ def scripted(outside_denied):
         s.connect(str(session.socket_path(workdir, client)))
         s.sendall(json.dumps({"cmd": "send", "args": [nonce]}).encode() + b"\n")
         s.recv(100)
-        uses = [("w1", "Write", {"file_path": "/work/note.txt"}), ("w2", "Write", {"file_path": canary.OUTSIDE[0]}),
-                ("w3", "Write", {"file_path": canary.OUTSIDE[1]}), ("b1", "Bash", {"command": "touch /work/x"})]
-        lines = [{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": i, "name": n, "input": x}]}}
-                 for i, n, x in uses]
-        lines += [{"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "w3", "is_error": True}]}},
-                  {"type": "result", "permission_denials": [{"tool_use_id": "b1"}] + [{"tool_use_id": "w2"}] * outside_denied}]
+        lines = []
+        for i, name, inp, outcome in calls:
+            inp = {k: nonce if v == "NONCE" else v for k, v in inp.items()}
+            lines += [{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": i, "name": name, "input": inp}]}},
+                      {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": i, "is_error": outcome != "ok"}]}}]
+        lines.append({"type": "result", "permission_denials": [{"tool_use_id": i} for i, _, _, o in calls if o == "denied"]})
         (Path(workdir) / "transcript.jsonl").write_text("".join(json.dumps(l) + "\n" for l in lines))
-        return {"turns": 4, "stopped": "finished", "exit": 0, "transcript_sha256": "x"}
+        return {"turns": len(calls), "stopped": "finished", "exit": exit, "transcript_sha256": "x"}
     return run
 
 
-def test_the_verdict(monkeypatch):
-    monkeypatch.setattr(session, "run", scripted(True))
-    r = canary.check()
-    assert r["write"] and r["client"] and r["bash_denied"] and all(r["outside_refused"].values())
-    monkeypatch.setattr(session, "run", scripted(False))
-    with pytest.raises(RuntimeError, match="'/home/agent/outside.txt': False"):
+def outcome(i, new):
+    return [(j, n, x, new if j == i else o) for j, n, x, o in GOOD]
+
+
+@pytest.mark.parametrize("calls", [
+    outcome("w2", "denied"),
+    [c for c in GOOD if c[0] != "b1"],
+    outcome("w3", "error"),
+    outcome("r1", "ok"),
+    GOOD + [("g1", "Glob", {"pattern": "*"}, "ok")],
+], ids=["workspace Write denied though the file exists", "daemon reached without a Bash call",
+        "outside Write failed but not denied", "outside Read allowed", "tool outside PERMITTED"])
+def test_counterexamples_fail(monkeypatch, calls):
+    monkeypatch.setattr(session, "run", scripted(calls))
+    with pytest.raises(canary.Broken):
         canary.check()
+
+
+def test_the_good_session_passes_and_a_session_that_did_not_run_is_unavailable(monkeypatch, capsys):
+    monkeypatch.setattr(session, "run", scripted(GOOD))
+    assert canary.check()["write"] and canary.passes()
+    monkeypatch.setattr(session, "run", scripted([], exit=1))
+    with pytest.raises(canary.Unavailable):
+        canary.check()
+    assert not canary.passes() and "unavailable" in capsys.readouterr().out
 
 
 @pytest.mark.skipif(not (os.environ.get("MM_CANARY") == "1" and os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")),

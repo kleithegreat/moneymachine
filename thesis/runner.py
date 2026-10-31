@@ -130,20 +130,33 @@ class Track:
                 "markets": {m: {"last_close": d[-1][2], "t": d[-1][0] + DAY} for m, d in cutoff.items() if d}}
         return task, snap
 
-    def day(self, date):
-        """The main session, an ablation per accepted main thesis, then the full no-reading session."""
-        while not session.available(harness.MODEL):
+    def ready(self, date, account):
+        """Whether the model answers and the sandbox canary passes before `account`'s next session, retried every
+        session.RETRY: False on SIGTERM, or once the day is over, which is recorded as missed with the day's later
+        sessions."""
+        while not self.stop.is_set():
+            if session.available(harness.MODEL) and canary.passes():
+                return True
             if now_ms() >= date + DAY:
-                self.ledger.disclose("session_missed", "main", {"date": date, "reason": "the model was unavailable all day"})
-                return
-            if self.stop.wait(session.RETRY):
-                return
+                self.ledger.disclose("session_missed", account, {"date": date, "reason": "the model was unavailable or the "
+                                     "sandbox canary failed until the day ended; the day's later sessions did not run"})
+                return False
+            self.stop.wait(session.RETRY)
+        return False
+
+    def day(self, date):
+        """The main session, an ablation per accepted main thesis, then the full no-reading session, each once `ready`."""
+        if not self.ready(date, "main"):
+            return
         snapshot = self.snapshot(now_ms())
         name = self.session("main", "main", date, snapshot, MAIN_COMMANDS)
         for th in [t for t in self.ledger.theses("main") if t["session"] == name]:
+            if not self.ready(date, "ablation"):
+                return
             task, snap = self.ablation_task(th, snapshot)
             self.session("ablation", "ablation", date, snap, ("prices", "forecast"), task, ablation_of=th["id"])
-        self.session("noread", "noread", date, snapshot, NOREAD_COMMANDS)
+        if self.ready(date, "noread"):
+            self.session("noread", "noread", date, snapshot, NOREAD_COMMANDS)
 
     def benchmark(self, monday):
         """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order: each market's last daily
@@ -198,13 +211,12 @@ class Track:
             any(th["session"] == f"benchmark-{monday}" for th in self.ledger.theses("benchmark"))
 
     def run(self):
-        """Until SIGTERM, once the sandbox canary passes: resolutions every 5 min and builder marks at H + MARK_OFFSET on
-        their own threads; the Monday benchmark and the daily sessions each minute (`schedule`). On SIGTERM each loop
-        finishes its current step (a day's sessions included) and the runner exits. One runner per root."""
+        """Until SIGTERM: resolutions every 5 min and builder marks at H + MARK_OFFSET on their own threads; the Monday
+        benchmark and the daily sessions each minute (`schedule`). On SIGTERM each loop finishes its current step (a day's
+        sessions included) and the runner exits. One runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
         if frozen.get("manifest") != self.manifest:
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
-        canary.check()
         self.root.mkdir(parents=True, exist_ok=True)
         lock = open(self.root / "run.lock", "w")
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
