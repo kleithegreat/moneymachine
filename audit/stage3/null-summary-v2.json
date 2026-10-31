@@ -1,0 +1,348 @@
+{
+ "n": 20,
+ "ids": [
+  "agent-null-2-N2-0",
+  "agent-null-2-N2-1",
+  "agent-null-2-N2-2",
+  "agent-null-2-N2-3",
+  "agent-null-2-N2-4",
+  "agent-null-2-N2-5",
+  "agent-null-2-N2-6",
+  "agent-null-2-N2-7",
+  "agent-null-2-N2-8",
+  "agent-null-2-N2-9",
+  "agent-null-2-N2-10",
+  "agent-null-2-N2-11",
+  "agent-null-2-N2-12",
+  "agent-null-2-N2-13",
+  "agent-null-2-N2-14",
+  "agent-null-2-N2-15",
+  "agent-null-2-N2-16",
+  "agent-null-2-N2-17",
+  "agent-null-2-N2-18",
+  "agent-null-2-N2-19"
+ ],
+ "counted_promotions": 1,
+ "mm": [
+  "3a732069413d050f334229e3e1bcf8d804f2e10ba21ad0365dd5187f6ed081b7"
+ ],
+ "audits": {
+  "agent-null-2-N2-0": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 5
+  },
+  "agent-null-2-N2-1": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 3
+  },
+  "agent-null-2-N2-2": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 4
+  },
+  "agent-null-2-N2-3": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 1
+  },
+  "agent-null-2-N2-4": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 9
+  },
+  "agent-null-2-N2-5": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 4
+  },
+  "agent-null-2-N2-6": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 1
+  },
+  "agent-null-2-N2-7": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 5
+  },
+  "agent-null-2-N2-8": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 3
+  },
+  "agent-null-2-N2-9": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 3
+  },
+  "agent-null-2-N2-10": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 1
+  },
+  "agent-null-2-N2-11": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 3
+  },
+  "agent-null-2-N2-12": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 1
+  },
+  "agent-null-2-N2-13": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 6
+  },
+  "agent-null-2-N2-14": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 1
+  },
+  "agent-null-2-N2-15": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 5
+  },
+  "agent-null-2-N2-16": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 1
+  },
+  "agent-null-2-N2-17": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 6
+  },
+  "agent-null-2-N2-18": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 6
+  },
+  "agent-null-2-N2-19": {
+   "daemon_calls": 0,
+   "ledger_rows": 0,
+   "match": true,
+   "tools": [
+    "Bash",
+    "Read",
+    "Write"
+   ],
+   "outside_permitted": [],
+   "denials": 1
+  }
+ },
+ "evaluations": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "cross_agent_history": [
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null
+ ],
+ "spreads": {
+  "spa_p": null,
+  "max_dsr": null,
+  "screened": {
+   "n": 20,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "G100_null_n2": {
+  "spa_p": {
+   "n": 300,
+   "min": 0.0,
+   "median": 0.567,
+   "max": 1.0
+  },
+  "max_dsr": {
+   "n": 300,
+   "min": 0.014245792009703403,
+   "median": 0.1652977831606216,
+   "max": 0.8601871794103868
+  },
+  "screened": {
+   "n": 300,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "statement": "20 runs bound the promotion rate only to about 0.28; this is a smoke test.",
+ "qualifications": "PROGRESS.md, Qualifications, stage 3",
+ "label": "pipeline validation run, not a test for edge; every promotion: historical holdout, costs fitted after it"
+}
