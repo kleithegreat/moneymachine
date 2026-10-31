@@ -37,7 +37,6 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 - Stage 0: exited 2026-10-26 with C0.7 qualified, by human decision (`audit/stage0/criteria-result.txt`). Stage 1: done 2026-10-26 (`audit/stage1/`).
 - Stage 2: exited 2026-10-28 with C2.6 waived, by human decision (`audit/stage2/exit-r2.md`).
-- Stage 3's preparation: erasure pass, harness freeze, C0.7 regime diagnostic (`audit/erasure/`, `audit/diagnostics/`).
 - Stage 5: exited under C5.3's amendment (`audit/stage5/`). Stage 6: exited 2026-10-23 with Lean adopted, human-reviewed (`audit/stage6/report.md`).
 - The move to the cluster: recorders handed off 2026-10-29 (`audit/cluster/handoff.md`).
 
@@ -53,7 +52,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **C3.2 v2 measured nothing: the agent cannot write a file** (`audit/stage3/write-denied-2026-10-31.md`). The 10-22 erasure pass (`3ba9535`), merging both tracks' sandboxes, kept stage 10's allow list and dropped stage 3's `Edit(//work/**)` (`977e01b`, 10-19), without which no CLI writes (reproduced). v2: 20 runs, 0 evaluations, 1 counted (no daemon call), a numerical pass of a procedure never established. Stage 10's agents have never registered a thesis under any track version (`register FILE` needs a file), so C10.5's window accrues nothing. Both reviewers (`audit/reviews/2026-10-31-{gpt,claude}-write-denied.md`): hold agent-real; fix `sandbox/session.py` to `Edit(//work/**)` on 2.1.304, plus a real-session canary before freezes and campaigns; this forks stage 3's harness (C3.2 v3, fresh ids, a dated revision) and stage 10's track (C10.5 restarts); re-derive `freeze_harness`, which now refuses every refreeze. Pods untouched: `thesis` runs on (benchmark).
+- **C3.2 v2 measured nothing: the agent cannot write a file** (`audit/stage3/write-denied-2026-10-31.md`). The 10-22 erasure pass (`3ba9535`), merging both tracks' sandboxes, kept stage 10's allow list and dropped stage 3's `Edit(//work/**)` (`977e01b`, 10-19), without which no CLI writes (reproduced). v2: 20 runs, 0 evaluations, 1 counted (no daemon call), a numerical pass of a procedure never established. Stage 10's agents have never registered a thesis under any track version (`register FILE` needs a file), so C10.5's window accrues nothing. Both reviewers (`audit/reviews/2026-10-31-{gpt,claude}-write-denied.md`): hold agent-real; fix `sandbox/session.py` to `Edit(//work/**)` on 2.1.304, plus a real-session canary before freezes and campaigns; this forks stage 3's harness (C3.2 v3, fresh ids, a dated revision) and stage 10's track (C10.5 restarts); re-derive `freeze_harness`. Candidate: branch `harness-fix`, revised after GPT's review (`audit/reviews/2026-10-31-gpt-harness-fix.md`). `thesis` runs on (benchmark).
 
 ## Qualifications
 
