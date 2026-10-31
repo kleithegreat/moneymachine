@@ -502,8 +502,6 @@ def series_in_the_pods_view():
     assert len(rows) == 1 and "crash" not in rows[0] and rows[0]["audit"]["match"] and rows[0]["mm"] == campaigns.sha256(MM), rows
 
 
-@pytest.mark.xfail(strict=True, reason="sandbox/session.py's Edit(//work/**) forks the harness ahead of its refreeze "
-                   "(audit/stage3/write-denied-2026-10-31.md); this marker is removed in the refreeze's commit")
 def test_the_series_in_its_pods_view(tmp_path):
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
     kernel.build()
