@@ -61,10 +61,15 @@ def test_c25_mixed_fdr():
         assert c["n"] == 100 and c["fdr"] + math.sqrt(math.log(20) / 200) <= 0.20, name
 
 
+def test_c26_campaign_counts_and_the_recorded_power():
+    cells = load("stage2/sweeps.json")["mixed"]
+    assert {k: v["n"] for k, v in cells.items()} == {k: 100 for k in ["N2-long", "N2-s1", "N2-s2", "N2-s3", "N3-s1", "N3-s2", "N3-s3"]}
+    assert cells["N2-long"]["power"] == 0.05
+
+
 @pytest.mark.xfail(strict=True, raises=AssertionError,
                    reason="C2.6's waiver of 2026-10-28 (audit/criteria.md), by human decision: N2-long's power 0.05 against 0.30")
 def test_c26_power_amended():
     """C2.6 amendment of 2026-10-26: power >= 0.30 in the long-holdout cell. C2.6 as written (N2-s3) is judged in
     the stage 2 report and listed under Qualifications if it fails."""
-    cells = load("stage2/sweeps.json")["mixed"]
-    assert cells["N2-long"]["n"] == 100 and cells["N2-long"]["power"] >= 0.30
+    assert load("stage2/sweeps.json")["mixed"]["N2-long"]["power"] >= 0.30

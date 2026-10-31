@@ -7,6 +7,7 @@ unique (file, old, new) replacements applied to a fresh copy of the working tree
 
 import os
 import queue
+import re
 import shutil
 import subprocess
 import sys
@@ -85,8 +86,21 @@ def run(cmd, cwd, log, env):
         return subprocess.run(["bash", "-c", cmd], cwd=cwd, stdout=fh, stderr=subprocess.STDOUT, env=env).returncode
 
 
+BROKEN = re.compile(r"could not compile|error\[E\d+\]|Timeout|worker_memory_gb exceeded|^ERROR |crashed|Killed", re.M)
+RUST_ASSERTION = re.compile(r"panicked at \S*/tests/\S+:\d+")
+PYTEST_ASSERTION = re.compile(r"^FAILED \S+::", re.M)
+
+
+def failed_by_assertion(log):
+    """Whether a nonzero run's log shows the test itself failing: a panic inside a Rust test file, or a failed pytest test
+    with an AssertionError. A build or collection error, a timeout or a memory kill is not that."""
+    if BROKEN.search(log):
+        return False
+    return bool(RUST_ASSERTION.search(log) or PYTEST_ASSERTION.search(log) and "AssertionError" in log)
+
+
 def check(name, slot):
-    """Whether the mutant's named test passes on a clean copy of the tree and fails on the mutated one."""
+    """Whether the mutant's named test passes on a clean copy of the tree and fails by assertion on the mutated one."""
     test, edits = MUTANTS[name]
     slug = "-".join(name.split())
     env = os.environ | {"CARGO_TARGET_DIR": str(REPO / "kernel" / f"target-mutants-{slot}")}
@@ -101,8 +115,13 @@ def check(name, slot):
                 return f"BROKEN {name}: edit does not match exactly once in {f}: {old!r}"
             path.write_text(text.replace(old, new))
         mutated = run(test, wt, LOGS / f"{slug}.mutated.log", env)
-    return ("caught " if clean == 0 and mutated != 0 else "MISSED ") + name + (
-        "" if clean == 0 and mutated != 0 else f" (clean={clean}, mutated={mutated})")
+    if clean != 0:
+        return f"BROKEN {name}: the clean tree fails its test (clean={clean})"
+    if mutated == 0:
+        return f"MISSED {name}"
+    if not failed_by_assertion((LOGS / f"{slug}.mutated.log").read_text(errors="replace")):
+        return f"INCONCLUSIVE {name}: the mutated run exited {mutated} without the test failing by assertion"
+    return f"caught {name}"
 
 
 def main(n=None):

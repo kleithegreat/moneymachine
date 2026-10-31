@@ -14,8 +14,7 @@ LISTED = [c for c, r in json.loads((REPO / "venue/hyperliquid/rules.json").read_
 def judged_ingest():
     """C0.2 and C0.5 are judged on the second fetch, at least 24 h after the first (C0.3 revision)."""
     reports = ingest_reports()
-    if len(reports) < 2:
-        pytest.skip("the second fetch of W has not run yet")
+    assert len(reports) >= 2, "stage 0 has exited, so the second fetch of W is recorded"
     return reports
 
 
@@ -52,16 +51,27 @@ def test_c05_replay_completeness():
     assert load(f"stage0/replay-as-of-amended-{report['version']}.json")["replay_search_as_of"]["fraction_ok"] >= 0.99
 
 
+CELLS = [(coin, side, size) for coin in LISTED for side in ("buy", "sell") for size in (1000, 10000)]
+C07_RECORDED_FAILURES = {("BTC", "sell", 1000), ("SUI", "sell", 10000), ("kPEPE", "sell", 10000)}
+
+
+def c07_failed_cells():
+    e = load("stage0/execution.json")
+    return {(coin, side, size) for coin, side, size in CELLS
+            if not (e[f"{coin}:{side}:{size}"]["coverage"] >= 0.9 and e[f"{coin}:{side}:{size}"]["model_above_test_q90_bps"] <= 3.0)}
+
+
+def test_c07_evidence_and_the_recorded_failures_are_exactly_as_recorded():
+    e = load("stage0/execution.json")
+    assert len(CELLS) == 44
+    assert all(e[f"{coin}:{side}:{size}"]["n_cal"] + e[f"{coin}:{side}:{size}"]["n_test"] >= 24 * 60 for coin, side, size in CELLS)
+    assert c07_failed_cells() == C07_RECORDED_FAILURES
+
+
 @pytest.mark.xfail(strict=True, raises=AssertionError,
                    reason="C0.7's qualification of 2026-10-26 (audit/criteria.md), by human decision: 3 of 44 cells under its coverage")
 def test_c07_execution_model():
-    e = load("stage0/execution.json")
-    for coin in LISTED:
-        for side in ("buy", "sell"):
-            for size in (1000, 10000):
-                cell = e[f"{coin}:{side}:{size}"]
-                assert cell["coverage"] >= 0.9 and cell["model_above_test_q90_bps"] <= 3.0, (coin, side, size)
-                assert cell["n_cal"] + cell["n_test"] >= 24 * 60, (coin, side, size)
+    assert not c07_failed_cells()
 
 
 def test_c08_witness_reconciles():
