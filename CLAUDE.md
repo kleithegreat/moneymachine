@@ -50,12 +50,12 @@ Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harn
 
 ### Decisions
 
-One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, it gets review and the human decides: ask if they are present; otherwise it goes under "Decisions awaiting the human's review" and moves to `audit/decisions.md`, with what, why, what reviewers said and how to reverse it, once reviewed.
+One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, it gets review (a fresh Claude and GPT), then the advisor decides and acts, logging in `audit/decisions.md` what, why, what reviewers said and how to reverse it; the human reviews it afterwards under "Decisions awaiting the human's review". Only the list below waits for the human.
 
 Reviews take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change; one that can't is noted, not acted on. A review repeats only if a finding changed the design. Work that isn't active gets no review rounds. A new rule names the failure it prevents, and goes when that failure can no longer happen.
 
 Only the human may:
-- loosen a frozen threshold, or fix a defect in the procedure that a failure exposed (as a new version judged on fresh evidence, never a pass of the old);
+- loosen a frozen threshold;
 - spend beyond an approved budget (`audit/decisions.md`);
 - settle a terms question or a licence reading;
 - delete audit records.
