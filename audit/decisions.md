@@ -348,3 +348,12 @@ Transcribed as PROGRESS.md stated them (last at 342b9fd); dated by when the huma
 - Accepted (B3/B4): GPT's objection, raised three times, that the human's reading of the CME and Nasdaq terms may be wrong is recorded as a known limitation, not a further gate. It cannot change a false-discovery or leakage outcome; it remains a licensing risk the human knowingly takes, and the reading is not thereby shown correct.
 - GPT's review of the draft is still queued; the revision is adopted into `scope-manifest.md` after it, under the manifest's own rule. A review finding on either point returns to the human.
 - Correction, 2026-10-30 19:46 UTC (15:46 EDT): the heading above gives the Eastern time as 19:43 EDT; the entry was written at 19:43 UTC (15:43 EDT).
+
+## 2026-10-31 00:00 UTC (20:00 EDT): four decisions after GPT's and Opus's reviews (human)
+
+Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommendation on each.
+
+1. **Forward window:** no technical lock, against GPT's recommendation. A real lock needs a second identity or separately held keys across three locations, and the prices are public. The integrity-only rule stands, and it binds every session, since the mirror on this PC still holds the cluster's recording. From 2026-11-01 00:00 UTC (2026-10-31 20:00 EDT), `mm-oci-pull` stops copying Hyperliquid recordings for the window to this PC. Reverse by adding the lock, or restoring the pull, before anything reads those recordings beyond integrity.
+2. **Clock record:** GPT's node-native chrony record and revision text, not the `adjtimex` log a fresh Opus session advised. The homelab side is drafted for the human to run.
+3. **Stage 8:** the manifest revision is adopted with GPT's corrections, including its wording that deleting restricted artifacts never removes campaigns or outcomes from statistical accounting.
+4. **`agent-real`:** dated revisions, each reviewed by GPT before any run: arm A with zero evaluations is a void attempt (no claim, no arm B, a fresh campaign id); C3.3's "complete" means ended under One attempt; a missing or aborted finalist counts as p = 1 within its family; diagnostics are released only after the committed promotion decisions; holdout mechanism evidence comes from a later reporting step on the spent holdout; with zero finalists there is no claim, the holdout stays unspent, and the report says so. No kernel change. The running series stays on its image. Reverse any of these by a further dated revision before the run.
