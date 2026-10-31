@@ -24,19 +24,19 @@ The one exception is the audit record (§3): pre-registered criteria, the experi
 
 ## 3. This project
 
-The human directs the project and is usually present: ask when it matters. The advisor is one long-lived session. Builders are fresh, self-contained sessions or subagents: read `PROGRESS.md` first, and end by updating it. Some work runs unattended overnight; then nobody answers, so write what you would have asked under Blockers, commit, and carry on with whatever does not depend on it.
+The human directs the project and is usually present: ask when it matters. The advisor is one long-lived session; builders are fresh, self-contained sessions or subagents. Every session reads `PROGRESS.md` first, and a builder ends by updating it. Some work runs unattended overnight; then nobody answers, so write what you would have asked under Blockers, commit, and carry on with whatever does not depend on it.
 
 The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap sets the stages, and stage 11 is the human's. If the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record that under Blockers before changing it. After a paper change, commit the rebuilt PDF (`nix build .#whitepaper`, copy `result` to `docs/whitepaper.pdf`).
 
 ### The advisor
 
 - When the human asks something or proposes an idea, catch every case where it has already been studied, solved or argued at length. Say exactly "this has been talked about extensively you're just 21", name the work and what it found, and build on that. Say it only when it is true, checking when unsure.
-- Before a decision, ask a fresh Claude session and GPT, without giving them your conclusion. They are as capable as you, so they see the whole repo and history, except what Reviewers withholds.
+- Before a substantive decision, not the mechanical execution of an approved plan, ask a fresh Claude session and GPT, without giving them your conclusion. They are as capable as you, so they see the whole repo and history, except what Reviewers withholds.
 - Choose each builder's model by the task's difficulty: Sonnet 5.5 as a subagent or GPT where a check covers the work, Opus for the hard parts.
 
 ### Where information lives
 
-One home per kind of information; nothing is duplicated across them.
+One authoritative home per kind of information; anything elsewhere is a summary that links to it.
 - **Intent:** the paper. **Process:** this file. **The live system:** `CLUSTER.md`.
 - **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (`ops/test_progress.py`), leaving history to git.
 - **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
@@ -46,7 +46,7 @@ One home per kind of information; nothing is duplicated across them.
 
 ### Frozen identities
 
-Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harness, the thesis manifest, the kernel of the pilot's judged runs), unless the change is meant to fork it. A fork reruns what it judged, so check first: `gate/agent/harness.py`'s `harness_hash`, `audit/stage10/manifest.json`, `audit/criteria.md`.
+Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harness, the thesis manifest, the kernel of the pilot's judged runs), unless the change is meant to fork it. A fork never gets to rerun what it judged on the same evidence: a changed harness needs fresh null campaign ids, a real arm a new, later holdout, and a thesis refreeze a new forward window. Check first: `gate/agent/harness.py`'s `harness_hash`, `audit/stage10/manifest.json`, `audit/criteria.md`.
 
 ### Decisions
 
@@ -72,9 +72,9 @@ Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper 
 
 ### Reviewers
 
-**Consulting** means the whole repo and history. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26, with its logged debugging allowance). Run GPT from a clean worktree, which holds no `data/` and no token files.
+**Consulting** means the whole repo and history. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26; debugging views per `audit/stage8/scope-manifest.md`). Run GPT from a clean worktree, which holds no `data/` and no token files.
 
-**An independent check** is what a frozen criterion or paper §6 or §8 names (a red team, a differential implementation, a locked suite), plus the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo; put in it an `opencode.json` denying `edit`, `bash`, `webfetch`, `external_directory`, `execute`, `task` and `subagent`; from it, run `timeout 3600 opencode run -m <model> "<prompt>" -f <file> -f <file> ...` as a background task, taking the deliverable from the reply. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
+**An independent check** is what a frozen criterion or paper §6 or §8 names (a red team, a differential implementation, a locked suite), plus a source-blind red team after each kernel milestone, whose every success becomes a permanent test, and the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo; put in it an `opencode.json` denying `edit`, `bash`, `webfetch`, `external_directory`, `execute`, `task` and `subagent`; from it, run `timeout 3600 opencode run -m <model> "<prompt>" -f <file> -f <file> ...` as a background task, taking the deliverable from the reply. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
 
 **GPT** is opencode, model `openai/gpt-6.1-sol#high`; as a builder, `opencode run --auto -m <model> "<prompt>"` from a worktree. Probe first (`timeout 120 opencode run -m <model> "Reply with OK."`). If it fails, never block: a fresh Claude session reviews, labeled as such, with a GPT review queued; an independent implementation waits unless its criterion says otherwise.
 
@@ -82,14 +82,14 @@ Work that could change a false-discovery or leakage outcome gets an independent 
 
 ### Sources
 
-Fetch automatically only under a certificate that quotes a permitting clause or shows an official API allowing it (paper §5); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Accounts and contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
+Fetch automatically only under a certificate that quotes a permitting clause, shows an official API allowing it, or records the human's specific operator decision (paper §5, `ingest/terms.py`); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Accounts and contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
 
 ### Running things
 
 - **Live workloads:** on the cluster; read `CLUSTER.md` before touching one. Recordings can't be refetched: never delete or move them, nor a file a running process reads.
 - **Heavy jobs:** batches run on the cluster (`ops/jobs.py`). Other heavy work on this PC: `systemd-run --user --scope -p MemoryMax=… -p MemorySwapMax=1G choom -n 1000 -- nix develop -c ...`.
 - **Performance:** use every core while work is queued, with pools sized from measured peak memory and free memory (`gate/compute.py`). An idle host with work waiting is a bug.
-- **Waiting:** heavy entry points block, so run them as background tasks. For an unattended wake-up, write its condition and action into Now and schedule `ops/builder.sh at <when> <task> [model]`. Claude builder sessions are named `builder: <task>`.
+- **Waiting:** heavy entry points block, so run them as background tasks. For an unattended wake-up, write its condition and action into Now and schedule `ops/builder.sh at <when> <task> [model]`. A wake-up still in Now after its time, with no start in `data/builder/log.tsv`, was missed (timers run only while logged in): do it. Claude builder sessions are named `builder: <task>`.
 
 ### Tech
 
