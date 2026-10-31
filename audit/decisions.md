@@ -401,3 +401,9 @@ Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommen
 - Why: the defect is in delivery, not in arm A's procedure or harness (no hashed file changes); fresh ids give fresh null markets and keep v1's failure on record.
 - Reviewers, each without the advisor's plan: a fresh Claude (`audit/reviews/2026-10-31-claude-c32-crash.md`) and GPT (`audit/reviews/2026-10-31-gpt-c32-crash.md`) agree on cause and fix; they add one series-log definition for pacing and the real campaign's lock, a check before the first id, a start marker before generation, and binding `check_ready` to v2's cohort. GPT's permanent `FIRST_NEED` floor on pacing is not adopted (it would stall the series on the seven-day window); rows with no model call are kept out of the measurement instead.
 - Reverse: none for v1's failure. v2 can be abandoned before it starts by not committing its revision.
+
+## 2026-10-31 06:15 UTC (02:15 EDT): C3.2 v2's code choices (builder: C3.2 v2)
+
+- Pacing: `need` ignores a campaign whose usage shows no tokens, since it measured nothing (v1's 20 rows taught 0.01). No `FIRST_NEED` floor on measured needs: it would hold every start to 0.3 of the seven-day window. Reverse: drop that condition in `need`.
+- `Store.as_of` raises on a dataset with no revisions instead of returning None, which every caller used at once; a missing store now fails where it is read.
+- `agent-real` also requires the C3.2 summary's kernels to be exactly its own `mm` (C3.3's unchanged kernel), beside v2's declared ids and at most 2 promotions.

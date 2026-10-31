@@ -1,21 +1,25 @@
 """The one real campaign with the model call stubbed and everything else real (kernel, daemon, ledger, claim): each way it
-can end, and recovery after a crash at each step (audit/criteria.md, stage 3, revisions of 2026-10-31)."""
+can end, and recovery after a crash at each step (audit/criteria.md, stage 3, revisions of 2026-10-31); and the null
+series as its pod runs it."""
 
+import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from gate import kernel
+from gate import kernel, markets
 from gate.agent import campaigns
 from gate.agent.daemon import Daemon
 from gate.kernel import MM, command
-from gate.markets import write_market
+from gate.markets import HOLDOUT_START, HOUR, W_START, write_market
 
 REPO = Path(__file__).resolve().parents[2]
 BAD = '{"dsl": 1}'
@@ -32,6 +36,19 @@ def program(hours):
                        "weight": {"op": "mul", "args": [{"op": "sign", "args": [momentum]}, {"const": 0.05, "unit": "1"}]}})
 
 
+def daemon_session(market, ledger, cid, workdir, evals):
+    """A model session's calls, made through the real daemon: a rejected free check, then `evals`."""
+    workdir.mkdir(parents=True)
+    (workdir / "transcript.jsonl").write_text("")
+    d = Daemon(workdir / "sock", market, ledger, cid, "A", 100, workdir / "daemon.log")
+    d.handle({"cmd": "check", "args": [BAD]})
+    for text in evals:
+        d.handle({"cmd": "eval", "args": [text]})
+    d.proc.stdin.close()
+    d.proc.wait()
+    return d
+
+
 class Campaign:
     """The stubs around `real`: the model session runs `evals` through the real daemon, the searcher commits one
     evaluation, and the search gate passes every filled trial when `finalists` is set."""
@@ -45,7 +62,7 @@ class Campaign:
         record, null = tmp_path / "holdout.json", tmp_path / "null.json"
         record.write_text(json.dumps([{"path": str(p.relative_to(self.root)), "sha256": campaigns.sha256(p)}
                                       for p in sorted((self.root / "holdout").rglob("*.parquet"))]))
-        null.write_text(json.dumps({"n": 20, "counted_promotions": 0}))
+        null.write_text(json.dumps({"ids": campaigns.cohort("agent")[0], "mm": [campaigns.sha256(MM)], "counted_promotions": 0}))
         for name, value in [("OUT", self.out), ("VENUE", self.root / "venue"), ("HOLDOUT_RECORD", record), ("NULL_SUMMARY", null),
                             ("check_frozen", lambda: None), ("wait_for_room", lambda log: ("TAMU", {"five_hour": [0.1, 100]}))]:
             monkeypatch.setattr(campaigns, name, value)
@@ -64,14 +81,7 @@ class Campaign:
 
     def session(self, market, ledger, cid, workdir, die=False):
         self.sessions += 1
-        workdir.mkdir(parents=True)
-        (workdir / "transcript.jsonl").write_text("")
-        d = Daemon(workdir / "sock", market, ledger, cid, "A", 100, workdir / "daemon.log")
-        d.handle({"cmd": "check", "args": [BAD]})
-        for text in self.evals:
-            d.handle({"cmd": "eval", "args": [text]})
-        d.proc.stdin.close()
-        d.proc.wait()
+        d = daemon_session(market, ledger, cid, workdir, self.evals)
         if die:
             raise Crash
         run = {"campaign": cid, "agent": "A", "spent": d.spent, "exit": 1, "stopped": "finished"}
@@ -277,7 +287,7 @@ def test_a_searcher_that_died_ended_its_arm(c, monkeypatch):
     assert c.searches == 1 and c.report()["B"]["evaluations"] == 1
 
 
-@pytest.mark.parametrize("spoil", ["searcher", "harness", "c32", "holdout", "claim"])
+@pytest.mark.parametrize("spoil", ["searcher", "harness", "c32", "c32 v1", "kernel", "holdout", "claim"])
 def test_nothing_starts_unless_it_is_ready(c, monkeypatch, spoil):
     def refuse():
         raise SystemExit("pin")
@@ -286,8 +296,11 @@ def test_nothing_starts_unless_it_is_ready(c, monkeypatch, spoil):
         monkeypatch.setattr(campaigns.sweep, "require_frozen_searcher", refuse)
     elif spoil == "harness":
         monkeypatch.setattr(campaigns, "check_frozen", refuse)
-    elif spoil == "c32":
-        campaigns.NULL_SUMMARY.write_text(json.dumps({"n": 20, "counted_promotions": 3}))
+    elif spoil.startswith("c32") or spoil == "kernel":
+        null = json.loads(campaigns.NULL_SUMMARY.read_text())
+        null |= {"c32": {"counted_promotions": 3}, "c32 v1": {"ids": [f"agent-null-N2-{i}" for i in range(20)]},
+                 "kernel": {"mm": ["other"]}}[spoil]
+        campaigns.NULL_SUMMARY.write_text(json.dumps(null))
     elif spoil == "holdout":
         file = next((c.root / "holdout").rglob("*.parquet"))
         file.chmod(0o644)
@@ -374,6 +387,41 @@ def test_a_null_session_that_made_no_call_still_counts_as_a_promotion(c, monkeyp
 
 def test_no_returns_mean_p_one():
     assert campaigns.gate.holdout_pvalue(np.zeros(0)) == 1.0
+
+
+def series_in_the_pods_view():
+    """One campaign of the agent series, run by `test_the_series_in_its_pods_view` inside the pod's view: everything
+    real but the model session (through the real daemon), pacing and the funding blob, synthetic and seeded here."""
+    spec = markets.null_params()["N2"]
+    t, k = len(range(W_START, HOLDOUT_START, HOUR)), len(set(spec["funding"]["coins"]) - set(spec["funding"]["short"]))
+    blob = np.random.default_rng(0).normal(1.25e-5, 1e-5, (2 * t, k)).tobytes()
+    spec["funding"]["sha256"] = hashlib.sha256(blob).hexdigest()
+    (campaigns.OUT / "inputs").mkdir()
+    (campaigns.OUT / "inputs" / spec["funding"]["sha256"]).write_bytes(blob)
+    markets.NULLS = Path(tempfile.mkdtemp()) / "nulls.json"
+    markets.NULLS.write_text(json.dumps({"N2": spec}))
+    rooms = iter([("TAMU", {})])
+    campaigns.wait_for_room = lambda log: next(rooms, None)
+    campaigns.windows = lambda token=None: None
+    campaigns.harness.run_agent = lambda market, ledger, cid, workdir: {"spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent}
+    campaigns.run_series("agent")
+    rows = [json.loads(l) for l in open(campaigns.cohort("agent")[1])]
+    assert len(rows) == 1 and "crash" not in rows[0] and rows[0]["audit"]["match"] and rows[0]["mm"] == campaigns.sha256(MM), rows
+
+
+def test_the_series_in_its_pods_view(tmp_path):
+    """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
+    kernel.build()
+    (REPO / "data").mkdir(exist_ok=True)
+    volume = tmp_path / "agent"
+    (volume / "kernel/release").mkdir(parents=True)
+    shutil.copy2(MM, volume / "kernel/release/mm")
+    out = subprocess.run(["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+                          "--tmpfs", REPO / "data", "--bind", volume, REPO / "data/agent", sys.executable, "-c",
+                          "from gate.tests.test_agent_real import series_in_the_pods_view; series_in_the_pods_view()"],
+                         capture_output=True, text=True, cwd=REPO,
+                         env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1", "CARGO_TARGET_DIR": str(REPO / "data/agent/kernel")})
+    assert out.returncode == 0, out.stdout + out.stderr
 
 
 def test_under_a_read_only_root(tmp_path):

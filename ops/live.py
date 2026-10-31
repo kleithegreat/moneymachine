@@ -44,7 +44,7 @@ WORKLOADS = {
     "datalayer": ("StatefulSet", ["datalayer-record", "data/datalayer"], {"datalayer": False}, False,
                   ("100m", "256Mi", "512Mi"), 300, {"keys": True}),
     "thesis": ("StatefulSet", ["thesis-run"], {"thesis": False, "datalayer": True}, True, ("500m", "2Gi", "4Gi"), 15_000, {}),
-    "agent-series": ("Job", ["agent-null", "agent", "20"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
+    "agent-series": ("Job", ["agent-null", "agent"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
                      {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]}),
     "agent-real": ("Job", ["agent-real", "data/agent/real", "1792613363942"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
                    {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}], "once": True}),

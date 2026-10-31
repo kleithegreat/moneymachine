@@ -102,7 +102,7 @@ COMMANDS = {
     "sweep-summary": ("gate.sweep", "summary", ["out"], "sweep counts and bounds"),
     "holdout-size": ("gate.size", "main", ["work", "audit"], "the holdout test's locked calibration (gate/null_suite.py)"),
     "freeze-harness": ("gate.agent.campaigns", "freeze_harness", [], "record the agent harness hash, once"),
-    "agent-null": ("gate.agent.campaigns", "run_series", ["name", "n:int"], "agent or swarm null campaigns (paced, resumable)"),
+    "agent-null": ("gate.agent.campaigns", "run_series", ["name"], "the agent or swarm null series (paced, resumable)"),
     "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),
     "agent-summary": ("gate.agent.campaigns", "summary", ["name", "out"], "an agent or swarm null series beside its baseline"),
     "differential-run": ("reference.differential", "run", ["out"], "C6.4's judged run of mm against refmm on the frozen corpus"),

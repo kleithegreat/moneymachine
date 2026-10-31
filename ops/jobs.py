@@ -111,10 +111,7 @@ def stage_funding():
     from gate import markets
 
     for model in ("N2", "N3"):
-        f = markets.null_params()[model]["funding"]
-        fund, prem = markets.store_funding(f["store"], f["version"], tuple(c for c in f["coins"] if c not in f["short"]))
-        if stage(np.ascontiguousarray(np.r_[fund, prem]).tobytes()) != f["sha256"]:
-            raise SystemExit(f"{model}'s funding source differs from its frozen hash")
+        stage(np.concatenate(markets.frozen_funding(markets.null_params()[model]["funding"])).tobytes())
 
 
 def submit(run, sweep, digest, node=None, ids=None):
@@ -164,22 +161,13 @@ def task(run):
     os.chmod("/scratch/k/release/mm", 0o755)
     os.environ["CARGO_TARGET_DIR"] = "/scratch/k"
     os.chdir(work)
-    from gate import campaign, sweep
+    from gate import campaign, markets, sweep
 
     sweep.require_frozen_searcher()
     spec = next(s for s in campaign_specs(record["sweep"]) if s["id"] == cid)
     funding = (spec["params"] or {}).get("funding")
     if funding:
-        import numpy as np
-
-        from gate.markets import HOLDOUT_START, HOUR, W_START
-
-        t = len(range(W_START, HOLDOUT_START, HOUR))
-        data = (Path("/inputs") / funding["sha256"]).read_bytes()
-        if hashlib.sha256(data).hexdigest() != funding["sha256"]:
-            raise SystemExit("the funding source does not match its frozen hash")
-        both = np.frombuffer(data).reshape(2 * t, -1)
-        funding["arrays"] = (both[:t], both[t:])
+        funding["arrays"] = markets.frozen_funding(funding, "/inputs")
     result = campaign.run_campaign(spec, Path("/scratch/out"))
     tmp = final.with_name(f".{cid}.{os.environ.get('HOSTNAME', 'pod')}.tmp")
     with tarfile.open(tmp, "w") as tar:

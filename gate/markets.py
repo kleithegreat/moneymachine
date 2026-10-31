@@ -75,13 +75,25 @@ def store_events(store, version, coins, block_hours=24):
     return {"arrays": piv[have].dropna().to_numpy(), "coins": [coins.index(c) for c in have], "block_hours": block_hours}
 
 
-def funding_source(spec):
-    """(F, P) source arrays and, per synthetic coin, its source column (None: independent blocks)."""
-    if "arrays" in spec:
-        F, P = spec["arrays"]
+def frozen_funding(spec, inputs=None):
+    """A null model's funding source (F, P), from its blob `inputs`/<sha256> as `ops/jobs.py` stages it, or without
+    `inputs` from the store it was fitted on; either way checked against its frozen sha256 (gate/fit.py)."""
+    if inputs:
+        data = (Path(inputs) / spec["sha256"]).read_bytes()
     else:
         long = tuple(c for c in spec["coins"] if c not in spec["short"])
-        F, P = store_funding(spec["store"], spec["version"], long)
+        data = np.concatenate(store_funding(spec["store"], spec["version"], long)).tobytes()
+    if hashlib.sha256(data).hexdigest() != spec["sha256"]:
+        raise ValueError(f"the funding source differs from its frozen sha256 {spec['sha256']}")
+    t = len(range(W_START, HOLDOUT_START, HOUR))
+    both = np.frombuffer(data).reshape(2 * t, -1)
+    return both[:t], both[t:]
+
+
+def funding_source(spec):
+    """(F, P) source arrays (`spec["arrays"]` if given, else the frozen source) and, per synthetic coin, its source
+    column (None: independent blocks)."""
+    F, P = spec["arrays"] if "arrays" in spec else frozen_funding(spec)
     cols, k = [], 0
     for c in spec["coins"]:
         cols.append(None if c in spec.get("short", ()) else k)

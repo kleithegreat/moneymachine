@@ -101,13 +101,23 @@ def screened(market, ledger, campaign, agent=None):
     return report, mech, {h: p for h, p in programs.items() if mech[h]["pass"]}
 
 
-def null_market(cid, cost_cells):
-    return markets.write(OUT / cid / "m", markets.generate("N2", markets.null_params()["N2"], cid, sweep.DAYS), sweep.HOLDOUT_DAYS, cost_cells)
+def series_inputs():
+    """What every campaign of a null series reads, resolved before its first id so that a missing one starts none: N2
+    with its funding from the blob seeded at OUT/inputs/<sha256>, the cost cells, and the kernel, run once and hashed."""
+    n2 = markets.null_params()["N2"]
+    n2["funding"]["arrays"] = markets.frozen_funding(n2["funding"], OUT / "inputs")
+    subprocess.run([MM, "check-fills", os.devnull], check=True, capture_output=True)
+    return {"params": n2, "cost_cells": sweep.cost_cells(), "mm": sha256(MM)}
 
 
-def agent_null(cid, cost_cells):
+def null_market(cid, inputs):
+    return markets.write(OUT / cid / "m", markets.generate("N2", inputs["params"], cid, sweep.DAYS), sweep.HOLDOUT_DAYS,
+                         inputs["cost_cells"])
+
+
+def agent_null(cid, inputs):
     """Arm A on a null market. A session that made no daemon call counts as a promotion, as a crash does (C3.2)."""
-    market = null_market(cid, cost_cells)
+    market = null_market(cid, inputs)
     ledger = OUT / cid / "ledger.sqlite"
     run = harness.run_agent(market, ledger, cid, OUT / cid / "run")
     report, mech, kept = screened(market, ledger, cid, "A")
@@ -119,8 +129,8 @@ def agent_null(cid, cost_cells):
             "counts_as_promotion": bool(promoted) or not (OUT / cid / "run" / "daemon.log").exists()}
 
 
-def swarm_null(cid, cost_cells):
-    market = null_market(cid, cost_cells)
+def swarm_null(cid, inputs):
+    market = null_market(cid, inputs)
     ledger = OUT / cid / "ledger.sqlite"
     swarm = harness.run_swarm(market, ledger, cid, OUT / cid / "swarm")
     report, mech, kept = screened(market, ledger, cid)
@@ -136,6 +146,15 @@ def swarm_null(cid, cost_cells):
 
 SERIES = {"agent": agent_null, "swarm": swarm_null}
 STAGE = {"agent": 3, "swarm": 4}
+# C3.2 v2 (v1, agent-null-N2-0..19 in agent-null.jsonl, failed: audit/stage3/null-v1.jsonl) and C4.5.
+COHORTS = {"agent": ("agent-null-2", 20), "swarm": ("swarm-null", 10)}
+
+
+def cohort(name):
+    """A null series' declared campaign ids and its log, the one definition its runs, its summary, pacing and the real
+    campaign's lock read."""
+    prefix, n = COHORTS[name]
+    return [f"{prefix}-N2-{i}" for i in range(n)], OUT / f"{prefix}.jsonl"
 
 
 def windows(token=None):
@@ -155,11 +174,11 @@ def windows(token=None):
 
 
 def need(log, account):
-    """Per window, the most any campaign `account` ran in `log` used of it within one reset period. It counts the
-    account's other use meanwhile, so it overstates."""
+    """Per window, the most any campaign `account` ran in `log` used of it within one reset period; a campaign that
+    used no tokens measures nothing. It counts the account's other use meanwhile, so it overstates."""
     used = {}
     for row in map(json.loads, open(log)) if log.exists() else []:
-        if row.get("account", "Cornell") != account:
+        if row.get("account", "Cornell") != account or not any(row.get("usage", {}).get(k) for k in TOKENS):
             continue
         w = row.get("windows", {})
         for k, (u, reset) in (w.get("after") or {}).items():
@@ -206,27 +225,30 @@ def usage(work):
     return total
 
 
-def run_series(name, n):
-    """Campaigns `{name}-null-N2-0` .. n - 1, resumable (a started, unrecorded id is recorded as a crash), each started
-    when the subscription has room for it (`wait_for_room`) and the harness is still the frozen one, and recorded with
-    its account, usage and the windows around it. SIGTERM ends the series between campaigns."""
+def run_series(name):
+    """The campaigns of `cohort(name)` once `series_inputs` resolve, resumable (a started, unrecorded id is recorded as a
+    crash), each started when the subscription has room for it (`wait_for_room`) and the harness is still the frozen
+    one, its directory made first as the mark that it started, and recorded with its account, usage, kernel and the
+    windows around it. SIGTERM ends the series between campaigns."""
     signal.signal(signal.SIGTERM, lambda *_: STOP.set())
     OUT.mkdir(parents=True, exist_ok=True)
-    log = OUT / f"{name}-null.jsonl"
-    with campaign.resume([f"{name}-null-N2-{i}" for i in range(n)], log, OUT) as todo:
+    inputs = series_inputs()
+    ids, log = cohort(name)
+    with campaign.resume(ids, log, OUT) as todo:
         for cid in todo:
             room = wait_for_room(log)
             if room is None:
                 break
             account, before = room
             check_frozen()
+            (OUT / cid).mkdir()
             started = time.time()
             try:
-                result = SERIES[name](cid, sweep.cost_cells())
+                result = SERIES[name](cid, inputs)
             except Exception as e:
                 result = {"crash": repr(e), "counts_as_promotion": True}
             result |= {"seconds": round(time.time() - started), "usage": usage(OUT / cid), "account": account,
-                       "windows": {"before": before, "after": windows()}}
+                       "mm": inputs["mm"], "windows": {"before": before, "after": windows()}}
             with open(log, "a") as fh:
                 fh.write(json.dumps({"id": cid, **result}) + "\n")
 
@@ -267,8 +289,9 @@ def check_ready(work, data_root, report_from):
     check_frozen()
     sweep.require_frozen_searcher()
     null = json.loads(NULL_SUMMARY.read_text()) if NULL_SUMMARY.exists() else {}
-    if null.get("n") != 20 or null.get("counted_promotions", 3) > 2:
-        sys.exit(f"{NULL_SUMMARY}: C3.2 is not recorded as passed")
+    if sorted(null.get("ids", [])) != sorted(cohort("agent")[0]) or null.get("mm") != [sha256(MM)] \
+            or null.get("counted_promotions", 3) > 2:
+        sys.exit(f"{NULL_SUMMARY}: C3.2 is not recorded as passed on its declared campaigns and this kernel")
     root = Path(data_root)
     work.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=work), open(root / "holdout" / "spent.jsonl", "a"):
@@ -320,7 +343,7 @@ def both_arms(work, data_root, version, report_from, voids):
             (market / name).symlink_to(Path(target).resolve())
     (market / "version").write_text(f"{int(version)}\n")
     if not run_dir.exists():
-        account, before = wait_for_room(OUT / "agent-null.jsonl")
+        account, before = wait_for_room(cohort("agent")[1])
         check_ready(work, data_root, report_from)
         write_json(work / "account.json", {"account": account, "windows": before})
         harness.run_agent(market, ledger, cid, run_dir)
@@ -396,7 +419,7 @@ def real(data_root, version, report_from=REAL_REPORT_FROM):
     """The one real campaign: both arms, one holdout batch with Holm within each arm, its report. Running it again resumes
     the same attempt and never repeats an arm or the release; only a void attempt moves on to a fresh id."""
     OUT.mkdir(parents=True, exist_ok=True)
-    with campaign.exclusive(OUT / "agent-null.jsonl"):
+    with campaign.exclusive(cohort("agent")[1]):
         voids, n = [], 1
         while (OUT / (cid := "stage3-real" if n == 1 else f"stage3-real-{n}") / "void.json").exists():
             voids.append(cid)
@@ -451,14 +474,15 @@ BASELINE = {"agent": "G100", "swarm": "H400"}
 
 
 def summary(name, out):
-    """A null series (`agent` or `swarm`): campaigns, counted promotions, evaluations and history use,
+    """A null series (`agent` or `swarm`): its campaigns' ids, counted promotions, kernels, evaluations and history use,
     and the spreads of SPA p-values, maximum DSR and screened counts beside its baseline searcher's
     complete-null N2 runs."""
     searcher = BASELINE[name]
-    log = OUT / f"{name}-null.jsonl"
+    log = cohort(name)[1]
     rows = [json.loads(l) for l in open(log)] if log.exists() else []
     baseline = [r for r in sweep.results("null") if r["id"].startswith(f"c24{sweep.ROUND}-N2-{searcher}-")]
-    report = {"n": len(rows), "counted_promotions": sum(r["counts_as_promotion"] for r in rows),
+    report = {"n": len(rows), "ids": [r["id"] for r in rows], "counted_promotions": sum(r["counts_as_promotion"] for r in rows),
+              "mm": sorted({r["mm"] for r in rows if "mm" in r}),
               "evaluations": [r.get("evaluations", r.get("agent_run", {}).get("spent")) for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],
               "spreads": spreads(rows), f"{searcher}_null_n2": spreads(baseline), "statement": SMOKE[name],

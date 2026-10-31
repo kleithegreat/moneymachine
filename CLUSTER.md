@@ -51,7 +51,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
 | `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
-| `agent-series` | Job | `cli agent-null agent 20` (stage 4: `swarm 10`) | `agent` | `claude-token` | 9,000 s |
+| `agent-series` | Job | `cli agent-null agent` (stage 4: `swarm`) | `agent` | `claude-token` | 9,000 s |
 | `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
 | `mirror-verify` | CronJob, daily | section 5 | the five and `mirror`, read-only | none | 600 s |
@@ -93,6 +93,15 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
+**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): for stage 3, C3.2 v2,
+logged in `agent/agent-null-2.jsonl` (v1's `agent-null.jsonl` stays, its failed record). N2's funding source comes from
+the blob batch Jobs stage, seeded once into the volume under its frozen sha256:
+```
+python ops/live.py seed <digest> agent /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39:inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39
+```
+Before its first campaign it loads that blob, the cost cells and `mm` (run once, its sha256 in every row); if one
+fails, it exits with nothing started.
+
 **`agent-real`** (stage 3's one real campaign) is the series' pod with `restartPolicy: Never` and `backoffLimit: 0`: it
 never restarts by itself. It holds the series' lock, so it cannot overlap it. Its inputs are not in any volume: seed the
 dataset version's store and the untouched holdout into `agent`. The cluster's `real/holdout/spent.jsonl` is then the
@@ -110,8 +119,9 @@ and copy it to `audit/stage3/real.json`. Its image needs `audit/stage3/null-summ
 series stays on its own digest.
 
 `agent-summary` is not a workload: its baseline (`data/campaigns/null.jsonl`) is on this PC, so it runs here, no model
-call, on the series log from the mirror (`/srv/moneymachine/mirror/agent/agent-null.jsonl`, sha256 checked against its
-`MANIFEST.json`, copied to `data/agent/`).
+call, on the series log from the mirror (`/srv/moneymachine/mirror/agent/agent-null-2.jsonl`, sha256 checked against
+its `MANIFEST.json`, copied to `data/agent/`): `python -m cli agent-summary agent audit/stage3/null-summary.json`. The
+summary lists the campaigns' ids and kernels; `agent-real` starts only if they are C3.2 v2's ids and its own `mm`.
 
 ## 3. Credentials and usage
 

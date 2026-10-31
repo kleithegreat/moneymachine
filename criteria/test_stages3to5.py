@@ -11,8 +11,10 @@ from gate.agent import campaigns
 
 
 def test_c32_smoke_calibration():
+    """C3.2 v2, judged on its declared campaigns alone."""
     s = load("stage3/null-summary.json")
-    assert s["n"] == 20 and s["counted_promotions"] <= 2 and s["statement"] == campaigns.SMOKE["agent"]
+    assert sorted(s["ids"]) == sorted(campaigns.cohort("agent")[0])
+    assert s["counted_promotions"] <= 2 and s["statement"] == campaigns.SMOKE["agent"]
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,

@@ -17,10 +17,11 @@ REPO = Path(__file__).resolve().parents[2]
 def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, monkeypatch):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(sweep, "OUT", tmp_path)
-    run = lambda i, p: {"id": f"agent-null-N2-{i}", "search": {"spa_p": 0.5, "max_dsr": 0.1 * i, "screened": []},
-                        "promoted": p, "counts_as_promotion": bool(p)}
-    rows = [run(i, ["x"] if i == 3 else []) for i in range(19)] + [{"id": "agent-null-N2-19", "crash": "x", "counts_as_promotion": True}]
-    (tmp_path / "agent-null.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    ids, log = campaigns.cohort("agent")
+    run = lambda i, p: {"id": ids[i], "search": {"spa_p": 0.5, "max_dsr": 0.1 * i, "screened": []},
+                        "promoted": p, "counts_as_promotion": bool(p), "mm": "k"}
+    rows = [run(i, ["x"] if i == 3 else []) for i in range(19)] + [{"id": ids[19], "crash": "x", "counts_as_promotion": True}]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows))
     swarm = [{"id": f"swarm-null-N2-{i}", "counts_as_promotion": i == 9, "evaluations": 300,
               "search": {"spa_p": 0.3, "max_dsr": 0.0, "screened": []}} for i in range(10)]
     (tmp_path / "swarm-null.jsonl").write_text("".join(json.dumps(r) + "\n" for r in swarm))
@@ -29,7 +30,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
     for name in ("agent", "swarm"):
         campaigns.summary(name, tmp_path / f"{name}.json")
         s[name] = json.loads((tmp_path / f"{name}.json").read_text())
-    assert (s["agent"]["n"], s["agent"]["counted_promotions"]) == (20, 2)
+    assert (s["agent"]["n"], s["agent"]["counted_promotions"], s["agent"]["ids"], s["agent"]["mm"]) == (20, 2, ids, ["k"])
     assert s["agent"]["spreads"]["max_dsr"]["n"] == 19 and s["agent"]["G100_null_n2"]["screened"]["max"] == 1
     assert (s["swarm"]["n"], s["swarm"]["counted_promotions"]) == (10, 1) and s["swarm"]["H400_null_n2"]["spa_p"] is None
 
@@ -51,9 +52,17 @@ def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path):
 def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tmp_path, monkeypatch):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
+    monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
+    monkeypatch.setitem(campaigns.COHORTS, "agent", ("agent-null-2", 3))
+    ids, log = campaigns.cohort("agent")
     started, slept = [], []
-    monkeypatch.setitem(campaigns.SERIES, "agent", lambda cid, cells: started.append(cid) or {"counts_as_promotion": False})
-    monkeypatch.setattr(campaigns.sweep, "cost_cells", lambda: {})
+
+    def run(cid, inputs):
+        started.append(cid)
+        (tmp_path / cid / "transcript.jsonl").write_text(json.dumps({"type": "result", "usage": {"output_tokens": 1}}) + "\n")
+        return {"counts_as_promotion": False}
+
+    monkeypatch.setitem(campaigns.SERIES, "agent", run)
     reads = iter([None, {"five_hour": [0.75, 100]}, {"five_hour": [0.2, 200]}, {"five_hour": [0.3, 200]},
                   {"five_hour": [0.75, 200]}, {"five_hour": [0.7, 200]}, {"five_hour": [0.75, 200]}])
     monkeypatch.setattr(campaigns, "windows", lambda token=None: next(reads))
@@ -63,18 +72,33 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False,
                                                              "wait": lambda self, s: slept.append(s)})())
     monkeypatch.setattr(campaigns.time, "time", lambda: 0)
-    (tmp_path / "agent-null-N2-0").mkdir()
-    campaigns.run_series("agent", 3)
-    rows = [json.loads(l) for l in open(tmp_path / "agent-null.jsonl")]
-    assert [r["id"] for r in rows] == ["agent-null-N2-0", "agent-null-N2-1", "agent-null-N2-2"]
+    (tmp_path / ids[0]).mkdir()
+    campaigns.run_series("agent")
+    rows = [json.loads(l) for l in open(log)]
+    assert [r["id"] for r in rows] == ids
     assert rows[0]["counts_as_promotion"] and "interrupted" in rows[0]["crash"]
-    assert started == ["agent-null-N2-1", "agent-null-N2-2"]
+    assert started == ids[1:]
     assert slept == [campaigns.session.RETRY, 100, 200]
-    assert rows[1]["account"] == "Cornell"
+    assert rows[1]["account"] == "Cornell" and rows[1]["mm"] == "k"
     assert rows[1]["windows"] == {"before": {"five_hour": [0.2, 200]}, "after": {"five_hour": [0.3, 200]}}
-    assert campaigns.need(tmp_path / "agent-null.jsonl", "Cornell")["five_hour"] == pytest.approx(0.1)
-    campaigns.run_series("agent", 3)
-    assert len(open(tmp_path / "agent-null.jsonl").readlines()) == 3
+    assert campaigns.need(log, "Cornell")["five_hour"] == pytest.approx(0.1)
+    campaigns.run_series("agent")
+    assert len(open(log).readlines()) == 3
+
+
+def test_pacing_learns_nothing_from_a_campaign_without_tokens(tmp_path):
+    log = tmp_path / "log.jsonl"
+    log.write_text(json.dumps({"id": "c", "account": "TAMU", "usage": dict.fromkeys(campaigns.TOKENS, 0),
+                               "windows": {"before": {"five_hour": [0.0, 1]}, "after": {"five_hour": [0.01, 1]}}}) + "\n")
+    assert campaigns.need(log, "TAMU") == {}
+
+
+def test_a_missing_series_input_starts_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "OUT", tmp_path)
+    monkeypatch.setattr(campaigns, "wait_for_room", lambda log: pytest.fail("paced"))
+    with pytest.raises(FileNotFoundError):
+        campaigns.run_series("agent")
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_the_series_runs_on_the_first_account_with_room_tamu_first(tmp_path, monkeypatch):
