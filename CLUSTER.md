@@ -93,8 +93,8 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
-**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): for stage 3, C3.2 v2,
-logged in `agent/agent-null-2.jsonl` (v1's `agent-null.jsonl` stays, its failed record). N2's funding source comes from
+**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): for stage 3, C3.2 v3,
+logged in `agent/agent-null-3.jsonl` (v1's `agent-null.jsonl` and v2's `agent-null-2.jsonl` stay, their records). N2's funding source comes from
 the blob batch Jobs stage, seeded once into the volume under its frozen sha256:
 ```
 python ops/live.py seed <digest> agent /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39:inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39
@@ -119,9 +119,9 @@ and copy it to `audit/stage3/real.json`. Its image needs `audit/stage3/null-summ
 series stays on its own digest.
 
 `agent-summary` is not a workload: its baseline (`data/campaigns/null.jsonl`) is on this PC, so it runs here, no model
-call, on the series log from the mirror (`/srv/moneymachine/mirror/agent/agent-null-2.jsonl`, sha256 checked against
+call, on the series log from the mirror (`/srv/moneymachine/mirror/agent/agent-null-3.jsonl`, sha256 checked against
 its `MANIFEST.json`, copied to `data/agent/`): `python -m cli agent-summary agent audit/stage3/null-summary.json`. The
-summary lists the campaigns' ids and kernels; `agent-real` starts only if they are C3.2 v2's ids and its own `mm`.
+summary lists the campaigns' ids and kernels; `agent-real` starts only if they are C3.2 v3's ids and its own `mm`.
 
 ## 3. Credentials and usage
 

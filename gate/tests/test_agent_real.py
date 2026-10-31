@@ -437,40 +437,43 @@ def test_audit_matches_per_kind_in_order_and_tolerates_a_session_without_calls(t
     assert campaigns.audit_run(empty, ledger, "y")["match"]
 
 
-def test_a_null_session_that_made_no_call_still_counts_as_a_promotion(c, monkeypatch):
-    c.evals = []
-    ledger = c.out / "null-0/ledger.sqlite"
-
-    def silent(market, led, cid, workdir):
-        workdir.mkdir(parents=True)
-        (workdir / "transcript.jsonl").write_text("")
-        subprocess.run(command("disclose", REPO / "kernel/strategies/w0.json", cid, "A", led, None, "--kind", "run"), check=True, capture_output=True)
-        return {"spent": 0}
+def null_campaign(c, monkeypatch, session):
+    """`agent_null` on the fixture's market, with `session` as the model session and its run record disclosed."""
+    def run(market, ledger, cid, workdir):
+        result = session(market, ledger, cid, workdir)
+        subprocess.run(command("disclose", REPO / "kernel/strategies/w0.json", cid, "A", ledger, None, "--kind", "run"), check=True, capture_output=True)
+        return {"stopped": "finished", "exit": 0} | result
 
     (c.out / "null-0").mkdir(parents=True)
     monkeypatch.setattr(campaigns, "null_market", lambda cid, cells: c.root)
-    monkeypatch.setattr(campaigns.harness, "run_agent", silent)
-    r = campaigns.agent_null("null-0", {})
-    assert r["counts_as_promotion"] and r["promoted"] == [] and ledger.exists()
+    monkeypatch.setattr(campaigns.harness, "run_agent", run)
+    return campaigns.agent_null("null-0", {})
+
+
+def no_call(market, ledger, cid, workdir):
+    workdir.mkdir(parents=True)
+    (workdir / "transcript.jsonl").write_text("")
+    return {}
+
+
+def checks_only(market, ledger, cid, workdir):
+    return {"spent": daemon_session(market, ledger, cid, workdir, []).spent}
+
+
+@pytest.mark.parametrize("session", [no_call, checks_only])
+def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(c, monkeypatch, session):
+    r = null_campaign(c, monkeypatch, session)
+    assert r["counts_as_promotion"] and r["evaluations"] == 0 and r["promoted"] == []
 
 
 @pytest.mark.parametrize("stopped, exit, counts", [("finished", 1, True), ("finished", -9, True), ("wall time", -9, False),
                                                    ("turn limit", -9, False), ("finished", 0, False)])
 def test_a_null_session_that_crashed_counts_as_a_promotion(c, monkeypatch, stopped, exit, counts):
-    c.evals = []
+    def evaluates(market, ledger, cid, workdir):
+        return {"spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent, "stopped": stopped, "exit": exit}
 
-    def called(market, led, cid, workdir):
-        workdir.mkdir(parents=True)
-        (workdir / "transcript.jsonl").write_text("")
-        (workdir / "daemon.log").write_text("")
-        subprocess.run(command("disclose", REPO / "kernel/strategies/w0.json", cid, "A", led, None, "--kind", "run"), check=True, capture_output=True)
-        return {"spent": 1, "stopped": stopped, "exit": exit}
-
-    (c.out / "null-0").mkdir(parents=True)
-    monkeypatch.setattr(campaigns, "null_market", lambda cid, cells: c.root)
-    monkeypatch.setattr(campaigns.harness, "run_agent", called)
-    r = campaigns.agent_null("null-0", {})
-    assert r["promoted"] == [] and r["counts_as_promotion"] == counts
+    r = null_campaign(c, monkeypatch, evaluates)
+    assert r["evaluations"] == 1 and r["promoted"] == [] and r["counts_as_promotion"] == counts
 
 
 def test_no_returns_mean_p_one():

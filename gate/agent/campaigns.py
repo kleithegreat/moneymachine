@@ -130,18 +130,18 @@ def crashed(run):
 
 
 def agent_null(cid, inputs):
-    """Arm A on a null market. A crashed session counts as a promotion (C3.2), and so does one that made no daemon
-    call."""
+    """Arm A on a null market. A crashed session counts as a promotion (C3.2), and so does one that made no evaluation."""
     market = null_market(cid, inputs)
     ledger = OUT / cid / "ledger.sqlite"
     run = harness.run_agent(market, ledger, cid, OUT / cid / "run")
+    n = arm_a_evaluations(ledger, cid, OUT / cid / "run")
     report, mech, kept = screened(market, ledger, cid, "A")
     gate.freeze(ledger, cid, kept, "frozen finalist A")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["agent"] * DAY)
     return {"agent_run": run, "search": report, "mechanism": mech, "kept": list(kept), "holdout": holdout,
             "bankrupt": gate.bankrupt(ledger),
-            "promoted": promoted, "audit": audit_run(OUT / cid / "run", ledger, cid),
-            "counts_as_promotion": bool(promoted) or crashed(run) or not (OUT / cid / "run" / "daemon.log").exists()}
+            "promoted": promoted, "audit": audit_run(OUT / cid / "run", ledger, cid), "evaluations": n,
+            "counts_as_promotion": bool(promoted) or crashed(run) or n == 0}
 
 
 def swarm_null(cid, inputs):
@@ -162,8 +162,9 @@ def swarm_null(cid, inputs):
 
 SERIES = {"agent": agent_null, "swarm": swarm_null}
 STAGE = {"agent": 3, "swarm": 4}
-# C3.2 v2 (v1, agent-null-N2-0..19 in agent-null.jsonl, failed: audit/stage3/null-v1.jsonl) and C4.5.
-COHORTS = {"agent": ("agent-null-2", 20), "swarm": ("swarm-null", 10)}
+# C3.2 v3 and C4.5. Earlier agent cohorts: v1, agent-null-N2-0..19 in agent-null.jsonl, failed (audit/stage3/null-v1.jsonl);
+# v2, agent-null-2-N2-0..19 in agent-null-2.jsonl, not established: the agent could not write (audit/stage3/null-v2.jsonl).
+COHORTS = {"agent": ("agent-null-3", 20), "swarm": ("swarm-null", 10)}
 
 
 def cohort(name):
@@ -346,6 +347,12 @@ def evaluations(ledger, campaign, agent):
         "OR (kind = 'reject' AND json_extract(content, '$.path') IS NULL))", (campaign, agent)).fetchone()[0]
 
 
+def arm_a_evaluations(ledger, campaign, run_dir):
+    """Arm A's evaluations, as the ledger or the daemon's log counts them, whichever saw more: 0 means the session
+    evaluated nothing."""
+    return max(evaluations(ledger, campaign, "A"), sum(e["cmd"] == "eval" for e in daemon_log(run_dir)))
+
+
 def run_record(run_dir, ledger, campaign):
     """Arm A's run record, as `run.json` and as the ledger's one run disclosure (C3.3): a session that died before
     writing it gets one here, and one that died before disclosing it is disclosed here."""
@@ -385,7 +392,7 @@ def both_arms(work, data_root, version, report_from, voids):
         write_json(work / "account.json", {"account": account, "windows": before})
         harness.run_agent(market, ledger, cid, run_dir)
     run = run_record(run_dir, ledger, cid)
-    spent_a = max(evaluations(ledger, cid, "A"), sum(e["cmd"] == "eval" for e in daemon_log(run_dir)))
+    spent_a = arm_a_evaluations(ledger, cid, run_dir)
     if spent_a == 0:
         if crashed(run):
             sys.exit(f"{cid}: arm A made no evaluation and its session did not reach a designed end, so it may have been "
@@ -528,7 +535,7 @@ def summary(name, out):
     report = {"n": len(rows), "ids": [r["id"] for r in rows], "counted_promotions": sum(r["counts_as_promotion"] for r in rows),
               "mm": sorted({r.get("mm", "unrecorded") for r in rows}),
               "audits": {r["id"]: r.get("audit", r.get("audits")) for r in rows},
-              "evaluations": [r.get("evaluations", r.get("agent_run", {}).get("spent")) for r in rows],
+              "evaluations": [r.get("evaluations") for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],
               "spreads": spreads(rows), f"{searcher}_null_n2": spreads(baseline), "statement": SMOKE[name],
               "qualifications": f"PROGRESS.md, Qualifications, stage {STAGE[name]}"} | ({"label": LABEL} if name == "agent" else {})
