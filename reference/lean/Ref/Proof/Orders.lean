@@ -2,7 +2,7 @@ import Ref.Proof.Fills
 
 /-! Exactly once: a ledger of decisions, pending orders and their resolutions in the trace. -/
 
-namespace Ref
+namespace Ref.L4Orders
 
 variable {α : Type} [Inhabited α]
 
@@ -59,7 +59,7 @@ def Resolved (δ : Int) (T : List (Event α)) (i : Nat) (t : Int) (c : Nat) (q :
 unique, each pending order has its decision and no resolution, each decision is pending, resolved later or
 past the run's fills, each resolution has an earlier decision, and an Unfilled record has no traded bar or
 falls at a time in U (an insolvent step). -/
-structure Ledger (m : Market α) (δ stop : Int) (U : Int → Prop) (T : List (Event α)) (P : List (Order α)) (d : Int) : Prop where
+structure Ledger (m : Ctx α) (δ stop : Int) (U : Int → Prop) (T : List (Event α)) (P : List (Order α)) (d : Int) : Prop where
   dnodup : (T.filterMap dkey).Nodup
   rnodup : (T.filterMap (rkey δ)).Nodup
   dmax : ∀ e ∈ T, ∀ t c, dkey e = some (t, c) → t ≤ d
@@ -94,7 +94,7 @@ theorem Resolved.lift {δ : Int} {T : List (Event α)} {i : Nat} {t : Int} {c : 
   ⟨j, hij, e, get_lift U he, hr⟩
 
 namespace Ledger
-variable {m : Market α} {δ stop : Int} {U : Int → Prop} {T : List (Event α)} {P : List (Order α)} {d : Int}
+variable {m : Ctx α} {δ stop : Int} {U : Int → Prop} {T : List (Event α)} {P : List (Order α)} {d : Int}
 
 theorem weaken {U' : Int → Prop} (h : Ledger m δ stop U T P d) (hU : ∀ t, U t → U' t) : Ledger m δ stop U' T P d :=
   { h with unfilled := fun t c q hu => (h.unfilled t c q hu).imp_right (hU t) }
@@ -270,14 +270,14 @@ theorem push' {t : Array (Event α)} {e : Event α} (h : Ledger m δ stop U t.to
 
 end Ledger
 
-theorem barAt_none (m : Market α) (coins : Nat) (hA : m.Admissible) {c : Nat} {t : Int}
-    (h : (m.index coins).barAt[(c, t)]? = none) : barAt m c t = none := by
+theorem barAt_none (m : Ctx α) (hA : m.L4Valid) {c : Nat} {t : Int}
+    (h : m.ix.barAt[(c, t)]? = none) : barAt m c t = none := by
   unfold barAt
   rw [List.find?_eq_none]
   intro bar hb hp
   obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hb
   simp only [Bool.and_eq_true, beq_iff_eq] at hp
-  have := barAt_complete m coins hA (i := i) (by simpa using hi)
+  have := barAt_complete m hA (i := i) (by simpa using hi)
   simp only [Array.getElem_toList] at hp
   rw [hp.1, hp.2, h] at this
   cases this
@@ -303,16 +303,16 @@ theorem Solvent.push {N : NumOps α} {w0 : Int} {E : Array α} {t : Int} (x : α
 
 /-- The ledger after j steps: the state's pending orders, decisions no later than step j's, Unfilled records
 at insolvent steps, ordinary fills at solvent ones, and one equity per step. -/
-def LedgerAt (N : NumOps α) (m : Market α) (pol : Policy) (stop : Int) (j : Nat) (s : SState α) : Prop :=
-  Ledger m pol.delta stop (Insolvent N pol.wStart s.equity) s.trace.toList (s.orders.map (·.2))
-      (pol.wStart + ↑j * BAR + pol.delta) ∧
-    (∀ f, Event.fill f ∈ s.trace.toList → f.why = .fill → Solvent N pol.wStart s.equity f.filled) ∧
+def LedgerAt (N : NumOps α) (m : Ctx α) (j : Nat) (s : SState α) : Prop :=
+  Ledger m m.pol.delta m.stop (Insolvent N m.pol.wStart s.equity) s.trace.toList (s.orders.map (·.2))
+      (m.pol.wStart + ↑j * BAR + m.pol.delta) ∧
+    (∀ f, Event.fill f ∈ s.trace.toList → f.why = .fill → Solvent N m.pol.wStart s.equity f.filled) ∧
     s.equity.size = j
 
 theorem execute_equity (N : NumOps α) (c : Ctx α) (s r : SState α) (f : Fill α) (h : c.execute N s f = .ok r) :
     r.equity = s.equity := by
   unfold Ctx.execute at h
-  cases hc : checkFill N f c.m c.ix c.v with
+  cases hc : checkFill N f c.bars c.ix c.v with
   | error e => rw [hc] at h; cases h
   | ok u => rw [hc] at h; cases h; rfl
 
@@ -325,18 +325,22 @@ theorem solvent_push {N : NumOps α} {w0 : Int} {E : Array α} {t : Array (Event
   · exact h f hf hw
   · exact absurd hw (he f hf)
 
-theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)
-    (stop : Int) (j : Nat) (s : SState α) (h4 : Inv4 N p m v pol stop j s) (h : LedgerAt N m pol stop j s) :
-    Except.Holds ((Ctx.make p m v pol stop).step N s (pol.wStart + ↑j * BAR)) (LedgerAt N m pol stop (j + 1)) := by
+theorem step_ledger (N : NumOps α) (m : Ctx α) (hA : m.L4Valid)
+    (j : Nat) (s : SState α) (h4 : Inv4 N m j s) (h : LedgerAt N m j s) :
+    Except.Holds (m.step N s (m.pol.wStart + ↑j * BAR)) (LedgerAt N m (j + 1)) := by
+  let pol := m.pol
+  let stop := m.stop
+  have hpol : m.pol.wStart = pol.wStart := rfl
+  have hdelta : m.pol.delta = pol.delta := rfl
   have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
   unfold Ctx.step
   simp only [Std.Legacy.Range.forIn_eq_forIn_range']
-  let Q : SState α → Prop := fun s' => LedgerAt N m pol stop j s' ∧ s'.orders = s.orders ∧ s'.equity = s.equity
+  let Q : SState α → Prop := fun s' => LedgerAt N m j s' ∧ s'.orders = s.orders ∧ s'.equity = s.equity
   have Q_push : ∀ s' (e : Event α), dkey e = none → rkey pol.delta e = none → (∀ f, e = .fill f → f.why ≠ .fill) →
       Q s' → Q { s' with trace := s'.trace.push e } := fun s' e hd hr hf hQ =>
     ⟨⟨hQ.1.1.push' hd hr, solvent_push hQ.1.2.1 hf, hQ.1.2.2⟩, hQ.2⟩
   have Q_close : ∀ s' r coin (q ref : α) (why : Why) t src, why ≠ .fill → Q s' →
-      (Ctx.make p m v pol stop).execute N s' ((Ctx.make p m v pol stop).closeout N coin q ref why t src) = .ok r →
+      m.execute N s' (m.closeout N coin q ref why t src) = .ok r →
       Q r := by
     intro s' r coin q ref why t src hwhy hQ hr
     obtain ⟨-, htr, ho, -⟩ := execute_spec N _ s' r _ hr
@@ -385,11 +389,11 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
       s'.equity = E₅ → I ((s₄.orders.filter fun x => x.fst == pol.wStart + ↑j * BAR + BAR).map (·.2)) s' := by
     intro s' e hd hr hf htr ho he
     have hdue' : s₄.orders.filter (fun x => x.fst == pol.wStart + ↑j * BAR + BAR) = s₄.orders :=
-      List.filter_eq_self.mpr fun x hx => by simp [(h4.orders x (hQ₄.2.1 ▸ hx)).1]
+      List.filter_eq_self.mpr fun x hx => by simp [(h4.orders x (hQ₄.2.1 ▸ hx)).1, hpol]
     refine ⟨?_, ?_, fun o ho => ?_, ?_, he⟩
     · rw [htr, hdue']; exact (hQ₄.1.1.weaken fun t => Insolvent.push _).push' hd hr
     · rw [ho, List.filter_eq_nil_iff]
-      intro x hx; simp [(h4.orders x (hQ₄.2.1 ▸ hx)).1]
+      intro x hx; simp [(h4.orders x (hQ₄.2.1 ▸ hx)).1, hpol]
     · rw [hdue'] at ho
       obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ho
       exact (h4.orders x (hQ₄.2.1 ▸ hx)).2.1
@@ -411,7 +415,7 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
     (hI₅ _ _ rfl rfl (fun f h => by cases h) rfl rfl rfl) fun o rest s' hI => ?_) (fun hstop => ?_) fun s₆ hI₆ => ?_
   · split
     · rename_i i hbi
-      obtain ⟨hi, hspec⟩ := barAt_spec m _ hA hbi
+      obtain ⟨hi, hspec⟩ := barAt_spec m hA hbi
       refine Except.Holds.ite_cond (fun htr => ?_) fun htr => Except.Holds.pure _ ⟨_, rfl, I_unfilled _ _ _ hI ?_⟩
       · refine Except.Holds.bind (fun r hr => ?_) fun r hr => Except.Holds.pure _ ⟨r, rfl, hr⟩
         obtain ⟨-, htr', ho', -⟩ := execute_spec N _ s' r _ hr
@@ -432,7 +436,7 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
           rw [hspec] at hbar; cases hbar
           rw [getElem!_pos m.bars i hi] at ht; omega
     · exact Except.Holds.pure _ ⟨_, rfl, I_unfilled _ _ _ hI (Or.inl fun bar hbar => by
-        rw [barAt_none m _ hA (by assumption)] at hbar; cases hbar)⟩
+        rw [barAt_none m hA (by assumption)] at hbar; cases hbar)⟩
   · have hstop : ¬(pol.wStart + ↑j * BAR + 3 * BAR ≤ stop) := hstop
     have I_drop : ∀ l s', I l s' → I [] s' := fun l s' ⟨hL, ho, hd, hf, he⟩ =>
       ⟨hL.drop fun o hmem => by rw [hd o hmem]; omega, ho, by simp, hf, he⟩
@@ -506,14 +510,14 @@ theorem step_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admiss
   rw [this, hO₈.2.2.2.2]
   exact ⟨hO₈.1, hO₈.2.2.2.1, by simp [E₅, hsize]⟩
 
-theorem steps_ledger (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)
-    (stop : Int) (j : Nat) (hj : j ≤ (Ctx.make p m v pol stop).bounds.length) :
-    Except.Holds ((Ctx.make p m v pol stop).steps N j)
-      (fun s => Inv4 N p m v pol stop j s ∧ LedgerAt N m pol stop j s) := by
-  refine steps_induct N _ (fun j s => Inv4 N p m v pol stop j s ∧ LedgerAt N m pol stop j s)
-    ((start_inv4 N p m v pol stop).and fun s hs => ?_) (fun j s ⟨h4, hl⟩ =>
-      (step_inv4 N p m hA v pol stop j s h4).and (step_ledger N p m hA v pol stop j s h4 hl)) j hj
+theorem steps_ledger (N : NumOps α) (m : Ctx α) (hA : m.L4Valid)
+    (j : Nat) (hj : j ≤ m.bounds.length) :
+    Except.Holds (m.steps N j)
+      (fun s => Inv4 N m j s ∧ LedgerAt N m j s) := by
+  refine steps_induct N _ (fun j s => Inv4 N m j s ∧ LedgerAt N m j s)
+    ((start_inv4 N m).and fun s hs => ?_) (fun j s ⟨h4, hl⟩ =>
+      (step_inv4 N m hA j s h4).and (step_ledger N m hA j s h4 hl)) j hj
   obtain ⟨htr, ho, -, -, he⟩ := start_state N _ s hs
   unfold LedgerAt; rw [htr, ho, he]; exact ⟨Ledger.nil, by simp, rfl⟩
 
-end Ref
+end Ref.L4Orders

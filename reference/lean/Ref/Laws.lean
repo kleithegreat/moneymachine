@@ -9,6 +9,7 @@ import Ref.Proof.Sim
 import Ref.Proof.Units
 import Ref.Proof.Reads
 import Ref.Proof.Fills
+import Ref.Proof.Orders
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -189,8 +190,70 @@ theorem L4_orders (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program)
         ∃ f : Fill α, Event.fill f ∈ r.trace.toList ∧ f.why = .fill ∧ f.coin = coin ∧ f.decided = t)) ∧
     (∀ (j : Nat) (f : Fill α), r.trace[j]? = some (Event.fill f) → f.why = .fill →
       ∃ (i : Nat) (w : α), i < j ∧ r.trace[i]? = some (Event.decision f.decided f.coin w f.qty) ∧
-        ∀ (i' : Nat) (w' : α), r.trace[i']? = some (Event.decision f.decided f.coin w' f.qty) → i' = i) := by
-  sorry
+         ∀ (i' : Nat) (w' : α), r.trace[i']? = some (Event.decision f.decided f.coin w' f.qty) → i' = i) := by
+   let c := Ctx.make reg roles p adm obs v pol stop req
+   change c.evaluate N = .ok r at hr
+   unfold Ctx.evaluate at hr
+   cases hs : c.steps N c.bounds.length with
+   | error e => simp [hs, bind, Except.bind] at hr
+   | ok s =>
+     obtain ⟨h4, hl, hsol, hsize⟩ := L4Orders.steps_ledger N c
+       (make_l4Valid reg roles p adm obs v pol stop req ‹_›) c.bounds.length (Nat.le_refl _) s hs
+     simp only [hs, bind, Except.bind, pure, Except.pure, Except.ok.injEq] at hr
+     subst r
+     dsimp only
+     have hpend : ∀ o ∈ s.orders.map (·.2), c.stop < o.decided - c.pol.delta + 3 * BAR := by
+       intro o ho
+       obtain ⟨e, he, rfl⟩ := List.mem_map.mp ho
+       have ht := (h4.orders e he).2.1
+       have := bounds_end c
+       rw [ht]
+       simp only [BAR, HOUR] at *
+       omega
+     have hdone := hl.drop hpend
+     constructor
+     · intro i t coin w q hi hstop
+       have hi' : s.trace.toList[i]? = some (Event.decision t coin w q) := by simpa using hi
+       obtain h | h | h := hdone.fate i t coin w q hi'
+       · simp at h
+       · obtain ⟨j, hij, e, he, hres⟩ := h
+         refine ⟨⟨j, hij, e, by simpa using he, hres, ?_⟩, ?_⟩
+         · intro j' e' he' hres'
+           exact L4Orders.key_index hdone.rnodup (by simpa using he') he
+             (L4Orders.rkey_of_resolves hres') (L4Orders.rkey_of_resolves hres)
+         · constructor
+           · rintro ⟨⟨bar, hb, htr⟩, k, eq, hk, ht, hpos⟩
+             rcases hres with ⟨f, rfl, hw, hc, hd, hq⟩ | rfl
+             · exact ⟨f, List.mem_of_getElem? he, hw, hc, hd⟩
+             · rcases hdone.unfilled _ _ _ (List.mem_of_getElem? he) with hn | hn
+               · have := hn bar hb; omega
+               · obtain ⟨k', eq', hk', ht', hneg⟩ := hn
+                 have hkk : k = k' := by simp only [c, Ctx.make, BAR, HOUR] at ht'; simp only [BAR, HOUR] at ht; omega
+                 subst k'
+                 have heq : eq = eq' := by simpa only [hk, Option.some.injEq] using hk'
+                 subst eq'
+                 rw [hpos] at hneg
+                 cases hneg
+           · rintro ⟨f, hf, hw, hc, hd⟩
+             have hfill := (h4.fills f hf).2.2.2.2.2.2.1 hw
+             obtain ⟨_, htime, ⟨bar, hb, htr, _, _⟩, _⟩ := hfill
+             refine ⟨⟨bar, ?_, htr⟩, ?_⟩
+             · simpa only [htime, hc, hd, c, Ctx.make] using hb
+             · have hp := hsol f hf hw
+               simpa only [L4Orders.Solvent, htime, hd, c, Ctx.make] using hp
+       · exact (by change stop < t - pol.delta + 3 * BAR at h; omega)
+     · intro j f hj hw
+       have hj' : s.trace.toList[j]? = some (Event.fill f) := by simpa using hj
+       obtain ⟨i, w, q, hij, hi, hres⟩ := hdone.cause j (.fill f) f.decided f.coin hj'
+         (by simp [L4Orders.rkey, hw])
+       have hq : f.qty = q := by
+         rcases hres with ⟨f', he, _, _, _, hq⟩ | he
+         · cases he; exact hq
+         · cases he
+       subst q
+       refine ⟨i, w, hij, by simpa using hi, ?_⟩
+       intro i' w' hi'
+       exact L4Orders.key_index hdone.dnodup (by simpa using hi') hi rfl rfl
 
 /-! ## L5 binding and admission -/
 
