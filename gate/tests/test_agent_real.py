@@ -59,10 +59,13 @@ class Campaign:
         self.from_ = policy["holdout_start"]
         self.out, self.monkeypatch = tmp_path / "agent", monkeypatch
         self.evals, self.finalists, self.sessions, self.searches, self.releases = [program(8), program(12)], True, 0, 0, 0
+        self.end = {"stopped": "finished", "exit": 0}
         record, null = tmp_path / "holdout.json", tmp_path / "null.json"
         record.write_text(json.dumps([{"path": str(p.relative_to(self.root)), "sha256": campaigns.sha256(p)}
                                       for p in sorted((self.root / "holdout").rglob("*.parquet"))]))
-        null.write_text(json.dumps({"ids": campaigns.cohort("agent")[0], "mm": [campaigns.sha256(MM)], "counted_promotions": 0}))
+        ids = campaigns.cohort("agent")[0]
+        audit = {"match": True, "outside_permitted": []}
+        null.write_text(json.dumps({"ids": ids, "mm": [campaigns.sha256(MM)], "counted_promotions": 0, "audits": dict.fromkeys(ids, audit)}))
         for name, value in [("OUT", self.out), ("VENUE", self.root / "venue"), ("HOLDOUT_RECORD", record), ("NULL_SUMMARY", null),
                             ("check_frozen", lambda: None), ("wait_for_room", lambda log: ("TAMU", {"five_hour": [0.1, 100]}))]:
             monkeypatch.setattr(campaigns, name, value)
@@ -79,13 +82,15 @@ class Campaign:
 
         monkeypatch.setattr(campaigns.gate, "release", release)
 
-    def session(self, market, ledger, cid, workdir, die=False):
+    def session(self, market, ledger, cid, workdir, die=False, undisclosed=False):
         self.sessions += 1
         d = daemon_session(market, ledger, cid, workdir, self.evals)
         if die:
             raise Crash
-        run = {"campaign": cid, "agent": "A", "spent": d.spent, "exit": 1, "stopped": "finished"}
+        run = {"campaign": cid, "agent": "A", "spent": d.spent, **self.end}
         (workdir / "run.json").write_text(json.dumps(run))
+        if undisclosed:
+            raise Crash
         subprocess.run(command("disclose", workdir / "run.json", cid, "A", ledger, None, "--kind", "run"), check=True, capture_output=True)
         return run
 
@@ -101,8 +106,8 @@ class Campaign:
         finalists = list(campaigns.gate.candidates(ledger, cid, agent)) if self.finalists else []
         return finalists, {"n": len(finalists), "spa_p": 0.01, "screened": [], "finalists": finalists}
 
-    def run(self):
-        campaigns.real(self.root, 1, self.from_)
+    def run(self, version=1):
+        campaigns.real(self.root, version, self.from_)
 
     def claims(self):
         return campaigns.claims(self.root / "holdout")
@@ -151,8 +156,9 @@ def test_a_dead_session_with_evaluations_stands(c, monkeypatch):
     assert any("crashed" in row for (row,) in c.disclosures("run"))
 
 
-def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c):
-    c.evals = []
+@pytest.mark.parametrize("stopped, exit", [("finished", 0), ("turn limit", -9), ("wall time", -9)])
+def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c, stopped, exit):
+    c.evals, c.end = [], {"stopped": stopped, "exit": exit}
     with pytest.raises(SystemExit, match="void"):
         c.run()
     assert (c.out / "stage3-real/void.json").exists() and c.searches == 0 and c.claims() == []
@@ -171,6 +177,51 @@ def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c):
     with pytest.raises(SystemExit, match="goes to the human"):
         c.run()
     assert not (c.out / "stage3-real-2").exists()
+
+
+@pytest.mark.parametrize("exit", [1, -9, -15, 137])
+def test_a_session_without_a_designed_end_and_no_evaluation_goes_to_the_human(c, exit):
+    """A child killed from outside while its runner survives leaves a normal run record with a signal or nonzero exit."""
+    c.evals, c.end = [], {"stopped": "finished", "exit": exit}
+    for _ in range(2):
+        with pytest.raises(SystemExit, match="goes to the human"):
+            c.run()
+    assert not (c.out / "stage3-real/void.json").exists() and c.sessions == 1 and c.searches == 0 and c.claims() == []
+    assert not (c.out / "stage3-real-2").exists()
+
+
+def test_a_resume_with_another_dataset_version_is_refused(c, monkeypatch):
+    crash_once(monkeypatch, campaigns.gate, "mechanism_check")
+    with pytest.raises(Crash):
+        c.run()
+    with pytest.raises(SystemExit, match="inputs differ"):
+        c.run(version=2)
+    assert (c.out / "stage3-real/m/version").read_text() == "1\n" and c.searches == 0 and c.claims() == []
+    c.run()
+    assert c.report()["version"] == 1 and len(c.claims()) == 1
+
+
+def test_a_run_record_never_disclosed_is_disclosed_on_resume(c, monkeypatch):
+    session = c.session
+    monkeypatch.setattr(campaigns.harness, "run_agent", lambda *a: session(*a, undisclosed=True))
+    with pytest.raises(Crash):
+        c.run()
+    assert c.disclosures("run") == []
+    c.run()
+    (row,) = c.disclosures("run")
+    assert json.loads(row[0]) == json.loads((c.out / "stage3-real/run/run.json").read_text()) == c.report()["agent_run"]
+    assert c.sessions == 1 and len(c.claims()) == 1
+
+
+def test_a_run_record_that_differs_from_its_disclosure_stops_before_arm_b(c, monkeypatch):
+    crash_once(monkeypatch, campaigns.gate, "mechanism_check")
+    with pytest.raises(Crash):
+        c.run()
+    run_json = c.out / "stage3-real/run/run.json"
+    run_json.write_text(json.dumps(json.loads(run_json.read_text()) | {"exit": 0, "stopped": "turn limit"}))
+    with pytest.raises(SystemExit, match="differs from the ledger"):
+        c.run()
+    assert c.searches == 0 and c.claims() == []
 
 
 def test_zero_finalists_make_no_claim_and_say_so(c):
@@ -287,7 +338,7 @@ def test_a_searcher_that_died_ended_its_arm(c, monkeypatch):
     assert c.searches == 1 and c.report()["B"]["evaluations"] == 1
 
 
-@pytest.mark.parametrize("spoil", ["searcher", "harness", "c32", "c32 v1", "kernel", "holdout", "claim"])
+@pytest.mark.parametrize("spoil", ["searcher", "harness", "c32", "c32 v1", "kernel", "failed audit", "no audit", "holdout", "claim"])
 def test_nothing_starts_unless_it_is_ready(c, monkeypatch, spoil):
     def refuse():
         raise SystemExit("pin")
@@ -296,10 +347,13 @@ def test_nothing_starts_unless_it_is_ready(c, monkeypatch, spoil):
         monkeypatch.setattr(campaigns.sweep, "require_frozen_searcher", refuse)
     elif spoil == "harness":
         monkeypatch.setattr(campaigns, "check_frozen", refuse)
-    elif spoil.startswith("c32") or spoil == "kernel":
+    elif spoil.startswith("c32") or spoil in ("kernel", "failed audit", "no audit"):
         null = json.loads(campaigns.NULL_SUMMARY.read_text())
+        last = campaigns.cohort("agent")[0][-1]
         null |= {"c32": {"counted_promotions": 3}, "c32 v1": {"ids": [f"agent-null-N2-{i}" for i in range(20)]},
-                 "kernel": {"mm": ["other"]}}[spoil]
+                 "kernel": {"mm": ["other"]},
+                 "failed audit": {"audits": null["audits"] | {last: {"match": True, "outside_permitted": ["WebFetch"]}}},
+                 "no audit": {"audits": null["audits"] | {last: None}}}[spoil]
         campaigns.NULL_SUMMARY.write_text(json.dumps(null))
     elif spoil == "holdout":
         file = next((c.root / "holdout").rglob("*.parquet"))

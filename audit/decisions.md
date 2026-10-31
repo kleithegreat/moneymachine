@@ -407,3 +407,10 @@ Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommen
 - Pacing: `need` ignores a campaign whose usage shows no tokens, since it measured nothing (v1's 20 rows taught 0.01). No `FIRST_NEED` floor on measured needs: it would hold every start to 0.3 of the seven-day window. Reverse: drop that condition in `need`.
 - `Store.as_of` raises on a dataset with no revisions instead of returning None, which every caller used at once; a missing store now fails where it is read.
 - `agent-real` also requires the C3.2 summary's kernels to be exactly its own `mm` (C3.3's unchanged kernel), beside v2's declared ids and at most 2 promotions.
+
+## 2026-10-31 06:45 UTC (02:45 EDT): `agent-real` before its run, from GPT's review (`audit/reviews/2026-10-31-gpt-c32-v2-agent-real.md`, section 2 finding 2, section 3) (builder: agent-real findings)
+
+- C3.1 covers every arm A run, null and real: the C3.2 summary carries each campaign's audit, and `agent-real` starts only if every one of v2's 20 is recorded and holds. A crashed row has no audit and the code cannot tell whether its session ran, so it blocks and goes to the human. Reverse: drop the audit check in `check_ready`.
+- A zero-evaluation arm A is void only after a designed end (a clean exit, the turn limit or the wall time); any other end (a nonzero exit, a signal, no run record) may be an outside stop and goes to the human. Stricter than the criterion's list, which counts a provider refusal as the session's own end: one that exits nonzero goes to the human too, since the code cannot tell it from a stop such as a cut network. Reverse: void on `stopped == "finished"` with any exit.
+- The dataset version and the holdout start join `inputs.json`, written once before arm A; a resume with either changed is refused. Reverse: drop them from the receipt.
+- On resume `run.json` is reconciled with the ledger's run disclosure: disclosed if missing, refused if different. Reverse: return the file without the ledger check.

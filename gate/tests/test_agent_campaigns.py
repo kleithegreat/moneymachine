@@ -19,7 +19,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
     monkeypatch.setattr(sweep, "OUT", tmp_path)
     ids, log = campaigns.cohort("agent")
     run = lambda i, p: {"id": ids[i], "search": {"spa_p": 0.5, "max_dsr": 0.1 * i, "screened": []},
-                        "promoted": p, "counts_as_promotion": bool(p), "mm": "k"}
+                        "promoted": p, "counts_as_promotion": bool(p), "mm": "k", "audit": {"match": i != 2}}
     rows = [run(i, ["x"] if i == 3 else []) for i in range(19)] + [{"id": ids[19], "crash": "x", "counts_as_promotion": True}]
     log.write_text("".join(json.dumps(r) + "\n" for r in rows))
     swarm = [{"id": f"swarm-null-N2-{i}", "counts_as_promotion": i == 9, "evaluations": 300,
@@ -31,6 +31,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
         campaigns.summary(name, tmp_path / f"{name}.json")
         s[name] = json.loads((tmp_path / f"{name}.json").read_text())
     assert (s["agent"]["n"], s["agent"]["counted_promotions"], s["agent"]["ids"], s["agent"]["mm"]) == (20, 2, ids, ["k", "unrecorded"])
+    assert s["agent"]["audits"] == {ids[i]: {"match": i != 2} for i in range(19)} | {ids[19]: None}
     assert s["agent"]["spreads"]["max_dsr"]["n"] == 19 and s["agent"]["G100_null_n2"]["screened"]["max"] == 1
     assert (s["swarm"]["n"], s["swarm"]["counted_promotions"]) == (10, 1) and s["swarm"]["H400_null_n2"]["spa_p"] is None
 

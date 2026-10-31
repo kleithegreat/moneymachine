@@ -83,6 +83,12 @@ def audit_run(run_dir, ledger, campaign, agent="A"):
             **{k: use[k] for k in ("tools", "outside_permitted", "denials")}}
 
 
+def audit_holds(audit):
+    """C3.1 for one arm A run: its audit was recorded, the daemon's calls match the ledger's rows and no tool call fell
+    outside the permitted set."""
+    return bool(audit) and audit["match"] and not audit["outside_permitted"]
+
+
 def cross_agent_history(run_dirs):
     """Whether any agent received history containing another agent's evaluations."""
     for d in run_dirs:
@@ -116,8 +122,9 @@ def null_market(cid, inputs):
 
 
 def crashed(run):
-    """A session that ended by itself with a nonzero exit; the turn and wall limits are its designed ends."""
-    return run.get("stopped") == "finished" and run.get("exit") != 0
+    """A session that did not reach a designed end (a clean exit, the turn limit or the wall time): a nonzero exit, a
+    signal, or no run record of its own. A stop from outside the session shows only as one of these."""
+    return not (run.get("stopped") in ("turn limit", "wall time") or run.get("stopped") == "finished" and run.get("exit") == 0)
 
 
 def agent_null(cid, inputs):
@@ -289,16 +296,19 @@ def inputs(root):
     return found | {"mm": sha256(MM)}
 
 
-def check_ready(work, data_root, report_from):
-    """Everything that would make the release invalid and can be known without it: C3.2 recorded and passed, the frozen
-    harness and searcher, the writable paths, no overlapping claim, the holdout as C0.9 recorded it, and the inputs as
-    this campaign first recorded them. Any failure stops here, with the holdout unspent."""
+def check_ready(work, data_root, version, report_from):
+    """Everything that would make the release invalid and can be known without it: C3.2 recorded and passed, C3.1's
+    audit holding for every null run, the frozen harness and searcher, the writable paths, no overlapping claim, the
+    holdout as C0.9 recorded it, and the inputs, dataset version and holdout start as this campaign first recorded them.
+    Any failure stops here, with the holdout unspent."""
     check_frozen()
     sweep.require_frozen_searcher()
     null = json.loads(NULL_SUMMARY.read_text()) if NULL_SUMMARY.exists() else {}
-    if sorted(null.get("ids", [])) != sorted(cohort("agent")[0]) or null.get("mm") != [sha256(MM)] \
-            or null.get("counted_promotions", 3) > 2:
+    ids = cohort("agent")[0]
+    if sorted(null.get("ids", [])) != sorted(ids) or null.get("mm") != [sha256(MM)] or null.get("counted_promotions", 3) > 2:
         sys.exit(f"{NULL_SUMMARY}: C3.2 is not recorded as passed on its declared campaigns and this kernel")
+    if failed := [i for i in ids if not audit_holds(null.get("audits", {}).get(i))]:
+        sys.exit(f"{NULL_SUMMARY}: C3.1's audit is failed or not recorded for {failed}; the case goes to the human")
     root = Path(data_root)
     work.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=work), open(root / "holdout" / "spent.jsonl", "a"):
@@ -309,6 +319,7 @@ def check_ready(work, data_root, report_from):
     found = inputs(root)
     if wrong := [e["path"] for e in json.loads(HOLDOUT_RECORD.read_text()) if found.get(e["path"]) != e["sha256"]]:
         sys.exit(f"the holdout differs from {HOLDOUT_RECORD}: {wrong}")
+    found |= {"version": int(version), "report_from": report_from}
     recorded = work / "inputs.json"
     if not recorded.exists():
         write_json(recorded, found)
@@ -324,17 +335,22 @@ def evaluations(ledger, campaign, agent):
 
 
 def run_record(run_dir, ledger, campaign):
-    """Arm A's run record; a session that died before writing it gets one here, also in the ledger (C3.3)."""
+    """Arm A's run record, as `run.json` and as the ledger's one run disclosure (C3.3): a session that died before
+    writing it gets one here, and one that died before disclosing it is disclosed here."""
     path = run_dir / "run.json"
     try:
-        return json.loads(path.read_text())
+        run = json.loads(path.read_text())
     except (FileNotFoundError, json.JSONDecodeError):
-        pass
-    transcript = run_dir / "transcript.jsonl"
-    run = {"campaign": campaign, "agent": "A", "crashed": True, "harness": harness.harness_hash(),
-           "transcript_sha256": sha256(transcript) if transcript.exists() else None}
-    write_json(path, run)
-    subprocess.run(command("disclose", path, campaign, "A", ledger, None, "--kind", "run"), check=True, capture_output=True)
+        transcript = run_dir / "transcript.jsonl"
+        run = {"campaign": campaign, "agent": "A", "crashed": True, "harness": harness.harness_hash(),
+               "transcript_sha256": sha256(transcript) if transcript.exists() else None}
+        write_json(path, run)
+    disclosed = [json.loads(c) for (c,) in sqlite3.connect(ledger).execute(
+        "SELECT content FROM disclosures WHERE campaign = ? AND agent = 'A' AND kind = 'run'", (campaign,))] if ledger.exists() else []
+    if not disclosed:
+        subprocess.run(command("disclose", path, campaign, "A", ledger, None, "--kind", "run"), check=True, capture_output=True)
+    elif disclosed != [run]:
+        sys.exit(f"{campaign}: {path} differs from the ledger's run disclosure; the case goes to the human")
     return run
 
 
@@ -342,7 +358,7 @@ def both_arms(work, data_root, version, report_from, voids):
     """Everything before the release, ending in the frozen finalists and `pre-release.json`. An arm runs only if it never
     started: one that started and has no record ended there (One attempt), and every later step can simply run again."""
     cid = work.name
-    check_ready(work, data_root, report_from)
+    check_ready(work, data_root, version, report_from)
     market, ledger, run_dir = work / "m", work / "ledger.sqlite", work / "run"
     market.mkdir(exist_ok=True)
     for name, target in [("store", Path(data_root) / "store"), ("holdout", Path(data_root) / "holdout"), ("venue", VENUE)]:
@@ -351,18 +367,19 @@ def both_arms(work, data_root, version, report_from, voids):
     (market / "version").write_text(f"{int(version)}\n")
     if not run_dir.exists():
         account, before = wait_for_room(cohort("agent")[1])
-        check_ready(work, data_root, report_from)
+        check_ready(work, data_root, version, report_from)
         write_json(work / "account.json", {"account": account, "windows": before})
         harness.run_agent(market, ledger, cid, run_dir)
     run = run_record(run_dir, ledger, cid)
     spent_a = max(evaluations(ledger, cid, "A"), sum(e["cmd"] == "eval" for e in daemon_log(run_dir)))
     if spent_a == 0:
-        if run.get("crashed"):
-            sys.exit(f"{cid}: arm A made no evaluation and was stopped from outside, so it is not void and the case goes to the human")
+        if crashed(run):
+            sys.exit(f"{cid}: arm A made no evaluation and its session did not reach a designed end, so it may have been "
+                     f"stopped from outside: not void, the case goes to the human")
         write_json(work / "void.json", {"id": cid, "agent_run": run})
         sys.exit(f"{cid}: void, arm A made no evaluation (audit/criteria.md, One attempt); nothing claimed, a new attempt takes a fresh id")
     audit = audit_run(run_dir, ledger, cid)
-    if not audit["match"] or audit["outside_permitted"]:
+    if not audit_holds(audit):
         sys.exit(f"{cid}: arm A fails C3.1's audit, the holdout stays unspent and the case goes to the human: {audit}")
     report_a, mech, kept_a = screened(market, ledger, cid, "A")
     if not (work / "b-started").exists():
@@ -438,7 +455,7 @@ def real(data_root, version, report_from=REAL_REPORT_FROM):
         programs = {**pre["A"]["kept"], **pre["B"]["kept"]}
         holdout = work / "m" / "holdout"
         if programs and not any(c["campaign"] == cid for c in claims(holdout)):
-            check_ready(work, data_root, report_from)
+            check_ready(work, data_root, version, report_from)
             out = gate.release(work / "m", work / "ledger.sqlite", cid, programs, report_from)
             if not any(c["campaign"] == cid for c in claims(holdout)):
                 sys.exit(f"{cid}: the batch stopped before its claim, the holdout is unspent: {out.stdout}{out.stderr}")
@@ -481,15 +498,16 @@ BASELINE = {"agent": "G100", "swarm": "H400"}
 
 
 def summary(name, out):
-    """A null series (`agent` or `swarm`): its campaigns' ids, counted promotions, kernels, evaluations and history use,
-    and the spreads of SPA p-values, maximum DSR and screened counts beside its baseline searcher's
-    complete-null N2 runs."""
+    """A null series (`agent` or `swarm`): its campaigns' ids, counted promotions, kernels, C3.1 audits (None where a
+    campaign recorded none), evaluations and history use, and the spreads of SPA p-values, maximum DSR and screened
+    counts beside its baseline searcher's complete-null N2 runs."""
     searcher = BASELINE[name]
     log = cohort(name)[1]
     rows = [json.loads(l) for l in open(log)] if log.exists() else []
     baseline = [r for r in sweep.results("null") if r["id"].startswith(f"c24{sweep.ROUND}-N2-{searcher}-")]
     report = {"n": len(rows), "ids": [r["id"] for r in rows], "counted_promotions": sum(r["counts_as_promotion"] for r in rows),
               "mm": sorted({r.get("mm", "unrecorded") for r in rows}),
+              "audits": {r["id"]: r.get("audit", r.get("audits")) for r in rows},
               "evaluations": [r.get("evaluations", r.get("agent_run", {}).get("spent")) for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],
               "spreads": spreads(rows), f"{searcher}_null_n2": spreads(baseline), "statement": SMOKE[name],
