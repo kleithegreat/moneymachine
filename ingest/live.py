@@ -1,18 +1,14 @@
-"""Live recordings: the clock the recorders stamp with, the writer and reader of their day JSONL files, and
-each recorder's pidfile, through which `restart` stops it between polls and starts it again."""
+"""Live recordings: the clock the recorders stamp with, the writer and reader of their day JSONL files, and each
+recorder's writer lock and stop signal."""
 
 import fcntl
 import json
-import os
 import signal
-import subprocess
 import sys
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
-
-PIDFILE = "recorder.json"
 
 
 def now_ms():
@@ -37,9 +33,8 @@ def read(live_dir, prefix):
                 yield json.loads(line)
 
 
-def recording(out_dir, command, /, **args):
-    """Hold `out_dir`'s writer lock (exiting if another recorder holds it) and record this recorder's pid, CLI command
-    and arguments there; SIGTERM sets the returned event."""
+def recording(out_dir):
+    """Hold `out_dir`'s writer lock, exiting if another recorder holds it; SIGTERM sets the returned event."""
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -48,39 +43,4 @@ def recording(out_dir, command, /, **args):
         fcntl.flock(stop.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         sys.exit(f"{out_dir} has a running writer")
-    (Path(out_dir) / PIDFILE).write_text(json.dumps({"pid": os.getpid(), "command": command, "args": args}) + "\n")
     return stop
-
-
-def alive(pid, command):
-    try:
-        argv = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
-    except FileNotFoundError:
-        return False
-    return b"cli" in argv and command.encode() in argv
-
-
-def restart(out_dir, budget=None, wait=300):
-    """Stop the recorder writing to `out_dir` (it finishes its current poll), then start it again with the same
-    arguments, `budget` replacing its rate budget, detached in its own systemd scope so that nothing killing the
-    caller's scope (an OOM kill, a session ending) takes it down."""
-    import cli
-
-    rec = json.loads((Path(out_dir) / PIDFILE).read_text())
-    args = rec["args"] | ({"budget": budget} if budget is not None else {})
-    names = [a.rstrip("?").partition(":")[0] for a in cli.COMMANDS[rec["command"]][2]]
-    if set(args) - set(names):
-        raise ValueError(f"{rec['command']} takes no {sorted(set(args) - set(names))}")
-    if alive(rec["pid"], rec["command"]):
-        os.kill(rec["pid"], signal.SIGTERM)
-        deadline = time.time() + wait
-        while alive(rec["pid"], rec["command"]):
-            if time.time() > deadline:
-                raise TimeoutError(f"recorder {rec['pid']} still running {wait} s after SIGTERM")
-            time.sleep(1)
-    with open(Path(out_dir) / "recorder.log", "a") as log:
-        unit = f"mm-{rec['command']}-{int(time.time())}"
-        p = subprocess.Popen(["systemd-run", "--user", "--scope", "--quiet", f"--unit={unit}", sys.executable, "-m", "cli",
-                              rec["command"], *(str(args[a]) for a in names if a in args)], cwd=cli.REPO, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
-                             start_new_session=True)
-    return {"stopped": rec["pid"], "started": p.pid, "unit": unit}

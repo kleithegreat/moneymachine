@@ -61,8 +61,17 @@ def test_benchmark_registers_the_trend_sign_with_its_base_rate_and_logs_skips(tr
     assert theses["BTC"]["legs"] == [["BTC", 1]] and theses["ETH"]["legs"] == [["ETH", -1]]
     assert theses["BTC"]["T"] == MONDAY + 21 * DAY and theses["BTC"]["L"] == 0.1 and 0 < theses["BTC"]["p"] < 1
     skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
-    assert skips == {"flx:OIL": "missing daily close"}
+    assert skips == {"flx:OIL": f"no daily close at {[MONDAY - 2 * DAY]}"}
     assert track.benchmarked(MONDAY)
+
+
+def test_a_benchmark_skip_names_its_cause():
+    snapshot = {"listings": {"BTC": False, "flx:OIL": True, "xyz:GOLD": False}, "markets": {"BTC": {}},
+                "daily": {"BTC": [[0, 1.0, 1.0], [DAY, 1.0, 1.0]]}}
+    causes = {m: runner.unbenchmarkable(snapshot, m, (0, DAY)) for m in ("BTC", "flx:OIL", "xyz:GOLD", "xyz:XYZ100")}
+    assert causes == {"BTC": None, "flx:OIL": "delisted", "xyz:GOLD": "fewer than 90 daily bars or no hourly close",
+                      "xyz:XYZ100": "not listed"}
+    assert runner.unbenchmarkable(snapshot, "BTC", (0, 2 * DAY)) == f"no daily close at {[2 * DAY]}"
 
 
 def test_resolutions_are_recorded_once_and_missing_data_once(track, monkeypatch):

@@ -63,7 +63,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   profiles. The recorders and the mirror jobs are ordinary restricted pods with RuntimeDefault: NFS takes no
   idmapped mounts.
 - **One writer per directory.** Each writer holds an exclusive `flock` on a lock file in its directory and exits if it
-  is held: the thesis runner and the series do already, and the recorders take one beside their pidfile. A pod on an
+  is held: the thesis runner and the series do already, and the recorders take one too. A pod on an
   unreachable node is never force-deleted until the node is confirmed down.
 - **Stopping.** On SIGTERM, recorders stop between polls (as today), the thesis runner after its current step (a day's
   sessions, at most four of an hour each, hence its grace), and the series between campaigns. Their waits wake on SIGTERM. The thesis StatefulSet uses `updateStrategy: OnDelete`, so a restart

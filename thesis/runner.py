@@ -37,6 +37,19 @@ MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
 NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 
 
+def unbenchmarkable(snapshot, m, days):
+    """Why `snapshot` holds no daily close of `m` on each of `days`, by cause; None if it holds them."""
+    if m not in snapshot["listings"]:
+        return "not listed"
+    if snapshot["listings"][m]:
+        return "delisted"
+    if m not in snapshot["markets"]:
+        return f"fewer than {registry.MIN_DAILY_BARS} daily bars or no hourly close"
+    have = {r[0] for r in snapshot["daily"][m]}
+    if missing := [d for d in days if d not in have]:
+        return f"no daily close at {missing}"
+
+
 class Track:
     def __init__(self, root=ROOT):
         self.root = Path(root)
@@ -176,10 +189,10 @@ class Track:
         last = (monday - DELTA) // DAY * DAY - DAY
         before = last - 20 * DAY
         for m in BENCHMARK:
-            closes = {r[0]: r[2] for r in snapshot["daily"].get(m, [])}
-            if m not in snapshot["markets"] or last not in closes or before not in closes:
-                self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "missing daily close"})
+            if reason := unbenchmarkable(snapshot, m, (before, last)):
+                self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": reason})
                 continue
+            closes = {r[0]: r[2] for r in snapshot["daily"][m]}
             w = 1 if closes[last] > closes[before] else -1
             config, data = self.inputs("benchmark", [m], now_ms(), snapshot)
             equity = self.replay("benchmark", monday)["equity"]

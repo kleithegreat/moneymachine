@@ -108,7 +108,7 @@ def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
     the documented limit."""
     delisted = json.loads(Path(rules_path).read_text())["coins"]
     coins = [c for c in json.loads(Path(universe_path).read_text())["universe"] if not delisted[c]["delisted"]]
-    stop = recording(out_dir, "record", universe_path=universe_path, rules_path=rules_path, out_dir=out_dir, budget=budget)
+    stop = recording(out_dir)
     rec = Recorder(budget, coins, out_dir)
     l2 = threading.Thread(target=forever, args=(rec.step_l2, stop))
     l2.start()

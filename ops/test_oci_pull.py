@@ -12,10 +12,10 @@ def test_forward_window_days_are_not_pulled(tmp_path):
     days = [date(2026, 10, 20) + timedelta(d) for d in range(0, 120)]
     for d in days:
         (src / f"polls-{d:%Y%m%d}.jsonl").touch()
-    (src / "recorder.json").touch()
+    (src / ".writer.lock").touch()
     subprocess.run(["rsync", "-a", f"--exclude-from={FILTER}", f"{src}/", f"{dst}/"], check=True)
     pulled = {p.name for p in dst.iterdir()}
     for d in days:
         inside = date(2026, 11, 1) <= d < date(2027, 1, 31)
         assert (f"polls-{d:%Y%m%d}.jsonl" in pulled) != inside, d
-    assert "recorder.json" in pulled
+    assert ".writer.lock" in pulled

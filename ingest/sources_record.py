@@ -36,7 +36,7 @@ def reply(r):
 
 def main(out_dir):
     out = Path(out_dir)
-    stop = recording(out, "sources-record", out_dir=out_dir)
+    stop = recording(out)
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-recorder (read-only)"})
     while not stop.is_set():
         started = time.time()

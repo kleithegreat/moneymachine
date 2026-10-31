@@ -107,7 +107,7 @@ def get(http, name, url, accept, out_dir, auth=({}, {})):
 
 
 def main(out_dir):
-    stop = recording(out_dir, "datalayer-record", out_dir=out_dir)
+    stop = recording(out_dir)
     spec, keys = feeds(), secrets()
     held = [f for f in spec["feeds"] if f.get("auth", {}).get("env", "") in keys or "auth" not in f]
     print("not polled here, no key:", [f["name"] for f in spec["feeds"] if f not in held], flush=True)
