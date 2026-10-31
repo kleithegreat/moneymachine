@@ -24,14 +24,57 @@ def arr! : Value → Array Value
 
 def get! (v : Value) (k : String) : Value := (v.get? k).get!
 
-def market (v : Value) : Market Float × Venue Float × Policy × Int :=
+/-- The stage 6 market's world as sources: funding (the settlement provider; source 0), bars (the bars provider; 1)
+and the two event sources (2, 3), each bound to a dataset whose certificate grants everything. -/
+def decl (n : Nat) (fields : Array (String × String × Dim)) (cadence : Cadence)
+    (roles : List (Role × List (String × String))) : Decl :=
+  { hash := s!"decl{n}", fields, times := ["event", "fetchedAt"], eventColumn := "event",
+    slotColumn := if cadence == .event then some "slot" else none, entityColumn := "coin", revisionColumns := [],
+    rule := .max [.field "event", .field "fetchedAt"], cadence, deps := [], roles }
+
+def evField (name : String) : Array (String × String × Dim) := #[(name, "count", ⟨[0, 0, 0, 0, 0, 1]⟩)]
+
+def registry : Registry :=
+  { decls := #[
+      decl 0 #[("funding", "rate", ⟨[0, 0, -1, 0, 0, 0]⟩), ("premium", "premium", Dim.one)] .held
+        [(.settlement, [("rate", "rate")])],
+      decl 1 #[("open", "open", ⟨[1, -1, 0, 0, 0, 0]⟩), ("high", "high", ⟨[1, -1, 0, 0, 0, 0]⟩),
+               ("low", "low", ⟨[1, -1, 0, 0, 0, 0]⟩), ("close", "close", ⟨[1, -1, 0, 0, 0, 0]⟩),
+               ("volume", "volume", ⟨[0, 1, 0, 0, 0, 0]⟩)] .held
+        [(.bars, [("open", "open"), ("high", "high"), ("low", "low"), ("close", "close"), ("trades", "trades")])],
+      decl 2 (evField "forum_posts") .event [],
+      decl 3 (evField "gov_proposals") .event [] ] }
+
+def roles : Roles := ⟨1, 0⟩
+
+def far : Int := 2 ^ 62 - 1
+
+def admissionMeta (present : List Nat) (intervals : Array (Int × Int)) : Meta :=
+  let bound := [0, 1] ++ present.map (· + 2)
+  let cert (s : Nat) : Cert :=
+    let d := registry.decls[s]!
+    { id := s!"cert{s}", decl := d.hash, manifest := s!"data{s}", policy := "P", verifier := "V", upstream := [],
+      grants := (List.range intervals.size).flatMap fun c =>
+        d.values.map fun col => ⟨c, col, (-far, far), (-far, far)⟩
+      controls := d.controls, venueState := true }
+  { bindings := fun s => if bound.contains s then some ⟨s!"data{s}", s!"cert{s}"⟩ else none
+    certs := bound.map cert, supersessions := [], position := 0, policy := "P", verifier := "V", holdout := [],
+    holdoutStart := far, intervals, version := 0 }
+
+def obs (source coin : Nat) (key known : Int) (slot : Option Int) (vals : Array Float) (role : Option (RolePayload Float)) :
+    Obs Float :=
+  { source, coin, key, slot, known, vals := vals.map some, role, final := true, retraction := false, recorded := known }
+
+/-- The refmm input: a market exported by reference/mmdump (the stage 6 format) as resolved observations, with the
+venue and policy. -/
+def market (v : Value) : Array (Obs Float) × Meta × Venue Float × Policy × Int :=
   let f := (arr! (get! v "funding")).map fun r => let r := arr! r
-    ({ coin := (int! r[0]!).toNat, event := int! r[1]!, known := int! r[2]!, rate := bits! r[3]!, premium := bits! r[4]! } : FundingRow Float)
+    obs 0 (int! r[0]!).toNat (int! r[1]!) (int! r[2]!) none #[bits! r[3]!, bits! r[4]!] (some (.rate (bits! r[3]!)))
   let b := (arr! (get! v "bars")).map fun r => let r := arr! r
-    ({ coin := (int! r[0]!).toNat, openTime := int! r[1]!, event := int! r[2]!, known := int! r[3]!, o := bits! r[4]!,
-       h := bits! r[5]!, l := bits! r[6]!, c := bits! r[7]!, v := bits! r[8]!, trades := int! r[9]! } : BarRow Float)
+    obs 1 (int! r[0]!).toNat (int! r[2]!) (int! r[3]!) none #[bits! r[4]!, bits! r[5]!, bits! r[6]!, bits! r[7]!, bits! r[8]!]
+      (some (.bar (bits! r[4]!) (bits! r[5]!) (bits! r[6]!) (bits! r[7]!) (int! r[9]!)))
   let e := (arr! (get! v "events")).map fun r => let r := arr! r
-    ({ slot := (int! r[0]!).toNat, coin := (int! r[1]!).toNat, event := int! r[2]!, known := int! r[3]!, count := bits! r[4]! } : EventRow Float)
+    obs ((int! r[0]!).toNat + 2) (int! r[1]!).toNat (int! r[2]!) (int! r[3]!) (some (int! r[2]!)) #[bits! r[4]!] none
   let iv := (arr! (get! v "intervals")).map fun r => let r := arr! r; (int! r[0]!, int! r[1]!)
   let ven := get! v "venue"
   let venue : Venue Float :=
@@ -40,8 +83,10 @@ def market (v : Value) : Market Float × Venue Float × Policy × Int :=
       minTierLeverage := (arr! (get! ven "min_tier_leverage")).map bits!
       costBps := (arr! (get! ven "cost_bps")).map fun c => (arr! c).map fun s => (arr! s).map bits! }
   let pol := get! v "policy"
-  ({ funding := f, bars := b, events := e, bound := (arr! (get! v "present")).toList.map fun x => (int! x).toNat, intervals := iv },
-   venue, { delta := int! (get! pol "delta"), wStart := int! (get! pol "w_start") }, int! (get! pol "end"))
+  (f ++ b ++ e, admissionMeta ((arr! (get! v "present")).toList.map fun x => (int! x).toNat) iv, venue,
+   { delta := int! (get! pol "delta"), wStart := int! (get! pol "w_start") }, int! (get! pol "end"))
+
+def loader (os : Array (Obs Float)) : Loader Float := { rows := fun _ => [], resolve := fun _ => some os }
 
 def fb (x : Float) : String := toString x.toBits.toNat
 
@@ -76,9 +121,9 @@ def tickBytes (ms : MState Float) : ByteArray × Nat :=
 
 /-- Every node's value for every coin at every tick of the machine's schedule (wStart, then each hour of every
 step: `Ctx.machineAfter`'s schedule over the run's steps), written to `h`; returns how many were defined. -/
-def writeStreams (h : IO.FS.Handle) (p : Program) (m : Market Float) (v : Venue Float) (pol : Policy) (stop : Int) :
-    IO (Except Abort Nat) := do
-  let c := Ctx.make p m v pol stop
+def writeStreams (h : IO.FS.Handle) (c : Ctx Float) : IO (Except Abort Nat) := do
+  let pol := c.pol
+  let p := c.p
   let mut s ← match c.start floatOps with
     | .error a => return .error a
     | .ok s => pure s
@@ -98,22 +143,24 @@ def writeStreams (h : IO.FS.Handle) (p : Program) (m : Market Float) (v : Venue 
 def main (args : List String) : IO UInt32 := do
   match args with
   | ["check", path] =>
-    match Ref.check (← IO.FS.readFile path) with
+    match Ref.check registry.inputs (← IO.FS.readFile path) with
     | .ok _ => IO.println "ok"; return 0
     | .error c => IO.println c.name; return 1
   | ["run", programs, mkt, outDir] =>
     let some v := (Json.parse (← IO.FS.readFile mkt)).toOption.filter (·.uniqueKeys) | IO.eprintln "bad market"; return 3
-    let (m, venue, pol, stop) := market v
+    let (os, adm, venue, pol, stop) := market v
     let paths := (← IO.FS.readFile programs).splitOn "\n" |>.filter (· ≠ "")
     let mut i := 0
     for prog in paths do
       let streams : System.FilePath := outDir ++ s!"/{i}.bin"
-      let result ← match Ref.check (← IO.FS.readFile prog) with
+      let result ← match Ref.check registry.inputs (← IO.FS.readFile prog) with
         | .error c => pure s!"\{\"reject\":\"{c.name}\"}"
-        | .ok p => match Ref.run floatOps p m venue pol stop with
+        | .ok p => match admit registry roles p adm (loader os) venue pol stop .search with
+          | .error (_, a) => pure s!"\{\"abort\":\"{a.code}\"}"
+          | .ok c => match c.evaluate floatOps with
           | .error a => pure s!"\{\"abort\":\"{a.code}\"}"
           | .ok r => do
-            let defined ← IO.FS.withFile streams .write fun h => writeStreams h p m venue pol stop
+            let defined ← IO.FS.withFile streams .write fun h => writeStreams h c
             let nodes := match defined with
               | .ok n => s!"\{\"defined\":{n}}"
               | .error a => s!"\"{a.code}\""
@@ -123,12 +170,13 @@ def main (args : List String) : IO UInt32 := do
     return 0
   | ["bench", prog, mkt, reps] =>
     let some v := (Json.parse (← IO.FS.readFile mkt)).toOption.filter (·.uniqueKeys) | IO.eprintln "bad market"; return 3
-    let (m, venue, pol, stop) := market v
-    let .ok p := Ref.check (← IO.FS.readFile prog) | IO.println "null"; return 0
+    let (os, adm, venue, pol, stop) := market v
+    let .ok p := Ref.check registry.inputs (← IO.FS.readFile prog) | IO.println "null"; return 0
+    let .ok c := admit registry roles p adm (loader os) venue pol stop .search | IO.println "null"; return 0
     let mut ms := #[]
-    for i in [0:reps.toNat!] do
+    for _ in [0:reps.toNat!] do
       let t0 ← IO.monoNanosNow
-      let .ok r := Ref.run floatOps p m venue pol (stop + if i > reps.toNat! then 1 else 0) | IO.println "null"; return 0
+      let .ok r := c.evaluate floatOps | IO.println "null"; return 0
       if r.returns.isEmpty then IO.println "null"; return 0
       ms := ms.push (toString (((← IO.monoNanosNow) - t0).toFloat / 1e6))
     IO.println (list ms)
