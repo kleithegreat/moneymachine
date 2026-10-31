@@ -39,8 +39,8 @@ theorem L1_values (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program)
     (_ : (Ctx.make reg roles p adm obs₂ v pol stop req).admissible = true)
     (hP : (Ctx.make reg roles p adm obs₁ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
         = (Ctx.make reg roles p adm obs₂ v pol stop req).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
-     ∀ k ≤ n, (Ctx.make reg roles p adm obs₁ v pol stop req).machineAfter N k
-       = (Ctx.make reg roles p adm obs₂ v pol stop req).machineAfter N k := by
+    ∀ k ≤ n, (Ctx.make reg roles p adm obs₁ v pol stop req).machineAfter N k
+      = (Ctx.make reg roles p adm obs₂ v pol stop req).machineAfter N k := by
    intro k hk
    apply machineAfter_agree N (make_agree reg roles p adm obs₁ obs₂ v pol stop req _ hP) k
    change pol.wStart + (k : Int) * HOUR + pol.delta ≤ pol.wStart + (n : Int) * HOUR + pol.delta
@@ -70,7 +70,7 @@ theorem L1_decisions (N : NumOps α) (reg : Registry) (roles : Roles) (p : Progr
     (hE : (Ctx.make reg roles p adm obs₁ v pol stop req).execView ((Ctx.make reg roles p adm obs₁ v pol stop req).decisionTime k)
         = (Ctx.make reg roles p adm obs₂ v pol stop req).execView ((Ctx.make reg roles p adm obs₂ v pol stop req).decisionTime k)) :
     ∀ j ≤ k + 1, ((Ctx.make reg roles p adm obs₁ v pol stop req).steps N j).map (·.trace)
-       = ((Ctx.make reg roles p adm obs₂ v pol stop req).steps N j).map (·.trace) := by
+      = ((Ctx.make reg roles p adm obs₂ v pol stop req).steps N j).map (·.trace) := by
    let c₁ := Ctx.make reg roles p adm obs₁ v pol stop req
    let c₂ := Ctx.make reg roles p adm obs₂ v pol stop req
    let T := pol.wStart + ((k : Int) + 1) * BAR + pol.delta
@@ -151,7 +151,7 @@ theorem L3_rewrite (N : NumOps α) (hN : N.Lawful) (r : Rule) (reg : Registry) (
     (∀ j, ((Ctx.make reg roles p' adm obs v pol stop req).steps N j).map (·.trace)
         = ((Ctx.make reg roles p adm obs v pol stop req).steps N j).map (·.trace)) ∧
     ∀ (ld : Loader α) (mode : Mode),
-       runProgram N reg roles p' adm ld v pol stop mode = runProgram N reg roles p adm ld v pol stop mode := by
+      runProgram N reg roles p' adm ld v pol stop mode = runProgram N reg roles p adm ld v pol stop mode := by
    obtain ⟨hw, hs, hm, ht, _⟩ := rewrite_sound N hN ‹p.WF reg› h
      (Ctx.make reg roles p adm obs v pol stop req)
    refine ⟨hw, fun s => by rw [hs], hm, ht, fun ld mode => ?_⟩
@@ -181,7 +181,7 @@ theorem L4_fills (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) 
       (f.why ≠ .fill →
         f.inputsKnown = f.filled ∧ f.decided = f.filled ∧ f.submitted = f.filled ∧
         ∃ bar, latestClosed c f.coin f.filled = some bar ∧ f.sourceOpen = bar.openTime ∧
-           ∃ q, f.qty = N.neg q ∧ f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero q then bar.l else bar.h)) := by
+          ∃ q, f.qty = N.neg q ∧ f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero q then bar.l else bar.h)) := by
    let c := Ctx.make reg roles p adm obs v pol stop req
    change c.evaluate N = .ok r at hr
    unfold Ctx.evaluate at hr
@@ -217,7 +217,7 @@ theorem L4_orders (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program)
         ∃ f : Fill α, Event.fill f ∈ r.trace.toList ∧ f.why = .fill ∧ f.coin = coin ∧ f.decided = t)) ∧
     (∀ (j : Nat) (f : Fill α), r.trace[j]? = some (Event.fill f) → f.why = .fill →
       ∃ (i : Nat) (w : α), i < j ∧ r.trace[i]? = some (Event.decision f.decided f.coin w f.qty) ∧
-         ∀ (i' : Nat) (w' : α), r.trace[i']? = some (Event.decision f.decided f.coin w' f.qty) → i' = i) := by
+        ∀ (i' : Nat) (w' : α), r.trace[i']? = some (Event.decision f.decided f.coin w' f.qty) → i' = i) := by
    let c := Ctx.make reg roles p adm obs v pol stop req
    change c.evaluate N = .ok r at hr
    unfold Ctx.evaluate at hr
