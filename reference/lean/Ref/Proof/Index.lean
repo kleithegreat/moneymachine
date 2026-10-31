@@ -1,4 +1,4 @@
-import Ref.Spec
+import Ref.Proof.L4Context
 
 /-! The simulator's market index (`Market.index`) against the plain definitions the laws use: the bar map finds
 the unique bar with a (coin, openTime) key. -/
@@ -64,17 +64,17 @@ theorem indexFold_complete (l : List (BarRow α)) (acc : HashMap (Nat × Int) Na
       simp [indexStep]; omega
 
 omit [Inhabited α] in
-theorem index_barAt (m : Market α) (coins : Nat) :
-    (m.index coins).barAt = (m.bars.toList.foldl indexStep (HashMap.emptyWithCapacity, 0)).1 := by
-  simp only [Market.index, ← Array.foldl_toList]
+theorem index_barAt (m : Ctx α) (hA : m.L4Valid) :
+    m.ix.barAt = (m.bars.toList.foldl indexStep (HashMap.emptyWithCapacity, 0)).1 := by
+  simp only [hA.indexed, Index.of, ← Array.foldl_toList]
   rfl
 
 omit [Inhabited α] in
 /-- A hit in the bar map is a bar with that key. -/
-theorem barAt_sound (m : Market α) (coins : Nat) {c : Nat} {t : Int} {i : Nat}
-    (h : (m.index coins).barAt[(c, t)]? = some i) :
+theorem barAt_sound (m : Ctx α) (hA : m.L4Valid) {c : Nat} {t : Int} {i : Nat}
+    (h : m.ix.barAt[(c, t)]? = some i) :
     ∃ hi : i < m.bars.size, m.bars[i].coin = c ∧ m.bars[i].openTime = t := by
-  rw [index_barAt] at h
+  rw [index_barAt m hA] at h
   rcases indexFold_sound _ _ _ _ h with h' | ⟨j, hj, rfl, hk⟩
   · simp at h'
   · simp only [Nat.zero_add, Prod.mk.injEq] at hk ⊢
@@ -82,16 +82,16 @@ theorem barAt_sound (m : Market α) (coins : Nat) {c : Nat} {t : Int} {i : Nat}
 
 omit [Inhabited α] in
 /-- With unique keys, every bar is found under its key. -/
-theorem barAt_complete (m : Market α) (coins : Nat) (hA : m.Admissible) {i : Nat} (hi : i < m.bars.size) :
-    (m.index coins).barAt[(m.bars[i].coin, m.bars[i].openTime)]? = some i := by
-  rw [index_barAt]
+theorem barAt_complete (m : Ctx α) (hA : m.L4Valid) {i : Nat} (hi : i < m.bars.size) :
+    m.ix.barAt[(m.bars[i].coin, m.bars[i].openTime)]? = some i := by
+  rw [index_barAt m hA]
   have := indexFold_complete m.bars.toList (HashMap.emptyWithCapacity, 0) hA.barKeys i (by simpa using hi)
   simpa using this
 
 /-- With unique keys, the bar map agrees with the laws' `barAt`. -/
-theorem barAt_spec (m : Market α) (coins : Nat) (hA : m.Admissible) {c : Nat} {t : Int} {i : Nat}
-    (h : (m.index coins).barAt[(c, t)]? = some i) : ∃ hi : i < m.bars.size, barAt m c t = some m.bars[i] := by
-  obtain ⟨hi, rfl, rfl⟩ := barAt_sound m coins h
+theorem barAt_spec (m : Ctx α) (hA : m.L4Valid) {c : Nat} {t : Int} {i : Nat}
+    (h : m.ix.barAt[(c, t)]? = some i) : ∃ hi : i < m.bars.size, barAt m c t = some m.bars[i] := by
+  obtain ⟨hi, rfl, rfl⟩ := barAt_sound m hA h
   refine ⟨hi, ?_⟩
   unfold barAt
   rw [List.find?_eq_some_iff_getElem]
@@ -170,7 +170,7 @@ theorem maxOpen_fold_some (l : List (BarRow α)) (acc : Option (BarRow α)) (h :
     | cons b' l => exact ih _ (by simp)
 
 /-- The latest closed bar is a bar of the coin closed by t whose openTime no other such bar exceeds. -/
-theorem latestClosed_spec (m : Market α) (c : Nat) (t : Int) (x : BarRow α) (h : latestClosed m c t = some x) :
+theorem latestClosed_spec (m : Ctx α) (c : Nat) (t : Int) (x : BarRow α) (h : latestClosed m c t = some x) :
     x ∈ m.bars.toList ∧ x.coin = c ∧ x.event ≤ t ∧
       ∀ y ∈ m.bars.toList, y.coin = c → y.event ≤ t → y.openTime ≤ x.openTime := by
   unfold latestClosed at h
@@ -181,7 +181,7 @@ theorem latestClosed_spec (m : Market α) (c : Nat) (t : Int) (x : BarRow α) (h
     exact ⟨hm.1, hm.2.1, hm.2.2, fun y hy hc he => hl y (by simp [hy, hc, he])⟩
 
 /-- With unique keys, a bar of the coin closed by t that no such bar exceeds is the latest closed bar. -/
-theorem latestClosed_of_max (m : Market α) (hA : m.Admissible) (c : Nat) (t : Int) (x : BarRow α)
+theorem latestClosed_of_max (m : Ctx α) (hA : m.L4Valid) (c : Nat) (t : Int) (x : BarRow α)
     (hx : x ∈ m.bars.toList) (hc : x.coin = c) (he : x.event ≤ t)
     (hmax : ∀ y ∈ m.bars.toList, y.coin = c → y.event ≤ t → y.openTime ≤ x.openTime) :
     latestClosed m c t = some x := by
@@ -197,25 +197,25 @@ theorem latestClosed_of_max (m : Market α) (hA : m.Admissible) (c : Nat) (t : I
     rw [this]
 
 omit [Inhabited α] in
-theorem times_toList (m : Market α) (coins c : Nat) (hc : c < coins) :
-    ((m.index coins).barTimes[c]!).toList = ((m.bars.toList.filter (·.coin == c)).map (·.openTime)).mergeSort (· ≤ ·) := by
-  simp only [Market.index]
+theorem times_toList (m : Ctx α) (hA : m.L4Valid) (c : Nat) (hc : c < m.coins) :
+    (m.ix.barTimes[c]!).toList = ((m.bars.toList.filter (·.coin == c)).map (·.openTime)).mergeSort (· ≤ ·) := by
+  simp only [hA.indexed, Index.of]
   rw [getElem!_pos _ c (by simpa using hc), Array.getElem_map, Array.getElem_range, Array.toList_mergeSort,
     Array.toList_map, Array.toList_filter]
 
 omit [Inhabited α] in
-theorem times_sorted (m : Market α) (coins c : Nat) (hc : c < coins) :
-    ((m.index coins).barTimes[c]!).toList.Pairwise (· ≤ ·) := by
-  rw [times_toList m coins c hc]
+theorem times_sorted (m : Ctx α) (hA : m.L4Valid) (c : Nat) (hc : c < m.coins) :
+    (m.ix.barTimes[c]!).toList.Pairwise (· ≤ ·) := by
+  rw [times_toList m hA c hc]
   have := List.pairwise_mergeSort (le := fun a b : Int => decide (a ≤ b))
     (fun a b c hab hbc => by simp at *; omega) (fun a b => by simp; omega)
     ((m.bars.toList.filter (·.coin == c)).map (·.openTime))
   exact this.imp (by simp)
 
 omit [Inhabited α] in
-theorem times_mem (m : Market α) (coins c : Nat) (hc : c < coins) (t : Int) :
-    t ∈ ((m.index coins).barTimes[c]!).toList ↔ ∃ b ∈ m.bars.toList, b.coin = c ∧ b.openTime = t := by
-  rw [times_toList m coins c hc, (List.mergeSort_perm _ _).mem_iff]
+theorem times_mem (m : Ctx α) (hA : m.L4Valid) (c : Nat) (hc : c < m.coins) (t : Int) :
+    t ∈ (m.ix.barTimes[c]!).toList ↔ ∃ b ∈ m.bars.toList, b.coin = c ∧ b.openTime = t := by
+  rw [times_toList m hA c hc, (List.mergeSort_perm _ _).mem_iff]
   simp [List.mem_filter, and_assoc]
 
 /-- `find?` on the reverse of an ascending list finds its largest element satisfying p. -/
@@ -240,12 +240,12 @@ theorem ite_ok {ε β : Type} {b : Bool} {e : ε} {x : Except ε β} {v : β}
   cases b <;> simp_all
 
 /-- What a passed fill check establishes. -/
-theorem checkFill_ok (N : NumOps α) (f : Fill α) (m : Market α) (ix : Index α) (v : Venue α)
-    (h : checkFill N f m ix v = .ok ()) :
+theorem checkFill_ok (N : NumOps α) (f : Fill α) (bars : Array (BarRow α)) (ix : Index α) (v : Venue α)
+    (h : checkFill N f bars ix v = .ok ()) :
     (f.inputsKnown ≤ f.decided ∧ f.decided ≤ f.submitted ∧ f.submitted ≤ f.filled) ∧ N.isZero f.qty = false ∧
     ∃ bi, ix.barAt[(f.coin, f.sourceOpen)]? = some bi ∧
       (f.why ≠ .fill → (ix.barTimes[f.coin]!).toList.reverse.find?
-        (fun t => decide (m.bars[ix.barAt[(f.coin, t)]!]!.event ≤ f.filled)) = some m.bars[bi]!.openTime) := by
+        (fun t => decide (bars[ix.barAt[(f.coin, t)]!]!.event ≤ f.filled)) = some bars[bi]!.openTime) := by
   unfold checkFill at h
   simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw] at h
   split at h
@@ -270,16 +270,16 @@ theorem checkFill_ok (N : NumOps α) (f : Fill α) (m : Market α) (ix : Index �
       rw [← h1.1.1, ← Array.find?_toList, Array.toList_reverse]
 
 /-- A passed closeout check names the coin's latest bar closed by the fill. -/
-theorem closeout_latest (N : NumOps α) (f : Fill α) (m : Market α) (hA : m.Admissible) (v : Venue α)
-    (h : checkFill N f m (m.index m.intervals.size) v = .ok ()) (hw : f.why ≠ .fill) :
-    ∃ i, ∃ hi : i < m.bars.size, (m.index m.intervals.size).barAt[(f.coin, f.sourceOpen)]? = some i ∧
+theorem closeout_latest (N : NumOps α) (f : Fill α) (m : Ctx α) (hA : m.L4Valid) (v : Venue α)
+    (h : checkFill N f m.bars m.ix v = .ok ()) (hw : f.why ≠ .fill) :
+    ∃ i, ∃ hi : i < m.bars.size, m.ix.barAt[(f.coin, f.sourceOpen)]? = some i ∧
       latestClosed m f.coin f.filled = some m.bars[i] ∧ f.sourceOpen = m.bars[i].openTime := by
-  obtain ⟨-, -, bi, hbi, hfind⟩ := checkFill_ok N f m _ v h
-  obtain ⟨hi, hc, ho⟩ := barAt_sound m _ hbi
-  have hcoins : f.coin < m.intervals.size := hc ▸ hA.barCoin _ (Array.getElem_mem_toList hi)
-  have hbang : ∀ j (hj : j < m.bars.size), (m.index m.intervals.size).barAt[(m.bars[j].coin, m.bars[j].openTime)]! = j :=
-    fun j hj => by rw [getElem!_def, barAt_complete m _ hA hj]
-  obtain ⟨-, hp, hmax⟩ := reverse_find_max _ (times_sorted m _ _ hcoins) _ (hfind hw)
+  obtain ⟨-, -, bi, hbi, hfind⟩ := checkFill_ok N f m.bars _ v h
+  obtain ⟨hi, hc, ho⟩ := barAt_sound m hA hbi
+  have hcoins : f.coin < m.coins := hc ▸ hA.barCoin _ (Array.getElem_mem_toList hi)
+  have hbang : ∀ j (hj : j < m.bars.size), m.ix.barAt[(m.bars[j].coin, m.bars[j].openTime)]! = j :=
+    fun j hj => by rw [getElem!_def, barAt_complete m hA hj]
+  obtain ⟨-, hp, hmax⟩ := reverse_find_max _ (times_sorted m hA _ hcoins) _ (hfind hw)
   rw [getElem!_pos m.bars bi hi] at hp hmax
   refine ⟨bi, hi, hbi, latestClosed_of_max m hA _ _ _ (Array.getElem_mem_toList hi) hc ?_ ?_, ho.symm⟩
   · have := hbang bi hi
@@ -289,7 +289,7 @@ theorem closeout_latest (N : NumOps α) (f : Fill α) (m : Market α) (hA : m.Ad
     obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hy
     have hj' : j < m.bars.size := by simpa using hj
     apply hmax
-    · exact (times_mem m _ _ hcoins _).mpr ⟨_, hy, hyc, rfl⟩
+    · exact (times_mem m hA _ hcoins _).mpr ⟨_, hy, hyc, rfl⟩
     · have := hbang j hj'
       simp only [Array.getElem_toList] at hyc hye ⊢
       rw [hyc] at this

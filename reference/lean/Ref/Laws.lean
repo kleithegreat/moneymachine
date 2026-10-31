@@ -8,6 +8,7 @@ import Ref.Proof.Bound
 import Ref.Proof.Sim
 import Ref.Proof.Units
 import Ref.Proof.Reads
+import Ref.Proof.Fills
 
 /-!
 The laws, generalized over declarations by stage 7 (audit/stage7/laws-v2-draft.md §7; stage 6's statements with
@@ -152,8 +153,18 @@ theorem L4_fills (N : NumOps α) (reg : Registry) (roles : Roles) (p : Program) 
       (f.why ≠ .fill →
         f.inputsKnown = f.filled ∧ f.decided = f.filled ∧ f.submitted = f.filled ∧
         ∃ bar, latestClosed c f.coin f.filled = some bar ∧ f.sourceOpen = bar.openTime ∧
-          ∃ q, f.qty = N.neg q ∧ f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero q then bar.l else bar.h)) := by
-  sorry
+           ∃ q, f.qty = N.neg q ∧ f.reference = (if f.why = .delisting then bar.c else if N.lt N.zero q then bar.l else bar.h)) := by
+   let c := Ctx.make reg roles p adm obs v pol stop req
+   change c.evaluate N = .ok r at hr
+   unfold Ctx.evaluate at hr
+   cases hs : c.steps N c.bounds.length with
+   | error e => simp [hs, bind, Except.bind] at hr
+   | ok s =>
+     have hf := (steps_inv4 N c (make_l4Valid reg roles p adm obs v pol stop req ‹_›)
+       c.bounds.length (Nat.le_refl _)) s hs
+     simp only [hs, bind, Except.bind, pure, Except.pure, Except.ok.injEq] at hr
+     subst r
+     exact hf.fills
 
 /-- Exactly once: every order whose due step runs (B + 3·BAR ≤ stop, with B its decision's boundary) has exactly
 one later resolution in the trace, the fill at its scheduled bar if that bar exists and traded and the due step's
