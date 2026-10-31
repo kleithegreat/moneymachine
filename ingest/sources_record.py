@@ -1,4 +1,4 @@
-"""Stage 5 live recorder: polls Discourse forums and Snapshot every 5 minutes, appending raw replies,
+"""Stage 5 live recorder: polls Discourse forums and Snapshot every 4 minutes, appending raw replies,
 and logs the kernel's own bound on its clock error (adjtimex) each cycle as source "clock".
 
 Each line: {"source", "key", "sent", "recv", "data"}. Analysis is offline (C5.3).
@@ -17,7 +17,7 @@ from ingest.live import append, now_ms, recording
 FORUMS = ["delvingbitcoin.org"]
 SPACES = ["aavedao.eth"]
 HUB = "https://hub.snapshot.org/graphql"
-POLL = 300
+POLL = 240
 QUERY = ('{ proposals(first: 20, where: {space: "%s"}, orderBy: "created", orderDirection: desc) '
          '{ id created updated start end state author ipfs } }')
 

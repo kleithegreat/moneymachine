@@ -381,3 +381,7 @@ Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommen
 ## 2026-10-31 (2026-10-30 EDT): the cluster's clock acceptance in `audit/cluster/handoff.md` does not stand
 
 - The handoff's "about 5 ms" clock agreement, from Hyperliquid L2 medians, is not accepted as a clock check, per `audit/reviews/2026-10-30-gpt-witness-tests-clock.md`. The cluster's record is the kernel bound of the entry above (`CLUSTER.md`, Clocks). `handoff.md` is untouched. Reverse by a further entry.
+
+## 2026-10-31 (2026-10-30 EDT): the sources poll target is 240 s (advisor)
+
+- C5.3's hosts revision covers an interval only between polls at most 5 minutes apart; a 300 s target missed that on jitter alone (287 of 575 gaps over 300 s). `POLL` is 240 s (Discourse and Snapshot allow 100 or more requests a minute, `venue/sources.toml`). Deployed with the kernel clock record, the 72 h segment having just begun. Reverse by setting `POLL` back to 300.
