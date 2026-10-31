@@ -6,6 +6,8 @@ Found by the advisor while confirming v2's first campaigns reached a model sessi
 
 The first nine v2 campaigns (`agent-null-2-N2-0` to `-8`, mirror `agent/`, as of 09:22 UTC (05:22 EDT)) each ended `stopped: finished`, exit 0, `spent: 0` of 100 evaluations, with every Write call in the result line's `permission_denials` (1 to 5 per campaign), plus Bash commands outside `./mm-agent`. The agents read the brief, ran `./mm-agent budget` and `history`, wrote a strategy with the Write tool, were denied, and stopped to ask for permissions. No `mm eval` reached the daemon. Each row counts as a non-promotion.
 
+The series ended by 09:55 UTC (05:55 EDT; Job `agent-series` Complete): 20 rows, no crash, `spent: 0` in every run record, no promotion; 1 counted promotion, `agent-null-2-N2-17`, whose agent made no daemon call (`gate/agent/campaigns.py` `agent_null`). As written, v2 reads 1 of 20, within 2.
+
 ## Cause
 
 `sandbox/session.py` `tools()` grants file writes with `--allowedTools ... Write(//work/**)` under `--permission-mode dontAsk`. Under the pinned CLI, claude-code 2.1.304 (pinned 2026-10-28, `5c1d4c3`, which refroze the harness as a successor), that rule does not permit the Write tool; Edit rules govern file writes.
