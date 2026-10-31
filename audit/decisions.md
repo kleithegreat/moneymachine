@@ -394,3 +394,10 @@ Reviews: `audit/reviews/2026-10-30-*`. The human accepted the advisor's recommen
 - With zero finalists, stage 3 can exit with the release items empty, stating that the release path was not exercised.
 - This PC's claim line stays even if the holdout ends up unspent: the cluster's store can still release it, and removing the line would allow a second release. The mechanism reporting step gets no code until arm A has finalists.
 - Reverse any of these by a further dated revision before the run.
+
+## 2026-10-31 04:50 UTC (00:50 EDT): C3.2 v1 failed; v2 on 20 fresh ids (human)
+
+- What: the series' 20 campaigns `agent-null-N2-0..19` all crashed at 2026-10-31 04:00 UTC (00:00 EDT), in 0 s and before any model call, because N2's funding reads `data/store` and the series pod mounts only `agent`. Under C3.2 each crash counts as a promotion, so C3.2 v1 failed as written (20 of 20). Its log (`mirror/agent/agent-null.jsonl`) stays the record of that failure. A new version runs 20 fresh ids with the funding delivered by its frozen sha256, as batch Jobs already do, and is judged on those ids alone, under a dated C3.2 revision committed before it starts. The crash rule is unchanged.
+- Why: the defect is in delivery, not in arm A's procedure or harness (no hashed file changes); fresh ids give fresh null markets and keep v1's failure on record.
+- Reviewers, each without the advisor's plan: a fresh Claude (`audit/reviews/2026-10-31-claude-c32-crash.md`) and GPT (`audit/reviews/2026-10-31-gpt-c32-crash.md`) agree on cause and fix; they add one series-log definition for pacing and the real campaign's lock, a check before the first id, a start marker before generation, and binding `check_ready` to v2's cohort. GPT's permanent `FIRST_NEED` floor on pacing is not adopted (it would stall the series on the seven-day window); rows with no model call are kept out of the measurement instead.
+- Reverse: none for v1's failure. v2 can be abandoned before it starts by not committing its revision.
