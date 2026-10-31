@@ -33,10 +33,12 @@ def test_adapter_posts_only_to_the_public_info_endpoint(tmp_path, monkeypatch):
 
 
 def test_no_signing_or_exchange_endpoint_in_the_repository():
+    import subprocess
     from pathlib import Path
 
     repo = Path(__file__).resolve().parents[2]
-    sources = [p for p in repo.rglob("*.py") if ".git" not in p.parts and "data" not in p.parts and p != Path(__file__)]
+    tracked = subprocess.run(["git", "ls-files", "*.py"], cwd=repo, capture_output=True, text=True, check=True).stdout
+    sources = [repo / p for p in tracked.split() if repo / p != Path(__file__)]
     text = "\n".join(p.read_text() for p in sources)
     for banned in ("eth_account", "eth_keys", "sign_l1_action", "private_key", "/exchange\"", "hyperliquid.exchange"):
         assert banned not in text, banned
