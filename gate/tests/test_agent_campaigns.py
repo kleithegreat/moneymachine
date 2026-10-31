@@ -30,7 +30,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
     for name in ("agent", "swarm"):
         campaigns.summary(name, tmp_path / f"{name}.json")
         s[name] = json.loads((tmp_path / f"{name}.json").read_text())
-    assert (s["agent"]["n"], s["agent"]["counted_promotions"], s["agent"]["ids"], s["agent"]["mm"]) == (20, 2, ids, ["k"])
+    assert (s["agent"]["n"], s["agent"]["counted_promotions"], s["agent"]["ids"], s["agent"]["mm"]) == (20, 2, ids, ["k", "unrecorded"])
     assert s["agent"]["spreads"]["max_dsr"]["n"] == 19 and s["agent"]["G100_null_n2"]["screened"]["max"] == 1
     assert (s["swarm"]["n"], s["swarm"]["counted_promotions"]) == (10, 1) and s["swarm"]["H400_null_n2"]["spa_p"] is None
 

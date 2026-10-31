@@ -385,6 +385,25 @@ def test_a_null_session_that_made_no_call_still_counts_as_a_promotion(c, monkeyp
     assert r["counts_as_promotion"] and r["promoted"] == [] and ledger.exists()
 
 
+@pytest.mark.parametrize("stopped, exit, counts", [("finished", 1, True), ("finished", -9, True), ("wall time", -9, False),
+                                                   ("turn limit", -9, False), ("finished", 0, False)])
+def test_a_null_session_that_crashed_counts_as_a_promotion(c, monkeypatch, stopped, exit, counts):
+    c.evals = []
+
+    def called(market, led, cid, workdir):
+        workdir.mkdir(parents=True)
+        (workdir / "transcript.jsonl").write_text("")
+        (workdir / "daemon.log").write_text("")
+        subprocess.run(command("disclose", REPO / "kernel/strategies/w0.json", cid, "A", led, None, "--kind", "run"), check=True, capture_output=True)
+        return {"spent": 1, "stopped": stopped, "exit": exit}
+
+    (c.out / "null-0").mkdir(parents=True)
+    monkeypatch.setattr(campaigns, "null_market", lambda cid, cells: c.root)
+    monkeypatch.setattr(campaigns.harness, "run_agent", called)
+    r = campaigns.agent_null("null-0", {})
+    assert r["promoted"] == [] and r["counts_as_promotion"] == counts
+
+
 def test_no_returns_mean_p_one():
     assert campaigns.gate.holdout_pvalue(np.zeros(0)) == 1.0
 

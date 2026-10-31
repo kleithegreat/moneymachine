@@ -115,8 +115,14 @@ def null_market(cid, inputs):
                          inputs["cost_cells"])
 
 
+def crashed(run):
+    """A session that ended by itself with a nonzero exit; the turn and wall limits are its designed ends."""
+    return run.get("stopped") == "finished" and run.get("exit") != 0
+
+
 def agent_null(cid, inputs):
-    """Arm A on a null market. A session that made no daemon call counts as a promotion, as a crash does (C3.2)."""
+    """Arm A on a null market. A crashed session counts as a promotion (C3.2), and so does one that made no daemon
+    call."""
     market = null_market(cid, inputs)
     ledger = OUT / cid / "ledger.sqlite"
     run = harness.run_agent(market, ledger, cid, OUT / cid / "run")
@@ -126,7 +132,7 @@ def agent_null(cid, inputs):
     return {"agent_run": run, "search": report, "mechanism": mech, "kept": list(kept), "holdout": holdout,
             "bankrupt": gate.bankrupt(ledger),
             "promoted": promoted, "audit": audit_run(OUT / cid / "run", ledger, cid),
-            "counts_as_promotion": bool(promoted) or not (OUT / cid / "run" / "daemon.log").exists()}
+            "counts_as_promotion": bool(promoted) or crashed(run) or not (OUT / cid / "run" / "daemon.log").exists()}
 
 
 def swarm_null(cid, inputs):
@@ -141,7 +147,8 @@ def swarm_null(cid, inputs):
             "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": cross_agent_history(run_dirs),
             "bankrupt": gate.bankrupt(ledger),
             "audits": {d.name: audit_run(d, ledger, cid, d.name) for d in run_dirs},
-            "counts_as_promotion": bool(promoted) or swarm["evaluations"] < MIN_SWARM_EVALUATIONS}
+            "counts_as_promotion": bool(promoted) or any(map(crashed, swarm["runs"]))
+                                   or swarm["evaluations"] < MIN_SWARM_EVALUATIONS}
 
 
 SERIES = {"agent": agent_null, "swarm": swarm_null}
@@ -482,7 +489,7 @@ def summary(name, out):
     rows = [json.loads(l) for l in open(log)] if log.exists() else []
     baseline = [r for r in sweep.results("null") if r["id"].startswith(f"c24{sweep.ROUND}-N2-{searcher}-")]
     report = {"n": len(rows), "ids": [r["id"] for r in rows], "counted_promotions": sum(r["counts_as_promotion"] for r in rows),
-              "mm": sorted({r["mm"] for r in rows if "mm" in r}),
+              "mm": sorted({r.get("mm", "unrecorded") for r in rows}),
               "evaluations": [r.get("evaluations", r.get("agent_run", {}).get("spent")) for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],
               "spreads": spreads(rows), f"{searcher}_null_n2": spreads(baseline), "statement": SMOKE[name],
