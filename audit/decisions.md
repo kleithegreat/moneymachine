@@ -437,3 +437,11 @@ Evidence `audit/stage3/write-denied-2026-10-31.md`; reviews `audit/reviews/2026-
 
 - The human: "proceed with your best judgement for the two decisions". Both stand as decided: the Write denial (2026-10-31 23:12 UTC (19:12 EDT); C3.2 v3's campaigns now evaluate, 6 to 11 each, audits holding) and stage 10's second refreeze (2026-11-01 03:46 UTC (2026-10-31 23:46 EDT); retrieval fetches certified documents from a pod on the new image). Each had a fresh Claude and GPT review with every finding fixed. Reverse: as each entry states.
 - Also: the workstation's stale `desktop` node (NotReady since 2026-10-29 02:03 UTC (2026-10-28 22:03 EDT), when k3s stopped at a reboot without `ops/jobs.py` leave) paged Alertmanager every 4 h (179 Discord notifications); the human deleted it. Stopping k3s on the desktop now deletes its node (dotfiles `efb606b`, switched with the human's leave), and `jobs.leave` drops its own delete (`82eba31`). Reverse: revert both.
+
+## 2026-11-01 06:42 UTC (2026-11-01 01:43 EST): stage 3's real campaign runs (advisor; the human asleep, "act autonomously")
+
+- **What:** `agent-real` on image `sha256:1cd091eb…` (`119afd3`), dataset version 1792613363942, report from 1785542400000 (2026-08-01), attempt `stage3-real`: seed the store and holdout, then the claim line, then apply (`CLUSTER.md` §2). It spends stage 3's holdout once.
+- **Why:** C3.1 and C3.2 hold (`audit/stage3/null-summary.json`, `119afd3`: v3, 0 of 20 counted, every audit holding, one kernel); C3.3's order is C3.1 → C3.2 → freeze → both arms.
+- **Checked first (integrity only):** the pod gate on the digest (`audit/cluster/gate-unmasked.json`: harness `6a335714…` equals the frozen one, sandbox tests pass, a session answers, only the model API reachable); the store's policy identical to `policy.json`; every holdout file hashed and matching its record (`audit/holdout.json` for bars and funding; stage 5's lineage for the two event datasets, which no strategy can reference: the search store carries none, C5.6); no prior attempt, claim or `real/` here or in the agent volume; the series complete.
+- **Said:** a fresh Claude and GPT, both GO AFTER their checks, all done (`audit/reviews/2026-11-01-{claude,gpt}-agent-real-preflight.md`). An outside stop goes to the human; only a qualifying void advances the id.
+- **Reverse:** none: the holdout is spent once claimed.
