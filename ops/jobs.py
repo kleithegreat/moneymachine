@@ -267,13 +267,12 @@ def join():
 
 
 def leave():
-    """Cordon and drain this PC's node, leave the cluster, and delete the node."""
+    """Cordon and drain this PC's node, then leave the cluster; stopping k3s deletes the node (the desktop's NixOS config)."""
     env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube/moneymachine.yaml")}
     subprocess.run(["kubectl", "cordon", NODE], check=True, env=env)
     subprocess.run(["kubectl", "drain", NODE, "--ignore-daemonsets", "--delete-emptydir-data", "--timeout=600s"],
                    check=True, env=env)
     subprocess.run(["systemctl", "stop", "k3s"], check=True)
-    subprocess.run(["kubectl", "delete", "node", NODE], check=True, env=env)
 
 
 if __name__ == "__main__":
