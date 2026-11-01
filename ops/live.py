@@ -270,6 +270,20 @@ def reach(host, port):
         return False
 
 
+def retrieval_reach():
+    """Each certified retrieval host's robots.txt status through the thesis fetcher, TLS verification included."""
+    from ingest import terms
+    from thesis.retrieval import Fetcher
+
+    fetcher, out = Fetcher(), {}
+    for host in sorted({e.split("/")[0] for e in terms.allowlist(retrieval=True)}):
+        try:
+            out[host] = fetcher._robots(f"https://{host}")[0]
+        except Exception as e:
+            out[host] = repr(e)[:120]
+    return out
+
+
 def gate_run(targets):
     """In a runner pod: the frozen hashes, the isolation tests, the sandbox's view, the network from the runner, the
     subscription's windows, and one sandboxed session authenticated by the token alone. Each part is recorded, its
@@ -294,6 +308,7 @@ def gate_run(targets):
         "tests": lambda: subprocess.run([sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider",
                                          "gate/tests/test_sandbox.py"], capture_output=True, text=True).stdout.strip().splitlines()[-12:],
         "view": view, "windows": campaigns.windows, "network": lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
+        "retrieval": retrieval_reach,
         "session": session_record}
     record = {}
     for name, part in parts.items():

@@ -17,12 +17,15 @@ import time
 import urllib.robotparser
 from urllib.parse import urljoin, urlsplit
 
+import certifi
+
 from ingest import terms
 from ingest.live import now_ms
 
 USER_AGENT = "moneymachine-thesis-research (read-only)"
 SPACING = 5.0
 MAX_REDIRECTS = 5
+REDIRECTS = (301, 302, 303, 307, 308)
 MAX_BYTES = 2_000_000
 TIMEOUT = 30
 PORTS = {"http": 80, "https": 443}
@@ -89,7 +92,7 @@ class PinnedHTTPS(http.client.HTTPSConnection):
     """HTTPS to a validated address, verifying the certificate for the URL's host."""
 
     def __init__(self, host, address):
-        super().__init__(host, PORTS["https"], timeout=TIMEOUT, context=ssl.create_default_context())
+        super().__init__(host, PORTS["https"], timeout=TIMEOUT, context=ssl.create_default_context(cafile=certifi.where()))
         self.address = address
 
     def connect(self):
@@ -133,12 +136,25 @@ class Fetcher:
         path = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
         return self.connect(host, address, parts.scheme == "https", path)
 
+    def _robots(self, origin):
+        """(status, body) of the origin's robots.txt, following redirects on the same host (RFC 9309, e.g. http to
+        https); a redirect elsewhere leaves it unavailable."""
+        url = origin + "/robots.txt"
+        for _ in range(MAX_REDIRECTS + 1):
+            status, location, _, body = self._get(url)
+            if status not in REDIRECTS or not location:
+                return status, body
+            url = urljoin(url, location)
+            if urlsplit(url).hostname != urlsplit(origin).hostname:
+                return None, b""
+        return None, b""
+
     def _allowed(self, url):
         parts, _ = check_url(url)
         origin = f"{parts.scheme}://{parts.netloc}"
         if origin not in self.robots:
             try:
-                status, _, _, body = self._get(origin + "/robots.txt")
+                status, body = self._robots(origin)
             except (Refused, OSError, http.client.HTTPException):
                 status, body = None, b""
             rp = urllib.robotparser.RobotFileParser()
@@ -167,7 +183,7 @@ class Fetcher:
                 if not self._allowed(current):
                     raise Refused(f"robots.txt disallows {current}")
                 status, location, ctype, body = self._get(current)
-                if status in (301, 302, 303, 307, 308) and location:
+                if status in REDIRECTS and location:
                     chain.append(current)
                     current = urljoin(current, location)
                     continue
