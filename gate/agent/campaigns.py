@@ -29,7 +29,6 @@ VENUE = REPO / "venue/hyperliquid"
 REPORT_FROM_DAY = {"agent": 670, "swarm": 640}
 REAL_REPORT_FROM = 1785542400000  # 2026-08-01, a month after the agent model's knowledge cutoff
 LABEL = "pipeline validation run, not a test for edge; every promotion: historical holdout, costs fitted after it"
-MIN_SWARM_EVALUATIONS = 200
 CEILING = 0.8  # the most of any subscription window a campaign may bring it to; the rest stays with the human
 FIRST_NEED = 0.5  # a campaign's assumed share of each window until one has been measured
 ACCOUNTS = (("TAMU", "CLAUDE_CODE_OAUTH_TOKEN_TAMU"), ("Cornell", "CLAUDE_CODE_OAUTH_TOKEN_CORNELL"))  # in preference order: the thesis track also draws on Cornell
@@ -129,19 +128,25 @@ def crashed(run):
     return not (run.get("stopped") in ("turn limit", "wall time") or run.get("stopped") == "finished" and run.get("exit") == 0)
 
 
+def counts(promoted, runs, evaluations):
+    """Whether a null campaign counts as a promotion: it promoted, a session crashed, or an agent made no evaluation
+    (C3.2 v3, C4.5 v2)."""
+    return bool(promoted) or any(map(crashed, runs)) or 0 in evaluations
+
+
 def agent_null(cid, inputs):
-    """Arm A on a null market. A crashed session counts as a promotion (C3.2), and so does one that made no evaluation."""
+    """Arm A on a null market, counted by `counts`."""
     market = null_market(cid, inputs)
     ledger = OUT / cid / "ledger.sqlite"
     run = harness.run_agent(market, ledger, cid, OUT / cid / "run")
-    n = arm_a_evaluations(ledger, cid, OUT / cid / "run")
+    n = evaluations_made(ledger, cid, OUT / cid / "run")
     report, mech, kept = screened(market, ledger, cid, "A")
     gate.freeze(ledger, cid, kept, "frozen finalist A")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["agent"] * DAY)
     return {"agent_run": run, "search": report, "mechanism": mech, "kept": list(kept), "holdout": holdout,
             "bankrupt": gate.bankrupt(ledger),
             "promoted": promoted, "audit": audit_run(OUT / cid / "run", ledger, cid), "evaluations": n,
-            "counts_as_promotion": bool(promoted) or crashed(run) or n == 0}
+            "counts_as_promotion": counts(promoted, [run], [n])}
 
 
 def swarm_null(cid, inputs):
@@ -152,19 +157,20 @@ def swarm_null(cid, inputs):
     gate.freeze(ledger, cid, kept, "frozen finalist swarm")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["swarm"] * DAY)
     run_dirs = [OUT / cid / "swarm" / r["agent"] for r in swarm["runs"]]
-    return {"runs": swarm["runs"], "evaluations": swarm["evaluations"], "search": report, "mechanism": mech,
+    per_agent = {d.name: evaluations_made(ledger, cid, d, d.name) for d in run_dirs}
+    return {"runs": swarm["runs"], "evaluations": swarm["evaluations"], "agent_evaluations": per_agent, "search": report, "mechanism": mech,
             "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": cross_agent_history(run_dirs),
             "bankrupt": gate.bankrupt(ledger),
             "audits": {d.name: audit_run(d, ledger, cid, d.name) for d in run_dirs},
-            "counts_as_promotion": bool(promoted) or any(map(crashed, swarm["runs"]))
-                                   or swarm["evaluations"] < MIN_SWARM_EVALUATIONS}
+            "counts_as_promotion": counts(promoted, swarm["runs"], list(per_agent.values()))}
 
 
 SERIES = {"agent": agent_null, "swarm": swarm_null}
 STAGE = {"agent": 3, "swarm": 4}
 # C3.2 v3 and C4.5. Earlier agent cohorts: v1, agent-null-N2-0..19 in agent-null.jsonl, failed (audit/stage3/null-v1.jsonl);
 # v2, agent-null-2-N2-0..19 in agent-null-2.jsonl, not established: the agent could not write (audit/stage3/null-v2.jsonl).
-COHORTS = {"agent": ("agent-null-3", 20), "swarm": ("swarm-null", 10)}
+# C4.5 v1, swarm-null-N2-0..9 in swarm-null.jsonl, failed under its 200-evaluation floor (audit/stage4/null-v1.jsonl).
+COHORTS = {"agent": ("agent-null-3", 20), "swarm": ("swarm-null-2", 10)}
 
 
 def cohort(name):
@@ -347,10 +353,10 @@ def evaluations(ledger, campaign, agent):
         "OR (kind = 'reject' AND json_extract(content, '$.path') IS NULL))", (campaign, agent)).fetchone()[0]
 
 
-def arm_a_evaluations(ledger, campaign, run_dir):
-    """Arm A's evaluations, as the ledger or the daemon's log counts them, whichever saw more (a request refused for
+def evaluations_made(ledger, campaign, run_dir, agent="A"):
+    """An agent's evaluations, as the ledger or its daemon's log counts them, whichever saw more (a request refused for
     budget never reached the kernel): 0 means the session evaluated nothing."""
-    return max(evaluations(ledger, campaign, "A"),
+    return max(evaluations(ledger, campaign, agent),
                sum(e["cmd"] == "eval" and e["response"].get("code") != "BUDGET" for e in daemon_log(run_dir)))
 
 
@@ -393,7 +399,7 @@ def both_arms(work, data_root, version, report_from, voids):
         write_json(work / "account.json", {"account": account, "windows": before})
         harness.run_agent(market, ledger, cid, run_dir)
     run = run_record(run_dir, ledger, cid)
-    spent_a = arm_a_evaluations(ledger, cid, run_dir)
+    spent_a = evaluations_made(ledger, cid, run_dir)
     if spent_a == 0:
         if crashed(run):
             sys.exit(f"{cid}: arm A made no evaluation and its session did not reach a designed end, so it may have been "

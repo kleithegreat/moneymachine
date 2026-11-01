@@ -452,3 +452,10 @@ Evidence `audit/stage3/write-denied-2026-10-31.md`; reviews `audit/reviews/2026-
 - **Stopped:** the Job deleted at 10:26 UTC (05:26 EST) while it waited between campaigns, so nothing was interrupted; 8 ids never started. Stopping cannot change the verdict, and a further version needs fresh ids.
 - **Why it failed:** the agents stop early by their own choice (as stage 3's did: 6 to 22 each), while the 200-evaluation floor assumed a swarm uses most of its 400. The floor was meant to catch a broken swarm; it now also counts working ones. A C4.5 v2 needs that re-derived, reviewed, under a dated revision with fresh ids.
 - **Reverse:** none for v1's failure.
+
+## 2026-11-01 16:15 UTC (11:15 EST): C4.5 v2 authorized (human)
+
+- **What:** the human: "authorize c45 v2, go ahead". C4.5's 200-evaluation floor is removed by the revision committed alone as `criteria: stage 4` (`4531257`): ten fresh campaigns `swarm-null-2-N2-0` to `-9`; one counts if it promotes, crashes, or any of its four agents makes no evaluation; pass with at most 1 counted. Branch `c45-v2` merged; `agent-series` applied on a new image.
+- **Why:** the floor measured search effort, which the procedure never required, and counted working swarms that stop by choice (v1: 33 and 36 evaluations).
+- **Said:** a fresh Claude and GPT both advised deleting the floor with brief and harness unchanged (`audit/reviews/2026-11-01-{claude,gpt}-c45-v2.md`); GPT's per-agent zero-evaluation rule adopted.
+- **Reverse:** none once a v2 campaign starts; a later version needs fresh ids. v1's failure stands.
