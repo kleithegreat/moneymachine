@@ -17,7 +17,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Wake-up "stage7 port plan"** (a builder on Cornell's last weekly usage, stopped at 04:57 UTC (00:57 EDT)): in `../moneymachine-stage7` on branch `stage7` only, map the Rust kernel onto the frozen Lean definitions (`reference/lean`, `audit/stage7/laws-frozen.md`) for item 5.2 below: write `audit/stage7/rust-port-plan.md` (each Lean definition to its Rust module, what changes, the order, which corpus differential checks each step), then start the first slice. Commit on `stage7` every 15 minutes; touch nothing on `main`, no cluster, no data.
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: C3.2 v3** (critical path), running (above), under the revision committed alone as `5d95cad`. Confirm campaign 0's agent evaluates (`spent` > 0 in `agent-null-3-N2-0/run/run.json`). When v3 ends: `agent-summary` on this PC (`CLUSTER.md` §2), commit `audit/stage3/null-summary.json`, push a new image, then `agent-real` by `CLUSTER.md` §2 (a crashed v3 campaign has no audit, so C3.1 cannot be shown and the case goes to the human first). One joint holdout release, [2026-08-01, 2026-09-30).
@@ -25,7 +24,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 4. **Stage 10:** confirm `thesis-a476a910d501`'s first sessions (2026-11-01, about 05:30 UTC (01:30 EDT)) fetch and register (ledger counts and refusal reasons only).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
-   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't); `refmm` runs a 550-day program in 6.5 CPU s.
+   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan `audit/stage7/rust-port-plan.md` there (`ee85f19`; slices 2 to 4 rest on the annex's draft declarations, `776fdfb`); slice 1, `mm::source` reads evidence declarations (`cd7ed61`). The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't); `refmm` runs a 550-day program in 6.5 CPU s.
    3. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
    - Judged runs wait for the rebase onto the pilot's baseline commit.
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
