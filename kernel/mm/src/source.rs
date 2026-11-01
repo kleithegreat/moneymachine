@@ -20,6 +20,14 @@ pub struct Field {
 pub enum Cadence {
     Held { period: i128, phase: i128, slot: String },
     Event { slot: String },
+    Evidence,
+}
+
+/// What a declaration's records are keyed by: (coin, `eventTime`), or an evidence declaration's own key columns.
+#[derive(Debug, PartialEq)]
+pub enum Entity {
+    Coin,
+    Evidence(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -32,6 +40,7 @@ pub struct Dependency {
 pub struct Declaration {
     pub name: String,
     pub version: i128,
+    pub entity: Entity,
     pub times: Vec<String>,
     /// DSL input name → field.
     pub fields: BTreeMap<String, Field>,
@@ -98,9 +107,21 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     if version < 1 {
         return Err("version".into());
     }
-    if text(&d["entity"])? != "coin" || text(&d["missing"])? != "undefined" || text(&d["revisions"])? != "latest" {
-        return Err("entity, missing and revisions must be coin, undefined and latest".into());
+    if text(&d["missing"])? != "undefined" || text(&d["revisions"])? != "latest" {
+        return Err("missing and revisions must be undefined and latest".into());
     }
+    let entity = match &d["entity"] {
+        Json::Str(s) if s == "coin" => Entity::Coin,
+        Json::Obj(m) if m.len() == 1 && m.contains_key("evidence") => {
+            let Json::Arr(ks) = &m["evidence"] else { return Err("entity: evidence key columns".into()) };
+            let key: Vec<String> = ks.iter().map(|k| text(k).map(String::from)).collect::<Result<_, _>>()?;
+            if key.is_empty() || key.iter().any(String::is_empty) || key.iter().collect::<BTreeSet<_>>().len() != key.len() {
+                return Err("entity: evidence key columns must be non-empty and distinct".into());
+            }
+            Entity::Evidence(key)
+        }
+        _ => return Err("entity must be coin or evidence".into()),
+    };
     let Json::Arr(ts) = &d["times"] else { return Err("times".into()) };
     let times: Vec<String> = ts.iter().map(|t| text(t).map(String::from)).collect::<Result<_, _>>()?;
     let distinct: BTreeSet<&String> = times.iter().collect();
@@ -133,11 +154,13 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
             exactly(e, &["slot"])?;
             Cadence::Event { slot: text(&e["slot"])?.to_string() }
         }
-        _ => return Err("cadence must be held or event".into()),
+        (1, None, None) if cad.get("evidence") == Some(&Json::Obj(BTreeMap::new())) => Cadence::Evidence,
+        _ => return Err("cadence must be held, event or evidence".into()),
     };
-    let (Cadence::Held { slot, .. } | Cadence::Event { slot }) = &cadence;
-    if !times.contains(slot) {
-        return Err("the cadence's slot must be one of times".into());
+    if let Cadence::Held { slot, .. } | Cadence::Event { slot } = &cadence {
+        if !times.contains(slot) {
+            return Err("the cadence's slot must be one of times".into());
+        }
     }
     let mut depends = BTreeMap::new();
     for (dep, v) in obj(&d["depends"])? {
@@ -158,10 +181,14 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
         exactly(m, want)?;
         roles.insert(role.clone(), m.iter().map(|(k, v)| Ok((k.clone(), text(v)?.to_string()))).collect::<Result<_, String>>()?);
     }
+    let evidence = cadence == Cadence::Evidence;
+    if evidence != matches!(entity, Entity::Evidence(_)) || evidence && !(fields.is_empty() && roles.is_empty()) {
+        return Err("evidence cadence exactly for evidence entities, with no fields and no role".into());
+    }
     let rule_text = spans["rule"].to_string();
     let context: BTreeSet<String> = times.iter().cloned().chain(["fetchedAt".to_string()]).collect();
     let rule = rule::check(&rule_text, &context, &depends.keys().cloned().collect()).ok_or("rule: E_RULE")?;
-    Ok(Declaration { name, version, times, fields, cadence, rule, rule_text, depends, roles })
+    Ok(Declaration { name, version, entity, times, fields, cadence, rule, rule_text, depends, roles })
 }
 
 /// The active declarations of `sources/registry.json` under `dir`, each checked against its pinned SHA-256: input

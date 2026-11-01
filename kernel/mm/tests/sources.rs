@@ -1,6 +1,6 @@
 //! The committed registry reads and validates (kernel/SOURCES.md), and malformed declarations are rejected.
 
-use mm::source::{self, Cadence};
+use mm::source::{self, Cadence, Entity};
 use std::path::Path;
 
 fn repo_sources() -> &'static Path {
@@ -36,6 +36,31 @@ fn malformed_declarations_are_rejected() {
         assert!(good.contains(from), "{from}");
         assert!(source::declaration(&good.replace(from, to)).is_err(), "accepted: {to}");
     }
+}
+
+#[test]
+fn evidence_declarations_are_keyed_by_their_own_columns() {
+    let polls = r#"{"declaration": 1, "name": "forum-polls", "version": 1, "entity": {"evidence": ["key", "recv"]},
+        "times": ["recv"], "fields": {}, "cadence": {"evidence": {}}, "missing": "undefined", "revisions": "latest",
+        "rule": {"rule": 1, "expr": {"max": [{"field": "recv"}, {"field": "fetchedAt"}]}}, "depends": {}, "role": {}}"#;
+    let d = source::declaration(polls).unwrap();
+    assert_eq!((d.entity, d.cadence), (Entity::Evidence(vec!["key".into(), "recv".into()]), Cadence::Evidence));
+    for (from, to) in [
+        (r#"{"evidence": ["key", "recv"]}"#, r#"{"evidence": []}"#),
+        (r#"{"evidence": ["key", "recv"]}"#, r#"{"evidence": ["key", "key"]}"#),
+        (r#"{"evidence": ["key", "recv"]}"#, r#"{"evidence": ["key"], "coin": []}"#),
+        (r#"{"evidence": ["key", "recv"]}"#, r#""coin""#),
+        (r#""fields": {}"#, r#""fields": {"polls": {"column": "n", "unit": "ev"}}"#),
+        (r#""role": {}"#, r#""role": {"settlement": {"rate": "recv"}}"#),
+        (r#"{"evidence": {}}"#, r#"{"event": {"slot": "recv"}}"#),
+        (r#"{"evidence": {}}"#, r#"{"evidence": {"slot": "recv"}}"#),
+    ] {
+        assert!(polls.contains(from), "{from}");
+        assert!(source::declaration(&polls.replace(from, to)).is_err(), "accepted: {to}");
+    }
+    let funding = std::fs::read_to_string(repo_sources().join("hl-funding/1.json")).unwrap();
+    let evidence_cadence = funding.replace(r#"{"held": {"period_ms": 3600000, "phase_ms": 0, "slot": "eventTime"}}"#, r#"{"evidence": {}}"#);
+    assert!(source::declaration(&evidence_cadence).is_err());
 }
 
 #[test]

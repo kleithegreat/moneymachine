@@ -28,8 +28,10 @@ per-dataset branches in `market.rs` are gone (C7.4).
 Each slice is bit-identical on everything version 1 can express (keys with one revision, C7.4's identity), passes
 `cargo test` in `kernel/mm`, and is checked by the differentials named; development runs are never judged.
 
-1. **Declarations to Lean's `Decl`** (`source.rs`): evidence declarations; Lean's column sets; `Registry.valid`'s
-   remaining conditions. Checks: `kernel/mm/tests/sources.rs` cases mirroring each `valid` clause.
+1. **Declarations to Lean's `Decl`** (`source.rs`): evidence declarations, the one clause of `Registry.valid` that
+   `registry` lacked (evidence cadence exactly for evidence entities, without fields or roles). Done 2026-11-01;
+   check: `kernel/mm/tests/sources.rs`. The role-column clause waits on B1; Lean's column sets (`values`,
+   `controls`, `revisionColumns`) arrive with their first reader, in slice 5.
 2. **The checker over the registry** (`dsl.rs`, `canon.rs`, `main.rs check`, `reference/mmdump`): needs the event feeds'
    declarations in `sources/registry.json` (B2). Checks: C6.4's harness (`reference/differential.py`, development
    run) on all 1,196 verdicts against `refmm`, whose fixed registry has the same four inputs; `kernel/tests/adversarial`
