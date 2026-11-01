@@ -31,7 +31,7 @@ reviews (`b2-review-claude.md`, `b2-review-gpt.md`). It is frozen only after a f
   coin. Evidence revisions, with no coin, never become observations.
 
 Unchanged text whose meaning changes through `depends` or `controls`: `Registry.closure`, `Registry.valid`,
-`Decl.ruleOk` (no), `Meta.matches`, `Meta.required`, `stage1`, `differs`.
+`Meta.matches`, `Meta.required`, `stage1`, `differs`.
 
 ## 2. Changed statements
 
