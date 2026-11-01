@@ -17,17 +17,19 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
+- **Wake-up "stage7 port plan"** (a builder on Cornell's last weekly usage, stopped at 04:57 UTC (00:57 EDT)): in `../moneymachine-stage7` on branch `stage7` only, map the Rust kernel onto the frozen Lean definitions (`reference/lean`, `audit/stage7/laws-frozen.md`) for item 5.2 below: write `audit/stage7/rust-port-plan.md` (each Lean definition to its Rust module, what changes, the order, which corpus differential checks each step), then start the first slice. Commit on `stage7` every 15 minutes; touch nothing on `main`, no cluster, no data.
+
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: C3.2 v3** (critical path), running (above), under the revision committed alone as `5d95cad`. Confirm campaign 0's agent evaluates (`spent` > 0 in `agent-null-3-N2-0/run/run.json`). When v3 ends: `agent-summary` on this PC (`CLUSTER.md` §2), commit `audit/stage3/null-summary.json`, push a new image, then `agent-real` by `CLUSTER.md` §2 (a crashed v3 campaign has no audit, so C3.1 cannot be shown and the case goes to the human first). One joint holdout release, [2026-08-01, 2026-09-30).
 2. **Stage 4 smoke**: `agent-null swarm`. Trigger: stage 3's series done.
 4. **Stage 10:** confirm `thesis-a476a910d501`'s first sessions (2026-11-01, about 05:30 UTC (01:30 EDT)) fetch and register (ledger counts and refusal reasons only).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
-   1. Done: all 18 frozen laws proved (`audit/stage7/proof-validation-2026-10-31.md` there). `refmm` builds again (`e41559d`; 1,196 verdicts and 288 45-day runs agree with `mm`).
-   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't); `refmm` now runs a 550-day program in 6.5 CPU s (was 408; `933b3f4`).
+   1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
+   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't); `refmm` runs a 550-day program in 6.5 CPU s.
    3. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
    - Judged runs wait for the rebase onto the pilot's baseline commit.
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
-6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md` revised 2026-10-31 00:05 UTC (2026-10-30 20:05 EDT; GPT's third review, B1 and B3–B5, with its corrections): no class admitted, every blocker stays; the exposure inventory must be complete before any annex. Databento GLBX.MDP3 is complete for the plan (USD 34.48 spent; only the sign-up credit, at most USD 100, is allowed); ICE (also Databento) only if credit remains, after its licence (Blockers). Unblocked: recording OECD's STES revisions (certified; about 357 MB a country quarterly). Open: `includeHistory` (needs a class annex); BLS and BEA archived release pages need terms quotes.
+6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md` revised 2026-10-31 00:05 UTC (2026-10-30 20:05 EDT): no class admitted, every blocker stays; the exposure inventory must be complete before any annex. Databento GLBX.MDP3 is complete for the plan (USD 34.48 spent; only the sign-up credit, at most USD 100, is allowed); ICE (also Databento) only if credit remains, after its licence (Blockers). Unblocked: recording OECD's STES revisions (certified; about 357 MB a country quarterly). Open: `includeHistory` (needs a class annex); BLS and BEA archived release pages need terms quotes.
 7. **When stage 7 nears its exit**: the Lean engine stage's criteria (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
 8. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
 
@@ -52,8 +54,8 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **The Write denial**, decided and carried out by the advisor 2026-10-31 23:12 UTC (19:12 EDT) (`audit/decisions.md`; evidence `audit/stage3/write-denied-2026-10-31.md`; reviews `audit/reviews/2026-10-31-*`): the sandbox fix and per-session canary adopted; C3.2 v2 not a pass; C3.2 v3 on fresh ids, a zero-evaluation campaign counted (`5d95cad`); C3.1's audit rule unchanged; stage 3 and stage 10 refrozen and rolled (`c51f108`).
-- **Stage 10 refrozen again**, 2026-11-01 03:46 UTC (2026-10-31 23:46 EDT) (`audit/decisions.md`; reviews `audit/reviews/2026-11-01-*`): main sessions could not read on the cluster (no CA store in the image; 27 of 27 fetches refused); fixed with certifi, robots redirects and runner accounting fixes; `thesis-a476a910d501`.
+- **The Write denial**, decided and carried out by the advisor 2026-10-31 23:12 UTC (19:12 EDT) (`audit/decisions.md`): the sandbox fix and per-session canary adopted; C3.2 v2 not a pass; C3.2 v3 on fresh ids, a zero-evaluation campaign counted (`5d95cad`); C3.1's audit rule unchanged; stage 3 and stage 10 refrozen and rolled (`c51f108`).
+- **Stage 10 refrozen again**, 2026-11-01 03:46 UTC (2026-10-31 23:46 EDT) (`audit/decisions.md`): main sessions could not read on the cluster (no CA store in the image; 27 of 27 fetches refused); fixed with certifi, robots redirects and runner accounting fixes; `thesis-a476a910d501`.
 
 ## Qualifications
 
