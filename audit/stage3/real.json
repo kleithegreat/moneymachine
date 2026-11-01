@@ -1,0 +1,184 @@
+{
+ "id": "stage3-real",
+ "version": 1792613363942,
+ "label": "pipeline validation run, not a test for edge; every promotion: historical holdout, costs fitted after it",
+ "qualifications": "PROGRESS.md, Qualifications, stage 3",
+ "report_from": 1785542400000,
+ "void_attempts": [],
+ "account": "Cornell",
+ "windows": {
+  "five_hour": [
+   0.53,
+   1793525400
+  ],
+  "seven_day": [
+   0.04,
+   1794114000
+  ]
+ },
+ "agent_run": {
+  "campaign": "stage3-real",
+  "agent": "A",
+  "spent": 9,
+  "history_calls": 0,
+  "turns": 71,
+  "stopped": "finished",
+  "exit": 0,
+  "seconds": 407,
+  "transcript_sha256": "8d9303ae9f0a9335b07be836f4d3515a381d0f15679a2408191cf6c7c46fd747",
+  "harness": "6a335714960061c736184eaf06fee19b69e7274c782c08c02329b57e506a2397"
+ },
+ "audit": {
+  "daemon_calls": 20,
+  "ledger_rows": 20,
+  "match": true,
+  "tools": [
+   "Bash",
+   "Read",
+   "Write"
+  ],
+  "outside_permitted": [],
+  "denials": 0
+ },
+ "usage": {
+  "input_tokens": 76,
+  "cache_read_input_tokens": 932039,
+  "cache_creation_input_tokens": 37582,
+  "output_tokens": 26701,
+  "cost_usd": 1.5046678000000002
+ },
+ "inputs": {
+  "store/bars_4h/1792385868856.parquet": "fe26516a604024a04de327f44c31ecea8137282b47298d12560f895ad7d0b863",
+  "store/funding/1792385868856.parquet": "a2c46ecb0590f7f280fed191d0923af5fd83a169203a561729e5e4b0753b5e8e",
+  "store/funding/1792613363942.parquet": "391034e913a7c5b0e2d917b6637d15c8ee37b29b05a22e4cc95272d5ba4f8a74",
+  "store/policy.json": "e2200908737cf5f34e4fa727ed70eef42aa16a09ccf0f6541a6ec30cf06c96b7",
+  "holdout/bars_4h/1792385868856.parquet": "4aa8742a6f7d88e1badd4950fbdc4bfe7f6f1b140b7ebdd0d97ab44680161de5",
+  "holdout/events_forum/1792733787875.parquet": "add7618c41374f0b6957c6797160d57eae2fdd0dd03ada08ea14499ebf1282e5",
+  "holdout/events_governance/1792733788363.parquet": "1eb8e287f96cccb7d73a4804d4aceedf571bb80200e1bf6f70aeb7a1e4961d01",
+  "holdout/funding/1792385868856.parquet": "96be710f21d2c40fcac9a8208a6120e45e628e6fb5ededf2b58f791a9c5ceec9",
+  "venue/execution.json": "747f560b4f64cf331c8cd2095736d94933bc9ded3ad645f772ded001d3d3d2a3",
+  "venue/rules.json": "f190cd0751d9d737bb5200f8dd9d880846b4ba182918771940ab39f8db187f56",
+  "mm": "3a732069413d050f334229e3e1bcf8d804f2e10ba21ad0365dd5187f6ed081b7",
+  "version": 1792613363942,
+  "report_from": 1785542400000
+ },
+ "A": {
+  "evaluations": 9,
+  "search": {
+   "n": 7,
+   "spa_p": 0.374,
+   "screened": [],
+   "finalists": [],
+   "max_dsr": 0.25713060085275036,
+   "top5": [
+    "40afb55c51c479f73ebbbdb788ad3165a9a1632ff2dd0c572559e883282bc099",
+    "a284fb862dd43d29f1cb6f0389240eec17b00441bfe6d5f96a099355110a8b29",
+    "f9adbf83d1ed4a8365fd8e32381ce9b90f5caf036bc3ee0c8866c7c3e9c804c2",
+    "d88eaf12074388609c2b674f912fd1eb8d6d94d45f0732f115e5b0e3e49686f5",
+    "dcd2dcb31e8ed91212f105adabdaab77f4fdee2b6225649dfd86179d80690bf0"
+   ],
+   "effective_n": {
+    "spa_p": 0.374,
+    "by_n": {
+     "raw": {
+      "n": 7,
+      "screened": 0,
+      "finalists": []
+     },
+     "cluster_0.9": {
+      "n": 5,
+      "screened": 0,
+      "finalists": []
+     },
+     "cluster_0.5": {
+      "n": 5,
+      "screened": 0,
+      "finalists": []
+     }
+    },
+    "fragile": []
+   }
+  },
+  "mechanism": {},
+  "kept": [],
+  "promoted": [],
+  "holdout": {
+   "diagnostics": {}
+  }
+ },
+ "B": {
+  "evaluations": 100,
+  "search": {
+   "n": 94,
+   "spa_p": 1.0,
+   "screened": [],
+   "finalists": [],
+   "max_dsr": 0.022697231953647666,
+   "top5": [
+    "85a527a856a077dc7e6a7b433614938a133ce7f9143846b392b116a9ea76d351",
+    "d658cec46bcdb0450c78f281e31cb6bac3519e89105f60fdc27345d9cea2bec3",
+    "f9768aaf43df89b5d47b1ff8e1efb32a75f9e8914a3a735deef720080521764c",
+    "9614db4414b060a68f4326d748e949c640281152a7828837bb394e14f76cb0f1",
+    "856cdcd2320ce0f044e6a4a9acb93a11e07de24b89700a1b62176c4917c69af6"
+   ],
+   "effective_n": {
+    "spa_p": 1.0,
+    "by_n": {
+     "raw": {
+      "n": 94,
+      "screened": 0,
+      "finalists": []
+     },
+     "cluster_0.9": {
+      "n": 52,
+      "screened": 0,
+      "finalists": []
+     },
+     "cluster_0.5": {
+      "n": 29,
+      "screened": 0,
+      "finalists": []
+     }
+    },
+    "fragile": []
+   }
+  },
+  "kept": [],
+  "promoted": [],
+  "holdout": {
+   "diagnostics": {}
+  }
+ },
+ "released": false,
+ "batch": {
+  "missing": [],
+  "aborts": []
+ },
+ "bankrupt": [],
+ "holdout_mechanism": null,
+ "comparison": {
+  "A": {
+   "evaluations": 9,
+   "distinct_canonical": 7,
+   "N": 7,
+   "spa_p": 0.374,
+   "screened": 0,
+   "finalists": [],
+   "mechanism_failures": [],
+   "holdout": {},
+   "promotions": []
+  },
+  "B": {
+   "evaluations": 100,
+   "distinct_canonical": 96,
+   "N": 94,
+   "spa_p": 1.0,
+   "screened": 0,
+   "finalists": [],
+   "mechanism_failures": [],
+   "holdout": {},
+   "promotions": []
+  },
+  "statement": "One campaign per arm supports no claim that either generator is better."
+ }
+}
