@@ -17,10 +17,12 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
+- **Wake-up "stage7 next slice"** (a builder on Cornell, stopped at 13:45 UTC (08:45 EST)): in `../moneymachine-stage7` on branch `stage7` only, continue `audit/stage7/rust-port-plan.md` there with the next slice that does not rest on the annex's draft declarations, each with its tests and differential; commit on `stage7` every 20 minutes; touch nothing on `main`, no cluster, no data.
+
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** 2026-11-01 07:38 UTC (02:38 EST) (`audit/stage3/exit.md`): C3.2 met under v3; the real campaign had zero finalists in both arms, so no claim and the holdout unreleased.
-2. **Stage 4: C4.5 v1 failed** 2026-11-01 10:26 UTC (05:26 EST) (`audit/decisions.md`): its first 2 swarm campaigns made 33 and 36 evaluations, under the 200 floor, each a promotion; series stopped, 8 unstarted. Next: re-derive the floor (agents stop early by choice, as in stage 3), reviewed, then a dated v2 on fresh ids.
+2. **Stage 4: C4.5 v1 failed** 2026-11-01 10:26 UTC (05:26 EST); v2 awaits the human (Decisions awaiting).
 4. **Stage 10:** confirm `thesis-a476a910d501`'s first sessions (2026-11-01, about 05:30 UTC (01:30 EDT)) fetch and register (ledger counts and refusal reasons only).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
@@ -54,7 +56,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **C4.5 v2: remove the 200-evaluation floor?** Only the human may loosen a frozen threshold. C4.5 v1 failed (its first 2 swarm campaigns made 33 and 36 evaluations, each a promotion under the floor; `audit/decisions.md`, 2026-11-01 10:27 UTC (05:27 EST)). A fresh Claude and GPT both advise deleting the floor, brief and harness unchanged (`audit/reviews/2026-11-01-{claude,gpt}-c45-v2.md`): it tested search effort, which the procedure never required, not false discovery. Ready on branch `c45-v2` (`27e3dd8`): no floor; a campaign counts if it promotes, crashes, or any agent makes no evaluation (GPT's stricter rule); fresh ids `swarm-null-2`; the draft revision `C45-V2-DRAFT.md`. If authorized: commit the revision alone, merge, apply `agent-series`.
+- **C4.5 v2: remove the 200-evaluation floor?** Only the human may loosen a frozen threshold. C4.5 v1 failed (its first 2 swarm campaigns made 33 and 36 evaluations, each a promotion under the floor; `audit/decisions.md`, 2026-11-01 10:27 UTC (05:27 EST)). A fresh Claude and GPT both advise deleting the floor, brief and harness unchanged (`audit/reviews/2026-11-01-{claude,gpt}-c45-v2.md`): it tested search effort, which the procedure never required, not false discovery. Ready on branch `c45-v2` (`27e3dd8`): no floor; a campaign counts if it promotes, crashes, or any agent makes no evaluation; fresh ids `swarm-null-2`; the draft revision `C45-V2-DRAFT.md`. If authorized: commit the revision alone, merge, apply `agent-series`.
 
 ## Qualifications
 
