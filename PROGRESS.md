@@ -20,7 +20,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** 2026-11-01 07:38 UTC (02:38 EST) (`audit/stage3/exit.md`): C3.2 met under v3; the real campaign had zero finalists in both arms, so no claim and the holdout unreleased.
-2. **Stage 4 smoke**: `agent-null swarm` (C4.5), now due.
+2. **Stage 4 smoke** (C4.5): `agent-series` runs `agent-null swarm` on `sha256:1cd091eb…`, 10 campaigns `swarm-null-N2-0..9` of 4 agents, logged in `mirror/agent/swarm-null.jsonl`; a crash or under 200 evaluations counts as a promotion, pass at most 1. When it ends: `agent-summary swarm` here.
 4. **Stage 10:** confirm `thesis-a476a910d501`'s first sessions (2026-11-01, about 05:30 UTC (01:30 EDT)) fetch and register (ledger counts and refusal reasons only).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.

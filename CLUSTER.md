@@ -51,7 +51,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
 | `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
-| `agent-series` | Job | `cli agent-null agent` (stage 4: `swarm`) | `agent` | `claude-token` | 9,000 s |
+| `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5; stage 3's `agent` cohort is done) | `agent` | `claude-token` | 9,000 s |
 | `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
 | `mirror-verify` | CronJob, daily | section 5 | the five and `mirror`, read-only | none | 600 s |
@@ -93,8 +93,8 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
-**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): for stage 3, C3.2 v3,
-logged in `agent/agent-null-3.jsonl` (v1's `agent-null.jsonl` and v2's `agent-null-2.jsonl` stay, their records). N2's funding source comes from
+**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): now stage 4's C4.5,
+logged in `agent/swarm-null.jsonl` (stage 3's `agent-null*.jsonl` logs stay, their records). N2's funding source comes from
 the blob batch Jobs stage, seeded once into the volume under its frozen sha256:
 ```
 python ops/live.py seed <digest> agent /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39:inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39
