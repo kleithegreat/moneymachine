@@ -115,12 +115,14 @@ def Registry.inputs (reg : Registry) : Array (String × Input) :=
     (Array.range d.fields.size).map fun k =>
       (d.fields[k]!.1, ⟨s, k, d.cadence == .event, d.fields[k]!.2.2⟩)
 
-/-- A valid registry: input names unique, each dependency naming at least one source, in range and acyclic, evidence declarations without fields or
-roles, a slot column exactly for event sources, and role columns as SOURCES.md §6 names them. -/
+/-- A valid registry: input names unique, each dependency naming at least one source, in range and acyclic, evidence
+declarations without fields or roles, a slot column exactly for event sources, and role columns as SOURCES.md §6 names
+them. -/
 def Registry.valid (reg : Registry) : Bool :=
   let names := reg.decls.toList.flatMap fun d => d.fields.toList.map (·.1)
   names.eraseDups.length == names.length &&
-  reg.decls.all (fun d => d.depends.all (· < reg.decls.size) && d.deps.all (fun dep => decide (0 ≤ dep.lag) && !dep.sources.isEmpty) && d.ruleOk) &&
+  reg.decls.all (fun d => d.depends.all (· < reg.decls.size) &&
+    d.deps.all (fun dep => decide (0 ≤ dep.lag) && !dep.sources.isEmpty) && d.ruleOk) &&
   (List.range reg.decls.size).all (fun s => !(reg.closure reg.decls.size (reg.decls[s]!).depends).contains s) &&
   reg.decls.all (fun d => d.cadence != .evidence || (d.fields.size == 0 && d.roles.isEmpty)) &&
   reg.decls.all (fun d => (d.cadence == .event) == d.slotColumn.isSome) &&

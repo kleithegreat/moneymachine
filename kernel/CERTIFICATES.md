@@ -57,7 +57,7 @@ returns counts); the certificate records those commitments, and issuance rejects
   another rule to some rows, or makes a rejected row usable; rows needing a different basis are outside its scope.
 - **Revisions:** a later re-fetch of the certified history compared with what was recorded live, recomputed.
 - **Entity mapping:** precision (and recall where frozen) on blind-labelled samples, recomputed from the labels, with
-  each labeler's independence recorded.
+  each labeler's independence recorded; no two stored entities map to one coin (SOURCES.md §2).
 - **Coverage:** gap intervals per coin, recomputed from the stored rows and poll logs.
 - `fetchedAt` and witness times count only with authenticated recorder evidence; a producer's timestamp value alone is
   never evidence of when we observed something.
@@ -82,8 +82,8 @@ drop.
 
 **Pins.** The declaration version and its file's SHA-256, the rule language version and the exact rule bytes; the feed
 specification and the data manifest's hash, and the cutoff; producer and transformation hashes; mapping and coverage
-artifacts; the revision policy and the upstream certificates' ids; the evidence hashes, the policy hash and the
-verifier's version.
+artifacts, and an evidence source's stored-entity encoding (SOURCES.md §1); the revision policy and the upstream
+certificates' ids; the evidence hashes, the policy hash and the verifier's version.
 
 ## 6. Lifecycle
 

@@ -39,10 +39,10 @@ A declaration is one JSON file, read as RULES.md §1 reads JSON:
 | `declaration` | must be `1` |
 | `name` | `[a-z0-9-]{1,64}` |
 | `version` | a positive integer; any change to a declaration is a new version |
-| `entity` | must be `"coin"`: the run's coins are the only entity domain in version 1 |
+| `entity` | `"coin"`, the run's coins being the only entity domain strategies read in version 1, or an evidence declaration's `{"evidence": …}` (below) |
 | `times` | the stored integer-ms columns an availability rule may read; `fetchedAt` is always available and never listed |
 | `fields` | DSL input name → `{"column", "unit"}`: the stored numeric column delivered as that input, and its unit in DSL.md's grammar. Input names match `[a-z][a-z0-9_]{0,31}` |
-| `cadence` | `{"held": {"period_ms": P, "phase_ms": O, "slot": C}}` or `{"event": {"slot": C}}` (§4) |
+| `cadence` | `{"held": {"period_ms": P, "phase_ms": O, "slot": C}}` or `{"event": {"slot": C}}` (§4), or an evidence declaration's `{"evidence": {}}` (below) |
 | `missing` | must be `"undefined"` |
 | `revisions` | must be `"latest"`: RULES.md §6 |
 | `rule` | the availability rule document (RULES.md §3) |
@@ -58,7 +58,8 @@ declared). A declaration with `"entity": {"evidence": [K1, …], "event": C}`, a
 and one of them, C, listed in `times`, declares records keyed by those columns rather than by (coin, `eventTime`). C is
 the record's event time: the recorder-trusted time it was observed (a sighting's `observed`, a poll's `recv`), never a
 time the feed claims, since admission's holdout check reads it (§7); the other key columns, compared exactly as a
-tuple, are the record's stored entity, outside U (revision of 2026-11-01, B2, `audit/stage7/b2-revision.md`). It must have `"fields": {}`, `"role": {}` and
+tuple, are the record's stored entity, outside U, encoded by an injective encoding the certificate pins, so two tuples
+never alias (revision of 2026-11-01, B2, `audit/stage7/b2-revision.md`). It must have `"fields": {}`, `"role": {}` and
 `"cadence": {"evidence": {}}`. It exposes no DSL input and fills no role: it exists only to be a dependency of a
 derived source, and is certified, bound and resolved like any other (RULES.md §6, with its own key columns as the key).
 No strategy reads it, so it does not widen version 1's entity domain for strategies.
@@ -72,16 +73,20 @@ changes the identity.
 
 ## 2. Stored observations and binding
 
-A bound feed stores immutable revisions keyed by (coin, `eventTime`), holding only observed columns, `fetchedAt` and,
-for a key a complete fetch no longer lists, a tombstone flag (`ingest/store.py`). Every field column holds a finite
+A bound feed stores immutable revisions keyed by (stored entity, event time), the event time being `eventTime` or an
+evidence declaration's event column (revision of 2026-11-01, B2), holding only observed columns, `fetchedAt` and, for a
+key a complete fetch no longer lists, a tombstone flag (`ingest/store.py`). Every field column holds a finite
 number or null; null means undefined. Every Time column and key time holds an integer of ms in RULES.md's range.
 
 A **binding** names a declaration version, a stored dataset and a certificate. Binding validates, and never converts:
 - the dataset's schema metadata against the declaration: every field column numeric (an all-null column needs explicit
   numeric schema metadata, never inferred from values), every Time column integer-ms, every role column per its role
-  contract (§6); extra stored columns are allowed, and are kept, since corrections compare them (RULES.md §6);
-- the entity keys against the certified mapping artifact: no symbol normalization, no broadcast. A contextual scalar
-  applies to several coins only through an explicit certified assignment to those keys, recorded with its scope;
+  contract (§6); extra stored columns are allowed and kept, and corrections never compare them (RULES.md §6, second
+  revision of 2026-10-26; revision of 2026-11-01);
+- the entity keys against the certified mapping artifact: no symbol normalization, no broadcast, and no two stored
+  entities mapped to one coin (revision of 2026-11-01, B2; admission only refuses such an alias when both have a final
+  delivery at one event time, so certification rejects it). A contextual scalar applies to several coins only through
+  an explicit certified assignment to those keys, recorded with its scope;
 - the units against the certificate's schema metadata, never inferred from names or values.
 
 ## 3. Resolution
@@ -91,18 +96,24 @@ RULES.md §6, on the run's admitted snapshot (§7).
 ## 4. Delivery
 
 Ticks are DSL.md's: τ = H + δ for every hour H. At a tick, every resolved observation with effective knownAt ≤ τ not yet
-delivered is delivered, each source's in the order (effective knownAt, coin, eventTime), times as integers and coins
-by decoded scalar sequences. Every delivery due at a tick completes before any expression or cross-sectional
-operation is evaluated, so the interleaving of sources is unobservable.
+delivered is delivered, each source's in the order (effective knownAt, coin, tie), the tie being (eventTime, recording
+time) for a held source and (recording time, eventTime) for an event source, never stored row order (RULES.md §6, second
+revision of 2026-10-26), times as integers and coins by decoded scalar sequences. Every delivery due at a tick completes
+before any expression or cross-sectional operation is evaluated, so the interleaving of sources is unobservable.
 
 - **Held:** a delivered observation replaces the coin's held observation of that source whole, even when its eventTime
   precedes the one it replaces, so each of its inputs takes the new observation's value, and a null column makes that
-  input undefined. A key with no observation (absent, tombstoned or rejected) delivers nothing and clears nothing. The
-  slot grid (period P, phase O, the Time column C labelling a slot) documents the cadence and is checked against the
-  feed by certification; it is not an availability promise, a time-to-live or a source of synthesized values.
+  input undefined. A key with no delivered revision delivers nothing and clears nothing. The slot grid (period P, phase
+  O, the Time column C labelling a slot) documents the cadence and is checked against the feed by certification; it is
+  not an availability promise, a time-to-live or a source of synthesized values.
 - **Event:** column C, on the hour grid, keys the observation to hour E. Its inputs are defined at the tick E + δ only,
   and only if the observation was delivered by then; an observation known later is never defined, and never moves to
   another tick. Nothing survives its tick.
+- **Retractions** (RULES.md §6; revision of 2026-11-01): after a delivery of its key, a tombstone or an unusable
+  revision (its rule evaluation rejected, its lineage unusable (§5), its slot or role payload undecodable) is delivered
+  at its fetchedAt, no earlier than the delivery it replaces. It replaces the coin's held observation of that source like
+  any delivery, with every input undefined, and keeps the slot of what it retracts; there is no fallback to an older
+  value. Before any delivery of its key it adds nothing.
 
 ## 5. Derived sources
 
@@ -116,7 +127,7 @@ an empty observations dependency, and so no time.)
   used, each of a source the dependency names, including the poll and coverage evidence that establishes the
   completeness of its aggregation window. A stored dependency time is a cache, never authority.
 - The resolver computes deps[d] from those keys under each upstream's own pinned rule at the same dataset version: per
-  key, its latest delivery that is not a retraction among those recorded no later than the derived revision (RULES.md
+  key, its latest delivery, a retraction included, among those recorded no later than the derived revision (RULES.md
   §6, revision of 2026-11-01). An empty lineage, a key of a source the dependency does not name, or a key with no such
   delivery has no time, and makes the row unusable. (Revision of 2026-11-01, B2: keys carry their source, lineage no
   longer records fetchedAt, and "not the one selected at that version" gives way to this bitemporal bound.)
@@ -148,17 +159,23 @@ from `fields`.
 - `mm check` types a program from the active registry alone, reading no feed, binding, certificate or store. An input
   name not declared is `E_UNKNOWN_INPUT`.
 - A program's **required set** is every source owning an input name that occurs anywhere in it (the weight, every let,
-  used or not, every branch, the prediction condition), every role provider of the run, and the transitive closure of
-  their dependencies.
+  used or not, every branch, the prediction condition), every role provider of the run, every bound source that is not
+  evidence, used or not, since each is delivered, and the transitive closure of their dependencies, through every source
+  each dependency names (revision of 2026-11-01).
 - **Preflight** pins the whole required set before any observation is loaded, initialized, delivered or evaluated: a
   missing binding anywhere in it is `R_INPUT_UNAVAILABLE`; a binding whose certificate is invalid, superseded,
   mismatched or does not cover the run's access is `R_UNCERTIFIED`. Checking errors come first, then missing bindings,
   then certificates. A refusal is recorded through the ledger and emits no result-bearing output.
-- **Access authorization** is a separate check: before any payload is opened, every access the run makes (strategy
-  inputs, roles, warm-up and window history, fills and accounting after the last decision, mapping and coverage
-  inputs, transitive dependencies) is authorized for the run's mode by immutable dataset identity and lineage, never by
-  names, paths, aliases or bindings. A search evaluation never materializes a holdout observation or a value derived
-  from one (I8, generalized); a crossing is refused before loading, with no result-bearing output.
+- **Access authorization** runs in stages, each reading no more than it needs (revision of 2026-11-01, the order of
+  Lean's `admit`). On metadata alone: role selections, missing bindings, a search's holdout dataset identities, then
+  certificates with their control columns. On the required sources' event-time columns alone: a search evaluation is
+  refused if any row's event time reaches the holdout. Then resolution, with its run admission. Then, on the resolved
+  observations, before anything is evaluated: every value the run reads from a delivered source (strategy inputs, roles,
+  warm-up and window history, fills and accounting after the last decision) must fall within a grant. Mapping and
+  coverage inputs and evidence, which no run reads as values, are scoped by certification: the verifier checks a derived
+  source's grants against its upstream's. Each stage decides by immutable dataset identity and lineage, never by names,
+  paths, aliases or bindings. A search evaluation never materializes a holdout observation or a value derived from one
+  (I8, generalized): the holdout stages refuse a crossing before resolution, with no result-bearing output.
 - **Admission** pins one immutable snapshot: the registry, role selections, bindings, the data manifest and the
   certificate closure, with the ledger position of its lifecycle check. Evaluation reads those admitted bytes, never a
   reopened path. A run's identity includes all of them; substituting a feed keeps the program's source references and

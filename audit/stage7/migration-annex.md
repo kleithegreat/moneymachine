@@ -23,7 +23,8 @@ RULES.md §4. Each evidence key's event column is the recorder's observation tim
 2026-11-01): the stored entity of a sighting is (key, id, created), of a poll its key. The sightings key includes the claim, so distinct sightings of an item at one observation time with
 different claims stay distinct records and are never reduced as revisions. Live sightings and polls are stored by the
 recorder itself, so a live record's `fetchedAt` is the poll's receive time; a backfill observation's observation time is
-its `fetchedAt`. Poll evidence holds successful live polls only.
+its `fetchedAt`. Poll evidence holds successful live polls only. The store holds no exact duplicate: an item listed
+twice at one observation time is one record, so a repeat never invalidates the dataset (`Stored.validAt`).
 
 ## 2. The event transformation
 
@@ -73,7 +74,9 @@ stage 0 and stage 5 reports are evidence the verifier reads, never certificates 
 
 Each grant is explicit (entity, column, event-time interval, use interval, half-open integer ms), the cutoff is
 separate, and search or holdout authorization is checked independently (SOURCES.md §7). Evidence logs are immutable
-snapshots named in the manifest, never reopened live logs. Missing evidence or scope blocks migration.
+snapshots named in the manifest, never reopened live logs. Evidence produces no run-time access, since a run's `Grant`
+is coin-indexed and evidence is never delivered: its grants are checked by the verifier, when it issues the derived
+source's certificate. Missing evidence or scope blocks migration.
 
 ## 4. The comparison
 
@@ -96,8 +99,8 @@ snapshots named in the manifest, never reopened live logs. Missing evidence or s
 - **Derived fixtures** have frozen raw inputs and hand-specified expected rows, counts, absences, times and hashes:
   pre-first-poll exclusion; the earliest-observation and claim tie-breaks; both margins; records after the cutoff; the
   window ending at the tick; a first poll at a and at a + 1 ms, a poll at b, a last poll exactly at b − 600,000, gaps of
-  600,000 and 600,001 ms, and a poll after b that would close a gap; zero only for covered mapped hours; undefined
-  elsewhere; lineage and legacy hashes.
+  600,000 and 600,001 ms, and a poll after b that would close a gap; an item listed twice in one poll; zero only for
+  covered mapped hours; undefined elsewhere; lineage and legacy hashes.
 - **Failure:** a missing or extra artifact or record, a skipped case, a crash, a timeout, malformed output or any byte
   difference fails the judged run, which stays recorded; a rerun has a new identity, and nothing regenerates a baseline.
 
@@ -105,7 +108,7 @@ snapshots named in the manifest, never reopened live logs. Missing evidence or s
 
 The manifest, committed with this annex's freeze, pins every declaration file and its SHA-256, the registry bytes, each
 rule's exact bytes and hash, every Time column, evidence key, numeric and role schema, missing and revision setting,
-cadence grid and slot, field and role mapping, feed specification, producer and transformation hash, mapping and
+cadence grid and slot, field and role mapping, stored-entity encoding, feed specification, producer and transformation hash, mapping and
 coverage artifact, data manifest and cutoff, and the exact criteria lines and evidence files it relies on.
 
 Migration is complete only when `EVENT_INPUTS`, the per-input enum variants and the per-dataset branches of

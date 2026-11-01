@@ -199,9 +199,11 @@ Decision of 2026-11-01 16:59 UTC (`audit/decisions.md`), from both B2 reviews (`
   delivery at one event time).
 - **Derivation bound.** A dependency names one or more upstream sources (SOURCES.md §5), and a derived revision lists,
   per dependency, the upstream keys it was computed from as (source, stored entity, event time). The dependency's
-  upstream time is the latest, over those keys, of each key's latest knownAt among its delivered revisions, not
-  retractions, recorded no later than the derived revision. The revision is unusable if a dependency lists no key, a
-  key of a source it does not name, or a key with no such delivery: one unusable key is never masked by another.
+  upstream time is the latest, over those keys, of each key's latest knownAt among its delivered revisions recorded no
+  later than the derived revision, a retraction included (this replaces "not retractions" in the two revisions above:
+  under the second's cutoff, a retraction counted is one the derived revision could see). The revision is unusable if a dependency lists no key, a
+  key of a source it does not name, or a key with no such delivery: one unusable key is never masked by another. A
+  lineage names each dependency once.
 
 ## 7. Conformance
 
