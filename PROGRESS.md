@@ -17,6 +17,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
+- **Wake-up "stage7 B2 fixes"** (a builder on TAMU at 22:00 UTC (17:00 EST), once campaigns 3 and 4 are done; stop by 01:55 UTC (20:55 EST), before the 02:10 reset can start a campaign on this account): in `../moneymachine-stage7` on branch `stage7` only, apply `audit/decisions.md` (the entry "B2's draft is not frozen") to the draft, using `audit/stage7/b2-revision-review-{gpt,claude}.md`; check first that the migrated evidence has no tombstone the retraction change would move (C7.4's byte-identity), and report it if it does. Rerun `lake build`, the axiom check, the admission differential and the mm tests; update `b2-revision.md` (changes, limitations, hashes). Do not freeze. Commit on `stage7` every 20 minutes; touch nothing on `main`, no cluster, no data.
+
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** 2026-11-01 07:38 UTC (02:38 EST) (`audit/stage3/exit.md`): C3.2 met under v3; the real campaign had zero finalists in both arms, so no claim and the holdout unreleased.
 2. **Stage 4: C4.5 v2 runs** (the human authorized it 2026-11-01 16:15 UTC (11:15 EST), `criteria: stage 4` `4531257`): when all ten are logged, judge (at most 1 counted) and C4.3 and C4.4 on them, then the exit review. v1's failure stands.
@@ -52,7 +54,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST)): GPT and a fresh Claude both recommended it. Drafted on `stage7` (`96712ee`, `audit/stage7/b2-revision.md`: `lake build` passes, all 18 laws axiom-clean, the admission differential agrees); a fresh Opus and GPT review it, and it is refrozen only after.
+- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST)): GPT and a fresh Claude both recommended it. Drafted on `stage7` (`96712ee`, `audit/stage7/b2-revision.md`: `lake build` passes, all 18 laws axiom-clean, the admission differential agrees); both reviews found blockers, ruled on (`audit/decisions.md`, the entry "B2's draft is not frozen"), fixed next, then one more round on the diff and the freeze.
 
 ## Qualifications
 
