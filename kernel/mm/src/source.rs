@@ -26,11 +26,12 @@ pub enum Cadence {
     Evidence,
 }
 
-/// What a declaration's records are keyed by: (coin, `eventTime`), or an evidence declaration's own key columns.
+/// What a declaration's records are keyed by: (coin, `eventTime`), or an evidence declaration's own key columns, one
+/// of them its event column.
 #[derive(Debug, PartialEq)]
 pub enum Entity {
     Coin,
-    Evidence(Vec<String>),
+    Evidence { key: Vec<String>, event: String },
 }
 
 #[derive(Debug)]
@@ -117,13 +118,17 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     }
     let entity = match &d["entity"] {
         Json::Str(s) if s == "coin" => Entity::Coin,
-        Json::Obj(m) if m.len() == 1 && m.contains_key("evidence") => {
+        Json::Obj(m) if m.len() == 2 && m.contains_key("evidence") && m.contains_key("event") => {
             let Json::Arr(ks) = &m["evidence"] else { return Err("entity: evidence key columns".into()) };
             let key: Vec<String> = ks.iter().map(|k| text(k).map(String::from)).collect::<Result<_, _>>()?;
             if key.is_empty() || key.iter().any(String::is_empty) || key.iter().collect::<BTreeSet<_>>().len() != key.len() {
                 return Err("entity: evidence key columns must be non-empty and distinct".into());
             }
-            Entity::Evidence(key)
+            let event = text(&m["event"])?.to_string();
+            if !key.contains(&event) {
+                return Err("entity: the evidence event column must be a key column".into());
+            }
+            Entity::Evidence { key, event }
         }
         _ => return Err("entity must be coin or evidence".into()),
     };
@@ -132,6 +137,11 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     let distinct: BTreeSet<&String> = times.iter().collect();
     if distinct.len() != times.len() || times.iter().any(|t| t.is_empty() || t == "fetchedAt") {
         return Err("times must be distinct, non-empty and exclude fetchedAt".into());
+    }
+    if let Entity::Evidence { event, .. } = &entity {
+        if !times.contains(event) {
+            return Err("entity: the evidence event column must be one of times".into());
+        }
     }
     let mut fields = BTreeMap::new();
     for (input, f) in obj(&d["fields"])? {
@@ -187,7 +197,7 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
         roles.insert(role.clone(), m.iter().map(|(k, v)| Ok((k.clone(), text(v)?.to_string()))).collect::<Result<_, String>>()?);
     }
     let evidence = cadence == Cadence::Evidence;
-    if evidence != matches!(entity, Entity::Evidence(_)) || evidence && !(fields.is_empty() && roles.is_empty()) {
+    if evidence != matches!(entity, Entity::Evidence { .. }) || evidence && !(fields.is_empty() && roles.is_empty()) {
         return Err("evidence cadence exactly for evidence entities, with no fields and no role".into());
     }
     let rule_text = spans["rule"].to_string();
@@ -203,7 +213,7 @@ impl Declaration {
     pub fn controls(&self) -> BTreeSet<&str> {
         let key: Vec<&str> = match &self.entity {
             Entity::Coin => vec!["coin", "eventTime"],
-            Entity::Evidence(k) => k.iter().map(String::as_str).collect(),
+            Entity::Evidence { key, .. } => key.iter().map(String::as_str).collect(),
         };
         let slot = match &self.cadence {
             Cadence::Event { slot } => Some(slot.as_str()),

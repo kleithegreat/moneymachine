@@ -5,7 +5,7 @@ use mm::admission::{admit, Binding, Cert, Meta, Mode, Roles};
 use mm::source::{self, Declaration};
 use std::path::Path;
 
-const POLLS: &str = r#"{"declaration": 1, "name": "forum-polls", "version": 1, "entity": {"evidence": ["key", "recv"]},
+const POLLS: &str = r#"{"declaration": 1, "name": "forum-polls", "version": 1, "entity": {"evidence": ["key", "recv"], "event": "recv"},
     "times": ["recv"], "fields": {}, "cadence": {"evidence": {}}, "missing": "undefined", "revisions": "latest",
     "rule": {"rule": 1, "expr": {"max": [{"field": "recv"}, {"field": "fetchedAt"}]}}, "depends": {}, "role": {}}"#;
 

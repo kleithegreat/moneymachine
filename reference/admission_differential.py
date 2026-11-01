@@ -33,7 +33,9 @@ def declaration(rng: random.Random, s: int) -> dict:
             deps[name] = {"sources": [f"s{u}" for u in rng.sample(range(s), rng.randint(1, min(2, s)))], "lag_ms": rng.randint(0, 9)}
     if kind == "evidence":
         times = ["recv"]
-        entity = {"evidence": rng.sample(["key", "recv", "id"], rng.randint(1, 2))}
+        key = rng.sample(["key", "id"], rng.randint(0, 1)) + ["recv"]
+        rng.shuffle(key)
+        entity = {"evidence": key, "event": "recv"}
         fields, cadence, role = {}, {"evidence": {}}, {}
     else:
         times = rng.choice([["eventTime"], ["eventTime", "reportedTime"]])
@@ -55,25 +57,25 @@ def declaration(rng: random.Random, s: int) -> dict:
 
 
 def lean_decl(text: str, names: list[str]) -> dict:
-    """The declaration as Lean's `Decl` reads it for admission. An evidence declaration's key columns are spread over
-    the entity and revision columns, which admission reads only as the set `Decl.controls`."""
+    """The declaration as Lean's `Decl` reads it for admission: an evidence declaration's event column, and its other
+    key columns as the entity columns."""
     d = json.loads(text)
     cad = next(iter(d["cadence"]))
     if cad == "evidence":
-        keys = d["entity"]["evidence"]
-        event, entity, revision = d["times"][0], keys[0], keys[1:] + ["tombstone"]
+        event = d["entity"]["event"]
+        entity = [k for k in d["entity"]["evidence"] if k != event]
     else:
-        event, entity, revision = "eventTime", "coin", ["tombstone"]
+        event, entity = "eventTime", ["coin"]
     return {"hash": hashlib.sha256(text.encode()).hexdigest(), "times": d["times"] + ["fetchedAt"], "event": event,
-            "slot": d["cadence"]["event"]["slot"] if cad == "event" else None, "entity": entity, "revision": revision,
+            "slot": d["cadence"]["event"]["slot"] if cad == "event" else None, "entity": entity, "revision": ["tombstone"],
             "cadence": cad,
-            "deps": [[names.index(u), name, dep["lag_ms"]] for name, dep in sorted(d["depends"].items()) for u in dep["sources"]],
+            "deps": [[[names.index(u) for u in dep["sources"]], name, dep["lag_ms"]] for name, dep in sorted(d["depends"].items())],
             "roles": [[r, [[c, cols[c]] for c in (["open", "high", "low", "close", "trades"] if r == "bars" else ["rate"])]]
                       for r, cols in d["role"].items()]}
 
 
 def controls(ld: dict) -> list[str]:
-    return sorted(set(ld["times"] + [ld["event"], ld["entity"]] + ([ld["slot"]] if ld["slot"] else []) + ld["revision"]))
+    return sorted(set(ld["times"] + [ld["event"]] + ld["entity"] + ([ld["slot"]] if ld["slot"] else []) + ld["revision"]))
 
 
 def case(rng: random.Random) -> dict:
@@ -102,7 +104,7 @@ def case(rng: random.Random) -> dict:
     for s, (dataset, cert) in bound.items():
         d = decls[s]
         k = {"id": cert, "decl": d["hash"], "manifest": dataset, "policy": "P", "verifier": "V",
-             "upstream": sorted({bound[u][1] for u, _, _ in d["deps"] if u in bound}), "controls": controls(d),
+             "upstream": sorted({bound[u][1] for us, _, _ in d["deps"] for u in us if u in bound}), "controls": controls(d),
              "venueState": rng.random() < 0.95}
         for field, wrong in [("decl", "x"), ("manifest", "x"), ("policy", "P2"), ("verifier", "V2")]:
             if rng.random() < 0.02:

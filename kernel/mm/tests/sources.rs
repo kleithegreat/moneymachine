@@ -40,16 +40,20 @@ fn malformed_declarations_are_rejected() {
 
 #[test]
 fn evidence_declarations_are_keyed_by_their_own_columns() {
-    let polls = r#"{"declaration": 1, "name": "forum-polls", "version": 1, "entity": {"evidence": ["key", "recv"]},
+    let polls = r#"{"declaration": 1, "name": "forum-polls", "version": 1, "entity": {"evidence": ["key", "recv"], "event": "recv"},
         "times": ["recv"], "fields": {}, "cadence": {"evidence": {}}, "missing": "undefined", "revisions": "latest",
         "rule": {"rule": 1, "expr": {"max": [{"field": "recv"}, {"field": "fetchedAt"}]}}, "depends": {}, "role": {}}"#;
     let d = source::declaration(polls).unwrap();
-    assert_eq!((d.entity, d.cadence), (Entity::Evidence(vec!["key".into(), "recv".into()]), Cadence::Evidence));
+    let key = vec!["key".into(), "recv".into()];
+    assert_eq!((d.entity, d.cadence), (Entity::Evidence { key, event: "recv".into() }, Cadence::Evidence));
     for (from, to) in [
-        (r#"{"evidence": ["key", "recv"]}"#, r#"{"evidence": []}"#),
-        (r#"{"evidence": ["key", "recv"]}"#, r#"{"evidence": ["key", "key"]}"#),
-        (r#"{"evidence": ["key", "recv"]}"#, r#"{"evidence": ["key"], "coin": []}"#),
-        (r#"{"evidence": ["key", "recv"]}"#, r#""coin""#),
+        (r#"["key", "recv"], "event": "recv"}"#, r#"[], "event": "recv"}"#),
+        (r#"["key", "recv"], "event": "recv"}"#, r#"["key", "key"], "event": "recv"}"#),
+        (r#"["key", "recv"], "event": "recv"}"#, r#"["key", "recv"], "event": "recv", "coin": []}"#),
+        (r#"["key", "recv"], "event": "recv"}"#, r#"["key", "recv"]}"#),
+        (r#""event": "recv"}"#, r#""event": "id"}"#),
+        (r#""event": "recv"}"#, r#""event": "key"}"#),
+        (r#"{"evidence": ["key", "recv"], "event": "recv"}"#, r#""coin""#),
         (r#""fields": {}"#, r#""fields": {"polls": {"column": "n", "unit": "ev"}}"#),
         (r#""role": {}"#, r#""role": {"settlement": {"rate": "recv"}}"#),
         (r#"{"evidence": {}}"#, r#"{"event": {"slot": "recv"}}"#),
