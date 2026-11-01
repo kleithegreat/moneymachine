@@ -54,8 +54,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **The Write denial**, decided and carried out by the advisor 2026-10-31 23:12 UTC (19:12 EDT) (`audit/decisions.md`): the sandbox fix and per-session canary adopted; C3.2 v2 not a pass; C3.2 v3 on fresh ids, a zero-evaluation campaign counted (`5d95cad`); C3.1's audit rule unchanged; stage 3 and stage 10 refrozen and rolled (`c51f108`).
-- **Stage 10 refrozen again**, 2026-11-01 03:46 UTC (2026-10-31 23:46 EDT) (`audit/decisions.md`): main sessions could not read on the cluster (no CA store in the image; 27 of 27 fetches refused); fixed with certifi, robots redirects and runner accounting fixes; `thesis-a476a910d501`.
+None (the night's two stand, the human having delegated their review: `audit/decisions.md`, 2026-11-01 05:13 UTC (01:13 EDT)).
 
 ## Qualifications
 
