@@ -89,7 +89,7 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     assert slept == [campaigns.session.RETRY, 100, 200]
     assert rows[1]["account"] == "Cornell" and rows[1]["mm"] == "k"
     assert rows[1]["windows"] == {"before": {"five_hour": [0.2, 200]}, "after": {"five_hour": [0.3, 200]}}
-    assert campaigns.need(log, "Cornell")["five_hour"] == pytest.approx(0.1)
+    assert campaigns.need(log)["five_hour"] == pytest.approx(0.1)
     campaigns.run_series("agent")
     assert len(open(log).readlines()) == 3
 
@@ -98,7 +98,16 @@ def test_pacing_learns_nothing_from_a_campaign_without_tokens(tmp_path):
     log = tmp_path / "log.jsonl"
     log.write_text(json.dumps({"id": "c", "account": "TAMU", "usage": dict.fromkeys(campaigns.TOKENS, 0),
                                "windows": {"before": {"five_hour": [0.0, 1]}, "after": {"five_hour": [0.01, 1]}}}) + "\n")
-    assert campaigns.need(log, "TAMU") == {}
+    assert campaigns.need(log) == {}
+
+
+def test_a_campaign_measured_on_one_account_paces_every_account(tmp_path, monkeypatch):
+    log = tmp_path / "log.jsonl"
+    log.write_text(json.dumps({"id": "c", "account": "Cornell", "usage": dict.fromkeys(campaigns.TOKENS, 1),
+                               "windows": {"before": {"five_hour": [0.0, 1]}, "after": {"five_hour": [0.5, 1]}}}) + "\n")
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_TAMU", "tamu")
+    monkeypatch.setattr(campaigns, "windows", lambda token=None: {"five_hour": [0.3, 1]})
+    assert campaigns.wait_for_room(log)[0] == "TAMU"
 
 
 def test_a_missing_series_input_starts_nothing(tmp_path, monkeypatch):

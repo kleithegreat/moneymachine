@@ -196,12 +196,13 @@ def windows(token=None):
     return None
 
 
-def need(log, account):
-    """Per window, the most any campaign `account` ran in `log` used of it within one reset period; a campaign that
-    used no tokens measures nothing. It counts the account's other use meanwhile, so it overstates."""
+def need(log):
+    """Per window, the most any campaign in `log` used of it within one reset period, on whichever account it ran (the
+    accounts share one plan); a campaign that used no tokens measures nothing. It counts that account's other use
+    meanwhile, so it overstates."""
     used = {}
     for row in map(json.loads, open(log)) if log.exists() else []:
-        if row.get("account", "Cornell") != account or not any(row.get("usage", {}).get(k) for k in TOKENS):
+        if not any(row.get("usage", {}).get(k) for k in TOKENS):
             continue
         w = row.get("windows", {})
         for k, (u, reset) in (w.get("after") or {}).items():
@@ -224,7 +225,7 @@ def wait_for_room(log):
             if w is None:
                 resets.append(time.time() + session.RETRY)
                 continue
-            used = need(log, account)
+            used = need(log)
             full = [reset for k, (u, reset) in w.items() if u + used.get(k, FIRST_NEED) > CEILING]
             if not full:
                 os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = os.environ[var]
@@ -543,6 +544,8 @@ def summary(name, out):
               "mm": sorted({r.get("mm", "unrecorded") for r in rows}),
               "audits": {r["id"]: r.get("audit", r.get("audits")) for r in rows},
               "evaluations": [r.get("evaluations") for r in rows],
+              "agent_evaluations": [r.get("agent_evaluations") for r in rows],
+              "stopped": [{run["agent"]: run.get("stopped") for run in r.get("runs", []) if "agent" in run} for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],
               "spreads": spreads(rows), f"{searcher}_null_n2": spreads(baseline), "statement": SMOKE[name],
               "qualifications": f"PROGRESS.md, Qualifications, stage {STAGE[name]}"} | ({"label": LABEL} if name == "agent" else {})
