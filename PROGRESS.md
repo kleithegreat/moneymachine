@@ -54,7 +54,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-None (the night's two stand, the human having delegated their review: `audit/decisions.md`, 2026-11-01 05:13 UTC (01:13 EDT)).
+- **C4.5 v2: remove the 200-evaluation floor?** Only the human may loosen a frozen threshold. C4.5 v1 failed (its first 2 swarm campaigns made 33 and 36 evaluations, each a promotion under the floor; `audit/decisions.md`, 2026-11-01 10:27 UTC (05:27 EST)). A fresh Claude and GPT both advise deleting the floor, brief and harness unchanged (`audit/reviews/2026-11-01-{claude,gpt}-c45-v2.md`): it tested search effort, which the procedure never required, not false discovery. Ready on branch `c45-v2` (`27e3dd8`): no floor; a campaign counts if it promotes, crashes, or any agent makes no evaluation (GPT's stricter rule); fresh ids `swarm-null-2`; the draft revision `C45-V2-DRAFT.md`. If authorized: commit the revision alone, merge, apply `agent-series`.
 
 ## Qualifications
 
