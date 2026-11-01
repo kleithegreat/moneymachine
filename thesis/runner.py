@@ -123,10 +123,14 @@ class Track:
         self.ledger.disclose("session", account, {"session": name, "kind": kind, "started": now_ms(),
                                                   "manifest": self.manifest})
         work = self.root / "sessions" / self.version / name
-        run = harness.run_session(work, kind, lambda sock: self.daemon(sock, name, account, snapshot, commands, ablation_of),
-                                  task)
-        calls = [c for _, _, c in self.ledger.records("call", account) if c["session"] == name]
-        run["audit"] = harness.audit(work / "transcript.jsonl", calls)
+        try:
+            run = harness.run_session(work, kind, lambda sock: self.daemon(sock, name, account, snapshot, commands, ablation_of),
+                                      task)
+        except Exception as e:
+            run = {"kind": kind, "error": repr(e)}
+        else:
+            calls = [c for _, _, c in self.ledger.records("call", account) if c["session"] == name]
+            run["audit"] = harness.audit(work / "transcript.jsonl", calls)
         self.ledger.disclose("session_end", account, {"session": name, **run})
         return name
 
@@ -164,13 +168,10 @@ class Track:
         Once one is not, every session of the date still to run is disclosed as missed, except on SIGTERM before the
         main session, which leaves the date to the next start."""
         noread = ("noread", f"noread-{date}")
-        if not self.ready(date):
+        snapshot = self.snapshot(now_ms()) if self.ready(date) else None
+        if snapshot is None or self.stop.is_set() or now_ms() >= date + DAY:
             if not self.stop.is_set():
                 self.miss(date, [("main", f"main-{date}"), noread])
-            return
-        snapshot = self.snapshot(now_ms())
-        if now_ms() >= date + DAY:
-            self.miss(date, [("main", f"main-{date}"), noread])
             return
         name = self.session("main", "main", date, snapshot, MAIN_COMMANDS)
         theses = [t for t in self.ledger.theses("main") if t["session"] == name]

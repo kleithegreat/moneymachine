@@ -271,16 +271,15 @@ def reach(host, port):
 
 
 def retrieval_reach():
-    """Each certified retrieval host's robots.txt status through the thesis fetcher, TLS verification included."""
+    """Each certified retrieval entry fetched through the thesis fetcher (robots.txt and TLS included): its status, or
+    why it was refused. A deployment whose main sessions can read shows at least one 200."""
     from ingest import terms
     from thesis.retrieval import Fetcher
 
     fetcher, out = Fetcher(), {}
-    for host in sorted({e.split("/")[0] for e in terms.allowlist(retrieval=True)}):
-        try:
-            out[host] = fetcher._robots(f"https://{host}")[0]
-        except Exception as e:
-            out[host] = repr(e)[:120]
+    for entry in sorted(terms.allowlist(retrieval=True)):
+        r = fetcher.fetch(f"https://{entry if '/' in entry else entry + '/'}")
+        out[entry] = r.get("status") or r.get("refused", "")[:120]
     return out
 
 

@@ -86,7 +86,7 @@ def test_robots_disallow_and_failures_are_honored():
     f, _ = fetcher(disallow)
     assert "robots" in f.fetch("https://example.org/private/x")["refused"]
     assert f.fetch("https://example.org/public")["status"] == 200
-    for robots in [(500, None, b""), (403, None, b"")]:
+    for robots in [(500, None, b""), (403, None, b""), (429, None, b"")]:
         f, _ = fetcher({("example.org", "/robots.txt"): robots, ("example.org", "/public"): (200, None, b"ok")})
         assert "robots" in f.fetch("https://example.org/public")["refused"]
     f, _ = fetcher({("docs.example.org", "/public"): (200, None, b"ok")})

@@ -227,3 +227,19 @@ def test_versions_sharing_a_root_keep_their_own_session_directories(track, monke
     track.version = "thesis-later"
     track.session("main", "main", MONDAY, {}, ())
     assert made[0] != made[1] and made[1].parent.name == "thesis-later"
+
+
+def test_a_session_that_raises_still_ends_on_the_record(track, monkeypatch):
+    monkeypatch.setattr(runner.harness, "run_session", lambda *a: (_ for _ in ()).throw(OSError("bwrap failed")))
+    track.session("main", "main", MONDAY, {}, ())
+    [(_, _, end)] = track.ledger.records("session_end", "main")
+    assert end["session"] == f"main-{MONDAY}" and "bwrap failed" in end["error"]
+
+
+def test_a_stop_during_the_snapshot_starts_nothing_and_leaves_the_date(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + HOUR)
+    monkeypatch.setattr(track, "ready", lambda date: True)
+    monkeypatch.setattr(track, "snapshot", lambda now: track.stop.set() or {})
+    monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("started"))
+    track.day(MONDAY)
+    assert track.ledger.records("session_missed") == []

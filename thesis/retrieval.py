@@ -160,7 +160,7 @@ class Fetcher:
             rp = urllib.robotparser.RobotFileParser()
             if status == 200:
                 rp.parse(body[:MAX_BYTES].decode("utf-8", "replace").splitlines())
-            elif status in (401, 403):
+            elif status in (401, 403, 429):
                 rp.disallow_all = True
             elif status is not None and 400 <= status < 500:
                 rp.allow_all = True
