@@ -87,11 +87,12 @@ structure Entry where
 revision identical to the one before it adds nothing. The key's first eligible revision is delivered at its rule's
 value; every later one, delivered first or not, is known no earlier than its fetchedAt; every one is known no earlier
 than the one it replaces and than each dependency's upstream knownAt plus its delay. A dependency's upstream knownAt is
-the latest over the upstream keys its lineage lists, each key's being its latest delivery recorded no later than the
-revision itself; a revision whose lineage for a dependency is empty, lists a key of a source outside the dependency's,
-or lists a key with no such delivery, is unusable. A tombstone, or a revision whose rule evaluation is rejected or which `ok` rejects (an
-event source's slot or a role payload that does not decode), is delivered as a retraction at its fetchedAt (no
-earlier than what it replaces), and never falls back to an older value; one before any delivery adds nothing. -/
+the latest over the upstream keys its lineage lists, each key's being its latest delivery, a retraction included,
+recorded no later than the revision itself; a revision whose lineage for a dependency is empty, lists a key of a source
+outside the dependency's, or lists a key with no such delivery, is unusable. A tombstone, or a revision whose rule
+evaluation is rejected or which `ok` rejects (an event source's slot or a role payload that does not decode), is
+delivered as a retraction at its fetchedAt (no earlier than what it replaces), and never falls back to an older value;
+one before any delivery adds nothing. -/
 def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision → Bool) : Nat → Nat → String → Int → List Entry
   | 0, _, _, _ => []
   | fuel + 1, s, entity, event =>
@@ -99,7 +100,7 @@ def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision →
     let upKnown (dep : Dep) (u : Nat × String × Int) (by_ : Int) : Except RuleError Int :=
       if !dep.sources.contains u.1 then .error .unusable else
       match ((timeline reg st V ok fuel u.1 u.2.1 u.2.2).filter
-          (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_))).foldl
+          (fun x => decide (x.rev.fetchedAt ≤ by_))).foldl
           (fun acc x => some (match acc with | some a => Max.max a x.known | none => x.known)) none with
       | some t => .ok t
       | none => .error .unusable
@@ -191,9 +192,13 @@ structure Trusted {α : Type} (num : Cell → Option α) (hash : Cert → Hash) 
     (adm : Meta) (ld : Loader α) : Prop where
   /-- Each declaration, its rule included, is the one its hash names (the declaration file's bytes, decoded). -/
   decls : ∀ s < reg.decls.size, (reg.decls[s]!).hash = declHash reg.decls[s]!
-  /-- Stored revisions are decoded canonically: column names unique, reserved names absent. -/
+  /-- Stored revisions are decoded canonically: column names unique, reserved names absent, a lineage's dependency names
+  unique, so that the one `find?` reads is the whole lineage, and a stored entity an injective encoding of its entity
+  columns. -/
   canonical : ∀ s, ∀ r ∈ st.rows s, (r.cells.map (·.1)).Nodup ∧
-    ∀ c ∈ r.cells.map (·.1), c ∉ ["fetchedAt", "source", "hash"] ++ (reg.decls[s]!).revisionColumns
+    (∀ c ∈ r.cells.map (·.1), c ∉ ["fetchedAt", "source", "hash"] ++ (reg.decls[s]!).revisionColumns) ∧
+    (r.upstream.map (·.1)).Nodup ∧
+    ∀ r' ∈ st.rows s, r.entity = r'.entity → ∀ c ∈ (reg.decls[s]!).entityColumns, cellAt r.cells c = cellAt r'.cells c
   rows : ∀ req, ld.rows req = req.flatMap fun s => (st.rows s).map fun r => (s, r.event)
   resolve : ∀ req, ld.resolve req = resolveAll num reg st adm.version req
   identity : ∀ s b, adm.bindings s = some b → b.dataset = st.identity s

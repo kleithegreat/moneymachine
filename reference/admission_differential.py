@@ -1,6 +1,7 @@
 """Stage 7 port, slice 6: `mm::admission::admit` (through `mmdump admit`) against Lean's `admit` (through `refmm admit`)
 on random admission cases: registries of declaration files, role selections, bindings, certificates, supersessions,
-holdout identities and stored event times, each mutated toward one refusal. A development run, never judged.
+holdout identities and stored event times, each mutated toward one refusal; a dependency with no sources is invalid on
+both sides. A development run, never judged.
 
 usage: python -m reference.admission_differential [CASES] [SEED]
 
@@ -30,10 +31,11 @@ def declaration(rng: random.Random, s: int) -> dict:
     deps = {}
     if s > 0:
         for name in rng.sample(["a", "b", "c"], rng.randint(0, 2)):
-            deps[name] = {"sources": [f"s{u}" for u in rng.sample(range(s), rng.randint(1, min(2, s)))], "lag_ms": rng.randint(0, 9)}
+            count = 0 if rng.random() < 0.01 else rng.randint(1, min(2, s))
+            deps[name] = {"sources": [f"s{u}" for u in rng.sample(range(s), count)], "lag_ms": rng.randint(0, 9)}
     if kind == "evidence":
         times = ["recv"]
-        key = rng.sample(["key", "id"], rng.randint(0, 1)) + ["recv"]
+        key = rng.sample(["key", "id", "created"], rng.randint(0, 3)) + ["recv"]
         rng.shuffle(key)
         entity = {"evidence": key, "event": "recv"}
         fields, cadence, role = {}, {"evidence": {}}, {}

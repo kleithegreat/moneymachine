@@ -22,11 +22,12 @@ partial def reach (env : Environment) (todo : List Lean.Name) (seen : NameSet) :
 
 /-- The definitions B2 changes. -/
 def changed : List Lean.Name := [``Ref.Dep, ``Ref.Decl, ``Ref.Revision, ``Ref.Decl.depends, ``Ref.Decl.controls,
-  ``Ref.Stored.eligible, ``Ref.Stored.keys, ``Ref.Stored.validAt, ``Ref.timeline, ``Ref.resolveAll]
+  ``Ref.Stored.eligible, ``Ref.Stored.keys, ``Ref.Stored.validAt, ``Ref.timeline, ``Ref.resolveAll, ``Ref.Registry.valid,
+  ``Ref.Trusted]
 
 /-- Unchanged definitions that read them, reported as the route by which a law reaches a change. -/
-def through : List Lean.Name := [``Ref.Registry.valid, ``Ref.Registry.closure, ``Ref.Meta.matches, ``Ref.Meta.required,
-  ``Ref.differs, ``Ref.Trusted, ``Ref.stage1, ``Ref.Decl.ruleOk, ``Ref.Program.WF, ``Ref.CheckerAccepted]
+def through : List Lean.Name := [``Ref.Registry.closure, ``Ref.Meta.matches, ``Ref.Meta.required, ``Ref.differs, ``Ref.stage1,
+  ``Ref.Decl.ruleOk, ``Ref.Program.WF, ``Ref.CheckerAccepted]
 
 def laws : List Lean.Name := [``Ref.L1_values, ``Ref.L1_simulator, ``Ref.L1_decisions, ``Ref.L2_units, ``Ref.L2_checker,
   ``Ref.L3_rewrite, ``Ref.L4_fills, ``Ref.L4_orders, ``Ref.L5_admitted, ``Ref.L5_order, ``Ref.L5_staged, ``Ref.L5_shape,

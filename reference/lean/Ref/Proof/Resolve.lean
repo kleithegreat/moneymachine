@@ -295,14 +295,14 @@ theorem timeline_known (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Re
     ∀ e ∈ tl, e.retraction = false → ∀ dep ∈ (reg.decls[s]!).deps,
       ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [] ≠ [] ∧
       ∀ up ∈ ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [], up.1 ∈ dep.sources ∧
-        (∃ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.retraction = false ∧ u.rev.fetchedAt ≤ e.rev.fetchedAt) ∧
-        ∀ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.retraction = false → u.rev.fetchedAt ≤ e.rev.fetchedAt →
+        (∃ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.rev.fetchedAt ≤ e.rev.fetchedAt) ∧
+        ∀ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.rev.fetchedAt ≤ e.rev.fetchedAt →
           u.known + dep.lag ≤ e.known := by
   let P (r : Revision) (k : Int) : Prop := ∀ dep ∈ (reg.decls[s]!).deps,
     ((r.upstream.find? (·.1 == dep.name)).map (·.2)).getD [] ≠ [] ∧
     ∀ up ∈ ((r.upstream.find? (·.1 == dep.name)).map (·.2)).getD [], up.1 ∈ dep.sources ∧
-      (∃ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.retraction = false ∧ u.rev.fetchedAt ≤ r.fetchedAt) ∧
-      ∀ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.retraction = false → u.rev.fetchedAt ≤ r.fetchedAt →
+      (∃ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.rev.fetchedAt ≤ r.fetchedAt) ∧
+      ∀ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.rev.fetchedAt ≤ r.fetchedAt →
         u.known + dep.lag ≤ k
   suffices hx : ∃ prev, KnownOut P prev (timeline reg st V ok (fuel + 1) s entity event) by
     obtain ⟨prev, hout⟩ := hx
@@ -330,8 +330,8 @@ theorem timeline_known (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Re
         omega
       · simp_all only [ite_false, reduceCtorEq]
   have hup : ∀ dep u by_ t, upKnown dep u by_ = .ok t → u.1 ∈ dep.sources ∧
-      (∃ x ∈ timeline reg st V ok fuel u.1 u.2.1 u.2.2, x.retraction = false ∧ x.rev.fetchedAt ≤ by_) ∧
-      ∀ x ∈ timeline reg st V ok fuel u.1 u.2.1 u.2.2, x.retraction = false → x.rev.fetchedAt ≤ by_ → x.known ≤ t := by
+      (∃ x ∈ timeline reg st V ok fuel u.1 u.2.1 u.2.2, x.rev.fetchedAt ≤ by_) ∧
+      ∀ x ∈ timeline reg st V ok fuel u.1 u.2.1 u.2.2, x.rev.fetchedAt ≤ by_ → x.known ≤ t := by
     intro dep u by_ t he
     dsimp only [upKnown] at he
     split at he
@@ -342,16 +342,16 @@ theorem timeline_known (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Re
       cases he
       refine ⟨by simpa using hsrc, ?_, ?_⟩
       · cases hl : (timeline reg st V ok fuel u.1 u.2.1 u.2.2).filter
-            (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_)) with
+            (fun x => decide (x.rev.fetchedAt ≤ by_)) with
         | nil => rw [hl] at hk; simp at hk
         | cons x xs =>
           have hx : x ∈ (timeline reg st V ok fuel u.1 u.2.1 u.2.2).filter
-              (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_)) := by rw [hl]; simp
-          simp only [List.mem_filter, Bool.and_eq_true, Bool.not_eq_true', decide_eq_true_eq] at hx
-          exact ⟨x, hx.1, hx.2.1, hx.2.2⟩
-      · intro x hx hret hfetch
+              (fun x => decide (x.rev.fetchedAt ≤ by_)) := by rw [hl]; simp
+          simp only [List.mem_filter, decide_eq_true_eq] at hx
+          exact ⟨x, hx.1, hx.2⟩
+      · intro x hx hfetch
         have hx' : x ∈ (timeline reg st V ok fuel u.1 u.2.1 u.2.2).filter
-            (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_)) := by simp [hx, hret, hfetch]
+            (fun x => decide (x.rev.fetchedAt ≤ by_)) := by simp [hx, hfetch]
         obtain ⟨k', hk', hle⟩ := max_fold_member (·.known) _ none x hx'
         cases hk'.symm.trans hk
         exact hle
@@ -386,7 +386,7 @@ theorem timeline_known (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Re
           · exact fold_max_lower rest tu
           · exact fold_max_member rest _ tu hm
         obtain ⟨hs, hex, hbound⟩ := hup dep up r.fetchedAt tu htu
-        exact ⟨hs, hex, fun u hu hret hfetch => by have := hbound u hu hret hfetch; omega⟩
+        exact ⟨hs, hex, fun u hu hfetch => by have := hbound u hu hfetch; omega⟩
   exact ⟨_, fold_known d known P hb hv (st.eligible s V entity event) (none, none, [])
     ⟨by simp, by simp, by simp, by simp⟩⟩
 

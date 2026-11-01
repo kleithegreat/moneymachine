@@ -34,8 +34,9 @@ inductive Role where | bars | settlement deriving DecidableEq, Repr, Inhabited
 
 /-- One active declaration (SOURCES.md §1): its file's hash, its fields (input name, stored column, unit; in
 input-name order), every stored column its availability rule reads (`fetchedAt` included), its event-time and slot
-(event sources) columns, the other columns of its key (`coin`, or an evidence source's), the columns that select revisions and mark tombstones, its availability rule,
-its cadence, its dependencies, and per role it can provide each role column's stored column. -/
+(event sources) columns, the other columns of its key (`coin`, or an evidence source's), the columns that select
+revisions and mark tombstones, its availability rule, its cadence, its dependencies, and per role it can provide each
+role column's stored column. -/
 structure Decl where
   hash : Hash
   fields : Array (String × String × Dim)
@@ -114,12 +115,12 @@ def Registry.inputs (reg : Registry) : Array (String × Input) :=
     (Array.range d.fields.size).map fun k =>
       (d.fields[k]!.1, ⟨s, k, d.cadence == .event, d.fields[k]!.2.2⟩)
 
-/-- A valid registry: input names unique, dependencies in range and acyclic, evidence declarations without fields or
+/-- A valid registry: input names unique, each dependency naming at least one source, in range and acyclic, evidence declarations without fields or
 roles, a slot column exactly for event sources, and role columns as SOURCES.md §6 names them. -/
 def Registry.valid (reg : Registry) : Bool :=
   let names := reg.decls.toList.flatMap fun d => d.fields.toList.map (·.1)
   names.eraseDups.length == names.length &&
-  reg.decls.all (fun d => d.depends.all (· < reg.decls.size) && d.deps.all (decide <| 0 ≤ ·.lag) && d.ruleOk) &&
+  reg.decls.all (fun d => d.depends.all (· < reg.decls.size) && d.deps.all (fun dep => decide (0 ≤ dep.lag) && !dep.sources.isEmpty) && d.ruleOk) &&
   (List.range reg.decls.size).all (fun s => !(reg.closure reg.decls.size (reg.decls[s]!).depends).contains s) &&
   reg.decls.all (fun d => d.cadence != .evidence || (d.fields.size == 0 && d.roles.isEmpty)) &&
   reg.decls.all (fun d => (d.cadence == .event) == d.slotColumn.isSome) &&

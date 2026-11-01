@@ -118,7 +118,9 @@ fn strs(v: &Value) -> Vec<String> {
 }
 
 fn admit_case(c: &Value) -> String {
-    let reg: Vec<_> = c["decls"].as_array().unwrap().iter().map(|d| source::declaration(d["text"].as_str().unwrap()).unwrap()).collect();
+    let Ok(reg) = c["decls"].as_array().unwrap().iter().map(|d| source::declaration(d["text"].as_str().unwrap())).collect::<Result<Vec<_>, _>>() else {
+        return "invalid 0".into();
+    };
     let n = |v: &Value| v.as_u64().unwrap() as usize;
     let s = |v: &Value| v.as_str().unwrap().to_string();
     let roles = Roles { bars: n(&c["roles"][0]), settlement: n(&c["roles"][1]) };

@@ -96,21 +96,23 @@ def str! : Value → String
 
 def strs! (v : Value) : List String := (arr! v).toList.map str!
 
-/-- A declaration as admission reads it: the case's own decoding of its file (no fields or rule: `stage1` reads
-neither). -/
+/-- A declaration as admission reads it: the case's own decoding of its file; no fields, which `stage1` does not read,
+and the rule the generator writes (a time column, `fetchedAt`, every dependency), for `Registry.valid`. -/
 def caseDecl (v : Value) : Decl :=
   let cadence := match str! (get! v "cadence") with | "event" => Cadence.event | "evidence" => .evidence | _ => .held
-  { hash := str! (get! v "hash"), fields := #[], times := strs! (get! v "times"), eventColumn := str! (get! v "event"),
+  let deps : List Dep := (arr! (get! v "deps")).toList.map fun d => let d := arr! d
+    ⟨(arr! d[0]!).toList.map fun u => (int! u).toNat, str! d[1]!, int! d[2]!⟩
+  let times := strs! (get! v "times")
+  { hash := str! (get! v "hash"), fields := #[], times, eventColumn := str! (get! v "event"),
     slotColumn := match get! v "slot" with | .str s => some s | _ => none, entityColumns := strs! (get! v "entity"),
-    revisionColumns := strs! (get! v "revision"), rule := .ms 0, cadence
-    deps := (arr! (get! v "deps")).toList.map fun d => let d := arr! d
-      ⟨(arr! d[0]!).toList.map fun u => (int! u).toNat, str! d[1]!, int! d[2]!⟩
+    revisionColumns := strs! (get! v "revision"), cadence, deps
+    rule := .max (.field times.head! :: .field "fetchedAt" :: deps.map (.dep ·.name))
     roles := (arr! (get! v "roles")).toList.map fun r => let r := arr! r
       (if str! r[0]! == "bars" then .bars else .settlement,
        (arr! r[1]!).toList.map fun c => let c := arr! c; (str! c[0]!, str! c[1]!)) }
 
-/-- One admission case's outcome: `admit` with a loader whose resolution fails, so passing positions 1 to 5 is
-refusal 6; then `stage1`'s required set. -/
+/-- One admission case's outcome: `Registry.valid` (`mm` refuses such a declaration when parsing), then `admit` with a
+loader whose resolution fails, so passing positions 1 to 5 is refusal 6; then `stage1`'s required set. -/
 def admitCase (v : Value) : String :=
   let reg : Registry := { decls := (arr! (get! v "decls")).map caseDecl }
   let rs := arr! (get! v "roles")
@@ -131,6 +133,7 @@ def admitCase (v : Value) : String :=
   let rows := (arr! (get! v "rows")).toList.map fun r => let r := arr! r; ((int! r[0]!).toNat, int! r[1]!)
   let ld : Loader Float := { rows := fun req => req.flatMap fun s => rows.filter (·.1 == s), resolve := fun _ => none }
   let venue : Venue Float := { takerFee := 0, minNotional := 0, szDecimals := #[], minTierLeverage := #[], costBps := #[] }
+  if !reg.valid then "invalid 0" else
   match admit reg roles p adm ld venue ⟨1, 0⟩ 0 mode, stage1 reg roles p adm mode with
   | .error (6, .binding), .ok req => "ok " ++ ",".intercalate (req.map toString)
   | .error (k, a), _ => s!"{a.code} {k}"
