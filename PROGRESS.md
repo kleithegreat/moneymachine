@@ -17,7 +17,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-
+- **Wake-up "stage7 B2 revision"** (a builder on Cornell, hard stop 20:55 UTC (15:55 EST), before a campaign can start there): in `../moneymachine-stage7` on branch `stage7` only, draft B2's dated revision of the frozen Lean exactly as `audit/decisions.md` (2026-11-01 16:59 UTC) states it, using `audit/stage7/b2-review-{claude,gpt}.md`: `Source.lean`, `Resolve.lean`, `Laws.lean`, the proofs re-proved (clean `lake build`, axiom check), RULES.md §6, SOURCES.md §1 and §5, the annex, `refmm`'s declaration parser, port plan §3; list every changed definition and statement, and every law whose closure changes, for the review. Do not freeze (`laws-frozen.md` waits for a fresh Opus and a GPT review). Commit on `stage7` every 20 minutes; touch nothing on `main`, no cluster, no data.
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** 2026-11-01 07:38 UTC (02:38 EST) (`audit/stage3/exit.md`): C3.2 met under v3; the real campaign had zero finalists in both arms, so no claim and the holdout unreleased.
@@ -54,7 +54,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-None.
+- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST)): GPT and a fresh Claude both recommended it; the revision is drafted on `stage7` and refrozen only after its review.
 
 ## Qualifications
 
