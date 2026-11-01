@@ -26,9 +26,10 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
                         "promoted": p, "counts_as_promotion": bool(p), "mm": "k", "audit": {"match": i != 2}, "evaluations": i}
     rows = [run(i, ["x"] if i == 3 else []) for i in range(19)] + [{"id": ids[19], "crash": "x", "counts_as_promotion": True}]
     log.write_text("".join(json.dumps(r) + "\n" for r in rows))
-    swarm = [{"id": f"swarm-null-N2-{i}", "counts_as_promotion": i == 9, "evaluations": 300,
+    swarm_ids, swarm_log = campaigns.cohort("swarm")
+    swarm = [{"id": swarm_ids[i], "counts_as_promotion": i == 9, "evaluations": 300,
               "search": {"spa_p": 0.3, "max_dsr": 0.0, "screened": []}} for i in range(10)]
-    (tmp_path / "swarm-null.jsonl").write_text("".join(json.dumps(r) + "\n" for r in swarm))
+    swarm_log.write_text("".join(json.dumps(r) + "\n" for r in swarm))
     (tmp_path / "null.jsonl").write_text(json.dumps({"id": f"c24{sweep.ROUND}-N2-G100-0", "search": {"spa_p": 0.9, "max_dsr": 0.2, "screened": ["a"]}}) + "\n")
     s = {}
     for name in ("agent", "swarm"):
@@ -154,7 +155,7 @@ def test_a_freeze_is_refused_once_a_campaign_it_is_for_started_and_waits_for_the
     campaigns.freeze_harness()
     campaigns.freeze_harness()
     assert json.loads((tmp_path / "harness.json").read_text())["previous"]["harness"] == "a"
-    for started in ("agent-null-3-N2-1", "swarm-null-N2-0", "stage3-real-2"):
+    for started in ("agent-null-3-N2-1", campaigns.cohort("swarm")[0][0], "stage3-real-2"):
         (out / started).mkdir()
         with pytest.raises(SystemExit):
             campaigns.freeze_harness()
@@ -166,4 +167,12 @@ def test_a_budget_refusal_is_not_an_evaluation(tmp_path, monkeypatch):
     log = [{"cmd": "eval", "response": {"ok": True}}, {"cmd": "eval", "response": {"ok": False, "code": "E_TYPE"}},
            {"cmd": "eval", "response": {"ok": False, "code": "BUDGET"}}, {"cmd": "check", "response": {"ok": True}}]
     (tmp_path / "daemon.log").write_text("".join(json.dumps(e) + "\n" for e in log))
-    assert campaigns.arm_a_evaluations(None, "c", tmp_path) == 2
+    assert campaigns.evaluations_made(None, "c", tmp_path) == 2
+
+
+def test_a_null_campaign_counts_if_it_promotes_crashes_or_an_agent_made_no_evaluation():
+    done = {"stopped": "finished", "exit": 0}
+    assert not campaigns.counts([], [done] * 4, [5, 9, 12, 7])
+    assert campaigns.counts(["h"], [done] * 4, [5, 9, 12, 7])
+    assert campaigns.counts([], [done, {"stopped": "finished", "exit": 1}], [5, 9])
+    assert campaigns.counts([], [done] * 4, [5, 0, 12, 7])
