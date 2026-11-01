@@ -13,13 +13,14 @@ the baseline, widening a scope, dropping a case or projecting away another field
 |---|---|---|---|---|---|---|
 | `hl-funding` 1 | history | coin, eventTime | `funding` ← fundingRate (1/h), `premium` ← premium (1) | held, 1 h, phase 0, slot eventTime | max(floor(reportedTime, 1 h) + δ, reportedTime + 60,000) | settlement: rate ← fundingRate |
 | `hl-bars-4h` 2 | history | coin, eventTime | `open` `high` `low` `close` (usd/coin), `volume` (coin) | held, 4 h, phase 0, slot eventTime | eventTime + δ | bars: open ← open, high ← high, low ← low, close ← close, trades ← trades |
-| `discourse-sightings`, `snapshot-sightings` 1 | recorded, evidence | key, id, observed, created | none | evidence | max(observed, fetchedAt) | none |
-| `discourse-polls`, `snapshot-polls` 1 | recorded, evidence | key, recv | none | evidence | max(recv, fetchedAt) | none |
+| `discourse-sightings`, `snapshot-sightings` 1 | recorded, evidence | key, id, created; event observed | none | evidence | max(observed, fetchedAt) | none |
+| `discourse-polls`, `snapshot-polls` 1 | recorded, evidence | key; event recv | none | evidence | max(recv, fetchedAt) | none |
 | `forum-events`, `governance-events` 1 | derived | coin, eventTime | `forum_posts`, `gov_proposals` ← count (ev) | event, slot eventTime | max(eventTime + δ, dep `recording`) | none |
 
 δ = 120,000 ms. The venue rules are C0.3's as amended for C0.4 (`audit/criteria.md`). Each derived source declares
 one dependency, `recording`, spanning its sightings and polls sources, with lag 0; the rule names it, so it passes
-RULES.md §4. The sightings key includes the claim, so distinct sightings of an item at one observation time with
+RULES.md §4. Each evidence key's event column is the recorder's observation time (SOURCES.md §1, revision of
+2026-11-01): the stored entity of a sighting is (key, id, created), of a poll its key. The sightings key includes the claim, so distinct sightings of an item at one observation time with
 different claims stay distinct records and are never reduced as revisions. Live sightings and polls are stored by the
 recorder itself, so a live record's `fetchedAt` is the poll's receive time; a backfill observation's observation time is
 its `fetchedAt`. Poll evidence holds successful live polls only.
@@ -47,11 +48,13 @@ key-to-coin assignments (one key to one coin; an unmapped key counts for no coin
 inference). That a mapping fixed in October applies to earlier hours is stage 5's design, kept as a limitation of the
 certificates' scope, not hidden.
 
-**Lineage.** Each row records the identities (upstream key and fetchedAt) of every upstream record it read: the
+**Lineage.** Each row records the keys (source, stored entity, event time) of every upstream record it read: the
 sightings that determine each counted item's earliest observation and claim, the polls that fix the key's first poll,
 and every poll establishing coverage of [a, b], the one at or before a included. A count of zero still has its
 coverage polls, so its `recording` dependency is never empty. The resolver computes the dependency time from those
-identities under the upstream rules at V; availability is T only when every bound of RULES.md §6 is at most T.
+keys under the upstream rules at V, each key counting its deliveries recorded no later than the row (RULES.md §6,
+revision of 2026-11-01); a key with none makes the row unusable, never skipped beside another. Availability is T only
+when every bound of RULES.md §6 is at most T.
 Otherwise the row is undefined at its tick and never moved to another tick: a mismatch that blocks migration. No record
 used is dropped from lineage because it would delay availability. Each row also keeps the legacy fields of
 `derived.md` (the SHA-256 of `ingest/events.py`, of the mapping file, the cut V and the SHA-256 of the records read, by

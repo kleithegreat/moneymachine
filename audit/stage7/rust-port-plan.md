@@ -13,10 +13,10 @@ per-dataset branches in `market.rs` are gone (C7.4).
 |---|---|---|
 | `Json`: `Value`, `value`, `parse` | `dsl.rs` (`Strict`, serde), `rule.rs` (`Json`, own parser) | One JSON reader. `rule.rs`'s parser already keeps spans and exact integers; `dsl.rs`'s duplicate-key refusal becomes `uniqueKeys` after parsing, before `program` (Syntax revision of 2026-10-31). serde_json leaves the checker. |
 | `Syntax`: `Dim`, `Input`, `Op`, `Node`, `Ty`, `Program`, `Code`, `typeOp`, `expr`, `program`, `check` | `units.rs` (`Unit`), `dsl.rs` | `Unit` already is `Dim` (six bases). `dsl::Input` (the enum, `HELD`, `EVENT_INPUTS`, `event_dataset`) becomes Lean's `Input {source, field, event, unit}`; `check(inputs, text)` takes the registry's input table, so `mm check` reads `sources/registry.json` and nothing else (C7.2). `Program::event_datasets` dies (stage 1's `required` replaces it). |
-| `Source`: `Decl`, `Dep`, `Cadence`, `Role`, `RuleExpr.ty/lb`, `Decl.ruleOk/values/controls` | `source.rs` (`Declaration`, `declaration`), `rule.rs` (`Expr`, `check`, `lower_bound`) | `Declaration` gains Lean's columns: `eventColumn` (`eventTime`), `entityColumn` (`coin`, or an evidence declaration's key columns), `slotColumn` (event cadence only), `revisionColumns`; `times` stays without `fetchedAt` (Lean's `times` is it plus `fetchedAt`). Held `period_ms`/`phase_ms` stay as certification's grid, outside the semantics. Evidence declarations (SOURCES.md §1, revision of 2026-10-26 02:03) are parsed. |
+| `Source`: `Decl`, `Dep`, `Cadence`, `Role`, `RuleExpr.ty/lb`, `Decl.ruleOk/values/controls` | `source.rs` (`Declaration`, `declaration`), `rule.rs` (`Expr`, `check`, `lower_bound`) | `Declaration` gains Lean's columns: `eventColumn` (`eventTime`), `entityColumns` (`coin`, or an evidence declaration's key columns other than its event column), `slotColumn` (event cadence only), `revisionColumns`; `times` stays without `fetchedAt` (Lean's `times` is it plus `fetchedAt`). Held `period_ms`/`phase_ms` stay as certification's grid, outside the semantics. Evidence declarations (SOURCES.md §1, revision of 2026-10-26 02:03) are parsed. |
 | `Source`: `Registry.closure/inputs/valid`, `Roles.valid`, `Program.sources` | `source.rs::registry` (unique inputs, registered acyclic deps) | Adds `inputs` (declaration order, then input-name order: `BTreeMap` already gives it), evidence and role-column conditions of `valid`, and `Roles` (a run's manifest selects one provider per role, SOURCES.md §6). |
 | `Source`: `Grant`, `Access`, `Cert`, `Binding`, `Mode`, `Meta`, `Meta.valid/matches/delivered/required`, `stage1`, `stage2`, `Loader`, `Abort` | none (`main.rs::load_ctx`, `market::LoadError::Holdout`, `sim::Abort`) | New `admission.rs`: `Meta` read from the ledger (certificates, supersessions, position) and the run manifest (bindings, roles); `stage1` and `stage2` exactly as Lean, with positions (`Abort.position`). `sim::Abort` gains `Uncertified`, `Holdout`, `Roles`, `Binding`, `Invalid`. Certificate payloads and ids per CERTIFICATES.md; issuance is C7.3's verifier, outside this port. |
-| `Source`: `Cell`, `Revision`, `Stored`; `Resolve`: `RuleExpr.eval`, `Stored.eligible/keys/validAt`, `differs`, `timeline`, `rolePayload`, `slotOf`, `decodes`, `resolveAll`, `Obs` | `market.rs` (`read_rows`, `resolve`, `known`, `same_values`, `NOT_VALUES`), `rule.rs` (`evaluate`, `resolve`, `effective`) | New `resolve.rs`: Parquet rows decoded to `Revision`s with declared columns only, then `timeline` and `resolveAll` as Lean (bitemporal, every eligible revision delivered, retractions, upstream bounds recorded no later than the derived revision). `market.rs::known`'s dataset branch, `resolve`, `same_values` and `NOT_VALUES` die (undeclared columns are never compared). `rule.rs::evaluate` stays (C7.6); `rule.rs::resolve`/`effective`, version 1's snapshot resolver, die once the resolver suite is revised (§3, B3). |
+| `Source`: `Cell`, `Revision`, `Stored`; `Resolve`: `RuleExpr.eval`, `Stored.eligible/keys/validAt`, `differs`, `timeline`, `rolePayload`, `slotOf`, `decodes`, `resolveAll`, `Obs` | `market.rs` (`read_rows`, `resolve`, `known`, `same_values`, `NOT_VALUES`), `rule.rs` (`evaluate`, `resolve`, `effective`) | New `resolve.rs`: Parquet rows decoded to `Revision`s with declared columns only, then `timeline` and `resolveAll` as Lean (bitemporal, every eligible revision delivered, retractions, upstream keys (source, stored entity, event) with bounds recorded no later than the derived revision). `market.rs::known`'s dataset branch, `resolve`, `same_values` and `NOT_VALUES` die (undeclared columns are never compared). `rule.rs::evaluate` stays (C7.6); `rule.rs::resolve`/`effective`, version 1's snapshot resolver, die once the resolver suite is revised (§3, B3). |
 | `Machine`: `BarRow`, `RateRow`, `Win`, `MState` (`latest` per source and coin), `deliver`, `input`, `eval`, `tickNode`, `tick`, `rank` | `machine.rs` (`Machine`: `funding`, `bar`, `events` typed slots; `deliver_funding/bar/event`) | The three typed slots and three deliver functions become `latest: Vec<Vec<Option<Obs>>>` and one `deliver`; `input` is Lean's (a held input reads the latest observation, an event input only when its slot is the current hour). `Win`, `eval`, `tick`, `rank` are already the same functions. |
 | `Sim`: `Fill`, `Event`, `Venue`, `Policy`, `Run`, `Book`, `Index`, `checkFill`, `Order`, `SState`, `barRow`, `rateRow`, `Ctx`, `Ctx.make/deliver/execute/closeout/bankrupt/start/step/bounds/evaluate`, `accountingOk` | `sim.rs` (`run`), `market.rs` (`Market`, `Venue`, `Policy`, `Funding`, `Bar`, `Event`, `bar_at`, `rate_at`, `bar_times`) | `sim::run` takes a `Ctx` built as `Ctx.make`: delivered observations ordered by (knownAt, source, coin, tie), execution's bars and rates projected from the role providers' final observations, `Index` over them. `Market`'s typed vectors and `sim::run`'s three delivery loops die. `Market.intervals` becomes `Meta.intervals`, still computed by the front end from the venue's delisting (until C8.1). |
 | `Sim`: `Ctx.admissible`, `readFrom`, `accesses`, `inScope`, `admit`, `admission`, `runProgram`, `run` | none | `admission.rs`: run admission (`R_BINDING`), scope (`R_UNCERTIFIED`, position 7), `run` from text (`R_INVALID` at position 0). `main.rs`'s `eval`/`holdout` call `admission` and then evaluate; nothing reads a payload before stage 2 passes (named tests 17, 18). |
@@ -33,9 +33,9 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    check: `kernel/mm/tests/sources.rs`. The role-column clause holds since B1's decision; Lean's `controls`
    arrived with admission (slice 6), `values` comes with `inScope`.
 2. **The checker over the registry** (`dsl.rs`, `canon.rs`, `main.rs check`, `reference/mmdump`): needs the event feeds'
-   declarations in `sources/registry.json` (B2). Checks: C6.4's harness (`reference/differential.py`, development
-   run) on all 1,196 verdicts against `refmm`, whose fixed registry has the same four inputs; `kernel/tests/adversarial`
-   and `admitted` verdicts unchanged.
+   declarations in `sources/registry.json`, as the annex states them after B2. Checks: C6.4's harness
+   (`reference/differential.py`, development run) on all 1,196 verdicts against `refmm`, whose fixed registry has the
+   same four inputs; `kernel/tests/adversarial` and `admitted` verdicts unchanged.
 3. **The machine over observations** (`machine.rs`). Checks: C6.4's harness, every run's node streams against
    `refmm`; named tests 16 (`machine.rs::held_and_event_reads`) and 19 (`late_correction_undefines_event`).
 4. **The simulator from `Ctx`** (`sim.rs`, `market.rs`). Checks: C6.4's harness on its runs (trace, returns, gross
@@ -56,7 +56,7 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    4 and 5), the ledger's certificate and supersession tables, `main.rs`'s wiring (`LoadError::Holdout` dies), and
    tests 5, 6, 8, 17, 18, 21, 23 and 24, which need the loader or slice 2's checker.
 7. **Then, outside this port:** the verifier and `mm certify`/`mm bind`/preflight (C7.2, C7.3; tests 1–3, 7, 10, 12),
-   the event feeds as derived sources (C7.4, after B2), the mutants (I1–I10, C5) rerun on the ported kernel.
+   the event feeds as derived sources (C7.4), the mutants (I1–I10, C5) rerun on the ported kernel.
 
 ## 3. Disagreements with the frozen Lean, and blockers
 
@@ -65,27 +65,22 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   low close trades`, and `barRow` takes the open as `key − BAR`. The Lean is the simpler contract (bars are 4h on the
   4h grid, so the open is the event time less 4h) and its laws are proved on it. Decided 2026-11-01 (`audit/decisions.md`):
   SOURCES.md §6's dated revision, `hl-bars-4h` 2, `ROLES` and the annex row.
-- **B2. A dependency spanning several sources.** SOURCES.md §5 (revision of 2026-10-25 22:15 EDT) and the annex give
-  each derived event feed one dependency, `recording`, over its sightings and polls sources, because with one source
-  per dependency a covered window without sightings has an empty read set and so no time. The frozen Lean's `Dep` has
-  one `source`, and `Revision.upstream` lists (coin, event) keys without a source: it cannot state that dependency,
-  and under it a covered zero count is unusable (`timeline`'s `[] => .unusable`), which C7.4 forbids. Either the Lean
-  takes `Dep.sources` with source-qualified upstream keys (a dated revision of `Source.lean` and `Resolve.lean`,
-  review, refreeze, `L8_known` and `L8_monotone` re-proved), or the derivation is restated so each dependency's read
-  set is never empty for a covered window (polls alone carrying coverage). Could change a leakage outcome: the
-  advisor decides after a fresh Claude and a GPT review. The checker reads only fields, units and cadence, so
-  slices 2 to 4 can proceed on the event and evidence declarations as the annex drafts them, each given a new version
-  if B2 changes its `depends`; slice 5's derived bounds need B2 settled. SOURCES.md §5's "not the one selected at that
-  version" predates RULES.md §6's bitemporal revision and goes with B2's revision.
+- **B2. A dependency spanning several sources.** Settled 2026-11-01 16:59 UTC (`audit/decisions.md`, both reviews
+  `b2-review-{claude,gpt}.md`) by a dated revision of the frozen Lean, drafted in `b2-revision.md` and frozen only after
+  its review: `Dep.sources`; upstream keys (source, stored entity, event), each of its dependency's sources and with a
+  delivery recorded by the derived revision, else the row is unusable (no key masks another); timelines keyed by stored
+  entity; evidence records outside U, reached only as upstream keys. `source.rs`'s `Dependency` and `depends` already
+  are this. Slice 5 implements the entity-keyed timeline and the strict lineage rule; the event feeds' declarations and
+  `ingest/events.py`'s lineage follow the revised annex.
 - **B3. The C7.6 resolver suite is version 1's.** RULES.md §6's bitemporal revision says the C7.6 suites are revised
   to match before any judged run; `kernel/tests/rules/resolver_suite.py`, `mm resolve` (`rule.rs::resolve`) and
   `ingest/knownat.py` still select one revision. The revision is frozen evidence: drafted, reviewed and committed alone
   before slice 5, then Python, Rust and GPT's resolver agree on it.
-- **Evidence keys.** Lean keys every revision by `(coin : Nat, event : Int)`, with `coin` "the coin of U it maps
-  to"; an evidence declaration's records are keyed by their own columns (a forum host and item, a poll's receive
-  time). The port reads `coin` as the source's entity index, which for an evidence source indexes its key tuples,
-  and an evidence declaration's controls as its times, `fetchedAt`, its key columns and `tombstone` (no `eventTime`);
-  B2's review confirms or replaces that reading.
+- **Evidence keys** (settled with B2). An evidence declaration names its event column among its key columns
+  (`{"evidence": [K…], "event": C}`, C in `times`): the recorder's observation time, which stage 2's holdout check
+  reads. Its records have no coin (Lean's `coin = none`), never an entity index; Lean's `entityColumns` are the other
+  key columns, so its controls are its times, `fetchedAt`, its key columns and `tombstone`, as `Declaration::controls`
+  computes (`source.rs` reads the event column since this revision).
 - **Delivery order** differs only in form: `mm` delivers funding, then bars, then events at each tick, each by
   (knownAt, coin, event or store position); Lean orders all by (knownAt, source, coin, tie). Machine state is per
   source and coin and `maxKnown` a maximum, so the interleaving is unobservable; slice 4 adopts Lean's order and its
@@ -94,6 +89,7 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 
 ## 4. Next
 
-B1 is decided and slice 6's metadata half is done. What rests on neither the annex's draft declarations (slices 2
+B1 and B2 are decided (B2's revision is frozen only after its review, `b2-revision.md`), and slice 6's metadata half
+is done. What rests on neither the annex's draft declarations (slices 2
 to 4) nor B3 (slice 5): slice 6's ledger tables (certificates, supersessions, the admission position) and `Meta`
 read from them and the run manifest.

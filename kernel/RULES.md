@@ -189,6 +189,20 @@ its fetchedAt (a backfill whose availability the certificate's basis governs, `C
 checks (dataset validity, holdout, scope) are global over the run, so a later record can refuse a whole run, which
 then returns no output. No other later record changes what a decision sees (GPT's ninth review found none).
 
+### Revision of 2026-11-01, B2: a dependency spans sources (draft, frozen only after its review, `audit/stage7/b2-revision.md`)
+
+Decision of 2026-11-01 16:59 UTC (`audit/decisions.md`), from both B2 reviews (`audit/stage7/b2-review-{claude,gpt}.md`):
+- **Keys.** A source's key is its stored entity and event time. A coin-keyed source's stored entity maps to a coin of U
+  or to none; an evidence source's (SOURCES.md §1) is outside U, and its records are read only as upstream keys. A
+  dataset whose eligible revisions of one entity map to different coins is invalid. Two entities mapped to one coin are
+  two keys, no longer one (certification forbids such a mapping; admission refuses a run in which both have a final
+  delivery at one event time).
+- **Derivation bound.** A dependency names one or more upstream sources (SOURCES.md §5), and a derived revision lists,
+  per dependency, the upstream keys it was computed from as (source, stored entity, event time). The dependency's
+  upstream time is the latest, over those keys, of each key's latest knownAt among its delivered revisions, not
+  retractions, recorded no later than the derived revision. The revision is unusable if a dependency lists no key, a
+  key of a source it does not name, or a key with no such delivery: one unusable key is never masked by another.
+
 ## 7. Conformance
 
 Implementations are compared on cases of the form

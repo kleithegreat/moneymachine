@@ -54,8 +54,11 @@ revision semantics. A declaration file that breaks any rule above is rejected wh
 
 **Evidence declarations** (revision of 2026-10-26 02:03 UTC (22:03 EDT), before any implementation consumed this document: the event feeds'
 upstream observations and polls are keyed by forum host or Snapshot space, not by coin, so their lineage could not be
-declared). A declaration with `"entity": {"evidence": [K1, …]}`, a non-empty list of its stored key columns, declares
-records keyed by those columns rather than by (coin, `eventTime`). It must have `"fields": {}`, `"role": {}` and
+declared). A declaration with `"entity": {"evidence": [K1, …], "event": C}`, a non-empty list of its stored key columns
+and one of them, C, listed in `times`, declares records keyed by those columns rather than by (coin, `eventTime`). C is
+the record's event time: the recorder-trusted time it was observed (a sighting's `observed`, a poll's `recv`), never a
+time the feed claims, since admission's holdout check reads it (§7); the other key columns, compared exactly as a
+tuple, are the record's stored entity, outside U (revision of 2026-11-01, B2, `audit/stage7/b2-revision.md`). It must have `"fields": {}`, `"role": {}` and
 `"cadence": {"evidence": {}}`. It exposes no DSL input and fills no role: it exists only to be a dependency of a
 derived source, and is certified, bound and resolved like any other (RULES.md §6, with its own key columns as the key).
 No strategy reads it, so it does not widen version 1's entity domain for strategies.
@@ -109,14 +112,16 @@ D ≥ 0; deps[d] is the latest effective knownAt among every upstream record the
 2026-10-26 02:15 UTC (22:15 EDT): a dependency spans sources, so that a key's recording, its sightings and its polls, is one dependency, whose
 read set is never empty for a covered window; with one source per dependency, a covered window without sightings had
 an empty observations dependency, and so no time.)
-- Each derived row records, per dependency, the immutable identities (key and fetchedAt) of every upstream revision it
-  used, including the poll and coverage evidence that establishes the completeness of its aggregation window. A stored
-  dependency time is a cache, never authority.
-- The resolver computes deps[d] from those identities under the upstream's own pinned rule at the same dataset
-  version (RULES.md §6). If an identified upstream revision is not the one selected at that version, or has no usable
-  knownAt, the derived row is unusable until recomputed and recertified.
+- Each derived row records, per dependency, the key (source, stored entity, event time) of every upstream record it
+  used, each of a source the dependency names, including the poll and coverage evidence that establishes the
+  completeness of its aggregation window. A stored dependency time is a cache, never authority.
+- The resolver computes deps[d] from those keys under each upstream's own pinned rule at the same dataset version: per
+  key, its latest delivery that is not a retraction among those recorded no later than the derived revision (RULES.md
+  §6, revision of 2026-11-01). An empty lineage, a key of a source the dependency does not name, or a key with no such
+  delivery has no time, and makes the row unusable. (Revision of 2026-11-01, B2: keys carry their source, lineage no
+  longer records fetchedAt, and "not the one selected at that version" gives way to this bitemporal bound.)
 - A count of zero needs positive evidence that its window was covered and its coin mapped; an empty set of counted
-  items is not that evidence. An empty lineage has no time, and makes the row unusable.
+  items is not that evidence.
 - Mapping and coverage facts are inputs like any other: available by the row's knownAt. A later poll never establishes
   coverage of an earlier window, unless the frozen transformation states and certification verifies that inference.
 
