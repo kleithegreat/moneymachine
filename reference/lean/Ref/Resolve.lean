@@ -41,22 +41,24 @@ def RuleExpr.evalAll (row : List (String × Cell)) (deps : List (String × Int))
   | x :: xs => do let v ← x.eval row deps; let vs ← RuleExpr.evalAll row deps xs; return v :: vs
 end
 
-/-- The revisions of one key of a source eligible at version V (fetchedAt ≤ V), in fetchedAt order. -/
-def Stored.eligible (st : Stored) (s : Nat) (V : Int) (coin : Nat) (event : Int) : List Revision :=
-  ((st.rows s).filter fun r => r.coin == some coin && r.event == event && decide (r.fetchedAt ≤ V)).mergeSort
+/-- The revisions of one key (stored entity, event time) of a source eligible at version V (fetchedAt ≤ V), in
+fetchedAt order. -/
+def Stored.eligible (st : Stored) (s : Nat) (V : Int) (entity : String) (event : Int) : List Revision :=
+  ((st.rows s).filter fun r => r.entity == entity && r.event == event && decide (r.fetchedAt ≤ V)).mergeSort
     fun a b => decide (a.fetchedAt ≤ b.fetchedAt)
 
-/-- The keys of a source within U with an eligible revision, in order of their first eligible stored revision. -/
-def Stored.keys (st : Stored) (s : Nat) (V : Int) : List (Nat × Int) :=
-  ((st.rows s).filterMap fun r => if decide (r.fetchedAt ≤ V) then r.coin.map (·, r.event) else none).eraseDups
+/-- The keys of a source within U with an eligible revision, with their coin, in order of their first eligible stored
+revision. -/
+def Stored.keys (st : Stored) (s : Nat) (V : Int) : List (Nat × String × Int) :=
+  ((st.rows s).filterMap fun r => if decide (r.fetchedAt ≤ V) then r.coin.map (·, r.entity, r.event) else none).eraseDups
 
-/-- A dataset is invalid if two eligible revisions of one key share a fetchedAt (RULES.md §6), a key being its entity
-and event or, inside U, its coin and event; or if an eligible revision's fetchedAt is out of range. -/
+/-- A dataset is invalid if two eligible revisions of one key share a fetchedAt (RULES.md §6), if an entity's eligible
+revisions map to different coins, or if an eligible revision's fetchedAt is out of range. -/
 def Stored.validAt (st : Stored) (s : Nat) (V : Int) : Bool :=
   let el := (st.rows s).filter fun r => decide (r.fetchedAt ≤ V)
   let ks := el.map fun r => (r.entity, r.event, r.fetchedAt)
-  let cs := el.filterMap fun r => r.coin.map (·, r.event, r.fetchedAt)
-  ks.eraseDups.length == ks.length && cs.eraseDups.length == cs.length && el.all (inRange ·.fetchedAt)
+  let cs := (el.map fun r => (r.entity, r.coin)).eraseDups
+  ks.eraseDups.length == ks.length && (cs.map (·.1)).eraseDups.length == cs.length && el.all (inRange ·.fetchedAt)
 
 /-- A column's value as compared for corrections: an absent column is null. -/
 def cellAt (cells : List (String × Cell)) (col : String) : Cell := ((cells.find? (·.1 == col)).map (·.2)).getD .null
@@ -83,23 +85,29 @@ structure Entry where
 
 /-- A key's timeline (RULES.md §6, bitemporal revisions of 2026-10-26): its eligible revisions in fetchedAt order. A
 revision identical to the one before it adds nothing. The key's first eligible revision is delivered at its rule's
-value; every later one, delivered first or not, is known no earlier than its fetchedAt; every one is known no earlier than the one it replaces and than
-each dependency's upstream knownAt plus its delay, the upstream deliveries counted being those recorded no later
-than the revision itself. A tombstone, or a revision whose rule evaluation is rejected or which `ok` rejects (an
+value; every later one, delivered first or not, is known no earlier than its fetchedAt; every one is known no earlier
+than the one it replaces and than each dependency's upstream knownAt plus its delay. A dependency's upstream knownAt is
+the latest over the upstream keys its lineage lists, each key's being its latest delivery recorded no later than the
+revision itself; a revision whose lineage for a dependency is empty, lists a key of a source outside the dependency's,
+or lists a key with no such delivery, is unusable. A tombstone, or a revision whose rule evaluation is rejected or which `ok` rejects (an
 event source's slot or a role payload that does not decode), is delivered as a retraction at its fetchedAt (no
 earlier than what it replaces), and never falls back to an older value; one before any delivery adds nothing. -/
-def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision → Bool) : Nat → Nat → Nat → Int → List Entry
+def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision → Bool) : Nat → Nat → String → Int → List Entry
   | 0, _, _, _ => []
-  | fuel + 1, s, coin, event =>
+  | fuel + 1, s, entity, event =>
     let d := reg.decls[s]!
-    let upKnown (dep : Dep) (c : Nat) (e : Int) (by_ : Int) : Option Int :=
-      ((timeline reg st V ok fuel dep.source c e).filter (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_))).foldl
-        (fun acc x => some (match acc with | some a => Max.max a x.known | none => x.known)) none
+    let upKnown (dep : Dep) (u : Nat × String × Int) (by_ : Int) : Except RuleError Int :=
+      if !dep.sources.contains u.1 then .error .unusable else
+      match ((timeline reg st V ok fuel u.1 u.2.1 u.2.2).filter
+          (fun x => !x.retraction && decide (x.rev.fetchedAt ≤ by_))).foldl
+          (fun acc x => some (match acc with | some a => Max.max a x.known | none => x.known)) none with
+      | some t => .ok t
+      | none => .error .unusable
     let known (r : Revision) (later : Bool) (prev : Option Int) : Except RuleError Int := do
       if !ok s r then throw .unusable
-      let ts ← d.deps.mapM fun dep =>
+      let ts ← d.deps.mapM fun dep => do
         let ups := ((r.upstream.find? (·.1 == dep.name)).map (·.2)).getD []
-        match ups.filterMap (fun (c, e) => upKnown dep c e r.fetchedAt) with
+        match ← ups.mapM (upKnown dep · r.fetchedAt) with
         | [] => .error .unusable
         | t :: rest => .ok (rest.foldl Max.max t)
       let k ← d.rule.eval (("fetchedAt", .int r.fetchedAt) :: r.cells) (d.deps.map (·.name) |>.zip ts)
@@ -119,7 +127,7 @@ def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision →
         match known r true (some p) with
         | .ok k => (some r, some k, out ++ [⟨r, k, false⟩])
         | .error _ => retract (Max.max r.fetchedAt p)
-    ((st.eligible s V coin event).foldl step (none, none, [])).2.2
+    ((st.eligible s V entity event).foldl step (none, none, [])).2.2
 
 /-- The role payload of a revision for its declaration's first role, if its cells decode. -/
 def rolePayload {α : Type} (num : Cell → Option α) (d : Decl) (r : Revision) : Option (RolePayload α) :=
@@ -153,8 +161,8 @@ def resolveAll {α : Type} (num : Cell → Option α) (reg : Registry) (st : Sto
   if !req.all (st.validAt · V) then none else
   some (req.toArray.flatMap fun s =>
     let d := reg.decls[s]!
-    (st.keys s V).toArray.flatMap fun (coin, event) =>
-      let es := timeline reg st V (decodes num reg) reg.decls.size s coin event
+    (st.keys s V).toArray.flatMap fun (coin, entity, event) =>
+      let es := timeline reg st V (decodes num reg) reg.decls.size s entity event
       let step (acc : Option Int × List (Obs α)) (ei : Entry × Nat) :=
         let (e, i) := ei
         let slot := if e.retraction then acc.1 else slotOf d e.rev

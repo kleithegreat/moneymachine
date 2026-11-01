@@ -23,17 +23,18 @@ inductive RuleExpr where
   | max (xs : List RuleExpr)
   deriving Inhabited, Repr
 
-/-- A dependency: its registry index, its name in the rule, and its declared processing delay (ms, ≥ 0). -/
+/-- A dependency: the registry indices of the sources it reads, its name in the rule, and its declared processing
+delay (ms, ≥ 0). -/
 structure Dep where
-  source : Nat
+  sources : List Nat
   name : String
   lag : Int
   deriving Inhabited, Repr
 inductive Role where | bars | settlement deriving DecidableEq, Repr, Inhabited
 
 /-- One active declaration (SOURCES.md §1): its file's hash, its fields (input name, stored column, unit; in
-input-name order), every stored column its availability rule reads (`fetchedAt` included), its event-time, slot
-(event sources) and entity columns, the columns that select revisions and mark tombstones, its availability rule,
+input-name order), every stored column its availability rule reads (`fetchedAt` included), its event-time and slot
+(event sources) columns, the other columns of its key (`coin`, or an evidence source's), the columns that select revisions and mark tombstones, its availability rule,
 its cadence, its dependencies, and per role it can provide each role column's stored column. -/
 structure Decl where
   hash : Hash
@@ -41,7 +42,7 @@ structure Decl where
   times : List String
   eventColumn : String
   slotColumn : Option String
-  entityColumn : String
+  entityColumns : List String
   revisionColumns : List String
   rule : RuleExpr
   cadence : Cadence
@@ -49,7 +50,7 @@ structure Decl where
   roles : List (Role × List (String × String))
   deriving Inhabited
 
-def Decl.depends (d : Decl) : List Nat := d.deps.map (·.source)
+def Decl.depends (d : Decl) : List Nat := d.deps.flatMap (·.sources)
 
 inductive RTy where | time | duration deriving DecidableEq
 
@@ -97,7 +98,7 @@ def Decl.values (d : Decl) : List String := d.fields.toList.map (·.2.1) ++ d.ro
 /-- Control columns: what the resolver reads to select entities and revisions and to compute availability, over the
 whole dataset and its dependencies' controls; authorized by the certificate's `controls`. -/
 def Decl.controls (d : Decl) : List String :=
-  d.times ++ [d.eventColumn] ++ d.slotColumn.toList ++ [d.entityColumn] ++ d.revisionColumns
+  d.times ++ [d.eventColumn] ++ d.slotColumn.toList ++ d.entityColumns ++ d.revisionColumns
 
 structure Registry where
   decls : Array Decl
@@ -288,9 +289,10 @@ inductive Cell where
   | null
   deriving DecidableEq, Repr, Inhabited
 
-/-- One stored revision of a key (RULES.md §6): its entity as stored and the coin of U it maps to (`none` outside U),
-event time, fetchedAt, tombstone flag and observed columns (never `fetchedAt`, `source`, `hash` or the tombstone
-column); for a derived source, per dependency name, the upstream keys (coin, event time) the row was computed from. -/
+/-- One stored revision of a key (RULES.md §6): its entity as stored and the coin of U it maps to (`none` outside U and
+for evidence), event time, fetchedAt, tombstone flag and observed columns (never `fetchedAt`, `source`, `hash` or the
+tombstone column); for a derived source, per dependency name, the upstream keys (source, stored entity, event time) the
+row was computed from. -/
 structure Revision where
   entity : String
   coin : Option Nat
@@ -298,7 +300,7 @@ structure Revision where
   fetchedAt : Int
   tombstone : Bool
   cells : List (String × Cell)
-  upstream : List (String × List (Nat × Int))
+  upstream : List (String × List (Nat × String × Int))
   deriving Inhabited
 
 /-- The stored bytes of the datasets as the trusted boundary sees them: per source its revisions, and each dataset's

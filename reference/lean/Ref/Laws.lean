@@ -429,31 +429,34 @@ theorem L6_bounded (N : NumOps α) (hB : N.Bounded) :
 
 /-- A key's timeline never goes back: its revisions are delivered in fetchedAt order, each known no earlier than the
 one it replaces, so the latest delivered revision is always the newest known. -/
-theorem L8_monotone (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision → Bool) (fuel s coin : Nat)
-    (event : Int) :
-    let tl := timeline reg st V ok fuel s coin event
+theorem L8_monotone (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision → Bool) (fuel s : Nat)
+    (entity : String) (event : Int) :
+    let tl := timeline reg st V ok fuel s entity event
     ∀ i, i + 1 < tl.length → (tl[i]!).rev.fetchedAt ≤ (tl[i + 1]!).rev.fetchedAt ∧ (tl[i]!).known ≤ (tl[i + 1]!).known := by
   dsimp only
   intro i hi
-  have hs := timeline_ordered reg st V ok fuel s coin event
-  simpa only [getElem!_pos (timeline reg st V ok fuel s coin event) i (by omega),
-    getElem!_pos (timeline reg st V ok fuel s coin event) (i + 1) hi] using
+  have hs := timeline_ordered reg st V ok fuel s entity event
+  simpa only [getElem!_pos (timeline reg st V ok fuel s entity event) i (by omega),
+    getElem!_pos (timeline reg st V ok fuel s entity event) (i + 1) hi] using
     (List.pairwise_iff_getElem.mp hs i (i + 1) (by omega) hi (by omega))
 
 /-- Nothing is known before it was recorded or before what it was derived from: every delivered revision after a
 key's first, correction or retraction, is known no earlier than its fetchedAt; the first is never a retraction; and
-every delivered value is known no earlier than each dependency's upstream knownAt plus its delay, for the upstream
-deliveries recorded no later than the value itself (revised 2026-10-26, `audit/stage7/laws-frozen.md`). -/
+every delivered value lists, for each dependency, a nonempty lineage of upstream keys of the dependency's sources, each
+with a delivery recorded no later than the value, and is known no earlier than each such delivery's knownAt plus the
+dependency's delay (revised 2026-10-26 and 2026-11-01, `audit/stage7/laws-frozen.md`). -/
 theorem L8_known (reg : Registry) (_ : reg.Valid) (st : Stored) (V : Int) (ok : Nat → Revision → Bool)
-    (fuel s coin : Nat) (event : Int) :
-    let tl := timeline reg st V ok (fuel + 1) s coin event
+    (fuel s : Nat) (entity : String) (event : Int) :
+    let tl := timeline reg st V ok (fuel + 1) s entity event
     (∀ i, 0 < i → i < tl.length → (tl[i]!).rev.fetchedAt ≤ (tl[i]!).known) ∧
     (∀ e ∈ tl.head?, e.retraction = false) ∧
     ∀ e ∈ tl, e.retraction = false → ∀ dep ∈ (reg.decls[s]!).deps,
-      ∀ up ∈ ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [],
-      ∀ u ∈ timeline reg st V ok fuel dep.source up.1 up.2, u.retraction = false → u.rev.fetchedAt ≤ e.rev.fetchedAt →
-        u.known + dep.lag ≤ e.known := by
-  exact timeline_known reg st V ok fuel s coin event
+      ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [] ≠ [] ∧
+      ∀ up ∈ ((e.rev.upstream.find? (·.1 == dep.name)).map (·.2)).getD [], up.1 ∈ dep.sources ∧
+        (∃ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.retraction = false ∧ u.rev.fetchedAt ≤ e.rev.fetchedAt) ∧
+        ∀ u ∈ timeline reg st V ok fuel up.1 up.2.1 up.2.2, u.retraction = false → u.rev.fetchedAt ≤ e.rev.fetchedAt →
+          u.known + dep.lag ≤ e.known := by
+  exact timeline_known reg st V ok fuel s entity event
 
 /-! ## L7 input reads -/
 

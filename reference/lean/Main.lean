@@ -31,7 +31,7 @@ and the two event sources (2, 3), each bound to a dataset whose certificate gran
 def decl (n : Nat) (fields : Array (String × String × Dim)) (cadence : Cadence)
     (roles : List (Role × List (String × String))) : Decl :=
   { hash := s!"decl{n}", fields, times := ["event", "fetchedAt"], eventColumn := "event",
-    slotColumn := if cadence == .event then some "slot" else none, entityColumn := "coin", revisionColumns := [],
+    slotColumn := if cadence == .event then some "slot" else none, entityColumns := ["coin"], revisionColumns := [],
     rule := .max [.field "event", .field "fetchedAt"], cadence, deps := [], roles }
 
 def evField (name : String) : Array (String × String × Dim) := #[(name, "count", ⟨[0, 0, 0, 0, 0, 1]⟩)]
@@ -101,9 +101,10 @@ neither). -/
 def caseDecl (v : Value) : Decl :=
   let cadence := match str! (get! v "cadence") with | "event" => Cadence.event | "evidence" => .evidence | _ => .held
   { hash := str! (get! v "hash"), fields := #[], times := strs! (get! v "times"), eventColumn := str! (get! v "event"),
-    slotColumn := match get! v "slot" with | .str s => some s | _ => none, entityColumn := str! (get! v "entity"),
+    slotColumn := match get! v "slot" with | .str s => some s | _ => none, entityColumns := strs! (get! v "entity"),
     revisionColumns := strs! (get! v "revision"), rule := .ms 0, cadence
-    deps := (arr! (get! v "deps")).toList.map fun d => let d := arr! d; ⟨(int! d[0]!).toNat, str! d[1]!, int! d[2]!⟩
+    deps := (arr! (get! v "deps")).toList.map fun d => let d := arr! d
+      ⟨(arr! d[0]!).toList.map fun u => (int! u).toNat, str! d[1]!, int! d[2]!⟩
     roles := (arr! (get! v "roles")).toList.map fun r => let r := arr! r
       (if str! r[0]! == "bars" then .bars else .settlement,
        (arr! r[1]!).toList.map fun c => let c := arr! c; (str! c[0]!, str! c[1]!)) }
