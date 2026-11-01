@@ -127,11 +127,12 @@ A run's manifest selects exactly one provider declaration for each role.
 
 | Role | Column | Type and unit | Meaning |
 |---|---|---|---|
-| `bars` | `openTime` | integer ms | the bar's open; bars are 4h, on the 4h grid |
-| | `open` `high` `low` `close` | number, usd/coin | prices over [openTime, openTime + 4h) |
+| `bars` | `open` `high` `low` `close` | number, usd/coin | prices over [eventTime − 4h, eventTime) |
 | | `trades` | integer | trades in the bar |
 | `settlement` | `rate` | number, 1/h | the hourly funding rate settled at the row's eventTime, positive meaning longs pay |
 
+A bar's open is its eventTime less 4h: bars are 4h, on the 4h grid (revision of 2026-11-01 10:41 UTC (05:41 EST): the
+frozen Lean's `Registry.valid` and `barRow` take this contract, and a stored `openTime` column restated the event time).
 The provider's declaration maps each role column to a stored column under its `role` key. The simulator reads role data only in the phases INVARIANTS.md and DSL.md prescribe: fills at the
 open, marks at the close, margin at the adverse extreme, settlement on held positions; reading a bar's execution
 outcome does not deliver that bar's other columns to expressions. Role columns need certification even when absent

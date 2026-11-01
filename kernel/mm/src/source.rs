@@ -8,7 +8,7 @@ use std::path::Path;
 
 /// The role contracts: each role's columns (SOURCES.md §6).
 pub const ROLES: [(&str, &[&str]); 2] =
-    [("bars", &["openTime", "open", "high", "low", "close", "trades"]), ("settlement", &["rate"])];
+    [("bars", &["open", "high", "low", "close", "trades"]), ("settlement", &["rate"])];
 
 #[derive(Debug)]
 pub struct Field {

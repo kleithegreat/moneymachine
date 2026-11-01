@@ -2,8 +2,8 @@
  "registry": 1,
  "declarations": {
   "hl-bars-4h": {
-   "version": 1,
-   "sha256": "c5f6ed32c5cf757df70890ba2442182fb45be25bec431f3237a423637f9e9ca1"
+   "version": 2,
+   "sha256": "f0292b9bd871a810aa7d0240cda19c68e9609797c8f4dea1256b5cd17cd42a91"
   },
   "hl-funding": {
    "version": 1,

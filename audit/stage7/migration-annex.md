@@ -12,7 +12,7 @@ the baseline, widening a scope, dropping a case or projecting away another field
 | Declaration | Kind | Key | Fields (unit) | Cadence | Rule | Role |
 |---|---|---|---|---|---|---|
 | `hl-funding` 1 | history | coin, eventTime | `funding` ← fundingRate (1/h), `premium` ← premium (1) | held, 1 h, phase 0, slot eventTime | max(floor(reportedTime, 1 h) + δ, reportedTime + 60,000) | settlement: rate ← fundingRate |
-| `hl-bars-4h` 1 | history | coin, eventTime | `open` `high` `low` `close` (usd/coin), `volume` (coin) | held, 4 h, phase 0, slot eventTime | eventTime + δ | bars: openTime ← openTime, open ← open, high ← high, low ← low, close ← close, trades ← trades |
+| `hl-bars-4h` 2 | history | coin, eventTime | `open` `high` `low` `close` (usd/coin), `volume` (coin) | held, 4 h, phase 0, slot eventTime | eventTime + δ | bars: open ← open, high ← high, low ← low, close ← close, trades ← trades |
 | `discourse-sightings`, `snapshot-sightings` 1 | recorded, evidence | key, id, observed, created | none | evidence | max(observed, fetchedAt) | none |
 | `discourse-polls`, `snapshot-polls` 1 | recorded, evidence | key, recv | none | evidence | max(recv, fetchedAt) | none |
 | `forum-events`, `governance-events` 1 | derived | coin, eventTime | `forum_posts`, `gov_proposals` ← count (ev) | event, slot eventTime | max(eventTime + δ, dep `recording`) | none |

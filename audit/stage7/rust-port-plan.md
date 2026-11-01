@@ -30,8 +30,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 
 1. **Declarations to Lean's `Decl`** (`source.rs`): evidence declarations, the one clause of `Registry.valid` that
    `registry` lacked (evidence cadence exactly for evidence entities, without fields or roles). Done 2026-11-01;
-   check: `kernel/mm/tests/sources.rs`. The role-column clause waits on B1; Lean's column sets (`values`,
-   `controls`, `revisionColumns`) arrive with their first reader, in slice 5.
+   check: `kernel/mm/tests/sources.rs`. The role-column clause holds since B1's decision; Lean's column sets
+   (`values`, `controls`) arrive with their first reader, admission (slice 6).
 2. **The checker over the registry** (`dsl.rs`, `canon.rs`, `main.rs check`, `reference/mmdump`): needs the event feeds'
    declarations in `sources/registry.json` (B2). Checks: C6.4's harness (`reference/differential.py`, development
    run) on all 1,196 verdicts against `refmm`, whose fixed registry has the same four inputs; `kernel/tests/adversarial`
@@ -56,8 +56,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 - **B1. The bars role's `openTime`.** SOURCES.md §6, `ROLES` in `source.rs`, the committed `hl-bars-4h` 1 and the
   annex's draft table have six bars columns with `openTime`; the frozen `Registry.valid` requires exactly `open high
   low close trades`, and `barRow` takes the open as `key − BAR`. The Lean is the simpler contract (bars are 4h on the
-  4h grid, so the open is the event time less 4h) and its laws are proved on it: SOURCES.md §6 gets a dated revision,
-  `hl-bars-4h` a version 2 and the annex its row, in slice 2. Not judged, reversible: one builder decides and logs it.
+  4h grid, so the open is the event time less 4h) and its laws are proved on it. Decided 2026-11-01 (`audit/decisions.md`):
+  SOURCES.md §6's dated revision, `hl-bars-4h` 2, `ROLES` and the annex row.
 - **B2. A dependency spanning several sources.** SOURCES.md §5 (revision of 2026-10-25 22:15 EDT) and the annex give
   each derived event feed one dependency, `recording`, over its sightings and polls sources, because with one source
   per dependency a covered window without sightings has an empty read set and so no time. The frozen Lean's `Dep` has

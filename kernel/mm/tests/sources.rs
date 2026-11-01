@@ -71,7 +71,7 @@ fn a_registry_entry_must_match_its_file() {
     let file = std::fs::read_to_string(repo_sources().join("hl-funding/1.json")).unwrap();
     std::fs::write(dir.join("hl-funding/1.json"), file.replace("60000", "60001")).unwrap();
     std::fs::write(dir.join("registry.json"), std::fs::read_to_string(repo_sources().join("registry.json")).unwrap()
-        .replace("\"hl-bars-4h\": {\n   \"version\": 1,\n   \"sha256\": \"c5f6ed32c5cf757df70890ba2442182fb45be25bec431f3237a423637f9e9ca1\"\n  },\n  ", "")).unwrap();
+        .replace("\"hl-bars-4h\": {\n   \"version\": 2,\n   \"sha256\": \"f0292b9bd871a810aa7d0240cda19c68e9609797c8f4dea1256b5cd17cd42a91\"\n  },\n  ", "")).unwrap();
     assert!(source::registry(&dir).unwrap_err().contains("SHA-256"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
