@@ -66,8 +66,10 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   takes `Dep.sources` with source-qualified upstream keys (a dated revision of `Source.lean` and `Resolve.lean`,
   review, refreeze, `L8_known` and `L8_monotone` re-proved), or the derivation is restated so each dependency's read
   set is never empty for a covered window (polls alone carrying coverage). Could change a leakage outcome: the
-  advisor decides after a fresh Claude and a GPT review. Slices 1, 3 and 4 do not depend on it; slice 2 needs the
-  event declarations, and slice 5's derived bounds need it.
+  advisor decides after a fresh Claude and a GPT review. The checker reads only fields, units and cadence, so
+  slices 2 to 4 can proceed on the event and evidence declarations as the annex drafts them, each given a new version
+  if B2 changes its `depends`; slice 5's derived bounds need B2 settled. SOURCES.md §5's "not the one selected at that
+  version" predates RULES.md §6's bitemporal revision and goes with B2's revision.
 - **B3. The C7.6 resolver suite is version 1's.** RULES.md §6's bitemporal revision says the C7.6 suites are revised
   to match before any judged run; `kernel/tests/rules/resolver_suite.py`, `mm resolve` (`rule.rs::resolve`) and
   `ingest/knownat.py` still select one revision. The revision is frozen evidence: drafted, reviewed and committed alone
@@ -81,3 +83,9 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   source and coin and `maxKnown` a maximum, so the interleaving is unobservable; slice 4 adopts Lean's order and its
   ties (event time then recording time for held sources, recording time then event time for event sources), which
   drops the store-position tie.
+
+## 4. Next
+
+Slice 2, after B1 is decided: the six annex declarations (sightings, polls, events for each feed) and `hl-bars-4h` 2
+committed to `sources/`, then `dsl::Input` replaced by the registry's input table, with C6.4's verdict differential
+run before and after.
