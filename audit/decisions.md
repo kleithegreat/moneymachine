@@ -459,3 +459,7 @@ Evidence `audit/stage3/write-denied-2026-10-31.md`; reviews `audit/reviews/2026-
 - **Why:** the floor measured search effort, which the procedure never required, and counted working swarms that stop by choice (v1: 33 and 36 evaluations).
 - **Said:** a fresh Claude and GPT both advised deleting the floor with brief and harness unchanged (`audit/reviews/2026-11-01-{claude,gpt}-c45-v2.md`); GPT's per-agent zero-evaluation rule adopted.
 - **Reverse:** none once a v2 campaign starts; a later version needs fresh ids. v1's failure stands.
+
+## 2026-11-01 16:51 UTC (11:51 EST): series pacing measures a campaign's need from any account (advisor)
+
+- Campaigns start under the same 0.8 ceiling, but a campaign measured on one account now sets the expected need on every account (they share one plan), so TAMU runs swarm campaigns too instead of one per Cornell window (`efb3f7d`); applied between campaigns, 1 of 10 recorded. It cannot change a verdict except by a crash, which the ceiling guards as before. Reverse: restore the per-account `need`.
