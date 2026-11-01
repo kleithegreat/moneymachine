@@ -207,3 +207,23 @@ def test_every_session_of_a_day_that_cannot_run_is_missed_but_a_stop_before_main
     track.day(MONDAY)
     assert ran == ["main", "t1", "t2", "noread"][:fails_at]
     assert [c["session"].split(f"-{MONDAY}")[0] for _, _, c in track.ledger.records("session_missed")] == missed
+
+
+def test_a_snapshot_that_outlasts_the_day_starts_nothing(track, monkeypatch):
+    clock = [MONDAY + HOUR]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    monkeypatch.setattr(track, "ready", lambda date: True)
+    monkeypatch.setattr(track, "snapshot", lambda now: clock.__setitem__(0, MONDAY + DAY) or {})
+    monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("started"))
+    track.day(MONDAY)
+    assert [c["session"] for _, _, c in track.ledger.records("session_missed")] == [f"main-{MONDAY}", f"noread-{MONDAY}"]
+
+
+def test_versions_sharing_a_root_keep_their_own_session_directories(track, monkeypatch):
+    made = []
+    monkeypatch.setattr(runner.harness, "run_session", lambda work, kind, daemon, task: made.append(work) or work.mkdir(parents=True) or {})
+    monkeypatch.setattr(runner.harness, "audit", lambda transcript, calls: {})
+    track.session("main", "main", MONDAY, {}, ())
+    track.version = "thesis-later"
+    track.session("main", "main", MONDAY, {}, ())
+    assert made[0] != made[1] and made[1].parent.name == "thesis-later"

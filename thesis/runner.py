@@ -122,10 +122,11 @@ class Track:
         name = f"{kind}-{date}" if ablation_of is None else f"ablation-{ablation_of}"
         self.ledger.disclose("session", account, {"session": name, "kind": kind, "started": now_ms(),
                                                   "manifest": self.manifest})
-        run = harness.run_session(self.root / "sessions" / name, kind,
-                                  lambda sock: self.daemon(sock, name, account, snapshot, commands, ablation_of), task)
+        work = self.root / "sessions" / self.version / name
+        run = harness.run_session(work, kind, lambda sock: self.daemon(sock, name, account, snapshot, commands, ablation_of),
+                                  task)
         calls = [c for _, _, c in self.ledger.records("call", account) if c["session"] == name]
-        run["audit"] = harness.audit(self.root / "sessions" / name / "transcript.jsonl", calls)
+        run["audit"] = harness.audit(work / "transcript.jsonl", calls)
         self.ledger.disclose("session_end", account, {"session": name, **run})
         return name
 
@@ -154,8 +155,7 @@ class Track:
 
     def miss(self, date, sessions):
         """Each of `sessions` ([(account, session name)]) of `date` disclosed as missed, with why."""
-        reason = ("the runner stopped" if self.stop.is_set() else
-                  "the model was unavailable or the sandbox canary failed until the day ended")
+        reason = "the runner stopped" if self.stop.is_set() else "the day ended before the session could start"
         for account, name in sessions:
             self.ledger.disclose("session_missed", account, {"date": date, "session": name, "reason": reason})
 
@@ -169,6 +169,9 @@ class Track:
                 self.miss(date, [("main", f"main-{date}"), noread])
             return
         snapshot = self.snapshot(now_ms())
+        if now_ms() >= date + DAY:
+            self.miss(date, [("main", f"main-{date}"), noread])
+            return
         name = self.session("main", "main", date, snapshot, MAIN_COMMANDS)
         theses = [t for t in self.ledger.theses("main") if t["session"] == name]
         for k, th in enumerate(theses):
