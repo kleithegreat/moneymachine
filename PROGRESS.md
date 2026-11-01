@@ -54,7 +54,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST)): GPT and a fresh Claude both recommended it. Drafted on `stage7` (`96712ee`, `audit/stage7/b2-revision.md`: `lake build` passes, all 18 laws axiom-clean, the admission differential agrees); both reviews found blockers, ruled on (`audit/decisions.md`, the entry "B2's draft is not frozen"), fixed next, then one more round on the diff and the freeze.
+- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST); both consults advised it). Drafted on `stage7` (`audit/stage7/b2-revision.md`); both reviews' blockers are ruled on (the entry "B2's draft is not frozen"), then one round on the fixes' diff and the freeze.
 
 ## Qualifications
 
