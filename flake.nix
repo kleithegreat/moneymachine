@@ -25,6 +25,7 @@
         pyarrow
         statsmodels
         httpx
+        certifi
         lz4
         pytest
         pytest-xdist
