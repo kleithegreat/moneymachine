@@ -32,6 +32,11 @@ pub enum Abort {
     Bound(String),
     InputUnavailable(String),
     SettlementMissing(String),
+    Uncertified(String),
+    Holdout(String),
+    Roles(String),
+    Binding(String),
+    Invalid(String),
 }
 
 impl Abort {
@@ -45,6 +50,11 @@ impl Abort {
             Abort::Bound(_) => "R_BOUND",
             Abort::InputUnavailable(_) => "R_INPUT_UNAVAILABLE",
             Abort::SettlementMissing(_) => "R_SETTLEMENT_MISSING",
+            Abort::Uncertified(_) => "R_UNCERTIFIED",
+            Abort::Holdout(_) => "R_HOLDOUT",
+            Abort::Roles(_) => "R_ROLES",
+            Abort::Binding(_) => "R_BINDING",
+            Abort::Invalid(_) => "R_INVALID",
         }
     }
 }

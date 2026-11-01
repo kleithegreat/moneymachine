@@ -5,11 +5,17 @@
 //! usage: mmdump PROGRAMS STORE VENUE VERSION MARKET_OUT OUT_DIR
 //! PROGRAMS lists program files, one path per line; for the i-th, OUT_DIR/i.json holds its output and OUT_DIR/i.bin
 //! its node streams (written when it runs). The market is loaded and written once.
+//!
+//! usage: mmdump admit CASES
+//! per admission case (reference/admission_differential.py), `mm::admission::admit`'s refusal code and position, or
+//! `ok` and the required set, as `refmm admit` prints them.
 
+use mm::admission::{admit, Binding, Cert, Meta, Mode, Roles};
 use mm::dsl::{Program, Ty, EVENT_INPUTS};
 use mm::machine::Machine;
 use mm::market::{self, Market, Policy, BAR, HOUR};
 use mm::sim::{self, Event, Why};
+use mm::source;
 use serde_json::{json, Value};
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -107,8 +113,44 @@ fn write_streams(out: &mut impl Write, prog: &Program, m: &Market, n: usize, pol
     Ok(defined)
 }
 
+fn strs(v: &Value) -> Vec<String> {
+    v.as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect()
+}
+
+fn admit_case(c: &Value) -> String {
+    let reg: Vec<_> = c["decls"].as_array().unwrap().iter().map(|d| source::declaration(d["text"].as_str().unwrap()).unwrap()).collect();
+    let n = |v: &Value| v.as_u64().unwrap() as usize;
+    let s = |v: &Value| v.as_str().unwrap().to_string();
+    let roles = Roles { bars: n(&c["roles"][0]), settlement: n(&c["roles"][1]) };
+    let sources: Vec<usize> = c["sources"].as_array().unwrap().iter().map(n).collect();
+    let m = Meta {
+        bindings: c["bindings"].as_array().unwrap().iter().rev().map(|b| (n(&b[0]), Binding { dataset: s(&b[1]), cert: s(&b[2]) })).collect(),
+        certs: c["certs"].as_array().unwrap().iter().map(|k| Cert {
+            id: s(&k["id"]), decl: s(&k["decl"]), manifest: s(&k["manifest"]), policy: s(&k["policy"]),
+            verifier: s(&k["verifier"]), upstream: strs(&k["upstream"]), controls: strs(&k["controls"]).into_iter().collect(),
+            venue_state: k["venueState"].as_bool().unwrap() }).collect(),
+        supersessions: c["supersessions"].as_array().unwrap().iter().map(|x| (s(&x[0]), x[1].as_u64().unwrap())).collect(),
+        position: c["position"].as_u64().unwrap(), policy: s(&c["policy"]), verifier: s(&c["verifier"]),
+        holdout: strs(&c["holdout"]), holdout_start: c["holdoutStart"].as_i64().unwrap(),
+    };
+    let mode = if c["mode"] == "search" { Mode::Search } else { Mode::Holdout };
+    let rows: Vec<(usize, i64)> = c["rows"].as_array().unwrap().iter().map(|r| (n(&r[0]), r[1].as_i64().unwrap())).collect();
+    let read = |req: &[usize]| req.iter().flat_map(|s| rows.iter().filter(move |r| r.0 == *s).copied()).collect();
+    match admit(&reg, &roles, &sources, &m, mode, read) {
+        Ok(req) => format!("ok {}", req.iter().map(usize::to_string).collect::<Vec<_>>().join(",")),
+        Err((p, e)) => format!("{} {p}", e.code()),
+    }
+}
+
 fn main() {
     let a: Vec<String> = std::env::args().collect();
+    if a[1] == "admit" {
+        let cases: Value = serde_json::from_str(&std::fs::read_to_string(&a[2]).unwrap()).unwrap();
+        for c in cases.as_array().unwrap() {
+            println!("{}", admit_case(c));
+        }
+        return;
+    }
     let programs: Vec<String> = std::fs::read_to_string(&a[1]).unwrap().lines().filter(|l| !l.is_empty()).map(String::from).collect();
     let store = PathBuf::from(&a[2]);
     let policy = market::policy(&store.join("policy.json")).unwrap();

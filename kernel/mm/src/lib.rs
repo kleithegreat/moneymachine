@@ -7,3 +7,4 @@ pub mod ledger;
 pub mod canon;
 pub mod rule;
 pub mod source;
+pub mod admission;

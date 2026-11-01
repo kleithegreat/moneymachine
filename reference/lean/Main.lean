@@ -8,6 +8,8 @@ refmm: the Lean reference kernel's executable, on binary64.
                                       OUT_DIR/i.bin
   refmm bench PROGRAM MARKET REPS     evaluator-only milliseconds of REPS runs (`null` if not completed)
                                       written in mmdump's format (every float as its bits)
+  refmm admit CASES                   per admission case (reference/admission_differential.py), `admit`'s refusal
+                                      code and position, or `ok` and the required set when it passes event times
 -/
 
 open Ref Json
@@ -87,6 +89,51 @@ def market (v : Value) : Array (Obs Float) × Meta × Venue Float × Policy × I
    { delta := int! (get! pol "delta"), wStart := int! (get! pol "w_start") }, int! (get! pol "end"))
 
 def loader (os : Array (Obs Float)) : Loader Float := { rows := fun _ => [], resolve := fun _ => some os }
+
+def str! : Value → String
+  | .str s => s
+  | _ => panic! "expected a string"
+
+def strs! (v : Value) : List String := (arr! v).toList.map str!
+
+/-- A declaration as admission reads it: the case's own decoding of its file (no fields or rule: `stage1` reads
+neither). -/
+def caseDecl (v : Value) : Decl :=
+  let cadence := match str! (get! v "cadence") with | "event" => Cadence.event | "evidence" => .evidence | _ => .held
+  { hash := str! (get! v "hash"), fields := #[], times := strs! (get! v "times"), eventColumn := str! (get! v "event"),
+    slotColumn := match get! v "slot" with | .str s => some s | _ => none, entityColumn := str! (get! v "entity"),
+    revisionColumns := strs! (get! v "revision"), rule := .ms 0, cadence
+    deps := (arr! (get! v "deps")).toList.map fun d => let d := arr! d; ⟨(int! d[0]!).toNat, str! d[1]!, int! d[2]!⟩
+    roles := (arr! (get! v "roles")).toList.map fun r => let r := arr! r
+      (if str! r[0]! == "bars" then .bars else .settlement,
+       (arr! r[1]!).toList.map fun c => let c := arr! c; (str! c[0]!, str! c[1]!)) }
+
+/-- One admission case's outcome: `admit` with a loader whose resolution fails, so passing positions 1 to 5 is
+refusal 6; then `stage1`'s required set. -/
+def admitCase (v : Value) : String :=
+  let reg : Registry := { decls := (arr! (get! v "decls")).map caseDecl }
+  let rs := arr! (get! v "roles")
+  let roles : Roles := ⟨(int! rs[0]!).toNat, (int! rs[1]!).toNat⟩
+  let p : Program := { nodes := (arr! (get! v "sources")).map fun s => .input ⟨(int! s).toNat, 0, false, Dim.one⟩
+                       types := #[], params := #[], convTo := #[], weight := 0, prediction := none }
+  let bs := (arr! (get! v "bindings")).toList.map fun b => let b := arr! b; ((int! b[0]!).toNat, (⟨str! b[1]!, str! b[2]!⟩ : Binding))
+  let certs := (arr! (get! v "certs")).toList.map fun k =>
+    ({ id := str! (get! k "id"), decl := str! (get! k "decl"), manifest := str! (get! k "manifest")
+       policy := str! (get! k "policy"), verifier := str! (get! k "verifier"), upstream := strs! (get! k "upstream")
+       grants := [], controls := strs! (get! k "controls"), venueState := match get! k "venueState" with | .bool b => b | _ => false } : Cert)
+  let adm : Meta :=
+    { bindings := fun s => (bs.find? (·.1 == s)).map (·.2), certs
+      supersessions := (arr! (get! v "supersessions")).toList.map fun x => let x := arr! x; (str! x[0]!, (int! x[1]!).toNat)
+      position := (int! (get! v "position")).toNat, policy := str! (get! v "policy"), verifier := str! (get! v "verifier")
+      holdout := strs! (get! v "holdout"), holdoutStart := int! (get! v "holdoutStart"), intervals := #[], version := 0 }
+  let mode := if str! (get! v "mode") == "search" then Mode.search else .holdout
+  let rows := (arr! (get! v "rows")).toList.map fun r => let r := arr! r; ((int! r[0]!).toNat, int! r[1]!)
+  let ld : Loader Float := { rows := fun req => req.flatMap fun s => rows.filter (·.1 == s), resolve := fun _ => none }
+  let venue : Venue Float := { takerFee := 0, minNotional := 0, szDecimals := #[], minTierLeverage := #[], costBps := #[] }
+  match admit reg roles p adm ld venue ⟨1, 0⟩ 0 mode, stage1 reg roles p adm mode with
+  | .error (6, .binding), .ok req => "ok " ++ ",".intercalate (req.map toString)
+  | .error (k, a), _ => s!"{a.code} {k}"
+  | .ok _, _ => "unreachable"
 
 def fb (x : Float) : String := toString x.toBits.toNat
 
@@ -181,4 +228,9 @@ def main (args : List String) : IO UInt32 := do
       ms := ms.push (toString (((← IO.monoNanosNow) - t0).toFloat / 1e6))
     IO.println (list ms)
     return 0
-  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAMS MARKET OUT_DIR | refmm bench PROGRAM MARKET REPS"; return 2
+  | ["admit", cases] =>
+    let some v := (Json.parse (← IO.FS.readFile cases)).toOption.filter (·.uniqueKeys) | IO.eprintln "bad cases"; return 3
+    for c in arr! v do
+      IO.println (admitCase c)
+    return 0
+  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAMS MARKET OUT_DIR | refmm bench PROGRAM MARKET REPS | refmm admit CASES"; return 2

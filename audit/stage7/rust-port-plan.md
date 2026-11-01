@@ -30,8 +30,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 
 1. **Declarations to Lean's `Decl`** (`source.rs`): evidence declarations, the one clause of `Registry.valid` that
    `registry` lacked (evidence cadence exactly for evidence entities, without fields or roles). Done 2026-11-01;
-   check: `kernel/mm/tests/sources.rs`. The role-column clause holds since B1's decision; Lean's column sets
-   (`values`, `controls`) arrive with their first reader, admission (slice 6).
+   check: `kernel/mm/tests/sources.rs`. The role-column clause holds since B1's decision; Lean's `controls`
+   arrived with admission (slice 6), `values` comes with `inScope`.
 2. **The checker over the registry** (`dsl.rs`, `canon.rs`, `main.rs check`, `reference/mmdump`): needs the event feeds'
    declarations in `sources/registry.json` (B2). Checks: C6.4's harness (`reference/differential.py`, development
    run) on all 1,196 verdicts against `refmm`, whose fixed registry has the same four inputs; `kernel/tests/adversarial`
@@ -47,7 +47,14 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 6. **Admission** (`admission.rs`, `ledger.rs`, `main.rs`): Checks: named tests 4–6, 8, 9, 13, 15, 17, 18, 20–23
    (`laws-v2-draft.md` §2) each with its positive control; refusal codes and positions against Lean's `admission`
    through `refmm` on the fresh C7.7 corpus (it needs the market exporter with revisions, registry and certificates,
-   PROGRESS 5.2).
+   PROGRESS 5.2). Metadata and event times (positions 1 to 5) done 2026-11-01: `admission::admit`, `stage1`,
+   `stage2` and `Declaration::controls` as Lean's; named tests 4, 9, 13, 15, 20 and 22, the staging half of 18 (no
+   row read before stage 1 passes) and supersession in `kernel/mm/tests/admission.rs`; `reference/admission_differential.py`
+   (`mmdump admit` against `refmm admit`, Lean's `admit` itself) agrees on 60,000 random cases (seeds 1 to 3, every
+   position reached) and catches each of four injected mutants (supersession bound, provider attestation, holdout
+   bound, certificate-chain fuel). Left: positions 6 and 7 (`Ctx.admissible`, `inScope` with `values`, after slices
+   4 and 5), the ledger's certificate and supersession tables, `main.rs`'s wiring (`LoadError::Holdout` dies), and
+   tests 5, 6, 8, 17, 18, 21, 23 and 24, which need the loader or slice 2's checker.
 7. **Then, outside this port:** the verifier and `mm certify`/`mm bind`/preflight (C7.2, C7.3; tests 1–3, 7, 10, 12),
    the event feeds as derived sources (C7.4, after B2), the mutants (I1–I10, C5) rerun on the ported kernel.
 
@@ -76,7 +83,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   before slice 5, then Python, Rust and GPT's resolver agree on it.
 - **Evidence keys.** Lean keys every revision by `(coin : Nat, event : Int)`, with `coin` "the coin of U it maps
   to"; an evidence declaration's records are keyed by their own columns (a forum host and item, a poll's receive
-  time). The port reads `coin` as the source's entity index, which for an evidence source indexes its key tuples;
+  time). The port reads `coin` as the source's entity index, which for an evidence source indexes its key tuples,
+  and an evidence declaration's controls as its times, `fetchedAt`, its key columns and `tombstone` (no `eventTime`);
   B2's review confirms or replaces that reading.
 - **Delivery order** differs only in form: `mm` delivers funding, then bars, then events at each tick, each by
   (knownAt, coin, event or store position); Lean orders all by (knownAt, source, coin, tie). Machine state is per
@@ -86,6 +94,6 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 
 ## 4. Next
 
-Slice 2, after B1 is decided: the six annex declarations (sightings, polls, events for each feed) and `hl-bars-4h` 2
-committed to `sources/`, then `dsl::Input` replaced by the registry's input table, with C6.4's verdict differential
-run before and after.
+B1 is decided and slice 6's metadata half is done. What rests on neither the annex's draft declarations (slices 2
+to 4) nor B3 (slice 5): slice 6's ledger tables (certificates, supersessions, the admission position) and `Meta`
+read from them and the run manifest.

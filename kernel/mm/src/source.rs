@@ -10,6 +10,9 @@ use std::path::Path;
 pub const ROLES: [(&str, &[&str]); 2] =
     [("bars", &["open", "high", "low", "close", "trades"]), ("settlement", &["rate"])];
 
+/// The stored columns that select revisions and mark tombstones (`ingest/store.py`).
+pub const REVISION_COLUMNS: [&str; 1] = ["tombstone"];
+
 #[derive(Debug)]
 pub struct Field {
     pub column: String,
@@ -38,6 +41,8 @@ pub struct Dependency {
 
 #[derive(Debug)]
 pub struct Declaration {
+    /// The SHA-256 of the declaration file, which certificates name.
+    pub hash: String,
     pub name: String,
     pub version: i128,
     pub entity: Entity,
@@ -188,7 +193,31 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     let rule_text = spans["rule"].to_string();
     let context: BTreeSet<String> = times.iter().cloned().chain(["fetchedAt".to_string()]).collect();
     let rule = rule::check(&rule_text, &context, &depends.keys().cloned().collect()).ok_or("rule: E_RULE")?;
-    Ok(Declaration { name, version, entity, times, fields, cadence, rule, rule_text, depends, roles })
+    let hash = crate::market::sha256_hex(file.as_bytes());
+    Ok(Declaration { hash, name, version, entity, times, fields, cadence, rule, rule_text, depends, roles })
+}
+
+impl Declaration {
+    /// Control columns (Lean's `Decl.controls`): what the resolver reads to select entities and revisions and to
+    /// compute availability, authorized by the certificate's `controls`.
+    pub fn controls(&self) -> BTreeSet<&str> {
+        let key: Vec<&str> = match &self.entity {
+            Entity::Coin => vec!["coin", "eventTime"],
+            Entity::Evidence(k) => k.iter().map(String::as_str).collect(),
+        };
+        let slot = match &self.cadence {
+            Cadence::Event { slot } => Some(slot.as_str()),
+            _ => None,
+        };
+        let times = self.times.iter().map(String::as_str).chain(["fetchedAt"]);
+        times.chain(key).chain(slot).chain(REVISION_COLUMNS).collect()
+    }
+}
+
+/// The registry indices of a declaration's dependencies (Lean's `Decl.depends`), in dependency-name order.
+pub fn depends(reg: &[Declaration], d: &Declaration) -> Vec<usize> {
+    let index = |n: &String| reg.iter().position(|x| &x.name == n).expect("a registered dependency");
+    d.depends.values().flat_map(|x| x.sources.iter().map(index)).collect()
 }
 
 /// The active declarations of `sources/registry.json` under `dir`, each checked against its pinned SHA-256: input
@@ -207,10 +236,10 @@ pub fn registry(dir: &Path) -> Result<Vec<Declaration>, String> {
         exactly(e, &["version", "sha256"])?;
         let version = int(&e["version"])?;
         let file = read(&dir.join(name).join(format!("{version}.json")))?;
-        if crate::market::sha256_hex(file.as_bytes()) != text(&e["sha256"])? {
+        let d = declaration(&file).map_err(|e| format!("{name} {version}: {e}"))?;
+        if d.hash != text(&e["sha256"])? {
             return Err(format!("{name} {version}: SHA-256 differs from the registry"));
         }
-        let d = declaration(&file).map_err(|e| format!("{name} {version}: {e}"))?;
         if &d.name != name || d.version != version {
             return Err(format!("{name} {version}: the file declares {} {}", d.name, d.version));
         }
