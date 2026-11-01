@@ -13,7 +13,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued.
-- **Budget.** Agent campaigns start only when both windows of a pooled account (TAMU, else Cornell) have room under 0.8. Claude work on the account a campaign is running on can exhaust it mid-session, a counted crash: keep it light then.
+- **Budget.** Campaigns start on the first account (TAMU, then Cornell) with every window at most 0.8 after the most a campaign has used (`need`, measured across accounts). Claude work on an account during its campaign can exhaust it, a counted crash: none then.
 
 ### Next, in order
 
