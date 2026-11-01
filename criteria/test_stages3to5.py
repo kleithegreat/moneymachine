@@ -42,6 +42,15 @@ def test_c45_swarm_smoke():
     assert all(s["cross_agent_history"]) and all(e is not None and e <= 400 for e in s["evaluations"])
 
 
+
+@pytest.mark.xfail(strict=True, raises=AssertionError,
+                   reason="C4.5 v1 failed: its first 2 campaigns made 33 and 36 evaluations, under 200, each a promotion; "
+                          "the series stopped with 8 unstarted (audit/stage4/null-v1.jsonl, null-summary-v1.json)")
+def test_c45_v1_swarm_smoke():
+    s = load("stage4/null-summary-v1.json")
+    assert s["counted_promotions"] <= 1
+
+
 def test_c51_mapped_forums_meet_the_precision_rule():
     labels = load("stage5/c51-discourse.json")
     mapped = {r["forum"] for r in json.loads((REPO / "venue/sources/discourse_map.json").read_text())["rows"]}

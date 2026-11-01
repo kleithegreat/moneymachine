@@ -9,7 +9,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
   - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources` (delvingbitcoin.org, Snapshot; clock record: the kernel's bound, `CLUSTER.md`), `datalayer` (`venue/sources/datalayer.json`).
   - `thesis` (`sha256:8282aa56…`, commit `9eae736`): stage 10, track `thesis-a476a910d501` (`audit/stage10/manifest.json`); C10.5's 28-day window counts from its freeze, 2026-11-01 03:47 UTC (2026-10-31 23:47 EDT). A canary runs before each session; a failure prints `SANDBOX CONTRACT BROKEN` or waits on availability. The pod gate's `retrieval` part fetches each certified retrieval entry (at least one 200 means main sessions can read).
-  - Jobs `agent-series` (C3.2 v3) and `agent-real` (`sha256:1cd091eb…`, `stage3-real`) Complete; their logs and report in `mirror/agent/`.
+  - No agent Job runs: stage 3's `agent-real` Complete; the swarm series stopped (C4.5 v1 failed). Logs and reports in `mirror/agent/`.
   - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued; node `desktop` (this PC) NotReady.
@@ -20,7 +20,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** 2026-11-01 07:38 UTC (02:38 EST) (`audit/stage3/exit.md`): C3.2 met under v3; the real campaign had zero finalists in both arms, so no claim and the holdout unreleased.
-2. **Stage 4 smoke** (C4.5): `agent-series` runs `agent-null swarm` on `sha256:1cd091eb…`, 10 campaigns `swarm-null-N2-0..9` of 4 agents, logged in `mirror/agent/swarm-null.jsonl`; a crash or under 200 evaluations counts as a promotion, pass at most 1. When it ends: `agent-summary swarm` here.
+2. **Stage 4: C4.5 v1 failed** 2026-11-01 10:26 UTC (05:26 EST) (`audit/decisions.md`): its first 2 swarm campaigns made 33 and 36 evaluations, under the 200 floor, each a promotion; series stopped, 8 unstarted. Next: re-derive the floor (agents stop early by choice, as in stage 3), reviewed, then a dated v2 on fresh ids.
 4. **Stage 10:** confirm `thesis-a476a910d501`'s first sessions (2026-11-01, about 05:30 UTC (01:30 EDT)) fetch and register (ledger counts and refusal reasons only).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.

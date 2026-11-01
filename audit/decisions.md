@@ -445,3 +445,10 @@ Evidence `audit/stage3/write-denied-2026-10-31.md`; reviews `audit/reviews/2026-
 - **Checked first (integrity only):** the pod gate on the digest (`audit/cluster/gate-unmasked.json`: harness `6a335714…` equals the frozen one, sandbox tests pass, a session answers, only the model API reachable); the store's policy identical to `policy.json`; every holdout file hashed and matching its record (`audit/holdout.json` for bars and funding; stage 5's lineage for the two event datasets, which no strategy can reference: the search store carries none, C5.6); no prior attempt, claim or `real/` here or in the agent volume; the series complete.
 - **Said:** a fresh Claude and GPT, both GO AFTER their checks, all done (`audit/reviews/2026-11-01-{claude,gpt}-agent-real-preflight.md`). An outside stop goes to the human; only a qualifying void advances the id.
 - **Reverse:** none: the holdout is spent once claimed.
+
+## 2026-11-01 10:27 UTC (05:27 EST): C4.5 v1 failed; its series stopped between campaigns (advisor)
+
+- **What:** the swarm series' first two campaigns, `swarm-null-N2-0` and `-1`, made 33 and 36 evaluations across 4 agents each, under C4.5's 200, so each counts as a promotion: 2 > 1, C4.5 failed as written (log sha256 `ad79ecd0…` from the mirror, checked against MANIFEST: `audit/stage4/null-v1.jsonl`, `null-summary-v1.json`). No crash; cross-agent history reached in both.
+- **Stopped:** the Job deleted at 10:26 UTC (05:26 EST) while it waited between campaigns, so nothing was interrupted; 8 ids never started. Stopping cannot change the verdict, and a further version needs fresh ids.
+- **Why it failed:** the agents stop early by their own choice (as stage 3's did: 6 to 22 each), while the 200-evaluation floor assumed a swarm uses most of its 400. The floor was meant to catch a broken swarm; it now also counts working ones. A C4.5 v2 needs that re-derived, reviewed, under a dated revision with fresh ids.
+- **Reverse:** none for v1's failure.
