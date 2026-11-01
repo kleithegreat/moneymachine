@@ -1,0 +1,68 @@
+{
+ "source": "mirror agent/stage3-real/ledger.sqlite, read 2026-11-01 07:37 UTC (02:37 EST); counts and the run disclosure only",
+ "disclosures": [
+  [
+   "A",
+   "abort",
+   2
+  ],
+  [
+   "A",
+   "check",
+   9
+  ],
+  [
+   "A",
+   "eval",
+   7
+  ],
+  [
+   "A",
+   "reject",
+   2
+  ],
+  [
+   "A",
+   "run",
+   1
+  ],
+  [
+   "G100",
+   "eval",
+   100
+  ],
+  [
+   "gate",
+   "promotion",
+   1
+  ]
+ ],
+ "experiments": [
+  [
+   "A",
+   "search",
+   7
+  ],
+  [
+   "G100",
+   "search",
+   100
+  ]
+ ],
+ "selections": [
+  [
+   "A",
+   "agent selection",
+   1
+  ]
+ ],
+ "arm_a_run": [
+  {
+   "transcript_sha256": "8d9303ae9f0a9335b07be836f4d3515a381d0f15679a2408191cf6c7c46fd747",
+   "stopped": "finished",
+   "exit": 0,
+   "spent": 9,
+   "harness": "6a335714960061c736184eaf06fee19b69e7274c782c08c02329b57e506a2397"
+  }
+ ]
+}

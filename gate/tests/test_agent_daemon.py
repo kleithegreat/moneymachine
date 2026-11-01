@@ -122,3 +122,23 @@ def test_history_injection_cannot_change_daemon_behavior(tmp_path):
     finally:
         for d in ds:
             d.close()
+
+
+def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_path):
+    """C3.1 as written: under arm A's own budget, the 101st evaluation is refused, and overrides of the store, ledger,
+    campaign and agent change nothing."""
+    import inspect
+    from gate.agent import harness
+    budget = inspect.signature(harness.run_agent).parameters["budget"].default
+    kernel.build()
+    market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
+    d = Daemon(tmp_path / "a.sock", market, tmp_path / "l.sqlite", "camp", "A", budget, tmp_path / "log.jsonl").serve()
+    try:
+        override = {"store": "/elsewhere", "ledger": str(tmp_path / "other.sqlite"), "campaign": "other", "agent": "B"}
+        outs = [call(d.socket_path, {"cmd": "eval", "args": [json.dumps(W0)], **override}) for _ in range(budget + 1)]
+    finally:
+        d.close()
+    assert budget == 100 and all(o["ok"] for o in outs[:budget]) and outs[budget]["code"] == "BUDGET"
+    assert {k for o in outs[:budget] for k in o} == set(FIELDS) | {"ok", "remaining"}
+    assert sqlite3.connect(tmp_path / "l.sqlite").execute("SELECT DISTINCT campaign, agent FROM experiments").fetchall() == [("camp", "A")]
+    assert not (tmp_path / "other.sqlite").exists()
