@@ -494,3 +494,8 @@ Evidence `audit/stage3/write-denied-2026-10-31.md`; reviews `audit/reviews/2026-
 - **C7.6 gets a dated revision before anything is judged, committed alone before the suite's freeze.** Its bullet demands the latest revision chosen before availability, which the human's bitemporal decision of 2026-10-26 removed. It loosens nothing: at least 1,000 pairs, exact match, GPT from the spec alone, and the actual Rust loader all stand; Lean is added. Version 1's results do not count. Holdout staging, evidence never delivered, and the one-coin check are named loader-level tests, since a timeline can't show them.
 - **The swap:** the freeze commit replaces the suite files and size check; the old resolvers die in slice 5 with their callers; `test_three_implementations.py`'s shallow `same` is replaced; `refmm`'s resolver mode decodes the case texts itself.
 - **Next:** one more round on the fixes, including C7.6's revision text, since these change the format and the spec. **Reverse:** nothing is frozen.
+
+## 2026-11-02 01:44 UTC (2026-11-01 20:44 EST): no stage 8 data purchase, indefinitely; agent memory is a research question (human)
+
+- **What:** the human: "stage 8 data purchase will be no indefinitely. whether agents get memory should be a research question". Norgate and Massive are not bought, so equities and index constituents stay blocked, as `audit/stage8/scope-manifest.md` already records them; Databento stays within its sign-up credit. Stage 8's criteria already provide for this: completion is reported for the admitted scope, with its tier, so nothing is revised. Agents get no memory across campaigns unless a pre-registered study supports it.
+- **Reverse:** the human's, at any time.

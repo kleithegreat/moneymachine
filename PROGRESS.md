@@ -37,6 +37,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
+Open research question, after stage 4 (the human, 2026-11-01): does memory across campaigns help agents without raising false discoveries? Pre-register it first; its reuse counts toward N.
+
 ### Finished
 
 - Stage 0: exited 2026-10-26 with C0.7 qualified, by human decision (`audit/stage0/criteria-result.txt`). Stage 1: done 2026-10-26 (`audit/stage1/`).
@@ -49,7 +51,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 - **FRED and ALFRED: the API terms forbid our use; the human decides.** https://fred.stlouisfed.org/legal/ (read 2026-10-26): clause (l) forbids "storing, caching, or archiving" FRED content or "incorporating any FRED® Content in any database", and (k) use "in connection with the development or training of ... machine learning, including ... large language models". Our store is a database agents read. Key unused; no permission request for now (human). Macro vintages come from the Philadelphia Fed's RTDSM.
 - **IMF** "prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, 2026-10-23).
-- **Stage 8 purchases, the human decides** (`audit/stage8/sources-survey/combined-plan.md`; kernel-only): Norgate US Stocks Platinum (USD 630 a year plus a Windows VM, licence unverified) or Massive Stocks Advanced (USD 199 a month, no index constituents).
+- **Stage 8 equities and index constituents:** no purchase, indefinitely (the human, `audit/decisions.md`); stage 8 reports its admitted scope.
 - **ICE via Databento:** its non-display licence is unclear; ICE stays out until the human settles it.
 - **On-chain: hardware.** A Hyperliquid node: 16 vCPUs, 128 GB RAM, 100 GB of logs a day; Ethereum or Polygon: 2–4 TB NVMe.
 - **Not certifiable as they stand:** ClinicalTrials.gov (no automation clause); usda.gov (403); MarineCadastre AIS (no terms; GBs a day); World Bank Pink Sheet (per-release URL on a page forbidding automation; its Data Catalog API unchecked); EIA hourly grid (about 699 MB twice a day).
