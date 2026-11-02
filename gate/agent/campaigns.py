@@ -209,7 +209,7 @@ def need(log):
     accounts share one plan); a campaign that used no tokens measures nothing. It counts that account's other use
     meanwhile, so it overstates."""
     used = {}
-    for row in map(json.loads, open(log)) if log.exists() else []:
+    for row in campaign.records(log):
         if not any(row.get("usage", {}).get(k) for k in TOKENS):
             continue
         w = row.get("windows", {})
@@ -546,7 +546,7 @@ def summary(name, out):
     counts beside its baseline searcher's complete-null N2 runs."""
     searcher = BASELINE[name]
     log = cohort(name)[1]
-    rows = [json.loads(l) for l in open(log)] if log.exists() else []
+    rows = campaign.records(log)
     baseline = [r for r in sweep.results("null") if r["id"].startswith(f"c24{sweep.ROUND}-N2-{searcher}-")]
     report = {"n": len(rows), "ids": [r["id"] for r in rows], "counted_promotions": sum(r["counts_as_promotion"] for r in rows),
               "mm": sorted({r.get("mm", "unrecorded") for r in rows}),

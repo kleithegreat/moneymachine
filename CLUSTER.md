@@ -164,6 +164,9 @@ The `mirror` CronJob (`concurrencyPolicy: Forbid`) runs every 10 minutes (`ops/l
 stops the run:
 - Day files (`*.jsonl`) only grow: one that shrank, changed below its mirrored length, or vanished from the source is
   refused.
+- The mirror captures day-file sizes before listing other files (including `raw/`) and copies only those prefixes.
+  The datalayer writes each body before its row, so every row in a copied prefix has its body listed. Later rows and
+  new day files wait for the next run. No history is parsed; malformed lines are copied as bytes, not a refusal.
 - Every copy's bytes are compared with the source's over the same length.
 - SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check.
 - Other files are copied whole when their size or mtime changes.
@@ -171,7 +174,8 @@ stops the run:
 
 Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the volume's usage. It is written last,
 so readers trust only what it lists. The `mirror-verify` CronJob re-hashes daily every mirrored file, and every day
-file's source over its mirrored length, against the manifest.
+file's source over its mirrored length, against the manifest. It refuses a missing manifest for any of the five
+expected volumes, including an entirely empty mirror.
 
 When this PC is off, runs fail and the next one catches up. Until then, prodesk7's volumes hold the only copy of
 anything newer. On this PC, each mirrored recorder is one more host directory, read like `data/live-oci`'s through

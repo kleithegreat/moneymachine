@@ -193,7 +193,7 @@ def is_true(program, model, beta, tag):
 
 def results(name):
     path = OUT / f"{name}.jsonl"
-    return [json.loads(l) for l in open(path)] if path.exists() else []
+    return campaign.records(path)
 
 
 def cp_upper(k, n, level=0.95):

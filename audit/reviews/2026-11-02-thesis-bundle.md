@@ -42,13 +42,13 @@ Power, by mutating `positions.py` (12 sets per class):
 | Mutation | Caught in |
 |---|---|
 | invalidation on the next open | gaps, holes, outages, everything |
-| a leg enters after its exit | gaps, outages, everything |
+| a leg enters after its exit | everything; also `test_no_leg_enters_at_or_after_its_exit` |
 | no tolerance at ties | costs, funding holes, everything |
 | sizing ignores a funding gap | funding holes, everything |
-| discretionary exit without δ | holes, outages |
-| the later of two exits wins | 8 of 9 classes (caught only after the generator was changed to repeat exits) |
-| funding at the wrong sign | all classes run |
-| reservation never released | all classes |
+| discretionary exit without δ | gaps, holes, funding holes, builder |
+| the later of two exits wins | 8 of 9 classes, all that have exits (caught only after the generator was changed to repeat exits) |
+| funding at the wrong sign | all 9 |
+| reservation never released | all 9 |
 | a position waits on a leg that can't enter | **not caught at 12 sets**; `test_a_partly_entered_spread_releases_its_reservation_at_the_horizon` covers it |
 | `seen <= now` removed from invalidation | **not caught**: with real data a close is absent until it is available, so this guard only matters for the fixtures |
 
@@ -80,4 +80,5 @@ Differences left in place, outside the test:
 - **New behaviour to check:** benchmarks now run on their own thread, beside the sessions; a SIGTERM after main no longer discloses the date's other sessions as missed; a market-data failure past 90 minutes writes "missing data", which a score can still follow.
 - **Accepted limits:** a hole older than 90 days never fills. A permanent hole repeats its fetch from there (for funding, up to 5 pages each time). A pre-fix corrupt body already on the datalayer volume is not repaired, since only new writes are atomic. A mirror run that lists a body's `.tmp` just as it's renamed fails once and recovers on the next run.
 - **Types:** `thesis/tests/test_types.py` pins `mypy --strict --follow-imports=skip` on the 7 fixed modules and `ingest/hl.py`, whose class `thesis/market.py` subclasses. `mark` now raises `LookupError` where it returned a `None` that every caller would have crashed on. `mypy` is added to `flake.nix`, not `flake.lock`.
-- **Test suite:** run under the flake with `TMPDIR=/tmp`. Everything passes except `test_kernel_matches_witness` and `test_runs_agree_bit_for_bit`, which need `data/store`, absent from this worktree by the task's rule. Nesting `nix develop` in a dev shell without that setting doubles `TMPDIR` and fails the socket tests with `AF_UNIX path too long`, unrelated to this change.
+- **Merge:** `main`, with the ops fixes, is merged into the branch, so review `main...thesis-fixes`. The two conflicts were both-sides appends, in `audit/decisions.md` and `ingest/tests/test_live.py`; `harness_hash` is the same on both.
+- **Test suite:** on the merged tree, run under the flake with `TMPDIR=/tmp`: 476 passed. Everything passes except `test_kernel_matches_witness` and `test_runs_agree_bit_for_bit`, which need `data/store`, absent from this worktree by the task's rule. Nesting `nix develop` in a dev shell without that setting doubles `TMPDIR` and fails the socket tests with `AF_UNIX path too long`, unrelated to this change.
