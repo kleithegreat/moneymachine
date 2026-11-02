@@ -3,6 +3,8 @@
 //! C1.8: W0 over the search part of W on the stage 0 data. Needs data/ and venue/hyperliquid/execution.json:
 //! `cargo test --release --test bench w0_median -- --ignored --nocapture`.
 
+mod common;
+
 use mm::{dsl, market, sim};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -17,7 +19,7 @@ fn load(store: &Path, venue_dir: &Path, version: i64) -> (market::Market, market
 
 /// Milliseconds of `reps` runs of `prog`.
 fn times(prog: &str, m: &market::Market, venue: &market::Venue, policy: &market::Policy, end: i64, reps: usize) -> Vec<f64> {
-    let prog = dsl::parse(prog).unwrap();
+    let prog = dsl::parse(&common::inputs(), prog).unwrap();
     (0..reps)
         .map(|_| {
             let t = Instant::now();

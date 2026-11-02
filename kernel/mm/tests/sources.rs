@@ -11,11 +11,11 @@ fn repo_sources() -> &'static Path {
 fn the_committed_registry_is_valid() {
     let ds = source::registry(repo_sources()).unwrap();
     let names: Vec<_> = ds.iter().map(|d| d.name.as_str()).collect();
-    assert_eq!(names, ["hl-bars-4h", "hl-funding"]);
-    let bars = &ds[0];
+    assert_eq!(names, ["discourse-polls", "discourse-sightings", "forum-events", "governance-events", "hl-bars-4h", "hl-funding", "snapshot-polls", "snapshot-sightings"]);
+    let bars = &ds[4];
     assert_eq!(bars.cadence, Cadence::Held { period: 14_400_000, phase: 0, slot: "eventTime".into() });
     assert!(bars.roles.contains_key("bars") && bars.fields.contains_key("close"));
-    assert!(ds[1].rule_text.starts_with("{\"rule\": 1,"));
+    assert!(ds[5].rule_text.starts_with("{\"rule\": 1,"));
 }
 
 #[test]
@@ -74,8 +74,8 @@ fn a_registry_entry_must_match_its_file() {
     std::fs::create_dir_all(dir.join("hl-funding")).unwrap();
     let file = std::fs::read_to_string(repo_sources().join("hl-funding/1.json")).unwrap();
     std::fs::write(dir.join("hl-funding/1.json"), file.replace("60000", "60001")).unwrap();
-    std::fs::write(dir.join("registry.json"), std::fs::read_to_string(repo_sources().join("registry.json")).unwrap()
-        .replace("\"hl-bars-4h\": {\n   \"version\": 2,\n   \"sha256\": \"f0292b9bd871a810aa7d0240cda19c68e9609797c8f4dea1256b5cd17cd42a91\"\n  },\n  ", "")).unwrap();
+    let sha = source::declaration(&file).unwrap().hash;
+    std::fs::write(dir.join("registry.json"), format!(r#"{{"registry": 1, "declarations": {{"hl-funding": {{"version": 1, "sha256": "{sha}"}}}}}}"#)).unwrap();
     assert!(source::registry(&dir).unwrap_err().contains("SHA-256"));
     std::fs::remove_dir_all(&dir).unwrap();
 }

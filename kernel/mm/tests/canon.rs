@@ -1,9 +1,11 @@
 //! C4.2 smoke: equivalent programs share an equivalence key; rejected-law counterexamples do not.
 
+mod common;
+
 use mm::{canon, dsl};
 
 fn prog(weight: &str) -> dsl::Program {
-    dsl::parse(&format!(
+    dsl::parse(&common::inputs(), &format!(
         r#"{{"dsl": 1, "name": "c", "mechanism": {{"counterparty": "-", "predictions": [], "capacity": "-"}}, "weight": {weight}}}"#
     ))
     .unwrap()

@@ -15,9 +15,10 @@ const COUNTS: &str = r#"{"declaration": 1, "name": "forum-counts", "version": 1,
     "rule": {"rule": 1, "expr": {"max": [{"add": [{"field": "eventTime"}, {"ms": 120000}]}, {"dep": "recording"}]}},
     "depends": {"recording": {"sources": ["forum-polls"], "lag_ms": 0}}, "role": {}}"#;
 
-/// The committed registry (bars 0, funding 1) with a derived event source (3) over an evidence source (2).
+/// The committed registry's venue sources (bars 0, funding 1) with a derived event source (3) over an evidence source (2).
 fn registry() -> Vec<Declaration> {
     let mut reg = source::registry(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources"))).unwrap();
+    reg.retain(|d| d.name.starts_with("hl-"));
     reg.extend([POLLS, COUNTS].map(|f| source::declaration(f).unwrap()));
     reg
 }

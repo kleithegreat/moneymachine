@@ -1,6 +1,8 @@
 //! Stage 5 event inputs: hourly counts visible only at their own hour's tick (never held),
 //! the knownAt boundary, hours_since, and R_INPUT_UNAVAILABLE.
 
+mod common;
+
 use mm::dsl;
 use mm::machine::Machine;
 use mm::market::{Event, HOUR};
@@ -8,7 +10,7 @@ use mm::market::{Event, HOUR};
 const DELTA: i64 = 120_000;
 
 fn prog(weight: &str, lets: &str) -> dsl::Program {
-    dsl::parse(&format!(
+    dsl::parse(&common::inputs(), &format!(
         r#"{{"dsl": 1, "name": "e", "mechanism": {{"counterparty": "-", "predictions": [], "capacity": "-"}}, "let": {{{lets}}}, "weight": {weight}}}"#
     ))
     .unwrap()
@@ -49,7 +51,7 @@ fn hours_since_counts_ticks_since_the_condition_held() {
 
 #[test]
 fn counts_have_their_own_unit() {
-    let r = dsl::parse(r#"{"dsl": 1, "name": "e", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+    let r = dsl::parse(&common::inputs(), r#"{"dsl": 1, "name": "e", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
         "weight": {"op": "add", "args": [{"input": "forum_posts"}, {"input": "premium"}]}}"#);
     assert_eq!(r.unwrap_err().code.name(), "E_UNIT");
 }

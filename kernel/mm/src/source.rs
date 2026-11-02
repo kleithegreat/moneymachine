@@ -1,6 +1,7 @@
 //! Source declarations and the registry (kernel/SOURCES.md, version 1): reading and validating them. Nothing here
 //! knows a concrete source, dataset or field name; the only fixed names are the role contracts' (SOURCES.md §6).
 
+use crate::dsl::Input;
 use crate::rule::{self, Expr, Json};
 use crate::units::Unit;
 use std::collections::{BTreeMap, BTreeSet};
@@ -222,6 +223,12 @@ impl Declaration {
         let times = self.times.iter().map(String::as_str).chain(["fetchedAt"]);
         times.chain(key).chain(slot).chain(REVISION_COLUMNS).collect()
     }
+}
+
+/// The DSL inputs of a registry (Lean's `Registry.inputs`): declaration order, then input name.
+pub fn inputs(reg: &[Declaration]) -> Vec<Input> {
+    let event = |d: &Declaration| matches!(d.cadence, Cadence::Event { .. });
+    reg.iter().flat_map(|d| d.fields.iter().map(move |(n, f)| Input { name: n.clone(), event: event(d), unit: f.unit })).collect()
 }
 
 /// The registry indices of a declaration's dependencies (Lean's `Decl.depends`), in dependency-name order.

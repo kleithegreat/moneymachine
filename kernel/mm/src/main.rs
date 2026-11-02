@@ -10,7 +10,7 @@ use std::process::ExitCode;
 const USAGE: &str = "mm: the auditable strategy kernel
 
 USAGE:
-  mm check FILE [--campaign C] [--agent A] [--ledger PATH]
+  mm check FILE [--campaign C] [--agent A] [--ledger PATH] [--sources DIR]
       Type-check a strategy (kernel/DSL.md) without touching data.
   mm eval FILE --campaign C --agent A [--version V] [--store DIR] [--venue DIR]
           [--ledger PATH] [--trace OUT]
@@ -44,7 +44,7 @@ USAGE:
       Check fills against invariants I2/I3 and the I9 order cap, one JSON case per line
       (kernel/INVARIANTS.md, Fill-check cases); print one verdict per line. Reads no market data.
 
-Defaults: --store data/store, --venue venue/hyperliquid, --ledger data/ledger.sqlite. The
+Defaults: --sources the repository's sources/ (fixed at build), --store data/store, --venue venue/hyperliquid, --ledger data/ledger.sqlite. The
 holdout boundary comes from the store's own policy.json. Every result is recorded in the ledger before it is
 printed; if recording fails, no result is printed and the exit code is 2.
 Exit codes: 0 ok, 1 rejected or aborted (reason printed), 2 ledger failure, 3 usage.";
@@ -74,6 +74,14 @@ impl Args {
     fn get<'a>(&'a self, k: &str, default: &'a str) -> &'a str {
         self.opts.get(k).map_or(default, |s| s.as_str())
     }
+}
+
+/// The DSL inputs of the registry under `--sources`: the only place a program's input names come from.
+fn inputs(a: &Args) -> Result<Vec<dsl::Input>, ExitCode> {
+    mm::source::registry(Path::new(a.get("sources", concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources")))).map(|reg| mm::source::inputs(&reg)).map_err(|e| {
+        eprintln!("registry: {e}");
+        ExitCode::from(3)
+    })
 }
 
 /// The single path for result-bearing output: commit first, then print.
@@ -227,7 +235,11 @@ fn check(a: &Args, ledger: &mut Ledger) -> ExitCode {
             return ExitCode::from(3);
         }
     };
-    match dsl::parse(&text) {
+    let inputs = match inputs(a) {
+        Ok(i) => i,
+        Err(code) => return code,
+    };
+    match dsl::parse(&inputs, &text) {
         Ok(p) => {
             let out = json!({"ok": true, "strategy": sha256_hex(p.canonical().as_bytes()),
                              "equivalence": mm::canon::equivalence_key(&p)}).to_string();
@@ -424,9 +436,10 @@ fn open_holdout(a: &Args, texts: &[String], ledger: &mut Ledger, campaign: &str,
         let out = json!({"ok": false, "code": code, "message": message}).to_string();
         emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1)
     };
+    let inputs = inputs(a)?;
     let trials: Option<std::collections::BTreeSet<String>> = texts
         .iter()
-        .map(|t| dsl::parse(t).ok().map(|p| mm::ledger::trial(&mm::canon::equivalence_key(&p), &params_json(&p))))
+        .map(|t| dsl::parse(&inputs, t).ok().map(|p| mm::ledger::trial(&mm::canon::equivalence_key(&p), &params_json(&p))))
         .collect();
     let selected = ledger.selected(campaign, agent).map_err(|e| {
         eprintln!("R_LEDGER: {e}");
@@ -463,6 +476,10 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
             return ExitCode::from(3);
         }
     };
+    let inputs = match inputs(a) {
+        Ok(i) => i,
+        Err(code) => return code,
+    };
     let mut ctx: Option<Ctx> = None;
     if mode == "holdout" {
         let batch: Vec<String> = texts.collect();
@@ -474,7 +491,7 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
     }
     let mut status = 0;
     for text in texts {
-        let outcome = match dsl::parse(&text) {
+        let outcome = match dsl::parse(&inputs, &text) {
             Err(r) => Err((r.code.name().to_string(), format!("{} at {}", r.msg, r.path))),
             Ok(prog) => {
                 if ctx.is_none() {
@@ -648,8 +665,8 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
     Some((fill, market, venue))
 }
 
-const OPTIONS: [&str; 11] =
-    ["campaign", "agent", "ledger", "version", "store", "venue", "trace", "mechanism", "holdout-store", "holdout-from", "disclose"];
+const OPTIONS: [&str; 12] =
+    ["sources", "campaign", "agent", "ledger", "version", "store", "venue", "trace", "mechanism", "holdout-store", "holdout-from", "disclose"];
 
 fn main() -> ExitCode {
     let Some(a) = parse_args() else {

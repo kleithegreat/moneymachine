@@ -1,7 +1,7 @@
 //! The equivalence key (kernel/CANONICAL.md): equality saturation over the exact rule set R,
 //! then extraction of the smallest term with a total-order tie-break.
 
-use crate::dsl::{Input, Node, Op, Program, Window};
+use crate::dsl::{Node, Op, Program, Window};
 use crate::market::sha256_hex;
 use egg::{rewrite as rw, CostFunction, EGraph, Extractor, Id, RecExpr, Rewrite, Runner, SymbolLang};
 use std::time::Duration;
@@ -67,7 +67,7 @@ pub fn term(p: &Program) -> RecExpr<SymbolLang> {
             return id;
         }
         let node = match &p.nodes[i] {
-            Node::Input(inp) => SymbolLang::leaf(format!("input/{}", Input::name(*inp))),
+            Node::Input(k) => SymbolLang::leaf(format!("input/{}", p.inputs[*k].name)),
             Node::Const(bits, u) => SymbolLang::leaf(format!("const/{bits:016x}/{u}")),
             Node::Param(k) => SymbolLang::leaf(format!("param/{}/{}", p.params[*k].name, p.params[*k].unit)),
             Node::Op(op, args) => {

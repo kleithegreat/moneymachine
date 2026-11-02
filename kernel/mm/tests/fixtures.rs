@@ -4,6 +4,8 @@
 //! funding and equity behind one reported equity, to 1e-9 (decimal hand arithmetic is not exactly
 //! representable in binary floating point).
 
+mod common;
+
 use mm::dsl;
 use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
 use mm::sim::{self, Event, Why};
@@ -102,7 +104,7 @@ impl Spec {
     }
 
     fn run_with(&self, weight: &str, extra: &str) -> Result<sim::Run, sim::Abort> {
-        let prog = dsl::parse(&format!(
+        let prog = dsl::parse(&common::inputs(), &format!(
             r#"{{"dsl": 1, "name": "fixture", "mechanism": {{"counterparty": "-", "predictions": [], "capacity": "-"}},
                 "weight": {weight}{extra}}}"#
         ))

@@ -1,0 +1,14 @@
+{
+  "declaration": 1,
+  "name": "discourse-sightings",
+  "version": 1,
+  "entity": {"evidence": ["key", "id", "created", "observed"], "event": "observed"},
+  "times": ["observed"],
+  "fields": {},
+  "cadence": {"evidence": {}},
+  "missing": "undefined",
+  "revisions": "latest",
+  "rule": {"rule": 1, "expr": {"max": [{"field": "observed"}, {"field": "fetchedAt"}]}},
+  "depends": {},
+  "role": {}
+}

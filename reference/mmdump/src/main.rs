@@ -178,10 +178,11 @@ fn main() {
         "policy": {"delta": policy.delta, "w_start": policy.w_start, "end": end, "bar": BAR},
     });
     std::fs::write(&a[5], market_json.to_string()).unwrap();
+    let inputs = mm::source::inputs(&mm::source::registry(std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources"))).unwrap());
     for (i, path) in programs.iter().enumerate() {
         let text = std::fs::read_to_string(path).unwrap();
         let streams = out_dir.join(format!("{i}.bin"));
-        let out = match mm::dsl::parse(&text) {
+        let out = match mm::dsl::parse(&inputs, &text) {
             Err(r) => json!({"reject": r.code.name()}),
             Ok(p) => match sim::run(&p, &m, &venue, &policy, end) {
                 Err(e) => json!({"abort": e.code()}),

@@ -1,6 +1,8 @@
 //! C4.1: every rule in R is exact (bitwise value streams and run outcomes).
 //! C4.2: programs differing by random rule applications share an equivalence key.
 
+mod common;
+
 use mm::dsl;
 use mm::machine::Machine;
 use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
@@ -265,7 +267,7 @@ fn every_rule_is_exact() {
             let (lhs, rhs, is_bool) = instance(rule, &mut rng);
             let seed = rng.next();
             let (a, b) = (program(lhs, &mut Rng(seed), is_bool), program(rhs, &mut Rng(seed), is_bool));
-            let (pa, pb) = (dsl::parse(&a).unwrap_or_else(|e| panic!("{rule} {i}: {e}\n{a}")), dsl::parse(&b).unwrap());
+            let (pa, pb) = (dsl::parse(&common::inputs(), &a).unwrap_or_else(|e| panic!("{rule} {i}: {e}\n{a}")), dsl::parse(&common::inputs(), &b).unwrap());
             for (m, v, pol, end) in &markets {
                 let (sa, sb) = (streams(&pa, m, *end), streams(&pb, m, *end));
                 assert_eq!(sa, sb, "{rule} #{i}: probe streams differ\n{a}\n{b}");
@@ -345,7 +347,7 @@ fn rewritten_programs_share_a_key() {
         let wrap = |w: &Value| {
             json!({"dsl": 1, "name": "k", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"}, "weight": w}).to_string()
         };
-        let (a, b) = (dsl::parse(&wrap(&weight)).unwrap(), dsl::parse(&wrap(&rewritten)).unwrap());
+        let (a, b) = (dsl::parse(&common::inputs(), &wrap(&weight)).unwrap(), dsl::parse(&common::inputs(), &wrap(&rewritten)).unwrap());
         if canon::equivalence_key(&a) != canon::equivalence_key(&b) {
             failures.push((i, canon::canonical_term(&a), canon::canonical_term(&b)));
         }

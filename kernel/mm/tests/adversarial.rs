@@ -2,6 +2,8 @@
 //! is printed. Red-team programs whose defence is at run time are in kernel/tests/admitted, which C1.7 runs.
 //! A case file is a JSON header line followed by the program text.
 
+mod common;
+
 use std::fs;
 use std::path::Path;
 
@@ -26,7 +28,7 @@ fn type_checker_rejects_with_expected_code() {
     let mut failures = vec![];
     for (name, hdr, prog) in cases() {
         let expect = hdr["expect"].as_str().unwrap();
-        let got = mm::dsl::parse(&prog).map_or_else(|r| r.code.name().to_string(), |_| "ADMITTED".to_string());
+        let got = mm::dsl::parse(&common::inputs(), &prog).map_or_else(|r| r.code.name().to_string(), |_| "ADMITTED".to_string());
         println!("{name}\t{}\t{}\texpected {expect}\tgot {got}", hdr["mechanism"].as_str().unwrap(), hdr["source"].as_str().unwrap());
         if got != expect {
             failures.push(format!("{name}: expected {expect}, got {got}"));
@@ -40,6 +42,6 @@ fn reference_strategies_type_check() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../strategies");
     for e in fs::read_dir(dir).unwrap() {
         let p = e.unwrap().path();
-        mm::dsl::parse(&fs::read_to_string(&p).unwrap()).unwrap_or_else(|r| panic!("{}: {r}", p.display()));
+        mm::dsl::parse(&common::inputs(), &fs::read_to_string(&p).unwrap()).unwrap_or_else(|r| panic!("{}: {r}", p.display()));
     }
 }

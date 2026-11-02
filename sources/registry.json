@@ -1,6 +1,22 @@
 {
  "registry": 1,
  "declarations": {
+  "discourse-polls": {
+   "version": 1,
+   "sha256": "c79558170b22d69eb653a3d0aa8310a901621d239f3d49d5629acc80352c8e43"
+  },
+  "discourse-sightings": {
+   "version": 1,
+   "sha256": "6248c808b5c82cbf2a4713991fee834cd1c972ed0e845443d6fd976e7257e028"
+  },
+  "forum-events": {
+   "version": 1,
+   "sha256": "a965db98055a1e0c9156d7a907be82cd0bb1d2b12d6ff81a5e0c9c1dcde7b388"
+  },
+  "governance-events": {
+   "version": 1,
+   "sha256": "f5e460531b9ee917ef51766c0a0b978d6c44a9f86541f59f531a70b15aa2c920"
+  },
   "hl-bars-4h": {
    "version": 2,
    "sha256": "f0292b9bd871a810aa7d0240cda19c68e9609797c8f4dea1256b5cd17cd42a91"
@@ -8,6 +24,14 @@
   "hl-funding": {
    "version": 1,
    "sha256": "417ed408b230522544fda2c10bc00e08d937698bbd3ff49066528d20d659bffe"
+  },
+  "snapshot-polls": {
+   "version": 1,
+   "sha256": "680669ab315928a41e0be5977f76b6e6b4794965860d3f4b6574f54527d6b3aa"
+  },
+  "snapshot-sightings": {
+   "version": 1,
+   "sha256": "3cbb8a18231fb82597286db11183eb83894f44f90dd98bb723529f36f540099c"
   }
  }
 }

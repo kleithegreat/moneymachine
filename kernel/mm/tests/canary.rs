@@ -6,6 +6,8 @@
 //! whose timestamps claim they were known two bars early (so a decision sees the bar its order
 //! will be held through), which must exceed 20.
 
+mod common;
+
 use mm::dsl;
 use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
 use mm::sim;
@@ -144,12 +146,12 @@ fn admitted_programs() -> Vec<(String, dsl::Program)> {
         let p = e.unwrap().path();
         let text = fs::read_to_string(&p).unwrap();
         let (_, prog) = text.split_once('\n').unwrap();
-        out.push((p.display().to_string(), dsl::parse(prog).unwrap_or_else(|r| panic!("{}: {r}", p.display()))));
+        out.push((p.display().to_string(), dsl::parse(&common::inputs(), prog).unwrap_or_else(|r| panic!("{}: {r}", p.display()))));
     }
     let mut rng = Rng(42);
     for i in 0..20 {
         let text = program(&scaled(&random_weight(&mut rng, 1 + i % 3), 0.08));
-        out.push((format!("random{i}"), dsl::parse(&text).unwrap_or_else(|r| panic!("random{i}: {r}"))));
+        out.push((format!("random{i}"), dsl::parse(&common::inputs(), &text).unwrap_or_else(|r| panic!("random{i}: {r}"))));
     }
     out
 }
@@ -175,7 +177,7 @@ fn leaking_evaluator_has_power() {
     // Sized so that compounding never makes the $10k order cap bind, which would confound
     // the leak's power with the kernel's capacity limit (0.08 per coin reached only 19.6).
     let peek = scaled(r#"{"op": "sub", "args": [{"op": "div", "args": [{"input": "close"}, {"input": "open"}]}, {"const": 1, "unit": "1"}]}"#, 0.005);
-    let prog = dsl::parse(&program(&peek)).unwrap();
+    let prog = dsl::parse(&common::inputs(), &program(&peek)).unwrap();
     for seed in FIXED_SEEDS {
         let (m, v, p, end) = market(seed, true);
         let leak = sharpe(&sim::run(&prog, &m, &v, &p, end).unwrap());

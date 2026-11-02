@@ -3,7 +3,7 @@
 //! Observations enter only through `deliver`, which enforces I1. `tick` evaluates every
 //! node for every listed coin; values are `None` when undefined or non-finite.
 
-use crate::dsl::{Input, Node, Op, Program, Window, EVENT_INPUTS};
+use crate::dsl::{Node, Op, Program, Window, EVENT_INPUTS};
 use crate::market::{Bar, Event, Funding, HOUR};
 use std::collections::VecDeque;
 
@@ -108,8 +108,33 @@ impl Win {
     }
 }
 
+/// What an input reads from the typed slots, by its registry name (until slice 3 replaces the slots with observations).
+#[derive(Clone, Copy)]
+enum Read {
+    Funding,
+    Premium,
+    Bar(fn(&Bar) -> f64),
+    Event(usize),
+}
+
+impl Read {
+    fn of(name: &str) -> Option<Read> {
+        Some(match name {
+            "funding" => Read::Funding,
+            "premium" => Read::Premium,
+            "open" => Read::Bar(|b| b.open),
+            "high" => Read::Bar(|b| b.high),
+            "low" => Read::Bar(|b| b.low),
+            "close" => Read::Bar(|b| b.close),
+            "volume" => Read::Bar(|b| b.volume),
+            _ => Read::Event(EVENT_INPUTS.iter().position(|e| e.0 == name)?),
+        })
+    }
+}
+
 pub struct Machine<'p> {
     prog: &'p Program,
+    reads: Vec<Option<Read>>,
     coins: usize,
     vals: Vec<Vec<Option<f64>>>,
     wins: Vec<Vec<Option<Win>>>,
@@ -140,6 +165,7 @@ impl<'p> Machine<'p> {
             .collect();
         Machine {
             prog,
+            reads: prog.inputs.iter().map(|i| Read::of(&i.name)).collect(),
             coins,
             vals: vec![vec![None; coins]; prog.nodes.len()],
             wins,
@@ -180,19 +206,12 @@ impl<'p> Machine<'p> {
         Ok(())
     }
 
-    fn input(&self, i: Input, c: usize) -> Option<f64> {
-        let fresh = |slot: usize| self.events[slot][c].filter(|e| e.event == self.hour).map(|e| e.count);
-        match i {
-            Input::Event(slot) => fresh(slot),
-            Input::Funding => self.funding[c].map(|f| f.rate),
-            Input::Premium => self.funding[c].map(|f| f.premium),
-            Input::Open | Input::High | Input::Low | Input::Close | Input::Volume => self.bar[c].map(|b| match i {
-                Input::Open => b.open,
-                Input::High => b.high,
-                Input::Low => b.low,
-                Input::Close => b.close,
-                _ => b.volume,
-            }),
+    fn input(&self, i: usize, c: usize) -> Option<f64> {
+        match self.reads[i]? {
+            Read::Event(slot) => self.events[slot][c].filter(|e| e.event == self.hour).map(|e| e.count),
+            Read::Funding => self.funding[c].map(|f| f.rate),
+            Read::Premium => self.funding[c].map(|f| f.premium),
+            Read::Bar(get) => self.bar[c].as_ref().map(get),
         }
     }
 

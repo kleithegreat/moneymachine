@@ -1,0 +1,14 @@
+{
+  "declaration": 1,
+  "name": "snapshot-polls",
+  "version": 1,
+  "entity": {"evidence": ["key", "recv"], "event": "recv"},
+  "times": ["recv"],
+  "fields": {},
+  "cadence": {"evidence": {}},
+  "missing": "undefined",
+  "revisions": "latest",
+  "rule": {"rule": 1, "expr": {"max": [{"field": "recv"}, {"field": "fetchedAt"}]}},
+  "depends": {},
+  "role": {}
+}

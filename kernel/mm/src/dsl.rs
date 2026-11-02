@@ -61,65 +61,17 @@ pub enum Ty {
     Bool,
 }
 
-/// Event inputs, as (DSL name, store dataset): hourly counts defined only at their own hour's tick
-/// (DSL.md). An event input is declared here and nowhere else; the machine, the loader and the
-/// simulator index event inputs by their row in this table.
+/// Store datasets of the event inputs, as (DSL name, dataset): the machine, the loader and the simulator still index
+/// event inputs by their row here until the observation-based machine and loader replace them (port plan, slices 3 to 5).
 pub const EVENT_INPUTS: [(&str, &str); 2] = [("forum_posts", "events_forum"), ("gov_proposals", "events_governance")];
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum Input {
-    Funding,
-    Premium,
-    Open,
-    High,
-    Low,
-    Close,
-    Volume,
-    /// A row of EVENT_INPUTS.
-    Event(usize),
-}
-
-/// Held inputs: (DSL name, input, unit). Each holds its latest delivered value.
-const HELD: [(&str, Input, &str); 7] = [
-    ("funding", Input::Funding, "1/h"),
-    ("premium", Input::Premium, "1"),
-    ("open", Input::Open, "usd/coin"),
-    ("high", Input::High, "usd/coin"),
-    ("low", Input::Low, "usd/coin"),
-    ("close", Input::Close, "usd/coin"),
-    ("volume", Input::Volume, "coin"),
-];
-
-impl Input {
-    pub fn parse(name: &str) -> Option<Input> {
-        HELD.iter()
-            .find(|h| h.0 == name)
-            .map(|h| h.1)
-            .or_else(|| EVENT_INPUTS.iter().position(|e| e.0 == name).map(Input::Event))
-    }
-
-    pub fn name(self) -> &'static str {
-        match self {
-            Input::Event(slot) => EVENT_INPUTS[slot].0,
-            held => HELD.iter().find(|h| h.1 == held).unwrap().0,
-        }
-    }
-
-    /// The store dataset of an event input; None for held inputs.
-    pub fn event_dataset(self) -> Option<&'static str> {
-        match self {
-            Input::Event(slot) => Some(EVENT_INPUTS[slot].1),
-            _ => None,
-        }
-    }
-
-    fn unit(self) -> Unit {
-        Unit::parse(match self {
-            Input::Event(_) => "ev",
-            held => HELD.iter().find(|h| h.1 == held).unwrap().2,
-        })
-        .unwrap()
-    }
+/// A DSL input as the registry declares it (Lean's `Input`): `event` inputs are defined only at their own hour's tick.
+/// A program's `Node::Input(i)` indexes the table it was checked against.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Input {
+    pub name: String,
+    pub event: bool,
+    pub unit: Unit,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -203,7 +155,7 @@ const OPS: &[(&str, Op, usize)] = &[
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Node {
-    Input(Input),
+    Input(usize),
     /// Constant value as raw bits, with its unit.
     Const(u64, Unit),
     Param(usize),
@@ -220,6 +172,8 @@ pub struct Param {
 /// A checked program. Nodes are hash-consed and topologically ordered: args precede users.
 #[derive(Debug)]
 pub struct Program {
+    /// The input table the program was checked against.
+    pub inputs: Vec<Input>,
     pub nodes: Vec<Node>,
     pub types: Vec<Ty>,
     pub weight: usize,
@@ -260,12 +214,12 @@ fn json_depth(text: &str) -> usize {
     max
 }
 
-pub fn parse(text: &str) -> Result<Program, Reject> {
+pub fn parse(inputs: &[Input], text: &str) -> Result<Program, Reject> {
     if text.len() > MAX_BYTES || json_depth(text) > MAX_JSON_DEPTH {
         return reject(Code::Size, "$", "program too large or too deeply nested");
     }
     let v = serde_json::from_str::<Strict>(text).or_else(|e| reject(Code::Parse, "$", e.to_string()))?.0;
-    Checker::default().program(&v)
+    Checker { inputs: inputs.to_vec(), ..Checker::default() }.program(&v)
 }
 
 /// JSON that rejects duplicate object keys, which parsers resolve differently.
@@ -323,6 +277,7 @@ impl<'de> serde::de::Visitor<'de> for StrictVisitor {
 
 #[derive(Default)]
 struct Checker {
+    inputs: Vec<Input>,
     nodes: Vec<Node>,
     types: Vec<Ty>,
     index: HashMap<Node, usize>,
@@ -410,6 +365,7 @@ impl Checker {
             }
         };
         Ok(Program {
+            inputs: self.inputs,
             nodes: self.nodes,
             types: self.types,
             weight: w,
@@ -439,10 +395,10 @@ impl Checker {
         if m.contains_key("input") {
             let m = fields(v, path, &["input"], &[])?;
             let name = string(&m["input"], path)?;
-            let Some(inp) = Input::parse(name) else {
+            let Some(k) = self.inputs.iter().position(|i| i.name == name) else {
                 return reject(Code::UnknownInput, path, format!("unknown input `{name}`"));
             };
-            return Ok(self.intern(Node::Input(inp), Ty::Num(inp.unit())));
+            return Ok(self.intern(Node::Input(k), Ty::Num(self.inputs[k].unit)));
         }
         if m.contains_key("const") {
             let m = fields(v, path, &["const", "unit"], &[])?;
@@ -589,7 +545,7 @@ impl Program {
         let lines: Vec<String> = order
             .iter()
             .map(|&i| match &self.nodes[i] {
-                Node::Input(inp) => format!("input {}", inp.name()),
+                Node::Input(k) => format!("input {}", self.inputs[*k].name),
                 Node::Const(bits, u) => format!("const {:?} {u}", f64::from_bits(*bits)),
                 Node::Param(k) => format!("param {} {}", self.params[*k].name, self.params[*k].unit),
                 Node::Op(op, args) => {
@@ -622,8 +578,12 @@ impl Program {
 impl Program {
     /// Event datasets this program reads (for R_INPUT_UNAVAILABLE).
     pub fn event_datasets(&self) -> Vec<&'static str> {
-        let mut v: Vec<&'static str> =
-            self.nodes.iter().filter_map(|n| if let Node::Input(i) = n { i.event_dataset() } else { None }).collect();
+        let mut v: Vec<&'static str> = self
+            .nodes
+            .iter()
+            .filter_map(|n| if let Node::Input(k) = n { EVENT_INPUTS.iter().find(|e| e.0 == self.inputs[*k].name) } else { None })
+            .map(|e| e.1)
+            .collect();
         v.sort();
         v.dedup();
         v
