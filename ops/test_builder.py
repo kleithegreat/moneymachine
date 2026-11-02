@@ -6,18 +6,23 @@ import subprocess
 from pathlib import Path
 
 
-def launcher(tmp_path, busy):
+def launcher(tmp_path, busy, *stop):
     (tmp_path / "ops").mkdir()
     shutil.copy(Path(__file__).with_name("builder.sh"), tmp_path / "ops")
     stubs = tmp_path / "stubs"
     stubs.mkdir()
-    for name, code in (("claude", 0), ("systemd-run", 0), ("pgrep", 0 if busy else 1)):
+    for name, code in (("claude", 0), ("pgrep", 0 if busy else 1)):
         (stubs / name).write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/{name}.args\nexit {code}\n')
         (stubs / name).chmod(0o755)
+    (stubs / "systemd-run").write_text(f'''#!/bin/sh
+echo "$@" >> {tmp_path}/systemd-run.args
+case " $* " in *" --scope "*) while [ "$1" != nix ]; do shift; done; exec "$@";; esac
+''')
+    (stubs / "systemd-run").chmod(0o755)
     (stubs / "nix").write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/nix.args\nshift 2\nexec "$@"\n')
     (stubs / "nix").chmod(0o755)
     env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}")
-    subprocess.run([tmp_path / "ops/builder.sh", "run", "stage 3 check", "sonnet"], env=env, check=True)
+    subprocess.run([tmp_path / "ops/builder.sh", "run", "stage 3 check", "sonnet", *stop], env=env, check=True)
     return [line.split("\t") for line in (tmp_path / "data/builder/log.tsv").read_text().splitlines()]
 
 
@@ -27,6 +32,15 @@ def test_run_starts_a_named_session_and_logs_its_id(tmp_path):
     assert f"-p --name builder: stage 3 check --model sonnet --permission-mode auto --session-id {start[2]} " in args
     assert (tmp_path / "nix.args").read_text().startswith(f"develop -c {tmp_path}/stubs/claude -p ")
     assert (tmp_path / f"data/builder/{start[2]}.out").exists()
+    scope = (tmp_path / "systemd-run.args").read_text()
+    assert f"--unit=mm-builder-{start[2]} " in scope and "-p OOMPolicy=continue " in scope and "MemoryMax=" in scope
+    assert "RuntimeMaxSec" not in scope
+
+
+def test_a_stop_time_bounds_the_scope(tmp_path):
+    launcher(tmp_path, False, "+1 hour")
+    limit = (tmp_path / "systemd-run.args").read_text().split("RuntimeMaxSec=")[1].split()[0]
+    assert 3590 <= int(limit) <= 3600
 
 
 def test_run_defers_while_another_builder_runs(tmp_path):
