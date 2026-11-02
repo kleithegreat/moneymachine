@@ -249,3 +249,11 @@ def test_a_daily_candle_stays_hidden_at_an_earlier_cutoff_of_a_warm_cache(tmp_pa
     m = market.Market(tmp_path, Venue([(day, 1.0), (2 * day, 2.0)]))
     m.bars("X", "1d", 4 * day)
     assert m.bars("X", "1d", 2 * day + market.DELTA) == [[day, 1.0, 1.0]]
+
+
+def test_a_repair_spanning_a_cached_row_at_an_earlier_cutoff_shows_that_row_once(tmp_path):
+    # Holes at 2H and 4H share a request, which returns the cached 3H; read as of 3H + 10 min, 3H is still in progress.
+    x = Venue([(H, 1.0), (3 * H, 3.0), (5 * H, 5.0)])
+    m = market.Market(tmp_path, x, repair_every=0)
+    m.bars("X", "1h", 7 * H)
+    assert m.bars("X", "1h", 3 * H + 10 * 60_000) == [[H, 1.0, 1.0], [3 * H, 3.0, None]]

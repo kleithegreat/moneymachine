@@ -172,8 +172,9 @@ class Market:
             candles = [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)]
             progress.extend(r for r in candles if r[0] + step + DELTA > now)
             return [r for r in candles if r[0] + step + DELTA <= now]
-        rows = self._cached(market, interval, fetch, now)
-        return [[t, o, c if t + step + DELTA <= now else None] for t, o, c in sorted(rows + progress) if t + shown <= now]
+        cached = self._cached(market, interval, fetch, now)
+        rows = {r[0]: r for r in progress + cached}
+        return [[t, o, c if t + step + DELTA <= now else None] for t, (_, o, c) in sorted(rows.items()) if t + shown <= now]
 
     def funding(self, market: str, now: int | None = None) -> list[list[Any]]:
         """[[hour, rate]] of settled funding up to `now`."""
