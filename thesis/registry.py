@@ -139,7 +139,7 @@ def register(ledger: Ledger, account: str, session: str, request: Any, clock: Ca
         th = {**request, "id": f"{account}-{len(existing) + 1}", "account": account, "session": session, "t_r": t_r,
               "fee": config["fee"], "costs": {m: config["costs"][m] for m in markets},
               "fallback_costs": sorted(set(config["fallback"]) & set(markets))}
-        th.update(positions.admit(config["initial"], existing, ledger.exits(account), data, t_r, request["L"]))
+        th.update({k: str(v) for k, v in positions.admit(config["initial"], existing, ledger.exits(account), data, t_r, request["L"]).items()})
         p_ref, m, x = scoring.base_rate(th, data["daily"], data["funding"])
         th.update(p_ref=p_ref, base_windows=m, base_positive=x)
         ledger.disclose("thesis", account, th)

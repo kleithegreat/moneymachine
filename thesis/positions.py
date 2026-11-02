@@ -10,20 +10,27 @@ Data: `bars[market]` is the Bars {openTime: (open, close)} of 1h bars, where a c
 mark is missing); `funding[market]` is {hour: rate}, one row per settled hour, where a missing row is missing data,
 never a zero rate, and ends the account's reconciled equity until it arrives; `lag[market]` is how long after a
 price's time it becomes available to a decision (δ for candles, the mark seal for builder markets). Fills use a bar's
-open at its openTime; sizing uses only prices available by then; invalidation uses only the closes of the bar just
-ended. At an hour, funding settles first, then exits, then entries, and a leg not entered by its exit never enters.
-Fills move the reference open adversely by the coin's cost cell ("1000" if |q| * ref <= 1000, else "10000") and pay
-the taker fee.
+open at its openTime; sizing uses only the equity of the latest hour every leg's reference has reached; invalidation uses
+only the closes of the bar just ended. At an hour, funding settles first, then exits, then entries, and a leg not entered
+by its exit never enters. Fills move the reference open adversely by the coin's cost cell ("1000" if |q| * ref <= 1000,
+else "10000") and pay the taker fee. Money is exact, so every boundary is the frozen one, with no tolerance.
 """
 
 from bisect import bisect_left, bisect_right
+from fractions import Fraction
+from functools import lru_cache
 from typing import Any
 
 from ingest.policy import DELTA, HOUR
 
 Json = dict[str, Any]
-RISK, CAP = 0.01, 0.05
-ROUNDING = 1e-12  # what float arithmetic can leave of an exact tie, which each `<=` below counts as met
+RISK, CAP = Fraction(1, 100), Fraction(1, 20)
+
+
+@lru_cache(maxsize=1 << 20)
+def exact(x: Any) -> Fraction:
+    """The number a recorded value states: a float's shortest decimal, or a rational's own text."""
+    return Fraction(str(x))
 
 
 class Bars(dict[int, tuple[float, float | None]]):
@@ -34,15 +41,14 @@ class Bars(dict[int, tuple[float, float | None]]):
         self.times = sorted(self)
 
 
-def mark(bars: Bars, t: int, lag: int = 0) -> float:
-    """The latest price available at t: the last bar whose open is available by t, at its close if that is
-    available and not None, else at its open."""
-    i = bisect_right(bars.times, t - lag)
+def mark(bars: Bars, t: int) -> Fraction:
+    """The latest price at t: the last bar opened by t, at its close if that bar has ended and has one, else at its open."""
+    i = bisect_right(bars.times, t)
     if i == 0:
         raise LookupError(f"no bar available at {t}")
     s = bars.times[i - 1]
     o, c = bars[s]
-    return c if c is not None and s + HOUR + lag <= t else o
+    return exact(c if c is not None and s + HOUR <= t else o)
 
 
 def first_open(bars: Bars, t: int, now: int) -> int | None:
@@ -51,65 +57,66 @@ def first_open(bars: Bars, t: int, now: int) -> int | None:
     return bars.times[i] if i < len(bars.times) and bars.times[i] <= now else None
 
 
-def fill(ref: float, q: float, cells: Json, fee: float) -> tuple[float, float, float]:
+def fill(ref: Fraction, q: Fraction, cells: Json, fee: float) -> tuple[Fraction, Fraction, Fraction]:
     """(price, fee, cost) of trading q at reference ref."""
     side = "buy" if q > 0 else "sell"
-    bps = cells[side]["1000" if abs(q) * ref <= 1000 * (1 + ROUNDING) else "10000"]
-    price = ref * (1 + (bps if q > 0 else -bps) / 1e4)
-    return price, abs(q) * price * fee, abs(q) * abs(price - ref)
+    bps = exact(cells[side]["1000" if abs(q) * ref <= 1000 else "10000"])
+    price = ref * (1 + (bps if q > 0 else -bps) / 10_000)
+    return price, abs(q) * price * exact(fee), abs(q) * abs(price - ref)
 
 
 def outcome(th: Json, data: Json, now: int) -> Json | None:
     """The as-registered net return per N of the fixed-quantity position from the scheduled entry to
     the horizon exit, and o = 1 iff it is > 0; None while any needed price or funding row is not known."""
-    total = 0.0
+    total, N = Fraction(0), exact(th["N"])
     for market, w in th["legs"]:
         bars, rates, cells = data["bars"].get(market, Bars()), data["funding"].get(market, {}), th["costs"][market]
         e, x = first_open(bars, th["t_r"] + DELTA, now), first_open(bars, th["T"], now)
         if e is None or x is None or e >= x:
             return None
-        q = w * th["N"] / bars[e][0]
-        pin, fin, _ = fill(bars[e][0], q, cells, th["fee"])
-        pout, fout, _ = fill(bars[x][0], -q, cells, th["fee"])
+        ref_in, ref_out = exact(bars[e][0]), exact(bars[x][0])
+        q = w * N / ref_in
+        pin, fin, _ = fill(ref_in, q, cells, th["fee"])
+        pout, fout, _ = fill(ref_out, -q, cells, th["fee"])
         total += q * (pout - pin) - fin - fout
+        paid = Fraction(0)
         for h in range(e + HOUR, x + 1, HOUR):
             if h not in rates:
                 return None
-            total -= q * rates[h] * mark(bars, h)
-    r = total / th["N"]
-    return {"R_net": r, "o": int(r > 0)}
+            paid += exact(rates[h]) * mark(bars, h)
+        total -= q * paid
+    r = total / N
+    return {"R_net": float(r), "o": int(r > 0)}
 
 
 class Account:
-    """One paper account: cash, open legs, risk reservations, and an independent PnL ledger."""
+    """One paper account: cash, open legs, risk reservations, and an independent PnL ledger, all exact."""
 
     def __init__(self, initial: float, data: Json) -> None:
-        self.initial, self.bars, self.lag = initial, data["bars"], data.get("lag", {})
-        self.cash: float = initial
-        self.realized = self.funding = self.fees = self.costs = 0.0
+        self.initial, self.bars, self.lag = exact(initial), data["bars"], data.get("lag", {})
+        self.cash = self.initial
+        self.realized = self.funding = self.fees = self.costs = Fraction(0)
         self.positions: dict[str, Json] = {}
-        self.last_reconciled: float | None = None
 
     def legs(self) -> list[Json]:
         return [l for p in self.positions.values() for l in p["legs"] if l["open"]]
 
-    def equity(self, t: int, available: bool = False) -> float:
-        """Marked at t; with `available`, only from prices a decision at t could see."""
-        return float(self.cash + sum(l["q"] * mark(self.bars[l["market"]], t, self.lag.get(l["market"], 0) if available else 0)
-                                     for l in self.legs()))
+    def equity(self, t: int) -> Fraction:
+        return self.cash + sum((l["q"] * mark(self.bars[l["market"]], t) for l in self.legs()), Fraction(0))
 
-    def sizing_equity(self, t: int) -> float:
-        """The latest reconciled equity available at t: at t, unless a missing funding row stopped it earlier."""
-        return self.equity(t, available=True) if self.last_reconciled is None else self.last_reconciled
+    def reconciled(self, t: int) -> Fraction:
+        unrealized = sum((l["q"] * (mark(self.bars[l["market"]], t) - l["ref"]) for l in self.legs()), Fraction(0))
+        return self.initial + self.realized + unrealized + self.funding - self.fees - self.costs
 
-    def reconciled(self, t: int) -> float:
-        unrealized = sum(l["q"] * (mark(self.bars[l["market"]], t) - l["ref"]) for l in self.legs())
-        return float(self.initial + self.realized + unrealized + self.funding - self.fees - self.costs)
+    def reserved(self) -> Fraction:
+        return sum((p["b"] for p in self.positions.values() if not p["closed"]), Fraction(0))
 
-    def reserved(self) -> float:
-        return float(sum(p["b"] for p in self.positions.values() if not p["closed"]))
+    def settles(self, h: int, known: int) -> bool:
+        """Whether hour h's references are available by `known` for every leg entered or due to enter by h."""
+        return all(h + self.lag.get(l["market"], 0) <= known for p in self.positions.values()
+                   if not p["closed"] and p["t_r"] + DELTA <= h for l in p["legs"] if l["exit"] is None)
 
-    def trade(self, leg: Json, ref: float, q: float) -> tuple[float, float]:
+    def trade(self, leg: Json, ref: Fraction, q: Fraction) -> tuple[Fraction, Fraction]:
         price, fee, cost = fill(ref, q, leg["costs"], leg["fee"])
         self.cash -= q * price + fee
         self.fees += fee
@@ -117,28 +124,34 @@ class Account:
         return price, fee
 
 
-def replay(initial: float, theses: list[Json], exits: list[Json], data: Json, now: int) -> tuple[Account, dict[str, Json], list[tuple[int, float, float]], list[list[Any]]]:
+def replay(initial: float, theses: list[Json], exits: list[Json], data: Json, now: int) -> tuple[Account, dict[str, Json], list[tuple[int, Fraction, Fraction]], list[list[Any]]]:
     """Replay one account's `theses` (in commit order, with their registered sizes) and discretionary `exits` up to
-    `now`: the account, each thesis's state, the hourly equity up to the first funding row an open leg lacked, and every
-    [hour, market] row lacked (a position that lacked one has no managed return)."""
+    `now`: the account, each thesis's state, the hourly equity after each reconciled hour, up to the first hour whose
+    reference is not yet available or whose funding row an open leg lacks, and every [hour, market] row lacked (a position
+    that lacked one has no managed return). `data["cutoff"]`, if given, is when its prices and rows were read: an hour's
+    reference is not established missing by data read before it was due."""
     acct, bars, funding = Account(initial, data), data["bars"], data["funding"]
-    out = {t["id"]: {"N": t["N"], "size": t["size"], "entry": None, "exit": None, "managed_return": None, "outcome": None}
-           for t in theses}
+    known = min(now, data.get("cutoff", now))
+    out = {t["id"]: {"N": float(exact(t["N"])), "size": float(exact(t["size"])), "entry": None, "exit": None,
+                     "managed_return": None, "outcome": None} for t in theses}
     exit_at = {e["id"]: e["t_x"] + DELTA for e in reversed(exits)}
     queue = sorted(theses, key=lambda t: t["t_r"])
-    equity: list[tuple[int, float, float]] = []
+    equity: list[tuple[int, Fraction, Fraction]] = []
     missing: list[list[Any]] = []
+    reconciling = True
     h = min((t["t_r"] for t in theses), default=now + 1) // HOUR * HOUR
     while h <= now:
-        if acct.last_reconciled is None and any(h not in funding.get(l["market"], {}) for l in acct.legs()):
-            acct.last_reconciled = acct.equity(h, available=True)
+        reconciling = reconciling and acct.settles(h, known)
         for l in acct.legs():
+            if h + acct.lag.get(l["market"], 0) > known:
+                continue
             rate = funding.get(l["market"], {}).get(h)
             if rate is None:
+                reconciling = False
                 missing.append([h, l["market"]])
                 acct.positions[l["id"]]["complete"] = False
                 continue
-            paid = l["q"] * rate * mark(bars[l["market"]], h)
+            paid = l["q"] * exact(rate) * mark(bars[l["market"]], h)
             acct.cash -= paid
             acct.funding -= paid
             acct.positions[l["id"]]["pnl"] -= paid
@@ -148,39 +161,41 @@ def replay(initial: float, theses: list[Json], exits: list[Json], data: Json, no
                 continue
             for l in p["legs"]:
                 if l["open"] and h in bars[l["market"]]:
-                    ref = bars[l["market"]][h][0]
+                    ref = exact(bars[l["market"]][h][0])
                     price, fee = acct.trade(l, ref, -l["q"])
                     acct.realized += l["q"] * (ref - l["ref"])
                     p["pnl"] += l["q"] * (price - l["fill"]) - fee
-                    l["open"], l["exit"] = False, {"t": h, "ref": ref, "fill": price}
+                    l["open"], l["exit"] = False, {"t": h, "ref": float(ref), "fill": float(price)}
             if not any(l["open"] for l in p["legs"]):
                 p["closed"] = True
                 exited = [l for l in p["legs"] if l["exit"]]
                 out[tid]["exit"] = {"t": max((l["exit"]["t"] for l in exited), default=h), "reason": reason,
                                     "legs": [{"market": l["market"], "ref": l["exit"]["ref"], "fill": l["exit"]["fill"]}
                                              for l in exited]}
-                out[tid]["managed_return"] = p["pnl"] / p["N"] if p["complete"] and p["entry"] else None
+                out[tid]["managed_return"] = float(p["pnl"] / p["N"]) if p["complete"] and p["entry"] else None
         for tid, p in acct.positions.items():
             for l in p["legs"]:
                 if l["ref"] is None and p["t_r"] + DELTA <= h < min(p["triggers"].values()) and h in bars[l["market"]]:
-                    ref = bars[l["market"]][h][0]
+                    ref = exact(bars[l["market"]][h][0])
                     l["ref"], l["q"] = ref, l["w"] * p["N"] / ref
                     l["fill"], fee = acct.trade(l, ref, l["q"])
                     p["pnl"] -= fee
                     l["open"], l["t"] = True, h
             if p["entry"] is None and all(l["ref"] is not None for l in p["legs"]):
                 p["entry"] = out[tid]["entry"] = {"t": max(l["t"] for l in p["legs"]), "legs": [
-                    {"market": l["market"], "ref": l["ref"], "fill": l["fill"], "q": l["q"]} for l in p["legs"]]}
+                    {"market": l["market"], "ref": float(l["ref"]), "fill": float(l["fill"]), "q": float(l["q"])} for l in p["legs"]]}
+        if reconciling:
+            equity.append((h, acct.equity(h), acct.reconciled(h)))
         while queue and queue[0]["t_r"] < h + HOUR and queue[0]["t_r"] <= now:
             th = queue.pop(0)
-            if th["size"] > 0:
+            if exact(th["size"]) > 0:
                 triggers = {"horizon": th["T"]}
                 if th["id"] in exit_at:
                     triggers["discretionary"] = exit_at[th["id"]]
                 acct.positions[th["id"]] = {
-                    "t_r": th["t_r"], "N": th["size"], "b": th["b"], "L": th["L"], "pnl": 0.0, "entry": None,
+                    "t_r": th["t_r"], "N": exact(th["size"]), "b": exact(th["b"]), "L": exact(th["L"]), "pnl": Fraction(0), "entry": None,
                     "closed": False, "complete": True, "triggers": triggers,
-                    "legs": [{"id": th["id"], "market": m, "w": w, "ref": None, "q": 0.0, "open": False, "exit": None,
+                    "legs": [{"id": th["id"], "market": m, "w": w, "ref": None, "q": Fraction(0), "open": False, "exit": None,
                               "costs": th["costs"][m], "fee": th["fee"]} for m, w in th["legs"]]}
         close = h + HOUR
         if close <= now:
@@ -189,10 +204,8 @@ def replay(initial: float, theses: list[Json], exits: list[Json], data: Json, no
                     seen = close + max(acct.lag.get(l["market"], 0) for l in p["legs"])
                     closes = [bars[l["market"]].get(h, (None, None))[1] for l in p["legs"]]
                     if seen <= now and None not in closes and sum(
-                            l["w"] * (c / l["ref"] - 1) for l, c in zip(p["legs"], closes)) <= -p["L"] * (1 - ROUNDING):
+                            (l["w"] * (exact(c) / l["ref"] - 1) for l, c in zip(p["legs"], closes)), Fraction(0)) <= -p["L"]:
                         p["triggers"]["invalidation"] = max(close + DELTA, seen)
-            if acct.last_reconciled is None:
-                equity.append((close, acct.equity(close), acct.reconciled(close)))
         h += HOUR
     for th in theses:
         out[th["id"]]["outcome"] = outcome(th, data, now)
@@ -201,15 +214,16 @@ def replay(initial: float, theses: list[Json], exits: list[Json], data: Json, no
 
 def run(initial: float, theses: list[Json], exits: list[Json], data: Json, now: int) -> Json:
     _, out, equity, missing = replay(initial, theses, exits, data, now)
-    return {"theses": out, "equity": equity, "missing_funding": missing}
+    return {"theses": out, "equity": [(t, float(e), float(r)) for t, e, r in equity], "missing_funding": missing}
 
 
-def admit(initial: float, theses: list[Json], exits: list[Json], data: Json, t_r: int, L: float) -> Json:
-    """The sizing of a thesis committed at t_r after `theses`: b = RISK times the latest reconciled equity and N = b / L; size N and reservation b if the open positions' reservations plus b stay within CAP of that equity,
+def admit(initial: float, theses: list[Json], exits: list[Json], data: Json, t_r: int, L: float) -> dict[str, Fraction]:
+    """The exact sizing of a thesis committed at t_r after `theses`: E_r is the equity of the latest reconciled hour, b = RISK
+    times it and N = b / L; size N and reservation b if the open positions' reservations plus b stay within CAP of it,
     else size 0 with N kept as its hypothetical notional (from the initial equity when equity is not positive)."""
-    acct = replay(initial, theses, exits, data, t_r)[0]
-    e_r = acct.sizing_equity(t_r)
-    b = RISK * e_r
-    if e_r > 0 and acct.reserved() + b <= CAP * e_r * (1 + ROUNDING):
-        return {"N": b / L, "size": b / L, "b": b}
-    return {"N": b / L if e_r > 0 else RISK * initial / L, "size": 0, "b": 0.0}
+    acct, _, equity, _ = replay(initial, theses, exits, data, t_r)
+    e_r = equity[-1][1] if equity else exact(initial)
+    b, loss = RISK * e_r, exact(L)
+    if e_r > 0 and acct.reserved() + b <= CAP * e_r:
+        return {"N": b / loss, "size": b / loss, "b": b}
+    return {"N": b / loss if e_r > 0 else RISK * exact(initial) / loss, "size": Fraction(0), "b": Fraction(0)}

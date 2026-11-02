@@ -61,8 +61,8 @@ def test_no_time_or_derived_field_can_be_supplied(ledger, extra):
 
 def test_a_registered_thesis_is_canonical_append_only_and_idempotent(ledger):
     th, errors = register(ledger, request())
-    assert errors is None and th["t_r"] == T_R and th["id"] == "main-1" and th["N"] == 1000 and th["size"] == 1000
-    assert th["b"] == 100 and th["costs"] == {"X": ZERO} and th["fee"] == 0.0 and th["fallback_costs"] == []
+    assert errors is None and th["t_r"] == T_R and th["id"] == "main-1" and th["N"] == "1000" and th["size"] == "1000"
+    assert th["b"] == "100" and th["costs"] == {"X": ZERO} and th["fee"] == 0.0 and th["fallback_costs"] == []
     assert th["base_windows"] >= 10 and th["p_ref"] == (th["base_positive"] + 1) / (th["base_windows"] + 2)
     (lid, created, content), = ledger.records("thesis", "main")
     db = sqlite3.connect(ledger.path)
@@ -81,8 +81,8 @@ def test_a_registered_thesis_is_canonical_append_only_and_idempotent(ledger):
 
 def test_admission_follows_commit_order_at_the_cap(ledger):
     sizes = [register(ledger, request(request_id=f"r{i}"))[0]["size"] for i in range(6)]
-    assert sizes == [1000] * 5 + [0]
-    assert register(ledger, request(request_id="other"), account="noread")[0]["size"] == 1000
+    assert sizes == ["1000"] * 5 + ["0"]
+    assert register(ledger, request(request_id="other"), account="noread")[0]["size"] == "1000"
 
 
 def test_concurrent_registrations_commit_in_clock_order_and_reserve_exactly(ledger):
@@ -98,4 +98,4 @@ def test_concurrent_registrations_commit_in_clock_order_and_reserve_exactly(ledg
     theses = ledger.theses("main")
     assert [th["id"] for th in theses] == [f"main-{i}" for i in range(1, 9)]
     assert [th["t_r"] for th in theses] == sorted(th["t_r"] for th in theses)
-    assert [th["size"] for th in theses] == [1000] * 5 + [0] * 3
+    assert [th["size"] for th in theses] == ["1000"] * 5 + ["0"] * 3

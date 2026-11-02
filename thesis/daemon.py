@@ -15,7 +15,7 @@ from typing import Any
 from ingest.live import now_ms
 from sandbox.server import Server
 from thesis import registry
-from thesis.positions import Json
+from thesis.positions import Json, exact
 
 SPEC = {"usage": "usage: ./thesis-agent markets | prices MARKET | fetch URL | register FILE | positions | exit ID REASON"
                  " | forecast P",
@@ -80,7 +80,7 @@ class Daemon:
             return {"ok": False, "errors": errors}
         if th["session"] == self.session:
             self.registered.add(th["id"])
-        return {"ok": True, "thesis": th}
+        return {"ok": True, "thesis": th | {k: float(exact(th[k])) for k in ("N", "size", "b")}}
 
     def open_positions(self, args: list[str]) -> Json:
         return {"ok": True, **self.positions(self.account, self.clock())}

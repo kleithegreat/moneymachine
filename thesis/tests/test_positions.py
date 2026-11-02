@@ -246,12 +246,12 @@ def test_a_missing_funding_hour_leaves_the_outcome_and_the_managed_return_unreso
 # GPT's bug hunt (audit/reviews/2026-11-02-gpt-hunt-thesis.md), findings 1, 2 and 7.
 def test_a_missing_funding_hour_sizes_later_theses_from_the_equity_reconciled_before_it():
     # a: q = 10 at 100 from 11h. The 30h row is missing and X is 110 from 31h, so the account can be reconciled only up
-    # to 30h, at $10,000: b registers on that (N = 1000), never on the unreconciled 10,100.
+    # to 29h, at $10,000: b registers on that (N = 1000), never on the unreconciled 10,100.
     bars = {"X": flat(100, **{f"h{h}": (110.0, 110.0) for h in range(31, 200)})}
     theses = [thesis("a", 10 * H + 30 * MIN, [["X", 1]]), thesis("b", 50 * H + 30 * MIN, [["X", 1]], T=120)]
     out = run(theses, bars, funding={"X": {30 * H: None}})
     assert out["theses"]["b"]["N"] == 1000
-    assert out["equity"][-1][0] == 30 * H
+    assert out["equity"][-1][0] == 29 * H
 
 
 def test_a_funding_row_that_arrives_later_reconciles_the_account_but_never_resizes():
@@ -339,10 +339,11 @@ def test_a_discretionary_exit_before_the_entry_means_no_trade():
 
 
 # Found by the differential against GPT's exact arithmetic (audit/reviews/2026-11-02-thesis-bundle.md).
-@pytest.mark.parametrize("ref", [50.36, 3.33, 118.9, 0.07])
+@pytest.mark.parametrize("ref", ["50.36", "3.33", "118.9", "0.07"])
 def test_a_thousand_dollar_notional_takes_the_thousand_dollar_cell_whatever_the_rounding(ref):
     cells = {"buy": {"1000": 1.0, "10000": 8.0}, "sell": {"1000": 1.0, "10000": 8.0}}
-    assert positions.fill(ref, 1000 / ref, cells, 0.0)[0] == pytest.approx(ref * 1.0001, rel=1e-12)
+    ref = positions.exact(ref)
+    assert positions.fill(ref, 1000 / ref, cells, 0.0)[0] == ref * positions.exact("1.0001")
 
 
 def test_a_close_exactly_at_the_loss_invalidates_whatever_the_rounding():
@@ -350,3 +351,91 @@ def test_a_close_exactly_at_the_loss_invalidates_whatever_the_rounding():
     bars = {"X": flat(118.9, h12=(118.9, 130.79))}
     a = run([thesis("a", 10 * H + 30 * MIN, [["X", -1]], L=0.1)], bars, lag={"X": DELTA})["theses"]["a"]
     assert a["exit"]["reason"] == "invalidation" and a["exit"]["t"] == 14 * H
+
+
+# GPT's review of the bundle (audit/reviews/2026-11-02-gpt-thesis-fixes.md), F1 and F2: discrete decisions are exact.
+CELLS = {"buy": {"1000": 1, "10000": 8}, "sell": {"1000": 1, "10000": 8}}
+
+
+def held(N, entry, exit_, fee=0.00045, cells=CELLS, w=1):
+    """The outcome of a thesis of notional N entering at the 11h open `entry` and leaving at the 96h open `exit_`."""
+    bars = positions.Bars({11 * H: (entry, entry), 96 * H: (exit_, exit_)})
+    th = {"legs": [["X", w]], "t_r": 10 * H, "T": 96 * H, "N": N, "fee": fee, "costs": {"X": cells}}
+    return positions.outcome(th, {"bars": {"X": bars}, "funding": {"X": {h * H: 0.0 for h in range(200)}}}, 200 * H)
+
+
+def test_a_notional_just_above_a_thousand_dollars_takes_the_dearer_cell():
+    out = held(1000.0000000005, 100.0, 100.2)
+    assert out["o"] == 0 and out["R_net"] == pytest.approx(-0.00050249928, abs=1e-10)
+
+
+def test_a_loss_just_short_of_L_does_not_invalidate():
+    a = run([thesis("a", 10 * H + 30 * MIN, [["X", -1]], L=0.10000000000005)], {"X": flat(100, h12=(100, 110))},
+            lag={"X": DELTA})["theses"]["a"]
+    assert a["exit"]["reason"] == "horizon"
+
+
+def test_a_return_of_exactly_zero_with_a_fee_and_one_leg_has_outcome_zero():
+    assert held(500, 99.9450045, 100.0550045) == {"R_net": 0.0, "o": 0}
+
+
+def test_five_reservations_of_an_equity_no_float_can_hold_fit_the_cap_exactly():
+    # A first position closes at a loss that leaves E_r a repeating decimal; five theses in one instant then reach exactly 5%.
+    first = thesis("first", 1 * H + 30 * MIN, [["X", 1]], L=0.1, T=96)
+    bars = {"X": flat(7, h97=(9, 9), **{f"h{h}": (9, 9) for h in range(98, 200)}), "Y": flat(100)}
+    theses = [first] + [thesis(f"t{i}", 100 * H + 30 * MIN, [["Y", 1]], T=196) for i in range(6)]
+    out = run(theses, bars)["theses"]
+    assert [out[f"t{i}"]["size"] > 0 for i in range(6)] == [True] * 5 + [False]
+
+
+# F3: an hour's reference not yet available is not yet missing; sizing waits for that hour's reconciliation.
+SEAL = 5 * MIN
+
+
+def lagging(funding_at_30=0.001, market="xyz:C", lag=SEAL, price_30=100.0):
+    """A position of q = 10 from the 11h open (100) in `market`, with bars and funding as known just after the 30h boundary."""
+    th = thesis("a", 10 * H + 30 * MIN, [[market, 1]]) | {"T": 96 * H, "fee": 0.0, "costs": {market: ZERO_COSTS}}
+    th |= {"N": 1000.0, "size": 1000.0, "b": 100.0}
+    rates = {h * H: 0.0 for h in range(30)} | {30 * H: funding_at_30}
+
+    def data(t):
+        bars = {h * H: (100.0, 100.0) for h in range(11, 30)} | ({30 * H: (price_30, None)} if t >= 30 * H + lag else {})
+        return {"bars": {market: positions.Bars(bars)}, "funding": {market: rates}, "lag": {market: lag}}
+    return th, data
+
+
+@pytest.mark.parametrize("market,lag", [("xyz:C", SEAL), ("BTC", DELTA)])
+def test_sizing_inside_an_hours_lag_waits_for_its_reference(market, lag):
+    th, data = lagging(market=market, lag=lag)
+    just_before = 30 * H + lag - 1
+    assert positions.admit(10_000.0, [th], [], data(just_before), just_before, 0.1)["N"] == 1000
+
+
+@pytest.mark.parametrize("market,lag", [("xyz:C", SEAL), ("BTC", DELTA)])
+def test_sizing_at_the_end_of_an_hours_lag_counts_its_funding(market, lag):
+    th, data = lagging(market=market, lag=lag)
+    at = 30 * H + lag
+    assert positions.admit(10_000.0, [th], [], data(at), at, 0.1)["N"] == positions.exact("999.9")
+
+
+def test_an_hour_reconciles_only_when_every_open_legs_reference_is_available():
+    th = thesis("a", 10 * H + 30 * MIN, [["BTC", 1], ["xyz:C", -1]]) | {"fee": 0.0, "costs": {"BTC": ZERO_COSTS, "xyz:C": ZERO_COSTS}}
+    th |= {"N": 1000.0, "size": 1000.0, "b": 100.0}
+    t = 30 * H + DELTA + MIN
+    data = {"bars": {"BTC": positions.Bars({h * H: (100.0, 100.0) for h in range(11, 30)} | {30 * H: (110.0, None)}),
+                     "xyz:C": positions.Bars({h * H: (100.0, 100.0) for h in range(11, 30)})},
+            "funding": {m: {h * H: 0.0 for h in range(31)} for m in ("BTC", "xyz:C")}, "lag": {"BTC": DELTA, "xyz:C": SEAL}}
+    assert positions.admit(10_000.0, [th], [], data, t, 0.1)["N"] == 1000
+
+
+def test_a_reference_established_missing_still_reconciles_the_hour_on_the_earlier_close():
+    th, data = lagging(lag=DELTA, market="BTC")
+    without = data(30 * H)
+    at = 30 * H + DELTA
+    assert positions.admit(10_000.0, [th], [], without, at, 0.1)["N"] == positions.exact("999.9")
+
+
+def test_data_fetched_before_a_boundary_never_reconciles_an_hour_past_its_cutoff():
+    th, data = lagging(lag=DELTA, market="BTC")
+    fetched = data(30 * H) | {"cutoff": 30 * H + DELTA - 1}
+    assert positions.admit(10_000.0, [th], [], fetched, 30 * H + 10 * DELTA, 0.1)["N"] == 1000

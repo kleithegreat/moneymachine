@@ -107,7 +107,7 @@ class Scenario:
     def ours_thesis(self, r, sized):
         return {"id": r["id"], "t_r": r["t_r"] * 1000, "legs": r["legs"], "T": r["T"] * 1000, "L": r["L"], "p": r["p"],
                 "fee": self.fee, "costs": {m: {"buy": self.cells[m], "sell": self.cells[m]} for m, _ in r["legs"]},
-                "N": float(sized["N"]), "size": float(sized["size"]), "b": float(sized["b"])}
+                "N": sized["N"], "size": sized["size"], "b": sized["b"]}
 
     def gpt_thesis(self, r, sized):
         return {"id": r["id"], "t_r": r["t_r"], "T": r["T"], "L": r["L"], "p": r["p"], "N": sized["N"], "size": sized["size"],
@@ -147,6 +147,7 @@ def compare(s, seen=None):
         theirs.append(s.gpt_thesis(r, sized))
     now = s.t_end + HOUR + WINDOW
     acct, out, equity, _ = positions.replay(10_000.0, ours, s.ours_exits(now), s.ours_data(now), now * 1000)
+    latest = equity[-1][1] if equity else 10_000
     report = gpt.replay(initial, theirs, s.gpt_exits(), s.gpt_data(), now)
     for th in report["theses"]:
         i, mine = th["id"], out[th["id"]]
@@ -181,8 +182,8 @@ def compare(s, seen=None):
             if mine["exit"]["reason"] != reason:
                 diffs.append(("reason", i, mine["exit"]["reason"], reason))
     theirs_eq = report["account"]["latest_reconciled"]
-    if not close(acct.sizing_equity(now * 1000), theirs_eq["equity"]):
-        diffs.append(("equity", acct.sizing_equity(now * 1000), theirs_eq["time"], float(theirs_eq["equity"])))
+    if not close(latest, theirs_eq["equity"]):
+        diffs.append(("equity", float(latest), theirs_eq["time"], float(theirs_eq["equity"])))
     return diffs
 
 
