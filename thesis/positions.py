@@ -17,6 +17,7 @@ reference open adversely by the coin's cost cell ("1000" if |q| * ref <= 1000, e
 Money is exact, so every boundary is the frozen one, with no tolerance.
 """
 
+import sys
 from bisect import bisect_left, bisect_right
 from fractions import Fraction
 from functools import lru_cache
@@ -27,6 +28,7 @@ from ingest.policy import DELTA, HOUR
 Json = dict[str, Any]
 RISK, CAP = Fraction(1, 100), Fraction(1, 20)
 PRECEDENCE = ("invalidation", "discretionary", "horizon")
+sys.set_int_max_str_digits(0)  # exact money's text grows with every trade; the default limit guards only untrusted input
 
 
 @lru_cache(maxsize=1 << 20)

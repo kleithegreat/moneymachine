@@ -6,6 +6,7 @@ import json
 import math
 import sqlite3
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +14,7 @@ from gate import kernel
 from ingest.policy import DAY, HOUR
 from thesis import positions, registry
 
+REPO = Path(__file__).resolve().parents[2]
 T_R = 400 * DAY + 10 * HOUR
 LISTINGS = {"X": False, "Y": True, "Z": False, "W": False}
 DAYS = {"X": range(200, 400), "W": range(200, 400), "Z": range(350, 400)}
@@ -115,3 +117,24 @@ def test_a_thesis_records_what_sized_it(ledger):
     second, _ = register(ledger, request(request_id="r2"), t_r=T_R + 3 * HOUR)
     assert (first["cutoff"], first["E_r"], first["reserved"]) == (T_R, "10000", "0")
     assert (second["cutoff"], second["E_r"], second["reserved"], second["reconciled_hour"]) == (T_R, "10000", "100", T_R)
+
+
+def test_exact_money_survives_the_ledger_round_trip_over_a_long_track(ledger):
+    """B3: sequential BTC theses at the frozen costs, each closing before the next registers, at an unchanged price. Each
+    trade multiplies equity by a rational of 26 digits, so N's text passes Python's 4300-digit default near trade 168."""
+    cells = json.loads((REPO / "venue/hyperliquid/execution.json").read_text())["cost_bps_ex_fee"]["BTC"]
+    span, start, n = 4 * DAY, 400 * DAY, 175
+    hours = range(start // HOUR, (start + n * span) // HOUR + 48)
+    data = {"bars": {"BTC": positions.Bars({h * HOUR: (100.0, 100.0) for h in hours})},
+            "funding": {"BTC": {h * HOUR: 0.0 for h in hours}}, "lag": {"BTC": 0}, "listed": lambda markets: {"BTC": False},
+            "daily": {"BTC": positions.Bars({t * DAY: (100.0, 100.0) for t in range(200, start // DAY + n * 4)})}}
+    config = {"initial": 10_000.0, "fee": 0.00045, "costs": {"BTC": cells}, "fallback": []}
+    for k in range(n):
+        t_r = start + k * span + HOUR
+        th, errors = registry.register(ledger, "main", "s1", request(request_id=f"r{k}", legs=[["BTC", 1]], T=t_r - HOUR + span,
+                                                                      sources=[]), lambda: t_r, set(), config, data | {"cutoff": t_r})
+        assert errors is None and th["size"] == th["N"]
+    theses = ledger.theses("main")
+    F = positions.exact(theses[1]["E_r"]) / 10_000
+    assert len(theses[-1]["N"]) > 2 * 4300 and all(positions.exact(th["E_r"]) == 10_000 * F ** k for k, th in enumerate(theses))
+    assert positions.admit(10_000.0, theses, [], data, start + n * span + HOUR, 0.1)["E_r"] == 10_000 * F ** n
