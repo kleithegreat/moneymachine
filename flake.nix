@@ -28,6 +28,7 @@
         certifi
         lz4
         pytest
+        mypy
         pytest-xdist
         pytest-timeout
         hypothesis

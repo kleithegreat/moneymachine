@@ -8,10 +8,12 @@ the only place they are decided.
 
 Data: `bars[market]` is the Bars {openTime: (open, close)} of 1h bars, where a close may be None (a builder market's next
 mark is missing); `funding[market]` is {hour: rate}, one row per settled hour, where a missing row is missing data,
-never a zero rate; `lag[market]` is how long after a price's time it becomes available to a decision (δ for
-candles, the mark seal for builder markets). Fills use a bar's open at its openTime; sizing and invalidation use
-only prices available by then. At an hour, funding settles first, then exits, then entries. Fills move the
-reference open adversely by the coin's cost cell ("1000" if |q| * ref <= 1000, else "10000") and pay the taker fee.
+never a zero rate, and ends the account's reconciled equity until it arrives; `lag[market]` is how long after a
+price's time it becomes available to a decision (δ for candles, the mark seal for builder markets). Fills use a bar's
+open at its openTime; sizing uses only prices available by then; invalidation uses only the closes of the bar just
+ended. At an hour, funding settles first, then exits, then entries, and a leg not entered by its exit never enters.
+Fills move the reference open adversely by the coin's cost cell ("1000" if |q| * ref <= 1000, else "10000") and pay
+the taker fee.
 """
 
 from bisect import bisect_left, bisect_right
@@ -83,6 +85,7 @@ class Account:
         self.cash = initial
         self.realized = self.funding = self.fees = self.costs = 0.0
         self.positions = {}
+        self.last_reconciled = None
 
     def legs(self):
         return [l for p in self.positions.values() for l in p["legs"] if l["open"]]
@@ -91,6 +94,10 @@ class Account:
         """Marked at t; with `available`, only from prices a decision at t could see."""
         return self.cash + sum(l["q"] * mark(self.bars[l["market"]], t, self.lag.get(l["market"], 0) if available else 0)
                                for l in self.legs())
+
+    def sizing_equity(self, t):
+        """The latest reconciled equity available at t: at t, unless a missing funding row stopped it earlier."""
+        return self.equity(t, available=True) if self.last_reconciled is None else self.last_reconciled
 
     def reconciled(self, t):
         unrealized = sum(l["q"] * (mark(self.bars[l["market"]], t) - l["ref"]) for l in self.legs())
@@ -109,16 +116,18 @@ class Account:
 
 def replay(initial, theses, exits, data, now):
     """Replay one account's `theses` (in commit order, with their registered sizes) and discretionary `exits` up to
-    `now`: the account, each thesis's state, the hourly equity, and the [hour, market] funding rows an open leg
-    lacked (a position that lacked one has no managed return)."""
+    `now`: the account, each thesis's state, the hourly equity up to the first funding row an open leg lacked, and every
+    [hour, market] row lacked (a position that lacked one has no managed return)."""
     acct, bars, funding = Account(initial, data), data["bars"], data["funding"]
     out = {t["id"]: {"N": t["N"], "size": t["size"], "entry": None, "exit": None, "managed_return": None, "outcome": None}
            for t in theses}
-    exit_at = {e["id"]: e["t_x"] + DELTA for e in exits}
+    exit_at = {e["id"]: e["t_x"] + DELTA for e in reversed(exits)}
     queue = sorted(theses, key=lambda t: t["t_r"])
     equity, missing = [], []
     h = min((t["t_r"] for t in theses), default=now + 1) // HOUR * HOUR
     while h <= now:
+        if acct.last_reconciled is None and any(h not in funding.get(l["market"], {}) for l in acct.legs()):
+            acct.last_reconciled = acct.equity(h, available=True)
         for l in acct.legs():
             rate = funding.get(l["market"], {}).get(h)
             if rate is None:
@@ -130,24 +139,26 @@ def replay(initial, theses, exits, data, now):
             acct.funding -= paid
             acct.positions[l["id"]]["pnl"] -= paid
         for tid, p in acct.positions.items():
-            if p["closed"] or p["entry"] is None:
-                continue
             when, reason = min(p["triggers"].items(), key=lambda kv: (kv[1], kv[0]))[::-1]
+            if p["closed"] or h < when:
+                continue
             for l in p["legs"]:
-                if l["open"] and h >= when and h in bars[l["market"]]:
+                if l["open"] and h in bars[l["market"]]:
                     ref = bars[l["market"]][h][0]
                     price, fee = acct.trade(l, ref, -l["q"])
                     acct.realized += l["q"] * (ref - l["ref"])
                     p["pnl"] += l["q"] * (price - l["fill"]) - fee
                     l["open"], l["exit"] = False, {"t": h, "ref": ref, "fill": price}
-            if all(l["exit"] for l in p["legs"]):
+            if not any(l["open"] for l in p["legs"]):
                 p["closed"] = True
-                out[tid]["exit"] = {"t": max(l["exit"]["t"] for l in p["legs"]), "reason": reason,
-                                    "legs": [{"ref": l["exit"]["ref"], "fill": l["exit"]["fill"]} for l in p["legs"]]}
-                out[tid]["managed_return"] = p["pnl"] / p["N"] if p["complete"] else None
+                exited = [l for l in p["legs"] if l["exit"]]
+                out[tid]["exit"] = {"t": max((l["exit"]["t"] for l in exited), default=h), "reason": reason,
+                                    "legs": [{"market": l["market"], "ref": l["exit"]["ref"], "fill": l["exit"]["fill"]}
+                                             for l in exited]}
+                out[tid]["managed_return"] = p["pnl"] / p["N"] if p["complete"] and p["entry"] else None
         for tid, p in acct.positions.items():
             for l in p["legs"]:
-                if l["ref"] is None and h >= p["t_r"] + DELTA and h in bars[l["market"]]:
+                if l["ref"] is None and p["t_r"] + DELTA <= h < min(p["triggers"].values()) and h in bars[l["market"]]:
                     l["ref"] = bars[l["market"]][h][0]
                     l["q"] = l["w"] * p["N"] / l["ref"]
                     l["fill"], fee = acct.trade(l, l["ref"], l["q"])
@@ -172,13 +183,12 @@ def replay(initial, theses, exits, data, now):
             for p in acct.positions.values():
                 if not p["closed"] and p["entry"] is not None and "invalidation" not in p["triggers"]:
                     seen = close + max(acct.lag.get(l["market"], 0) for l in p["legs"])
-                    if seen > now:
-                        continue
-                    r = sum(l["w"] * (mark(bars[l["market"]], seen, acct.lag.get(l["market"], 0)) / l["ref"] - 1)
-                            for l in p["legs"])
-                    if r <= -p["L"]:
+                    closes = [bars[l["market"]].get(h, (None, None))[1] for l in p["legs"]]
+                    if seen <= now and None not in closes and sum(
+                            l["w"] * (c / l["ref"] - 1) for l, c in zip(p["legs"], closes)) <= -p["L"]:
                         p["triggers"]["invalidation"] = max(close + DELTA, seen)
-            equity.append((close, acct.equity(close), acct.reconciled(close)))
+            if acct.last_reconciled is None:
+                equity.append((close, acct.equity(close), acct.reconciled(close)))
         h += HOUR
     for th in theses:
         out[th["id"]]["outcome"] = outcome(th, data, now)
@@ -191,11 +201,10 @@ def run(initial, theses, exits, data, now):
 
 
 def admit(initial, theses, exits, data, t_r, L):
-    """The sizing of a thesis committed at t_r after `theses`: b = RISK times the equity available at t_r and
-    N = b / L; size N and reservation b if the open positions' reservations plus b stay within CAP of that equity,
+    """The sizing of a thesis committed at t_r after `theses`: b = RISK times the latest reconciled equity and N = b / L; size N and reservation b if the open positions' reservations plus b stay within CAP of that equity,
     else size 0 with N kept as its hypothetical notional (from the initial equity when equity is not positive)."""
     acct = replay(initial, theses, exits, data, t_r)[0]
-    e_r = acct.equity(t_r, available=True)
+    e_r = acct.sizing_equity(t_r)
     b = RISK * e_r
     if e_r > 0 and acct.reserved() + b <= CAP * e_r * (1 + 1e-12):
         return {"N": b / L, "size": b / L, "b": b}

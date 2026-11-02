@@ -1,6 +1,10 @@
 """The data layer fetches only feeds whose hosts have certified terms, and keeps every body with its poll times."""
 
 import json
+import signal
+import subprocess
+import sys
+import time
 
 import httpx
 import pytest
@@ -71,3 +75,54 @@ def test_a_credential_is_sent_but_never_logged(tmp_path):
 def test_secrets_reads_name_value_lines(tmp_path):
     (tmp_path / "k.env").write_text("# keys\nA=1\n\nB=x=y\n")
     assert datalayer.secrets(tmp_path / "k.env") == {"A": "1", "B": "x=y"}
+
+
+# GPT's bug hunt (audit/reviews/2026-11-02-gpt-hunt-recorders.md), findings 1 and 2.
+BODY = b"".join(bytes([i % 251, i % 241]) * 7 + i.to_bytes(4, "big") for i in range(200_000))
+FETCH = """
+import hashlib, resource, signal, sys
+import httpx
+from ingest import datalayer
+from ingest.tests.test_datalayer import BODY
+out, limit = sys.argv[1], int(sys.argv[2])
+http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=BODY)))
+feed = {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}
+if limit:
+    signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+    resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
+while True:
+    try:
+        datalayer.poll(http, feed, out)
+    except OSError:
+        sys.exit(3)
+"""
+
+
+def fetch_again(out):
+    http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=BODY)))
+    return datalayer.poll(http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}, out)
+
+
+def test_a_body_write_that_fails_leaves_nothing_a_later_poll_of_the_same_body_reuses(tmp_path):
+    assert subprocess.run([sys.executable, "-c", FETCH, str(tmp_path), "4096"]).returncode == 3
+    assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
+
+
+def test_a_recorder_killed_while_writing_a_body_leaves_every_logged_body_readable(tmp_path):
+    child = subprocess.Popen([sys.executable, "-c", FETCH, str(tmp_path), "0"])
+    raw = tmp_path / "raw"
+    while not raw.exists():
+        time.sleep(0.0005)
+    child.send_signal(signal.SIGKILL)
+    child.wait()
+    rec = fetch_again(tmp_path)
+    assert datalayer.body(tmp_path, rec["sha256"]) == BODY
+    assert all(datalayer.body(tmp_path, p["sha256"]) == BODY for p in live.read(tmp_path, "datalayer"))
+
+
+def test_a_torn_log_line_does_not_stop_a_restart(tmp_path):
+    rec = fetch_again(tmp_path)
+    log = next(tmp_path.glob("datalayer-*.jsonl"))
+    with open(log, "a") as f:
+        f.write('{"feed":"ecb-exr","sent":')
+    assert datalayer.last_polls(tmp_path) == {"ecb-exr": rec["sent"]}

@@ -19,7 +19,7 @@ DAYS = {"X": range(200, 400), "W": range(200, 400), "Z": range(350, 400)}
 ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
 CONFIG = {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO for m in LISTINGS}, "fallback": []}
 DATA = {"bars": {m: positions.Bars({h * HOUR: (100.0, 100.0) for h in range(9000, 9700)}) for m in LISTINGS},
-        "funding": {m: {h * HOUR: 0.0 for h in range(4800, 9700)} for m in LISTINGS},
+        "funding": {m: {h * HOUR: 0.0 for h in range(4800, 9700)} for m in LISTINGS}, "listings": LISTINGS,
         "daily": {m: positions.Bars({t * DAY: (100.0, 100.0) for t in DAYS.get(m, ())}) for m in LISTINGS}}
 
 
@@ -31,7 +31,7 @@ def request(**over):
 
 
 def register(ledger, req, t_r=T_R, account="main"):
-    return registry.register(ledger, account, "s1", req, lambda: t_r, LISTINGS, {"f1", "f2"}, CONFIG, DATA)
+    return registry.register(ledger, account, "s1", req, lambda: t_r, {"f1", "f2"}, CONFIG, DATA)
 
 
 @pytest.fixture
@@ -90,7 +90,7 @@ def test_concurrent_registrations_commit_in_clock_order_and_reserve_exactly(ledg
     ticks = iter(range(T_R, T_R + 100))
     clock = lambda: next(ticks)
     threads = [threading.Thread(target=registry.register, args=(ledger, "main", "s1", request(request_id=f"c{i}"), clock,
-                                                                LISTINGS, {"f1"}, CONFIG, DATA)) for i in range(8)]
+                                                                {"f1"}, CONFIG, DATA)) for i in range(8)]
     for t in threads:
         t.start()
     for t in threads:

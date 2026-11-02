@@ -113,11 +113,11 @@ def validate(request, t_r, listings, daily, disclosed):
     return errors
 
 
-def register(ledger, account, session, request, clock, listings, disclosed, config, data):
+def register(ledger, account, session, request, clock, disclosed, config, data):
     """Validate, size and commit one thesis. Under the ledger's lock, t_r is read from `clock`, then the thesis is
     sized (`positions.admit`), given its base rate and committed, so commit order is t_r order and slow inputs never
-    backdate it. `data` (bars, funding, lag, and the session's daily bars) is fetched before the call, so it holds
-    nothing later than t_r. What is fixed here is recorded with the thesis: N, size and b, the fee and cost cells,
+    backdate it. `data` (the markets' listings, bars, funding, lag, and the session's daily bars) is fetched before the
+    call, so it holds nothing later than t_r. What is fixed here is recorded with the thesis: N, size and b, the fee and cost cells,
     the cost fallbacks, and p_ref with its window counts. Returns (thesis, None) or (None, errors); a retry of a
     request id returns the original thesis."""
     with ledger.lock:
@@ -128,7 +128,7 @@ def register(ledger, account, session, request, clock, listings, disclosed, conf
                     same = canonical({k: th[k] for k in FIELDS}) == canonical(request)
                     return (th, None) if same else (None, ["request_id: already used with different content"])
         t_r = clock()
-        errors = validate(request, t_r, listings, data["daily"], disclosed)
+        errors = validate(request, t_r, data["listings"], data["daily"], disclosed)
         if errors:
             return None, errors
         markets = [m for m, _ in request["legs"]]

@@ -89,3 +89,88 @@ def test_builder_markets_take_their_hourly_bars_from_recorded_marks(tmp_path, mo
     assert m.bars("xyz:GOLD", "1h", 2 * H) == [[0, 2400.5, 2400.5], [H, 2400.5, None]]
     assert m.bars("xyz:XYZ100", "1h", 2 * H) == []
     assert (m.lag("xyz:GOLD"), m.lag("BTC")) == (market.MARK_WINDOW, market.DELTA)
+
+
+class Venue:
+    """A venue whose funding and candle rows come from `rows`, recording each request's start."""
+
+    def __init__(self, rows):
+        self.rows, self.starts = rows, []
+
+    def funding(self, market, start, end):
+        self.starts.append(start)
+        return [{"time": t, "fundingRate": str(r)} for t, r in self.rows if start <= t < end]
+
+    def candles(self, market, interval, start, end):
+        self.starts.append(start)
+        return [{"t": t, "o": str(r), "c": str(r)} for t, r in self.rows if start <= t < end]
+
+
+def test_a_funding_row_the_venue_supplies_late_fills_its_hole(tmp_path):
+    x = Venue([(H, 0.1), (3 * H, 0.3)])
+    m = market.Market(tmp_path, x)
+    assert m.funding("X", 4 * H) == [[H, 0.1], [3 * H, 0.3]]
+    x.rows = [(H, 0.1), (2 * H, 0.2), (3 * H, 0.3)]
+    assert m.funding("X", 4 * H) == [[H, 0.1], [2 * H, 0.2], [3 * H, 0.3]]
+
+
+def test_a_candle_the_venue_supplies_late_fills_its_hole(tmp_path):
+    x = Venue([(H, 1.0), (3 * H, 3.0)])
+    m = market.Market(tmp_path, x)
+    assert m.bars("X", "1h", 5 * H) == [[H, 1.0, 1.0], [3 * H, 3.0, 3.0]]
+    x.rows = [(H, 1.0), (2 * H, 2.0), (3 * H, 3.0)]
+    assert m.bars("X", "1h", 5 * H) == [[H, 1.0, 1.0], [2 * H, 2.0, 2.0], [3 * H, 3.0, 3.0]]
+
+
+def test_a_cached_row_is_never_rewritten(tmp_path):
+    x = Venue([(H, 0.1), (3 * H, 0.3)])
+    m = market.Market(tmp_path, x)
+    m.funding("X", 4 * H)
+    x.rows = [(H, 0.9), (2 * H, 0.2), (3 * H, 0.9), (4 * H, 0.4)]
+    assert m.funding("X", 5 * H) == [[H, 0.1], [2 * H, 0.2], [3 * H, 0.3], [4 * H, 0.4]]
+
+
+def test_without_a_hole_only_new_rows_are_requested(tmp_path):
+    x = Venue([(H, 0.1), (2 * H, 0.2)])
+    m = market.Market(tmp_path, x)
+    m.funding("X", 3 * H)
+    m.funding("X", 3 * H)
+    assert x.starts[-1] == 2 * H + 1
+
+
+def test_a_hole_older_than_any_open_horizon_is_left_alone(tmp_path):
+    now = 200 * market.DAY
+    old = now - market.REPAIR - 10 * H
+    x = Venue([(old, 0.1), (old + 2 * H, 0.3), (now - H, 0.5)])
+    m = market.Market(tmp_path, x)
+    m.funding("X", now)
+    m.funding("X", now)
+    assert x.starts[-1] == now - H + 1
+
+
+def test_a_recent_hole_is_requested_from_where_it_starts(tmp_path):
+    now = 200 * market.DAY
+    x = Venue([(now - 5 * H, 0.1), (now - 3 * H, 0.3)])
+    m = market.Market(tmp_path, x)
+    m.funding("X", now)
+    m.funding("X", now)
+    assert x.starts[-1] == now - 4 * H
+
+
+def test_listed_reads_only_the_dexes_of_the_markets_asked(tmp_path, monkeypatch):
+    posts = []
+
+    class Exchange:
+        def meta(self):
+            posts.append("core")
+            return {"universe": [{"name": "BTC"}, {"name": "OLD", "isDelisted": True}]}
+
+        def post(self, body):
+            posts.append(body.get("dex"))
+            return {"universe": [{"name": "xyz:GOLD"}]}
+
+    m = market.Market(tmp_path, Exchange())
+    assert m.listed(["BTC", "OLD"]) == {"BTC": False, "OLD": True}
+    assert posts == ["core"]
+    assert m.listed(["BTC", "xyz:GOLD"])["xyz:GOLD"] is False
+    assert posts[1:] == ["core", "xyz"]

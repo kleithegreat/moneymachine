@@ -14,6 +14,7 @@ URL fetched, discovered ones included, needs certified terms for its host under 
 import gzip
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -100,7 +101,12 @@ def get(http, name, url, accept, out_dir, auth=({}, {})):
     raw = Path(out_dir) / "raw" / f"{digest}.gz"
     if not raw.exists():
         raw.parent.mkdir(parents=True, exist_ok=True)
-        raw.write_bytes(gzip.compress(body))
+        tmp = raw.with_suffix(".tmp")
+        with open(tmp, "wb") as f:
+            f.write(gzip.compress(body))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, raw)
     rec = {"feed": name, "url": url, "sent": sent, "recv": now_ms(), "status": status, "sha256": digest, "bytes": len(body)}
     append(out_dir, "datalayer", sent, rec)
     return rec

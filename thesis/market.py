@@ -2,8 +2,8 @@
 
 The adapter is the venue's public info endpoint with only the frozen read request types; there is no
 signing, account or order operation anywhere. Every response is archived with its retrieval time.
-Completed bars and funding rows are cached per market and extended incrementally, each file rewritten atomically
-under a lock. A candle is known at its close plus δ (C0.3's rule). A builder (HIP-3) market's
+Completed bars and funding rows are cached per market, each file rewritten atomically under a lock: extended
+incrementally, from the first hole still within REPAIR if the venue left one, and a cached row is never rewritten. A candle is known at its close plus δ (C0.3's rule). A builder (HIP-3) market's
 hourly bars are its recorded mark prices (stage 10 revision of 2026-10-23): `record_marks` samples every builder
 dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from those samples as known at `now`.
 """
@@ -24,10 +24,22 @@ BUDGET_PER_MIN = 120
 HISTORY = {"1h": 200 * DAY, "1d": 3 * 365 * DAY + 30 * DAY, "funding": 3 * 365 * DAY + 30 * DAY}
 MARK_OFFSET = 5_000
 MARK_WINDOW = 5 * 60_000
+STEP = {"1h": HOUR, "1d": DAY, "funding": HOUR}
+REPAIR = 90 * DAY  # the longest horizon, 60 days, and a month for its outcome to come in
 
 
 def builder(market):
     return ":" in market
+
+
+def dex_of(market):
+    return market.split(":")[0] if builder(market) else None
+
+
+def fetch_start(rows, step, now):
+    """Where the next fetch starts: the first hole among the rows within REPAIR of `now`, else after the last row."""
+    recent = [r[0] for r in rows if r[0] >= now - REPAIR]
+    return next((a + step for a, b in zip(recent, recent[1:]) if b - a > step), rows[-1][0] + 1)
 
 
 def seal(samples):
@@ -74,23 +86,34 @@ class Market:
         (self.root / "marks").mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
 
+    def universe(self, dex=None):
+        """{market: delisted} of a builder dex, or of the core venue."""
+        meta = self.x.post({"type": "meta", "dex": dex}) if dex else self.x.meta()
+        return {a["name"]: bool(a.get("isDelisted")) for a in meta["universe"]}
+
     def listings(self):
         """{market: delisted} over the core venue and every builder dex."""
-        out = {a["name"]: bool(a.get("isDelisted")) for a in self.x.meta()["universe"]}
+        out = self.universe()
         for dex in self.x.post({"type": "perpDexs"}):
             if dex:
-                out.update({a["name"]: bool(a.get("isDelisted")) for a in self.x.post({"type": "meta", "dex": dex["name"]})["universe"]})
+                out.update(self.universe(dex["name"]))
         return out
+
+    def listed(self, markets):
+        """{market: delisted} now, of `markets` the venue lists, reading only their dexes."""
+        universes = {dex: self.universe(dex) for dex in set(map(dex_of, markets))}
+        return {m: universes[dex_of(m)][m] for m in markets if m in universes[dex_of(m)]}
 
     def _cached(self, market, kind, fetch, now):
         path = self.root / market.replace(":", "_") / f"{kind}.json"
         with self.lock:
             rows = json.loads(path.read_text()) if path.exists() else []
-            start = rows[-1][0] + 1 if rows else now - HISTORY[kind]
-            fresh = [r for r in fetch(start, now) if not rows or r[0] > rows[-1][0]]
+            start = fetch_start(rows, STEP[kind], now) if rows else now - HISTORY[kind]
+            known = {r[0] for r in rows}
+            fresh = {r[0]: r for r in fetch(start, now) if r[0] not in known}
             if fresh:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                rows += fresh
+                rows = sorted(rows + list(fresh.values()))
                 tmp = path.with_suffix(".tmp")
                 tmp.write_text(json.dumps(rows, separators=(",", ":")))
                 os.replace(tmp, path)
@@ -107,7 +130,7 @@ class Market:
 
     def marks(self, market):
         """(sent, recv, markPx or None) of every sample of the market's dex, in archive order."""
-        dex = market.split(":")[0]
+        dex = dex_of(market)
         return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks") if s["dex"] == dex]
 
     def lag(self, market):
@@ -118,7 +141,7 @@ class Market:
         now = now or now_ms()
         if interval == "1h" and builder(market):
             return mark_bars(self.marks(market), now)
-        step = {"1h": HOUR, "1d": DAY}[interval]
+        step = STEP[interval]
 
         def fetch(start, end):
             return [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)
