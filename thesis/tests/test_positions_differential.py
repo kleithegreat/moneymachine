@@ -163,7 +163,7 @@ def compare(s, gpt=approved, seen=None, data=None):
         ours.append(s.ours_thesis(r, mine))
         theirs.append(s.gpt_thesis(r, his))
     now = s.t_end + HOUR + WINDOW
-    acct, out, equity, _ = positions.replay(10_000.0, ours, s.ours_exits(now), data(now), now * 1000)
+    acct, out, equity, _ = positions.replay(10_000.0, ours, s.ours_exits(now), data(now), now * 1000, hourly=True)
     report = gpt.replay(initial, theirs, s.gpt_exits(), s.gpt_data(), now)
     released = sorted({th["reservation_released_at"] for th in report["theses"] if th["reservation_released_at"] is not None})
     for t in s.rng.sample(released, min(3, len(released))):

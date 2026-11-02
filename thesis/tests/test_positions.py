@@ -42,7 +42,7 @@ def run(theses, bars, exits=(), funding=None, fee=0.0, costs=None, now=200 * H, 
     for th in theses:
         th = {**th, "fee": fee, "costs": {m: costs or ZERO_COSTS for m, _ in th["legs"]}}
         registered.append(th | positions.admit(10_000.0, registered, list(exits), data, th["t_r"], th["L"]))
-    return positions.run(10_000.0, registered, list(exits), data, now)
+    return positions.run(10_000.0, registered, list(exits), data, now, hourly=True)
 
 
 
