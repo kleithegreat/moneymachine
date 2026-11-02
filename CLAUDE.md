@@ -66,6 +66,10 @@ Before any work on stage N, write its exit criteria in `audit/criteria.md`: meas
 
 Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record.
 
+### Correctness
+
+Everything that can change a judged result or lose a recording is held to its spec, not only the kernel: the gate, the series, the thesis track, the recorders, the mirror. A different session writes its tests from the spec without reading the code, a different model where a judged result depends on them; a defect starts as a failing test, and failure paths are tested by killing the process. One fresh session hunts bugs in the code a stage rests on before its exit and before each refreeze (the failure this prevents: `audit/reviews/2026-11-02-gpt-hunt-*.md`).
+
 ### Holdout
 
 Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper §8 describes; a spent holdout is never reused. Nothing derived from an unreleased holdout, an embargo or the forward confirmation window [2026-11-01, 2027-01-31), live recordings included, reaches research, selection, or anyone reviewing unfrozen work. Anyone who can change a brief, strategy, universe, execution assumption or finalist inspects those recordings for integrity only (status, sizes, hashes, gaps), never prices or returns, and records any other access (`audit/criteria.md`, stage 3). The thesis track's forward use is its own design.
