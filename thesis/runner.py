@@ -14,9 +14,8 @@ import shutil
 import signal
 import threading
 import time
+from collections.abc import Callable, Iterable
 from pathlib import Path
-
-import httpx
 
 from gate import kernel
 from ingest.fallback import fill_missing
@@ -26,6 +25,7 @@ from sandbox import canary, session
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
 from thesis.market import MARK_OFFSET, Exchange, Market
+from thesis.positions import Json
 from thesis.retrieval import Fetcher
 
 REPO = Path(__file__).resolve().parents[1]
@@ -40,7 +40,7 @@ MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
 NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 
 
-def unbenchmarkable(snapshot, m, days):
+def unbenchmarkable(snapshot: Json, m: str, days: Iterable[int]) -> str | None:
     """Why `snapshot` holds no daily close of `m` on each of `days`, by cause; None if it holds them."""
     if m not in snapshot["listings"]:
         return "not listed"
@@ -51,10 +51,11 @@ def unbenchmarkable(snapshot, m, days):
     have = {r[0] for r in snapshot["daily"][m]}
     if missing := [d for d in days if d not in have]:
         return f"no daily close at {missing}"
+    return None
 
 
 class Track:
-    def __init__(self, root=ROOT):
+    def __init__(self, root: str | Path = ROOT) -> None:
         self.root = Path(root)
         self.stop = threading.Event()
         kernel = pinned_kernel(self.root)
@@ -65,24 +66,24 @@ class Track:
         self.fetcher = Fetcher()
 
     @functools.cached_property
-    def venue(self):
+    def venue(self) -> tuple[float, Json]:
         """The taker fee and the C0.7 cost cells, read once."""
         rules = json.loads((REPO / "venue/hyperliquid/rules.json").read_text())
         cells = json.loads((REPO / "venue/hyperliquid/execution.json").read_text())["cost_bps_ex_fee"]
         return rules["rules"]["taker_fee"]["value"], cells
 
-    def config(self, markets):
+    def config(self, markets: Iterable[str]) -> Json:
         """The fee, and each market's cost cells or the maximum over U (an unvalidated fallback)."""
         fee, cells = self.venue
         costs, fallback = fill_missing(cells, sorted(markets))
         return {"initial": INITIAL, "fee": fee, "costs": costs, "fallback": fallback}
 
-    def data(self, markets, now):
+    def data(self, markets: Iterable[str], now: int) -> Json:
         return {"bars": {m: scoring.bars(self.market.bars(m, "1h", now)) for m in markets},
                 "funding": {m: dict(self.market.funding(m, now)) for m in markets},
                 "lag": {m: self.market.lag(m) for m in markets}}
 
-    def inputs(self, account, markets, now, snapshot):
+    def inputs(self, account: str, markets: Iterable[str], now: int, snapshot: Json) -> tuple[Json, Json]:
         """A registration's (config, data): the new thesis's markets' listings now, the account's and its markets as of
         `now`, and the session snapshot's daily bars."""
         listings = self.market.listed(markets)
@@ -90,18 +91,19 @@ class Track:
         return self.config(markets), {**self.data(markets, now), "listings": listings,
                                       "daily": {m: scoring.bars(snapshot["daily"].get(m, [])) for m in markets}}
 
-    def markets_of(self, account):
+    def markets_of(self, account: str) -> list[str]:
         return sorted({m for th in self.ledger.theses(account) for m, _ in th["legs"]})
 
-    def replay(self, account, now):
+    def replay(self, account: str, now: int) -> Json:
         return positions.run(INITIAL, self.ledger.theses(account), self.ledger.exits(account),
                              self.data(self.markets_of(account), now), now)
 
-    def snapshot(self, now):
+    def snapshot(self, now: int) -> Json:
         """The market snapshot taken at `now`: the one already saved under that time, else a new one saved."""
         path = self.root / "snapshots" / f"{now}.json"
         if path.exists():
-            return json.loads(path.read_text())
+            saved: Json = json.loads(path.read_text())
+            return saved
         listings = self.market.listings()
         markets, daily = {}, {}
         for m, delisted in sorted(listings.items()):
@@ -121,13 +123,15 @@ class Track:
         os.replace(tmp, path)
         return snap
 
-    def daemon(self, socket_path, session, account, snapshot, commands, ablation_of=None):
+    def daemon(self, socket_path: str | Path, session: str, account: str, snapshot: Json, commands: Iterable[str],
+               ablation_of: str | None = None) -> Daemon:
         inputs = lambda acct, markets, now: self.inputs(acct, markets, now, snapshot)
         replay = lambda acct, now: {"theses": self.replay(acct, now)["theses"]}
         return Daemon(socket_path, session, account, self.ledger, snapshot, self.fetcher, self.root / "responses", replay,
                       inputs, commands, ablation_of=ablation_of).serve()
 
-    def session(self, kind, date, snapshot, commands, task=None, ablation_of=None):
+    def session(self, kind: str, date: int, snapshot: Json, commands: Iterable[str], task: Json | None = None,
+                ablation_of: str | None = None) -> None:
         """One session on the paper account named as its kind, its start on the record first, naming its snapshot."""
         name = f"{kind}-{date}" if ablation_of is None else f"ablation-{ablation_of}"
         self.ledger.disclose("session", kind, {"session": name, "kind": kind, "started": now_ms(), "taken": snapshot["taken"],
@@ -142,11 +146,11 @@ class Track:
             run["audit"] = harness.audit(work / "transcript.jsonl", calls)
         self.ledger.disclose("session_end", kind, {"session": name, **run})
 
-    def settled(self):
+    def settled(self) -> set[str]:
         """Every session on the record as started or missed: none of them runs again."""
         return {c["session"] for kind in ("session", "session_missed") for _, _, c in self.ledger.records(kind)}
 
-    def close_interrupted(self):
+    def close_interrupted(self) -> None:
         """End on the record every session with no end: only a dead runner leaves one, and it consumed the session."""
         ended = {c["session"] for _, _, c in self.ledger.records("session_end")}
         for _, _, c in self.ledger.records("session"):
@@ -154,7 +158,7 @@ class Track:
                 self.ledger.disclose("session_end", c["kind"], {"session": c["session"], "kind": c["kind"],
                                                                 "error": "the runner died during the session"})
 
-    def ablation_task(self, th, snapshot):
+    def ablation_task(self, th: Json, snapshot: Json) -> tuple[Json, Json]:
         cutoff = {m: [r for r in snapshot["daily"].get(m, []) if r[0] + DAY <= th["t_r"]] for m, _ in th["legs"]}
         task = {"exposure": [{"market": m, "direction": "long" if w == 1 else "short"} for m, w in th["legs"]],
                 "forecast_time_ms": th["t_r"], "entry": "the first hourly open at or after the forecast time plus 120 s",
@@ -165,7 +169,7 @@ class Track:
                 "markets": {m: {"last_close": d[-1][2], "t": d[-1][0] + DAY} for m, d in cutoff.items() if d}}
         return task, snap
 
-    def ready(self, date):
+    def ready(self, date: int) -> bool:
         """Whether a session of `date` may start now: the model answers and the sandbox canary passes, retried every
         session.RETRY, with no SIGTERM and the day not over when they do."""
         while not self.stop.is_set() and now_ms() < date + DAY:
@@ -174,11 +178,11 @@ class Track:
             self.stop.wait(session.RETRY)
         return False
 
-    def miss(self, date, account, name):
+    def miss(self, date: int, account: str, name: str) -> None:
         self.ledger.disclose("session_missed", account, {"date": date, "session": name,
                                                          "reason": "the day ended before the session could start"})
 
-    def day(self, date):
+    def day(self, date: int) -> None:
         """The sessions of `date` not yet settled, each once `ready`, in order: main, an ablation per thesis main accepted,
         and the full no-reading session on main's snapshot. A session that the day's end finds unstarted is disclosed as
         missed, and a SIGTERM leaves the rest of the date to the next start."""
@@ -208,7 +212,7 @@ class Track:
             else:
                 self.miss(date, kind, name)
 
-    def benchmark(self, monday):
+    def benchmark(self, monday: int) -> None:
         """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order, of the markets not yet on the
         record: each market's last daily close known at that instant (a bar is known DELTA after it closes) against the
         close 20 days before it."""
@@ -236,20 +240,19 @@ class Track:
             if errors:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
 
-    def resolve(self, now):
+    def resolve(self, now: int) -> None:
         """Record each due thesis's outcome once, or its missing-data status once."""
         done = {(c["id"], c["status"]) for _, _, c in self.ledger.records("resolution")}
         for account in ACCOUNTS:
             theses = [th for th in self.ledger.theses(account) if th["T"] <= now and (th["id"], "resolved") not in done]
             if not theses:
                 continue
+            data, managed = None, {}
             try:
                 data = self.data(self.markets_of(account), now)
-            except httpx.HTTPError as e:
+                managed = positions.run(INITIAL, self.ledger.theses(account), self.ledger.exits(account), data, now)["theses"]
+            except Exception as e:
                 print(time.strftime("%FT%T"), "resolve", account, repr(e), flush=True)
-                data = None
-            managed = None if data is None else positions.run(INITIAL, self.ledger.theses(account), self.ledger.exits(account),
-                                                              data, now)["theses"]
             for th in theses:
                 out = None if data is None else positions.outcome(th, data, now)
                 if out is not None:
@@ -259,13 +262,13 @@ class Track:
                 elif now >= th["T"] + RESOLUTION_GRACE and (th["id"], "missing data") not in done:
                     self.ledger.disclose("resolution", account, {"id": th["id"], "status": "missing data", "at": now})
 
-    def unbenchmarked(self, monday):
+    def unbenchmarked(self, monday: int) -> list[str]:
         """The markets of a Monday's batch neither registered nor skipped on the record, in order."""
         done = {c["market"] for _, _, c in self.ledger.records("skip", "benchmark") if c["date"] == monday} | \
             {th["legs"][0][0] for th in self.ledger.theses("benchmark") if th["session"] == f"benchmark-{monday}"}
         return [m for m in BENCHMARK if m not in done]
 
-    def run(self):
+    def run(self) -> None:
         """Until SIGTERM: resolutions every 5 min, builder marks at H + MARK_OFFSET and the Monday benchmark (`benchmarks`) each
         minute on their own threads; the daily sessions each minute (`schedule`). On SIGTERM each loop finishes its current
         step and the runner exits, leaving a day's remaining sessions to the next start. One runner per root."""
@@ -289,7 +292,7 @@ class Track:
         for t in loops:
             t.join()
 
-    def benchmarks(self, now, frozen):
+    def benchmarks(self, now: int, frozen: int) -> None:
         """Every Monday since the freeze of a version frozen at `frozen`: a batch runs within its day; what its day left
         unprocessed is logged as missed, market by market, never backdated. Its failure leaves the batch to the next pass."""
         for monday in range(frozen // DAY * DAY, now + 1, DAY):
@@ -300,7 +303,7 @@ class Track:
                     for m in self.unbenchmarked(monday):
                         self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "run missed"})
 
-    def schedule(self, now, frozen):
+    def schedule(self, now: int, frozen: int) -> None:
         """Every date since the freeze of a version frozen at `frozen` whose sessions are due at `now` and not all settled,
         oldest first, so a date an outage spanned is disclosed as missed, and a session a crash cut off ends on the record."""
         self.close_interrupted()
@@ -309,7 +312,7 @@ class Track:
                 self.day(date)
 
 
-def forever(name, step, wait, stop):
+def forever(name: str, step: Callable[[], None], wait: Callable[[int], float], stop: threading.Event) -> None:
     """Run `step` after each `wait(now)` ms until `stop` is set; a failure is logged and the loop goes on."""
     while not stop.wait(wait(now_ms()) / 1000):
         try:
@@ -318,7 +321,7 @@ def forever(name, step, wait, stop):
             print(time.strftime("%FT%T"), name, repr(e), flush=True)
 
 
-def pinned_kernel(root, fresh=False):
+def pinned_kernel(root: str | Path, fresh: bool = False) -> Path:
     """The track's own copy of the `mm` binary, which writes its ledger: copied from the current build when absent, or
     afresh at a freeze, so later kernel builds never change a running track version."""
     path = Path(root) / "bin" / "mm"
@@ -328,7 +331,7 @@ def pinned_kernel(root, fresh=False):
     return path
 
 
-def freeze():
+def freeze() -> None:
     """Record the manifest, with the kernel binary pinned, once the sandbox canary passes: the start of a track version
     and of C10.5's observation window."""
     canary.check()
@@ -341,11 +344,11 @@ def freeze():
                                   "frozen": now_ms(), "previous": old}, indent=1) + "\n")
 
 
-def run():
+def run() -> None:
     Track().run()
 
 
-def report(out):
+def report(out: str | Path) -> None:
     from thesis import report as r
 
     r.write(Track(), now_ms(), out)

@@ -87,8 +87,8 @@ class Scenario:
             legs = [[names[0], rng.choice([1, -1])]] if k == 1 else [[names[0], 1], [names[1], -1]]
             T = (t // DAY + rng.randint(4, 12)) * DAY
             self.requests.append({"id": f"t{i}", "t_r": t, "legs": legs, "T": T, "L": rng.choice([0.01, 0.02, 0.05, 0.1, 0.5]), "p": 0.5})
-        self.exits = sorted(({"id": r["id"], "time": r["t_r"] + rng.randint(1, 72 * HOUR)} for r in self.requests
-                             if exits and rng.random() < 0.4), key=lambda e: e["time"])
+        self.exits = sorted(({"id": r["id"], "time": r["t_r"] + rng.randint(1, 72 * HOUR)} for r in self.requests for _ in range(2)
+                             if exits and rng.random() < 0.3), key=lambda e: e["time"])
         self.t_end = HOURS * HOUR
 
     def ours_data(self, now):

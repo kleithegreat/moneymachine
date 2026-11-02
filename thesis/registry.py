@@ -12,31 +12,34 @@ import sqlite3
 import subprocess
 import tempfile
 import threading
+from collections.abc import Callable, Collection
 from pathlib import Path
+from typing import Any
 
 from gate.kernel import MM, command
 from ingest.policy import DAY, HOUR
 from thesis import positions, scoring
+from thesis.positions import Json
 
 FIELDS = {"request_id", "legs", "T", "p", "L", "catalyst", "catalyst_id", "sources", "outcome_market"}
 MIN_DAILY_BARS = 90
 
 
-def canonical(obj):
+def canonical(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def sha256(text):
+def sha256(text: str | bytes) -> str:
     return hashlib.sha256(text.encode() if isinstance(text, str) else text).hexdigest()
 
 
 class Ledger:
-    def __init__(self, path, track, binary=MM):
+    def __init__(self, path: str | Path, track: str, binary: str | Path = MM) -> None:
         self.path, self.track, self.binary = Path(path), track, binary
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
 
-    def disclose(self, kind, account, content):
+    def disclose(self, kind: str, account: str, content: Json) -> tuple[Any, str]:
         text = canonical(content)
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
             fh.write(text)
@@ -50,7 +53,7 @@ class Ledger:
             raise RuntimeError(f"ledger write failed: {r.stderr.strip()}")
         return json.loads(r.stdout)["disclosure"], sha256(text)
 
-    def records(self, kind, account=None):
+    def records(self, kind: str, account: str | None = None) -> list[tuple[int, str, Any]]:
         """[(ledger id, created, content)] in commit order."""
         if not self.path.exists():
             return []
@@ -59,18 +62,18 @@ class Ledger:
                           "ORDER BY id", (self.track, kind, account, account)).fetchall()
         return [(i, c, json.loads(t)) for i, c, t in rows]
 
-    def theses(self, account):
+    def theses(self, account: str) -> list[Json]:
         return [c for _, _, c in self.records("thesis", account)]
 
-    def exits(self, account):
+    def exits(self, account: str) -> list[Json]:
         return [c for _, _, c in self.records("exit", account)]
 
 
-def number(x, lo, hi):
+def number(x: Any, lo: float, hi: float) -> bool:
     return type(x) in (int, float) and math.isfinite(x) and lo <= x <= hi
 
 
-def validate(request, t_r, listings, daily, disclosed):
+def validate(request: Any, t_r: int, listings: dict[str, bool], daily: Json, disclosed: Collection[str]) -> list[str]:
     """Errors for a registration request at t_r (empty if valid). `listings` is {market: delisted};
     `daily` the session's daily bars per market; `disclosed` the retrieval ids already disclosed to the session."""
     if not isinstance(request, dict) or set(request) != FIELDS:
@@ -113,7 +116,8 @@ def validate(request, t_r, listings, daily, disclosed):
     return errors
 
 
-def register(ledger, account, session, request, clock, disclosed, config, data):
+def register(ledger: Ledger, account: str, session: str, request: Any, clock: Callable[[], int], disclosed: Collection[str], config: Json,
+             data: Json) -> tuple[Json, None] | tuple[None, list[str]]:
     """Validate, size and commit one thesis. Under the ledger's lock, t_r is read from `clock`, then the thesis is
     sized (`positions.admit`), given its base rate and committed, so commit order is t_r order and slow inputs never
     backdate it. `data` (the markets' listings, bars, funding, lag, and the session's daily bars) is fetched before the

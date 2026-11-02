@@ -14,7 +14,9 @@ import json
 import math
 import os
 import threading
+from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Any
 
 from ingest.hl import Info
 from ingest.live import append, now_ms, read
@@ -29,25 +31,25 @@ STEP = {"1h": HOUR, "1d": DAY, "funding": HOUR}
 REPAIR = 90 * DAY  # the longest horizon, 60 days, and a month for its outcome to come in
 
 
-def builder(market):
+def builder(market: str) -> bool:
     return ":" in market
 
 
-def dex_of(market):
+def dex_of(market: str) -> str | None:
     return market.split(":")[0] if builder(market) else None
 
 
-def fetch_start(rows, step, now):
+def fetch_start(rows: list[list[Any]], step: int, now: int) -> int:
     """Where the next fetch starts: the first hole among the rows within REPAIR of `now`, else after the last row."""
-    recent = [r[0] for r in rows if r[0] >= now - REPAIR]
+    recent: list[int] = [r[0] for r in rows if r[0] >= now - REPAIR]
     return next((a + step for a, b in zip(recent, recent[1:]) if b - a > step), rows[-1][0] + 1)
 
 
-def seal(samples):
+def seal(samples: Iterable[tuple[int, int, float | None]]) -> dict[int, float]:
     """{H: markPx} sealed at H + MARK_WINDOW from (sent, recv, markPx) samples in archive order: the earliest
     sample sent in [H, H + MARK_WINDOW) and received by then, ties in archive order; a missing or invalid mark
     in it leaves H missing (stage 10 revision of 2026-10-23)."""
-    out = {}
+    out: dict[int, float | None] = {}
     for sent, recv, px in sorted(samples, key=lambda s: s[0]):
         h = sent // HOUR * HOUR
         if h not in out and recv <= h + MARK_WINDOW:
@@ -55,7 +57,7 @@ def seal(samples):
     return {h: px for h, px in out.items() if px is not None and math.isfinite(px) and px > 0}
 
 
-def mark_bars(samples, now):
+def mark_bars(samples: Iterable[tuple[int, int, float | None]], now: int) -> list[list[Any]]:
     """[[H, M(H), M(H + 1 h) or None]] for every reference sealed by `now` (M(H + 1 h) only once it is sealed too)."""
     m = {h: px for h, px in seal(samples).items() if h + MARK_WINDOW <= now}
     return [[h, px, m.get(h + HOUR)] for h, px in sorted(m.items())]
@@ -64,12 +66,12 @@ def mark_bars(samples, now):
 class Exchange(Info):
     """ingest.hl.Info restricted to ALLOWED request types, archiving each response."""
 
-    def __init__(self, archive_dir, budget=BUDGET_PER_MIN):
+    def __init__(self, archive_dir: str | Path, budget: int = BUDGET_PER_MIN) -> None:
         super().__init__(budget)
         self.archive = Path(archive_dir)
         self.archive.mkdir(parents=True, exist_ok=True)
 
-    def post(self, body, weight=20, per_items=None):
+    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None) -> Any:
         if body.get("type") not in ALLOWED:
             raise PermissionError(f"request type {body.get('type')!r} is not an approved public read")
         out = super().post(body, weight, per_items)
@@ -82,17 +84,17 @@ class Exchange(Info):
 class Market:
     """Listings, completed 1h and 1d bars, and hourly funding, cached under `root`."""
 
-    def __init__(self, root, exchange):
+    def __init__(self, root: str | Path, exchange: Any) -> None:
         self.root, self.x = Path(root), exchange
         (self.root / "marks").mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
 
-    def universe(self, dex=None):
+    def universe(self, dex: str | None = None) -> dict[str, bool]:
         """{market: delisted} of a builder dex, or of the core venue."""
         meta = self.x.post({"type": "meta", "dex": dex}) if dex else self.x.meta()
         return {a["name"]: bool(a.get("isDelisted")) for a in meta["universe"]}
 
-    def listings(self):
+    def listings(self) -> dict[str, bool]:
         """{market: delisted} over the core venue and every builder dex."""
         out = self.universe()
         for dex in self.x.post({"type": "perpDexs"}):
@@ -100,12 +102,12 @@ class Market:
                 out.update(self.universe(dex["name"]))
         return out
 
-    def listed(self, markets):
+    def listed(self, markets: Iterable[str]) -> dict[str, bool]:
         """{market: delisted} now, of `markets` the venue lists, reading only their dexes."""
         universes = {dex: self.universe(dex) for dex in set(map(dex_of, markets))}
         return {m: universes[dex_of(m)][m] for m in markets if m in universes[dex_of(m)]}
 
-    def _cached(self, market, kind, fetch, now):
+    def _cached(self, market: str, kind: str, fetch: Callable[[int, int], list[list[Any]]], now: int) -> list[list[Any]]:
         path = self.root / market.replace(":", "_") / f"{kind}.json"
         with self.lock:
             rows = json.loads(path.read_text()) if path.exists() else []
@@ -120,7 +122,7 @@ class Market:
                 os.replace(tmp, path)
             return rows
 
-    def record_marks(self):
+    def record_marks(self) -> None:
         """One sample of every builder dex's mark prices, archived with its send and receive times."""
         for dex in self.x.post({"type": "perpDexs"}):
             if dex:
@@ -129,32 +131,33 @@ class Market:
                 marks = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None for a, c in zip(meta["universe"], ctxs)}
                 append(self.root / "marks", "marks", sent, {"sent": sent, "recv": now_ms(), "dex": dex["name"], "marks": marks})
 
-    def marks(self, market):
+    def marks(self, market: str) -> list[tuple[int, int, float | None]]:
         """(sent, recv, markPx or None) of every sample of the market's dex, in archive order."""
         dex = dex_of(market)
         return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks") if s["dex"] == dex]
 
-    def lag(self, market):
+    def lag(self, market: str) -> int:
         return MARK_WINDOW if builder(market) else DELTA
 
-    def bars(self, market, interval, now=None):
+    def bars(self, market: str, interval: str, now: int | None = None) -> list[list[Any]]:
         """[[openTime, open, close]] of bars known by `now`. A builder market's 1h bars are its marks; a core 1h candle in
         progress shows its open from δ, with a null close, and is cached only once complete."""
         now = now or now_ms()
         if interval == "1h" and builder(market):
             return mark_bars(self.marks(market), now)
-        step, progress = STEP[interval], []
+        step = STEP[interval]
+        progress: list[list[Any]] = []
 
-        def fetch(start, end):
+        def fetch(start: int, end: int) -> list[list[Any]]:
             candles = [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)]
             progress[:] = [[t, o, None] for t, o, _ in candles if interval == "1h" and t + DELTA <= end < t + step + DELTA]
             return [r for r in candles if r[0] + step + DELTA <= end]
         return [r for r in self._cached(market, interval, fetch, now) if r[0] + step + DELTA <= now] + progress
 
-    def funding(self, market, now=None):
+    def funding(self, market: str, now: int | None = None) -> list[list[Any]]:
         """[[hour, rate]] of settled funding up to `now`."""
         now = now or now_ms()
 
-        def fetch(start, end):
+        def fetch(start: int, end: int) -> list[list[Any]]:
             return [[r["time"] // HOUR * HOUR, float(r["fundingRate"])] for r in self.x.funding(market, start, end)]
         return [r for r in self._cached(market, "funding", fetch, now) if r[0] <= now]

@@ -70,6 +70,12 @@ def test_a_complete_record_that_lost_only_its_newline_is_kept(tmp_path):
     assert list(live.read(tmp_path, "x")) == [{"n": 1}, {"n": 2}]
 
 
+def test_a_torn_record_of_one_byte_is_still_separated(tmp_path):
+    (tmp_path / "x-19700101.jsonl").write_text("{")
+    live.append(tmp_path, "x", 0, {"n": 1})
+    assert list(live.read(tmp_path, "x")) == [{"n": 1}]
+
+
 APPENDS = """
 import sys
 from ingest import live

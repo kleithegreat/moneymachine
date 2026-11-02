@@ -32,3 +32,52 @@ Found while fixing these, each with its own failing test, and outside GPT's list
 - **Holes:** a fetch starts at the first hole within 90 days (REPAIR). A hole that never fills repeats that fetch each call, a bounded cost; one older than 90 days is left alone, and a base-rate window keeps counting it incomplete.
 - **Deadline:** `RESOLUTION_GRACE` is 90 minutes. A status can come before a score, and the score is still recorded later.
 - **Benchmarks:** they run on their own thread, so a failing market can't hold up the day's sessions, and a batch stops at the failing market so commit order stays BENCHMARK order.
+
+## The differential
+
+`thesis/tests/test_positions_differential.py` runs `thesis/positions.py` against `thesis/tests/gpt_positions.py` on 150 generated sets in each of 9 classes (plain, exits, costs, price gaps, missing bars, missing funding, builder markets, long outages, everything). It compares sizing at each registration; each leg's entry and exit; reasons; as-registered and managed returns; outcomes; and final reconciled equity. It also asserts that the sets reach every exit reason, size-zero theses, spreads, suppressed legs, unresolved outcomes and missing funding. **All nine agree**, with GPT's file unchanged and the four readings below applied to its source inside the test.
+
+Power, by mutating `positions.py` (12 sets per class):
+
+| Mutation | Caught in |
+|---|---|
+| invalidation on the next open | gaps, holes, outages, everything |
+| a leg enters after its exit | gaps, outages, everything |
+| no tolerance at ties | costs, funding holes, everything |
+| sizing ignores a funding gap | funding holes, everything |
+| discretionary exit without δ | holes, outages |
+| the later of two exits wins | 8 of 9 classes (caught only after the generator was changed to repeat exits) |
+| funding at the wrong sign | all classes run |
+| reservation never released | all classes |
+| a position waits on a leg that can't enter | **not caught at 12 sets**; `test_a_partly_entered_spread_releases_its_reservation_at_the_horizon` covers it |
+| `seen <= now` removed from invalidation | **not caught**: with real data a close is absent until it is available, so this guard only matters for the fixtures |
+
+### Code bugs it found, each fixed with a failing test first
+
+1. **The $1000 cost cell.** `abs(q) * ref <= 1000` with q = 1000 / ref rounds above 1000 at 14,571 of the 100,000 prices from 0.01 to 1000.00, taking the $10k cell. N = $1000 is exactly E = $10,000 with L = 0.1, so it covers every benchmark registration at initial equity. Example: 50.36 filled at 50.400288 (8 bps), not 50.365036 (1 bp).
+2. **A close exactly at L.** A short at 118.9 with a close at 130.79 is exactly −0.10, but float arithmetic gave a value above −0.10, so no invalidation fired and the exit came later.
+3. **A core candle's open hidden until the candle completed.** `positions.py` was written for an open known at H + δ, but `Market.bars` dropped the candle until H + 1 h + δ. A position closed at its 00:00 horizon therefore still held its reservation, and its exit was still unbooked, during that day's 00:10 session, for up to 1 h 2 min. Near the cap this can refuse a thesis permanently. This was the largest source of disagreement: with that shape, `gaps` differed in 110 of 150 sets, and with the fix, none outside the funding reading below. Scores now also come at T + δ rather than T + 1 h + δ. **This is a design choice the review should look at:** the criteria don't say when a core open becomes known, and I took it as "from δ, once seen", matching builder opening references and the docstring in `positions.py`.
+
+### Spec points GPT read differently; a difference is reported either way
+
+Applied as readings in the test, with the code unchanged:
+- **The quantity and R_gross use the open, not the fill.** GPT took P_e as the adverse fill. SCORING.md says `q = w · N / open(e)`, and C10.4 was judged on it. The criteria's "at price P_j,e" is ambiguous: *a dated revision should say P_j,e is the reference open.*
+- **The funding mark after a missing core bar.** GPT used the latest earlier open, reading "the latest earlier reference" in the 2026-10-23 revision. SCORING.md's `mark` takes the last bar's close. The two texts differ for core markets: *the revision should name SCORING.md's rule.*
+- **A leg that can no longer enter holds no reservation.** GPT released a spread's reservation only when the pending leg's next bar appeared, though that leg could never enter. The code releases at the exit, on "until its position is fully closed".
+
+Differences left in place, outside the test:
+- **Funding inside the lag.** For t_r in [h, h + lag), the code counts h's funding row if it is known and GPT waits for hour h's reconciliation; E_r differs by at most that one payment. The generator avoids this window. The criteria are silent, and a daily session at 00:10 is outside it.
+- **Hypothetical N at E_r ≤ 0.** The code uses `RISK * initial / L`, GPT uses 0. It affects only the cost tier of a size-zero thesis in a bankrupt account, and was not exercised. The criteria are silent.
+- **Reason labels on an exact tie of thresholds.** Label only: the exit's time and price are the same.
+- **R_net exactly 0.** GPT is exact; the code and both C10.4 scorers use floats, so a true zero can round either way. It needs two legs with exactly offsetting moves and no fee, and the taker fee makes that practically unreachable. Noted, not fixed.
+
+`gpt_scoring.py` keeps bug 1's rounding. C10.4's frozen generator passes with the fixed `fill`, so it doesn't reach the boundary; a future set at N = $1000 could disagree there, with the frozen scorer in the wrong.
+
+## For the review and a refreeze
+
+- **Forks:** every module here is under the manifest, so a refreeze makes a new track version and restarts C10.5's window. No harness hash or kernel changes. The running track carries all of these bugs until then, including bug 1 on its N = $1000 theses. I read no track data to count them.
+- **Records:** a `session` record gains `taken`, and an exit's legs gain `market`. A new version writes under its own campaign, so old records are not read by the new `day`. The market cache needs no migration: in-progress rows are never cached, and its existing holes fill on first use.
+- **New behaviour to check:** benchmarks now run on their own thread, beside the sessions; a SIGTERM after main no longer discloses the date's other sessions as missed; a market-data failure past 90 minutes writes "missing data", which a score can still follow.
+- **Accepted limits:** a hole older than 90 days never fills. A permanent hole repeats its fetch from there (for funding, up to 5 pages each time). A pre-fix corrupt body already on the datalayer volume is not repaired, since only new writes are atomic. A mirror run that lists a body's `.tmp` just as it's renamed fails once and recovers on the next run.
+- **Types:** `thesis/tests/test_types.py` pins `mypy --strict --follow-imports=skip` on the 7 fixed modules and `ingest/hl.py`, whose class `thesis/market.py` subclasses. `mark` now raises `LookupError` where it returned a `None` that every caller would have crashed on. `mypy` is added to `flake.nix`, not `flake.lock`.
+- **Test suite:** run under the flake with `TMPDIR=/tmp`. Everything passes except `test_kernel_matches_witness` and `test_runs_agree_bit_for_bit`, which need `data/store`, absent from this worktree by the task's rule. Nesting `nix develop` in a dev shell without that setting doubles `TMPDIR` and fails the socket tests with `AF_UNIX path too long`, unrelated to this change.

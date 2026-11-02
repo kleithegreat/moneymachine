@@ -17,6 +17,7 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -32,27 +33,27 @@ TICK = 60
 SPACING = 1  # seconds after each poll, so a burst of due feeds never hammers one host
 
 
-def certify(feed, url):
+def certify(feed: dict[str, Any], url: str) -> None:
     u = urlsplit(url)
     if u.scheme != "https" or not terms.admits(terms.allowlist(feed["source"]), u.hostname, u.path):
         raise PermissionError(f"{feed['name']}: {u.hostname}{u.path} has no certified terms for source {feed['source']}")
 
 
-def feeds(path=FEEDS):
+def feeds(path: str | Path = FEEDS) -> dict[str, Any]:
     """The declared feeds, each checked against its doc's certified terms."""
-    spec = json.loads(Path(path).read_text())
+    spec: dict[str, Any] = json.loads(Path(path).read_text())
     for f in spec["feeds"]:
         certify(f, f["discover"]["url"] if "discover" in f else f["url"])
     return spec
 
 
-def secrets(path=KEYS):
+def secrets(path: str | Path = KEYS) -> dict[str, str]:
     """The `.keys.env` values, by name."""
     lines = Path(path).read_text().splitlines() if Path(path).exists() else []
     return dict(l.split("=", 1) for l in (l.strip() for l in lines) if l and not l.startswith("#"))
 
 
-def credentials(feed, keys):
+def credentials(feed: dict[str, Any], keys: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
     """(query params, headers) carrying the feed's declared credential."""
     auth = feed.get("auth")
     if auth is None:
@@ -61,17 +62,17 @@ def credentials(feed, keys):
     return ({auth["param"]: value}, {}) if "param" in auth else ({}, {auth["header"]: value})
 
 
-def body(out_dir, digest):
+def body(out_dir: str | Path, digest: str) -> bytes:
     """A recorded response body by its sha256."""
     return gzip.decompress((Path(out_dir) / "raw" / f"{digest}.gz").read_bytes())
 
 
-def last_polls(out_dir):
+def last_polls(out_dir: str | Path) -> dict[str, int]:
     """Each feed's last poll time (an index fetch counts for its feed)."""
     return {p["feed"].removesuffix("/index"): p["sent"] for p in read(out_dir, "datalayer")}
 
 
-def poll(http, feed, out_dir, keys=None):
+def poll(http: httpx.Client, feed: dict[str, Any], out_dir: str | Path, keys: dict[str, str] | None = None) -> dict[str, Any]:
     """Fetch the feed once (its index first, if it declares one); returns the last record."""
     auth = credentials(feed, secrets() if keys is None else keys)
     if "discover" not in feed:
@@ -86,7 +87,8 @@ def poll(http, feed, out_dir, keys=None):
     return get(http, feed["name"], url, feed.get("accept"), out_dir, auth)
 
 
-def get(http, name, url, accept, out_dir, auth=({}, {})):
+def get(http: httpx.Client, name: str, url: str, accept: str | None, out_dir: str | Path,
+        auth: tuple[dict[str, str], dict[str, str]] = ({}, {})) -> dict[str, Any]:
     """One GET of `url`, logged and stored without the credential `auth` adds."""
     params, headers = auth
     sent = now_ms()
@@ -112,7 +114,7 @@ def get(http, name, url, accept, out_dir, auth=({}, {})):
     return rec
 
 
-def main(out_dir):
+def main(out_dir: str | Path) -> None:
     stop = recording(out_dir)
     spec, keys = feeds(), secrets()
     held = [f for f in spec["feeds"] if f.get("auth", {}).get("env", "") in keys or "auth" not in f]

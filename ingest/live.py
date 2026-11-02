@@ -7,27 +7,31 @@ import signal
 import sys
 import threading
 import time
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
+from typing import Any, TextIO
 
 
-def now_ms():
+def now_ms() -> int:
     return int(time.time() * 1000)
 
 
-def ms(iso):
+def ms(iso: str) -> int:
     return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000)
 
 
-def append(live_dir, prefix, t, rec):
+def append(live_dir: str | Path, prefix: str, t: int, rec: dict[str, Any]) -> None:
     """Append `rec` to `<live_dir>/<prefix>-<UTC day of t ms>.jsonl`, on a line of its own after a torn record."""
     with open(Path(live_dir) / f"{prefix}-{time.strftime('%Y%m%d', time.gmtime(t / 1000))}.jsonl", "ab+") as f:
-        if f.tell() and f.seek(-1, 2) and f.read(1) != b"\n":
-            f.write(b"\n")
+        if f.tell():
+            f.seek(-1, 2)
+            if f.read(1) != b"\n":
+                f.write(b"\n")
         f.write(json.dumps(rec, separators=(",", ":")).encode() + b"\n")
 
 
-def read(live_dir, prefix):
+def read(live_dir: str | Path, prefix: str) -> Iterator[Any]:
     """Every record of `<live_dir>/<prefix>-*.jsonl`, in file order; a line that does not parse (a write cut short) is
     named on stderr and skipped."""
     for p in sorted(Path(live_dir).glob(f"{prefix}-*.jsonl")):
@@ -39,9 +43,15 @@ def read(live_dir, prefix):
                     print(f"torn record skipped: {p}:{n}", file=sys.stderr)
 
 
-def recording(out_dir):
+class Recording(threading.Event):
+    """A recorder's stop signal, holding its writer lock."""
+
+    lock: TextIO
+
+
+def recording(out_dir: str | Path) -> Recording:
     """Hold `out_dir`'s writer lock, exiting if another recorder holds it; SIGTERM sets the returned event."""
-    stop = threading.Event()
+    stop = Recording()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     stop.lock = open(Path(out_dir) / ".writer.lock", "w")
