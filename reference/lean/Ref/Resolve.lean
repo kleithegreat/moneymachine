@@ -75,8 +75,8 @@ def differs (d : Decl) (a b : Revision) : Bool :=
   let cols := (d.values ++ d.controls).eraseDups.filter fun c => !(["fetchedAt"] ++ d.revisionColumns).contains c
   a.tombstone != b.tombstone || cols.any fun c => !(cellAt a.cells c).sameValue (cellAt b.cells c)
 
-/-- One delivered revision of a key: the revision, its knownAt, and whether it retracts the key (a tombstone, or a
-revision whose rule evaluation is rejected). -/
+/-- One delivered revision of a key: the revision, its knownAt, and whether it retracts the key (a tombstone, a
+revision whose rule evaluation or `ok` rejects it, or one whose lineage is unusable). -/
 structure Entry where
   rev : Revision
   known : Int

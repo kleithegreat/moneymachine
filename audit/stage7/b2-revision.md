@@ -1,11 +1,11 @@
-# B2: the frozen Lean revised so a dependency spans several sources (draft for review, not frozen)
+# B2: the frozen Lean revised so a dependency spans several sources (frozen 2026-11-02 00:55 UTC (2026-11-01 19:55 EST), `laws-frozen.md`)
 
 Drafted 2026-11-01 on branch `stage7` from the frozen Lean at `1e2c604` (its files match `laws-frozen.md`'s latest
 table), as the advisor's decision of 2026-11-01 16:59 UTC (11:59 EST) states it (`audit/decisions.md`), using both
 reviews (`b2-review-claude.md`, `b2-review-gpt.md`). The draft's C7.7 reviews (`b2-revision-review-{claude,gpt}.md`) did
 not freeze it; the blockers the advisor ruled on (`audit/decisions.md`, 2026-11-01 20:30 UTC (15:30 EST)) are fixed here.
-One more review round, on the fixes' diff only, comes before the freeze, which then appends a dated revision with these
-hashes to `laws-frozen.md`. Diff of the revision: `git diff 1e2c604 -- reference/lean kernel/RULES.md kernel/SOURCES.md
+The fixes' review round (`b2-fixes-review-{gpt,claude}.md`) said FREEZE; `laws-frozen.md` holds the dated revision and its
+hashes. Diff of the revision: `git diff 1e2c604 -- reference/lean kernel/RULES.md kernel/SOURCES.md
 kernel/CERTIFICATES.md audit/stage7/migration-annex.md`. Diff of the fixes: the same, from `11da863`.
 
 ## 1. Changed definitions
@@ -132,22 +132,15 @@ byte-identity is not touched.
 - **A recorder-set event column is a certification fact:** an evidence declaration's event column set from a feed's claim
   would reopen F5's holdout leak. C7.3's verifier tests it, with a test of its own.
 
-## 8. Hashes of this draft
-
-| File | SHA-256 |
-|---|---|
-| `reference/lean/Ref/Source.lean` | `c52d9c66653ee08bb383a780fba41c94ee5a292f4a61587f8af5908e4fcdb4bb` |
-| `reference/lean/Ref/Resolve.lean` | `d4ac6348696f7da3ae73d5582480d9eb134f5df3479e535038ac657003c3fe3c` |
-| `reference/lean/Ref/Laws.lean` | `80d1f575f7ee82005cccb1a00a62752a7353ed982a4b923c58105cedc1ea2551` |
-| `kernel/RULES.md` | `5dff7ce6a03ad33eff914adc19ae0cccbf43aec563bf0f613f7d6f2b6b4d0eeb` |
-
-`Json`, `Syntax`, `Machine`, `Sim`, `Units` and `Spec` are unchanged from `laws-frozen.md`'s latest table.
-
-## 9. After the freeze, not part of this revision
+## 8. After the freeze, not part of this revision
 
 - B3: the C7.6 resolver suite, drafted once against these definitions, with hand cases for a covered zero count with
   polls-only lineage at T, a key of a source outside its dependency, a key with no delivery by the derived revision,
   and a later upstream correction not moving an earlier derived row.
+- B3 also carries `b2-fixes-review-claude.md`'s F-1 and F-2: the named response when stored lineage repeats a dependency name
+  (dataset invalid, as for a duplicate column) with its hand case, and a tuple stored under two encodings, both directions.
+- C7.3's applicability policy gets named tests for lineage completeness and a recorder-set event column; the annex's
+  duplicate fixture gets the variant differing only in an undeclared column (F's non-blocking note).
 - Slice 5 (the entity-keyed timeline in `resolve.rs`), `ingest/events.py` emitting per-row lineage keys beside the
   legacy hashes, and a `refmm` resolver mode.
 - `docs/whitepaper.tex` (on `main`): GPT notes that its point-in-time paragraph still describes snapshot selection, not

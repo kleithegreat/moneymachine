@@ -205,6 +205,7 @@ Opus review 3 (F, N), Opus review 4 (accepted revision 4; its corrections taken 
 
 **Frozen** (human decision of 2026-10-26) at the commit recorded in `audit/stage7/laws-frozen.md`. The bitemporal
 resolver is reviewed by GPT after the freeze; a finding becomes a dated revision before any proof is judged.
+
 | B2 (2026-11-01), superseding GPT-6's "partial lineage: no": a usable key masked an unusable one, and did change an outcome | leakage (test 13) | strict lineage: one unusable key makes the row unusable (`upKnown`, `known`'s `mapM`; `audit/stage7/b2-revision.md`) |
 | B2 review, Opus B-1, superseding GPT-7's exclusion of retractions from the bound: with the recorded-by cutoff, that exclusion only hid a retraction the transformation could see | leakage (test 13) | a retraction recorded by the derived revision bounds it (`upKnown`, `L8_known`) |
 | B2 review, Opus B-2: a duplicate dependency name in a lineage hides keys from `find?` | leakage (test 13) | a lineage's dependency names unique (`Trusted.canonical`) |

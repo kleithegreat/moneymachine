@@ -163,9 +163,9 @@ from `fields`.
   evidence, used or not, since each is delivered, and the transitive closure of their dependencies, through every source
   each dependency names (revision of 2026-11-01).
 - **Preflight** pins the whole required set before any observation is loaded, initialized, delivered or evaluated: a
-  missing binding anywhere in it is `R_INPUT_UNAVAILABLE`; a binding whose certificate is invalid, superseded,
-  mismatched or does not cover the run's access is `R_UNCERTIFIED`. Checking errors come first, then missing bindings,
-  then certificates. A refusal is recorded through the ledger and emits no result-bearing output.
+  missing binding anywhere in it is `R_INPUT_UNAVAILABLE`; a binding whose certificate is invalid, superseded
+  or mismatched is `R_UNCERTIFIED`. Checking errors come first, then the stages below; a run's access is checked in the
+  last of them (revision of 2026-11-01). A refusal is recorded through the ledger and emits no result-bearing output.
 - **Access authorization** runs in stages, each reading no more than it needs (revision of 2026-11-01, the order of
   Lean's `admit`). On metadata alone: role selections, missing bindings, a search's holdout dataset identities, then
   certificates with their control columns. On the required sources' event-time columns alone: a search evaluation is

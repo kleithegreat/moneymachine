@@ -195,3 +195,16 @@ then; this records the file as it stands:
 | File | SHA-256 |
 |---|---|
 | `kernel/RULES.md` | `0f2fee31c078e0d36874ee40651edfa072b81d9241be218ae7e93e53f8342379` |
+
+## 2026-11-02 00:55 UTC (2026-11-01 19:55 EST): B2's revision frozen
+
+Advisor decision (`audit/decisions.md` on main, same time), reviewed under C7.7 in two rounds: the draft by GPT and a fresh Opus (`b2-revision-review-{gpt,claude}.md`, both: do not freeze yet; the blockers ruled on 2026-11-01 20:30 UTC (15:30 EST)), then the fixes' diff by GPT and a fresh Opus (`b2-fixes-review-{gpt,claude}.md`, both: FREEZE). A dependency spans several sources; every changed definition and statement, and every law whose closure changed (all 18), is listed in `b2-revision.md`. Only `L8_known` and `L8_monotone` changed statement. After the fixes' review only comments and prose changed: `Resolve.lean`'s `Entry` docstring, RULES.md's line wrap and this revision's heading, SOURCES.md's stale Preflight clause (`b2-fixes-review-claude.md`, F-3). `Json`, `Syntax`, `Machine`, `Sim`, `Units` and `Spec` are unchanged from the latest tables above. Hashes:
+
+| File | SHA-256 |
+|---|---|
+| `reference/lean/Ref/Source.lean` | `c52d9c66653ee08bb383a780fba41c94ee5a292f4a61587f8af5908e4fcdb4bb` |
+| `reference/lean/Ref/Resolve.lean` | `726dace325f5a69a1ca4f77a3d6cf14640cf3e31854fadd3af54bb5a127d51b3` |
+| `reference/lean/Ref/Laws.lean` | `80d1f575f7ee82005cccb1a00a62752a7353ed982a4b923c58105cedc1ea2551` |
+| `kernel/RULES.md` | `ce84948585ec79956bf6b65c00048967973b95ecd41a188d7948e941e3507ec4` |
+
+The proofs are re-checked after this freeze in `proof-validation-b2.md`; that re-check is what counts.
