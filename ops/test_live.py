@@ -13,6 +13,13 @@ import pytest
 import live
 
 
+def test_mirror_documentation_states_snapshot_order_and_missing_manifest_refusal():
+    section = (Path(__file__).resolve().parents[1] / "CLUSTER.md").read_text().split("## 5.")[1].split("## 6.")[0]
+    assert "day-file sizes before listing" in section
+    assert "copies only those prefixes" in section
+    assert "refuses a missing manifest" in section
+
+
 def test_manifests_keep_the_boundaries():
     for name in live.WORKLOADS:
         m = live.manifest(name, "sha256:0")
