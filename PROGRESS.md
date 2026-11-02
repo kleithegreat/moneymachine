@@ -24,7 +24,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** (`audit/stage3/exit.md`): zero finalists, no claim.
-2. **Stage 4: C4.5 v2 runs** (the human authorized it 2026-11-01 16:15 UTC (11:15 EST), `criteria: stage 4` `4531257`): when all ten are logged, judge (at most 1 counted) and C4.3 and C4.4 on them, then the exit review. v1's failure stands.
+2. **Stage 4: C4.5 v2 runs** (the human authorized it 2026-11-01 16:15 UTC (11:15 EST), `criteria: stage 4` `4531257`): 1 counted of 6 (`N2-5`: an agent's absolute path denied, `audit/decisions.md`). When all ten are logged, judge (at most 1 counted), C4.3 and C4.4, then the exit review.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
@@ -37,7 +37,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
-Open research question, after stage 4 (the human, 2026-11-01): does memory across campaigns help agents without raising false discoveries? Pre-register it first; its reuse counts toward N.
+Open research question, after stage 4 (the human): does memory across campaigns help agents without raising false discoveries? Pre-register first.
 
 ### Finished
 

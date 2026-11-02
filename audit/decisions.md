@@ -499,3 +499,9 @@ Evidence `audit/stage3/write-denied-2026-10-31.md`; reviews `audit/reviews/2026-
 
 - **What:** the human: "stage 8 data purchase will be no indefinitely. whether agents get memory should be a research question". Norgate and Massive are not bought, so equities and index constituents stay blocked, as `audit/stage8/scope-manifest.md` already records them; Databento stays within its sign-up credit. Stage 8's criteria already provide for this: completion is reported for the admitted scope, with its tier, so nothing is revised. Agents get no memory across campaigns unless a pre-registered study supports it.
 - **Reverse:** the human's, at any time.
+
+## 2026-11-02 02:53 UTC (2026-11-01 21:53 EST): C4.5 v2 campaign `swarm-null-2-N2-5` counts; the series runs on unchanged (advisor)
+
+- **What:** its agent A4 made no evaluation, so it counts under v2's rule: 1 counted of 6 recorded, and a second fails v2. Nothing promoted; its other three agents made 11, 9 and 9; audits hold.
+- **Why it happened:** the frozen permission is `Bash(./mm-agent:*)`, as the brief writes it. A4 alone of 24 agents ran `/work/mm-agent`, was denied five times (one try set `dangerouslyDisableSandbox`; denied too), wrote three strategies it could not test, and ended asking for input no headless session gets. The permission worked as frozen, so this is agent behavior, not a broken harness.
+- **Decision:** no change. Changing the permission or the brief forks the harness, and replacing or stopping campaigns after seeing this one is what v2 forbids. If a second campaign counts, v2 fails as written, and any v3 is a labeled new version on fresh ids. Reverse: none needed; nothing changed.
