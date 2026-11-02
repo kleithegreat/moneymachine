@@ -1,7 +1,7 @@
 """thesis/positions.py against GPT's independent implementation from the stage 10 criteria alone (gpt_positions.py).
 
 GPT's file stays as GPT wrote it. Two comparisons are kept apart: the raw one, against that file, whose disagreements are
-what the readings below settle; and the approved one, with `READINGS` (audit/stage10/readings-draft.md) applied to its
+what the readings below settle; and the approved one, with `READINGS` (audit/stage10/readings.md) applied to its
 source here, where everything must agree exactly: identifiers, times, reasons, outcomes, sizing, reservations, every
 fill and the hourly equity, as exact rationals. Each implementation sizes its own theses, so a difference propagates.
 Scenario classes turn on what could make the two disagree, fixed cases sit on each boundary, and `production` reads the
@@ -63,7 +63,7 @@ MUTANTS = {
     "the cheap cell includes nothing at $1000": [("abs(q) * ref <= 1000", "abs(q) * ref < 1000")],
     "a return of zero counts as a success": [("int(r > 0)", "int(r >= 0)")],
     "invalidation needs a loss beyond L": [("Fraction(0)) <= -p[\"L\"]", "Fraction(0)) < -p[\"L\"]")],
-    "the cap excludes its own boundary": [("acct.reserved() + b <= CAP * e_r", "acct.reserved() + b < CAP * e_r")],
+    "the cap excludes its own boundary": [("reserved + b <= CAP * e_r", "reserved + b < CAP * e_r")],
     "a cost cell ignores the side": [("side = \"buy\" if q > 0 else \"sell\"", "side = \"buy\"")],
     "entry needs no delay": [("if l[\"ref\"] is None and p[\"t_r\"] + DELTA <= h", "if l[\"ref\"] is None and p[\"t_r\"] <= h")],
     "an outcome enters without delay": [("first_open(bars, th[\"t_r\"] + DELTA, now)", "first_open(bars, th[\"t_r\"], now)")],
@@ -362,7 +362,8 @@ def production_data(s, root):
             for h, (o, _) in s.bars[name].items():
                 t = h * 1000
                 append(root / "marks", "marks", t, {"sent": t + 5_000, "recv": t + 6_000, "dex": name.split(":")[0], "marks": {name: o}})
-    track = types.SimpleNamespace(market=m)
+    track = runner.Track.__new__(runner.Track)
+    track.market = m
     return lambda now: runner.Track.data(track, s.markets, now * 1000)
 
 
