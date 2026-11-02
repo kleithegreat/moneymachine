@@ -17,6 +17,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
+- **Wake-up "stage7 B3 suite"** (a builder on Cornell, stopped at 01:55 UTC (20:55 EST), before the 02:10 reset can start a campaign): in `../moneymachine-stage7` on branch `stage7` only, draft B3 (`audit/stage7/rust-port-plan.md` §3, C7.6 in `audit/criteria.md`): the revised resolver suite against B2's frozen definitions, with the hand cases of `audit/stage7/b2-revision.md` §8, F-1 and F-2 included, under `audit/stage7/b3-draft/`. Leave `kernel/tests/rules/resolver_suite.py` and everything frozen untouched: the suite is reviewed, then committed alone. Commit the draft every 20 minutes; touch nothing on `main`, no cluster, no data.
+
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** (`audit/stage3/exit.md`): zero finalists, no claim.
@@ -53,7 +55,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST); both consults advised it). Drafted on `stage7` (`audit/stage7/b2-revision.md`); both reviews' blockers are ruled on (the entry "B2's draft is not frozen"), then one round on the fixes' diff and the freeze.
+- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST), rulings 20:30 UTC (15:30 EST), frozen 2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): two review rounds by GPT and a fresh Opus, the last both FREEZE; proofs re-checked (`audit/stage7/proof-validation-b2.md`).
 
 ## Qualifications
 
