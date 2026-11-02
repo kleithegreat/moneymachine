@@ -1,4 +1,5 @@
-"""Publish each staged Oracle file that extends its destination; report all divergences."""
+"""Publish each staged Oracle file that extends its destination; report all divergences. A recorder's status file
+(`*.json`) is rewritten in place, so it replaces its copy."""
 
 import fcntl
 import sys
@@ -24,7 +25,7 @@ def publish(source, destination):
             if target.exists():
                 if path.samefile(target):
                     continue
-                if not extends(path, target):
+                if path.suffix != ".json" and not extends(path, target):
                     divergent.append(f"{target}: source no longer extends destination")
                     continue
             target.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,652 @@
+{
+ "n": 10,
+ "ids": [
+  "swarm-null-2-N2-0",
+  "swarm-null-2-N2-1",
+  "swarm-null-2-N2-2",
+  "swarm-null-2-N2-3",
+  "swarm-null-2-N2-4",
+  "swarm-null-2-N2-5",
+  "swarm-null-2-N2-6",
+  "swarm-null-2-N2-7",
+  "swarm-null-2-N2-8",
+  "swarm-null-2-N2-9"
+ ],
+ "counted_promotions": 2,
+ "mm": [
+  "3a732069413d050f334229e3e1bcf8d804f2e10ba21ad0365dd5187f6ed081b7"
+ ],
+ "audits": {
+  "swarm-null-2-N2-0": {
+   "A1": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 27,
+    "ledger_rows": 27,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A3": {
+    "daemon_calls": 27,
+    "ledger_rows": 27,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 12,
+    "ledger_rows": 12,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   }
+  },
+  "swarm-null-2-N2-1": {
+   "A1": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A3": {
+    "daemon_calls": 15,
+    "ledger_rows": 15,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A4": {
+    "daemon_calls": 17,
+    "ledger_rows": 17,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-2-N2-2": {
+   "A1": {
+    "daemon_calls": 23,
+    "ledger_rows": 23,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A2": {
+    "daemon_calls": 19,
+    "ledger_rows": 19,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 21,
+    "ledger_rows": 21,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   },
+   "A4": {
+    "daemon_calls": 14,
+    "ledger_rows": 14,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   }
+  },
+  "swarm-null-2-N2-3": {
+   "A1": {
+    "daemon_calls": 36,
+    "ledger_rows": 36,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 25,
+    "ledger_rows": 25,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   },
+   "A3": {
+    "daemon_calls": 27,
+    "ledger_rows": 27,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A4": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-2-N2-4": {
+   "A1": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A2": {
+    "daemon_calls": 22,
+    "ledger_rows": 22,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A3": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   }
+  },
+  "swarm-null-2-N2-5": {
+   "A1": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   },
+   "A2": {
+    "daemon_calls": 19,
+    "ledger_rows": 19,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A4": {
+    "daemon_calls": 0,
+    "ledger_rows": 0,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 5
+   }
+  },
+  "swarm-null-2-N2-6": {
+   "A1": {
+    "daemon_calls": 29,
+    "ledger_rows": 29,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A2": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A3": {
+    "daemon_calls": 22,
+    "ledger_rows": 22,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 14,
+    "ledger_rows": 14,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-2-N2-7": {
+   "A1": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 14,
+    "ledger_rows": 14,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A3": {
+    "daemon_calls": 27,
+    "ledger_rows": 27,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 4
+   },
+   "A4": {
+    "daemon_calls": 33,
+    "ledger_rows": 33,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-2-N2-8": {
+   "A1": {
+    "daemon_calls": 18,
+    "ledger_rows": 18,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 18,
+    "ledger_rows": 18,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 25,
+    "ledger_rows": 25,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   }
+  },
+  "swarm-null-2-N2-9": null
+ },
+ "evaluations": [
+  36,
+  28,
+  30,
+  49,
+  39,
+  29,
+  33,
+  37,
+  33,
+  null
+ ],
+ "agent_evaluations": [
+  {
+   "A1": 9,
+   "A2": 10,
+   "A3": 12,
+   "A4": 5
+  },
+  {
+   "A1": 8,
+   "A2": 9,
+   "A3": 5,
+   "A4": 6
+  },
+  {
+   "A1": 8,
+   "A2": 7,
+   "A3": 9,
+   "A4": 6
+  },
+  {
+   "A1": 17,
+   "A2": 11,
+   "A3": 11,
+   "A4": 10
+  },
+  {
+   "A1": 7,
+   "A2": 10,
+   "A3": 10,
+   "A4": 12
+  },
+  {
+   "A1": 11,
+   "A2": 9,
+   "A3": 9,
+   "A4": 0
+  },
+  {
+   "A1": 12,
+   "A2": 8,
+   "A3": 9,
+   "A4": 4
+  },
+  {
+   "A1": 8,
+   "A2": 6,
+   "A3": 12,
+   "A4": 11
+  },
+  {
+   "A1": 7,
+   "A2": 8,
+   "A3": 7,
+   "A4": 11
+  },
+  null
+ ],
+ "stopped": [
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {}
+ ],
+ "cross_agent_history": [
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  null
+ ],
+ "spreads": {
+  "spa_p": {
+   "n": 9,
+   "min": 0.246,
+   "median": 0.62,
+   "max": 0.922
+  },
+  "max_dsr": {
+   "n": 9,
+   "min": 0.1037378288573303,
+   "median": 0.229216096226747,
+   "max": 0.7563733123611162
+  },
+  "screened": {
+   "n": 9,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "H400_null_n2": {
+  "spa_p": {
+   "n": 300,
+   "min": 0.0,
+   "median": 0.231,
+   "max": 1.0
+  },
+  "max_dsr": {
+   "n": 300,
+   "min": 0.013442820436954397,
+   "median": 0.30107545762775606,
+   "max": 0.9313932145725057
+  },
+  "screened": {
+   "n": 300,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "statement": "With 10 runs the 95% bound is about 0.39; this is a smoke test only.",
+ "qualifications": "PROGRESS.md, Qualifications, stage 4"
+}

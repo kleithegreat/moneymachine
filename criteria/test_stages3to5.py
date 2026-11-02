@@ -59,6 +59,15 @@ def test_c45_v1_swarm_smoke():
     assert s["counted_promotions"] <= 1
 
 
+@pytest.mark.xfail(strict=True, raises=AssertionError,
+                   reason="C4.5 v2 failed: 2 of 10 counted, nothing promoted where recorded, each counted campaign an agent "
+                          "that ran /work/mm-agent, was refused, and made no evaluation (audit/stage4/null-v2.jsonl, "
+                          "null-summary-v2.json)")
+def test_c45_v2_swarm_smoke():
+    s = load("stage4/null-summary-v2.json")
+    assert s["counted_promotions"] <= 1
+
+
 def test_c51_mapped_forums_meet_the_precision_rule():
     labels = load("stage5/c51-discourse.json")
     mapped = {r["forum"] for r in json.loads((REPO / "venue/sources/discourse_map.json").read_text())["rows"]}
