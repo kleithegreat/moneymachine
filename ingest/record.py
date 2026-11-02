@@ -67,7 +67,7 @@ class Recorder:
         return ["funding"] + (["bar"] if h % BAR == 0 else [])
 
     def queue_verification(self, boundary):
-        self.verify.extend((boundary + VERIFY_AFTER, kind, coin) for kind in self.kinds(boundary) for coin in self.coins)
+        self.verify.extend((boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins)
 
     def step(self):
         t = now_ms()
@@ -85,10 +85,22 @@ class Recorder:
                     del self.pending[(kind, c)]
                 else:
                     self.pending[(kind, c)] = (b, now_ms())
-        while self.verify and self.verify[0][0] <= now_ms():
-            at, kind, coin = self.verify[0]
-            self.poll(kind, coin, at - VERIFY_AFTER, "verify")
-            self.verify.pop(0)
+        if self.verify and self.verify[0][0] <= now_ms():
+            at, kind, coin, failures = self.verify[0]
+            sent = now_ms()
+            try:
+                self.poll(kind, coin, at - VERIFY_AFTER, "verify")
+            except Exception as e:
+                failures += 1
+                if failures < 3:
+                    self.verify[0] = (at, kind, coin, failures)
+                else:
+                    self.log({"kind": kind, "coin": coin, "boundary": at - VERIFY_AFTER, "purpose": "verify",
+                              "sent": sent, "recv": now_ms(), "found": False, "data": [],
+                              "error": repr(e), "attempts": failures, "dropped": True})
+                    self.verify.pop(0)
+            else:
+                self.verify.pop(0)
 
     def step_l2(self):
         for c in self.coins:

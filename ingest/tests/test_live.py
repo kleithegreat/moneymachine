@@ -51,9 +51,10 @@ def test_verification_retries_failed_request_without_losing_the_batch(recorder_c
 
     rec.poll = poll
     clock[0] = record.BAR + record.VERIFY_AFTER
-    with pytest.raises(RuntimeError, match="exhausted"):
+    for _ in range(len(expected) + 1):
+        before = len(attempts)
         rec.step()
-    rec.step()
+        assert len(attempts) == before + 1
     assert attempts == expected[:failed] + [expected[failed]] + expected[failed:]
     rec.step()
     assert len(attempts) == len(expected) + 1
@@ -63,16 +64,61 @@ def test_four_hour_boundary_verifies_each_request_once(recorder_clock):
     rec, clock = recorder_clock
     calls = []
     rec.poll = lambda *request: calls.append(request) or True
-    clock[0] = 2 * record.BAR - 1
-    rec.step()
+    clock[0] = record.BAR + record.VERIFY_AFTER
+    for _ in range(22):
+        rec.step()
     calls.clear()
     clock[0] = 2 * record.BAR + record.FIRST_AFTER
     rec.step()
     assert len(calls) == 22 and all(call[-1] == "first" for call in calls)
     calls.clear()
     clock[0] = 2 * record.BAR + record.VERIFY_AFTER
-    rec.step()
+    for _ in range(22):
+        before = len(calls)
+        rec.step()
+        assert len(calls) == before + 1
     expected = [(kind, coin, 2 * record.BAR, "verify") for kind in ("funding", "bar") for coin in rec.coins]
     assert calls == expected
     rec.step()
     assert calls == expected
+
+
+def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_clock):
+    rec, clock = recorder_clock
+    clock[0] = record.BAR + record.VERIFY_AFTER
+    calls, errors = [], []
+    rec.log = errors.append
+
+    def poll(*request):
+        calls.append(request)
+        if request[1] == "coin0":
+            raise TypeError("invalid response")
+        return True
+
+    rec.poll = poll
+    for _ in range(3):
+        rec.step()
+    assert len(calls) == 3 and len(errors) == 1
+    error = errors[0]
+    assert error["kind"] == "funding" and error["coin"] == "coin0" and error["boundary"] == record.BAR
+    assert error["purpose"] == "verify" and error["dropped"] and error["attempts"] == 3
+    assert error["data"] == [] and not error["found"]
+    assert "invalid response" in error["error"] and error["sent"] <= error["recv"]
+    rec.step()
+    assert calls[-1][1] == "coin1"
+    for _ in range(30):
+        rec.step()
+    assert not rec.verify and len(errors) == 2
+
+
+def test_first_polls_precede_one_backlogged_verification(recorder_clock):
+    rec, clock = recorder_clock
+    calls = []
+    rec.poll = lambda *request: calls.append(request) or True
+    clock[0] = 2 * record.BAR + record.FIRST_AFTER
+    rec.step()
+    assert len(calls) == 23
+    assert all(call[-1] == "first" for call in calls[:22])
+    assert calls[-1][-1] == "verify" and calls[-1][2] == record.BAR
+    rec.step()
+    assert len(calls) == 24 and calls[-1][-1] == "verify"
