@@ -614,3 +614,7 @@ Final full suite before the deletion commit: **415 passed, 2 failed, 2 skipped, 
 ## 2026-11-02 13:08 UTC (08:08 EST): B2's freeze reviewed (human)
 
 - The human, on B2's freeze (2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): "its probably fine". It stands.
+
+## 2026-11-02 17:35 UTC (12:35 EST): C4.5 v3's counting code clears review (advisor)
+
+- GPT reviewed it four times (`audit/reviews/2026-11-02-gpt-c45-v3-code-{1..4}.md`); the last says RUN. A class is recomputed from a campaign's directory, never read from its log row; missing or unreadable evidence is unresolved; every declared campaign with a directory counts. A dry run on v2's ten real campaigns, not judged, shows every agent's records reconciling, which also caught a false refusal before commit. The series starts once the thesis work is off Cornell. C4.5 v3's text cites this contingency as 03:43 UTC (2026-11-01 22:43 EST); its heading reads 03:44 UTC (2026-11-01 22:44 EST), the same entry. The suite has hung three times near 98% under parallel workers, cause unknown, passing on rerun.
