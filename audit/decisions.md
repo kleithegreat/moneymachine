@@ -610,3 +610,7 @@ Final full suite before the deletion commit: **415 passed, 2 failed, 2 skipped, 
 - **What:** v2's log (`audit/stage4/null-v2.jsonl`, sha256 `4b321d6e…`, matching the mirror's manifest) has ten campaigns; `swarm-null-2-N2-5` and `-9` count. In each an agent ran `/work/mm-agent` instead of `./mm-agent`, was refused by the frozen permission, stopped asking for input, and made no evaluation: 2 of 40 agents. `N2-9` is recorded as a crash because that dead agent also tripped `cross_agent_history`'s missing log, the bug fixed in `b92521e` and held back from v2's image; its ledger shows no holdout disclosure and no evaluation by that agent. Nine campaigns recorded their gate outcome: no promotion, finalist or screened candidate. Not a pass, and no false discovery was observed. Its test is a strict xfail.
 - **v3:** the human, 2026-11-02 05:47 UTC (00:47 EST): "if v2 fails go with v3 autonomously without my permission". The contingency's text goes in alone as `criteria: stage 4`; its counting code gets an independent review; it runs on `swarm-null-3-N2-0` to `-9`.
 - **Reverse:** none for v2's failure.
+
+## 2026-11-02 13:08 UTC (08:08 EST): B2's freeze reviewed (human)
+
+- The human, on B2's freeze (2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): "its probably fine". It stands.

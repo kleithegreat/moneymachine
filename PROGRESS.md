@@ -60,7 +60,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Decisions awaiting the human's review
 
-- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST), frozen 2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): GPT and a fresh Opus both FREEZE; proofs re-checked.
+None.
 
 ## Qualifications
 
