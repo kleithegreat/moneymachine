@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`): event declarations depend on all four evidence sources, the input table drops source and field, no run differential yet (N1 rebuild). A builder fixes it before slice 3, after the thesis round.
 
-- **Wake-up "thesis bundle round 2"** (Opus on Cornell, resumed 2026-11-02 17:20 UTC (12:20 EST), stopped 21:00 UTC (16:00 EST); its first run hit a limit with F1 to F9 committed): in `../moneymachine-thesis` on `thesis-fixes`, apply `audit/decisions.md` ("the thesis bundle isn't refrozen") from `audit/reviews/2026-11-02-gpt-thesis-fixes.md`: each counterexample a failing test first; the four dated readings as a draft under `audit/stage10/`. No refreeze, no cluster, nothing on `main`, no data; commit every 20 minutes. TMPDIR=/tmp.
+- **Thesis bundle round 2: built, awaiting review** (`thesis-fixes` at `1615cd4`, `../moneymachine-thesis`): F1 to F9 fixed, each from a failing test; report `audit/reviews/2026-11-02-thesis-bundle-round2.md`, readings `audit/stage10/readings-draft.md` (one point added: simultaneous exits are labelled invalidation, then discretionary, then horizon, GPT's order; a label only). The differential's power is now a test: 19 mutants of `positions.py`, all caught. Next, per `audit/decisions.md`: GPT and a fresh Opus on that report, then the readings alone as `criteria: stage 10`, then the refreeze.
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
 
 
