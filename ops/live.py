@@ -182,6 +182,7 @@ def seed_run(volume):
 def mirror(app=APP, out="/mirror"):
     """Each volume into /mirror/<volume>, the live data's only copy, every step checked; any failure stops the run:
     - day files (*.jsonl) only grow: one that shrank, changed below its mirrored length or vanished is refused;
+    - day-file sizes are captured before listing bodies; only those prefixes are copied;
     - every copy's bytes are compared with the source's over the same length;
     - SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
     - other files are copied whole when their size or mtime changes.
@@ -193,9 +194,11 @@ def mirror(app=APP, out="/mirror"):
         dst.mkdir(parents=True, exist_ok=True)
         old = json.loads((dst / "MANIFEST.json").read_text())["files"] if (dst / "MANIFEST.json").exists() else {}
         new = {}
-        for f in sorted(p for p in src.rglob("*") if p.is_file() and p.name != ".writer.lock" and "-wal" not in p.name
-                        and not p.name.endswith("-shm")):
-            rel, st = str(f.relative_to(src)), f.stat()
+        days = {p: p.stat() for p in src.rglob("*.jsonl") if p.is_file()}
+        files = set(days) | {p for p in src.rglob("*") if p.is_file() and p.suffix != ".jsonl"
+                            and p.name != ".writer.lock" and "-wal" not in p.name and not p.name.endswith("-shm")}
+        for f in sorted(files):
+            rel, st = str(f.relative_to(src)), days[f] if f in days else f.stat()
             prev, target = old.get(rel), dst / rel
             if prev and (not target.exists() or target.stat().st_size < prev["size"]):
                 raise SystemExit(f"{vol}/{rel}: the mirror lost bytes its manifest lists")
@@ -212,12 +215,18 @@ def mirror(app=APP, out="/mirror"):
             if prev and st.st_size == prev["size"] and st.st_mtime_ns == prev["mtime"]:
                 new[rel] = prev
                 continue
-            if f.suffix == ".jsonl" and prev:
-                if st.st_size < prev["size"] or sha256(f, prev["size"]) != prev["sha256"]:
+            if f.suffix == ".jsonl":
+                start = prev["size"] if prev else 0
+                if prev and (st.st_size < start or sha256(f, start) != prev["sha256"]):
                     raise SystemExit(f"{vol}/{rel} changed below its mirrored length {prev['size']}")
-                with open(f, "rb") as a, open(target, "r+b") as b:
-                    a.seek(prev["size"]), b.seek(prev["size"]), b.truncate()
-                    shutil.copyfileobj(a, b)
+                with open(f, "rb") as a, open(target, "r+b" if target.exists() else "wb") as b:
+                    a.seek(start), b.seek(start), b.truncate()
+                    left = st.st_size - start
+                    while left > 0 and (block := a.read(min(1 << 20, left))):
+                        b.write(block)
+                        left -= len(block)
+                    if left:
+                        raise SystemExit(f"{vol}/{rel}: source shrank during the copy")
             else:
                 shutil.copy2(f, target)
             size = target.stat().st_size
@@ -236,7 +245,7 @@ def verify(app=APP, out="/mirror"):
     """Daily: every mirrored file against its manifest's sha256, and every day file's source over the same length."""
     for vol, path in VOLUMES.items():
         if not (Path(out) / vol / "MANIFEST.json").exists():
-            continue
+            raise SystemExit(f"mirror {vol}: missing manifest")
         for rel, e in json.loads((Path(out) / vol / "MANIFEST.json").read_text())["files"].items():
             if sha256(Path(out) / vol / rel, e["size"]) != e["sha256"]:
                 raise SystemExit(f"mirror {vol}/{rel} differs from its manifest")
