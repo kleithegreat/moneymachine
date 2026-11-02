@@ -6,7 +6,8 @@ kernel/tests/rules/resolver_suite.py once reviewed.
   role payloads, which `case` adds from the entry's own revision.
 - generate(): at least 1,000 (key, query) pairs from stores that resolve, at least 200 of them on keys with at least two
   eligible revisions, from a fixed seed, without expected results: the implementations must agree. `classes` names what
-  a store's inputs exercise and `reached` what a result shows; a frozen suite has at least FLOOR stores in each of CLASSES and REACHED.
+  a store's inputs exercise and `reached` what a result shows; a frozen suite has at least FLOOR stores in each of
+  CLASSES and REACHED.
 """
 
 import json
@@ -95,7 +96,8 @@ bars = lambda rows, version, queries, timeline, visible, sources=(BARS,): case(
 
 # Evidence and derived fixtures: hour E's count for BTC, recorded from host "h".
 P = E + 5000  # a poll's receive time
-s1 = lambda created=1, observed=E + 500, host="h", i=1: {"host": host, "id": i, "observed": observed, "created": created}
+s1 = lambda created=1, observed=E + 500, host="h", i=1: {"host": host, "id": i, "observed": observed,
+                                                         "created": created}
 poll = lambda fetched, recv=P, host="h": rev("poll", fetched, {"host": host, "recv": recv})
 ev = lambda fetched, count, lineage, slot=E, tombstone=False: rev(
     "events", fetched, {"coin": "BTC", "eventTime": E, "count": count, "slot": slot}, tombstone, {"recording": lineage})
@@ -178,7 +180,8 @@ HAND = [
     # Negative times.
     case([BARS], [rev("bars", 100, {"coin": "BTC", "eventTime": -H, "close": 1})], 100, [-H + D - 1, -H + D],
          {"keys": [key("bars", ["BTC"], -H, 0, [[100, -H + D, False]], [None, 100])]}),
-    # Dataset validity: a shared fetchedAt within a key (not across keys, not past the cutoff), an out-of-range fetchedAt.
+    # Dataset validity: a shared fetchedAt within a key (not across keys, not past the cutoff), an out-of-range
+    # fetchedAt.
     case([BARS], [rev("bars", 100, b(1)), rev("bars", 100, b(2))], 100, [K], "INVALID"),
     case([BARS], [rev("bars", 100, b(1)), rev("bars", 100, b(2))], 99, [K], {"keys": []}),
     case([BARS], [rev("bars", 100, b(1)), rev("bars", 100, {"coin": "ETH", "eventTime": E, "close": 1})], 100, [K],
@@ -205,6 +208,7 @@ HAND = [
          {"keys": [key("bars", ["BTC"], E, 0, [[100, K, False]], [100])]}),
     # E_RULE before any row.
     case([src("bars", rule(f("u")))], [rev("bars", 100, b(1))], 100, [K], "E_RULE"),
+    case([src("bars", rule(f("u")))], [rev("bars", 100, "{")], 100, [K], "E_RULE"),
     # Keys: coins outside U are keys with no coin, as is a coin cell that is not a string.
     case([BARS], [rev("bars", 100, {"coin": "DOGE", "eventTime": E, "close": 1}), rev("bars", 200, b(1)),
                   rev("bars", 50, {"coin": "ETH", "eventTime": E, "close": 1})], 200, [K],
@@ -258,7 +262,8 @@ HAND = [
                                  upstream={"recording": [PK], "other": [["bars", ["BTC"], E]]})], P + 3000, [10**15],
          {"keys": [key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000]),
                    key("events", ["BTC"], E, 0, [[P + 3000, P + 1000 + LAG, False, E]], [P + 3000])]}),
-    # §8: a later upstream correction does not move an earlier derived row; the recomputed row after it is bounded by it.
+    # §8: a later upstream correction does not move an earlier derived row; the recomputed row after it is bounded by
+    # it.
     case(derived, [rev("sight", E + 1000, s1()), rev("sight", 20 * H, s1(created=2)),
                    ev(E + 8000, 1, [SK]), ev(21 * H, 2, [SK])], 21 * H, [E + 1000 + LAG, 21 * H - 1, 21 * H],
          {"keys": [key("sight", ["h", 1], E + 500, None, [[E + 1000, E + 1000, False], [20 * H, 20 * H, False]],
@@ -332,7 +337,8 @@ HAND = [
     case(derived + (src("daily", rule(mx(f("eventTime"), dep("counts"))), values=("total",),
                         deps=({"name": "counts", "sources": ["events"], "lag": 0},)),),
          [poll(P + 1000), ev(P + 3000, 0, [PK]),
-          rev("daily", E + 9000, {"coin": "BTC", "eventTime": E, "total": 0}, upstream={"counts": [["events", ["BTC"], E]]})],
+          rev("daily", E + 9000, {"coin": "BTC", "eventTime": E, "total": 0},
+              upstream={"counts": [["events", ["BTC"], E]]})],
          E + 9000, [P + 1000 + LAG - 1, P + 1000 + LAG],
          {"keys": [key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000, P + 1000]),
                    key("events", ["BTC"], E, 0, [[P + 3000, P + 1000 + LAG, False, E]], [None, P + 3000]),
@@ -343,13 +349,14 @@ HAND = [
          [poll(P + 1000), ev(P + 3000, 0, [PK])], P + 3000, [10**15],
          {"keys": [key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000]),
                    key("events", ["BTC"], E, 0, [], [None])]}),
-    # The derivation bound decides a later derived revision: its lineage's upstream is recorded before it and known after
-    # it, past its fetchedAt and what it replaces, plus the lag. And on a first revision.
+    # The derivation bound decides a later derived revision: its lineage's upstream is recorded before it and known
+    # after it, past its fetchedAt and what it replaces, plus the lag. And on a first revision.
     case(over_up, [rev("sight", E + 1000, s1()), up(15 * H), ev(E + 8000, 1, [SK]), ev(20 * H, 2, [UK])], 20 * H,
          [E + 1000 + LAG, 110 * H, 110 * H + LAG - 1, 110 * H + LAG],
          {"keys": [key("sight", ["h", 1], E + 500, None, [[E + 1000, E + 1000, False]], [E + 1000] * 4),
                    key("up", ["a"], E, None, [[15 * H, 110 * H, False]], [None, 15 * H, 15 * H, 15 * H]),
-                   key("events", ["BTC"], E, 0, [[E + 8000, E + 1000 + LAG, False, E], [20 * H, 110 * H + LAG, False, E]],
+                   key("events", ["BTC"], E, 0,
+                       [[E + 8000, E + 1000 + LAG, False, E], [20 * H, 110 * H + LAG, False, E]],
                        [E + 8000, E + 8000, E + 8000, 20 * H])]}),
     case(over_up, [up(15 * H), ev(20 * H, 1, [UK])], 20 * H, [20 * H, 110 * H + LAG - 1, 110 * H + LAG],
          {"keys": [key("up", ["a"], E, None, [[15 * H, 110 * H, False]], [None, 15 * H, 15 * H]),
@@ -381,7 +388,8 @@ HAND = [
     case((src("daily", rule(mx(f("eventTime"), dep("counts"))), values=("total",),
               deps=({"name": "counts", "sources": ["events"], "lag": 0},)), EVENTS, POLL, SIGHT),
          [poll(P + 1000), ev(P + 3000, 0, [PK]),
-          rev("daily", E + 9000, {"coin": "BTC", "eventTime": E, "total": 0}, upstream={"counts": [["events", ["BTC"], E]]})],
+          rev("daily", E + 9000, {"coin": "BTC", "eventTime": E, "total": 0},
+              upstream={"counts": [["events", ["BTC"], E]]})],
          E + 9000, [P + 1000 + LAG],
          {"keys": [key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000]),
                    key("events", ["BTC"], E, 0, [[P + 3000, P + 1000 + LAG, False, E]], [P + 3000]),
@@ -393,10 +401,12 @@ HAND = [
                    ev(E + 8000, 1, [SK]), ev(20 * H + 1, 2, [SK])], 20 * H + 1, [20 * H + LAG - 1, 20 * H + LAG],
          {"keys": [key("sight", ["h", 1], E + 500, None, [[E + 1000, E + 1000, False], [20 * H, 20 * H, False]],
                        [20 * H, 20 * H]),
-                   key("events", ["BTC"], E, 0, [[E + 8000, E + 1000 + LAG, False, E], [20 * H + 1, 20 * H + LAG, False, E]],
+                   key("events", ["BTC"], E, 0,
+                       [[E + 8000, E + 1000 + LAG, False, E], [20 * H + 1, 20 * H + LAG, False, E]],
                        [E + 8000, 20 * H + 1])]}),
     case([SIGHT], [rev("sight", E + 1000, s1()),
-                   rev("sight", 20 * H, '{"created": 1, "observed": 36000500, "id": 1, "host": "\\u0068"}')], 20 * H, [F],
+                   rev("sight", 20 * H, '{"created": 1, "observed": 36000500, "id": 1, "host": "\\u0068"}')],
+         20 * H, [F],
          {"keys": [key("sight", ["h", 1], E + 500, None, [[E + 1000, E + 1000, False]], [E + 1000])]}),
     # An integer and a non-integer differ even when numerically equal, as a value, an entity, a lineage key, a slot and
     # a rule's field; numbers of one kind compare by value, whatever their spelling.
@@ -409,7 +419,8 @@ HAND = [
                    rev("sight", 200, {"host": "a", "id": 1.0, "observed": E, "created": 1})], 200, [F],
          {"keys": [key("sight", ["a", 1], E, None, [[100, E, False]], [100]),
                    key("sight", ["a", 1.0], E, None, [[200, E, False]], [200])]}),
-    case(derived, [rev("sight", E + 1000, s1()), ev(E + 8000, 1, [["sight", ["h", 1.0], E + 500]])], E + 8000, [E + 8000],
+    case(derived, [rev("sight", E + 1000, s1()), ev(E + 8000, 1, [["sight", ["h", 1.0], E + 500]])], E + 8000,
+         [E + 8000],
          {"keys": [key("sight", ["h", 1], E + 500, None, [[E + 1000, E + 1000, False]], [E + 1000]),
                    key("events", ["BTC"], E, 0, [], [None])]}),
     case(derived, [poll(P + 1000), ev(P + 3000, 1, [PK], slot=float(E))], P + 3000, [10**15],
@@ -446,7 +457,8 @@ def store(rng):
     fetched), a derived count over one or two dependencies of up to three sources each, with drawn lags, and sometimes a
     derived source over it, declared in any order; lineages drawn over stored keys and occasional absent or foreign
     ones; a derived revision often fetched just after an upstream one; a key whose second revision reads the later-known
-    upstream key, so the bound decides it, and sometimes a tombstone raised to it; sometimes a row that does not decode."""
+    upstream key, so the bound decides it, then a value or a tombstone raised to it; sometimes a row that does not
+    decode."""
     rows, keys = [], {"bars": [], "sight": [], "poll": [], "up": [], "events": []}
     fetch = lambda: rng.randint(0, 30) * H + rng.choice((0, 1, 500, D))
     spelled = lambda cells: respell(cells) if rng.random() < 0.1 else cells
@@ -455,7 +467,7 @@ def store(rng):
         coin, e = rng.choice(("BTC", "ETH", "DOGE")), rng.choice((0, 1, 2)) * H + E
         keys["bars"].append(["bars", [coin], e])
         for _ in range(rng.randint(1, 3)):
-            close = rng.choice((1, 1, 2, None, 0.5, 1.0))
+            close = rng.choice((1, 1, 2, None, 0.5, 1.0, True))
             cells = ({"coin": coin, "eventTime": e, "open": 1, "high": 2, "low": 0.5, "close": close,
                       "trades": rng.choice((5, 5, 5.0))} if bars_source is OHLC
                      else {"coin": coin, "eventTime": e, "close": close})
@@ -484,7 +496,8 @@ def store(rng):
         out = {}
         for d in deps:
             good = [k for name in d["sources"] for k in keys[name]]
-            pool = good if good and rng.random() < 0.9 else good + absent
+            foreign = [k for name in ("sight", "poll", "up", "bars") if name not in d["sources"] for k in keys[name]]
+            pool = good if good and rng.random() < 0.9 else good + absent + foreign
             out[d["name"]] = rng.sample(pool, 0 if rng.random() < 0.03 else min(len(pool), rng.randint(1, 2)))
         return out
 
@@ -505,10 +518,12 @@ def store(rng):
         for fetched, count, (k, _) in ((first, 0, ups[0]), (second, 1, ups[1])):
             rows.append(rev("events", fetched, event(coin, E + 2 * H, count, E), False,
                             {**lineage(), deps[0]["name"]: [k]}))
-        if rng.random() < 0.5:
-            rows.append(rev("events", second + 1, event(coin, E + 2 * H, 1, E), True, {deps[0]["name"]: [ups[1][0]]}))
-    sources = [bars_source, SIGHT, POLL, src("up", rule(add(f("observed"), {"ms": 5 * H})), times=("observed",), values=(),
-                                             entity=("host",), event="observed", evidence=True),
+        tombstone = rng.random() < 0.5
+        rows.append(rev("events", second + 1, event(coin, E + 2 * H, 2, E), tombstone,
+                        {**lineage(), deps[0]["name"]: [ups[0][0]]}))
+    sources = [bars_source, SIGHT, POLL,
+               src("up", rule(add(f("observed"), {"ms": 5 * H})), times=("observed",), values=(), entity=("host",),
+                   event="observed", evidence=True),
                src("events", rule(mx(f("eventTime"), *[dep(d["name"]) for d in deps])), values=("count",), slot="slot",
                    deps=deps)]
     if rng.random() < 0.3:

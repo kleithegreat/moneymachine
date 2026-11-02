@@ -82,11 +82,12 @@ A resolver case is one store at one dataset version:
   revision's own, is always in the rule's context and never listed); `values` its value columns; `entity` its entity
   columns; `event` its event column, among `times`; `slot` an event source's slot column; `roles` its role columns.
   Its declared columns, compared by step 1 of §6's timeline, are `values`, `times`, `event`, `slot`, `entity` and the
-  role columns. Sources may be declared in any order; every case's registry is otherwise valid (paper §5).
+  role columns. No source has revision columns, and the tombstone column is named `tombstone`; the flag itself is the
+  row's. Sources may be declared in any order; every case's registry is otherwise valid (paper §5).
 - `cells` and `upstream` are the revision's stored texts, passed as text and never pre-decoded. A non-evidence source's
   key maps to the universe's coin equal to its `coin` cell, else to none.
-- The result is `"INVALID"` for an invalid dataset, `"E_RULE"` if a source's rule fails checking (§4) against its
-  `times` and its dependencies' names, and otherwise
+- The result is `"E_RULE"` if a source's rule fails checking (§4) against its `times` and its dependencies' names,
+  whatever the rows hold; `"INVALID"` for an invalid dataset; and otherwise
 
 ```json
 {"keys": [{"source": S, "entity": [...], "event": INT, "coin": INT or null,
@@ -96,8 +97,9 @@ A resolver case is one store at one dataset version:
 
   listing every key with an eligible revision, sorted by source name, then entity, then event time (cells ordered:
   null, booleans false before true, integers, non-integers, strings by their scalar values; numbers by value; lists
-  element by element). `CELLS` is the entry's revision's declared columns, an object sorted by name; `ROLE` its role
-  payload, or null for a retraction or a source with no role; `SLOT` the entry's slot, or null for a source without
-  one; `coin` an index into `universe`. `visible` names, per query t, the fetchedAt of the entry the query sees, or
-  null.
+  element by element). Evidence keys and keys outside U are listed, with `coin` null, though never delivered: derived
+  rows read their timelines. `CELLS` is the entry's revision's declared columns, an object sorted by name, an absent
+  column as null; `ROLE` its role payload, the role's columns' cells as an array in the role's order, or null for a
+  retraction or a source with no role; `SLOT` the entry's slot, or null for a source without one; `coin` an index into
+  `universe`. `visible` names, per query t, the fetchedAt of the entry the query sees, or null.
 - The size of a resolver suite is its (key, query) pairs over cases that are neither `"INVALID"` nor `"E_RULE"`.
