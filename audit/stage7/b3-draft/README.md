@@ -2,7 +2,7 @@
 
 Drafted 2026-11-02 on `stage7` against B2's frozen definitions (`laws-frozen.md`, `7997257`; `b2-revision.md`), per
 `rust-port-plan.md` §3 B3. `resolver_suite.py` states the case format and holds the hand cases and the generator;
-`resolver_hand.jsonl` (54 cases) and `resolver_generated.jsonl` (76 stores, 1,172 (key, query) pairs, seed 20261102)
+`resolver_hand.jsonl` (60 cases) and `resolver_generated.jsonl` (76 stores, 1,172 (key, query) pairs, seed 20261102)
 are what it gives (`HAND`, `generate()`). Nothing frozen and nothing under `kernel/` changed. Once reviewed, it is
 committed alone, replacing `kernel/tests/rules/resolver_suite.py` and its two files (below).
 
@@ -21,6 +21,9 @@ committed alone, replacing `kernel/tests/rules/resolver_suite.py` and its two fi
   the lag; a lineage key of a source outside its dependency; a key with no delivery recorded by the derived revision,
   alone and beside a good key (no masking); a later upstream correction leaving the earlier derived row unmoved while
   bounding its recomputation; and a retraction recorded by the derived revision bounding it (B2's fix).
+- **Also by hand:** `b2-revision.md` §7's N-1 (an identical recomputation with a usable lineage after an unusable first
+  revision adds nothing, so the key is never delivered), two dependencies each bounded by its own lag, a derived source
+  over a derived one, and repeats of a tombstone or a rejected revision adding nothing.
 - **F-1** (`b2-fixes-review-claude.md`): a lineage naming a dependency twice makes the dataset invalid, with its hand
   case; so does a malformed lineage key.
 - **F-2**, both directions: a key's entity is decoded from its entity columns' values, never given separately, so one
@@ -58,6 +61,6 @@ committed alone, replacing `kernel/tests/rules/resolver_suite.py` and its two fi
 ## Self-check (by the suite's author, not independent)
 
 Every hand expectation was computed by hand from RULES.md §6, then compared with a throwaway transcription of Lean's
-`timeline` kept outside the repository: 54 of 54 agree, and no expectation was changed by the comparison. The same
+`timeline` kept outside the repository: 60 of 60 agree, and no expectation was changed by the comparison. The same
 transcription ran every generated store: 74 resolve, 2 are invalid (a shared fetchedAt within a key), and the derived
 source's keys reach empty timelines, single deliveries and retractions.

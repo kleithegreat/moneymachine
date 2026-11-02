@@ -13,6 +13,8 @@ A case is one store at one dataset version:
 - A source is a declaration reduced to what resolution reads. `times` are its rule's Time fields (`fetchedAt`, the
   revision's own, is always in the rule's context and never listed); `values` its value columns; `entity` its entity
   columns (`["coin"]` unless `evidence`); `event` its event column, among `times`; `slot` an event source's slot column.
+  Its cadence is Lean's evidence if `evidence`, event if it has a `slot`, held otherwise; an adapter to Lean's `Decl`
+  names each value column's input uniquely (`fields`), since no rule reads one.
   The compared columns (RULES.md §6, second revision: declared value and control columns other than `fetchedAt`) are
   `values`, `times`, `event`, `slot` and `entity`. Every case's registry is valid (paper §5, `Registry.valid`): sources
   named uniquely, dependencies naming declared sources, at least one each, acyclic. Admission's refusals are tested
@@ -278,6 +280,38 @@ HAND = [
          {"keys": [key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000]),
                    key("events", ["BTC"], E, 0, [[P + 3000, P + 1000 + LAG, False, E], [F, F, True, E]],
                        [None])]}),
+    # A repeated tombstone, or a repeat of a rejected revision, adds nothing: a revision is compared with the stored one
+    # before it, delivered or not.
+    bars([rev("bars", 100, b(1)), rev("bars", F, b(1), tombstone=True), rev("bars", 60 * H, b(1), tombstone=True)],
+         60 * H, [60 * H], [[100, K, False], [F, F, True]], [None]),
+    bars([rev("bars", 100, b(1, reportedTime=E)), rev("bars", F, b(1)), rev("bars", 60 * H, b(1))], 60 * H, [60 * H],
+         [[100, K, False], [F, F, True]], [None], sources=(REPORTED,)),
+    # b2-revision.md §7, N-1: a recomputation with identical cells and a usable lineage adds nothing after an unusable
+    # first revision, so the key is never delivered (missingness, recorded as a limitation).
+    case(derived, [poll(P + 1000), ev(P + 3000, 0, [SK]), ev(F, 0, [PK])], F, [10**15],
+         {"keys": [key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000]),
+                   key("events", ["BTC"], E, 0, [], [None])]}),
+    # Each dependency's own lag bounds its own time; lacking one of two dependencies is unusable.
+    *[case((SIGHT, POLL, src("both", rule(mx(f("eventTime"), dep("a"), dep("b"))), values=("count",),
+                             deps=({"name": "a", "sources": ["poll"], "lag": LAG},
+                                   {"name": "b", "sources": ["sight"], "lag": 10 * LAG}))),
+           [rev("sight", E + 1000, s1()), poll(P + 1000),
+            rev("both", E + 8000, {"coin": "BTC", "eventTime": E, "count": 1}, upstream=lineage)], E + 8000,
+           [E + 10999, E + 11000],
+           {"keys": [key("sight", ["h", 1], E + 500, None, [[E + 1000, E + 1000, False]], [E + 1000, E + 1000]),
+                     key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000, P + 1000]),
+                     key("both", ["BTC"], E, 0, timeline, visible)]})
+      for lineage, timeline, visible in (({"a": [PK], "b": [SK]}, [[E + 8000, E + 11000, False]], [None, E + 8000]),
+                                         ({"a": [PK]}, [], [None, None]))],
+    # A derived source over a derived source: the upstream time is the upstream derived row's knownAt.
+    case(derived + (src("daily", rule(mx(f("eventTime"), dep("counts"))), values=("total",),
+                        deps=({"name": "counts", "sources": ["events"], "lag": 0},)),),
+         [poll(P + 1000), ev(P + 3000, 0, [PK]),
+          rev("daily", E + 9000, {"coin": "BTC", "eventTime": E, "total": 0}, upstream={"counts": [["events", ["BTC"], E]]})],
+         E + 9000, [P + 1000 + LAG - 1, P + 1000 + LAG],
+         {"keys": [key("poll", ["h"], P, None, [[P + 1000, P + 1000, False]], [P + 1000, P + 1000]),
+                   key("events", ["BTC"], E, 0, [[P + 3000, P + 1000 + LAG, False, E]], [None, P + 3000]),
+                   key("daily", ["BTC"], E, 0, [[E + 9000, P + 1000 + LAG, False]], [None, E + 9000])]}),
     # A lag pushing the bound out of range makes the row unusable.
     case((SIGHT, POLL, src("events", COUNT, values=("count",), slot="slot",
                            deps=({"name": "recording", "sources": ["sight", "poll"], "lag": HI},))),
