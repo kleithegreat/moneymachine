@@ -57,7 +57,7 @@ Reviews take one round by default, and their output is evidence, not orders. Eac
 Only the human may:
 - loosen a frozen threshold;
 - spend beyond an approved budget (`audit/decisions.md`);
-- settle a terms question or a licence reading;
+- overrule a terms or licence reading (the advisor settles them as reviewed decisions);
 - delete audit records.
 
 ### Pre-registered criteria
