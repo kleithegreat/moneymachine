@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from ops.oci.publish import publish
+
 FILTER = Path(__file__).parent / "oci/forward-window.exclude"
 
 
@@ -44,14 +46,16 @@ def oracle_pull(tmp_path):
     destination = base / "000000000001/live"
     destination.mkdir(parents=True)
     (tools / "rsync").write_text(
-        '#!/usr/bin/env bash\nargs=("$@")\nvolume="${args[-2]%/}"\nvolume="${volume##*/}"\n'
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> "$RSYNC_ARGS"\n'
+        'args=("$@")\nvolume="${args[-2]%/}"\nvolume="${volume##*/}"\n'
         'args[-2]="$FAKE_OCI/$volume/"\nexec "$LOCAL_RSYNC" "${args[@]}"\n')
     (tools / "rsync").chmod(0o755)
 
     def run():
         return subprocess.run(["bash", str(scripts / "pull.sh")], capture_output=True, text=True,
                               env={"PATH": f"{tools}:{os.environ['PATH']}", "HOME": str(tmp_path),
-                                   "FAKE_OCI": str(source), "LOCAL_RSYNC": shutil.which("rsync")})
+                                   "FAKE_OCI": str(source), "LOCAL_RSYNC": shutil.which("rsync"),
+                                   "RSYNC_ARGS": str(root / "rsync.args")})
 
     return root, source / "live", destination, run
 
@@ -62,6 +66,8 @@ def test_oracle_pull_refuses_a_source_that_does_not_extend_its_copy(oracle_pull,
     name = "polls-20261020.jsonl"
     (source / name).write_bytes(incoming)
     (destination / name).write_bytes(b"A\nB\n")
+    os.utime(source / name, (100, 100))
+    os.utime(destination / name, (200, 200))
 
     result = run()
 
@@ -85,6 +91,58 @@ def test_oracle_pull_accepts_an_identical_or_extended_source(oracle_pull, incomi
     assert result.returncode == 0, result.stdout + result.stderr
     assert (destination / name).read_bytes() == incoming
     assert "Cloud recorder pull failing" not in (root / "PROGRESS.md").read_text()
+
+
+def test_oracle_pull_does_not_checksum_history(oracle_pull):
+    root, source, destination, run = oracle_pull
+    assert run().returncode == 0
+    assert "--checksum" not in (root / "rsync.args").read_text().splitlines()
+
+
+def test_publish_does_not_read_unchanged_hard_links(tmp_path, monkeypatch):
+    source, destination = tmp_path / "stage", tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+    target = destination / "polls.jsonl"
+    target.write_bytes(b"history\n")
+    (source / target.name).hardlink_to(target)
+    original = Path.open
+
+    def refuse_history_read(path, *args, **kwargs):
+        assert path.name != target.name, "unchanged inode was opened for comparison"
+        return original(path, *args, **kwargs)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(Path, "open", refuse_history_read)
+        publish(source, destination)
+    assert target.read_bytes() == b"history\n"
+
+
+@pytest.mark.parametrize("divergent", ["a.jsonl", "b.jsonl", "c.jsonl"])
+def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull, divergent):
+    root, source, destination, run = oracle_pull
+    for name in ("a.jsonl", "b.jsonl", "c.jsonl"):
+        (destination / name).write_bytes(b"old\n")
+        (source / name).write_bytes(b"different\n" if name == divergent else b"old\nnew\n")
+    (source / "new.jsonl").write_bytes(b"new file\n")
+    result = run()
+    assert result.returncode != 0 and divergent in result.stderr
+    assert "no longer extends" in result.stderr
+    for name in ("a.jsonl", "b.jsonl", "c.jsonl"):
+        assert (destination / name).read_bytes() == (b"old\n" if name == divergent else b"old\nnew\n")
+    assert (destination / "new.jsonl").read_bytes() == b"new file\n"
+    assert (root / "data/live-oci/last-pull").read_text() == "last-good\n"
+
+
+def test_oracle_pull_reports_every_divergence(oracle_pull):
+    root, source, destination, run = oracle_pull
+    for name in ("a.jsonl", "b.jsonl"):
+        (destination / name).write_bytes(b"old\n")
+        (source / name).write_bytes(b"divergent\n")
+    result = run()
+    assert result.returncode != 0
+    assert all(name in result.stderr for name in ("a.jsonl", "b.jsonl"))
+    assert result.stderr.count("no longer extends") == 2
 
 
 @pytest.mark.parametrize("kill_first", [False, True])

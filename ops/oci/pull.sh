@@ -15,9 +15,9 @@ err=""
 for d in live clock datalayer sources_live; do
   mkdir -p "$dest/$d" "$stage/$d"
   skip=(); [ "$d" = live ] && skip=(--exclude-from=ops/oci/forward-window.exclude)
-  out=$(rsync -a --checksum --link-dest="$PWD/$dest/$d" --timeout=120 "${skip[@]}" -e "$ssh_cmd" \
+  out=$(rsync -a --link-dest="$PWD/$dest/$d" --timeout=120 "${skip[@]}" -e "$ssh_cmd" \
           "mm@$MM_OCI_IP:/home/mm/$d/" "$stage/$d/" 2>&1 && \
-        python ops/oci/publish.py "$stage/$d" "$dest/$d" 2>&1) || err="$err $d: $(echo "$out" | tail -1)"
+        python ops/oci/publish.py "$stage/$d" "$dest/$d" 2>&1) || err="$err $d: $out"
 done
 if [ -z "$err" ]; then
   date -u +%FT%TZ > data/live-oci/last-pull
