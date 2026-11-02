@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Wake-up "stage7 slice 2"** (Sonnet on Cornell, stopped 06:55 UTC (01:55 EST), before the 07:10 reset; never GPT: C7.7): in `../moneymachine-stage7` on branch `stage7` only, slice 2 of `audit/stage7/rust-port-plan.md` with its checks, differentials at 60,000 cases. Commit every 20 minutes; nothing on `main`, no cluster, no data, not `audit/stage7/b3-draft/`.
 
-- **B3:** the fixes are on `stage7` (`05bcf13`). One review round on them and on C7.6's revision text (`audit/stage7/b3-draft/c76-revision.md`) runs, GPT and a fresh Opus. `stage7` is 267 commits behind `main`: 2 tests fail there at the rebase (C0.7's xfail, the thesis allowlist).
+- **Wake-up "stage7 B3 round 3"** (Opus on TAMU, 2026-11-02 08:05 UTC (03:05 EST), after campaigns 7 and 8, stopped 11:55 UTC (06:55 EST)): in `../moneymachine-stage7` on branch `stage7` only, apply `audit/decisions.md` (the entry "B3's fixes are not frozen") using `audit/stage7/b3-fixes-review-{gpt,claude}.md`, under `audit/stage7/b3-draft/`, and qualify the plan's two-run checks. Commit every 20 minutes; nothing on `main`, no cluster, no data. `stage7` is 267 commits behind `main`: 2 tests fail there until the rebase (C0.7's xfail, the thesis allowlist).
 
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
