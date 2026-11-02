@@ -134,12 +134,13 @@ class Market:
         with self.locks.setdefault(path, threading.Lock()):
             rows = json.loads(path.read_text()) if path.exists() else []
             pending = self.pending.setdefault(path, {})
-            for t in [t for t in pending if t + FINAL[kind] <= now]:
+            expired = [t for t in pending if t + FINAL[kind] <= now]
+            for t in expired:
                 del pending[t]
             known = {r[0] for r in rows}
             last = self.repaired.get(path)
             repair = last is None or now_ms() - last >= self.repair_every
-            if repair or not rows:
+            if repair or not rows or expired:
                 spans = holes(rows, step, now - HISTORY[kind], now)
             else:
                 spans = [] if (now - SHOWN[kind]) // step * step in known | set(pending) else [(rows[-1][0] + 1, now)]

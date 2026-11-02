@@ -342,3 +342,14 @@ def test_an_hourly_bar_stays_when_the_next_was_read_before_it_showed(tmp_path, m
     m.bars("X", "1h", clock[0])
     clock[0] = midnight + market.DELTA
     assert [r[0] for r in m.bars("X", "1h", clock[0])] == [midnight - 2 * H, midnight - H, midnight]
+
+
+def test_a_row_that_expires_from_memory_is_read_again_before_a_newer_row_can_suppress_the_fetch(tmp_path):
+    t = 100 * market.HOUR
+    x = Venue([(t - 2 * market.HOUR, 1.0), (t, 3.0)])
+    m = market.Market(tmp_path, x)
+    m.repair_every = 10 ** 15
+    assert [r[0] for r in m.bars("X", "1h", t + 2 * 60_000 + 60_000)] == [t - 2 * market.HOUR, t]
+    x.rows = sorted(x.rows + [(t - market.HOUR, 2.0)])
+    assert t - market.HOUR in [r[0] for r in m.bars("X", "1h", t - 60_000)]
+    assert t - market.HOUR in [r[0] for r in m.bars("X", "1h", t + market.DELTA + 60_000)]
