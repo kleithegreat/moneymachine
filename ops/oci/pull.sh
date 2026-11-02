@@ -16,7 +16,7 @@ for d in live clock datalayer sources_live; do
   mkdir -p "$dest/$d" "$stage/$d"
   skip=(); [ "$d" = live ] && skip=(--exclude-from=ops/oci/forward-window.exclude)
   out=$(rsync -a --link-dest="$PWD/$dest/$d" --timeout=120 "${skip[@]}" -e "$ssh_cmd" \
-          "mm@$MM_OCI_IP:/home/mm/$d/" "$stage/$d/" 2>&1 && \
+          "mm@$MM_OCI_IP:/home/mm/$d/" "$stage/$d/" 2>&1 | tail -1 && \
         python ops/oci/publish.py "$stage/$d" "$dest/$d" 2>&1) || err="$err $d: $out"
 done
 if [ -z "$err" ]; then
@@ -24,6 +24,7 @@ if [ -z "$err" ]; then
   grep -q "$mark" PROGRESS.md && sed -i "/$(printf '%s' "$mark" | sed 's/\*/\\*/g')/d" PROGRESS.md
   exit 0
 fi
+err=${err//$'\n'/ }
 printf '%s\n' "$err" >&2
 if ! grep -q "$mark" PROGRESS.md; then
   line="- $mark (since $(date -u +%FT%TZ)):$err.** Last good pull: $(cat data/live-oci/last-pull 2>/dev/null || echo never). If this PC's public IP changed, rerun ops/oci/provision.sh, which updates the VM's SSH rule. Files already pulled are safe; the VM keeps recording meanwhile."

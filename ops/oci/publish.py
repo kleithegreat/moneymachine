@@ -30,7 +30,7 @@ def publish(source, destination):
             target.parent.mkdir(parents=True, exist_ok=True)
             path.replace(target)
         if divergent:
-            raise SystemExit("\n".join(divergent))
+            raise SystemExit("; ".join(divergent))
 
 
 if __name__ == "__main__":

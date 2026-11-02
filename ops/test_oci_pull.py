@@ -38,24 +38,25 @@ def oracle_pull(tmp_path):
         shutil.copy2(FILTER.parent / name, scripts / name)
     base = root / "data/live-oci"
     base.mkdir(parents=True)
-    (base / "host.env").write_text("MM_OCI_ID=000000000001\nMM_OCI_IP=fixture.invalid\n")
+    (base / "host.env").write_text("MM_OCI_ID=000000000001\nMM_OCI_IP=192.0.2.1\n")
     (base / "last-pull").write_text("last-good\n")
-    (root / "PROGRESS.md").write_text("# Progress\n\n## Blockers\n\n")
+    (root / "PROGRESS.md").write_text("# Progress\n\n## Blockers\n\n- Existing blocker.\n\n## Qualifications\n\nUnchanged.\n")
     for volume in ("live", "clock", "datalayer", "sources_live"):
         (source / volume).mkdir(parents=True)
     destination = base / "000000000001/live"
     destination.mkdir(parents=True)
     (tools / "rsync").write_text(
         '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> "$RSYNC_ARGS"\n'
+        'if [ -n "${RSYNC_ERROR:-}" ]; then printf "%s\\n" "$RSYNC_ERROR" >&2; exit 255; fi\n'
         'args=("$@")\nvolume="${args[-2]%/}"\nvolume="${volume##*/}"\n'
         'args[-2]="$FAKE_OCI/$volume/"\nexec "$LOCAL_RSYNC" "${args[@]}"\n')
     (tools / "rsync").chmod(0o755)
 
-    def run():
+    def run(**extra_env):
         return subprocess.run(["bash", str(scripts / "pull.sh")], capture_output=True, text=True,
                               env={"PATH": f"{tools}:{os.environ['PATH']}", "HOME": str(tmp_path),
                                    "FAKE_OCI": str(source), "LOCAL_RSYNC": shutil.which("rsync"),
-                                   "RSYNC_ARGS": str(root / "rsync.args")})
+                                   "RSYNC_ARGS": str(root / "rsync.args"), **extra_env})
 
     return root, source / "live", destination, run
 
@@ -134,15 +135,58 @@ def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull,
     assert (root / "data/live-oci/last-pull").read_text() == "last-good\n"
 
 
-def test_oracle_pull_reports_every_divergence(oracle_pull):
+@pytest.mark.parametrize("names", [("a.jsonl", "b.jsonl"), ("a\ncontinuation.jsonl", "b.jsonl")])
+def test_oracle_pull_reports_every_divergence_and_clears_the_blocker_after_recovery(oracle_pull, names):
     root, source, destination, run = oracle_pull
-    for name in ("a.jsonl", "b.jsonl"):
+    progress = root / "PROGRESS.md"
+    original = progress.read_bytes()
+    for name in names:
         (destination / name).write_bytes(b"old\n")
         (source / name).write_bytes(b"divergent\n")
     result = run()
+    report = progress.read_text()
+    for name in names:
+        (source / name).write_bytes(b"old\nnew\n")
+    recovered = run()
+
     assert result.returncode != 0
-    assert all(name in result.stderr for name in ("a.jsonl", "b.jsonl"))
+    assert recovered.returncode == 0, recovered.stderr
+    assert progress.read_bytes() == original
+    assert all(name.replace("\n", " ") in result.stderr for name in names)
     assert result.stderr.count("no longer extends") == 2
+    assert len(result.stderr.splitlines()) == 1 and "; " in result.stderr
+    assert len(report.splitlines()) == len(original.decode().splitlines()) + 1
+
+
+def test_oracle_pull_keeps_only_the_last_rsync_error_line_and_recovers(oracle_pull):
+    root, source, destination, run = oracle_pull
+    progress = root / "PROGRESS.md"
+    original = progress.read_bytes()
+    last_line = "rsync error: unexplained error (code 255) at io.c(232) [Receiver=3.4.1]"
+    result = run(RSYNC_ERROR=f"ssh: connect to host 192.0.2.1 port 22: Connection timed out\n{last_line}")
+    report = progress.read_text()
+    last_good = (root / "data/live-oci/last-pull").read_text()
+    recovered = run()
+
+    assert result.returncode != 0 and recovered.returncode == 0
+    assert progress.read_bytes() == original
+    assert "192.0.2.1" not in report + result.stderr
+    assert all(f"{volume}: {last_line}" in report for volume in ("live", "clock", "datalayer", "sources_live"))
+    assert len(report.splitlines()) == len(original.decode().splitlines()) + 1
+    assert last_good == "last-good\n"
+
+
+def test_publish_reports_all_divergences_on_one_line(tmp_path):
+    source, destination = tmp_path / "source", tmp_path / "destination"
+    source.mkdir()
+    destination.mkdir()
+    for name in ("a.jsonl", "b.jsonl"):
+        (source / name).write_bytes(b"divergent\n")
+        (destination / name).write_bytes(b"old\n")
+    with pytest.raises(SystemExit) as error:
+        publish(source, destination)
+    assert error.value.code == "; ".join(f"{destination / name}: source no longer extends destination"
+                                         for name in ("a.jsonl", "b.jsonl"))
 
 
 @pytest.mark.parametrize("kill_first", [False, True])

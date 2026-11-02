@@ -581,3 +581,9 @@ The advisor committed bb8f502 on the clean-tree test result: 395 passed, 2 faile
 The recorder's dropped-verification assertion and a two-host `availability.merge` regression failed first: local's dropped poll displaced the other host's real reference. Drops now use purpose `dropped`, leaving the existing completeness and reference readers unchanged. Both regressions and the recorder, availability and execution suites pass (19 tests); the merged reference is the other host's actual value. No recording, frozen identity or deployment changes; reverse by reverting the code.
 
 Full suite before the B1 commit: **413 passed, 2 failed, 2 skipped, 4 xfailed**; only the human-authorized clean-tree kernel witness and Lean differential missing-data failures. No exclusions or new xfails.
+
+## 2026-11-02: ops-fixes — single-line Oracle pull blockers (review B2)
+
+Four regressions failed first: multi-file divergences, a newline in a divergent filename and a synthetic SSH timeout left stale blocker continuations after a good pull; the publisher also emitted separate divergence lines. Publication errors now join with `; `, rsync retains only its last output line under `pipefail`, and pull errors flatten newlines before reporting or updating status. All 17 local Oracle tests pass, including byte-for-byte status recovery with unrelated sections preserved and the synthetic SSH address absent from the report. Only temporary fixture status/configuration files were used; real PROGRESS.md, host configuration, tokens, data and SSH were untouched. Reverse by reverting the scripts.
+
+Full suite before the B2 commit: **416 passed, 2 failed, 2 skipped, 4 xfailed**; only the same two authorized missing-data failures. Shell syntax and diff whitespace checks pass.
