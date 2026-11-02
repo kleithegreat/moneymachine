@@ -607,3 +607,41 @@ def test_a_horizon_exit_frees_its_reservation_for_the_session_of_that_morning(tm
     data = {"bars": {"X": runner.scoring.bars(m.bars("X", "1h", now))}, "funding": {"X": dict(m.funding("X", now))},
             "lag": {"X": m.lag("X")}}
     assert runner.positions.replay(10_000.0, [th], [], data, now)[0].reserved() == 0
+
+
+# GPT's round 2 review, B2: a slow market delays only the theses that need it, however many share it.
+def test_healthy_theses_are_scored_while_an_unrelated_market_hangs(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    release, funding = threading.Event(), track.market.funding
+    track.market.funding = lambda name, now=None: release.wait(60) and funding(name, now) if name == "ETH" else funding(name, now)
+    resolving = threading.Thread(target=track.resolve, args=(MONDAY + 21 * DAY + HOUR,))
+    resolving.start()
+    try:
+        deadline = time.monotonic() + 20
+        while len(track.ledger.records("resolution")) < 3 and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert len(track.ledger.records("resolution")) == 3 and not release.is_set()
+    finally:
+        release.set()
+        resolving.join()
+    assert len(track.ledger.records("resolution")) == 4
+
+
+def test_a_failing_market_is_read_once_a_pass_whatever_number_of_theses_need_it(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    for th in track.ledger.theses("benchmark"):
+        track.ledger.disclose("thesis", "noread", {**th, "id": f"noread-{th['id']}", "account": "noread"})
+    reads, funding = [], track.market.funding
+
+    def failing(name, now=None):
+        reads.append(name)
+        if name == "ETH":
+            raise httpx.TransportError("down")
+        return funding(name, now)
+
+    track.market.funding = failing
+    track.resolve(MONDAY + 21 * DAY + HOUR)
+    assert sorted(reads) == sorted(th["legs"][0][0] for th in track.ledger.theses("benchmark"))
+    assert len(track.ledger.records("resolution")) == 6

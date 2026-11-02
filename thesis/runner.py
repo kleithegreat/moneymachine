@@ -15,6 +15,7 @@ import signal
 import threading
 import time
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from gate import kernel
@@ -78,10 +79,13 @@ class Track:
         costs, fallback = fill_missing(cells, sorted(markets))
         return {"initial": INITIAL, "fee": fee, "costs": costs, "fallback": fallback}
 
+    def read(self, market: str, now: int) -> Json:
+        """A market's hourly bars, funding and lag as of `now`."""
+        return {"bars": scoring.bars(self.market.bars(market, "1h", now)), "funding": dict(self.market.funding(market, now)),
+                "lag": self.market.lag(market)}
+
     def data(self, markets: Iterable[str], now: int) -> Json:
-        return {"bars": {m: scoring.bars(self.market.bars(m, "1h", now)) for m in markets},
-                "funding": {m: dict(self.market.funding(m, now)) for m in markets},
-                "lag": {m: self.market.lag(m) for m in markets}, "cutoff": now}
+        return joined({m: self.read(m, now) for m in markets}, now)
 
     def inputs(self, account: str, markets: Iterable[str], now: int, snapshot: Json) -> tuple[Json, Json]:
         """A registration's (config, data): the account's and the new thesis's markets as of `now`, the session snapshot's
@@ -234,21 +238,25 @@ class Track:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
 
     def resolve(self, now: int) -> None:
-        """Record each due thesis's outcome once, from its own markets alone, so a failure or a delay in one market holds up
-        only the theses that need it. A record's `at` is when it was written and its `cutoff` the data's."""
+        """Record each due thesis's outcome once, from its own markets alone. Each market a due thesis needs is read once a
+        pass, all at once, and a thesis is scored as soon as its own markets have been, so a failure or a delay in one market
+        holds up only the theses that need it. A record's `at` is when it was written and its `cutoff` the data's."""
         done = {c["id"] for _, _, c in self.ledger.records("resolution") if c["status"] == "resolved"}
-        for account in ACCOUNTS:
-            for th in self.ledger.theses(account):
-                if th["T"] <= now and th["id"] not in done:
+        due = [(account, th) for account in ACCOUNTS for th in self.ledger.theses(account) if th["T"] <= now and th["id"] not in done]
+        with ThreadPoolExecutor(max(len(due), 1)) as pool:
+            reads = {m: pool.submit(self.read, m, now) for m in {m for _, th in due for m, _ in th["legs"]}}
+            for _ in as_completed(reads.values()):
+                ready = {th["id"] for _, th in due if all(reads[m].done() for m, _ in th["legs"])}
+                for account, th in [(a, th) for a, th in due if th["id"] in ready]:
                     try:
-                        self.score(account, th, now)
+                        self.score(account, th, joined({m: reads[m].result() for m, _ in th["legs"]}, now), now)
                     except Exception as e:
                         print(time.strftime("%FT%T"), "resolve", th["id"], repr(e), flush=True)
+                due = [(a, th) for a, th in due if th["id"] not in ready]
 
-    def score(self, account: str, th: Json, now: int) -> None:
+    def score(self, account: str, th: Json, data: Json, now: int) -> None:
         """A position's managed return depends on no other thesis, so it is replayed alone; its failure leaves the outcome
         scored, with the failure on the record."""
-        data = self.data({m for m, _ in th["legs"]}, now)
         out = positions.outcome(th, data, now)
         if out is None:
             return
@@ -320,6 +328,11 @@ class Track:
         for date in range(frozen // DAY * DAY, now + 1 - SESSION_OFFSET, DAY):
             if f"noread-{date}" not in self.settled():
                 self.day(date)
+
+
+def joined(reads: dict[str, Json], now: int) -> Json:
+    """The data of several markets' reads (`Track.read`) as of `now`."""
+    return {k: {m: r[k] for m, r in reads.items()} for k in ("bars", "funding", "lag")} | {"cutoff": now}
 
 
 def forever(name: str, step: Callable[[], None], wait: Callable[[int], float], stop: threading.Event) -> None:
