@@ -216,7 +216,7 @@ def compare(s, gpt=approved, seen=None, data=None, code=positions):
             diffs.append(("outcome", i, o and o["o"], reg["outcome"]))
         if (o and o["R_net"]) != (reg["return"] if reg["return"] is None else float(reg["return"])):
             diffs.append(("R_net", i, o and o["R_net"], reg["return"] and float(reg["return"])))
-        if th["size"] == 0:
+        if th["size"] == 0 or i not in acct.positions:
             continue
         p, man = acct.positions[i], th["managed"]
         seen |= {g["exit"]["reason"] for g in man["legs"] if g["exit"]}
