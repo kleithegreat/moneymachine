@@ -1,5 +1,7 @@
 """C10.2/C10.5: the exchange adapter permits only the frozen public read types, at one fixed host."""
 
+import random
+
 import pytest
 
 from ingest import hl
@@ -288,3 +290,55 @@ def test_a_row_the_venue_has_not_yet_published_is_asked_for_again(tmp_path):
     m.funding("X", 2 * H + 1000)
     x.rows.append((2 * H, 0.2))
     assert m.funding("X", 2 * H + 2000) == [[H, 0.1], [2 * H, 0.2]]
+
+
+# GPT's round 3 check: a row read before it was shown hid the row beneath it, and a daily one was dropped once final.
+class Live(Venue):
+    """A venue whose candle in progress at `clock` has a close that later changes."""
+
+    def __init__(self, rows, step, clock):
+        super().__init__(rows)
+        self.step, self.clock = step, clock
+
+    def candles(self, market, interval, start, end):
+        return [c | ({"c": "-1"} if c["t"] + self.step > self.clock[0] else {}) for c in super().candles(market, interval, start, end)]
+
+
+@pytest.mark.parametrize("seed", range(30))
+@pytest.mark.parametrize("interval, step", [("1d", market.DAY), ("1h", H)])
+def test_a_warm_cache_gives_what_a_cold_one_does_at_every_read(tmp_path, monkeypatch, seed, interval, step):
+    rng = random.Random(seed)
+    midnight = 200 * market.DAY
+    rows = [(midnight + k * step, float(k)) for k in range(-100, 4)]
+    offsets = [0, 1, market.DELTA - 1, market.DELTA, market.DELTA + 1, 10 * 60_000, H - 1]
+    reads = sorted(midnight + rng.randrange(-2, 3) * H + rng.choice(offsets) for _ in range(12))
+    clock = [reads[0]]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    warm = market.Market(tmp_path / "warm", Live(rows, step, clock))
+    funding = market.Market(tmp_path / "warm-funding", Venue(rows))
+    for n, read in enumerate(reads):
+        clock[0] = read
+        cutoff = read - rng.choice([0, 0, H, 3 * H])
+        cold = tmp_path / f"cold-{n}"
+        assert warm.bars("X", interval, cutoff) == market.Market(cold, Live(rows, step, clock)).bars("X", interval, cutoff), (reads, read, cutoff)
+        assert funding.funding("X", cutoff) == market.Market(cold, Venue(rows)).funding("X", cutoff), (reads, read, cutoff)
+
+
+def test_ninety_days_complete_at_ten_past_midnight_after_a_read_at_midnight(tmp_path, monkeypatch):
+    day, midnight = market.DAY, 200 * market.DAY
+    clock = [midnight]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    m = market.Market(tmp_path, Venue([(midnight - k * day, 1.0) for k in range(91)]))
+    assert len(m.bars("X", "1d", midnight)) == 89
+    clock[0] = midnight + 10 * 60_000
+    assert len(m.bars("X", "1d", clock[0])) == 90
+
+
+def test_an_hourly_bar_stays_when_the_next_was_read_before_it_showed(tmp_path, monkeypatch):
+    midnight = 200 * market.DAY
+    clock = [midnight + 1]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    m = market.Market(tmp_path, Venue([(midnight - 2 * H, 1.0), (midnight - H, 2.0), (midnight, 3.0)]))
+    m.bars("X", "1h", clock[0])
+    clock[0] = midnight + market.DELTA
+    assert [r[0] for r in m.bars("X", "1h", clock[0])] == [midnight - 2 * H, midnight - H, midnight]

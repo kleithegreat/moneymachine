@@ -5,8 +5,8 @@ signing, account or order operation anywhere. Every response is archived with it
 Final bars and funding rows are cached per market, each file rewritten atomically under its own lock: extended
 incrementally, every hole the venue left, before the first row too, retried each `repair_every` for as long as it stays
 one, and a cached row is never rewritten. A candle's open is known at its open plus δ and its close at its close plus δ
-(C0.3's rule), whenever it was first read, so a read as of a cutoff does not depend on what the cache holds; one not yet
-closed is held in memory, so a read holding the newest row it can show asks the venue for nothing. A builder (HIP-3)
+(C0.3's rule), whenever it was first read, so a read as of a cutoff does not depend on what the cache holds; one shown
+but not final is held in memory, so a read holding the newest row it can show asks the venue for nothing. A builder (HIP-3)
 market's hourly bars are its recorded mark prices (stage 10 revision of 2026-10-23): `record_marks` samples every builder
 dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from those samples as known at `now`.
 """
@@ -129,11 +129,13 @@ class Market:
         return {m: universes[dex_of(m)][m] for m in markets if m in universes.get(dex_of(m), {})}
 
     def _cached(self, market: str, kind: str, fetch: Callable[[int, int], list[list[Any]]], now: int) -> list[list[Any]]:
-        """The rows of `kind` known by `now`: the cache's final ones and those read in this process not yet final."""
+        """The rows of `kind` shown by `now`: the cache's final ones and those read in this process not yet final."""
         path, step = self.root / market.replace(":", "_") / f"{kind}.json", STEP[kind]
         with self.locks.setdefault(path, threading.Lock()):
             rows = json.loads(path.read_text()) if path.exists() else []
             pending = self.pending.setdefault(path, {})
+            for t in [t for t in pending if t + FINAL[kind] <= now]:
+                del pending[t]
             known = {r[0] for r in rows}
             last = self.repaired.get(path)
             repair = last is None or now_ms() - last >= self.repair_every
@@ -141,20 +143,18 @@ class Market:
                 spans = holes(rows, step, now - HISTORY[kind], now)
             else:
                 spans = [] if (now - SHOWN[kind]) // step * step in known | set(pending) else [(rows[-1][0] + 1, now)]
-            fresh = {r[0]: r for a, b in spans if a < b for r in fetch(a, b) if r[0] not in known}
+            fresh = {r[0]: r for a, b in spans if a < b for r in fetch(a, b) if r[0] not in known and r[0] + SHOWN[kind] <= now}
             if repair:
                 self.repaired[path] = now_ms()
             final = [r for t, r in fresh.items() if t + FINAL[kind] <= now]
             pending.update((t, r) for t, r in fresh.items() if t + FINAL[kind] > now)
-            for t in [t for t in pending if t + FINAL[kind] <= now]:
-                del pending[t]
             if final:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 rows = sorted(rows + final)
                 tmp = path.with_suffix(".tmp")
                 tmp.write_text(json.dumps(rows, separators=(",", ":")))
                 os.replace(tmp, path)
-            return sorted(rows + list(pending.values()))
+            return sorted(r for r in rows + list(pending.values()) if r[0] + SHOWN[kind] <= now)
 
     def record_marks(self) -> None:
         """One sample of every builder dex's mark prices, archived with its send and receive times."""
@@ -183,8 +183,7 @@ class Market:
 
         def fetch(start: int, end: int) -> list[list[Any]]:
             return [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)]
-        return [[t, o, c if t + step + DELTA <= now else None] for t, o, c in self._cached(market, interval, fetch, now)
-                if t + SHOWN[interval] <= now]
+        return [[t, o, c if t + step + DELTA <= now else None] for t, o, c in self._cached(market, interval, fetch, now)]
 
     def funding(self, market: str, now: int | None = None) -> list[list[Any]]:
         """[[hour, rate]] of settled funding up to `now`."""
@@ -192,4 +191,4 @@ class Market:
 
         def fetch(start: int, end: int) -> list[list[Any]]:
             return [[r["time"] // HOUR * HOUR, float(r["fundingRate"])] for r in self.x.funding(market, start, end + 1)]
-        return [r for r in self._cached(market, "funding", fetch, now) if r[0] <= now]
+        return self._cached(market, "funding", fetch, now)
