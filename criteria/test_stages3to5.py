@@ -40,7 +40,10 @@ def test_c45_swarm_smoke():
     s = load("stage4/null-summary.json")
     assert s["n"] == 10 and s["counted_promotions"] <= 1 and s["statement"] == campaigns.SMOKE["swarm"]
     assert all(s["cross_agent_history"]) and all(e is not None and e <= 400 for e in s["evaluations"])
-
+    assert sorted(s["audits"]) == sorted(campaigns.cohort("swarm")[0])
+    for audits in s["audits"].values():
+        assert audits and set(audits) == {f"A{i + 1}" for i in range(campaigns.SWARM_AGENTS)}
+        assert all(map(campaigns.audit_holds, audits.values()))
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,

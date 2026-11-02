@@ -226,6 +226,14 @@ def mirror(app=APP, out="/mirror"):
             new[rel] = {"size": size, "mtime": st.st_mtime_ns, "sha256": digest}
         if gone := [r for r in old if r.endswith(".jsonl") and r not in new]:
             raise SystemExit(f"{vol}: day files vanished from the source: {gone}")
+        if vol == "datalayer":
+            for rel in new:
+                if rel.endswith(".jsonl"):
+                    with open(dst / rel) as log:
+                        for line in log:
+                            body = f"raw/{json.loads(line)['sha256']}.gz"
+                            if body not in new:
+                                raise SystemExit(f"{vol}/{rel}: body {body} was not copied")
         usage = shutil.disk_usage(src)
         (dst / "MANIFEST.json.tmp").write_text(json.dumps({"taken": int(time.time() * 1000), "files": new,
                                                            "used": usage.used, "total": usage.total}))
@@ -236,7 +244,7 @@ def verify(app=APP, out="/mirror"):
     """Daily: every mirrored file against its manifest's sha256, and every day file's source over the same length."""
     for vol, path in VOLUMES.items():
         if not (Path(out) / vol / "MANIFEST.json").exists():
-            continue
+            raise SystemExit(f"mirror {vol}: missing manifest")
         for rel, e in json.loads((Path(out) / vol / "MANIFEST.json").read_text())["files"].items():
             if sha256(Path(out) / vol / rel, e["size"]) != e["sha256"]:
                 raise SystemExit(f"mirror {vol}/{rel} differs from its manifest")

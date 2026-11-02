@@ -50,12 +50,25 @@ def recorded(path):
 @contextmanager
 def exclusive(log):
     """`log` opened for appending under an exclusive lock held for the run's lifetime (released when its last process,
-    pool workers included, exits), so a second run of the same log fails at once."""
+    pool workers included, exits), so a second run fails at once. Only an incomplete final JSON value is discarded;
+    complete results are preserved and interior corruption is refused."""
     with open(log, "a") as fh:
         try:
             fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise RuntimeError(f"another run of {log} is alive") from None
+        with open(log, "rb") as source:
+            for line in source:
+                try:
+                    json.loads(line)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    if line.endswith(b"\n"):
+                        raise
+                    fh.truncate(source.tell() - len(line))
+                else:
+                    if not line.endswith(b"\n"):
+                        fh.write("\n")
+        fh.flush()
         yield fh
 
 

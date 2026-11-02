@@ -35,7 +35,9 @@ class Recorder:
         self.out.mkdir(parents=True, exist_ok=True)
         self.hour = now_ms() // HOUR * HOUR
         self.pending = {}
-        self.verify = [(self.hour + VERIFY_AFTER, self.kinds(self.hour))] if now_ms() < self.hour + VERIFY_AFTER else []
+        self.verify = []
+        if now_ms() < self.hour + VERIFY_AFTER:
+            self.queue_verification(self.hour)
         self.last_l2 = {c: 0 for c in coins}
 
     def log(self, rec):
@@ -64,6 +66,9 @@ class Recorder:
     def kinds(h):
         return ["funding"] + (["bar"] if h % BAR == 0 else [])
 
+    def queue_verification(self, boundary):
+        self.verify.extend((boundary + VERIFY_AFTER, kind, coin) for kind in self.kinds(boundary) for coin in self.coins)
+
     def step(self):
         t = now_ms()
         h = t // HOUR * HOUR
@@ -73,7 +78,7 @@ class Recorder:
             for kind in kinds:
                 for c in self.coins:
                     self.pending[(kind, c)] = (h, h + FIRST_AFTER - POLL)
-                self.verify.append((h + VERIFY_AFTER, kinds))
+            self.queue_verification(h)
         for (kind, c), (b, last) in list(self.pending.items()):
             if now_ms() - last >= POLL:
                 if self.poll(kind, c, b, "first"):
@@ -81,10 +86,9 @@ class Recorder:
                 else:
                     self.pending[(kind, c)] = (b, now_ms())
         while self.verify and self.verify[0][0] <= now_ms():
-            at, kinds = self.verify.pop(0)
-            for kind in kinds:
-                for c in self.coins:
-                    self.poll(kind, c, at - VERIFY_AFTER, "verify")
+            at, kind, coin = self.verify[0]
+            self.poll(kind, coin, at - VERIFY_AFTER, "verify")
+            self.verify.pop(0)
 
     def step_l2(self):
         for c in self.coins:
@@ -114,4 +118,3 @@ def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
     l2.start()
     forever(rec.step, stop)
     l2.join()
-
