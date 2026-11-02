@@ -19,7 +19,7 @@ DAYS = {"X": range(200, 400), "W": range(200, 400), "Z": range(350, 400)}
 ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
 CONFIG = {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO for m in LISTINGS}, "fallback": []}
 DATA = {"bars": {m: positions.Bars({h * HOUR: (100.0, 100.0) for h in range(9000, 9700)}) for m in LISTINGS},
-        "funding": {m: {h * HOUR: 0.0 for h in range(4800, 9700)} for m in LISTINGS}, "listings": LISTINGS,
+        "funding": {m: {h * HOUR: 0.0 for h in range(4800, 9700)} for m in LISTINGS}, "listed": lambda markets: LISTINGS,
         "daily": {m: positions.Bars({t * DAY: (100.0, 100.0) for t in DAYS.get(m, ())}) for m in LISTINGS}}
 
 

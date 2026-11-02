@@ -1,6 +1,7 @@
 """The keyless data layer's recorder (paper §5, Acquisition): polls each feed of `venue/sources/datalayer.json` on its
 cadence, read-only, and keeps every response body gzip-compressed under `<out_dir>/raw/<sha256 of the body>.gz` beside a
-day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}. A body is known no earlier than
+day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}. A stored body is checked before it is
+reused: a damaged one is moved aside, never deleted, and rewritten, on a day-JSONL `repairs` log. A body is known no earlier than
 its poll's recv; parsing into point-in-time revisions is offline, per source. A feed whose file name changes per
 release declares `discover`: an index URL, a pattern with one group, and a template the group fills; the index is
 logged as `<feed>/index`. A feed may declare `auth`, `{"param" | "header": NAME, "env": VAR}`: the value of VAR in
@@ -16,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import zlib
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -67,6 +69,24 @@ def body(out_dir: str | Path, digest: str) -> bytes:
     return gzip.decompress((Path(out_dir) / "raw" / f"{digest}.gz").read_bytes())
 
 
+def intact(raw: Path, content: bytes) -> bool:
+    """Whether a stored body decompresses to `content`."""
+    try:
+        return gzip.decompress(raw.read_bytes()) == content
+    except (EOFError, OSError, zlib.error):
+        return False
+
+
+def quarantine(raw: Path, out_dir: str | Path, name: str, url: str) -> None:
+    """Move a damaged body aside, its bytes kept, so its content can be written again, with the repair on the record."""
+    t = now_ms()
+    bad = raw.read_bytes()
+    kept = f"{raw.name}.damaged-{t}"
+    os.replace(raw, raw.with_name(kept))
+    append(out_dir, "repairs", t, {"t": t, "feed": name, "url": url, "sha256": raw.name.removesuffix(".gz"), "kept": kept,
+                                   "damaged_sha256": hashlib.sha256(bad).hexdigest(), "bytes": len(bad)})
+
+
 def last_polls(out_dir: str | Path) -> dict[str, int]:
     """Each feed's last poll time (an index fetch counts for its feed)."""
     return {p["feed"].removesuffix("/index"): p["sent"] for p in read(out_dir, "datalayer")}
@@ -101,6 +121,8 @@ def get(http: httpx.Client, name: str, url: str, accept: str | None, out_dir: st
         body = body.replace(secret.encode(), REDACTED)
     digest = hashlib.sha256(body).hexdigest()
     raw = Path(out_dir) / "raw" / f"{digest}.gz"
+    if raw.exists() and not intact(raw, body):
+        quarantine(raw, out_dir, name, url)
     if not raw.exists():
         raw.parent.mkdir(parents=True, exist_ok=True)
         tmp = raw.with_suffix(".tmp")

@@ -72,9 +72,7 @@ class Daemon:
             request = json.loads(args[0])
         except json.JSONDecodeError as e:
             return {"ok": False, "message": f"not JSON: {e}"}
-        markets = [l[0] for l in request.get("legs", []) if isinstance(l, list) and l and isinstance(l[0], str)] \
-            if isinstance(request, dict) and isinstance(request.get("legs"), list) else []
-        config, data = self.register_inputs(self.account, markets, self.clock())
+        config, data = self.register_inputs(self.account, registry.markets_of(request), self.clock())
         th, errors = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data)
         if th is None:
             return {"ok": False, "errors": errors}

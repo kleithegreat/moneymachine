@@ -16,7 +16,7 @@ SNAPSHOT = {"taken": NOW - HOUR, "listings": {"X": False},
             "markets": {"X": {"last_close": 100.0, "t": NOW - HOUR}},
             "daily": {"X": [[t * DAY, 100.0, 100.0] for t in range(200, 400)]}}
 DATA = {"bars": {"X": positions.Bars({h * HOUR: (100.0, 100.0) for h in range(9000, 9700)})},
-        "funding": {"X": {h * HOUR: 0.0 for h in range(4800, 9700)}}, "listings": {"X": False},
+        "funding": {"X": {h * HOUR: 0.0 for h in range(4800, 9700)}}, "listed": lambda markets: {"X": False},
         "daily": {"X": positions.Bars({t * DAY: (100.0, 100.0) for t in range(200, 400)})}}
 CONFIG = {"initial": 10_000.0, "fee": 0.0, "costs": {"X": ZERO}, "fallback": []}
 

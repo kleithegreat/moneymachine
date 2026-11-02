@@ -74,7 +74,7 @@ def number(x: Any, lo: float, hi: float) -> bool:
 
 
 def validate(request: Any, t_r: int, listings: dict[str, bool], daily: Json, disclosed: Collection[str]) -> list[str]:
-    """Errors for a registration request at t_r (empty if valid). `listings` is {market: delisted};
+    """Errors for a registration request at t_r (empty if valid). `listings` is {market: delisted}, as read for t_r;
     `daily` the session's daily bars per market; `disclosed` the retrieval ids already disclosed to the session."""
     if not isinstance(request, dict) or set(request) != FIELDS:
         return [f"fields must be exactly {sorted(FIELDS)}"]
@@ -116,31 +116,46 @@ def validate(request: Any, t_r: int, listings: dict[str, bool], daily: Json, dis
     return errors
 
 
+def markets_of(request: Any) -> list[str]:
+    """The market names a registration request's legs give, however malformed the rest of it is."""
+    legs = request.get("legs") if isinstance(request, dict) else None
+    return [l[0] for l in legs if isinstance(l, list) and l and isinstance(l[0], str)] if isinstance(legs, list) else []
+
+
 def register(ledger: Ledger, account: str, session: str, request: Any, clock: Callable[[], int], disclosed: Collection[str], config: Json,
-             data: Json) -> tuple[Json, None] | tuple[None, list[str]]:
-    """Validate, size and commit one thesis. Under the ledger's lock, t_r is read from `clock`, then the thesis is
-    sized (`positions.admit`), given its base rate and committed, so commit order is t_r order and slow inputs never
-    backdate it. `data` (the markets' listings, bars, funding, lag, and the session's daily bars) is fetched before the
-    call, so it holds nothing later than t_r. What is fixed here is recorded with the thesis: N, size and b, the fee and cost cells,
-    the cost fallbacks, and p_ref with its window counts. Returns (thesis, None) or (None, errors); a retry of a
-    request id returns the original thesis."""
+             data: Json, p_is_base_rate: bool = False) -> tuple[Json, None] | tuple[None, list[str]]:
+    """Validate, size and commit one thesis. Under the ledger's lock the markets' listings are read (`data["listed"]`), t_r is
+    read from `clock` as that read returns, then the thesis is checked against them, sized (`positions.admit`), given its
+    base rate and committed, so commit order is t_r order, slow inputs never backdate it, and a market delisted while they
+    were prepared is refused. `data` (bars, funding, lag and the session's daily bars) is fetched before the call, so it
+    holds nothing later than t_r. What is fixed here is recorded with the thesis: the listing read and its times, N, size
+    and b (each an exact rational's text), the fee and cost cells, the cost fallbacks, and p_ref with its window counts.
+    With `p_is_base_rate` the request's p is null and p is that p_ref, or the thesis is refused for lacking one. Returns
+    (thesis, None) or (None, errors); a retry of a request id returns the original thesis."""
     with ledger.lock:
         existing = ledger.theses(account)
         if isinstance(request, dict) and isinstance(request.get("request_id"), str):
             for th in existing:
                 if th["request_id"] == request["request_id"]:
-                    same = canonical({k: th[k] for k in FIELDS}) == canonical(request)
+                    same = canonical({k: th[k] for k in FIELDS} | ({"p": None} if p_is_base_rate else {})) == canonical(request)
                     return (th, None) if same else (None, ["request_id: already used with different content"])
-        t_r = clock()
-        errors = validate(request, t_r, data["listings"], data["daily"], disclosed)
+        read_from = clock()
+        listings = data["listed"](markets_of(request))
+        read_to = t_r = clock()
+        errors = validate({**request, "p": 0.5} if p_is_base_rate else request, t_r, listings, data["daily"], disclosed)
         if errors:
             return None, errors
         markets = [m for m, _ in request["legs"]]
         th = {**request, "id": f"{account}-{len(existing) + 1}", "account": account, "session": session, "t_r": t_r,
+              "listings": listings, "listings_read": [read_from, read_to],
               "fee": config["fee"], "costs": {m: config["costs"][m] for m in markets},
               "fallback_costs": sorted(set(config["fallback"]) & set(markets))}
         th.update({k: str(v) for k, v in positions.admit(config["initial"], existing, ledger.exits(account), data, t_r, request["L"]).items()})
         p_ref, m, x = scoring.base_rate(th, data["daily"], data["funding"])
         th.update(p_ref=p_ref, base_windows=m, base_positive=x)
+        if p_is_base_rate:
+            if p_ref is None:
+                return None, ["no base rate"]
+            th["p"] = p_ref
         ledger.disclose("thesis", account, th)
     return th, None

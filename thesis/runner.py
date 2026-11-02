@@ -35,7 +35,7 @@ SESSION_OFFSET = 10 * 60_000
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
 INITIAL = 10_000.0
-RESOLUTION_GRACE = 90 * 60_000  # well before C10.5's two hours, with room for slow resolve passes
+RESOLUTION_GRACE = 90 * 60_000  # well before C10.5's two hours; `deadlines` reads only the ledger, each minute
 MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
 NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 
@@ -81,14 +81,13 @@ class Track:
     def data(self, markets: Iterable[str], now: int) -> Json:
         return {"bars": {m: scoring.bars(self.market.bars(m, "1h", now)) for m in markets},
                 "funding": {m: dict(self.market.funding(m, now)) for m in markets},
-                "lag": {m: self.market.lag(m) for m in markets}}
+                "lag": {m: self.market.lag(m) for m in markets}, "cutoff": now}
 
     def inputs(self, account: str, markets: Iterable[str], now: int, snapshot: Json) -> tuple[Json, Json]:
-        """A registration's (config, data): the new thesis's markets' listings now, the account's and its markets as of
-        `now`, and the session snapshot's daily bars."""
-        listings = self.market.listed(markets)
+        """A registration's (config, data): the account's and the new thesis's markets as of `now`, the session snapshot's
+        daily bars, and the listing read the commit makes."""
         markets = set(self.markets_of(account)) | set(markets)
-        return self.config(markets), {**self.data(markets, now), "listings": listings,
+        return self.config(markets), {**self.data(markets, now), "listed": self.market.listed,
                                       "daily": {m: scoring.bars(snapshot["daily"].get(m, [])) for m in markets}}
 
     def markets_of(self, account: str) -> list[str]:
@@ -226,41 +225,50 @@ class Track:
             closes = {r[0]: r[2] for r in snapshot["daily"][m]}
             w = 1 if closes[last] > closes[before] else -1
             config, data = self.inputs("benchmark", [m], now_ms(), snapshot)
-            equity = self.replay("benchmark", monday)["equity"]
-            probe = {"legs": [[m, w]], "t_r": now_ms(), "T": monday + 21 * DAY, "N": 0.01 * (equity[-1][1] if equity else INITIAL) / 0.1,
-                     "costs": config["costs"], "fee": config["fee"]}
-            p_ref, _, _ = scoring.base_rate(probe, data["daily"], data["funding"])
-            if p_ref is None:
-                self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "no base rate"})
-                continue
-            request = {"request_id": f"benchmark-{monday}-{m}", "legs": [[m, w]], "T": monday + 21 * DAY, "p": p_ref,
+            request = {"request_id": f"benchmark-{monday}-{m}", "legs": [[m, w]], "T": monday + 21 * DAY, "p": None,
                        "L": 0.1, "catalyst": "frozen benchmark: the sign of the 20-day return", "catalyst_id": "benchmark",
                        "sources": [], "outcome_market": None}
-            _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, now_ms, set(), config, data)
+            _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, now_ms, set(), config, data,
+                                          p_is_base_rate=True)
             if errors:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
 
     def resolve(self, now: int) -> None:
-        """Record each due thesis's outcome once, or its missing-data status once."""
-        done = {(c["id"], c["status"]) for _, _, c in self.ledger.records("resolution")}
+        """Record each due thesis's outcome once, from its own markets alone, so a failure or a delay in one market holds up
+        only the theses that need it. A record's `at` is when it was written and its `cutoff` the data's."""
+        done = {c["id"] for _, _, c in self.ledger.records("resolution") if c["status"] == "resolved"}
         for account in ACCOUNTS:
-            theses = [th for th in self.ledger.theses(account) if th["T"] <= now and (th["id"], "resolved") not in done]
-            if not theses:
-                continue
-            data, managed = None, {}
-            try:
-                data = self.data(self.markets_of(account), now)
-                managed = positions.run(INITIAL, self.ledger.theses(account), self.ledger.exits(account), data, now)["theses"]
-            except Exception as e:
-                print(time.strftime("%FT%T"), "resolve", account, repr(e), flush=True)
-            for th in theses:
-                out = None if data is None else positions.outcome(th, data, now)
-                if out is not None:
-                    self.ledger.disclose("resolution", account, {"id": th["id"], "status": "resolved", "outcome": out,
-                                                                 "managed_return": managed[th["id"]]["managed_return"],
-                                                                 "at": now})
-                elif now >= th["T"] + RESOLUTION_GRACE and (th["id"], "missing data") not in done:
-                    self.ledger.disclose("resolution", account, {"id": th["id"], "status": "missing data", "at": now})
+            for th in self.ledger.theses(account):
+                if th["T"] <= now and th["id"] not in done:
+                    try:
+                        self.score(account, th, now)
+                    except Exception as e:
+                        print(time.strftime("%FT%T"), "resolve", th["id"], repr(e), flush=True)
+
+    def score(self, account: str, th: Json, now: int) -> None:
+        """A position's managed return depends on no other thesis, so it is replayed alone; its failure leaves the outcome
+        scored, with the failure on the record."""
+        data = self.data({m for m, _ in th["legs"]}, now)
+        out = positions.outcome(th, data, now)
+        if out is None:
+            return
+        managed: Json = {"managed_return": None}
+        try:
+            exits = [e for e in self.ledger.exits(account) if e["id"] == th["id"]]
+            managed["managed_return"] = positions.run(INITIAL, [th], exits, data, now)["theses"][th["id"]]["managed_return"]
+        except Exception as e:
+            managed["managed_failure"] = repr(e)
+        self.ledger.disclose("resolution", account, {"id": th["id"], "status": "resolved", "outcome": out, **managed,
+                                                     "at": now_ms(), "cutoff": now})
+
+    def deadlines(self, now: int) -> None:
+        """Record once a missing-data status for each thesis RESOLUTION_GRACE past its horizon with no record: from the ledger
+        alone, so no market can delay it. A score can still follow."""
+        recorded = {c["id"] for _, _, c in self.ledger.records("resolution")}
+        for account in ACCOUNTS:
+            for th in self.ledger.theses(account):
+                if th["T"] + RESOLUTION_GRACE <= now and th["id"] not in recorded:
+                    self.ledger.disclose("resolution", account, {"id": th["id"], "status": "missing data", "at": now_ms()})
 
     def unbenchmarked(self, monday: int) -> list[str]:
         """The markets of a Monday's batch neither registered nor skipped on the record, in order."""
@@ -269,9 +277,10 @@ class Track:
         return [m for m in BENCHMARK if m not in done]
 
     def run(self) -> None:
-        """Until SIGTERM: resolutions every 5 min, builder marks at H + MARK_OFFSET and the Monday benchmark (`benchmarks`) each
-        minute on their own threads; the daily sessions each minute (`schedule`). On SIGTERM each loop finishes its current
-        step and the runner exits, leaving a day's remaining sessions to the next start. One runner per root."""
+        """Until SIGTERM: resolutions every 5 min, missing-data statuses each minute, builder marks at H + MARK_OFFSET and the
+        Monday benchmark (`benchmarks`) each minute on their own threads; the daily sessions each minute (`schedule`). On SIGTERM
+        each loop finishes its current step and the runner exits, leaving a day's remaining sessions to the next start. One
+        runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
         if frozen.get("manifest") != self.manifest:
             raise SystemExit(f"the manifest differs from {FROZEN}: freeze it (a new track version) before running")
@@ -282,6 +291,7 @@ class Track:
         stop = self.stop
         signal.signal(signal.SIGTERM, lambda *_: stop.set())
         loops = [threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000, stop)),
+                 threading.Thread(target=forever, args=("deadlines", lambda: self.deadlines(now_ms()), lambda now: 60_000, stop)),
                  threading.Thread(target=forever, args=("marks", self.market.record_marks,
                                                         lambda now: now // HOUR * HOUR + HOUR + MARK_OFFSET - now, stop)),
                  threading.Thread(target=forever, args=("benchmarks", lambda: self.benchmarks(now_ms(), frozen["frozen"]),

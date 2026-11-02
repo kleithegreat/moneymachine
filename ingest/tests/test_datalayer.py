@@ -1,5 +1,7 @@
 """The data layer fetches only feeds whose hosts have certified terms, and keeps every body with its poll times."""
 
+import gzip
+import hashlib
 import json
 import signal
 import subprocess
@@ -126,3 +128,52 @@ def test_a_torn_log_line_does_not_stop_a_restart(tmp_path):
     with open(log, "a") as f:
         f.write('{"feed":"ecb-exr","sent":')
     assert datalayer.last_polls(tmp_path) == {"ecb-exr": rec["sent"]}
+
+
+# GPT's review of the bundle (audit/reviews/2026-11-02-gpt-thesis-fixes.md), F8: a body the old writer damaged.
+def damaged_on_disk(out):
+    """The body's final .gz as the old writer's killed run could leave it, with the bytes it holds."""
+    raw = out / "raw" / f"{hashlib.sha256(BODY).hexdigest()}.gz"
+    raw.parent.mkdir(parents=True)
+    bad = gzip.compress(BODY)[:4096]
+    raw.write_bytes(bad)
+    return raw, bad
+
+
+def test_a_truncated_final_body_is_rewritten_when_its_content_returns(tmp_path):
+    damaged_on_disk(tmp_path)
+    assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
+
+
+def test_a_damaged_body_keeps_its_bytes_and_the_repair_is_on_the_record(tmp_path):
+    raw, bad = damaged_on_disk(tmp_path)
+    fetch_again(tmp_path)
+    [(repair)] = list(live.read(tmp_path, "repairs"))
+    assert repair["sha256"] == raw.name.removesuffix(".gz") and repair["damaged_sha256"] == hashlib.sha256(bad).hexdigest()
+    assert (raw.parent / repair["kept"]).read_bytes() == bad and repair["feed"] == "ecb-exr" and repair["bytes"] == len(bad)
+
+
+def test_a_body_with_other_content_under_its_name_is_repaired_too(tmp_path):
+    raw, _ = damaged_on_disk(tmp_path)
+    raw.write_bytes(gzip.compress(b"something else"))
+    assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
+
+
+def test_an_intact_body_is_left_alone_with_nothing_to_record(tmp_path):
+    fetch_again(tmp_path)
+    raw = next((tmp_path / "raw").glob("*.gz"))
+    before = raw.stat().st_mtime_ns
+    fetch_again(tmp_path)
+    assert raw.stat().st_mtime_ns == before and list(live.read(tmp_path, "repairs")) == []
+
+
+def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path, monkeypatch):
+    index = b'<a href="file-7.csv">'
+    raw = tmp_path / "raw" / f"{hashlib.sha256(index).hexdigest()}.gz"
+    raw.parent.mkdir(parents=True)
+    raw.write_bytes(gzip.compress(index)[:6])
+    http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=index if "index" in str(req.url) else b"csv")))
+    feed = {"name": "d", "source": "x", "every_h": 1,
+            "discover": {"url": "https://api.example.org/index", "pattern": r"file-(\d+)\.csv", "template": "https://api.example.org/file-{}.csv"}}
+    monkeypatch.setattr(datalayer, "certify", lambda feed, url: None)
+    assert datalayer.poll(http, feed, tmp_path, {})["url"].endswith("file-7.csv")

@@ -98,9 +98,11 @@ def test_missing_data_is_recorded_once_after_the_grace(track, monkeypatch):
     track.benchmark(MONDAY)
     track.market.until = MONDAY + 21 * DAY - HOUR
     track.resolve(MONDAY + 21 * DAY + HOUR)
+    track.deadlines(MONDAY + 21 * DAY + HOUR)
     assert track.ledger.records("resolution") == []
     for later in (3, 4):
         track.resolve(MONDAY + 21 * DAY + later * HOUR)
+        track.deadlines(MONDAY + 21 * DAY + later * HOUR)
     assert [c["status"] for _, _, c in track.ledger.records("resolution")] == ["missing data"] * 4
 
 
@@ -407,24 +409,15 @@ def test_every_monday_the_runner_was_down_for_is_logged_missed(track):
         assert sorted(on_record(track, monday)) == sorted(runner.BENCHMARK)
 
 
-@pytest.mark.parametrize("phase", range(0, 300_000, 60_000))
-def test_a_horizon_still_unresolved_gets_its_status_before_the_two_hour_deadline(track, monkeypatch, phase):
+def test_a_horizon_still_unresolved_gets_its_status_before_the_two_hour_deadline(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     track.benchmark(MONDAY)
     T = MONDAY + 21 * DAY
     track.market.until = T - HOUR
-    for now in range(T + phase, T + 2 * HOUR, 300_000):
-        track.resolve(now)
+    track.deadlines(T + runner.RESOLUTION_GRACE - 1)
+    assert track.ledger.records("resolution") == []
+    track.deadlines(T + runner.RESOLUTION_GRACE)
     assert len(track.ledger.records("resolution")) == 4
-
-
-def test_a_market_data_failure_still_writes_the_status_by_its_deadline(track, monkeypatch):
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
-    T = MONDAY + 21 * DAY
-    monkeypatch.setattr(track, "data", lambda markets, now: (_ for _ in ()).throw(httpx.TransportError("down")))
-    track.resolve(T + 2 * HOUR - 300_000)
-    assert [c["status"] for _, _, c in track.ledger.records("resolution")] == ["missing data"] * 4
 
 
 def test_a_status_does_not_stop_a_later_score(track, monkeypatch):
@@ -433,21 +426,166 @@ def test_a_status_does_not_stop_a_later_score(track, monkeypatch):
     T = MONDAY + 21 * DAY
     track.market.until = T - HOUR
     track.resolve(T + 2 * HOUR - 300_000)
+    track.deadlines(T + 2 * HOUR - 300_000)
     track.market.until = T + 4 * HOUR
     track.resolve(T + 4 * HOUR)
+    track.deadlines(T + 4 * HOUR)
     statuses = [c["status"] for _, _, c in track.ledger.records("resolution")]
     assert statuses == ["missing data"] * 4 + ["resolved"] * 4
+
+
+# F5: a thesis's score depends only on its own markets, and its status on no market at all.
+def test_a_resolvable_thesis_is_scored_though_an_unrelated_market_fails(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    T = MONDAY + 21 * DAY
+    failing_once(track.market, "ETH")
+    track.resolve(T + HOUR)
+    by_id = {th["id"]: th["legs"][0][0] for th in track.ledger.theses("benchmark")}
+    scored = {by_id[c["id"]] for _, _, c in track.ledger.records("resolution") if c["status"] == "resolved"}
+    assert scored == {"BTC", "xyz:XYZ100", "xyz:GOLD"}
+
+
+def test_a_managed_replay_that_fails_still_scores_the_outcome_and_the_remaining_theses(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    monkeypatch.setattr(runner.positions, "run", lambda *a: (_ for _ in ()).throw(LookupError("no bar")))
+    track.resolve(MONDAY + 21 * DAY + HOUR)
+    records = [c for _, _, c in track.ledger.records("resolution")]
+    assert [c["status"] for c in records] == ["resolved"] * 4
+    assert all(c["outcome"] is not None and c["managed_return"] is None and "no bar" in c["managed_failure"] for c in records)
+
+
+def test_a_thesis_scored_alone_has_the_managed_return_of_its_whole_account(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    now = MONDAY + 21 * DAY + HOUR
+    track.resolve(now)
+    whole = track.replay("benchmark", now)["theses"]
+    assert all(c["managed_return"] == whole[c["id"]]["managed_return"] for _, _, c in track.ledger.records("resolution"))
+
+
+def test_a_market_that_hangs_holds_up_no_status(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    T = MONDAY + 21 * DAY
+    entered, release = threading.Event(), threading.Event()
+    funding = track.market.funding
+
+    def hung(name, now=None):
+        entered.set()
+        release.wait(30)
+        return funding(name, now)
+
+    track.market.funding = hung
+    resolving = threading.Thread(target=track.resolve, args=(T + runner.RESOLUTION_GRACE,))
+    resolving.start()
+    try:
+        assert entered.wait(30)
+        track.deadlines(T + runner.RESOLUTION_GRACE)
+        assert [c["status"] for _, _, c in track.ledger.records("resolution")] == ["missing data"] * 4
+    finally:
+        release.set()
+        resolving.join()
+    assert [c["status"] for _, _, c in track.ledger.records("resolution")][4:] == ["resolved"] * 4
+
+
+def test_a_record_carries_the_time_it_was_written_beside_its_data_cutoff(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    T = MONDAY + 21 * DAY
+    cutoff, written = T + 95 * 60_000, T + 126 * 60_000
+    monkeypatch.setattr(runner, "now_ms", lambda: written)
+    track.deadlines(cutoff)
+    track.resolve(cutoff)
+    for _, _, c in track.ledger.records("resolution"):
+        assert c["at"] == written
+    assert all(c["cutoff"] == cutoff for _, _, c in track.ledger.records("resolution") if c["status"] == "resolved")
+
+
+def test_the_runner_runs_the_deadlines_on_their_own_loop(track, monkeypatch, tmp_path):
+    frozen = tmp_path / "manifest.json"
+    frozen.write_text(json.dumps({"manifest": track.manifest, "frozen": MONDAY}))
+    monkeypatch.setattr(runner, "FROZEN", frozen)
+    names = []
+    monkeypatch.setattr(runner, "forever", lambda name, step, wait, stop: names.append(name))
+    monkeypatch.setattr(signal, "signal", lambda *a: None)
+    track.market.record_marks = lambda: None
+    track.run()
+    assert "deadlines" in names and "resolve" in names
+
+
+# F6: a benchmark's p is the base rate of what it registers.
+class Trending(FakeMarket):
+    """ETH's opens gain 10.5 bp each 21 days, so a window's sign turns on its cost cell, and BTC doubles from `jump`."""
+
+    def __init__(self, until, jump):
+        super().__init__(until)
+        self.jump = jump
+
+    def bars(self, market, interval, now=None):
+        if market == "ETH" and interval == "1d":
+            first = MONDAY // DAY - 400
+            price = lambda t: round(100.0 * 1.00105 ** ((t - first) / 21), 6)
+            return [[t * DAY, price(t), price(t + 1)] for t in range(first, MONDAY // DAY) if now is None or (t + 1) * DAY + DELTA <= now]
+        rows = super().bars(market, interval, now)
+        return [[t, 200.0, 200.0] if market == "BTC" and interval == "1h" and t >= self.jump else [t, o, c] for t, o, c in rows]
+
+
+def test_a_benchmark_resumed_after_its_equity_moved_registers_the_base_rate_of_its_own_notional(track, monkeypatch):
+    cells = {"buy": {"1000": 1, "10000": 8}, "sell": {"1000": 1, "10000": 8}}
+    track.market = Trending(MONDAY + 40 * DAY, MONDAY + 3 * HOUR)
+    monkeypatch.setattr(track, "config", lambda markets: {"initial": 10_000.0, "fee": 0.0, "costs": {m: cells for m in markets}, "fallback": []})
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    armed = failing_once(track.market, "ETH")
+    with pytest.raises(httpx.TransportError):
+        track.benchmark(MONDAY)
+    armed.clear()
+    later = MONDAY + 5 * HOUR
+    monkeypatch.setattr(runner, "now_ms", lambda: later)
+    track.benchmark(MONDAY)
+    eth = next(th for th in track.ledger.theses("benchmark") if th["legs"][0][0] == "ETH")
+    assert runner.positions.exact(eth["N"]) > 1000
+    assert eth["p"] == eth["p_ref"] == 1 / (eth["base_windows"] + 2)
+
+
+def test_a_benchmark_without_a_base_rate_at_its_commit_is_skipped(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    monkeypatch.setattr(runner.scoring, "base_rate", lambda th, daily, funding: (None, 0, 0))
+    track.benchmark(MONDAY)
+    assert track.ledger.theses("benchmark") == []
+    assert "no base rate" in {c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
+
+
+# F9: eligibility is read at the commit, after the slow preparation.
+def registration(track, snapshot):
+    d = runner.Daemon(track.root / "s", "main-x", "main", track.ledger, snapshot, None, track.root / "responses", None,
+                      lambda account, markets, now: track.inputs(account, markets, now, snapshot), runner.MAIN_COMMANDS,
+                      clock=lambda: MONDAY + 60_000)
+    return d.register([json.dumps({"request_id": "r", "legs": [["BTC", 1]], "T": MONDAY + 10 * DAY, "p": 0.5, "L": 0.1,
+                                   "catalyst": "c", "catalyst_id": "c", "sources": [], "outcome_market": None})])
+
+
+def test_a_market_delisted_while_its_inputs_are_prepared_is_refused(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    snapshot = track.snapshot(MONDAY)
+    funding = track.market.funding
+    track.market.funding = lambda name, now=None: (track.market.delisted.add("BTC"), funding(name, now))[1]
+    out = registration(track, snapshot)
+    assert not out["ok"] and "legs: BTC is not listed" in out["errors"]
+
+
+def test_a_thesis_records_the_listing_read_its_eligibility_came_from(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    out = registration(track, track.snapshot(MONDAY))
+    assert out["thesis"]["listings"] == {"BTC": False} and out["thesis"]["listings_read"][1] <= out["thesis"]["t_r"]
 
 
 def test_a_market_delisted_after_the_snapshot_is_refused_at_registration(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     snapshot = track.snapshot(MONDAY)
     track.market.delisted = {"BTC"}
-    d = runner.Daemon(track.root / "s", "main-x", "main", track.ledger, snapshot, None, track.root / "responses", None,
-                      lambda account, markets, now: track.inputs(account, markets, now, snapshot), runner.MAIN_COMMANDS,
-                      clock=lambda: MONDAY + 60_000)
-    out = d.register([json.dumps({"request_id": "r", "legs": [["BTC", 1]], "T": MONDAY + 10 * DAY, "p": 0.5, "L": 0.1,
-                                  "catalyst": "c", "catalyst_id": "c", "sources": [], "outcome_market": None})])
+    out = registration(track, snapshot)
     assert not out["ok"] and "legs: BTC is not listed" in out["errors"]
 
 
