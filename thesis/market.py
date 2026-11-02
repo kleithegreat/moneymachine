@@ -116,9 +116,12 @@ class Market:
         return out
 
     def listed(self, markets: Iterable[str]) -> dict[str, bool]:
-        """{market: delisted} now, of `markets` the venue lists, reading only their dexes."""
-        universes = {dex: self.universe(dex) for dex in set(map(dex_of, markets))}
-        return {m: universes[dex_of(m)][m] for m in markets if m in universes[dex_of(m)]}
+        """{market: delisted} now, of `markets` the venue lists, reading only their dexes: a dex it doesn't list lists none."""
+        dexes = set(map(dex_of, markets))
+        if dexes - {None}:
+            dexes &= {None} | {d["name"] for d in self.x.post({"type": "perpDexs"}) if d}
+        universes = {dex: self.universe(dex) for dex in dexes}
+        return {m: universes[dex_of(m)][m] for m in markets if m in universes.get(dex_of(m), {})}
 
     def _cached(self, market: str, kind: str, fetch: Callable[[int, int], list[list[Any]]], now: int) -> list[list[Any]]:
         path = self.root / market.replace(":", "_") / f"{kind}.json"

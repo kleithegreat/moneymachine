@@ -232,13 +232,15 @@ def run(initial: float, theses: list[Json], exits: list[Json], data: Json, now: 
     return {"theses": out, "equity": [(t, float(e), float(r)) for t, e, r in equity], "missing_funding": missing}
 
 
-def admit(initial: float, theses: list[Json], exits: list[Json], data: Json, t_r: int, L: float) -> dict[str, Fraction]:
-    """The exact sizing of a thesis committed at t_r after `theses`: E_r is the equity of the latest reconciled hour, b = RISK
-    times it and N = b / L; size N and reservation b if the open positions' reservations plus b stay within CAP of it,
-    else size 0 with N kept as its hypothetical notional (from the initial equity when equity is not positive)."""
+def admit(initial: float, theses: list[Json], exits: list[Json], data: Json, t_r: int, L: float) -> Json:
+    """The exact sizing of a thesis committed at t_r after `theses`: E_r is the equity of the latest reconciled hour
+    (`reconciled_hour`, None before any), b = RISK times it and N = b / L; size N and reservation b if the open positions'
+    reservations (`reserved`) plus b stay within CAP of it, else size 0 with N kept as its hypothetical notional (from the
+    initial equity when equity is not positive)."""
     acct, _, equity, _ = replay(initial, theses, exits, data, t_r)
-    e_r = equity[-1][1] if equity else exact(initial)
-    b, loss = RISK * e_r, exact(L)
-    if e_r > 0 and acct.reserved() + b <= CAP * e_r:
-        return {"N": b / loss, "size": b / loss, "b": b}
-    return {"N": b / loss if e_r > 0 else RISK * exact(initial) / loss, "size": Fraction(0), "b": Fraction(0)}
+    hour, e_r = equity[-1][:2] if equity else (None, exact(initial))
+    b, loss, reserved = RISK * e_r, exact(L), acct.reserved()
+    held = {"E_r": e_r, "reconciled_hour": hour, "reserved": reserved}
+    if e_r > 0 and reserved + b <= CAP * e_r:
+        return {"N": b / loss, "size": b / loss, "b": b, **held}
+    return {"N": b / loss if e_r > 0 else RISK * exact(initial) / loss, "size": Fraction(0), "b": Fraction(0), **held}

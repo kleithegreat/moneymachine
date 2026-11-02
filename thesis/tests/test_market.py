@@ -202,14 +202,15 @@ def test_listed_reads_only_the_dexes_of_the_markets_asked(tmp_path, monkeypatch)
             return {"universe": [{"name": "BTC"}, {"name": "OLD", "isDelisted": True}]}
 
         def post(self, body):
-            posts.append(body.get("dex"))
-            return {"universe": [{"name": "xyz:GOLD"}]}
+            posts.append(body.get("dex", body["type"]))
+            return [None, {"name": "xyz"}] if body["type"] == "perpDexs" else {"universe": [{"name": "xyz:GOLD"}]}
 
     m = market.Market(tmp_path, Exchange())
     assert m.listed(["BTC", "OLD"]) == {"BTC": False, "OLD": True}
     assert posts == ["core"]
     assert m.listed(["BTC", "xyz:GOLD"])["xyz:GOLD"] is False
-    assert posts[1:] == ["core", "xyz"]
+    assert posts[1] == "perpDexs" and sorted(posts[2:]) == ["core", "xyz"]
+    assert m.listed(["xzy:GOLD"]) == {} and posts[4:] == ["perpDexs"]
 
 
 def test_a_candle_in_progress_shows_its_open_from_δ_and_is_cached_only_once_complete(tmp_path):

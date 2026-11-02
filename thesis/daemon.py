@@ -66,19 +66,22 @@ class Daemon:
     def register(self, args: list[str]) -> Json:
         if len(args) != 1:
             return {"ok": False, "message": "register FILE"}
-        if len(self.registered) >= MAX_REGISTRATIONS:
-            return {"ok": False, "message": f"at most {MAX_REGISTRATIONS} registrations per session"}
         try:
             request = json.loads(args[0])
         except json.JSONDecodeError as e:
             return {"ok": False, "message": f"not JSON: {e}"}
-        config, data = self.register_inputs(self.account, registry.markets_of(request), self.clock())
-        th, errors = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data)
+        retry = registry.committed(self.ledger, self.account, request)
+        if retry is None and len(self.registered) >= MAX_REGISTRATIONS:
+            return {"ok": False, "message": f"at most {MAX_REGISTRATIONS} registrations per session"}
+        if retry is None:
+            config, data = self.register_inputs(self.account, registry.markets_of(request), self.clock())
+            retry = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data)
+        th, errors = retry
         if th is None:
             return {"ok": False, "errors": errors}
         if th["session"] == self.session:
             self.registered.add(th["id"])
-        return {"ok": True, "thesis": th | {k: float(exact(th[k])) for k in ("N", "size", "b")}}
+        return {"ok": True, "thesis": th | {k: float(exact(th[k])) for k in registry.AMOUNTS}}
 
     def open_positions(self, args: list[str]) -> Json:
         return {"ok": True, **self.positions(self.account, self.clock())}

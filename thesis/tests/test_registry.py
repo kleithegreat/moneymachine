@@ -20,7 +20,7 @@ ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
 CONFIG = {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO for m in LISTINGS}, "fallback": []}
 DATA = {"bars": {m: positions.Bars({h * HOUR: (100.0, 100.0) for h in range(9000, 9700)}) for m in LISTINGS},
         "funding": {m: {h * HOUR: 0.0 for h in range(4800, 9700)} for m in LISTINGS}, "listed": lambda markets: LISTINGS,
-        "daily": {m: positions.Bars({t * DAY: (100.0, 100.0) for t in DAYS.get(m, ())}) for m in LISTINGS}}
+        "daily": {m: positions.Bars({t * DAY: (100.0, 100.0) for t in DAYS.get(m, ())}) for m in LISTINGS}, "cutoff": T_R}
 
 
 def request(**over):
@@ -99,3 +99,19 @@ def test_concurrent_registrations_commit_in_clock_order_and_reserve_exactly(ledg
     assert [th["id"] for th in theses] == [f"main-{i}" for i in range(1, 9)]
     assert [th["t_r"] for th in theses] == sorted(th["t_r"] for th in theses)
     assert [th["size"] for th in theses] == ["1000"] * 5 + ["0"] * 3
+
+
+def test_legs_are_checked_before_the_listing_read(ledger):
+    def unread(markets):
+        raise AssertionError("the venue was read for a malformed request")
+    for legs in ([["X", 2]], [["X", 1], ["X", -1]], "X"):
+        th, errors = registry.register(ledger, "main", "s1", request(legs=legs), lambda: T_R, {"f1"}, CONFIG,
+                                       DATA | {"listed": unread})
+        assert th is None and errors
+
+
+def test_a_thesis_records_what_sized_it(ledger):
+    first, _ = register(ledger, request())
+    second, _ = register(ledger, request(request_id="r2"), t_r=T_R + 3 * HOUR)
+    assert (first["cutoff"], first["E_r"], first["reserved"]) == (T_R, "10000", "0")
+    assert (second["cutoff"], second["E_r"], second["reserved"], second["reconciled_hour"]) == (T_R, "10000", "100", T_R)

@@ -17,7 +17,7 @@ SNAPSHOT = {"taken": NOW - HOUR, "listings": {"X": False},
             "daily": {"X": [[t * DAY, 100.0, 100.0] for t in range(200, 400)]}}
 DATA = {"bars": {"X": positions.Bars({h * HOUR: (100.0, 100.0) for h in range(9000, 9700)})},
         "funding": {"X": {h * HOUR: 0.0 for h in range(4800, 9700)}}, "listed": lambda markets: {"X": False},
-        "daily": {"X": positions.Bars({t * DAY: (100.0, 100.0) for t in range(200, 400)})}}
+        "daily": {"X": positions.Bars({t * DAY: (100.0, 100.0) for t in range(200, 400)})}, "cutoff": NOW}
 CONFIG = {"initial": 10_000.0, "fee": 0.0, "costs": {"X": ZERO}, "fallback": []}
 
 
@@ -95,3 +95,12 @@ def test_exits_only_own_open_positions_and_session_commands(make):
     assert not call(ablation, "register", thesis(request_id="z"))["ok"]
     assert call(ablation, "forecast", "0.4")["ok"] and not call(ablation, "forecast", "0.5")["ok"]
     assert [c for _, _, c in ledger.records("ablation")] == [{"thesis": th["id"], "p": 0.4, "session": "s1"}]
+
+
+def test_a_retry_returns_its_committed_thesis_without_admission_or_market_reads(make):
+    d, ledger = make()
+    first, second = call(d, "register", thesis()), call(d, "register", thesis(request_id="r2"))
+    d.register_inputs = lambda *a: (_ for _ in ()).throw(AssertionError("markets read for a retry"))
+    assert call(d, "register", thesis(request_id="r2")) == second and call(d, "register", thesis()) == first
+    assert "already used" in call(d, "register", thesis(request_id="r2", p=0.7))["errors"][0]
+    assert len(ledger.theses("main")) == 2
