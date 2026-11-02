@@ -17,7 +17,9 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Wake-up "stage7 B3 suite"** (a builder on Cornell, stopped at 01:55 UTC (20:55 EST), before the 02:10 reset can start a campaign): in `../moneymachine-stage7` on branch `stage7` only, draft B3 (`audit/stage7/rust-port-plan.md` §3, C7.6 in `audit/criteria.md`): the revised resolver suite against B2's frozen definitions, with the hand cases of `audit/stage7/b2-revision.md` §8, F-1 and F-2 included, under `audit/stage7/b3-draft/`. Leave `kernel/tests/rules/resolver_suite.py` and everything frozen untouched: the suite is reviewed, then committed alone. Commit the draft every 20 minutes; touch nothing on `main`, no cluster, no data.
+- **Wake-up "stage7 slice 2"** (Opus on TAMU, 2026-11-02 03:05 UTC (2026-11-01 22:05 EST), after campaigns 5 and 6, stopped 06:55 UTC (01:55 EST); never GPT: C7.7): in `../moneymachine-stage7` on branch `stage7` only, slice 2 of `audit/stage7/rust-port-plan.md` with its checks, differentials at 60,000 cases. Commit every 20 minutes; nothing on `main`, no cluster, no data, not `audit/stage7/b3-draft/`.
+
+- **Wake-up "stage7 B3 suite"** (a builder on Cornell, stopped at 01:55 UTC (20:55 EST), before the 02:10 reset can start a campaign): in `../moneymachine-stage7` on branch `stage7` only, draft B3 (`audit/stage7/rust-port-plan.md` §3, C7.6 in `audit/criteria.md`): the revised resolver suite against B2's frozen definitions, with the hand cases of `audit/stage7/b2-revision.md` §8, F-1 and F-2 included, under `audit/stage7/b3-draft/`. Leave `kernel/tests/rules/resolver_suite.py` and everything frozen untouched: the suite is reviewed, then committed alone. Commit every 20 minutes; nothing on `main`, no cluster, no data.
 
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
@@ -25,7 +27,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 2. **Stage 4: C4.5 v2 runs** (the human authorized it 2026-11-01 16:15 UTC (11:15 EST), `criteria: stage 4` `4531257`): when all ten are logged, judge (at most 1 counted) and C4.3 and C4.4 on them, then the exit review. v1's failure stands.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
-   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan `audit/stage7/rust-port-plan.md` there; slice 1, `mm::source` reads evidence declarations (`cd7ed61`); B1, the bars role drops openTime (`f70fbc0`); slice 6's metadata half, `mm::admission` (`70ac498`); B2 drafted (`96712ee`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
+   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
    3. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
    - Judged runs wait for the rebase onto the pilot's baseline commit.
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
@@ -55,7 +57,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST), rulings 20:30 UTC (15:30 EST), frozen 2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): two review rounds by GPT and a fresh Opus, the last both FREEZE; proofs re-checked (`audit/stage7/proof-validation-b2.md`).
+- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST), frozen 2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): GPT and a fresh Opus both FREEZE; proofs re-checked.
 
 ## Qualifications
 
