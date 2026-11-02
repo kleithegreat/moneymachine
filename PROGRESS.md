@@ -17,7 +17,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 7 slice 2 is done** on `stage7` (`e2b4925`; plan §2): the checker reads the registry; all 1,196 C6.4 verdicts agree with `refmm`. Open: `reference/differential.py run` stops at "market N1 does not rebuild as frozen" in the worktree (not from this slice). Next: slice 3 (the machine over observations), a fresh Sonnet wake-up; `stage7` only, no cluster, no data, not `audit/stage7/b3-draft/`.
+- **Stage 7 slice 2 is done** on `stage7` (`e2b4925`; plan §2): the checker reads the registry; all 1,196 C6.4 verdicts agree with `refmm`. Open: `differential.py run` stops at "market N1 does not rebuild as frozen" in the worktree (not this slice's). Next: slice 3 (machine over observations); `stage7` only, no cluster, no data, not `b3-draft/`.
 
 - **Wake-up "thesis bug bundle"** (Opus on TAMU, 2026-11-02 08:05 UTC (03:05 EST), after campaigns 7 and 8, stopped 11:55 UTC (06:55 EST)): in a new worktree `../moneymachine-thesis` on branch `thesis-fixes`, fix what `audit/decisions.md` (the entry "GPT's bug hunt triaged") bundles, from `audit/reviews/2026-11-02-gpt-hunt-{thesis,recorders}.md`: each finding shown by a failing test first, one not reproducing reported, not fixed. Do not refreeze or touch the cluster; commit every 20 minutes; nothing on `main`, no data.
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
