@@ -35,8 +35,8 @@ kept outside the repository: 130 of 130 agree. Its results on the generated stor
 `REACHED` class has at least 10 stores (the bound past a later derived revision's fetchedAt: 30).
 
 The same transcription, mutated into 34 wrong resolvers, among them every timeline bug the two reviews say the previous
-draft would pass (no raise to the replaced knownAt, the bound on first revisions only, upstream clamped to fetchedAt, the
-event time as slot, a retraction's own slot, role payloads not decoded, the final revision's values on every entry,
+draft would pass (no raise to the replaced knownAt, the bound on first revisions only, upstream clamped to fetchedAt,
+the event time as slot, a retraction's own slot, role payloads not decoded, the final revision's values on every entry,
 evidence keys by spelling, declaration order as dependency order): each fails at least one hand case. The reviews' other
-two, delivering evidence and a late holdout check, are the loader-level tests above. This transcription is one reading of
-the text, not Lean: the Lean comparison comes with `refmm`'s resolver mode (slice 5).
+two, delivering evidence and a late holdout check, are the loader-level tests above. This transcription is one reading
+of the text, not Lean: the Lean comparison comes with `refmm`'s resolver mode (slice 5).
