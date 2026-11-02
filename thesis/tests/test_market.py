@@ -174,3 +174,17 @@ def test_listed_reads_only_the_dexes_of_the_markets_asked(tmp_path, monkeypatch)
     assert posts == ["core"]
     assert m.listed(["BTC", "xyz:GOLD"])["xyz:GOLD"] is False
     assert posts[1:] == ["core", "xyz"]
+
+
+def test_a_candle_in_progress_shows_its_open_from_δ_and_is_cached_only_once_complete(tmp_path):
+    x = Venue([(H, 1.0), (2 * H, 2.0)])
+    m = market.Market(tmp_path, x)
+    assert m.bars("X", "1h", 2 * H + 60_000) == [[H, 1.0, None]]
+    assert m.bars("X", "1h", 2 * H + market.DELTA) == [[H, 1.0, 1.0], [2 * H, 2.0, None]]
+    assert m.bars("X", "1h", 3 * H + market.DELTA) == [[H, 1.0, 1.0], [2 * H, 2.0, 2.0]]
+
+
+def test_a_daily_candle_in_progress_stays_hidden(tmp_path):
+    day = market.DAY
+    m = market.Market(tmp_path, Venue([(day, 1.0), (2 * day, 2.0)]))
+    assert m.bars("X", "1d", 2 * day + market.DELTA) == [[day, 1.0, 1.0]]

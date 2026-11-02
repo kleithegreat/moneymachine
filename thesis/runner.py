@@ -35,7 +35,7 @@ SESSION_OFFSET = 10 * 60_000
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
 INITIAL = 10_000.0
-RESOLUTION_GRACE = 90 * 60_000  # a status by C10.5's two hours, with room for resolve passes; candles come at T + 1 h + δ
+RESOLUTION_GRACE = 90 * 60_000  # well before C10.5's two hours, with room for slow resolve passes
 MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
 NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 

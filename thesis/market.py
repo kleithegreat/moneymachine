@@ -3,7 +3,8 @@
 The adapter is the venue's public info endpoint with only the frozen read request types; there is no
 signing, account or order operation anywhere. Every response is archived with its retrieval time.
 Completed bars and funding rows are cached per market, each file rewritten atomically under a lock: extended
-incrementally, from the first hole still within REPAIR if the venue left one, and a cached row is never rewritten. A candle is known at its close plus δ (C0.3's rule). A builder (HIP-3) market's
+incrementally, from the first hole still within REPAIR if the venue left one, and a cached row is never rewritten. A
+completed candle is known at its close plus δ (C0.3's rule). A builder (HIP-3) market's
 hourly bars are its recorded mark prices (stage 10 revision of 2026-10-23): `record_marks` samples every builder
 dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from those samples as known at `now`.
 """
@@ -137,16 +138,18 @@ class Market:
         return MARK_WINDOW if builder(market) else DELTA
 
     def bars(self, market, interval, now=None):
-        """[[openTime, open, close]] of bars known by `now`; a builder market's 1h bars are its marks."""
+        """[[openTime, open, close]] of bars known by `now`. A builder market's 1h bars are its marks; a core 1h candle in
+        progress shows its open from δ, with a null close, and is cached only once complete."""
         now = now or now_ms()
         if interval == "1h" and builder(market):
             return mark_bars(self.marks(market), now)
-        step = STEP[interval]
+        step, progress = STEP[interval], []
 
         def fetch(start, end):
-            return [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)
-                    if c["t"] + step + DELTA <= end]
-        return [r for r in self._cached(market, interval, fetch, now) if r[0] + step + DELTA <= now]
+            candles = [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)]
+            progress[:] = [[t, o, None] for t, o, _ in candles if interval == "1h" and t + DELTA <= end < t + step + DELTA]
+            return [r for r in candles if r[0] + step + DELTA <= end]
+        return [r for r in self._cached(market, interval, fetch, now) if r[0] + step + DELTA <= now] + progress
 
     def funding(self, market, now=None):
         """[[hour, rate]] of settled funding up to `now`."""

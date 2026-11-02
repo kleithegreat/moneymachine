@@ -449,3 +449,23 @@ def test_a_market_delisted_after_the_snapshot_is_refused_at_registration(track, 
     out = d.register([json.dumps({"request_id": "r", "legs": [["BTC", 1]], "T": MONDAY + 10 * DAY, "p": 0.5, "L": 0.1,
                                   "catalyst": "c", "catalyst_id": "c", "sources": [], "outcome_market": None})])
     assert not out["ok"] and "legs: BTC is not listed" in out["errors"]
+
+
+def test_a_horizon_exit_frees_its_reservation_for_the_session_of_that_morning(tmp_path, monkeypatch):
+    # A position whose horizon is 00:00 has closed by the 00:10 session, whose candle at 00:00 is still in progress.
+    th = {"id": "a", "t_r": MONDAY - 5 * DAY, "legs": [["X", 1]], "T": MONDAY, "L": 0.1, "fee": 0.0, "costs": {"X": ZERO},
+          "N": 1000.0, "size": 1000.0, "b": 100.0}
+    hours = range(MONDAY // HOUR - 200, MONDAY // HOUR + 1)
+
+    class Venue:
+        def candles(self, market, interval, start, end):
+            return [{"t": h * HOUR, "o": "100", "c": "100"} for h in hours if start <= h * HOUR < end]
+
+        def funding(self, market, start, end):
+            return [{"time": h * HOUR, "fundingRate": "0"} for h in hours if start <= h * HOUR < end]
+
+    m = runner.Market(tmp_path, Venue())
+    now = MONDAY + 10 * 60_000
+    data = {"bars": {"X": runner.scoring.bars(m.bars("X", "1h", now))}, "funding": {"X": dict(m.funding("X", now))},
+            "lag": {"X": m.lag("X")}}
+    assert runner.positions.replay(10_000.0, [th], [], data, now)[0].reserved() == 0

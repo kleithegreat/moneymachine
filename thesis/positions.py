@@ -21,6 +21,7 @@ from bisect import bisect_left, bisect_right
 from ingest.policy import DELTA, HOUR
 
 RISK, CAP = 0.01, 0.05
+ROUNDING = 1e-12  # what float arithmetic can leave of an exact tie, which each `<=` below counts as met
 
 
 class Bars(dict):
@@ -51,7 +52,7 @@ def first_open(bars, t, now):
 def fill(ref, q, cells, fee):
     """(price, fee, cost) of trading q at reference ref."""
     side = "buy" if q > 0 else "sell"
-    bps = cells[side]["1000" if abs(q) * ref <= 1000 else "10000"]
+    bps = cells[side]["1000" if abs(q) * ref <= 1000 * (1 + ROUNDING) else "10000"]
     price = ref * (1 + (bps if q > 0 else -bps) / 1e4)
     return price, abs(q) * price * fee, abs(q) * abs(price - ref)
 
@@ -185,7 +186,7 @@ def replay(initial, theses, exits, data, now):
                     seen = close + max(acct.lag.get(l["market"], 0) for l in p["legs"])
                     closes = [bars[l["market"]].get(h, (None, None))[1] for l in p["legs"]]
                     if seen <= now and None not in closes and sum(
-                            l["w"] * (c / l["ref"] - 1) for l, c in zip(p["legs"], closes)) <= -p["L"]:
+                            l["w"] * (c / l["ref"] - 1) for l, c in zip(p["legs"], closes)) <= -p["L"] * (1 - ROUNDING):
                         p["triggers"]["invalidation"] = max(close + DELTA, seen)
             if acct.last_reconciled is None:
                 equity.append((close, acct.equity(close), acct.reconciled(close)))
@@ -206,6 +207,6 @@ def admit(initial, theses, exits, data, t_r, L):
     acct = replay(initial, theses, exits, data, t_r)[0]
     e_r = acct.sizing_equity(t_r)
     b = RISK * e_r
-    if e_r > 0 and acct.reserved() + b <= CAP * e_r * (1 + 1e-12):
+    if e_r > 0 and acct.reserved() + b <= CAP * e_r * (1 + ROUNDING):
         return {"N": b / L, "size": b / L, "b": b}
     return {"N": b / L if e_r > 0 else RISK * initial / L, "size": 0, "b": 0.0}

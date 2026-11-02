@@ -336,3 +336,17 @@ def test_a_discretionary_exit_before_the_entry_means_no_trade():
     out = run([thesis("a", 10 * H + 30 * MIN, [["X", 1]])], {"X": flat(100)}, exits=[{"id": "a", "t_x": 10 * H + 40 * MIN}])
     a = out["theses"]["a"]
     assert a["entry"] is None and a["exit"]["t"] == 11 * H and a["exit"]["reason"] == "discretionary"
+
+
+# Found by the differential against GPT's exact arithmetic (audit/reviews/2026-11-02-thesis-bundle.md).
+@pytest.mark.parametrize("ref", [50.36, 3.33, 118.9, 0.07])
+def test_a_thousand_dollar_notional_takes_the_thousand_dollar_cell_whatever_the_rounding(ref):
+    cells = {"buy": {"1000": 1.0, "10000": 8.0}, "sell": {"1000": 1.0, "10000": 8.0}}
+    assert positions.fill(ref, 1000 / ref, cells, 0.0)[0] == pytest.approx(ref * 1.0001, rel=1e-12)
+
+
+def test_a_close_exactly_at_the_loss_invalidates_whatever_the_rounding():
+    # A short at 118.9 with L = 0.1: the 12h bar closes at 130.79, exactly 10% against it. Actionable 13h + δ: the 14h open.
+    bars = {"X": flat(118.9, h12=(118.9, 130.79))}
+    a = run([thesis("a", 10 * H + 30 * MIN, [["X", -1]], L=0.1)], bars, lag={"X": DELTA})["theses"]["a"]
+    assert a["exit"]["reason"] == "invalidation" and a["exit"]["t"] == 14 * H
