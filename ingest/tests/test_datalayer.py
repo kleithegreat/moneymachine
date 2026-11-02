@@ -177,3 +177,14 @@ def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path, monkeypatch)
             "discover": {"url": "https://api.example.org/index", "pattern": r"file-(\d+)\.csv", "template": "https://api.example.org/file-{}.csv"}}
     monkeypatch.setattr(datalayer, "certify", lambda feed, url: None)
     assert datalayer.poll(http, feed, tmp_path, {})["url"].endswith("file-7.csv")
+
+
+def test_a_recorder_killed_during_a_repair_keeps_the_damaged_bytes_and_repairs_on_restart(tmp_path):
+    raw, bad = damaged_on_disk(tmp_path)
+    child = subprocess.Popen([sys.executable, "-c", FETCH, str(tmp_path), "0"])
+    while not list(raw.parent.glob("*.damaged-*")):
+        time.sleep(0.0002)
+    child.send_signal(signal.SIGKILL)
+    child.wait()
+    assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
+    assert [p.read_bytes() for p in raw.parent.glob("*.damaged-*")] == [bad]
