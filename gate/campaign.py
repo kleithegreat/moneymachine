@@ -43,32 +43,33 @@ def run_campaign(spec, out):
     return {**out, **result, "seconds": round(time.time() - t0, 1)}
 
 
+def records(path):
+    """Series records; an unparseable line is a retained torn append, not a result."""
+    if not Path(path).exists():
+        return []
+    rows = []
+    with open(path, "rb") as source:
+        for line in source:
+            try:
+                rows.append(json.loads(line))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                pass
+    return rows
+
+
 def recorded(path):
-    return {json.loads(l)["id"] for l in open(path)} if Path(path).exists() else set()
+    return {r["id"] for r in records(path)}
 
 
 @contextmanager
 def exclusive(log):
     """`log` opened for appending under an exclusive lock held for the run's lifetime (released when its last process,
-    pool workers included, exits), so a second run fails at once. Only an incomplete final JSON value is discarded;
-    complete results are preserved and interior corruption is refused."""
+    pool workers included, exits), so a second run fails at once."""
     with open(log, "a") as fh:
         try:
             fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise RuntimeError(f"another run of {log} is alive") from None
-        with open(log, "rb") as source:
-            for line in source:
-                try:
-                    json.loads(line)
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    if line.endswith(b"\n"):
-                        raise
-                    fh.truncate(source.tell() - len(line))
-                else:
-                    if not line.endswith(b"\n"):
-                        fh.write("\n")
-        fh.flush()
         yield fh
 
 
@@ -78,6 +79,13 @@ def resume(ids, log, out):
     `log` was started and interrupted: it is recorded as a crash, which counts as a promotion, and never rerun. That
     holds only if no other run of `log` is alive, which `exclusive` ensures."""
     with exclusive(log) as fh:
+        with open(log, "rb") as source:
+            source.seek(0, 2)
+            if source.tell():
+                source.seek(-1, 2)
+                if source.read(1) != b"\n":
+                    fh.write("\n")
+                    fh.flush()
         done, todo = recorded(log), []
         for i in ids:
             if i in done:

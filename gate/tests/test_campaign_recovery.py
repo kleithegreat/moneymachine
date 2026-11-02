@@ -7,10 +7,13 @@ import pytest
 
 from gate import campaign
 from gate.agent import campaigns
+from ops import live
 
 
 @pytest.mark.parametrize("tail", [b'{"id":"interrupted",', b'{"id":"\xe2\x82'])
 def test_killed_series_append_recovers_as_a_crash(tmp_path, monkeypatch, tail):
+    tmp_path = tmp_path / "app"
+    tmp_path.mkdir()
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setitem(campaigns.COHORTS, "agent", ("recovery", 3))
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "test"})
@@ -26,17 +29,27 @@ def test_killed_series_append_recovers_as_a_crash(tmp_path, monkeypatch, tail):
                              "os.write(f, bytes.fromhex(sys.argv[2])); os.kill(os.getpid(), signal.SIGKILL)",
                              str(log), tail.hex()])
     assert killed.returncode == -signal.SIGKILL
+    mirror = tmp_path.parent / "mirror"
+    monkeypatch.setattr(live, "VOLUMES", {"agent": "."})
+    live.mirror(tmp_path, mirror)
     started = []
     monkeypatch.setitem(campaigns.SERIES, "agent", lambda cid, _: started.append(cid) or {"counts_as_promotion": False})
 
     campaigns.run_series("agent")
 
     raw = log.read_bytes()
-    rows = [json.loads(line) for line in raw.splitlines()]
-    assert raw.startswith(prefix)
+    assert raw.startswith(prefix + tail + b"\n")
+    rows = campaign.records(log)
     assert [r["id"] for r in rows] == ids
     assert rows[1]["counts_as_promotion"] and "interrupted" in rows[1]["crash"]
     assert started == ids[2:]
+    live.mirror(tmp_path, mirror)
+    live.verify(tmp_path, mirror)
+    assert campaigns.need(log) == {}
+    monkeypatch.setattr(campaigns.sweep, "results", lambda _: [])
+    summary = tmp_path / "summary.json"
+    campaigns.summary("agent", summary)
+    assert json.loads(summary.read_text())["ids"] == ids
     campaigns.run_series("agent")
     assert log.read_bytes() == raw and started == ids[2:]
 
@@ -53,11 +66,23 @@ def test_complete_final_result_without_newline_is_preserved(tmp_path):
 
 
 @pytest.mark.parametrize("corrupt", [b'{"broken":\n', b'\xff\n'])
-def test_interior_corruption_is_refused_without_changing_the_log(tmp_path, corrupt):
+def test_torn_records_are_ignored_without_changing_history(tmp_path, corrupt):
     log = tmp_path / "series.jsonl"
     original = b'{"id":"complete"}\n' + corrupt + b'{"id":"later"}\n'
     log.write_bytes(original)
-    with pytest.raises((ValueError, UnicodeError)):
-        with campaign.resume(["next"], log, tmp_path):
-            pytest.fail("corrupt history was accepted")
+    with campaign.resume(["next"], log, tmp_path) as todo:
+        assert todo == ["next"]
+    assert campaign.recorded(log) == {"complete", "later"}
+    assert log.read_bytes() == original
+
+
+def test_exclusive_is_only_a_lock(tmp_path):
+    log = tmp_path / "series.jsonl"
+    original = b'{"id":"torn'
+    log.write_bytes(original)
+    with campaign.exclusive(log):
+        assert log.read_bytes() == original
+        with pytest.raises(RuntimeError, match="another run"):
+            with campaign.exclusive(log):
+                pytest.fail("lock was not exclusive")
     assert log.read_bytes() == original
