@@ -179,6 +179,36 @@ def test_a_budget_refusal_is_not_an_evaluation(tmp_path, monkeypatch):
     assert campaigns.evaluations_made(None, "c", tmp_path) == 2
 
 
+def test_a_failed_agent_costs_the_swarm_its_count_not_its_gate_decision(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "OUT", tmp_path)
+    monkeypatch.setattr(campaigns, "null_market", lambda cid, inputs: "market")
+
+    def fails(market, ledger, cid, work, agents):
+        run = Path(work) / "A1" / "run.json"
+        run.parent.mkdir(parents=True)
+        run.write_text(json.dumps({"agent": "A1", "stopped": "finished", "exit": 0}))
+        raise RuntimeError("disclose")
+
+    monkeypatch.setattr(campaigns.harness, "run_swarm", fails)
+    monkeypatch.setattr(campaigns, "screened", lambda market, ledger, cid: ("report", {}, []))
+    monkeypatch.setattr(campaigns.gate, "freeze", lambda *a: None)
+    monkeypatch.setattr(campaigns.gate, "holdout_decision", lambda *a: (["h"], {"diagnostics": {}}))
+    monkeypatch.setattr(campaigns.gate, "bankrupt", lambda ledger: [])
+    monkeypatch.setattr(campaigns, "evaluations_made", lambda ledger, cid, d, agent: 3)
+    monkeypatch.setattr(campaigns, "audit_run", lambda d, ledger, cid, agent: {"match": True})
+    row = campaigns.swarm_null("c", {})
+    assert "disclose" in row["crash"] and row["counts_as_promotion"] and row["promoted"] == ["h"] and row["search"] == "report"
+    assert row["evaluations"] == 12 and list(row["agent_evaluations"]) == ["A1", "A2", "A3", "A4"] and not row["cross_agent_history"]
+    assert [r["agent"] for r in row["runs"]] == ["A1"]
+    monkeypatch.setattr(campaigns.gate, "holdout_decision", lambda *a: ([], {"diagnostics": {}}))
+    assert campaigns.swarm_null("d", {})["counts_as_promotion"]
+
+
+def test_an_agent_that_left_nothing_breaks_neither_its_audit_nor_the_history_check(tmp_path):
+    assert campaigns.audit_run(tmp_path, tmp_path / "ledger.sqlite", "c") is None and not campaigns.audit_holds(None)
+    assert not campaigns.cross_agent_history([tmp_path])
+
+
 def test_a_null_campaign_counts_if_it_promotes_crashes_or_an_agent_made_no_evaluation():
     done = {"stopped": "finished", "exit": 0}
     assert not campaigns.counts([], [done] * 4, [5, 9, 12, 7])

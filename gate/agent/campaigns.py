@@ -35,6 +35,7 @@ ACCOUNTS = (("TAMU", "CLAUDE_CODE_OAUTH_TOKEN_TAMU"), ("Cornell", "CLAUDE_CODE_O
 TOKENS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
 STOP = threading.Event()  # set by SIGTERM: the series ends between campaigns
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
+SWARM_AGENTS = 4
 SMOKE = {"agent": "20 runs bound the promotion rate only to about 0.28; this is a smoke test.",
          "swarm": "With 10 runs the 95% bound is about 0.39; this is a smoke test only."}
 
@@ -74,7 +75,9 @@ def daemon_log(run_dir):
 
 def audit_run(run_dir, ledger, campaign, agent="A"):
     """One agent run: the daemon's calls against the ledger's rows, kind by kind and in order, and no tool call outside
-    the permitted set."""
+    the permitted set; None for a session that left no transcript, which `audit_holds` refuses."""
+    if not (Path(run_dir) / "transcript.jsonl").exists():
+        return None
     calls = [k for k in map(row_kind, daemon_log(run_dir)) if k]
     rows = [k for (k,) in sqlite3.connect(ledger).execute(
         "SELECT kind FROM disclosures WHERE campaign = ? AND agent = ? AND kind IN ('eval', 'check', 'reject', 'abort', 'history') "
@@ -93,8 +96,7 @@ def audit_holds(audit):
 def cross_agent_history(run_dirs):
     """Whether any agent received history containing another agent's evaluations."""
     for d in run_dirs:
-        for line in open(d / "daemon.log"):
-            e = json.loads(line)
+        for e in daemon_log(d):
             if e["cmd"] == "history" and any(r.get("agent") != d.name for r in e["response"].get("evaluations", [])):
                 return True
     return False
@@ -150,19 +152,25 @@ def agent_null(cid, inputs):
 
 
 def swarm_null(cid, inputs):
+    """The swarm on a null market. The gate is a function of the ledger, so a failed agent costs the campaign its count,
+    never its gate decision: the crash is recorded beside the outcome."""
     market = null_market(cid, inputs)
     ledger = OUT / cid / "ledger.sqlite"
-    swarm = harness.run_swarm(market, ledger, cid, OUT / cid / "swarm")
+    work = OUT / cid / "swarm"
+    try:
+        crash, runs = {}, harness.run_swarm(market, ledger, cid, work, SWARM_AGENTS)["runs"]
+    except Exception as e:
+        crash, runs = {"crash": repr(e)}, [json.loads(p.read_text()) for p in sorted(work.glob("A*/run.json"))]
     report, mech, kept = screened(market, ledger, cid)
     gate.freeze(ledger, cid, kept, "frozen finalist swarm")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["swarm"] * DAY)
-    run_dirs = [OUT / cid / "swarm" / r["agent"] for r in swarm["runs"]]
+    run_dirs = [work / f"A{i + 1}" for i in range(SWARM_AGENTS)]
     per_agent = {d.name: evaluations_made(ledger, cid, d, d.name) for d in run_dirs}
-    return {"runs": swarm["runs"], "evaluations": swarm["evaluations"], "agent_evaluations": per_agent, "search": report, "mechanism": mech,
-            "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": cross_agent_history(run_dirs),
-            "bankrupt": gate.bankrupt(ledger),
-            "audits": {d.name: audit_run(d, ledger, cid, d.name) for d in run_dirs},
-            "counts_as_promotion": counts(promoted, swarm["runs"], list(per_agent.values()))}
+    return crash | {"runs": runs, "evaluations": sum(per_agent.values()), "agent_evaluations": per_agent, "search": report, "mechanism": mech,
+                    "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": cross_agent_history(run_dirs),
+                    "bankrupt": gate.bankrupt(ledger),
+                    "audits": {d.name: audit_run(d, ledger, cid, d.name) for d in run_dirs},
+                    "counts_as_promotion": bool(crash) or counts(promoted, runs, list(per_agent.values()))}
 
 
 SERIES = {"agent": agent_null, "swarm": swarm_null}
