@@ -55,6 +55,12 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    bound, certificate-chain fuel). Left: positions 6 and 7 (`Ctx.admissible`, `inScope` with `values`, after slices
    4 and 5), the ledger's certificate and supersession tables, `main.rs`'s wiring (`LoadError::Holdout` dies), and
    tests 5, 6, 8, 17, 18, 21, 23 and 24, which need the loader or slice 2's checker.
+   **Two-run checks (self-composition; Clarkson and Schneider, *Hyperproperties*, 2010), the human's decision of
+   2026-11-02.** A sampled differential is per-run evidence, and non-interference compares two runs, so slice 5 adds both,
+   first checking whether they already exist under another name: the same run on two stores differing only in records
+   known after t gives byte-identical decisions through t (`mm`); the same requests to the daemon with only the holdout's
+   bytes changed give identical replies (`gate/tests/test_agent_daemon.py`). Each gets a positive control: a mutant that
+   reads ahead must fail it.
 7. **Then, outside this port:** the verifier and `mm certify`/`mm bind`/preflight (C7.2, C7.3; tests 1–3, 7, 10, 12),
    the event feeds as derived sources (C7.4), the mutants (I1–I10, C5) rerun on the ported kernel.
 
