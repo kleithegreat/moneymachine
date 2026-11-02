@@ -12,8 +12,9 @@ never a zero rate, and ends the account's reconciled equity until it arrives; `l
 price's time it becomes available to a decision (δ for candles, the mark seal for builder markets). Fills use a bar's
 open at its openTime; sizing uses only the equity of the latest hour every leg's reference has reached; invalidation uses
 only the closes of the bar just ended. At an hour, funding settles first, then exits, then entries, and a leg not entered
-by its exit never enters. Fills move the reference open adversely by the coin's cost cell ("1000" if |q| * ref <= 1000,
-else "10000") and pay the taker fee. Money is exact, so every boundary is the frozen one, with no tolerance.
+by its exit never enters; exits actionable at the same time take the first reason of PRECEDENCE. Fills move the
+reference open adversely by the coin's cost cell ("1000" if |q| * ref <= 1000, else "10000") and pay the taker fee.
+Money is exact, so every boundary is the frozen one, with no tolerance.
 """
 
 from bisect import bisect_left, bisect_right
@@ -25,6 +26,7 @@ from ingest.policy import DELTA, HOUR
 
 Json = dict[str, Any]
 RISK, CAP = Fraction(1, 100), Fraction(1, 20)
+PRECEDENCE = ("invalidation", "discretionary", "horizon")
 
 
 @lru_cache(maxsize=1 << 20)
@@ -163,7 +165,7 @@ def replay(initial: float, theses: list[Json], exits: list[Json], data: Json, no
                 continue
             l["paid"] += exact(rate) * mark(bars[l["market"]], h)
         for tid, p in list(acct.live.items()):
-            when, reason = min(p["triggers"].items(), key=lambda kv: (kv[1], kv[0]))[::-1]
+            when, reason = min(p["triggers"].items(), key=lambda kv: (kv[1], PRECEDENCE.index(kv[0])))[::-1]
             if h < when:
                 continue
             for l in p["legs"]:

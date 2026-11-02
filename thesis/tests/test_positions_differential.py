@@ -11,6 +11,7 @@ prices through Market and Track.data rather than the synthetic as-of view.
 import random
 import tempfile
 import types
+from concurrent.futures import ProcessPoolExecutor
 from fractions import Fraction
 from pathlib import Path
 
@@ -55,16 +56,46 @@ READINGS = {
 }
 
 
+# Power: each a defect positions.py could have, which the comparison must catch. Two it can't see: invalidation acting
+# at close + δ rather than after the seal is the same hour; funding settling inside its reference's lag differs only in a
+# mid-lag count of missing rows, which test_positions checks.
+MUTANTS = {
+    "the cheap cell includes nothing at $1000": [("abs(q) * ref <= 1000", "abs(q) * ref < 1000")],
+    "a return of zero counts as a success": [("int(r > 0)", "int(r >= 0)")],
+    "invalidation needs a loss beyond L": [("Fraction(0)) <= -p[\"L\"]", "Fraction(0)) < -p[\"L\"]")],
+    "the cap excludes its own boundary": [("acct.reserved() + b <= CAP * e_r", "acct.reserved() + b < CAP * e_r")],
+    "a cost cell ignores the side": [("side = \"buy\" if q > 0 else \"sell\"", "side = \"buy\"")],
+    "entry needs no delay": [("if l[\"ref\"] is None and p[\"t_r\"] + DELTA <= h", "if l[\"ref\"] is None and p[\"t_r\"] <= h")],
+    "an outcome enters without delay": [("first_open(bars, th[\"t_r\"] + DELTA, now)", "first_open(bars, th[\"t_r\"], now)")],
+    "a discretionary exit acts at its request": [("e[\"t_x\"] + DELTA for e", "e[\"t_x\"] for e")],
+    "the last discretionary exit wins": [("for e in reversed(exits)}", "for e in exits}")],
+    "an exit at an entry's hour lets it enter": [("<= h < min(p[\"triggers\"].values())", "<= h <= min(p[\"triggers\"].values())")],
+    "simultaneous exits take the first set": [("key=lambda kv: (kv[1], PRECEDENCE.index(kv[0]))", "key=lambda kv: kv[1]")],
+    "simultaneous exits take their reasons in alphabetical order": [("PRECEDENCE.index(kv[0])", "kv[0]")],
+    "a bar's close counts before it ends": [("c is not None and s + HOUR <= t", "c is not None and s + HOUR < t")],
+    "funding is received, not paid": [("l[\"paid\"] += exact(rate)", "l[\"paid\"] -= exact(rate)")],
+    "an outcome skips the exit hour's funding": [("range(e + HOUR, x + 1, HOUR)", "range(e + HOUR, x, HOUR)")],
+    "an outcome ignores missing funding": [("            if h not in rates:\n                return None", "            if h not in rates:\n                continue")],
+    "an hour reconciles before its reference": [("h + self.lag.get(l[\"market\"], 0) <= known and", "h <= known and")],
+    "an hour reconciles without its funding": [("(not l[\"open\"] or h in funding.get(l[\"market\"], {}))", "True")],
+    "reservations are never released": [("for p in self.live.values()), Fraction(0))", "for p in self.positions.values()), Fraction(0))")],
+}
+
+
+def patched(module, patches, name):
+    """`module` with each (old, new) applied once to its source."""
+    source = Path(module.__file__).read_text()
+    for old, new in patches:
+        assert source.count(old) == 1, old
+        source = source.replace(old, new)
+    out = types.ModuleType(name)
+    exec(compile(source, name, "exec"), out.__dict__)
+    return out
+
+
 def with_readings(names=tuple(READINGS)):
     """GPT's module with the named readings applied to its source."""
-    source = Path(gpt_positions.__file__).read_text()
-    for name in names:
-        for old, new in READINGS[name]:
-            assert source.count(old) == 1, old
-            source = source.replace(old, new)
-    module = types.ModuleType("gpt_positions_as_read")
-    exec(compile(source, "gpt_positions_as_read", "exec"), module.__dict__)
-    return module
+    return patched(gpt_positions, [p for n in names for p in READINGS[n]], "gpt_positions_as_read")
 
 
 approved = with_readings()
@@ -141,10 +172,11 @@ class Scenario:
         return [{**e, "reason": "x"} for e in self.exits]
 
 
-def compare(s, gpt=approved, seen=None, data=None):
+def compare(s, gpt=approved, seen=None, data=None, code=positions):
     """Every disagreement of the two implementations on scenario `s`: sizing at each registration, reservations and sizing
     equity at the boundaries of each release, then each thesis's fills, reason, outcome and returns, and the hourly equity,
-    once every price is known. `seen` collects the cases reached; `data(now)` replaces the synthetic as-of prices."""
+    once every price is known. `seen` collects the cases reached; `data(now)` replaces the synthetic as-of prices; `code`
+    replaces positions.py."""
     seen = set() if seen is None else seen
     data = data or s.ours_data
     diffs, ours, theirs = [], [], []
@@ -155,7 +187,7 @@ def compare(s, gpt=approved, seen=None, data=None):
 
     for r in s.requests:
         now = r["t_r"]
-        mine = positions.admit(10_000.0, ours, s.ours_exits(now), data(now), now * 1000, r["L"])
+        mine = code.admit(10_000.0, ours, s.ours_exits(now), data(now), now * 1000, r["L"])
         his = gpt.admit(initial, theirs, [e for e in s.gpt_exits() if e["time"] <= now], s.gpt_data(), now, r["L"])
         for k in ("N", "size", "b"):
             if mine[k] != his[k]:
@@ -163,13 +195,13 @@ def compare(s, gpt=approved, seen=None, data=None):
         ours.append(s.ours_thesis(r, mine))
         theirs.append(s.gpt_thesis(r, his))
     now = s.t_end + HOUR + WINDOW
-    acct, out, equity, _ = positions.replay(10_000.0, ours, s.ours_exits(now), data(now), now * 1000, hourly=True)
+    acct, out, equity, _ = code.replay(10_000.0, ours, s.ours_exits(now), data(now), now * 1000, hourly=True)
     report = gpt.replay(initial, theirs, s.gpt_exits(), s.gpt_data(), now)
     released = sorted({th["reservation_released_at"] for th in report["theses"] if th["reservation_released_at"] is not None})
     for t in s.rng.sample(released, min(3, len(released))):
         for at in (t - 1, t):
             booked = [th for th in ours if th["t_r"] <= at * 1000]
-            asof, _, _, _ = positions.replay(10_000.0, booked, s.ours_exits(at), data(at), at * 1000)
+            asof, _, _, _ = code.replay(10_000.0, booked, s.ours_exits(at), data(at), at * 1000)
             his = latest(at, [th for th in theirs if th["t_r"] <= at])["reserved_risk"]
             if asof.reserved() != his:
                 diffs.append(("reserved", at, float(asof.reserved()), float(his)))
@@ -300,6 +332,13 @@ BOUNDARIES = {
         {"A": flat(100.0), "xyz:C": {h * HOUR: (100.0, 100.0) for h in range(20)}}, [req("a", 25 * HOUR, [["A", 1], ["xyz:C", -1]]), req("b", 241 * HOUR, LONG, T=15)]),
     "two discretionary exits": fixed(
         {"A": flat(100.0)}, [req("a", T_R, LONG)], exits=[{"id": "a", "time": 20 * HOUR}, {"id": "a", "time": 30 * HOUR}]),
+    "a discretionary exit as the horizon acts": fixed(
+        {"A": flat(100.0)}, [req("a", T_R, LONG)], exits=[{"id": "a", "time": 240 * HOUR - DELTA}]),
+    "a discretionary exit as an invalidation acts": fixed(
+        {"A": flat(100.0, h20=(100.0, 89.0))}, [req("a", T_R, LONG)], exits=[{"id": "a", "time": 21 * HOUR}]),
+    "a spread's unentered leg with a bar at the horizon": fixed(
+        {"A": {k: v for k, v in flat(100.0).items() if k != 240 * HOUR}, "xyz:C": {h * HOUR: (100.0, 100.0) for h in range(240, HOURS)}},
+        [req("a", T_R, [["A", 1], ["xyz:C", -1]])]),
 }
 
 
@@ -340,21 +379,18 @@ def test_the_production_adapter_gives_the_same_prices_and_the_same_agreement(nam
             assert compare(s, data=data) == []
 
 
-def raw_disagreements(sets=SETS):
-    """{kind of difference: count} of positions.py against GPT's file untouched, per class."""
-    out = {}
-    raw = with_readings(())
-    for name, flags in CLASSES.items():
-        kinds = {}
-        for seed in range(sets):
-            try:
-                diffs = compare(Scenario(seed, **flags), gpt=raw)
-            except KeyError:
-                diffs = [("shape",)]
-            for d in diffs:
-                kinds[d[0]] = kinds.get(d[0], 0) + 1
-        out[name] = kinds
-    return out
+def raw_disagreements(name, sets=SETS):
+    """{kind of difference: count} of positions.py against GPT's file untouched, on one class. Its entry tier can have no
+    fixed point (its docstring's choice 5), which leaves a fill to compare with none."""
+    raw, kinds = with_readings(()), {}
+    for seed in range(sets):
+        try:
+            diffs = compare(Scenario(seed, **CLASSES[name]), gpt=raw)
+        except KeyError:
+            diffs = [("no fixed point",)]
+        for d in diffs:
+            kinds[d[0]] = kinds.get(d[0], 0) + 1
+    return name, kinds
 
 
 @pytest.mark.parametrize("reading", READINGS)
@@ -364,7 +400,34 @@ def test_every_reading_is_needed_on_some_scenario(reading):
     assert any(compare(Scenario(seed, **CLASSES["everything"]), gpt=without) for seed in range(40))
 
 
+def mutant_catches(name, sets=PRODUCTION_SETS, first=False):
+    """How many boundary cases and scenario sets catch mutant `name`, by a disagreement or an error (with `first`, 0 or 1)."""
+    code, found = patched(positions, MUTANTS[name], "positions_mutant"), 0
+    cases = [*BOUNDARIES.values(), *(Scenario(seed, **flags) for flags in CLASSES.values() for seed in range(sets))]
+    for s in cases:
+        try:
+            found += bool(compare(s, code=code))
+        except Exception:
+            found += 1
+        if found and first:
+            break
+    return name, found
+
+
+@pytest.mark.parametrize("name", MUTANTS)
+def test_every_mutant_is_caught(name):
+    assert mutant_catches(name, first=True)[1]
+
+
 def test_the_raw_comparison_stays_a_real_disagreement():
-    """GPT's own file disagrees with the code, and only as READINGS says: raw agreement would mean a reading is obsolete."""
-    assert with_readings(()).__dict__["__name__"] == "gpt_positions_as_read"
-    assert compare(Scenario(0, **CLASSES["costs"]), gpt=with_readings(()))
+    """GPT's own file disagrees with the code: raw agreement would mean the readings had become obsolete."""
+    assert raw_disagreements("costs", 5)[1]
+
+
+if __name__ == "__main__":
+    with ProcessPoolExecutor() as pool:
+        for name, kinds in pool.map(raw_disagreements, CLASSES):
+            print(name, dict(sorted(kinds.items())))
+        total = len(BOUNDARIES) + len(CLASSES) * PRODUCTION_SETS
+        for name, found in pool.map(mutant_catches, MUTANTS):
+            print(f"{name}: {found} of {total}")

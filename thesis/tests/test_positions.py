@@ -439,3 +439,10 @@ def test_data_fetched_before_a_boundary_never_reconciles_an_hour_past_its_cutoff
     th, data = lagging(lag=DELTA, market="BTC")
     fetched = data(30 * H) | {"cutoff": 30 * H + DELTA - 1}
     assert positions.admit(10_000.0, [th], [], fetched, 30 * H + 10 * DELTA, 0.1)["N"] == 1000
+
+
+def test_a_funding_row_not_yet_returned_inside_an_hours_lag_is_not_yet_missing():
+    th, data = lagging(market="BTC", lag=DELTA)
+    for t, missing in ((30 * H + DELTA - 1, []), (30 * H + DELTA, [[30 * H, "BTC"]])):
+        known = data(t) | {"funding": {"BTC": {h * H: 0.0 for h in range(30)}}}
+        assert positions.run(10_000.0, [th], [], known, t)["missing_funding"] == missing
