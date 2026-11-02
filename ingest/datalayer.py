@@ -78,13 +78,15 @@ def intact(raw: Path, content: bytes) -> bool:
 
 
 def quarantine(raw: Path, out_dir: str | Path, name: str, url: str) -> None:
-    """Move a damaged body aside, its bytes kept, so its content can be written again, with the repair on the record."""
+    """Move a damaged body aside, its bytes kept under their own hash, so its content can be written again. The repair is on
+    the record before the move, so a kill between them leaves the body damaged in place and the next poll repairs it again."""
     t = now_ms()
     bad = raw.read_bytes()
-    kept = f"{raw.name}.damaged-{t}"
-    os.replace(raw, raw.with_name(kept))
+    damaged = hashlib.sha256(bad).hexdigest()
+    kept = f"{raw.name}.damaged-{damaged}"
     append(out_dir, "repairs", t, {"t": t, "feed": name, "url": url, "sha256": raw.name.removesuffix(".gz"), "kept": kept,
-                                   "damaged_sha256": hashlib.sha256(bad).hexdigest(), "bytes": len(bad)})
+                                   "damaged_sha256": damaged, "bytes": len(bad)})
+    os.replace(raw, raw.with_name(kept))
 
 
 def last_polls(out_dir: str | Path) -> dict[str, int]:

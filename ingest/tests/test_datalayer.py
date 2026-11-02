@@ -188,3 +188,33 @@ def test_a_recorder_killed_during_a_repair_keeps_the_damaged_bytes_and_repairs_o
     child.wait()
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
     assert [p.read_bytes() for p in raw.parent.glob("*.damaged-*")] == [bad]
+
+
+# GPT's round 2 review (audit/reviews/2026-11-02-gpt-thesis-round2.md), B5: a kill at each step of a repair.
+KILLED_AT = """
+import os, signal, sys
+import httpx
+from ingest import datalayer
+from ingest.tests.test_datalayer import BODY
+out, step = sys.argv[1], sys.argv[2]
+def killed(f):
+    def g(*a, **k):
+        f(*a, **k)
+        os.kill(os.getpid(), signal.SIGKILL)
+    return g
+if step == "record":
+    datalayer.append = killed(datalayer.append)
+else:
+    datalayer.os.replace = killed(datalayer.os.replace)
+http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=BODY)))
+datalayer.poll(http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}, out)
+"""
+
+
+@pytest.mark.parametrize("step", ["record", "move"])
+def test_a_repair_killed_after_any_step_is_on_the_record_with_its_damaged_bytes(tmp_path, step):
+    raw, bad = damaged_on_disk(tmp_path)
+    assert subprocess.run([sys.executable, "-c", KILLED_AT, str(tmp_path), step]).returncode == -signal.SIGKILL
+    assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
+    repairs = list(live.read(tmp_path, "repairs"))
+    assert repairs and all((raw.parent / r["kept"]).read_bytes() == bad for r in repairs)

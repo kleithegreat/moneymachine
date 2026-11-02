@@ -250,3 +250,12 @@ module['publish'](sys.argv[2], sys.argv[3])
             if proc is not None and proc.poll() is None:
                 proc.kill()
                 proc.communicate()
+
+
+def test_oracle_pull_skips_a_writer_s_transient_tmp_file(oracle_pull):
+    """Claude's round 2 review, R7: rsync exits 24 when a listed `.tmp` vanishes before its copy."""
+    root, source, destination, run = oracle_pull
+    (source.parent / "datalayer/raw").mkdir()
+    (source.parent / "datalayer/raw/ab.tmp").write_bytes(b"partial")
+    assert run().returncode == 0
+    assert not (destination.parent / "datalayer/raw/ab.tmp").exists()

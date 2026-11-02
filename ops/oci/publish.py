@@ -1,5 +1,7 @@
 """Publish each staged Oracle file that extends its destination; report all divergences. A recorder's status file
-(`*.json`) is rewritten in place, so it replaces its copy."""
+(`*.json`) is rewritten in place, so it replaces its copy. A body the data layer repaired (`ingest/datalayer.py`) no longer
+extends a damaged copy pulled before the repair: it is reported on every pull and the copy here is kept, while the repair's
+record and the damaged bytes it kept arrive as new files. A person then replaces the copy, once the kept bytes match it."""
 
 import fcntl
 import sys
