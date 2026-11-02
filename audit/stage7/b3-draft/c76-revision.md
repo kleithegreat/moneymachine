@@ -1,6 +1,6 @@
 # B3 draft: C7.6's dated revision (not committed to `audit/criteria.md`)
 
-Draft text, from the decision of 2026-11-02 01:33 UTC ("B3's draft suite is not frozen", `audit/decisions.md`). After
+Draft text, from the decision of 2026-11-02 01:32 UTC ("B3's draft suite is not frozen", `audit/decisions.md`). After
 its review it is appended beneath C7.6's resolver bullet in `audit/criteria.md` and committed alone, before the suite's
 freeze and before anything is judged. The original lines stay as written. Everything below the line is the text.
 

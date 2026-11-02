@@ -1,6 +1,6 @@
 # B3 draft: RULES.md's revision of §6 and §7 (not frozen)
 
-Draft text of one dated revision, from the decision of 2026-11-02 01:33 UTC ("B3's draft suite is not frozen",
+Draft text of one dated revision, from the decision of 2026-11-02 01:32 UTC ("B3's draft suite is not frozen",
 `audit/decisions.md`) and its reviews (`audit/stage7/b3-review-{gpt,claude}.md`). At the freeze it is appended to
 `kernel/RULES.md` §6 (the first part) and replaces §7's resolver sentence (the second), and `laws-frozen.md` records
 RULES.md's new hash. No Lean changes. Everything below the line is the text to append.
@@ -9,7 +9,7 @@ RULES.md's new hash. No Lean changes. Everything below the line is the text to a
 
 ### Revision of 2026-11-02, B3: stored bytes, and the resolver restated whole
 
-From both B3 reviews (`audit/stage7/b3-review-{gpt,claude}.md`; decision of 2026-11-02 01:33 UTC). It changes no result
+From both B3 reviews (`audit/stage7/b3-review-{gpt,claude}.md`; decision of 2026-11-02 01:32 UTC). It changes no result
 of the revisions above; it states what they left open, and restates resolution whole so that it reads without them.
 
 **Stored bytes.** A revision's stored columns and its lineage are JSON texts read as §1 reads them. A dataset is
