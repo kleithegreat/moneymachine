@@ -258,3 +258,33 @@ def test_a_repair_spanning_a_cached_row_at_an_earlier_cutoff_shows_that_row_once
     m = market.Market(tmp_path, x, repair_every=0)
     m.bars("X", "1h", 7 * H)
     assert m.bars("X", "1h", 3 * H + 10 * 60_000) == [[H, 1.0, 1.0], [3 * H, 3.0, None]]
+
+
+# GPT's round 2 review, B1: a daily row the venue omitted before the first cached one can decide a market's eligibility.
+def test_daily_rows_missing_before_the_first_cached_row_are_retried(tmp_path):
+    day = market.DAY
+    x = Venue([(k * day, 1.0) for k in range(191, 400)])
+    m = market.Market(tmp_path, x, repair_every=0)
+    assert len(m.bars("X", "1d", 400 * day + market.DELTA)) == 209
+    x.rows.insert(0, (190 * day, 1.0))
+    assert m.bars("X", "1d", 400 * day + market.DELTA)[0][0] == 190 * day
+
+
+# Claude's round 2 review, R2: a session's calls each reread every market's tail.
+def test_a_read_holding_the_newest_row_it_can_show_requests_nothing(tmp_path):
+    x = Venue([(H, 1.0), (2 * H, 2.0)])
+    m = market.Market(tmp_path, x)
+    m.bars("X", "1h", 2 * H + market.DELTA), m.funding("X", 2 * H + 1000)
+    x.requests.clear()
+    assert m.bars("X", "1h", 3 * H) == [[H, 1.0, 1.0], [2 * H, 2.0, None]]
+    assert m.funding("X", 3 * H - 1) == [[H, 1.0], [2 * H, 2.0]] and x.requests == []
+    m.bars("X", "1h", 3 * H + market.DELTA)
+    assert x.requests
+
+
+def test_a_row_the_venue_has_not_yet_published_is_asked_for_again(tmp_path):
+    x = Venue([(H, 0.1)])
+    m = market.Market(tmp_path, x)
+    m.funding("X", 2 * H + 1000)
+    x.rows.append((2 * H, 0.2))
+    assert m.funding("X", 2 * H + 2000) == [[H, 0.1], [2 * H, 0.2]]
