@@ -176,6 +176,20 @@ def test_oracle_pull_keeps_only_the_last_rsync_error_line_and_recovers(oracle_pu
     assert last_good == "last-good\n"
 
 
+def test_publish_replaces_a_recorder_status_file_and_still_refuses_a_diverged_log(tmp_path):
+    source, destination = tmp_path / "staged", tmp_path / "copy"
+    source.mkdir()
+    destination.mkdir()
+    (destination / "recorder.json").write_text('{"started": 1}')
+    (source / "recorder.json").write_text('{"started": 2}')
+    (destination / "day.jsonl").write_text("a\nb\n")
+    (source / "day.jsonl").write_text("a\nc\n")
+    with pytest.raises(SystemExit, match="day.jsonl"):
+        publish(source, destination)
+    assert (destination / "recorder.json").read_text() == '{"started": 2}'
+    assert (destination / "day.jsonl").read_text() == "a\nb\n"
+
+
 def test_publish_reports_all_divergences_on_one_line(tmp_path):
     source, destination = tmp_path / "source", tmp_path / "destination"
     source.mkdir()
