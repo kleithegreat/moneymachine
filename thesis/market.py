@@ -3,8 +3,9 @@
 The adapter is the venue's public info endpoint with only the frozen read request types; there is no
 signing, account or order operation anywhere. Every response is archived with its retrieval time.
 Completed bars and funding rows are cached per market, each file rewritten atomically under a lock: extended
-incrementally, from the first hole still within REPAIR if the venue left one, and a cached row is never rewritten. A
-completed candle is known at its close plus δ (C0.3's rule). A builder (HIP-3) market's
+incrementally, every hole the venue left retried each `repair_every` for as long as it stays one, and a cached row is
+never rewritten. A candle's open is known at its open plus δ and its close at its close plus δ (C0.3's rule), whenever it
+was first read, so a read as of a cutoff does not depend on what the cache holds. A builder (HIP-3) market's
 hourly bars are its recorded mark prices (stage 10 revision of 2026-10-23): `record_marks` samples every builder
 dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from those samples as known at `now`.
 """
@@ -28,7 +29,9 @@ HISTORY = {"1h": 200 * DAY, "1d": 3 * 365 * DAY + 30 * DAY, "funding": 3 * 365 *
 MARK_OFFSET = 5_000
 MARK_WINDOW = 5 * 60_000
 STEP = {"1h": HOUR, "1d": DAY, "funding": HOUR}
-REPAIR = 90 * DAY  # the longest horizon, 60 days, and a month for its outcome to come in
+REPAIR_EVERY = HOUR  # leaves C10.5's two hours from a late row's availability to its score
+PAGE = 500  # holes closer than a page of rows share a request
+EDGES = {"1h", "funding"}  # a market's daily history starts where the venue's does; no result needs a day before it
 
 
 def builder(market: str) -> bool:
@@ -39,10 +42,19 @@ def dex_of(market: str) -> str | None:
     return market.split(":")[0] if builder(market) else None
 
 
-def fetch_start(rows: list[list[Any]], step: int, now: int) -> int:
-    """Where the next fetch starts: the first hole among the rows within REPAIR of `now`, else after the last row."""
-    recent: list[int] = [r[0] for r in rows if r[0] >= now - REPAIR]
-    return next((a + step for a, b in zip(recent, recent[1:]) if b - a > step), rows[-1][0] + 1)
+def holes(rows: list[list[Any]], step: int, start: int | None) -> list[tuple[int, int]]:
+    """[(from, to)) of the rows missing between `rows`, and before the first from `start` if given."""
+    times: list[int] = [r[0] for r in rows]
+    gaps = [(a + step, b) for a, b in zip(times, times[1:]) if b - a > step]
+    if start is not None and times[0] - step >= start:
+        gaps.insert(0, (start, times[0]))
+    spans: list[tuple[int, int]] = []
+    for a, b in gaps:
+        if spans and a - spans[-1][1] < PAGE * step:
+            spans[-1] = (spans[-1][0], b)
+        else:
+            spans.append((a, b))
+    return spans
 
 
 def seal(samples: Iterable[tuple[int, int, float | None]]) -> dict[int, float]:
@@ -84,10 +96,11 @@ class Exchange(Info):
 class Market:
     """Listings, completed 1h and 1d bars, and hourly funding, cached under `root`."""
 
-    def __init__(self, root: str | Path, exchange: Any) -> None:
-        self.root, self.x = Path(root), exchange
+    def __init__(self, root: str | Path, exchange: Any, repair_every: int = REPAIR_EVERY) -> None:
+        self.root, self.x, self.repair_every = Path(root), exchange, repair_every
         (self.root / "marks").mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
+        self.repaired: dict[Path, int] = {}
 
     def universe(self, dex: str | None = None) -> dict[str, bool]:
         """{market: delisted} of a builder dex, or of the core venue."""
@@ -111,9 +124,15 @@ class Market:
         path = self.root / market.replace(":", "_") / f"{kind}.json"
         with self.lock:
             rows = json.loads(path.read_text()) if path.exists() else []
-            start = fetch_start(rows, STEP[kind], now) if rows else now - HISTORY[kind]
+            first = now - HISTORY[kind]
+            last = self.repaired.get(path)
+            repair = last is None or now_ms() - last >= self.repair_every
+            spans = holes(rows, STEP[kind], first if kind in EDGES else None) if rows and repair else []
+            spans.append((rows[-1][0] + 1, now) if rows else (first, now))
             known = {r[0] for r in rows}
-            fresh = {r[0]: r for r in fetch(start, now) if r[0] not in known}
+            fresh = {r[0]: r for a, b in spans if a < b for r in fetch(a, b) if r[0] not in known}
+            if repair:
+                self.repaired[path] = now_ms()
             if fresh:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 rows = sorted(rows + list(fresh.values()))
@@ -140,24 +159,26 @@ class Market:
         return MARK_WINDOW if builder(market) else DELTA
 
     def bars(self, market: str, interval: str, now: int | None = None) -> list[list[Any]]:
-        """[[openTime, open, close]] of bars known by `now`. A builder market's 1h bars are its marks; a core 1h candle in
-        progress shows its open from δ, with a null close, and is cached only once complete."""
+        """[[openTime, open, close]] of bars known by `now`. A builder market's 1h bars are its marks; a core 1h candle shows
+        its open from δ with a null close until its own close is known, and is cached only once complete."""
         now = now or now_ms()
         if interval == "1h" and builder(market):
             return mark_bars(self.marks(market), now)
         step = STEP[interval]
+        shown = DELTA if interval == "1h" else step + DELTA
         progress: list[list[Any]] = []
 
         def fetch(start: int, end: int) -> list[list[Any]]:
             candles = [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)]
-            progress[:] = [[t, o, None] for t, o, _ in candles if interval == "1h" and t + DELTA <= end < t + step + DELTA]
-            return [r for r in candles if r[0] + step + DELTA <= end]
-        return [r for r in self._cached(market, interval, fetch, now) if r[0] + step + DELTA <= now] + progress
+            progress.extend(r for r in candles if r[0] + step + DELTA > now)
+            return [r for r in candles if r[0] + step + DELTA <= now]
+        rows = self._cached(market, interval, fetch, now)
+        return [[t, o, c if t + step + DELTA <= now else None] for t, o, c in sorted(rows + progress) if t + shown <= now]
 
     def funding(self, market: str, now: int | None = None) -> list[list[Any]]:
         """[[hour, rate]] of settled funding up to `now`."""
         now = now or now_ms()
 
         def fetch(start: int, end: int) -> list[list[Any]]:
-            return [[r["time"] // HOUR * HOUR, float(r["fundingRate"])] for r in self.x.funding(market, start, end)]
+            return [[r["time"] // HOUR * HOUR, float(r["fundingRate"])] for r in self.x.funding(market, start, end + 1)]
         return [r for r in self._cached(market, "funding", fetch, now) if r[0] <= now]

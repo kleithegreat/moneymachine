@@ -95,20 +95,22 @@ class Venue:
     """A venue whose funding and candle rows come from `rows`, recording each request's start."""
 
     def __init__(self, rows):
-        self.rows, self.starts = rows, []
+        self.rows, self.starts, self.requests = rows, [], []
 
     def funding(self, market, start, end):
         self.starts.append(start)
+        self.requests.append((start, end))
         return [{"time": t, "fundingRate": str(r)} for t, r in self.rows if start <= t < end]
 
     def candles(self, market, interval, start, end):
         self.starts.append(start)
+        self.requests.append((start, end))
         return [{"t": t, "o": str(r), "c": str(r)} for t, r in self.rows if start <= t < end]
 
 
 def test_a_funding_row_the_venue_supplies_late_fills_its_hole(tmp_path):
     x = Venue([(H, 0.1), (3 * H, 0.3)])
-    m = market.Market(tmp_path, x)
+    m = market.Market(tmp_path, x, repair_every=0)
     assert m.funding("X", 4 * H) == [[H, 0.1], [3 * H, 0.3]]
     x.rows = [(H, 0.1), (2 * H, 0.2), (3 * H, 0.3)]
     assert m.funding("X", 4 * H) == [[H, 0.1], [2 * H, 0.2], [3 * H, 0.3]]
@@ -116,7 +118,7 @@ def test_a_funding_row_the_venue_supplies_late_fills_its_hole(tmp_path):
 
 def test_a_candle_the_venue_supplies_late_fills_its_hole(tmp_path):
     x = Venue([(H, 1.0), (3 * H, 3.0)])
-    m = market.Market(tmp_path, x)
+    m = market.Market(tmp_path, x, repair_every=0)
     assert m.bars("X", "1h", 5 * H) == [[H, 1.0, 1.0], [3 * H, 3.0, 3.0]]
     x.rows = [(H, 1.0), (2 * H, 2.0), (3 * H, 3.0)]
     assert m.bars("X", "1h", 5 * H) == [[H, 1.0, 1.0], [2 * H, 2.0, 2.0], [3 * H, 3.0, 3.0]]
@@ -124,7 +126,7 @@ def test_a_candle_the_venue_supplies_late_fills_its_hole(tmp_path):
 
 def test_a_cached_row_is_never_rewritten(tmp_path):
     x = Venue([(H, 0.1), (3 * H, 0.3)])
-    m = market.Market(tmp_path, x)
+    m = market.Market(tmp_path, x, repair_every=0)
     m.funding("X", 4 * H)
     x.rows = [(H, 0.9), (2 * H, 0.2), (3 * H, 0.9), (4 * H, 0.4)]
     assert m.funding("X", 5 * H) == [[H, 0.1], [2 * H, 0.2], [3 * H, 0.3], [4 * H, 0.4]]
@@ -138,23 +140,57 @@ def test_without_a_hole_only_new_rows_are_requested(tmp_path):
     assert x.starts[-1] == 2 * H + 1
 
 
-def test_a_hole_older_than_any_open_horizon_is_left_alone(tmp_path):
-    now = 200 * market.DAY
-    old = now - market.REPAIR - 10 * H
+def test_a_hole_of_any_age_is_retried_until_the_venue_fills_it(tmp_path):
+    now = 2000 * market.DAY
+    old = now - 1000 * market.DAY
     x = Venue([(old, 0.1), (old + 2 * H, 0.3), (now - H, 0.5)])
-    m = market.Market(tmp_path, x)
+    m = market.Market(tmp_path, x, repair_every=0)
     m.funding("X", now)
-    m.funding("X", now)
-    assert x.starts[-1] == now - H + 1
+    x.rows.append((old + H, 0.2))
+    assert [old + H, 0.2] in m.funding("X", now)
 
 
-def test_a_recent_hole_is_requested_from_where_it_starts(tmp_path):
+def test_rows_missing_before_the_first_cached_row_are_retried(tmp_path):
+    now = 200 * market.DAY
+    x = Venue([(now - 5 * H, 0.1), (now - H, 0.5)])
+    m = market.Market(tmp_path, x, repair_every=0)
+    m.funding("X", now)
+    x.rows.append((now - 9 * H, 0.9))
+    assert m.funding("X", now)[0] == [now - 9 * H, 0.9]
+
+
+def test_a_hole_is_requested_alone_not_with_everything_after_it(tmp_path):
+    now = 2000 * market.DAY
+    hole = now - 2000 * H
+    x = Venue([(hole + k * H, 0.5) for k in range(-1000, 1000) if k != 0])
+    m = market.Market(tmp_path, x, repair_every=0)
+    m.funding("X", now)
+    x.requests.clear()
+    m.funding("X", now)
+    assert (hole, hole + H) in [(a, b - 1) for a, b in x.requests]
+
+
+def test_repair_is_bounded_to_one_pass_per_interval(tmp_path):
     now = 200 * market.DAY
     x = Venue([(now - 5 * H, 0.1), (now - 3 * H, 0.3)])
-    m = market.Market(tmp_path, x)
+    m = market.Market(tmp_path, x, repair_every=H)
     m.funding("X", now)
+    x.requests.clear()
     m.funding("X", now)
-    assert x.starts[-1] == now - 4 * H
+    assert all(start > now - 3 * H for start, _ in x.requests)
+
+
+def test_a_required_row_supplied_late_is_visible_within_the_repair_interval(tmp_path, monkeypatch):
+    now = 200 * market.DAY
+    clock = [now]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    x = Venue([(now - 5 * H, 0.1), (now - 3 * H, 0.3)])
+    m = market.Market(tmp_path, x, repair_every=H)
+    m.funding("X", now)
+    x.rows.append((now - 4 * H, 0.2))
+    assert [now - 4 * H, 0.2] not in m.funding("X", now)
+    clock[0] = now + H
+    assert [now - 4 * H, 0.2] in m.funding("X", now + H)
 
 
 def test_listed_reads_only_the_dexes_of_the_markets_asked(tmp_path, monkeypatch):
@@ -187,4 +223,29 @@ def test_a_candle_in_progress_shows_its_open_from_δ_and_is_cached_only_once_com
 def test_a_daily_candle_in_progress_stays_hidden(tmp_path):
     day = market.DAY
     m = market.Market(tmp_path, Venue([(day, 1.0), (2 * day, 2.0)]))
+    assert m.bars("X", "1d", 2 * day + market.DELTA) == [[day, 1.0, 1.0]]
+
+
+# F4: a warm cache gives what a cold one does.
+def test_a_cached_candle_read_at_an_earlier_cutoff_shows_its_open_with_a_null_close(tmp_path):
+    x = Venue([(H, 1.0), (2 * H, 2.0)])
+    warm = market.Market(tmp_path / "warm", x)
+    warm.bars("X", "1h", 4 * H)
+    cold = market.Market(tmp_path / "cold", x)
+    cutoff = 2 * H + 10 * 60_000
+    assert warm.bars("X", "1h", cutoff) == cold.bars("X", "1h", cutoff) == [[H, 1.0, 1.0], [2 * H, 2.0, None]]
+
+
+@pytest.mark.parametrize("cutoff", [H + market.DELTA - 1, H + market.DELTA, 2 * H, 2 * H + market.DELTA - 1, 2 * H + market.DELTA, 3 * H + market.DELTA])
+def test_a_reference_as_of_a_cutoff_is_the_same_whatever_was_read_before(tmp_path, cutoff):
+    rows = [(H, 1.0), (2 * H, 2.0), (3 * H, 3.0)]
+    warm = market.Market(tmp_path / "warm", Venue(rows))
+    warm.bars("X", "1h", 5 * H)
+    assert warm.bars("X", "1h", cutoff) == market.Market(tmp_path / "cold", Venue([r for r in rows if r[0] < cutoff])).bars("X", "1h", cutoff)
+
+
+def test_a_daily_candle_stays_hidden_at_an_earlier_cutoff_of_a_warm_cache(tmp_path):
+    day = market.DAY
+    m = market.Market(tmp_path, Venue([(day, 1.0), (2 * day, 2.0)]))
+    m.bars("X", "1d", 4 * day)
     assert m.bars("X", "1d", 2 * day + market.DELTA) == [[day, 1.0, 1.0]]
