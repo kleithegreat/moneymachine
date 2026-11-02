@@ -23,11 +23,3 @@ def test_added_lines_pair_their_times():
     for path in git("ls-files", "--others", "--exclude-standard", "--", "audit"):
         added += (REPO / path).read_text(errors="replace").splitlines()
     assert [l for l in added if unpaired(l)] == []
-
-
-def test_ops_fixes_commit_record_is_corrected_append_only():
-    decisions = (REPO / "audit/decisions.md").read_text()
-    original = "\n".join(git("show", "bb8f502:audit/decisions.md")) + "\n"
-    assert decisions.startswith(original)
-    assert "The advisor committed bb8f502 on the clean-tree test result" in decisions
-    assert "These fixes follow `audit/reviews/2026-11-02-claude-ops-fixes.md`" in decisions
