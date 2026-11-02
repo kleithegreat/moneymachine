@@ -17,9 +17,9 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Wake-up "stage7 slice 2"** (Sonnet on TAMU, 2026-11-02 04:05 UTC (2026-11-01 23:05 EST), stopped 06:55 UTC (01:55 EST); never GPT: C7.7): in `../moneymachine-stage7` on branch `stage7` only, slice 2 of `audit/stage7/rust-port-plan.md` with its checks, differentials at 60,000 cases. Commit every 20 minutes; nothing on `main`, no cluster, no data, not `audit/stage7/b3-draft/`.
+- **Wake-up "stage7 slice 2"** (Sonnet, unscheduled: the timer was cancelled for a reboot; start it with a stop before the next reset; never GPT: C7.7): in `../moneymachine-stage7` on branch `stage7` only, slice 2 of `audit/stage7/rust-port-plan.md` with its checks, differentials at 60,000 cases. Commit every 20 minutes; nothing on `main`, no cluster, no data, not `audit/stage7/b3-draft/`.
 
-- **Wake-up "stage7 B3 fixes"** (Opus on TAMU, 2026-11-02 03:05 UTC (2026-11-01 22:05 EST), after campaigns 5 and 6, stopped 06:55 UTC (01:55 EST); the first run hit Cornell's limit after `2febf85`, leaving `resolver_suite.py` uncommitted: keep it): in `../moneymachine-stage7` on branch `stage7` only, apply `audit/decisions.md` (the entry "B3's draft suite is not frozen") using `audit/stage7/b3-review-{gpt,claude}.md`: RULES.md's revision as a draft, the suite under `audit/stage7/b3-draft/`, and C7.6's revision text there too, not in `audit/criteria.md`. Commit every 10 minutes; nothing on `main`, no cluster, no data.
+- **B3:** the fixes are on `stage7` (`05bcf13`). Next, one review round on them and on C7.6's revision text (`audit/stage7/b3-draft/c76-revision.md`), GPT and a fresh Opus. `stage7` is 267 commits behind `main`: 2 tests fail there at the rebase (C0.7's xfail, the thesis allowlist).
 
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
