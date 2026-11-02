@@ -1,6 +1,8 @@
 """Agent campaign reports: the null series summary and the real campaign's per-arm comparison."""
 
+import hashlib
 import json
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -30,6 +32,8 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
     swarm = [{"id": swarm_ids[i], "counts_as_promotion": i == 9, "evaluations": 300,
               "search": {"spa_p": 0.3, "max_dsr": 0.0, "screened": []}} for i in range(10)]
     swarm_log.write_text("".join(json.dumps(r) + "\n" for r in swarm))
+    for cid in swarm_ids:
+        (tmp_path / cid).mkdir()
     (tmp_path / "null.jsonl").write_text(json.dumps({"id": f"c24{sweep.ROUND}-N2-G100-0", "search": {"spa_p": 0.9, "max_dsr": 0.2, "screened": ["a"]}}) + "\n")
     s = {}
     for name in ("agent", "swarm"):
@@ -39,7 +43,8 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
     assert s["agent"]["audits"] == {ids[i]: {"match": i != 2} for i in range(19)} | {ids[19]: None}
     assert s["agent"]["evaluations"] == [*range(19), None]
     assert s["agent"]["spreads"]["max_dsr"]["n"] == 19 and s["agent"]["G100_null_n2"]["screened"]["max"] == 1
-    assert (s["swarm"]["n"], s["swarm"]["counted_promotions"]) == (10, 1) and s["swarm"]["H400_null_n2"]["spa_p"] is None
+    assert (s["swarm"]["n"], s["swarm"]["counted_promotions"], s["swarm"]["verdict"]) == (10, 10, "failed")
+    assert s["swarm"]["H400_null_n2"]["spa_p"] is None
 
 
 def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path):
@@ -179,7 +184,110 @@ def test_a_budget_refusal_is_not_an_evaluation(tmp_path, monkeypatch):
     assert campaigns.evaluations_made(None, "c", tmp_path) == 2
 
 
-def test_a_failed_agent_costs_the_swarm_its_count_not_its_gate_decision(tmp_path, monkeypatch):
+def test_swarm_class_counts_only_what_can_hide_or_is_a_promotion():
+    done, died = {"stopped": "finished", "exit": 0}, {"stopped": "finished", "exit": 1}
+
+    def agent(run=done, holds=True, evaluations=5, received=True):
+        return {"run": run, "holds": holds, "evaluations": evaluations, "received": received}
+
+    cls, four = campaigns.swarm_class, [agent()] * 4
+    silent = agent(evaluations=0, received=False)
+    assert cls([], {}, four, 3, True) == "established"
+    assert cls(["h"], {"crash": "x"}, four, 3, True) == "promoted"
+    assert cls([], {"crash": "x"}, four, 3, True) == "unresolved"
+    assert cls([], {}, [], 3, True) == "unresolved"
+    assert cls([], {}, four[:3] + [agent(died)], 3, True) == "unresolved"
+    assert cls([], {}, four[:3] + [agent(died, evaluations=0)], 3, True) == "unresolved"
+    assert cls([], {}, four[:3] + [agent(holds=False)], 3, True) == "unresolved"
+    assert cls([], {}, four[:3] + [agent(None, holds=False, evaluations=0, received=False)], 3, True) == "unresolved"
+    assert cls([], {}, four[:3] + [silent], 3, True) == "established"
+    assert cls([], {}, four[:3] + [agent(died, evaluations=0, received=False)], 3, True) == "established"
+    assert cls([], {}, [agent()] + [silent] * 3, 3, True) == "not established"
+    assert cls([], {}, four, 0, True) == "not established"
+    assert cls([], {}, four, 3, False) == "not established"
+
+
+def test_swarm_verdict_needs_all_ten_and_two_counted_fail():
+    e, u, p, n = "established", "unresolved", "promoted", "not established"
+    v = campaigns.swarm_verdict
+    assert v([e] * 10) == "pass" and v([e] * 9 + [p]) == "pass" and v([e] * 9 + [n]) == "pass" and v([e] * 8 + [u, n]) == "pass"
+    assert v([e] * 8 + [u, p]) == "failed" and v([e] * 6 + [n, n, u, u]) == "failed"
+    assert v([e] * 8 + [n, n]) == "not established" and v([e] * 9) == "not established"
+
+
+def evidence_fixture(tmp_path, history=({"ok": True, "evaluations": [{"agent": "A2"}]},)):
+    d = tmp_path / "A1"
+    d.mkdir()
+    (d / "transcript.jsonl").write_text("{}\n")
+    run = {"agent": "A1", "stopped": "finished", "exit": 0,
+           "transcript_sha256": hashlib.sha256(b"{}\n").hexdigest()}
+    (d / "run.json").write_text(json.dumps(run))
+    (d / "daemon.log").write_text("".join(json.dumps({"cmd": "history", "response": h}) + "\n" for h in history))
+    ledger = tmp_path / "l.sqlite"
+    db = sqlite3.connect(ledger)
+    db.execute("CREATE TABLE disclosures (id INTEGER PRIMARY KEY, campaign, agent, kind, content)")
+    db.executemany("INSERT INTO disclosures (campaign, agent, kind, content) VALUES ('c', 'A1', ?, ?)",
+                   [("history", json.dumps(h)) for h in history] + [("run", json.dumps(run))])
+    db.commit()
+    return ledger, d, db
+
+
+def test_agent_evidence_reconciles_records_with_the_ledger(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "audit_run", lambda d, ledger, cid, agent: {"match": True, "outside_permitted": []})
+    monkeypatch.setattr(campaigns, "evaluations_made", lambda ledger, cid, d, agent: 0)
+    ledger, d, db = evidence_fixture(tmp_path)
+    e = campaigns.agent_evidence(ledger, "c", d, "A1")
+    assert e["holds"] and e["received"] and campaigns.cross_agent_history(ledger, "c")
+    (d / "daemon.log").write_text(json.dumps({"cmd": "history", "response": {"ok": True, "evaluations": []}}) + "\n")
+    assert not campaigns.agent_evidence(ledger, "c", d, "A1")["holds"]
+
+
+def test_agent_evidence_needs_every_record_and_silence_is_shown_not_assumed(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "audit_run", lambda d, ledger, cid, agent: {"match": True, "outside_permitted": []})
+    monkeypatch.setattr(campaigns, "evaluations_made", lambda ledger, cid, d, agent: 0)
+    ledger, d, db = evidence_fixture(tmp_path, history=())
+    e = campaigns.agent_evidence(ledger, "c", d, "A1")
+    assert e["holds"] and not e["received"]
+    db.execute("INSERT INTO disclosures (campaign, agent, kind, content) VALUES ('c', 'A1', 'check', '{}')")
+    db.commit()
+    assert campaigns.agent_evidence(ledger, "c", d, "A1")["received"]
+    (d / "transcript.jsonl").write_text("{}\n{}\n")
+    assert not campaigns.agent_evidence(ledger, "c", d, "A1")["holds"]
+    (d / "run.json").unlink()
+    assert not campaigns.agent_evidence(ledger, "c", d, "A1")["holds"]
+    db.execute("DELETE FROM disclosures WHERE kind = 'run'")
+    db.commit()
+    (d / "run.json").write_text(json.dumps({"agent": "A1"}))
+    assert not campaigns.agent_evidence(ledger, "c", d, "A1")["holds"]
+
+
+def test_swarm_evidence_ignores_the_log_and_missing_evidence_is_unresolved(tmp_path, monkeypatch):
+    monkeypatch.setattr(campaigns, "OUT", tmp_path)
+    (tmp_path / "gone").mkdir()
+    assert campaigns.swarm_evidence("gone")["class"] == "unresolved"
+    c = tmp_path / "c"
+    c.mkdir()
+    sqlite3.connect(c / "ledger.sqlite").close()
+    evidence = {"run": {"stopped": "finished", "exit": 0}, "audit": {}, "evaluations": 5, "holds": True, "received": True, "denials": {}}
+    monkeypatch.setattr(campaigns, "agent_evidence", lambda *a: evidence)
+    monkeypatch.setattr(campaigns, "cross_agent_history", lambda *a: True)
+    monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {"t": 1})
+    assert campaigns.swarm_evidence("c")["class"] == "unresolved"
+    (c / "decision.json").write_text("{torn")
+    e = campaigns.swarm_evidence("c")
+    assert e["class"] == "unresolved" and not e["complete"]
+    (c / "decision.json").write_text(json.dumps({"promoted": []}))
+    assert campaigns.swarm_evidence("c")["class"] == "established"
+    monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {})
+    assert campaigns.swarm_evidence("c")["class"] == "not established"
+    (c / "decision.json").write_text(json.dumps({"promoted": ["h"]}))
+    assert campaigns.swarm_evidence("c")["class"] == "promoted"
+    (c / "decision.json").write_text(json.dumps({"promoted": []}))
+    monkeypatch.setattr(campaigns, "agent_evidence", lambda *a: 1 / 0)
+    assert campaigns.swarm_evidence("c")["class"] == "unresolved"
+
+
+def test_a_failed_agent_costs_the_swarm_nothing_but_its_count(tmp_path, monkeypatch):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "null_market", lambda cid, inputs: "market")
 
@@ -187,26 +295,27 @@ def test_a_failed_agent_costs_the_swarm_its_count_not_its_gate_decision(tmp_path
         run = Path(work) / "A1" / "run.json"
         run.parent.mkdir(parents=True)
         run.write_text(json.dumps({"agent": "A1", "stopped": "finished", "exit": 0}))
+        db = sqlite3.connect(ledger)
+        db.execute("CREATE TABLE disclosures (campaign, agent, kind, content)")
+        db.execute("CREATE TABLE experiments (id, campaign, mode)")
+        db.execute("CREATE TABLE results (experiment_id, summary)")
+        db.commit()
         raise RuntimeError("disclose")
 
     monkeypatch.setattr(campaigns.harness, "run_swarm", fails)
-    monkeypatch.setattr(campaigns, "screened", lambda market, ledger, cid: ("report", {}, []))
+    (tmp_path / "c").mkdir()
+    monkeypatch.setattr(campaigns, "screened", lambda market, ledger, cid: ({"n": 1}, {}, []))
     monkeypatch.setattr(campaigns.gate, "freeze", lambda *a: None)
-    monkeypatch.setattr(campaigns.gate, "holdout_decision", lambda *a: (["h"], {"diagnostics": {}}))
-    monkeypatch.setattr(campaigns.gate, "bankrupt", lambda ledger: [])
-    monkeypatch.setattr(campaigns, "evaluations_made", lambda ledger, cid, d, agent: 3)
-    monkeypatch.setattr(campaigns, "audit_run", lambda d, ledger, cid, agent: {"match": True})
-    row = campaigns.swarm_null("c", {})
-    assert "disclose" in row["crash"] and row["counts_as_promotion"] and row["promoted"] == ["h"] and row["search"] == "report"
-    assert row["evaluations"] == 12 and list(row["agent_evaluations"]) == ["A1", "A2", "A3", "A4"] and not row["cross_agent_history"]
-    assert [r["agent"] for r in row["runs"]] == ["A1"]
     monkeypatch.setattr(campaigns.gate, "holdout_decision", lambda *a: ([], {"diagnostics": {}}))
-    assert campaigns.swarm_null("d", {})["counts_as_promotion"]
-
-
-def test_an_agent_that_left_nothing_breaks_neither_its_audit_nor_the_history_check(tmp_path):
-    assert campaigns.audit_run(tmp_path, tmp_path / "ledger.sqlite", "c") is None and not campaigns.audit_holds(None)
-    assert not campaigns.cross_agent_history([tmp_path])
+    monkeypatch.setattr(campaigns.gate, "bankrupt", lambda ledger: [])
+    monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {"t": 1})
+    monkeypatch.setattr(campaigns, "agent_evidence", lambda ledger, cid, d, agent: {
+        "run": None, "audit": None, "evaluations": 3, "holds": True, "received": True, "denials": {}})
+    row = campaigns.swarm_null("c", {})
+    assert "disclose" in row["crash"] and row["counts_as_promotion"] and row["class"] == "unresolved" and row["search"] == {"n": 1}
+    assert row["evaluations"] == 12 and list(row["agent_evaluations"]) == ["A1", "A2", "A3", "A4"]
+    assert [r["agent"] for r in row["runs"]] == ["A1"]
+    assert "disclose" in json.loads((tmp_path / "c" / "decision.json").read_text())["crash"]
 
 
 def test_a_null_campaign_counts_if_it_promotes_crashes_or_an_agent_made_no_evaluation():

@@ -37,7 +37,8 @@ STOP = threading.Event()  # set by SIGTERM: the series ends between campaigns
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
 SWARM_AGENTS = 4
 SMOKE = {"agent": "20 runs bound the promotion rate only to about 0.28; this is a smoke test.",
-         "swarm": "With 10 runs the 95% bound is about 0.39; this is a smoke test only."}
+         "swarm": "With 10 runs the 95% bound is about 0.39; this is a smoke test on the swarm's code paths. The error guarantee "
+                  "rests on the holdout test's assumptions; a pass does not validate swarm error control or power."}
 
 
 def freeze_harness():
@@ -93,13 +94,11 @@ def audit_holds(audit):
     return bool(audit) and audit["match"] and not audit["outside_permitted"]
 
 
-def cross_agent_history(run_dirs):
-    """Whether any agent received history containing another agent's evaluations."""
-    for d in run_dirs:
-        for e in daemon_log(d):
-            if e["cmd"] == "history" and any(r.get("agent") != d.name for r in e["response"].get("evaluations", [])):
-                return True
-    return False
+def cross_agent_history(ledger, campaign_id):
+    """Whether the ledger shows any agent receiving history containing another agent's evaluations."""
+    rows = sqlite3.connect(ledger).execute(
+        "SELECT agent, content FROM disclosures WHERE campaign = ? AND kind = 'history'", (campaign_id,)).fetchall()
+    return any(r.get("agent") and r["agent"] != agent for agent, content in rows for r in json.loads(content).get("evaluations", []))
 
 
 def screened(market, ledger, campaign, agent=None):
@@ -131,8 +130,8 @@ def crashed(run):
 
 
 def counts(promoted, runs, evaluations):
-    """Whether a null campaign counts as a promotion: it promoted, a session crashed, or an agent made no evaluation
-    (C3.2 v3, C4.5 v2)."""
+    """Whether an agent null campaign counts as a promotion: it promoted, a session crashed, or it made no evaluation
+    (C3.2 v3)."""
     return bool(promoted) or any(map(crashed, runs)) or 0 in evaluations
 
 
@@ -151,9 +150,87 @@ def agent_null(cid, inputs):
             "counts_as_promotion": counts(promoted, [run], [n])}
 
 
+def agent_evidence(ledger, campaign_id, run_dir, agent):
+    """One swarm agent's records against the ledger. `holds` needs its run record, disclosed unchanged; its transcript, by
+    that record's hash; its audit; and each history reply in its daemon's log equal to its ledger row. `received` is any
+    disclosure beyond its run record, free checks included. Missing evidence fails `holds`, never implies silence."""
+    run_dir = Path(run_dir)
+    rows = sqlite3.connect(ledger).execute("SELECT kind, content FROM disclosures WHERE campaign = ? AND agent = ? ORDER BY id",
+                                           (campaign_id, agent)).fetchall()
+    log = daemon_log(run_dir)
+    record, transcript = run_dir / "run.json", run_dir / "transcript.jsonl"
+    run = json.loads(record.read_text()) if record.exists() else None
+    audit = audit_run(run_dir, ledger, campaign_id, agent)
+    disclosed = [json.loads(c) for k, c in rows if k == "run"]
+    replies = [json.loads(c) for k, c in rows if k == "history"]
+    holds = (run is not None and audit is not None and audit_holds(audit) and disclosed == [run]
+             and hashlib.sha256(transcript.read_bytes()).hexdigest() == run.get("transcript_sha256")
+             and [e["response"] for e in log if e["cmd"] == "history" and e["response"].get("ok")] == replies)
+    evals = [{k: v for k, v in e["response"].items() if k not in ("ok", "remaining")}
+             for e in log if e["cmd"] == "eval" and e["response"].get("ok")]
+    holds = holds and evals == [json.loads(c)["result"] for k, c in rows if k == "eval"]
+    calls = [e for e in log if row_kind(e) in ("eval", "check", "reject", "abort")]
+    made = [json.loads(c) for k, c in rows if k in ("eval", "check", "reject", "abort")]
+    holds = holds and len(calls) == len(made) and all(e["response"].get("code") == m.get("code") for e, m in zip(calls, made))
+    denied = {}
+    if transcript.exists():
+        uses, ids, _ = session.calls(transcript)
+        for i in ids:
+            use = uses.get(i, {})
+            kind = use.get("name", "unknown") + (" sandbox override" if use.get("input", {}).get("dangerouslyDisableSandbox") else "")
+            denied[kind] = denied.get(kind, 0) + 1
+    return {"run": run, "audit": audit, "evaluations": evaluations_made(ledger, campaign_id, run_dir, agent), "holds": holds,
+            "received": bool(log) or any(k != "run" for k, _ in rows), "denials": denied}
+
+
+def swarm_class(promoted, crash, agents, trials, history):
+    """C4.5 v3's class of a campaign: `promoted` whatever else happened; `unresolved` on a failed harness or evidence step,
+    evidence that doesn't hold, or a crashed session that had received a disclosure; `established` once the gate has a
+    filled trial, two agents evaluated and history crossed agents; otherwise `not established`. An agent with its records
+    intact that received nothing and evaluated nothing, crashed or not, counts for nothing. `agents` holds `agent_evidence`."""
+    if promoted:
+        return "promoted"
+    if crash or not agents or any(not a["holds"] or (crashed(a["run"]) and a["received"]) for a in agents):
+        return "unresolved"
+    active = sum(bool(a["evaluations"]) for a in agents)
+    return "established" if trials >= 1 and active >= 2 and history else "not established"
+
+
+def swarm_verdict(classes):
+    """C4.5 v3's result from the campaigns' classes: `failed` dominates, `pass` needs all ten recorded."""
+    assert set(classes) <= {"promoted", "unresolved", "established", "not established"}
+    if sum(c in ("promoted", "unresolved") for c in classes) >= 2:
+        return "failed"
+    return "pass" if len(classes) == COHORTS["swarm"][1] and sum(c == "not established" for c in classes) <= 1 else "not established"
+
+
+def swarm_evidence(cid):
+    """A started swarm campaign's class and evidence, recomputed from its directory alone, whatever its log row says.
+    `decision.json`, written once the gate finished, is the only proof that it did and the only record of what it promoted;
+    filled trials come from the ledger. Anything missing or unreadable is unresolved, its outcome unknown."""
+    ledger, work = OUT / cid / "ledger.sqlite", OUT / cid / "swarm"
+    out = {"class": "unresolved", "promoted": [], "complete": False, "evidence": {}, "history": False, "trials": None}
+    if not ledger.exists():
+        return out
+    try:
+        recorded = json.loads((OUT / cid / "decision.json").read_text())
+        out["promoted"], out["complete"] = recorded["promoted"], True
+        crash = recorded.get("crash")
+    except (OSError, ValueError, KeyError):
+        crash = True
+    try:
+        out["evidence"] = {f"A{i + 1}": agent_evidence(ledger, cid, work / f"A{i + 1}", f"A{i + 1}") for i in range(SWARM_AGENTS)}
+        out["history"] = cross_agent_history(ledger, cid)
+        out["trials"] = len(gate.trials(ledger, cid))
+    except Exception:
+        crash = True
+    out["class"] = swarm_class(out["promoted"], crash, list(out["evidence"].values()), out["trials"] or 0, out["history"])
+    return out
+
+
 def swarm_null(cid, inputs):
-    """The swarm on a null market. The gate is a function of the ledger, so a failed agent costs the campaign its count,
-    never its gate decision: the crash is recorded beside the outcome."""
+    """The swarm on a null market. The gate is a function of the ledger, so a failed agent never costs the campaign its
+    gate decision: the crash is recorded beside the outcome, and the class is computed from what was recorded."""
     market = null_market(cid, inputs)
     ledger = OUT / cid / "ledger.sqlite"
     work = OUT / cid / "swarm"
@@ -164,21 +241,31 @@ def swarm_null(cid, inputs):
     report, mech, kept = screened(market, ledger, cid)
     gate.freeze(ledger, cid, kept, "frozen finalist swarm")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["swarm"] * DAY)
-    run_dirs = [work / f"A{i + 1}" for i in range(SWARM_AGENTS)]
-    per_agent = {d.name: evaluations_made(ledger, cid, d, d.name) for d in run_dirs}
+    write_json(OUT / cid / "decision.json", {"promoted": promoted, **crash})
+    e = swarm_evidence(cid)
+    per_agent = {a: x["evaluations"] for a, x in e["evidence"].items()}
+    db = sqlite3.connect(ledger)
+    aborts = {}
+    for (content,) in db.execute("SELECT content FROM disclosures WHERE campaign = ? AND kind = 'abort'", (cid,)):
+        code = json.loads(content).get("code", "unknown")
+        aborts[code] = aborts.get(code, 0) + 1
+    summaries = db.execute("SELECT r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
+                           "WHERE e.campaign = ? AND e.mode = 'search'", (cid,)).fetchall()
     return crash | {"runs": runs, "evaluations": sum(per_agent.values()), "agent_evaluations": per_agent, "search": report, "mechanism": mech,
-                    "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": cross_agent_history(run_dirs),
-                    "bankrupt": gate.bankrupt(ledger),
-                    "audits": {d.name: audit_run(d, ledger, cid, d.name) for d in run_dirs},
-                    "counts_as_promotion": bool(crash) or counts(promoted, runs, list(per_agent.values()))}
+                    "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": e["history"],
+                    "bankrupt": gate.bankrupt(ledger), "audits": {a: x["audit"] for a, x in e["evidence"].items()},
+                    "denials": {a: x["denials"] for a, x in e["evidence"].items()}, "aborts": aborts,
+                    "zero_fill": sum(json.loads(x)["fills"] == 0 for (x,) in summaries), "class": e["class"],
+                    "counts_as_promotion": e["class"] in ("promoted", "unresolved")}
 
 
 SERIES = {"agent": agent_null, "swarm": swarm_null}
 STAGE = {"agent": 3, "swarm": 4}
 # C3.2 v3 and C4.5. Earlier agent cohorts: v1, agent-null-N2-0..19 in agent-null.jsonl, failed (audit/stage3/null-v1.jsonl);
 # v2, agent-null-2-N2-0..19 in agent-null-2.jsonl, not established: the agent could not write (audit/stage3/null-v2.jsonl).
-# C4.5 v1, swarm-null-N2-0..9 in swarm-null.jsonl, failed under its 200-evaluation floor (audit/stage4/null-v1.jsonl).
-COHORTS = {"agent": ("agent-null-3", 20), "swarm": ("swarm-null-2", 10)}
+# C4.5 v1, swarm-null-N2-0..9 in swarm-null.jsonl, failed under its 200-evaluation floor (audit/stage4/null-v1.jsonl);
+# v2, swarm-null-2-N2-0..9 in swarm-null-2.jsonl, failed on two agents with no evaluation (audit/stage4/null-v2.jsonl).
+COHORTS = {"agent": ("agent-null-3", 20), "swarm": ("swarm-null-3", 10)}
 
 
 def cohort(name):
@@ -540,6 +627,42 @@ def spreads(rows):
 BASELINE = {"agent": "G100", "swarm": "H400"}
 
 
+def swarm_report(rows):
+    """C4.5 v3's result and what it reports. Every declared campaign with a directory counts, from `swarm_evidence`, never
+    from its log row, which only supplies reported material. Promotions observed across versions, with their exact 95%
+    upper bound, name the campaigns whose outcome is unknown."""
+    from scipy.stats import beta
+
+    evidence = {cid: swarm_evidence(cid) for cid in cohort("swarm")[0] if (OUT / cid).exists()}
+    classes = {cid: e["class"] for cid, e in evidence.items()}
+    by_id = {r["id"]: r for r in rows}
+    earlier = [r for log in sorted(OUT.glob("swarm-null*.jsonl")) if log != cohort("swarm")[1] for r in campaign.records(log)]
+    outcomes = [bool(r["promoted"]) for r in earlier if "promoted" in r] + [bool(e["promoted"]) for e in evidence.values() if e["complete"]]
+    hits, known = sum(outcomes), len(outcomes)
+    upper = 1.0 if hits == known else float(beta.ppf(0.95, hits + 1, known - hits))
+    return {"classes": classes, "verdict": swarm_verdict(list(classes.values())),
+            "promoted": sum(c == "promoted" for c in classes.values()), "unresolved": sum(c == "unresolved" for c in classes.values()),
+            "not_established": sum(c == "not established" for c in classes.values()),
+            "evidence": {cid: {a: {"holds": x["holds"], "received": x["received"], "crashed": x["run"] is None or crashed(x["run"])}
+                               for a, x in e["evidence"].items()} for cid, e in evidence.items()},
+            "trials": {cid: e["trials"] for cid, e in evidence.items()},
+            "evaluations_by_agent": {cid: {a: x["evaluations"] for a, x in e["evidence"].items()} for cid, e in evidence.items()},
+            "history": {cid: e["history"] for cid, e in evidence.items()},
+            "zero_fill": {cid: by_id.get(cid, {}).get("zero_fill") for cid in evidence},
+            "effective_n": {cid: by_id[cid]["search"].get("effective_n", "not applicable: no filled trial") if "search" in by_id.get(cid, {})
+                            else "not recorded" for cid in evidence},
+            "ids": list(evidence), "n": len(evidence), "counted_promotions": sum(c in ("promoted", "unresolved") for c in classes.values()),
+            "with_finalists": sum(bool(r.get("kept")) for r in rows),
+            "finalists_note": "Two or more campaigns with finalists would be far outside the baselines' 0 of 300.",
+            "bankrupt": [len(r.get("bankrupt", [])) for r in rows], "aborts": {r["id"]: r.get("aborts") for r in rows},
+            "denials": {r["id"]: r.get("denials") for r in rows},
+            "history_calls": {r["id"]: {x["agent"]: x.get("history_calls") for x in r.get("runs", []) if "agent" in x} for r in rows},
+            "stop_causes": {r["id"]: {x["agent"]: [x.get("stopped"), x.get("exit")] for x in r.get("runs", []) if "agent" in x} for r in rows},
+            "agent_null_3": spreads(campaign.records(cohort("agent")[1])),
+            "pooled": {"campaigns": known, "promotions": hits, "upper_95": upper if known else None,
+                       "outcome_unknown": sum("promoted" not in r for r in earlier) + sum(not e["complete"] for e in evidence.values())}}
+
+
 def summary(name, out):
     """A null series (`agent` or `swarm`): its campaigns' ids, counted promotions, kernels, C3.1 audits (None where a
     campaign recorded none), evaluations and history use, and the spreads of SPA p-values, maximum DSR and screened
@@ -556,5 +679,5 @@ def summary(name, out):
               "stopped": [{run["agent"]: run.get("stopped") for run in r.get("runs", []) if "agent" in run} for r in rows],
               "cross_agent_history": [r.get("cross_agent_history") for r in rows],
               "spreads": spreads(rows), f"{searcher}_null_n2": spreads(baseline), "statement": SMOKE[name],
-              "qualifications": f"PROGRESS.md, Qualifications, stage {STAGE[name]}"} | ({"label": LABEL} if name == "agent" else {})
+              "qualifications": f"PROGRESS.md, Qualifications, stage {STAGE[name]}"} | ({"label": LABEL} if name == "agent" else swarm_report(rows))
     Path(out).write_text(json.dumps(report, indent=1) + "\n")

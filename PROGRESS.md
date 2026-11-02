@@ -19,13 +19,13 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`): event declarations depend on all four evidence sources, the input table drops source and field, no run differential yet (N1 rebuild). A builder fixes it before slice 3, after the thesis round.
 
-- **Wake-up "thesis bundle round 2"** (Opus on TAMU, 2026-11-02 12:35 UTC (07:35 EST), after campaigns 9 and 10, stopped 16:55 UTC (11:55 EST)): in `../moneymachine-thesis` on `thesis-fixes`, apply `audit/decisions.md` ("the thesis bundle isn't refrozen") from `audit/reviews/2026-11-02-gpt-thesis-fixes.md`: each counterexample a failing test first; the four dated readings as a draft under `audit/stage10/`. No refreeze, no cluster, nothing on `main`, no data; commit every 20 minutes. TMPDIR=/tmp.
+- **Thesis round 3: built, off Cornell since 2026-11-02 22:50 UTC (17:50 EST)** (`thesis-fixes` at `22833de`, `../moneymachine-thesis`): the daily regression and an hourly twin GPT did not report are fixed (`5d11b30`; a randomized warm-against-cold test), SCORING.md has its exactness line, the readings are final at `audit/stage10/readings.md`, not yet in `audit/criteria.md`. Round 3's earlier commits had left 10 differential tests failing, now fixed (`81cac07`). The suite in that worktree: only the two tests needing `data/store` fail, plus one worker crash that passes alone. Not reviewed: GPT has not seen `5d11b30`. Left for the advisor (`audit/decisions.md`, "thesis round 2 not refrozen"): the readings alone as `criteria: stage 10`, GPT's scorer and positions updated from them, C10.4 rerun, the refreeze. No refreeze, cluster or merge was done.
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
 
 
 0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** (`audit/stage3/exit.md`): zero finalists, no claim.
-2. **Stage 4: C4.5 v2 runs** (the human authorized it 2026-11-01 16:15 UTC (11:15 EST), `criteria: stage 4` `4531257`): 1 counted of 6 (`N2-5`; `audit/decisions.md`, with v3's contingency). When all ten are logged, judge (at most 1 counted), C4.3 and C4.4, then the exit review.
+2. **Stage 4: C4.5 v2 failed, 2 of 10** (`audit/stage4/null-v2.jsonl`); v3's text is committed (`b00c118`), its counting code in review, then `swarm-null-3-N2-0..9`. TAMU's week is over the ceiling until 2026-11-07, so Cornell alone paces it.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
@@ -60,7 +60,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Decisions awaiting the human's review
 
-- **Stage 7 B2: the frozen Lean is revised so a dependency spans several sources** (`audit/decisions.md`, 2026-11-01 16:59 UTC (11:59 EST), frozen 2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): GPT and a fresh Opus both FREEZE; proofs re-checked.
+None.
 
 ## Qualifications
 

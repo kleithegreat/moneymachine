@@ -94,7 +94,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   independent recorder, and only for Hyperliquid.
 
 **`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): now stage 4's C4.5,
-logged in `agent/swarm-null-2.jsonl` (v1's `swarm-null.jsonl` and stage 3's `agent-null*.jsonl` logs stay, their records). N2's funding source comes from
+logged in `agent/swarm-null-3.jsonl` (v1's and v2's `swarm-null*.jsonl` and stage 3's `agent-null*.jsonl` logs stay, their records). N2's funding source comes from
 the blob batch Jobs stage, seeded once into the volume under its frozen sha256:
 ```
 python ops/live.py seed <digest> agent /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39:inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39

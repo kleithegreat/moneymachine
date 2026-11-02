@@ -38,17 +38,19 @@ def test_c34_report_states_no_claim():
 
 def test_c45_swarm_smoke():
     s = load("stage4/null-summary.json")
-    assert s["n"] == 10 and s["counted_promotions"] <= 1 and s["statement"] == campaigns.SMOKE["swarm"]
-    assert all(s["cross_agent_history"]) and all(e is not None and e <= 400 for e in s["evaluations"])
-    assert sorted(s["audits"]) == sorted(campaigns.cohort("swarm")[0])
+    ids, classes = campaigns.cohort("swarm")[0], s["classes"]
+    assert s["n"] == 10 and s["ids"] == ids and list(classes) == ids
+    assert s["verdict"] == campaigns.swarm_verdict(list(classes.values())) == "pass" and s["statement"] == campaigns.SMOKE["swarm"]
     agents = {f"A{i + 1}" for i in range(campaigns.SWARM_AGENTS)}
-    for audits in s["audits"].values():
-        assert audits and set(audits) == agents
-        assert all(map(campaigns.audit_holds, audits.values()))
-    assert len(s["agent_evaluations"]) == s["n"]
-    for evaluations in s["agent_evaluations"]:
-        assert evaluations and set(evaluations) == agents
-        assert all(e is not None and e <= 100 for e in evaluations.values())
+    for cid in ids:
+        if classes[cid] in ("established", "not established"):
+            evidence, audits, evaluations = s["evidence"][cid], s["audits"].get(cid) or {}, s["evaluations_by_agent"][cid]
+            assert set(evidence) == set(audits) == set(evaluations) == agents
+            assert all(e["holds"] and not (e["crashed"] and e["received"]) for e in evidence.values())
+            assert all(a is not None and campaigns.audit_holds(a) for a in audits.values())
+            assert sum(evaluations.values()) <= 400 and max(evaluations.values()) <= 100
+        if classes[cid] == "established":
+            assert s["history"][cid] and s["trials"][cid] >= 1 and sum(map(bool, s["evaluations_by_agent"][cid].values())) >= 2
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,
