@@ -6,6 +6,7 @@ import gzip
 import hashlib
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -88,7 +89,8 @@ def test_verify_refuses_missing_volume_manifests(tmp_path, missing):
         live.verify(app, out)
 
 
-def test_mirror_refuses_a_log_whose_new_body_was_not_enumerated(tmp_path, monkeypatch):
+@pytest.mark.parametrize("initial", [False, True])
+def test_mirror_copies_only_the_log_prefix_before_body_enumeration(tmp_path, monkeypatch, initial):
     monkeypatch.setattr(live, "VOLUMES", {"datalayer": "data/datalayer"})
     app, out = tmp_path / "app", tmp_path / "mirror"
     source = app / "data/datalayer"
@@ -99,27 +101,41 @@ def test_mirror_refuses_a_log_whose_new_body_was_not_enumerated(tmp_path, monkey
     log = source / "datalayer-20261020.jsonl"
     row = json.dumps({"sha256": old_digest}) + "\n"
     log.write_text(row)
-    live.mirror(app, out)
+    if not initial:
+        live.mirror(app, out)
     manifest = out / "datalayer/MANIFEST.json"
-    committed = manifest.read_bytes()
     log.write_text(row * 2)
-    copy = live.shutil.copyfileobj
+    rglob = Path.rglob
 
-    def publish_before_log_copy(a, b, *args, **kwargs):
-        if a.name == str(log):
+    def publish_after_listing(path, pattern):
+        listed = list(rglob(path, pattern))
+        if path == source and pattern == "*":
             (source / "raw" / f"{new_digest}.gz").write_bytes(gzip.compress(b"new"))
             with log.open("a") as fh:
                 fh.write(json.dumps({"sha256": new_digest}) + "\n")
-        return copy(a, b, *args, **kwargs)
+        return iter(listed)
 
     with monkeypatch.context() as patcher:
-        patcher.setattr(live.shutil, "copyfileobj", publish_before_log_copy)
-        with pytest.raises(SystemExit, match="body"):
-            live.mirror(app, out)
-    assert manifest.read_bytes() == committed
+        patcher.setattr(Path, "rglob", publish_after_listing)
+        live.mirror(app, out)
+    assert (out / "datalayer" / log.name).read_text() == row * 2
+    assert f"raw/{new_digest}.gz" not in json.loads(manifest.read_text())["files"]
     live.verify(app, out)
     live.mirror(app, out)
     live.verify(app, out)
     files = json.loads(manifest.read_text())["files"]
     assert f"raw/{new_digest}.gz" in files
     assert gzip.decompress((out / "datalayer/raw" / f"{new_digest}.gz").read_bytes()) == b"new"
+
+
+def test_malformed_datalayer_lines_do_not_block_later_volumes(tmp_path, monkeypatch):
+    monkeypatch.setattr(live, "VOLUMES", {"datalayer": "data/datalayer", "agent": "data/agent"})
+    app, out = tmp_path / "app", tmp_path / "mirror"
+    for path in live.VOLUMES.values():
+        (app / path).mkdir(parents=True)
+    raw = b'{"sha256":\n\xff\n'
+    (app / "data/datalayer/day.jsonl").write_bytes(raw)
+    live.mirror(app, out)
+    assert (out / "datalayer/day.jsonl").read_bytes() == raw
+    assert (out / "agent/MANIFEST.json").exists()
+    live.verify(app, out)
