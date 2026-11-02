@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`): event declarations depend on all four evidence sources, the input table drops source and field, no run differential yet (N1 rebuild). A builder fixes it before slice 3, after the thesis round.
 
-- **Wake-up "thesis bundle round 3"** (Opus on Cornell, stopped 23:30 UTC (18:30 EST)): in `../moneymachine-thesis` on `thesis-fixes`, apply `audit/decisions.md` ("thesis round 2 not refrozen") from `audit/reviews/2026-11-02-{claude,gpt}-thesis-round2.md`, each a failing test first; the readings final under `audit/stage10/`, not in `audit/criteria.md`. No refreeze, no cluster, nothing on `main`, no data; commit every 20 minutes; TMPDIR=/tmp.
+- **Wake-up "thesis bundle round 3"** (Opus on Cornell, resuming 2026-11-02 22:22 UTC (17:22 EST), stopped 23:30 UTC (18:30 EST)): in `../moneymachine-thesis` on `thesis-fixes`, finish `audit/decisions.md` ("thesis round 2 not refrozen"): the fixes are committed to `fc84ae6`; left are the daily-candle regression (`audit/reviews/2026-11-02-gpt-thesis-round3.md`), a failing test first, SCORING.md's line, and the readings final under `audit/stage10/`, not in `audit/criteria.md`. No refreeze, no cluster, nothing on `main`, no data; commit every 20 minutes; TMPDIR=/tmp.
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
 
 
