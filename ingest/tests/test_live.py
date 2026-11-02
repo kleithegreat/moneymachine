@@ -6,7 +6,7 @@ import threading
 
 import pytest
 
-from ingest import live, record
+from ingest import availability, live, record
 
 
 def test_forever_stops_between_steps():
@@ -101,7 +101,7 @@ def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_c
     assert len(calls) == 3 and len(errors) == 1
     error = errors[0]
     assert error["kind"] == "funding" and error["coin"] == "coin0" and error["boundary"] == record.BAR
-    assert error["purpose"] == "verify" and error["dropped"] and error["attempts"] == 3
+    assert error["purpose"] == "dropped" and error["dropped"] and error["attempts"] == 3
     assert error["data"] == [] and not error["found"]
     assert "invalid response" in error["error"] and error["sent"] <= error["recv"]
     rec.step()
@@ -109,6 +109,38 @@ def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_c
     for _ in range(30):
         rec.step()
     assert not rec.verify and len(errors) == 2
+
+
+def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(recorder_clock):
+    rec, clock = recorder_clock
+    boundary = record.BAR
+    rec.verify = rec.verify[:1]
+    first = {"kind": "funding", "coin": "coin0", "boundary": boundary, "purpose": "first",
+             "sent": boundary + 5_000, "recv": boundary + 5_000,
+             "data": [{"time": boundary, "fundingRate": "0.001", "premium": "0"}], "found": True}
+    rec.log(first)
+
+    def fail(*request):
+        raise RuntimeError("verification unavailable")
+
+    rec.poll = fail
+    clock[0] = boundary + record.VERIFY_AFTER
+    for _ in range(3):
+        rec.step()
+    other = rec.out / "oci"
+    other.mkdir()
+    reference = [{"time": boundary, "fundingRate": "0.002", "premium": "0"}]
+    for purpose, t in (("first", boundary + 9_000), ("verify", clock[0])):
+        live.append(other, "polls", t, first | {"purpose": purpose, "sent": t, "recv": t, "data": reference})
+    for directory in (rec.out, other):
+        for t in (boundary, clock[0]):
+            live.append(directory, "sources", t, {"source": "clock", "recv": t, "data": {"offset_ms": 1.5}})
+
+    polls = availability.merge([("local", rec.out, rec.out), ("oci", other, other)])
+    assert {p["host"] for p in polls} == {"oci"}
+    assert all(p["data"] == reference for p in polls)
+    result = availability.analyze(polls)
+    assert result["events"] == {"funding:coin0": 1} and result["failures"] == []
 
 
 def test_first_polls_precede_one_backlogged_verification(recorder_clock):
