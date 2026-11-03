@@ -647,3 +647,8 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
 ## 2026-11-03 00:25 UTC (19:25 EST): C5.3's segment reported; `sources` rolls
 
 - `audit/stage5/availability-{discourse,snapshot}-20261103.json`, reported, not judged: 126.3 hours, `clock_bound_ms` max 350.346 over 1,081 samples, valid; polls without overlap 0; claimed-rule failures 0; one failed discourse poll. `sources` rolls to `sha256:8ad0b655…`, the segment having ended 2026-11-03 00:18 UTC (2026-11-02 19:18 EST).
+
+## 2026-11-03 02:56 UTC (21:56 EST): the thesis track comes first on Cornell; C4.5 v3 waits for the resets (advisor)
+
+- **Why:** the thesis's first day (`thesis-310449610583`, 2026-11-03) took about 0.10 of Cornell's week, its only account, and Cornell's week (0.63 now) resets 2026-11-08 05:00 UTC (00:00 EST); TAMU's (0.96) resets 2026-11-07 04:00 UTC (2026-11-06 23:00 EST). Four more days need about 0.40 of the 0.37 left. A missed thesis day can't be made up in its window; a v3 campaign can wait.
+- **So:** `agent-series` stays as deployed. Its pacing assumes 0.5 of a week for a cohort with no measured campaign, which keeps v3 off both accounts until TAMU's reset, where its first campaign runs; that bug is left in place this week on purpose and fixed after (read measured need across a series' earlier logs). Claude work on Cornell is kept to the minimum, and heavy work goes to GPT. A personal-account token for the thesis pod (`claude setup-token`, the human's) would remove the risk to 2026-11-07's session.

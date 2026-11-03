@@ -24,7 +24,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 
 1. **Stage 3: done** (`audit/stage3/exit.md`): zero finalists, no claim.
-2. **Stage 4: C4.5 v3 runs** (`b00c118`, `448fb91`; v2 failed, 2 of 10, `audit/stage4/null-v2.jsonl`). TAMU's week is over the ceiling until 2026-11-07 and Cornell reaches it after about 6 campaigns, so ten finish about 2026-11-07. No Claude work on an account during its campaign.
+2. **Stage 4: C4.5 v3 deployed, held for the resets** (`audit/decisions.md`, 2026-11-03): the thesis has Cornell first. v3's first campaign runs at TAMU's reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST); then fix the pacing (need read across a series' logs). No Claude work on an account during its campaign.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
