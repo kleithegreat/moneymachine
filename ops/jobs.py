@@ -220,7 +220,6 @@ def collect(*runs, out=None):
     """A Job and its retries, into `out` (the campaigns directory by default): every id once, each ledger on the
     record's kernel."""
     from functools import partial
-    from multiprocessing import Pool
 
     from gate import compute
     from gate import sweep as sw
@@ -243,7 +242,7 @@ def collect(*runs, out=None):
     target = out / f"{sweep_name}.jsonl"
     if target.exists():
         raise SystemExit(f"{target} exists")
-    with Pool(compute.workers(UNPACK_BYTES)) as pool:
+    with compute.Pool(compute.workers(UNPACK_BYTES)) as pool:
         rows = pool.map(partial(unpack, dest=out / sweep_name, mm=mm), sorted(found.items()))
     target.write_text("".join(json.dumps(r) + "\n" for r in rows))
     print(json.dumps({"collected": len(rows), "file": str(target)}))

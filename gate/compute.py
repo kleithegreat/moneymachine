@@ -1,7 +1,10 @@
-"""How many tasks to run at once on this host (CLAUDE.md, Performance): every core, as memory allows."""
+"""Thread-safe process pools, using every core as memory allows (CLAUDE.md, Performance)."""
 
 import os
+from multiprocessing import get_context
 from pathlib import Path
+
+Pool = get_context("forkserver").Pool
 
 
 def available():

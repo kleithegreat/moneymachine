@@ -31,7 +31,7 @@ def worker(root, interactive):
 
     if mode == "resume":
         checkpoint("start", interactive)
-        with campaign.resume(IDS, root / "series.jsonl", root) as todo:
+        with campaign.resume(IDS, root / "series.jsonl", root) as (todo, _):
             for cid in todo:
                 (root / cid).mkdir()
                 row = swarm(cid, {})

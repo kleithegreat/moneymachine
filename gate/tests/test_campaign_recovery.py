@@ -59,7 +59,7 @@ def test_complete_final_result_without_newline_is_preserved(tmp_path):
     row = {"id": "complete", "counts_as_promotion": False}
     log.write_text(json.dumps(row))
     (tmp_path / "interrupted").mkdir()
-    with campaign.resume(["complete", "interrupted", "next"], log, tmp_path) as todo:
+    with campaign.resume(["complete", "interrupted", "next"], log, tmp_path) as (todo, _):
         assert todo == ["next"]
     rows = [json.loads(line) for line in log.read_bytes().splitlines()]
     assert rows[0] == row and rows[1]["id"] == "interrupted" and rows[1]["counts_as_promotion"]
@@ -70,7 +70,7 @@ def test_torn_records_are_ignored_without_changing_history(tmp_path, corrupt):
     log = tmp_path / "series.jsonl"
     original = b'{"id":"complete"}\n' + corrupt + b'{"id":"later"}\n'
     log.write_bytes(original)
-    with campaign.resume(["next"], log, tmp_path) as todo:
+    with campaign.resume(["next"], log, tmp_path) as (todo, _):
         assert todo == ["next"]
     assert campaign.recorded(log) == {"complete", "later"}
     assert log.read_bytes() == original

@@ -8,14 +8,13 @@ import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
 from scipy import stats
 
 from gate import campaign, search
-from gate.compute import workers
+from gate.compute import Pool, workers
 from gate.kernel import command
 from gate.markets import generate, null_params, store_events, write
 
@@ -62,8 +61,8 @@ CAMPAIGN_BYTES, CALIBRATION_BYTES = 1_000_000_000, 1_300_000_000
 def run_all(specs, path):
     require_frozen_searcher()
     out = path.with_suffix("")
-    with campaign.resume([s["id"] for s in specs], path, out) as todo, Pool(workers(CAMPAIGN_BYTES)) as pool, \
-            open(path, "a") as fh:
+    with campaign.resume([s["id"] for s in specs], path, out) as (todo, fh), \
+            Pool(workers(CAMPAIGN_BYTES), initializer=campaign.KeepLock(fh)) as pool:
         for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in set(todo)]):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
@@ -111,30 +110,26 @@ def net_returns(program, model, beta, market_id, years):
         return np.frombuffer(blob, "<f8")
 
 
-# Markets evaluated at once within one calibration step (each seeded by its id, so the values never depend on it).
-THREADS = 1
-
-
-def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS):
+def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS, threads=1):
     """The oracle's per-step net returns over TRUTH_MARKETS fresh markets; `weight` replaces its per-coin weight."""
     program = json.loads(ORACLE.read_text())
     if weight is not None:
         program["weight"]["args"][1]["const"] = weight
-    with ThreadPoolExecutor(THREADS) as ex:
+    with ThreadPoolExecutor(threads) as ex:
         return np.concatenate(list(ex.map(lambda i: net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years),
                                           range(TRUTH_MARKETS))))
 
 
-def oracle_sharpe(model, beta, tag):
+def oracle_sharpe(model, beta, tag, threads=1):
     """Annualized net Sharpe of the oracle over TRUTH_MARKETS x TRUTH_YEARS simulated years."""
-    r = oracle_returns(model, beta, tag)
+    r = oracle_returns(model, beta, tag, threads=threads)
     return float(r.mean() / r.std(ddof=1) * np.sqrt(PER_YEAR))
 
 
-def oracle_cap_mean(beta):
+def oracle_cap_mean(beta, threads=1):
     """Mean net return per step of the oracle at the kernel's gross cap (weight 2.0) on N2, over TRUTH_MARKETS fresh
     LONG_YEARS-year markets: the long-holdout cell's strength."""
-    return float(oracle_returns("N2", beta, "cal-long", weight=2.0, years=LONG_YEARS).mean())
+    return float(oracle_returns("N2", beta, "cal-long", weight=2.0, years=LONG_YEARS, threads=threads).mean())
 
 
 STEPS = OUT / "betas-steps.jsonl"
@@ -165,20 +160,19 @@ CALIBRATIONS = {**{f"{m}-s{s}": (partial(oracle_sharpe, m, tag=f"cal{s}"), s, 0.
                 "N2-long": (oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
 
 
-def calibrate(key):
-    return bisect(key, *CALIBRATIONS[key])
+def calibrate(key, threads):
+    f, *args = CALIBRATIONS[key]
+    return bisect(key, partial(f, threads=threads), *args)
 
 
 def betas(keys=None):
     """Calibrate the given keys (comma-separated; all by default), resuming from STEPS, one process per key and as many
     markets at a time in each as memory allows; betas.json is written once every key is calibrated."""
-    global THREADS
     OUT.mkdir(parents=True, exist_ok=True)
     todo = keys.split(",") if keys else list(CALIBRATIONS)
     n = min(len(todo), workers(CALIBRATION_BYTES))
-    THREADS = max(1, workers(CALIBRATION_BYTES) // n)
     with Pool(n) as pool:
-        values = dict(zip(todo, pool.map(calibrate, todo)))
+        values = dict(zip(todo, pool.map(partial(calibrate, threads=max(1, workers(CALIBRATION_BYTES) // n)), todo)))
     if set(values) == set(CALIBRATIONS):
         (OUT / "betas.json").write_text(json.dumps({k: values[k] for k in CALIBRATIONS}, indent=1))
 
@@ -216,7 +210,7 @@ def truth():
         done = campaign.recorded(path)
         todo = [(truth_id(r["id"], p["hash"]), p["program"], r["id"].split("-")[1], beta["-".join(r["id"].split("-")[1:3])])
                 for r in results("mixed") for p in r.get("promoted", []) if truth_id(r["id"], p["hash"]) not in done]
-        with Pool(workers(CALIBRATION_BYTES)) as pool:
+        with Pool(workers(CALIBRATION_BYTES), initializer=campaign.KeepLock(fh)) as pool:
             for tid, true in pool.imap_unordered(judge, todo):
                 fh.write(json.dumps({"id": tid, "true": true}) + "\n")
                 fh.flush()

@@ -364,7 +364,7 @@ def run_series(name):
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = series_inputs()
     ids, log = cohort(name)
-    with campaign.resume(ids, log, OUT) as todo:
+    with campaign.resume(ids, log, OUT) as (todo, _):
         for cid in todo:
             room = ready(log)
             if room is None:

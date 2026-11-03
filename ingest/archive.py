@@ -19,7 +19,6 @@ import json
 import math
 from collections import defaultdict
 from functools import partial
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -101,7 +100,7 @@ def report(out_dir, table_path=REPO / "venue/hyperliquid/execution.json"):
     """Per coin and cell, by volatility tercile and by quarter: snapshots, the censored share, the share costing more
     than the table, and the ratio of the C0.7 quantile of costed snapshots to the table's entry. Coins are independent,
     so each is reported by its own worker, holding only that coin's costs."""
-    from gate.compute import workers
+    from gate.compute import Pool, workers
 
     table = json.loads(Path(table_path).read_text())["cost_bps_ex_fee"]
     coins = sorted({p.name.removesuffix(".json.gz") for p in Path(out_dir).glob("*/*/*.json.gz")} & set(table))

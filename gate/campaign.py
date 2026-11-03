@@ -4,10 +4,12 @@ existence marks it started; a crash, or a start never recorded, counts as a prom
 import fcntl
 import json
 import lzma
+import os
 import shutil
 import time
 import traceback
 from contextlib import contextmanager
+from multiprocessing.reduction import DupFd
 from pathlib import Path
 
 from gate import gate, markets, search
@@ -61,6 +63,22 @@ def recorded(path):
     return {r["id"] for r in records(path)}
 
 
+class KeepLock:
+    """Pool initializer retaining the parent's flock even if the parent is killed."""
+
+    def __init__(self, file):
+        self.file = file
+
+    def __getstate__(self):
+        return DupFd(self.file.fileno())
+
+    def __setstate__(self, fd):
+        self.file = os.fdopen(fd.detach(), "a")
+
+    def __call__(self):
+        pass
+
+
 @contextmanager
 def exclusive(log):
     """`log` opened for appending under an exclusive lock held for the run's lifetime (released when its last process,
@@ -77,7 +95,8 @@ def exclusive(log):
 def resume(ids, log, out):
     """The ids still to run, for the duration of the run. One whose directory under `out` exists with no result in
     `log` was started and interrupted: it is recorded as a crash, which counts as a promotion, and never rerun. That
-    holds only if no other run of `log` is alive, which `exclusive` ensures."""
+    holds only if no other run of `log` is alive, which `exclusive` ensures. Yields (ids, locked log); process pools
+    retain the lock with KeepLock."""
     with exclusive(log) as fh:
         with open(log, "rb") as source:
             source.seek(0, 2)
@@ -96,7 +115,7 @@ def resume(ids, log, out):
             else:
                 todo.append(i)
         fh.flush()
-        yield todo
+        yield todo, fh
 
 
 def promoted_anything(result):

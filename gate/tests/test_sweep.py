@@ -64,7 +64,7 @@ def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path):
     (out / "b").mkdir(parents=True)
     log.write_text(json.dumps({"id": "a", "promoted": []}) + "\n")
     for _ in range(2):
-        with campaign.resume(["a", "b", "c"], log, out) as todo:
+        with campaign.resume(["a", "b", "c"], log, out) as (todo, _):
             assert todo == ["c"]
     rows = [json.loads(l) for l in open(log)]
     assert [r["id"] for r in rows] == ["a", "b"] and campaign.promoted_anything(rows[1])
@@ -124,3 +124,16 @@ def test_bisect_records_each_step_and_resumes(tmp_path, monkeypatch):
     assert len(calls) == 4 and abs(full - 0.3) < 1 / 2 ** 6
     with pytest.raises(SystemExit, match="recorded at"):
         sweep.bisect("k", lambda x: x, 0.3, 0.0, 2.0, 6)
+
+
+def test_calibration_passes_parallelism_without_inherited_globals(tmp_path, monkeypatch):
+    monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
+    calls = []
+
+    def evaluate(beta, threads):
+        calls.append((beta, threads))
+        return beta
+
+    monkeypatch.setattr(sweep, "CALIBRATIONS", {"test": (evaluate, 0.3, 0.0, 1.0, 6)})
+    assert abs(sweep.calibrate("test", 3) - 0.3) < 1 / 2 ** 6
+    assert len(calls) == 6 and {threads for _, threads in calls} == {3}

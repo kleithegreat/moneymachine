@@ -16,7 +16,6 @@ import sqlite3
 import sys
 import tempfile
 from functools import partial
-from multiprocessing import Pool
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -55,7 +54,7 @@ def reproduce(out_dir, *ids):
     betas = json.loads((sweep.OUT / "betas.json").read_text())
     specs = {s["id"]: s | {"sweep": name} for name, ss in (("null", sweep.null_specs(rnd="")),
                                                            ("mixed", sweep.mixed_specs(betas, rnd=""))) for s in ss}
-    with Pool(compute.workers(sweep.CAMPAIGN_BYTES)) as pool:
+    with compute.Pool(compute.workers(sweep.CAMPAIGN_BYTES)) as pool:
         found = pool.map(partial(reproduce_one, out_dir=out_dir), [specs[i] for i in ids])
     print(json.dumps({"identical": all(same for _, same, _ in found), "kernels": sorted({k for _, _, ks in found for k in ks}),
                       "campaigns": {i: same for i, same, _ in found}}, indent=1))
