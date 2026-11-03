@@ -99,15 +99,64 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tm
     assert len(open(log).readlines()) == 3
 
 
+@pytest.mark.parametrize("family, other", [("agent", "swarm"), ("swarm", "agent")])
+@pytest.mark.parametrize("current", [None, "", "measured"])
+def test_need_measures_all_sibling_logs_of_only_the_same_family(tmp_path, family, other, current):
+    def row(account, five_hour, week, tokens=1, reset=1):
+        return json.dumps({"account": account, "usage": {"output_tokens": tokens},
+                           "windows": {"before": {"five_hour": [0.1, 1], "week": [0.2, 1]},
+                                       "after": {"five_hour": [0.1 + five_hour, reset], "week": [0.2 + week, reset]}}}) + "\n"
+
+    log = tmp_path / f"{family}-null-3.jsonl"
+    if current is not None:
+        log.write_text(row("TAMU", 0.15, 0.01) if current else "")
+    (tmp_path / f"{family}-null.jsonl").write_text(row("Cornell", 0.2, 0.01))
+    (tmp_path / f"{family}-null-2.jsonl").write_text(row("TAMU", 0.1, 0.03) + row("TAMU", 0.7, 0.7, tokens=0)
+                                                  + row("TAMU", 0.6, 0.6, reset=2))
+    (tmp_path / f"{other}-null.jsonl").write_text(row("TAMU", 0.9, 0.9))
+    (tmp_path / f"{family}-real.jsonl").write_text(row("TAMU", 0.9, 0.9))
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / f"{family}-null.jsonl").write_text(row("TAMU", 0.9, 0.9))
+
+    assert campaigns.need(log) == pytest.approx({"five_hour": 0.2, "week": 0.03})
+
+
+@pytest.mark.parametrize("family", ["agent", "swarm"])
+@pytest.mark.parametrize("week, allowed", [(0.7, True), (0.79, False)])
+@pytest.mark.parametrize("measured_week", [True, False])
+def test_a_new_cohort_uses_earlier_need_without_exceeding_the_ceiling(tmp_path, monkeypatch, family, week, allowed, measured_week):
+    log = tmp_path / f"{family}-null-3.jsonl"
+    log.touch()
+    before, after = {"five_hour": [0.1, 1]}, {"five_hour": [0.15, 1]}
+    if measured_week:
+        before["week"], after["week"] = [0.2, 1], [0.22, 1]
+    (tmp_path / f"{family}-null-2.jsonl").write_text(json.dumps({
+        "usage": {"output_tokens": 1}, "windows": {"before": before, "after": after}}) + "\n")
+    monkeypatch.setattr(campaigns, "ACCOUNTS", (("TAMU", "PACING_TEST_TOKEN"),))
+    monkeypatch.setenv("PACING_TEST_TOKEN", "dummy")
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "unused")
+    windows = {"five_hour": [0.6, 100], "week": [week, 200]}
+    monkeypatch.setattr(campaigns, "windows", lambda token=None: windows)
+    monkeypatch.setattr(campaigns.time, "time", lambda: 0)
+    slept = []
+    monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"is_set": lambda self: bool(slept),
+                                                           "wait": lambda self, seconds: slept.append(seconds)})())
+
+    allowed = allowed and measured_week
+    assert campaigns.wait_for_room(log) == (("TAMU", windows) if allowed else None)
+    assert slept == ([] if allowed else [200])
+
+
 def test_pacing_learns_nothing_from_a_campaign_without_tokens(tmp_path):
-    log = tmp_path / "log.jsonl"
+    log = tmp_path / "agent-null.jsonl"
     log.write_text(json.dumps({"id": "c", "account": "TAMU", "usage": dict.fromkeys(campaigns.TOKENS, 0),
                                "windows": {"before": {"five_hour": [0.0, 1]}, "after": {"five_hour": [0.01, 1]}}}) + "\n")
     assert campaigns.need(log) == {}
 
 
 def test_a_campaign_measured_on_one_account_paces_every_account(tmp_path, monkeypatch):
-    log = tmp_path / "log.jsonl"
+    log = tmp_path / "agent-null.jsonl"
     log.write_text(json.dumps({"id": "c", "account": "Cornell", "usage": dict.fromkeys(campaigns.TOKENS, 1),
                                "windows": {"before": {"five_hour": [0.0, 1]}, "after": {"five_hour": [0.5, 1]}}}) + "\n")
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_TAMU", "tamu")

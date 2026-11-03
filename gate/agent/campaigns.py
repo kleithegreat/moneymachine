@@ -292,11 +292,12 @@ def windows(token=None):
 
 
 def need(log):
-    """Per window, the most any campaign in `log` used of it within one reset period, on whichever account it ran (the
-    accounts share one plan); a campaign that used no tokens measures nothing. It counts that account's other use
-    meanwhile, so it overstates."""
+    """Per window, the most any campaign in the sibling logs of `log`'s null family used within one reset period, on
+    whichever account it ran (the accounts share one plan); a campaign that used no tokens measures nothing. It counts
+    that account's other use meanwhile, so it overstates."""
     used = {}
-    for row in campaign.records(log):
+    logs = log.parent.glob(f"{log.name.split('-')[0]}-null*.jsonl")
+    for row in (r for source in logs for r in campaign.records(source)):
         if not any(row.get("usage", {}).get(k) for k in TOKENS):
             continue
         w = row.get("windows", {})
