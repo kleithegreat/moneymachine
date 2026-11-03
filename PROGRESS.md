@@ -59,7 +59,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Decisions awaiting the human's review
 
-None.
+- 2026-11-03 04:20 UTC (2026-11-02 23:20 EST): keep the frozen kernel through C4.5 v3 under a qualification of the mechanism check, fix it in the new engine (`audit/decisions.md`). A fresh Claude review is queued for the personal account's reset, 2026-11-04, and must land before v3 starts.
 
 ## Qualifications
 
