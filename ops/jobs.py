@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 from pathlib import Path
 
@@ -54,10 +55,11 @@ def push():
                          text=True, check=True).stdout.strip()
     tag = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True,
                          check=True).stdout.strip()
-    subprocess.run(["skopeo", "copy", "--authfile", str(AUTHFILE), f"docker-archive:{out}", f"docker://{REGISTRY}:{tag}"],
-                   check=True, capture_output=True)
-    digest = json.loads(subprocess.run(["skopeo", "inspect", "--authfile", str(AUTHFILE), f"docker://{REGISTRY}:{tag}"],
-                                       capture_output=True, text=True, check=True).stdout)["Digest"]
+    with tempfile.TemporaryDirectory() as tmp:
+        digestfile = Path(tmp) / "digest"
+        subprocess.run(["skopeo", "copy", "--authfile", str(AUTHFILE), "--digestfile", str(digestfile),
+                        f"docker-archive:{out}", f"docker://{REGISTRY}:{tag}"], check=True, capture_output=True)
+        digest = digestfile.read_text().strip()
     print(json.dumps({"tag": tag, "digest": digest, "image": out}))
     return digest
 
@@ -114,19 +116,24 @@ def stage_funding():
         stage(np.concatenate(markets.frozen_funding(markets.null_params()[model]["funding"])).tobytes())
 
 
-def submit(run, sweep, digest, node=None, ids=None):
-    """One Indexed Job over the sweep's ids (or the given ones), its record written first."""
-    ids = ids or [s["id"] for s in campaign_specs(sweep)]
-    out = RESULTS / run
-    out.mkdir(parents=True, exist_ok=True)
-    record = {"run": run, "sweep": sweep, "image": digest, "commit": subprocess.run(
+def submit(run, sweep, digest, node=None):
+    """Stage this checkout's inputs once, then launch a new run."""
+    ids = [s["id"] for s in campaign_specs(sweep)]
+    record = {"sweep": sweep, "image": digest, "commit": subprocess.run(
                   ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip(),
               "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
-              "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()), "ids": stage(json.dumps(ids).encode()),
-              "node": node}
+              "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()), "node": node}
     stage_funding()
+    launch(run, record, ids)
+
+
+def launch(run, record, ids):
+    """Reserve a single-use run name before writing provenance or creating its Job."""
+    out = RESULTS / run
+    out.mkdir()
+    record = record | {"run": run, "ids": stage(json.dumps(ids).encode())}
     (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
-    print(kubectl("apply", "-f", "-", stdin=json.dumps(manifest(run, ids, record, node))).strip())
+    print(kubectl("create", "-f", "-", stdin=json.dumps(manifest(run, ids, record, record["node"]))).strip())
     while not (ended := {c["type"] for c in job(run).get("conditions", []) if c["status"] == "True"} & {"Complete", "Failed"}):
         time.sleep(30)
     print(json.dumps({"run": run, "succeeded": job(run).get("succeeded", 0), "failedIndexes": job(run).get("failedIndexes", "")}))
@@ -182,6 +189,9 @@ def task(run):
 
 def state(run):
     record = json.loads((RESULTS / run / "record.json").read_text())
+    for name in ("mm", "betas", "ids"):
+        if sha256(INPUTS / record[name]) != record[name]:
+            raise SystemExit(f"input {name} does not match its hash")
     ids = json.loads((INPUTS / record["ids"]).read_bytes())
     done = {p.name.removesuffix(".tar") for p in (RESULTS / run).glob("*.tar")}
     return record, ids, done
@@ -199,7 +209,7 @@ def resubmit(run):
     retry = f"{run}-r{sum(1 for _ in RESULTS.glob(f'{run}-r*')) + 1}"
     print(json.dumps({"missing": len(missing), "partial_removed": len(partial), "retry": retry}))
     if missing:
-        submit(retry, record["sweep"], record["image"], record["node"], missing)
+        launch(retry, record, missing)
 
 
 # Peak memory of unpacking one campaign: its decompressed ledger (25 MB the largest, held twice) and an interpreter.
@@ -217,8 +227,8 @@ def collect(*runs, out=None):
 
     records = [json.loads((RESULTS / r / "record.json").read_text()) for r in runs]
     sweep_name, mm = records[0]["sweep"], records[0]["mm"]
-    if any(r["sweep"] != sweep_name or r["mm"] != mm for r in records):
-        raise SystemExit("the runs differ in sweep or binary")
+    if any(r[k] != records[0][k] for r in records for k in ("sweep", "mm", "betas", "image")):
+        raise SystemExit("the runs differ in sweep, binary, calibration or image")
     planned = json.loads((INPUTS / records[0]["ids"]).read_bytes())
     found = {}
     for r in runs:

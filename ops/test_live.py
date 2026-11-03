@@ -5,12 +5,382 @@ only where sessions run."""
 import gzip
 import hashlib
 import json
+import multiprocessing
 import sqlite3
+import subprocess
+import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 
 import live
+
+
+def killed_at(action, install):
+    parent, child = multiprocessing.get_context("fork").Pipe()
+
+    def worker():
+        def stop():
+            child.send("paused")
+            child.recv()
+        install(stop)
+        action()
+        child.send("finished")
+
+    process = multiprocessing.get_context("fork").Process(target=worker)
+    process.start()
+    try:
+        assert parent.poll(10), "child did not reach interruption point"
+        assert parent.recv() == "paused"
+        process.kill()
+    finally:
+        process.join(10)
+        if process.is_alive():
+            process.kill()
+            process.join()
+    assert process.exitcode == -9
+
+
+@pytest.mark.parametrize("dest", ["../../hl/record.jsonl", "absolute", "safe/../record", "SHA256.json"])
+def test_seed_validates_all_destinations_before_copy(tmp_path, monkeypatch, dest):
+    if dest == "absolute":
+        dest = str(tmp_path / "outside/record.jsonl")
+    monkeypatch.setattr(live, "MIRROR", tmp_path)
+    source = tmp_path / "source"
+    source.write_bytes(b"new")
+    copied = []
+    copy = live.shutil.copy2
+    def tracked(*a):
+        copied.append(a)
+        return copy(*a)
+    monkeypatch.setattr(live.shutil, "copy2", tracked)
+    monkeypatch.setattr(live, "run_pod", lambda *a: ("", True))
+    with pytest.raises((SystemExit, ValueError)):
+        live.seed("sha256:A", "agent", f"{source}:valid", f"{source}:{dest}")
+    assert copied == []
+
+
+def local_seed_runner(name, spec):
+    path = live.Path
+    def mapped(p):
+        p = path(p)
+        return live.MIRROR / p.relative_to("/mirror") if p.is_relative_to("/mirror") else p
+    live.Path = mapped
+    try:
+        live.seed_run(*spec["containers"][0]["command"][3:])
+        return "", True
+    finally:
+        live.Path = path
+
+
+def test_reseed_never_replaces_concurrently_appended_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(live, "APP", tmp_path / "app")
+    monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
+    source = tmp_path / "source"
+    source.write_bytes(b"A")
+    target = tmp_path / "app/data/agent/day.jsonl"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"A")
+    digest = live.sha256
+    checked = []
+
+    def append_after_check(path, *a):
+        result = digest(path, *a)
+        if Path(path) == target and not checked:
+            checked.append(True)
+            with target.open("ab") as f:
+                f.write(b"B")
+        return result
+
+    monkeypatch.setattr(live, "sha256", append_after_check)
+    monkeypatch.setattr(live, "run_pod", local_seed_runner)
+    live.seed("sha256:A", "agent", f"{source}:day.jsonl")
+    assert target.read_bytes() == b"AB"
+
+
+def test_seed_interruption_does_not_publish_partial_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(live, "APP", tmp_path / "app")
+    monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
+    source = tmp_path / "source"
+    source.write_bytes(b"complete")
+    target = tmp_path / "app/data/agent/input"
+
+    def install(stop):
+        copy = live.shutil.copyfileobj
+        copy2 = live.shutil.copy2
+        def interrupted(a, b, *args):
+            if not Path(b.name).is_relative_to(tmp_path / "app"):
+                return copy(a, b, *args)
+            b.write(a.read(1))
+            b.flush()
+            stop()
+        live.shutil.copyfileobj = interrupted
+        def copy_file(a, b):
+            if not Path(b).is_relative_to(tmp_path / "app"):
+                return copy2(a, b)
+            with open(a, "rb") as src, open(b, "wb") as dst:
+                interrupted(src, dst)
+        live.shutil.copy2 = copy_file
+        live.run_pod = local_seed_runner
+
+    killed_at(lambda: live.seed("sha256:A", "agent", f"{source}:input"), install)
+    assert not target.exists()
+
+
+def test_seed_refuses_conflicts_and_symlinks_before_installing_any_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(live, "APP", tmp_path / "app")
+    target = tmp_path / "app/data/agent"
+    target.mkdir(parents=True)
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    (stage / "first").write_bytes(b"new")
+    (stage / "second").write_bytes(b"new")
+    digest = live.sha256(stage / "first")
+    (stage / "SHA256.json").write_text(json.dumps({"first": digest, "second": digest}))
+    (target / "second").write_bytes(b"recording")
+    with pytest.raises(SystemExit, match="other content"):
+        live.seed_run("agent", stage)
+    assert not (target / "first").exists()
+    assert (target / "second").read_bytes() == b"recording"
+    (stage / "SHA256.json").write_text(json.dumps({"first": digest, "link/second": digest}))
+    (target / "link").symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(SystemExit, match="symlink"):
+        live.seed_run("agent", stage)
+    assert not (target / "first").exists()
+    (stage / "SHA256.json").write_text(json.dumps({"first": digest, "second/child": digest}))
+    with pytest.raises(SystemExit, match="not a directory"):
+        live.seed_run("agent", stage)
+    assert not (target / "first").exists()
+
+
+def test_concurrent_seed_destination_creation_is_not_overwritten(tmp_path, monkeypatch):
+    monkeypatch.setattr(live, "APP", tmp_path / "app")
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    (stage / "input").write_bytes(b"new")
+    (stage / "SHA256.json").write_text(json.dumps({"input": live.sha256(stage / "input")}))
+    target = tmp_path / "app/data/agent/input"
+    link = live.os.link
+    def concurrent(src, dst):
+        target.write_bytes(b"recording")
+        return link(src, dst)
+    monkeypatch.setattr(live.os, "link", concurrent)
+    with pytest.raises(FileExistsError):
+        live.seed_run("agent", stage)
+    assert target.read_bytes() == b"recording"
+
+
+def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path, monkeypatch):
+    store = tmp_path / "pods.json"
+    store.write_text("{}")
+
+    def fake(*args, stdin=None):
+        pods = json.loads(store.read_text())
+        if args[0] in ("apply", "create"):
+            pod = json.loads(stdin)
+            name = pod["metadata"].get("name") or pod["metadata"]["generateName"] + str(len(pods))
+            if args[0] == "create" and name in pods:
+                raise RuntimeError("already exists")
+            pods[name] = "Succeeded"
+            store.write_text(json.dumps(pods))
+            return json.dumps({"metadata": {"name": name}})
+        if args[0] == "get":
+            return pods[args[2]]
+        if args[0] == "logs":
+            return args[1]
+        if args[0] == "delete":
+            pods.pop(args[2])
+            store.write_text(json.dumps(pods))
+            return ""
+        raise AssertionError(args)
+
+    monkeypatch.setattr(live, "kubectl", fake)
+    def install(stop):
+        def interrupted(*args, **kw):
+            if args[0] == "delete":
+                stop()
+            return fake(*args, **kw)
+        live.kubectl = interrupted
+    killed_at(lambda: live.run_pod("seed-agent", {}), install)
+    leftover = set(json.loads(store.read_text()))
+    log, ok = live.run_pod("seed-agent", {})
+    assert ok and log not in leftover
+
+
+@pytest.fixture
+def passing_gate(tmp_path, monkeypatch):
+    from gate.agent import campaigns, harness
+    from sandbox import session
+
+    frozen = tmp_path / "audit/stage3/harness.json"
+    frozen.parent.mkdir(parents=True)
+    frozen.write_text(json.dumps({"harness": "frozen"}))
+    monkeypatch.setattr(live, "REPO", tmp_path)
+    monkeypatch.setattr(harness, "harness_hash", lambda: "frozen")
+    monkeypatch.setattr(live.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0, stdout="passed"))
+    monkeypatch.setattr(live, "view", lambda: ["view"])
+    monkeypatch.setattr(campaigns, "windows", lambda: {"five_hour": 0.1})
+    monkeypatch.setattr(live, "reach", lambda h, p: h == "api.anthropic.com")
+    monkeypatch.setattr(live, "retrieval_reach", lambda: {"certified": 200})
+    monkeypatch.setattr(session, "workspace", lambda *a: None)
+    def run(work, *a):
+        (work / "transcript.jsonl").write_text(json.dumps({"type": "result", "is_error": False, "result": "READY"}))
+        return {"stopped": False, "exit": 0}
+    monkeypatch.setattr(session, "run", run)
+    return harness, campaigns, session
+
+
+@pytest.mark.parametrize("failure", ["tests", "harness", "session", "windows", "network", "retrieval", "view"])
+def test_gate_exits_nonzero_with_named_failure(passing_gate, monkeypatch, capsys, failure):
+    harness, campaigns, session = passing_gate
+    if failure == "tests":
+        monkeypatch.setattr(live.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=1, stdout="failed"))
+    elif failure == "harness":
+        monkeypatch.setattr(harness, "harness_hash", lambda: "different")
+    elif failure == "session":
+        monkeypatch.setattr(session, "run", lambda *a: {"stopped": True, "exit": 1})
+    elif failure == "windows":
+        def broken():
+            raise RuntimeError("unavailable")
+        monkeypatch.setattr(campaigns, "windows", broken)
+    elif failure == "network":
+        monkeypatch.setattr(live, "reach", lambda *a: True)
+    elif failure == "retrieval":
+        monkeypatch.setattr(live, "retrieval_reach", lambda: {"certified": 403})
+    else:
+        monkeypatch.setattr(live, "view", lambda: [])
+    with pytest.raises(SystemExit) as error:
+        live.gate_run(json.dumps(live.TARGETS))
+    assert error.value.code
+    assert failure in str(error.value) + capsys.readouterr().out
+
+
+@pytest.mark.parametrize("result", [{"is_error": True, "result": "READY"}, {"is_error": False, "result": "NOT READY"}, {}])
+def test_gate_refuses_unsuccessful_session_results(passing_gate, monkeypatch, result):
+    _, _, session = passing_gate
+    def run(work, *a):
+        (work / "transcript.jsonl").write_text(json.dumps({"type": "result"} | result))
+        return {"stopped": False, "exit": 0}
+    monkeypatch.setattr(session, "run", run)
+    with pytest.raises(SystemExit, match="session"):
+        live.gate_run(json.dumps(live.TARGETS))
+
+
+def test_gate_requires_model_api_reachable(passing_gate, monkeypatch):
+    monkeypatch.setattr(live, "reach", lambda *a: False)
+    with pytest.raises(SystemExit, match="network"):
+        live.gate_run(json.dumps(live.TARGETS))
+
+
+def test_gate_accepts_all_passing_checks(passing_gate):
+    live.gate_run(json.dumps(live.TARGETS))
+
+
+def test_gate_propagates_failed_helper(tmp_path, monkeypatch):
+    monkeypatch.setattr(live, "REPO", tmp_path)
+    (tmp_path / "audit/cluster").mkdir(parents=True)
+    monkeypatch.setattr(live, "run_pod", lambda *a: ("tests failed", False))
+    with pytest.raises(SystemExit, match="gate"):
+        live.gate("sha256:A", "Unmasked")
+
+
+def changing_mirror(tmp_path, monkeypatch):
+    monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis"})
+    app, out = tmp_path / "app", tmp_path / "mirror"
+    source = app / "data/thesis"
+    source.mkdir(parents=True)
+    with sqlite3.connect(source / "ledger.sqlite") as db:
+        db.execute("create table t (x)")
+        db.execute("insert into t values (1)")
+    (source / "other").write_text("original")
+    (source / "day.jsonl").write_text("old\n")
+    live.mirror(app, out)
+    with sqlite3.connect(source / "ledger.sqlite") as db:
+        db.execute("insert into t values (2)")
+    (source / "other").write_text("replacement")
+    with (source / "day.jsonl").open("a") as f:
+        f.write("new\n")
+    return app, out
+
+
+def test_verify_during_publication_uses_its_own_generation(tmp_path, monkeypatch):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    write = Path.write_text
+    checks = []
+    def verify_before_publish(path, *a, **kw):
+        if path.name.startswith("MANIFEST.json"):
+            code = ("import sys, live; live.VOLUMES = {'thesis': 'data/thesis'}; "
+                    "print('started', flush=True); live.verify(sys.argv[1], sys.argv[2])")
+            check = subprocess.Popen([sys.executable, "-c", code, str(app), str(out)],
+                                     cwd=Path(live.__file__).parent, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            checks.append(check)
+            assert check.stdout.readline().strip() == "started"
+            try:
+                check.wait(timeout=0.2)
+            except subprocess.TimeoutExpired:
+                pass
+        return write(path, *a, **kw)
+    monkeypatch.setattr(Path, "write_text", verify_before_publish)
+    try:
+        live.mirror(app, out)
+        assert checks
+        for check in checks:
+            stdout, stderr = check.communicate(timeout=10)
+            assert check.returncode == 0, stderr
+    finally:
+        for check in checks:
+            if check.poll() is None:
+                check.kill()
+                check.communicate()
+    live.verify(app, out)
+
+
+@pytest.mark.parametrize("published", [False, True])
+def test_killed_mirror_preserves_last_published_generation(tmp_path, monkeypatch, published):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    before = (out / "thesis/MANIFEST.json").read_bytes()
+    def install(stop):
+        write = Path.write_text
+        replace = Path.replace
+        def interrupted(path, *a, **kw):
+            if not published and path.name.startswith("MANIFEST.json"):
+                stop()
+            return write(path, *a, **kw)
+        def after_publication(path, *a, **kw):
+            result = replace(path, *a, **kw)
+            if published and path.name == "MANIFEST.json.tmp":
+                stop()
+            return result
+        Path.write_text = interrupted
+        Path.replace = after_publication
+    killed_at(lambda: live.mirror(app, out), install)
+    assert ((out / "thesis/MANIFEST.json").read_bytes() != before) == published
+    live.verify(app, out)
+    live.mirror(app, out)
+    live.verify(app, out)
+
+
+def test_verify_uses_published_generation_not_newer_flat_paths(tmp_path, monkeypatch):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    manifest = out / "thesis/MANIFEST.json"
+    earlier = manifest.read_bytes()
+    live.mirror(app, out)
+    manifest.write_bytes(earlier)
+    live.verify(app, out)
+
+
+@pytest.mark.parametrize("damage", ["missing", "shorter"])
+def test_mirror_still_refuses_lost_published_bytes(tmp_path, monkeypatch, damage):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    manifest = json.loads((out / "thesis/MANIFEST.json").read_text())
+    target = out / "thesis" / manifest["generation"] / "day.jsonl"
+    if damage == "missing":
+        target.unlink()
+    else:
+        target.write_bytes(b"o")
+    with pytest.raises(SystemExit, match="lost bytes"):
+        live.mirror(app, out)
 
 
 def test_mirror_documentation_states_snapshot_order_and_missing_manifest_refusal():
