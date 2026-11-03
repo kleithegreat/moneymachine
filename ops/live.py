@@ -6,11 +6,12 @@ seeding of their volumes from this PC; the gates; and the mirror steps that run 
     python ops/live.py seed <digest> <volume> <src:dest>...   copy files of this PC into a volume, checked by sha256
     python ops/live.py gate <digest> <Default|Unmasked>       the credential and sandbox gates in a runner pod
     python ops/live.py view                          the sandbox's view (namespaces, maps, mounts), as the gate records it
-In pods: `mirror`, `verify`, `seed-run <volume>`, `gate-run <targets>`.
+In pods: `mirror`, `verify`, `seed-run <volume> <stage>`, `gate-run <targets>`.
 """
 
 import hashlib
 import json
+import os
 import shutil
 import socket
 import sqlite3
@@ -26,6 +27,7 @@ import jobs  # noqa: E402
 REPO = jobs.REPO
 NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk7", "/app/repo"
 MIRROR = Path("/srv/moneymachine/mirror")
+MIRROR_VERIFY_WAIT = 2 * 10 * 60  # next ten-minute run plus ten minutes to finish copying
 VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data/datalayer", "thesis": "data/thesis",
            "agent": "data/agent"}
 LEDGERS = ("thesis", "agent")
@@ -117,7 +119,9 @@ def apply(digest, *names):
 def run_pod(name, spec):
     """Run one pod to completion; its log, and whether it succeeded. The pod is deleted afterwards."""
     spec["restartPolicy"] = "Never"
-    kubectl("apply", "-f", "-", stdin=json.dumps({"apiVersion": "v1", "kind": "Pod", "metadata": {"name": name}, "spec": spec}))
+    created = kubectl("create", "-f", "-", "-o", "json", stdin=json.dumps(
+        {"apiVersion": "v1", "kind": "Pod", "metadata": {"generateName": name + "-"}, "spec": spec}))
+    name = json.loads(created)["metadata"]["name"]
     started = time.time()
     while (phase := kubectl("get", "pod", name, "-o", "jsonpath={.status.phase}")) not in ("Succeeded", "Failed"):
         if phase == "Pending" and time.time() - started > 900:
@@ -140,42 +144,79 @@ def sha256(path, size=None):
     return h.hexdigest()
 
 
+def seed_paths(root, names):
+    paths = [Path(n) for n in names]
+    for p in paths:
+        if p.is_absolute() or not p.parts or ".." in p.parts or p.parts[0] == "SHA256.json":
+            raise SystemExit(f"invalid seed destination: {p}")
+        if root is not None and any((root / part).is_symlink() for part in (p, *p.parents)):
+            raise SystemExit(f"symlink seed destination: {p}")
+        if root is not None and any((root / part).exists() and not (root / part).is_dir() for part in p.parents):
+            raise SystemExit(f"seed destination parent is not a directory: {p}")
+        if any(p != other and p in other.parents for other in paths):
+            raise SystemExit(f"overlapping seed destinations: {p}")
+    return paths
+
+
 def seed(digest, volume, *pairs):
     """Copy `src:dest` pairs (a file or directory of this PC, a path in the volume) through the mirror export; a pod
-    copies them into the volume and checks every sha256. An existing file is never overwritten with other content."""
-    stage = MIRROR / "seed" / volume
-    shutil.rmtree(stage, ignore_errors=True)
-    sums = {}
+    copies them into the volume and checks every sha256. An existing file is never overwritten."""
+    VOLUMES[volume]
+    files = []
     for pair in pairs:
         src, dest = (Path(p) for p in pair.split(":"))
-        for f in [src] if src.is_file() else sorted(p for p in src.rglob("*") if p.is_file()):
-            rel = dest / f.relative_to(src) if src.is_dir() else dest
-            (stage / rel).parent.mkdir(parents=True, exist_ok=True)
-            if f.suffix == ".sqlite":
-                with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(stage / rel) as b:
-                    a.backup(b)
-            else:
-                shutil.copy2(f, stage / rel)
-            sums[str(rel)] = sha256(stage / rel)
+        seed_paths(None, [dest])
+        if not src.exists():
+            raise SystemExit(f"missing seed source: {src}")
+        files.extend((f, dest / f.relative_to(src) if src.is_dir() else dest)
+                     for f in ([src] if src.is_file() else sorted(p for p in src.rglob("*") if p.is_file())))
+    paths = seed_paths(None, [rel for _, rel in files])
+    if len(set(paths)) != len(paths):
+        raise SystemExit("duplicate seed destination")
+    (MIRROR / "seed").mkdir(exist_ok=True, parents=True)
+    stage = Path(tempfile.mkdtemp(prefix=volume + "-", dir=MIRROR / "seed"))
+    sums = {}
+    for f, rel in files:
+        (stage / rel).parent.mkdir(parents=True, exist_ok=True)
+        if f.suffix == ".sqlite":
+            with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(stage / rel) as b:
+                a.backup(b)
+        else:
+            shutil.copy2(f, stage / rel)
+        sums[str(rel)] = sha256(stage / rel)
     (stage / "SHA256.json").write_text(json.dumps(sums, indent=1))
-    spec = pod_spec("seed", digest, ["ops/live.py", "seed-run", volume], {volume: False, "mirror": True}, False,
+    spec = pod_spec("seed", digest, ["ops/live.py", "seed-run", volume, f"/mirror/seed/{stage.name}"],
+                    {volume: False, "mirror": True}, False,
                     ("100m", "128Mi", "512Mi"), 60, {})
     log, ok = run_pod(f"seed-{volume}", spec)
     print(log)
     if not ok:
         raise SystemExit(f"seeding {volume} failed")
+    shutil.rmtree(stage)
 
 
-def seed_run(volume):
-    src, dst = Path("/mirror/seed") / volume, Path(APP) / VOLUMES[volume]
+def seed_run(volume, stage):
+    src, dst = Path(stage), Path(APP) / VOLUMES[volume]
     sums = json.loads((src / "SHA256.json").read_text())
+    seed_paths(dst, sums)
+    pending = []
     for rel, digest in sums.items():
-        if (dst / rel).exists() and sha256(dst / rel) != digest:
-            raise SystemExit(f"{volume}/{rel} exists with other content")
-        (dst / rel).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src / rel, dst / rel)
-        if sha256(dst / rel) != digest:
-            raise SystemExit(f"{volume}/{rel}: sha256 differs after the copy")
+        target = dst / rel
+        if target.exists():
+            if sha256(target) != digest:
+                raise SystemExit(f"{volume}/{rel} exists with other content")
+        else:
+            pending.append((rel, digest))
+    for rel, digest in pending:
+        target = dst / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=target.parent, suffix=".tmp") as tmp:
+            with (src / rel).open("rb") as source:
+                shutil.copyfileobj(source, tmp)
+            tmp.flush()
+            if sha256(tmp.name) != digest:
+                raise SystemExit(f"{volume}/{rel}: sha256 differs after the copy")
+            os.link(tmp.name, target)
     print(json.dumps({"volume": volume, "files": len(sums)}))
 
 
@@ -186,7 +227,7 @@ def mirror(app=APP, out="/mirror"):
     - every copy's bytes are compared with the source's over the same length;
     - SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
     - other files, but a writer's transient `*.tmp`, are copied whole when their size or mtime changes.
-    MANIFEST.json (size, mtime and sha256 of each file, the volume's usage) is written last: readers trust only it."""
+    MANIFEST.json (size, mtime and sha256 of each file, the volume's usage) is written last."""
     for vol, path in VOLUMES.items():
         src, dst = Path(app) / path, Path(out) / vol
         if not src.exists():
@@ -203,8 +244,8 @@ def mirror(app=APP, out="/mirror"):
             if prev and (not target.exists() or target.stat().st_size < prev["size"]):
                 raise SystemExit(f"{vol}/{rel}: the mirror lost bytes its manifest lists")
             target.parent.mkdir(parents=True, exist_ok=True)
+            tmp = target.with_name(target.name + ".tmp")
             if f.suffix == ".sqlite":
-                tmp = dst / f"{rel}.tmp"
                 with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(tmp) as b:
                     a.backup(b)
                     if b.execute("pragma integrity_check").fetchone()[0] != "ok":
@@ -212,14 +253,14 @@ def mirror(app=APP, out="/mirror"):
                 tmp.replace(target)
                 new[rel] = {"size": target.stat().st_size, "mtime": st.st_mtime_ns, "sha256": sha256(target)}
                 continue
+            if prev and f.suffix == ".jsonl" and (st.st_size < prev["size"] or sha256(f, prev["size"]) != prev["sha256"]):
+                raise SystemExit(f"{vol}/{rel} changed below its mirrored length {prev['size']}")
             if prev and st.st_size == prev["size"] and st.st_mtime_ns == prev["mtime"]:
                 new[rel] = prev
                 continue
             if f.suffix == ".jsonl":
                 start = prev["size"] if prev else 0
-                if prev and (st.st_size < start or sha256(f, start) != prev["sha256"]):
-                    raise SystemExit(f"{vol}/{rel} changed below its mirrored length {prev['size']}")
-                with open(f, "rb") as a, open(target, "r+b" if target.exists() else "wb") as b:
+                with open(f, "rb") as a, open(target if prev else tmp, "r+b" if prev else "wb") as b:
                     a.seek(start), b.seek(start), b.truncate()
                     left = st.st_size - start
                     while left > 0 and (block := a.read(min(1 << 20, left))):
@@ -227,8 +268,11 @@ def mirror(app=APP, out="/mirror"):
                         left -= len(block)
                     if left:
                         raise SystemExit(f"{vol}/{rel}: source shrank during the copy")
+                if not prev:
+                    tmp.replace(target)
             else:
-                shutil.copy2(f, target)
+                shutil.copy2(f, tmp)
+                tmp.replace(target)
             size = target.stat().st_size
             if sha256(f, size) != (digest := sha256(target)):
                 raise SystemExit(f"{vol}/{rel}: the copy differs from its source")
@@ -242,15 +286,35 @@ def mirror(app=APP, out="/mirror"):
 
 
 def verify(app=APP, out="/mirror"):
-    """Daily: every mirrored file against its manifest's sha256, and every day file's source over the same length."""
+    """Daily: verify prefixes; confirm mirror mismatches against a later manifest within MIRROR_VERIFY_WAIT."""
     for vol, path in VOLUMES.items():
-        if not (Path(out) / vol / "MANIFEST.json").exists():
+        dst = Path(out) / vol
+        if not (dst / "MANIFEST.json").exists():
             raise SystemExit(f"mirror {vol}: missing manifest")
-        for rel, e in json.loads((Path(out) / vol / "MANIFEST.json").read_text())["files"].items():
-            if sha256(Path(out) / vol / rel, e["size"]) != e["sha256"]:
-                raise SystemExit(f"mirror {vol}/{rel} differs from its manifest")
-            if rel.endswith(".jsonl") and sha256(Path(app) / path / rel, e["size"]) != e["sha256"]:
-                raise SystemExit(f"source {vol}/{rel} differs from its manifest")
+        record = json.loads((dst / "MANIFEST.json").read_text())
+        pending = set()
+        deadline = time.monotonic() + MIRROR_VERIFY_WAIT
+        while True:
+            mismatch = None
+            for rel, e in record["files"].items():
+                if rel.endswith(".jsonl") and sha256(Path(app) / path / rel, e["size"]) != e["sha256"]:
+                    raise SystemExit(f"source {vol}/{rel} differs from its manifest")
+                try:
+                    matches = sha256(dst / rel, e["size"]) == e["sha256"]
+                except FileNotFoundError:
+                    matches = False
+                if not matches:
+                    mismatch = rel
+            if mismatch is None:
+                break
+            latest = json.loads((dst / "MANIFEST.json").read_text())
+            if latest != record:
+                pending.add(mismatch)
+                record = latest
+            elif mismatch in pending or (remaining := deadline - time.monotonic()) <= 0:
+                raise SystemExit(f"mirror {vol}/{mismatch} differs from its manifest")
+            else:
+                time.sleep(min(5, remaining))
     print("verified")
 
 
@@ -264,7 +328,8 @@ def view():
 
     work = Path(tempfile.mkdtemp())
     harness.build_workspace(work)
-    r = subprocess.run(session.sandbox_command(work, harness.CLIENT, ["/bin/sh", "-c", VIEW]), capture_output=True, text=True)
+    r = subprocess.run(session.sandbox_command(work, harness.CLIENT, ["/bin/sh", "-c", VIEW]),
+                       capture_output=True, text=True, check=True)
     keep = [l for l in r.stdout.splitlines() if not l.startswith(("Name", "Umask", "State", "Tgid", "Ngid", "Pid", "PPid",
                                                                     "TracerPid", "Vm", "Rss", "Threads", "voluntary",
                                                                     "nonvoluntary", "Cpus", "Mems", "Sig", "Shd", "FD"))]
@@ -310,21 +375,35 @@ def gate_run(targets):
                 **({k: result[-1].get(k) for k in ("is_error", "result")} if result else {}),
                 "models": sorted(result[-1].get("modelUsage", {})) if result else []}
 
+    def tests():
+        run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider",
+                              "gate/tests/test_sandbox.py"], capture_output=True, text=True)
+        return {"exit": run.returncode, "output": run.stdout.strip().splitlines()[-12:]}
+
     parts = {
-        "harness": harness.harness_hash,
-        "frozen": lambda: json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"],
-        "tests": lambda: subprocess.run([sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider",
-                                         "gate/tests/test_sandbox.py"], capture_output=True, text=True).stdout.strip().splitlines()[-12:],
-        "view": view, "windows": campaigns.windows, "network": lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
-        "retrieval": retrieval_reach,
-        "session": session_record}
-    record = {}
-    for name, part in parts.items():
+        "harness": (lambda: {"current": harness.harness_hash(),
+                             "frozen": json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"]},
+                    lambda r: r["current"] == r["frozen"]),
+        "tests": (tests, lambda r: r["exit"] == 0),
+        "view": (view, bool), "windows": (campaigns.windows, bool),
+        "network": (lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
+                    lambda r: r.get("api.anthropic.com:443") is True and
+                    all(v == (k == "api.anthropic.com:443") for k, v in r.items())),
+        "retrieval": (retrieval_reach, lambda r: 200 in r.values()),
+        "session": (session_record, lambda r: r["exit"] == 0 and not r["stopped"] and
+                    r.get("is_error") is False and r.get("result", "").strip() == "READY")}
+    record, failed = {}, []
+    for name, (part, passes) in parts.items():
         try:
             record[name] = part()
+            if not passes(record[name]):
+                failed.append(name)
         except Exception as e:
             record[name] = {"error": repr(e)}
+            failed.append(name)
     print(json.dumps(record))
+    if failed:
+        raise SystemExit("gate failed: " + ", ".join(failed))
 
 
 # Reachable from a runner: the model API only; refused: every node's services, the API server, the registry, this
@@ -341,6 +420,8 @@ def gate(digest, proc):
     out = REPO / "audit/cluster" / f"gate-{proc.lower()}.json"
     out.write_text(log)
     print(log[-3000:], "ok" if ok else "FAILED", out)
+    if not ok:
+        raise SystemExit("gate failed; see " + str(out))
 
 
 if __name__ == "__main__":
