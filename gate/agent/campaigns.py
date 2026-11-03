@@ -53,9 +53,11 @@ def freeze_harness():
     FROZEN.write_text(json.dumps({"harness": harness.harness_hash(), "frozen": now_ms(), "previous": previous}, indent=1) + "\n")
 
 
-def check_frozen():
+def check_frozen(mm=None):
     if not FROZEN.exists() or json.loads(FROZEN.read_text())["harness"] != harness.harness_hash():
         sys.exit(f"the harness differs from {FROZEN}: null campaigns must be rerun with fresh ids after a change")
+    if mm is not None and sha256(MM) != mm:
+        sys.exit(f"the kernel differs from the series' recorded hash {mm}")
 
 
 def row_kind(entry):
@@ -204,12 +206,12 @@ def swarm_verdict(classes):
     return "pass" if len(classes) == COHORTS["swarm"][1] and sum(c == "not established" for c in classes) <= 1 else "not established"
 
 
-def swarm_evidence(cid):
-    """A started swarm campaign's class and evidence, recomputed from its directory alone, whatever its log row says.
+def swarm_evidence(cid, mm):
+    """A started swarm campaign's class and evidence, recomputed from its directory against the series' kernel hash.
     `decision.json`, written once the gate finished, is the only proof that it did and the only record of what it promoted;
     filled trials come from the ledger. Anything missing or unreadable is unresolved, its outcome unknown."""
     ledger, work = OUT / cid / "ledger.sqlite", OUT / cid / "swarm"
-    out = {"class": "unresolved", "promoted": [], "complete": False, "evidence": {}, "history": False, "trials": None}
+    out = {"class": "unresolved", "promoted": [], "complete": False, "evidence": {}, "history": False, "trials": None, "reason": None}
     if not ledger.exists():
         return out
     try:
@@ -222,7 +224,11 @@ def swarm_evidence(cid):
         out["evidence"] = {f"A{i + 1}": agent_evidence(ledger, cid, work / f"A{i + 1}", f"A{i + 1}") for i in range(SWARM_AGENTS)}
         out["history"] = cross_agent_history(ledger, cid)
         out["trials"] = len(gate.trials(ledger, cid))
-    except Exception:
+        kernels = [k for (k,) in sqlite3.connect(ledger).execute("SELECT DISTINCT kernel FROM experiments WHERE campaign = ?", (cid,))]
+        if not mm or any(k != mm for k in kernels):
+            raise ValueError(f"ledger kernels {kernels} differ from series kernel {mm}")
+    except Exception as e:
+        out["reason"] = repr(e)
         crash = True
     out["class"] = swarm_class(out["promoted"], crash, list(out["evidence"].values()), out["trials"] or 0, out["history"])
     return out
@@ -242,7 +248,7 @@ def swarm_null(cid, inputs):
     gate.freeze(ledger, cid, kept, "frozen finalist swarm")
     promoted, holdout = gate.holdout_decision(market, ledger, cid, kept, REPORT_FROM_DAY["swarm"] * DAY)
     write_json(OUT / cid / "decision.json", {"promoted": promoted, **crash})
-    e = swarm_evidence(cid)
+    e = swarm_evidence(cid, inputs["mm"])
     per_agent = {a: x["evaluations"] for a, x in e["evidence"].items()}
     db = sqlite3.connect(ledger)
     aborts = {}
@@ -255,7 +261,7 @@ def swarm_null(cid, inputs):
                     "kept": list(kept), "holdout": holdout, "promoted": promoted, "cross_agent_history": e["history"],
                     "bankrupt": gate.bankrupt(ledger), "audits": {a: x["audit"] for a, x in e["evidence"].items()},
                     "denials": {a: x["denials"] for a, x in e["evidence"].items()}, "aborts": aborts,
-                    "zero_fill": sum(json.loads(x)["fills"] == 0 for (x,) in summaries), "class": e["class"],
+                    "zero_fill": sum(json.loads(x)["fills"] == 0 for (x,) in summaries), "class": e["class"], "reason": e["reason"],
                     "counts_as_promotion": e["class"] in ("promoted", "unresolved")}
 
 
@@ -357,7 +363,7 @@ def usage(work):
 
 def run_series(name):
     """The campaigns of `cohort(name)` once `series_inputs` resolve, resumable (a started, unrecorded id is recorded as a
-    crash), each started when its account is `ready` and the harness is still the frozen one, its directory made first
+    crash), each started when its account is `ready` and the harness and kernel are unchanged, its directory made first
     as the mark that it started, and recorded with its account, usage, kernel and the windows around it. SIGTERM ends
     the series between campaigns."""
     signal.signal(signal.SIGTERM, lambda *_: STOP.set())
@@ -370,7 +376,7 @@ def run_series(name):
             if room is None:
                 break
             account, before = room
-            check_frozen()
+            check_frozen(inputs["mm"])
             (OUT / cid).mkdir()
             started = time.time()
             try:
@@ -630,18 +636,19 @@ BASELINE = {"agent": "G100", "swarm": "H400"}
 
 def swarm_report(rows):
     """C4.5 v3's result and what it reports. Every declared campaign with a directory counts, from `swarm_evidence`, never
-    from its log row, which only supplies reported material. Promotions observed across versions, with their exact 95%
+    from its log row, which supplies the expected kernel and reported material. Promotions across versions, with their exact 95%
     upper bound, name the campaigns whose outcome is unknown."""
     from scipy.stats import beta
 
-    evidence = {cid: swarm_evidence(cid) for cid in cohort("swarm")[0] if (OUT / cid).exists()}
-    classes = {cid: e["class"] for cid, e in evidence.items()}
     by_id = {r["id"]: r for r in rows}
+    evidence = {cid: swarm_evidence(cid, by_id.get(cid, {}).get("mm")) for cid in cohort("swarm")[0] if (OUT / cid).exists()}
+    classes = {cid: e["class"] for cid, e in evidence.items()}
     earlier = [r for log in sorted(OUT.glob("swarm-null*.jsonl")) if log != cohort("swarm")[1] for r in campaign.records(log)]
     outcomes = [bool(r["promoted"]) for r in earlier if "promoted" in r] + [bool(e["promoted"]) for e in evidence.values() if e["complete"]]
     hits, known = sum(outcomes), len(outcomes)
     upper = 1.0 if hits == known else float(beta.ppf(0.95, hits + 1, known - hits))
     return {"classes": classes, "verdict": swarm_verdict(list(classes.values())),
+            "reasons": {cid: e["reason"] for cid, e in evidence.items()},
             "promoted": sum(c == "promoted" for c in classes.values()), "unresolved": sum(c == "unresolved" for c in classes.values()),
             "not_established": sum(c == "not established" for c in classes.values()),
             "evidence": {cid: {a: {"holds": x["holds"], "received": x["received"], "crashed": x["run"] is None or crashed(x["run"])}

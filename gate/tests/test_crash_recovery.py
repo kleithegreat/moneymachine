@@ -43,7 +43,7 @@ def worker(root, interactive):
         campaigns.SERIES["swarm"] = swarm
         campaigns.series_inputs = lambda: {"mm": "synthetic-kernel"}
         campaigns.ready = lambda log: ("synthetic-account", {})
-        campaigns.check_frozen = lambda: None
+        campaigns.check_frozen = lambda mm: None
         campaigns.windows = lambda token=None: {}
         campaigns.usage = lambda work: {}
         checkpoint("start", interactive)

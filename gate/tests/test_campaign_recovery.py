@@ -18,7 +18,7 @@ def test_killed_series_append_recovers_as_a_crash(tmp_path, monkeypatch, tail):
     monkeypatch.setitem(campaigns.COHORTS, "agent", ("recovery", 3))
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "test"})
     monkeypatch.setattr(campaigns, "ready", lambda _: ("test", {}))
-    monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
+    monkeypatch.setattr(campaigns, "check_frozen", lambda mm: None)
     monkeypatch.setattr(campaigns, "windows", lambda: {})
     ids, log = campaigns.cohort("agent")
     prefix = (json.dumps({"id": ids[0], "counts_as_promotion": False}) + "\n").encode()
