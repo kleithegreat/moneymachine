@@ -119,6 +119,7 @@ def test_a_thesis_records_what_sized_it(ledger):
     assert (second["cutoff"], second["E_r"], second["reserved"], second["reconciled_hour"]) == (T_R, "10000", "100", T_R)
 
 
+@pytest.mark.slow
 def test_exact_money_survives_the_ledger_round_trip_over_a_long_track(ledger):
     """B3: sequential BTC theses at the frozen costs, each closing before the next registers, at an unchanged price. Each
     trade multiplies equity by a rational of 26 digits, so N's text passes Python's 4300-digit default near trade 168."""

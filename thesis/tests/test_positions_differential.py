@@ -266,6 +266,7 @@ CLASSES = {
 }
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("name", CLASSES)
 def test_the_two_implementations_agree_as_read(name):
     seen = set()
@@ -367,7 +368,9 @@ def production_data(s, root):
     return lambda now: runner.Track.data(track, s.markets, now * 1000)
 
 
-@pytest.mark.parametrize("name", CLASSES)
+@pytest.mark.parametrize("name", [
+    pytest.param(name, marks=pytest.mark.slow) if name in {"plain", "outages"} else name for name in CLASSES
+])
 def test_the_production_adapter_gives_the_same_prices_and_the_same_agreement(name):
     for seed in range(PRODUCTION_SETS):
         s = Scenario(seed, **CLASSES[name])
@@ -415,7 +418,12 @@ def mutant_catches(name, sets=PRODUCTION_SETS, first=False):
     return name, found
 
 
-@pytest.mark.parametrize("name", MUTANTS)
+@pytest.mark.parametrize("name", [
+    pytest.param(name, marks=pytest.mark.slow) if name in {
+        "a cost cell ignores the side", "entry needs no delay", "a discretionary exit acts at its request",
+        "an outcome ignores missing funding", "an hour reconciles before its reference", "an hour reconciles without its funding",
+    } else name for name in MUTANTS
+])
 def test_every_mutant_is_caught(name):
     assert mutant_catches(name, first=True)[1]
 
