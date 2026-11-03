@@ -23,7 +23,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
 
 
-0. **C5.3's 72 h segment** (recording since `sources` restarted 2026-10-31 00:18 UTC (2026-10-30 20:18 EDT)): after 2026-11-03 00:18 UTC (2026-11-02 19:18 EST), `sources-availability`, reporting `clock_bound_ms` (reported, not judged).
 1. **Stage 3: done** (`audit/stage3/exit.md`): zero finalists, no claim.
 2. **Stage 4: C4.5 v3 runs** (`b00c118`, `448fb91`; v2 failed, 2 of 10, `audit/stage4/null-v2.jsonl`). TAMU's week is over the ceiling until 2026-11-07 and Cornell reaches it after about 6 campaigns, so ten finish about 2026-11-07. No Claude work on an account during its campaign.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:

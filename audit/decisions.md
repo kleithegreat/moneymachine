@@ -643,3 +643,7 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
 - **Why:** the old code read invalidation at the wrong price, picked the wrong cost cell at the default $1000, could score an exactly zero return as a win, and could lose sessions on a crash. Two days of a 28-day window were lost by refreezing now; waiting only raises that.
 - **Said:** GPT (`audit/reviews/2026-11-02-gpt-thesis-fixes.md`, `-round2`, `-round3`, each blocking, each ruled on) and a fresh Opus (`-claude-thesis-round2`). GPT's narrow check of the last commits found one more cache edge, fixed from a failing test by the advisor (`fc3f9a4`) and not re-reviewed, since the change is small and only adds a read. C10.4 reran on GPT's scorer, updated from the readings alone: agrees on its 1,000 sets. GPT's positions module keeps its reviewed source patches rather than an update, those patches being the readings. 665 tests pass in the tree with data.
 - **Reverse:** a later version can follow; this one's window is what it costs.
+
+## 2026-11-03 00:25 UTC (19:25 EST): C5.3's segment reported; `sources` rolls
+
+- `audit/stage5/availability-{discourse,snapshot}-20261103.json`, reported, not judged: 126.3 hours, `clock_bound_ms` max 350.346 over 1,081 samples, valid; polls without overlap 0; claimed-rule failures 0; one failed discourse poll. `sources` rolls to `sha256:8ad0b655…`, the segment having ended 2026-11-03 00:18 UTC (2026-11-02 19:18 EST).
