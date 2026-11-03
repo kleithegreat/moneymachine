@@ -1,199 +1,103 @@
-"""Position management: GPT's independent implementation, written by GPT 6.1 Sol from the stage 10 criteria and positions.py's data shape alone, tools denied (~/.cache/mm-gpt/positions-fWkk), 2026-11-02 06:43 UTC (01:43 EST). Committed verbatim below this note; its list of what the spec leaves open is in its own docstring."""
+"""Position management: GPT's independent implementation, written by GPT 6.1 Sol from the stage 10 criteria and positions.py's data shape alone, tools denied (~/.cache/mm-gpt/positions-fWkk), 2026-11-02 06:43 UTC (01:43 EST), and updated by GPT from the criteria's readings of 2026-11-02 and SCORING.md alone (~/.cache/mm-gpt/positions2-CzWZ), 2026-11-03 03:29 UTC (2026-11-02 22:29 EST). Committed verbatim below this note; its list of what the spec leaves open is in its own docstring."""
 
 """
-Self-contained, standard-library-only paper-position replay.
+Independent, standard-library-only thesis-position replay.
 
-Public API
+UNDETERMINED DETAILS / INTERFACE CONVENTIONS
+------------------------------------------
+1. Spread legs fill independently. Invalidation starts after every leg has
+   entered and uses a common closing boundary strictly after every entry.
+2. At an identical price timestamp, an opening reference wins over a close
+   for account marking. Stale account marks are reported.
+3. Missing cost cells use the per-tier, per-side maximum over the supplied U.
+   A legacy flat cell table applies to both sides; directional tables may
+   instead contain separate "buy" and "sell" mappings.
+4. A wholly suppressed managed position reports zero trading return. Its
+   as-registered outcome still requires a valid entry strictly before exit.
+5. Legacy explicitly supplied N=0 is evaluated as a per-unit limiting
+   hypothetical position, using the smallest cost tier. Normal admission
+   with positive initial equity never creates hypothetical N=0.
+6. The original interface has no cutoff argument. Optional data["cutoff"]
+   supplies C; otherwise C defaults to now, or t_r in admit. That default
+   represents an instantaneous/same-timestamp read. A delayed live read must
+   supply its actual cutoff.
+7. Funding receipt times and historical cache contents are not represented.
+   Supplied funding rows are usable from settlement; available_at reports
+   the nominal price-availability gate, not an independently observed
+   receipt or reconciliation-write time.
+
+PUBLIC API
 ----------
 replay(initial, theses, exits, data, now)
 admit(initial, theses, exits, data, t_r, L)
 
-INPUT CONTRACT
---------------
-All timestamps are integer Unix seconds in UTC. Hour boundaries are multiples
-of 3600; UTC midnights are multiples of 86400. No datetime objects are accepted.
+All timestamps are integer UTC Unix seconds, preserving the original API.
+Hour boundaries are multiples of 3600; midnights are multiples of 86400.
 
-Numbers may be int, finite float, Decimal, Fraction, or decimal string.
-Floats are interpreted through str(value). Returned monetary amounts, prices,
-quantities, rates, and returns are exact fractions.Fraction objects. No
-rounding is performed.
+Numbers may be int, finite float, Decimal, Fraction, decimal text, or exact
+rational text. Floats mean their shortest decimal representation. Monetary
+amounts, quantities, prices, rates, and returns remain Fraction objects in
+the existing API. admit additionally returns a JSON-ready "record" whose
+exact numeric fields are rational text, without a digit-length limit.
 
 initial:
-    {
-        "time": hour-aligned timestamp,
-        "cash": number                 # normally 10000
-    }
-    There are no positions or liabilities before initial["time"].
+    {"time": hour_aligned_timestamp, "cash": number}
 
-theses:
-    A list of already accepted registrations, in atomic commit order.
-    Equal t_r values retain list order. Each item is:
+theses, in registration commit order:
     {
-        "id": nonempty unique string,
-        "t_r": timestamp,              # daemon-assigned commit time
-        "T": UTC-midnight timestamp,
-        "L": number,                  # [0.01, 0.50]
-        "p": number,                  # [0.01, 0.99]
-        "N": number,                  # frozen hypothetical per-leg notional
-        "size": number,               # N if funded, otherwise 0
-        "b": number,                  # actual reservation: N*L or 0
-        "legs": [
-            {
-                "market": nonempty string,
-                "w": +1 or -1,
-                "fee": number or None,
-                "cells": {
-                    "1000": number,
-                    "10000": number
-                } or None,
-                "cost_fallback": bool
-            },
-            ...
-        ]
+        "id": unique_nonempty_string,
+        "t_r": timestamp,
+        "T": UTC_midnight,
+        "L": number,
+        "p": number,
+        "N": frozen_hypothetical_per_leg_notional,
+        "size": N_or_zero,
+        "b": actual_reservation,
+        "legs": [{
+            "market": nonempty_string,
+            "w": -1_or_1,
+            "fee": fractional_rate_or_None,
+            "cells": {
+                "1000": fractional_cost,
+                "10000": fractional_cost
+            } or {
+                "buy": tier_mapping_or_None,
+                "sell": tier_mapping_or_None
+            } or None,
+            "cost_fallback": bool
+        }, ...]
     }
-    There is one leg, or two distinct markets with weights +1 and -1.
-    fee and cells are fractional rates, not basis points, and lie in [0,1).
-    None means a required frozen input is missing, not zero.
-    A size-zero thesis retains its hypothetical N. For nonpositive sizing
-    equity, admit returns N=size=b=0.
 
-exits:
-    A list of append-only committed decisions, in commit order:
-    {
-        "id": thesis id,
-        "time": daemon-assigned commit timestamp,
-        "reason": string
-    }
-    Multiple decisions are permitted; none alters a registration.
+exits, in decision commit order:
+    {"id": thesis_id, "time": timestamp, "reason": string}
 
 data:
     {
-        "bars": {
-            market: {
-                hour: (positive_open, positive_close_or_None),
-                ...
-            },
-            ...
-        },
-        "funding": {
-            market: {
-                settled_hour: finite_fractional_rate,
-                ...
-            },
-            ...
-        },
-        "lag": {
-            market: integer_seconds_in_[0,3600),
-            ...
-        },
-
-        # The following fields are used only by admit to return a terms
-        # snapshot for the adapter to copy into the new registration:
+        "bars": {market: {hour: (positive_open, positive_close_or_None)}},
+        "funding": {market: {hour: finite_fractional_rate}},
+        "lag": {market: integer_seconds_in_[0,3600)},
+        "cutoff": optional_timestamp,
         "terms": {
             market: {
                 "fee": fractional_rate_or_None,
-                "cells": {"1000": rate, "10000": rate} or None
-            },
-            ...
+                "cells": flat_or_directional_cells_or_None
+            }
         },
         "U": [market, ...]
     }
-    Missing bars, funding rows, fees, and cells are missing data.
-    Core lag is normally 120; builder lag is normally 300.
-    Bars are already adapted: a builder open is its sealed M_m(H), and its
-    close is M_m(H+3600) or None. This module does not reconstruct samples.
-    For decisions an open at H is available at H+lag[market], and a bar's
-    close at H+3600 is available at H+3600+lag[market].
-    Funding rows are treated as available at their settlement timestamps.
 
-admit returns:
-    E_r, budget, N, size, b, admitted, reason, reserved_before,
-    cap, equity_time, equity_available_at, and a frozen "terms" mapping.
-    The caller supplies the exposure separately and copies the corresponding
-    terms into its registration. The signature has no exposure argument.
+Core lag is 120 seconds; builder lag is 300 seconds. Opens are usable at
+H+lag independently of closes. Closes are usable at H+3600+lag. The adapter
+must supply the bars actually returned by its read, and final sealed builder
+references; this module does not reconstruct samples or invent missing bars.
 
-replay returns:
-    {
-        "theses": [
-            {
-                "id", "N", "size", "b", "funded",
-                "reservation_released_at",
-                "cost_fallback_markets",
-                "managed": {
-                    "legs": [... entry/exit fills ...],
-                    "return": Fraction or None,
-                    "reasons": [...],
-                    ...
-                },
-                "as_registered": {
-                    "legs": [... hypothetical entry/horizon fills ...],
-                    "return": Fraction or None,
-                    "outcome": 0, 1, or None,
-                    "brier": Fraction or None,
-                    "reasons": [...],
-                    ...
-                }
-            }, ...
-        ],
-        "account": {
-            "now",
-            "equity": Fraction or None,
-            "equity_reason",
-            "reserved_risk",
-            "latest_reconciled": {...},
-            "hourly": [...]
-        }
-    }
-
-UNDETERMINED BEHAVIORS: CHOICES AND REASONS
------------------------------------------
-1. This is a pure replay of accepted registrations, not a daemon, eligibility
-   checker, ledger, sample sealer, or baseline scorer. The adapter supplies
-   validated registrations and sealed bars; those services need inputs and
-   persistence absent from this API.
-2. Numeric arithmetic is exact rational arithmetic without rounding. Prices
-   and costs can otherwise change cap decisions or the sign of a zero return.
-3. Spread legs fill independently at their own first available openings.
-   Invalidation starts only after every leg has entered and uses closes
-   strictly later than every entry boundary, following "each leg" literally.
-4. Entry P_e is the adverse execution price. Execution costs are represented
-   by adverse fills, not also debited a second time; fees use executed
-   notional. This follows the supplied data-shape's fill convention.
-5. Entry quantity and its cost tier form an implicit equation. All
-   self-consistent tiers are tested; if both work, "1000" wins; if neither
-   works, the fill's price and dependent results remain unresolved. This
-   avoids silently violating either the quantity or tier rule.
-6. Hypothetical cost tiers use frozen N even for size-zero theses. N=0 uses
-   the "1000" tier and the per-unit limiting position. Size-zero theses have
-   no actual managed return, but retain their hypothetical outcome.
-7. The earliest actionable exit threshold wins. Equal thresholds prioritize
-   invalidation, discretionary exit, then horizon; discretionary ties retain
-   commit order. This supplies the unspecified reason-label tie break.
-8. An exit opportunity before or simultaneous with a leg's entry suppresses
-   that pending leg rather than opening exposure after its exit. Its return
-   remains unresolved under e>=x. This is not cancellation of the thesis.
-9. A reservation is released when every leg's closing or pending-suppression
-   reference is available, not retroactively at its boundary. Missing
-   funding can leave equity unresolved but does not keep a closed position's
-   reservation alive.
-10. Funding requires every row in (e,x], including zero-rate rows. Valuation
-    uses that hour's opening reference, otherwise the latest earlier opening
-    reference, never a close. Funding rates are available at settlement;
-    valuation waits for the reference's availability.
-11. Account marks use the latest available open or non-null close, preferring
-    an open at an identical price timestamp; stale marks are reported.
-    Fills and invalidation never use this fallback. This makes the otherwise
-    unspecified marking policy explicit.
-12. Hourly reconciliation waits for the largest required leg lag for that
-    hour. There is no intra-hour reconciliation. Sizing uses the latest
-    successfully reconciled hour; current-hour equity is None while its
-    reconciliation is unavailable or incomplete. The initial cash snapshot
-    is reconciled immediately.
-13. admit is a pure proposal: the caller must serialize admit plus append.
-    Existing rows are the preceding commits, including equal-time commits.
-    It snapshots all supplied markets because its signature has no exposure.
-    Missing coin cells use per-tier maxima over explicit U; unavailable
-    fallback inputs remain missing instead of being invented.
+This is a snapshot replay, not a daemon, ledger, eligibility checker, sample
+sealer, historical-data retrier, baseline scorer, or resolution-record writer.
+Those operations require inputs/persistence absent from this interface.
+The host must preserve actual read snapshots and committed state, serialize
+admission with registration, persist admit's exact record, and never recompute
+registered sizes. A later replay cannot reconstruct a past cache, funding
+receipt time, or an earlier persisted suppression from a newer snapshot.
 """
 
 from decimal import Decimal, InvalidOperation
@@ -205,6 +109,7 @@ DELTA = 120
 ZERO = Fraction(0)
 ONE = Fraction(1)
 TIERS = ("1000", "10000")
+SIDES = ("buy", "sell")
 
 
 class MissingData(Exception):
@@ -218,13 +123,46 @@ def _number(value):
         return value
     if isinstance(value, int):
         return Fraction(value)
+    if isinstance(value, str) and "/" in value:
+        parts = value.split("/")
+        if len(parts) != 2:
+            raise ValueError("Invalid rational text")
+        numerator = _number(parts[0])
+        denominator = _number(parts[1])
+        if denominator == ZERO:
+            raise ValueError("Zero rational denominator")
+        return numerator / denominator
     try:
-        d = value if isinstance(value, Decimal) else Decimal(str(value))
+        decimal = value if isinstance(value, Decimal) else Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError) as exc:
-        raise ValueError("Invalid number: {!r}".format(value)) from exc
-    if not d.is_finite():
+        raise ValueError("Invalid numeric input") from exc
+    if not decimal.is_finite():
         raise ValueError("Non-finite number")
-    return Fraction(d)
+    return Fraction(decimal)
+
+
+def _integer_text(value):
+    """Avoid Python's configurable large-int string digit limit."""
+    if value == 0:
+        return "0"
+    sign = "-" if value < 0 else ""
+    value = abs(value)
+    chunks = []
+    while value:
+        value, remainder = divmod(value, 10 ** 9)
+        chunks.append(remainder)
+    return (
+        sign + str(chunks[-1])
+        + "".join("{:09d}".format(part) for part in reversed(chunks[:-1]))
+    )
+
+
+def _rational_text(value):
+    value = _number(value)
+    numerator = _integer_text(value.numerator)
+    if value.denominator == 1:
+        return numerator
+    return numerator + "/" + _integer_text(value.denominator)
 
 
 def _integer(value, name):
@@ -240,6 +178,10 @@ def _hour(value, name):
     return value
 
 
+def _boundary(timestamp):
+    return -(-timestamp // HOUR) * HOUR
+
+
 def _bounded(value, low, high, name, upper_inclusive=True):
     value = _number(value)
     if value < low or (value > high if upper_inclusive else value >= high):
@@ -253,7 +195,7 @@ def _rate(value, name):
     return _bounded(value, ZERO, ONE, name, upper_inclusive=False)
 
 
-def _cells(value):
+def _flat_cells(value):
     if value is None:
         return None
     result = {}
@@ -262,6 +204,37 @@ def _cells(value):
             return None
         result[tier] = _rate(value[tier], "cost cell")
     return result
+
+
+def _cells(value):
+    if value is None:
+        return None
+    if any(side in value for side in SIDES):
+        result = {
+            side: _flat_cells(value.get(side))
+            for side in SIDES
+        }
+        return result if any(table is not None for table in result.values()) else None
+    return _flat_cells(value)
+
+
+def _side_cells(cells, side):
+    if cells is None:
+        return None
+    if any(name in cells for name in SIDES):
+        return cells.get(side)
+    return cells
+
+
+def _copy_cells(cells):
+    if cells is None:
+        return None
+    if any(side in cells for side in SIDES):
+        return {
+            side: None if cells.get(side) is None else dict(cells[side])
+            for side in SIDES
+        }
+    return dict(cells)
 
 
 def _initial(initial):
@@ -284,6 +257,7 @@ def _registrations(theses, start):
         if tr < previous:
             raise ValueError("Theses must be in registration commit order")
         previous = tr
+
         horizon = _integer(row["T"], "T")
         if horizon % DAY or not 72 * HOUR <= horizon - tr <= 1440 * HOUR:
             raise ValueError("Invalid thesis horizon")
@@ -294,10 +268,11 @@ def _registrations(theses, start):
         notional = _number(row["N"])
         size = _number(row["size"])
         reserve = _number(row["b"])
-        if notional < 0 or size not in (ZERO, notional):
+        if notional < ZERO or size not in (ZERO, notional):
             raise ValueError("size must be zero or frozen nonnegative N")
-        if reserve != (notional * loss if size > 0 else ZERO):
+        if reserve != (notional * loss if size > ZERO else ZERO):
             raise ValueError("Frozen reservation does not match size and L")
+
         legs = []
         for raw in row["legs"]:
             market = raw["market"]
@@ -322,9 +297,15 @@ def _registrations(theses, start):
                     or {leg["w"] for leg in legs} != {-1, 1}):
                 raise ValueError("A spread needs distinct opposite legs")
         result.append({
-            "id": ident, "t_r": tr, "T": horizon, "L": loss,
-            "p": probability, "N": notional, "size": size,
-            "b": reserve, "legs": legs,
+            "id": ident,
+            "t_r": tr,
+            "T": horizon,
+            "L": loss,
+            "p": probability,
+            "N": notional,
+            "size": size,
+            "b": reserve,
+            "legs": legs,
         })
     return result
 
@@ -347,14 +328,16 @@ def _decisions(exits, registrations, now):
             raise ValueError("Exit reason must be a string")
         if timestamp <= now:
             result.setdefault(ident, []).append({
-                "time": timestamp, "reason": decision["reason"],
+                "time": timestamp,
+                "reason": decision["reason"],
                 "order": order,
             })
     return result
 
 
 class _Data:
-    def __init__(self, data, markets):
+    def __init__(self, data, markets, cutoff):
+        self.cutoff = cutoff
         self.bars = {}
         self.hours = {}
         self.funding = {}
@@ -364,12 +347,13 @@ class _Data:
             if not 0 <= lag < HOUR:
                 raise ValueError("lag must be in [0,3600)")
             self.lag[market] = lag
+
             bars = {}
             for timestamp, pair in data.get("bars", {}).get(market, {}).items():
                 timestamp = _hour(timestamp, "bar time")
                 opening = _number(pair[0])
                 closing = None if pair[1] is None else _number(pair[1])
-                if opening <= 0 or (closing is not None and closing <= 0):
+                if opening <= ZERO or (closing is not None and closing <= ZERO):
                     raise ValueError("Prices must be positive")
                 bars[timestamp] = (opening, closing)
             self.bars[market] = bars
@@ -381,6 +365,7 @@ class _Data:
             }
 
     def first_open(self, market, threshold, cutoff):
+        cutoff = min(cutoff, self.cutoff)
         lag = self.lag[market]
         for timestamp in self.hours[market]:
             if timestamp >= threshold and timestamp + lag <= cutoff:
@@ -393,6 +378,7 @@ class _Data:
 
     def mark(self, market, timestamp, cutoff):
         """Latest available open/close; current open wins a timestamp tie."""
+        cutoff = min(cutoff, self.cutoff)
         best = None
         lag = self.lag[market]
         for opening_time in self.hours[market]:
@@ -408,62 +394,84 @@ class _Data:
         if best is None:
             raise MissingData("missing_account_mark")
         return {
-            "time": best[0], "price": best[2],
+            "time": best[0],
+            "price": best[2],
             "stale": best[0] < timestamp,
         }
 
     def funding_value(self, market, timestamp, unit_q, cutoff):
-        if timestamp not in self.funding[market]:
+        cutoff = min(cutoff, self.cutoff)
+        lag = self.lag[market]
+
+        # An unavailable current reference is not yet an established gap.
+        if timestamp + lag > cutoff:
+            raise MissingData(
+                "funding_reference_pending:{}".format(timestamp)
+            )
+        if timestamp > cutoff or timestamp not in self.funding[market]:
             raise MissingData("missing_funding_row:{}".format(timestamp))
+
         selected = None
         for opening_time in self.hours[market]:
             if opening_time > timestamp:
                 break
-            if opening_time + self.lag[market] <= cutoff:
-                selected = opening_time
+            selected = opening_time
         if selected is None:
-            raise MissingData("missing_funding_reference:{}".format(timestamp))
-        reference = self.bars[market][selected][0]
+            raise MissingData(
+                "missing_funding_reference:{}".format(timestamp)
+            )
+
+        opening, closing = self.bars[market][selected]
+        reference = opening
+        reference_time = selected
+        reference_kind = "open"
+        if (selected < timestamp and selected + HOUR <= timestamp
+                and closing is not None
+                and selected + HOUR + lag <= cutoff):
+            reference = closing
+            reference_time = selected + HOUR
+            reference_kind = "close"
+
+        rate = self.funding[market][timestamp]
         return {
             "hour": timestamp,
-            "rate": self.funding[market][timestamp],
+            "rate": rate,
             "reference": reference,
-            "reference_time": selected,
+            "reference_time": reference_time,
+            "reference_kind": reference_kind,
             "reference_fallback": selected < timestamp,
-            "per_N": -unit_q * reference * self.funding[market][timestamp],
+            "per_N": -unit_q * reference * rate,
         }
 
 
-def _require_terms(leg):
+def _require_terms(leg, side):
     if leg["fee"] is None:
         raise MissingData("missing_frozen_fee")
-    if leg["cells"] is None:
-        raise MissingData("missing_frozen_cost_cells")
+    cells = _side_cells(leg["cells"], side)
+    if cells is None:
+        raise MissingData("missing_frozen_cost_cells:" + side)
+    return cells
 
 
 def _entry_fill(leg, notional, reference):
     if reference is None:
         return None
     result = dict(reference)
+
+    # Quantity is determined by the reference, not by the adverse fill.
+    unit_q = Fraction(leg["w"]) / reference["reference"]
+    result["unit_q"] = unit_q
     try:
-        _require_terms(leg)
-        candidates = []
-        for tier in TIERS:
-            cost = leg["cells"][tier]
-            price = reference["reference"] * (ONE + leg["w"] * cost)
-            unit_q = Fraction(leg["w"]) / price
-            reference_notional = abs(unit_q) * notional * reference["reference"]
-            actual_tier = "1000" if reference_notional <= 1000 else "10000"
-            if actual_tier == tier:
-                candidates.append((tier, cost, price, unit_q))
-        if not candidates:
-            raise MissingData("entry_cost_tier_has_no_fixed_point")
-        tier, cost, price, unit_q = candidates[0]
+        side = "buy" if unit_q > ZERO else "sell"
+        cells = _require_terms(leg, side)
+        reference_notional = abs(unit_q) * notional * reference["reference"]
+        tier = "1000" if reference_notional <= 1000 else "10000"
+        cost = cells[tier]
+        price = reference["reference"] * (ONE + leg["w"] * cost)
         result.update({
             "price": price,
-            "unit_q": unit_q,
             "tier": tier,
-            "fee_per_N": abs(unit_q * price) * leg["fee"],
+            "fee_per_N": abs(unit_q) * price * leg["fee"],
             "execution_cost_per_N":
                 abs(unit_q) * reference["reference"] * cost,
         })
@@ -476,24 +484,27 @@ def _exit_fill(leg, notional, entry, reference, action):
     if reference is None:
         return None
     result = dict(reference)
-    result["reason"] = action["reason"]
-    result["actionable_at"] = action["threshold"]
-    result["decision_time"] = action.get("decision_time")
-    result["decision_reason"] = action.get("decision_reason")
-    result["invalidating_bar_end"] = action.get("bar_end")
+    result.update({
+        "reason": action["reason"],
+        "actionable_at": action["threshold"],
+        "decision_time": action.get("decision_time"),
+        "decision_reason": action.get("decision_reason"),
+        "invalidating_bar_end": action.get("bar_end"),
+    })
     try:
-        _require_terms(leg)
-        if entry is None or "error" in entry:
+        if entry is None:
             raise MissingData("entry_quantity_unavailable")
         unit_q = entry["unit_q"]
+        side = "buy" if -unit_q > ZERO else "sell"
+        cells = _require_terms(leg, side)
         reference_notional = abs(unit_q) * notional * reference["reference"]
         tier = "1000" if reference_notional <= 1000 else "10000"
-        cost = leg["cells"][tier]
+        cost = cells[tier]
         price = reference["reference"] * (ONE - leg["w"] * cost)
         result.update({
             "price": price,
             "tier": tier,
-            "fee_per_N": abs(unit_q * price) * leg["fee"],
+            "fee_per_N": abs(unit_q) * price * leg["fee"],
             "execution_cost_per_N":
                 abs(unit_q) * reference["reference"] * cost,
         })
@@ -505,26 +516,31 @@ def _exit_fill(leg, notional, entry, reference, action):
 def _plan(thesis, decisions, data, now, managed):
     entries = [
         _entry_fill(
-            leg, thesis["N"],
+            leg,
+            thesis["N"],
             data.first_open(leg["market"], thesis["t_r"] + DELTA, now),
         )
         for leg in thesis["legs"]
     ]
     actions = [{
-        "threshold": thesis["T"], "priority": 2, "order": 0,
+        "threshold": thesis["T"],
+        "priority": 2,
+        "order": 0,
         "reason": "horizon",
     }]
     if managed:
         for decision in decisions:
             actions.append({
                 "threshold": decision["time"] + DELTA,
-                "priority": 1, "order": decision["order"],
+                "priority": 1,
+                "order": decision["order"],
                 "reason": "discretionary",
                 "decision_time": decision["time"],
                 "decision_reason": decision["reason"],
             })
-        if all(entry is not None and "error" not in entry
-               for entry in entries):
+
+        # Costs, fees and funding do not affect invalidation or its inputs.
+        if all(entry is not None for entry in entries):
             ends = None
             for leg in thesis["legs"]:
                 market = leg["market"]
@@ -532,9 +548,10 @@ def _plan(thesis, decisions, data, now, managed):
                     timestamp + HOUR
                     for timestamp, pair in data.bars[market].items()
                     if pair[1] is not None
-                    and timestamp + HOUR + data.lag[market] <= now
+                    and timestamp + HOUR + data.lag[market] <= data.cutoff
                 }
                 ends = available if ends is None else ends & available
+
             last_entry = max(entry["time"] for entry in entries)
             for boundary in sorted(ends or ()):
                 if boundary <= last_entry:
@@ -542,46 +559,99 @@ def _plan(thesis, decisions, data, now, managed):
                 gross = sum((
                     leg["w"] * (
                         data.bars[leg["market"]][boundary - HOUR][1]
-                        / entry["price"] - ONE
+                        / entry["reference"] - ONE
                     )
                     for leg, entry in zip(thesis["legs"], entries)
                 ), ZERO)
                 if gross <= -thesis["L"]:
                     actionable = max(
-                        [boundary + DELTA] +
-                        [boundary + data.lag[leg["market"]]
-                         for leg in thesis["legs"]]
+                        [boundary + DELTA]
+                        + [
+                            boundary + data.lag[leg["market"]]
+                            for leg in thesis["legs"]
+                        ]
                     )
                     actions.append({
                         "threshold": actionable,
-                        "priority": 0, "order": boundary,
+                        "priority": 0,
+                        "order": boundary,
                         "reason": "invalidation",
                         "bar_end": boundary,
                     })
                     break
+
+    # Priority breaks identical actionable timestamps, not merely exits
+    # that happen to round to the same hourly boundary.
     action = min(
         actions,
         key=lambda item: (
             item["threshold"], item["priority"], item["order"]
         ),
     )
+    effective = _boundary(action["threshold"])
+    earliest_entry = _boundary(thesis["t_r"] + DELTA)
     paths = []
+
     for leg, entry in zip(thesis["legs"], entries):
-        reference = data.first_open(leg["market"], action["threshold"], now)
-        exit_fill = _exit_fill(leg, thesis["N"], entry, reference, action)
-        suppressed = (
-            exit_fill is not None
-            and (entry is None or entry["time"] >= exit_fill["time"])
-        )
+        market = leg["market"]
+        suppressed = False
+        suppression_time = None
+
+        if managed and effective <= now:
+            if entry is not None:
+                suppressed = entry["time"] >= effective
+            else:
+                # With an earlier data cutoff, do not mistake an opening
+                # opportunity that has not reached its lag for a missing one.
+                prior_opportunities_reached = (
+                    earliest_entry >= effective
+                    or effective - HOUR + data.lag[market] <= data.cutoff
+                )
+                suppressed = prior_opportunities_reached
+            if suppressed:
+                suppression_time = effective
+
+        if managed and suppressed:
+            exit_fill = None
+        else:
+            reference = data.first_open(market, action["threshold"], now)
+            exit_fill = _exit_fill(
+                leg, thesis["N"], entry, reference, action
+            )
+            if not managed:
+                suppressed = (
+                    exit_fill is not None
+                    and (entry is None or entry["time"] >= exit_fill["time"])
+                )
+
         paths.append({
-            "leg": leg, "entry": entry, "exit": exit_fill,
+            "leg": leg,
+            "entry": entry,
+            "exit": exit_fill,
             "suppressed": suppressed,
+            "suppression_time": suppression_time,
         })
+
     released = None
-    if thesis["size"] > 0 and all(path["exit"] is not None for path in paths):
-        released = max(path["exit"]["available_at"] for path in paths)
+    if managed and thesis["size"] > ZERO:
+        completed = []
+        for path in paths:
+            if path["suppressed"]:
+                completed.append(path["suppression_time"])
+            elif path["entry"] is not None and path["exit"] is not None:
+                # Closing-reference availability, not funding or net-PnL
+                # completeness, determines this leg's reservation release.
+                completed.append(path["exit"]["available_at"])
+            else:
+                break
+        else:
+            released = max(completed)
+
     return {
-        "thesis": thesis, "paths": paths, "action": action,
+        "thesis": thesis,
+        "paths": paths,
+        "action": action,
+        "effective_at": effective,
         "released_at": released,
     }
 
@@ -591,22 +661,23 @@ def _shown_fill(fill, quantity=None):
         return None
     result = dict(fill)
     if quantity is not None:
+        # Preserve the original output convention: held signed quantity.
         result["quantity"] = quantity
     return result
 
 
 def _view(plan, data, now, managed):
     thesis = plan["thesis"]
-    if managed and thesis["size"] == 0:
+    fallbacks = sorted({
+        leg["market"] for leg in thesis["legs"] if leg["cost_fallback"]
+    })
+    if managed and thesis["size"] == ZERO:
         return {
             "status": "not_funded",
             "legs": [],
             "return": None,
             "reasons": ["size_zero_no_actual_managed_position"],
-            "cost_fallback_markets": sorted({
-                leg["market"] for leg in thesis["legs"]
-                if leg["cost_fallback"]
-            }),
+            "cost_fallback_markets": fallbacks,
         }
 
     reasons = []
@@ -615,14 +686,12 @@ def _view(plan, data, now, managed):
     funding = ZERO
     fees = ZERO
     execution_costs = ZERO
+
     for path in plan["paths"]:
         leg = path["leg"]
         market = leg["market"]
         entry, exit_fill = path["entry"], path["exit"]
-        unit_q = (
-            entry["unit_q"]
-            if entry is not None and "error" not in entry else None
-        )
+        unit_q = None if entry is None else entry["unit_q"]
         quantity = None if unit_q is None else unit_q * thesis["N"]
         public = {
             "market": market,
@@ -632,27 +701,36 @@ def _view(plan, data, now, managed):
             "funding": [],
             "cost_fallback": leg["cost_fallback"],
         }
+        shown.append(public)
+
         if managed and path["suppressed"]:
             public["scheduled_entry"] = public["entry"]
             public["closing_opportunity"] = public["exit"]
             public["entry"] = None
             public["exit"] = None
             public["pending_entry_suppressed"] = True
-        shown.append(public)
+            public["suppressed_at"] = path["suppression_time"]
+            # No price, fee, or funding is needed for a leg never opened.
+            continue
 
         if entry is None:
             label = (
                 "entry_pending"
-                if now < thesis["t_r"] + DELTA + data.lag[market]
+                if data.cutoff < (
+                    _boundary(thesis["t_r"] + DELTA) + data.lag[market]
+                )
                 else "missing_entry_open"
             )
             reasons.append("{}:{}".format(market, label))
         elif "error" in entry:
             reasons.append("{}:{}".format(market, entry["error"]))
+
         if exit_fill is None:
             label = (
                 "exit_pending"
-                if now < plan["action"]["threshold"] + data.lag[market]
+                if data.cutoff < (
+                    _boundary(plan["action"]["threshold"]) + data.lag[market]
+                )
                 else "missing_exit_open"
             )
             reasons.append("{}:{}".format(market, label))
@@ -672,8 +750,9 @@ def _view(plan, data, now, managed):
             entry["execution_cost_per_N"]
             + exit_fill["execution_cost_per_N"]
         )
-        for hour in range(entry["time"] + HOUR,
-                          exit_fill["time"] + HOUR, HOUR):
+        for hour in range(
+            entry["time"] + HOUR, exit_fill["time"] + HOUR, HOUR
+        ):
             try:
                 item = data.funding_value(market, hour, unit_q, now)
                 public["funding"].append(item)
@@ -690,13 +769,10 @@ def _view(plan, data, now, managed):
         "price_pnl_per_N": price_pnl if net is not None else None,
         "funding_per_N": funding if net is not None else None,
         "fees_per_N": fees if net is not None else None,
-        # Informational only: already included through adverse fill prices.
+        # Informational: already included through adverse fill prices.
         "execution_costs_per_N":
             execution_costs if net is not None else None,
-        "cost_fallback_markets": sorted({
-            leg["market"] for leg in thesis["legs"]
-            if leg["cost_fallback"]
-        }),
+        "cost_fallback_markets": fallbacks,
     }
 
 
@@ -718,19 +794,25 @@ def _events(plans, data, now):
     def add(timestamp, available, phase, order, ident, market,
             realized=ZERO, funding=ZERO, fees=ZERO, costs=ZERO, error=None):
         events.append({
-            "time": timestamp, "available_at": available,
-            "phase": phase, "order": order,
-            "id": ident, "market": market,
-            "realized": realized, "funding": funding,
-            "fees": fees, "execution_costs": costs,
+            "time": timestamp,
+            "available_at": available,
+            "phase": phase,
+            "order": order,
+            "id": ident,
+            "market": market,
+            "realized": realized,
+            "funding": funding,
+            "fees": fees,
+            "execution_costs": costs,
             "error": error,
         })
 
     for commit_order, plan in enumerate(plans):
         thesis = plan["thesis"]
-        if thesis["size"] == 0:
+        if thesis["size"] == ZERO:
             continue
         size = thesis["size"]
+
         for leg_order, path in enumerate(plan["paths"]):
             leg = path["leg"]
             market = leg["market"]
@@ -738,24 +820,28 @@ def _events(plans, data, now):
             order = (commit_order, leg_order)
             if entry is None or path["suppressed"]:
                 continue
+
             if "error" in entry:
                 add(
                     entry["time"], entry["available_at"], 2, order,
                     thesis["id"], market, error=entry["error"],
                 )
-                continue
-            add(
-                entry["time"], entry["available_at"], 2, order,
-                thesis["id"], market,
-                fees=size * entry["fee_per_N"],
-                costs=size * entry["execution_cost_per_N"],
-            )
+            else:
+                add(
+                    entry["time"], entry["available_at"], 2, order,
+                    thesis["id"], market,
+                    fees=size * entry["fee_per_N"],
+                    costs=size * entry["execution_cost_per_N"],
+                )
+
             if exit_fill is not None:
-                if "error" in exit_fill:
+                if "error" in entry or "error" in exit_fill:
                     add(
                         exit_fill["time"], exit_fill["available_at"], 1,
                         order, thesis["id"], market,
-                        error=exit_fill["error"],
+                        error=exit_fill.get(
+                            "error", "entry_net_accounting_unavailable"
+                        ),
                     )
                 else:
                     add(
@@ -767,17 +853,19 @@ def _events(plans, data, now):
                         fees=size * exit_fill["fee_per_N"],
                         costs=size * exit_fill["execution_cost_per_N"],
                     )
+
             end = min(
                 now - now % HOUR,
                 exit_fill["time"] if exit_fill is not None else now,
             )
+            # Entry hour is excluded; exit hour is included.
             for hour in range(entry["time"] + HOUR, end + 1, HOUR):
                 available = hour + data.lag[market]
-                if available > now:
+                if available > data.cutoff:
                     continue
                 try:
                     item = data.funding_value(
-                        market, hour, entry["unit_q"], now
+                        market, hour, entry["unit_q"], data.cutoff
                     )
                     add(
                         hour, available, 0, order, thesis["id"], market,
@@ -788,6 +876,7 @@ def _events(plans, data, now):
                         hour, available, 0, order, thesis["id"], market,
                         error=str(exc),
                     )
+
     return sorted(
         events,
         key=lambda event: (
@@ -800,9 +889,13 @@ def _required_lag(plans, data, hour):
     result = 0
     for plan in plans:
         thesis = plan["thesis"]
-        if thesis["size"] == 0 or thesis["t_r"] + DELTA > hour:
+        if thesis["size"] == ZERO or thesis["t_r"] + DELTA > hour:
             continue
         for path in plan["paths"]:
+            if (path["suppressed"]
+                    and path["suppression_time"] is not None
+                    and path["suppression_time"] <= hour):
+                continue
             exit_fill = path["exit"]
             if exit_fill is None or hour <= exit_fill["time"]:
                 result = max(result, data.lag[path["leg"]["market"]])
@@ -812,7 +905,6 @@ def _required_lag(plans, data, hour):
 def _account(initial, plans, data, now):
     events = _events(plans, data, now)
     realized = funding = fees = execution_costs = ZERO
-    persistent_errors = []
     cursor = 0
     first = {
         "time": initial["time"],
@@ -831,32 +923,39 @@ def _account(initial, plans, data, now):
     hourly = [first]
     last_good = first
 
-    for hour in range(initial["time"] + HOUR,
-                      now - now % HOUR + 1, HOUR):
+    for hour in range(
+        initial["time"] + HOUR, now - now % HOUR + 1, HOUR
+    ):
         available = hour + _required_lag(plans, data, hour)
-        if available > now:
-            continue
+        if available > data.cutoff:
+            # Never skip an unreached hour and reconcile a later one.
+            break
+
+        errors = []
         while cursor < len(events) and events[cursor]["time"] <= hour:
             event = events[cursor]
             if event["available_at"] > available:
-                raise AssertionError("Reconciliation preceded event availability")
+                raise AssertionError(
+                    "Reconciliation preceded event availability"
+                )
             cursor += 1
             realized += event["realized"]
             funding += event["funding"]
             fees += event["fees"]
             execution_costs += event["execution_costs"]
             if event["error"] is not None:
-                persistent_errors.append({
-                    "id": event["id"], "market": event["market"],
-                    "time": event["time"], "reason": event["error"],
+                errors.append({
+                    "id": event["id"],
+                    "market": event["market"],
+                    "time": event["time"],
+                    "reason": event["error"],
                 })
 
         unrealized = ZERO
-        errors = list(persistent_errors)
         stale = []
         for plan in plans:
             thesis = plan["thesis"]
-            if thesis["size"] == 0:
+            if thesis["size"] == ZERO:
                 continue
             for path in plan["paths"]:
                 entry, exit_fill = path["entry"], path["exit"]
@@ -866,7 +965,7 @@ def _account(initial, plans, data, now):
                             and exit_fill["time"] <= hour)):
                     continue
                 if "error" in entry:
-                    continue  # Its persistent error already prevents reconciliation.
+                    continue
                 market = path["leg"]["market"]
                 try:
                     mark = data.mark(market, hour, available)
@@ -876,13 +975,16 @@ def _account(initial, plans, data, now):
                     )
                     if mark["stale"]:
                         stale.append({
-                            "id": thesis["id"], "market": market,
+                            "id": thesis["id"],
+                            "market": market,
                             "reference_time": mark["time"],
                         })
                 except MissingData as exc:
                     errors.append({
-                        "id": thesis["id"], "market": market,
-                        "time": hour, "reason": str(exc),
+                        "id": thesis["id"],
+                        "market": market,
+                        "time": hour,
+                        "reason": str(exc),
                     })
 
         cash = initial["cash"] + realized + funding - fees
@@ -902,26 +1004,31 @@ def _account(initial, plans, data, now):
             "errors": errors,
         }
         hourly.append(snapshot)
-        if equity is not None:
-            # Exact accounting identity, stronger than a dollar tolerance.
-            assert equity == (
-                initial["cash"] + realized + unrealized + funding - fees
-            )
-            last_good = snapshot
+        if errors:
+            # A missing funding row freezes all subsequent reconciliation
+            # until a later supplied snapshot actually contains that row.
+            break
+
+        assert equity == (
+            initial["cash"] + realized + unrealized + funding - fees
+        )
+        last_good = snapshot
 
     latest = hourly[-1]
     current_hour = now - now % HOUR
-    if latest["time"] != current_hour:
+    if latest["equity"] is None:
+        equity = None
+        reason = "reconciliation_blocked_by_missing_required_data"
+    elif latest["time"] != current_hour:
         equity = None
         reason = "current_hour_awaiting_reference_availability"
-    elif latest["equity"] is None:
-        equity = None
-        reason = "current_hour_missing_required_data"
     else:
         equity = latest["equity"]
         reason = None
+
     return {
         "now": now,
+        "cutoff": data.cutoff,
         "equity": equity,
         "equity_reason": reason,
         "equity_time": latest["time"] if equity is not None else None,
@@ -932,20 +1039,25 @@ def _account(initial, plans, data, now):
 
 
 def replay(initial, theses, exits, data, now):
-    """Replay frozen accepted registrations without recomputing their sizing."""
+    """Replay frozen accepted registrations without recomputing their sizes."""
     initial = _initial(initial)
     now = _integer(now, "now")
     if now < initial["time"]:
         raise ValueError("now precedes initial account")
+    cutoff = _integer(data.get("cutoff", now), "data.cutoff")
+    if not initial["time"] <= cutoff <= now:
+        raise ValueError("cutoff must lie between initial.time and now")
+
     all_theses = _registrations(theses, initial["time"])
     decisions = _decisions(exits, all_theses, now)
     active = [thesis for thesis in all_theses if thesis["t_r"] <= now]
     markets = {
         leg["market"] for thesis in active for leg in thesis["legs"]
     }
-    prices = _Data(data, markets)
+    prices = _Data(data, markets, cutoff)
     plans = []
     results = []
+
     for thesis in active:
         managed_plan = _plan(
             thesis, decisions.get(thesis["id"], []), prices, now, True
@@ -965,12 +1077,13 @@ def replay(initial, theses, exits, data, now):
             "N": thesis["N"],
             "size": thesis["size"],
             "b": thesis["b"],
-            "funded": thesis["size"] > 0,
+            "funded": thesis["size"] > ZERO,
             "reservation_released_at": managed_plan["released_at"],
             "cost_fallback_markets": registered["cost_fallback_markets"],
             "managed": managed,
             "as_registered": registered,
         })
+
     return {
         "theses": results,
         "account": _account(initial, plans, prices, now),
@@ -987,16 +1100,20 @@ def _freeze_terms(data):
             "cells": _cells(terms.get("cells")),
         }
 
-    fallback = None
-    if universe and all(
-        market in normalized and normalized[market]["cells"] is not None
-        for market in universe
-    ):
-        fallback = {
-            tier: max(normalized[market]["cells"][tier]
-                      for market in universe)
-            for tier in TIERS
-        }
+    fallback = {}
+    for side in SIDES:
+        tables = [
+            _side_cells(normalized.get(market, {}).get("cells"), side)
+            for market in universe
+        ]
+        fallback[side] = (
+            {
+                tier: max(table[tier] for table in tables)
+                for tier in TIERS
+            }
+            if tables and all(table is not None for table in tables)
+            else None
+        )
 
     markets = (
         set(supplied)
@@ -1006,11 +1123,27 @@ def _freeze_terms(data):
     frozen = {}
     for market in sorted(markets):
         terms = normalized.get(market, {"fee": None, "cells": None})
-        uses_fallback = terms["cells"] is None
-        cells = fallback if uses_fallback else terms["cells"]
+        directional = {}
+        uses_fallback = False
+        for side in SIDES:
+            table = _side_cells(terms["cells"], side)
+            if table is None:
+                uses_fallback = True
+                table = fallback[side]
+            directional[side] = None if table is None else dict(table)
+
+        if not uses_fallback:
+            cells = _copy_cells(terms["cells"])
+        elif all(directional[side] is None for side in SIDES):
+            cells = None
+        elif directional["buy"] == directional["sell"]:
+            cells = dict(directional["buy"])
+        else:
+            cells = directional
+
         frozen[market] = {
             "fee": terms["fee"],
-            "cells": None if cells is None else dict(cells),
+            "cells": cells,
             "cost_fallback": uses_fallback,
         }
     return frozen
@@ -1018,23 +1151,33 @@ def _freeze_terms(data):
 
 def admit(initial, theses, exits, data, t_r, L):
     """
-    Propose sizing against all preceding committed reservations.
+    Propose sizing against preceding committed reservations.
 
-    The host must hold its registration transaction/lock across this call and
-    appending the resulting registration. This function does not mutate input.
-    It cannot validate a new exposure because none is supplied to this API.
+    The caller serializes this operation with registration, provides the
+    actual data-read cutoff for a delayed read, and persists "record".
+    Exposure eligibility and its commit-time venue read remain host duties.
     """
     t_r = _integer(t_r, "t_r")
     loss = _bounded(L, Fraction(1, 100), Fraction(1, 2), "L")
     if any(_integer(thesis["t_r"], "t_r") > t_r for thesis in theses):
         raise ValueError("admit received a later registration")
+
     report = replay(initial, theses, exits, data, t_r)
     account = report["account"]
     reconciled = account["latest_reconciled"]
     equity = reconciled["equity"]
     reserved = account["reserved_risk"]
+    initial_account = _initial(initial)
+
     if equity <= ZERO:
-        budget = notional = size = reservation = ZERO
+        if initial_account["cash"] <= ZERO:
+            raise ValueError(
+                "Nonpositive initial equity has no specified "
+                "positive hypothetical notional"
+            )
+        budget = ZERO
+        notional = Fraction(1, 100) * initial_account["cash"] / loss
+        size = reservation = ZERO
         admitted = False
         reason = "nonpositive_reconciled_equity"
         cap = Fraction(5, 100) * equity
@@ -1046,8 +1189,46 @@ def admit(initial, theses, exits, data, t_r, L):
         size = notional if admitted else ZERO
         reservation = budget if admitted else ZERO
         reason = "admitted" if admitted else "concurrent_risk_cap"
+
+    open_reservations = [
+        {"id": thesis["id"], "b": thesis["b"]}
+        for thesis in report["theses"]
+        if thesis["b"] > ZERO
+        and (
+            thesis["reservation_released_at"] is None
+            or t_r < thesis["reservation_released_at"]
+        )
+    ]
+    assert sum((item["b"] for item in open_reservations), ZERO) == reserved
+
+    reconciled_hour = (
+        None
+        if reconciled["time"] == initial_account["time"]
+        else reconciled["time"]
+    )
+    record = {
+        "t_r": t_r,
+        "cutoff": account["cutoff"],
+        "L": _rational_text(loss),
+        "E_r": _rational_text(equity),
+        "budget": _rational_text(budget),
+        "N": _rational_text(notional),
+        "size": _rational_text(size),
+        "b": _rational_text(reservation),
+        "reserved_before": _rational_text(reserved),
+        "cap": _rational_text(cap),
+        "reconciled_hour": reconciled_hour,
+        "equity_available_at": reconciled["available_at"],
+        "open_reservations": [
+            {"id": item["id"], "b": _rational_text(item["b"])}
+            for item in open_reservations
+        ],
+        "admitted": admitted,
+        "reason": reason,
+    }
     return {
         "t_r": t_r,
+        "cutoff": account["cutoff"],
         "L": loss,
         "E_r": equity,
         "budget": budget,
@@ -1057,8 +1238,11 @@ def admit(initial, theses, exits, data, t_r, L):
         "admitted": admitted,
         "reason": reason,
         "reserved_before": reserved,
+        "open_reservations": open_reservations,
         "cap": cap,
         "equity_time": reconciled["time"],
         "equity_available_at": reconciled["available_at"],
+        "reconciled_hour": reconciled_hour,
         "terms": _freeze_terms(data),
+        "record": record,
     }

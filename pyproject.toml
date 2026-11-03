@@ -2,5 +2,6 @@
 pythonpath = ["."]
 testpaths = ["ingest", "gate", "kernel/tests", "criteria", "thesis", "reference", "sandbox", "ops"]
 addopts = "-n auto"
+markers = ["slow: tests taking over 20 seconds, including setup; run by default"]
 timeout = 600
 timeout_method = "thread"

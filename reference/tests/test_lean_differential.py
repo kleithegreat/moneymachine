@@ -20,6 +20,7 @@ def built():
     differential.build()
 
 
+@pytest.mark.slow
 def test_verdicts_agree(tmp_path):
     texts = [c.read_text().split("\n", 1)[1] for d in ("adversarial", "admitted") for c in sorted((REPO / "kernel/tests" / d).glob("*.case"))]
     rng = random.Random(5)

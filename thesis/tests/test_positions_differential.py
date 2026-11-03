@@ -1,8 +1,8 @@
 """thesis/positions.py against GPT's independent implementation from the stage 10 criteria alone (gpt_positions.py).
 
-GPT's file stays as GPT wrote it. Two comparisons are kept apart: the raw one, against that file, whose disagreements are
-what the readings below settle; and the approved one, with `READINGS` (audit/stage10/readings.md) applied to its
-source here, where everything must agree exactly: identifiers, times, reasons, outcomes, sizing, reservations, every
+GPT's file stays as GPT wrote it; since 2026-11-03 it carries the criteria's readings itself. Two comparisons are kept
+apart: the raw one, against that file, whose disagreements are what the reading below settles; and the approved one, with
+`READINGS` applied to its source here, where everything must agree exactly: identifiers, times, reasons, outcomes, sizing, reservations, every
 fill and the hourly equity, as exact rationals. Each implementation sizes its own theses, so a difference propagates.
 Scenario classes turn on what could make the two disagree, fixed cases sit on each boundary, and `production` reads the
 prices through Market and Track.data rather than the synthetic as-of view.
@@ -30,28 +30,9 @@ LAG = {"A": DELTA, "B": DELTA, "xyz:C": WINDOW}
 SETS = 150
 PRODUCTION_SETS = 20
 READINGS = {
-    # Reading 1: the quantity and R_gross's P_e are the reference open, and the cost is only in the fill.
-    "the quantity comes from the open": [("""unit_q = Fraction(leg["w"]) / price""", """unit_q = Fraction(leg["w"]) / reference["reference"]""")],
-    "R_gross's entry price is the open": [("""/ entry["price"] - ONE""", """/ entry["reference"] - ONE""")],
-    # Reading 2: with the hour's core bar missing, the latest earlier bar's close, else its open.
-    "a funding mark after a missing bar is the last close": [("""        reference = self.bars[market][selected][0]
-""", """        opening, closing = self.bars[market][selected]
-        reference = closing if closing is not None and selected + HOUR <= timestamp else opening
-""")],
-    # Reading 3: a leg with no bar by its exit is suppressed at that boundary and holds nothing up.
-    "a leg that can no longer enter holds no reservation": [("""    if thesis["size"] > 0 and all(path["exit"] is not None for path in paths):
-        released = max(path["exit"]["available_at"] for path in paths)
-""", """    if thesis["size"] > 0 and all(path["exit"] is not None or (path["entry"] is None and action["threshold"] <= now) for path in paths):
-        released = max(path["exit"]["available_at"] if path["exit"] else -(-action["threshold"] // HOUR) * HOUR for path in paths)
-""")],
-    # SCORING.md's cost cells are per side, which GPT's data shape did not carry.
-    "an exit fills at its own side's cell": [("""                "cells": _cells(raw["cells"]),
-""", """                "cells": _cells(raw["cells"]),
-                "exit_cells": _cells(raw["exit_cells"]),
-"""), ("""        cost = leg["cells"][tier]
-        price = reference["reference"] * (ONE - leg["w"] * cost)
-""", """        cost = leg["exit_cells"][tier]
-        price = reference["reference"] * (ONE - leg["w"] * cost)
+    # GPT's docstring leaves this open: a position no leg of which entered has no return to report, zero or otherwise.
+    "a wholly suppressed position has no managed return": [("""    net = None if reasons else price_pnl + funding - fees
+""", """    net = None if reasons or all(path["suppressed"] for path in plan["paths"]) else price_pnl + funding - fees
 """)],
 }
 
@@ -162,7 +143,7 @@ class Scenario:
             return {k: Fraction(v, 10_000) for k, v in self.cells[m][side].items()}
         return {"id": r["id"], "t_r": r["t_r"], "T": r["T"], "L": r["L"], "p": r["p"], "N": sized["N"], "size": sized["size"],
                 "b": sized["b"], "legs": [{"market": m, "w": w, "fee": self.fee, "cost_fallback": False,
-                                           "cells": rates(m, "buy" if w > 0 else "sell"), "exit_cells": rates(m, "sell" if w > 0 else "buy")}
+                                           "cells": {"buy": rates(m, "buy"), "sell": rates(m, "sell")}}
                                           for m, w in r["legs"]]}
 
     def ours_exits(self, now):
@@ -172,11 +153,11 @@ class Scenario:
         return [{**e, "reason": "x"} for e in self.exits]
 
 
-def compare(s, gpt=approved, seen=None, data=None, code=positions):
+def compare(s, gpt=approved, seen=None, data=None, code=positions, partly=False):
     """Every disagreement of the two implementations on scenario `s`: sizing at each registration, reservations and sizing
     equity at the boundaries of each release, then each thesis's fills, reason, outcome and returns, and the hourly equity,
     once every price is known. `seen` collects the cases reached; `data(now)` replaces the synthetic as-of prices; `code`
-    replaces positions.py."""
+    replaces positions.py; `partly` reports the recorded difference on a partly entered spread's managed return."""
     seen = set() if seen is None else seen
     data = data or s.ours_data
     diffs, ours, theirs = [], [], []
@@ -224,7 +205,7 @@ def compare(s, gpt=approved, seen=None, data=None, code=positions):
         seen |= {"spread" for g in man["legs"][1:]}
         seen |= {"missing funding" for r in man["reasons"] if "missing_funding" in r}
         managed = p["pnl"] / p["N"] if mine["managed_return"] is not None else None
-        if managed != man["return"]:
+        if managed != man["return"] and (partly or not (p["complete"] and not p["entry"] and any(l["ref"] is not None for l in p["legs"]))):
             diffs.append(("managed", i, mine["managed_return"], man["return"] and float(man["return"]), man["reasons"]))
         for l, g in zip(p["legs"], man["legs"]):
             e, x = g["entry"], g["exit"]
@@ -266,6 +247,7 @@ CLASSES = {
 }
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("name", CLASSES)
 def test_the_two_implementations_agree_as_read(name):
     seen = set()
@@ -367,7 +349,9 @@ def production_data(s, root):
     return lambda now: runner.Track.data(track, s.markets, now * 1000)
 
 
-@pytest.mark.parametrize("name", CLASSES)
+@pytest.mark.parametrize("name", [
+    pytest.param(name, marks=pytest.mark.slow) if name in {"plain", "outages"} else name for name in CLASSES
+])
 def test_the_production_adapter_gives_the_same_prices_and_the_same_agreement(name):
     for seed in range(PRODUCTION_SETS):
         s = Scenario(seed, **CLASSES[name])
@@ -381,15 +365,10 @@ def test_the_production_adapter_gives_the_same_prices_and_the_same_agreement(nam
 
 
 def raw_disagreements(name, sets=SETS):
-    """{kind of difference: count} of positions.py against GPT's file untouched, on one class. Its entry tier can have no
-    fixed point (its docstring's choice 5), which leaves a fill to compare with none."""
+    """{kind of difference: count} of positions.py against GPT's file untouched, on one class."""
     raw, kinds = with_readings(()), {}
     for seed in range(sets):
-        try:
-            diffs = compare(Scenario(seed, **CLASSES[name]), gpt=raw)
-        except KeyError:
-            diffs = [("no fixed point",)]
-        for d in diffs:
+        for d in compare(Scenario(seed, **CLASSES[name]), gpt=raw, partly=True):
             kinds[d[0]] = kinds.get(d[0], 0) + 1
     return name, kinds
 
@@ -415,14 +394,24 @@ def mutant_catches(name, sets=PRODUCTION_SETS, first=False):
     return name, found
 
 
-@pytest.mark.parametrize("name", MUTANTS)
+@pytest.mark.parametrize("name", [
+    pytest.param(name, marks=pytest.mark.slow) if name in {
+        "a cost cell ignores the side", "entry needs no delay", "a discretionary exit acts at its request",
+        "an outcome ignores missing funding", "an hour reconciles before its reference", "an hour reconciles without its funding",
+    } else name for name in MUTANTS
+])
 def test_every_mutant_is_caught(name):
     assert mutant_catches(name, first=True)[1]
 
 
 def test_the_raw_comparison_stays_a_real_disagreement():
     """GPT's own file disagrees with the code: raw agreement would mean the readings had become obsolete."""
-    assert raw_disagreements("costs", 5)[1]
+    assert raw_disagreements("gaps", 15)[1]
+
+
+@pytest.mark.xfail(strict=True, reason="positions.py gives a spread with one leg entered no managed return, though the equity carries its P&L: audit/decisions.md, 2026-11-03; as_managed_mean only, fixed at the next refreeze")
+def test_a_partly_entered_spread_has_a_managed_return():
+    assert compare(BOUNDARIES["a spread whose second leg never enters"], partly=True) == []
 
 
 if __name__ == "__main__":
