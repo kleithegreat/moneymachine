@@ -1,4 +1,4 @@
-<!-- GPT (openai/gpt-6.1-sol#high), hunt of the sandbox, daemon as a leak, deploy and mirror tooling; started 2026-11-03 03:23 UTC (2026-11-02 22:23 EST), finished by 03:31 UTC. Static review of e756cef. -->
+<!-- GPT (openai/gpt-6.1-sol#high), hunt of the sandbox, daemon as a leak, deploy and mirror tooling; started 2026-11-03 03:23 UTC (2026-11-02 22:23 EST), finished by 03:31 UTC (2026-11-02 22:31 EST). Static review of e756cef. -->
 # Findings
 
 Static review only: no edits, test execution, or data access. These are reachable failure paths, not claims that production encountered them. Ranked by consequence; findings already reported in the three November 2 hunts are excluded.
