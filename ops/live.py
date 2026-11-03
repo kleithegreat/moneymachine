@@ -9,7 +9,6 @@ seeding of their volumes from this PC; the gates; and the mirror steps that run 
 In pods: `mirror`, `verify`, `seed-run <volume> <stage>`, `gate-run <targets>`.
 """
 
-import fcntl
 import hashlib
 import json
 import os
@@ -28,6 +27,7 @@ import jobs  # noqa: E402
 REPO = jobs.REPO
 NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk7", "/app/repo"
 MIRROR = Path("/srv/moneymachine/mirror")
+MIRROR_VERIFY_WAIT = 2 * 10 * 60  # next ten-minute run plus ten minutes to finish copying
 VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data/datalayer", "thesis": "data/thesis",
            "agent": "data/agent"}
 LEDGERS = ("thesis", "agent")
@@ -192,6 +192,7 @@ def seed(digest, volume, *pairs):
     print(log)
     if not ok:
         raise SystemExit(f"seeding {volume} failed")
+    shutil.rmtree(stage)
 
 
 def seed_run(volume, stage):
@@ -226,90 +227,94 @@ def mirror(app=APP, out="/mirror"):
     - every copy's bytes are compared with the source's over the same length;
     - SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
     - other files, but a writer's transient `*.tmp`, are copied whole when their size or mtime changes.
-    MANIFEST.json atomically publishes a generation; flat paths are conveniences, not verification inputs."""
+    MANIFEST.json (size, mtime and sha256 of each file, the volume's usage) is written last."""
     for vol, path in VOLUMES.items():
         src, dst = Path(app) / path, Path(out) / vol
         if not src.exists():
             continue
         dst.mkdir(parents=True, exist_ok=True)
-        with (dst / ".mirror.lock").open("ab") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            mirror_volume(vol, src, dst)
-
-
-def mirror_volume(vol, src, dst):
-    record = json.loads((dst / "MANIFEST.json").read_text()) if (dst / "MANIFEST.json").exists() else {"files": {}}
-    old, previous = record["files"], dst / record.get("generation", ".")
-    (dst / ".generations").mkdir(exist_ok=True)
-    generation = Path(tempfile.mkdtemp(dir=dst / ".generations"))
-    new = {}
-    days = {p: p.stat() for p in src.rglob("*.jsonl") if p.is_file()}
-    files = set(days) | {p for p in src.rglob("*") if p.is_file() and p.suffix not in (".jsonl", ".tmp")
-                        and p.name != ".writer.lock" and "-wal" not in p.name and not p.name.endswith("-shm")}
-    for f in sorted(files):
-        rel, st = str(f.relative_to(src)), days[f] if f in days else f.stat()
-        prev, prior, target = old.get(rel), previous / rel, generation / rel
-        if prev and (not prior.exists() or prior.stat().st_size < prev["size"]):
-            raise SystemExit(f"{vol}/{rel}: the mirror lost bytes its manifest lists")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if f.suffix == ".sqlite":
-            with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(target) as b:
-                a.backup(b)
-                if b.execute("pragma integrity_check").fetchone()[0] != "ok":
-                    raise SystemExit(f"{vol}/{rel}: the snapshot fails SQLite's integrity check")
-        elif f.suffix == ".jsonl":
-            start = prev["size"] if prev else 0
-            if prev:
-                if st.st_size < start or sha256(f, start) != prev["sha256"]:
-                    raise SystemExit(f"{vol}/{rel} changed below its mirrored length {start}")
-                os.link(prior, target)
-            with open(f, "rb") as a, open(target, "r+b" if prev else "wb") as b:
-                a.seek(start), b.seek(start), b.truncate()
-                left = st.st_size - start
-                while left > 0 and (block := a.read(min(1 << 20, left))):
-                    b.write(block)
-                    left -= len(block)
-                if left:
-                    raise SystemExit(f"{vol}/{rel}: source shrank during the copy")
-        elif prev and st.st_size == prev["size"] and st.st_mtime_ns == prev["mtime"]:
-            os.link(prior, target)
-        else:
-            shutil.copy2(f, target)
-        size = target.stat().st_size
-        digest = sha256(target)
-        if f.suffix != ".sqlite" and sha256(f, size) != digest:
-            raise SystemExit(f"{vol}/{rel}: the copy differs from its source")
-        new[rel] = {"size": size, "mtime": st.st_mtime_ns, "sha256": digest}
-    if gone := [r for r in old if r.endswith(".jsonl") and r not in new]:
-        raise SystemExit(f"{vol}: day files vanished from the source: {gone}")
-    usage = shutil.disk_usage(src)
-    (dst / "MANIFEST.json.tmp").write_text(json.dumps({"taken": int(time.time() * 1000), "files": new,
-        "generation": str(generation.relative_to(dst)), "used": usage.used, "total": usage.total}))
-    (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
-    for rel in new:
-        target = dst / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        alias = target.with_name(target.name + ".tmp")
-        alias.unlink(missing_ok=True)
-        alias.symlink_to(os.path.relpath(generation / rel, target.parent))
-        alias.replace(target)
+        old = json.loads((dst / "MANIFEST.json").read_text())["files"] if (dst / "MANIFEST.json").exists() else {}
+        new = {}
+        days = {p: p.stat() for p in src.rglob("*.jsonl") if p.is_file()}
+        files = set(days) | {p for p in src.rglob("*") if p.is_file() and p.suffix not in (".jsonl", ".tmp")
+                            and p.name != ".writer.lock" and "-wal" not in p.name and not p.name.endswith("-shm")}
+        for f in sorted(files):
+            rel, st = str(f.relative_to(src)), days[f] if f in days else f.stat()
+            prev, target = old.get(rel), dst / rel
+            if prev and (not target.exists() or target.stat().st_size < prev["size"]):
+                raise SystemExit(f"{vol}/{rel}: the mirror lost bytes its manifest lists")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            tmp = target.with_name(target.name + ".tmp")
+            if f.suffix == ".sqlite":
+                with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(tmp) as b:
+                    a.backup(b)
+                    if b.execute("pragma integrity_check").fetchone()[0] != "ok":
+                        raise SystemExit(f"{vol}/{rel}: the snapshot fails SQLite's integrity check")
+                tmp.replace(target)
+                new[rel] = {"size": target.stat().st_size, "mtime": st.st_mtime_ns, "sha256": sha256(target)}
+                continue
+            if prev and f.suffix == ".jsonl" and (st.st_size < prev["size"] or sha256(f, prev["size"]) != prev["sha256"]):
+                raise SystemExit(f"{vol}/{rel} changed below its mirrored length {prev['size']}")
+            if prev and st.st_size == prev["size"] and st.st_mtime_ns == prev["mtime"]:
+                new[rel] = prev
+                continue
+            if f.suffix == ".jsonl":
+                start = prev["size"] if prev else 0
+                with open(f, "rb") as a, open(target if prev else tmp, "r+b" if prev else "wb") as b:
+                    a.seek(start), b.seek(start), b.truncate()
+                    left = st.st_size - start
+                    while left > 0 and (block := a.read(min(1 << 20, left))):
+                        b.write(block)
+                        left -= len(block)
+                    if left:
+                        raise SystemExit(f"{vol}/{rel}: source shrank during the copy")
+                if not prev:
+                    tmp.replace(target)
+            else:
+                shutil.copy2(f, tmp)
+                tmp.replace(target)
+            size = target.stat().st_size
+            if sha256(f, size) != (digest := sha256(target)):
+                raise SystemExit(f"{vol}/{rel}: the copy differs from its source")
+            new[rel] = {"size": size, "mtime": st.st_mtime_ns, "sha256": digest}
+        if gone := [r for r in old if r.endswith(".jsonl") and r not in new]:
+            raise SystemExit(f"{vol}: day files vanished from the source: {gone}")
+        usage = shutil.disk_usage(src)
+        (dst / "MANIFEST.json.tmp").write_text(json.dumps({"taken": int(time.time() * 1000), "files": new,
+                                                           "used": usage.used, "total": usage.total}))
+        (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
 
 
 def verify(app=APP, out="/mirror"):
-    """Daily: every mirrored file against its manifest's sha256, and every day file's source over the same length."""
+    """Daily: verify prefixes; confirm mirror mismatches against a later manifest within MIRROR_VERIFY_WAIT."""
     for vol, path in VOLUMES.items():
         dst = Path(out) / vol
         if not (dst / "MANIFEST.json").exists():
             raise SystemExit(f"mirror {vol}: missing manifest")
-        with (dst / ".mirror.lock").open("rb") as lock:
-            fcntl.flock(lock, fcntl.LOCK_SH)
-            record = json.loads((dst / "MANIFEST.json").read_text())
-            generation = dst / record.get("generation", ".")
+        record = json.loads((dst / "MANIFEST.json").read_text())
+        pending = set()
+        deadline = time.monotonic() + MIRROR_VERIFY_WAIT
+        while True:
+            mismatch = None
             for rel, e in record["files"].items():
-                if sha256(generation / rel, e["size"]) != e["sha256"]:
-                    raise SystemExit(f"mirror {vol}/{rel} differs from its manifest")
                 if rel.endswith(".jsonl") and sha256(Path(app) / path / rel, e["size"]) != e["sha256"]:
                     raise SystemExit(f"source {vol}/{rel} differs from its manifest")
+                try:
+                    matches = sha256(dst / rel, e["size"]) == e["sha256"]
+                except FileNotFoundError:
+                    matches = False
+                if not matches:
+                    mismatch = rel
+            if mismatch is None:
+                break
+            latest = json.loads((dst / "MANIFEST.json").read_text())
+            if latest != record:
+                pending.add(mismatch)
+                record = latest
+            elif mismatch in pending or (remaining := deadline - time.monotonic()) <= 0:
+                raise SystemExit(f"mirror {vol}/{mismatch} differs from its manifest")
+            else:
+                time.sleep(min(5, remaining))
     print("verified")
 
 

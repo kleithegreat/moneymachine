@@ -7,8 +7,7 @@ import hashlib
 import json
 import multiprocessing
 import sqlite3
-import subprocess
-import sys
+import time
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -72,6 +71,35 @@ def local_seed_runner(name, spec):
         return "", True
     finally:
         live.Path = path
+
+
+@pytest.mark.parametrize("success", [False, True])
+def test_seed_removes_only_its_own_successful_stage(tmp_path, monkeypatch, success):
+    monkeypatch.setattr(live, "APP", tmp_path / "app")
+    monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
+    leftover = live.MIRROR / "seed/earlier-stage"
+    leftover.mkdir(parents=True)
+    (leftover / "diagnostic").write_text("keep")
+    source = tmp_path / "source"
+    source.write_bytes(b"complete")
+    stages = []
+
+    def runner(name, spec):
+        stages.extend(p.parent for p in live.MIRROR.rglob("SHA256.json"))
+        assert len(stages) == 1
+        return local_seed_runner(name, spec) if success else ("diagnostic failure", False)
+
+    monkeypatch.setattr(live, "run_pod", runner)
+    if success:
+        live.seed("sha256:A", "agent", f"{source}:input")
+        assert (live.APP / "data/agent/input").read_bytes() == b"complete"
+        assert not stages[0].exists()
+    else:
+        with pytest.raises(SystemExit):
+            live.seed("sha256:A", "agent", f"{source}:input")
+        assert (stages[0] / "input").read_bytes() == b"complete"
+        assert json.loads((stages[0] / "SHA256.json").read_text())["input"] == live.sha256(source)
+    assert (leftover / "diagnostic").read_text() == "keep"
 
 
 def test_reseed_never_replaces_concurrently_appended_file(tmp_path, monkeypatch):
@@ -304,40 +332,174 @@ def changing_mirror(tmp_path, monkeypatch):
     return app, out
 
 
-def test_verify_during_publication_uses_its_own_generation(tmp_path, monkeypatch):
+@pytest.fixture
+def verify_clock(monkeypatch):
+    clock = SimpleNamespace(elapsed=0, sleeps=[], on_sleep=lambda: None)
+
+    def sleep(seconds):
+        assert 0 < seconds <= 5
+        clock.sleeps.append(seconds)
+        clock.elapsed += seconds
+        assert clock.elapsed <= live.MIRROR_VERIFY_WAIT
+        clock.on_sleep()
+
+    monkeypatch.setattr(live, "time", SimpleNamespace(
+        monotonic=lambda: clock.elapsed, sleep=sleep, time=time.time))
+    return clock
+
+
+def test_mirror_publishes_only_flat_files_and_manifest(tmp_path, monkeypatch):
     app, out = changing_mirror(tmp_path, monkeypatch)
-    write = Path.write_text
-    checks = []
-    def verify_before_publish(path, *a, **kw):
-        if path.name.startswith("MANIFEST.json"):
-            code = ("import sys, live; live.VOLUMES = {'thesis': 'data/thesis'}; "
-                    "print('started', flush=True); live.verify(sys.argv[1], sys.argv[2])")
-            check = subprocess.Popen([sys.executable, "-c", code, str(app), str(out)],
-                                     cwd=Path(live.__file__).parent, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            checks.append(check)
-            assert check.stdout.readline().strip() == "started"
-            try:
-                check.wait(timeout=0.2)
-            except subprocess.TimeoutExpired:
-                pass
-        return write(path, *a, **kw)
-    monkeypatch.setattr(Path, "write_text", verify_before_publish)
-    try:
+    live.mirror(app, out)
+    volume = out / "thesis"
+    assert {p.name for p in out.iterdir()} == {"thesis"}
+    assert not volume.is_symlink()
+    assert {p.name for p in volume.iterdir()} == {"ledger.sqlite", "other", "day.jsonl", "MANIFEST.json"}
+    assert all(p.is_file() and not p.is_symlink() for p in volume.iterdir())
+    manifest = json.loads((volume / "MANIFEST.json").read_text())
+    assert set(manifest) == {"taken", "files", "used", "total"}
+    assert set(manifest["files"]) == {"ledger.sqlite", "other", "day.jsonl"}
+    live.verify(app, out)
+
+
+@pytest.mark.parametrize("initial", [False, True])
+def test_killed_whole_file_copy_never_publishes_partial_target(tmp_path, monkeypatch, initial):
+    monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis"})
+    app, out = tmp_path / "app", tmp_path / "mirror"
+    source = app / "data/thesis/input"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"original")
+    target = out / "thesis/input"
+    if not initial:
         live.mirror(app, out)
-        assert checks
-        for check in checks:
-            stdout, stderr = check.communicate(timeout=10)
-            assert check.returncode == 0, stderr
+    source.write_bytes(b"complete replacement")
+    (source.parent / "unrelated.tmp").write_bytes(b"partial writer output")
+
+    def install(stop):
+        copy = live.shutil.copy2
+
+        def interrupted(src, dst, *args, **kwargs):
+            if Path(src) != source:
+                return copy(src, dst, *args, **kwargs)
+            assert Path(dst) != target and Path(dst).suffix == ".tmp"
+            with open(src, "rb") as reader, open(dst, "wb") as writer:
+                writer.write(reader.read(1))
+                writer.flush()
+                stop()
+
+        live.shutil.copy2 = interrupted
+
+    killed_at(lambda: live.mirror(app, out), install)
+    if initial:
+        assert not target.exists()
+    else:
+        assert target.read_bytes() == b"original"
+    (target.parent / "unrelated.tmp").write_bytes(b"leftover")
+    live.mirror(app, out)
+    assert target.read_bytes() == b"complete replacement"
+    assert set(json.loads((target.parent / "MANIFEST.json").read_text())["files"]) == {"input"}
+    live.verify(app, out)
+
+
+def test_killed_sqlite_backup_preserves_complete_snapshot(tmp_path, monkeypatch):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    source = app / "data/thesis/ledger.sqlite"
+    target = out / "thesis/ledger.sqlite"
+    before = target.read_bytes()
+    with sqlite3.connect(source) as db:
+        db.execute("create table body (payload)")
+        db.execute("insert into body values (zeroblob(65536))")
+
+    def install(stop):
+        connect = live.sqlite3.connect
+
+        class InterruptedConnection(sqlite3.Connection):
+            def backup(self, destination, *args, **kwargs):
+                path = Path(destination.execute("pragma database_list").fetchone()[2])
+                assert path != target and path.suffix == ".tmp"
+
+                def progress(status, remaining, total):
+                    assert remaining > 0
+                    stop()
+
+                return super().backup(destination, pages=1, progress=progress)
+
+        live.sqlite3.connect = lambda *a, **kw: connect(*a, **kw, factory=InterruptedConnection)
+
+    killed_at(lambda: live.mirror(app, out), install)
+    assert target.read_bytes() == before
+    with sqlite3.connect(target) as db:
+        assert db.execute("pragma integrity_check").fetchone() == ("ok",)
+        assert db.execute("select x from t").fetchall() == [(1,)]
+    live.mirror(app, out)
+    with sqlite3.connect(target) as db:
+        assert db.execute("pragma integrity_check").fetchone() == ("ok",)
+        assert db.execute("select x from t").fetchall() == [(1,), (2,)]
+    live.verify(app, out)
+
+
+def test_verify_overlaps_flat_file_publication(tmp_path, monkeypatch):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    manifest = out / "thesis/MANIFEST.json"
+    parent, child = multiprocessing.get_context("fork").Pipe()
+
+    def verifier():
+        read = Path.read_text
+        elapsed = [0]
+        first = [True]
+
+        def pause_after_old_manifest(path, *args, **kwargs):
+            text = read(path, *args, **kwargs)
+            if path == manifest and first[0]:
+                first[0] = False
+                child.send("read old manifest")
+                child.recv()
+            return text
+
+        def sleep(seconds):
+            child.send("waiting for publication")
+            child.recv()
+            elapsed[0] += seconds
+
+        Path.read_text = pause_after_old_manifest
+        live.time = SimpleNamespace(monotonic=lambda: elapsed[0], sleep=sleep, time=time.time)
+        live.verify(app, out)
+        child.send("verified")
+
+    process = multiprocessing.get_context("fork").Process(target=verifier)
+    process.start()
+    try:
+        assert parent.poll(10) and parent.recv() == "read old manifest"
+        write = Path.write_text
+        paused = []
+
+        def before_manifest(path, *args, **kwargs):
+            if path.name.startswith("MANIFEST.json") and not paused:
+                paused.append(True)
+                assert (out / "thesis/other").read_text() == "replacement"
+                with sqlite3.connect(out / "thesis/ledger.sqlite") as db:
+                    assert db.execute("select x from t").fetchall() == [(1,), (2,)]
+                parent.send("files replaced")
+                assert parent.poll(10) and parent.recv() == "waiting for publication"
+            return write(path, *args, **kwargs)
+
+        with monkeypatch.context() as patcher:
+            patcher.setattr(Path, "write_text", before_manifest)
+            live.mirror(app, out)
+        assert paused
+        parent.send("manifest published")
+        assert parent.poll(10) and parent.recv() == "verified"
+        process.join(10)
+        assert process.exitcode == 0
     finally:
-        for check in checks:
-            if check.poll() is None:
-                check.kill()
-                check.communicate()
+        if process.is_alive():
+            process.kill()
+            process.join()
     live.verify(app, out)
 
 
 @pytest.mark.parametrize("published", [False, True])
-def test_killed_mirror_preserves_last_published_generation(tmp_path, monkeypatch, published):
+def test_killed_manifest_publication_is_detected_and_recoverable(tmp_path, monkeypatch, verify_clock, published):
     app, out = changing_mirror(tmp_path, monkeypatch)
     before = (out / "thesis/MANIFEST.json").read_bytes()
     def install(stop):
@@ -356,25 +518,96 @@ def test_killed_mirror_preserves_last_published_generation(tmp_path, monkeypatch
         Path.replace = after_publication
     killed_at(lambda: live.mirror(app, out), install)
     assert ((out / "thesis/MANIFEST.json").read_bytes() != before) == published
-    live.verify(app, out)
+    if published:
+        live.verify(app, out)
+        assert verify_clock.sleeps == []
+    else:
+        with pytest.raises(SystemExit, match="ledger.sqlite|other"):
+            live.verify(app, out)
+        assert verify_clock.elapsed == live.MIRROR_VERIFY_WAIT
     live.mirror(app, out)
     live.verify(app, out)
 
 
-def test_verify_uses_published_generation_not_newer_flat_paths(tmp_path, monkeypatch):
+def test_verify_source_prefix_mismatch_fails_without_waiting(tmp_path, monkeypatch, verify_clock):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    (app / "data/thesis/day.jsonl").write_text("bad\nnew\n")
+    with pytest.raises(SystemExit, match="day.jsonl"):
+        live.verify(app, out)
+    assert verify_clock.sleeps == []
+
+
+def test_verify_waits_for_a_healthy_next_manifest(tmp_path, monkeypatch, verify_clock):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    (out / "thesis/other").write_text("replacement")
+    manifest = out / "thesis/MANIFEST.json"
+    before = manifest.read_bytes()
+    verify_clock.on_sleep = lambda: live.mirror(app, out)
+    live.verify(app, out)
+    assert manifest.read_bytes() != before
+    assert 0 < verify_clock.elapsed <= 5
+
+
+def test_verify_rereads_an_already_changed_manifest_without_waiting(tmp_path, monkeypatch, verify_clock):
     app, out = changing_mirror(tmp_path, monkeypatch)
     manifest = out / "thesis/MANIFEST.json"
-    earlier = manifest.read_bytes()
-    live.mirror(app, out)
-    manifest.write_bytes(earlier)
+    read = Path.read_text
+    captured = []
+
+    def publish_after_read(path, *args, **kwargs):
+        text = read(path, *args, **kwargs)
+        if path == manifest and not captured:
+            captured.append(text)
+            live.mirror(app, out)
+        return text
+
+    monkeypatch.setattr(Path, "read_text", publish_after_read)
     live.verify(app, out)
+    assert captured and manifest.read_text() != captured[0]
+    assert verify_clock.sleeps == []
+
+
+@pytest.mark.parametrize("name", ["other", "day.jsonl"])
+def test_verify_refuses_corruption_preserved_across_later_manifest(tmp_path, monkeypatch, verify_clock, name):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    live.mirror(app, out)
+    manifest = out / "thesis/MANIFEST.json"
+    before = manifest.read_bytes()
+    record = json.loads(before)["files"][name]
+    target = out / "thesis" / name
+    corruption = b"x" * target.stat().st_size
+    target.write_bytes(corruption)
+
+    def publish_unrelated_change():
+        (app / "data/thesis/unrelated").write_text("new file")
+        live.mirror(app, out)
+        assert manifest.read_bytes() != before
+        assert target.read_bytes() == corruption
+        assert json.loads(manifest.read_text())["files"][name] == record
+
+    verify_clock.on_sleep = publish_unrelated_change
+    with pytest.raises(SystemExit, match=name):
+        live.verify(app, out)
+    assert 0 < verify_clock.elapsed <= 5
+
+
+@pytest.mark.parametrize("damage", ["missing", "corrupt"])
+def test_verify_bounds_wait_without_a_new_manifest(tmp_path, monkeypatch, verify_clock, damage):
+    app, out = changing_mirror(tmp_path, monkeypatch)
+    target = out / "thesis/other"
+    if damage == "missing":
+        target.unlink()
+    else:
+        target.write_bytes(b"wrong")
+    with pytest.raises(SystemExit, match="other"):
+        live.verify(app, out)
+    assert verify_clock.elapsed == live.MIRROR_VERIFY_WAIT
 
 
 @pytest.mark.parametrize("damage", ["missing", "shorter"])
 def test_mirror_still_refuses_lost_published_bytes(tmp_path, monkeypatch, damage):
     app, out = changing_mirror(tmp_path, monkeypatch)
-    manifest = json.loads((out / "thesis/MANIFEST.json").read_text())
-    target = out / "thesis" / manifest["generation"] / "day.jsonl"
+    target = out / "thesis/day.jsonl"
     if damage == "missing":
         target.unlink()
     else:
@@ -409,6 +642,18 @@ def test_manifests_keep_the_boundaries():
     json.dumps([live.manifest(n, "sha256:0") for n in live.WORKLOADS])
 
 
+def test_mirror_verify_wait_fits_job_deadline_and_mounts_mirror_read_only():
+    assert live.MIRROR_VERIFY_WAIT == 2 * 10 * 60
+    job = live.manifest("mirror-verify", "sha256:0")["spec"]["jobTemplate"]["spec"]
+    pod = job["template"]["spec"]
+    assert pod["terminationGracePeriodSeconds"] == 600
+    for spec in (job, pod):
+        if "activeDeadlineSeconds" in spec:
+            assert spec["activeDeadlineSeconds"] >= live.MIRROR_VERIFY_WAIT
+    mirror = [mount for mount in pod["containers"][0]["volumeMounts"] if mount["name"] == "mirror"]
+    assert len(mirror) == 1 and mirror[0]["readOnly"] is True
+
+
 def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool():
     real, series = (live.manifest(n, "sha256:0")["spec"] for n in ("agent-real", "agent-series"))
     spec = real["template"]["spec"]
@@ -422,7 +667,7 @@ def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool():
     assert command[-3:] == ["agent-real", "data/agent/real", "1792613363942"]
 
 
-def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_path):
+def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_path, verify_clock):
     app, out = tmp_path / "app", tmp_path / "mirror"
     live_dir, thesis = app / "data/live", app / "data/thesis"
     for path in live.VOLUMES.values():
