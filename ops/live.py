@@ -32,9 +32,15 @@ VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data
            "agent": "data/agent"}
 LEDGERS = ("thesis", "agent")
 SECCOMP, APPARMOR = "profiles/moneymachine-sandbox.json", "moneymachine-sandbox"
-TOKEN = {"name": "CLAUDE_CODE_OAUTH_TOKEN", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": "CLAUDE_CODE_OAUTH_TOKEN"}}}
+CORNELL = "CLAUDE_CODE_OAUTH_TOKEN"  # claude-token's key of the Cornell account; PERSONAL and TAMU are the others
+
+
+def token(key):
+    return {"name": "CLAUDE_CODE_OAUTH_TOKEN", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}}}
+
+
 POOL = [{"name": f"CLAUDE_CODE_OAUTH_TOKEN_{account.upper()}", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}}}
-        for account, key in (("TAMU", "TAMU"), ("Cornell", "CLAUDE_CODE_OAUTH_TOKEN"))]
+        for account, key in (("TAMU", "TAMU"), ("Cornell", CORNELL))]
 PROC = "Unmasked"  # the runners' procMount, as the sandbox gate settled it
 
 # name: (kind, command, {volume: read-only}, runner, (cpu, memory request, memory limit), grace seconds, extra)
@@ -45,10 +51,10 @@ WORKLOADS = {
                 ("100m", "256Mi", "512Mi"), 300, {}),
     "datalayer": ("StatefulSet", ["datalayer-record", "data/datalayer"], {"datalayer": False}, False,
                   ("100m", "256Mi", "512Mi"), 300, {"keys": True}),
-    "thesis": ("StatefulSet", ["thesis-run"], {"thesis": False, "datalayer": True}, True, ("500m", "2Gi", "4Gi"), 15_000, {}),
-    "agent-series": ("Job", ["agent-null", "swarm"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
+    "thesis": ("StatefulSet", ["thesis-run"], {"thesis": False, "datalayer": True}, "PERSONAL", ("500m", "2Gi", "4Gi"), 15_000, {}),
+    "agent-series": ("Job", ["agent-null", "swarm"], {"agent": False}, CORNELL, ("1", "3Gi", "6Gi"), 9_000,
                      {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]}),
-    "agent-real": ("Job", ["agent-real", "data/agent/real", "1792613363942"], {"agent": False}, True, ("1", "3Gi", "6Gi"), 9_000,
+    "agent-real": ("Job", ["agent-real", "data/agent/real", "1792613363942"], {"agent": False}, CORNELL, ("1", "3Gi", "6Gi"), 9_000,
                    {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}], "once": True}),
     "mirror": ("CronJob", ["ops/live.py", "mirror"], {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False}, False,
                ("200m", "256Mi", "512Mi"), 600, {"schedule": "*/10 * * * *"}),
@@ -63,7 +69,8 @@ def kubectl(*args, stdin=None):
 
 def pod_spec(name, digest, command, volumes, runner, size, grace, extra, proc=PROC):
     """A restricted pod on prodesk7 running `python -m cli <command>` (or `python <script>`), each volume at its repo
-    path; a runner (thesis, series, gates) also gets its own user namespace, the bubblewrap profiles and the token."""
+    path; a runner (thesis, series, gates), `runner` naming the claude-token key it reads, also gets its own user namespace,
+    the bubblewrap profiles and that token."""
     cpu, memory, limit = size
     mounts = [{"name": "tmp", "mountPath": "/tmp"}, {"name": "scratch", "mountPath": "/scratch"}]
     mounts += [{"name": v, "mountPath": "/mirror" if v == "mirror" else f"{APP}/{VOLUMES[v]}", "readOnly": ro}
@@ -85,7 +92,7 @@ def pod_spec(name, digest, command, volumes, runner, size, grace, extra, proc=PR
         "containers": [{
             "name": name, "image": f"{jobs.REGISTRY}@{digest}", "workingDir": APP,
             "command": ["python", *([] if script else ["-m", "cli"]), *command],
-            "env": [*([TOKEN] if runner else []), *extra.get("env", [])],
+            "env": [*([token(runner)] if runner else []), *extra.get("env", [])],
             "resources": {"requests": {"cpu": cpu, "memory": memory}, "limits": {"memory": limit}},
             "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
                                 "capabilities": {"drop": ["ALL"]}, **({"procMount": proc} if runner else {})},
@@ -414,7 +421,7 @@ TARGETS = [("api.anthropic.com", 443), *[(f"192.168.8.{n}", p) for n in (131, 15
 
 
 def gate(digest, proc):
-    spec = pod_spec("gate", digest, ["ops/live.py", "gate-run", json.dumps(TARGETS)], {}, True, ("500m", "1Gi", "2Gi"),
+    spec = pod_spec("gate", digest, ["ops/live.py", "gate-run", json.dumps(TARGETS)], {}, CORNELL, ("500m", "1Gi", "2Gi"),
                     60, {}, proc=proc)
     log, ok = run_pod(f"gate-{proc.lower()}", spec)
     out = REPO / "audit/cluster" / f"gate-{proc.lower()}.json"

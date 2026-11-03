@@ -630,8 +630,8 @@ def test_manifests_keep_the_boundaries():
         c, runner = spec["containers"][0], live.WORKLOADS[name][3]
         claims = {v["persistentVolumeClaim"]["claimName"] for v in spec["volumes"] if "persistentVolumeClaim" in v}
         assert claims <= set(live.VOLUMES) | {"mirror"} and not claims & {"inputs", "results"}
-        assert (live.TOKEN in c["env"]) == runner
-        assert (spec.get("hostUsers") is False) == runner
+        assert [e["valueFrom"]["secretKeyRef"]["key"] for e in c["env"] if e["name"] == "CLAUDE_CODE_OAUTH_TOKEN"] == ([runner] if runner else [])
+        assert (spec.get("hostUsers") is False) == bool(runner)
         assert ("keys" in {v["name"] for v in spec["volumes"]}) == (name == "datalayer")
         assert spec["securityContext"]["seccompProfile"]["type"] == ("Localhost" if runner else "RuntimeDefault")
         assert c["securityContext"]["readOnlyRootFilesystem"] and c["securityContext"]["capabilities"] == {"drop": ["ALL"]}
