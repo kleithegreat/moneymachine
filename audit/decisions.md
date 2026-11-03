@@ -652,3 +652,7 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
 
 - **Why:** the thesis's first day (`thesis-310449610583`, 2026-11-03) took about 0.10 of Cornell's week, its only account, and Cornell's week (0.63 now) resets 2026-11-08 05:00 UTC (00:00 EST); TAMU's (0.96) resets 2026-11-07 04:00 UTC (2026-11-06 23:00 EST). Four more days need about 0.40 of the 0.37 left. A missed thesis day can't be made up in its window; a v3 campaign can wait.
 - **So:** `agent-series` stays as deployed. Its pacing assumes 0.5 of a week for a cohort with no measured campaign, which keeps v3 off both accounts until TAMU's reset, where its first campaign runs; that bug is left in place this week on purpose and fixed after (read measured need across a series' earlier logs). Claude work on Cornell is kept to the minimum, and heavy work goes to GPT. A personal-account token for the thesis pod (`claude setup-token`, the human's) would remove the risk to 2026-11-07's session.
+
+## 2026-11-03 03:02 UTC (22:02 EST): GPT's budget is nearly gone; it is kept for independent checks (advisor)
+
+- GPT has about 3% of its week left, resetting about 2026-11-04 12:00 UTC (07:00 EST); the advisor had read the human's "4%" as used. The crash-test builder was stopped after 4 minutes, with nothing committed and its branch deleted; the N1 diagnosis had finished. Until GPT resets, it runs only reviews a decision needs. The personal account is at 98% of its week and resets 2026-11-04, after which its token can carry the thesis pod.
