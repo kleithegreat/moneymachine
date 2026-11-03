@@ -7,6 +7,8 @@ import multiprocessing
 import random
 from concurrent.futures import ProcessPoolExecutor
 
+import pytest
+
 from gate import compute
 from thesis import scoring
 from thesis.tests import gpt_scoring, scoring_gen
@@ -60,6 +62,7 @@ def judge(start, stop, state):
     return n, disagreements, seen, rng.getstate()
 
 
+@pytest.mark.slow
 def test_independent_scorer_agrees_on_1000_sets_covering_every_boundary_case():
     ends, states = scoring_gen.boundaries(), scoring_gen.read_states()
     assert states[0] == random.Random(scoring_gen.SEED).getstate()
