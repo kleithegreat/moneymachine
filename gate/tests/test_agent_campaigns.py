@@ -63,7 +63,7 @@ def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path):
 
 def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(tmp_path, monkeypatch):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
-    monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
+    monkeypatch.setattr(campaigns, "check_frozen", lambda mm: None)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
     monkeypatch.setattr(campaigns.canary, "passes", lambda: True)
     monkeypatch.setitem(campaigns.COHORTS, "agent", ("agent-null-3", 3))
@@ -170,6 +170,29 @@ def test_a_missing_series_input_starts_nothing(tmp_path, monkeypatch):
     with pytest.raises(FileNotFoundError):
         campaigns.run_series("agent")
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("family", ["agent", "swarm"])
+def test_a_kernel_changed_during_pacing_starts_nothing(tmp_path, monkeypatch, family):
+    monkeypatch.setattr(campaigns, "OUT", tmp_path)
+    binary, frozen = tmp_path / "mm", tmp_path / "harness.json"
+    binary.write_bytes(b"kernel A")
+    frozen.write_text(json.dumps({"harness": "unchanged"}))
+    monkeypatch.setattr(campaigns, "MM", binary)
+    monkeypatch.setattr(campaigns, "FROZEN", frozen)
+    monkeypatch.setattr(campaigns.harness, "harness_hash", lambda: "unchanged")
+    monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": campaigns.sha256(binary)})
+    monkeypatch.setitem(campaigns.SERIES, family, lambda *a: pytest.fail("started under a different kernel"))
+
+    def ready(log):
+        binary.write_bytes(b"kernel B")
+        return "TAMU", {}
+
+    monkeypatch.setattr(campaigns, "ready", ready)
+    with pytest.raises(SystemExit, match="kernel"):
+        campaigns.run_series(family)
+    ids, log = campaigns.cohort(family)
+    assert not any((tmp_path / cid).exists() for cid in ids) and log.read_text() == ""
 
 
 def test_a_failing_canary_starts_nothing_and_paces_again_after_a_wait(tmp_path, monkeypatch, capsys):
@@ -313,27 +336,71 @@ def test_agent_evidence_needs_every_record_and_silence_is_shown_not_assumed(tmp_
 def test_swarm_evidence_ignores_the_log_and_missing_evidence_is_unresolved(tmp_path, monkeypatch):
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     (tmp_path / "gone").mkdir()
-    assert campaigns.swarm_evidence("gone")["class"] == "unresolved"
+    assert campaigns.swarm_evidence("gone", "k")["class"] == "unresolved"
     c = tmp_path / "c"
     c.mkdir()
-    sqlite3.connect(c / "ledger.sqlite").close()
+    db = sqlite3.connect(c / "ledger.sqlite")
+    db.execute("CREATE TABLE experiments (campaign, kernel)")
+    db.execute("INSERT INTO experiments VALUES ('c', 'k')")
+    db.commit()
     evidence = {"run": {"stopped": "finished", "exit": 0}, "audit": {}, "evaluations": 5, "holds": True, "received": True, "denials": {}}
     monkeypatch.setattr(campaigns, "agent_evidence", lambda *a: evidence)
     monkeypatch.setattr(campaigns, "cross_agent_history", lambda *a: True)
     monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {"t": 1})
-    assert campaigns.swarm_evidence("c")["class"] == "unresolved"
+    assert campaigns.swarm_evidence("c", "k")["class"] == "unresolved"
     (c / "decision.json").write_text("{torn")
-    e = campaigns.swarm_evidence("c")
+    e = campaigns.swarm_evidence("c", "k")
     assert e["class"] == "unresolved" and not e["complete"]
     (c / "decision.json").write_text(json.dumps({"promoted": []}))
-    assert campaigns.swarm_evidence("c")["class"] == "established"
+    assert campaigns.swarm_evidence("c", "k")["class"] == "established"
     monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {})
-    assert campaigns.swarm_evidence("c")["class"] == "not established"
+    assert campaigns.swarm_evidence("c", "k")["class"] == "not established"
     (c / "decision.json").write_text(json.dumps({"promoted": ["h"]}))
-    assert campaigns.swarm_evidence("c")["class"] == "promoted"
+    assert campaigns.swarm_evidence("c", "k")["class"] == "promoted"
     (c / "decision.json").write_text(json.dumps({"promoted": []}))
     monkeypatch.setattr(campaigns, "agent_evidence", lambda *a: 1 / 0)
-    assert campaigns.swarm_evidence("c")["class"] == "unresolved"
+    assert campaigns.swarm_evidence("c", "k")["class"] == "unresolved"
+
+
+@pytest.mark.parametrize("mode", ["search", "holdout"])
+@pytest.mark.parametrize("recorded_kernel", ["series-kernel", "other-kernel", None])
+def test_swarm_establishment_requires_every_ledger_kernel_to_match_the_series(tmp_path, monkeypatch, mode, recorded_kernel):
+    """C4.5 v3: unchanged kernel; mismatched ledger is unresolved, but promotions always count."""
+    monkeypatch.setattr(campaigns, "OUT", tmp_path)
+    cid = campaigns.cohort("swarm")[0][0]
+    work = tmp_path / cid
+    work.mkdir()
+    db = sqlite3.connect(work / "ledger.sqlite")
+    db.execute("CREATE TABLE disclosures (id INTEGER PRIMARY KEY, campaign, agent, kind, content)")
+    db.execute("CREATE TABLE experiments (id, campaign, agent, mode, kernel, trial, program)")
+    db.execute("CREATE TABLE results (experiment_id, returns, summary)")
+    db.executemany("INSERT INTO experiments VALUES (?, ?, 'A1', ?, ?, 'trial', '{}')",
+                   [(1, cid, "search", "series-kernel"), (2, cid, mode, recorded_kernel), (3, "elsewhere", mode, "unrelated")])
+    db.execute("INSERT INTO results VALUES (1, ?, ?)", (b"", json.dumps({"fills": 1})))
+    for agent in ("A1", "A2", "A3", "A4"):
+        d = work / "swarm" / agent
+        d.mkdir(parents=True)
+        (d / "transcript.jsonl").write_text("{}\n")
+        run = {"agent": agent, "stopped": "finished", "exit": 0, "transcript_sha256": campaigns.sha256(d / "transcript.jsonl")}
+        (d / "run.json").write_text(json.dumps(run))
+        calls = [{"cmd": "eval", "response": {"ok": True, "fills": 1}},
+                 {"cmd": "history", "response": {"ok": True, "evaluations": [{"agent": "A2" if agent == "A1" else "A1"}]}}]
+        (d / "daemon.log").write_text("".join(json.dumps(c) + "\n" for c in calls))
+        db.executemany("INSERT INTO disclosures (campaign, agent, kind, content) VALUES (?, ?, ?, ?)",
+                       [(cid, agent, "eval", json.dumps({"result": {"fills": 1}})),
+                        (cid, agent, "history", json.dumps(calls[1]["response"])), (cid, agent, "run", json.dumps(run))])
+    db.commit()
+    (work / "decision.json").write_text(json.dumps({"promoted": []}))
+    rows = [{"id": cid, "mm": "series-kernel", "class": "established"}]
+    report = campaigns.swarm_report(rows)
+    expected = "established" if recorded_kernel == "series-kernel" else "unresolved"
+    assert report["classes"][cid] == expected
+    assert all(e["holds"] for e in report["evidence"][cid].values())
+    if expected == "unresolved":
+        assert "kernel" in report["reasons"][cid] and "series-kernel" in report["reasons"][cid]
+    assert campaigns.swarm_report([{"id": cid}])["classes"][cid] == "unresolved"
+    (work / "decision.json").write_text(json.dumps({"promoted": ["winner"]}))
+    assert campaigns.swarm_report(rows)["classes"][cid] == "promoted"
 
 
 def test_a_failed_agent_costs_the_swarm_nothing_but_its_count(tmp_path, monkeypatch):
@@ -360,7 +427,7 @@ def test_a_failed_agent_costs_the_swarm_nothing_but_its_count(tmp_path, monkeypa
     monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {"t": 1})
     monkeypatch.setattr(campaigns, "agent_evidence", lambda ledger, cid, d, agent: {
         "run": None, "audit": None, "evaluations": 3, "holds": True, "received": True, "denials": {}})
-    row = campaigns.swarm_null("c", {})
+    row = campaigns.swarm_null("c", {"mm": "k"})
     assert "disclose" in row["crash"] and row["counts_as_promotion"] and row["class"] == "unresolved" and row["search"] == {"n": 1}
     assert row["evaluations"] == 12 and list(row["agent_evaluations"]) == ["A1", "A2", "A3", "A4"]
     assert [r["agent"] for r in row["runs"]] == ["A1"]
