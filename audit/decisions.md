@@ -598,6 +598,9 @@ Final full suite before the deletion commit: **415 passed, 2 failed, 2 skipped, 
 
 - Built by GPT, reviewed twice by a fresh Opus (`audit/reviews/2026-11-02-claude-ops-fixes{,-2}.md`), whose findings were fixed and rechecked; `pull.sh`'s pipeline was confirmed under `pipefail`. The Oracle pull goes live with this merge; the recorder and mirror changes wait for an image. `hl` and the mirror CronJobs roll with the next image; `sources` not before 2026-11-03 00:18 UTC (2026-11-02 19:18 EST). Reverse: revert the merge.
 
+## 2026-11-02 09:16 UTC (04:16 EST): the thesis bundle awaits review (builder, on `thesis-fixes`)
+
+All ten findings reproduced and are fixed, and the differential against GPT's positions agrees on 9 classes. It found three further bugs, fixed, and one design choice for the review, when a core open is known (`audit/reviews/2026-11-02-thesis-bundle.md`). Nothing is frozen. **Reverse:** drop the branch.
 ## 2026-11-02 09:41 UTC (2026-11-02 04:41 EST): the thesis bundle isn't refrozen; GPT's review ruled on (advisor)
 
 - **Said:** `audit/reviews/2026-11-02-gpt-thesis-fixes.md`: blocked, F1 to F9, each with a counterexample; the fixes for the original findings hold up. A fresh Opus review was started and hit Cornell's limit, so it reviews the next round. Confirmed by the advisor: the rounding fix widens a frozen threshold (`thesis/positions.py`).
@@ -611,6 +614,10 @@ Final full suite before the deletion commit: **415 passed, 2 failed, 2 skipped, 
 - **v3:** the human, 2026-11-02 05:47 UTC (00:47 EST): "if v2 fails go with v3 autonomously without my permission". The contingency's text goes in alone as `criteria: stage 4`; its counting code gets an independent review; it runs on `swarm-null-3-N2-0` to `-9`.
 - **Reverse:** none for v2's failure.
 
+## 2026-11-02 22:37 UTC (17:37 EST): round 3's market cache: only a shown row is held in memory (builder)
+
+- GPT's daily regression had an hourly twin it did not report: a read at 00:00:00.001 fetched the 00:00 candle before it showed, and at 00:02 that held row answered "newest row held" while the 23:00 bar, just final, was dropped. Holding only rows already shown removes both; no daily row is ever held, since a daily row shows when it is final. A randomized warm-against-cold test covers both.
+- The suite's hang near 98% (entry of 2026-11-02 17:35 UTC (12:35 EST)), caught live: an xdist worker died during `gate/tests/test_sweep.py::test_sweeps_refuse_an_unfrozen_or_changed_searcher`, and the fork `run_all`'s `Pool` had made of it outlived it, holding the worker's pipes to the controller, so the controller never saw it go. Killing that one orphan by PID ended the run, with the crash reported; the test passes alone. Why the worker died is not established: no kernel or coredump record.
 ## 2026-11-02 13:08 UTC (08:08 EST): B2's freeze reviewed (human)
 
 - The human, on B2's freeze (2026-11-02 00:57 UTC (2026-11-01 19:57 EST)): "its probably fine". It stands.

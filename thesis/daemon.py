@@ -8,11 +8,14 @@ released. The daemon's clock sets every time; requests carry none.
 
 import json
 import threading
+from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Any
 
 from ingest.live import now_ms
 from sandbox.server import Server
 from thesis import registry
+from thesis.positions import Json, exact
 
 SPEC = {"usage": "usage: ./thesis-agent markets | prices MARKET | fetch URL | register FILE | positions | exit ID REASON"
                  " | forecast P",
@@ -26,27 +29,29 @@ class Daemon:
     {market: {"last_close", "t"}}, "daily": {market: [[t, open, close]]}, "listings"}. `positions(account, now)`
     replays an account; `register_inputs(account, markets, now)` fetches (config, data) for a registration."""
 
-    def __init__(self, socket_path, session, account, ledger, snapshot, fetcher, responses, positions, register_inputs,
-                 commands, clock=now_ms, ablation_of=None):
+    def __init__(self, socket_path: str | Path, session: str, account: str, ledger: registry.Ledger, snapshot: Json, fetcher: Any,
+                 responses: str | Path, positions: Callable[[str, int], Json],
+                 register_inputs: Callable[[str, list[str], int], tuple[Json, Json]], commands: Iterable[str],
+                 clock: Callable[[], int] = now_ms, ablation_of: str | None = None) -> None:
         self.socket_path, self.session, self.account, self.ledger = Path(socket_path), session, account, ledger
         self.snapshot, self.fetcher, self.responses = snapshot, fetcher, Path(responses)
         self.positions, self.register_inputs, self.commands, self.clock = positions, register_inputs, set(commands), clock
         self.responses.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.seq = 0
-        self.retrievals = set()
-        self.registered = set()
+        self.retrievals: set[str] = set()
+        self.registered: set[str] = set()
         self.ablation_of, self.forecasted = ablation_of, False
 
-    def markets(self, args):
+    def markets(self, args: list[str]) -> Json:
         return {"ok": True, "taken": self.snapshot["taken"], "markets": self.snapshot["markets"]}
 
-    def prices(self, args):
+    def prices(self, args: list[str]) -> Json:
         if len(args) != 1 or args[0] not in self.snapshot["markets"]:
             return {"ok": False, "message": "prices MARKET, for a market listed by `markets`"}
         return {"ok": True, "market": args[0], "daily": self.snapshot["daily"][args[0]]}
 
-    def fetch(self, args):
+    def fetch(self, args: list[str]) -> Json:
         if len(args) != 1:
             return {"ok": False, "message": "fetch URL"}
         r = self.fetcher.fetch(args[0])
@@ -58,30 +63,30 @@ class Daemon:
         record["body_sha256"] = registry.sha256(r["body"])
         return {"ok": True, "retrieval_id": rid, **record, "text": r["body"].decode("utf-8", "replace"), "record": record}
 
-    def register(self, args):
+    def register(self, args: list[str]) -> Json:
         if len(args) != 1:
             return {"ok": False, "message": "register FILE"}
-        if len(self.registered) >= MAX_REGISTRATIONS:
-            return {"ok": False, "message": f"at most {MAX_REGISTRATIONS} registrations per session"}
         try:
             request = json.loads(args[0])
         except json.JSONDecodeError as e:
             return {"ok": False, "message": f"not JSON: {e}"}
-        markets = [l[0] for l in request.get("legs", []) if isinstance(l, list) and l and isinstance(l[0], str)] \
-            if isinstance(request, dict) and isinstance(request.get("legs"), list) else []
-        config, data = self.register_inputs(self.account, markets, self.clock())
-        th, errors = registry.register(self.ledger, self.account, self.session, request, self.clock,
-                                       self.snapshot["listings"], self.retrievals, config, data)
-        if errors:
+        retry = registry.committed(self.ledger, self.account, request)
+        if retry is None and len(self.registered) >= MAX_REGISTRATIONS:
+            return {"ok": False, "message": f"at most {MAX_REGISTRATIONS} registrations per session"}
+        if retry is None:
+            config, data = self.register_inputs(self.account, registry.markets_of(request), self.clock())
+            retry = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data)
+        th, errors = retry
+        if th is None:
             return {"ok": False, "errors": errors}
         if th["session"] == self.session:
             self.registered.add(th["id"])
-        return {"ok": True, "thesis": th}
+        return {"ok": True, "thesis": th | {k: float(exact(th[k])) for k in registry.AMOUNTS}}
 
-    def open_positions(self, args):
+    def open_positions(self, args: list[str]) -> Json:
         return {"ok": True, **self.positions(self.account, self.clock())}
 
-    def exit(self, args):
+    def exit(self, args: list[str]) -> Json:
         if len(args) != 2:
             return {"ok": False, "message": "exit ID REASON"}
         state = self.positions(self.account, self.clock())["theses"].get(args[0])
@@ -91,7 +96,7 @@ class Daemon:
         self.ledger.disclose("exit", self.account, {"id": args[0], "t_x": t_x, "reason": args[1], "session": self.session})
         return {"ok": True, "id": args[0], "t_x": t_x}
 
-    def forecast(self, args):
+    def forecast(self, args: list[str]) -> Json:
         try:
             p = float(args[0]) if len(args) == 1 else None
         except ValueError:
@@ -105,7 +110,7 @@ class Daemon:
     COMMANDS = {"markets": markets, "prices": prices, "fetch": fetch, "register": register, "positions": open_positions,
                 "exit": exit, "forecast": forecast}
 
-    def handle(self, req):
+    def handle(self, req: Json) -> bytes:
         with self.lock:
             self.seq += 1
             t = self.clock()
@@ -127,9 +132,9 @@ class Daemon:
                                                         **({"fetch": record} if record else {})})
             return body
 
-    def serve(self):
+    def serve(self) -> "Daemon":
         self.server = Server(self.socket_path, self.handle)
         return self
 
-    def close(self):
+    def close(self) -> None:
         self.server.close()

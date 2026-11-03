@@ -12,31 +12,35 @@ import sqlite3
 import subprocess
 import tempfile
 import threading
+from collections.abc import Callable, Collection
 from pathlib import Path
+from typing import Any
 
 from gate.kernel import MM, command
 from ingest.policy import DAY, HOUR
 from thesis import positions, scoring
+from thesis.positions import Json
 
 FIELDS = {"request_id", "legs", "T", "p", "L", "catalyst", "catalyst_id", "sources", "outcome_market"}
 MIN_DAILY_BARS = 90
+AMOUNTS = ("N", "size", "b", "E_r", "reserved")  # recorded as exact rationals' text
 
 
-def canonical(obj):
+def canonical(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def sha256(text):
+def sha256(text: str | bytes) -> str:
     return hashlib.sha256(text.encode() if isinstance(text, str) else text).hexdigest()
 
 
 class Ledger:
-    def __init__(self, path, track, binary=MM):
+    def __init__(self, path: str | Path, track: str, binary: str | Path = MM) -> None:
         self.path, self.track, self.binary = Path(path), track, binary
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
 
-    def disclose(self, kind, account, content):
+    def disclose(self, kind: str, account: str, content: Json) -> tuple[Any, str]:
         text = canonical(content)
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
             fh.write(text)
@@ -50,7 +54,7 @@ class Ledger:
             raise RuntimeError(f"ledger write failed: {r.stderr.strip()}")
         return json.loads(r.stdout)["disclosure"], sha256(text)
 
-    def records(self, kind, account=None):
+    def records(self, kind: str, account: str | None = None) -> list[tuple[int, str, Any]]:
         """[(ledger id, created, content)] in commit order."""
         if not self.path.exists():
             return []
@@ -59,41 +63,31 @@ class Ledger:
                           "ORDER BY id", (self.track, kind, account, account)).fetchall()
         return [(i, c, json.loads(t)) for i, c, t in rows]
 
-    def theses(self, account):
+    def theses(self, account: str) -> list[Json]:
         return [c for _, _, c in self.records("thesis", account)]
 
-    def exits(self, account):
+    def exits(self, account: str) -> list[Json]:
         return [c for _, _, c in self.records("exit", account)]
 
 
-def number(x, lo, hi):
+def number(x: Any, lo: float, hi: float) -> bool:
     return type(x) in (int, float) and math.isfinite(x) and lo <= x <= hi
 
 
-def validate(request, t_r, listings, daily, disclosed):
-    """Errors for a registration request at t_r (empty if valid). `listings` is {market: delisted};
-    `daily` the session's daily bars per market; `disclosed` the retrieval ids already disclosed to the session."""
+def validate(request: Any, disclosed: Collection[str]) -> list[str]:
+    """Errors of a registration request's form (empty if valid); `disclosed` is the retrieval ids already disclosed to the
+    session. The checks needing t_r and the venue are `eligible`'s."""
     if not isinstance(request, dict) or set(request) != FIELDS:
         return [f"fields must be exactly {sorted(FIELDS)}"]
     errors = []
     rid, legs = request["request_id"], request["legs"]
     if not (isinstance(rid, str) and 1 <= len(rid) <= 64):
         errors.append("request_id: 1 to 64 characters")
-    shape_ok = isinstance(legs, list) and len(legs) in (1, 2) and all(
-        isinstance(l, list) and len(l) == 2 and isinstance(l[0], str) and type(l[1]) is int and l[1] in (1, -1) for l in legs)
-    if not shape_ok:
+    if not (isinstance(legs, list) and len(legs) in (1, 2) and all(
+            isinstance(l, list) and len(l) == 2 and isinstance(l[0], str) and type(l[1]) is int and l[1] in (1, -1) for l in legs)):
         errors.append("legs: one [market, 1 | -1], or two distinct markets with weights 1 and -1")
     elif len(legs) == 2 and (legs[0][0] == legs[1][0] or sorted(l[1] for l in legs) != [-1, 1]):
         errors.append("legs: a spread is two distinct markets with weights 1 and -1")
-    else:
-        for market, _ in legs:
-            if market not in listings or listings[market]:
-                errors.append(f"legs: {market} is not listed")
-            elif len([t for t in daily.get(market, ()) if t + DAY <= t_r]) < MIN_DAILY_BARS:
-                errors.append(f"legs: {market} has fewer than {MIN_DAILY_BARS} completed daily bars")
-    T = request["T"]
-    if not (type(T) is int and T % DAY == 0 and 72 * HOUR <= T - t_r <= 1440 * HOUR):
-        errors.append("T: a UTC midnight, 72 to 1440 hours after registration")
     if not number(request["p"], 0.01, 0.99):
         errors.append("p: a finite number in [0.01, 0.99]")
     if not number(request["L"], 0.01, 0.5):
@@ -113,30 +107,71 @@ def validate(request, t_r, listings, daily, disclosed):
     return errors
 
 
-def register(ledger, account, session, request, clock, listings, disclosed, config, data):
-    """Validate, size and commit one thesis. Under the ledger's lock, t_r is read from `clock`, then the thesis is
-    sized (`positions.admit`), given its base rate and committed, so commit order is t_r order and slow inputs never
-    backdate it. `data` (bars, funding, lag, and the session's daily bars) is fetched before the call, so it holds
-    nothing later than t_r. What is fixed here is recorded with the thesis: N, size and b, the fee and cost cells,
-    the cost fallbacks, and p_ref with its window counts. Returns (thesis, None) or (None, errors); a retry of a
-    request id returns the original thesis."""
+def eligible(request: Json, t_r: int, listings: dict[str, bool], daily: Json) -> list[str]:
+    """Errors of a well-formed request at t_r: `listings` is {market: delisted}, as read for t_r; `daily` the session's
+    daily bars per market."""
+    errors = []
+    for market, _ in request["legs"]:
+        if market not in listings or listings[market]:
+            errors.append(f"legs: {market} is not listed")
+        elif len([t for t in daily.get(market, ()) if t + DAY <= t_r]) < MIN_DAILY_BARS:
+            errors.append(f"legs: {market} has fewer than {MIN_DAILY_BARS} completed daily bars")
+    T = request["T"]
+    if not (type(T) is int and T % DAY == 0 and 72 * HOUR <= T - t_r <= 1440 * HOUR):
+        errors.append("T: a UTC midnight, 72 to 1440 hours after registration")
+    return errors
+
+
+def markets_of(request: Any) -> list[str]:
+    """The market names a registration request's legs give, however malformed the rest of it is."""
+    legs = request.get("legs") if isinstance(request, dict) else None
+    return [l[0] for l in legs if isinstance(l, list) and l and isinstance(l[0], str)] if isinstance(legs, list) else []
+
+
+def committed(ledger: Ledger, account: str, request: Any, p_is_base_rate: bool = False) -> tuple[Json, None] | tuple[None, list[str]] | None:
+    """A retry of a committed request id: (its thesis, None), or (None, errors) if the content differs; None for a new id."""
+    if isinstance(request, dict) and isinstance(request.get("request_id"), str):
+        for th in ledger.theses(account):
+            if th["request_id"] == request["request_id"]:
+                same = canonical({k: th[k] for k in FIELDS} | ({"p": None} if p_is_base_rate else {})) == canonical(request)
+                return (th, None) if same else (None, ["request_id: already used with different content"])
+    return None
+
+
+def register(ledger: Ledger, account: str, session: str, request: Any, clock: Callable[[], int], disclosed: Collection[str], config: Json,
+             data: Json, p_is_base_rate: bool = False) -> tuple[Json, None] | tuple[None, list[str]]:
+    """Validate, size and commit one thesis. Under the ledger's lock a retry returns what it `committed`; a well-formed new
+    request has its markets' listings read (`data["listed"]`), t_r read from `clock` as that read returns, then is checked
+    against them, sized (`positions.admit`), given its base rate and committed, so commit order is t_r order, slow inputs
+    never backdate it, and a market delisted while they were prepared is refused. `data` (bars, funding, lag and the
+    session's daily bars, read as of `data["cutoff"]`) is fetched before the call, so it holds nothing later than t_r. What
+    is fixed here is recorded with the thesis: the listing read and its times, the data's cutoff, what sized it (each
+    amount an exact rational's text), the fee and cost cells, the cost fallbacks, and p_ref with its window counts. With
+    `p_is_base_rate` the request's p is null and p is that p_ref, or the thesis is refused for lacking one. Returns
+    (thesis, None) or (None, errors)."""
     with ledger.lock:
-        existing = ledger.theses(account)
-        if isinstance(request, dict) and isinstance(request.get("request_id"), str):
-            for th in existing:
-                if th["request_id"] == request["request_id"]:
-                    same = canonical({k: th[k] for k in FIELDS}) == canonical(request)
-                    return (th, None) if same else (None, ["request_id: already used with different content"])
-        t_r = clock()
-        errors = validate(request, t_r, listings, data["daily"], disclosed)
-        if errors:
+        if (retry := committed(ledger, account, request, p_is_base_rate)) is not None:
+            return retry
+        if errors := validate({**request, "p": 0.5} if p_is_base_rate else request, disclosed):
             return None, errors
+        read_from = clock()
+        listings = data["listed"](markets_of(request))
+        read_to = t_r = clock()
+        if errors := eligible(request, t_r, listings, data["daily"]):
+            return None, errors
+        existing = ledger.theses(account)
         markets = [m for m, _ in request["legs"]]
         th = {**request, "id": f"{account}-{len(existing) + 1}", "account": account, "session": session, "t_r": t_r,
+              "listings": listings, "listings_read": [read_from, read_to], "cutoff": data["cutoff"],
               "fee": config["fee"], "costs": {m: config["costs"][m] for m in markets},
               "fallback_costs": sorted(set(config["fallback"]) & set(markets))}
-        th.update(positions.admit(config["initial"], existing, ledger.exits(account), data, t_r, request["L"]))
+        sizing = positions.admit(config["initial"], existing, ledger.exits(account), data, t_r, request["L"])
+        th.update({k: str(v) if k in AMOUNTS else v for k, v in sizing.items()})
         p_ref, m, x = scoring.base_rate(th, data["daily"], data["funding"])
         th.update(p_ref=p_ref, base_windows=m, base_positive=x)
+        if p_is_base_rate:
+            if p_ref is None:
+                return None, ["no base rate"]
+            th["p"] = p_ref
         ledger.disclose("thesis", account, th)
     return th, None

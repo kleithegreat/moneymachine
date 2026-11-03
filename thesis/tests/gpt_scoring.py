@@ -1,26 +1,92 @@
 """C10.4 (stage 10 revision of 2026-10-23): GPT's independent scorer, written by GPT 6.1 Sol from thesis/SCORING.md
 and the stage 10 criteria alone, tools denied (~/.cache/mm-gpt/s10scorer.3g4b), and updated by it on 2026-10-24 from
-the revised SCORING.md and its own previous file (~/.cache/mm-gpt/c104.3Rq2). Committed verbatim below this note."""
+the revised SCORING.md and its own previous file (~/.cache/mm-gpt/c104.3Rq2), and on 2026-11-02 from the readings in audit/criteria.md and its own previous file (~/.cache/mm-gpt/scorer-PGkc). Committed verbatim below this note."""
 
-"""Independent C10.4 thesis scorer using only the Python standard library."""
+"""Independent C10.4 thesis scorer, updated for the 2026-11-02 readings.
+
+Choices left undetermined by the specifications:
+- Malformed-input handling: assume valid registered theses, positive hypothetical
+  N, unique thesis IDs, and the required account cost cells; no new validation
+  protocol is imposed.
+- Duplicate timestamps: retain the earlier scorer's stable hourly ordering and
+  last-row-wins daily and funding dictionaries.
+- Output numeric representation: retain Python floats for numeric results.
+  Arithmetic and discrete decisions precede conversion; ordinary float rounding,
+  underflow, and overflow behavior apply only at the output boundary.
+"""
 
 from bisect import bisect_left, bisect_right
-from math import floor, fsum
+from decimal import Decimal
+from fractions import Fraction
+from math import floor
 
 HOUR = 3_600_000
 DAY = 86_400_000
 DELTA = 120_000
 
 
+def _rational(value):
+    """Read a recorded decimal or rational exactly, without float arithmetic."""
+    if isinstance(value, (int, Fraction)):
+        return Fraction(value)
+
+    # str(float) supplies its shortest decimal representation. Decimal parsing
+    # is exact and avoids Python's integer-string digit limit for long records.
+    text = str(value)
+    if "/" in text:
+        numerator, denominator = text.split("/")
+        return (
+            Fraction(Decimal(numerator))
+            / Fraction(Decimal(denominator))
+        )
+    return Fraction(Decimal(text))
+
+
+def _integer(value):
+    """Read an integral bar or funding timestamp without rounding."""
+    result = _rational(value)
+    if result.denominator != 1:
+        raise ValueError("Bar and funding timestamps must be integral")
+    return result.numerator
+
+
 def score(test):
     """Return the outcomes, base rates, scores, and clusters for one test set."""
-    fee_rate = test["account"]["fee"]
+    fee_rate = _rational(test["account"]["fee"])
     costs = test["account"]["costs"]
-    now = test["now"]
-    theses = test["theses"]
+    now = _rational(test["now"])
+    theses = [
+        {
+            **thesis,
+            "t_r": _rational(thesis["t_r"]),
+            "T": _rational(thesis["T"]),
+            "N": _rational(thesis["N"]),
+            "p": _rational(thesis["p"]),
+            "p_ablation": (
+                None
+                if thesis["p_ablation"] is None
+                else _rational(thesis["p_ablation"])
+            ),
+            "legs": [
+                (market, _rational(sign))
+                for market, sign in thesis["legs"]
+            ],
+        }
+        for thesis in test["theses"]
+    ]
 
     hourly = {
-        market: sorted(rows, key=lambda row: row[0])
+        market: sorted(
+            [
+                (
+                    _integer(opened),
+                    _rational(open_price),
+                    None if close_price is None else _rational(close_price),
+                )
+                for opened, open_price, close_price in rows
+            ],
+            key=lambda row: row[0],
+        )
         for market, rows in test["hourly"].items()
     }
     hourly_times = {
@@ -28,18 +94,24 @@ def score(test):
         for market, rows in hourly.items()
     }
     daily_opens = {
-        market: {row[0]: row[1] for row in rows}
+        market: {
+            _integer(row[0]): _rational(row[1])
+            for row in rows
+        }
         for market, rows in test["daily"].items()
     }
     funding = {
-        market: {hour: rate for hour, rate in rows}
+        market: {
+            _integer(hour): _rational(rate)
+            for hour, rate in rows
+        }
         for market, rows in test["funding"].items()
     }
 
     def fill(market, quantity, reference):
         side = "buy" if quantity > 0 else "sell"
         cell = "1000" if abs(quantity) * reference <= 1000 else "10000"
-        bps = costs[market][side][cell]
+        bps = _rational(costs[market][side][cell])
         if quantity > 0:
             price = reference * (1 + bps / 10_000)
         else:
@@ -70,8 +142,8 @@ def score(test):
 
         rates = funding.get(market, {})
 
-        # Entry and exit are hour boundaries. Funding excludes entry and
-        # includes exit; every intervening settlement must have a row.
+        # Funding excludes entry and includes exit. Every intervening
+        # settlement must have a row, including hours with a zero rate.
         for hour in range(entry + HOUR, exit_time + 1, HOUR):
             if hour not in rates:
                 return None
@@ -83,12 +155,12 @@ def score(test):
             else:
                 mark = hourly_mark(market, hour)
 
-            # A zero funding rate does not excuse missing required price data.
+            # A zero rate does not excuse missing required price data.
             if mark is None:
                 return None
             contributions.append(-quantity * rate * mark)
 
-        return fsum(contributions)
+        return sum(contributions, Fraction(0))
 
     def outcome(thesis):
         contributions = []
@@ -121,13 +193,15 @@ def score(test):
                 return None
             contributions.append(contribution)
 
-        net_return = fsum(contributions) / notional
-        return {"R_net": net_return, "o": int(net_return > 0)}
+        net_return = sum(contributions, Fraction(0)) / notional
+        return {"R_net": float(net_return), "o": int(net_return > 0)}
 
     def base_rate(thesis):
         legs = thesis["legs"]
         registered = thesis["t_r"]
-        duration = floor((thesis["T"] - registered) / DAY + 0.5)
+        duration = floor(
+            (thesis["T"] - registered) / DAY + Fraction(1, 2)
+        )
         step = duration * DAY
 
         common_days = set(daily_opens.get(legs[0][0], {}))
@@ -174,13 +248,15 @@ def score(test):
 
             if complete:
                 complete_count += 1
-                net_return = fsum(contributions) / thesis["N"]
+                net_return = (
+                    sum(contributions, Fraction(0)) / thesis["N"]
+                )
                 positive_count += int(net_return > 0)
 
             exit_time -= step
 
         probability = (
-            (positive_count + 1) / (complete_count + 2)
+            Fraction(positive_count + 1, complete_count + 2)
             if complete_count >= 10
             else None
         )
@@ -194,7 +270,9 @@ def score(test):
         probability, complete_count, positive_count = base_rate(thesis)
         thesis_results[thesis["id"]] = {
             "outcome": result,
-            "p_ref": probability,
+            "p_ref": (
+                None if probability is None else float(probability)
+            ),
             "m": complete_count,
             "x": positive_count,
         }
@@ -224,25 +302,32 @@ def score(test):
                 "skill": None,
             }
 
-        main_brier = fsum(main_losses) / count
-        reference_brier = fsum(reference_losses) / count
+        main_brier = sum(main_losses, Fraction(0)) / count
+        reference_brier = sum(reference_losses, Fraction(0)) / count
         return {
             "n_pairs": count,
-            "B": main_brier,
-            "B_ref": reference_brier,
-            "diff": main_brier - reference_brier,
+            "B": float(main_brier),
+            "B_ref": float(reference_brier),
+            "diff": float(main_brier - reference_brier),
             "skill": (
                 None
                 if reference_brier == 0
-                else 1 - main_brier / reference_brier
+                else float(1 - main_brier / reference_brier)
             ),
         }
 
     scores = {
         "n_resolved": len(resolved),
         "B": (
-            fsum((thesis["p"] - observed) ** 2
-                 for thesis, observed, _ in resolved) / len(resolved)
+            float(
+                sum(
+                    (
+                        (thesis["p"] - observed) ** 2
+                        for thesis, observed, _ in resolved
+                    ),
+                    Fraction(0),
+                ) / len(resolved)
+            )
             if resolved
             else None
         ),

@@ -10,6 +10,7 @@ from ingest.datalayer import body
 from ingest.live import read
 from ingest.policy import HOUR
 from thesis import scoring
+from thesis.positions import exact
 
 DATALAYER = Path(__file__).resolve().parents[1] / "data" / "datalayer"
 
@@ -58,7 +59,7 @@ def account_report(track, account, now):
     managed = [c["managed_return"] for c in resolved.values() if c["managed_return"] is not None]
     sizes = [len(c["members"]) for c in result["clusters"]]
     return {
-        "theses": len(theses), "size_zero": sum(th["size"] == 0 for th in theses),
+        "theses": len(theses), "size_zero": sum(exact(th["size"]) == 0 for th in theses),
         "resolved": len(resolved), "unresolved": len(theses) - len(resolved),
         "base_rate_unavailable": sum(th["p_ref"] is None for th in theses),
         "ablation_missing": sum(r["p_ablation"] is None for r in rows) if account == "main" else None,

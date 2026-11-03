@@ -146,3 +146,14 @@ def test_malformed_datalayer_lines_do_not_block_later_volumes(tmp_path, monkeypa
     assert (out / "datalayer/day.jsonl").read_bytes() == raw
     assert (out / "agent/MANIFEST.json").exists()
     live.verify(app, out)
+
+
+def test_the_mirror_skips_a_writer_s_transient_tmp_file(tmp_path):
+    """Claude's round 2 review, R7: an atomic write's `.tmp` can vanish between the listing and the copy."""
+    app, out = tmp_path / "app", tmp_path / "mirror"
+    for path in live.VOLUMES.values():
+        (app / path).mkdir(parents=True)
+    (app / live.VOLUMES["datalayer"] / "raw").mkdir()
+    (app / live.VOLUMES["datalayer"] / "raw" / "ab.tmp").write_bytes(b"partial")
+    live.mirror(app, out)
+    assert json.loads((out / "datalayer/MANIFEST.json").read_text())["files"] == {}

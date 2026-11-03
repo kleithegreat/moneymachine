@@ -185,7 +185,7 @@ def mirror(app=APP, out="/mirror"):
     - day-file sizes are captured before listing bodies; only those prefixes are copied;
     - every copy's bytes are compared with the source's over the same length;
     - SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
-    - other files are copied whole when their size or mtime changes.
+    - other files, but a writer's transient `*.tmp`, are copied whole when their size or mtime changes.
     MANIFEST.json (size, mtime and sha256 of each file, the volume's usage) is written last: readers trust only it."""
     for vol, path in VOLUMES.items():
         src, dst = Path(app) / path, Path(out) / vol
@@ -195,7 +195,7 @@ def mirror(app=APP, out="/mirror"):
         old = json.loads((dst / "MANIFEST.json").read_text())["files"] if (dst / "MANIFEST.json").exists() else {}
         new = {}
         days = {p: p.stat() for p in src.rglob("*.jsonl") if p.is_file()}
-        files = set(days) | {p for p in src.rglob("*") if p.is_file() and p.suffix != ".jsonl"
+        files = set(days) | {p for p in src.rglob("*") if p.is_file() and p.suffix not in (".jsonl", ".tmp")
                             and p.name != ".writer.lock" and "-wal" not in p.name and not p.name.endswith("-shm")}
         for f in sorted(files):
             rel, st = str(f.relative_to(src)), days[f] if f in days else f.stat()

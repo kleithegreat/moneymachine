@@ -23,6 +23,7 @@ returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY
 - **Funding.** Funding settles every hour, so a market has a row for every hour (a multiple of HOUR) unless that row is missing. A missing row is missing data, never a zero rate. An hourly close may be null: the bar has an opening price but no closing price (a builder market whose next mark is missing). Daily closes are never null.
 - **Thesis order.** Theses are listed in registration (commit) order.
 - **N.** N is the thesis's notional per leg, set at registration (size-zero theses have a hypothetical N).
+- **Exactness.** Every number is the decimal its record states: a float's shortest form, or an exact rational's text (N can be one, of any length). The cost cell and the sign of R_net and of a window's R_net are decided in exact rational arithmetic over those numbers, with no tolerance, so every boundary is the frozen one. C10.4's tolerance applies only between implementations' results.
 - **p_ablation.** p_ablation is the conditional ablation's probability, or null if it is missing.
 
 ## Outcome (as registered)
