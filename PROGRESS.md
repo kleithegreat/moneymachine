@@ -65,7 +65,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Decisions awaiting the human's review
 
-- 2026-11-04 00:03 UTC (2026-11-03 19:03 EST): C4.5 v3 runs on the frozen kernel under an exact qualification, approved by the human; the nine defects are fixed in the spec, stage 7 and Lean (`audit/decisions.md`). Done before any v3 campaign: v3's report, the identity check and the pacing fix are deployed.
+None.
 
 ## Qualifications
 
