@@ -70,7 +70,11 @@ def events(trace, kind, t=None):
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 1: future trading activity changes current allocation")
 def test_future_trades_cannot_change_current_orders(built_kernel, tmp_path):
-    """Finding 1: identical observations through 08:02 imply identical orders (paper §6)."""
+    """I1, SEMANTICS §3/§7: identical observations through 12:02 imply identical decisions.
+
+    Both histories state S0's halt at 24:00, known at 24:02 under §3, with no settlement price.
+    The synthetic `delistings` dataset is provisional: §3 defines records, not their store adapter.
+    """
     a = arrays(coins=2)
     a["close"][3:, 1] = 110
     for key in ("open", "high", "low"):
@@ -89,8 +93,10 @@ def test_future_trades_cannot_change_current_orders(built_kernel, tmp_path):
             path.chmod(0o644)
             df.write_parquet(path)
         store = Store(market / "store")
-        known.append([store.as_of(dataset, 8 * HOUR + DELTA, 1).sort(["coin", "eventTime"])
-                      for dataset in ("bars_4h", "funding")])
+        store.write("delistings", pl.DataFrame({"coin": ["S0"], "eventTime": [24 * HOUR]}), 1, "synthetic")
+        known.append([store.revisions("delistings"),
+                      *[store.as_of(dataset, 12 * HOUR + DELTA, 1).sort(["coin", "eventTime"])
+                        for dataset in ("bars_4h", "funding")]])
         _, trace, _ = evaluate(built_kernel, market, tmp_path, const(2), name)
         traces.append(trace)
     assert all(x.equals(y) for x, y in zip(*known))
@@ -98,9 +104,11 @@ def test_future_trades_cannot_change_current_orders(built_kernel, tmp_path):
         assert [(e["coin"], e["weight"], e["qty"]) for e in events(trace, "decision", 4 * HOUR + DELTA)] == \
             [("S0", 1, 100), ("S1", 1, 100)]
         assert [(e["coin"], e["qty"]) for e in events(trace, "fill", 8 * HOUR)] == [("S0", 100), ("S1", 100)]
-    orders = [events(trace, "decision", 8 * HOUR + DELTA) for trace in traces]
+    for hour in (8, 12):
+        decisions = [[(e["coin"], e["weight"], e["qty"])
+                      for e in events(trace, "decision", hour * HOUR + DELTA)] for trace in traces]
+        assert decisions[0] == decisions[1] == [], {"hour": hour, "decisions": decisions}
     equity = [events(trace, "equity", 16 * HOUR)[0]["equity"] for trace in traces]
-    assert orders[0] == orders[1] == [], {"orders": orders, "equity_at_16h": equity}
     assert equity == pytest.approx([10_000 + 100 * (110 - 100)] * 2)
 
 
