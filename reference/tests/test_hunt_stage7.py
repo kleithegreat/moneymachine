@@ -59,7 +59,6 @@ def report (reg : Registry) (roles : Roles) : String :=
 """
 
 
-@pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 1: a provider offering both roles delivers only its first role's payload")
 def test_an_admitted_provider_delivers_the_role_it_was_selected_for(tmp_path):
     if not shutil.which("lake"):
         pytest.skip("no Lean toolchain")
@@ -84,7 +83,6 @@ def registry_with(tmp_path, edit):
     return d
 
 
-@pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 2: a bars provider's grid is never checked against the role's 4h contract")
 def test_a_bars_provider_off_the_4h_grid_is_refused(tmp_path):
     mm = kernel.build()
 

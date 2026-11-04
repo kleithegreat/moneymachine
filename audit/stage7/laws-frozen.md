@@ -208,3 +208,20 @@ Advisor decision (`audit/decisions.md` on main, same time), reviewed under C7.7 
 | `kernel/RULES.md` | `ce84948585ec79956bf6b65c00048967973b95ecd41a188d7948e941e3507ec4` |
 
 The proofs are re-checked after this freeze in `proof-validation-b2.md`; that re-check is what counts.
+
+## Revision 2026-11-04 07:00 UTC (02:00 EST): a declaration provides at most one role (stage 7 hunt, finding 1); statements unchanged
+
+`audit/reviews/2026-11-04-claude-hunt-stage7.md` finding 1: `rolePayload` decodes only a declaration's first role, so a
+declaration offering both roles and selected for its second was admitted with no execution data. A run selects distinct
+providers (`Roles.valid`), so such a declaration could only ever serve one role per run; the payload's single role is
+made the registry's rule instead of resolution reading the run's selection. Changed definition: `Registry.valid`'s
+role clause adds `d.roles.length ≤ 1` inside its existing `all`, so no proof's destructuring moves (`lake build`: 109
+jobs, no `sorry`). `rolePayload`'s docstring now says "its declaration's role". `mm` refuses such a declaration when
+parsing (`source.rs`), as SOURCES.md §1 now states; finding 2 (the bars grid) is `mm`'s alone, Lean's `Decl` having no
+period. No committed declaration has two roles, so no recorded result moves. The admission differential (generator: both-role declarations kept, now refused on both sides at position 0; bars providers on the 4h grid) on 5,000 cases each for seeds 1, 2 and 3: no disagreement. Its C7.7 review is queued (a fresh Claude
+and GPT); no proof depending on it is judged before then. Hashes:
+
+| File | SHA-256 |
+|---|---|
+| `reference/lean/Ref/Source.lean` | `d11dd0a48716fc122f6c0718ecb858e5ac6c31c27824ac6597eda578e0263446` |
+| `reference/lean/Ref/Resolve.lean` | `aac4935799921efa9e95bfa7786028d5d7a887ec2b914cb358d6f94bd7e70aea` |

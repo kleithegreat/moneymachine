@@ -7,9 +7,14 @@ use crate::units::Unit;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-/// The role contracts: each role's columns (SOURCES.md §6).
-pub const ROLES: [(&str, &[&str]); 2] =
-    [("bars", &["open", "high", "low", "close", "trades"]), ("settlement", &["rate"])];
+/// The role contracts: each role's columns and their units, `None` for the integer `trades` (SOURCES.md §6).
+pub const ROLES: [(&str, &[(&str, Option<&str>)]); 2] = [
+    ("bars", &[("open", Some("usd/coin")), ("high", Some("usd/coin")), ("low", Some("usd/coin")), ("close", Some("usd/coin")), ("trades", None)]),
+    ("settlement", &[("rate", Some("1/h"))]),
+];
+
+/// The bars role's grid: 4h bars, phase 0 (SOURCES.md §6).
+const BAR_MS: i128 = 14_400_000;
 
 /// The stored columns that select revisions and mark tombstones (`ingest/store.py`).
 pub const REVISION_COLUMNS: [&str; 1] = ["tombstone"];
@@ -194,8 +199,20 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     for (role, m) in obj(&d["role"])? {
         let want = ROLES.iter().find(|(r, _)| r == role).ok_or(format!("unknown role {role}"))?.1;
         let m = obj(m)?;
-        exactly(m, want)?;
+        exactly(m, &want.iter().map(|c| c.0).collect::<Vec<_>>())?;
+        for &(column, unit) in want {
+            let stored = text(&m[column])?;
+            if unit.is_some_and(|u| fields.values().any(|f: &Field| f.column == stored && Some(f.unit) != Unit::parse(u))) {
+                return Err(format!("role {role}: a field reading {stored} must have the unit of {column}"));
+            }
+        }
         roles.insert(role.clone(), m.iter().map(|(k, v)| Ok((k.clone(), text(v)?.to_string()))).collect::<Result<_, String>>()?);
+    }
+    if roles.len() > 1 {
+        return Err("a declaration provides at most one role".into());
+    }
+    if roles.contains_key("bars") && !matches!(cadence, Cadence::Held { period: BAR_MS, phase: 0, .. }) {
+        return Err("role bars: held cadence on the 4h grid".into());
     }
     let evidence = cadence == Cadence::Evidence;
     if evidence != matches!(entity, Entity::Evidence { .. }) || evidence && !(fields.is_empty() && roles.is_empty()) {

@@ -1,7 +1,8 @@
 """Stage 7 port, slice 6: `mm::admission::admit` (through `mmdump admit`) against Lean's `admit` (through `refmm admit`)
 on random admission cases: registries of declaration files, role selections, bindings, certificates, supersessions,
-holdout identities and stored event times, each mutated toward one refusal; a dependency with no sources is invalid on
-both sides. A development run, never judged.
+holdout identities and stored event times, each mutated toward one refusal; a dependency with no sources, or a
+declaration offering both roles, is invalid on both sides. Bars providers are on the 4h grid and a field reading the
+rate column is 1/h, as `mm` requires and Lean's `Decl` does not model. A development run, never judged.
 
 usage: python -m reference.admission_differential [CASES] [SEED]
 
@@ -44,7 +45,6 @@ def declaration(rng: random.Random, s: int) -> dict:
         entity = "coin"
         fields = {f"x{s}_{k}": {"column": f"c{k}", "unit": "1"} for k in range(rng.randint(1, 2))}
         slot = rng.choice(times)
-        cadence = {"held": {"period_ms": 3600000, "phase_ms": 0, "slot": slot}} if kind == "held" else {"event": {"slot": slot}}
         role = {}
         if provider or kind == "held" and rng.random() < 0.3:
             r = provider or rng.choice(["bars", "settlement", "both"])
