@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`): event declarations depend on all four evidence sources, the input table drops source and field, no run differential yet (N1 rebuild). A builder fixes it before slice 3, after the thesis round.
 
-- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: four strict xfails; finding 1 (`ops/live.py`) can be fixed now, 2 to 4 at the refreeze. Full suite not run in the cloud; the advisor runs it locally.
+- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed on `gpt-mirror-fix` (workspace notes are plain files in mirror and verify), awaiting an image; findings 2 to 4 remain strict xfails until the refreeze.
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
 
 
