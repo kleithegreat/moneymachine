@@ -21,11 +21,6 @@ def arrays(bars):
             "funding": np.zeros((4 * bars + 1, 2)), "premium": np.zeros((4 * bars + 1, 2))}
 
 
-@pytest.fixture(scope="module")
-def mm():
-    return kernel.build()
-
-
 def evaluate(mm, market, tmp_path, weight, condition, name="s"):
     strategy = tmp_path / f"{name}.json"
     strategy.write_text(json.dumps({
@@ -42,14 +37,14 @@ def evaluate(mm, market, tmp_path, weight, condition, name="s"):
 
 
 @pytest.fixture
-def closing(mm, tmp_path):
+def closing(built_kernel, tmp_path):
     a = arrays(6)
     a["volume"][0] = 1000
     a["premium"][:] = [1, -1]
     market = markets.write(tmp_path / "market", a, 0,
                            {side: {"1000": 10.0, "10000": 10.0} for side in ("buy", "sell")}, taker_fee=0.001)
     weight = op("if", op("gt", {"input": "volume"}, const(500, "coin")), const(0.1), const(0))
-    return evaluate(mm, market, tmp_path, weight, op("gt", {"input": "premium"}, const(0)))
+    return evaluate(built_kernel, market, tmp_path, weight, op("gt", {"input": "premium"}, const(0)))
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 1: closing costs omitted")
@@ -79,7 +74,7 @@ def test_mechanism_mean_net_return_includes_closing_fills(closing):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 2: undefined predictions shrink coverage")
-def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(mm, tmp_path):
+def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_kernel, tmp_path):
     """The constant-prediction replay measures all held exposures without changing trading."""
     a = arrays(104)
     a["funding"][:, 0] = -1e-5
@@ -89,8 +84,8 @@ def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(mm, tm
     premium = {"input": "premium"}
     undefined_bool = op("gt", op("div", const(1), const(0)), const(0))
     condition = op("if", op("gt", op("abs", premium), const(0)), op("gt", premium, const(0)), undefined_bool)
-    sparse, trace, _ = evaluate(mm, market, tmp_path, const(0.1), condition, "sparse")
-    total, total_trace, _ = evaluate(mm, market, tmp_path, const(0.1), op("gt", const(1), const(0)), "total")
+    sparse, trace, _ = evaluate(built_kernel, market, tmp_path, const(0.1), condition, "sparse")
+    total, total_trace, _ = evaluate(built_kernel, market, tmp_path, const(0.1), op("gt", const(1), const(0)), "total")
     assert sparse["strategy"] == total["strategy"]
     assert trace == total_trace
     assert {k: v for k, v in sparse["result"].items() if k != "mechanism"} == \

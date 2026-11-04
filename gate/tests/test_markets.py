@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from gate import kernel, markets
+from gate import markets
 from gate.kernel import MM
 
 REPO = Path(__file__).resolve().parents[2]
@@ -22,7 +22,6 @@ N3 = {"funding": FUNDING, "regime": {"P": [[0.98, 0.02], [0.05, 0.95]], "m": [0.
 
 
 def run_mm(root, strategy, tmp_path):
-    kernel.build()
     trace = tmp_path / "t.jsonl"
     r = subprocess.run([str(MM), "eval", str(strategy), "--campaign", "c", "--agent", "a", "--store", str(root / "store"),
                         "--venue", str(root / "venue"), "--ledger", str(tmp_path / "l.sqlite"), "--trace", str(trace)], capture_output=True, text=True)
@@ -30,7 +29,7 @@ def run_mm(root, strategy, tmp_path):
     return [json.loads(l) for l in trace.read_text().splitlines()]
 
 
-def test_funding_passes_through_exactly(tmp_path):
+def test_funding_passes_through_exactly(tmp_path, built_kernel):
     params = dict(N2, garch={"omega": [0.0] * 12, "alpha": [0.0] * 12, "beta": [0.5] * 12})
     arrays = markets.generate("N2", params, "passthrough", days=30)
     assert np.all(arrays["eps"] == 0) and np.abs(arrays["funding"]).max() > 1e-4
@@ -77,7 +76,7 @@ def test_planted_signal_shifts_the_mean():
     assert all(np.polyfit(signal[:, i], e[:, i], 1)[0] > 0 for i in (0, 1))
 
 
-def test_event_series_reach_the_kernel(tmp_path):
+def test_event_series_reach_the_kernel(tmp_path, built_kernel):
     counts = np.random.default_rng(1).poisson(0.3, (500, 2))
     events = {"arrays": counts, "coins": [0, 3], "block_hours": 24}
     arrays = markets.generate("N1", None, "events", days=30, events=events)

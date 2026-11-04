@@ -23,11 +23,11 @@ REPO = Path(__file__).resolve().parents[3]
 W0 = REPO / "kernel" / "strategies" / "w0.json"
 IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end", "dataset_version", "data_hash",
             "conventions", "rules_hash", "execution_hash", "kernel", "seed", "identity", "mechanism", "equivalence", "trial"]
+pytestmark = pytest.mark.usefixtures("built_kernel")
 
 
 @pytest.fixture(scope="module")
 def market(tmp_path_factory):
-    kernel.build()
     return write_market(tmp_path_factory.mktemp("m"), market_id="cli", days=40, holdout_days=10)
 
 

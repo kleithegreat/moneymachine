@@ -12,7 +12,6 @@ import time
 import httpx
 import pytest
 
-from gate import kernel
 from ingest.policy import DAY, DELTA, HOUR
 from thesis import report, runner
 
@@ -49,8 +48,8 @@ class FakeMarket:
 
 
 @pytest.fixture
-def track(tmp_path, monkeypatch):
-    kernel.build()
+def track(tmp_path, monkeypatch, built_kernel):
+    monkeypatch.setattr(runner.kernel, "build", lambda: built_kernel)
     monkeypatch.setattr(runner.harness, "manifest_hash", lambda kernel: "0" * 64)
     t = runner.Track(tmp_path)
     t.market = FakeMarket(MONDAY + 40 * DAY)
@@ -162,8 +161,8 @@ def test_the_manifest_covers_every_file_the_track_runs_on():
     assert not any(f.startswith(("thesis/tests", "data/")) for f in files - {"data/thesis/bin/mm"})
 
 
-def test_a_new_root_pins_its_kernel_before_hashing_it(tmp_path, monkeypatch):
-    kernel.build()
+def test_a_new_root_pins_its_kernel_before_hashing_it(tmp_path, monkeypatch, built_kernel):
+    monkeypatch.setattr(runner.kernel, "build", lambda: built_kernel)
     hashed = []
     monkeypatch.setattr(runner.harness.session, "identity", lambda files, extra: hashed.extend(files) or "0" * 64)
     runner.harness.manifest_hash.cache_clear()

@@ -5,7 +5,6 @@ import json
 
 import pytest
 
-from gate import kernel
 from ingest.policy import DAY, HOUR
 from thesis import daemon as thesis_daemon
 from thesis import positions, registry
@@ -30,8 +29,7 @@ class Fetcher:
 
 
 @pytest.fixture
-def make(tmp_path):
-    kernel.build()
+def make(tmp_path, built_kernel):
     ledger = registry.Ledger(tmp_path / "l.sqlite", "thesis-test")
     clock = iter(range(NOW, NOW + 10_000, 7))
 
