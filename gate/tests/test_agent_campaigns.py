@@ -3,6 +3,7 @@
 import hashlib
 import json
 import sqlite3
+import struct
 import subprocess
 from pathlib import Path
 
@@ -440,3 +441,209 @@ def test_a_null_campaign_counts_if_it_promotes_crashes_or_an_agent_made_no_evalu
     assert campaigns.counts(["h"], [done] * 4, [5, 9, 12, 7])
     assert campaigns.counts([], [done, {"stopped": "finished", "exit": 1}], [5, 9])
     assert campaigns.counts([], [done] * 4, [5, 0, 12, 7])
+
+
+def qualification_campaign(tmp_path, monkeypatch, promoted=()):
+    """Committed outputs only, following C4.5's 2026-11-04 qualification; no kernel evaluation."""
+    monkeypatch.setattr(campaigns, "OUT", tmp_path)
+    cid = campaigns.cohort("swarm")[0][0]
+    work = tmp_path / cid
+    work.mkdir()
+    db = sqlite3.connect(work / "ledger.sqlite")
+    db.execute("CREATE TABLE experiments (id INTEGER PRIMARY KEY, campaign, agent, mode, kernel, trial, program)")
+    db.execute("CREATE TABLE results (experiment_id, returns, summary)")
+    db.execute("CREATE TABLE disclosures (id INTEGER PRIMARY KEY, campaign, agent, kind, content)")
+    db.execute("CREATE TABLE selections (campaign, agent, strategy_hash)")
+    db.execute("INSERT INTO selections VALUES (?, 'gate', 'h')", (cid,))
+    for agent in ("A1", "A2", "A3", "A4"):
+        d = work / "swarm" / agent
+        d.mkdir(parents=True)
+        (d / "transcript.jsonl").write_text("{}\n")
+        run = {"agent": agent, "stopped": "finished", "exit": 0,
+               "transcript_sha256": campaigns.sha256(d / "transcript.jsonl")}
+        (d / "run.json").write_text(json.dumps(run))
+        history = {"ok": True, "through": 1, "evaluations": [{"seq": 1, "agent": "A2" if agent == "A1" else "A1"}]}
+        calls = [{"cmd": "eval", "response": {"ok": True, "fills": 1}}, {"cmd": "history", "response": history}]
+        (d / "daemon.log").write_text("".join(json.dumps(c) + "\n" for c in calls))
+        db.executemany("INSERT INTO disclosures (campaign, agent, kind, content) VALUES (?, ?, ?, ?)",
+                       [(cid, agent, "eval", json.dumps({"result": {"fills": 1}})),
+                        (cid, agent, "history", json.dumps(history)), (cid, agent, "run", json.dumps(run))])
+    (work / "decision.json").write_text(json.dumps({"promoted": list(promoted)}))
+    db.commit()
+    row = {"id": cid, "mm": "k", "kept": ["h"], "search": {"finalists": ["h", "mechanism-rejected"]}}
+    return cid, work, db, row
+
+
+def committed_result(db, cid, experiment, trial="h", mode="search", fills=1, turnover=3.0, returns=(-0.2, 0.1)):
+    db.execute("INSERT INTO experiments VALUES (?, ?, 'A1', ?, 'k', ?, '{}')", (experiment, cid, mode, trial))
+    db.execute("INSERT INTO results VALUES (?, ?, ?)",
+               (experiment, struct.pack("<" + "d" * len(returns), *returns), json.dumps({"fills": fills, "turnover": turnover})))
+    db.commit()
+
+
+def test_v3_reports_each_finalists_committed_search_and_completed_holdout_separately(tmp_path, monkeypatch):
+    cid, work, db, row = qualification_campaign(tmp_path, monkeypatch)
+    committed_result(db, cid, 1, fills=0, turnover=111, returns=(-0.9,))
+    committed_result(db, cid, 2, turnover=7.25, returns=(0.1, -1.0, 0.0))
+    committed_result(db, cid, 3, turnover=222, returns=(-0.8,))
+    committed_result(db, cid, 4, mode="holdout", turnover=2.5, returns=(0.0, 0.0))
+    committed_result(db, cid, 5, trial="mechanism-rejected", turnover=0.75, returns=(-0.03, 0.02))
+    committed_result(db, "other-campaign", 6, mode="holdout", turnover=333, returns=(-0.7,))
+    before = (work / "ledger.sqlite").read_bytes()
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("reporting must not evaluate, read a market, or recompute a decision")
+
+    monkeypatch.setattr(campaigns.subprocess, "run", forbidden)
+    monkeypatch.setattr(campaigns.markets, "generate", forbidden)
+    monkeypatch.setattr(campaigns.gate, "search_decision", forbidden)
+    monkeypatch.setattr(campaigns.gate, "promote", forbidden)
+    monkeypatch.setattr(campaigns.gate, "release", forbidden)
+    report = campaigns.swarm_report([row])
+    diagnostics = report["finalist_diagnostics"][cid]
+    assert set(diagnostics) == {"h", "mechanism-rejected"}
+    assert diagnostics["h"]["search"] == {"experiment": 2, "turnover": 7.25, "min_net_step_return": -1.0, "unavailable": []}
+    assert diagnostics["h"]["holdout"] == {"experiment": 4, "turnover": 2.5, "min_net_step_return": 0.0, "unavailable": []}
+    assert diagnostics["mechanism-rejected"]["search"]["min_net_step_return"] == -0.03
+    assert "holdout" in " ".join(diagnostics["mechanism-rejected"]["holdout"]["unavailable"])
+    note = report["finalist_diagnostics_note"].lower()
+    assert "not maximum held gross exposure" in note and "after shortfall absorption" in note
+    assert "do not measure" in note and "size" in note
+    assert report["classes"][cid] == "established"
+    assert (work / "ledger.sqlite").read_bytes() == before
+
+
+@pytest.mark.parametrize("missing", ["search", "holdout", "incomplete holdout", "empty returns", "turnover", "ledger"])
+def test_v3_names_unavailable_finalist_results_without_substituting_or_reclassifying(tmp_path, monkeypatch, missing):
+    cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
+    if missing != "search":
+        committed_result(db, cid, 1, returns=() if missing == "empty returns" else (-0.2,))
+    if missing not in ("holdout", "incomplete holdout"):
+        committed_result(db, cid, 2, mode="holdout")
+    if missing == "incomplete holdout":
+        db.execute("INSERT INTO experiments VALUES (2, ?, 'gate', 'holdout', 'k', 'h', '{}')", (cid,))
+        db.commit()
+    if missing == "turnover":
+        db.execute("UPDATE results SET summary = ? WHERE experiment_id = 1", (json.dumps({"fills": 1}),))
+        db.commit()
+    if missing == "ledger":
+        db.close()
+        (work / "ledger.sqlite").unlink()
+    report = campaigns.swarm_report([row])
+    diagnostic = report["finalist_diagnostics"][cid]["h"]
+    mode = "holdout" if missing in ("holdout", "incomplete holdout") else "search"
+    field = "turnover" if missing == "turnover" else "min_net_step_return"
+    assert diagnostic[mode][field] is None and diagnostic[mode]["unavailable"]
+    assert report["classes"][cid] == ("unresolved" if missing == "ledger" else "promoted")
+    if missing == "empty returns":
+        assert diagnostic["search"]["turnover"] == 3.0
+
+
+@pytest.mark.parametrize("failure", [None, "no filled trial", "one evaluating agent", "no cross-agent history",
+                                      "transcript mismatch", "history mismatch", "kernel mismatch", "disclosed crash", "gate crash"])
+def test_v3_promotions_report_every_establishment_requirement_without_changing_the_verdict(tmp_path, monkeypatch, failure):
+    cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
+    committed_result(db, cid, 1, fills=0 if failure == "no filled trial" else 1)
+    committed_result(db, cid, 2)
+    if failure == "no filled trial":
+        db.execute("UPDATE results SET summary = ?", (json.dumps({"fills": 0, "turnover": 0}),))
+    if failure == "kernel mismatch":
+        db.execute("UPDATE experiments SET kernel = 'wrong'")
+    if failure == "gate crash":
+        (work / "decision.json").write_text(json.dumps({"promoted": ["h"], "crash": "harness failed"}))
+    for agent in ("A1", "A2", "A3", "A4"):
+        d = work / "swarm" / agent
+        calls = [json.loads(l) for l in (d / "daemon.log").read_text().splitlines()]
+        if failure == "one evaluating agent" and agent != "A1":
+            calls = calls[1:]
+            db.execute("DELETE FROM disclosures WHERE agent = ? AND kind = 'eval'", (agent,))
+        if failure == "no cross-agent history":
+            calls[-1]["response"]["evaluations"] = [{"agent": agent}]
+            db.execute("UPDATE disclosures SET content = ? WHERE agent = ? AND kind = 'history'",
+                       (json.dumps(calls[-1]["response"]), agent))
+        if failure == "history mismatch" and agent == "A1":
+            calls[-1]["response"]["evaluations"] = []
+        (d / "daemon.log").write_text("".join(json.dumps(c) + "\n" for c in calls))
+    if failure == "transcript mismatch":
+        (work / "swarm/A1/transcript.jsonl").write_text("{}\n{}\n")
+    if failure == "disclosed crash":
+        d = work / "swarm/A1/run.json"
+        run = json.loads(d.read_text()) | {"exit": 1}
+        d.write_text(json.dumps(run))
+        db.execute("UPDATE disclosures SET content = ? WHERE agent = 'A1' AND kind = 'run'", (json.dumps(run),))
+    db.commit()
+    report = campaigns.swarm_report([row])
+    establishment = report["promotion_establishment"][cid]
+    assert establishment["holds"] == (failure is None)
+    assert establishment["promotion_masks_non_establishment"] == (failure is not None)
+    assert establishment["distinct_filled_trials"] == (0 if failure == "no filled trial" else 1)
+    assert establishment["agents_with_evaluations"] == (["A1"] if failure == "one evaluating agent" else ["A1", "A2", "A3", "A4"])
+    assert establishment["audit_complete"] == (failure not in ("transcript mismatch", "history mismatch"))
+    assert bool(establishment["history_receipts"]) == (failure != "no cross-agent history")
+    if failure is None:
+        receipt = establishment["history_receipts"][0]
+        assert receipt["recipient"] == "A1" and receipt["evaluations"] == [{"agent": "A2", "seq": 1}]
+        assert receipt["disclosure"] == 2 and receipt["through"] == 1
+    else:
+        assert establishment["missing_or_mismatched"]
+    assert report["classes"][cid] == "promoted" and report["verdict"] == "not established"
+
+
+def test_v3_exposes_the_masking_false_pass_channel_but_does_not_repair_it(tmp_path, monkeypatch):
+    cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
+    committed_result(db, cid, 1, fills=0)
+    ids = campaigns.cohort("swarm")[0]
+    original = campaigns.swarm_evidence
+    established = original(cid, "k")
+    for other in ids[1:]:
+        (tmp_path / other).mkdir()
+
+    def evidence(other, mm):
+        if other == cid:
+            return original(other, mm)
+        return established | {"class": "not established" if other == ids[1] else "established", "promoted": []}
+    monkeypatch.setattr(campaigns, "swarm_evidence", evidence)
+    report = campaigns.swarm_report([row])
+    assert report["verdict"] == "pass" and report["not_established"] == 1
+    assert report["promotion_establishment"][cid]["promotion_masks_non_establishment"]
+
+
+def test_v3_recovers_frozen_finalist_identities_but_names_a_missing_search_report(tmp_path, monkeypatch):
+    cid, work, db, row = qualification_campaign(tmp_path, monkeypatch)
+    committed_result(db, cid, 1)
+    committed_result(db, cid, 2, mode="holdout")
+    report = campaigns.swarm_report([{"id": cid, "mm": "k", "crash": "interrupted after holdout commit"}])
+    assert report["finalist_diagnostics"][cid]["h"]["holdout"]["experiment"] == 2
+    assert "search finalist" in " ".join(report["finalist_evidence_unavailable"][cid])
+    assert report["classes"][cid] == "established"
+
+
+@pytest.mark.parametrize("missing", ["run", "transcript", "history JSON", "disclosures table"])
+def test_v3_names_missing_or_unreadable_promotion_evidence(tmp_path, monkeypatch, missing):
+    cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
+    committed_result(db, cid, 1)
+    if missing in ("run", "transcript"):
+        (work / "swarm/A1" / ("run.json" if missing == "run" else "transcript.jsonl")).unlink()
+    elif missing == "history JSON":
+        db.execute("UPDATE disclosures SET content = 'null' WHERE kind = 'history'")
+    else:
+        db.execute("DROP TABLE disclosures")
+    db.commit()
+    report = campaigns.swarm_report([row])
+    evidence = report["promotion_establishment"][cid]
+    assert report["classes"][cid] == "promoted"
+    assert evidence["promotion_masks_non_establishment"] and not evidence["audit_complete"]
+    assert evidence["missing_or_mismatched"]
+
+
+def test_v3_unreadable_search_summary_does_not_hide_a_completed_holdout(tmp_path, monkeypatch):
+    cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
+    committed_result(db, cid, 1)
+    committed_result(db, cid, 2, mode="holdout", turnover=4.5, returns=(-0.1,))
+    db.execute("UPDATE results SET summary = 'null' WHERE experiment_id = 1")
+    db.commit()
+    report = campaigns.swarm_report([row])
+    diagnostic = report["finalist_diagnostics"][cid]["h"]
+    assert diagnostic["search"]["unavailable"] and diagnostic["search"]["turnover"] is None
+    assert diagnostic["holdout"] == {"experiment": 2, "turnover": 4.5, "min_net_step_return": -0.1, "unavailable": []}
+    assert report["classes"][cid] == "promoted"

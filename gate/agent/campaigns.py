@@ -6,6 +6,7 @@ import json
 import os
 import signal
 import sqlite3
+import struct
 import subprocess
 import sys
 import tempfile
@@ -165,15 +166,16 @@ def agent_evidence(ledger, campaign_id, run_dir, agent):
     audit = audit_run(run_dir, ledger, campaign_id, agent)
     disclosed = [json.loads(c) for k, c in rows if k == "run"]
     replies = [json.loads(c) for k, c in rows if k == "history"]
-    holds = (run is not None and audit is not None and audit_holds(audit) and disclosed == [run]
-             and hashlib.sha256(transcript.read_bytes()).hexdigest() == run.get("transcript_sha256")
-             and [e["response"] for e in log if e["cmd"] == "history" and e["response"].get("ok")] == replies)
+    checks = {"run record/disclosure": run is not None and disclosed == [run],
+              "audit": audit_holds(audit),
+              "transcript hash": run is not None and transcript.exists() and sha256(transcript) == run.get("transcript_sha256"),
+              "history replies": [e["response"] for e in log if e["cmd"] == "history" and e["response"].get("ok")] == replies}
     evals = [{k: v for k, v in e["response"].items() if k not in ("ok", "remaining")}
              for e in log if e["cmd"] == "eval" and e["response"].get("ok")]
-    holds = holds and evals == [json.loads(c)["result"] for k, c in rows if k == "eval"]
+    checks["evaluation replies"] = evals == [json.loads(c)["result"] for k, c in rows if k == "eval"]
     calls = [e for e in log if row_kind(e) in ("eval", "check", "reject", "abort")]
     made = [json.loads(c) for k, c in rows if k in ("eval", "check", "reject", "abort")]
-    holds = holds and len(calls) == len(made) and all(e["response"].get("code") == m.get("code") for e, m in zip(calls, made))
+    checks["call codes"] = len(calls) == len(made) and all(e["response"].get("code") == m.get("code") for e, m in zip(calls, made))
     denied = {}
     if transcript.exists():
         uses, ids, _ = session.calls(transcript)
@@ -181,7 +183,8 @@ def agent_evidence(ledger, campaign_id, run_dir, agent):
             use = uses.get(i, {})
             kind = use.get("name", "unknown") + (" sandbox override" if use.get("input", {}).get("dangerouslyDisableSandbox") else "")
             denied[kind] = denied.get(kind, 0) + 1
-    return {"run": run, "audit": audit, "evaluations": evaluations_made(ledger, campaign_id, run_dir, agent), "holds": holds,
+    return {"run": run, "audit": audit, "evaluations": evaluations_made(ledger, campaign_id, run_dir, agent), "holds": all(checks.values()),
+            "missing_or_mismatched": [k for k, holds in checks.items() if not holds],
             "received": bool(log) or any(k != "run" for k, _ in rows), "denials": denied}
 
 
@@ -211,7 +214,8 @@ def swarm_evidence(cid, mm):
     `decision.json`, written once the gate finished, is the only proof that it did and the only record of what it promoted;
     filled trials come from the ledger. Anything missing or unreadable is unresolved, its outcome unknown."""
     ledger, work = OUT / cid / "ledger.sqlite", OUT / cid / "swarm"
-    out = {"class": "unresolved", "promoted": [], "complete": False, "evidence": {}, "history": False, "trials": None, "reason": None}
+    out = {"class": "unresolved", "class_without_promotion": "unresolved", "promoted": [], "complete": False,
+           "evidence": {}, "history": False, "trials": None, "reason": None}
     if not ledger.exists():
         return out
     try:
@@ -231,6 +235,8 @@ def swarm_evidence(cid, mm):
         out["reason"] = repr(e)
         crash = True
     out["class"] = swarm_class(out["promoted"], crash, list(out["evidence"].values()), out["trials"] or 0, out["history"])
+    out["class_without_promotion"] = swarm_class([], crash, list(out["evidence"].values()), out["trials"] or 0, out["history"])
+    out["gate_failure"] = crash
     return out
 
 
@@ -634,6 +640,89 @@ def spreads(rows):
 BASELINE = {"agent": "G100", "swarm": "H400"}
 
 
+def finalist_diagnostics(ledger, cid, finalists):
+    """The gate's first filled search evaluation and completed holdout outputs, never a replay or a new evaluation."""
+    out = {h: {mode: {"experiment": None, "turnover": None, "min_net_step_return": None,
+                       "unavailable": [f"no committed {mode} result"]} for mode in ("search", "holdout")} for h in finalists}
+    if not out:
+        return out
+    try:
+        with sqlite3.connect(f"file:{ledger}?mode=ro", uri=True) as db:
+            rows = db.execute("SELECT e.id, e.trial, e.mode, r.summary, r.returns FROM experiments e "
+                              "JOIN results r ON r.experiment_id = e.id WHERE e.campaign = ? "
+                              "AND e.mode IN ('search', 'holdout') ORDER BY e.id", (cid,)).fetchall()
+        for experiment, trial, mode, summary, blob in rows:
+            if trial not in out:
+                continue
+            result = out[trial][mode]
+            if mode == "search" and result["experiment"] is not None:
+                continue
+            try:
+                summary = json.loads(summary)
+                if not isinstance(summary, dict):
+                    raise ValueError("summary is not an object")
+                if mode == "search" and summary["fills"] == 0:
+                    continue
+            except (ValueError, TypeError, KeyError) as e:
+                result.update(experiment=experiment, unavailable=[f"{mode} summary unavailable: {e!r}"])
+                continue
+            result.update(experiment=experiment, turnover=summary.get("turnover"), min_net_step_return=None, unavailable=[])
+            if result["turnover"] is None:
+                result["unavailable"].append("turnover not committed in summary")
+            try:
+                result["min_net_step_return"] = min((r for (r,) in struct.iter_unpack("<d", blob)), default=None)
+                if result["min_net_step_return"] is None:
+                    result["unavailable"].append("no committed net step returns (empty return blob)")
+            except (TypeError, struct.error) as e:
+                result["unavailable"].append(f"unreadable committed net step returns: {e!r}")
+    except (OSError, sqlite3.Error, ValueError, TypeError, KeyError) as e:
+        for modes in out.values():
+            for result in modes.values():
+                result["unavailable"].append(f"committed results unavailable: {e!r}")
+    return out
+
+
+def promotion_establishment(ledger, cid, evidence):
+    """All establishment requirements absent promotion; reporting cannot close the promotion-precedence channel."""
+    agents = evidence["evidence"]
+    active = [a for a, x in agents.items() if x["evaluations"]]
+    issues = [evidence["reason"]] if evidence["reason"] else []
+    if not evidence["complete"] or evidence.get("gate_failure"):
+        issues.append(f"gate/holdout completion or harness failure: {evidence.get('gate_failure')!r}")
+    for i in range(SWARM_AGENTS):
+        agent = f"A{i + 1}"
+        x = agents.get(agent)
+        if x is None:
+            issues.append(f"{agent}: missing agent evidence")
+        elif not x["holds"]:
+            issues.append(f"{agent}: missing or mismatched {x.get('missing_or_mismatched', ['agent evidence'])}")
+        if x and x["received"] and (x["run"] is None or crashed(x["run"])):
+            issues.append(f"{agent}: crashed after receiving disclosure")
+    if not evidence["trials"]:
+        issues.append("distinct filled trials missing or fewer than one")
+    if len(active) < 2:
+        issues.append("fewer than two agents with evaluations")
+    if not evidence["history"]:
+        issues.append("no evidence of cross-agent history receipt")
+    receipts = []
+    try:
+        with sqlite3.connect(f"file:{ledger}?mode=ro", uri=True) as db:
+            for sequence, agent, content in db.execute("SELECT id, agent, content FROM disclosures "
+                                                        "WHERE campaign = ? AND kind = 'history' ORDER BY id", (cid,)):
+                payload = json.loads(content)
+                evaluations = [{k: r[k] for k in ("seq", "agent", "equivalence") if k in r}
+                               for r in payload.get("evaluations", []) if r.get("agent") and r["agent"] != agent]
+                if evaluations:
+                    receipts.append({"disclosure": sequence, "recipient": agent, "through": payload.get("through"), "evaluations": evaluations})
+    except (OSError, sqlite3.Error, ValueError, TypeError, AttributeError, KeyError) as e:
+        issues.append(f"history receipt evidence unavailable: {e!r}")
+    holds = evidence["class_without_promotion"] == "established"
+    return {"holds": holds, "class_without_promotion": evidence["class_without_promotion"], "gate_complete": evidence["complete"],
+            "audit_complete": len(agents) == SWARM_AGENTS and all(x["holds"] for x in agents.values()),
+            "distinct_filled_trials": evidence["trials"], "agents_with_evaluations": active, "history_receipts": receipts,
+            "missing_or_mismatched": issues, "promotion_masks_non_establishment": not holds}
+
+
 def swarm_report(rows):
     """C4.5 v3's result and what it reports. Every declared campaign with a directory counts, from `swarm_evidence`, never
     from its log row, which supplies the expected kernel and reported material. Promotions across versions, with their exact 95%
@@ -643,6 +732,18 @@ def swarm_report(rows):
     by_id = {r["id"]: r for r in rows}
     evidence = {cid: swarm_evidence(cid, by_id.get(cid, {}).get("mm")) for cid in cohort("swarm")[0] if (OUT / cid).exists()}
     classes = {cid: e["class"] for cid, e in evidence.items()}
+    diagnostics, unavailable = {}, {}
+    for cid, e in evidence.items():
+        row = by_id.get(cid, {})
+        finalists = set(row.get("search", {}).get("finalists", [])) | set(row.get("kept", [])) | set(e["promoted"])
+        unavailable[cid] = [] if "finalists" in row.get("search", {}) else ["search finalist list not recorded"]
+        ledger = OUT / cid / "ledger.sqlite"
+        try:
+            with sqlite3.connect(f"file:{ledger}?mode=ro", uri=True) as db:
+                finalists.update(h for (h,) in db.execute("SELECT strategy_hash FROM selections WHERE campaign = ? AND agent = 'gate'", (cid,)))
+        except sqlite3.Error as error:
+            unavailable[cid].append(f"frozen finalist selections unavailable: {error!r}")
+        diagnostics[cid] = finalist_diagnostics(ledger, cid, sorted(finalists))
     earlier = [r for log in sorted(OUT.glob("swarm-null*.jsonl")) if log != cohort("swarm")[1] for r in campaign.records(log)]
     outcomes = [bool(r["promoted"]) for r in earlier if "promoted" in r] + [bool(e["promoted"]) for e in evidence.values() if e["complete"]]
     hits, known = sum(outcomes), len(outcomes)
@@ -656,6 +757,11 @@ def swarm_report(rows):
             "trials": {cid: e["trials"] for cid, e in evidence.items()},
             "evaluations_by_agent": {cid: {a: x["evaluations"] for a, x in e["evidence"].items()} for cid, e in evidence.items()},
             "history": {cid: e["history"] for cid, e in evidence.items()},
+            "promotion_establishment": {cid: promotion_establishment(OUT / cid / "ledger.sqlite", cid, e)
+                                        for cid, e in evidence.items() if e["class"] == "promoted"},
+            "finalist_diagnostics": diagnostics, "finalist_evidence_unavailable": unavailable,
+            "finalist_diagnostics_note": "Turnover is not maximum held gross exposure; committed net step returns are after "
+                                         "shortfall absorption and do not measure its size. Unavailable results are not reconstructed.",
             "zero_fill": {cid: by_id.get(cid, {}).get("zero_fill") for cid in evidence},
             "effective_n": {cid: by_id[cid]["search"].get("effective_n", "not applicable: no filled trial") if "search" in by_id.get(cid, {})
                             else "not recorded" for cid in evidence},
