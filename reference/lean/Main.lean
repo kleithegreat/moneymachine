@@ -10,6 +10,8 @@ refmm: the Lean reference kernel's executable, on binary64.
                                       written in mmdump's format (every float as its bits)
   refmm admit CASES                   per admission case (reference/admission_differential.py), `admit`'s refusal
                                       code and position, or `ok` and the required set when it passes event times
+  refmm resolve CASES                 per resolver case (kernel/RULES.md §7), one line: its result and, if it
+                                      resolves, `resolveAll`'s observations in §7's format
 -/
 
 open Ref Json
@@ -191,6 +193,329 @@ def writeStreams (h : IO.FS.Handle) (c : Ctx Float) : IO (Except Abort Nat) := d
     n := n + d
   return .ok n
 
+/-! `refmm resolve`: the resolver's cases (kernel/RULES.md §7, revision of 2026-11-04 B3). This decoding layer is new
+code, not frozen Lean: it reads every text of a case by RULES.md §1 itself, reusing `Ref.Json`'s string reader and
+binary64 rounding so an integer token of any size stays an integer, maps it to cells by §7, and runs the frozen
+`timeline` and `resolveAll`. -/
+
+/-- A RULES.md §1 value: integers exact, a non-integer as its binary64 bits (none if it rounds to infinity). -/
+inductive J where
+  | null
+  | bool (b : Bool)
+  | int (i : Int)
+  | real (bits : Option UInt64)
+  | str (s : String)
+  | arr (xs : Array J)
+  | obj (kvs : Array (String × J))
+  deriving Inhabited
+
+/-- The binary64 bits nearest (-1)^neg · m · 10^e, bounding the exponent before `decimalBits` computes 10^e. -/
+def realBits (neg : Bool) (m : Nat) (e : Int) : Option UInt64 :=
+  let n : Int := (toString m).length
+  if m == 0 || n + e < -400 then some (if neg then 0x8000000000000000 else 0)
+  else if n + e > 400 then none
+  else decimalBits neg m e
+
+def rnumber : Parser J := do
+  let neg := (← peek) == some '-'
+  if neg then discard next
+  let int ← digits
+  if int.isEmpty || (int.length > 1 && int.head? == some '0') then throw "bad number"
+  let mut frac := []
+  let mut real := false
+  if (← peek) == some '.' then
+    discard next
+    frac ← digits
+    if frac.isEmpty then throw "bad fraction"
+    real := true
+  let mut expo : Int := 0
+  if (← peek) == some 'e' || (← peek) == some 'E' then
+    discard next
+    real := true
+    let mut sgn : Int := 1
+    if (← peek) == some '-' then
+      discard next
+      sgn := -1
+    else if (← peek) == some '+' then
+      discard next
+    let d ← digits
+    if d.isEmpty then throw "bad exponent"
+    expo := sgn * natOf d
+  if !real then return .int (if neg then -(natOf int : Int) else natOf int)
+  return .real (realBits neg (natOf (int ++ frac)) (expo - frac.length))
+
+/-- A value at `depth` (the outermost is 1; RULES.md §1 refuses a container deeper than 64). -/
+partial def rvalue (depth : Nat) : Parser J := do
+  ws
+  match ← peek with
+  | some '{' =>
+    if depth > 64 then throw "too deep"
+    discard next; ws
+    if (← peek) == some '}' then discard next; return .obj #[]
+    let mut kvs := #[]
+    repeat
+      ws; expect '"'
+      let k ← strBody ""
+      if kvs.any (·.1 == k) then throw "duplicate key"
+      ws; expect ':'
+      kvs := kvs.push (k, ← rvalue (depth + 1))
+      ws
+      match ← next with
+      | ',' => pure ()
+      | '}' => break
+      | _ => throw "expected , or }"
+    return .obj kvs
+  | some '[' =>
+    if depth > 64 then throw "too deep"
+    discard next; ws
+    if (← peek) == some ']' then discard next; return .arr #[]
+    let mut xs := #[]
+    repeat
+      xs := xs.push (← rvalue (depth + 1))
+      ws
+      match ← next with
+      | ',' => pure ()
+      | ']' => break
+      | _ => throw "expected , or ]"
+    return .arr xs
+  | some '"' => discard next; return .str (← strBody "")
+  | some 't' => for c in "true".toList do expect c
+                return .bool true
+  | some 'f' => for c in "false".toList do expect c
+                return .bool false
+  | some 'n' => for c in "null".toList do expect c
+                return .null
+  | some _ => rnumber
+  | none => throw "unexpected end"
+
+/-- A text's value, or none if it is malformed. -/
+def rparse (text : String) : Option J :=
+  match ((do let v ← rvalue 1; ws; return v) : Parser J).run text.toList with
+  | .ok (v, []) => some v
+  | _ => none
+
+def J.cell : J → Option Cell
+  | .null => some .null
+  | .bool b => some (.bool b)
+  | .int i => some (.int i)
+  | .real (some b) => some (.num b)
+  | .str s => some (.str s)
+  | _ => none
+
+def J.get? : J → String → Option J
+  | .obj kvs, k => (kvs.find? (·.1 == k)).map (·.2)
+  | _, _ => none
+
+partial def ruleExpr : J → Option RuleExpr
+  | .obj kvs => match kvs.toList with
+    | [("field", .str n)] => if n.isEmpty then none else some (.field n)
+    | [("dep", .str n)] => if n.isEmpty then none else some (.dep n)
+    | [("ms", .int n)] => some (.ms n)
+    | [("add", .arr xs)] => match xs.toList with
+      | [t, d] => do pure (.add (← ruleExpr t) (← ruleExpr d))
+      | _ => none
+    | [("floor", .arr xs)] => match xs.toList with
+      | [t, p] => do pure (.floor (← ruleExpr t) (← ruleExpr p))
+      | _ => none
+    | [("max", .arr xs)] => do pure (.max (← xs.toList.mapM ruleExpr))
+    | _ => none
+  | _ => none
+
+/-- A rule document of version 1 (RULES.md §3), or none; checking is the frozen `Decl.ruleOk`. -/
+def ruleDoc (text : String) : Option RuleExpr :=
+  if text.utf8ByteSize > 65536 then none else
+  match rparse text with
+  | some (.obj kvs) => if kvs.size != 2 then none else
+    match (J.obj kvs).get? "rule", (J.obj kvs).get? "expr" with
+    | some (.int 1), some e => ruleExpr e
+    | _, _ => none
+  | _ => none
+
+def hexPad (n : Nat) : String := let h := String.mk (Nat.toDigits 16 n); "".pushn '0' (4 - h.length) ++ h
+
+def quote (s : String) : String :=
+  "\"" ++ s.foldl (fun acc c => acc ++ (if c == '"' then "\\\"" else if c == '\\' then "\\\\"
+    else if c.toNat < 0x20 then "\\u" ++ hexPad c.toNat else c.toString)) "" ++ "\""
+
+/-- A binary64 number's exact decimal, with a fraction (`1.0`, `-0.0`), which every correctly rounding reader reads
+back to the same bits. -/
+def realText (b : UInt64) : String :=
+  let sign := if b >>> 63 == 1 then "-" else ""
+  let e := ((b >>> 52) &&& 0x7FF).toNat
+  let f := (b &&& 0xFFFFFFFFFFFFF).toNat
+  let (m, ex) : Nat × Int := if e == 0 then (f, -1074) else (f + 2 ^ 52, (e : Int) - 1075)
+  if ex ≥ 0 then s!"{sign}{m * 2 ^ ex.toNat}.0" else
+  let k := (-ex).toNat
+  let ds := toString (m * 5 ^ k)
+  let ds := "".pushn '0' (k + 1 - ds.length) ++ ds
+  let whole := String.mk (ds.toList.take (ds.length - k))
+  let frac := (ds.toList.drop (ds.length - k)).reverse.dropWhile (· == '0') |>.reverse
+  s!"{sign}{whole}.{if frac.isEmpty then "0" else String.mk frac}"
+
+def cellJson : Cell → String
+  | .int i => toString i
+  | .num b => realText b
+  | .str s => quote s
+  | .bool b => toString b
+  | .null => "null"
+
+def opt {α : Type} (f : α → String) : Option α → String
+  | some x => f x
+  | none => "null"
+
+/-- Cells ordered as §7 sorts keys: null, booleans, integers, non-integers, strings; numbers by value. -/
+def cellCmp (a b : Cell) : Ordering :=
+  let rank : Cell → Nat := fun | .null => 0 | .bool _ => 1 | .int _ => 2 | .num _ => 3 | .str _ => 4
+  match a, b with
+  | .int x, .int y => compare x y
+  | .num x, .num y => let (x, y) := (Float.ofBits x, Float.ofBits y); if x < y then .lt else if y < x then .gt else .eq
+  | .str x, .str y => compare x y
+  | .bool x, .bool y => compare x.toNat y.toNat
+  | _, _ => compare (rank a) (rank b)
+
+def cellsCmp : List Cell → List Cell → Ordering
+  | [], [] => .eq
+  | [], _ => .lt
+  | _, [] => .gt
+  | a :: as, b :: bs => (cellCmp a b).then (cellsCmp as bs)
+
+/-- A stored entity as `Revision.entity`: its cells' text, the two zeros as one. -/
+def entityKey (cs : List Cell) : String :=
+  ",".intercalate (cs.map fun | .num b => cellJson (.num (if b &&& 0x7FFFFFFFFFFFFFFF == 0 then 0 else b)) | c => cellJson c)
+
+def bool! : Value → Bool
+  | .bool b => b
+  | _ => panic! "expected a boolean"
+
+/-- A case's source: its name, declared columns (sorted) and role columns, and its declaration. -/
+structure CaseSrc where
+  name : String
+  declared : List String
+  roleCols : List String
+  decl : Decl
+  ruleOk : Bool
+  deriving Inhabited
+
+def caseSrc (names : Array String) (v : Value) : CaseSrc :=
+  let idx (n : String) : Nat := (names.findIdx? (· == n)).getD names.size
+  let name := str! (get! v "name")
+  let times := strs! (get! v "times")
+  let values := strs! (get! v "values")
+  let entity := strs! (get! v "entity")
+  let slot := match get! v "slot" with | .str c => some c | _ => none
+  let roles : List (Role × List (String × String)) := match get! v "roles" with
+    | .obj kvs => match kvs.toList with
+      | [("bars", cols)] => [(.bars, ["open", "high", "low", "close", "trades"].zip (strs! cols))]
+      | [("settlement", cols)] => [(.settlement, ["rate"].zip (strs! cols))]
+      | _ => []
+    | _ => []
+  let roleCols := roles.flatMap (·.2.map (·.2))
+  let rule := ruleDoc (str! (get! v "rule"))
+  let decl : Decl :=
+    { hash := "", fields := values.toArray.map fun c => (s!"{name}.{c}", c, Dim.one), times := "fetchedAt" :: times
+      eventColumn := str! (get! v "event"), slotColumn := slot, entityColumns := entity, revisionColumns := []
+      rule := rule.getD (.ms 0), roles
+      cadence := if bool! (get! v "evidence") then .evidence else if slot.isSome then .event else .held
+      deps := (arr! (get! v "deps")).toList.map fun d =>
+        ⟨(strs! (get! d "sources")).map idx, str! (get! d "name"), int! (get! d "lag")⟩ }
+  { name, roleCols, decl, ruleOk := rule.isSome && decl.ruleOk
+    declared := (values ++ times ++ [decl.eventColumn] ++ slot.toList ++ entity ++ roleCols).eraseDups.mergeSort
+      (· ≤ ·) }
+
+/-- One eligible stored row as a `Revision` of source `s` by §7's JSON mapping, its entity's cells beside it; an
+error if it does not decode (RULES.md §6, revision of 2026-11-04). -/
+def caseRow (srcs : Array CaseSrc) (univ : List String) (s : Nat) (v : Value) : Except Unit (Revision × List Cell) := do
+  let c := srcs[s]!
+  let d := c.decl
+  let some (.obj kvs) := rparse (str! (get! v "cells")) | throw ()
+  let cells ← c.declared.filterMapM fun col => match (J.obj kvs).get? col with
+    | none => pure none
+    | some j => match j.cell with
+      | some x => pure (some (col, x))
+      | none => throw ()
+  let event ← match cellAt cells d.eventColumn with
+    | .int e => if inRange e then pure e else throw ()
+    | _ => throw ()
+  let ent := d.entityColumns.map (cellAt cells)
+  let coin := if d.cadence == .evidence then none else match cellAt cells "coin" with
+    | .str x => univ.idxOf? x
+    | _ => none
+  let upstream ← if d.deps.isEmpty then pure [] else
+    match rparse (str! (get! v "upstream")) with
+    | some (.obj ms) => ms.toList.mapM fun (dep, keys) => match keys with
+      | J.arr ks => do
+        let ks ← ks.toList.mapM fun k => match k with
+          | J.arr #[J.str src, J.arr cs, J.int e] => do
+            let some u := srcs.findIdx? (·.name == src) | throw ()
+            if cs.size != srcs[u]!.decl.entityColumns.length || !inRange e then throw ()
+            let some cs := cs.toList.mapM J.cell | throw ()
+            pure (u, entityKey cs, e)
+          | _ => throw ()
+        pure (dep, ks)
+      | _ => throw ()
+    | _ => throw ()
+  pure ({ entity := entityKey ent, coin, event, fetchedAt := int! (get! v "fetchedAt"), tombstone := bool! (get! v "tombstone")
+          cells, upstream }, ent)
+
+/-- A cell read as a number: an integer or a non-integer, as its binary64 value. -/
+def numBits : Cell → Option UInt64
+  | .int i => realBits (i < 0) i.natAbs 0
+  | .num b => some b
+  | _ => none
+
+/-- A case's §7 result and, if it resolves, its observations by `resolveAll`, sorted by source name, coin, event time
+and fetchedAt. -/
+def resolveCase (v : Value) : String := Id.run do
+  let univ := strs! (get! v "universe")
+  let sv := arr! (get! v "sources")
+  let names := sv.map fun s => str! (get! s "name")
+  let srcs := sv.map (caseSrc names)
+  let line (result obs : String) := s!"\{\"result\":{result},\"observations\":{obs}}"
+  if !srcs.all (·.ruleOk) then return line "\"E_RULE\"" "null"
+  let V := int! (get! v "version")
+  let rows := (arr! (get! v "rows")).toList.filter fun r => decide (int! (get! r "fetchedAt") ≤ V)
+  let decoded := rows.mapM fun r =>
+    let s := (names.findIdx? (· == str! (get! r "source"))).get!
+    (caseRow srcs univ s r).map ((s, ·))
+  let .ok decoded := decoded | return line "\"INVALID\"" "null"
+  let reg : Registry := { decls := srcs.map (·.decl) }
+  let st : Stored := { rows := fun s => decoded.filterMap fun (u, r, _) => if u == s then some r else none
+                       identity := fun _ => "" }
+  let all := List.range srcs.size
+  if !all.all (st.validAt · V) then return line "\"INVALID\"" "null"
+  let queries := (arr! (get! v "queries")).toList.map int!
+  let keys := (decoded.map fun (s, r, ent) => (s, ent, r.event)).eraseDups.mergeSort fun (s, a, e) (t, b, f) =>
+    (compare srcs[s]!.name srcs[t]!.name |>.then (cellsCmp a b) |>.then (compare e f)) != .gt
+  let keyJson := keys.map fun (s, ent, event) =>
+    let c := srcs[s]!
+    let d := c.decl
+    let es := timeline reg st V (decodes numBits reg) srcs.size s (entityKey ent) event
+    let coin := (decoded.find? fun (u, r, _) => u == s && r.entity == entityKey ent && r.event == event).bind (·.2.1.coin)
+    let (_, entries) := es.foldl (fun (slot, out) e =>
+      let slot := if e.retraction then slot else slotOf d e.rev
+      let cells := if e.retraction then "null" else
+        "{" ++ ",".intercalate (c.declared.map fun col => quote col ++ ":" ++ cellJson (cellAt e.rev.cells col)) ++ "}"
+      let role := if e.retraction || c.roleCols.isEmpty then "null" else
+        "[" ++ ",".intercalate (c.roleCols.map fun col => cellJson (cellAt e.rev.cells col)) ++ "]"
+      (slot, out ++ [s!"[{e.rev.fetchedAt},{e.known},{e.retraction},{opt toString slot},{cells},{role}]"]))
+      ((none : Option Int), ([] : List String))
+    let visible := queries.map fun q => match (es.filter fun e => decide (e.known ≤ q)).getLast? with
+      | some e => if e.retraction then "null" else toString e.rev.fetchedAt
+      | none => "null"
+    s!"\{\"source\":{quote c.name},\"entity\":[{",".intercalate (ent.map cellJson)}],\"event\":{event}," ++
+      s!"\"coin\":{opt toString coin},\"timeline\":[{",".intercalate entries}],\"visible\":[{",".intercalate visible}]}"
+  let obs := ((resolveAll numBits reg st V all).getD #[]).toList.mergeSort fun a b =>
+    (compare srcs[a.source]!.name srcs[b.source]!.name |>.then (compare a.coin b.coin) |>.then (compare a.key b.key)
+      |>.then (compare a.recorded b.recorded)) != .gt
+  let obsJson := obs.map fun o =>
+    let role := match o.role with
+      | some (.bar op hi lo cl t) => s!"[{op},{hi},{lo},{cl},{t}]"
+      | some (.rate r) => s!"[{r}]"
+      | none => "null"
+    s!"[{quote srcs[o.source]!.name},{o.coin},{o.key},{o.recorded},{o.known},{o.retraction},{opt toString o.slot}," ++
+      s!"[{",".intercalate (o.vals.toList.map (opt toString))}],{role},{o.final}]"
+  line s!"\{\"keys\":[{",".intercalate keyJson}]}" s!"[{",".intercalate obsJson}]"
+
 def main (args : List String) : IO UInt32 := do
   match args with
   | ["check", path] =>
@@ -237,4 +562,9 @@ def main (args : List String) : IO UInt32 := do
     for c in arr! v do
       IO.println (admitCase c)
     return 0
-  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAMS MARKET OUT_DIR | refmm bench PROGRAM MARKET REPS | refmm admit CASES"; return 2
+  | ["resolve", cases] =>
+    let some v := (Json.parse (← IO.FS.readFile cases)).toOption | IO.eprintln "bad cases"; return 3
+    for c in arr! v do
+      IO.println (resolveCase c)
+    return 0
+  | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAMS MARKET OUT_DIR | refmm bench PROGRAM MARKET REPS | refmm admit CASES | refmm resolve CASES"; return 2

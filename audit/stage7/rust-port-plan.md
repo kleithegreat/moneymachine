@@ -42,8 +42,9 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    returns, equity); `mm eval --trace` of `933b3f4` against the new binary on W0, the stage 2 probes and the first 200
    C6.4 programs over C6.4's markets, byte-identical (the C7.4 comparison, as a development run before its baseline).
 5. **The resolver** (`resolve.rs`, `market.rs` loader): after B3. Checks: the revised C7.6 resolver suite across
-   Python (`ingest/knownat.py`), Rust and GPT's independent resolver, and Lean's `resolveAll` through a `refmm`
-   resolver mode; on one-revision keys, the old loader's observations byte-identical.
+   Python (`store.as_of`'s bitemporal replacement), the Rust loader, GPT's independent resolver and Lean's `timeline`
+   and `resolveAll` through `refmm resolve`, with C7.6's named loader-level tests (`audit/stage7/b3-draft/`); on
+   one-revision keys, the old loader's observations byte-identical.
 6. **Admission** (`admission.rs`, `ledger.rs`, `main.rs`): Checks: named tests 4–6, 8, 9, 13, 15, 17, 18, 20–23
    (`laws-v2-draft.md` §2) each with its positive control; refusal codes and positions against Lean's `admission`
    through `refmm` on the fresh C7.7 corpus (it needs the market exporter with revisions, registry and certificates,
@@ -58,7 +59,10 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    **Two-run checks (self-composition; Clarkson and Schneider, *Hyperproperties*, 2010), the human's decision of
    2026-11-02.** A sampled differential is per-run evidence, and non-interference compares two runs, so slice 5 adds both,
    first checking whether they already exist under another name: the same run on two stores differing only in records
-   known after t gives byte-identical decisions through t (`mm`); the same requests to the daemon with only the holdout's
+   known after t gives byte-identical decisions through t (`mm`), except where RULES.md §6 (second revision of
+   2026-10-26) says a later record may act: a late final revision of venue state (bars, settlement rates), which can
+   change historical fills, funding, marks and equity and, through equity, later order sizes; and admission's global
+   checks, by which a later record can refuse the whole run; the same requests to the daemon with only the holdout's
    bytes changed give identical replies (`gate/tests/test_agent_daemon.py`). Each gets a positive control: a mutant that
    reads ahead must fail it.
 7. **Then, outside this port:** the verifier and `mm certify`/`mm bind`/preflight (C7.2, C7.3; tests 1–3, 7, 10, 12),

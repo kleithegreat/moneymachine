@@ -1,42 +1,45 @@
 # B3 draft: the C7.6 resolver suite, revised (not frozen)
 
 Against B2's frozen definitions (`laws-frozen.md`, `7997257`), per `rust-port-plan.md` §3 B3, with the rulings of the
-decision of 2026-11-02 01:32 UTC ("B3's draft suite is not frozen", `audit/decisions.md`) on
-`b3-review-{gpt,claude}.md` applied. Nothing frozen, and nothing under `kernel/` or in `audit/criteria.md` changed.
+decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and 05:55 UTC (00:55 EST)
+("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) applied. Nothing frozen, and nothing under
+`kernel/` or in `audit/criteria.md` changed.
 
-- `rules-revision.md`: RULES.md's dated revision of §6 and the case format for §7, the whole contract for an
-  implementer.
+- `rules-revision.md`: RULES.md's dated revision of §6, the case format for §7 and SOURCES.md §2's Parquet mapping, the
+  whole contract for an implementer.
 - `c76-revision.md`: C7.6's dated revision, committed alone before the suite's freeze.
-- `resolver_suite.py`: the hand cases, the generator and its coverage floors; `resolver_hand.jsonl` (130 cases) and
-  `resolver_generated.jsonl` (117 stores, 3,012 (key, query) pairs from those that resolve, 1,252 on keys of at least
-  two eligible revisions; seed 20261102) are what it gives (`HAND`, `generate()`).
+- `resolver_suite.py`: the hand cases, the generator and its coverage tags; `resolver_hand.jsonl` (134 cases) and
+  `resolver_generated.jsonl` (119 stores, seed 20261102) are what it gives (`HAND`, `generate()`).
+- `lean_check.py`: the suite against Lean's `timeline` and `resolveAll` through `refmm resolve`
+  (`reference/lean/Main.lean`), whose decoding layer is new code reading the case texts by §7's mapping.
 
 ## The freeze, after review
 
-1. C7.6's revision into `audit/criteria.md`, alone (`criteria:` commit). RULES.md's revision and `laws-frozen.md`'s new
-   hash follow, with no Lean change.
-2. `kernel/tests/rules/resolver_suite.py` and its two files replaced, alone. In `test_suite.py`, the size check becomes
-   `pairs` over the generated stores (at least 1,000 and 200), with `generate`'s `classes` floor, plus `reached`'s floor
-   over Lean's results once `refmm`'s resolver mode exists. The old suite's resolver path leaves
-   `test_three_implementations.py` in the same commit, or it fails; its shallow `same` (nested `true` equal to `1`) is
-   replaced by a deep comparison that tells an integer from a non-integer.
-3. `ingest/knownat.resolve`, `gpt_resolver.py` and `rule.rs::resolve`/`effective` die in slice 5 with their callers.
-   GPT writes its new resolver from RULES.md, SOURCES.md and §7 alone, never from this directory. `refmm`'s resolver
-   mode decodes the case texts itself, with `Ref/Json.lean`.
+1. C7.6's revision into `audit/criteria.md`, alone (`criteria:` commit). RULES.md's and SOURCES.md's revisions and
+   `laws-frozen.md`'s new RULES.md hash follow, with no Lean change.
+2. `kernel/tests/rules/resolver_suite.py` and its two files replaced, alone, with `lean_check.py` beside them. In
+   `test_suite.py`, the size check becomes `pairs` over the generated stores (at least 1,000 and 200), with
+   `generate`'s `classes` floor and `lean_check.py`'s: every hand case equal to Lean's result, every `REACHED` tag on at
+   least `FLOOR` stores of Lean's results, `resolveAll`'s observations equal to its timeline's delivery. The old
+   suite's resolver path leaves `test_three_implementations.py` in the same commit, or it fails; its shallow `same`
+   (nested `true` equal to `1`) is replaced by `lean_check.same`, which tells an integer from a non-integer.
+3. In slice 5: `store.as_of` is replaced by its bitemporal version in `ingest/store.py`, its callers
+   (`ingest/backfill.py`, `ingest/witness.py`) moved with it; that is the Python participant. `ingest/knownat.resolve`,
+   `gpt_resolver.py` and `rule.rs::resolve`/`effective` die with their callers. GPT writes its new resolver from
+   RULES.md, SOURCES.md and §7 alone, never from this directory. C7.6's revision names the loader-level tests these
+   cases cannot show: the loaders' observations against `resolveAll`, the Parquet mapping, holdout staging, evidence
+   and outside-U keys never delivered, one entity on two coins. Admission's refusals of an invalid registry stay in
+   `reference/admission_differential.py`.
 
-**Not in this format,** the loader-level tests C7.6's revision names: holdout staging, evidence and outside-U keys never
-delivered, one entity on two coins. Admission's refusals of an invalid registry stay in
-`reference/admission_differential.py`.
+## Checks
 
-## Self-check (by the suite's author, not independent)
+Reproducible, on this commit: `nix develop -c bash -c 'cd reference/lean && lake build refmm'`, then
+`nix develop -c python audit/stage7/b3-draft/lean_check.py`. It reports: all 134 hand expectations equal Lean's
+results; of the 119 generated stores (3,020 (key, query) pairs, 1,332 on keys of at least two eligible revisions), 90
+resolve and 29 are invalid; every `REACHED` tag holds on at least 10 stores (the fewest: raised to replaced, 12;
+retraction keeps slot, 19; derived bound past fetchedAt, 22); `resolveAll`'s observations equal the delivery of its own
+timelines in every case that resolves. This is Lean against itself and the hand expectations, not the actual loaders,
+which join it in slice 5.
 
-Every hand expectation was computed by hand from `rules-revision.md`, then compared with a throwaway transcription of it
-kept outside the repository: 130 of 130 agree. Its results on the generated stores: 92 resolve, 25 invalid, and every
-`REACHED` class has at least 10 stores (the bound past a later derived revision's fetchedAt: 30).
-
-The same transcription, mutated into 34 wrong resolvers, among them every timeline bug the two reviews say the previous
-draft would pass (no raise to the replaced knownAt, the bound on first revisions only, upstream clamped to fetchedAt,
-the event time as slot, a retraction's own slot, role payloads not decoded, the final revision's values on every entry,
-evidence keys by spelling, declaration order as dependency order): each fails at least one hand case. The reviews' other
-two, delivering evidence and a late holdout check, are the loader-level tests above. This transcription is one reading
-of the text, not Lean: the Lean comparison comes with `refmm`'s resolver mode (slice 5).
+Self-check by the previous round's author, not reproducible and not evidence: a throwaway transcription of the text,
+kept outside the repository, mutated into 34 wrong resolvers, each failing at least one hand case of that round.
