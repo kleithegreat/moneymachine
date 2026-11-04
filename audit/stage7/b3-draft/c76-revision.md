@@ -2,7 +2,7 @@
 
 Draft text, from the decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and
 05:55 UTC (00:55 EST) ("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) and the third to
-sixth rounds' reviews (`b3-round{3,4,5,6}-review-{gpt,claude}.md`). After its review it is appended beneath C7.6's
+seventh rounds' reviews (`b3-round{3,4,5,6,7}-review-{gpt,claude}.md`; test 3 by the advisor's ruling of 2026-11-04). After its review it is appended beneath C7.6's
 resolver bullet in `audit/criteria.md` and committed alone, before the suite's freeze and before anything is judged. The original lines
 stay as written. Everything below the line is the text.
 
@@ -27,8 +27,10 @@ stay as written. Everything below the line is the text.
     List column holding its JSON text, and undeclared members are left out, as neither mapping reads them. No declared
     column shares a name with these metadata columns (SOURCES.md §1). A case with a `cells` text that is
     malformed or not an object, or a `fetchedAt` outside −2^63 to 2^63 − 1, has no Parquet image and is left out of
-    the loaders' comparison and the size; GPT's resolver and Lean read every case's texts. Each case is read from a
-    store with no holdout bound, so the holdout check is not part of the comparison; test 3 alone tests it.
+    the loaders' comparison and the size; GPT's resolver and Lean read every case's texts. The comparison's stores
+    carry no `holdout_start`, and absent a boundary the holdout check is not made (Python's `Store` built without one,
+    as the holdout store is; `mm`'s `market::load` with `holdout` None, the path its holdout mode loads by,
+    `kernel/mm/src/market.rs`): test 3 alone tests the check.
   - **What is compared:** every key's whole timeline (fetchedAt, knownAt, retraction, slot, cells and role payload, none
     on a retraction) and, per query, what it sees.
   - **How much:** the suite's size counts distinct **delivered pairs** (store, source, entity, event time, query time)
@@ -50,31 +52,31 @@ stay as written. Everything below the line is the text.
        column and in `upstream`; a file without a `tombstone` column holds no tombstone; a null or absent `upstream`
        makes the dataset invalid on a derived revision and is never read on a tombstone; UInt64, Int32, Decimal,
        Timestamp, Null, List and Struct columns, NaN and infinite Doubles in a declared column make the dataset invalid
-       and in an undeclared column are never read; a file whose schema names one column twice makes it invalid; one
+       and in an undeclared column are never read; a file whose embedded Arrow schema or Parquet schema names one column twice, or whose two schemas
+       disagree in names, makes it invalid; one
        column stored as Int64 in one file and Double in another keeps an integer and a non-integer.
-    3. **Holdout staging:** the schema checks, which read only the footer, come first; then, before the holdout check
-       passes, nothing but the event-time column is read, of every row (tombstoned, evidence, outside-U and post-V
-       rows too); the check reads it whole. Each refusal names its cause: a holdout crossing's contains `holdout`, and
-       the boundary and the crossing event time in decimal; an event time that is not an integer in RULES.md's range
-       [−2^62, 2^62 − 1] (in Parquet, a non-null Int64 in it) is the check's own refusal, containing "the holdout check
-       cannot be made", before any other column is read. That is not dataset invalidity (RULES.md §6 and SOURCES.md
-       §2). **What is read is tested, not what fails:** each loader opens every Parquet file through one byte-range
-       reader on its production path (Python: the file object `ingest/store.py`'s `open_parquet` returns, which
-       `as_of` reads through; `mm`: the Rust `parquet` crate's `ChunkReader` its loader reads through). The test wraps
-       that reader, records the byte ranges read up to the refusal, and asserts that every file was opened through it
-       and that no range meets a column chunk other than the event time's (each chunk's byte range from the file's
-       footer); the footer and file metadata may be read. The test, `test_holdout_check_reads_event_times_alone` in
-       `ingest/tests/test_store.py` for Python and its namesake in `kernel/mm/tests/` for `mm`: a store with one row's
-       event time in the holdout must be refused as a holdout crossing. Its variant,
-       `test_an_undecodable_event_time_refuses_before_any_value`: the same store with no holdout row and one row,
-       fetched after V, whose event time is a Double, must be refused as uncheckable. Each runs on the store as written
-       and, as a second check, on the same store with every column chunk but the event time's overwritten with garbage.
-       The store path names neither "holdout" nor the boundary, so neither it nor a decoding refusal passes for either
-       refusal. Their controls, each failing every case: a loader that reads every column first and refuses an
-       undecodable eligible row as an invalid dataset, as §6 says; and one that reads every column first but survives
-       a decoding error, reading that file's event times alone, until the holdout check has refused or passed. On the
-       same fixture, the event times alone read through the wrapped reader (the footer by the length the file states,
-       then the event time's chunk) meet no other chunk, so the test can be passed.
+    3. **Holdout staging:** first the schema checks, on each file's footer: `fetchedAt`'s type, `tombstone`'s type,
+       no column named twice in the embedded Arrow schema or the Parquet schema nor the two disagreeing in names, and
+       the event-time column present (a declared column's type is a row's decoding, not a schema check). Then the
+       holdout check, on the event-time column of every row (tombstoned, evidence, outside-U and post-V rows too). Each
+       refusal names its cause: a holdout crossing's refusal contains `holdout`, the boundary and the crossing event
+       time in decimal; an event time that is not an integer in RULES.md's range [−2^62, 2^62 − 1] (in Parquet, a
+       non-null Int64 in it) is the check's own refusal, containing "the holdout check cannot be made", not dataset
+       invalidity (RULES.md §6 and SOURCES.md §2). Everything else, a null `fetchedAt` included, is found after the
+       check passes. **It is tested as non-interference**, since SOURCES.md's access authorization decides "on the
+       required sources' event-time columns alone" and refuses "with no result-bearing output": on each fixture,
+       variants of the store that differ only outside the holdout row's event time (its value columns rewritten with
+       other values, a NaN and a List; its file with every chunk but the event time's garbled; so its footer's
+       statistics differ too) must give one outcome: the same refusal, type and message, no observation and the same
+       output. The test, `test_holdout_check_decides_on_event_times_alone` in `ingest/tests/test_store.py` for Python
+       and its namesake in `kernel/mm/tests/` for `mm`, facing the same variants, has three fixtures, each a row before
+       the holdout and a late row, under a store path naming neither "holdout" nor the boundary: the late row's event
+       time in the holdout, fetched after V or a tombstone, refused as a crossing; or, fetched after V, a Double,
+       refused as uncheckable. Its controls, each failing every fixture: a loader that resolves every file first and
+       refuses after; one that reads every column first, refusing a file that does not decode as an invalid dataset, as
+       §6 says; and one checking event times first whose refusal carries a decoded value of the row. A loader that
+       reads every column but survives a decoding error until the holdout check has refused or passed decides on event
+       times alone, and passes.
     4. Evidence keys and keys outside U are never delivered.
     5. A dataset whose eligible revisions of one entity map to different coins is invalid.
   - Version 1's suite and its results do not count; C7.6's resolver part is judged only on evidence produced after this

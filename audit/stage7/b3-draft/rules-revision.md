@@ -12,7 +12,7 @@ below each line is the text to append.
 ### Revision of 2026-11-04, B3: what the resolver reads, and the resolver restated whole
 
 From the B3 reviews (`audit/stage7/b3-review-{gpt,claude}.md`, `b3-fixes-review-{gpt,claude}.md`,
-`b3-round{3,4,5}-review-{gpt,claude}.md`; decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) and 05:55 UTC (00:55 EST)).
+`b3-round{3,4,5,6}-review-{gpt,claude}.md`; decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) and 05:55 UTC (00:55 EST)).
 It restates resolution whole, so that it reads without the text above; where that text differs, this governs. It
 replaces two things: §5's `R_ROW` as a resolver outcome (a stored row that does not decode was a rejected evaluation, so
 a retraction; it now makes the dataset invalid); and, for stored non-integer cells only, §1's "No value is ever rounded
@@ -138,14 +138,14 @@ A resolver case is one store at one dataset version:
 ### Revision of 2026-11-04, B3: Parquet as cells (SOURCES.md §2)
 
 From the second to fifth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
-`b3-round{3,4,5,6}-review-{gpt,claude}.md`; decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's
+`b3-round{3,4,5,6,7}-review-{gpt,claude}.md`; decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's
 revisions as Parquet files under its directory, each row one revision. A column's **type** is its Arrow type as its file
 states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type its Parquet physical and
 logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this section names a string. A
 row's metadata is `fetchedAt`, a non-null Int64, and `tombstone`, a Boolean (a null, or a file without the column, is
 false); a file whose `fetchedAt` is of another type or holds a null, or whose `tombstone` is of another type, makes the
-dataset invalid, whatever V, since its rows cannot be placed against V; so does a file whose schema (the embedded Arrow schema where
-present, else the Parquet schema) names one column twice, since no row of it decodes unambiguously. A derived source's `upstream`, a string column, holds its lineage as a
+dataset invalid, whatever V, since its rows cannot be placed against V; so does a file whose embedded Arrow schema or Parquet schema
+names one column twice, or whose two schemas disagree in their names, since no row of it decodes unambiguously. A derived source's `upstream`, a string column, holds its lineage as a
 JSON text read by RULES.md §7's mapping; a null, or a file without the column, is a lineage that does not decode, and a
 tombstone's is never read. A declared column's value maps to a cell by the column's type in the file that stores the
 row: Int64 to an integer; a finite Double to a non-integer; a string column to a string; Boolean to a boolean; a null of
