@@ -3,12 +3,14 @@
 Against B2's frozen definitions (`laws-frozen.md`, `7997257`), per `rust-port-plan.md` §3 B3, with the rulings of the
 decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and 05:55 UTC (00:55 EST)
 ("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) applied, and the third to seventh rounds'
-reviews (`b3-round{3,4,5,6,7}-review-{gpt,claude}.md`) answered under the advisor's rulings (decisions of 2026-11-04
-10:20 UTC (05:20 EST), 10:57 UTC (05:57 EST), 11:23 UTC (06:23 EST), 12:03 UTC (07:03 EST) and 12:38 UTC (07:38 EST)). Nothing frozen, and nothing in
+reviews (`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`) answered under the advisor's rulings (decisions of 2026-11-04
+10:20 UTC (05:20 EST), 10:57 UTC (05:57 EST), 11:23 UTC (06:23 EST), 12:03 UTC (07:03 EST), 12:38 UTC (07:38 EST),
+reversed, and 13:21 UTC (08:21 EST)). Nothing frozen, and nothing in
 `audit/criteria.md` changed. Beside this directory, rounds four to eight changed three things now: SOURCES.md §1 reserves the store's metadata column names, which
 `mm`'s `source::declaration` refuses (`kernel/mm/tests/sources.rs`) and `refmm resolve` returns as `E_DECL`; C7.6's
-test 3 is non-interference (one outcome across stores differing only outside the holdout rows' event times), and its
-three strict xfails on `ingest/store.py` name `audit/stage7/holdout-staging.md`; and
+test 3 is a decode limit (before the holdout check, no column chunk but the event time's decoded), decided by review of
+each loader's code path, with a behavioural regression net whose three strict xfails on `ingest/store.py` name
+`audit/stage7/holdout-staging.md`; and
 `refmm resolve` reads its cases by the exact-integer reader.
 
 - `rules-revision.md`: RULES.md's dated revision of §6, the case format for §7 and SOURCES.md §2's Parquet mapping, the

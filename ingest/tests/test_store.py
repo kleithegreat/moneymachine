@@ -1,4 +1,6 @@
 import json
+import random
+import sys
 import shutil
 
 import polars as pl
@@ -178,59 +180,100 @@ def garble(path):
     path.write_bytes(data)
 
 
+V = 100
+EARLY = HOLDOUT_START - H
 CROSSING = HOLDOUT_START + H
-FIXTURES = {"fetched after the version": (CROSSING, 200, None), "tombstone": (CROSSING, 50, True),
-            "undecodable event time": (float(HOLDOUT_START - 2 * H), 200, None)}
-VARIANTS = [({}, False), ({"coin": ["Z"], "rate": [-7.25], "source": ["u"], "hash": ["y"]}, False),
-            ({"rate": [float("nan")]}, False), ({"rate": [[1.0, 2.0]]}, False), ({}, True)]
+FIXTURES = {"own file": [CROSSING + H, CROSSING], "shared file": [CROSSING + H, CROSSING],
+            "undecodable event time": [float(EARLY - H), float(EARLY - 2 * H)]}
+SCHEMA = {"coin": pl.Utf8, "eventTime": pl.Int64, "rate": pl.Float64, "fetchedAt": pl.Int64, "source": pl.Utf8,
+          "hash": pl.Utf8, "tombstone": pl.Boolean}
+RATES = [  # a value column's type, the early row's value of it in a shared file, and a draw of one
+    (pl.Float64, 1.0, lambda r: r.choice([float("nan"), float("inf"), -float("inf")]) if r.random() < 0.2
+     else r.choice([-1.0, 1.0]) * 10 ** r.uniform(-2, 8)),
+    (pl.Int64, 1, lambda r: r.randrange(-2**63, 2**63)),
+    (pl.Utf8, "1", lambda r: str(r.random())),
+    (pl.List(pl.Float64), [1.0], lambda r: [r.random() for _ in range(r.randrange(3))]),
+]
 
 
-def staged(root, late, values, garbled):
-    """C7.6's holdout-staging fixture under `root`: the search store's bars dataset, a row before the holdout fetched at
-    100 and the row `late` (eventTime, fetchedAt, tombstone), one file each, `eventTime` of its value's type (Int64 or
-    Double). The variant rewrites the late row's value columns with `values` and, if `garbled`, garbles its file's
-    every chunk but the event time's: it differs from the others only outside the late row's event time. Version 100."""
+def plain(fetched, tombstone):
+    return 0, [{"coin": "A", "rate": 1.0, "fetchedAt": fetched, "source": "t", "hash": "x", "tombstone": tombstone}] * 2, False
+
+
+def drawn(r):
+    kind = r.choice([0, 0, 0, 1, 2, 3])
+    late = lambda: {"coin": r.choice([None, str(r.random())]), "rate": None if r.random() < 0.1 else RATES[kind][2](r),
+                    "fetchedAt": r.choice([None, r.randrange(-2**63, V + 1), r.randrange(V + 1, 2**63)]),
+                    "source": str(r.random()), "hash": str(r.random()), "tombstone": r.choice([None, True, False])}
+    return kind, [late(), late()], r.random() < 0.3
+
+
+def variants(fixture):
+    """The late rows eligible and live, fetched after the version, tombstoned, then drawn: every column but the event
+    time varied, their file garbled or not."""
+    r = random.Random(f"20261104 {fixture}")
+    return [plain(50, None), plain(200, None), plain(50, True)] + [drawn(r) for _ in range(32)]
+
+
+def staged(root, fixture, variant):
+    """C7.6's holdout-staging fixture under `root`, in the search store's bars dataset: an early row, fetched at 100,
+    and two late rows of the fixture's event times, in their own file or sharing the early row's; the variant gives
+    the late rows' other columns and garbles their file, the last, but for its event-time chunk. Version 100."""
     stores(root)
     d = root / "store" / "bars_4h"
     shutil.rmtree(d, ignore_errors=True)
     d.mkdir(parents=True)
-    for i, (event, fetched, tombstone) in enumerate([(HOLDOUT_START - H, 100, None), late]):
-        row = {"coin": ["A"], "eventTime": [event], "rate": [1.0], "fetchedAt": [fetched], "source": ["t"],
-               "hash": ["x"], "tombstone": [tombstone]} | (values if i else {})
-        pl.DataFrame(row, schema_overrides={"tombstone": pl.Boolean}).write_parquet(d / f"{i}.parquet")
+    kind, late, garbled = variant
+    rate, same, _ = RATES[kind]
+    late = [row | {"eventTime": e} for row, e in zip(late, FIXTURES[fixture])]
+    early = {"coin": "A", "eventTime": EARLY, "rate": 1.0, "fetchedAt": V, "source": "t", "hash": "x", "tombstone": None}
+    late_types = SCHEMA | {"rate": rate, "eventTime": pl.Float64 if fixture == "undecodable event time" else pl.Int64}
+    parts = [([early | {"rate": same}] + late, late_types)] if fixture == "shared file" else [([early], SCHEMA), (late, late_types)]
+    for i, (part, schema) in enumerate(parts):
+        pl.DataFrame(part, schema=schema).write_parquet(d / f"{i}.parquet")
     if garbled:
-        garble(d / "1.parquet")
+        garble(d / f"{len(parts) - 1}.parquet")
 
 
 def outcome(as_of, capfd):
-    """What a loader gives on a staged store: its refusal (type and message), or None if it gave a result, and what it
-    printed."""
+    """What a loader gives on a staged store, its refusal (type and message) or its result, then its stdout and its
+    stderr, apart."""
     try:
-        as_of("bars_4h", 2**62, 100)
-        refusal = None
+        got = as_of("bars_4h", 2**62, V)
+        given = "result", got.columns, got.rows()
     except Exception as e:
-        refusal = type(e), str(e)
+        given = "refusal", type(e), str(e)
     printed = capfd.readouterr()
-    return refusal, printed.out + printed.err
+    return given, printed.out, printed.err
 
 
-def refuses(fixture, refusal):
-    """The fixture's refusal: a holdout crossing naming the boundary and the crossing event time, or the holdout
+def refuses(fixture, given):
+    """The fixture's refusal: a holdout crossing naming the boundary and the least crossing event time, or the holdout
     check's own refusal of an event time it cannot check."""
-    if refusal is None or not issubclass(refusal[0], ValueError):
+    if given[0] != "refusal" or not issubclass(given[1], ValueError):
         return False
     if fixture == "undecodable event time":
-        return "the holdout check cannot be made" in refusal[1]
-    return all(str(x) in refusal[1] for x in ("holdout", HOLDOUT_START, CROSSING))
+        return "the holdout check cannot be made" in given[2]
+    return all(str(x) in given[2] for x in ("holdout", HOLDOUT_START, CROSSING))
 
 
 def decides_on_event_times_alone(loader, root, fixture, capfd):
-    """C7.6's named test 3: on every variant of the fixture the same refusal and output, and the fixture's refusal."""
-    outcomes = []
-    for values, garbled in VARIANTS:
-        staged(root, FIXTURES[fixture], values, garbled)
-        outcomes.append(outcome(loader(root), capfd))
-    assert refuses(fixture, outcomes[0][0]) and all(o == outcomes[0] for o in outcomes), outcomes
+    """C7.6's named test 3, its behavioural half: on every variant the fixture's refusal, alike, with nothing on stdout
+    and one stderr; and after it, the same loader with the late rows' file removed gives what a fresh one gives."""
+    seen = []
+    for variant in variants(fixture):
+        staged(root, fixture, variant)
+        as_of = loader(root)
+        first = outcome(as_of, capfd)
+        files(root, "bars_4h")[-1].unlink()
+        seen.append((first, outcome(as_of, capfd), outcome(loader(root), capfd)))
+    (given, _, err), _, _ = seen[0]
+    assert refuses(fixture, given), f"refusal: {seen[0]}"
+    for first, again, fresh in seen:
+        assert first[0] == given, f"differs: {first}"
+        assert first[1] == "", f"stdout: {first}"
+        assert first[2] == err, f"stderr: {first}"
+        assert again == fresh, f"state: {again} {fresh}"
 
 
 @pytest.fixture
@@ -248,18 +291,31 @@ def holdout_check(times):
     """The check on event times alone: its refusal, or None."""
     if times["eventTime"].dtype != pl.Int64:
         return "the holdout check cannot be made: an event time is not an Int64"
-    if (late := times.filter(pl.col("eventTime") >= HOLDOUT_START)).height:
-        return f"holdout crossing: event time {late['eventTime'][0]} at or after {HOLDOUT_START}"
+    if (least := times.filter(pl.col("eventTime") >= HOLDOUT_START)["eventTime"].min()) is not None:
+        return f"holdout crossing: event time {least} at or after {HOLDOUT_START}"
 
 
 def event_times(root, dataset):
     return pl.concat([pl.read_parquet(f, columns=["eventTime"]) for f in files(root, dataset)], how="diagonal_relaxed")
 
 
-def resolving_first(root):
-    """A control: it reads and resolves every file first, then refuses a crossing."""
+def everything(root, dataset):
+    return pl.concat([pl.read_parquet(f) for f in files(root, dataset)], how="diagonal_relaxed")
+
+
+def projecting(root):
+    """The rule's shape, the positive control: the event-time column of every file alone, the check, then the rest."""
     def as_of(dataset, t, version):
-        frame = pl.concat([pl.read_parquet(f) for f in files(root, dataset)], how="diagonal_relaxed")
+        if refusal := holdout_check(event_times(root, dataset)):
+            raise ValueError(refusal)
+        return everything(root, dataset).filter(pl.col("fetchedAt") <= version)
+    return as_of
+
+
+def resolving_first(root):
+    """Rounds 4 to 8: reads and resolves every file first, then refuses."""
+    def as_of(dataset, t, version):
+        frame = everything(root, dataset)
         resolved = frame.filter(pl.col("fetchedAt") <= version).group_by("coin", "eventTime").last()
         if refusal := holdout_check(frame.select("eventTime")):
             raise ValueError(refusal)
@@ -268,11 +324,11 @@ def resolving_first(root):
 
 
 def eager(root):
-    """A control, faithful to RULES.md §6 but for staging: it reads every column of every file, refusing a file that
-    does not decode as an invalid dataset, and only then makes the holdout check."""
+    """Rounds 5 to 8: reads every column of every file, refusing a file that does not decode as an invalid dataset,
+    and only then makes the check."""
     def as_of(dataset, t, version):
         try:
-            frame = pl.concat([pl.read_parquet(f) for f in files(root, dataset)], how="diagonal_relaxed")
+            frame = everything(root, dataset)
         except pl.exceptions.PolarsError as e:
             raise ValueError(f"{dataset}: invalid dataset, a row does not decode") from e
         if refusal := holdout_check(frame.select("eventTime")):
@@ -281,52 +337,138 @@ def eager(root):
     return as_of
 
 
-def telling(root):
-    """A control that checks event times alone first, but whose refusal carries the refused file's decoded `rate`."""
-    def as_of(dataset, t, version):
-        if refusal := holdout_check(event_times(root, dataset)):
+def peek(f, column):
+    """`column` of file f, decoded, or nothing if it does not decode."""
+    try:
+        return pl.read_parquet(f, columns=[column])[column].to_list()
+    except pl.exceptions.PolarsError:
+        return []
+
+
+def statistic(f, column):
+    """The footer's max statistic of `column`'s chunk, no page decoded."""
+    meta = pq.ParquetFile(f).metadata.row_group(0)
+    chunk = next(meta.column(j) for j in range(meta.num_columns) if meta.column(j).path_in_schema.split(".")[0] == column)
+    return chunk.statistics.max if chunk.statistics is not None and chunk.statistics.has_min_max else None
+
+
+def above(values, bound):
+    return any(isinstance(v, float) and v > bound for v in values)
+
+
+def amending(amend):
+    """A loader shaped as `projecting`, whose refusal `amend(file, refusal)` amends from the late rows' file."""
+    def loader(root):
+        check = projecting(root)
+        def as_of(dataset, t, version):
             try:
-                refusal += f" (rate {pl.read_parquet(files(root, dataset)[-1], columns=['rate'])['rate'][0]})"
-            except pl.exceptions.PolarsError:
-                pass
-            raise ValueError(refusal)
-        return event_times(root, dataset)
-    return as_of
+                return check(dataset, t, version)
+            except ValueError as e:
+                raise ValueError(amend(files(root, dataset)[-1], str(e))) from None
+        return as_of
+    loader.__name__ = amend.__name__
+    return loader
 
 
-def surviving(root):
-    """A loader that reads every column of every file, but survives a file that does not decode, reading its event
-    times alone, until the holdout check has refused or passed (the round 6 and 7 reviews' probe). Its decision
-    depends on event times alone, so it passes."""
+@amending
+def telling(f, refusal):
+    """Rounds 6 to 8: the refusal carries the decoded rates."""
+    return f"{refusal} (rate {peek(f, 'rate')})"
+
+
+@amending
+def suffix(f, refusal):
+    """GPT round 8, 2B: a bit of the rates, past 100."""
+    return f"{refusal} rate_above_100={above(peek(f, 'rate'), 100)}"
+
+
+@amending
+def threshold(f, refusal):
+    """Claude round 8, 2: a bit of the rates, past 1000, only when set."""
+    return refusal + " (large)" * above(peek(f, "rate"), 1000)
+
+
+@amending
+def statistics(f, refusal):
+    """Claude round 8, 2: the same bit from the rates' footer statistic."""
+    return refusal + " (large)" * (isinstance(s := statistic(f, "rate"), float) and s > 1000)
+
+
+@amending
+def metadata(f, refusal):
+    """Claude round 8, 2: the late rows' fetchedAt, decoded, or from its footer statistic when garbled."""
+    return f"{refusal} (fetched {peek(f, 'fetchedAt') or statistic(f, 'fetchedAt')})"
+
+
+@amending
+def channel(f, refusal):
+    """GPT round 8, 2A: one line, on stderr if a rate is negative, else on stdout."""
+    print("refused", file=sys.stderr if any(isinstance(v, float) and v < 0 for v in peek(f, "rate")) else sys.stdout)
+    return refusal
+
+
+def summing(root):
+    """GPT round 8, 3: prints the sum of the eligible early rates, then loads as `projecting` does."""
+    check = projecting(root)
     def as_of(dataset, t, version):
-        frames, bad = [], []
+        rates = []
         for f in files(root, dataset):
             try:
-                frames.append(pl.read_parquet(f))
+                rates += pl.read_parquet(f).filter((pl.col("eventTime") < HOLDOUT_START) & (pl.col("fetchedAt") <= version))["rate"].to_list()
             except pl.exceptions.PolarsError:
-                bad.append(f)
-                frames.append(pl.read_parquet(f, columns=["eventTime"]))
-        if refusal := holdout_check(pl.concat([f.select("eventTime") for f in frames], how="diagonal_relaxed")):
-            raise ValueError(refusal)
-        if bad:
-            raise ValueError(f"{dataset}: invalid dataset, {len(bad)} files do not decode")
-        return frames
+                pass
+        print("pre-refusal rate sum:", sum(v for v in rates if isinstance(v, float)))
+        return check(dataset, t, version)
     return as_of
 
 
+def persisting(root):
+    """Claude round 8, 1: an incremental cache, as an append-only store invites: each file decoded once, before the
+    check (its event times alone if it does not decode), and kept for later calls."""
+    kept = {}
+    def as_of(dataset, t, version):
+        for f in files(root, dataset):
+            if f.name not in kept:
+                try:
+                    kept[f.name] = pl.read_parquet(f)
+                except pl.exceptions.PolarsError:
+                    kept[f.name] = pl.read_parquet(f, columns=["eventTime"])
+        if refusal := holdout_check(pl.concat([k.select("eventTime") for k in kept.values()], how="diagonal_relaxed")):
+            raise ValueError(refusal)
+        return pl.concat(list(kept.values()), how="diagonal_relaxed").filter(pl.col("fetchedAt") <= version)
+    return as_of
+
+
+def dropping(root):
+    """Claude round 8, 4: resolves first, refuses a late row fetched after the version or tombstoned, and silently
+    drops one eligible and live, as the search store's write does."""
+    def as_of(dataset, t, version):
+        frame = everything(root, dataset)
+        late = frame.filter(pl.col("eventTime") >= HOLDOUT_START)
+        if late.filter((pl.col("fetchedAt") > version) | pl.col("tombstone").fill_null(False)).height:
+            raise ValueError(holdout_check(late.select("eventTime")))
+        return frame.filter(pl.col("eventTime") < HOLDOUT_START)
+    return as_of
+
+
+CONTROLS = {resolving_first: "differs", eager: "differs", telling: "differs", suffix: "differs", threshold: "differs",
+            statistics: "differs", metadata: "differs", channel: "stdout", summing: "stdout", persisting: "state",
+            dropping: "refusal"}
 FIXTURE = pytest.mark.parametrize("fixture", FIXTURES)
 
 
 @FIXTURE
-@pytest.mark.parametrize("control", [resolving_first, eager, telling])
-def test_loaders_whose_refusal_depends_on_a_holdout_rows_values_fail_test_3(root, capfd, fixture, control):
-    with pytest.raises(AssertionError):
+@pytest.mark.parametrize("control", CONTROLS, ids=lambda c: c.__name__)
+def test_controls_fail_test_3s_net_at_their_assertion(root, capfd, fixture, control):
+    """Each control decodes before the check, failing the structural half (by review); this is where the net catches
+    it."""
+    with pytest.raises(AssertionError, match=f"^{CONTROLS[control]}:"):
         decides_on_event_times_alone(control, root, fixture, capfd)
 
 
 @FIXTURE
-def test_a_loader_deciding_on_event_times_alone_passes_test_3(root, capfd, fixture):
-    decides_on_event_times_alone(surviving, root, fixture, capfd)
+def test_a_loader_projecting_to_event_times_first_passes_test_3s_net(root, capfd, fixture):
+    decides_on_event_times_alone(projecting, root, fixture, capfd)
 
 
 STAGING = "audit/stage7/holdout-staging.md: ingest/store.py has no holdout check on reads"
@@ -335,7 +477,5 @@ STAGING = "audit/stage7/holdout-staging.md: ingest/store.py has no holdout check
 @pytest.mark.xfail(strict=True, reason=STAGING)
 @FIXTURE
 def test_holdout_check_decides_on_event_times_alone(root, capfd, fixture):
-    """C7.6's named test 3 on the production loader: a holdout row, fetched after the version or a tombstone, is
-    refused as a holdout crossing, and an event time that is not an Int64 by the check's own refusal, alike whatever
-    the row's other columns hold."""
+    """C7.6's named test 3's behavioural half on the production loader."""
     decides_on_event_times_alone(lambda root: stores(root)[0].as_of, root, fixture, capfd)

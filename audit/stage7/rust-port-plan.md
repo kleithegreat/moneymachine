@@ -46,7 +46,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    and `resolveAll` through `refmm resolve`, with C7.6's named loader-level tests (`audit/stage7/b3-draft/`); on
    one-revision keys, the old loader's observations byte-identical. Two defects it fixes: the holdout check of test 3,
    which `ingest/store.py` lacks on reads (its three strict xfails, `audit/stage7/holdout-staging.md`, turn into
-   passes; the Rust namesake goes in `kernel/mm/tests/`, facing the same variants); and `Store.write` writing a column of Arrow type Null, which
+   passes, the check reading the event-time column alone, by projection, before `revisions()` decodes or caches
+   anything; the Rust namesake goes in `kernel/mm/tests/`, facing the same variants); and `Store.write` writing a column of Arrow type Null, which
    SOURCES.md §2 makes invalid, when every changed row of a fetch holds null in it: it casts such a column to Float64,
    with a test writing a single all-null row and resolving it to a null cell (`b3-round4-review-claude.md`, finding 2).
 6. **Admission** (`admission.rs`, `ledger.rs`, `main.rs`): Checks: named tests 4–6, 8, 9, 13, 15, 17, 18, 20–23
