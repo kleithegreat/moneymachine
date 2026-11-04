@@ -3,15 +3,16 @@
 The semantic contract, first for stage 6 (audit/criteria.md, stage 6), where it resolved DSL.md and INVARIANTS.md
 against the engine `mm`. Section references in brackets name the engine source. Where this file and DSL.md (frozen for the pilot's agents) read differently, this file holds.
 
-*Revision 2026-11-04 (`audit/decisions.md`, 2026-11-04 00:03 UTC (2026-11-03 19:03 EST)):* the nine reproduced
-defects are fixed here, once, for stage 7's port and the Lean engine. The frozen pilot engine, Lean's stage 6 model
-and C6.4 implement this file as of `f591e3b`. Each fix is tagged with the strict xfail that then passes: K1 to K6
+*Revision 2026-11-04 (`audit/decisions.md`, 2026-11-04 00:03 UTC (2026-11-03 19:03 EST) and 05:05 UTC (00:05 EST)):*
+the nine reproduced defects are fixed here, once, for the corrected engine: stage 7 first ports the frozen kernel byte
+for byte, then fixes them in that one implementation, and the Lean engine follows. The frozen pilot engine, Lean's
+stage 6 model and C6.4 implement this file as of `f591e3b`. Each fix is tagged with the strict xfail that then passes: K1 to K6
 `gate/tests/test_kernel_defects.py`, in its order; M1, M2, M4 `gate/tests/test_mechanism_defects.py`.
 
 | Defect | Rule | Test |
 |---|---|---|
-| K1 future trading sets today's eligibility | §7 intro, step 9 eligibility | `test_future_trades_cannot_change_current_orders` |
-| K2 a pending close reopens after liquidation | §7 step 7 | `test_zero_close_cannot_reopen_after_liquidation` |
+| K1 future trading sets today's eligibility | §3 listing record, §7 intro, step 9 eligibility | `test_future_trades_cannot_change_current_orders` |
+| K2 a pending close reopens after a stop-out | §7 step 7 | `test_zero_close_cannot_reopen_after_liquidation` |
 | K3 holds take no gross budget | §7 step 9 scaling | `test_undefined_holds_reserve_portfolio_budget` |
 | K4 sizing on pre-fill equity | §7 step 9 equity | `test_next_target_uses_post_fill_equity` |
 | K5 the window revives a bankrupt account | §10 window account | `test_reporting_window_cannot_resurrect_bankrupt_account` |
@@ -20,7 +21,8 @@ and C6.4 implement this file as of `f591e3b`. Each fix is tagged with the strict
 | M2 undefined labels leave its denominator | §10 exposures | `test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage` |
 | M4 `REPLACE` gets past the ledger's triggers | INVARIANTS.md I6 | `test_separate_connection_cannot_replace_kernel_result` |
 
-The loss bound the holdout theorem needs holds by construction from the leverage limit Λ (§7, Loss bound).
+The loss bound the holdout theorem needs holds by construction on gapless markets, from the account's stop-out at Λ
+times equity (§7, Loss bound); on real markets it is an assumption.
 
 Times are integer milliseconds. HOUR = 3,600,000; BAR = 4 · HOUR; δ is the store policy's
 `delta_ms` (120,000). Numbers are IEEE-754 binary64 in the executable instance and an abstract type
@@ -89,14 +91,16 @@ reported.
 
 - **Records.** An observation is a funding row (coin, eventTime, knownAt, rate, premium), a bar
   (coin, openTime, eventTime = openTime + BAR, knownAt, open, high, low, close, volume, trades), or
-  an event count (input, coin, eventTime, knownAt, count). The store resolves revisions before a
+  an event count (input, coin, eventTime, knownAt, count), or a delisting (coin, knownAt): knownAt is the fetchedAt of
+  the first venue-rules revision marking the coin delisted, never inferred from trading. The store resolves revisions before a
   run [market.rs `resolve`]: per (dataset, coin, eventTime), the revision with the largest fetchedAt ≤
   the version. Its knownAt is computed from its observed fields by the policy's rule [market.rs
   `known`]: a funding row at max(reportedTime floored to the hour + δ, reportedTime +
   `settlement_latency_ms`), a bar or an event count at eventTime + δ. A stored knownAt
   is never read. A run receives exactly one row per key; earlier
   revisions are never delivered. The adapter supplies the rows; an admissible market has unique keys,
-  bars with eventTime = openTime + BAR, and coin and slot indices within range.
+  bars with eventTime = openTime + BAR, coin and slot indices within range, and a delisting record for every coin its
+  rules mark delisted.
 - **Delivery order.** Each stream is sorted by (knownAt, coin, eventTime): funding, bars, then each
   event input in EVENT_INPUTS order (sorted by knownAt, coin, slot, index). Before the tick at time
   τ, every row with knownAt ≤ τ is delivered, funding first, then bars, then events [sim.rs
@@ -113,7 +117,7 @@ reported.
 
 The first tick is at H = w_start (delivery up to w_start + δ). Then, in each 4h step, there is one
 tick per H in (b, b + BAR], each after delivery up to H + δ (§7). A tick at hour H with listing
-mask L (coin c listed iff interval_start(c) ≤ H < interval_end(c)) evaluates the nodes in index
+mask L (coin c listed iff start(c) ≤ H < end(c), §7) evaluates the nodes in index
 order. Per node i and coin c:
 
 - **hours_since(cond).** If c is listed and cond[c] is defined and nonzero at this tick, last[i][c]
@@ -192,11 +196,13 @@ A window node with n = `hours` keeps per-coin state, pushed once per listed tick
 
 ## 7. The simulation loop
 
-Let V be the venue's coins in rules.json order, each listed on [start(c), end(c)). end(c), the venue's delisting
-time (∞ if none), is an observation known at end(c): nothing in a run reads it earlier (K1). Λ = 4 is the account's
-leverage limit. The book: cash = 10,000; positions q[c] (absent means 0); and an average-entry ledger (entry[c],
+Let V be the venue's coins in rules.json order. The run's interval is [w_start, E), with w_start and w_end the policy's
+and E = min(w_end, holdout start) in search mode, w_end in holdout mode. Coin c is listed on [start(c), end(c)), with
+start(c) = w_start and end(c) = min(E, the knownAt of its delisting record, §3), so a delisting enters a run only from
+its knownAt (K1). Λ = 4 sets the account's own stop-out, at most Λ times equity in gross; it is not the venue's
+liquidation. The book: cash = 10,000; positions q[c] (absent means 0); and an average-entry ledger (entry[c],
 realized, fees, funding, absorbed) [sim.rs `Book`]. The book's equity is cash + Σ q · mark and its gross Σ |q| · mark.
-Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ end, each step does, in order:
+Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does, in order:
 
 1. **Funding.** For h = b + HOUR, b + 2·HOUR, …, b + BAR, and for each coin c holding a position and
    listed at h (in coin order; none is due after delisting): a funding rate r for (c, h) must exist,
@@ -204,14 +210,15 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ end, each step do
    else the latest earlier one), else abort with R_SETTLEMENT_MISSING (a missing payment is never a
    zero one). paid = q[c] · open · r. cash −= paid and funding −= paid.
 2. **Marks.** For each coin, latest(c) is the coin's last bar with openTime ≤ b, and the mark is its close.
-3. **Margin.** The adverse price is low(latest) for q > 0 and high(latest) for q < 0 (the mark if no
+3. **Stop-out.** The adverse price is low(latest) for q > 0 and high(latest) for q < 0 (the mark if no
    bar). Equity at adverse = cash + Σ q · adverse. Maintenance = Σ |q| · adverse · max(1/(2 · min tier
-   leverage), 1/Λ). If any position is held and equity at adverse < maintenance, every held position is
-   liquidated: a fill of −q at reference = adverse, at time b + BAR, from latest(c).
+   leverage), 1/Λ), so the account stops itself out no later than the venue would liquidate it. If any position is
+   held and equity at adverse < maintenance, every held position is closed: a fill of −q at reference = adverse, at
+   time b + BAR, from latest(c).
 4. **Delisting.** For each position with b + BAR ≥ end(c): a fill of −q at reference = mark, at
    time b + BAR, from latest(c).
 5. **Bankruptcy.** If e = cash + Σ q · mark is not > 0 (NaN included), every position still held is
-   liquidated as in step 3. Then absorbed −= cash and cash = 0 (losses are capped at equity).
+   closed as in step 3. Then absorbed −= cash and cash = 0 (losses are capped at equity).
 6. **Accounting.**
    - **Equity.** e1 = cash + Σ q · mark. e2 = 10,000 + realized + Σ q · (mark − entry) − fees +
      funding + absorbed. Unless |e1 − e2| / max(|e1|, 10,000) ≤ 1e-9, abort with R_ACCOUNTING (a NaN or
@@ -220,21 +227,22 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ end, each step do
      (e1 − previous + costs − previous costs)/previous, with costs = fees + slippage; otherwise both
      are 0. Unless the return is ≥ −1, abort with R_BOUND. Append both.
 7. **Fills.** Orders decided at the previous decision (at b + δ) are due now, at b + BAR, their
-   scheduled fill time. They are executed only if b + 3·BAR ≤ end; otherwise the run's horizon ends
-   first, and they are dropped unresolved (only their Decision record exists). If step 3 or 5 liquidated
-   the account, every due order is unfilled: it was sized on a book that no longer exists, and the
-   venue cancels a liquidated account's orders (K2). Otherwise, for each due order, in decision order,
-   the selected bar is the coin's bar opening at b + BAR. That is INVARIANTS.md's I3: the first bar
-   opening at or after submission, with openTime ≤ the scheduled fill time. It fills at its open if
-   the bar exists with trades ≥ 1 and the fill leaves the book's gross at most Λ times its equity, or
-   lowers that gross: the venue's margin at order time. Otherwise record Unfilled; the order never
-   rolls to a later bar.
+   scheduled fill time. They are executed only if b + 3·BAR ≤ E; otherwise the run's horizon ends
+   first, and they are dropped unresolved (only their Decision record exists). An order whose book no longer exists
+   is unfilled: every due order if step 3 or 5 closed the account, and an order whose coin is not listed at
+   b + BAR (K2). Otherwise, for each due order, in decision order, the selected bar is the coin's bar opening at
+   b + BAR. That is INVARIANTS.md's I3: the first bar opening at or after submission, with openTime ≤ the scheduled
+   fill time. It fills at its open if the bar exists with trades ≥ 1 and the fill either reduces |q[c]| without
+   changing its sign or leaves the book's gross at most Λ times its equity, both at the step's marks: the margin
+   check at order time. A reversal is judged like any fill. Otherwise record Unfilled; the order never rolls to a
+   later bar.
 8. **Ticks.** For H = b + HOUR, …, b + BAR: deliver up to H + δ, then tick (§4).
 9. **Decision** at t_d = B + δ, with B = b + BAR.
    - **Eligibility.** A coin is eligible if it is listed at B: start(c) ≤ B < end(c) (K1).
    - **Holds.** An eligible coin holds as `stale` unless its held funding row and held bar both have
      eventTime B. It holds as `undefined` if its weight is Undef. The others give (c, w).
-   - **Equity.** e_d is the book's equity after step 7's fills (K4).
+   - **Equity.** e_d is the book's equity after step 7's fills (K4). If e_d ≤ 0 (I10), scaling and sizing are
+     skipped and no order is placed; holds are still recorded.
    - **Scaling.** A hold keeps its position, so it keeps its share of the gross budget: H = Σ |q[c]| ·
      mark[c] / e_d over the holds with a position, and the others share β = max(0, 2 − H) (K3).
      largest = max |w|, and relative = Σ |w|/largest. If relative · largest > β, each w becomes
@@ -262,17 +270,25 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ end, each step do
 - **Recording.** Each fill is checked by I2 and I3 [sim.rs `check_fill`] and recorded.
 
 **Loss bound.** Let r′ be a step's net return before absorption, (e′ − e_prev)/e_prev, with e′ the equity before
-step 5's absorption and e_prev the previous step's e1. The book leaving each step's fills has gross at most Λ times its
-equity, by construction: step 3 leaves either no position or a book whose gross at its adverse prices is at most Λ
-times its equity there; moving each price to its mark, a move in the position's favour, keeps that ratio at most
-max(Λ, 1); a delisting or a reducing fill lowers gross by far more than its cost lowers equity (Λκ < 1); and step 7
-fills no increase past Λ. Let κ be the largest cost rate (cell bps/10⁴ plus taker fee) and m the largest loss, per
-unit of mark notional, of carrying a position from one step's marks through the next step's funding to a closeout
-at that bar's adverse extreme, its cost included. In a market whose bars open at the previous close, a step's fills
-trade at most 2Λ · e_prev and its bar loses at most Λ · m · e_prev, so r′ ≥ −Λ(2κ + m) (a gap at the open counts in
-m). With Λ = 4, r′ ≥ −2, the condition of the holdout theorem (`gate/NULLS.md`, limited liability), wherever
-m ≤ 1/2 − 2κ. The kernel bounds the exposure; m is the market's: NULLS.md's generators bound it by construction,
-and a real market meets it only on the steps whose adverse excursion stays within it.
+step 5's absorption and e_prev the previous step's e1, its equity before its fills. Let κ be the largest cost per unit
+of reference notional over the cells, s + f + s·f with s = bps/10⁴ and f the taker fee, and m the largest loss, per
+unit of mark notional, of carrying a position from one step's marks through the next step's funding to a closeout at
+that bar's adverse extreme, its cost included. Take a gapless market, whose bars open at the previous close, with
+Λκ ≤ 1. Then:
+- the book leaving steps 3 to 5 has gross G₀ ≤ Λ · e_prev. A stop-out leaves nothing. Otherwise the gross at the
+  adverse prices is at most Λ times the equity there, and moving each price to its mark, a move in the position's
+  favour, keeps that ratio at most Λ. A delisting fill lowers gross by its notional and equity by at most κ times it.
+- step 7's fills are at the marks plus costs, so they never raise equity. A reduction that keeps the sign keeps gross
+  within Λ times equity (Λκ ≤ 1), and any other fill is admitted only if it does, so the book leaving them has gross
+  G₁ ≤ Λ · e_prev.
+- with at most one fill per coin, they trade at most G₀ + G₁ ≤ 2Λ · e_prev, costing at most 2Λκ · e_prev, and the
+  next bar loses at most m · G₁.
+
+So r′ ≥ −Λ(2κ + m), and with Λ = 4, r′ ≥ −2, the condition of the holdout theorem (`gate/NULLS.md`, limited
+liability), whenever m ≤ 1/2 − 2κ. NULLS.md's gapless synthetic nulls meet it by construction. A real market gaps: a
+fill then trades at an open away from its mark, which this proof does not cover
+(`audit/reviews/2026-11-04-gpt-nine-defects-review.md`, finding 1). On real markets r′ ≥ −2 is an assumption that the
+holdout's conclusion rests on; a report of realized excursions is a diagnostic, never proof of it.
 
 ## 8. Binding preflight
 
@@ -300,14 +316,17 @@ A result reports a window of one run: its steps with equity time > R, the window
   bankrupt account stays at 0), and compounds the window's returns (K5). final_equity is its last value and
   total_return = final_equity/10,000 − 1.
 - **Window trace.** The run's trace after its Equity record at s (the whole trace without s). s's fills come after
-  that record and their costs fall in the window's first return, so they are in the window's trace and in its fills,
-  fees, slippage and turnover (K6).
-- **Exposures** (`--mechanism on`). Each decision gives every eligible coin a label: its prediction condition at
-  that tick, true, false or Undef. An exposure is one bar through which a coin is held, labelled by the decision whose
-  fills opened the bar. With v_c the coin's cash flows (fills and funding) plus q · mark, an exposure's return is the
-  change in v_c over it, divided by the equity recorded at the bar's start. A coin's exposures chain: each starts
-  where its previous one ended (at the run's start, v_c = 0) and ends at the next fill instant, before that instant's
-  fills if the coin is held after them and after them if they leave it flat. So every fill's fee and slippage, and
-  every price change while held, falls in exactly one exposure (M1). Every exposure counts: with n_t, n_f and n_u the
-  true, false and Undef counts and N their sum, the check passes iff n_t/N and n_f/N both lie in [0.1, 0.9] and the
-  true exposures' mean return exceeds the false ones' (M2). share_true is n_t/N.
+  that record and their costs fall in the window's first return, so they are in the window's trace (K6). Over that
+  trace, fills counts the fill records, closeouts included; fees is Σ fee, slippage Σ qty · (price − reference), and
+  turnover Σ |qty| · price.
+- **Exposures** (`--mechanism on`). Each step time T = b + BAR is a fill instant: its closeouts (steps 3 to 5), then
+  its fills (step 7). An exposure is a pair (c, T) with c held after T's fills and T + BAR an Equity time in the
+  window, so a position still open at the run's end ends at its last Equity record, at its marks. Its label is c's
+  prediction condition (true, false or Undef) at the decision due at T, the one at T − BAR + δ, whether or not it ordered c or its order filled. With v_c
+  the coin's cash flows (fills, fees and funding) plus q[c] · mark, its return is the change in v_c over it divided
+  by the Equity recorded at T. It starts where c's previous exposure ended (v_c = 0 at the run's start) and ends at
+  T + BAR: after that instant's closeouts and fills if they leave c flat, else before them. So every fill, a reversal
+  whole, falls in exactly one exposure, the one it closes if it leaves c flat, else the one it opens, and so does
+  every price change and funding payment while held (M1). Every exposure counts: with n_t, n_f and n_u the true,
+  false and Undef counts and N their sum, the check passes iff N > 0, n_t/N and n_f/N both lie in [0.1, 0.9], and the
+  true exposures' mean return exceeds the false ones' (M2). share_true is n_t/N, absent when N = 0.

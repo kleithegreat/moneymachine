@@ -15,7 +15,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued.
 - **Budget.** Campaigns start on the first account (TAMU, then Cornell) with every window at most 0.8 after the most a campaign has used (`need`, measured across accounts). Claude work on an account during its campaign can exhaust it, a counted crash: none then.
 
-- **Nine defects specced**, unreviewed: branch `claude/nine-defects-spec-qhpaks` (`reference/SEMANTICS.md`'s table). Questions under Blockers.
+- **Nine defects specced**, reviews answered: branch `claude/nine-defects-spec-qhpaks`; stage 7 implements it after its byte-identical tag.
 
 ### Next, in order
 
@@ -24,8 +24,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices).
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
 
-
-2. **Stage 4: C4.5 v3 deployed, held for the resets** (`audit/decisions.md`, 2026-11-03): the thesis has Cornell first. v3's first campaign runs at TAMU's reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST); then fix the pacing (need read across a series' logs). No Claude work on an account during its campaign.
+2. **Stage 4: C4.5 v3 deployed, held for the resets** (`audit/decisions.md`, 2026-11-03): v3's first campaign runs at TAMU's reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST). No Claude work on an account during its campaign.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
@@ -50,7 +49,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Blockers
 
-- **Nine-defect spec: review before Lean or stage 7 use.** (1) Λ = 4 (liquidate at 4× at the adverse extreme, no fill past 4×) is new: without it held drift and the fill lag leave r′ unbounded; it changes more than the nine tests. (2) Real markets meet r′ ≥ −2 only where m ≤ 1/2 − 2κ: report each holdout's largest m? (3) DSL.md is hash-frozen: old rules. (4) Its `audit/decisions.md` line is the advisor's.
+- **Nine-defect spec.** (1) Paper error, corrected: it gave the holdout's bound as every step return ≥ −1, enforced and proved; the test needs pre-absorption returns ≥ −2, proven only on gapless markets. (2) No store holds a dated delisting record (`rules.json` is one snapshot): until then a market with a delisted coin is inadmissible to the corrected engine; K1's fixture needs one. (3) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
 - **FRED and ALFRED: the API terms forbid our use; the human decides.** https://fred.stlouisfed.org/legal/ (read 2026-10-26): clause (l) forbids "storing, caching, or archiving" FRED content or "incorporating any FRED® Content in any database", and (k) use "in connection with the development or training of ... machine learning, including ... large language models". Our store is a database agents read. Key unused; no permission request for now (human). Macro vintages come from the Philadelphia Fed's RTDSM.
 - **IMF** "prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, 2026-10-23).

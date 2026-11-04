@@ -60,12 +60,15 @@ control. Null campaigns report every evaluation, including those with a step ret
 pass the positive-total-return rule, but a bankrupt finalist's earlier wealth peak still enters Holm.
 
 *Revision 2026-11-04, for campaigns on the corrected engine, with fresh campaign ids; earlier campaigns keep the text
-above:* the bound holds by construction. The corrected kernel holds the book within Λ = 4 times its equity, so
-r′ ≥ −4(2κ + m) (`reference/SEMANTICS.md` §7, Loss bound). Every clip of ε below is at ±0.3 instead of ±0.5, and each
-wick's |u| is capped at 0.1. A position's loss per unit of o, to its close with funding, is then at most |ε| ≤ 0.3; its
-wick adds at most 0.1 · max(o, c)/o, with c/o ≤ (1 + 3 · 0.04 + 0.3)/(1 − 0.04) < 1.48; and its closeout cost at most
-1.1κ · 1.48. Every cell's κ (median cost plus taker fee) is under 0.003, so m < 0.46 ≤ 1/2 − 2κ and r′ ≥ −2 almost
-surely: the raw p-values are valid on bankrupt paths, and lows stay above 0.9 · min(o, c) > 0.
+above:* the bound holds by construction, because these markets are gapless. The corrected kernel's stop-out gives
+r′ ≥ −4(2κ + m), with κ the largest cost per unit of reference notional, s + f + s · f (`reference/SEMANTICS.md` §7,
+Loss bound). Every clip of ε below is at ±0.3 instead of ±0.5, and each wick's |u| is capped at 0.1, so
+c/o ≤ (1 + 3 · 0.04 + 0.3)/(1 − 0.04) < 1.48. Per unit of o, a closeout at the adverse extreme then loses, with
+funding: when the bar moves against the position, its loss to the close, |ε| ≤ 0.3, plus the wick beyond the close,
+at most 0.1 · max(o, c)/o < 0.148; when it moves for it, at most the wick beyond the open, 0.1, plus the funding paid,
+3 · 0.04 + 0.04 · 1.48, under 0.28. The closeout's cost adds at most 1.1 · 1.48 · κ. Market construction checks
+κ ≤ 0.003 in every cell and refuses a market that fails it; then m < 0.46 ≤ 1/2 − 2κ and r′ ≥ −2 almost surely: the
+raw p-values are valid on bankrupt paths, and lows stay above 0.9 · min(o, c) > 0.
 
 Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 1.04 > 0.
 
