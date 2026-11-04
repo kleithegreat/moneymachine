@@ -1,0 +1,35 @@
+{
+ "manifest_sha256": "0411a4265e9a5b23abbe61f2b9fcd42b222602b4dd516ba21b016be3813990b1",
+ "markets_rebuilt": {
+  "N1": true,
+  "edge": true,
+  "liquidation": true,
+  "ruin": true
+ },
+ "markets_not_rebuilt": {
+  "N2": 1101,
+  "N3": 1101
+ },
+ "programs": 1196,
+ "verdict_disagreements": [],
+ "runs": 1170,
+ "runs_by_market": {
+  "N1": 1101,
+  "edge": 61,
+  "liquidation": 4,
+  "ruin": 4
+ },
+ "run_disagreements": [],
+ "coverage": {
+  "equity": 3633199,
+  "hold": 3638222,
+  "decision": 12175297,
+  "fill": 12171681,
+  "funding": 90183396,
+  "defined node values": 3733367834,
+  "abort R_INPUT_UNAVAILABLE": 4,
+  "abort R_SETTLEMENT_MISSING": 45,
+  "liquidation": 4,
+  "unfilled": 2
+ }
+}
