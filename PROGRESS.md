@@ -22,7 +22,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Stage 7 slice 2** closed on `stage7` (`ccfda7e`): GPT-reviewed fixes; the run differential agrees on all 3,372 runs. Hunt fixes: a second pass after GPT's review.
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
-- **K1's fixture** (a different session): the same delisting record in both histories, known after 12:02; assert at 12:02 as well as 08:02.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 round 5** (cloud), answering both round 4 reviews (`audit/stage7/b3-round4-review-*.md`); C7.6 keeps 1,000 multi-revision delivered pairs, its frozen bullet's floor. Not frozen.
 
@@ -44,6 +43,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ### Finished
 
+- K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
 - Pytest: one build per session, worksteal, 3.5 minutes (`audit/2026-11-04-suite-speed.md`).
 - Stage 0: exited 2026-10-26 with C0.7 qualified, by human decision (`audit/stage0/criteria-result.txt`). Stage 1: done 2026-10-26 (`audit/stage1/`).
 - Stage 2: exited 2026-10-28 with C2.6 waived, by human decision (`audit/stage2/exit-r2.md`).
@@ -53,7 +53,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Blockers
 
-- **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
+- **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
 - **FRED and ALFRED: the API terms forbid our use; the human decides.** https://fred.stlouisfed.org/legal/ (read 2026-10-26): clause (l) forbids storing, caching or archiving FRED content or putting it in any database (our store is one), and (k) use in developing or training machine learning. Key unused; no permission request for now (human). Macro vintages come from the Philadelphia Fed's RTDSM.
 - **IMF** "prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, 2026-10-23).
