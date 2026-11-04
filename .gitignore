@@ -6,6 +6,5 @@ __pycache__/
 .hypothesis/
 .pytest_cache/
 .keys.env
-.CLAUDE_CODE_OAUTH_TOKEN
 .TAMU_TOKEN
-.CLAUDE_CODE_OAUTH_TOKEN_PERSONAL
+.CLAUDE_CODE_OAUTH_TOKEN*
