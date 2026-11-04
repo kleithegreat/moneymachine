@@ -15,7 +15,7 @@ the baseline, widening a scope, dropping a case or projecting away another field
 | `hl-bars-4h` 2 | history | coin, eventTime | `open` `high` `low` `close` (usd/coin), `volume` (coin) | held, 4 h, phase 0, slot eventTime | eventTime + δ | bars: open ← open, high ← high, low ← low, close ← close, trades ← trades |
 | `discourse-sightings`, `snapshot-sightings` 1 | recorded, evidence | key, id, created; event observed | none | evidence | max(observed, fetchedAt) | none |
 | `discourse-polls`, `snapshot-polls` 1 | recorded, evidence | key; event recv | none | evidence | max(recv, fetchedAt) | none |
-| `forum-events`, `governance-events` 1 | derived | coin, eventTime | `forum_posts`, `gov_proposals` ← count (ev) | event, slot eventTime | max(eventTime + δ, dep `recording`) | none |
+| `forum-events`, `governance-events` 2 | derived | coin, eventTime | `forum_posts`, `gov_proposals` ← count (ev) | event, slot eventTime | max(eventTime + δ, dep `recording`) | none |
 
 δ = 120,000 ms. The venue rules are C0.3's as amended for C0.4 (`audit/criteria.md`). Each derived source declares
 one dependency, `recording`, spanning its sightings and polls sources, with lag 0; the rule names it, so it passes

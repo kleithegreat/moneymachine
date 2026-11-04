@@ -11,6 +11,6 @@
   "missing": "undefined",
   "revisions": "latest",
   "rule": {"rule": 1, "expr": {"max": [{"add": [{"field": "eventTime"}, {"ms": 120000}]}, {"dep": "recording"}]}},
-  "depends": {"recording": {"sources": ["snapshot-polls", "snapshot-sightings"], "lag_ms": 0}},
+  "depends": {"recording": {"sources": ["discourse-polls", "discourse-sightings", "snapshot-polls", "snapshot-sightings"], "lag_ms": 0}},
   "role": {}
 }

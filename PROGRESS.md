@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`). Findings 1 and 2 fixed, under review; finding 3's differential agrees on all 3,372 runs (`audit/stage7/slice2-differential.md`); GPT's review of the fixes asks for new declaration versions (`slice2-fixes-review-gpt.md`), in a fix pass. Then slice 3, after the thesis round.
+- **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`). Findings 1 and 2 fixed, under review; finding 3's differential agrees on all 3,372 runs (`audit/stage7/slice2-differential.md`); GPT's fixes review's new declaration versions are done (`forum-events`, `governance-events` 2). Then slice 3, after the thesis round.
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: four strict xfails; finding 1 (`ops/live.py`) can be fixed now, 2 to 4 at the refreeze. Full suite not run in the cloud; the advisor runs it locally.
 - **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks.
