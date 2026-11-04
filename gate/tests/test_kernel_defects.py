@@ -17,18 +17,11 @@ import polars as pl
 import pytest
 
 from gate import kernel, markets
+from gate.search import const, op
 from ingest.policy import DELTA, HOUR
 from ingest.store import Store
 
 HUNT = "audit/reviews/2026-11-03-gpt-hunt-kernel.md"
-
-
-def const(value):
-    return {"const": value, "unit": "1"}
-
-
-def op(name, *args):
-    return {"op": name, "args": list(args)}
 
 
 def arrays(bars=8, coins=1):

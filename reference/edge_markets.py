@@ -22,6 +22,7 @@ import numpy as np
 import polars as pl
 
 from gate.markets import FLAT_COST, write_venue
+from gate.search import const as c, op
 from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
 
@@ -98,15 +99,6 @@ def crash(root, drop):
 
 
 MARKETS = {"edge": edge, "liquidation": lambda r: crash(r, 0.4), "ruin": lambda r: crash(r, 0.6)}
-VERSIONS = {"edge": 2, "liquidation": 1, "ruin": 1}
-
-
-def c(x, unit="1"):
-    return {"const": x, "unit": unit}
-
-
-def op(name, *args, **extra):
-    return {"op": name, "args": list(args), **extra}
 
 
 def inp(name):
@@ -137,7 +129,6 @@ def program(name, weight, lets=None, params=None):
 
 
 def weights():
-    """name -> weight (or whole program): every operator and input, then the boundary cases."""
     out = {f"op-{o}": w(op(o, R, F)) for o in ("add", "sub", "mul", "min", "max")}
     out |= {
         "op-div": w(op("div", R, F)),
