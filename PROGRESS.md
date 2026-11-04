@@ -9,7 +9,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
   - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources` (delvingbitcoin.org, Snapshot; clock record: the kernel's bound, `CLUSTER.md`), `datalayer` (`venue/sources/datalayer.json`).
   - `thesis` (`sha256:8ad0b655…`, commit `29a25cb`): stage 10, track `thesis-310449610583` (`audit/stage10/manifest.json`); C10.5's 28-day window counts from its freeze, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST). A canary runs before each session; a failure prints `SANDBOX CONTRACT BROKEN` or waits on availability. The pod gate's `retrieval` part fetches each certified retrieval entry (at least one 200 means main sessions can read).
-  - `agent-series` (`sha256:8ad0b655…`, `29a25cb`): C4.5 v3's ten swarm campaigns `swarm-null-3-N2-0..9`. Logs and reports in `mirror/agent/`.
+  - `agent-series` (`sha256:5d59960e…`, `fb220cc`, since 2026-11-04 00:41 UTC (2026-11-03 19:41 EST); the mirror CronJobs too): C4.5 v3's ten swarm campaigns `swarm-null-3-N2-0..9`. Logs and reports in `mirror/agent/`.
   - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued.
@@ -59,7 +59,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Decisions awaiting the human's review
 
-- 2026-11-04 00:03 UTC (2026-11-03 19:03 EST): C4.5 v3 runs on the frozen kernel under an exact qualification, approved by the human; the nine defects are fixed in the spec, stage 7 and Lean (`audit/decisions.md`). Before v3: v3's report adds turnover, lowest committed returns and masking flags, then the image with `956066c` rolls to the series.
+- 2026-11-04 00:03 UTC (2026-11-03 19:03 EST): C4.5 v3 runs on the frozen kernel under an exact qualification, approved by the human; the nine defects are fixed in the spec, stage 7 and Lean (`audit/decisions.md`). Done before any v3 campaign: v3's report, the identity check and the pacing fix are deployed.
 
 ## Qualifications
 
