@@ -11,7 +11,6 @@ EASTERN = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\s*E[DS]T\b")
 
 
 def unpaired(line):
-    """Whether a line names more UTC times than Eastern ones."""
     return len(UTC.findall(line)) > len(EASTERN.findall(line))
 
 

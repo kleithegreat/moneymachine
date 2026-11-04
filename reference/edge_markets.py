@@ -129,7 +129,6 @@ def program(name, weight, lets=None, params=None):
 
 
 def weights():
-    """name -> weight (or whole program): every operator and input, then the boundary cases."""
     out = {f"op-{o}": w(op(o, R, F)) for o in ("add", "sub", "mul", "min", "max")}
     out |= {
         "op-div": w(op("div", R, F)),

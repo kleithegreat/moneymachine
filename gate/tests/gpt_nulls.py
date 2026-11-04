@@ -187,7 +187,6 @@ def generate(
     funding = result["funding"]
     premium = result["premium"]
 
-    # Initialize stationary bootstrap paths at uniformly sampled source rows.
     shared_row = int(rng.integers(source_length))
     short_rows = np.zeros(12, dtype=np.int64)
     short_columns = np.zeros(12, dtype=np.int64)

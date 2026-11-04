@@ -36,7 +36,6 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def days(client):
-    """The archive's dates, as listed."""
     out, token = [], None
     while True:
         kw = {"Bucket": BUCKET, "Prefix": "market_data/", "Delimiter": "/", "RequestPayer": "requester"}

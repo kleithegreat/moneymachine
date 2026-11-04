@@ -8,8 +8,6 @@ from scipy.special import ndtr, ndtri_exp
 
 def dsr(returns, n_trials) -> float:
     """Return the DSR score, not the Boolean DSR >= 0.95 screen decision."""
-    # Convention: reject invalid inputs rather than omit observations or
-    # manufacture a score. Accept Python/NumPy integers, but not booleans.
     if isinstance(n_trials, (bool, np.bool_)) or not isinstance(
         n_trials, (int, np.integer)
     ):
@@ -20,7 +18,6 @@ def dsr(returns, n_trials) -> float:
 
     if np.iscomplexobj(returns):
         raise ValueError("returns must be real")
-    # Convention: use binary64 arithmetic.
     r = np.asarray(returns, dtype=np.float64)
     if r.ndim != 1:
         raise ValueError("returns must be one-dimensional")
@@ -37,7 +34,6 @@ def dsr(returns, n_trials) -> float:
     if np.all(r == r[0]):
         return 0.0
 
-    # Convention: numerical failures raise rather than silently fail/pass.
     with np.errstate(over="raise", divide="raise", invalid="raise", under="ignore"):
         # Positive rescaling leaves Sharpe and standardized moments unchanged
         # mathematically, while avoiding overflow in raw return powers.
