@@ -219,7 +219,7 @@ made the registry's rule instead of resolution reading the run's selection. Find
 definitions: `Role.columns` states each role column's unit (SOURCES.md §6), and `Registry.valid`'s role clause, inside
 its existing `all`, requires at most one role, its columns `Role.columns`'s, a bars provider held, and every field
 reading a role column's stored column in that column's unit; no proof's destructuring moves (`lake build`: 109 jobs, no
-`sorry`), and five `example`s by `decide +kernel` under it fail on the previous clause. `rolePayload`'s docstring now
+`sorry`), and of five `example`s by `decide +kernel` under it, three fail on the previous clause and two are positive controls holding under both. `rolePayload`'s docstring now
 says "its declaration's role". `mm` refuses the same when parsing (`source.rs`), as SOURCES.md §1 and §6 state, and also
 a bars provider off the 4h grid of eventTime (period 14,400,000, phase 0, slot `eventTime`): that grid stays `mm`'s
 alone, Lean's `Decl` having no period and no held slot. No committed declaration breaks either, so no recorded result
@@ -227,8 +227,13 @@ moves. The admission differential (`refmm`'s harness now decodes each declaratio
 both-role declarations, event-cadence bars providers and fields reading a role column in another unit, refused on both
 sides at position 0, and puts every held bars provider on the grid), 5,000 cases on each of seeds 1, 2 and 3: no
 disagreement; refused at position 0 in 942, 930 and 969 cases, admitted to resolution in 524, 484 and 469. Against the
-previous `Registry.valid`, seed 1 disagrees in 485 cases. Its C7.7 review is queued (a fresh Claude and GPT); no proof
-depending on it is judged before then. Hashes:
+previous `Registry.valid`, seed 1 disagrees in 485 cases. Statements unchanged means their text: every law assuming `Registry.Valid` now has a stronger hypothesis, through
+`CheckerAccepted` (`L1_values`, `L1_simulator`, `L1_decisions`, `L2_units`, `L2_checker`, `L4_fills`, `L4_orders`) or
+directly (`L5_text`, `L8_known`); `L5_admitted` concludes it, so its conclusion is stronger; `L5_order`, `L5_staged`
+and `L5_shape` go through `admission`'s `reg.valid` test. No coverage is lost: each new conjunct is implied by `mm`'s
+parser, so every registry `mm` admits satisfies it, and the registries excluded are ones neither side admits. Reviewed
+under C7.7 by GPT (`audit/reviews/2026-11-04-gpt-hunt-fixes-review-2.md`) and a fresh Claude
+(`audit/reviews/2026-11-04-claude-hunt-fixes-review.md`); these laws' proofs are re-checked after this freeze. Hashes:
 
 | File | SHA-256 |
 |---|---|
