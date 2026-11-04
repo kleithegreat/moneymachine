@@ -192,7 +192,7 @@ def swarm_class(promoted, crash, agents, trials, history):
     intact that received nothing and evaluated nothing, crashed or not, counts for nothing. `agents` holds `agent_evidence`."""
     if promoted:
         return "promoted"
-    if crash or not agents or any(not a["holds"] or (crashed(a["run"]) and a["received"]) for a in agents):
+    if crash or len(agents) != SWARM_AGENTS or any(not a["holds"] or (crashed(a["run"]) and a["received"]) for a in agents):
         return "unresolved"
     active = sum(bool(a["evaluations"]) for a in agents)
     return "established" if trials >= 1 and active >= 2 and history else "not established"
