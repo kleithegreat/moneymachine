@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from gate import kernel
 from gate.agent.daemon import FIELDS, Daemon
 from gate.markets import write_market
 
@@ -23,8 +22,7 @@ def call(sock, req):
 
 
 @pytest.fixture
-def daemon(tmp_path):
-    kernel.build()
+def daemon(tmp_path, built_kernel):
     market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
     d = Daemon(tmp_path / "a.sock", market, tmp_path / "l.sqlite", "camp", "A", 3, tmp_path / "log.jsonl").serve()
     yield d, tmp_path
@@ -69,9 +67,8 @@ def test_bad_requests(daemon):
     assert not call(d.socket_path, {"cmd": "eval", "args": ["{}", "{}"]})["ok"]
 
 
-def test_swarm_history_is_shared_logged_and_capped(tmp_path):
+def test_swarm_history_is_shared_logged_and_capped(tmp_path, built_kernel):
     from gate.agent.daemon import HISTORY_LIMIT, Swarm
-    kernel.build()
     market = write_market(tmp_path / "m", market_id="swarm", days=40, holdout_days=10)
     swarm, ledger = Swarm(), tmp_path / "l.sqlite"
     ds = [Daemon(tmp_path / f"{a}.sock", market, ledger, "camp", a, 5, tmp_path / f"{a}.log", swarm).serve()
@@ -93,11 +90,10 @@ def test_swarm_history_is_shared_logged_and_capped(tmp_path):
             d.close()
 
 
-def test_history_injection_cannot_change_daemon_behavior(tmp_path):
+def test_history_injection_cannot_change_daemon_behavior(tmp_path, built_kernel):
     """C4.3: text one agent submits reaches others only as data: it cannot add kernel requests,
     forge another agent's records, or move any daemon's budget, history count or responses."""
     from gate.agent.daemon import Swarm
-    kernel.build()
     market = write_market(tmp_path / "m", market_id="inject", days=40, holdout_days=10)
     swarm, ledger = Swarm(), tmp_path / "l.sqlite"
     ds = [Daemon(tmp_path / f"{a}.sock", market, ledger, "camp", a, 3, tmp_path / f"{a}.log", swarm).serve()
@@ -124,13 +120,12 @@ def test_history_injection_cannot_change_daemon_behavior(tmp_path):
             d.close()
 
 
-def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_path):
+def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_path, built_kernel):
     """C3.1 as written: under arm A's own budget, the 101st evaluation is refused, and overrides of the store, ledger,
     campaign and agent change nothing."""
     import inspect
     from gate.agent import harness
     budget = inspect.signature(harness.run_agent).parameters["budget"].default
-    kernel.build()
     market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
     d = Daemon(tmp_path / "a.sock", market, tmp_path / "l.sqlite", "camp", "A", budget, tmp_path / "log.jsonl").serve()
     try:

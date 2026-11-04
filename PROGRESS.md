@@ -44,6 +44,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ### Finished
 
+- Pytest: session builds/worksteal; timings and crash caveat: `audit/2026-11-04-suite-speed.md`.
 - Stage 0: exited 2026-10-26 with C0.7 qualified, by human decision (`audit/stage0/criteria-result.txt`). Stage 1: done 2026-10-26 (`audit/stage1/`).
 - Stage 2: exited 2026-10-28 with C2.6 waived, by human decision (`audit/stage2/exit-r2.md`).
 - Stage 3: exited 2026-11-01 (`audit/stage3/exit.md`), a pipeline validation run with no claim.

@@ -34,11 +34,6 @@ def write_market(path, a, bps=0, fee=0, holdout_days=0):
                          {side: {"1000": bps, "10000": bps} for side in ("buy", "sell")}, taker_fee=fee)
 
 
-@pytest.fixture(scope="module")
-def mm():
-    return kernel.build()
-
-
 def evaluate(mm, market, tmp_path, weight, name="s", holdout_from=None):
     strategy = tmp_path / f"{name}.json"
     strategy.write_text(json.dumps({
@@ -74,7 +69,7 @@ def events(trace, kind, t=None):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 1: future trading activity changes current allocation")
-def test_future_trades_cannot_change_current_orders(mm, tmp_path):
+def test_future_trades_cannot_change_current_orders(built_kernel, tmp_path):
     """Finding 1: identical observations through 08:02 imply identical orders (paper §6)."""
     a = arrays(coins=2)
     a["close"][3:, 1] = 110
@@ -96,7 +91,7 @@ def test_future_trades_cannot_change_current_orders(mm, tmp_path):
         store = Store(market / "store")
         known.append([store.as_of(dataset, 8 * HOUR + DELTA, 1).sort(["coin", "eventTime"])
                       for dataset in ("bars_4h", "funding")])
-        _, trace, _ = evaluate(mm, market, tmp_path, const(2), name)
+        _, trace, _ = evaluate(built_kernel, market, tmp_path, const(2), name)
         traces.append(trace)
     assert all(x.equals(y) for x, y in zip(*known))
     for trace in traces:
@@ -110,7 +105,7 @@ def test_future_trades_cannot_change_current_orders(mm, tmp_path):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 2: pending zero-weight close reopens after liquidation")
-def test_zero_close_cannot_reopen_after_liquidation(mm, tmp_path):
+def test_zero_close_cannot_reopen_after_liquidation(built_kernel, tmp_path):
     """Finding 2: closing an already liquidated short must leave $500 flat (DSL zero close)."""
     a = arrays()
     a["premium"][:12] = -1
@@ -122,7 +117,7 @@ def test_zero_close_cannot_reopen_after_liquidation(mm, tmp_path):
         a[key][5:] = 80
     market = write_market(tmp_path / "market", a)
     weight = op("if", op("lt", {"input": "premium"}, const(0)), const(-0.5), const(0))
-    result, trace, _ = evaluate(mm, market, tmp_path, weight)
+    result, trace, _ = evaluate(built_kernel, market, tmp_path, weight)
     entry, = events(trace, "fill", 8 * HOUR)
     assert (entry["qty"], entry["price"]) == (-50, 100)
     close, = events(trace, "decision", 12 * HOUR + DELTA)
@@ -137,7 +132,7 @@ def test_zero_close_cannot_reopen_after_liquidation(mm, tmp_path):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 3: mandatory holds reserve no portfolio gross budget")
-def test_undefined_holds_reserve_portfolio_budget(mm, tmp_path):
+def test_undefined_holds_reserve_portfolio_budget(built_kernel, tmp_path):
     """Finding 3: $20k held on $10k equity leaves zero of the advertised 2× budget."""
     a = arrays(coins=2)
     a["premium"][:12] = [1, -1]
@@ -148,7 +143,7 @@ def test_undefined_holds_reserve_portfolio_budget(mm, tmp_path):
         a[key][6:] = 95
     market = write_market(tmp_path / "market", a)
     weight = op("if", op("gt", {"input": "premium"}, const(0)), const(2), op("div", const(1), const(0)))
-    _, trace, _ = evaluate(mm, market, tmp_path, weight)
+    _, trace, _ = evaluate(built_kernel, market, tmp_path, weight)
     fills = events(trace, "fill")
     held = sum(e["qty"] for e in fills if e["coin"] == "S0" and e["t"] <= 20 * HOUR)
     fresh = sum(e["qty"] for e in fills if e["coin"] == "S1" and e["t"] <= 20 * HOUR)
@@ -163,10 +158,10 @@ def test_undefined_holds_reserve_portfolio_budget(mm, tmp_path):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 4: next target uses pre-fill equity")
-def test_next_target_uses_post_fill_equity(mm, tmp_path):
+def test_next_target_uses_post_fill_equity(built_kernel, tmp_path):
     """Finding 4: DSL weight 1 targets actual equity (I5), net of completed fill costs."""
     market = write_market(tmp_path / "market", arrays(), bps=10, fee=0.001)
-    _, trace, _ = evaluate(mm, market, tmp_path, const(1))
+    _, trace, _ = evaluate(built_kernel, market, tmp_path, const(1))
     first, = events(trace, "decision", 4 * HOUR + DELTA)
     assert (first["weight"], first["qty"]) == (1, 100)
     entry, = events(trace, "fill", 8 * HOUR)
@@ -181,17 +176,17 @@ def test_next_target_uses_post_fill_equity(mm, tmp_path):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 5: reporting window resurrects bankrupt equity")
-def test_reporting_window_cannot_resurrect_bankrupt_account(mm, tmp_path):
+def test_reporting_window_cannot_resurrect_bankrupt_account(built_kernel, tmp_path):
     """Finding 5: I10 equity stays zero even when the bankruptcy is in the replay prefix."""
     a = arrays(bars=12)
     a["high"][3] = 400
     market = write_market(tmp_path / "market", a, holdout_days=1)
-    prefix, prefix_trace, _ = evaluate(mm, market, tmp_path, const(-0.5), "prefix")
+    prefix, prefix_trace, _ = evaluate(built_kernel, market, tmp_path, const(-0.5), "prefix")
     liquidation, = events(prefix_trace, "liquidation", 16 * HOUR)
     assert (liquidation["qty"], liquidation["price"]) == (50, 400)
     assert prefix["final_equity"] == 0
     assert prefix["total_return"] == -1
-    result, trace, returns = evaluate(mm, market, tmp_path, const(-0.5), holdout_from=24 * HOUR)
+    result, trace, returns = evaluate(built_kernel, market, tmp_path, const(-0.5), holdout_from=24 * HOUR)
     marks = events(trace, "equity")
     assert marks and all(e["equity"] == 0 for e in marks)
     assert returns and all(r == 0 for r in returns)
@@ -200,19 +195,19 @@ def test_reporting_window_cannot_resurrect_bankrupt_account(mm, tmp_path):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 6: holdout trace and cost summary omit boundary fill")
-def test_reporting_trace_includes_boundary_fill_costs(mm, tmp_path):
+def test_reporting_trace_includes_boundary_fill_costs(built_kernel, tmp_path):
     """Finding 6: a full I5/disclosure reconciliation includes the entry at boundary H."""
     a = arrays(bars=12)
     a["premium"][20:24] = 1
     market = write_market(tmp_path / "market", a, bps=10, fee=0.001, holdout_days=1)
     weight = op("if", op("gt", {"input": "premium"}, const(0)), const(0.5), const(0))
     full_market = write_market(tmp_path / "full-market", a, bps=10, fee=0.001)
-    _, full_trace, _ = evaluate(mm, full_market, tmp_path, weight, "full")
+    _, full_trace, _ = evaluate(built_kernel, full_market, tmp_path, weight, "full")
     order, = events(full_trace, "decision", 20 * HOUR + DELTA)
     assert (order["weight"], order["qty"]) == (0.5, 50)
     entry, = events(full_trace, "fill", 24 * HOUR)
     assert (entry["qty"], entry["price"], entry["fee"]) == pytest.approx((50, 100.1, 5.005))
-    result, trace, returns = evaluate(mm, market, tmp_path, weight, holdout_from=24 * HOUR)
+    result, trace, returns = evaluate(built_kernel, market, tmp_path, weight, holdout_from=24 * HOUR)
     entry_fee, exit_fee = 50 * 100.1 * 0.001, 50 * 99.9 * 0.001
     assert (entry_fee, exit_fee) == pytest.approx((5.005, 4.995))
     assert returns[0] == pytest.approx(-0.0010005)
