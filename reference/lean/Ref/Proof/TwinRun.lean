@@ -53,25 +53,25 @@ variable {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) (m :
   (stop : Int)
 include T
 
-theorem tick_fits {L : Array Bool} (hL : L.size = m.intervals.size) (hour : Int) {mm : MState α}
-    (hm : Fits p m.intervals.size mm) : mm.tick N p' L hour = mm.tick N p L hour :=
+theorem tick_fits {L : Array Bool} (hL : L.size = m.delisted.size) (hour : Int) {mm : MState α}
+    (hm : Fits p m.delisted.size mm) : mm.tick N p' L hour = mm.tick N p L hour :=
   (tick_twin T L hour mm (shape_size hm (by simp [hL]))).1
 
 /-- A machine of p that fits, with node i's row equal to node j's, as every tick leaves it. -/
 def Good (p : Program) (coins i j : Nat) (s : SState α) : Prop :=
   Fits p coins s.machine ∧ s.machine.vals[i]! = s.machine.vals[j]!
 
-theorem tick_good {L : Array Bool} (hL : L.size = m.intervals.size) (hour : Int) {mm : MState α}
-    (hm : Fits p m.intervals.size mm) :
-    Fits p m.intervals.size (mm.tick N p L hour) ∧ (mm.tick N p L hour).vals[i]! = (mm.tick N p L hour).vals[j]! :=
+theorem tick_good {L : Array Bool} (hL : L.size = m.delisted.size) (hour : Int) {mm : MState α}
+    (hm : Fits p m.delisted.size mm) :
+    Fits p m.delisted.size (mm.tick N p L hour) ∧ (mm.tick N p L hour).vals[i]! = (mm.tick N p L hour).vals[j]! :=
   ⟨fits_tick N T.wf hL _ hm, (tick_twin T L hour mm (shape_size hm (by simp [hL]))).2⟩
 
-theorem tickLoop_twin (b : Int) (ks : List Nat) (s : SState α) (hs : Good p m.intervals.size i j s) :
+theorem tickLoop_twin (b : Int) (ks : List Nat) (s : SState α) (hs : Good p m.delisted.size i j s) :
     EqH ((Ctx.make p' m v pol stop).tickLoop N b ks s) ((Ctx.make p m v pol stop).tickLoop N b ks s)
-      (Good p m.intervals.size i j) := by
+      (Good p m.delisted.size i j) := by
   unfold Ctx.tickLoop
   refine EqH.forIn _ _ _ _ _ hs fun k _ s hs => ?_
-  refine EqH.bind (R := fun r => Fits p m.intervals.size r.machine)
+  refine EqH.bind (R := fun r => Fits p m.delisted.size r.machine)
     ⟨deliver_prog p p' m v pol stop _ _, fun r hr => fits_deliver hr hs.1⟩ fun r hr => ?_
   rw [show (Ctx.make p' m v pol stop).p = p' from rfl, show (Ctx.make p m v pol stop).p = p from rfl,
     show (Ctx.make p' m v pol stop).mask = (Ctx.make p m v pol stop).mask from rfl,
@@ -79,7 +79,7 @@ theorem tickLoop_twin (b : Int) (ks : List Nat) (s : SState α) (hs : Good p m.i
   exact EqH.pure _ (tick_good T m (mask_size (Ctx.make p m v pol stop) _) _ hr)
 
 theorem start_twin : EqH ((Ctx.make p' m v pol stop).start N) ((Ctx.make p m v pol stop).start N)
-    (Good p m.intervals.size i j) := by
+    (Good p m.delisted.size i j) := by
   have hb : (Ctx.make p' m v pol stop).bound = (Ctx.make p m v pol stop).bound := by
     simp only [Ctx.bound]; rw [show (Ctx.make p' m v pol stop).p = p' from rfl, slots_twin T]; rfl
   have h0 : (Ctx.make p' m v pol stop).state0 N = (Ctx.make p m v pol stop).state0 N := by
@@ -87,15 +87,15 @@ theorem start_twin : EqH ((Ctx.make p' m v pol stop).start N) ((Ctx.make p m v p
   unfold Ctx.start
   rw [hb, h0]
   refine EqH.ite (fun _ => EqH.throw_bind) fun _ => ?_
-  refine EqH.bind (R := fun r => Fits p m.intervals.size r.machine)
-    ⟨deliver_prog p p' m v pol stop _ _, fun r hr => fits_deliver hr (fits_init N p m.intervals.size)⟩ fun r hr => ?_
+  refine EqH.bind (R := fun r => Fits p m.delisted.size r.machine)
+    ⟨deliver_prog p p' m v pol stop _ _, fun r hr => fits_deliver hr (fits_init N p m.delisted.size)⟩ fun r hr => ?_
   rw [show (Ctx.make p' m v pol stop).p = p' from rfl, show (Ctx.make p m v pol stop).p = p from rfl,
     show (Ctx.make p' m v pol stop).mask = (Ctx.make p m v pol stop).mask from rfl,
     tick_fits T m (mask_size _ _) _ hr]
   exact EqH.pure _ (tick_good T m (mask_size (Ctx.make p m v pol stop) _) _ hr)
 
-theorem step_twin (b : Int) (s : SState α) (hs : Good p m.intervals.size i j s) :
-    EqH ((Ctx.make p' m v pol stop).step N s b) ((Ctx.make p m v pol stop).step N s b) (Good p m.intervals.size i j) := by
+theorem step_twin (b : Int) (s : SState α) (hs : Good p m.delisted.size i j s) :
+    EqH ((Ctx.make p' m v pol stop).step N s b) ((Ctx.make p m v pol stop).step N s b) (Good p m.delisted.size i j) := by
   refine ⟨(?_ : EqH _ _ (fun _ => True)).1, fun r hr => ?_⟩
   rotate_left
   · obtain ⟨q, hq, hpq⟩ := step_proj N _ s b r hr
@@ -140,7 +140,7 @@ theorem step_twin (b : Int) (s : SState α) (hs : Good p m.intervals.size i j s)
     · exact EqH.ite (fun _ => EqH.bind (R := fun r => r.proj = s.proj)
         (EqH.refl fun r hr => (hexec _ _ r hr).trans h') fun r hr => EqH.pure _ hr) fun _ => EqH.pure _ h'
     · exact EqH.pure _ h'
-  have hg : Good p m.intervals.size i j s₆ := by obtain ⟨hm, -⟩ := proj_eq h₆; exact ⟨hm ▸ hs.1, hm ▸ hs.2⟩
+  have hg : Good p m.delisted.size i j s₆ := by obtain ⟨hm, -⟩ := proj_eq h₆; exact ⟨hm ▸ hs.1, hm ▸ hs.2⟩
   refine EqH.bind (tickLoop_twin T m v pol stop b (List.range' 1 4) s₆ hg) fun r hr => ?_
   rw [show (Ctx.make p' m v pol stop).p = p' from rfl, show (Ctx.make p m v pol stop).p = p from rfl, T.weight]
   have hw : r.machine.vals[if p.weight == i then j else p.weight]! = r.machine.vals[p.weight]! := by

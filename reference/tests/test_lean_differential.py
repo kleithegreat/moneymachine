@@ -35,6 +35,8 @@ def test_verdicts_agree(tmp_path):
     assert bad == []
 
 
+@pytest.mark.xfail(strict=True, reason="the Lean model follows the corrected engine's listing (K1) and reads `delisted`, "
+                   "which `mmdump` does not emit, until stage 7's port (audit/decisions.md, 2026-11-04 05:56 UTC)")
 def test_runs_agree_bit_for_bit(tmp_path):
     params = json.loads((REPO / "gate/nulls.json").read_text())
     ev = {"arrays": np.random.default_rng(3).poisson(2.0, (300, 3)).astype(float), "coins": [0, 4, 7], "block_hours": 24}

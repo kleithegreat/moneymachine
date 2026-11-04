@@ -62,9 +62,9 @@ structure Market.Admissible (m : Market α) : Prop where
   barKeys : (m.bars.toList.map fun b => (b.coin, b.openTime)).Nodup
   eventKeys : (m.events.toList.map fun e => (e.slot, e.coin, e.event)).Nodup
   barEvent : ∀ b ∈ m.bars.toList, b.event = b.openTime + BAR
-  fundingCoin : ∀ f ∈ m.funding.toList, f.coin < m.intervals.size
-  barCoin : ∀ b ∈ m.bars.toList, b.coin < m.intervals.size
-  eventIndex : ∀ e ∈ m.events.toList, e.coin < m.intervals.size ∧ e.slot < eventInputs.length
+  fundingCoin : ∀ f ∈ m.funding.toList, f.coin < m.delisted.size
+  barCoin : ∀ b ∈ m.bars.toList, b.coin < m.delisted.size
+  eventIndex : ∀ e ∈ m.events.toList, e.coin < m.delisted.size ∧ e.slot < eventInputs.length
 
 structure Venue.Valid (v : Venue α) (coins : Nat) : Prop where
   sizes : v.szDecimals.size = coins ∧ v.minTierLeverage.size = coins ∧ v.costBps.size = coins
@@ -102,20 +102,22 @@ def Ctx.decisionTime (c : Ctx α) (k : Nat) : Int := c.pol.wStart + ((k : Int) +
 /-! ## L1 non-interference -/
 
 /-- The ordered delivery prefix by time t (SEMANTICS.md §3): every resolved funding row, bar and bound
-event row with knownAt ≤ t, in delivery order, with multiplicity. -/
-def Ctx.deliveryPrefix (c : Ctx α) (t : Int) : List (FundingRow α) × List (BarRow α) × List (EventRow α) :=
+event row with knownAt ≤ t, in delivery order, with multiplicity; and each coin's delisting record if
+its knownAt ≤ t. -/
+def Ctx.deliveryPrefix (c : Ctx α) (t : Int) :
+    List (FundingRow α) × List (BarRow α) × List (EventRow α) × Array (Option Int) :=
   ((c.fOrder.toList.map (c.m.funding[·]!)).filter (·.known ≤ t),
    (c.bOrder.toList.map (c.m.bars[·]!)).filter (·.known ≤ t),
-   (c.eOrder.toList.map (c.m.events[·]!)).filter (·.known ≤ t))
+   (c.eOrder.toList.map (c.m.events[·]!)).filter (·.known ≤ t),
+   c.m.delisted.map (·.filter (· ≤ t)))
 
 /-- What execution reads by event time t: settled rates with eventTime ≤ t; every field of bars
-closed by t; the open and trade count of bars opened by t; and the listing intervals. -/
+closed by t; and the open and trade count of bars opened by t. -/
 def Ctx.execView (c : Ctx α) (t : Int) :
-    List (Nat × Int × α) × List (BarRow α) × List (Nat × Int × α × Int) × Array (Int × Int) :=
+    List (Nat × Int × α) × List (BarRow α) × List (Nat × Int × α × Int) :=
   ((c.m.funding.toList.filter (·.event ≤ t)).map (fun f => (f.coin, f.event, f.rate)),
    c.m.bars.toList.filter (fun b => b.openTime + BAR ≤ t),
-   (c.m.bars.toList.filter (·.openTime ≤ t)).map (fun b => (b.coin, b.openTime, b.o, b.trades)),
-   c.m.intervals)
+   (c.m.bars.toList.filter (·.openTime ≤ t)).map (fun b => (b.coin, b.openTime, b.o, b.trades)))
 
 /-! ## L3 rewrite soundness -/
 

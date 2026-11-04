@@ -32,7 +32,7 @@ def market (v : Value) : Market Float × Venue Float × Policy × Int :=
        h := bits! r[5]!, l := bits! r[6]!, c := bits! r[7]!, v := bits! r[8]!, trades := int! r[9]! } : BarRow Float)
   let e := (arr! (get! v "events")).map fun r => let r := arr! r
     ({ slot := (int! r[0]!).toNat, coin := (int! r[1]!).toNat, event := int! r[2]!, known := int! r[3]!, count := bits! r[4]! } : EventRow Float)
-  let iv := (arr! (get! v "intervals")).map fun r => let r := arr! r; (int! r[0]!, int! r[1]!)
+  let dl := (arr! (get! v "delisted")).map fun | .null => none | x => some (int! x)
   let ven := get! v "venue"
   let venue : Venue Float :=
     { takerFee := bits! (get! ven "taker_fee"), minNotional := bits! (get! ven "min_notional")
@@ -40,7 +40,7 @@ def market (v : Value) : Market Float × Venue Float × Policy × Int :=
       minTierLeverage := (arr! (get! ven "min_tier_leverage")).map bits!
       costBps := (arr! (get! ven "cost_bps")).map fun c => (arr! c).map fun s => (arr! s).map bits! }
   let pol := get! v "policy"
-  ({ funding := f, bars := b, events := e, bound := (arr! (get! v "present")).toList.map fun x => (int! x).toNat, intervals := iv },
+  ({ funding := f, bars := b, events := e, bound := (arr! (get! v "present")).toList.map fun x => (int! x).toNat, delisted := dl },
    venue, { delta := int! (get! pol "delta"), wStart := int! (get! pol "w_start") }, int! (get! pol "end"))
 
 def fb (x : Float) : String := toString x.toBits.toNat

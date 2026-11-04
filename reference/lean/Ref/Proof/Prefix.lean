@@ -194,12 +194,14 @@ theorem eRows_sorted (p : Program) (m : Market α) (v : Venue α) (pol : Policy)
   mergeSort_known _ (fun i => [m.events[i]!.known, (m.events[i]!.coin : Int), (m.events[i]!.slot : Int), (i : Int)]) 4
     (fun _ => rfl) _ EventRow.known (fun _ => ⟨_, rfl⟩)
 
-/-- Two contexts that run the same program and policy over markets with the same listings, the same
-bound sources and the same rows known by T, each delivered in knownAt order. -/
+/-- Two contexts that run the same program and policy over markets with the same coins, listed alike at
+every hour delivered by T, with the same bound sources and the same rows known by T, each delivered in
+knownAt order. -/
 structure Agree (c₁ c₂ : Ctx α) (T : Int) : Prop where
   p : c₁.p = c₂.p
   pol : c₁.pol = c₂.pol
-  intervals : c₁.m.intervals = c₂.m.intervals
+  coins : c₁.coins = c₂.coins
+  listed : ∀ coin t, t + c₁.pol.delta ≤ T → c₁.listed coin t = c₂.listed coin t
   bound : c₁.m.bound = c₂.m.bound
   f : c₁.fRows.filter (·.known ≤ T) = c₂.fRows.filter (·.known ≤ T)
   b : c₁.bRows.filter (·.known ≤ T) = c₂.bRows.filter (·.known ≤ T)
@@ -292,8 +294,25 @@ theorem deliver_agree {c₁ c₂ : Ctx α} {T t : Int} (A : Agree c₁ c₂ T) (
   exact bind_agree eb hb fun q₁ q₂ hq hqi => deliverEvents_agree A htT hq hqi
 
 omit [Inhabited α] in
-theorem mask_agree {c₁ c₂ : Ctx α} (h : c₁.m.intervals = c₂.m.intervals) : c₁.mask = c₂.mask := by
-  funext t; simp [Ctx.mask, Ctx.coins, Ctx.listed, h]
+/-- Listing at hour t reads only the delisting records known by t. -/
+theorem listed_prefix {c₁ c₂ : Ctx α} {T : Int} (hpol : c₁.pol = c₂.pol) (hstop : c₁.stop = c₂.stop)
+    (h : c₁.m.delisted.map (·.filter (· ≤ T)) = c₂.m.delisted.map (·.filter (· ≤ T))) (coin : Nat) {t : Int}
+    (ht : t ≤ T) : c₁.listed coin t = c₂.listed coin t := by
+  have key : ∀ d : Option Int, d.all (t < ·) = (d.filter (· ≤ T)).all (t < ·) := by
+    intro d
+    cases d with
+    | none => rfl
+    | some x => by_cases hx : x ≤ T <;> simp [Option.filter, hx] <;> omega
+  have hc := congrArg (·[coin]?) h
+  simp only [Array.getElem?_map] at hc
+  unfold Ctx.listed
+  rw [hpol, hstop, key c₁.m.delisted[coin]!, key c₂.m.delisted[coin]!]
+  simp only [getElem!_def]
+  cases h₁ : c₁.m.delisted[coin]? <;> cases h₂ : c₂.m.delisted[coin]? <;> simp_all
+
+theorem mask_agree {c₁ c₂ : Ctx α} {T t : Int} (A : Agree c₁ c₂ T) (ht : t + c₁.pol.delta ≤ T) :
+    c₁.mask t = c₂.mask t := by
+  simp only [Ctx.mask, A.coins, fun coin => A.listed coin t ht]
 
 theorem tickLoop_agree (N : NumOps α) {c₁ c₂ : Ctx α} {T : Int} (A : Agree c₁ c₂ T) (base : Int) :
     ∀ (ks : List Nat), (∀ k ∈ ks, base + ↑k * HOUR + c₁.pol.delta ≤ T) → ∀ {s₁ s₂ : SState α},
@@ -309,7 +328,7 @@ theorem tickLoop_agree (N : NumOps α) {c₁ c₂ : Ctx α} {T : Int} (A : Agree
     obtain ⟨hm, hf, hb, he⟩ := proj_eq hr
     have hr' : ({ r₁ with machine := r₁.machine.tick N c₁.p (c₁.mask (base + ↑k * HOUR)) (base + ↑k * HOUR) } : SState α).proj =
         ({ r₂ with machine := r₂.machine.tick N c₂.p (c₂.mask (base + ↑k * HOUR)) (base + ↑k * HOUR) } : SState α).proj := by
-      simp [SState.proj, hm, hf, hb, he, A.p, mask_agree A.intervals]
+      simp [SState.proj, hm, hf, hb, he, A.p, mask_agree A (hks k (by simp))]
     exact tickLoop_agree N A base ks (fun k' hk' => hks k' (by simp [hk'])) hr' hri
 
 theorem start_agree (N : NumOps α) {c₁ c₂ : Ctx α} {T : Int} (A : Agree c₁ c₂ T)
@@ -317,7 +336,7 @@ theorem start_agree (N : NumOps α) {c₁ c₂ : Ctx α} {T : Int} (A : Agree c�
     (c₁.start N).map SState.proj = (c₂.start N).map SState.proj ∧ Except.Holds (c₁.start N) (Inside c₁ T) := by
   have hb : c₁.bound = c₂.bound := by simp [Ctx.bound, A.p, A.bound]
   have h0 : (c₁.state0 N).proj = (c₂.state0 N).proj := by
-    simp [SState.proj, Ctx.state0, Ctx.coins, A.p, A.intervals]
+    simp [SState.proj, Ctx.state0, A.p, A.coins]
   have hi : Inside c₁ T (c₁.state0 N) := by simp [Inside, Ctx.state0]
   unfold Ctx.start
   rw [← hb, ← A.pol]
@@ -326,7 +345,7 @@ theorem start_agree (N : NumOps α) {c₁ c₂ : Ctx α} {T : Int} (A : Agree c�
   · simp only [Bool.not_true, Bool.false_eq_true, if_false]
     refine bind_agree (deliver_agree A hT h0 hi).1 (deliver_agree A hT h0 hi).2 fun r₁ r₂ hr hri => ?_
     obtain ⟨hm, hf, hb', he⟩ := proj_eq hr
-    exact ⟨by simp [Except.map, pure, Except.pure, SState.proj, hm, hf, hb', he, A.p, mask_agree A.intervals],
+    exact ⟨by simp [Except.map, pure, Except.pure, SState.proj, hm, hf, hb', he, A.p, mask_agree A hT],
       fun _ h => by cases h; exact hri⟩
 
 omit [Inhabited α] in

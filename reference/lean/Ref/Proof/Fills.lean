@@ -68,8 +68,8 @@ def FillLaw (N : NumOps α) (p : Program) (m : Market α) (v : Venue α) (pol : 
 theorem closeout_law (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)
     (stop : Int) (coin : Nat) (q ref : α) (why : Why) (hwhy : why ≠ .fill) (t src : Int)
     (hchk : checkFill N ((Ctx.make p m v pol stop).closeout N coin (N.neg q) ref why t src) m
-      (m.index m.intervals.size) v = .ok ())
-    (bar0 : BarRow α) (i : Nat) (hi : i < m.bars.size) (hb : (m.index m.intervals.size).barAt[(coin, src)]? = some i)
+      (m.index m.delisted.size) v = .ok ())
+    (bar0 : BarRow α) (i : Nat) (hi : i < m.bars.size) (hb : (m.index m.delisted.size).barAt[(coin, src)]? = some i)
     (hbar : m.bars[i] = bar0)
     (href : ref = if why = .delisting then bar0.c else if N.lt N.zero q then bar0.l else bar0.h) :
     FillLaw N p m v pol stop ((Ctx.make p m v pol stop).closeout N coin (N.neg q) ref why t src) := by
@@ -99,8 +99,8 @@ def ordFill (N : NumOps α) (v : Venue α) (o : Order α) (b : Int) (ref : α) :
 its decision. -/
 theorem ordinary_law (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissible) (v : Venue α) (pol : Policy)
     (stop : Int) (o : Order α) (b : Int) (i : Nat)
-    (hbi : (m.index m.intervals.size).barAt[(o.coin, b + BAR)]? = some i) (htr : m.bars[i]!.trades ≥ 1)
-    (hchk : checkFill N (ordFill N v o b m.bars[i]!.o) m (m.index m.intervals.size) v = .ok ())
+    (hbi : (m.index m.delisted.size).barAt[(o.coin, b + BAR)]? = some i) (htr : m.bars[i]!.trades ≥ 1)
+    (hchk : checkFill N (ordFill N v o b m.bars[i]!.o) m (m.index m.delisted.size) v = .ok ())
     (hdec : o.decided = b + pol.delta)
     (hmach : ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta = o.decided ∧
       (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = o.inputsKnown) :
@@ -131,14 +131,14 @@ theorem partitionPoint_pos (xs : Array Int) (q : Int → Bool) (h0 : 0 < xs.size
 /-- A coin with a bar opened by b has a latest bar, found by the index under its own openTime. -/
 theorem latestOf_some (m : Market α) (hA : m.Admissible) (b : Int) (x : Nat × α)
     (hx : ∃ bar ∈ m.bars.toList, bar.coin = x.1 ∧ bar.openTime ≤ b) :
-    ∃ bar' i, ∃ hi : i < m.bars.size, latestOf (m.index m.intervals.size) m.bars b x = some (x.1, bar') ∧
-      m.bars[i] = bar' ∧ (m.index m.intervals.size).barAt[(x.1, bar'.openTime)]? = some i := by
+    ∃ bar' i, ∃ hi : i < m.bars.size, latestOf (m.index m.delisted.size) m.bars b x = some (x.1, bar') ∧
+      m.bars[i] = bar' ∧ (m.index m.delisted.size).barAt[(x.1, bar'.openTime)]? = some i := by
   obtain ⟨bar, hbar, hbc, hbo⟩ := hx
-  have hcoins : x.1 < m.intervals.size := hbc ▸ hA.barCoin bar hbar
+  have hcoins : x.1 < m.delisted.size := hbc ▸ hA.barCoin bar hbar
   have hiff := times_mem m _ _ hcoins
   have hsorted := times_sorted m _ _ hcoins
   unfold latestOf
-  generalize (m.index m.intervals.size).barTimes[x.1]! = times at hiff hsorted ⊢
+  generalize (m.index m.delisted.size).barTimes[x.1]! = times at hiff hsorted ⊢
   have hmem : bar.openTime ∈ times.toList := (hiff _).mpr ⟨bar, hbar, hbc, rfl⟩
   have hsz : 0 < times.size := by
     have := List.length_pos_of_mem hmem; simpa using this
@@ -154,11 +154,11 @@ theorem latestOf_some (m : Market α) (hA : m.Admissible) (b : Int) (x : Nat × 
   obtain ⟨y, hy, hyc, hyo⟩ := (hiff _).mp (Array.getElem_mem_toList hk)
   obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hy
   have hj' : j < m.bars.size := by simpa using hj
-  have hix := barAt_complete m m.intervals.size hA hj'
+  have hix := barAt_complete m m.delisted.size hA hj'
   simp only [Array.getElem_toList] at hyc hyo
   rw [hyc, hyo] at hix
   refine ⟨m.bars[j], j, hj', ?_, rfl, by rw [hyo]; exact hix⟩
-  have hix' : (m.index m.intervals.size).barAt[(x.1, times[k - 1])]! = j := by
+  have hix' : (m.index m.delisted.size).barAt[(x.1, times[k - 1])]! = j := by
     rw [getElem!_def, hix]
   rw [if_neg (by simp; omega), getElem!_pos times (k - 1) hk, hix', getElem!_pos m.bars j hj']
 
@@ -228,12 +228,12 @@ theorem marks_set (ix : Index α) (bars : Array (BarRow α)) (b : Int) (held : L
 
 /-- A held coin with a bar opened by b: its latest bar, found by the index, and its mark after the marks loop. -/
 theorem held_latest (m : Market α) (hA : m.Admissible) (b : Int) (held : List (Nat × α)) (mk : Array α)
-    (hmk : mk.size = m.intervals.size)
+    (hmk : mk.size = m.delisted.size)
     (hpos : ∀ x ∈ held, ∃ bar ∈ m.bars.toList, bar.coin = x.1 ∧ bar.openTime ≤ b) (x : Nat × α) (hx : x ∈ held) :
     ∃ bar' i, ∃ hi : i < m.bars.size,
-      assoc? (held.filterMap (latestOf (m.index m.intervals.size) m.bars b)) x.1 = some bar' ∧ m.bars[i] = bar' ∧
-      (m.index m.intervals.size).barAt[(x.1, bar'.openTime)]? = some i ∧
-      ((held.filterMap (latestOf (m.index m.intervals.size) m.bars b)).foldl (fun mk y => mk.set! y.1 y.2.c) mk)[x.1]! =
+      assoc? (held.filterMap (latestOf (m.index m.delisted.size) m.bars b)) x.1 = some bar' ∧ m.bars[i] = bar' ∧
+      (m.index m.delisted.size).barAt[(x.1, bar'.openTime)]? = some i ∧
+      ((held.filterMap (latestOf (m.index m.delisted.size) m.bars b)).foldl (fun mk y => mk.set! y.1 y.2.c) mk)[x.1]! =
         bar'.c := by
   obtain ⟨bar', i, hi, hlat, hbi, hix⟩ := latestOf_some m hA b x (hpos x hx)
   refine ⟨bar', i, hi, assoc_latest _ _ b x.1 bar' held ⟨x.2, by simpa using hx⟩
@@ -252,7 +252,7 @@ structure Inv4 (N : NumOps α) (p : Program) (m : Market α) (v : Venue α) (pol
     ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta = e.2.decided ∧
       (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = e.2.inputsKnown
   pos : ∀ x ∈ s.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = x.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR
-  marks : s.marks.size = m.intervals.size
+  marks : s.marks.size = m.delisted.size
   proj : ∃ t, ((Ctx.make p m v pol stop).start N >>=
     (Ctx.make p m v pol stop).tickLoop N pol.wStart (List.range' 1 (4 * j))) = .ok t ∧ t.proj = s.proj
 
@@ -337,7 +337,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
   have HL : ∀ x ∈ s₁.book.pos, ∃ bar' i, ∃ hi : i < m.bars.size,
       assoc? (List.filterMap (fun x => latestOf (Ctx.make p m v pol stop).ix (Ctx.make p m v pol stop).m.bars
         (pol.wStart + ↑j * BAR) x) s₁.book.pos) x.1 = some bar' ∧ m.bars[i] = bar' ∧
-      (m.index m.intervals.size).barAt[(x.1, bar'.openTime)]? = some i ∧
+      (m.index m.delisted.size).barAt[(x.1, bar'.openTime)]? = some i ∧
       (List.foldl (fun mk y => mk.set! y.fst y.snd.c) s₁.marks (List.filterMap (fun x => latestOf
         (Ctx.make p m v pol stop).ix (Ctx.make p m v pol stop).m.bars (pol.wStart + ↑j * BAR) x) s₁.book.pos))[x.1]! =
         bar'.c :=
@@ -398,7 +398,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
   refine Except.Holds.ite holds_throw_bind ?_
   let K : SState α → Prop := fun s' =>
     (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
-    s'.orders = [] ∧ s'.marks.size = m.intervals.size ∧ s'.proj = s₁.proj ∧
+    s'.orders = [] ∧ s'.marks.size = m.delisted.size ∧ s'.proj = s₁.proj ∧
     ∀ y ∈ s'.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = y.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR + BAR
   have hK₅ : ∀ (s' : SState α), s'.trace = s₄.trace.push (.equity (pol.wStart + ↑j * BAR + BAR)
       (Book.equity N s₄.book s₄.marks) (Book.reconciled N s₄.book s₄.marks)) →
@@ -450,7 +450,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
     fun r hr => ?_
   let D : SState α → Prop := fun s' =>
     (∀ f, Event.fill f ∈ s'.trace.toList → Event.fill f ∈ s₁.trace.toList ∨ FillLaw N p m v pol stop f) ∧
-    s'.orders = [] ∧ s'.marks.size = m.intervals.size ∧ s'.proj = r.proj ∧
+    s'.orders = [] ∧ s'.marks.size = m.delisted.size ∧ s'.proj = r.proj ∧
     ∀ y ∈ s'.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = y.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR + BAR
   have D_push : ∀ s' (e : Event α), (∀ f, e ≠ .fill f) → D s' → D { s' with trace := s'.trace.push e } := by
     intro s' e he hD
@@ -479,7 +479,7 @@ theorem step_inv4 (N : NumOps α) (p : Program) (m : Market α) (hA : m.Admissib
     (∀ e ∈ s'.orders, e.1 = pol.wStart + ↑j * BAR + BAR + BAR ∧ e.2.decided = pol.wStart + ↑j * BAR + BAR + pol.delta ∧
       ∃ (n : Nat) (ms : MState α), pol.wStart + (n : Int) * HOUR + pol.delta = e.2.decided ∧
         (Ctx.make p m v pol stop).machineAfter N n = .ok ms ∧ ms.maxKnown = e.2.inputsKnown) ∧
-    s'.marks.size = m.intervals.size ∧ s'.proj = r.proj ∧
+    s'.marks.size = m.delisted.size ∧ s'.proj = r.proj ∧
     ∀ y ∈ s'.book.pos, ∃ bar ∈ m.bars.toList, bar.coin = y.1 ∧ bar.openTime ≤ pol.wStart + ↑j * BAR + BAR
   have O_order : ∀ s' (c₀ : Nat) (w q pr : α), O s' →
       O { s' with trace := s'.trace.push (.decision (pol.wStart + ↑j * BAR + BAR + pol.delta) c₀ w q),

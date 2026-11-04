@@ -60,7 +60,8 @@ structure Market (α : Type) where
   events : Array (EventRow α)
   /-- Event slots whose dataset is in the store (bound). -/
   bound : List Nat
-  intervals : Array (Int × Int)
+  /-- Per coin, the knownAt of its delisting record, if it has one (SEMANTICS.md §3). -/
+  delisted : Array (Option Int)
 
 structure Policy where
   delta : Int
@@ -221,7 +222,7 @@ structure Ctx (α : Type) where
   eOrder : Array Nat
 
 def Ctx.make (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop : Int) : Ctx α :=
-  { p, m, v, pol, stop, ix := m.index m.intervals.size
+  { p, m, v, pol, stop, ix := m.index m.delisted.size
     fOrder := (Array.range m.funding.size).mergeSort fun i j =>
       let a := m.funding[i]!; let b := m.funding[j]!
       lexLe [a.known, a.coin, a.event] [b.known, b.coin, b.event]
@@ -232,9 +233,12 @@ def Ctx.make (p : Program) (m : Market α) (v : Venue α) (pol : Policy) (stop :
       let a := m.events[i]!; let b := m.events[j]!
       lexLe [a.known, a.coin, a.slot, i] [b.known, b.coin, b.slot, j] }
 
-def Ctx.coins (c : Ctx α) : Nat := c.m.intervals.size
+def Ctx.coins (c : Ctx α) : Nat := c.m.delisted.size
 
-def Ctx.listed (c : Ctx α) (coin : Nat) (t : Int) : Bool := c.m.intervals[coin]!.1 ≤ t && t < c.m.intervals[coin]!.2
+/-- Coin c is listed on [start(c), end(c)): start(c) = wStart, end(c) = min(stop, its delisting's knownAt)
+(SEMANTICS.md §7). -/
+def Ctx.listed (c : Ctx α) (coin : Nat) (t : Int) : Bool :=
+  c.pol.wStart ≤ t && t < c.stop && c.m.delisted[coin]!.all (t < ·)
 
 def Ctx.mask (c : Ctx α) (t : Int) : Array Bool := (Array.range c.coins).map (c.listed · t)
 
@@ -329,6 +333,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   let ix := c.ix
   let coins := c.coins
   let mask := c.mask
+  let listed := c.listed
   let deliver := c.deliver
   let execute := c.execute N
   let closeout := c.closeout N
@@ -336,7 +341,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   -- 1. funding
   for k in [1:5] do
     let h := b + k * HOUR
-    for x in s.book.pos.filter (c.listed ·.1 h) do
+    for x in s.book.pos.filter (listed ·.1 h) do
       let coin := x.1
       match ix.rateAt[(coin, h)]?, latestOf ix m.bars h x with
       | some rate, some (_, bar) =>
@@ -361,7 +366,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
       s ← execute s (closeout c (N.neg q) (adverse c q) .liquidation (b + BAR) (assoc? latest c).get!.openTime)
   -- 4. delisting
   for (c, q) in s.book.pos do
-    if b + BAR ≥ m.intervals[c]!.2 then
+    if !listed c (b + BAR) then
       s ← execute s (closeout c (N.neg q) s.marks[c]! .delisting (b + BAR) (assoc? latest c).get!.openTime)
   -- 5. bankruptcy
   s ← c.bankrupt N s b adverse latest
@@ -412,8 +417,7 @@ def Ctx.step (c : Ctx α) (s : SState α) (b : Int) : Except Abort (SState α) :
   let td := bigB + pol.delta
   let mut weights : List (Nat × α) := []
   for c in [0:coins] do
-    let (start, stop') := m.intervals[c]!
-    if !(start ≤ bigB && bigB + 2 * BAR ≤ stop') then continue
+    if !listed c bigB then continue
     let fresh := (s.machine.funding[c]!.map (·.event == bigB)).getD false && (s.machine.bar[c]!.map (·.event == bigB)).getD false
     if !fresh then
       s := { s with trace := s.trace.push (.hold td c "stale") }

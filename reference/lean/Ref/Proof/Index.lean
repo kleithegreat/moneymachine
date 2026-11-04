@@ -271,13 +271,13 @@ theorem checkFill_ok (N : NumOps α) (f : Fill α) (m : Market α) (ix : Index �
 
 /-- A passed closeout check names the coin's latest bar closed by the fill. -/
 theorem closeout_latest (N : NumOps α) (f : Fill α) (m : Market α) (hA : m.Admissible) (v : Venue α)
-    (h : checkFill N f m (m.index m.intervals.size) v = .ok ()) (hw : f.why ≠ .fill) :
-    ∃ i, ∃ hi : i < m.bars.size, (m.index m.intervals.size).barAt[(f.coin, f.sourceOpen)]? = some i ∧
+    (h : checkFill N f m (m.index m.delisted.size) v = .ok ()) (hw : f.why ≠ .fill) :
+    ∃ i, ∃ hi : i < m.bars.size, (m.index m.delisted.size).barAt[(f.coin, f.sourceOpen)]? = some i ∧
       latestClosed m f.coin f.filled = some m.bars[i] ∧ f.sourceOpen = m.bars[i].openTime := by
   obtain ⟨-, -, bi, hbi, hfind⟩ := checkFill_ok N f m _ v h
   obtain ⟨hi, hc, ho⟩ := barAt_sound m _ hbi
-  have hcoins : f.coin < m.intervals.size := hc ▸ hA.barCoin _ (Array.getElem_mem_toList hi)
-  have hbang : ∀ j (hj : j < m.bars.size), (m.index m.intervals.size).barAt[(m.bars[j].coin, m.bars[j].openTime)]! = j :=
+  have hcoins : f.coin < m.delisted.size := hc ▸ hA.barCoin _ (Array.getElem_mem_toList hi)
+  have hbang : ∀ j (hj : j < m.bars.size), (m.index m.delisted.size).barAt[(m.bars[j].coin, m.bars[j].openTime)]! = j :=
     fun j hj => by rw [getElem!_def, barAt_complete m _ hA hj]
   obtain ⟨-, hp, hmax⟩ := reverse_find_max _ (times_sorted m _ _ hcoins) _ (hfind hw)
   rw [getElem!_pos m.bars bi hi] at hp hmax

@@ -20,18 +20,23 @@ variable {α : Type} [Inhabited α]
 
 /-! ## L1 non-interference -/
 
-/-- Equal delivery prefixes give equal machine states (values, windows, held inputs, `hours_since`
-state) at every tick through t. -/
+/-- Equal delivery prefixes by t, delistings included, give equal machine states (values, windows, held
+inputs, `hours_since` state) at every tick through t: nothing known after t, a later delisting included,
+changes them. -/
 theorem L1_values (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m₂ : Market α)
     (_ : m₁.Admissible) (_ : m₂.Admissible) (v : Venue α) (pol : Policy) (_ : pol.Valid) (stop : Int) (n : Nat)
-    (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
+    (hB : m₁.bound = m₂.bound)
     (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)
         = (Ctx.make p m₂ v pol stop).deliveryPrefix (pol.wStart + (n : Int) * HOUR + pol.delta)) :
     ∀ k ≤ n, (Ctx.make p m₁ v pol stop).machineAfter N k = (Ctx.make p m₂ v pol stop).machineAfter N k := by
   intro k hk
   simp only [Ctx.deliveryPrefix, Prod.mk.injEq] at hP
   have A : Agree (Ctx.make p m₁ v pol stop) (Ctx.make p m₂ v pol stop) (pol.wStart + (n : Int) * HOUR + pol.delta) :=
-    { p := rfl, pol := rfl, intervals := hI, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2,
+    { p := rfl, pol := rfl, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2.1,
+      coins := by have h := congrArg Array.size hP.2.2.2; simp only [Array.size_map] at h; exact h,
+      listed := fun coin t ht => listed_prefix (c₁ := Ctx.make p m₁ v pol stop) (c₂ := Ctx.make p m₂ v pol stop)
+        (T := pol.wStart + (n : Int) * HOUR + pol.delta) rfl rfl hP.2.2.2 coin
+        (by have := ‹pol.Valid›.delta.1; have ht' : t + pol.delta ≤ pol.wStart + (n : Int) * HOUR + pol.delta := ht; omega),
       f₁ := fRows_sorted .., f₂ := fRows_sorted .., b₁ := bRows_sorted .., b₂ := bRows_sorted ..,
       e₁ := eRows_sorted .., e₂ := eRows_sorted .. }
   have hT : ∀ k' ∈ List.range' 1 k, pol.wStart + ↑k' * HOUR + pol.delta ≤ pol.wStart + (n : Int) * HOUR + pol.delta := by
@@ -55,12 +60,13 @@ theorem L1_simulator (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : 
   rw [Ctx.machineAfter_eq, ht]
   exact congrArg (fun x => Except.ok x.1) hp
 
-/-- Equal delivery prefixes and execution views through step k's decision give the same observations
-at every step through it: the same trace, or the same rejection. -/
+/-- Equal delivery prefixes, delistings included, and execution views through step k's decision give the
+same observations at every step through it, the same trace or the same rejection: nothing known after the
+decision, a later delisting included, changes it. -/
 theorem L1_decisions (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁ m₂ : Market α)
-    (_ : m₁.Admissible) (_ : m₂.Admissible) (v : Venue α) (_ : v.Valid m₁.intervals.size) (pol : Policy) (_ : pol.Valid)
+    (_ : m₁.Admissible) (_ : m₂.Admissible) (v : Venue α) (_ : v.Valid m₁.delisted.size) (pol : Policy) (_ : pol.Valid)
     (stop : Int) (k : Nat)
-    (hI : m₁.intervals = m₂.intervals) (hB : m₁.bound = m₂.bound)
+    (hB : m₁.bound = m₂.bound)
     (hP : (Ctx.make p m₁ v pol stop).deliveryPrefix ((Ctx.make p m₁ v pol stop).decisionTime k)
         = (Ctx.make p m₂ v pol stop).deliveryPrefix ((Ctx.make p m₂ v pol stop).decisionTime k))
     (hE : (Ctx.make p m₁ v pol stop).execView ((Ctx.make p m₁ v pol stop).decisionTime k)
@@ -70,13 +76,18 @@ theorem L1_decisions (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m₁
   intro j hj
   simp only [Ctx.deliveryPrefix, Prod.mk.injEq] at hP
   simp only [Ctx.execView, Prod.mk.injEq] at hE
+  have hC : m₁.delisted.size = m₂.delisted.size := by
+    have h := congrArg Array.size hP.2.2.2; simp only [Array.size_map] at h; exact h
   have A : Agree (Ctx.make p m₁ v pol stop) (Ctx.make p m₂ v pol stop) ((Ctx.make p m₁ v pol stop).decisionTime k) :=
-    { p := rfl, pol := rfl, intervals := hI, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2,
+    { p := rfl, pol := rfl, bound := hB, f := hP.1, b := hP.2.1, e := hP.2.2.1, coins := hC,
+      listed := fun coin t ht => listed_prefix (c₁ := Ctx.make p m₁ v pol stop) (c₂ := Ctx.make p m₂ v pol stop)
+        (T := (Ctx.make p m₁ v pol stop).decisionTime k) rfl rfl hP.2.2.2 coin
+        (by have := ‹pol.Valid›.delta.1; have ht' : t + pol.delta ≤ (Ctx.make p m₁ v pol stop).decisionTime k := ht; omega),
       f₁ := fRows_sorted .., f₂ := fRows_sorted .., b₁ := bRows_sorted .., b₂ := bRows_sorted ..,
       e₁ := eRows_sorted .., e₂ := eRows_sorted .. }
   have S : SameView m₁ m₂ ((Ctx.make p m₁ v pol stop).decisionTime k) :=
-    { A₁ := ‹m₁.Admissible›, A₂ := ‹m₂.Admissible›, intervals := hI, rates := hE.1, closed := hE.2.1,
-      opened := hE.2.2.1 }
+    { A₁ := ‹m₁.Admissible›, A₂ := ‹m₂.Admissible›, coins := hC, rates := hE.1, closed := hE.2.1,
+      opened := hE.2.2 }
   have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
   have hjT : pol.wStart + ↑j * BAR + pol.delta ≤ (Ctx.make p m₁ v pol stop).decisionTime k := by
     have : (j : Int) ≤ (k : Int) + 1 := by omega
@@ -154,7 +165,7 @@ fill is its order's scheduled bar's open, after its decision, and its recorded i
 decision machine's latest knownAt, no later than the decision. A closeout is at its own time, from
 the coin's latest closed bar: the adverse extreme for a liquidation, the close for a delisting. -/
 theorem L4_fills (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (hA : m.Admissible)
-    (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
+    (v : Venue α) (_ : v.Valid m.delisted.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
     (r : Run α) (hr : run N p m v pol stop = .ok r) :
     ∀ f, Event.fill f ∈ r.trace.toList →
       N.isZero f.qty = false ∧ f.inputsKnown ≤ f.decided ∧ f.decided ≤ f.submitted ∧ f.submitted ≤ f.filled ∧
@@ -179,7 +190,7 @@ has exactly one later resolution in the trace, the fill at its scheduled bar if 
 traded and the due step's equity is positive, and otherwise its Unfilled record; and every ordinary fill
 has exactly one earlier decision it resolves. (Revision 2026-10-21: the solvency condition, I10.) -/
 theorem L4_orders (N : NumOps α) (p : Program) (_ : CheckerAccepted p) (m : Market α) (hA : m.Admissible)
-    (v : Venue α) (_ : v.Valid m.intervals.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
+    (v : Venue α) (_ : v.Valid m.delisted.size) (pol : Policy) (_ : pol.Valid) (stop : Int)
     (r : Run α) (hr : run N p m v pol stop = .ok r) :
     let resolves (t : Int) (c : Nat) (q : α) (e : Event α) : Prop :=
       (∃ f : Fill α, e = Event.fill f ∧ f.why = .fill ∧ f.coin = c ∧ f.decided = t ∧ f.qty = q) ∨ e = Event.unfilled (t - pol.delta + BAR) c q

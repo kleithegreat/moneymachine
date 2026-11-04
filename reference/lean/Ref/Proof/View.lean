@@ -6,11 +6,11 @@ namespace Ref
 
 variable {α : Type} [Inhabited α]
 
-/-- Two admissible markets with the same listing intervals and the same execution view by T (`Ctx.execView`). -/
+/-- Two admissible markets with the same coins and the same execution view by T (`Ctx.execView`). -/
 structure SameView (m₁ m₂ : Market α) (T : Int) : Prop where
   A₁ : m₁.Admissible
   A₂ : m₂.Admissible
-  intervals : m₁.intervals = m₂.intervals
+  coins : m₁.delisted.size = m₂.delisted.size
   rates : (m₁.funding.toList.filter (·.event ≤ T)).map (fun f => (f.coin, f.event, f.rate)) =
     (m₂.funding.toList.filter (·.event ≤ T)).map (fun f => (f.coin, f.event, f.rate))
   closed : m₁.bars.toList.filter (fun b => b.openTime + BAR ≤ T) = m₂.bars.toList.filter (fun b => b.openTime + BAR ≤ T)
@@ -21,10 +21,10 @@ structure SameView (m₁ m₂ : Market α) (T : Int) : Prop where
 def openFields (b : BarRow α) : Nat × Int × α × Int := (b.coin, b.openTime, b.o, b.trades)
 
 /-- The bar open times of a coin, ascending. -/
-def times (m : Market α) (c : Nat) : Array Int := (m.index m.intervals.size).barTimes[c]!
+def times (m : Market α) (c : Nat) : Array Int := (m.index m.delisted.size).barTimes[c]!
 
 omit [Inhabited α] in
-theorem times_out (m : Market α) {c : Nat} (hc : m.intervals.size ≤ c) : times m c = #[] := by
+theorem times_out (m : Market α) {c : Nat} (hc : m.delisted.size ≤ c) : times m c = #[] := by
   simp [times, Market.index, hc]; rfl
 
 theorem find_restrict {β : Type} (l : List β) (p q : β → Bool) (h : ∀ x, p x = true → q x = true) :
@@ -62,14 +62,14 @@ omit [Inhabited α] in
 theorem times_iff (S : SameView m₁ m₂ T) {c : Nat} {t : Int} (ht : t ≤ T) :
     t ∈ (times m₁ c).toList ↔ t ∈ (times m₂ c).toList := by
   unfold times
-  by_cases hc : c < m₁.intervals.size
-  · rw [times_mem m₁ _ c hc, times_mem m₂ _ c (S.intervals ▸ hc)]
+  by_cases hc : c < m₁.delisted.size
+  · rw [times_mem m₁ _ c hc, times_mem m₂ _ c (S.coins ▸ hc)]
     have e : ∀ m : Market α, (∃ b ∈ m.bars.toList, b.coin = c ∧ b.openTime = t) ↔ (barAt m c t).isSome := by
       intro m; unfold barAt; simp
     rw [e, e, ← Option.isSome_map (f := openFields), S.barAt_opened ht, Option.isSome_map]
-  · rw [show (m₁.index m₁.intervals.size).barTimes[c]! = times m₁ c from rfl,
-      show (m₂.index m₂.intervals.size).barTimes[c]! = times m₂ c from rfl,
-      times_out m₁ (by omega), times_out m₂ (by rw [← S.intervals]; omega)]
+  · rw [show (m₁.index m₁.delisted.size).barTimes[c]! = times m₁ c from rfl,
+      show (m₂.index m₂.delisted.size).barTimes[c]! = times m₂ c from rfl,
+      times_out m₁ (by omega), times_out m₂ (by rw [← S.coins]; omega)]
 
 end SameView
 
@@ -84,17 +84,17 @@ theorem lookup_barAt (m : Market α) (coins : Nat) (hA : m.Admissible) (c : Nat)
 
 /-- A coin's bar time names its bar. -/
 theorem barAt_time (m : Market α) (hA : m.Admissible) {c : Nat} {t : Int} (ht : t ∈ (times m c).toList) :
-    barAt m c t = some m.bars[(m.index m.intervals.size).barAt[(c, t)]!]! := by
-  have hc : c < m.intervals.size := by
-    rcases Nat.lt_or_ge c m.intervals.size with hc | hc
+    barAt m c t = some m.bars[(m.index m.delisted.size).barAt[(c, t)]!]! := by
+  have hc : c < m.delisted.size := by
+    rcases Nat.lt_or_ge c m.delisted.size with hc | hc
     · exact hc
     · rw [times_out m hc] at ht; simp at ht
   obtain ⟨b, hb, rfl, rfl⟩ := (times_mem m _ _ hc t).mp ht
   obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hb
   have hj' : j < m.bars.size := by simpa using hj
-  have hix := barAt_complete m m.intervals.size hA hj'
+  have hix := barAt_complete m m.delisted.size hA hj'
   simp only [Array.getElem_toList]
-  have hix' : (m.index m.intervals.size).barAt[(m.bars[j].coin, m.bars[j].openTime)]! = j := by
+  have hix' : (m.index m.delisted.size).barAt[(m.bars[j].coin, m.bars[j].openTime)]! = j := by
     rw [getElem!_def, hix]
   obtain ⟨_, hs⟩ := barAt_spec m _ hA hix
   rw [hix', hs, getElem!_pos m.bars j hj']
@@ -175,12 +175,12 @@ theorem pp_max (xs : Array Int) (hs : xs.toList.Pairwise (· ≤ ·)) (b : Int) 
 
 omit [Inhabited α] in
 theorem times_sorted' (m : Market α) (c : Nat) : (times m c).toList.Pairwise (· ≤ ·) := by
-  by_cases hc : c < m.intervals.size
+  by_cases hc : c < m.delisted.size
   · exact times_sorted m _ _ hc
   · rw [times_out m (by omega)]; simp
 
 theorem SameView.latest (S : SameView m₁ m₂ T) {b : Int} (hb : b + BAR ≤ T) (x : Nat × α) :
-    latestOf (m₁.index m₁.intervals.size) m₁.bars b x = latestOf (m₂.index m₂.intervals.size) m₂.bars b x := by
+    latestOf (m₁.index m₁.delisted.size) m₁.bars b x = latestOf (m₂.index m₂.delisted.size) m₂.bars b x := by
   have hBAR : (0 : Int) < BAR := by unfold BAR HOUR; omega
   unfold latestOf
   have P₁ := pp_max (times m₁ x.1) (times_sorted' m₁ x.1) b
@@ -189,8 +189,8 @@ theorem SameView.latest (S : SameView m₁ m₂ T) {b : Int} (hb : b + BAR ≤ T
   have bt₁ := fun t => barAt_time m₁ S.A₁ (c := x.1) (t := t)
   have bt₂ := fun t => barAt_time m₂ S.A₂ (c := x.1) (t := t)
   unfold times at P₁ P₂ hiff bt₁ bt₂
-  generalize (m₁.index m₁.intervals.size).barTimes[x.1]! = xs₁ at P₁ hiff bt₁ ⊢
-  generalize (m₂.index m₂.intervals.size).barTimes[x.1]! = xs₂ at P₂ hiff bt₂ ⊢
+  generalize (m₁.index m₁.delisted.size).barTimes[x.1]! = xs₁ at P₁ hiff bt₁ ⊢
+  generalize (m₂.index m₂.delisted.size).barTimes[x.1]! = xs₂ at P₂ hiff bt₂ ⊢
   generalize hk₁ : partitionPoint xs₁ (fun t => decide (t ≤ b)) = k₁ at P₁
   generalize hk₂ : partitionPoint xs₂ (fun t => decide (t ≤ b)) = k₂ at P₂
   have hsz₁ := (pp_spec xs₁ (fun t => decide (t ≤ b))).1
@@ -219,8 +219,8 @@ theorem SameView.latest (S : SameView m₁ m₂ T) {b : Int} (hb : b + BAR ≤ T
 /-- A held coin's latest bar opened by t ≤ T is found in both markets or in neither, with the same fields fixed at
 the open. -/
 theorem SameView.latestOpened (S : SameView m₁ m₂ T) {t : Int} (ht : t ≤ T) (x : Nat × α) :
-    (latestOf (m₁.index m₁.intervals.size) m₁.bars t x).map (fun y => openFields y.2) =
-      (latestOf (m₂.index m₂.intervals.size) m₂.bars t x).map (fun y => openFields y.2) := by
+    (latestOf (m₁.index m₁.delisted.size) m₁.bars t x).map (fun y => openFields y.2) =
+      (latestOf (m₂.index m₂.delisted.size) m₂.bars t x).map (fun y => openFields y.2) := by
   unfold latestOf
   have P₁ := pp_max (times m₁ x.1) (times_sorted' m₁ x.1) t
   have P₂ := pp_max (times m₂ x.1) (times_sorted' m₂ x.1) t
@@ -228,8 +228,8 @@ theorem SameView.latestOpened (S : SameView m₁ m₂ T) {t : Int} (ht : t ≤ T
   have bt₁ := fun u => barAt_time m₁ S.A₁ (c := x.1) (t := u)
   have bt₂ := fun u => barAt_time m₂ S.A₂ (c := x.1) (t := u)
   unfold times at P₁ P₂ hiff bt₁ bt₂
-  generalize (m₁.index m₁.intervals.size).barTimes[x.1]! = xs₁ at P₁ hiff bt₁ ⊢
-  generalize (m₂.index m₂.intervals.size).barTimes[x.1]! = xs₂ at P₂ hiff bt₂ ⊢
+  generalize (m₁.index m₁.delisted.size).barTimes[x.1]! = xs₁ at P₁ hiff bt₁ ⊢
+  generalize (m₂.index m₂.delisted.size).barTimes[x.1]! = xs₂ at P₂ hiff bt₂ ⊢
   generalize hk₁ : partitionPoint xs₁ (fun u => decide (u ≤ t)) = k₁ at P₁
   generalize hk₂ : partitionPoint xs₂ (fun u => decide (u ≤ t)) = k₂ at P₂
   have hsz₁ := (pp_spec xs₁ (fun u => decide (u ≤ t))).1
@@ -316,10 +316,10 @@ theorem first_iff (xs : Array Int) (hs : xs.toList.Pairwise (· ≤ ·)) (sub s 
     omega
 
 theorem latest_iff (m : Market α) (hA : m.Admissible) (c : Nat) (t s : Int) :
-    ((times m c).reverse.find? (fun u => decide (m.bars[(m.index m.intervals.size).barAt[(c, u)]!]!.event ≤ t)) == some s) =
+    ((times m c).reverse.find? (fun u => decide (m.bars[(m.index m.delisted.size).barAt[(c, u)]!]!.event ≤ t)) == some s) =
       decide (IsLatest (times m c).toList t s) := by
   have hpred : ∀ u ∈ (times m c).toList,
-      decide (m.bars[(m.index m.intervals.size).barAt[(c, u)]!]!.event ≤ t) = decide (u + BAR ≤ t) := by
+      decide (m.bars[(m.index m.delisted.size).barAt[(c, u)]!]!.event ≤ t) = decide (u + BAR ≤ t) := by
     intro u hu
     have hb := barAt_time m hA hu
     unfold barAt at hb
@@ -330,7 +330,7 @@ theorem latest_iff (m : Market α) (hA : m.Admissible) (c : Nat) (t s : Int) :
   rw [← Array.find?_toList, Array.toList_reverse]
   apply Bool.eq_iff_iff.mpr
   rw [beq_iff_eq, decide_eq_true_iff]
-  cases h : (times m c).toList.reverse.find? (fun u => decide (m.bars[(m.index m.intervals.size).barAt[(c, u)]!]!.event ≤ t)) with
+  cases h : (times m c).toList.reverse.find? (fun u => decide (m.bars[(m.index m.delisted.size).barAt[(c, u)]!]!.event ≤ t)) with
   | none =>
     refine ⟨(fun h => by cases h), fun ⟨hm, hst, _⟩ => ?_⟩
     have := List.find?_eq_none.mp h s (List.mem_reverse.mpr hm)
@@ -345,16 +345,16 @@ theorem latest_iff (m : Market α) (hA : m.Admissible) (c : Nat) (t s : Int) :
       fun ⟨hm, hst, hlat⟩ => Int.le_antisymm (hlat x hx hpx) (hmax s hm (by rw [hpred s hm]; simpa using hst))⟩
 
 theorem checkFill_spec (N : NumOps α) (f : Fill α) (m : Market α) (hA : m.Admissible) (v : Venue α) :
-    checkFill N f m (m.index m.intervals.size) v = checkSpec N f v (barAt m f.coin f.sourceOpen)
+    checkFill N f m (m.index m.delisted.size) v = checkSpec N f v (barAt m f.coin f.sourceOpen)
       (fun s => decide (IsFirst (times m f.coin).toList f.submitted s))
       (fun s => decide (IsLatest (times m f.coin).toList f.filled s)) := by
   unfold checkFill checkSpec
-  cases hb : (m.index m.intervals.size).barAt[(f.coin, f.sourceOpen)]? with
+  cases hb : (m.index m.delisted.size).barAt[(f.coin, f.sourceOpen)]? with
   | none => rw [barAt_none m _ hA hb]
   | some bi =>
     obtain ⟨hi, hs⟩ := barAt_spec m _ hA hb
     dsimp only
-    rw [hs, getElem!_pos m.bars bi hi, show (m.index m.intervals.size).barTimes[f.coin]! = times m f.coin from rfl]
+    rw [hs, getElem!_pos m.bars bi hi, show (m.index m.delisted.size).barTimes[f.coin]! = times m f.coin from rfl]
     simp only [first_iff _ (times_sorted' m f.coin), latest_iff m hA]
     rfl
 
@@ -445,9 +445,9 @@ theorem SameView.execute (S : SameView m₁ m₂ T) (N : NumOps α) (p : Program
     (Ctx.make p m₁ v pol stop).execute N s f = (Ctx.make p m₂ v pol stop).execute N s f := by
   unfold Ctx.execute
   rw [show checkFill N f (Ctx.make p m₁ v pol stop).m (Ctx.make p m₁ v pol stop).ix (Ctx.make p m₁ v pol stop).v =
-      checkFill N f m₁ (m₁.index m₁.intervals.size) v from rfl,
+      checkFill N f m₁ (m₁.index m₁.delisted.size) v from rfl,
     show checkFill N f (Ctx.make p m₂ v pol stop).m (Ctx.make p m₂ v pol stop).ix (Ctx.make p m₂ v pol stop).v =
-      checkFill N f m₂ (m₂.index m₂.intervals.size) v from rfl,
+      checkFill N f m₂ (m₂.index m₂.delisted.size) v from rfl,
     checkFill_spec N f m₁ S.A₁, checkFill_spec N f m₂ S.A₂, S.checkSpec N f v hf]
 
 omit [Inhabited α] in
@@ -476,7 +476,7 @@ theorem start_graft (N : NumOps α) (c : Ctx α) : c.start N = (c.start N).map (
 
 theorem start_eq (N : NumOps α) {c₁ c₂ : Ctx α} {T : Int} (A : Agree c₁ c₂ T) (hT : c₁.pol.wStart + c₁.pol.delta ≤ T) :
     c₁.start N = c₂.start N := by
-  have h0 : c₁.state0 N = c₂.state0 N := by simp [Ctx.state0, Ctx.coins, A.p, A.intervals]
+  have h0 : c₁.state0 N = c₂.state0 N := by simp [Ctx.state0, A.p, A.coins]
   rw [start_graft N c₁, start_graft N c₂, h0]
   exact graft_proj _ (start_agree N A hT).1
 
@@ -541,10 +541,10 @@ theorem SameView.lookupC (S : SameView m₁ m₂ T) (p : Program) (v : Venue α)
       openFields (Ctx.make p m₁ v pol stop).m.bars[i₁]! = openFields (Ctx.make p m₂ v pol stop).m.bars[i₂]! := by
   have h := S.barAt_opened (c := c) ht
   rw [← lookup_barAt m₁ _ S.A₁, ← lookup_barAt m₂ _ S.A₂] at h
-  show ((m₁.index m₁.intervals.size).barAt[(c, t)]? = none ∧ (m₂.index m₂.intervals.size).barAt[(c, t)]? = none) ∨
-    ∃ i₁ i₂, (m₁.index m₁.intervals.size).barAt[(c, t)]? = some i₁ ∧ (m₂.index m₂.intervals.size).barAt[(c, t)]? = some i₂ ∧
+  show ((m₁.index m₁.delisted.size).barAt[(c, t)]? = none ∧ (m₂.index m₂.delisted.size).barAt[(c, t)]? = none) ∨
+    ∃ i₁ i₂, (m₁.index m₁.delisted.size).barAt[(c, t)]? = some i₁ ∧ (m₂.index m₂.delisted.size).barAt[(c, t)]? = some i₂ ∧
       openFields m₁.bars[i₁]! = openFields m₂.bars[i₂]!
-  cases h₁ : (m₁.index m₁.intervals.size).barAt[(c, t)]? <;> cases h₂ : (m₂.index m₂.intervals.size).barAt[(c, t)]? <;>
+  cases h₁ : (m₁.index m₁.delisted.size).barAt[(c, t)]? <;> cases h₂ : (m₂.index m₂.delisted.size).barAt[(c, t)]? <;>
     rw [h₁, h₂] at h <;> simp at h
   · exact Or.inl ⟨rfl, rfl⟩
   · exact Or.inr ⟨_, _, rfl, rfl, h⟩
@@ -557,16 +557,14 @@ theorem step_view (N : NumOps α) (p : Program) (v : Venue α) (pol : Policy) (s
   refine (?_ : EqH _ _ (fun _ => True)).1
   unfold Ctx.step
   simp only [Std.Legacy.Range.forIn_eq_forIn_range']
-  have hlisted : (Ctx.make p m₁ v pol stop).listed = (Ctx.make p m₂ v pol stop).listed := by
-    funext c t; unfold Ctx.listed
-    rw [show (Ctx.make p m₁ v pol stop).m.intervals = (Ctx.make p m₂ v pol stop).m.intervals from S.intervals]
-  rw [hlisted]
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.forIn _ _ _ _ _ rfl fun k hk s₀ h₀ => ?_) fun s₁ h₁ => ?_
-  · refine EqH.bind (EqH.forIn _ _ _ _ (fun s' => s'.proj = s.proj) h₀ fun x _ s' h' => ?_) fun s'' h'' => EqH.pure _ h''
-    have hh : b + ↑k * HOUR ≤ T := by
+  · have hk' : b + ↑k * HOUR + pol.delta ≤ T := by
       simp [Std.Legacy.Range.size] at hk
       have : (k : Int) ≤ 4 := by omega
       simp only [BAR, HOUR] at hb ⊢; omega
+    have hh : b + ↑k * HOUR ≤ T := by omega
+    simp only [fun coin => A.listed coin (b + ↑k * HOUR) hk']
+    refine EqH.bind (EqH.forIn _ _ _ _ (fun s' => s'.proj = s.proj) h₀ fun x _ s' h' => ?_) fun s'' h'' => EqH.pure _ h''
     rw [S.rateC p v pol stop x.1 hh]
     have hl : (latestOf (Ctx.make p m₁ v pol stop).ix (Ctx.make p m₁ v pol stop).m.bars (b + ↑k * HOUR) x).map
         (fun y => openFields y.2) =
@@ -589,14 +587,14 @@ theorem step_view (N : NumOps α) (p : Program) (v : Venue α) (pol : Policy) (s
     funext fun x => S.latest (b := b) (by omega) x
   rw [hl]
   refine EqH.bind (R := fun s' => s'.proj = s.proj) (EqH.refl (Except.Holds.ok _ h₁)) fun s₂ h₂ => ?_
-  have hint : (Ctx.make p m₁ v pol stop).m.intervals = (Ctx.make p m₂ v pol stop).m.intervals := S.intervals
-  have hcoins : (Ctx.make p m₁ v pol stop).coins = (Ctx.make p m₂ v pol stop).coins := congrArg Array.size S.intervals
+  have hlisted : ∀ coin, (Ctx.make p m₁ v pol stop).listed coin (b + BAR) = (Ctx.make p m₂ v pol stop).listed coin (b + BAR) :=
+    fun coin => A.listed coin _ hb
   have hex : ∀ s' (f : Fill α), f.filled = b + BAR →
       (Ctx.make p m₁ v pol stop).execute N s' f = (Ctx.make p m₂ v pol stop).execute N s' f :=
     fun s' f hf => S.execute N p v pol stop s' f (by omega)
   have hfilled : ∀ coin (q ref : α) why t src, ((Ctx.make p m₁ v pol stop).closeout N coin q ref why t src).filled = t :=
     fun _ _ _ _ _ _ => rfl
-  simp only [hint, hcoins, hex _ _ (hfilled ..)]
+  simp only [hlisted, A.coins, hex _ _ (hfilled ..)]
   have hexec : ∀ s' f r, (Ctx.make p m₂ v pol stop).execute N s' f = .ok r → r.proj = s'.proj :=
     fun s' f => execute_proj N _ s' f
   refine EqH.join (R := fun s' => s'.proj = s.proj) (fun _ => EqH.forIn _ _ _ _ _ h₂ fun x _ s' h' => ?_) (fun _ => h₂)
