@@ -1,11 +1,15 @@
+import io
 import json
+from pathlib import Path
 
 import polars as pl
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from hypothesis import given, settings, strategies as st
 
 from ingest.policy import DELTA, HOLDOUT_START, HOUR as H, POLICY
+import ingest.store
 from ingest.store import Store, stores, write_split
 
 
@@ -164,16 +168,66 @@ def test_a_new_column_makes_every_row_a_revision(store):
     assert store.write("bars_4h", rows(["A", "B"], range(10)).with_columns(pl.lit("v2").alias("lineage")), 200, "t") == 20
 
 
-def garble(path, keep="eventTime"):
-    """Every column chunk of a Parquet file but `keep`'s overwritten with garbage, at the byte ranges its footer gives."""
-    meta, data = pq.ParquetFile(path).metadata, bytearray(path.read_bytes())
+def chunks(path, keep="eventTime"):
+    """The byte ranges of every column chunk of a Parquet file but `keep`'s, as its footer gives them."""
+    meta = pq.ParquetFile(path).metadata
     for g in range(meta.num_row_groups):
         for j in range(meta.num_columns):
             col = meta.row_group(g).column(j)
             if col.path_in_schema != keep:
                 start = min(o for o in (col.dictionary_page_offset, col.data_page_offset) if o)
-                data[start:start + col.total_compressed_size] = b"\xff" * col.total_compressed_size
+                yield start, start + col.total_compressed_size
+
+
+def garble(path):
+    """Every column chunk of a Parquet file but the event time's overwritten with garbage."""
+    data = bytearray(path.read_bytes())
+    for a, b in list(chunks(path)):
+        data[a:b] = b"\xff" * (b - a)
     path.write_bytes(data)
+
+
+OPEN = ingest.store.open_parquet
+
+
+class Recorded(io.RawIOBase):
+    """A file opened by the store's reader, recording the byte range of each read into `reads`."""
+
+    def __init__(self, path, reads):
+        self.path, self.file, self.reads = Path(path), OPEN(path), reads
+
+    def readable(self):
+        return True
+
+    def seekable(self):
+        return True
+
+    def seek(self, offset, whence=0):
+        return self.file.seek(offset, whence)
+
+    def tell(self):
+        return self.file.tell()
+
+    def readinto(self, b):
+        start, n = self.file.tell(), self.file.readinto(b)
+        self.reads.append((self.path, start, n))
+        return n
+
+    def close(self):
+        self.file.close()
+        super().close()
+
+
+def recording(monkeypatch):
+    """Every file the store's reader opens from now on, recorded: the list of (path, start, length) it reads."""
+    reads = []
+    monkeypatch.setattr(ingest.store, "open_parquet", lambda path: Recorded(path, reads))
+    return reads
+
+
+def met(reads):
+    """The reads that meet a column chunk other than the event time's."""
+    return [(p.name, s, n) for p, s, n in reads if n and any(s < b and a < s + n for a, b in chunks(p))]
 
 
 @pytest.fixture
@@ -183,18 +237,19 @@ def root(tmp_path_factory):
     return tmp_path_factory.mktemp("staged")
 
 
-def staged(root, *late):
+def staged(root, late, garbled):
     """C7.6's holdout-staging fixture: the search store's bars dataset, a row before the holdout fetched at 100 and the
-    rows `late` (eventTime, fetchedAt, tombstone), one file each, `eventTime` of its value's type (Int64 or Double) and
-    every other column garbled. Its version is 100."""
+    row `late` (eventTime, fetchedAt, tombstone), one file each, `eventTime` of its value's type (Int64 or Double), and
+    if `garbled` every other column garbled. Its version is 100."""
     search, _ = stores(root)
     d = root / "store" / "bars_4h"
     d.mkdir(parents=True)
-    for i, (event, fetched, tombstone) in enumerate([(HOLDOUT_START - H, 100, None), *late]):
+    for i, (event, fetched, tombstone) in enumerate([(HOLDOUT_START - H, 100, None), late]):
         pl.DataFrame({"coin": ["A"], "eventTime": [event], "rate": [1.0], "fetchedAt": [fetched], "source": ["t"],
                       "hash": ["x"], "tombstone": [tombstone]},
                      schema_overrides={"tombstone": pl.Boolean}).write_parquet(d / f"{i}.parquet")
-        garble(d / f"{i}.parquet")
+        if garbled:
+            garble(d / f"{i}.parquet")
     return search, sorted(d.glob("*.parquet"))
 
 
@@ -204,61 +259,117 @@ UNDECODABLE = (float(HOLDOUT_START - 2 * H), 200, None)
 
 
 def refuses_crossing(as_of):
-    """Test 3: refused as a holdout crossing, naming the boundary and the crossing event time."""
+    """Refused as a holdout crossing, naming the boundary and the crossing event time."""
     with pytest.raises(ValueError) as refusal:
         as_of("bars_4h", 2**62, 100)
     assert all(str(x) in str(refusal.value) for x in ("holdout", HOLDOUT_START, CROSSING)), refusal.value
 
 
 def refuses_uncheckable(as_of):
-    """Test 3's variant: refused by the holdout check's own refusal, not as an invalid dataset."""
+    """Refused by the holdout check's own refusal, not as an invalid dataset."""
     with pytest.raises(ValueError, match="the holdout check cannot be made"):
         as_of("bars_4h", 2**62, 100)
 
 
-def unstaged(root):
-    """The control's loader, faithful to RULES.md §6 but for staging: it reads every column of every file, refusing a
-    row that does not decode as an invalid dataset, and only then makes the holdout check."""
+def reads_event_times_alone(monkeypatch, as_of, files, check):
+    """C7.6's named test 3: `check`'s refusal, every file opened through the store's reader, and no byte read before
+    the refusal in a column chunk but the event time's."""
+    reads = recording(monkeypatch)
+    check(as_of)
+    assert {p for p, _, _ in reads} == set(files) and not met(reads), met(reads)
+
+
+def event_times(path):
+    """A file's event times alone, through the store's reader: its footer by the length the file states, then the
+    event time's column chunk."""
+    with ingest.store.open_parquet(path) as f:
+        f.seek(-8, 2)
+        n = int.from_bytes(f.read(4), "little")
+        f.seek(-8 - n, 2)
+        meta = pq.read_metadata(pa.BufferReader(b"PAR1" + f.read(n + 8)))
+        return pq.ParquetFile(f, metadata=meta).read(columns=["eventTime"])["eventTime"].to_pylist()
+
+
+def read(path, columns=None):
+    with ingest.store.open_parquet(path) as f:
+        return pl.read_parquet(f, columns=columns)
+
+
+def holdout_check(frame):
+    if frame["eventTime"].dtype != pl.Int64:
+        raise ValueError("the holdout check cannot be made: an event time is not an Int64")
+    if (late := frame.filter(pl.col("eventTime") >= HOLDOUT_START)).height:
+        raise ValueError(f"holdout crossing: event time {late['eventTime'][0]} at or after {HOLDOUT_START}")
+    return frame
+
+
+def eager(root):
+    """A control, faithful to RULES.md §6 but for staging: it reads every column of every file, refusing a row that
+    does not decode as an invalid dataset, and only then makes the holdout check."""
     def as_of(dataset, t, version):
         try:
-            frame = pl.concat([pl.read_parquet(f) for f in sorted((root / "store" / dataset).glob("*.parquet"))],
+            frame = pl.concat([read(f) for f in sorted((root / "store" / dataset).glob("*.parquet"))],
                               how="diagonal_relaxed")
         except pl.exceptions.PolarsError as e:
             raise ValueError(f"{dataset}: invalid dataset, a row does not decode") from e
-        if frame["eventTime"].dtype != pl.Int64:
-            raise ValueError("the holdout check cannot be made: an event time is not an Int64")
-        if (late := frame.filter(pl.col("eventTime") >= HOLDOUT_START)).height:
-            raise ValueError(f"holdout crossing: event time {late['eventTime'][0]} at or after {HOLDOUT_START}")
+        return holdout_check(frame)
+    return as_of
+
+
+def surviving(root):
+    """A control that reads every column of every file too, but survives a file that does not decode, reading its
+    event times alone, until the holdout check has refused or passed (the round 6 reviews' probe)."""
+    def as_of(dataset, t, version):
+        frames, bad = [], []
+        for f in sorted((root / "store" / dataset).glob("*.parquet")):
+            try:
+                frames.append(read(f))
+            except pl.exceptions.PolarsError:
+                bad.append(f)
+                frames.append(read(f, ["eventTime"]))
+        frame = holdout_check(pl.concat(frames, how="diagonal_relaxed"))
+        if bad:
+            raise ValueError(f"{dataset}: invalid dataset, {len(bad)} files do not decode")
         return frame
     return as_of
 
 
-@pytest.mark.parametrize("late, check", [(IN_HOLDOUT[0], refuses_crossing), (IN_HOLDOUT[1], refuses_crossing),
-                                         (UNDECODABLE, refuses_uncheckable)],
-                         ids=["fetched after the version", "tombstone", "undecodable event time"])
-def test_a_loader_reading_every_column_first_fails_test_3(root, late, check):
-    """Test 3's control: on its fixture the event times alone read, and a loader reading every column first fails."""
-    _, files = staged(root, late)
-    assert [pl.read_parquet(f, columns=["eventTime"])["eventTime"].item() for f in files] == [HOLDOUT_START - H, late[0]]
+CASES = pytest.mark.parametrize("late, check", [(IN_HOLDOUT[0], refuses_crossing), (IN_HOLDOUT[1], refuses_crossing),
+                                                (UNDECODABLE, refuses_uncheckable)],
+                                ids=["fetched after the version", "tombstone", "undecodable event time"])
+GARBLED = pytest.mark.parametrize("garbled", [False, True], ids=["as written", "garbled"])
+
+
+@CASES
+@GARBLED
+@pytest.mark.parametrize("control", [eager, surviving])
+def test_loaders_reading_every_column_first_fail_test_3(root, monkeypatch, late, check, garbled, control):
+    """Test 3's controls: on its fixture the event times alone can be read, the footer and the event time's chunk
+    only, and each loader reading every column first fails."""
+    _, files = staged(root, late, garbled)
+    reads = recording(monkeypatch)
+    assert [event_times(f) for f in files] == [[HOLDOUT_START - H], [late[0]]] and not met(reads)
     with pytest.raises(AssertionError):
-        check(unstaged(root))
+        reads_event_times_alone(monkeypatch, control(root), files, check)
 
 
 STAGING = "audit/stage7/holdout-staging.md: ingest/store.py has no holdout check on reads, and reads every column first"
 
 
 @pytest.mark.xfail(strict=True, reason=STAGING)
+@GARBLED
 @pytest.mark.parametrize("late", IN_HOLDOUT, ids=["fetched after the version", "tombstone"])
-def test_holdout_check_reads_event_times_alone(root, late):
+def test_holdout_check_reads_event_times_alone(root, monkeypatch, late, garbled):
     """C7.6's named test 3: one row's event time in the holdout is refused as a holdout crossing, reading event times
     alone, whatever the row (here fetched after the version, or a tombstone)."""
-    search, _ = staged(root, late)
-    refuses_crossing(search.as_of)
+    search, files = staged(root, late, garbled)
+    reads_event_times_alone(monkeypatch, search.as_of, files, refuses_crossing)
 
 
 @pytest.mark.xfail(strict=True, reason=STAGING)
-def test_an_undecodable_event_time_refuses_before_any_value(root):
+@GARBLED
+def test_an_undecodable_event_time_refuses_before_any_value(root, monkeypatch, garbled):
     """Test 3's variant: an event time that is not an Int64, here in a row fetched after the version, is refused by the
     holdout check before any other column is read."""
-    search, _ = staged(root, UNDECODABLE)
-    refuses_uncheckable(search.as_of)
+    search, files = staged(root, UNDECODABLE, garbled)
+    reads_event_times_alone(monkeypatch, search.as_of, files, refuses_uncheckable)

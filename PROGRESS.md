@@ -22,7 +22,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`): event declarations depend on all four evidence sources, the input table drops source and field, no run differential yet (N1 rebuild). A builder fixes it before slice 3, after the thesis round. Stage 7 hunt `audit/reviews/2026-11-04-claude-hunt-stage7.md`: two strict xfails (dual-role provider, bars grid), Lean revisions before slice 4.
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: four strict xfails; finding 1 (`ops/live.py`) can be fixed now, 2 to 4 at the refreeze. Full suite not run in the cloud; the advisor runs it locally.
-- **B3 round 6 applied** on `claude/stage7-b3-round6-fix-gtfer7` (`audit/decisions.md`, 2026-11-04 11:23 UTC (06:23 EST)): Lean agrees on 160 hand cases; test 3 fails in `ingest/store.py` (strict xfails, slice 5). Next: review.
+- **B3 round 7 applied** on `claude/stage7-b3-round7-fix-7aqm8b` (`audit/decisions.md`, 2026-11-04 12:03 UTC (07:03 EST)): test 3 records the bytes `ingest/store.py` reads; six strict xfails (slice 5). Next: review.
 
 
 1. **Stage 3: done** (`audit/stage3/exit.md`): zero finalists, no claim.

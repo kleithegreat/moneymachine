@@ -46,6 +46,16 @@ def live(df):
     return pl.col("tombstone").is_null() if "tombstone" in df.columns else pl.lit(True)
 
 
+def open_parquet(path):
+    """The one reader every Parquet read of a store opens its file through (C7.6's test 3 records its byte ranges)."""
+    return open(path, "rb")
+
+
+def _read(path):
+    with open_parquet(path) as f:
+        return pl.read_parquet(f).drop("knownAt", strict=False)
+
+
 def _hash(row):
     return hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest()
 
@@ -69,7 +79,7 @@ class Store:
         files = self._files(dataset)
         cached = self._cache.get(dataset)
         if cached is None or cached[0] != files:
-            df = pl.concat([pl.read_parquet(f).drop("knownAt", strict=False) for f in files], how="diagonal_relaxed") if files else None
+            df = pl.concat([_read(f) for f in files], how="diagonal_relaxed") if files else None
             self._cache[dataset] = cached = (files, df)
         return cached[1]
 
