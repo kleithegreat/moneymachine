@@ -1234,6 +1234,10 @@ record confirms it. Trading is stage 11, the human's decision.
     and projection frozen first.
   - **The pilot reproduces.** Its results reproduce bit for bit on the generalized kernel, on C6.4's frozen
     markets and the stage 0 dataset version, with no spent holdout reopened.
+    - *Revision 2026-11-04 05:05 UTC (00:05 EST), human decision:* the nine defects named in `audit/decisions.md`
+      (2026-11-04 00:03 UTC, 2026-11-03 19:03 EST) change the frozen kernel's outputs, so this clause is judged on the
+      generalized kernel at the tagged commit where C7.4 holds byte for byte, before those fixes land. The fixes land
+      after it, each with its test.
 - **C8.5 Calibration repeated.**
   - **No-edge condition.** Per instrument kind it is derived from the generalized kernel's self-financing
     accounting and filtration, including dividends, funding, financing, borrow, FX, multipliers, rolls and
