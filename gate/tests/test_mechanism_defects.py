@@ -9,18 +9,11 @@ import numpy as np
 import pytest
 
 from gate import kernel, markets
+from gate.search import const, op
 from ingest.policy import HOUR
 
 DECISION = "audit/decisions.md: the mechanism check's two defects are qualified, not forked"
 HUNT = "audit/reviews/2026-11-03-gpt-hunt-gate.md"
-
-
-def const(value, unit="1"):
-    return {"const": value, "unit": unit}
-
-
-def op(name, *args):
-    return {"op": name, "args": list(args)}
 
 
 def arrays(bars):

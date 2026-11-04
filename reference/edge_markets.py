@@ -22,6 +22,7 @@ import numpy as np
 import polars as pl
 
 from gate.markets import FLAT_COST, write_venue
+from gate.search import const as c, op
 from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
 
@@ -98,14 +99,6 @@ def crash(root, drop):
 
 
 MARKETS = {"edge": edge, "liquidation": lambda r: crash(r, 0.4), "ruin": lambda r: crash(r, 0.6)}
-
-
-def c(x, unit="1"):
-    return {"const": x, "unit": unit}
-
-
-def op(name, *args, **extra):
-    return {"op": name, "args": list(args), **extra}
 
 
 def inp(name):
