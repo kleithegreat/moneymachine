@@ -194,9 +194,9 @@ def writeStreams (h : IO.FS.Handle) (c : Ctx Float) : IO (Except Abort Nat) := d
   return .ok n
 
 /-! `refmm resolve`: the resolver's cases (kernel/RULES.md §7, revision of 2026-11-04 B3). This decoding layer is new
-code, not frozen Lean: it reads every text of a case by RULES.md §1 itself, reusing `Ref.Json`'s string reader and
-binary64 rounding so an integer token of any size stays an integer, maps it to cells by §7, and runs the frozen
-`timeline` and `resolveAll`. -/
+code, not frozen Lean: it reads the cases, and every text inside them, by RULES.md §1 itself, reusing `Ref.Json`'s
+string reader and binary64 rounding so an integer token of any size stays an integer, maps the texts to cells by §7,
+and runs the frozen `timeline` and `resolveAll`. -/
 
 /-- A RULES.md §1 value: integers exact, a non-integer as its binary64 bits (none if it rounds to infinity). -/
 inductive J where
@@ -307,6 +307,26 @@ def J.get? : J → String → Option J
   | .obj kvs, k => (kvs.find? (·.1 == k)).map (·.2)
   | _, _ => none
 
+def J.get! (v : J) (k : String) : J := (v.get? k).get!
+
+def J.int! : J → Int
+  | .int i => i
+  | _ => panic! "expected an integer"
+
+def J.str! : J → String
+  | .str s => s
+  | _ => panic! "expected a string"
+
+def J.bool! : J → Bool
+  | .bool b => b
+  | _ => panic! "expected a boolean"
+
+def J.arr! : J → Array J
+  | .arr xs => xs
+  | _ => panic! "expected an array"
+
+def J.strs! (v : J) : List String := v.arr!.toList.map J.str!
+
 partial def ruleExpr : J → Option RuleExpr
   | .obj kvs => match kvs.toList with
     | [("field", .str n)] => if n.isEmpty then none else some (.field n)
@@ -388,9 +408,9 @@ def zeroed : Cell → Cell
 /-- A stored entity as `Revision.entity`: its cells' text. -/
 def entityKey (cs : List Cell) : String := ",".intercalate (cs.map cellJson)
 
-def bool! : Value → Bool
-  | .bool b => b
-  | _ => panic! "expected a boolean"
+/-- The columns the store writes beside declared values, and `knownAt`, which it refuses: no declaration names one
+(SOURCES.md §1, revision of 2026-11-04). -/
+def metadataColumns : List String := ["fetchedAt", "tombstone", "upstream", "source", "hash", "knownAt"]
 
 /-- A case's source: its name, declared columns (sorted) and role columns, and its declaration. -/
 structure CaseSrc where
@@ -401,38 +421,38 @@ structure CaseSrc where
   ruleOk : Bool
   deriving Inhabited
 
-def caseSrc (names : Array String) (v : Value) : CaseSrc :=
+def caseSrc (names : Array String) (v : J) : CaseSrc :=
   let idx (n : String) : Nat := (names.findIdx? (· == n)).getD names.size
-  let name := str! (get! v "name")
-  let times := strs! (get! v "times")
-  let values := strs! (get! v "values")
-  let entity := strs! (get! v "entity")
-  let slot := match get! v "slot" with | .str c => some c | _ => none
-  let roles : List (Role × List (String × String)) := match get! v "roles" with
+  let name := (v.get! "name").str!
+  let times := (v.get! "times").strs!
+  let values := (v.get! "values").strs!
+  let entity := (v.get! "entity").strs!
+  let slot := match v.get! "slot" with | .str c => some c | _ => none
+  let roles : List (Role × List (String × String)) := match v.get! "roles" with
     | .obj kvs => match kvs.toList with
-      | [("bars", cols)] => [(.bars, ["open", "high", "low", "close", "trades"].zip (strs! cols))]
-      | [("settlement", cols)] => [(.settlement, ["rate"].zip (strs! cols))]
+      | [("bars", cols)] => [(.bars, ["open", "high", "low", "close", "trades"].zip cols.strs!)]
+      | [("settlement", cols)] => [(.settlement, ["rate"].zip cols.strs!)]
       | _ => []
     | _ => []
   let roleCols := roles.flatMap (·.2.map (·.2))
-  let rule := ruleDoc (str! (get! v "rule"))
+  let rule := ruleDoc (v.get! "rule").str!
   let decl : Decl :=
     { hash := "", fields := values.toArray.map fun c => (s!"{name}.{c}", c, Dim.one), times := "fetchedAt" :: times
-      eventColumn := str! (get! v "event"), slotColumn := slot, entityColumns := entity, revisionColumns := []
+      eventColumn := (v.get! "event").str!, slotColumn := slot, entityColumns := entity, revisionColumns := []
       rule := rule.getD (.ms 0), roles
-      cadence := if bool! (get! v "evidence") then .evidence else if slot.isSome then .event else .held
-      deps := (arr! (get! v "deps")).toList.map fun d =>
-        ⟨(strs! (get! d "sources")).map idx, str! (get! d "name"), int! (get! d "lag")⟩ }
+      cadence := if (v.get! "evidence").bool! then .evidence else if slot.isSome then .event else .held
+      deps := (v.get! "deps").arr!.toList.map fun d =>
+        ⟨(d.get! "sources").strs!.map idx, (d.get! "name").str!, (d.get! "lag").int!⟩ }
   { name, roleCols, decl, ruleOk := rule.isSome && decl.ruleOk
     declared := (values ++ times ++ [decl.eventColumn] ++ slot.toList ++ entity ++ roleCols).eraseDups.mergeSort
       (· ≤ ·) }
 
 /-- One eligible stored row as a `Revision` of source `s` by §7's JSON mapping, its entity's cells beside it; an
 error if it does not decode (RULES.md §6, revision of 2026-11-04). -/
-def caseRow (srcs : Array CaseSrc) (univ : List String) (s : Nat) (v : Value) : Except Unit (Revision × List Cell) := do
+def caseRow (srcs : Array CaseSrc) (univ : List String) (s : Nat) (v : J) : Except Unit (Revision × List Cell) := do
   let c := srcs[s]!
   let d := c.decl
-  let some (.obj kvs) := rparse (str! (get! v "cells")) | throw ()
+  let some (.obj kvs) := rparse (v.get! "cells").str! | throw ()
   let cells ← c.declared.filterMapM fun col => match (J.obj kvs).get? col with
     | none => pure none
     | some j => match j.cell with
@@ -445,7 +465,7 @@ def caseRow (srcs : Array CaseSrc) (univ : List String) (s : Nat) (v : Value) : 
   let coin := if d.cadence == .evidence then none else match cellAt cells "coin" with
     | .str x => univ.idxOf? x
     | _ => none
-  let tombstone := bool! (get! v "tombstone")
+  let tombstone := (v.get! "tombstone").bool!
   let upstream ← if d.deps.isEmpty || tombstone then pure [] else
     match (v.get? "upstream").bind fun | .str t => rparse t | _ => none with
     | some (.obj ms) => ms.toList.mapM fun (dep, keys) => match keys with
@@ -460,7 +480,7 @@ def caseRow (srcs : Array CaseSrc) (univ : List String) (s : Nat) (v : Value) : 
         pure (dep, ks)
       | _ => throw ()
     | _ => throw ()
-  pure ({ entity := entityKey ent, coin, event, fetchedAt := int! (get! v "fetchedAt"), tombstone
+  pure ({ entity := entityKey ent, coin, event, fetchedAt := (v.get! "fetchedAt").int!, tombstone
           cells, upstream }, ent)
 
 /-- A cell read as a number: an integer or a non-integer, as its binary64 value. -/
@@ -471,17 +491,18 @@ def numBits : Cell → Option UInt64
 
 /-- A case's §7 result and, if it resolves, its observations by `resolveAll`, sorted by source name, coin, event time
 and fetchedAt. -/
-def resolveCase (v : Value) : String := Id.run do
-  let univ := strs! (get! v "universe")
-  let sv := arr! (get! v "sources")
-  let names := sv.map fun s => str! (get! s "name")
+def resolveCase (v : J) : String := Id.run do
+  let univ := (v.get! "universe").strs!
+  let sv := (v.get! "sources").arr!
+  let names := sv.map fun s => (s.get! "name").str!
   let srcs := sv.map (caseSrc names)
   let line (result obs : String) := s!"\{\"result\":{result},\"observations\":{obs}}"
+  if srcs.any (·.declared.any metadataColumns.contains) then return line "\"E_DECL\"" "null"
   if !srcs.all (·.ruleOk) then return line "\"E_RULE\"" "null"
-  let V := int! (get! v "version")
-  let rows := (arr! (get! v "rows")).toList.filter fun r => decide (int! (get! r "fetchedAt") ≤ V)
+  let V := (v.get! "version").int!
+  let rows := (v.get! "rows").arr!.toList.filter fun r => decide ((r.get! "fetchedAt").int! ≤ V)
   let decoded := rows.mapM fun r =>
-    let s := (names.findIdx? (· == str! (get! r "source"))).get!
+    let s := (names.findIdx? (· == (r.get! "source").str!)).get!
     (caseRow srcs univ s r).map ((s, ·))
   let .ok decoded := decoded | return line "\"INVALID\"" "null"
   let reg : Registry := { decls := srcs.map (·.decl) }
@@ -489,7 +510,7 @@ def resolveCase (v : Value) : String := Id.run do
                        identity := fun _ => "" }
   let all := List.range srcs.size
   if !all.all (st.validAt · V) then return line "\"INVALID\"" "null"
-  let queries := (arr! (get! v "queries")).toList.map int!
+  let queries := (v.get! "queries").arr!.toList.map J.int!
   let keys := (decoded.map fun (s, r, ent) => (s, ent, r.event)).eraseDups.mergeSort fun (s, a, e) (t, b, f) =>
     (compare srcs[s]!.name srcs[t]!.name |>.then (cellsCmp a b) |>.then (compare e f)) != .gt
   let keyJson := keys.map fun (s, ent, event) =>
@@ -569,8 +590,8 @@ def main (args : List String) : IO UInt32 := do
       IO.println (admitCase c)
     return 0
   | ["resolve", cases] =>
-    let some v := (Json.parse (← IO.FS.readFile cases)).toOption | IO.eprintln "bad cases"; return 3
-    for c in arr! v do
+    let some v := rparse (← IO.FS.readFile cases) | IO.eprintln "bad cases"; return 3
+    for c in v.arr! do
       IO.println (resolveCase c)
     return 0
   | _ => IO.eprintln "usage: refmm check PROGRAM | refmm run PROGRAMS MARKET OUT_DIR | refmm bench PROGRAM MARKET REPS | refmm admit CASES | refmm resolve CASES"; return 2

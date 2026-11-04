@@ -1,6 +1,7 @@
 import json
 
 import polars as pl
+import pyarrow.parquet as pq
 import pytest
 from hypothesis import given, settings, strategies as st
 
@@ -161,3 +162,68 @@ def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path, key):
 
 def test_a_new_column_makes_every_row_a_revision(store):
     assert store.write("bars_4h", rows(["A", "B"], range(10)).with_columns(pl.lit("v2").alias("lineage")), 200, "t") == 20
+
+
+def garble(path, keep="eventTime"):
+    """Every column chunk of a Parquet file but `keep`'s overwritten with garbage, at the byte ranges its footer gives."""
+    meta, data = pq.ParquetFile(path).metadata, bytearray(path.read_bytes())
+    for g in range(meta.num_row_groups):
+        for j in range(meta.num_columns):
+            col = meta.row_group(g).column(j)
+            if col.path_in_schema != keep:
+                start = min(o for o in (col.dictionary_page_offset, col.data_page_offset) if o)
+                data[start:start + col.total_compressed_size] = b"\xff" * col.total_compressed_size
+    path.write_bytes(data)
+
+
+def staged(tmp_path, *late):
+    """C7.6's holdout-staging fixture: the search store's bars dataset, a row before the holdout fetched at 100 and the
+    rows `late` (eventTime, fetchedAt, tombstone), one file each, every column but `eventTime` garbled. Its version is
+    100."""
+    search, _ = stores(tmp_path)
+    d = tmp_path / "store" / "bars_4h"
+    d.mkdir(parents=True)
+    for i, (event, fetched, tombstone) in enumerate([(HOLDOUT_START - H, 100, None), *late]):
+        pl.DataFrame({"coin": ["A"], "eventTime": [event], "rate": [1.0], "fetchedAt": [fetched], "source": ["t"],
+                      "hash": ["x"], "tombstone": [tombstone]},
+                     schema_overrides={"tombstone": pl.Boolean}).write_parquet(d / f"{i}.parquet")
+        garble(d / f"{i}.parquet")
+    return search, sorted(d.glob("*.parquet"))
+
+
+IN_HOLDOUT = [(HOLDOUT_START, 200, None), (HOLDOUT_START, 50, True)]
+
+
+@pytest.mark.parametrize("late", IN_HOLDOUT, ids=["fetched after the version", "tombstone"])
+def test_the_staging_fixture_refuses_every_column_but_event_time(tmp_path, late):
+    """The control: a loader opening any other column before the holdout check fails with a decoding error."""
+    _, files = staged(tmp_path, late)
+    assert [pl.read_parquet(f, columns=["eventTime"])["eventTime"].item() for f in files] == [HOLDOUT_START - H, late[0]]
+    for f in files:
+        for c in ["coin", "rate", "fetchedAt", "source", "hash", "tombstone"]:
+            with pytest.raises((pl.exceptions.PolarsError, OSError)):
+                pl.read_parquet(f, columns=[c])
+
+
+STAGING = "audit/stage7/holdout-staging.md: ingest/store.py has no holdout check on reads, and reads every column first"
+
+
+@pytest.mark.xfail(strict=True, reason=STAGING)
+@pytest.mark.parametrize("late", IN_HOLDOUT, ids=["fetched after the version", "tombstone"])
+def test_holdout_check_reads_event_times_alone(tmp_path, late):
+    """C7.6's named test 3: one row's event time in the holdout is refused as a holdout crossing, reading event times
+    alone, whatever the row (here fetched after the version, or a tombstone)."""
+    search, _ = staged(tmp_path, late)
+    with pytest.raises(ValueError, match="holdout"):
+        search.as_of("bars_4h", 2**62, 100)
+
+
+@pytest.mark.xfail(strict=True, reason=STAGING)
+def test_an_undecodable_event_time_refuses_before_any_value(tmp_path):
+    """Test 3's variant: an event time that is not an Int64, here in a row fetched after the version, makes the dataset
+    invalid before any other column is read."""
+    search, files = staged(tmp_path, (HOLDOUT_START - 2 * H, 200, None))
+    pl.read_parquet(files[1]).with_columns(pl.col("eventTime").cast(pl.Float64)).write_parquet(files[1])
+    garble(files[1])
+    with pytest.raises(ValueError, match="invalid"):
+        search.as_of("bars_4h", 2**62, 100)

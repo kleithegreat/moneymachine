@@ -14,6 +14,10 @@ pub const ROLES: [(&str, &[&str]); 2] =
 /// The stored columns that select revisions and mark tombstones (`ingest/store.py`).
 pub const REVISION_COLUMNS: [&str; 1] = ["tombstone"];
 
+/// The columns the store writes beside declared values, and `knownAt`, which it refuses: no declaration names one
+/// (SOURCES.md §1, revision of 2026-11-04).
+pub const METADATA_COLUMNS: [&str; 6] = ["fetchedAt", "tombstone", "upstream", "source", "hash", "knownAt"];
+
 #[derive(Debug)]
 pub struct Field {
     pub column: String,
@@ -136,8 +140,8 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     let Json::Arr(ts) = &d["times"] else { return Err("times".into()) };
     let times: Vec<String> = ts.iter().map(|t| text(t).map(String::from)).collect::<Result<_, _>>()?;
     let distinct: BTreeSet<&String> = times.iter().collect();
-    if distinct.len() != times.len() || times.iter().any(|t| t.is_empty() || t == "fetchedAt") {
-        return Err("times must be distinct, non-empty and exclude fetchedAt".into());
+    if distinct.len() != times.len() || times.iter().any(String::is_empty) {
+        return Err("times must be distinct and non-empty".into());
     }
     if let Entity::Evidence { event, .. } = &entity {
         if !times.contains(event) {
@@ -190,12 +194,20 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
         }
         depends.insert(dep.clone(), Dependency { sources, lag });
     }
-    let mut roles = BTreeMap::new();
+    let mut roles: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
     for (role, m) in obj(&d["role"])? {
         let want = ROLES.iter().find(|(r, _)| r == role).ok_or(format!("unknown role {role}"))?.1;
         let m = obj(m)?;
         exactly(m, want)?;
         roles.insert(role.clone(), m.iter().map(|(k, v)| Ok((k.clone(), text(v)?.to_string()))).collect::<Result<_, String>>()?);
+    }
+    let key = match &entity {
+        Entity::Coin => &[][..],
+        Entity::Evidence { key, .. } => &key[..],
+    };
+    let mut named = times.iter().chain(key).chain(fields.values().map(|f| &f.column)).chain(roles.values().flat_map(|m| m.values()));
+    if let Some(c) = named.find(|c| METADATA_COLUMNS.contains(&c.as_str())) {
+        return Err(format!("{c} is a metadata column"));
     }
     let evidence = cadence == Cadence::Evidence;
     if evidence != matches!(entity, Entity::Evidence { .. }) || evidence && !(fields.is_empty() && roles.is_empty()) {

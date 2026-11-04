@@ -39,6 +39,24 @@ fn malformed_declarations_are_rejected() {
 }
 
 #[test]
+fn declarations_naming_a_metadata_column_are_rejected() {
+    let good = std::fs::read_to_string(repo_sources().join("hl-funding/1.json")).unwrap();
+    let polls = std::fs::read_to_string(repo_sources().join("discourse-polls/1.json")).unwrap();
+    for name in source::METADATA_COLUMNS.into_iter().chain(["spare"]) {
+        for (file, from, to) in [
+            (&good, "\"column\": \"premium\"".to_string(), format!("\"column\": \"{name}\"")),
+            (&good, "\"rate\": \"fundingRate\"".to_string(), format!("\"rate\": \"{name}\"")),
+            (&good, "\"times\": [\"eventTime\", \"reportedTime\"]".to_string(),
+             format!("\"times\": [\"eventTime\", \"reportedTime\", \"{name}\"]")),
+            (&polls, "\"evidence\": [".to_string(), format!("\"evidence\": [\"{name}\", ")),
+        ] {
+            assert!(file.contains(&from), "{from}");
+            assert_eq!(source::declaration(&file.replace(&from, &to)).is_ok(), name == "spare", "{to}");
+        }
+    }
+}
+
+#[test]
 fn evidence_declarations_are_keyed_by_their_own_columns() {
     let polls = r#"{"declaration": 1, "name": "forum-polls", "version": 1, "entity": {"evidence": ["key", "recv"], "event": "recv"},
         "times": ["recv"], "fields": {}, "cadence": {"evidence": {}}, "missing": "undefined", "revisions": "latest",

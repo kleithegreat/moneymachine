@@ -5,8 +5,8 @@ kernel/tests/rules/resolver_suite.py once reviewed.
 - HAND: hand-computed cases. Keys and entries of an expected result are written here without their cells and role
   payloads, which `case` adds from the entry's own revision (none on a retraction).
 - generate(resolve): the shortest prefix of `stream()`'s stores, from a fixed seed and without expected results (the
-  implementations must agree), whose results under `resolve` reach C7.6's size, which `delivered` counts (its home is
-  C7.6's revision, `c76-revision.md`). `classes` names what a store's inputs exercise and `reached` what a result
+  implementations must agree), whose results under `resolve` reach C7.6's size, SIZE pairs as `delivered` counts them
+  (its home is C7.6's revision, `c76-revision.md`). `classes` names what a store's inputs exercise and `reached` what a result
   shows; a frozen suite has at least FLOOR stores in each of CLASSES and, over Lean's results (`lean_check.py`),
   REACHED.
 """
@@ -152,8 +152,9 @@ HAND = [
          [100]),
     # Undeclared columns are never compared.
     bars([rev("bars", 100, b(1)), rev("bars", F, b(1, extra=5))], F, [F], [[100, K, False]], [100]),
-    # Doubles compare as values: the two zeros are one value; 1.5 and 2.5 differ.
+    # Doubles compare as values: the two zeros are one value, each delivered with its own sign; 1.5 and 2.5 differ.
     bars([rev("bars", 100, b(0.0)), rev("bars", F, b(-0.0))], F, [F], [[100, K, False]], [100]),
+    bars([rev("bars", 100, b(-0.0))], 100, [K], [[100, K, False]], [100]),
     bars([rev("bars", 100, b(1.5)), rev("bars", F, b(2.5))], F, [F], [[100, K, False], [F, F, False]], [F]),
     # A tombstone retracts from its fetchedAt, with no fallback; a later value is a new delivery.
     bars([rev("bars", 100, b(1)), rev("bars", F, b(1), tombstone=True)], F, [K, F - 1, F, 10**15],
@@ -202,6 +203,7 @@ HAND = [
          {"keys": [key("bars", ["BTC"], E, 0, [[100, K, False]], [100]),
                    key("bars", ["ETH"], E, 1, [[100, K, False]], [100])]}),
     case([BARS], [rev("bars", 100, b(1)), rev("bars", LO - 1, b(2))], 100, [K], "INVALID"),
+    case([BARS], [rev("bars", 100, b(1)), rev("bars", -2**63 - 1, b(2))], 100, [K], "INVALID"),
     # Stored bytes that do not decode, among eligible revisions only.
     case([BARS], [rev("bars", 100, b(1)), rev("bars", 200, "{")], 200, [K], "INVALID"),
     case([BARS], [rev("bars", 100, '{"coin": "BTC", "eventTime": 36000000, "close": 1, "close": 2}')], 100, [K],
@@ -227,9 +229,16 @@ HAND = [
          {"keys": [key("bars", ["BTC"], E, 0, [[100, K, False]], [100])]}),
     case([BARS], [rev("bars", 100, b(1)), rev("bars", 200, "{")], 199, [K],
          {"keys": [key("bars", ["BTC"], E, 0, [[100, K, False]], [100])]}),
-    # E_RULE before any row.
+    # E_RULE before any row; E_DECL, a declared column named as the store's metadata (SOURCES.md §1), before it.
     case([src("bars", rule(f("u")))], [rev("bars", 100, b(1))], 100, [K], "E_RULE"),
     case([src("bars", rule(f("u")))], [rev("bars", 100, "{")], 100, [K], "E_RULE"),
+    *[case([s], [rev(s["name"], 100, b(1))], 100, [K], "E_DECL")
+      for s in (src("bars", values=("fetchedAt",)), src("bars", values=("tombstone",)), src("bars", values=("source",)),
+                src("bars", values=("hash",)), src("bars", values=("knownAt",)),
+                src("bars", times=("eventTime", "upstream")), src("bars", rule(f("u")), values=("upstream",)),
+                src("sight", SEEN, times=("observed",), values=(), entity=("source", "observed"), event="observed",
+                    evidence=True),
+                src("bars", values=(), roles={"settlement": ["fetchedAt"]}))],
     # Keys: coins outside U are keys with no coin, as is a coin cell that is not a string.
     case([BARS], [rev("bars", 100, {"coin": "DOGE", "eventTime": E, "close": 1}), rev("bars", 200, b(1)),
                   rev("bars", 50, {"coin": "ETH", "eventTime": E, "close": 1})], 200, [K],
@@ -591,24 +600,33 @@ def store(rng):
     return c
 
 
+def image(c):
+    """Whether a store has a Parquet image (C7.6's revision): every row's `cells` text an object. On the texts `stream()`
+    writes, Python's reader with duplicate members refused reads as RULES.md §1 does."""
+    def unique(pairs):
+        if len({k for k, _ in pairs}) < len(pairs):
+            raise ValueError("duplicate member")
+        return dict(pairs)
+    try:
+        return all(isinstance(json.loads(r["cells"], object_pairs_hook=unique), dict) for r in c["rows"])
+    except ValueError:
+        return False
+
+
 def delivered(c, result):
-    """C7.6's size on one store: its delivered pairs, a key in U (of a non-evidence source, with a coin) and a query no
-    earlier than one of the key's entries' fetchedAt, and those of them on keys of at least two eligible revisions;
-    none if the store does not resolve."""
-    if not isinstance(result, dict):
-        return 0, 0
+    """C7.6's size on one store: its pairs of a key in U (of a non-evidence source, with a coin) with at least two
+    eligible revisions and a query at or after the knownAt of one of the key's entries; none if the store does not
+    resolve or has no Parquet image."""
+    if not isinstance(result, dict) or not image(c):
+        return 0
     by, counts = {s["name"]: s for s in c["sources"]}, Counter()
     for r in c["rows"]:
         if r["fetchedAt"] <= c["version"]:
             s, cells = by[r["source"]], json.loads(r["cells"])
             counts[r["source"], ident([cells.get(x) for x in s["entity"]]), cells[s["event"]]] += 1
-    total = multi = 0
-    for k in result["keys"]:
-        if not by[k["source"]]["evidence"] and k["coin"] is not None:
-            n = sum(any(e[0] <= q for e in k["timeline"]) for q in c["queries"])
-            total += n
-            multi += n if counts[k["source"], ident(k["entity"]), k["event"]] >= 2 else 0
-    return total, multi
+    return sum(any(e[1] <= q for e in k["timeline"]) for k in result["keys"]
+               if not by[k["source"]]["evidence"] and k["coin"] is not None
+               and counts[k["source"], ident(k["entity"]), k["event"]] >= 2 for q in c["queries"])
 
 
 FLOOR = 10
@@ -710,7 +728,7 @@ def own(s, cells, fetched):
     return evaluate(json.loads(s["rule"])["expr"], {**cells, "fetchedAt": fetched}, {})
 
 
-SIZE = (1000, 200)
+SIZE = 1000
 
 
 def stream(seed=20261102):
@@ -721,11 +739,11 @@ def stream(seed=20261102):
 
 def generate(resolve):
     """The shortest prefix of `stream()` whose delivered pairs under `resolve` (a store to its §7 result) reach SIZE."""
-    out, total = [], (0, 0)
+    out, total = [], 0
     for c in stream():
         out.append(c)
-        total = tuple(map(sum, zip(total, delivered(c, resolve(c)))))
-        if all(map(int.__ge__, total, SIZE)):
+        total += delivered(c, resolve(c))
+        if total >= SIZE:
             break
     counts = Counter(t for c in out for t in classes(c))
     assert all(counts[t] >= FLOOR for t in CLASSES), counts

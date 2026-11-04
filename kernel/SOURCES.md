@@ -52,6 +52,11 @@ A declaration is one JSON file, read as RULES.md §1 reads JSON:
 Rejected in version 1: other entity domains, enum or non-numeric fields, many-to-many relations, other missing or
 revision semantics. A declaration file that breaks any rule above is rejected whole.
 
+**Metadata columns** (revision of 2026-11-04, B3, `audit/stage7/b3-round4-review-gpt.md` finding 2). No column a
+declaration names, in `times`, a field's `column`, an evidence key or a role, is one the store writes beside observed
+values (`fetchedAt`, `tombstone`, `source`, `hash`, a derived source's `upstream`) or `knownAt`, which it refuses
+(`ingest/store.py`): one stored column cannot hold both, so such a declaration is rejected.
+
 **Evidence declarations** (revision of 2026-10-26 02:03 UTC (22:03 EDT), before any implementation consumed this document: the event feeds'
 upstream observations and polls are keyed by forum host or Snapshot space, not by coin, so their lineage could not be
 declared). A declaration with `"entity": {"evidence": [K1, …], "event": C}`, a non-empty list of its stored key columns

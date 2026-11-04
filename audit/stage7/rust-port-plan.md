@@ -44,7 +44,11 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 5. **The resolver** (`resolve.rs`, `market.rs` loader): after B3. Checks: the revised C7.6 resolver suite across
    Python (`store.as_of`'s bitemporal replacement), the Rust loader, GPT's independent resolver and Lean's `timeline`
    and `resolveAll` through `refmm resolve`, with C7.6's named loader-level tests (`audit/stage7/b3-draft/`); on
-   one-revision keys, the old loader's observations byte-identical.
+   one-revision keys, the old loader's observations byte-identical. Two defects it fixes: the holdout check of test 3,
+   which `ingest/store.py` lacks on reads (its three strict xfails, `audit/stage7/holdout-staging.md`, turn into
+   passes; the Rust namesake goes in `kernel/mm/tests/`); and `Store.write` writing a column of Arrow type Null, which
+   SOURCES.md §2 makes invalid, when every changed row of a fetch holds null in it: it casts such a column to Float64,
+   with a test writing a single all-null row and resolving it to a null cell (`b3-round4-review-claude.md`, finding 2).
 6. **Admission** (`admission.rs`, `ledger.rs`, `main.rs`): Checks: named tests 4–6, 8, 9, 13, 15, 17, 18, 20–23
    (`laws-v2-draft.md` §2) each with its positive control; refusal codes and positions against Lean's `admission`
    through `refmm` on the fresh C7.7 corpus (it needs the market exporter with revisions, registry and certificates,

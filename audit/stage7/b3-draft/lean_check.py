@@ -1,8 +1,8 @@
 """The suite against Lean's `timeline` and `resolveAll` (`refmm resolve`): the two files equal `HAND` and the stores
 `generate` gives over Lean's results, with their size; every hand case's expected result; the REACHED floors over the
-generated stores; and, per delivered key, `resolveAll`'s observations against the delivery its own
-timeline gives (RULES.md §6's "Visibility and delivery", revision of 2026-11-04): the shape of C7.6's loader-level
-comparison, which the actual loaders join in slice 5.
+generated stores; and `resolveAll`'s observations against the delivery a timeline gives (RULES.md §6's "Visibility and
+delivery", revision of 2026-11-04), the hand case's expected one or a generated store's Lean result: the shape of
+C7.6's loader-level comparison, which the actual loaders join in slice 5.
 
     nix develop -c python audit/stage7/b3-draft/lean_check.py [REFMM]
 """
@@ -77,18 +77,20 @@ def main(refmm=REFMM):
         print("  disagrees:", *f, sep="\n    ")
     stores = suite.generate(lambda c: lean([c], refmm)[0]["result"])
     results = lean(stores, refmm)
-    files = lines("resolver_hand.jsonl") == suite.HAND and lines("resolver_generated.jsonl") == stores
+    files = same(lines("resolver_hand.jsonl"), suite.HAND) and same(lines("resolver_generated.jsonl"), stores)
     outcome = Counter("resolves" if isinstance(r["result"], dict) else r["result"] for r in results)
-    size = tuple(map(sum, zip(*(suite.delivered(c, r["result"]) for c, r in zip(stores, results, strict=True)))))
+    size = sum(suite.delivered(c, r["result"]) for c, r in zip(stores, results, strict=True))
     reached = Counter(t for c, r in zip(stores, results, strict=True) for t in suite.reached(c, r["result"]))
     print(f"files equal HAND and generate(): {files}")
-    print(f"generated: {len(stores)} stores, {dict(outcome)}; delivered pairs {size}, at least {suite.SIZE}")
+    print(f"generated: {len(stores)} stores, {dict(outcome)}, {sum(map(suite.image, stores))} with a Parquet image; "
+          f"delivered pairs {size}, at least {suite.SIZE}")
     print("reached:", {t: reached[t] for t in suite.REACHED})
     short = [t for t in suite.REACHED if reached[t] < suite.FLOOR]
-    projection = [i for i, (c, r) in enumerate(zip(suite.HAND + stores, hand + results, strict=True))
-                  if isinstance(r["result"], dict) and not same(deliveries(c, r["result"]), r["observations"])]
-    print(f"observations: resolveAll differs from its timeline's delivery in {len(projection)} cases {projection[:10]}")
-    return 1 if failures or short or projection or not files or not all(map(int.__ge__, size, suite.SIZE)) else 0
+    expected = [c["expect"] for c in suite.HAND] + [r["result"] for r in results]
+    projection = [i for i, (c, e, r) in enumerate(zip(suite.HAND + stores, expected, hand + results, strict=True))
+                  if isinstance(e, dict) and not same(deliveries(c, e), r["observations"])]
+    print(f"observations: resolveAll differs from the timeline's delivery in {len(projection)} cases {projection[:10]}")
+    return 1 if failures or short or projection or not files or size < suite.SIZE else 0
 
 
 if __name__ == "__main__":

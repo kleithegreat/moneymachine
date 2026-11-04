@@ -12,7 +12,7 @@ below each line is the text to append.
 ### Revision of 2026-11-04, B3: what the resolver reads, and the resolver restated whole
 
 From the B3 reviews (`audit/stage7/b3-review-{gpt,claude}.md`, `b3-fixes-review-{gpt,claude}.md`,
-`b3-round3-review-{gpt,claude}.md`; decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) and 05:55 UTC (00:55 EST)).
+`b3-round3-review-{gpt,claude}.md`, `b3-round4-review-{gpt,claude}.md`; decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) and 05:55 UTC (00:55 EST)).
 It restates resolution whole, so that it reads without the text above; where that text differs, this governs. It
 replaces two things: §5's `R_ROW` as a resolver outcome (a stored row that does not decode was a rejected evaluation, so
 a retraction; it now makes the dataset invalid); and, for stored non-integer cells only, §1's "No value is ever rounded
@@ -42,8 +42,8 @@ malformed. A lineage member naming no declared dependency is checked as above an
 An integer outside −2^63 to 2^63 − 1, the one range both representations carry exactly, is not a cell. A non-integer
 number's value is the IEEE 754 binary64 number nearest its decimal value, ties to even, so two spellings rounding to one
 binary64 number are one value (`1.0` and `1.00000000000000001`); one whose magnitude rounds to infinity is not a cell. A
-cell that is a number has a **`num`**, always a finite binary64 number: a non-integer's value, and an integer's nearest
-binary64 number, ties to even (2^53 + 1 is 2^53). Two cells are equal if both are integers of one value, both
+cell that is a number has a **`num`**, always a finite binary64 number: a non-integer's value, its sign kept (`-0.0`'s
+is −0.0), and an integer's nearest binary64 number, ties to even (2^53 + 1 is 2^53). Two cells are equal if both are integers of one value, both
 non-integers of one value (the two zeros being one value), or both the same string (§1), boolean or null. An absent
 column is null.
 
@@ -107,8 +107,9 @@ A resolver case is one store at one dataset version:
   outside §6's range), a non-integer number to a non-integer, and a string, boolean or null to itself, and an array or
   object is not a cell. `upstream` is the lineage, whose keys' cells map the same way; null is a lineage that does not
   decode. A non-evidence source's key maps to the universe's coin equal to its `coin` cell, else to none.
-- The result is `"E_RULE"` if a source's rule fails checking (§4) against its `times` and its dependencies' names,
-  whatever the rows hold; `"INVALID"` for an invalid dataset; and otherwise
+- The result is `"E_DECL"` if a source's declared columns include one of the store's metadata columns (SOURCES.md
+  §1, revision of 2026-11-04); else `"E_RULE"` if a source's rule fails checking (§4) against its `times` and its
+  dependencies' names; both whatever the rows hold; `"INVALID"` for an invalid dataset; and otherwise
 
 ```json
 {"keys": [{"source": S, "entity": [...], "event": INT, "coin": INT or null,
@@ -136,11 +137,14 @@ A resolver case is one store at one dataset version:
 
 ### Revision of 2026-11-04, B3: Parquet as cells (SOURCES.md §2)
 
-From the second and third B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
-`b3-round3-review-{gpt,claude}.md`; decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's revisions
-as Parquet files under its directory, each row one revision. A **string column** is one of type Utf8 or LargeUtf8,
-wherever this section names a string. A row's metadata is `fetchedAt` (Int64) and `tombstone` (Boolean; a null, or a
-file without the column, is false). A derived source's `upstream`, a string column, holds its lineage as a JSON text
+From the second to fourth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
+`b3-round3-review-{gpt,claude}.md`, `b3-round4-review-{gpt,claude}.md`; decision of 2026-11-02 05:55 UTC (00:55 EST)).
+The store holds a dataset's revisions as Parquet files under its directory, each row one revision. A column's **type**
+is its Arrow type as its file states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type
+its Parquet physical and logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this
+section names a string. A row's metadata is `fetchedAt`, a non-null Int64, and `tombstone`, a Boolean (a null, or a
+file without the column, is false); a file whose `fetchedAt` is of another type or holds a null, or whose `tombstone`
+is of another type, makes the dataset invalid, whatever V, since its rows cannot be placed against V. A derived source's `upstream`, a string column, holds its lineage as a JSON text
 read by RULES.md §7's mapping; a null, or a file without the column, is a lineage that does not decode, and a
 tombstone's is never read. A declared column's value maps to a cell by the column's type in the file that stores the
 row: Int64 to an integer; a finite Double to a non-integer; a string column to a string; Boolean to a boolean; a null of
