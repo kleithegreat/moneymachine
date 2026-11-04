@@ -15,9 +15,7 @@ from reference import differential
 from reference.differential import REF, REPO, verdict_mm
 
 
-@pytest.fixture(scope="module", autouse=True)
-def built():
-    differential.build()
+pytestmark = pytest.mark.usefixtures("built_kernel", "built_mmdump", "built_refmm")
 
 
 @pytest.mark.slow

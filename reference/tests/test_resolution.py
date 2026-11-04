@@ -16,7 +16,7 @@ DUMP = REPO / "reference/mmdump/target/release/mmdump"
 LATE = 887_645
 
 
-def test_loader_matches_as_of(tmp_path):
+def test_loader_matches_as_of(tmp_path, built_mmdump):
     root = write_market(tmp_path / "m", market_id="resolution", days=20)
     store = Store(root / "store")
     restated = (store.revisions("funding").filter(pl.col("eventTime") % DAY == 10 * HOUR)
@@ -29,7 +29,6 @@ def test_loader_matches_as_of(tmp_path):
           .filter(pl.col("coin") == "S1").sort("eventTime").drop("fetchedAt", "source", "hash"))
     assert store.write("bars_4h", s1.slice(3), 31 * DAY, "t", complete=pl.col("coin") == "S1") == 3
     version = 31 * DAY
-    subprocess.run(["cargo", "build", "--release", "--offline", "-q"], cwd=REPO / "reference/mmdump", check=True)
     (tmp_path / "list").write_text(f"{REPO / 'kernel/strategies/w0.json'}\n")
     (tmp_path / "out").mkdir()
     subprocess.run([DUMP, tmp_path / "list", root / "store", root / "venue", str(version), tmp_path / "market.json", tmp_path / "out"],

@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-from gate import kernel
 from ingest.policy import DAY, HOUR
 from thesis import positions, registry
 
@@ -37,8 +36,7 @@ def register(ledger, req, t_r=T_R, account="main"):
 
 
 @pytest.fixture
-def ledger(tmp_path):
-    kernel.build()
+def ledger(tmp_path, built_kernel):
     return registry.Ledger(tmp_path / "ledger.sqlite", "thesis-test")
 
 

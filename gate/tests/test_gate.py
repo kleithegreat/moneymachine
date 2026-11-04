@@ -3,7 +3,7 @@ import pytest
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 
-from gate import gate, kernel
+from gate import gate
 
 
 def test_dsr_single_trial_is_psr():
@@ -63,12 +63,12 @@ def test_holdout_pvalues_are_valid_on_a_fair_martingale_and_vectorized():
     assert all(gate.holdout_pvalue(x[i]) == p[i] for i in range(20))
 
 
-def test_parameter_variants_are_separate_trials(tmp_path):
+def test_parameter_variants_are_separate_trials(tmp_path, built_kernel):
     import json, subprocess
     from pathlib import Path
     from gate.markets import write_market
     repo = Path(__file__).resolve().parents[2]
-    mm = kernel.build()
+    mm = built_kernel
     m = write_market(tmp_path / "m", market_id="params", days=40)
     base = json.loads((repo / "kernel/strategies/w0.json").read_text())
     base["weight"] = {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [

@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from gate import kernel
 from ingest.tests.crash_helpers import acknowledge, checkpoint, kill_during, recover
 from thesis import registry, runner
 from thesis.tests.test_registry import CONFIG, DATA, T_R, request
@@ -22,6 +21,7 @@ MODULE = __name__
 
 
 def track(root, now=MONDAY + HOUR):
+    runner.kernel.build = lambda: runner.kernel.MM
     runner.harness.manifest_hash = lambda binary: "0" * 64
     runner.now_ms = lambda: now
     t = runner.Track(root)
@@ -74,8 +74,7 @@ def worker(root, interactive):
 
 
 @pytest.mark.parametrize("seed", [7, 29, 101, 307])
-def test_registry_random_sigkill_then_retries_commit_each_request_once(tmp_path, seed):
-    kernel.build()
+def test_registry_random_sigkill_then_retries_commit_each_request_once(tmp_path, seed, built_kernel):
     (tmp_path / "mode").write_text("registry")
     ledger = registry.Ledger(tmp_path / "registry.sqlite", "crash-registry")
     first = register(ledger, 0)
@@ -106,8 +105,7 @@ def test_registry_random_sigkill_then_retries_commit_each_request_once(tmp_path,
 @pytest.mark.parametrize("target,seed", [("day", 7), ("day", 29), ("day", 101), ("day", 307),
                                         ("model:main", 7), ("accepted:0", 29), ("accepted:1", 101),
                                         ("model:ablation", 307), ("model:noread", 503)])
-def test_day_random_sigkill_consumes_started_sessions_and_runs_the_rest_once(tmp_path, monkeypatch, target, seed):
-    kernel.build()
+def test_day_random_sigkill_consumes_started_sessions_and_runs_the_rest_once(tmp_path, monkeypatch, target, seed, built_kernel):
     (tmp_path / "mode").write_text("day")
     kill_during(MODULE, tmp_path, target, seed)
     monkeypatch.setattr(runner.harness, "manifest_hash", lambda binary: "0" * 64)

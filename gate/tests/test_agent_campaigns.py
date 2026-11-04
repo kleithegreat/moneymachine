@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from gate import kernel, sweep
+from gate import sweep
 from gate.agent import campaigns
 from gate.kernel import MM
 from gate.markets import write_market
@@ -48,8 +48,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(tmp_path, m
     assert s["swarm"]["H400_null_n2"]["spa_p"] is None
 
 
-def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path):
-    kernel.build()
+def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path, built_kernel):
     m = write_market(tmp_path / "m", days=30)
     ledger = tmp_path / "l.sqlite"
     for agent in ("A", "A", "G100"):
