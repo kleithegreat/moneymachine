@@ -47,7 +47,7 @@ A declaration is one JSON file, read as RULES.md §1 reads JSON:
 | `revisions` | must be `"latest"`: RULES.md §6 |
 | `rule` | the availability rule document (RULES.md §3) |
 | `depends` | for a derived source, dependency name → `{"sources": [NAME, …], "lag_ms": D}` (§5); `{}` otherwise |
-| `role` | the roles this declaration can provide (§6), each role column → stored column; `{}` if none |
+| `role` | the role this declaration can provide (§6), at most one, each role column → stored column; `{}` if none |
 
 Rejected in version 1: other entity domains, enum or non-numeric fields, many-to-many relations, other missing or
 revision semantics. A declaration file that breaks any rule above is rejected whole.
@@ -149,7 +149,10 @@ A run's manifest selects exactly one provider declaration for each role.
 
 A bar's open is its eventTime less 4h: bars are 4h, on the 4h grid (revision of 2026-11-01 10:41 UTC (05:41 EST): the
 frozen Lean's `Registry.valid` and `barRow` take this contract, and a stored `openTime` column restated the event time).
-The provider's declaration maps each role column to a stored column under its `role` key. The simulator reads role data only in the phases INVARIANTS.md and DSL.md prescribe: fills at the
+A bars provider declares a held cadence of period 14,400,000, phase 0 and slot `eventTime` (revision of 2026-11-04,
+from the stage 7 hunt: the grid was never checked; certification checks the grid on the slot column (§4), and execution
+builds bars from eventTime, so only that slot puts the bars execution reads on the grid). A field reading a role column's stored column has that column's unit. The
+provider's declaration maps each role column to a stored column under its `role` key. The simulator reads role data only in the phases INVARIANTS.md and DSL.md prescribe: fills at the
 open, marks at the close, margin at the adverse extreme, settlement on held positions; reading a bar's execution
 outcome does not deliver that bar's other columns to expressions. Role columns need certification even when absent
 from `fields`.

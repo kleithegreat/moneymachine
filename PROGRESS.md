@@ -19,10 +19,9 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 7 slice 2** closed on `stage7` (`ccfda7e`): GPT-reviewed fixes; the run differential agrees on all 3,372 runs. Hunt fixes: a second pass after GPT's review.
+- **Stage 7 slice 2** closed on `stage7` (`ccfda7e`): GPT-reviewed fixes; the run differential agrees on all 3,372 runs. Stage 7 hunt fixes merged after C7.7 review (`audit/reviews/2026-11-04-*-hunt-fixes-review*.md`).
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
-- **K1's fixture** (a different session): the same delisting record in both histories, known after 12:02; assert at 12:02 as well as 08:02.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 round 5** (cloud), answering both round 4 reviews (`audit/stage7/b3-round4-review-*.md`); C7.6 keeps 1,000 multi-revision delivered pairs, its frozen bullet's floor. Not frozen.
 

@@ -1,6 +1,6 @@
-"""Counterexamples to the stage 7 bug hunt's findings (audit/reviews/2026-11-04-claude-hunt-stage7.md), each a strict
-xfail until its finding is fixed. F1 runs the frozen Lean definitions (`lake env lean` on a scratch file); F2 runs
-`mm check` against a registry that contradicts the bars role's contract."""
+"""Counterexamples to the stage 7 bug hunt's findings (audit/reviews/2026-11-04-claude-hunt-stage7.md), both fixed. F1
+runs the frozen Lean definitions (`lake env lean` on a scratch file); F2 runs `mm check` against a registry that
+contradicts the bars role's contract."""
 
 import hashlib
 import json
@@ -13,8 +13,6 @@ import pytest
 from gate import kernel
 
 REPO = Path(__file__).resolve().parents[2]
-
-HUNT = "audit/reviews/2026-11-04-claude-hunt-stage7.md"
 LEAN = REPO / "reference/lean"
 
 DUAL_ROLE = """
@@ -59,7 +57,6 @@ def report (reg : Registry) (roles : Roles) : String :=
 """
 
 
-@pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 1: a provider offering both roles delivers only its first role's payload")
 def test_an_admitted_provider_delivers_the_role_it_was_selected_for(tmp_path):
     if not shutil.which("lake"):
         pytest.skip("no Lean toolchain")
@@ -84,7 +81,6 @@ def registry_with(tmp_path, edit):
     return d
 
 
-@pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 2: a bars provider's grid is never checked against the role's 4h contract")
 def test_a_bars_provider_off_the_4h_grid_is_refused(tmp_path):
     mm = kernel.build()
 

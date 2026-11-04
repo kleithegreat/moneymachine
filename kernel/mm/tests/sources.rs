@@ -33,9 +33,24 @@ fn malformed_declarations_are_rejected() {
         ("\"rate\": \"fundingRate\"", "\"rate\": \"fundingRate\", \"extra\": \"x\""),
         ("\"depends\": {}", "\"depends\": {}, \"depends\": {}"),
         ("\"funding\": {", "\"Funding\": {"),
+        ("\"unit\": \"1/h\"", "\"unit\": \"usd/coin\""),
     ] {
         assert!(good.contains(from), "{from}");
         assert!(source::declaration(&good.replace(from, to)).is_err(), "accepted: {to}");
+    }
+}
+
+#[test]
+fn a_bars_provider_is_on_the_4h_grid_and_provides_one_role() {
+    let bars = std::fs::read_to_string(repo_sources().join("hl-bars-4h/2.json")).unwrap()
+        .replace("\"times\": [\"eventTime\"]", "\"times\": [\"eventTime\", \"reportedTime\"]");
+    assert!(source::declaration(&bars).is_ok());
+    for (from, to) in [("\"period_ms\": 14400000", "\"period_ms\": 3600000"), ("\"phase_ms\": 0", "\"phase_ms\": 3600000"),
+        ("\"slot\": \"eventTime\"", "\"slot\": \"reportedTime\""),
+        ("\"close\", \"unit\": \"usd/coin\"", "\"close\", \"unit\": \"1\""),
+        ("\"role\": {", "\"role\": {\"settlement\": {\"rate\": \"rate\"}, ")] {
+        assert!(bars.contains(from), "{from}");
+        assert!(source::declaration(&bars.replace(from, to)).is_err(), "accepted: {to}");
     }
 }
 

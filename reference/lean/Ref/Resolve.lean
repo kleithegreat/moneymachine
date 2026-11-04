@@ -130,7 +130,7 @@ def timeline (reg : Registry) (st : Stored) (V : Int) (ok : Nat → Revision →
         | .error _ => retract (Max.max r.fetchedAt p)
     ((st.eligible s V entity event).foldl step (none, none, [])).2.2
 
-/-- The role payload of a revision for its declaration's first role, if its cells decode. -/
+/-- The role payload of a revision for its declaration's role (at most one, `Registry.valid`), if its cells decode. -/
 def rolePayload {α : Type} (num : Cell → Option α) (d : Decl) (r : Revision) : Option (RolePayload α) :=
   let cell (col : String) := cellAt r.cells col
   match d.roles with
