@@ -1,5 +1,6 @@
 //! The committed registry reads and validates (kernel/SOURCES.md), and malformed declarations are rejected.
 
+use mm::dsl::Node;
 use mm::source::{self, Cadence, Entity};
 use std::path::Path;
 
@@ -78,4 +79,60 @@ fn a_registry_entry_must_match_its_file() {
     std::fs::write(dir.join("registry.json"), format!(r#"{{"registry": 1, "declarations": {{"hl-funding": {{"version": 1, "sha256": "{sha}"}}}}}}"#)).unwrap();
     assert!(source::registry(&dir).unwrap_err().contains("SHA-256"));
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const HELD: &str = r#"{"declaration": 1, "name": "zeta", "version": 1, "entity": "coin", "times": ["eventTime"],
+    "fields": {"alpha": {"column": "a", "unit": "usd/coin"}, "beta": {"column": "b", "unit": "1/h"}},
+    "cadence": {"held": {"period_ms": 3600000, "phase_ms": 0, "slot": "eventTime"}}, "missing": "undefined",
+    "revisions": "latest", "rule": {"rule": 1, "expr": {"field": "eventTime"}}, "depends": {}, "role": {}}"#;
+
+const EVENT: &str = r#"{"declaration": 1, "name": "omega", "version": 1, "entity": "coin", "times": ["eventTime"],
+    "fields": {"gamma": {"column": "count", "unit": "ev"}}, "cadence": {"event": {"slot": "eventTime"}},
+    "missing": "undefined", "revisions": "latest", "rule": {"rule": 1, "expr": {"field": "eventTime"}}, "depends": {},
+    "role": {}}"#;
+
+/// `sign(input + 1 usd/coin)`: accepted only while `name` is a declared input in usd/coin.
+fn reading(name: &str) -> String {
+    format!(r#"{{"dsl": 1, "name": "p", "mechanism": {{"counterparty": "", "predictions": [], "capacity": ""}},
+        "weight": {{"op": "sign", "args": [{{"op": "add", "args": [{{"input": "{name}"}}, {{"const": 1, "unit": "usd/coin"}}]}}]}}}}"#)
+}
+
+fn check(files: &[&str], name: &str) -> Result<mm::dsl::Program, &'static str> {
+    let reg: Vec<_> = files.iter().map(|f| source::declaration(f).unwrap()).collect();
+    mm::dsl::parse(&source::inputs(&reg), &reading(name)).map_err(|r| r.code.name())
+}
+
+/// Lean's `Registry.inputs` over a registry the tests make up: each input keeps its declaration and field, renaming
+/// or retyping a field changes what the checker accepts, and a legacy name is no input unless declared.
+#[test]
+fn the_checker_reads_inputs_from_the_registry_it_is_given() {
+    let reg = [EVENT, HELD].map(|f| source::declaration(f).unwrap());
+    let table: Vec<_> = source::inputs(&reg).into_iter().map(|i| (i.name, i.source, i.field, i.event, i.unit)).collect();
+    let want = [("gamma", 0, 0, true, "ev"), ("alpha", 1, 0, false, "usd/coin"), ("beta", 1, 1, false, "1/h")];
+    assert_eq!(table, want.map(|(n, s, k, e, u)| (n.to_string(), s, k, e, mm::units::Unit::parse(u).unwrap())));
+
+    let p = check(&[EVENT, HELD], "alpha").unwrap();
+    assert_eq!(p.sources(), [1]);
+    let input = |p: &mm::dsl::Program| p.nodes.iter().find_map(|n| if let Node::Input(k) = n { Some(p.inputs[*k].clone()) } else { None }).unwrap();
+    assert_eq!((input(&p).source, input(&p).field), (1, 0));
+    let p = check(&[HELD, EVENT], "alpha").unwrap();
+    assert_eq!((p.sources(), input(&p).source, input(&p).field), (vec![0], 0, 0));
+
+    let renamed = HELD.replace(r#""alpha""#, r#""delta""#);
+    assert_eq!(check(&[EVENT, &renamed], "alpha").err(), Some("E_UNKNOWN_INPUT"));
+    assert_eq!(input(&check(&[EVENT, &renamed], "delta").unwrap()).name, "delta");
+    let retyped = HELD.replace(r#""unit": "usd/coin""#, r#""unit": "coin""#);
+    assert_eq!(check(&[EVENT, &retyped], "alpha").err(), Some("E_UNIT"));
+    assert_eq!(check(&[EVENT, HELD], "funding").err(), Some("E_UNKNOWN_INPUT"));
+}
+
+/// Each committed event feed depends on its own family's evidence only (the migration annex, §1).
+#[test]
+fn each_event_feed_depends_on_its_own_evidence() {
+    let ds = source::registry(repo_sources()).unwrap();
+    for (feed, family) in [("forum-events", "discourse-"), ("governance-events", "snapshot-")] {
+        let d = ds.iter().find(|d| d.name == feed).unwrap();
+        let ups: Vec<_> = source::depends(&ds, d).into_iter().map(|u| ds[u].name.as_str()).collect();
+        assert_eq!(ups, [format!("{family}polls"), format!("{family}sightings")], "{feed}");
+    }
 }

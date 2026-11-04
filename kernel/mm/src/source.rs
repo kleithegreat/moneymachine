@@ -228,7 +228,12 @@ impl Declaration {
 /// The DSL inputs of a registry (Lean's `Registry.inputs`): declaration order, then input name.
 pub fn inputs(reg: &[Declaration]) -> Vec<Input> {
     let event = |d: &Declaration| matches!(d.cadence, Cadence::Event { .. });
-    reg.iter().flat_map(|d| d.fields.iter().map(move |(n, f)| Input { name: n.clone(), event: event(d), unit: f.unit })).collect()
+    reg.iter()
+        .enumerate()
+        .flat_map(|(s, d)| {
+            d.fields.iter().enumerate().map(move |(k, (n, f))| Input { name: n.clone(), source: s, field: k, event: event(d), unit: f.unit })
+        })
+        .collect()
 }
 
 /// The registry indices of a declaration's dependencies (Lean's `Decl.depends`), in dependency-name order.
