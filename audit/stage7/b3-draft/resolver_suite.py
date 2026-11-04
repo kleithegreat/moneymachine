@@ -6,8 +6,8 @@ kernel/tests/rules/resolver_suite.py once reviewed.
   payloads, which `case` adds from the entry's own revision (none on a retraction).
 - generate(resolve): the shortest prefix of `stream()`'s stores, from a fixed seed and without expected results (the
   implementations must agree), whose results under `resolve` reach C7.6's size, SIZE pairs as `delivered` counts them
-  (its home is C7.6's revision, `c76-revision.md`). `classes` names what a store's inputs exercise and `reached` what a result
-  shows; a frozen suite has at least FLOOR stores in each of CLASSES and, over Lean's results (`lean_check.py`),
+  (its home is C7.6's revision, `c76-revision.md`). `classes` names what a store's inputs exercise and `reached` what a
+  result shows; a frozen suite has at least FLOOR stores in each of CLASSES and, over Lean's results (`lean_check.py`),
   REACHED.
 """
 
@@ -601,22 +601,23 @@ def store(rng):
 
 
 def image(c):
-    """Whether a store has a Parquet image (C7.6's revision): every row's `cells` text an object. On the texts `stream()`
-    writes, Python's reader with duplicate members refused reads as RULES.md §1 does."""
+    """Whether a store has a Parquet image (C7.6's revision): every row's `cells` text an object and its `fetchedAt` an
+    Int64. On the texts `stream()` writes, Python's reader with duplicate members refused reads as RULES.md §1 does."""
     def unique(pairs):
         if len({k for k, _ in pairs}) < len(pairs):
             raise ValueError("duplicate member")
         return dict(pairs)
     try:
-        return all(isinstance(json.loads(r["cells"], object_pairs_hook=unique), dict) for r in c["rows"])
+        return all(isinstance(json.loads(r["cells"], object_pairs_hook=unique), dict)
+                   and -2**63 <= r["fetchedAt"] < 2**63 for r in c["rows"])
     except ValueError:
         return False
 
 
 def delivered(c, result):
-    """C7.6's size on one store: its pairs of a key in U (of a non-evidence source, with a coin) with at least two
-    eligible revisions and a query at or after the knownAt of one of the key's entries; none if the store does not
-    resolve or has no Parquet image."""
+    """C7.6's size on one store: its distinct pairs of a key in U (of a non-evidence source, with a coin) with at least
+    two eligible revisions and a query time at or after the knownAt of one of the key's entries; none if the store does
+    not resolve or has no Parquet image."""
     if not isinstance(result, dict) or not image(c):
         return 0
     by, counts = {s["name"]: s for s in c["sources"]}, Counter()
@@ -626,7 +627,7 @@ def delivered(c, result):
             counts[r["source"], ident([cells.get(x) for x in s["entity"]]), cells[s["event"]]] += 1
     return sum(any(e[1] <= q for e in k["timeline"]) for k in result["keys"]
                if not by[k["source"]]["evidence"] and k["coin"] is not None
-               and counts[k["source"], ident(k["entity"]), k["event"]] >= 2 for q in c["queries"])
+               and counts[k["source"], ident(k["entity"]), k["event"]] >= 2 for q in set(c["queries"]))
 
 
 FLOOR = 10
@@ -738,7 +739,8 @@ def stream(seed=20261102):
 
 
 def generate(resolve):
-    """The shortest prefix of `stream()` whose delivered pairs under `resolve` (a store to its §7 result) reach SIZE."""
+    """The shortest prefix of `stream()` reaching SIZE pairs, as `delivered` counts them under `resolve` (a store to its
+    §7 result)."""
     out, total = [], 0
     for c in stream():
         out.append(c)

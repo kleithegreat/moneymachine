@@ -2,10 +2,10 @@
 
 Against B2's frozen definitions (`laws-frozen.md`, `7997257`), per `rust-port-plan.md` §3 B3, with the rulings of the
 decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and 05:55 UTC (00:55 EST)
-("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) applied, and the third and fourth rounds'
-reviews (`b3-round{3,4}-review-{gpt,claude}.md`) answered under the advisor's rulings (decisions of 2026-11-04
-10:20 UTC (05:20 EST) and 10:57 UTC (05:57 EST)). Nothing frozen, and nothing in `audit/criteria.md` changed. Beside this
-directory, the fourth round changed three things now: SOURCES.md §1 reserves the store's metadata column names, which
+("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) applied, and the third to fifth rounds'
+reviews (`b3-round{3,4,5}-review-{gpt,claude}.md`) answered under the advisor's rulings (decisions of 2026-11-04
+10:20 UTC (05:20 EST), 10:57 UTC (05:57 EST) and 11:23 UTC (06:23 EST)). Nothing frozen, and nothing in
+`audit/criteria.md` changed. Beside this directory, rounds four and five changed three things now: SOURCES.md §1 reserves the store's metadata column names, which
 `mm`'s `source::declaration` refuses (`kernel/mm/tests/sources.rs`) and `refmm resolve` returns as `E_DECL`; C7.6's
 test 3 is written against `ingest/store.py`, whose three strict xfails name `audit/stage7/holdout-staging.md`; and
 `refmm resolve` reads its cases by the exact-integer reader.
@@ -14,7 +14,7 @@ test 3 is written against `ingest/store.py`, whose three strict xfails name `aud
   whole contract for an implementer.
 - `c76-revision.md`: C7.6's dated revision, committed alone before the suite's freeze.
 - `resolver_suite.py`: the hand cases, the generator and its coverage tags; `resolver_hand.jsonl` (160 cases) and
-  `resolver_generated.jsonl` (478 stores, seed 20261102) are what it gives (`HAND`, and `generate` over Lean's results).
+  `resolver_generated.jsonl` (481 stores, seed 20261102) are what it gives (`HAND`, and `generate` over Lean's results).
 - `lean_check.py`: the suite against Lean's `timeline` and `resolveAll` through `refmm resolve`
   (`reference/lean/Main.lean`), whose decoding layer is new code reading the case texts by §7's mapping.
 
@@ -40,10 +40,10 @@ test 3 is written against `ingest/store.py`, whose three strict xfails name `aud
 
 Reproducible, on this commit: `nix develop -c bash -c 'cd reference/lean && lake build refmm'`, then
 `nix develop -c python audit/stage7/b3-draft/lean_check.py`. It reports: both files equal `HAND` and `generate`'s
-stores, compared as §7 compares results; all 160 hand expectations equal Lean's results; of the 478 generated stores,
-362 resolve and 116 are invalid, and 398 have a Parquet image, with 1,001 delivered pairs as C7.6 counts them (at
-least 1,000); every `REACHED` tag holds on at least 10 stores (the fewest: raised to replaced, 67; derived bound past
-fetchedAt, 85); `resolveAll`'s observations equal the delivery of the hand case's expected timelines, or a generated
+stores, compared as §7 compares results; all 160 hand expectations equal Lean's results; of the 481 generated stores,
+365 resolve and 116 are invalid, and 401 have a Parquet image, with 1,001 distinct delivered pairs as C7.6 counts them
+(at least 1,000; 999 without the last store); every `REACHED` tag holds on at least 10 stores (the fewest: raised to
+replaced, 68; derived bound past fetchedAt, 86); `resolveAll`'s observations equal the delivery of the hand case's expected timelines, or a generated
 store's Lean timelines, in every case that resolves. Every comparison checks its cardinality, so a missing case
 fails. This is Lean against itself and the hand expectations, not the actual loaders, which join it in slice 5.
 

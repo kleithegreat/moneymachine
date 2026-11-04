@@ -176,12 +176,19 @@ def garble(path, keep="eventTime"):
     path.write_bytes(data)
 
 
-def staged(tmp_path, *late):
+@pytest.fixture
+def root(tmp_path_factory):
+    """A store root whose path names neither "holdout" nor the holdout boundary, so that no refusal naming a path
+    passes for a holdout refusal."""
+    return tmp_path_factory.mktemp("staged")
+
+
+def staged(root, *late):
     """C7.6's holdout-staging fixture: the search store's bars dataset, a row before the holdout fetched at 100 and the
-    rows `late` (eventTime, fetchedAt, tombstone), one file each, every column but `eventTime` garbled. Its version is
-    100."""
-    search, _ = stores(tmp_path)
-    d = tmp_path / "store" / "bars_4h"
+    rows `late` (eventTime, fetchedAt, tombstone), one file each, `eventTime` of its value's type (Int64 or Double) and
+    every other column garbled. Its version is 100."""
+    search, _ = stores(root)
+    d = root / "store" / "bars_4h"
     d.mkdir(parents=True)
     for i, (event, fetched, tombstone) in enumerate([(HOLDOUT_START - H, 100, None), *late]):
         pl.DataFrame({"coin": ["A"], "eventTime": [event], "rate": [1.0], "fetchedAt": [fetched], "source": ["t"],
@@ -191,18 +198,50 @@ def staged(tmp_path, *late):
     return search, sorted(d.glob("*.parquet"))
 
 
-IN_HOLDOUT = [(HOLDOUT_START, 200, None), (HOLDOUT_START, 50, True)]
+CROSSING = HOLDOUT_START + H
+IN_HOLDOUT = [(CROSSING, 200, None), (CROSSING, 50, True)]
+UNDECODABLE = (float(HOLDOUT_START - 2 * H), 200, None)
 
 
-@pytest.mark.parametrize("late", IN_HOLDOUT, ids=["fetched after the version", "tombstone"])
-def test_the_staging_fixture_refuses_every_column_but_event_time(tmp_path, late):
-    """The control: a loader opening any other column before the holdout check fails with a decoding error."""
-    _, files = staged(tmp_path, late)
+def refuses_crossing(as_of):
+    """Test 3: refused as a holdout crossing, naming the boundary and the crossing event time."""
+    with pytest.raises(ValueError) as refusal:
+        as_of("bars_4h", 2**62, 100)
+    assert all(str(x) in str(refusal.value) for x in ("holdout", HOLDOUT_START, CROSSING)), refusal.value
+
+
+def refuses_uncheckable(as_of):
+    """Test 3's variant: refused by the holdout check's own refusal, not as an invalid dataset."""
+    with pytest.raises(ValueError, match="the holdout check cannot be made"):
+        as_of("bars_4h", 2**62, 100)
+
+
+def unstaged(root):
+    """The control's loader, faithful to RULES.md §6 but for staging: it reads every column of every file, refusing a
+    row that does not decode as an invalid dataset, and only then makes the holdout check."""
+    def as_of(dataset, t, version):
+        try:
+            frame = pl.concat([pl.read_parquet(f) for f in sorted((root / "store" / dataset).glob("*.parquet"))],
+                              how="diagonal_relaxed")
+        except pl.exceptions.PolarsError as e:
+            raise ValueError(f"{dataset}: invalid dataset, a row does not decode") from e
+        if frame["eventTime"].dtype != pl.Int64:
+            raise ValueError("the holdout check cannot be made: an event time is not an Int64")
+        if (late := frame.filter(pl.col("eventTime") >= HOLDOUT_START)).height:
+            raise ValueError(f"holdout crossing: event time {late['eventTime'][0]} at or after {HOLDOUT_START}")
+        return frame
+    return as_of
+
+
+@pytest.mark.parametrize("late, check", [(IN_HOLDOUT[0], refuses_crossing), (IN_HOLDOUT[1], refuses_crossing),
+                                         (UNDECODABLE, refuses_uncheckable)],
+                         ids=["fetched after the version", "tombstone", "undecodable event time"])
+def test_a_loader_reading_every_column_first_fails_test_3(root, late, check):
+    """Test 3's control: on its fixture the event times alone read, and a loader reading every column first fails."""
+    _, files = staged(root, late)
     assert [pl.read_parquet(f, columns=["eventTime"])["eventTime"].item() for f in files] == [HOLDOUT_START - H, late[0]]
-    for f in files:
-        for c in ["coin", "rate", "fetchedAt", "source", "hash", "tombstone"]:
-            with pytest.raises((pl.exceptions.PolarsError, OSError)):
-                pl.read_parquet(f, columns=[c])
+    with pytest.raises(AssertionError):
+        check(unstaged(root))
 
 
 STAGING = "audit/stage7/holdout-staging.md: ingest/store.py has no holdout check on reads, and reads every column first"
@@ -210,20 +249,16 @@ STAGING = "audit/stage7/holdout-staging.md: ingest/store.py has no holdout check
 
 @pytest.mark.xfail(strict=True, reason=STAGING)
 @pytest.mark.parametrize("late", IN_HOLDOUT, ids=["fetched after the version", "tombstone"])
-def test_holdout_check_reads_event_times_alone(tmp_path, late):
+def test_holdout_check_reads_event_times_alone(root, late):
     """C7.6's named test 3: one row's event time in the holdout is refused as a holdout crossing, reading event times
     alone, whatever the row (here fetched after the version, or a tombstone)."""
-    search, _ = staged(tmp_path, late)
-    with pytest.raises(ValueError, match="holdout"):
-        search.as_of("bars_4h", 2**62, 100)
+    search, _ = staged(root, late)
+    refuses_crossing(search.as_of)
 
 
 @pytest.mark.xfail(strict=True, reason=STAGING)
-def test_an_undecodable_event_time_refuses_before_any_value(tmp_path):
-    """Test 3's variant: an event time that is not an Int64, here in a row fetched after the version, makes the dataset
-    invalid before any other column is read."""
-    search, files = staged(tmp_path, (HOLDOUT_START - 2 * H, 200, None))
-    pl.read_parquet(files[1]).with_columns(pl.col("eventTime").cast(pl.Float64)).write_parquet(files[1])
-    garble(files[1])
-    with pytest.raises(ValueError, match="invalid"):
-        search.as_of("bars_4h", 2**62, 100)
+def test_an_undecodable_event_time_refuses_before_any_value(root):
+    """Test 3's variant: an event time that is not an Int64, here in a row fetched after the version, is refused by the
+    holdout check before any other column is read."""
+    search, _ = staged(root, UNDECODABLE)
+    refuses_uncheckable(search.as_of)

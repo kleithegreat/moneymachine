@@ -59,8 +59,8 @@ settlement, `rate` is a number.
 
 **Timeline.** A key's timeline at V is built from its eligible revisions in fetchedAt order. Let *last* be the eligible
 revision before the current one, and *prev* the knownAt of the timeline's latest entry. For each revision r:
-1. If r is identical to *last* (no declared column differs as cells, other than `fetchedAt` and the revision and
-   tombstone columns, and the tombstone flag is the same), r adds nothing.
+1. If r is identical to *last* (no declared column differs as cells, and the tombstone flag is the same), r adds
+   nothing.
 2. Otherwise, r's candidate knownAt, if r is usable, is the rule's value on r's row with each dependency's upstream
    time; raised to r's fetchedAt if *last* exists; raised to *prev* if it exists; and raised to each dependency's
    upstream time plus its lag. Each raise is range-checked like any bound. r is **unusable** if its rule evaluation is
@@ -137,15 +137,16 @@ A resolver case is one store at one dataset version:
 
 ### Revision of 2026-11-04, B3: Parquet as cells (SOURCES.md §2)
 
-From the second to fourth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
-`b3-round3-review-{gpt,claude}.md`, `b3-round4-review-{gpt,claude}.md`; decision of 2026-11-02 05:55 UTC (00:55 EST)).
-The store holds a dataset's revisions as Parquet files under its directory, each row one revision. A column's **type**
-is its Arrow type as its file states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type
-its Parquet physical and logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this
-section names a string. A row's metadata is `fetchedAt`, a non-null Int64, and `tombstone`, a Boolean (a null, or a
-file without the column, is false); a file whose `fetchedAt` is of another type or holds a null, or whose `tombstone`
-is of another type, makes the dataset invalid, whatever V, since its rows cannot be placed against V. A derived source's `upstream`, a string column, holds its lineage as a JSON text
-read by RULES.md §7's mapping; a null, or a file without the column, is a lineage that does not decode, and a
+From the second to fifth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
+`b3-round{3,4,5}-review-{gpt,claude}.md`; decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's
+revisions as Parquet files under its directory, each row one revision. A column's **type** is its Arrow type as its file
+states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type its Parquet physical and
+logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this section names a string. A
+row's metadata is `fetchedAt`, a non-null Int64, and `tombstone`, a Boolean (a null, or a file without the column, is
+false); a file whose `fetchedAt` is of another type or holds a null, or whose `tombstone` is of another type, makes the
+dataset invalid, whatever V, since its rows cannot be placed against V; so does a file whose schema names one column
+twice, since no row of it decodes unambiguously. A derived source's `upstream`, a string column, holds its lineage as a
+JSON text read by RULES.md §7's mapping; a null, or a file without the column, is a lineage that does not decode, and a
 tombstone's is never read. A declared column's value maps to a cell by the column's type in the file that stores the
 row: Int64 to an integer; a finite Double to a non-integer; a string column to a string; Boolean to a boolean; a null of
 any of these types to null. Nothing else is a cell: no other type (UInt64, Int32, Decimal, Timestamp, Null, List,
