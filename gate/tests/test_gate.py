@@ -12,18 +12,20 @@ def test_dsr_single_trial_is_psr():
     z = (r - r.mean()) / r.std()
     skew, kurt = (z**3).mean(), (z**4).mean()
     expect = norm.cdf(s * np.sqrt(999) / np.sqrt(1 - skew * s + (kurt - 1) / 4 * s**2))
-    assert abs(gate.dsr(r, 1, 0.0) - expect) < 1e-12
+    assert abs(gate.dsr(r, 1) - expect) < 1e-12
 
 
 def test_dsr_deflates_with_more_trials():
     r = np.random.default_rng(1).normal(0.001, 0.02, 3000)
-    values = [gate.dsr(r, n, 0.02) for n in (1, 10, 100, 1000)]
+    values = [gate.dsr(r, n) for n in (1, 10, 100, 1000)]
     assert all(a >= b for a, b in zip(values, values[1:])) and values[0] > 0.9 > 0.5 > values[-1]
 
 
 def test_dsr_edge_cases():
-    assert gate.dsr(np.zeros(100), 5, 0.1) == 0.0
-    assert gate.dsr(np.array([0.1, 0.2]), 5, 0.1) == 0.0
+    assert gate.dsr(np.zeros(100), 5) == 0.0
+    assert gate.dsr(np.array([0.1, 0.2]), 5) == 0.0
+    with pytest.raises(ValueError):
+        gate.dsr(np.array([0.1, np.nan, 0.2]), 5)
 
 
 def test_holm_matches_statsmodels():
@@ -87,13 +89,20 @@ def test_parameter_variants_are_separate_trials(tmp_path):
     assert sorted(p["params"]["size"]["value"] for p in progs.values()) == [0.01, 0.02]
 
 
+def test_stepm_keeps_every_model_when_all_are_superior():
+    import pandas as pd
+    rng = np.random.default_rng(6)
+    r = pd.DataFrame({k: rng.normal(0.01 * (i + 1), 0.01, 600) for i, k in enumerate("abc")})
+    assert gate.stepm(r, list(r.columns), 1) == ["a", "b", "c"]
+
+
 def test_clusters_and_effective_n():
     import pandas as pd
     rng = np.random.default_rng(4)
     base = rng.normal(0, 0.01, 500)
     r = pd.DataFrame({"a": base, "b": base + rng.normal(0, 1e-4, 500), "c": rng.normal(0, 0.01, 500), "z": np.zeros(500)})
     assert gate.clusters(r, 0.9) == 3
-    report = gate.effective_n(r, 0.02, 0.5, 1)
+    report = gate.effective_n(r, 0.5, 1)
     assert [v["n"] for v in report["by_n"].values()] == [4, 3, 3] and report["fragile"] == []
 
 

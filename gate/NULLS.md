@@ -39,14 +39,25 @@ expected PnL.
 Fees and the cost model are paid on every fill. So every DSL strategy has expected net PnL ≤ 0,
 with equality only if it never fills, on an account without limited liability.
 
-Limited liability (I10) breaks that bound. When a step's losses exceed the account's equity, the
-venue absorbs the shortfall, and the step return is −B instead of the loss. Expected net PnL is
-then at most the expected absorbed shortfall, which is positive whenever bankruptcy has positive
-probability. With Σ|w| ≤ 2 (I9), bankruptcy needs a bar whose adverse move from the fill price
-exceeds half the price, which the null generators rarely produce. The no-edge property is
-therefore claimed only for evaluations that never go bankrupt. Each null campaign reports its
-evaluations with a step return of −B, and a promotion from such an evaluation is reported, not
-excused.
+Limited liability and bankruptcy (I10; corrected 2026-11-04 00:03 UTC (2026-11-03 19:03 EST), `audit/decisions.md`, same time, and
+`audit/reviews/2026-11-04-gpt-bound-check.md`: the earlier text claimed the no-edge property only for evaluations that
+never go bankrupt, which conditions on an outcome and does not restore it). The conditional no-edge argument above
+applies to net PnL before the venue absorbs a shortfall, including execution costs and adverse liquidation fills.
+Absorption increases reported PnL by the absorbed amount, so reported net returns need not have nonpositive
+conditional means. A maintenance liquidation that leaves positive equity is not bankruptcy.
+
+Bankruptcy does not by itself invalidate the holdout test's running-maximum p-value. Let r′_t be the net step return
+before absorption, and stop the betting process at the first bankruptcy. If these returns have nonpositive conditional
+means while the account is alive and every stopped betting factor 1 + λ_t r′_t is nonnegative almost surely, the
+stopped wealth is a nonnegative supermartingale. Its running maximum is the gate's: the bankruptcy return of −B cannot
+make a new maximum, and later reported returns are zero. The raw p-values then stay valid on bankrupt paths too, and
+Holm controls false promotions across the whole frozen finalist family. With 0 ≤ λ_t ≤ 1/2, r′_t ≥ −2 suffices.
+
+That bound is not established for N1 to N3 in the current kernel: wicks are unbounded, and normalizing the defined
+target weights does not bound the exposure actually held. Where a terminal betting factor can be negative, the bound
+needs a wealth-weighted overshoot correction, and a small observed bankruptcy rate establishes neither exact nor
+approximate α control. Null campaigns report every evaluation, including those with a step return of −B. A bankrupt
+result cannot pass the positive-total-return rule, but a bankrupt finalist's earlier wealth peak still enters Holm.
 
 Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 1.04 > 0.
 

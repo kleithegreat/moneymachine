@@ -1,0 +1,163 @@
+{
+ "n": 2,
+ "ids": [
+  "swarm-null-N2-0",
+  "swarm-null-N2-1"
+ ],
+ "counted_promotions": 2,
+ "mm": [
+  "3a732069413d050f334229e3e1bcf8d804f2e10ba21ad0365dd5187f6ed081b7"
+ ],
+ "audits": {
+  "swarm-null-N2-0": {
+   "A1": {
+    "daemon_calls": 29,
+    "ledger_rows": 29,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A2": {
+    "daemon_calls": 19,
+    "ledger_rows": 19,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   },
+   "A3": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A4": {
+    "daemon_calls": 28,
+    "ledger_rows": 28,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-N2-1": {
+   "A1": {
+    "daemon_calls": 18,
+    "ledger_rows": 18,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 15,
+    "ledger_rows": 15,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 28,
+    "ledger_rows": 28,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  }
+ },
+ "evaluations": [
+  33,
+  36
+ ],
+ "cross_agent_history": [
+  true,
+  true
+ ],
+ "spreads": {
+  "spa_p": {
+   "n": 2,
+   "min": 0.4,
+   "median": 0.999,
+   "max": 0.999
+  },
+  "max_dsr": {
+   "n": 2,
+   "min": 0.05509230311951896,
+   "median": 0.6133902566194777,
+   "max": 0.6133902566194777
+  },
+  "screened": {
+   "n": 2,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "H400_null_n2": {
+  "spa_p": {
+   "n": 300,
+   "min": 0.0,
+   "median": 0.231,
+   "max": 1.0
+  },
+  "max_dsr": {
+   "n": 300,
+   "min": 0.013442820436954397,
+   "median": 0.30107545762775606,
+   "max": 0.9313932145725057
+  },
+  "screened": {
+   "n": 300,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "statement": "With 10 runs the 95% bound is about 0.39; this is a smoke test only.",
+ "qualifications": "PROGRESS.md, Qualifications, stage 4"
+}

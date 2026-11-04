@@ -1,0 +1,5210 @@
+{
+ "AAVE:buy:1000": {
+  "table": 2.121146399924889,
+  "2023Q3": {
+   "snapshots": 1652095,
+   "censored": 0.0,
+   "above_table": 0.07141841116884926,
+   "quantile_over_table": 1.078062301374876
+  },
+  "2023Q4": {
+   "snapshots": 2041258,
+   "censored": 0.0,
+   "above_table": 0.09360208263727564,
+   "quantile_over_table": 1.201653596696905
+  },
+  "2024Q1": {
+   "snapshots": 1810475,
+   "censored": 0.0,
+   "above_table": 0.21544346097018738,
+   "quantile_over_table": 2.289272686921976
+  },
+  "2024Q2": {
+   "snapshots": 2055092,
+   "censored": 0.0,
+   "above_table": 0.17188378914423297,
+   "quantile_over_table": 1.4879020811773964
+  },
+  "2024Q3": {
+   "snapshots": 2275695,
+   "censored": 0.0,
+   "above_table": 0.14063088419142283,
+   "quantile_over_table": 1.396785903359591
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 0.0,
+   "above_table": 0.0727889167975153,
+   "quantile_over_table": 1.12766760706228
+  },
+  "2025Q1": {
+   "snapshots": 2289952,
+   "censored": 0.0,
+   "above_table": 0.05251682131328517,
+   "quantile_over_table": 1.01777617787394
+  },
+  "2025Q2": {
+   "snapshots": 2360348,
+   "censored": 0.0,
+   "above_table": 0.1300613299394835,
+   "quantile_over_table": 1.318837841898653
+  },
+  "2025Q3": {
+   "snapshots": 2425009,
+   "censored": 0.0,
+   "above_table": 0.047678585935144985,
+   "quantile_over_table": 0.9910549732621898
+  },
+  "2025Q4": {
+   "snapshots": 2001070,
+   "censored": 0.0,
+   "above_table": 0.06834493545952915,
+   "quantile_over_table": 1.0739472369665872
+  },
+  "2026Q1": {
+   "snapshots": 2295151,
+   "censored": 0.0,
+   "above_table": 0.08505104892880687,
+   "quantile_over_table": 1.137354259737896
+  },
+  "2026Q2": {
+   "snapshots": 2017529,
+   "censored": 9.913116490518847e-07,
+   "above_table": 0.09631593530098978,
+   "quantile_over_table": 1.2285013735609982
+  },
+  "2026Q3": {
+   "snapshots": 65301,
+   "censored": 0.0,
+   "above_table": 0.10384220762316045,
+   "quantile_over_table": 1.2080601221078782
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.05154639175257732,
+   "quantile_over_table": 1.0120990403300751
+  },
+  "all": {
+   "snapshots": 25678095,
+   "censored": 7.788739779956419e-08,
+   "above_table": 0.10206147317871307,
+   "quantile_over_table": 1.267661140365613
+  },
+  "vol-high": {
+   "snapshots": 7396375,
+   "censored": 0.0,
+   "above_table": 0.17150401379053928,
+   "quantile_over_table": 1.642742976090988
+  },
+  "vol-low": {
+   "snapshots": 9318315,
+   "censored": 2.146310786875095e-07,
+   "above_table": 0.04886463891049807,
+   "quantile_over_table": 0.9939767617590171
+  },
+  "vol-mid": {
+   "snapshots": 8963405,
+   "censored": 0.0,
+   "above_table": 0.10006242047525465,
+   "quantile_over_table": 1.2220654002465128
+  }
+ },
+ "AAVE:buy:10000": {
+  "table": 4.713043084927371,
+  "2023Q3": {
+   "snapshots": 1652095,
+   "censored": 0.0,
+   "above_table": 0.027692717428477176,
+   "quantile_over_table": 0.861884798747856
+  },
+  "2023Q4": {
+   "snapshots": 2041258,
+   "censored": 0.0,
+   "above_table": 0.021007143633974736,
+   "quantile_over_table": 0.7756063534795009
+  },
+  "2024Q1": {
+   "snapshots": 1810475,
+   "censored": 0.00023805907289523468,
+   "above_table": 0.17102622919663832,
+   "quantile_over_table": 3.8249651161958425
+  },
+  "2024Q2": {
+   "snapshots": 2055092,
+   "censored": 2.4329811025491803e-06,
+   "above_table": 0.0831993973977744,
+   "quantile_over_table": 1.199609576195474
+  },
+  "2024Q3": {
+   "snapshots": 2275695,
+   "censored": 0.0,
+   "above_table": 0.0919943138250073,
+   "quantile_over_table": 1.2477123029961257
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 1.7245289233679705e-06,
+   "above_table": 0.02991502369075694,
+   "quantile_over_table": 0.8571433782663689
+  },
+  "2025Q1": {
+   "snapshots": 2289952,
+   "censored": 0.0,
+   "above_table": 0.029357820600606474,
+   "quantile_over_table": 0.8772618406787349
+  },
+  "2025Q2": {
+   "snapshots": 2360348,
+   "censored": 1.2709990221780855e-06,
+   "above_table": 0.0611817340261699,
+   "quantile_over_table": 1.040750892831489
+  },
+  "2025Q3": {
+   "snapshots": 2425009,
+   "censored": 0.0,
+   "above_table": 0.011446143086479267,
+   "quantile_over_table": 0.7550339778504378
+  },
+  "2025Q4": {
+   "snapshots": 2001070,
+   "censored": 0.0,
+   "above_table": 0.017469154002608605,
+   "quantile_over_table": 0.7969120308232743
+  },
+  "2026Q1": {
+   "snapshots": 2295151,
+   "censored": 1.0456828330684996e-05,
+   "above_table": 0.026149751190239146,
+   "quantile_over_table": 0.8704797272786166
+  },
+  "2026Q2": {
+   "snapshots": 2017529,
+   "censored": 4.857427080354235e-05,
+   "above_table": 0.04741921780720134,
+   "quantile_over_table": 0.9881964662386593
+  },
+  "2026Q3": {
+   "snapshots": 65301,
+   "censored": 0.0002603329198634018,
+   "above_table": 0.04409962624839164,
+   "quantile_over_table": 0.978312834667605
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.03823622318582546,
+   "quantile_over_table": 0.9572644384263473
+  },
+  "all": {
+   "snapshots": 25678095,
+   "censored": 2.2665232759673176e-05,
+   "above_table": 0.049985097855855434,
+   "quantile_over_table": 0.9998978887335501
+  },
+  "vol-high": {
+   "snapshots": 7396375,
+   "censored": 6.381504453194977e-05,
+   "above_table": 0.10265453724852801,
+   "quantile_over_table": 1.4277285071105839
+  },
+  "vol-low": {
+   "snapshots": 9318315,
+   "censored": 3.2194661803126424e-06,
+   "above_table": 0.014044107901829575,
+   "quantile_over_table": 0.7783488559595272
+  },
+  "vol-mid": {
+   "snapshots": 8963405,
+   "censored": 8.925179661077458e-06,
+   "above_table": 0.04389029740637542,
+   "quantile_over_table": 0.9651836121635713
+  }
+ },
+ "AAVE:sell:1000": {
+  "table": 2.3900650454145023,
+  "2023Q3": {
+   "snapshots": 1652095,
+   "censored": 7.2635048226645566e-06,
+   "above_table": 0.04137322398450925,
+   "quantile_over_table": 0.9552169152777958
+  },
+  "2023Q4": {
+   "snapshots": 2041258,
+   "censored": 0.0,
+   "above_table": 0.06608718741090053,
+   "quantile_over_table": 1.0775670047372243
+  },
+  "2024Q1": {
+   "snapshots": 1810475,
+   "censored": 0.0,
+   "above_table": 0.18011958187768404,
+   "quantile_over_table": 1.934201944149037
+  },
+  "2024Q2": {
+   "snapshots": 2055092,
+   "censored": 0.0,
+   "above_table": 0.13699240715257516,
+   "quantile_over_table": 1.3611499724777807
+  },
+  "2024Q3": {
+   "snapshots": 2275695,
+   "censored": 0.0,
+   "above_table": 0.12653189465196346,
+   "quantile_over_table": 1.3445850103254886
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 1.681415700283771e-05,
+   "above_table": 0.05939679275340762,
+   "quantile_over_table": 1.057046385832912
+  },
+  "2025Q1": {
+   "snapshots": 2289952,
+   "censored": 0.0,
+   "above_table": 0.04718177498917008,
+   "quantile_over_table": 0.9789011226698082
+  },
+  "2025Q2": {
+   "snapshots": 2360348,
+   "censored": 0.0,
+   "above_table": 0.10326231555685857,
+   "quantile_over_table": 1.233168015580194
+  },
+  "2025Q3": {
+   "snapshots": 2425009,
+   "censored": 0.0,
+   "above_table": 0.0302184445501027,
+   "quantile_over_table": 0.8937538019859461
+  },
+  "2025Q4": {
+   "snapshots": 2001070,
+   "censored": 0.0,
+   "above_table": 0.041131494650362053,
+   "quantile_over_table": 0.9557836901800096
+  },
+  "2026Q1": {
+   "snapshots": 2295151,
+   "censored": 0.0,
+   "above_table": 0.05267801552054745,
+   "quantile_over_table": 1.0147075486942845
+  },
+  "2026Q2": {
+   "snapshots": 2017529,
+   "censored": 0.0,
+   "above_table": 0.05590353348080746,
+   "quantile_over_table": 1.0349285671852666
+  },
+  "2026Q3": {
+   "snapshots": 65301,
+   "censored": 0.0,
+   "above_table": 0.061515137593604996,
+   "quantile_over_table": 1.0584046325267589
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.05311144932946616,
+   "quantile_over_table": 1.0188210503137614
+  },
+  "all": {
+   "snapshots": 25678095,
+   "censored": 1.9861286438888867e-06,
+   "above_table": 0.0773179997666489,
+   "quantile_over_table": 1.1574491546755037
+  },
+  "vol-high": {
+   "snapshots": 7396375,
+   "censored": 6.895269642223387e-06,
+   "above_table": 0.13761687562632463,
+   "quantile_over_table": 1.4857302803231103
+  },
+  "vol-low": {
+   "snapshots": 9318315,
+   "censored": 0.0,
+   "above_table": 0.03296379227360311,
+   "quantile_over_table": 0.8992921165125455
+  },
+  "vol-mid": {
+   "snapshots": 8963405,
+   "censored": 0.0,
+   "above_table": 0.07367166830016049,
+   "quantile_over_table": 1.1176534649514493
+  }
+ },
+ "AAVE:sell:10000": {
+  "table": 4.98307427674316,
+  "2023Q3": {
+   "snapshots": 1652095,
+   "censored": 9.684673096886075e-06,
+   "above_table": 0.020626132285441554,
+   "quantile_over_table": 0.7573416622399336
+  },
+  "2023Q4": {
+   "snapshots": 2041258,
+   "censored": 0.0,
+   "above_table": 0.018765878688534226,
+   "quantile_over_table": 0.7459418902527832
+  },
+  "2024Q1": {
+   "snapshots": 1810475,
+   "censored": 0.0002220411770391748,
+   "above_table": 0.14864096641406174,
+   "quantile_over_table": 3.157970460635048
+  },
+  "2024Q2": {
+   "snapshots": 2055092,
+   "censored": 3.552152409721803e-05,
+   "above_table": 0.1219107949853505,
+   "quantile_over_table": 1.4946700329653098
+  },
+  "2024Q3": {
+   "snapshots": 2275695,
+   "censored": 0.0,
+   "above_table": 0.10294964834918563,
+   "quantile_over_table": 1.3035641317291808
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 2.8454727235571512e-05,
+   "above_table": 0.03178311017294068,
+   "quantile_over_table": 0.8767463684475405
+  },
+  "2025Q1": {
+   "snapshots": 2289952,
+   "censored": 0.0,
+   "above_table": 0.031526861698411145,
+   "quantile_over_table": 0.894514395401365
+  },
+  "2025Q2": {
+   "snapshots": 2360348,
+   "censored": 1.2709990221780855e-06,
+   "above_table": 0.042901355522180024,
+   "quantile_over_table": 0.9717920491598013
+  },
+  "2025Q3": {
+   "snapshots": 2425009,
+   "censored": 2.061848017883645e-06,
+   "above_table": 0.009231737349711588,
+   "quantile_over_table": 0.6992604738671092
+  },
+  "2025Q4": {
+   "snapshots": 2001070,
+   "censored": 0.0,
+   "above_table": 0.014036990210237523,
+   "quantile_over_table": 0.7625175464243998
+  },
+  "2026Q1": {
+   "snapshots": 2295151,
+   "censored": 1.7428047217808328e-06,
+   "above_table": 0.024318268067361263,
+   "quantile_over_table": 0.8574498109622735
+  },
+  "2026Q2": {
+   "snapshots": 2017529,
+   "censored": 1.3878363086726387e-05,
+   "above_table": 0.02604806639501046,
+   "quantile_over_table": 0.8616170930370766
+  },
+  "2026Q3": {
+   "snapshots": 65301,
+   "censored": 1.53137011684354e-05,
+   "above_table": 0.024961715160796323,
+   "quantile_over_table": 0.8850636354084751
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.04619073600781093,
+   "quantile_over_table": 0.9880017228589052
+  },
+  "all": {
+   "snapshots": 25678095,
+   "censored": 2.328833194206969e-05,
+   "above_table": 0.04817868345968456,
+   "quantile_over_table": 0.9865513957780435
+  },
+  "vol-high": {
+   "snapshots": 7396375,
+   "censored": 6.719507867029457e-05,
+   "above_table": 0.0961846585354707,
+   "quantile_over_table": 1.3631713661548892
+  },
+  "vol-low": {
+   "snapshots": 9318315,
+   "censored": 1.287786472125057e-06,
+   "above_table": 0.014731545003419614,
+   "quantile_over_table": 0.7428407316866352
+  },
+  "vol-mid": {
+   "snapshots": 8963405,
+   "censored": 9.929262372948674e-06,
+   "above_table": 0.04333942929157022,
+   "quantile_over_table": 0.9564875574375268
+  }
+ },
+ "BNB:buy:1000": {
+  "table": 0.9510481223640177,
+  "2023Q2": {
+   "snapshots": 2128707,
+   "censored": 1.973028697702408e-05,
+   "above_table": 0.9542177843859884,
+   "quantile_over_table": 6.128908117855822
+  },
+  "2023Q3": {
+   "snapshots": 2027103,
+   "censored": 6.906407814501779e-06,
+   "above_table": 0.9838778662407028,
+   "quantile_over_table": 2.9362296802986516
+  },
+  "2023Q4": {
+   "snapshots": 2041372,
+   "censored": 0.0,
+   "above_table": 0.535952290910231,
+   "quantile_over_table": 1.9806385767309225
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 0.0,
+   "above_table": 0.15070798366913987,
+   "quantile_over_table": 1.5273581064358615
+  },
+  "2024Q2": {
+   "snapshots": 2055137,
+   "censored": 0.0,
+   "above_table": 0.12425011081986262,
+   "quantile_over_table": 1.3970624176502227
+  },
+  "2024Q3": {
+   "snapshots": 2275664,
+   "censored": 0.0,
+   "above_table": 0.11676416202040371,
+   "quantile_over_table": 1.3500679648833738
+  },
+  "2024Q4": {
+   "snapshots": 2319436,
+   "censored": 0.0,
+   "above_table": 0.08018716619040146,
+   "quantile_over_table": 1.1806516627828374
+  },
+  "2025Q1": {
+   "snapshots": 2289958,
+   "censored": 0.0,
+   "above_table": 0.046976407427559805,
+   "quantile_over_table": 0.9650818329600822
+  },
+  "2025Q2": {
+   "snapshots": 2358731,
+   "censored": 0.0,
+   "above_table": 0.053581777659258305,
+   "quantile_over_table": 1.0370564201825276
+  },
+  "2025Q3": {
+   "snapshots": 2423840,
+   "censored": 0.0,
+   "above_table": 0.0649650967060532,
+   "quantile_over_table": 1.079748929155512
+  },
+  "2025Q4": {
+   "snapshots": 1894723,
+   "censored": 0.0,
+   "above_table": 0.10695125356054684,
+   "quantile_over_table": 1.3972481893330693
+  },
+  "2026Q1": {
+   "snapshots": 2295144,
+   "censored": 0.0,
+   "above_table": 0.2085089214445804,
+   "quantile_over_table": 1.6810203502355587
+  },
+  "2026Q2": {
+   "snapshots": 2017477,
+   "censored": 0.0,
+   "above_table": 0.10285718251063085,
+   "quantile_over_table": 1.3040496140416968
+  },
+  "2026Q3": {
+   "snapshots": 65299,
+   "censored": 0.0,
+   "above_table": 0.06332409378397831,
+   "quantile_over_table": 1.1007099285577076
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.03283749246187864,
+   "quantile_over_table": 0.8485353152777664
+  },
+  "all": {
+   "snapshots": 28072307,
+   "censored": 1.9948485174374875e-06,
+   "above_table": 0.2631104644939232,
+   "quantile_over_table": 2.8140256423035255
+  },
+  "vol-high": {
+   "snapshots": 8459233,
+   "censored": 6.501771496304689e-06,
+   "above_table": 0.3634867359452656,
+   "quantile_over_table": 4.1886112110611675
+  },
+  "vol-low": {
+   "snapshots": 9920612,
+   "censored": 1.0080023288885807e-07,
+   "above_table": 0.21005712248973374,
+   "quantile_over_table": 1.6927624780852792
+  },
+  "vol-mid": {
+   "snapshots": 9692462,
+   "censored": 0.0,
+   "above_table": 0.22980838098720427,
+   "quantile_over_table": 1.9648368124500182
+  }
+ },
+ "BNB:buy:10000": {
+  "table": 2.2893079665076144,
+  "2023Q2": {
+   "snapshots": 2128707,
+   "censored": 0.00012777709661310834,
+   "above_table": 0.9907843086587094,
+   "quantile_over_table": 3.9975995027948263
+  },
+  "2023Q3": {
+   "snapshots": 2027103,
+   "censored": 2.6639001570221147e-05,
+   "above_table": 0.34401635086275667,
+   "quantile_over_table": 3.926884412359855
+  },
+  "2023Q4": {
+   "snapshots": 2041372,
+   "censored": 0.0,
+   "above_table": 0.08489290535972865,
+   "quantile_over_table": 1.0753033342928444
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 2.7623241090123585e-06,
+   "above_table": 0.021424644971313186,
+   "quantile_over_table": 0.7408357594768508
+  },
+  "2024Q2": {
+   "snapshots": 2055137,
+   "censored": 2.870854838387903e-05,
+   "above_table": 0.057000756175678007,
+   "quantile_over_table": 1.054253993534818
+  },
+  "2024Q3": {
+   "snapshots": 2275664,
+   "censored": 0.0,
+   "above_table": 0.04720028967369524,
+   "quantile_over_table": 0.9770453097187971
+  },
+  "2024Q4": {
+   "snapshots": 2319436,
+   "censored": 0.0,
+   "above_table": 0.024632281295970226,
+   "quantile_over_table": 0.8001323645611285
+  },
+  "2025Q1": {
+   "snapshots": 2289958,
+   "censored": 4.366892318549074e-07,
+   "above_table": 0.028612764344483323,
+   "quantile_over_table": 0.8302521153238774
+  },
+  "2025Q2": {
+   "snapshots": 2358731,
+   "censored": 0.0,
+   "above_table": 0.026283200585399524,
+   "quantile_over_table": 0.827878291094042
+  },
+  "2025Q3": {
+   "snapshots": 2423840,
+   "censored": 1.2377054591062116e-06,
+   "above_table": 0.029226800317018017,
+   "quantile_over_table": 0.8391976915412174
+  },
+  "2025Q4": {
+   "snapshots": 1894723,
+   "censored": 5.277816335158227e-07,
+   "above_table": 0.06821370100732456,
+   "quantile_over_table": 1.0861290877534788
+  },
+  "2026Q1": {
+   "snapshots": 2295144,
+   "censored": 0.0,
+   "above_table": 0.12110874088946053,
+   "quantile_over_table": 1.2342066055477
+  },
+  "2026Q2": {
+   "snapshots": 2017477,
+   "censored": 7.930697599030869e-06,
+   "above_table": 0.044128238414522014,
+   "quantile_over_table": 0.9682136266500467
+  },
+  "2026Q3": {
+   "snapshots": 65299,
+   "censored": 0.0,
+   "above_table": 0.026677284491339836,
+   "quantile_over_table": 0.8501406864556231
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.03642707406024754,
+   "quantile_over_table": 0.9327830092093791
+  },
+  "all": {
+   "snapshots": 28072307,
+   "censored": 1.4640763226192989e-05,
+   "above_table": 0.14244830488115232,
+   "quantile_over_table": 2.277571608830396
+  },
+  "vol-high": {
+   "snapshots": 8459233,
+   "censored": 4.527597241972174e-05,
+   "above_table": 0.26241072959090184,
+   "quantile_over_table": 3.057017261698061
+  },
+  "vol-low": {
+   "snapshots": 9920612,
+   "censored": 1.1088025617774388e-06,
+   "above_table": 0.07339797256234779,
+   "quantile_over_table": 1.1387305036441813
+  },
+  "vol-mid": {
+   "snapshots": 9692462,
+   "censored": 1.7539403301245854e-06,
+   "above_table": 0.10842970994418849,
+   "quantile_over_table": 1.6117854936292246
+  }
+ },
+ "BNB:sell:1000": {
+  "table": 1.0725631017582948,
+  "2023Q2": {
+   "snapshots": 2128707,
+   "censored": 1.3153524651349388e-05,
+   "above_table": 0.9358348534466681,
+   "quantile_over_table": 5.647710322532041
+  },
+  "2023Q3": {
+   "snapshots": 2027103,
+   "censored": 1.3319500785110573e-05,
+   "above_table": 0.9367285686377818,
+   "quantile_over_table": 2.6427042991997376
+  },
+  "2023Q4": {
+   "snapshots": 2041372,
+   "censored": 0.0,
+   "above_table": 0.46495837113470745,
+   "quantile_over_table": 1.733366706098189
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 0.0,
+   "above_table": 0.11699713270757485,
+   "quantile_over_table": 1.4518001818105561
+  },
+  "2024Q2": {
+   "snapshots": 2055137,
+   "censored": 0.0,
+   "above_table": 0.09962450191885018,
+   "quantile_over_table": 1.286631379820538
+  },
+  "2024Q3": {
+   "snapshots": 2275664,
+   "censored": 0.0,
+   "above_table": 0.08012650373693128,
+   "quantile_over_table": 1.188023299335338
+  },
+  "2024Q4": {
+   "snapshots": 2319436,
+   "censored": 6.898228707323677e-06,
+   "above_table": 0.05072863043347044,
+   "quantile_over_table": 1.005803240056003
+  },
+  "2025Q1": {
+   "snapshots": 2289958,
+   "censored": 1.7467569274196295e-06,
+   "above_table": 0.038167142222070835,
+   "quantile_over_table": 0.8784943717700328
+  },
+  "2025Q2": {
+   "snapshots": 2358731,
+   "censored": 0.0,
+   "above_table": 0.03469153540611456,
+   "quantile_over_table": 0.8478969675420355
+  },
+  "2025Q3": {
+   "snapshots": 2423840,
+   "censored": 0.0,
+   "above_table": 0.04231054855105948,
+   "quantile_over_table": 0.9335816348419297
+  },
+  "2025Q4": {
+   "snapshots": 1894723,
+   "censored": 0.0,
+   "above_table": 0.06910825487419534,
+   "quantile_over_table": 1.1476415196081053
+  },
+  "2026Q1": {
+   "snapshots": 2295144,
+   "censored": 0.0,
+   "above_table": 0.1464500702352445,
+   "quantile_over_table": 1.4254923934236046
+  },
+  "2026Q2": {
+   "snapshots": 2017477,
+   "censored": 0.0,
+   "above_table": 0.09854139601095824,
+   "quantile_over_table": 1.2345275603407733
+  },
+  "2026Q3": {
+   "snapshots": 65299,
+   "censored": 0.0,
+   "above_table": 0.04353818588339791,
+   "quantile_over_table": 0.9648021276100378
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.02878844441891853,
+   "quantile_over_table": 0.8097485012662382
+  },
+  "all": {
+   "snapshots": 28072307,
+   "censored": 2.6716721215680637e-06,
+   "above_table": 0.23151287008457325,
+   "quantile_over_table": 2.6289718176455676
+  },
+  "vol-high": {
+   "snapshots": 8459233,
+   "censored": 5.91070136027699e-06,
+   "above_table": 0.3359388252979041,
+   "quantile_over_table": 3.9651149794393676
+  },
+  "vol-low": {
+   "snapshots": 9920612,
+   "censored": 0.0,
+   "above_table": 0.1793129294845923,
+   "quantile_over_table": 1.3988380624476175
+  },
+  "vol-mid": {
+   "snapshots": 9692462,
+   "censored": 2.5793240148890963e-06,
+   "above_table": 0.19380275569498157,
+   "quantile_over_table": 1.7332358438492255
+  }
+ },
+ "BNB:sell:10000": {
+  "table": 2.2409526497013665,
+  "2023Q2": {
+   "snapshots": 2128707,
+   "censored": 0.00011462357196175895,
+   "above_table": 0.9976170598220406,
+   "quantile_over_table": 5.772896281417603
+  },
+  "2023Q3": {
+   "snapshots": 2027103,
+   "censored": 2.5159057038542195e-05,
+   "above_table": 0.5198218891276593,
+   "quantile_over_table": 3.449463730854972
+  },
+  "2023Q4": {
+   "snapshots": 2041372,
+   "censored": 0.0,
+   "above_table": 0.1506153704469347,
+   "quantile_over_table": 1.1597922938891083
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 1.2154226079654378e-05,
+   "above_table": 0.031045033059896754,
+   "quantile_over_table": 0.8270289619363238
+  },
+  "2024Q2": {
+   "snapshots": 2055137,
+   "censored": 5.498416893861577e-05,
+   "above_table": 0.07407212762478686,
+   "quantile_over_table": 1.1882635040402636
+  },
+  "2024Q3": {
+   "snapshots": 2275664,
+   "censored": 0.0,
+   "above_table": 0.03848722834302428,
+   "quantile_over_table": 0.8945329707980628
+  },
+  "2024Q4": {
+   "snapshots": 2319436,
+   "censored": 1.3365318120439625e-05,
+   "above_table": 0.025685466746859648,
+   "quantile_over_table": 0.80799606311153
+  },
+  "2025Q1": {
+   "snapshots": 2289958,
+   "censored": 1.4847433883066852e-05,
+   "above_table": 0.02934202183129222,
+   "quantile_over_table": 0.8349545242668696
+  },
+  "2025Q2": {
+   "snapshots": 2358731,
+   "censored": 0.0,
+   "above_table": 0.031109100613847022,
+   "quantile_over_table": 0.876241174939148
+  },
+  "2025Q3": {
+   "snapshots": 2423840,
+   "censored": 3.3005478909498978e-06,
+   "above_table": 0.03554990609910258,
+   "quantile_over_table": 0.9050516900392274
+  },
+  "2025Q4": {
+   "snapshots": 1894723,
+   "censored": 2.1111265340632906e-06,
+   "above_table": 0.10886205289544254,
+   "quantile_over_table": 1.191252883707825
+  },
+  "2026Q1": {
+   "snapshots": 2295144,
+   "censored": 1.3071075278936746e-06,
+   "above_table": 0.27405070102446866,
+   "quantile_over_table": 1.4520888804261154
+  },
+  "2026Q2": {
+   "snapshots": 2017477,
+   "censored": 6.93936039915201e-06,
+   "above_table": 0.09603695334189524,
+   "quantile_over_table": 1.1584592319367297
+  },
+  "2026Q3": {
+   "snapshots": 65299,
+   "censored": 0.0,
+   "above_table": 0.05637146051241213,
+   "quantile_over_table": 1.0252960171862666
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 1.4358326393475577e-05,
+   "above_table": 0.0526670974226434,
+   "quantile_over_table": 1.0122407642640372
+  },
+  "all": {
+   "snapshots": 28072307,
+   "censored": 1.8701704850976443e-05,
+   "above_table": 0.1817916297583103,
+   "quantile_over_table": 2.6152592649923574
+  },
+  "vol-high": {
+   "snapshots": 8459233,
+   "censored": 5.189595794323197e-05,
+   "above_table": 0.2874721857513021,
+   "quantile_over_table": 3.8100798680592245
+  },
+  "vol-low": {
+   "snapshots": 9920612,
+   "censored": 1.3104030275551548e-06,
+   "above_table": 0.1206883777884783,
+   "quantile_over_table": 1.2358756934043043
+  },
+  "vol-mid": {
+   "snapshots": 9692462,
+   "censored": 7.531626123476161e-06,
+   "above_table": 0.15210347005263614,
+   "quantile_over_table": 1.6615695596762947
+  }
+ },
+ "BTC:buy:1000": {
+  "table": 0.15883759104218242,
+  "2023Q2": {
+   "snapshots": 2128893,
+   "censored": 6.904997104128766e-05,
+   "above_table": 1.0,
+   "quantile_over_table": 58.84657000091676
+  },
+  "2023Q3": {
+   "snapshots": 2027199,
+   "censored": 5.919497789807513e-06,
+   "above_table": 1.0,
+   "quantile_over_table": 18.773947205183454
+  },
+  "2023Q4": {
+   "snapshots": 2041390,
+   "censored": 0.0,
+   "above_table": 0.8479256780918883,
+   "quantile_over_table": 11.464307115502578
+  },
+  "2024Q1": {
+   "snapshots": 1810056,
+   "censored": 4.3092589400548936e-05,
+   "above_table": 0.4211349530215284,
+   "quantile_over_table": 6.580269759976439
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 4.865848555329563e-07,
+   "above_table": 0.1694532583927413,
+   "quantile_over_table": 3.2682580681930458
+  },
+  "2024Q3": {
+   "snapshots": 2275668,
+   "censored": 0.0,
+   "above_table": 0.1168900735959727,
+   "quantile_over_table": 2.6762225733288796
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 0.0,
+   "above_table": 0.07699706696317515,
+   "quantile_over_table": 1.9927187733921852
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 1.746763029760475e-06,
+   "above_table": 0.10505662578942909,
+   "quantile_over_table": 3.0838411949642386
+  },
+  "2025Q2": {
+   "snapshots": 2358735,
+   "censored": 0.0008686859693861328,
+   "above_table": 0.0890025230344645,
+   "quantile_over_table": 2.668392644471111
+  },
+  "2025Q3": {
+   "snapshots": 2423851,
+   "censored": 0.00035398215484367643,
+   "above_table": 0.057875941036560984,
+   "quantile_over_table": 1.3233732649859686
+  },
+  "2025Q4": {
+   "snapshots": 1894879,
+   "censored": 0.0009583725398824938,
+   "above_table": 0.0891829801755145,
+   "quantile_over_table": 2.663757558099527
+  },
+  "2026Q1": {
+   "snapshots": 2295247,
+   "censored": 8.931500618451958e-05,
+   "above_table": 0.11565975698919671,
+   "quantile_over_table": 3.6915767558409422
+  },
+  "2026Q2": {
+   "snapshots": 2017618,
+   "censored": 2.379043010123819e-05,
+   "above_table": 0.07617728257259972,
+   "quantile_over_table": 2.2432805967460663
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 0.0,
+   "above_table": 0.0519023195284391,
+   "quantile_over_table": 1.0768619656072722
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.0,
+   "above_table": 0.05652167669486049,
+   "quantile_over_table": 1.2321094956065097
+  },
+  "all": {
+   "snapshots": 28073017,
+   "censored": 0.00018587243401733416,
+   "above_table": 0.30739204025224776,
+   "quantile_over_table": 16.429917196031166
+  },
+  "vol-high": {
+   "snapshots": 8414591,
+   "censored": 0.0001550877517398053,
+   "above_table": 0.43601002034163583,
+   "quantile_over_table": 29.620277417048303
+  },
+  "vol-low": {
+   "snapshots": 9984225,
+   "censored": 0.00017928281864641472,
+   "above_table": 0.20758752749203976,
+   "quantile_over_table": 8.626663326324442
+  },
+  "vol-mid": {
+   "snapshots": 9674201,
+   "censored": 0.00021944964757296235,
+   "above_table": 0.2985203386490473,
+   "quantile_over_table": 11.632065064578875
+  }
+ },
+ "BTC:buy:10000": {
+  "table": 0.3917743502945825,
+  "2023Q2": {
+   "snapshots": 2128893,
+   "censored": 0.00012494756664613958,
+   "above_table": 0.9998886606249004,
+   "quantile_over_table": 45.7102004279974
+  },
+  "2023Q3": {
+   "snapshots": 2027199,
+   "censored": 1.1838995579615026e-05,
+   "above_table": 0.9992166438516655,
+   "quantile_over_table": 30.11543139810446
+  },
+  "2023Q4": {
+   "snapshots": 2041390,
+   "censored": 0.0,
+   "above_table": 0.7545300016165456,
+   "quantile_over_table": 5.202925175764147
+  },
+  "2024Q1": {
+   "snapshots": 1810056,
+   "censored": 0.00015911109932510375,
+   "above_table": 0.35874819313856804,
+   "quantile_over_table": 3.492892919349982
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 3.4060939887306948e-06,
+   "above_table": 0.1221453793988029,
+   "quantile_over_table": 1.9092647386702992
+  },
+  "2024Q3": {
+   "snapshots": 2275668,
+   "censored": 1.0106922450902328e-05,
+   "above_table": 0.10791885377552299,
+   "quantile_over_table": 1.7958819225403098
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 8.62277473130356e-07,
+   "above_table": 0.08396477248573685,
+   "quantile_over_table": 1.7074651921189217
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 9.607196663682612e-06,
+   "above_table": 0.09385797282709325,
+   "quantile_over_table": 1.9424825098245102
+  },
+  "2025Q2": {
+   "snapshots": 2358735,
+   "censored": 0.0029952495723343233,
+   "above_table": 0.07981051763215077,
+   "quantile_over_table": 1.6716500395944827
+  },
+  "2025Q3": {
+   "snapshots": 2423851,
+   "censored": 0.0020124999432720907,
+   "above_table": 0.052479709364263265,
+   "quantile_over_table": 1.0519641762346188
+  },
+  "2025Q4": {
+   "snapshots": 1894879,
+   "censored": 0.0031891218383865143,
+   "above_table": 0.08496714378590836,
+   "quantile_over_table": 1.7783778891545123
+  },
+  "2026Q1": {
+   "snapshots": 2295247,
+   "censored": 0.0008975068914151723,
+   "above_table": 0.10810500844457953,
+   "quantile_over_table": 2.3004624881980353
+  },
+  "2026Q2": {
+   "snapshots": 2017618,
+   "censored": 0.0003335616553777772,
+   "above_table": 0.08108996526925623,
+   "quantile_over_table": 1.7442509204138912
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 3.0620837479905074e-05,
+   "above_table": 0.05940624377995193,
+   "quantile_over_table": 1.2561747531781744
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.0,
+   "above_table": 0.0643048953860735,
+   "quantile_over_table": 1.351539533636286
+  },
+  "all": {
+   "snapshots": 28073017,
+   "censored": 0.00076062362659489,
+   "above_table": 0.2903481233769234,
+   "quantile_over_table": 17.60754896663384
+  },
+  "vol-high": {
+   "snapshots": 8414591,
+   "censored": 0.0005659217423639486,
+   "above_table": 0.4136458660455522,
+   "quantile_over_table": 26.23499995143377
+  },
+  "vol-low": {
+   "snapshots": 9984225,
+   "censored": 0.0008449328816207567,
+   "above_table": 0.19517764459532974,
+   "quantile_over_table": 4.528739668419271
+  },
+  "vol-mid": {
+   "snapshots": 9674201,
+   "censored": 0.0008429636721420198,
+   "above_table": 0.28129454380829555,
+   "quantile_over_table": 11.155822126184685
+  }
+ },
+ "BTC:sell:1000": {
+  "table": 0.23327870664835437,
+  "2023Q2": {
+   "snapshots": 2128893,
+   "censored": 3.429012167356462e-05,
+   "above_table": 0.998854764611381,
+   "quantile_over_table": 28.622610392014334
+  },
+  "2023Q3": {
+   "snapshots": 2027199,
+   "censored": 0.0,
+   "above_table": 0.9990227895731992,
+   "quantile_over_table": 12.794051006959204
+  },
+  "2023Q4": {
+   "snapshots": 2041390,
+   "censored": 0.0,
+   "above_table": 0.8280353092745629,
+   "quantile_over_table": 8.093432907303605
+  },
+  "2024Q1": {
+   "snapshots": 1810056,
+   "censored": 4.640740396982193e-05,
+   "above_table": 0.38843418572221006,
+   "quantile_over_table": 5.043721061358949
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 1.4597545665988692e-06,
+   "above_table": 0.13355168049623942,
+   "quantile_over_table": 2.290385311045745
+  },
+  "2024Q3": {
+   "snapshots": 2275668,
+   "censored": 0.0,
+   "above_table": 0.09596434980849579,
+   "quantile_over_table": 1.9261242236169898
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 0.0,
+   "above_table": 0.06867738276367691,
+   "quantile_over_table": 1.577287977529434
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 0.0,
+   "above_table": 0.09010065721958994,
+   "quantile_over_table": 2.232439937931195
+  },
+  "2025Q2": {
+   "snapshots": 2358735,
+   "censored": 0.0009806103695413008,
+   "above_table": 0.07627581137843731,
+   "quantile_over_table": 1.8310874739668064
+  },
+  "2025Q3": {
+   "snapshots": 2423851,
+   "censored": 0.0004814652385810844,
+   "above_table": 0.04704204097604145,
+   "quantile_over_table": 0.9364747258071647
+  },
+  "2025Q4": {
+   "snapshots": 1894879,
+   "censored": 0.0011699955511671194,
+   "above_table": 0.07590473100849492,
+   "quantile_over_table": 1.917341452051127
+  },
+  "2026Q1": {
+   "snapshots": 2295247,
+   "censored": 6.927359016262737e-05,
+   "above_table": 0.09593619068201306,
+   "quantile_over_table": 2.482581995439592
+  },
+  "2026Q2": {
+   "snapshots": 2017618,
+   "censored": 1.5860286734158797e-05,
+   "above_table": 0.06069927130739408,
+   "quantile_over_table": 1.4120250886094732
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 0.0,
+   "above_table": 0.04398683303988364,
+   "quantile_over_table": 0.8172525618845023
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.0,
+   "above_table": 0.051308930597239975,
+   "quantile_over_table": 1.0486485237809746
+  },
+  "all": {
+   "snapshots": 28073017,
+   "censored": 0.0002154381910572704,
+   "above_table": 0.2917995527055308,
+   "quantile_over_table": 10.758933827339462
+  },
+  "vol-high": {
+   "snapshots": 8414591,
+   "censored": 0.00016827912372686918,
+   "above_table": 0.41557164804012753,
+   "quantile_over_table": 18.82689125523245
+  },
+  "vol-low": {
+   "snapshots": 9984225,
+   "censored": 0.00021373717038628438,
+   "above_table": 0.19753656824006113,
+   "quantile_over_table": 5.898070814442602
+  },
+  "vol-mid": {
+   "snapshots": 9674201,
+   "censored": 0.0002582125386892416,
+   "above_table": 0.28142137946130064,
+   "quantile_over_table": 7.828321830719557
+  }
+ },
+ "BTC:sell:10000": {
+  "table": 0.49222399569837094,
+  "2023Q2": {
+   "snapshots": 2128893,
+   "censored": 0.00011226491890386224,
+   "above_table": 0.9993352606858606,
+   "quantile_over_table": 22.990449801094126
+  },
+  "2023Q3": {
+   "snapshots": 2027199,
+   "censored": 1.8745076334390456e-05,
+   "above_table": 0.9989320039207542,
+   "quantile_over_table": 7.318249105628859
+  },
+  "2023Q4": {
+   "snapshots": 2041390,
+   "censored": 4.898622997075522e-07,
+   "above_table": 0.7153918239002953,
+   "quantile_over_table": 4.6879172096148745
+  },
+  "2024Q1": {
+   "snapshots": 1810056,
+   "censored": 0.00020330862691541034,
+   "above_table": 0.33577390135758206,
+   "quantile_over_table": 3.3686157442269624
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 8.27194254406026e-06,
+   "above_table": 0.09952542986478181,
+   "quantile_over_table": 1.5919750330808546
+  },
+  "2024Q3": {
+   "snapshots": 2275668,
+   "censored": 8.349196807267141e-06,
+   "above_table": 0.09468815269841702,
+   "quantile_over_table": 1.6086566286772144
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 2.5868324193910683e-06,
+   "above_table": 0.08010405991464294,
+   "quantile_over_table": 1.6202546703808294
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 8.297124391362257e-06,
+   "above_table": 0.08341648722166738,
+   "quantile_over_table": 1.6544855781310832
+  },
+  "2025Q2": {
+   "snapshots": 2358735,
+   "censored": 0.002851528467589619,
+   "above_table": 0.06686198904851129,
+   "quantile_over_table": 1.3406376008073957
+  },
+  "2025Q3": {
+   "snapshots": 2423851,
+   "censored": 0.0023623564319753976,
+   "above_table": 0.04398738692168519,
+   "quantile_over_table": 0.885487627126244
+  },
+  "2025Q4": {
+   "snapshots": 1894879,
+   "censored": 0.0036250335773418776,
+   "above_table": 0.07494663693518573,
+   "quantile_over_table": 1.469609454504552
+  },
+  "2026Q1": {
+   "snapshots": 2295247,
+   "censored": 0.000949788846254891,
+   "above_table": 0.09586985465317847,
+   "quantile_over_table": 1.8520894487395443
+  },
+  "2026Q2": {
+   "snapshots": 2017618,
+   "censored": 0.00027705938388733643,
+   "above_table": 0.06613143195117248,
+   "quantile_over_table": 1.3238008640759353
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 3.0620837479905074e-05,
+   "above_table": 0.04920919265689832,
+   "quantile_over_table": 0.9789452235472408
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.0,
+   "above_table": 0.05527234085328202,
+   "quantile_over_table": 1.0974648911917873
+  },
+  "all": {
+   "snapshots": 28073017,
+   "censored": 0.0008110635205329017,
+   "above_table": 0.2774492047271739,
+   "quantile_over_table": 8.177743135607491
+  },
+  "vol-high": {
+   "snapshots": 8414591,
+   "censored": 0.0006266495899800715,
+   "above_table": 0.39898479282148686,
+   "quantile_over_table": 14.197529684022706
+  },
+  "vol-low": {
+   "snapshots": 9984225,
+   "censored": 0.000911738267116376,
+   "above_table": 0.18613025484801088,
+   "quantile_over_table": 3.4635536686014423
+  },
+  "vol-mid": {
+   "snapshots": 9674201,
+   "censored": 0.0008675651870371517,
+   "above_table": 0.2659536585042864,
+   "quantile_over_table": 5.116019676476738
+  }
+ },
+ "ETH:buy:1000": {
+  "table": 0.6354139322128916,
+  "2023Q2": {
+   "snapshots": 2129008,
+   "censored": 6.434921803957524e-05,
+   "above_table": 0.9833874386940308,
+   "quantile_over_table": 20.23015929404715
+  },
+  "2023Q3": {
+   "snapshots": 2027205,
+   "censored": 0.0,
+   "above_table": 0.9874615542088738,
+   "quantile_over_table": 4.916517539523455
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 0.0,
+   "above_table": 0.6227318106423773,
+   "quantile_over_table": 3.018959208026639
+  },
+  "2024Q1": {
+   "snapshots": 1810066,
+   "censored": 0.0,
+   "above_table": 0.15196738682456884,
+   "quantile_over_table": 1.721821924455933
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 0.0,
+   "above_table": 0.06408371205854589,
+   "quantile_over_table": 1.1043567731627106
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 4.3943295571394674e-07,
+   "above_table": 0.05309582850506161,
+   "quantile_over_table": 1.0288764953372214
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 0.0,
+   "above_table": 0.04162687615410451,
+   "quantile_over_table": 0.9258057911649318
+  },
+  "2025Q1": {
+   "snapshots": 2289957,
+   "censored": 0.0,
+   "above_table": 0.07007904515237623,
+   "quantile_over_table": 1.2348193522201414
+  },
+  "2025Q2": {
+   "snapshots": 2358742,
+   "censored": 0.0,
+   "above_table": 0.06044281231266497,
+   "quantile_over_table": 1.2491948123297412
+  },
+  "2025Q3": {
+   "snapshots": 2423905,
+   "censored": 0.0,
+   "above_table": 0.03313702475963373,
+   "quantile_over_table": 0.7312581671332262
+  },
+  "2025Q4": {
+   "snapshots": 1895251,
+   "censored": 5.276345982669314e-07,
+   "above_table": 0.04803851734599657,
+   "quantile_over_table": 0.9653225746959146
+  },
+  "2026Q1": {
+   "snapshots": 2295356,
+   "censored": 0.0,
+   "above_table": 0.0704021511260127,
+   "quantile_over_table": 1.190782060886482
+  },
+  "2026Q2": {
+   "snapshots": 2017677,
+   "censored": 0.0,
+   "above_table": 0.04940334850424523,
+   "quantile_over_table": 0.9963768688808307
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 0.0,
+   "above_table": 0.04248641200336829,
+   "quantile_over_table": 0.8403338660848279
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.02288881549661837,
+   "quantile_over_table": 0.6215795506930616
+  },
+  "all": {
+   "snapshots": 28073748,
+   "censored": 4.951244842690759e-06,
+   "above_table": 0.23975325010760107,
+   "quantile_over_table": 4.62920106096641
+  },
+  "vol-high": {
+   "snapshots": 8771755,
+   "censored": 1.573231354500895e-05,
+   "above_table": 0.2427004051818496,
+   "quantile_over_table": 9.447674961818143
+  },
+  "vol-low": {
+   "snapshots": 9604932,
+   "censored": 0.0,
+   "above_table": 0.28941683293541276,
+   "quantile_over_table": 3.045824006970548
+  },
+  "vol-mid": {
+   "snapshots": 9697061,
+   "censored": 1.0312402902281423e-07,
+   "above_table": 0.18789560959713564,
+   "quantile_over_table": 3.631391102495995
+  }
+ },
+ "ETH:buy:10000": {
+  "table": 0.8540438978554832,
+  "2023Q2": {
+   "snapshots": 2129008,
+   "censored": 0.00015124414750907465,
+   "above_table": 0.9971484756323854,
+   "quantile_over_table": 29.596677048332882
+  },
+  "2023Q3": {
+   "snapshots": 2027205,
+   "censored": 0.0,
+   "above_table": 0.9947094645090161,
+   "quantile_over_table": 13.136718903696623
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 0.0,
+   "above_table": 0.5790565821456599,
+   "quantile_over_table": 2.568894074718858
+  },
+  "2024Q1": {
+   "snapshots": 1810066,
+   "censored": 0.0,
+   "above_table": 0.16461775426973382,
+   "quantile_over_table": 1.7161873948438802
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 1.9463394221318254e-06,
+   "above_table": 0.07255626878221198,
+   "quantile_over_table": 1.216668335610872
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 1.31829886714184e-06,
+   "above_table": 0.06692968228515984,
+   "quantile_over_table": 1.1642636969291347
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 0.0,
+   "above_table": 0.047201931156628824,
+   "quantile_over_table": 0.9575564278705084
+  },
+  "2025Q1": {
+   "snapshots": 2289957,
+   "censored": 0.0,
+   "above_table": 0.07933205732684064,
+   "quantile_over_table": 1.3775483833482882
+  },
+  "2025Q2": {
+   "snapshots": 2358742,
+   "censored": 0.0,
+   "above_table": 0.07897133302412897,
+   "quantile_over_table": 1.3790561962906667
+  },
+  "2025Q3": {
+   "snapshots": 2423905,
+   "censored": 1.237672268508873e-06,
+   "above_table": 0.048991667154860224,
+   "quantile_over_table": 0.9854710560214323
+  },
+  "2025Q4": {
+   "snapshots": 1895251,
+   "censored": 7.38688437573704e-06,
+   "above_table": 0.057184932544056495,
+   "quantile_over_table": 1.1127703912837412
+  },
+  "2026Q1": {
+   "snapshots": 2295356,
+   "censored": 3.0496358734767067e-06,
+   "above_table": 0.0739290626392762,
+   "quantile_over_table": 1.3573550849804925
+  },
+  "2026Q2": {
+   "snapshots": 2017677,
+   "censored": 9.912389346758674e-07,
+   "above_table": 0.058314148710768586,
+   "quantile_over_table": 1.0770933307212125
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 0.0,
+   "above_table": 0.044063385133583405,
+   "quantile_over_table": 0.9577480170670403
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.031834695079048264,
+   "quantile_over_table": 0.7217441325477411
+  },
+  "all": {
+   "snapshots": 28073748,
+   "censored": 1.2645265605433233e-05,
+   "above_table": 0.24640997260288416,
+   "quantile_over_table": 10.129612757152032
+  },
+  "vol-high": {
+   "snapshots": 8771755,
+   "censored": 3.34026657151277e-05,
+   "above_table": 0.25450489325496706,
+   "quantile_over_table": 13.440276862559193
+  },
+  "vol-low": {
+   "snapshots": 9604932,
+   "censored": 2.0822635704240279e-07,
+   "above_table": 0.2928287868834026,
+   "quantile_over_table": 5.95047305309427
+  },
+  "vol-mid": {
+   "snapshots": 9697061,
+   "censored": 6.187441741368854e-06,
+   "above_table": 0.19310960161806728,
+   "quantile_over_table": 8.69131401460747
+  }
+ },
+ "ETH:sell:1000": {
+  "table": 0.6302484427989086,
+  "2023Q2": {
+   "snapshots": 2129008,
+   "censored": 5.636427857481043e-06,
+   "above_table": 0.9800168718024834,
+   "quantile_over_table": 17.691311091817106
+  },
+  "2023Q3": {
+   "snapshots": 2027205,
+   "censored": 0.0,
+   "above_table": 0.9909811785191927,
+   "quantile_over_table": 4.981974595886566
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 0.0,
+   "above_table": 0.6613129511028292,
+   "quantile_over_table": 3.234127584437436
+  },
+  "2024Q1": {
+   "snapshots": 1810066,
+   "censored": 1.104932085349374e-06,
+   "above_table": 0.16454169576324373,
+   "quantile_over_table": 1.8640334245515735
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 0.0,
+   "above_table": 0.06864739141858948,
+   "quantile_over_table": 1.1466315941562113
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 0.0,
+   "above_table": 0.05697204327535748,
+   "quantile_over_table": 1.0948121051926107
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 0.0,
+   "above_table": 0.045783915852065954,
+   "quantile_over_table": 0.9639781339487652
+  },
+  "2025Q1": {
+   "snapshots": 2289957,
+   "censored": 0.0,
+   "above_table": 0.07261228049260314,
+   "quantile_over_table": 1.2665374311898663
+  },
+  "2025Q2": {
+   "snapshots": 2358742,
+   "censored": 0.0,
+   "above_table": 0.06062129728473907,
+   "quantile_over_table": 1.2441405676628092
+  },
+  "2025Q3": {
+   "snapshots": 2423905,
+   "censored": 0.0,
+   "above_table": 0.03726837479191635,
+   "quantile_over_table": 0.8151639527724488
+  },
+  "2025Q4": {
+   "snapshots": 1895251,
+   "censored": 5.276345982669314e-07,
+   "above_table": 0.05185120696478037,
+   "quantile_over_table": 1.0266465267823806
+  },
+  "2026Q1": {
+   "snapshots": 2295356,
+   "censored": 0.0,
+   "above_table": 0.06900454657142509,
+   "quantile_over_table": 1.182527420973246
+  },
+  "2026Q2": {
+   "snapshots": 2017677,
+   "censored": 0.0,
+   "above_table": 0.048492399923278105,
+   "quantile_over_table": 0.9867879266671699
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 0.0,
+   "above_table": 0.04479828523310112,
+   "quantile_over_table": 0.8772787407531752
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.02790023118565213,
+   "quantile_over_table": 0.727554026673228
+  },
+  "all": {
+   "snapshots": 28073748,
+   "censored": 5.343069974126718e-07,
+   "above_table": 0.24503681074405032,
+   "quantile_over_table": 4.1130536093023355
+  },
+  "vol-high": {
+   "snapshots": 8771755,
+   "censored": 1.4820295368486694e-06,
+   "above_table": 0.24558234840924414,
+   "quantile_over_table": 7.335156607213032
+  },
+  "vol-low": {
+   "snapshots": 9604932,
+   "censored": 0.0,
+   "above_table": 0.29652151623769957,
+   "quantile_over_table": 3.134714941714058
+  },
+  "vol-mid": {
+   "snapshots": 9697061,
+   "censored": 2.0624805804562845e-07,
+   "above_table": 0.19354775504614338,
+   "quantile_over_table": 3.5970286556193316
+  }
+ },
+ "ETH:sell:10000": {
+  "table": 0.7683640260325308,
+  "2023Q2": {
+   "snapshots": 2129008,
+   "censored": 3.100035321614573e-05,
+   "above_table": 0.9974475584586147,
+   "quantile_over_table": 25.950715066292318
+  },
+  "2023Q3": {
+   "snapshots": 2027205,
+   "censored": 0.0,
+   "above_table": 0.9981205650143917,
+   "quantile_over_table": 4.95289878456138
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 4.898632595697237e-07,
+   "above_table": 0.664986761438925,
+   "quantile_over_table": 3.25665138464151
+  },
+  "2024Q1": {
+   "snapshots": 1810066,
+   "censored": 4.419728341397496e-06,
+   "above_table": 0.22285915699938896,
+   "quantile_over_table": 2.1532566995218874
+  },
+  "2024Q2": {
+   "snapshots": 2055140,
+   "censored": 1.9463394221318254e-06,
+   "above_table": 0.09473387649284525,
+   "quantile_over_table": 1.4107243893355381
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 0.0,
+   "above_table": 0.08391763268678097,
+   "quantile_over_table": 1.361519302962066
+  },
+  "2024Q4": {
+   "snapshots": 2319439,
+   "censored": 0.0,
+   "above_table": 0.05763117719414048,
+   "quantile_over_table": 1.1130259686273045
+  },
+  "2025Q1": {
+   "snapshots": 2289957,
+   "censored": 0.0,
+   "above_table": 0.09347162413966725,
+   "quantile_over_table": 1.5724609845957722
+  },
+  "2025Q2": {
+   "snapshots": 2358742,
+   "censored": 0.0,
+   "above_table": 0.09131816875266562,
+   "quantile_over_table": 1.4817599638473617
+  },
+  "2025Q3": {
+   "snapshots": 2423905,
+   "censored": 1.6502296913451641e-06,
+   "above_table": 0.058934337664780866,
+   "quantile_over_table": 1.1196222878163469
+  },
+  "2025Q4": {
+   "snapshots": 1895251,
+   "censored": 4.221076786135451e-06,
+   "above_table": 0.06957894053691269,
+   "quantile_over_table": 1.2736180534207968
+  },
+  "2026Q1": {
+   "snapshots": 2295356,
+   "censored": 1.3069868029185887e-06,
+   "above_table": 0.08189851408476169,
+   "quantile_over_table": 1.5089368237211227
+  },
+  "2026Q2": {
+   "snapshots": 2017677,
+   "censored": 0.0,
+   "above_table": 0.06562348681181378,
+   "quantile_over_table": 1.1928122156916523
+  },
+  "2026Q3": {
+   "snapshots": 65315,
+   "censored": 0.0,
+   "above_table": 0.06072112072265176,
+   "quantile_over_table": 1.0416464433816413
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.038554874283827055,
+   "quantile_over_table": 0.8050805915936705
+  },
+  "all": {
+   "snapshots": 28073748,
+   "censored": 3.3483238504527434e-06,
+   "above_table": 0.26566979845231403,
+   "quantile_over_table": 4.92293193338929
+  },
+  "vol-high": {
+   "snapshots": 8771755,
+   "censored": 8.55017040489617e-06,
+   "above_table": 0.27016831439359396,
+   "quantile_over_table": 9.133308719582132
+  },
+  "vol-low": {
+   "snapshots": 9604932,
+   "censored": 2.0822635704240279e-07,
+   "above_table": 0.31476679163721133,
+   "quantile_over_table": 3.5062230727821486
+  },
+  "vol-mid": {
+   "snapshots": 9697061,
+   "censored": 1.753108493387842e-06,
+   "above_table": 0.21296995249273903,
+   "quantile_over_table": 4.015278457507119
+  }
+ },
+ "FTM:buy:1000": {
+  "table": 10.65744309259431,
+  "2023Q2": {
+   "snapshots": 809204,
+   "censored": 1.2357823243582582e-06,
+   "above_table": 0.0060837639010236,
+   "quantile_over_table": 0.5726004810809309
+  },
+  "2023Q3": {
+   "snapshots": 2027156,
+   "censored": 1.8745473954643846e-05,
+   "above_table": 0.004726414545181879,
+   "quantile_over_table": 0.43814386115126636
+  },
+  "2023Q4": {
+   "snapshots": 2041367,
+   "censored": 1.469603456899225e-06,
+   "above_table": 0.0013079489988066803,
+   "quantile_over_table": 0.29738570210675813
+  },
+  "2024Q1": {
+   "snapshots": 1810136,
+   "censored": 0.0,
+   "above_table": 0.00426211069223528,
+   "quantile_over_table": 0.35497035488978285
+  },
+  "2024Q2": {
+   "snapshots": 2055104,
+   "censored": 0.0,
+   "above_table": 0.0005503371118931208,
+   "quantile_over_table": 0.2657451272114107
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 0.0,
+   "above_table": 0.00046359647156945204,
+   "quantile_over_table": 0.26869130302526545
+  },
+  "2024Q4": {
+   "snapshots": 2319470,
+   "censored": 0.0,
+   "above_table": 0.00016598619512216153,
+   "quantile_over_table": 0.2075737891849704
+  },
+  "2025Q1": {
+   "snapshots": 283370,
+   "censored": 0.0,
+   "above_table": 0.037918622295938176,
+   "quantile_over_table": 0.8439814423631502
+  },
+  "all": {
+   "snapshots": 13621493,
+   "censored": 3.0833624478608915e-06,
+   "above_table": 0.0028047672747932655,
+   "quantile_over_table": 0.3725064546060641
+  },
+  "vol-high": {
+   "snapshots": 4443339,
+   "censored": 3.1507836786704772e-06,
+   "above_table": 0.006654476096166722,
+   "quantile_over_table": 0.459361441480856
+  },
+  "vol-low": {
+   "snapshots": 4588463,
+   "censored": 3.051130629145315e-06,
+   "above_table": 0.0005997669364964065,
+   "quantile_over_table": 0.25162380547790514
+  },
+  "vol-mid": {
+   "snapshots": 4589691,
+   "censored": 3.050314280416699e-06,
+   "above_table": 0.0012822253069224698,
+   "quantile_over_table": 0.364675866965465
+  }
+ },
+ "FTM:buy:10000": {
+  "table": 23.013452164817316,
+  "2023Q2": {
+   "snapshots": 809204,
+   "censored": 0.00021255455978962042,
+   "above_table": 0.0043249216347437435,
+   "quantile_over_table": 0.5825019062778245
+  },
+  "2023Q3": {
+   "snapshots": 2027156,
+   "censored": 8.928765225764568e-05,
+   "above_table": 0.0026522280738538956,
+   "quantile_over_table": 0.49383127209824434
+  },
+  "2023Q4": {
+   "snapshots": 2041367,
+   "censored": 2.4493390948320415e-06,
+   "above_table": 0.00015038978877827646,
+   "quantile_over_table": 0.17445972671986162
+  },
+  "2024Q1": {
+   "snapshots": 1810136,
+   "censored": 9.391559529228743e-06,
+   "above_table": 0.019900349093070677,
+   "quantile_over_table": 0.45327352433851287
+  },
+  "2024Q2": {
+   "snapshots": 2055104,
+   "censored": 1.6544174893338733e-05,
+   "above_table": 0.0005902475341472553,
+   "quantile_over_table": 0.22834630039086593
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 4.394279351369213e-07,
+   "above_table": 0.00025091346122156627,
+   "quantile_over_table": 0.21161052105740577
+  },
+  "2024Q4": {
+   "snapshots": 2319470,
+   "censored": 0.0,
+   "above_table": 2.4574579537566773e-05,
+   "quantile_over_table": 0.1485154904014874
+  },
+  "2025Q1": {
+   "snapshots": 283370,
+   "censored": 0.0,
+   "above_table": 0.0453082542259237,
+   "quantile_over_table": 0.9760836164178315
+  },
+  "all": {
+   "snapshots": 13621493,
+   "censored": 3.0099490562451562e-05,
+   "above_table": 0.004396419873515197,
+   "quantile_over_table": 0.3408340552529811
+  },
+  "vol-high": {
+   "snapshots": 4443339,
+   "censored": 4.4786139432530356e-05,
+   "above_table": 0.01006585432824534,
+   "quantile_over_table": 0.47228644407071596
+  },
+  "vol-low": {
+   "snapshots": 4588463,
+   "censored": 6.320199160372438e-06,
+   "above_table": 0.001189948466077969,
+   "quantile_over_table": 0.19343499896822616
+  },
+  "vol-mid": {
+   "snapshots": 4589691,
+   "censored": 3.9654085645417086e-05,
+   "above_table": 0.0021135158466842534,
+   "quantile_over_table": 0.34136139203909127
+  }
+ },
+ "FTM:sell:1000": {
+  "table": 10.393920871443196,
+  "2023Q2": {
+   "snapshots": 809204,
+   "censored": 0.0,
+   "above_table": 0.07829051759506873,
+   "quantile_over_table": 1.1692989737312685
+  },
+  "2023Q3": {
+   "snapshots": 2027156,
+   "censored": 4.933019461748381e-05,
+   "above_table": 0.005292404353900435,
+   "quantile_over_table": 0.44251506362418225
+  },
+  "2023Q4": {
+   "snapshots": 2041367,
+   "censored": 6.858149465529716e-06,
+   "above_table": 0.0016234330858014268,
+   "quantile_over_table": 0.3277328813705868
+  },
+  "2024Q1": {
+   "snapshots": 1810136,
+   "censored": 0.0,
+   "above_table": 0.004489717899649529,
+   "quantile_over_table": 0.3641983809086576
+  },
+  "2024Q2": {
+   "snapshots": 2055104,
+   "censored": 0.0,
+   "above_table": 0.0005946171094017627,
+   "quantile_over_table": 0.2669190559510819
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 0.0,
+   "above_table": 0.0004877650080019827,
+   "quantile_over_table": 0.2915045944496463
+  },
+  "2024Q4": {
+   "snapshots": 2319470,
+   "censored": 0.0,
+   "above_table": 0.0002090994925564892,
+   "quantile_over_table": 0.22120311764230735
+  },
+  "2025Q1": {
+   "snapshots": 283370,
+   "censored": 0.0,
+   "above_table": 0.03726576560680383,
+   "quantile_over_table": 0.8234814606625698
+  },
+  "all": {
+   "snapshots": 13621493,
+   "censored": 8.369126644193849e-06,
+   "above_table": 0.00726057178204938,
+   "quantile_over_table": 0.3940924132200645
+  },
+  "vol-high": {
+   "snapshots": 4443339,
+   "censored": 1.5528862416304495e-05,
+   "above_table": 0.007677903886101903,
+   "quantile_over_table": 0.4862117446106362
+  },
+  "vol-low": {
+   "snapshots": 4588463,
+   "censored": 5.884323356208822e-06,
+   "above_table": 0.0004992986717042583,
+   "quantile_over_table": 0.26534856855704475
+  },
+  "vol-mid": {
+   "snapshots": 4589691,
+   "censored": 3.921832646250042e-06,
+   "above_table": 0.013616002708689704,
+   "quantile_over_table": 0.3831383948691693
+  }
+ },
+ "FTM:sell:10000": {
+  "table": 21.64266698957085,
+  "2023Q2": {
+   "snapshots": 809204,
+   "censored": 0.00020637564816782913,
+   "above_table": 0.09883231545652424,
+   "quantile_over_table": 1.5040492568525776
+  },
+  "2023Q3": {
+   "snapshots": 2027156,
+   "censored": 0.0005524981797158186,
+   "above_table": 0.004861710255888839,
+   "quantile_over_table": 0.5019732160677874
+  },
+  "2023Q4": {
+   "snapshots": 2041367,
+   "censored": 8.81762074139535e-06,
+   "above_table": 0.00023268926577474014,
+   "quantile_over_table": 0.19850078353508954
+  },
+  "2024Q1": {
+   "snapshots": 1810136,
+   "censored": 5.52444678189926e-06,
+   "above_table": 0.017077264234644438,
+   "quantile_over_table": 0.3698586107431658
+  },
+  "2024Q2": {
+   "snapshots": 2055104,
+   "censored": 6.860966646943415e-05,
+   "above_table": 0.001062792858070924,
+   "quantile_over_table": 0.25491840561864615
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 0.0,
+   "above_table": 0.0001630277639357978,
+   "quantile_over_table": 0.26355914431787797
+  },
+  "2024Q4": {
+   "snapshots": 2319470,
+   "censored": 0.0,
+   "above_table": 4.3544430408670945e-05,
+   "quantile_over_table": 0.17523022288519044
+  },
+  "2025Q1": {
+   "snapshots": 283370,
+   "censored": 0.0,
+   "above_table": 0.031884109115290965,
+   "quantile_over_table": 0.7715348897750985
+  },
+  "all": {
+   "snapshots": 13621493,
+   "censored": 0.00010688989819251091,
+   "above_table": 0.009756728267331432,
+   "quantile_over_table": 0.4392934367508138
+  },
+  "vol-high": {
+   "snapshots": 4443339,
+   "censored": 0.00027569357188366676,
+   "above_table": 0.011796860683899603,
+   "quantile_over_table": 0.5896874685922915
+  },
+  "vol-low": {
+   "snapshots": 4588463,
+   "censored": 6.320199160372438e-06,
+   "above_table": 0.0005873463582564335,
+   "quantile_over_table": 0.2486142067635988
+  },
+  "vol-mid": {
+   "snapshots": 4589691,
+   "censored": 4.40116774745838e-05,
+   "above_table": 0.016949381510664913,
+   "quantile_over_table": 0.4008405612037241
+  }
+ },
+ "POPCAT:buy:1000": {
+  "table": 10.65744309259431,
+  "2024Q2": {
+   "snapshots": 1506774,
+   "censored": 0.0,
+   "above_table": 0.2887685877245028,
+   "quantile_over_table": 2.6369304858783638
+  },
+  "2024Q3": {
+   "snapshots": 2275681,
+   "censored": 2.8123449639909986e-05,
+   "above_table": 0.06819513125451251,
+   "quantile_over_table": 1.1206081007192654
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 0.0,
+   "above_table": 0.0004910596109290295,
+   "quantile_over_table": 0.33602326575275454
+  },
+  "2025Q1": {
+   "snapshots": 2289946,
+   "censored": 0.0,
+   "above_table": 0.0020738480296041916,
+   "quantile_over_table": 0.4956339756505754
+  },
+  "2025Q2": {
+   "snapshots": 2360515,
+   "censored": 0.0,
+   "above_table": 0.0019038218354892895,
+   "quantile_over_table": 0.5145191146866611
+  },
+  "2025Q3": {
+   "snapshots": 2425010,
+   "censored": 0.0,
+   "above_table": 0.0004857711926961126,
+   "quantile_over_table": 0.38765874848463133
+  },
+  "2025Q4": {
+   "snapshots": 2000992,
+   "censored": 0.0,
+   "above_table": 0.0015782172042666837,
+   "quantile_over_table": 0.48568857692351847
+  },
+  "2026Q1": {
+   "snapshots": 2295919,
+   "censored": 0.0,
+   "above_table": 0.0021464171863205977,
+   "quantile_over_table": 0.5012987332356363
+  },
+  "2026Q2": {
+   "snapshots": 2018023,
+   "censored": 0.0,
+   "above_table": 0.0024662751613831954,
+   "quantile_over_table": 0.5079778450210816
+  },
+  "2026Q3": {
+   "snapshots": 65321,
+   "censored": 0.0,
+   "above_table": 0.010716308690926348,
+   "quantile_over_table": 0.6637433711430624
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.06683800936162881,
+   "quantile_over_table": 1.0523662156881952
+  },
+  "all": {
+   "snapshots": 19627301,
+   "censored": 3.260764177407785e-06,
+   "above_table": 0.03160266521467082,
+   "quantile_over_table": 0.7470629223909477
+  },
+  "vol-high": {
+   "snapshots": 5721263,
+   "censored": 5.418384017654843e-06,
+   "above_table": 0.102389660129147,
+   "quantile_over_table": 1.4959993393491775
+  },
+  "vol-low": {
+   "snapshots": 7172911,
+   "censored": 4.042988962221893e-06,
+   "above_table": 0.00044654296557506453,
+   "quantile_over_table": 0.44588171778045654
+  },
+  "vol-mid": {
+   "snapshots": 6733127,
+   "censored": 5.940776105960871e-07,
+   "above_table": 0.004644947077307217,
+   "quantile_over_table": 0.47511783303641786
+  }
+ },
+ "POPCAT:buy:10000": {
+  "table": 23.013452164817316,
+  "2024Q2": {
+   "snapshots": 1506774,
+   "censored": 0.00028006854378957957,
+   "above_table": 0.2466946636642697,
+   "quantile_over_table": 2.3621189310533115
+  },
+  "2024Q3": {
+   "snapshots": 2275681,
+   "censored": 0.00031726766625023454,
+   "above_table": 0.0667906542491535,
+   "quantile_over_table": 1.0897532711426237
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 1.0778305771049816e-05,
+   "above_table": 0.00015564041287391962,
+   "quantile_over_table": 0.29959875830078947
+  },
+  "2025Q1": {
+   "snapshots": 2289946,
+   "censored": 1.9651118410652477e-05,
+   "above_table": 0.0006760117577135431,
+   "quantile_over_table": 0.41753500838329094
+  },
+  "2025Q2": {
+   "snapshots": 2360515,
+   "censored": 0.00037364727612406617,
+   "above_table": 0.00043523717459452384,
+   "quantile_over_table": 0.45563694703214475
+  },
+  "2025Q3": {
+   "snapshots": 2425010,
+   "censored": 0.00033072028568954353,
+   "above_table": 0.00020047784678542434,
+   "quantile_over_table": 0.31993435973934414
+  },
+  "2025Q4": {
+   "snapshots": 2000992,
+   "censored": 0.008949061265612256,
+   "above_table": 0.000723115751468041,
+   "quantile_over_table": 0.4585049775526143
+  },
+  "2026Q1": {
+   "snapshots": 2295919,
+   "censored": 0.01638603104029367,
+   "above_table": 0.0010490201027499471,
+   "quantile_over_table": 0.513894188197956
+  },
+  "2026Q2": {
+   "snapshots": 2018023,
+   "censored": 0.000987600240433335,
+   "above_table": 0.0022792319558736724,
+   "quantile_over_table": 0.6419909023172118
+  },
+  "2026Q3": {
+   "snapshots": 65321,
+   "censored": 0.0037507080418242218,
+   "above_table": 0.006346425717622472,
+   "quantile_over_table": 0.7194587997851736
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.23075266346954598,
+   "above_table": 0.015958936070928603,
+   "quantile_over_table": 0.8954458826167996
+  },
+  "all": {
+   "snapshots": 19627301,
+   "censored": 0.003909605299271662,
+   "above_table": 0.027448975134530634,
+   "quantile_over_table": 0.7341802989743617
+  },
+  "vol-high": {
+   "snapshots": 5721263,
+   "censored": 0.005302150941147086,
+   "above_table": 0.09160983937944743,
+   "quantile_over_table": 1.3296129190447479
+  },
+  "vol-low": {
+   "snapshots": 7172911,
+   "censored": 0.0036148503724638434,
+   "above_table": 0.0001898703536681637,
+   "quantile_over_table": 0.5138796871586383
+  },
+  "vol-mid": {
+   "snapshots": 6733127,
+   "censored": 0.0030403406916281244,
+   "above_table": 0.002076823242543637,
+   "quantile_over_table": 0.48601831218457675
+  }
+ },
+ "POPCAT:sell:1000": {
+  "table": 10.393920871443196,
+  "2024Q2": {
+   "snapshots": 1506774,
+   "censored": 0.0,
+   "above_table": 0.31161408412940494,
+   "quantile_over_table": 2.7618046198742556
+  },
+  "2024Q3": {
+   "snapshots": 2275681,
+   "censored": 0.0,
+   "above_table": 0.07810672937024125,
+   "quantile_over_table": 1.167988674581122
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 4.3113223084199264e-07,
+   "above_table": 0.0006734288349120684,
+   "quantile_over_table": 0.35077958062474524
+  },
+  "2025Q1": {
+   "snapshots": 2289946,
+   "censored": 9.170521924971156e-06,
+   "above_table": 0.002655545487297619,
+   "quantile_over_table": 0.528866455986209
+  },
+  "2025Q2": {
+   "snapshots": 2360515,
+   "censored": 1.6945454699504134e-06,
+   "above_table": 0.002402869548161394,
+   "quantile_over_table": 0.5242793975729341
+  },
+  "2025Q3": {
+   "snapshots": 2425010,
+   "censored": 4.1236943352810915e-07,
+   "above_table": 0.0006197915141758236,
+   "quantile_over_table": 0.4133631584638168
+  },
+  "2025Q4": {
+   "snapshots": 2000992,
+   "censored": 0.0,
+   "above_table": 0.0017066534998640675,
+   "quantile_over_table": 0.4990178177461484
+  },
+  "2026Q1": {
+   "snapshots": 2295919,
+   "censored": 0.0,
+   "above_table": 0.0023816171215099487,
+   "quantile_over_table": 0.5220108121407397
+  },
+  "2026Q2": {
+   "snapshots": 2018023,
+   "censored": 0.0,
+   "above_table": 0.002288873813628487,
+   "quantile_over_table": 0.5260460404586589
+  },
+  "2026Q3": {
+   "snapshots": 65321,
+   "censored": 0.0,
+   "above_table": 0.011114343013732184,
+   "quantile_over_table": 0.6793586230915565
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.0,
+   "above_table": 0.07005427447376734,
+   "quantile_over_table": 1.0682091141717749
+  },
+  "all": {
+   "snapshots": 19627301,
+   "censored": 1.3756348873439094e-06,
+   "above_table": 0.03470695930570898,
+   "quantile_over_table": 0.7887451684508856
+  },
+  "vol-high": {
+   "snapshots": 5721263,
+   "censored": 3.6705182055081195e-06,
+   "above_table": 0.112456875622461,
+   "quantile_over_table": 1.586754216590617
+  },
+  "vol-low": {
+   "snapshots": 7172911,
+   "censored": 1.394134124904101e-07,
+   "above_table": 0.0005711768306029212,
+   "quantile_over_table": 0.4742100507283701
+  },
+  "vol-mid": {
+   "snapshots": 6733127,
+   "censored": 7.425970132451088e-07,
+   "above_table": 0.005007038339718187,
+   "quantile_over_table": 0.49666273076911827
+  }
+ },
+ "POPCAT:sell:10000": {
+  "table": 21.64266698957085,
+  "2024Q2": {
+   "snapshots": 1506774,
+   "censored": 5.309356280371177e-05,
+   "above_table": 0.2723817842242685,
+   "quantile_over_table": 2.392472699339471
+  },
+  "2024Q3": {
+   "snapshots": 2275681,
+   "censored": 3.119945194427514e-05,
+   "above_table": 0.07539648709576773,
+   "quantile_over_table": 1.1489401207844965
+  },
+  "2024Q4": {
+   "snapshots": 2319474,
+   "censored": 1.2933966925259779e-06,
+   "above_table": 0.000251350415676678,
+   "quantile_over_table": 0.31472075148172196
+  },
+  "2025Q1": {
+   "snapshots": 2289946,
+   "censored": 6.201019587361449e-05,
+   "above_table": 0.0007948278542617621,
+   "quantile_over_table": 0.46181717955017554
+  },
+  "2025Q2": {
+   "snapshots": 2360515,
+   "censored": 0.00023766000216054548,
+   "above_table": 0.0005339087117799754,
+   "quantile_over_table": 0.46488908654334776
+  },
+  "2025Q3": {
+   "snapshots": 2425010,
+   "censored": 0.00020288576129582971,
+   "above_table": 0.0003250130541410705,
+   "quantile_over_table": 0.34435469559998316
+  },
+  "2025Q4": {
+   "snapshots": 2000992,
+   "censored": 0.007154451392109513,
+   "above_table": 0.0006191246081394249,
+   "quantile_over_table": 0.47123638561865544
+  },
+  "2026Q1": {
+   "snapshots": 2295919,
+   "censored": 0.033491164104657,
+   "above_table": 0.0013433821865989853,
+   "quantile_over_table": 0.5705343835011625
+  },
+  "2026Q2": {
+   "snapshots": 2018023,
+   "censored": 0.0008037569442964724,
+   "above_table": 0.0018309850074464354,
+   "quantile_over_table": 0.7115524925877521
+  },
+  "2026Q3": {
+   "snapshots": 65321,
+   "censored": 0.032470415333506836,
+   "above_table": 0.00819620253164557,
+   "quantile_over_table": 0.7430369983799807
+  },
+  "2026Q4": {
+   "snapshots": 69646,
+   "censored": 0.25052407891336187,
+   "above_table": 0.02938809916088739,
+   "quantile_over_table": 0.951231989279313
+  },
+  "all": {
+   "snapshots": 19627301,
+   "censored": 0.005795447881499346,
+   "above_table": 0.03056209346202065,
+   "quantile_over_table": 0.7634173517594426
+  },
+  "vol-high": {
+   "snapshots": 5721263,
+   "censored": 0.005821616660517092,
+   "above_table": 0.10109167511141084,
+   "quantile_over_table": 1.4306178610540934
+  },
+  "vol-low": {
+   "snapshots": 7172911,
+   "censored": 0.007241411471576881,
+   "above_table": 0.0003333815945554601,
+   "quantile_over_table": 0.5905522148660727
+  },
+  "vol-mid": {
+   "snapshots": 6733127,
+   "censored": 0.0042328029754971205,
+   "above_table": 0.0028332672347022437,
+   "quantile_over_table": 0.5169499038561192
+  }
+ },
+ "SOL:buy:1000": {
+  "table": 1.4120846908149964,
+  "2023Q2": {
+   "snapshots": 2128672,
+   "censored": 8.925752769802017e-06,
+   "above_table": 0.8233732787824037,
+   "quantile_over_table": 4.951103391180782
+  },
+  "2023Q3": {
+   "snapshots": 2027206,
+   "censored": 5.426187570478777e-06,
+   "above_table": 0.865214742538335,
+   "quantile_over_table": 4.258628101427048
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 0.0,
+   "above_table": 0.47325885452334837,
+   "quantile_over_table": 2.0655239241538554
+  },
+  "2024Q1": {
+   "snapshots": 1810140,
+   "censored": 0.0,
+   "above_table": 0.11127647585269648,
+   "quantile_over_table": 1.3656789542342924
+  },
+  "2024Q2": {
+   "snapshots": 2055087,
+   "censored": 0.0,
+   "above_table": 0.039047981910254895,
+   "quantile_over_table": 0.9064159190124264
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 0.0,
+   "above_table": 0.0337985996310563,
+   "quantile_over_table": 0.8164613470421048
+  },
+  "2024Q4": {
+   "snapshots": 2319466,
+   "censored": 0.0,
+   "above_table": 0.01745186176473378,
+   "quantile_over_table": 0.6269420323889049
+  },
+  "2025Q1": {
+   "snapshots": 2289948,
+   "censored": 0.0,
+   "above_table": 0.04173413544761715,
+   "quantile_over_table": 0.8948581234277363
+  },
+  "2025Q2": {
+   "snapshots": 2360328,
+   "censored": 0.0,
+   "above_table": 0.03220993014530184,
+   "quantile_over_table": 0.7845631172332638
+  },
+  "2025Q3": {
+   "snapshots": 2424956,
+   "censored": 0.0,
+   "above_table": 0.0180774414051224,
+   "quantile_over_table": 0.5918069910394687
+  },
+  "2025Q4": {
+   "snapshots": 1895479,
+   "censored": 0.0,
+   "above_table": 0.03019553368831836,
+   "quantile_over_table": 0.7692908723199088
+  },
+  "2026Q1": {
+   "snapshots": 2295354,
+   "censored": 6.099277061403165e-06,
+   "above_table": 0.025303440884574833,
+   "quantile_over_table": 0.7001002073149946
+  },
+  "2026Q2": {
+   "snapshots": 2017602,
+   "censored": 1.4869136727659865e-06,
+   "above_table": 0.017486626430722855,
+   "quantile_over_table": 0.5814705749441959
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 0.0,
+   "above_table": 0.0117920916413979,
+   "quantile_over_table": 0.4762753769889759
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.022759581281141857,
+   "quantile_over_table": 0.8060052010828783
+  },
+  "all": {
+   "snapshots": 28076249,
+   "censored": 1.6740127928057625e-06,
+   "above_table": 0.18664166186010486,
+   "quantile_over_table": 2.397976444443871
+  },
+  "vol-high": {
+   "snapshots": 8309276,
+   "censored": 4.573202286216031e-06,
+   "above_table": 0.3778047999106537,
+   "quantile_over_table": 3.6582610307610413
+  },
+  "vol-low": {
+   "snapshots": 10122097,
+   "censored": 2.963812735641636e-07,
+   "above_table": 0.06076371154031962,
+   "quantile_over_table": 1.082833060731671
+  },
+  "vol-mid": {
+   "snapshots": 9644876,
+   "censored": 6.220919792022209e-07,
+   "above_table": 0.15405733825339274,
+   "quantile_over_table": 1.5263167664610893
+  }
+ },
+ "SOL:buy:10000": {
+  "table": 1.4781675778374748,
+  "2023Q2": {
+   "snapshots": 2128672,
+   "censored": 0.0004016588746410908,
+   "above_table": 0.998262068589545,
+   "quantile_over_table": 11.13370268983582
+  },
+  "2023Q3": {
+   "snapshots": 2027206,
+   "censored": 0.00011394993898005432,
+   "above_table": 0.961887541780239,
+   "quantile_over_table": 13.150689003793943
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 0.0,
+   "above_table": 0.4828680122230681,
+   "quantile_over_table": 2.2273613549246627
+  },
+  "2024Q1": {
+   "snapshots": 1810140,
+   "censored": 0.0,
+   "above_table": 0.14192880108720873,
+   "quantile_over_table": 1.5626487805125797
+  },
+  "2024Q2": {
+   "snapshots": 2055087,
+   "censored": 9.73194808784251e-07,
+   "above_table": 0.07559200714325685,
+   "quantile_over_table": 1.1660808628157233
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 0.0,
+   "above_table": 0.07582504791961632,
+   "quantile_over_table": 1.183332219900524
+  },
+  "2024Q4": {
+   "snapshots": 2319466,
+   "censored": 0.0,
+   "above_table": 0.03414622158721016,
+   "quantile_over_table": 0.857220557674691
+  },
+  "2025Q1": {
+   "snapshots": 2289948,
+   "censored": 0.0,
+   "above_table": 0.07592093794269564,
+   "quantile_over_table": 1.2277481058442898
+  },
+  "2025Q2": {
+   "snapshots": 2360328,
+   "censored": 0.0,
+   "above_table": 0.07659274473717212,
+   "quantile_over_table": 1.1928874028527332
+  },
+  "2025Q3": {
+   "snapshots": 2424956,
+   "censored": 0.0,
+   "above_table": 0.0516178437876811,
+   "quantile_over_table": 1.0135057119122557
+  },
+  "2025Q4": {
+   "snapshots": 1895479,
+   "censored": 4.2205690487734235e-06,
+   "above_table": 0.06318957135192256,
+   "quantile_over_table": 1.1160575340408332
+  },
+  "2026Q1": {
+   "snapshots": 2295354,
+   "censored": 9.236048121553364e-05,
+   "above_table": 0.04691256575845852,
+   "quantile_over_table": 0.9721148759841446
+  },
+  "2026Q2": {
+   "snapshots": 2017602,
+   "censored": 8.87191824750372e-05,
+   "above_table": 0.03684998138714588,
+   "quantile_over_table": 0.8660189296181964
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 1.531440472908818e-05,
+   "above_table": 0.03092025667335406,
+   "quantile_over_table": 0.8141108092270068
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.03661636105167933,
+   "quantile_over_table": 0.9534992401546286
+  },
+  "all": {
+   "snapshots": 28076249,
+   "censored": 5.2998532674361166e-05,
+   "above_table": 0.23187164442824643,
+   "quantile_over_table": 4.137420648073591
+  },
+  "vol-high": {
+   "snapshots": 8309276,
+   "censored": 0.0001340670354432805,
+   "above_table": 0.4323783046117782,
+   "quantile_over_table": 8.372848351589973
+  },
+  "vol-low": {
+   "snapshots": 10122097,
+   "censored": 1.6794938835302606e-05,
+   "above_table": 0.09637166914956016,
+   "quantile_over_table": 1.35571415191823
+  },
+  "vol-mid": {
+   "snapshots": 9644876,
+   "censored": 2.115112729287551e-05,
+   "above_table": 0.20135521456820926,
+   "quantile_over_table": 2.7217056157408184
+  }
+ },
+ "SOL:sell:1000": {
+  "table": 1.3222597035666972,
+  "2023Q2": {
+   "snapshots": 2128672,
+   "censored": 4.227988154116745e-06,
+   "above_table": 0.8324469396987687,
+   "quantile_over_table": 5.100015235638164
+  },
+  "2023Q3": {
+   "snapshots": 2027206,
+   "censored": 0.0,
+   "above_table": 0.9006756096815025,
+   "quantile_over_table": 3.9573176022586174
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 0.0,
+   "above_table": 0.5525339156827763,
+   "quantile_over_table": 2.3633596217480934
+  },
+  "2024Q1": {
+   "snapshots": 1810140,
+   "censored": 0.0,
+   "above_table": 0.14488934557548036,
+   "quantile_over_table": 1.5201629799611949
+  },
+  "2024Q2": {
+   "snapshots": 2055087,
+   "censored": 0.0,
+   "above_table": 0.04803932874861259,
+   "quantile_over_table": 0.9796387079401758
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 0.0,
+   "above_table": 0.046559147439497364,
+   "quantile_over_table": 0.9605398901774074
+  },
+  "2024Q4": {
+   "snapshots": 2319466,
+   "censored": 0.0,
+   "above_table": 0.024107704100857698,
+   "quantile_over_table": 0.6972940032516225
+  },
+  "2025Q1": {
+   "snapshots": 2289948,
+   "censored": 0.0,
+   "above_table": 0.048426863841449674,
+   "quantile_over_table": 0.9782736238251059
+  },
+  "2025Q2": {
+   "snapshots": 2360328,
+   "censored": 0.0,
+   "above_table": 0.04016984080178687,
+   "quantile_over_table": 0.8738756105187779
+  },
+  "2025Q3": {
+   "snapshots": 2424956,
+   "censored": 0.0,
+   "above_table": 0.02643841785170535,
+   "quantile_over_table": 0.7065736278128883
+  },
+  "2025Q4": {
+   "snapshots": 1895479,
+   "censored": 0.0,
+   "above_table": 0.03752982755282438,
+   "quantile_over_table": 0.8596869823219179
+  },
+  "2026Q1": {
+   "snapshots": 2295354,
+   "censored": 2.613975883458499e-06,
+   "above_table": 0.02856995976209272,
+   "quantile_over_table": 0.7589033558957997
+  },
+  "2026Q2": {
+   "snapshots": 2017602,
+   "censored": 1.4869136727659865e-06,
+   "above_table": 0.017947074716036238,
+   "quantile_over_table": 0.5652641172548233
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 0.0,
+   "above_table": 0.013599191399430305,
+   "quantile_over_table": 0.5074245341792947
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.0437098835456125,
+   "quantile_over_table": 0.9559870532284976
+  },
+  "all": {
+   "snapshots": 28076249,
+   "censored": 6.411112823511432e-07,
+   "above_table": 0.20285247688694397,
+   "quantile_over_table": 2.6064277727138783
+  },
+  "vol-high": {
+   "snapshots": 8309276,
+   "censored": 1.3238217144309565e-06,
+   "above_table": 0.404418200647109,
+   "quantile_over_table": 3.882708815382378
+  },
+  "vol-low": {
+   "snapshots": 10122097,
+   "censored": 9.879375785472121e-08,
+   "above_table": 0.07131783772847047,
+   "quantile_over_table": 1.1649431339040506
+  },
+  "vol-mid": {
+   "snapshots": 9644876,
+   "censored": 6.220919792022209e-07,
+   "above_table": 0.1672421712267765,
+   "quantile_over_table": 1.6471687993435478
+  }
+ },
+ "SOL:sell:10000": {
+  "table": 1.4791758690002599,
+  "2023Q2": {
+   "snapshots": 2128672,
+   "censored": 0.00011133702139174095,
+   "above_table": 0.9981000124504624,
+   "quantile_over_table": 8.205865733215768
+  },
+  "2023Q3": {
+   "snapshots": 2027206,
+   "censored": 6.955385885795523e-05,
+   "above_table": 0.9417349714982006,
+   "quantile_over_table": 4.544886440038763
+  },
+  "2023Q4": {
+   "snapshots": 2041386,
+   "censored": 0.0,
+   "above_table": 0.5180641975598931,
+   "quantile_over_table": 2.3974843639848697
+  },
+  "2024Q1": {
+   "snapshots": 1810140,
+   "censored": 0.0,
+   "above_table": 0.1676063729877247,
+   "quantile_over_table": 1.6995464510255047
+  },
+  "2024Q2": {
+   "snapshots": 2055087,
+   "censored": 0.0,
+   "above_table": 0.08233860658940473,
+   "quantile_over_table": 1.2035058108945438
+  },
+  "2024Q3": {
+   "snapshots": 2275686,
+   "censored": 0.0,
+   "above_table": 0.09317190508708144,
+   "quantile_over_table": 1.29347976934729
+  },
+  "2024Q4": {
+   "snapshots": 2319466,
+   "censored": 0.0,
+   "above_table": 0.04622400155897952,
+   "quantile_over_table": 0.9658715491442789
+  },
+  "2025Q1": {
+   "snapshots": 2289948,
+   "censored": 0.0,
+   "above_table": 0.0809184313355587,
+   "quantile_over_table": 1.2752237534881463
+  },
+  "2025Q2": {
+   "snapshots": 2360328,
+   "censored": 0.0,
+   "above_table": 0.08086249029795858,
+   "quantile_over_table": 1.2401810023240107
+  },
+  "2025Q3": {
+   "snapshots": 2424956,
+   "censored": 4.1237861635427614e-07,
+   "above_table": 0.058274071065236265,
+   "quantile_over_table": 1.0707778759954814
+  },
+  "2025Q4": {
+   "snapshots": 1895479,
+   "censored": 5.803282442063458e-06,
+   "above_table": 0.07139186733830379,
+   "quantile_over_table": 1.1915082916108755
+  },
+  "2026Q1": {
+   "snapshots": 2295354,
+   "censored": 9.061783062656131e-05,
+   "above_table": 0.050890444442314345,
+   "quantile_over_table": 1.0086443412926747
+  },
+  "2026Q2": {
+   "snapshots": 2017602,
+   "censored": 8.475407934766124e-05,
+   "above_table": 0.03169922540101743,
+   "quantile_over_table": 0.8037210512523114
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 0.0,
+   "above_table": 0.03046035100615639,
+   "quantile_over_table": 0.7981652788665192
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.037592797346390774,
+   "quantile_over_table": 0.962869344907664
+  },
+  "all": {
+   "snapshots": 28076249,
+   "censored": 2.7389698673779393e-05,
+   "above_table": 0.23938753674024452,
+   "quantile_over_table": 3.6771872041663567
+  },
+  "vol-high": {
+   "snapshots": 8309276,
+   "censored": 4.8861056005360755e-05,
+   "above_table": 0.44479863086075483,
+   "quantile_over_table": 5.441415597858155
+  },
+  "vol-low": {
+   "snapshots": 10122097,
+   "censored": 1.886960775025175e-05,
+   "above_table": 0.09976283122961228,
+   "quantile_over_table": 1.2848618260131346
+  },
+  "vol-mid": {
+   "snapshots": 9644876,
+   "censored": 1.7833303403797e-05,
+   "above_table": 0.2089598602507656,
+   "quantile_over_table": 2.5431955220968
+  }
+ },
+ "SUI:buy:1000": {
+  "table": 1.8176428919813858,
+  "2023Q2": {
+   "snapshots": 1255526,
+   "censored": 1.991197314910245e-05,
+   "above_table": 0.6181357083745851,
+   "quantile_over_table": 5.057306727414868
+  },
+  "2023Q3": {
+   "snapshots": 2027071,
+   "censored": 1.2826388419547218e-05,
+   "above_table": 0.4209393476711173,
+   "quantile_over_table": 2.5338823436852906
+  },
+  "2023Q4": {
+   "snapshots": 2041376,
+   "censored": 0.0,
+   "above_table": 0.2601892057122255,
+   "quantile_over_table": 1.5983991676626237
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 0.0,
+   "above_table": 0.14859756804985444,
+   "quantile_over_table": 1.547362358427435
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 0.0,
+   "above_table": 0.08353814451048466,
+   "quantile_over_table": 1.1306413364168675
+  },
+  "2024Q3": {
+   "snapshots": 2275661,
+   "censored": 1.7577310504508361e-06,
+   "above_table": 0.07155999344365166,
+   "quantile_over_table": 1.1086781893837034
+  },
+  "2024Q4": {
+   "snapshots": 2319480,
+   "censored": 0.0,
+   "above_table": 0.041981392381050926,
+   "quantile_over_table": 0.9474407855900325
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 0.0,
+   "above_table": 0.039166794034804255,
+   "quantile_over_table": 0.9014633352655099
+  },
+  "2025Q2": {
+   "snapshots": 2360331,
+   "censored": 0.0,
+   "above_table": 0.04459671122397664,
+   "quantile_over_table": 0.9528283226746903
+  },
+  "2025Q3": {
+   "snapshots": 2424958,
+   "censored": 0.0,
+   "above_table": 0.021010673174545705,
+   "quantile_over_table": 0.7294270703118183
+  },
+  "2025Q4": {
+   "snapshots": 1895258,
+   "censored": 0.0,
+   "above_table": 0.029074669517289993,
+   "quantile_over_table": 0.827188503251741
+  },
+  "2026Q1": {
+   "snapshots": 2295300,
+   "censored": 4.792401864679998e-06,
+   "above_table": 0.0518688496307001,
+   "quantile_over_table": 1.0147988960645111
+  },
+  "2026Q2": {
+   "snapshots": 2017563,
+   "censored": 4.956474717270291e-06,
+   "above_table": 0.05843563960897186,
+   "quantile_over_table": 1.0599261886139597
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 0.0,
+   "above_table": 0.027458727679255106,
+   "quantile_over_table": 0.8184872628796795
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.05367527749457934,
+   "quantile_over_table": 1.034821919518766
+  },
+  "all": {
+   "snapshots": 27202628,
+   "censored": 2.793847712066643e-06,
+   "above_table": 0.1251662711645584,
+   "quantile_over_table": 1.5529840101832653
+  },
+  "vol-high": {
+   "snapshots": 7775017,
+   "censored": 6.559471188294508e-06,
+   "above_table": 0.25810865282240464,
+   "quantile_over_table": 2.5784950652905416
+  },
+  "vol-low": {
+   "snapshots": 9848055,
+   "censored": 1.1169718284473432e-06,
+   "above_table": 0.04483418230056649,
+   "quantile_over_table": 0.9704936370702314
+  },
+  "vol-mid": {
+   "snapshots": 9579556,
+   "censored": 1.461445603533191e-06,
+   "above_table": 0.09985101584188472,
+   "quantile_over_table": 1.3039550233587485
+  }
+ },
+ "SUI:buy:10000": {
+  "table": 3.145877927908103,
+  "2023Q2": {
+   "snapshots": 1255526,
+   "censored": 0.0006379796196972424,
+   "above_table": 0.9057841359660483,
+   "quantile_over_table": 4.370921480876435
+  },
+  "2023Q3": {
+   "snapshots": 2027071,
+   "censored": 6.758520051838342e-05,
+   "above_table": 0.4178458696731122,
+   "quantile_over_table": 4.267011724787977
+  },
+  "2023Q4": {
+   "snapshots": 2041376,
+   "censored": 0.0,
+   "above_table": 0.1293054292790745,
+   "quantile_over_table": 1.2432754873104461
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 0.0,
+   "above_table": 0.0683305065549951,
+   "quantile_over_table": 1.1421272714637138
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 1.9463346868469137e-06,
+   "above_table": 0.08967073305432571,
+   "quantile_over_table": 1.1918039094303186
+  },
+  "2024Q3": {
+   "snapshots": 2275661,
+   "censored": 8.349222489641471e-06,
+   "above_table": 0.06465076668474215,
+   "quantile_over_table": 1.0872588855850305
+  },
+  "2024Q4": {
+   "snapshots": 2319480,
+   "censored": 0.0,
+   "above_table": 0.02595323089658027,
+   "quantile_over_table": 0.824261087940812
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 0.0,
+   "above_table": 0.036088560885608856,
+   "quantile_over_table": 0.9042342548297964
+  },
+  "2025Q2": {
+   "snapshots": 2360331,
+   "censored": 4.2366939213186625e-07,
+   "above_table": 0.04246609584253049,
+   "quantile_over_table": 0.9545307932365449
+  },
+  "2025Q3": {
+   "snapshots": 2424958,
+   "censored": 0.0,
+   "above_table": 0.021885327498455644,
+   "quantile_over_table": 0.796467021818775
+  },
+  "2025Q4": {
+   "snapshots": 1895258,
+   "censored": 0.0,
+   "above_table": 0.03206476374192854,
+   "quantile_over_table": 0.8899197466228695
+  },
+  "2026Q1": {
+   "snapshots": 2295300,
+   "censored": 1.2634514006883632e-05,
+   "above_table": 0.05297326546625649,
+   "quantile_over_table": 1.0152203711694936
+  },
+  "2026Q2": {
+   "snapshots": 2017563,
+   "censored": 0.00014572035668774657,
+   "above_table": 0.05365422261483223,
+   "quantile_over_table": 1.0188187710600547
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 1.531440472908818e-05,
+   "above_table": 0.03418227483651622,
+   "quantile_over_table": 0.9118307562637432
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 1.4359357275168364e-05,
+   "above_table": 0.07762780011487651,
+   "quantile_over_table": 1.0964812276471974
+  },
+  "all": {
+   "snapshots": 27202628,
+   "censored": 4.731160533460223e-05,
+   "above_table": 0.12120299510233705,
+   "quantile_over_table": 1.57757388475919
+  },
+  "vol-high": {
+   "snapshots": 7775017,
+   "censored": 0.00012090005719601642,
+   "above_table": 0.24213794126299495,
+   "quantile_over_table": 2.585535264092641
+  },
+  "vol-low": {
+   "snapshots": 9848055,
+   "censored": 3.5540012723324555e-06,
+   "above_table": 0.04959494395827791,
+   "quantile_over_table": 0.9980866951625714
+  },
+  "vol-mid": {
+   "snapshots": 9579556,
+   "censored": 3.256935916445397e-05,
+   "above_table": 0.09667495681287584,
+   "quantile_over_table": 1.3333583364182735
+  }
+ },
+ "SUI:sell:1000": {
+  "table": 1.9623233908971915,
+  "2023Q2": {
+   "snapshots": 1255526,
+   "censored": 8.761268185605078e-06,
+   "above_table": 0.6122093324253394,
+   "quantile_over_table": 11.561696648759023
+  },
+  "2023Q3": {
+   "snapshots": 2027071,
+   "censored": 4.9332263152104685e-06,
+   "above_table": 0.33537865905367426,
+   "quantile_over_table": 2.261653467953736
+  },
+  "2023Q4": {
+   "snapshots": 2041376,
+   "censored": 0.0,
+   "above_table": 0.1989138698603295,
+   "quantile_over_table": 1.5042586332512922
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 0.0,
+   "above_table": 0.12880275348467185,
+   "quantile_over_table": 1.4750307893987498
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 0.0,
+   "above_table": 0.056028650046590384,
+   "quantile_over_table": 1.028225640022122
+  },
+  "2024Q3": {
+   "snapshots": 2275661,
+   "censored": 0.0,
+   "above_table": 0.06275802942529665,
+   "quantile_over_table": 1.0727453162108818
+  },
+  "2024Q4": {
+   "snapshots": 2319480,
+   "censored": 0.0,
+   "above_table": 0.03570714125579871,
+   "quantile_over_table": 0.8886674472477929
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 0.0,
+   "above_table": 0.03295486801021856,
+   "quantile_over_table": 0.8360452803164541
+  },
+  "2025Q2": {
+   "snapshots": 2360331,
+   "censored": 0.0,
+   "above_table": 0.03678975533516274,
+   "quantile_over_table": 0.8784336830997339
+  },
+  "2025Q3": {
+   "snapshots": 2424958,
+   "censored": 0.0,
+   "above_table": 0.020442003531607557,
+   "quantile_over_table": 0.7076871671192472
+  },
+  "2025Q4": {
+   "snapshots": 1895258,
+   "censored": 0.0,
+   "above_table": 0.024845166199008263,
+   "quantile_over_table": 0.7739583860671934
+  },
+  "2026Q1": {
+   "snapshots": 2295300,
+   "censored": 8.713457935781815e-07,
+   "above_table": 0.043457102302184726,
+   "quantile_over_table": 0.9527014395202927
+  },
+  "2026Q2": {
+   "snapshots": 2017563,
+   "censored": 0.0,
+   "above_table": 0.04559461092416941,
+   "quantile_over_table": 0.96923896228835
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 0.0,
+   "above_table": 0.020766332812643572,
+   "quantile_over_table": 0.7554615166904827
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 0.0,
+   "above_table": 0.04731408222167976,
+   "quantile_over_table": 0.9830246913564872
+  },
+  "all": {
+   "snapshots": 27202628,
+   "censored": 8.455065444412209e-07,
+   "above_table": 0.10601205288978757,
+   "quantile_over_table": 1.4611563587312635
+  },
+  "vol-high": {
+   "snapshots": 7775017,
+   "censored": 2.700958724591856e-06,
+   "above_table": 0.22656114549769543,
+   "quantile_over_table": 2.473786407763546
+  },
+  "vol-low": {
+   "snapshots": 9848055,
+   "censored": 2.0308578699042603e-07,
+   "above_table": 0.03427428751652738,
+   "quantile_over_table": 0.9050469593906894
+  },
+  "vol-mid": {
+   "snapshots": 9579556,
+   "censored": 0.0,
+   "above_table": 0.08191997624942117,
+   "quantile_over_table": 1.2221991269989858
+  }
+ },
+ "SUI:sell:10000": {
+  "table": 3.4530291371992483,
+  "2023Q2": {
+   "snapshots": 1255526,
+   "censored": 0.0007255923015532932,
+   "above_table": 0.9295433260402594,
+   "quantile_over_table": 13.74663320073449
+  },
+  "2023Q3": {
+   "snapshots": 2027071,
+   "censored": 6.561190999229924e-05,
+   "above_table": 0.3056600645900368,
+   "quantile_over_table": 2.3060579381831103
+  },
+  "2023Q4": {
+   "snapshots": 2041376,
+   "censored": 4.898656592416096e-07,
+   "above_table": 0.08245128895964729,
+   "quantile_over_table": 1.1282342119921211
+  },
+  "2024Q1": {
+   "snapshots": 1810070,
+   "censored": 4.0329931991580434e-05,
+   "above_table": 0.05721998434251548,
+   "quantile_over_table": 1.054245265583679
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 1.459751015135185e-06,
+   "above_table": 0.050181933900431214,
+   "quantile_over_table": 1.0010760253975284
+  },
+  "2024Q3": {
+   "snapshots": 2275661,
+   "censored": 0.0,
+   "above_table": 0.06286612988489938,
+   "quantile_over_table": 1.0742840710107466
+  },
+  "2024Q4": {
+   "snapshots": 2319480,
+   "censored": 0.0,
+   "above_table": 0.02303662889958094,
+   "quantile_over_table": 0.7915180753580282
+  },
+  "2025Q1": {
+   "snapshots": 2289950,
+   "censored": 1.5720867267844276e-05,
+   "above_table": 0.0291901791945025,
+   "quantile_over_table": 0.8461523116336649
+  },
+  "2025Q2": {
+   "snapshots": 2360331,
+   "censored": 1.1015404195428523e-05,
+   "above_table": 0.03365115948998117,
+   "quantile_over_table": 0.8913192780504642
+  },
+  "2025Q3": {
+   "snapshots": 2424958,
+   "censored": 0.0,
+   "above_table": 0.017406487040187914,
+   "quantile_over_table": 0.749842715866841
+  },
+  "2025Q4": {
+   "snapshots": 1895258,
+   "censored": 3.1657958969174643e-06,
+   "above_table": 0.025348080360817454,
+   "quantile_over_table": 0.8426225613948676
+  },
+  "2026Q1": {
+   "snapshots": 2295300,
+   "censored": 1.5684224284407267e-05,
+   "above_table": 0.048126925704406985,
+   "quantile_over_table": 0.9901855042681621
+  },
+  "2026Q2": {
+   "snapshots": 2017563,
+   "censored": 7.137323592869219e-05,
+   "above_table": 0.03890069440210487,
+   "quantile_over_table": 0.9384771716950856
+  },
+  "2026Q3": {
+   "snapshots": 65298,
+   "censored": 1.531440472908818e-05,
+   "above_table": 0.023262937041517988,
+   "quantile_over_table": 0.8535144215885172
+  },
+  "2026Q4": {
+   "snapshots": 69641,
+   "censored": 1.4359357275168364e-05,
+   "above_table": 0.05475301550832855,
+   "quantile_over_table": 1.0207442437554572
+  },
+  "all": {
+   "snapshots": 27202628,
+   "censored": 5.039954227951799e-05,
+   "above_table": 0.10249809411381246,
+   "quantile_over_table": 1.4676621727870887
+  },
+  "vol-high": {
+   "snapshots": 7775017,
+   "censored": 0.00014495145155309628,
+   "above_table": 0.22228047991417424,
+   "quantile_over_table": 3.0934379661677704
+  },
+  "vol-low": {
+   "snapshots": 9848055,
+   "censored": 7.108002544664911e-07,
+   "above_table": 0.03035840198991719,
+   "quantile_over_table": 0.8755472481169257
+  },
+  "vol-mid": {
+   "snapshots": 9579556,
+   "censored": 2.4740186288383303e-05,
+   "above_table": 0.07945470862803504,
+   "quantile_over_table": 1.2401872629287425
+  }
+ },
+ "TIA:buy:1000": {
+  "table": 3.6073261573643656,
+  "2023Q4": {
+   "snapshots": 1616385,
+   "censored": 5.258648156225157e-05,
+   "above_table": 0.2564511538699499,
+   "quantile_over_table": 29.114176899517176
+  },
+  "2024Q1": {
+   "snapshots": 1810058,
+   "censored": 0.0,
+   "above_table": 0.02596767617391266,
+   "quantile_over_table": 0.7662212923117342
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 0.0,
+   "above_table": 0.01492644071342898,
+   "quantile_over_table": 0.6732735121943046
+  },
+  "2024Q3": {
+   "snapshots": 2275658,
+   "censored": 0.0,
+   "above_table": 0.009025081976289935,
+   "quantile_over_table": 0.5554300230310631
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 0.0,
+   "above_table": 0.0052405048992577065,
+   "quantile_over_table": 0.48575319897477887
+  },
+  "2025Q1": {
+   "snapshots": 2289935,
+   "censored": 0.0,
+   "above_table": 0.008792825997244463,
+   "quantile_over_table": 0.5597222123821022
+  },
+  "2025Q2": {
+   "snapshots": 2358712,
+   "censored": 0.0,
+   "above_table": 0.009810014957315687,
+   "quantile_over_table": 0.6917083155061134
+  },
+  "2025Q3": {
+   "snapshots": 2423825,
+   "censored": 0.0,
+   "above_table": 0.011077944983651873,
+   "quantile_over_table": 0.6868964296665949
+  },
+  "2025Q4": {
+   "snapshots": 1894630,
+   "censored": 0.0,
+   "above_table": 0.023626776732132395,
+   "quantile_over_table": 0.8147904231032469
+  },
+  "2026Q1": {
+   "snapshots": 2295102,
+   "censored": 0.0,
+   "above_table": 0.07474134047201388,
+   "quantile_over_table": 1.0880484929550776
+  },
+  "2026Q2": {
+   "snapshots": 2017454,
+   "censored": 0.0,
+   "above_table": 0.11958934379668631,
+   "quantile_over_table": 1.2037151268516506
+  },
+  "2026Q3": {
+   "snapshots": 65294,
+   "censored": 0.0,
+   "above_table": 0.07928753024780225,
+   "quantile_over_table": 1.115920685668515
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.0006174878297456811,
+   "above_table": 0.09463459493634509,
+   "quantile_over_table": 1.1867262832166108
+  },
+  "all": {
+   "snapshots": 23491268,
+   "censored": 5.448833157920637e-06,
+   "above_table": 0.045307762841650084,
+   "quantile_over_table": 0.9658054182549205
+  },
+  "vol-high": {
+   "snapshots": 6553465,
+   "censored": 1.9531652339640175e-05,
+   "above_table": 0.09488890926866725,
+   "quantile_over_table": 1.5325266423418438
+  },
+  "vol-low": {
+   "snapshots": 8511618,
+   "censored": 0.0,
+   "above_table": 0.02579521308404583,
+   "quantile_over_table": 0.8685496372416235
+  },
+  "vol-mid": {
+   "snapshots": 8426185,
+   "censored": 0.0,
+   "above_table": 0.026457168932322278,
+   "quantile_over_table": 0.8269486999026524
+  }
+ },
+ "TIA:buy:10000": {
+  "table": 10.146041304679443,
+  "2023Q4": {
+   "snapshots": 1616385,
+   "censored": 0.02059905282466739,
+   "above_table": 0.15353464018763316,
+   "quantile_over_table": 24.450545699378782
+  },
+  "2024Q1": {
+   "snapshots": 1810058,
+   "censored": 0.0,
+   "above_table": 0.004126939578731731,
+   "quantile_over_table": 0.33421980714666494
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 3.114135498955062e-05,
+   "above_table": 0.002849036120717383,
+   "quantile_over_table": 0.34769071973419835
+  },
+  "2024Q3": {
+   "snapshots": 2275658,
+   "censored": 8.788666838338626e-07,
+   "above_table": 0.0014637537483697008,
+   "quantile_over_table": 0.3183317061637605
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 4.311398518517241e-07,
+   "above_table": 0.0005570329287515219,
+   "quantile_over_table": 0.27651303744133743
+  },
+  "2025Q1": {
+   "snapshots": 2289935,
+   "censored": 0.0,
+   "above_table": 0.0012943598835774815,
+   "quantile_over_table": 0.38182568483758555
+  },
+  "2025Q2": {
+   "snapshots": 2358712,
+   "censored": 0.0,
+   "above_table": 0.0010387024783017173,
+   "quantile_over_table": 0.4848800499313011
+  },
+  "2025Q3": {
+   "snapshots": 2423825,
+   "censored": 4.1257103957587695e-07,
+   "above_table": 0.0025777449187729803,
+   "quantile_over_table": 0.50040867320498
+  },
+  "2025Q4": {
+   "snapshots": 1894630,
+   "censored": 8.972728184394842e-06,
+   "above_table": 0.005479219238968592,
+   "quantile_over_table": 0.5540015505174605
+  },
+  "2026Q1": {
+   "snapshots": 2295102,
+   "censored": 8.932064892976434e-05,
+   "above_table": 0.013935701689444014,
+   "quantile_over_table": 0.7864644480570349
+  },
+  "2026Q2": {
+   "snapshots": 2017454,
+   "censored": 0.0017497301053704323,
+   "above_table": 0.051989052218455116,
+   "quantile_over_table": 1.0056686662374266
+  },
+  "2026Q3": {
+   "snapshots": 65294,
+   "censored": 0.007703617483995466,
+   "above_table": 0.04787701995647543,
+   "quantile_over_table": 0.992870190331071
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.39797808636213505,
+   "above_table": 0.08940199890275027,
+   "quantile_over_table": 1.0963360433855849
+  },
+  "all": {
+   "snapshots": 23491268,
+   "censored": 0.002781161068018976,
+   "above_table": 0.018209860140054174,
+   "quantile_over_table": 0.7303248193773875
+  },
+  "vol-high": {
+   "snapshots": 6553465,
+   "censored": 0.00956623709747439,
+   "above_table": 0.045763886674206604,
+   "quantile_over_table": 0.9486237037322616
+  },
+  "vol-low": {
+   "snapshots": 8511618,
+   "censored": 6.69672910602896e-05,
+   "above_table": 0.005687431207061692,
+   "quantile_over_table": 0.6820752780368982
+  },
+  "vol-mid": {
+   "snapshots": 8426185,
+   "censored": 0.0002457814538845278,
+   "above_table": 0.00963116121173099,
+   "quantile_over_table": 0.6796855995600575
+  }
+ },
+ "TIA:sell:1000": {
+  "table": 3.7429093245588962,
+  "2023Q4": {
+   "snapshots": 1616385,
+   "censored": 1.237328977935331e-06,
+   "above_table": 0.2577124357284134,
+   "quantile_over_table": 28.211084715545585
+  },
+  "2024Q1": {
+   "snapshots": 1810058,
+   "censored": 0.0,
+   "above_table": 0.02567210553473977,
+   "quantile_over_table": 0.7573756879910531
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 0.0,
+   "above_table": 0.013610231881448755,
+   "quantile_over_table": 0.6554913996162077
+  },
+  "2024Q3": {
+   "snapshots": 2275658,
+   "censored": 0.0,
+   "above_table": 0.009281711047969422,
+   "quantile_over_table": 0.5622697601454538
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 0.0,
+   "above_table": 0.0053275951493317545,
+   "quantile_over_table": 0.4814747648442459
+  },
+  "2025Q1": {
+   "snapshots": 2289935,
+   "censored": 0.0,
+   "above_table": 0.008654394120357128,
+   "quantile_over_table": 0.5517010594941667
+  },
+  "2025Q2": {
+   "snapshots": 2358712,
+   "censored": 0.0,
+   "above_table": 0.009702329067728489,
+   "quantile_over_table": 0.6797370554417315
+  },
+  "2025Q3": {
+   "snapshots": 2423825,
+   "censored": 0.0,
+   "above_table": 0.011622126184852455,
+   "quantile_over_table": 0.6804338639704899
+  },
+  "2025Q4": {
+   "snapshots": 1894630,
+   "censored": 0.0,
+   "above_table": 0.01765041195378517,
+   "quantile_over_table": 0.7530134113923939
+  },
+  "2026Q1": {
+   "snapshots": 2295102,
+   "censored": 0.0,
+   "above_table": 0.04989102880830569,
+   "quantile_over_table": 0.9995293873024265
+  },
+  "2026Q2": {
+   "snapshots": 2017454,
+   "censored": 0.0,
+   "above_table": 0.104466322404377,
+   "quantile_over_table": 1.166714096869813
+  },
+  "2026Q3": {
+   "snapshots": 65294,
+   "censored": 0.0,
+   "above_table": 0.0644775936533219,
+   "quantile_over_table": 1.0609793274450963
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.0002441230954808507,
+   "above_table": 0.08702958919850617,
+   "quantile_over_table": 1.158680807647853
+  },
+  "all": {
+   "snapshots": 23491268,
+   "censored": 8.088111718788445e-07,
+   "above_table": 0.0410503502815027,
+   "quantile_over_table": 0.9301345484465698
+  },
+  "vol-high": {
+   "snapshots": 6553465,
+   "censored": 2.8992296441653384e-06,
+   "above_table": 0.0920978062533818,
+   "quantile_over_table": 1.5241922424343377
+  },
+  "vol-low": {
+   "snapshots": 8511618,
+   "censored": 0.0,
+   "above_table": 0.019178257294911495,
+   "quantile_over_table": 0.812226971963249
+  },
+  "vol-mid": {
+   "snapshots": 8426185,
+   "censored": 0.0,
+   "above_table": 0.02344216273438098,
+   "quantile_over_table": 0.8020143687520978
+  }
+ },
+ "TIA:sell:10000": {
+  "table": 9.092153495094957,
+  "2023Q4": {
+   "snapshots": 1616385,
+   "censored": 2.474657955870662e-06,
+   "above_table": 0.17499153974217713,
+   "quantile_over_table": 30.91676170383242
+  },
+  "2024Q1": {
+   "snapshots": 1810058,
+   "censored": 5.524684844353054e-07,
+   "above_table": 0.005739045786955881,
+   "quantile_over_table": 0.3985160159993302
+  },
+  "2024Q2": {
+   "snapshots": 2055145,
+   "censored": 1.4597510151351851e-05,
+   "above_table": 0.004778321407804429,
+   "quantile_over_table": 0.40634302980027237
+  },
+  "2024Q3": {
+   "snapshots": 2275658,
+   "censored": 5.273200103003175e-06,
+   "above_table": 0.0024564453346434373,
+   "quantile_over_table": 0.391583453868767
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 4.311398518517241e-07,
+   "above_table": 0.0011093233170879767,
+   "quantile_over_table": 0.33607444442130613
+  },
+  "2025Q1": {
+   "snapshots": 2289935,
+   "censored": 6.113710651175688e-06,
+   "above_table": 0.0021856649203182118,
+   "quantile_over_table": 0.42808874968956284
+  },
+  "2025Q2": {
+   "snapshots": 2358712,
+   "censored": 4.239601952251907e-07,
+   "above_table": 0.0024988224500585277,
+   "quantile_over_table": 0.5287631488195084
+  },
+  "2025Q3": {
+   "snapshots": 2423825,
+   "censored": 6.188565593638155e-06,
+   "above_table": 0.003858800813595125,
+   "quantile_over_table": 0.538069913028727
+  },
+  "2025Q4": {
+   "snapshots": 1894630,
+   "censored": 7.230963301541725e-05,
+   "above_table": 0.007680682905663943,
+   "quantile_over_table": 0.657795832722707
+  },
+  "2026Q1": {
+   "snapshots": 2295102,
+   "censored": 8.888493844718013e-05,
+   "above_table": 0.024921804803525037,
+   "quantile_over_table": 0.8758228882855108
+  },
+  "2026Q2": {
+   "snapshots": 2017454,
+   "censored": 0.0014280375165926955,
+   "above_table": 0.09926371494108181,
+   "quantile_over_table": 1.1208454047911103
+  },
+  "2026Q3": {
+   "snapshots": 65294,
+   "censored": 0.011302723067969492,
+   "above_table": 0.10792180432492719,
+   "quantile_over_table": 1.1374151844543219
+  },
+  "2026Q4": {
+   "snapshots": 69637,
+   "censored": 0.40607722905926447,
+   "above_table": 0.16434149761841438,
+   "quantile_over_table": 1.2317792461158361
+  },
+  "all": {
+   "snapshots": 23491268,
+   "censored": 0.0013756600963387758,
+   "above_table": 0.02629946981433783,
+   "quantile_over_table": 0.8125932076594636
+  },
+  "vol-high": {
+   "snapshots": 6553465,
+   "censored": 0.004624576464511522,
+   "above_table": 0.060599482643222805,
+   "quantile_over_table": 1.1343722632323883
+  },
+  "vol-low": {
+   "snapshots": 8511618,
+   "censored": 6.626237220702339e-05,
+   "above_table": 0.009773407617904904,
+   "quantile_over_table": 0.7420560211993119
+  },
+  "vol-mid": {
+   "snapshots": 8426185,
+   "censored": 0.0001714892326717251,
+   "above_table": 0.016436827724060327,
+   "quantile_over_table": 0.7617630552373303
+  }
+ },
+ "WIF:buy:1000": {
+  "table": 3.9957048236360926,
+  "2023Q4": {
+   "snapshots": 205821,
+   "censored": 0.0,
+   "above_table": 0.9987027562785139,
+   "quantile_over_table": 47.231400810970406
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 5.524669583323895e-06,
+   "above_table": 0.42192410940453123,
+   "quantile_over_table": 13.748388230962746
+  },
+  "2024Q2": {
+   "snapshots": 2055147,
+   "censored": 0.0,
+   "above_table": 0.03538189725601137,
+   "quantile_over_table": 0.8829249172889085
+  },
+  "2024Q3": {
+   "snapshots": 2275659,
+   "censored": 0.0,
+   "above_table": 0.013291534452218017,
+   "quantile_over_table": 0.6506683519137548
+  },
+  "2024Q4": {
+   "snapshots": 2319434,
+   "censored": 4.311396659702324e-07,
+   "above_table": 0.0058152143217760546,
+   "quantile_over_table": 0.5301762999781844
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.011950942053193418,
+   "quantile_over_table": 0.6562246867886612
+  },
+  "2025Q2": {
+   "snapshots": 2358718,
+   "censored": 0.0,
+   "above_table": 0.015898042919925144,
+   "quantile_over_table": 0.7422175965505152
+  },
+  "2025Q3": {
+   "snapshots": 2423865,
+   "censored": 0.0,
+   "above_table": 0.006813085712281831,
+   "quantile_over_table": 0.6036001233826023
+  },
+  "2025Q4": {
+   "snapshots": 1895024,
+   "censored": 1.0553956044883865e-06,
+   "above_table": 0.012892726311356807,
+   "quantile_over_table": 0.7158627707218673
+  },
+  "2026Q1": {
+   "snapshots": 2295251,
+   "censored": 0.0,
+   "above_table": 0.05444894697791222,
+   "quantile_over_table": 1.017448676138986
+  },
+  "2026Q2": {
+   "snapshots": 2017551,
+   "censored": 0.0,
+   "above_table": 0.08473837836069571,
+   "quantile_over_table": 1.1317152397992258
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 0.0,
+   "above_table": 0.1596091704059911,
+   "quantile_over_table": 1.2908427740499675
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.0,
+   "above_table": 0.02603388856978748,
+   "quantile_over_table": 0.8830931453438519
+  },
+  "all": {
+   "snapshots": 22081415,
+   "censored": 5.887303870698503e-07,
+   "above_table": 0.06791661145429082,
+   "quantile_over_table": 1.2003296742971241
+  },
+  "vol-high": {
+   "snapshots": 5867791,
+   "censored": 2.0450626138524704e-06,
+   "above_table": 0.19766831709237856,
+   "quantile_over_table": 10.981784816892409
+  },
+  "vol-low": {
+   "snapshots": 8218030,
+   "censored": 0.0,
+   "above_table": 0.023216634643582465,
+   "quantile_over_table": 0.8464560466246176
+  },
+  "vol-mid": {
+   "snapshots": 7995594,
+   "censored": 1.2506888168658888e-07,
+   "above_table": 0.018638392424426806,
+   "quantile_over_table": 0.7728134179665537
+  }
+ },
+ "WIF:buy:10000": {
+  "table": 9.07080971601859,
+  "2023Q4": {
+   "snapshots": 205821,
+   "censored": 0.0,
+   "above_table": 0.9994169691139388,
+   "quantile_over_table": 26.73802255166919
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 0.00032485057149944505,
+   "above_table": 0.3215606736760663,
+   "quantile_over_table": 10.270467071617125
+  },
+  "2024Q2": {
+   "snapshots": 2055147,
+   "censored": 4.865831981848501e-07,
+   "above_table": 0.032329576584826575,
+   "quantile_over_table": 0.8439853571280255
+  },
+  "2024Q3": {
+   "snapshots": 2275659,
+   "censored": 4.394331488153541e-07,
+   "above_table": 0.005699889878004516,
+   "quantile_over_table": 0.5690468069381712
+  },
+  "2024Q4": {
+   "snapshots": 2319434,
+   "censored": 1.6814446972839063e-05,
+   "above_table": 0.0019418857072641788,
+   "quantile_over_table": 0.4522528196980415
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.0035184251150136795,
+   "quantile_over_table": 0.5534709894174082
+  },
+  "2025Q2": {
+   "snapshots": 2358718,
+   "censored": 1.1022937036135732e-05,
+   "above_table": 0.0044804493337833005,
+   "quantile_over_table": 0.5905495743332703
+  },
+  "2025Q3": {
+   "snapshots": 2423865,
+   "censored": 4.538206542031013e-05,
+   "above_table": 0.001674261631229229,
+   "quantile_over_table": 0.48138333577331316
+  },
+  "2025Q4": {
+   "snapshots": 1895024,
+   "censored": 5.699136264237287e-05,
+   "above_table": 0.005321607923517454,
+   "quantile_over_table": 0.5437593279727954
+  },
+  "2026Q1": {
+   "snapshots": 2295251,
+   "censored": 3.9211397794838125e-06,
+   "above_table": 0.007440609748340262,
+   "quantile_over_table": 0.7575413641360523
+  },
+  "2026Q2": {
+   "snapshots": 2017551,
+   "censored": 9.91300839483116e-07,
+   "above_table": 0.022664629210988184,
+   "quantile_over_table": 0.9027577427538646
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 4.5943917791016435e-05,
+   "above_table": 0.05738658988574754,
+   "quantile_over_table": 1.017481849840427
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.01451751866743251,
+   "above_table": 0.04591353509449358,
+   "quantile_over_table": 0.9898761872271594
+  },
+  "all": {
+   "snapshots": 22081415,
+   "censored": 8.595463651219816e-05,
+   "above_table": 0.0441107475312979,
+   "quantile_over_table": 0.9202133640626561
+  },
+  "vol-high": {
+   "snapshots": 5867791,
+   "censored": 0.0002963636571241205,
+   "above_table": 0.15514403895499052,
+   "quantile_over_table": 8.761524806142388
+  },
+  "vol-low": {
+   "snapshots": 8218030,
+   "censored": 1.253341737618383e-05,
+   "above_table": 0.003668930132866841,
+   "quantile_over_table": 0.7118654136597988
+  },
+  "vol-mid": {
+   "snapshots": 7995594,
+   "censored": 7.003857374448978e-06,
+   "above_table": 0.004216101530628708,
+   "quantile_over_table": 0.6452510288573234
+  }
+ },
+ "WIF:sell:1000": {
+  "table": 3.7431286276046194,
+  "2023Q4": {
+   "snapshots": 205821,
+   "censored": 0.0,
+   "above_table": 0.9950879647849344,
+   "quantile_over_table": 47.64836185897943
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 1.104933916664779e-06,
+   "above_table": 0.46059828922892654,
+   "quantile_over_table": 14.526580329672639
+  },
+  "2024Q2": {
+   "snapshots": 2055147,
+   "censored": 0.0,
+   "above_table": 0.04774354340589749,
+   "quantile_over_table": 0.9827212525235092
+  },
+  "2024Q3": {
+   "snapshots": 2275659,
+   "censored": 0.0,
+   "above_table": 0.019341210611959,
+   "quantile_over_table": 0.7338215461182178
+  },
+  "2024Q4": {
+   "snapshots": 2319434,
+   "censored": 0.0,
+   "above_table": 0.008946148068882323,
+   "quantile_over_table": 0.5888766396440424
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.01644231630017315,
+   "quantile_over_table": 0.7075844350464962
+  },
+  "2025Q2": {
+   "snapshots": 2358718,
+   "censored": 0.0,
+   "above_table": 0.02223580775658642,
+   "quantile_over_table": 0.7983728094472315
+  },
+  "2025Q3": {
+   "snapshots": 2423865,
+   "censored": 1.2376926932811852e-06,
+   "above_table": 0.009908979966681272,
+   "quantile_over_table": 0.6492600166121643
+  },
+  "2025Q4": {
+   "snapshots": 1895024,
+   "censored": 0.0,
+   "above_table": 0.01610058764427258,
+   "quantile_over_table": 0.7520078401736273
+  },
+  "2026Q1": {
+   "snapshots": 2295251,
+   "censored": 0.0,
+   "above_table": 0.07466024413016267,
+   "quantile_over_table": 1.08818459126562
+  },
+  "2026Q2": {
+   "snapshots": 2017551,
+   "censored": 0.0,
+   "above_table": 0.11895758768923313,
+   "quantile_over_table": 1.223223905560363
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 0.0,
+   "above_table": 0.12021991821982633,
+   "quantile_over_table": 1.2329618253281138
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.0,
+   "above_table": 0.03460654796094199,
+   "quantile_over_table": 0.9196802629432679
+  },
+  "all": {
+   "snapshots": 22081415,
+   "censored": 2.2643476425763475e-07,
+   "above_table": 0.08005199849103839,
+   "quantile_over_table": 1.3119472642995709
+  },
+  "vol-high": {
+   "snapshots": 5867791,
+   "censored": 3.408437689754117e-07,
+   "above_table": 0.2164140530615535,
+   "quantile_over_table": 11.42041747852264
+  },
+  "vol-low": {
+   "snapshots": 8218030,
+   "censored": 3.6505099153933483e-07,
+   "above_table": 0.0347690510143128,
+   "quantile_over_table": 0.9226491741576061
+  },
+  "vol-mid": {
+   "snapshots": 7995594,
+   "censored": 0.0,
+   "above_table": 0.026521606774931292,
+   "quantile_over_table": 0.8384303733767948
+  }
+ },
+ "WIF:sell:10000": {
+  "table": 8.420756973552823,
+  "2023Q4": {
+   "snapshots": 205821,
+   "censored": 0.0,
+   "above_table": 0.9952045709621468,
+   "quantile_over_table": 27.70929712410321
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 0.00046683457979086913,
+   "above_table": 0.3338442354652673,
+   "quantile_over_table": 11.344346855243627
+  },
+  "2024Q2": {
+   "snapshots": 2055147,
+   "censored": 8.7584975673273e-06,
+   "above_table": 0.04052495001530317,
+   "quantile_over_table": 0.9201124530602502
+  },
+  "2024Q3": {
+   "snapshots": 2275659,
+   "censored": 0.0,
+   "above_table": 0.007715127793751173,
+   "quantile_over_table": 0.6151637213769269
+  },
+  "2024Q4": {
+   "snapshots": 2319434,
+   "censored": 3.8802569937320915e-06,
+   "above_table": 0.002394558996302963,
+   "quantile_over_table": 0.46969020857008986
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.005419780824430281,
+   "quantile_over_table": 0.5948725775171967
+  },
+  "2025Q2": {
+   "snapshots": 2358718,
+   "censored": 7.673660013617566e-05,
+   "above_table": 0.0056365450277014945,
+   "quantile_over_table": 0.627905524831807
+  },
+  "2025Q3": {
+   "snapshots": 2423865,
+   "censored": 0.00010726670008436938,
+   "above_table": 0.0024962813659816676,
+   "quantile_over_table": 0.5006004548829852
+  },
+  "2025Q4": {
+   "snapshots": 1895024,
+   "censored": 6.121294506032642e-05,
+   "above_table": 0.00556596942965041,
+   "quantile_over_table": 0.5775437089417357
+  },
+  "2026Q1": {
+   "snapshots": 2295251,
+   "censored": 2.614093186322542e-06,
+   "above_table": 0.013959294105857981,
+   "quantile_over_table": 0.8300823359399654
+  },
+  "2026Q2": {
+   "snapshots": 2017551,
+   "censored": 0.0,
+   "above_table": 0.04653661790953487,
+   "quantile_over_table": 0.9910784272849228
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 0.0,
+   "above_table": 0.04505566871372345,
+   "quantile_over_table": 0.9870966561253456
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.010137851809304998,
+   "above_table": 0.07301186642295529,
+   "quantile_over_table": 1.0422357345403248
+  },
+  "all": {
+   "snapshots": 22081415,
+   "censored": 9.69593660551192e-05,
+   "above_table": 0.04943246775233642,
+   "quantile_over_table": 0.9935961575409564
+  },
+  "vol-high": {
+   "snapshots": 5867791,
+   "censored": 0.0003139171112263542,
+   "above_table": 0.1640298952479812,
+   "quantile_over_table": 9.373679795790641
+  },
+  "vol-low": {
+   "snapshots": 8218030,
+   "censored": 9.491325780022706e-06,
+   "above_table": 0.00836120726915903,
+   "quantile_over_table": 0.7912315920510689
+  },
+  "vol-mid": {
+   "snapshots": 7995594,
+   "censored": 2.7640222852736146e-05,
+   "above_table": 0.007570628662352588,
+   "quantile_over_table": 0.7026338226307234
+  }
+ },
+ "WLD:buy:1000": {
+  "table": 2.0479156602659643,
+  "2023Q3": {
+   "snapshots": 1500023,
+   "censored": 0.0,
+   "above_table": 0.6598892150320361,
+   "quantile_over_table": 2.4214829932622286
+  },
+  "2023Q4": {
+   "snapshots": 2041382,
+   "censored": 0.0,
+   "above_table": 0.30366389044284703,
+   "quantile_over_table": 1.7458819539230843
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 0.0,
+   "above_table": 0.1273933559218657,
+   "quantile_over_table": 1.6632032664076322
+  },
+  "2024Q2": {
+   "snapshots": 2055142,
+   "censored": 0.0,
+   "above_table": 0.0545899018170034,
+   "quantile_over_table": 1.0332738124587808
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 0.0,
+   "above_table": 0.06949236704955924,
+   "quantile_over_table": 1.1224949961948003
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 4.311398518517241e-07,
+   "above_table": 0.0504071686516354,
+   "quantile_over_table": 1.0024206178889759
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.05318118994124313,
+   "quantile_over_table": 1.0189077685239365
+  },
+  "2025Q2": {
+   "snapshots": 2358719,
+   "censored": 0.0,
+   "above_table": 0.0896304307549988,
+   "quantile_over_table": 1.2044023267512214
+  },
+  "2025Q3": {
+   "snapshots": 2423855,
+   "censored": 0.0,
+   "above_table": 0.10341047628674158,
+   "quantile_over_table": 1.265847240809151
+  },
+  "2025Q4": {
+   "snapshots": 1894890,
+   "censored": 9.49923214540158e-06,
+   "above_table": 0.130356034602865,
+   "quantile_over_table": 1.3271845493408048
+  },
+  "2026Q1": {
+   "snapshots": 2295206,
+   "censored": 3.9212166576769144e-06,
+   "above_table": 0.3339600043046414,
+   "quantile_over_table": 1.840688710828632
+  },
+  "2026Q2": {
+   "snapshots": 2017507,
+   "censored": 1.4869836882846008e-06,
+   "above_table": 0.30849505131092675,
+   "quantile_over_table": 2.058032751813579
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 0.0,
+   "above_table": 0.10171983398931038,
+   "quantile_over_table": 1.2627393929876882
+  },
+  "2026Q4": {
+   "snapshots": 69639,
+   "censored": 0.0,
+   "above_table": 0.0705351886155746,
+   "quantile_over_table": 1.1135720843506154
+  },
+  "all": {
+   "snapshots": 25416761,
+   "censored": 1.2196676043812192e-06,
+   "above_table": 0.1754310251554783,
+   "quantile_over_table": 1.5570834151388968
+  },
+  "vol-high": {
+   "snapshots": 7158561,
+   "censored": 4.190786388493442e-07,
+   "above_table": 0.304993128504372,
+   "quantile_over_table": 2.106310680814178
+  },
+  "vol-low": {
+   "snapshots": 9342917,
+   "censored": 0.0,
+   "above_table": 0.12266511625865884,
+   "quantile_over_table": 1.3057577398359201
+  },
+  "vol-mid": {
+   "snapshots": 8915283,
+   "censored": 3.1406742780907794e-06,
+   "above_table": 0.12669542262111402,
+   "quantile_over_table": 1.2984245591304986
+  }
+ },
+ "WLD:buy:10000": {
+  "table": 4.215564903942148,
+  "2023Q3": {
+   "snapshots": 1500023,
+   "censored": 1.866638044883312e-05,
+   "above_table": 0.3318857729525765,
+   "quantile_over_table": 1.8805101180268562
+  },
+  "2023Q4": {
+   "snapshots": 2041382,
+   "censored": 0.0,
+   "above_table": 0.13914201261694284,
+   "quantile_over_table": 1.318724425085854
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 5.524669583323895e-07,
+   "above_table": 0.06083382779153421,
+   "quantile_over_table": 1.1515967347150726
+  },
+  "2024Q2": {
+   "snapshots": 2055142,
+   "censored": 5.693037269444155e-05,
+   "above_table": 0.0418272283792168,
+   "quantile_over_table": 0.9343436325493472
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 0.0,
+   "above_table": 0.032301837708620794,
+   "quantile_over_table": 0.8635126510545554
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 8.622797037034482e-07,
+   "above_table": 0.015377478355682924,
+   "quantile_over_table": 0.6887907187435783
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.0292998303452703,
+   "quantile_over_table": 0.8565487803382402
+  },
+  "2025Q2": {
+   "snapshots": 2358719,
+   "censored": 6.783342992531115e-06,
+   "above_table": 0.0830180823952825,
+   "quantile_over_table": 1.1390385242402883
+  },
+  "2025Q3": {
+   "snapshots": 2423855,
+   "censored": 1.4852373594955144e-05,
+   "above_table": 0.10681944485128633,
+   "quantile_over_table": 1.2185332541477105
+  },
+  "2025Q4": {
+   "snapshots": 1894890,
+   "censored": 0.00021162178279477965,
+   "above_table": 0.12019494438869796,
+   "quantile_over_table": 1.2183984206863234
+  },
+  "2026Q1": {
+   "snapshots": 2295206,
+   "censored": 0.00019736790510307134,
+   "above_table": 0.36511336949989825,
+   "quantile_over_table": 1.588783498110894
+  },
+  "2026Q2": {
+   "snapshots": 2017507,
+   "censored": 0.0002612134679086615,
+   "above_table": 0.30817211871213396,
+   "quantile_over_table": 1.7666671169548327
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 0.0003522367030644593,
+   "above_table": 0.14912522597052424,
+   "quantile_over_table": 1.2290051233355117
+  },
+  "2026Q4": {
+   "snapshots": 69639,
+   "censored": 0.0008041471014804923,
+   "above_table": 0.04925053533190578,
+   "quantile_over_table": 0.9967878301439508
+  },
+  "all": {
+   "snapshots": 25416761,
+   "censored": 6.531123300880077e-05,
+   "above_table": 0.13020703714693088,
+   "quantile_over_table": 1.3269171880216737
+  },
+  "vol-high": {
+   "snapshots": 7158561,
+   "censored": 0.00011119553217469265,
+   "above_table": 0.20723312374742675,
+   "quantile_over_table": 1.7130574395201705
+  },
+  "vol-low": {
+   "snapshots": 9342917,
+   "censored": 3.6391204160328085e-06,
+   "above_table": 0.11693756627370802,
+   "quantile_over_table": 1.2028801138460556
+  },
+  "vol-mid": {
+   "snapshots": 8915283,
+   "censored": 9.309855895769097e-05,
+   "above_table": 0.08226696579139517,
+   "quantile_over_table": 1.1420299534604192
+  }
+ },
+ "WLD:sell:1000": {
+  "table": 2.168868067755625,
+  "2023Q3": {
+   "snapshots": 1500023,
+   "censored": 1.9999693338035483e-06,
+   "above_table": 0.5951767309769203,
+   "quantile_over_table": 2.2801261049637733
+  },
+  "2023Q4": {
+   "snapshots": 2041382,
+   "censored": 0.0,
+   "above_table": 0.24955152930710667,
+   "quantile_over_table": 1.624990536360353
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 0.0,
+   "above_table": 0.11673240102692559,
+   "quantile_over_table": 1.5888008270162486
+  },
+  "2024Q2": {
+   "snapshots": 2055142,
+   "censored": 0.0,
+   "above_table": 0.039946631424981824,
+   "quantile_over_table": 0.9198411326333814
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 0.0,
+   "above_table": 0.054462002232319416,
+   "quantile_over_table": 1.030646459226899
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 0.0,
+   "above_table": 0.04266904885806143,
+   "quantile_over_table": 0.9480070494923988
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.048599420510099585,
+   "quantile_over_table": 0.9876073948883126
+  },
+  "2025Q2": {
+   "snapshots": 2358719,
+   "censored": 0.0,
+   "above_table": 0.07937655990391394,
+   "quantile_over_table": 1.1624725026749452
+  },
+  "2025Q3": {
+   "snapshots": 2423855,
+   "censored": 0.0,
+   "above_table": 0.08862163784549819,
+   "quantile_over_table": 1.1923196276182841
+  },
+  "2025Q4": {
+   "snapshots": 1894890,
+   "censored": 0.0,
+   "above_table": 0.11385357461382983,
+   "quantile_over_table": 1.2529996134683608
+  },
+  "2026Q1": {
+   "snapshots": 2295206,
+   "censored": 0.0,
+   "above_table": 0.2738316299277712,
+   "quantile_over_table": 1.6730376652390007
+  },
+  "2026Q2": {
+   "snapshots": 2017507,
+   "censored": 3.4696286059974017e-06,
+   "above_table": 0.2649923172242875,
+   "quantile_over_table": 1.8956911438202886
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 0.0,
+   "above_table": 0.08557820420539994,
+   "quantile_over_table": 1.1904176769489891
+  },
+  "2026Q4": {
+   "snapshots": 69639,
+   "censored": 0.0,
+   "above_table": 0.05560102815950832,
+   "quantile_over_table": 1.0340389193671788
+  },
+  "all": {
+   "snapshots": 25416761,
+   "censored": 3.934411627036191e-07,
+   "above_table": 0.15030032752809358,
+   "quantile_over_table": 1.4502705083036234
+  },
+  "vol-high": {
+   "snapshots": 7158561,
+   "censored": 1.3969287961644806e-06,
+   "above_table": 0.2725533421498289,
+   "quantile_over_table": 1.9810376311361286
+  },
+  "vol-low": {
+   "snapshots": 9342917,
+   "censored": 0.0,
+   "above_table": 0.10250096409932787,
+   "quantile_over_table": 1.2181095339825323
+  },
+  "vol-mid": {
+   "snapshots": 8915283,
+   "censored": 0.0,
+   "above_table": 0.10222905991879339,
+   "quantile_over_table": 1.2115884903426666
+  }
+ },
+ "WLD:sell:10000": {
+  "table": 4.120785553483053,
+  "2023Q3": {
+   "snapshots": 1500023,
+   "censored": 3.733276089766624e-05,
+   "above_table": 0.3749155814761258,
+   "quantile_over_table": 1.944556340530499
+  },
+  "2023Q4": {
+   "snapshots": 2041382,
+   "censored": 3.918913755485255e-06,
+   "above_table": 0.1157073618063128,
+   "quantile_over_table": 1.2324544785776874
+  },
+  "2024Q1": {
+   "snapshots": 1810063,
+   "censored": 1.6574008749971687e-06,
+   "above_table": 0.06297636542435057,
+   "quantile_over_table": 1.1932360339528318
+  },
+  "2024Q2": {
+   "snapshots": 2055142,
+   "censored": 1.946337528015096e-05,
+   "above_table": 0.024837210026558292,
+   "quantile_over_table": 0.7742577610416314
+  },
+  "2024Q3": {
+   "snapshots": 2275660,
+   "censored": 0.0,
+   "above_table": 0.02183937846602744,
+   "quantile_over_table": 0.7672085110885064
+  },
+  "2024Q4": {
+   "snapshots": 2319433,
+   "censored": 0.0,
+   "above_table": 0.020166566570364395,
+   "quantile_over_table": 0.7537654256906565
+  },
+  "2025Q1": {
+   "snapshots": 2289945,
+   "censored": 0.0,
+   "above_table": 0.030635233597313474,
+   "quantile_over_table": 0.855624575906322
+  },
+  "2025Q2": {
+   "snapshots": 2358719,
+   "censored": 4.239589370331947e-07,
+   "above_table": 0.07194628607574115,
+   "quantile_over_table": 1.0928006170997597
+  },
+  "2025Q3": {
+   "snapshots": 2423855,
+   "censored": 2.3516258192012312e-05,
+   "above_table": 0.07421658075466685,
+   "quantile_over_table": 1.1077349557235272
+  },
+  "2025Q4": {
+   "snapshots": 1894890,
+   "censored": 0.0001741525893323623,
+   "above_table": 0.11885239844607719,
+   "quantile_over_table": 1.2103897228145413
+  },
+  "2026Q1": {
+   "snapshots": 2295206,
+   "censored": 2.6141444384512764e-06,
+   "above_table": 0.33447934820494946,
+   "quantile_over_table": 1.5649236385652294
+  },
+  "2026Q2": {
+   "snapshots": 2017507,
+   "censored": 0.00010309753572106565,
+   "above_table": 0.28993768400222275,
+   "quantile_over_table": 1.6784619230853322
+  },
+  "2026Q3": {
+   "snapshots": 65297,
+   "censored": 0.00010720247484570501,
+   "above_table": 0.15824781742992802,
+   "quantile_over_table": 1.2374643184384184
+  },
+  "2026Q4": {
+   "snapshots": 69639,
+   "censored": 0.0003015551630551846,
+   "above_table": 0.05112183630670229,
+   "quantile_over_table": 1.0050941747333406
+  },
+  "all": {
+   "snapshots": 25416761,
+   "censored": 2.8996613691256726e-05,
+   "above_table": 0.1208475015604329,
+   "quantile_over_table": 1.2871288946383823
+  },
+  "vol-high": {
+   "snapshots": 7158561,
+   "censored": 8.884467143606096e-05,
+   "above_table": 0.19853183708965935,
+   "quantile_over_table": 1.6967657008923285
+  },
+  "vol-low": {
+   "snapshots": 9342917,
+   "censored": 2.6758238353182417e-06,
+   "above_table": 0.10727941626639803,
+   "quantile_over_table": 1.172781054625265
+  },
+  "vol-mid": {
+   "snapshots": 8915283,
+   "censored": 8.524687326246403e-06,
+   "above_table": 0.07269455437209703,
+   "quantile_over_table": 1.0990300567843914
+  }
+ },
+ "kPEPE:buy:1000": {
+  "table": 3.068346734149685,
+  "2023Q2": {
+   "snapshots": 1213579,
+   "censored": 0.0,
+   "above_table": 0.9063118264241553,
+   "quantile_over_table": 6.83953799489789
+  },
+  "2023Q3": {
+   "snapshots": 2028668,
+   "censored": 0.0,
+   "above_table": 0.995865267259108,
+   "quantile_over_table": 4.649669828324557
+  },
+  "2023Q4": {
+   "snapshots": 2041270,
+   "censored": 0.0,
+   "above_table": 0.9979889970459567,
+   "quantile_over_table": 4.380489357823394
+  },
+  "2024Q1": {
+   "snapshots": 1810470,
+   "censored": 0.0,
+   "above_table": 0.7141946566361221,
+   "quantile_over_table": 2.930831009190572
+  },
+  "2024Q2": {
+   "snapshots": 2054918,
+   "censored": 0.0,
+   "above_table": 0.0679623225841615,
+   "quantile_over_table": 1.1504003114078818
+  },
+  "2024Q3": {
+   "snapshots": 2275700,
+   "censored": 0.0,
+   "above_table": 0.022262161093289975,
+   "quantile_over_table": 0.7630187687964745
+  },
+  "2024Q4": {
+   "snapshots": 2319476,
+   "censored": 0.0,
+   "above_table": 0.01681414250460018,
+   "quantile_over_table": 0.6788601356668731
+  },
+  "2025Q1": {
+   "snapshots": 2289942,
+   "censored": 0.0,
+   "above_table": 0.014046207283852604,
+   "quantile_over_table": 0.6628461103748762
+  },
+  "2025Q2": {
+   "snapshots": 2360326,
+   "censored": 0.0,
+   "above_table": 0.021341543498652304,
+   "quantile_over_table": 0.7603897155670287
+  },
+  "2025Q3": {
+   "snapshots": 2425100,
+   "censored": 0.0,
+   "above_table": 0.008459857325471115,
+   "quantile_over_table": 0.590477965398093
+  },
+  "2025Q4": {
+   "snapshots": 2000694,
+   "censored": 0.0,
+   "above_table": 0.02313147337873758,
+   "quantile_over_table": 0.8215487981397386
+  },
+  "2026Q1": {
+   "snapshots": 2295594,
+   "censored": 0.0,
+   "above_table": 0.05553769525447444,
+   "quantile_over_table": 1.0198107329096007
+  },
+  "2026Q2": {
+   "snapshots": 2017814,
+   "censored": 0.0,
+   "above_table": 0.0759534823328612,
+   "quantile_over_table": 1.1655490536745996
+  },
+  "2026Q3": {
+   "snapshots": 65314,
+   "censored": 0.0,
+   "above_table": 0.15595431301099305,
+   "quantile_over_table": 1.2691137391823297
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.0,
+   "above_table": 0.04016369902354969,
+   "quantile_over_table": 0.888760316940107
+  },
+  "all": {
+   "snapshots": 27268505,
+   "censored": 0.0,
+   "above_table": 0.2612076092913785,
+   "quantile_over_table": 2.7136420334891125
+  },
+  "vol-high": {
+   "snapshots": 7563016,
+   "censored": 0.0,
+   "above_table": 0.579318885481665,
+   "quantile_over_table": 4.156995002831843
+  },
+  "vol-low": {
+   "snapshots": 10130226,
+   "censored": 0.0,
+   "above_table": 0.03667391033526794,
+   "quantile_over_table": 0.941741682071407
+  },
+  "vol-mid": {
+   "snapshots": 9575263,
+   "censored": 0.0,
+   "above_table": 0.24749482076889168,
+   "quantile_over_table": 2.4034543379201856
+  }
+ },
+ "kPEPE:buy:10000": {
+  "table": 5.1426408839705395,
+  "2023Q2": {
+   "snapshots": 1213579,
+   "censored": 3.460837736974684e-05,
+   "above_table": 0.762856839140463,
+   "quantile_over_table": 7.339083153276379
+  },
+  "2023Q3": {
+   "snapshots": 2028668,
+   "censored": 6.260265356381626e-05,
+   "above_table": 0.8498398602739604,
+   "quantile_over_table": 4.034354087905284
+  },
+  "2023Q4": {
+   "snapshots": 2041270,
+   "censored": 0.0,
+   "above_table": 0.5283108065077133,
+   "quantile_over_table": 2.9778349348103252
+  },
+  "2024Q1": {
+   "snapshots": 1810470,
+   "censored": 5.302490513513066e-05,
+   "above_table": 0.26878589727868385,
+   "quantile_over_table": 1.9882681108699791
+  },
+  "2024Q2": {
+   "snapshots": 2054918,
+   "censored": 0.0,
+   "above_table": 0.07475286118472854,
+   "quantile_over_table": 1.1826066666951258
+  },
+  "2024Q3": {
+   "snapshots": 2275700,
+   "censored": 0.0,
+   "above_table": 0.015168959001625874,
+   "quantile_over_table": 0.716075073048724
+  },
+  "2024Q4": {
+   "snapshots": 2319476,
+   "censored": 4.3113185909231223e-07,
+   "above_table": 0.013088737753155348,
+   "quantile_over_table": 0.640117067664149
+  },
+  "2025Q1": {
+   "snapshots": 2289942,
+   "censored": 0.0,
+   "above_table": 0.01214877931406123,
+   "quantile_over_table": 0.6841461055099407
+  },
+  "2025Q2": {
+   "snapshots": 2360326,
+   "censored": 0.0,
+   "above_table": 0.017685692569585725,
+   "quantile_over_table": 0.7916484100163217
+  },
+  "2025Q3": {
+   "snapshots": 2425100,
+   "censored": 0.0,
+   "above_table": 0.007626077275163911,
+   "quantile_over_table": 0.6455212677033263
+  },
+  "2025Q4": {
+   "snapshots": 2000694,
+   "censored": 0.0,
+   "above_table": 0.020069535871052743,
+   "quantile_over_table": 0.8411816805403327
+  },
+  "2026Q1": {
+   "snapshots": 2295594,
+   "censored": 0.0,
+   "above_table": 0.034092701061250376,
+   "quantile_over_table": 0.9134222016352106
+  },
+  "2026Q2": {
+   "snapshots": 2017814,
+   "censored": 0.0,
+   "above_table": 0.047608947108108084,
+   "quantile_over_table": 0.9939617236003215
+  },
+  "2026Q3": {
+   "snapshots": 65314,
+   "censored": 0.0,
+   "above_table": 0.13519306733625255,
+   "quantile_over_table": 1.1296954474094987
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.0,
+   "above_table": 0.028834003446295234,
+   "quantile_over_table": 0.9175629407743727
+  },
+  "all": {
+   "snapshots": 27268505,
+   "censored": 9.754843545694933e-06,
+   "above_table": 0.17407013338851843,
+   "quantile_over_table": 2.1712612407195633
+  },
+  "vol-high": {
+   "snapshots": 7563016,
+   "censored": 3.51711539417608e-05,
+   "above_table": 0.4338435093054775,
+   "quantile_over_table": 3.490591797517094
+  },
+  "vol-low": {
+   "snapshots": 10130226,
+   "censored": 0.0,
+   "above_table": 0.02008908784463446,
+   "quantile_over_table": 0.8341189003747508
+  },
+  "vol-mid": {
+   "snapshots": 9575263,
+   "censored": 0.0,
+   "above_table": 0.13180097507504493,
+   "quantile_over_table": 1.707222311177651
+  }
+ },
+ "kPEPE:sell:1000": {
+  "table": 2.7190546674615845,
+  "2023Q2": {
+   "snapshots": 1213579,
+   "censored": 6.592071879951779e-06,
+   "above_table": 0.9778702688182233,
+   "quantile_over_table": 7.52977356784654
+  },
+  "2023Q3": {
+   "snapshots": 2028668,
+   "censored": 4.584288804279458e-05,
+   "above_table": 1.0,
+   "quantile_over_table": 5.122212792681143
+  },
+  "2023Q4": {
+   "snapshots": 2041270,
+   "censored": 0.0,
+   "above_table": 1.0,
+   "quantile_over_table": 4.9365755505306765
+  },
+  "2024Q1": {
+   "snapshots": 1810470,
+   "censored": 0.0,
+   "above_table": 0.7318895093539247,
+   "quantile_over_table": 3.3252701493171326
+  },
+  "2024Q2": {
+   "snapshots": 2054918,
+   "censored": 0.0,
+   "above_table": 0.10275738496621277,
+   "quantile_over_table": 1.3335510841043403
+  },
+  "2024Q3": {
+   "snapshots": 2275700,
+   "censored": 0.0,
+   "above_table": 0.03468998549896735,
+   "quantile_over_table": 0.8813905061066042
+  },
+  "2024Q4": {
+   "snapshots": 2319476,
+   "censored": 0.0,
+   "above_table": 0.027163462782111132,
+   "quantile_over_table": 0.7957911468453316
+  },
+  "2025Q1": {
+   "snapshots": 2289942,
+   "censored": 0.0,
+   "above_table": 0.022330259893045327,
+   "quantile_over_table": 0.7575439175967565
+  },
+  "2025Q2": {
+   "snapshots": 2360326,
+   "censored": 0.0,
+   "above_table": 0.0320646385287456,
+   "quantile_over_table": 0.8534049855308593
+  },
+  "2025Q3": {
+   "snapshots": 2425100,
+   "censored": 0.0,
+   "above_table": 0.016533338831388397,
+   "quantile_over_table": 0.6914361318190504
+  },
+  "2025Q4": {
+   "snapshots": 2000694,
+   "censored": 0.0,
+   "above_table": 0.0279113147737735,
+   "quantile_over_table": 0.9153182640978895
+  },
+  "2026Q1": {
+   "snapshots": 2295594,
+   "censored": 0.0,
+   "above_table": 0.12836024140157187,
+   "quantile_over_table": 1.1465673869666237
+  },
+  "2026Q2": {
+   "snapshots": 2017814,
+   "censored": 0.0,
+   "above_table": 0.12123862754446148,
+   "quantile_over_table": 1.3097395958491234
+  },
+  "2026Q3": {
+   "snapshots": 65314,
+   "censored": 0.0,
+   "above_table": 0.16299721346112625,
+   "quantile_over_table": 1.4439664821075375
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.0,
+   "above_table": 0.05551407237219989,
+   "quantile_over_table": 1.060849697649361
+  },
+  "all": {
+   "snapshots": 27268505,
+   "censored": 3.7039067598315347e-06,
+   "above_table": 0.28279242158800344,
+   "quantile_over_table": 3.0673467766013385
+  },
+  "vol-high": {
+   "snapshots": 7563016,
+   "censored": 1.3354460707209928e-05,
+   "above_table": 0.6068801513702058,
+   "quantile_over_table": 4.618002668028512
+  },
+  "vol-low": {
+   "snapshots": 10130226,
+   "censored": 0.0,
+   "above_table": 0.06212961092871966,
+   "quantile_over_table": 1.0606303959634948
+  },
+  "vol-mid": {
+   "snapshots": 9575263,
+   "censored": 0.0,
+   "above_table": 0.2602673158951352,
+   "quantile_over_table": 2.7222418838970923
+  }
+ },
+ "kPEPE:sell:10000": {
+  "table": 4.270302360362965,
+  "2023Q2": {
+   "snapshots": 1213579,
+   "censored": 0.0003345476479075528,
+   "above_table": 0.8708724971623998,
+   "quantile_over_table": 11.34434065138524
+  },
+  "2023Q3": {
+   "snapshots": 2028668,
+   "censored": 6.60531935240266e-05,
+   "above_table": 0.8749180442625069,
+   "quantile_over_table": 3.6560815037178385
+  },
+  "2023Q4": {
+   "snapshots": 2041270,
+   "censored": 0.0,
+   "above_table": 0.7304129292058376,
+   "quantile_over_table": 3.526738786378472
+  },
+  "2024Q1": {
+   "snapshots": 1810470,
+   "censored": 2.2646053234795386e-05,
+   "above_table": 0.5085971336075593,
+   "quantile_over_table": 2.404265456011548
+  },
+  "2024Q2": {
+   "snapshots": 2054918,
+   "censored": 0.0,
+   "above_table": 0.10964768423849516,
+   "quantile_over_table": 1.3810135372807972
+  },
+  "2024Q3": {
+   "snapshots": 2275700,
+   "censored": 0.0,
+   "above_table": 0.03283429274508942,
+   "quantile_over_table": 0.8865582422655479
+  },
+  "2024Q4": {
+   "snapshots": 2319476,
+   "censored": 8.622637181846245e-07,
+   "above_table": 0.025205283611715416,
+   "quantile_over_table": 0.7997485602356509
+  },
+  "2025Q1": {
+   "snapshots": 2289942,
+   "censored": 0.0,
+   "above_table": 0.02399449418369548,
+   "quantile_over_table": 0.7982239786915266
+  },
+  "2025Q2": {
+   "snapshots": 2360326,
+   "censored": 0.0,
+   "above_table": 0.028849404700876064,
+   "quantile_over_table": 0.8604529605929797
+  },
+  "2025Q3": {
+   "snapshots": 2425100,
+   "censored": 0.0,
+   "above_table": 0.0193336357263618,
+   "quantile_over_table": 0.7852836802092305
+  },
+  "2025Q4": {
+   "snapshots": 2000694,
+   "censored": 0.0,
+   "above_table": 0.052473791594316775,
+   "quantile_over_table": 1.0103991663865035
+  },
+  "2026Q1": {
+   "snapshots": 2295594,
+   "censored": 4.356170995393785e-07,
+   "above_table": 0.10188304285646455,
+   "quantile_over_table": 1.1504964375586388
+  },
+  "2026Q2": {
+   "snapshots": 2017814,
+   "censored": 0.0,
+   "above_table": 0.1306260140924783,
+   "quantile_over_table": 1.1926860171817368
+  },
+  "2026Q3": {
+   "snapshots": 65314,
+   "censored": 0.0,
+   "above_table": 0.3591573016504884,
+   "quantile_over_table": 1.3469523308626512
+  },
+  "2026Q4": {
+   "snapshots": 69640,
+   "censored": 0.0,
+   "above_table": 0.09474439977024698,
+   "quantile_over_table": 1.1211608645906248
+  },
+  "all": {
+   "snapshots": 27268505,
+   "censored": 2.1416648987540753e-05,
+   "above_table": 0.23485461176156408,
+   "quantile_over_table": 2.4992044334636416
+  },
+  "vol-high": {
+   "snapshots": 7563016,
+   "censored": 7.708564942874641e-05,
+   "above_table": 0.512245860558368,
+   "quantile_over_table": 3.937431418948058
+  },
+  "vol-low": {
+   "snapshots": 10130226,
+   "censored": 0.0,
+   "above_table": 0.05443343514744883,
+   "quantile_over_table": 1.013877373925298
+  },
+  "vol-mid": {
+   "snapshots": 9575263,
+   "censored": 1.0443577372235101e-07,
+   "above_table": 0.20665220439921123,
+   "quantile_over_table": 1.8900359597704786
+  }
+ }
+}

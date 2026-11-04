@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from gate import campaign, sweep
 
 
@@ -61,10 +63,23 @@ def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path):
     log, out = tmp_path / "x.jsonl", tmp_path / "x"
     (out / "b").mkdir(parents=True)
     log.write_text(json.dumps({"id": "a", "promoted": []}) + "\n")
-    assert campaign.resume(["a", "b", "c"], log, out) == ["c"]
-    assert campaign.resume(["a", "b", "c"], log, out) == ["c"]
+    for _ in range(2):
+        with campaign.resume(["a", "b", "c"], log, out) as (todo, _):
+            assert todo == ["c"]
     rows = [json.loads(l) for l in open(log)]
     assert [r["id"] for r in rows] == ["a", "b"] and campaign.promoted_anything(rows[1])
+
+
+def test_a_resume_refuses_while_another_run_of_the_log_is_alive(tmp_path):
+    import pytest
+
+    log, out = tmp_path / "x.jsonl", tmp_path / "x"
+    (out / "b").mkdir(parents=True)
+    with campaign.resume(["a", "b"], log, out):
+        with pytest.raises(RuntimeError, match="alive"):
+            with campaign.resume(["a", "b"], log, out):
+                pass
+    assert [json.loads(l)["id"] for l in open(log)] == ["b"]
 
 
 def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path, monkeypatch):
@@ -89,3 +104,36 @@ def test_a_campaign_crashing_before_its_market_exists_is_recorded_not_raised(tmp
     r = campaign.run_campaign({"id": "bad", "model": "no-such-model", "params": None, "searcher": "G10", "days": 40,
                                "holdout_days": 10, "cost_cells": {}}, tmp_path)
     assert r["crash"] and campaign.promoted_anything(r)
+
+
+def test_bisect_records_each_step_and_resumes(tmp_path, monkeypatch):
+    monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
+    calls = []
+
+    def f(x):
+        calls.append(x)
+        if len(calls) == 3:
+            raise RuntimeError("crash")
+        return x
+
+    with pytest.raises(RuntimeError):
+        sweep.bisect("k", f, 0.3, 0.0, 1.0, 6)
+    assert len(open(tmp_path / "steps.jsonl").readlines()) == 2
+    calls.clear()
+    full = sweep.bisect("k", lambda x: calls.append(x) or x, 0.3, 0.0, 1.0, 6)
+    assert len(calls) == 4 and abs(full - 0.3) < 1 / 2 ** 6
+    with pytest.raises(SystemExit, match="recorded at"):
+        sweep.bisect("k", lambda x: x, 0.3, 0.0, 2.0, 6)
+
+
+def test_calibration_passes_parallelism_without_inherited_globals(tmp_path, monkeypatch):
+    monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
+    calls = []
+
+    def evaluate(beta, threads):
+        calls.append((beta, threads))
+        return beta
+
+    monkeypatch.setattr(sweep, "CALIBRATIONS", {"test": (evaluate, 0.3, 0.0, 1.0, 6)})
+    assert abs(sweep.calibrate("test", 3) - 0.3) < 1 / 2 ** 6
+    assert len(calls) == 6 and {threads for _, threads in calls} == {3}

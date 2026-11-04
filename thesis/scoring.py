@@ -1,10 +1,12 @@
 """Thesis scoring (thesis/SCORING.md): as-registered outcomes, the per-exposure base rate, Brier scores
 and skill against the base rate and the paired ablation, clusters, and the cluster bootstrap."""
 
+from fractions import Fraction
+
 import numpy as np
 
 from ingest.policy import DAY, HOUR
-from thesis.positions import Bars, fill, outcome
+from thesis.positions import Bars, exact, fill, outcome
 
 WINDOW_YEARS_DAYS = 1095
 MIN_WINDOWS = 10
@@ -17,22 +19,24 @@ def bars(rows):
 
 
 def window_return(th, daily, funding, entry, exit_):
-    """Net return per N of the fixed-quantity position between two daily opens, or None if incomplete."""
-    total = 0.0
+    """Exact net return per N of the fixed-quantity position between two daily opens, or None if incomplete."""
+    total, N = Fraction(0), exact(th["N"])
     for market, w in th["legs"]:
         d, rates = daily.get(market, Bars()), funding.get(market, {})
         if entry not in d or exit_ not in d:
             return None
-        q = w * th["N"] / d[entry][0]
-        for k, ref in ((q, d[entry][0]), (-q, d[exit_][0])):
+        q = w * N / exact(d[entry][0])
+        for k, ref in ((q, exact(d[entry][0])), (-q, exact(d[exit_][0]))):
             price, fee, _ = fill(ref, k, th["costs"][market], th["fee"])
             total += -k * price - fee
+        paid = Fraction(0)
         for h in range(entry + HOUR, exit_ + 1, HOUR):
             day = h // DAY * DAY
             if h not in rates or day not in d:
                 return None
-            total -= q * rates[h] * d[day][0]
-    return total / th["N"]
+            paid += exact(rates[h]) * exact(d[day][0])
+        total -= q * paid
+    return total / N
 
 
 def base_rate(th, daily, funding):

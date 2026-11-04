@@ -2,6 +2,7 @@
 
 import threading
 import time
+from typing import Any
 
 import httpx
 
@@ -16,13 +17,13 @@ TIMEOUT = 10  # s: one hung request plus the recorder's 5 s back-off stays under
 
 
 class Info:
-    def __init__(self, budget_per_min=BUDGET_PER_MIN):
+    def __init__(self, budget_per_min: int = BUDGET_PER_MIN) -> None:
         self.budget = budget_per_min
-        self.spent = []
+        self.spent: list[tuple[float, int]] = []
         self.lock = threading.Lock()
         self.http = httpx.Client(timeout=TIMEOUT)
 
-    def _charge(self, weight):
+    def _charge(self, weight: int) -> None:
         with self.lock:
             while True:
                 now = time.monotonic()
@@ -32,7 +33,7 @@ class Info:
                     return
                 time.sleep(0.25)
 
-    def post(self, body, weight=20, per_items=None):
+    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None) -> Any:
         """One request, retried after a 429, a 5xx or a transport error (a timeout, a dropped connection) with
         backoff; every attempt is charged its weight."""
         for attempt in range(6):
@@ -53,20 +54,20 @@ class Info:
                 self._charge(len(out) // per_items)
             return out
 
-    def meta(self):
+    def meta(self) -> Any:
         return self.post({"type": "meta"})
 
-    def l2_book(self, coin, sig_figs=None):
-        body = {"type": "l2Book", "coin": coin}
+    def l2_book(self, coin: str, sig_figs: int | None = None) -> Any:
+        body: dict[str, Any] = {"type": "l2Book", "coin": coin}
         if sig_figs:
             body["nSigFigs"] = sig_figs
         return self.post(body, weight=2)
 
-    def funding(self, coin, start, end=None):
+    def funding(self, coin: str, start: int, end: int | None = None) -> list[Any]:
         """All settled funding rows with start <= time < end, paginated by 500."""
-        rows = []
+        rows: list[Any] = []
         while True:
-            body = {"type": "fundingHistory", "coin": coin, "startTime": start}
+            body: dict[str, Any] = {"type": "fundingHistory", "coin": coin, "startTime": start}
             if end is not None:
                 body["endTime"] = end - 1
             page = self.post(body, per_items=20)
@@ -75,9 +76,9 @@ class Info:
                 return rows
             start = page[-1]["time"] + 1
 
-    def candles(self, coin, interval, start, end):
+    def candles(self, coin: str, interval: str, start: int, end: int) -> list[Any]:
         """All candles with start <= t < end, including any unclosed last one."""
-        rows = []
+        rows: list[Any] = []
         while start < end:
             body = {"type": "candleSnapshot",
                     "req": {"coin": coin, "interval": interval, "startTime": start, "endTime": end - 1}}

@@ -2,8 +2,7 @@
 Description=Pull the cloud HL recorder's files every 10 minutes
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=10min
+OnCalendar=*:0/10
 Persistent=true
 
 [Install]

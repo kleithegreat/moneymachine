@@ -1,0 +1,35 @@
+Mon Oct 26 16:20:29 2026    /home/kevin/mm-worker/profile/c24-N2-H400-38/campaign.prof
+
+         4775680 function calls (4666233 primitive calls) in 73.567 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1470 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.006    0.006   73.567   73.567 gate/campaign.py:18(run_campaign)
+        8    0.000    0.000   68.071    8.509 data/tmp/profile-campaign.py:12(timed)
+        8    0.005    0.001   68.071    8.509 data/tmp/profile-campaign.py:17(<lambda>)
+        1    0.000    0.000   52.562   52.562 gate/search.py:222(run)
+        1    0.006    0.006   52.535   52.535 gate/search.py:210(hill_climb)
+     1108    0.013    0.000   52.297    0.047 gate/search.py:168(__call__)
+      400   52.148    0.130   52.151    0.130 {method 'readline' of '_io.TextIOWrapper' objects}
+        1    0.001    0.001   10.449   10.449 gate/gate.py:69(search_decision)
+        1    0.003    0.003    8.777    8.777 site-packages/arch/bootstrap/multiple_comparison.py:634(compute)
+        1    0.032    0.032    8.772    8.772 site-packages/arch/bootstrap/multiple_comparison.py:661(_simulate_values)
+        1    0.011    0.011    5.475    5.475 lzma.py:327(compress)
+        1    5.464    5.464    5.464    5.464 {method 'compress' of '_lzma.LZMACompressor' objects}
+        1    0.000    0.000    4.540    4.540 gate/markets.py:192(write)
+        2    0.000    0.000    4.471    2.236 ingest/store.py:141(write_split)
+        4    0.000    0.000    4.467    1.117 ingest/store.py:76(write)
+        4    0.145    0.036    4.273    1.068 ingest/store.py:84(<lambda>)
+        1    2.797    2.797    3.771    3.771 site-packages/arch/bootstrap/multiple_comparison.py:682(_compute_variance)
+   262812    0.377    0.000    3.642    0.000 ingest/store.py:49(_hash)
+    40003    3.083    0.000    3.083    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     1001    0.004    0.000    2.931    0.003 site-packages/arch/bootstrap/base.py:532(bootstrap)
+     1000    2.824    0.003    2.826    0.003 site-packages/arch/bootstrap/base.py:1164(_resample)
+   263923    0.458    0.000    2.786    0.000 json/__init__.py:185(dumps)
+   263923    0.365    0.000    2.278    0.000 json/encoder.py:185(encode)
+     9407    0.012    0.000    2.128    0.000 {method 'mean' of 'numpy.ndarray' objects}
+     9407    0.057    0.000    2.116    0.000 site-packages/numpy/_core/_methods.py:115(_mean)
+
+

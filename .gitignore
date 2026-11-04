@@ -1,9 +1,10 @@
 data/
-target/
-target-mutants*/
+target*/
 .direnv/
 result
 __pycache__/
 .hypothesis/
 .pytest_cache/
 .keys.env
+.TAMU_TOKEN
+.CLAUDE_CODE_OAUTH_TOKEN*

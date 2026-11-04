@@ -186,3 +186,100 @@ possible only while subscribed.
   The signal-study tier on the World Bank Pink Sheet stands.
 - **Macro and rates:** the signal-study tier is extended with the free sources proposed above, each certified and
   recorded as data-layer work, inspected only for integrity until a class annex is frozen.
+
+## Revision 2026-10-26 22:04 UTC (18:04 EDT): integrity is the frozen list again (GPT review B2)
+
+GPT's review of the revision above (`audit/stage8/manifest-review-gpt.md`) found that its definition of
+**integrity** (adding row counts, key uniqueness, knownAt ordering and missingness counts) relaxes the frozen
+criteria revision of 2026-10-23, which allows only HTTP status, sizes, hashes, poll times and parse success before a
+class annex. That definition is withdrawn: wherever this manifest allows inspection only for integrity, integrity is
+exactly the criteria's list. Checks beyond it run only after the applicable annex choices are frozen. What was
+already seen beyond the list is recorded in `audit/stage8/exposure.md`, and each class annex accounts for it
+(GPT B1). GPT's findings B1 and B3 to B9 are answered in a further revision before this manifest authorizes any
+research use; until then it authorizes recording only.
+
+## Revision 2026-10-26 22:18 UTC (18:18 EDT): answers to GPT's review B1 and B3 to B9
+
+Each answer narrows what this manifest authorizes; none widens it. Recording stays authorized; research use of any
+source or class needs every gate below met and a class annex frozen and reviewed.
+
+- **Status of every source and class** (N4). Four states, and a source moves forward only with the evidence named:
+  *recording authorized* (certified for automated retrieval and storage: the data-layer feeds, Databento's pulls);
+  *research proposed* (named below with a role); *annex blocked* (a gate below unmet); *admitted* (a frozen,
+  reviewed class annex). Nothing is admitted today.
+- **Exposure first** (B1). Prior exposure is judged by information, not by stage: any observation, diagnostic or
+  derived figure a participant or process that could influence a campaign has seen is listed in
+  `audit/stage8/exposure.md` before any selection it could influence, with the earlier sessions' data-layer work
+  compiled from their transcripts. A class annex places exposed evidence as search or spent and never as fresh.
+- **Permission per operation** (B3, B4). Admission of a kernel-only source needs a permissions record quoting the
+  governing clauses, upstream terms included (CME's for Databento, EIA's NYMEX series and Portara/CQG), for each
+  intended operation: acquisition, storage, deterministic transformation, generator fitting and calibration, kernel
+  evaluation, each report shown to an agent or reviewer, recipients, and retention or deletion at termination. A role
+  label or a quotation of a prohibition is not a permission. Databento's certification (operator decision,
+  2026-10-26) covers acquisition, storage and deterministic kernel processing; outputs shown to agents need their
+  own determination, which is the human's (`PROGRESS.md`, decisions awaiting review).
+- **Disclosure boundary** (B5). The operator's coding sessions are AI recipients. Their debugging allowance is the
+  human's rule and stands as written; this manifest adds that pre-annex disclosures from any recording stay within
+  the criteria's integrity list, and that each class annex freezes its report schema before reports exist.
+- **Norgate retention** (B6). Open, like every other vendor's, until the full clause 21, its definitions and its
+  survival terms are read; retention, disclosure, reuse and reproduction are judged artifact by artifact.
+- **Selection rules for proposed series** (B7). A research-proposed series meets rules 3 and 4 from catalog
+  metadata. Recording-only series (SOFR, OBFR, TGCR, BGCR and any series under fifteen catalog years) are labelled
+  as such and cannot enter research through recording alone. Dating a series from its first and last observations
+  does not replace catalog metadata unless a reviewed revision of this manifest allows it before the affected
+  evidence is accessed.
+- **Macro extension** (B8). Research proposed only for series named by stable identity with a target or feature
+  role, or chosen by a metadata-only population and eligibility rule frozen in a reviewed revision before any
+  selection-relevant diagnostic exists. Until then the extension is recording only; the ECB FX population and rule
+  stand unchanged.
+- **Index membership** (B9). Constituent-universe admission is blocked until independent historical membership or
+  listing evidence meets C8.1 with zero unexplained errors; Norgate checked against itself is not that evidence. An
+  ETF proxy study needs a metadata-only proxy-selection rule and stable identities frozen first (N2), audits the ETFs'
+  own population and lifecycle, and discharges no index-level or constituent claim.
+- **Purchases** (N1). A purchase is one prerequisite of a class, not its admission; certification, lifecycle,
+  accounting and audit gates remain.
+- **Exclusion reasons** (N3). Each exclusion points to its terms record, and the record says whether the source is
+  prohibited, not verified, or not selected.
+
+These answers go to GPT for review before this manifest authorizes any research use.
+
+## Revision 2026-10-31 00:05 UTC (2026-10-30 20:05 EDT): answers to GPT's third review (B1, B3 to B5), adopted with GPT's wording corrections
+
+GPT's review of the draft is `audit/reviews/2026-10-30-gpt-stage8-draft.md`; the human accepted its corrections
+(`audit/decisions.md`, 2026-10-31 00:00 UTC (2026-10-30 20:00 EDT)). Written before any stage 8 inspection of what it
+affects. Each change narrows what this manifest authorizes; none widens it. Nothing is admitted, and every existing
+blocker stays. Where this revision differs from the text above, this revision stands.
+
+- **Exposure inventory before affected selection** (B1). Before the first class annex, and before any selection it
+  could influence (source, population, feature, window, transformation), `audit/stage8/exposure.md` is completed and
+  frozen as a campaign-relevant inventory. It incorporates every read recorded in the stage 10 thesis series' ledger
+  and every other recipient (sessions, subagents, GPT runs), by artifact, interval and recipient, and traces indirect
+  disclosures (a registry, a prompt attachment, a summary) and overlaps across sources. Without that inventory a class
+  stays annex blocked. The inventory is not needed to adopt this rule, only before the affected selection or annex
+  proceeds.
+- **Placement is not a prospective freeze** (B1). Placing exposed evidence as search or spent keeps freshness
+  accounting honest; it does not satisfy any requirement that a choice precede inspection. Each annex lists which of
+  its choices were made after exposure to evidence bearing on them, and the claims so blocked. The ECB
+  candidate-population and 750-date eligibility rules were committed in c2b0811 before the recorded ECB observation
+  disclosures and remain unchanged. This establishes chronology only for those rules, not prospective compliance for
+  other choices. Each annex adjudicates already-made and still-unmade choices against prior exposure and the
+  applicable freeze requirements; unsupported claims remain blocked. Search/spent placement supplies no retrospective
+  exemption.
+- **Permission before each operation, not only before admission** (B3, B4). Recording authorization is conditional on
+  acquisition and storage rights established by the source's certificate or permissions record before the fetch.
+  Every later operation (deterministic transformation, generator fitting and calibration, kernel evaluation, any
+  report shown to an agent or reviewer, retention after termination) needs its applicable source-specific permission
+  first. Coverage is source- and operation-specific. Databento GLBX.MDP3's acquisition, storage and deterministic
+  kernel processing rest on the recorded operator determination of 2026-10-26; ICE is excluded. No other operation is
+  deemed covered merely because it is deterministic. Aggregate AI-facing reports are human-approved in principle under
+  the decisions of 2026-10-26 17:25 UTC (13:25 EDT) and 23:19 UTC (19:19 EDT), but remain operationally blocked until
+  the applicable permissions record, frozen report schema and disclosure-safety prerequisites are satisfied.
+  Retention of vendor-derived artifacts after termination is not covered. If a source's terms prohibit an intended
+  operation and no permission will be sought, the operation is excluded. This replaces the pointer to "decisions
+  awaiting review", which is empty: the human decided the AI-output question on 2026-10-26 (`audit/decisions.md`).
+- **Disclosure to coding sessions** (B5). The debugging allowance is replaced. Before an annex freezes: the criteria's
+  integrity list only. After: schemas, counts, hashes and test results; row samples only from agent-readable sources
+  and only from search periods, each logged in `exposure.md`; never from a kernel-only source. Schemas, counts, hashes
+  and test results are disclosures subject to the applicable source permissions, phase restrictions and frozen
+  disclosure boundary; debugging creates no exception. Nothing derived from a holdout reaches the research process,
+  including integrity checks (C8.6).

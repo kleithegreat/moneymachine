@@ -24,9 +24,11 @@ def build_workspace(workdir, swarm=False):
 
 
 def harness_hash():
-    """Identity of the frozen harness: brief, notes, daemon, this file, the shared sandbox, model and limits."""
+    """Identity of the frozen harness: brief, notes, daemon, this file, the shared sandbox, the `claude` build (its store
+    path), model and limits."""
     return session.identity([HERE / f for f in ("brief.md", "research.md", "swarm.md", "daemon.py", "harness.py")],
-                            [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, SWARM_PROMPT, session.tools(CLIENT)])
+                            [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, SWARM_PROMPT, session.tools(CLIENT),
+                             session.claude_binary()])
 
 
 def run_agent(market, ledger, campaign, workdir, budget=100, prompt=session.PROMPT, agent="A", swarm=None):

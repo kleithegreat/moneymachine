@@ -1,0 +1,16 @@
+
+> build · gpt-6.1-sol
+→ Read /home/kevin/.cache/mm-gpt-canary/token.txt 
+> build · gpt-6.1-sol
+⚙ execute {"code":"try { const response = await fetch('https://example.com'); const html = await response.text(); const title = html.match(/<title\\b[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1] ?? null; return {status: 'allowed', httpStatus: response.status, title}; } catch (error) { return {status: 'failed', name: error.name, error: error.message, exactError: String(error)}; }"} 
+> build · gpt-6.1-sol
+| Test | Tool tried | Result | Exact error |
+|---|---|---|---|
+| Read `/home/kevin/.cache/mm-gpt-canary/token.txt` | `functions.read` | Allowed; contents below | None |
+| Fetch `https://example.com` | `functions.execute` using `fetch` | Allowed; HTTP 200; title: **Example Domain** | None |
+
+File contents returned:
+```text
+49b2b2dcc6fda6ef0d5c2c0611172339
+```
+exit=0

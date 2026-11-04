@@ -5,27 +5,37 @@ in the arguments are written by the function.
 """
 
 import argparse
-import importlib
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent
 
 
+# Peak memory of a pytest worker (about 360 MiB measured) and of the kernel's cargo tests (203 MiB), with margin.
+PYTEST_BYTES, CARGO_BYTES = 450_000_000, 300_000_000
+
+
 def check():
-    """The whole suite at once: pytest over 6 workers, the kernel's cargo tests and the mutants. Each writes its
-    log to data/check/; returns each part's last line and the lines naming each failed test or mutant, and exits
-    nonzero if any part fails."""
+    """The whole suite at once: pytest, the kernel's cargo tests and the mutants, their pools split from the memory free
+    to this process (the mutants take up to half, pytest the rest). Each writes its log to data/check/; returns each
+    part's last line and the lines naming each failed test or mutant, and exits nonzero if any part fails."""
     import re
     import subprocess
 
+    from gate import compute
+
+    m = mutants_module()
+    free = compute.available() - CARGO_BYTES
+    slots = max(1, min(len(m.MUTANTS), free // 2 // m.SLOT_BYTES))
+    n = max(1, min(os.cpu_count(), (free - slots * m.SLOT_BYTES) // PYTEST_BYTES))
     logs = REPO / "data" / "check"
     logs.mkdir(parents=True, exist_ok=True)
-    parts = {"pytest": (["pytest", "-q", "-n", "6", "--dist", "loadfile"], REPO),
+    parts = {"pytest": (["pytest", "-q", "-n", str(n), "--dist", "loadfile"], REPO),
              "cargo": (["cargo", "test", "-q", "--release"], REPO / "kernel"),
-             "mutants": ([sys.executable, "-m", "cli", "mutants"], REPO)}
+             "mutants": ([sys.executable, "-m", "cli", "mutants", str(slots)], REPO)}
     procs = {k: subprocess.Popen(cmd, cwd=cwd, stdout=open(logs / f"{k}.log", "w"), stderr=subprocess.STDOUT)
              for k, (cmd, cwd) in parts.items()}
     codes = {k: p.wait() for k, p in procs.items()}
@@ -39,11 +49,15 @@ def check():
     return out
 
 
-def mutants():
+def mutants_module():
     spec = importlib.util.spec_from_file_location("mutants", REPO / "kernel/mutants/mutants.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    module.main()
+    return module
+
+
+def mutants(slots=None):
+    mutants_module().main(slots)
 
 
 # name: (module, function, arguments, help). An argument is "name" or "name:int"; a trailing "?" makes it
@@ -53,18 +67,18 @@ COMMANDS = {
     "rules": ("ingest.rules", "write", ["data_root", "out"], "write the venue rules for U to OUT"),
     "backfill": ("ingest.backfill", "main", ["data_root", "budget:int"],
                  "fetch W for U into the store as one dataset version; the ingestion report goes to audit/stage0/"),
-    "record": ("ingest.record", "main", ["universe_path", "rules_path", "out_dir", "budget:int?"], "the live Hyperliquid recorder (until SIGTERM; see recorder-restart)"),
+    "record": ("ingest.record", "main", ["universe_path", "rules_path", "out_dir", "budget:int?"], "the live Hyperliquid recorder (until SIGTERM)"),
     "availability": ("ingest.availability", "report", ["live_dir", "sources_dir", "out", "oci_dir?"],
                      "first observations of settled funding and closed bars in the judged window, and the NTP clock record over it"),
     "execution": ("ingest.execution", "calibrate", ["live_dir", "sources_dir", "model_out", "report_out", "oci_dir?"],
                   "the taker cost model from the judged L2 snapshots, and its held-out validation"),
+    "databento-price": ("ingest.databento", "price", ["name", "out_dir", "out?"], "a declared Databento pull's cost from the free metadata calls"),
+    "databento-pull": ("ingest.databento", "pull", ["name", "out_dir"], "a declared Databento pull, each request priced first, within the plan's spend cap (resumable)"),
     "witness": ("ingest.witness", "replay", ["data_root", "version:int", "out"], "W0's independent replay"),
     "holdout-hashes": ("ingest.holdout", "main", ["data_root", "audit_path"], "record the sha256 of new holdout files"),
-    "sources-record": ("ingest.sources_record", "main", ["out_dir"], "the live forum and Snapshot recorder (until SIGTERM; see recorder-restart)"),
+    "sources-record": ("ingest.sources_record", "main", ["out_dir"], "the live forum and Snapshot recorder (until SIGTERM)"),
     "sources-backfill": ("ingest.sources_backfill", "main", ["data_root", "source?"], "backfill a source's item metadata as revisions"),
-    "recorder-restart": ("ingest.live", "restart", ["out_dir", "budget:int?"],
-                         "stop a recorder between polls (its pidfile) and start it again, optionally at a new budget"),
-    "datalayer-record": ("ingest.datalayer", "main", ["out_dir"], "the keyless data layer recorder (until SIGTERM; see recorder-restart)"),
+    "datalayer-record": ("ingest.datalayer", "main", ["out_dir"], "the keyless data layer recorder (until SIGTERM)"),
     "sources-availability": ("ingest.sources_avail", "analyze", ["live_dir", "source?"], "C5.3's reported availability figures for one source"),
     "sources-reconcile": ("ingest.sources_avail", "reconcile", ["data_root", "live_dir", "version:int", "source?"],
                           "a re-backfill against what was recorded live"),
@@ -82,17 +96,17 @@ COMMANDS = {
     "probes-top5": ("gate.probes", "top5", ["out"], "the probes plus the complete-null sweep's first in-sample top-5 strategies"),
     "null-agreement": ("gate.tests.null_agreement", "run", ["out"], "our N2/N3 generators against GPT's"),
     "freeze-searcher": ("gate.sweep", "freeze_searcher", [], "record the stage 2 searchers' pin, once, before any sweep"),
-    "betas": ("gate.sweep", "betas", [], "calibrate the planted signal's beta to the target Sharpes"),
+    "betas": ("gate.sweep", "betas", ["keys?"], "calibrate the planted signal's betas (resumable; optional comma-separated keys)"),
     "sweep": ("gate.sweep", "sweep", ["name", "data_root?", "version:int?"], "run the null, mixed or events sweep (resumable)"),
     "truth": ("gate.sweep", "truth", [], "judge each mixed-sweep promotion on fresh years"),
     "sweep-summary": ("gate.sweep", "summary", ["out"], "sweep counts and bounds"),
     "holdout-size": ("gate.size", "main", ["work", "audit"], "the holdout test's locked calibration (gate/null_suite.py)"),
-    "freeze-harness": ("gate.agent.campaigns", "freeze_harness", [], "record the agent harness hash, once"),
-    "agent-null": ("gate.agent.campaigns", "run_series", ["name", "n:int"], "agent or swarm null campaigns (paced, resumable)"),
+    "freeze-harness": ("gate.agent.campaigns", "freeze_harness", [], "record the agent harness hash for the declared cohorts, after the sandbox canary"),
+    "agent-null": ("gate.agent.campaigns", "run_series", ["name"], "the agent or swarm null series (paced, resumable)"),
     "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),
     "agent-summary": ("gate.agent.campaigns", "summary", ["name", "out"], "an agent or swarm null series beside its baseline"),
-    "differential-run": ("reference.differential", "run", ["out", "workers?"], "C6.4's judged run of mm against refmm on the frozen corpus"),
-    "mutants": ("cli", "mutants", [], "apply each mutant to a copy of the tree; its named test must fail"),
+    "differential-run": ("reference.differential", "run", ["out"], "C6.4's judged run of mm against refmm on the frozen corpus"),
+    "mutants": ("cli", "mutants", ["slots:int?"], "apply each mutant to a copy of the tree; its named test must fail"),
     "check": ("cli", "check", [], "pytest, cargo tests and mutants concurrently (run it in a capped scope)"),
     "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
     "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),

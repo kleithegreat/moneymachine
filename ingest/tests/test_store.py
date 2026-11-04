@@ -56,17 +56,35 @@ def test_files_are_immutable(store):
     assert all(not (p.stat().st_mode & 0o222) for p in store._files("bars_4h"))
 
 
-@settings(max_examples=1000, deadline=None)
-@given(t=st.integers(min_value=-H, max_value=12 * H), version=st.sampled_from([50, 100, 200]))
-def test_as_of_never_leaks(tmp_path_factory, t, version):
+@pytest.fixture(scope="module")
+def revised(tmp_path_factory):
     s = market_store(tmp_path_factory.mktemp("s"))
     s.write("bars_4h", rows(["A", "B"], range(10)), fetched_at=100, source="t")
     s.write("bars_4h", rows(["A"], range(4, 8), value=0.5), fetched_at=200, source="t")
+    return s
+
+
+@settings(max_examples=1000, deadline=None)
+@given(t=st.integers(min_value=-H, max_value=12 * H), version=st.sampled_from([50, 100, 200]))
+def test_as_of_never_leaks(revised, t, version):
+    s = revised
     got = s.as_of("bars_4h", t, version)
     assert (got["knownAt"] <= t).all() and (got["fetchedAt"] <= version).all()
     latest = s.revisions("bars_4h").filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(["coin", "eventTime"]).last()
     expect = latest.filter(pl.col("eventTime") + DELTA <= t).with_columns((pl.col("eventTime") + DELTA).alias("knownAt"))
     assert got.sort(["coin", "eventTime"]).equals(expect.sort(["coin", "eventTime"]).select(got.columns))
+
+
+def test_a_view_is_the_latest_view_filtered_by_known_at(tmp_path):
+    """ingest/witness.py relies on this: t enters as_of only through knownAt <= t, with corrections and tombstones."""
+    s = market_store(tmp_path)
+    s.write("bars_4h", rows(["A", "B"], range(10)), fetched_at=100, source="t")
+    s.write("bars_4h", rows(["A"], range(4, 8), value=0.5), fetched_at=8 * H, source="t")
+    s.write("bars_4h", rows(["A"], range(10)), fetched_at=9 * H, source="t", complete=pl.col("coin") == "B")
+    for version in (100, 8 * H, 9 * H):
+        latest = s.as_of("bars_4h", 2**62, version)
+        for t in range(-H, 12 * H, H // 2):
+            assert s.as_of("bars_4h", t, version).equals(latest.filter(pl.col("knownAt") <= t))
 
 
 def test_knownat_is_never_stored(tmp_path):

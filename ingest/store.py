@@ -113,7 +113,7 @@ class Store:
         time, or for a correction the later of that and its fetchedAt."""
         df = self.revisions(dataset)
         if df is None:
-            return df
+            raise FileNotFoundError(f"{self.root / dataset}: no revisions")
         df = df.filter(pl.col("fetchedAt") <= version).sort("fetchedAt")
         values = [c for c in df.columns if c not in self.key + META + ["tombstone"]]
         first = df.group_by(self.key, maintain_order=True).first().select(self.key + [pl.col(c).alias(f"{c}#first") for c in values])

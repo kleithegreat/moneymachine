@@ -1,32 +1,29 @@
-"""Sweeps of baseline-searcher campaigns on simulated markets: the complete null, mixed markets with
-planted signals (with the oracle's beta calibrated to a target Sharpe, and each promotion judged
-true or false on fresh years), and the complete null with real event counts replayed.
-
-Every campaign result is appended to data/campaigns/<sweep>.jsonl and never rewritten, and each campaign keeps
-its ledger in data/campaigns/<sweep>/<id>/. A rerun skips ids already recorded and records a started, unrecorded
-campaign as a crash, so sweeps resume after an interruption. Campaign ids are committed: seeds derive from them.
-"""
+"""Sweeps of baseline-searcher campaigns on simulated markets: the complete null, mixed markets with planted signals
+(the oracle's beta calibrated to a target, each promotion judged on fresh years), and the null with real event counts."""
 
 import json
 import math
 import sqlite3
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
 from scipy import stats
 
 from gate import campaign, search
+from gate.compute import Pool, workers
 from gate.kernel import command
 from gate.markets import generate, null_params, store_events, write
 
 OUT = Path("data/campaigns")
+# The sweeps' round, carried by every campaign id, so a rerun after a gate or null change draws fresh markets.
+ROUND = "r2"
 PLANTED = (0, 1)
 DAYS, HOLDOUT_DAYS = 730, 180
-LONG_DAYS, LONG_HOLDOUT_DAYS, LONG_MEAN, LONG_YEARS = 1450, 900, 0.002, 2  # C2.6's long-holdout cell (amendment of 2026-10-26)
+LONG_DAYS, LONG_HOLDOUT_DAYS, LONG_MEAN, LONG_YEARS = 1450, 900, 0.002, 2  # C2.6's long-holdout cell
 TRUTH_MARKETS, TRUTH_YEARS = 20, 10
 ORACLE = Path("gate/strategies/oracle.json")
 PER_YEAR = 365 * 6
@@ -56,12 +53,17 @@ def require_frozen_searcher():
         raise SystemExit(f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change")
 
 
-def run_all(specs, path, workers=10):
+# Peak memory per task, measured, with margin: a campaign (684 MiB for the long cell with 80 finalists through the
+# holdout) and one ten-year market's evaluation (936 MiB, as in calibration and truth).
+CAMPAIGN_BYTES, CALIBRATION_BYTES = 1_000_000_000, 1_300_000_000
+
+
+def run_all(specs, path):
     require_frozen_searcher()
     out = path.with_suffix("")
-    todo = set(campaign.resume([s["id"] for s in specs], path, out))
-    with Pool(workers) as pool, open(path, "a") as fh:
-        for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in todo]):
+    with campaign.resume([s["id"] for s in specs], path, out) as (todo, fh), \
+            Pool(workers(CAMPAIGN_BYTES), initializer=campaign.KeepLock(fh)) as pool:
+        for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in set(todo)]):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
             print(r["id"], "crash" if r.get("crash") else len(r["promoted"]), r["seconds"], flush=True)
@@ -72,21 +74,22 @@ def spec(cid, model, searcher, planted=(), beta=0.0):
             "beta": beta, "cost_cells": cost_cells(), "days": DAYS, "holdout_days": HOLDOUT_DAYS}
 
 
-def null_specs(markets=300):
-    return [spec(f"c24-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
+def null_specs(markets=300, rnd=ROUND):
+    return [spec(f"c24{rnd}-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
             for i in range(markets)]
 
 
-def mixed_specs(betas, markets=100):
-    """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long."""
-    return [spec(f"c25-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
+def mixed_specs(betas, markets=100, rnd=ROUND):
+    """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long (`rnd`: the round tag; the first
+    round had none)."""
+    return [spec(f"c25{rnd}-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
             for i in range(markets)] + \
-        [spec(f"c25-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
+        [spec(f"c25{rnd}-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
          for i in range(markets)]
 
 
 def events_specs(events, markets=300):
-    return [{**spec(f"c56-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
+    return [{**spec(f"c56{ROUND}-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
 
 
 def net_returns(program, model, beta, market_id, years):
@@ -97,59 +100,81 @@ def net_returns(program, model, beta, market_id, years):
         p = Path(tmp) / "p.json"
         p.write_text(json.dumps(program))
         out = subprocess.run(command("eval", p, market_id, "truth", Path(tmp) / "l.sqlite", root),
-                             capture_output=True, text=True, check=True)
+                             capture_output=True, text=True)
+        if out.returncode:
+            raise RuntimeError(f"mm eval on {market_id} (beta {beta}) exited {out.returncode}: "
+                               f"{out.stdout.strip()[-1000:]} {out.stderr.strip()[-2000:]}")
         exp = json.loads(out.stdout)["experiment"]
         blob = sqlite3.connect(Path(tmp) / "l.sqlite").execute(
             "SELECT returns FROM results WHERE experiment_id = ?", (exp,)).fetchone()[0]
         return np.frombuffer(blob, "<f8")
 
 
-def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS):
+def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS, threads=1):
     """The oracle's per-step net returns over TRUTH_MARKETS fresh markets; `weight` replaces its per-coin weight."""
     program = json.loads(ORACLE.read_text())
     if weight is not None:
         program["weight"]["args"][1]["const"] = weight
-    return np.concatenate([net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years) for i in range(TRUTH_MARKETS)])
+    with ThreadPoolExecutor(threads) as ex:
+        return np.concatenate(list(ex.map(lambda i: net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years),
+                                          range(TRUTH_MARKETS))))
 
 
-def oracle_sharpe(model, beta, tag):
+def oracle_sharpe(model, beta, tag, threads=1):
     """Annualized net Sharpe of the oracle over TRUTH_MARKETS x TRUTH_YEARS simulated years."""
-    r = oracle_returns(model, beta, tag)
+    r = oracle_returns(model, beta, tag, threads=threads)
     return float(r.mean() / r.std(ddof=1) * np.sqrt(PER_YEAR))
 
 
-def oracle_cap_mean(beta):
+def oracle_cap_mean(beta, threads=1):
     """Mean net return per step of the oracle at the kernel's gross cap (weight 2.0) on N2, over TRUTH_MARKETS fresh
     LONG_YEARS-year markets: the long-holdout cell's strength."""
-    return float(oracle_returns("N2", beta, "cal-long", weight=2.0, years=LONG_YEARS).mean())
+    return float(oracle_returns("N2", beta, "cal-long", weight=2.0, years=LONG_YEARS, threads=threads).mean())
 
 
-def bisect(f, target, lo, hi, steps):
-    """The point in [lo, hi] where the increasing f reaches target."""
-    for _ in range(steps):
+STEPS = OUT / "betas-steps.jsonl"
+
+
+def bisect(key, f, target, lo, hi, steps):
+    """The point in [lo, hi] where the increasing f reaches target, each step's value recorded in STEPS as it is
+    computed, so a rerun resumes at the first unrecorded step (a crash loses at most one)."""
+    done = {r["step"]: r for r in map(json.loads, open(STEPS)) if r["key"] == key} if STEPS.exists() else {}
+    for k in range(steps):
         mid = (lo + hi) / 2
-        lo, hi = (mid, hi) if f(mid) < target else (lo, mid)
+        if k in done:
+            if done[k]["mid"] != mid:
+                raise SystemExit(f"{STEPS}: {key} step {k} was recorded at {done[k]['mid']}, not {mid}")
+            v = done[k]["value"]
+        else:
+            v = f(mid)
+            with open(STEPS, "a") as fh:
+                fh.write(json.dumps({"key": key, "step": k, "mid": mid, "value": v}) + "\n")
+        lo, hi = (mid, hi) if v < target else (lo, mid)
     return (lo + hi) / 2
 
 
-def calibrate_beta(model, target):
-    """Beta for which the oracle's net Sharpe is `target`."""
-    return bisect(lambda b: oracle_sharpe(model, b, f"cal{target}"), target, 0.0, 0.05, 12)
+# N2's oracle reaches Sharpe 3 only above 0.05, so its s3 range is [0, 0.08]; N3's never reaches 3, so its cell is 2.5.
+CALIBRATIONS = {**{f"{m}-s{s}": (partial(oracle_sharpe, m, tag=f"cal{s}"), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2)},
+                "N2-s3": (partial(oracle_sharpe, "N2", tag="cal3"), 3, 0.0, 0.08, 12),
+                "N3-s3": (partial(oracle_sharpe, "N3", tag="cal2.5"), 2.5, 0.044, 0.06, 12),
+                "N2-long": (oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
 
 
-CALIBRATIONS = {**{f"{m}-s{s}": partial(calibrate_beta, m, s) for m in ("N2", "N3") for s in (1, 2, 3)},
-                "N2-long": partial(bisect, oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
+def calibrate(key, threads):
+    f, *args = CALIBRATIONS[key]
+    return bisect(key, partial(f, threads=threads), *args)
 
 
-def calibrate(key):
-    return CALIBRATIONS[key]()
-
-
-def betas():
+def betas(keys=None):
+    """Calibrate the given keys (comma-separated; all by default), resuming from STEPS, one process per key and as many
+    markets at a time in each as memory allows; betas.json is written once every key is calibrated."""
     OUT.mkdir(parents=True, exist_ok=True)
-    with Pool(len(CALIBRATIONS)) as pool:
-        values = pool.map(calibrate, list(CALIBRATIONS))
-    (OUT / "betas.json").write_text(json.dumps(dict(zip(CALIBRATIONS, values)), indent=1))
+    todo = keys.split(",") if keys else list(CALIBRATIONS)
+    n = min(len(todo), workers(CALIBRATION_BYTES))
+    with Pool(n) as pool:
+        values = dict(zip(todo, pool.map(partial(calibrate, threads=max(1, workers(CALIBRATION_BYTES) // n)), todo)))
+    if set(values) == set(CALIBRATIONS):
+        (OUT / "betas.json").write_text(json.dumps({k: values[k] for k in CALIBRATIONS}, indent=1))
 
 
 def is_true(program, model, beta, tag):
@@ -162,7 +187,7 @@ def is_true(program, model, beta, tag):
 
 def results(name):
     path = OUT / f"{name}.jsonl"
-    return [json.loads(l) for l in open(path)] if path.exists() else []
+    return campaign.records(path)
 
 
 def cp_upper(k, n, level=0.95):
@@ -179,17 +204,21 @@ def truth_id(campaign_id, h):
 
 
 def truth():
-    """Whether each promotion of the mixed sweep is true, appended to truth.jsonl."""
+    """Whether each promotion of the mixed sweep is true, appended to truth.jsonl as each is judged."""
     path, beta = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
-    done = campaign.recorded(path)
-    with open(path, "a") as fh:
-        for r in results("mixed"):
-            _, model, cell, _ = r["id"].split("-")
-            for p in r.get("promoted", []):
-                tid = truth_id(r["id"], p["hash"])
-                if tid not in done:
-                    fh.write(json.dumps({"id": tid, "true": is_true(p["program"], model, beta[f"{model}-{cell}"], tid)}) + "\n")
-                    fh.flush()
+    with campaign.exclusive(path) as fh:
+        done = campaign.recorded(path)
+        todo = [(truth_id(r["id"], p["hash"]), p["program"], r["id"].split("-")[1], beta["-".join(r["id"].split("-")[1:3])])
+                for r in results("mixed") for p in r.get("promoted", []) if truth_id(r["id"], p["hash"]) not in done]
+        with Pool(workers(CALIBRATION_BYTES), initializer=campaign.KeepLock(fh)) as pool:
+            for tid, true in pool.imap_unordered(judge, todo):
+                fh.write(json.dumps({"id": tid, "true": true}) + "\n")
+                fh.flush()
+
+
+def judge(item):
+    tid, program, model, beta = item
+    return tid, is_true(program, model, beta, tid)
 
 
 def null_summary(name="null"):

@@ -1,0 +1,6 @@
+{
+ "pull": "ohlcv-1d-monthly",
+ "requests": 197,
+ "cost_usd": 13.838278800251,
+ "max_request_usd": 0.083346888423
+}

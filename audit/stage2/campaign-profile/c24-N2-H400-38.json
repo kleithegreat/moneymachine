@@ -1,0 +1,15 @@
+{
+ "id": "c24-N2-H400-38",
+ "total_s": 73.56730219500605,
+ "phases_s": {
+  "generate": 0.46150873199803755,
+  "write": 4.540683393017389,
+  "run": 52.56169136299286,
+  "search_decision": 10.449760305986274,
+  "freeze": 7.453025318682194e-06,
+  "programs": 0.05694223602768034,
+  "holdout_decision": 1.9257015082985163e-05
+ },
+ "identical_to_sweep": true,
+ "sweep_seconds": 123.4
+}

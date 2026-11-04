@@ -1,0 +1,15 @@
+{
+ "id": "c24-N1-G400-272",
+ "total_s": 43.34662952000508,
+ "phases_s": {
+  "generate": 0.13384687097277492,
+  "write": 4.141400780004915,
+  "run": 30.04147873900365,
+  "search_decision": 6.216027783986647,
+  "freeze": 7.059948984533548e-06,
+  "programs": 0.0658333040191792,
+  "holdout_decision": 1.7604033928364515e-05
+ },
+ "identical_to_sweep": true,
+ "sweep_seconds": 60.1
+}

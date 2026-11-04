@@ -1,0 +1,55 @@
+{
+ "id": "c24-N1-G100-0",
+ "seconds": 13.3,
+ "identical_to_sweep": true,
+ "phases_mb": {
+  "setup": {
+   "self": 396.1,
+   "children": 0.0,
+   "total": 396.1,
+   "self_at_start": 0.0
+  },
+  "generate": {
+   "self": 209.6,
+   "children": 0.0,
+   "total": 209.6,
+   "self_at_start": 205.9
+  },
+  "write": {
+   "self": 352.9,
+   "children": 0.0,
+   "total": 352.9,
+   "self_at_start": 212.0
+  },
+  "run": {
+   "self": 346.8,
+   "children": 544.7,
+   "total": 891.5,
+   "self_at_start": 346.8
+  },
+  "search_decision": {
+   "self": 348.6,
+   "children": 0.0,
+   "total": 348.6,
+   "self_at_start": 346.8
+  },
+  "spa": {
+   "self": 352.0,
+   "children": 0.0,
+   "total": 352.0,
+   "self_at_start": 348.7
+  },
+  "effective_n": {
+   "self": 354.5,
+   "children": 0.0,
+   "total": 354.5,
+   "self_at_start": 353.3
+  },
+  "xz": {
+   "self": 394.8,
+   "children": 0.0,
+   "total": 394.8,
+   "self_at_start": 351.7
+  }
+ }
+}

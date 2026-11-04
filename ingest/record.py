@@ -35,7 +35,9 @@ class Recorder:
         self.out.mkdir(parents=True, exist_ok=True)
         self.hour = now_ms() // HOUR * HOUR
         self.pending = {}
-        self.verify = [(self.hour + VERIFY_AFTER, self.kinds(self.hour))] if now_ms() < self.hour + VERIFY_AFTER else []
+        self.verify = []
+        if now_ms() < self.hour + VERIFY_AFTER:
+            self.queue_verification(self.hour)
         self.last_l2 = {c: 0 for c in coins}
 
     def log(self, rec):
@@ -64,6 +66,9 @@ class Recorder:
     def kinds(h):
         return ["funding"] + (["bar"] if h % BAR == 0 else [])
 
+    def queue_verification(self, boundary):
+        self.verify.extend((boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins)
+
     def step(self):
         t = now_ms()
         h = t // HOUR * HOUR
@@ -73,18 +78,29 @@ class Recorder:
             for kind in kinds:
                 for c in self.coins:
                     self.pending[(kind, c)] = (h, h + FIRST_AFTER - POLL)
-                self.verify.append((h + VERIFY_AFTER, kinds))
+            self.queue_verification(h)
         for (kind, c), (b, last) in list(self.pending.items()):
             if now_ms() - last >= POLL:
                 if self.poll(kind, c, b, "first"):
                     del self.pending[(kind, c)]
                 else:
                     self.pending[(kind, c)] = (b, now_ms())
-        while self.verify and self.verify[0][0] <= now_ms():
-            at, kinds = self.verify.pop(0)
-            for kind in kinds:
-                for c in self.coins:
-                    self.poll(kind, c, at - VERIFY_AFTER, "verify")
+        if self.verify and self.verify[0][0] <= now_ms():
+            at, kind, coin, failures = self.verify[0]
+            sent = now_ms()
+            try:
+                self.poll(kind, coin, at - VERIFY_AFTER, "verify")
+            except Exception as e:
+                failures += 1
+                if failures < 3:
+                    self.verify[0] = (at, kind, coin, failures)
+                else:
+                    self.log({"kind": kind, "coin": coin, "boundary": at - VERIFY_AFTER, "purpose": "dropped",
+                              "sent": sent, "recv": now_ms(), "found": False, "data": [],
+                              "error": repr(e), "attempts": failures, "dropped": True})
+                    self.verify.pop(0)
+            else:
+                self.verify.pop(0)
 
     def step_l2(self):
         for c in self.coins:
@@ -108,10 +124,9 @@ def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
     the documented limit."""
     delisted = json.loads(Path(rules_path).read_text())["coins"]
     coins = [c for c in json.loads(Path(universe_path).read_text())["universe"] if not delisted[c]["delisted"]]
-    stop = recording(out_dir, "record", universe_path=universe_path, rules_path=rules_path, out_dir=out_dir, budget=budget)
+    stop = recording(out_dir)
     rec = Recorder(budget, coins, out_dir)
     l2 = threading.Thread(target=forever, args=(rec.step_l2, stop))
     l2.start()
     forever(rec.step, stop)
     l2.join()
-

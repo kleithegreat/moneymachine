@@ -86,7 +86,7 @@ def test_robots_disallow_and_failures_are_honored():
     f, _ = fetcher(disallow)
     assert "robots" in f.fetch("https://example.org/private/x")["refused"]
     assert f.fetch("https://example.org/public")["status"] == 200
-    for robots in [(500, None, b""), (403, None, b"")]:
+    for robots in [(500, None, b""), (403, None, b""), (429, None, b"")]:
         f, _ = fetcher({("example.org", "/robots.txt"): robots, ("example.org", "/public"): (200, None, b"ok")})
         assert "robots" in f.fetch("https://example.org/public")["refused"]
     f, _ = fetcher({("docs.example.org", "/public"): (200, None, b"ok")})
@@ -125,3 +125,19 @@ def test_refuses_hosts_without_certified_terms_on_every_hop():
 def test_the_default_allowlist_is_the_certified_sources():
     assert retrieval.Fetcher().allowed == {"api.gdeltproject.org", "data.gdeltproject.org", "api.fiscaldata.treasury.gov",
                                            "publicreporting.cftc.gov", "www.federalreserve.gov/feeds/", "gamma-api.polymarket.com"}
+
+
+def test_robots_follows_a_redirect_on_its_host_only():
+    pages = {("example.org", "/robots.txt"): (301, "https://example.org/r.txt", b""),
+             ("example.org", "/r.txt"): (200, None, b"User-agent: *\nDisallow: /private\n"), ("example.org", "/public"): (200, None, b"ok")}
+    f, _ = fetcher(pages)
+    assert "robots" in f.fetch("https://example.org/private/x")["refused"]
+    assert f.fetch("https://example.org/public")["status"] == 200
+    f, _ = fetcher({("example.org", "/robots.txt"): (301, "https://docs.example.org/robots.txt", b""),
+                    ("docs.example.org", "/robots.txt"): (404, None, b""), ("example.org", "/public"): (200, None, b"ok")})
+    assert "robots" in f.fetch("https://example.org/public")["refused"]
+
+
+def test_https_trusts_the_pinned_certifi_bundle_not_the_host_store():
+    context = retrieval.PinnedHTTPS("example.org", "93.184.216.34")._context
+    assert context.verify_mode == retrieval.ssl.CERT_REQUIRED and context.cert_store_stats()["x509_ca"] > 100

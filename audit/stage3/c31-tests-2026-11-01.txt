@@ -1,0 +1,28 @@
+# C3.1 daemon and sandbox tests, 2026-11-01 07:37 UTC (02:37 EST), at bc419f4 plus the new test; daemon.py and sandbox/ unchanged since the harness freeze 6a335714
+gate/tests/test_agent_daemon.py::test_budget_disclosure_and_log 
+gate/tests/test_agent_daemon.py::test_history_injection_cannot_change_daemon_behavior 
+gate/tests/test_sandbox.py::test_only_the_closure_of_the_store_and_no_host_environment 
+gate/tests/test_sandbox.py::test_network_only_through_the_relay_to_its_hosts 
+gate/tests/test_sandbox.py::test_sandbox_view 
+gate/tests/test_agent_daemon.py::test_rejections_count_and_check_is_free 
+gate/tests/test_agent_daemon.py::test_select_requires_evaluated_programs 
+gate/tests/test_agent_daemon.py::test_bad_requests 
+gate/tests/test_sandbox.py::test_the_client_cannot_be_replaced_or_fed_modules 
+gate/tests/test_agent_daemon.py::test_swarm_history_is_shared_logged_and_capped 
+gate/tests/test_agent_daemon.py::test_the_harness_budget_rejects_the_next_evaluation_and_every_override 
+gate/tests/test_sandbox.py::test_swarm_agents_cannot_reach_each_other 
+[gw7] [  7%] PASSED gate/tests/test_sandbox.py::test_sandbox_view 
+[gw8] [ 15%] PASSED gate/tests/test_sandbox.py::test_only_the_closure_of_the_store_and_no_host_environment 
+[gw9] [ 23%] PASSED gate/tests/test_sandbox.py::test_the_client_cannot_be_replaced_or_fed_modules 
+[gw11] [ 30%] PASSED gate/tests/test_sandbox.py::test_swarm_agents_cannot_reach_each_other 
+[gw10] [ 38%] PASSED gate/tests/test_sandbox.py::test_network_only_through_the_relay_to_its_hosts 
+[gw1] [ 46%] PASSED gate/tests/test_agent_daemon.py::test_budget_disclosure_and_log 
+[gw2] [ 53%] PASSED gate/tests/test_agent_daemon.py::test_bad_requests 
+[gw0] [ 61%] PASSED gate/tests/test_agent_daemon.py::test_rejections_count_and_check_is_free 
+[gw3] [ 69%] PASSED gate/tests/test_agent_daemon.py::test_select_requires_evaluated_programs 
+gate/tests/test_sandbox.py::test_closing_the_proxy_stops_its_thread 
+[gw1] [ 76%] PASSED gate/tests/test_sandbox.py::test_closing_the_proxy_stops_its_thread 
+[gw6] [ 84%] PASSED gate/tests/test_agent_daemon.py::test_history_injection_cannot_change_daemon_behavior 
+[gw4] [ 92%] PASSED gate/tests/test_agent_daemon.py::test_swarm_history_is_shared_logged_and_capped 
+[gw5] [100%] PASSED gate/tests/test_agent_daemon.py::test_the_harness_budget_rejects_the_next_evaluation_and_every_override 
+============================== 13 passed in 3.83s ==============================

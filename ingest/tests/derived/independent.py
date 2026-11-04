@@ -1,65 +1,77 @@
-from bisect import bisect_right
+"""Compute hourly derived-event counts using only the Python standard library."""
 
-HOUR_MS = 3_600_000
-TICK_OFFSET_MS = 120_000
-POLL_GAP_MS = 600_000
+from collections import Counter, defaultdict
+
+_HOUR = 3_600_000
+_TICK_OFFSET = 120_000
+_POLL_LIFETIME = 600_000
 
 
 def _poll_runs(times):
-    """Yield maximal poll runs whose consecutive gaps are <= POLL_GAP_MS."""
-    start = last = times[0]
-    for at in times[1:]:
-        if at - last > POLL_GAP_MS:
-            yield start, last
-            start = at
-        last = at
-    yield start, last
+    """Yield maximal polling intervals as [start, end) pairs."""
+    start = previous = times[0]
+    for current in times[1:]:
+        if current - previous > _POLL_LIFETIME:
+            yield start, previous + _POLL_LIFETIME
+            start = current
+        previous = current
+    yield start, previous + _POLL_LIFETIME
 
 
 def counts(case):
-    """Return [coin, tau, count] rows for every covered hour."""
-    coin_of = case["coin_of"]
-    margin = case["margin"]
+    """Return [coin, tau, count] for every covered hour."""
     version = case["version"]
+    margin = case["margin"]
+    coin_of = case["coin_of"]
 
-    polls = {
-        key: sorted(set(times))
-        for key, times in case["polls"].items()
-        if key in coin_of and times
-    }
+    polls = {}
+    for key, times in case["polls"].items():
+        if key in coin_of:
+            eligible = sorted(set(t for t in times if t <= version))
+            if eligible:
+                polls[key] = eligible
 
+    # Lexicographic ordering selects the earliest observation, breaking
+    # equal observation times by the smallest claimed creation time.
     earliest = {}
-    for key, item_id, created, at in case["observations"]:
-        if key not in polls:
+    for key, item_id, created, observed_at in case["observations"]:
+        if key not in polls or observed_at > version:
             continue
         item = (key, item_id)
-        candidate = (at, created)
+        candidate = (observed_at, created)
         if item not in earliest or candidate < earliest[item]:
             earliest[item] = candidate
 
-    known_times = {key: [] for key in polls}
-    for (key, item_id), (witness, created) in earliest.items():
-        if created >= polls[key][0]:
-            known_times[key].append(witness + margin)
+    event_counts = defaultdict(Counter)
+    for (key, _), (witness, created) in earliest.items():
+        if created < polls[key][0]:
+            continue
+
+        known_at = witness + margin
+        # The unique grid hour whose tick interval contains known_at:
+        # tau + offset - hour < known_at <= tau + offset.
+        tau = (
+            (known_at - _TICK_OFFSET + _HOUR - 1) // _HOUR
+        ) * _HOUR
+        event_counts[key][tau] += 1
 
     rows = []
     for key, times in polls.items():
-        known = sorted(known_times[key])
-
-        for start, last in _poll_runs(times):
-            lower_tau = start + HOUR_MS + margin - TICK_OFFSET_MS
-            upper_tau = min(
-                version - TICK_OFFSET_MS,
-                last + POLL_GAP_MS + margin - TICK_OFFSET_MS - 1,
+        for start, end in _poll_runs(times):
+            # A closed witness window [a, b] is covered precisely when
+            # start <= a and b < end. All quantities are integer times.
+            lower = start + _HOUR + margin - _TICK_OFFSET
+            upper = min(
+                end + margin - _TICK_OFFSET - 1,
+                version - _TICK_OFFSET,
             )
-            first_tau = -(-lower_tau // HOUR_MS) * HOUR_MS
+            first_tau = ((lower + _HOUR - 1) // _HOUR) * _HOUR
 
-            for tau in range(first_tau, upper_tau + 1, HOUR_MS):
-                tick = tau + TICK_OFFSET_MS
-                count = (
-                    bisect_right(known, tick)
-                    - bisect_right(known, tick - HOUR_MS)
-                )
-                rows.append([coin_of[key], tau, count])
+            for tau in range(first_tau, upper + 1, _HOUR):
+                rows.append([
+                    coin_of[key],
+                    tau,
+                    event_counts[key][tau],
+                ])
 
     return rows

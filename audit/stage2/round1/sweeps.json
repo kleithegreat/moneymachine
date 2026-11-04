@@ -1,0 +1,157 @@
+{
+ "null": {
+  "N1-G100": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N1-G400": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N1-H400": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N2-G100": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N2-G400": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N2-H400": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N3-G100": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N3-G400": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  },
+  "N3-H400": {
+   "n": 300,
+   "promoted": 0,
+   "spa_and_finalists": 0,
+   "bankrupt": 0,
+   "promoted_upper": 0.009936081944457708,
+   "spa_upper": 0.009936081944457708
+  }
+ },
+ "mixed": {
+  "N2-long": {
+   "n": 100,
+   "with_true": 0,
+   "fdr": 0.02,
+   "fdr_upper": 0.1423873415340408,
+   "power": 0.0,
+   "power_ci": [
+    0.0,
+    0.03621669264517641
+   ]
+  },
+  "N2-s1": {
+   "n": 100,
+   "with_true": 0,
+   "fdr": 0.0,
+   "fdr_upper": 0.12238734153404082,
+   "power": 0.0,
+   "power_ci": [
+    0.0,
+    0.03621669264517641
+   ]
+  },
+  "N2-s2": {
+   "n": 100,
+   "with_true": 0,
+   "fdr": 0.0,
+   "fdr_upper": 0.12238734153404082,
+   "power": 0.0,
+   "power_ci": [
+    0.0,
+    0.03621669264517641
+   ]
+  },
+  "N2-s3": {
+   "n": 100,
+   "with_true": 0,
+   "fdr": 0.0,
+   "fdr_upper": 0.12238734153404082,
+   "power": 0.0,
+   "power_ci": [
+    0.0,
+    0.03621669264517641
+   ]
+  },
+  "N3-s1": {
+   "n": 100,
+   "with_true": 0,
+   "fdr": 0.0,
+   "fdr_upper": 0.12238734153404082,
+   "power": 0.0,
+   "power_ci": [
+    0.0,
+    0.03621669264517641
+   ]
+  },
+  "N3-s2": {
+   "n": 100,
+   "with_true": 0,
+   "fdr": 0.0,
+   "fdr_upper": 0.12238734153404082,
+   "power": 0.0,
+   "power_ci": [
+    0.0,
+    0.03621669264517641
+   ]
+  },
+  "N3-s3": {
+   "n": 100,
+   "with_true": 0,
+   "fdr": 0.0,
+   "fdr_upper": 0.12238734153404082,
+   "power": 0.0,
+   "power_ci": [
+    0.0,
+    0.03621669264517641
+   ]
+  }
+ },
+ "events": {},
+ "qualifications": "PROGRESS.md, Qualifications, stage 2"
+}

@@ -2,8 +2,7 @@
 Description=moneymachine disk-space guard, hourly
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=1h
+OnCalendar=hourly
 Persistent=true
 
 [Install]

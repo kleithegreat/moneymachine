@@ -1,0 +1,10 @@
+{
+ "node": "prodesk5",
+ "cpu": "Intel(R) Core(TM) i5-8500T CPU @ 2.10GHz",
+ "avx512": [],
+ "numpy": "2.4.4",
+ "numpy_dispatch": [
+  "X86_V2",
+  "X86_V3"
+ ]
+}

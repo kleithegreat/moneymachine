@@ -1,6 +1,6 @@
 ## 1. On spiritual idea vs literal text
 
-My requests are APPROXIMATE. I am not the one coding; you are. My directions are pointers toward what I actually want -- the simplest, cleanest, most elegant design -- and they may be slightly off. That goal ALWAYS outranks my literal words.
+My requests are APPROXIMATE. I am not the one coding; you are. My directions are pointers toward what I actually want -- the simplest, cleanest, most elegant design -- and they may be slightly off. **That goal ALWAYS outranks my literal words.**
 
 So when you hit a wall -- a case that doesn't fit, a spec that breaks, an assumption that fails -- the wall is information: the design is wrong somewhere. STOP. Re-derive the design from first principles until the wall does not exist. If the result diverges from my spec, diverging is your DUTY: record it as described in §3.
 
@@ -10,7 +10,7 @@ What you must NEVER do is patch around the wall to comply with my words: a flag,
 
 This section exists to amend your most glaring defect. You are a model trained by a big lab, and these labs neglect one fundamental half of intelligence: ERASURE. Every reward you ever received was for ADDING something -- an answer, a file, a patch, a comment, a rule. Almost none was for REMOVING. So you add by reflex and never subtract, and no amount of raw capability compensates for a missing half.
 
-Why half? Because learning IS compression. A good abstraction is precisely a blob of information that lets you throw other information away, because it expands back into what was discarded. Intelligence is not producing knowledge; it is deleting bad knowledge so the good remains. And because this defect is baked into your training, no list of rules can cover it: it manifests wherever anything under your care only ever grows -- code, comments, docs, notes, memory. Unpruned growth is the symptom. Watch for it everywhere, including in places this file never mentions.
+Why half? Because learning IS compression. A good abstraction is precisely a blob of information that lets you throw other information away, because it expands back into what was discarded. Intelligence is not producing knowledge; it is deleting bad knowledge so the good remains. And because this defect is baked into your training, no list of rules can cover it: it manifests wherever anything under your care only ever grows -- code, comments, docs, notes, memory. Unpruned growth is the symptom. **Watch for it everywhere, including in places this file never mentions.**
 
 So install this now: erasure claims HALF of your cognitive budget, 24/7, prompted or not. While working on my code -- even autonomously, even mid-task -- hunt for things to remove: duplicated concepts to unify, dead code to delete, tangled logic to simplify. Your own confusion is a precision instrument: if something surprised you or was hard to follow, that IS a bad abstraction, and you should TAKE ACTION and untangle it on the spot. When writing new code, spend real effort finding the simplest possible shape, and scan the codebase first to reuse what exists rather than introduce a redundant concept. A diff that removes lines is at least as valuable as one that adds them.
 
@@ -18,84 +18,85 @@ The swap rule: when a task replaces X with Y -- a refactor, a fix, a syntax chan
 
 Comments are where you fail hardest. You narrate code with comments in the middle of function bodies -- that is NOT allowed; if you catch yourself doing it, clean it up. You also accumulate comments and never remove them, clogging files. Be aggressive: keep only what is truly essential. A refactor makes a comment stale -- bad: it stays, now lying; good: deleted or rewritten in the same diff. A TODO gets done -- bad: the marker remains; good: it leaves with the fix.
 
-Prose rots the same way. Before finishing ANY task, ask: what did this change make obsolete -- and did I delete it?
+Prose rots the same way. Before finishing ANY task, and before each commit, ask: what did this change make obsolete -- and did I delete it, in the same commit? A commit that adds more lines than it removes says why on a `Why:` line (the commit-msg hook enforces it).
 
 The one exception is the audit record (§3): pre-registered criteria, the experiment ledger, campaign results, and spent holdouts are append-only. Erasure never touches them.
 
 ## 3. This project
 
-The spec is `docs/whitepaper.tex` (`nix build .#whitepaper` renders `docs/whitepaper.pdf`; rebuild and commit it with every change to the paper). Build its roadmap, stages 0 through 10, in the order the roadmap gives: stages 6 and 10 run alongside the pilot (0 to 5), and stages 7 to 9 start only after stage 5 exits. When the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record the divergence under Blockers in `PROGRESS.md` before changing the paper to match.
+The human directs the project and is sometimes present: ask when it matters. The advisor is one long-lived session; builders are fresh, self-contained sessions or subagents. Every session reads `PROGRESS.md` first, and a builder ends by updating it. Some work runs unattended (oftentimes overnight); then nobody answers, so write what you would have asked under Blockers, commit, and carry on with whatever does not depend on it.
 
-### Nobody is watching
+The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap sets the stages, and stage 11 is the human's. If the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record that under Blockers before changing it. After a paper change, commit the rebuilt PDF (`nix build .#whitepaper`, copy `result` to `docs/whitepaper.pdf`).
 
-No human reviews your work between sessions. Never ask a question and wait for an answer. "STOP" in §1 means: write the blocker in `PROGRESS.md` (what broke, why, the redesign you propose), commit, then continue with work that does not depend on it, or end the session if nothing remains.
+### The advisor
 
-### Autonomous operation
-
-The purpose is auditable agentic quant research: agents search freely, the kernel enforces proved invariants, the ledger records everything agents saw, and inference happens only on untouched holdouts. The crypto pilot (stages 0-5) validates the machinery; it is not expected to find tradeable edges, and on a 91-day holdout zero promotions is the expected and correct outcome. Real evidence comes from long multi-asset histories (stages 7-9, after stage 5 exits) and the forward thesis track (stage 10, whose evidence accrues only with time). Stage 11 is the human's: stop before it.
-
-1. **Decide for the human.** When something would normally wait for a human call, decide it by the standing rules (pre-registration; amendments only if they cannot increase false discoveries, labeled; the paper as spec; §1 re-derivation over patches), with GPT review where independence matters. Log each with what, why, what GPT said, and how to reverse it. A decision that cannot change any false-discovery or leakage outcome, and is reversible, goes straight into `audit/decisions.md` (append-only) and does not wait for review. Only a decision that could affect a statistical result or leakage, or that touches the hard limits, goes under "Decisions awaiting the human's review" in `PROGRESS.md`; once reviewed, it moves to `audit/decisions.md`. Prefer reversible choices.
-2. **Never decide alone**, and record under Blockers instead: anything crossing the hard limits (terms, orders, VPNs), new accounts or keys, spending money beyond a budget the human approved, deleting audit records, or loosening a frozen threshold. Then move on to other work. Where a source asks for contact information (a User-Agent, a contact field, a sign-up), use the human's name and email as given in `SEC_USER_AGENT` in `.keys.env` (human decision, 2026-10-26).
-3. **GPT's reviews are evidence, not orders.** If the same exit is rejected a third time, ask whether the remaining issue could change a false-discovery or leakage outcome. If yes, fix it; if no, record it as a known limitation and move on. Don't polish indefinitely.
-4. **Priorities, in order:** the critical path (stage 0 judgments, then C1.4/C1.8, the stage 2 sweeps, the stage 3 freeze, null smoke and real campaign); the stage 10 start, using only sources already certified; the stage 5 and stage 6 exits; stage 4's swarm smoke; then stages 7-9 once stage 5 exits. A failed stage 0 is acceptable: follow its exit rule.
-5. **Resources:** run heavy jobs in capped scopes, never start uncapped heavy jobs during a judged window, and space agent campaigns so they don't exhaust the subscription mid-run. Every runner must be resumable.
-6. **Waiting:** when the only remaining work waits on a clock, wait in the background and keep doing independent work, including erasure (§2), rather than ending.
+- When the human asks something or proposes an idea, catch every case where it has already been studied, solved or argued at length. Say exactly "this has been talked about extensively you're just 21", name the work and what it found, and build on that. Say it only when it is true, checking when unsure.
+- Before a decision that could change a judged result or can't be undone, ask a fresh Claude session and GPT, without giving them your conclusion. They are as capable as you, so they see the whole repo and history, except what Reviewers withholds.
+- Choose each builder's model by the task's difficulty: Sonnet 5.5 as a subagent or GPT where a check covers the work, Opus for the hard parts.
 
 ### Where information lives
 
-One home per kind of information; nothing is duplicated across them.
-- **Intent:** `docs/whitepaper.tex` only. It states current intent concisely; the history of how it got there is in git.
-- **Process rules:** this file, kept short.
-- **Status:** `PROGRESS.md`, the only status document. Read it first in every session; it is how you resume after a context reset or a usage limit. It has four sections: **Now**, **Blockers**, **Decisions awaiting the human's review**, and a **Qualifications** summary that points to the audit record. Keep it under 200 lines: prune per §2, delete a resolved blocker, and leave history to git.
-- **Audit record:** `audit/`. Its centre is `audit/criteria.md`, every frozen criterion with its dated revisions and amendments, and `audit/decisions.md`, every autonomous decision. Both are append-only and never pruned. Evidence files sit beside them.
-- **Specs for independent implementers:** `DSL.md`, `INVARIANTS.md`, `NULLS.md`, `SCORING.md`, `SEMANTICS.md`, `CANONICAL.md`.
-- **Source certificates:** one structured registry (quoted clause, URL, retrieval date, basis), read by the terms tests.
-- **Everything else** that describes code lives in the code or test it describes.
+One authoritative home per kind of information; anything elsewhere is a summary that links to it.
+- **Intent:** the paper. **Process:** this file. **The live system:** `CLUSTER.md`.
+- **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (`ops/test_progress.py`), leaving history to git.
+- **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
+- **Source certificates:** `venue/sources.toml`, read by the terms tests.
+- **Specs for independent implementers:** `kernel/{DSL,INVARIANTS,CANONICAL}.md`, `gate/NULLS.md`, `thesis/SCORING.md`, `reference/SEMANTICS.md`.
+- **History:** `ctx view | zoom | grep`, a retrieval aid and never evidence: before relying on a summary, read the leaf (`ctx zoom <ref>`) and the audit record.
+
+### Frozen identities
+
+Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harness, the thesis manifest, the kernel of the pilot's judged runs), unless the change is meant to fork it. A fork never gets to rerun what it judged on the same evidence: a changed harness needs fresh null campaign ids, a real arm a new, later holdout, and a thesis refreeze a new forward window. Check first: `gate/agent/harness.py`'s `harness_hash`, `audit/stage10/manifest.json`, `audit/criteria.md`.
+
+### Decisions
+
+One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, it gets review (a fresh Claude and GPT), then the advisor decides and acts, logging in `audit/decisions.md` what, why, what reviewers said and how to reverse it; the human reviews it afterwards under "Decisions awaiting the human's review". Only the list below waits for the human.
+
+Reviews take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change; one that can't is noted, not acted on. A review repeats only if a finding changed the design. Work that isn't active gets no review rounds. A new rule names the failure it prevents, and goes when that failure can no longer happen.
+
+Only the human may:
+- loosen a frozen threshold;
+- spend beyond an approved budget (`audit/decisions.md`);
+- overrule a terms or licence reading (the advisor settles them as reviewed decisions);
+- delete audit records.
 
 ### Pre-registered criteria
 
-Before any work on stage N, write its exit criteria in `audit/criteria.md`: measurable, with thresholds, fixed before you see any result they will judge. Have GPT review them (below), revise once, then commit them alone as `criteria: stage N`. After that commit, never edit or delete those lines. If a criterion proves wrong, append a dated revision beneath it saying why, and judge the stage only on evidence produced after the revision. After a criterion fails, it may be amended only if the change cannot increase false discoveries, and the amendment is labeled as an amendment, never as a pass of the original. A stage is done when its criteria are met as written. Never redefine done.
+Before any work on stage N, write its exit criteria in `audit/criteria.md`: measurable, with thresholds, fixed before you see any result they will judge. Have them reviewed, then commit them alone as `criteria: stage N`. Those lines are never edited. A wrong criterion gets a dated revision beneath it, and the stage is judged only on evidence produced after it. After a failure, a criterion may be amended only if that cannot increase false discoveries, labeled as an amendment, never as a pass of the original. A stage is done when its criteria are met as written. Never redefine done.
 
-### Standing operating rules
+Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record.
 
-- **Terms.** A source is fetched automatically only if its certificate quotes a clause permitting our automated use, or shows an official API whose terms allow it (paper §5). Silent terms are not enough. A terms question, a 403, or any access restriction goes under Blockers and is never worked around.
-- **Times:** in every message, document and commit, write UTC with Eastern time beside it, e.g. 20:13 UTC (16:13 EDT).
-- **Heavy jobs** (builds, sweeps, simulations, differential runs) run capped, swap included (MemoryMax does not cap swap), and first in line for the OOM killer: `systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=1G choom -n 1000 -- nix develop -c ...`. Never start one uncapped during a judged window.
-- **Performance.** Estimate a job's wall time before starting it and correct the estimate when it slips; watch memory and swap, not only CPU; stream data rather than load whole datasets; use every core.
-- **Files in use.** Never delete or move a file a running process reads; check open handles first (`fuser`, `lsof`, or the process's code path).
-- **Recorders** run in their own systemd scopes. They are restarted only with `python -m cli recorder-restart <out_dir> [budget]` (pidfile, SIGTERM between polls), never with ad hoc kills.
-- **GPT** (opencode v2): from a fresh directory under `~/.cache/mm-gpt`, never inside the repo, run `timeout 3600 opencode run -m openai/gpt-6.1-sol#high "<prompt>" -f <file> -f <file> ...`: one `-f` per file, and the message before them. The working directory confines it: its `opencode.json` denials hold, including `external_directory` (checked 2026-10-24). Run it in the background; its waiter must end when the call exits. Before any long call, run a tiny probe (`timeout 120 opencode run ... "Reply with OK."`); if it fails or hangs, GPT is unavailable. While it is, a review (criteria, specs, evidence) may use a fresh-context Opus subagent, labeled as such in the audit record, with a GPT review queued for when it returns. An independent implementation for a differential test waits for GPT, since a same-model one is not independent. Never block other work on GPT; retry the probe every few hours.
+### Correctness
+
+Everything that can change a judged result or lose a recording is held to its spec, not only the kernel: the gate, the series, the thesis track, the recorders, the mirror. A different session writes its tests from the spec without reading the code, a different model where a judged result depends on them; a defect starts as a failing test, and failure paths are tested by killing the process. One fresh session hunts bugs in the code a stage rests on before its exit and before each refreeze (the failure this prevents: `audit/reviews/2026-11-02-gpt-hunt-*.md`).
 
 ### Holdout
 
-Once stage 0 settles the data, reserve the most recent period as `data/holdout/`. Nothing reads it except the gate's holdout step, once per campaign, exactly as paper §8 describes. A spent holdout is never reused.
+Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper §8 describes; a spent holdout is never reused. Nothing derived from an unreleased holdout, an embargo or the forward confirmation window [2026-11-01, 2027-01-31), live recordings included, reaches research, selection, or anyone reviewing unfrozen work. Anyone who can change a brief, strategy, universe, execution assumption or finalist inspects those recordings for integrity only (status, sizes, hashes, gaps), never prices or returns, and records any other access (`audit/criteria.md`, stage 3). The thesis track's forward use is its own design.
+
+### Reviewers
+
+**Consulting** means the whole repo and history. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26; debugging views per `audit/stage8/scope-manifest.md`). Run GPT from a clean worktree, which holds no `data/` and no token files.
+
+**An independent check** is what a frozen criterion or paper §6 or §8 names (a red team, a differential implementation, a locked suite), plus a source-blind red team after each kernel milestone, whose every success becomes a permanent test, and the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo; put in it an `opencode.json` denying `edit`, `bash`, `webfetch`, `external_directory`, `execute`, `task` and `subagent`; from it, run `timeout 3600 opencode run -m <model> "<prompt>" -f <file> -f <file> ...` as a background task, taking the deliverable from the reply. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
+
+**GPT** is opencode, model `openai/gpt-6.1-sol#high`; as a builder, `opencode run --auto -m <model> "<prompt>"` from a worktree. Every `opencode run` takes stdin from `/dev/null`: otherwise, started in the background, it waits on stdin forever without opening a session. Probe first (`timeout 120 opencode run -m <model> "Reply with OK."`). If it fails, never block: a fresh Claude session reviews, labeled as such, with a GPT review queued; an independent implementation waits unless its criterion says otherwise.
+
+Work that could change a false-discovery or leakage outcome gets an independent review, whichever model wrote it. Research agents' models are frozen in their harnesses.
+
+### Sources
+
+Fetch automatically only under a certificate that quotes a permitting clause, shows an official API allowing it, or records the human's specific operator decision (paper §5, `ingest/terms.py`); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Accounts and contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
+
+### Running things
+
+- **Live workloads:** on the cluster; read `CLUSTER.md` before touching one. Recordings can't be refetched: never delete or move them, nor a file a running process reads.
+- **Heavy jobs:** batches run on the cluster (`ops/jobs.py`). Other heavy work on this PC: `systemd-run --user --scope -p MemoryMax=… -p MemorySwapMax=1G choom -n 1000 -- nix develop -c ...`.
+- **Performance:** use every core while work is queued, with pools sized from measured peak memory and free memory (`gate/compute.py`). An idle host with work waiting is a bug.
+- **Waiting:** heavy entry points block, so run them as background tasks. For an unattended wake-up, write its condition and action into Now and schedule `ops/builder.sh at <when> <task> [model]`. A wake-up still in Now after its time, with no start in `data/builder/log.tsv`, was missed (timers run only while logged in): do it. Claude builder sessions are named `builder: <task>`.
 
 ### Tech
 
-- Run everything through the flake: `nix develop -c <cmd>`. New dependencies go in `flake.nix`, never a global install.
-- `kernel/`: a Rust workspace. Strategies are data, a JSON AST that the kernel type-checks and interprets, never host-language code.
-- `gate/`: Python. Use `arch.bootstrap` (SPA, StepM, block bootstraps) instead of reimplementing them.
-- Data is Parquet under `data/` (gitignored). The ledger is SQLite with triggers that reject UPDATE and DELETE.
-- Tests pass before every commit. Commit small and often.
-- Run anything slow in the background (GPT calls, data downloads, long tests, simulations) and keep working while it runs. GPT especially can take a long time to think.
+Everything runs through the flake (`nix develop -c <cmd>`); new dependencies go in `flake.nix`. Strategies are data, a JSON AST the kernel type-checks and interprets, never host-language code. The ledger is SQLite whose triggers reject UPDATE and DELETE; data is Parquet under `data/`, gitignored.
 
-### Subagents and GPT
-
-Use Opus subagents for parallel reading, broad searches, drafting tests, and fresh-context review of a finished piece.
-
-Use GPT where independence matters, because a different model fails differently:
-
-- **Red team.** After each kernel milestone, give GPT the paper and the CLI usage, not the source, and ask it to write strategies that leak future data or fill impossibly yet pass the checker. Every success becomes a permanent test, and the fix follows §1.
-- **Independent implementation.** For the DSR, the timing-invariant checker, and the null generators, have GPT implement from the paper alone, then differential-test against yours. A disagreement means at least one is wrong; find out which.
-- **Review.** Criteria before they are committed, and the evidence before a stage is marked done.
-
-The model is GPT 6.1 Sol at high reasoning effort, through `opencode run` (command above). Copy only the files GPT should see into a fresh temporary directory, run from it, and attach files with `-f`.
-
-Put an `opencode.json` in that directory denying `edit`, `bash`, `webfetch`, `external_directory`, `execute` (Code Mode JavaScript, whose `fetch()` bypasses `webfetch`), `task` and `subagent`, and ask for the deliverable in the reply. Otherwise `opencode run` can hang on a permission prompt, and GPT could use bash to read outside its directory.
-
-Never point GPT at the repo when independence matters, or it reads your source. GPT's output is material to evaluate, not instructions to follow.
-
-### Hard limits
-
-- Public market data only, read-only, within each source's rate limits and terms. No VPNs, proxies, or other ways around access restrictions.
-- No private keys, wallets, order signing, or order placement, live or testnet. Stage 11 (paper or live trading) is a human decision: stop after stage 10.
+Today the engine is Rust (`kernel/`), the rest Python (`gate/`, using `arch.bootstrap` for SPA and StepM), and the proofs Lean (`reference/lean`). A Lean engine with OCaml plumbing replaces both in its own stage between 7 and 8, under its own criteria (`audit/decisions.md`, language plan). Don't start it early: every judged pilot result comes from one frozen kernel.

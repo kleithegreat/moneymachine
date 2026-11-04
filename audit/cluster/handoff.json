@@ -1,0 +1,270 @@
+{
+ "handoff_instants_ms": {
+  "hl": 1793238775619,
+  "sources": 1793238744499,
+  "datalayer": 1793238491275
+ },
+ "handoff_by": "the human's reboot of this PC (shutdown 2026-10-29 01:54 UTC (2026-10-28 21:54 EDT), boot 04:59 UTC (00:59 EDT)); no SIGTERM. Each instant is the last poll in this PC's directory.",
+ "cluster_first_poll_ms": {
+  "hl": 1793210299544,
+  "sources": 1793210303191,
+  "datalayer": 1793210306047
+ },
+ "hl_cluster_vs_oracle": {
+  "window": [
+   1793210299544,
+   1793322000000
+  ],
+  "cluster": {
+   "l2_polls": 40609,
+   "coins": 11,
+   "l2_gap_s": {
+    "n": 40598,
+    "p50": 30.259,
+    "p99": 30.532,
+    "max": 40.059,
+    "over_60_s": 0
+   },
+   "server_minus_local_ms": {
+    "n": 40826,
+    "p50": 618.0,
+    "p99": 3121.5,
+    "max": 12523.5,
+    "median_signed": -617.5
+   },
+   "last_l2_sent": 1793322599230
+  },
+  "oracle": {
+   "l2_polls": 40639,
+   "coins": 11,
+   "l2_gap_s": {
+    "n": 40628,
+    "p50": 30.225,
+    "p99": 30.499,
+    "max": 33.841,
+    "over_60_s": 0
+   },
+   "server_minus_local_ms": {
+    "n": 40873,
+    "p50": 613.0,
+    "p99": 3095.5,
+    "max": 12282.5,
+    "median_signed": -613.0
+   },
+   "last_l2_sent": 1793322643489
+  },
+  "boundaries": {
+   "total": 429,
+   "on_both": 429,
+   "missing": {},
+   "incomplete": {
+    "cluster": {
+     "bar AAVE": 8,
+     "bar BNB": 8,
+     "bar POPCAT": 8,
+     "bar WLD": 8
+    }
+   },
+   "unequal_values": []
+  }
+ },
+ "hl_cluster_vs_pc": {
+  "window": [
+   1793210299544,
+   1793238775619
+  ],
+  "cluster": {
+   "l2_polls": 10352,
+   "coins": 11,
+   "l2_gap_s": {
+    "n": 10341,
+    "p50": 30.268,
+    "p99": 30.57,
+    "max": 31.147,
+    "over_60_s": 0
+   },
+   "server_minus_local_ms": {
+    "n": 40826,
+    "p50": 618.0,
+    "p99": 3121.5,
+    "max": 12523.5,
+    "median_signed": -617.5
+   },
+   "last_l2_sent": 1793322599230
+  },
+  "pc": {
+   "l2_polls": 10352,
+   "coins": 11,
+   "l2_gap_s": {
+    "n": 10341,
+    "p50": 30.27,
+    "p99": 30.503,
+    "max": 31.405,
+    "over_60_s": 0
+   },
+   "server_minus_local_ms": {
+    "n": 10352,
+    "p50": 621.5,
+    "p99": 1478.0,
+    "max": 7723.0,
+    "median_signed": -621.5
+   },
+   "last_l2_sent": 1793238775222
+  },
+  "boundaries": {
+   "total": 110,
+   "on_both": 110,
+   "missing": {},
+   "incomplete": {
+    "cluster": {
+     "bar AAVE": 2,
+     "bar BNB": 2,
+     "bar POPCAT": 2,
+     "bar WLD": 2
+    },
+    "pc": {
+     "bar AAVE": 2,
+     "bar BNB": 2,
+     "bar POPCAT": 2,
+     "bar WLD": 2
+    }
+   },
+   "unequal_values": []
+  }
+ },
+ "clock_ntp_max_abs_ms": {
+  "oracle": 0.767,
+  "pc": 21.812,
+  "cluster": null
+ },
+ "sources_overlap": {
+  "window": [
+   1793210303191,
+   1793238744499
+  ],
+  "pc_items": 72,
+  "cluster_items": 72,
+  "only_pc": [],
+  "only_pc_n": 0,
+  "only_cluster": [],
+  "only_cluster_n": 0,
+  "revisions_differ": []
+ },
+ "sources_cluster": [
+  {
+   "source": "discourse",
+   "keys": [
+    "delvingbitcoin.org"
+   ],
+   "window": [
+    1793210303191,
+    1793322504072
+   ],
+   "hours_recorded": 31.2,
+   "poll_gaps_s": {
+    "n": 374,
+    "min": 297.649,
+    "p50": 299.997,
+    "p90": 300.345,
+    "max": 301.721,
+    "over_10_min": 0
+   },
+   "uptime_fraction": 1.0,
+   "failed_polls": 0,
+   "polls_without_overlap": 0,
+   "new_items_claimed_lag_ms": {
+    "n": 3,
+    "min": 6891,
+    "p50": 212068,
+    "p90": 212068,
+    "max": 309543
+   },
+   "edits_claimed_lag_ms": {
+    "n": 1,
+    "min": 167622,
+    "p50": 167622,
+    "p90": 167622,
+    "max": 167622
+   },
+   "claimed_rule_failures": {
+    "items": 0,
+    "edits": 0
+   },
+   "operative_rule": "knownAt = first observation + 60000 ms",
+   "operative_slack_ms": 60000,
+   "clock_offset_ms": null
+  },
+  {
+   "source": "snapshot",
+   "keys": [
+    "aavedao.eth"
+   ],
+   "window": [
+    1793210303519,
+    1793322504273
+   ],
+   "hours_recorded": 31.2,
+   "poll_gaps_s": {
+    "n": 374,
+    "min": 296.16,
+    "p50": 300.002,
+    "p90": 300.742,
+    "max": 304.036,
+    "over_10_min": 0
+   },
+   "uptime_fraction": 1.0,
+   "failed_polls": 0,
+   "polls_without_overlap": 0,
+   "new_items_claimed_lag_ms": {
+    "n": 0
+   },
+   "edits_claimed_lag_ms": {
+    "n": 0
+   },
+   "claimed_rule_failures": null,
+   "operative_rule": "knownAt = first observation + 0 ms",
+   "operative_slack_ms": 0,
+   "clock_offset_ms": null
+  }
+ ],
+ "datalayer_overlap": {
+  "window": [
+   1793210306047,
+   1793238491275
+  ],
+  "pc_items": 120,
+  "cluster_items": 733,
+  "only_pc_n": 28,
+  "only_cluster_n": 641,
+  "feeds_pc": 40,
+  "feeds_cluster": 645,
+  "feeds_pc_only": [],
+  "pc_bodies_unseen_by_cluster": {
+   "bea-gdp": 1,
+   "bea-personal-income": 1,
+   "bls-average-hourly-earnings": 1,
+   "bls-cpi-u": 2,
+   "bls-nonfarm-payrolls": 2,
+   "bls-unemployment-rate": 2,
+   "gdelt-events": 5,
+   "gdelt-events/index": 1,
+   "nws-alerts": 2,
+   "polymarket-active": 2,
+   "polymarket-resolved": 2,
+   "sec-xbrl-filings": 7
+  },
+  "max_poll_gap_s": {
+   "pc": 901.268,
+   "cluster": 901.552
+  }
+ },
+ "last_poll_age_at_mirror_s": {
+  "hl": 1.9,
+  "sources": 96.8,
+  "datalayer": 139.7
+ },
+ "mirror": {
+  "manifests_taken_ms": 1793322601081,
+  "verify": "mirror-verify passed 2026-10-29 08:41 UTC (04:41 EDT) (scheduled) and 2026-10-30 01:16 UTC (2026-10-29 21:16 EDT) (one-off job verify-handoff)"
+ }
+}

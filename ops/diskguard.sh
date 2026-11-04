@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Hourly (mm-diskguard.timer): if free space on the data filesystem falls below LIMIT_GB, add one dated line under
-# PROGRESS.md's Blockers, before space threatens the recorders (human decision 2026-10-23). It never deletes.
+# Hourly (mm-diskguard.timer): below LIMIT_GB free on the data filesystem, add one line under PROGRESS.md's Blockers.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 LIMIT_GB=${LIMIT_GB:-20}

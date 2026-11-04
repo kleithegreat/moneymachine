@@ -1,0 +1,61 @@
+{
+ "id": "c24-N2-H400-38",
+ "seconds": 70.9,
+ "identical_to_sweep": true,
+ "phases_mb": {
+  "setup": {
+   "self": 559.6,
+   "children": 0.0,
+   "total": 559.6,
+   "self_at_start": 0.0
+  },
+  "generate": {
+   "self": 438.9,
+   "children": 0.0,
+   "total": 438.9,
+   "self_at_start": 205.8
+  },
+  "write": {
+   "self": 513.9,
+   "children": 0.0,
+   "total": 513.9,
+   "self_at_start": 429.6
+  },
+  "run": {
+   "self": 505.2,
+   "children": 535.5,
+   "total": 1040.7,
+   "self_at_start": 505.2
+  },
+  "search_decision": {
+   "self": 520.6,
+   "children": 0.0,
+   "total": 520.6,
+   "self_at_start": 505.2
+  },
+  "spa": {
+   "self": 567.0,
+   "children": 0.0,
+   "total": 567.0,
+   "self_at_start": 537.6
+  },
+  "effective_n": {
+   "self": 577.9,
+   "children": 0.0,
+   "total": 577.9,
+   "self_at_start": 577.0
+  },
+  "programs": {
+   "self": 559.6,
+   "children": 0.0,
+   "total": 559.6,
+   "self_at_start": 559.6
+  },
+  "xz": {
+   "self": 640.0,
+   "children": 0.0,
+   "total": 640.0,
+   "self_at_start": 559.6
+  }
+ }
+}
