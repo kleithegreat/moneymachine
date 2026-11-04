@@ -59,7 +59,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Decisions awaiting the human's review
 
-- 2026-11-03 15:28 UTC (2026-11-03 10:28 EST): the kernel's reproduced defects (`gate/tests/test_kernel_defects.py`, `test_mechanism_defects.py`) reopen the 04:20 UTC (23:20 EST) decision to keep it frozen. GPT, consulted fresh, recommends holding C4.5 v3, a corrective Rust fork of all nine, and a fresh cohort (`audit/reviews/2026-11-03-gpt-fork-consult.md`). A fresh Claude review follows on the personal account's reset, 2026-11-04; then the advisor decides. If the fork is chosen, stop `agent-series` before 2026-11-07 04:00 UTC (2026-11-06 23:00 EST), and deploy the swarm kernel-identity check before any series.
+- 2026-11-04 00:03 UTC (2026-11-03 19:03 EST): C4.5 v3 runs on the frozen kernel under an exact qualification, approved by the human; the nine defects are fixed in the spec, stage 7 and Lean (`audit/decisions.md`). Before v3: v3's report adds turnover, lowest committed returns and masking flags, then the image with `956066c` rolls to the series.
 
 ## Qualifications
 
