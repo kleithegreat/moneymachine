@@ -294,10 +294,11 @@ def rparse (text : String) : Option J :=
   | .ok (v, []) => some v
   | _ => none
 
+/-- A value as a cell (RULES.md §6, revision of 2026-11-04): an integer only within the signed 64-bit range. -/
 def J.cell : J → Option Cell
   | .null => some .null
   | .bool b => some (.bool b)
-  | .int i => some (.int i)
+  | .int i => if -(2 ^ 63) ≤ i ∧ i < 2 ^ 63 then some (.int i) else none
   | .real (some b) => some (.num b)
   | .str s => some (.str s)
   | _ => none
@@ -379,9 +380,13 @@ def cellsCmp : List Cell → List Cell → Ordering
   | _, [] => .gt
   | a :: as, b :: bs => (cellCmp a b).then (cellsCmp as bs)
 
-/-- A stored entity as `Revision.entity`: its cells' text, the two zeros as one. -/
-def entityKey (cs : List Cell) : String :=
-  ",".intercalate (cs.map fun | .num b => cellJson (.num (if b &&& 0x7FFFFFFFFFFFFFFF == 0 then 0 else b)) | c => cellJson c)
+/-- A cell with the two zeros as one, so that equal entities are equal lists. -/
+def zeroed : Cell → Cell
+  | .num b => .num (if b &&& 0x7FFFFFFFFFFFFFFF == 0 then 0 else b)
+  | c => c
+
+/-- A stored entity as `Revision.entity`: its cells' text. -/
+def entityKey (cs : List Cell) : String := ",".intercalate (cs.map cellJson)
 
 def bool! : Value → Bool
   | .bool b => b
@@ -436,12 +441,13 @@ def caseRow (srcs : Array CaseSrc) (univ : List String) (s : Nat) (v : Value) : 
   let event ← match cellAt cells d.eventColumn with
     | .int e => if inRange e then pure e else throw ()
     | _ => throw ()
-  let ent := d.entityColumns.map (cellAt cells)
+  let ent := d.entityColumns.map fun col => zeroed (cellAt cells col)
   let coin := if d.cadence == .evidence then none else match cellAt cells "coin" with
     | .str x => univ.idxOf? x
     | _ => none
-  let upstream ← if d.deps.isEmpty then pure [] else
-    match rparse (str! (get! v "upstream")) with
+  let tombstone := bool! (get! v "tombstone")
+  let upstream ← if d.deps.isEmpty || tombstone then pure [] else
+    match (v.get? "upstream").bind fun | .str t => rparse t | _ => none with
     | some (.obj ms) => ms.toList.mapM fun (dep, keys) => match keys with
       | J.arr ks => do
         let ks ← ks.toList.mapM fun k => match k with
@@ -449,12 +455,12 @@ def caseRow (srcs : Array CaseSrc) (univ : List String) (s : Nat) (v : Value) : 
             let some u := srcs.findIdx? (·.name == src) | throw ()
             if cs.size != srcs[u]!.decl.entityColumns.length || !inRange e then throw ()
             let some cs := cs.toList.mapM J.cell | throw ()
-            pure (u, entityKey cs, e)
+            pure (u, entityKey (cs.map zeroed), e)
           | _ => throw ()
         pure (dep, ks)
       | _ => throw ()
     | _ => throw ()
-  pure ({ entity := entityKey ent, coin, event, fetchedAt := int! (get! v "fetchedAt"), tombstone := bool! (get! v "tombstone")
+  pure ({ entity := entityKey ent, coin, event, fetchedAt := int! (get! v "fetchedAt"), tombstone
           cells, upstream }, ent)
 
 /-- A cell read as a number: an integer or a non-integer, as its binary64 value. -/
