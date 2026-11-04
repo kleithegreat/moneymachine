@@ -73,7 +73,6 @@ def test_swarm_gate_failure_is_unresolved_but_promotion_dominates():
     assert series.swarm_class(True, "holdout did not complete", [], 0, False) == "promoted"
 
 
-@pytest.mark.xfail(strict=True, reason="C4.5 v3 declares four agents and missing agent evidence unresolved; swarm_class returns established for only three intact agent records")
 def test_missing_agent_evidence_is_unresolved():
     """Three valid records cannot establish the declared four-agent campaign."""
     assert series.swarm_class(False, None, [agent()] * 3, 1, True) == "unresolved"
