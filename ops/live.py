@@ -397,7 +397,7 @@ def gate_run(targets):
                     lambda r: r.get("api.anthropic.com:443") is True and
                     all(v == (k == "api.anthropic.com:443") for k, v in r.items())),
         "retrieval": (retrieval_reach, lambda r: 200 in r.values()),
-        "session": (session_record, lambda r: r["exit"] == 0 and not r["stopped"] and
+        "session": (session_record, lambda r: r["exit"] == 0 and r["stopped"] == "finished" and
                     r.get("is_error") is False and r.get("result", "").strip() == "READY")}
     record, failed = {}, []
     for name, (part, passes) in parts.items():

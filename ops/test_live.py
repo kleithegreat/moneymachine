@@ -254,7 +254,7 @@ def passing_gate(tmp_path, monkeypatch):
     monkeypatch.setattr(session, "workspace", lambda *a: None)
     def run(work, *a):
         (work / "transcript.jsonl").write_text(json.dumps({"type": "result", "is_error": False, "result": "READY"}))
-        return {"stopped": False, "exit": 0}
+        return {"stopped": "finished", "exit": 0}
     monkeypatch.setattr(session, "run", run)
     return harness, campaigns, session
 
@@ -267,7 +267,7 @@ def test_gate_exits_nonzero_with_named_failure(passing_gate, monkeypatch, capsys
     elif failure == "harness":
         monkeypatch.setattr(harness, "harness_hash", lambda: "different")
     elif failure == "session":
-        monkeypatch.setattr(session, "run", lambda *a: {"stopped": True, "exit": 1})
+        monkeypatch.setattr(session, "run", lambda *a: {"stopped": "turn limit", "exit": 1})
     elif failure == "windows":
         def broken():
             raise RuntimeError("unavailable")
@@ -289,7 +289,7 @@ def test_gate_refuses_unsuccessful_session_results(passing_gate, monkeypatch, re
     _, _, session = passing_gate
     def run(work, *a):
         (work / "transcript.jsonl").write_text(json.dumps({"type": "result"} | result))
-        return {"stopped": False, "exit": 0}
+        return {"stopped": "finished", "exit": 0}
     monkeypatch.setattr(session, "run", run)
     with pytest.raises(SystemExit, match="session"):
         live.gate_run(json.dumps(live.TARGETS))
