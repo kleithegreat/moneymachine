@@ -21,8 +21,9 @@ stage 6 model and C6.4 implement this file as of `f591e3b`. Each fix is tagged w
 | M2 undefined labels leave its denominator | §10 exposures | `test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage` |
 | M4 `REPLACE` gets past the ledger's triggers | INVARIANTS.md I6 | `test_separate_connection_cannot_replace_kernel_result` |
 
-The loss bound the holdout theorem needs holds by construction on gapless markets, from the account's stop-out at Λ
-times equity (§7, Loss bound); on real markets it is an assumption.
+The loss bound the holdout theorem needs, every return before absorption at least −2, holds on gapless markets with
+m ≤ 1/2 − 2κ, such as N1 to N3 with their clips, from the account's stop-out at Λ times equity and its fill admission,
+by the pen-and-paper argument of §7 (Loss bound), not a Lean theorem; on real markets it is an assumption.
 
 Times are integer milliseconds. HOUR = 3,600,000; BAR = 4 · HOUR; δ is the store policy's
 `delta_ms` (120,000). Numbers are IEEE-754 binary64 in the executable instance and an abstract type
@@ -91,16 +92,19 @@ reported.
 
 - **Records.** An observation is a funding row (coin, eventTime, knownAt, rate, premium), a bar
   (coin, openTime, eventTime = openTime + BAR, knownAt, open, high, low, close, volume, trades), or
-  an event count (input, coin, eventTime, knownAt, count), or a delisting (coin, knownAt): knownAt is the fetchedAt of
-  the first venue-rules revision marking the coin delisted, never inferred from trading. The store resolves revisions before a
+  an event count (input, coin, eventTime, knownAt, count), or a delisting (coin, eventTime, knownAt, and a settlement
+  price if the venue states one), from a certified source: eventTime is the venue's stated halt or settlement time,
+  never inferred from trading. The loop reads delistings (§7); no strategy input does. The store resolves revisions before a
   run [market.rs `resolve`]: per (dataset, coin, eventTime), the revision with the largest fetchedAt ≤
   the version. Its knownAt is computed from its observed fields by the policy's rule [market.rs
   `known`]: a funding row at max(reportedTime floored to the hour + δ, reportedTime +
-  `settlement_latency_ms`), a bar or an event count at eventTime + δ. A stored knownAt
+  `settlement_latency_ms`), a bar, an event count or a delisting at eventTime + δ. A stored knownAt
   is never read. A run receives exactly one row per key; earlier
   revisions are never delivered. The adapter supplies the rows; an admissible market has unique keys,
   bars with eventTime = openTime + BAR, coin and slot indices within range, and a delisting record for every coin its
-  rules mark delisted.
+  rules mark delisted. An inadmissible market aborts the run before any delivery with R_MARKET. No certified source
+  states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible; the recorded venue marks
+  FTM delisted, so no real-data market is admissible to the corrected engine until one exists.
 - **Delivery order.** Each stream is sorted by (knownAt, coin, eventTime): funding, bars, then each
   event input in EVENT_INPUTS order (sorted by knownAt, coin, slot, index). Before the tick at time
   τ, every row with knownAt ≤ τ is delivered, funding first, then bars, then events [sim.rs
@@ -198,10 +202,11 @@ A window node with n = `hours` keeps per-coin state, pushed once per listed tick
 
 Let V be the venue's coins in rules.json order. The run's interval is [w_start, E), with w_start and w_end the policy's
 and E = min(w_end, holdout start) in search mode, w_end in holdout mode. Coin c is listed on [start(c), end(c)), with
-start(c) = w_start and end(c) = min(E, the knownAt of its delisting record, §3), so a delisting enters a run only from
-its knownAt (K1). Λ = 4 sets the account's own stop-out, at most Λ times equity in gross; it is not the venue's
+start(c) = w_start and end(c) = min(E, the knownAt of its delisting record, §3), or E if it has none, so a delisting
+enters a run only from its knownAt (K1). Λ = 4 sets the account's own stop-out, at most Λ times equity in gross; it is not the venue's
 liquidation. The book: cash = 10,000; positions q[c] (absent means 0); and an average-entry ledger (entry[c],
-realized, fees, funding, absorbed) [sim.rs `Book`]. The book's equity is cash + Σ q · mark and its gross Σ |q| · mark.
+realized, fees, funding, absorbed) [sim.rs `Book`]. The book's equity is cash + Σ q[c] · mark[c] and its gross
+Σ |q[c]| · mark[c], each over the coins with q[c] ≠ 0, in coin order.
 Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does, in order:
 
 1. **Funding.** For h = b + HOUR, b + 2·HOUR, …, b + BAR, and for each coin c holding a position and
@@ -215,12 +220,13 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does
    leverage), 1/Λ), so the account stops itself out no later than the venue would liquidate it. If any position is
    held and equity at adverse < maintenance, every held position is closed: a fill of −q at reference = adverse, at
    time b + BAR, from latest(c).
-4. **Delisting.** For each position with b + BAR ≥ end(c): a fill of −q at reference = mark, at
+4. **Delisting.** For each position with b + BAR ≥ end(c): a fill of −q at reference = the record's settlement price
+   if it states one, else the mark, at
    time b + BAR, from latest(c).
-5. **Bankruptcy.** If e = cash + Σ q · mark is not > 0 (NaN included), every position still held is
+5. **Bankruptcy.** If the book's equity e is not > 0 (NaN included), every position still held is
    closed as in step 3. Then absorbed −= cash and cash = 0 (losses are capped at equity).
 6. **Accounting.**
-   - **Equity.** e1 = cash + Σ q · mark. e2 = 10,000 + realized + Σ q · (mark − entry) − fees +
+   - **Equity.** e1 is the book's equity. e2 = 10,000 + realized + Σ q · (mark − entry) − fees +
      funding + absorbed. Unless |e1 − e2| / max(|e1|, 10,000) ≤ 1e-9, abort with R_ACCOUNTING (a NaN or
      infinite e1 fails). Record Equity(b + BAR, e1, e2).
    - **Returns.** If previous > 0, the return is e1/previous − 1 if e1 > 0 and −1 otherwise, and the gross return is
@@ -269,15 +275,16 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does
 - **Cash.** cash −= qty · price + fee, fees += fee, and slippage += qty · (price − r).
 - **Recording.** Each fill is checked by I2 and I3 [sim.rs `check_fill`] and recorded.
 
-**Loss bound.** Let r′ be a step's net return before absorption, (e′ − e_prev)/e_prev, with e′ the equity before
-step 5's absorption and e_prev the previous step's e1, its equity before its fills. Let κ be the largest cost per unit
+**Loss bound.** Let r′ be a step's net return before absorption, (e′ − e_prev)/e_prev, with e′ the book's equity
+after step 5's closeouts and before its absorption, and e_prev the previous step's e1, its equity before its fills. Let κ be the largest cost per unit
 of reference notional over the cells, s + f + s·f with s = bps/10⁴ and f the taker fee, and m the largest loss, per
 unit of mark notional, of carrying a position from one step's marks through the next step's funding to a closeout at
-that bar's adverse extreme, its cost included. Take a gapless market, whose bars open at the previous close, with
-Λκ ≤ 1. Then:
+that bar's adverse extreme, its cost included. Take a gapless market, in which every fill's selected bar opens at the
+step's mark, with Λκ ≤ 1. Then:
 - the book leaving steps 3 to 5 has gross G₀ ≤ Λ · e_prev. A stop-out leaves nothing. Otherwise the gross at the
   adverse prices is at most Λ times the equity there, and moving each price to its mark, a move in the position's
-  favour, keeps that ratio at most Λ. A delisting fill lowers gross by its notional and equity by at most κ times it.
+  favour, keeps that ratio at most Λ. A delisting fill at the mark lowers gross by its notional and equity by at most
+  κ times it.
 - step 7's fills are at the marks plus costs, so they never raise equity. A reduction that keeps the sign keeps gross
   within Λ times equity (Λκ ≤ 1), and any other fill is admitted only if it does, so the book leaving them has gross
   G₁ ≤ Λ · e_prev.
@@ -285,7 +292,8 @@ that bar's adverse extreme, its cost included. Take a gapless market, whose bars
   next bar loses at most m · G₁.
 
 So r′ ≥ −Λ(2κ + m), and with Λ = 4, r′ ≥ −2, the condition of the holdout theorem (`gate/NULLS.md`, limited
-liability), whenever m ≤ 1/2 − 2κ. NULLS.md's gapless synthetic nulls meet it by construction. A real market gaps: a
+liability), whenever m ≤ 1/2 − 2κ. This argument is checked by review, not in Lean. NULLS.md's gapless synthetic
+nulls meet its conditions by construction; a gapless market with larger bars does not. A real market gaps: a
 fill then trades at an open away from its mark, which this proof does not cover
 (`audit/reviews/2026-11-04-gpt-nine-defects-review.md`, finding 1). On real markets r′ ≥ −2 is an assumption that the
 holdout's conclusion rests on; a report of realized excursions is a diagnostic, never proof of it.
@@ -329,4 +337,5 @@ A result reports a window of one run: its steps with equity time > R, the window
   whole, falls in exactly one exposure, the one it closes if it leaves c flat, else the one it opens, and so does
   every price change and funding payment while held (M1). Every exposure counts: with n_t, n_f and n_u the true,
   false and Undef counts and N their sum, the check passes iff N > 0, n_t/N and n_f/N both lie in [0.1, 0.9], and the
-  true exposures' mean return exceeds the false ones' (M2). share_true is n_t/N, absent when N = 0.
+  true exposures' mean return exceeds the false ones' (M2). The report holds exposures_true (n_t), exposures_false
+  (n_f), mean_true and mean_false (null for an empty branch), share_true (n_t/N, absent when N = 0) and pass.
