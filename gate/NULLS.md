@@ -53,11 +53,19 @@ stopped wealth is a nonnegative supermartingale. Its running maximum is the gate
 make a new maximum, and later reported returns are zero. The raw p-values then stay valid on bankrupt paths too, and
 Holm controls false promotions across the whole frozen finalist family. With 0 ≤ λ_t ≤ 1/2, r′_t ≥ −2 suffices.
 
-That bound is not established for N1 to N3 in the current kernel: wicks are unbounded, and normalizing the defined
-target weights does not bound the exposure actually held. Where a terminal betting factor can be negative, the bound
-needs a wealth-weighted overshoot correction, and a small observed bankruptcy rate establishes neither exact nor
-approximate α control. Null campaigns report every evaluation, including those with a step return of −B. A bankrupt
-result cannot pass the positive-total-return rule, but a bankrupt finalist's earlier wealth peak still enters Holm.
+The frozen pilot kernel and these generators do not establish that bound: wicks are unbounded, and normalizing the
+defined target weights does not bound the exposure actually held. Where a terminal betting factor can be negative, the bound needs a
+wealth-weighted overshoot correction, and a small observed bankruptcy rate establishes neither exact nor approximate α
+control. Null campaigns report every evaluation, including those with a step return of −B. A bankrupt result cannot
+pass the positive-total-return rule, but a bankrupt finalist's earlier wealth peak still enters Holm.
+
+*Revision 2026-11-04, for campaigns on the corrected engine, with fresh campaign ids; earlier campaigns keep the text
+above:* the bound holds by construction. The corrected kernel holds the book within Λ = 4 times its equity, so
+r′ ≥ −4(2κ + m) (`reference/SEMANTICS.md` §7, Loss bound). Every clip of ε below is at ±0.3 instead of ±0.5, and each
+wick's |u| is capped at 0.1. A position's loss per unit of o, to its close with funding, is then at most |ε| ≤ 0.3; its
+wick adds at most 0.1 · max(o, c)/o, with c/o ≤ (1 + 3 · 0.04 + 0.3)/(1 − 0.04) < 1.48; and its closeout cost at most
+1.1κ · 1.48. Every cell's κ (median cost plus taker fee) is under 0.003, so m < 0.46 ≤ 1/2 − 2κ and r′ ≥ −2 almost
+surely: the raw p-values are valid on bankrupt paths, and lows stay above 0.9 · min(o, c) > 0.
 
 Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 1.04 > 0.
 
