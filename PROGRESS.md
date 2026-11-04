@@ -19,15 +19,15 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`): event declarations depend on all four evidence sources, the input table drops source and field, no run differential yet (N1 rebuild). A builder fixes it before slice 3, after the thesis round.
+- **Stage 7 slice 2** closed on `stage7` (`ccfda7e`): GPT-reviewed fixes; the run differential agrees on all 3,372 runs. Hunt fixes: a second pass after GPT's review.
 
-- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4 remain strict xfails until the refreeze.
+- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **K1's fixture** (a different session): the same delisting record in both histories, known after 12:02; assert at 12:02 as well as 08:02.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks.
+- **B3 round 5** (cloud), answering both round 4 reviews (`audit/stage7/b3-round4-review-*.md`); C7.6 keeps 1,000 multi-revision delivered pairs, its frozen bullet's floor. Not frozen.
 
 
-2. **Stage 4: C4.5 v3 running**, 2 of 10 campaigns established so far, pacing on Cornell's resets; TAMU joins at its reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
+2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns established so far, pacing on Cornell's resets; TAMU joins at its reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
@@ -44,7 +44,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ### Finished
 
-- Pytest: session builds/worksteal; timings and crash caveat: `audit/2026-11-04-suite-speed.md`.
+- Pytest: one build per session, worksteal, 3.5 minutes (`audit/2026-11-04-suite-speed.md`).
 - Stage 0: exited 2026-10-26 with C0.7 qualified, by human decision (`audit/stage0/criteria-result.txt`). Stage 1: done 2026-10-26 (`audit/stage1/`).
 - Stage 2: exited 2026-10-28 with C2.6 waived, by human decision (`audit/stage2/exit-r2.md`).
 - Stage 3: exited 2026-11-01 (`audit/stage3/exit.md`), a pipeline validation run with no claim.
