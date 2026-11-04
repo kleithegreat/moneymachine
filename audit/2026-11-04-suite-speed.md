@@ -46,3 +46,15 @@ Default `pyproject.toml` options (`-n auto --dist worksteal`), no command-line s
 | 2 | 229.23 s | 228.49 s | 1,013 passed, 2 skipped, 24 xfailed |
 
 Both full runs started after removing their entire session temporary directory, including build markers, and each produced exactly the three successful-build markers. No failures or flaky cases in either final run. Both reported the same nine existing multiprocessing/fork deprecation warnings. The two skips remain the not-yet-produced stage-4 summary and the opt-in paid model canary; no skip/xfail was added or relaxed. Relative to the earlier reported 581 s baseline, these wall times are about 61% lower (2.5× faster).
+
+## Diagnosis of the `day` SIGKILL failures (advisor, 2026-11-04 10:45 UTC (05:45 EST))
+
+The four failing runs left `ledger.sqlite` at 0 bytes, one with a hot `-journal` beside it: the kill landed in the
+track's first `mm disclose`, before its schema transaction committed. SQLite reads either as an empty database with no
+tables. `thesis/registry.py` `Ledger.records` takes "the file exists" for "the schema exists", so every read after the
+kill, recovery's included, raises `no such table: disclosures`; `mm` itself would recreate the schema on its next write.
+On tmpfs the first write finishes before the kill, which is why the same seeds pass there. The live track's ledger has
+its schema, so the state cannot arise there now; it would on a fresh ledger. `registry.py` is in the thesis manifest,
+so the fix (a ledger without the `disclosures` table holds no records) waits for the next refreeze, with the thesis
+hunt's findings 2 to 4: `thesis/tests/test_registry.py::test_a_ledger_whose_first_write_died_reads_as_empty`, a strict
+xfail until then.

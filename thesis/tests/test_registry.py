@@ -59,6 +59,15 @@ def test_no_time_or_derived_field_can_be_supplied(ledger, extra):
     assert th is None and errors
 
 
+@pytest.mark.xfail(strict=True, reason="audit/2026-11-04-suite-speed.md, diagnosis: a first `mm disclose` killed before "
+                   "its schema commits leaves an empty database, which records() reads as an error, not as no records; "
+                   "fixed at the next thesis refreeze")
+def test_a_ledger_whose_first_write_died_reads_as_empty(tmp_path):
+    path = tmp_path / "ledger.sqlite"
+    path.touch()
+    assert registry.Ledger(path, "t").records("thesis") == []
+
+
 def test_a_registered_thesis_is_canonical_append_only_and_idempotent(ledger):
     th, errors = register(ledger, request())
     assert errors is None and th["t_r"] == T_R and th["id"] == "main-1" and th["N"] == "1000" and th["size"] == "1000"
