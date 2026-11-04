@@ -104,3 +104,13 @@ def test_a_retry_returns_its_committed_thesis_without_admission_or_market_reads(
     assert call(d, "register", thesis(request_id="r2")) == second and call(d, "register", thesis()) == first
     assert "already used" in call(d, "register", thesis(request_id="r2", p=0.7))["errors"][0]
     assert len(ledger.theses("main")) == 2
+
+
+@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-04-claude-hunt-thesis.md, finding 4: register reads every requested market's bars and funding from "
+                   "the venue before it checks the request's form (criteria, stage 10 readings, rule 10)")
+def test_a_malformed_request_is_refused_before_any_market_is_read(make):
+    d, _ = make()
+    reads = []
+    d.register_inputs = lambda account, markets, now: reads.append(markets) or (CONFIG, DATA)
+    out = call(d, "register", thesis(p=5, legs=[["X", 1], ["Y", 1], ["Z", 1]]))
+    assert not out["ok"] and reads == []

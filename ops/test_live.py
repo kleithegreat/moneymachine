@@ -772,3 +772,23 @@ def test_the_mirror_skips_a_writer_s_transient_tmp_file(tmp_path):
     (app / live.VOLUMES["datalayer"] / "raw" / "ab.tmp").write_bytes(b"partial")
     live.mirror(app, out)
     assert json.loads((out / "datalayer/MANIFEST.json").read_text())["files"] == {}
+
+
+@pytest.mark.parametrize("note", ["notes.jsonl", "notes.sqlite"])
+@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-04-claude-hunt-thesis.md, finding 1: a session's workspace note named like a day file or a ledger "
+                   "stops every later mirror run of its volume and of the volumes after it")
+def test_a_note_an_agent_rewrites_in_its_workspace_never_stops_the_mirror(tmp_path, monkeypatch, note):
+    """The thesis brief invites notes in the workspace, which is data/thesis/sessions/<version>/<session>/work, and the
+    Write tool replaces a file whole."""
+    monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis", "agent": "data/agent"})
+    app, out = tmp_path / "app", tmp_path / "mirror"
+    for path in live.VOLUMES.values():
+        (app / path).mkdir(parents=True)
+    work = app / "data/thesis/sessions/thesis-0/main-0/work"
+    work.mkdir(parents=True)
+    (work / note).write_text('{"idea": "gold"}\n')
+    live.mirror(app, out)
+    (work / note).write_text('{"idea": "oil"}\n')
+    (app / "data/agent/swarm-null-3.jsonl").write_text('{"campaign": 1}\n')
+    live.mirror(app, out)
+    assert (out / "agent/swarm-null-3.jsonl").read_text() == '{"campaign": 1}\n'

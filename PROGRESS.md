@@ -15,14 +15,14 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued.
 - **Budget.** Campaigns start on the first account (TAMU, then Cornell) with every window at most 0.8 after the most a campaign has used (`need`, measured across accounts). Claude work on an account during its campaign can exhaust it, a counted crash: none then.
 
-- **stage7 synced with main** (2026-11-04 05:17 UTC (00:17 EST), branch `claude/stage7-sync-main-m2blw4`, `stage7` itself untouched): one merge of main; conflicts and the `ops/test_commitcheck.py` fix in its commit message. gate/ and the thesis manifest equal main's. **The suite was not run in the cloud**; the advisor runs it locally.
+- **stage7 synced with main** 2026-11-04 05:17 UTC (00:17 EST), one merge (conflicts in its commit message); full suite here: all pass but the two missing-data tests.
 
 ### Next, in order
 
 - **Stage 7 slice 2** (`e2b4925`, Sonnet): GPT says not closed (`audit/stage7/slice2-review-gpt.md` on `stage7`): event declarations depend on all four evidence sources, the input table drops source and field, no run differential yet (N1 rebuild). A builder fixes it before slice 3, after the thesis round.
 
-- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices).
-- **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks. `stage7` fails 2 tests until its rebase.
+- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: four strict xfails; finding 1 (`ops/live.py`) can be fixed now, 2 to 4 at the refreeze. Full suite not run in the cloud; the advisor runs it locally.
+- **Then "stage7 B3 round 3":** `audit/decisions.md` ("B3's fixes are not frozen"), under `audit/stage7/b3-draft/` on `stage7`; qualify the plan's two-run checks.
 
 
 1. **Stage 3: done** (`audit/stage3/exit.md`): zero finalists, no claim.
