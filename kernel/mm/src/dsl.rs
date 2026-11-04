@@ -65,11 +65,14 @@ pub enum Ty {
 /// event inputs by their row here until the observation-based machine and loader replace them (port plan, slices 3 to 5).
 pub const EVENT_INPUTS: [(&str, &str); 2] = [("forum_posts", "events_forum"), ("gov_proposals", "events_governance")];
 
-/// A DSL input as the registry declares it (Lean's `Input`): `event` inputs are defined only at their own hour's tick.
-/// A program's `Node::Input(i)` indexes the table it was checked against.
+/// A DSL input as the registry declares it (Lean's `Input`, under its name): its declaration's registry index, the
+/// field's position in that declaration, whether the declaration is an event source (defined only at its own hour's
+/// tick) and the field's unit. A program's `Node::Input(i)` indexes the table it was checked against.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Input {
     pub name: String,
+    pub source: usize,
+    pub field: usize,
     pub event: bool,
     pub unit: Unit,
 }
@@ -573,9 +576,20 @@ impl Program {
         v.sort_by(|a, b| a.0.cmp(&b.0));
         v
     }
-}
 
-impl Program {
+    /// The registry indices of the declarations the program reads, first use first (Lean's `Program.sources`).
+    pub fn sources(&self) -> Vec<usize> {
+        let mut v: Vec<usize> = vec![];
+        for n in &self.nodes {
+            if let Node::Input(k) = n {
+                if !v.contains(&self.inputs[*k].source) {
+                    v.push(self.inputs[*k].source);
+                }
+            }
+        }
+        v
+    }
+
     /// Event datasets this program reads (for R_INPUT_UNAVAILABLE).
     pub fn event_datasets(&self) -> Vec<&'static str> {
         let mut v: Vec<&'static str> = self

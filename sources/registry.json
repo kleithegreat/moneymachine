@@ -11,11 +11,11 @@
   },
   "forum-events": {
    "version": 1,
-   "sha256": "a965db98055a1e0c9156d7a907be82cd0bb1d2b12d6ff81a5e0c9c1dcde7b388"
+   "sha256": "a586eaea477e78eb689731152b6139304184cbef36554ff02086efe30e9a1db0"
   },
   "governance-events": {
    "version": 1,
-   "sha256": "f5e460531b9ee917ef51766c0a0b978d6c44a9f86541f59f531a70b15aa2c920"
+   "sha256": "5e3aad5f607c837c20cd0d17ed71d6ba4b5bb1b2643a5dfc100852a046cc38ab"
   },
   "hl-bars-4h": {
    "version": 2,
