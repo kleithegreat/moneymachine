@@ -162,14 +162,15 @@ capabilities:
 
 The `mirror` CronJob (`concurrencyPolicy: Forbid`) runs every 10 minutes (`ops/live.py`, `mirror`). Any failed check
 stops the run:
-- Day files (`*.jsonl`) only grow: one that shrank, changed below its mirrored length, or vanished from the source is
-  refused.
+- Outside sandbox workspaces (`work/`), day files (`*.jsonl`) only grow: one that shrank, changed below its mirrored
+  length, or vanished from the source is refused.
 - The mirror captures day-file sizes before listing other files (including `raw/`) and copies only those prefixes.
   The datalayer writes each body before its row, so every row in a copied prefix has its body listed. Later rows and
   new day files wait for the next run. No history is parsed; malformed lines are copied as bytes, not a refusal.
 - Every copy's bytes are compared with the source's over the same length.
-- SQLite ledgers are point-in-time snapshots (SQLite's backup) that must pass its integrity check.
-- Other files are copied whole when their size or mtime changes.
+- SQLite ledgers outside workspaces are point-in-time snapshots (SQLite's backup) that must pass its integrity check.
+- Other files, including everything inside a workspace regardless of suffix, are copied whole when their size or
+  mtime changes; their disappearance is allowed. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
 - A mirrored file shorter than its manifest entry is refused.
 
 Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the volume's usage. It is written last,
