@@ -37,3 +37,13 @@ res = [d.chunk(names, texts, m, roots[m], manifest["markets"][m]["version"], wor
 ```
 
 `mm check` needs `data/` to exist in the checkout (its ledger path); an empty one suffices.
+
+## The complete run, on the advisor's host
+
+2026-11-04 10:03 UTC (05:03 EST), at `1a922b7`: `differential.run` itself, unchanged, with `data/store` a symlink to
+the real store (its metadata hash the same before and after). `slice2-differential-full-report.json`: 1,196 verdicts
+and all 3,372 runs (N1, N2 and N3 1,101 each, edge 61, liquidation 4, ruin 4) agree, 0 disagreements,
+11,358,960,293 defined node values byte for byte. Its `pass` is false only on `corpus_missing`: the 22
+`adversarial-gpt40..61` cases joined `kernel/tests/adversarial/` on 2026-10-26 (`f88faf9`), after this corpus froze
+(2026-10-23, `e2ddba4`), and `expected()` lists the live directory. They are rejection cases, checked by verdict only,
+so they would add no run; the frozen corpus is what C6.4 judged. Slice 2's run preservation holds on every market.
