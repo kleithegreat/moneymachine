@@ -1,6 +1,6 @@
-"""Counterexamples to the stage 7 bug hunt's findings (audit/reviews/2026-11-04-claude-hunt-stage7.md), each a strict
-xfail until its finding is fixed. F1 runs the frozen Lean definitions (`lake env lean` on a scratch file); F2 runs
-`mm check` against a registry that contradicts the bars role's contract."""
+"""Counterexamples to the stage 7 bug hunt's findings (audit/reviews/2026-11-04-claude-hunt-stage7.md), both fixed. F1
+runs the frozen Lean definitions (`lake env lean` on a scratch file); F2 runs `mm check` against a registry that
+contradicts the bars role's contract."""
 
 import hashlib
 import json
@@ -13,8 +13,6 @@ import pytest
 from gate import kernel
 
 REPO = Path(__file__).resolve().parents[2]
-
-HUNT = "audit/reviews/2026-11-04-claude-hunt-stage7.md"
 LEAN = REPO / "reference/lean"
 
 DUAL_ROLE = """

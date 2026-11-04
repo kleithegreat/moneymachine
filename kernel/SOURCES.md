@@ -149,8 +149,9 @@ A run's manifest selects exactly one provider declaration for each role.
 
 A bar's open is its eventTime less 4h: bars are 4h, on the 4h grid (revision of 2026-11-01 10:41 UTC (05:41 EST): the
 frozen Lean's `Registry.valid` and `barRow` take this contract, and a stored `openTime` column restated the event time).
-A bars provider declares a held cadence of period 14,400,000 and phase 0 (revision of 2026-11-04, from the stage 7
-hunt: the grid was never checked). A field reading a role column's stored column has that column's unit. The
+A bars provider declares a held cadence of period 14,400,000, phase 0 and slot `eventTime` (revision of 2026-11-04,
+from the stage 7 hunt: the grid was never checked; certification checks the grid on the slot column (§4), and execution
+builds bars from eventTime, so only that slot puts the bars execution reads on the grid). A field reading a role column's stored column has that column's unit. The
 provider's declaration maps each role column to a stored column under its `role` key. The simulator reads role data only in the phases INVARIANTS.md and DSL.md prescribe: fills at the
 open, marks at the close, margin at the adverse extreme, settlement on held positions; reading a bar's execution
 outcome does not deliver that bar's other columns to expressions. Role columns need certification even when absent

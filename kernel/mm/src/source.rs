@@ -13,7 +13,7 @@ pub const ROLES: [(&str, &[(&str, Option<&str>)]); 2] = [
     ("settlement", &[("rate", Some("1/h"))]),
 ];
 
-/// The bars role's grid: 4h bars, phase 0 (SOURCES.md §6).
+/// The bars role's grid: 4h bars, phase 0, slotted by the eventTime execution builds bars from (SOURCES.md §6).
 const BAR_MS: i128 = 14_400_000;
 
 /// The stored columns that select revisions and mark tombstones (`ingest/store.py`).
@@ -211,8 +211,8 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
     if roles.len() > 1 {
         return Err("a declaration provides at most one role".into());
     }
-    if roles.contains_key("bars") && !matches!(cadence, Cadence::Held { period: BAR_MS, phase: 0, .. }) {
-        return Err("role bars: held cadence on the 4h grid".into());
+    if roles.contains_key("bars") && !matches!(&cadence, Cadence::Held { period: BAR_MS, phase: 0, slot } if slot == "eventTime") {
+        return Err("role bars: held cadence on the 4h grid of eventTime".into());
     }
     let evidence = cadence == Cadence::Evidence;
     if evidence != matches!(entity, Entity::Evidence { .. }) || evidence && !(fields.is_empty() && roles.is_empty()) {

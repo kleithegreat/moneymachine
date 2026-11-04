@@ -41,9 +41,12 @@ fn malformed_declarations_are_rejected() {
 
 #[test]
 fn a_bars_provider_is_on_the_4h_grid_and_provides_one_role() {
-    let bars = std::fs::read_to_string(repo_sources().join("hl-bars-4h/2.json")).unwrap();
+    let bars = std::fs::read_to_string(repo_sources().join("hl-bars-4h/2.json")).unwrap()
+        .replace("\"times\": [\"eventTime\"]", "\"times\": [\"eventTime\", \"reportedTime\"]");
     assert!(source::declaration(&bars).is_ok());
     for (from, to) in [("\"period_ms\": 14400000", "\"period_ms\": 3600000"), ("\"phase_ms\": 0", "\"phase_ms\": 3600000"),
+        ("\"slot\": \"eventTime\"", "\"slot\": \"reportedTime\""),
+        ("\"close\", \"unit\": \"usd/coin\"", "\"close\", \"unit\": \"1\""),
         ("\"role\": {", "\"role\": {\"settlement\": {\"rate\": \"rate\"}, ")] {
         assert!(bars.contains(from), "{from}");
         assert!(source::declaration(&bars.replace(from, to)).is_err(), "accepted: {to}");

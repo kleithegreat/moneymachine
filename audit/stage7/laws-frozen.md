@@ -209,19 +209,28 @@ Advisor decision (`audit/decisions.md` on main, same time), reviewed under C7.7 
 
 The proofs are re-checked after this freeze in `proof-validation-b2.md`; that re-check is what counts.
 
-## Revision 2026-11-04 07:00 UTC (02:00 EST): a declaration provides at most one role (stage 7 hunt, finding 1); statements unchanged
+## Revision 2026-11-04 07:00 UTC (02:00 EST): a declaration provides at most one role, under its contract (stage 7 hunt, findings 1 and 2); statements unchanged
 
 `audit/reviews/2026-11-04-claude-hunt-stage7.md` finding 1: `rolePayload` decodes only a declaration's first role, so a
 declaration offering both roles and selected for its second was admitted with no execution data. A run selects distinct
 providers (`Roles.valid`), so such a declaration could only ever serve one role per run; the payload's single role is
-made the registry's rule instead of resolution reading the run's selection. Changed definition: `Registry.valid`'s
-role clause adds `d.roles.length ≤ 1` inside its existing `all`, so no proof's destructuring moves (`lake build`: 109
-jobs, no `sorry`). `rolePayload`'s docstring now says "its declaration's role". `mm` refuses such a declaration when
-parsing (`source.rs`), as SOURCES.md §1 now states; finding 2 (the bars grid) is `mm`'s alone, Lean's `Decl` having no
-period. No committed declaration has two roles, so no recorded result moves. The admission differential (generator: both-role declarations kept, now refused on both sides at position 0; bars providers on the 4h grid) on 5,000 cases each for seeds 1, 2 and 3: no disagreement. Its C7.7 review is queued (a fresh Claude
-and GPT); no proof depending on it is judged before then. Hashes:
+made the registry's rule instead of resolution reading the run's selection. Finding 2 and its review
+(`audit/reviews/2026-11-04-gpt-hunt-fixes-review.md`): nothing held a provider to its role's contract. Changed
+definitions: `Role.columns` states each role column's unit (SOURCES.md §6), and `Registry.valid`'s role clause, inside
+its existing `all`, requires at most one role, its columns `Role.columns`'s, a bars provider held, and every field
+reading a role column's stored column in that column's unit; no proof's destructuring moves (`lake build`: 109 jobs, no
+`sorry`), and five `example`s by `decide +kernel` under it fail on the previous clause. `rolePayload`'s docstring now
+says "its declaration's role". `mm` refuses the same when parsing (`source.rs`), as SOURCES.md §1 and §6 state, and also
+a bars provider off the 4h grid of eventTime (period 14,400,000, phase 0, slot `eventTime`): that grid stays `mm`'s
+alone, Lean's `Decl` having no period and no held slot. No committed declaration breaks either, so no recorded result
+moves. The admission differential (`refmm`'s harness now decodes each declaration's fields; the generator keeps
+both-role declarations, event-cadence bars providers and fields reading a role column in another unit, refused on both
+sides at position 0, and puts every held bars provider on the grid), 5,000 cases on each of seeds 1, 2 and 3: no
+disagreement; refused at position 0 in 942, 930 and 969 cases, admitted to resolution in 524, 484 and 469. Against the
+previous `Registry.valid`, seed 1 disagrees in 485 cases. Its C7.7 review is queued (a fresh Claude and GPT); no proof
+depending on it is judged before then. Hashes:
 
 | File | SHA-256 |
 |---|---|
-| `reference/lean/Ref/Source.lean` | `d11dd0a48716fc122f6c0718ecb858e5ac6c31c27824ac6597eda578e0263446` |
+| `reference/lean/Ref/Source.lean` | `dc248cb35fde360fcfe5376908126f164141a0b5d0317434c5cfa39dbabc3c1b` |
 | `reference/lean/Ref/Resolve.lean` | `aac4935799921efa9e95bfa7786028d5d7a887ec2b914cb358d6f94bd7e70aea` |

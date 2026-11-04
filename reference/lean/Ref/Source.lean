@@ -32,6 +32,11 @@ structure Dep where
   deriving Inhabited, Repr
 inductive Role where | bars | settlement deriving DecidableEq, Repr, Inhabited
 
+/-- The role contracts (SOURCES.md §6): each role column and its unit, `none` for the integer `trades`. -/
+def Role.columns : Role → List (String × Option Dim)
+  | .bars => let px := some ⟨[1, -1, 0, 0, 0, 0]⟩; [("open", px), ("high", px), ("low", px), ("close", px), ("trades", none)]
+  | .settlement => [("rate", some ⟨[0, 0, -1, 0, 0, 0]⟩)]
+
 /-- One active declaration (SOURCES.md §1): its file's hash, its fields (input name, stored column, unit; in
 input-name order), every stored column its availability rule reads (`fetchedAt` included), its event-time and slot
 (event sources) columns, the other columns of its key (`coin`, or an evidence source's), the columns that select
@@ -117,7 +122,7 @@ def Registry.inputs (reg : Registry) : Array (String × Input) :=
 
 /-- A valid registry: input names unique, each dependency naming at least one source, in range and acyclic, evidence
 declarations without fields or roles, a slot column exactly for event sources, and at most one role per declaration,
-its columns as SOURCES.md §6 names them. -/
+its columns and their fields' units as SOURCES.md §6 states them, a bars provider held. -/
 def Registry.valid (reg : Registry) : Bool :=
   let names := reg.decls.toList.flatMap fun d => d.fields.toList.map (·.1)
   names.eraseDups.length == names.length &&
@@ -126,9 +131,23 @@ def Registry.valid (reg : Registry) : Bool :=
   (List.range reg.decls.size).all (fun s => !(reg.closure reg.decls.size (reg.decls[s]!).depends).contains s) &&
   reg.decls.all (fun d => d.cadence != .evidence || (d.fields.size == 0 && d.roles.isEmpty)) &&
   reg.decls.all (fun d => (d.cadence == .event) == d.slotColumn.isSome) &&
-  reg.decls.all fun d => decide (d.roles.length ≤ 1) && d.roles.all fun r => match r.1 with
-    | .bars => r.2.map (·.1) == ["open", "high", "low", "close", "trades"]
-    | .settlement => r.2.map (·.1) == ["rate"]
+  reg.decls.all fun d => decide (d.roles.length ≤ 1) && d.roles.all fun r =>
+    r.2.map (·.1) == r.1.columns.map (·.1) && (r.1 != .bars || d.cadence == .held) &&
+    (r.2.zip r.1.columns).all fun ((_, stored), (_, u)) => u.all fun u => d.fields.all fun f => f.2.1 != stored || f.2.2 == u
+
+/-- One provider of `role` reading each role column under its own name, with these fields. -/
+private def provider (role : Role) (cadence : Cadence) (fields : Array (String × String × Dim)) : Registry where
+  decls := #[{ hash := "", fields, times := ["eventTime", "fetchedAt"], eventColumn := "eventTime"
+               slotColumn := if cadence == .event then some "eventTime" else none, entityColumns := ["coin"]
+               revisionColumns := [], rule := .max [.field "eventTime", .field "fetchedAt"], cadence
+               deps := [], roles := [(role, role.columns.map fun c => (c.1, c.1))] }]
+
+example : (provider .settlement .held #[("funding", "rate", ⟨[0, 0, -1, 0, 0, 0]⟩)]).valid = true := by decide +kernel
+example : (provider .settlement .held #[("funding", "rate", ⟨[1, -1, 0, 0, 0, 0]⟩)]).valid = false := by decide +kernel
+example : (provider .bars .held #[("close", "close", ⟨[1, -1, 0, 0, 0, 0]⟩), ("n", "trades", Dim.one)]).valid = true := by
+  decide +kernel
+example : (provider .bars .held #[("close", "close", Dim.one)]).valid = false := by decide +kernel
+example : (provider .bars .event #[]).valid = false := by decide +kernel
 
 def Registry.Valid (reg : Registry) : Prop := reg.valid = true
 

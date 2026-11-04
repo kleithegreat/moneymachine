@@ -1,8 +1,9 @@
 """Stage 7 port, slice 6: `mm::admission::admit` (through `mmdump admit`) against Lean's `admit` (through `refmm admit`)
 on random admission cases: registries of declaration files, role selections, bindings, certificates, supersessions,
-holdout identities and stored event times, each mutated toward one refusal; a dependency with no sources, or a
-declaration offering both roles, is invalid on both sides. Bars providers are on the 4h grid and a field reading the
-rate column is 1/h, as `mm` requires and Lean's `Decl` does not model. A development run, never judged.
+holdout identities and stored event times, each mutated toward one refusal; a dependency with no sources, a
+declaration offering both roles, an event-cadence bars provider or a field reading a role column in another unit is
+invalid on both sides. Bars providers are on the 4h grid of eventTime, which `mm` alone checks (Lean's `Decl` has no
+period). A development run, never judged.
 
 usage: python -m reference.admission_differential [CASES] [SEED]
 
@@ -24,11 +25,17 @@ REF = REPO / "reference/lean/.lake/build/bin/refmm"
 DUMP = REPO / "reference/mmdump/target/release/mmdump"
 
 
+UNITS = {"1": [0, 0, 0, 0, 0, 0], "usd/coin": [1, -1, 0, 0, 0, 0], "1/h": [0, 0, -1, 0, 0, 0]}
+ROLE_UNITS = {"bars": {"open": "usd/coin", "high": "usd/coin", "low": "usd/coin", "close": "usd/coin", "trades": None},
+              "settlement": {"rate": "1/h"}}
+
+
 def declaration(rng: random.Random, s: int) -> dict:
     """Declaration s: held or event over coins, or evidence; its dependencies on earlier declarations only. The
-    first two are usually a bars and a settlement provider."""
+    first two are usually a bars and a settlement provider, which a few cases break: both roles, an event-cadence bars
+    provider, a field reading a role column in another unit."""
     provider = {0: "bars", 1: "settlement"}.get(s) if rng.random() < 0.9 else None
-    kind = "held" if provider else rng.choice(["held", "held", "event", "evidence"])
+    kind = "held" if provider and rng.random() < 0.97 else rng.choice(["held", "held", "event", "evidence"])
     deps = {}
     if s > 0:
         for name in rng.sample(["a", "b", "c"], rng.randint(0, 2)):
@@ -43,15 +50,22 @@ def declaration(rng: random.Random, s: int) -> dict:
     else:
         times = rng.choice([["eventTime"], ["eventTime", "reportedTime"]])
         entity = "coin"
-        fields = {f"x{s}_{k}": {"column": f"c{k}", "unit": "1"} for k in range(rng.randint(1, 2))}
-        slot = rng.choice(times)
         role = {}
-        if provider or kind == "held" and rng.random() < 0.3:
-            r = provider or rng.choice(["bars", "settlement", "both"])
-            if r in ("bars", "both"):
-                role["bars"] = {c: rng.choice([c, "p" + c]) for c in ["open", "high", "low", "close", "trades"]}
-            if r in ("settlement", "both"):
-                role["settlement"] = {"rate": rng.choice(["rate", "c0"])}
+        if provider or rng.random() < 0.3:
+            r = provider or rng.choice(["bars", "settlement"])
+            for x in (["bars", "settlement"] if rng.random() < 0.03 else [r]):
+                role[x] = {c: rng.choice([c, "p" + c, "c0"]) for c in ROLE_UNITS[x]}
+        if kind == "held":
+            grid = "bars" in role or rng.random() < 0.5
+            cadence = {"held": {"period_ms": 14400000 if grid else 3600000, "phase_ms": 0,
+                                "slot": "eventTime" if grid else rng.choice(times)}}
+        else:
+            cadence = {"event": {"slot": rng.choice(times)}}
+        units = {stored: ROLE_UNITS[r][c] for r, cols in role.items() for c, stored in cols.items() if ROLE_UNITS[r][c]}
+        fields = {}
+        for k in range(rng.randint(1, 2)):
+            unit = units.get(f"c{k}") if rng.random() < 0.97 else None
+            fields[f"x{s}_{k}"] = {"column": f"c{k}", "unit": unit or rng.choice(list(UNITS))}
     terms = [{"field": times[0]}, {"field": "fetchedAt"}] + [{"dep": d} for d in deps]
     return {"declaration": 1, "name": f"s{s}", "version": 1, "entity": entity, "times": times, "fields": fields,
             "cadence": cadence, "missing": "undefined", "revisions": "latest",
@@ -70,10 +84,9 @@ def lean_decl(text: str, names: list[str]) -> dict:
         event, entity = "eventTime", ["coin"]
     return {"hash": hashlib.sha256(text.encode()).hexdigest(), "times": d["times"] + ["fetchedAt"], "event": event,
             "slot": d["cadence"]["event"]["slot"] if cad == "event" else None, "entity": entity, "revision": ["tombstone"],
-            "cadence": cad,
+            "cadence": cad, "fields": [[n, f["column"], UNITS[f["unit"]]] for n, f in sorted(d["fields"].items())],
             "deps": [[[names.index(u) for u in dep["sources"]], name, dep["lag_ms"]] for name, dep in sorted(d["depends"].items())],
-            "roles": [[r, [[c, cols[c]] for c in (["open", "high", "low", "close", "trades"] if r == "bars" else ["rate"])]]
-                      for r, cols in d["role"].items()]}
+            "roles": [[r, [[c, cols[c]] for c in ROLE_UNITS[r]]] for r, cols in d["role"].items()]}
 
 
 def controls(ld: dict) -> list[str]:
