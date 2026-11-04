@@ -98,7 +98,6 @@ def crash(root, drop):
 
 
 MARKETS = {"edge": edge, "liquidation": lambda r: crash(r, 0.4), "ruin": lambda r: crash(r, 0.6)}
-VERSIONS = {"edge": 2, "liquidation": 1, "ruin": 1}
 
 
 def c(x, unit="1"):
