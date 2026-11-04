@@ -353,3 +353,58 @@ def test_a_row_that_expires_from_memory_is_read_again_before_a_newer_row_can_sup
     x.rows = sorted(x.rows + [(t - market.HOUR, 2.0)])
     assert t - market.HOUR in [r[0] for r in m.bars("X", "1h", t - 60_000)]
     assert t - market.HOUR in [r[0] for r in m.bars("X", "1h", t + market.DELTA + 60_000)]
+
+
+DEX_REPLY = [{"universe": [{"name": "xyz:GOLD"}]}, [{"markPx": "2400.5"}]]
+
+
+@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-04-claude-hunt-thesis.md, finding 2: one builder dex's failed request ends the hour's sampling "
+                   "before the dexes after it, and the failed attempt is not archived")
+def test_one_dex_failing_never_costs_another_dex_its_sample(tmp_path, monkeypatch):
+    def post(body, *a, **k):
+        if body["type"] == "perpDexs":
+            return [None, {"name": "bad"}, {"name": "xyz"}]
+        if body["dex"] == "bad":
+            raise RuntimeError("retries exhausted")
+        return DEX_REPLY
+    x = market.Exchange(tmp_path / "x")
+    monkeypatch.setattr(x, "post", post)
+    m = market.Market(tmp_path / "m", x)
+    monkeypatch.setattr(market, "now_ms", lambda: 5_000)
+    try:
+        m.record_marks()
+    except RuntimeError:
+        pass
+    assert m.marks("xyz:GOLD") == [(5_000, 5_000, 2400.5)]
+    assert {s["dex"] for s in market.read(tmp_path / "m" / "marks", "marks")} == {"bad", "xyz"}
+
+
+@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-04-claude-hunt-thesis.md, finding 3: the hourly mark sample waits behind the budget every other "
+                   "venue read spends, and records as its send time the moment before that wait")
+def test_the_mark_sample_is_sent_at_its_time_whatever_other_reads_spent(tmp_path, monkeypatch):
+    """Criteria, stage 10, revision of 2026-10-23: for every builder dex and hour H a request is sent at H + 5 s."""
+    clock = [H + market.MARK_OFFSET]
+    monkeypatch.setattr(hl, "time", type("Clock", (), {"monotonic": staticmethod(lambda: clock[0] / 1000),
+                                                         "sleep": staticmethod(lambda s: clock.__setitem__(0, clock[0] + s * 1000))}))
+    monkeypatch.setattr(market, "now_ms", lambda: int(clock[0]))
+    replies, posted = {"perpDexs": [None, {"name": "xyz"}], "metaAndAssetCtxs": DEX_REPLY}, []
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, body):
+            self.body = body
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return replies[self.body["type"]]
+
+    x = market.Exchange(tmp_path / "x")
+    monkeypatch.setattr(x.http, "post", lambda url, json: posted.append(int(clock[0])) or Response(json))
+    x.spent = [(clock[0] / 1000, x.budget)]
+    market.Market(tmp_path / "m", x).record_marks()
+    (sample,) = market.read(tmp_path / "m" / "marks", "marks")
+    assert posted[0] <= H + market.MARK_OFFSET + 1_000
+    assert sample["sent"] == posted[-1]
