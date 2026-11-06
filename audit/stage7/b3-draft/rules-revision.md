@@ -25,14 +25,16 @@ and `"t"`.
 flag), its declared columns, each as a **cell**, and, for a derived source's revision that is not a tombstone, its
 lineage; undeclared columns, and a tombstone's lineage, are never read. A cell is an integer from −2^63 to 2^63 − 1, a
 non-integer number, a string, a boolean or null; each stored representation maps to cells by its own mapping: JSON texts
-by §7, Parquet by SOURCES.md §2. A dataset is invalid, as when two eligible revisions of one key share a fetchedAt, if
-any eligible revision (fetchedAt ≤ V) does not decode; revisions fetched after V are not examined. One does not decode
-if:
+by §7, Parquet by SOURCES.md §2. A dataset is invalid if two eligible revisions of one key share a fetchedAt, an
+eligible revision's fetchedAt is outside §2's range [−2^62, 2^62 − 1], eligible revisions of one entity map to different
+coins, or any eligible revision does not decode. Eligible means fetchedAt ≤ V; revisions fetched after V are not
+examined. One does not decode if:
 - a declared column's stored value is not a cell under its representation's mapping;
-- its event column is null, absent or not an integer in range;
+- its event column is null, absent or not an integer in §2's range [−2^62, 2^62 − 1];
 - it is a derived source's revision that is not a tombstone, and its lineage is null or absent, does not decode under
   its mapping, or is not an object; or any member, whether or not it names a declared dependency, is not an array of
-  **lineage keys** `[S, [c1, …, ck], e]`, with S a string, each ci a cell and e an integer in range; or a key's S is not
+  **lineage keys** `[S, [c1, …, ck], e]`, with S a string, each ci a cell and e an integer in §2's range
+  [−2^62, 2^62 − 1]; or a key's S is not
   a declared source, or its k differs from the number of S's entity columns.
 
 A revision that decodes and whose rule evaluation is rejected, whose lineage is unusable, or whose slot or role payload
@@ -65,8 +67,9 @@ revision before the current one, and *prev* the knownAt of the timeline's latest
    nothing.
 2. Otherwise, r's candidate knownAt, if r is usable, is the rule's value on r's row with each dependency's upstream
    time; raised to r's fetchedAt if *last* exists; raised to *prev* if it exists; and raised to each dependency's
-   upstream time plus its lag. Each raise is range-checked like any bound. r is **unusable** if its rule evaluation is
-   rejected (§5), a raise is out of range, its slot or role payload does not decode, or its lineage is unusable.
+   upstream time plus its lag. Each raise is checked against §2's range [−2^62, 2^62 − 1], like any bound. r is
+   **unusable** if its rule evaluation is rejected (§5), a raise is outside that range, its slot or role payload does
+   not decode, or its lineage is unusable.
 3. A dependency's **upstream time** is the latest, over the lineage keys r lists for it, of that key's latest knownAt
    among its timeline's entries (a retraction included) whose fetchedAt is no later than r's. The lineage is unusable if
    a dependency of r's source lists no key, a key of a source the dependency does not name, or a key with no such entry;
@@ -102,15 +105,15 @@ A resolver case is one store at one dataset version:
   columns; `event` its event column, among `times`; `slot` an event source's slot column (SOURCES.md §1); `roles` its role columns. Its
   declared columns are `values`, `times`, `event`, `slot`, `entity` and the role columns; a non-evidence source's one
   entity column is `coin`. No source has revision columns; the tombstone flag is the row's. Sources may be declared in
-  any order; every case's registry is otherwise valid (paper §5).
+  any order; every case's registry is otherwise valid (SOURCES.md §1).
 - `cells` and `upstream` are the revision's stored texts, passed as text and never pre-decoded. **The JSON mapping:** a
   text is read whole as §1 reads it, and one that is malformed or not an object does not decode. Of `cells`, a member
   that is not a declared column is never read; a declared member's value maps an integer to an integer (not a cell
-  outside §6's range), a non-integer number to a non-integer, and a string, boolean or null to itself, and an array or
+  outside −2^63 to 2^63 − 1), a non-integer number to a non-integer, and a string, boolean or null to itself, and an array or
   object is not a cell. `upstream` is the lineage, whose keys' cells map the same way; null is a lineage that does not
   decode. A non-evidence source's key maps to the universe's coin equal to its `coin` cell, else to none.
 - The result is `"E_DECL"` if a source's declared columns include one of the store's metadata columns (SOURCES.md
-  §1, revision of 2026-11-04); else `"E_RULE"` if a source's rule fails checking (§4) against its `times` and its
+  §1, revision of 2026-11-04); else `"E_RULE"` if a source's rule fails checking (§4) against its `times` (with `fetchedAt`) and its
   dependencies' names; both whatever the rows hold; `"INVALID"` for an invalid dataset; and otherwise
 
 ```json
@@ -140,7 +143,8 @@ A resolver case is one store at one dataset version:
 ### Revision at the freeze, B3: Parquet as cells (SOURCES.md §2)
 
 From the B3 reviews cited above. **For resolution (RULES.md §6)**, not binding's schema validation above: the store holds a dataset's
-revisions as Parquet files under its directory, each row one revision. A column's **type** is its Arrow type as its file
+revisions as every `.parquet` file under its directory (file names carry no timestamp or version meaning), each row one
+revision. A column's **type** is its Arrow type as its file
 states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type its Parquet physical and
 logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this section names a string. A
 row's metadata is `fetchedAt`, a non-null Int64, and `tombstone`, a Boolean (a null, or a file without the column, is
@@ -149,9 +153,10 @@ Names are the ordered list of direct children of the Parquet schema's root group
 of top-level fields of `ARROW:schema`: neither list repeats a name and the two lists must be identical, including order.
 Nested leaves are not top-level fields (a List column is one field); undeclared columns' subtrees are ignored.
 A file failing these checks makes the dataset invalid, whatever V, since its rows cannot be placed or decoded
-unambiguously; so does a null `fetchedAt`, checked after a search's holdout check (C7.6 test 3). A derived source's `upstream`, a string column, holds its lineage as a
-JSON text read by RULES.md §7's mapping; a null, or a file without the column, is a lineage that does not decode, and a
-tombstone's is never read. A declared column's value maps to a cell by the column's type in the file that stores the
+unambiguously; so does a null `fetchedAt`, checked after a search's holdout check (C7.6 test 3). For an eligible
+non-tombstone derived row, `upstream` decodes only from a non-null string column holding its lineage as a JSON text read
+by RULES.md §7's mapping; any other type, a null, or a file without the column is a lineage that does not decode. On
+tombstones and post-V rows `upstream` is never read, whatever its type. A declared column's value maps to a cell by the column's type in the file that stores the
 row: Int64 to an integer; a finite Double to a non-integer; a string column to a string; Boolean to a boolean; a null of
 any of these types to null. Nothing else is a cell: no other type (UInt64, Int32, Decimal, Timestamp, Null, List,
 Struct, …), and no NaN or infinite Double. Each row decodes by its own file's types, never by a type unified across
