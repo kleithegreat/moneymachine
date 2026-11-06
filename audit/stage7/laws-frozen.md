@@ -239,3 +239,18 @@ under C7.7 by GPT (`audit/reviews/2026-11-04-gpt-hunt-fixes-review-2.md`) and a 
 |---|---|
 | `reference/lean/Ref/Source.lean` | `dc248cb35fde360fcfe5376908126f164141a0b5d0317434c5cfa39dbabc3c1b` |
 | `reference/lean/Ref/Resolve.lean` | `aac4935799921efa9e95bfa7786028d5d7a887ec2b914cb358d6f94bd7e70aea` |
+
+## 2026-11-06 20:50:51 UTC (15:50:51 EST): B3's resolver specification frozen
+
+C7.6's revision was committed alone before this specification and the suite. RULES.md §6 restates the resolver whole,
+§7 defines its cases and comparisons, and SOURCES.md §2 defines Parquet as cells. No Lean statement, definition or proof
+changes in this freeze. GPT reviewed round 9 (`b3-round9-review-gpt.md`); fresh Claude (Opus 5.5 through the
+Antigravity CLI) reviewed round 10 (`b3-round10-review-claude.md`). Gemini 4 Argon's round 8 calibration
+(`b3-round8-calibration-argon.md`) halted the first freeze; round 11 answered it. Argon's review at this freeze
+(`b3-round11-review-argon.md`) left wording only, now answered under the human's fix-and-freeze rule, without another
+round. Production-loader comparisons and structural holdout review remain slice 5's obligations, not evidence claimed
+by this freeze. RULES.md's hash after this revision:
+
+| File | SHA-256 |
+|---|---|
+| `kernel/RULES.md` | `1385c1a5c05074cd8d4336007ee154be6eea20339ab29916e47fd0a7691d2143` |
