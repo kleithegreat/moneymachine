@@ -771,3 +771,38 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
 - **Notes:** the stale provenance lists no longer hold (round 10's wording commit `101d5c7` already carries both through round 10); the resolution-versus-binding scope note holds and is now explicit in SOURCES.md §2's draft. Footer-statistics/ChunkReader notes remain moot after deletion of the byte instrument; the bound-less production path and the paper's pending stage-7 snapshot-paragraph update stay as tracked, not reopened here.
 - **Erasure and status:** deleted the duplicate JSON validator, centralized footer-name semantics, compressed README history to the decision record and removed its obsolete, non-evidentiary self-check. Regressions reproduced the defects before their fixes. Nothing frozen, no `audit/criteria.md` change, no judged result; next is Argon's review at the freeze. **Reverse:** revert this commit.
 - **Validation:** the requested full pytest command ran, then ran again with `-rs` after the empty-file regression: **1,086 passed, 32 strict xfails, 2 pre-existing skips** (stage 4's unproduced `null-summary.json`; the opt-in model-turn canary requiring `MM_CANARY=1` and credentials, not spent here). README's `lake build refmm` and `lean_check.py` pass: 171/171 hand expectations, exact generated-file equality, 481 stores, 401 Parquet images, 1,001 delivered pairs, every coverage floor met and no observation mismatches. Rust's full release suite, including its normally ignored benchmark, passes all 54 tests (`cargo test --release --manifest-path kernel/mm/Cargo.toml -- --include-ignored`); the extra full debug run was stopped during its slow unrelated rule campaign and replaced by this completed release run. PROGRESS's cap and commit checks pass.
+
+## 2026-11-06 20:50:51 UTC (15:50:51 EST): B3 frozen after round 11 (builder, b3-r11)
+
+- **What:** fetched `origin` and merged `origin/stage7` (already an ancestor). C7.6's complete round 11 revision was
+  committed alone (`f8aeb4c`), dated from `date -u`, then RULES.md §6–7 and SOURCES.md §2 with the new RULES.md hash in
+  `audit/stage7/laws-frozen.md` (`32b1767`), then the resolver suite in `kernel/tests/rules/` (`307c1de`): 171 hand cases, 481
+  generated stores, `lean_check.py`, prefix/coverage/size/observation checks and the relocated image regressions.
+  The old snapshot-resolver comparison and duplicate draft copies are removed; the old implementations leave with
+  their callers in slice 5. The halted `b3-freeze-attempt` and its stash supplied reusable test wiring, not its older
+  criterion or case files. All steps were redone on this branch. Review records and prior audit entries remain.
+- **Why:** round 11 closed the calibration's design findings. Argon's review at the freeze left only wording, answered
+  in `da8e9e8`: the standalone resolver now states its existing fetchedAt-range and entity-to-coin invalidity rules,
+  distinguishes Time and cell ranges, and explicitly scopes file discovery and `upstream`'s type to the rows that read
+  it. No test decision, case bytes, generator logic, Lean statement, definition or proof changed. Under the human's
+  fix-wording-and-freeze rule there is no further review round.
+- **Reviewers:** GPT on round 9 (`audit/stage7/b3-round9-review-gpt.md`), whose three findings round 10 answered;
+  fresh Claude (Opus 5.5 through the Antigravity CLI) on round 10 (`b3-round10-review-claude.md`), wording only;
+  Gemini 4 Argon's blind round 8 calibration (`b3-round8-calibration-argon.md`), which halted the first freeze and
+  required round 11; and Argon at the freeze on round 11 (`b3-round11-review-argon.md`), nothing beyond wording.
+- **Next and scope:** C7.6's implementation is slice 5, not this freeze. Python's and Rust's production loaders and
+  GPT's new spec-only resolver must still join Lean, pass every named loader-level test and undergo the structural
+  holdout review. The seven Python staging cases remain strict xfails naming `audit/stage7/holdout-staging.md`.
+  Neither Lean's self-comparison nor installing the suite is a pass of C7.6; no stage 7 evidence is judged here.
+- **Reverse:** before judged evidence, a further dated revision beneath C7.6 and in RULES.md/SOURCES.md and
+  `laws-frozen.md`, followed by the corresponding suite replacement; never edit the frozen criterion or erase this
+  record. After judged evidence, new evidence must follow the new revision; version 1 and the halted attempt do not
+  count. Any loosening of a frozen threshold remains the human's decision.
+- **Validation:** README's `lake build refmm` and installed `lean_check.py` pass: 171/171 hand expectations, exact
+  file equality, 481 stores, 401 Parquet images, 1,001 delivered pairs, every coverage floor and no observation
+  mismatches. Rust's full release suite, including the normally ignored benchmark, passes all 54 tests. The targeted
+  suite gives 90 passed and the seven recorded strict staging xfails; PROGRESS is 12,126 bytes, below its 12,288-byte cap.
+  The first pytest invocation hit the tool's 120-second deadline. The first completed full run gave 1,088 passed,
+  32 strict xfails, two existing skips and one failure: the repository-source scan listed the old tracked draft path
+  before the relocations were staged, then could not open it. With the moves committed, that unchanged test passes
+  (four tests including process/status checks); no test or criterion was changed to address this index-order failure.
