@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-from gate import kernel
 from ingest.policy import DAY, HOUR
 from thesis import positions, registry
 
@@ -37,8 +36,7 @@ def register(ledger, req, t_r=T_R, account="main"):
 
 
 @pytest.fixture
-def ledger(tmp_path):
-    kernel.build()
+def ledger(tmp_path, built_kernel):
     return registry.Ledger(tmp_path / "ledger.sqlite", "thesis-test")
 
 
@@ -59,6 +57,15 @@ def test_invalid_fields_are_refused(ledger, over):
 def test_no_time_or_derived_field_can_be_supplied(ledger, extra):
     th, errors = register(ledger, {**request(), extra: 0})
     assert th is None and errors
+
+
+@pytest.mark.xfail(strict=True, reason="audit/2026-11-04-suite-speed.md, diagnosis: a first `mm disclose` killed before "
+                   "its schema commits leaves an empty database, which records() reads as an error, not as no records; "
+                   "fixed at the next thesis refreeze")
+def test_a_ledger_whose_first_write_died_reads_as_empty(tmp_path):
+    path = tmp_path / "ledger.sqlite"
+    path.touch()
+    assert registry.Ledger(path, "t").records("thesis") == []
 
 
 def test_a_registered_thesis_is_canonical_append_only_and_idempotent(ledger):

@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from gate import kernel, markets
+from gate import markets
 from gate.agent import campaigns
 from gate.agent.daemon import Daemon
 from gate.kernel import MM, command
@@ -123,9 +123,9 @@ class Campaign:
 
 
 @pytest.fixture
-def c(tmp_path, monkeypatch):
+def c(tmp_path, monkeypatch, request):
     if os.access(REPO, os.W_OK):
-        kernel.build()
+        request.getfixturevalue("built_kernel")
     return Campaign(tmp_path, monkeypatch)
 
 
@@ -502,9 +502,8 @@ def series_in_the_pods_view():
     assert len(rows) == 1 and "crash" not in rows[0] and rows[0]["audit"]["match"] and rows[0]["mm"] == campaigns.sha256(MM), rows
 
 
-def test_the_series_in_its_pods_view(tmp_path):
+def test_the_series_in_its_pods_view(tmp_path, built_kernel):
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
-    kernel.build()
     (REPO / "data").mkdir(exist_ok=True)
     volume = tmp_path / "agent"
     (volume / "kernel/release").mkdir(parents=True)
@@ -517,10 +516,9 @@ def test_the_series_in_its_pods_view(tmp_path):
     assert out.returncode == 0, out.stdout + out.stderr
 
 
-def test_under_a_read_only_root(tmp_path):
-    kernel.build()
+def test_under_a_read_only_root(tmp_path, built_kernel):
     target = f"{Path(__file__)}::test_a_complete_campaign_commits_promotions_before_reading_diagnostics"
     out = subprocess.run(["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp", sys.executable, "-m", "pytest",
-                          "-q", "-p", "no:cacheprovider", target], capture_output=True, text=True, cwd=REPO,
+                          "-q", "-n0", "-p", "no:cacheprovider", target], capture_output=True, text=True, cwd=REPO,
                          env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1"})
     assert out.returncode == 0, out.stdout + out.stderr

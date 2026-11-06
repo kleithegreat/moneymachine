@@ -57,8 +57,7 @@ def test_pool_keeps_the_campaign_lock_after_its_parent_releases_it(tmp_path):
 
 
 @pytest.mark.parametrize("model", ["N1", "N2", "N3"])
-def test_campaign_results_and_ledgers_agree_across_start_methods(tmp_path, model):
-    kernel.build()
+def test_campaign_results_and_ledgers_agree_across_start_methods(tmp_path, model, built_kernel):
     script = """
 import json, multiprocessing, sys
 from pathlib import Path

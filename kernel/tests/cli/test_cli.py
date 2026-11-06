@@ -23,11 +23,11 @@ REPO = Path(__file__).resolve().parents[3]
 W0 = REPO / "kernel" / "strategies" / "w0.json"
 IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end", "dataset_version", "data_hash",
             "conventions", "rules_hash", "execution_hash", "kernel", "seed", "identity", "mechanism", "equivalence", "trial"]
+pytestmark = pytest.mark.usefixtures("built_kernel")
 
 
 @pytest.fixture(scope="module")
 def market(tmp_path_factory):
-    kernel.build()
     return write_market(tmp_path_factory.mktemp("m"), market_id="cli", days=40, holdout_days=10)
 
 
@@ -377,3 +377,25 @@ def test_event_inputs_only_in_the_holdout_are_unbound_in_search(tmp_path):
                                     {"input": "forum_posts"}, {"const": 2, "unit": "ev"}]}]}, {"const": 0.05, "unit": "1"}]}}))
     r = evaluate(root, tmp_path / "l.sqlite", prog)
     assert r.returncode == 1 and "R_INPUT_UNAVAILABLE" in r.stdout + r.stderr
+
+
+def test_check_reads_the_registry_under_sources(tmp_path):
+    """`mm check --sources` takes its inputs from that registry, not the repository's: renaming a field there renames
+    the input."""
+    kernel.build()
+    decl = (REPO / "sources" / "hl-funding" / "1.json").read_bytes().replace(b'"funding": {', b'"funding_rate": {')
+    (tmp_path / "hl-funding").mkdir()
+    (tmp_path / "hl-funding" / "1.json").write_bytes(decl)
+    (tmp_path / "registry.json").write_text(json.dumps({"registry": 1, "declarations": {
+        "hl-funding": {"version": 1, "sha256": hashlib.sha256(decl).hexdigest()}}}))
+
+    def verdict(name, *sources):
+        p = tmp_path / f"{name}.json"
+        p.write_text(json.dumps({"dsl": 1, "name": name, "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+                                 "weight": {"op": "sign", "args": [{"input": name}]}}))
+        r = subprocess.run([str(MM), "check", str(p), "--ledger", str(tmp_path / "l.sqlite"), *sources], capture_output=True, text=True)
+        d = json.loads((r.stdout + r.stderr).strip().splitlines()[-1])
+        return "ok" if d.get("ok") else d["code"]
+
+    assert [verdict(n, "--sources", str(tmp_path)) for n in ("funding_rate", "funding")] == ["ok", "E_UNKNOWN_INPUT"]
+    assert [verdict(n) for n in ("funding_rate", "funding")] == ["E_UNKNOWN_INPUT", "ok"]

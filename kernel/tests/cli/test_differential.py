@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from gate.kernel import MM, build
+from gate.kernel import MM
 from ingest import witness
 
 REPO = Path(__file__).resolve().parents[3]
@@ -39,9 +39,8 @@ def steps(events):
     return [(e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS)]
 
 
-def test_kernel_matches_witness(tmp_path):
+def test_kernel_matches_witness(tmp_path, built_kernel):
     version = stage0_version()
-    build()
     out = tmp_path / "trace.jsonl"
     r = subprocess.run([str(MM), "eval", str(REPO / "kernel/strategies/w0.json"), "--campaign", "stage1-differential",
                         "--agent", "test", "--version", str(version), "--trace", str(out), "--venue", str(VENUE),

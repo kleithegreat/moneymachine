@@ -37,15 +37,12 @@ def test_mixed_summary_fdr_and_power(tmp_path, monkeypatch):
     assert sweep.cp_interval(40, 100)[0] < 0.40 < sweep.cp_interval(40, 100)[1]
 
 
-def test_campaign_records_top5_and_serializes_with_events(tmp_path):
+def test_campaign_records_top5_and_serializes_with_events(tmp_path, built_kernel):
     import lzma
     import sqlite3
 
     import numpy as np
 
-    from gate import kernel
-
-    kernel.build()
     events = {"arrays": np.random.default_rng(0).poisson(2.0, (300, 1)).astype(float), "coins": [0], "block_hours": 24}
     r = campaign.run_campaign({"id": "smoke", "model": "N1", "params": None, "searcher": "G10", "days": 40, "holdout_days": 10,
                                "cost_cells": {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}, "events": events},

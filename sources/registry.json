@@ -10,12 +10,12 @@
    "sha256": "6248c808b5c82cbf2a4713991fee834cd1c972ed0e845443d6fd976e7257e028"
   },
   "forum-events": {
-   "version": 1,
-   "sha256": "a965db98055a1e0c9156d7a907be82cd0bb1d2b12d6ff81a5e0c9c1dcde7b388"
+   "version": 2,
+   "sha256": "b9f6692f13854f3ac4937b51dd4d684309d6073a2da0255fac798fca5994af24"
   },
   "governance-events": {
-   "version": 1,
-   "sha256": "f5e460531b9ee917ef51766c0a0b978d6c44a9f86541f59f531a70b15aa2c920"
+   "version": 2,
+   "sha256": "646b3c7f31b137cc9f846c76637ab1a3ad8ebc5744672c44f2e1eeb340a60ea4"
   },
   "hl-bars-4h": {
    "version": 2,

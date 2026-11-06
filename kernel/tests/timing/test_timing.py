@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from gate import kernel
 from gate.kernel import MM
 
 HERE = Path(__file__).parent
@@ -18,8 +17,7 @@ spec.loader.exec_module(gen)
 
 
 @pytest.fixture(scope="module")
-def cases(tmp_path_factory):
-    kernel.build()
+def cases(tmp_path_factory, built_kernel):
     path = tmp_path_factory.mktemp("t") / "cases.jsonl"
     cs = gen.generate(2000, 11)
     path.write_text("".join(json.dumps(c) + "\n" for c in cs))

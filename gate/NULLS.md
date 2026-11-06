@@ -29,7 +29,8 @@ bar's gross PnL is then exactly q · o · ε. Requirements:
 
 Every position the kernel takes over the bar is F_o-measurable. It was decided at
 b − 4h + δ from data known then, and sized with equity, the decision price, the cap and
-rounding. Its expected gross PnL is therefore E[q · o · ε] = E[q · o · E[ε | F_o]] = 0.
+rounding; on the corrected engine, the fill admission and the stop-out read only marks and extremes of bars closed
+by b. Its expected gross PnL is therefore E[q · o · ε] = E[q · o · E[ε | F_o]] = 0.
 
 Liquidation (`sim.rs`) runs after the hour-(b + 4h) settlement and closes at the adverse extreme
 instead of c. For a long, low ≤ c, and for a short, high ≥ c, so a liquidated position's PnL is
@@ -53,11 +54,24 @@ stopped wealth is a nonnegative supermartingale. Its running maximum is the gate
 make a new maximum, and later reported returns are zero. The raw p-values then stay valid on bankrupt paths too, and
 Holm controls false promotions across the whole frozen finalist family. With 0 ≤ λ_t ≤ 1/2, r′_t ≥ −2 suffices.
 
-That bound is not established for N1 to N3 in the current kernel: wicks are unbounded, and normalizing the defined
-target weights does not bound the exposure actually held. Where a terminal betting factor can be negative, the bound
-needs a wealth-weighted overshoot correction, and a small observed bankruptcy rate establishes neither exact nor
-approximate α control. Null campaigns report every evaluation, including those with a step return of −B. A bankrupt
-result cannot pass the positive-total-return rule, but a bankrupt finalist's earlier wealth peak still enters Holm.
+The frozen pilot kernel and these generators do not establish that bound: wicks are unbounded, and normalizing the
+defined target weights does not bound the exposure actually held. Where a terminal betting factor can be negative, the bound needs a
+wealth-weighted overshoot correction, and a small observed bankruptcy rate establishes neither exact nor approximate α
+control. Null campaigns report every evaluation, including those with a step return of −B. A bankrupt result cannot
+pass the positive-total-return rule, but a bankrupt finalist's earlier wealth peak still enters Holm.
+
+*Revision 2026-11-04, for campaigns on the corrected engine, with fresh campaign ids; earlier campaigns keep the text
+above:* the bound holds by construction, because these markets are gapless and their bars bounded. The clips below
+change every N1 to N3 and planted market, so C2's calibration and planted β, judged on the old generators, do not
+carry over. The corrected kernel's stop-out, with its fill admission, gives
+r′ ≥ −4(2κ + m), with κ the largest cost per unit of reference notional, s + f + s · f (`reference/SEMANTICS.md` §7,
+Loss bound). Every clip of ε below is at ±0.3 instead of ±0.5, and each wick's |u| is capped at 0.1, so
+c/o ≤ (1 + 3 · 0.04 + 0.3)/(1 − 0.04) < 1.48. Per unit of o, a closeout at the adverse extreme then loses, with
+funding: when the bar moves against the position, its loss to the close, |ε| ≤ 0.3, plus the wick beyond the close,
+at most 0.1 · max(o, c)/o < 0.148; when it moves for it, at most the wick beyond the open, 0.1, plus the funding paid,
+3 · 0.04 + 0.04 · 1.48, under 0.28. The closeout's cost adds at most 1.1 · 1.48 · κ. Market construction checks
+κ ≤ 0.003 in every cell and refuses a market that fails it; then m < 0.46 ≤ 1/2 − 2κ and r′ ≥ −2 almost surely: the
+raw p-values are valid on bankrupt paths, and lows stay at least 0.9 · min(o, c) > 0.
 
 Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 1.04 > 0.
 

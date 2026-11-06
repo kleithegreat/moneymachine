@@ -775,8 +775,6 @@ def test_the_mirror_skips_a_writer_s_transient_tmp_file(tmp_path):
 
 
 @pytest.mark.parametrize("note", ["notes.jsonl", "notes.sqlite"])
-@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-04-claude-hunt-thesis.md, finding 1: a session's workspace note named like a day file or a ledger "
-                   "stops every later mirror run of its volume and of the volumes after it")
 def test_a_note_an_agent_rewrites_in_its_workspace_never_stops_the_mirror(tmp_path, monkeypatch, note):
     """The thesis brief invites notes in the workspace, which is data/thesis/sessions/<version>/<session>/work, and the
     Write tool replaces a file whole."""
@@ -792,3 +790,24 @@ def test_a_note_an_agent_rewrites_in_its_workspace_never_stops_the_mirror(tmp_pa
     (app / "data/agent/swarm-null-3.jsonl").write_text('{"campaign": 1}\n')
     live.mirror(app, out)
     assert (out / "agent/swarm-null-3.jsonl").read_text() == '{"campaign": 1}\n'
+
+
+@pytest.mark.parametrize("workspace", ["sessions/thesis-0/main-0/work", "campaign/run/work", "campaign/swarm/A1/work"])
+@pytest.mark.parametrize("note", ["notes.jsonl", "notes.sqlite"])
+def test_workspace_notes_are_whole_files_not_source_history(tmp_path, monkeypatch, workspace, note):
+    monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis"})
+    app, out = tmp_path / "app", tmp_path / "mirror"
+    rel = Path(workspace) / "nested" / note
+    source, target = app / "data/thesis" / rel, out / "thesis" / rel
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"a long original note\n")
+    live.mirror(app, out)
+    source.write_bytes(b"new\n")
+    live.verify(app, out)
+    live.mirror(app, out)
+    assert target.read_bytes() == b"new\n"
+    source.unlink()
+    live.verify(app, out)
+    live.mirror(app, out)
+    assert str(rel) not in json.loads((out / "thesis/MANIFEST.json").read_text())["files"]
+    live.verify(app, out)

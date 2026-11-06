@@ -98,14 +98,16 @@ def str! : Value → String
 
 def strs! (v : Value) : List String := (arr! v).toList.map str!
 
-/-- A declaration as admission reads it: the case's own decoding of its file; no fields, which `stage1` does not read,
-and the rule the generator writes (a time column, `fetchedAt`, every dependency), for `Registry.valid`. -/
+/-- A declaration as admission reads it: the case's own decoding of its file, and the rule the generator writes (a time
+column, `fetchedAt`, every dependency), for `Registry.valid`. -/
 def caseDecl (v : Value) : Decl :=
   let cadence := match str! (get! v "cadence") with | "event" => Cadence.event | "evidence" => .evidence | _ => .held
   let deps : List Dep := (arr! (get! v "deps")).toList.map fun d => let d := arr! d
     ⟨(arr! d[0]!).toList.map fun u => (int! u).toNat, str! d[1]!, int! d[2]!⟩
   let times := strs! (get! v "times")
-  { hash := str! (get! v "hash"), fields := #[], times, eventColumn := str! (get! v "event"),
+  { hash := str! (get! v "hash"), times
+    fields := (arr! (get! v "fields")).map fun f => let f := arr! f; (str! f[0]!, str! f[1]!, ⟨(arr! f[2]!).toList.map int!⟩)
+    eventColumn := str! (get! v "event"),
     slotColumn := match get! v "slot" with | .str s => some s | _ => none, entityColumns := strs! (get! v "entity"),
     revisionColumns := strs! (get! v "revision"), cadence, deps
     rule := .max (.field times.head! :: .field "fetchedAt" :: deps.map (.dep ·.name))
