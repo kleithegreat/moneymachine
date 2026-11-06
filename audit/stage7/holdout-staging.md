@@ -30,3 +30,13 @@ completion of the whole holdout check before any non-event-time decode or statis
 Validation through the flake, with `TMPDIR=/dev/shm/b3r10` and pytest's `--basetemp=/dev/shm/b3r10/pt`:
 `pytest ingest/tests/test_store.py ops/test_progress.py -p no:cacheprovider` gives 54 passed, 3 expected strict xfails;
 `python audit/stage7/b3-draft/lean_check.py` passes the full hand/generated-file and Lean checks.
+
+## Round 11 (2026-11-06)
+
+Seven fixtures now face 36 variants each: the original three, plus Int64 null, below-range and above-range event
+times (each after a crossing, so uncheckable must take precedence), and a missing event column. An explicit Int64-null
+`fetchedAt` variant ensures it is checked only after holdout success. The reference check now refuses nulls and values
+outside [−2^62, 2^62 − 1]; projection treats a missing event column as null per row, an empty file contributing none.
+All seven production-loader cases remain strict xfails naming this record, for the same absent read-side check.
+The original controls plus premature `fetchedAt` validation fail on the original fixtures; three targeted omission
+controls fail the new null/range fixtures. The projecting positive control passes every fixture.

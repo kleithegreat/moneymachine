@@ -183,7 +183,9 @@ V = 100
 EARLY = HOLDOUT_START - H
 CROSSING = HOLDOUT_START + H
 FIXTURES = {"own file": [CROSSING + H, CROSSING], "shared file": [CROSSING + H, CROSSING],
-            "undecodable event time": [float(EARLY - H), float(EARLY - 2 * H)]}
+            "undecodable event time": [float(EARLY - H), float(EARLY - 2 * H)],
+            "null event time": [CROSSING, None], "event time below range": [CROSSING, -2**62 - 1],
+            "event time above range": [CROSSING, 2**62], "absent event time": [None, None]}
 SCHEMA = {"coin": pl.Utf8, "eventTime": pl.Int64, "rate": pl.Float64, "fetchedAt": pl.Int64, "source": pl.Utf8,
           "hash": pl.Utf8, "tombstone": pl.Boolean}
 RATES = [  # a value column's type, the early row's value of it in a shared file, and a draw of one
@@ -211,7 +213,7 @@ def variants(fixture):
     """The late rows eligible and live, fetched after the version, tombstoned, then drawn: every column but the event
     time varied, their file garbled or not."""
     r = random.Random(f"20261104 {fixture}")
-    return [plain(50, None), plain(200, None), plain(50, True)] + [drawn(r) for _ in range(32)]
+    return [plain(50, None), plain(200, None), plain(50, True), plain(None, None)] + [drawn(r) for _ in range(32)]
 
 
 def staged(root, fixture, variant):
@@ -226,6 +228,8 @@ def staged(root, fixture, variant):
     late = [row | {"eventTime": e} for row, e in zip(late, FIXTURES[fixture])]
     early = {"coin": "A", "eventTime": EARLY, "rate": 1.0, "fetchedAt": V, "source": "t", "hash": "x", "tombstone": None}
     late_types = SCHEMA | {"rate": rate, "eventTime": pl.Float64 if fixture == "undecodable event time" else pl.Int64}
+    if fixture == "absent event time":
+        late_types.pop("eventTime")
     parts = [([early | {"rate": same}] + late, late_types)] if fixture == "shared file" else [([early], SCHEMA), (late, late_types)]
     for i, (part, schema) in enumerate(parts):
         pl.DataFrame(part, schema=schema).write_parquet(d / f"{i}.parquet")
@@ -249,7 +253,7 @@ def decides_on_event_times_alone(loader, root, fixture, capfd):
     """C7.6's net: the exact refusal, silent channels, then an independent dataset through the same production API.
     Neither dataset changes; retaining the refused dataset's authorized event-time inventory is permitted."""
     diagnostic = ("the holdout check cannot be made: an event time is not a non-null Int64 in range"
-                  if fixture == "undecodable event time" else
+                  if fixture not in ("own file", "shared file") else
                   f"holdout crossing: event time {CROSSING} at or after {HOLDOUT_START}")
     for i, variant in enumerate(variants(fixture)):
         snapshot = root / str(i)
@@ -280,14 +284,52 @@ def files(root, dataset):
 
 def holdout_check(times):
     """The check on event times alone: its refusal, or None."""
-    if times["eventTime"].dtype != pl.Int64:
+    events = times["eventTime"]
+    if len(events) and (events.dtype != pl.Int64 or events.null_count() or not events.is_between(-2**62, 2**62 - 1).all()):
         return "the holdout check cannot be made: an event time is not a non-null Int64 in range"
     if (least := times.filter(pl.col("eventTime") >= HOLDOUT_START)["eventTime"].min()) is not None:
         return f"holdout crossing: event time {least} at or after {HOLDOUT_START}"
 
 
-def event_times(root, dataset):
-    return pl.concat([pl.read_parquet(f, columns=["eventTime"]) for f in files(root, dataset)], how="diagonal_relaxed")
+@pytest.mark.parametrize("event", [None, -2**62 - 1, 2**62])
+def test_uncheckable_int64_precedes_a_crossing(event):
+    times = pl.DataFrame({"eventTime": [CROSSING, event]}, schema={"eventTime": pl.Int64})
+    assert holdout_check(times) == "the holdout check cannot be made: an event time is not a non-null Int64 in range"
+
+
+def test_holdout_check_accepts_the_inclusive_range_ends():
+    assert holdout_check(pl.DataFrame({"eventTime": [-2**62]}, schema={"eventTime": pl.Int64})) is None
+    assert holdout_check(pl.DataFrame({"eventTime": [2**62 - 1]}, schema={"eventTime": pl.Int64})) == (
+        f"holdout crossing: event time {2**62 - 1} at or after {HOLDOUT_START}")
+
+
+@pytest.mark.parametrize("dtype", [pl.Int64, pl.Float64])
+def test_an_empty_event_column_contributes_no_event_times(tmp_path, dtype):
+    empty, early = tmp_path / "empty.parquet", tmp_path / "early.parquet"
+    frame = pl.DataFrame(schema={"eventTime": dtype})
+    assert holdout_check(frame) is None
+    frame.write_parquet(empty)
+    pl.DataFrame({"eventTime": [EARLY]}, schema={"eventTime": pl.Int64}).write_parquet(early)
+    assert holdout_check(event_times([early, empty])) is None
+
+
+def event_times(pinned):
+    """Project each pinned file; a missing column is null per row, including no nulls in an empty file."""
+    frames = []
+    for f in pinned:
+        footer = pq.ParquetFile(f)
+        frames.append(pl.read_parquet(f, columns=["eventTime"])
+                      if footer.metadata.num_rows and "eventTime" in footer.schema_arrow.names else
+                      pl.DataFrame({"eventTime": [None] * footer.metadata.num_rows}, schema={"eventTime": pl.Int64}))
+    return pl.concat(frames, how="diagonal_relaxed")
+
+
+@pytest.mark.parametrize("count", [0, 1])
+def test_a_missing_event_column_is_null_per_row_not_a_footer_error(tmp_path, count):
+    f = tmp_path / "0.parquet"
+    pl.DataFrame({"fetchedAt": [200] * count}, schema={"fetchedAt": pl.Int64}).write_parquet(f)
+    assert holdout_check(event_times([f])) == (
+        "the holdout check cannot be made: an event time is not a non-null Int64 in range" if count else None)
 
 
 def everything(root, dataset):
@@ -300,8 +342,7 @@ def projecting(root):
     def as_of(dataset, t, version):
         if dataset not in inventories:
             pinned = files(root, dataset)
-            inventories[dataset] = pinned, pl.concat([pl.read_parquet(f, columns=["eventTime"]) for f in pinned],
-                                                    how="diagonal_relaxed")
+            inventories[dataset] = pinned, event_times(pinned)
         pinned, times = inventories[dataset]
         if refusal := holdout_check(times):
             raise ValueError(refusal)
@@ -426,7 +467,7 @@ def counting(root):
         try:
             return check(dataset, t, version)
         except ValueError:
-            print("pre-refusal row count:", event_times(root, dataset).filter(pl.col("eventTime") < HOLDOUT_START).height,
+            print("pre-refusal row count:", event_times(files(root, dataset)).filter(pl.col("eventTime") < HOLDOUT_START).height,
                   file=sys.stderr)
             raise
     return as_of
@@ -461,18 +502,43 @@ def dropping(root):
     return as_of
 
 
+def premature_fetched_at(root):
+    """Argon 6: a null fetchedAt refuses as invalid before the event-time check."""
+    check = projecting(root)
+    def as_of(dataset, t, version):
+        if any(pl.read_parquet(f, columns=["fetchedAt"])["fetchedAt"].null_count() for f in files(root, dataset)):
+            raise ValueError("invalid dataset")
+        return check(dataset, t, version)
+    return as_of
+
+
 CONTROLS = {resolving_first: "refusal", eager: "refusal", telling: "refusal", suffix: "refusal", threshold: "refusal",
             statistics: "refusal", metadata: "refusal", channel: "stdout", summing: "stdout", counting: "stderr",
-            persisting: "state", dropping: "refusal"}
+            persisting: "state", dropping: "refusal", premature_fetched_at: "refusal"}
 FIXTURE = pytest.mark.parametrize("fixture", FIXTURES)
 
 
-@FIXTURE
+@pytest.mark.parametrize("fixture", ["own file", "shared file", "undecodable event time"])
 @pytest.mark.parametrize("control", CONTROLS, ids=lambda c: c.__name__)
 def test_controls_fail_test_3s_net_at_their_assertion(root, capfd, fixture, control):
     """The net catches these controls here; structural review follows all paths, including caught refusals."""
     with pytest.raises(AssertionError, match=f"^{CONTROLS[control]}:"):
         decides_on_event_times_alone(control, root, fixture, capfd)
+
+
+@pytest.mark.parametrize("fixture", ["null event time", "event time below range", "event time above range"])
+def test_omitting_null_or_range_checks_fails_the_net(root, capfd, fixture):
+    def incomplete(root):
+        def as_of(dataset, t, version):
+            times = event_times(files(root, dataset))
+            times = (times.drop_nulls() if fixture == "null event time" else
+                     times.filter(pl.col("eventTime").is_between(-2**62, 2**62 - 1)))
+            if refusal := holdout_check(times):
+                raise ValueError(refusal)
+            return everything(root, dataset).filter(pl.col("fetchedAt") <= version)
+        return as_of
+    with pytest.raises(AssertionError, match="^refusal:"):
+        decides_on_event_times_alone(incomplete, root, fixture, capfd)
 
 
 @FIXTURE

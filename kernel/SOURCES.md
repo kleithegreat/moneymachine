@@ -49,11 +49,15 @@ A declaration is one JSON file, read as RULES.md §1 reads JSON:
 | `depends` | for a derived source, dependency name → `{"sources": [NAME, …], "lag_ms": D}` (§5); `{}` otherwise |
 | `role` | the role this declaration can provide (§6), at most one, each role column → stored column; `{}` if none |
 
+The slot column labels delivery (§4), not availability: a held cadence's slot is in `times`; an event cadence's
+slot need not be. Only listing it in `times` makes it available to the rule (RULES.md §4); either cadence's slot is
+a declared control column. (Clarified 2026-11-06, B3 round 11.)
+
 Rejected in version 1: other entity domains, enum or non-numeric fields, many-to-many relations, other missing or
 revision semantics. A declaration file that breaks any rule above is rejected whole.
 
 **Metadata columns** (revision of 2026-11-04, B3, `audit/stage7/b3-round4-review-gpt.md` finding 2). No column a
-declaration names, in `times`, a field's `column`, an evidence key or a role, is one the store writes beside observed
+declaration names, in `times`, a cadence's `slot`, a field's `column`, an evidence key or a role, is one the store writes beside observed
 values (`fetchedAt`, `tombstone`, `source`, `hash`, `upstream`) or `knownAt`, which it refuses
 (`ingest/store.py`): one stored column cannot hold both, so such a declaration is rejected.
 

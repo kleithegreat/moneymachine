@@ -23,7 +23,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 round 10**, `b3-r9-review`: exact refusal/silent channels, distinct-dataset state test, whole-check structural review (`audit/stage7/b3-draft/`). Unfrozen; 3 strict xfails await slice 5. Next: review.
+- **B3 round 11**, `b3-r11`: Argon's round 8 findings answered against round 10 (`audit/stage7/b3-draft/`). Unfrozen; 7 strict xfails await slice 5. Next: Argon's review at the freeze.
 
 
 2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns established so far, pacing on Cornell's resets; TAMU joins at its reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).

@@ -182,9 +182,9 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
         (1, None, None) if cad.get("evidence") == Some(&Json::Obj(BTreeMap::new())) => Cadence::Evidence,
         _ => return Err("cadence must be held, event or evidence".into()),
     };
-    if let Cadence::Held { slot, .. } | Cadence::Event { slot } = &cadence {
+    if let Cadence::Held { slot, .. } = &cadence {
         if !times.contains(slot) {
-            return Err("the cadence's slot must be one of times".into());
+            return Err("a held cadence's slot must be one of times".into());
         }
     }
     let mut depends = BTreeMap::new();
@@ -216,7 +216,11 @@ pub fn declaration(file: &str) -> Result<Declaration, String> {
         Entity::Coin => &[][..],
         Entity::Evidence { key, .. } => &key[..],
     };
-    let mut named = times.iter().chain(key).chain(fields.values().map(|f| &f.column)).chain(roles.values().flat_map(|m| m.values()));
+    let slot = match &cadence {
+        Cadence::Held { slot, .. } | Cadence::Event { slot } => Some(slot),
+        Cadence::Evidence => None,
+    };
+    let mut named = times.iter().chain(key).chain(slot).chain(fields.values().map(|f| &f.column)).chain(roles.values().flat_map(|m| m.values()));
     if let Some(c) = named.find(|c| METADATA_COLUMNS.contains(&c.as_str())) {
         return Err(format!("{c} is a metadata column"));
     }

@@ -44,6 +44,7 @@ fn malformed_declarations_are_rejected() {
 fn declarations_naming_a_metadata_column_are_rejected() {
     let good = std::fs::read_to_string(repo_sources().join("hl-funding/1.json")).unwrap();
     let polls = std::fs::read_to_string(repo_sources().join("discourse-polls/1.json")).unwrap();
+    let event = EVENT.to_string();
     for name in source::METADATA_COLUMNS.into_iter().chain(["spare"]) {
         for (file, from, to) in [
             (&good, "\"column\": \"premium\"".to_string(), format!("\"column\": \"{name}\"")),
@@ -51,6 +52,7 @@ fn declarations_naming_a_metadata_column_are_rejected() {
             (&good, "\"times\": [\"eventTime\", \"reportedTime\"]".to_string(),
              format!("\"times\": [\"eventTime\", \"reportedTime\", \"{name}\"]")),
             (&polls, "\"evidence\": [".to_string(), format!("\"evidence\": [\"{name}\", ")),
+            (&event, "\"slot\": \"eventTime\"".to_string(), format!("\"slot\": \"{name}\"")),
         ] {
             assert!(file.contains(&from), "{from}");
             assert_eq!(source::declaration(&file.replace(&from, &to)).is_ok(), name == "spare", "{to}");
@@ -123,6 +125,18 @@ const EVENT: &str = r#"{"declaration": 1, "name": "omega", "version": 1, "entity
     "fields": {"gamma": {"column": "count", "unit": "ev"}}, "cadence": {"event": {"slot": "eventTime"}},
     "missing": "undefined", "revisions": "latest", "rule": {"rule": 1, "expr": {"field": "eventTime"}}, "depends": {},
     "role": {}}"#;
+
+#[test]
+fn an_event_slot_is_a_control_not_implicitly_a_rule_time() {
+    let event = EVENT.replace("\"slot\": \"eventTime\"", "\"slot\": \"slot\"");
+    let d = source::declaration(&event).unwrap();
+    assert_eq!(d.times, ["eventTime"]);
+    assert!(d.controls().contains("slot"));
+    assert!(source::declaration(&event.replace("\"field\": \"eventTime\"", "\"field\": \"slot\"")).is_err());
+    assert!(source::declaration(&event.replace("\"times\": [\"eventTime\"]", "\"times\": [\"eventTime\", \"slot\"]")
+        .replace("\"field\": \"eventTime\"", "\"field\": \"slot\"")).is_ok());
+    assert!(source::declaration(&HELD.replace("\"slot\": \"eventTime\"", "\"slot\": \"slot\"")).is_err());
+}
 
 /// `sign(input + 1 usd/coin)`: accepted only while `name` is a declared input in usd/coin.
 fn reading(name: &str) -> String {

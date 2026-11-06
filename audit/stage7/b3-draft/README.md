@@ -1,24 +1,19 @@
 # B3 draft: the C7.6 resolver suite, revised (not frozen)
 
-Against B2's frozen definitions (`laws-frozen.md`, `7997257`), per `rust-port-plan.md` §3 B3, with the rulings of the
-decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and 05:55 UTC (00:55 EST)
-("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) applied, and the third to eighth rounds'
-reviews (`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`) answered under the advisor's rulings (decisions of 2026-11-04
-10:20 UTC (05:20 EST), 10:57 UTC (05:57 EST), 11:23 UTC (06:23 EST), 12:03 UTC (07:03 EST), 12:38 UTC (07:38 EST),
-reversed, and 13:21 UTC (08:21 EST)), then GPT's round 9 review (`b3-round9-review-gpt.md`) and fresh Claude's
-review at the freeze (`b3-round10-review-claude.md`). The latter leaves wording only, answered before freezing,
-without another review round under the human's rule. Nothing frozen yet, and nothing in
-`audit/criteria.md` changed. Beside this directory, rounds four to eight changed three things now: SOURCES.md §1 reserves the store's metadata column names, which
-`mm`'s `source::declaration` refuses (`kernel/mm/tests/sources.rs`) and `refmm resolve` returns as `E_DECL`; C7.6's
-test 3 is a decode limit (until the whole holdout check succeeds, only event time is decoded), decided by review of
-each loader's code path, with a behavioural regression net whose three strict xfails on `ingest/store.py` name
-`audit/stage7/holdout-staging.md`; and
-`refmm resolve` reads its cases by the exact-integer reader.
+Against B2's frozen definitions (`laws-frozen.md`, `7997257`), per `rust-port-plan.md` §3 B3. Review history and rulings:
+the B3 entries in `audit/decisions.md`. Round 11 answers Argon's calibration of round 8
+(`b3-round8-calibration-argon.md`) against round 10, including Claude's wording fixes at `101d5c7`.
+Next: Argon's review at the freeze. Nothing frozen and no `audit/criteria.md` change.
+
+SOURCES.md §1 distinguishes delivery slots from rule times and reserves metadata names, slots included (`mm` refuses
+them; `refmm resolve` returns `E_DECL`). Test 3's decode limit is decided structurally by review, with a behavioural
+net whose seven strict xfails on `ingest/store.py` name `audit/stage7/holdout-staging.md`. No Lean or frozen law changes:
+`refmm resolve` already keeps event slots separate from rule times and uses the exact-integer reader.
 
 - `rules-revision.md`: RULES.md's dated revision of §6, the case format for §7 and SOURCES.md §2's Parquet mapping, the
   whole contract for an implementer.
 - `c76-revision.md`: C7.6's dated revision, committed alone before the suite's freeze.
-- `resolver_suite.py`: the hand cases, the generator and its coverage tags; `resolver_hand.jsonl` (160 cases) and
+- `resolver_suite.py`: the hand cases, the generator and its coverage tags; `resolver_hand.jsonl` (171 cases) and
   `resolver_generated.jsonl` (481 stores, seed 20261102) are what it gives (`HAND`, and `generate` over Lean's results).
 - `lean_check.py`: the suite against Lean's `timeline` and `resolveAll` through `refmm resolve`
   (`reference/lean/Main.lean`), whose decoding layer is new code reading the case texts by §7's mapping.
@@ -32,7 +27,8 @@ each loader's code path, with a behavioural regression net whose three strict xf
    `test_suite.py`, the generated file is checked as a prefix of `stream()`, and C7.6's size (`delivered`) is counted
    over each participant's results, with `generate`'s `classes` floor and `lean_check.py`'s: every hand case equal to Lean's result, every `REACHED` tag on at
    least `FLOOR` stores of Lean's results, `resolveAll`'s observations equal to its timeline's delivery. The old
-   suite's resolver path leaves `test_three_implementations.py` in the same commit, or it fails; its shallow `same`
+   suite's resolver path leaves `test_three_implementations.py` in the same commit, or it fails; `test_b3_draft.py` moves
+   to the installed suite with it. Its shallow `same`
    (nested `true` equal to `1`) is replaced by `lean_check.same`, which tells an integer from a non-integer.
 3. In slice 5: `store.as_of` is replaced by its bitemporal version in `ingest/store.py`, its callers
    (`ingest/backfill.py`, `ingest/witness.py`) moved with it; that is the Python participant. `ingest/knownat.resolve`,
@@ -46,7 +42,7 @@ each loader's code path, with a behavioural regression net whose three strict xf
 
 Reproducible, on this commit: `nix develop -c bash -c 'cd reference/lean && lake build refmm'`, then
 `nix develop -c python audit/stage7/b3-draft/lean_check.py`. It reports: both files equal `HAND` and `generate`'s
-stores, compared as §7 compares results; all 160 hand expectations equal Lean's results; of the 481 generated stores,
+stores, compared as §7 compares results; all 171 hand expectations equal Lean's results; of the 481 generated stores,
 365 resolve and 116 are invalid, and 401 have a Parquet image, with 1,001 distinct delivered pairs as C7.6 counts them
 (at least 1,000; 999 without the last store); every `REACHED` tag holds on at least 10 stores (the fewest: raised to
 replaced, 68; derived bound past fetchedAt, 86); `resolveAll`'s observations equal the delivery of the hand case's expected timelines, or a generated
@@ -57,6 +53,3 @@ Type census of the store as written, by schema only (integrity inspection, no va
 `data/`, which the cloud session lacks): `data/store` holds only Double, Int64 and LargeUtf8 columns and no
 `tombstone` column, and `Store.write` writes `upstream` as LargeUtf8 (checked here on a synthetic write). Every type it
 holds is inside SOURCES.md §2's mapping.
-
-Self-check by the previous round's author, not reproducible and not evidence: a throwaway transcription of the text,
-kept outside the repository, mutated into 34 wrong resolvers, each failing at least one hand case of that round.

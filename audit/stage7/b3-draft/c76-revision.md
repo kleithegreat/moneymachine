@@ -3,7 +3,8 @@
 Draft text, from the decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and
 05:55 UTC (00:55 EST) ("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) and the third to
 eighth rounds' reviews (`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`), GPT's round 9 review
-(`b3-round9-review-gpt.md`) and fresh Claude's review at the freeze (`b3-round10-review-claude.md`);
+(`b3-round9-review-gpt.md`), fresh Claude's round 10 review (`b3-round10-review-claude.md`) and Argon's calibration
+of round 8 (`b3-round8-calibration-argon.md`), checked against round 10 and answered in round 11;
 test 3 by the advisor's decision of 2026-11-04 13:21 UTC (08:21 EST). It is appended beneath C7.6's
 resolver bullet in `audit/criteria.md` and committed alone, before the suite's freeze and before anything is judged. The original lines
 stay as written. Everything below the line is the text.
@@ -25,10 +26,12 @@ stay as written. Everything below the line is the text.
     production resolver, never from a second path. The image: row i of `rows` is the file `<i>.parquet` under its
     source's directory, holding the row's `fetchedAt`, its `tombstone` column only if it is a tombstone (as the store
     writes it), `upstream` as LargeUtf8 (null if null) for a derived source, and its declared members by SOURCES.md §2's
-    mapping, a string as LargeUtf8 and a null as a Double null; a declared member that is not a cell is written as a
+    mapping, a string as LargeUtf8 and a null as a Double null; absent declared members are omitted. A declared member
+    that is not a cell is written as a
     List column holding its JSON text, and undeclared members are left out, as neither mapping reads them. No declared
-    column shares a name with these metadata columns (SOURCES.md §1). A case with a `cells` text that is
-    malformed or not an object, or a `fetchedAt` outside −2^63 to 2^63 − 1, has no Parquet image and is left out of
+    column may share a name with these metadata columns (SOURCES.md §1): such an `E_DECL` case has no Parquet image.
+    Nor does a case with a `cells` text that is malformed under RULES.md §1 (including unpaired surrogates, duplicate
+    members and depth above 64), not an object, or a `fetchedAt` outside −2^63 to 2^63 − 1. These cases are left out of
     the loaders' comparison and the size; GPT's resolver and Lean read every case's texts. The comparison's stores
     carry no `holdout_start`, and absent a boundary the holdout check is not made (Python's `Store` built without one,
     as the holdout store is; `mm`'s `market::load` with `holdout` None, the path its holdout mode loads by,
@@ -54,18 +57,21 @@ stay as written. Everything below the line is the text.
        column and in `upstream`; a file without a `tombstone` column holds no tombstone; a null or absent `upstream`
        makes the dataset invalid on a derived revision and is never read on a tombstone; UInt64, Int32, Decimal,
        Timestamp, Null, List and Struct columns, NaN and infinite Doubles in a declared column make the dataset invalid
-       and in an undeclared column are never read; a file whose embedded Arrow schema or Parquet schema names one top-level field twice (the
-       Parquet schema's root's children, never its leaves), or whose two schemas disagree in those names, makes it
-       invalid; one column stored as Int64 in one file and Double in another keeps an integer and a non-integer.
-    3. **Holdout staging:** first the schema checks, on each file's footer: `fetchedAt`'s type, `tombstone`'s type,
-       no top-level field named twice in the embedded Arrow schema or the Parquet schema nor the two disagreeing in
-       those names, and the event-time column present (a declared column's type is a row's decoding, not a schema
-       check). Then the holdout check, on the event-time column of every row (tombstoned, evidence, outside-U and
+       and in an undeclared column are never read; the footer schema checks of SOURCES.md §2 reject duplicate
+       top-level names or names reordered between schemas, not repeated leaf names inside distinct List or Struct fields. One column stored
+       as Int64 in one file and Double in another keeps an integer and a non-integer. An absent declared member is
+       null: without a holdout bound, an absent event time in an eligible row is invalid, in a post-V row is ignored,
+       and in an empty file is harmless.
+    3. **Holdout staging:** first SOURCES.md §2's footer schema checks (`fetchedAt`'s type, `tombstone`'s type and
+       ordered top-level names); an event column's absence or type is not a footer schema error. Then the holdout
+       check, on the event-time column of every row (tombstoned, evidence, outside-U and
        post-V rows too). A holdout crossing's refusal message is exactly
        `holdout crossing: event time {least} at or after {boundary}`, with the least crossing event time and the
        boundary in decimal. An event time that is not an integer in RULES.md's range [−2^62, 2^62 − 1]
        (in Parquet, a non-null Int64 in it) is the check's own refusal, not dataset invalidity (RULES.md §6 and
        SOURCES.md §2), with exactly `the holdout check cannot be made: an event time is not a non-null Int64 in range`.
+       Any uncheckable event time takes precedence over crossings, regardless of file order. A missing event column
+       is null in each row: a nonempty file is uncheckable, an empty file contributes no event times.
        Python's `as_of(dataset, t, version)` raises exactly `ValueError`, not a subclass, with the applicable message.
        For `mm`, the API is `market::load` (or its slice-5 replacement) with `holdout` Some; its `Err`'s `Display`
        is exactly the applicable message. Neither API writes to the process's stdout or stderr: the prescribed refusal diagnostic
@@ -89,9 +95,10 @@ stay as written. Everything below the line is the text.
          `ingest/tests/test_store.py` for Python, and its namesake in `kernel/mm/tests/` for `mm`, facing the same
          fixtures and variants, under a store path naming neither "holdout" nor the boundary. Each fixture is a row
          before the holdout and two late rows, in their own file or sharing the early row's: their event times one and
-         two hours into the holdout, the later first, refused as a crossing naming the earlier; or two Doubles, refused
-         as uncheckable. Its variants: the late rows eligible and live (fetched by V, not tombstones), fetched after V,
-         tombstoned, then 32 from a seeded generator, varying every column of the late rows but the event time
+          two hours into the holdout, the later first, refused as a crossing naming the earlier; or two Doubles; or an
+          Int64 null, −2^62 − 1 or 2^62 after a crossing; or an absent event-time column, each refused as uncheckable.
+          Its variants: the late rows eligible and live (fetched by V, not tombstones), fetched after V,
+          tombstoned, Int64-null `fetchedAt`, then 32 from a seeded generator, varying every column of the late rows but the event time
          (`fetchedAt`, null included, and `tombstone` too; a value column of another type, a NaN, an infinity, a List)
          and garbling their file but for its event-time chunk, so its footer's statistics differ too. Each call must
          give the applicable exact refusal through its API, with silent output channels, as prescribed above.

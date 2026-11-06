@@ -12,7 +12,8 @@ below each line is the text to append.
 ### Revision at the freeze, B3: what the resolver reads, and the resolver restated whole
 
 From the B3 reviews (`audit/stage7/b3-review-{gpt,claude}.md`, `b3-fixes-review-{gpt,claude}.md`,
-`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`, `b3-round9-review-gpt.md`, `b3-round10-review-claude.md`;
+`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`, `b3-round9-review-gpt.md`, `b3-round10-review-claude.md`,
+`b3-round8-calibration-argon.md`, answered against round 10 in round 11;
 decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) and 05:55 UTC (00:55 EST)).
 It restates resolution whole, so that it reads without the text above; where that text differs, this governs. It
 replaces two things: §5's `R_ROW` as a resolver outcome (a stored row that does not decode was a rejected evaluation, so
@@ -98,7 +99,7 @@ A resolver case is one store at one dataset version:
 
 - A source is a declaration reduced to what resolution reads. `times` are its rule's Time fields (`fetchedAt`, the
   revision's own, is always in the rule's context and never listed); `values` its value columns; `entity` its entity
-  columns; `event` its event column, among `times`; `slot` an event source's slot column; `roles` its role columns. Its
+  columns; `event` its event column, among `times`; `slot` an event source's slot column (SOURCES.md §1); `roles` its role columns. Its
   declared columns are `values`, `times`, `event`, `slot`, `entity` and the role columns; a non-evidence source's one
   entity column is `coin`. No source has revision columns; the tombstone flag is the row's. Sources may be declared in
   any order; every case's registry is otherwise valid (paper §5).
@@ -138,17 +139,17 @@ A resolver case is one store at one dataset version:
 
 ### Revision at the freeze, B3: Parquet as cells (SOURCES.md §2)
 
-From the second to tenth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
-`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`, `b3-round9-review-gpt.md`, `b3-round10-review-claude.md`;
-decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's
+From the B3 reviews cited above. **For resolution (RULES.md §6)**, not binding's schema validation above: the store holds a dataset's
 revisions as Parquet files under its directory, each row one revision. A column's **type** is its Arrow type as its file
 states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type its Parquet physical and
 logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this section names a string. A
 row's metadata is `fetchedAt`, a non-null Int64, and `tombstone`, a Boolean (a null, or a file without the column, is
-false); a file whose `fetchedAt` is of another type or holds a null, or whose `tombstone` is of another type, makes the
-dataset invalid, whatever V, since its rows cannot be placed against V; so does a file whose embedded Arrow schema or Parquet schema
-names one top-level field twice (the Parquet schema's root's children, never its leaves: a List column is one field),
-or whose two schemas disagree in those names, since no row of it decodes unambiguously. A derived source's `upstream`, a string column, holds its lineage as a
+false). The **footer schema checks** require `fetchedAt` to have type Int64 and `tombstone`, if present, Boolean.
+Names are the ordered list of direct children of the Parquet schema's root group and, if embedded, the ordered list
+of top-level fields of `ARROW:schema`: neither list repeats a name and the two lists must be identical, including order.
+Nested leaves are not top-level fields (a List column is one field); undeclared columns' subtrees are ignored.
+A file failing these checks makes the dataset invalid, whatever V, since its rows cannot be placed or decoded
+unambiguously; so does a null `fetchedAt`, checked after a search's holdout check (C7.6 test 3). A derived source's `upstream`, a string column, holds its lineage as a
 JSON text read by RULES.md §7's mapping; a null, or a file without the column, is a lineage that does not decode, and a
 tombstone's is never read. A declared column's value maps to a cell by the column's type in the file that stores the
 row: Int64 to an integer; a finite Double to a non-integer; a string column to a string; Boolean to a boolean; a null of

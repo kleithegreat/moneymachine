@@ -15,7 +15,7 @@ import json
 import random
 from collections import Counter
 
-from ingest.knownat import evaluate
+from ingest.knownat import Malformed, evaluate, parse
 from kernel.tests.rules.suite import D, H, HI, LO, add, dep, f, mx, rule
 
 BAR = rule(add(f("eventTime"), {"ms": D}))
@@ -44,6 +44,7 @@ UP = src("up", rule(add(f("observed"), {"ms": 100 * H})), times=("observed",), v
          event="observed", evidence=True)
 OHLC = src("bars", values=(), roles={"bars": ["open", "high", "low", "close", "trades"]})
 RATES = src("rates", values=(), roles={"settlement": ["rate"]})
+METADATA = {"fetchedAt", "tombstone", "upstream", "source", "hash", "knownAt"}
 
 
 def rev(source, fetched, cells, tombstone=False, upstream=None):
@@ -491,6 +492,15 @@ HAND = [
       for bad in (rate("x"), rate(None), rate(False), {"coin": "BTC", "eventTime": E})],
     rates([rev("rates", 100, rate(0.5)), rev("rates", F, rate("x"))], F, [K, F], [[100, K, False], [F, F, True]],
           [100, None]),
+    # Round 11: absent post-V event time, whole-text depth, and slots separate from rule times and metadata.
+    case([BARS], [rev("bars", 100, b(1)), rev("bars", 200, {"coin": "BTC", "close": 2})], 199, [K],
+         {"keys": [key("bars", ["BTC"], E, 0, [[100, K, False]], [100])]}),
+    *[case([BARS], [rev("bars", 100, CLOSE % ('1, "extra": ' + '[' * n + '0' + ']' * n))], 100, [K], expected)
+      for n, expected in ((64, "INVALID"), (63, {"keys": [key("bars", ["BTC"], E, 0, [[100, K, False]], [100])]}))],
+    *[case([src("events", slot=name)], [rev("events", 100, b(1))], 100, [K], "E_DECL")
+      for name in sorted(METADATA)],
+    case([src("events", rule(f("slot")), slot="slot")], [], 100, [K], "E_RULE"),
+    case([src("events", rule(f("slot")), times=("eventTime", "slot"), slot="slot")], [], 100, [K], {"keys": []}),
 ]
 
 
@@ -601,16 +611,13 @@ def store(rng):
 
 
 def image(c):
-    """Whether a store has a Parquet image (C7.6's revision): every row's `cells` text an object and its `fetchedAt` an
-    Int64. On the texts `stream()` writes, Python's reader with duplicate members refused reads as RULES.md §1 does."""
-    def unique(pairs):
-        if len({k for k, _ in pairs}) < len(pairs):
-            raise ValueError("duplicate member")
-        return dict(pairs)
+    """C7.6's Parquet image: no metadata collision, every cells text a §1 object, every fetchedAt an Int64."""
+    if any(METADATA.intersection(declared(s)) for s in c["sources"]):
+        return False
     try:
-        return all(isinstance(json.loads(r["cells"], object_pairs_hook=unique), dict)
+        return all(isinstance(parse(r["cells"]), dict)
                    and -2**63 <= r["fetchedAt"] < 2**63 for r in c["rows"])
-    except ValueError:
+    except Malformed:
         return False
 
 
