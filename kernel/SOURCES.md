@@ -94,6 +94,27 @@ A **binding** names a declaration version, a stored dataset and a certificate. B
   an explicit certified assignment to those keys, recorded with its scope;
 - the units against the certificate's schema metadata, never inferred from names or values.
 
+### Revision of 2026-11-06 19:55:41 UTC (14:55:41 EST), B3: Parquet as cells
+
+From the second to tenth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
+`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`, `b3-round9-review-gpt.md`, `b3-round10-review-claude.md`;
+decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's
+revisions as Parquet files under its directory, each row one revision. A column's **type** is its Arrow type as its file
+states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type its Parquet physical and
+logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this section names a string. A
+row's metadata is `fetchedAt`, a non-null Int64, and `tombstone`, a Boolean (a null, or a file without the column, is
+false); a file whose `fetchedAt` is of another type or holds a null, or whose `tombstone` is of another type, makes the
+dataset invalid, whatever V, since its rows cannot be placed against V; so does a file whose embedded Arrow schema or Parquet schema
+names one top-level field twice (the Parquet schema's root's children, never its leaves: a List column is one field),
+or whose two schemas disagree in those names, since no row of it decodes unambiguously. A derived source's `upstream`, a string column, holds its lineage as a
+JSON text read by RULES.md §7's mapping; a null, or a file without the column, is a lineage that does not decode, and a
+tombstone's is never read. A declared column's value maps to a cell by the column's type in the file that stores the
+row: Int64 to an integer; a finite Double to a non-integer; a string column to a string; Boolean to a boolean; a null of
+any of these types to null. Nothing else is a cell: no other type (UInt64, Int32, Decimal, Timestamp, Null, List,
+Struct, …), and no NaN or infinite Double. Each row decodes by its own file's types, never by a type unified across
+files (which would turn an integer into a non-integer). Undeclared columns are never read, whatever their type (RULES.md
+§6, B3 revision).
+
 ## 3. Resolution
 
 RULES.md §6, on the run's admitted snapshot (§7).
