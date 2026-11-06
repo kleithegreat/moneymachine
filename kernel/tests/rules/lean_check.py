@@ -1,10 +1,10 @@
 """The suite against Lean's `timeline` and `resolveAll` (`refmm resolve`): the two files equal `HAND` and the stores
 `generate` gives over Lean's results, with their size; every hand case's expected result; the REACHED floors over the
 generated stores; and `resolveAll`'s observations against the delivery a timeline gives (RULES.md §6's "Visibility and
-delivery", revision of 2026-11-04), the hand case's expected one or a generated store's Lean result: the shape of
+delivery", B3 revision), the hand case's expected one or a generated store's Lean result: the shape of
 C7.6's loader-level comparison, which the actual loaders join in slice 5.
 
-    nix develop -c python audit/stage7/b3-draft/lean_check.py [REFMM]
+    nix develop -c python kernel/tests/rules/lean_check.py [REFMM]
 """
 
 import json

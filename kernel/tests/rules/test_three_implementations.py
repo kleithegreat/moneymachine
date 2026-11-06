@@ -1,6 +1,6 @@
 """C7.6: the availability rule language's three implementations (`ingest/knownat.py`, `mm rules`, and GPT's independent
-`gpt_rules.py`), and the resolver's (`knownat.resolve`, `mm resolve`, GPT's `gpt_resolver.py`), give every hand case its
-expected result and agree exactly on every generated case."""
+`gpt_rules.py`) give every hand case its expected result and agree exactly on every generated case.
+The B3 resolver suite's production participants join in slice 5."""
 
 import json
 import subprocess
@@ -9,6 +9,7 @@ from pathlib import Path
 
 from gate import kernel
 from ingest import knownat
+from kernel.tests.rules.lean_check import same
 
 HERE = Path(__file__).resolve().parent
 
@@ -19,14 +20,10 @@ def outputs(command, cases):
     return [json.loads(l) for l in out.stdout.splitlines()]
 
 
-def same(a, b):
-    return a == b and type(a) is type(b)
-
-
-def compare(prefix, python, mm_command, gpt):
+def compare(python, mm_command, gpt):
     kernel.build()
     for name in ("hand", "generated"):
-        cases = [json.loads(l) for l in (HERE / f"{prefix}{name}.jsonl").read_text().splitlines()]
+        cases = [json.loads(l) for l in (HERE / f"{name}.jsonl").read_text().splitlines()]
         results = {"python": [python(c) for c in cases],
                    "rust": outputs([str(kernel.MM), mm_command, "-"], cases),
                    "gpt": outputs([sys.executable, str(HERE / gpt)], cases)}
@@ -39,8 +36,4 @@ def compare(prefix, python, mm_command, gpt):
 
 
 def test_three_rule_implementations_agree_on_the_frozen_suite():
-    compare("", knownat.result, "rules", "gpt_rules.py")
-
-
-def test_three_resolvers_agree_on_the_frozen_resolver_suite():
-    compare("resolver_", knownat.resolve, "resolve", "gpt_resolver.py")
+    compare(knownat.result, "rules", "gpt_rules.py")

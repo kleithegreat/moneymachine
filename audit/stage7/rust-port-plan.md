@@ -43,9 +43,10 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    C6.4 programs over C6.4's markets, byte-identical (the C7.4 comparison, as a development run before its baseline).
 5. **The resolver** (`resolve.rs`, `market.rs` loader): after B3. Checks: the revised C7.6 resolver suite across
    Python (`store.as_of`'s bitemporal replacement), the Rust loader, GPT's independent resolver and Lean's `timeline`
-   and `resolveAll` through `refmm resolve`, with C7.6's named loader-level tests (`audit/stage7/b3-draft/`); on
+   and `resolveAll` through `refmm resolve`, with C7.6's named loader-level tests (`audit/criteria.md`, B3 revision;
+   frozen suite and checks in `kernel/tests/rules/`); on
    one-revision keys, the old loader's observations byte-identical. Two defects it fixes: the holdout check of test 3,
-   which `ingest/store.py` lacks on reads (its three strict xfails, `audit/stage7/holdout-staging.md`, turn into
+   which `ingest/store.py` lacks on reads (its seven strict xfails, `audit/stage7/holdout-staging.md`, turn into
    passes, the check reading the event-time column alone, by projection, before `revisions()` decodes or caches
    anything; the Rust namesake goes in `kernel/mm/tests/`, facing the same variants); and `Store.write` writing a column of Arrow type Null, which
    SOURCES.md §2 makes invalid, when every changed row of a fetch holds null in it: it casts such a column to Float64,
@@ -87,10 +88,10 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   entity; evidence records outside U, reached only as upstream keys. `source.rs`'s `Dependency` and `depends` already
   are this. Slice 5 implements the entity-keyed timeline and the strict lineage rule; the event feeds' declarations and
   `ingest/events.py`'s lineage follow the revised annex.
-- **B3. The C7.6 resolver suite is version 1's.** RULES.md §6's bitemporal revision says the C7.6 suites are revised
-  to match before any judged run; `kernel/tests/rules/resolver_suite.py`, `mm resolve` (`rule.rs::resolve`) and
-  `ingest/knownat.py` still select one revision. The revision is frozen evidence: drafted, reviewed and committed alone
-  before slice 5, then Python, Rust and GPT's resolver agree on it.
+- **B3. Frozen 2026-11-06.** C7.6's dated revision was committed alone, then RULES.md §6–7 and SOURCES.md §2,
+  then the resolver suite and Lean checks in `kernel/tests/rules/` (`README.md`). The old snapshot-resolver comparison
+  is gone; its implementations remain until slice 5 replaces the production Python and Rust paths and GPT writes
+  its independent resolver from the specifications alone. Only then can C7.6's resolver comparison pass.
 - **Evidence keys** (settled with B2). An evidence declaration names its event column among its key columns
   (`{"evidence": [K…], "event": C}`, C in `times`): the recorder's observation time, which stage 2's holdout check
   reads. Its records have no coin (Lean's `coin = none`), never an entity index; Lean's `entityColumns` are the other
