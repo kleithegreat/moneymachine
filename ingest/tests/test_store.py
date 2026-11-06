@@ -248,7 +248,7 @@ def outcome(as_of, capfd, dataset="bars_4h"):
 def decides_on_event_times_alone(loader, root, fixture, capfd):
     """C7.6's net: the exact refusal, silent channels, then an independent dataset through the same production API.
     Neither dataset changes; retaining the refused dataset's authorized event-time inventory is permitted."""
-    diagnostic = ("the holdout check cannot be made: an event time is not an Int64"
+    diagnostic = ("the holdout check cannot be made: an event time is not a non-null Int64 in range"
                   if fixture == "undecodable event time" else
                   f"holdout crossing: event time {CROSSING} at or after {HOLDOUT_START}")
     for i, variant in enumerate(variants(fixture)):
@@ -281,7 +281,7 @@ def files(root, dataset):
 def holdout_check(times):
     """The check on event times alone: its refusal, or None."""
     if times["eventTime"].dtype != pl.Int64:
-        return "the holdout check cannot be made: an event time is not an Int64"
+        return "the holdout check cannot be made: an event time is not a non-null Int64 in range"
     if (least := times.filter(pl.col("eventTime") >= HOLDOUT_START)["eventTime"].min()) is not None:
         return f"holdout crossing: event time {least} at or after {HOLDOUT_START}"
 
@@ -295,14 +295,17 @@ def everything(root, dataset):
 
 
 def projecting(root):
-    """Positive control: pin each dataset's event-time inventory; decode the rest only after the whole check passes."""
+    """Positive control: pin each dataset's files and event times; decode only those files after the whole check passes."""
     inventories = {}
     def as_of(dataset, t, version):
         if dataset not in inventories:
-            inventories[dataset] = event_times(root, dataset)
-        if refusal := holdout_check(inventories[dataset]):
+            pinned = files(root, dataset)
+            inventories[dataset] = pinned, pl.concat([pl.read_parquet(f, columns=["eventTime"]) for f in pinned],
+                                                    how="diagonal_relaxed")
+        pinned, times = inventories[dataset]
+        if refusal := holdout_check(times):
             raise ValueError(refusal)
-        return everything(root, dataset).filter(pl.col("fetchedAt") <= version)
+        return pl.concat([pl.read_parquet(f) for f in pinned], how="diagonal_relaxed").filter(pl.col("fetchedAt") <= version)
     return as_of
 
 

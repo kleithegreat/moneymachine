@@ -9,10 +9,11 @@ below each line is the text to append.
 
 ---
 
-### Revision of 2026-11-04, B3: what the resolver reads, and the resolver restated whole
+### Revision at the freeze, B3: what the resolver reads, and the resolver restated whole
 
 From the B3 reviews (`audit/stage7/b3-review-{gpt,claude}.md`, `b3-fixes-review-{gpt,claude}.md`,
-`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`; decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) and 05:55 UTC (00:55 EST)).
+`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`, `b3-round9-review-gpt.md`, `b3-round10-review-claude.md`;
+decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) and 05:55 UTC (00:55 EST)).
 It restates resolution whole, so that it reads without the text above; where that text differs, this governs. It
 replaces two things: §5's `R_ROW` as a resolver outcome (a stored row that does not decode was a rejected evaluation, so
 a retraction; it now makes the dataset invalid); and, for stored non-integer cells only, §1's "No value is ever rounded
@@ -135,10 +136,11 @@ A resolver case is one store at one dataset version:
 
 ---
 
-### Revision of 2026-11-04, B3: Parquet as cells (SOURCES.md §2)
+### Revision at the freeze, B3: Parquet as cells (SOURCES.md §2)
 
-From the second to eighth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
-`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`; decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's
+From the second to tenth B3 reviews (`audit/stage7/b3-fixes-review-{gpt,claude}.md`,
+`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`, `b3-round9-review-gpt.md`, `b3-round10-review-claude.md`;
+decision of 2026-11-02 05:55 UTC (00:55 EST)). The store holds a dataset's
 revisions as Parquet files under its directory, each row one revision. A column's **type** is its Arrow type as its file
 states it: the embedded Arrow schema (`ARROW:schema`) where present, else the Arrow type its Parquet physical and
 logical types map to. A **string column** is one of type Utf8 or LargeUtf8, wherever this section names a string. A
@@ -153,4 +155,4 @@ row: Int64 to an integer; a finite Double to a non-integer; a string column to a
 any of these types to null. Nothing else is a cell: no other type (UInt64, Int32, Decimal, Timestamp, Null, List,
 Struct, …), and no NaN or infinite Double. Each row decodes by its own file's types, never by a type unified across
 files (which would turn an integer into a non-integer). Undeclared columns are never read, whatever their type (RULES.md
-§6, revision of 2026-11-04).
+§6, B3 revision).

@@ -2,10 +2,12 @@
 
 Against B2's frozen definitions (`laws-frozen.md`, `7997257`), per `rust-port-plan.md` §3 B3, with the rulings of the
 decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and 05:55 UTC (00:55 EST)
-("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) applied, and the third to seventh rounds'
+("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) applied, and the third to eighth rounds'
 reviews (`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`) answered under the advisor's rulings (decisions of 2026-11-04
 10:20 UTC (05:20 EST), 10:57 UTC (05:57 EST), 11:23 UTC (06:23 EST), 12:03 UTC (07:03 EST), 12:38 UTC (07:38 EST),
-reversed, and 13:21 UTC (08:21 EST)). Nothing frozen, and nothing in
+reversed, and 13:21 UTC (08:21 EST)), then GPT's round 9 review (`b3-round9-review-gpt.md`) and fresh Claude's
+review at the freeze (`b3-round10-review-claude.md`). The latter leaves wording only, answered before freezing,
+without another review round under the human's rule. Nothing frozen yet, and nothing in
 `audit/criteria.md` changed. Beside this directory, rounds four to eight changed three things now: SOURCES.md §1 reserves the store's metadata column names, which
 `mm`'s `source::declaration` refuses (`kernel/mm/tests/sources.rs`) and `refmm resolve` returns as `E_DECL`; C7.6's
 test 3 is a decode limit (until the whole holdout check succeeds, only event time is decoded), decided by review of
@@ -23,7 +25,8 @@ each loader's code path, with a behavioural regression net whose three strict xf
 
 ## The freeze, after review
 
-1. C7.6's revision into `audit/criteria.md`, alone (`criteria:` commit). RULES.md's and SOURCES.md's revisions and
+1. Read `date -u` and date C7.6's and RULES.md's revisions at that freeze time, paired with Eastern (UTC-5).
+   C7.6's revision into `audit/criteria.md`, alone (`criteria:` commit, timestamped at that time). RULES.md's and SOURCES.md's revisions and
    `laws-frozen.md`'s new RULES.md hash follow, with no Lean change.
 2. `kernel/tests/rules/resolver_suite.py` and its two files replaced, alone, with `lean_check.py` beside them. In
    `test_suite.py`, the generated file is checked as a prefix of `stream()`, and C7.6's size (`delivered`) is counted

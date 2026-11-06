@@ -2,13 +2,15 @@
 
 Draft text, from the decisions of 2026-11-02 01:32 UTC (2026-11-01 20:32 EST) ("B3's draft suite is not frozen") and
 05:55 UTC (00:55 EST) ("B3's fixes are not frozen; second round ruled on", `audit/decisions.md`) and the third to
-eighth rounds' reviews (`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`; test 3 by the advisor's decision of 2026-11-04 13:21 UTC (08:21 EST)). After its review it is appended beneath C7.6's
+eighth rounds' reviews (`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`), GPT's round 9 review
+(`b3-round9-review-gpt.md`) and fresh Claude's review at the freeze (`b3-round10-review-claude.md`);
+test 3 by the advisor's decision of 2026-11-04 13:21 UTC (08:21 EST). It is appended beneath C7.6's
 resolver bullet in `audit/criteria.md` and committed alone, before the suite's freeze and before anything is judged. The original lines
 stay as written. Everything below the line is the text.
 
 ---
 
-- **Revision of 2026-11-04 (C7.6's resolver bullet), before anything is judged.** Why: the bullet's participants, format
+- **Revision at the freeze (C7.6's resolver bullet), before anything is judged.** Why: the bullet's participants, format
   and size predate the bitemporal resolver (revision of 2026-10-26 23:29 UTC (19:29 EDT) above) and RULES.md §6's B2 and
   B3 revisions (`audit/stage7/laws-frozen.md`); this says what is compared, by whom, and how much. It loosens nothing:
   - **The resolver under test** is RULES.md §6 with its dated revisions through B3, cases in §7's format, stored rows
@@ -59,16 +61,23 @@ stay as written. Everything below the line is the text.
        no top-level field named twice in the embedded Arrow schema or the Parquet schema nor the two disagreeing in
        those names, and the event-time column present (a declared column's type is a row's decoding, not a schema
        check). Then the holdout check, on the event-time column of every row (tombstoned, evidence, outside-U and
-       post-V rows too). Each refusal names its cause: a holdout crossing's refusal contains `holdout`, the boundary and
-       the least crossing event time in decimal; an event time that is not an integer in RULES.md's range
-       [−2^62, 2^62 − 1] (in Parquet, a non-null Int64 in it) is the check's own refusal, containing "the holdout check
-       cannot be made", not dataset invalidity (RULES.md §6 and SOURCES.md §2). Everything else, a null `fetchedAt`
+       post-V rows too). A holdout crossing's refusal message is exactly
+       `holdout crossing: event time {least} at or after {boundary}`, with the least crossing event time and the
+       boundary in decimal. An event time that is not an integer in RULES.md's range [−2^62, 2^62 − 1]
+       (in Parquet, a non-null Int64 in it) is the check's own refusal, not dataset invalidity (RULES.md §6 and
+       SOURCES.md §2), with exactly `the holdout check cannot be made: an event time is not a non-null Int64 in range`.
+       Python's `as_of(dataset, t, version)` raises exactly `ValueError`, not a subclass, with the applicable message.
+       For `mm`, the API is `market::load` (or its slice-5 replacement) with `holdout` Some; its `Err`'s `Display`
+       is exactly the applicable message. Neither API writes to the process's stdout or stderr: the prescribed refusal diagnostic
+       is the only disclosure, with no other computed result or statistic on any channel, even one invariant across
+       variants. This tests the loader API, not commands' ledger-recorded output (SOURCES.md §8). Everything else, a null `fetchedAt`
        included, is found after the check passes. **Before the check passes** (SOURCES.md's access authorization: each
        stage "reading no more than it needs", the holdout stage "on the required sources' event-time columns alone",
        and a search evaluation "never materializes a holdout observation"), a loader may read file footers and hash
        bytes for dataset identity; it decodes no column chunk but the event time's, uses no footer statistic of any
        other column, and keeps nothing derived from them. Its test has two halves:
-       - **Structural, the decision:** until the whole holdout check completes successfully, each implementation's
+       - **Structural, the decision:** until the whole holdout check completes successfully—every file of every dataset
+         the call reads (for `mm`, the run's required set)—each implementation's
          column reads project to event time alone (polars or pyarrow `columns=["eventTime"]`, Rust's projection mask).
          Every non-event-time decode or statistic use must be reachable only after that success. No test decides this
          soundly (a Python loader can reach a reader by any name; `mm`'s call graph crosses crates), so the reviews named
@@ -85,23 +94,15 @@ stay as written. Everything below the line is the text.
          tombstoned, then 32 from a seeded generator, varying every column of the late rows but the event time
          (`fetchedAt`, null included, and `tombstone` too; a value column of another type, a NaN, an infinity, a List)
          and garbling their file but for its event-time chunk, so its footer's statistics differ too. Each call must
-         raise `ValueError` with exactly `holdout crossing: event time {least} at or after {boundary}` (decimal times),
-         or `the holdout check cannot be made: an event time is not an Int64` for the Double fixture. Nothing may be
-         printed on stdout or stderr: the exception's fixed refusal diagnostic is the only disclosure, with no computed
-         result or statistic on any channel, even one invariant across variants. After each refusal, the same loader
+         give the applicable exact refusal through its API, with silent output channels, as prescribed above.
+         After each refusal, the same loader
          reads an explicitly distinct, nonempty early-only dataset through its production API, matching a fresh loader's
-         result and both output channels. Both datasets remain unchanged; each variant gets its own root. Dataset-scoped
-         caching of authorized event-time inventories is permitted; deletion never implicitly invalidates a pinned
-         snapshot (SOURCES.md §7). Python uses `as_of(dataset, t, version)` for both dataset identities; `mm`'s namesake
-         must likewise use distinct immutable dataset identities through its production API, and also adds evidence
-         and outside-U late rows, which Python cannot hold.
-         The net rejects: resolving or decoding everything first (on garbled bytes), and amendments from decoded values,
-         threshold bits, footer statistics or `fetchedAt`, by the exact refusal; a sign-dependent stderr/stdout line and
-         an early-value sum, by stdout; an invariant early-row count from authorized event times, by stderr; a decoded
-         file cache contaminating the distinct dataset, by state; silently dropping an eligible live late row, by refusal.
-         Some controls decode before checking, others after catching refusal; the counting control decodes only event
-         times but violates the output rule. A loader pinning each dataset's event-time inventory and decoding anything
-         else only after the whole check succeeds passes the net.
+         result and both output channels. Both datasets remain unchanged; each variant gets its own root. An event-time
+         inventory may be kept only for the immutable bytes it was read from (the pinned file set and its identity).
+         Whatever is decoded after the check comes only from those bytes; a changed file set is a new dataset identity,
+         checked again (SOURCES.md §7). Python uses `as_of(dataset, t, version)` for both dataset identities; for `mm`,
+         a distinct dataset is a distinct store root, through the API above. Its namesake also adds evidence and
+         outside-U late rows, which Python cannot hold.
     4. Evidence keys and keys outside U are never delivered.
     5. A dataset whose eligible revisions of one entity map to different coins is invalid.
   - Version 1's suite and its results do not count; C7.6's resolver part is judged only on evidence produced after this
