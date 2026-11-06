@@ -19,8 +19,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 7 slice 2** closed on `stage7` (`ccfda7e`): GPT-reviewed fixes; the run differential agrees on all 3,372 runs. Hunt fixes: a second pass after GPT's review.
-
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 round 10** on `claude/stage7-b3-round10-gpt` (`8750c16`, GPT-built): answers GPT's round 9 review (`audit/stage7/b3-round9-review-gpt.md`: not wording only): refusals print only an exact diagnostic, state tested across distinct datasets, structural review of every refusal path. Next, once Claude usage returns: a fresh Claude review; if it raises only wording, fix it and freeze. Then delete the earlier B3 branches.
@@ -35,7 +33,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
 6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit; Unblocked: recording OECD's STES revisions (certified; about 357 MB a country quarterly).
 7. **When stage 7 nears its exit**: the Lean engine stage's criteria (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
-8. **Post-pilot ideas:** `docs/future-work.md`.
+8. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
 9. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
