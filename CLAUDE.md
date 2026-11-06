@@ -37,7 +37,7 @@ The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap s
 ### Where information lives
 
 One authoritative home per kind of information; anything elsewhere is a summary that links to it.
-- **Intent:** the paper. **Process:** this file. **The live system:** `CLUSTER.md`.
+- **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is summarized there, linking its audit record. Specs and criteria say what, and cite the paper for why. **Process:** this file. **The live system:** `CLUSTER.md`.
 - **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (`ops/test_progress.py`), leaving history to git.
 - **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
 - **Source certificates:** `venue/sources.toml`, read by the terms tests.
