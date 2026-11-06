@@ -8,7 +8,7 @@ reviews (`b3-round{3,4,5,6,7,8}-review-{gpt,claude}.md`) answered under the advi
 reversed, and 13:21 UTC (08:21 EST)). Nothing frozen, and nothing in
 `audit/criteria.md` changed. Beside this directory, rounds four to eight changed three things now: SOURCES.md §1 reserves the store's metadata column names, which
 `mm`'s `source::declaration` refuses (`kernel/mm/tests/sources.rs`) and `refmm resolve` returns as `E_DECL`; C7.6's
-test 3 is a decode limit (before the holdout check, no column chunk but the event time's decoded), decided by review of
+test 3 is a decode limit (until the whole holdout check succeeds, only event time is decoded), decided by review of
 each loader's code path, with a behavioural regression net whose three strict xfails on `ingest/store.py` name
 `audit/stage7/holdout-staging.md`; and
 `refmm resolve` reads its cases by the exact-integer reader.

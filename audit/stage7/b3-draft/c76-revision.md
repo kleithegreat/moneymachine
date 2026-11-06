@@ -68,13 +68,14 @@ stay as written. Everything below the line is the text.
        and a search evaluation "never materializes a holdout observation"), a loader may read file footers and hash
        bytes for dataset identity; it decodes no column chunk but the event time's, uses no footer statistic of any
        other column, and keeps nothing derived from them. Its test has two halves:
-       - **Structural, the decision:** each implementation's read before the check is a projection to the event-time
-         column (polars or pyarrow `columns=["eventTime"]`, Rust's projection mask), and the check precedes any other
-         read, by code path. No test decides this soundly (a Python loader can reach a reader by any name; `mm`'s
-         call graph crosses crates), so the reviews named at the freeze decide it, each following every implementation's
-         code path from its first read of a store to the check. This half is not mechanical. A loader that decodes
-         every column but survives a decoding error until the check has refused, or keeps what it decoded where no
-         later call reads it, fails this half alone.
+       - **Structural, the decision:** until the whole holdout check completes successfully, each implementation's
+         column reads project to event time alone (polars or pyarrow `columns=["eventTime"]`, Rust's projection mask).
+         Every non-event-time decode or statistic use must be reachable only after that success. No test decides this
+         soundly (a Python loader can reach a reader by any name; `mm`'s call graph crosses crates), so the reviews named
+         at the freeze decide it, following every implementation from its first store read through every success and
+         failure path, including every refusal, diagnostic and cleanup path through exit. They check output and retained
+         state too. This half is not mechanical: decoding forbidden columns even if errors are suppressed or the values
+         are never subsequently read fails it, including decoding after catching a refusal.
        - **Behavioural, a regression net, not the decision:** `test_holdout_check_decides_on_event_times_alone` in
          `ingest/tests/test_store.py` for Python, and its namesake in `kernel/mm/tests/` for `mm`, facing the same
          fixtures and variants, under a store path naming neither "holdout" nor the boundary. Each fixture is a row
@@ -83,19 +84,24 @@ stay as written. Everything below the line is the text.
          as uncheckable. Its variants: the late rows eligible and live (fetched by V, not tombstones), fetched after V,
          tombstoned, then 32 from a seeded generator, varying every column of the late rows but the event time
          (`fetchedAt`, null included, and `tombstone` too; a value column of another type, a NaN, an infinity, a List)
-         and garbling their file but for its event-time chunk, so its footer's statistics differ too. Across them: one
-         exception (type and message), nothing on stdout (no result-bearing output before a refusal) and one stderr,
-         compared apart; and after each refusal, a second call on the same loader with the late rows' file removed
-         gives what a fresh loader gives. `mm`'s namesake adds late rows that are evidence and outside U, which
-         Python's `as_of` cannot hold (it has neither). Its controls, each decoding before the check and so failing
-         the structural half too, fail the net at the assertion named: a loader resolving every file first, and one
-         reading every column first and refusing a file that does not decode as invalid, by the refusal differing (on
-         a garbled file); refusals amended from the late rows by their decoded values, by a bit of them past 100 or
-         past 1,000, by the bit from their footer statistic, or by their `fetchedAt`, by the refusal differing; a line
-         printed on stderr or stdout by a value's sign, and the sum of the early rows' values printed before refusing,
-         by stdout; an incremental cache keeping each file's decoded rows for later calls, by the second call; and a
-         loader silently dropping an eligible live late row while refusing the others, by the refusal itself. A loader
-         reading the event-time column alone, checking, then the rest, passes.
+         and garbling their file but for its event-time chunk, so its footer's statistics differ too. Each call must
+         raise `ValueError` with exactly `holdout crossing: event time {least} at or after {boundary}` (decimal times),
+         or `the holdout check cannot be made: an event time is not an Int64` for the Double fixture. Nothing may be
+         printed on stdout or stderr: the exception's fixed refusal diagnostic is the only disclosure, with no computed
+         result or statistic on any channel, even one invariant across variants. After each refusal, the same loader
+         reads an explicitly distinct, nonempty early-only dataset through its production API, matching a fresh loader's
+         result and both output channels. Both datasets remain unchanged; each variant gets its own root. Dataset-scoped
+         caching of authorized event-time inventories is permitted; deletion never implicitly invalidates a pinned
+         snapshot (SOURCES.md §7). Python uses `as_of(dataset, t, version)` for both dataset identities; `mm`'s namesake
+         must likewise use distinct immutable dataset identities through its production API, and also adds evidence
+         and outside-U late rows, which Python cannot hold.
+         The net rejects: resolving or decoding everything first (on garbled bytes), and amendments from decoded values,
+         threshold bits, footer statistics or `fetchedAt`, by the exact refusal; a sign-dependent stderr/stdout line and
+         an early-value sum, by stdout; an invariant early-row count from authorized event times, by stderr; a decoded
+         file cache contaminating the distinct dataset, by state; silently dropping an eligible live late row, by refusal.
+         Some controls decode before checking, others after catching refusal; the counting control decodes only event
+         times but violates the output rule. A loader pinning each dataset's event-time inventory and decoding anything
+         else only after the whole check succeeds passes the net.
     4. Evidence keys and keys outside U are never delivered.
     5. A dataset whose eligible revisions of one entity map to different coins is invalid.
   - Version 1's suite and its results do not count; C7.6's resolver part is judged only on evidence produced after this

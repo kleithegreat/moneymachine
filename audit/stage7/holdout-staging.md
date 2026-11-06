@@ -17,3 +17,16 @@ check. Its eleven controls fail the net at their named assertions and the projec
 The three are `xfail(strict=True)` naming this record. The fix is slice 5's (`rust-port-plan.md`): `store.as_of`'s
 bitemporal replacement makes the schema checks, then the holdout check on the event-time column alone, by projection,
 before anything else is decoded, and refuses as test 3 says. No judged result rests on this check yet.
+
+## Round 10 (2026-11-06)
+
+The net now requires exact refusal diagnostics and empty stdout and stderr, replacing stderr invariance. It replaces
+file deletion with a call on a distinct, unchanged early-only dataset through `as_of` on the same loader, compared with
+a fresh loader. Dataset-scoped caching of authorized event-time inventories passes. Twelve negative controls fail at
+their named assertions, including an invariant early-row count on stderr; the production loader's three strict xfails
+remain. Structural review now follows every refusal, diagnostic and cleanup path through exit, requiring successful
+completion of the whole holdout check before any non-event-time decode or statistic use.
+
+Validation through the flake, with `TMPDIR=/dev/shm/b3r10` and pytest's `--basetemp=/dev/shm/b3r10/pt`:
+`pytest ingest/tests/test_store.py ops/test_progress.py -p no:cacheprovider` gives 54 passed, 3 expected strict xfails;
+`python audit/stage7/b3-draft/lean_check.py` passes the full hand/generated-file and Lean checks.

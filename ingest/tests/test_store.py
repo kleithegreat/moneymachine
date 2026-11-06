@@ -1,7 +1,6 @@
 import json
 import random
 import sys
-import shutil
 
 import polars as pl
 import pyarrow.parquet as pq
@@ -221,7 +220,6 @@ def staged(root, fixture, variant):
     the late rows' other columns and garbles their file, the last, but for its event-time chunk. Version 100."""
     stores(root)
     d = root / "store" / "bars_4h"
-    shutil.rmtree(d, ignore_errors=True)
     d.mkdir(parents=True)
     kind, late, garbled = variant
     rate, same, _ = RATES[kind]
@@ -235,11 +233,11 @@ def staged(root, fixture, variant):
         garble(d / f"{len(parts) - 1}.parquet")
 
 
-def outcome(as_of, capfd):
+def outcome(as_of, capfd, dataset="bars_4h"):
     """What a loader gives on a staged store, its refusal (type and message) or its result, then its stdout and its
     stderr, apart."""
     try:
-        got = as_of("bars_4h", 2**62, V)
+        got = as_of(dataset, 2**62, V)
         given = "result", got.columns, got.rows()
     except Exception as e:
         given = "refusal", type(e), str(e)
@@ -247,32 +245,25 @@ def outcome(as_of, capfd):
     return given, printed.out, printed.err
 
 
-def refuses(fixture, given):
-    """The fixture's refusal: a holdout crossing naming the boundary and the least crossing event time, or the holdout
-    check's own refusal of an event time it cannot check."""
-    if given[0] != "refusal" or not issubclass(given[1], ValueError):
-        return False
-    if fixture == "undecodable event time":
-        return "the holdout check cannot be made" in given[2]
-    return all(str(x) in given[2] for x in ("holdout", HOLDOUT_START, CROSSING))
-
-
 def decides_on_event_times_alone(loader, root, fixture, capfd):
-    """C7.6's named test 3, its behavioural half: on every variant the fixture's refusal, alike, with nothing on stdout
-    and one stderr; and after it, the same loader with the late rows' file removed gives what a fresh one gives."""
-    seen = []
-    for variant in variants(fixture):
-        staged(root, fixture, variant)
-        as_of = loader(root)
+    """C7.6's net: the exact refusal, silent channels, then an independent dataset through the same production API.
+    Neither dataset changes; retaining the refused dataset's authorized event-time inventory is permitted."""
+    diagnostic = ("the holdout check cannot be made: an event time is not an Int64"
+                  if fixture == "undecodable event time" else
+                  f"holdout crossing: event time {CROSSING} at or after {HOLDOUT_START}")
+    for i, variant in enumerate(variants(fixture)):
+        snapshot = root / str(i)
+        staged(snapshot, fixture, variant)
+        clean = "events_clean"
+        stores(snapshot)[0].write(clean, rows(["B"], [EARLY // H], value=7.0), V, "t")
+        as_of = loader(snapshot)
         first = outcome(as_of, capfd)
-        files(root, "bars_4h")[-1].unlink()
-        seen.append((first, outcome(as_of, capfd), outcome(loader(root), capfd)))
-    (given, _, err), _, _ = seen[0]
-    assert refuses(fixture, given), f"refusal: {seen[0]}"
-    for first, again, fresh in seen:
-        assert first[0] == given, f"differs: {first}"
+        assert first[0] == ("refusal", ValueError, diagnostic), f"refusal: {first}"
         assert first[1] == "", f"stdout: {first}"
-        assert first[2] == err, f"stderr: {first}"
+        assert first[2] == "", f"stderr: {first}"
+        again = outcome(as_of, capfd, clean)
+        fresh = outcome(loader(snapshot), capfd, clean)
+        assert fresh[0][0] == "result" and fresh[0][2], f"state: {fresh}"
         assert again == fresh, f"state: {again} {fresh}"
 
 
@@ -304,9 +295,12 @@ def everything(root, dataset):
 
 
 def projecting(root):
-    """The rule's shape, the positive control: the event-time column of every file alone, the check, then the rest."""
+    """Positive control: pin each dataset's event-time inventory; decode the rest only after the whole check passes."""
+    inventories = {}
     def as_of(dataset, t, version):
-        if refusal := holdout_check(event_times(root, dataset)):
+        if dataset not in inventories:
+            inventories[dataset] = event_times(root, dataset)
+        if refusal := holdout_check(inventories[dataset]):
             raise ValueError(refusal)
         return everything(root, dataset).filter(pl.col("fetchedAt") <= version)
     return as_of
@@ -422,6 +416,19 @@ def summing(root):
     return as_of
 
 
+def counting(root):
+    """Round 9, 1: only authorized event times decoded, but an invariant research statistic released on stderr."""
+    check = projecting(root)
+    def as_of(dataset, t, version):
+        try:
+            return check(dataset, t, version)
+        except ValueError:
+            print("pre-refusal row count:", event_times(root, dataset).filter(pl.col("eventTime") < HOLDOUT_START).height,
+                  file=sys.stderr)
+            raise
+    return as_of
+
+
 def persisting(root):
     """Claude round 8, 1: an incremental cache, as an append-only store invites: each file decoded once, before the
     check (its event times alone if it does not decode), and kept for later calls."""
@@ -451,23 +458,22 @@ def dropping(root):
     return as_of
 
 
-CONTROLS = {resolving_first: "differs", eager: "differs", telling: "differs", suffix: "differs", threshold: "differs",
-            statistics: "differs", metadata: "differs", channel: "stdout", summing: "stdout", persisting: "state",
-            dropping: "refusal"}
+CONTROLS = {resolving_first: "refusal", eager: "refusal", telling: "refusal", suffix: "refusal", threshold: "refusal",
+            statistics: "refusal", metadata: "refusal", channel: "stdout", summing: "stdout", counting: "stderr",
+            persisting: "state", dropping: "refusal"}
 FIXTURE = pytest.mark.parametrize("fixture", FIXTURES)
 
 
 @FIXTURE
 @pytest.mark.parametrize("control", CONTROLS, ids=lambda c: c.__name__)
 def test_controls_fail_test_3s_net_at_their_assertion(root, capfd, fixture, control):
-    """Each control decodes before the check, failing the structural half (by review); this is where the net catches
-    it."""
+    """The net catches these controls here; structural review follows all paths, including caught refusals."""
     with pytest.raises(AssertionError, match=f"^{CONTROLS[control]}:"):
         decides_on_event_times_alone(control, root, fixture, capfd)
 
 
 @FIXTURE
-def test_a_loader_projecting_to_event_times_first_passes_test_3s_net(root, capfd, fixture):
+def test_a_loader_pinning_only_event_time_inventories_passes_test_3s_net(root, capfd, fixture):
     decides_on_event_times_alone(projecting, root, fixture, capfd)
 
 
