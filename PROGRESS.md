@@ -21,7 +21,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 round 10** on `claude/stage7-b3-round10-gpt` (`8750c16`, GPT-built): answers GPT's round 9 review (`audit/stage7/b3-round9-review-gpt.md`: not wording only): refusals print only an exact diagnostic, state tested across distinct datasets, structural review of every refusal path. Next, once Claude usage returns: a fresh Claude review; if it raises only wording, fix it and freeze. Then delete the earlier B3 branches.
+- **B3 frozen** on `stage7` (`7bf79df`, 2026-11-06): C7.6's revision (`criteria:` `f8aeb4c`), RULES.md/SOURCES.md and the resolver suite, after GPT (round 9), Opus 5.5 (round 10) and Gemini 4 Argon (its calibration forced round 11; wording only at the freeze). Next: slice 5, C7.6's implementation.
 
 
 2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns (the last 2026-11-04 09:48 UTC (04:48 EST)), waiting on the accounts' Claude usage (the human, 2026-11-06); TAMU's reset is 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
