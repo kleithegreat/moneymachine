@@ -21,9 +21,9 @@ stage 6 model and C6.4 implement this file as of `f591e3b`. Each fix is tagged w
 | M2 undefined labels leave its denominator | §10 exposures | `test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage` |
 | M4 `REPLACE` gets past the ledger's triggers | INVARIANTS.md I6 | `test_separate_connection_cannot_replace_kernel_result` |
 
-The loss bound the holdout theorem needs, every return before absorption at least −2, holds on gapless markets with
-m ≤ 1/2 − 2κ, such as N1 to N3 with their clips, from the account's stop-out at Λ times equity and its fill admission,
-by the pen-and-paper argument of §7 (Loss bound), not a Lean theorem; on real markets it is an assumption.
+Derivations and policy reasons live in `docs/whitepaper.tex`, appendix A: E1–E2 (`app:execution`, `app:loss`)
+for execution and the conditional loss bound; K1–K3 for language/numerical choices; S3 for absorption and betting.
+This file specifies transitions, not a proof of the holdout test's real-market premises.
 
 Times are integer milliseconds. HOUR = 3,600,000; BAR = 4 · HOUR; δ is the store policy's
 `delta_ms` (120,000). Numbers are IEEE-754 binary64 in the executable instance and an abstract type
@@ -162,9 +162,8 @@ except as noted [machine.rs `eval`]:
   the base, and take the reciprocal for negative e. Then f = hours(from) / hours(to). A non-finite f is
   accepted by the checker, and x · f is then filtered by `finite` like any node value. Conversion
   nodes are interned by (factor bits, target unit, argument), as the engine does.
-  *Revision 2026-10-21, recorded here 2026-10-23:* before the fix (commit `5f2b538`, made in the engine and
-  the model together, adversarial case t22), they were interned by (factor bits, argument) only, so of two
-  conversions sharing both, the first one's target unit applied. Every C6.4 run is on the fixed behavior.
+  *Revision 2026-10-21, recorded here 2026-10-23:* target unit is part of the interning key (commit `5f2b538`,
+  adversarial case t22); every C6.4 run uses this definition. Rationale: paper K1 (`app:kernel`).
 - Window nodes: the pointwise value is a(0), then pushed (below).
 
 ## 6. Windows
@@ -217,7 +216,7 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does
 2. **Marks.** For each coin, latest(c) is the coin's last bar with openTime ≤ b, and the mark is its close.
 3. **Stop-out.** The adverse price is low(latest) for q > 0 and high(latest) for q < 0 (the mark if no
    bar). Equity at adverse = cash + Σ q · adverse. Maintenance = Σ |q| · adverse · max(1/(2 · min tier
-   leverage), 1/Λ), so the account stops itself out no later than the venue would liquidate it. If any position is
+   leverage), 1/Λ). If any position is
    held and equity at adverse < maintenance, every held position is closed: a fill of −q at reference = adverse, at
    time b + BAR, from latest(c).
 4. **Delisting.** For each position with b + BAR ≥ end(c): a fill of −q at reference = the record's settlement price
@@ -249,7 +248,7 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does
      eventTime B. It holds as `undefined` if its weight is Undef. The others give (c, w).
    - **Equity.** e_d is the book's equity after step 7's fills (K4). If e_d ≤ 0 (I10), scaling and sizing are
      skipped and no order is placed; holds are still recorded.
-   - **Scaling.** A hold keeps its position, so it keeps its share of the gross budget: H = Σ |q[c]| ·
+   - **Scaling.** H = Σ |q[c]| ·
      mark[c] / e_d over the holds with a position, and the others share β = max(0, 2 − H) (K3).
      largest = max |w|, and relative = Σ |w|/largest. If relative · largest > β, each w becomes
      w/largest · (β/relative). Unless the scaled gross is ≤ β · (1 + 1e-12), abort with R_PORTFOLIO
@@ -275,28 +274,11 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does
 - **Cash.** cash −= qty · price + fee, fees += fee, and slippage += qty · (price − r).
 - **Recording.** Each fill is checked by I2 and I3 [sim.rs `check_fill`] and recorded.
 
-**Loss bound.** Let r′ be a step's net return before absorption, (e′ − e_prev)/e_prev, with e′ the book's equity
-after step 5's closeouts and before its absorption, and e_prev the previous step's e1, its equity before its fills. Let κ be the largest cost per unit
-of reference notional over the cells, s + f + s·f with s = bps/10⁴ and f the taker fee, and m the largest loss, per
-unit of mark notional, of carrying a position from one step's marks through the next step's funding to a closeout at
-that bar's adverse extreme, its cost included. Take a gapless market, in which every fill's selected bar opens at the
-step's mark, with Λκ ≤ 1. Then:
-- the book leaving steps 3 to 5 has gross G₀ ≤ Λ · e_prev. A stop-out leaves nothing. Otherwise the gross at the
-  adverse prices is at most Λ times the equity there, and moving each price to its mark, a move in the position's
-  favour, keeps that ratio at most Λ. A delisting fill at the mark lowers gross by its notional and equity by at most
-  κ times it.
-- step 7's fills are at the marks plus costs, so they never raise equity. A reduction that keeps the sign keeps gross
-  within Λ times equity (Λκ ≤ 1), and any other fill is admitted only if it does, so the book leaving them has gross
-  G₁ ≤ Λ · e_prev.
-- with at most one fill per coin, they trade at most G₀ + G₁ ≤ 2Λ · e_prev, costing at most 2Λκ · e_prev, and the
-  next bar loses at most m · G₁.
-
-So r′ ≥ −Λ(2κ + m), and with Λ = 4, r′ ≥ −2, the condition of the holdout theorem (`gate/NULLS.md`, limited
-liability), whenever m ≤ 1/2 − 2κ. This argument is checked by review, not in Lean. NULLS.md's gapless synthetic
-nulls meet its conditions by construction; a gapless market with larger bars does not. A real market gaps: a
-fill then trades at an open away from its mark, which this proof does not cover
-(`audit/reviews/2026-11-04-gpt-nine-defects-review.md`, finding 1). On real markets r′ ≥ −2 is an assumption that the
-holdout's conclusion rests on; a report of realized excursions is a diagnostic, never proof of it.
+**Loss-bound quantities.** r′ = (e′ − e_prev)/e_prev, with e′ the equity after step 5's closeouts but before
+absorption, and e_prev the previous step's e1, before its fills. κ is the maximum over cost cells of
+s + f + s·f (s = bps/10⁴, f = taker fee). m is the largest carrying loss per unit of mark notional through
+the next step's funding and adverse-extreme closeout, its cost included. The sufficient-domain assumptions
+and reviewed derivation are in paper appendix A.2, E2 (`app:loss`); the real-market −2 bound remains assumed.
 
 ## 8. Binding preflight
 
@@ -323,8 +305,8 @@ A result reports a window of one run: its steps with equity time > R, the window
 - **Window account.** It starts at 10,000 if there is no s or the run's equity at s is positive, else at 0 (I10: a
   bankrupt account stays at 0), and compounds the window's returns (K5). final_equity is its last value and
   total_return = final_equity/10,000 − 1.
-- **Window trace.** The run's trace after its Equity record at s (the whole trace without s). s's fills come after
-  that record and their costs fall in the window's first return, so they are in the window's trace (K6). Over that
+- **Window trace.** The run's trace after its Equity record at s (the whole trace without s), including s's later
+  fills (K6). Over that
   trace, fills counts the fill records, closeouts included; fees is Σ fee, slippage Σ qty · (price − reference), and
   turnover Σ |qty| · price.
 - **Exposures** (`--mechanism on`). Each step time T = b + BAR is a fill instant: its closeouts (steps 3 to 5), then
@@ -333,9 +315,8 @@ A result reports a window of one run: its steps with equity time > R, the window
   prediction condition (true, false or Undef) at the decision due at T, the one at T − BAR + δ, whether or not it ordered c or its order filled. With v_c
   the coin's cash flows (fills, fees and funding) plus q[c] · mark, its return is the change in v_c over it divided
   by the Equity recorded at T. It starts where c's previous exposure ended (v_c = 0 at the run's start) and ends at
-  T + BAR: after that instant's closeouts and fills if they leave c flat, else before them. So every fill, a reversal
-  whole, falls in exactly one exposure, the one it closes if it leaves c flat, else the one it opens, and so does
-  every price change and funding payment while held (M1). Every exposure counts: with n_t, n_f and n_u the true,
+  T + BAR: after that instant's closeouts and fills if they leave c flat, else before them. A reversal's whole fill
+  belongs to the exposure it opens (M1). Every exposure counts: with n_t, n_f and n_u the true,
   false and Undef counts and N their sum, the check passes iff N > 0, n_t/N and n_f/N both lie in [0.1, 0.9], and the
   true exposures' mean return exceeds the false ones' (M2). The report holds exposures_true (n_t), exposures_false
   (n_f), mean_true and mean_false (null for an empty branch), share_true (n_t/N, absent when N = 0) and pass.

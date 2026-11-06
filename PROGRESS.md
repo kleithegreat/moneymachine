@@ -19,6 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
+- **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 round 10** on `claude/stage7-b3-round10-gpt` (`8750c16`, GPT-built): answers GPT's round 9 review (`audit/stage7/b3-round9-review-gpt.md`: not wording only): refusals print only an exact diagnostic, state tested across distinct datasets, structural review of every refusal path. Next, once Claude usage returns: a fresh Claude review; if it raises only wording, fix it and freeze. Then delete the earlier B3 branches.
@@ -43,15 +44,12 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 ### Finished
 
 - K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
-- Pytest: one build per session, worksteal, 3.5 minutes (`audit/2026-11-04-suite-speed.md`).
-- Stage 0: exited 2026-10-26 with C0.7 qualified, by human decision (`audit/stage0/criteria-result.txt`). Stage 1: done 2026-10-26 (`audit/stage1/`).
-- Stage 2: exited 2026-10-28 with C2.6 waived, by human decision (`audit/stage2/exit-r2.md`).
-- Stage 3: exited 2026-11-01 (`audit/stage3/exit.md`), a pipeline validation run with no claim.
-- Stage 5: exited under C5.3's amendment (`audit/stage5/`). Stage 6: exited 2026-10-23 with Lean adopted, human-reviewed (`audit/stage6/report.md`).
-- The move to the cluster: recorders handed off 2026-10-29 (`audit/cluster/handoff.md`).
+- Pytest: 1,013 passed, 25 strict xfails, 2 existing skips, 399.90 s on tmpfs; PDF rebuilt. Speed study: `audit/2026-11-04-suite-speed.md`.
+- Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
+- **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
 - **FRED and ALFRED: the API terms forbid our use; the human decides.** https://fred.stlouisfed.org/legal/ (read 2026-10-26): clause (l) forbids storing, caching or archiving FRED content or putting it in any database (our store is one), and (k) use in developing or training machine learning. Key unused; no permission request for now (human). Macro vintages come from the Philadelphia Fed's RTDSM.

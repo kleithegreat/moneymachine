@@ -8,77 +8,37 @@ the hour, so both are known at eventTime + δ by the policy's rule.
 
 ## Kernel accounting this must match
 
-Let a coin's 4h bar run from b to b + 4h. Write o = open, c = close, and f₁..f₄ for the
-funding rates settled at b + 1h, ..., b + 4h. Per `kernel/mm/src/sim.rs`:
-- funding at hour h is paid on the position held at h, priced at the open of the 4h bar
-  containing h. So f₁..f₃ are priced at o, and f₄ at the next bar's open, which the generator
-  sets equal to c;
-- settlement at an instant precedes a fill at that instant. Fills happen only at bar opens, so
-  the position paying f₁..f₄ is the one held through the bar;
-- a long of q coins held through the bar gains q(c − o) − q·o(f₁ + f₂ + f₃) − q·c·f₄ before
-  costs; a short is the same with q < 0.
+For a bar [b, b + 4h], write o = open, c = close, and f₁..f₄ for rates settled at
+b + 1h, ..., b + 4h. Funding is paid by the position held at h, at the containing bar's open:
+f₁..f₃ at o, f₄ at the next open, set equal to c. Settlement precedes same-instant fills.
+The no-edge accounting derivation is in `docs/whitepaper.tex`, appendix A.4, D1 (`app:nulls`).
 
 ## No edge
 
-The generator sets c = o · (1 + f₁ + f₂ + f₃ + ε) / (1 − f₄), with the realized rates. The
-bar's gross PnL is then exactly q · o · ε. Requirements:
+The generator sets c = o · (1 + f₁ + f₂ + f₃ + ε) / (1 − f₄), with realized rates. Requirements:
 - E[ε | F_o] = 0, where F_o is everything observable at b for every coin and every lag:
   bars closed by b, funding settled by b − 1h, premiums;
 - ε is generated from F_o-measurable state plus fresh symmetric noise;
 - funding, premium, wicks and volume for bar b are drawn independently of ε given that state.
 
-Every position the kernel takes over the bar is F_o-measurable. It was decided at
-b − 4h + δ from data known then, and sized with equity, the decision price, the cap and
-rounding; on the corrected engine, the fill admission and the stop-out read only marks and extremes of bars closed
-by b. Its expected gross PnL is therefore E[q · o · ε] = E[q · o · E[ε | F_o]] = 0.
+Liquidation closes at the adverse extreme after hour b + 4h's settlement; fees/costs apply on every fill.
+The conditional null concerns integrable net PnL before shortfall absorption, while alive, never a sample
+conditioned on surviving bankruptcy. A maintenance liquidation leaving positive equity is not bankruptcy.
+The betting process stops at bankruptcy, with predictable λ ∈ [0, 1/2] and required pre-absorption r′ ≥ −2.
+The frozen pilot does not establish that bound. Campaigns report every evaluation reaching reported −B;
+a bankrupt finalist stays in the complete Holm family with its earlier wealth maximum.
+Validity, absorption and this qualification: paper appendix A.1, S3 (`app:bet`).
 
-Liquidation (`sim.rs`) runs after the hour-(b + 4h) settlement and closes at the adverse extreme
-instead of c. For a long, low ≤ c, and for a short, high ≥ c, so a liquidated position's PnL is
-the unliquidated PnL plus q · (low − c) ≤ 0 or q · (high − c) ≤ 0. Liquidation never adds
-expected PnL.
-
-Fees and the cost model are paid on every fill. So every DSL strategy has expected net PnL ≤ 0,
-with equality only if it never fills, on an account without limited liability.
-
-Limited liability and bankruptcy (I10; corrected 2026-11-04 00:03 UTC (2026-11-03 19:03 EST), `audit/decisions.md`, same time, and
-`audit/reviews/2026-11-04-gpt-bound-check.md`: the earlier text claimed the no-edge property only for evaluations that
-never go bankrupt, which conditions on an outcome and does not restore it). The conditional no-edge argument above
-applies to net PnL before the venue absorbs a shortfall, including execution costs and adverse liquidation fills.
-Absorption increases reported PnL by the absorbed amount, so reported net returns need not have nonpositive
-conditional means. A maintenance liquidation that leaves positive equity is not bankruptcy.
-
-Bankruptcy does not by itself invalidate the holdout test's running-maximum p-value. Let r′_t be the net step return
-before absorption, and stop the betting process at the first bankruptcy. If these returns have nonpositive conditional
-means while the account is alive and every stopped betting factor 1 + λ_t r′_t is nonnegative almost surely, the
-stopped wealth is a nonnegative supermartingale. Its running maximum is the gate's: the bankruptcy return of −B cannot
-make a new maximum, and later reported returns are zero. The raw p-values then stay valid on bankrupt paths too, and
-Holm controls false promotions across the whole frozen finalist family. With 0 ≤ λ_t ≤ 1/2, r′_t ≥ −2 suffices.
-
-The frozen pilot kernel and these generators do not establish that bound: wicks are unbounded, and normalizing the
-defined target weights does not bound the exposure actually held. Where a terminal betting factor can be negative, the bound needs a
-wealth-weighted overshoot correction, and a small observed bankruptcy rate establishes neither exact nor approximate α
-control. Null campaigns report every evaluation, including those with a step return of −B. A bankrupt result cannot
-pass the positive-total-return rule, but a bankrupt finalist's earlier wealth peak still enters Holm.
-
-*Revision 2026-11-04, for campaigns on the corrected engine, with fresh campaign ids; earlier campaigns keep the text
-above:* the bound holds by construction, because these markets are gapless and their bars bounded. The clips below
-change every N1 to N3 and planted market, so C2's calibration and planted β, judged on the old generators, do not
-carry over. The corrected kernel's stop-out, with its fill admission, gives
-r′ ≥ −4(2κ + m), with κ the largest cost per unit of reference notional, s + f + s · f (`reference/SEMANTICS.md` §7,
-Loss bound). Every clip of ε below is at ±0.3 instead of ±0.5, and each wick's |u| is capped at 0.1, so
-c/o ≤ (1 + 3 · 0.04 + 0.3)/(1 − 0.04) < 1.48. Per unit of o, a closeout at the adverse extreme then loses, with
-funding: when the bar moves against the position, its loss to the close, |ε| ≤ 0.3, plus the wick beyond the close,
-at most 0.1 · max(o, c)/o < 0.148; when it moves for it, at most the wick beyond the open, 0.1, plus the funding paid,
-3 · 0.04 + 0.04 · 1.48, under 0.28. The closeout's cost adds at most 1.1 · 1.48 · κ. Market construction checks
-κ ≤ 0.003 in every cell and refuses a market that fails it; then m < 0.46 ≤ 1/2 − 2κ and r′ ≥ −2 almost surely: the
-raw p-values are valid on bankrupt paths, and lows stay at least 0.9 · min(o, c) > 0.
-
-Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 1.04 > 0.
+*Revision 2026-11-04, corrected-engine campaigns only, with fresh ids; earlier campaigns keep their generators:*
+every ε clip below becomes ±0.3, and each wick's |u| is capped at 0.1. Markets remain gapless, with |f| ≤ 0.04.
+Construction requires κ = s + f + s·f ≤ 0.003 in every cell (s = bps/10⁴, f = taker fee), refusing otherwise.
+C2's old calibration and planted β do not carry over. The sufficient loss envelope and positivity are derived
+in paper appendix A.2, E2 (`app:loss`), not established for real gaps or the pilot.
 
 ## Common pieces
 
 - **ε:** ε = clip(σ_t · x, −0.5, 0.5), where x has a symmetric conditional distribution
-  with mean 0. Clipping symmetrically keeps it symmetric, so E[ε | F_o] = 0 still holds. When
+  with mean 0. When
   σ_t · |x| > 0.5, the GARCH recursions below use the clipped ε.
 - **Wicks:** high = max(o, c) · (1 + |u₁|), low = min(o, c) · (1 − |u₂|), with u₁, u₂ ~
   N(0, (σ_t / 2)²) independent of everything else.
@@ -87,9 +47,7 @@ Positivity: |ε| ≤ 0.5 and |f| ≤ 0.04 give c / o ≥ (1 − 0.12 − 0.5) / 
   real hourly funding and premium of U over the search part of the stage 0 store. Blocks start at
   the same time for every coin, so cross-coin structure is kept, and synthetic coin S_i takes U's
   i-th coin. The short-history coin's slot (FTM) draws its blocks independently from the other
-  coins' series. Real funding sits exactly at the 1.25e-5 interest floor about half the time,
-  with fat-tailed, skewed excursions, which no simple parametric model reproduces. Funding is
-  exogenous to ε here, so resampling it keeps every no-edge property.
+  coins' series. Funding is exogenous to ε. Model and block-length choices: paper D1 (`app:nulls`).
 - **Seeds:** numpy `default_rng(seed)`, with the seed taken from the first 8 bytes of
   SHA-256(market id). Draws are made in a fixed order: per bar, then per coin.
 
@@ -109,9 +67,7 @@ Fitting uses the search part of the stage 0 store only. Synthetic coin S_i takes
 parameters of U's i-th coin, in U order:
 - (α_i, β_i): `arch.arch_model(100 · r, mean="Zero", vol="GARCH", dist="t")` on
   r = c / o − 1 − (f₁ + f₂ + f₃) − f₄ c / o;
-- ω_i by variance targeting, ω_i = s_i² (1 − α_i − β_i), with s_i² the sample variance of r_i.
-  Fat-tailed near-integrated fits otherwise overstate unconditional volatility (BTC: 2.0% vs
-  0.99% per 4h);
+- ω_i by variance targeting, ω_i = s_i² (1 − α_i − β_i), with s_i² the sample variance of r_i;
 - λ: √ of the mean pairwise correlation of the standardized residuals, floored at 0.
 
 ## N3
@@ -145,8 +101,7 @@ identity, so the oracle trades all 12 coins and earns its edge on the planted on
 calibrated so that the oracle's annualized net Sharpe through the kernel is s, on ≥ 200
 simulated years.
 
-Clipping a non-centered ε biases its mean toward 0 by at most P(|σx + βg| > 0.5) · 0.5. That
-is negligible at these σ and is absorbed by calibrating β through the kernel.
+The clipped planted mean is calibrated through the kernel, not identified with βg (paper D1).
 
 A coin of U with fewer than 1,000 traded bars in the search part (FTM, delisted 2025-01)
 takes the median over the other coins of every per-coin parameter.
@@ -156,12 +111,9 @@ never changed afterwards. A change means new campaign ids, logged.
 
 ## C2.1 test units
 
-The probes' PnL unit is the per-step gross return (change in equity plus that step's fees and
-slippage, over the previous equity; `gross_return_mean` in `mm eval`'s summary). Its conditional
-mean is exactly zero under every null. Dollar PnL of a compounding strategy also has mean zero,
-but it is so right-skewed across markets that a z-test on it is invalid (a 10-year N2 trial with
-0.96× buy-and-hold had z = −10.6 on dollars, with the kernel's dollar PnL equal to Σ q·o·ε to
-1e-10). The regression's F-test uses HC3-robust covariance, since ε is heteroskedastic by design.
+The probes' PnL unit is per-step gross return (change in equity plus that step's fees and
+slippage, over previous equity; `gross_return_mean` in `mm eval`'s summary). The regression F-test
+uses HC3-robust covariance. Statistical rationale and the pre-absorption scope: paper D1 and S3.
 
 ## Event inputs (stage 5)
 
