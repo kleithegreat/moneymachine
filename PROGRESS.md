@@ -23,10 +23,10 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 round 9** on `claude/stage7-b3-round9-fix-um3t0t` (`d944cc5`): test 3 is a decode limit, the advisor's round 8 ruling reversed (human-endorsed). Next: GPT's independent review from a clean worktree (no cloud: credits gone, cloud bills the personal plan), then a fresh Claude review at the freeze only; if both raise only wording, fix it and freeze (the human, 2026-11-04 13:23 UTC (08:23 EST)). Delete the B3 round 8 branches once round 9 merges.
+- **B3 round 10** on `claude/stage7-b3-round10-gpt` (`8750c16`, GPT-built): answers GPT's round 9 review (`audit/stage7/b3-round9-review-gpt.md`: not wording only): refusals print only an exact diagnostic, state tested across distinct datasets, structural review of every refusal path. Next, once Claude usage returns: a fresh Claude review; if it raises only wording, fix it and freeze. Then delete the earlier B3 branches.
 
 
-2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns established so far, pacing on Cornell's resets; TAMU joins at its reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
+2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns (the last 2026-11-04 09:48 UTC (04:48 EST)), waiting on the accounts' Claude usage (the human, 2026-11-06); TAMU's reset is 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
@@ -35,7 +35,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
 6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit; Unblocked: recording OECD's STES revisions (certified; about 357 MB a country quarterly).
 7. **When stage 7 nears its exit**: the Lean engine stage's criteria (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
-8. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
+8. **Post-pilot ideas:** `docs/future-work.md`.
+9. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
