@@ -13,6 +13,7 @@ DOCUMENTED_WEIGHT_PER_MIN = 1200
 BUDGET_PER_MIN = DOCUMENTED_WEIGHT_PER_MIN // 2
 
 INTERVAL_MS = {"1h": HOUR, "4h": 4 * HOUR, "1d": DAY}
+MAX_ITEMS = {"fundingHistory": 500, "candleSnapshot": 5000}
 TIMEOUT = 10  # s: one hung request plus the recorder's 5 s back-off stays under C0.3's 60 s gap limit
 
 
@@ -24,6 +25,8 @@ class Info:
         self.http = httpx.Client(timeout=TIMEOUT)
 
     def _charge(self, weight: int) -> None:
+        if not 0 <= weight <= self.budget:
+            raise ValueError(f"weight {weight} exceeds per-minute budget {self.budget}")
         with self.lock:
             while True:
                 now = time.monotonic()
@@ -36,6 +39,8 @@ class Info:
     def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None) -> Any:
         """One request, retried after a 429, a 5xx or a transport error (a timeout, a dropped connection) with
         backoff; every attempt is charged its weight."""
+        if per_items:
+            weight += MAX_ITEMS[body["type"]] // per_items
         for attempt in range(6):
             if attempt:
                 time.sleep(2 ** (attempt - 1))
@@ -55,8 +60,6 @@ class Info:
                 if attempt == 5:
                     raise
                 continue
-            if per_items and isinstance(out, list):
-                self._charge(len(out) // per_items)
             return out
 
     def _send(self, body: dict[str, Any]) -> httpx.Response:
