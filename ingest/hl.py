@@ -41,7 +41,7 @@ class Info:
                 time.sleep(2 ** (attempt - 1))
             self._charge(weight)
             try:
-                r = self.http.post(URL, json=body)
+                r = self._send(body)
             except httpx.TransportError:
                 if attempt == 5:
                     raise
@@ -53,6 +53,10 @@ class Info:
             if per_items and isinstance(out, list):
                 self._charge(len(out) // per_items)
             return out
+
+    def _send(self, body: dict[str, Any]) -> httpx.Response:
+        """Send one already-charged attempt."""
+        return self.http.post(URL, json=body)
 
     def meta(self) -> Any:
         return self.post({"type": "meta"})

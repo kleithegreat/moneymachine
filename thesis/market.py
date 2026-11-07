@@ -11,14 +11,18 @@ market's hourly bars are its recorded mark prices (stage 10 revision of 2026-10-
 dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from those samples as known at `now`.
 """
 
+import functools
 import hashlib
 import json
 import math
 import os
+import sys
 import threading
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
+
+import httpx
 
 from ingest.hl import Info
 from ingest.live import append, now_ms, read
@@ -26,6 +30,7 @@ from ingest.policy import DAY, DELTA, HOUR
 
 ALLOWED = frozenset({"meta", "perpDexs", "candleSnapshot", "fundingHistory", "metaAndAssetCtxs"})
 BUDGET_PER_MIN = 120
+MARK_BUDGET = BUDGET_PER_MIN // 2  # reserve half for hourly sampling; history cannot spend it
 HISTORY = {"1h": 200 * DAY, "1d": 3 * 365 * DAY + 30 * DAY, "funding": 3 * 365 * DAY + 30 * DAY}
 MARK_OFFSET = 5_000
 MARK_WINDOW = 5 * 60_000
@@ -80,9 +85,11 @@ def mark_bars(samples: Iterable[tuple[int, int, float | None]], now: int) -> lis
 
 
 class Exchange(Info):
-    """ingest.hl.Info restricted to ALLOWED request types, archiving each response."""
+    """ingest.hl.Info restricted to ALLOWED request types, archiving each actual HTTP attempt."""
 
-    def __init__(self, archive_dir: str | Path, budget: int = BUDGET_PER_MIN) -> None:
+    prefix = "info"
+
+    def __init__(self, archive_dir: str | Path, budget: int = BUDGET_PER_MIN - MARK_BUDGET) -> None:
         super().__init__(budget)
         self.archive = Path(archive_dir)
         self.archive.mkdir(parents=True, exist_ok=True)
@@ -90,11 +97,46 @@ class Exchange(Info):
     def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None) -> Any:
         if body.get("type") not in ALLOWED:
             raise PermissionError(f"request type {body.get('type')!r} is not an approved public read")
-        out = super().post(body, weight, per_items)
-        text = json.dumps(out, separators=(",", ":"))
-        t = now_ms()
-        append(self.archive, "info", t, {"t": t, "request": body, "sha256": hashlib.sha256(text.encode()).hexdigest(), "response": out})
-        return out
+        return super().post(body, weight, per_items)
+
+    def _send(self, body: dict[str, Any]) -> Any:
+        sample = {"sent": now_ms(), "request": body}
+        try:
+            response = super()._send(body)
+        except Exception as e:
+            sample.update(recv=None, failed=now_ms(), error=repr(e))
+            self._archive(sample)
+            raise
+        sample.update(recv=now_ms(), status=response.status_code)
+        try:
+            sample["response"] = response.json()
+        except ValueError:
+            sample["response"] = response.text
+        self._archive(sample)
+        return response
+
+    def _archive(self, sample: dict[str, Any]) -> None:
+        if "response" in sample:
+            text = json.dumps(sample["response"], separators=(",", ":"))
+            sample["sha256"] = hashlib.sha256(text.encode()).hexdigest()
+        append(self.archive, self.prefix, sample["sent"], sample)
+
+
+class Sampler(Exchange):
+    """The hourly archive holds the raw attempt and its marks together, including failed or invalid samples."""
+
+    prefix = "marks"
+
+    def _archive(self, sample: dict[str, Any]) -> None:
+        marks = {}
+        if sample["request"]["type"] == "metaAndAssetCtxs" and sample.get("status") == 200:
+            try:
+                meta, ctxs = sample["response"]
+                marks = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None
+                         for a, c in zip(meta["universe"], ctxs)}
+            except (KeyError, TypeError, ValueError):
+                pass
+        super()._archive(sample | {"dex": sample["request"].get("dex"), "marks": marks})
 
 
 class Market:
@@ -106,6 +148,11 @@ class Market:
         self.locks: dict[Path, threading.Lock] = {}
         self.repaired: dict[Path, int] = {}
         self.pending: dict[Path, dict[int, list[Any]]] = {}
+
+    @functools.cached_property
+    def sampler(self) -> Sampler:
+        """Hourly requests own a rate budget and connection, independent of every history read."""
+        return Sampler(self.root / "marks", MARK_BUDGET)
 
     def universe(self, dex: str | None = None) -> dict[str, bool]:
         """{market: delisted} of a builder dex, or of the core venue."""
@@ -159,22 +206,18 @@ class Market:
 
     def record_marks(self) -> None:
         """One sample per builder dex; archive failures as missing marks without abandoning later dexes."""
-        for dex in self.x.post({"type": "perpDexs"}):
+        for dex in self.sampler.post({"type": "perpDexs"}):
             if dex:
-                sent = now_ms()
-                sample = {"sent": sent, "dex": dex["name"], "marks": {}}
                 try:
-                    sample["response"] = meta, ctxs = self.x.post({"type": "metaAndAssetCtxs", "dex": dex["name"]})
-                    sample["marks"] = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None
-                                       for a, c in zip(meta["universe"], ctxs)}
-                except Exception as e:
-                    sample["error"] = repr(e)
-                append(self.root / "marks", "marks", sent, sample | {"recv": now_ms()})
+                    self.sampler.post({"type": "metaAndAssetCtxs", "dex": dex["name"]})
+                except (httpx.HTTPError, ValueError) as e:
+                    print(f"mark sample failed for {dex['name']}: {e!r}", file=sys.stderr)
 
     def marks(self, market: str) -> list[tuple[int, int, float | None]]:
         """(sent, recv, markPx or None) of every sample of the market's dex, in archive order."""
         dex = dex_of(market)
-        return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks") if s["dex"] == dex]
+        return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks")
+                if s["dex"] == dex and s["recv"] is not None]
 
     def lag(self, market: str) -> int:
         return MARK_WINDOW if builder(market) else DELTA
