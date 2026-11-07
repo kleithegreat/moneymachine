@@ -95,16 +95,14 @@ def check(model=MODEL):
                   **{f"write_denied:{p}": probe("Write", set(denied), file_path=p) for p in OUTSIDE},
                   "outside_read_denied": probe("Read", set(denied), file_path=OUTSIDE_READ),
                   "bash_denied": probe("Bash", set(denied), not (workdir / "work" / "x").exists(), command=TOUCH)}
-        result = {"model": model, "cli": session.claude_binary(), "turns": run["turns"], "stopped": run["stopped"],
-                  **checks,
-                  "denials": len(denied), "transcript_sha256": run["transcript_sha256"]}
-    if any(v is False for v in checks.values()):
-        raise Broken(f"the sandbox canary failed: {result}")
-    if run["exit"] != 0 or run["turns"] == 0:
-        raise Unavailable(f"the canary session ended with exit {run['exit']} after {run['turns']} turns")
-    if missing := [k for k, v in checks.items() if v is None]:
-        raise Unavailable(f"required steps not attempted: {missing}; rerun the canary: {result}")
-    return result
+        if any(v is False for v in checks.values()):
+            raise Broken(f"the sandbox canary failed: {checks}")
+        if run["exit"] != 0 or run["turns"] == 0:
+            raise Unavailable(f"the canary session ended with exit {run['exit']} after {run['turns']} turns")
+        if missing := [k for k, v in checks.items() if v is None]:
+            raise Unavailable(f"required steps not attempted: {missing}; rerun the canary: {checks}")
+        return {"model": model, "cli": session.claude_binary(), "turns": run["turns"], "stopped": run["stopped"],
+                **checks, "denials": len(denied), "transcript_sha256": run["transcript_sha256"]}
 
 
 def passes(model=MODEL):

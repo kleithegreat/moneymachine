@@ -130,6 +130,20 @@ def test_a_denied_extra_forbidden_tool_is_not_a_contract_violation(monkeypatch):
     assert canary.check()["write"]
 
 
+def test_effect_violations_are_classified_before_cli_metadata(monkeypatch):
+    good = scripted(GOOD)
+
+    def run(workdir, *args):
+        result = good(workdir, *args)
+        (Path(workdir) / "work/note.txt").write_text("wrong")
+        return result
+
+    monkeypatch.setattr(session, "run", run)
+    monkeypatch.setattr(session, "claude_binary", lambda: (_ for _ in ()).throw(RuntimeError("metadata unavailable")))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
 def test_the_good_session_passes_and_a_session_that_did_not_run_is_unavailable(monkeypatch, capsys):
     monkeypatch.setattr(session, "run", scripted(GOOD))
     assert canary.check()["write"] and canary.passes()
