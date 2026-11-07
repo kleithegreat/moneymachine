@@ -18,7 +18,7 @@ USAGE:
       JSON line. FILE is one strategy, or a .jsonl file with one strategy per line (one
       output line each, in order), or - to read JSONL from stdin and answer each line as it
       arrives. Exit code 1 if any line is a rejection or abort.
-      --version is a dataset version (a fetchedAt cutoff in ms); default: the latest.
+      --version is a dataset version (a fetchedAt cutoff in ms); default: every revision.
       --trace also writes the full event trace to OUT as JSON lines.
       --mechanism on adds the test of each strategy's `prediction` (for the gate; never
       passed to an agent).
@@ -105,14 +105,6 @@ fn emit(committed: rusqlite::Result<i64>, out: &str, to_stderr: bool, code: u8) 
 
 fn kernel_hash() -> String {
     std::env::current_exe().ok().and_then(|p| std::fs::read(p).ok()).map_or("unknown".into(), |b| sha256_hex(&b))
-}
-
-fn latest_version(store: &Path) -> Option<i64> {
-    ["funding", "bars_4h"]
-        .iter()
-        .flat_map(|d| std::fs::read_dir(store.join(d)).into_iter().flatten())
-        .filter_map(|e| e.ok()?.path().file_stem()?.to_str()?.parse::<i64>().ok())
-        .max()
 }
 
 /// The run restricted to the steps whose equity time is after `after` (the disclosed window), as an account that
@@ -271,7 +263,7 @@ fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
     let venue = market::venue(Path::new(a.get("venue", "venue/hyperliquid")))?;
     let version = match a.opts.get("version") {
         Some(v) => v.parse().map_err(|_| LoadError::Io("bad --version".into()))?,
-        None => latest_version(&store).ok_or_else(|| LoadError::Io("empty store".into()))?,
+        None => i64::MAX,
     };
     let (stores, holdout, report_after, end) = if mode == "holdout" {
         let h = PathBuf::from(a.opts.get("holdout-store").ok_or_else(|| LoadError::Io("--holdout-store required".into()))?);

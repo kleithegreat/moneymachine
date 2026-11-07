@@ -20,7 +20,7 @@ from pathlib import Path
 import polars as pl
 import pyarrow as pa
 
-from ingest import resolve
+from ingest import knownat, resolve
 from ingest.policy import HOLDOUT_START, HOUR, POLICY
 
 
@@ -45,20 +45,10 @@ def rule_expr(dataset, policy):
     return {"field": "fetchedAt"}
 
 
-def known_at(dataset, policy):
-    """`rule_expr` as a polars expression."""
-    def compile(e):
-        (op, v), = e.items()
-        if op == "field":
-            return pl.col(v)
-        if op == "ms":
-            return pl.lit(v)
-        if op == "add":
-            return compile(v[0]) + compile(v[1])
-        if op == "floor":
-            return compile(v[0]) // compile(v[1]) * compile(v[1])
-        return pl.max_horizontal(*map(compile, v))
-    return compile(rule_expr(dataset, policy))
+def known_at(dataset, policy, row):
+    """A first revision's knownAt from its time fields `row`: the dataset's rule, evaluated as the resolver does."""
+    expr = knownat.check(json.dumps({"rule": 1, "expr": rule_expr(dataset, policy)}), ["eventTime", "reportedTime", "fetchedAt"], [])
+    return knownat.evaluate(expr, row, {})
 
 
 def live(df):
@@ -102,7 +92,7 @@ class Store:
     def revisions(self, dataset):
         kept = self._pinned(dataset)
         if kept["revisions"] is None and kept["footers"]:
-            kept["revisions"] = pl.concat([pl.read_parquet(f.path).drop("knownAt", strict=False) for f in kept["footers"]],
+            kept["revisions"] = pl.concat([pl.read_parquet(f.data.to_pybytes()).drop("knownAt", strict=False) for f in kept["footers"]],
                                           how="diagonal_relaxed")
         return kept["revisions"]
 

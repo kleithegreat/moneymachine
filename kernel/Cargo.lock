@@ -563,6 +563,7 @@ dependencies = [
  "arrow-ipc",
  "arrow-schema",
  "base64 0.22.1",
+ "bytes",
  "egg",
  "parquet",
  "rusqlite",

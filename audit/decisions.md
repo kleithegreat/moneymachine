@@ -821,3 +821,43 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
   as they are (the C7.7 corpus needs a market exporter with revisions); Rust reads Parquet through the `arrow` feature,
   to read each file's own types.
 - **Reverse:** `git revert` the five `stage7 slice 5` commits; nothing else depends on them.
+
+## 2026-11-07 UTC: stage 7 slice 5 fixes, Argon's review answered (builder: slice 5 fixes)
+
+- **What.** Each finding of `audit/stage7/slice5-review-argon.md` was checked against the code; each that held was first a failing
+  test, then fixed at its cause. Commits "stage7 slice 5 fixes: ...".
+  - **F1 holds.** `market::Funding` and `Bar` carry `retraction`; `sim::run`'s `fresh` requires `!retraction` (RULES.md §6, Lean's
+    `Ctx.admissible`), so a retracted bar or funding entry holds as "stale" and no order is sized from a NaN price.
+    `kernel/mm/tests/delivery.rs` (funding, bar). `mmdump`'s market JSON appends the flag; Lean's `Main.lean` (frozen) still
+    reads `retraction := false`, so the corpus differential cannot yet see it: a later Lean revision.
+  - **F2 holds.** `Event` keeps `recorded` and `key`; `Market::delivery` is the one delivery order (funding and bars by
+    (knownAt, coin, event), events by (knownAt, coin, input, recording time, eventTime)), used by `sim::run`, the new
+    `sim::observe` and `mmdump`, replacing three copies. Test: `observations_sharing_a_known_at_arrive_in_recording_order`.
+  - **F3 holds.** Both `read_revisions` decide eligibility from `fetchedAt` alone and decode other columns only for a file with
+    an eligible row; `Store._frame` takes columns and types from eligible files' tables (footers only when none is eligible).
+    Tests: `ingest/tests/test_post_version.py`, `an_undecodable_file_fetched_after_the_version_changes_nothing`. The
+    `Store.write` Null cast the review adds in passing is not changed: `write` fixes a stored column's type at the first file
+    and a Boolean column never occurs in the stores' schemas; no reproduction.
+  - **F4 holds.** `holdout_check` takes every (footers, event) pair of the call: any uncheckable event time wins, the crossing
+    named is the least over all datasets (`the_holdout_check_spans_the_datasets_of_a_call`).
+  - **F5 holds.** `Store.entries` nulls the value columns of a retraction. The three Named Test 1 controls are
+    `test_the_observation_comparison_catches_its_controls`. The suite's loaders stay the suite's: `Store.entries` and
+    `market::load` are adapters with their own declarations, not runnable on arbitrary suite cases, so F1 and F2 are caught at
+    their level (`delivery.rs`). The `evidence` late-rows variant is `an_evidence_dataset_is_checked_for_late_rows_too`.
+  - **F6 holds.** `holdout_check` reads the event column only if its footer type is Int64 (else UNCHECKABLE); Python's
+    `read` turns a decode failure into `Refusal("INVALID")`, as `Footer` does.
+  - **F7 does not hold.** A file whose `ARROW:schema` contradicts an undeclared column (hint `Struct` over physical `Int64`,
+    hint `Int64` over a physical List) was written with the `parquet` crate and read by both loaders: pyarrow's `schema_arrow`
+    and `ArrowReaderMetadata::load` both keep the Parquet type for that column and do not fail. No code changed.
+  - **F8 holds.** `PROGRAM` reads funding, premium, open, high, low, close, volume and forum counts; the late-venue-state check
+    compares every node's value at every tick through T (`sim::observe`, before any order is sized), not execution-gated
+    trace events. New mutants: S3 (a bar correction known before it was fetched) and D1 (the search evaluation also loads the
+    holdout store), the daemon check's missing read-ahead control; `mutants.py`'s S1 and I1 edits follow the shared feed.
+  - **F9 holds.** Each file is read once (`Footer.data` in Python, `Footer.bytes` in Rust); the holdout check, the decode
+    and `data_hash` use those bytes, and the cache's stat identity only decides when to re-pin. Test:
+    `test_a_search_store_reads_the_bytes_it_checked` (Python; the Rust race has no deterministic reproduction).
+  - **F10 holds.** I7 now says what `data_hash` hashes: every `.parquet` file of each dataset the run reads, in name order,
+    whatever the version (SOURCES.md §2, §7). `test_cli.py`'s `data_hash` follows; `mm`'s default `--version` is every
+    revision (`i64::MAX`), `latest_version` deleted since file names carry no version; `store.known_at` evaluates through
+    `knownat.evaluate` (its Polars twin deleted; `availability.py` and `test_checks.py` follow); a stale header comment goes.
+- **Reverse.** `git revert` the "stage7 slice 5 fixes" commits. I7's wording is a revision, not a loosened threshold.

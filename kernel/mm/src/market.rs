@@ -262,11 +262,9 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
     datasets.extend(EVENT_INPUTS.iter().map(|e| e.1).filter(|ds| stores.iter().any(|s| s.join(ds).exists())));
     let resolved = resolve::resolve(stores, datasets.iter().map(|ds| source(ds, policy)).collect(), &venue.coins, version, holdout)?;
     let mut hasher = Sha256::new();
-    for ds in &datasets {
-        for p in resolve::files(stores, ds) {
-            hasher.update(p.file_name().unwrap().to_string_lossy().as_bytes());
-            hasher.update(Sha256::digest(fs::read(&p).map_err(io)?));
-        }
+    for (name, digest) in resolved.files.iter().flatten() {
+        hasher.update(name.as_bytes());
+        hasher.update(digest);
     }
     let value = |k: &Key, e: &resolve::Entry, column: &str| if e.retraction { f64::NAN } else { resolved.cell(k, e, column).num().unwrap_or(f64::NAN) };
     let mut funding = vec![];

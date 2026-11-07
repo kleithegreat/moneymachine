@@ -15,16 +15,13 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued.
 - **Budget.** Campaigns start on the first account (TAMU, then Cornell) with every window at most 0.8 after the most a campaign has used (`need`, measured across accounts). Claude work on an account during its campaign can exhaust it, a counted crash: none then.
 
-- **Nine defects specced** on main, two review rounds; stage 7 implements them after its byte-identical tag.
-
 ### Next, in order
 
 - **Stage 7 slice 2** closed on `stage7` (`ccfda7e`): GPT-reviewed fixes; the run differential agrees on all 3,372 runs. Stage 7 hunt fixes merged after C7.7 review (`audit/reviews/2026-11-04-*-hunt-fixes-review*.md`).
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 frozen**, `b3-r11` (`kernel/tests/rules/`). **Slice 5 built** on branch `slice5` (off `stage7`, unmerged): `ingest/resolve.py` (`store.as_of`) and `mm`'s `resolve.rs` equal Lean on 546 cases, GPT's sealed resolver on all 652. Left: the structural holdout review (Argon's dry run underway); `mmdump` still exports no revisions.
-
+- **B3 frozen**, `b3-r11` (`kernel/tests/rules/`). **Slice 5 built** on branch `slice5` (off `stage7`, unmerged): `ingest/resolve.py` (`store.as_of`) and `mm`'s `resolve.rs` equal Lean on 546 cases, GPT's sealed resolver on all 652; Argon's review answered (`audit/stage7/slice5-review-argon.md`, `audit/decisions.md`; F7 did not hold). Left: the structural holdout review; `mmdump` carries retractions but no revisions, and Lean's `Main.lean` ignores its flag.
 
 2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns established so far, pacing on Cornell's resets; TAMU joins at its reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:

@@ -46,12 +46,12 @@ def evaluate(market, ledger, strategy=W0, text=True):
     return mm(market, "eval", str(strategy), "--campaign", "c", "--agent", "a", ledger=ledger, text=text)
 
 
-def data_hash(store, version):
+def data_hash(store):
     """I7's dataset hash, recomputed from the files: for funding, the 4h bars and each event dataset present, in that
-    order, each file at or before `version` in version order, its name and the SHA-256 of its bytes."""
+    order, every `.parquet` file in name order, its name and the SHA-256 of its bytes."""
     h = hashlib.sha256()
     for dataset in ("funding", "bars_4h", "events_forum", "events_governance"):
-        for _, f in sorted((int(f.stem), f) for f in (Path(store) / dataset).glob("*.parquet") if int(f.stem) <= version):
+        for f in sorted((Path(store) / dataset).glob("*.parquet")):
             h.update(f.name.encode() + hashlib.sha256(f.read_bytes()).digest())
     return h.hexdigest()
 
@@ -68,7 +68,7 @@ def test_eval_records_identity_and_disclosure(market, tmp_path):
     sha = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
     assert (row["rules_hash"], row["execution_hash"], row["kernel"]) == \
         (sha(Path(market) / "venue" / "rules.json"), sha(Path(market) / "venue" / "execution.json"), sha(MM))
-    assert row["data_hash"] == data_hash(Path(market) / "store", row["dataset_version"])
+    assert row["data_hash"] == data_hash(Path(market) / "store")
     disclosed = db.execute("SELECT content FROM disclosures WHERE experiment_id = ?", (out["experiment"],)).fetchone()
     assert json.loads(disclosed[0]) == out["disclosure"]
 

@@ -82,10 +82,13 @@ def check_declarations(sources):
 
 
 class Footer:
+    """A file's bytes, read once, and its footer: everything later decoded comes from these bytes (SOURCES.md §7)."""
+
     def __init__(self, path):
         self.path = path
         try:
-            file = pq.ParquetFile(path)
+            self.data = pa.py_buffer(Path(path).read_bytes())
+            file = pq.ParquetFile(pa.BufferReader(self.data))
             self.rows = file.metadata.num_rows
             self.schema = file.schema_arrow
             names = file.schema.to_arrow_schema().names
@@ -117,7 +120,7 @@ def columns_read(footer, s):
 def read(f, columns):
     """The `columns` of file f, or Refusal INVALID if it cannot be decoded."""
     try:
-        return pq.read_table(f.path, columns=columns)
+        return pq.read_table(pa.BufferReader(f.data), columns=columns)
     except (pa.ArrowException, OSError) as e:
         raise Refusal("INVALID", f"{f.path}: {e}") from None
 

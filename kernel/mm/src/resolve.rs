@@ -11,12 +11,13 @@ use crate::rule::{self, Expr, Json, HI, LO};
 use arrow_array::{Array, BooleanArray, Float64Array, Int64Array, LargeStringArray, StringArray};
 use arrow_schema::DataType;
 use base64::Engine;
+use bytes::Bytes;
 use parquet::arrow::arrow_reader::{ArrowReaderMetadata, ArrowReaderOptions, ParquetRecordBatchReaderBuilder};
 use parquet::arrow::ProjectionMask;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -231,9 +232,11 @@ impl Source {
     }
 }
 
-/// A file's footer: its top-level names and types as the file states them.
+/// A file's bytes, read once, and its footer: its top-level names and types as the file states them. Everything
+/// decoded later comes from these bytes (SOURCES.md §7).
 struct Footer {
     path: PathBuf,
+    bytes: Bytes,
     rows: i64,
     names: Vec<String>,
     types: Vec<DataType>,
@@ -244,7 +247,8 @@ impl Footer {
     /// A file's footer, or INVALID if it fails SOURCES.md §2's footer schema checks.
     fn read(path: &Path) -> Result<Footer, Refusal> {
         let at = |e: String| Refusal::Invalid(format!("{}: {e}", path.display()));
-        let meta = ArrowReaderMetadata::load(&File::open(path).map_err(|e| at(e.to_string()))?, ArrowReaderOptions::new()).map_err(|e| at(e.to_string()))?;
+        let bytes = Bytes::from(std::fs::read(path).map_err(|e| at(e.to_string()))?);
+        let meta = ArrowReaderMetadata::load(&bytes, ArrowReaderOptions::new()).map_err(|e| at(e.to_string()))?;
         let file = meta.metadata().file_metadata();
         let names: Vec<String> = file.schema_descr().root_schema().get_fields().iter().map(|f| f.name().to_string()).collect();
         let embedded = file.key_value_metadata().and_then(|kv| kv.iter().find(|k| k.key == "ARROW:schema")).and_then(|k| k.value.clone());
@@ -262,7 +266,7 @@ impl Footer {
         if types.len() != names.len() {
             return Err(at("the schemas differ".into()));
         }
-        let footer = Footer { path: path.to_path_buf(), rows: file.num_rows(), names, types, meta };
+        let footer = Footer { path: path.to_path_buf(), bytes, rows: file.num_rows(), names, types, meta };
         if footer.type_of("fetchedAt") != Some(&DataType::Int64) || footer.type_of("tombstone").is_some_and(|t| t != &DataType::Boolean) {
             return Err(at("fetchedAt is not Int64 or tombstone is not Boolean".into()));
         }
@@ -281,7 +285,7 @@ impl Footer {
     fn batches(&self, columns: &[&str]) -> Result<parquet::arrow::arrow_reader::ParquetRecordBatchReader, Refusal> {
         let schema = self.meta.metadata().file_metadata().schema_descr();
         let mask = ProjectionMask::roots(schema, columns.iter().filter_map(|c| self.index(c)));
-        ParquetRecordBatchReaderBuilder::new_with_metadata(File::open(&self.path).map_err(invalid)?, self.meta.clone())
+        ParquetRecordBatchReaderBuilder::new_with_metadata(self.bytes.clone(), self.meta.clone())
             .with_projection(mask)
             .build()
             .map_err(invalid)
@@ -376,6 +380,8 @@ pub struct Resolved {
     pub keys: Vec<Key>,
     revs: Vec<Vec<Rev>>,
     declared: Vec<Vec<String>>,
+    /// Per source, each file's name and the SHA-256 of the bytes resolution read, in name order.
+    pub files: Vec<Vec<(String, [u8; 32])>>,
 }
 
 fn cell_of(json: &Json) -> Option<Cell> {
@@ -538,7 +544,8 @@ pub fn resolve(roots: &[PathBuf], sources: Vec<Source>, universe: &[String], ver
     let revs: Vec<Vec<Rev>> = (0..sources.len())
         .map(|i| read_revisions(&footers[i], &sources[i], &declared[i], version, &names, &entity_columns))
         .collect::<Result<_, _>>()?;
-    let mut resolved = Resolved { sources, keys: vec![], revs, declared };
+    let files = footers.iter().map(|fs| fs.iter().map(|f| (f.path.file_name().unwrap().to_string_lossy().into_owned(), Sha256::digest(&f.bytes).into())).collect()).collect();
+    let mut resolved = Resolved { sources, keys: vec![], revs, declared, files };
     let mut index: HashMap<(usize, Vec<Ident>, i64), usize> = HashMap::new();
     let mut done = vec![false; resolved.sources.len()];
     for i in 0..done.len() {

@@ -48,6 +48,7 @@ def test_replay_view_matches_keys(tmp_path):
 
 
 def test_late_settlement_delays_known_at():
-    on_time, late = funding_frame([{"coin": "A", "time": 5 * HOUR + 48, "fundingRate": "0", "premium": "0"},
-                                   {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}]).select(known_at("funding", POLICY)).to_series()
+    rows = funding_frame([{"coin": "A", "time": 5 * HOUR + 48, "fundingRate": "0", "premium": "0"},
+                          {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}])
+    on_time, late = (known_at("funding", POLICY, row | {"fetchedAt": 0}) for row in rows.iter_rows(named=True))
     assert on_time == 5 * HOUR + DELTA and late == 6 * HOUR + 887_645 + 60_000

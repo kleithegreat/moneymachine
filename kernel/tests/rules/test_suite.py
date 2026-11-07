@@ -114,6 +114,38 @@ def test_each_production_loader_gives_leans_result_and_observations(resolver_res
         assert lean_check.same(got["observations"], lean["observations"]), (loader, c)
 
 
+def final_values(observations):
+    """The control of a loader delivering the final revision's values on every entry."""
+    last = {tuple(o[:3]): o for o in observations}
+    return [o[:7] + last[tuple(o[:3])][7:9] + [o[9]] for o in observations]
+
+
+def stored_on_retractions(observations):
+    """The control of a loader delivering a retraction's stored values: those of the entry before it."""
+    out, before = [], {}
+    for o in observations:
+        out.append(o[:7] + before[tuple(o[:3])][7:9] + [o[9]] if o[5] and tuple(o[:3]) in before else o)
+        before[tuple(o[:3])] = o
+    return out
+
+
+def every_entry_final(observations):
+    """The control of a loader marking every entry final."""
+    return [o[:9] + [True] for o in observations]
+
+
+@pytest.mark.parametrize("control", [final_values, stored_on_retractions, every_entry_final])
+def test_the_observation_comparison_catches_its_controls(resolver_results, control):
+    """Named test 1's controls: a loader delivering the final revision's values on every entry, a retraction's stored
+    values, or every entry as final, differs from Lean's observations on some case."""
+    caught = 0
+    for c, lean in zip(cases(), resolver_results["lean"], strict=True):
+        if isinstance(lean["result"], dict) and resolver_suite.image(c):
+            wrong = control(lean["observations"])
+            caught += not lean_check.same(wrong, lean["observations"])
+    assert caught >= 10
+
+
 def test_gpts_independent_resolver_gives_leans_result_and_observations(resolver_results):
     """C7.6's spec-only participant, on every case: result and observations equal Lean's."""
     for c, lean, got in zip(cases(), resolver_results["lean"], resolver_results["gpt"], strict=True):

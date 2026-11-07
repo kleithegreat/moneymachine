@@ -9,6 +9,7 @@ arrow-array = "=60.0.0"
 arrow-ipc = "=60.0.0"
 arrow-schema = "=60.0.0"
 base64 = "0.22"
+bytes = "1"
 parquet = { version = "60.0.0", default-features = false, features = ["zstd", "snap", "arrow"] }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = "1.0.229"

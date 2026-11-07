@@ -94,3 +94,25 @@ def test_a_retraction_delivers_no_stored_value(tmp_path):
     assert entries["retraction"].to_list() == [False, True]
     assert entries["rate"].to_list() == [2.0, None]
     assert entries["coin"].to_list() == ["A", "A"] and entries["eventTime"].to_list() == [2 * 3_600_000] * 2
+
+
+def test_a_search_store_reads_the_bytes_it_checked(tmp_path):
+    """SOURCES.md §7: evaluation reads the admitted bytes, never a reopened path. A file overwritten in place with
+    the same size and mtime after the holdout check passed does not put a holdout row into a later view."""
+    from ingest.policy import HOLDOUT_START
+    from ingest.store import Store
+    market_store(tmp_path)
+    (tmp_path / DATASET).mkdir()
+    table = pa.table({"coin": ["A"], "eventTime": pa.array([2 * 3_600_000], pa.int64()), "rate": [1.5],
+                      "fetchedAt": pa.array([100], pa.int64())})
+    pq.write_table(table, tmp_path / DATASET / "100.parquet", compression="NONE", use_dictionary=False, write_statistics=False)
+    search = Store(tmp_path, event_before=HOLDOUT_START)
+    path = search._files(DATASET)[0]
+    assert search.as_of(DATASET, 9 * 3_600_000, 100).height == 1
+    data, stat = bytearray(path.read_bytes()), path.stat()
+    old, new = (2 * 3_600_000).to_bytes(8, "little"), (HOLDOUT_START + 3_600_000).to_bytes(8, "little")
+    assert data.count(old) == 1
+    path.chmod(0o644)
+    path.write_bytes(bytes(data).replace(old, new))
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert search.as_of(DATASET, HOLDOUT_START * 2, 101)["eventTime"].to_list() == [2 * 3_600_000]

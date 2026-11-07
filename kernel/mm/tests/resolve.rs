@@ -1,6 +1,6 @@
 //! C7.6's named loader-level tests on `mm`'s loader (audit/criteria.md, B3 revision): test 3, holdout staging, in its
 //! Rust namesake of `ingest/tests/test_store.py`'s `test_holdout_check_decides_on_event_times_alone`, facing the same
-//! fixtures and variants; and the resolver's two-run checks (self-composition).
+//! fixtures and variants. The two-run checks are `noninterference.rs`.
 //!
 //! The loader's API is `market::load`; its channels are checked in a child process of this very test binary, run with
 //! `--nocapture`, whose output must be the harness's own lines and nothing else.
@@ -408,4 +408,32 @@ fn the_holdout_check_spans_the_datasets_of_a_call() {
     assert_eq!(err.to_string(), UNCHECKABLE);
     let err = mixed("least", h + 2, &|p| late_file(p, Event::Int64, V, h + 1)).unwrap_err();
     assert_eq!(err.to_string(), crossing(h + 1));
+}
+
+/// C7.6 test 3's namesake also holds evidence late rows: an evidence dataset's rows at or after the boundary refuse a
+/// search, whatever else they hold, and are never decoded. Argon's review of slice 5, F5.
+#[test]
+fn an_evidence_dataset_is_checked_for_late_rows_too() {
+    let policy = policy();
+    let root = scratch("evidence");
+    let evidence = mm::resolve::Source {
+        name: "obs".into(),
+        rule: r#"{"rule": 1, "expr": {"field": "eventTime"}}"#.into(),
+        times: vec!["eventTime".into()],
+        values: vec!["close".into()],
+        entity: vec!["coin".into()],
+        event: "eventTime".into(),
+        slot: None,
+        role: None,
+        evidence: true,
+        deps: vec![],
+    };
+    let crossing = policy.holdout_start + HOUR;
+    let row = |event| Row { event: Some(event), ..early("A", 8) };
+    std::fs::create_dir_all(root.join("obs")).unwrap();
+    write(&root.join("obs/0.parquet"), &[row(8 * HOUR)], Event::Int64, Kind::F);
+    write(&root.join("obs/1.parquet"), &[row(crossing), row(crossing + HOUR)], Event::Int64, Kind::F);
+    garble(&root.join("obs/1.parquet"), &["eventTime"]);
+    let got = mm::resolve::resolve(&[root.clone()], vec![evidence], &[], V, Some(policy.holdout_start)).err().map(|e| e.to_string());
+    assert_eq!(got, Some(format!("holdout crossing: event time {crossing} at or after {}", policy.holdout_start)));
 }
