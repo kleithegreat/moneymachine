@@ -32,7 +32,6 @@ The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap s
 
 - When the human asks something or proposes an idea, catch every case where it has already been studied, solved or argued at length. Say exactly "this has been talked about extensively you're just 21", name the work and what it found, and build on that. Say it only when it is true, checking when unsure.
 - Before a decision that could change a judged result or can't be undone, ask a fresh Claude session and GPT, without giving them your conclusion. They are as capable as you, so they see the whole repo and history, except what Reviewers withholds.
-- Choose each builder's model by the task's difficulty: Sonnet 5.5 as a subagent or GPT where a check covers the work, Opus for the hard parts.
 
 ### Where information lives
 
@@ -83,6 +82,22 @@ Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper 
 **GPT** is opencode, model `openai/gpt-6.1-sol#high`; as a builder, `opencode run --auto -m <model> "<prompt>"` from a worktree. Every `opencode run` takes stdin from `/dev/null`: otherwise, started in the background, it waits on stdin forever without opening a session. Probe first (`timeout 120 opencode run -m <model> "Reply with OK."`). If it fails, never block: a fresh Claude session reviews, labeled as such, with a GPT review queued; an independent implementation waits unless its criterion says otherwise.
 
 Work that could change a false-discovery or leakage outcome gets an independent review, whichever model wrote it. Research agents' models are frozen in their harnesses.
+
+### Orchestration
+
+Plan usage is the binding cost, so roles follow each model's record here and the independence rules above:
+- **GPT** builds by default wherever it checks nothing. Its fixes can regress nearby code (refreeze round two, `audit/reviews/2026-11-07-opus-thesis-refreeze.md`), so a reviewer on another model follows every GPT build; when GPT built the work, that reviewer replaces GPT in the advisor's pair.
+- **Claude Opus** gives the last review before anything that can't be undone or changes a judged result (a refreeze, a stage exit, a criteria freeze) and builds the hard parts; **Sonnet**, as a subagent, takes bounded builds, bisects and second reviews.
+- **Gemini 4 Argon** checks derivations and the paper's mathematics: `NIXPKGS_ALLOW_UNFREE=1 nix shell --impure nixpkgs#antigravity-cli -c agy -p "<prompt>" --model gemini-4-argon-high --print-timeout 58m --output-format json </dev/null` from a clean worktree, which `~/.gemini/antigravity-cli/settings.json` trusts and limits to reading. One run at a time, never near its weekly limit: a 429 discards the whole run (two reviews lost, 2026-11-07). `agy models` lists what the plan offers.
+- A model new to a role is calibrated blind on a settled case before its findings count.
+
+A review is evidence only when its reviewer could have failed it:
+- The reviewer runs things in its own worktree, and a slice's review runs the harness of every criterion the slice can break: read-only reviews missed what one run showed (C6.4's edge market after slice 5, `audit/stage7/edge-regression.md`).
+- The diff it reads is three-dot from the merge base: a two-dot diff against a moved `main` produced a false finding (2026-11-07).
+- A reviewer's suggested fix is a hypothesis: the builder fixes the cause it finds, from a failing test (Argon's read-only ledger became round two's worst regression).
+- Successive rounds rotate models: each round so far caught what the one before missed.
+
+Builders commit each finished step and write long runs' output to disk, so a usage cutoff costs one step (GPT stopped mid-work four times, 2026-11-06 and 07). As a plan nears its limit, stop the least important Claude work first: the advisor shares the account.
 
 ### Sources
 
