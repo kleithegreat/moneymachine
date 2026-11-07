@@ -43,7 +43,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Blockers
 
-- **Thesis capacity:** above the admitted initial wave, every-dex-at-deadline is impossible; sampling alarms and uses later waves rather than losing all marks. Source-budget and cold-session feasibility still need resolution before refreeze.
+- **Thesis capacity:** T3's 720/min premise exceeds the certificate. Above the admitted initial wave, every-dex-at-deadline is impossible; sampling alarms and uses later waves. Source-budget and cold-session feasibility need resolution before refreeze.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Capacity guard not deployed:** rollout and visible synthetic desktop alarm check in `CLUSTER.md` §5. O2 states the chosen reserve and offline limitation, not a response-time guarantee.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.

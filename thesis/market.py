@@ -331,9 +331,9 @@ class Market:
             with ThreadPoolExecutor(max_workers=slots) as pool:
                 for attempt in range(6):
                     if attempt:
+                        time.sleep(2 ** (attempt - 1))
                         if now_ms() + MARK_PREP + TIMEOUT * 1000 >= due - MARK_OFFSET + MARK_WINDOW:
                             break
-                        time.sleep(2 ** (attempt - 1))
                     batch, names = names[:slots], names[slots:]
                     names += [d for d in pool.map(sample, batch) if d is not None]
                     if not names:

@@ -711,3 +711,20 @@ def test_an_early_scheduler_wakeup_does_not_sample_the_previous_hour(tmp_path, m
     monkeypatch.setattr(m.sampler.http, "post", post)
     m.record_marks(H + 5_000)
     assert sent == [H + 5_000]
+
+
+def test_retry_admission_includes_the_backoff_before_its_seal_margin(tmp_path, monkeypatch):
+    clock, sent = [H + 5_000], []
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+
+    def post(url, json):
+        if json["type"] == "perpDexs":
+            return httpx.Response(200, json=[{"name": "xyz"}], request=httpx.Request("POST", url))
+        sent.append(clock[0])
+        clock[0] = max(clock[0], H + 229_500)
+        return httpx.Response(503, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks(H + 5_000)
+    assert sent == [H + 5_000]
