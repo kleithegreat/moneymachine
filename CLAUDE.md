@@ -35,11 +35,13 @@ When the human asks something or proposes an idea, catch every case where it has
 ### Where information lives
 
 One authoritative home per kind of information; anything elsewhere is a summary that links to it.
-- **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is summarized there, linking its audit record. Specs and criteria say what, and cite the paper for why. **Process:** this file. **The live system:** `CLUSTER.md`.
+- **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is summarized there, linking its audit record. Specs and criteria say what, and cite the paper for why.
+- **Process:** this file.
+- **The live system:** `CLUSTER.md`.
 - **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (`ops/test_progress.py`), leaving history to git.
 - **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
 - **Source certificates:** `venue/sources.toml`, read by the terms tests.
-- **Specs for independent implementers:** `kernel/{DSL,INVARIANTS,CANONICAL}.md`, `gate/NULLS.md`, `thesis/SCORING.md`, `reference/SEMANTICS.md`.
+- **Specs for independent implementers:** the upper-case `.md` beside the code it defines (`kernel/DSL.md`, `thesis/SCORING.md`), complete enough to implement from alone.
 - **History:** `ctx view | zoom | grep`, a retrieval aid and never evidence: before relying on a summary, read the leaf (`ctx zoom <ref>`) and the audit record.
 
 ### Frozen identities
