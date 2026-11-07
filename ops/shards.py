@@ -1,0 +1,254 @@
+"""One test-suite run across this desktop and the idle nodes (CLUSTER.md section 7)."""
+
+import argparse
+import io
+import json
+import os
+import re
+import shlex
+import shutil
+import statistics
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+SSH = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=yes"]
+NODES = {"prodesk5": ("kevin@192.168.8.229", 6), "gmktec": ("kevin@192.168.8.153", 8)}
+ROOT = "/home/kevin/.cache/mm-runner"
+TMP = "/dev/shm/mm-runner"
+LOCAL = "local"
+LOCAL_ONLY = (
+    "kernel/tests/cli/test_differential.py::test_kernel_matches_witness",
+    "reference/tests/",
+    "gate/tests/test_sandbox.py",
+)
+DURATIONS = Path.home() / ".cache/mm-shards/durations.json"
+SLOWNESS = "_slowness"
+REMOTE = '''set -eu
+root=$1
+tmp=$2
+export PATH=$PATH:/nix/var/nix/profiles/default/bin
+mkdir -p -m 700 "$root" && cd "$root"
+mkdir -p h
+exec 9>lock
+flock 9
+mkdir -p -m 700 "$tmp"
+trap 'rm -rf -- "$root/in" "$tmp"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+rm -rf in report.json
+mkdir in
+tar -xz -C in
+export HOME="$root/h" XDG_CACHE_HOME="$root/h/cache" XDG_CONFIG_HOME="$root/h/config" TMPDIR="$tmp"
+unset CARGO_TARGET_DIR PYTEST_ADDOPTS
+[ -d w/.git ] || git init -q w
+cd w
+mkdir -p data
+git fetch -q "$root/in/repo.bundle" HEAD
+git reset -q --hard FETCH_HEAD
+git clean -fdq
+rsync -a "$root/in/files/" ./
+xargs -0 -r -a "$root/in/deleted" git rm -q -f --ignore-unmatch --
+xargs -0 -r -a "$root/in/manifest" git add -f --
+timeout 3600 nice -n 10 nix --extra-experimental-features 'nix-command flakes' develop -c env TMPDIR="$tmp" \\
+    pytest "@$root/in/ids" --shard-report "$root/report.json" --basetemp "$tmp/p" -p no:cacheprovider -q
+'''
+
+
+def arguments(argv):
+    parser = argparse.ArgumentParser(usage="%(prog)s <worktree> [--machines local,prodesk5,gmktec] [pytest selection args...]",
+                                     description="Selection arguments (paths, -k, -m) go to collection only; "
+                                                 "the shards run the collected ids.")
+    parser.add_argument("worktree", type=Path)
+    parser.add_argument("--machines", default=",".join([LOCAL, *NODES]))
+    args, selection = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
+    machines = args.machines.split(",")
+    if LOCAL not in machines or any(m != LOCAL and m not in NODES for m in machines) or len(set(machines)) != len(machines):
+        parser.error(f"--machines takes {LOCAL} and any of {', '.join(NODES)}; prodesk7 and every other node are refused")
+    if any(a == "--basetemp" or a.startswith(("--basetemp=", "--junitxml", "-p", "-n", "--dist")) for a in selection):
+        parser.error("the runner owns --basetemp, --junitxml, -p, -n and --dist")
+    worktree = args.worktree.expanduser().resolve()
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=worktree, check=True,
+                             capture_output=True, text=True).stdout.strip()
+        if Path(top) != worktree or not (worktree / "flake.nix").is_file():
+            raise ValueError("expected the root of a worktree containing flake.nix")
+    except (OSError, subprocess.CalledProcessError, ValueError) as e:
+        parser.error(f"invalid worktree: {e}")
+    return worktree, machines, selection
+
+
+def files(worktree):
+    """(names to ship, names deleted here): the current tree, without data/ and ignored files, as NUL-terminated bytes."""
+    names = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                           cwd=worktree, capture_output=True, check=True).stdout.split(b"\0")
+    kept, gone = [], []
+    for name in sorted(set(names) - {b""}):
+        path = worktree / os.fsdecode(name)
+        if name.split(b"/", 1)[0] == b"data":
+            continue
+        if not os.path.lexists(path):
+            gone.append(name + b"\0")
+            continue
+        if not path.resolve().is_relative_to(worktree):
+            raise ValueError(f"source link escapes the worktree: {path}")
+        if path.is_dir():
+            raise ValueError(f"nested repositories are not supported: {path}")
+        kept.append(name + b"\0")
+    return b"".join(kept), b"".join(gone)
+
+
+def collect(worktree, selection):
+    out = subprocess.run(["nix", "develop", "-c", "pytest", "--collect-only", "-q", "-n0", "-p", "no:cacheprovider", *selection],
+                         cwd=worktree, capture_output=True, text=True, env=dict(os.environ, PYTEST_ADDOPTS=""))
+    if out.returncode:
+        raise ValueError(f"collection failed:\n{out.stdout[-3000:]}{out.stderr[-3000:]}")
+    ids = [line for line in out.stdout.splitlines() if re.match(r"^\S+\.py::", line)]
+    if len(set(ids)) != len(ids) or not ids:
+        raise ValueError("collection gave no tests or repeated ids")
+    return ids
+
+
+def assign(ids, durations, cores):
+    """{machine: ids}: the local-only tests on the desktop, the rest longest first onto the machine that would finish
+    soonest. `cores` is each machine's speed: its cores over how much slower than predicted its last run was."""
+    guess = statistics.median(durations.values()) if durations else 1.0
+    load = dict.fromkeys(cores, 0.0)
+    shards = {m: [] for m in cores}
+    local = [i for i in ids if i.startswith(LOCAL_ONLY)]
+    rest = sorted((i for i in ids if not i.startswith(LOCAL_ONLY)), key=lambda i: -durations.get(i, guess))
+    for i in local:
+        shards[LOCAL].append(i)
+        load[LOCAL] += durations.get(i, guess) / cores[LOCAL]
+    for i in rest:
+        m = min(cores, key=lambda m: load[m] + durations.get(i, guess) / cores[m])
+        shards[m].append(i)
+        load[m] += durations.get(i, guess) / cores[m]
+    return shards
+
+
+def package(worktree, ids, tar_path):
+    manifest, deleted = files(worktree)
+    with tempfile.TemporaryDirectory(prefix="mm-bundle-") as scratch:
+        bundle = Path(scratch) / "repo.bundle"
+        subprocess.run(["git", "bundle", "create", "-q", str(bundle), "HEAD"], cwd=worktree, check=True)
+        with tarfile.open(tar_path, "w:gz", compresslevel=1) as tar:
+            tar.add(bundle, "repo.bundle")
+            for name, data in (("ids", "\n".join(ids).encode() + b"\n"), ("manifest", manifest), ("deleted", deleted)):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+            for name in manifest.split(b"\0")[:-1]:
+                tar.add(worktree / os.fsdecode(name), "files/" + os.fsdecode(name), recursive=False)
+
+
+def run_local(worktree, ids, log, report):
+    with tempfile.TemporaryDirectory(prefix="mm-shard-", dir="/dev/shm") as tmp:
+        (Path(tmp) / "ids").write_text("\n".join(ids) + "\n")
+        command = ["nix", "develop", "-c", "env", f"TMPDIR={tmp}", "pytest", f"@{tmp}/ids", "--shard-report", str(report),
+                   "--basetemp", f"{tmp}/p", "-p", "no:cacheprovider", "-q"]
+        return subprocess.run(command, cwd=worktree, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                              env=dict(os.environ, PYTEST_ADDOPTS="")).returncode
+
+
+def run_node(worktree, host, ids, log, report):
+    with tempfile.TemporaryDirectory(prefix="mm-shard-") as scratch:
+        tar_path = Path(scratch) / "in.tar.gz"
+        package(worktree, ids, tar_path)
+        with tar_path.open("rb") as tar:
+            code = subprocess.run([*SSH, host, shlex.join(["bash", "-c", REMOTE, "bash", ROOT, TMP])], stdin=tar, stdout=log,
+                                  stderr=subprocess.STDOUT).returncode
+    got = subprocess.run([*SSH, host, shlex.join(["cat", f"{ROOT}/report.json"])], capture_output=True)
+    if got.returncode == 0:
+        Path(report).write_bytes(got.stdout)
+    return code
+
+
+def shard_result(report):
+    try:
+        return json.loads(Path(report).read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def run(worktree, machines, selection):
+    started = time.time()
+    ids = collect(worktree, selection)
+    try:
+        durations = json.loads(DURATIONS.read_text())
+    except (OSError, ValueError):
+        durations = {}
+    slowness = durations.pop(SLOWNESS, {})
+    cores = {m: (os.cpu_count() if m == LOCAL else NODES[m][1]) / slowness.get(m, 1.0) for m in machines}
+    shards = assign(ids, durations, cores)
+    out = Path(tempfile.mkdtemp(prefix="mm-shards-"))
+    print(f"{len(ids)} tests collected in {time.time() - started:.0f}s; logs in {out}", flush=True)
+    for m, part in shards.items():
+        predicted = sum(durations.get(i, 1.0) for i in part) / cores[m]
+        print(f"  {m}: {len(part)} tests, about {predicted:.0f}s", flush=True)
+
+    walls = {}
+
+    def go(m, part, tag=""):
+        t = time.time()
+        log, report = out / f"{m}{tag}.log", out / f"{m}{tag}.json"
+        with log.open("w") as handle:
+            code = run_local(worktree, part, handle, report) if m == LOCAL else run_node(worktree, NODES[m][0], part, handle, report)
+        took = time.time() - t
+        print(f"  {m}{tag} finished: exit {code} in {took:.0f}s", flush=True)
+        if not tag:
+            walls[m] = took
+        return m, code, shard_result(report)
+
+    with ThreadPoolExecutor(len(machines)) as pool:
+        results = list(pool.map(lambda kv: go(*kv), [(m, part) for m, part in shards.items() if part]))
+    rows, codes = {}, {}
+    for m, code, report in results:
+        rows.update(report)
+        codes[m] = code
+    lost = [i for m, _, _ in results if m != LOCAL for i in shards[m] if i not in rows]
+    if lost:
+        print(f"{len(lost)} tests from a node that gave no result are rerun here", flush=True)
+        _, code, report = go(LOCAL, lost, ".rerun")
+        rows.update(report)
+        codes["rerun"] = code
+    missing = [i for i in ids if i not in rows]
+    for m, took in walls.items():
+        done = sum(durations.get(i, rows[i]["seconds"]) for i in shards[m] if i in rows) / cores[m]
+        if done > 0:
+            slowness[m] = (slowness.get(m, 1.0) + slowness.get(m, 1.0) * took / done) / 2
+    DURATIONS.parent.mkdir(parents=True, exist_ok=True)
+    DURATIONS.write_text(json.dumps({**durations, **{i: (durations.get(i, r["seconds"]) + r["seconds"]) / 2 for i, r in rows.items()}, SLOWNESS: slowness}))
+    counts = {}
+    for r in rows.values():
+        counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
+    bad = {i: r for i, r in rows.items() if r["outcome"] in ("failed", "error")}
+    for i, r in sorted(bad.items()):
+        print(f"{r['outcome'].upper()} {i}\n{r.get('text', '')}", flush=True)
+    for i in missing:
+        print(f"MISSING {i}: no shard reported it", flush=True)
+    print(f"{len(rows)} of {len(ids)} tests reported: {', '.join(f'{n} {k}' for k, n in sorted(counts.items()))}; "
+          f"{len(missing)} missing; shard exits {codes}; wall {time.time() - started:.0f}s", flush=True)
+    ok = not bad and not missing and all(c == 0 for c in codes.values())
+    if ok:
+        shutil.rmtree(out)
+    return 0 if ok else 1
+
+
+def main(argv=None):
+    try:
+        return run(*arguments(argv))
+    except (OSError, ValueError, subprocess.CalledProcessError) as e:
+        print(f"shards: {e}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())
