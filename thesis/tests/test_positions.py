@@ -301,7 +301,7 @@ def test_a_partly_entered_spread_closes_its_open_leg_at_the_horizon_and_never_en
     a = out["theses"]["a"]
     assert a["exit"]["t"] == 96 * H and a["exit"]["reason"] == "horizon"
     assert [(l["market"], l["ref"]) for l in a["exit"]["legs"]] == [("X", 110.0)]
-    assert a["managed_return"] is None and a["outcome"] is None
+    assert a["managed_return"] == pytest.approx(0.1) and a["outcome"] is None
     assert out["equity"][-1][1] == pytest.approx(10_100.0)
 
 

@@ -153,11 +153,11 @@ class Scenario:
         return [{**e, "reason": "x"} for e in self.exits]
 
 
-def compare(s, gpt=approved, seen=None, data=None, code=positions, partly=False):
+def compare(s, gpt=approved, seen=None, data=None, code=positions):
     """Every disagreement of the two implementations on scenario `s`: sizing at each registration, reservations and sizing
     equity at the boundaries of each release, then each thesis's fills, reason, outcome and returns, and the hourly equity,
     once every price is known. `seen` collects the cases reached; `data(now)` replaces the synthetic as-of prices; `code`
-    replaces positions.py; `partly` reports the recorded difference on a partly entered spread's managed return."""
+    replaces positions.py."""
     seen = set() if seen is None else seen
     data = data or s.ours_data
     diffs, ours, theirs = [], [], []
@@ -205,7 +205,7 @@ def compare(s, gpt=approved, seen=None, data=None, code=positions, partly=False)
         seen |= {"spread" for g in man["legs"][1:]}
         seen |= {"missing funding" for r in man["reasons"] if "missing_funding" in r}
         managed = p["pnl"] / p["N"] if mine["managed_return"] is not None else None
-        if managed != man["return"] and (partly or not (p["complete"] and not p["entry"] and any(l["ref"] is not None for l in p["legs"]))):
+        if managed != man["return"]:
             diffs.append(("managed", i, mine["managed_return"], man["return"] and float(man["return"]), man["reasons"]))
         for l, g in zip(p["legs"], man["legs"]):
             e, x = g["entry"], g["exit"]
@@ -368,7 +368,7 @@ def raw_disagreements(name, sets=SETS):
     """{kind of difference: count} of positions.py against GPT's file untouched, on one class."""
     raw, kinds = with_readings(()), {}
     for seed in range(sets):
-        for d in compare(Scenario(seed, **CLASSES[name]), gpt=raw, partly=True):
+        for d in compare(Scenario(seed, **CLASSES[name]), gpt=raw):
             kinds[d[0]] = kinds.get(d[0], 0) + 1
     return name, kinds
 
@@ -409,9 +409,8 @@ def test_the_raw_comparison_stays_a_real_disagreement():
     assert raw_disagreements("gaps", 15)[1]
 
 
-@pytest.mark.xfail(strict=True, reason="positions.py gives a spread with one leg entered no managed return, though the equity carries its P&L: audit/decisions.md, 2026-11-03; as_managed_mean only, fixed at the next refreeze")
 def test_a_partly_entered_spread_has_a_managed_return():
-    assert compare(BOUNDARIES["a spread whose second leg never enters"], partly=True) == []
+    assert compare(BOUNDARIES["a spread whose second leg never enters"]) == []
 
 
 if __name__ == "__main__":

@@ -187,7 +187,7 @@ def replay(initial: float, theses: list[Json], exits: list[Json], data: Json, no
                 out[tid]["exit"] = {"t": max((l["exit"]["t"] for l in exited), default=h), "reason": reason,
                                     "legs": [{"market": l["market"], "ref": l["exit"]["ref"], "fill": l["exit"]["fill"]}
                                              for l in exited]}
-                out[tid]["managed_return"] = float(p["pnl"] / p["N"]) if p["complete"] and p["entry"] else None
+                out[tid]["managed_return"] = float(p["pnl"] / p["N"]) if p["complete"] and any(l["ref"] is not None for l in p["legs"]) else None
         for tid, p in acct.live.items():
             for l in p["legs"]:
                 if l["ref"] is None and p["t_r"] + DELTA <= h < min(p["triggers"].values()) and h in bars[l["market"]]:
