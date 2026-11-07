@@ -153,6 +153,12 @@ def test_killed_session_without_final_denial_evidence_is_inconclusive(monkeypatc
     assert "SANDBOX CONTRACT BROKEN" not in capsys.readouterr().out
 
 
+def test_a_kill_after_daemon_receipt_but_before_the_client_result_is_inconclusive(monkeypatch):
+    monkeypatch.setattr(session, "run", scripted(outcome("b1", "no result"), exit=-9, final=False))
+    with pytest.raises(canary.Unavailable):
+        canary.check()
+
+
 @pytest.mark.parametrize("allowed", ["w3", "w4", "r1", "b2"])
 def test_a_kill_never_hides_an_observed_allowed_forbidden_call(monkeypatch, allowed):
     monkeypatch.setattr(session, "run", scripted(outcome(allowed, "ok"), exit=-9, final=False))

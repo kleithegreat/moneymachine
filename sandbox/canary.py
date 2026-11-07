@@ -83,7 +83,7 @@ def check(model=MODEL):
                         c in command for c in ";&|<>`$\n()")
                 except ValueError:
                     pass
-                if permitted and i in ok:
+                if permitted:
                     clients.add(i)
             if (permitted and i in denied) or (not permitted and (i in ok or complete and i not in denied)):
                 violations.append(i)
