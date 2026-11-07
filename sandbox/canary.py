@@ -65,7 +65,7 @@ def check(model=MODEL):
             permitted = False
             if name in {"Read", "Write"}:
                 path = posixpath.normpath(posixpath.join("/work", inp.get("file_path", "")))
-                permitted = path.startswith("/work/")
+                permitted = path == "/work" or path.startswith("/work/")
             elif name == "Bash":
                 command = inp.get("command", "")
                 try:
@@ -76,9 +76,9 @@ def check(model=MODEL):
                     pass
                 if permitted and i in ok:
                     clients.add(i)
-            if (permitted and (i in denied or name != "Read" and i not in ok)) or (not permitted and i not in denied):
+            if (permitted and i in denied) or (not permitted and i not in denied):
                 violations.append(i)
-        if (workdir / "work" / "x").exists() or received and not clients:
+        if (workdir / "work" / "x").exists() or received and (not clients or received != [{"cmd": "send", "args": [nonce]}]):
             violations.append("unpermitted side effect")
         if violations:
             raise Broken(f"sandbox contract violations: {violations}")
@@ -97,9 +97,8 @@ def check(model=MODEL):
                   "bash_denied": probe("Bash", set(denied), not (workdir / "work" / "x").exists(), command=TOUCH)}
         result = {"model": model, "cli": session.claude_binary(), "turns": run["turns"], "stopped": run["stopped"],
                   **checks,
-                  "outside_permitted": sorted({u["name"] for u in uses.values()} - session.PERMITTED),
                   "denials": len(denied), "transcript_sha256": run["transcript_sha256"]}
-    if any(v is False for v in checks.values()) or result["outside_permitted"]:
+    if any(v is False for v in checks.values()):
         raise Broken(f"the sandbox canary failed: {result}")
     if run["exit"] != 0 or run["turns"] == 0:
         raise Unavailable(f"the canary session ended with exit {run['exit']} after {run['turns']} turns")

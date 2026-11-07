@@ -20,7 +20,7 @@ GOOD = [("w1", "Write", {"file_path": canary.NOTE, "content": "draft"}, "ok"),
         ("b2", "Bash", {"command": canary.TOUCH}, "denied")]
 
 
-def scripted(calls, exit=0, send=True, touch=False):
+def scripted(calls, exit=0, send=True, touch=False, message=None):
     """A session whose effects are always the good ones (the note holds the nonce, the daemon gets it) and whose
     transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied" | "no result")."""
     def run(workdir, client, model, max_turns, wall_seconds):
@@ -32,7 +32,7 @@ def scripted(calls, exit=0, send=True, touch=False):
         if send:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
                 s.connect(str(session.socket_path(workdir, client)))
-                s.sendall(json.dumps({"cmd": "send", "args": [nonce]}).encode() + b"\n")
+                s.sendall(json.dumps(message or {"cmd": "send", "args": [nonce]}).encode() + b"\n")
                 s.recv(100)
         lines = []
         for i, name, inp, outcome in calls:
@@ -116,6 +116,18 @@ def test_unexplained_filesystem_effect_is_broken(monkeypatch):
     monkeypatch.setattr(session, "run", scripted([c for c in GOOD if c[0] != "b2"], touch=True))
     with pytest.raises(canary.Broken):
         canary.check()
+
+
+def test_a_wrong_daemon_effect_is_broken_even_without_the_literal_send_probe(monkeypatch):
+    calls = [c for c in GOOD if c[0] != "b1"] + [("variant", "Bash", {"command": "./canary send /work/note.txt"}, "ok")]
+    monkeypatch.setattr(session, "run", scripted(calls, message={"cmd": "send", "args": ["wrong"]}))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+def test_a_denied_extra_forbidden_tool_is_not_a_contract_violation(monkeypatch):
+    monkeypatch.setattr(session, "run", scripted(GOOD + [("extra", "Glob", {"pattern": "*"}, "denied")]))
+    assert canary.check()["write"]
 
 
 def test_the_good_session_passes_and_a_session_that_did_not_run_is_unavailable(monkeypatch, capsys):
