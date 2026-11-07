@@ -18,7 +18,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 LOGS = REPO / "data" / "mutants"
 FX = "cd kernel && cargo test -q --release --test fixtures"
-SIM, MACHINE, MAIN, RESOLVER, DSL = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "resolve", "dsl"])
+SIM, MACHINE, MAIN, RESOLVER, DSL, MARKET = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "resolve", "dsl", "market"])
 EVENTS = "ingest/events.py"
 STORE, RESOLVE = "ingest/store.py", "ingest/resolve.py"
 I2 = "    if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.submitted <= f.filled) {"
@@ -26,7 +26,7 @@ I2 = "    if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.subm
 MUTANTS = {
     "I1 future bars delivered": (f"{FX} decision_sees_only_closed_bars", [
         (MACHINE, "        if b.known > tick {", "        if false {"),
-        (SIM, "market.bars[b_order[bi]].known <= tick {", "market.bars[b_order[bi]].known <= tick + BAR {"),
+        (SIM, "m.bars[order.bars[*bi]].known <= tick {", "m.bars[order.bars[*bi]].known <= tick + BAR {"),
         (SIM, I2, "    if false {")]),
     "I2 submission before decision": (f"{FX} timing_order_holds_for_every_fill", [
         (SIM, "                        submitted: o.decided,\n", "                        submitted: o.decided - HOUR,\n"),
@@ -62,9 +62,14 @@ MUTANTS = {
         (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
     "S1 two-run: events read ahead": ("cd kernel && cargo test -q --release --test noninterference decisions_through_t", [
         (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {"),
-        (SIM, "        while ei < e_order.len() && e_order[ei].0 <= tick {", "        while ei < e_order.len() && e_order[ei].0 <= tick + HOUR {")]),
+        (SIM, "order.events[*ei].1.known <= tick {", "order.events[*ei].1.known <= tick + HOUR {")]),
     "S2 two-run: a correction known before it was fetched": ("cd kernel && cargo test -q --release --test noninterference late_venue_state", [
         (RESOLVER, "        raises.push(rev.fetched as i128);", "        raises.push(LO);")]),
+    "S3 two-run: a bar correction known before it was fetched": ("cd kernel && cargo test -q --release --test noninterference late_venue_state", [
+        (MARKET, "                known: e.known,\n                open: price(\"open\"),", "                known: k.entries[0].known,\n                open: price(\"open\"),")]),
+    "D1 two-run: a search evaluation reads the holdout store": ("pytest -q -n0 gate/tests/test_agent_daemon.py -k holdouts_bytes", [
+        (MAIN, "(vec![store], Some(policy.holdout_start), i64::MIN, policy.holdout_start.min(policy.w_end))",
+         "(vec![store.clone(), store.with_file_name(\"holdout\")], None, i64::MIN, policy.w_end)")]),
     "C5 derivation without the availability margin": ("pytest -q -n0 ingest/tests/test_events.py", [
         (EVENTS, '"key": "forum", "margin": 60_000}', '"key": "forum", "margin": 0}')]),
     "C5 knownAt from the claimed time": ("pytest -q -n0 ingest/tests/test_events.py", [

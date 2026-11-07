@@ -8,7 +8,8 @@
 
 use crate::dsl::Program;
 use crate::machine::Machine;
-use crate::market::{Market, Policy, Venue, BAR, HOUR};
+use crate::machine::Causality;
+use crate::market::{Delivery, Market, Policy, Venue, BAR, HOUR};
 use std::collections::BTreeMap;
 
 pub const INITIAL: f64 = 10_000.0;
@@ -249,6 +250,56 @@ fn latest_bar(market: &Market, c: usize, t: i64) -> Option<crate::market::Bar> {
     Some(market.bars[market.bar_at[&(c, times[k])]])
 }
 
+/// The records of a market reaching a machine in `Market::delivery`'s order.
+struct Feed<'a> {
+    market: &'a Market,
+    order: Delivery,
+    next: (usize, usize, usize),
+}
+
+impl<'a> Feed<'a> {
+    fn new(market: &'a Market) -> Feed<'a> {
+        Feed { market, order: market.delivery(), next: (0, 0, 0) }
+    }
+
+    /// Deliver every record known by `tick` not yet delivered.
+    fn until(&mut self, machine: &mut Machine, tick: i64) -> Result<(), Abort> {
+        let (m, order, (fi, bi, ei)) = (self.market, &self.order, &mut self.next);
+        let late = |e: Causality| Abort::Causality(format!("{e:?}"));
+        while *fi < order.funding.len() && m.funding[order.funding[*fi]].known <= tick {
+            machine.deliver_funding(m.funding[order.funding[*fi]], tick).map_err(late)?;
+            *fi += 1;
+        }
+        while *bi < order.bars.len() && m.bars[order.bars[*bi]].known <= tick {
+            machine.deliver_bar(m.bars[order.bars[*bi]], tick).map_err(late)?;
+            *bi += 1;
+        }
+        while *ei < order.events.len() && order.events[*ei].1.known <= tick {
+            let (slot, ev) = order.events[*ei];
+            machine.deliver_event(slot, ev, tick).map_err(late)?;
+            *ei += 1;
+        }
+        Ok(())
+    }
+}
+
+/// Drive a machine over the run's tick schedule alone (wStart, then each hour of every step before `end`, no
+/// orders), handing `emit` each tick's hour and the machine after its deliveries and tick.
+pub fn observe(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64, mut emit: impl FnMut(i64, &Machine) -> Result<(), String>) -> Result<(), String> {
+    let n = venue.coins.len();
+    let mut machine = Machine::new(prog, n);
+    let mut feed = Feed::new(market);
+    let mask = |h: i64| (0..n).map(|c| market.intervals[c].0 <= h && h < market.intervals[c].1).collect::<Vec<_>>();
+    let steps = (0..).map(|k| policy.w_start + k * BAR).take_while(|b| b + 2 * BAR <= end).count() as i64;
+    let first = std::iter::once(policy.w_start).chain((1..=4 * steps).map(|k| policy.w_start + k * HOUR));
+    for h in first {
+        feed.until(&mut machine, h + policy.delta).map_err(|e| format!("{e:?}"))?;
+        machine.tick(&mask(h), h);
+        emit(h, &machine)?;
+    }
+    Ok(())
+}
+
 pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64) -> Result<Run, Abort> {
     let n = venue.coins.len();
     for ds in prog.event_datasets() {
@@ -257,9 +308,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
     }
     let mut machine = Machine::new(prog, n);
-    let order = market.delivery();
-    let mut ei = 0;
-    let (mut fi, mut bi) = (0, 0);
+    let mut feed = Feed::new(market);
 
     let mut book = Book { cash: INITIAL, ..Book::default() };
     let mut marks = vec![f64::NAN; n];
@@ -297,25 +346,8 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
     };
 
-    let mut deliver_until = |machine: &mut Machine, tick: i64| -> Result<(), Abort> {
-        while fi < order.funding.len() && market.funding[order.funding[fi]].known <= tick {
-            machine.deliver_funding(market.funding[order.funding[fi]], tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
-            fi += 1;
-        }
-        while bi < order.bars.len() && market.bars[order.bars[bi]].known <= tick {
-            machine.deliver_bar(market.bars[order.bars[bi]], tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
-            bi += 1;
-        }
-        while ei < order.events.len() && order.events[ei].1.known <= tick {
-            let (slot, ev) = order.events[ei];
-            machine.deliver_event(slot, ev, tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
-            ei += 1;
-        }
-        Ok(())
-    };
-
     let listed = |c: usize, t: i64| market.intervals[c].0 <= t && t < market.intervals[c].1;
-    deliver_until(&mut machine, policy.w_start + policy.delta)?;
+    feed.until(&mut machine, policy.w_start + policy.delta)?;
     machine.tick(&(0..n).map(|c| listed(c, policy.w_start)).collect::<Vec<_>>(), policy.w_start);
 
     let mut b = policy.w_start;
@@ -417,7 +449,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
 
         for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
             let tick = h + policy.delta;
-            deliver_until(&mut machine, tick)?;
+            feed.until(&mut machine, tick)?;
             machine.tick(&(0..n).map(|c| listed(c, h)).collect::<Vec<_>>(), h);
         }
 

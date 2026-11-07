@@ -12,8 +12,7 @@
 
 use mm::admission::{admit, Binding, Cert, Meta, Mode, Roles};
 use mm::dsl::{Program, Ty};
-use mm::machine::Machine;
-use mm::market::{self, Market, Policy, BAR, HOUR};
+use mm::market::{self, Market, Policy, BAR};
 use mm::sim::{self, Event, Why};
 use mm::source;
 use serde_json::{json, Value};
@@ -56,52 +55,21 @@ fn ty(t: &Ty) -> String {
     }
 }
 
-/// Every node's value for every coin at every tick of the machine's schedule (wStart, then each hour of every
-/// step), written to `out`, driving mm's own `Machine` with `sim::run`'s delivery order; returns how many were
-/// defined.
-fn write_streams(out: &mut impl Write, prog: &Program, m: &Market, n: usize, policy: &Policy, end: i64) -> Result<u64, String> {
-    let mut machine = Machine::new(prog, n);
-    let order = m.delivery();
-    let (mut fi, mut bi, mut ei) = (0, 0, 0);
-    let mut deliver = |machine: &mut Machine, tick: i64| -> Result<(), String> {
-        while fi < order.funding.len() && m.funding[order.funding[fi]].known <= tick {
-            machine.deliver_funding(m.funding[order.funding[fi]], tick).map_err(|e| format!("{e:?}"))?;
-            fi += 1;
-        }
-        while bi < order.bars.len() && m.bars[order.bars[bi]].known <= tick {
-            machine.deliver_bar(m.bars[order.bars[bi]], tick).map_err(|e| format!("{e:?}"))?;
-            bi += 1;
-        }
-        while ei < order.events.len() && order.events[ei].1.known <= tick {
-            let (slot, ev) = order.events[ei];
-            machine.deliver_event(slot, ev, tick).map_err(|e| format!("{e:?}"))?;
-            ei += 1;
-        }
-        Ok(())
-    };
-    let mask = |h: i64| (0..n).map(|c| m.intervals[c].0 <= h && h < m.intervals[c].1).collect::<Vec<_>>();
+/// Every node's value for every coin at every tick of the machine's schedule (`sim::observe`), written to `out`;
+/// returns how many were defined.
+fn write_streams(out: &mut impl Write, prog: &Program, m: &Market, venue: &market::Venue, policy: &Policy, end: i64) -> Result<u64, String> {
     let mut defined = 0;
-    let mut emit = |out: &mut dyn Write, machine: &Machine| -> Result<(), String> {
+    sim::observe(prog, m, venue, policy, end, |_, machine| {
         let mut b = vec![];
         for i in 0..prog.nodes.len() {
-            for c in 0..n {
+            for c in 0..venue.coins.len() {
                 let v = machine.value(i, c);
                 defined += v.is_some() as u64;
                 push_val(&mut b, v);
             }
         }
         out.write_all(&b).map_err(|e| e.to_string())
-    };
-    deliver(&mut machine, policy.w_start + policy.delta)?;
-    machine.tick(&mask(policy.w_start), policy.w_start);
-    emit(out, &machine)?;
-    let steps = (0..).map(|k| policy.w_start + k * BAR).take_while(|b| b + 2 * BAR <= end).count() as i64;
-    for k in 1..=4 * steps {
-        let h = policy.w_start + k * HOUR;
-        deliver(&mut machine, h + policy.delta)?;
-        machine.tick(&mask(h), h);
-        emit(out, &machine)?;
-    }
+    })?;
     Ok(defined)
 }
 
@@ -183,7 +151,7 @@ fn main() {
                                   "gross_returns": run.gross_returns.iter().map(|x| b(*x)).collect::<Vec<_>>(),
                                   "types": p.types.iter().map(ty).collect::<Vec<_>>(),
                                   "nodes": match write_streams(&mut BufWriter::new(File::create(&streams).unwrap()), &p, &m,
-                                                               venue.coins.len(), &policy, end) {
+                                                               &venue, &policy, end) {
                                       Ok(defined) => json!({"defined": defined}),
                                       Err(e) => json!(e),
                                   }}),
