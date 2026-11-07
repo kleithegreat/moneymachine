@@ -15,21 +15,19 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued.
 - **Budget.** Campaigns start on the first account (TAMU, then Cornell) with every window at most 0.8 after the most a campaign has used (`need`, measured across accounts). Claude work on an account during its campaign can exhaust it, a counted crash: none then.
 
-- **Nine defects specced** on main, two review rounds; stage 7 implements them after its byte-identical tag.
-
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
-- **Thesis** `thesis-310449610583`, frozen 2026-11-03 00:02 UTC (2026-11-02 19:02 EST); sessions record and register. Refreeze fixes ready, undeployed: `thesis-fixes` (GPT: six fixes) and `thesis-positions` (Sonnet: one-leg spread). Before the human's refreeze: Argon reviews both, re-deriving the C10.3 value the positions fix changed.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, GPT, two rounds): the fresh Opus review says not ready (`audit/reviews/2026-11-07-opus-thesis-refreeze.md` there: nine findings, two failing reproductions). Next: GPT's round three; finding 2's co-egress allowance is a reviewed terms decision. Argon is out until 2026-11-14 00:25 UTC (2026-11-13 19:25 EST).
+- **Undeployed fixes:** `mirror-vanish` (`9b88e80`, GPT: a file vanishing mid-run, by writer contract) needs a fresh review, then an image. `fast-tests` (`../mm-fast`: chunked differentials, `ops/shards.py`): reviewed, no blocking finding (`audit/reviews/2026-11-07-sonnet-fast-tests.md` to commit); four fixes in progress, failing tests written.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Next: slices 3, 4 and 6 (Sonnet builds, Argon reviews; GPT never, as C7.7's red team).
+- **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Slice 3 built on `slice3` (`db474fd`), unreviewed. C6.4's edge market disagrees since slice 5: Lean's importer hard-codes `final` (`audit/stage7/edge-regression.md`, `c97c5f8`); the revision-carrying exporter is in progress, uncommitted, in `../mm-edge-bisect`. Next: slices 4 and 6 (Claude builds and reviews; GPT never, as C7.7's red team).
 
 
-2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns (the last 2026-11-04 09:48 UTC (04:48 EST)), waiting on the accounts' Claude usage (the human, 2026-11-06); TAMU's reset is 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
+2. **Stage 4: C4.5 v3 running**, 4 of 10 campaigns, none promoted; the rest wait on the accounts' Claude usage.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
-   1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
-   2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
-   3. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
+   1. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. C7.7's corpus also needs a registry and certificates.
+   2. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
    - Judged runs wait for the rebase onto the pilot's baseline commit.
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
 6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit; Unblocked: recording OECD's STES revisions (certified; about 357 MB a country quarterly).
@@ -44,14 +42,11 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 ### Finished
 
 - Remote tests ready: prodesk5 (`CLUSTER.md` §7).
-- K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
-- Pytest: 1,171 passed, 25 strict xfails, 2 skips.
 - Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
-- **Capacity guard not deployed:** rollout and visible synthetic desktop alarm check in `CLUSTER.md` §5. O2 states the chosen reserve and offline limitation, not a response-time guarantee.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
 - **FRED and ALFRED: the API terms forbid our use; the human decides.** https://fred.stlouisfed.org/legal/ (read 2026-10-26): clause (l) forbids storing, caching or archiving FRED content or putting it in any database (our store is one), and (k) use in developing or training machine learning. Key unused; no permission request for now (human). Macro vintages come from the Philadelphia Fed's RTDSM.
