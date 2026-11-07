@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import threading
 from collections.abc import Callable, Collection
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -55,12 +56,14 @@ class Ledger:
         return json.loads(r.stdout)["disclosure"], sha256(text)
 
     def records(self, kind: str, account: str | None = None) -> list[tuple[int, str, Any]]:
-        """[(ledger id, created, content)] in commit order."""
+        """[(ledger id, created, content)] in commit order; no committed schema means no records."""
         if not self.path.exists():
             return []
-        db = sqlite3.connect(self.path)
-        rows = db.execute("SELECT id, created, content FROM disclosures WHERE campaign = ? AND kind = ? AND (? IS NULL OR agent = ?) "
-                          "ORDER BY id", (self.track, kind, account, account)).fetchall()
+        with closing(sqlite3.connect(self.path)) as db:
+            if not db.execute("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'disclosures'").fetchone():
+                return []
+            rows = db.execute("SELECT id, created, content FROM disclosures WHERE campaign = ? AND kind = ? AND (? IS NULL OR agent = ?) "
+                              "ORDER BY id", (self.track, kind, account, account)).fetchall()
         return [(i, c, json.loads(t)) for i, c, t in rows]
 
     def theses(self, account: str) -> list[Json]:

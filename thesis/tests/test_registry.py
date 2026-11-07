@@ -4,7 +4,10 @@ concurrent registrations, reading t_r inside the commit."""
 
 import json
 import math
+import signal
 import sqlite3
+import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -59,13 +62,41 @@ def test_no_time_or_derived_field_can_be_supplied(ledger, extra):
     assert th is None and errors
 
 
-@pytest.mark.xfail(strict=True, reason="audit/2026-11-04-suite-speed.md, diagnosis: a first `mm disclose` killed before "
-                   "its schema commits leaves an empty database, which records() reads as an error, not as no records; "
-                   "fixed at the next thesis refreeze")
 def test_a_ledger_whose_first_write_died_reads_as_empty(tmp_path):
     path = tmp_path / "ledger.sqlite"
     path.touch()
     assert registry.Ledger(path, "t").records("thesis") == []
+
+
+def test_a_killed_schema_transaction_reads_empty_and_the_next_write_recovers(tmp_path, built_kernel):
+    path = tmp_path / "ledger.sqlite"
+    child = subprocess.Popen([sys.executable, "-c",
+                              "import sqlite3,sys\n"
+                              "db=sqlite3.connect(sys.argv[1])\n"
+                              "db.execute('BEGIN IMMEDIATE')\n"
+                              "db.execute('CREATE TABLE disclosures(id INTEGER)')\n"
+                              "print('SCHEMA UNCOMMITTED',flush=True)\n"
+                              "sys.stdin.read()\n", str(path)],
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    try:
+        assert child.stdout.readline().strip() == "SCHEMA UNCOMMITTED"
+        child.kill()
+        assert child.wait(timeout=10) == -signal.SIGKILL
+    finally:
+        if child.poll() is None:
+            child.kill()
+        child.communicate(timeout=10)
+    ledger = registry.Ledger(path, "t")
+    assert ledger.records("thesis") == []
+    ledger.disclose("call", "main", {"ok": True})
+    assert [c for _, _, c in ledger.records("call")] == [{"ok": True}]
+
+
+def test_corrupt_ledgers_are_errors_not_empty_records(tmp_path):
+    path = tmp_path / "ledger.sqlite"
+    path.write_bytes(b"not a database")
+    with pytest.raises(sqlite3.DatabaseError):
+        registry.Ledger(path, "t").records("thesis")
 
 
 def test_a_registered_thesis_is_canonical_append_only_and_idempotent(ledger):
