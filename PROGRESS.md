@@ -43,8 +43,9 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ### Finished
 
+- Remote tests ready: prodesk5 (`CLUSTER.md` §7).
 - K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
-- Pytest: 1,171 passed, 25 strict xfails, 2 skips; PDF rebuilt.
+- Pytest: 1,171 passed, 25 strict xfails, 2 skips.
 - Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers

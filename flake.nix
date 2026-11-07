@@ -53,6 +53,8 @@
               python
               jq
               git
+              openssh
+              rsync
               libnotify
               tools.lean
               kubectl

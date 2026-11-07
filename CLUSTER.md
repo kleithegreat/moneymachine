@@ -217,3 +217,40 @@ nix develop -c python -c 'from ops import diskguard as d; d.check = lambda *a: [
 Done 2026-10-30 (`audit/cluster/handoff.md`): the stage 3 harness was refrozen and the thesis track cut a new version
 at the move; this PC's recorders handed off at a reboot, after the overlaps reconciled. Git keeps the old paths for
 rollback, and a rollback never reruns a consumed campaign or date.
+
+## 7. Remote tests (no live workloads)
+
+When the desktop is busy, run a worktree on the idle six-core prodesk5 worker (14 GB RAM, Nix daemon and warm store):
+```
+python ops/remote_test.py /path/to/worktree
+python ops/remote_test.py /path/to/worktree prodesk5 ops/test_progress.py -q
+python ops/remote_test.py /path/to/worktree -- ops/test_progress.py -q
+```
+The optional node defaults to `prodesk5`; only that name and `192.168.8.229` are allowed, both using
+`kevin@192.168.8.229`. **prodesk7 and every unknown destination are refused before SSH** (including aliases/IPs not
+allowlisted). SSH must already work noninteractively with a known host key; failures are not worked around.
+Local Python 3, Git, rsync and SSH, and remote Bash, Git, rsync and Nix are required. Use `--` after the worktree
+to omit the node when the first pytest argument is a file; otherwise a non-option first argument is the node.
+Pytest paths are relative to the worktree. `--basetemp` is runner-owned.
+
+A Git bundle supplies HEAD's history for the suite's history checks; rsync overlays the current tracked and
+non-ignored untracked files, including staged/unstaged edits and deletions. Untracked ignored files (build outputs,
+credentials and `data/`) are not shipped; rsync also excludes tracked `data/` paths. The bundle includes committed
+history. Links escaping the worktree and nested repositories are refused. Don't edit the source during transfer.
+Nothing is pushed or changed in the local index.
+The remote index is staged to make new files visible to Nix. Builds are session-local, shared under `conftest.py`'s
+locks; pytest's normal `-n auto --dist worksteal` uses all worker cores unless pytest arguments override it.
+
+Each invocation owns a private `/tmp/rt.<random>` directory, with its checkout, HOME, caches, TMPDIR and short pytest
+basetemp inside it. `nice -n 10 nix … develop -c … pytest` (explicitly enabling `nix-command flakes`) streams output
+and the pytest summary here, prints the remote command's exit status and returns it (transport/setup/cleanup errors
+also fail). TMPDIR is set again inside the dev shell, since Nix changes it. No existing remote checkout, personal
+files or homelab data are inspected or modified;
+normal SSH/system-tool reads and Nix daemon store operations are still needed. The checkout is **not a sandbox** for
+untrusted tests. Cleanup runs on completion/failure and shell signals, with a local `finally` covering transfer
+failures; a hard kill or unreachable node can leave only that invocation's directory to remove later.
+
+No search store is copied. The runner always announces and deselects exactly
+`kernel/tests/cli/test_differential.py::test_kernel_matches_witness` and
+`reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit` (they need `data/store`), even when explicitly
+selected; these are **not remotely validated**. The remaining Lean differential verdict test still runs.
