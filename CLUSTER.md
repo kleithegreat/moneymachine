@@ -88,7 +88,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   them into the volume and checks every sha256. It never overwrites a file with other content. The series finds `mm`
   through `CARGO_TARGET_DIR`; the thesis track pins its own copy.
 - **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); thesis 500m and 2Gi (4Gi); series 1 CPU and 3Gi
-  (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5 (pending deployment).
+  (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5.
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
@@ -181,7 +181,7 @@ When this PC is off, runs fail and the next one catches up. Until then, prodesk7
 anything newer. On this PC, each mirrored recorder is one more host directory, read like `data/live-oci`'s through
 its manifest, and staged into batch inputs by hash as today.
 
-### Capacity guard (code ready; not deployed)
+### Capacity guard
 
 `ops/diskguard.py`, run hourly by the existing `mm-diskguard.timer` through `ops/diskguard.sh`, alarms when
 **available bytes or inodes are at or below 20% of the filesystem's total**. The choice and its limitations live in
@@ -202,13 +202,10 @@ that the human actually sees the alarm.
 Daily `mirror-verify` integrity failures still appear in Kubernetes job status/logs; this is a capacity/freshness alarm,
 not a new integrity-verification guarantee.
 
-Deployment, not performed by this change: merge into the timer's `/home/kevin/repos/moneymachine` checkout; build/push
-an image and apply **only** `mirror` and `mirror-verify` with its digest. Their manifests replace `used`/`total` with
-`capacity` (`bytes` and `inodes`, each with `free`/`total`); old manifests intentionally alarm until replaced. No recorder,
-thesis or series rollout or refreeze is needed. Ensure the existing user service/timer point to the updated checkout,
-then test one normal invocation and a synthetic low-capacity invocation in the logged-in desktop session (never fill a
-real disk); confirm a visible notification and nonzero exit. Check one fresh report for every volume and both local
-paths. Until then the running guard remains local-only and mirror failures have no direct human notification.
+Deployed 2026-11-07 03:14 UTC (2026-11-06 22:14 EST): `mirror` and `mirror-verify` on image `sha256:c80908c8…`
+(previously `sha256:17764092…`; rolling back is re-applying it to those two). Changing the guard: merge into this PC's
+main checkout, which the timer runs; a manifest-format change also needs a new image for those two CronJobs, applied
+before the merge, since old manifests alarm. Verify by one normal invocation and the synthetic alarm below, seen by the human.
 
 For the visible alarm check, this injects only an in-memory test result (expected exit 1):
 ```
