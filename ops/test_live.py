@@ -357,7 +357,7 @@ def test_mirror_publishes_only_flat_files_and_manifest(tmp_path, monkeypatch):
     assert {p.name for p in volume.iterdir()} == {"ledger.sqlite", "other", "day.jsonl", "MANIFEST.json"}
     assert all(p.is_file() and not p.is_symlink() for p in volume.iterdir())
     manifest = json.loads((volume / "MANIFEST.json").read_text())
-    assert set(manifest) == {"taken", "files", "used", "total"}
+    assert set(manifest) == {"taken", "files", "capacity"}
     assert set(manifest["files"]) == {"ledger.sqlite", "other", "day.jsonl"}
     live.verify(app, out)
 

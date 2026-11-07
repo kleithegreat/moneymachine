@@ -53,6 +53,7 @@
               python
               jq
               git
+              libnotify
               tools.lean
               kubectl
               skopeo

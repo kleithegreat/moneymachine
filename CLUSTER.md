@@ -88,8 +88,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   them into the volume and checks every sha256. It never overwrites a file with other content. The series finds `mm`
   through `CARGO_TARGET_DIR`; the thesis track pins its own copy.
 - **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); thesis 500m and 2Gi (4Gi); series 1 CPU and 3Gi
-  (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. The mirror reports volume usage,
-  and this PC's disk guard raises a blocker above 80 %.
+  (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5 (pending deployment).
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
@@ -173,7 +172,7 @@ stops the run:
   mtime changes; their disappearance is allowed. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
 - A mirrored file shorter than its manifest entry is refused.
 
-Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the volume's usage. It is written last,
+Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the source filesystem's capacity. It is written last,
 so readers trust only what it lists. The `mirror-verify` CronJob re-hashes daily every mirrored file, and every day
 file's source over its mirrored length, against the manifest. It refuses a missing manifest for any of the five
 expected volumes, including an entirely empty mirror.
@@ -181,6 +180,40 @@ expected volumes, including an entirely empty mirror.
 When this PC is off, runs fail and the next one catches up. Until then, prodesk7's volumes hold the only copy of
 anything newer. On this PC, each mirrored recorder is one more host directory, read like `data/live-oci`'s through
 its manifest, and staged into batch inputs by hash as today.
+
+### Capacity guard (code ready; not deployed)
+
+`ops/diskguard.py`, run hourly by the existing `mm-diskguard.timer` through `ops/diskguard.sh`, alarms when
+**available bytes or inodes are at or below 20% of the filesystem's total**. The choice and its limitations live in
+the paper's appendix O2. It measures this PC's `data/` and `/srv/moneymachine/mirror` directly and checks all five
+prodesk7 volumes through their manifests' `capacity` counters and `taken` timestamp. These are real filesystem
+capacities, not the local-path PVC requests (which do not enforce storage quotas). Shared filesystems need no
+separate rule. Byte availability excludes blocks reserved from the writer (`statvfs.f_bavail`); inode availability
+uses `f_favail`. Missing, malformed, future-dated or older-than-30-minute reports and unmeasurable filesystems also alarm.
+Nothing stops copying or deletes recordings.
+
+Each unhealthy check exits nonzero, logs its reasons to the user service's journal, and sends a **critical, non-expiring
+desktop notification** with `notify-send`; it repeats hourly until healthy rather than suppressing an acknowledged
+alarm. It no longer edits `PROGRESS.md`. The timer runs only while the human is logged in: **there is no off-PC alarm**.
+Missing reports alarm after login; while logged in, nominal stale-alarm delay is at most 90 minutes from the last
+report, plus scheduling and check delays (paper O2). Notification delivery failure fails the service, not a successful
+check. The desktop notification daemon and user service's session D-Bus environment must work; deployment must verify
+that the human actually sees the alarm.
+Daily `mirror-verify` integrity failures still appear in Kubernetes job status/logs; this is a capacity/freshness alarm,
+not a new integrity-verification guarantee.
+
+Deployment, not performed by this change: merge into the timer's `/home/kevin/repos/moneymachine` checkout; build/push
+an image and apply **only** `mirror` and `mirror-verify` with its digest. Their manifests replace `used`/`total` with
+`capacity` (`bytes` and `inodes`, each with `free`/`total`); old manifests intentionally alarm until replaced. No recorder,
+thesis or series rollout or refreeze is needed. Ensure the existing user service/timer point to the updated checkout,
+then test one normal invocation and a synthetic low-capacity invocation in the logged-in desktop session (never fill a
+real disk); confirm a visible notification and nonzero exit. Check one fresh report for every volume and both local
+paths. Until then the running guard remains local-only and mirror failures have no direct human notification.
+
+For the visible alarm check, this injects only an in-memory test result (expected exit 1):
+```
+nix develop -c python -c 'from ops import diskguard as d; d.check = lambda *a: ["SYNTHETIC TEST: filesystem at 19% available"]; raise SystemExit(d.main())'
+```
 
 ## 6. Cut-over
 

@@ -44,12 +44,13 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 ### Finished
 
 - K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
-- Pytest: 1,013 passed, 25 strict xfails, 2 existing skips, 399.90 s on tmpfs; PDF rebuilt. Speed study: `audit/2026-11-04-suite-speed.md`.
+- Pytest: 1,171 passed, 25 strict xfails, 2 skips; PDF rebuilt.
 - Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
+- **Capacity guard not deployed:** rollout and visible synthetic desktop alarm check in `CLUSTER.md` §5. O2 states the chosen reserve and offline limitation, not a response-time guarantee.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
 - **FRED and ALFRED: the API terms forbid our use; the human decides.** https://fred.stlouisfed.org/legal/ (read 2026-10-26): clause (l) forbids storing, caching or archiving FRED content or putting it in any database (our store is one), and (k) use in developing or training machine learning. Key unused; no permission request for now (human). Macro vintages come from the Philadelphia Fed's RTDSM.

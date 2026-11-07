@@ -23,13 +23,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jobs  # noqa: E402
+from diskguard import VOLUMES, capacity  # noqa: E402
 
 REPO = jobs.REPO
 NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk7", "/app/repo"
 MIRROR = Path("/srv/moneymachine/mirror")
 MIRROR_VERIFY_WAIT = 2 * 10 * 60  # next ten-minute run plus ten minutes to finish copying
-VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data/datalayer", "thesis": "data/thesis",
-           "agent": "data/agent"}
 LEDGERS = ("thesis", "agent")
 SECCOMP, APPARMOR = "profiles/moneymachine-sandbox.json", "moneymachine-sandbox"
 CORNELL = "CLAUDE_CODE_OAUTH_TOKEN"  # claude-token's key of the Cornell account; PERSONAL and TAMU are the others
@@ -243,7 +242,7 @@ def mirror(app=APP, out="/mirror"):
     - SQLite ledgers outside workspaces are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
     - other files, including workspace notes of any suffix, are copied whole when their size or mtime changes;
       their disappearance is allowed. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
-    MANIFEST.json (size, mtime and sha256 of each file, the volume's usage) is written last."""
+    MANIFEST.json (size, mtime and sha256 of each file, the source filesystem's available capacity) is written last."""
     for vol, path in VOLUMES.items():
         src, dst = Path(app) / path, Path(out) / vol
         if not src.exists():
@@ -296,9 +295,9 @@ def mirror(app=APP, out="/mirror"):
             new[rel] = {"size": size, "mtime": st.st_mtime_ns, "sha256": digest}
         if gone := [r for r in old if mirror_kind(r) == "day" and r not in new]:
             raise SystemExit(f"{vol}: day files vanished from the source: {gone}")
-        usage = shutil.disk_usage(src)
+        usage = capacity(src)
         (dst / "MANIFEST.json.tmp").write_text(json.dumps({"taken": int(time.time() * 1000), "files": new,
-                                                           "used": usage.used, "total": usage.total}))
+                                                            "capacity": usage}))
         (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
 
 
