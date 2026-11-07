@@ -141,6 +141,11 @@ class Exchange(Info):
         except ValueError:
             sample["response"] = response.text
         self._archive(sample)
+        if response.status_code == 200:
+            try:
+                self._decode(body, response)
+            except ValueError as e:
+                raise httpx.RemoteProtocolError(f"invalid info response: {e}", request=response.request) from e
         return response
 
     def _archive(self, sample: dict[str, Any]) -> None:

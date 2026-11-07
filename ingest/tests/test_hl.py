@@ -57,3 +57,18 @@ def test_shared_client_charges_only_returned_items_after_a_full_page(monkeypatch
     info.http = httpx.Client(transport=httpx.MockTransport(reply))
     assert len(info.candles("X", "1h", 0, 4800 * hl.HOUR)) == 4800
     assert charged == [20, 80]
+
+
+def test_shared_client_does_not_retry_a_malformed_successful_response(monkeypatch):
+    calls = []
+
+    def reply(req):
+        calls.append(req)
+        return httpx.Response(200, text="{torn") if len(calls) == 1 else httpx.Response(200, json=[])
+
+    info = hl.Info()
+    info.http = httpx.Client(transport=httpx.MockTransport(reply))
+    monkeypatch.setattr(hl.time, "sleep", lambda seconds: None)
+    with pytest.raises(ValueError):
+        info.meta()
+    assert len(calls) == 1

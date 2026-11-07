@@ -69,12 +69,7 @@ class Info:
             if (r.status_code == 429 or r.status_code >= 500) and attempt < attempts - 1:
                 continue
             r.raise_for_status()
-            try:
-                out = self._decode(body, r)
-            except ValueError:
-                if attempt == attempts - 1:
-                    raise
-                continue
+            out = self._decode(body, r)
             if per_items and isinstance(out, list):
                 self._charge(len(out) // per_items)
             return out
