@@ -1,5 +1,7 @@
-"""C7.6's frozen rule and resolver suites meet their size, coverage, file and Lean comparison requirements.
-The production resolver participants join in slice 5; Lean alone is not a pass of C7.6."""
+"""C7.6's frozen rule and resolver suites meet their size, coverage, file and Lean comparison requirements, and the
+production loaders (`store.as_of`'s resolver, `ingest/resolve.py`, and `mm`'s, `kernel/mm/src/resolve.rs`) give Lean's
+result and observations on every case with a Parquet image. GPT's independent resolver joins when it exists; until then
+this is not a pass of C7.6."""
 
 import json
 import subprocess
@@ -9,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from kernel.tests.rules import lean_check, resolver_suite, suite
+from kernel.tests.rules import lean_check, loaders, resolver_suite, suite
 
 HERE = Path(__file__).resolve().parent
 
@@ -43,11 +45,26 @@ def test_the_resolver_files_match_hand_and_the_generated_prefix():
     assert all(counts[t] >= resolver_suite.FLOOR for t in resolver_suite.CLASSES), counts
 
 
+def cases():
+    return resolver_suite.HAND + resolver_cases("generated")
+
+
 @pytest.fixture(scope="module")
-def resolver_results(session_build):
+def resolver_results(session_build, built_kernel, tmp_path_factory):
     session_build("lean", lambda: subprocess.run(["lake", "build"], cwd=lean_check.REFMM.parents[3],
                                                 capture_output=True, check=True))
-    return {"lean": lean_check.lean(resolver_suite.HAND + resolver_cases("generated"), lean_check.REFMM)}
+    results = {"lean": lean_check.lean(cases(), lean_check.REFMM)}
+    for name, run in (("python", loaders.python), ("mm", lambda c, root: loaders.rust(c, root, built_kernel))):
+        out = []
+        for i, c in enumerate(cases()):
+            if resolver_suite.image(c):
+                root = tmp_path_factory.mktemp(f"{name}{i}")
+                loaders.write_image(c, root)
+                out.append(run(c, root))
+            else:
+                out.append({"result": None, "observations": None})
+        results[name] = out
+    return results
 
 
 def test_each_resolver_participant_meets_the_frozen_size(resolver_results):
@@ -81,3 +98,15 @@ def test_result_comparison_keeps_nested_cell_kinds():
     assert not lean_check.same({"cells": [True]}, {"cells": [1]})
     assert not lean_check.same({"cells": [1]}, {"cells": [1.0]})
     assert lean_check.same({"cells": [1.0, None]}, {"cells": [1.0, None]})
+
+
+@pytest.mark.parametrize("loader", ["python", "mm"])
+def test_each_production_loader_gives_leans_result_and_observations(resolver_results, loader):
+    """Named test 1 (observations) and the timelines, on every case with a Parquet image: result and observations equal
+    Lean's, delivery by delivery."""
+    imaged = [(c, lean, got) for c, lean, got in zip(cases(), resolver_results["lean"], resolver_results[loader], strict=True)
+              if resolver_suite.image(c)]
+    assert len(imaged) >= 500
+    for c, lean, got in imaged:
+        assert lean_check.same(got["result"], lean["result"]), (loader, c, got["result"], lean["result"])
+        assert lean_check.same(got["observations"], lean["observations"]), (loader, c)
