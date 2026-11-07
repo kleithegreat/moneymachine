@@ -49,8 +49,7 @@ def reached(i, s, ours):
     seen |= {"chain"} if any(len(c["members"]) >= 3 for c in ours["clusters"]) else set()
     seen |= {"unresolved_cluster"} if any(not c["resolved"] for c in ours["clusters"]) else set()
     seen |= {"null_close"} if any(r[2] is None for rows in s["hourly"].values() for r in rows) else set()
-    if kind in ("no_opening_to_horizon", "missing_funding"):
-        assert ours["theses"][s["theses"][0]["id"]]["outcome"] is None, (i, kind)
+    if kind in ("no_opening_to_horizon", "missing_funding") and ours["theses"][s["theses"][0]["id"]]["outcome"] is None:
         seen.add(kind)
     return seen
 
@@ -66,7 +65,9 @@ def judge(start, stop, state):
         d = same(ours, gpt_scoring.score(s))
         if d:
             disagreements.append((i, scoring_gen.KINDS[i % len(scoring_gen.KINDS)], d[:3]))
-        reached(i, s, ours)
+        kind = scoring_gen.KINDS[i % len(scoring_gen.KINDS)]
+        if kind in ("no_opening_to_horizon", "missing_funding"):
+            assert kind in reached(i, s, ours), (i, kind)
     return n, disagreements, rng.getstate()
 
 

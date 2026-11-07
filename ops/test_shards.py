@@ -1,6 +1,10 @@
+import json
 import os
+import signal
 import subprocess
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -95,7 +99,7 @@ def shim(root, code):
 
 def remote(root, tar, env_path):
     with tar.open("rb") as stdin:
-        return subprocess.run(["bash", "-c", shards.REMOTE, "bash", str(root), str(root.parent / "tmp")], stdin=stdin, capture_output=True, text=True,
+        return subprocess.run(["bash", "-c", shards.REMOTE, "bash", str(root), str(root.parent / "tmp"), "run1"], stdin=stdin, capture_output=True, text=True,
                               env=os.environ | {"PATH": f"{env_path}:{os.environ['PATH']}"})
 
 
@@ -118,9 +122,91 @@ def test_remote_script_checks_out_the_dirty_tree_keeps_builds_and_returns_the_st
         assert "deleted.py" not in seen and ".keys.env" not in seen and list((root / "w/data").iterdir()) == []
         args = (root / "nix-args").read_text().splitlines()
         assert args[:2] == [str(root / "h"), str(root.parent / "tmp")]
-        assert f"@{root}/in/ids" in args and "--basetemp" in args and f"{root}/report.json" in args
+        assert f"@{root}/in/ids" in args and "--basetemp" in args and f"{root}/report.run1.json" in args
         assert not (root / "in").exists() and not (root.parent / "tmp").exists()
         (root / "w/build-output").write_text("kept\n")
         assert subprocess.run(["git", "-C", str(root / "w"), "ls-files", "new file.py"], capture_output=True, text=True).stdout
     assert (root / "w/build-output").read_text() == "kept\n"
     assert Path(root / "lock").exists()
+
+
+def test_ssh_notices_a_dead_node():
+    assert "ServerAliveInterval=15" in shards.SSH and "ServerAliveCountMax=4" in shards.SSH
+
+
+def test_each_node_run_fetches_only_its_own_report(worktree, monkeypatch, tmp_path):
+    calls = []
+
+    def fake(argv, **kwargs):
+        calls.append(argv[-1])
+        if "cat" in argv[-1]:
+            return SimpleNamespace(returncode=0, stdout=b"{}")
+        kwargs["stdin"].read()
+        return SimpleNamespace(returncode=255)
+
+    monkeypatch.setattr(shards.subprocess, "run", fake)
+    monkeypatch.setattr(shards, "package", lambda worktree, ids, path: Path(path).write_bytes(b"x"))
+    for _ in range(2):
+        shards.run_node(worktree, "kevin@h", ["a.py::t"], open(os.devnull, "w"), tmp_path / "r.json")
+    first, second = [c for c in calls if "cat" in c][0], [c for c in calls if "cat" in c][1]
+    assert first != second and "report.json" not in first
+    assert all(shards.ROOT + "/report." in c for c in (first, second))
+    runs = [c for c in calls if "cat" not in c]
+    assert first.split("report.")[1].split(".json")[0] in runs[0] and second.split("report.")[1].split(".json")[0] in runs[1]
+
+
+def test_a_remote_run_dies_with_its_session_and_frees_the_lock(tmp_path):
+    root = tmp_path / "runner"
+    shim(root, 0)
+    (root / "bin" / "nix").write_text("#!/bin/sh\necho $$ > \"$HOME/../nix-pid\"\nexec sleep 300\n")
+    tar = tmp_path / "in.tar.gz"
+    repo = tmp_path / "wt"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / "flake.nix").write_text("x\n")
+    subprocess.run(["git", "-c", "user.name=T", "-c", "user.email=t@x.invalid", "commit", "-q", "--allow-empty", "-m", "i"], cwd=repo, check=True)
+    shards.package(repo, ["a.py::t"], tar)
+    launcher = subprocess.Popen(
+        ["sh", "-c", 'setsid bash -c "$1" bash "$2" "$3" run1 < "$4" & wait', "sh", shards.REMOTE, str(root), str(tmp_path / "tmp"), str(tar)],
+        env=os.environ | {"PATH": f"{root}/bin:{os.environ['PATH']}"})
+    pidfile = root / "nix-pid"
+    for _ in range(100):
+        if pidfile.exists():
+            break
+        time.sleep(0.1)
+    pid = int(pidfile.read_text())
+    os.kill(launcher.pid, signal.SIGKILL)
+    for _ in range(100):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.2)
+    else:
+        os.kill(pid, signal.SIGKILL)
+        pytest.fail("the remote run outlived its session")
+    assert subprocess.run(["flock", "-n", str(root / "lock"), "true"]).returncode == 0
+
+
+def test_a_test_skipped_on_a_node_is_rerun_here():
+    shard = {"local": ["a"], "prodesk5": ["b", "c", "d"]}
+    rows = {"a": {"outcome": "skipped"}, "b": {"outcome": "skipped"}, "c": {"outcome": "passed"}}
+    assert shards.rerun(shard, rows) == ["b", "d"]
+
+
+def test_slowness_comes_from_test_seconds_and_stale_ids_are_pruned(tmp_path):
+    durations = {"a": 10.0, "b": 10.0, "gone": 5.0, "tiny": 0.1}
+    rows = {"a": {"seconds": 40.0}, "b": {"seconds": 20.0}, "new": {"seconds": 3.0}, "tiny": {"seconds": 9.0}}
+    ran = {"a": "gmktec", "b": "gmktec", "new": "gmktec", "tiny": "gmktec"}
+    updated, slowness = shards.update(durations, {"gmktec": 1.0}, ran, rows, ["a", "b", "new", "tiny"], full=True)
+    assert slowness["gmktec"] == pytest.approx((1.0 + 3.0) / 2) and "gone" not in updated
+    assert updated["a"] == pytest.approx((10.0 + 40.0 / 2.0) / 2) and updated["new"] == pytest.approx(3.0 / 2.0)
+    partial, _ = shards.update(durations, {}, {}, {}, ["a"], full=False)
+    assert "gone" in partial
+
+
+def test_durations_are_written_atomically(tmp_path):
+    path = tmp_path / "d" / "durations.json"
+    shards.write_durations(path, {"a": 1.0}, {"local": 1.5})
+    assert json.loads(path.read_text()) == {"a": 1.0, shards.SLOWNESS: {"local": 1.5}}
+    assert [p.name for p in path.parent.iterdir()] == ["durations.json"]

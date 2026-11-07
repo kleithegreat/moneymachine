@@ -13,10 +13,11 @@ import sys
 import tarfile
 import tempfile
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-SSH = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=yes"]
+SSH = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4", "-o", "StrictHostKeyChecking=yes"]
 NODES = {"prodesk5": ("kevin@192.168.8.229", 6), "gmktec": ("kevin@192.168.8.153", 8)}
 ROOT = "/home/kevin/.cache/mm-runner"
 TMP = "/dev/shm/mm-runner"
@@ -28,20 +29,25 @@ LOCAL_ONLY = (
 )
 DURATIONS = Path.home() / ".cache/mm-shards/durations.json"
 SLOWNESS = "_slowness"
+BOUND = 3900
 REMOTE = '''set -eu
 root=$1
 tmp=$2
+run=$3
 export PATH=$PATH:/nix/var/nix/profiles/default/bin
 mkdir -p -m 700 "$root" && cd "$root"
 mkdir -p h
-exec 9>lock
-flock 9
-mkdir -p -m 700 "$tmp"
-trap 'rm -rf -- "$root/in" "$tmp"' EXIT
+parent=$PPID
+( while [ "$(ps -o ppid= -p $$ | tr -d ' ')" = "$parent" ]; do sleep 2; done; pkill -TERM -s $$ ) &
+watchdog=$!
+trap 'kill $watchdog 2>/dev/null; rm -rf -- "$root/in" "$tmp"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
-rm -rf in report.json
+exec 9>lock
+flock 9
+mkdir -p -m 700 "$tmp"
+rm -rf in report.*.json
 mkdir in
 tar -xz -C in
 export HOME="$root/h" XDG_CACHE_HOME="$root/h/cache" XDG_CONFIG_HOME="$root/h/config" TMPDIR="$tmp"
@@ -56,7 +62,7 @@ rsync -a "$root/in/files/" ./
 xargs -0 -r -a "$root/in/deleted" git rm -q -f --ignore-unmatch --
 xargs -0 -r -a "$root/in/manifest" git add -f --
 timeout 3600 nice -n 10 nix --extra-experimental-features 'nix-command flakes' develop -c env TMPDIR="$tmp" \\
-    pytest "@$root/in/ids" --shard-report "$root/report.json" --basetemp "$tmp/p" -p no:cacheprovider -q
+    pytest "@$root/in/ids" --shard-report "$root/report.$run.json" --basetemp "$tmp/p" -p no:cacheprovider -q
 '''
 
 
@@ -157,13 +163,20 @@ def run_local(worktree, ids, log, report):
 
 
 def run_node(worktree, host, ids, log, report):
+    run = uuid.uuid4().hex[:8]
     with tempfile.TemporaryDirectory(prefix="mm-shard-") as scratch:
         tar_path = Path(scratch) / "in.tar.gz"
         package(worktree, ids, tar_path)
         with tar_path.open("rb") as tar:
-            code = subprocess.run([*SSH, host, shlex.join(["bash", "-c", REMOTE, "bash", ROOT, TMP])], stdin=tar, stdout=log,
-                                  stderr=subprocess.STDOUT).returncode
-    got = subprocess.run([*SSH, host, shlex.join(["cat", f"{ROOT}/report.json"])], capture_output=True)
+            try:
+                code = subprocess.run([*SSH, host, shlex.join(["bash", "-c", REMOTE, "bash", ROOT, TMP, run])], stdin=tar,
+                                      stdout=log, stderr=subprocess.STDOUT, timeout=BOUND).returncode
+            except subprocess.TimeoutExpired:
+                code = 124
+    try:
+        got = subprocess.run([*SSH, host, shlex.join(["cat", f"{ROOT}/report.{run}.json"])], capture_output=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        return code
     if got.returncode == 0:
         Path(report).write_bytes(got.stdout)
     return code
@@ -174,6 +187,35 @@ def shard_result(report):
         return json.loads(Path(report).read_text())
     except (OSError, ValueError):
         return {}
+
+
+def rerun(shards, rows):
+    """The tests of the nodes that no result or a skip came back for: a node may lack what this PC has."""
+    return [i for m, part in shards.items() if m != LOCAL for i in part if i not in rows or rows[i]["outcome"] == "skipped"]
+
+
+def update(durations, slowness, ran, rows, ids, full):
+    """(durations, slowness) after a run. Durations are in this PC's seconds: a machine's slowness is how much longer its
+    tests took than the stored durations (of the tests that last over half a second), and a run's seconds are divided by
+    it. A full collection forgets ids that no longer exist."""
+    slowness = dict(slowness)
+    for m in set(ran.values()):
+        known = [(rows[i]["seconds"], durations[i]) for i, r in ran.items() if r == m and i in rows and durations.get(i, 0) > 0.5]
+        if known:
+            slowness[m] = (slowness.get(m, 1.0) + sum(a for a, _ in known) / sum(b for _, b in known)) / 2
+    kept = {i: d for i, d in durations.items() if not full or i in set(ids)}
+    for i, m in ran.items():
+        if i in rows:
+            seconds = rows[i]["seconds"] / slowness.get(m, 1.0)
+            kept[i] = (kept[i] + seconds) / 2 if i in kept else seconds
+    return kept, slowness
+
+
+def write_durations(path, durations, slowness):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(".tmp")
+    temp.write_text(json.dumps({**durations, SLOWNESS: slowness}))
+    os.replace(temp, path)
 
 
 def run(worktree, machines, selection):
@@ -192,38 +234,30 @@ def run(worktree, machines, selection):
         predicted = sum(durations.get(i, 1.0) for i in part) / cores[m]
         print(f"  {m}: {len(part)} tests, about {predicted:.0f}s", flush=True)
 
-    walls = {}
-
     def go(m, part, tag=""):
         t = time.time()
         log, report = out / f"{m}{tag}.log", out / f"{m}{tag}.json"
         with log.open("w") as handle:
             code = run_local(worktree, part, handle, report) if m == LOCAL else run_node(worktree, NODES[m][0], part, handle, report)
-        took = time.time() - t
-        print(f"  {m}{tag} finished: exit {code} in {took:.0f}s", flush=True)
-        if not tag:
-            walls[m] = took
+        print(f"  {m}{tag} finished: exit {code} in {time.time() - t:.0f}s", flush=True)
         return m, code, shard_result(report)
 
     with ThreadPoolExecutor(len(machines)) as pool:
         results = list(pool.map(lambda kv: go(*kv), [(m, part) for m, part in shards.items() if part]))
-    rows, codes = {}, {}
+    rows, codes, ran = {}, {}, {}
     for m, code, report in results:
         rows.update(report)
         codes[m] = code
-    lost = [i for m, _, _ in results if m != LOCAL for i in shards[m] if i not in rows]
+        ran.update({i: m for i in report})
+    lost = rerun(shards, rows)
     if lost:
-        print(f"{len(lost)} tests from a node that gave no result are rerun here", flush=True)
+        print(f"{len(lost)} tests that a node skipped or gave no result for are rerun here", flush=True)
         _, code, report = go(LOCAL, lost, ".rerun")
         rows.update(report)
+        ran.update({i: LOCAL for i in report})
         codes["rerun"] = code
     missing = [i for i in ids if i not in rows]
-    for m, took in walls.items():
-        done = sum(durations.get(i, rows[i]["seconds"]) for i in shards[m] if i in rows) / cores[m]
-        if done > 0:
-            slowness[m] = (slowness.get(m, 1.0) + slowness.get(m, 1.0) * took / done) / 2
-    DURATIONS.parent.mkdir(parents=True, exist_ok=True)
-    DURATIONS.write_text(json.dumps({**durations, **{i: (durations.get(i, r["seconds"]) + r["seconds"]) / 2 for i, r in rows.items()}, SLOWNESS: slowness}))
+    write_durations(DURATIONS, *update(durations, slowness, ran, rows, ids, not selection))
     counts = {}
     for r in rows.values():
         counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
