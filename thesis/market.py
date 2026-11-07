@@ -129,14 +129,16 @@ class Sampler(Exchange):
 
     def _archive(self, sample: dict[str, Any]) -> None:
         marks = {}
+        valid = False
         if sample["request"]["type"] == "metaAndAssetCtxs" and sample.get("status") == 200:
             try:
                 meta, ctxs = sample["response"]
                 marks = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None
                          for a, c in zip(meta["universe"], ctxs)}
+                valid = True
             except (KeyError, TypeError, ValueError):
                 pass
-        super()._archive(sample | {"dex": sample["request"].get("dex"), "marks": marks})
+        super()._archive(sample | {"dex": sample["request"].get("dex"), "marks": marks, "valid": valid})
 
 
 class Market:
@@ -214,10 +216,10 @@ class Market:
                     print(f"mark sample failed for {dex['name']}: {e!r}", file=sys.stderr)
 
     def marks(self, market: str) -> list[tuple[int, int, float | None]]:
-        """(sent, recv, markPx or None) of every sample of the market's dex, in archive order."""
+        """(sent, recv, markPx or None) of successful dex snapshots, in archive order; attempts stay in the archive."""
         dex = dex_of(market)
         return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks")
-                if s["dex"] == dex and s["recv"] is not None]
+                if s["dex"] == dex and s["recv"] is not None and s.get("status", 200) == 200 and s.get("valid", True)]
 
     def lag(self, market: str) -> int:
         return MARK_WINDOW if builder(market) else DELTA

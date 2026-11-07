@@ -391,7 +391,7 @@ def test_one_dex_failing_never_costs_another_dex_its_sample(tmp_path, monkeypatc
     assert bad["status"] == 400 and bad["response"] == {"error": "dex refused"}
     assert (bad["sent"], bad["recv"]) == (5_000, 5_000)
     assert good["response"] == DEX_REPLY
-    assert m.marks("bad:COIN") == [(5_000, 5_000, None)]
+    assert m.marks("bad:COIN") == []
 
 
 def test_the_mark_sample_is_sent_at_its_time_whatever_other_reads_spent(tmp_path, monkeypatch):
@@ -424,7 +424,7 @@ def test_the_mark_sample_is_sent_at_its_time_whatever_other_reads_spent(tmp_path
     assert x.budget + m.sampler.budget == market.BUDGET_PER_MIN
 
 
-@pytest.mark.parametrize("first_status", [503, None])
+@pytest.mark.parametrize("first_status", [429, 502, 503, None])
 def test_each_attempt_is_archived_at_its_actual_send_and_receipt_after_waits(tmp_path, monkeypatch, first_status):
     clock, posted = [H + market.MARK_OFFSET], []
     fake_clock(monkeypatch, clock)
@@ -452,7 +452,7 @@ def test_each_attempt_is_archived_at_its_actual_send_and_receipt_after_waits(tmp
     assert rows[-1]["marks"] == {"xyz:GOLD": 2400.5}
     if first_status:
         assert rows[0]["status"] == first_status and rows[0]["marks"] == {}
-    assert market.seal(m.marks("xyz:GOLD")) == ({} if first_status else {H: 2400.5})
+    assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5}
 
 
 def test_a_sample_that_cannot_be_archived_is_not_swallowed_as_a_venue_failure(tmp_path, monkeypatch):
