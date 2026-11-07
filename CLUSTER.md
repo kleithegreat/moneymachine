@@ -167,9 +167,11 @@ stops the run:
   The datalayer writes each body before its row, so every row in a copied prefix has its body listed. Later rows and
   new day files wait for the next run. No history is parsed; malformed lines are copied as bytes, not a refusal.
 - Every copy's bytes are compared with the source's over the same length.
-- SQLite ledgers outside workspaces are point-in-time snapshots (SQLite's backup) that must pass its integrity check.
+- SQLite ledgers outside workspaces are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
+  an observed or previously mirrored ledger vanishing is refused, as for day files.
 - Other files, including everything inside a workspace regardless of suffix, are copied whole when their size or
-  mtime changes; their disappearance is allowed. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
+  mtime changes; disappearance during enumeration, copying or source comparison omits them from the new manifest,
+  without publishing an unchecked copy. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
 - A mirrored file shorter than its manifest entry is refused.
 
 Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the source filesystem's capacity. It is written last,
