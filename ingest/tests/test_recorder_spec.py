@@ -47,13 +47,16 @@ def test_torn_records_are_named_skipped_and_never_overwritten(tmp_path, capsys, 
     assert path.name in capsys.readouterr().err
 
 
-@pytest.mark.xfail(strict=True, reason="live.read promises to name and skip a torn record; a UTF-8 character cut after byte c3 raises UnicodeDecodeError and loses access to valid rows")
-def test_torn_utf8_record_is_skipped_without_hiding_acknowledged_rows(tmp_path, capsys):
-    """A kill can split the UTF-8 encoding c3 a9 of é, not only JSON punctuation."""
-    path = tmp_path / "poll-synthetic.jsonl"
-    path.write_bytes(b'{"n":1}\n{"text":"\xc3\n{"n":2}\n')
-    assert list(live.read(tmp_path, "poll")) == [{"n": 1}, {"n": 2}]
-    assert path.name in capsys.readouterr().err
+@pytest.mark.parametrize("tail", [b"\xc3", b"\xe2\x82", b"\xf0\x9f\x98"])
+def test_torn_utf8_record_is_skipped_without_hiding_acknowledged_rows(tmp_path, capsys, tail):
+    """A kill can split a UTF-8 character, not only JSON punctuation; intact Unicode still decodes."""
+    path = tmp_path / "poll-19700101.jsonl"
+    path.write_bytes('{"text":"é"}\n{"text":"'.encode() + tail)
+    prefix = path.read_bytes()
+    live.append(tmp_path, "poll", 0, {"n": 2})
+    assert path.read_bytes().startswith(prefix)
+    assert list(live.read(tmp_path, "poll")) == [{"text": "é"}, {"n": 2}]
+    assert f"{path}:2" in capsys.readouterr().err
 
 
 def kill_after_ack(code, root):
@@ -72,14 +75,15 @@ def kill_after_ack(code, root):
         child.communicate(timeout=10)
 
 
-def test_acknowledged_append_survives_sigkill_and_torn_successor(tmp_path):
+@pytest.mark.parametrize("tail", [b'{"torn":', b'{"text":"\xc3'])
+def test_acknowledged_append_survives_sigkill_and_torn_successor(tmp_path, tail):
     """An acknowledged row survives process death; a subsequent half-row is skipped."""
     kill_after_ack(
         "import os,sys,time\nfrom ingest.live import append\n"
         "from pathlib import Path\np=Path(sys.argv[1])\n"
         "append(p,'poll',0,{'n':1})\n"
         "with next(p.glob('poll-*.jsonl')).open('ab',buffering=0) as f:\n"
-        " f.write(b'{\"torn\":')\n os.fsync(f.fileno())\n"
+        f" f.write({tail!r})\n os.fsync(f.fileno())\n"
         " print('ACK',flush=True)\n time.sleep(60)\n", tmp_path,
     )
     live.append(tmp_path, "poll", 0, {"n": 2})
