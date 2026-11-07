@@ -115,3 +115,14 @@ def test_a_malformed_request_is_refused_before_any_market_is_read(make, malforme
     out = call(d, "register", malformed)
     assert not out["ok"] and reads == []
     assert out["errors"]
+
+
+@pytest.mark.parametrize("over, short", [({"legs": [["BTCC", 1]]}, False), ({"T": 0}, False), ({}, True)])
+def test_snapshot_ineligibility_and_past_horizons_are_refused_before_fetching_inputs(make, over, short):
+    d, _ = make()
+    if short:
+        d.snapshot = SNAPSHOT | {"daily": {"X": SNAPSHOT["daily"]["X"][-89:]}}
+    reads = []
+    d.register_inputs = lambda *args: reads.append(args) or (CONFIG, DATA)
+    out = call(d, "register", thesis(**over))
+    assert not out["ok"] and out["errors"] and reads == []
