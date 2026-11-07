@@ -10,6 +10,7 @@ and no statistic of another column is used."""
 
 import base64
 import math
+import struct
 from collections import defaultdict
 from pathlib import Path
 
@@ -338,3 +339,45 @@ def resolve(sources, footers, universe, version, holdout=None):
     for i in range(len(sources)):
         build(i)
     return keys, tables
+
+
+def rank(cell):
+    """A cell's place in RULES.md §7's order: null, boolean, integer, real, string; an array by element."""
+    return [rank(c) for c in cell] if isinstance(cell, list) else (
+        (0,) if cell is None else (1, cell) if isinstance(cell, bool) else (2, cell) if isinstance(cell, int)
+        else (3, cell + 0.0) if isinstance(cell, float) else (4, cell))
+
+
+def bits(cell):
+    """A number's float64 bits, else None."""
+    return struct.unpack("<Q", struct.pack("<d", float(cell)))[0] if type(cell) in (int, float) else None
+
+
+def listing(sources, keys, queries):
+    """RULES.md §7's result: every key with an eligible revision, sorted by source name, entity and event time, each
+    entry as [fetched, known, retraction, slot, cells, role]."""
+    by = {s["name"]: s for s in sources}
+    return {"keys": [
+        {"source": k.source, "entity": list(k.entity), "event": k.event, "coin": k.coin,
+         "timeline": [[e.fetched, e.known, e.retraction, e.slot,
+                       None if e.cells is None else {c: e.cells.get(c) for c in declared(by[k.source])},
+                       None if e.role is None else list(e.role)] for e in k.entries],
+         "visible": [None if (e := k.sees(q)) is None else e.fetched for q in queries]}
+        for k in sorted(keys.values(), key=lambda k: (k.source, rank(list(k.entity)), k.event))]}
+
+
+def observations(sources, keys):
+    """RULES.md §7's loader-level observations: per delivery of a key of U of a non-evidence source, sorted by source
+    name, coin, event time and fetchedAt."""
+    by, out = {s["name"]: s for s in sources}, []
+    for k in keys.values():
+        s = by[k.source]
+        if k.coin is None or s["evidence"]:
+            continue
+        for i, e in enumerate(k.entries):
+            values = [None] * len(s["values"]) if e.cells is None else [bits(e.cells.get(v)) for v in s["values"]]
+            role = None if e.role is None else (
+                [bits(x) for x in e.role[:-1]] + [e.role[-1]] if "bars" in s["roles"] else [bits(e.role[0])])
+            out.append([s["name"], k.coin, k.event, e.fetched, e.known, e.retraction, e.slot, values, role,
+                        i + 1 == len(k.entries)])
+    return sorted(out, key=lambda o: (o[0], o[1], o[2], o[3]))

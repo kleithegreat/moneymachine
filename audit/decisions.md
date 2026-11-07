@@ -861,3 +861,4 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
     revision (`i64::MAX`), `latest_version` deleted since file names carry no version; `store.known_at` evaluates through
     `knownat.evaluate` (its Polars twin deleted; `availability.py` and `test_checks.py` follow); a stale header comment goes.
 - **Reverse.** `git revert` the "stage7 slice 5 fixes" commits. I7's wording is a revision, not a loosened threshold.
+2026-11-06 stage7 slice 5: NF1 fixed (Argon re-review): Named Test 1's stored_on_retractions control delivers the retracting revision's own stored cells from the case rows; Python's §7 listing/observations moved from test glue into ingest/resolve.py (mirroring Resolved::listing/observations). Reverse: git revert the commit.

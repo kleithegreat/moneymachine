@@ -114,23 +114,36 @@ def test_each_production_loader_gives_leans_result_and_observations(resolver_res
         assert lean_check.same(got["observations"], lean["observations"]), (loader, c)
 
 
-def final_values(observations):
+def final_values(case, lean):
     """The control of a loader delivering the final revision's values on every entry."""
+    observations = lean["observations"]
     last = {tuple(o[:3]): o for o in observations}
     return [o[:7] + last[tuple(o[:3])][7:9] + [o[9]] for o in observations]
 
 
-def stored_on_retractions(observations):
-    """The control of a loader delivering a retraction's stored values: those of the entry before it."""
-    out, before = [], {}
-    for o in observations:
-        out.append(o[:7] + before[tuple(o[:3])][7:9] + [o[9]] if o[5] and tuple(o[:3]) in before else o)
-        before[tuple(o[:3])] = o
+def stored_on_retractions(case, lean):
+    """The control of a loader delivering a retraction's stored values: the retracting revision's own, from the case's
+    rows."""
+    by = {s["name"]: s for s in case["sources"]}
+    out = []
+    for o in lean["observations"]:
+        if not o[5]:
+            out.append(o)
+            continue
+        s = by[o[0]]
+        key = next(k for k in lean["result"]["keys"]
+                   if (k["source"], k["coin"], k["event"]) == tuple(o[:3]) and any(e[0] == o[3] for e in k["timeline"]))
+        cells = resolver_suite.stored(case["rows"], s, key, o[3])[1]
+        role = [cells.get(c) for c in resolver_suite.role_columns(s)]
+        payload = None if not s["roles"] else (
+            [lean_check.bits(x) for x in role[:-1]] + [role[-1]] if "bars" in s["roles"] else [lean_check.bits(role[0])])
+        out.append(o[:7] + [[lean_check.bits(cells.get(v)) for v in s["values"]], payload, o[9]])
     return out
 
 
-def every_entry_final(observations):
+def every_entry_final(case, lean):
     """The control of a loader marking every entry final."""
+    observations = lean["observations"]
     return [o[:9] + [True] for o in observations]
 
 
@@ -141,7 +154,7 @@ def test_the_observation_comparison_catches_its_controls(resolver_results, contr
     caught = 0
     for c, lean in zip(cases(), resolver_results["lean"], strict=True):
         if isinstance(lean["result"], dict) and resolver_suite.image(c):
-            wrong = control(lean["observations"])
+            wrong = control(c, lean)
             caught += not lean_check.same(wrong, lean["observations"])
     assert caught >= 10
 
