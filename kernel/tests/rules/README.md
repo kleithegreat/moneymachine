@@ -27,16 +27,17 @@ All 171 hand expectations equal Lean. Of 481 generated stores, 365 resolve, 116 
 image. They give 1,001 distinct delivered pairs (999 without the last store); every `REACHED` tag holds on at least
 10 stores (fewest: raised to replaced, 68; derived bound past fetchedAt, 86). `resolveAll`'s observations equal
 the timelines' delivery in every resolving case. Comparisons check cardinality: a missing case fails.
-This is Lean against itself and the hand expectations, **not a pass of C7.6's production-loader comparison**.
+This is Lean against itself and the hand expectations; `test_suite.py` adds the production loaders, and a pass of C7.6's comparison also needs GPT's resolver.
 
-## Slice 5, not this freeze
+## Slice 5
 
-Replace `store.as_of` in `ingest/store.py` with its bitemporal version and move its callers (`ingest/backfill.py`,
-`ingest/witness.py`) with it. `ingest/knownat.resolve`, `gpt_resolver.py` and `rule.rs::resolve`/`effective` die with
-their callers. GPT writes its new resolver from RULES.md and SOURCES.md alone, never this suite. C7.6 names the
-loader-level comparisons and structural holdout review still required; the seven recorded staging strict xfails
-(`audit/stage7/holdout-staging.md`) await that implementation. Invalid-registry admission refusals stay in
-`reference/admission_differential.py`.
+`store.as_of` is `ingest/resolve.py`'s bitemporal resolver, and `market::load` and `mm resolve` are
+`kernel/mm/src/resolve.rs`. `loaders.py` writes each case's Parquet image and runs both; `test_suite.py` holds them to
+Lean's result and observations on every case with an image (546 of the 652 cases). `ingest/knownat.resolve` and
+`rule.rs::resolve`/`effective` are gone. `gpt_resolver.py`, the old snapshot resolver, stays until GPT's new resolver,
+written from RULES.md and SOURCES.md alone, never this suite, replaces it. C7.6 still names GPT's resolver in the
+comparison, the structural holdout review and the Parquet-as-cells test (named test 2). Invalid-registry admission
+refusals stay in `reference/admission_differential.py`.
 
 Type census of the store as written, by schema only (integrity inspection, no values; the advisor's prior inspection,
 not repeated for this freeze): `data/store` holds only Double, Int64 and LargeUtf8 columns and no `tombstone` column,

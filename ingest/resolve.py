@@ -183,6 +183,8 @@ def read_revisions(footers, tables, s, version, names, entity_columns):
     derived = bool(s["deps"])
     by_key = defaultdict(list)
     for f in footers:
+        if f.rows == 0:
+            continue
         whole = pq.read_table(f.path, columns=columns_read(f, s))
         fetched = whole.column("fetchedAt")
         if fetched.null_count:

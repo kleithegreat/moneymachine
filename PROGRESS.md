@@ -23,14 +23,14 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 frozen**, `b3-r11`: criterion, specs and suite (`kernel/tests/rules/`). Next: C7.6's implementation (slice 5), including 7 strict staging xfails (`audit/stage7/holdout-staging.md`).
+- **B3 frozen**, `b3-r11` (`kernel/tests/rules/`). **Slice 5 built** on branch `slice5` (off `stage7`, unmerged): `ingest/resolve.py` (`store.as_of`) and `mm`'s `resolve.rs` equal Lean on 546 cases. Left: GPT's resolver from the specs alone (old `gpt_resolver.py` stays until then), the structural holdout review; `mmdump` still exports no revisions.
 
 
 2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns established so far, pacing on Cornell's resets; TAMU joins at its reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
-   3. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
+   3. Then C7.6's GPT comparison and reviews, C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
    - Judged runs wait for the rebase onto the pilot's baseline commit.
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
 6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit; Unblocked: recording OECD's STES revisions (certified; about 357 MB a country quarterly).

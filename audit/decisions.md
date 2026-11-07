@@ -806,3 +806,18 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
   32 strict xfails, two existing skips and one failure: the repository-source scan listed the old tracked draft path
   before the relocations were staged, then could not open it. With the moves committed, that unchanged test passes
   (four tests including process/status checks); no test or criterion was changed to address this index-order failure.
+
+## 2026-11-07 01:37 UTC (2026-11-06 20:37 EST): stage 7 slice 5 built on branch `slice5` (builder: slice 5)
+
+- **What:** `ingest/resolve.py` (behind `store.as_of`; `Store.entries` gives every delivery, `ingest/witness.py` reads it) and
+  `kernel/mm/src/resolve.rs` (behind `market::load` and `mm resolve`) implement RULES.md §6 B3 and SOURCES.md §2 and equal
+  Lean on the 546 suite cases with a Parquet image; the seven staging xfails pass, and the Rust namesake, the two-run checks
+  and the Parquet-as-cells test are in `kernel/mm/tests/` and `kernel/tests/rules/`. Not done: GPT's resolver (its old
+  `gpt_resolver.py` stays), the structural holdout review.
+- **Choices a later slice may reverse** (none changes a judged result: no judged run reads this branch): `Market` keeps its typed
+  vectors until slices 3 and 4, one record per delivered revision, a retraction a record of NaN values, `bar_at`/`rate_at`
+  from each key's final revision; a bar's open is its event time less 4h (B1) rather than the stored `openTime`; the market's
+  `data_hash` covers every file of each dataset, not only those fetched by the version; `mmdump` exports those records
+  as they are (the C7.7 corpus needs a market exporter with revisions); Rust reads Parquet through the `arrow` feature,
+  to read each file's own types.
+- **Reverse:** `git revert` the four `stage7 slice 5` commits; nothing else depends on them.

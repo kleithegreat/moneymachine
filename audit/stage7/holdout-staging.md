@@ -40,3 +40,9 @@ outside [−2^62, 2^62 − 1]; projection treats a missing event column as null 
 All seven production-loader cases remain strict xfails naming this record, for the same absent read-side check.
 The original controls plus premature `fetchedAt` validation fail on the original fixtures; three targeted omission
 controls fail the new null/range fixtures. The projecting positive control passes every fixture.
+
+## Resolved (2026-11-07, slice 5)
+
+`ingest/store.py` reads through `ingest/resolve.py`: footer schema checks, then the holdout check on the event-time column
+alone by projection, then everything else. The seven strict xfails are passes; `kernel/mm/tests/resolve.rs` is the Rust
+namesake. The structural half stays with the reviews C7.6 names.

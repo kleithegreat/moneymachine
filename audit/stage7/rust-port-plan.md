@@ -41,7 +41,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
 4. **The simulator from `Ctx`** (`sim.rs`, `market.rs`). Checks: C6.4's harness on its runs (trace, returns, gross
    returns, equity); `mm eval --trace` of `933b3f4` against the new binary on W0, the stage 2 probes and the first 200
    C6.4 programs over C6.4's markets, byte-identical (the C7.4 comparison, as a development run before its baseline).
-5. **The resolver** (`resolve.rs`, `market.rs` loader): after B3. Checks: the revised C7.6 resolver suite across
+5. **The resolver** (`resolve.rs`, `market.rs` loader): after B3. Built 2026-11-07 on branch `slice5` (`audit/decisions.md`); left:
+   GPT's resolver, the structural holdout review. Checks: the revised C7.6 resolver suite across
    Python (`store.as_of`'s bitemporal replacement), the Rust loader, GPT's independent resolver and Lean's `timeline`
    and `resolveAll` through `refmm resolve`, with C7.6's named loader-level tests (`audit/criteria.md`, B3 revision;
    frozen suite and checks in `kernel/tests/rules/`); on
@@ -90,8 +91,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   `ingest/events.py`'s lineage follow the revised annex.
 - **B3. Frozen 2026-11-06.** C7.6's dated revision was committed alone, then RULES.md §6–7 and SOURCES.md §2,
   then the resolver suite and Lean checks in `kernel/tests/rules/` (`README.md`). The old snapshot-resolver comparison
-  is gone; its implementations remain until slice 5 replaces the production Python and Rust paths and GPT writes
-  its independent resolver from the specifications alone. Only then can C7.6's resolver comparison pass.
+  is gone, and slice 5 replaced the production Python and Rust paths. C7.6's resolver comparison can pass only when GPT
+  has written its independent resolver from the specifications alone (its old `gpt_resolver.py` remains until then).
 - **Evidence keys** (settled with B2). An evidence declaration names its event column among its key columns
   (`{"evidence": [K…], "event": C}`, C in `times`): the recorder's observation time, which stage 2's holdout check
   reads. Its records have no coin (Lean's `coin = none`), never an entity index; Lean's `entityColumns` are the other

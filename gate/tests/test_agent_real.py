@@ -14,6 +14,8 @@ import threading
 from pathlib import Path
 
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from gate import markets
@@ -399,7 +401,7 @@ def test_an_input_changed_during_the_arms_stops_the_release(c, monkeypatch):
 
     def session(market, ledger, cid, workdir):
         run = run_agent(market, ledger, cid, workdir)
-        (c.root / "store/funding/extra.parquet").write_bytes(b"x")
+        pq.write_table(pa.table({"fetchedAt": pa.array([], pa.int64())}), c.root / "store/funding/extra.parquet")
         return run
 
     monkeypatch.setattr(campaigns.harness, "run_agent", session)
