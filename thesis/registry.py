@@ -59,7 +59,7 @@ class Ledger:
         """[(ledger id, created, content)] in commit order; no committed schema means no records."""
         if not self.path.exists():
             return []
-        with closing(sqlite3.connect(self.path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        with closing(sqlite3.connect(self.path)) as db:
             if not db.execute("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'disclosures'").fetchone():
                 return []
             rows = db.execute("SELECT id, created, content FROM disclosures WHERE campaign = ? AND kind = ? AND (? IS NULL OR agent = ?) "

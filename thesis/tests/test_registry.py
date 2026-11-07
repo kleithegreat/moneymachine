@@ -99,20 +99,41 @@ def test_corrupt_ledgers_are_errors_not_empty_records(tmp_path):
         registry.Ledger(path, "t").records("thesis")
 
 
-def test_records_open_only_readonly_connections_even_for_uri_characters(tmp_path, monkeypatch):
+def test_records_read_literal_filename_characters(tmp_path):
     path = tmp_path / "mirror?#.sqlite"
     with sqlite3.connect(path) as db:
         db.execute("CREATE TABLE disclosures(id, created, content, campaign, kind, agent)")
         db.execute("INSERT INTO disclosures VALUES(1, 'created', '{}', 't', 'call', 'main')")
-    connect = sqlite3.connect
-
-    def readonly(database, **kwargs):
-        if not kwargs.get("uri") or "mode=ro" not in str(database):
-            raise sqlite3.OperationalError("read-only mirror mount")
-        return connect(database, **kwargs)
-
-    monkeypatch.setattr(registry.sqlite3, "connect", readonly)
     assert registry.Ledger(path, "t").records("call") == [(1, "created", {})]
+
+
+def test_reader_recovers_a_hot_journal_after_a_writer_is_killed_mid_commit(tmp_path):
+    path = tmp_path / "ledger.sqlite"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE disclosures(id INTEGER PRIMARY KEY, campaign, kind, agent, created, content)")
+        db.execute("INSERT INTO disclosures VALUES(1, 't', 'thesis', 'main', 'c', '{\"id\":1}')")
+    child = subprocess.Popen([sys.executable, "-c",
+                              "import sqlite3,sys\n"
+                              "db=sqlite3.connect(sys.argv[1], isolation_level=None)\n"
+                              "db.execute('PRAGMA cache_size=1')\n"
+                              "db.execute('BEGIN IMMEDIATE')\n"
+                              "for i in range(2,3000):\n"
+                              " db.execute('INSERT INTO disclosures VALUES(?,?,?,?,?,?)', (i,'t','thesis','main','c', '\"'+'x'*500+'\"'))\n"
+                              "print('SPILLED', flush=True)\n"
+                              "sys.stdin.read()\n", str(path)],
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    try:
+        assert child.stdout.readline().strip() == "SPILLED"
+        child.kill()
+        assert child.wait(timeout=10) == -signal.SIGKILL
+    finally:
+        if child.poll() is None:
+            child.kill()
+        child.communicate(timeout=10)
+    journal = path.with_name(path.name + "-journal")
+    assert journal.exists() and journal.read_bytes()[:8] != b"\0" * 8
+    assert registry.Ledger(path, "t", "/nonexistent").records("thesis", "main") == [(1, "c", {"id": 1})]
+    assert not journal.exists()
 
 
 def test_a_registered_thesis_is_canonical_append_only_and_idempotent(ledger):
