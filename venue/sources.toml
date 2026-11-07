@@ -10,10 +10,14 @@ description = '''
 All requests: `POST https://api.hyperliquid.xyz/info`, public, read-only, no auth.
 Documented limit: 1200 weight/min per IP, shared by all REST requests
 ([rate limits](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits)).
-Our processes share one IP and together stay at or below 600/min: the backfill is
-held at 200/min, the recorder at 400/min, and one-off scripts at 600/min while
-nothing else runs (`ingest/hl.py` charges weight before each request and again
-for the item weight after it).
+Our processes share one IP and together stay at or below 600/min. The deployed
+co-egress recorder allocation is defined once by `ingest.hl.RECORDER_WEIGHT_PER_MIN`;
+the thesis uses only the remaining allowance. One-off scripts may use 600/min
+only while nothing else runs. Shared-IP coordination and the thesis's unmet
+cold-session demand are refreeze blockers (paper appendix T3), not authorization
+to exceed this commitment. `ingest/hl.py` charges base weight before each request
+and actual item weight after receipt; only `thesis/market.py` reserves bounded
+page weight before sending. The recorder's accounting semantics are unchanged.
 
 | Endpoint | Used for | Weight (documented) | Pagination (documented / observed) | Retention (documented / observed 2026-10-19) |
 |---|---|---|---|---|

@@ -120,8 +120,7 @@ def forever(step, stop):
 
 
 def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
-    """`budget` per minute in all; after stage 0's window it drops to 480 so the thesis track's 120 fits under half
-    the documented limit."""
+    """Record at the supplied total allocation; the co-egress deployment takes its share from ingest.hl."""
     delisted = json.loads(Path(rules_path).read_text())["coins"]
     coins = [c for c in json.loads(Path(universe_path).read_text())["universe"] if not delisted[c]["delisted"]]
     stop = recording(out_dir)

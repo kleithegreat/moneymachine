@@ -1,4 +1,4 @@
-"""Read-only Hyperliquid info API client, held under half the documented rate limit."""
+"""Read-only Hyperliquid info API client with weighted admission at its configured allocation."""
 
 import threading
 import time
