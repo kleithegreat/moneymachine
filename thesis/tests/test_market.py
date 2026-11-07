@@ -470,10 +470,15 @@ def test_malformed_successes_are_archived_retried_and_do_not_abort_other_dexes(t
     assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5}
 
 
-def test_history_and_marks_share_the_real_venue_limit_without_a_permanent_partition(tmp_path):
+def test_history_and_marks_share_only_the_certified_ip_remainder(tmp_path):
+    from ops import live
+
     m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
     assert m.x.limiter is m.sampler.limiter
-    assert m.x.limiter.budget == hl.DOCUMENTED_WEIGHT_PER_MIN - market.COHOST_WEIGHT_PER_MIN == 720
+    assert hl.BUDGET_PER_MIN == 600
+    assert m.x.limiter.budget <= hl.BUDGET_PER_MIN - int(live.WORKLOADS["hl"][1][-1])
+    assert m.x.limiter.budget + hl.RECORDER_WEIGHT_PER_MIN <= hl.BUDGET_PER_MIN
+    assert m.x.limiter.budget == hl.BUDGET_PER_MIN - hl.RECORDER_WEIGHT_PER_MIN
 
 
 def test_queued_history_releases_the_lock_and_drains_before_the_mark_deadline(tmp_path, monkeypatch):
@@ -636,14 +641,18 @@ def test_failed_discovery_releases_the_history_reservation(tmp_path, monkeypatch
     assert m.sampler.limiter.released == H + 5_000
 
 
-def test_two_cold_funding_histories_do_not_exhaust_the_session_wall_budget(tmp_path, monkeypatch):
+@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-07-opus-thesis-refreeze.md finding 2; PROGRESS Blockers: four cold funding histories cannot fit the certified remainder in one session")
+def test_cold_registration_funding_fits_the_permitted_session_workload(tmp_path, monkeypatch):
+    from thesis.daemon import MAX_REGISTRATIONS
+    from thesis.harness import WALL_SECONDS
+
     clock = [H + 10 * 60_000]
     fake_clock(monkeypatch, clock)
     x = market.Exchange(tmp_path)
     start = clock[0]
-    for _ in range(2 * 55):
+    for _ in range(MAX_REGISTRATIONS * 2 * 55):
         x._charge(45)
-    assert clock[0] - start < 3600_000
+    assert clock[0] - start < WALL_SECONDS * 1000
 
 
 def test_a_full_cold_hourly_page_fits_the_shared_exchange_budget(tmp_path, monkeypatch):

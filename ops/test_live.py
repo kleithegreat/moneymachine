@@ -16,6 +16,12 @@ import pytest
 import live
 
 
+def test_recorder_command_uses_the_shared_ip_allocation():
+    from ingest.hl import RECORDER_WEIGHT_PER_MIN
+
+    assert live.WORKLOADS["hl"][1][-1] == str(RECORDER_WEIGHT_PER_MIN)
+
+
 def killed_at(action, install):
     parent, child = multiprocessing.get_context("fork").Pipe()
 

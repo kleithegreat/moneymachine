@@ -26,13 +26,13 @@ from typing import Any
 
 import httpx
 
-from ingest.hl import DOCUMENTED_WEIGHT_PER_MIN, TIMEOUT, Info, WeightLimit
+from ingest.hl import BUDGET_PER_MIN as IP_BUDGET_PER_MIN
+from ingest.hl import RECORDER_WEIGHT_PER_MIN, TIMEOUT, Info, WeightLimit
 from ingest.live import append, now_ms, read
 from ingest.policy import DAY, DELTA, HOUR
 
 ALLOWED = frozenset({"meta", "perpDexs", "candleSnapshot", "fundingHistory", "metaAndAssetCtxs"})
-COHOST_WEIGHT_PER_MIN = 480
-BUDGET_PER_MIN = DOCUMENTED_WEIGHT_PER_MIN - COHOST_WEIGHT_PER_MIN
+BUDGET_PER_MIN = IP_BUDGET_PER_MIN - RECORDER_WEIGHT_PER_MIN
 HISTORY = {"1h": 200 * DAY, "1d": 3 * 365 * DAY + 30 * DAY, "funding": 3 * 365 * DAY + 30 * DAY}
 MARK_OFFSET = 5_000
 MARK_WINDOW = 5 * 60_000

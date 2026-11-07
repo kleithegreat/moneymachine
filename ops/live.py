@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jobs  # noqa: E402
 from diskguard import VOLUMES, capacity  # noqa: E402
+from ingest.hl import RECORDER_WEIGHT_PER_MIN  # noqa: E402
 
 REPO = jobs.REPO
 NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk7", "/app/repo"
@@ -44,7 +45,7 @@ PROC = "Unmasked"  # the runners' procMount, as the sandbox gate settled it
 
 # name: (kind, command, {volume: read-only}, runner, (cpu, memory request, memory limit), grace seconds, extra)
 WORKLOADS = {
-    "hl": ("StatefulSet", ["record", "data/live/universe.json", "venue/hyperliquid/rules.json", "data/live", "480"],
+    "hl": ("StatefulSet", ["record", "data/live/universe.json", "venue/hyperliquid/rules.json", "data/live", str(RECORDER_WEIGHT_PER_MIN)],
            {"hl": False}, False, ("100m", "256Mi", "512Mi"), 300, {}),
     "sources": ("StatefulSet", ["sources-record", "data/sources_live"], {"sources": False}, False,
                 ("100m", "256Mi", "512Mi"), 300, {}),
