@@ -122,21 +122,44 @@ class Exchange(Info):
         append(self.archive, self.prefix, sample["sent"], sample)
 
 
+def snapshot_marks(payload: Any) -> dict[str, float | None]:
+    """Validate a complete dex snapshot; an invalid individual price stays missing, never substituted."""
+    if not isinstance(payload, list) or len(payload) != 2:
+        raise ValueError("expected [meta, contexts]")
+    meta, ctxs = payload
+    assets = meta.get("universe") if isinstance(meta, dict) else None
+    if not isinstance(assets, list) or not isinstance(ctxs, list) or len(assets) != len(ctxs):
+        raise ValueError("expected matching universe and contexts")
+    marks = {}
+    for a, c in zip(assets, ctxs):
+        if not isinstance(a, dict) or not isinstance(a.get("name"), str) or not isinstance(c, dict):
+            raise ValueError("expected named assets and context objects")
+        try:
+            marks[a["name"]] = float(c["markPx"])
+        except (KeyError, TypeError, ValueError):
+            marks[a["name"]] = None
+    return marks
+
+
 class Sampler(Exchange):
     """The hourly archive holds the raw attempt and its marks together, including failed or invalid samples."""
 
     prefix = "marks"
+
+    def _decode(self, body: dict[str, Any], response: httpx.Response) -> Any:
+        payload = super()._decode(body, response)
+        if body["type"] == "metaAndAssetCtxs":
+            snapshot_marks(payload)
+        return payload
 
     def _archive(self, sample: dict[str, Any]) -> None:
         marks = {}
         valid = False
         if sample["request"]["type"] == "metaAndAssetCtxs" and sample.get("status") == 200:
             try:
-                meta, ctxs = sample["response"]
-                marks = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None
-                         for a, c in zip(meta["universe"], ctxs)}
+                marks = snapshot_marks(sample["response"])
                 valid = True
-            except (KeyError, TypeError, ValueError):
+            except ValueError:
                 pass
         super()._archive(sample | {"dex": sample["request"].get("dex"), "marks": marks, "valid": valid})
 

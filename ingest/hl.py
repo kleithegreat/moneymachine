@@ -49,7 +49,12 @@ class Info:
             if (r.status_code == 429 or r.status_code >= 500) and attempt < 5:
                 continue
             r.raise_for_status()
-            out = r.json()
+            try:
+                out = self._decode(body, r)
+            except ValueError:
+                if attempt == 5:
+                    raise
+                continue
             if per_items and isinstance(out, list):
                 self._charge(len(out) // per_items)
             return out
@@ -57,6 +62,9 @@ class Info:
     def _send(self, body: dict[str, Any]) -> httpx.Response:
         """Send one already-charged attempt."""
         return self.http.post(URL, json=body)
+
+    def _decode(self, body: dict[str, Any], response: httpx.Response) -> Any:
+        return response.json()
 
     def meta(self) -> Any:
         return self.post({"type": "meta"})

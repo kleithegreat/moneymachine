@@ -470,3 +470,28 @@ def test_a_sample_that_cannot_be_archived_is_not_swallowed_as_a_venue_failure(tm
     monkeypatch.setattr(market, "append", full)
     with pytest.raises(OSError, match="disk full"):
         m.record_marks()
+
+
+@pytest.mark.parametrize("payload", [[None, []], [{"universe": [None]}, [{}]],
+                                     [{"universe": [{"name": "bad:X"}]}, [None]],
+                                     [{"universe": [{"name": "bad:X"}]}, []], "truncated"])
+def test_malformed_successes_are_archived_retried_and_do_not_abort_other_dexes(tmp_path, monkeypatch, payload):
+    clock, attempts = [H + 5_000], []
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+
+    def post(url, json):
+        attempts.append(json)
+        request = httpx.Request("POST", url)
+        if json["type"] == "perpDexs":
+            return httpx.Response(200, json=[None, {"name": "bad"}, {"name": "xyz"}], request=request)
+        if json["dex"] == "bad":
+            return httpx.Response(200, text="{torn", request=request) if payload == "truncated" else httpx.Response(200, json=payload, request=request)
+        return httpx.Response(200, json=DEX_REPLY, request=request)
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks()
+    rows = list(market.read(m.sampler.archive, "marks"))
+    assert len(rows) == len(attempts) == 8
+    assert all(not r["valid"] for r in rows if r["dex"] == "bad")
+    assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5}
