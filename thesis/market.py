@@ -18,6 +18,7 @@ import math
 import os
 import sys
 import threading
+import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -25,7 +26,6 @@ from typing import Any
 
 import httpx
 
-from ingest import hl
 from ingest.hl import DOCUMENTED_WEIGHT_PER_MIN, TIMEOUT, Info, WeightLimit
 from ingest.live import append, now_ms, read
 from ingest.policy import DAY, DELTA, HOUR
@@ -112,8 +112,9 @@ class Exchange(Info):
 
     prefix = "info"
 
-    def __init__(self, archive_dir: str | Path, *, limiter: WeightLimit | None = None) -> None:
-        super().__init__(limiter=limiter if limiter is not None else MarkLimit())
+    def __init__(self, archive_dir: str | Path, *, limiter: MarkLimit | None = None) -> None:
+        self.limiter: MarkLimit = limiter if limiter is not None else MarkLimit()
+        super().__init__(limiter=self.limiter)
         self.archive = Path(archive_dir)
         self.archive.mkdir(parents=True, exist_ok=True)
         self.archive_lock = threading.Lock()
@@ -155,7 +156,7 @@ def snapshot_marks(payload: Any) -> dict[str, float | None]:
     assets = meta.get("universe") if isinstance(meta, dict) else None
     if not isinstance(assets, list) or not isinstance(ctxs, list) or len(assets) != len(ctxs):
         raise ValueError("expected matching universe and contexts")
-    marks = {}
+    marks: dict[str, float | None] = {}
     for a, c in zip(assets, ctxs):
         if not isinstance(a, dict) or not isinstance(a.get("name"), str) or not isinstance(c, dict):
             raise ValueError("expected named assets and context objects")
@@ -278,7 +279,7 @@ class Market:
         if 20 * (1 + len(names)) > self.sampler.limiter.budget:
             raise ValueError("hourly initial sampling wave exceeds the venue weight limit")
         if due > now_ms():
-            hl.time.sleep((due - now_ms()) / 1000)
+            time.sleep((due - now_ms()) / 1000)
 
         def sample(dex: str) -> str | None:
             try:
@@ -294,7 +295,7 @@ class Market:
                     if attempt:
                         if now_ms() + MARK_PREP + TIMEOUT * 1000 >= due - MARK_OFFSET + MARK_WINDOW:
                             break
-                        hl.time.sleep(2 ** (attempt - 1))
+                        time.sleep(2 ** (attempt - 1))
                     names = [d for d in pool.map(sample, names) if d is not None]
                     if not names:
                         break

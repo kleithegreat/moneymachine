@@ -370,6 +370,7 @@ DEX_REPLY = [{"universe": [{"name": "xyz:GOLD"}]}, [{"markPx": "2400.5"}]]
 def fake_clock(monkeypatch, clock):
     monkeypatch.setattr(hl, "time", type("Clock", (), {"monotonic": staticmethod(lambda: clock[0] / 1000),
                                                      "sleep": staticmethod(lambda s: clock.__setitem__(0, clock[0] + s * 1000))}))
+    monkeypatch.setattr(market, "time", hl.time)
     monkeypatch.setattr(market, "now_ms", lambda: int(clock[0]))
 
 
