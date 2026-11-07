@@ -1,26 +1,30 @@
-"""C7.6: GPT 6.1 Sol's independent implementation of the resolver of kernel/RULES.md §6 (and the rule language it applies),
-written from RULES.md and the resolver case format alone, with tools denied, then updated by it for the format's two
-clarifications from the documents and its own previous file (~/.cache/mm-gpt/resolver.BUJv). Committed verbatim below this note."""
+"""C7.6: GPT 6.1 Sol's independent resolver (B3), written in one reply from kernel/RULES.md and kernel/SOURCES.md alone, with every
+tool denied (sealed directory ~/.cache/mm-gpt/c76-resolver.XYxt, 2026-11-07 01:45 UTC (2026-11-06 20:45 EST)). Its three
+marked readings: observations' COIN is the universe index; binary64 bits are unsigned 64-bit integers; a non-resolving
+case has no observations. Committed verbatim below this note."""
 
-"""Availability-rule resolver for RULES.md and RESOLVER_CASES.md.
-
-resolve(case) accepts the documented case-dict schema.
-Run this module to process one case per JSON line.
-"""
+#!/usr/bin/env python3
+"""Independent RULES.md §6–7 resolver. Standard library only."""
 
 import json
-import re
+import math
+import struct
 import sys
+from bisect import bisect_right
+from collections import deque
+from dataclasses import dataclass, field
 
 
-MIN_TIME = -(1 << 62)
-MAX_TIME = (1 << 62) - 1
+LO = -(1 << 62)
+HI = (1 << 62) - 1
+CELL_LO = -(1 << 63)
+CELL_HI = (1 << 63) - 1
+METADATA = {
+    "fetchedAt", "tombstone", "source", "hash", "upstream", "knownAt"
+}
 
-_SURROGATE = re.compile(r"[\ud800-\udfff]")
-_METADATA = frozenset(("fetchedAt", "source", "hash", "tombstone"))
 
-
-class _BadJSON(Exception):
+class _Malformed(Exception):
     pass
 
 
@@ -28,52 +32,70 @@ class _BadRule(Exception):
     pass
 
 
-class _Reject(Exception):
-    def __init__(self, code):
-        self.code = code
+class _Rejected(Exception):
+    pass
 
 
-class _Number:
-    """A JSON number retained without floating-point conversion."""
+class _NonInteger:
+    """An unconverted JSON number token containing a fraction or exponent."""
 
-    __slots__ = ("text", "integer")
+    __slots__ = ("text",)
 
     def __init__(self, text):
         self.text = text
-        self.integer = not any(c in text for c in ".eE")
 
 
-def _decimal_integer(text):
-    """Parse an arbitrary-size decimal integer without digit-limit failures."""
-    negative = text.startswith("-")
-    if text[:1] in ("-", "+"):
-        text = text[1:]
+_TOO_LARGE_INTEGER = object()
 
-    result = 0
-    for start in range(0, len(text), 9):
-        part = text[start:start + 9]
-        result = result * (10 ** len(part)) + int(part)
-    return -result if negative else result
+
+def _text_integer(token):
+    digits = token[1:] if token.startswith("-") else token
+    # Such integers cannot be cells, constants, or Time values. Undeclared
+    # members still parse successfully without constructing a huge integer.
+    if len(digits) > 19:
+        return _TOO_LARGE_INTEGER
+    return int(token)
+
+
+def _unlimited_integer(token):
+    """Parse outer-case integers without Python's decimal digit limit."""
+    negative = token.startswith("-")
+    digits = token[1:] if negative else token
+    value = 0
+    for start in range(0, len(digits), 9):
+        chunk = digits[start:start + 9]
+        value = value * (10 ** len(chunk)) + int(chunk)
+    return -value if negative else value
 
 
 def _bad_constant(_):
-    raise _BadJSON()
+    raise _Malformed()
 
 
-def _object_pairs(pairs):
+def _unique_object(pairs):
     result = {}
-    for key, value in pairs:
-        if key in result:
-            raise _BadJSON()
-        result[key] = value
+    for name, value in pairs:
+        if name in result:
+            raise _Malformed()
+        result[name] = value
     return result
 
 
-def _check_depth(text):
+def _read_text(text, rule=False):
+    if type(text) is not str:
+        raise _Malformed()
+    try:
+        encoded = text.encode("utf-8", "strict")
+    except UnicodeEncodeError:
+        raise _Malformed() from None
+
+    if text.startswith("\ufeff") or (rule and len(encoded) > 65536):
+        raise _Malformed()
+
+    # Check container depth before invoking the recursive JSON decoder.
     depth = 0
     quoted = False
     escaped = False
-
     for char in text:
         if quoted:
             if escaped:
@@ -87,381 +109,573 @@ def _check_depth(text):
         elif char in "[{":
             depth += 1
             if depth > 64:
-                raise _BadJSON()
+                raise _Malformed()
         elif char in "]}":
             depth -= 1
+            if depth < 0:
+                raise _Malformed()
 
+    try:
+        value = json.loads(
+            text,
+            parse_int=_text_integer,
+            parse_float=_NonInteger,
+            parse_constant=_bad_constant,
+            object_pairs_hook=_unique_object,
+        )
+    except json.JSONDecodeError:
+        raise _Malformed() from None
 
-def _check_strings(value):
+    # Inspect all decoded strings, including undeclared members and keys.
     pending = [value]
     while pending:
         item = pending.pop()
-        if isinstance(item, str):
-            if _SURROGATE.search(item):
-                raise _BadJSON()
-        elif isinstance(item, dict):
+        if type(item) is str:
+            if any(0xD800 <= ord(char) <= 0xDFFF for char in item):
+                raise _Malformed()
+        elif type(item) is list:
+            pending.extend(item)
+        elif type(item) is dict:
             pending.extend(item.keys())
             pending.extend(item.values())
-        elif isinstance(item, list):
-            pending.extend(item)
-
-
-def _load_json(text, *, rule=False, native_integers=False):
-    try:
-        if isinstance(text, (bytes, bytearray)):
-            raw = bytes(text)
-            if rule and len(raw) > 65_536:
-                raise _BadJSON()
-            text = raw.decode("utf-8")
-        elif isinstance(text, str):
-            raw = text.encode("utf-8")
-            if rule and len(raw) > 65_536:
-                raise _BadJSON()
-        else:
-            raise _BadJSON()
-
-        if text.startswith("\ufeff"):
-            raise _BadJSON()
-
-        _check_depth(text)
-        value = json.loads(
-            text,
-            parse_int=_decimal_integer if native_integers else _Number,
-            parse_float=_Number,
-            parse_constant=_bad_constant,
-            object_pairs_hook=_object_pairs,
-        )
-        _check_strings(value)
-        return value
-    except (ValueError, UnicodeError) as exc:
-        raise _BadJSON() from exc
-
-
-def _small_integer(value):
-    """Return an in-range integer, or None for any other value."""
-    if type(value) is int:
-        number = value
-    elif isinstance(value, _Number) and value.integer:
-        if len(value.text.lstrip("-")) > 19:
-            return None
-        number = int(value.text)
-    else:
-        return None
-
-    return number if MIN_TIME <= number <= MAX_TIME else None
-
-
-def _checked(value):
-    if not MIN_TIME <= value <= MAX_TIME:
-        raise _Reject("R_OVERFLOW")
     return value
 
 
-def _read_time(mapping, name):
-    value = mapping.get(name)
+def _is_time(value):
+    return type(value) is int and LO <= value <= HI
+
+
+def _bounded(value):
+    if not LO <= value <= HI:
+        raise _Rejected("R_OVERFLOW")
+    return value
+
+
+def _cell(value):
+    if value is None or type(value) in (str, bool):
+        return value
+    if type(value) is int:
+        if CELL_LO <= value <= CELL_HI:
+            return value
+        raise _Malformed()
+    if isinstance(value, _NonInteger):
+        try:
+            number = float(value.text)
+        except (ValueError, OverflowError):
+            raise _Malformed() from None
+        if math.isfinite(number):
+            return number
+    raise _Malformed()
+
+
+def _tag(value):
+    """Both a cell identity and its specified sorting key."""
     if value is None:
-        raise _Reject("R_FIELD_ABSENT")
-
-    if not (
-        type(value) is int
-        or isinstance(value, _Number) and value.integer
-    ):
-        raise _Reject("R_FIELD_TYPE")
-
-    number = _small_integer(value)
-    if number is None:
-        raise _Reject("R_OVERFLOW")
-    return number
+        return (0,)
+    if type(value) is bool:
+        return (1, value)
+    if type(value) is int:
+        return (2, value)
+    if type(value) is float:
+        return (3, value)
+    return (4, value)
 
 
-def _compile(expression, expected, fields, dependencies):
-    """Return (AST, tagged lower-bound set)."""
-    if not isinstance(expression, dict) or len(expression) != 1:
+def _expression(value, fields, dependencies):
+    if type(value) is not dict or len(value) != 1:
         raise _BadRule()
-
-    operator, argument = next(iter(expression.items()))
+    operator, argument = next(iter(value.items()))
 
     if operator in ("field", "dep"):
-        if expected != "Time":
+        context = fields if operator == "field" else dependencies
+        if (
+            type(argument) is not str
+            or not argument
+            or argument not in context
+        ):
             raise _BadRule()
-        if not isinstance(argument, str) or not argument:
-            raise _BadRule()
-
-        declared = fields if operator == "field" else dependencies
-        if argument not in declared:
-            raise _BadRule()
-
-        return (operator, argument), {(operator, argument)}
+        return (operator, argument), "Time", {(operator, argument)}
 
     if operator == "ms":
-        number = _small_integer(argument)
-        if expected != "Duration" or number is None or number < 0:
+        if type(argument) is not int or not 0 <= argument <= HI:
             raise _BadRule()
-        return ("ms", number), set()
-
-    if expected != "Time":
-        raise _BadRule()
+        return ("ms", argument), "Duration", set()
 
     if operator in ("add", "floor"):
-        if not isinstance(argument, list) or len(argument) != 2:
+        if type(argument) is not list or len(argument) != 2:
             raise _BadRule()
-
-        left, lower_bounds = _compile(
-            argument[0], "Time", fields, dependencies
+        left, left_type, left_lb = _expression(
+            argument[0], fields, dependencies
         )
-        right, _ = _compile(
-            argument[1], "Duration", fields, dependencies
+        right, right_type, _ = _expression(
+            argument[1], fields, dependencies
         )
-
-        # The only Duration expression is a constant ms expression.
+        if left_type != "Time" or right_type != "Duration":
+            raise _BadRule()
         if operator == "floor":
             if right[0] != "ms" or right[1] <= 0:
                 raise _BadRule()
             lower_bounds = set()
-
-        return (operator, (left, right)), lower_bounds
+        else:
+            lower_bounds = left_lb
+        return (operator, (left, right)), "Time", lower_bounds
 
     if operator == "max":
-        if not isinstance(argument, list) or not 2 <= len(argument) <= 16:
+        if type(argument) is not list or not 2 <= len(argument) <= 16:
             raise _BadRule()
-
         children = []
         lower_bounds = set()
-        for child_expression in argument:
-            child, child_bounds = _compile(
-                child_expression, "Time", fields, dependencies
-            )
-            children.append(child)
-            lower_bounds.update(child_bounds)
-        return ("max", tuple(children)), lower_bounds
+        for child in argument:
+            node, kind, bounds = _expression(child, fields, dependencies)
+            if kind != "Time":
+                raise _BadRule()
+            children.append(node)
+            lower_bounds.update(bounds)
+        return ("max", tuple(children)), "Time", lower_bounds
 
     raise _BadRule()
 
 
-def _check_rule(text, fields, dependencies):
-    document = _load_json(text, rule=True)
-    if not isinstance(document, dict):
-        raise _BadRule()
-    if set(document) != {"rule", "expr"}:
-        raise _BadRule()
-    if _small_integer(document["rule"]) != 1:
+def _check_rule(source):
+    document = _read_text(source["rule"], rule=True)
+    if (
+        type(document) is not dict
+        or set(document) != {"rule", "expr"}
+        or type(document["rule"]) is not int
+        or document["rule"] != 1
+    ):
         raise _BadRule()
 
-    tree, lower_bounds = _compile(
-        document["expr"], "Time", fields, dependencies
+    fields = set(source["times"]) | {"fetchedAt"}
+    dependencies = {dependency["name"] for dependency in source["deps"]}
+    node, kind, bounds = _expression(
+        document["expr"], fields, dependencies
     )
     required = {("dep", name) for name in dependencies}
-    if not lower_bounds or not required.issubset(lower_bounds):
+    if kind != "Time" or not bounds or not required.issubset(bounds):
         raise _BadRule()
-    return tree
+    return node
 
 
-def _evaluate(tree, row, dependencies):
-    operator, argument = tree
+def _evaluate(node, row, dependencies):
+    operator, argument = node
+    if operator in ("field", "dep"):
+        values = row if operator == "field" else dependencies
+        value = values.get(argument)
+        if value is None:
+            raise _Rejected("R_FIELD_ABSENT")
+        if type(value) is not int:
+            raise _Rejected("R_FIELD_TYPE")
+        return _bounded(value)
 
-    if operator == "field":
-        return _read_time(row, argument)
-    if operator == "dep":
-        return _read_time(dependencies, argument)
     if operator == "ms":
         return argument
 
-    if operator == "add":
+    if operator in ("add", "floor"):
         left = _evaluate(argument[0], row, dependencies)
         right = _evaluate(argument[1], row, dependencies)
-        return _checked(left + right)
+        if operator == "add":
+            return _bounded(left + right)
+        return _bounded(right * (left // right))
 
-    if operator == "floor":
-        time = _evaluate(argument[0], row, dependencies)
-        period = _evaluate(argument[1], row, dependencies)
-        return _checked(period * (time // period))
-
-    # A checked tree's remaining operator is max. Evaluate every
-    # argument, in order, stopping only on the first rejection.
-    result = _evaluate(argument[0], row, dependencies)
-    for child in argument[1:]:
+    maximum = None
+    for child in argument:
         value = _evaluate(child, row, dependencies)
-        if value > result:
-            result = value
-    return result
+        if maximum is None or value > maximum:
+            maximum = value
+    return maximum
 
 
-def _read_object(text):
-    try:
-        value = _load_json(text)
-    except _BadJSON:
-        raise _Reject("R_ROW") from None
+def _columns(source):
+    names = set(source["times"])
+    names.update(source["values"])
+    names.update(source["entity"])
+    names.add(source["event"])
+    if source["slot"] is not None:
+        names.add(source["slot"])
+    for columns in (source["roles"] or {}).values():
+        names.update(columns)
+    return sorted(names)
 
-    if not isinstance(value, dict):
-        raise _Reject("R_ROW")
-    return value
+
+def _source_order(sources):
+    upstream = {
+        name: {
+            parent
+            for dependency in source["deps"]
+            for parent in dependency["sources"]
+        }
+        for name, source in sources.items()
+    }
+    downstream = {name: set() for name in sources}
+    for name, parents in upstream.items():
+        for parent in parents:
+            downstream[parent].add(name)
+
+    ready = deque(sorted(name for name in sources if not upstream[name]))
+    order = []
+    while ready:
+        name = ready.popleft()
+        order.append(name)
+        for child in sorted(downstream[name]):
+            upstream[child].remove(name)
+            if not upstream[child]:
+                ready.append(child)
+    return order if len(order) == len(sources) else None
+
+
+@dataclass
+class _Revision:
+    fetched: int
+    tombstone: bool
+    cells: dict
+    lineage: dict
+    signature: tuple
+
+
+@dataclass
+class _Key:
+    source: str
+    entity: list
+    event: int
+    coin: object
+    revisions: list = field(default_factory=list)
+    entries: list = field(default_factory=list)
+    recorded: list = field(default_factory=list)
+
+
+def _decode_revision(raw, source, columns, sources):
+    document = _read_text(raw["cells"])
+    if type(document) is not dict:
+        raise _Malformed()
+
+    cells = {name: _cell(document.get(name)) for name in columns}
+    event = cells[source["event"]]
+    if not _is_time(event):
+        raise _Malformed()
+    entity = [cells[name] for name in source["entity"]]
+
+    lineage = {}
+    if source["deps"] and not raw["tombstone"]:
+        upstream = _read_text(raw.get("upstream"))
+        if type(upstream) is not dict:
+            raise _Malformed()
+        for name, items in upstream.items():
+            if type(items) is not list:
+                raise _Malformed()
+            decoded = []
+            for item in items:
+                if type(item) is not list or len(item) != 3:
+                    raise _Malformed()
+                parent, parent_entity, parent_event = item
+                if (
+                    type(parent) is not str
+                    or parent not in sources
+                    or type(parent_entity) is not list
+                    or len(parent_entity) != len(sources[parent]["entity"])
+                    or not _is_time(parent_event)
+                ):
+                    raise _Malformed()
+                entity_cells = [_cell(value) for value in parent_entity]
+                decoded.append((
+                    parent,
+                    tuple(_tag(value) for value in entity_cells),
+                    parent_event,
+                ))
+            lineage[name] = decoded
+
+    signature = (
+        raw["tombstone"],
+        tuple(_tag(cells[name]) for name in columns),
+    )
+    revision = _Revision(
+        raw["fetchedAt"], raw["tombstone"], cells, lineage, signature
+    )
+    return revision, entity, event
 
 
 def _is_number(value):
-    return type(value) is int or isinstance(value, _Number)
+    return type(value) in (int, float)
 
 
-def _number_key(value):
-    """Exact numeric-value key; no floating point or large powers of ten."""
-    text = value.text if isinstance(value, _Number) else str(value)
-    negative = text.startswith("-")
-    if negative:
-        text = text[1:]
-
-    mantissa, separator, exponent_text = text.lower().partition("e")
-    exponent = _decimal_integer(exponent_text) if separator else 0
-    whole, _, fraction = mantissa.partition(".")
-
-    digits = (whole + fraction).lstrip("0")
-    if not digits:
-        return (0, "", 0)
-
-    significant = digits.rstrip("0")
-    exponent += len(digits) - len(significant) - len(fraction)
-    return (-1 if negative else 1, significant, exponent)
+def _role_payload(source, cells):
+    if not source["roles"]:
+        return None
+    role, columns = next(iter(source["roles"].items()))
+    payload = [cells[name] for name in columns]
+    if role == "bars":
+        if (
+            not all(_is_number(value) for value in payload[:4])
+            or type(payload[4]) is not int
+        ):
+            raise _Rejected()
+    elif not _is_number(payload[0]):
+        raise _Rejected()
+    return payload
 
 
-def _same_value(left, right):
-    if _is_number(left) or _is_number(right):
-        return (
-            _is_number(left)
-            and _is_number(right)
-            and _number_key(left) == _number_key(right)
-        )
+def _candidate(source, rule, revision, keys, has_last, previous):
+    dependencies = {}
+    for declaration in source["deps"]:
+        name = declaration["name"]
+        lineage = revision.lineage.get(name, [])
+        if not lineage:
+            raise _Rejected()
+        latest = None
+        for identity in lineage:
+            if identity[0] not in declaration["sources"]:
+                raise _Rejected()
+            upstream_key = keys.get(identity)
+            if upstream_key is None:
+                raise _Rejected()
+            index = bisect_right(
+                upstream_key.recorded, revision.fetched
+            ) - 1
+            if index < 0:
+                raise _Rejected()
+            known = upstream_key.entries[index][1]
+            if latest is None or known > latest:
+                latest = known
+        dependencies[name] = latest
 
-    # In particular, booleans are not equal to integers.
-    if type(left) is not type(right):
-        return False
+    row = dict(revision.cells)
+    row["fetchedAt"] = revision.fetched
+    known = _evaluate(rule, row, dependencies)
 
-    if isinstance(left, dict):
-        return (
-            left.keys() == right.keys()
-            and all(_same_value(left[key], right[key]) for key in left)
-        )
+    if has_last:
+        known = max(known, _bounded(revision.fetched))
+    if previous is not None:
+        known = max(known, _bounded(previous[1]))
+    for declaration in source["deps"]:
+        bound = dependencies[declaration["name"]] + declaration["lag"]
+        known = max(known, _bounded(bound))
 
-    if isinstance(left, list):
-        return (
-            len(left) == len(right)
-            and all(_same_value(a, b) for a, b in zip(left, right))
-        )
+    slot = None
+    if source["slot"] is not None:
+        slot = revision.cells[source["slot"]]
+        if type(slot) is not int:
+            raise _Rejected()
+    payload = _role_payload(source, revision.cells)
+    return known, slot, payload
 
-    return left == right
+
+def _build_timeline(key, source, rule, keys):
+    last = None
+    for revision in key.revisions:
+        has_last = last is not None
+        identical = has_last and revision.signature == last.signature
+        last = revision
+        if identical:
+            continue
+
+        previous = key.entries[-1] if key.entries else None
+        candidate = None
+        if not revision.tombstone:
+            try:
+                candidate = _candidate(
+                    source, rule, revision, keys, has_last, previous
+                )
+            except _Rejected:
+                pass
+
+        if candidate is None:
+            if previous is None:
+                continue
+            known = _bounded(max(revision.fetched, previous[1]))
+            entry = [
+                revision.fetched, known, True, previous[3], None, None
+            ]
+        else:
+            known, slot, payload = candidate
+            entry = [
+                revision.fetched, known, False,
+                slot, revision.cells, payload,
+            ]
+        key.entries.append(entry)
+        key.recorded.append(revision.fetched)
 
 
-def _same_observed(left, right):
-    columns = (left.keys() | right.keys()) - _METADATA
-    return all(
-        _same_value(left.get(column), right.get(column))
-        for column in columns
+def _number_bits(value):
+    if not _is_number(value):
+        return None
+    # AMBIGUITY: represent binary64 bits as an unsigned 64-bit integer.
+    return struct.unpack(">Q", struct.pack(">d", float(value)))[0]
+
+
+def _observation_role(source, payload):
+    if payload is None:
+        return None
+    role = next(iter(source["roles"]))
+    if role == "bars":
+        return [_number_bits(value) for value in payload[:4]] + [payload[4]]
+    return [_number_bits(payload[0])]
+
+
+def _failure(code):
+    # AMBIGUITY: undefined observations for non-resolving cases are [].
+    return code, []
+
+
+def _run(case):
+    declarations = case["sources"]
+    columns = {
+        source["name"]: _columns(source) for source in declarations
+    }
+    if any(METADATA.intersection(names) for names in columns.values()):
+        return _failure("E_DECL")
+
+    sources = {source["name"]: source for source in declarations}
+    rules = {}
+    for source in declarations:
+        try:
+            rules[source["name"]] = _check_rule(source)
+        except (_Malformed, _BadRule):
+            return _failure("E_RULE")
+
+    order = _source_order(sources)
+    if order is None:
+        return _failure("INVALID")
+
+    coin_indices = {
+        _tag(coin): index for index, coin in enumerate(case["universe"])
+    }
+    keys = {}
+    entity_coins = {}
+    for raw in case["rows"]:
+        fetched = raw["fetchedAt"]
+        if fetched > case["version"]:
+            continue
+        if not _is_time(fetched):
+            return _failure("INVALID")
+
+        source = sources[raw["source"]]
+        try:
+            revision, entity, event = _decode_revision(
+                raw, source, columns[source["name"]], sources
+            )
+        except _Malformed:
+            return _failure("INVALID")
+
+        entity_identity = tuple(_tag(value) for value in entity)
+        identity = (source["name"], entity_identity, event)
+        coin = None
+        if not source["evidence"]:
+            coin = coin_indices.get(_tag(revision.cells["coin"]))
+
+        mapping_identity = (source["name"], entity_identity)
+        if (
+            mapping_identity in entity_coins
+            and entity_coins[mapping_identity] != coin
+        ):
+            return _failure("INVALID")
+        entity_coins[mapping_identity] = coin
+
+        if identity not in keys:
+            keys[identity] = _Key(source["name"], entity, event, coin)
+        keys[identity].revisions.append(revision)
+
+    by_source = {name: [] for name in sources}
+    for key in keys.values():
+        key.revisions.sort(key=lambda revision: revision.fetched)
+        if any(
+            left.fetched == right.fetched
+            for left, right in zip(key.revisions, key.revisions[1:])
+        ):
+            return _failure("INVALID")
+        by_source[key.source].append(key)
+
+    for name in order:
+        for key in by_source[name]:
+            _build_timeline(key, sources[name], rules[name], keys)
+
+    ordered = sorted(
+        keys.values(),
+        key=lambda key: (
+            key.source,
+            tuple(_tag(value) for value in key.entity),
+            key.event,
+        ),
     )
+    result_keys = []
+    observation_list = []
+    for key in ordered:
+        source = sources[key.source]
+        known_times = [entry[1] for entry in key.entries]
+        visible = []
+        for query in case["queries"]:
+            index = bisect_right(known_times, query) - 1
+            if index < 0 or key.entries[index][2]:
+                visible.append(None)
+            else:
+                visible.append(key.entries[index][0])
+        result_keys.append({
+            "source": key.source,
+            "entity": key.entity,
+            "event": key.event,
+            "coin": key.coin,
+            "timeline": key.entries,
+            "visible": visible,
+        })
 
+        if key.coin is None:
+            continue
+        for index, entry in enumerate(key.entries):
+            fetched, known, retraction, slot, cells, payload = entry
+            values = [
+                None if retraction else _number_bits(cells[name])
+                for name in source["values"]
+            ]
+            # AMBIGUITY: loader COIN means the universe index, as in keys.
+            observation_list.append([
+                key.source,
+                key.coin,
+                key.event,
+                fetched,
+                known,
+                retraction,
+                slot,
+                values,
+                _observation_role(source, payload),
+                index == len(key.entries) - 1,
+            ])
 
-def _effective_known_at(tree, selected, earliest, declared, lags):
-    # Validate both relevant rows and the selected deps before evaluating.
-    # A malformed earliest row must not be hidden by an expression rejection.
-    row = _read_object(selected["row"])
-    original_row = (
-        row if selected is earliest else _read_object(earliest["row"])
+    observation_list.sort(
+        key=lambda observation: (
+            observation[0], observation[1],
+            observation[2], observation[3],
+        )
     )
-    dependencies = _read_object(selected["deps"])
-
-    # Recorder metadata is authoritative, not any similarly named row member.
-    row["fetchedAt"] = selected["fetchedAt"]
-    candidate = _evaluate(tree, row, dependencies)
-
-    if selected is not earliest:
-        if not _same_observed(row, original_row):
-            correction_bound = _checked(selected["fetchedAt"])
-            candidate = max(candidate, correction_bound)
-
-    # Successful evaluation has already validated every declared dependency:
-    # the checked lower-bound set includes every dep, and max never skips it.
-    for name in sorted(declared):
-        dependency_time = _read_time(dependencies, name)
-        dependency_bound = _checked(dependency_time + lags[name])
-        candidate = max(candidate, dependency_bound)
-
-    return _checked(candidate)
+    return {"keys": result_keys}, observation_list
 
 
 def resolve(case):
-    """Resolve one case having the RESOLVER_CASES.md envelope schema.
+    """Return E_DECL, E_RULE, INVALID, or the §7 keys object."""
+    return _run(case)[0]
 
-    The envelope supplies integer fetchedAt/version/query values, boolean
-    tombstones, and a nonnegative integer lag for every declared dependency.
-    Dependency times are supplied by each revision's deps JSON text.
-    fetchedAt is implicitly included in the rule's Time-field context.
-    """
-    fields = set(case["fields"]) | {"fetchedAt"}
-    declared = set(case["deps_declared"])
 
-    # E_RULE precedes selection, duplicate detection, tombstones, and rows.
-    try:
-        tree = _check_rule(case["rule"], fields, declared)
-    except (_BadJSON, _BadRule):
-        return "E_RULE"
-
-    eligible = []
-    fetched_times = set()
-
-    for revision in case["revisions"]:
-        fetched_at = revision["fetchedAt"]
-        if fetched_at <= case["version"]:
-            if fetched_at in fetched_times:
-                return "INVALID"
-            fetched_times.add(fetched_at)
-            eligible.append(revision)
-
-    queries = case["queries"]
-
-    if not eligible:
-        return {
-            "selected": None,
-            "knownAt": None,
-            "visible": [False for _ in queries],
-        }
-
-    selected = max(eligible, key=lambda revision: revision["fetchedAt"])
-    earliest = min(eligible, key=lambda revision: revision["fetchedAt"])
-
-    if selected["tombstone"]:
-        return {
-            "selected": selected["fetchedAt"],
-            "knownAt": None,
-            "visible": [False for _ in queries],
-        }
-
-    try:
-        known_at = _effective_known_at(
-            tree, selected, earliest, declared, case["lags"]
-        )
-    except _Reject as rejection:
-        known_at = rejection.code
-
-    return {
-        "selected": selected["fetchedAt"],
-        "knownAt": known_at,
-        "visible": [
-            type(known_at) is int and known_at <= query
-            for query in queries
-        ],
-    }
+def observations(case):
+    """Return sorted loader observations; [] for a non-resolving case."""
+    return _run(case)[1]
 
 
 def main():
-    # Permit exact JSON envelope integers of arbitrary spelling length,
-    # including when serializing selected fetchedAt values.
-    sys.set_int_max_str_digits(0)
-
-    for line in sys.stdin.buffer:
-        if not line.strip():
-            continue
-        case = _load_json(line, native_integers=True)
-        result = resolve(case)
-        sys.stdout.write(
-            json.dumps(result, ensure_ascii=True, separators=(",", ":"))
-            + "\n"
+    # The outer envelope is a §7 case; its stored texts remain strings.
+    for line in sys.stdin:
+        case = json.loads(
+            line,
+            parse_int=_unlimited_integer,
+            parse_constant=_bad_constant,
         )
+        result, observed = _run(case)
+        # Python emits finite floats with a fraction or exponent, including
+        # integral-valued floats and signed zero.
+        output = json.dumps(
+            {"result": result, "observations": observed},
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
+        sys.stdout.write(output + "\n")
 
 
 if __name__ == "__main__":

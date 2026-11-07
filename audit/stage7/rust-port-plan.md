@@ -91,8 +91,8 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   `ingest/events.py`'s lineage follow the revised annex.
 - **B3. Frozen 2026-11-06.** C7.6's dated revision was committed alone, then RULES.md §6–7 and SOURCES.md §2,
   then the resolver suite and Lean checks in `kernel/tests/rules/` (`README.md`). The old snapshot-resolver comparison
-  is gone, and slice 5 replaced the production Python and Rust paths. C7.6's resolver comparison can pass only when GPT
-  has written its independent resolver from the specifications alone (its old `gpt_resolver.py` remains until then).
+  is gone, and slice 5 replaced the production Python and Rust paths. GPT's independent resolver, written from the
+  specifications alone (`kernel/tests/rules/gpt_resolver.py`), joins the comparison.
 - **Evidence keys** (settled with B2). An evidence declaration names its event column among its key columns
   (`{"evidence": [K…], "event": C}`, C in `times`): the recorder's observation time, which stage 2's holdout check
   reads. Its records have no coin (Lean's `coin = none`), never an entity index; Lean's `entityColumns` are the other

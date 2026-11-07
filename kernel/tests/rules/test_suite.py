@@ -1,7 +1,7 @@
 """C7.6's frozen rule and resolver suites meet their size, coverage, file and Lean comparison requirements, and the
 production loaders (`store.as_of`'s resolver, `ingest/resolve.py`, and `mm`'s, `kernel/mm/src/resolve.rs`) give Lean's
-result and observations on every case with a Parquet image. GPT's independent resolver joins when it exists; until then
-this is not a pass of C7.6."""
+result and observations on every case with a Parquet image, and GPT's independent resolver (`gpt_resolver.py`) on every
+case. A development run is not a pass of C7.6."""
 
 import json
 import subprocess
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from kernel.tests.rules import lean_check, loaders, resolver_suite, suite
+from kernel.tests.rules import gpt_resolver, lean_check, loaders, resolver_suite, suite
 
 HERE = Path(__file__).resolve().parent
 
@@ -64,6 +64,8 @@ def resolver_results(session_build, built_kernel, tmp_path_factory):
             else:
                 out.append({"result": None, "observations": None})
         results[name] = out
+    results["gpt"] = [{"result": gpt_resolver.resolve(json.loads(json.dumps(c))),
+                       "observations": gpt_resolver.observations(json.loads(json.dumps(c)))} for c in cases()]
     return results
 
 
@@ -110,3 +112,11 @@ def test_each_production_loader_gives_leans_result_and_observations(resolver_res
     for c, lean, got in imaged:
         assert lean_check.same(got["result"], lean["result"]), (loader, c, got["result"], lean["result"])
         assert lean_check.same(got["observations"], lean["observations"]), (loader, c)
+
+
+def test_gpts_independent_resolver_gives_leans_result_and_observations(resolver_results):
+    """C7.6's spec-only participant, on every case: result and observations equal Lean's."""
+    for c, lean, got in zip(cases(), resolver_results["lean"], resolver_results["gpt"], strict=True):
+        assert lean_check.same(got["result"], lean["result"]), (c, got["result"], lean["result"])
+        if isinstance(lean["result"], dict):
+            assert lean_check.same(got["observations"], lean["observations"]), c

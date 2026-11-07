@@ -23,7 +23,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 frozen**, `b3-r11` (`kernel/tests/rules/`). **Slice 5 built** on branch `slice5` (off `stage7`, unmerged): `ingest/resolve.py` (`store.as_of`) and `mm`'s `resolve.rs` equal Lean on 546 cases. Left: GPT's resolver from the specs alone (old `gpt_resolver.py` stays until then), the structural holdout review; `mmdump` still exports no revisions.
+- **B3 frozen**, `b3-r11` (`kernel/tests/rules/`). **Slice 5 built** on branch `slice5` (off `stage7`, unmerged): `ingest/resolve.py` (`store.as_of`) and `mm`'s `resolve.rs` equal Lean on 546 cases, GPT's sealed resolver on all 652. Left: the structural holdout review (Argon's dry run underway); `mmdump` still exports no revisions.
 
 
 2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns established so far, pacing on Cornell's resets; TAMU joins at its reset, 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
