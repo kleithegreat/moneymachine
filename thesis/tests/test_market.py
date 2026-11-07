@@ -358,8 +358,6 @@ def test_a_row_that_expires_from_memory_is_read_again_before_a_newer_row_can_sup
 DEX_REPLY = [{"universe": [{"name": "xyz:GOLD"}]}, [{"markPx": "2400.5"}]]
 
 
-@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-04-claude-hunt-thesis.md, finding 2: one builder dex's failed request ends the hour's sampling "
-                   "before the dexes after it, and the failed attempt is not archived")
 def test_one_dex_failing_never_costs_another_dex_its_sample(tmp_path, monkeypatch):
     def post(body, *a, **k):
         if body["type"] == "perpDexs":
@@ -371,12 +369,14 @@ def test_one_dex_failing_never_costs_another_dex_its_sample(tmp_path, monkeypatc
     monkeypatch.setattr(x, "post", post)
     m = market.Market(tmp_path / "m", x)
     monkeypatch.setattr(market, "now_ms", lambda: 5_000)
-    try:
-        m.record_marks()
-    except RuntimeError:
-        pass
+    m.record_marks()
     assert m.marks("xyz:GOLD") == [(5_000, 5_000, 2400.5)]
-    assert {s["dex"] for s in market.read(tmp_path / "m" / "marks", "marks")} == {"bad", "xyz"}
+    bad, good = market.read(tmp_path / "m" / "marks", "marks")
+    assert (bad["dex"], good["dex"]) == ("bad", "xyz")
+    assert bad["marks"] == {} and "retries exhausted" in bad["error"]
+    assert (bad["sent"], bad["recv"]) == (5_000, 5_000)
+    assert good["response"] == DEX_REPLY
+    assert m.marks("bad:COIN") == [(5_000, 5_000, None)]
 
 
 @pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-04-claude-hunt-thesis.md, finding 3: the hourly mark sample waits behind the budget every other "

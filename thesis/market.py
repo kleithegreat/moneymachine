@@ -158,13 +158,18 @@ class Market:
             return sorted(r for r in rows + list(pending.values()) if r[0] + SHOWN[kind] <= now)
 
     def record_marks(self) -> None:
-        """One sample of every builder dex's mark prices, archived with its send and receive times."""
+        """One sample per builder dex; archive failures as missing marks without abandoning later dexes."""
         for dex in self.x.post({"type": "perpDexs"}):
             if dex:
                 sent = now_ms()
-                meta, ctxs = self.x.post({"type": "metaAndAssetCtxs", "dex": dex["name"]})
-                marks = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None for a, c in zip(meta["universe"], ctxs)}
-                append(self.root / "marks", "marks", sent, {"sent": sent, "recv": now_ms(), "dex": dex["name"], "marks": marks})
+                sample = {"sent": sent, "dex": dex["name"], "marks": {}}
+                try:
+                    sample["response"] = meta, ctxs = self.x.post({"type": "metaAndAssetCtxs", "dex": dex["name"]})
+                    sample["marks"] = {a["name"]: float(c["markPx"]) if c.get("markPx") is not None else None
+                                       for a, c in zip(meta["universe"], ctxs)}
+                except Exception as e:
+                    sample["error"] = repr(e)
+                append(self.root / "marks", "marks", sent, sample | {"recv": now_ms()})
 
     def marks(self, market: str) -> list[tuple[int, int, float | None]]:
         """(sent, recv, markPx or None) of every sample of the market's dex, in archive order."""
