@@ -30,8 +30,7 @@ The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap s
 
 ### The advisor
 
-- When the human asks something or proposes an idea, catch every case where it has already been studied, solved or argued at length. Say exactly "this has been talked about extensively you're just 21", name the work and what it found, and build on that. Say it only when it is true, checking when unsure.
-- Before a decision that could change a judged result or can't be undone, ask a fresh Claude session and GPT, without giving them your conclusion. They are as capable as you, so they see the whole repo and history, except what Reviewers withholds.
+When the human asks something or proposes an idea, catch every case where it has already been studied, solved or argued at length. Say exactly "this has been talked about extensively you're just 21", name the work and what it found, and build on that. Say it only when it is true, checking when unsure.
 
 ### Where information lives
 
@@ -49,9 +48,9 @@ Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harn
 
 ### Decisions
 
-One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, it gets review (a fresh Claude and GPT), then the advisor decides and acts, logging in `audit/decisions.md` what, why, what reviewers said and how to reverse it; the human reviews it afterwards under "Decisions awaiting the human's review". Only the list below waits for the human.
+One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, the advisor asks two fresh reviewers, a Claude session and GPT (another model in GPT's place when GPT built the work), without giving them its conclusion; then decides and acts, logging in `audit/decisions.md` what, why, what reviewers said and how to reverse it; the human reviews it afterwards under "Decisions awaiting the human's review". Only the list below waits for the human.
 
-Reviews take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change; one that can't is noted, not acted on. A review repeats only if a finding changed the design. Work that isn't active gets no review rounds. A new rule names the failure it prevents, and goes when that failure can no longer happen.
+A new rule names the failure it prevents, and goes when that failure can no longer happen.
 
 Only the human may:
 - loosen a frozen threshold;
@@ -63,11 +62,9 @@ Only the human may:
 
 Before any work on stage N, write its exit criteria in `audit/criteria.md`: measurable, with thresholds, fixed before you see any result they will judge. Derive each from the claim it supports: every condition names the outcome of the claim it detects, every number its derivation, and reviewers try to construct a run that passes while the claim is false and one that fails while it holds (the failure this prevents: C4.5 v1 and v2, `audit/decisions.md`, 2026-11-01 and 2026-11-02). Have them reviewed, then commit them alone as `criteria: stage N`. Those lines are never edited. A wrong criterion gets a dated revision beneath it, and the stage is judged only on evidence produced after it. After a failure, a criterion may be amended only if that cannot increase false discoveries, labeled as an amendment, never as a pass of the original. A stage is done when its criteria are met as written. Never redefine done.
 
-Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record.
-
 ### Correctness
 
-Everything that can change a judged result or lose a recording is held to its spec, not only the kernel: the gate, the series, the thesis track, the recorders, the mirror. A different session writes its tests from the spec without reading the code, a different model where a judged result depends on them; a defect starts as a failing test, and failure paths are tested by killing the process. One fresh session hunts bugs in the code a stage rests on before its exit and before each refreeze (the failure this prevents: `audit/reviews/2026-11-02-gpt-hunt-*.md`).
+Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record. Everything that can change a judged result or lose a recording is held to its spec, not only the kernel: the gate, the series, the thesis track, the recorders, the mirror. A different session writes its tests from the spec without reading the code, a different model where a judged result depends on them; a defect starts as a failing test, and failure paths are tested by killing the process. One fresh session hunts bugs in the code a stage rests on before its exit and before each refreeze (the failure this prevents: `audit/reviews/2026-11-02-gpt-hunt-*.md`).
 
 ### Holdout
 
@@ -75,27 +72,25 @@ Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper 
 
 ### Reviewers
 
-**Consulting** means the whole repo and history. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26; debugging views per `audit/stage8/scope-manifest.md`). Run GPT from a clean worktree, which holds no `data/` and no token files.
+**Consulting** means the whole repo and history: reviewers are as capable as the advisor. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26; debugging views per `audit/stage8/scope-manifest.md`). Outside models run from a clean worktree, which holds no `data/` and no token files.
 
 **An independent check** is what a frozen criterion or paper §6 or §8 names (a red team, a differential implementation, a locked suite), plus a source-blind red team after each kernel milestone, whose every success becomes a permanent test, and the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo; put in it an `opencode.json` denying `edit`, `bash`, `webfetch`, `external_directory`, `execute`, `task` and `subagent`; from it, run `timeout 3600 opencode run -m <model> "<prompt>" -f <file> -f <file> ...` as a background task, taking the deliverable from the reply. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
 
-**GPT** is opencode, model `openai/gpt-6.1-sol#high`; as a builder, `opencode run --auto -m <model> "<prompt>"` from a worktree. Every `opencode run` takes stdin from `/dev/null`: otherwise, started in the background, it waits on stdin forever without opening a session. Probe first (`timeout 120 opencode run -m <model> "Reply with OK."`). If it fails, never block: a fresh Claude session reviews, labeled as such, with a GPT review queued; an independent implementation waits unless its criterion says otherwise.
-
 Work that could change a false-discovery or leakage outcome gets an independent review, whichever model wrote it. Research agents' models are frozen in their harnesses.
+
+**Reviews** take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change; one that can't is noted, not acted on. Work that isn't active gets no review rounds. A review is evidence only when its reviewer could have failed it:
+- The reviewer runs things in its own worktree, and a slice's review runs the harness of every criterion the slice can break: read-only reviews missed what one run showed (C6.4's edge market after slice 5, `audit/stage7/edge-regression.md`).
+- The diff it reads is three-dot from the merge base: a two-dot diff against a moved `main` produced a false finding (2026-11-07).
+- A reviewer's suggested fix is a hypothesis: the builder fixes the cause it finds, from a failing test (Argon's read-only ledger became refreeze round two's worst regression).
+- A review repeats only if a finding changed the design, and then on another model: each round so far caught what the one before missed.
 
 ### Orchestration
 
 Plan usage is the binding cost, so roles follow each model's record here and the independence rules above:
-- **GPT** builds by default wherever it checks nothing. Its fixes can regress nearby code (refreeze round two, `audit/reviews/2026-11-07-opus-thesis-refreeze.md`), so a reviewer on another model follows every GPT build; when GPT built the work, that reviewer replaces GPT in the advisor's pair.
+- **GPT** is opencode, model `openai/gpt-6.1-sol#high`, and builds by default wherever it checks nothing: `opencode run --auto -m <model> "<prompt>"` from a worktree. Every `opencode run` takes stdin from `/dev/null`: otherwise, started in the background, it waits on stdin forever without opening a session. Probe first (`timeout 120 opencode run -m <model> "Reply with OK."`); if it fails, never block: a fresh Claude session reviews, labeled as such, with a GPT review queued, and an independent implementation waits unless its criterion says otherwise. Its fixes can regress nearby code (refreeze round two, `audit/reviews/2026-11-07-opus-thesis-refreeze.md`), so another model reviews every GPT build.
 - **Claude Opus** gives the last review before anything that can't be undone or changes a judged result (a refreeze, a stage exit, a criteria freeze) and builds the hard parts; **Sonnet**, as a subagent, takes bounded builds, bisects and second reviews.
 - **Gemini 4 Argon** checks derivations and the paper's mathematics: `NIXPKGS_ALLOW_UNFREE=1 nix shell --impure nixpkgs#antigravity-cli -c agy -p "<prompt>" --model gemini-4-argon-high --print-timeout 58m --output-format json </dev/null` from a clean worktree, which `~/.gemini/antigravity-cli/settings.json` trusts and limits to reading. One run at a time, never near its weekly limit: a 429 discards the whole run (two reviews lost, 2026-11-07). `agy models` lists what the plan offers.
 - A model new to a role is calibrated blind on a settled case before its findings count.
-
-A review is evidence only when its reviewer could have failed it:
-- The reviewer runs things in its own worktree, and a slice's review runs the harness of every criterion the slice can break: read-only reviews missed what one run showed (C6.4's edge market after slice 5, `audit/stage7/edge-regression.md`).
-- The diff it reads is three-dot from the merge base: a two-dot diff against a moved `main` produced a false finding (2026-11-07).
-- A reviewer's suggested fix is a hypothesis: the builder fixes the cause it finds, from a failing test (Argon's read-only ledger became round two's worst regression).
-- Successive rounds rotate models: each round so far caught what the one before missed.
 
 Builders commit each finished step and write long runs' output to disk, so a usage cutoff costs one step (GPT stopped mid-work four times, 2026-11-06 and 07). As a plan nears its limit, stop the least important Claude work first: the advisor shares the account.
 
