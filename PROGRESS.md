@@ -20,7 +20,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
-- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
+- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm sessions record and register by metadata (no prices). **Fixes ready on `thesis-fixes` for the next refreeze (human decides):** first-write ledger, per-dex failures, sampler budget/timing, form-first registration, torn UTF-8, skipped canary probes. Not deployed; current window unchanged.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 frozen** on `stage7` (`7bf79df`, 2026-11-06): C7.6's revision (`criteria:` `f8aeb4c`), RULES.md/SOURCES.md and the resolver suite, after GPT (round 9), Opus 5.5 (round 10) and Gemini 4 Argon (its calibration forced round 11; wording only at the freeze). Next: slice 5, C7.6's implementation.
 
@@ -44,7 +44,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 ### Finished
 
 - K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
-- Pytest: 1,013 passed, 25 strict xfails, 2 existing skips, 399.90 s on tmpfs; PDF rebuilt. Speed study: `audit/2026-11-04-suite-speed.md`.
+- Pytest: 1,043 passed, 20 strict xfails, 2 existing skips, 583.37 s on tmpfs. Speed study: `audit/2026-11-04-suite-speed.md`.
 - Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
