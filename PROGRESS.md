@@ -18,13 +18,14 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, GPT, two rounds): the fresh Opus review says not ready (`audit/reviews/2026-11-07-opus-thesis-refreeze.md` there: nine findings, two failing reproductions). Next: GPT's round three; finding 2's co-egress allowance is a reviewed terms decision. Argon is out until 2026-11-14 00:25 UTC (2026-11-13 19:25 EST).
-- **Undeployed fixes:** `mirror-vanish` (`9b88e80`, GPT: a file vanishing mid-run, by writer contract) needs a fresh review, then an image. `fast-tests` (`../mm-fast`: chunked differentials, `ops/shards.py`): reviewed, no blocking finding (`audit/reviews/2026-11-07-sonnet-fast-tests.md` to commit); four fixes in progress, failing tests written.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, GPT, three rounds): Opus's nine findings fixed but finding 2: within the certified 600/min, theses get 120/min and four cold funding histories take 109+ minutes (strict xfail). Next (the human): fill histories outside sessions; size the cold fill first.
+- **Undeployed fixes:** `mirror-vanish` (`9b88e80`, GPT: a file vanishing mid-run, by writer contract) needs a fresh review, then an image.
+- **Test runs on the cluster:** `ops/shards.py` (merged) revived the SSH workers retired 2026-10-28. Move its transport onto `ops/jobs.py`'s Indexed Jobs (low priority, memory limits, so prodesk7 joins) and delete the SSH path, watchdog, flock and nodes' Nix; keep the duration split and the missing-id check. After the homelab's registry is back.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Slice 3 built on `slice3` (`db474fd`), unreviewed. C6.4's edge market disagrees since slice 5: Lean's importer hard-codes `final` (`audit/stage7/edge-regression.md`, `c97c5f8`); the revision-carrying exporter is in progress, uncommitted, in `../mm-edge-bisect`. Next: slices 4 and 6 (Claude builds and reviews; GPT never, as C7.7's red team).
 
 
-2. **Stage 4: C4.5 v3 running**, 4 of 10 campaigns, none promoted; the rest wait on the accounts' Claude usage.
+2. **Stage 4: C4.5 v3 running**, 6 of 10 campaigns, none promoted; the rest wait on the accounts' Claude usage.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. C7.7's corpus also needs a registry and certificates.
    2. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
@@ -41,7 +42,6 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ### Finished
 
-- Remote tests ready: prodesk5 (`CLUSTER.md` §7).
 - Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
