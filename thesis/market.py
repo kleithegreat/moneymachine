@@ -298,43 +298,48 @@ class Market:
 
     def record_marks(self, due: int) -> None:
         """Discover during the drain minute, then dispatch each retry wave concurrently; cache discovery for outages."""
-        cache = self.root / "dexes.json"
         try:
-            dexes = self.sampler.post({"type": "perpDexs"}, attempts=1)
-            if not isinstance(dexes, list) or any(d is not None and (not isinstance(d, dict) or not isinstance(d.get("name"), str)) for d in dexes):
-                raise ValueError("invalid perpDexs response")
-            names = sorted({d["name"] for d in dexes if d})
-            tmp = cache.with_suffix(".tmp")
-            tmp.write_text(json.dumps(names))
-            os.replace(tmp, cache)
-        except (httpx.HTTPError, ValueError) as e:
-            print(f"dex discovery failed: {e!r}", file=sys.stderr)
-            if not cache.exists():
-                raise
-            names = json.loads(cache.read_text())
-        if 20 * (1 + len(names)) > self.sampler.limiter.budget:
-            raise ValueError("hourly initial sampling wave exceeds the venue weight limit")
-        if due > now_ms():
-            time.sleep((due - now_ms()) / 1000)
-
-        def sample(dex: str) -> str | None:
+            cache = self.root / "dexes.json"
             try:
-                self.sampler.post({"type": "metaAndAssetCtxs", "dex": dex}, attempts=1)
+                dexes = self.sampler.post({"type": "perpDexs"}, attempts=1)
+                if not isinstance(dexes, list) or any(d is not None and (not isinstance(d, dict) or not isinstance(d.get("name"), str)) for d in dexes):
+                    raise ValueError("invalid perpDexs response")
+                names = sorted({d["name"] for d in dexes if d})
+                tmp = cache.with_suffix(".tmp")
+                tmp.write_text(json.dumps(names))
+                os.replace(tmp, cache)
             except (httpx.HTTPError, ValueError) as e:
-                print(f"mark sample failed for {dex}: {e!r}", file=sys.stderr)
-                return dex
-            return None
+                print(f"dex discovery failed: {e!r}", file=sys.stderr)
+                if not cache.exists():
+                    raise
+                names = json.loads(cache.read_text())
+            slots = self.sampler.limiter.budget // 20 - 1
+            if len(names) > slots:
+                print(f"SAMPLING CAPACITY EXCEEDED: {len(names)} dexes need {20 * (1 + len(names))} weight, "
+                      f"allowance {self.sampler.limiter.budget}; not every dex can be sent at {due}", file=sys.stderr)
+            if due > now_ms():
+                time.sleep((due - now_ms()) / 1000)
 
-        try:
-            with ThreadPoolExecutor(max_workers=max(1, len(names))) as pool:
+            def sample(dex: str) -> str | None:
+                try:
+                    self.sampler.post({"type": "metaAndAssetCtxs", "dex": dex}, attempts=1)
+                except (httpx.HTTPError, ValueError) as e:
+                    print(f"mark sample failed for {dex}: {e!r}", file=sys.stderr)
+                    return dex
+                return None
+
+            with ThreadPoolExecutor(max_workers=slots) as pool:
                 for attempt in range(6):
                     if attempt:
                         if now_ms() + MARK_PREP + TIMEOUT * 1000 >= due - MARK_OFFSET + MARK_WINDOW:
                             break
                         time.sleep(2 ** (attempt - 1))
-                    names = [d for d in pool.map(sample, names) if d is not None]
+                    batch, names = names[:slots], names[slots:]
+                    names += [d for d in pool.map(sample, batch) if d is not None]
                     if not names:
                         break
+            if names:
+                print(f"MARK SAMPLING INCOMPLETE for {due}: {names}", file=sys.stderr)
         finally:
             self.sampler.limiter.release(due)
 

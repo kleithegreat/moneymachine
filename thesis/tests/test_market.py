@@ -588,7 +588,7 @@ def test_failed_discovery_uses_the_last_archived_inventory_after_restart(tmp_pat
     assert len(list(market.read(m.sampler.archive, "marks"))) == 4
 
 
-def test_the_largest_admissible_initial_wave_fits_and_oversize_fails_without_wait(tmp_path, monkeypatch):
+def test_the_largest_admissible_initial_wave_fits(tmp_path, monkeypatch):
     clock = [H + 5_000]
     fake_clock(monkeypatch, clock)
     m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
@@ -602,10 +602,38 @@ def test_the_largest_admissible_initial_wave_fits_and_oversize_fails_without_wai
     m.record_marks(H + 5_000)
     assert clock[0] == H + 5_000
     assert len(list(market.read(m.sampler.archive, "marks"))) == count + 1
-    count += 1
-    clock[0] += H
-    with pytest.raises(ValueError, match="exceeds"):
-        m.record_marks(2 * H + 5_000)
+
+
+def test_an_oversized_inventory_alarms_but_still_samples_each_dex_that_fits(tmp_path, monkeypatch, capsys):
+    clock, sent = [H + 5_000], []
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    count = market.BUDGET_PER_MIN // 20
+
+    def post(url, json):
+        if json["type"] == "perpDexs":
+            payload = [{"name": str(d)} for d in range(count)]
+        else:
+            sent.append((json["dex"], clock[0]))
+            payload = DEX_REPLY
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks(H + 5_000)
+    assert len(sent) == count
+    assert sum(t == H + 5_000 for _, t in sent) == count - 1
+    assert all(t < H + market.MARK_WINDOW for _, t in sent)
+    assert "SAMPLING CAPACITY" in capsys.readouterr().err
+    assert m.sampler.limiter.released == H + 5_000
+
+
+def test_failed_discovery_releases_the_history_reservation(tmp_path, monkeypatch):
+    fake_clock(monkeypatch, [H + 5_000])
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    monkeypatch.setattr(m.sampler.http, "post", lambda url, json: httpx.Response(400, request=httpx.Request("POST", url)))
+    with pytest.raises(httpx.HTTPStatusError):
+        m.record_marks(H + 5_000)
+    assert m.sampler.limiter.released == H + 5_000
 
 
 def test_two_cold_funding_histories_do_not_exhaust_the_session_wall_budget(tmp_path, monkeypatch):

@@ -41,15 +41,9 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 Open research question, after stage 4 (the human): does memory across campaigns help agents without raising false discoveries? Pre-register first.
 
-### Finished
-
-- Remote tests ready: prodesk5 (`CLUSTER.md` §7).
-- K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
-- Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
-
 ## Blockers
 
-- **Thesis design revision:** T3 derives shared admission from the IP limit and co-egress load, replacing 60/60; the new design needs independent review before refreeze.
+- **Thesis capacity:** above the admitted initial wave, every-dex-at-deadline is impossible; sampling alarms and uses later waves rather than losing all marks. Source-budget and cold-session feasibility still need resolution before refreeze.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Capacity guard not deployed:** rollout and visible synthetic desktop alarm check in `CLUSTER.md` §5. O2 states the chosen reserve and offline limitation, not a response-time guarantee.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
