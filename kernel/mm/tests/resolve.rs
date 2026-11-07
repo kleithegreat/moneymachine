@@ -137,13 +137,13 @@ fn write(path: &Path, rows: &[Row], event: Event, kind: Kind) {
     writer.close().unwrap();
 }
 
-/// Every column chunk of a Parquet file but the event time's overwritten with garbage, its footer, and so its
+/// Every column chunk of a Parquet file but those named in `keep` overwritten with garbage, its footer, and so its
 /// statistics, kept.
-fn garble(path: &Path) {
+fn garble(path: &Path, keep: &[&str]) {
     let meta = ArrowReaderMetadata::load(&File::open(path).unwrap(), ArrowReaderOptions::new()).unwrap();
     let mut data = std::fs::read(path).unwrap();
     for group in meta.metadata().row_groups() {
-        for column in group.columns().iter().filter(|c| c.column_path().parts()[0] != "eventTime") {
+        for column in group.columns().iter().filter(|c| !keep.contains(&c.column_path().parts()[0].as_str())) {
             let (start, length) = column.byte_range();
             data[start as usize..(start + length) as usize].fill(0xFF);
         }
@@ -296,7 +296,7 @@ fn matrix(base: &Path, name: &str) {
             let rows: Vec<Row> = if last && fixture.shared { rows.iter().enumerate().map(|(r, row)| if r == 0 { Row { close: Some(same(kind)), ..row.clone() } } else { row.clone() }).collect() } else { rows.clone() };
             write(&bars.join(format!("{n}.parquet")), &rows, if last { event } else { Event::Int64 }, if last { kind } else { Kind::F });
             if last && garbled {
-                garble(&bars.join(format!("{n}.parquet")));
+                garble(&bars.join(format!("{n}.parquet")), &["eventTime"]);
             }
         }
         let clean = root.join("clean");
@@ -351,4 +351,61 @@ fn holdout_check_decides_on_event_times_alone() {
         let strays: Vec<&str> = stdout.lines().filter(|l| !(l.is_empty() || l.starts_with("running ") || l.starts_with("test "))).collect();
         assert!(strays.is_empty() && stderr.is_empty(), "{}: output {strays:?} {stderr:?}", fixture.name);
     }
+}
+
+fn late_file(path: &Path, event: Event, fetched: i64, hour: i64) {
+    let row = Row { fetched: Some(fetched), ..early("A", hour) };
+    write(path, &[row], event, Kind::F);
+}
+
+/// SOURCES.md §2: a file whose rows are all fetched after V may hold anything undecodable without changing the
+/// dataset at V. Argon's review of slice 5, F3.
+#[test]
+fn an_undecodable_file_fetched_after_the_version_changes_nothing() {
+    let root = scratch("post-v").join("store");
+    good_store(&root, "A", 8);
+    let venue = venue(&["A"]);
+    let policy = policy();
+    let view = |m: market::Market| format!("{:?} {:?}", m.funding, m.bars);
+    let clean = view(market::load(&[root.clone()], V, &venue, &policy, None).unwrap());
+    late_file(&root.join("bars_4h/1.parquet"), Event::Int64, V + 100, 9);
+    garble(&root.join("bars_4h/1.parquet"), &["eventTime", "fetchedAt"]);
+    let after = market::load(&[root.clone()], V, &venue, &policy, Some(policy.holdout_start)).map(view);
+    assert_eq!(after.as_ref().ok(), Some(&clean), "{after:?}");
+}
+
+/// Argon's review of slice 5, F6: an event column whose type is not Int64 is uncheckable whatever its pages hold.
+#[test]
+fn an_event_column_of_another_type_is_uncheckable_without_decoding_it() {
+    let root = scratch("event-type").join("store");
+    good_store(&root, "A", 8);
+    late_file(&root.join("bars_4h/1.parquet"), Event::Float64, V, 9);
+    garble(&root.join("bars_4h/1.parquet"), &[]);
+    let policy = policy();
+    assert!(matches!(market::load(&[root], V, &venue(&["A"]), &policy, Some(policy.holdout_start)), Err(market::LoadError::Holdout(m)) if m == UNCHECKABLE));
+}
+
+/// C7.6 test 3, across the call's datasets: any uncheckable event time takes precedence over crossings whatever the
+/// dataset, and a crossing refusal names the least crossing time of them all. Argon's review of slice 5, F4.
+#[test]
+fn the_holdout_check_spans_the_datasets_of_a_call() {
+    let policy = policy();
+    let h = policy.holdout_start / HOUR;
+    let venue = venue(&["A"]);
+    let mixed = |tag: &str, funding_hour: i64, bars: &dyn Fn(&Path)| {
+        let root = scratch(tag);
+        good_store(&root.join("a"), "A", funding_hour);
+        good_store(&root.join("b"), "A", 8);
+        let store = root.join("store");
+        std::fs::create_dir_all(&store).unwrap();
+        std::fs::rename(root.join("a/funding"), store.join("funding")).unwrap();
+        std::fs::create_dir_all(store.join("bars_4h")).unwrap();
+        bars(&store.join("bars_4h/0.parquet"));
+        market::load(&[store], V, &venue, &policy, Some(policy.holdout_start)).map(|_| ())
+    };
+    let crossing = |hour: i64| format!("holdout crossing: event time {} at or after {}", hour * HOUR, policy.holdout_start);
+    let err = mixed("uncheckable", h + 2, &|p| late_file(p, Event::Float64, V, h + 1)).unwrap_err();
+    assert_eq!(err.to_string(), UNCHECKABLE);
+    let err = mixed("least", h + 2, &|p| late_file(p, Event::Int64, V, h + 1)).unwrap_err();
+    assert_eq!(err.to_string(), crossing(h + 1));
 }

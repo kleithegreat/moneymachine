@@ -624,6 +624,7 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
                 close: num(&b["close"])?,
                 volume: 0.0,
                 trades: int(&b["trades"])?,
+                retraction: false,
             })
         })
         .collect::<Option<_>>()?;

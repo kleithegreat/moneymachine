@@ -1,8 +1,8 @@
 //! Market data for one run: the store resolved at a dataset version, plus venue files.
 //!
 //! Resolution is `resolve.rs` (kernel/RULES.md §6, bitemporal), the same as `ingest/store.py`'s: every delivered
-//! revision of a key is a record at its own knownAt, a retraction a record whose values are undefined (NaN); the
-//! execution maps read each key's final revision. In search mode the holdout check of SOURCES.md §2 precedes all
+//! revision of a key is a record at its own knownAt, a retraction a flagged record whose values are undefined (NaN);
+//! the execution maps read each key's final revision. In search mode the holdout check of SOURCES.md §2 precedes all
 //! other decoding (I8).
 
 use crate::dsl::EVENT_INPUTS;
@@ -32,6 +32,7 @@ pub struct Funding {
     pub known: i64,
     pub rate: f64,
     pub premium: f64,
+    pub retraction: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -46,15 +47,19 @@ pub struct Bar {
     pub close: f64,
     pub volume: f64,
     pub trades: i64,
+    pub retraction: bool,
 }
 
-/// An hourly event count: items whose knownAt falls in (event - 1h, event], known at `known`.
+/// An hourly event count: items whose knownAt falls in (event - 1h, event], known at `known`. `event` is the slot
+/// delivered; `recorded` and `key` (the key's eventTime) order observations sharing a knownAt.
 #[derive(Clone, Copy, Debug)]
 pub struct Event {
     pub coin: usize,
     pub event: i64,
     pub known: i64,
     pub count: f64,
+    pub recorded: i64,
+    pub key: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -92,6 +97,32 @@ pub struct Market {
     /// Event datasets present in the store, by name; an absent name means the input is unavailable.
     pub events: HashMap<&'static str, Vec<Event>>,
     pub data_hash: String,
+}
+
+/// The order records reach a machine: by knownAt, then coin; within one, a key's entries as resolved, and event
+/// observations by (recording time, eventTime) (SOURCES.md §4). Indices into `funding` and `bars`; event
+/// observations with the event input's row in EVENT_INPUTS.
+pub struct Delivery {
+    pub funding: Vec<usize>,
+    pub bars: Vec<usize>,
+    pub events: Vec<(usize, Event)>,
+}
+
+impl Market {
+    pub fn delivery(&self) -> Delivery {
+        let mut funding: Vec<usize> = (0..self.funding.len()).collect();
+        funding.sort_by_key(|&i| (self.funding[i].known, self.funding[i].coin, self.funding[i].event));
+        let mut bars: Vec<usize> = (0..self.bars.len()).collect();
+        bars.sort_by_key(|&i| (self.bars[i].known, self.bars[i].coin, self.bars[i].event));
+        let mut events: Vec<(usize, Event)> = EVENT_INPUTS
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, (_, ds))| self.events.get(ds).map(|v| v.iter().map(move |&e| (slot, e))))
+            .flatten()
+            .collect();
+        events.sort_by_key(|(slot, e)| (e.known, e.coin, *slot, e.recorded, e.key));
+        Delivery { funding, bars, events }
+    }
 }
 
 #[derive(Debug)]
@@ -243,7 +274,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
     for k in keys(&resolved, "funding") {
         let coin = k.coin.unwrap();
         for e in &k.entries {
-            funding.push(Funding { coin, event: k.event, known: e.known, rate: value(k, e, "fundingRate"), premium: value(k, e, "premium") });
+            funding.push(Funding { coin, event: k.event, known: e.known, rate: value(k, e, "fundingRate"), premium: value(k, e, "premium"), retraction: e.retraction });
         }
         if let Some(last) = k.entries.last().filter(|e| !e.retraction) {
             rate_at.insert((coin, k.event), value(k, last, "fundingRate"));
@@ -273,6 +304,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
                 close: price("close"),
                 volume: price("volume"),
                 trades,
+                retraction: e.retraction,
             });
         }
     }
@@ -281,7 +313,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
         if datasets.contains(&ds) {
             let list = keys(&resolved, ds)
                 .into_iter()
-                .flat_map(|k| k.entries.iter().map(move |e| Event { coin: k.coin.unwrap(), event: e.slot.unwrap_or(k.event), known: e.known, count: value(k, e, "count") }))
+                .flat_map(|k| k.entries.iter().map(move |e| Event { coin: k.coin.unwrap(), event: e.slot.unwrap_or(k.event), known: e.known, count: value(k, e, "count"), recorded: e.fetched, key: k.event }))
                 .collect();
             events.insert(ds, list);
         }

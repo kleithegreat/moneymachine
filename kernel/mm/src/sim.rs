@@ -6,7 +6,7 @@
 //! H + delta for H in (b, B]; and the decision at B + delta, filled at B + 4h. A fill happens
 //! only if a later bar will mark it, so the last equity mark accounts for every fill.
 
-use crate::dsl::{Program, EVENT_INPUTS};
+use crate::dsl::Program;
 use crate::machine::Machine;
 use crate::market::{Market, Policy, Venue, BAR, HOUR};
 use std::collections::BTreeMap;
@@ -257,18 +257,8 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
         }
     }
     let mut machine = Machine::new(prog, n);
-    let event_slots: Vec<(usize, &Vec<crate::market::Event>)> =
-        EVENT_INPUTS.iter().enumerate().filter_map(|(slot, (_, ds))| market.events.get(ds).map(|v| (slot, v))).collect();
-    let mut e_order: Vec<(i64, usize, usize, usize)> = event_slots
-        .iter()
-        .flat_map(|(slot, v)| v.iter().enumerate().map(move |(i, e)| (e.known, e.coin, *slot, i)))
-        .collect();
-    e_order.sort();
+    let order = market.delivery();
     let mut ei = 0;
-    let mut f_order: Vec<usize> = (0..market.funding.len()).collect();
-    f_order.sort_by_key(|&i| (market.funding[i].known, market.funding[i].coin, market.funding[i].event));
-    let mut b_order: Vec<usize> = (0..market.bars.len()).collect();
-    b_order.sort_by_key(|&i| (market.bars[i].known, market.bars[i].coin, market.bars[i].event));
     let (mut fi, mut bi) = (0, 0);
 
     let mut book = Book { cash: INITIAL, ..Book::default() };
@@ -308,17 +298,16 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
     };
 
     let mut deliver_until = |machine: &mut Machine, tick: i64| -> Result<(), Abort> {
-        while fi < f_order.len() && market.funding[f_order[fi]].known <= tick {
-            machine.deliver_funding(market.funding[f_order[fi]], tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
+        while fi < order.funding.len() && market.funding[order.funding[fi]].known <= tick {
+            machine.deliver_funding(market.funding[order.funding[fi]], tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
             fi += 1;
         }
-        while bi < b_order.len() && market.bars[b_order[bi]].known <= tick {
-            machine.deliver_bar(market.bars[b_order[bi]], tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
+        while bi < order.bars.len() && market.bars[order.bars[bi]].known <= tick {
+            machine.deliver_bar(market.bars[order.bars[bi]], tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
             bi += 1;
         }
-        while ei < e_order.len() && e_order[ei].0 <= tick {
-            let (_, _, slot, i) = e_order[ei];
-            let ev = event_slots.iter().find(|(s, _)| *s == slot).unwrap().1[i];
+        while ei < order.events.len() && order.events[ei].1.known <= tick {
+            let (slot, ev) = order.events[ei];
             machine.deliver_event(slot, ev, tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
             ei += 1;
         }
@@ -445,7 +434,7 @@ pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end:
             if !(start <= big_b && big_b + 2 * BAR <= stop) {
                 continue;
             }
-            let fresh = machine.funding[c].is_some_and(|f| f.event == big_b) && machine.bar[c].is_some_and(|x| x.event == big_b);
+            let fresh = machine.funding[c].is_some_and(|f| f.event == big_b && !f.retraction) && machine.bar[c].is_some_and(|x| x.event == big_b && !x.retraction);
             cond_latest[c] = machine.condition(c);
             if !fresh {
                 trace.push(Event::Hold { t: t_d, coin: c, why: "stale" });

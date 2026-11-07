@@ -114,22 +114,35 @@ def columns_read(footer, s):
     return [c for c in footer.names if c in wanted]
 
 
-def holdout_check(footers, event, boundary):
-    """SOURCES.md §2's holdout check on the event-time column of every row of `footers`, which projects that column
-    alone: ValueError, with the prescribed message, or None. Any uncheckable event time takes precedence."""
+def read(f, columns):
+    """The `columns` of file f, or Refusal INVALID if it cannot be decoded."""
+    try:
+        return pq.read_table(f.path, columns=columns)
+    except (pa.ArrowException, OSError) as e:
+        raise Refusal("INVALID", f"{f.path}: {e}") from None
+
+
+def holdout_check(checks, boundary):
+    """SOURCES.md §2's holdout check on the event-time column of every row of the files of `checks`, pairs of footers
+    and their event column, which projects that column alone, and only when its footer type is Int64: ValueError, with
+    the prescribed message, or None. Any uncheckable event time, in any pair, takes precedence over every crossing, and
+    a crossing names the least of them all."""
     least = None
-    for f in footers:
-        if f.rows == 0:
-            continue
-        col = pq.read_table(f.path, columns=[event]).column(0) if event in f.names else None
-        if col is None or col.type != pa.int64() or col.null_count:
-            raise ValueError(UNCHECKABLE)
-        extremes = pc.min_max(col)
-        if extremes["min"].as_py() < LO or extremes["max"].as_py() > HI:
-            raise ValueError(UNCHECKABLE)
-        crossing = pc.min(pc.filter(col, pc.greater_equal(col, boundary))).as_py()
-        if crossing is not None and (least is None or crossing < least):
-            least = crossing
+    for footers, event in checks:
+        for f in footers:
+            if f.rows == 0:
+                continue
+            if f.types.get(event) != pa.int64():
+                raise ValueError(UNCHECKABLE)
+            col = read(f, [event]).column(0)
+            if col.null_count:
+                raise ValueError(UNCHECKABLE)
+            extremes = pc.min_max(col)
+            if extremes["min"].as_py() < LO or extremes["max"].as_py() > HI:
+                raise ValueError(UNCHECKABLE)
+            crossing = pc.min(pc.filter(col, pc.greater_equal(col, boundary))).as_py()
+            if crossing is not None and (least is None or crossing < least):
+                least = crossing
     if least is not None:
         raise ValueError(f"holdout crossing: event time {least} at or after {boundary}")
 
@@ -185,15 +198,14 @@ def read_revisions(footers, tables, s, version, names, entity_columns):
     for f in footers:
         if f.rows == 0:
             continue
-        whole = pq.read_table(f.path, columns=columns_read(f, s))
-        fetched = whole.column("fetchedAt")
+        fetched = read(f, ["fetchedAt"]).column(0)
         if fetched.null_count:
             raise Refusal("INVALID", f"{f.path}: a null fetchedAt")
         eligible = pc.indices_nonzero(pc.less_equal(fetched, version)).to_pylist()
         if not eligible:
             continue
         present = [c for c in columns_read(f, s) if c in cols]
-        table = whole.take(eligible)
+        table = read(f, columns_read(f, s)).take(eligible)
         for c in present:
             t = f.types[c]
             if not (t in (pa.int64(), pa.float64(), pa.string(), pa.large_string(), pa.bool_())):
@@ -230,8 +242,7 @@ def resolve(sources, footers, universe, version, holdout=None):
     exprs = check_declarations(sources)
     names = {s["name"]: i for i, s in enumerate(sources)}
     if holdout is not None:
-        for s, fs in zip(sources, footers):
-            holdout_check(fs, s["event"], holdout)
+        holdout_check([(fs, s["event"]) for s, fs in zip(sources, footers)], holdout)
     tables = [[] for _ in sources]
     entity_columns = {i: len(s["entity"]) for i, s in enumerate(sources)}
     revisions = [read_revisions(fs, tables[i], s, version, names, entity_columns)

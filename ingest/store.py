@@ -95,7 +95,7 @@ class Store:
             self._cache[dataset] = kept = {"identity": identity, "footers": [resolve.Footer(f) for f in files],
                                            "checked": False, "revisions": None, "resolved": {}}
         if self.event_before is not None and not kept["checked"]:
-            resolve.holdout_check(kept["footers"], "eventTime", self.event_before)
+            resolve.holdout_check([(kept["footers"], "eventTime")], self.event_before)
         kept["checked"] = True
         return kept
 
@@ -164,26 +164,34 @@ class Store:
         return kept["resolved"][version]
 
     def _frame(self, dataset, version, chosen, **extra):
-        """The stored rows of the `chosen` entries, in order, as polars (the files' schemas give the empty frame its
-        columns), then the `extra` columns."""
+        """The stored rows of the `chosen` entries, in order, as polars, then the `extra` columns. Only files with a
+        row fetched by `version` give columns and types, as the empty tables of those files do; with none, the footers."""
         source, footers, _, tables = self._resolved(dataset, version)
-        parts = [pl.from_arrow(pa.table({c: pa.array([], f.types[c]) for c in resolve.columns_read(f, source)}))
-                 .with_columns(pl.lit(None, pl.Int64).alias("#")) for f in footers]
         by_table = {}
         for position, (_, e) in enumerate(chosen):
             by_table.setdefault(e.where[0], []).append((position, e.where[1]))
+        if tables:
+            parts = [pl.from_arrow(t.slice(0, 0)).with_columns(pl.lit(None, pl.Int64).alias("#")) for t in tables]
+        else:
+            types = {}
+            for f in footers:
+                for c in resolve.columns_read(f, source):
+                    types.setdefault(c, f.types[c])
+            parts = [pl.from_arrow(pa.table({c: pa.array([], t) for c, t in types.items()})).with_columns(pl.lit(None, pl.Int64).alias("#"))]
         for t, rows in by_table.items():
-            parts.append(pl.from_arrow(tables[t].take([r for _, r in rows]))
-                         .with_columns(pl.Series("#", [p for p, _ in rows], pl.Int64)))
+            parts.append(pl.from_arrow(tables[t].take([r for _, r in rows])).with_columns(pl.Series("#", [p for p, _ in rows], pl.Int64)))
         frame = pl.concat(parts, how="diagonal_relaxed").sort("#", nulls_last=True).drop("#")
         return frame.with_columns(*(pl.Series(k, v, pl.Int64 if k == "knownAt" else pl.Boolean) for k, v in extra.items()))
 
     def entries(self, dataset, version):
         """Every delivered revision of the dataset at `version` (kernel/RULES.md §6): the stored columns, `knownAt` and
-        `retraction`, key by key in the order the keys first appear, each key's by knownAt."""
+        `retraction`, key by key in the order the keys first appear, each key's by knownAt. A retraction delivers no
+        value: its values are null."""
+        source = self._resolved(dataset, version)[0]
         chosen = [(k, e) for k in self._resolved(dataset, version)[2] for e in k.entries]
-        return self._frame(dataset, version, chosen, knownAt=[e.known for _, e in chosen],
-                           retraction=[e.retraction for _, e in chosen])
+        frame = self._frame(dataset, version, chosen, knownAt=[e.known for _, e in chosen],
+                            retraction=[e.retraction for _, e in chosen])
+        return frame.with_columns(*(pl.when(~pl.col("retraction")).then(pl.col(c)).alias(c) for c in source["values"] if c in frame.columns))
 
     def as_of(self, dataset, t, version):
         """Per key, the latest revision of `version` known by t, unless it retracts the key."""

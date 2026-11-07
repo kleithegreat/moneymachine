@@ -60,6 +60,7 @@ impl Spec {
                     close: c,
                     volume: 1.0,
                     trades: self.trades[k],
+                    retraction: false,
                 }
             })
             .collect();
@@ -67,7 +68,7 @@ impl Spec {
             .filter(|h| !self.missing_funding.contains(h) && self.delisted_at.is_none_or(|d| h * HOUR < d))
             .map(|h| {
                 let (rate, premium) = self.funding.iter().find(|f| f.0 == h).map_or((0.0, 0.0), |f| (f.1, f.2));
-                Funding { coin: 0, event: h * HOUR, known: h * HOUR + DELTA, rate, premium }
+                Funding { coin: 0, event: h * HOUR, known: h * HOUR + DELTA, rate, premium, retraction: false }
             })
             .collect();
         let mut bar_times = vec![bars.iter().map(|b| b.open_time).collect::<Vec<_>>()];

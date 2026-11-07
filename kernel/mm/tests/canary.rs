@@ -66,12 +66,13 @@ fn market(seed: u64, early: bool) -> (Market, Venue, Policy, i64) {
                 close,
                 volume: 1.0,
                 trades: 1,
+                retraction: false,
             });
             px = close;
         }
     }
     let funding: Vec<Funding> = (0..COINS)
-        .flat_map(|c| (0..=n_bars * 4).map(move |h| Funding { coin: c, event: h * HOUR, known: h * HOUR + DELTA, rate: 0.0, premium: 0.0 }))
+        .flat_map(|c| (0..=n_bars * 4).map(move |h| Funding { coin: c, event: h * HOUR, known: h * HOUR + DELTA, rate: 0.0, premium: 0.0, retraction: false }))
         .collect();
     let mut bar_times = vec![vec![]; COINS];
     for b in &bars {

@@ -304,25 +304,28 @@ pub fn files(roots: &[PathBuf], name: &str) -> Vec<PathBuf> {
     out
 }
 
-/// SOURCES.md §2's holdout check on the event-time column of every row of `footers`, which projects that column alone.
-/// Any uncheckable event time takes precedence over a crossing.
-fn holdout_check(footers: &[Footer], event: &str, boundary: i64) -> Result<(), Refusal> {
+/// SOURCES.md §2's holdout check on the event-time column of every row of the files of `checks`, pairs of footers and
+/// their event column, which projects that column alone, and only when its footer type is Int64. Any uncheckable
+/// event time, in any pair, takes precedence over every crossing, and a crossing names the least of them all.
+fn holdout_check(checks: &[(&[Footer], &str)], boundary: i64) -> Result<(), Refusal> {
     let uncheckable = || Refusal::Holdout(UNCHECKABLE.into());
     let mut least: Option<i64> = None;
-    for f in footers.iter().filter(|f| f.rows > 0) {
-        if f.index(event).is_none() {
-            return Err(uncheckable());
-        }
-        for batch in f.batches(&[event])? {
-            let batch = batch.map_err(invalid)?;
-            let col = batch.column(0);
-            let Some(times) = col.as_any().downcast_ref::<Int64Array>().filter(|_| col.null_count() == 0) else { return Err(uncheckable()) };
-            for &t in times.values().iter() {
-                if !(LO..=HI).contains(&(t as i128)) {
-                    return Err(uncheckable());
-                }
-                if t >= boundary && least.is_none_or(|l| t < l) {
-                    least = Some(t);
+    for (footers, event) in checks {
+        for f in footers.iter().filter(|f| f.rows > 0) {
+            if f.type_of(event) != Some(&DataType::Int64) {
+                return Err(uncheckable());
+            }
+            for batch in f.batches(&[event])? {
+                let batch = batch.map_err(invalid)?;
+                let col = batch.column(0);
+                let Some(times) = col.as_any().downcast_ref::<Int64Array>().filter(|_| col.null_count() == 0) else { return Err(uncheckable()) };
+                for &t in times.values().iter() {
+                    if !(LO..=HI).contains(&(t as i128)) {
+                        return Err(uncheckable());
+                    }
+                    if t >= boundary && least.is_none_or(|l| t < l) {
+                        least = Some(t);
+                    }
                 }
             }
         }
@@ -455,15 +458,26 @@ fn read_revisions(footers: &[Footer], s: &Source, declared: &[String], version: 
     let wanted: Vec<&str> = ["fetchedAt", "tombstone"].into_iter().chain(s.deps.first().map(|_| "upstream")).chain(declared.iter().map(String::as_str)).collect();
     let event = declared.iter().position(|c| c == &s.event).unwrap();
     for f in footers {
+        let mut fetched_at = vec![];
+        for batch in f.batches(&["fetchedAt"])? {
+            let batch = batch.map_err(invalid)?;
+            let fetched = batch.column(0).as_any().downcast_ref::<Int64Array>().ok_or_else(|| Refusal::Invalid(format!("{}: fetchedAt", f.path.display())))?;
+            if fetched.null_count() > 0 {
+                return Err(Refusal::Invalid(format!("{}: a null fetchedAt", f.path.display())));
+            }
+            fetched_at.extend(fetched.values().iter().map(|&t| t <= version));
+        }
+        if !fetched_at.contains(&true) {
+            continue;
+        }
         let present: Vec<&str> = wanted.iter().copied().filter(|c| f.index(c).is_some()).collect();
+        let mut first = 0;
         for batch in f.batches(&present)? {
             let batch = batch.map_err(invalid)?;
             let at = |e: &str| Refusal::Invalid(format!("{}: {e}", f.path.display()));
             let fetched = batch.column_by_name("fetchedAt").and_then(|c| c.as_any().downcast_ref::<Int64Array>()).ok_or_else(|| at("fetchedAt"))?;
-            if fetched.null_count() > 0 {
-                return Err(at("a null fetchedAt"));
-            }
-            let eligible: Vec<usize> = (0..batch.num_rows()).filter(|&r| fetched.value(r) <= version).collect();
+            let eligible: Vec<usize> = (0..batch.num_rows()).filter(|&r| fetched_at[first + r]).collect();
+            first += batch.num_rows();
             if eligible.is_empty() {
                 continue;
             }
@@ -515,9 +529,8 @@ pub fn resolve(roots: &[PathBuf], sources: Vec<Source>, universe: &[String], ver
         .collect::<Result<_, _>>()?;
     let footers: Vec<Vec<Footer>> = sources.iter().map(|s| files(roots, &s.name).iter().map(|p| Footer::read(p)).collect::<Result<_, _>>()).collect::<Result<_, _>>()?;
     if let Some(boundary) = holdout {
-        for (s, fs) in sources.iter().zip(&footers) {
-            holdout_check(fs, &s.event, boundary)?;
-        }
+        let checks: Vec<(&[Footer], &str)> = sources.iter().zip(&footers).map(|(s, fs)| (fs.as_slice(), s.event.as_str())).collect();
+        holdout_check(&checks, boundary)?;
     }
     let names: HashMap<String, usize> = sources.iter().enumerate().map(|(i, s)| (s.name.clone(), i)).collect();
     let entity_columns: Vec<usize> = sources.iter().map(|s| s.entity.len()).collect();

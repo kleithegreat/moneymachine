@@ -11,7 +11,7 @@
 //! `ok` and the required set, as `refmm admit` prints them.
 
 use mm::admission::{admit, Binding, Cert, Meta, Mode, Roles};
-use mm::dsl::{Program, Ty, EVENT_INPUTS};
+use mm::dsl::{Program, Ty};
 use mm::machine::Machine;
 use mm::market::{self, Market, Policy, BAR, HOUR};
 use mm::sim::{self, Event, Why};
@@ -61,28 +61,20 @@ fn ty(t: &Ty) -> String {
 /// defined.
 fn write_streams(out: &mut impl Write, prog: &Program, m: &Market, n: usize, policy: &Policy, end: i64) -> Result<u64, String> {
     let mut machine = Machine::new(prog, n);
-    let slots: Vec<(usize, &Vec<market::Event>)> =
-        EVENT_INPUTS.iter().enumerate().filter_map(|(slot, (_, ds))| m.events.get(ds).map(|v| (slot, v))).collect();
-    let mut e_order: Vec<(i64, usize, usize, usize)> =
-        slots.iter().flat_map(|(slot, v)| v.iter().enumerate().map(move |(i, e)| (e.known, e.coin, *slot, i))).collect();
-    e_order.sort();
-    let mut f_order: Vec<usize> = (0..m.funding.len()).collect();
-    f_order.sort_by_key(|&i| (m.funding[i].known, m.funding[i].coin, m.funding[i].event));
-    let mut b_order: Vec<usize> = (0..m.bars.len()).collect();
-    b_order.sort_by_key(|&i| (m.bars[i].known, m.bars[i].coin, m.bars[i].event));
+    let order = m.delivery();
     let (mut fi, mut bi, mut ei) = (0, 0, 0);
     let mut deliver = |machine: &mut Machine, tick: i64| -> Result<(), String> {
-        while fi < f_order.len() && m.funding[f_order[fi]].known <= tick {
-            machine.deliver_funding(m.funding[f_order[fi]], tick).map_err(|e| format!("{e:?}"))?;
+        while fi < order.funding.len() && m.funding[order.funding[fi]].known <= tick {
+            machine.deliver_funding(m.funding[order.funding[fi]], tick).map_err(|e| format!("{e:?}"))?;
             fi += 1;
         }
-        while bi < b_order.len() && m.bars[b_order[bi]].known <= tick {
-            machine.deliver_bar(m.bars[b_order[bi]], tick).map_err(|e| format!("{e:?}"))?;
+        while bi < order.bars.len() && m.bars[order.bars[bi]].known <= tick {
+            machine.deliver_bar(m.bars[order.bars[bi]], tick).map_err(|e| format!("{e:?}"))?;
             bi += 1;
         }
-        while ei < e_order.len() && e_order[ei].0 <= tick {
-            let (_, _, slot, i) = e_order[ei];
-            machine.deliver_event(slot, slots.iter().find(|(s, _)| *s == slot).unwrap().1[i], tick).map_err(|e| format!("{e:?}"))?;
+        while ei < order.events.len() && order.events[ei].1.known <= tick {
+            let (slot, ev) = order.events[ei];
+            machine.deliver_event(slot, ev, tick).map_err(|e| format!("{e:?}"))?;
             ei += 1;
         }
         Ok(())
@@ -165,11 +157,11 @@ fn main() {
     let events: Vec<Value> = mm::dsl::EVENT_INPUTS
         .iter()
         .enumerate()
-        .flat_map(|(slot, (_, ds))| m.events.get(ds).into_iter().flatten().map(move |e| json!([slot, e.coin, e.event, e.known, b(e.count)])))
+        .flat_map(|(slot, (_, ds))| m.events.get(ds).into_iter().flatten().map(move |e| json!([slot, e.coin, e.event, e.known, b(e.count), e.recorded, e.key])))
         .collect();
     let market_json = json!({
-        "funding": m.funding.iter().map(|f| json!([f.coin, f.event, f.known, b(f.rate), b(f.premium)])).collect::<Vec<_>>(),
-        "bars": m.bars.iter().map(|x| json!([x.coin, x.open_time, x.event, x.known, b(x.open), b(x.high), b(x.low), b(x.close), b(x.volume), x.trades])).collect::<Vec<_>>(),
+        "funding": m.funding.iter().map(|f| json!([f.coin, f.event, f.known, b(f.rate), b(f.premium), f.retraction])).collect::<Vec<_>>(),
+        "bars": m.bars.iter().map(|x| json!([x.coin, x.open_time, x.event, x.known, b(x.open), b(x.high), b(x.low), b(x.close), b(x.volume), x.trades, x.retraction])).collect::<Vec<_>>(),
         "events": events, "present": slots, "intervals": m.intervals,
         "venue": {"taker_fee": b(venue.taker_fee), "min_notional": b(venue.min_notional),
                   "sz_decimals": venue.rules.iter().map(|r| r.sz_decimals).collect::<Vec<_>>(),
