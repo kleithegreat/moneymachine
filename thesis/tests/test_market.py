@@ -1,6 +1,7 @@
 """C10.2/C10.5: the exchange adapter permits only the frozen public read types, at one fixed host."""
 
 import random
+import threading
 
 import httpx
 import pytest
@@ -386,42 +387,13 @@ def test_one_dex_failing_never_costs_another_dex_its_sample(tmp_path, monkeypatc
     monkeypatch.setattr(market, "now_ms", lambda: 5_000)
     m.record_marks()
     assert m.marks("xyz:GOLD") == [(5_000, 5_000, 2400.5)]
-    _, bad, good = market.read(m.sampler.archive, "marks")
+    rows = list(market.read(m.sampler.archive, "marks"))
+    bad, good = (next(r for r in rows if r["request"].get("dex") == d) for d in ("bad", "xyz"))
     assert (bad["request"]["dex"], good["request"]["dex"]) == ("bad", "xyz")
     assert bad["status"] == 400 and bad["response"] == {"error": "dex refused"}
     assert (bad["sent"], bad["recv"]) == (5_000, 5_000)
     assert good["response"] == DEX_REPLY
     assert m.marks("bad:COIN") == []
-
-
-def test_the_mark_sample_is_sent_at_its_time_whatever_other_reads_spent(tmp_path, monkeypatch):
-    """Criteria, stage 10, revision of 2026-10-23: for every builder dex and hour H a request is sent at H + 5 s."""
-    clock = [H + market.MARK_OFFSET]
-    fake_clock(monkeypatch, clock)
-    replies, posted = {"perpDexs": [None, {"name": "xyz"}], "metaAndAssetCtxs": DEX_REPLY}, []
-
-    class Response:
-        status_code = 200
-
-        def __init__(self, body):
-            self.body = body
-
-        def raise_for_status(self):
-            pass
-
-        def json(self):
-            return replies[self.body["type"]]
-
-    x = market.Exchange(tmp_path / "x")
-    m = market.Market(tmp_path / "m", x)
-    monkeypatch.setattr(m.sampler.http, "post", lambda url, json: posted.append(int(clock[0])) or Response(json))
-    x.spent = [(clock[0] / 1000, x.budget)]
-    m.record_marks()
-    _, sample = market.read(m.sampler.archive, "marks")
-    assert posted[0] <= H + market.MARK_OFFSET + 1_000
-    assert sample["sent"] == posted[-1]
-    assert sample["sent"] <= H + market.MARK_OFFSET + 1_000
-    assert x.budget + m.sampler.budget == market.BUDGET_PER_MIN
 
 
 @pytest.mark.parametrize("first_status", [429, 502, 503, None])
@@ -441,7 +413,7 @@ def test_each_attempt_is_archived_at_its_actual_send_and_receipt_after_waits(tmp
     m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
     x = m.sampler
     monkeypatch.setattr(x.http, "post", post)
-    x.spent = [(clock[0] / 1000, x.budget)]
+    x.limiter.spent = [(clock[0] / 1000, x.limiter.budget)]
     assert x.post({"type": "metaAndAssetCtxs", "dex": "xyz"}) == DEX_REPLY
     rows = list(market.read(x.archive, "marks"))
     assert [s["sent"] for s in rows] == posted
@@ -495,3 +467,167 @@ def test_malformed_successes_are_archived_retried_and_do_not_abort_other_dexes(t
     assert len(rows) == len(attempts) == 8
     assert all(not r["valid"] for r in rows if r["dex"] == "bad")
     assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5}
+
+
+def test_history_and_marks_share_the_real_venue_limit_without_a_permanent_partition(tmp_path):
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    assert m.x.limiter is m.sampler.limiter
+    assert m.x.limiter.budget == hl.DOCUMENTED_WEIGHT_PER_MIN - market.COHOST_WEIGHT_PER_MIN == 720
+
+
+def test_queued_history_releases_the_lock_and_drains_before_the_mark_deadline(tmp_path, monkeypatch):
+    clock, sent = [H - 56_000], []
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    m.x._charge(market.BUDGET_PER_MIN)
+    clock[0] = H - 55_000
+
+    def post(url, json):
+        sent.append(clock[0])
+        payload = [{"name": "xyz"}] if json["type"] == "perpDexs" else DEX_REPLY
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    def sampling_wakes_while_history_is_queued(seconds):
+        assert m.x.limiter.lock.acquire(blocking=False), "history slept holding the limiter lock"
+        m.x.limiter.lock.release()
+        clock[0] = H + 5_000
+        m.record_marks()
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    monkeypatch.setattr(hl.time, "sleep", sampling_wakes_while_history_is_queued)
+    m.x._charge(20)
+    assert sent == [H + 5_000] * 2
+    assert sum(w for _, w in m.x.limiter.spent) == 60
+
+
+def test_history_can_spend_the_whole_budget_outside_the_sampling_window(tmp_path, monkeypatch):
+    fake_clock(monkeypatch, [H + 10 * 60_000])
+    x = market.Exchange(tmp_path)
+    x._charge(market.BUDGET_PER_MIN)
+    assert sum(w for _, w in x.limiter.spent) == market.BUDGET_PER_MIN
+
+
+def test_three_dexes_all_get_the_initial_hourly_window(tmp_path, monkeypatch):
+    clock, sent = [H + 5_000], []
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+
+    def post(url, json):
+        if json["type"] == "perpDexs":
+            payload = [{"name": d} for d in ("a", "b", "xyz")]
+        else:
+            sent.append(clock[0])
+            payload = DEX_REPLY
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks()
+    assert sent == [H + 5_000] * 3
+
+
+def test_a_hung_dex_cannot_hold_up_a_healthy_dex_initial_send(tmp_path, monkeypatch):
+    healthy = threading.Event()
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    monkeypatch.setattr(market, "now_ms", lambda: H + 5_000)
+
+    def post(url, json):
+        if json["type"] == "perpDexs":
+            payload = [{"name": "bad"}, {"name": "xyz"}]
+        elif json["dex"] == "bad":
+            assert healthy.wait(1), "healthy dex waited for the hung dex"
+            return httpx.Response(400, request=httpx.Request("POST", url))
+        else:
+            healthy.set()
+            payload = DEX_REPLY
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks()
+    assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5}
+
+
+def test_discovery_runs_in_the_drain_minute_and_contexts_at_the_deadline(tmp_path, monkeypatch):
+    clock, sent = [H - 55_000], []
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+
+    def post(url, json):
+        sent.append((json["type"], clock[0]))
+        clock[0] += 10_000 if json["type"] == "perpDexs" else 0
+        return httpx.Response(200, json=[{"name": "xyz"}] if json["type"] == "perpDexs" else DEX_REPLY,
+                              request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks()
+    assert sent == [("perpDexs", H - 55_000), ("metaAndAssetCtxs", H + 5_000)]
+
+
+def test_failed_discovery_uses_the_last_archived_inventory_after_restart(tmp_path, monkeypatch):
+    clock = [H + 5_000]
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+
+    def post(url, json):
+        return httpx.Response(200, json=[{"name": "xyz"}] if json["type"] == "perpDexs" else DEX_REPLY,
+                              request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks()
+    clock[0] += H
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+
+    def unavailable(url, json):
+        if json["type"] == "perpDexs":
+            raise httpx.ReadTimeout("inventory unavailable")
+        return post(url, json)
+
+    monkeypatch.setattr(m.sampler.http, "post", unavailable)
+    m.record_marks()
+    assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5, 2 * H: 2400.5}
+    assert len(list(market.read(m.sampler.archive, "marks"))) == 4
+
+
+def test_the_largest_admissible_initial_wave_fits_and_oversize_fails_without_wait(tmp_path, monkeypatch):
+    clock = [H + 5_000]
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    count = market.BUDGET_PER_MIN // 20 - 1
+
+    def post(url, json):
+        return httpx.Response(200, json=[{"name": str(d)} for d in range(count)] if json["type"] == "perpDexs" else DEX_REPLY,
+                              request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks()
+    assert clock[0] == H + 5_000
+    assert len(list(market.read(m.sampler.archive, "marks"))) == count + 1
+    count += 1
+    clock[0] += H
+    with pytest.raises(ValueError, match="exceeds"):
+        m.record_marks()
+
+
+def test_two_cold_funding_histories_do_not_exhaust_the_session_wall_budget(tmp_path, monkeypatch):
+    clock = [H + 10 * 60_000]
+    fake_clock(monkeypatch, clock)
+    x = market.Exchange(tmp_path)
+    start = clock[0]
+    for _ in range(2 * 55):
+        x._charge(45)
+    assert clock[0] - start < 3600_000
+
+
+def test_a_full_cold_hourly_page_fits_the_shared_exchange_budget(tmp_path, monkeypatch):
+    clock = [200 * market.DAY + 10 * 60_000]
+    fake_clock(monkeypatch, clock)
+    x = market.Exchange(tmp_path / "x")
+    m = market.Market(tmp_path, x)
+
+    def post(url, json):
+        start = json["req"]["startTime"]
+        page = [{"t": start + i * H, "o": "100", "c": "100"} for i in range(4800)]
+        return httpx.Response(200, json=page, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(x.http, "post", post)
+    assert len(m.bars("BTC", "1h", clock[0])) > 4700
+    assert sum(w for _, w in x.limiter.spent) == 103

@@ -20,7 +20,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
-- **Thesis** `thesis-310449610583`, frozen 2026-11-03 00:02 UTC (2026-11-02 19:02 EST); sessions record and register. Refreeze fixes ready, undeployed: `thesis-fixes` (GPT: six fixes) and `thesis-positions` (Sonnet: one-leg spread). Before the human's refreeze: Argon reviews both, re-deriving the C10.3 value the positions fix changed.
+- **Thesis refreeze:** second-round fixes on `thesis-refreeze`, undeployed; Argon's review: `audit/reviews/2026-11-07-argon-thesis-refreeze.md`. New design awaits independent review before a new forward freeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Next: slices 3, 4 and 6 (Sonnet builds, Argon reviews; GPT never, as C7.7's red team).
 
@@ -45,11 +45,11 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 - Remote tests ready: prodesk5 (`CLUSTER.md` §7).
 - K1 fixture amended per both reviews; strict xfail (`gate/tests/test_kernel_defects.py`).
-- Pytest: 1,171 passed, 25 strict xfails, 2 skips.
 - Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
+- **Thesis design revision:** T3 derives shared admission from the IP limit and co-egress load, replacing 60/60; the new design needs independent review before refreeze.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Capacity guard not deployed:** rollout and visible synthetic desktop alarm check in `CLUSTER.md` §5. O2 states the chosen reserve and offline limitation, not a response-time guarantee.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.

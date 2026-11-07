@@ -25,7 +25,7 @@ from ingest.policy import DAY, DELTA, HOUR
 from sandbox import canary, session
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
-from thesis.market import MARK_OFFSET, Exchange, Market
+from thesis.market import MARK_OFFSET, MARK_PREP, Exchange, Market
 from thesis.positions import Json
 from thesis.retrieval import Fetcher
 
@@ -301,7 +301,7 @@ class Track:
         loops = [threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000, stop)),
                  threading.Thread(target=forever, args=("deadlines", lambda: self.deadlines(now_ms()), lambda now: 60_000, stop)),
                  threading.Thread(target=forever, args=("marks", self.market.record_marks,
-                                                        lambda now: now // HOUR * HOUR + HOUR + MARK_OFFSET - now, stop)),
+                                                        lambda now: (now - MARK_OFFSET + MARK_PREP) // HOUR * HOUR + HOUR + MARK_OFFSET - MARK_PREP - now, stop)),
                  threading.Thread(target=forever, args=("benchmarks", lambda: self.benchmarks(now_ms(), frozen["frozen"]),
                                                         lambda now: 60_000, stop))]
         for t in loops:

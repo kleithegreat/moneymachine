@@ -17,47 +17,64 @@ MAX_ITEMS = {"fundingHistory": 500, "candleSnapshot": 5000}
 TIMEOUT = 10  # s: one hung request plus the recorder's 5 s back-off stays under C0.3's 60 s gap limit
 
 
-class Info:
-    def __init__(self, budget_per_min: int = BUDGET_PER_MIN) -> None:
-        self.budget = budget_per_min
+class WeightLimit:
+    """One rolling-minute admission ledger, shared by every client using a quota."""
+
+    def __init__(self, budget: int) -> None:
+        if budget <= 0:
+            raise ValueError("budget must be positive")
+        self.budget = budget
         self.spent: list[tuple[float, int]] = []
         self.lock = threading.Lock()
+
+    def delay(self, priority: bool) -> float:
+        return 0
+
+    def charge(self, weight: int, priority: bool = False) -> None:
+        if not 0 <= weight <= self.budget:
+            raise ValueError(f"weight {weight} exceeds per-minute budget {self.budget}")
+        while True:
+            with self.lock:
+                now = time.monotonic()
+                self.spent = [(t, w) for t, w in self.spent if now - t < 60]
+                delay = self.delay(priority)
+                if not delay and sum(w for _, w in self.spent) + weight <= self.budget:
+                    self.spent.append((now, weight))
+                    return
+                wait = delay or max(0.001, self.spent[0][0] + 60 - now)
+            time.sleep(wait)
+
+
+class Info:
+    def __init__(self, budget_per_min: int = BUDGET_PER_MIN, *, limiter: WeightLimit | None = None) -> None:
+        self.limiter = limiter if limiter is not None else WeightLimit(budget_per_min)
         self.http = httpx.Client(timeout=TIMEOUT)
 
     def _charge(self, weight: int) -> None:
-        if not 0 <= weight <= self.budget:
-            raise ValueError(f"weight {weight} exceeds per-minute budget {self.budget}")
-        with self.lock:
-            while True:
-                now = time.monotonic()
-                self.spent = [(t, w) for t, w in self.spent if now - t < 60]
-                if sum(w for _, w in self.spent) + weight <= self.budget:
-                    self.spent.append((now, weight))
-                    return
-                time.sleep(0.25)
+        self.limiter.charge(weight)
 
-    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None) -> Any:
+    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6) -> Any:
         """One request, retried after a 429, a 5xx or a transport error (a timeout, a dropped connection) with
         backoff; every attempt is charged its weight."""
         if per_items:
             weight += MAX_ITEMS[body["type"]] // per_items
-        for attempt in range(6):
+        for attempt in range(attempts):
             if attempt:
                 time.sleep(2 ** (attempt - 1))
             self._charge(weight)
             try:
                 r = self._send(body)
             except httpx.TransportError:
-                if attempt == 5:
+                if attempt == attempts - 1:
                     raise
                 continue
-            if (r.status_code == 429 or r.status_code >= 500) and attempt < 5:
+            if (r.status_code == 429 or r.status_code >= 500) and attempt < attempts - 1:
                 continue
             r.raise_for_status()
             try:
                 out = self._decode(body, r)
             except ValueError:
-                if attempt == 5:
+                if attempt == attempts - 1:
                     raise
                 continue
             return out

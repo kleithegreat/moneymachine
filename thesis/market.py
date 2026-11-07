@@ -19,21 +19,24 @@ import os
 import sys
 import threading
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import httpx
 
-from ingest.hl import Info
+from ingest import hl
+from ingest.hl import DOCUMENTED_WEIGHT_PER_MIN, TIMEOUT, Info, WeightLimit
 from ingest.live import append, now_ms, read
 from ingest.policy import DAY, DELTA, HOUR
 
 ALLOWED = frozenset({"meta", "perpDexs", "candleSnapshot", "fundingHistory", "metaAndAssetCtxs"})
-BUDGET_PER_MIN = 120
-MARK_BUDGET = BUDGET_PER_MIN // 2  # reserve half for hourly sampling; history cannot spend it
+COHOST_WEIGHT_PER_MIN = 480
+BUDGET_PER_MIN = DOCUMENTED_WEIGHT_PER_MIN - COHOST_WEIGHT_PER_MIN
 HISTORY = {"1h": 200 * DAY, "1d": 3 * 365 * DAY + 30 * DAY, "funding": 3 * 365 * DAY + 30 * DAY}
 MARK_OFFSET = 5_000
 MARK_WINDOW = 5 * 60_000
+MARK_PREP = 60_000
 STEP = {"1h": HOUR, "1d": DAY, "funding": HOUR}
 SHOWN = {"1h": DELTA, "1d": DAY + DELTA, "funding": 0}  # after its time, when a row first shows
 FINAL = {"1h": HOUR + DELTA, "1d": DAY + DELTA, "funding": 0}  # after its time, when a row is final and cached
@@ -84,20 +87,41 @@ def mark_bars(samples: Iterable[tuple[int, int, float | None]], now: int) -> lis
     return [[h, px, m.get(h + HOUR)] for h, px in sorted(m.items())]
 
 
+class MarkLimit(WeightLimit):
+    """Drain history for one rolling minute before sampling; release the unused quota after the batch."""
+
+    def __init__(self) -> None:
+        super().__init__(BUDGET_PER_MIN)
+        self.released: int | None = None
+
+    def delay(self, priority: bool) -> float:
+        if priority:
+            return 0
+        now = now_ms()
+        phase = (now - MARK_OFFSET) % HOUR
+        due = now - phase
+        return 0.25 if phase >= HOUR - MARK_PREP or (phase < MARK_WINDOW - MARK_OFFSET and self.released != due) else 0
+
+    def release(self, due: int) -> None:
+        with self.lock:
+            self.released = due
+
+
 class Exchange(Info):
     """ingest.hl.Info restricted to ALLOWED request types, archiving each actual HTTP attempt."""
 
     prefix = "info"
 
-    def __init__(self, archive_dir: str | Path, budget: int = BUDGET_PER_MIN - MARK_BUDGET) -> None:
-        super().__init__(budget)
+    def __init__(self, archive_dir: str | Path, *, limiter: WeightLimit | None = None) -> None:
+        super().__init__(limiter=limiter if limiter is not None else MarkLimit())
         self.archive = Path(archive_dir)
         self.archive.mkdir(parents=True, exist_ok=True)
+        self.archive_lock = threading.Lock()
 
-    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None) -> Any:
+    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6) -> Any:
         if body.get("type") not in ALLOWED:
             raise PermissionError(f"request type {body.get('type')!r} is not an approved public read")
-        return super().post(body, weight, per_items)
+        return super().post(body, weight, per_items, attempts=attempts)
 
     def _send(self, body: dict[str, Any]) -> Any:
         sample = {"sent": now_ms(), "request": body}
@@ -119,7 +143,8 @@ class Exchange(Info):
         if "response" in sample:
             text = json.dumps(sample["response"], separators=(",", ":"))
             sample["sha256"] = hashlib.sha256(text.encode()).hexdigest()
-        append(self.archive, self.prefix, sample["sent"], sample)
+        with self.archive_lock:
+            append(self.archive, self.prefix, sample["sent"], sample)
 
 
 def snapshot_marks(payload: Any) -> dict[str, float | None]:
@@ -145,6 +170,9 @@ class Sampler(Exchange):
     """The hourly archive holds the raw attempt and its marks together, including failed or invalid samples."""
 
     prefix = "marks"
+
+    def _charge(self, weight: int) -> None:
+        self.limiter.charge(weight, priority=True)
 
     def _decode(self, body: dict[str, Any], response: httpx.Response) -> Any:
         payload = super()._decode(body, response)
@@ -176,8 +204,8 @@ class Market:
 
     @functools.cached_property
     def sampler(self) -> Sampler:
-        """Hourly requests own a rate budget and connection, independent of every history read."""
-        return Sampler(self.root / "marks", MARK_BUDGET)
+        """The hourly archive uses the same admission ledger as every history and registration read."""
+        return Sampler(self.root / "marks", limiter=self.x.limiter)
 
     def universe(self, dex: str | None = None) -> dict[str, bool]:
         """{market: delisted} of a builder dex, or of the core venue."""
@@ -230,13 +258,48 @@ class Market:
             return sorted(r for r in rows + list(pending.values()) if r[0] + SHOWN[kind] <= now)
 
     def record_marks(self) -> None:
-        """One sample per builder dex; archive failures as missing marks without abandoning later dexes."""
-        for dex in self.sampler.post({"type": "perpDexs"}):
-            if dex:
-                try:
-                    self.sampler.post({"type": "metaAndAssetCtxs", "dex": dex["name"]})
-                except (httpx.HTTPError, ValueError) as e:
-                    print(f"mark sample failed for {dex['name']}: {e!r}", file=sys.stderr)
+        """Discover during the drain minute, then dispatch each retry wave concurrently; cache discovery for outages."""
+        now = now_ms()
+        due = (now - MARK_OFFSET + MARK_PREP) // HOUR * HOUR + MARK_OFFSET
+        cache = self.root / "dexes.json"
+        try:
+            dexes = self.sampler.post({"type": "perpDexs"}, attempts=1)
+            if not isinstance(dexes, list) or any(d is not None and (not isinstance(d, dict) or not isinstance(d.get("name"), str)) for d in dexes):
+                raise ValueError("invalid perpDexs response")
+            names = sorted({d["name"] for d in dexes if d})
+            tmp = cache.with_suffix(".tmp")
+            tmp.write_text(json.dumps(names))
+            os.replace(tmp, cache)
+        except (httpx.HTTPError, ValueError) as e:
+            print(f"dex discovery failed: {e!r}", file=sys.stderr)
+            if not cache.exists():
+                raise
+            names = json.loads(cache.read_text())
+        if 20 * (1 + len(names)) > self.sampler.limiter.budget:
+            raise ValueError("hourly initial sampling wave exceeds the venue weight limit")
+        if due > now_ms():
+            hl.time.sleep((due - now_ms()) / 1000)
+
+        def sample(dex: str) -> str | None:
+            try:
+                self.sampler.post({"type": "metaAndAssetCtxs", "dex": dex}, attempts=1)
+            except (httpx.HTTPError, ValueError) as e:
+                print(f"mark sample failed for {dex}: {e!r}", file=sys.stderr)
+                return dex
+            return None
+
+        try:
+            with ThreadPoolExecutor(max_workers=max(1, len(names))) as pool:
+                for attempt in range(6):
+                    if attempt:
+                        if now_ms() + MARK_PREP + TIMEOUT * 1000 >= due - MARK_OFFSET + MARK_WINDOW:
+                            break
+                        hl.time.sleep(2 ** (attempt - 1))
+                    names = [d for d in pool.map(sample, names) if d is not None]
+                    if not names:
+                        break
+        finally:
+            self.sampler.limiter.release(due)
 
     def marks(self, market: str) -> list[tuple[int, int, float | None]]:
         """(sent, recv, markPx or None) of successful dex snapshots, in archive order; attempts stay in the archive."""
