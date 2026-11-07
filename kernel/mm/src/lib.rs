@@ -5,6 +5,7 @@ pub mod machine;
 pub mod sim;
 pub mod ledger;
 pub mod canon;
+pub mod resolve;
 pub mod rule;
 pub mod source;
 pub mod admission;

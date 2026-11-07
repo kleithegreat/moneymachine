@@ -38,8 +38,9 @@ USAGE:
   mm rules -
       Evaluate availability-rule conformance cases (kernel/RULES.md §7), one JSON line each on stdin, and print
       each result: the Time as an integer, or the code. Reads no market data.
-  mm resolve -
-      The same for resolver conformance cases (kernel/tests/rules/resolver_suite.py).
+  mm resolve ROOT
+      Resolve one resolver conformance case (kernel/RULES.md §7: universe, sources, version, queries) read from stdin
+      over the store image under ROOT (kernel/tests/rules/loaders.py), and print its result and observations.
   mm check-fills FILE
       Check fills against invariants I2/I3 and the I9 order cap, one JSON case per line
       (kernel/INVARIANTS.md, Fill-check cases); print one verdict per line. Reads no market data.
@@ -159,7 +160,7 @@ fn holdout_diagnostics(prog: &dsl::Program, c: &Ctx) -> Value {
         let (start, stop) = (c.report_after.max(c.market.intervals[i].0), c.end.min(c.market.intervals[i].1));
         let first = start + (BAR - start.rem_euclid(BAR)) % BAR;
         let expected = if stop > first { (stop - first) / BAR } else { 0 };
-        let bars: Vec<_> = c.market.bars.iter().filter(|b| b.coin == i && b.open_time >= first && b.open_time + BAR <= stop).collect();
+        let bars: Vec<_> = c.market.bar_at.values().map(|&k| &c.market.bars[k]).filter(|b| b.coin == i && b.open_time >= first && b.open_time + BAR <= stop).collect();
         let inside = bars.iter().filter(|b| (lo..=hi).contains(&((b.high - b.low) / b.open))).count();
         coverage.insert(coin.clone(), json!({"inside": inside, "bars": bars.len(), "missing": expected - bars.len() as i64}));
     }
@@ -551,15 +552,27 @@ fn select(a: &Args, ledger: &mut Ledger) -> ExitCode {
     emit(r, &out, false, 0)
 }
 
-fn rules(resolver: bool) -> ExitCode {
+/// One resolver case (RULES.md §7: universe, sources, version, queries) from stdin, resolved over the store image
+/// under `root`: one line, the result and, if it resolves, the observations.
+fn resolve_case(root: &str) -> ExitCode {
+    let Ok(c) = serde_json::from_reader::<_, Value>(std::io::stdin().lock()) else { return ExitCode::from(3) };
+    let sources: Result<Vec<_>, _> = c["sources"].as_array().into_iter().flatten().map(mm::resolve::Source::from_json).collect();
+    let universe: Vec<String> = c["universe"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect();
+    let queries: Vec<i64> = c["queries"].as_array().into_iter().flatten().filter_map(Value::as_i64).collect();
+    let (Ok(sources), Some(version)) = (sources, c["version"].as_i64()) else { return ExitCode::from(3) };
+    let out = match mm::resolve::resolve(&[PathBuf::from(root)], sources, &universe, version, None) {
+        Ok(r) => json!({"result": r.listing(&queries), "observations": r.observations()}),
+        Err(e) => json!({"result": e.code(), "observations": null}),
+    };
+    println!("{out}");
+    ExitCode::SUCCESS
+}
+
+fn rules() -> ExitCode {
     use std::io::BufRead;
     let set = |v: &Value| v.as_array().map(|xs| xs.iter().filter_map(|x| x.as_str().map(String::from)).collect());
     for line in std::io::stdin().lock().lines().map_while(Result::ok) {
         let Ok(c) = serde_json::from_str::<Value>(&line) else { return ExitCode::from(3) };
-        if resolver {
-            println!("{}", mm::rule::resolve(&c));
-            continue;
-        }
         let text = |k: &str| c[k].as_str().unwrap_or_default().to_string();
         let (Some(fields), Some(deps)) = (set(&c["fields"]), set(&c["deps_declared"])) else { return ExitCode::from(3) };
         let out = match mm::rule::result(&text("rule"), &fields, &deps, &text("row"), &text("deps")) {
@@ -680,8 +693,11 @@ fn main() -> ExitCode {
     if a.cmd == "check-fills" {
         return check_fills(&a.target);
     }
-    if a.cmd == "rules" || a.cmd == "resolve" {
-        return rules(a.cmd == "resolve");
+    if a.cmd == "rules" {
+        return rules();
+    }
+    if a.cmd == "resolve" {
+        return resolve_case(&a.target);
     }
     let mut ledger = match Ledger::open(Path::new(a.get("ledger", "data/ledger.sqlite"))) {
         Ok(l) => l,

@@ -18,7 +18,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 LOGS = REPO / "data" / "mutants"
 FX = "cd kernel && cargo test -q --release --test fixtures"
-SIM, MACHINE, MAIN, MARKET, DSL = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "market", "dsl"])
+SIM, MACHINE, MAIN, RESOLVER, DSL = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "resolve", "dsl"])
 EVENTS = "ingest/events.py"
 STORE, RESOLVE = "ingest/store.py", "ingest/resolve.py"
 I2 = "    if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.submitted <= f.filled) {"
@@ -48,7 +48,7 @@ MUTANTS = {
         (MAIN, "    json!({\n        \"steps\": r.len(),",
          "    json!({\n        \"at\": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,\n        \"steps\": r.len(),")]),
     "I8 holdout rows admitted": ("pytest -q -n0 kernel/tests/cli/test_cli.py -k copied_holdout", [
-        (MARKET, "            if event >= h {", "            if false {")]),
+        (RESOLVER, "                if t >= boundary && least.is_none_or(|l| t < l) {", "                if false {")]),
     "I9 no leverage or notional limit": (f"{FX} leverage_scale_and_notional_cap", [
         (SIM, "        let scaled = |w: f64| if relative * largest > MAX_GROSS { w / largest * (MAX_GROSS / relative) } else { w };",
          "        let scaled = |w: f64| w;"),

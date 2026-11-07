@@ -1,6 +1,6 @@
 //! The availability rule language, version 1 (kernel/RULES.md §1-5): strict JSON reading, checking, and evaluation of
 //! a checked rule on a row. `ingest/knownat.py` implements the same language; the C7.6 suite holds both, and an
-//! independent third, to the same results.
+//! independent third, to the same results. The resolver (§6) is `resolve.rs`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -10,13 +10,14 @@ const MAX_DEPTH: usize = 64;
 const MAX_RULE_BYTES: usize = 65_536;
 const MAX_ARGS: usize = 16;
 
-/// A JSON value under RULES.md §1. Integers are exact; `Int(None)` is an integer token too long to be in range.
+/// A JSON value under RULES.md §1. Integers are exact; `Int(None)` is an integer token too long to be in range. A
+/// non-integer is its nearest binary64 number (infinite if it rounds to infinity).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Json {
     Null,
     Bool(bool),
     Int(Option<i128>),
-    Real,
+    Real(f64),
     Str(String),
     Arr(Vec<Json>),
     Obj(BTreeMap<String, Json>),
@@ -231,7 +232,7 @@ impl Parser<'_> {
             self.digits()?;
         }
         if !integer {
-            return Some(Json::Real);
+            return Some(Json::Real(std::str::from_utf8(&self.s[start..self.i]).ok()?.parse().ok()?));
         }
         let token = std::str::from_utf8(&self.s[start..self.i]).ok()?;
         if token.trim_start_matches('-').len() > 19 {
@@ -387,55 +388,4 @@ pub fn result(rule: &str, fields: &BTreeSet<String>, deps_declared: &BTreeSet<St
     let Some(e) = check(rule, fields, deps_declared) else { return Err("E_RULE") };
     let (Some(Json::Obj(row)), Some(Json::Obj(deps))) = (parse(row), parse(deps)) else { return Err("R_ROW") };
     evaluate(&e, &row, &deps)
-}
-
-/// A resolver conformance case's result (RULES.md §6; kernel/tests/rules/resolver_suite.py).
-pub fn resolve(case: &serde_json::Value) -> serde_json::Value {
-    use serde_json::json;
-    let set = |k: &str| -> BTreeSet<String> {
-        case[k].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).collect()
-    };
-    let fields: BTreeSet<String> = set("fields").into_iter().chain(["fetchedAt".to_string()]).collect();
-    let Some(e) = check(case["rule"].as_str().unwrap_or_default(), &fields, &set("deps_declared")) else { return json!("E_RULE") };
-    let version = case["version"].as_i64().unwrap_or(i64::MIN);
-    let queries: Vec<i64> = case["queries"].as_array().into_iter().flatten().filter_map(|q| q.as_i64()).collect();
-    let none = |selected: serde_json::Value| json!({"selected": selected, "knownAt": null, "visible": vec![false; queries.len()]});
-    let eligible: Vec<&serde_json::Value> = case["revisions"].as_array().into_iter().flatten()
-        .filter(|r| r["fetchedAt"].as_i64().is_some_and(|f| f <= version)).collect();
-    let fetched = |r: &serde_json::Value| r["fetchedAt"].as_i64().unwrap_or_default();
-    if eligible.iter().map(|r| fetched(r)).collect::<BTreeSet<_>>().len() != eligible.len() {
-        return json!("INVALID");
-    }
-    let (Some(selected), Some(earliest)) = (eligible.iter().max_by_key(|r| fetched(r)), eligible.iter().min_by_key(|r| fetched(r))) else {
-        return none(json!(null));
-    };
-    if selected["tombstone"].as_bool().unwrap_or(false) {
-        return none(json!(fetched(selected)));
-    }
-    let lags: Vec<(String, i128)> = case["lags"].as_object().into_iter().flatten()
-        .map(|(k, v)| (k.clone(), v.as_i64().unwrap_or_default() as i128)).collect();
-    let known = effective(&e, selected, earliest, &lags);
-    let visible: Vec<bool> = queries.iter().map(|&t| known.as_ref().is_ok_and(|k| *k <= t as i128)).collect();
-    json!({"selected": fetched(selected), "knownAt": match known { Ok(k) => json!(k as i64), Err(c) => json!(c) }, "visible": visible})
-}
-
-fn effective(e: &Expr, selected: &serde_json::Value, earliest: &serde_json::Value, lags: &[(String, i128)]) -> Result<i128, Code> {
-    let text = |r: &serde_json::Value, k: &str| r[k].as_str().unwrap_or_default().to_string();
-    let (Some(Json::Obj(mut row)), Some(Json::Obj(deps))) = (parse(&text(selected, "row")), parse(&text(selected, "deps"))) else {
-        return Err("R_ROW");
-    };
-    let fetched = selected["fetchedAt"].as_i64().unwrap_or_default() as i128;
-    let observed = row.clone();
-    row.insert("fetchedAt".into(), Json::Int(Some(fetched)));
-    let Some(Json::Obj(first)) = parse(&text(earliest, "row")) else { return Err("R_ROW") };
-    let mut known = evaluate(e, &row, &deps)?;
-    let keys: BTreeSet<&String> = observed.keys().chain(first.keys()).collect();
-    if keys.iter().any(|k| observed.get(*k).unwrap_or(&Json::Null) != first.get(*k).unwrap_or(&Json::Null)) {
-        known = known.max(fetched);
-    }
-    for (d, lag) in lags {
-        let Some(Json::Int(Some(t))) = deps.get(d) else { return Err("R_FIELD_ABSENT") };
-        known = known.max(ranged(t + lag)?);
-    }
-    Ok(known)
 }

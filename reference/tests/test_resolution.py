@@ -1,5 +1,6 @@
-"""C0.4 as amended: `mm`'s loader and `store.as_of` resolve a store alike, knownAt included: a restated report time,
-a corrected value (known when fetched) and tombstoned keys."""
+"""C0.4 as amended: `mm`'s loader and the store's entries (`ingest/resolve.py`) resolve a store alike, knownAt included:
+a restated report time, a corrected value (known when fetched) and tombstoned keys, each key delivered revision by
+revision with its retraction (kernel/RULES.md §6)."""
 
 import json
 import subprocess
@@ -16,7 +17,7 @@ DUMP = REPO / "reference/mmdump/target/release/mmdump"
 LATE = 887_645
 
 
-def test_loader_matches_as_of(tmp_path, built_mmdump):
+def test_loader_matches_the_stores_entries(tmp_path, built_mmdump):
     root = write_market(tmp_path / "m", market_id="resolution", days=20)
     store = Store(root / "store")
     restated = (store.revisions("funding").filter(pl.col("eventTime") % DAY == 10 * HOUR)
@@ -35,10 +36,10 @@ def test_loader_matches_as_of(tmp_path, built_mmdump):
                    check=True)
     loaded = json.loads((tmp_path / "market.json").read_text())
     for dataset, rows, event, known in (("funding", loaded["funding"], 1, 2), ("bars_4h", loaded["bars"], 2, 3)):
-        view = store.as_of(dataset, 2**62, version)
-        assert sorted((r[event], r[known]) for r in rows) == sorted(view.select("eventTime", "knownAt").rows())
+        entries = store.entries(dataset, version)
+        assert sorted((r[event], r[known]) for r in rows) == sorted(entries.select("eventTime", "knownAt").rows())
     late = [r for r in loaded["funding"] if r[2] == r[1] + LATE + 60_000]
     assert len(late) == restated.height
-    gone = set(s1.head(3).select("coin", "eventTime").rows())
-    assert sum(r[3] == 30 * DAY for r in loaded["bars"]) == sum(k not in gone for k in corrected.select("coin", "eventTime").rows())
-    assert len(loaded["bars"]) == bars.height - 3
+    assert sum(r[3] == 30 * DAY for r in loaded["bars"]) == corrected.height
+    assert store.entries("bars_4h", version)["retraction"].sum() == 3
+    assert len(loaded["bars"]) == bars.height + corrected.height + 3
