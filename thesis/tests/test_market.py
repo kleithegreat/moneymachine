@@ -632,3 +632,38 @@ def test_a_full_cold_hourly_page_fits_the_shared_exchange_budget(tmp_path, monke
     monkeypatch.setattr(x.http, "post", post)
     assert len(m.bars("BTC", "1h", clock[0])) > 4700
     assert sum(w for _, w in x.limiter.spent) == 103
+
+
+def test_mark_reads_parse_each_archive_record_once_across_markets_and_appends(tmp_path, monkeypatch):
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    for h in (0, H):
+        market.append(tmp_path / "marks", "marks", h + 5_000,
+                      {"sent": h + 5_000, "recv": h + 6_000, "dex": "xyz", "marks": {"xyz:A": 1, "xyz:B": 2},
+                       "response": "large raw payload" * 1000})
+    loads, decoded = market.json.loads, []
+
+    def decode(text):
+        decoded.append(len(text))
+        return loads(text)
+
+    monkeypatch.setattr(market.json, "loads", decode)
+    for _ in range(5):
+        assert len(m.marks("xyz:A")) == len(m.marks("xyz:B")) == 2
+    assert len(decoded) == 2
+    market.append(tmp_path / "marks", "marks", 2 * H + 5_000,
+                  {"sent": 2 * H + 5_000, "recv": 2 * H + 6_000, "dex": "xyz", "marks": {"xyz:A": 3}})
+    assert m.marks("xyz:A")[-1] == (2 * H + 5_000, 2 * H + 6_000, 3)
+    assert len(decoded) == 3
+
+
+def test_incremental_mark_reads_leave_incomplete_appends_for_the_next_read(tmp_path):
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+    row = {"sent": 5_000, "recv": 6_000, "dex": "xyz", "marks": {"xyz:A": 1}, "response": "é"}
+    text = market.json.dumps(row, ensure_ascii=False).encode() + b"\n"
+    path = tmp_path / "marks/marks-19700101.jsonl"
+    cut = text.index("é".encode()) + 1
+    path.write_bytes(text[:cut])
+    assert m.marks("xyz:A") == []
+    with path.open("ab") as f:
+        f.write(text[cut:])
+    assert m.marks("xyz:A") == [(5_000, 6_000, 1)]

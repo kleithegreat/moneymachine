@@ -196,12 +196,47 @@ class Sampler(Exchange):
         super()._archive(sample | {"dex": sample["request"].get("dex"), "marks": marks, "valid": valid})
 
 
+class MarkIndex:
+    """An in-memory projection of the append-only archive; complete lines are decoded once, raw payloads discarded."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.offsets: dict[Path, int] = {}
+        self.rows: dict[str | None, list[tuple[int, int, dict[str, float | None]]]] = {}
+        self.lock = threading.Lock()
+
+    def samples(self, market: str) -> list[tuple[int, int, float | None]]:
+        with self.lock:
+            for path in sorted(self.root.glob("marks-*.jsonl")):
+                offset = self.offsets.get(path, 0)
+                size = path.stat().st_size
+                if size < offset:
+                    raise ValueError(f"mark archive shrank: {path}")
+                if size == offset:
+                    continue
+                with path.open("rb") as f:
+                    f.seek(offset)
+                    while line := f.readline():
+                        if not line.endswith(b"\n"):
+                            break
+                        self.offsets[path] = f.tell()
+                        try:
+                            s = json.loads(line)
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            print(f"torn record skipped: {path}:{f.tell()}", file=sys.stderr)
+                            continue
+                        if s["recv"] is not None and s.get("status", 200) == 200 and s.get("valid", True):
+                            self.rows.setdefault(s["dex"], []).append((s["sent"], s["recv"], s["marks"]))
+            return [(sent, recv, marks.get(market)) for sent, recv, marks in self.rows.get(dex_of(market), ())]
+
+
 class Market:
     """Listings, completed 1h and 1d bars, and hourly funding, cached under `root`."""
 
     def __init__(self, root: str | Path, exchange: Any, repair_every: int = REPAIR_EVERY) -> None:
         self.root, self.x, self.repair_every = Path(root), exchange, repair_every
         (self.root / "marks").mkdir(parents=True, exist_ok=True)
+        self.mark_index = MarkIndex(self.root / "marks")
         self.locks: dict[Path, threading.Lock] = {}
         self.repaired: dict[Path, int] = {}
         self.pending: dict[Path, dict[int, list[Any]]] = {}
@@ -307,9 +342,7 @@ class Market:
 
     def marks(self, market: str) -> list[tuple[int, int, float | None]]:
         """(sent, recv, markPx or None) of successful dex snapshots, in archive order; attempts stay in the archive."""
-        dex = dex_of(market)
-        return [(s["sent"], s["recv"], s["marks"].get(market)) for s in read(self.root / "marks", "marks")
-                if s["dex"] == dex and s["recv"] is not None and s.get("status", 200) == 200 and s.get("valid", True)]
+        return self.mark_index.samples(market)
 
     def lag(self, market: str) -> int:
         return MARK_WINDOW if builder(market) else DELTA
