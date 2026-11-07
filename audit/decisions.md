@@ -820,4 +820,4 @@ All ten findings reproduced and are fixed, and the differential against GPT's po
   `data_hash` covers every file of each dataset, not only those fetched by the version; `mmdump` exports those records
   as they are (the C7.7 corpus needs a market exporter with revisions); Rust reads Parquet through the `arrow` feature,
   to read each file's own types.
-- **Reverse:** `git revert` the four `stage7 slice 5` commits; nothing else depends on them.
+- **Reverse:** `git revert` the five `stage7 slice 5` commits; nothing else depends on them.
