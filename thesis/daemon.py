@@ -74,6 +74,8 @@ class Daemon:
         if retry is None and len(self.registered) >= MAX_REGISTRATIONS:
             return {"ok": False, "message": f"at most {MAX_REGISTRATIONS} registrations per session"}
         if retry is None:
+            if form_errors := registry.validate(request, self.retrievals):
+                return {"ok": False, "errors": form_errors}
             config, data = self.register_inputs(self.account, registry.markets_of(request), self.clock())
             retry = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data)
         th, errors = retry

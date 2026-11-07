@@ -95,6 +95,8 @@ def validate(request: Any, disclosed: Collection[str]) -> list[str]:
         errors.append("p: a finite number in [0.01, 0.99]")
     if not number(request["L"], 0.01, 0.5):
         errors.append("L: a finite number in [0.01, 0.5]")
+    if not (type(request["T"]) is int and request["T"] % DAY == 0):
+        errors.append("T: a UTC midnight")
     if not (isinstance(request["catalyst"], str) and 1 <= len(request["catalyst"]) <= 4000):
         errors.append("catalyst: 1 to 4000 characters")
     if not (isinstance(request["catalyst_id"], str) and 1 <= len(request["catalyst_id"]) <= 64):
@@ -120,8 +122,8 @@ def eligible(request: Json, t_r: int, listings: dict[str, bool], daily: Json) ->
         elif len([t for t in daily.get(market, ()) if t + DAY <= t_r]) < MIN_DAILY_BARS:
             errors.append(f"legs: {market} has fewer than {MIN_DAILY_BARS} completed daily bars")
     T = request["T"]
-    if not (type(T) is int and T % DAY == 0 and 72 * HOUR <= T - t_r <= 1440 * HOUR):
-        errors.append("T: a UTC midnight, 72 to 1440 hours after registration")
+    if not 72 * HOUR <= T - t_r <= 1440 * HOUR:
+        errors.append("T: 72 to 1440 hours after registration")
     return errors
 
 
