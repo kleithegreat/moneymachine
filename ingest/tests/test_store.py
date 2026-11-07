@@ -3,10 +3,12 @@ import random
 import sys
 
 import polars as pl
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from hypothesis import given, settings, strategies as st
 
+from ingest import resolve
 from ingest.policy import DELTA, HOLDOUT_START, HOUR as H, POLICY
 from ingest.store import Store, stores, write_split
 
@@ -78,16 +80,19 @@ def test_as_of_never_leaks(revised, t, version):
     assert got.sort(["coin", "eventTime"]).equals(expect.sort(["coin", "eventTime"]).select(got.columns))
 
 
-def test_a_view_is_the_latest_view_filtered_by_known_at(tmp_path):
-    """ingest/witness.py relies on this: t enters as_of only through knownAt <= t, with corrections and tombstones."""
+def test_a_view_is_the_latest_entry_known_by_t(tmp_path):
+    """ingest/witness.py relies on this: t enters as_of only through the entries with knownAt <= t, with corrections and
+    tombstones; a retraction hides its key."""
     s = market_store(tmp_path)
     s.write("bars_4h", rows(["A", "B"], range(10)), fetched_at=100, source="t")
     s.write("bars_4h", rows(["A"], range(4, 8), value=0.5), fetched_at=8 * H, source="t")
     s.write("bars_4h", rows(["A"], range(10)), fetched_at=9 * H, source="t", complete=pl.col("coin") == "B")
     for version in (100, 8 * H, 9 * H):
-        latest = s.as_of("bars_4h", 2**62, version)
+        entries = s.entries("bars_4h", version)
         for t in range(-H, 12 * H, H // 2):
-            assert s.as_of("bars_4h", t, version).equals(latest.filter(pl.col("knownAt") <= t))
+            latest = (entries.filter(pl.col("knownAt") <= t).group_by(["coin", "eventTime"], maintain_order=True).last()
+                      .filter(~pl.col("retraction")).drop("retraction").select(entries.columns[:-1]))
+            assert s.as_of("bars_4h", t, version).equals(latest)
 
 
 def test_knownat_is_never_stored(tmp_path):
@@ -95,28 +100,30 @@ def test_knownat_is_never_stored(tmp_path):
         Store(tmp_path).write("bars_4h", rows(["A"], [1]).with_columns(pl.lit(0).alias("knownAt")), 1, "t")
 
 
-def test_a_later_revision_governs_its_key(tmp_path):
-    """mm's resolution: the latest revision by the cutoff, known by its own fields, never an earlier one."""
+def test_a_correction_is_known_when_it_is_fetched_and_the_earlier_value_stays_visible(tmp_path):
+    """kernel/RULES.md §6, bitemporal: the later report time restates the rule's value, and until it the first revision
+    is what a query sees."""
     s = market_store(tmp_path)
     late = lambda r: pl.DataFrame({"coin": ["A"], "eventTime": [2 * H], "fundingRate": [0.0], "premium": [0.0], "reportedTime": [r]})
     s.write("funding", late(2 * H + 50), 100, "t")
     s.write("funding", late(2 * H + 887_645), 200, "t")
     assert s.as_of("funding", 2 * H + DELTA, 100)["knownAt"].to_list() == [2 * H + DELTA]
-    assert s.as_of("funding", 2 * H + 887_645 + 60_000 - 1, 200).height == 0
+    assert s.as_of("funding", 2 * H + 887_645 + 60_000 - 1, 200)["knownAt"].to_list() == [2 * H + DELTA]
     assert s.as_of("funding", 2 * H + 887_645 + 60_000, 200)["knownAt"].to_list() == [2 * H + 887_645 + 60_000]
 
 
-def test_a_corrected_value_is_hidden_until_it_was_fetched(tmp_path):
-    """Paper §5: a later correction hides a value rather than replacing it with something nobody had then; the
-    original value, restored, is known by the rule again."""
+def test_a_corrected_value_is_known_when_it_was_fetched(tmp_path):
+    """Paper §5: a correction is never known before it was fetched, and until then the earlier value stays visible; a
+    tombstone-free restoration of the original is another correction."""
     s = market_store(tmp_path)
     s.write("bars_4h", rows(["A"], [3]), fetched_at=100, source="t")
     s.write("bars_4h", rows(["A"], [3], value=7.0), fetched_at=50 * H, source="t")
     assert s.as_of("bars_4h", 3 * H + DELTA, 100)["rate"].to_list() == [3.0]
-    assert s.as_of("bars_4h", 50 * H - 1, 50 * H).height == 0
+    assert s.as_of("bars_4h", 50 * H - 1, 50 * H)["rate"].to_list() == [3.0]
     assert s.as_of("bars_4h", 50 * H, 50 * H)["knownAt"].to_list() == [50 * H]
     s.write("bars_4h", rows(["A"], [3]), fetched_at=60 * H, source="t")
     assert s.as_of("bars_4h", 3 * H + DELTA, 60 * H)["knownAt"].to_list() == [3 * H + DELTA]
+    assert s.as_of("bars_4h", 60 * H, 60 * H)["knownAt"].to_list() == [60 * H]
 
 
 def test_the_store_policy_governs_known_at(tmp_path):
@@ -160,6 +167,18 @@ def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path, key):
     assert view(300, 299) == {1: "a", 3: "b"} and view(250, 199) == {1: "a", 2: "a", 3: "a"}
     tomb = s.revisions("p").filter(pl.col("tombstone").is_not_null())
     assert tomb.select("upstream_id", "eventTime", "fetchedAt").rows() == [(2, 2 * H, 200)]
+
+
+def test_a_fetch_that_is_null_in_a_column_everywhere_stores_it_as_float64(tmp_path):
+    """SOURCES.md §2 has no cell of Arrow type Null (`b3-round4-review-claude.md`, finding 2): a single all-null row
+    resolves to a null cell."""
+    s = market_store(tmp_path)
+    assert s.write("bars_4h", pl.DataFrame({"coin": ["A"], "eventTime": [H], "rate": [None]}), 100, "t") == 1
+    assert pq.read_schema(s._files("bars_4h")[0]).field("rate").type == pa.float64()
+    keys, _ = resolve.resolve([s.source("bars_4h", s._pinned("bars_4h")["footers"])], [s._pinned("bars_4h")["footers"]], [], 100)
+    (key,) = keys.values()
+    assert [e.cells["rate"] for e in key.entries] == [None]
+    assert s.as_of("bars_4h", 2**62, 100)["rate"].to_list() == [None]
 
 
 def test_a_new_column_makes_every_row_a_revision(store):
@@ -546,10 +565,6 @@ def test_a_loader_pinning_only_event_time_inventories_passes_test_3s_net(root, c
     decides_on_event_times_alone(projecting, root, fixture, capfd)
 
 
-STAGING = "audit/stage7/holdout-staging.md: ingest/store.py has no holdout check on reads"
-
-
-@pytest.mark.xfail(strict=True, reason=STAGING)
 @FIXTURE
 def test_holdout_check_decides_on_event_times_alone(root, capfd, fixture):
     """C7.6's named test 3's behavioural half on the production loader."""

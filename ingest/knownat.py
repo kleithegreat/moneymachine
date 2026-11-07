@@ -1,6 +1,6 @@
 """The availability rule language, version 1 (kernel/RULES.md §1-5: strict JSON reading, checking, and evaluation of
-a checked rule on a row) and its resolver (§6). `mm` implements both in Rust (`kernel/mm/src/rule.rs`); the C7.6
-suites hold the two, and an independent third, to the same results."""
+a checked rule on a row). `mm` implements it in Rust (`kernel/mm/src/rule.rs`); the C7.6 suites hold the two, and an
+independent third, to the same results. The resolver (§6) is `ingest/resolve.py`."""
 
 import json
 import sys
@@ -15,7 +15,10 @@ class Malformed(Exception):
 
 
 class Real:
-    """A JSON number that is not an integer token."""
+    """A JSON number that is not an integer token, with its binary64 value (infinite if it rounds to infinity)."""
+
+    def __init__(self, value):
+        self.value = value
 
 
 def parse(text):
@@ -173,9 +176,9 @@ class Parser:
             self.digits()
         token = self.s[start:self.i]
         if not integer:
-            return Real()
+            return Real(float(token))
         if len(token.lstrip("-")) > 19:
-            return HI + 1
+            return (-1 if token[0] == "-" else 1) << 126
         return int(token)
 
     def digits(self):
@@ -300,15 +303,6 @@ def result(case):
         return r.code
 
 
-def typed(v):
-    """A JSON value with its type kept, for comparisons where True must not equal 1."""
-    if type(v) is dict:
-        return ("obj", tuple(sorted((k, typed(x)) for k, x in v.items())))
-    if type(v) is list:
-        return ("arr", tuple(map(typed, v)))
-    return (type(v).__name__, v if type(v) is not Real else None)
-
-
 def obj(text):
     """A row or deps object text, decoded, or Rejected (R_ROW)."""
     try:
@@ -320,47 +314,10 @@ def obj(text):
     return v
 
 
-def resolve(case):
-    """A resolver conformance case's result (RULES.md §6; kernel/tests/rules/resolver_suite.py): the selected revision's
-    fetchedAt, its effective knownAt or code, and its visibility at each query."""
-    try:
-        expr = check(case["rule"], [*case["fields"], "fetchedAt"], case["deps_declared"])
-    except RuleError:
-        return "E_RULE"
-    queries, version = case["queries"], case["version"]
-    eligible = [r for r in case["revisions"] if r["fetchedAt"] <= version]
-    if len({r["fetchedAt"] for r in eligible}) != len(eligible):
-        return "INVALID"
-    if not eligible:
-        return {"selected": None, "knownAt": None, "visible": [False] * len(queries)}
-    selected = max(eligible, key=lambda r: r["fetchedAt"])
-    earliest = min(eligible, key=lambda r: r["fetchedAt"])
-    if selected["tombstone"]:
-        return {"selected": selected["fetchedAt"], "knownAt": None, "visible": [False] * len(queries)}
-    known = effective(expr, selected, earliest, case["lags"])
-    return {"selected": selected["fetchedAt"], "knownAt": known,
-            "visible": [type(known) is int and known <= t for t in queries]}
-
-
-def effective(expr, selected, earliest, lags):
-    """The selected revision's effective knownAt: its rule's value, raised to its fetchedAt if it is a correction and to
-    every dependency's time plus its lag; or the code of a rejection."""
-    try:
-        row, deps, first = obj(selected["row"]), obj(selected["deps"]), obj(earliest["row"])
-        known = evaluate(expr, {**row, "fetchedAt": selected["fetchedAt"]}, deps)
-        if any(typed(row.get(k)) != typed(first.get(k)) for k in row.keys() | first.keys()):
-            known = max(known, selected["fetchedAt"])
-        for d, lag in sorted(lags.items()):
-            known = max(known, ranged(deps[d] + lag))
-        return known
-    except Rejected as r:
-        return r.code
-
-
 def main(fn=result):
     for line in sys.stdin:
         print(json.dumps(fn(json.loads(line))), flush=True)
 
 
 if __name__ == "__main__":
-    main(resolve if sys.argv[1:] == ["resolve"] else result)
+    main()

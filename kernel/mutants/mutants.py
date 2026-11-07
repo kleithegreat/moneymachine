@@ -20,7 +20,7 @@ LOGS = REPO / "data" / "mutants"
 FX = "cd kernel && cargo test -q --release --test fixtures"
 SIM, MACHINE, MAIN, MARKET, DSL = (f"kernel/mm/src/{f}.rs" for f in ["sim", "machine", "main", "market", "dsl"])
 EVENTS = "ingest/events.py"
-STORE = "ingest/store.py"
+STORE, RESOLVE = "ingest/store.py", "ingest/resolve.py"
 I2 = "    if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.submitted <= f.filled) {"
 
 MUTANTS = {
@@ -70,7 +70,7 @@ MUTANTS = {
     "C5 coverage reads a later poll": ("pytest -q -n0 ingest/tests/test_derived.py -k later", [
         (EVENTS, 'np.searchsorted(p, b, side="right") - 1', 'np.searchsorted(p, b + GAP, side="right") - 1')]),
     "C5 as_of returns the latest content": ("pytest -q -n0 ingest/tests/test_store.py", [
-        (STORE, '.filter(pl.col("knownAt") <= t))', ')')]),
+        (RESOLVE, "            if e.known <= t:", "            if True:")]),
     "C5 tombstones dropped": ("pytest -q -n0 ingest/tests/test_store.py", [
         (STORE, "complete & live(latest)", "complete & pl.lit(False)")]),
 }
