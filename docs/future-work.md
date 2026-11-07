@@ -9,6 +9,7 @@ Ideas for after the pilot, none approved, scheduled or tested. The paper (`docs/
 - **Harnesses for non-Anthropic models** (pi).
 - **Observability**: a price-free operations dashboard is cheap; one showing forward-window prices breaks the holdout rule.
 - **Agent memory across campaigns**: a research question, its reuse counted in N (`audit/decisions.md`, 2026-11-02).
+- **A DSL designed for agents** (the human, 2026-11-07): the DSL's frozen job in the pilot is safety (causal, typed, no host code); how well agents search with it is unmeasured. v3's six campaigns: 2 type errors in 231 checks; 11 of 208 evaluations named an input N2 lacks; holding a position through an undefined weight (documented in `kernel/DSL.md`) was rediscovered as a "turnover workaround". First a literature review (languages agents learn without pretraining, such as Bend2; where expressivity should stop for safety; what "optimal" means here), then a metric and a comparison of surface syntax, primitives and docs over one fixed kernel under fresh campaign ids. Lowers search power if poor, never raises false discoveries.
 - **Data purchases** (Norgate, Massive, Databento's Core Indices): none, indefinitely (the human, 2026-11-02).
 
 ## Crypto-native and on-chain research ideas (2026-11-06)
