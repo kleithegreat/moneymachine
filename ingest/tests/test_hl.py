@@ -29,16 +29,31 @@ def test_an_impossible_charge_is_rejected_without_waiting(monkeypatch):
         info._charge(80)
 
 
-def test_a_full_hourly_page_is_reserved_before_sending_and_never_postcharged(monkeypatch):
+@pytest.mark.parametrize("body, per_items", [({"type": "fundingHistory"}, 20), ({"type": "candleSnapshot"}, 60)])
+def test_recorder_requests_keep_base_then_actual_item_charging(monkeypatch, body, per_items):
+    info = hl.Info(360)
+    charged = []
+    monkeypatch.setattr(info, "_charge", charged.append)
+
+    def reply(req):
+        assert charged == [20]
+        return httpx.Response(200, json=[{}])
+
+    info.http = httpx.Client(transport=httpx.MockTransport(reply))
+    assert info.post(body, per_items=per_items) == [{}]
+    assert charged == [20, 0]
+
+
+def test_shared_client_charges_only_returned_items_after_a_full_page(monkeypatch):
     info = hl.Info(120)
     page = [{"t": i * hl.HOUR} for i in range(4800)]
     charged = []
     monkeypatch.setattr(info, "_charge", charged.append)
 
     def reply(req):
-        assert charged == [20 + 5000 // 60]
+        assert charged == [20]
         return httpx.Response(200, json=page)
 
     info.http = httpx.Client(transport=httpx.MockTransport(reply))
     assert len(info.candles("X", "1h", 0, 4800 * hl.HOUR)) == 4800
-    assert charged == [103]
+    assert charged == [20, 80]

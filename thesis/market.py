@@ -42,6 +42,7 @@ SHOWN = {"1h": DELTA, "1d": DAY + DELTA, "funding": 0}  # after its time, when a
 FINAL = {"1h": HOUR + DELTA, "1d": DAY + DELTA, "funding": 0}  # after its time, when a row is final and cached
 REPAIR_EVERY = HOUR  # leaves C10.5's two hours from a late row's availability to its score
 PAGE = 500  # holes closer than a page of rows share a request
+MAX_ITEMS = {"fundingHistory": 500, "candleSnapshot": 5000}
 
 
 def builder(market: str) -> bool:
@@ -122,7 +123,9 @@ class Exchange(Info):
     def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6) -> Any:
         if body.get("type") not in ALLOWED:
             raise PermissionError(f"request type {body.get('type')!r} is not an approved public read")
-        return super().post(body, weight, per_items, attempts=attempts)
+        if per_items:
+            weight += MAX_ITEMS[body["type"]] // per_items
+        return super().post(body, weight, attempts=attempts)
 
     def _send(self, body: dict[str, Any]) -> Any:
         sample = {"sent": now_ms(), "request": body}
