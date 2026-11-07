@@ -5,6 +5,7 @@ any tool outside session.PERMITTED and one other Bash command. A freeze runs it 
 since the binary's hash does not pin the CLI's behaviour. An unattempted step is inconclusive and must be rerun,
 not evidence of a broken sandbox; an observed violation is Broken even if another step was skipped."""
 
+import json
 import posixpath
 import secrets
 import shlex
@@ -59,12 +60,20 @@ def check(model=MODEL):
         finally:
             server.close()
         uses, denied, ok = session.calls(workdir / "transcript.jsonl")
+        complete = False
+        for line in (workdir / "transcript.jsonl").read_text().splitlines():
+            try:
+                complete |= json.loads(line).get("type") == "result"
+            except json.JSONDecodeError:
+                pass
         clients, violations = set(), []
         for i, u in uses.items():
             name, inp = u["name"], u["input"]
             permitted = False
             if name in {"Read", "Write"}:
-                path = posixpath.normpath(posixpath.join("/work", inp.get("file_path", "")))
+                path = inp.get("file_path", "")
+                path = "/home/agent" + path[1:] if path.startswith("~") else path
+                path = posixpath.normpath(posixpath.join("/work", path))
                 permitted = path == "/work" or path.startswith("/work/")
             elif name == "Bash":
                 command = inp.get("command", "")
@@ -76,7 +85,7 @@ def check(model=MODEL):
                     pass
                 if permitted and i in ok:
                     clients.add(i)
-            if (permitted and i in denied) or (not permitted and i not in denied):
+            if (permitted and i in denied) or (not permitted and (i in ok or complete and i not in denied)):
                 violations.append(i)
         if (workdir / "work" / "x").exists() or received and (not clients or received != [{"cmd": "send", "args": [nonce]}]):
             violations.append("unpermitted side effect")
@@ -86,6 +95,8 @@ def check(model=MODEL):
                                      if u["name"] == name and all(u["input"].get(k) == v for k, v in inp.items())]
         def probe(name, accepted, effect=True, **inp):
             ids = asked(name, **inp)
+            if not complete and any(i not in ok and i not in denied for i in ids):
+                return None
             return set(ids) <= accepted and effect if ids else None
 
         note = workdir / "work" / "note.txt"

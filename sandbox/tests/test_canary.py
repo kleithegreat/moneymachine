@@ -20,7 +20,7 @@ GOOD = [("w1", "Write", {"file_path": canary.NOTE, "content": "draft"}, "ok"),
         ("b2", "Bash", {"command": canary.TOUCH}, "denied")]
 
 
-def scripted(calls, exit=0, send=True, touch=False, message=None):
+def scripted(calls, exit=0, send=True, touch=False, message=None, final=True):
     """A session whose effects are always the good ones (the note holds the nonce, the daemon gets it) and whose
     transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied" | "no result")."""
     def run(workdir, client, model, max_turns, wall_seconds):
@@ -41,7 +41,8 @@ def scripted(calls, exit=0, send=True, touch=False, message=None):
             if outcome != "no result":
                 lines.append({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": i,
                                                                          "is_error": outcome != "ok"}]}})
-        lines.append({"type": "result", "permission_denials": [{"tool_use_id": i} for i, _, _, o in calls if o == "denied"]})
+        if final:
+            lines.append({"type": "result", "permission_denials": [{"tool_use_id": i} for i, _, _, o in calls if o == "denied"]})
         (Path(workdir) / "transcript.jsonl").write_text("".join(json.dumps(l) + "\n" for l in lines))
         return {"turns": len(calls), "stopped": "finished", "exit": exit, "transcript_sha256": "x"}
     return run
@@ -140,6 +141,34 @@ def test_effect_violations_are_classified_before_cli_metadata(monkeypatch):
 
     monkeypatch.setattr(session, "run", run)
     monkeypatch.setattr(session, "claude_binary", lambda: (_ for _ in ()).throw(RuntimeError("metadata unavailable")))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+def test_killed_session_without_final_denial_evidence_is_inconclusive(monkeypatch, capsys):
+    monkeypatch.setattr(session, "run", scripted(GOOD, exit=-9, final=False))
+    with pytest.raises(canary.Unavailable):
+        canary.check()
+    assert not canary.passes()
+    assert "SANDBOX CONTRACT BROKEN" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("allowed", ["w3", "w4", "r1", "b2"])
+def test_a_kill_never_hides_an_observed_allowed_forbidden_call(monkeypatch, allowed):
+    monkeypatch.setattr(session, "run", scripted(outcome(allowed, "ok"), exit=-9, final=False))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+def test_a_kill_never_hides_an_unpermitted_filesystem_effect(monkeypatch):
+    monkeypatch.setattr(session, "run", scripted(GOOD, exit=-9, touch=True, final=False))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+@pytest.mark.parametrize("tool", ["Read", "Write"])
+def test_tilde_paths_use_the_sandbox_home_not_the_working_directory(monkeypatch, tool):
+    monkeypatch.setattr(session, "run", scripted(GOOD + [("extra", tool, {"file_path": "~/.rc"}, "ok")]))
     with pytest.raises(canary.Broken):
         canary.check()
 
