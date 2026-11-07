@@ -137,3 +137,36 @@ def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_p
     assert {k for o in outs[:budget] for k in o} == set(FIELDS) | {"ok", "remaining"}
     assert sqlite3.connect(tmp_path / "l.sqlite").execute("SELECT DISTINCT campaign, agent FROM experiments").fetchall() == [("camp", "A")]
     assert not (tmp_path / "other.sqlite").exists()
+
+
+def scaled(market, part):
+    """The market's `part` ("store" or "holdout") with every Double column but the times scaled: other bytes, same keys."""
+    import polars as pl
+    for path in (market / part).glob("*/*.parquet"):
+        df = pl.read_parquet(path)
+        path.chmod(0o644)
+        df.with_columns(pl.col(c) * 1.5 for c, t in df.schema.items() if t == pl.Float64).write_parquet(path)
+
+
+def test_replies_do_not_depend_on_the_holdouts_bytes(tmp_path, built_kernel):
+    """Two-run check (self-composition; slice 5): the same requests to the daemon, on markets that differ only in the
+    holdout store's bytes, give identical replies. Its control changes the search store's bytes instead, which the
+    replies must show, so that the comparison can see a daemon whose search view reads the holdout."""
+    import shutil
+    market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
+    markets = {name: tmp_path / name for name in ("holdout", "search")}
+    for name, part in (("holdout", "holdout"), ("search", "store")):
+        shutil.copytree(market, markets[name])
+        scaled(markets[name], part)
+
+    def replies(m):
+        d = Daemon(tmp_path / f"{m.name}.sock", m, tmp_path / f"{m.name}.sqlite", "camp", "A", 3, tmp_path / f"{m.name}.log").serve()
+        long = json.dumps({"dsl": 1, "name": "long", "mechanism": W0["mechanism"], "weight": {"const": 0.05, "unit": "1"}})
+        try:
+            return [{k: out[k] for k in FIELDS} for out in (call(d.socket_path, {"cmd": "eval", "args": [t]}) for t in (long, json.dumps(W0)))]
+        finally:
+            d.close()
+
+    clean = replies(market)
+    assert replies(markets["holdout"]) == clean
+    assert replies(markets["search"]) != clean

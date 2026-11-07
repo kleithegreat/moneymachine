@@ -60,6 +60,11 @@ MUTANTS = {
         (SIM, "        if !(r >= -LOSS_BOUND) {", "        if false {")]),
     "I1 events delivered early": ("cd kernel && cargo test -q --release --test events counts_are_fresh_only_and_respect_known_at", [
         (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
+    "S1 two-run: events read ahead": ("cd kernel && cargo test -q --release --test noninterference decisions_through_t", [
+        (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {"),
+        (SIM, "        while ei < e_order.len() && e_order[ei].0 <= tick {", "        while ei < e_order.len() && e_order[ei].0 <= tick + HOUR {")]),
+    "S2 two-run: a correction known before it was fetched": ("cd kernel && cargo test -q --release --test noninterference late_venue_state", [
+        (RESOLVER, "        raises.push(rev.fetched as i128);", "        raises.push(LO);")]),
     "C5 derivation without the availability margin": ("pytest -q -n0 ingest/tests/test_events.py", [
         (EVENTS, '"key": "forum", "margin": 60_000}', '"key": "forum", "margin": 0}')]),
     "C5 knownAt from the claimed time": ("pytest -q -n0 ingest/tests/test_events.py", [
