@@ -37,7 +37,7 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    (`reference/differential.py`, development run) on all 1,196 verdicts against `refmm`, whose fixed registry has the
    same four inputs; `kernel/tests/adversarial` and `admitted` verdicts unchanged.
 3. **The machine over observations** (`machine.rs`). Checks: C6.4's harness, every run's node streams against
-   `refmm`; named tests 16 (`machine.rs::held_and_event_reads`) and 19 (`late_correction_undefines_event`).
+   `refmm`; named tests 16 (`machine.rs::held_and_event_reads`) and 19 (`late_correction_undefines_event`). Built 2026-11-07 on branch `slice3`; `sim.rs::Wiring` is the interim adapter slice 4 deletes with `EVENT_INPUTS`.
 4. **The simulator from `Ctx`** (`sim.rs`, `market.rs`). Checks: C6.4's harness on its runs (trace, returns, gross
    returns, equity); `mm eval --trace` of `933b3f4` against the new binary on W0, the stage 2 probes and the first 200
    C6.4 programs over C6.4's markets, byte-identical (the C7.4 comparison, as a development run before its baseline).
