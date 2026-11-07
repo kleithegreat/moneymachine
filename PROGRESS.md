@@ -20,9 +20,9 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
-- **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
+- **Thesis** `thesis-310449610583`, frozen 2026-11-03 00:02 UTC (2026-11-02 19:02 EST); sessions record and register. Refreeze fixes ready, undeployed: `thesis-fixes` (GPT: six fixes) and `thesis-positions` (Sonnet: one-leg spread). Before the human's refreeze: Argon reviews both, re-deriving the C10.3 value the positions fix changed.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 frozen** on `stage7` (`7bf79df`, 2026-11-06): C7.6's revision (`criteria:` `f8aeb4c`), RULES.md/SOURCES.md and the resolver suite, after GPT (round 9), Opus 5.5 (round 10) and Gemini 4 Argon (its calibration forced round 11; wording only at the freeze). Next: slice 5, C7.6's implementation.
+- **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Next: slices 3, 4 and 6 (Sonnet builds, Argon reviews; GPT never, as C7.7's red team).
 
 
 2. **Stage 4: C4.5 v3 running**, 3 of 10 campaigns (the last 2026-11-04 09:48 UTC (04:48 EST)), waiting on the accounts' Claude usage (the human, 2026-11-06); TAMU's reset is 2026-11-07 04:00 UTC (2026-11-06 23:00 EST).
