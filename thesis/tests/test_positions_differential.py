@@ -247,16 +247,82 @@ CLASSES = {
 }
 
 
-@pytest.mark.slow
-@pytest.mark.parametrize("name", CLASSES)
-def test_the_two_implementations_agree_as_read(name):
+CHUNK = 5
+STARTS = range(0, SETS, CHUNK)
+REACHED = {"horizon", "invalidation", "size zero", "spread", "outcome 0", "outcome 1", "hourly equity", "release boundary"}
+
+
+def required(name):
+    """What a class's scenario sets must between them reach."""
+    return (REACHED | ({"discretionary"} if name != "plain" else set())
+            | ({"suppressed leg", "unresolved"} if name in ("outages", "everything") else set())
+            | ({"missing funding"} if name in ("funding_holes", "everything") else set()))
+
+
+def reaches(name, seeds):
+    """The cases the scenario sets `seeds` of class `name` reach."""
     seen = set()
-    diffs = [(seed, d) for seed in range(SETS) for d in compare(Scenario(seed, **CLASSES[name]), seen=seen)]
+    for seed in seeds:
+        compare(Scenario(seed, **CLASSES[name]), seen=seen)
+    return seen
+
+
+def judge_chunk(name, start):
+    """(disagreements, sets compared) over the sets start .. start + CHUNK - 1 of one class."""
+    diffs, n = [], 0
+    for seed in range(start, start + CHUNK):
+        n += 1
+        diffs += [(seed, d) for d in compare(Scenario(seed, **CLASSES[name]))]
+    return diffs, n
+
+
+@pytest.mark.parametrize("name,start", [(name, start) for name in CLASSES for start in STARTS])
+def test_the_two_implementations_agree_as_read(name, start):
+    diffs, n = judge_chunk(name, start)
+    assert n == CHUNK
     assert not diffs, diffs[:5]
-    assert {"horizon", "invalidation", "size zero", "spread", "outcome 0", "outcome 1", "hourly equity", "release boundary"} <= seen
-    assert name == "plain" or "discretionary" in seen
-    assert name not in ("outages", "everything") or {"suppressed leg", "unresolved"} <= seen
-    assert name not in ("funding_holes", "everything") or "missing funding" in seen
+
+
+def test_the_chunks_are_every_set_of_every_class_once():
+    chunks = [(name, start) for name in CLASSES for start in STARTS]
+    assert len(chunks) == len(CLASSES) * len(STARTS) and len(set(chunks)) == len(chunks)
+    assert sorted(seed for start in STARTS for seed in range(start, start + CHUNK)) == list(range(SETS))
+
+
+# Seeds of each class that between them reach everything required(name): found by running reaches() over the sets in
+# order; python -m thesis.tests.test_positions_differential prints them.
+REACH = {
+    'plain': [0, 1, 13],
+    'exits': [0, 1, 2, 18, 20],
+    'costs': [0, 1],
+    'gaps': [0, 2, 3, 34],
+    'holes': [0, 1],
+    'funding_holes': [0, 1, 2, 3, 60],
+    'builder': [0, 2, 4],
+    'outages': [0, 1, 3, 4, 6],
+    'everything': [0, 1, 2, 5],
+}
+
+
+@pytest.mark.parametrize("name", CLASSES)
+def test_each_class_reaches_its_cases(name):
+    assert name in REACH, "python -m thesis.tests.test_positions_differential finds each class's seeds"
+    assert all(0 <= seed < SETS for seed in REACH[name])
+    assert required(name) <= reaches(name, REACH[name])
+
+
+def reach_seeds(name):
+    """(class, the seeds in order that first reach each required case, or None if some case is never reached)."""
+    seen, seeds = set(), []
+    for seed in range(SETS):
+        new = set()
+        compare(Scenario(seed, **CLASSES[name]), seen=new)
+        if new - seen:
+            seeds.append(seed)
+        seen |= new
+        if required(name) <= seen:
+            return name, seeds
+    return name, None
 
 
 def fixed(bars, requests, exits=(), fee=0.0, cells=None, funding=None, rates=None):
@@ -349,19 +415,16 @@ def production_data(s, root):
     return lambda now: runner.Track.data(track, s.markets, now * 1000)
 
 
-@pytest.mark.parametrize("name", [
-    pytest.param(name, marks=pytest.mark.slow) if name in {"plain", "outages"} else name for name in CLASSES
-])
-def test_the_production_adapter_gives_the_same_prices_and_the_same_agreement(name):
-    for seed in range(PRODUCTION_SETS):
-        s = Scenario(seed, **CLASSES[name])
-        with tempfile.TemporaryDirectory() as root:
-            data = production_data(s, Path(root))
-            for now in (r["t_r"] for r in s.requests):
-                view = data(now)
-                synthetic = s.ours_data(now)
-                assert view["bars"] == synthetic["bars"] and view["funding"] == synthetic["funding"] and view["lag"] == synthetic["lag"]
-            assert compare(s, data=data) == []
+@pytest.mark.parametrize("name,seed", [(name, seed) for name in CLASSES for seed in range(PRODUCTION_SETS)])
+def test_the_production_adapter_gives_the_same_prices_and_the_same_agreement(name, seed):
+    s = Scenario(seed, **CLASSES[name])
+    with tempfile.TemporaryDirectory() as root:
+        data = production_data(s, Path(root))
+        for now in (r["t_r"] for r in s.requests):
+            view = data(now)
+            synthetic = s.ours_data(now)
+            assert view["bars"] == synthetic["bars"] and view["funding"] == synthetic["funding"] and view["lag"] == synthetic["lag"]
+        assert compare(s, data=data) == []
 
 
 def raw_disagreements(name, sets=SETS):
@@ -380,28 +443,58 @@ def test_every_reading_is_needed_on_some_scenario(reading):
     assert any(compare(Scenario(seed, **CLASSES["everything"]), gpt=without) for seed in range(40))
 
 
-def mutant_catches(name, sets=PRODUCTION_SETS, first=False):
-    """How many boundary cases and scenario sets catch mutant `name`, by a disagreement or an error (with `first`, 0 or 1)."""
-    code, found = patched(positions, MUTANTS[name], "positions_mutant"), 0
-    cases = [*BOUNDARIES.values(), *(Scenario(seed, **flags) for flags in CLASSES.values() for seed in range(sets))]
-    for s in cases:
-        try:
-            found += bool(compare(s, code=code))
-        except Exception:
-            found += 1
-        if found and first:
-            break
-    return name, found
+def every_case(sets=PRODUCTION_SETS):
+    """The keys of every boundary case, then every scenario set of every class."""
+    yield from BOUNDARIES
+    for name in CLASSES:
+        for seed in range(sets):
+            yield name, seed
 
 
-@pytest.mark.parametrize("name", [
-    pytest.param(name, marks=pytest.mark.slow) if name in {
-        "a cost cell ignores the side", "entry needs no delay", "a discretionary exit acts at its request",
-        "an outcome ignores missing funding", "an hour reconciles before its reference", "an hour reconciles without its funding",
-    } else name for name in MUTANTS
-])
+def catches(code, key):
+    """Whether `code` (a mutant) disagrees with GPT's file, or errors, on the case `key`."""
+    s = BOUNDARIES[key] if isinstance(key, str) else Scenario(key[1], **CLASSES[key[0]])
+    try:
+        return bool(compare(s, code=code))
+    except Exception:
+        return True
+
+
+def witness(name):
+    """(mutant, the first case of every_case() that catches it, or None): how WITNESS is made (python -m ... prints it)."""
+    code = patched(positions, MUTANTS[name], "positions_mutant")
+    return name, next((key for key in every_case() if catches(code, key)), None)
+
+
+# One catching case per mutant is the evidence it is caught; found by running witness() over MUTANTS, so that a mutant
+# costs one comparison here rather than a search. A generator or comparison change that loses a witness fails its test.
+WITNESS = {
+    'the cheap cell includes nothing at $1000': 'a notional of exactly $1000',
+    'a return of zero counts as a success': 'a return of exactly zero, with a fee and one leg',
+    'invalidation needs a loss beyond L': 'a loss of exactly L',
+    'the cap excludes its own boundary': 'five reservations at exactly the cap',
+    'a cost cell ignores the side': ('costs', 1),
+    'entry needs no delay': ('plain', 1),
+    'an outcome enters without delay': 'a registration 0 s into hour 30, core',
+    'a discretionary exit acts at its request': 'two discretionary exits',
+    'the last discretionary exit wins': 'two discretionary exits',
+    "an exit at an entry's hour lets it enter": "a spread's unentered leg with a bar at the horizon",
+    'simultaneous exits take the first set': 'a discretionary exit as the horizon acts',
+    'simultaneous exits take their reasons in alphabetical order': 'a discretionary exit as an invalidation acts',
+    "a bar's close counts before it ends": 'funding at a missing core bar',
+    'funding is received, not paid': 'a registration 0 s into hour 30, core',
+    "an outcome skips the exit hour's funding": ('plain', 0),
+    'an outcome ignores missing funding': 'a missing funding row, then a registration',
+    'an hour reconciles before its reference': 'a registration 120 s into hour 30, mixed spread',
+    'an hour reconciles without its funding': 'a missing funding row, then a registration',
+    'reservations are never released': 'a return of exactly zero, with a fee and one leg',
+}
+
+
+@pytest.mark.parametrize("name", MUTANTS)
 def test_every_mutant_is_caught(name):
-    assert mutant_catches(name, first=True)[1]
+    assert name in WITNESS, "python -m thesis.tests.test_positions_differential finds each mutant's witness"
+    assert catches(patched(positions, MUTANTS[name], "positions_mutant"), WITNESS[name])
 
 
 def test_the_raw_comparison_stays_a_real_disagreement():
@@ -418,6 +511,11 @@ if __name__ == "__main__":
     with ProcessPoolExecutor() as pool:
         for name, kinds in pool.map(raw_disagreements, CLASSES):
             print(name, dict(sorted(kinds.items())))
-        total = len(BOUNDARIES) + len(CLASSES) * PRODUCTION_SETS
-        for name, found in pool.map(mutant_catches, MUTANTS):
-            print(f"{name}: {found} of {total}")
+        print("REACH = {")
+        for name, seeds in pool.map(reach_seeds, CLASSES):
+            print(f"    {name!r}: {seeds!r},")
+        print("}")
+        print("WITNESS = {")
+        for name, key in pool.map(witness, MUTANTS):
+            print(f"    {name!r}: {key!r},")
+        print("}")
