@@ -2,7 +2,8 @@
 real session with its exact flags, which must create and overwrite a file in /work with the Write tool, reach its daemon
 through `./<client>` in a Bash call that ran, and be denied by permission a Write outside /work, a Read outside /work,
 any tool outside session.PERMITTED and one other Bash command. A freeze runs it first, and so does each real session,
-since the binary's hash does not pin the CLI's behaviour."""
+since the binary's hash does not pin the CLI's behaviour. An unattempted step is inconclusive and must be rerun,
+not evidence of a broken sandbox; an observed violation is Broken even if another step was skipped."""
 
 import secrets
 import tempfile
@@ -36,7 +37,7 @@ Then reply DONE.
 
 
 class Unavailable(Exception):
-    """The session did not run: the CLI failed or the model did not answer."""
+    """The canary is inconclusive: the CLI failed, the model did not answer, or a required step was not attempted."""
 
 
 class Broken(Exception):
@@ -60,22 +61,25 @@ def check(model=MODEL):
         uses, denied, ok = session.calls(workdir / "transcript.jsonl")
         asked = lambda name, **inp: [i for i, u in uses.items()
                                      if u["name"] == name and all(u["input"].get(k) == v for k, v in inp.items())]
-        succeeded = lambda ids: bool(ids) and set(ids) <= ok
-        refused = lambda ids: bool(ids) and set(ids) <= set(denied)
+        def probe(name, accepted, effect=True, **inp):
+            ids = asked(name, **inp)
+            return set(ids) <= accepted and effect if ids else None
+
         note = workdir / "work" / "note.txt"
+        checks = {"write": probe("Write", ok, file_path=NOTE, content="draft"),
+                  "overwrite": probe("Write", ok, note.exists() and note.read_text() == nonce, file_path=NOTE, content=nonce),
+                  "client": probe("Bash", ok, received == [{"cmd": "send", "args": [nonce]}], command=SEND),
+                  **{f"write_denied:{p}": probe("Write", set(denied), file_path=p) for p in OUTSIDE},
+                  "outside_read_denied": probe("Read", set(denied), file_path=OUTSIDE_READ),
+                  "bash_denied": probe("Bash", set(denied), not (workdir / "work" / "x").exists(), command=TOUCH)}
         result = {"model": model, "cli": session.claude_binary(), "turns": run["turns"], "stopped": run["stopped"],
-                  "write": succeeded(asked("Write", file_path=NOTE, content="draft"))
-                           and succeeded(asked("Write", file_path=NOTE, content=nonce))
-                           and note.exists() and note.read_text() == nonce,
-                  "client": succeeded(asked("Bash", command=SEND)) and received == [{"cmd": "send", "args": [nonce]}],
-                  "outside_write_denied": {p: refused(asked("Write", file_path=p)) for p in OUTSIDE},
-                  "outside_read_denied": refused(asked("Read", file_path=OUTSIDE_READ)),
-                  "bash_denied": refused(asked("Bash", command=TOUCH)) and not (workdir / "work" / "x").exists(),
+                  **checks,
                   "outside_permitted": sorted({u["name"] for u in uses.values()} - session.PERMITTED),
                   "denials": len(denied), "transcript_sha256": run["transcript_sha256"]}
-    if not (result["write"] and result["client"] and all(result["outside_write_denied"].values())
-            and result["outside_read_denied"] and result["bash_denied"] and not result["outside_permitted"]):
+    if any(v is False for v in checks.values()) or result["outside_permitted"]:
         raise Broken(f"the sandbox canary failed: {result}")
+    if missing := [k for k, v in checks.items() if v is None]:
+        raise Unavailable(f"required steps not attempted: {missing}; rerun the canary: {result}")
     return result
 
 
@@ -85,7 +89,7 @@ def passes(model=MODEL):
         check(model)
         return True
     except Unavailable as e:
-        print(time.strftime("%FT%T"), "sandbox canary: the CLI or the model is unavailable:", e, flush=True)
+        print(time.strftime("%FT%T"), "sandbox canary inconclusive (unavailable or incomplete); retry:", e, flush=True)
     except Broken as e:
         print(time.strftime("%FT%T"), "SANDBOX CONTRACT BROKEN, nothing starts until it passes:", e, flush=True)
     return False

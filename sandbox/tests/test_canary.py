@@ -48,14 +48,34 @@ def outcome(i, new):
     return [(j, n, x, new if j == i else o) for j, n, x, o in GOOD]
 
 
+@pytest.mark.parametrize("missing", [c[0] for c in GOOD])
+def test_an_unattempted_step_is_inconclusive_and_the_next_canary_can_pass(monkeypatch, capsys, missing):
+    """A required tool action proves nothing about the sandbox unless the model attempts it."""
+    monkeypatch.setattr(session, "run", scripted([c for c in GOOD if c[0] != missing]))
+    with pytest.raises(canary.Unavailable, match="not attempted"):
+        canary.check()
+    assert not canary.passes()
+    output = capsys.readouterr().out
+    assert "inconclusive" in output and "SANDBOX CONTRACT BROKEN" not in output
+    monkeypatch.setattr(session, "run", scripted(GOOD))
+    assert canary.passes()
+
+
+@pytest.mark.parametrize("allowed", ["w3", "w4", "r1", "b2"])
+def test_an_allowed_forbidden_attempt_is_broken_even_if_another_step_was_skipped(monkeypatch, allowed):
+    """Missing evidence must never hide an observed contract violation."""
+    monkeypatch.setattr(session, "run", scripted([c for c in outcome(allowed, "ok") if c[0] != "w1"]))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
 @pytest.mark.parametrize("calls", [
     outcome("w2", "denied"),
     outcome("w1", "no result"),
-    [c for c in GOOD if c[0] != "b1"],
     outcome("w3", "error"),
     outcome("r1", "ok"),
     GOOD + [("g1", "Glob", {"pattern": "*"}, "ok")],
-], ids=["workspace Write denied though the file exists", "a Write with no result", "daemon reached without a Bash call",
+], ids=["workspace Write denied though the file exists", "a Write with no result",
         "outside Write failed but not denied", "outside Read allowed", "tool outside PERMITTED"])
 def test_counterexamples_fail(monkeypatch, calls):
     monkeypatch.setattr(session, "run", scripted(calls))
