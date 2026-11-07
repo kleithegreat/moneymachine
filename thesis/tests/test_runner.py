@@ -509,9 +509,34 @@ def test_the_runner_runs_the_deadlines_on_their_own_loop(track, monkeypatch, tmp
     names = []
     monkeypatch.setattr(runner, "forever", lambda name, step, wait, stop: names.append(name))
     monkeypatch.setattr(signal, "signal", lambda *a: None)
-    track.market.record_marks = lambda: None
+    track.market.record_marks = lambda due: None
+    monkeypatch.setattr(runner, "hourly_marks", lambda sample, stop: names.append("marks"))
     track.run()
     assert "deadlines" in names and "resolve" in names
+
+
+def test_the_marks_scheduler_keeps_its_deadline_across_an_early_wakeup(monkeypatch):
+    clock, deadlines = [HOUR - 55_002], []
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+
+    class Stop:
+        done = False
+
+        def is_set(self):
+            return self.done
+
+        def wait(self, seconds):
+            clock[0] = HOUR - 55_001
+            return False
+
+    stop = Stop()
+
+    def sample(due):
+        deadlines.append(due)
+        stop.done = True
+
+    runner.hourly_marks(sample, stop)
+    assert deadlines == [HOUR + runner.MARK_OFFSET]
 
 
 # F6: a benchmark's p is the base rate of what it registers.

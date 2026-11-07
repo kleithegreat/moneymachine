@@ -296,10 +296,8 @@ class Market:
                 os.replace(tmp, path)
             return sorted(r for r in rows + list(pending.values()) if r[0] + SHOWN[kind] <= now)
 
-    def record_marks(self) -> None:
+    def record_marks(self, due: int) -> None:
         """Discover during the drain minute, then dispatch each retry wave concurrently; cache discovery for outages."""
-        now = now_ms()
-        due = (now - MARK_OFFSET + MARK_PREP) // HOUR * HOUR + MARK_OFFSET
         cache = self.root / "dexes.json"
         try:
             dexes = self.sampler.post({"type": "perpDexs"}, attempts=1)

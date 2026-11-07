@@ -93,9 +93,9 @@ def test_builder_markets_take_their_hourly_bars_from_recorded_marks(tmp_path, mo
         return httpx.Response(200, json=replies[json["type"]], request=httpx.Request("POST", url))
 
     monkeypatch.setattr(m.sampler.http, "post", post)
-    m.record_marks()
+    m.record_marks(5_000)
     clock[0] = H + 5_000
-    m.record_marks()
+    m.record_marks(H + 5_000)
     assert m.marks("xyz:GOLD") == [(5_000, 6_000, 2400.5), (H + 5_000, H + 6_000, 2400.5)]
     assert m.bars("xyz:GOLD", "1h", 2 * H) == [[0, 2400.5, 2400.5], [H, 2400.5, None]]
     assert m.bars("xyz:XYZ100", "1h", 2 * H) == []
@@ -386,7 +386,7 @@ def test_one_dex_failing_never_costs_another_dex_its_sample(tmp_path, monkeypatc
     m = market.Market(tmp_path / "m", x)
     monkeypatch.setattr(m.sampler.http, "post", post)
     monkeypatch.setattr(market, "now_ms", lambda: 5_000)
-    m.record_marks()
+    m.record_marks(5_000)
     assert m.marks("xyz:GOLD") == [(5_000, 5_000, 2400.5)]
     rows = list(market.read(m.sampler.archive, "marks"))
     bad, good = (next(r for r in rows if r["request"].get("dex") == d) for d in ("bad", "xyz"))
@@ -442,7 +442,7 @@ def test_a_sample_that_cannot_be_archived_is_not_swallowed_as_a_venue_failure(tm
 
     monkeypatch.setattr(market, "append", full)
     with pytest.raises(OSError, match="disk full"):
-        m.record_marks()
+        m.record_marks(H + 5_000)
 
 
 @pytest.mark.parametrize("payload", [[None, []], [{"universe": [None]}, [{}]],
@@ -463,7 +463,7 @@ def test_malformed_successes_are_archived_retried_and_do_not_abort_other_dexes(t
         return httpx.Response(200, json=DEX_REPLY, request=request)
 
     monkeypatch.setattr(m.sampler.http, "post", post)
-    m.record_marks()
+    m.record_marks(H + 5_000)
     rows = list(market.read(m.sampler.archive, "marks"))
     assert len(rows) == len(attempts) == 8
     assert all(not r["valid"] for r in rows if r["dex"] == "bad")
@@ -492,7 +492,7 @@ def test_queued_history_releases_the_lock_and_drains_before_the_mark_deadline(tm
         assert m.x.limiter.lock.acquire(blocking=False), "history slept holding the limiter lock"
         m.x.limiter.lock.release()
         clock[0] = H + 5_000
-        m.record_marks()
+        m.record_marks(H + 5_000)
 
     monkeypatch.setattr(m.sampler.http, "post", post)
     monkeypatch.setattr(hl.time, "sleep", sampling_wakes_while_history_is_queued)
@@ -522,7 +522,7 @@ def test_three_dexes_all_get_the_initial_hourly_window(tmp_path, monkeypatch):
         return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(m.sampler.http, "post", post)
-    m.record_marks()
+    m.record_marks(H + 5_000)
     assert sent == [H + 5_000] * 3
 
 
@@ -543,7 +543,7 @@ def test_a_hung_dex_cannot_hold_up_a_healthy_dex_initial_send(tmp_path, monkeypa
         return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(m.sampler.http, "post", post)
-    m.record_marks()
+    m.record_marks(H + 5_000)
     assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5}
 
 
@@ -559,7 +559,7 @@ def test_discovery_runs_in_the_drain_minute_and_contexts_at_the_deadline(tmp_pat
                               request=httpx.Request("POST", url))
 
     monkeypatch.setattr(m.sampler.http, "post", post)
-    m.record_marks()
+    m.record_marks(H + 5_000)
     assert sent == [("perpDexs", H - 55_000), ("metaAndAssetCtxs", H + 5_000)]
 
 
@@ -573,7 +573,7 @@ def test_failed_discovery_uses_the_last_archived_inventory_after_restart(tmp_pat
                               request=httpx.Request("POST", url))
 
     monkeypatch.setattr(m.sampler.http, "post", post)
-    m.record_marks()
+    m.record_marks(H + 5_000)
     clock[0] += H
     m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
 
@@ -583,7 +583,7 @@ def test_failed_discovery_uses_the_last_archived_inventory_after_restart(tmp_pat
         return post(url, json)
 
     monkeypatch.setattr(m.sampler.http, "post", unavailable)
-    m.record_marks()
+    m.record_marks(2 * H + 5_000)
     assert market.seal(m.marks("xyz:GOLD")) == {H: 2400.5, 2 * H: 2400.5}
     assert len(list(market.read(m.sampler.archive, "marks"))) == 4
 
@@ -599,13 +599,13 @@ def test_the_largest_admissible_initial_wave_fits_and_oversize_fails_without_wai
                               request=httpx.Request("POST", url))
 
     monkeypatch.setattr(m.sampler.http, "post", post)
-    m.record_marks()
+    m.record_marks(H + 5_000)
     assert clock[0] == H + 5_000
     assert len(list(market.read(m.sampler.archive, "marks"))) == count + 1
     count += 1
     clock[0] += H
     with pytest.raises(ValueError, match="exceeds"):
-        m.record_marks()
+        m.record_marks(2 * H + 5_000)
 
 
 def test_two_cold_funding_histories_do_not_exhaust_the_session_wall_budget(tmp_path, monkeypatch):
@@ -667,3 +667,19 @@ def test_incremental_mark_reads_leave_incomplete_appends_for_the_next_read(tmp_p
     with path.open("ab") as f:
         f.write(text[cut:])
     assert m.marks("xyz:A") == [(5_000, 6_000, 1)]
+
+
+def test_an_early_scheduler_wakeup_does_not_sample_the_previous_hour(tmp_path, monkeypatch):
+    clock, sent = [H - 55_001], []
+    fake_clock(monkeypatch, clock)
+    m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
+
+    def post(url, json):
+        if json["type"] == "metaAndAssetCtxs":
+            sent.append(clock[0])
+        return httpx.Response(200, json=[{"name": "xyz"}] if json["type"] == "perpDexs" else DEX_REPLY,
+                              request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks(H + 5_000)
+    assert sent == [H + 5_000]

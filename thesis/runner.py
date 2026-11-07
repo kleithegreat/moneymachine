@@ -300,8 +300,7 @@ class Track:
         signal.signal(signal.SIGTERM, lambda *_: stop.set())
         loops = [threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000, stop)),
                  threading.Thread(target=forever, args=("deadlines", lambda: self.deadlines(now_ms()), lambda now: 60_000, stop)),
-                 threading.Thread(target=forever, args=("marks", self.market.record_marks,
-                                                        lambda now: (now - MARK_OFFSET + MARK_PREP) // HOUR * HOUR + HOUR + MARK_OFFSET - MARK_PREP - now, stop)),
+                 threading.Thread(target=hourly_marks, args=(self.market.record_marks, stop)),
                  threading.Thread(target=forever, args=("benchmarks", lambda: self.benchmarks(now_ms(), frozen["frozen"]),
                                                         lambda now: 60_000, stop))]
         for t in loops:
@@ -333,6 +332,19 @@ class Track:
 def joined(reads: dict[str, Json], now: int) -> Json:
     """The data of several markets' reads (`Track.read`) as of `now`."""
     return {k: {m: r[k] for m, r in reads.items()} for k in ("bars", "funding", "lag")} | {"cutoff": now}
+
+
+def hourly_marks(sample: Callable[[int], None], stop: threading.Event) -> None:
+    """Choose the hourly deadline once before waiting, so a clock step cannot change the batch's identity."""
+    while not stop.is_set():
+        now = now_ms()
+        due = (now - MARK_OFFSET + MARK_PREP) // HOUR * HOUR + HOUR + MARK_OFFSET
+        if stop.wait((due - MARK_PREP - now) / 1000):
+            return
+        try:
+            sample(due)
+        except Exception as e:
+            print(time.strftime("%FT%T"), "marks", repr(e), flush=True)
 
 
 def forever(name: str, step: Callable[[], None], wait: Callable[[int], float], stop: threading.Event) -> None:
