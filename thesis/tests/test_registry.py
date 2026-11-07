@@ -99,6 +99,22 @@ def test_corrupt_ledgers_are_errors_not_empty_records(tmp_path):
         registry.Ledger(path, "t").records("thesis")
 
 
+def test_records_open_only_readonly_connections_even_for_uri_characters(tmp_path, monkeypatch):
+    path = tmp_path / "mirror?#.sqlite"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE disclosures(id, created, content, campaign, kind, agent)")
+        db.execute("INSERT INTO disclosures VALUES(1, 'created', '{}', 't', 'call', 'main')")
+    connect = sqlite3.connect
+
+    def readonly(database, **kwargs):
+        if not kwargs.get("uri") or "mode=ro" not in str(database):
+            raise sqlite3.OperationalError("read-only mirror mount")
+        return connect(database, **kwargs)
+
+    monkeypatch.setattr(registry.sqlite3, "connect", readonly)
+    assert registry.Ledger(path, "t").records("call") == [(1, "created", {})]
+
+
 def test_a_registered_thesis_is_canonical_append_only_and_idempotent(ledger):
     th, errors = register(ledger, request())
     assert errors is None and th["t_r"] == T_R and th["id"] == "main-1" and th["N"] == "1000" and th["size"] == "1000"
