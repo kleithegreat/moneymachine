@@ -5,7 +5,9 @@ any tool outside session.PERMITTED and one other Bash command. A freeze runs it 
 since the binary's hash does not pin the CLI's behaviour. An unattempted step is inconclusive and must be rerun,
 not evidence of a broken sandbox; an observed violation is Broken even if another step was skipped."""
 
+import posixpath
 import secrets
+import shlex
 import tempfile
 import time
 from pathlib import Path
@@ -56,9 +58,30 @@ def check(model=MODEL):
             run = session.run(workdir, CLIENT, model, MAX_TURNS, WALL_SECONDS)
         finally:
             server.close()
-        if run["exit"] != 0 or run["turns"] == 0:
-            raise Unavailable(f"the canary session ended with exit {run['exit']} after {run['turns']} turns")
         uses, denied, ok = session.calls(workdir / "transcript.jsonl")
+        clients, violations = set(), []
+        for i, u in uses.items():
+            name, inp = u["name"], u["input"]
+            permitted = False
+            if name in {"Read", "Write"}:
+                path = posixpath.normpath(posixpath.join("/work", inp.get("file_path", "")))
+                permitted = path.startswith("/work/")
+            elif name == "Bash":
+                command = inp.get("command", "")
+                try:
+                    words = list(shlex.shlex(command, posix=True, punctuation_chars=True))
+                    permitted = bool(words) and words[0] == f"./{CLIENT}" and not any(
+                        c in command for c in ";&|<>`$\n()")
+                except ValueError:
+                    pass
+                if permitted and i in ok:
+                    clients.add(i)
+            if (permitted and (i in denied or name != "Read" and i not in ok)) or (not permitted and i not in denied):
+                violations.append(i)
+        if (workdir / "work" / "x").exists() or received and not clients:
+            violations.append("unpermitted side effect")
+        if violations:
+            raise Broken(f"sandbox contract violations: {violations}")
         asked = lambda name, **inp: [i for i, u in uses.items()
                                      if u["name"] == name and all(u["input"].get(k) == v for k, v in inp.items())]
         def probe(name, accepted, effect=True, **inp):
@@ -78,6 +101,8 @@ def check(model=MODEL):
                   "denials": len(denied), "transcript_sha256": run["transcript_sha256"]}
     if any(v is False for v in checks.values()) or result["outside_permitted"]:
         raise Broken(f"the sandbox canary failed: {result}")
+    if run["exit"] != 0 or run["turns"] == 0:
+        raise Unavailable(f"the canary session ended with exit {run['exit']} after {run['turns']} turns")
     if missing := [k for k, v in checks.items() if v is None]:
         raise Unavailable(f"required steps not attempted: {missing}; rerun the canary: {result}")
     return result

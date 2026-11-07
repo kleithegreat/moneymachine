@@ -20,17 +20,20 @@ GOOD = [("w1", "Write", {"file_path": canary.NOTE, "content": "draft"}, "ok"),
         ("b2", "Bash", {"command": canary.TOUCH}, "denied")]
 
 
-def scripted(calls, exit=0):
+def scripted(calls, exit=0, send=True, touch=False):
     """A session whose effects are always the good ones (the note holds the nonce, the daemon gets it) and whose
     transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied" | "no result")."""
     def run(workdir, client, model, max_turns, wall_seconds):
         work = Path(workdir) / "work"
         nonce = re.search(r"exactly `(\w+)`", (work / "brief.md").read_text()).group(1)
         (work / "note.txt").write_text(nonce)
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.connect(str(session.socket_path(workdir, client)))
-        s.sendall(json.dumps({"cmd": "send", "args": [nonce]}).encode() + b"\n")
-        s.recv(100)
+        if touch:
+            (work / "x").touch()
+        if send:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+                s.connect(str(session.socket_path(workdir, client)))
+                s.sendall(json.dumps({"cmd": "send", "args": [nonce]}).encode() + b"\n")
+                s.recv(100)
         lines = []
         for i, name, inp, outcome in calls:
             inp = {k: nonce if v == "NONCE" else v for k, v in inp.items()}
@@ -51,7 +54,7 @@ def outcome(i, new):
 @pytest.mark.parametrize("missing", [c[0] for c in GOOD])
 def test_an_unattempted_step_is_inconclusive_and_the_next_canary_can_pass(monkeypatch, capsys, missing):
     """A required tool action proves nothing about the sandbox unless the model attempts it."""
-    monkeypatch.setattr(session, "run", scripted([c for c in GOOD if c[0] != missing]))
+    monkeypatch.setattr(session, "run", scripted([c for c in GOOD if c[0] != missing], send=missing != "b1"))
     with pytest.raises(canary.Unavailable, match="not attempted"):
         canary.check()
     assert not canary.passes()
@@ -75,10 +78,42 @@ def test_an_allowed_forbidden_attempt_is_broken_even_if_another_step_was_skipped
     outcome("w3", "error"),
     outcome("r1", "ok"),
     GOOD + [("g1", "Glob", {"pattern": "*"}, "ok")],
+    [c for c in GOOD if c[0] != "b1"],
 ], ids=["workspace Write denied though the file exists", "a Write with no result",
-        "outside Write failed but not denied", "outside Read allowed", "tool outside PERMITTED"])
+        "outside Write failed but not denied", "outside Read allowed", "tool outside PERMITTED", "daemon reached without Bash"])
 def test_counterexamples_fail(monkeypatch, calls):
     monkeypatch.setattr(session, "run", scripted(calls))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+@pytest.mark.parametrize("command", ["touch x", "touch /work/x ", "/bin/touch /work/x"])
+def test_varied_forbidden_commands_and_effects_are_broken_before_incomplete_or_failed_run(monkeypatch, command):
+    calls = [c for c in GOOD if c[0] != "b2"] + [("extra", "Bash", {"command": command}, "ok")]
+    monkeypatch.setattr(session, "run", scripted(calls, exit=1, touch=True))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+def test_daemon_reached_by_a_different_command_is_broken(monkeypatch):
+    calls = [c for c in GOOD if c[0] != "b1"] + [("extra", "Bash", {"command": "python client.py"}, "ok")]
+    monkeypatch.setattr(session, "run", scripted(calls))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+@pytest.mark.parametrize("name, inp", [("Bash", {"command": "ls"}), ("Read", {"file_path": "/tool/egress.py"}),
+                                      ("Read", {"file_path": "/etc/./passwd"}),
+                                      ("Write", {"file_path": "/home/agent/.rc"}),
+                                      ("Write", {"file_path": "/work/../home/agent/.rc"})])
+def test_extra_calls_cannot_hide_behind_the_seven_literal_probes(monkeypatch, name, inp):
+    monkeypatch.setattr(session, "run", scripted(GOOD + [("extra", name, inp, "ok")]))
+    with pytest.raises(canary.Broken):
+        canary.check()
+
+
+def test_unexplained_filesystem_effect_is_broken(monkeypatch):
+    monkeypatch.setattr(session, "run", scripted([c for c in GOOD if c[0] != "b2"], touch=True))
     with pytest.raises(canary.Broken):
         canary.check()
 
@@ -86,7 +121,7 @@ def test_counterexamples_fail(monkeypatch, calls):
 def test_the_good_session_passes_and_a_session_that_did_not_run_is_unavailable(monkeypatch, capsys):
     monkeypatch.setattr(session, "run", scripted(GOOD))
     assert canary.check()["write"] and canary.passes()
-    monkeypatch.setattr(session, "run", scripted([], exit=1))
+    monkeypatch.setattr(session, "run", scripted([], exit=1, send=False))
     with pytest.raises(canary.Unavailable):
         canary.check()
     assert not canary.passes() and "unavailable" in capsys.readouterr().out
