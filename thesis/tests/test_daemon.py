@@ -126,3 +126,16 @@ def test_snapshot_ineligibility_and_past_horizons_are_refused_before_fetching_in
     d.register_inputs = lambda *args: reads.append(args) or (CONFIG, DATA)
     out = call(d, "register", thesis(**over))
     assert not out["ok"] and out["errors"] and reads == []
+
+
+def test_the_upper_horizon_is_checked_at_commit_after_slow_inputs(make):
+    d, _ = make()
+    clock = [NOW]
+    d.clock = lambda: clock[0]
+
+    def inputs(*args):
+        clock[0] += DAY
+        return CONFIG, DATA
+
+    d.register_inputs = inputs
+    assert call(d, "register", thesis(T=461 * DAY))["ok"]

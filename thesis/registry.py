@@ -79,7 +79,7 @@ def number(x: Any, lo: float, hi: float) -> bool:
 
 def validate(request: Any, disclosed: Collection[str]) -> list[str]:
     """Errors of a registration request's form (empty if valid); `disclosed` is the retrieval ids already disclosed to the
-    session. The checks needing t_r and the venue are `eligible`'s."""
+    session. Time, snapshot and venue checks live in `prerequisites` and `eligible`."""
     if not isinstance(request, dict) or set(request) != FIELDS:
         return [f"fields must be exactly {sorted(FIELDS)}"]
     errors = []
@@ -112,17 +112,25 @@ def validate(request: Any, disclosed: Collection[str]) -> list[str]:
     return errors
 
 
+def prerequisites(request: Json, now: int, daily: Json) -> list[str]:
+    """Snapshot/time refusals no later input fetch can cure; safe both before fetching and at commit."""
+    errors = []
+    for market, _ in request["legs"]:
+        if len([t for t in daily.get(market, ()) if t + DAY <= now]) < MIN_DAILY_BARS:
+            errors.append(f"legs: {market} has fewer than {MIN_DAILY_BARS} completed daily bars in the session snapshot")
+    if request["T"] - now < 72 * HOUR:
+        errors.append("T: 72 to 1440 hours after registration")
+    return errors
+
+
 def eligible(request: Json, t_r: int, listings: dict[str, bool], daily: Json) -> list[str]:
-    """Errors of a well-formed request at t_r: `listings` is {market: delisted}, as read for t_r; `daily` the session's
-    daily bars per market."""
+    """Errors at commit: fresh listings, snapshot prerequisites, and the upper horizon at the actual t_r."""
     errors = []
     for market, _ in request["legs"]:
         if market not in listings or listings[market]:
             errors.append(f"legs: {market} is not listed")
-        elif len([t for t in daily.get(market, ()) if t + DAY <= t_r]) < MIN_DAILY_BARS:
-            errors.append(f"legs: {market} has fewer than {MIN_DAILY_BARS} completed daily bars")
-    T = request["T"]
-    if not 72 * HOUR <= T - t_r <= 1440 * HOUR:
+    errors.extend(prerequisites(request, t_r, daily))
+    if request["T"] - t_r > 1440 * HOUR:
         errors.append("T: 72 to 1440 hours after registration")
     return errors
 

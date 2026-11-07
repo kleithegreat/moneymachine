@@ -78,8 +78,8 @@ class Daemon:
                 return {"ok": False, "errors": form_errors}
             now = self.clock()
             daily = {m: {r[0]: r[1:] for r in rows} for m, rows in self.snapshot["daily"].items()}
-            if errors := registry.eligible(request, now, self.snapshot["listings"], daily):
-                return {"ok": False, "errors": errors}
+            if preflight := registry.prerequisites(request, now, daily):
+                return {"ok": False, "errors": preflight}
             config, data = self.register_inputs(self.account, registry.markets_of(request), now)
             retry = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data)
         th, errors = retry
