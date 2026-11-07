@@ -35,11 +35,11 @@ def read(live_dir: str | Path, prefix: str) -> Iterator[Any]:
     """Every record of `<live_dir>/<prefix>-*.jsonl`, in file order; a line that does not parse (a write cut short) is
     named on stderr and skipped."""
     for p in sorted(Path(live_dir).glob(f"{prefix}-*.jsonl")):
-        with open(p) as f:
+        with open(p, "rb") as f:
             for n, line in enumerate(f, 1):
                 try:
-                    yield json.loads(line)
-                except json.JSONDecodeError:
+                    yield json.loads(line.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
                     print(f"torn record skipped: {p}:{n}", file=sys.stderr)
 
 
