@@ -17,7 +17,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 4 exit:** C4.1 rebuilt on `stage4-c41` (`../mm-s4-c41`) and reviewed: items 1–3 met, m1 an equivalent mutant (`audit/reviews/2026-11-08-opus-stage4-c41.md`; its two recommended test fixes first). Then merge, and exit items 3–6 of `audit/reviews/2026-11-08-opus-stage4-exit.md` at the merge commit.
+- **Stage 4 exit:** C4.1 rebuilt, reviewed (`audit/reviews/2026-11-08-opus-stage4-c41.md`: items 1–3 met, m1 an equivalent mutant), its item 5 fixed, merged at `54213e9`. Next: exit items 3–6 of `audit/reviews/2026-11-08-opus-stage4-exit.md` at that commit.
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
 - **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): GPT's review of the prewarming build (`e04b8d4`): not ready, seven findings, among them a partial-data base rate published as final (`audit/reviews/2026-11-08-gpt-prewarm-build.md`). The daily snapshot (about 87 min at 120/min) waits on the human's choice of option; GPT ranks a later session first, websocket closes second.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
