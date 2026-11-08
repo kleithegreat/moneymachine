@@ -430,6 +430,7 @@ def test_each_attempt_is_archived_at_its_actual_send_and_receipt_after_waits(tmp
 
 
 def test_a_sample_that_cannot_be_archived_is_not_swallowed_as_a_venue_failure(tmp_path, monkeypatch):
+    fake_clock(monkeypatch, [H + 5_000])
     m = market.Market(tmp_path / "m", market.Exchange(tmp_path / "x"))
     monkeypatch.setattr(m.sampler.http, "post", lambda url, json: httpx.Response(
         200, json=[None, {"name": "xyz"}] if json["type"] == "perpDexs" else DEX_REPLY,
@@ -610,7 +611,7 @@ def test_the_largest_admissible_initial_wave_fits(tmp_path, monkeypatch):
     assert len(list(market.read(m.sampler.archive, "marks"))) == count + 1
 
 
-def test_an_oversized_inventory_alarms_but_still_samples_each_dex_that_fits(tmp_path, monkeypatch, capsys):
+def test_later_inventory_cohorts_are_sampled_within_the_window(tmp_path, monkeypatch):
     clock, sent = [H + 5_000], []
     fake_clock(monkeypatch, clock)
     m = market.Market(tmp_path, market.Exchange(tmp_path / "x"))
@@ -629,7 +630,6 @@ def test_an_oversized_inventory_alarms_but_still_samples_each_dex_that_fits(tmp_
     assert len(sent) == count
     assert sum(t == H + 5_000 for _, t in sent) == count - 1
     assert all(t < H + market.MARK_WINDOW for _, t in sent)
-    assert "SAMPLING CAPACITY" in capsys.readouterr().err
     assert m.sampler.limiter.released == H + 5_000
 
 
@@ -718,7 +718,7 @@ def test_retry_admission_includes_the_backoff_before_its_seal_margin(tmp_path, m
         if json["type"] == "perpDexs":
             return httpx.Response(200, json=[{"name": "xyz"}], request=httpx.Request("POST", url))
         sent.append(clock[0])
-        clock[0] = max(clock[0], H + 229_500)
+        clock[0] = max(clock[0], H + 289_500)
         return httpx.Response(503, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(m.sampler.http, "post", post)

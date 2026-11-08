@@ -16,3 +16,4 @@ Starting point: `2229563`, branch `thesis-refreeze`. Answers Argon's web T3 revi
 ## Completed steps
 
 - FIFO foreground admission replaces racing foreground counters; sampling retains priority. `test_fifo_snapshot_cannot_starve_the_0005_resolution[20-6,21-5]` now resolves the real due thesis before the 90-minute status bound, despite adversarial snapshot-favored wakeups. Priority/funding-fill tests: 22 passed (`/tmp/opencode/round6-priority.log`).
+- Cohort pagination is inside each error wave, no longer an error attempt. The second-cohort failing dex retains six attempts; tests separately cover sends at H + 250 s and H + 289.999 s, and refusal at H + 290 s. Both send and receipt at the seal are excluded. Removed the obsolete capacity alarm and replaced the old 70-second give-up expectation. Mark/market tests: 140 passed (`/tmp/opencode/round6-marks.log`).

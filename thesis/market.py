@@ -137,12 +137,12 @@ def funding_page(page: Any, start: int, end: int) -> list[tuple[int, list[Any]]]
 
 def seal(samples: Iterable[tuple[int, int, float | None]]) -> dict[int, float]:
     """{H: markPx} sealed at H + MARK_WINDOW from (sent, recv, markPx) samples in archive order: the earliest
-    sample sent in [H, H + MARK_WINDOW) and received by then, ties in archive order; a missing or invalid mark
+    sample sent and received in [H, H + MARK_WINDOW), ties in archive order; a missing or invalid mark
     in it leaves H missing (stage 10 revision of 2026-10-23)."""
     out: dict[int, float | None] = {}
     for sent, recv, px in sorted(samples, key=lambda s: s[0]):
         h = sent // HOUR * HOUR
-        if h not in out and recv <= h + MARK_WINDOW:
+        if h not in out and h <= sent <= recv < h + MARK_WINDOW:
             out[h] = px
     return {h: px for h, px in out.items() if px is not None and math.isfinite(px) and px > 0}
 
@@ -398,9 +398,6 @@ class Market:
                     raise
                 names = json.loads(cache.read_text())
             slots = self.sampler.limiter.budget // 20 - 1
-            if len(names) > slots:
-                print(f"SAMPLING CAPACITY EXCEEDED: {len(names)} dexes need {20 * (1 + len(names))} weight, "
-                      f"allowance {self.sampler.limiter.budget}; not every dex can be sent at {due}", file=sys.stderr)
             if due > now_ms():
                 time.sleep((due - now_ms()) / 1000)
 
@@ -416,11 +413,13 @@ class Market:
                 for attempt in range(6):
                     if attempt:
                         time.sleep(2 ** (attempt - 1))
-                        if now_ms() + MARK_PREP + TIMEOUT * 1000 >= due - MARK_OFFSET + MARK_WINDOW:
+                    pending, names = names, []
+                    for at in range(0, len(pending), slots):
+                        if now_ms() + TIMEOUT * 1000 >= due - MARK_OFFSET + MARK_WINDOW:
+                            names.extend(pending[at:])
                             break
-                    batch, names = names[:slots], names[slots:]
-                    names += [d for d in pool.map(sample, batch) if d is not None]
-                    if not names:
+                        names.extend(d for d in pool.map(sample, pending[at:at + slots]) if d is not None)
+                    if not names or now_ms() + TIMEOUT * 1000 >= due - MARK_OFFSET + MARK_WINDOW:
                         break
             if names:
                 print(f"MARK SAMPLING INCOMPLETE for {due}: {names}", file=sys.stderr)
