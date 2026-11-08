@@ -18,7 +18,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 SSH = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4", "-o", "StrictHostKeyChecking=yes"]
-NODES = {"prodesk5": ("kevin@192.168.8.229", 6), "gmktec": ("kevin@192.168.8.153", 8)}
+NODES = {"prodesk5": ("kevin@192.168.8.229", 6), "gmktec": ("kevin@192.168.8.153", 8), "prodesk7": ("prodesk7", 5)}
+UNIT = "prodesk7"
+UNIT_STAGE = "/var/lib/mmtest/stage"
 ROOT = "/home/kevin/.cache/mm-runner"
 TMP = "/dev/shm/mm-runner"
 LOCAL = "local"
@@ -34,7 +36,8 @@ BOUND = 3900
 REMOTE = '''set -eu
 root=$1
 tmp=$2
-run=$3
+report=$3
+workers=$4
 export PATH=$PATH:/nix/var/nix/profiles/default/bin
 mkdir -p -m 700 "$root" && cd "$root"
 mkdir -p h
@@ -64,7 +67,7 @@ rsync -a "$root/in/files/" ./
 xargs -0 -r -a "$root/in/deleted" git rm -q -f --ignore-unmatch --
 xargs -0 -r -a "$root/in/manifest" git add -f --
 timeout 3600 nice -n 10 nix --extra-experimental-features 'nix-command flakes' develop -c env TMPDIR="$tmp" \\
-    pytest "@$root/in/ids" --shard-report "$root/report.$run.json" --basetemp "$tmp/p" -p no:cacheprovider -q
+    pytest -n "$workers" "@$root/in/ids" --shard-report "$report" --basetemp "$tmp/p" -p no:cacheprovider -q
 '''
 
 
@@ -77,7 +80,7 @@ def arguments(argv):
     args, selection = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
     machines = args.machines.split(",")
     if LOCAL not in machines or any(m != LOCAL and m not in NODES for m in machines) or len(set(machines)) != len(machines):
-        parser.error(f"--machines takes {LOCAL} and any of {', '.join(NODES)}; prodesk7 and every other node are refused")
+        parser.error(f"--machines takes {LOCAL} and any of {', '.join(NODES)}; every other node is refused")
     if any(a == "--basetemp" or a.startswith(("--basetemp=", "--junitxml", "-p", "-n", "--dist")) for a in selection):
         parser.error("the runner owns --basetemp, --junitxml, -p, -n and --dist")
     worktree = args.worktree.expanduser().resolve()
@@ -172,7 +175,7 @@ def run_node(worktree, host, ids, log, report):
         package(worktree, ids, tar_path)
         with tar_path.open("rb") as tar:
             try:
-                code = subprocess.run([*SSH, host, shlex.join(["bash", "-c", REMOTE, "bash", ROOT, TMP, run])], stdin=tar,
+                code = subprocess.run([*SSH, host, shlex.join(["bash", "-c", REMOTE, "bash", ROOT, TMP, f"{ROOT}/report.{run}.json", "auto"])], stdin=tar,
                                       stdout=log, stderr=subprocess.STDOUT, timeout=BOUND).returncode
             except subprocess.TimeoutExpired:
                 code = 124
@@ -182,6 +185,37 @@ def run_node(worktree, host, ids, log, report):
         return code
     if got.returncode == 0:
         Path(report).write_bytes(got.stdout)
+    return code
+
+
+def run_unit(worktree, host, ids, log, report, workers):
+    """prodesk7: stage the package for `mm-tests@<run>.service` (Homelab role mm-test-node), which runs REMOTE as mmtest
+    under its memory cap. The held stdin pipe is the unit's lifeline: if this process dies, the wrapper stops the unit."""
+    run = uuid.uuid4().hex[:8]
+    stage = f"{UNIT_STAGE}/{run}"
+    with tempfile.TemporaryDirectory(prefix="mm-shard-") as scratch:
+        tar_path = Path(scratch) / "in.tar.gz"
+        package(worktree, ids, tar_path)
+        prepare = ('find "$1" -mindepth 1 -maxdepth 1 -mmin +180 -exec rm -rf {} + ; umask 027 && mkdir -m 750 "$2" && cd "$2" && '
+                   'printf %s "$3" > run.sh && printf %s "$4" > workers && : > out.log && : > report.json && chmod 660 out.log report.json && cat > in.tar.gz')
+        with tar_path.open("rb") as tar:
+            put = subprocess.run([*SSH, host, shlex.join(["sh", "-c", prepare, "sh", UNIT_STAGE, stage, REMOTE, str(workers)])],
+                                 stdin=tar, stdout=log, stderr=subprocess.STDOUT, timeout=600).returncode
+    code = put
+    if not put:
+        with subprocess.Popen([*SSH, host, shlex.join(["sudo", "mm-tests", "start", run])], stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT) as start:
+            try:
+                code = start.wait(timeout=BOUND)
+            except subprocess.TimeoutExpired:
+                code = 124
+            start.stdin.close()
+        got = subprocess.run([*SSH, host, shlex.join(["cat", f"{stage}/out.log"])], capture_output=True, timeout=60)
+        log.write(got.stdout.decode(errors="replace"))
+        log.flush()
+        got = subprocess.run([*SSH, host, shlex.join(["cat", f"{stage}/report.json"])], capture_output=True, timeout=60)
+        if got.returncode == 0:
+            Path(report).write_bytes(got.stdout)
+    subprocess.run([*SSH, host, shlex.join(["rm", "-rf", stage])], capture_output=True, timeout=60)
     return code
 
 
@@ -255,7 +289,12 @@ def run(worktree, machines, selection):
         t = time.time()
         log, report = out / f"{m}{tag}.log", out / f"{m}{tag}.json"
         with log.open("w") as handle:
-            code = run_local(worktree, part, handle, report) if m == LOCAL else run_node(worktree, NODES[m][0], part, handle, report)
+            if m == LOCAL:
+                code = run_local(worktree, part, handle, report)
+            elif m == UNIT:
+                code = run_unit(worktree, NODES[m][0], part, handle, report, count[m])
+            else:
+                code = run_node(worktree, NODES[m][0], part, handle, report)
         walls[m] = time.time() - t
         print(f"  {m}{tag} finished: exit {code} in {walls[m]:.0f}s", flush=True)
         return m, code, shard_result(report)
