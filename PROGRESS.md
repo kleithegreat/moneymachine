@@ -15,18 +15,25 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued.
 - **Budget.** No campaign runs; every account is free for Claude work.
 
+### Wake-ups (2026-11-08, the human asleep)
+
+- **stage 4 C4.1 rebuild** (Sonnet, 10:15 UTC, 05:15 EST): items 1–3 of `audit/reviews/2026-11-08-opus-stage4-exit.md` on a new branch off main (C4.1's rewrites from `canon::rules()`, failing on its mutant m1; C4.2's additions; recorded cargo and full suites). Not exit.md, the paper or done.
+- **stage 4 C4.1 review** (Opus, 12:30 UTC, 07:30 EST): once that branch's commits exist, review them fresh against C4.1, C4.2 and m1; save under `audit/reviews/`; else reschedule +1 h.
+- **exporter finish** (Sonnet, 11:00 UTC, 06:00 EST): once `../mm-edge-bisect/data/scratch/report.json` exists (57 chunks), finish per `audit/stage7/edge-regression.md` and commit on `revision-exporter`; else reschedule +1 h.
+- **slice 3 review** (Opus, 13:30 UTC, 08:30 EST): unless `audit/stage7/slice3-review-opus.md` exists, review `slice3` per CLAUDE.md's Reviews (a C6.4 harness sample included) and save it there.
+
 ### Next, in order
 
-- **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands (paper appendix A).
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, GPT, three rounds): round three reviewed by Opus, not ready (`audit/reviews/2026-11-08-opus-thesis-refreeze-round3.md`); Sonnet built prewarming and range-bounded reservations (`e04b8d4`). Left: the daily snapshot (524 requests, about 87 min at 120/min, after the 00:02 UTC (19:02 EST) bar finality). GPT reviews the build and the options (a later session, a smaller snapshot, websocket closes) after 2026-11-08 10:25 UTC (05:25 EST).
+- **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round three not ready (`audit/reviews/2026-11-08-opus-thesis-refreeze-round3.md`); prewarming built (`e04b8d4`). Left: the daily snapshot, about 87 min at 120/min. GPT reviews the build and the options (later session, smaller snapshot, websocket closes) from 10:25 UTC (05:25 EST); the choice is the human's.
 - **Test runs on the cluster:** GPT built it on `cluster-tests` (`3d8002a`: Indexed Jobs, built once); its verification rerun is queued after GPT's reset, then a review on another model. Then the C6.4 harness on it.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Slice 3 built on `slice3` (`db474fd`); Opus reviewing. C6.4's edge market disagrees since slice 5: Lean's importer hard-codes `final` (`audit/stage7/edge-regression.md`, `c97c5f8`); the revision-carrying exporter is on `revision-exporter` (`3ccec64`, `../mm-edge-bisect`, chunk scratch now freed); its full harness run resumed, results in that worktree's `data/scratch/`. Next: slices 4 and 6 (Claude builds and reviews; GPT never, as C7.7's red team).
+- **Stage 7:** B3 frozen and slice 5 built and reviewed on `stage7` (`audit/stage7/slice5-*review-argon.md`); slice 3 on `slice3`, in review. C6.4's edge market disagrees since slice 5 (`audit/stage7/edge-regression.md`); the exporter on `revision-exporter` reruns the harness. Next: slices 4 and 6 (Claude only: GPT is C7.7's red team).
 
 
 2. **Stage 4: C4.1 to C4.4 tests and runs recorded, C4.5 v3 pass as written** (`audit/stage4/{runs-v3.txt,null-v3.jsonl,null-summary.json,exit-v3.md}`, `audit/decisions.md` 2026-11-08). Next: the final Opus review.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
-   1. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. C7.7's corpus also needs a registry and certificates.
+   1. The Rust kernel to the same definitions under the corpus differential (`audit/stage7/rust-port-plan.md` there). When stage 7 merges, the paper's snapshot-only point-in-time paragraph changes with it. C7.7's corpus also needs a registry and certificates.
    2. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
    - Judged runs wait for the rebase onto the pilot's baseline commit.
    - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
