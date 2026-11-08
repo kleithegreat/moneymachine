@@ -45,3 +45,5 @@ Full suite: python3 ops/shards.py /home/kevin/repos/mm-s4-exit (data/store linke
   Rerun of both after the fix: 2 passed (with ops/test_progress.py: 3 passed). The sharded run itself was not clean; no other test failed.
 Kernel cargo suite: CARGO_TARGET_DIR=$HOME/.cache/cargo-s4exit TMPDIR=/tmp nix develop -c cargo test --release (in kernel/):
   all test results ok: lib 2, adversarial 2, bench 0 (1 ignored), canary 2, canon 3, events 4, fixtures 18, keys 3, rules 8 (316.85s); 0 failed.
+
+2026-11-08 17:04 UTC (12:04 EST), advisor: full sharded suite at bef0b8a (the exit commit), clean: 1734 of 1734 reported, 1708 passed, 1 skipped, 25 xfailed, 0 missing; wall 231 s. This is exit item 3's clean run; the earlier run's thesis crash-recovery failure is a pre-existing load-dependent defect queued for the refreeze (PROGRESS).
