@@ -56,4 +56,24 @@ The dated proposal is `audit/stage10/criteria-revision-draft.md`, **not** an edi
 - The first completed data-masked run (`round4-full-dataless-final.log`) reported **1,327 passed, 5 failed, 2 skipped, 19 xfailed**, 908.04 s. Two failures were genuinely absent-store inputs: `kernel/tests/cli/test_differential.py::test_kernel_matches_witness` and `reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit`. The other three were two ten-second multiprocessing startup timeouts in `gate/tests/test_compute.py` and an xdist worker crash during the synthetic positions differential. This run shared a 6 GiB-capped host workload with focused checks and spanned the repair follow-up; it is not final stable-tree evidence. No threshold or test is relaxed for those failures. The final run uses the stable committed implementation, an 8 GiB scope, no concurrent focused suite and the same private data mask.
 - An additional 200 seeded permutations through the actual `WeightLimit(120)` packed below the 701-minute order-independent bound; the maximum shuffled wait was 603 minutes. The 632-minute ordered example remains separately pinned in the permanent test.
 
+## Final stable-tree validation
+
+Implementation through `1160c7b`, with no source edits during the run:
+
+```sh
+systemd-run --user --scope -p MemoryMax=8G -p MemorySwapMax=1G \
+  choom -n 1000 -- nix develop -c bwrap --bind / / --dev-bind /dev /dev \
+  --tmpfs /home/kevin/repos/mm-thesis-rf/data -- \
+  env TMPDIR=/tmp pytest -n auto -q
+```
+
+**1,332 passed, 2 failed, 2 skipped, 19 xfailed**, 425.32 s (`/tmp/opencode/round4-full-final.log`). Both failures are the requested absent-data/store failures:
+
+1. `kernel/tests/cli/test_differential.py::test_kernel_matches_witness` — missing `data/store/policy.json`.
+2. `reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit` — missing `data/store/funding` revisions.
+
+There is no third absent-store failure on this tree: `reference/tests/test_lean_differential.py::test_verdicts_agree` passes. The earlier multiprocessing timeouts and synthetic positions worker crash did not recur. No test was skipped, weakened or marked xfail to hide those failures; the two skips and 19 remaining expected failures are unchanged. The old snapshot-tail expected failure is now a passing test under the proposed schedule, not evidence that the original schedule passed.
+
+`PROGRESS.md` now points to this build and the unadopted draft. Independent review and the remaining capacity/coordination dispositions are still required before a new freeze. No push, deployment, freeze, live workload control or protected-row inspection was performed to finish the work.
+
 **Final run (recorded by the advisor, 2026-11-08 17:42 UTC (12:42 EST)):** the data-masked full suite at `1160c7b` (`/tmp/opencode/round4-full-final.log`): 1,332 passed, 2 failed, 2 skipped, 19 xfailed, 425 s. The two failures are the masked-store tests (`test_kernel_matches_witness`, `test_runs_agree_bit_for_bit`); no other failure.

@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
-- **Thesis refreeze:** round four built, unreviewed/undeployed; `audit/reviews/2026-11-08-gpt-refreeze-round4-build.md`. Proposed timing: `audit/stage10/criteria-revision-draft.md`; criteria and manifest unchanged.
+- **Thesis refreeze:** round four built, unreviewed/undeployed; `audit/reviews/2026-11-08-gpt-refreeze-round4-build.md`. Data-less suite: 1,332 passed, two absent-store failures (named there), two skipped, 19 xfailed. Proposed timing: `audit/stage10/criteria-revision-draft.md`; criteria and manifest unchanged.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Next: slices 3, 4 and 6 (Sonnet builds, Argon reviews; GPT never, as C7.7's red team).
 
