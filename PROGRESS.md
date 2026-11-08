@@ -16,6 +16,11 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Budget.** No campaign runs. GPT's weekly allowance is nearly spent until about 2026-11-13; Argon's is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST). Claude builds and reviews meanwhile, labeled Claude-only.
 
+### Wake-ups (2026-11-08, fallbacks if the advisor's session has closed)
+
+- **refreeze round six review** (Opus, 23:30 UTC (18:30 EST)): skip if `audit/reviews/2026-11-08-opus-thesis-refreeze-round6.md` is committed on `main`. Otherwise the last review before the refreeze: `thesis-refreeze` three-dot from `2229563` (round six, `audit/reviews/2026-11-08-gpt-refreeze-round6-build.md` there), answering `audit/reviews/2026-11-08-argon-web-refreeze-t3.md`, in a fresh worktree without `data/`: reproduce each Argon construction against the new code, hunt regressions near round six's fixes, check T3 and the criteria draft against the code and the human's decisions (`audit/decisions.md`, 2026-11-08), run the sharded suite; write and commit the review there (ready / after fixes / not ready). No freeze or deploy.
+- **stage7 slice 4 fixes** (Opus, after the review): skip if `slice4` is pushed with its fixes rechecked. Otherwise finish the fixes to `audit/stage7/slice4-review-argon.md` on `slice4` (`../mm-slice4`; fixes at `b94cba6`, `SEMANTICS.md` edit uncommitted): rerun `cargo test --release`, the C6.4 harness and the byte comparison against `933b3f4` and `794860d` on N1-N3, explain any newly differing run, commit, push. Do not merge: Argon rechecks it.
+
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
