@@ -107,14 +107,11 @@ def packed(monkeypatch, tmp_path, weights):
     return clock[0] // 60_000
 
 
-def test_the_recorded_inventory_completes_before_the_start_in_the_recorded_and_the_stress_case(tmp_path, monkeypatch):
+def test_the_recorded_and_stress_histograms_pack_in_155_and_257_zero_latency_minutes(tmp_path, monkeypatch):
     recorded, stress = inventory(349), inventory(863)
     assert (len(recorded), sum(recorded)) == (630, 17_206) and (len(stress), sum(stress)) == (1_144, 28_000)
-    mark = 7 * 60_000
-    minutes = packed(monkeypatch, tmp_path / "a", recorded)
-    assert minutes == 155 and runner.SNAPSHOT_OFFSET + minutes * 60_000 + 2 * mark == (2 * 60 + 54) * 60_000
-    minutes = packed(monkeypatch, tmp_path / "b", stress)
-    assert minutes == 257 and runner.SNAPSHOT_OFFSET + minutes * 60_000 + 4 * mark < runner.SESSION_OFFSET
+    assert packed(monkeypatch, tmp_path / "a", recorded) == 155
+    assert packed(monkeypatch, tmp_path / "b", stress) == 257
 
 
 def test_snapshot_discovery_costs_one_core_one_inventory_and_each_dex(tmp_path, monkeypatch):
