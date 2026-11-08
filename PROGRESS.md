@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the next thesis refreeze, DSL.md's after the pilot, and stage 7's specs when stage 7 lands; rationale: paper appendix A.
-- **Thesis refreeze:** round three, blocked/undeployed; review and dispositions: `audit/decisions.md`.
+- **Thesis refreeze:** round four built, unreviewed/undeployed; `audit/reviews/2026-11-08-gpt-refreeze-round4-build.md`. Proposed timing: `audit/stage10/criteria-revision-draft.md`; criteria and manifest unchanged.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **B3 frozen** on `stage7` (`7bf79df`). **Slice 5 built** on `stage7` (`eff52b0`, Sonnet): Python, Rust and GPT's sealed resolver equal Lean on every frozen case; Argon's review (ten findings) and re-review (sound) in `audit/stage7/slice5-*review-argon.md`. Development runs only; C7.6 is judged after the rebase. Next: slices 3, 4 and 6 (Sonnet builds, Argon reviews; GPT never, as C7.7's red team).
 
@@ -41,8 +41,7 @@ Open research question after stage 4: does memory across campaigns help agents w
 
 ## Blockers
 
-- **Round-four paper correction pending:** T3's partial-history comparator policy contradicts the human's 2026-11-08 decision; its cold-fill model double-counts no probes, understates mandatory repairs/discovery, and assumes undocumented floor rounding. Redo from actual calls using ceiling, then propose a completion-bound later session in a draft criteria revision; no criteria, freeze or deployment authorized here.
-- **Thesis refreeze blocked (Opus 2/6, round three A):** the human chose a later session (2026-11-08), not WebSocket closes. Round-four acquisition fixes are in development; the snapshot schedule still fails strictly. More than five dexes exceed the initial mark wave; shared-IP coordination remains unproved. No freeze/deployment; revisions require review.
+- **Thesis refreeze adoption blocked:** round-four regressions pass and T3/PDF are rebuilt; the proposed later session has a conditional completion bound, not a daily availability guarantee. More than five dexes exceed the initial mark wave; shared-IP coordination and foreground service bounds remain unproved. Independent review, dated criteria adoption and a new forward-window decision precede any freeze/deployment.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Capacity guard not deployed:** rollout and visible synthetic desktop alarm check in `CLUSTER.md` §5. O2 states the chosen reserve and offline limitation, not a response-time guarantee.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
