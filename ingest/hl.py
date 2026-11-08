@@ -28,7 +28,7 @@ class WeightLimit:
         self.budget = budget
         self.spent: list[tuple[float, int]] = []
         self.lock = threading.Lock()
-        self.foreground = 0
+        self.foreground: list[object] = []
         self.holds = 0
 
     def delay(self, priority: bool) -> float:
@@ -46,28 +46,29 @@ class WeightLimit:
                 self.holds -= 1
 
     def charge(self, weight: int, priority: bool = False, background: bool = False) -> None:
-        """Admit `weight` within the rolling minute. A background charge also waits while a foreground one waits or a hold
-        is on; it never takes a foreground charge's place in the queue, though weight it already spent stays spent."""
+        """Admit foreground callers FIFO, priority sampling ahead of them, and background only outside holds and the queue."""
         if not 0 <= weight <= self.budget:
             raise ValueError(f"weight {weight} exceeds per-minute budget {self.budget}")
-        if not background:
+        ticket = object() if not background and not priority else None
+        if ticket is not None:
             with self.lock:
-                self.foreground += 1
+                self.foreground.append(ticket)
         try:
             while True:
                 with self.lock:
                     now = time.monotonic()
                     self.spent = [(t, w) for t, w in self.spent if now - t < 60]
-                    delay = self.delay(priority) or (0.25 if background and (self.foreground or self.holds) else 0)
+                    queued = ticket is not None and self.foreground[0] is not ticket
+                    delay = self.delay(priority) or (0.25 if queued or background and (self.foreground or self.holds) else 0)
                     if not delay and sum(w for _, w in self.spent) + weight <= self.budget:
                         self.spent.append((now, weight))
                         return
                     wait = delay or max(0.001, self.spent[0][0] + 60 - now)
                 time.sleep(wait)
         finally:
-            if not background:
+            if ticket is not None:
                 with self.lock:
-                    self.foreground -= 1
+                    self.foreground.remove(ticket)
 
 
 class Info:
