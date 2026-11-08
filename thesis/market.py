@@ -487,6 +487,10 @@ class Market:
                 self.repaired[path, background] = now_ms()
         return [r for r in self._funding_load(path)[0] if r[0] <= now]
 
+    def hold(self) -> contextlib.AbstractContextManager[None]:
+        """While held, background reads wait: a session's reads never compete with a fill."""
+        return self.x.limiter.hold()
+
     def ready(self, market: str, now: int) -> bool:
         """Whether the venue has sent the market's whole funding scope up to the last UTC midnight."""
         _, fetched = self._funding_load(self._funding_path(market))

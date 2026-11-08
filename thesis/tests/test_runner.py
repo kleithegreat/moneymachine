@@ -2,6 +2,7 @@
 benchmark's rule and skips, ablation inputs cut at registration, the Monday arithmetic, and the wait for a
 session's readiness."""
 
+import contextlib
 import json
 import signal
 import subprocess
@@ -40,7 +41,11 @@ class FakeMarket:
                     if (market != "flx:OIL" or t != MONDAY // DAY - 2) and (now is None or (t + 1) * DAY + DELTA <= now)]
         return [[h * HOUR, 100.0, 100.0] for h in range(MONDAY // HOUR - 200, min(self.until, now or self.until) // HOUR)]
 
-    def funding(self, market, now=None):
+    def hold(self):
+        return contextlib.nullcontext()
+
+    def funding(self, market, now=None, start=None):
+        self.calls.append(("funding", market, start))
         return [[h * HOUR, 0.0] for h in range((MONDAY // DAY - 400) * 24, min(self.until, now or self.until) // HOUR + 1)]
 
     def lag(self, market):
@@ -363,10 +368,10 @@ def failing_once(market, m):
     """`market`'s funding raises for `m` until the returned list is cleared."""
     armed, funding = [1], market.funding
 
-    def wrapped(name, now=None):
+    def wrapped(name, now=None, start=None):
         if name == m and armed:
             raise httpx.TransportError("down")
-        return funding(name, now)
+        return funding(name, now, start)
 
     market.funding = wrapped
     return armed
@@ -471,10 +476,10 @@ def test_a_market_that_hangs_holds_up_no_status(track, monkeypatch):
     entered, release = threading.Event(), threading.Event()
     funding = track.market.funding
 
-    def hung(name, now=None):
+    def hung(name, now=None, start=None):
         entered.set()
         release.wait(30)
-        return funding(name, now)
+        return funding(name, now, start)
 
     track.market.funding = hung
     resolving = threading.Thread(target=track.resolve, args=(T + runner.RESOLUTION_GRACE,))
@@ -594,7 +599,7 @@ def test_a_market_delisted_while_its_inputs_are_prepared_is_refused(track, monke
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     snapshot = track.snapshot(MONDAY)
     funding = track.market.funding
-    track.market.funding = lambda name, now=None: (track.market.delisted.add("BTC"), funding(name, now))[1]
+    track.market.funding = lambda name, now=None, start=None: (track.market.delisted.add("BTC"), funding(name, now, start))[1]
     out = registration(track, snapshot)
     assert not out["ok"] and "legs: BTC is not listed" in out["errors"]
 
@@ -623,7 +628,7 @@ def test_a_horizon_exit_frees_its_reservation_for_the_session_of_that_morning(tm
         def candles(self, market, interval, start, end):
             return [{"t": h * HOUR, "o": "100", "c": "100"} for h in hours if start <= h * HOUR < end]
 
-        def funding(self, market, start, end):
+        def funding_page(self, market, start, end, background=False):
             return [{"time": h * HOUR, "fundingRate": "0"} for h in hours if start <= h * HOUR < end]
 
     m = runner.Market(tmp_path, Venue())
@@ -638,7 +643,7 @@ def test_healthy_theses_are_scored_while_an_unrelated_market_hangs(track, monkey
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     track.benchmark(MONDAY)
     release, funding = threading.Event(), track.market.funding
-    track.market.funding = lambda name, now=None: release.wait(60) and funding(name, now) if name == "ETH" else funding(name, now)
+    track.market.funding = lambda name, now=None, start=None: release.wait(60) and funding(name, now, start) if name == "ETH" else funding(name, now, start)
     resolving = threading.Thread(target=track.resolve, args=(MONDAY + 21 * DAY + HOUR,))
     resolving.start()
     try:
@@ -659,13 +664,90 @@ def test_a_failing_market_is_read_once_a_pass_whatever_number_of_theses_need_it(
         track.ledger.disclose("thesis", "noread", {**th, "id": f"noread-{th['id']}", "account": "noread"})
     reads, funding = [], track.market.funding
 
-    def failing(name, now=None):
+    def failing(name, now=None, start=None):
         reads.append(name)
         if name == "ETH":
             raise httpx.TransportError("down")
-        return funding(name, now)
+        return funding(name, now, start)
 
     track.market.funding = failing
     track.resolve(MONDAY + 21 * DAY + HOUR)
     assert sorted(reads) == sorted(th["legs"][0][0] for th in track.ledger.theses("benchmark"))
     assert len(track.ledger.records("resolution")) == 6
+
+
+def test_a_session_read_depends_on_the_account_replay_and_never_on_history_it_does_not_need(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    track.market.calls.clear()
+    track.replay("benchmark", MONDAY + HOUR)
+    assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY + 60_000}
+    track.market.calls.clear()
+    track.inputs("benchmark", ["X"], MONDAY + HOUR, {"daily": {}})
+    starts = {c[1]: c[2] for c in track.market.calls if c[0] == "funding"}
+    assert starts["X"] == MONDAY + HOUR and starts["BTC"] == MONDAY + 60_000
+
+
+def test_a_resolution_read_starts_at_the_earliest_due_registration_of_its_market(track, monkeypatch):
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    track.benchmark(MONDAY)
+    track.market.until = MONDAY + 21 * DAY + HOUR
+    track.market.calls.clear()
+    track.resolve(MONDAY + 21 * DAY + HOUR)
+    assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY + 60_000}
+
+
+def test_the_background_fill_goes_benchmark_first_and_survives_a_failing_market(track, capsys):
+    done = []
+
+    def prewarm(m, now, stop):
+        done.append(m)
+        if m == "BTC":
+            raise httpx.ReadTimeout("slow")
+
+    track.market.prewarm = prewarm
+    track.prewarm()
+    assert done == [*runner.BENCHMARK, "X"] and "BTC" in capsys.readouterr().out
+
+
+def test_the_background_fill_stops_when_told(track):
+    done = []
+    track.market.prewarm = lambda m, now, stop: (done.append(m), track.stop.set())
+    track.prewarm()
+    assert done == ["BTC"]
+
+
+def test_a_session_holds_the_background_fill_off(track, monkeypatch):
+    held = []
+
+    @contextlib.contextmanager
+    def hold():
+        held.append(1)
+        yield
+        held.append(0)
+
+    track.market.hold = hold
+    monkeypatch.setattr(runner.harness, "run_session", lambda *a, **k: held.append("run") or {"kind": "main"})
+    monkeypatch.setattr(runner.harness, "audit", lambda *a: {})
+    track.session("main", MONDAY, {"taken": MONDAY}, runner.MAIN_COMMANDS)
+    assert held == [1, "run", 0]
+
+
+def test_a_freeze_waits_for_every_listed_market_to_have_its_funding_history(monkeypatch, tmp_path):
+    class Cold:
+        def __init__(self, *_):
+            pass
+
+        def listings(self):
+            return {"BTC": False, "OLD": True, "ETH": False}
+
+        def ready(self, m, now):
+            return m == "BTC"
+
+    monkeypatch.setattr(runner, "Market", Cold)
+    monkeypatch.setattr(runner, "Exchange", lambda *_: None)
+    monkeypatch.setattr(runner, "FROZEN", tmp_path / "manifest.json")
+    monkeypatch.setattr(runner.canary, "check", lambda: None)
+    with pytest.raises(SystemExit, match=r"not ready for 1 listed markets, such as \['ETH'\]"):
+        runner.freeze()
+    assert not (tmp_path / "manifest.json").exists()

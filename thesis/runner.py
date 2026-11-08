@@ -18,6 +18,8 @@ from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import httpx
+
 from gate import kernel
 from ingest.fallback import fill_missing
 from ingest.live import now_ms
@@ -36,6 +38,7 @@ SESSION_OFFSET = 10 * 60_000
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
 INITIAL = 10_000.0
+PREWARM_EVERY = 15 * 60_000  # between passes of the background funding fill
 RESOLUTION_GRACE = 90 * 60_000  # well before C10.5's two hours; `deadlines` reads only the ledger, each minute
 MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
 NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
@@ -79,19 +82,30 @@ class Track:
         costs, fallback = fill_missing(cells, sorted(markets))
         return {"initial": INITIAL, "fee": fee, "costs": costs, "fallback": fallback}
 
-    def read(self, market: str, now: int) -> Json:
-        """A market's hourly bars, funding and lag as of `now`."""
-        return {"bars": scoring.bars(self.market.bars(market, "1h", now)), "funding": dict(self.market.funding(market, now)),
-                "lag": self.market.lag(market)}
+    def read(self, market: str, now: int, start: int | None = None) -> Json:
+        """A market's hourly bars, funding and lag as of `now`: every cached funding row, the venue asked only about
+        [start, now), the whole scope by default (a read in a session passes where its own dependency begins; the background
+        fill makes the rest ready)."""
+        return {"bars": scoring.bars(self.market.bars(market, "1h", now)),
+                "funding": dict(self.market.funding(market, now, start)), "lag": self.market.lag(market)}
 
-    def data(self, markets: Iterable[str], now: int) -> Json:
-        return joined({m: self.read(m, now) for m in markets}, now)
+    def data(self, markets: Iterable[str], now: int, starts: Json | None = None) -> Json:
+        return joined({m: self.read(m, now, (starts or {}).get(m)) for m in markets}, now)
+
+    def starts(self, theses: Iterable[Json]) -> Json:
+        """{market: the earliest registration of `theses` in it}: where its funding dependency begins."""
+        out: Json = {}
+        for th in theses:
+            for m, _ in th["legs"]:
+                out[m] = min(out.get(m, th["t_r"]), th["t_r"])
+        return out
 
     def inputs(self, account: str, markets: Iterable[str], now: int, snapshot: Json) -> tuple[Json, Json]:
         """A registration's (config, data): the account's and the new thesis's markets as of `now`, the session snapshot's
         daily bars, and the listing read the commit makes."""
         markets = set(self.markets_of(account)) | set(markets)
-        return self.config(markets), {**self.data(markets, now), "listed": self.market.listed,
+        starts = dict.fromkeys(markets, now) | self.starts(self.ledger.theses(account))
+        return self.config(markets), {**self.data(markets, now, starts), "listed": self.market.listed,
                                       "daily": {m: scoring.bars(snapshot["daily"].get(m, [])) for m in markets}}
 
     def markets_of(self, account: str) -> list[str]:
@@ -99,7 +113,7 @@ class Track:
 
     def replay(self, account: str, now: int) -> Json:
         return positions.run(INITIAL, self.ledger.theses(account), self.ledger.exits(account),
-                             self.data(self.markets_of(account), now), now)
+                             self.data(self.markets_of(account), now, self.starts(self.ledger.theses(account))), now)
 
     def snapshot(self, now: int) -> Json:
         """The market snapshot taken at `now`: the one already saved under that time, else a new one saved."""
@@ -109,16 +123,17 @@ class Track:
             return saved
         listings = self.market.listings()
         markets, daily = {}, {}
-        for m, delisted in sorted(listings.items()):
-            if delisted:
-                continue
-            d = self.market.bars(m, "1d", now)
-            if len(d) < registry.MIN_DAILY_BARS:
-                continue
-            h = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
-            if h:
-                markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
-                daily[m] = d
+        with self.market.hold():
+            for m, delisted in sorted(listings.items()):
+                if delisted:
+                    continue
+                d = self.market.bars(m, "1d", now)
+                if len(d) < registry.MIN_DAILY_BARS:
+                    continue
+                h = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
+                if h:
+                    markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
+                    daily[m] = d
         snap = {"taken": now, "listings": listings, "markets": markets, "daily": daily}
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
@@ -141,13 +156,33 @@ class Track:
                                                "manifest": self.manifest})
         work = self.root / "sessions" / self.version / name
         try:
-            run = harness.run_session(work, kind, lambda sock: self.daemon(sock, name, kind, snapshot, commands, ablation_of), task)
+            with self.market.hold():
+                run = harness.run_session(work, kind, lambda sock: self.daemon(sock, name, kind, snapshot, commands, ablation_of), task)
         except Exception as e:
             run = {"kind": kind, "error": repr(e)}
         else:
             calls = [c for _, _, c in self.ledger.records("call", kind) if c["session"] == name]
             run["audit"] = harness.audit(work / "transcript.jsonl", calls)
         self.ledger.disclose("session_end", kind, {"session": name, **run})
+
+    def warm_order(self) -> list[str]:
+        """The listed markets the background fill keeps ready, the benchmark's first, then the accounts', then the rest: a
+        market not yet eligible is filled too, so it is ready when it becomes one."""
+        live = [m for m, delisted in sorted(self.market.listings().items()) if not delisted]
+        first = [*BENCHMARK, *(m for account in ACCOUNTS for m in self.markets_of(account))]
+        return [m for m in dict.fromkeys([*first, *live]) if m in live]
+
+    def prewarm(self) -> None:
+        """One pass of the background fill, read again from the listings after an hour. A failed market stays pending with
+        the pages it has, and the pass goes on to the next."""
+        began = now_ms()
+        for m in self.warm_order():
+            if self.stop.is_set() or now_ms() - began >= HOUR:
+                return
+            try:
+                self.market.prewarm(m, now_ms(), self.stop)
+            except (httpx.HTTPError, ValueError) as e:
+                print(time.strftime("%FT%T"), "prewarm", m, repr(e), flush=True)
 
     def settled(self) -> set[str]:
         """Every session on the record as started or missed: none of them runs again."""
@@ -243,8 +278,9 @@ class Track:
         holds up only the theses that need it. A record's `at` is when it was written and its `cutoff` the data's."""
         done = {c["id"] for _, _, c in self.ledger.records("resolution") if c["status"] == "resolved"}
         due = [(account, th) for account in ACCOUNTS for th in self.ledger.theses(account) if th["T"] <= now and th["id"] not in done]
+        starts = self.starts(th for _, th in due)
         with ThreadPoolExecutor(max(len(due), 1)) as pool:
-            reads = {m: pool.submit(self.read, m, now) for m in {m for _, th in due for m, _ in th["legs"]}}
+            reads = {m: pool.submit(self.read, m, now, starts[m]) for m in starts}
             for _ in as_completed(reads.values()):
                 ready = {th["id"] for _, th in due if all(reads[m].done() for m, _ in th["legs"])}
                 for account, th in [(a, th) for a, th in due if th["id"] in ready]:
@@ -301,6 +337,7 @@ class Track:
         loops = [threading.Thread(target=forever, args=("resolve", lambda: self.resolve(now_ms()), lambda now: 300_000, stop)),
                  threading.Thread(target=forever, args=("deadlines", lambda: self.deadlines(now_ms()), lambda now: 60_000, stop)),
                  threading.Thread(target=hourly_marks, args=(self.market.record_marks, stop)),
+                 threading.Thread(target=forever, args=("prewarm", self.prewarm, lambda now: PREWARM_EVERY, stop)),
                  threading.Thread(target=forever, args=("benchmarks", lambda: self.benchmarks(now_ms(), frozen["frozen"]),
                                                         lambda now: 60_000, stop))]
         for t in loops:
@@ -370,6 +407,11 @@ def freeze() -> None:
     """Record the manifest, with the kernel binary pinned, once the sandbox canary passes: the start of a track version
     and of C10.5's observation window."""
     canary.check()
+    market = Market(ROOT / "market", Exchange(ROOT / "exchange"))
+    cold = [m for m, delisted in sorted(market.listings().items()) if not delisted and not market.ready(m, now_ms())]
+    if cold:
+        raise SystemExit(f"funding history is not ready for {len(cold)} listed markets, such as {cold[:5]}: let the background "
+                         "fill finish before the freeze")
     manifest = harness.manifest_hash(pinned_kernel(ROOT, fresh=True))
     FROZEN.parent.mkdir(parents=True, exist_ok=True)
     old = json.loads(FROZEN.read_text()) if FROZEN.exists() else None
