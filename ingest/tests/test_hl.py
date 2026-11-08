@@ -33,7 +33,7 @@ def test_an_impossible_charge_is_rejected_without_waiting(monkeypatch):
 def test_recorder_requests_keep_base_then_actual_item_charging(monkeypatch, body, per_items):
     info = hl.Info(360)
     charged = []
-    monkeypatch.setattr(info, "_charge", charged.append)
+    monkeypatch.setattr(info, "_charge", lambda weight, background=False: charged.append(weight))
 
     def reply(req):
         assert charged == [20]
@@ -48,7 +48,7 @@ def test_shared_client_charges_only_returned_items_after_a_full_page(monkeypatch
     info = hl.Info(120)
     page = [{"t": i * hl.HOUR} for i in range(4800)]
     charged = []
-    monkeypatch.setattr(info, "_charge", charged.append)
+    monkeypatch.setattr(info, "_charge", lambda weight, background=False: charged.append(weight))
 
     def reply(req):
         assert charged == [20]
