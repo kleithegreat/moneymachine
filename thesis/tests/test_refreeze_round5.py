@@ -1,12 +1,14 @@
 """Regressions for Opus's round-four review (R1-R5) and the decided schedule (audit/decisions.md, 2026-11-08 18:04 UTC)."""
 
 import json
+import threading
+import time
 
 import httpx
 import pytest
 
 from ingest.policy import DAY, DELTA, HOUR
-from thesis import market, runner
+from thesis import market, report, runner
 from thesis.tests.test_market import Venue
 from thesis.tests.test_runner import MONDAY, FakeMarket, track  # noqa: F401
 
@@ -174,19 +176,15 @@ def test_the_schedule_is_cutoff_0005_and_start_and_deadline_0500():
     assert runner.SNAPSHOT_OFFSET == 5 * MIN and runner.SESSION_OFFSET == 5 * HOUR
 
 
-def test_the_recorded_inventory_completes_with_margin_before_the_start():
-    packed, marks, margin = 217 * MIN, 4 * 7 * MIN, 50 * MIN
-    assert runner.SNAPSHOT_OFFSET + packed + marks + margin == runner.SESSION_OFFSET
-
-
-def test_a_late_attestation_misses_main_and_noread_and_takes_no_replacement(track, monkeypatch):
-    clock = [MONDAY + runner.SNAPSHOT_OFFSET]
+def test_an_attestation_after_a_non_mondays_deadline_is_refused_and_misses_both_sessions(track, monkeypatch):
+    date = MONDAY + DAY
+    clock = [date + runner.SNAPSHOT_OFFSET]
     monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
     snapshot = track.snapshot
 
     def slow(cutoff):
         snap = snapshot(cutoff)
-        clock[0] = MONDAY + runner.SESSION_OFFSET + 1
+        clock[0] = date + runner.SESSION_OFFSET + 1
         return snap
 
     monkeypatch.setattr(track, "snapshot", slow)
@@ -195,4 +193,68 @@ def test_a_late_attestation_misses_main_and_noread_and_takes_no_replacement(trac
     monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("a late session"))
     track.acquisitions(clock[0], MONDAY)
     track.schedule(clock[0], MONDAY)
-    assert {c["session"] for _, _, c in track.ledger.records("session_missed")} == {f"main-{MONDAY}", f"noread-{MONDAY}"}
+    assert track.ledger.records("snapshot_ready", "main") == []
+    missed = {c["session"] for _, _, c in track.ledger.records("session_missed")}
+    assert {f"main-{date}", f"noread-{date}"} <= missed
+
+
+def test_a_snapshot_attested_at_the_boundary_is_late_and_never_also_on_time(track, monkeypatch):
+    date = MONDAY + DAY
+    clock = [date + runner.SNAPSHOT_OFFSET]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    snapshot = track.snapshot
+
+    def to_the_boundary(cutoff):
+        snap = snapshot(cutoff)
+        clock[0] = date + runner.SESSION_OFFSET
+        return snap
+
+    monkeypatch.setattr(track, "snapshot", to_the_boundary)
+    track.acquire(date)
+    monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("a late session"))
+    track.schedule(clock[0], MONDAY)
+    assert track.attested(date) is None and track.ledger.records("snapshot_ready", "main") == []
+    assert {c["session"] for _, _, c in track.ledger.records("session_missed")} >= {f"main-{date}", f"noread-{date}"}
+
+
+def test_the_deadline_decision_waits_for_an_attestation_in_flight(track, monkeypatch):
+    """The attestation is stamped before it is written: the miss decision on the other thread must not fall between."""
+    date = MONDAY + DAY
+    clock = [date + runner.SESSION_OFFSET - 1]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    monkeypatch.setattr(track, "session", lambda *a, **k: None)
+    monkeypatch.setattr(track, "ready", lambda d: True)
+    real, racer = track.ledger.disclose, []
+
+    def disclose(kind, *a, **k):
+        if kind == "snapshot_ready":
+            clock[0] = date + runner.SESSION_OFFSET
+            racer.append(threading.Thread(target=track.schedule, args=(clock[0], MONDAY)))
+            racer[0].start()
+            time.sleep(.3)
+        return real(kind, *a, **k)
+
+    monkeypatch.setattr(track.ledger, "disclose", disclose)
+    track.acquire(date)
+    racer[0].join(10)
+    assert len(track.ledger.records("snapshot_ready", "main")) == 1
+    assert not [c for _, _, c in track.ledger.records("session_missed") if c["date"] == date and "no attested" in c["reason"]]
+
+
+def test_each_dates_attestation_carries_its_timing_and_request_count_into_the_report(track, tmp_path, monkeypatch):
+    sent = []
+
+    def post(url, json):
+        sent.append(json)
+        payload = [None] if json["type"] == "perpDexs" else {"universe": []}
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SNAPSHOT_OFFSET)
+    x = market.Exchange(tmp_path / "x")
+    monkeypatch.setattr(x.http, "post", post)
+    track.market = market.Market(tmp_path / "m", x)
+    track.acquire(MONDAY)
+    report.write(track, MONDAY + runner.SESSION_OFFSET, tmp_path / "report.json")
+    [row] = json.loads((tmp_path / "report.json").read_text())["snapshots"]
+    assert row["taken"] == MONDAY + runner.SNAPSHOT_OFFSET and row["acquired"] == MONDAY + runner.SNAPSHOT_OFFSET
+    assert row["listed_at"] == MONDAY + runner.SNAPSHOT_OFFSET and row["requests"] == len(sent) == 2

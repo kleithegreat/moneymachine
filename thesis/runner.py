@@ -63,6 +63,7 @@ class Track:
     def __init__(self, root: str | Path = ROOT) -> None:
         self.root = Path(root)
         self.stop = threading.Event()
+        self.attestation = threading.Lock()
         kernel = pinned_kernel(self.root)
         self.manifest = harness.manifest_hash(kernel)
         self.version = f"thesis-{self.manifest[:12]}"
@@ -126,7 +127,7 @@ class Track:
         if path.exists():
             saved: Json = json.loads(path.read_text())
             return saved
-        markets, daily = {}, {}
+        markets, daily, before = {}, {}, self.market.sent()
         with self.market.hold():
             listed_at = now_ms()
             listings = self.market.listings()
@@ -140,7 +141,8 @@ class Track:
                 if h:
                     markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
                     daily[m] = d
-        snap = {"taken": now, "listed_at": listed_at, "listings": listings, "markets": markets, "daily": daily}
+        snap = {"taken": now, "listed_at": listed_at, "requests": self.market.sent() - before, "listings": listings,
+                "markets": markets, "daily": daily}
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(snap))
@@ -148,11 +150,11 @@ class Track:
         return snap
 
     def attested(self, date: int, by: int | None = None) -> Json | None:
-        """The day's snapshot if the ledger attests its exact bytes as published by `by` (the session deadline by default):
+        """The day's snapshot if the ledger attests its exact bytes as published before `by` (the session deadline by default):
         there is no other."""
         cutoff, by = date + SNAPSHOT_OFFSET, by or date + SESSION_OFFSET
         path = self.root / "snapshots" / f"{cutoff}.json"
-        saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == cutoff and c["acquired"] <= by]
+        saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == cutoff and c["acquired"] < by]
         if not saved or not path.exists() or registry.sha256(path.read_bytes()) != saved[0]["sha256"]:
             return None
         snap: Json = json.loads(path.read_text())
@@ -169,12 +171,14 @@ class Track:
         cutoff, end = date + SNAPSHOT_OFFSET, last_acquisition(date)
         if any(c["taken"] == cutoff for _, _, c in self.ledger.records("snapshot_ready", "main")) or now_ms() >= end:
             return
-        self.snapshot(cutoff)
+        snap = self.snapshot(cutoff)
         if self.stop.is_set():
             return
-        digest, acquired = registry.sha256((self.root / "snapshots" / f"{cutoff}.json").read_bytes()), now_ms()
-        if acquired <= end:
-            self.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": acquired, "sha256": digest})
+        digest = registry.sha256((self.root / "snapshots" / f"{cutoff}.json").read_bytes())
+        with self.attestation:
+            if (acquired := now_ms()) < end:
+                self.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": acquired, "sha256": digest,
+                                                                "listed_at": snap["listed_at"], "requests": snap["requests"]})
 
     def daemon(self, socket_path: str | Path, session: str, account: str, snapshot: Json, commands: Iterable[str],
                ablation_of: str | None = None) -> Daemon:
@@ -410,11 +414,12 @@ class Track:
         for date in range(frozen // DAY * DAY, now + 1 - SESSION_OFFSET, DAY):
             if f"noread-{date}" in self.settled():
                 continue
-            snapshot = self.attested(date)
-            if snapshot is None and f"main-{date}" not in self.settled():
-                for kind in ("main", "noread"):
-                    self.miss(date, kind, f"{kind}-{date}", "no attested snapshot before the completion deadline")
-                continue
+            with self.attestation:
+                snapshot = self.attested(date)
+                if snapshot is None and f"main-{date}" not in self.settled():
+                    for kind in ("main", "noread"):
+                        self.miss(date, kind, f"{kind}-{date}", "no attested snapshot before the completion deadline")
+                    continue
             self.day(date, snapshot)
             if self.stop.is_set():
                 return

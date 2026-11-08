@@ -108,6 +108,9 @@ class Venue:
     def __init__(self, rows):
         self.rows, self.starts, self.requests = rows, [], []
 
+    def sent(self):
+        return len(self.requests)
+
     def funding_page(self, coin, start, end, background=False):
         self.starts.append(start)
         self.requests.append((start, end))

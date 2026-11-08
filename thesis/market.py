@@ -184,6 +184,11 @@ class Exchange(Info):
         self.archive = Path(archive_dir)
         self.archive.mkdir(parents=True, exist_ok=True)
         self.archive_lock = threading.Lock()
+        self.local = threading.local()
+
+    def sent(self) -> int:
+        """The HTTP attempts the calling thread has sent, failed and retried ones included."""
+        return int(getattr(self.local, "n", 0))
 
     def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6,
              background: bool = False) -> Any:
@@ -200,6 +205,7 @@ class Exchange(Info):
 
     def _send(self, body: dict[str, Any]) -> Any:
         sample = {"sent": now_ms(), "request": body}
+        self.local.n = self.sent() + 1
         try:
             response = super()._send(body)
         except Exception as e:
@@ -506,6 +512,10 @@ class Market:
                 self.funding_repaired[path, background] = [(a, b, t) for a, b, t in recent if uncovered(a, b, checked)] + [
                     (a, b, now_ms()) for a, b in checked]
         return [r for r in self._funding_load(path)[0] if r[0] <= now]
+
+    def sent(self) -> int:
+        """The venue requests the calling thread has sent."""
+        return int(self.x.sent())
 
     def hold(self) -> contextlib.AbstractContextManager[None]:
         """While held, background reads wait: a session's reads never compete with a fill."""

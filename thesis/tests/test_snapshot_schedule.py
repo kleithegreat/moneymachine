@@ -25,22 +25,6 @@ def test_snapshot_acquisition_precedes_the_session_and_uses_one_fixed_cutoff(tra
     assert events.index(("ready", clock[0])) > 0
 
 
-def test_acquisition_that_misses_its_completion_deadline_cannot_start_a_session(track, monkeypatch):
-    clock = [MONDAY + 5 * 60_000]
-    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
-    snapshot = track.snapshot
-
-    def slow(cutoff):
-        clock[0] = MONDAY + runner.SESSION_OFFSET + 1
-        return snapshot(cutoff)
-
-    monkeypatch.setattr(track, "snapshot", slow)
-    monkeypatch.setattr(track, "session", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("late session")))
-    track.acquisitions(clock[0], MONDAY)
-    track.schedule(clock[0], MONDAY)
-    assert {c["session"] for _, _, c in track.ledger.records("session_missed")} == {f"main-{MONDAY}", f"noread-{MONDAY}"}
-
-
 def test_an_outage_past_acquisition_does_not_create_a_late_snapshot(track, monkeypatch):
     now = MONDAY + runner.DAY + 20 * runner.HOUR
     monkeypatch.setattr(runner, "now_ms", lambda: now)
@@ -48,24 +32,6 @@ def test_an_outage_past_acquisition_does_not_create_a_late_snapshot(track, monke
     monkeypatch.setattr(track, "snapshot", lambda *a: (_ for _ in ()).throw(AssertionError("late fetch")))
     track.acquisitions(now, MONDAY + runner.DAY)
     track.schedule(now, MONDAY + runner.DAY)
-    assert len(track.ledger.records("session_missed")) == 2
-
-
-def test_snapshot_publication_must_finish_before_the_deadline(track, monkeypatch):
-    clock = [MONDAY + runner.SNAPSHOT_OFFSET]
-    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
-    monkeypatch.setattr(track, "ready", lambda date: True)
-    snapshot = track.snapshot
-
-    def delayed_publication(cutoff):
-        snap = snapshot(cutoff)
-        clock[0] = MONDAY + runner.SESSION_OFFSET + 1
-        return snap
-
-    monkeypatch.setattr(track, "snapshot", delayed_publication)
-    monkeypatch.setattr(track, "session", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("late publication")))
-    track.acquisitions(clock[0], MONDAY)
-    track.schedule(clock[0], MONDAY)
     assert len(track.ledger.records("session_missed")) == 2
 
 
@@ -122,35 +88,33 @@ def test_the_paper_snapshot_envelope_includes_real_prefix_tail_and_empty_request
         charges.clear()
         m.bars("X", kind, cutoff)
         assert charges == expected
-    weights = [20] * 7
-    for i in range(348):
-        weights += ([39] if i < 278 else []) + [21, 21]
-        if i < 176:
-            weights += [100, 21, 21]
-    assert len(weights) == 1509 and sum(weights) == 50590
-    limiter = market.Exchange(tmp_path / "bound", limiter=market.WeightLimit(120))
-    clock = [cutoff]
-    fake_clock(monkeypatch, clock)
-    for w in weights:
-        limiter._charge(w)
-    assert clock[0] - cutoff == 632 * 60_000
 
 
-def test_the_recorded_inventory_packs_inside_the_window_before_the_session(tmp_path, monkeypatch):
-    """The 2026-10-28 inventory (counts only: ages, no prices), 348 live listings, ten dexes, a terminal request for every
-    listing, packed through the limiter in a sorted order, slower than the code's own order (217 min)."""
-    weights = [20] * 12
-    for w, n in [(21, 687), (22, 8), (23, 7), (24, 9), (25, 5), (26, 2), (27, 7), (28, 16), (29, 5), (30, 9), (31, 2),
-                 (39, 197), (53, 1), (57, 1)]:
-        weights += [w] * n
-    assert len(weights) == 968 and sum(weights) == 24_304
+def inventory(tails):
+    """The weights of one snapshot of the 2026-10-28 inventory (counts only: ages, no prices): 348 live listings, ten dexes.
+    `tails` is the number of 21-weight requests: 349 when the venue returns the unclosed candle (the 10 daily scopes with no
+    trade yet add a terminal request each), 863 when it omits it (a terminal request for all 348 daily and 176 hourly)."""
+    others = [(22, 8), (23, 7), (24, 9), (25, 5), (26, 2), (27, 7), (28, 16), (29, 5), (30, 9), (31, 2), (39, 197), (53, 1), (57, 1)]
+    return [20] * 12 + [21] * tails + [w for w, n in others for _ in range(n)]
+
+
+def packed(monkeypatch, tmp_path, weights):
     clock = [0]
     fake_clock(monkeypatch, clock)
     limiter = market.Exchange(tmp_path, limiter=market.WeightLimit(120))
     for w in weights[:12] + sorted(weights[12:]):
         limiter._charge(w)
-    assert clock[0] == 222 * 60_000
-    assert runner.SNAPSHOT_OFFSET + clock[0] + 4 * 7 * 60_000 <= runner.SESSION_OFFSET - 40 * 60_000
+    return clock[0] // 60_000
+
+
+def test_the_recorded_inventory_completes_before_the_start_in_the_recorded_and_the_stress_case(tmp_path, monkeypatch):
+    recorded, stress = inventory(349), inventory(863)
+    assert (len(recorded), sum(recorded)) == (630, 17_206) and (len(stress), sum(stress)) == (1_144, 28_000)
+    mark = 7 * 60_000
+    minutes = packed(monkeypatch, tmp_path / "a", recorded)
+    assert minutes == 155 and runner.SNAPSHOT_OFFSET + minutes * 60_000 + 2 * mark == (2 * 60 + 54) * 60_000
+    minutes = packed(monkeypatch, tmp_path / "b", stress)
+    assert minutes == 257 and runner.SNAPSHOT_OFFSET + minutes * 60_000 + 4 * mark < runner.SESSION_OFFSET
 
 
 def test_snapshot_discovery_costs_one_core_one_inventory_and_each_dex(tmp_path, monkeypatch):

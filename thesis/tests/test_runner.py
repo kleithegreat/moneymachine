@@ -45,6 +45,9 @@ class FakeMarket:
     def hold(self):
         return contextlib.nullcontext()
 
+    def sent(self):
+        return 0
+
     def funding(self, market, now=None, start=None):
         self.calls.append(("funding", market, start))
         return [[h * HOUR, 0.0] for h in range((MONDAY // DAY - 400) * 24, min(self.until, now or self.until) // HOUR + 1)]

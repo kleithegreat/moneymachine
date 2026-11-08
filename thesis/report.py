@@ -80,6 +80,7 @@ def write(track, now, out):
         "version": track.version, "as_of": now, "qualifications": "PROGRESS.md, Qualifications, stage 10",
         "sessions": [c for _, _, c in track.ledger.records("session_end")],
         "sessions_missed": [c for _, _, c in track.ledger.records("session_missed")],
+        "snapshots": [c for _, _, c in track.ledger.records("snapshot_ready", "main")],
         "registration_attempts": sum(c["request"].get("cmd") == "register" for c in calls if isinstance(c["request"], dict)),
         "rejected_registrations": sum(c["request"].get("cmd") == "register" and not c["ok"] for c in calls if isinstance(c["request"], dict)),
         "benchmark_skips": [c for _, _, c in track.ledger.records("skip", "benchmark")],
