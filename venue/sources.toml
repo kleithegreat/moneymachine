@@ -10,9 +10,9 @@ description = '''
 All requests: `POST https://api.hyperliquid.xyz/info`, public, read-only, no auth.
 Documented limit: 1200 weight/min per IP, shared by all REST requests
 ([rate limits](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits)).
-Our processes share one IP and together stay at or below 600/min: the backfill is
-held at 200/min, the recorder at 400/min, and one-off scripts at 600/min while
-nothing else runs (`ingest/hl.py` charges weight before each request and again
+Our processes share one IP and together stay at or below 600/min: the recorder
+at 480/min and the thesis track at 120/min (`CLUSTER.md`), and one-off scripts at
+600/min while nothing else runs (`ingest/hl.py` charges weight before each request and again
 for the item weight after it).
 
 | Endpoint | Used for | Weight (documented) | Pagination (documented / observed) | Retention (documented / observed 2026-10-19) |
