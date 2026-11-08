@@ -502,6 +502,7 @@ def series_in_the_pods_view():
     assert len(rows) == 1 and "crash" not in rows[0] and rows[0]["audit"]["match"] and rows[0]["mm"] == campaigns.sha256(MM), rows
 
 
+@pytest.mark.skipif(shutil.which("bwrap") is None, reason="bwrap is absent on this node")
 def test_the_series_in_its_pods_view(tmp_path, built_kernel):
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
     (REPO / "data").mkdir(exist_ok=True)

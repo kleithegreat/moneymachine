@@ -127,14 +127,39 @@ def test_the_benchmark_reads_the_days_attested_snapshot_with_bars_known_at_midni
     assert not (track.root / "snapshots" / f"{MONDAY}.json").exists()
 
 
-def test_a_monday_without_an_attested_snapshot_skips_its_batch_after_the_deadline_and_never_takes_another(track, monkeypatch):
+def test_the_benchmark_waits_for_its_days_snapshot_and_registers_at_the_first_whole_hour_after_it(track, monkeypatch):
+    clock = [MONDAY + 6 * HOUR + 30 * MIN]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    track.acquisitions(clock[0], MONDAY)
+    assert track.attested(MONDAY) is None and track.attested(MONDAY, MONDAY + DAY) is not None
+    clock[0] = MONDAY + 7 * HOUR - 1
+    track.benchmarks(clock[0], MONDAY)
+    assert track.ledger.theses("benchmark") == []
+    clock[0] = MONDAY + 7 * HOUR
+    track.benchmarks(clock[0], MONDAY)
+    assert len(track.ledger.theses("benchmark")) == 4
+
+
+def test_a_snapshot_attested_after_the_deadline_serves_only_the_benchmark(track, monkeypatch):
+    clock = [MONDAY + 6 * HOUR]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    track.acquisitions(clock[0], MONDAY)
+    monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("a late session"))
+    track.schedule(clock[0], MONDAY)
+    assert {c["session"] for _, _, c in track.ledger.records("session_missed")} == {f"main-{MONDAY}", f"noread-{MONDAY}"}
+
+
+def test_only_a_snapshot_missing_the_whole_date_leaves_the_batch_unexecuted_and_recorded(track, monkeypatch):
     monkeypatch.setattr(track, "snapshot", lambda *a: pytest.fail("a replacement snapshot"))
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SESSION_OFFSET - MIN)
-    track.benchmarks(MONDAY + runner.SESSION_OFFSET - MIN, MONDAY)
-    assert track.ledger.records("skip", "benchmark") == []
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SESSION_OFFSET)
-    track.benchmarks(MONDAY + runner.SESSION_OFFSET, MONDAY)
-    assert {c["market"] for _, _, c in track.ledger.records("skip", "benchmark")} == set(runner.BENCHMARK)
+    track.ledger.disclose("snapshot_ready", "main", {"taken": 0, "acquired": 0, "sha256": ""})
+    for now in (MONDAY + 6 * HOUR, MONDAY + DAY - 1):
+        monkeypatch.setattr(runner, "now_ms", lambda now=now: now)
+        track.benchmarks(now, MONDAY)
+        assert track.ledger.records("skip", "benchmark") == []
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + DAY)
+    track.benchmarks(MONDAY + DAY, MONDAY)
+    skips = track.ledger.records("skip", "benchmark")
+    assert {c["market"] for _, _, c in skips} == set(runner.BENCHMARK) and {c["reason"] for _, _, c in skips} == {"no attested snapshot"}
     assert track.ledger.theses("benchmark") == []
 
 

@@ -42,12 +42,12 @@ def test_acquisition_that_misses_its_completion_deadline_cannot_start_a_session(
 
 
 def test_an_outage_past_acquisition_does_not_create_a_late_snapshot(track, monkeypatch):
-    now = MONDAY + 20 * runner.HOUR
+    now = MONDAY + runner.DAY + 20 * runner.HOUR
     monkeypatch.setattr(runner, "now_ms", lambda: now)
     monkeypatch.setattr(track, "ready", lambda date: True)
     monkeypatch.setattr(track, "snapshot", lambda *a: (_ for _ in ()).throw(AssertionError("late fetch")))
-    track.acquisitions(now, MONDAY)
-    track.schedule(now, MONDAY)
+    track.acquisitions(now, MONDAY + runner.DAY)
+    track.schedule(now, MONDAY + runner.DAY)
     assert len(track.ledger.records("session_missed")) == 2
 
 

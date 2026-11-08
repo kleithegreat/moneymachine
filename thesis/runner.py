@@ -147,25 +147,33 @@ class Track:
         os.replace(tmp, path)
         return snap
 
-    def attested(self, date: int) -> Json | None:
-        """The day's snapshot if the ledger attests its exact bytes as published before the deadline: there is no other."""
-        path = self.root / "snapshots" / f"{date + SNAPSHOT_OFFSET}.json"
-        saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == date + SNAPSHOT_OFFSET]
+    def attested(self, date: int, by: int | None = None) -> Json | None:
+        """The day's snapshot if the ledger attests its exact bytes as published by `by` (the session deadline by default):
+        there is no other."""
+        cutoff, by = date + SNAPSHOT_OFFSET, by or date + SESSION_OFFSET
+        path = self.root / "snapshots" / f"{cutoff}.json"
+        saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == cutoff and c["acquired"] <= by]
         if not saved or not path.exists() or registry.sha256(path.read_bytes()) != saved[0]["sha256"]:
             return None
         snap: Json = json.loads(path.read_text())
         return snap
 
+    def attested_at(self, date: int) -> int:
+        """When the day's snapshot was attested, as milliseconds after the date's start."""
+        return int(min(c["acquired"] for _, _, c in self.ledger.records("snapshot_ready", "main")
+                       if c["taken"] == date + SNAPSHOT_OFFSET) - date)
+
     def acquire(self, date: int) -> None:
-        """Take the day's snapshot and attest it, unless it is attested or the deadline has passed or SIGTERM came."""
-        cutoff, deadline = date + SNAPSHOT_OFFSET, date + SESSION_OFFSET
-        if any(c["taken"] == cutoff for _, _, c in self.ledger.records("snapshot_ready", "main")) or now_ms() >= deadline:
+        """Take the day's snapshot and attest it, unless it is attested or its last moment has passed or SIGTERM came: the
+        session deadline, or the date's end on a Monday, whose benchmark waits for it."""
+        cutoff, end = date + SNAPSHOT_OFFSET, last_acquisition(date)
+        if any(c["taken"] == cutoff for _, _, c in self.ledger.records("snapshot_ready", "main")) or now_ms() >= end:
             return
         self.snapshot(cutoff)
         if self.stop.is_set():
             return
         digest, acquired = registry.sha256((self.root / "snapshots" / f"{cutoff}.json").read_bytes()), now_ms()
-        if acquired <= deadline:
+        if acquired <= end:
             self.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": acquired, "sha256": digest})
 
     def daemon(self, socket_path: str | Path, session: str, account: str, snapshot: Json, commands: Iterable[str],
@@ -271,9 +279,9 @@ class Track:
 
     def benchmark(self, monday: int) -> None:
         """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order, of the markets not yet on the
-        record, once that day's snapshot is attested: each market's last daily close known at that instant (a bar is known
+        record, once that day's snapshot is attested and the registration hour has come: each market's last daily close known at that instant (a bar is known
         DELTA after it closes) against the close 20 days before it, from the snapshot's bars known then."""
-        if (attested := self.attested(monday)) is None:
+        if (attested := self.attested(monday, monday + DAY)) is None:
             return
         snapshot = known_at(attested, monday)
         last = (monday - DELTA) // DAY * DAY - DAY
@@ -372,22 +380,26 @@ class Track:
 
     def benchmarks(self, now: int, frozen: int) -> None:
         """Every Monday since the freeze of a version frozen at `frozen`: a batch runs within its day; what its day left
-        unprocessed is logged as missed, market by market, never backdated; so is a batch whose day has no attested snapshot
-        once its deadline has passed. Its failure leaves the batch to the next pass."""
+        unprocessed is logged as missed, market by market, never backdated. The batch waits for the day's attested snapshot
+        until the date ends, then registers at the first whole hour at or after the session deadline and the attestation,
+        its information set the bars known at Monday 00:00 UTC either way; a date without one logs each market "no attested
+        snapshot". Its failure leaves the batch to the next pass."""
         for monday in range(frozen // DAY * DAY, now + 1, DAY):
-            if (monday // DAY + 3) % 7 == 0 and self.unbenchmarked(monday):
-                elapsed, attested = now - monday, self.attested(monday) is not None
-                if attested and elapsed < DAY:
-                    self.benchmark(monday)
-                elif reason := "run missed" if attested else "no attested snapshot" if elapsed >= SESSION_OFFSET else None:
+            if is_monday(monday) and self.unbenchmarked(monday):
+                elapsed, snap = now - monday, self.attested(monday, monday + DAY)
+                due = max(SESSION_OFFSET, self.attested_at(monday)) if snap is not None else 0
+                if snap is not None and elapsed < DAY:
+                    if elapsed >= -(-due // HOUR) * HOUR:
+                        self.benchmark(monday)
+                elif reason := "run missed" if snap is not None else "no attested snapshot" if elapsed >= DAY else None:
                     for m in self.unbenchmarked(monday):
                         self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": reason})
 
     def acquisitions(self, now: int, frozen: int) -> None:
-        """Every date since the freeze of a version frozen at `frozen` whose snapshot is due and whose deadline is not past,
-        acquired and attested whatever the sessions or the model are doing."""
+        """Every date since the freeze of a version frozen at `frozen` whose snapshot is due and whose last acquisition moment
+        is not past, acquired and attested whatever the sessions or the model are doing."""
         for date in range(frozen // DAY * DAY, now + 1 - SNAPSHOT_OFFSET, DAY):
-            if now < date + SESSION_OFFSET and not self.stop.is_set():
+            if now < last_acquisition(date) and not self.stop.is_set():
                 self.acquire(date)
 
     def schedule(self, now: int, frozen: int) -> None:
@@ -406,6 +418,15 @@ class Track:
             self.day(date, snapshot)
             if self.stop.is_set():
                 return
+
+
+def is_monday(date: int) -> bool:
+    return bool((date // DAY + 3) % 7 == 0)
+
+
+def last_acquisition(date: int) -> int:
+    """The last moment a date's snapshot may be attested: its sessions' deadline, or on a Monday the end of the date."""
+    return int(date + (DAY if is_monday(date) else SESSION_OFFSET))
 
 
 def known_at(snapshot: Json, at: int) -> Json:

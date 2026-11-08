@@ -385,7 +385,7 @@ def on_record(track, monday):
 
 
 def test_a_benchmark_market_that_fails_is_retried_with_the_rest_of_its_batch(track, monkeypatch):
-    now = MONDAY + 60_000
+    now = MONDAY + 6 * HOUR
     monkeypatch.setattr(runner, "now_ms", lambda: now)
     track.acquire(MONDAY)
     armed = failing_once(track.market, "ETH")
@@ -399,7 +399,7 @@ def test_a_benchmark_market_that_fails_is_retried_with_the_rest_of_its_batch(tra
 
 
 def test_a_benchmark_batch_cut_off_past_its_day_logs_each_market_left_as_missed(track, monkeypatch):
-    now = MONDAY + 60_000
+    now = MONDAY + 6 * HOUR
     monkeypatch.setattr(runner, "now_ms", lambda: now)
     track.acquire(MONDAY)
     failing_once(track.market, "ETH")

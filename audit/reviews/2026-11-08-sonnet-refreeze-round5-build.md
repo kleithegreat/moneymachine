@@ -22,7 +22,7 @@ On the recorded inventory (ten dexes): the code's plan is 620 requests, 16,996 w
 
 ## Open for the advisor
 
-- **C10.5 holds exactly four Mondays and needs four executed benchmark batches.** The benchmark now needs the day's attested snapshot, so a missed snapshot leaves a Monday with five skips and no slack. The draft revision asks whether that counts as executed; it is a criterion question, not decided here.
+- **C10.5 holds exactly four Mondays.** Decided by the advisor (18:47 UTC (13:47 EST), `audit/decisions.md`): a batch of five skips does not count as executed. The benchmark waits for the day's attested snapshot until the date ends and registers at the first whole hour at or after max(05:00 UTC (00:00 EST), the attestation), its information set unchanged. A Monday's snapshot may be attested after the session deadline (`last_acquisition`) and serves only the benchmark; sessions still miss. Tests: `test_the_benchmark_waits_for_its_days_snapshot...`, `test_a_snapshot_attested_after_the_deadline_serves_only_the_benchmark`, `test_only_a_snapshot_missing_the_whole_date...`. Also `test_the_series_in_its_pods_view` now skips when `bwrap` is absent.
 - The ten dexes exceed the five of the initial mark wave (an existing blocker, now with a count).
 - The 217 minutes assumes a terminal request for every listing; the typical figure is 153.
 
