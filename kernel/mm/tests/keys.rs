@@ -49,16 +49,20 @@ fn rewrite_once(v: &Value, rng: &mut Rng) -> Value {
             ("abs", 0) => Some(op("abs", vec![op("abs", vec![args[0].clone()])])),
             ("abs", _) => Some(op("abs", vec![op("neg", vec![args[0].clone()])])),
             _ if is_bool(node) => Some(op("not", vec![op("not", vec![node.clone()])])),
-            _ if node.get("op").is_some() || node.get("input").is_some() => Some(match rng.below(3) {
+            _ if node.get("op").is_some() || node.get("input").is_some() => Some(match rng.below(4) {
                 0 => op("neg", vec![op("neg", vec![node.clone()])]),
                 1 => op("mul", vec![node.clone(), c(1.0)]),
+                2 => op("sub", vec![node.clone(), c(0.0)]),
                 _ => op("div", vec![node.clone(), c(1.0)]),
             }),
             _ => None,
         };
         if let Some(n) = new {
-            *node = n;
-            return out;
+            let old = std::mem::replace(node, n);
+            if dsl::parse(&wrap(&out)).is_ok() {
+                return out;
+            }
+            *at(&mut out, path) = old;
         }
     }
     out
@@ -110,7 +114,9 @@ fn fresh_process_child() {
 
 #[test]
 fn fresh_processes_compute_the_same_keys() {
-    let programs: Vec<String> = pairs().into_iter().flat_map(|(a, b)| [a, b]).collect();
+    let weights = hand_built_pairs().into_iter().chain(rejected_pairs()).flat_map(|(a, b)| [a, b]);
+    let named = weights.map(|w| wrap(&serde_json::from_str(&w).unwrap()));
+    let programs: Vec<String> = pairs().into_iter().flat_map(|(a, b)| [a, b]).chain(named).collect();
     let here: Vec<String> = programs.iter().map(|p| key(p)).collect();
     let file = std::env::temp_dir().join(format!("mm-keys-{}.jsonl", std::process::id()));
     let lines: Vec<String> = programs.iter().map(|p| serde_json::to_string(p).unwrap()).collect();

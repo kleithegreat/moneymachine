@@ -1,4 +1,5 @@
-//! C4.1: every rule in R is exact. Each rule is applied, at a random matching position, to random
+//! C4.1: every rule in R is exact. Each rule is `canon::rules()`'s own rewrite (its searcher finds the
+//! matches, its applier checks the condition and builds the right side), applied at a random matching position to random
 //! well-typed programs, and the original and the rewritten program must agree bitwise on every
 //! node's per-tick value stream (undefined values included) and on the whole run: returns, gross
 //! returns, equity, trace and exposures. The run's summary is a function of those fields, so equal
@@ -14,7 +15,8 @@
 mod common;
 
 use common::*;
-use mm::dsl::{self, Program};
+use egg::{EGraph, ENodeOrVar, Id, Language, PatternAst, Subst, SymbolLang};
+use mm::dsl::{self, Node, Program};
 use mm::machine::Machine;
 use mm::market::{sha256_hex, Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
 use mm::{canon, sim};
@@ -35,7 +37,7 @@ const RULES: [&str; 16] = [
 ];
 
 /// Digest over every program the 1,000-program test generates, in rule order: freezes the generator and seeds.
-const GENERATED_DIGEST: &str = "d7f8870b2ddbb0373bd2cf49e1b764088bf16ff892be3b3efbe4a90db31fdfe1";
+const GENERATED_DIGEST: &str = "606e7821e5dd12369e3956a347098a6d8ba098fd6867c8f3af04c296024a6bab";
 
 const FIXTURES: [(&str, &str, &[u8]); 3] = [
     ("N1", "376cb8e9342c2d09a77a7e2f3da8615f08af829577f89f39553717e04e9694b3", include_bytes!("c41/N1.f64")),
@@ -302,38 +304,6 @@ fn is_bool(n: &Value) -> bool {
     matches!(kind(n), "gt" | "ge" | "lt" | "le" | "and" | "or" | "not")
 }
 
-fn is_const(n: &Value, x: f64) -> bool {
-    n.get("const").and_then(Value::as_f64).is_some_and(|v| v.to_bits() == x.to_bits())
-}
-
-fn dimensionless(n: &Value) -> bool {
-    n.get("unit") == Some(&json!("1"))
-}
-
-/// The rule's rewrite at this node, if its left side matches (`reverse`: if-not's right-to-left direction).
-fn apply(rule: &str, n: &Value, reverse: bool) -> Option<Value> {
-    let a = n.get("args")?.as_array()?;
-    let is = |x: &Value, o: &str| kind(x) == o;
-    let name = kind(n);
-    let inner = |x: &Value| x["args"][0].clone();
-    match rule {
-        "neg-neg" if name == "neg" && is(&a[0], "neg") => Some(inner(&a[0])),
-        "abs-abs" if name == "abs" && is(&a[0], "abs") => Some(a[0].clone()),
-        "abs-neg" if name == "abs" && is(&a[0], "neg") => Some(op("abs", vec![inner(&a[0])])),
-        "mul-one" if name == "mul" && is_const(&a[1], 1.0) && dimensionless(&a[1]) => Some(a[0].clone()),
-        "div-one" if name == "div" && is_const(&a[1], 1.0) && dimensionless(&a[1]) => Some(a[0].clone()),
-        "sub-zero" if name == "sub" && is_const(&a[1], 0.0) => Some(a[0].clone()),
-        "add-comm" | "mul-comm" | "and-comm" | "or-comm" if name == &rule[..rule.len() - 5] => Some(op(name, vec![a[1].clone(), a[0].clone()])),
-        "not-not" if name == "not" && is(&a[0], "not") => Some(inner(&a[0])),
-        "if-not" if name == "if" && !reverse && is(&a[0], "not") => Some(op("if", vec![inner(&a[0]), a[2].clone(), a[1].clone()])),
-        "if-not" if name == "if" && reverse => Some(op("if", vec![op("not", vec![a[0].clone()]), a[2].clone(), a[1].clone()])),
-        "gt-lt" | "lt-gt" | "ge-le" | "le-ge" if name == &rule[..2] => {
-            Some(op(&rule[3..], vec![a[1].clone(), a[0].clone()]))
-        }
-        _ => None,
-    }
-}
-
 fn paths(v: &Value, here: Vec<usize>, out: &mut Vec<Vec<usize>>) {
     out.push(here.clone());
     if let Some(args) = v.get("args").and_then(Value::as_array) {
@@ -349,29 +319,69 @@ fn at<'a>(v: &'a mut Value, path: &[usize]) -> &'a mut Value {
     path.iter().fold(v, |n, &i| &mut n["args"][i])
 }
 
-/// Every (position, direction) where the rule's left side matches a tagged tree.
-fn matches(rule: &str, tree: &Value) -> Vec<(Vec<usize>, bool)> {
+/// Every way the rule, as `canon::rules()` defines it, rewrites a tagged tree: the position of
+/// the node replaced and its replacement (kept subtrees keep their tags). The tree is lowered to
+/// the e-graph the canonicalizer builds; the rule's own searcher finds the matches, its own
+/// applier decides whether the condition holds, and its right side is instantiated from the match.
+fn rewrites(rule: &str, tree: &Value) -> Vec<(Vec<usize>, Value)> {
+    let rw = canon::rules().into_iter().find(|r| r.name.as_str() == rule).unwrap();
+    let p = dsl::parse(&program_text(tree).0).unwrap();
+    let expr = canon::term(&p);
+    let mut slot = vec![None; p.nodes.len()];
+    let mut stack = vec![(p.weight, expr.as_ref().len() - 1)];
+    while let Some((n, e)) = stack.pop() {
+        if slot[n].replace(e).is_none() {
+            if let Node::Op(_, args) = &p.nodes[n] {
+                stack.extend(args.iter().zip(&expr[Id::from(e)].children).map(|(&a, &k)| (a, usize::from(k))));
+            }
+        }
+    }
+    let mut g: EGraph<SymbolLang, ()> = EGraph::default();
+    let mut class: Vec<Id> = vec![];
+    for n in expr.as_ref() {
+        class.push(g.add(n.clone().map_children(|c| class[usize::from(c)])));
+    }
+    g.rebuild();
     let mut all = vec![];
     paths(tree, vec![], &mut all);
     let mut t = tree.clone();
+    let here: Vec<(Vec<usize>, Id, Value)> = all
+        .into_iter()
+        .map(|path| {
+            let node = at(&mut t, &path).clone();
+            let idx = p.lets.iter().find(|(l, _)| *l == id_of(&node)).unwrap().1;
+            (path, g.find(class[slot[idx].unwrap()]), node)
+        })
+        .collect();
+    let rhs = rw.applier.get_pattern_ast().expect("a pattern right side");
     let mut out = vec![];
-    for p in all {
-        let n = at(&mut t, &p);
-        for reverse in [false, true] {
-            if (!reverse || rule == "if-not") && apply(rule, n, reverse).is_some() {
-                out.push((p.clone(), reverse));
+    for m in rw.search(&g) {
+        for subst in &m.substs {
+            if rw.applier.apply_one(&mut g.clone(), m.eclass, subst, rw.searcher.get_pattern_ast(), rw.name).is_empty() {
+                continue;
+            }
+            for (path, _, _) in here.iter().filter(|h| h.1 == g.find(m.eclass)) {
+                let below = |c: Id| here.iter().find(|h| h.0.starts_with(path) && h.1 == g.find(c)).unwrap().2.clone();
+                out.push((path.clone(), instantiate(rhs, rhs.as_ref().len() - 1, subst, &below)));
             }
         }
     }
     out
 }
 
-/// The case for the rule applied at one position of a tree (tagged here if it is not yet).
-fn rewrite(rule: &str, tree: &Value, next: &mut u64, at_pos: &(Vec<usize>, bool)) -> Case {
+fn instantiate(rhs: &PatternAst<SymbolLang>, i: usize, subst: &Subst, below: &dyn Fn(Id) -> Value) -> Value {
+    match &rhs[Id::from(i)] {
+        ENodeOrVar::Var(v) => below(subst[*v]),
+        ENodeOrVar::ENode(n) => op(n.op.as_str(), n.children.iter().map(|&k| instantiate(rhs, usize::from(k), subst, below)).collect()),
+    }
+}
+
+/// The case for a rewrite of one position of a tree (tagged here if it is not yet).
+fn rewrite(tree: &Value, next: &mut u64, (path, new): &(Vec<usize>, Value)) -> Case {
     let mut rewritten = tree.clone();
-    let node = at(&mut rewritten, &at_pos.0);
+    let node = at(&mut rewritten, path);
     let old = id_of(node);
-    let mut new = apply(rule, node, at_pos.1).unwrap();
+    let mut new = new.clone();
     tag(&mut new, next);
     let new_name = id_of(&new);
     *node = new;
@@ -391,9 +401,7 @@ fn tagged(mut tree: Value) -> (Value, u64) {
 /// Every matching position of an untagged tree as a case.
 fn all_cases(rule: &str, tree: Value) -> Vec<Case> {
     let (tree, mut next) = tagged(tree);
-    let ms = matches(rule, &tree);
-    assert!(!ms.is_empty(), "{rule}: no matching position in {tree}");
-    ms.iter().map(|m| rewrite(rule, &tree, &mut next, m)).collect()
+    rewrites(rule, &tree).iter().map(|m| rewrite(&tree, &mut next, m)).collect()
 }
 
 /// Plant the rule's left side around a random numeric node of a random tree; false if the
@@ -430,17 +438,16 @@ fn plant(rule: &str, tree: &mut Value, rng: &mut Rng) -> bool {
 fn random_cases(rule: &str, seed: u64, count: usize) -> Vec<Case> {
     let mut rng = Rng(seed);
     (0..count)
-        .map(|_| {
-            let tree = loop {
-                let mut tree = weight(&mut rng, 3);
-                if plant(rule, &mut tree, &mut rng) {
-                    break tree;
-                }
-            };
+        .map(|_| loop {
+            let mut tree = weight(&mut rng, 3);
+            if !plant(rule, &mut tree, &mut rng) {
+                continue;
+            }
             let (tree, mut next) = tagged(tree);
-            let ms = matches(rule, &tree);
-            let pick = ms[rng.below(ms.len())].clone();
-            rewrite(rule, &tree, &mut next, &pick)
+            let ms = rewrites(rule, &tree);
+            if !ms.is_empty() {
+                break rewrite(&tree, &mut next, &ms[rng.below(ms.len())]);
+            }
         })
         .collect()
 }
@@ -572,6 +579,10 @@ fn signed_zeros_and_undefined_conditions() {
                 for (j, b) in ns.iter().enumerate() {
                     let (p, q) = (&bs[i % bs.len()], &bs[j % bs.len()]);
                     trees.push((weighted(rule, lhs(rule, a, b, p, q), ctx.as_ref()), format!("{cn} operands {i},{j}")));
+                    if matches!(rule, "mul-one" | "div-one" | "sub-zero") {
+                        let any = op(&rule[..3], vec![a.clone(), b.clone()]);
+                        trees.push((weighted(rule, any, ctx.as_ref()), format!("{cn} any right operand {i},{j}")));
+                    }
                 }
             }
         }

@@ -1,0 +1,67 @@
+     Running unittests src/lib.rs (target/release/deps/mm-fef83160e9bb1142)
+test units::tests::conversions ... ok
+test units::tests::parse_and_display ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (target/release/deps/mm-fc9f6333bf1427d8)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/adversarial.rs (target/release/deps/adversarial-95ae2cf0ca88b260)
+test reference_strategies_type_check ... ok
+test type_checker_rejects_with_expected_code ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/bench.rs (target/release/deps/bench-ddfa5eef465f8ae8)
+test w0_median_under_100ms ... ignored
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/canary.rs (target/release/deps/canary-af1cb36497c5561d)
+test leaking_evaluator_has_power ... ok
+test no_admitted_program_beats_the_canary ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.60s
+     Running tests/canon.rs (target/release/deps/canon-09cef26017205a43)
+test equivalent_forms_share_a_key ... ok
+test rejected_laws_keep_distinct_keys ... ok
+test hand_built_pairs_share_a_key ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/events.rs (target/release/deps/events-5906ee84a8df0fda)
+test counts_have_their_own_unit ... ok
+test counts_are_fresh_only_and_respect_known_at ... ok
+test missing_dataset_is_input_unavailable ... ok
+test hours_since_counts_ticks_since_the_condition_held ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/fixtures.rs (target/release/deps/fixtures-bff5a928c9d17d79)
+test accounting_tolerance_is_relative_above_initial_equity ... ok
+test delayed_fill_fees_funding_and_rebalance ... ok
+test decision_sees_only_closed_bars ... ok
+test bankruptcy_caps_the_loss_at_equity ... ok
+test bar_opening_at_the_decision_boundary_is_never_the_fill_source ... ok
+test delisting_closeout ... ok
+test huge_finite_weights_scale_without_overflow ... ok
+test leverage_scale_and_notional_cap ... ok
+test liquidation_at_adverse_extreme ... ok
+test equity_reconciles_every_step ... ok
+test mechanism_exposures_attribute_all_pnl ... ok
+test position_reversal ... ok
+test rounding_min_notional_and_exact_close ... ok
+test short_receives_funding ... ok
+test settlement_price_and_missing_rate ... ok
+test timing_order_holds_for_every_fill ... ok
+test stale_and_undefined_hold ... ok
+test zero_trade_bar_is_unfilled ... ok
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/keys.rs (target/release/deps/keys-a12ee6620cbb441c)
+test fresh_process_child ... ok
+test rewritten_programs_share_a_key ... ok
+test fresh_processes_compute_the_same_keys ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.13s
+     Running tests/rules.rs (target/release/deps/rules-e0151f13a7bdbfc0)
+test rule_set_is_the_sixteen_rules ... ok
+test sub_zero_keeps_units ... ok
+test window_warm_up ... ok
+test every_rule_is_exact has been running for over 60 seconds
+test listing_and_delisting has been running for over 60 seconds
+test running_sum_recompute_boundaries has been running for over 60 seconds
+test signed_zeros_and_undefined_conditions has been running for over 60 seconds
+test signed_zeros_and_undefined_conditions ... ok
+test listing_and_delisting ... ok
+test running_sum_recompute_boundaries ... ok
+test every_rule_is_exact ... ok
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 212.93s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
