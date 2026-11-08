@@ -97,14 +97,14 @@ def merged(spans: Iterable[tuple[int, int]]) -> list[tuple[int, int]]:
     return out
 
 
-def union(ranges: Iterable[tuple[int, int]], a: int, b: int) -> list[list[int]]:
+def union(ranges: Iterable[tuple[int, int]], a: int, b: int) -> list[tuple[int, int]]:
     """The ranges with [a, b) added, overlapping or touching ones joined."""
-    out: list[list[int]] = []
+    out: list[tuple[int, int]] = []
     for x, y in sorted([*ranges, (a, b)]):
         if out and x <= out[-1][1]:
-            out[-1][1] = max(out[-1][1], y)
+            out[-1] = (out[-1][0], max(out[-1][1], y))
         else:
-            out.append([x, y])
+            out.append((x, y))
     return out
 
 
@@ -489,6 +489,7 @@ class Market:
         every = MAINTAIN_EVERY if background else self.repair_every
         with contextlib.nullcontext() if background else self.fills.setdefault(path, threading.Lock()):
             recent = [(a, b, t) for a, b, t in self.funding_repaired.get((path, background), []) if now_ms() - t < every]
+            due = uncovered(lo, now, [(a, b) for a, b, _ in recent])
             rows, _ = self._funding_load(path)
             inside = [r for r in rows if lo <= r[0] <= now]
             historical = holes(inside, HOUR, lo, inside[-1][0] + 1) if inside else []
@@ -499,7 +500,11 @@ class Market:
             for a, b in reversed(spans):
                 self._funding_fill(path, market, a, b, background, stop)
             if not (stop and stop.is_set()):
-                self.funding_repaired[path, background] = [(a, b, t) for a, b, t in recent if a < lo or b > now] + [(lo, now, now_ms())]
+                checked: list[tuple[int, int]] = []
+                for a, b in [*due, *spans]:
+                    checked = union(checked, a, b)
+                self.funding_repaired[path, background] = [(a, b, t) for a, b, t in recent if uncovered(a, b, checked)] + [
+                    (a, b, now_ms()) for a, b in checked]
         return [r for r in self._funding_load(path)[0] if r[0] <= now]
 
     def hold(self) -> contextlib.AbstractContextManager[None]:

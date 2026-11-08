@@ -62,6 +62,21 @@ def test_widened_covered_holes_are_not_starved_by_hourly_narrow_reads(tmp_path, 
     assert [hole, .5] in got
 
 
+def test_frequent_reads_do_not_renew_repairs_they_did_not_perform(tmp_path, monkeypatch):
+    clock = [NOW]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    hole = NOW // H * H - 100 * H
+    lo = hole - 2 * H
+    x = Venue([(h, .001) for h in range(lo, NOW // H * H + H, H) if h != hole])
+    m = market.Market(tmp_path, x)
+    m.funding("X", NOW, start=lo)
+    x.rows.append((hole, .5))
+    for k in range(1, 13):
+        clock[0] = NOW + k * 5 * 60_000
+        got = m.funding("X", clock[0], start=lo)
+    assert [hole, .5] in got
+
+
 def test_cold_fill_does_not_reprobe_the_ranges_it_just_acquired(tmp_path, monkeypatch):
     fake_clock(monkeypatch, [NOW])
     x = market.Exchange(tmp_path / "x")
