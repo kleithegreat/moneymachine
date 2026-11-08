@@ -235,28 +235,44 @@ def mirror_kind(rel):
     return {".jsonl": "day", ".sqlite": "ledger"}.get(rel.suffix, "plain")
 
 
+def mirror_source(source, kind, read, *args):
+    """Only plain-source ENOENT is churn; destination failures and recording loss still alarm."""
+    try:
+        return read(*args)
+    except FileNotFoundError as error:
+        if error.filename is None or Path(error.filename) not in (source, *source.parents):
+            raise
+        if kind != "plain":
+            raise SystemExit(f"source {source}: {kind} file vanished") from error
+        return None
+
+
 def mirror(app=APP, out="/mirror"):
     """Each volume into /mirror/<volume>, the live data's only copy, every step checked; any failure stops the run:
     - outside sandbox workspaces (`work/`), day files (*.jsonl) only grow: shrinkage, rewrites or disappearance are refused;
     - day-file sizes are captured before listing bodies; only those prefixes are copied;
     - every copy's bytes are compared with the source's over the same length;
-    - SQLite ledgers outside workspaces are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
+    - SQLite ledgers outside workspaces are integrity-checked snapshots; their disappearance is refused;
     - other files, including workspace notes of any suffix, are copied whole when their size or mtime changes;
-      their disappearance is allowed. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
+      source disappearance at any read omits them. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
     MANIFEST.json (size, mtime and sha256 of each file, the source filesystem's available capacity) is written last."""
     for vol, path in VOLUMES.items():
         src, dst = Path(app) / path, Path(out) / vol
-        if not src.exists():
+        old = json.loads((dst / "MANIFEST.json").read_text())["files"] if (dst / "MANIFEST.json").exists() else {}
+        if not src.exists() and not any(mirror_kind(r) != "plain" for r in old):
             continue
         dst.mkdir(parents=True, exist_ok=True)
-        old = json.loads((dst / "MANIFEST.json").read_text())["files"] if (dst / "MANIFEST.json").exists() else {}
         new = {}
-        days = {p: p.stat() for p in src.rglob("*.jsonl") if p.is_file() and mirror_kind(p.relative_to(src)) == "day"}
+        days = {p: mirror_source(p, "day", p.stat) for p in src.rglob("*.jsonl")
+                if p.is_file() and mirror_kind(p.relative_to(src)) == "day"}
         files = set(days) | {p for p in src.rglob("*") if p.is_file() and mirror_kind(p.relative_to(src)) != "day"
                             and p.suffix != ".tmp" and p.name != ".writer.lock" and "-wal" not in p.name and not p.name.endswith("-shm")}
         for f in sorted(files):
-            rel, st = str(f.relative_to(src)), days[f] if f in days else f.stat()
+            rel = str(f.relative_to(src))
             kind = mirror_kind(rel)
+            st = days[f] if f in days else mirror_source(f, kind, f.stat)
+            if st is None:
+                continue
             prev, target = old.get(rel), dst / rel
             if prev and (not target.exists() or target.stat().st_size < prev["size"]):
                 raise SystemExit(f"{vol}/{rel}: the mirror lost bytes its manifest lists")
@@ -285,17 +301,23 @@ def mirror(app=APP, out="/mirror"):
                         left -= len(block)
                     if left:
                         raise SystemExit(f"{vol}/{rel}: source shrank during the copy")
-                if not prev:
-                    tmp.replace(target)
             else:
-                shutil.copy2(f, tmp)
-                tmp.replace(target)
-            size = target.stat().st_size
-            if sha256(f, size) != (digest := sha256(target)):
+                if mirror_source(f, kind, shutil.copy2, f, tmp) is None:
+                    tmp.unlink(missing_ok=True)
+                    continue
+            copied = target if kind == "day" and prev else tmp
+            size = copied.stat().st_size
+            source_digest = mirror_source(f, kind, sha256, f, size)
+            if source_digest is None:
+                tmp.unlink(missing_ok=True)
+                continue
+            if source_digest != (digest := sha256(copied)):
                 raise SystemExit(f"{vol}/{rel}: the copy differs from its source")
+            if copied != target:
+                tmp.replace(target)
             new[rel] = {"size": size, "mtime": st.st_mtime_ns, "sha256": digest}
-        if gone := [r for r in old if mirror_kind(r) == "day" and r not in new]:
-            raise SystemExit(f"{vol}: day files vanished from the source: {gone}")
+        if gone := [r for r in old if mirror_kind(r) != "plain" and r not in new]:
+            raise SystemExit(f"{vol}: recording files vanished from the source: {gone}")
         usage = capacity(src)
         (dst / "MANIFEST.json.tmp").write_text(json.dumps({"taken": int(time.time() * 1000), "files": new,
                                                             "capacity": usage}))
@@ -314,8 +336,10 @@ def verify(app=APP, out="/mirror"):
         while True:
             mismatch = None
             for rel, e in record["files"].items():
-                if mirror_kind(rel) == "day" and sha256(Path(app) / path / rel, e["size"]) != e["sha256"]:
-                    raise SystemExit(f"source {vol}/{rel} differs from its manifest")
+                if mirror_kind(rel) == "day":
+                    source = Path(app) / path / rel
+                    if mirror_source(source, "day", sha256, source, e["size"]) != e["sha256"]:
+                        raise SystemExit(f"source {vol}/{rel} differs from its manifest")
                 try:
                     matches = sha256(dst / rel, e["size"]) == e["sha256"]
                 except FileNotFoundError:

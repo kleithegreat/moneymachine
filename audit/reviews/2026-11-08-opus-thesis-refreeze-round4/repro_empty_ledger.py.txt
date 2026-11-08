@@ -1,0 +1,18 @@
+"""A SIGKILL between SQLite creating the ledger file and `mm disclose` committing its schema leaves a valid, empty
+database file. This reproduces that state deterministically (sqlite3.connect creates the zero-byte file, as the
+kernel's Connection::open does before execute_batch(SCHEMA)) and reads it with the Ledger.records() of the tree on
+sys.path[0]. Usage: python repro <repo>"""
+import sqlite3, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from thesis import registry
+
+root = Path(tempfile.mkdtemp())
+path = root / "ledger.sqlite"
+sqlite3.connect(path).close()
+print("file exists:", path.exists(), "bytes:", path.stat().st_size)
+ledger = registry.Ledger(path, "t")
+try:
+    print("records:", ledger.records("session"))
+except sqlite3.OperationalError as e:
+    print("records raised:", e)

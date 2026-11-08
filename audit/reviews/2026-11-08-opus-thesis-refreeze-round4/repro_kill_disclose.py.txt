@@ -1,0 +1,26 @@
+"""SIGKILL `mm disclose` the moment its ledger file appears, many times; count the outcomes a restart reads.
+Usage: python repro <mm binary> <tries>"""
+import json, os, signal, sqlite3, subprocess, sys, tempfile, time
+from pathlib import Path
+
+mm, tries = sys.argv[1], int(sys.argv[2])
+outcomes = {}
+for i in range(tries):
+    root = Path(tempfile.mkdtemp(dir=os.environ.get("SCRATCH")))
+    content = root / "c.json"
+    content.write_text(json.dumps({"session": "main-0"}))
+    ledger = root / "ledger.sqlite"
+    p = subprocess.Popen([mm, "disclose", str(content), "--campaign", "t", "--agent", "main", "--kind", "session",
+                          "--ledger", str(ledger)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    while not ledger.exists() and p.poll() is None:
+        pass
+    os.kill(p.pid, signal.SIGKILL)
+    p.wait()
+    size = ledger.stat().st_size if ledger.exists() else None
+    db = sqlite3.connect(ledger)
+    has = bool(db.execute("SELECT 1 FROM sqlite_schema WHERE name='disclosures'").fetchone())
+    db.close()
+    key = ("killed" if p.returncode == -9 else "finished", "empty file" if size == 0 else "nonempty",
+           "schema" if has else "NO schema")
+    outcomes[key] = outcomes.get(key, 0) + 1
+print(outcomes)

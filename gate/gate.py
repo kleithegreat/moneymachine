@@ -138,7 +138,9 @@ def effective_n(r, spa_p, seed):
 def holdout_pvalues(r):
     """Testing by betting (audit/criteria.md, stage 2, calibration v3) along the last axis: wealth prod(1 + λ_t r_t)
     with the aGRAPA bet λ_t = clip(S_{t-1} / Q_{t-1}, 0, 1/(2B)) from the past sums of r and r², and
-    p = min(1, 1 / max wealth). Valid at every level by Ville's inequality when E[r_t | past] <= 0 and r_t >= -B."""
+    p = min(1, 1 / max wealth). Valid by Ville's inequality under paper S3's conditional null on pre-absorption
+    returns r' >= -L; the frozen cap 1/(2B) equals S3's 1/L only at B = 1, and the reported floor -B is not a
+    substitute for r' >= -L (S3)."""
     r = np.asarray(r, float)
     if not (np.isfinite(r).all() and (r >= -LOSS_BOUND).all()):
         raise ValueError("holdout return non-finite or below -B")

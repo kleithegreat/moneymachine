@@ -167,9 +167,11 @@ stops the run:
   The datalayer writes each body before its row, so every row in a copied prefix has its body listed. Later rows and
   new day files wait for the next run. No history is parsed; malformed lines are copied as bytes, not a refusal.
 - Every copy's bytes are compared with the source's over the same length.
-- SQLite ledgers outside workspaces are point-in-time snapshots (SQLite's backup) that must pass its integrity check.
+- SQLite ledgers outside workspaces are point-in-time snapshots (SQLite's backup) that must pass its integrity check;
+  an observed or previously mirrored ledger vanishing is refused, as for day files.
 - Other files, including everything inside a workspace regardless of suffix, are copied whole when their size or
-  mtime changes; their disappearance is allowed. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
+  mtime changes; disappearance during enumeration, copying or source comparison omits them from the new manifest,
+  without publishing an unchecked copy. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
 - A mirrored file shorter than its manifest entry is refused.
 
 Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the source filesystem's capacity. It is written last,
@@ -202,8 +204,8 @@ that the human actually sees the alarm.
 Daily `mirror-verify` integrity failures still appear in Kubernetes job status/logs; this is a capacity/freshness alarm,
 not a new integrity-verification guarantee.
 
-Deployed 2026-11-07 03:14 UTC (2026-11-06 22:14 EST): `mirror` and `mirror-verify` on image `sha256:c80908c8…`
-(previously `sha256:17764092…`; rolling back is re-applying it to those two). Changing the guard: merge into this PC's
+Deployed 2026-11-08 02:31 UTC (2026-11-07 21:31 EST): `mirror` and `mirror-verify` on image `sha256:5e81095e…` (`cb23337`, the
+writer-contract churn fix; previously `sha256:c80908c8…`; rolling back is re-applying it to those two). Changing the guard: merge into this PC's
 main checkout, which the timer runs; a manifest-format change also needs a new image for those two CronJobs, applied
 before the merge, since old manifests alarm. Verify by one normal invocation and the synthetic alarm below, seen by the human.
 
@@ -218,39 +220,37 @@ Done 2026-10-30 (`audit/cluster/handoff.md`): the stage 3 harness was refrozen a
 at the move; this PC's recorders handed off at a reboot, after the overlaps reconciled. Git keeps the old paths for
 rollback, and a rollback never reruns a consumed campaign or date.
 
-## 7. Remote tests (no live workloads)
+## 7. Sharded test runs (no live workloads)
 
-When the desktop is busy, run a worktree on the idle six-core prodesk5 worker (14 GB RAM, Nix daemon and warm store):
+A full suite finishes fastest when one run spreads across this desktop and the idle nodes:
 ```
-python ops/remote_test.py /path/to/worktree
-python ops/remote_test.py /path/to/worktree prodesk5 ops/test_progress.py -q
-python ops/remote_test.py /path/to/worktree -- ops/test_progress.py -q
+python3 ops/shards.py /path/to/worktree
+python3 ops/shards.py /path/to/worktree ops thesis -k "registry"
+python3 ops/shards.py /path/to/worktree --machines local,gmktec
 ```
-The optional node defaults to `prodesk5`; only that name and `192.168.8.229` are allowed, both using
-`kevin@192.168.8.229`. **prodesk7 and every unknown destination are refused before SSH** (including aliases/IPs not
-allowlisted). SSH must already work noninteractively with a known host key; failures are not worked around.
-Local Python 3, Git, rsync and SSH, and remote Bash, Git, rsync and Nix are required. Use `--` after the worktree
-to omit the node when the first pytest argument is a file; otherwise a non-option first argument is the node.
-Pytest paths are relative to the worktree. `--basetemp` is runner-owned.
+The runner collects the test ids here (selection arguments, paths, `-k`, `-m`, go to collection only), splits them into
+shards balanced by recorded durations (`~/.cache/mm-shards/durations.json`, refreshed by every run; an unseen test counts
+as the median) and by cores (this PC 12, prodesk5 6, gmktec 8), learned slowness and learned per-machine overhead (seconds beyond the tests: transfer, Nix, collection, tail), runs the shards at once (`pytest -n auto` on each) and
+merges them: one summary, one exit status. The status is nonzero if any shard exits nonzero, any test fails or errors, or
+any collected test goes unreported; tests of a node that gave no result are rerun here. Logs are in a `/tmp/mm-shards-*`
+directory, deleted on success. `conftest.py` writes each shard's outcomes under `--shard-report`.
 
-A Git bundle supplies HEAD's history for the suite's history checks; rsync overlays the current tracked and
-non-ignored untracked files, including staged/unstaged edits and deletions. Untracked ignored files (build outputs,
-credentials and `data/`) are not shipped; rsync also excludes tracked `data/` paths. The bundle includes committed
-history. Links escaping the worktree and nested repositories are refused. Don't edit the source during transfer.
-Nothing is pushed or changed in the local index.
-The remote index is staged to make new files visible to Nix. Builds are session-local, shared under `conftest.py`'s
-locks; pytest's normal `-n auto --dist worksteal` uses all worker cores unless pytest arguments override it.
-
-Each invocation owns a private `/tmp/rt.<random>` directory, with its checkout, HOME, caches, TMPDIR and short pytest
-basetemp inside it. `nice -n 10 nix … develop -c … pytest` (explicitly enabling `nix-command flakes`) streams output
-and the pytest summary here, prints the remote command's exit status and returns it (transport/setup/cleanup errors
-also fail). TMPDIR is set again inside the dev shell, since Nix changes it. No existing remote checkout, personal
-files or homelab data are inspected or modified;
-normal SSH/system-tool reads and Nix daemon store operations are still needed. The checkout is **not a sandbox** for
-untrusted tests. Cleanup runs on completion/failure and shell signals, with a local `finally` covering transfer
-failures; a hard kill or unreachable node can leave only that invocation's directory to remove later.
-
-No search store is copied. The runner always announces and deselects exactly
-`kernel/tests/cli/test_differential.py::test_kernel_matches_witness` and
-`reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit` (they need `data/store`), even when explicitly
-selected; these are **not remotely validated**. The remaining Lean differential verdict test still runs.
+- **Nodes:** prodesk5 (`kevin@192.168.8.229`) and gmktec (`kevin@192.168.8.153`), both with Nix (found by a login shell,
+  not by a plain `ssh host command`; the runner extends PATH itself). **prodesk7 holds every live recording and has no Nix:
+  it is refused before SSH**, and so is every other destination. SSH must already work noninteractively with a known host
+  key; failures are not worked around.
+- **A node's checkout is persistent:** `/home/kevin/.cache/mm-runner` (its own HOME with the Nix and Cargo caches, and `w/`; TMPDIR and pytest's basetemp are on tmpfs, `/dev/shm/mm-runner`, emptied after each run, since the SIGKILL tests are storage-sensitive, `audit/2026-11-04-suite-speed.md`),
+  so the kernel build and Nix evaluation are incremental. Each run sends one tarball (a HEAD bundle, the current tracked and
+  non-ignored files, the deleted names and the ids), resets `w/` to the bundle's HEAD, overlays the files and stages them for
+  Nix; ignored build output stays. A `flock` on the directory serializes runs on a node, so a second builder waits there;
+  `nice -n 10`, one hour cap. Nothing outside that directory is read or changed (Nix daemon store operations aside), and the
+  checkout is **not a sandbox** for untrusted tests. Delete `/home/kevin/.cache/mm-runner` to reset a node.
+- **This PC only** (`LOCAL_ONLY` in `ops/shards.py`): `data/` is never shipped (a node gets an empty `w/data`), so the
+  tests that need `data/store` run here, and fail in a worktree without one
+  (`kernel/tests/cli/test_differential.py::test_kernel_matches_witness`,
+  `reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit`). All of `reference/tests/` stays here, because
+  its Lean build took a node six to twelve minutes cold and killed a worker on gmktec, which also runs game servers. So do
+  the `gate/tests/test_sandbox.py` tests that resolve host binaries (`/usr/bin/dash`) into the Nix store, which the nodes'
+  Ubuntu layout (`/usr/lib/cargo/bin/coreutils`) breaks.
+- Links escaping the worktree and nested repositories are refused. Don't edit the source during transfer. The local index
+  is not changed.

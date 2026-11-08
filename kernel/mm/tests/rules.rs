@@ -1,77 +1,122 @@
-//! C4.1: every rule in R is exact (bitwise value streams and run outcomes).
-//! C4.2: programs differing by random rule applications share an equivalence key.
+//! C4.1: every rule in R is exact. Each rule is `canon::rules()`'s own rewrite (its searcher finds the
+//! matches, its applier checks the condition and builds the right side), applied at a random matching position to random
+//! well-typed programs, and the original and the rewritten program must agree bitwise on every
+//! node's per-tick value stream (undefined values included) and on the whole run: returns, gross
+//! returns, equity, trace and exposures. The run's summary is a function of those fields, so equal
+//! fields give an equal summary. The markets are the gate's N1, N2 and N3 generator output
+//! (`c41/export_markets.py`, frozen by sha256), plus named cases for signed zeros, undefined
+//! conditions, window warm-up, a coin listing late and one delisting, and running-sum recompute
+//! boundaries (windows recompute their sum every window length, paper appendix K).
+//!
+//! Nodes are matched by name: every node of a program is bound by a `let` named for the node's
+//! id, a rewrite keeps the ids of the nodes it keeps, and the replaced root is compared with its
+//! replacement.
 
-use mm::dsl;
+mod common;
+
+use common::*;
+use egg::{EGraph, ENodeOrVar, Id, Language, PatternAst, Subst, SymbolLang};
+use mm::dsl::{self, Node, Program};
 use mm::machine::Machine;
-use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
+use mm::market::{sha256_hex, Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
 use mm::{canon, sim};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
+use std::collections::HashSet;
 
 const DELTA: i64 = 120_000;
-const COINS: usize = 4;
-const DAYS: i64 = 40;
+const COINS: usize = 12;
+const BARS: usize = 180;
+const HOURS: usize = BARS * 4 + 1;
 const PER_RULE: usize = 1000;
+const TRIES: usize = 1000;
+const LATE: (usize, usize) = (3, 60);
+const GONE: (usize, usize) = (11, 120);
 
-struct Rng(u64);
+const RULES: [&str; 16] = [
+    "neg-neg", "abs-abs", "abs-neg", "mul-one", "div-one", "sub-zero", "add-comm", "mul-comm", "and-comm", "or-comm",
+    "not-not", "if-not", "gt-lt", "lt-gt", "ge-le", "le-ge",
+];
 
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9e3779b97f4a7c15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
-        z ^ (z >> 31)
-    }
-    fn below(&mut self, n: usize) -> usize {
-        (self.next() % n as u64) as usize
-    }
-    fn unit(&mut self) -> f64 {
-        (self.next() >> 11) as f64 / (1u64 << 53) as f64
-    }
-    fn chance(&mut self, p: f64) -> bool {
-        self.unit() < p
-    }
+/// Digest over every program the 1,000-program test generates, in rule order: freezes the generator and seeds.
+const GENERATED_DIGEST: &str = "606e7821e5dd12369e3956a347098a6d8ba098fd6867c8f3af04c296024a6bab";
+
+const FIXTURES: [(&str, &str, &[u8]); 3] = [
+    ("N1", "376cb8e9342c2d09a77a7e2f3da8615f08af829577f89f39553717e04e9694b3", include_bytes!("c41/N1.f64")),
+    ("N2", "06b1d2e61f7695ce614117a15db71a009f25659bbf35befd6035908e75dff84b", include_bytes!("c41/N2.f64")),
+    ("N3", "7595c22e71b35b69493a5c6dc2ad66a5672d5f76322deba523b98ffd01600d77", include_bytes!("c41/N3.f64")),
+];
+
+#[derive(Clone, Copy, PartialEq)]
+enum Shape {
+    Plain,
+    /// Negative zeros in funding and premium, and flat price stretches with no volume.
+    SignedZero,
+    /// One coin lists late, one is delisted midway, one has bars without trades.
+    Listing,
 }
 
-/// Market variants: 0 has exact zero funding and premium; 1 varies them with signed zeros and
-/// flat price stretches; 2 adds a coin delisted midway and bars without trades.
-fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
-    let mut rng = Rng(seed);
-    let n_bars = DAYS * 6;
-    let end = n_bars * BAR;
+struct Mk {
+    name: String,
+    m: Market,
+    v: Venue,
+    pol: Policy,
+    end: i64,
+}
+
+fn market(model: &str, shape: Shape) -> Mk {
+    let (_, hash, bytes) = FIXTURES.iter().find(|f| f.0 == model).unwrap();
+    assert_eq!(sha256_hex(bytes), *hash, "{model} fixture differs from its frozen hash");
+    let words: Vec<f64> = bytes.chunks_exact(8).map(|b| f64::from_le_bytes(b.try_into().unwrap())).collect();
+    let (bar_words, hour_words) = (BARS * COINS, HOURS * COINS);
+    assert_eq!(words.len(), 5 * bar_words + 2 * hour_words);
+    let col = |i: usize| &words[i * bar_words..(i + 1) * bar_words];
+    let (open, high, low, close, volume) = (col(0), col(1), col(2), col(3), col(4));
+    let funding_rate = &words[5 * bar_words..5 * bar_words + hour_words];
+    let premium = &words[5 * bar_words + hour_words..];
+    let end = BARS as i64 * BAR;
+    let listing = shape == Shape::Listing;
     let mut bars = vec![];
     for c in 0..COINS {
-        let mut px = 100.0;
-        for k in 0..n_bars {
-            let flat = variant > 0 && k % 17 < 3;
-            let close = if flat { px } else { px * (1.0 + 0.02 * (rng.unit() - 0.5)) };
+        for k in 0..BARS {
+            if listing && ((c == LATE.0 && k < LATE.1) || (c == GONE.0 && k >= GONE.1)) {
+                continue;
+            }
+            let i = k * COINS + c;
+            let flat = shape == Shape::SignedZero && k % 17 < 3;
             bars.push(Bar {
                 coin: c,
-                open_time: k * BAR,
-                event: (k + 1) * BAR,
-                known: (k + 1) * BAR + DELTA,
-                open: px,
-                high: px.max(close) * 1.005,
-                low: px.min(close) * 0.995,
-                close,
-                volume: if flat { 0.0 } else { 1.0 + rng.unit() },
-                trades: if variant == 2 && k % 23 == 0 { 0 } else { 1 },
+                open_time: k as i64 * BAR,
+                event: (k as i64 + 1) * BAR,
+                known: (k as i64 + 1) * BAR + DELTA,
+                open: open[i],
+                high: if flat { open[i] } else { high[i] },
+                low: if flat { open[i] } else { low[i] },
+                close: if flat { open[i] } else { close[i] },
+                volume: if flat { 0.0 } else { volume[i] },
+                trades: if listing && c == 5 && k % 23 == 0 { 0 } else { 100 },
             });
-            px = close;
         }
     }
     let mut funding = vec![];
     for c in 0..COINS {
-        for h in 0..=n_bars * 4 {
-            let (rate, premium) = match variant {
-                0 => (0.0, 0.0),
-                _ => match h % 7 {
-                    0 => (0.0, -0.0),
-                    1 => (-0.0, 0.0),
-                    _ => ((rng.unit() - 0.5) * 4e-4, (rng.unit() - 0.5) * 2e-3),
-                },
-            };
-            funding.push(Funding { coin: c, event: h * HOUR, known: h * HOUR + DELTA, rate, premium });
+        for h in 0..HOURS {
+            let t = h as i64 * HOUR;
+            if listing && c == LATE.0 && t < LATE.1 as i64 * BAR {
+                continue;
+            }
+            let (mut rate, mut prem) = (funding_rate[h * COINS + c], premium[h * COINS + c]);
+            if shape == Shape::SignedZero {
+                match h % 7 {
+                    0 => rate = -0.0,
+                    1 => prem = -0.0,
+                    2 => (rate, prem) = (0.0, -0.0),
+                    _ => {}
+                }
+            }
+            if listing && c == GONE.0 && t > GONE.1 as i64 * BAR {
+                (rate, prem) = (0.0, 0.0);
+            }
+            funding.push(Funding { coin: c, event: t, known: t + DELTA, rate, premium: prem });
         }
     }
     let mut bar_times = vec![vec![]; COINS];
@@ -79,8 +124,9 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
         bar_times[b.coin].push(b.open_time);
     }
     let mut intervals = vec![(0, end); COINS];
-    if variant == 2 {
-        intervals[COINS - 1] = (0, end / 2);
+    if listing {
+        intervals[LATE.0] = (LATE.1 as i64 * BAR, end);
+        intervals[GONE.0] = (0, GONE.1 as i64 * BAR);
     }
     let m = Market {
         bar_at: bars.iter().enumerate().map(|(i, b)| ((b.coin, b.open_time), i)).collect(),
@@ -97,141 +143,34 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
         min_notional: 10.0,
         coins: (0..COINS).map(|c| format!("S{c}")).collect(),
         rules: (0..COINS)
-            .map(|c| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: variant == 2 && c == COINS - 1, cost_bps: [[2.0, 4.0], [2.0, 4.0]], calibration_range: None })
+            .map(|c| CoinRules { sz_decimals: 3, min_tier_leverage: 10.0, delisted: listing && c == GONE.0, cost_bps: [[2.0, 4.0], [2.0, 4.0]], calibration_range: None })
             .collect(),
         rules_hash: String::new(),
         execution_hash: String::new(),
     };
-    (m, v, Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: end }, end)
+    let pol = Policy { delta: DELTA, settlement_latency: 60_000, w_start: 0, holdout_start: i64::MAX, w_end: end };
+    let tag = match shape {
+        Shape::Plain => "",
+        Shape::SignedZero => "+zeros",
+        Shape::Listing => "+listing",
+    };
+    Mk { name: format!("{model}{tag}"), m, v, pol, end }
 }
 
-fn c(x: f64) -> Value {
-    json!({"const": x, "unit": "1"})
+fn plain() -> Vec<Mk> {
+    ["N1", "N2", "N3"].iter().map(|m| market(m, Shape::Plain)).collect()
 }
 
-fn op(name: &str, args: Vec<Value>) -> Value {
-    json!({"op": name, "args": args})
-}
-
-fn win(name: &str, x: Value, h: u32) -> Value {
-    json!({"op": name, "args": [x], "hours": h})
-}
-
-fn leaf(rng: &mut Rng) -> Value {
-    match rng.below(7) {
-        0 => {
-            let p = ["open", "high", "low", "close"][rng.below(4)];
-            op("sub", vec![op("div", vec![json!({"input": p}), win("lag", json!({"input": p}), [1, 4, 8, 24][rng.below(4)])]), c(1.0)])
-        }
-        1 => op("div", vec![json!({"input": "funding"}), json!({"const": 1e-4, "unit": "1/h"})]),
-        2 => json!({"input": "premium"}),
-        3 => op("div", vec![json!({"input": "volume"}), win("mean", json!({"input": "volume"}), 8)]),
-        4 => c([0.0, -0.0, 1.0, -1.0, 0.5][rng.below(5)]),
-        5 => c(rng.unit() * 2.0 - 1.0),
-        _ => op("convert", vec![json!({"input": "funding"})]).as_object().cloned().map(|mut o| {
-            o.insert("to".into(), json!("1/y"));
-            op("mul", vec![Value::Object(o), json!({"const": 1e-3, "unit": "y"})])
-        }).unwrap(),
-    }
-}
-
-fn num(rng: &mut Rng, depth: usize) -> Value {
-    if depth == 0 || rng.chance(0.25) {
-        return leaf(rng);
-    }
-    let d = depth - 1;
-    match rng.below(16) {
-        0 => op("neg", vec![num(rng, d)]),
-        1 => op("abs", vec![num(rng, d)]),
-        2 => op("sign", vec![num(rng, d)]),
-        3 => op("add", vec![num(rng, d), num(rng, d)]),
-        4 => op("sub", vec![num(rng, d), num(rng, d)]),
-        5 => op("mul", vec![num(rng, d), num(rng, d)]),
-        6 => op("div", vec![num(rng, d), num(rng, d)]),
-        7 => op("min", vec![num(rng, d), num(rng, d)]),
-        8 => op("max", vec![num(rng, d), num(rng, d)]),
-        9 => op("clip", vec![num(rng, d), c(-1.0), c(1.0)]),
-        10 => op("if", vec![boolean(rng, d), num(rng, d), num(rng, d)]),
-        11 => win(["mean", "ema", "std", "lag", "sum", "min_over", "max_over"][rng.below(7)], num(rng, d), [1, 4, 6, 13][rng.below(4)]),
-        12 => op("xs_demean", vec![num(rng, d)]),
-        13 => op("xs_mean", vec![num(rng, d)]),
-        14 => op("xs_rank", vec![num(rng, d)]),
-        _ => op("exp", vec![op("clip", vec![num(rng, d), c(-3.0), c(3.0)])]),
-    }
-}
-
-fn boolean(rng: &mut Rng, depth: usize) -> Value {
-    let d = depth.saturating_sub(1);
-    match rng.below(7) {
-        0..=3 => op(["gt", "ge", "lt", "le"][rng.below(4)], vec![num(rng, d), num(rng, d)]),
-        4 => op("and", vec![boolean(rng, d), boolean(rng, d)]),
-        5 => op("or", vec![boolean(rng, d), boolean(rng, d)]),
-        _ => op("not", vec![boolean(rng, d)]),
-    }
-}
-
-const RULES: [&str; 16] = [
-    "neg-neg", "abs-abs", "abs-neg", "mul-one", "div-one", "sub-zero", "add-comm", "mul-comm", "and-comm", "or-comm",
-    "not-not", "if-not", "gt-lt", "lt-gt", "ge-le", "le-ge",
-];
-
-/// (left side, right side, is boolean) of one random instance of a rule.
-fn instance(rule: &str, rng: &mut Rng) -> (Value, Value, bool) {
-    let (a, b) = (num(rng, 2), num(rng, 2));
-    let (p, q) = (boolean(rng, 2), boolean(rng, 2));
-    match rule {
-        "neg-neg" => (op("neg", vec![op("neg", vec![a.clone()])]), a, false),
-        "abs-abs" => (op("abs", vec![op("abs", vec![a.clone()])]), op("abs", vec![a]), false),
-        "abs-neg" => (op("abs", vec![op("neg", vec![a.clone()])]), op("abs", vec![a]), false),
-        "mul-one" => (op("mul", vec![a.clone(), c(1.0)]), a, false),
-        "div-one" => (op("div", vec![a.clone(), c(1.0)]), a, false),
-        "sub-zero" => (op("sub", vec![a.clone(), c(0.0)]), a, false),
-        "add-comm" => (op("add", vec![a.clone(), b.clone()]), op("add", vec![b, a]), false),
-        "mul-comm" => (op("mul", vec![a.clone(), b.clone()]), op("mul", vec![b, a]), false),
-        "and-comm" => (op("and", vec![p.clone(), q.clone()]), op("and", vec![q, p]), true),
-        "or-comm" => (op("or", vec![p.clone(), q.clone()]), op("or", vec![q, p]), true),
-        "not-not" => (op("not", vec![op("not", vec![p.clone()])]), p, true),
-        "if-not" => (op("if", vec![op("not", vec![p.clone()]), a.clone(), b.clone()]), op("if", vec![p, b, a]), false),
-        r => {
-            let (l, rr) = match r {
-                "gt-lt" => ("gt", "lt"),
-                "lt-gt" => ("lt", "gt"),
-                "ge-le" => ("ge", "le"),
-                _ => ("le", "ge"),
-            };
-            (op(l, vec![a.clone(), b.clone()]), op(rr, vec![b, a]), true)
-        }
-    }
-}
-
-fn program(probe: Value, rng_ctx: &mut Rng, is_bool: bool) -> String {
-    let probe_ref = json!({"ref": "probe"});
-    let mut x = if is_bool { op("if", vec![probe_ref, num(rng_ctx, 1), num(rng_ctx, 1)]) } else { probe_ref };
-    for _ in 0..rng_ctx.below(3) {
-        x = match rng_ctx.below(4) {
-            0 => op("add", vec![x, num(rng_ctx, 1)]),
-            1 => win("ema", x, 4),
-            2 => op("xs_demean", vec![x]),
-            _ => op("neg", vec![x]),
-        };
-    }
-    let weight = op("mul", vec![op("clip", vec![x, c(-1.0), c(1.0)]), c(0.05)]);
-    json!({"dsl": 1, "name": "rule", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
-           "let": {"probe": probe}, "weight": weight})
-    .to_string()
-}
-
-/// Per-tick value bits of the probe node for every coin, as the kernel's machine sees them.
-fn streams(p: &dsl::Program, m: &Market, end: i64) -> Vec<Option<u64>> {
-    let probe = p.lets.iter().find(|(n, _)| n == "probe").unwrap().1;
+/// Per-tick value bits of each node, for every coin, as the kernel's machine sees them.
+fn streams(p: &Program, mk: &Mk, nodes: &[usize]) -> Vec<Vec<Option<u64>>> {
     let mut machine = Machine::new(p, COINS);
-    let mut f: Vec<&Funding> = m.funding.iter().collect();
+    let mut f: Vec<&Funding> = mk.m.funding.iter().collect();
     f.sort_by_key(|x| (x.known, x.coin));
-    let mut b: Vec<&Bar> = m.bars.iter().collect();
+    let mut b: Vec<&Bar> = mk.m.bars.iter().collect();
     b.sort_by_key(|x| (x.known, x.coin));
     let (mut fi, mut bi) = (0, 0);
-    let mut out = vec![];
-    for h in (0..=end).step_by(HOUR as usize) {
+    let mut out = vec![vec![]; nodes.len()];
+    for h in (0..=mk.end).step_by(HOUR as usize) {
         let tick = h + DELTA;
         while fi < f.len() && f[fi].known <= tick {
             machine.deliver_funding(*f[fi], tick).unwrap();
@@ -241,129 +180,548 @@ fn streams(p: &dsl::Program, m: &Market, end: i64) -> Vec<Option<u64>> {
             machine.deliver_bar(*b[bi], tick).unwrap();
             bi += 1;
         }
-        let listed: Vec<bool> = (0..COINS).map(|c| m.intervals[c].0 <= h && h < m.intervals[c].1).collect();
+        let listed: Vec<bool> = (0..COINS).map(|c| mk.m.intervals[c].0 <= h && h < mk.m.intervals[c].1).collect();
         machine.tick(&listed, h);
-        out.extend((0..COINS).map(|c| machine.value(probe, c).map(f64::to_bits)));
+        for (o, &n) in out.iter_mut().zip(nodes) {
+            o.extend((0..COINS).map(|c| machine.value(n, c).map(f64::to_bits)));
+        }
     }
     out
 }
 
-fn outcome(p: &dsl::Program, m: &Market, v: &Venue, pol: &Policy, end: i64) -> String {
-    match sim::run(p, m, v, pol, end) {
-        Ok(r) => format!("{:?}|{:?}|{:?}", r.returns.iter().map(|x| x.to_bits()).collect::<Vec<_>>(), r.trace, r.exposures),
-        Err(e) => format!("abort {e:?}"),
+fn bits(x: &[f64]) -> Vec<u64> {
+    x.iter().map(|v| v.to_bits()).collect()
+}
+
+/// The whole run, bit for bit; the flag says whether it completed.
+fn outcome(p: &Program, mk: &Mk) -> (String, bool) {
+    match sim::run(p, &mk.m, &mk.v, &mk.pol, mk.end) {
+        Ok(r) => {
+            let exposures: Vec<(bool, u64)> = r.exposures.iter().map(|(b, x)| (*b, x.to_bits())).collect();
+            (format!("{:?}|{:?}|{:?}|{:?}|{:?}", bits(&r.returns), bits(&r.gross_returns), bits(&r.equity), r.trace, exposures), true)
+        }
+        Err(e) => (format!("abort {e:?}"), false),
     }
+}
+
+fn node_ids(p: &Program, names: &[&String]) -> Vec<usize> {
+    names.iter().map(|n| p.lets.iter().find(|(l, _)| l == *n).unwrap_or_else(|| panic!("no let {n}")).1).collect()
+}
+
+/// A program and its rewrite, with the let names to compare and the replaced root's names.
+struct Case {
+    a: String,
+    b: String,
+    shared: Vec<String>,
+    old: String,
+    new: String,
+}
+
+#[derive(Default, Clone, Copy)]
+struct Stat {
+    defined: usize,
+    completed: usize,
+    runs: usize,
+}
+
+impl Stat {
+    fn add(&mut self, o: Stat) {
+        self.defined += o.defined;
+        self.completed += o.completed;
+        self.runs += o.runs;
+    }
+}
+
+fn check(rule: &str, label: &str, case: &Case, mks: &[Mk]) -> Stat {
+    let parse = |t: &str| dsl::parse(t).unwrap_or_else(|e| panic!("{rule} {label}: {e:?}\n{t}"));
+    let (pa, pb) = (parse(&case.a), parse(&case.b));
+    let mut names: Vec<&String> = case.shared.iter().collect();
+    names.push(&case.old);
+    let mut other: Vec<&String> = case.shared.iter().collect();
+    other.push(&case.new);
+    let (ia, ib) = (node_ids(&pa, &names), node_ids(&pb, &other));
+    let mut stat = Stat::default();
+    for mk in mks {
+        let (sa, sb) = (streams(&pa, mk, &ia), streams(&pb, mk, &ib));
+        for (i, (x, y)) in sa.iter().zip(&sb).enumerate() {
+            assert_eq!(x, y, "{rule} {label} on {}: node {}/{} streams differ\n{}\n{}", mk.name, names[i], other[i], case.a, case.b);
+        }
+        stat.defined += sa.last().unwrap().iter().any(|v| v.is_some()) as usize;
+        let ((oa, ka), (ob, _)) = (outcome(&pa, mk), outcome(&pb, mk));
+        assert_eq!(oa, ob, "{rule} {label} on {}: runs differ\n{}\n{}", mk.name, case.a, case.b);
+        stat.completed += ka as usize;
+        stat.runs += 1;
+    }
+    stat
+}
+
+fn id_of(v: &Value) -> String {
+    format!("n{}", v["_id"])
+}
+
+/// Give every untagged node an id, children first; tagged subtrees keep theirs.
+fn tag(v: &mut Value, next: &mut u64) {
+    if v.get("_id").is_some() {
+        return;
+    }
+    if let Some(args) = v.get_mut("args").and_then(Value::as_array_mut) {
+        for a in args {
+            tag(a, next);
+        }
+    }
+    v["_id"] = json!(*next);
+    *next += 1;
+}
+
+/// Bind every node to a let named by its id; returns the let names in order.
+fn lower(v: &Value, lets: &mut Map<String, Value>) {
+    let name = id_of(v);
+    if lets.contains_key(&name) {
+        return;
+    }
+    let mut node = v.clone();
+    node.as_object_mut().unwrap().remove("_id");
+    if let Some(args) = v.get("args").and_then(Value::as_array) {
+        node["args"] = Value::Array(args.iter().map(|a| { lower(a, lets); json!({"ref": id_of(a)}) }).collect());
+    }
+    lets.insert(name, node);
+}
+
+fn program_text(tree: &Value) -> (String, Vec<String>) {
+    let mut lets = Map::new();
+    lower(tree, &mut lets);
+    let names = lets.keys().cloned().collect();
+    let text = json!({"dsl": 1, "name": "rule", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+                      "let": lets, "weight": {"ref": id_of(tree)}})
+    .to_string();
+    (text, names)
+}
+
+fn kind(n: &Value) -> &str {
+    n.get("op").and_then(Value::as_str).unwrap_or("")
+}
+
+fn is_bool(n: &Value) -> bool {
+    matches!(kind(n), "gt" | "ge" | "lt" | "le" | "and" | "or" | "not")
+}
+
+fn paths(v: &Value, here: Vec<usize>, out: &mut Vec<Vec<usize>>) {
+    out.push(here.clone());
+    if let Some(args) = v.get("args").and_then(Value::as_array) {
+        for (i, a) in args.iter().enumerate() {
+            let mut p = here.clone();
+            p.push(i);
+            paths(a, p, out);
+        }
+    }
+}
+
+fn at<'a>(v: &'a mut Value, path: &[usize]) -> &'a mut Value {
+    path.iter().fold(v, |n, &i| &mut n["args"][i])
+}
+
+/// Every way the rule, as `canon::rules()` defines it, rewrites a tagged tree: the position of
+/// the node replaced and its replacement (kept subtrees keep their tags). The tree is lowered to
+/// the e-graph the canonicalizer builds; the rule's own searcher finds the matches, its own
+/// applier decides whether the condition holds, and its right side is instantiated from the match.
+fn rewrites(rule: &str, tree: &Value) -> Vec<(Vec<usize>, Value)> {
+    let rw = canon::rules().into_iter().find(|r| r.name.as_str() == rule).unwrap();
+    let p = dsl::parse(&program_text(tree).0).unwrap();
+    let expr = canon::term(&p);
+    let mut slot = vec![None; p.nodes.len()];
+    let mut stack = vec![(p.weight, expr.as_ref().len() - 1)];
+    while let Some((n, e)) = stack.pop() {
+        if slot[n].replace(e).is_none() {
+            if let Node::Op(_, args) = &p.nodes[n] {
+                stack.extend(args.iter().zip(&expr[Id::from(e)].children).map(|(&a, &k)| (a, usize::from(k))));
+            }
+        }
+    }
+    let mut g: EGraph<SymbolLang, ()> = EGraph::default();
+    let mut class: Vec<Id> = vec![];
+    for n in expr.as_ref() {
+        class.push(g.add(n.clone().map_children(|c| class[usize::from(c)])));
+    }
+    g.rebuild();
+    let mut all = vec![];
+    paths(tree, vec![], &mut all);
+    let mut t = tree.clone();
+    let here: Vec<(Vec<usize>, Id, Value)> = all
+        .into_iter()
+        .map(|path| {
+            let node = at(&mut t, &path).clone();
+            let idx = p.lets.iter().find(|(l, _)| *l == id_of(&node)).unwrap().1;
+            (path, g.find(class[slot[idx].unwrap()]), node)
+        })
+        .collect();
+    let rhs = rw.applier.get_pattern_ast().expect("a pattern right side");
+    let mut out = vec![];
+    for m in rw.search(&g) {
+        for subst in &m.substs {
+            if rw.applier.apply_one(&mut g.clone(), m.eclass, subst, rw.searcher.get_pattern_ast(), rw.name).is_empty() {
+                continue;
+            }
+            for (path, _, _) in here.iter().filter(|h| h.1 == g.find(m.eclass)) {
+                let below = |c: Id| here.iter().find(|h| h.0.starts_with(path) && h.1 == g.find(c)).unwrap().2.clone();
+                out.push((path.clone(), instantiate(rhs, rhs.as_ref().len() - 1, subst, &below)));
+            }
+        }
+    }
+    out
+}
+
+fn instantiate(rhs: &PatternAst<SymbolLang>, i: usize, subst: &Subst, below: &dyn Fn(Id) -> Value) -> Value {
+    match &rhs[Id::from(i)] {
+        ENodeOrVar::Var(v) => below(subst[*v]),
+        ENodeOrVar::ENode(n) => op(n.op.as_str(), n.children.iter().map(|&k| instantiate(rhs, usize::from(k), subst, below)).collect()),
+    }
+}
+
+/// The case for a rewrite of one position of a tree (tagged here if it is not yet).
+fn rewrite(tree: &Value, next: &mut u64, (path, new): &(Vec<usize>, Value)) -> Case {
+    let mut rewritten = tree.clone();
+    let node = at(&mut rewritten, path);
+    let old = id_of(node);
+    let mut new = new.clone();
+    tag(&mut new, next);
+    let new_name = id_of(&new);
+    *node = new;
+    let (a, names_a) = program_text(tree);
+    let (b, names_b) = program_text(&rewritten);
+    let in_b: HashSet<&String> = names_b.iter().collect();
+    let shared = names_a.into_iter().filter(|n| in_b.contains(n) && *n != old).collect();
+    Case { a, b, shared, old, new: new_name }
+}
+
+fn tagged(mut tree: Value) -> (Value, u64) {
+    let mut next = 0;
+    tag(&mut tree, &mut next);
+    (tree, next)
+}
+
+/// Every matching position of an untagged tree as a case.
+fn all_cases(rule: &str, tree: Value) -> Vec<Case> {
+    let (tree, mut next) = tagged(tree);
+    rewrites(rule, &tree).iter().map(|m| rewrite(&tree, &mut next, m)).collect()
+}
+
+/// Plant the rule's left side around a random numeric node of a random tree; false if the
+/// result does not type-check (the node was not dimensionless).
+fn plant(rule: &str, tree: &mut Value, rng: &mut Rng) -> bool {
+    let mut all = vec![];
+    paths(tree, vec![], &mut all);
+    let nums: Vec<&Vec<usize>> = all.iter().filter(|p| !is_bool(at(&mut tree.clone(), p))).collect();
+    let path = nums[rng.below(nums.len())].clone();
+    let n = at(tree, &path).clone();
+    let (a, b) = (num(rng, 1), num(rng, 1));
+    let (p, q) = (boolean(rng, 1), boolean(rng, 1));
+    let flag = |l: Value| op("add", vec![n.clone(), op("if", vec![l, c(1.0), c(0.0)])]);
+    *at(tree, &path) = match rule {
+        "neg-neg" => op("neg", vec![op("neg", vec![n])]),
+        "abs-abs" => op("abs", vec![op("abs", vec![n])]),
+        "abs-neg" => op("abs", vec![op("neg", vec![n])]),
+        "mul-one" => op("mul", vec![n, c(1.0)]),
+        "div-one" => op("div", vec![n, c(1.0)]),
+        "sub-zero" => op("sub", vec![n, c(0.0)]),
+        "add-comm" => op("add", vec![n, a]),
+        "mul-comm" => op("mul", vec![n, a]),
+        "if-not" => op("if", vec![op("not", vec![p]), n, a]),
+        "and-comm" => flag(op("and", vec![p, q])),
+        "or-comm" => flag(op("or", vec![p, q])),
+        "not-not" => flag(op("not", vec![op("not", vec![p])])),
+        r => flag(op(&r[..2], vec![a, b])),
+    };
+    let (t, _) = tagged(tree.clone());
+    dsl::parse(&program_text(&t).0).is_ok()
+}
+
+/// The frozen random cases of one rule: `count` programs from seed `seed`.
+fn random_cases(rule: &str, seed: u64, count: usize) -> Vec<Case> {
+    let mut rng = Rng(seed);
+    (0..count)
+        .map(|_| {
+            for _ in 0..TRIES {
+                let mut tree = weight(&mut rng, 3);
+                if !plant(rule, &mut tree, &mut rng) {
+                    continue;
+                }
+                let (tree, mut next) = tagged(tree);
+                let ms = rewrites(rule, &tree);
+                if !ms.is_empty() {
+                    return rewrite(&tree, &mut next, &ms[rng.below(ms.len())]);
+                }
+            }
+            panic!("{rule}: no matching position in {TRIES} planted programs")
+        })
+        .collect()
+}
+
+/// Run `f` for each rule on its own thread, in rule order.
+fn per_rule<T: Send>(f: impl Fn(usize, &str) -> T + Sync) -> Vec<T> {
+    std::thread::scope(|scope| {
+        let f = &f;
+        let threads: Vec<_> = RULES.iter().enumerate().map(|(i, r)| scope.spawn(move || f(i, r))).collect();
+        threads.into_iter().map(|t| t.join().unwrap()).collect()
+    })
+}
+
+fn report(what: &str, stats: &[Stat]) {
+    for (r, s) in RULES.iter().zip(stats) {
+        eprintln!("{what} {r}: {} runs, {} completed, {} with a defined replaced node", s.runs, s.completed, s.defined);
+    }
+}
+
+#[test]
+fn rule_set_is_the_sixteen_rules() {
+    let names: Vec<String> = canon::rules().iter().map(|r| r.name.to_string()).collect();
+    assert_eq!(names, RULES);
 }
 
 #[test]
 fn every_rule_is_exact() {
-    let markets: Vec<_> = (0..3).map(|v| market(v, 7 + v as u64)).collect();
-    let nontrivial: Vec<usize> = std::thread::scope(|scope| {
-        let markets = &markets;
-        let threads: Vec<_> = RULES
-            .iter()
-            .enumerate()
-            .map(|(ri, rule)| {
-                scope.spawn(move || {
-                    let mut rng = Rng(1000 + ri as u64);
-                    let mut nontrivial = 0;
-                    for i in 0..PER_RULE {
-                        let (lhs, rhs, is_bool) = instance(rule, &mut rng);
-                        let seed = rng.next();
-                        let (a, b) = (program(lhs, &mut Rng(seed), is_bool), program(rhs, &mut Rng(seed), is_bool));
-                        let (pa, pb) = (dsl::parse(&a).unwrap_or_else(|e| panic!("{rule} {i}: {e}\n{a}")), dsl::parse(&b).unwrap());
-                        for (m, v, pol, end) in markets {
-                            let (sa, sb) = (streams(&pa, m, *end), streams(&pb, m, *end));
-                            assert_eq!(sa, sb, "{rule} #{i}: probe streams differ\n{a}\n{b}");
-                            nontrivial += sa.iter().any(|x| x.is_some()) as usize;
-                            assert_eq!(outcome(&pa, m, v, pol, *end), outcome(&pb, m, v, pol, *end), "{rule} #{i}: outcomes differ");
-                        }
-                    }
-                    nontrivial
-                })
-            })
-            .collect();
-        threads.into_iter().map(|t| t.join().unwrap()).collect()
+    let mks = plain();
+    let results = per_rule(|ri, rule| {
+        let mut digest = String::new();
+        let mut stat = Stat::default();
+        for (i, case) in random_cases(rule, 1000 + ri as u64, PER_RULE).iter().enumerate() {
+            digest = sha256_hex(format!("{digest}{}{}", case.a, case.b).as_bytes());
+            stat.add(check(rule, &format!("#{i}"), case, &mks));
+        }
+        (digest, stat)
     });
-    for (ri, n) in nontrivial.iter().enumerate() {
-        assert!(*n >= PER_RULE, "{}: only {n} runs with any defined probe value", RULES[ri]);
+    let stats: Vec<Stat> = results.iter().map(|r| r.1).collect();
+    report("random", &stats);
+    for (r, s) in RULES.iter().zip(&stats) {
+        assert!(s.defined >= 3 * PER_RULE / 2, "{r}: only {} of {} runs had a defined replaced node", s.defined, s.runs);
+        assert!(s.completed >= s.runs / 2, "{r}: only {} of {} runs completed", s.completed, s.runs);
+    }
+    let all: String = results.iter().map(|r| r.0.as_str()).collect();
+    let digest = sha256_hex(all.as_bytes());
+    assert_eq!(digest, GENERATED_DIGEST, "the generator or its seeds changed");
+}
+
+fn neg0() -> Value {
+    op("neg", vec![c(0.0)])
+}
+
+fn nums() -> Vec<Value> {
+    vec![
+        c(0.0),
+        neg0(),
+        c(1.0),
+        c(-1.0),
+        op("div", vec![c(0.0), c(0.0)]),
+        op("sub", vec![op("div", vec![input("close"), win("lag", input("close"), 1)]), c(1.0)]),
+        input("premium"),
+    ]
+}
+
+fn bools() -> Vec<Value> {
+    let r = nums()[5].clone();
+    vec![
+        op("gt", vec![r.clone(), c(0.0)]),
+        op("lt", vec![input("premium"), neg0()]),
+        op("gt", vec![nums()[4].clone(), c(0.0)]),
+        op("ge", vec![c(0.0), neg0()]),
+        op("lt", vec![neg0(), c(0.0)]),
+        op("le", vec![op("div", vec![input("funding"), json!({"const": 1e-4, "unit": "1/h"})]), r]),
+    ]
+}
+
+fn bool_out(rule: &str) -> bool {
+    matches!(rule, "and-comm" | "or-comm" | "not-not" | "gt-lt" | "lt-gt" | "ge-le" | "le-ge")
+}
+
+/// The rule's left side over the given numeric operands a, b and boolean operands p, q.
+fn lhs(rule: &str, a: &Value, b: &Value, p: &Value, q: &Value) -> Value {
+    let (a, b, p, q) = (a.clone(), b.clone(), p.clone(), q.clone());
+    match rule {
+        "neg-neg" => op("neg", vec![op("neg", vec![a])]),
+        "abs-abs" => op("abs", vec![op("abs", vec![a])]),
+        "abs-neg" => op("abs", vec![op("neg", vec![a])]),
+        "mul-one" => op("mul", vec![a, c(1.0)]),
+        "div-one" => op("div", vec![a, c(1.0)]),
+        "sub-zero" => op("sub", vec![a, c(0.0)]),
+        "add-comm" => op("add", vec![a, b]),
+        "mul-comm" => op("mul", vec![a, b]),
+        "and-comm" => op("and", vec![p, q]),
+        "or-comm" => op("or", vec![p, q]),
+        "not-not" => op("not", vec![op("not", vec![p])]),
+        "if-not" => op("if", vec![op("not", vec![p]), a, b]),
+        r => op(&r[..2], vec![a, b]),
     }
 }
 
-/// Apply one random rule, in either direction where it applies, somewhere in the tree.
-fn rewrite_once(v: &Value, rng: &mut Rng) -> Value {
-    fn paths(v: &Value, here: Vec<usize>, out: &mut Vec<Vec<usize>>) {
-        out.push(here.clone());
-        if let Some(args) = v.get("args").and_then(Value::as_array) {
-            for (i, a) in args.iter().enumerate() {
-                let mut p = here.clone();
-                p.push(i);
-                paths(a, p, out);
-            }
+/// Adds the weight over the rule's left side unless the rule is a commutation of two equal
+/// operands, whose rewrite is the identity and has no match.
+fn push_lhs(trees: &mut Vec<(Value, String)>, rule: &str, [a, b, p, q]: [&Value; 4], ctx: &dyn Fn(Value) -> Value, label: String) {
+    let same = match rule {
+        "add-comm" | "mul-comm" => a == b,
+        "and-comm" | "or-comm" => p == q,
+        _ => false,
+    };
+    if !same {
+        trees.push((weighted(rule, lhs(rule, a, b, p, q), ctx), label));
+    }
+}
+
+/// A numeric weight from the rule's left side, passed through `ctx`.
+fn weighted(rule: &str, l: Value, ctx: &dyn Fn(Value) -> Value) -> Value {
+    let x = if bool_out(rule) { op("if", vec![l, c(1.0), neg0()]) } else { l };
+    op("mul", vec![op("clip", vec![ctx(x), c(-1.0), c(1.0)]), c(0.05)])
+}
+
+/// Check all matching positions of every tree in `trees`; returns the totals.
+fn check_trees(rule: &str, trees: Vec<(Value, String)>, mks: &[Mk]) -> Stat {
+    let mut stat = Stat::default();
+    for (tree, label) in trees {
+        let cases = all_cases(rule, tree);
+        assert!(!cases.is_empty() || label.contains("any right operand"), "{rule} {label}: no matching position");
+        for case in cases {
+            stat.add(check(rule, &label, &case, mks));
         }
     }
-    fn at<'a>(v: &'a mut Value, path: &[usize]) -> &'a mut Value {
-        path.iter().fold(v, |n, &i| &mut n["args"][i])
-    }
-    fn is_bool(n: &Value) -> bool {
-        matches!(n.get("op").and_then(Value::as_str), Some("gt" | "ge" | "lt" | "le" | "and" | "or" | "not"))
-    }
-    let mut all = vec![];
-    paths(v, vec![], &mut all);
-    let mut out = v.clone();
-    for _ in 0..20 {
-        let path = &all[rng.below(all.len())];
-        let node = at(&mut out, path);
-        let name = node.get("op").and_then(Value::as_str).unwrap_or("").to_string();
-        let args = node.get("args").and_then(Value::as_array).cloned().unwrap_or_default();
-        let swap = |n: &str| op(n, vec![args[1].clone(), args[0].clone()]);
-        let new = match (name.as_str(), rng.below(2)) {
-            ("add" | "mul" | "and" | "or", _) => Some(swap(&name)),
-            ("gt", _) => Some(swap("lt")),
-            ("lt", _) => Some(swap("gt")),
-            ("ge", _) => Some(swap("le")),
-            ("le", _) => Some(swap("ge")),
-            ("neg", 0) if args[0].get("op") == Some(&json!("neg")) => Some(args[0]["args"][0].clone()),
-            ("if", 0) => Some(op("if", vec![op("not", vec![args[0].clone()]), args[2].clone(), args[1].clone()])),
-            ("abs", 0) => Some(op("abs", vec![op("abs", vec![args[0].clone()])])),
-            ("abs", _) => Some(op("abs", vec![op("neg", vec![args[0].clone()])])),
-            _ if is_bool(node) => Some(op("not", vec![op("not", vec![node.clone()])])),
-            _ if node.get("op").is_some() || node.get("input").is_some() => Some(match rng.below(3) {
-                0 => op("neg", vec![op("neg", vec![node.clone()])]),
-                1 => op("mul", vec![node.clone(), c(1.0)]),
-                _ => op("div", vec![node.clone(), c(1.0)]),
-            }),
-            _ => None,
-        };
-        if let Some(n) = new {
-            *node = n;
-            return out;
-        }
-    }
-    out
+    stat
 }
 
 #[test]
-fn rewritten_programs_share_a_key() {
-    let mut rng = Rng(42);
-    let mut failures = vec![];
-    for i in 0..1000 {
-        let weight = op("mul", vec![op("clip", vec![num(&mut rng, 3), c(-1.0), c(1.0)]), c(0.05)]);
-        let mut rewritten = weight.clone();
-        for _ in 0..1 + rng.below(10) {
-            rewritten = rewrite_once(&rewritten, &mut rng);
+fn signed_zeros_and_undefined_conditions() {
+    let mks: Vec<Mk> = ["N1", "N2", "N3"].iter().map(|m| market(m, Shape::SignedZero)).collect();
+    let ctxs: Vec<(&str, Box<dyn Fn(Value) -> Value + Sync>)> = vec![
+        ("id", Box::new(|x| x)),
+        ("sign", Box::new(|x| op("sign", vec![x]))),
+        ("min -0", Box::new(|x| op("min", vec![x, neg0()]))),
+        ("max +0", Box::new(|x| op("max", vec![c(0.0), x]))),
+        ("add -0", Box::new(|x| op("add", vec![x, neg0()]))),
+    ];
+    let stats = per_rule(|_, rule| {
+        let (ns, bs) = (nums(), bools());
+        let mut trees = vec![];
+        for (cn, ctx) in ctxs.iter() {
+            for (i, a) in ns.iter().enumerate() {
+                for (j, b) in ns.iter().enumerate() {
+                    let (p, q) = (&bs[i % bs.len()], &bs[j % bs.len()]);
+                    push_lhs(&mut trees, rule, [a, b, p, q], ctx.as_ref(), format!("{cn} operands {i},{j}"));
+                    if matches!(rule, "mul-one" | "div-one" | "sub-zero") {
+                        let any = op(&rule[..3], vec![a.clone(), b.clone()]);
+                        trees.push((weighted(rule, any, ctx.as_ref()), format!("{cn} any right operand {i},{j}")));
+                    }
+                }
+            }
         }
-        let wrap = |w: &Value| {
-            json!({"dsl": 1, "name": "k", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"}, "weight": w}).to_string()
-        };
-        let (a, b) = (dsl::parse(&wrap(&weight)).unwrap(), dsl::parse(&wrap(&rewritten)).unwrap());
-        if canon::equivalence_key(&a) != canon::equivalence_key(&b) {
-            failures.push((i, canon::canonical_term(&a), canon::canonical_term(&b)));
+        check_trees(rule, trees, &mks)
+    });
+    report("zeros", &stats);
+    for (r, s) in RULES.iter().zip(&stats) {
+        assert!(s.completed > 0 && s.defined > 0, "{r}: no completed run or defined stream");
+    }
+}
+
+#[test]
+fn the_negative_zero_operand_is_negative_zero() {
+    let (tree, _) = tagged(nums()[1].clone());
+    let p = dsl::parse(&program_text(&tree).0).unwrap();
+    let mk = market("N1", Shape::Plain);
+    let root = node_ids(&p, &[&id_of(&tree)]);
+    let s = streams(&p, &mk, &root);
+    assert!(s[0].iter().any(|v| *v == Some((-0.0f64).to_bits())), "nums()[1] is not -0 at evaluation");
+}
+
+#[test]
+fn sub_zero_keeps_units() {
+    let mks: Vec<Mk> = ["N1", "N2", "N3"].iter().map(|m| market(m, Shape::SignedZero)).collect();
+    let rate = || json!({"input": "funding"});
+    let zero = json!({"const": 0.0, "unit": "1/h"});
+    let w = |x: Value| op("mul", vec![op("clip", vec![op("mul", vec![x, json!({"const": 1e4, "unit": "h"})]), c(-1.0), c(1.0)]), c(0.05)]);
+    let stat = check_trees("sub-zero", vec![(w(op("sub", vec![rate(), zero])), "funding unit".into())], &mks);
+    assert!(stat.defined > 0);
+}
+
+#[test]
+fn window_warm_up() {
+    let mks = plain();
+    let wins = ["mean", "ema", "std", "lag", "sum", "min_over", "max_over"];
+    let stats = per_rule(|_, rule| {
+        let mut trees = vec![];
+        let (ns, bs) = (nums(), bools());
+        for w in wins {
+            for h in [1u32, 2, 3, 5, 13] {
+                let ret = ns[5].clone();
+                let (wa, wb) = (win(w, ret.clone(), h), win(w, input("premium"), h));
+                let (p, q) = (op("gt", vec![wa.clone(), c(0.0)]), bs[5].clone());
+                push_lhs(&mut trees, rule, [&wa, &wb, &p, &q], &|x| x, format!("{w}({h}) inside"));
+                let (a, b) = (ns[5].clone(), ns[6].clone());
+                push_lhs(&mut trees, rule, [&a, &b, &bs[0], &bs[1]], &|x| win(w, x, h), format!("{w}({h}) outside"));
+            }
         }
+        check_trees(rule, trees, &mks)
+    });
+    report("warm-up", &stats);
+    for (r, s) in RULES.iter().zip(&stats) {
+        assert!(s.defined > 0, "{r}: no defined stream");
     }
-    eprintln!("C4.2: {} of 1000 rewritten programs got a different key", failures.len());
-    for f in failures.iter().take(5) {
-        eprintln!("unmerged #{}:\n  {}\n  {}", f.0, f.1, f.2);
+}
+
+#[test]
+fn running_sum_recompute_boundaries() {
+    let mks = plain();
+    let hostile = || {
+        let ret = op("sub", vec![op("div", vec![input("close"), win("lag", input("close"), 1)]), c(1.0)]);
+        let swing = op("if", vec![op("gt", vec![input("volume"), win("lag", input("volume"), 1)]), c(1e15), c(1e-9)]);
+        op("mul", vec![ret, swing])
+    };
+    let stats = per_rule(|_, rule| {
+        let mut trees = vec![];
+        let (a, b) = (hostile(), op("div", vec![hostile(), c(3.0)]));
+        let bs = bools();
+        for w in ["sum", "mean", "std"] {
+            for h in [1u32, 2, 3, 4, 5, 7, 9, 24, 240, 360, 720] {
+                let (wa, wb) = (win(w, a.clone(), h), win(w, b.clone(), h));
+                let p = op("gt", vec![wa.clone(), c(0.0)]);
+                push_lhs(&mut trees, rule, [&wa, &wb, &p, &bs[1]], &|x| x, format!("{w}({h}) inside"));
+                push_lhs(&mut trees, rule, [&a, &b, &bs[0], &bs[1]], &|x| win(w, x, h), format!("{w}({h}) outside"));
+            }
+        }
+        check_trees(rule, trees, &mks)
+    });
+    report("recompute", &stats);
+    for (r, s) in RULES.iter().zip(&stats) {
+        assert!(s.defined > 0, "{r}: no defined stream");
     }
-    assert!(failures.len() <= 10, "{} of 1000 rewritten programs got a different key", failures.len());
+}
+
+#[test]
+fn listing_and_delisting() {
+    let mks: Vec<Mk> = ["N1", "N2", "N3"].iter().map(|m| market(m, Shape::Listing)).collect();
+    let stats = per_rule(|ri, rule| {
+        let mut stat = Stat::default();
+        let (ns, bs) = (nums(), bools());
+        let xs: [(&str, fn(Value) -> Value); 4] = [
+            ("xs_demean", |x| op("xs_demean", vec![x])),
+            ("xs_mean", |x| op("xs_mean", vec![x])),
+            ("xs_rank", |x| op("xs_rank", vec![op("clip", vec![x, c(0.0), c(1.0)])])),
+            ("id", |x| x),
+        ];
+        for (n, f) in xs {
+            let mut trees = vec![];
+            for i in [5, 6] {
+                for j in [5, 6, 2] {
+                    push_lhs(&mut trees, rule, [&ns[i], &ns[j], &bs[0], &bs[5]], &f, format!("{n} operands {i},{j}"));
+                    let (wa, wb) = (op(n, vec![ns[i].clone()]), ns[j].clone());
+                    if n != "id" && n != "xs_rank" {
+                        push_lhs(&mut trees, rule, [&wa, &wb, &bs[0], &bs[5]], &|x| x, format!("{n} inside {i},{j}"));
+                    }
+                }
+            }
+            stat.add(check_trees(rule, trees, &mks));
+        }
+        for case in random_cases(rule, 5000 + ri as u64, 150) {
+            stat.add(check(rule, "random listing", &case, &mks));
+        }
+        stat
+    });
+    report("listing", &stats);
+    for (r, s) in RULES.iter().zip(&stats) {
+        assert!(s.defined > 0 && s.completed > 0, "{r}: no defined stream or completed run");
+    }
 }

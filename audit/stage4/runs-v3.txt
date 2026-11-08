@@ -1,0 +1,49 @@
+Stage 4 exit evidence: test runs (builder: stage 4 exit evidence). Times UTC (EST = UTC-5).
+
+Kernel: unchanged (frozen). Tests: kernel/mm/tests/{rules,keys,canon,common,c41}. Commit of the tests: 31b8a63
+(commit under test for the runs below: 2d8715c, tests identical to 31b8a63).
+
+== C4.1 and C4.2 cargo tests: PASS ==
+Run 2026-11-08 06:13 UTC (01:13 EST) at 31b8a63 (rules.rs digest pinned), after 06:07 UTC (01:07 EST) at the same tests:
+  command: systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=1G choom -n 1000 -- nix develop -c \
+           cargo test --release --manifest-path kernel/Cargo.toml -p mm --test rules --test keys --test canon
+  canon.rs : test result: ok. 3 passed; 0 failed (equivalent_forms_share_a_key, rejected_laws_keep_distinct_keys, hand_built_pairs)
+  keys.rs  : test result: ok. 3 passed; 0 failed; finished in 1.13s
+             (rewritten_programs_share_a_key, fresh_processes_compute_the_same_keys [3 child processes x 2,000 programs], fresh_process_child)
+  rules.rs : test result: ok. 7 passed; 0 failed; finished in 231.97s
+             (every_rule_is_exact [16 rules x 1,000 programs x 3 markets N1, N2, N3: 3,000 runs per rule, 2,918 to 3,000 with a defined
+              replaced node, all 3,000 completed], signed_zeros_and_undefined_conditions, sub_zero_keeps_units, window_warm_up,
+              running_sum_recompute_boundaries, listing_and_delisting, rule_set_is_the_sixteen_rules)
+  C4.2 pairs: 1,000 rewritten pairs; the unmerged count is printed by the test (--nocapture); the bound is at most 10.
+  No rule was inexact; no xfail.
+
+== Criteria and ops tests ==
+  nix develop -c python -m pytest ops/test_progress.py criteria/test_stages3to5.py : 9 passed, 3 xfailed
+    (test_c45_swarm_smoke reads audit/stage4/null-summary.json, a copy of null-summary-v3.json; v1 and v2 strict xfails)
+  ops/test_commitcheck.py : 2 passed
+
+== Full suite: 1 FAILURE, not from this work ==
+Run 2026-11-08 06:17 UTC (01:17 EST) at 2d8715c, data/store linked read-only from the main checkout:
+  command: python3 /home/kevin/repos/moneymachine/ops/shards.py /home/kevin/repos/mm-stage4
+  summary: 1734 of 1734 tests reported: 1 failed, 1707 passed, 1 skipped, 25 xfailed; 0 missing;
+           shard exits {'local': 1, 'prodesk5': 0, 'gmktec': 0, 'rerun': 0}; wall 332s
+  failed : thesis/tests/test_market.py::test_no_signing_or_exchange_endpoint_in_the_repository
+  cause  : it greps every tracked .py for "eth_account", "/exchange\"" and similar; the file
+           audit/reviews/2026-11-08-opus-thesis-refreeze-round3/repro_market_oldapi.py (committed on main in 5821ea8, the Opus review)
+           contains them. The failure is on main as well; this branch did not touch it. Not edited here (audit records are
+           append-only); the advisor decides whether to move that file out of `git ls-files '*.py'` or exempt it.
+  The two data/store tests passed with the link.
+
+== Exit runs at 8dea9c6 (stage 4 exit item 3), 2026-11-08 16:57 UTC (11:57 EST) ==
+Full suite: python3 ops/shards.py /home/kevin/repos/mm-s4-exit (data/store linked from main):
+  summary: 1734 of 1734 tests reported: 2 failed, 1706 passed, 1 skipped, 25 xfailed; 0 missing;
+           shard exits {'local': 1, 'prodesk5': 0, 'gmktec': 0, 'rerun': 1}; wall 895s
+  failed : ops/test_commitcheck.py::test_added_lines_pair_their_times (my uncommitted audit/stage4/exit.md had a UTC time
+           without its EST pair; fixed before the commit, rerun passes)
+           thesis/tests/test_crash_recovery.py::test_day_random_sigkill_consumes_started_sessions_and_runs_the_rest_once[day-101]
+           (sqlite "no such table: disclosures" under load 20 beside the cargo suite; rerun alone passes)
+  Rerun of both after the fix: 2 passed (with ops/test_progress.py: 3 passed). The sharded run itself was not clean; no other test failed.
+Kernel cargo suite: CARGO_TARGET_DIR=$HOME/.cache/cargo-s4exit TMPDIR=/tmp nix develop -c cargo test --release (in kernel/):
+  all test results ok: lib 2, adversarial 2, bench 0 (1 ignored), canary 2, canon 3, events 4, fixtures 18, keys 3, rules 8 (316.85s); 0 failed.
+
+2026-11-08 17:04 UTC (12:04 EST), advisor: full sharded suite at bef0b8a (the exit commit), clean: 1734 of 1734 reported, 1708 passed, 1 skipped, 25 xfailed, 0 missing; wall 231 s. This is exit item 3's clean run; the earlier run's thesis crash-recovery failure is a pre-existing load-dependent defect queued for the refreeze (PROGRESS).

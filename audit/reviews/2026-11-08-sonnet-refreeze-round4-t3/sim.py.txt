@@ -1,0 +1,54 @@
+"""Exact model of ingest.hl.WeightLimit (zero or given latency) and adversarial search of the T3 waiting bound."""
+import random, sys, math
+B = 120
+
+def admit_time(spent, ready, w):
+    """earliest t >= ready with sum(w_i for ts_i > t-60) + w <= B (matches 'now-t<60' retention). `spent` is a list
+    of (ts, w) in nondecreasing ts; only the tail within 60 s of the last admission matters."""
+    t = ready
+    while True:
+        live = [(ts, x) for ts, x in spent[-40:] if t - ts < 60]
+        if sum(x for _, x in live) + w <= B:
+            return t
+        t = live[0][0] + 60
+
+def run(weights, lat=0.0, start=0.0, pre=()):
+    spent = list(pre); t = start; times = []
+    for i, w in enumerate(weights):
+        t = admit_time(spent, t, w); spent.append((t, w)); times.append(t)
+        t += lat if not callable(lat) else lat(i)
+    return t, times
+
+def blocks(n_daily_el=278, n_daily_non=70, n_core=176, d=5):
+    meta = [[20] * (d + 2)]
+    el = [[39, 21, 21]] * n_daily_el
+    non = [[21, 21]] * n_daily_non
+    hr = [[100, 21, 21]] * n_core
+    return meta, el, non, hr
+
+if __name__ == "__main__":
+    meta, el, non, hr = blocks()
+    # lexical-like layout from the repo test: per market daily block then (first 176) hourly block
+    w = list(meta[0])
+    for i in range(348):
+        w += ([39] if i < 278 else []) + [21, 21]
+        if i < 176: w += [100, 21, 21]
+    print("test layout", len(w), sum(w), run(w)[0] / 60, "min")
+    rnd = random.Random(1); best = 0
+    allb = meta + el + non + hr
+    for trial in range(300):
+        order = allb[1:]; rnd.shuffle(order)
+        seq = list(allb[0]) + [x for b in order for x in b]
+        best = max(best, run(seq)[0] / 60)
+    print("max over 300 random block orders", best)
+    # structured: alternate hourly with daily-eligible, hourly first, daily first
+    for name, order in {"hourly-then-daily": hr + el + non, "daily-then-hourly": el + non + hr,
+        "alt hr/el": [x for p in zip(hr, el) for x in p] + el[len(hr):] + non,
+        "alt non/hr": [x for p in zip(non, hr) for x in p] + hr[len(non):] + el}.items():
+        seq = list(allb[0]) + [x for b in order for x in b]; print(name, run(seq)[0] / 60)
+    # block-internal order variants: 21,21,100 and 21,100,21
+    for inner in ([21, 21, 100], [21, 100, 21]):
+        seq = list(allb[0]) + [x for b in el + non for x in b] + [x for _ in hr for x in inner]
+        print("hourly inner", inner, run(seq)[0] / 60)
+    seq = list(allb[0]) + [x for b in el+non for x in b] + [x for _ in hr for x in (100,21,21)]
+    print("w/ 10s latency each request", run(seq, lat=10.0)[0] / 60, "bound", 701 + 1509 * 10 / 60)

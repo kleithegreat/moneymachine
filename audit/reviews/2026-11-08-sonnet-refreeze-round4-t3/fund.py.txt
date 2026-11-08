@@ -1,0 +1,32 @@
+"""Daily funding upkeep via the real Market.prewarm: cold fill of the 1125d scope, then the next midnight's tail."""
+import sys, tempfile, threading, json
+from pathlib import Path
+import httpx
+sys.path.insert(0, "/home/kevin/repos/mm-agy-rf")
+from ingest import hl
+from thesis import market
+H, D = market.HOUR, market.DAY
+clock = [20388 * D + 10 * 60_000.0]
+hl.time = type("C", (), {"monotonic": staticmethod(lambda: clock[0] / 1000), "sleep": staticmethod(lambda s: clock.__setitem__(0, clock[0] + s * 1000))})
+market.time = hl.time; market.now_ms = lambda: int(clock[0])
+tmp = Path(tempfile.mkdtemp(dir="/home/kevin/.cache/mm-sonnet-t3"))
+START = 20388 * D - 2000 * D  # listing older than scope
+def post(url, json):
+    j = json
+    s = j["startTime"]; e = j.get("endTime", 10**18)
+    now = int(clock[0]) // H * H
+    rows = [{"time": t, "fundingRate": "0.0001"} for t in range(-(-s // H) * H, min(e, now) + 1, H)][:500]
+    return httpx.Response(200, json=rows, request=httpx.Request("POST", url))
+x = market.Exchange(tmp / "x", limiter=hl.WeightLimit(120)); m = market.Market(tmp / "m", x)
+x.http.post = post
+log = []; ch = x._charge
+x._charge = lambda w, background=False: (log.append(w), ch(w, background))[1]
+stop = threading.Event()
+t0 = clock[0]; m.prewarm("X", int(clock[0]), stop)
+print("cold fill: calls", len(log), "weight", sum(log), "min", (clock[0]-t0)/60000)
+# one pass every 15 min until next midnight, count weights
+log.clear()
+nxt = (int(clock[0]) // D + 1) * D
+while clock[0] < nxt + 3 * H:
+    clock[0] += 15 * 60_000; m.prewarm("X", int(clock[0]), stop)
+print("next 14h of 15-min passes after fill: calls", len(log), "weight", sum(log), log)
