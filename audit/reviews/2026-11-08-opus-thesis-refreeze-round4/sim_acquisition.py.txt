@@ -1,0 +1,54 @@
+"""Packing of one daily acquisition through a 120/min rolling-minute limiter (ingest.hl.WeightLimit's rule: admit when
+the last 60 s plus this charge fit, else wait for the oldest charge to expire), requests sent one at a time, each
+followed by `lat` seconds of HTTP time. Inventory: the counts-only 2026-10-28 snapshot (pre-window), ages only.
+Usage: python sim <snapshot.json>"""
+import json, math, sys
+from collections import deque
+
+DAY = 86_400_000
+def w(n, q=60):  # thesis reservation, ceiling surcharge
+    return 20 + math.ceil(n / q)
+
+def minutes(weights, lat=0.0, budget=120):
+    t, spent, lat = 0, deque(), int(lat * 1000)
+    for x in weights:
+        assert x <= budget
+        while True:
+            while spent and t - spent[0][0] >= 60_000:
+                spent.popleft()
+            if sum(v for _, v in spent) + x <= budget:
+                spent.append((t, x)); break
+            t = spent[0][0] + 60_000
+        t += lat
+    return t / 60_000
+
+s = json.load(open(sys.argv[1]))
+now = s["taken"]
+live = sorted(m for m, d in s["listings"].items() if not d)
+age = {m: (now - s["daily"][m][0][0]) // DAY for m in s["daily"]}
+
+def plan(prefix=True, terminal=0):
+    out = [20] * 7
+    k = 0
+    for m in live:
+        a = age.get(m, 60)  # not yet eligible: under 90 days
+        if not prefix or a >= 1125:
+            out.append(w(2))
+        elif a < 500:
+            out.append(w(1126))  # prefix and tail in one span (holes() joins gaps closer than 500 bars)
+        else:
+            out += [w(1126 - a), w(2)]
+        if k < terminal:
+            out.append(w(1)); k += 1
+        if m in s["daily"] and ":" not in m:
+            out.append(w(25))
+            if prefix and a < 200:
+                out.append(w(4801 - 24 * a))
+    return out
+
+env = [20] * 7 + sum((([39] if i < 278 else []) + [21, 21] + ([100, 21, 21] if i < 176 else []) for i in range(348)), [])
+print("GPT envelope (test order):", len(env), "requests", sum(env), "weight", round(minutes(env)), "min at lat 0")
+for name, ws in [("current code, recorded inventory", plan()), ("current code + 100 terminal empties", plan(terminal=100)),
+                 ("current code + 348 terminal empties", plan(terminal=348)), ("tails only (prefix repair off the path)", plan(prefix=False))]:
+    print(f"{name}: {len(ws)} requests, {sum(ws)} weight, {minutes(ws):.0f} min at lat 0, {minutes(ws, 0.7):.0f} min at lat 0.7 s, "
+          f"{minutes(ws, 2.0):.0f} min at lat 2 s")

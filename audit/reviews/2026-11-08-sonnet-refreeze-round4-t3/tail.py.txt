@@ -1,0 +1,8 @@
+from math import comb
+for p in (0.01,0.03,0.05,0.10,0.15,0.25):
+    print(p, sum(comb(28,k)*p**k*(1-p)**(28-k) for k in range(9,29)))
+import math
+for q,c in ((0.95,0.95),(0.99,0.95)):
+    print(q,c, math.ceil(math.log(1-c)/math.log(q)))
+print(sum([701*60,5*60,19*7*60,2*60,1514*10,31]), 18*7)
+print(65631-420, (65631-420)/3600)

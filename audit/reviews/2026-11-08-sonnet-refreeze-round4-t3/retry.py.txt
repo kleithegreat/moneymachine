@@ -1,0 +1,31 @@
+"""Adversarial placement of 5 extra attempts (each a repeat of the request it follows, zero sleep/latency): extra minutes vs baseline."""
+import random, sys
+from sim import *
+meta, el, non, hr = blocks()
+rnd = random.Random(int(sys.argv[1]))
+base_blocks = [tuple(b) for b in (el + non + hr)]
+def seqof(order):
+    seq = list(meta[0])
+    for b in order: seq += b
+    return seq
+best_extra = 0
+for rep in range(40):
+    order = base_blocks[:]; rnd.shuffle(order)
+    seq = seqof(order); base = run(seq)[0]
+    # choose 5 positions, repeat the request in place; greedy hill climb on positions
+    pos = sorted(rnd.sample(range(len(seq)), 5))
+    def val(pos):
+        s2 = []
+        c = {p: 0 for p in pos}
+        for i, w in enumerate(seq):
+            s2.append(w)
+            for p in pos:
+                if p == i: s2.append(w)
+        return run(s2)[0]
+    cur = val(pos)
+    for it in range(60):
+        p2 = pos[:]; p2[rnd.randrange(5)] = rnd.randrange(len(seq))
+        v = val(sorted(p2))
+        if v >= cur: pos, cur = sorted(p2), v
+    best_extra = max(best_extra, (cur - base) / 60)
+print("max extra minutes from 5 retries found:", best_extra)

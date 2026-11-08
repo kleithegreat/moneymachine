@@ -1,0 +1,99 @@
+"""Reviewer probes for thesis refreeze round four (1160c7b). Run from the worktree:
+PYTHONPATH=<worktree> pytest -p no:cacheprovider -q <this file>. Synthetic venue only; no exchange call."""
+
+import types
+from pathlib import Path
+
+import httpx
+import pytest
+
+from ingest.policy import DAY, HOUR
+from thesis import market, runner
+from thesis.tests.test_market import Venue
+from thesis.tests.test_runner import MONDAY, FakeMarket, ZERO
+
+MM = Path("/home/kevin/repos/moneymachine/kernel/target/release/mm")
+
+
+def test_readiness_lapses_at_every_midnight_and_a_registration_read_cannot_restore_it(tmp_path, monkeypatch):
+    """P1: a market whose whole history was acquired at 03:00 is 'not ready' from the next midnight until the background
+    fill runs again; the registration's own read (start = now) does not fetch the post-midnight gap, so inputs() refuses."""
+    day = MONDAY
+    clock = [day + 3 * HOUR]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    lo = day - market.HISTORY["funding"] - 2 * DAY
+    x = Venue([(h, .0001) for h in range(lo // HOUR * HOUR, day + 2 * DAY, HOUR)])
+    m = market.Market(tmp_path, x)
+    m.funding("X", clock[0], background=True)
+    assert m.ready("X", clock[0])
+    clock[0] = day + DAY + 5 * HOUR  # the next day's session, before the background fill has run
+    assert not m.ready("X", clock[0])
+    m.funding("X", clock[0], start=clock[0])  # what Track.read does for a new market (starts default to now)
+    assert not m.ready("X", clock[0])
+    with pytest.raises(httpx.TransportError, match="not ready"):
+        runner.Track.inputs(types.SimpleNamespace(market=m), "main", ["X"], clock[0], {"daily": {}})
+
+
+def test_background_core_meta_sends_a_body_the_foreground_never_sends(tmp_path):
+    """P3: listings(background=True) asks for core meta as {"type": "meta", "dex": null}; the foreground sends
+    {"type": "meta"}. Only the second shape has ever been sent to the venue."""
+    sent = []
+
+    class X:
+        def post(self, body, *a, **kw):
+            sent.append(body)
+            return [None] if body["type"] == "perpDexs" else {"universe": []}
+
+        def meta(self):
+            return self.post({"type": "meta"})
+
+    m = market.Market(tmp_path, X())
+    m.listings()
+    fg = list(sent)
+    sent.clear()
+    m.listings(background=True)
+    assert fg[0] == {"type": "meta"} and sent[0] == {"type": "meta", "dex": None}
+
+
+@pytest.fixture
+def track(tmp_path, monkeypatch):
+    monkeypatch.setattr(runner.kernel, "build", lambda: MM)
+    monkeypatch.setattr(runner.harness, "manifest_hash", lambda kernel: "0" * 64)
+    t = runner.Track(tmp_path)
+    t.market = FakeMarket(MONDAY + 40 * DAY)
+    monkeypatch.setattr(t, "config", lambda ms: {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO for m in ms}, "fallback": []})
+    return t
+
+
+def test_a_session_running_past_midnight_delays_the_next_acquisition(track, monkeypatch):
+    """P2: acquisition shares the serial schedule loop with sessions. A noread session admitted at 23:59 (allowed: ready()
+    only refuses after the day ends) holds the loop until 00:59, so the next date's acquisition starts ~54 min after its
+    cutoff, outside the bound's assumption that acquisition starts at the cutoff."""
+    clock = [MONDAY + runner.SNAPSHOT_OFFSET]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    monkeypatch.setattr(track, "ready", lambda date: True)
+    calls = []
+    snapshot = track.snapshot
+    monkeypatch.setattr(track, "snapshot", lambda cutoff: calls.append((cutoff, clock[0])) or snapshot(cutoff))
+
+    def session(kind, date, snap, *a, **kw):
+        track.ledger.disclose("session", kind, {"session": f"{kind}-{date}", "kind": kind, "started": clock[0],
+                                                "taken": snap["taken"]})
+        if kind == "noread":
+            clock[0] += HOUR
+        track.ledger.disclose("session_end", kind, {"session": f"{kind}-{date}", "kind": kind})
+
+    monkeypatch.setattr(track, "session", session)
+    track.schedule(clock[0], MONDAY)  # acquire Monday
+    clock[0] = MONDAY + runner.SESSION_OFFSET
+    monkeypatch.setattr(track, "ready", lambda date: clock[0] < date + DAY)
+    calls.clear()
+    # main ran on time; suppose the model was down until 23:59 for noread
+    track.ledger.disclose("session", "main", {"session": f"main-{MONDAY}", "kind": "main", "started": clock[0], "taken": MONDAY + runner.SNAPSHOT_OFFSET})
+    track.ledger.disclose("session_end", "main", {"session": f"main-{MONDAY}", "kind": "main"})
+    clock[0] = MONDAY + DAY - 60_000
+    track.schedule(clock[0], MONDAY)
+    track.schedule(clock[0], MONDAY)
+    tuesday = MONDAY + DAY
+    acquired = [now for cutoff, now in calls if cutoff == tuesday + runner.SNAPSHOT_OFFSET]
+    assert acquired and acquired[0] - (tuesday + runner.SNAPSHOT_OFFSET) >= 54 * 60_000

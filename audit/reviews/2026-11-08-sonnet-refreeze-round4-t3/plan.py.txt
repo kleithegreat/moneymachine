@@ -1,0 +1,97 @@
+"""Run the repo's real Market/Exchange request planner against a synthetic venue and cache state, then time it on the real WeightLimit."""
+import json, math, random, sys, tempfile
+from pathlib import Path
+import httpx
+sys.path.insert(0, "/home/kevin/repos/mm-agy-rf")
+from ingest import hl
+from thesis import market, registry
+
+H, D = market.HOUR, market.DAY
+CUT = 20388 * D + 5 * 60_000           # a Monday 00:05 UTC (Sunday 19:05 EST) cutoff
+PREV = CUT - D
+LAT_S = float(sys.argv[2]) if len(sys.argv) > 2 else 0.3
+SCEN = sys.argv[1] if len(sys.argv) > 1 else "typical"
+
+def build(scen, seed=0):
+    rnd = random.Random(seed)
+    mk = []
+    def add(name, elig, core, age):
+        mk.append((name, elig, core, age))
+    dexes = [f"d{i}" for i in range(5)]
+    for i in range(176):
+        a = rnd.randint(90, 199) if scen == "worst" else (rnd.choice([1200] * 40 + [rnd.randint(90, 1100)] ) if i < 70 else rnd.randint(90, 1100))
+        add(f"C{i:03d}", True, True, a)
+    for i in range(40): add(f"N{i:03d}", False, True, rnd.randint(5, 80))
+    for i in range(102):
+        a = rnd.randint(90, 1100); add(f"{dexes[i % 5]}:B{i:03d}", True, False, a)
+    for i in range(30): add(f"{dexes[i % 5]}:N{i:03d}", False, False, rnd.randint(5, 80))
+    if scen == "typical":   # 70 old markets (full 1125d scope) among eligible
+        mk = [(n, e, c, 1200 if idx % 4 == 0 and e and idx < 280 else a) for idx, (n, e, c, a) in enumerate(mk)]
+    return mk
+
+def main():
+    tmp = Path(tempfile.mkdtemp(dir="/home/kevin/.cache/mm-sonnet-t3"))
+    clock = [float(PREV)]
+    hl.time = type("Clock", (), {"monotonic": staticmethod(lambda: clock[0] / 1000),
+                                 "sleep": staticmethod(lambda s: clock.__setitem__(0, clock[0] + s * 1000))})
+    market.time = hl.time
+    market.now_ms = lambda: int(clock[0])
+    world = build(SCEN)
+    listed = {n: (e, c, a) for n, e, c, a in world}
+    # cold start inventory
+    cold = SCEN == "cold"
+    # write warm caches as of previous cutoff
+    for n, (e, c, age) in listed.items():
+        for kind in ("1d", "1h"):
+            if kind == "1h" and not c: continue
+            step = market.STEP[kind]
+            first = max((PREV - age * D) // step * step, 0) if kind == "1d" else max((PREV - min(age, 400) * D) // step * step, 0)
+            hist = market.HISTORY[kind]
+            first = max(first, (PREV - hist) // step * step + step)
+            last = ((PREV - market.FINAL[kind]) // step) * step
+            if not cold:
+                p = tmp / "m" / n.replace(":", "_") / f"{kind}.json"; p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(json.dumps([[t, 1., 1.] for t in range(first, last + 1, step)]))
+    reqs = []
+    def post(url, json):
+        t = json["type"]
+        if t == "perpDexs":
+            body = [None] + [{"name": f"d{i}"} for i in range(5)]
+        elif t == "meta":
+            dex = json.get("dex")
+            body = {"universe": [{"name": n, **({"isDelisted": False})} for n, (e, c, a) in listed.items() if (n.split(":")[0] if ":" in n else None) == dex]}
+        else:
+            r = json["req"]; coin = r["coin"]; e, c, age = listed[coin]; step = market.INTERVAL_MS[r["interval"]]
+            lo = max(r["startTime"], (CUT - age * D) // step * step); hi = min(r["endTime"], CUT if not __import__("os").environ.get("CLOSED_ONLY") else CUT - step)
+            t0 = -(-lo // step) * step
+            body = [{"t": x, "o": "1", "c": "1"} for x in range(t0, hi + 1, step)][:5000]
+            reqs.append((coin, r["interval"], len(body)))
+        clock[0] += LAT_S * 1000
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+    class Lim(hl.WeightLimit):
+        def delay(self, priority):   # mark interference [H-55s, H+300s]
+            if SCEN_MARKS:
+                ph = (clock[0] - 5000) % H
+                if ph >= H - 60_000: return (H - ph) / 1000 + 295
+                if ph < 295_000: return (295_000 - ph) / 1000
+            return 0
+    SCEN_MARKS = len(sys.argv) > 3
+    x = market.Exchange(tmp / "x", limiter=Lim(120))
+    m = market.Market(tmp / "m", x)
+    log = []
+    ch = x._charge
+    x._charge = lambda w, background=False: (log.append(w), ch(w, background))[1]
+    x.http.post = post
+    clock[0] = float(CUT)
+    start = clock[0]
+    listings = m.listings()
+    for n, dl in sorted(listings.items()):
+        if dl: continue
+        d = m.bars(n, "1d", CUT)
+        if len(d) < registry.MIN_DAILY_BARS: continue
+        h = [r for r in m.bars(n, "1h", CUT) if r[2] is not None]
+    el = (clock[0] - start) / 60000
+    print(f"{SCEN} lat={LAT_S}s marks={SCEN_MARKS}: calls={len(log)} weight={sum(log)} completion={el:.1f} min = {el/60:.2f} h")
+    from collections import Counter
+    print("weights histogram", sorted(Counter(log).items()))
+main()

@@ -1,0 +1,24 @@
+import random, sys
+from sim import *
+meta, el, non, hr = blocks()
+rnd = random.Random(int(sys.argv[1]) if len(sys.argv)>1 else 0)
+def total(order, inner):
+    seq = list(meta[0])
+    for b in order:
+        seq += inner[len(b)==3 and b[0]==100] if False else b
+    return run(seq)[0]/60
+inners = {100:[[100,21,21],[21,100,21],[21,21,100]], 39:[[39,21,21],[21,39,21],[21,21,39]], 21:[[21,21]]}
+blocks_ = [tuple(b) for b in el+non+hr]
+order = blocks_[:]; rnd.shuffle(order)
+cur = total(order, None)
+for it in range(4000):
+    o = order[:]
+    i, j = rnd.randrange(len(o)), rnd.randrange(len(o))
+    if rnd.random() < .7: o[i], o[j] = o[j], o[i]
+    else:
+        k = rnd.randrange(len(o)); b = o[k]
+        if len(b) == 3:
+            key = max(b); o[k] = tuple(rnd.choice(inners[key]))
+    v = total(o, None)
+    if v >= cur: order, cur = o, v
+print("hill-climb max waiting minutes:", cur)
