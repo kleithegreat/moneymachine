@@ -517,6 +517,7 @@ def test_the_series_in_its_pods_view(tmp_path, built_kernel):
     assert out.returncode == 0, out.stdout + out.stderr
 
 
+@pytest.mark.skipif(shutil.which("bwrap") is None, reason="bwrap is absent on this node")
 def test_under_a_read_only_root(tmp_path, built_kernel):
     target = f"{Path(__file__)}::test_a_complete_campaign_commits_promotions_before_reading_diagnostics"
     out = subprocess.run(["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp", sys.executable, "-m", "pytest",

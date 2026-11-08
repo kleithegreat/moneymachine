@@ -28,4 +28,4 @@ On the recorded inventory (ten dexes): the code's plan is 620 requests, 16,996 w
 
 ## Suite
 
-Sharded runner, `python3 ops/shards.py ../mm-thesis-rf`: **1,878 of 1,878 reported: 2 failed, 1,856 passed, 1 skipped, 19 xfailed**, 286 s. The two failures: `gate/tests/test_agent_real.py::test_the_series_in_its_pods_view` (a remote node without `bwrap`; passes locally) and `ops/test_commitcheck.py::test_added_lines_pair_their_times` (an unpaired time in my own decisions line, fixed in the next commit; passes). No `data/store`-dependent failure (the worktree links the store). Mypy strict over the thesis modules passes.
+Sharded runner after the Monday rule: 1,880 of 1,880 reported, 1 failed (`test_under_a_read_only_root`, bwrap absent on prodesk7; now skips on a capability check like `test_the_series_in_its_pods_view`, passes here), 1,859 passed, 1 skipped, 19 xfailed, 143 s. Mypy strict passes.
