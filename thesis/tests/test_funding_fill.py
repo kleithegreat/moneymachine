@@ -42,7 +42,7 @@ def test_every_validated_page_is_committed_before_the_next_is_asked_for(tmp_path
     m = market.Market(tmp_path, x)
     with pytest.raises(httpx.ReadTimeout):
         m.funding("X", NOW, background=True)
-    assert len(saved(tmp_path)["rows"]) == 1000 and not m.ready("X", NOW)
+    assert len(saved(tmp_path)["rows"]) == 1000
     done = saved(tmp_path)["fetched"][0][1]
     x.n = 0
     x.requests.clear()

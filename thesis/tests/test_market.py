@@ -208,12 +208,10 @@ def test_listed_reads_only_the_dexes_of_the_markets_asked(tmp_path, monkeypatch)
     posts = []
 
     class Exchange:
-        def meta(self):
-            posts.append("core")
-            return {"universe": [{"name": "BTC"}, {"name": "OLD", "isDelisted": True}]}
-
-        def post(self, body):
-            posts.append(body.get("dex", body["type"]))
+        def post(self, body, background=False):
+            posts.append(body.get("dex", "core" if body["type"] == "meta" else body["type"]))
+            if body == {"type": "meta"}:
+                return {"universe": [{"name": "BTC"}, {"name": "OLD", "isDelisted": True}]}
             return [None, {"name": "xyz"}] if body["type"] == "perpDexs" else {"universe": [{"name": "xyz:GOLD"}]}
 
     m = market.Market(tmp_path, Exchange())
@@ -741,14 +739,3 @@ def test_a_short_range_costs_its_base_weight_and_an_excess_row_is_charged_on_rec
     monkeypatch.setattr(x.http, "post", lambda url, json: httpx.Response(200, json=rows, request=httpx.Request("POST", url)))
     x.funding_page("X", 0, 3 * H)
     assert sum(w for _, w in x.limiter.spent) == 22
-
-
-def test_the_session_snapshot_tails_fit_between_a_bars_finality_and_the_session(tmp_path, monkeypatch):
-    from thesis import runner
-
-    clock = [market.DAY + market.DELTA]
-    fake_clock(monkeypatch, clock)
-    x = market.Exchange(tmp_path)
-    for _ in range(348 + 176):
-        x._charge(21)
-    assert clock[0] <= market.DAY + runner.SESSION_OFFSET

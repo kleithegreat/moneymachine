@@ -10,7 +10,7 @@ from ingest import hl
 from thesis import market, runner
 from thesis.tests.test_market import Venue, fake_clock
 from thesis.tests.test_runner import track
-from thesis.tests.test_runner import MONDAY, registration
+from thesis.tests.test_runner import MONDAY, benchmark, registration
 
 H, D = market.HOUR, market.DAY
 NOW = 2000 * D + 600_000
@@ -39,11 +39,11 @@ def test_benchmark_retries_unacquired_inputs_like_other_availability_failures(tr
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     track.market.ready = lambda m, now: False
     with pytest.raises(httpx.TransportError):
-        track.benchmark(MONDAY)
+        benchmark(track)
     assert not track.ledger.theses("benchmark")
     assert not track.ledger.records("skip", "benchmark")
     track.market.ready = lambda m, now: True
-    track.benchmark(MONDAY)
+    benchmark(track)
     assert len(track.ledger.theses("benchmark")) == 4
 
 

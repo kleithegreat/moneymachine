@@ -1,6 +1,6 @@
 """The thesis track's runner (audit/criteria.md, stage 10): for one frozen track version (named by the
-manifest hash), the daily main session at 19:00 UTC with an ablation per accepted thesis and then the
-full no-reading session; the Monday benchmark; hourly resolutions; and the report.
+manifest hash), the daily snapshot acquired from 00:05 UTC, the main session at 05:00 UTC with an ablation per accepted
+thesis and then the full no-reading session; the Monday benchmark on that snapshot; hourly resolutions; and the report.
 
 The state is the ledger: each session runs once, recorded when it starts, so a crash consumes that session and ends it
 on the record, and a restart runs the rest of its date; a resolution or a missing-data status is recorded once per thesis.
@@ -27,7 +27,7 @@ from ingest.policy import DAY, DELTA, HOUR
 from sandbox import canary, session
 from thesis import harness, positions, registry, scoring
 from thesis.daemon import Daemon
-from thesis.market import MARK_OFFSET, MARK_PREP, Exchange, Market
+from thesis.market import FRESH, MARK_OFFSET, MARK_PREP, Exchange, Market
 from thesis.positions import Json
 from thesis.retrieval import Fetcher
 
@@ -35,7 +35,7 @@ REPO = Path(__file__).resolve().parents[1]
 ROOT = REPO / "data" / "thesis"
 FROZEN = REPO / "audit" / "stage10" / "manifest.json"
 SNAPSHOT_OFFSET = 5 * 60_000
-SESSION_OFFSET = 19 * HOUR
+SESSION_OFFSET = 5 * HOUR
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
 INITIAL = 10_000.0
@@ -109,7 +109,7 @@ class Track:
         if cold:
             raise httpx.TransportError(f"funding history is not ready for {cold}")
         markets |= set(self.markets_of(account))
-        starts = dict.fromkeys(markets, now) | self.starts(self.ledger.theses(account))
+        starts = dict.fromkeys(markets, now - FRESH) | self.starts(self.ledger.theses(account))
         return self.config(markets), {**self.data(markets, now, starts), "listed": self.market.listed,
                                       "daily": {m: scoring.bars(snapshot["daily"].get(m, [])) for m in markets}}
 
@@ -128,6 +128,7 @@ class Track:
             return saved
         markets, daily = {}, {}
         with self.market.hold():
+            listed_at = now_ms()
             listings = self.market.listings()
             for m, delisted in sorted(listings.items()):
                 if delisted:
@@ -139,31 +140,33 @@ class Track:
                 if h:
                     markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
                     daily[m] = d
-        snap = {"taken": now, "listings": listings, "markets": markets, "daily": daily}
+        snap = {"taken": now, "listed_at": listed_at, "listings": listings, "markets": markets, "daily": daily}
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(snap))
         os.replace(tmp, path)
         return snap
 
-    def acquire(self, date: int) -> bool:
-        """Attest a published snapshot before its deadline; recovery must find those exact bytes, never a replacement."""
+    def attested(self, date: int) -> Json | None:
+        """The day's snapshot if the ledger attests its exact bytes as published before the deadline: there is no other."""
+        path = self.root / "snapshots" / f"{date + SNAPSHOT_OFFSET}.json"
+        saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == date + SNAPSHOT_OFFSET]
+        if not saved or not path.exists() or registry.sha256(path.read_bytes()) != saved[0]["sha256"]:
+            return None
+        snap: Json = json.loads(path.read_text())
+        return snap
+
+    def acquire(self, date: int) -> None:
+        """Take the day's snapshot and attest it, unless it is attested or the deadline has passed or SIGTERM came."""
         cutoff, deadline = date + SNAPSHOT_OFFSET, date + SESSION_OFFSET
-        path = self.root / "snapshots" / f"{cutoff}.json"
-        saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == cutoff]
-        if saved:
-            return path.exists() and registry.sha256(path.read_bytes()) == saved[0]["sha256"]
-        if now_ms() >= deadline:
-            return False
+        if any(c["taken"] == cutoff for _, _, c in self.ledger.records("snapshot_ready", "main")) or now_ms() >= deadline:
+            return
         self.snapshot(cutoff)
         if self.stop.is_set():
-            return False
-        digest = registry.sha256(path.read_bytes())
-        acquired = now_ms()
-        if acquired > deadline or self.stop.is_set():
-            return False
-        self.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": acquired, "sha256": digest})
-        return True
+            return
+        digest, acquired = registry.sha256((self.root / "snapshots" / f"{cutoff}.json").read_bytes()), now_ms()
+        if acquired <= deadline:
+            self.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": acquired, "sha256": digest})
 
     def daemon(self, socket_path: str | Path, session: str, account: str, snapshot: Json, commands: Iterable[str],
                ablation_of: str | None = None) -> Daemon:
@@ -197,15 +200,7 @@ class Track:
         return [m for m in dict.fromkeys([*first, *live]) if m in live]
 
     def prewarm(self) -> None:
-        """One background pass, stopping between markets after an hour or SIGTERM; failed markets retain their pages."""
-        began = now_ms()
-        for m in self.warm_order():
-            if self.stop.is_set() or now_ms() - began >= HOUR:
-                return
-            try:
-                self.market.prewarm(m, now_ms(), self.stop)
-            except (httpx.HTTPError, ValueError) as e:
-                print(time.strftime("%FT%T"), "prewarm", m, repr(e), flush=True)
+        fill(self.market, self.warm_order(), self.stop, HOUR)
 
     def settled(self) -> set[str]:
         """Every session on the record as started or missed: none of them runs again."""
@@ -276,9 +271,11 @@ class Track:
 
     def benchmark(self, monday: int) -> None:
         """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order, of the markets not yet on the
-        record: each market's last daily close known at that instant (a bar is known DELTA after it closes) against the
-        close 20 days before it."""
-        snapshot = self.snapshot(monday)
+        record, once that day's snapshot is attested: each market's last daily close known at that instant (a bar is known
+        DELTA after it closes) against the close 20 days before it, from the snapshot's bars known then."""
+        if (attested := self.attested(monday)) is None:
+            return
+        snapshot = known_at(attested, monday)
         last = (monday - DELTA) // DAY * DAY - DAY
         before = last - 20 * DAY
         for m in self.unbenchmarked(monday):
@@ -346,7 +343,8 @@ class Track:
 
     def run(self) -> None:
         """Until SIGTERM: resolutions every 5 min, missing-data statuses each minute, builder marks at H + MARK_OFFSET and the
-        Monday benchmark (`benchmarks`) each minute on their own threads; the daily sessions each minute (`schedule`). On SIGTERM
+        Monday benchmark (`benchmarks`) and the daily snapshots (`acquisitions`) each minute on their own threads; the daily sessions
+        each minute (`schedule`). On SIGTERM
         each loop finishes its current step and the runner exits, leaving a day's remaining sessions to the next start. One
         runner per root."""
         frozen = json.loads(FROZEN.read_text()) if FROZEN.exists() else {}
@@ -362,6 +360,8 @@ class Track:
                  threading.Thread(target=forever, args=("deadlines", lambda: self.deadlines(now_ms()), lambda now: 60_000, stop)),
                  threading.Thread(target=hourly_marks, args=(self.market.record_marks, stop)),
                  threading.Thread(target=forever, args=("prewarm", self.prewarm, lambda now: PREWARM_EVERY, stop)),
+                 threading.Thread(target=forever, args=("acquire", lambda: self.acquisitions(now_ms(), frozen["frozen"]),
+                                                        lambda now: 60_000, stop)),
                  threading.Thread(target=forever, args=("benchmarks", lambda: self.benchmarks(now_ms(), frozen["frozen"]),
                                                         lambda now: 60_000, stop))]
         for t in loops:
@@ -372,35 +372,62 @@ class Track:
 
     def benchmarks(self, now: int, frozen: int) -> None:
         """Every Monday since the freeze of a version frozen at `frozen`: a batch runs within its day; what its day left
-        unprocessed is logged as missed, market by market, never backdated. Its failure leaves the batch to the next pass."""
+        unprocessed is logged as missed, market by market, never backdated; so is a batch whose day has no attested snapshot
+        once its deadline has passed. Its failure leaves the batch to the next pass."""
         for monday in range(frozen // DAY * DAY, now + 1, DAY):
             if (monday // DAY + 3) % 7 == 0 and self.unbenchmarked(monday):
-                if now - monday < DAY:
+                elapsed, attested = now - monday, self.attested(monday) is not None
+                if attested and elapsed < DAY:
                     self.benchmark(monday)
-                else:
+                elif reason := "run missed" if attested else "no attested snapshot" if elapsed >= SESSION_OFFSET else None:
                     for m in self.unbenchmarked(monday):
-                        self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "run missed"})
+                        self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": reason})
+
+    def acquisitions(self, now: int, frozen: int) -> None:
+        """Every date since the freeze of a version frozen at `frozen` whose snapshot is due and whose deadline is not past,
+        acquired and attested whatever the sessions or the model are doing."""
+        for date in range(frozen // DAY * DAY, now + 1 - SNAPSHOT_OFFSET, DAY):
+            if now < date + SESSION_OFFSET and not self.stop.is_set():
+                self.acquire(date)
 
     def schedule(self, now: int, frozen: int) -> None:
         """Every date since the freeze of a version frozen at `frozen` whose sessions are due at `now` and not all settled,
-        oldest first, so a date an outage spanned is disclosed as missed, and a session a crash cut off ends on the record."""
+        oldest first, so a date an outage spanned is disclosed as missed, and a session a crash cut off ends on the record.
+        A date without an attested snapshot misses main and no-reading."""
         self.close_interrupted()
-        for date in range(frozen // DAY * DAY, now + 1 - SNAPSHOT_OFFSET, DAY):
+        for date in range(frozen // DAY * DAY, now + 1 - SESSION_OFFSET, DAY):
             if f"noread-{date}" in self.settled():
                 continue
-            snapshot = None
-            if now_ms() < date + DAY:
-                acquired = self.acquire(date)
-                if self.stop.is_set():
-                    return
-                if not acquired and f"main-{date}" not in self.settled():
-                    for kind in ("main", "noread"):
-                        self.miss(date, kind, f"{kind}-{date}", "snapshot acquisition missed its completion deadline")
-                    continue
-                if acquired and now_ms() >= date + SESSION_OFFSET:
-                    snapshot = self.snapshot(date + SNAPSHOT_OFFSET)
-            if now_ms() >= date + SESSION_OFFSET:
-                self.day(date, snapshot)
+            snapshot = self.attested(date)
+            if snapshot is None and f"main-{date}" not in self.settled():
+                for kind in ("main", "noread"):
+                    self.miss(date, kind, f"{kind}-{date}", "no attested snapshot before the completion deadline")
+                continue
+            self.day(date, snapshot)
+            if self.stop.is_set():
+                return
+
+
+def known_at(snapshot: Json, at: int) -> Json:
+    """The snapshot's content as known at `at`: the daily bars closed DELTA before it, and the markets that still have
+    enough of them."""
+    daily = {m: [r for r in d if r[0] + DAY + DELTA <= at] for m, d in snapshot["daily"].items()}
+    kept = {m for m, d in daily.items() if len(d) >= registry.MIN_DAILY_BARS}
+    return {**snapshot, "taken": at, "markets": {m: v for m, v in snapshot["markets"].items() if m in kept},
+            "daily": {m: daily[m] for m in kept}}
+
+
+def fill(market: Market, order: Iterable[str], stop: threading.Event, limit: int | None = None) -> None:
+    """One background pass over `order`, stopping between markets after `limit` ms or SIGTERM; a failed market keeps the
+    pages it committed and the pass goes on."""
+    began = now_ms()
+    for m in order:
+        if stop.is_set() or (limit is not None and now_ms() - began >= limit):
+            return
+        try:
+            market.prewarm(m, now_ms(), stop)
+        except (httpx.HTTPError, ValueError) as e:
+            print(time.strftime("%FT%T"), "prewarm", m, repr(e), flush=True)
 
 
 def joined(reads: dict[str, Json], now: int) -> Json:
@@ -470,11 +497,7 @@ def prewarm() -> None:
         stop = threading.Event()
         signal.signal(signal.SIGTERM, lambda *_: stop.set())
         market = Market(ROOT / "market", Exchange(ROOT / "exchange"))
-        for m, delisted in sorted(market.listings(background=True).items()):
-            if stop.is_set():
-                break
-            if not delisted:
-                market.prewarm(m, now_ms(), stop)
+        fill(market, [m for m, delisted in sorted(market.listings(background=True).items()) if not delisted], stop)
 
 
 def report(out: str | Path) -> None:

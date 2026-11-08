@@ -46,6 +46,7 @@ SHOWN = {"1h": DELTA, "1d": DAY + DELTA}  # after its time, when a row first sho
 FINAL = {"1h": HOUR + DELTA, "1d": DAY + DELTA}  # after its time, when a row is final and cached
 REPAIR_EVERY = HOUR  # leaves C10.5's two hours from a late row's availability to its score
 PAGE = 500  # holes closer than a page of rows share a request
+FRESH = PAGE * HOUR  # the funding a market may lack and still be ready: its registration's own read fetches it in one page
 MAX_ITEMS = {"fundingHistory": 500, "candleSnapshot": 5000}
 
 
@@ -325,8 +326,7 @@ class Market:
 
     def universe(self, dex: str | None = None, *, background: bool = False) -> dict[str, bool]:
         """{market: delisted} of a builder dex, or of the core venue."""
-        meta = self.x.post({"type": "meta", "dex": dex}, background=True) if background else (
-            self.x.post({"type": "meta", "dex": dex}) if dex else self.x.meta())
+        meta = self.x.post({"type": "meta", "dex": dex} if dex else {"type": "meta"}, background=background)
         return {a["name"]: bool(a.get("isDelisted")) for a in meta["universe"]}
 
     def listings(self, *, background: bool = False) -> dict[str, bool]:
@@ -512,12 +512,20 @@ class Market:
         hold: contextlib.AbstractContextManager[None] = self.x.limiter.hold()
         return hold
 
+    def _acquired_to(self, market: str, now: int) -> int:
+        """The end of the funding the venue has sent whole from the start of the scope: the scope's start if it was never
+        asked for, or asked for only after a gap."""
+        start: int = (now - HISTORY["funding"]) // HOUR * HOUR
+        for a, b in self._funding_load(self._funding_path(market))[1]:
+            if a <= start < b:
+                return int(b)
+        return start
+
     def ready(self, market: str, now: int) -> bool:
-        """Whether the venue has sent the market's whole funding scope up to the last UTC midnight."""
-        _, fetched = self._funding_load(self._funding_path(market))
-        return not uncovered((now - HISTORY["funding"]) // HOUR * HOUR, now // DAY * DAY, fetched)
+        """Whether the scope's history was acquired, up to the last page, which a registration's own read fetches."""
+        return bool(now - self._acquired_to(market, now) <= FRESH)
 
     def prewarm(self, market: str, now: int, stop: threading.Event) -> None:
         """Bring the market's funding scope up to `now`, unless it is already fetched to the last UTC midnight."""
-        if not self.ready(market, now):
+        if self._acquired_to(market, now) < now // DAY * DAY:
             self.funding(market, now, background=True, stop=stop)

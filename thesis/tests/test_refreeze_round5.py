@@ -1,0 +1,173 @@
+"""Regressions for Opus's round-four review (R1-R5) and the decided schedule (audit/decisions.md, 2026-11-08 18:04 UTC)."""
+
+import json
+
+import httpx
+import pytest
+
+from ingest.policy import DAY, DELTA, HOUR
+from thesis import market, runner
+from thesis.tests.test_market import Venue
+from thesis.tests.test_runner import MONDAY, FakeMarket, track  # noqa: F401
+
+MIN = 60_000
+
+
+def real_market(track, tmp_path, monkeypatch, rows, now):
+    clock = [now]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    x = Venue(rows)
+    track.market = market.Market(tmp_path / "m", x)
+    return x, clock
+
+
+def hourly(lo, hi):
+    return [(h, .0001) for h in range(lo // HOUR * HOUR, hi, HOUR)]
+
+
+def test_hours_since_the_last_fill_are_the_registrations_own_read_not_unavailability(track, tmp_path, monkeypatch):
+    acquired = MONDAY + 3 * HOUR
+    lo = acquired - market.HISTORY["funding"] - 2 * DAY
+    x, clock = real_market(track, tmp_path, monkeypatch, hourly(lo, MONDAY + 3 * DAY), acquired)
+    track.market.funding("X", acquired, background=True)
+    clock[0] = MONDAY + DAY + 5 * HOUR
+    assert track.market.ready("X", clock[0])
+    x.requests.clear()
+    _, data = track.inputs("main", ["X"], clock[0], {"daily": {}})
+    assert max(data["funding"]["X"]) == clock[0] // HOUR * HOUR
+    assert (acquired + 1, clock[0] + 1) in x.requests
+
+
+def test_history_the_venue_was_never_asked_for_is_unavailable(track, tmp_path, monkeypatch):
+    now = MONDAY + 5 * HOUR
+    lo = now - market.HISTORY["funding"] - 2 * DAY
+    x, clock = real_market(track, tmp_path, monkeypatch, hourly(lo, now + HOUR), now)
+    assert not track.market.ready("X", now)
+    track.market.funding("X", now, start=now - 10 * HOUR)
+    assert not track.market.ready("X", now)
+    with pytest.raises(httpx.TransportError, match="not ready"):
+        track.inputs("main", ["X"], now, {"daily": {}})
+
+
+def test_a_gap_beyond_one_page_since_the_last_fill_stays_unavailable(track, tmp_path, monkeypatch):
+    acquired = MONDAY + 3 * HOUR
+    lo = acquired - market.HISTORY["funding"] - 2 * DAY
+    x, clock = real_market(track, tmp_path, monkeypatch, hourly(lo, MONDAY + 60 * DAY), acquired)
+    track.market.funding("X", acquired, background=True)
+    assert track.market.ready("X", acquired + market.PAGE * HOUR)
+    assert not track.market.ready("X", acquired + market.PAGE * HOUR + HOUR)
+
+
+def test_background_discovery_sends_the_request_bodies_the_recorded_code_sent(tmp_path):
+    sent = []
+
+    class X:
+        def post(self, body, *a, **kw):
+            sent.append(body)
+            return [None, {"name": "xyz"}] if body["type"] == "perpDexs" else {"universe": []}
+
+        def meta(self):
+            return self.post({"type": "meta"})
+
+    m = market.Market(tmp_path, X())
+    m.listings()
+    foreground = list(sent)
+    sent.clear()
+    m.listings(background=True)
+    assert sent == foreground == [{"type": "meta"}, {"type": "perpDexs"}, {"type": "meta", "dex": "xyz"}]
+
+
+def attest(track, monkeypatch, date=MONDAY):
+    monkeypatch.setattr(runner, "now_ms", lambda: date + runner.SNAPSHOT_OFFSET)
+    track.acquire(date)
+    assert track.attested(date) is not None
+
+
+def test_acquisition_is_its_own_loop_and_a_long_session_cannot_delay_it(track, monkeypatch):
+    clock = [MONDAY + DAY + runner.SNAPSHOT_OFFSET]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    cutoffs = []
+    snapshot = track.snapshot
+    monkeypatch.setattr(track, "snapshot", lambda cutoff: cutoffs.append(cutoff) or snapshot(cutoff))
+    monkeypatch.setattr(track, "ready", lambda date: True)
+    monkeypatch.setattr(track, "session", lambda *a, **k: None)
+    track.acquisitions(clock[0], MONDAY)
+    assert cutoffs == [MONDAY + DAY + runner.SNAPSHOT_OFFSET]
+    cutoffs.clear()
+    track.schedule(clock[0], MONDAY)
+    assert cutoffs == []
+
+
+def test_the_runner_starts_acquisition_beside_the_other_loops(track, monkeypatch, tmp_path):
+    names = []
+    monkeypatch.setattr(runner, "forever", lambda name, *a, **k: names.append(name))
+    monkeypatch.setattr(runner, "hourly_marks", lambda *a: None)
+    track.market.record_marks = None
+    frozen = tmp_path / "frozen.json"
+    frozen.write_text(json.dumps({"manifest": track.manifest, "frozen": MONDAY}))
+    monkeypatch.setattr(runner, "FROZEN", frozen)
+    track.run()
+    assert "acquire" in names
+
+
+def test_the_benchmark_reads_the_days_attested_snapshot_with_bars_known_at_midnight(track, monkeypatch):
+    attest(track, monkeypatch)
+    taken = []
+    snapshot = track.snapshot
+    monkeypatch.setattr(track, "snapshot", lambda cutoff: taken.append(cutoff) or snapshot(cutoff))
+    seen = []
+    inputs = track.inputs
+    monkeypatch.setattr(track, "inputs", lambda account, markets, now, snap: seen.append(snap) or inputs(account, markets, now, snap))
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 10 * MIN)
+    track.benchmark(MONDAY)
+    assert taken == [] and len(track.ledger.theses("benchmark")) == 4
+    full = json.loads((track.root / "snapshots" / f"{MONDAY + runner.SNAPSHOT_OFFSET}.json").read_text())
+    assert max(r[0] for r in full["daily"]["BTC"]) == MONDAY - DAY
+    assert seen and all(max(r[0] for r in s["daily"]["BTC"]) + DAY + DELTA <= MONDAY for s in seen)
+    assert not (track.root / "snapshots" / f"{MONDAY}.json").exists()
+
+
+def test_a_monday_without_an_attested_snapshot_skips_its_batch_after_the_deadline_and_never_takes_another(track, monkeypatch):
+    monkeypatch.setattr(track, "snapshot", lambda *a: pytest.fail("a replacement snapshot"))
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SESSION_OFFSET - MIN)
+    track.benchmarks(MONDAY + runner.SESSION_OFFSET - MIN, MONDAY)
+    assert track.ledger.records("skip", "benchmark") == []
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SESSION_OFFSET)
+    track.benchmarks(MONDAY + runner.SESSION_OFFSET, MONDAY)
+    assert {c["market"] for _, _, c in track.ledger.records("skip", "benchmark")} == set(runner.BENCHMARK)
+    assert track.ledger.theses("benchmark") == []
+
+
+def test_the_snapshot_records_when_its_listings_were_read(track, monkeypatch):
+    clock = [MONDAY + 3 * HOUR]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    snap = track.snapshot(MONDAY + runner.SNAPSHOT_OFFSET)
+    assert snap["taken"] == MONDAY + runner.SNAPSHOT_OFFSET and snap["listed_at"] == MONDAY + 3 * HOUR
+
+
+def test_the_schedule_is_cutoff_0005_and_start_and_deadline_0500():
+    assert runner.SNAPSHOT_OFFSET == 5 * MIN and runner.SESSION_OFFSET == 5 * HOUR
+
+
+def test_the_recorded_inventory_completes_with_margin_before_the_start():
+    packed, marks, margin = 217 * MIN, 4 * 7 * MIN, 50 * MIN
+    assert runner.SNAPSHOT_OFFSET + packed + marks + margin == runner.SESSION_OFFSET
+
+
+def test_a_late_attestation_misses_main_and_noread_and_takes_no_replacement(track, monkeypatch):
+    clock = [MONDAY + runner.SNAPSHOT_OFFSET]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    snapshot = track.snapshot
+
+    def slow(cutoff):
+        snap = snapshot(cutoff)
+        clock[0] = MONDAY + runner.SESSION_OFFSET + 1
+        return snap
+
+    monkeypatch.setattr(track, "snapshot", slow)
+    track.acquisitions(clock[0], MONDAY)
+    monkeypatch.setattr(track, "snapshot", lambda *a: pytest.fail("a replacement snapshot"))
+    monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("a late session"))
+    track.acquisitions(clock[0], MONDAY)
+    track.schedule(clock[0], MONDAY)
+    assert {c["session"] for _, _, c in track.ledger.records("session_missed")} == {f"main-{MONDAY}", f"noread-{MONDAY}"}

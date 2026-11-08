@@ -52,7 +52,8 @@ def worker(root, interactive):
         now = MONDAY + runner.SESSION_OFFSET + (0 if interactive else HOUR)
         t = track(root, now)
         runner.now_ms = lambda: MONDAY + runner.SNAPSHOT_OFFSET
-        assert t.acquire(MONDAY)
+        t.acquire(MONDAY)
+        assert t.attested(MONDAY)
         runner.now_ms = lambda: now
 
         def model(work, kind, start_daemon, task=None):

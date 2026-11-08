@@ -15,6 +15,7 @@ import pytest
 
 from ingest.policy import DAY, DELTA, HOUR
 from thesis import report, runner
+from thesis.market import FRESH
 
 ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
 MONDAY = 20388 * DAY  # 1970-01-01 was a Thursday, so day 20388 is a Monday
@@ -55,6 +56,12 @@ class FakeMarket:
         return True
 
 
+def benchmark(track, monday=MONDAY):
+    """The Monday's batch once its snapshot is attested, as the runner's loops order them."""
+    track.acquire(monday)
+    track.benchmark(monday)
+
+
 @pytest.fixture
 def track(tmp_path, monkeypatch, built_kernel):
     monkeypatch.setattr(runner.kernel, "build", lambda: built_kernel)
@@ -72,7 +79,7 @@ def test_mondays():
 
 def test_benchmark_registers_the_trend_sign_with_its_base_rate_and_logs_skips(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     theses = {th["legs"][0][0]: th for th in track.ledger.theses("benchmark")}
     assert theses["BTC"]["legs"] == [["BTC", 1]] and theses["ETH"]["legs"] == [["ETH", -1]]
     assert theses["BTC"]["T"] == MONDAY + 21 * DAY and theses["BTC"]["L"] == 0.1 and 0 < theses["BTC"]["p"] < 1
@@ -92,7 +99,7 @@ def test_a_benchmark_skip_names_its_cause():
 
 def test_resolutions_are_recorded_once_and_missing_data_once(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     track.market.until = MONDAY + 21 * DAY + HOUR
     track.resolve(MONDAY + 21 * DAY + HOUR)
     track.resolve(MONDAY + 21 * DAY + 2 * HOUR)
@@ -102,7 +109,7 @@ def test_resolutions_are_recorded_once_and_missing_data_once(track, monkeypatch)
 
 def test_missing_data_is_recorded_once_after_the_grace(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     track.market.until = MONDAY + 21 * DAY - HOUR
     track.resolve(MONDAY + 21 * DAY + HOUR)
     track.deadlines(MONDAY + 21 * DAY + HOUR)
@@ -125,7 +132,7 @@ def test_report_separates_forecasts_from_positions_and_states_the_floor(track, m
     from thesis import report
 
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     track.market.until = MONDAY + 30 * DAY
     track.resolve(MONDAY + 30 * DAY)
     report.write(track, MONDAY + 30 * DAY, tmp_path / "r.json")
@@ -225,23 +232,6 @@ def test_every_session_of_a_day_that_cannot_run_is_missed_but_a_stop_leaves_the_
     assert [c["session"].split(f"-{MONDAY}")[0] for _, _, c in track.ledger.records("session_missed")] == missed
 
 
-def test_a_snapshot_that_outlasts_the_day_starts_nothing(track, monkeypatch):
-    clock = [MONDAY + HOUR]
-    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
-    monkeypatch.setattr(track, "ready", lambda date: True)
-    snapshot = track.snapshot
-
-    def slow(now):
-        snap = snapshot(now)
-        clock[0] = MONDAY + DAY
-        return snap
-
-    monkeypatch.setattr(track, "snapshot", slow)
-    monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("started"))
-    track.schedule(clock[0], MONDAY)
-    assert [c["session"] for _, _, c in track.ledger.records("session_missed")] == [f"main-{MONDAY}", f"noread-{MONDAY}"]
-
-
 def test_versions_sharing_a_root_keep_their_own_session_directories(track, monkeypatch):
     made = []
     monkeypatch.setattr(runner.harness, "run_session", lambda work, kind, daemon, task: made.append(work) or work.mkdir(parents=True) or {})
@@ -259,13 +249,11 @@ def test_a_session_that_raises_still_ends_on_the_record(track, monkeypatch):
     assert end["session"] == f"main-{MONDAY}" and "bwrap failed" in end["error"]
 
 
-def test_a_stop_during_the_snapshot_starts_nothing_and_leaves_the_date(track, monkeypatch):
+def test_a_stop_during_the_snapshot_attests_nothing_and_leaves_the_date(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + HOUR)
-    monkeypatch.setattr(track, "ready", lambda date: True)
     monkeypatch.setattr(track, "snapshot", lambda now: track.stop.set() or {})
-    monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("started"))
-    track.schedule(MONDAY + HOUR, MONDAY)
-    assert track.ledger.records("session_missed") == []
+    track.acquisitions(MONDAY + HOUR, MONDAY)
+    assert track.ledger.records("snapshot_ready") == [] and track.ledger.records("session_missed") == []
 
 
 # GPT's bug hunt (audit/reviews/2026-11-02-gpt-hunt-thesis.md), findings 3, 4, 5 and 8.
@@ -279,7 +267,8 @@ root, flag, dies_in = sys.argv[1:]
 t = runner.Track(root)
 t.market = FakeMarket(MONDAY + 40 * DAY)
 runner.now_ms = lambda: MONDAY + runner.SNAPSHOT_OFFSET
-assert t.acquire(MONDAY)
+t.acquire(MONDAY)
+assert t.attested(MONDAY)
 runner.now_ms = lambda: MONDAY + runner.SESSION_OFFSET
 t.ready = lambda date: True
 def run_session(work, kind, start_daemon, task=None):
@@ -398,6 +387,7 @@ def on_record(track, monday):
 def test_a_benchmark_market_that_fails_is_retried_with_the_rest_of_its_batch(track, monkeypatch):
     now = MONDAY + 60_000
     monkeypatch.setattr(runner, "now_ms", lambda: now)
+    track.acquire(MONDAY)
     armed = failing_once(track.market, "ETH")
     with pytest.raises(httpx.TransportError):
         track.benchmarks(now, MONDAY)
@@ -411,6 +401,7 @@ def test_a_benchmark_market_that_fails_is_retried_with_the_rest_of_its_batch(tra
 def test_a_benchmark_batch_cut_off_past_its_day_logs_each_market_left_as_missed(track, monkeypatch):
     now = MONDAY + 60_000
     monkeypatch.setattr(runner, "now_ms", lambda: now)
+    track.acquire(MONDAY)
     failing_once(track.market, "ETH")
     with pytest.raises(httpx.TransportError):
         track.benchmarks(now, MONDAY)
@@ -428,7 +419,7 @@ def test_every_monday_the_runner_was_down_for_is_logged_missed(track):
 
 def test_a_horizon_still_unresolved_gets_its_status_before_the_two_hour_deadline(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     T = MONDAY + 21 * DAY
     track.market.until = T - HOUR
     track.deadlines(T + runner.RESOLUTION_GRACE - 1)
@@ -439,7 +430,7 @@ def test_a_horizon_still_unresolved_gets_its_status_before_the_two_hour_deadline
 
 def test_a_status_does_not_stop_a_later_score(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     T = MONDAY + 21 * DAY
     track.market.until = T - HOUR
     track.resolve(T + 2 * HOUR - 300_000)
@@ -454,7 +445,7 @@ def test_a_status_does_not_stop_a_later_score(track, monkeypatch):
 # F5: a thesis's score depends only on its own markets, and its status on no market at all.
 def test_a_resolvable_thesis_is_scored_though_an_unrelated_market_fails(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     T = MONDAY + 21 * DAY
     failing_once(track.market, "ETH")
     track.resolve(T + HOUR)
@@ -465,7 +456,7 @@ def test_a_resolvable_thesis_is_scored_though_an_unrelated_market_fails(track, m
 
 def test_a_managed_replay_that_fails_still_scores_the_outcome_and_the_remaining_theses(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     monkeypatch.setattr(runner.positions, "run", lambda *a: (_ for _ in ()).throw(LookupError("no bar")))
     track.resolve(MONDAY + 21 * DAY + HOUR)
     records = [c for _, _, c in track.ledger.records("resolution")]
@@ -475,7 +466,7 @@ def test_a_managed_replay_that_fails_still_scores_the_outcome_and_the_remaining_
 
 def test_a_thesis_scored_alone_has_the_managed_return_of_its_whole_account(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     now = MONDAY + 21 * DAY + HOUR
     track.resolve(now)
     whole = track.replay("benchmark", now)["theses"]
@@ -484,7 +475,7 @@ def test_a_thesis_scored_alone_has_the_managed_return_of_its_whole_account(track
 
 def test_a_market_that_hangs_holds_up_no_status(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     T = MONDAY + 21 * DAY
     entered, release = threading.Event(), threading.Event()
     funding = track.market.funding
@@ -509,7 +500,7 @@ def test_a_market_that_hangs_holds_up_no_status(track, monkeypatch):
 
 def test_a_record_carries_the_time_it_was_written_beside_its_data_cutoff(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     T = MONDAY + 21 * DAY
     cutoff, written = T + 95 * 60_000, T + 126 * 60_000
     monkeypatch.setattr(runner, "now_ms", lambda: written)
@@ -581,11 +572,11 @@ def test_a_benchmark_resumed_after_its_equity_moved_registers_the_base_rate_of_i
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     armed = failing_once(track.market, "ETH")
     with pytest.raises(httpx.TransportError):
-        track.benchmark(MONDAY)
+        benchmark(track)
     armed.clear()
     later = MONDAY + 5 * HOUR
     monkeypatch.setattr(runner, "now_ms", lambda: later)
-    track.benchmark(MONDAY)
+    benchmark(track)
     eth = next(th for th in track.ledger.theses("benchmark") if th["legs"][0][0] == "ETH")
     assert runner.positions.exact(eth["N"]) > 1000
     assert eth["p"] == eth["p_ref"] == 1 / (eth["base_windows"] + 2)
@@ -594,7 +585,7 @@ def test_a_benchmark_resumed_after_its_equity_moved_registers_the_base_rate_of_i
 def test_a_benchmark_without_a_base_rate_at_its_commit_is_skipped(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     monkeypatch.setattr(runner.scoring, "base_rate", lambda th, daily, funding: (None, 0, 0))
-    track.benchmark(MONDAY)
+    benchmark(track)
     assert track.ledger.theses("benchmark") == []
     assert "no base rate" in {c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
 
@@ -653,7 +644,7 @@ def test_a_horizon_exit_frees_its_reservation_for_the_session_of_that_morning(tm
 # GPT's round 2 review, B2: a slow market delays only the theses that need it, however many share it.
 def test_healthy_theses_are_scored_while_an_unrelated_market_hangs(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     release, funding = threading.Event(), track.market.funding
     track.market.funding = lambda name, now=None, start=None: release.wait(60) and funding(name, now, start) if name == "ETH" else funding(name, now, start)
     resolving = threading.Thread(target=track.resolve, args=(MONDAY + 21 * DAY + HOUR,))
@@ -671,7 +662,7 @@ def test_healthy_theses_are_scored_while_an_unrelated_market_hangs(track, monkey
 
 def test_a_failing_market_is_read_once_a_pass_whatever_number_of_theses_need_it(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     for th in track.ledger.theses("benchmark"):
         track.ledger.disclose("thesis", "noread", {**th, "id": f"noread-{th['id']}", "account": "noread"})
     reads, funding = [], track.market.funding
@@ -690,19 +681,19 @@ def test_a_failing_market_is_read_once_a_pass_whatever_number_of_theses_need_it(
 
 def test_a_session_read_depends_on_the_account_replay_and_never_on_history_it_does_not_need(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     track.market.calls.clear()
     track.replay("benchmark", MONDAY + HOUR)
     assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY + 60_000}
     track.market.calls.clear()
     track.inputs("benchmark", ["X"], MONDAY + HOUR, {"daily": {}})
     starts = {c[1]: c[2] for c in track.market.calls if c[0] == "funding"}
-    assert starts["X"] == MONDAY + HOUR and starts["BTC"] == MONDAY + 60_000
+    assert starts["X"] == MONDAY + HOUR - FRESH and starts["BTC"] == MONDAY + 60_000
 
 
 def test_a_resolution_read_starts_at_the_earliest_due_registration_of_its_market(track, monkeypatch):
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.benchmark(MONDAY)
+    benchmark(track)
     track.market.until = MONDAY + 21 * DAY + HOUR
     track.market.calls.clear()
     track.resolve(MONDAY + 21 * DAY + HOUR)
