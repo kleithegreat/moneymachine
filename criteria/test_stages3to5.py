@@ -87,7 +87,7 @@ def test_c53_prospective_sources_reported():
 
 
 def search_event_datasets(store):
-    return sorted(p.name for p in store.glob("events_*"))
+    return sorted(p.name for p in store.iterdir() if p.name.startswith("events_"))
 
 
 def test_the_c56_guard_sees_any_search_event_dataset(tmp_path):
@@ -95,6 +95,8 @@ def test_the_c56_guard_sees_any_search_event_dataset(tmp_path):
     for ds in ("events_forum", "events_governance"):
         (tmp_path / ds).mkdir()
     assert search_event_datasets(tmp_path) == ["events_forum", "events_governance"]
+    with pytest.raises(FileNotFoundError):
+        search_event_datasets(tmp_path / "missing")
 
 
 def test_c56_or_no_search_event_inputs():
