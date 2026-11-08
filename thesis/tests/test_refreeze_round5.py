@@ -35,7 +35,7 @@ def test_hours_since_the_last_fill_are_the_registrations_own_read_not_unavailabi
     clock[0] = MONDAY + DAY + 5 * HOUR
     assert track.market.ready("X", clock[0])
     x.requests.clear()
-    _, data = track.inputs("main", ["X"], clock[0], {"daily": {}, "ready": {"X": True}})
+    _, data = track.inputs("main", ["X"], clock[0], {"daily": {}, "ready": {"X": True}, "readiness_at": clock[0]})
     assert max(data["funding"]["X"]) == clock[0] // HOUR * HOUR
     assert (acquired + 1, clock[0] + 1) in x.requests
 

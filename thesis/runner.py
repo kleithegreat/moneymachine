@@ -109,7 +109,7 @@ class Track:
         if cold:
             raise httpx.TransportError(f"funding history is not ready for {cold}")
         markets |= set(self.markets_of(account))
-        starts = dict.fromkeys(markets, now - FRESH) | self.starts(self.ledger.theses(account))
+        starts = dict.fromkeys(markets, snapshot["readiness_at"] - FRESH) | self.starts(self.ledger.theses(account))
         return self.config(markets), {**self.data(markets, now, starts), "listed": self.market.listed,
                                       "daily": {m: scoring.bars(snapshot["daily"].get(m, [])) for m in markets}}
 
@@ -129,7 +129,8 @@ class Track:
             if saved is None:
                 raise ValueError("attested snapshot bytes are missing or changed")
             return saved
-        cancelled = lambda: self.stop.is_set() or now_ms() >= last_acquisition(date)
+        def cancelled() -> bool:
+            return bool(self.stop.is_set() or now_ms() >= last_acquisition(date))
 
         def check() -> None:
             if cancelled():

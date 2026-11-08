@@ -693,7 +693,7 @@ def test_a_session_read_depends_on_the_account_replay_and_never_on_history_it_do
     track.replay("benchmark", MONDAY + HOUR)
     assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY}
     track.market.calls.clear()
-    track.inputs("benchmark", ["X"], MONDAY + HOUR, {"daily": {}, "ready": {"X": True}})
+    track.inputs("benchmark", ["X"], MONDAY + HOUR, {"daily": {}, "ready": {"X": True}, "readiness_at": MONDAY + HOUR})
     starts = {c[1]: c[2] for c in track.market.calls if c[0] == "funding"}
     assert starts["X"] == MONDAY + HOUR - FRESH and starts["BTC"] == MONDAY
 
