@@ -1,0 +1,35 @@
+Stage 4 exit evidence: test runs (builder: stage 4 exit evidence). Times UTC (EST = UTC-5).
+
+Kernel: unchanged (frozen). Tests: kernel/mm/tests/{rules,keys,canon,common,c41}. Commit of the tests: 31b8a63
+(commit under test for the runs below: 2d8715c, tests identical to 31b8a63).
+
+== C4.1 and C4.2 cargo tests: PASS ==
+Run 2026-11-08 06:13 UTC (01:13 EST) at 31b8a63 (rules.rs digest pinned), after 06:07 UTC (01:07 EST) at the same tests:
+  command: systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=1G choom -n 1000 -- nix develop -c \
+           cargo test --release --manifest-path kernel/Cargo.toml -p mm --test rules --test keys --test canon
+  canon.rs : test result: ok. 3 passed; 0 failed (equivalent_forms_share_a_key, rejected_laws_keep_distinct_keys, hand_built_pairs)
+  keys.rs  : test result: ok. 3 passed; 0 failed; finished in 1.13s
+             (rewritten_programs_share_a_key, fresh_processes_compute_the_same_keys [3 child processes x 2,000 programs], fresh_process_child)
+  rules.rs : test result: ok. 7 passed; 0 failed; finished in 231.97s
+             (every_rule_is_exact [16 rules x 1,000 programs x 3 markets N1, N2, N3: 3,000 runs per rule, 2,918 to 3,000 with a defined
+              replaced node, all 3,000 completed], signed_zeros_and_undefined_conditions, sub_zero_keeps_units, window_warm_up,
+              running_sum_recompute_boundaries, listing_and_delisting, rule_set_is_the_sixteen_rules)
+  C4.2 pairs: 1,000 rewritten pairs; the unmerged count is printed by the test (--nocapture); the bound is at most 10.
+  No rule was inexact; no xfail.
+
+== Criteria and ops tests ==
+  nix develop -c python -m pytest ops/test_progress.py criteria/test_stages3to5.py : 9 passed, 3 xfailed
+    (test_c45_swarm_smoke reads audit/stage4/null-summary.json, a copy of null-summary-v3.json; v1 and v2 strict xfails)
+  ops/test_commitcheck.py : 2 passed
+
+== Full suite: 1 FAILURE, not from this work ==
+Run 2026-11-08 06:17 UTC (01:17 EST) at 2d8715c, data/store linked read-only from the main checkout:
+  command: python3 /home/kevin/repos/moneymachine/ops/shards.py /home/kevin/repos/mm-stage4
+  summary: 1734 of 1734 tests reported: 1 failed, 1707 passed, 1 skipped, 25 xfailed; 0 missing;
+           shard exits {'local': 1, 'prodesk5': 0, 'gmktec': 0, 'rerun': 0}; wall 332s
+  failed : thesis/tests/test_market.py::test_no_signing_or_exchange_endpoint_in_the_repository
+  cause  : it greps every tracked .py for "eth_account", "/exchange\"" and similar; the file
+           audit/reviews/2026-11-08-opus-thesis-refreeze-round3/repro_market_oldapi.py (committed on main in 5821ea8, the Opus review)
+           contains them. The failure is on main as well; this branch did not touch it. Not edited here (audit records are
+           append-only); the advisor decides whether to move that file out of `git ls-files '*.py'` or exempt it.
+  The two data/store tests passed with the link.
