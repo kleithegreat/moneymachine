@@ -33,6 +33,8 @@ DURATIONS = Path.home() / ".cache/mm-shards/durations.json"
 SLOWNESS = "_slowness"
 OVERHEAD = "_overhead"
 BOUND = 3900
+LOG_CAP = 8 << 20
+REPORT_CAP = 16 << 20
 REMOTE = '''set -eu
 root=$1
 tmp=$2
@@ -188,6 +190,11 @@ def run_node(worktree, host, ids, log, report):
     return code
 
 
+def unit_file(host, path, cap):
+    """At most cap + 1 bytes of a file the unit wrote: more than cap tells the caller it was too big, and nothing is held beyond that."""
+    return subprocess.run([*SSH, host, shlex.join(["head", "-c", str(cap + 1), path])], capture_output=True, timeout=60).stdout
+
+
 def run_unit(worktree, host, ids, log, report, workers):
     """prodesk7: stage the package for `mm-tests@<run>.service` (Homelab role mm-test-node), which runs REMOTE as mmtest
     under its memory cap. The held stdin pipe is the unit's lifeline: if this process dies, the wrapper stops the unit."""
@@ -209,12 +216,12 @@ def run_unit(worktree, host, ids, log, report, workers):
             except subprocess.TimeoutExpired:
                 code = 124
             start.stdin.close()
-        got = subprocess.run([*SSH, host, shlex.join(["cat", f"{stage}/out.log"])], capture_output=True, timeout=60)
-        log.write(got.stdout.decode(errors="replace"))
+        text = unit_file(host, f"{stage}/out.log", LOG_CAP)
+        log.write(text[:LOG_CAP].decode(errors="replace") + (f"\n[log truncated at {LOG_CAP} bytes]\n" if len(text) > LOG_CAP else ""))
         log.flush()
-        got = subprocess.run([*SSH, host, shlex.join(["cat", f"{stage}/report.json"])], capture_output=True, timeout=60)
-        if got.returncode == 0:
-            Path(report).write_bytes(got.stdout)
+        data = unit_file(host, f"{stage}/report.json", REPORT_CAP)
+        if 0 < len(data) <= REPORT_CAP:
+            Path(report).write_bytes(data)
     subprocess.run([*SSH, host, shlex.join(["rm", "-rf", stage])], capture_output=True, timeout=60)
     return code
 

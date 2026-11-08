@@ -256,6 +256,8 @@ def test_the_unit_run_holds_its_lifeline_open_until_the_unit_ends_and_cleans_its
         seen.append(argv[-1])
         if "report.json" in argv[-1]:
             return SimpleNamespace(returncode=0, stdout=b'{"t": {"outcome": "passed"}}')
+        if "out.log" in argv[-1]:
+            return SimpleNamespace(returncode=0, stdout=b"log\n")
         if kwargs.get("stdin"):
             kwargs["stdin"].read()
         return SimpleNamespace(returncode=0, stdout=b"log\n")
@@ -271,3 +273,31 @@ def test_the_unit_run_holds_its_lifeline_open_until_the_unit_ends_and_cleans_its
     stage = [c for c in seen if "rm -rf" in c or c.startswith("rm ")]
     assert stage and shards.UNIT_STAGE in stage[-1]
     assert "mkdir -m 750" in seen[0] and seen[1].startswith("sudo mm-tests start ")
+
+
+@pytest.mark.parametrize("size, kept", [(shards.REPORT_CAP, True), (shards.REPORT_CAP + 1, False)])
+def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(worktree, monkeypatch, tmp_path, size, kept):
+    def fake(argv, **kwargs):
+        if "head" in argv[-1]:
+            cap = int(argv[-1].split("-c ")[1].split()[0])
+            return SimpleNamespace(returncode=0, stdout=(b"x" * (size if "report.json" in argv[-1] else shards.LOG_CAP * 2))[:cap])
+        if kwargs.get("stdin"):
+            kwargs["stdin"].read()
+        return SimpleNamespace(returncode=0, stdout=b"")
+
+    class Start:
+        stdin = SimpleNamespace(close=lambda: None)
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *e): return False
+        def wait(self, timeout): return 0
+
+    monkeypatch.setattr(shards.subprocess, "run", fake)
+    monkeypatch.setattr(shards.subprocess, "Popen", Start)
+    monkeypatch.setattr(shards, "package", lambda worktree, ids, path: Path(path).write_bytes(b"x"))
+    report, log = tmp_path / "r.json", tmp_path / "log"
+    with log.open("w") as handle:
+        shards.run_unit(worktree, "prodesk7", ["a.py::t"], handle, report, 3)
+    assert report.exists() is kept
+    text = log.read_text()
+    assert len(text) < shards.LOG_CAP + 100 and "[log truncated" in text
