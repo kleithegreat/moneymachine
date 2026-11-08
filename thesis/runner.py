@@ -1,5 +1,5 @@
 """The thesis track's runner (audit/criteria.md, stage 10): for one frozen track version (named by the
-manifest hash), the daily main session at 00:10 UTC with an ablation per accepted thesis and then the
+manifest hash), the daily main session at 19:00 UTC with an ablation per accepted thesis and then the
 full no-reading session; the Monday benchmark; hourly resolutions; and the report.
 
 The state is the ledger: each session runs once, recorded when it starts, so a crash consumes that session and ends it
@@ -34,7 +34,8 @@ from thesis.retrieval import Fetcher
 REPO = Path(__file__).resolve().parents[1]
 ROOT = REPO / "data" / "thesis"
 FROZEN = REPO / "audit" / "stage10" / "manifest.json"
-SESSION_OFFSET = 10 * 60_000
+SNAPSHOT_OFFSET = 5 * 60_000
+SESSION_OFFSET = 19 * HOUR
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
 INITIAL = 10_000.0
@@ -125,9 +126,9 @@ class Track:
         if path.exists():
             saved: Json = json.loads(path.read_text())
             return saved
-        listings = self.market.listings()
         markets, daily = {}, {}
         with self.market.hold():
+            listings = self.market.listings()
             for m, delisted in sorted(listings.items()):
                 if delisted:
                     continue
@@ -144,6 +145,23 @@ class Track:
         tmp.write_text(json.dumps(snap))
         os.replace(tmp, path)
         return snap
+
+    def acquire(self, date: int) -> bool:
+        """Attest a published snapshot before its deadline; recovery must find those exact bytes, never a replacement."""
+        cutoff, deadline = date + SNAPSHOT_OFFSET, date + SESSION_OFFSET
+        path = self.root / "snapshots" / f"{cutoff}.json"
+        saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == cutoff]
+        if saved:
+            return path.exists() and registry.sha256(path.read_bytes()) == saved[0]["sha256"]
+        if now_ms() >= deadline:
+            return False
+        self.snapshot(cutoff)
+        digest = registry.sha256(path.read_bytes())
+        acquired = now_ms()
+        if acquired > deadline or self.stop.is_set():
+            return False
+        self.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": acquired, "sha256": digest})
+        return True
 
     def daemon(self, socket_path: str | Path, session: str, account: str, snapshot: Json, commands: Iterable[str],
                ablation_of: str | None = None) -> Daemon:
@@ -177,8 +195,7 @@ class Track:
         return [m for m in dict.fromkeys([*first, *live]) if m in live]
 
     def prewarm(self) -> None:
-        """One pass of the background fill, read again from the listings after an hour. A failed market stays pending with
-        the pages it has, and the pass goes on to the next."""
+        """One background pass, stopping between markets after an hour or SIGTERM; failed markets retain their pages."""
         began = now_ms()
         for m in self.warm_order():
             if self.stop.is_set() or now_ms() - began >= HOUR:
@@ -220,9 +237,9 @@ class Track:
             self.stop.wait(session.RETRY)
         return False
 
-    def miss(self, date: int, account: str, name: str) -> None:
+    def miss(self, date: int, account: str, name: str, reason: str = "the day ended before the session could start") -> None:
         self.ledger.disclose("session_missed", account, {"date": date, "session": name,
-                                                         "reason": "the day ended before the session could start"})
+                                                          "reason": reason})
 
     def day(self, date: int) -> None:
         """The sessions of `date` not yet settled, each once `ready`, in order: main, an ablation per thesis main accepted,
@@ -230,7 +247,9 @@ class Track:
         missed, and a SIGTERM leaves the rest of the date to the next start."""
         main = f"main-{date}"
         if main not in self.settled():
-            snapshot = self.snapshot(now_ms()) if self.ready(date) else None
+            snapshot = self.snapshot(date + SNAPSHOT_OFFSET) if now_ms() < date + DAY else None
+            if snapshot is not None and not self.ready(date):
+                snapshot = None
             if self.stop.is_set():
                 return
             if snapshot is None or now_ms() >= date + DAY:
@@ -365,8 +384,18 @@ class Track:
         """Every date since the freeze of a version frozen at `frozen` whose sessions are due at `now` and not all settled,
         oldest first, so a date an outage spanned is disclosed as missed, and a session a crash cut off ends on the record."""
         self.close_interrupted()
-        for date in range(frozen // DAY * DAY, now + 1 - SESSION_OFFSET, DAY):
-            if f"noread-{date}" not in self.settled():
+        for date in range(frozen // DAY * DAY, now + 1 - SNAPSHOT_OFFSET, DAY):
+            if f"noread-{date}" in self.settled():
+                continue
+            if f"main-{date}" not in self.settled() and now_ms() < date + DAY:
+                acquired = self.acquire(date)
+                if self.stop.is_set():
+                    return
+                if not acquired:
+                    for kind in ("main", "noread"):
+                        self.miss(date, kind, f"{kind}-{date}", "snapshot acquisition missed its completion deadline")
+                    continue
+            if now_ms() >= date + SESSION_OFFSET:
                 self.day(date)
 
 

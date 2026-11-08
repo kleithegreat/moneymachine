@@ -743,11 +743,12 @@ def test_a_short_range_costs_its_base_weight_and_an_excess_row_is_charged_on_rec
     assert sum(w for _, w in x.limiter.spent) == 22
 
 
-@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-08-opus-thesis-refreeze-round3.md finding A; PROGRESS Blockers: the newest daily and hourly tails of every listing cannot be read in the 8 minutes between a bar's finality and the 00:10 session")
 def test_the_session_snapshot_tails_fit_between_a_bars_finality_and_the_session(tmp_path, monkeypatch):
+    from thesis import runner
+
     clock = [market.DAY + market.DELTA]
     fake_clock(monkeypatch, clock)
     x = market.Exchange(tmp_path)
     for _ in range(348 + 176):
-        x._charge(20 + 1 // 60)
-    assert clock[0] - (market.DAY + market.DELTA) <= 8 * 60_000
+        x._charge(21)
+    assert clock[0] <= market.DAY + runner.SESSION_OFFSET

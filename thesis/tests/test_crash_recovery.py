@@ -20,7 +20,7 @@ from thesis.tests.test_runner import DAY, HOUR, MONDAY, ZERO, FakeMarket
 MODULE = __name__
 
 
-def track(root, now=MONDAY + HOUR):
+def track(root, now=MONDAY + runner.SESSION_OFFSET):
     runner.kernel.build = lambda: runner.kernel.MM
     runner.harness.manifest_hash = lambda binary: "0" * 64
     runner.now_ms = lambda: now
@@ -49,13 +49,16 @@ def worker(root, interactive):
             checkpoint(f"register:{i}", interactive)
             acknowledge(register(ledger, i, T_R if interactive else T_R + HOUR))
     else:
-        now = MONDAY + (1 if interactive else 2) * HOUR
+        now = MONDAY + runner.SESSION_OFFSET + (0 if interactive else HOUR)
         t = track(root, now)
+        runner.now_ms = lambda: MONDAY + runner.SNAPSHOT_OFFSET
+        assert t.acquire(MONDAY)
+        runner.now_ms = lambda: now
 
         def model(work, kind, start_daemon, task=None):
             checkpoint(f"model:{kind}", interactive)
             if kind == "main":
-                snapshot = t.snapshot(now)
+                snapshot = t.snapshot(MONDAY + runner.SNAPSHOT_OFFSET)
                 for i in range(2):
                     config, data = t.inputs("main", ["BTC"], now, snapshot)
                     th, errors = registry.register(

@@ -268,7 +268,7 @@ import os, sys, time
 from thesis import runner
 from thesis.tests.test_runner import FakeMarket, MONDAY, DAY, HOUR, ZERO
 runner.harness.manifest_hash = lambda kernel: "0" * 64
-runner.now_ms = lambda: MONDAY + HOUR
+runner.now_ms = lambda: MONDAY + runner.SESSION_OFFSET
 root, flag, dies_in = sys.argv[1:]
 t = runner.Track(root)
 t.market = FakeMarket(MONDAY + 40 * DAY)
@@ -276,7 +276,7 @@ t.ready = lambda date: True
 def run_session(work, kind, start_daemon, task=None):
     if kind == "main":
         t.ledger.disclose("thesis", "main", {"id": "main-1", "session": f"main-{MONDAY}", "legs": [["BTC", 1]],
-                                             "t_r": MONDAY + HOUR, "T": MONDAY + 21 * DAY})
+                                             "t_r": MONDAY + runner.SESSION_OFFSET, "T": MONDAY + 21 * DAY})
     if kind == dies_in:
         open(flag, "w").close()
         time.sleep(3600)
@@ -305,7 +305,7 @@ def killed_during(root, kind):
 @pytest.mark.parametrize("dies_in", ["main", "ablation", "noread"])
 def test_a_runner_killed_mid_day_ends_that_session_on_the_record_and_runs_the_rest(track, monkeypatch, dies_in):
     killed_during(track.root, dies_in)
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 2 * HOUR)
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SESSION_OFFSET + HOUR)
     monkeypatch.setattr(track, "ready", lambda date: True)
     snapshots = []
 
@@ -315,8 +315,8 @@ def test_a_runner_killed_mid_day_ends_that_session_on_the_record_and_runs_the_re
 
     monkeypatch.setattr(runner.harness, "run_session", run_session)
     monkeypatch.setattr(runner.harness, "audit", lambda transcript, calls: {})
-    track.schedule(MONDAY + 2 * HOUR, MONDAY)
-    track.schedule(MONDAY + 2 * HOUR, MONDAY)
+    track.schedule(MONDAY + runner.SESSION_OFFSET + HOUR, MONDAY)
+    track.schedule(MONDAY + runner.SESSION_OFFSET + HOUR, MONDAY)
     order = ["main", "ablation", "noread"]
     assert snapshots == order[order.index(dies_in) + 1:]
     ends = {c["session"]: c for _, _, c in track.ledger.records("session_end")}
@@ -327,23 +327,23 @@ def test_a_runner_killed_mid_day_ends_that_session_on_the_record_and_runs_the_re
 
 def test_the_noread_session_after_a_restart_sees_the_main_sessions_snapshot(track, monkeypatch):
     killed_during(track.root, "main")
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 2 * HOUR)
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SESSION_OFFSET + HOUR)
     monkeypatch.setattr(track, "ready", lambda date: True)
     monkeypatch.setattr(track, "ablation_task", lambda th, snapshot: ({}, {"taken": th["t_r"]}))
     seen = []
     monkeypatch.setattr(track, "daemon", lambda sock, session, account, snapshot, commands, ablation_of=None: seen.append(snapshot))
     monkeypatch.setattr(runner.harness, "run_session", lambda work, kind, start_daemon, task=None: start_daemon("s") or {"kind": kind})
     monkeypatch.setattr(runner.harness, "audit", lambda transcript, calls: {})
-    track.schedule(MONDAY + 2 * HOUR, MONDAY)
+    track.schedule(MONDAY + runner.SESSION_OFFSET + HOUR, MONDAY)
     [(_, _, main)] = [r for r in track.ledger.records("session") if r[2]["kind"] == "main"]
-    assert seen[-1]["taken"] == main["taken"] == MONDAY + HOUR
+    assert seen[-1]["taken"] == main["taken"] == MONDAY + runner.SNAPSHOT_OFFSET
 
 
 def test_a_stop_after_main_leaves_the_rest_of_the_date_to_the_next_start(track, monkeypatch):
     killed_during(track.root, "main")
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 2 * HOUR)
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SESSION_OFFSET + HOUR)
     monkeypatch.setattr(track, "ready", lambda date: track.stop.set() or False)
-    track.schedule(MONDAY + 2 * HOUR, MONDAY)
+    track.schedule(MONDAY + runner.SESSION_OFFSET + HOUR, MONDAY)
     assert track.ledger.records("session_missed") == []
 
 
@@ -363,7 +363,8 @@ def test_a_restart_after_the_day_ended_discloses_the_rest_as_missed(track, monke
     monkeypatch.setattr(track, "ready", lambda date: False)
     track.schedule(now, MONDAY)
     missed = {c["session"] for _, _, c in track.ledger.records("session_missed")}
-    assert {"ablation-main-1", f"noread-{MONDAY}", f"main-{MONDAY + DAY}"} <= missed
+    assert {"ablation-main-1", f"noread-{MONDAY}"} == missed
+    assert f"main-{MONDAY + DAY}" not in missed
     assert f"main-{MONDAY}" not in missed
 
 
@@ -622,7 +623,6 @@ def test_a_market_delisted_after_the_snapshot_is_refused_at_registration(track, 
 
 
 def test_a_horizon_exit_frees_its_reservation_for_the_session_of_that_morning(tmp_path, monkeypatch):
-    # A position whose horizon is 00:00 has closed by the 00:10 session, whose candle at 00:00 is still in progress.
     th = {"id": "a", "t_r": MONDAY - 5 * DAY, "legs": [["X", 1]], "T": MONDAY, "L": 0.1, "fee": 0.0, "costs": {"X": ZERO},
           "N": 1000.0, "size": 1000.0, "b": 100.0}
     hours = range(MONDAY // HOUR - 200, MONDAY // HOUR + 1)
