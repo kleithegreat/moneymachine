@@ -156,6 +156,8 @@ class Track:
         if now_ms() >= deadline:
             return False
         self.snapshot(cutoff)
+        if self.stop.is_set():
+            return False
         digest = registry.sha256(path.read_bytes())
         acquired = now_ms()
         if acquired > deadline or self.stop.is_set():
@@ -237,17 +239,16 @@ class Track:
             self.stop.wait(session.RETRY)
         return False
 
-    def miss(self, date: int, account: str, name: str, reason: str = "the day ended before the session could start") -> None:
+    def miss(self, date: int, account: str, name: str, reason: str = "snapshot or readiness unavailable before the start deadline") -> None:
         self.ledger.disclose("session_missed", account, {"date": date, "session": name,
                                                           "reason": reason})
 
-    def day(self, date: int) -> None:
-        """The sessions of `date` not yet settled, each once `ready`, in order: main, an ablation per thesis main accepted,
+    def day(self, date: int, snapshot: Json | None) -> None:
+        """The sessions on the prepared snapshot (None if unavailable), each once `ready`: main, its accepted theses' ablations,
         and the full no-reading session on main's snapshot. A session that the day's end finds unstarted is disclosed as
         missed, and a SIGTERM leaves the rest of the date to the next start."""
         main = f"main-{date}"
         if main not in self.settled():
-            snapshot = self.snapshot(date + SNAPSHOT_OFFSET) if now_ms() < date + DAY else None
             if snapshot is not None and not self.ready(date):
                 snapshot = None
             if self.stop.is_set():
@@ -256,8 +257,8 @@ class Track:
                 self.miss(date, "main", main)
             else:
                 self.session("main", date, snapshot, MAIN_COMMANDS)
-        taken = [c["taken"] for _, _, c in self.ledger.records("session") if c["session"] == main]
-        snapshot = self.snapshot(taken[0]) if taken else None
+        if not any(c["session"] == main for _, _, c in self.ledger.records("session")):
+            snapshot = None
         theses = [t for t in self.ledger.theses("main") if t["session"] == main]
         for kind, name, th in [("ablation", f"ablation-{t['id']}", t) for t in theses] + [("noread", f"noread-{date}", None)]:
             if name in self.settled():
@@ -387,16 +388,19 @@ class Track:
         for date in range(frozen // DAY * DAY, now + 1 - SNAPSHOT_OFFSET, DAY):
             if f"noread-{date}" in self.settled():
                 continue
-            if f"main-{date}" not in self.settled() and now_ms() < date + DAY:
+            snapshot = None
+            if now_ms() < date + DAY:
                 acquired = self.acquire(date)
                 if self.stop.is_set():
                     return
-                if not acquired:
+                if not acquired and f"main-{date}" not in self.settled():
                     for kind in ("main", "noread"):
                         self.miss(date, kind, f"{kind}-{date}", "snapshot acquisition missed its completion deadline")
                     continue
+                if acquired and now_ms() >= date + SESSION_OFFSET:
+                    snapshot = self.snapshot(date + SNAPSHOT_OFFSET)
             if now_ms() >= date + SESSION_OFFSET:
-                self.day(date)
+                self.day(date, snapshot)
 
 
 def joined(reads: dict[str, Json], now: int) -> Json:

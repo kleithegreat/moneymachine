@@ -79,6 +79,20 @@ def test_recovery_uses_only_the_timely_published_snapshot_bytes(track, monkeypat
     assert len(track.ledger.records("session_missed")) == 2
 
 
+def test_recovery_after_main_never_reconstructs_its_lost_snapshot(track, monkeypatch):
+    clock = [MONDAY + runner.SNAPSHOT_OFFSET]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    track.schedule(clock[0], MONDAY)
+    track.ledger.disclose("session", "main", {"session": f"main-{MONDAY}", "kind": "main",
+                                              "taken": clock[0], "started": MONDAY + runner.SESSION_OFFSET})
+    (track.root / "snapshots" / f"{clock[0]}.json").unlink()
+    clock[0] = MONDAY + runner.SESSION_OFFSET + runner.HOUR
+    monkeypatch.setattr(track, "snapshot", lambda *a: (_ for _ in ()).throw(AssertionError("reconstructed snapshot")))
+    monkeypatch.setattr(track, "ready", lambda date: True)
+    track.schedule(clock[0], MONDAY)
+    assert [c["session"] for _, _, c in track.ledger.records("session_missed")] == [f"noread-{MONDAY}"]
+
+
 def test_the_paper_snapshot_envelope_includes_real_prefix_tail_and_empty_requests(tmp_path, monkeypatch):
     cutoff = MONDAY + 5 * 60_000
     fake_clock(monkeypatch, [cutoff])

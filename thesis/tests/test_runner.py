@@ -216,12 +216,11 @@ def test_every_session_of_a_day_that_cannot_run_is_missed_but_a_stop_leaves_the_
         return len(asked) <= fails_at
 
     monkeypatch.setattr(track, "ready", ready)
-    monkeypatch.setattr(track, "snapshot", lambda now: {"taken": MONDAY})
     monkeypatch.setattr(track, "ablation_task", lambda th, snapshot: ({}, {"taken": th["id"]}))
     monkeypatch.setattr(track.ledger, "theses", lambda account: [{"id": t, "session": f"main-{MONDAY}"} for t in ("t1", "t2") if ran])
     monkeypatch.setattr(runner.harness, "run_session", lambda work, kind, daemon, task: ran.append(kind) or {"kind": kind})
     monkeypatch.setattr(runner.harness, "audit", lambda transcript, calls: {})
-    track.day(MONDAY)
+    track.day(MONDAY, {"taken": MONDAY})
     assert ran == ["main", "ablation", "ablation", "noread"][:fails_at]
     assert [c["session"].split(f"-{MONDAY}")[0] for _, _, c in track.ledger.records("session_missed")] == missed
 
@@ -230,9 +229,16 @@ def test_a_snapshot_that_outlasts_the_day_starts_nothing(track, monkeypatch):
     clock = [MONDAY + HOUR]
     monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
     monkeypatch.setattr(track, "ready", lambda date: True)
-    monkeypatch.setattr(track, "snapshot", lambda now: clock.__setitem__(0, MONDAY + DAY) or {"taken": now})
+    snapshot = track.snapshot
+
+    def slow(now):
+        snap = snapshot(now)
+        clock[0] = MONDAY + DAY
+        return snap
+
+    monkeypatch.setattr(track, "snapshot", slow)
     monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("started"))
-    track.day(MONDAY)
+    track.schedule(clock[0], MONDAY)
     assert [c["session"] for _, _, c in track.ledger.records("session_missed")] == [f"main-{MONDAY}", f"noread-{MONDAY}"]
 
 
@@ -258,7 +264,7 @@ def test_a_stop_during_the_snapshot_starts_nothing_and_leaves_the_date(track, mo
     monkeypatch.setattr(track, "ready", lambda date: True)
     monkeypatch.setattr(track, "snapshot", lambda now: track.stop.set() or {})
     monkeypatch.setattr(track, "session", lambda *a, **k: pytest.fail("started"))
-    track.day(MONDAY)
+    track.schedule(MONDAY + HOUR, MONDAY)
     assert track.ledger.records("session_missed") == []
 
 
@@ -272,6 +278,9 @@ runner.now_ms = lambda: MONDAY + runner.SESSION_OFFSET
 root, flag, dies_in = sys.argv[1:]
 t = runner.Track(root)
 t.market = FakeMarket(MONDAY + 40 * DAY)
+runner.now_ms = lambda: MONDAY + runner.SNAPSHOT_OFFSET
+assert t.acquire(MONDAY)
+runner.now_ms = lambda: MONDAY + runner.SESSION_OFFSET
 t.ready = lambda date: True
 def run_session(work, kind, start_daemon, task=None):
     if kind == "main":
@@ -283,7 +292,7 @@ def run_session(work, kind, start_daemon, task=None):
     return {"kind": kind}
 runner.harness.run_session = run_session
 runner.harness.audit = lambda transcript, calls: {}
-t.day(MONDAY)
+t.day(MONDAY, t.snapshot(MONDAY + runner.SNAPSHOT_OFFSET))
 """
 
 
