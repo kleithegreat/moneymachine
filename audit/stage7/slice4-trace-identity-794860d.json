@@ -1,0 +1,78 @@
+{
+ "edge": {
+  "programs": 216,
+  "with_trace": 57,
+  "codes": {
+   "ok": 57,
+   "R_SETTLEMENT_MISSING": 159
+  },
+  "differences": 0,
+  "first": []
+ },
+ "liquidation": {
+  "programs": 216,
+  "with_trace": 214,
+  "codes": {
+   "ok": 214,
+   "R_INPUT_UNAVAILABLE": 2
+  },
+  "differences": 2,
+  "first": [
+   {
+    "name": "probe-sign-forum-activity",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   },
+   {
+    "name": "probe-sign-forum-burst",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   }
+  ]
+ },
+ "ruin": {
+  "programs": 216,
+  "with_trace": 214,
+  "codes": {
+   "ok": 214,
+   "R_INPUT_UNAVAILABLE": 2
+  },
+  "differences": 2,
+  "first": [
+   {
+    "name": "probe-sign-forum-activity",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   },
+   {
+    "name": "probe-sign-forum-burst",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   }
+  ]
+ }
+}

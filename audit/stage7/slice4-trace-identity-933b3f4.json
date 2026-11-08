@@ -1,0 +1,235 @@
+{
+ "N1": {
+  "programs": 216,
+  "with_trace": 216,
+  "codes": {
+   "ok": 216
+  },
+  "differences": 0,
+  "first": []
+ },
+ "N2": {
+  "programs": 216,
+  "with_trace": 216,
+  "codes": {
+   "ok": 216
+  },
+  "differences": 0,
+  "first": []
+ },
+ "N3": {
+  "programs": 216,
+  "with_trace": 216,
+  "codes": {
+   "ok": 216
+  },
+  "differences": 0,
+  "first": []
+ },
+ "edge": {
+  "programs": 216,
+  "with_trace": 57,
+  "codes": {
+   "ok": 57,
+   "R_SETTLEMENT_MISSING": 159
+  },
+  "differences": 57,
+  "first": [
+   {
+    "name": "W0",
+    "old": {
+     "strategy": "16225ec5056f8af18410c3a52a344e1c004ed62d8c92f877fb65e5a05b580e5a",
+     "result_hash": "5e7b9e38d691f506aa082c5d611dffead2f32590379004ee3d6f2f8f0e1413bf",
+     "result": {
+      "steps": 239,
+      "final_equity": 9980.763610226464,
+      "total_return": -0.0019236389773535922,
+      "sharpe_annualized": -3.9124090378994123,
+      "max_drawdown": 0.002149552624104656,
+      "fills": 127,
+      "fees": 4.7083974009039204,
+      "funding": 1.329981889636058,
+      "turnover": 10463.105335342047,
+      "slippage": 2.0926205164540628,
+      "gross_return_mean": -5.202801286304421e-06,
+      "holds": 72
+     },
+     "trace_sha256": "2718e7dc29737cf59d9736bbad9e348c4191ac6441be966289c57568164151b2",
+     "mode": "search"
+    },
+    "new": {
+     "strategy": "16225ec5056f8af18410c3a52a344e1c004ed62d8c92f877fb65e5a05b580e5a",
+     "result_hash": "25b6e4f3efc50aa392e85bbce4d961edcb492d9b1028ce931b6030bfff8cde72",
+     "result": {
+      "steps": 239,
+      "final_equity": 9980.763610226464,
+      "total_return": -0.0019236389773535922,
+      "sharpe_annualized": -3.9124090378994123,
+      "max_drawdown": 0.002149552624104656,
+      "fills": 127,
+      "fees": 4.7083974009039204,
+      "funding": 1.329981889636058,
+      "turnover": 10463.105335342047,
+      "slippage": 2.0926205164540628,
+      "gross_return_mean": -5.202801286304421e-06,
+      "holds": 71
+     },
+     "trace_sha256": "c24fffe34ef44ed89eef41ea4635878933819c48b0f5870f3c4d27f77c3f64ec",
+     "mode": "search"
+    }
+   },
+   {
+    "name": "probe-sign-forum-activity",
+    "old": {
+     "strategy": "db6ba85f1e5462cbbc17c74c072fbbc1dd5044d2e34dbe9ef0260f2e79038e23",
+     "result_hash": "38fc5db8d58e41f51d3d1ff4474c312e18590eb265af9043395ef0407d219693",
+     "result": {
+      "steps": 239,
+      "final_equity": 10172.637395518344,
+      "total_return": 0.017263739551834467,
+      "sharpe_annualized": 2.786629116281581,
+      "max_drawdown": 0.012879301148831734,
+      "fills": 266,
+      "fees": 98.12942939465567,
+      "funding": 3.435407321840211,
+      "turnover": 218065.39865479042,
+      "slippage": 61.121163618550646,
+      "gross_return_mean": 0.0001386537454779971,
+      "holds": 439
+     },
+     "trace_sha256": "6b56a441e0c33880e1a8406626cb33516e1e7ea11e48b3895755102a15970abd",
+     "mode": "search"
+    },
+    "new": {
+     "strategy": "db6ba85f1e5462cbbc17c74c072fbbc1dd5044d2e34dbe9ef0260f2e79038e23",
+     "result_hash": "d1828bf8695e10d87fd851cfb035918042f5566af8064396c31968290db8aafc",
+     "result": {
+      "steps": 239,
+      "final_equity": 10159.982176677913,
+      "total_return": 0.015998217667791303,
+      "sharpe_annualized": 2.5914095166591036,
+      "max_drawdown": 0.012879514974514228,
+      "fills": 265,
+      "fees": 97.97383737684811,
+      "funding": 3.4348669452488965,
+      "turnover": 217719.63861521793,
+      "slippage": 60.43753974133636,
+      "gross_return_mean": 0.0001331632109859385,
+      "holds": 438
+     },
+     "trace_sha256": "564d939802722be2f60346ab5d61b12245083d03a7e7e2b31ad1c670c1f17521",
+     "mode": "search"
+    }
+   },
+   {
+    "name": "probe-sign-forum-burst",
+    "old": {
+     "strategy": "ff5a461aeb3c009517f94a11e64fd89cc8e60e44d62e5d35ef8d2f2d52f26d09",
+     "result_hash": "995c9c5293f09ebc748b4a764a20abe4ea2b2ecabcdef8a45cd8bbad5612129c",
+     "result": {
+      "steps": 239,
+      "final_equity": 10209.990309099017,
+      "total_return": 0.02099903090990174,
+      "sharpe_annualized": 3.88932823050834,
+      "max_drawdown": 0.008517310942654954,
+      "fills": 324,
+      "fees": 88.80458959851268,
+      "funding": -6.332840606827432,
+      "turnover": 197343.53244113937,
+      "slippage": 48.39781662907951,
+      "gross_return_mean": 0.00014458292350675306,
+      "holds": 417
+     },
+     "trace_sha256": "f5dfe62c6b8252121aeca017627cdd42a453181e295bfc11302d85ded176f8d0",
+     "mode": "search"
+    },
+    "new": {
+     "strategy": "ff5a461aeb3c009517f94a11e64fd89cc8e60e44d62e5d35ef8d2f2d52f26d09",
+     "result_hash": "4d08a05f9c225f01782d4b85caf3f34498ca3c660c9a328804a2b87597ea7daa",
+     "result": {
+      "steps": 239,
+      "final_equity": 10203.235233422029,
+      "total_return": 0.020323523342202776,
+      "sharpe_annualized": 3.7662429931077317,
+      "max_drawdown": 0.008515818520154816,
+      "fills": 324,
+      "fees": 88.78869511756268,
+      "funding": -6.330584937764503,
+      "turnover": 197308.21137236123,
+      "slippage": 48.18807099138833,
+      "gross_return_mean": 0.00014175001834764795,
+      "holds": 416
+     },
+     "trace_sha256": "2c544a2abe686af73fb7137edcc6a58e8a8261ca04d202b55f5018c006e83fba",
+     "mode": "search"
+    }
+   }
+  ]
+ },
+ "liquidation": {
+  "programs": 216,
+  "with_trace": 214,
+  "codes": {
+   "ok": 214,
+   "R_INPUT_UNAVAILABLE": 2
+  },
+  "differences": 2,
+  "first": [
+   {
+    "name": "probe-sign-forum-activity",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   },
+   {
+    "name": "probe-sign-forum-burst",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   }
+  ]
+ },
+ "ruin": {
+  "programs": 216,
+  "with_trace": 214,
+  "codes": {
+   "ok": 214,
+   "R_INPUT_UNAVAILABLE": 2
+  },
+  "differences": 2,
+  "first": [
+   {
+    "name": "probe-sign-forum-activity",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   },
+   {
+    "name": "probe-sign-forum-burst",
+    "old": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"dataset events_forum is not in this store\")"
+    },
+    "new": {
+     "code": "R_INPUT_UNAVAILABLE",
+     "message": "InputUnavailable(\"forum_posts: its source is not bound in this store\")"
+    }
+   }
+  ]
+ }
+}
