@@ -65,3 +65,34 @@ test running_sum_recompute_boundaries ... ok
 test every_rule_is_exact ... ok
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 212.93s
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+## After the item-5 fixes (rules, keys, canon; cargo test --release --test rules --test keys --test canon)
+     Running tests/canon.rs (/home/kevin/.cache/mm-s4-c41-target/release/deps/canon-09cef26017205a43)
+test equivalent_forms_share_a_key ... ok
+test rejected_laws_keep_distinct_keys ... ok
+test hand_built_pairs_share_a_key ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/keys.rs (/home/kevin/.cache/mm-s4-c41-target/release/deps/keys-a12ee6620cbb441c)
+test fresh_process_child ... ok
+test rewritten_programs_share_a_key ... ok
+test fresh_processes_compute_the_same_keys ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.27s
+     Running tests/rules.rs (/home/kevin/.cache/mm-s4-c41-target/release/deps/rules-e0151f13a7bdbfc0)
+test rule_set_is_the_sixteen_rules ... ok
+test the_negative_zero_operand_is_negative_zero ... ok
+test sub_zero_keeps_units ... ok
+test window_warm_up ... ok
+test signed_zeros_and_undefined_conditions ... ok
+test listing_and_delisting ... ok
+test running_sum_recompute_boundaries ... ok
+test every_rule_is_exact ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 241.40s
+
+## Mutant: sub-zero pattern (sub ?x ?z) -> (subx ?x ?z) in src/canon.rs, reverted
+test signed_zeros_and_undefined_conditions ... FAILED
+test running_sum_recompute_boundaries ... FAILED
+test every_rule_is_exact ... FAILED
+sub-zero id operands 0,0: no matching position
+sub-zero sum(1) inside: no matching position
+sub-zero: no matching position in 1000 planted programs
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 5 filtered out; finished in 232.82s
