@@ -77,6 +77,12 @@ fn strs(v: &Value) -> Vec<String> {
     v.as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect()
 }
 
+/// Per record, whether it is the last of its key's timeline (`final`): the loader delivers a key's revisions
+/// consecutively, in order.
+fn finals<T>(rows: &[T], key: impl Fn(&T) -> (usize, i64)) -> Vec<bool> {
+    (0..rows.len()).map(|i| rows.get(i + 1).map_or(true, |n| key(n) != key(&rows[i]))).collect()
+}
+
 fn admit_case(c: &Value) -> String {
     let Ok(reg) = c["decls"].as_array().unwrap().iter().map(|d| source::declaration(d["text"].as_str().unwrap())).collect::<Result<Vec<_>, _>>() else {
         return "invalid 0".into();
@@ -125,11 +131,17 @@ fn main() {
     let events: Vec<Value> = mm::dsl::EVENT_INPUTS
         .iter()
         .enumerate()
-        .flat_map(|(slot, (_, ds))| m.events.get(ds).into_iter().flatten().map(move |e| json!([slot, e.coin, e.event, e.known, b(e.count), e.recorded, e.key])))
+        .flat_map(|(slot, (_, ds))| {
+            let es = m.events.get(ds).map(Vec::as_slice).unwrap_or_default();
+            let last = finals(es, |e| (e.coin, e.key));
+            es.iter().zip(last).map(move |(e, f)| json!([slot, e.coin, e.event, e.known, b(e.count), e.recorded, e.key, e.retraction, f]))
+        })
         .collect();
+    let funding_last = finals(&m.funding, |f| (f.coin, f.event));
+    let bars_last = finals(&m.bars, |x| (x.coin, x.event));
     let market_json = json!({
-        "funding": m.funding.iter().map(|f| json!([f.coin, f.event, f.known, b(f.rate), b(f.premium), f.retraction])).collect::<Vec<_>>(),
-        "bars": m.bars.iter().map(|x| json!([x.coin, x.open_time, x.event, x.known, b(x.open), b(x.high), b(x.low), b(x.close), b(x.volume), x.trades, x.retraction])).collect::<Vec<_>>(),
+        "funding": m.funding.iter().zip(funding_last).map(|(f, last)| json!([f.coin, f.event, f.known, b(f.rate), b(f.premium), f.retraction, f.recorded, last])).collect::<Vec<_>>(),
+        "bars": m.bars.iter().zip(bars_last).map(|(x, last)| json!([x.coin, x.open_time, x.event, x.known, b(x.open), b(x.high), b(x.low), b(x.close), b(x.volume), x.trades, x.retraction, x.recorded, last])).collect::<Vec<_>>(),
         "events": events, "present": slots, "intervals": m.intervals,
         "venue": {"taker_fee": b(venue.taker_fee), "min_notional": b(venue.min_notional),
                   "sz_decimals": venue.rules.iter().map(|r| r.sz_decimals).collect::<Vec<_>>(),

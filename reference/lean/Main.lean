@@ -65,20 +65,30 @@ def admissionMeta (present : List Nat) (intervals : Array (Int × Int)) : Meta :
     certs := bound.map cert, supersessions := [], position := 0, policy := "P", verifier := "V", holdout := [],
     holdoutStart := far, intervals, version := 0 }
 
-def obs (source coin : Nat) (key known : Int) (slot : Option Int) (vals : Array Float) (role : Option (RolePayload Float)) :
-    Obs Float :=
-  { source, coin, key, slot, known, vals := vals.map some, role, final := true, retraction := false, recorded := known }
+/-- One exported record: a retraction has no values and no role payload (`Resolve.lean`'s `resolveAll`); `final` and
+`recorded` are the loader's. -/
+def obs (source coin : Nat) (key known : Int) (slot : Option Int) (vals : Array Float) (role : Option (RolePayload Float))
+    (retraction final : Bool) (recorded : Int) : Obs Float :=
+  { source, coin, key, slot, known, vals := vals.map fun x => if retraction then none else some x,
+    role := if retraction then none else role, final, retraction, recorded }
+
+def bool! : Value → Bool
+  | .bool b => b
+  | _ => panic! "expected a boolean"
 
 /-- The refmm input: a market exported by reference/mmdump (the stage 6 format) as resolved observations, with the
 venue and policy. -/
 def market (v : Value) : Array (Obs Float) × Meta × Venue Float × Policy × Int :=
   let f := (arr! (get! v "funding")).map fun r => let r := arr! r
     obs 0 (int! r[0]!).toNat (int! r[1]!) (int! r[2]!) none #[bits! r[3]!, bits! r[4]!] (some (.rate (bits! r[3]!)))
+      (bool! r[5]!) (bool! r[7]!) (int! r[6]!)
   let b := (arr! (get! v "bars")).map fun r => let r := arr! r
     obs 1 (int! r[0]!).toNat (int! r[2]!) (int! r[3]!) none #[bits! r[4]!, bits! r[5]!, bits! r[6]!, bits! r[7]!, bits! r[8]!]
       (some (.bar (bits! r[4]!) (bits! r[5]!) (bits! r[6]!) (bits! r[7]!) (int! r[9]!)))
+      (bool! r[10]!) (bool! r[12]!) (int! r[11]!)
   let e := (arr! (get! v "events")).map fun r => let r := arr! r
-    obs ((int! r[0]!).toNat + 2) (int! r[1]!).toNat (int! r[2]!) (int! r[3]!) (some (int! r[2]!)) #[bits! r[4]!] none
+    obs ((int! r[0]!).toNat + 2) (int! r[1]!).toNat (int! r[6]!) (int! r[3]!) (some (int! r[2]!)) #[bits! r[4]!] none
+      (bool! r[7]!) (bool! r[8]!) (int! r[5]!)
   let iv := (arr! (get! v "intervals")).map fun r => let r := arr! r; (int! r[0]!, int! r[1]!)
   let ven := get! v "venue"
   let venue : Venue Float :=

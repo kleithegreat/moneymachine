@@ -47,3 +47,15 @@ def test_runs_agree_bit_for_bit(tmp_path):
     programs += [search.compile_genome(search.random_genome(rng, 7)) for _ in range(6)]
     results = differential.chunk(list(range(len(programs))), [json.dumps(p) for p in programs], "smoke", root, 1, tmp_path)
     assert [name for name, _, agreed, _, _ in results if not agreed] == []
+
+
+def test_runs_agree_on_restated_keys(tmp_path):
+    """The edge market restates 13 funding keys, so mmdump exports each twice; `refmm` must read which revision is
+    final and when each was recorded, or its admission stops at R_BINDING (audit/stage7/edge-regression.md)."""
+    from reference import edge_markets
+
+    root = edge_markets.edge(tmp_path / "edge")
+    ws = edge_markets.weights()
+    names = ["buy-and-hold", "gross-cap", "reversal"]
+    results = differential.chunk(names, [json.dumps(ws[k]) for k in names], "edge", root, 2, tmp_path)
+    assert [(name, first) for name, _, agreed, first, _ in results if not agreed] == []

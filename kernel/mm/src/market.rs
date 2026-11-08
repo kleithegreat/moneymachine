@@ -33,6 +33,7 @@ pub struct Funding {
     pub rate: f64,
     pub premium: f64,
     pub retraction: bool,
+    pub recorded: i64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -48,6 +49,7 @@ pub struct Bar {
     pub volume: f64,
     pub trades: i64,
     pub retraction: bool,
+    pub recorded: i64,
 }
 
 /// An hourly event count: items whose knownAt falls in (event - 1h, event], known at `known`. `event` is the slot
@@ -60,6 +62,7 @@ pub struct Event {
     pub count: f64,
     pub recorded: i64,
     pub key: i64,
+    pub retraction: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -272,7 +275,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
     for k in keys(&resolved, "funding") {
         let coin = k.coin.unwrap();
         for e in &k.entries {
-            funding.push(Funding { coin, event: k.event, known: e.known, rate: value(k, e, "fundingRate"), premium: value(k, e, "premium"), retraction: e.retraction });
+            funding.push(Funding { coin, event: k.event, known: e.known, rate: value(k, e, "fundingRate"), premium: value(k, e, "premium"), retraction: e.retraction, recorded: e.fetched });
         }
         if let Some(last) = k.entries.last().filter(|e| !e.retraction) {
             rate_at.insert((coin, k.event), value(k, last, "fundingRate"));
@@ -303,6 +306,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
                 volume: price("volume"),
                 trades,
                 retraction: e.retraction,
+                recorded: e.fetched,
             });
         }
     }
@@ -311,7 +315,7 @@ pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, ho
         if datasets.contains(&ds) {
             let list = keys(&resolved, ds)
                 .into_iter()
-                .flat_map(|k| k.entries.iter().map(move |e| Event { coin: k.coin.unwrap(), event: e.slot.unwrap_or(k.event), known: e.known, count: value(k, e, "count"), recorded: e.fetched, key: k.event }))
+                .flat_map(|k| k.entries.iter().map(move |e| Event { coin: k.coin.unwrap(), event: e.slot.unwrap_or(k.event), known: e.known, count: value(k, e, "count"), recorded: e.fetched, key: k.event, retraction: e.retraction }))
                 .collect();
             events.insert(ds, list);
         }
