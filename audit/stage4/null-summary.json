@@ -1,0 +1,1732 @@
+{
+ "n": 10,
+ "ids": [
+  "swarm-null-3-N2-0",
+  "swarm-null-3-N2-1",
+  "swarm-null-3-N2-2",
+  "swarm-null-3-N2-3",
+  "swarm-null-3-N2-4",
+  "swarm-null-3-N2-5",
+  "swarm-null-3-N2-6",
+  "swarm-null-3-N2-7",
+  "swarm-null-3-N2-8",
+  "swarm-null-3-N2-9"
+ ],
+ "counted_promotions": 1,
+ "mm": [
+  "3a732069413d050f334229e3e1bcf8d804f2e10ba21ad0365dd5187f6ed081b7"
+ ],
+ "audits": {
+  "swarm-null-3-N2-0": {
+   "A1": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 9,
+    "ledger_rows": 9,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 26,
+    "ledger_rows": 26,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 28,
+    "ledger_rows": 28,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-3-N2-1": {
+   "A1": {
+    "daemon_calls": 0,
+    "ledger_rows": 0,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read"
+    ],
+    "outside_permitted": [],
+    "denials": 4
+   },
+   "A2": {
+    "daemon_calls": 19,
+    "ledger_rows": 19,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 29,
+    "ledger_rows": 29,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-3-N2-2": {
+   "A1": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 5
+   },
+   "A2": {
+    "daemon_calls": 26,
+    "ledger_rows": 26,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   }
+  },
+  "swarm-null-3-N2-3": {
+   "A1": {
+    "daemon_calls": 18,
+    "ledger_rows": 18,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   },
+   "A3": {
+    "daemon_calls": 0,
+    "ledger_rows": 0,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   },
+   "A4": {
+    "daemon_calls": 21,
+    "ledger_rows": 21,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   }
+  },
+  "swarm-null-3-N2-4": {
+   "A1": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A2": {
+    "daemon_calls": 10,
+    "ledger_rows": 10,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A3": {
+    "daemon_calls": 23,
+    "ledger_rows": 23,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   },
+   "A4": {
+    "daemon_calls": 26,
+    "ledger_rows": 26,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   }
+  },
+  "swarm-null-3-N2-5": {
+   "A1": {
+    "daemon_calls": 0,
+    "ledger_rows": 0,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read"
+    ],
+    "outside_permitted": [],
+    "denials": 4
+   },
+   "A2": {
+    "daemon_calls": 15,
+    "ledger_rows": 15,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A3": {
+    "daemon_calls": 22,
+    "ledger_rows": 22,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 5
+   },
+   "A4": {
+    "daemon_calls": 17,
+    "ledger_rows": 17,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   }
+  },
+  "swarm-null-3-N2-6": {
+   "A1": {
+    "daemon_calls": 30,
+    "ledger_rows": 30,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   },
+   "A2": {
+    "daemon_calls": 0,
+    "ledger_rows": 0,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   },
+   "A3": {
+    "daemon_calls": 28,
+    "ledger_rows": 28,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 29,
+    "ledger_rows": 29,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   }
+  },
+  "swarm-null-3-N2-7": {
+   "A1": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   },
+   "A2": {
+    "daemon_calls": 33,
+    "ledger_rows": 33,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   },
+   "A3": {
+    "daemon_calls": 30,
+    "ledger_rows": 30,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 37,
+    "ledger_rows": 37,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 3
+   }
+  },
+  "swarm-null-3-N2-8": {
+   "A1": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 24,
+    "ledger_rows": 24,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 2
+   },
+   "A3": {
+    "daemon_calls": 16,
+    "ledger_rows": 16,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A4": {
+    "daemon_calls": 21,
+    "ledger_rows": 21,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Edit",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [
+     "Edit"
+    ],
+    "denials": 2
+   }
+  },
+  "swarm-null-3-N2-9": {
+   "A1": {
+    "daemon_calls": 21,
+    "ledger_rows": 21,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   },
+   "A2": {
+    "daemon_calls": 20,
+    "ledger_rows": 20,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A3": {
+    "daemon_calls": 22,
+    "ledger_rows": 22,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 0
+   },
+   "A4": {
+    "daemon_calls": 22,
+    "ledger_rows": 22,
+    "match": true,
+    "tools": [
+     "Bash",
+     "Read",
+     "Write"
+    ],
+    "outside_permitted": [],
+    "denials": 1
+   }
+  }
+ },
+ "evaluations": [
+  25,
+  28,
+  32,
+  27,
+  33,
+  23,
+  40,
+  53,
+  34,
+  30
+ ],
+ "agent_evaluations": [
+  {
+   "A1": 7,
+   "A2": 1,
+   "A3": 10,
+   "A4": 7
+  },
+  {
+   "A1": 0,
+   "A2": 7,
+   "A3": 12,
+   "A4": 9
+  },
+  {
+   "A1": 7,
+   "A2": 11,
+   "A3": 7,
+   "A4": 7
+  },
+  {
+   "A1": 8,
+   "A2": 9,
+   "A3": 0,
+   "A4": 10
+  },
+  {
+   "A1": 9,
+   "A2": 2,
+   "A3": 10,
+   "A4": 12
+  },
+  {
+   "A1": 0,
+   "A2": 6,
+   "A3": 10,
+   "A4": 7
+  },
+  {
+   "A1": 14,
+   "A2": 0,
+   "A3": 13,
+   "A4": 13
+  },
+  {
+   "A1": 7,
+   "A2": 15,
+   "A3": 14,
+   "A4": 17
+  },
+  {
+   "A1": 7,
+   "A2": 11,
+   "A3": 7,
+   "A4": 9
+  },
+  {
+   "A1": 7,
+   "A2": 7,
+   "A3": 8,
+   "A4": 8
+  }
+ ],
+ "stopped": [
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  },
+  {
+   "A1": "finished",
+   "A2": "finished",
+   "A3": "finished",
+   "A4": "finished"
+  }
+ ],
+ "cross_agent_history": [
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true
+ ],
+ "spreads": {
+  "spa_p": {
+   "n": 10,
+   "min": 0.018,
+   "median": 0.696,
+   "max": 0.863
+  },
+  "max_dsr": {
+   "n": 10,
+   "min": 0.05459669065056347,
+   "median": 0.29227530248411215,
+   "max": 0.7929744739425019
+  },
+  "screened": {
+   "n": 10,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "H400_null_n2": {
+  "spa_p": {
+   "n": 300,
+   "min": 0.0,
+   "median": 0.231,
+   "max": 1.0
+  },
+  "max_dsr": {
+   "n": 300,
+   "min": 0.013442820436954397,
+   "median": 0.30107545762775606,
+   "max": 0.9313932145725057
+  },
+  "screened": {
+   "n": 300,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "statement": "With 10 runs the 95% bound is about 0.39; this is a smoke test on the swarm's code paths. The error guarantee rests on the holdout test's assumptions; a pass does not validate swarm error control or power.",
+ "qualifications": "PROGRESS.md, Qualifications, stage 4",
+ "classes": {
+  "swarm-null-3-N2-0": "established",
+  "swarm-null-3-N2-1": "established",
+  "swarm-null-3-N2-2": "established",
+  "swarm-null-3-N2-3": "established",
+  "swarm-null-3-N2-4": "established",
+  "swarm-null-3-N2-5": "established",
+  "swarm-null-3-N2-6": "established",
+  "swarm-null-3-N2-7": "established",
+  "swarm-null-3-N2-8": "unresolved",
+  "swarm-null-3-N2-9": "established"
+ },
+ "verdict": "pass",
+ "reasons": {
+  "swarm-null-3-N2-0": null,
+  "swarm-null-3-N2-1": null,
+  "swarm-null-3-N2-2": null,
+  "swarm-null-3-N2-3": null,
+  "swarm-null-3-N2-4": null,
+  "swarm-null-3-N2-5": null,
+  "swarm-null-3-N2-6": null,
+  "swarm-null-3-N2-7": null,
+  "swarm-null-3-N2-8": null,
+  "swarm-null-3-N2-9": null
+ },
+ "promoted": 0,
+ "unresolved": 1,
+ "not_established": 0,
+ "evidence": {
+  "swarm-null-3-N2-0": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-1": {
+   "A1": {
+    "holds": true,
+    "received": false,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-2": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-3": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": false,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-4": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-5": {
+   "A1": {
+    "holds": true,
+    "received": false,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-6": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": false,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-7": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-8": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": false,
+    "received": true,
+    "crashed": false
+   }
+  },
+  "swarm-null-3-N2-9": {
+   "A1": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A2": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A3": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   },
+   "A4": {
+    "holds": true,
+    "received": true,
+    "crashed": false
+   }
+  }
+ },
+ "trials": {
+  "swarm-null-3-N2-0": 23,
+  "swarm-null-3-N2-1": 26,
+  "swarm-null-3-N2-2": 31,
+  "swarm-null-3-N2-3": 25,
+  "swarm-null-3-N2-4": 31,
+  "swarm-null-3-N2-5": 23,
+  "swarm-null-3-N2-6": 37,
+  "swarm-null-3-N2-7": 53,
+  "swarm-null-3-N2-8": 34,
+  "swarm-null-3-N2-9": 28
+ },
+ "evaluations_by_agent": {
+  "swarm-null-3-N2-0": {
+   "A1": 7,
+   "A2": 1,
+   "A3": 10,
+   "A4": 7
+  },
+  "swarm-null-3-N2-1": {
+   "A1": 0,
+   "A2": 7,
+   "A3": 12,
+   "A4": 9
+  },
+  "swarm-null-3-N2-2": {
+   "A1": 7,
+   "A2": 11,
+   "A3": 7,
+   "A4": 7
+  },
+  "swarm-null-3-N2-3": {
+   "A1": 8,
+   "A2": 9,
+   "A3": 0,
+   "A4": 10
+  },
+  "swarm-null-3-N2-4": {
+   "A1": 9,
+   "A2": 2,
+   "A3": 10,
+   "A4": 12
+  },
+  "swarm-null-3-N2-5": {
+   "A1": 0,
+   "A2": 6,
+   "A3": 10,
+   "A4": 7
+  },
+  "swarm-null-3-N2-6": {
+   "A1": 14,
+   "A2": 0,
+   "A3": 13,
+   "A4": 13
+  },
+  "swarm-null-3-N2-7": {
+   "A1": 7,
+   "A2": 15,
+   "A3": 14,
+   "A4": 17
+  },
+  "swarm-null-3-N2-8": {
+   "A1": 7,
+   "A2": 11,
+   "A3": 7,
+   "A4": 9
+  },
+  "swarm-null-3-N2-9": {
+   "A1": 7,
+   "A2": 7,
+   "A3": 8,
+   "A4": 8
+  }
+ },
+ "history": {
+  "swarm-null-3-N2-0": true,
+  "swarm-null-3-N2-1": true,
+  "swarm-null-3-N2-2": true,
+  "swarm-null-3-N2-3": true,
+  "swarm-null-3-N2-4": true,
+  "swarm-null-3-N2-5": true,
+  "swarm-null-3-N2-6": true,
+  "swarm-null-3-N2-7": true,
+  "swarm-null-3-N2-8": true,
+  "swarm-null-3-N2-9": true
+ },
+ "promotion_establishment": {},
+ "finalist_diagnostics": {
+  "swarm-null-3-N2-0": {},
+  "swarm-null-3-N2-1": {},
+  "swarm-null-3-N2-2": {},
+  "swarm-null-3-N2-3": {},
+  "swarm-null-3-N2-4": {},
+  "swarm-null-3-N2-5": {},
+  "swarm-null-3-N2-6": {},
+  "swarm-null-3-N2-7": {},
+  "swarm-null-3-N2-8": {},
+  "swarm-null-3-N2-9": {}
+ },
+ "finalist_evidence_unavailable": {
+  "swarm-null-3-N2-0": [],
+  "swarm-null-3-N2-1": [],
+  "swarm-null-3-N2-2": [],
+  "swarm-null-3-N2-3": [],
+  "swarm-null-3-N2-4": [],
+  "swarm-null-3-N2-5": [],
+  "swarm-null-3-N2-6": [],
+  "swarm-null-3-N2-7": [],
+  "swarm-null-3-N2-8": [],
+  "swarm-null-3-N2-9": []
+ },
+ "finalist_diagnostics_note": "Turnover is not maximum held gross exposure; committed net step returns are after shortfall absorption and do not measure its size. Unavailable results are not reconstructed.",
+ "zero_fill": {
+  "swarm-null-3-N2-0": 1,
+  "swarm-null-3-N2-1": 0,
+  "swarm-null-3-N2-2": 0,
+  "swarm-null-3-N2-3": 0,
+  "swarm-null-3-N2-4": 0,
+  "swarm-null-3-N2-5": 0,
+  "swarm-null-3-N2-6": 0,
+  "swarm-null-3-N2-7": 0,
+  "swarm-null-3-N2-8": 0,
+  "swarm-null-3-N2-9": 0
+ },
+ "effective_n": {
+  "swarm-null-3-N2-0": {
+   "spa_p": 0.782,
+   "by_n": {
+    "raw": {
+     "n": 23,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 21,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 13,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-1": {
+   "spa_p": 0.75,
+   "by_n": {
+    "raw": {
+     "n": 26,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 21,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 13,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-2": {
+   "spa_p": 0.696,
+   "by_n": {
+    "raw": {
+     "n": 31,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 23,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 11,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-3": {
+   "spa_p": 0.725,
+   "by_n": {
+    "raw": {
+     "n": 25,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 16,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 10,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-4": {
+   "spa_p": 0.58,
+   "by_n": {
+    "raw": {
+     "n": 31,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 17,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 9,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-5": {
+   "spa_p": 0.221,
+   "by_n": {
+    "raw": {
+     "n": 23,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 17,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 9,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-6": {
+   "spa_p": 0.863,
+   "by_n": {
+    "raw": {
+     "n": 37,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 20,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 9,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-7": {
+   "spa_p": 0.279,
+   "by_n": {
+    "raw": {
+     "n": 53,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 29,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 13,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-8": {
+   "spa_p": 0.589,
+   "by_n": {
+    "raw": {
+     "n": 34,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 20,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 8,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  },
+  "swarm-null-3-N2-9": {
+   "spa_p": 0.018,
+   "by_n": {
+    "raw": {
+     "n": 28,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.9": {
+     "n": 19,
+     "screened": 0,
+     "finalists": []
+    },
+    "cluster_0.5": {
+     "n": 10,
+     "screened": 0,
+     "finalists": []
+    }
+   },
+   "fragile": []
+  }
+ },
+ "with_finalists": 0,
+ "finalists_note": "Two or more campaigns with finalists would be far outside the baselines' 0 of 300.",
+ "bankrupt": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "aborts": {
+  "swarm-null-3-N2-0": {
+   "R_INPUT_UNAVAILABLE": 1
+  },
+  "swarm-null-3-N2-1": {
+   "R_INPUT_UNAVAILABLE": 2
+  },
+  "swarm-null-3-N2-2": {
+   "R_INPUT_UNAVAILABLE": 1
+  },
+  "swarm-null-3-N2-3": {
+   "R_INPUT_UNAVAILABLE": 2
+  },
+  "swarm-null-3-N2-4": {
+   "R_INPUT_UNAVAILABLE": 2
+  },
+  "swarm-null-3-N2-5": {},
+  "swarm-null-3-N2-6": {
+   "R_INPUT_UNAVAILABLE": 3
+  },
+  "swarm-null-3-N2-7": {},
+  "swarm-null-3-N2-8": {},
+  "swarm-null-3-N2-9": {
+   "R_INPUT_UNAVAILABLE": 2
+  }
+ },
+ "denials": {
+  "swarm-null-3-N2-0": {
+   "A1": {
+    "Bash": 1
+   },
+   "A2": {},
+   "A3": {
+    "Bash": 1
+   },
+   "A4": {}
+  },
+  "swarm-null-3-N2-1": {
+   "A1": {
+    "Bash": 4
+   },
+   "A2": {},
+   "A3": {
+    "Bash": 1
+   },
+   "A4": {}
+  },
+  "swarm-null-3-N2-2": {
+   "A1": {
+    "Bash": 5
+   },
+   "A2": {},
+   "A3": {
+    "Bash": 1
+   },
+   "A4": {
+    "Bash": 2
+   }
+  },
+  "swarm-null-3-N2-3": {
+   "A1": {
+    "Bash": 1
+   },
+   "A2": {
+    "Bash": 3
+   },
+   "A3": {
+    "Bash": 3
+   },
+   "A4": {
+    "Bash": 3
+   }
+  },
+  "swarm-null-3-N2-4": {
+   "A1": {},
+   "A2": {
+    "Bash": 1
+   },
+   "A3": {
+    "Bash": 2
+   },
+   "A4": {
+    "Bash": 1
+   }
+  },
+  "swarm-null-3-N2-5": {
+   "A1": {
+    "Bash": 4
+   },
+   "A2": {
+    "Bash": 1
+   },
+   "A3": {
+    "Bash": 4,
+    "Bash sandbox override": 1
+   },
+   "A4": {}
+  },
+  "swarm-null-3-N2-6": {
+   "A1": {
+    "Bash": 3
+   },
+   "A2": {
+    "Bash": 3
+   },
+   "A3": {
+    "Bash": 1
+   },
+   "A4": {
+    "Bash": 1
+   }
+  },
+  "swarm-null-3-N2-7": {
+   "A1": {
+    "Bash": 3
+   },
+   "A2": {
+    "Bash": 3
+   },
+   "A3": {
+    "Bash": 1
+   },
+   "A4": {
+    "Bash": 3
+   }
+  },
+  "swarm-null-3-N2-8": {
+   "A1": {
+    "Bash": 1
+   },
+   "A2": {
+    "Bash": 2
+   },
+   "A3": {
+    "Bash": 1
+   },
+   "A4": {
+    "Bash": 2
+   }
+  },
+  "swarm-null-3-N2-9": {
+   "A1": {
+    "Bash": 1
+   },
+   "A2": {},
+   "A3": {},
+   "A4": {
+    "Bash": 1
+   }
+  }
+ },
+ "history_calls": {
+  "swarm-null-3-N2-0": {
+   "A1": 5,
+   "A2": 2,
+   "A3": 5,
+   "A4": 6
+  },
+  "swarm-null-3-N2-1": {
+   "A1": 0,
+   "A2": 5,
+   "A3": 2,
+   "A4": 2
+  },
+  "swarm-null-3-N2-2": {
+   "A1": 2,
+   "A2": 4,
+   "A3": 2,
+   "A4": 2
+  },
+  "swarm-null-3-N2-3": {
+   "A1": 2,
+   "A2": 2,
+   "A3": 0,
+   "A4": 1
+  },
+  "swarm-null-3-N2-4": {
+   "A1": 2,
+   "A2": 2,
+   "A3": 3,
+   "A4": 2
+  },
+  "swarm-null-3-N2-5": {
+   "A1": 0,
+   "A2": 3,
+   "A3": 2,
+   "A4": 3
+  },
+  "swarm-null-3-N2-6": {
+   "A1": 2,
+   "A2": 0,
+   "A3": 2,
+   "A4": 2
+  },
+  "swarm-null-3-N2-7": {
+   "A1": 2,
+   "A2": 2,
+   "A3": 2,
+   "A4": 2
+  },
+  "swarm-null-3-N2-8": {
+   "A1": 2,
+   "A2": 2,
+   "A3": 2,
+   "A4": 2
+  },
+  "swarm-null-3-N2-9": {
+   "A1": 7,
+   "A2": 6,
+   "A3": 6,
+   "A4": 4
+  }
+ },
+ "stop_causes": {
+  "swarm-null-3-N2-0": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-1": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-2": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-3": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-4": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-5": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-6": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-7": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-8": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  },
+  "swarm-null-3-N2-9": {
+   "A1": [
+    "finished",
+    0
+   ],
+   "A2": [
+    "finished",
+    0
+   ],
+   "A3": [
+    "finished",
+    0
+   ],
+   "A4": [
+    "finished",
+    0
+   ]
+  }
+ },
+ "agent_null_3": {
+  "spa_p": {
+   "n": 20,
+   "min": 0.011,
+   "median": 0.724,
+   "max": 1.0
+  },
+  "max_dsr": {
+   "n": 20,
+   "min": 0.021694457836484812,
+   "median": 0.2129738739831411,
+   "max": 0.8968062796302687
+  },
+  "screened": {
+   "n": 20,
+   "min": 0,
+   "median": 0,
+   "max": 0
+  }
+ },
+ "pooled": {
+  "campaigns": 12,
+  "promotions": 0,
+  "upper_95": 0.22092219194555585,
+  "outcome_unknown": 0
+ }
+}
