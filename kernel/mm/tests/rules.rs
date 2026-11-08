@@ -28,6 +28,7 @@ const COINS: usize = 12;
 const BARS: usize = 180;
 const HOURS: usize = BARS * 4 + 1;
 const PER_RULE: usize = 1000;
+const TRIES: usize = 1000;
 const LATE: (usize, usize) = (3, 60);
 const GONE: (usize, usize) = (11, 120);
 
@@ -438,16 +439,19 @@ fn plant(rule: &str, tree: &mut Value, rng: &mut Rng) -> bool {
 fn random_cases(rule: &str, seed: u64, count: usize) -> Vec<Case> {
     let mut rng = Rng(seed);
     (0..count)
-        .map(|_| loop {
-            let mut tree = weight(&mut rng, 3);
-            if !plant(rule, &mut tree, &mut rng) {
-                continue;
+        .map(|_| {
+            for _ in 0..TRIES {
+                let mut tree = weight(&mut rng, 3);
+                if !plant(rule, &mut tree, &mut rng) {
+                    continue;
+                }
+                let (tree, mut next) = tagged(tree);
+                let ms = rewrites(rule, &tree);
+                if !ms.is_empty() {
+                    return rewrite(&tree, &mut next, &ms[rng.below(ms.len())]);
+                }
             }
-            let (tree, mut next) = tagged(tree);
-            let ms = rewrites(rule, &tree);
-            if !ms.is_empty() {
-                break rewrite(&tree, &mut next, &ms[rng.below(ms.len())]);
-            }
+            panic!("{rule}: no matching position in {TRIES} planted programs")
         })
         .collect()
 }
@@ -496,10 +500,14 @@ fn every_rule_is_exact() {
     assert_eq!(digest, GENERATED_DIGEST, "the generator or its seeds changed");
 }
 
+fn neg0() -> Value {
+    op("neg", vec![c(0.0)])
+}
+
 fn nums() -> Vec<Value> {
     vec![
         c(0.0),
-        c(-0.0),
+        neg0(),
         c(1.0),
         c(-1.0),
         op("div", vec![c(0.0), c(0.0)]),
@@ -512,10 +520,10 @@ fn bools() -> Vec<Value> {
     let r = nums()[5].clone();
     vec![
         op("gt", vec![r.clone(), c(0.0)]),
-        op("lt", vec![input("premium"), c(-0.0)]),
+        op("lt", vec![input("premium"), neg0()]),
         op("gt", vec![nums()[4].clone(), c(0.0)]),
-        op("ge", vec![c(0.0), c(-0.0)]),
-        op("lt", vec![c(-0.0), c(0.0)]),
+        op("ge", vec![c(0.0), neg0()]),
+        op("lt", vec![neg0(), c(0.0)]),
         op("le", vec![op("div", vec![input("funding"), json!({"const": 1e-4, "unit": "1/h"})]), r]),
     ]
 }
@@ -544,9 +552,22 @@ fn lhs(rule: &str, a: &Value, b: &Value, p: &Value, q: &Value) -> Value {
     }
 }
 
+/// Adds the weight over the rule's left side unless the rule is a commutation of two equal
+/// operands, whose rewrite is the identity and has no match.
+fn push_lhs(trees: &mut Vec<(Value, String)>, rule: &str, [a, b, p, q]: [&Value; 4], ctx: &dyn Fn(Value) -> Value, label: String) {
+    let same = match rule {
+        "add-comm" | "mul-comm" => a == b,
+        "and-comm" | "or-comm" => p == q,
+        _ => false,
+    };
+    if !same {
+        trees.push((weighted(rule, lhs(rule, a, b, p, q), ctx), label));
+    }
+}
+
 /// A numeric weight from the rule's left side, passed through `ctx`.
 fn weighted(rule: &str, l: Value, ctx: &dyn Fn(Value) -> Value) -> Value {
-    let x = if bool_out(rule) { op("if", vec![l, c(1.0), c(-0.0)]) } else { l };
+    let x = if bool_out(rule) { op("if", vec![l, c(1.0), neg0()]) } else { l };
     op("mul", vec![op("clip", vec![ctx(x), c(-1.0), c(1.0)]), c(0.05)])
 }
 
@@ -554,7 +575,9 @@ fn weighted(rule: &str, l: Value, ctx: &dyn Fn(Value) -> Value) -> Value {
 fn check_trees(rule: &str, trees: Vec<(Value, String)>, mks: &[Mk]) -> Stat {
     let mut stat = Stat::default();
     for (tree, label) in trees {
-        for case in all_cases(rule, tree) {
+        let cases = all_cases(rule, tree);
+        assert!(!cases.is_empty() || label.contains("any right operand"), "{rule} {label}: no matching position");
+        for case in cases {
             stat.add(check(rule, &label, &case, mks));
         }
     }
@@ -567,9 +590,9 @@ fn signed_zeros_and_undefined_conditions() {
     let ctxs: Vec<(&str, Box<dyn Fn(Value) -> Value + Sync>)> = vec![
         ("id", Box::new(|x| x)),
         ("sign", Box::new(|x| op("sign", vec![x]))),
-        ("min -0", Box::new(|x| op("min", vec![x, c(-0.0)]))),
+        ("min -0", Box::new(|x| op("min", vec![x, neg0()]))),
         ("max +0", Box::new(|x| op("max", vec![c(0.0), x]))),
-        ("add -0", Box::new(|x| op("add", vec![x, c(-0.0)]))),
+        ("add -0", Box::new(|x| op("add", vec![x, neg0()]))),
     ];
     let stats = per_rule(|_, rule| {
         let (ns, bs) = (nums(), bools());
@@ -578,7 +601,7 @@ fn signed_zeros_and_undefined_conditions() {
             for (i, a) in ns.iter().enumerate() {
                 for (j, b) in ns.iter().enumerate() {
                     let (p, q) = (&bs[i % bs.len()], &bs[j % bs.len()]);
-                    trees.push((weighted(rule, lhs(rule, a, b, p, q), ctx.as_ref()), format!("{cn} operands {i},{j}")));
+                    push_lhs(&mut trees, rule, [a, b, p, q], ctx.as_ref(), format!("{cn} operands {i},{j}"));
                     if matches!(rule, "mul-one" | "div-one" | "sub-zero") {
                         let any = op(&rule[..3], vec![a.clone(), b.clone()]);
                         trees.push((weighted(rule, any, ctx.as_ref()), format!("{cn} any right operand {i},{j}")));
@@ -592,6 +615,16 @@ fn signed_zeros_and_undefined_conditions() {
     for (r, s) in RULES.iter().zip(&stats) {
         assert!(s.completed > 0 && s.defined > 0, "{r}: no completed run or defined stream");
     }
+}
+
+#[test]
+fn the_negative_zero_operand_is_negative_zero() {
+    let (tree, _) = tagged(nums()[1].clone());
+    let p = dsl::parse(&program_text(&tree).0).unwrap();
+    let mk = market("N1", Shape::Plain);
+    let root = node_ids(&p, &[&id_of(&tree)]);
+    let s = streams(&p, &mk, &root);
+    assert!(s[0].iter().any(|v| *v == Some((-0.0f64).to_bits())), "nums()[1] is not -0 at evaluation");
 }
 
 #[test]
@@ -616,9 +649,9 @@ fn window_warm_up() {
                 let ret = ns[5].clone();
                 let (wa, wb) = (win(w, ret.clone(), h), win(w, input("premium"), h));
                 let (p, q) = (op("gt", vec![wa.clone(), c(0.0)]), bs[5].clone());
-                trees.push((weighted(rule, lhs(rule, &wa, &wb, &p, &q), &|x| x), format!("{w}({h}) inside")));
+                push_lhs(&mut trees, rule, [&wa, &wb, &p, &q], &|x| x, format!("{w}({h}) inside"));
                 let (a, b) = (ns[5].clone(), ns[6].clone());
-                trees.push((weighted(rule, lhs(rule, &a, &b, &bs[0], &bs[1]), &|x| win(w, x, h)), format!("{w}({h}) outside")));
+                push_lhs(&mut trees, rule, [&a, &b, &bs[0], &bs[1]], &|x| win(w, x, h), format!("{w}({h}) outside"));
             }
         }
         check_trees(rule, trees, &mks)
@@ -645,8 +678,8 @@ fn running_sum_recompute_boundaries() {
             for h in [1u32, 2, 3, 4, 5, 7, 9, 24, 240, 360, 720] {
                 let (wa, wb) = (win(w, a.clone(), h), win(w, b.clone(), h));
                 let p = op("gt", vec![wa.clone(), c(0.0)]);
-                trees.push((weighted(rule, lhs(rule, &wa, &wb, &p, &bs[1]), &|x| x), format!("{w}({h}) inside")));
-                trees.push((weighted(rule, lhs(rule, &a, &b, &bs[0], &bs[1]), &|x| win(w, x, h)), format!("{w}({h}) outside")));
+                push_lhs(&mut trees, rule, [&wa, &wb, &p, &bs[1]], &|x| x, format!("{w}({h}) inside"));
+                push_lhs(&mut trees, rule, [&a, &b, &bs[0], &bs[1]], &|x| win(w, x, h), format!("{w}({h}) outside"));
             }
         }
         check_trees(rule, trees, &mks)
@@ -673,10 +706,10 @@ fn listing_and_delisting() {
             let mut trees = vec![];
             for i in [5, 6] {
                 for j in [5, 6, 2] {
-                    trees.push((weighted(rule, lhs(rule, &ns[i], &ns[j], &bs[0], &bs[5]), &f), format!("{n} operands {i},{j}")));
+                    push_lhs(&mut trees, rule, [&ns[i], &ns[j], &bs[0], &bs[5]], &f, format!("{n} operands {i},{j}"));
                     let (wa, wb) = (op(n, vec![ns[i].clone()]), ns[j].clone());
                     if n != "id" && n != "xs_rank" {
-                        trees.push((weighted(rule, lhs(rule, &wa, &wb, &bs[0], &bs[5]), &|x| x), format!("{n} inside {i},{j}")));
+                        push_lhs(&mut trees, rule, [&wa, &wb, &bs[0], &bs[5]], &|x| x, format!("{n} inside {i},{j}"));
                     }
                 }
             }
