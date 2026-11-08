@@ -122,30 +122,44 @@ class Track:
                              self.data(self.markets_of(account), now, self.starts(self.ledger.theses(account))), now)
 
     def snapshot(self, now: int) -> Json:
-        """The market snapshot taken at `now`: the one already saved under that time, else a new one saved."""
+        """Reuse only attested bytes; otherwise acquire afresh until the date's deadline or stop."""
         path = self.root / "snapshots" / f"{now}.json"
-        if path.exists():
-            saved: Json = json.loads(path.read_text())
+        date = now // DAY * DAY
+        if any(c["taken"] == now for _, _, c in self.ledger.records("snapshot_ready", "main")):
+            saved = self.attested(date, last_acquisition(date))
+            if saved is None:
+                raise ValueError("attested snapshot bytes are missing or changed")
             return saved
+        cancelled = lambda: self.stop.is_set() or now_ms() >= last_acquisition(date)
+
+        def check() -> None:
+            if cancelled():
+                raise TimeoutError("snapshot acquisition ended")
+
         markets, daily, before = {}, {}, self.market.sent()
-        with self.market.hold():
+        with self.market.hold(cancel=cancelled):
+            check()
             listed_at = now_ms()
             listings = self.market.listings()
             for m, delisted in sorted(listings.items()):
+                check()
                 if delisted:
                     continue
                 d = self.market.bars(m, "1d", now)
                 if len(d) < registry.MIN_DAILY_BARS:
                     continue
+                check()
                 h = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
                 if h:
                     markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
                     daily[m] = d
+        check()
         snap = {"taken": now, "listed_at": listed_at, "requests": self.market.sent() - before, "listings": listings,
                 "markets": markets, "daily": daily}
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(snap))
+        check()
         os.replace(tmp, path)
         return snap
 
@@ -171,7 +185,10 @@ class Track:
         cutoff, end = date + SNAPSHOT_OFFSET, last_acquisition(date)
         if any(c["taken"] == cutoff for _, _, c in self.ledger.records("snapshot_ready", "main")) or now_ms() >= end:
             return
-        snap = self.snapshot(cutoff)
+        try:
+            snap = self.snapshot(cutoff)
+        except TimeoutError:
+            return
         if self.stop.is_set():
             return
         digest = registry.sha256((self.root / "snapshots" / f"{cutoff}.json").read_bytes())

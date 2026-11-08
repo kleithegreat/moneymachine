@@ -9,7 +9,7 @@ import pytest
 
 from ingest.policy import DAY, DELTA, HOUR
 from thesis import market, report, runner
-from thesis.tests.test_market import Venue
+from thesis.tests.test_market import Venue, fake_clock
 from thesis.tests.test_runner import MONDAY, FakeMarket, track  # noqa: F401
 
 MIN = 60_000
@@ -242,6 +242,7 @@ def test_the_deadline_decision_waits_for_an_attestation_in_flight(track, monkeyp
 
 
 def test_each_dates_attestation_carries_its_timing_and_request_count_into_the_report(track, tmp_path, monkeypatch):
+    fake_clock(monkeypatch, [MONDAY + runner.SNAPSHOT_OFFSET])
     sent = []
 
     def post(url, json):

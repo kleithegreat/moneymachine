@@ -3,7 +3,7 @@
 import contextlib
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import httpx
@@ -30,18 +30,22 @@ class WeightLimit:
         self.lock = threading.Lock()
         self.foreground: list[object] = []
         self.holds = 0
+        self.local = threading.local()
 
     def delay(self, priority: bool) -> float:
         return 0
 
     @contextlib.contextmanager
-    def hold(self) -> Iterator[None]:
-        """While held, background charges wait: a session's reads never compete with a fill."""
+    def hold(self, cancel: Callable[[], bool] | None = None) -> Iterator[None]:
+        """Hold background work, optionally cancelling this thread's admissions while held."""
+        previous = getattr(self.local, "cancel", None)
+        self.local.cancel = (lambda: bool(cancel() or previous and previous())) if cancel else previous
         with self.lock:
             self.holds += 1
         try:
             yield
         finally:
+            self.local.cancel = previous
             with self.lock:
                 self.holds -= 1
 
@@ -55,6 +59,9 @@ class WeightLimit:
                 self.foreground.append(ticket)
         try:
             while True:
+                cancel = getattr(self.local, "cancel", None)
+                if cancel and cancel():
+                    raise TimeoutError("admission cancelled")
                 with self.lock:
                     now = time.monotonic()
                     self.spent = [(t, w) for t, w in self.spent if now - t < 60]
@@ -64,6 +71,8 @@ class WeightLimit:
                         self.spent.append((now, weight))
                         return
                     wait = delay or max(0.001, self.spent[0][0] + 60 - now)
+                    if cancel:
+                        wait = min(wait, 0.25)
                 time.sleep(wait)
         finally:
             if ticket is not None:

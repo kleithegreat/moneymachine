@@ -42,7 +42,7 @@ class FakeMarket:
                     if (market != "flx:OIL" or t != MONDAY // DAY - 2) and (now is None or (t + 1) * DAY + DELTA <= now)]
         return [[h * HOUR, 100.0, 100.0] for h in range(MONDAY // HOUR - 200, min(self.until, now or self.until) // HOUR)]
 
-    def hold(self):
+    def hold(self, cancel=None):
         return contextlib.nullcontext()
 
     def sent(self):

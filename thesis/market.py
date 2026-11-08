@@ -516,9 +516,9 @@ class Market:
         """The venue requests the calling thread has sent."""
         return int(self.x.sent())
 
-    def hold(self) -> contextlib.AbstractContextManager[None]:
+    def hold(self, cancel: Callable[[], bool] | None = None) -> contextlib.AbstractContextManager[None]:
         """While held, background reads wait: a session's reads never compete with a fill."""
-        hold: contextlib.AbstractContextManager[None] = self.x.limiter.hold()
+        hold: contextlib.AbstractContextManager[None] = self.x.limiter.hold(cancel)
         return hold
 
     def _acquired_to(self, market: str, now: int) -> int:
