@@ -99,8 +99,8 @@ reported.
   the version. Its knownAt is computed from its observed fields by the policy's rule [market.rs
   `known`]: a funding row at max(reportedTime floored to the hour + δ, reportedTime +
   `settlement_latency_ms`), a bar, an event count or a delisting at eventTime + δ. A stored knownAt
-  is never read. A run receives exactly one row per key; earlier
-  revisions are never delivered. The adapter supplies the rows; an admissible market has unique keys,
+  is never read. A run receives every revision of a key, each at its own knownAt (a retraction is a flagged
+  revision whose values are undefined); the held state keeps the latest delivered per source and coin. The adapter supplies the rows; an admissible market has unique keys,
   bars with eventTime = openTime + BAR, coin and slot indices within range, and a delisting record for every coin its
   rules mark delisted. An inadmissible market aborts the run before any delivery with R_MARKET. No certified source
   states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible; the recorded venue marks
@@ -108,9 +108,9 @@ reported.
 - **Delivery order.** Each stream is sorted by (knownAt, coin, eventTime): funding, bars, then each
   event input in EVENT_INPUTS order (sorted by knownAt, coin, slot, index). Before the tick at time
   τ, every row with knownAt ≤ τ is delivered, funding first, then bars, then events [sim.rs
-  `deliver_until`].
+  `Feed::until`].
 - **Held state.** Delivery of a row with knownAt > τ aborts with R_CAUSALITY [machine.rs
-  `deliver_*`]. Delivery overwrites the coin's held funding row, held bar, or event slot. `max_known`
+  `deliver`]. Delivery overwrites the latest observation of the row's source and coin, whatever its order. `max_known`
   is the largest knownAt delivered so far, over all coins.
 - **Input values at a tick.** funding and premium come from the held funding row. open, high, low,
   close and volume come from the held bar. An event input is the held row's count only if its

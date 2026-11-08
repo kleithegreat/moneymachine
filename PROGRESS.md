@@ -17,7 +17,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 7 slice 2** closed on `stage7` (`ccfda7e`): GPT-reviewed fixes; the run differential agrees on all 3,372 runs. Stage 7 hunt fixes merged after C7.7 review (`audit/reviews/2026-11-04-*-hunt-fixes-review*.md`).
+- **Stage 7 slices 1 and 2** closed on `stage7`. **Slice 3 built** on branch `slice3` (off `stage7`, unmerged): `machine.rs` over observations, named tests 16 and 19; `sim.rs`'s `Wiring` is interim until slice 4.
 
 - **Thesis refrozen** `thesis-310449610583`, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST), rolled; `audit/decisions.md`. Confirm its first sessions record and register by metadata (no prices). Hunt `audit/reviews/2026-11-04-claude-hunt-thesis.md`: finding 1 fixed (`44a2b45`, in the mirror's image); findings 2 to 4, and a ledger whose first write died (`audit/2026-11-04-suite-speed.md`), remain strict xfails until the refreeze.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5` (no `sorry`), with its stage 6 criteria revision; lands after stage 7's byte-identical tag.

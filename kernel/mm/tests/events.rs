@@ -4,8 +4,8 @@
 mod common;
 
 use mm::dsl;
-use mm::machine::Machine;
-use mm::market::{Event, HOUR};
+use mm::machine::{Machine, Obs};
+use mm::market::HOUR;
 
 const DELTA: i64 = 120_000;
 
@@ -16,6 +16,13 @@ fn prog(weight: &str, lets: &str) -> dsl::Program {
     .unwrap()
 }
 
+fn count(p: &dsl::Program, hour: i64, known: i64, n: f64) -> Obs {
+    let i = p.inputs.iter().find(|i| i.name == "forum_posts").unwrap();
+    let mut vals = vec![None; i.field + 1];
+    vals[i.field] = Some(n);
+    Obs { source: i.source, coin: 0, key: hour, slot: Some(hour), known, vals, retraction: false }
+}
+
 fn probe(p: &dsl::Program) -> usize {
     p.lets.iter().find(|(n, _)| n == "x").unwrap().1
 }
@@ -24,9 +31,9 @@ fn probe(p: &dsl::Program) -> usize {
 fn counts_are_fresh_only_and_respect_known_at() {
     let p = prog(r#"{"const": 0, "unit": "1"}"#, r#""x": {"input": "forum_posts"}"#);
     let mut m = Machine::new(&p, 1);
-    let e = Event { coin: 0, event: 5 * HOUR, known: 5 * HOUR + DELTA, count: 3.0, recorded: 0, key: 5 * HOUR };
-    assert!(m.deliver_event(0, e, 5 * HOUR + DELTA - 1).is_err());
-    m.deliver_event(0, e, 5 * HOUR + DELTA).unwrap();
+    let e = count(&p, 5 * HOUR, 5 * HOUR + DELTA, 3.0);
+    assert!(m.deliver(e.clone(), 5 * HOUR + DELTA - 1).is_err());
+    m.deliver(e, 5 * HOUR + DELTA).unwrap();
     m.tick(&[true], 5 * HOUR);
     assert_eq!(m.value(probe(&p), 0), Some(3.0));
     m.tick(&[true], 6 * HOUR);
@@ -40,7 +47,7 @@ fn hours_since_counts_ticks_since_the_condition_held() {
     let mut m = Machine::new(&p, 1);
     m.tick(&[true], 0);
     assert_eq!(m.value(probe(&p), 0), None);
-    m.deliver_event(0, Event { coin: 0, event: HOUR, known: HOUR, count: 1.0, recorded: 0, key: HOUR }, HOUR).unwrap();
+    m.deliver(count(&p, HOUR, HOUR, 1.0), HOUR).unwrap();
     m.tick(&[true], HOUR);
     assert_eq!(m.value(probe(&p), 0), Some(0.0));
     for h in 2..5 {

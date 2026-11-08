@@ -228,22 +228,10 @@ fn program(probe: Value, rng_ctx: &mut Rng, is_bool: bool) -> String {
 fn streams(p: &dsl::Program, m: &Market, end: i64) -> Vec<Option<u64>> {
     let probe = p.lets.iter().find(|(n, _)| n == "probe").unwrap().1;
     let mut machine = Machine::new(p, COINS);
-    let mut f: Vec<&Funding> = m.funding.iter().collect();
-    f.sort_by_key(|x| (x.known, x.coin));
-    let mut b: Vec<&Bar> = m.bars.iter().collect();
-    b.sort_by_key(|x| (x.known, x.coin));
-    let (mut fi, mut bi) = (0, 0);
+    let mut feed = sim::Feed::new(m, p);
     let mut out = vec![];
     for h in (0..=end).step_by(HOUR as usize) {
-        let tick = h + DELTA;
-        while fi < f.len() && f[fi].known <= tick {
-            machine.deliver_funding(*f[fi], tick).unwrap();
-            fi += 1;
-        }
-        while bi < b.len() && b[bi].known <= tick {
-            machine.deliver_bar(*b[bi], tick).unwrap();
-            bi += 1;
-        }
+        feed.until(&mut machine, h + DELTA).unwrap();
         let listed: Vec<bool> = (0..COINS).map(|c| m.intervals[c].0 <= h && h < m.intervals[c].1).collect();
         machine.tick(&listed, h);
         out.extend((0..COINS).map(|c| machine.value(probe, c).map(f64::to_bits)));

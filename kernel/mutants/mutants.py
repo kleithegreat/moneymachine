@@ -25,7 +25,7 @@ I2 = "    if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.subm
 
 MUTANTS = {
     "I1 future bars delivered": (f"{FX} decision_sees_only_closed_bars", [
-        (MACHINE, "        if b.known > tick {", "        if false {"),
+        (MACHINE, "        if o.known > tick {", "        if false {"),
         (SIM, "m.bars[order.bars[*bi]].known <= tick {", "m.bars[order.bars[*bi]].known <= tick + BAR {"),
         (SIM, I2, "    if false {")]),
     "I2 submission before decision": (f"{FX} timing_order_holds_for_every_fill", [
@@ -59,9 +59,9 @@ MUTANTS = {
         (SIM, "        if !(book.equity(&marks) > 0.0) {", "        if false {"),
         (SIM, "        if !(r >= -LOSS_BOUND) {", "        if false {")]),
     "I1 events delivered early": ("cd kernel && cargo test -q --release --test events counts_are_fresh_only_and_respect_known_at", [
-        (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {")]),
+        (MACHINE, "        if o.known > tick {", "        if o.known > tick + HOUR {")]),
     "S1 two-run: events read ahead": ("cd kernel && cargo test -q --release --test noninterference decisions_through_t", [
-        (MACHINE, "        if e.known > tick {", "        if e.known > tick + HOUR {"),
+        (MACHINE, "        if o.known > tick {", "        if o.known > tick + HOUR {"),
         (SIM, "order.events[*ei].1.known <= tick {", "order.events[*ei].1.known <= tick + HOUR {")]),
     "S2 two-run: a correction known before it was fetched": ("cd kernel && cargo test -q --release --test noninterference late_venue_state", [
         (RESOLVER, "        raises.push(rev.fetched as i128);", "        raises.push(LO);")]),

@@ -3,8 +3,8 @@
 //! Observations enter only through `deliver`, which enforces I1. `tick` evaluates every
 //! node for every listed coin; values are `None` when undefined or non-finite.
 
-use crate::dsl::{Node, Op, Program, Window, EVENT_INPUTS};
-use crate::market::{Bar, Event, Funding, HOUR};
+use crate::dsl::{Node, Op, Program, Window};
+use crate::market::HOUR;
 use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq)]
@@ -108,40 +108,26 @@ impl Win {
     }
 }
 
-/// What an input reads from the typed slots, by its registry name (until slice 3 replaces the slots with observations).
-#[derive(Clone, Copy)]
-enum Read {
-    Funding,
-    Premium,
-    Bar(fn(&Bar) -> f64),
-    Event(usize),
-}
-
-impl Read {
-    fn of(name: &str) -> Option<Read> {
-        Some(match name {
-            "funding" => Read::Funding,
-            "premium" => Read::Premium,
-            "open" => Read::Bar(|b| b.open),
-            "high" => Read::Bar(|b| b.high),
-            "low" => Read::Bar(|b| b.low),
-            "close" => Read::Bar(|b| b.close),
-            "volume" => Read::Bar(|b| b.volume),
-            _ => Read::Event(EVENT_INPUTS.iter().position(|e| e.0 == name)?),
-        })
-    }
+/// A delivered observation: one revision of a key, as the machine reads it (Lean's `Obs`, less the execution roles).
+/// `vals` follows the source's declared fields; a retraction's are all undefined. `slot` is an event source's hour.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Obs {
+    pub source: usize,
+    pub coin: usize,
+    pub key: i64,
+    pub slot: Option<i64>,
+    pub known: i64,
+    pub vals: Vec<Option<f64>>,
+    pub retraction: bool,
 }
 
 pub struct Machine<'p> {
     prog: &'p Program,
-    reads: Vec<Option<Read>>,
     coins: usize,
     vals: Vec<Vec<Option<f64>>>,
     wins: Vec<Vec<Option<Win>>>,
-    pub funding: Vec<Option<Funding>>,
-    pub bar: Vec<Option<Bar>>,
-    /// Latest delivered hourly event row per (event input, coin).
-    events: Vec<Vec<Option<Event>>>,
+    /// Per source and coin, the latest delivered observation.
+    pub latest: Vec<Vec<Option<Obs>>>,
     /// Per node and coin: the last hour a `hours_since` condition held.
     since: Vec<Vec<Option<i64>>>,
     hour: i64,
@@ -154,6 +140,7 @@ fn finite(x: f64) -> Option<f64> {
 }
 
 impl<'p> Machine<'p> {
+    /// A machine for `prog`, whose input table is the registry's: one slot per source of that table.
     pub fn new(prog: &'p Program, coins: usize) -> Machine<'p> {
         let wins = prog
             .nodes
@@ -163,56 +150,34 @@ impl<'p> Machine<'p> {
                 _ => (0..coins).map(|_| None).collect(),
             })
             .collect();
+        let sources = prog.inputs.iter().map(|i| i.source + 1).max().unwrap_or(0);
         Machine {
             prog,
-            reads: prog.inputs.iter().map(|i| Read::of(&i.name)).collect(),
             coins,
             vals: vec![vec![None; coins]; prog.nodes.len()],
             wins,
-            funding: vec![None; coins],
-            bar: vec![None; coins],
-            events: vec![vec![None; coins]; EVENT_INPUTS.len()],
+            latest: vec![vec![None; coins]; sources],
             since: vec![vec![None; coins]; prog.nodes.len()],
             hour: i64::MIN,
             max_known: i64::MIN,
         }
     }
 
-    pub fn deliver_funding(&mut self, f: Funding, tick: i64) -> Result<(), Causality> {
-        if f.known > tick {
-            return Err(Causality { known: f.known, tick });
+    pub fn deliver(&mut self, o: Obs, tick: i64) -> Result<(), Causality> {
+        if o.known > tick {
+            return Err(Causality { known: o.known, tick });
         }
-        self.max_known = self.max_known.max(f.known);
-        self.funding[f.coin] = Some(f);
+        self.max_known = self.max_known.max(o.known);
+        let (s, c) = (o.source, o.coin);
+        self.latest[s][c] = Some(o);
         Ok(())
     }
 
-    pub fn deliver_bar(&mut self, b: Bar, tick: i64) -> Result<(), Causality> {
-        if b.known > tick {
-            return Err(Causality { known: b.known, tick });
-        }
-        self.max_known = self.max_known.max(b.known);
-        self.bar[b.coin] = Some(b);
-        Ok(())
-    }
-
-    /// `slot` is the event input's row in EVENT_INPUTS.
-    pub fn deliver_event(&mut self, slot: usize, e: Event, tick: i64) -> Result<(), Causality> {
-        if e.known > tick {
-            return Err(Causality { known: e.known, tick });
-        }
-        self.max_known = self.max_known.max(e.known);
-        self.events[slot][e.coin] = Some(e);
-        Ok(())
-    }
-
+    /// A held input reads its source's latest observation; an event input only when its slot is the current hour.
     fn input(&self, i: usize, c: usize) -> Option<f64> {
-        match self.reads[i]? {
-            Read::Event(slot) => self.events[slot][c].filter(|e| e.event == self.hour).map(|e| e.count),
-            Read::Funding => self.funding[c].map(|f| f.rate),
-            Read::Premium => self.funding[c].map(|f| f.premium),
-            Read::Bar(get) => self.bar[c].as_ref().map(get),
-        }
+        let inp = &self.prog.inputs[i];
+        let o = self.latest[inp.source][c].as_ref()?;
+        if !inp.event || o.slot == Some(self.hour) { o.vals[inp.field] } else { None }
     }
 
     /// Evaluate every node once for the listed coins at hour `hour`; unlisted coins get `None`.
@@ -340,4 +305,72 @@ fn rank(xs: &[(usize, f64)], v: f64) -> f64 {
     let below = xs.iter().filter(|(_, x)| *x < v).count() as f64;
     let equal = xs.iter().filter(|(_, x)| *x == v).count() as f64;
     (below + (equal - 1.0) / 2.0) / (xs.len() as f64 - 1.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dsl;
+    use std::path::Path;
+
+    const DELTA: i64 = 120_000;
+
+    fn prog(lets: &str) -> Program {
+        let reg = crate::source::registry(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources"))).unwrap();
+        dsl::parse(&crate::source::inputs(&reg), &format!(
+            r#"{{"dsl": 1, "name": "m", "mechanism": {{"counterparty": "-", "predictions": [], "capacity": "-"}}, "let": {{{lets}}}, "weight": {{"const": 0, "unit": "1"}}}}"#
+        ))
+        .unwrap()
+    }
+
+    fn obs(p: &Program, input: &str, key: i64, slot: Option<i64>, known: i64, v: Option<f64>) -> Obs {
+        let i = p.inputs.iter().find(|i| i.name == input).unwrap();
+        let mut vals = vec![None; i.field + 1];
+        vals[i.field] = v;
+        Obs { source: i.source, coin: 0, key, slot, known, vals, retraction: v.is_none() }
+    }
+
+    fn at(p: &Program, m: &Machine, name: &str) -> Option<f64> {
+        m.value(p.lets.iter().find(|(n, _)| n == name).unwrap().1, 0)
+    }
+
+    /// Named test 16 (laws-v2-draft.md §2): undefined, never zero; an event held past its tick; a held value
+    /// expiring.
+    #[test]
+    fn held_and_event_reads() {
+        let p = prog(r#""f": {"input": "funding"}, "n": {"input": "forum_posts"}"#);
+        let mut m = Machine::new(&p, 1);
+        m.tick(&[true], 0);
+        assert_eq!((at(&p, &m, "f"), at(&p, &m, "n")), (None, None), "nothing delivered reads undefined, not zero");
+
+        m.deliver(obs(&p, "funding", 0, None, DELTA, Some(0.5)), HOUR + DELTA).unwrap();
+        m.deliver(obs(&p, "forum_posts", HOUR, Some(HOUR), HOUR + DELTA, Some(3.0)), HOUR + DELTA).unwrap();
+        m.tick(&[true], HOUR);
+        assert_eq!((at(&p, &m, "f"), at(&p, &m, "n")), (Some(0.5), Some(3.0)));
+
+        m.tick(&[true], 5 * HOUR);
+        assert_eq!(at(&p, &m, "f"), Some(0.5), "a held value does not expire");
+        assert_eq!(at(&p, &m, "n"), None, "an event is not held past its tick");
+
+        m.deliver(obs(&p, "funding", 0, None, 6 * HOUR, None), 6 * HOUR).unwrap();
+        m.tick(&[true], 6 * HOUR);
+        assert_eq!(at(&p, &m, "f"), None, "a retraction undefines the held value");
+    }
+
+    /// Named test 19: an older correction delivered after the current hour's event row (GPT B7).
+    #[test]
+    fn late_correction_undefines_event() {
+        let p = prog(r#""n": {"input": "forum_posts"}"#);
+        let mut m = Machine::new(&p, 1);
+        m.deliver(obs(&p, "forum_posts", 5 * HOUR, Some(5 * HOUR), 5 * HOUR + DELTA, Some(3.0)), 5 * HOUR + DELTA).unwrap();
+        m.deliver(obs(&p, "forum_posts", 4 * HOUR, Some(4 * HOUR), 5 * HOUR + DELTA + 1, Some(9.0)), 5 * HOUR + DELTA + 1).unwrap();
+        m.tick(&[true], 5 * HOUR);
+        assert_eq!(at(&p, &m, "n"), None);
+
+        let mut m = Machine::new(&p, 1);
+        m.deliver(obs(&p, "forum_posts", 4 * HOUR, Some(4 * HOUR), 5 * HOUR + DELTA, Some(9.0)), 5 * HOUR + DELTA).unwrap();
+        m.deliver(obs(&p, "forum_posts", 5 * HOUR, Some(5 * HOUR), 5 * HOUR + DELTA + 1, Some(3.0)), 5 * HOUR + DELTA + 1).unwrap();
+        m.tick(&[true], 5 * HOUR);
+        assert_eq!(at(&p, &m, "n"), Some(3.0), "control: the current row last is read");
+    }
 }
