@@ -15,19 +15,14 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs at 97%, mostly old session dirs: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Budget.** No campaign runs; every account is free for Claude work.
 
-### Wake-ups (2026-11-08, the human asleep)
-
-- **stage 4 C4.1** rebuilt on `stage4-c41` (`../mm-s4-c41`) and reviewed: items 1–3 met, m1 an equivalent mutant (`audit/reviews/2026-11-08-opus-stage4-c41.md`; two recommended test fixes there). Next: merge, then exit items 3–6 of `audit/reviews/2026-11-08-opus-stage4-exit.md` at the merge commit.
-- **slice 3 review** (Opus, 13:30 UTC, 08:30 EST): unless `audit/stage7/slice3-review-opus.md` exists, review `slice3` per CLAUDE.md's Reviews (a C6.4 harness sample included) and save it there.
-
 ### Next, in order
 
+- **Stage 4 exit:** C4.1 rebuilt on `stage4-c41` (`../mm-s4-c41`) and reviewed: items 1–3 met, m1 an equivalent mutant (`audit/reviews/2026-11-08-opus-stage4-c41.md`; its two recommended test fixes first). Then merge, and exit items 3–6 of `audit/reviews/2026-11-08-opus-stage4-exit.md` at the merge commit.
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round three not ready (`audit/reviews/2026-11-08-opus-thesis-refreeze-round3.md`); prewarming built (`e04b8d4`). Left: the daily snapshot, about 87 min at 120/min. GPT reviews the build and the options (later session, smaller snapshot, websocket closes) from 10:25 UTC (05:25 EST); the choice is the human's.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): GPT's review of the prewarming build (`e04b8d4`): not ready, seven findings, among them a partial-data base rate published as final (`audit/reviews/2026-11-08-gpt-prewarm-build.md`). The daily snapshot (about 87 min at 120/min) waits on the human's choice of option; GPT ranks a later session first, websocket closes second.
 - **Test runs on the cluster:** GPT built it on `cluster-tests` (`3d8002a`: Indexed Jobs, built once); its verification rerun is queued after GPT's reset, then a review on another model. Then the C6.4 harness on it.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **Stage 7:** B3 frozen and slice 5 built and reviewed on `stage7` (`audit/stage7/slice5-*review-argon.md`); slice 3 on `slice3`, in review. C6.4's edge market disagrees since slice 5 (`audit/stage7/edge-regression.md`); the exporter on `revision-exporter` (`731e40b`) reran the full harness: all 3,372 runs agree (`audit/stage7/edge-regression.md`); merge it into `stage7`. Next: slices 4 and 6 (Claude only: GPT is C7.7's red team).
-
+- **Stage 7:** B3 frozen; slices 5 and 3 built, reviewed and on `stage7` (`audit/stage7/slice5-*review-argon.md`, `audit/stage7/slice3-review-opus.md`). The exporter on `revision-exporter` (`731e40b`) fixes C6.4's edge regression: all 3,372 harness runs agree (`audit/stage7/edge-regression.md`); merge it into `stage7`. Next: slices 4 and 6 (Claude only: GPT is C7.7's red team).
 
 2. **Stage 4: C4.1 to C4.4 tests and runs recorded, C4.5 v3 pass as written** (`audit/stage4/{runs-v3.txt,null-v3.jsonl,null-summary.json,exit-v3.md}`, `audit/decisions.md` 2026-11-08). C4.1 rebuilt and reviewed (Now); then the exit items.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
