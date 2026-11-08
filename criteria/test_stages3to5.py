@@ -102,7 +102,10 @@ def test_the_c56_guard_sees_any_search_event_dataset(tmp_path):
 def test_c56_or_no_search_event_inputs():
     """C5.6 is deferred while the search store carries no event dataset (clarification of 2026-10-22): once
     one exists, C5.6's evidence is required, and this fails without it."""
-    if not search_event_datasets(REPO / "data/store"):
+    store = REPO / "data/store"
+    if not store.is_dir():
+        pytest.skip("no data/store here: the search store is checked where it exists")
+    if not search_event_datasets(store):
         return
     assert (REPO / "audit/stage5/c56-probes.json").exists() and (REPO / "audit/stage2/sweeps.json").exists(), \
         "an event dataset is in the search store without C5.6's evidence"
