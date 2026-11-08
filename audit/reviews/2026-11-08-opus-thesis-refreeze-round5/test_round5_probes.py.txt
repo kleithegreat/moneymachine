@@ -1,0 +1,146 @@
+"""Opus's round-five review probes. P1, P2 and P4 pass when R1, R2 and R4 hold; P5 passes while finding F2 is present."""
+
+import json
+import threading
+
+from ingest.policy import DAY, DELTA, HOUR
+from thesis import market, registry, runner
+from thesis.tests.test_market import Venue
+from thesis.tests.test_runner import MONDAY, FakeMarket, track  # noqa: F401
+
+MIN = 60_000
+
+
+def rows(lo, hi):
+    return [(h, .0001 * (h // HOUR % 7)) for h in range(lo // HOUR * HOUR, hi, HOUR)]
+
+
+def test_p1_a_registration_after_the_last_fill_sees_exactly_the_fully_warm_comparator(track, tmp_path, monkeypatch):
+    filled = MONDAY + 3 * HOUR
+    venue_rows = rows(filled - market.HISTORY["funding"] - 2 * DAY, MONDAY + 30 * DAY)
+    clock = [filled]
+    monkeypatch.setattr(market, "now_ms", lambda: clock[0])
+    x = Venue(venue_rows)
+    track.market = market.Market(tmp_path / "m", x)
+    track.market.funding("X", filled, background=True)
+    assert not track.market.ready("X", filled + 21 * DAY)
+    pages = []
+    page = x.funding_page
+    x.funding_page = lambda *a, **k: pages.append(a) or page(*a, **k)
+    for later in (DAY + 2 * HOUR, DAY + 20 * HOUR, 20 * DAY):
+        now = filled + later
+        clock[0] = now
+        assert track.market.ready("X", now)
+        pages.clear()
+        _, data = track.inputs("main", ["X"], now, {"daily": {}})
+        warm = market.Market(tmp_path / f"warm-{later}", Venue(venue_rows)).funding("X", now, background=True)
+        scope = (now - market.HISTORY["funding"]) // HOUR * HOUR
+        assert [(h, r) for h, r in sorted(data["funding"]["X"].items()) if h >= scope] == [(h, r) for h, r in warm if h >= scope]
+        assert len(pages) == 1
+
+
+def test_p2_a_session_held_past_midnight_does_not_delay_the_next_dates_acquisition(track, monkeypatch):
+    date = MONDAY + DAY
+    clock = [date + runner.SNAPSHOT_OFFSET]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    track.acquisitions(clock[0], date)
+    clock[0] = date + DAY - MIN
+    monkeypatch.setattr(track, "ready", lambda d: True)
+    in_session, release = threading.Event(), threading.Event()
+    monkeypatch.setattr(track, "session", lambda *a, **k: (in_session.set(), release.wait(10)))
+    sessions = threading.Thread(target=track.schedule, args=(clock[0], date))
+    sessions.start()
+    assert in_session.wait(10)
+    clock[0] = date + DAY + runner.SNAPSHOT_OFFSET
+    track.acquisitions(clock[0], date)
+    assert track.attested(date + DAY) is not None and sessions.is_alive()
+    release.set()
+    sessions.join(10)
+
+
+class Young(FakeMarket):
+    """Y's daily bars start so that it has 90 at 00:05 (Sunday's being the 90th) and 89 at Monday 00:00."""
+
+    def listings(self, *, background=False):
+        return {**super().listings(), "Y": False}
+
+    def bars(self, m, interval, now=None):
+        if m != "Y":
+            return super().bars(m, interval, now)
+        if interval == "1d":
+            first = MONDAY // DAY - registry.MIN_DAILY_BARS
+            return [[t * DAY, 1.0, 1.0] for t in range(first, MONDAY // DAY) if now is None or (t + 1) * DAY + DELTA <= now]
+        return super().bars("BTC", interval, now)
+
+
+def test_p4_the_benchmarks_projection_equals_a_monday_midnight_snapshot(track, monkeypatch):
+    track.market = Young(MONDAY + 40 * DAY)
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SNAPSHOT_OFFSET)
+    late = runner.known_at(track.snapshot(MONDAY + runner.SNAPSHOT_OFFSET), MONDAY)
+    assert "Y" in track.snapshot(MONDAY + runner.SNAPSHOT_OFFSET)["markets"]
+    midnight = track.snapshot(MONDAY)
+    assert late["daily"] == midnight["daily"] and set(late["markets"]) == set(midnight["markets"])
+    assert "Y" not in late["markets"]
+
+
+def test_p5_a_monday_snapshot_attested_after_2300_leaves_the_batch_run_missed(track, monkeypatch):
+    clock = [MONDAY + 23 * HOUR + 30 * MIN]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    track.acquisitions(clock[0], MONDAY)
+    assert track.attested(MONDAY, MONDAY + DAY) is not None
+    for now in (MONDAY + 23 * HOUR + 31 * MIN, MONDAY + DAY - 1):
+        clock[0] = now
+        track.benchmarks(now, MONDAY)
+    assert track.ledger.theses("benchmark") == []
+    clock[0] = MONDAY + DAY
+    track.benchmarks(clock[0], MONDAY)
+    assert {c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")} == {"run missed"}
+
+
+def _acquire_until(root, marker, where):
+    import os
+    import time
+    t = runner.Track(root)
+    t.market = FakeMarket(MONDAY + 40 * DAY)
+    runner.now_ms = lambda: MONDAY + DAY + runner.SNAPSHOT_OFFSET
+
+    def stall(*a, **k):
+        open(marker, "w").close()
+        time.sleep(600)
+    if where == "before publication":
+        t.market.bars = stall
+    else:
+        registry.sha256 = stall
+    t.acquire(MONDAY + DAY)
+    os._exit(0)
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("where", ["before publication", "after publication"])
+def test_p6_sigkill_during_acquisition_then_restart_attests_the_published_bytes(track, tmp_path, monkeypatch, where):
+    import multiprocessing
+    import signal
+    import time
+    marker = tmp_path / "stalled"
+    child = multiprocessing.get_context("fork").Process(target=_acquire_until, args=(track.root, marker, where))
+    child.start()
+    for _ in range(600):
+        if marker.exists():
+            break
+        time.sleep(0.05)
+    assert marker.exists()
+    published = track.root / "snapshots" / f"{MONDAY + DAY + runner.SNAPSHOT_OFFSET}.json"
+    before = published.read_bytes() if published.exists() else None
+    assert (before is None) == (where == "before publication")
+    child.kill()
+    child.join()
+    assert child.exitcode == -signal.SIGKILL
+    clock = [MONDAY + DAY + 2 * HOUR]
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    track.acquisitions(clock[0], MONDAY + DAY)
+    snap = track.attested(MONDAY + DAY)
+    assert snap is not None and track.attested_at(MONDAY + DAY) == 2 * HOUR
+    if before is not None:
+        assert published.read_bytes() == before

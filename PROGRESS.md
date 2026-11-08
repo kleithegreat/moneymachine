@@ -18,14 +18,13 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Wake-ups (2026-11-08, the human away)
 
-- **refreeze round five review** (Opus, 20:51 UTC (15:51 EST)): the last review before the refreeze, of `thesis-refreeze` three-dot from `6e37e5e`, in a fresh worktree without `data/`: R1–R7 of round four's review at their causes, by constructed failures; the decided schedule and Monday rule; T3 against the code; the criteria draft against round four's list; the sharded suite. Write and commit `audit/reviews/2026-11-08-opus-thesis-refreeze-round5.md` (ready / after fixes / not ready). No freeze, deploy or `audit/criteria.md` edit.
 - **stage7 slice 4 finish** (Opus, after the review): `slice4` (`../mm-slice4`) stopped at a usage limit; its C6.4 harness writes `~/.cache/mm-slice4-c64/report.json`. Finish rust-port-plan §2 item 4's checks (the harness; `mm eval --trace` of `933b3f4` vs the new binary, byte-identical), commit, update Stage 7. No merge: Argon reviews it.
 
 
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round five built (`b29eb06`, Sonnet; suite green; `audit/reviews/2026-11-08-sonnet-refreeze-round5-build.md`). Next: the Opus review (Wake-ups); if ready, the criteria revision alone, then the freeze (new identity and window). Argon's T3 check queued.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round five (`b29eb06`, Sonnet) reviewed by Opus: ready after fixes (`audit/reviews/2026-11-08-opus-thesis-refreeze-round5.md`): R1-R7 hold; F1 T3's schedule derivation miscounts terminal requests (recorded behaviour: done 02:54 UTC (21:54 EST); omit-unclosed stress: 04:45 UTC (23:45 EST)), F2 a Monday attested after 23:00 UTC (18:00 EST), F3 the report lacks `snapshot_ready`, F4 a deadline race, F5 erasure. Next: a builder fixes F1-F5; the advisor decides whether the revision restates the ten-dex mark send time; then the criteria revision alone, then the freeze (new identity and window). Argon's T3 check queued.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **Stage 7:** B3 frozen; slices 5 and 3 and the revision-carrying exporter on `stage7` (C6.4's 3,372 runs agree, `audit/stage7/edge-regression.md`). Slice 4 nearly built (Opus, `slice4`; Wake-ups); its review waits for Argon (GPT stays blind to C7.7's kernel code; Sonnet never reviews Opus). Then merge and slice 6 (Claude-built).
 
