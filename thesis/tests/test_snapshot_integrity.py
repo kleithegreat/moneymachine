@@ -1,6 +1,7 @@
 """Source-blind acquisition/crash regressions for Argon's 2026-11-08 T3 review."""
 
 import contextlib
+import json
 import multiprocessing
 import signal
 import threading
@@ -84,6 +85,33 @@ def test_attested_snapshot_remains_the_shared_immutable_snapshot(subject, monkey
     before = subject.snapshot(cutoff)
     subject.market.delisted.add("BTC")
     assert subject.snapshot(cutoff) == before
+
+
+def test_attested_returns_the_exact_bytes_verified_before_file_mutation(subject, monkeypatch):
+    cutoff = MONDAY + runner.SNAPSHOT_OFFSET
+    monkeypatch.setattr(runner, "now_ms", lambda: cutoff)
+    subject.acquire(MONDAY)
+    original = subject.attested(MONDAY, MONDAY + DAY)
+    assert original is not None
+    path = subject.root / "snapshots" / f"{cutoff}.json"
+    read_bytes = Path.read_bytes
+    changed = json.loads(read_bytes(path))
+    assert changed["markets"]
+    changed["markets"] = {}
+    replacement = json.dumps(changed).encode()
+    mutated = []
+
+    def read_then_mutate(self):
+        contents = read_bytes(self)
+        if self == path and not mutated:
+            self.write_bytes(replacement)
+            mutated.append(True)
+        return contents
+
+    monkeypatch.setattr(Path, "read_bytes", read_then_mutate)
+    result = subject.attested(MONDAY, MONDAY + DAY)
+    assert mutated, "the snapshot read must exercise the mutation race"
+    assert result is None or result == original, "attested() returned bytes it did not verify"
 
 
 def test_monday_can_finish_after_0500_and_run_the_benchmark(subject, monkeypatch):

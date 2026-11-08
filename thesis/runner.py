@@ -176,10 +176,10 @@ class Track:
         cutoff, by = date + SNAPSHOT_OFFSET, by or date + SESSION_OFFSET
         path = self.root / "snapshots" / f"{cutoff}.json"
         saved = [c for _, _, c in self.ledger.records("snapshot_ready", "main") if c["taken"] == cutoff and c["acquired"] < by]
-        if not saved or not path.exists() or registry.sha256(path.read_bytes()) != saved[0]["sha256"]:
+        if not saved or not path.exists():
             return None
-        snap: Json = json.loads(path.read_text())
-        return snap
+        contents = path.read_bytes()
+        return json.loads(contents) if registry.sha256(contents) == saved[0]["sha256"] else None
 
     def attested_at(self, date: int) -> int:
         """When the day's snapshot was attested, as milliseconds after the date's start."""
