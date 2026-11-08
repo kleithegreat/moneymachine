@@ -1,7 +1,9 @@
 """Read-only Hyperliquid info API client with weighted admission at its configured allocation."""
 
+import contextlib
 import threading
 import time
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -26,23 +28,46 @@ class WeightLimit:
         self.budget = budget
         self.spent: list[tuple[float, int]] = []
         self.lock = threading.Lock()
+        self.foreground = 0
+        self.holds = 0
 
     def delay(self, priority: bool) -> float:
         return 0
 
-    def charge(self, weight: int, priority: bool = False) -> None:
+    @contextlib.contextmanager
+    def hold(self) -> Iterator[None]:
+        """While held, background charges wait: a session's reads never compete with a fill."""
+        with self.lock:
+            self.holds += 1
+        try:
+            yield
+        finally:
+            with self.lock:
+                self.holds -= 1
+
+    def charge(self, weight: int, priority: bool = False, background: bool = False) -> None:
+        """Admit `weight` within the rolling minute. A background charge also waits while a foreground one waits or a hold
+        is on; it never takes a foreground charge's place in the queue, though weight it already spent stays spent."""
         if not 0 <= weight <= self.budget:
             raise ValueError(f"weight {weight} exceeds per-minute budget {self.budget}")
-        while True:
+        if not background:
             with self.lock:
-                now = time.monotonic()
-                self.spent = [(t, w) for t, w in self.spent if now - t < 60]
-                delay = self.delay(priority)
-                if not delay and sum(w for _, w in self.spent) + weight <= self.budget:
-                    self.spent.append((now, weight))
-                    return
-                wait = delay or max(0.001, self.spent[0][0] + 60 - now)
-            time.sleep(wait)
+                self.foreground += 1
+        try:
+            while True:
+                with self.lock:
+                    now = time.monotonic()
+                    self.spent = [(t, w) for t, w in self.spent if now - t < 60]
+                    delay = self.delay(priority) or (0.25 if background and (self.foreground or self.holds) else 0)
+                    if not delay and sum(w for _, w in self.spent) + weight <= self.budget:
+                        self.spent.append((now, weight))
+                        return
+                    wait = delay or max(0.001, self.spent[0][0] + 60 - now)
+                time.sleep(wait)
+        finally:
+            if not background:
+                with self.lock:
+                    self.foreground -= 1
 
 
 class Info:
@@ -50,16 +75,17 @@ class Info:
         self.limiter = limiter if limiter is not None else WeightLimit(budget_per_min)
         self.http = httpx.Client(timeout=TIMEOUT)
 
-    def _charge(self, weight: int) -> None:
-        self.limiter.charge(weight)
+    def _charge(self, weight: int, background: bool = False) -> None:
+        self.limiter.charge(weight, background=background)
 
-    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6) -> Any:
+    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6,
+             background: bool = False) -> Any:
         """One request, retried after a 429, a 5xx or a transport error (a timeout, a dropped connection) with
         backoff; every attempt is charged its weight."""
         for attempt in range(attempts):
             if attempt:
                 time.sleep(2 ** (attempt - 1))
-            self._charge(weight)
+            self._charge(weight, background)
             try:
                 r = self._send(body)
             except httpx.TransportError:
@@ -71,7 +97,7 @@ class Info:
             r.raise_for_status()
             out = self._decode(body, r)
             if per_items and isinstance(out, list):
-                self._charge(len(out) // per_items)
+                self._charge(len(out) // per_items, background)
             return out
 
     def _send(self, body: dict[str, Any]) -> httpx.Response:
@@ -90,14 +116,19 @@ class Info:
             body["nSigFigs"] = sig_figs
         return self.post(body, weight=2)
 
+    def funding_page(self, coin: str, start: int, end: int | None = None, *, background: bool = False) -> list[Any]:
+        """One page (at most 500) of the settled funding rows with start <= time < end."""
+        body: dict[str, Any] = {"type": "fundingHistory", "coin": coin, "startTime": start}
+        if end is not None:
+            body["endTime"] = end - 1
+        page: list[Any] = self.post(body, per_items=20, background=background)
+        return page
+
     def funding(self, coin: str, start: int, end: int | None = None) -> list[Any]:
         """All settled funding rows with start <= time < end, paginated by 500."""
         rows: list[Any] = []
         while True:
-            body: dict[str, Any] = {"type": "fundingHistory", "coin": coin, "startTime": start}
-            if end is not None:
-                body["endTime"] = end - 1
-            page = self.post(body, per_items=20)
+            page = self.funding_page(coin, start, end)
             rows += page
             if len(page) < 500:
                 return rows

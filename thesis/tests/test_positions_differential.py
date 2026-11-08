@@ -335,8 +335,8 @@ def production_data(s, root):
         def candles(self, market, interval, start, end):
             return [{"t": h * 1000, "o": str(o), "c": str(c)} for h, (o, c) in s.bars[market].items() if start <= h * 1000 < end]
 
-        def funding(self, market, start, end):
-            return [{"time": h * 1000, "fundingRate": str(r)} for h, r in s.funding[market].items() if start <= h * 1000 < end]
+        def funding_page(self, market, start, end, background=False):
+            return [{"time": h * 1000, "fundingRate": str(r)} for h, r in sorted(s.funding[market].items()) if start <= h * 1000 < end][:500]
 
     m = market_module.Market(root, Venue(), repair_every=0)
     for name in s.markets:

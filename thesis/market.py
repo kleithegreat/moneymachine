@@ -4,13 +4,16 @@ The adapter is the venue's public info endpoint with only the frozen read reques
 signing, account or order operation anywhere. Every response is archived with its retrieval time.
 Final bars and funding rows are cached per market, each file rewritten atomically under its own lock: extended
 incrementally, every hole the venue left, before the first row too, retried each `repair_every` for as long as it stays
-one, and a cached row is never rewritten. A candle's open is known at its open plus δ and its close at its close plus δ
+one, and a cached row is never rewritten. Funding is kept with the ranges the venue has been asked for: a read of
+[start, now) asks only for what those ranges and the rows leave open inside it, and commits each validated page as it
+arrives, so a fill that is killed or fails resumes from what it committed and a reader never waits on a whole history. A candle's open is known at its open plus δ and its close at its close plus δ
 (C0.3's rule), whenever it was first read, so a read as of a cutoff does not depend on what the cache holds; one shown
 but not final is held in memory, so a read holding the newest row it can show asks the venue for nothing. A builder (HIP-3)
 market's hourly bars are its recorded mark prices (stage 10 revision of 2026-10-23): `record_marks` samples every builder
 dex's `metaAndAssetCtxs` once an hour, and `mark_bars` builds the bars from those samples as known at `now`.
 """
 
+import contextlib
 import functools
 import hashlib
 import json
@@ -34,12 +37,13 @@ from ingest.policy import DAY, DELTA, HOUR
 ALLOWED = frozenset({"meta", "perpDexs", "candleSnapshot", "fundingHistory", "metaAndAssetCtxs"})
 BUDGET_PER_MIN = IP_BUDGET_PER_MIN - RECORDER_WEIGHT_PER_MIN
 HISTORY = {"1h": 200 * DAY, "1d": 3 * 365 * DAY + 30 * DAY, "funding": 3 * 365 * DAY + 30 * DAY}
+MAINTAIN_EVERY = DAY  # the background fill's retry of what the venue left out
 MARK_OFFSET = 5_000
 MARK_WINDOW = 5 * 60_000
 MARK_PREP = 60_000
-STEP = {"1h": HOUR, "1d": DAY, "funding": HOUR}
-SHOWN = {"1h": DELTA, "1d": DAY + DELTA, "funding": 0}  # after its time, when a row first shows
-FINAL = {"1h": HOUR + DELTA, "1d": DAY + DELTA, "funding": 0}  # after its time, when a row is final and cached
+STEP = {"1h": HOUR, "1d": DAY}
+SHOWN = {"1h": DELTA, "1d": DAY + DELTA}  # after its time, when a row first shows
+FINAL = {"1h": HOUR + DELTA, "1d": DAY + DELTA}  # after its time, when a row is final and cached
 REPAIR_EVERY = HOUR  # leaves C10.5's two hours from a late row's availability to its score
 PAGE = 500  # holes closer than a page of rows share a request
 MAX_ITEMS = {"fundingHistory": 500, "candleSnapshot": 5000}
@@ -68,6 +72,54 @@ def holes(rows: list[list[Any]], step: int, start: int, end: int) -> list[tuple[
         else:
             spans.append((a, b))
     return spans
+
+
+def merged(spans: Iterable[tuple[int, int]]) -> list[tuple[int, int]]:
+    """The non-empty spans in order, those closer than a page of rows joined."""
+    out: list[tuple[int, int]] = []
+    for a, b in sorted(s for s in spans if s[0] < s[1]):
+        if out and a - out[-1][1] < PAGE * HOUR:
+            out[-1] = (out[-1][0], max(b, out[-1][1]))
+        else:
+            out.append((a, b))
+    return out
+
+
+def union(ranges: Iterable[tuple[int, int]], a: int, b: int) -> list[list[int]]:
+    """The ranges with [a, b) added, overlapping or touching ones joined."""
+    out: list[list[int]] = []
+    for x, y in sorted([*ranges, (a, b)]):
+        if out and x <= out[-1][1]:
+            out[-1][1] = max(out[-1][1], y)
+        else:
+            out.append([x, y])
+    return out
+
+
+def uncovered(a: int, b: int, ranges: Iterable[tuple[int, int]]) -> list[tuple[int, int]]:
+    """[(from, to)) of [a, b) outside every range."""
+    out, at = [], a
+    for x, y in sorted(ranges):
+        if x > at:
+            out.append((at, min(x, b)))
+        at = max(at, y)
+    return [(x, y) for x, y in out + [(at, b)] if x < y]
+
+
+def funding_page(page: Any, start: int, end: int) -> list[list[Any]]:
+    """[(time, [hour, rate])] of a page the venue sent for [start, end), or ValueError if it cannot be trusted."""
+    if not isinstance(page, list) or len(page) > MAX_ITEMS["fundingHistory"]:
+        raise ValueError("funding page: expected a list of at most a page")
+    out = []
+    for r in page:
+        try:
+            t, rate = int(r["time"]), float(r["fundingRate"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError(f"funding page: bad row {r!r}") from e
+        if not start <= t < end or not math.isfinite(rate) or (out and t < out[-1][0]):
+            raise ValueError(f"funding page: row {r!r} outside [{start}, {end}), unordered or not finite")
+        out.append((t, [t // HOUR * HOUR, rate]))
+    return out
 
 
 def seal(samples: Iterable[tuple[int, int, float | None]]) -> dict[int, float]:
@@ -120,12 +172,13 @@ class Exchange(Info):
         self.archive.mkdir(parents=True, exist_ok=True)
         self.archive_lock = threading.Lock()
 
-    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6) -> Any:
+    def post(self, body: dict[str, Any], weight: int = 20, per_items: int | None = None, *, attempts: int = 6,
+             background: bool = False) -> Any:
         if body.get("type") not in ALLOWED:
             raise PermissionError(f"request type {body.get('type')!r} is not an approved public read")
         if per_items:
             weight += MAX_ITEMS[body["type"]] // per_items
-        return super().post(body, weight, attempts=attempts)
+        return super().post(body, weight, attempts=attempts, background=background)
 
     def _send(self, body: dict[str, Any]) -> Any:
         sample = {"sent": now_ms(), "request": body}
@@ -180,7 +233,7 @@ class Sampler(Exchange):
 
     prefix = "marks"
 
-    def _charge(self, weight: int) -> None:
+    def _charge(self, weight: int, background: bool = False) -> None:
         self.limiter.charge(weight, priority=True)
 
     def _decode(self, body: dict[str, Any], response: httpx.Response) -> Any:
@@ -243,7 +296,8 @@ class Market:
         (self.root / "marks").mkdir(parents=True, exist_ok=True)
         self.mark_index = MarkIndex(self.root / "marks")
         self.locks: dict[Path, threading.Lock] = {}
-        self.repaired: dict[Path, int] = {}
+        self.repaired: dict[tuple[Path, bool], int] = {}
+        self.fills: dict[Path, threading.Lock] = {}
         self.pending: dict[Path, dict[int, list[Any]]] = {}
 
     @functools.cached_property
@@ -282,7 +336,7 @@ class Market:
             for t in expired:
                 del pending[t]
             known = {r[0] for r in rows}
-            last = self.repaired.get(path)
+            last = self.repaired.get((path, False))
             repair = last is None or now_ms() - last >= self.repair_every
             if repair or not rows or expired:
                 spans = holes(rows, step, now - HISTORY[kind], now)
@@ -290,7 +344,7 @@ class Market:
                 spans = [] if (now - SHOWN[kind]) // step * step in known | set(pending) else [(rows[-1][0] + 1, now)]
             fresh = {r[0]: r for a, b in spans if a < b for r in fetch(a, b) if r[0] not in known and r[0] + SHOWN[kind] <= now}
             if repair:
-                self.repaired[path] = now_ms()
+                self.repaired[path, False] = now_ms()
             final = [r for t, r in fresh.items() if t + FINAL[kind] <= now]
             pending.update((t, r) for t, r in fresh.items() if t + FINAL[kind] > now)
             if final:
@@ -367,10 +421,78 @@ class Market:
             return [[c["t"], float(c["o"]), float(c["c"])] for c in self.x.candles(market, interval, start, end)]
         return [[t, o, c if t + step + DELTA <= now else None] for t, o, c in self._cached(market, interval, fetch, now)]
 
-    def funding(self, market: str, now: int | None = None) -> list[list[Any]]:
-        """[[hour, rate]] of settled funding up to `now`."""
-        now = now or now_ms()
+    def _funding_path(self, market: str) -> Path:
+        return self.root / market.replace(":", "_") / "funding-ranges.json"
 
-        def fetch(start: int, end: int) -> list[list[Any]]:
-            return [[r["time"] // HOUR * HOUR, float(r["fundingRate"])] for r in self.x.funding(market, start, end + 1)]
-        return self._cached(market, "funding", fetch, now)
+    def _funding_load(self, path: Path) -> tuple[list[list[Any]], list[tuple[int, int]]]:
+        """(rows, fetched): the cached [hour, rate] and the [from, to) time ranges whose rows the venue has sent whole."""
+        if not path.exists():
+            return [], []
+        saved = json.loads(path.read_text())
+        return saved["rows"], [(a, b) for a, b in saved["fetched"]]
+
+    def _funding_commit(self, path: Path, new: Iterable[list[Any]], a: int, b: int) -> None:
+        """Add rows not yet cached (a cached row is never rewritten) and the range [a, b), atomically."""
+        with self.locks.setdefault(path, threading.Lock()):
+            rows, fetched = self._funding_load(path)
+            by_hour = {r[0]: r for r in new} | {r[0]: r for r in rows}
+            rows = sorted(by_hour.values())
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"rows": rows, "fetched": union(fetched, a, b)}, separators=(",", ":")))
+            os.replace(tmp, path)
+
+    def _funding_gaps(self, path: Path, lo: int, now: int) -> list[tuple[int, int]]:
+        """The part of [lo, the newest fetched time) the venue was never asked for: a prefix a read widened to, or a gap."""
+        _, fetched = self._funding_load(path)
+        return merged(uncovered(lo, min(now, max((b for _, b in fetched), default=now)), fetched))
+
+    def _funding_rest(self, path: Path, lo: int, now: int, repair: bool) -> list[tuple[int, int]]:
+        """What was asked for but is still missing from [lo, now): every hole among the rows when `repair` (frozen: any hole,
+        the first row's prefix too), otherwise only the rows after the last one."""
+        rows, _ = self._funding_load(path)
+        inside = [r for r in rows if lo <= r[0] <= now]
+        if repair or not inside:
+            return merged(holes(inside, HOUR, lo, now))
+        return [] if now // HOUR * HOUR in {r[0] for r in inside} else [(max(inside[-1][0] + 1, lo), now)]
+
+    def _funding_fill(self, path: Path, market: str, a: int, b: int, background: bool, stop: threading.Event | None) -> None:
+        """Fetch [a, b] a page at a time, committing each validated page before asking for the next: a failure leaves the
+        pages committed so far, and a short page means the venue sent everything up to b."""
+        at = a
+        while at <= b and not (stop and stop.is_set()):
+            page = funding_page(self.x.funding_page(market, at, b + 1, background=background), at, b + 1)
+            full = len(page) == MAX_ITEMS["fundingHistory"]
+            end = page[-1][0] + 1 if full else b + 1
+            self._funding_commit(path, [r for _, r in page], at, end)
+            at = end
+
+    def funding(self, market: str, now: int | None = None, start: int | None = None, *, background: bool = False,
+                stop: threading.Event | None = None) -> list[list[Any]]:
+        """[[hour, rate]] of settled funding up to `now`: every cached row, with the venue asked only about [start, now),
+        the whole scope by default. A background read retries what the venue left out each MAINTAIN_EVERY, yields to the
+        foreground at every page and ends early once `stop` is set; a foreground one waits only for other foreground reads."""
+        now = now or now_ms()
+        lo = (now - HISTORY["funding"] if start is None else max(start, now - HISTORY["funding"])) // HOUR * HOUR
+        path = self._funding_path(market)
+        every = MAINTAIN_EVERY if background else self.repair_every
+        with contextlib.nullcontext() if background else self.fills.setdefault(path, threading.Lock()):
+            last = self.repaired.get((path, background))
+            repair = last is None or now_ms() - last >= every
+            for a, b in self._funding_gaps(path, lo, now):
+                self._funding_fill(path, market, a, b, background, stop)
+            for a, b in reversed(self._funding_rest(path, lo, now, repair)):
+                self._funding_fill(path, market, a, b, background, stop)
+            if repair and not (stop and stop.is_set()):
+                self.repaired[path, background] = now_ms()
+        return [r for r in self._funding_load(path)[0] if r[0] <= now]
+
+    def ready(self, market: str, now: int) -> bool:
+        """Whether the venue has sent the market's whole funding scope up to the last UTC midnight."""
+        _, fetched = self._funding_load(self._funding_path(market))
+        return not uncovered((now - HISTORY["funding"]) // HOUR * HOUR, now // DAY * DAY, fetched)
+
+    def prewarm(self, market: str, now: int, stop: threading.Event) -> None:
+        """Bring the market's funding scope up to `now`, unless it is already fetched to the last UTC midnight."""
+        if not self.ready(market, now):
+            self.funding(market, now, background=True, stop=stop)

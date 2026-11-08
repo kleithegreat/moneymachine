@@ -108,10 +108,10 @@ class Venue:
     def __init__(self, rows):
         self.rows, self.starts, self.requests = rows, [], []
 
-    def funding(self, market, start, end):
+    def funding_page(self, coin, start, end, background=False):
         self.starts.append(start)
         self.requests.append((start, end))
-        return [{"time": t, "fundingRate": str(r)} for t, r in self.rows if start <= t < end]
+        return [{"time": t, "fundingRate": str(r)} for t, r in sorted(self.rows) if start <= t < end][:market.MAX_ITEMS["fundingHistory"]]
 
     def candles(self, market, interval, start, end):
         self.starts.append(start)
@@ -639,20 +639,6 @@ def test_failed_discovery_releases_the_history_reservation(tmp_path, monkeypatch
     with pytest.raises(httpx.HTTPStatusError):
         m.record_marks(H + 5_000)
     assert m.sampler.limiter.released == H + 5_000
-
-
-@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-07-opus-thesis-refreeze.md finding 2; PROGRESS Blockers: four cold funding histories cannot fit the certified remainder in one session")
-def test_cold_registration_funding_fits_the_permitted_session_workload(tmp_path, monkeypatch):
-    from thesis.daemon import MAX_REGISTRATIONS
-    from thesis.harness import WALL_SECONDS
-
-    clock = [H + 10 * 60_000]
-    fake_clock(monkeypatch, clock)
-    x = market.Exchange(tmp_path)
-    start = clock[0]
-    for _ in range(MAX_REGISTRATIONS * 2 * 55):
-        x._charge(45)
-    assert clock[0] - start < WALL_SECONDS * 1000
 
 
 def test_a_full_cold_hourly_page_fits_the_shared_exchange_budget(tmp_path, monkeypatch):
