@@ -80,6 +80,7 @@ def test_cold_fill_does_not_reprobe_the_ranges_it_just_acquired(tmp_path, monkey
     monkeypatch.setattr(x.http, "post", post)
     m.prewarm("X", NOW, threading.Event())
     assert sum(charges) <= (len(rows) // 500 + 1) * 45
+    assert charges == [45, 44]
 
 
 def test_session_hold_covers_background_inventory(tmp_path, monkeypatch):
@@ -138,3 +139,45 @@ def test_excess_response_charges_difference_of_total_surcharges(tmp_path, monkey
         200, json=[{"time": i, "fundingRate": "0"} for i in range(21)], request=httpx.Request("POST", url)))
     x.funding_page("X", 0, 19 * H)
     assert sum(w for _, w in x.limiter.spent) == 22
+
+
+def test_full_scope_cold_fill_and_every_retry_reserve_the_paper_weights(tmp_path, monkeypatch):
+    fake_clock(monkeypatch, [NOW])
+    x = market.Exchange(tmp_path / "x")
+    m = market.Market(tmp_path / "m", x)
+    charges, attempts = [], []
+    charge = x._charge
+    monkeypatch.setattr(x, "_charge", lambda w, background=False: (charges.append(w), charge(w, background))[1])
+    lo = (NOW - market.HISTORY["funding"]) // H * H
+
+    def post(url, json):
+        attempts.append(json)
+        payload = [{"time": t, "fundingRate": "0"} for t in range(lo, NOW + 1, H)
+                   if json["startTime"] <= t <= json["endTime"]][:500]
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(x.http, "post", post)
+    m.prewarm("X", NOW, threading.Event())
+    assert len(attempts) == 55 and charges == [45] * 54 + [21]
+    assert sum(charges) == 2451 <= 55 * 45
+    charges.clear()
+    monkeypatch.setattr(x.http, "post", lambda url, json: httpx.Response(429, request=httpx.Request("POST", url)))
+    with pytest.raises(httpx.HTTPStatusError):
+        x.funding_page("X", lo, NOW)
+    assert charges == [45] * 6
+
+
+def test_daily_funding_tail_and_discovery_costs_use_ceiling(tmp_path, monkeypatch):
+    fake_clock(monkeypatch, [NOW])
+    x = market.Exchange(tmp_path)
+    monkeypatch.setattr(x.http, "post", lambda url, json: httpx.Response(200, json=[], request=httpx.Request("POST", url)))
+    x.funding_page("X", 0, D + H)
+    assert sum(w for _, w in x.limiter.spent) == 22
+    assert (348 * 22 + 278 * 45) == 20166
+    assert (D // runner.PREWARM_EVERY) * 20 * (5 + 2) == 13440
+
+
+def test_hole_plans_never_repair_outside_the_requested_scope():
+    rows = [[t, 1.] for t in (0, 2 * H, 4 * H, 6 * H, 8 * H)]
+    spans = market.holes(rows, H, 3 * H, 5 * H)
+    assert spans and all(3 * H <= a < b <= 5 * H for a, b in spans)

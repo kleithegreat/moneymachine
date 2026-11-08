@@ -71,7 +71,7 @@ def dex_of(market: str) -> str | None:
 
 def holes(rows: list[list[Any]], step: int, start: int, end: int) -> list[tuple[int, int]]:
     """[(from, to)) of the rows missing from `rows` in [start, end): before the first, between two and after the last."""
-    times: list[int] = [r[0] for r in rows]
+    times: list[int] = [r[0] for r in rows if start <= r[0] < end]
     if not times:
         return [(start, end)]
     gaps = [(a + step, b) for a, b in zip(times, times[1:]) if b - a > step] + [(times[-1] + 1, end)]
@@ -313,7 +313,7 @@ class Market:
         (self.root / "marks").mkdir(parents=True, exist_ok=True)
         self.mark_index = MarkIndex(self.root / "marks")
         self.locks: dict[Path, threading.Lock] = {}
-        self.repaired: dict[tuple[Path, bool], int] = {}
+        self.repaired: dict[Path, int] = {}
         self.funding_repaired: dict[tuple[Path, bool], list[tuple[int, int, int]]] = {}
         self.fills: dict[Path, threading.Lock] = {}
         self.pending: dict[Path, dict[int, list[Any]]] = {}
@@ -355,7 +355,7 @@ class Market:
             for t in expired:
                 del pending[t]
             known = {r[0] for r in rows}
-            last = self.repaired.get((path, False))
+            last = self.repaired.get(path)
             repair = last is None or now_ms() - last >= self.repair_every
             if repair or not rows or expired:
                 spans = holes(rows, step, now - HISTORY[kind], now)
@@ -363,7 +363,7 @@ class Market:
                 spans = [] if (now - SHOWN[kind]) // step * step in known | set(pending) else [(rows[-1][0] + 1, now)]
             fresh = {r[0]: r for a, b in spans if a < b for r in fetch(a, b) if r[0] not in known and r[0] + SHOWN[kind] <= now}
             if repair:
-                self.repaired[path, False] = now_ms()
+                self.repaired[path] = now_ms()
             final = [r for t, r in fresh.items() if t + FINAL[kind] <= now]
             pending.update((t, r) for t, r in fresh.items() if t + FINAL[kind] > now)
             if final:
