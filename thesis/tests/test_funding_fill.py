@@ -104,7 +104,7 @@ def test_a_session_read_asks_only_about_its_own_range(tmp_path):
     m = market.Market(tmp_path, x)
     m.funding("X", NOW, background=True)
     x.requests.clear()
-    m.repaired.clear()
+    m.funding_repaired.clear()
     rows = m.funding("X", NOW + 2 * H, NOW - 5 * H)
     assert len(rows) == 1200 and all(a >= NOW - 6 * H for a, _ in x.requests), x.requests
 

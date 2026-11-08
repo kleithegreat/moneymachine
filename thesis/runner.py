@@ -103,7 +103,11 @@ class Track:
     def inputs(self, account: str, markets: Iterable[str], now: int, snapshot: Json) -> tuple[Json, Json]:
         """A registration's (config, data): the account's and the new thesis's markets as of `now`, the session snapshot's
         daily bars, and the listing read the commit makes."""
-        markets = set(self.markets_of(account)) | set(markets)
+        markets = set(markets)
+        cold = sorted(m for m in markets if not self.market.ready(m, now))
+        if cold:
+            raise httpx.TransportError(f"funding history is not ready for {cold}")
+        markets |= set(self.markets_of(account))
         starts = dict.fromkeys(markets, now) | self.starts(self.ledger.theses(account))
         return self.config(markets), {**self.data(markets, now, starts), "listed": self.market.listed,
                                       "daily": {m: scoring.bars(snapshot["daily"].get(m, [])) for m in markets}}
@@ -168,7 +172,7 @@ class Track:
     def warm_order(self) -> list[str]:
         """The listed markets the background fill keeps ready, the benchmark's first, then the accounts', then the rest: a
         market not yet eligible is filled too, so it is ready when it becomes one."""
-        live = [m for m, delisted in sorted(self.market.listings().items()) if not delisted]
+        live = [m for m, delisted in sorted(self.market.listings(background=True).items()) if not delisted]
         first = [*BENCHMARK, *(m for account in ACCOUNTS for m in self.markets_of(account))]
         return [m for m in dict.fromkeys([*first, *live]) if m in live]
 
@@ -423,6 +427,21 @@ def freeze() -> None:
 
 def run() -> None:
     Track().run()
+
+
+def prewarm() -> None:
+    """One resumable acquisition pass, without starting or freezing a track. Run only with the runner stopped."""
+    ROOT.mkdir(parents=True, exist_ok=True)
+    with (ROOT / "run.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        stop = threading.Event()
+        signal.signal(signal.SIGTERM, lambda *_: stop.set())
+        market = Market(ROOT / "market", Exchange(ROOT / "exchange"))
+        for m, delisted in sorted(market.listings(background=True).items()):
+            if stop.is_set():
+                break
+            if not delisted:
+                market.prewarm(m, now_ms(), stop)
 
 
 def report(out: str | Path) -> None:

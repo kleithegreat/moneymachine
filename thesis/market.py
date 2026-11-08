@@ -191,10 +191,10 @@ class Exchange(Info):
         reserved = 0
         if per_items:
             reserved = max_items(body)
-            weight += reserved // per_items
+            weight += math.ceil(reserved / per_items)
         out = super().post(body, weight, attempts=attempts, background=background)
         if per_items and isinstance(out, list) and len(out) > reserved:
-            self._charge((len(out) - reserved) // per_items, background)
+            self._charge(math.ceil(len(out) / per_items) - math.ceil(reserved / per_items), background)
         return out
 
     def _send(self, body: dict[str, Any]) -> Any:
@@ -314,6 +314,7 @@ class Market:
         self.mark_index = MarkIndex(self.root / "marks")
         self.locks: dict[Path, threading.Lock] = {}
         self.repaired: dict[tuple[Path, bool], int] = {}
+        self.funding_repaired: dict[tuple[Path, bool], list[tuple[int, int, int]]] = {}
         self.fills: dict[Path, threading.Lock] = {}
         self.pending: dict[Path, dict[int, list[Any]]] = {}
 
@@ -322,17 +323,18 @@ class Market:
         """The hourly archive uses the same admission ledger as every history and registration read."""
         return Sampler(self.root / "marks", limiter=self.x.limiter)
 
-    def universe(self, dex: str | None = None) -> dict[str, bool]:
+    def universe(self, dex: str | None = None, *, background: bool = False) -> dict[str, bool]:
         """{market: delisted} of a builder dex, or of the core venue."""
-        meta = self.x.post({"type": "meta", "dex": dex}) if dex else self.x.meta()
+        meta = self.x.post({"type": "meta", "dex": dex}, background=True) if background else (
+            self.x.post({"type": "meta", "dex": dex}) if dex else self.x.meta())
         return {a["name"]: bool(a.get("isDelisted")) for a in meta["universe"]}
 
-    def listings(self) -> dict[str, bool]:
+    def listings(self, *, background: bool = False) -> dict[str, bool]:
         """{market: delisted} over the core venue and every builder dex."""
-        out = self.universe()
-        for dex in self.x.post({"type": "perpDexs"}):
+        out = self.universe(background=background)
+        for dex in self.x.post({"type": "perpDexs"}, background=background):
             if dex:
-                out.update(self.universe(dex["name"]))
+                out.update(self.universe(dex["name"], background=background))
         return out
 
     def listed(self, markets: Iterable[str]) -> dict[str, bool]:
@@ -443,10 +445,11 @@ class Market:
 
     def _funding_load(self, path: Path) -> tuple[list[list[Any]], list[tuple[int, int]]]:
         """(rows, fetched): the cached [hour, rate] and the [from, to) time ranges whose rows the venue has sent whole."""
-        if not path.exists():
-            return [], []
-        saved = json.loads(path.read_text())
-        return saved["rows"], [(a, b) for a, b in saved["fetched"]]
+        saved = json.loads(path.read_text()) if path.exists() else {"rows": [], "fetched": []}
+        legacy = path.with_name("funding.json")
+        rows = json.loads(legacy.read_text()) if legacy.exists() else []
+        by_hour = {r[0]: r for r in saved["rows"]} | {r[0]: r for r in rows}
+        return sorted(by_hour.values()), [(a, b) for a, b in saved["fetched"]]
 
     def _funding_commit(self, path: Path, new: Iterable[list[Any]], a: int, b: int) -> None:
         """Add rows not yet cached (a cached row is never rewritten) and the range [a, b), atomically."""
@@ -463,15 +466,6 @@ class Market:
         """The part of [lo, the newest fetched time) the venue was never asked for: a prefix a read widened to, or a gap."""
         _, fetched = self._funding_load(path)
         return merged(uncovered(lo, min(now, max((b for _, b in fetched), default=now)), fetched))
-
-    def _funding_rest(self, path: Path, lo: int, now: int, repair: bool) -> list[tuple[int, int]]:
-        """What was asked for but is still missing from [lo, now): every hole among the rows when `repair` (frozen: any hole,
-        the first row's prefix too), otherwise only the rows after the last one."""
-        rows, _ = self._funding_load(path)
-        inside = [r for r in rows if lo <= r[0] <= now]
-        if repair or not inside:
-            return merged(holes(inside, HOUR, lo, now))
-        return [] if now // HOUR * HOUR in {r[0] for r in inside} else [(max(inside[-1][0] + 1, lo), now)]
 
     def _funding_fill(self, path: Path, market: str, a: int, b: int, background: bool, stop: threading.Event | None) -> None:
         """Fetch [a, b] a page at a time, committing each validated page before asking for the next: a failure leaves the
@@ -494,14 +488,18 @@ class Market:
         path = self._funding_path(market)
         every = MAINTAIN_EVERY if background else self.repair_every
         with contextlib.nullcontext() if background else self.fills.setdefault(path, threading.Lock()):
-            last = self.repaired.get((path, background))
-            repair = last is None or now_ms() - last >= every
-            for a, b in self._funding_gaps(path, lo, now):
+            recent = [(a, b, t) for a, b, t in self.funding_repaired.get((path, background), []) if now_ms() - t < every]
+            rows, _ = self._funding_load(path)
+            inside = [r for r in rows if lo <= r[0] <= now]
+            historical = holes(inside, HOUR, lo, inside[-1][0] + 1) if inside else []
+            repairs = [(x, y) for a, b in historical
+                       for x, y in uncovered(a, b, [(x, y) for x, y, _ in recent])]
+            tail = [] if inside and inside[-1][0] == now // HOUR * HOUR else [(max(inside[-1][0] + 1, lo) if inside else lo, now)]
+            spans = merged([*self._funding_gaps(path, lo, now), *repairs, *tail])
+            for a, b in reversed(spans):
                 self._funding_fill(path, market, a, b, background, stop)
-            for a, b in reversed(self._funding_rest(path, lo, now, repair)):
-                self._funding_fill(path, market, a, b, background, stop)
-            if repair and not (stop and stop.is_set()):
-                self.repaired[path, background] = now_ms()
+            if not (stop and stop.is_set()):
+                self.funding_repaired[path, background] = [(a, b, t) for a, b, t in recent if a < lo or b > now] + [(lo, now, now_ms())]
         return [r for r in self._funding_load(path)[0] if r[0] <= now]
 
     def hold(self) -> contextlib.AbstractContextManager[None]:

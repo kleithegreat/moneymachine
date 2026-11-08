@@ -654,7 +654,7 @@ def test_a_full_cold_hourly_page_fits_the_shared_exchange_budget(tmp_path, monke
 
     monkeypatch.setattr(x.http, "post", post)
     assert len(m.bars("BTC", "1h", clock[0])) > 4700
-    assert sum(w for _, w in x.limiter.spent) == 20 + 4801 // 60
+    assert sum(w for _, w in x.limiter.spent) == 100
 
 
 def test_mark_reads_parse_each_archive_record_once_across_markets_and_appends(tmp_path, monkeypatch):
@@ -740,7 +740,7 @@ def test_a_short_range_costs_its_base_weight_and_an_excess_row_is_charged_on_rec
     rows = [{"time": i, "fundingRate": "0"} for i in range(30)]
     monkeypatch.setattr(x.http, "post", lambda url, json: httpx.Response(200, json=rows, request=httpx.Request("POST", url)))
     x.funding_page("X", 0, 3 * H)
-    assert sum(w for _, w in x.limiter.spent) == 20 + 3 // 20 + (30 - 3) // 20
+    assert sum(w for _, w in x.limiter.spent) == 22
 
 
 @pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-08-opus-thesis-refreeze-round3.md finding A; PROGRESS Blockers: the newest daily and hourly tails of every listing cannot be read in the 8 minutes between a bar's finality and the 00:10 session")

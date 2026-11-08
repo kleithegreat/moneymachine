@@ -26,7 +26,7 @@ class FakeMarket:
         self.delisted = set()
         self.calls = []
 
-    def listings(self):
+    def listings(self, *, background=False):
         self.calls.append(("listings",))
         return {m: m in self.delisted for m in (*runner.BENCHMARK, "X")}
 
@@ -50,6 +50,9 @@ class FakeMarket:
 
     def lag(self, market):
         return 0
+
+    def ready(self, market, now):
+        return True
 
 
 @pytest.fixture

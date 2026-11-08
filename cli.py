@@ -109,6 +109,7 @@ COMMANDS = {
     "mutants": ("cli", "mutants", ["slots:int?"], "apply each mutant to a copy of the tree; its named test must fail"),
     "check": ("cli", "check", [], "pytest, cargo tests and mutants concurrently (run it in a capped scope)"),
     "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
+    "thesis-prewarm": ("thesis.runner", "prewarm", [], "acquire funding before freezing; runner must be stopped (resumable)"),
     "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),
     "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),
 }
