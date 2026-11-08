@@ -16,17 +16,12 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Budget.** No campaign runs. GPT's weekly allowance is nearly spent until about 2026-11-13; Argon's is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST). Claude builds and reviews meanwhile, labeled Claude-only.
 
-### Wake-ups (2026-11-08, the human away)
-
-- **stage7 slice 4 finish** (Opus, after the review): `slice4` (`../mm-slice4`) stopped at a usage limit; its C6.4 harness writes `~/.cache/mm-slice4-c64/report.json`. Finish rust-port-plan §2 item 4's checks (the harness; `mm eval --trace` of `933b3f4` vs the new binary, byte-identical), commit, update Stage 7. No merge: Argon reviews it.
-
-
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
 - **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round five (`b29eb06`, Sonnet) reviewed by Opus: ready after fixes (`audit/reviews/2026-11-08-opus-thesis-refreeze-round5.md`): R1-R7 hold; F1 T3's schedule derivation miscounts terminal requests (recorded behaviour: done 02:54 UTC (21:54 EST); omit-unclosed stress: 04:45 UTC (23:45 EST)), F2 a Monday attested after 23:00 UTC (18:00 EST), F3 the report lacks `snapshot_ready`, F4 a deadline race, F5 erasure. Next: a builder fixes F1-F5; the advisor decides whether the revision restates the ten-dex mark send time; then the criteria revision alone, then the freeze (new identity and window). Argon's T3 check queued.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with stage 7.
-- **Stage 7: parked after slice 4** (the human, 2026-11-08, `audit/decisions.md`). Slice 4 finishing (Opus builder, `slice4`); its review waits for Argon; no slice 6 or other C7 work. The Lean engine stage is deferred.
+- **Stage 7: parked after slice 4** (the human, 2026-11-08, `audit/decisions.md`). Slice 4 built and checked on `slice4` (`../mm-slice4`, `4452591`; rust-port-plan §2 item 4: C6.4's 3,372 runs agree, N1-N3 byte-identical to `933b3f4`, edge to its parent); not merged: Argon reviews it after its reset (~2026-11-14). No slice 6 or other C7 work. The Lean engine stage is deferred.
 - **Next research step, after the refreeze:** the positive-control study (`audit/decisions.md`, 2026-11-08): its criteria first, reviewed by GPT and a Claude session.
 
 1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
