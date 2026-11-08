@@ -366,5 +366,11 @@ mod tests {
         m.deliver(obs(&p, "forum_posts", 4 * HOUR, Some(4 * HOUR), 5 * HOUR + DELTA + 1, Some(9.0)), 5 * HOUR + DELTA + 1).unwrap();
         m.tick(&[true], 5 * HOUR);
         assert_eq!(at(&p, &m, "n"), None);
+
+        let mut m = Machine::new(&p, 1);
+        m.deliver(obs(&p, "forum_posts", 4 * HOUR, Some(4 * HOUR), 5 * HOUR + DELTA, Some(9.0)), 5 * HOUR + DELTA).unwrap();
+        m.deliver(obs(&p, "forum_posts", 5 * HOUR, Some(5 * HOUR), 5 * HOUR + DELTA + 1, Some(3.0)), 5 * HOUR + DELTA + 1).unwrap();
+        m.tick(&[true], 5 * HOUR);
+        assert_eq!(at(&p, &m, "n"), Some(3.0), "control: the current row last is read");
     }
 }

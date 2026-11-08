@@ -59,9 +59,9 @@ MUTANTS = {
         (SIM, "        if !(book.equity(&marks) > 0.0) {", "        if false {"),
         (SIM, "        if !(r >= -LOSS_BOUND) {", "        if false {")]),
     "I1 events delivered early": ("cd kernel && cargo test -q --release --test events counts_are_fresh_only_and_respect_known_at", [
-        (MACHINE, "        if o.known > tick {", "        if e.known > tick + HOUR {")]),
+        (MACHINE, "        if o.known > tick {", "        if o.known > tick + HOUR {")]),
     "S1 two-run: events read ahead": ("cd kernel && cargo test -q --release --test noninterference decisions_through_t", [
-        (MACHINE, "        if o.known > tick {", "        if e.known > tick + HOUR {"),
+        (MACHINE, "        if o.known > tick {", "        if o.known > tick + HOUR {"),
         (SIM, "order.events[*ei].1.known <= tick {", "order.events[*ei].1.known <= tick + HOUR {")]),
     "S2 two-run: a correction known before it was fetched": ("cd kernel && cargo test -q --release --test noninterference late_venue_state", [
         (RESOLVER, "        raises.push(rev.fetched as i128);", "        raises.push(LO);")]),
