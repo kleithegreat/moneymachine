@@ -5,7 +5,7 @@ mod common;
 
 use mm::dsl;
 use mm::machine::Machine;
-use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
+use mm::market::{CoinRules, Market, Policy, Venue, BAR, HOUR};
 use mm::{canon, sim};
 use serde_json::{json, Value};
 
@@ -41,30 +41,18 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
     let mut rng = Rng(seed);
     let n_bars = DAYS * 6;
     let end = n_bars * BAR;
-    let mut bars = vec![];
+    let mut obs = vec![];
     for c in 0..COINS {
         let mut px = 100.0;
         for k in 0..n_bars {
             let flat = variant > 0 && k % 17 < 3;
             let close = if flat { px } else { px * (1.0 + 0.02 * (rng.unit() - 0.5)) };
-            bars.push(Bar {
-                coin: c,
-                open_time: k * BAR,
-                event: (k + 1) * BAR,
-                known: (k + 1) * BAR + DELTA,
-                open: px,
-                high: px.max(close) * 1.005,
-                low: px.min(close) * 0.995,
-                close,
-                volume: if flat { 0.0 } else { 1.0 + rng.unit() },
-                trades: if variant == 2 && k % 23 == 0 { 0 } else { 1 },
-                retraction: false,
-                recorded: 0,
-            });
+            let volume = if flat { 0.0 } else { 1.0 + rng.unit() };
+            let trades = if variant == 2 && k % 23 == 0 { 0 } else { 1 };
+            obs.push(common::bar(c, (k + 1) * BAR, (k + 1) * BAR + DELTA, [px, px.max(close) * 1.005, px.min(close) * 0.995, close], volume, trades));
             px = close;
         }
     }
-    let mut funding = vec![];
     for c in 0..COINS {
         for h in 0..=n_bars * 4 {
             let (rate, premium) = match variant {
@@ -75,27 +63,14 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
                     _ => ((rng.unit() - 0.5) * 4e-4, (rng.unit() - 0.5) * 2e-3),
                 },
             };
-            funding.push(Funding { coin: c, event: h * HOUR, known: h * HOUR + DELTA, rate, premium, retraction: false, recorded: 0 });
+            obs.push(common::funding(c, h * HOUR, h * HOUR + DELTA, rate, premium));
         }
-    }
-    let mut bar_times = vec![vec![]; COINS];
-    for b in &bars {
-        bar_times[b.coin].push(b.open_time);
     }
     let mut intervals = vec![(0, end); COINS];
     if variant == 2 {
         intervals[COINS - 1] = (0, end / 2);
     }
-    let m = Market {
-        bar_at: bars.iter().enumerate().map(|(i, b)| ((b.coin, b.open_time), i)).collect(),
-        rate_at: funding.iter().map(|f| ((f.coin, f.event), f.rate)).collect(),
-        bar_times,
-        intervals,
-        events: std::collections::HashMap::new(),
-        funding,
-        bars,
-        data_hash: String::new(),
-    };
+    let m = common::market(obs, intervals);
     let v = Venue {
         taker_fee: 0.00045,
         min_notional: 10.0,
@@ -226,13 +201,14 @@ fn program(probe: Value, rng_ctx: &mut Rng, is_bool: bool) -> String {
 }
 
 /// Per-tick value bits of the probe node for every coin, as the kernel's machine sees them.
-fn streams(p: &dsl::Program, m: &Market, end: i64) -> Vec<Option<u64>> {
+fn streams(p: &dsl::Program, m: &Market, v: &Venue, pol: &Policy, end: i64) -> Vec<Option<u64>> {
     let probe = p.lets.iter().find(|(n, _)| n == "probe").unwrap().1;
-    let mut machine = Machine::new(p, COINS);
-    let mut feed = sim::Feed::new(m, p);
+    let ctx = sim::Ctx::make(p, m, v, pol, end);
+    let mut machine = Machine::new(p, m.bound.len(), COINS);
+    let mut next = 0;
     let mut out = vec![];
     for h in (0..=end).step_by(HOUR as usize) {
-        feed.until(&mut machine, h + DELTA).unwrap();
+        ctx.deliver(&mut machine, &mut next, h + DELTA).unwrap();
         let listed: Vec<bool> = (0..COINS).map(|c| m.intervals[c].0 <= h && h < m.intervals[c].1).collect();
         machine.tick(&listed, h);
         out.extend((0..COINS).map(|c| machine.value(probe, c).map(f64::to_bits)));
@@ -265,7 +241,7 @@ fn every_rule_is_exact() {
                         let (a, b) = (program(lhs, &mut Rng(seed), is_bool), program(rhs, &mut Rng(seed), is_bool));
                         let (pa, pb) = (dsl::parse(&common::inputs(), &a).unwrap_or_else(|e| panic!("{rule} {i}: {e}\n{a}")), dsl::parse(&common::inputs(), &b).unwrap());
                         for (m, v, pol, end) in markets {
-                            let (sa, sb) = (streams(&pa, m, *end), streams(&pb, m, *end));
+                            let (sa, sb) = (streams(&pa, m, v, pol, *end), streams(&pb, m, v, pol, *end));
                             assert_eq!(sa, sb, "{rule} #{i}: probe streams differ\n{a}\n{b}");
                             nontrivial += sa.iter().any(|x| x.is_some()) as usize;
                             assert_eq!(outcome(&pa, m, v, pol, *end), outcome(&pb, m, v, pol, *end), "{rule} #{i}: outcomes differ");

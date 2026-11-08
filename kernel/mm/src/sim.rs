@@ -1,4 +1,5 @@
-//! The simulator: decisions -> orders -> fills -> positions -> funding/fees -> equity.
+//! The simulator from Lean's `Ctx` (reference/lean/Ref/Sim.lean): decisions -> orders -> fills -> positions ->
+//! funding/fees -> equity.
 //!
 //! Event order per 4h bar [b, b + 4h): funding settlements at b + 1h ..= b + 4h; marks at
 //! the bar's close; margin check at its adverse extreme; delisting closeouts; the I5 check
@@ -7,10 +8,9 @@
 //! only if a later bar will mark it, so the last equity mark accounts for every fill.
 
 use crate::dsl::Program;
-use crate::dsl::EVENT_INPUTS;
-use crate::machine::{Causality, Machine, Obs};
-use crate::market::{Bar, Delivery, Funding, Market, Policy, Venue, BAR, HOUR};
-use std::collections::BTreeMap;
+use crate::machine::{Machine, Obs, RolePayload};
+use crate::market::{Market, Policy, Venue, BAR, HOUR};
+use std::collections::{BTreeMap, HashMap};
 
 pub const INITIAL: f64 = 10_000.0;
 pub const MAX_GROSS: f64 = 2.0;
@@ -199,25 +199,78 @@ pub fn fill_price(venue: &Venue, coin: usize, qty: f64, reference: f64) -> f64 {
     reference * (1.0 + qty.signum() * bps / 1e4)
 }
 
+/// A bar as execution reads it: the bars provider's final role payload (Lean's `BarRow`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BarRow {
+    pub coin: usize,
+    pub open_time: i64,
+    pub event: i64,
+    pub known: i64,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub trades: i64,
+}
+
+/// The bars provider's final observations, as execution reads them (Lean's `barRow`).
+pub fn bar_rows(market: &Market) -> Vec<BarRow> {
+    let bar = |o: &Obs| match o.role {
+        Some(RolePayload::Bar { open, high, low, close, trades }) if o.source == market.roles.bars && o.last => {
+            Some(BarRow { coin: o.coin, open_time: o.key - BAR, event: o.key, known: o.known, open, high, low, close, trades })
+        }
+        _ => None,
+    };
+    market.obs.iter().filter_map(bar).collect()
+}
+
+/// Execution's lookups (Lean's `Index`): a bar by (coin, openTime), each coin's sorted openTimes, a settlement rate by
+/// (coin, event time).
+pub struct Index {
+    pub bar_at: HashMap<(usize, i64), usize>,
+    pub bar_times: Vec<Vec<i64>>,
+    pub rate_at: HashMap<(usize, i64), f64>,
+}
+
+impl Index {
+    pub fn of(bars: &[BarRow], rates: impl IntoIterator<Item = ((usize, i64), f64)>, coins: usize) -> Index {
+        let mut bar_times = vec![vec![]; coins];
+        for b in bars {
+            bar_times[b.coin].push(b.open_time);
+        }
+        for t in &mut bar_times {
+            t.sort();
+        }
+        Index { bar_at: bars.iter().enumerate().map(|(i, b)| ((b.coin, b.open_time), i)).collect(), bar_times, rate_at: rates.into_iter().collect() }
+    }
+
+    /// Coin c's latest bar opened by t (Lean's `latestOf`).
+    fn latest(&self, bars: &[BarRow], c: usize, t: i64) -> Option<BarRow> {
+        let times = &self.bar_times[c];
+        let k = times.partition_point(|&u| u <= t).checked_sub(1)?;
+        Some(bars[self.bar_at[&(c, times[k])]])
+    }
+}
+
 /// I2 and I3 (and the I9 order cap) for one fill, recomputed from the source bars.
-pub fn check_fill(f: &Fill, market: &Market, venue: &Venue) -> Result<(), Abort> {
+pub fn check_fill(f: &Fill, bars: &[BarRow], ix: &Index, venue: &Venue) -> Result<(), Abort> {
     if !(f.inputs_known <= f.decided && f.decided <= f.submitted && f.submitted <= f.filled) {
         return Err(Abort::Timing(format!("{f:?}")));
     }
-    let Some(&bi) = market.bar_at.get(&(f.coin, f.source_open)) else {
+    let Some(&bi) = ix.bar_at.get(&(f.coin, f.source_open)) else {
         return Err(Abort::Fill(format!("no source bar {f:?}")));
     };
-    let bar = market.bars[bi];
+    let bar = bars[bi];
     let fee = f.qty.abs() * f.price * venue.taker_fee;
     let priced = f.qty != 0.0 && f.price == fill_price(venue, f.coin, f.qty, f.reference) && f.fee == fee;
-    let times = &market.bar_times[f.coin];
+    let times = &ix.bar_times[f.coin];
     let ok = match f.why {
         Why::Fill => {
             let first = times.get(times.partition_point(|&t| t < f.submitted)).copied();
             first == Some(bar.open_time) && bar.open_time <= f.filled && bar.trades >= 1 && f.reference == bar.open
         }
         Why::Liquidation | Why::Delisting => {
-            let latest = times.iter().rev().find(|&&t| market.bars[market.bar_at[&(f.coin, t)]].event <= f.filled);
+            let latest = times.iter().rev().find(|&&t| bars[ix.bar_at[&(f.coin, t)]].event <= f.filled);
             let reference = match f.why {
                 Why::Delisting => bar.close,
                 _ if f.qty > 0.0 => bar.high,
@@ -243,329 +296,292 @@ struct Order {
     decided: i64,
 }
 
-/// A coin's latest bar opened by t.
-fn latest_bar(market: &Market, c: usize, t: i64) -> Option<crate::market::Bar> {
-    let times = &market.bar_times[c];
-    let k = times.partition_point(|&u| u <= t).checked_sub(1)?;
-    Some(market.bars[market.bar_at[&(c, times[k])]])
-}
-
-/// Where a program's input table puts the records of a market: the source of each and its fields' positions (the
-/// interim wiring of the typed market to the machine's observations, until slice 4's `Ctx`).
-struct Wiring {
-    funding: usize,
-    bars: usize,
-    events: Vec<usize>,
-    /// The width of each source's `vals`.
-    width: Vec<usize>,
-    /// Field positions by input name.
-    field: std::collections::HashMap<String, usize>,
-}
-
-impl Wiring {
-    fn new(prog: &Program) -> Wiring {
-        let source = |name: &str| prog.inputs.iter().find(|i| i.name == name).expect("a registered input").source;
-        let mut width = vec![0; prog.inputs.iter().map(|i| i.source + 1).max().unwrap_or(0)];
-        for i in &prog.inputs {
-            width[i.source] = width[i.source].max(i.field + 1);
-        }
-        Wiring {
-            funding: source("funding"),
-            bars: source("close"),
-            events: EVENT_INPUTS.iter().map(|e| source(e.0)).collect(),
-            width,
-            field: prog.inputs.iter().map(|i| (i.name.clone(), i.field)).collect(),
-        }
-    }
-
-    fn obs(&self, source: usize, coin: usize, key: i64, slot: Option<i64>, known: i64, retraction: bool, named: &[(&str, f64)]) -> Obs {
-        let mut vals = vec![None; self.width[source]];
-        if !retraction {
-            for (name, v) in named {
-                vals[self.field[*name]] = Some(*v);
-            }
-        }
-        Obs { source, coin, key, slot, known, vals, retraction }
-    }
-
-    fn funding(&self, f: &Funding) -> Obs {
-        self.obs(self.funding, f.coin, f.event, None, f.known, f.retraction, &[("funding", f.rate), ("premium", f.premium)])
-    }
-
-    fn bar(&self, b: &Bar) -> Obs {
-        let v = [("open", b.open), ("high", b.high), ("low", b.low), ("close", b.close), ("volume", b.volume)];
-        self.obs(self.bars, b.coin, b.event, None, b.known, b.retraction, &v)
-    }
-
-    fn event(&self, slot: usize, e: &crate::market::Event) -> Obs {
-        self.obs(self.events[slot], e.coin, e.key, Some(e.event), e.known, false, &[(EVENT_INPUTS[slot].0, e.count)])
-    }
-}
-
-/// The records of a market reaching a machine in `Market::delivery`'s order.
-pub struct Feed<'a> {
+/// Everything a run fixes before its first step (Lean's `Ctx`).
+pub struct Ctx<'a> {
+    prog: &'a Program,
     market: &'a Market,
-    order: Delivery,
-    next: (usize, usize, usize),
-    wiring: Wiring,
+    venue: &'a Venue,
+    policy: &'a Policy,
+    stop: i64,
+    /// Positions in `market.obs`, in delivery order.
+    order: Vec<usize>,
+    bars: Vec<BarRow>,
+    ix: Index,
 }
 
-impl<'a> Feed<'a> {
-    pub fn new(market: &'a Market, prog: &Program) -> Feed<'a> {
-        Feed { market, order: market.delivery(), next: (0, 0, 0), wiring: Wiring::new(prog) }
+impl<'a> Ctx<'a> {
+    /// Lean's `Ctx.make`: the observations in delivery order (knownAt, source, coin, tie, position), the tie being (event
+    /// time, recording time) for a held source and (recording time, event time) for an event source, the one with a
+    /// slot; execution's bars and rates from the role providers' final observations.
+    pub fn make(prog: &'a Program, market: &'a Market, venue: &'a Venue, policy: &'a Policy, stop: i64) -> Ctx<'a> {
+        let obs = &market.obs;
+        let tie = |o: &Obs| if o.slot.is_some() { (o.recorded, o.key) } else { (o.key, o.recorded) };
+        let mut order: Vec<usize> = (0..obs.len()).collect();
+        order.sort_by_key(|&i| (obs[i].known, obs[i].source, obs[i].coin, tie(&obs[i])));
+        let bars = bar_rows(market);
+        let rates = obs.iter().filter_map(|o| match o.role {
+            Some(RolePayload::Rate(r)) if o.source == market.roles.settlement && o.last => Some(((o.coin, o.key), r)),
+            _ => None,
+        });
+        let ix = Index::of(&bars, rates, market.intervals.len());
+        Ctx { prog, market, venue, policy, stop, order, bars, ix }
     }
 
-    /// Deliver every record known by `tick` not yet delivered.
-    pub fn until(&mut self, machine: &mut Machine, tick: i64) -> Result<(), Abort> {
-        let (m, order, (fi, bi, ei), w) = (self.market, &self.order, &mut self.next, &self.wiring);
-        let late = |e: Causality| Abort::Causality(format!("{e:?}"));
-        while *fi < order.funding.len() && m.funding[order.funding[*fi]].known <= tick {
-            machine.deliver(w.funding(&m.funding[order.funding[*fi]]), tick).map_err(late)?;
-            *fi += 1;
-        }
-        while *bi < order.bars.len() && m.bars[order.bars[*bi]].known <= tick {
-            machine.deliver(w.bar(&m.bars[order.bars[*bi]]), tick).map_err(late)?;
-            *bi += 1;
-        }
-        while *ei < order.events.len() && order.events[*ei].1.known <= tick {
-            let (slot, ev) = order.events[*ei];
-            machine.deliver(w.event(slot, &ev), tick).map_err(late)?;
-            *ei += 1;
+    fn coins(&self) -> usize {
+        self.market.intervals.len()
+    }
+
+    fn listed(&self, c: usize, t: i64) -> bool {
+        let (start, end) = self.market.intervals[c];
+        start <= t && t < end
+    }
+
+    fn mask(&self, t: i64) -> Vec<bool> {
+        (0..self.coins()).map(|c| self.listed(c, t)).collect()
+    }
+
+    fn machine(&self) -> Machine<'a> {
+        Machine::new(self.prog, self.market.bound.len(), self.coins())
+    }
+
+    /// Deliver every observation known by `tick` from position `next` of the delivery order on (SEMANTICS.md §3).
+    pub fn deliver(&self, machine: &mut Machine, next: &mut usize, tick: i64) -> Result<(), Abort> {
+        while let Some(o) = self.order.get(*next).map(|&i| &self.market.obs[i]).filter(|o| o.known <= tick) {
+            machine.deliver(o.clone(), tick).map_err(|e| Abort::Causality(format!("{e:?}")))?;
+            *next += 1;
         }
         Ok(())
     }
 
-    /// Coin c's latest funding observation is the fresh settlement of bar-hour `big_b`.
-    fn fresh_funding(&self, machine: &Machine, c: usize, big_b: i64) -> bool {
-        machine.latest[self.wiring.funding][c].as_ref().is_some_and(|o| o.key == big_b && !o.retraction)
+    /// The step boundaries (Lean's `Ctx.bounds`): b = wStart, wStart + BAR, … while b + 2·BAR ≤ stop.
+    fn bounds(&self) -> impl Iterator<Item = i64> + '_ {
+        (0..).map(|k| self.policy.w_start + k * BAR).take_while(|b| b + 2 * BAR <= self.stop)
     }
 
-    fn fresh_bar(&self, machine: &Machine, c: usize, big_b: i64) -> bool {
-        machine.latest[self.wiring.bars][c].as_ref().is_some_and(|o| o.key == big_b && !o.retraction)
+    /// Whether coin c's latest observation of `source` is the live record of the bar-hour `big_b`.
+    fn fresh(&self, machine: &Machine, source: usize, c: usize, big_b: i64) -> bool {
+        machine.latest[source][c].as_ref().is_some_and(|o| o.key == big_b && o.role.is_some())
     }
 
-    /// The close of coin c's latest bar observation.
-    fn close(&self, machine: &Machine, c: usize) -> f64 {
-        machine.latest[self.wiring.bars][c].as_ref().unwrap().vals[self.wiring.field["close"]].unwrap()
-    }
-}
-
-/// Drive a machine over the run's tick schedule alone (wStart, then each hour of every step before `end`, no
-/// orders), handing `emit` each tick's hour and the machine after its deliveries and tick.
-pub fn observe(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64, mut emit: impl FnMut(i64, &Machine) -> Result<(), String>) -> Result<(), String> {
-    let n = venue.coins.len();
-    let mut machine = Machine::new(prog, n);
-    let mut feed = Feed::new(market, prog);
-    let mask = |h: i64| (0..n).map(|c| market.intervals[c].0 <= h && h < market.intervals[c].1).collect::<Vec<_>>();
-    let steps = (0..).map(|k| policy.w_start + k * BAR).take_while(|b| b + 2 * BAR <= end).count() as i64;
-    let first = std::iter::once(policy.w_start).chain((1..=4 * steps).map(|k| policy.w_start + k * HOUR));
-    for h in first {
-        feed.until(&mut machine, h + policy.delta).map_err(|e| format!("{e:?}"))?;
-        machine.tick(&mask(h), h);
-        emit(h, &machine)?;
-    }
-    Ok(())
-}
-
-pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64) -> Result<Run, Abort> {
-    let n = venue.coins.len();
-    for ds in prog.event_datasets() {
-        if !market.events.contains_key(ds) {
-            return Err(Abort::InputUnavailable(format!("dataset {ds} is not in this store")));
+    /// Drive a machine over the run's tick schedule alone (wStart, then each hour of every step, no orders), handing
+    /// `emit` each tick's hour and the machine after its deliveries and tick.
+    pub fn observe(&self, mut emit: impl FnMut(i64, &Machine) -> Result<(), String>) -> Result<(), String> {
+        let mut machine = self.machine();
+        let mut next = 0;
+        let w_start = self.policy.w_start;
+        let hours = std::iter::once(w_start).chain((1..=4 * self.bounds().count() as i64).map(|k| w_start + k * HOUR));
+        for h in hours {
+            self.deliver(&mut machine, &mut next, h + self.policy.delta).map_err(|e| format!("{e:?}"))?;
+            machine.tick(&self.mask(h), h);
+            emit(h, &machine)?;
         }
-    }
-    let mut machine = Machine::new(prog, n);
-    let mut feed = Feed::new(market, prog);
-
-    let mut book = Book { cash: INITIAL, ..Book::default() };
-    let mut marks = vec![f64::NAN; n];
-    let mut trace = vec![];
-    let mut orders: BTreeMap<i64, Vec<Order>> = BTreeMap::new();
-    let (mut returns, mut gross_returns, mut equity_path) = (vec![], vec![], vec![]);
-    let (mut prev_equity, mut prev_costs, mut peak_equity) = (INITIAL, 0.0, 0.0_f64);
-    let mut exposures = vec![];
-    let (mut cond_latest, mut cond_held): (Vec<Option<bool>>, Vec<Option<bool>>) = (vec![None; n], vec![None; n]);
-    let mut value_prev = vec![0.0; n];
-    let mut held_prev: Vec<bool> = vec![false; n];
-
-    let execute = |book: &mut Book, trace: &mut Vec<Event>, f: Fill| -> Result<(), Abort> {
-        check_fill(&f, market, venue)?;
-        book.fill(f.coin, f.qty, f.price, f.fee);
-        book.slippage += f.qty * (f.price - f.reference);
-        trace.push(Event::Fill(f));
         Ok(())
-    };
-    let closeout = |coin: usize, qty: f64, reference: f64, why: Why, t: i64, source_open: i64| {
-        let price = fill_price(venue, coin, qty, reference);
-        Fill {
-            why,
-            coin,
-            qty,
-            inputs_known: t,
-            decision_price: reference,
-            decided: t,
-            submitted: t,
-            filled: t,
-            source_open,
-            reference,
-            price,
-            fee: qty.abs() * price * venue.taker_fee,
-        }
-    };
+    }
 
-    let listed = |c: usize, t: i64| market.intervals[c].0 <= t && t < market.intervals[c].1;
-    feed.until(&mut machine, policy.w_start + policy.delta)?;
-    machine.tick(&(0..n).map(|c| listed(c, policy.w_start)).collect::<Vec<_>>(), policy.w_start);
+    /// Lean's `Ctx.evaluate`: its trace and returns, or the abort.
+    pub fn evaluate(&self) -> Result<Run, Abort> {
+        let (venue, policy, roles, bars, ix, end) = (self.venue, self.policy, self.market.roles, &self.bars[..], &self.ix, self.stop);
+        let n = self.coins();
+        let mut machine = self.machine();
+        let mut next = 0;
 
-    let mut b = policy.w_start;
-    while b + 2 * BAR <= end {
-        for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
-            let held: Vec<usize> = book.pos.keys().copied().filter(|&c| listed(c, h)).collect();
-            for coin in held {
-                let (Some(&rate), Some(bar)) = (market.rate_at.get(&(coin, h)), latest_bar(market, coin, h)) else {
-                    return Err(Abort::SettlementMissing(format!("coin {coin} at {h}: no funding row or no bar to price it")));
-                };
-                let price = bar.open;
-                let paid = book.settle(coin, price, rate);
-                trace.push(Event::Funding { t: h, coin, rate, price, paid });
-            }
-        }
-        let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
-        let latest: BTreeMap<usize, crate::market::Bar> =
-            held.iter().filter_map(|&(c, _)| Some((c, latest_bar(market, c, b)?))).collect();
-        for (&c, bar) in &latest {
-            marks[c] = bar.close;
-        }
-        let adverse = |c: usize, q: f64| latest.get(&c).map_or(marks[c], |bar| if q > 0.0 { bar.low } else { bar.high });
-        let eq_adverse = book.cash + held.iter().map(|&(c, q)| q * adverse(c, q)).sum::<f64>();
-        let maintenance: f64 = held.iter().map(|&(c, q)| q.abs() * adverse(c, q) / (2.0 * venue.rules[c].min_tier_leverage)).sum();
-        if !held.is_empty() && eq_adverse < maintenance {
-            for &(c, q) in &held {
-                let bar = latest[&c];
-                execute(&mut book, &mut trace, closeout(c, -q, adverse(c, q), Why::Liquidation, b + BAR, bar.open_time))?;
-            }
-        }
-        let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
-        for (c, q) in held {
-            if b + BAR >= market.intervals[c].1 {
-                execute(&mut book, &mut trace, closeout(c, -q, marks[c], Why::Delisting, b + BAR, latest[&c].open_time))?;
-            }
-        }
+        let mut book = Book { cash: INITIAL, ..Book::default() };
+        let mut marks = vec![f64::NAN; n];
+        let mut trace = vec![];
+        let mut orders: BTreeMap<i64, Vec<Order>> = BTreeMap::new();
+        let (mut returns, mut gross_returns, mut equity_path) = (vec![], vec![], vec![]);
+        let (mut prev_equity, mut prev_costs, mut peak_equity) = (INITIAL, 0.0, 0.0_f64);
+        let mut exposures = vec![];
+        let (mut cond_latest, mut cond_held): (Vec<Option<bool>>, Vec<Option<bool>>) = (vec![None; n], vec![None; n]);
+        let mut value_prev = vec![0.0; n];
+        let mut held_prev: Vec<bool> = vec![false; n];
 
-        if !(book.equity(&marks) > 0.0) {
+        let execute = |book: &mut Book, trace: &mut Vec<Event>, f: Fill| -> Result<(), Abort> {
+            check_fill(&f, bars, ix, venue)?;
+            book.fill(f.coin, f.qty, f.price, f.fee);
+            book.slippage += f.qty * (f.price - f.reference);
+            trace.push(Event::Fill(f));
+            Ok(())
+        };
+        let closeout = |coin: usize, qty: f64, reference: f64, why: Why, t: i64, source_open: i64| {
+            let price = fill_price(venue, coin, qty, reference);
+            Fill {
+                why,
+                coin,
+                qty,
+                inputs_known: t,
+                decision_price: reference,
+                decided: t,
+                submitted: t,
+                filled: t,
+                source_open,
+                reference,
+                price,
+                fee: qty.abs() * price * venue.taker_fee,
+            }
+        };
+
+        self.deliver(&mut machine, &mut next, policy.w_start + policy.delta)?;
+        machine.tick(&self.mask(policy.w_start), policy.w_start);
+
+        for b in self.bounds() {
+            for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
+                let held: Vec<usize> = book.pos.keys().copied().filter(|&c| self.listed(c, h)).collect();
+                for coin in held {
+                    let (Some(&rate), Some(bar)) = (ix.rate_at.get(&(coin, h)), ix.latest(bars, coin, h)) else {
+                        return Err(Abort::SettlementMissing(format!("coin {coin} at {h}: no funding row or no bar to price it")));
+                    };
+                    let price = bar.open;
+                    let paid = book.settle(coin, price, rate);
+                    trace.push(Event::Funding { t: h, coin, rate, price, paid });
+                }
+            }
+            let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
+            let latest: BTreeMap<usize, BarRow> = held.iter().filter_map(|&(c, _)| Some((c, ix.latest(bars, c, b)?))).collect();
+            for (&c, bar) in &latest {
+                marks[c] = bar.close;
+            }
+            let adverse = |c: usize, q: f64| latest.get(&c).map_or(marks[c], |bar| if q > 0.0 { bar.low } else { bar.high });
+            let eq_adverse = book.cash + held.iter().map(|&(c, q)| q * adverse(c, q)).sum::<f64>();
+            let maintenance: f64 = held.iter().map(|&(c, q)| q.abs() * adverse(c, q) / (2.0 * venue.rules[c].min_tier_leverage)).sum();
+            if !held.is_empty() && eq_adverse < maintenance {
+                for &(c, q) in &held {
+                    let bar = latest[&c];
+                    execute(&mut book, &mut trace, closeout(c, -q, adverse(c, q), Why::Liquidation, b + BAR, bar.open_time))?;
+                }
+            }
             let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
             for (c, q) in held {
-                execute(&mut book, &mut trace, closeout(c, -q, adverse(c, q), Why::Liquidation, b + BAR, latest[&c].open_time))?;
-            }
-            book.absorb();
-        }
-
-        let (e1, e2) = (book.equity(&marks), book.reconciled(&marks));
-        if !accounting_ok(e1, e2, peak_equity) {
-            return Err(Abort::Accounting(format!("at {}: {e1} vs {e2}", b + BAR)));
-        }
-        peak_equity = peak_equity.max(e1.abs());
-        trace.push(Event::Equity { t: b + BAR, equity: e1, reconciled: e2 });
-        for c in 0..n {
-            let v = book.coin_value(c, &marks);
-            if held_prev[c] {
-                if let Some(cond) = cond_held[c] {
-                    exposures.push((cond, (v - value_prev[c]) / prev_equity));
+                if b + BAR >= self.market.intervals[c].1 {
+                    execute(&mut book, &mut trace, closeout(c, -q, marks[c], Why::Delisting, b + BAR, latest[&c].open_time))?;
                 }
             }
-            value_prev[c] = v;
-        }
-        let (r, gross) = if prev_equity > 0.0 {
-            (if e1 > 0.0 { e1 / prev_equity - 1.0 } else { -LOSS_BOUND }, (e1 - prev_equity + book.costs() - prev_costs) / prev_equity)
-        } else {
-            (0.0, 0.0)
-        };
-        if !(r >= -LOSS_BOUND) {
-            return Err(Abort::Bound(format!("return {r} at {}", b + BAR)));
-        }
-        returns.push(r);
-        gross_returns.push(gross);
-        equity_path.push(e1);
-        prev_equity = e1;
-        prev_costs = book.costs();
 
-        let fills = orders.remove(&(b + BAR)).unwrap_or_default();
-        for o in if b + 3 * BAR <= end { fills } else { vec![] } {
-            match market.bar_at.get(&(o.coin, b + BAR)).map(|&i| market.bars[i]) {
-                Some(bar) if bar.trades >= 1 && e1 > 0.0 => {
-                    let price = fill_price(venue, o.coin, o.qty, bar.open);
-                    let f = Fill {
-                        why: Why::Fill,
-                        coin: o.coin,
-                        qty: o.qty,
-                        inputs_known: o.inputs_known,
-                        decision_price: o.price,
-                        decided: o.decided,
-                        submitted: o.decided,
-                        filled: b + BAR,
-                        source_open: b + BAR,
-                        reference: bar.open,
-                        price,
-                        fee: o.qty.abs() * price * venue.taker_fee,
-                    };
-                    execute(&mut book, &mut trace, f)?;
+            if !(book.equity(&marks) > 0.0) {
+                let held: Vec<(usize, f64)> = book.pos.iter().map(|(&c, &q)| (c, q)).collect();
+                for (c, q) in held {
+                    execute(&mut book, &mut trace, closeout(c, -q, adverse(c, q), Why::Liquidation, b + BAR, latest[&c].open_time))?;
                 }
-                _ => trace.push(Event::Unfilled { t: b + BAR, coin: o.coin, qty: o.qty }),
+                book.absorb();
             }
-        }
 
-        for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
-            let tick = h + policy.delta;
-            feed.until(&mut machine, tick)?;
-            machine.tick(&(0..n).map(|c| listed(c, h)).collect::<Vec<_>>(), h);
-        }
+            let (e1, e2) = (book.equity(&marks), book.reconciled(&marks));
+            if !accounting_ok(e1, e2, peak_equity) {
+                return Err(Abort::Accounting(format!("at {}: {e1} vs {e2}", b + BAR)));
+            }
+            peak_equity = peak_equity.max(e1.abs());
+            trace.push(Event::Equity { t: b + BAR, equity: e1, reconciled: e2 });
+            for c in 0..n {
+                let v = book.coin_value(c, &marks);
+                if held_prev[c] {
+                    if let Some(cond) = cond_held[c] {
+                        exposures.push((cond, (v - value_prev[c]) / prev_equity));
+                    }
+                }
+                value_prev[c] = v;
+            }
+            let (r, gross) = if prev_equity > 0.0 {
+                (if e1 > 0.0 { e1 / prev_equity - 1.0 } else { -LOSS_BOUND }, (e1 - prev_equity + book.costs() - prev_costs) / prev_equity)
+            } else {
+                (0.0, 0.0)
+            };
+            if !(r >= -LOSS_BOUND) {
+                return Err(Abort::Bound(format!("return {r} at {}", b + BAR)));
+            }
+            returns.push(r);
+            gross_returns.push(gross);
+            equity_path.push(e1);
+            prev_equity = e1;
+            prev_costs = book.costs();
 
-        for c in 0..n {
-            held_prev[c] = book.pos.contains_key(&c);
-        }
-        cond_held.clone_from(&cond_latest);
+            let fills = orders.remove(&(b + BAR)).unwrap_or_default();
+            for o in if b + 3 * BAR <= end { fills } else { vec![] } {
+                match ix.bar_at.get(&(o.coin, b + BAR)).map(|&i| bars[i]) {
+                    Some(bar) if bar.trades >= 1 && e1 > 0.0 => {
+                        let price = fill_price(venue, o.coin, o.qty, bar.open);
+                        let f = Fill {
+                            why: Why::Fill,
+                            coin: o.coin,
+                            qty: o.qty,
+                            inputs_known: o.inputs_known,
+                            decision_price: o.price,
+                            decided: o.decided,
+                            submitted: o.decided,
+                            filled: b + BAR,
+                            source_open: b + BAR,
+                            reference: bar.open,
+                            price,
+                            fee: o.qty.abs() * price * venue.taker_fee,
+                        };
+                        execute(&mut book, &mut trace, f)?;
+                    }
+                    _ => trace.push(Event::Unfilled { t: b + BAR, coin: o.coin, qty: o.qty }),
+                }
+            }
 
-        let big_b = b + BAR;
-        let t_d = big_b + policy.delta;
-        let mut weights = vec![];
-        for c in 0..n {
-            let (start, stop) = market.intervals[c];
-            if !(start <= big_b && big_b + 2 * BAR <= stop) {
-                continue;
+            for h in (b + HOUR..=b + BAR).step_by(HOUR as usize) {
+                self.deliver(&mut machine, &mut next, h + policy.delta)?;
+                machine.tick(&self.mask(h), h);
             }
-            let fresh = feed.fresh_funding(&machine, c, big_b) && feed.fresh_bar(&machine, c, big_b);
-            cond_latest[c] = machine.condition(c);
-            if !fresh {
-                trace.push(Event::Hold { t: t_d, coin: c, why: "stale" });
-                continue;
+
+            for c in 0..n {
+                held_prev[c] = book.pos.contains_key(&c);
             }
-            match machine.weight(c) {
-                Some(w) => weights.push((c, w)),
-                None => trace.push(Event::Hold { t: t_d, coin: c, why: "undefined" }),
+            cond_held.clone_from(&cond_latest);
+
+            let big_b = b + BAR;
+            let t_d = big_b + policy.delta;
+            let mut weights = vec![];
+            for c in 0..n {
+                let (start, stop) = self.market.intervals[c];
+                if !(start <= big_b && big_b + 2 * BAR <= stop) {
+                    continue;
+                }
+                let fresh = self.fresh(&machine, roles.bars, c, big_b) && self.fresh(&machine, roles.settlement, c, big_b);
+                cond_latest[c] = machine.condition(c);
+                if !fresh {
+                    trace.push(Event::Hold { t: t_d, coin: c, why: "stale" });
+                    continue;
+                }
+                match machine.weight(c) {
+                    Some(w) => weights.push((c, w)),
+                    None => trace.push(Event::Hold { t: t_d, coin: c, why: "undefined" }),
+                }
+            }
+            let largest = weights.iter().map(|(_, w)| w.abs()).fold(0.0, f64::max);
+            let relative: f64 = weights.iter().map(|(_, w)| w.abs() / largest).sum();
+            let scaled = |w: f64| if relative * largest > MAX_GROSS { w / largest * (MAX_GROSS / relative) } else { w };
+            let gross: f64 = weights.iter().map(|(_, w)| scaled(*w).abs()).sum();
+            if !(gross <= MAX_GROSS * (1.0 + 1e-12)) {
+                return Err(Abort::Portfolio(format!("gross {gross} at {t_d}")));
+            }
+            for (c, w) in weights {
+                let w = scaled(w);
+                let price = match machine.latest[roles.bars][c].as_ref().and_then(|o| o.role) {
+                    Some(RolePayload::Bar { close, .. }) => close,
+                    _ => 0.0,
+                };
+                let held = book.pos.get(&c).copied().unwrap_or(0.0);
+                let dec = venue.rules[c].sz_decimals;
+                let mut qty = if w == 0.0 { -held } else { truncate(w * e1 / price - held, dec) };
+                if qty.abs() * price > MAX_ORDER_NOTIONAL {
+                    qty = qty.signum() * truncate(MAX_ORDER_NOTIONAL / price, dec);
+                }
+                if qty != 0.0 && (qty.abs() * price >= venue.min_notional || w == 0.0) {
+                    trace.push(Event::Decision { t: t_d, coin: c, weight: w, qty });
+                    orders.entry(big_b + BAR).or_default().push(Order { coin: c, qty, price, inputs_known: machine.max_known, decided: t_d });
+                }
             }
         }
-        let largest = weights.iter().map(|(_, w)| w.abs()).fold(0.0, f64::max);
-        let relative: f64 = weights.iter().map(|(_, w)| w.abs() / largest).sum();
-        let scaled = |w: f64| if relative * largest > MAX_GROSS { w / largest * (MAX_GROSS / relative) } else { w };
-        let gross: f64 = weights.iter().map(|(_, w)| scaled(*w).abs()).sum();
-        if !(gross <= MAX_GROSS * (1.0 + 1e-12)) {
-            return Err(Abort::Portfolio(format!("gross {gross} at {t_d}")));
-        }
-        for (c, w) in weights {
-            let w = scaled(w);
-            let price = feed.close(&machine, c);
-            let held = book.pos.get(&c).copied().unwrap_or(0.0);
-            let dec = venue.rules[c].sz_decimals;
-            let mut qty = if w == 0.0 { -held } else { truncate(w * e1 / price - held, dec) };
-            if qty.abs() * price > MAX_ORDER_NOTIONAL {
-                qty = qty.signum() * truncate(MAX_ORDER_NOTIONAL / price, dec);
-            }
-            if qty != 0.0 && (qty.abs() * price >= venue.min_notional || w == 0.0) {
-                trace.push(Event::Decision { t: t_d, coin: c, weight: w, qty });
-                orders.entry(big_b + BAR).or_default().push(Order { coin: c, qty, price, inputs_known: machine.max_known, decided: t_d });
-            }
-        }
-        b += BAR;
+        Ok(Run { trace, returns, gross_returns, equity: equity_path, exposures })
     }
-    Ok(Run { trace, returns, gross_returns, equity: equity_path, exposures })
+}
+
+/// A run of `prog` on `market`: R_INPUT_UNAVAILABLE if the program reads a source the store does not bind (SEMANTICS.md
+/// §8, stage 1's check until admission is wired, port plan slice 6), else `Ctx::evaluate`.
+pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64) -> Result<Run, Abort> {
+    if let Some(s) = prog.sources().into_iter().find(|&s| !market.bound[s]) {
+        return Err(Abort::InputUnavailable(format!("source {s} is not bound")));
+    }
+    Ctx::make(prog, market, venue, policy, end).evaluate()
 }

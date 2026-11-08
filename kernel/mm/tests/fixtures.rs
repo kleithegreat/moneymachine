@@ -7,7 +7,7 @@
 mod common;
 
 use mm::dsl;
-use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
+use mm::market::{CoinRules, Market, Policy, Venue, BAR, HOUR};
 use mm::sim::{self, Event, Why};
 
 const DELTA: i64 = 120_000;
@@ -45,45 +45,16 @@ impl Spec {
     fn build(&self) -> (Market, Venue, Policy, i64) {
         let n = self.opens.len() as i64;
         let end = n * BAR;
-        let bars: Vec<Bar> = (0..n as usize)
-            .filter(|k| !self.missing_bars.contains(k))
-            .map(|k| {
-                let (o, c) = (self.opens[k], self.closes[k]);
-                Bar {
-                    coin: 0,
-                    open_time: k as i64 * BAR,
-                    event: (k as i64 + 1) * BAR,
-                    known: (k as i64 + 1) * BAR + DELTA,
-                    open: o,
-                    high: self.highs.as_ref().map_or(o.max(c) + 1.0, |h| h[k]),
-                    low: self.lows.as_ref().map_or(o.min(c) - 1.0, |l| l[k]),
-                    close: c,
-                    volume: 1.0,
-                    trades: self.trades[k],
-                    retraction: false,
-                    recorded: 0,
-                }
-            })
-            .collect();
-        let funding: Vec<Funding> = (0..=n * 4)
-            .filter(|h| !self.missing_funding.contains(h) && self.delisted_at.is_none_or(|d| h * HOUR < d))
-            .map(|h| {
-                let (rate, premium) = self.funding.iter().find(|f| f.0 == h).map_or((0.0, 0.0), |f| (f.1, f.2));
-                Funding { coin: 0, event: h * HOUR, known: h * HOUR + DELTA, rate, premium, retraction: false, recorded: 0 }
-            })
-            .collect();
-        let mut bar_times = vec![bars.iter().map(|b| b.open_time).collect::<Vec<_>>()];
-        bar_times[0].sort();
-        let market = Market {
-            bar_at: bars.iter().enumerate().map(|(i, b)| ((b.coin, b.open_time), i)).collect(),
-            rate_at: funding.iter().map(|f| ((f.coin, f.event), f.rate)).collect(),
-            bar_times,
-            intervals: vec![(0, self.delisted_at.unwrap_or(end))],
-            events: std::collections::HashMap::new(),
-            funding,
-            bars,
-            data_hash: String::new(),
-        };
+        let bars = (0..n as usize).filter(|k| !self.missing_bars.contains(k)).map(|k| {
+            let (o, c) = (self.opens[k], self.closes[k]);
+            let (high, low) = (self.highs.as_ref().map_or(o.max(c) + 1.0, |h| h[k]), self.lows.as_ref().map_or(o.min(c) - 1.0, |l| l[k]));
+            common::bar(0, (k as i64 + 1) * BAR, (k as i64 + 1) * BAR + DELTA, [o, high, low, c], 1.0, self.trades[k])
+        });
+        let funding = (0..=n * 4).filter(|h| !self.missing_funding.contains(h) && self.delisted_at.is_none_or(|d| h * HOUR < d)).map(|h| {
+            let (rate, premium) = self.funding.iter().find(|f| f.0 == h).map_or((0.0, 0.0), |f| (f.1, f.2));
+            common::funding(0, h * HOUR, h * HOUR + DELTA, rate, premium)
+        });
+        let market = common::market(bars.chain(funding).collect(), vec![(0, self.delisted_at.unwrap_or(end))]);
         let venue = Venue {
             taker_fee: 0.001,
             min_notional: 10.0,

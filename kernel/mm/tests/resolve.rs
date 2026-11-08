@@ -5,6 +5,8 @@
 //! The loader's API is `market::load`; its channels are checked in a child process of this very test binary, run with
 //! `--nocapture`, whose output must be the harness's own lines and nothing else.
 
+mod common;
+
 use arrow_array::types::Float64Type;
 use arrow_array::{ArrayRef, BooleanArray, Float64Array, Int64Array, ListArray, RecordBatch, StringArray};
 use arrow_schema::{DataType, Field, Schema};
@@ -301,14 +303,15 @@ fn matrix(base: &Path, name: &str) {
         }
         let clean = root.join("clean");
         good_store(&clean, "B", early_time / HOUR);
-        let refusal = market::load(&[store.clone()], V, &venue, &policy, Some(policy.holdout_start));
+        let refusal = market::load(&[store.clone()], V, common::registry(), &venue, &policy, Some(policy.holdout_start));
         match refusal {
             Err(e) => assert_eq!(e.to_string(), diagnostic, "refusal of {name} variant {i}"),
             Ok(_) => panic!("{name} variant {i}: loaded"),
         }
-        let again = market::load(&[clean.clone()], V, &venue, &policy, Some(policy.holdout_start)).map(|m| format!("{m:?}"));
-        let fresh = market::load(&[clean], V, &venue, &policy, Some(policy.holdout_start)).map(|m| format!("{m:?}"));
-        assert!(again.as_ref().is_ok_and(|a| a.contains("funding: [Funding")) && again.as_ref().ok() == fresh.as_ref().ok(), "state: {name} variant {i}");
+        let view = |m: market::Market| (m.obs.iter().any(|o| o.source == m.roles.settlement), format!("{m:?}"));
+        let again = market::load(&[clean.clone()], V, common::registry(), &venue, &policy, Some(policy.holdout_start)).map(view);
+        let fresh = market::load(&[clean], V, common::registry(), &venue, &policy, Some(policy.holdout_start)).map(view);
+        assert!(again.as_ref().is_ok_and(|a| a.0) && again.as_ref().ok() == fresh.as_ref().ok(), "state: {name} variant {i}");
     }
 }
 
@@ -366,11 +369,11 @@ fn an_undecodable_file_fetched_after_the_version_changes_nothing() {
     good_store(&root, "A", 8);
     let venue = venue(&["A"]);
     let policy = policy();
-    let view = |m: market::Market| format!("{:?} {:?}", m.funding, m.bars);
-    let clean = view(market::load(&[root.clone()], V, &venue, &policy, None).unwrap());
+    let view = |m: market::Market| format!("{:?}", m.obs);
+    let clean = view(market::load(&[root.clone()], V, common::registry(), &venue, &policy, None).unwrap());
     late_file(&root.join("bars_4h/1.parquet"), Event::Int64, V + 100, 9);
     garble(&root.join("bars_4h/1.parquet"), &["eventTime", "fetchedAt"]);
-    let after = market::load(&[root.clone()], V, &venue, &policy, Some(policy.holdout_start)).map(view);
+    let after = market::load(&[root.clone()], V, common::registry(), &venue, &policy, Some(policy.holdout_start)).map(view);
     assert_eq!(after.as_ref().ok(), Some(&clean), "{after:?}");
 }
 
@@ -382,7 +385,7 @@ fn an_event_column_of_another_type_is_uncheckable_without_decoding_it() {
     late_file(&root.join("bars_4h/1.parquet"), Event::Float64, V, 9);
     garble(&root.join("bars_4h/1.parquet"), &[]);
     let policy = policy();
-    assert!(matches!(market::load(&[root], V, &venue(&["A"]), &policy, Some(policy.holdout_start)), Err(market::LoadError::Holdout(m)) if m == UNCHECKABLE));
+    assert!(matches!(market::load(&[root], V, common::registry(), &venue(&["A"]), &policy, Some(policy.holdout_start)), Err(market::LoadError::Holdout(m)) if m == UNCHECKABLE));
 }
 
 /// C7.6 test 3, across the call's datasets: any uncheckable event time takes precedence over crossings whatever the
@@ -401,7 +404,7 @@ fn the_holdout_check_spans_the_datasets_of_a_call() {
         std::fs::rename(root.join("a/funding"), store.join("funding")).unwrap();
         std::fs::create_dir_all(store.join("bars_4h")).unwrap();
         bars(&store.join("bars_4h/0.parquet"));
-        market::load(&[store], V, &venue, &policy, Some(policy.holdout_start)).map(|_| ())
+        market::load(&[store], V, common::registry(), &venue, &policy, Some(policy.holdout_start)).map(|_| ())
     };
     let crossing = |hour: i64| format!("holdout crossing: event time {} at or after {}", hour * HOUR, policy.holdout_start);
     let err = mixed("uncheckable", h + 2, &|p| late_file(p, Event::Float64, V, h + 1)).unwrap_err();

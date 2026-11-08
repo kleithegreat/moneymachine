@@ -40,7 +40,7 @@ fn base(root: &Path) {
 
 fn run(root: &Path, version: i64) -> sim::Run {
     let policy = store::policy(HOURS);
-    let market = market::load(&[root.to_path_buf()], version, &store::venue(), &policy, None).unwrap();
+    let market = market::load(&[root.to_path_buf()], version, common::registry(), &store::venue(), &policy, None).unwrap();
     let program = dsl::parse(&common::inputs(), PROGRAM).unwrap();
     sim::run(&program, &market, &store::venue(), &policy, HOURS * HOUR).unwrap()
 }
@@ -62,10 +62,10 @@ fn decisions(run: &sim::Run) -> Vec<String> {
 fn inputs(root: &Path, version: i64) -> Vec<String> {
     let policy = store::policy(HOURS);
     let venue = store::venue();
-    let market = market::load(&[root.to_path_buf()], version, &venue, &policy, None).unwrap();
+    let market = market::load(&[root.to_path_buf()], version, common::registry(), &venue, &policy, None).unwrap();
     let program = dsl::parse(&common::inputs(), PROGRAM).unwrap();
     let mut seen = vec![];
-    sim::observe(&program, &market, &venue, &policy, HOURS * HOUR, |h, machine| {
+    sim::Ctx::make(&program, &market, &venue, &policy, HOURS * HOUR).observe(|h, machine| {
         if h + policy.delta <= T {
             for i in 0..program.nodes.len() {
                 for c in 0..venue.coins.len() {

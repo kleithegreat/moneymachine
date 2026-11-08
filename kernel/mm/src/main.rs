@@ -2,6 +2,7 @@ use mm::dsl;
 use mm::ledger::{Experiment, Ledger};
 use mm::market::{self, sha256_hex, LoadError, BAR};
 use mm::sim::{self, Event, Why};
+use mm::source::{self, Declaration};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -77,9 +78,9 @@ impl Args {
     }
 }
 
-/// The DSL inputs of the registry under `--sources`: the only place a program's input names come from.
-fn inputs(a: &Args) -> Result<Vec<dsl::Input>, ExitCode> {
-    mm::source::registry(Path::new(a.get("sources", concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources")))).map(|reg| mm::source::inputs(&reg)).map_err(|e| {
+/// The registry under `--sources`: the only place a program's input names and a store's declarations come from.
+fn registry(a: &Args) -> Result<Vec<Declaration>, ExitCode> {
+    source::registry(Path::new(a.get("sources", concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources")))).map_err(|e| {
         eprintln!("registry: {e}");
         ExitCode::from(3)
     })
@@ -152,7 +153,7 @@ fn holdout_diagnostics(prog: &dsl::Program, c: &Ctx) -> Value {
         let (start, stop) = (c.report_after.max(c.market.intervals[i].0), c.end.min(c.market.intervals[i].1));
         let first = start + (BAR - start.rem_euclid(BAR)) % BAR;
         let expected = if stop > first { (stop - first) / BAR } else { 0 };
-        let bars: Vec<_> = c.market.bar_at.values().map(|&k| &c.market.bars[k]).filter(|b| b.coin == i && b.open_time >= first && b.open_time + BAR <= stop).collect();
+        let bars: Vec<_> = sim::bar_rows(&c.market).into_iter().filter(|b| b.coin == i && b.open_time >= first && b.open_time + BAR <= stop).collect();
         let inside = bars.iter().filter(|b| (lo..=hi).contains(&((b.high - b.low) / b.open))).count();
         coverage.insert(coin.clone(), json!({"inside": inside, "bars": bars.len(), "missing": expected - bars.len() as i64}));
     }
@@ -228,8 +229,8 @@ fn check(a: &Args, ledger: &mut Ledger) -> ExitCode {
             return ExitCode::from(3);
         }
     };
-    let inputs = match inputs(a) {
-        Ok(i) => i,
+    let inputs = match registry(a) {
+        Ok(reg) => source::inputs(&reg),
         Err(code) => return code,
     };
     match dsl::parse(&inputs, &text) {
@@ -257,7 +258,7 @@ struct Ctx {
     kernel: String,
 }
 
-fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
+fn load_ctx(a: &Args, reg: &[Declaration], mode: &'static str) -> Result<Ctx, LoadError> {
     let store = PathBuf::from(a.get("store", "data/store"));
     let policy = market::policy(&store.join("policy.json"))?;
     let venue = market::venue(Path::new(a.get("venue", "venue/hyperliquid")))?;
@@ -275,7 +276,7 @@ fn load_ctx(a: &Args, mode: &'static str) -> Result<Ctx, LoadError> {
     } else {
         (vec![store], Some(policy.holdout_start), i64::MIN, policy.holdout_start.min(policy.w_end))
     };
-    let market = market::load(&stores, version, &venue, &policy, holdout)?;
+    let market = market::load(&stores, version, reg, &venue, &policy, holdout)?;
     Ok(Ctx { policy, venue, version, market, mode, report_after, end, kernel: kernel_hash() })
 }
 
@@ -408,8 +409,8 @@ fn params_json(prog: &dsl::Program) -> String {
 }
 
 /// The context, or the exit after reporting why it could not be loaded.
-fn context(a: &Args, mode: &'static str, ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
-    match load_ctx(a, mode) {
+fn context(a: &Args, reg: &[Declaration], mode: &'static str, ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
+    match load_ctx(a, reg, mode) {
         Ok(c) => Ok(c),
         Err(LoadError::Holdout(m)) => {
             let out = json!({"ok": false, "code": "R_HOLDOUT", "message": m}).to_string();
@@ -424,12 +425,12 @@ fn context(a: &Args, mode: &'static str, ledger: &mut Ledger, campaign: &str, ag
 
 /// The holdout's one batch: refused unless its trials are exactly `agent`'s selections in `campaign`, then the
 /// window is claimed before anything is evaluated.
-fn open_holdout(a: &Args, texts: &[String], ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
+fn open_holdout(a: &Args, reg: &[Declaration], texts: &[String], ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
     let abort = |ledger: &mut Ledger, code: &str, message: &str| {
         let out = json!({"ok": false, "code": code, "message": message}).to_string();
         emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1)
     };
-    let inputs = inputs(a)?;
+    let inputs = source::inputs(reg);
     let trials: Option<std::collections::BTreeSet<String>> = texts
         .iter()
         .map(|t| dsl::parse(&inputs, t).ok().map(|p| mm::ledger::trial(&mm::canon::equivalence_key(&p), &params_json(&p))))
@@ -441,7 +442,7 @@ fn open_holdout(a: &Args, texts: &[String], ledger: &mut Ledger, campaign: &str,
     if texts.is_empty() || trials.as_ref() != Some(&selected) || texts.len() != selected.len() {
         return Err(abort(ledger, "R_HOLDOUT_FAMILY", "the batch is not exactly the campaign's frozen selections"));
     }
-    let c = context(a, "holdout", ledger, campaign, agent)?;
+    let c = context(a, reg, "holdout", ledger, campaign, agent)?;
     match claim_holdout(Path::new(&a.opts["holdout-store"]), c.report_after, c.end, campaign) {
         Ok(true) => Ok(c),
         Ok(false) => Err(abort(ledger, "R_HOLDOUT_SPENT", "an overlapping holdout window was already evaluated")),
@@ -469,14 +470,15 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
             return ExitCode::from(3);
         }
     };
-    let inputs = match inputs(a) {
-        Ok(i) => i,
+    let reg = match registry(a) {
+        Ok(r) => r,
         Err(code) => return code,
     };
+    let inputs = source::inputs(&reg);
     let mut ctx: Option<Ctx> = None;
     if mode == "holdout" {
         let batch: Vec<String> = texts.collect();
-        match open_holdout(a, &batch, ledger, campaign, agent) {
+        match open_holdout(a, &reg, &batch, ledger, campaign, agent) {
             Ok(c) => ctx = Some(c),
             Err(code) => return code,
         }
@@ -488,7 +490,7 @@ fn eval(a: &Args, ledger: &mut Ledger, mode: &'static str) -> ExitCode {
             Err(r) => Err((r.code.name().to_string(), format!("{} at {}", r.msg, r.path))),
             Ok(prog) => {
                 if ctx.is_none() {
-                    match context(a, mode, ledger, campaign, agent) {
+                    match context(a, &reg, mode, ledger, campaign, agent) {
                         Ok(c) => ctx = Some(c),
                         Err(code) => return code,
                     }
@@ -590,7 +592,7 @@ fn check_fills(path: &str) -> ExitCode {
             }
         };
         let verdict = match fill_case(&c) {
-            Some((f, m, v)) => sim::check_fill(&f, &m, &v).err().map_or("ok", |e| e.code()),
+            Some((f, bars, v)) => sim::check_fill(&f, &bars, &sim::Index::of(&bars, [], 1), &v).err().map_or("ok", |e| e.code()),
             None => "bad-case",
         };
         println!("{}", json!({"id": c["id"], "verdict": verdict}));
@@ -598,14 +600,14 @@ fn check_fills(path: &str) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
+fn fill_case(c: &Value) -> Option<(sim::Fill, Vec<sim::BarRow>, market::Venue)> {
     let num = |v: &Value| v.as_f64();
     let int = |v: &Value| v.as_i64();
-    let bars: Vec<market::Bar> = c["bars"]
+    let bars: Vec<sim::BarRow> = c["bars"]
         .as_array()?
         .iter()
         .map(|b| {
-            Some(market::Bar {
+            Some(sim::BarRow {
                 coin: 0,
                 open_time: int(&b["open_time"])?,
                 event: int(&b["event"])?,
@@ -614,10 +616,7 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
                 high: num(&b["high"])?,
                 low: num(&b["low"])?,
                 close: num(&b["close"])?,
-                volume: 0.0,
                 trades: int(&b["trades"])?,
-                retraction: false,
-                recorded: int(&b["event"])?,
             })
         })
         .collect::<Option<_>>()?;
@@ -635,18 +634,6 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
         }],
         rules_hash: String::new(),
         execution_hash: String::new(),
-    };
-    let mut bar_times = vec![bars.iter().map(|b| b.open_time).collect::<Vec<_>>()];
-    bar_times[0].sort();
-    let market = market::Market {
-        bar_at: bars.iter().enumerate().map(|(i, b)| ((0, b.open_time), i)).collect(),
-        rate_at: HashMap::new(),
-        bar_times,
-        intervals: vec![(i64::MIN, i64::MAX)],
-        events: HashMap::new(),
-        funding: vec![],
-        bars,
-        data_hash: String::new(),
     };
     let f = &c["fill"];
     let why = match f["why"].as_str()? {
@@ -669,7 +656,7 @@ fn fill_case(c: &Value) -> Option<(sim::Fill, market::Market, market::Venue)> {
         price: num(&f["price"])?,
         fee: num(&f["fee"])?,
     };
-    Some((fill, market, venue))
+    Some((fill, bars, venue))
 }
 
 const OPTIONS: [&str; 12] =

@@ -1,15 +1,15 @@
-//! Market data for one run: the store resolved at a dataset version, plus venue files.
+//! Market data for one run: the store resolved at a dataset version into observations, plus venue files.
 //!
-//! Resolution is `resolve.rs` (kernel/RULES.md §6, bitemporal), the same as `ingest/store.py`'s: every delivered
-//! revision of a key is a record at its own knownAt, a retraction a flagged record whose values are undefined (NaN);
-//! the execution maps read each key's final revision. In search mode the holdout check of SOURCES.md §2 precedes all
-//! other decoding (I8).
+//! Resolution is `resolve.rs` (kernel/RULES.md §6, bitemporal), the same as `ingest/store.py`'s; `load` decodes every
+//! entry of every key's timeline into an observation of its registry declaration, as Lean's `resolveAll`. In search mode
+//! the holdout check of SOURCES.md §2 precedes all other decoding (I8).
 
-use crate::dsl::EVENT_INPUTS;
-use crate::resolve::{self, Cell, Key, Refusal, Resolved, Role, Source};
+use crate::admission::Roles;
+use crate::machine::{Obs, RolePayload};
+use crate::resolve::{self, Cell, Refusal, Role, Source};
+use crate::source::Declaration;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -23,46 +23,6 @@ pub struct Policy {
     pub w_start: i64,
     pub holdout_start: i64,
     pub w_end: i64,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Funding {
-    pub coin: usize,
-    pub event: i64,
-    pub known: i64,
-    pub rate: f64,
-    pub premium: f64,
-    pub retraction: bool,
-    pub recorded: i64,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Bar {
-    pub coin: usize,
-    pub open_time: i64,
-    pub event: i64,
-    pub known: i64,
-    pub open: f64,
-    pub high: f64,
-    pub low: f64,
-    pub close: f64,
-    pub volume: f64,
-    pub trades: i64,
-    pub retraction: bool,
-    pub recorded: i64,
-}
-
-/// An hourly event count: items whose knownAt falls in (event - 1h, event], known at `known`. `event` is the slot
-/// delivered; `recorded` and `key` (the key's eventTime) order observations sharing a knownAt.
-#[derive(Clone, Copy, Debug)]
-pub struct Event {
-    pub coin: usize,
-    pub event: i64,
-    pub known: i64,
-    pub count: f64,
-    pub recorded: i64,
-    pub key: i64,
-    pub retraction: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -86,46 +46,18 @@ pub struct Venue {
     pub execution_hash: String,
 }
 
+/// A store resolved for one run: what Lean's `Ctx.make` takes.
 #[derive(Debug)]
 pub struct Market {
-    pub funding: Vec<Funding>,
-    pub bars: Vec<Bar>,
-    pub bar_at: HashMap<(usize, i64), usize>,
-    pub rate_at: HashMap<(usize, i64), f64>,
-    /// Sorted bar openTimes per coin.
-    pub bar_times: Vec<Vec<i64>>,
+    /// Every entry of every key's timeline of the bound declarations.
+    pub obs: Vec<Obs>,
+    /// Per registry declaration, whether the store binds a dataset to it.
+    pub bound: Vec<bool>,
+    pub roles: Roles,
     /// Listed interval [start, end) per coin, cut at the search end. A delisted coin's ends at
     /// the close of its last traded bar; the venue keeps writing zero funding rows after it.
     pub intervals: Vec<(i64, i64)>,
-    /// Event datasets present in the store, by name; an absent name means the input is unavailable.
-    pub events: HashMap<&'static str, Vec<Event>>,
     pub data_hash: String,
-}
-
-/// The order records reach a machine: by knownAt, then coin; within one, a key's entries as resolved, and event
-/// observations by (recording time, eventTime) (SOURCES.md §4). Indices into `funding` and `bars`; event
-/// observations with the event input's row in EVENT_INPUTS.
-pub struct Delivery {
-    pub funding: Vec<usize>,
-    pub bars: Vec<usize>,
-    pub events: Vec<(usize, Event)>,
-}
-
-impl Market {
-    pub fn delivery(&self) -> Delivery {
-        let mut funding: Vec<usize> = (0..self.funding.len()).collect();
-        funding.sort_by_key(|&i| (self.funding[i].known, self.funding[i].coin, self.funding[i].event));
-        let mut bars: Vec<usize> = (0..self.bars.len()).collect();
-        bars.sort_by_key(|&i| (self.bars[i].known, self.bars[i].coin, self.bars[i].event));
-        let mut events: Vec<(usize, Event)> = EVENT_INPUTS
-            .iter()
-            .enumerate()
-            .filter_map(|(slot, (_, ds))| self.events.get(ds).map(|v| v.iter().map(move |&e| (slot, e))))
-            .flatten()
-            .collect();
-        events.sort_by_key(|(slot, e)| (e.known, e.coin, *slot, e.recorded, e.key));
-        Delivery { funding, bars, events }
-    }
 }
 
 #[derive(Debug)]
@@ -246,97 +178,74 @@ fn source(dataset: &str, policy: &Policy) -> Source {
     }
 }
 
-/// The keys of U of a dataset, sorted by (coin, event time).
-fn keys<'a>(resolved: &'a Resolved, dataset: &str) -> Vec<&'a Key> {
-    let mut keys: Vec<&Key> = resolved.keys.iter().filter(|k| k.coin.is_some() && resolved.sources[k.source].name == dataset).collect();
-    keys.sort_by_key(|k| (k.coin, k.event));
-    keys
+/// The stage 6 store's datasets and the declarations they bind, until the run manifest binds them (port plan, slice 6).
+const BINDINGS: [(&str, &str); 4] =
+    [("funding", "hl-funding"), ("bars_4h", "hl-bars-4h"), ("events_forum", "forum-events"), ("events_governance", "governance-events")];
+
+/// A role provider's payload from a revision's cells (Lean's `rolePayload`): none unless its columns decode.
+fn role_payload<'a>(d: &Declaration, cell: impl Fn(&str) -> &'a Cell) -> Option<RolePayload> {
+    let (role, cols) = d.roles.iter().next()?;
+    let num = |c: &str| cell(&cols[c]).num();
+    if role == "settlement" {
+        return num("rate").map(RolePayload::Rate);
+    }
+    let Cell::Int(trades) = cell(&cols["trades"]) else { return None };
+    Some(RolePayload::Bar { open: num("open")?, high: num("high")?, low: num("low")?, close: num("close")?, trades: *trades })
 }
 
-/// Load the union of `stores` at `version`. `holdout` is the holdout start in search mode, None
-/// in holdout mode.
-pub fn load(stores: &[PathBuf], version: i64, venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market, LoadError> {
-    let mut datasets = vec!["funding", "bars_4h"];
-    for ds in ["funding", "bars_4h"] {
-        for s in stores {
-            fs::read_dir(s.join(ds)).map_err(|e| io(format!("{}: {e}", s.join(ds).display())))?;
+/// Load the union of `stores` at `version` as observations of the registry `reg`. A declaration providing a role must
+/// be bound in every store, any other is bound when some store holds its dataset. `holdout` is the holdout start in
+/// search mode, None in holdout mode.
+pub fn load(stores: &[PathBuf], version: i64, reg: &[Declaration], venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market, LoadError> {
+    let mut bindings = vec![];
+    for (dataset, name) in BINDINGS {
+        let s = reg.iter().position(|d| d.name == name).ok_or_else(|| io(format!("the registry has no {name}")))?;
+        if !reg[s].roles.is_empty() {
+            for st in stores {
+                fs::read_dir(st.join(dataset)).map_err(|e| io(format!("{}: {e}", st.join(dataset).display())))?;
+            }
+        } else if !stores.iter().any(|st| st.join(dataset).exists()) {
+            continue;
         }
+        bindings.push((dataset, s));
     }
-    datasets.extend(EVENT_INPUTS.iter().map(|e| e.1).filter(|ds| stores.iter().any(|s| s.join(ds).exists())));
-    let resolved = resolve::resolve(stores, datasets.iter().map(|ds| source(ds, policy)).collect(), &venue.coins, version, holdout)?;
+    let provider = |role: &str| bindings.iter().map(|b| b.1).find(|&s| reg[s].roles.contains_key(role)).ok_or_else(|| io(format!("no {role} provider")));
+    let roles = Roles { bars: provider("bars")?, settlement: provider("settlement")? };
+    let resolved = resolve::resolve(stores, bindings.iter().map(|(ds, _)| source(ds, policy)).collect(), &venue.coins, version, holdout)?;
     let mut hasher = Sha256::new();
     for (name, digest) in resolved.files.iter().flatten() {
         hasher.update(name.as_bytes());
         hasher.update(digest);
     }
-    let value = |k: &Key, e: &resolve::Entry, column: &str| if e.retraction { f64::NAN } else { resolved.cell(k, e, column).num().unwrap_or(f64::NAN) };
-    let mut funding = vec![];
-    let mut rate_at = HashMap::new();
-    for k in keys(&resolved, "funding") {
-        let coin = k.coin.unwrap();
-        for e in &k.entries {
-            funding.push(Funding { coin, event: k.event, known: e.known, rate: value(k, e, "fundingRate"), premium: value(k, e, "premium"), retraction: e.retraction, recorded: e.fetched });
-        }
-        if let Some(last) = k.entries.last().filter(|e| !e.retraction) {
-            rate_at.insert((coin, k.event), value(k, last, "fundingRate"));
-        }
-    }
-    let mut bars = vec![];
-    let mut bar_at = HashMap::new();
-    for k in keys(&resolved, "bars_4h") {
-        let coin = k.coin.unwrap();
+    let mut obs = vec![];
+    for k in &resolved.keys {
+        let Some(coin) = k.coin else { continue };
+        let (source, d) = (bindings[k.source].1, &reg[bindings[k.source].1]);
         for (n, e) in k.entries.iter().enumerate() {
-            let trades = match resolved.cell(k, e, "trades") {
-                Cell::Int(t) if !e.retraction => *t,
-                _ => 0,
-            };
-            let (open_time, price) = (k.event - BAR, |c: &str| value(k, e, c));
-            if n + 1 == k.entries.len() && !e.retraction {
-                bar_at.insert((coin, open_time), bars.len());
-            }
-            bars.push(Bar {
+            let live = !e.retraction;
+            obs.push(Obs {
+                source,
                 coin,
-                open_time,
-                event: k.event,
+                key: k.event,
+                slot: e.slot,
                 known: e.known,
-                open: price("open"),
-                high: price("high"),
-                low: price("low"),
-                close: price("close"),
-                volume: price("volume"),
-                trades,
+                vals: d.fields.values().map(|f| resolved.cell(k, e, &f.column).num().filter(|_| live)).collect(),
+                role: role_payload(d, |c| resolved.cell(k, e, c)).filter(|_| live),
+                last: n + 1 == k.entries.len(),
                 retraction: e.retraction,
                 recorded: e.fetched,
             });
         }
     }
-    let mut events = HashMap::new();
-    for (_, ds) in EVENT_INPUTS {
-        if datasets.contains(&ds) {
-            let list = keys(&resolved, ds)
-                .into_iter()
-                .flat_map(|k| k.entries.iter().map(move |e| Event { coin: k.coin.unwrap(), event: e.slot.unwrap_or(k.event), known: e.known, count: value(k, e, "count"), recorded: e.fetched, key: k.event, retraction: e.retraction }))
-                .collect();
-            events.insert(ds, list);
-        }
-    }
     let end = holdout.unwrap_or(policy.w_end).min(policy.w_end);
+    let traded = |c: usize| {
+        let bars = obs.iter().filter(|o| o.source == roles.bars && o.coin == c && o.last);
+        bars.filter(|o| matches!(o.role, Some(RolePayload::Bar { trades, .. }) if trades > 0)).map(|o| o.key).max()
+    };
     let intervals = (0..venue.coins.len())
-        .map(|c| {
-            if !venue.rules[c].delisted {
-                return (policy.w_start, end);
-            }
-            let last = bar_at.iter().filter(|((coin, _), &i)| *coin == c && bars[i].trades > 0).map(|(_, &i)| bars[i].event).max();
-            (policy.w_start, last.unwrap_or(policy.w_start).min(end))
-        })
+        .map(|c| if venue.rules[c].delisted { (policy.w_start, traded(c).unwrap_or(policy.w_start).min(end)) } else { (policy.w_start, end) })
         .collect();
-    let mut bar_times = vec![vec![]; venue.coins.len()];
-    for &(c, t) in bar_at.keys() {
-        bar_times[c].push(t);
-    }
-    for t in bar_times.iter_mut() {
-        t.sort();
-    }
+    let bound = (0..reg.len()).map(|s| bindings.iter().any(|b| b.1 == s)).collect();
     let data_hash = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    Ok(Market { funding, bars, bar_at, rate_at, bar_times, intervals, events, data_hash })
+    Ok(Market { obs, bound, roles, intervals, data_hash })
 }

@@ -21,7 +21,7 @@ fn scratch(tag: &str) -> PathBuf {
 
 fn run(root: &Path, program: &str) -> sim::Run {
     let policy = store::policy(HOURS);
-    let market = market::load(&[root.to_path_buf()], i64::MAX / 2, &store::venue(), &policy, None).unwrap();
+    let market = market::load(&[root.to_path_buf()], i64::MAX / 2, common::registry(), &store::venue(), &policy, None).unwrap();
     let program = dsl::parse(&common::inputs(), program).unwrap();
     sim::run(&program, &market, &store::venue(), &policy, HOURS * HOUR).unwrap()
 }
