@@ -106,6 +106,14 @@
    "bytes": 261951,
    "what": "byte-identical copy of audit/stage0/ingest-1792385868856.json",
    "rebuild": "the audit copy"
+  },
+  {
+   "path": "data/tmp????????/ (128 directories, mkdtemp names, in data/ of the main, stage7 and thesis-refreeze worktrees)",
+   "sha256": null,
+   "bytes": 2700000000,
+   "what": "scratch of reference/differential.py harness runs killed or crashed between 2026-10-27 and 2026-11-07 (per-chunk market and output dirs the harness frees on a normal exit, 3ccec64); about 330 MB in main and 2.2 GB in stage7",
+   "rebuild": "development output, regenerable by rerunning the harness at its commit; no judged run reads them (judged runs are recorded in audit/stage6 and audit/stage7)",
+   "deleted": "2026-11-08 19:55 UTC (14:55 EST), by the advisor during cleanup the human asked for, WITHOUT recording hashes first: a deviation from the 2026-10-23 housekeeping rule; the hashes are unrecoverable. Only directories older than a day and not open by any process were removed."
   }
  ]
 }
