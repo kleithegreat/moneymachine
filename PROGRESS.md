@@ -15,7 +15,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs (`ops/jobs.py`, namespace `moneymachine`): none queued.
 - **Budget.** Campaigns start on the first account (TAMU, then Cornell) with every window at most 0.8 after the most a campaign has used (`need`, measured across accounts). Claude work on an account during its campaign can exhaust it, a counted crash: none then.
 
-- **Nine defects specced** on main, two review rounds; stage 7 implements them after its byte-identical tag.
 
 ### Next, in order
 
@@ -30,20 +29,19 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
    1. Done: all 18 frozen laws proved; `refmm` builds and agrees with `mm`.
    2. The Rust kernel to the same definitions, with the loader rewrite, under the corpus differential: plan and status `audit/stage7/rust-port-plan.md` there; B2 frozen (`7997257`). When stage 7 merges, the paper's snapshot-only point-in-time paragraph (`docs/whitepaper.tex`) changes with it. The fresh C7.7 corpus needs a market exporter emitting revisions, a registry and certificates (`mmdump` can't).
    3. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
-   - Judged runs wait for the rebase onto the pilot's baseline commit.
-   - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
+   -   - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test.
 6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit; Unblocked: recording OECD's STES revisions (certified; about 357 MB a country quarterly).
 7. **When stage 7 nears its exit**: the Lean engine stage's criteria (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
 8. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
 9. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
 
-Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
+Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout.
 
-Open research question, after stage 4 (the human): does memory across campaigns help agents without raising false discoveries? Pre-register first.
+Open research question after stage 4: does memory across campaigns help agents without raising false discoveries? Pre-register first.
 
 ## Blockers
 
-- **Thesis refreeze blocked (Opus 2/6):** certificate 600/min minus recorder 480 leaves 120. Discovery plus d samples needs 20(1+d), so d ≤ 5 fits; current inventory is unverified. Two allowed spreads can need 220 cold funding pages × 45 = 9,900 weight, 110 quota batches (109 min) before drains/network, versus a one-hour session. Recorder item debt and other IP consumers lack global coordination. The advisor must settle workload/allocation/terms; the commitment is unchanged. Above capacity sampling alarms and saves what fits, never claims a pass.
+- **Thesis refreeze blocked (Opus 2/6, round three A):** funding is prewarmed outside sessions and reservations follow the requested range (T3: cold fill at most 403,560 weight, about four days; upkeep about 14/min). Remaining wall: the session snapshot's newest daily tails (348 listings, final only after midnight) and hourly tails (176 core) are 524 requests, 10,480 weight, 87 min at 120/min, so the 00:10 UTC (19:10 EST) session cannot start then (strict xfail). The advisor chooses a later snapshot or one without every newest daily bar (criteria change). Also: d <= 5 dexes; no IP coordination; freeze just before 00:10 UTC (19:10 EST), refused while a listed market is cold; a market cold at registration gets its base rate from the rows ready.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Capacity guard not deployed:** rollout and visible synthetic desktop alarm check in `CLUSTER.md` §5. O2 states the chosen reserve and offline limitation, not a response-time guarantee.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
