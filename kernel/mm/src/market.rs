@@ -46,9 +46,10 @@ pub struct Venue {
     pub execution_hash: String,
 }
 
-/// A store resolved for one run: what Lean's `Ctx.make` takes.
+/// A store resolved for one run under a registry: what Lean's `Ctx.make` takes.
 #[derive(Debug)]
-pub struct Market {
+pub struct Market<'r> {
+    pub reg: &'r [Declaration],
     /// Every entry of every key's timeline of the bound declarations.
     pub obs: Vec<Obs>,
     /// Per registry declaration, whether the store binds a dataset to it.
@@ -196,7 +197,7 @@ fn role_payload<'a>(d: &Declaration, cell: impl Fn(&str) -> &'a Cell) -> Option<
 /// Load the union of `stores` at `version` as observations of the registry `reg`. A declaration providing a role must
 /// be bound in every store, any other is bound when some store holds its dataset. `holdout` is the holdout start in
 /// search mode, None in holdout mode.
-pub fn load(stores: &[PathBuf], version: i64, reg: &[Declaration], venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market, LoadError> {
+pub fn load<'r>(stores: &[PathBuf], version: i64, reg: &'r [Declaration], venue: &Venue, policy: &Policy, holdout: Option<i64>) -> Result<Market<'r>, LoadError> {
     let mut bindings = vec![];
     for (dataset, name) in BINDINGS {
         let s = reg.iter().position(|d| d.name == name).ok_or_else(|| io(format!("the registry has no {name}")))?;
@@ -247,5 +248,5 @@ pub fn load(stores: &[PathBuf], version: i64, reg: &[Declaration], venue: &Venue
         .collect();
     let bound = (0..reg.len()).map(|s| bindings.iter().any(|b| b.1 == s)).collect();
     let data_hash = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    Ok(Market { obs, bound, roles, intervals, data_hash })
+    Ok(Market { reg, obs, bound, roles, intervals, data_hash })
 }

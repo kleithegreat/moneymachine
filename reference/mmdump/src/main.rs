@@ -15,7 +15,7 @@ use mm::dsl::{Program, Ty};
 use mm::machine::{Obs, RolePayload};
 use mm::market::{self, Market, Policy, BAR};
 use mm::sim::{self, Event, Why};
-use mm::source::{self, Cadence, Declaration};
+use mm::source::{self, Cadence};
 use serde_json::{json, Value};
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -80,28 +80,40 @@ fn strs(v: &Value) -> Vec<String> {
 
 /// The market in the stage 6 format `refmm` reads, its sources numbered as `Main.lean`'s registry: the settlement
 /// provider's records as funding rows, the bars provider's as bars, each event source's as events of its input's
-/// position in `EVENTS`; an undefined value as the bits of NaN.
-fn stage6(m: &Market, reg: &[Declaration]) -> (Vec<Value>, Vec<Value>, Vec<Value>, Vec<usize>) {
+/// position in `EVENTS`; every value as the machine reads it, an undefined one as the bits of NaN. The format carries
+/// one copy of a provider's numbers, which `refmm` reads as both values and role payload, so a live provider record
+/// whose payload is not its values cannot be exported.
+fn stage6(m: &Market) -> Result<(Vec<Value>, Vec<Value>, Vec<Value>, Vec<usize>), String> {
     const EVENTS: [&str; 2] = ["forum_posts", "gov_proposals"];
+    let reg = m.reg;
     let field = |o: &Obs, input: &str| b(reg[o.source].fields.keys().position(|k| k == input).and_then(|i| o.vals[i]).unwrap_or(f64::NAN));
     let slot = |s: usize| reg[s].fields.keys().find_map(|k| EVENTS.iter().position(|e| e == k)).filter(|_| matches!(reg[s].cadence, Cadence::Event { .. }));
+    let inexact = |o: &Obs| format!("{o:?}: its role payload is not its values");
     let (mut funding, mut bars, mut events) = (vec![], vec![], vec![]);
     for o in &m.obs {
         if o.source == m.roles.settlement {
-            funding.push(json!([o.coin, o.key, o.known, field(o, "funding"), field(o, "premium"), o.retraction, o.recorded, o.last]));
+            let rate = field(o, "funding");
+            match o.role {
+                Some(RolePayload::Rate(r)) if b(r) == rate => {}
+                None if o.retraction => {}
+                _ => return Err(inexact(o)),
+            }
+            funding.push(json!([o.coin, o.key, o.known, rate, field(o, "premium"), o.retraction, o.recorded, o.last]));
         } else if o.source == m.roles.bars {
-            let (p, trades) = match o.role {
-                Some(RolePayload::Bar { open, high, low, close, trades }) => ([open, high, low, close], trades),
-                _ => ([f64::NAN; 4], 0),
+            let p = ["open", "high", "low", "close"].map(|k| field(o, k));
+            let trades = match o.role {
+                Some(RolePayload::Bar { open, high, low, close, trades }) if [open, high, low, close].map(b) == p => trades,
+                None if o.retraction => 0,
+                _ => return Err(inexact(o)),
             };
-            bars.push(json!([o.coin, o.key - BAR, o.key, o.known, b(p[0]), b(p[1]), b(p[2]), b(p[3]), field(o, "volume"), trades, o.retraction, o.recorded, o.last]));
+            bars.push(json!([o.coin, o.key - BAR, o.key, o.known, p[0], p[1], p[2], p[3], field(o, "volume"), trades, o.retraction, o.recorded, o.last]));
         } else if let Some(k) = slot(o.source) {
             let input = EVENTS[k];
             events.push(json!([k, o.coin, o.slot, o.known, field(o, input), o.recorded, o.key, o.retraction, o.last]));
         }
     }
     let present = (0..reg.len()).filter(|&s| m.bound[s]).filter_map(slot).collect();
-    (funding, bars, events, present)
+    Ok((funding, bars, events, present))
 }
 
 fn admit_case(c: &Value) -> String {
@@ -149,7 +161,7 @@ fn main() {
     let reg = source::registry(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources"))).unwrap();
     let m = market::load(&[store], version, &reg, &venue, &policy, Some(policy.holdout_start)).unwrap();
     let end = policy.holdout_start.min(policy.w_end);
-    let (funding, bars, events, present) = stage6(&m, &reg);
+    let (funding, bars, events, present) = stage6(&m).unwrap();
     let market_json = json!({
         "funding": funding, "bars": bars, "events": events, "present": present, "intervals": m.intervals,
         "venue": {"taker_fee": b(venue.taker_fee), "min_notional": b(venue.min_notional),
@@ -179,5 +191,36 @@ fn main() {
             },
         };
         std::fs::write(out_dir.join(format!("{i}.json")), out.to_string()).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The review's markets (slice4-review-argon.md, F3): a live bar without a role payload (its trades cell null), and
+    /// C1.7's canary bar, whose values are the bar two ahead while its role payload is its own. The stage 6 format
+    /// carries one copy of a provider's numbers, which `refmm` reads as both, so neither can be exported; a bar whose
+    /// payload is its values exports its values.
+    #[test]
+    fn a_provider_record_exports_its_values_or_nothing() {
+        let reg = source::registry(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources"))).unwrap();
+        let s = |n: &str| reg.iter().position(|d| d.name == n).unwrap();
+        let roles = Roles { bars: s("hl-bars-4h"), settlement: s("hl-funding") };
+        let bar = |vals: [f64; 4], role: Option<RolePayload>| {
+            let [close, high, low, open] = vals.map(Some);
+            Obs { source: roles.bars, coin: 0, key: BAR, slot: None, known: BAR, vals: vec![close, high, low, open, Some(1.0)], role,
+                  last: true, retraction: false, recorded: BAR }
+        };
+        let own = Some(RolePayload::Bar { open: 100.0, high: 101.0, low: 99.0, close: 100.5, trades: 1 });
+        let export = |o: Obs| {
+            let m = Market { reg: &reg, obs: vec![o], bound: (0..reg.len()).map(|i| i == roles.bars || i == roles.settlement).collect(), roles,
+                             intervals: vec![(0, BAR)], data_hash: String::new() };
+            stage6(&m).map(|(_, bars, _, _)| bars[0].clone())
+        };
+        assert!(export(bar([100.5, 101.0, 99.0, 100.0], None)).is_err());
+        assert!(export(bar([200.5, 201.0, 199.0, 200.0], own)).is_err());
+        let row = export(bar([100.5, 101.0, 99.0, 100.0], own)).unwrap();
+        assert_eq!(row.as_array().unwrap()[4..8], [b(100.0), b(101.0), b(99.0), b(100.5)]);
     }
 }

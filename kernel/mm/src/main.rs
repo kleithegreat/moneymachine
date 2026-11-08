@@ -153,7 +153,7 @@ fn holdout_diagnostics(prog: &dsl::Program, c: &Ctx) -> Value {
         let (start, stop) = (c.report_after.max(c.market.intervals[i].0), c.end.min(c.market.intervals[i].1));
         let first = start + (BAR - start.rem_euclid(BAR)) % BAR;
         let expected = if stop > first { (stop - first) / BAR } else { 0 };
-        let bars: Vec<_> = sim::bar_rows(&c.market).into_iter().filter(|b| b.coin == i && b.open_time >= first && b.open_time + BAR <= stop).collect();
+        let bars: Vec<_> = sim::bar_rows(c.market.roles, &c.market.obs).into_iter().filter(|b| b.coin == i && b.open_time >= first && b.open_time + BAR <= stop).collect();
         let inside = bars.iter().filter(|b| (lo..=hi).contains(&((b.high - b.low) / b.open))).count();
         coverage.insert(coin.clone(), json!({"inside": inside, "bars": bars.len(), "missing": expected - bars.len() as i64}));
     }
@@ -246,11 +246,11 @@ fn check(a: &Args, ledger: &mut Ledger) -> ExitCode {
     }
 }
 
-struct Ctx {
+struct Ctx<'r> {
     policy: market::Policy,
     venue: market::Venue,
     version: i64,
-    market: market::Market,
+    market: market::Market<'r>,
     mode: &'static str,
     /// Steps whose equity time is after this are the disclosed result (the holdout window).
     report_after: i64,
@@ -258,7 +258,7 @@ struct Ctx {
     kernel: String,
 }
 
-fn load_ctx(a: &Args, reg: &[Declaration], mode: &'static str) -> Result<Ctx, LoadError> {
+fn load_ctx<'r>(a: &Args, reg: &'r [Declaration], mode: &'static str) -> Result<Ctx<'r>, LoadError> {
     let store = PathBuf::from(a.get("store", "data/store"));
     let policy = market::policy(&store.join("policy.json"))?;
     let venue = market::venue(Path::new(a.get("venue", "venue/hyperliquid")))?;
@@ -409,7 +409,7 @@ fn params_json(prog: &dsl::Program) -> String {
 }
 
 /// The context, or the exit after reporting why it could not be loaded.
-fn context(a: &Args, reg: &[Declaration], mode: &'static str, ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
+fn context<'r>(a: &Args, reg: &'r [Declaration], mode: &'static str, ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx<'r>, ExitCode> {
     match load_ctx(a, reg, mode) {
         Ok(c) => Ok(c),
         Err(LoadError::Holdout(m)) => {
@@ -425,7 +425,7 @@ fn context(a: &Args, reg: &[Declaration], mode: &'static str, ledger: &mut Ledge
 
 /// The holdout's one batch: refused unless its trials are exactly `agent`'s selections in `campaign`, then the
 /// window is claimed before anything is evaluated.
-fn open_holdout(a: &Args, reg: &[Declaration], texts: &[String], ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx, ExitCode> {
+fn open_holdout<'r>(a: &Args, reg: &'r [Declaration], texts: &[String], ledger: &mut Ledger, campaign: &str, agent: &str) -> Result<Ctx<'r>, ExitCode> {
     let abort = |ledger: &mut Ledger, code: &str, message: &str| {
         let out = json!({"ok": false, "code": code, "message": message}).to_string();
         emit(ledger.disclose(campaign, agent, "abort", &out), &out, false, 1)

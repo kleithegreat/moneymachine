@@ -7,10 +7,12 @@
 //! H + delta for H in (b, B]; and the decision at B + delta, filled at B + 4h. A fill happens
 //! only if a later bar will mark it, so the last equity mark accounts for every fill.
 
-use crate::dsl::Program;
+use crate::admission::Roles;
+use crate::dsl::{Node, Program};
 use crate::machine::{Machine, Obs, RolePayload};
 use crate::market::{Market, Policy, Venue, BAR, HOUR};
-use std::collections::{BTreeMap, HashMap};
+use crate::source::Cadence;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub const INITIAL: f64 = 10_000.0;
 pub const MAX_GROSS: f64 = 2.0;
@@ -213,15 +215,15 @@ pub struct BarRow {
     pub trades: i64,
 }
 
-/// The bars provider's final observations, as execution reads them (Lean's `barRow`).
-pub fn bar_rows(market: &Market) -> Vec<BarRow> {
+/// The bars provider's final observations among `obs`, as execution reads them (Lean's `barRow`).
+pub fn bar_rows<'o>(roles: Roles, obs: impl IntoIterator<Item = &'o Obs>) -> Vec<BarRow> {
     let bar = |o: &Obs| match o.role {
-        Some(RolePayload::Bar { open, high, low, close, trades }) if o.source == market.roles.bars && o.last => {
+        Some(RolePayload::Bar { open, high, low, close, trades }) if o.source == roles.bars && o.last => {
             Some(BarRow { coin: o.coin, open_time: o.key - BAR, event: o.key, known: o.known, open, high, low, close, trades })
         }
         _ => None,
     };
-    market.obs.iter().filter_map(bar).collect()
+    obs.into_iter().filter_map(bar).collect()
 }
 
 /// Execution's lookups (Lean's `Index`): a bar by (coin, openTime), each coin's sorted openTimes, a settlement rate by
@@ -299,32 +301,53 @@ struct Order {
 /// Everything a run fixes before its first step (Lean's `Ctx`).
 pub struct Ctx<'a> {
     prog: &'a Program,
-    market: &'a Market,
+    market: &'a Market<'a>,
     venue: &'a Venue,
     policy: &'a Policy,
     stop: i64,
-    /// Positions in `market.obs`, in delivery order.
+    /// Positions in `market.obs` of the delivered observations, in delivery order.
     order: Vec<usize>,
     bars: Vec<BarRow>,
     ix: Index,
 }
 
 impl<'a> Ctx<'a> {
-    /// Lean's `Ctx.make`: the observations in delivery order (knownAt, source, coin, tie, position), the tie being (event
-    /// time, recording time) for a held source and (recording time, event time) for an event source, the one with a
-    /// slot; execution's bars and rates from the role providers' final observations.
-    pub fn make(prog: &'a Program, market: &'a Market, venue: &'a Venue, policy: &'a Policy, stop: i64) -> Ctx<'a> {
-        let obs = &market.obs;
-        let tie = |o: &Obs| if o.slot.is_some() { (o.recorded, o.key) } else { (o.key, o.recorded) };
-        let mut order: Vec<usize> = (0..obs.len()).collect();
-        order.sort_by_key(|&i| (obs[i].known, obs[i].source, obs[i].coin, tie(&obs[i])));
-        let bars = bar_rows(market);
-        let rates = obs.iter().filter_map(|o| match o.role {
+    /// Lean's `Ctx.make`: the observations of the delivered sources (bound, not evidence) in delivery order (knownAt,
+    /// source, coin, tie, position), the tie being (event time, recording time) for a held source and (recording time,
+    /// event time) for an event source; execution's bars and rates from the role providers' final observations.
+    pub fn make(prog: &'a Program, market: &'a Market<'a>, venue: &'a Venue, policy: &'a Policy, stop: i64) -> Ctx<'a> {
+        let (obs, reg) = (&market.obs, market.reg);
+        let delivered = |s: usize| market.bound.get(s) == Some(&true) && !matches!(reg[s].cadence, Cadence::Evidence);
+        let tie = |o: &Obs| if matches!(reg[o.source].cadence, Cadence::Event { .. }) { (o.recorded, o.key) } else { (o.key, o.recorded) };
+        let mut order: Vec<usize> = (0..obs.len()).filter(|&i| delivered(obs[i].source)).collect();
+        let bars = bar_rows(market.roles, order.iter().map(|&i| &obs[i]));
+        let rates = order.iter().map(|&i| &obs[i]).filter_map(|o| match o.role {
             Some(RolePayload::Rate(r)) if o.source == market.roles.settlement && o.last => Some(((o.coin, o.key), r)),
             _ => None,
         });
         let ix = Index::of(&bars, rates, market.intervals.len());
+        order.sort_by_key(|&i| (obs[i].known, obs[i].source, obs[i].coin, tie(&obs[i])));
         Ctx { prog, market, venue, policy, stop, order, bars, ix }
+    }
+
+    /// Lean's `Ctx.admissible`, run admission on the delivered observations: one final record per key; declaration and
+    /// coin in range; one value per field; a role payload exactly on the role providers' records that are not
+    /// retractions, of the provider's kind; a slot exactly on event sources' records. It reads no value.
+    pub fn admissible(&self) -> bool {
+        let mut keys = HashSet::new();
+        self.order.iter().map(|&i| &self.market.obs[i]).all(|o| {
+            let d = &self.market.reg[o.source];
+            let role_ok = match o.role {
+                None => o.retraction || d.roles.is_empty(),
+                Some(RolePayload::Bar { .. }) => d.roles.contains_key("bars") && !o.retraction,
+                Some(RolePayload::Rate(_)) => d.roles.contains_key("settlement") && !o.retraction,
+            };
+            (!o.last || keys.insert((o.source, o.coin, o.key)))
+                && o.coin < self.coins()
+                && o.vals.len() == d.fields.len()
+                && role_ok
+                && matches!(d.cadence, Cadence::Event { .. }) == o.slot.is_some()
+        })
     }
 
     fn coins(&self) -> usize {
@@ -341,7 +364,7 @@ impl<'a> Ctx<'a> {
     }
 
     fn machine(&self) -> Machine<'a> {
-        Machine::new(self.prog, self.market.bound.len(), self.coins())
+        Machine::new(self.prog, self.market.reg.len(), self.coins())
     }
 
     /// Deliver every observation known by `tick` from position `next` of the delivery order on (SEMANTICS.md §3).
@@ -578,11 +601,19 @@ impl<'a> Ctx<'a> {
 }
 
 /// A run of `prog` on `market`: R_INPUT_UNAVAILABLE if the program reads a source the store does not bind (SEMANTICS.md
-/// §8, stage 1's check until admission is wired, port plan slice 6), else `Ctx::evaluate`.
+/// §8, stage 1's check until admission is wired, port plan slice 6), R_BINDING unless `Ctx::admissible`, else
+/// `Ctx::evaluate`.
 pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64) -> Result<Run, Abort> {
-    if let Some(s) = prog.sources().into_iter().find(|&s| !market.bound[s]) {
-        let input = prog.inputs.iter().find(|i| i.source == s).map_or("", |i| i.name.as_str());
+    let read = |n: &Node| match n {
+        Node::Input(k) if !market.bound[prog.inputs[*k].source] => Some(&prog.inputs[*k].name),
+        _ => None,
+    };
+    if let Some(input) = prog.nodes.iter().find_map(read) {
         return Err(Abort::InputUnavailable(format!("{input}: its source is not bound in this store")));
     }
-    Ctx::make(prog, market, venue, policy, end).evaluate()
+    let ctx = Ctx::make(prog, market, venue, policy, end);
+    if !ctx.admissible() {
+        return Err(Abort::Binding("the resolved observations are inadmissible".into()));
+    }
+    ctx.evaluate()
 }

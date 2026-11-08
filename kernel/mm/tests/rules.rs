@@ -37,7 +37,7 @@ impl Rng {
 
 /// Market variants: 0 has exact zero funding and premium; 1 varies them with signed zeros and
 /// flat price stretches; 2 adds a coin delisted midway and bars without trades.
-fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
+fn market(variant: usize, seed: u64) -> (Market<'static>, Venue, Policy, i64) {
     let mut rng = Rng(seed);
     let n_bars = DAYS * 6;
     let end = n_bars * BAR;

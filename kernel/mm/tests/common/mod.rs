@@ -48,10 +48,10 @@ pub fn count(input: &str, coin: usize, hour: i64, known: i64, n: f64) -> Obs {
 }
 
 /// A market of these observations, binding the role providers and every declaration observed.
-pub fn market(obs: Vec<Obs>, intervals: Vec<(i64, i64)>) -> Market {
+pub fn market(obs: Vec<Obs>, intervals: Vec<(i64, i64)>) -> Market<'static> {
     let roles = roles();
     let bound = (0..registry().len()).map(|s| s == roles.bars || s == roles.settlement || obs.iter().any(|o| o.source == s)).collect();
-    Market { obs, bound, roles, intervals, data_hash: String::new() }
+    Market { reg: registry(), obs, bound, roles, intervals, data_hash: String::new() }
 }
 
 pub mod store;

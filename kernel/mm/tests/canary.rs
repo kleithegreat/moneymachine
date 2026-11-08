@@ -43,7 +43,7 @@ impl Rng {
 }
 
 /// `early` gives each bar observation the values of the bar two ahead, its role payload unchanged: the leak.
-fn market(seed: u64, early: bool) -> (Market, Venue, Policy, i64) {
+fn market(seed: u64, early: bool) -> (Market<'static>, Venue, Policy, i64) {
     let mut rng = Rng(seed);
     let n_bars = DAYS * 6;
     let end = n_bars * BAR;

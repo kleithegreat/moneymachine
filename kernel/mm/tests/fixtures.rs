@@ -42,7 +42,7 @@ impl Spec {
         }
     }
 
-    fn build(&self) -> (Market, Venue, Policy, i64) {
+    fn build(&self) -> (Market<'static>, Venue, Policy, i64) {
         let n = self.opens.len() as i64;
         let end = n * BAR;
         let bars = (0..n as usize).filter(|k| !self.missing_bars.contains(k)).map(|k| {
