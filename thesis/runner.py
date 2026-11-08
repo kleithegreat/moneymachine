@@ -103,10 +103,9 @@ class Track:
         return out
 
     def inputs(self, account: str, markets: Iterable[str], now: int, snapshot: Json) -> tuple[Json, Json]:
-        """A registration's (config, data): the account's and the new thesis's markets as of `now`, the session snapshot's
-        daily bars, and the listing read the commit makes."""
+        """Day-fixed admission, shared daily bars, and account inputs at the registration's own cutoff."""
         markets = set(markets)
-        cold = sorted(m for m in markets if not self.market.ready(m, now))
+        cold = sorted(m for m in markets if not snapshot["ready"].get(m, False))
         if cold:
             raise httpx.TransportError(f"funding history is not ready for {cold}")
         markets |= set(self.markets_of(account))
@@ -141,9 +140,11 @@ class Track:
             check()
             listed_at = now_ms()
             listings = self.market.listings()
-            for m, delisted in sorted(listings.items()):
+            benchmark_listings = self.market.listings_at(date) if is_monday(date) else {}
+            scope = listings.keys() | benchmark_listings.keys()
+            for m in sorted(scope):
                 check()
-                if delisted:
+                if listings.get(m, True) and benchmark_listings.get(m, True):
                     continue
                 d = self.market.bars(m, "1d", now)
                 if len(d) < registry.MIN_DAILY_BARS:
@@ -153,9 +154,15 @@ class Track:
                 if h:
                     markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
                     daily[m] = d
+            readiness_at = now_ms()
+            ready = {m: self.market.ready(m, readiness_at) for m in scope}
         check()
         snap = {"taken": now, "listed_at": listed_at, "requests": self.market.sent() - before, "listings": listings,
-                "markets": markets, "daily": daily}
+                "markets": {m: v for m, v in markets.items() if not listings.get(m, True)}, "daily": daily,
+                "readiness_at": readiness_at, "ready": ready}
+        if is_monday(date):
+            snap.update(benchmark_listings=benchmark_listings,
+                        benchmark_markets={m: v for m, v in markets.items() if not benchmark_listings.get(m, True)})
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(snap))
@@ -195,7 +202,8 @@ class Track:
         with self.attestation:
             if (acquired := now_ms()) < end:
                 self.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": acquired, "sha256": digest,
-                                                                "listed_at": snap["listed_at"], "requests": snap["requests"]})
+                                                                "listed_at": snap["listed_at"], "requests": snap["requests"],
+                                                                "readiness_at": snap["readiness_at"]})
 
     def daemon(self, socket_path: str | Path, session: str, account: str, snapshot: Json, commands: Iterable[str],
                ablation_of: str | None = None) -> Daemon:
@@ -250,7 +258,7 @@ class Track:
                 "horizon_ms": th["T"], "exit": "the first hourly open at or after the horizon",
                 "outcome": "the fixed-quantity position's net return (price change, fees, trading costs and hourly "
                            "funding payments) from entry to exit is strictly positive"}
-        snap = {"taken": th["t_r"], "listings": snapshot["listings"], "daily": cutoff,
+        snap = {**snapshot, "taken": th["t_r"], "daily": cutoff,
                 "markets": {m: {"last_close": d[-1][2], "t": d[-1][0] + DAY} for m, d in cutoff.items() if d}}
         return task, snap
 
@@ -299,9 +307,7 @@ class Track:
                 self.miss(date, kind, name)
 
     def benchmark(self, monday: int) -> None:
-        """The frozen benchmark's registrations for one Monday 00:00 UTC, in BENCHMARK order, of the markets not yet on the
-        record, once that day's snapshot is attested and the registration hour has come: each market's last daily close known at that instant (a bar is known
-        DELTA after it closes) against the close 20 days before it, from the snapshot's bars known then."""
+        """Register the deterministic Monday-midnight reference, retaining its actual receipt time separately."""
         if (attested := self.attested(monday, monday + DAY)) is None:
             return
         snapshot = known_at(attested, monday)
@@ -313,12 +319,13 @@ class Track:
                 continue
             closes = {r[0]: r[2] for r in snapshot["daily"][m]}
             w = 1 if closes[last] > closes[before] else -1
-            config, data = self.inputs("benchmark", [m], now_ms(), snapshot)
+            config, data = self.inputs("benchmark", [m], monday, snapshot)
+            data["listed"] = lambda markets: {m: snapshot["listings"][m] for m in markets if m in snapshot["listings"]}
             request = {"request_id": f"benchmark-{monday}-{m}", "legs": [[m, w]], "T": monday + 21 * DAY, "p": None,
                        "L": 0.1, "catalyst": "frozen benchmark: the sign of the 20-day return", "catalyst_id": "benchmark",
                        "sources": [], "outcome_market": None}
             _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, now_ms, set(), config, data,
-                                          p_is_base_rate=True)
+                                          p_is_base_rate=True, forecast_at=monday)
             if errors:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
 
@@ -400,17 +407,16 @@ class Track:
             t.join()
 
     def benchmarks(self, now: int, frozen: int) -> None:
-        """Every Monday since the freeze of a version frozen at `frozen`: a batch runs within its day; what its day left
-        unprocessed is logged as missed, market by market, never backdated. The batch waits for the day's attested snapshot
-        until the date ends, then registers at the first whole hour at or after the session deadline and the attestation,
-        its information set the bars known at Monday 00:00 UTC either way; a date without one logs each market "no attested
-        snapshot". Its failure leaves the batch to the next pass."""
+        """Run each Monday batch after attestation and the session deadline, rounded up to an hour except in the last hour.
+        A date without an attested snapshot is logged as missed; transient failures leave the batch to the next pass."""
         for monday in range(frozen // DAY * DAY, now + 1, DAY):
             if is_monday(monday) and self.unbenchmarked(monday):
                 elapsed, snap = now - monday, self.attested(monday, monday + DAY)
                 due = max(SESSION_OFFSET, self.attested_at(monday)) if snap is not None else 0
                 if snap is not None and elapsed < DAY:
-                    if elapsed >= -(-due // HOUR) * HOUR:
+                    if due < 23 * HOUR:
+                        due = -(-due // HOUR) * HOUR
+                    if elapsed >= due:
                         self.benchmark(monday)
                 elif reason := "run missed" if snap is not None else "no attested snapshot" if elapsed >= DAY else None:
                     for m in self.unbenchmarked(monday):
@@ -452,11 +458,11 @@ def last_acquisition(date: int) -> int:
 
 
 def known_at(snapshot: Json, at: int) -> Json:
-    """The snapshot's content as known at `at`: the daily bars closed DELTA before it, and the markets that still have
-    enough of them."""
+    """The Monday view: historical listings and daily bars closed DELTA before midnight."""
     daily = {m: [r for r in d if r[0] + DAY + DELTA <= at] for m, d in snapshot["daily"].items()}
     kept = {m for m, d in daily.items() if len(d) >= registry.MIN_DAILY_BARS}
-    return {**snapshot, "taken": at, "markets": {m: v for m, v in snapshot["markets"].items() if m in kept},
+    return {**snapshot, "taken": at, "listings": snapshot["benchmark_listings"],
+            "markets": {m: v for m, v in snapshot["benchmark_markets"].items() if m in kept},
             "daily": {m: daily[m] for m in kept}}
 
 

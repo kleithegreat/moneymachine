@@ -341,7 +341,16 @@ class Market:
         for dex in self.x.post({"type": "perpDexs"}, background=background):
             if dex:
                 out.update(self.universe(dex["name"], background=background))
+        with self.locks.setdefault(self.root / "listings", threading.Lock()):
+            at = now_ms()
+            append(self.root, "listings", at, {"at": at, "listings": out})
         return out
+
+    def listings_at(self, at: int) -> dict[str, bool]:
+        """The latest complete discovery observed by `at`; later metadata cannot establish earlier listing status."""
+        with self.locks.setdefault(self.root / "listings", threading.Lock()):
+            observations = [r for r in read(self.root, "listings") if r["at"] <= at]
+        return dict(max(reversed(observations), key=lambda r: r["at"])["listings"]) if observations else {}
 
     def listed(self, markets: Iterable[str]) -> dict[str, bool]:
         """{market: delisted} now, of `markets` the venue lists, reading only their dexes: a dex it doesn't list lists none."""

@@ -152,7 +152,7 @@ def committed(ledger: Ledger, account: str, request: Any, p_is_base_rate: bool =
 
 
 def register(ledger: Ledger, account: str, session: str, request: Any, clock: Callable[[], int], disclosed: Collection[str], config: Json,
-             data: Json, p_is_base_rate: bool = False) -> tuple[Json, None] | tuple[None, list[str]]:
+             data: Json, p_is_base_rate: bool = False, *, forecast_at: int | None = None) -> tuple[Json, None] | tuple[None, list[str]]:
     """Validate, size and commit one thesis. Under the ledger's lock a retry returns what it `committed`; a well-formed new
     request has its markets' listings read (`data["listed"]`), t_r read from `clock` as that read returns, then is checked
     against them, sized (`positions.admit`), given its base rate and committed, so commit order is t_r order, slow inputs
@@ -161,7 +161,8 @@ def register(ledger: Ledger, account: str, session: str, request: Any, clock: Ca
     is fixed here is recorded with the thesis: the listing read and its times, the data's cutoff, what sized it (each
     amount an exact rational's text), the fee and cost cells, the cost fallbacks, and p_ref with its window counts. With
     `p_is_base_rate` the request's p is null and p is that p_ref, or the thesis is refused for lacking one. Returns
-    (thesis, None) or (None, errors)."""
+    (thesis, None) or (None, errors). The deterministic benchmark alone supplies its approved fixed `forecast_at`;
+    its actual receipt remains `registered_at`, distinct from the effective forecast/holding time `t_r`."""
     with ledger.lock:
         if (retry := committed(ledger, account, request, p_is_base_rate)) is not None:
             return retry
@@ -169,13 +170,14 @@ def register(ledger: Ledger, account: str, session: str, request: Any, clock: Ca
             return None, errors
         read_from = clock()
         listings = data["listed"](markets_of(request))
-        read_to = t_r = clock()
+        read_to = registered_at = clock()
+        t_r = registered_at if forecast_at is None else forecast_at
         if errors := eligible(request, t_r, listings, data["daily"]):
             return None, errors
         existing = ledger.theses(account)
         markets = [m for m, _ in request["legs"]]
         th = {**request, "id": f"{account}-{len(existing) + 1}", "account": account, "session": session, "t_r": t_r,
-              "listings": listings, "listings_read": [read_from, read_to], "cutoff": data["cutoff"],
+              "registered_at": registered_at, "listings": listings, "listings_read": [read_from, read_to], "cutoff": data["cutoff"],
               "fee": config["fee"], "costs": {m: config["costs"][m] for m in markets},
               "fallback_costs": sorted(set(config["fallback"]) & set(markets))}
         sizing = positions.admit(config["initial"], existing, ledger.exits(account), data, t_r, request["L"])

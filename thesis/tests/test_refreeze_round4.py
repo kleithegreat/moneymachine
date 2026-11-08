@@ -10,41 +10,16 @@ from ingest import hl
 from thesis import market, runner
 from thesis.tests.test_market import Venue, fake_clock
 from thesis.tests.test_runner import track
-from thesis.tests.test_runner import MONDAY, benchmark, registration
+from thesis.tests.test_runner import MONDAY
 
 H, D = market.HOUR, market.DAY
 NOW = 2000 * D + 600_000
 
 
 def test_registration_refuses_unacquired_comparator_history(track):
-    track.market.ready = lambda m, now: False
     with pytest.raises(httpx.TransportError, match="funding history is not ready"):
-        track.inputs("main", ["BTC"], NOW, {"daily": {}})
+        track.inputs("main", ["BTC"], NOW, {"daily": {}, "ready": {"BTC": False}})
     assert track.ledger.theses("main") == []
-
-
-def test_cold_market_stays_eligible_but_unavailable_until_acquired(track, monkeypatch):
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    snapshot = track.snapshot(MONDAY)
-    track.market.ready = lambda m, now: False
-    assert "BTC" in snapshot["markets"]
-    with pytest.raises(httpx.TransportError):
-        registration(track, snapshot)
-    assert not track.ledger.theses("main")
-    track.market.ready = lambda m, now: True
-    assert registration(track, snapshot)["ok"]
-
-
-def test_benchmark_retries_unacquired_inputs_like_other_availability_failures(track, monkeypatch):
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.market.ready = lambda m, now: False
-    with pytest.raises(httpx.TransportError):
-        benchmark(track)
-    assert not track.ledger.theses("benchmark")
-    assert not track.ledger.records("skip", "benchmark")
-    track.market.ready = lambda m, now: True
-    benchmark(track)
-    assert len(track.ledger.theses("benchmark")) == 4
 
 
 def test_widened_covered_holes_are_not_starved_by_hourly_narrow_reads(tmp_path, monkeypatch):

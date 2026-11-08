@@ -34,6 +34,9 @@ class FakeMarket:
     def listed(self, markets):
         return {m: m in self.delisted for m in (*runner.BENCHMARK, "X") if m in markets}
 
+    def listings_at(self, at):
+        return {m: m in self.delisted for m in (*runner.BENCHMARK, "X")}
+
     def bars(self, market, interval, now=None):
         """Daily bars known by `now`, as the real market's: a bar is known DELTA after its close."""
         if interval == "1d":
@@ -568,7 +571,7 @@ class Trending(FakeMarket):
         return [[t, 200.0, 200.0] if market == "BTC" and interval == "1h" and t >= self.jump else [t, o, c] for t, o, c in rows]
 
 
-def test_a_benchmark_resumed_after_its_equity_moved_registers_the_base_rate_of_its_own_notional(track, monkeypatch):
+def test_a_resumed_benchmark_keeps_midnight_sizing_and_its_base_rate(track, monkeypatch):
     cells = {"buy": {"1000": 1, "10000": 8}, "sell": {"1000": 1, "10000": 8}}
     track.market = Trending(MONDAY + 40 * DAY, MONDAY + 3 * HOUR)
     monkeypatch.setattr(track, "config", lambda markets: {"initial": 10_000.0, "fee": 0.0, "costs": {m: cells for m in markets}, "fallback": []})
@@ -581,8 +584,9 @@ def test_a_benchmark_resumed_after_its_equity_moved_registers_the_base_rate_of_i
     monkeypatch.setattr(runner, "now_ms", lambda: later)
     benchmark(track)
     eth = next(th for th in track.ledger.theses("benchmark") if th["legs"][0][0] == "ETH")
-    assert runner.positions.exact(eth["N"]) > 1000
-    assert eth["p"] == eth["p_ref"] == 1 / (eth["base_windows"] + 2)
+    assert runner.positions.exact(eth["N"]) == 1000 and eth["registered_at"] == later and eth["t_r"] == MONDAY
+    assert eth["base_positive"] == eth["base_windows"]
+    assert eth["p"] == eth["p_ref"] == (eth["base_windows"] + 1) / (eth["base_windows"] + 2)
 
 
 def test_a_benchmark_without_a_base_rate_at_its_commit_is_skipped(track, monkeypatch):
@@ -687,11 +691,11 @@ def test_a_session_read_depends_on_the_account_replay_and_never_on_history_it_do
     benchmark(track)
     track.market.calls.clear()
     track.replay("benchmark", MONDAY + HOUR)
-    assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY + 60_000}
+    assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY}
     track.market.calls.clear()
-    track.inputs("benchmark", ["X"], MONDAY + HOUR, {"daily": {}})
+    track.inputs("benchmark", ["X"], MONDAY + HOUR, {"daily": {}, "ready": {"X": True}})
     starts = {c[1]: c[2] for c in track.market.calls if c[0] == "funding"}
-    assert starts["X"] == MONDAY + HOUR - FRESH and starts["BTC"] == MONDAY + 60_000
+    assert starts["X"] == MONDAY + HOUR - FRESH and starts["BTC"] == MONDAY
 
 
 def test_a_resolution_read_starts_at_the_earliest_due_registration_of_its_market(track, monkeypatch):
@@ -700,7 +704,7 @@ def test_a_resolution_read_starts_at_the_earliest_due_registration_of_its_market
     track.market.until = MONDAY + 21 * DAY + HOUR
     track.market.calls.clear()
     track.resolve(MONDAY + 21 * DAY + HOUR)
-    assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY + 60_000}
+    assert {c[2] for c in track.market.calls if c[0] == "funding"} == {MONDAY}
 
 
 def test_the_background_fill_goes_benchmark_first_and_survives_a_failing_market(track, capsys):

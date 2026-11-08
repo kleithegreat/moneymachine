@@ -35,7 +35,7 @@ def test_hours_since_the_last_fill_are_the_registrations_own_read_not_unavailabi
     clock[0] = MONDAY + DAY + 5 * HOUR
     assert track.market.ready("X", clock[0])
     x.requests.clear()
-    _, data = track.inputs("main", ["X"], clock[0], {"daily": {}})
+    _, data = track.inputs("main", ["X"], clock[0], {"daily": {}, "ready": {"X": True}})
     assert max(data["funding"]["X"]) == clock[0] // HOUR * HOUR
     assert (acquired + 1, clock[0] + 1) in x.requests
 
@@ -48,7 +48,7 @@ def test_history_the_venue_was_never_asked_for_is_unavailable(track, tmp_path, m
     track.market.funding("X", now, start=now - 10 * HOUR)
     assert not track.market.ready("X", now)
     with pytest.raises(httpx.TransportError, match="not ready"):
-        track.inputs("main", ["X"], now, {"daily": {}})
+        track.inputs("main", ["X"], now, {"daily": {}, "ready": {"X": False}})
 
 
 def test_a_gap_beyond_one_page_since_the_last_fill_stays_unavailable(track, tmp_path, monkeypatch):
