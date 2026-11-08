@@ -50,3 +50,10 @@ registry/certificate part of C7.7 (the fixed `admissionMeta`) is a separate gap.
 ## Reproduce
 
 `reference/differential.chunk` on `case-op-add` over `edge_markets.edge` at `eff52b0`: `('abort', 0, 'R_SETTLEMENT_MISSING', 'R_BINDING')`.
+
+## Revision 2026-11-08 02:10 UTC (21:10 EST), branch `revision-exporter`
+
+The importer now carries the revisions: `mmdump` exports `final` (last entry of the key's timeline), `retraction` and `recorded`
+(the revision's fetchedAt) per observation, in timeline order, and `Main.lean` reads them; the hard-codings are deleted and no
+Lean semantics changed. A differential test on the restated edge market (`test_runs_agree_on_restated_keys`) failed before and passes.
+The full C6.4 harness result on this branch is recorded below when it finishes.
