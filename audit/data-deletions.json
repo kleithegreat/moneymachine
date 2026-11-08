@@ -114,6 +114,14 @@
    "what": "scratch of reference/differential.py harness runs killed or crashed between 2026-10-27 and 2026-11-07 (per-chunk market and output dirs the harness frees on a normal exit, 3ccec64); about 330 MB in main and 2.2 GB in stage7",
    "rebuild": "development output, regenerable by rerunning the harness at its commit; no judged run reads them (judged runs are recorded in audit/stage6 and audit/stage7)",
    "deleted": "2026-11-08 19:55 UTC (14:55 EST), by the advisor during cleanup the human asked for, WITHOUT recording hashes first: a deviation from the 2026-10-23 housekeeping rule; the hashes are unrecoverable. Only directories older than a day and not open by any process were removed."
+  },
+  {
+   "path": "data/refmm-performance/ (stage7 worktree)",
+   "sha256": "08bbb7ebbd646403b016086b196b314cdad008f1e8eb0ef02ce1f49cccbc4d03",
+   "bytes": 16451610295,
+   "what": "reproduction dumps of audit/stage7/refmm-performance-2026-10-31.md (N1-N3 at 550 days, before and after the admission fix)",
+   "rebuild": "rerun the record's commands at baseline 781d3d8 and the fix; markets from reference.differential.null_market, seed 20261024",
+   "deleted": "2026-11-08, the human's go"
   }
  ]
 }

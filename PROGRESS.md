@@ -18,8 +18,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Wake-ups (2026-11-08, the human away)
 
-- **refreeze round five review** (Opus, 22:15 UTC (17:15 EST)): the last review before the refreeze, of `thesis-refreeze` three-dot from `6e37e5e`, in a fresh worktree without `data/`: R1–R7 of round four's review at their causes, by constructed failures; the decided schedule and Monday rule; T3 against the code; the criteria draft against round four's list; the sharded suite. Write and commit `audit/reviews/2026-11-08-opus-thesis-refreeze-round5.md` (ready / after fixes / not ready). No freeze, deploy or `audit/criteria.md` edit.
-- **stage7 slice 4 finish** (Opus, 22:20 UTC (17:20 EST)): `slice4` (`../mm-slice4`) stopped at a usage limit; its C6.4 harness writes `~/.cache/mm-slice4-c64/report.json`. Finish rust-port-plan §2 item 4's checks (the harness; `mm eval --trace` of `933b3f4` vs the new binary, byte-identical), commit, update Stage 7. No merge: Argon reviews it.
+- **refreeze round five review** (Opus, 20:51 UTC (15:51 EST)): the last review before the refreeze, of `thesis-refreeze` three-dot from `6e37e5e`, in a fresh worktree without `data/`: R1–R7 of round four's review at their causes, by constructed failures; the decided schedule and Monday rule; T3 against the code; the criteria draft against round four's list; the sharded suite. Write and commit `audit/reviews/2026-11-08-opus-thesis-refreeze-round5.md` (ready / after fixes / not ready). No freeze, deploy or `audit/criteria.md` edit.
+- **stage7 slice 4 finish** (Opus, after the review): `slice4` (`../mm-slice4`) stopped at a usage limit; its C6.4 harness writes `~/.cache/mm-slice4-c64/report.json`. Finish rust-port-plan §2 item 4's checks (the harness; `mm eval --trace` of `933b3f4` vs the new binary, byte-identical), commit, update Stage 7. No merge: Argon reviews it.
 
 
 ### Next, in order
