@@ -230,7 +230,7 @@ python3 ops/shards.py /path/to/worktree --machines local,gmktec
 ```
 The runner collects the test ids here (selection arguments, paths, `-k`, `-m`, go to collection only), splits them into
 shards balanced by recorded durations (`~/.cache/mm-shards/durations.json`, refreshed by every run; an unseen test counts
-as the median) and by cores (this PC 12, prodesk5 6, gmktec 8), runs the shards at once (`pytest -n auto` on each) and
+as the median) and by cores (this PC 12, prodesk5 6, gmktec 8), learned slowness and learned per-machine overhead (seconds beyond the tests: transfer, Nix, collection, tail), runs the shards at once (`pytest -n auto` on each) and
 merges them: one summary, one exit status. The status is nonzero if any shard exits nonzero, any test fails or errors, or
 any collected test goes unreported; tests of a node that gave no result are rerun here. Logs are in a `/tmp/mm-shards-*`
 directory, deleted on success. `conftest.py` writes each shard's outcomes under `--shard-report`.

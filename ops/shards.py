@@ -29,6 +29,7 @@ LOCAL_ONLY = (
 )
 DURATIONS = Path.home() / ".cache/mm-shards/durations.json"
 SLOWNESS = "_slowness"
+OVERHEAD = "_overhead"
 BOUND = 3900
 REMOTE = '''set -eu
 root=$1
@@ -47,7 +48,8 @@ trap 'exit 143' TERM
 exec 9>lock
 flock 9
 mkdir -p -m 700 "$tmp"
-rm -rf in report.*.json
+rm -rf in
+find . -maxdepth 1 -name 'report.*.json' -mmin +120 -delete
 mkdir in
 tar -xz -C in
 export HOME="$root/h" XDG_CACHE_HOME="$root/h/cache" XDG_CONFIG_HOME="$root/h/config" TMPDIR="$tmp"
@@ -120,11 +122,12 @@ def collect(worktree, selection):
     return ids
 
 
-def assign(ids, durations, cores):
+def assign(ids, durations, cores, overhead):
     """{machine: ids}: the local-only tests on the desktop, the rest longest first onto the machine that would finish
-    soonest. `cores` is each machine's speed: its cores over how much slower than predicted its last run was."""
+    soonest. `cores` is each machine's speed: its cores over how much slower than predicted its last run was; `overhead`
+    is the seconds each machine spends outside its tests (transfer, Nix, collection, worker start, the tail)."""
     guess = statistics.median(durations.values()) if durations else 1.0
-    load = dict.fromkeys(cores, 0.0)
+    load = {m: overhead.get(m, 0.0) for m in cores}
     shards = {m: [] for m in cores}
     local = [i for i in ids if i.startswith(LOCAL_ONLY)]
     rest = sorted((i for i in ids if not i.startswith(LOCAL_ONLY)), key=lambda i: -durations.get(i, guess))
@@ -174,7 +177,7 @@ def run_node(worktree, host, ids, log, report):
             except subprocess.TimeoutExpired:
                 code = 124
     try:
-        got = subprocess.run([*SSH, host, shlex.join(["cat", f"{ROOT}/report.{run}.json"])], capture_output=True, timeout=60)
+        got = subprocess.run([*SSH, host, shlex.join(["sh", "-c", 'cat "$1" && rm -f "$1"', "sh", f"{ROOT}/report.{run}.json"])], capture_output=True, timeout=60)
     except subprocess.TimeoutExpired:
         return code
     if got.returncode == 0:
@@ -211,10 +214,20 @@ def update(durations, slowness, ran, rows, ids, full):
     return kept, slowness
 
 
-def write_durations(path, durations, slowness):
+def learn_overhead(overhead, walls, ran, rows, count):
+    """Each machine's wall seconds beyond its tests' seconds spread over its `count` cores, averaged with the last value."""
+    overhead = dict(overhead)
+    for m, wall in walls.items():
+        seconds = [rows[i]["seconds"] for i, r in ran.items() if r == m]
+        if seconds:
+            overhead[m] = (overhead.get(m, 0.0) + max(0.0, wall - sum(seconds) / count[m])) / 2
+    return overhead
+
+
+def write_durations(path, durations, slowness, overhead):
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
-    temp.write_text(json.dumps({**durations, SLOWNESS: slowness}))
+    temp.write_text(json.dumps({**durations, SLOWNESS: slowness, OVERHEAD: overhead}))
     os.replace(temp, path)
 
 
@@ -226,20 +239,25 @@ def run(worktree, machines, selection):
     except (OSError, ValueError):
         durations = {}
     slowness = durations.pop(SLOWNESS, {})
-    cores = {m: (os.cpu_count() if m == LOCAL else NODES[m][1]) / slowness.get(m, 1.0) for m in machines}
-    shards = assign(ids, durations, cores)
+    overhead = durations.pop(OVERHEAD, {})
+    count = {m: os.cpu_count() if m == LOCAL else NODES[m][1] for m in machines}
+    cores = {m: count[m] / slowness.get(m, 1.0) for m in machines}
+    shards = assign(ids, durations, cores, overhead)
     out = Path(tempfile.mkdtemp(prefix="mm-shards-"))
     print(f"{len(ids)} tests collected in {time.time() - started:.0f}s; logs in {out}", flush=True)
     for m, part in shards.items():
-        predicted = sum(durations.get(i, 1.0) for i in part) / cores[m]
+        predicted = overhead.get(m, 0.0) + sum(durations.get(i, 1.0) for i in part) / cores[m]
         print(f"  {m}: {len(part)} tests, about {predicted:.0f}s", flush=True)
+
+    walls = {}
 
     def go(m, part, tag=""):
         t = time.time()
         log, report = out / f"{m}{tag}.log", out / f"{m}{tag}.json"
         with log.open("w") as handle:
             code = run_local(worktree, part, handle, report) if m == LOCAL else run_node(worktree, NODES[m][0], part, handle, report)
-        print(f"  {m}{tag} finished: exit {code} in {time.time() - t:.0f}s", flush=True)
+        walls[m] = time.time() - t
+        print(f"  {m}{tag} finished: exit {code} in {walls[m]:.0f}s", flush=True)
         return m, code, shard_result(report)
 
     with ThreadPoolExecutor(len(machines)) as pool:
@@ -249,6 +267,7 @@ def run(worktree, machines, selection):
         rows.update(report)
         codes[m] = code
         ran.update({i: m for i in report})
+    learned = learn_overhead(overhead, walls, ran, rows, count)
     lost = rerun(shards, rows)
     if lost:
         print(f"{len(lost)} tests that a node skipped or gave no result for are rerun here", flush=True)
@@ -257,7 +276,8 @@ def run(worktree, machines, selection):
         ran.update({i: LOCAL for i in report})
         codes["rerun"] = code
     missing = [i for i in ids if i not in rows]
-    write_durations(DURATIONS, *update(durations, slowness, ran, rows, ids, not selection))
+    kept, slowness = update(durations, slowness, ran, rows, ids, not selection)
+    write_durations(DURATIONS, kept, slowness, learned)
     counts = {}
     for r in rows.values():
         counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1

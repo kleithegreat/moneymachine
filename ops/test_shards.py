@@ -80,13 +80,24 @@ def test_assignment_places_every_test_once_balanced_by_duration_and_speed():
     ids = [f"t.py::a{i}" for i in range(40)] + ["t.py::big", local_only]
     durations = {"t.py::big": 100.0, local_only: 5.0} | {f"t.py::a{i}": 1.0 for i in range(40)}
     cores = {"local": 12, "prodesk5": 6, "gmktec": 8}
-    parts = shards.assign(ids, durations, cores)
+    parts = shards.assign(ids, durations, cores, {})
     assert sorted(i for p in parts.values() for i in p) == sorted(ids)
     assert local_only in parts["local"] and "t.py::big" in parts["local"]
     finish = {m: sum(durations[i] for i in p) / cores[m] for m, p in parts.items()}
     assert max(finish.values()) - min(finish.values()) <= 100.0 / 12 + 1.0
     assert sum(len(p) for p in parts.values()) == len(ids)
-    assert shards.assign(ids, {}, cores) == shards.assign(ids, {}, cores)
+    assert shards.assign(ids, {}, cores, {}) == shards.assign(ids, {}, cores, {})
+
+
+def test_a_machine_with_overhead_gets_fewer_tests_and_overhead_is_learned_from_the_wall():
+    ids = [f"t.py::a{i}" for i in range(60)]
+    durations = {i: 1.0 for i in ids}
+    cores = {"local": 10, "gmktec": 10}
+    parts = shards.assign(ids, durations, cores, {"gmktec": 3.0})
+    assert len(parts["gmktec"]) == 30 - 15 and len(parts["local"]) == 45
+    rows = {"a": {"seconds": 40.0}, "b": {"seconds": 20.0}}
+    learned = shards.learn_overhead({"gmktec": 10.0}, {"gmktec": 50.0, "local": 5.0}, {"a": "gmktec", "b": "gmktec"}, rows, {"gmktec": 4, "local": 12})
+    assert learned == {"gmktec": pytest.approx((10.0 + 50.0 - 60.0 / 4) / 2)}
 
 
 def shim(root, code):
@@ -128,6 +139,16 @@ def test_remote_script_checks_out_the_dirty_tree_keeps_builds_and_returns_the_st
         assert subprocess.run(["git", "-C", str(root / "w"), "ls-files", "new file.py"], capture_output=True, text=True).stdout
     assert (root / "w/build-output").read_text() == "kept\n"
     assert Path(root / "lock").exists()
+
+
+def test_a_waiting_run_leaves_the_previous_runs_report_for_its_controller(worktree, tmp_path):
+    root = tmp_path / "runner"
+    shim(root, 0)
+    (root / "report.previous.json").write_text("{}")
+    tar = tmp_path / "in.tar.gz"
+    shards.package(worktree, ["ops/test_x.py::t"], tar)
+    assert remote(root, tar, root / "bin").returncode == 0
+    assert (root / "report.previous.json").read_text() == "{}"
 
 
 def test_ssh_notices_a_dead_node():
@@ -207,6 +228,6 @@ def test_slowness_comes_from_test_seconds_and_stale_ids_are_pruned(tmp_path):
 
 def test_durations_are_written_atomically(tmp_path):
     path = tmp_path / "d" / "durations.json"
-    shards.write_durations(path, {"a": 1.0}, {"local": 1.5})
-    assert json.loads(path.read_text()) == {"a": 1.0, shards.SLOWNESS: {"local": 1.5}}
+    shards.write_durations(path, {"a": 1.0}, {"local": 1.5}, {"local": 2.0})
+    assert json.loads(path.read_text()) == {"a": 1.0, shards.SLOWNESS: {"local": 1.5}, shards.OVERHEAD: {"local": 2.0}}
     assert [p.name for p in path.parent.iterdir()] == ["durations.json"]
