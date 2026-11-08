@@ -130,6 +130,16 @@ def test_remote_script_checks_out_the_dirty_tree_keeps_builds_and_returns_the_st
     assert Path(root / "lock").exists()
 
 
+def test_a_waiting_run_leaves_the_previous_runs_report_for_its_controller(worktree, tmp_path):
+    root = tmp_path / "runner"
+    shim(root, 0)
+    (root / "report.previous.json").write_text("{}")
+    tar = tmp_path / "in.tar.gz"
+    shards.package(worktree, ["ops/test_x.py::t"], tar)
+    assert remote(root, tar, root / "bin").returncode == 0
+    assert (root / "report.previous.json").read_text() == "{}"
+
+
 def test_ssh_notices_a_dead_node():
     assert "ServerAliveInterval=15" in shards.SSH and "ServerAliveCountMax=4" in shards.SSH
 

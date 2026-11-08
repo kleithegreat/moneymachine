@@ -47,7 +47,8 @@ trap 'exit 143' TERM
 exec 9>lock
 flock 9
 mkdir -p -m 700 "$tmp"
-rm -rf in report.*.json
+rm -rf in
+find . -maxdepth 1 -name 'report.*.json' -mmin +120 -delete
 mkdir in
 tar -xz -C in
 export HOME="$root/h" XDG_CACHE_HOME="$root/h/cache" XDG_CONFIG_HOME="$root/h/config" TMPDIR="$tmp"
@@ -174,7 +175,7 @@ def run_node(worktree, host, ids, log, report):
             except subprocess.TimeoutExpired:
                 code = 124
     try:
-        got = subprocess.run([*SSH, host, shlex.join(["cat", f"{ROOT}/report.{run}.json"])], capture_output=True, timeout=60)
+        got = subprocess.run([*SSH, host, shlex.join(["sh", "-c", 'cat "$1" && rm -f "$1"', "sh", f"{ROOT}/report.{run}.json"])], capture_output=True, timeout=60)
     except subprocess.TimeoutExpired:
         return code
     if got.returncode == 0:
