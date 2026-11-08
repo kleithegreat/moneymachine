@@ -47,7 +47,7 @@ def test_every_validated_page_is_committed_before_the_next_is_asked_for(tmp_path
     x.n = 0
     x.requests.clear()
     assert len(m.funding("X", NOW, background=True)) == 1200
-    assert done - H < x.requests[0][0] <= done and len(x.requests) == 1
+    assert done - H < x.requests[0][0] <= done and len(x.requests) == 2
     assert m.ready("X", NOW)
 
 
