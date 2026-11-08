@@ -188,8 +188,8 @@ def test_daily_funding_tail_and_discovery_costs_use_ceiling(tmp_path, monkeypatc
     monkeypatch.setattr(x.http, "post", lambda url, json: httpx.Response(200, json=[], request=httpx.Request("POST", url)))
     x.funding_page("X", 0, D + H)
     assert sum(w for _, w in x.limiter.spent) == 22
-    assert (348 * 22 + 278 * 45) == 20166
-    assert (D // runner.PREWARM_EVERY) * 20 * (5 + 2) == 13440
+    assert 348 * 22 == 7656
+    assert (D // runner.PREWARM_EVERY) * 20 * (10 + 2) == 23040
 
 
 def test_hole_plans_never_repair_outside_the_requested_scope():
