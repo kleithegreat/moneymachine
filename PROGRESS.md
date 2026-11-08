@@ -17,7 +17,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Wake-ups (2026-11-08, the human asleep)
 
-- **stage 4 C4.1 rebuild** (Sonnet, 10:15 UTC, 05:15 EST): items 1–3 of `audit/reviews/2026-11-08-opus-stage4-exit.md` on a new branch off main (C4.1's rewrites from `canon::rules()`, failing on its mutant m1; C4.2's additions; recorded cargo and full suites). Not exit.md, the paper or done.
+- **stage 4 C4.1 rebuild** done on `stage4-c41` (`../mm-s4-c41`): `audit/stage4/c41-rebuild.md` (m1 is an equivalent mutant: the parser maps −0 constants to +0; the advisor to confirm). Still not exit.md, the paper or done.
 - **stage 4 C4.1 review** (Opus, 12:30 UTC, 07:30 EST): once that branch's commits exist, review them fresh against C4.1, C4.2 and m1; save under `audit/reviews/`; else reschedule +1 h.
 - **exporter finish** (Sonnet, 11:00 UTC, 06:00 EST): once `../mm-edge-bisect/data/scratch/report.json` exists (57 chunks), finish per `audit/stage7/edge-regression.md` and commit on `revision-exporter`; else reschedule +1 h.
 - **slice 3 review** (Opus, 13:30 UTC, 08:30 EST): unless `audit/stage7/slice3-review-opus.md` exists, review `slice3` per CLAUDE.md's Reviews (a C6.4 harness sample included) and save it there.
