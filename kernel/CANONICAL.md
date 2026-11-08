@@ -40,3 +40,6 @@ yield 1.0 or 0.0, and `and`/`or`/`not` treat any nonzero as true.
 | `gt(a, b) ↔ lt(b, a)`, `ge(a, b) ↔ le(b, a)` | well-typed |
 
 Only R above is admitted; excluded-law counterexamples are in paper K2 (`app:rewrites`).
+
+R is the 16 rules of `canon::rules`: the table's rows, with `and`/`or` commutativity as two rules and each comparison law as two directed rules.
+`lag(lag(x, a), b) = lag(x, a + b)` was a candidate in the stage 4 criteria (`audit/criteria.md`, stage 4) and is not in R: the paper (K2, `app:rewrites`) records that R v1 contains no lag-fusion law, and no exactness argument for it was written. Adding it forks R's hash, so it needs a new version.
