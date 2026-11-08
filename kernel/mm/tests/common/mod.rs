@@ -99,3 +99,77 @@ pub fn boolean(rng: &mut Rng, depth: usize) -> Value {
 pub fn weight(rng: &mut Rng, depth: usize) -> Value {
     op("mul", vec![op("clip", vec![num(rng, depth), c(-1.0), c(1.0)]), c(0.05)])
 }
+
+pub const R: &str = r#"{"op": "sub", "args": [{"op": "div", "args": [{"input": "close"}, {"input": "open"}]}, {"const": 1, "unit": "1"}]}"#;
+pub const P: &str = r#"{"input": "premium"}"#;
+
+/// Pairs of programs whose semantics provably differ (the rejected laws' counterexamples, C4.2).
+pub fn rejected_pairs() -> Vec<(String, String)> {
+    let mut out = vec![];
+    let x = r#"{"const": 1e16, "unit": "1"}"#;
+    let y = r#"{"const": -1e16, "unit": "1"}"#;
+    let left = format!(r#"{{"op": "add", "args": [{{"op": "add", "args": [{x}, {y}]}}, {P}]}}"#);
+    let right = format!(r#"{{"op": "add", "args": [{x}, {{"op": "add", "args": [{y}, {P}]}}]}}"#);
+    out.push((left.to_string(), right.to_string()));
+    let plus0 = format!(r#"{{"op": "add", "args": [{P}, {{"const": 0, "unit": "1"}}]}}"#);
+    out.push((plus0.to_string(), P.to_string()));
+    let ifxx = format!(r#"{{"op": "if", "args": [{{"op": "gt", "args": [{R}, {P}]}}, {P}, {P}]}}"#);
+    out.push((ifxx.to_string(), P.to_string()));
+    let a = r#"{"const": 0.1, "unit": "1"}"#;
+    let distl = format!(r#"{{"op": "mul", "args": [{a}, {{"op": "add", "args": [{R}, {P}]}}]}}"#);
+    let distr = format!(r#"{{"op": "add", "args": [{{"op": "mul", "args": [{a}, {R}]}}, {{"op": "mul", "args": [{a}, {P}]}}]}}"#);
+    out.push((distl.to_string(), distr.to_string()));
+    let cond = format!(r#"{{"op": "gt", "args": [{R}, {P}]}}"#);
+    let andf = format!(r#"{{"op": "if", "args": [{{"op": "and", "args": [{{"op": "lt", "args": [{{"const": 1, "unit": "1"}}, {{"const": 0, "unit": "1"}}]}}, {cond}]}}, {R}, {P}]}}"#);
+    let falsef = format!(r#"{{"op": "if", "args": [{{"op": "lt", "args": [{{"const": 1, "unit": "1"}}, {{"const": 0, "unit": "1"}}]}}, {R}, {P}]}}"#);
+    out.push((andf.to_string(), falsef.to_string()));
+    let dd = format!(r#"{{"op": "xs_demean", "args": [{{"op": "xs_demean", "args": [{R}]}}]}}"#);
+    let d = format!(r#"{{"op": "xs_demean", "args": [{R}]}}"#);
+    out.push((dd.to_string(), d.to_string()));
+    let f = r#"{"input": "funding"}"#;
+    let conv = format!(r#"{{"op": "mul", "args": [{{"op": "convert", "args": [{{"op": "convert", "args": [{f}], "to": "1/y"}}], "to": "1/h"}}, {{"const": 1, "unit": "h"}}]}}"#);
+    let plain = format!(r#"{{"op": "mul", "args": [{f}, {{"const": 1, "unit": "h"}}]}}"#);
+    out.push((conv.to_string(), plain.to_string()));
+    let lagmean = format!(r#"{{"op": "lag", "args": [{{"op": "mean", "args": [{R}], "hours": 4}}], "hours": 2}}"#);
+    let meanlag = format!(r#"{{"op": "mean", "args": [{{"op": "lag", "args": [{R}], "hours": 2}}], "hours": 4}}"#);
+    out.push((lagmean.to_string(), meanlag.to_string()));
+    let negsign = format!(r#"{{"op": "neg", "args": [{{"op": "sign", "args": [{R}]}}]}}"#);
+    let signneg = format!(r#"{{"op": "sign", "args": [{{"op": "neg", "args": [{R}]}}]}}"#);
+    out.push((negsign.to_string(), signneg.to_string()));
+    let minab = format!(r#"{{"op": "min", "args": [{R}, {P}]}}"#);
+    let minba = format!(r#"{{"op": "min", "args": [{P}, {R}]}}"#);
+    out.push((minab.to_string(), minba.to_string()));
+    let maxab = format!(r#"{{"op": "max", "args": [{R}, {P}]}}"#);
+    let maxba = format!(r#"{{"op": "max", "args": [{P}, {R}]}}"#);
+    out.push((maxab.to_string(), maxba.to_string()));
+    out
+}
+
+/// Hand-built equivalent pairs, one or two rules each (C4.2).
+pub fn hand_built_pairs() -> Vec<(String, String)> {
+    let f = r#"{"op": "div", "args": [{"input": "funding"}, {"const": 0.0001, "unit": "1/h"}]}"#;
+    let m = r#"{"op": "mean", "args": [{"input": "premium"}], "hours": 24}"#;
+    let g = |a: &str, b: &str| format!(r#"{{"op": "gt", "args": [{a}, {b}]}}"#);
+    vec![
+        (format!(r#"{{"op": "mul", "args": [{R}, {P}]}}"#), format!(r#"{{"op": "mul", "args": [{P}, {R}]}}"#)),
+        (format!(r#"{{"op": "abs", "args": [{{"op": "abs", "args": [{R}]}}]}}"#), format!(r#"{{"op": "abs", "args": [{R}]}}"#)),
+        (format!(r#"{{"op": "abs", "args": [{{"op": "neg", "args": [{f}]}}]}}"#), format!(r#"{{"op": "abs", "args": [{f}]}}"#)),
+        (format!(r#"{{"op": "div", "args": [{m}, {{"const": 1, "unit": "1"}}]}}"#), m.to_string()),
+        (format!(r#"{{"op": "sub", "args": [{f}, {{"const": 0, "unit": "1"}}]}}"#), f.to_string()),
+        (format!(r#"{{"op": "neg", "args": [{{"op": "neg", "args": [{m}]}}]}}"#), m.to_string()),
+        (format!(r#"{{"op": "if", "args": [{}, {R}, {P}]}}"#, g(R, P)), format!(r#"{{"op": "if", "args": [{{"op": "lt", "args": [{P}, {R}]}}, {R}, {P}]}}"#)),
+        (format!(r#"{{"op": "if", "args": [{{"op": "ge", "args": [{R}, {f}]}}, {R}, {P}]}}"#), format!(r#"{{"op": "if", "args": [{{"op": "le", "args": [{f}, {R}]}}, {R}, {P}]}}"#)),
+        (format!(r#"{{"op": "if", "args": [{{"op": "and", "args": [{}, {}]}}, {R}, {P}]}}"#, g(R, P), g(f, m)), format!(r#"{{"op": "if", "args": [{{"op": "and", "args": [{}, {}]}}, {R}, {P}]}}"#, g(f, m), g(R, P))),
+        (format!(r#"{{"op": "if", "args": [{{"op": "or", "args": [{}, {}]}}, {R}, {P}]}}"#, g(R, P), g(f, m)), format!(r#"{{"op": "if", "args": [{{"op": "or", "args": [{}, {}]}}, {R}, {P}]}}"#, g(f, m), g(R, P))),
+        (format!(r#"{{"op": "if", "args": [{{"op": "not", "args": [{{"op": "not", "args": [{}]}}]}}, {R}, {P}]}}"#, g(R, P)), format!(r#"{{"op": "if", "args": [{}, {R}, {P}]}}"#, g(R, P))),
+        (format!(r#"{{"op": "if", "args": [{{"op": "not", "args": [{}]}}, {R}, {P}]}}"#, g(f, m)), format!(r#"{{"op": "if", "args": [{}, {P}, {R}]}}"#, g(f, m))),
+        (format!(r#"{{"op": "xs_demean", "args": [{{"op": "add", "args": [{R}, {f}]}}]}}"#), format!(r#"{{"op": "xs_demean", "args": [{{"op": "add", "args": [{f}, {R}]}}]}}"#)),
+        (format!(r#"{{"op": "ema", "args": [{{"op": "mul", "args": [{f}, {{"const": 1, "unit": "1"}}]}}], "hours": 12}}"#), format!(r#"{{"op": "ema", "args": [{f}], "hours": 12}}"#)),
+        (format!(r#"{{"op": "clip", "args": [{{"op": "add", "args": [{R}, {P}]}}, {{"const": -1, "unit": "1"}}, {{"const": 1, "unit": "1"}}]}}"#), format!(r#"{{"op": "clip", "args": [{{"op": "add", "args": [{P}, {R}]}}, {{"const": -1, "unit": "1"}}, {{"const": 1, "unit": "1"}}]}}"#)),
+        (format!(r#"{{"op": "sign", "args": [{{"op": "neg", "args": [{{"op": "neg", "args": [{R}]}}]}}]}}"#), format!(r#"{{"op": "sign", "args": [{R}]}}"#)),
+        (format!(r#"{{"op": "add", "args": [{{"op": "mul", "args": [{R}, {P}]}}, {f}]}}"#), format!(r#"{{"op": "add", "args": [{f}, {{"op": "mul", "args": [{P}, {R}]}}]}}"#)),
+        (format!(r#"{{"op": "max", "args": [{{"op": "abs", "args": [{{"op": "neg", "args": [{R}]}}]}}, {P}]}}"#), format!(r#"{{"op": "max", "args": [{{"op": "abs", "args": [{R}]}}, {P}]}}"#)),
+        (format!(r#"{{"op": "lag", "args": [{{"op": "sub", "args": [{m}, {{"const": 0, "unit": "1"}}]}}], "hours": 4}}"#), format!(r#"{{"op": "lag", "args": [{m}], "hours": 4}}"#)),
+        (format!(r#"{{"op": "xs_rank", "args": [{{"op": "div", "args": [{{"op": "mul", "args": [{R}, {{"const": 1, "unit": "1"}}]}}, {{"const": 1, "unit": "1"}}]}}]}}"#), format!(r#"{{"op": "xs_rank", "args": [{R}]}}"#)),
+    ]
+}
