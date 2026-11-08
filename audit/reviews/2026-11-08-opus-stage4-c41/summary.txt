@@ -1,0 +1,17 @@
+orig exit=0 secs=247
+k1 exit=0 secs=194
+k2 exit=101 secs=181
+k3 exit=101 secs=176
+k4 exit=101 secs=6
+k5 exit=101 secs=6
+k6 exit=101 secs=6
+k8 exit=101 secs=181
+k10 exit=101 secs=6
+k11 exit=101 secs=6
+done
+r-k4 exit=101 secs=176
+r-k5 exit=101 secs=182
+r-k6 exit=101 secs=180
+r-k10 exit=101 secs=242
+r-k11 exit=101 secs=180
+done

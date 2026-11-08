@@ -12,13 +12,12 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`) since 2026-11-08 02:31 UTC (2026-11-07 21:31 EST). `agent-series` completed C4.5 v3's ten campaigns; logs and reports in `mirror/agent/`.
   - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued.
+- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs at 97%, mostly old session dirs: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Budget.** No campaign runs; every account is free for Claude work.
 
 ### Wake-ups (2026-11-08, the human asleep)
 
-- **stage 4 C4.1 rebuild** (Sonnet, 10:15 UTC, 05:15 EST): items 1–3 of `audit/reviews/2026-11-08-opus-stage4-exit.md` on a new branch off main (C4.1's rewrites from `canon::rules()`, failing on its mutant m1; C4.2's additions; recorded cargo and full suites). Not exit.md, the paper or done.
-- **stage 4 C4.1 review** (Opus, 12:30 UTC, 07:30 EST): once that branch's commits exist, review them fresh against C4.1, C4.2 and m1; save under `audit/reviews/`; else reschedule +1 h.
+- **stage 4 C4.1** rebuilt on `stage4-c41` (`../mm-s4-c41`) and reviewed: items 1–3 met, m1 an equivalent mutant (`audit/reviews/2026-11-08-opus-stage4-c41.md`; two recommended test fixes there). Next: merge, then exit items 3–6 of `audit/reviews/2026-11-08-opus-stage4-exit.md` at the merge commit.
 - **slice 3 review** (Opus, 13:30 UTC, 08:30 EST): unless `audit/stage7/slice3-review-opus.md` exists, review `slice3` per CLAUDE.md's Reviews (a C6.4 harness sample included) and save it there.
 
 ### Next, in order
@@ -30,7 +29,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Stage 7:** B3 frozen and slice 5 built and reviewed on `stage7` (`audit/stage7/slice5-*review-argon.md`); slice 3 on `slice3`, in review. C6.4's edge market disagrees since slice 5 (`audit/stage7/edge-regression.md`); the exporter on `revision-exporter` (`731e40b`) reran the full harness: all 3,372 runs agree (`audit/stage7/edge-regression.md`); merge it into `stage7`. Next: slices 4 and 6 (Claude only: GPT is C7.7's red team).
 
 
-2. **Stage 4: C4.1 to C4.4 tests and runs recorded, C4.5 v3 pass as written** (`audit/stage4/{runs-v3.txt,null-v3.jsonl,null-summary.json,exit-v3.md}`, `audit/decisions.md` 2026-11-08). Next: the final Opus review.
+2. **Stage 4: C4.1 to C4.4 tests and runs recorded, C4.5 v3 pass as written** (`audit/stage4/{runs-v3.txt,null-v3.jsonl,null-summary.json,exit-v3.md}`, `audit/decisions.md` 2026-11-08). C4.1 rebuilt and reviewed (Now); then the exit items.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. The Rust kernel to the same definitions under the corpus differential (`audit/stage7/rust-port-plan.md` there). When stage 7 merges, the paper's snapshot-only point-in-time paragraph changes with it. C7.7's corpus also needs a registry and certificates.
    2. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).

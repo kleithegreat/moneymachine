@@ -1,0 +1,99 @@
+--- orig/canon.rs
++++ k1/canon.rs
+@@ -85,7 +85,7 @@
+ 
+ fn is_plus_zero(var: &'static str) -> impl Fn(&mut EGraph<SymbolLang, ()>, Id, &egg::Subst) -> bool {
+     let v: egg::Var = var.parse().unwrap();
+-    move |g, _, subst| g[subst[v]].nodes.iter().any(|n| n.children.is_empty() && n.op.as_str().starts_with(ZERO))
++    move |g, _, subst| g[subst[v]].nodes.iter().any(|n| n.children.is_empty() && (n.op.as_str().starts_with(ZERO) || n.op.as_str().starts_with("const/8000000000000000/")))
+ }
+ 
+ pub fn rules() -> Vec<Rewrite<SymbolLang, ()>> {
+--- orig/canon.rs
++++ k2/canon.rs
+@@ -85,7 +85,7 @@
+ 
+ fn is_plus_zero(var: &'static str) -> impl Fn(&mut EGraph<SymbolLang, ()>, Id, &egg::Subst) -> bool {
+     let v: egg::Var = var.parse().unwrap();
+-    move |g, _, subst| g[subst[v]].nodes.iter().any(|n| n.children.is_empty() && n.op.as_str().starts_with(ZERO))
++    move |g, _, subst| g[subst[v]].nodes.iter().any(|n| n.children.is_empty() && n.op.as_str().starts_with("const/"))
+ }
+ 
+ pub fn rules() -> Vec<Rewrite<SymbolLang, ()>> {
+--- orig/canon.rs
++++ k3/canon.rs
+@@ -103,7 +103,7 @@
+         rw!("or-comm"; "(or ?a ?b)" => "(or ?b ?a)"),
+         rw!("not-not"; "(not (not ?c))" => "?c"),
+         rw!("if-not"; "(if (not ?c) ?a ?b)" => "(if ?c ?b ?a)"),
+-        rw!("gt-lt"; "(gt ?a ?b)" => "(lt ?b ?a)"),
++        rw!("gt-lt"; "(gt ?a ?b)" => "(le ?b ?a)"),
+         rw!("lt-gt"; "(lt ?a ?b)" => "(gt ?b ?a)"),
+         rw!("ge-le"; "(ge ?a ?b)" => "(le ?b ?a)"),
+         rw!("le-ge"; "(le ?a ?b)" => "(ge ?b ?a)"),
+--- orig/canon.rs
++++ k4/canon.rs
+@@ -102,7 +102,7 @@
+         rw!("and-comm"; "(and ?a ?b)" => "(and ?b ?a)"),
+         rw!("or-comm"; "(or ?a ?b)" => "(or ?b ?a)"),
+         rw!("not-not"; "(not (not ?c))" => "?c"),
+-        rw!("if-not"; "(if (not ?c) ?a ?b)" => "(if ?c ?b ?a)"),
++        rw!("if-not"; "(if (not ?c) ?a ?b)" => "(if ?c ?a ?b)"),
+         rw!("gt-lt"; "(gt ?a ?b)" => "(lt ?b ?a)"),
+         rw!("lt-gt"; "(lt ?a ?b)" => "(gt ?b ?a)"),
+         rw!("ge-le"; "(ge ?a ?b)" => "(le ?b ?a)"),
+--- orig/canon.rs
++++ k5/canon.rs
+@@ -93,7 +93,7 @@
+     vec![
+         rw!("neg-neg"; "(neg (neg ?x))" => "?x"),
+         rw!("abs-abs"; "(abs (abs ?x))" => "(abs ?x)"),
+-        rw!("abs-neg"; "(abs (neg ?x))" => "(abs ?x)"),
++        rw!("abs-neg"; "(abs (neg ?x))" => "?x"),
+         rw!("mul-one"; {format!("(mul ?x {one})").parse::<egg::Pattern<SymbolLang>>().unwrap()} => "?x"),
+         rw!("div-one"; {format!("(div ?x {one})").parse::<egg::Pattern<SymbolLang>>().unwrap()} => "?x"),
+         rw!("sub-zero"; "(sub ?x ?z)" => "?x" if is_plus_zero("?z")),
+--- orig/canon.rs
++++ k6/canon.rs
+@@ -97,7 +97,7 @@
+         rw!("mul-one"; {format!("(mul ?x {one})").parse::<egg::Pattern<SymbolLang>>().unwrap()} => "?x"),
+         rw!("div-one"; {format!("(div ?x {one})").parse::<egg::Pattern<SymbolLang>>().unwrap()} => "?x"),
+         rw!("sub-zero"; "(sub ?x ?z)" => "?x" if is_plus_zero("?z")),
+-        rw!("add-comm"; "(add ?a ?b)" => "(add ?b ?a)"),
++        rw!("add-comm"; "(sub ?a ?b)" => "(sub ?b ?a)"),
+         rw!("mul-comm"; "(mul ?a ?b)" => "(mul ?b ?a)"),
+         rw!("and-comm"; "(and ?a ?b)" => "(and ?b ?a)"),
+         rw!("or-comm"; "(or ?a ?b)" => "(or ?b ?a)"),
+--- orig/canon.rs
++++ k8/canon.rs
+@@ -105,7 +105,7 @@
+         rw!("if-not"; "(if (not ?c) ?a ?b)" => "(if ?c ?b ?a)"),
+         rw!("gt-lt"; "(gt ?a ?b)" => "(lt ?b ?a)"),
+         rw!("lt-gt"; "(lt ?a ?b)" => "(gt ?b ?a)"),
+-        rw!("ge-le"; "(ge ?a ?b)" => "(le ?b ?a)"),
++        rw!("ge-le"; "(ge ?a ?b)" => "(lt ?b ?a)"),
+         rw!("le-ge"; "(le ?a ?b)" => "(ge ?b ?a)"),
+     ]
+ }
+--- orig/canon.rs
++++ k10/canon.rs
+@@ -96,7 +96,7 @@
+         rw!("abs-neg"; "(abs (neg ?x))" => "(abs ?x)"),
+         rw!("mul-one"; {format!("(mul ?x {one})").parse::<egg::Pattern<SymbolLang>>().unwrap()} => "?x"),
+         rw!("div-one"; {format!("(div ?x {one})").parse::<egg::Pattern<SymbolLang>>().unwrap()} => "?x"),
+-        rw!("sub-zero"; "(sub ?x ?z)" => "?x" if is_plus_zero("?z")),
++        rw!("sub-zero"; "(add ?x ?z)" => "?x" if is_plus_zero("?z")),
+         rw!("add-comm"; "(add ?a ?b)" => "(add ?b ?a)"),
+         rw!("mul-comm"; "(mul ?a ?b)" => "(mul ?b ?a)"),
+         rw!("and-comm"; "(and ?a ?b)" => "(and ?b ?a)"),
+--- orig/canon.rs
++++ k11/canon.rs
+@@ -91,7 +91,7 @@
+ pub fn rules() -> Vec<Rewrite<SymbolLang, ()>> {
+     let one = "const/3ff0000000000000/1";
+     vec![
+-        rw!("neg-neg"; "(neg (neg ?x))" => "?x"),
++        rw!("neg-neg"; "(neg (neg ?x))" => "(abs ?x)"),
+         rw!("abs-abs"; "(abs (abs ?x))" => "(abs ?x)"),
+         rw!("abs-neg"; "(abs (neg ?x))" => "(abs ?x)"),
+         rw!("mul-one"; {format!("(mul ?x {one})").parse::<egg::Pattern<SymbolLang>>().unwrap()} => "?x"),

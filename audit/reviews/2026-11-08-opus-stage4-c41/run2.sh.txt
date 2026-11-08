@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+D=/home/kevin/.cache/rv-c41; K=$D/w/kernel
+export TMPDIR=$D/tmp CARGO_TARGET_DIR=$D/tgt
+for k in k4 k5 k6 k10 k11; do
+  cp $D/v/$k.rs $K/mm/src/canon.rs; touch $K/mm/src/canon.rs
+  start=$(date +%s)
+  (cd $K && timeout 900 cargo test --release --locked -p mm --test rules --no-fail-fast 2>&1) > $D/r-$k.log
+  echo "exit=$? secs=$(( $(date +%s) - start ))" >> $D/r-$k.log
+  echo "r-$k $(tail -1 $D/r-$k.log)" >> $D/summary2.txt
+done
+cp $D/v/orig.rs $K/mm/src/canon.rs
+echo done >> $D/summary2.txt
