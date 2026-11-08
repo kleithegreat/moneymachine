@@ -59,6 +59,7 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
                 volume: if flat { 0.0 } else { 1.0 + rng.unit() },
                 trades: if variant == 2 && k % 23 == 0 { 0 } else { 1 },
                 retraction: false,
+                recorded: 0,
             });
             px = close;
         }
@@ -74,7 +75,7 @@ fn market(variant: usize, seed: u64) -> (Market, Venue, Policy, i64) {
                     _ => ((rng.unit() - 0.5) * 4e-4, (rng.unit() - 0.5) * 2e-3),
                 },
             };
-            funding.push(Funding { coin: c, event: h * HOUR, known: h * HOUR + DELTA, rate, premium, retraction: false });
+            funding.push(Funding { coin: c, event: h * HOUR, known: h * HOUR + DELTA, rate, premium, retraction: false, recorded: 0 });
         }
     }
     let mut bar_times = vec![vec![]; COINS];

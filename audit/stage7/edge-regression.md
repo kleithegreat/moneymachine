@@ -50,3 +50,19 @@ registry/certificate part of C7.7 (the fixed `admissionMeta`) is a separate gap.
 ## Reproduce
 
 `reference/differential.chunk` on `case-op-add` over `edge_markets.edge` at `eff52b0`: `('abort', 0, 'R_SETTLEMENT_MISSING', 'R_BINDING')`.
+
+## Revision 2026-11-08 02:10 UTC (21:10 EST), branch `revision-exporter`
+
+The importer now carries the revisions: `mmdump` exports `final` (last entry of the key's timeline), `retraction` and `recorded`
+(the revision's fetchedAt) per observation, in timeline order, and `Main.lean` reads them; the hard-codings are deleted and no
+Lean semantics changed. A differential test on the restated edge market (`test_runs_agree_on_restated_keys`) failed before and passes.
+The full C6.4 harness result on this branch is recorded below when it finishes.
+
+## Result, 2026-11-08 (full C6.4 harness on `revision-exporter` at `3ccec64`)
+
+`differential.run` over the whole corpus: 1,196 verdicts and all 3,372 runs (N1, N2 and N3 1,101 each, edge 61, liquidation 4, ruin 4)
+agree, 0 verdict and 0 run disagreements, 11,358,960,293 defined node values byte for byte
+(`exporter-differential-full-report.json`; coverage includes the 45 `R_SETTLEMENT_MISSING` aborts, now agreeing on the run, not only the code).
+Its `pass` is false only on `corpus_missing`, the same 22 `adversarial-gpt40..61` rejection cases as `slice2-differential.md` (no run, verdict-only).
+The edge market's 61 runs agree again, so "C6.4 holds on stage 7" may be said once this branch merges into `stage7`, with that same qualification.
+Not claimed: the registry/certificate part of C7.7 (`admissionMeta`).

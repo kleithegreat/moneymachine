@@ -163,28 +163,28 @@ CHUNK = 64
 def chunk(names, texts, market, root, version, tmp):
     """Run programs on one market through both kernels, each loading the market once; per program, (name, market,
     agreed, first divergences, coverage)."""
-    d = Path(tempfile.mkdtemp(dir=tmp))
-    paths = []
-    for i, text in enumerate(texts):
-        paths.append(d / f"p{i}.json")
-        paths[-1].write_text(text)
-    (d / "list").write_text("".join(f"{p}\n" for p in paths))
-    (d / "a").mkdir()
-    (d / "b").mkdir()
-    subprocess.run([str(DUMP), d / "list", root / "store", root / "venue", str(version), d / "mk.json", d / "a"], check=True, capture_output=True)
-    subprocess.run([str(REF), "run", d / "list", d / "mk.json", d / "b"], check=True, capture_output=True)
-    coins = len(json.loads((d / "mk.json").read_text())["venue"]["sz_decimals"])
-    out = []
-    for i, name in enumerate(names):
-        a, b = (json.loads((d / k / f"{i}.json").read_text()) for k in ("a", "b"))
-        sa, sb = d / "a" / f"{i}.bin", d / "b" / f"{i}.bin"
-        same = sa.exists() == sb.exists() and (not sa.exists() or filecmp.cmp(sa, sb, shallow=False))
-        first = divergence(a, b) if a != b else {}
-        if not same:
-            first |= stream_divergence(sa, sb, len(a["types"]), coins) if sa.exists() and sb.exists() else {"discrete": ("stream file", 0, sa.exists(), sb.exists())}
-        out.append((name, market, a == b and same, first, coverage(a)))
-    shutil.rmtree(d)
-    return out
+    with tempfile.TemporaryDirectory(dir=tmp) as scratch:
+        d = Path(scratch)
+        paths = []
+        for i, text in enumerate(texts):
+            paths.append(d / f"p{i}.json")
+            paths[-1].write_text(text)
+        (d / "list").write_text("".join(f"{p}\n" for p in paths))
+        (d / "a").mkdir()
+        (d / "b").mkdir()
+        subprocess.run([str(DUMP), d / "list", root / "store", root / "venue", str(version), d / "mk.json", d / "a"], check=True, capture_output=True)
+        subprocess.run([str(REF), "run", d / "list", d / "mk.json", d / "b"], check=True, capture_output=True)
+        coins = len(json.loads((d / "mk.json").read_text())["venue"]["sz_decimals"])
+        out = []
+        for i, name in enumerate(names):
+            a, b = (json.loads((d / k / f"{i}.json").read_text()) for k in ("a", "b"))
+            sa, sb = d / "a" / f"{i}.bin", d / "b" / f"{i}.bin"
+            same = sa.exists() == sb.exists() and (not sa.exists() or filecmp.cmp(sa, sb, shallow=False))
+            first = divergence(a, b) if a != b else {}
+            if not same:
+                first |= stream_divergence(sa, sb, len(a["types"]), coins) if sa.exists() and sb.exists() else {"discrete": ("stream file", 0, sa.exists(), sb.exists())}
+            out.append((name, market, a == b and same, first, coverage(a)))
+        return out
 
 
 # Resident memory per task, measured 2026-10-27, with margin: a run chunk (mmdump 456 MiB, then refmm 512 MiB, on one

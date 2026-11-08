@@ -67,3 +67,17 @@ def test_an_interrupted_run_resumes_where_it_stopped(tmp_path, monkeypatch):
     redone = ran[len(first) + 1:]
     assert report == {"programs": 150, "runs": 225, "pass": True, "verdict_disagreements": 0, "run_disagreements": 0}
     assert not set(first) & set(redone) and len(first) + len(redone) == 5
+
+
+def test_a_chunk_frees_its_scratch_even_when_a_kernel_fails(tmp_path, monkeypatch):
+    import subprocess
+
+    import pytest
+
+    def fail(*a, **k):
+        raise subprocess.CalledProcessError(1, "mmdump")
+
+    monkeypatch.setattr(d.subprocess, "run", fail)
+    with pytest.raises(subprocess.CalledProcessError):
+        d.chunk(["p"], ["{}"], "m", tmp_path, 1, tmp_path)
+    assert list(tmp_path.iterdir()) == []
