@@ -30,7 +30,7 @@ from typing import Any
 import httpx
 
 from ingest.hl import BUDGET_PER_MIN as IP_BUDGET_PER_MIN
-from ingest.hl import RECORDER_WEIGHT_PER_MIN, TIMEOUT, Info, WeightLimit
+from ingest.hl import INTERVAL_MS, RECORDER_WEIGHT_PER_MIN, TIMEOUT, Info, WeightLimit
 from ingest.live import append, now_ms, read
 from ingest.policy import DAY, DELTA, HOUR
 
@@ -47,6 +47,18 @@ FINAL = {"1h": HOUR + DELTA, "1d": DAY + DELTA}  # after its time, when a row is
 REPAIR_EVERY = HOUR  # leaves C10.5's two hours from a late row's availability to its score
 PAGE = 500  # holes closer than a page of rows share a request
 MAX_ITEMS = {"fundingHistory": 500, "candleSnapshot": 5000}
+
+
+def max_items(body: dict[str, Any]) -> int:
+    """The most rows a request can return, reserved before it is sent: its range holds one funding row an hour or one
+    candle an interval (the unclosed last included), capped at the page ceiling; any excess is charged on receipt."""
+    ceiling = MAX_ITEMS[body["type"]]
+    if body["type"] == "fundingHistory":
+        start, end, step = body["startTime"], body.get("endTime"), HOUR
+    else:
+        req = body["req"]
+        start, end, step = req["startTime"], req["endTime"], INTERVAL_MS[req["interval"]]
+    return ceiling if end is None else min(ceiling, max(end - start, 0) // step + 1)
 
 
 def builder(market: str) -> bool:
@@ -106,11 +118,11 @@ def uncovered(a: int, b: int, ranges: Iterable[tuple[int, int]]) -> list[tuple[i
     return [(x, y) for x, y in out + [(at, b)] if x < y]
 
 
-def funding_page(page: Any, start: int, end: int) -> list[list[Any]]:
+def funding_page(page: Any, start: int, end: int) -> list[tuple[int, list[Any]]]:
     """[(time, [hour, rate])] of a page the venue sent for [start, end), or ValueError if it cannot be trusted."""
     if not isinstance(page, list) or len(page) > MAX_ITEMS["fundingHistory"]:
         raise ValueError("funding page: expected a list of at most a page")
-    out = []
+    out: list[tuple[int, list[Any]]] = []
     for r in page:
         try:
             t, rate = int(r["time"]), float(r["fundingRate"])
@@ -176,9 +188,14 @@ class Exchange(Info):
              background: bool = False) -> Any:
         if body.get("type") not in ALLOWED:
             raise PermissionError(f"request type {body.get('type')!r} is not an approved public read")
+        reserved = 0
         if per_items:
-            weight += MAX_ITEMS[body["type"]] // per_items
-        return super().post(body, weight, attempts=attempts, background=background)
+            reserved = max_items(body)
+            weight += reserved // per_items
+        out = super().post(body, weight, attempts=attempts, background=background)
+        if per_items and isinstance(out, list) and len(out) > reserved:
+            self._charge((len(out) - reserved) // per_items, background)
+        return out
 
     def _send(self, body: dict[str, Any]) -> Any:
         sample = {"sent": now_ms(), "request": body}
@@ -489,7 +506,8 @@ class Market:
 
     def hold(self) -> contextlib.AbstractContextManager[None]:
         """While held, background reads wait: a session's reads never compete with a fill."""
-        return self.x.limiter.hold()
+        hold: contextlib.AbstractContextManager[None] = self.x.limiter.hold()
+        return hold
 
     def ready(self, market: str, now: int) -> bool:
         """Whether the venue has sent the market's whole funding scope up to the last UTC midnight."""

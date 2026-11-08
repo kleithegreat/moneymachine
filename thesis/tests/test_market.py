@@ -654,7 +654,7 @@ def test_a_full_cold_hourly_page_fits_the_shared_exchange_budget(tmp_path, monke
 
     monkeypatch.setattr(x.http, "post", post)
     assert len(m.bars("BTC", "1h", clock[0])) > 4700
-    assert sum(w for _, w in x.limiter.spent) == 103
+    assert sum(w for _, w in x.limiter.spent) == 20 + 4801 // 60
 
 
 def test_mark_reads_parse_each_archive_record_once_across_markets_and_appends(tmp_path, monkeypatch):
@@ -723,3 +723,31 @@ def test_retry_admission_includes_the_backoff_before_its_seal_margin(tmp_path, m
     monkeypatch.setattr(m.sampler.http, "post", post)
     m.record_marks(H + 5_000)
     assert sent == [H + 5_000]
+
+
+def test_a_request_reserves_the_most_rows_its_range_can_return(tmp_path):
+    day = {"type": "fundingHistory", "coin": "X", "startTime": 0, "endTime": market.DAY - 1}
+    assert market.max_items(day) == 24
+    assert market.max_items({**day, "endTime": 100 * market.DAY}) == 500 and market.max_items({"type": "fundingHistory", "startTime": 0}) == 500
+    candles = {"type": "candleSnapshot", "req": {"coin": "X", "interval": "1h", "startTime": 0, "endTime": 2 * H}}
+    assert market.max_items(candles) == 3 and market.max_items({**candles, "req": {**candles["req"], "endTime": 400 * market.DAY}}) == 5000
+
+
+def test_a_short_range_costs_its_base_weight_and_an_excess_row_is_charged_on_receipt(tmp_path, monkeypatch):
+    clock = [10 * market.DAY]
+    fake_clock(monkeypatch, clock)
+    x = market.Exchange(tmp_path)
+    rows = [{"time": i, "fundingRate": "0"} for i in range(30)]
+    monkeypatch.setattr(x.http, "post", lambda url, json: httpx.Response(200, json=rows, request=httpx.Request("POST", url)))
+    x.funding_page("X", 0, 3 * H)
+    assert sum(w for _, w in x.limiter.spent) == 20 + 3 // 20 + (30 - 3) // 20
+
+
+@pytest.mark.xfail(strict=True, reason="audit/reviews/2026-11-08-opus-thesis-refreeze-round3.md finding A; PROGRESS Blockers: the newest daily and hourly tails of every listing cannot be read in the 8 minutes between a bar's finality and the 00:10 session")
+def test_the_session_snapshot_tails_fit_between_a_bars_finality_and_the_session(tmp_path, monkeypatch):
+    clock = [market.DAY + market.DELTA]
+    fake_clock(monkeypatch, clock)
+    x = market.Exchange(tmp_path)
+    for _ in range(348 + 176):
+        x._charge(20 + 1 // 60)
+    assert clock[0] - (market.DAY + market.DELTA) <= 8 * 60_000
