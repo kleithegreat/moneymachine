@@ -19,7 +19,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **stage 4 C4.1 rebuild** (Sonnet, 10:15 UTC, 05:15 EST): items 1–3 of `audit/reviews/2026-11-08-opus-stage4-exit.md` on a new branch off main (C4.1's rewrites from `canon::rules()`, failing on its mutant m1; C4.2's additions; recorded cargo and full suites). Not exit.md, the paper or done.
 - **stage 4 C4.1 review** (Opus, 12:30 UTC, 07:30 EST): once that branch's commits exist, review them fresh against C4.1, C4.2 and m1; save under `audit/reviews/`; else reschedule +1 h.
-- **exporter finish** (Sonnet, 11:00 UTC, 06:00 EST): once `../mm-edge-bisect/data/scratch/report.json` exists (57 chunks), finish per `audit/stage7/edge-regression.md` and commit on `revision-exporter`; else reschedule +1 h.
 - **slice 3 review** (Opus, 13:30 UTC, 08:30 EST): unless `audit/stage7/slice3-review-opus.md` exists, review `slice3` per CLAUDE.md's Reviews (a C6.4 harness sample included) and save it there.
 
 ### Next, in order
@@ -28,7 +27,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round three not ready (`audit/reviews/2026-11-08-opus-thesis-refreeze-round3.md`); prewarming built (`e04b8d4`). Left: the daily snapshot, about 87 min at 120/min. GPT reviews the build and the options (later session, smaller snapshot, websocket closes) from 10:25 UTC (05:25 EST); the choice is the human's.
 - **Test runs on the cluster:** GPT built it on `cluster-tests` (`3d8002a`: Indexed Jobs, built once); its verification rerun is queued after GPT's reset, then a review on another model. Then the C6.4 harness on it.
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **Stage 7:** B3 frozen and slice 5 built and reviewed on `stage7` (`audit/stage7/slice5-*review-argon.md`); slice 3 on `slice3`, in review. C6.4's edge market disagrees since slice 5 (`audit/stage7/edge-regression.md`); the exporter on `revision-exporter` reruns the harness. Next: slices 4 and 6 (Claude only: GPT is C7.7's red team).
+- **Stage 7:** B3 frozen and slice 5 built and reviewed on `stage7` (`audit/stage7/slice5-*review-argon.md`); slice 3 on `slice3`, in review. C6.4's edge market disagrees since slice 5 (`audit/stage7/edge-regression.md`); the exporter on `revision-exporter` (`731e40b`) reran the full harness: all 3,372 runs agree (`audit/stage7/edge-regression.md`); merge it into `stage7`. Next: slices 4 and 6 (Claude only: GPT is C7.7's red team).
 
 
 2. **Stage 4: C4.1 to C4.4 tests and runs recorded, C4.5 v3 pass as written** (`audit/stage4/{runs-v3.txt,null-v3.jsonl,null-summary.json,exit-v3.md}`, `audit/decisions.md` 2026-11-08). Next: the final Opus review.
