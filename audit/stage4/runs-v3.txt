@@ -33,3 +33,17 @@ Run 2026-11-08 06:17 UTC (01:17 EST) at 2d8715c, data/store linked read-only fro
            contains them. The failure is on main as well; this branch did not touch it. Not edited here (audit records are
            append-only); the advisor decides whether to move that file out of `git ls-files '*.py'` or exempt it.
   The two data/store tests passed with the link.
+
+== Exit runs at 8dea9c6 (stage 4 exit item 3), 2026-11-08 16:57 UTC (11:57 EST) ==
+Full suite: python3 ops/shards.py /home/kevin/repos/mm-s4-exit (data/store linked from main):
+  summary: 1734 of 1734 tests reported: 2 failed, 1706 passed, 1 skipped, 25 xfailed; 0 missing;
+           shard exits {'local': 1, 'prodesk5': 0, 'gmktec': 0, 'rerun': 1}; wall 895s
+  failed : ops/test_commitcheck.py::test_added_lines_pair_their_times (my uncommitted audit/stage4/exit.md had a UTC time
+           without its EST pair; fixed before the commit, rerun passes)
+           thesis/tests/test_crash_recovery.py::test_day_random_sigkill_consumes_started_sessions_and_runs_the_rest_once[day-101]
+           (sqlite "no such table: disclosures" under load 20 beside the cargo suite; rerun alone passes)
+  Rerun of both after the fix: 2 passed (with ops/test_progress.py: 3 passed). The sharded run itself was not clean; no other test failed.
+Kernel cargo suite: CARGO_TARGET_DIR=$HOME/.cache/cargo-s4exit TMPDIR=/tmp nix develop -c cargo test --release (in kernel/):
+  all test results ok: lib 2, adversarial 2, bench 0 (1 ignored), canary 2, canon 3, events 4, fixtures 18, keys 3, rules 8 (316.85s); 0 failed.
+
+2026-11-08 17:04 UTC (12:04 EST), advisor: full sharded suite at bef0b8a (the exit commit), clean: 1734 of 1734 reported, 1708 passed, 1 skipped, 25 xfailed, 0 missing; wall 231 s. This is exit item 3's clean run; the earlier run's thesis crash-recovery failure is a pre-existing load-dependent defect queued for the refreeze (PROGRESS).

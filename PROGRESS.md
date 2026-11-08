@@ -17,13 +17,11 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Next, in order
 
-- **Stage 4 exit:** C4.1 rebuilt, reviewed (`audit/reviews/2026-11-08-opus-stage4-c41.md`: items 1–3 met, m1 an equivalent mutant), its item 5 fixed, merged at `54213e9`. Next: exit items 3–6 of `audit/reviews/2026-11-08-opus-stage4-exit.md` at that commit.
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
 - **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): GPT's review of the prewarming build (`e04b8d4`): not ready, seven findings, among them a partial-data base rate published as final (`audit/reviews/2026-11-08-gpt-prewarm-build.md`). The daily snapshot (about 87 min at 120/min) waits on the human's choice of option; GPT ranks a later session first, websocket closes second. Also for that round: `thesis/test_crash_recovery.py`'s day SIGKILL cases fail under load with "no such table: disclosures": a kill between the ledger file's creation and its schema leaves a file `Ledger.records()` (`thesis/registry.py:59`) takes for a ledger (likely cause, unconfirmed; a new track's first ledger is exposed, the live one is not).
 - **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
 - **Stage 7:** B3 frozen; slices 5 and 3 built, reviewed and on `stage7` (`audit/stage7/slice5-*review-argon.md`, `audit/stage7/slice3-review-opus.md`). The exporter on `revision-exporter` (`731e40b`) fixes C6.4's edge regression: all 3,372 harness runs agree (`audit/stage7/edge-regression.md`); merge it into `stage7`. Next: slices 4 and 6 (Claude only: GPT is C7.7's red team).
 
-2. **Stage 4: C4.1 to C4.4 tests and runs recorded, C4.5 v3 pass as written** (`audit/stage4/{runs-v3.txt,null-v3.jsonl,null-summary.json,exit-v3.md}`, `audit/decisions.md` 2026-11-08). C4.1 rebuilt and reviewed (Now); then the exit items.
 5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
    1. The Rust kernel to the same definitions under the corpus differential (`audit/stage7/rust-port-plan.md` there). When stage 7 merges, the paper's snapshot-only point-in-time paragraph changes with it. C7.7's corpus also needs a registry and certificates.
    2. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
@@ -40,7 +38,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ### Finished
 
-- Stages 0–3, 5 and 6 exited; recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
+- Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
