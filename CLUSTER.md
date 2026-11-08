@@ -204,8 +204,8 @@ that the human actually sees the alarm.
 Daily `mirror-verify` integrity failures still appear in Kubernetes job status/logs; this is a capacity/freshness alarm,
 not a new integrity-verification guarantee.
 
-Deployed 2026-11-07 03:14 UTC (2026-11-06 22:14 EST): `mirror` and `mirror-verify` on image `sha256:c80908c8…`
-(previously `sha256:17764092…`; rolling back is re-applying it to those two). Changing the guard: merge into this PC's
+Deployed 2026-11-08 02:31 UTC (2026-11-07 21:31 EST): `mirror` and `mirror-verify` on image `sha256:5e81095e…` (`cb23337`, the
+writer-contract churn fix; previously `sha256:c80908c8…`; rolling back is re-applying it to those two). Changing the guard: merge into this PC's
 main checkout, which the timer runs; a manifest-format change also needs a new image for those two CronJobs, applied
 before the merge, since old manifests alarm. Verify by one normal invocation and the synthetic alarm below, seen by the human.
 
