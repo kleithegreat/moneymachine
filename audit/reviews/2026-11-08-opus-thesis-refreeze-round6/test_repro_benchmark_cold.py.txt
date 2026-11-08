@@ -1,0 +1,21 @@
+"""Day-fixed readiness turns a benchmark market that was cold at the Monday snapshot into a deterministic failure: the
+batch raises at it on every pass, never reaches the markets after it, and at 24:00 UTC [19:00 EST] logs them all "run missed"."""
+from ingest.policy import DAY, HOUR
+from thesis import runner
+from thesis.tests.test_runner import MONDAY, track  # noqa: F401
+
+
+def test_a_cold_benchmark_market_blocks_the_rest_of_its_batch(track, monkeypatch):
+    monkeypatch.setattr(track.market, "ready", lambda m, now: m != "ETH")
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SNAPSHOT_OFFSET)
+    track.acquire(MONDAY)
+    for now in range(MONDAY + 5 * HOUR, MONDAY + DAY + 60_000, HOUR):
+        monkeypatch.setattr(runner, "now_ms", lambda: now)
+        try:
+            track.benchmarks(now, MONDAY)
+        except Exception as e:
+            last = repr(e)
+    th = [t["legs"][0][0] for t in track.ledger.theses("benchmark")]
+    skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
+    print("registered", th, "skips", skips, "last error", last)
+    assert th == ["BTC"] and all(skips[m] == "run missed" for m in ("ETH", "xyz:XYZ100", "xyz:GOLD"))

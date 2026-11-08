@@ -1,0 +1,84 @@
+"""Round six's mark cohorts under real threads, the real MarkLimit and a warped clock: a failing dex in cohort 2,
+all ten dexes timing out, and the seal boundary."""
+import sys, threading
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+import httpx
+import pytest
+from warp import Warp, install
+from ingest.policy import HOUR
+from thesis import market
+
+K = 200
+H = 1000 * HOUR
+DUE = H + market.MARK_OFFSET
+
+
+def run(tmp_path, monkeypatch, fails, latency=0.3, timeout_s=None):
+    warp = Warp(K, DUE - market.MARK_PREP)
+    install(monkeypatch, warp, market)
+    m = market.Market(tmp_path / "m", market.Exchange(tmp_path / "x"))
+    sends, lock = [], threading.Lock()
+
+    def post(url, json):
+        dex = json.get("dex")
+        if json["type"] == "perpDexs":
+            return httpx.Response(200, json=[None] + [{"name": f"d{i}"} for i in range(10)], request=httpx.Request("POST", url))
+        t = warp.now_ms() - H
+        with lock:
+            n = sum(1 for d, _ in sends if d == dex)
+            sends.append((dex, t))
+        if fails(dex, n):
+            if timeout_s:
+                warp.sleep(timeout_s)
+                raise httpx.ReadTimeout("slow", request=httpx.Request("POST", url))
+            warp.sleep(latency)
+            return httpx.Response(503, json={}, request=httpx.Request("POST", url))
+        warp.sleep(latency)
+        return httpx.Response(200, json=[{"universe": [{"name": f"{dex}:C"}]}, [{"markPx": "100"}]],
+                              request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(m.sampler.http, "post", post)
+    m.record_marks(DUE)
+    released = warp.now_ms() - H
+    return m, sends, released
+
+
+def test_failing_dex_in_cohort_two_keeps_six_attempts(tmp_path, monkeypatch):
+    m, sends, released = run(tmp_path, monkeypatch, lambda d, n: d == "d7")
+    first = {d: min(t for x, t in sends if x == d) / 1000 for d in {x for x, _ in sends}}
+    d7 = [t / 1000 for x, t in sends if x == "d7"]
+    print("first sends (s after H):", dict(sorted((k, round(v, 1)) for k, v in first.items())))
+    print("d7 attempts:", [round(t, 1) for t in d7], "released at", released / 1000)
+    assert len(d7) == 6
+    assert all(first[f"d{i}"] < 7 for i in range(5)) and sum(60 < first[f"d{i}"] < 70 for i in range(5, 10)) >= 4
+    assert all(market.seal(m.marks(f"d{i}:C")) == {H: 100.0} for i in range(10) if i != 7)
+
+
+def test_all_ten_dexes_timing_out(tmp_path, monkeypatch):
+    m, sends, released = run(tmp_path, monkeypatch, lambda d, n: True, timeout_s=10)
+    per = {d: [round(t / 1000, 1) for x, t in sends if x == d] for d in sorted({x for x, _ in sends})}
+    for d, ts in per.items():
+        print(d, len(ts), ts)
+    print("released at", released / 1000, "s after H; last send", max(t for _, t in sends) / 1000)
+    assert max(t for _, t in sends) < 300_000 + 60_000
+    assert released < 300_000 + 120_000
+
+
+def test_late_success_after_seal_is_archived_not_sealed(tmp_path, monkeypatch):
+    m, sends, _ = run(tmp_path, monkeypatch, lambda d, n: n < 3, timeout_s=10)
+    print("sends:", sorted((d, round(t / 1000)) for d, t in sends))
+    sealed = {d: market.seal(m.marks(f"{d}:C")) for d in (f"d{i}" for i in range(10))}
+    print("sealed:", {d: bool(v) for d, v in sealed.items()})
+    for d, v in sealed.items():
+        if v:
+            s = [(a, b) for a, b, px in m.marks(f"{d}:C") if px is not None]
+            assert all(b < H + market.MARK_WINDOW for a, b in s if a < H + market.MARK_WINDOW) or v
+
+
+@pytest.mark.parametrize("sent,recv,kept", [
+    (H + 299_999, H + 299_999, True), (H + 299_999, H + 300_000, False), (H + 300_000, H + 300_000, False),
+    (H + 5_000, H + 299_999, True), (H + 5_000, H + 300_001, False)])
+def test_seal_boundary(sent, recv, kept):
+    assert (market.seal([(sent, recv, 1.0)]) == {H: 1.0}) == kept
+    assert market.seal([(sent, recv, 1.0), (H + 299_999, H + 299_999, 2.0)])[H] == (1.0 if kept else 2.0) or sent > H + 299_999

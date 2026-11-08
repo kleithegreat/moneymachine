@@ -1,0 +1,184 @@
+"""Round six's acquisition deadline, attestation and Monday benchmark against the real Market, Exchange and MarkLimit
+on a fake venue, real threads and a warped clock. No network: httpx is replaced at the Exchange's client."""
+import json, sys, threading
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+import httpx
+import pytest
+from warp import Warp, install
+from ingest import hl
+from ingest.policy import DAY, HOUR, DELTA
+from thesis import market, runner, registry
+from thesis.tests.test_runner import MONDAY, ZERO, track  # noqa: F401
+
+TUESDAY = MONDAY + DAY
+CORE = ["BTC", "ETH", *(f"C{i:02d}" for i in range(4))]
+
+
+def venue(warp, latency=0.2):
+    def post(url, json=None):
+        warp.sleep(latency)
+        t = json["type"]
+        if t == "meta":
+            body = {"universe": [{"name": m} for m in CORE]} if not json.get("dex") else {"universe": []}
+        elif t == "perpDexs":
+            body = [None]
+        elif t == "candleSnapshot":
+            r = json["req"]
+            step = hl.INTERVAL_MS[r["interval"]]
+            now = warp.now_ms()
+            lo = max(r["startTime"], now - 1200 * DAY) // step * step
+            if lo < r["startTime"]:
+                lo += step
+            hi = min(r["endTime"], now - 1)
+            body = [{"t": t0, "o": str(100 + (t0 // DAY) % 50), "c": str(100 + (t0 // DAY + 1) % 50)}
+                    for t0 in range(lo, hi + 1, step)][:5000]
+        elif t == "fundingHistory":
+            lo, hi = json["startTime"], json.get("endTime", warp.now_ms())
+            body = [{"time": h, "fundingRate": "0.00001"} for h in range(-(-lo // HOUR) * HOUR, hi + 1, HOUR)][:500]
+        else:
+            raise AssertionError(t)
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+    return post
+
+
+def real_market(track, warp, root):
+    x = market.Exchange(root / "exchange")
+    x.http.post = venue(warp)
+    m = market.Market(root / "market", x)
+    m.sampler.http.post = venue(warp)
+    track.market = m
+    return m
+
+
+def warm_funding(m, until):
+    """The background fill's result written directly: every market's scope fetched to `until`."""
+    for name in CORE:
+        p = m._funding_path(name)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        lo = (until - market.HISTORY["funding"] - 2 * DAY) // HOUR * HOUR
+        rows = [[h, 1e-5] for h in range(lo, until, HOUR)]
+        p.write_text(json.dumps({"rows": rows, "fetched": [[lo, until]]}))
+
+
+def test_a_weekday_acquisition_queued_past_0500_is_cancelled_releasing_hold_and_queue(track, monkeypatch, tmp_path):
+    warp = Warp(100, TUESDAY + 4 * HOUR + 58 * 60_000 + 30_000)
+    install(monkeypatch, warp, market, runner)
+    m = real_market(track, warp, tmp_path)
+    warm_funding(m, TUESDAY)
+    bg = []
+
+    def background():
+        warp.until(60)
+        m.x.limiter.charge(22, background=True)
+        bg.append(warp.now_ms())
+
+    b = threading.Thread(target=background, daemon=True)
+    b.start()
+    track.acquire(TUESDAY)
+    ended = warp.now_ms()
+    b.join(30)
+    lim = m.x.limiter
+    print(f"acquire returned {(ended - TUESDAY - 5 * HOUR) / 1000:.1f} s after 05:00; holds {lim.holds}, "
+          f"queue {lim.foreground}; background admitted {(bg[0] - TUESDAY - 5 * HOUR) / 1000 if bg else None} s after 05:00")
+    assert track.ledger.records("snapshot_ready") == []
+    assert not (track.root / "snapshots" / f"{TUESDAY + runner.SNAPSHOT_OFFSET}.json").exists()
+    assert lim.holds == 0 and lim.foreground == []
+    assert ended < TUESDAY + 5 * HOUR + 30_000
+    assert bg and bg[0] >= TUESDAY + 5 * HOUR
+    track.schedule(TUESDAY + 5 * HOUR + 60_000, TUESDAY)
+    reasons = {c["session"]: c["reason"] for _, _, c in track.ledger.records("session_missed")}
+    print(reasons)
+    assert set(reasons) == {f"main-{TUESDAY}", f"noread-{TUESDAY}"}
+
+
+def monday_snapshot(track, monkeypatch, tmp_path, attest_at=None, observe_before_midnight=True):
+    """Acquire Monday's snapshot from 00:05 UTC [19:05 EST]; attest it as `acquire` does, at `attest_at` if given."""
+    warp = Warp(200, MONDAY + runner.SNAPSHOT_OFFSET)
+    install(monkeypatch, warp, market, runner)
+    m = real_market(track, warp, tmp_path)
+    warm_funding(m, MONDAY + 2 * DAY)
+    if observe_before_midnight:
+        market.append(m.root, "listings", MONDAY - 600_000, {"at": MONDAY - 600_000, "listings": {c: False for c in CORE}})
+    if attest_at is None:
+        track.acquire(MONDAY)
+    else:
+        cutoff = MONDAY + runner.SNAPSHOT_OFFSET
+        snap = track.snapshot(cutoff)
+        digest = registry.sha256((track.root / "snapshots" / f"{cutoff}.json").read_bytes())
+        track.ledger.disclose("snapshot_ready", "main", {"taken": cutoff, "acquired": attest_at, "sha256": digest,
+                                                        "listed_at": snap["listed_at"], "requests": snap["requests"],
+                                                        "readiness_at": snap["readiness_at"]})
+    return warp, m
+
+
+@pytest.mark.parametrize("hour", [5, 14, 23.5])
+def test_monday_benchmark_registered_late_has_midnight_inputs(track, monkeypatch, tmp_path, hour):
+    warp, m = monday_snapshot(track, monkeypatch, tmp_path)
+    [(_, _, att)] = track.ledger.records("snapshot_ready")
+    print("attested", (att["acquired"] - MONDAY) / HOUR, "h; readiness_at", (att["readiness_at"] - MONDAY) / HOUR)
+    at = MONDAY + int(hour * HOUR)
+    monkeypatch.setattr(runner, "now_ms", lambda: at)
+    track.benchmarks(at, MONDAY)
+    th = {t["legs"][0][0]: t for t in track.ledger.theses("benchmark")}
+    skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
+    print(hour, {k: (v["t_r"] - MONDAY, v["T"] - MONDAY, v["registered_at"] - MONDAY, v["p"], v.get("N")) for k, v in th.items()}, skips)
+    assert set(th) == {"BTC", "ETH"}
+    for v in th.values():
+        assert v["t_r"] == MONDAY and v["T"] == MONDAY + 21 * DAY and v["registered_at"] == at
+        assert v["cutoff"] == MONDAY
+
+
+@pytest.mark.parametrize("attest_min", [23 * 60 + 10, 23 * 60 + 59.5])
+def test_monday_attested_in_the_last_hour(track, monkeypatch, tmp_path, attest_min):
+    warp, m = monday_snapshot(track, monkeypatch, tmp_path, MONDAY + int(attest_min * 60_000))
+    [(_, _, att)] = track.ledger.records("snapshot_ready")
+    a = att["acquired"]
+    print("attested at", (a - MONDAY) / 60_000, "min")
+    for now in range(MONDAY + 23 * HOUR + 15_000, MONDAY + DAY + 120_000, 60_000):
+        monkeypatch.setattr(runner, "now_ms", lambda: now)
+        track.benchmarks(now, MONDAY)
+    th = track.ledger.theses("benchmark")
+    skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
+    print("registered", [(t["legs"][0][0], (t["registered_at"] - MONDAY) / 60_000) for t in th], "skips", skips)
+    assert {t["legs"][0][0] for t in th} == {"BTC", "ETH"} or a > MONDAY + DAY - 60_000
+
+
+def test_first_monday_without_a_listing_observation_before_midnight(track, monkeypatch, tmp_path):
+    warp, m = monday_snapshot(track, monkeypatch, tmp_path, observe_before_midnight=False)
+    at = MONDAY + 6 * HOUR
+    monkeypatch.setattr(runner, "now_ms", lambda: at)
+    track.benchmarks(at, MONDAY)
+    skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
+    print("skips:", skips, "theses:", track.ledger.theses("benchmark"))
+    assert skips.get("BTC") == "not listed"  # the reason recorded is false: BTC was listed, never observed
+
+
+def test_cross_arm_readiness_is_fixed_by_the_real_snapshot(track, monkeypatch, tmp_path):
+    """C00's scope is acquired to 499.5 h before the snapshot completes: ready in the map. Main registers at 05:15 UTC [00:15 EST],
+    no-reading at 06:15 UTC [01:15 EST], when a live check would say not ready; both are admitted and read every hour since acquisition.
+    C01 is not ready at the snapshot; the cache warmed later never admits it."""
+    warp = Warp(200, TUESDAY + runner.SNAPSHOT_OFFSET)
+    install(monkeypatch, warp, market, runner)
+    m = real_market(track, warp, tmp_path)
+    warm_funding(m, TUESDAY)
+    lo = (TUESDAY - market.HISTORY["funding"] - 2 * DAY) // HOUR * HOUR
+    acquired = TUESDAY + 25 * 60_000 - int(499.5 * HOUR)
+    for name, end in (("C00", acquired), ("C01", TUESDAY - 600 * HOUR)):
+        m._funding_path(name).write_text(json.dumps({"rows": [[h, 1e-5] for h in range(lo, end, HOUR)], "fetched": [[lo, end]]}))
+    track.acquire(TUESDAY)
+    snap = track.attested(TUESDAY)
+    print("readiness_at", (snap["readiness_at"] - TUESDAY) / 60_000, "min; ready C00", snap["ready"]["C00"], "C01", snap["ready"]["C01"])
+    assert snap["ready"]["C00"] and not snap["ready"]["C01"]
+    warm_funding(m, TUESDAY + 6 * HOUR)  # C01 (and the rest) warmed after the snapshot
+    m._funding_path("C00").write_text(json.dumps({"rows": [[h, 1e-5] for h in range(lo, acquired, HOUR)], "fetched": [[lo, acquired]]}))
+    for account, at in (("main", TUESDAY + 5 * HOUR + 15 * 60_000), ("noread", TUESDAY + 6 * HOUR + 15 * 60_000)):
+        monkeypatch.setattr(runner, "now_ms", lambda: at)
+        live = m.ready("C00", at)
+        _, data = track.inputs(account, ["C00"], at, snap)
+        hours = set(range(acquired // HOUR * HOUR, at // HOUR * HOUR + 1, HOUR))
+        missing = sorted(hours - set(data["funding"]["C00"]))
+        print(account, "live ready", live, "missing hours", len(missing))
+        assert not missing
+        with pytest.raises(httpx.TransportError):
+            track.inputs(account, ["C01"], at, snap)
