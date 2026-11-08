@@ -25,18 +25,13 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
 - **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round five (`b29eb06`, Sonnet) reviewed by Opus: ready after fixes (`audit/reviews/2026-11-08-opus-thesis-refreeze-round5.md`): R1-R7 hold; F1 T3's schedule derivation miscounts terminal requests (recorded behaviour: done 02:54 UTC (21:54 EST); omit-unclosed stress: 04:45 UTC (23:45 EST)), F2 a Monday attested after 23:00 UTC (18:00 EST), F3 the report lacks `snapshot_ready`, F4 a deadline race, F5 erasure. Next: a builder fixes F1-F5; the advisor decides whether the revision restates the ten-dex mark send time; then the criteria revision alone, then the freeze (new identity and window). Argon's T3 check queued.
-- **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **Stage 7:** B3 frozen; slices 5 and 3 and the revision-carrying exporter on `stage7` (C6.4's 3,372 runs agree, `audit/stage7/edge-regression.md`). Slice 4 nearly built (Opus, `slice4`; Wake-ups); its review waits for Argon (GPT stays blind to C7.7's kernel code; Sonnet never reviews Opus). Then merge and slice 6 (Claude-built).
+- **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with stage 7.
+- **Stage 7: parked after slice 4** (the human, 2026-11-08, `audit/decisions.md`). Slice 4 finishing (Opus builder, `slice4`); its review waits for Argon; no slice 6 or other C7 work. The Lean engine stage is deferred.
+- **Next research step, after the refreeze:** the positive-control study (`audit/decisions.md`, 2026-11-08): its criteria first, reviewed by GPT and a Claude session.
 
-1. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
-   1. The Rust kernel to the same definitions under the corpus differential (`audit/stage7/rust-port-plan.md` there); C7.7's corpus needs a registry and certificates.
-   2. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
-   - Judged runs wait for the rebase onto the pilot's baseline commit.
-   - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
+1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
 2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
-3. **When stage 7 nears its exit**: the Lean engine stage's criteria (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
-4. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
-5. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
+3. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
