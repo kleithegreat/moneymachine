@@ -581,7 +581,8 @@ impl<'a> Ctx<'a> {
 /// §8, stage 1's check until admission is wired, port plan slice 6), else `Ctx::evaluate`.
 pub fn run(prog: &Program, market: &Market, venue: &Venue, policy: &Policy, end: i64) -> Result<Run, Abort> {
     if let Some(s) = prog.sources().into_iter().find(|&s| !market.bound[s]) {
-        return Err(Abort::InputUnavailable(format!("source {s} is not bound")));
+        let input = prog.inputs.iter().find(|i| i.source == s).map_or("", |i| i.name.as_str());
+        return Err(Abort::InputUnavailable(format!("{input}: its source is not bound in this store")));
     }
     Ctx::make(prog, market, venue, policy, end).evaluate()
 }
