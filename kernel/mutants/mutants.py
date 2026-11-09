@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -185,10 +186,16 @@ def failed_by_assertion(log):
 
 
 def check(name, slot) -> str:
-    """Whether the mutant's named test passes on a clean copy of the tree and fails by assertion on the mutated one."""
+    """Whether the mutant's named test passes on a clean copy of the tree and fails by assertion on the mutated one.
+    Its commands run with this interpreter's directory first on PATH: under pytest, PATH leads to an unwrapped `pytest`
+    without the environment's plugins."""
     test, edits = MUTANTS[name]
     slug = "-".join(name.split())
-    env = os.environ | {"CARGO_TARGET_DIR": str(REPO / "kernel" / f"target-mutants-{slot}")}
+    interpreter = str(Path(sys.executable).parent)
+    env = os.environ | {
+        "CARGO_TARGET_DIR": str(REPO / "kernel" / f"target-mutants-{slot}"),
+        "PATH": f"{interpreter}:{os.environ['PATH']}",
+    }
     ignore = shutil.ignore_patterns(".git", "data", "target*", "__pycache__", ".hypothesis")
     with tempfile.TemporaryDirectory() as wt:
         shutil.copytree(REPO, wt, ignore=ignore, dirs_exist_ok=True, copy_function=shutil.copy)
