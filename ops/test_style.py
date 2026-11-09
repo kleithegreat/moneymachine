@@ -66,7 +66,7 @@ def test_the_covered_files_pass_ruff_check() -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="typing is unfinished: 92 of 124 covered files still fail mypy --strict (PROGRESS.md, code-style)",
+    reason="typing is unfinished: 20 of 123 covered files still fail mypy --strict, all behind modules another branch is editing (PROGRESS.md, code-style)",
 )
 def test_the_covered_files_pass_mypy_strict() -> None:
     _run("mypy")
