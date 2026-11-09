@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, Never
 
@@ -116,7 +117,7 @@ class Campaign:
         monkeypatch.setattr(gate, "mechanism_check", lambda m, l, c, programs: {h: {"pass": True} for h in programs})
         real_release = gate.release
 
-        def release(*args) -> Any:
+        def release(*args: Any) -> Any:
             self.releases += 1
             return real_release(*args)
 
@@ -159,7 +160,8 @@ class Campaign:
         return campaigns.claims(self.root / "holdout")
 
     def report(self, cid: str = "stage3-real") -> dict[str, Any]:
-        return json.loads((self.out / cid / "real.json").read_text())
+        record: dict[str, Any] = json.loads((self.out / cid / "real.json").read_text())
+        return record
 
     def disclosures(self, kind: str, cid: str = "stage3-real") -> list[tuple[Any, ...]]:
         return (
@@ -181,7 +183,7 @@ def test_a_complete_campaign_commits_promotions_before_reading_diagnostics(
 ) -> None:
     read = gate.committed_diagnostics
 
-    def diagnostics(ledger: Path, cid: str):
+    def diagnostics(ledger: Path, cid: str) -> Any:
         assert c.disclosures("promotion")
         return read(ledger, cid)
 
@@ -206,7 +208,9 @@ def test_a_complete_campaign_commits_promotions_before_reading_diagnostics(
 
 def test_a_dead_session_with_evaluations_stands(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
-    monkeypatch.setattr(harness, "run_agent", lambda *a: session(*a, die=True))
+    monkeypatch.setattr(
+        harness, "run_agent", lambda market, ledger, cid, workdir: session(market, ledger, cid, workdir, die=True)
+    )
     with pytest.raises(Crash):
         c.run()
     monkeypatch.setattr(harness, "run_agent", lambda *a: pytest.fail("a second attempt"))
@@ -263,7 +267,11 @@ def test_a_resume_with_another_dataset_version_is_refused(c: Campaign, monkeypat
 
 def test_a_run_record_never_disclosed_is_disclosed_on_resume(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
-    monkeypatch.setattr(harness, "run_agent", lambda *a: session(*a, undisclosed=True))
+    monkeypatch.setattr(
+        harness,
+        "run_agent",
+        lambda market, ledger, cid, workdir: session(market, ledger, cid, workdir, undisclosed=True),
+    )
     with pytest.raises(Crash):
         c.run()
     assert c.disclosures("run") == []
@@ -296,7 +304,7 @@ def test_zero_finalists_make_no_claim_and_say_so(c: Campaign) -> None:
 def partial_release(c: Campaign, survivors: Any) -> None:
     """A batch that stopped after its claim: the kernel's real claim, and real results only for `survivors`' programs."""
 
-    def release(market: Path, ledger: Path, cid: str, programs: list[str], holdout_from: int) -> None:
+    def release(market: Path, ledger: Path, cid: str, programs: dict[str, dict[str, Any]], holdout_from: int) -> None:
         c.releases += 1
         batch = market.parent / "batch.jsonl"
         batch.write_text("".join(json.dumps(programs[h]) + "\n" for h in list(programs)[:survivors]))
@@ -366,7 +374,7 @@ def crash_once(monkeypatch: pytest.MonkeyPatch, owner: Any, name: str) -> None:
     real = getattr(owner, name)
     state = {"armed": True}
 
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
         if state["armed"]:
             state["armed"] = False
             raise Crash
@@ -379,11 +387,11 @@ def crash_on_write(monkeypatch: pytest.MonkeyPatch, filename: str) -> None:
     real = campaigns.write_json
     state = {"armed": True}
 
-    def wrapped(path: Path, value):
+    def wrapped(path: Path, value: Any) -> None:
         if state["armed"] and path.name == filename:
             state["armed"] = False
             raise Crash
-        return real(path, value)
+        real(path, value)
 
     monkeypatch.setattr(campaigns, "write_json", wrapped)
 
@@ -413,7 +421,9 @@ def test_recovery_after_a_crash_at_each_step(c: Campaign, monkeypatch: pytest.Mo
 
 def test_a_searcher_that_died_ended_its_arm(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     searcher = c.searcher
-    monkeypatch.setattr(search, "run", lambda *a: searcher(*a, die=True))
+    monkeypatch.setattr(
+        search, "run", lambda name, market, ledger, cid, seed: searcher(name, market, ledger, cid, seed, die=True)
+    )
     with pytest.raises(Crash):
         c.run()
     c.run()
@@ -456,10 +466,14 @@ def test_nothing_starts_unless_it_is_ready(c: Campaign, monkeypatch: pytest.Monk
 
 
 def test_the_harness_is_checked_again_after_pacing(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = []
+    calls: list[str] = []
 
-    def wait(log) -> Any:
-        monkeypatch.setattr(campaigns, "check_frozen", lambda: calls.append("frozen") or sys.exit("changed"))
+    def changed() -> Never:
+        calls.append("frozen")
+        sys.exit("changed")
+
+    def wait(log: Path) -> Any:
+        monkeypatch.setattr(campaigns, "check_frozen", changed)
         return "TAMU", {}
 
     monkeypatch.setattr(campaigns, "wait_for_room", wait)
@@ -476,7 +490,14 @@ def test_arm_a_waits_for_the_canary_and_a_stop_meanwhile_commits_nothing(
     monkeypatch.setattr(campaigns, "wait_for_room", lambda log: None if stop.is_set() else ("TAMU", {}))
     monkeypatch.setattr(sandbox_session, "RETRY", 0)
     checks = iter([False, True])
-    monkeypatch.setattr(canary, "passes", lambda: next(checks) and (stop.set() or True))
+
+    def passes() -> bool:
+        if not next(checks):
+            return False
+        stop.set()
+        return True
+
+    monkeypatch.setattr(canary, "passes", passes)
     with pytest.raises(SystemExit, match="stopped before arm A"):
         c.run()
     assert c.sessions == 0 and not (c.out / "stage3-real" / "account.json").exists()
@@ -515,23 +536,27 @@ def test_audit_matches_per_kind_in_order_and_tolerates_a_session_without_calls(t
     market, ledger, run = c.root, tmp_path / "l.sqlite", tmp_path / "run"
     c.session(market, ledger, "x", run)
     a = campaigns.audit_run(run, ledger, "x")
-    assert a["match"] and a["daemon_calls"] == 3
+    assert a is not None and a["match"] and a["daemon_calls"] == 3
     lines = (run / "daemon.log").read_text().splitlines()
     (run / "daemon.log").write_text("\n".join(lines[1:] + lines[:1]) + "\n")
-    assert not campaigns.audit_run(run, ledger, "x")["match"]
+    reordered = campaigns.audit_run(run, ledger, "x")
+    assert reordered is not None and not reordered["match"]
     empty = tmp_path / "empty"
     empty.mkdir()
     (empty / "transcript.jsonl").write_text("")
     subprocess.run(
         command("disclose", run / "run.json", "y", "A", ledger, None, "--kind", "run"), check=True, capture_output=True
     )
-    assert campaigns.audit_run(empty, ledger, "y")["match"]
+    silent = campaigns.audit_run(empty, ledger, "y")
+    assert silent is not None and silent["match"]
 
 
-def null_campaign(c: Campaign, monkeypatch: pytest.MonkeyPatch, session):
+def null_campaign(
+    c: Campaign, monkeypatch: pytest.MonkeyPatch, session: Callable[[Path, Path, str, Path], dict[str, Any]]
+) -> dict[str, Any]:
     """`agent_null` on the fixture's market, with `session` as the model session and its run record disclosed."""
 
-    def run(market: Path, ledger: Path, cid: str, workdir: Path):
+    def run(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
         result = session(market, ledger, cid, workdir)
         subprocess.run(
             command("disclose", REPO / "kernel/strategies/w0.json", cid, "A", ledger, None, "--kind", "run"),
@@ -543,22 +568,23 @@ def null_campaign(c: Campaign, monkeypatch: pytest.MonkeyPatch, session):
     (c.out / "null-0").mkdir(parents=True)
     monkeypatch.setattr(campaigns, "null_market", lambda cid, cells: c.root)
     monkeypatch.setattr(harness, "run_agent", run)
-    return campaigns.agent_null("null-0", {})
+    row: dict[str, Any] = campaigns.agent_null("null-0", campaigns.SeriesInputs(params={}, cost_cells={}, mm=""))
+    return row
 
 
-def no_call(market: Path, ledger: Path, cid: str, workdir: Path):
+def no_call(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
     workdir.mkdir(parents=True)
     (workdir / "transcript.jsonl").write_text("")
     return {}
 
 
-def checks_only(market: Path, ledger: Path, cid: str, workdir: Path):
+def checks_only(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
     return {"spent": daemon_session(market, ledger, cid, workdir, []).spent}
 
 
 @pytest.mark.parametrize("session", [no_call, checks_only])
 def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(
-    c: Campaign, monkeypatch: pytest.MonkeyPatch, session
+    c: Campaign, monkeypatch: pytest.MonkeyPatch, session: Callable[[Path, Path, str, Path], dict[str, Any]]
 ) -> None:
     r = null_campaign(c, monkeypatch, session)
     assert r["counts_as_promotion"] and r["evaluations"] == 0 and r["promoted"] == []
@@ -577,7 +603,7 @@ def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(
 def test_a_null_session_that_crashed_counts_as_a_promotion(
     c: Campaign, monkeypatch: pytest.MonkeyPatch, stopped: str, exit: int, counts: bool
 ) -> None:
-    def evaluates(market: Path, ledger: Path, cid: str, workdir: Path):
+    def evaluates(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
         return {
             "spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent,
             "stopped": stopped,
@@ -604,7 +630,7 @@ def series_in_the_pods_view() -> None:
     (campaigns.OUT / "inputs" / spec["funding"]["sha256"]).write_bytes(blob)
     markets.NULLS = Path(tempfile.mkdtemp()) / "nulls.json"
     markets.NULLS.write_text(json.dumps({"N2": spec}))
-    rooms = iter([("TAMU", {})])
+    rooms: Iterator[tuple[str, dict[str, Any]]] = iter([("TAMU", {})])
     campaigns.wait_for_room = lambda log: next(rooms, None)
     campaigns.windows = lambda token=None: None
     canary.passes = lambda: True
@@ -621,7 +647,7 @@ def series_in_the_pods_view() -> None:
     ), rows
 
 
-def test_the_series_in_its_pods_view(tmp_path: Path, built_kernel) -> None:
+def test_the_series_in_its_pods_view(tmp_path: Path, built_kernel: Path) -> None:
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
     (REPO / "data").mkdir(exist_ok=True)
     volume = tmp_path / "agent"
@@ -656,7 +682,7 @@ def test_the_series_in_its_pods_view(tmp_path: Path, built_kernel) -> None:
     assert out.returncode == 0, out.stdout + out.stderr
 
 
-def test_under_a_read_only_root(tmp_path: Path, built_kernel) -> None:
+def test_under_a_read_only_root(tmp_path: Path, built_kernel: Path) -> None:
     target = f"{Path(__file__)}::test_a_complete_campaign_commits_promotions_before_reading_diagnostics"
     out = subprocess.run(
         [

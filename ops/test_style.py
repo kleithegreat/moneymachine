@@ -14,8 +14,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parents[1]
 
 _FROZEN_FILES = """
@@ -64,10 +62,6 @@ def test_the_covered_files_pass_ruff_check() -> None:
     _run("ruff", "check")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="typing is unfinished: 20 of 123 covered files still fail mypy --strict, all behind modules another branch is editing (PROGRESS.md, code-style)",
-)
 def test_the_covered_files_pass_mypy_strict() -> None:
     _run("mypy")
 

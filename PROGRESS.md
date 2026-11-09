@@ -4,7 +4,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ## Now
 
-- **Code style, branch `code-style`:** ruff format and check clean over the covered files (`ops/test_style.py`); `mypy --strict` still fails on 92 of 124 covered files (mostly untyped test parameters and untyped calls between modules), so its test is `xfail(strict=True)`. Finish the typing per package, then drop the xfail. Not merged.
+- **Code style, branch `typing2`:** ruff format, ruff check and `mypy --strict` pass over every covered file (`ops/test_style.py`, no xfail left). Not merged.
 
 ### Running, and how to inspect it
 
