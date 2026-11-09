@@ -84,7 +84,7 @@ def test_single_literal_execution_maps_by_count_not_output(tmp_path, command):
 
 @pytest.mark.parametrize("command", ["python -c 'import socket'", "./thesis-agent markets >/dev/null",
     "./thesis-agent markets; ./thesis-agent positions", "./thesis-agent prices $m", "./thesis-agent prices `cat x`",
-    "./thesis-agent prices *", "./thesis-agent prices ${m}", "./thesis-agent markets\n", "./thesis-agent markets &",
+    "./thesis-agent prices *", "./thesis-agent prices M?", "./thesis-agent prices ${m}", "./thesis-agent markets\n", "./thesis-agent markets &",
     "./thesis-agent prices <(cat x)", "./thesis-agent exit id \"$reason\"", "./thesis-agent prices B\\TC"])
 def test_nonliteral_or_nonclient_bash_fails_even_with_equal_record_count(tmp_path, command):
     assert harness.audit(transcript(tmp_path, [(command, "{}")]), [record("markets")])["match"] is False

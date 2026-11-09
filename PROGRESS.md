@@ -42,7 +42,7 @@ Open research question (the human), unblocked now that stage 4 has exited: does 
 
 ## Blockers
 
-- **Round-eleven paper correction:** T3's moving readiness time can omit funding, and its claimed single 91-second retry bound ignores multi-market/multi-request retries. Replace with one first-pass readiness time and deadline checks within retry passes and limiter waits; initial acquisition may still miss its deadline. C10.2 must describe literal-execution counting, not shell attribution. Argon findings 5–8 are still missing.
+- **Round-eleven review:** C10.2 and N1 fixes need independent review; Argon findings 5–8 are still missing. T3 and the proposed clauses (a)/(b) now describe the code (`audit/stage10/criteria-revision-round11-draft.md`); no revision is adopted. The shared-client harness fork is recorded, but the frozen stage-3 pin is unchanged, so launch must refuse it until a later reviewed freeze; future campaigns need fresh ids. Initial acquisition/in-flight HTTP/filesystem waits retain timing limits, not a completion guarantee.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
@@ -57,6 +57,8 @@ Open research question (the human), unblocked now that stage 4 has exited: does 
 ## Decisions awaiting the human's review
 
 From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
+
+Round eleven's development choices (`audit/decisions.md`): the shared-client identity fork and literal-only Bash audit; one first-pass readiness time; finality of failures first seen after the retry cutoff. Nothing frozen or deployed; independent review and findings 5–8 remain owed.
 
 ## Qualifications
 

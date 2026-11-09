@@ -66,7 +66,7 @@ def run_session(workdir, kind, start_daemon, task=None):
     return {"kind": kind, **s}
 
 
-LITERAL = r"(?:[a-zA-Z0-9_./:@%+,=?-]+|'[^'\r\n\x00]*'|\"[^\"$`\\\r\n\x00]*\")"
+LITERAL = r"(?:[a-zA-Z0-9_./:@%+,=-]+|'[^'\r\n\x00]*'|\"[^\"$`\\\r\n\x00]*\")"
 EXECUTION = re.compile(r"[ \t]*\./thesis-agent(?:[ \t]+" + LITERAL + r")*[ \t]*")
 
 

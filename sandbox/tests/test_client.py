@@ -1,4 +1,4 @@
-"""The shared in-sandbox client: arity (a count or "+"), file arguments sent as text, usage otherwise."""
+"""The shared client sends every invocation, including refusals with their argv and reason."""
 
 import json
 
@@ -14,7 +14,7 @@ def client(spec, sent):
     return ns["main"]
 
 
-def test_arity_files_and_usage(tmp_path, capsys):
+def test_arity_files_and_usage(tmp_path):
     sent = []
     research, thesis = client(RESEARCH, sent), client(THESIS, sent)
     a, b = tmp_path / "a.json", tmp_path / "b.json"
