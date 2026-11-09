@@ -1,18 +1,15 @@
 """C1.1 and C5.5 mutants: each one disables an invariant's check and makes the kernel or the data layer
 commit the prohibited behavior; its named test must then fail, while the unpatched tree passes it.
 
-Run inside nix develop: `python -m cli mutants`. Each mutant is a list of exact,
+Run by `kernel/tests/test_mutants.py` inside the sharded suite. Each mutant is a list of exact,
 unique (file, old, new) replacements applied to a fresh copy of the working tree.
 """
 
 import os
-import queue
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -210,28 +207,3 @@ def check(name, slot) -> str:
     if not failed_by_assertion((LOGS / f"{slug}.mutated.log").read_text(errors="replace")):
         return f"INCONCLUSIVE {name}: the mutated run exited {mutated} without the test failing by assertion"
     return f"caught {name}"
-
-
-def main(n=None) -> None:
-    """Every mutant, `n` at a time (by default as many as memory allows); each slot keeps its own cargo target, reused
-    across its mutants."""
-    from gate import compute
-
-    n = n or compute.workers(SLOT_BYTES)
-    LOGS.mkdir(parents=True, exist_ok=True)
-    slots = queue.Queue()
-    for i in range(n):
-        slots.put(i)
-
-    def one(name):
-        slot = slots.get()
-        try:
-            return check(name, slot)
-        finally:
-            slots.put(slot)
-
-    with ThreadPoolExecutor(n) as pool:
-        results = list(pool.map(one, MUTANTS))
-    for r in results:
-        print(r, flush=True)
-    sys.exit(0 if all(r.startswith("caught ") for r in results) else 1)
