@@ -338,7 +338,7 @@ def test_gate_propagates_failed_helper(tmp_path: Path, monkeypatch: pytest.Monke
     (tmp_path / "audit/cluster").mkdir(parents=True)
     monkeypatch.setattr(live, "run_pod", lambda *a: ("tests failed", False))
     with pytest.raises(SystemExit, match="gate"):
-        live.gate("sha256:A", "Unmasked")
+        live.gate("sha256:A")
 
 
 def changing_mirror(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

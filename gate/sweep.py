@@ -323,7 +323,7 @@ def summary(out) -> None:
                 "null": null_summary(),
                 "mixed": mixed_summary(),
                 "events": null_summary("events"),
-                "qualifications": "PROGRESS.md, Qualifications, stage 2",
+                "qualifications": "audit/criteria.md, stage 2",
             },
             indent=1,
         )
