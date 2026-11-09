@@ -3,7 +3,6 @@ the session's brief, its task file (for an ablation) and `./thesis-agent`."""
 
 import functools
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -46,10 +45,7 @@ def manifest_hash(kernel):
 
 
 def workspace(workdir, kind, task=None):
-    files = {"brief.md": BRIEF_TEXT[kind] + "\nUse exactly one literal ./thesis-agent command per Bash call. "
-             "Separate arguments with spaces or tabs; use whole single-quoted arguments for URLs and reasons, "
-             "or whole double-quoted arguments without expansions or escapes. No shell operators, redirections, "
-             "substitutions, variables, globs, loops or scripts: these fail the session audit.\n"}
+    files = {"brief.md": BRIEF_TEXT[kind]}
     if task is not None:
         files["task.json"] = json.dumps(task, indent=1)
     session.workspace(workdir, files, CLIENT, SPEC)
@@ -66,52 +62,7 @@ def run_session(workdir, kind, start_daemon, task=None):
     return {"kind": kind, **s}
 
 
-LITERAL = r"(?:[a-zA-Z0-9_./:@%+,=-]+|'[^'\r\n\x00]*'|\"[^\"$`\\\r\n\x00]*\")"
-EXECUTION = re.compile(r"[ \t]*\./thesis-agent(?:[ \t]+" + LITERAL + r")*[ \t]*")
-
-
-def results(transcript):
-    """Tool uses, results and denials from a complete, unambiguous transcript; malformed or truncated fails closed."""
-    uses, out, denied, complete = {}, {}, [], False
-    for line in open(transcript):
-        d = json.loads(line)
-        if d.get("type") == "result":
-            complete = True
-            denied = [x["tool_use_id"] for x in d.get("permission_denials", [])]
-        content = d.get("message", {}).get("content") if d.get("type") in ("assistant", "user") else None
-        for c in content if isinstance(content, list) else []:
-            if c.get("type") == "tool_use":
-                if c["id"] in uses:
-                    raise ValueError("duplicate tool use id")
-                uses[c["id"]] = c
-            if c.get("type") == "tool_result":
-                if c["tool_use_id"] in out:
-                    raise ValueError("duplicate tool result id")
-                out[c["tool_use_id"]] = c
-    if not complete or out.keys() - uses.keys() or set(denied) - uses.keys():
-        raise ValueError("incomplete or unattributable transcript")
-    return uses, out, denied
-
-
 def audit(transcript, calls):
-    """C10.2: daemon records are the call list, refusals included. The transcript proves only an execution count and no
-    bypass: every non-denied Bash must be one literal client command with a result. No shell program is interpreted."""
-    try:
-        uses, outputs, denied = results(transcript)
-    except (ValueError, KeyError, TypeError) as e:
-        return {"match": False, "transcript_error": str(e)}
-    executions, unattributable = 0, []
-    for i, u in uses.items():
-        if u["name"] == "Bash" and i not in denied:
-            if EXECUTION.fullmatch(u["input"].get("command", "")) and i in outputs:
-                executions += 1
-            else:
-                unattributable.append(i)
-    requests = [c["request"] for c in calls]
-    valid = all(isinstance(r.get("argv"), list) and all(isinstance(a, str) for a in r["argv"])
-                and "refusal" in r and (r["refusal"] is None or isinstance(r["refusal"], str) and bool(r["refusal"]))
-                for r in requests)
-    outside = sorted({u["name"] for u in uses.values()} - session.PERMITTED)
-    return {"client_executions": executions, "daemon_calls": len(calls),
-            "refused": sum(bool(r.get("refusal")) for r in requests), "unattributable": unattributable,
-            "match": valid and not outside and not unattributable and executions == len(calls), "outside_permitted": outside}
+    """The session's daemon call records and any tool it used outside `session.PERMITTED`. C10.2 rests on the daemon's
+    records and the client being the only channel (audit/stage10/criteria-revision-round11-draft.md), not on this count."""
+    return {"daemon_calls": len(calls), "outside_permitted": session.tool_use(transcript, CLIENT)["outside_permitted"]}

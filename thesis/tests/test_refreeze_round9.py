@@ -148,24 +148,6 @@ def test_f3_two_processes_extend_one_bar_cache_without_losing_rows(tmp_path):
     assert not [p for p in tmp_path.rglob("*") if p.suffix == ".tmp"]
 
 
-def transcript(tmp_path, calls):
-    lines = []
-    for i, (command, output) in enumerate(calls):
-        lines += [{"type": "assistant", "message": {"content": [
-                      {"type": "tool_use", "id": str(i), "name": "Bash", "input": {"command": command}}]}},
-                  {"type": "user", "message": {"content": [
-                      {"type": "tool_result", "tool_use_id": str(i), "is_error": output.startswith("Exit code"),
-                       "content": [{"type": "text", "text": output}]}]}}]
-    lines.append({"type": "result", "permission_denials": []})
-    path = tmp_path / "t.jsonl"
-    path.write_text("\n".join(json.dumps(line) for line in lines) + "\n")
-    return path
-
-
-def record(cmd, *args):
-    return {"session": "s", "request": {"cmd": cmd, "args": list(args), "argv": [cmd, *args], "refusal": None}}
-
-
 def test_lower_a_session_that_raises_closes_its_daemon(tmp_path, monkeypatch):
     closed = []
 
