@@ -5,7 +5,9 @@ import json
 import os
 import re
 import socket
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -22,19 +24,21 @@ GOOD = [
 ]
 
 
-def scripted(calls, exit: int = 0):
+def scripted(calls: list[tuple[str, str, dict[str, Any], str]], exit: int = 0) -> Callable[..., dict[str, Any]]:
     """A session whose effects are always the good ones (the note holds the nonce, the daemon gets it) and whose
     transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied" | "no result")."""
 
-    def run(workdir, client, model, max_turns, wall_seconds):
+    def run(workdir: Path, client: str, model: str, max_turns: int, wall_seconds: float) -> dict[str, Any]:
         work = Path(workdir) / "work"
-        nonce = re.search(r"exactly `(\w+)`", (work / "brief.md").read_text()).group(1)
+        found = re.search(r"exactly `(\w+)`", (work / "brief.md").read_text())
+        assert found is not None
+        nonce = found.group(1)
         (work / "note.txt").write_text(nonce)
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.connect(str(session.socket_path(workdir, client)))
         s.sendall(json.dumps({"cmd": "send", "args": [nonce]}).encode() + b"\n")
         s.recv(100)
-        lines = []
+        lines: list[dict[str, Any]] = []
         for i, name, inp, outcome in calls:
             inp = {k: nonce if v == "NONCE" else v for k, v in inp.items()}
             lines.append(
@@ -61,7 +65,7 @@ def scripted(calls, exit: int = 0):
     return run
 
 
-def outcome(i, new):
+def outcome(i: str, new: str) -> list[tuple[str, str, dict[str, Any], str]]:
     return [(j, n, x, new if j == i else o) for j, n, x, o in GOOD]
 
 
@@ -84,7 +88,9 @@ def outcome(i, new):
         "tool outside PERMITTED",
     ],
 )
-def test_counterexamples_fail(monkeypatch: pytest.MonkeyPatch, calls) -> None:
+def test_counterexamples_fail(
+    monkeypatch: pytest.MonkeyPatch, calls: list[tuple[str, str, dict[str, Any], str]]
+) -> None:
     monkeypatch.setattr(session, "run", scripted(calls))
     with pytest.raises(canary.Broken):
         canary.check()
