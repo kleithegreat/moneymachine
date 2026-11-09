@@ -29,11 +29,11 @@ def skips(track):
 
 def test_f1_a_failing_listed_market_does_not_cost_the_snapshot(track, monkeypatch):
     class Listed(refuse("NEW")):
-        def listings(self, *, background=False):
-            return {**super().listings(), "NEW": False}
+        def universe(self, dex=None, *, background=False):
+            return {**super().universe(dex, background=background), "NEW": False}
 
     track.market = Listed(MONDAY + 40 * DAY)
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SNAPSHOT_OFFSET + 60_000)
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.RETRY_UNTIL)
     track.acquire(MONDAY)
     attested = track.attested(MONDAY, MONDAY + DAY)
     assert attested is not None and "500" in attested["failed"]["NEW"] and attested["ready"]["NEW"] is False
@@ -42,7 +42,7 @@ def test_f1_a_failing_listed_market_does_not_cost_the_snapshot(track, monkeypatc
 
 def test_f1_a_market_that_failed_at_the_snapshot_is_skipped_with_that_reason_and_the_others_register(track, monkeypatch):
     track.market = refuse("BTC", "1h")(MONDAY + 40 * DAY)
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SNAPSHOT_OFFSET + 60_000)
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.RETRY_UNTIL)
     track.acquire(MONDAY)
     track.benchmark(MONDAY)
     assert skips(track)["BTC"].startswith("market read failed at the snapshot: ") and "500" in skips(track)["BTC"]
@@ -154,7 +154,8 @@ def transcript(tmp_path, calls):
         lines += [{"type": "assistant", "message": {"content": [
                       {"type": "tool_use", "id": str(i), "name": "Bash", "input": {"command": command}}]}},
                   {"type": "user", "message": {"content": [
-                      {"type": "tool_result", "tool_use_id": str(i), "content": [{"type": "text", "text": output}]}]}}]
+                      {"type": "tool_result", "tool_use_id": str(i), "is_error": output.startswith("Exit code"),
+                       "content": [{"type": "text", "text": output}]}]}}]
     lines.append({"type": "result", "permission_denials": []})
     path = tmp_path / "t.jsonl"
     path.write_text("\n".join(json.dumps(line) for line in lines) + "\n")
@@ -169,14 +170,14 @@ USAGE = thesis_daemon.SPEC["usage"]
 
 
 def test_f4_a_call_the_client_refused_is_not_a_daemon_call(tmp_path):
-    t = transcript(tmp_path, [("./thesis-agent prices", USAGE), ("./thesis-agent markets", "{}"),
-                              ("./thesis-agent register missing.json", '{"ok": false, "error": "[Errno 2] No such file"}')])
+    t = transcript(tmp_path, [("./thesis-agent prices", "Exit code 2\n" + USAGE), ("./thesis-agent markets", "{}"),
+                              ("./thesis-agent register missing.json", 'Exit code 1\n{"ok": false, "error": "[Errno 2] No such file"}')])
     audit = harness.audit(t, [record("markets")])
     assert audit["match"] is True and audit["refused_locally"] == 2 and audit["daemon_calls"] == 1
 
 
 def test_f4_a_refused_call_does_not_stand_in_for_a_missing_one(tmp_path):
-    t = transcript(tmp_path, [("./thesis-agent prices", USAGE)])
+    t = transcript(tmp_path, [("./thesis-agent prices", "Exit code 2\n" + USAGE)])
     assert harness.audit(t, [record("markets")])["match"] is False
 
 

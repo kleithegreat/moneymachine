@@ -32,7 +32,7 @@ def test_f3_a_second_read_in_the_same_period_asks_for_nothing(tmp_path):
 
 
 def test_f1_a_missing_listing_observation_is_not_a_not_listed_market():
-    snapshot = {"listings": {}, "markets": {}, "daily": {}, "ready": {}}
+    snapshot = {"listings": {}, "markets": {}, "daily": {}, "ready": {}, "failed": {}}
     assert "no listing observation" in runner.unbenchmarkable(snapshot, "BTC", (0, DAY))
     assert runner.unbenchmarkable({**snapshot, "listings": {"ETH": False}}, "BTC", (0, DAY)) == "not listed"
 
@@ -78,7 +78,7 @@ def test_f2_monday_asks_only_for_benchmark_markets_beyond_the_current_listing(tr
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + runner.SNAPSHOT_OFFSET)
     fake = track.market
     fake.listings_at = lambda at: (MONDAY - HOUR, {"BTC": False, "GONE": False, "xyz:GOLD": False})
-    fake.listings = lambda background=False: {"BTC": False}
+    fake.universe = lambda dex=None, background=False: {"BTC": False}
     asked = set()
     bars = fake.bars
     fake.bars = lambda m, interval, now=None: (asked.add(m), bars(m, interval, now))[1]

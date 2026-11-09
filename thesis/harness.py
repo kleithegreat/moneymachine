@@ -3,6 +3,7 @@ the session's brief, its task file (for an ablation) and `./thesis-agent`."""
 
 import functools
 import json
+import re
 import shlex
 import subprocess
 import sys
@@ -83,7 +84,7 @@ def invocations(command):
 
 
 def results(transcript):
-    """{tool call id: the text of its result} in a transcript."""
+    """{tool call id: (the text of its result, whether it is an error)} in a transcript."""
     out = {}
     for line in open(transcript):
         try:
@@ -94,34 +95,42 @@ def results(transcript):
         for c in content if isinstance(content, list) else []:
             if c.get("type") == "tool_result":
                 body = c.get("content")
-                out[c["tool_use_id"]] = body if isinstance(body, str) else "".join(b.get("text", "") for b in body or [])
+                out[c["tool_use_id"]] = (body if isinstance(body, str) else "".join(b.get("text", "") for b in body or []),
+                                         bool(c.get("is_error")))
     return out
 
 
-def refused_locally(argv, output):
-    """Whether the client refused the call itself, never reaching the daemon: an unknown command or a wrong number of
-    arguments (it prints the usage line), or a FILE it could not read (it prints an `error`; no daemon reply has one)."""
-    spec = SPEC["commands"].get(argv[0]) if argv else None
-    if spec is None or len(argv) - 1 != spec[0]:
-        return True
-    return "file" in spec and output.lstrip().startswith('{"ok": false, "error"')
+def client_refusal(output, is_error):
+    """Whether a Bash result is exactly the client's own refusal, which no daemon reply resembles (a call that reached the
+    daemon exits 0): Claude Code records a nonzero exit as "Exit code N\n<output>" with is_error, and the output is the
+    usage line (an unknown command or a wrong number of arguments) or one {"ok": false, "error": text} (an unreadable FILE)."""
+    m = re.fullmatch(r"Exit code ([1-9]\d*)\n(.*)", output, re.S)
+    if not is_error or m is None:
+        return False
+    body = m[2].strip()
+    try:
+        reply = json.loads(body)
+    except json.JSONDecodeError:
+        return body == SPEC["usage"]
+    return isinstance(reply, dict) and reply.keys() == {"ok", "error"} and reply["ok"] is False and isinstance(reply["error"], str)
 
 
 def audit(transcript, calls):
-    """C10.2's per-session mapping: every client call in the transcript that reached the daemon (the Bash commands that ran,
-    less the calls the client refused itself, `refused_locally`) to its own daemon call record, by command and arguments
-    (a FILE argument by its count; an argument with a shell expansion matches any), and each record to a call. The
-    tools outside the permitted set are listed. A call made by a loop or a script in one command reads as unmatched."""
+    """C10.2's per-session mapping: every client call in the transcript that reached the daemon to its own daemon call record,
+    by command and arguments (a FILE argument by its count; an argument with a shell expansion matches any), and each record
+    to a call. A call is refused locally, and not sent, only when it is the sole client call of its Bash command and the result
+    is `client_refusal`; every other call is sent, so one the transcript cannot attribute (a loop, a script, a refusal beside
+    other calls) reads as unmatched. The tools outside the permitted set are listed."""
     uses, denied, _ = session.calls(transcript)
     outputs = results(transcript)
     sent, refused = [], 0
     for i, u in uses.items():
         if u["name"] == "Bash" and i not in denied:
-            for argv in invocations(u["input"].get("command", "")):
-                if refused_locally(argv, outputs.get(i, "")):
-                    refused += 1
-                else:
-                    sent.append(argv)
+            argvs = invocations(u["input"].get("command", ""))
+            if len(argvs) == 1 and client_refusal(*outputs.get(i, ("", False))):
+                refused += 1
+            else:
+                sent += argvs
     records = [(c["request"].get("cmd"), c["request"].get("args", [])) for c in calls]
 
     def fits(argv, record):

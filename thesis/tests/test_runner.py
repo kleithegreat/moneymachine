@@ -28,9 +28,18 @@ class FakeMarket:
         self.delisted = set()
         self.calls = []
 
-    def listings(self, *, background=False):
+    def universe(self, dex=None, *, background=False):
         self.calls.append(("listings",))
         return {m: m in self.delisted for m in (*runner.BENCHMARK, "X")}
+
+    def listings(self, *, background=False):
+        return self.universe()
+
+    def dexes(self, *, background=False):
+        return []
+
+    def observe(self, listings):
+        pass
 
     def listed(self, markets):
         return {m: m in self.delisted for m in (*runner.BENCHMARK, "X") if m in markets}

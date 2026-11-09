@@ -336,15 +336,22 @@ class Market:
         meta = self.x.post({"type": "meta", "dex": dex} if dex else {"type": "meta"}, background=background)
         return {a["name"]: bool(a.get("isDelisted")) for a in meta["universe"]}
 
-    def listings(self, *, background: bool = False) -> dict[str, bool]:
-        """{market: delisted} over the core venue and every builder dex."""
-        out = self.universe(background=background)
-        for dex in self.x.post({"type": "perpDexs"}, background=background):
-            if dex:
-                out.update(self.universe(dex["name"], background=background))
+    def dexes(self, *, background: bool = False) -> list[str]:
+        """The names of the builder dexes."""
+        return [dex["name"] for dex in self.x.post({"type": "perpDexs"}, background=background) if dex]
+
+    def observe(self, listings: dict[str, bool]) -> None:
+        """Record a complete discovery: every market of the core venue and of every builder dex."""
         with self.locks.setdefault(self.root / "listings", threading.Lock()):
             at = now_ms()
-            append(self.root, "listings", at, {"at": at, "listings": out})
+            append(self.root, "listings", at, {"at": at, "listings": listings})
+
+    def listings(self, *, background: bool = False) -> dict[str, bool]:
+        """{market: delisted} over the core venue and every builder dex, observed."""
+        out = self.universe(background=background)
+        for dex in self.dexes(background=background):
+            out.update(self.universe(dex, background=background))
+        self.observe(out)
         return out
 
     def listings_at(self, at: int) -> tuple[int | None, dict[str, bool]]:
