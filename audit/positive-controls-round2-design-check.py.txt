@@ -1,0 +1,64 @@
+"""Design arithmetic only: committed audit usage and distribution functions; no market/model calls."""
+
+import json
+from pathlib import Path
+
+import numpy as np
+from scipy import stats
+
+
+def worst_half_width(n):
+    k = np.arange(n + 1)
+    lower = np.where(k == 0, 0, stats.beta.ppf(0.025, k, n - k + 1))
+    upper = np.where(k == n, 1, stats.beta.ppf(0.975, k + 1, n - k))
+    return float(np.max((upper - lower) / 2))
+
+
+def minimum_n(half_width):
+    return next(n for n in range(1, 500) if worst_half_width(n) <= half_width)
+
+
+def decision_design():
+    for n in range(1, 200):
+        for k in range(n + 1):
+            if stats.binom.sf(k - 1, n, 0.2) <= 0.025 and stats.binom.sf(k - 1, n, 0.5) >= 0.95:
+                return n, k
+
+
+rows = [json.loads(line) for line in Path("audit/stage3/null-v3.jsonl").read_text().splitlines()]
+turns = np.array([row["agent_run"]["turns"] for row in rows], dtype=float)
+windows = np.array([row["windows"]["after"]["five_hour"][0] - row["windows"]["before"]["five_hour"][0] for row in rows])
+dollars = np.array([row["usage"]["cost_usd"] for row in rows])
+n_agent, cutoff = decision_design()
+n_free = minimum_n(0.05)
+m = 100 * (n_agent + n_free) + 1
+out = {"agent_n": n_agent, "agent_reject_rare_at": cutoff,
+       "agent_test_size": float(stats.binom.sf(cutoff - 1, n_agent, 0.2)),
+       "agent_test_power_at_half": float(stats.binom.sf(cutoff - 1, n_agent, 0.5)),
+       "model_free_n": n_free,
+       "precision": {str(n): worst_half_width(n) for n in (n_agent - 1, n_agent, n_free - 1, n_free)},
+       "candidate_bound": m, "truth_replays": 40 * m,
+       "truth_t19": float(stats.t.ppf(1 - 0.01 / (4 * (m + 1)), 19)),
+       "validation_normal_approx_tolerance": float(stats.t.ppf(0.995, 38) * np.sqrt(2 / 200)),
+       "usage": {"sessions": len(rows), "turns": int(turns.sum()), "five_hour_sum": float(windows.sum()),
+                 "cost_usd_sum": float(dollars.sum()), "mean_turns": float(turns.mean()), "max_turns": int(turns.max())}}
+for name, values in (("five_hour", windows), ("cost_usd", dollars)):
+    exponent, log_scale = np.polyfit(np.log(turns), np.log(values), 1)
+    scale = float(np.exp(log_scale))
+    quadratic = float(np.dot(turns**2, values) / np.dot(turns**2, turns**2))
+    out[name] = {"loglog_scale": scale, "loglog_exponent": float(exponent),
+                 "quadratic_coefficient": quadratic,
+                 "at_turns": {str(t): {"loglog": float(scale * t**exponent), "quadratic": quadratic * t*t}
+                              for t in (65.9, 100, 200)},
+                 "cohort_empirical_expectation": float(values.sum() * n_agent / len(rows))}
+out["planning"] = {"full_turn_admission_five_hour": 0.75,
+                   "full_turn_admission_week": 0.75 * 0.091,
+                   "cohort_full_reservation_windows": n_agent * 0.75,
+                   "cohort_full_reservation_weekly_points": 100 * n_agent * 0.75 * 0.091,
+                   "hard_model_hours": 2 * n_agent,
+                   "truth_core_hours_at_reviewers_0.7_seconds_per_replay": 0.7 * 40 * m / 3600}
+assert (n_agent, cutoff) == (33, 12)
+assert worst_half_width(n_free - 1) > 0.05 >= worst_half_width(n_free)
+assert out["planning"]["full_turn_admission_five_hour"] > out["five_hour"]["at_turns"]["200"]["loglog"]
+assert out["planning"]["full_turn_admission_five_hour"] > out["five_hour"]["at_turns"]["200"]["quadratic"]
+print(json.dumps(out, indent=2))
