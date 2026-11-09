@@ -49,21 +49,22 @@ NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 
 
 def scope_of(d: Json, benchmark_listings: Json) -> set[str]:
-    """The markets a snapshot covers: every listed one, and on a Monday the benchmark's that are listed at its midnight."""
-    scope: set[str] = d["listings"].keys() | benchmark_listings.keys() & set(BENCHMARK)
-    return scope
+    """The markets a snapshot reads: every one listed now, and on a Monday the benchmark's listed at its midnight. A
+    delisted or unlisted market needs no read."""
+    listed = {m for m, delisted in d["listings"].items() if not delisted}
+    return listed | {m for m in BENCHMARK if benchmark_listings.get(m) is False}
 
 
 def unbenchmarkable(snapshot: Json, m: str, days: Iterable[int]) -> str | None:
     """Why `snapshot` holds no daily close of `m` on each of `days`, by cause; None if it holds them."""
     if not snapshot["listings"]:
         return "no listing observation by Monday 00:00 UTC (Sunday 19:00 EST)"
-    if reason := snapshot["failed"].get(m) or snapshot["failed"].get(f"{dex_of(m)}:*"):
-        return f"market read failed at the snapshot: {reason}"
     if m not in snapshot["listings"]:
         return "not listed"
     if snapshot["listings"][m]:
         return "delisted"
+    if reason := snapshot["failed"].get(m) or snapshot["failed"].get(f"{dex_of(m)}:*"):
+        return f"market read failed at the snapshot: {reason}"
     if m not in snapshot["markets"]:
         return f"fewer than {registry.MIN_DAILY_BARS} daily bars or no hourly close"
     have = {r[0] for r in snapshot["daily"][m]}
@@ -240,13 +241,10 @@ class Track:
 
     def read_pass(self, d: Json, now: int, benchmark_listings: Json, check: Callable[[], None], begin: Callable[[bool], bool]) -> None:
         """Take each market of the scope, not done and not on a failing dex, through its reads and its readiness check, recording
-        a failing market. A market that needs neither (unlisted, delisted) is done at once."""
+        a failing market."""
         for m in sorted(scope_of(d, benchmark_listings)):
             check()
             if m in d["ready"] or dex_of(m) in d["failed_dexes"]:
-                continue
-            if d["listings"].get(m, True) and benchmark_listings.get(m, True):
-                d["ready"][m] = False
                 continue
             if not begin(m in d["failed"]):
                 continue
