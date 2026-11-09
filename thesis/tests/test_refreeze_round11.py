@@ -94,7 +94,7 @@ def test_refusals_are_counted_from_records_only_and_missing_records_fail(tmp_pat
     calls = [record("markets"), {"request": {"argv": ["prices"], "refusal": USAGE}}]
     t = transcript(tmp_path, [("./thesis-agent markets", "{}"), ("./thesis-agent prices", "any output")])
     a = harness.audit(t, calls)
-    assert a["match"] is True and a["refused"] == 1 and a["client_calls"] == 2
+    assert a["match"] is True and a["refused"] == 1
     assert harness.audit(t, calls[:1])["match"] is False
     assert harness.audit(t, calls + calls[:1])["match"] is False
 

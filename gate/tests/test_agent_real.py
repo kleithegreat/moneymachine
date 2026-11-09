@@ -487,7 +487,7 @@ def series_in_the_pods_view():
     or a rewrite of stage 3's existing evidence (`audit/decisions.md`, 2026-11-09)."""
     previous = json.loads(campaigns.FROZEN.read_text())
     campaigns.FROZEN = Path(tempfile.mkdtemp()) / "harness-round11.json"
-    campaigns.FROZEN.write_text(json.dumps({"harness": "3d2e6a72ff83433faadfc4087c3850fcee70be54df1ec9b18e71deaf8ebd0a34",
+    campaigns.FROZEN.write_text(json.dumps({"harness": campaigns.harness.harness_hash(),
                                            "previous": previous, "development_fork": "round eleven; audit/decisions.md"}))
     spec = markets.null_params()["N2"]
     t, k = len(range(W_START, HOLDOUT_START, HOUR)), len(set(spec["funding"]["coins"]) - set(spec["funding"]["short"]))

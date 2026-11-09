@@ -112,6 +112,6 @@ def audit(transcript, calls):
                 and "refusal" in r and (r["refusal"] is None or isinstance(r["refusal"], str) and bool(r["refusal"]))
                 for r in requests)
     outside = sorted({u["name"] for u in uses.values()} - session.PERMITTED)
-    return {"client_executions": executions, "client_calls": len(calls), "daemon_calls": len(calls),
+    return {"client_executions": executions, "daemon_calls": len(calls),
             "refused": sum(bool(r.get("refusal")) for r in requests), "unattributable": unattributable,
             "match": valid and not outside and not unattributable and executions == len(calls), "outside_permitted": outside}

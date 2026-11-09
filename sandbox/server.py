@@ -9,6 +9,11 @@ from pathlib import Path
 MAX_REQUEST = 1 << 20
 
 
+def refused(req):
+    """The answer to a request the client refused (its `refusal` text: the usage line or its own error), else None."""
+    return {"ok": False, "message": req["refusal"]} if req.get("refusal") else None
+
+
 class Server:
     def __init__(self, socket_path, handle):
         class Handler(socketserver.StreamRequestHandler):
