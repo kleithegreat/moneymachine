@@ -1,14 +1,11 @@
 # CLUSTER: the live workloads on the homelab cluster
 
 The recorders, the thesis track (stage 10) and the agent series (stages 3 and 4) run on the homelab's k3s cluster
-(1.36, containerd 2.3), so this PC can be off without stopping them. Batch Jobs stay as they are: namespace
-`moneymachine`, submitted from this PC, inputs and results on its NFS. The Oracle recorder stays an independent second
-Hyperliquid host.
+(1.36, containerd 2.3), so this PC can be off without stopping them. Batch Jobs run in namespace `moneymachine`,
+submitted from this PC, inputs and results on its NFS. The Oracle recorder is an independent second Hyperliquid host.
 
-Agent sessions still run in bubblewrap with private unix sockets, now inside runner pods that have their own user
-namespace. The CLI's credential reaches a session as `CLAUDE_CODE_OAUTH_TOKEN`, passed by `sandbox/session.py`. That
-changes both frozen identities, so stage 3's harness is refrozen before its first campaign, and stage 10 cuts a new
-track version at the move.
+Agent sessions run in bubblewrap with private unix sockets inside runner pods that have their own user namespace. The
+CLI's credential reaches a session as `CLAUDE_CODE_OAUTH_TOKEN`, passed by `sandbox/session.py`.
 
 Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this repo builds against it.
 
@@ -51,7 +48,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
 | `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
-| `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5; stage 3's `agent` cohort is done) | `agent` | `claude-token` | 9,000 s |
+| `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5) | `agent` | `claude-token` | 9,000 s |
 | `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
 | `mirror-verify` | CronJob, daily | section 5 | the five and `mirror`, read-only | none | 600 s |
@@ -65,7 +62,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **One writer per directory.** Each writer holds an exclusive `flock` on a lock file in its directory and exits if it
   is held: the thesis runner and the series do already, and the recorders take one too. A pod on an
   unreachable node is never force-deleted until the node is confirmed down.
-- **Stopping.** On SIGTERM, recorders stop between polls (as today), the thesis runner after its current step (a day's
+- **Stopping.** On SIGTERM, recorders stop between polls, the thesis runner after its current step (a day's
   sessions, at most four of an hour each, hence its grace), and the series between campaigns. Their waits wake on SIGTERM. The thesis StatefulSet uses `updateStrategy: OnDelete`, so a restart
   is always deliberate. Bubblewrap's `--die-with-parent` ends a session with its runner.
 - **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
@@ -84,7 +81,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   The dev shell carries the same claude-code, so the harness hash and the thesis manifest computed here equal the
   pod's. Each result records the image digest beside the frozen hashes, not inside them.
 - **Seeding.** `mm` is never in the image (its identity embeds its build path). `ops/live.py seed` delivers the exact
-  bytes, and `data/thesis` and `data/universe.json` at the move: files go through the mirror export, and a pod copies
+  bytes: files go through the mirror export, and a pod copies
   them into the volume and checks every sha256. It never overwrites a file with other content. The series finds `mm`
   through `CARGO_TARGET_DIR`; the thesis track pins its own copy.
 - **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); thesis 500m and 2Gi (4Gi); series 1 CPU and 3Gi
@@ -92,7 +89,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
 
-**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): now stage 4's C4.5,
+**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): stage 4's C4.5,
 logged in `agent/swarm-null-3.jsonl` (v1's and v2's `swarm-null*.jsonl` and stage 3's `agent-null*.jsonl` logs stay, their records). N2's funding source comes from
 the blob batch Jobs stage, seeded once into the volume under its frozen sha256:
 ```
@@ -100,27 +97,6 @@ python ops/live.py seed <digest> agent /srv/moneymachine/inputs/d07162b80359580d
 ```
 Before its first campaign it loads that blob, the cost cells and `mm` (run once, its sha256 in every row); if one
 fails, it exits with nothing started.
-
-**`agent-real`** (stage 3's one real campaign) is the series' pod with `restartPolicy: Never` and `backoffLimit: 0`: it
-never restarts by itself. It holds the series' lock, so it cannot overlap it. Its inputs are not in any volume: seed the
-dataset version's store and the untouched holdout into `agent`. The cluster's `real/holdout/spent.jsonl` is then the
-one authoritative release store, and the claim is per store, so this PC's copy claims the window before `apply`, which
-makes any local use or re-seed fail closed:
-```
-python ops/live.py seed <digest> agent data/store:real/store data/holdout:real/holdout
-echo '{"start":1785542400000,"end":1790726400000,"campaign":"stage3-real"}' >> data/holdout/spent.jsonl
-python ops/live.py apply <digest> agent-real
-```
-To resume after a failed pod, delete the Job and apply it again: it skips what is done, and a claim naming the campaign
-means no second evaluation, only the report from `pre-release.json` and the ledger. A void attempt (`void.json`) moves
-to `stage3-real-2`. The report is `agent/stage3-real/real.json` in the mirror; check its sha256 against `MANIFEST.json`
-and copy it to `audit/stage3/real.json`. Its image needs `audit/stage3/null-summary.json` committed first; the
-series stays on its own digest.
-
-`agent-summary` is not a workload: its baseline (`data/campaigns/null.jsonl`) is on this PC, so it runs here, no model
-call, on the series log from the mirror (`/srv/moneymachine/mirror/agent/agent-null-3.jsonl`, sha256 checked against
-its `MANIFEST.json`, copied to `data/agent/`): `python -m cli agent-summary agent audit/stage3/null-summary.json`. The
-summary lists the campaigns' ids and kernels; `agent-real` starts only if they are C3.2 v3's ids and its own `mm`.
 
 ## 3. Credentials and usage
 
@@ -130,19 +106,17 @@ Pacing (`wait_for_room`) runs in the series pod and reads each account's windows
 draws on Cornell); it runs the next campaign on the first with room, and the series log records the account's name, never
 the token. Recorders hold no credential but `datalayer-keys`.
 
-**Gate:** a sandboxed session in the runner pod authenticates with the token alone, as the intended account and
-model, and the pacing probe reads that account's windows.
-
 ## 4. Agent sessions
 
 `sandbox/session.py` runs `claude -p` in bubblewrap (`--unshare-all`, cleared environment, read-only store closures,
 workspace and private HOME, unix sockets for the client and the egress relay allowing only `api.anthropic.com`). The
 egress relay is a hostname-level CONNECT allowlist, not an inference-only gateway. The token is visible to the agent,
-in its own environment, as the copied credential file was before. The pod adds an outer layer: its own user namespace,
+in its own environment. The pod adds an outer layer: its own user namespace,
 the network policy above, and no service account token.
 
-**Gate before cut-over**, all in the deployed pod and never repaired with `privileged`, host namespaces or added
-capabilities:
+**Gate**, all in the deployed pod and never repaired with `privileged`, host namespaces or added capabilities:
+- A sandboxed session in the runner pod authenticates with the token alone, as the intended account and model, and the
+  pacing probe reads that account's windows.
 - Stage 3's isolation test reruns there: the client is immutable, there is no repo, ledger or `data/`, no other
   session's files, and no direct network.
 - It also records the sandboxed process's UID/GID maps, capabilities, namespaces, mount table and `/proc`, beside
@@ -181,7 +155,7 @@ expected volumes, including an entirely empty mirror.
 
 When this PC is off, runs fail and the next one catches up. Until then, prodesk7's volumes hold the only copy of
 anything newer. On this PC, each mirrored recorder is one more host directory, read like `data/live-oci`'s through
-its manifest, and staged into batch inputs by hash as today.
+its manifest, and staged into batch inputs by hash.
 
 ### Capacity guard
 
@@ -192,11 +166,13 @@ prodesk7 volumes through their manifests' `capacity` counters and `taken` timest
 capacities, not the local-path PVC requests (which do not enforce storage quotas). Shared filesystems need no
 separate rule. Byte availability excludes blocks reserved from the writer (`statvfs.f_bavail`); inode availability
 uses `f_favail`. Missing, malformed, future-dated or older-than-30-minute reports and unmeasurable filesystems also alarm.
-Nothing stops copying or deletes recordings.
+It also alarms when `data/live-oci/last-pull` (written by each good `ops/oci/pull.sh` run, which on failure only exits
+nonzero) is missing, future-dated or over an hour old: the Oracle VM keeps the only copy of the forward window's
+Hyperliquid days until a pull has run. Nothing stops copying or deletes recordings.
 
 Each unhealthy check exits nonzero, logs its reasons to the user service's journal, and sends a **critical, non-expiring
 desktop notification** with `notify-send`; it repeats hourly until healthy rather than suppressing an acknowledged
-alarm. It no longer edits `PROGRESS.md`. The timer runs only while the human is logged in: **there is no off-PC alarm**.
+alarm. The timer runs only while the human is logged in: **there is no off-PC alarm**.
 Missing reports alarm after login; while logged in, nominal stale-alarm delay is at most 90 minutes from the last
 report, plus scheduling and check delays (paper O2). Notification delivery failure fails the service, not a successful
 check. The desktop notification daemon and user service's session D-Bus environment must work; deployment must verify
@@ -204,8 +180,7 @@ that the human actually sees the alarm.
 Daily `mirror-verify` integrity failures still appear in Kubernetes job status/logs; this is a capacity/freshness alarm,
 not a new integrity-verification guarantee.
 
-Deployed 2026-11-08 02:31 UTC (2026-11-07 21:31 EST): `mirror` and `mirror-verify` on image `sha256:5e81095e…` (`cb23337`, the
-writer-contract churn fix; previously `sha256:c80908c8…`; rolling back is re-applying it to those two). Changing the guard: merge into this PC's
+Rolling `mirror` and `mirror-verify` back is re-applying their previous digest to those two. Changing the guard: merge into this PC's
 main checkout, which the timer runs; a manifest-format change also needs a new image for those two CronJobs, applied
 before the merge, since old manifests alarm. Verify by one normal invocation and the synthetic alarm below, seen by the human.
 
@@ -230,7 +205,7 @@ python3 ops/shards.py /path/to/worktree --machines local,gmktec
 ```
 The runner collects the test ids here (selection arguments, paths, `-k`, `-m`, go to collection only), splits them into
 shards balanced by recorded durations (`~/.cache/mm-shards/durations.json`, refreshed by every run; an unseen test counts
-as the median) and by cores (this PC 12, prodesk5 6, gmktec 8, prodesk7 5 workers), learned slowness and learned per-machine overhead (seconds beyond the tests: transfer, Nix, collection, tail), runs the shards at once (`pytest -n auto` on each) and
+as the median) and by cores (this PC 12, prodesk5 6, gmktec 8, prodesk7 5 workers), learned slowness and learned per-machine overhead (seconds beyond the tests: transfer, Nix, collection, tail), runs the shards at once (`pytest -n auto` on each node; here, workers sized from free memory at 650 MB each, `gate/compute.py`, so concurrent suites shrink) and
 merges them: one summary, one exit status. The status is nonzero if any shard exits nonzero, any test fails or errors, or
 any collected test goes unreported; tests of a node that gave no result are rerun here. Logs are in a `/tmp/mm-shards-*`
 directory, deleted on success. `conftest.py` writes each shard's outcomes under `--shard-report`.
@@ -255,6 +230,10 @@ directory, deleted on success. `conftest.py` writes each shard's outcomes under 
   Nix; ignored build output stays. A `flock` on the directory serializes runs on a node, so a second builder waits there;
   `nice -n 10`, one hour cap. Nothing outside that directory is read or changed (Nix daemon store operations aside), and the
   checkout is **not a sandbox** for untrusted tests. Delete `/home/kevin/.cache/mm-runner` to reset a node.
+- **Rust:** `kernel/tests/test_rust.py` runs the kernel's `cargo test --release` and each mutant (`kernel/mutants/mutants.py`: the
+  test must pass on a copy of the tree and fail by assertion on the mutated copy) as ordinary tests, so any shard with a
+  toolchain runs them; where `cargo` is missing they skip and are rerun here. Mutants take slots of free memory
+  (`SLOT_BYTES`, 2.2 GB) across the run's workers, each with its own cargo target.
 - **This PC only** (`LOCAL_ONLY` in `ops/shards.py`): `data/` is never shipped (a node gets an empty `w/data`), so the
   tests that need `data/store` run here, and fail in a worktree without one
   (`kernel/tests/cli/test_differential.py::test_kernel_matches_witness`,

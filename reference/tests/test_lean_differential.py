@@ -18,7 +18,6 @@ from reference.differential import REF, REPO, verdict_mm
 pytestmark = pytest.mark.usefixtures("built_kernel", "built_mmdump", "built_refmm")
 
 
-@pytest.mark.slow
 def test_verdicts_agree(tmp_path: Path) -> None:
     texts = [
         c.read_text().split("\n", 1)[1]

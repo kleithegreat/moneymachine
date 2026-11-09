@@ -13,7 +13,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - `thesis` stopped (0 replicas): `thesis-310449610583` got SIGTERM 2026-11-09 02:57 UTC (2026-11-08 21:57 EST), exited by itself 03:35 UTC (22:35 EST); its window incomplete, never pooled.
   - Job `thesis-prewarm` (`sha256:a2261d4c…`, `thesis-refreeze` `247871b`), started 2026-11-09 03:36 UTC (2026-11-08 22:36 EST): the new code's funding fill on the thesis's 120 weight/min, no token; first pass: 347 listed, 347 cold (paper bound about 6.65 days). Logs `prewarm <market> <n> requests in <s> s`; a pass ends `… still cold` (exit 1, rerun, at most 20) or `none cold` (Job Complete: the readiness report).
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
-  - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
   - prodesk7 also runs test shards, only inside its isolated `mm-tests@` unit (Homelab `mm-test-node`; `CLUSTER.md` §7).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
@@ -27,7 +26,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Paper erasure:** DSL.md's derivation prose leaves after the pilot.
 - **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round eight fixed round seven's review (G1-G4). Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
-- **Stage 7: parked** (the human, 2026-11-08), with slices 1-5 on `stage7` (slice 4 merged at `30db80e` after Argon's re-check, `audit/stage7/slice4-recheck-argon.md`).
 - **Next research step, after the refreeze:** the positive-control study. GPT's design (`positive-controls`): Opus says redesign (`audit/reviews/2026-11-08-opus-positive-controls-design.md`); GPT redesigns after its reset, then Opus and Argon review the criteria.
 
 1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there; the Lean L1 branch `claude/lean-l1-kernel-defects-h273e5` with it): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
@@ -35,8 +33,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 3. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
-
-Open research question (the human), unblocked now that stage 4 has exited: does memory across campaigns help agents without raising false discoveries? Pre-register first.
 
 ### Finished
 

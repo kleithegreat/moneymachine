@@ -1,6 +1,6 @@
 # Future work
 
-Ideas for after the pilot, none approved, scheduled or tested. The paper (`docs/whitepaper.tex`) is the intent and its roadmap the plan; an idea here enters it only through its own stage, criteria and source certificates. Two constraints apply to all: the binding constraint is independent observations, so breadth raises the bar a result must clear; and every judged pilot result comes from one frozen kernel, so none of this starts before the pilot answers whether the search controls false discoveries.
+Ideas for after the pilot, none approved, scheduled or tested. The paper (`docs/whitepaper.tex`) is the intent and its roadmap the plan; an idea here enters it only through its own stage, criteria and source certificates. Two constraints apply to all: the binding constraint is independent observations, so breadth raises the bar a result must clear; and the positive-control study comes next (the human, 2026-11-08, `audit/decisions.md`), so an idea enters only through its own stage and criteria.
 
 ## Directions (the human, 2026-11-01 to 2026-11-06)
 
@@ -8,7 +8,7 @@ Ideas for after the pilot, none approved, scheduled or tested. The paper (`docs/
 - **Forecasting and fundamentals**: already the thesis track (stage 10); the most natural extension, needing no speed.
 - **Harnesses for non-Anthropic models** (pi).
 - **Observability**: a price-free operations dashboard is cheap; one showing forward-window prices breaks the holdout rule.
-- **Agent memory across campaigns**: a research question, its reuse counted in N (`audit/decisions.md`, 2026-11-02).
+- **Agent memory across campaigns** (the human): does it help agents without raising false discoveries? A research question, unblocked now that stage 4 has exited; pre-register first. Its reuse is counted in N (`audit/decisions.md`, 2026-11-02).
 - **A DSL designed for agents** (the human, 2026-11-07): the DSL's frozen job in the pilot is safety (causal, typed, no host code); how well agents search with it is unmeasured. v3's six campaigns: 2 type errors in 231 checks; 11 of 208 evaluations named an input N2 lacks; holding a position through an undefined weight (documented in `kernel/DSL.md`) was rediscovered as a "turnover workaround". First a literature review (languages agents learn without pretraining, such as Bend2; where expressivity should stop for safety; what "optimal" means here), then a metric and a comparison of surface syntax, primitives and docs over one fixed kernel under fresh campaign ids. Lowers search power if poor, never raises false discoveries. The two literature reviews, checked (`audit/reviews/2026-11-08-sonnet-research-dsl.md`): change the surface agents see, never the kernel's semantics; a measurable "optimal" (planted-edge recovery at a fixed budget, null promotions unchanged) and a sized comparison there. First, `kernel/DSL.md` advertises inputs N2 lacks, the likely cause of the 11 unknown-input evaluations.
 - **Data purchases** (Norgate, Massive, Databento's Core Indices): none, indefinitely (the human, 2026-11-02).
 

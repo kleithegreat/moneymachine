@@ -53,6 +53,13 @@ def write_report(mirror, volume, *, capacity=None, taken=NOW * 1000):
     return path
 
 
+def write_last_pull(data, modified):
+    path = data / "live-oci/last-pull"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("2026-11-09T00:00:00Z\n")
+    os.utime(path, (modified, modified))
+
+
 def named(alarms, scope, resource=None):
     matches = [alarm for alarm in alarms if re.search(rf"\b{re.escape(scope)}\b", alarm)]
     if resource is not None:
@@ -70,6 +77,7 @@ def diskguard():
 def site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     data, mirror = tmp_path / "data", tmp_path / "mirror"
     data.mkdir()
+    write_last_pull(data, NOW)
     for volume in VOLUMES:
         write_report(mirror, volume)
     measurements = {data: sample(), mirror: sample()}
@@ -337,6 +345,7 @@ def test_main_uses_specified_default_paths(diskguard, monkeypatch: pytest.Monkey
         pytest.fail("healthy main must not launch a notification")
 
     monkeypatch.setattr(diskguard, "check", check)
+    monkeypatch.setattr(diskguard, "stale_pull", lambda data, now=None: [])
     monkeypatch.setattr(subprocess, "run", unexpected_notification)
     assert diskguard.main() == 0
     assert calls == [(Path("data"), Path("/srv/moneymachine/mirror"))]
@@ -507,3 +516,30 @@ def test_killed_mirror_cannot_refresh_report_before_final_publication(diskguard,
     assert len(alarms) == 1
     alarm = named(alarms, "hl")[0]
     assert "stale" in alarm.lower() or "age" in alarm.lower() or "old" in alarm.lower()
+
+
+@pytest.mark.parametrize("age", [0, 3600])
+def test_a_pull_no_older_than_an_hour_does_not_alarm(diskguard, site, age) -> None:
+    write_last_pull(site.data, NOW - age)
+    assert diskguard.stale_pull(site.data, now=NOW) == []
+
+
+@pytest.mark.parametrize("age", [3601, -1])
+def test_an_old_or_future_pull_alarms(diskguard, site, age) -> None:
+    write_last_pull(site.data, NOW - age)
+    named(diskguard.stale_pull(site.data, now=NOW), "last-pull")
+
+
+def test_a_missing_pull_record_alarms(diskguard, site) -> None:
+    (site.data / "live-oci/last-pull").unlink()
+    named(diskguard.stale_pull(site.data, now=NOW), "last-pull")
+
+
+def test_main_notifies_when_the_cloud_recorder_has_not_been_pulled(
+    diskguard, site, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_last_pull(site.data, NOW - 7200)
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: calls.append(args))
+    assert diskguard.main(site.data, site.mirror) == 1
+    assert "last-pull" in calls[0][0][-1]

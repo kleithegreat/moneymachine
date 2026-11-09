@@ -2,7 +2,6 @@
 pythonpath = ["."]
 testpaths = ["ingest", "gate", "kernel/tests", "criteria", "thesis", "reference", "sandbox", "ops"]
 addopts = "-n auto --dist worksteal"
-markers = ["slow: tests taking over 20 seconds, including setup; run by default"]
 timeout = 600
 timeout_method = "thread"
 
@@ -23,5 +22,5 @@ module = ["pytest.*", "_pytest.*"]
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "pandas.*", "statsmodels.*", "arch.*", "pyarrow.*", "polars.*", "lz4.*", "hypothesis.*"]
+module = ["scipy.*", "pandas.*", "statsmodels.*", "arch.*", "pyarrow.*", "polars.*", "hypothesis.*"]
 ignore_missing_imports = true

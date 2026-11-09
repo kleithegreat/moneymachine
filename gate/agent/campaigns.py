@@ -698,7 +698,7 @@ def both_arms(work, data_root, version, report_from, voids) -> None:
             "id": cid,
             "version": int(version),
             "label": LABEL,
-            "qualifications": "PROGRESS.md, Qualifications, stage 3",
+            "qualifications": "audit/criteria.md, stage 3",
             "report_from": report_from,
             "void_attempts": voids,
             **json.loads((work / "account.json").read_text()),
@@ -1082,6 +1082,6 @@ def summary(name, out) -> None:
         "spreads": spreads(rows),
         f"{searcher}_null_n2": spreads(baseline),
         "statement": SMOKE[name],
-        "qualifications": f"PROGRESS.md, Qualifications, stage {STAGE[name]}",
+        "qualifications": f"audit/criteria.md, stage {STAGE[name]}",
     } | ({"label": LABEL} if name == "agent" else swarm_report(rows))
     Path(out).write_text(json.dumps(report, indent=1) + "\n")

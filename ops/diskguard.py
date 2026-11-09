@@ -16,6 +16,7 @@ VOLUMES = {
     "agent": "data/agent",
 }
 MAX_AGE = 30 * 60
+PULL_MAX_AGE = 60 * 60
 
 
 def capacity(path: str | Path) -> dict[str, dict[str, int]]:
@@ -60,8 +61,21 @@ def check(data: str | Path, mirror: str | Path, now: float | None = None) -> lis
     return alarms
 
 
+def stale_pull(data: str | Path, now: float | None = None) -> list[str]:
+    """The Oracle VM keeps the only copy of the forward window's Hyperliquid days until `ops/oci/pull.sh` has run, and
+    a failed pull exits nonzero without touching `last-pull`."""
+    current = time.time() if now is None else now
+    try:
+        modified = (Path(data) / "live-oci/last-pull").stat().st_mtime
+    except OSError as e:
+        return [f"Oracle pull: cannot read last-pull: {e}"]
+    if not current - PULL_MAX_AGE <= modified <= current:
+        return [f"Oracle pull: last-pull is future-dated or older than {PULL_MAX_AGE // 60} minutes"]
+    return []
+
+
 def main(data: Path = Path("data"), mirror: Path = Path("/srv/moneymachine/mirror")) -> int:
-    alarms = check(data, mirror)
+    alarms = check(data, mirror) + stale_pull(data)
     if not alarms:
         return 0
     body = "\n".join(alarms) + "\nAdd capacity or remove only regenerable data; never delete recordings."
