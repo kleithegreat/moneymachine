@@ -7,9 +7,12 @@ from pathlib import Path
 import numpy as np
 from scipy import optimize, stats
 
-AGENT_MARKETS, BUDGET, REFERENCES, CONTROLS = 33, 100, 4, 3
+AGENT_MARKETS, BUDGET, REFERENCES, CONTROLS = 33, 100, 4, 2
 TRUTH_FAMILY_ERROR = 0.01
-CERTIFIABLE_SHARPE, SHARPE_SD, H_SD = 0.5, 0.5, 0.15
+CERTIFIABLE_SHARPE, SHARPE_SD = 0.5, 0.5
+# Rough model's per-market SDs of G: the panel's largest (slow sign momentum), funding-driven programs' largest, raw R's
+G_SD_MAX, G_SD_FUNDING, G_SD_R = 0.323, 0.171, 0.100
+H_SD = G_SD_MAX + G_SD_R / 2  # SD(G - G_R/2) at any correlation
 SEARCH_STEPS, STEPS_PER_YEAR = 3300, 2190
 
 
@@ -22,7 +25,34 @@ def decision_design():
 
 
 def tail(m, df):
+    """Two quantities, two tails each, per program; family error .01 by the union bound."""
     return float(stats.t.ppf(1 - TRUTH_FAMILY_ERROR / (4 * m), df))
+
+
+def partitions(total, largest):
+    """Every way to split `total` markets into clusters, largest first."""
+    if total == 0:
+        yield []
+        return
+    for size in range(min(total, largest), 0, -1):
+        for rest in partitions(total - size, size):
+            yield [size, *rest]
+
+
+def shared_power(clusters, pi):
+    """P(certified successes >= cutoff) at p = .5 when each cluster's successes rest on one program, certified
+    independently with probability pi: the truth bank is shared, so one program found in many markets certifies once."""
+    dist = np.zeros(n_agent + 1)
+    dist[0] = 1.0
+    for size in clusters:
+        cluster = pi * found[size]
+        cluster[0] += 1 - pi
+        dist = np.convolve(dist, cluster)[: n_agent + 1]
+    return float(dist[cutoff:].sum())
+
+
+def worst_power(pi):
+    return min((shared_power(c, pi), c) for c in sharings)
 
 
 def power(n, q, effect):
@@ -32,9 +62,11 @@ def power(n, q, effect):
 
 n_agent, cutoff = decision_design()
 m = 2 * AGENT_MARKETS * BUDGET + REFERENCES + CONTROLS
-decision = lambda pi: stats.binom.sf(cutoff - 1, n_agent, 0.5 * pi)
-pi_min = optimize.brentq(lambda pi: decision(pi) - 0.95, 0.9, 1.0)
-pi, per_condition = 0.99, 0.995
+sharings = list(partitions(n_agent, n_agent))
+found = {size: stats.binom.pmf(np.arange(size + 1), size, 0.5) for size in range(1, n_agent + 1)}
+pi_min = optimize.brentq(lambda pi: worst_power(pi)[0] - 0.95, 0.9, 1.0)
+pi = 0.995
+per_condition = 1 - (1 - pi) / 2
 pairs = next(n for n in range(2, 500) if power(n, tail(m, n - 1), CERTIFIABLE_SHARPE / SHARPE_SD) >= per_condition)
 q = tail(m, pairs - 1)
 effect = optimize.brentq(lambda d: power(pairs, q, d) - per_condition, 0.1, 3)
@@ -61,13 +93,14 @@ out = {
                  "best_power_at_16": max(float(stats.binom.sf(k - 1, 16, 0.5)) for k in range(17)
                                          if stats.binom.sf(k - 1, 16, 0.2) <= 0.025),
                  "nominal_total_with_truth": 2 * size + TRUTH_FAMILY_ERROR},
-    "truth": {"M": m, "pi_min": pi_min, "decision_power_at_pi": float(decision(pi)), "pairs": pairs, "q": q,
-              "q19_validation": tail(m, 19), "certifiable_sharpe": effect * SHARPE_SD,
+    "truth": {"M": m, "pi_min": pi_min, "worst_sharing": worst_power(pi), "independent_power": shared_power([1] * n_agent, pi),
+              "pairs": pairs, "q": q,
+              "certifiable_sharpe": effect * SHARPE_SD, "h_sd": H_SD,
               "materiality_margin": effect * H_SD, "rho_at_G_R_1.2": 0.5 + effect * H_SD / 1.2,
+              "rho_at_G_R_1.2_funding_driven": 0.5 + effect * (G_SD_FUNDING + G_SD_R / 2) / 1.2,
               "replays": 2 * pairs * m, "constructions": 660 + 40 + 2 * pairs,
               "replay_core_hours": 25 * 2 * pairs * m / 128640,
               "construction_core_hours": (660 + 40 + 2 * pairs) * 41 / 3600,
-              "validation_failure_at_S1_sd041": float(stats.norm.cdf(tail(m, 19) - 1 / (0.41 / np.sqrt(20)))),
               "dsr_pass_at_S05_N1": float(stats.norm.cdf(0.5 / search_se - z95))},
     "reference_screen_at_S1": float(stats.norm.cdf(1 / search_se - z95)),
     "usage": {"sessions": len(rows), "turns": int(turns.sum()), "dollars": float(dollars.sum()),
@@ -80,12 +113,25 @@ out = {
               "window_fits_at_200": fits(windows, 200)},
     "calendar": {"sessions_per_account_week": week, "weeks_for_33_on_2": n_agent / (2 * week)},
 }
-mu, v = 0.01 / np.sqrt(STEPS_PER_YEAR), 0.01
-g = mu / 2 - (v * v + mu * mu) / 8
-out["confirmation"] = {"steps": float(np.log(20) / g), "years": float(np.log(20) / g / STEPS_PER_YEAR)}
+q_validation = tail(1, 19)
+out["validation"] = {"q": q_validation, **{f"failure_at_S{s}_sd{sd}": float(stats.nct.cdf(q_validation, 19, np.sqrt(20) * s / sd))
+                                          for s, sd in ((1, 0.41), (1, 0.5), (0.5, 0.5))}}
 
-assert (n_agent, cutoff, m, pairs) == (33, 12, 6607, 69)
-assert 0.98 < pi_min <= 0.985 and decision(pi) >= 0.95
+
+def growth(sharpe, v):
+    """Log growth per step of the gate's bet at its limit, lambda = min(1/2, mu/E r^2) (paper S3)."""
+    mu = sharpe * v / np.sqrt(STEPS_PER_YEAR)
+    second = v * v + mu * mu
+    lam = min(0.5, mu / second)
+    return lam * mu - lam * lam * second / 2
+
+
+out["confirmation"] = {f"S{s}_v{v}": {"steps": float(np.log(20) / growth(s, v)),
+                                       "years": float(np.log(20) / growth(s, v) / STEPS_PER_YEAR)}
+                       for s, v in ((1, 0.01), (0.65, 0.06), (0.5, 0.2))}
+
+assert (n_agent, cutoff, m, pairs) == (33, 12, 6606, 73)
+assert 0.994 < pi_min <= pi and worst_power(pi)[0] >= 0.95 and worst_power(0.99)[0] < 0.95 and q_validation < 3.2
 assert all(stats.binom.sf(k - 1, n, 0.2) > 0.025 or stats.binom.sf(k - 1, n, 0.5) < 0.95
            for n in range(1, n_agent) for k in range(n + 1))
 assert power(pairs - 1, tail(m, pairs - 2), CERTIFIABLE_SHARPE / SHARPE_SD) < per_condition

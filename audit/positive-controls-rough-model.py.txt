@@ -1,9 +1,11 @@
 """Paper PC2/PC4's rough model, NOT the kernel: the real N2 generator and frozen search-era funding (hash-checked; set
 STORE to a store holding it), numpy positions, a flat 6.5 bps cost per unit turnover and the venue's $10 minimum order on
 a fixed $10,000 equity. Magnitudes only. Usage: python audit/positive-controls-rough-model.py.txt <beta> <pairs>.
-At beta .025 over 40 ten-year pairs: per-market net Sharpe SD .301 (raw) and .324 (raw24), plant Sharpe G SD .100 and
-.076; G at 0.1/0.05/0.02 of size 1.834/1.834/1.832 (raw) and 1.182/1.177/1.150 (raw24), net Sharpe rising with the
-smaller size (1.036 to 1.056, 1.009 to 1.014)."""
+Per program: net Sharpe S on the planted market, and plant Sharpe G = sqrt(2190)(mean gross+ - mean gross0)/sd(net+).
+At beta .025 over 40 ten-year pairs, per-market SD of S .25-.41 over all 14 programs; G (mean, SD) raw 1.834 .100,
+raw24 1.182 .076, their 0.05 copies 1.834 and 1.177; funding-driven programs' G SD at most .171 (raw_volgate); momentum
+up to .323 (mom168_sign, G 1.026); mom6 has G 2.280 but S -.436, its costs exceeding the plant it carries.
+"""
 import json, os, sys
 from pathlib import Path
 import numpy as np
@@ -16,43 +18,70 @@ spec["funding"]["arrays"] = markets.frozen_funding(spec["funding"])
 COST, EQ, MIN, A = 6.5e-4, 1e4, 10.0, 2190
 
 
-def refs(f, n):
+def trailing(e, n):
+    """Sum of the n completed steps before each step."""
+    cs = np.vstack([np.zeros((1, e.shape[1])), np.cumsum(e, 0)])
+    k = np.arange(e.shape[0])
+    return cs[k] - cs[np.maximum(k - n, 0)]
+
+
+def xs(s):
+    d = s - s.mean(1, keepdims=True)
+    return np.clip(d / (d.std(1, keepdims=True) + 1e-12), -1, 1)
+
+
+def programs(f, e):
+    """(scale, u) per program; the decision at step k reads funding at hour 4k-4 and returns through step k-1."""
+    n = e.shape[0]
     ah = -np.clip((f - 1.25e-5) / 1e-4, -1, 1)
     idx = np.maximum(4 * np.arange(n) - 4, 0)
-    a = ah[idx]; a[0] = 0
+    raw = ah[idx]; raw[0] = 0
     cs = np.cumsum(np.vstack([np.zeros((1, ah.shape[1])), ah]), 0)
-    m24 = (cs[idx + 1] - cs[np.maximum(idx + 1 - 24, 0)]) / np.minimum(idx + 1, 24)[:, None]; m24[0] = 0
-    return {"raw": a, "raw24": m24}
+    raw24 = (cs[idx + 1] - cs[np.maximum(idx + 1 - 24, 0)]) / np.minimum(idx + 1, 24)[:, None]; raw24[0] = 0
+    rv6, rv42 = np.sqrt(trailing(e * e, 6) / 6), np.sqrt(trailing(e * e, 42) / 42) + 1e-9
+    mom42 = xs(trailing(e, 42))
+    slow = trailing(e, 168)
+    return {
+        "raw": (0.1, raw), "raw24": (0.1, raw24), "raw@0.05": (0.05, raw), "raw24@0.05": (0.05, raw24),
+        "raw_signgate": (0.1, raw * (np.sign(trailing(e, 6)) == np.sign(raw))),
+        "raw_volgate": (0.1, raw * (rv6 < np.median(rv6, 1, keepdims=True))),
+        "raw_volscale": (0.1, np.clip(raw * 0.02 / rv42, -1, 1)),
+        "mom42": (0.1, mom42), "raw+mom42": (0.1, np.clip(raw + mom42, -1, 1)),
+        "mom42_sign": (0.1, np.sign(mom42)), "mom6": (0.1, xs(trailing(e, 6))), "mom168": (0.1, xs(slow)),
+        "mom168_sign": (0.1, np.sign(slow - slow.mean(1, keepdims=True))),
+        "mom42_diluted": (0.1, np.clip(mom42 + (np.arange(e.shape[1]) >= 2), -1, 1)),
+    }
 
 
 def held(target):
     """Notional held under the minimum order: a change below MIN is skipped unless the target is exactly zero."""
     h = np.zeros_like(target); cur = np.zeros(target.shape[1])
     for k in range(target.shape[0]):
-        t = target[k]; d = t - cur
-        move = (t == 0) | (np.abs(d) >= MIN)
+        t = target[k]
+        move = (t == 0) | (np.abs(t - cur) >= MIN)
         cur = np.where(move, t, cur); h[k] = cur
     return h
 
 
-def net(u, eps, scale, minimum=True):
-    t = scale * u * EQ
-    h = held(t) if minimum else t
+def run(scale, u, eps):
+    """(net, gross) step returns."""
+    h = held(scale * u * EQ)
     turn = np.abs(np.diff(np.vstack([np.zeros((1, h.shape[1])), h]), axis=0)).sum(1) / EQ
-    return (h / EQ * eps).sum(1) - COST * turn
+    gross = (h / EQ * eps).sum(1)
+    return gross - COST * turn, gross
 
 
 b, pairs = float(sys.argv[1]), int(sys.argv[2])
-progs = [(k, s, m) for k in ("raw", "raw24") for s, m in ((0.1, False), (0.1, True), (0.05, True), (0.02, True))]
-S = {p: [] for p in progs}; G = {p: [] for p in progs}
+S, G = {}, {}
 for i in range(pairs):
     z = markets.generate("N2", spec, f"rv3-t-{i}", 3650, (), 0.0)
     p = markets.generate("N2", spec, f"rv3-t-{i}", 3650, (0, 1), b)
-    r = refs(z["funding"], z["eps"].shape[0])
-    for key in progs:
-        k, s, m = key
-        rp, r0 = net(r[k], p["eps"], s, m), net(r[k], z["eps"], s, m)
-        S[key].append(np.sqrt(A) * rp.mean() / rp.std()); G[key].append(np.sqrt(A) * (rp.mean() - r0.mean()) / rp.std())
-out = {f"{k}@{s}{'' if m else ' linear'}": {"S_mean": float(np.mean(S[(k, s, m)])), "S_sd": float(np.std(S[(k, s, m)], ddof=1)),
-       "G_mean": float(np.mean(G[(k, s, m)])), "G_sd": float(np.std(G[(k, s, m)], ddof=1))} for (k, s, m) in progs}
+    planted, zero = programs(p["funding"], p["eps"]), programs(z["funding"], z["eps"])
+    for name in planted:
+        net, gross = run(*planted[name], p["eps"])
+        _, gross0 = run(*zero[name], z["eps"])
+        S.setdefault(name, []).append(np.sqrt(A) * net.mean() / net.std())
+        G.setdefault(name, []).append(np.sqrt(A) * (gross.mean() - gross0.mean()) / net.std())
+out = {name: {"S": [float(np.mean(S[name])), float(np.std(S[name], ddof=1))],
+              "G": [float(np.mean(G[name])), float(np.std(G[name], ddof=1))]} for name in S}
 print(json.dumps({"beta": b, "pairs": pairs, **out}, indent=1))
