@@ -121,7 +121,9 @@ class Daemon:
             self.seq += 1
             t = self.clock()
             cmd, args = req.get("cmd"), req.get("args", [])
-            if cmd not in self.commands or not isinstance(args, list) or not all(isinstance(a, str) for a in args):
+            if req.get("refusal"):
+                out = {"ok": False, "message": req["refusal"]}
+            elif cmd not in self.commands or not isinstance(args, list) or not all(isinstance(a, str) for a in args):
                 out = {"ok": False, "message": f"commands: {', '.join(sorted(self.commands))}"}
             else:
                 try:

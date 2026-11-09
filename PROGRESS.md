@@ -19,12 +19,12 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Wake-ups (2026-11-08, fallbacks if the advisor's session has closed)
 
-- **thesis freeze** (advisor): when Job `thesis-prewarm` is Complete (failed: read why, fix, reapply), freeze on a day that is not Monday, just after 00:00 UTC (19:00 EST) and before the 00:05 UTC (19:05 EST) cutoff, so the version's first date is that day (frozen before midnight, the old day's sessions are recorded missed): `python ops/live.py apply <digest> thesis-freeze` from `../mm-thesis-rf` on the image of the exact code to be frozen (`sha256:a2261d4c…` while the branch is at `247871b`). Its log is the manifest record: commit it as `audit/stage10/manifest.json` (`stage 10: new track version thesis-… frozen …`, with the decisions entry), build that commit's image (`python ops/live.py push`), apply `thesis` on it, which runs `thesis-run`, and delete the Jobs `thesis-freeze` and `thesis-prewarm`.
+- **Thesis freeze blocked:** round eleven is development only; no freeze or deployment authorized by this build. Argon's missing findings 5–8 and independent review remain owed. Any later authorized freeze needs an image of the exact reviewed head, a dated criteria revision and a new forward window.
 
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round eight fixed round seven's review (G1-G4). Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round eleven replaces C10.2 shell attribution with authoritative daemon invocations and literal-execution counting, and fixes acquisition retry deadlines/readiness. Build record: `audit/reviews/2026-11-08-sonnet-refreeze-round7-build.md`, Round eleven. Not freeze-ready.
 - **Stage 7: parked** (the human, 2026-11-08), with slices 1-5 on `stage7` (slice 4 merged at `30db80e` after Argon's re-check, `audit/stage7/slice4-recheck-argon.md`).
 - **Next research step, after the refreeze:** the positive-control study. GPT's design (`positive-controls`): Opus says redesign (`audit/reviews/2026-11-08-opus-positive-controls-design.md`); GPT redesigns after its reset, then Opus and Argon review the criteria.
 
@@ -42,6 +42,7 @@ Open research question (the human), unblocked now that stage 4 has exited: does 
 
 ## Blockers
 
+- **Round-eleven paper correction:** T3's moving readiness time can omit funding, and its claimed single 91-second retry bound ignores multi-market/multi-request retries. Replace with one first-pass readiness time and deadline checks within retry passes and limiter waits; initial acquisition may still miss its deadline. C10.2 must describe literal-execution counting, not shell attribution. Argon findings 5–8 are still missing.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 

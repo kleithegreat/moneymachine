@@ -4,7 +4,6 @@ the session's brief, its task file (for an ablation) and `./thesis-agent`."""
 import functools
 import json
 import re
-import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -47,7 +46,10 @@ def manifest_hash(kernel):
 
 
 def workspace(workdir, kind, task=None):
-    files = {"brief.md": BRIEF_TEXT[kind]}
+    files = {"brief.md": BRIEF_TEXT[kind] + "\nUse exactly one literal ./thesis-agent command per Bash call. "
+             "Separate arguments with spaces or tabs; use whole single-quoted arguments for URLs and reasons, "
+             "or whole double-quoted arguments without expansions or escapes. No shell operators, redirections, "
+             "substitutions, variables, globs, loops or scripts: these fail the session audit.\n"}
     if task is not None:
         files["task.json"] = json.dumps(task, indent=1)
     session.workspace(workdir, files, CLIENT, SPEC)
@@ -64,85 +66,52 @@ def run_session(workdir, kind, start_daemon, task=None):
     return {"kind": kind, **s}
 
 
-def invocations(command):
-    """The `./thesis-agent` calls in a Bash command: each one's arguments, up to the next shell operator."""
-    lexer = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
-    lexer.whitespace_split = True
-    try:
-        tokens = list(lexer)
-    except ValueError:
-        tokens = command.split()
-    calls = []
-    for i, token in enumerate(tokens):
-        if token == f"./{CLIENT}":
-            end = next((j for j in range(i + 1, len(tokens)) if set(tokens[j]) <= set(";&|<>()")), len(tokens))
-            args = tokens[i + 1:end]
-            if end < len(tokens) and tokens[end][0] in "<>" and args and args[-1].isdigit():
-                args.pop()
-            calls.append(args)
-    return calls
+LITERAL = r"(?:[a-zA-Z0-9_./:@%+,=?-]+|'[^'\r\n\x00]*'|\"[^\"$`\\\r\n\x00]*\")"
+EXECUTION = re.compile(r"[ \t]*\./thesis-agent(?:[ \t]+" + LITERAL + r")*[ \t]*")
 
 
 def results(transcript):
-    """{tool call id: (the text of its result, whether it is an error)} in a transcript."""
-    out = {}
+    """Tool uses, results and denials from a complete, unambiguous transcript; malformed or truncated fails closed."""
+    uses, out, denied, complete = {}, {}, [], False
     for line in open(transcript):
-        try:
-            d = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        content = d.get("message", {}).get("content") if d.get("type") == "user" else None
+        d = json.loads(line)
+        if d.get("type") == "result":
+            complete = True
+            denied = [x["tool_use_id"] for x in d.get("permission_denials", [])]
+        content = d.get("message", {}).get("content") if d.get("type") in ("assistant", "user") else None
         for c in content if isinstance(content, list) else []:
+            if c.get("type") == "tool_use":
+                if c["id"] in uses:
+                    raise ValueError("duplicate tool use id")
+                uses[c["id"]] = c
             if c.get("type") == "tool_result":
-                body = c.get("content")
-                out[c["tool_use_id"]] = (body if isinstance(body, str) else "".join(b.get("text", "") for b in body or []),
-                                         bool(c.get("is_error")))
-    return out
-
-
-def client_refusal(output, is_error):
-    """Whether a Bash result is exactly the client's own refusal, which no daemon reply resembles (a call that reached the
-    daemon exits 0): Claude Code records a nonzero exit as "Exit code N\n<output>" with is_error, and the output is the
-    usage line (an unknown command or a wrong number of arguments) or one {"ok": false, "error": text} (an unreadable FILE)."""
-    m = re.fullmatch(r"Exit code ([1-9]\d*)\n(.*)", output, re.S)
-    if not is_error or m is None:
-        return False
-    body = m[2].strip()
-    try:
-        reply = json.loads(body)
-    except json.JSONDecodeError:
-        return body == SPEC["usage"]
-    return isinstance(reply, dict) and reply.keys() == {"ok", "error"} and reply["ok"] is False and isinstance(reply["error"], str)
+                if c["tool_use_id"] in out:
+                    raise ValueError("duplicate tool result id")
+                out[c["tool_use_id"]] = c
+    if not complete or out.keys() - uses.keys() or set(denied) - uses.keys():
+        raise ValueError("incomplete or unattributable transcript")
+    return uses, out, denied
 
 
 def audit(transcript, calls):
-    """C10.2's per-session mapping: every client call in the transcript that reached the daemon to its own daemon call record,
-    by command and arguments (a FILE argument by its count; an argument with a shell expansion matches any), and each record
-    to a call. A call is refused locally, and not sent, only when it is the sole client call of its Bash command and the result
-    is `client_refusal`; every other call is sent, so one the transcript cannot attribute (a loop, a script, a refusal beside
-    other calls) reads as unmatched. The tools outside the permitted set are listed."""
-    uses, denied, _ = session.calls(transcript)
-    outputs = results(transcript)
-    sent, refused = [], 0
+    """C10.2: daemon records are the call list, refusals included. The transcript proves only an execution count and no
+    bypass: every non-denied Bash must be one literal client command with a result. No shell program is interpreted."""
+    try:
+        uses, outputs, denied = results(transcript)
+    except (ValueError, KeyError, TypeError) as e:
+        return {"match": False, "transcript_error": str(e)}
+    executions, unattributable = 0, []
     for i, u in uses.items():
         if u["name"] == "Bash" and i not in denied:
-            argvs = invocations(u["input"].get("command", ""))
-            if len(argvs) == 1 and client_refusal(*outputs.get(i, ("", False))):
-                refused += 1
+            if EXECUTION.fullmatch(u["input"].get("command", "")) and i in outputs:
+                executions += 1
             else:
-                sent += argvs
-    records = [(c["request"].get("cmd"), c["request"].get("args", [])) for c in calls]
-
-    def fits(argv, record):
-        (cmd, args), spec = record, SPEC["commands"].get(argv[0], [])
-        return argv[0] == cmd and (len(argv) == len(args) + 1 if "file" in spec else
-                                   all(a == b or any(ch in a for ch in "$`") for a, b in zip(argv[1:], args)))
-
-    free = list(records)
-    unmatched = []
-    for argv in sorted(sent, key=lambda a: any(ch in "".join(a) for ch in "$`")):
-        hit = next((r for r in free if fits(argv, r)), None)
-        free.remove(hit) if hit is not None else unmatched.append(argv)
-    return {"client_calls": len(sent) + refused, "refused_locally": refused, "daemon_calls": len(calls),
-            "unmatched_client_calls": len(unmatched), "unmatched_daemon_calls": len(free),
-            "match": not unmatched and not free, "outside_permitted": session.tool_use(transcript, CLIENT)["outside_permitted"]}
+                unattributable.append(i)
+    requests = [c["request"] for c in calls]
+    valid = all(isinstance(r.get("argv"), list) and all(isinstance(a, str) for a in r["argv"])
+                and "refusal" in r and (r["refusal"] is None or isinstance(r["refusal"], str) and bool(r["refusal"]))
+                for r in requests)
+    outside = sorted({u["name"] for u in uses.values()} - session.PERMITTED)
+    return {"client_executions": executions, "client_calls": len(calls), "daemon_calls": len(calls),
+            "refused": sum(bool(r.get("refusal")) for r in requests), "unattributable": unattributable,
+            "match": valid and not outside and not unattributable and executions == len(calls), "outside_permitted": outside}

@@ -163,35 +163,7 @@ def transcript(tmp_path, calls):
 
 
 def record(cmd, *args):
-    return {"session": "s", "request": {"cmd": cmd, "args": list(args)}}
-
-
-USAGE = thesis_daemon.SPEC["usage"]
-
-
-def test_f4_a_call_the_client_refused_is_not_a_daemon_call(tmp_path):
-    t = transcript(tmp_path, [("./thesis-agent prices", "Exit code 2\n" + USAGE), ("./thesis-agent markets", "{}"),
-                              ("./thesis-agent register missing.json", 'Exit code 1\n{"ok": false, "error": "[Errno 2] No such file"}')])
-    audit = harness.audit(t, [record("markets")])
-    assert audit["match"] is True and audit["refused_locally"] == 2 and audit["daemon_calls"] == 1
-
-
-def test_f4_a_refused_call_does_not_stand_in_for_a_missing_one(tmp_path):
-    t = transcript(tmp_path, [("./thesis-agent prices", "Exit code 2\n" + USAGE)])
-    assert harness.audit(t, [record("markets")])["match"] is False
-
-
-def test_f4_calls_map_to_records_by_what_they_asked(tmp_path):
-    t = transcript(tmp_path, [("./thesis-agent prices BTC", "{}"), ("./thesis-agent exit a 'too late'", "{}")])
-    assert harness.audit(t, [record("prices", "BTC"), record("exit", "a", "too late")])["match"] is True
-    assert harness.audit(t, [record("prices", "ETH"), record("exit", "a", "too late")])["match"] is False
-    assert harness.audit(t, [record("prices", "BTC")])["match"] is False
-
-
-def test_f4_several_calls_in_one_command_each_map(tmp_path):
-    t = transcript(tmp_path, [("./thesis-agent markets && ./thesis-agent positions 2>&1", "{}")])
-    assert harness.audit(t, [record("markets"), record("positions")])["match"] is True
-    assert harness.audit(t, [record("markets")])["match"] is False
+    return {"session": "s", "request": {"cmd": cmd, "args": list(args), "argv": [cmd, *args], "refusal": None}}
 
 
 def test_lower_a_session_that_raises_closes_its_daemon(tmp_path, monkeypatch):

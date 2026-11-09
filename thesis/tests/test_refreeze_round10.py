@@ -4,52 +4,10 @@ import json
 import httpx
 
 from ingest.policy import DAY, HOUR
-from thesis import harness, runner
-from thesis.daemon import SPEC
-from thesis.tests.test_refreeze_round9 import record, transcript
+from thesis import runner
 from thesis.tests.test_runner import MONDAY, FakeMarket, track  # noqa: F401
 
-USAGE = SPEC["usage"]
-REFUSAL = '{"ok": false, "error": "[Errno 2] No such file or directory: \'missing.json\'"}'
 NINE = MONDAY + runner.SNAPSHOT_OFFSET + 60_000
-
-
-def audited(tmp_path, calls, records):
-    return harness.audit(transcript(tmp_path, calls), records)
-
-
-def test_n2_an_unreadable_file_as_claude_code_records_it_is_refused_locally(tmp_path):
-    a = audited(tmp_path, [("./thesis-agent register missing.json", "Exit code 1\n" + REFUSAL),
-                           ("./thesis-agent markets", "{}")], [record("markets")])
-    assert a["match"] is True and a["refused_locally"] == 1
-
-
-def test_n2_a_wrong_arity_with_a_plus_command_is_decided_by_the_result(tmp_path):
-    a = audited(tmp_path, [("./thesis-agent prices", "Exit code 2\n" + USAGE)], [])
-    assert a["match"] is True and a["refused_locally"] == 1
-
-
-def test_n3_a_refusal_beside_another_call_in_one_command_attributes_nothing(tmp_path):
-    command = "./thesis-agent register missing.json; ./thesis-agent register a.json"
-    a = audited(tmp_path, [(command, "Exit code 1\n" + REFUSAL)], [record("register", "a.json")])
-    assert a["refused_locally"] == 0 and a["client_calls"] == 2 and a["match"] is False
-
-
-def test_n3_the_unattributable_extra_call_is_not_absorbed_by_a_neighbours_record(tmp_path):
-    command = "./thesis-agent register missing.json; ./thesis-agent register a.json; ./thesis-agent register b.json"
-    a = audited(tmp_path, [(command, "Exit code 1\n" + REFUSAL)], [record("register", "a.json")])
-    assert a["match"] is False
-
-
-def test_n3_a_shell_expansion_that_changes_the_arity_is_not_refused_by_its_tokens(tmp_path):
-    a = audited(tmp_path, [("./thesis-agent exit $(cat args.txt)", '{"ok":true}')], [record("exit", "a", "b")])
-    assert a["refused_locally"] == 0 and a["match"] is True
-
-
-def test_n3_only_the_clients_own_refusal_counts_as_one(tmp_path):
-    for output in ("Exit code 1\n" + REFUSAL + "\nextra", "Exit code 1\n" + json.dumps({"ok": False, "error": "x", "more": 1}),
-                   REFUSAL, "Exit code 0\n" + REFUSAL, "Exit code 1\nusage: other", "Exit code 1\n" + json.dumps({"ok": True, "error": "x"})):
-        assert audited(tmp_path, [("./thesis-agent register f.json", output)], [])["refused_locally"] == 0, output
 
 
 def blip(market_name, interval, times):

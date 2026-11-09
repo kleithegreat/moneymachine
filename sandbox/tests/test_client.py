@@ -20,10 +20,13 @@ def test_arity_files_and_usage(tmp_path, capsys):
     a, b = tmp_path / "a.json", tmp_path / "b.json"
     a.write_text("A")
     b.write_text("B")
-    assert research(["select", str(a), str(b)]) == 0 and sent[-1] == {"cmd": "select", "args": ["A", "B"]}
+    assert research(["select", str(a), str(b)]) == 0 and sent[-1] == {
+        "cmd": "select", "args": ["A", "B"], "argv": ["select", str(a), str(b)], "refusal": None}
     assert research(["select"]) == 2 and research(["eval", str(a), str(b)]) == 2 and research(["holdout", str(a)]) == 2
     assert research(["eval", str(tmp_path / "missing")]) == 1
-    assert thesis(["exit", "t1", "done"]) == 0 and sent[-1] == {"cmd": "exit", "args": ["t1", "done"]}
-    assert thesis(["register", str(a)]) == 0 and sent[-1] == {"cmd": "register", "args": ["A"]}
+    assert thesis(["exit", "t1", "done"]) == 0 and sent[-1] == {
+        "cmd": "exit", "args": ["t1", "done"], "argv": ["exit", "t1", "done"], "refusal": None}
+    assert thesis(["register", str(a)]) == 0 and sent[-1] == {
+        "cmd": "register", "args": ["A"], "argv": ["register", str(a)], "refusal": None}
     assert thesis(["fetch"]) == 2 and thesis([]) == 2
-    assert "usage" in capsys.readouterr().out
+    assert sent[-1]["refusal"] == THESIS["usage"] and sent[-1]["argv"] == []

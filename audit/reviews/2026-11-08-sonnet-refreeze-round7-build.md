@@ -61,3 +61,15 @@ Tests: `thesis/tests/test_refreeze_round10.py`, run first against `f4db799` (11 
 - Paper T3: the 04:45 UTC (23:45 EST) choice with its reason; the attestation fields include failed reads. PDF rebuilt. `PROGRESS.md` on main: the freeze runs on an image of the head frozen.
 - Suite (`ops/shards.py`): 1,992 of 1,992 reported, 1,971 passed, 1 skipped, 19 xfailed, 1 failed (`gate/tests/test_compute.py::test_pool_does_not_copy_a_live_threads_lock`, a pool timeout under the shared load; untouched code, passes alone), 0 missing.
 - The readiness-only note: a market whose readiness check fails is not ready and in `failed`, but stays in `markets` and `daily` (its reads succeeded); the benchmark checks `failed` first. Stated, unchanged.
+
+## Round eleven (2026-11-09 08:18 UTC (03:18 EST)), GPT builder, Argon's partial round-ten review
+
+Development only, starting at `dcfab51`; no freeze, deployment, exchange call, protected-data inspection or edit to `audit/criteria.md`. Findings 5–8 were not supplied and remain pending.
+
+### Failing first
+
+Before implementation, the initial `thesis/tests/test_refreeze_round11.py` ran on `dcfab51`: **13 failed, 2 passed** (`/tmp/opencode/round11-failing-first.log`). The failures include the three arity/substitution examples, the single-loop refusal, a valid `markets` command hidden by refusal-shaped output, all four refused invocations never sent, daemon refusal reason, the within-pass/exact-deadline retry cases, and the moving BTC funding lower bound. The compound loop with two client tokens already failed closed. The bare-client test with no records also failed closed; strengthened to include an unmatched daemon record, it exercises Argon's `IndexError` on the parent. Acquisition tests subsequently moved unchanged into `test_refreeze_round11_acquisition.py`.
+
+### Step 1: C10.2 re-derived, findings 1–2 subsumed
+
+The daemon's request records are the call list, including refused invocations and their reasons. Every immutable client execution attempts one request before printing/returning, never a locally invisible refusal. The transcript decides only whether each non-denied Bash call is a single literal client execution with a result, and counts it; daemon records must have the invocation envelope and equal that count. No argv/FILE/refusal-output matching remains. Shell programs, direct socket commands, substitutions, redirections, variables and globs fail closed; malformed, duplicate-id, incomplete transcripts also fail closed. Literal quoted URLs/reasons are supported; the workspace brief states the restriction. Replaced round-nine/ten attribution tests were removed, not retained as an alternate path. Added a real-client/socket loop test: the daemon records both iterations and the final bare invocation, including both refusals. The shared-client identity fork, evidence cost and reversal are recorded in `audit/decisions.md`; the frozen stage-3 record is not rewritten.
