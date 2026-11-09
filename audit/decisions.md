@@ -776,3 +776,28 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
 - 2026-11-09 (UTC date from `date -u` at commit), builder (Sonnet), branch `erasure-batch`, applying `audit/erasure/2026-11-09-deletion-list.md` items 2-12 (items 1, 13-18 and the next-fork table untouched; item 1 was already gone on main): `ops/shards.py` sizes the local shard's workers from free memory at 650 MB each (`gate/compute.py`); the kernel's cargo tests and mutants are pytest tests (`kernel/tests/test_rust.py`) and `cli check` and `cli mutants` are deleted; `ingest/archive.py`, its test and the AWS/lz4 tools are deleted; Oracle `pull.sh` no longer writes PROGRESS.md, and `ops/diskguard.py` alarms on a `last-pull` over an hour old; `live.py gate` loses its procMount argument; `gate/agent/campaigns.py` and `gate/sweep.py` cite `audit/criteria.md` (`thesis/report.py` is frozen, so unchanged); the `slow` marker is declared nowhere (`thesis/tests/test_registry.py` still applies it until the refreeze lands); one `sha256` helper in `ops/jobs.py`. Reverse: git revert the branch's commits.
 - 2026-11-09 11:59 UTC (06:59 EST), advisor: correction to the 2026-11-09 08:18 UTC (03:18 EST) round-eleven fork entry on `thesis-refreeze` (Opus round-eleven review, R5): the stage 3 harness fork was the advisor's decision in round eleven's brief, not the human's; and Argon's round-ten reply was cut off in finding 5, not finding 2. The round-eleven C10.2 design fails closed on 40 of 40 recorded honest sessions (`audit/reviews/2026-11-09-opus-thesis-refreeze-round11.md`, R1); its replacement awaits the human's choice between enforcing the grammar before execution and re-deriving C10.2 on daemon-before-reply recording plus the isolation canary.
 - 2026-11-09 17:01 UTC (12:01 EST), the human: C10.2 is re-derived on what guarantees its claim (option B of PROGRESS, `audit/reviews/2026-11-09-opus-thesis-refreeze-round11.md` R1): every request reaching the daemon is recorded before its reply, and the client is the agent's only channel to protected data (the isolation canary), so the daemon's records are the session's disclosures; the transcript-to-record mapping is dropped (it failed 40 of 40 recorded honest sessions after four rounds of defects). The human approves this as a change to the frozen C10.2 text for the new identity and window, never a pass of the old check. Round eleven's client fork existed only for the transcript check and is reverted with it, so the stage 3 harness returns to its pinned hash. Reverse: a later decision of the human's.
+- 2026-11-09 20:34 UTC (15:34 EST), the human, on Fable's meta review (`audit/reviews/2026-11-09-fable-meta-review.md`): "yes to everything fable said".
+  1. **The thesis identity splits.** The scientific manifest covers the model, briefs, tools, limits, registry validation, sizing, `SCORING.md` and the comparator. The operational layer covers acquisition, scheduling, retries and the limiter. An operational patch gets a decisions line and a targeted test, each session records its operational commit, and the window continues. "Versions are never pooled" now applies to scientific versions only.
+  2. **Before the next freeze, three scientific parameters are re-derived:**
+     - the dependence unit (`SCORING.md`'s cluster rule chains through common markets);
+     - throughput (at most two theses a day);
+     - what the reading arm may read (a search API whose terms permit automated use, called through the daemon, certified by the human's operator decision once one is named).
+
+     A paired main-versus-ablation Brier protocol is pre-registered in the first week.
+  3. **C10.2's audit and the positive control's interval.** The audit sees every content-block type through an allowlist and fails closed on a transcript it cannot read, in thesis-only code: the stage 3 harness hash stays `6a335714…`. The positive control's Student interval goes, and capture is computed exactly.
+  4. **The positive control starts now, cut to discovery.** It is sequential, uses exact capture, and has no selected-recovery test and no truth bank. The forced-release and kill checks become tests.
+  5. **The pilot's finding is stated:** no ordinary edge can be confirmed at its holdout lengths. No further gate, kernel, Lean, O1 or nine-defect work until a study needs it.
+  6. **Only conditions judging a gameable number are pre-registered;** operational readiness is a test suite. A fix-and-review loop gets two rounds, then the design is re-derived.
+  7. **Erasure** per the review's section 5.
+
+  **Roles:** Fable architects, Opus orchestrates as the advisor, Sonnet builds.
+
+  **Effects:**
+  - `CLAUDE.md`'s Orchestration, Reviews, Pre-registered criteria and Frozen identities are changed to match.
+  - This supersedes the 2026-11-08 21:22 UTC (16:22 EST) decision's "after the refreeze" ordering for the positive control.
+  - It also supersedes GPT building by default.
+  - The pending freeze wake-up is cancelled until the redesign.
+
+  **Reviewers:** Fable's review, set against GPT's meta review of 2026-11-08 (its section 7).
+
+  **Reverse:** a later decision of the human's.
