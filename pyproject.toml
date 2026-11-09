@@ -5,3 +5,15 @@ addopts = "-n auto --dist worksteal"
 markers = ["slow: tests taking over 20 seconds, including setup; run by default"]
 timeout = 600
 timeout_method = "thread"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B905", "E741"]
+
+[tool.mypy]
+strict = true
+follow_imports = "skip"
