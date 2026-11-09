@@ -14,7 +14,10 @@ def clock_offset_ms():
     return float(m.group(1)) * {"us": 1e-3, "ms": 1.0, "s": 1e3}[m.group(2)] if m else None
 
 
-
 sent = now_ms()
-append(sys.argv[1], "sources", sent, {"source": "clock", "key": "timesyncd", "sent": sent, "recv": now_ms(),
-                                      "data": {"offset_ms": clock_offset_ms()}})
+append(
+    sys.argv[1],
+    "sources",
+    sent,
+    {"source": "clock", "key": "timesyncd", "sent": sent, "recv": now_ms(), "data": {"offset_ms": clock_offset_ms()}},
+)

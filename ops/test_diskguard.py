@@ -41,11 +41,15 @@ def statvfs_result(measurement):
 def write_report(mirror, volume, *, capacity=None, taken=NOW * 1000):
     path = mirror / volume / "MANIFEST.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({
-        "taken": int(taken),
-        "capacity": sample() if capacity is None else capacity,
-        "files": {},
-    }))
+    path.write_text(
+        json.dumps(
+            {
+                "taken": int(taken),
+                "capacity": sample() if capacity is None else capacity,
+                "files": {},
+            }
+        )
+    )
     return path
 
 
@@ -89,9 +93,9 @@ def test_capacity_uses_available_blocks_fragment_size_and_available_inodes(diskg
 
     def measure(path):
         calls.append(path)
-        return SimpleNamespace(f_bavail=11, f_bfree=99, f_blocks=100,
-                               f_frsize=4096, f_bsize=8192,
-                               f_favail=13, f_ffree=88, f_files=200)
+        return SimpleNamespace(
+            f_bavail=11, f_bfree=99, f_blocks=100, f_frsize=4096, f_bsize=8192, f_favail=13, f_ffree=88, f_files=200
+        )
 
     monkeypatch.setattr(os, "statvfs", measure)
     assert diskguard.capacity(tmp_path) == {
@@ -110,9 +114,11 @@ def test_problems_names_low_resource_and_free_fraction(diskguard, resource, free
     assert isinstance(alarms, list) and len(alarms) == 1
     alarm = named(alarms, resource)[0]
     fraction = free / 100
-    assert re.search(rf"(?<![\d.]){free}(?:\.0+)?\s*%", alarm) or re.search(
-        rf"(?<![\d.]){re.escape(str(fraction))}(?:0*)(?!\d)", alarm
-    ) or re.search(rf"\b{free}\s*/\s*100\b", alarm), alarm
+    assert (
+        re.search(rf"(?<![\d.]){free}(?:\.0+)?\s*%", alarm)
+        or re.search(rf"(?<![\d.]){re.escape(str(fraction))}(?:0*)(?!\d)", alarm)
+        or re.search(rf"\b{free}\s*/\s*100\b", alarm)
+    ), alarm
 
 
 @pytest.mark.parametrize("free,total", [(21, 100), (1, 4), (100, 100), (2**60 + 1, 5 * 2**60)])
@@ -127,20 +133,32 @@ def test_problems_reports_both_exhausted_resources(diskguard):
         named(alarms, resource)
 
 
-@pytest.mark.parametrize("invalid", [None, [], "capacity", {}, {"bytes": {}},
-                                      {"bytes": {"free": 80, "total": 100}}])
+@pytest.mark.parametrize("invalid", [None, [], "capacity", {}, {"bytes": {}}, {"bytes": {"free": 80, "total": 100}}])
 def test_problems_rejects_invalid_schema(diskguard, invalid):
     with pytest.raises(ValueError):
         diskguard.problems(invalid)
 
 
 @pytest.mark.parametrize("resource", RESOURCES)
-@pytest.mark.parametrize("field,value", [
-    ("free", -1), ("free", 101), ("free", 1.0), ("free", "80"),
-    ("free", None), ("free", True), ("free", float("nan")),
-    ("total", 0), ("total", -1), ("total", 100.0), ("total", "100"),
-    ("total", None), ("total", True), ("total", float("inf")),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("free", -1),
+        ("free", 101),
+        ("free", 1.0),
+        ("free", "80"),
+        ("free", None),
+        ("free", True),
+        ("free", float("nan")),
+        ("total", 0),
+        ("total", -1),
+        ("total", 100.0),
+        ("total", "100"),
+        ("total", None),
+        ("total", True),
+        ("total", float("inf")),
+    ],
+)
 def test_problems_rejects_invalid_counters(diskguard, resource, field, value):
     measurement = sample()
     measurement[resource][field] = value
@@ -209,11 +227,21 @@ def test_check_reports_each_unavailable_or_expired_source(diskguard, site, volum
     named(alarms, volume)
 
 
-@pytest.mark.parametrize("invalid", [None, [], {}, {"taken": NOW * 1000},
-    {"capacity": sample()}, {"taken": NOW * 1000, "capacity": []},
-    *({"taken": taken, "capacity": sample()} for taken in
-      [None, True, "1800000000000", float("nan"), float("inf")]),
-])
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        None,
+        [],
+        {},
+        {"taken": NOW * 1000},
+        {"capacity": sample()},
+        {"taken": NOW * 1000, "capacity": []},
+        *(
+            {"taken": taken, "capacity": sample()}
+            for taken in [None, True, "1800000000000", float("nan"), float("inf")]
+        ),
+    ],
+)
 def test_check_rejects_malformed_report_metadata(diskguard, site, invalid):
     (site.mirror / "hl/MANIFEST.json").write_text(json.dumps(invalid))
     alarms = diskguard.check(site.data, site.mirror, now=NOW)
@@ -275,6 +303,7 @@ def test_check_reads_only_manifest_metadata(diskguard, site, monkeypatch):
             assert "w" not in mode and "a" not in mode and "+" not in mode
             opened.append(Path(path))
             return original(path, mode, *args, **kwargs)
+
         return open_file
 
     with monkeypatch.context() as patch:
@@ -328,17 +357,25 @@ def test_main_repeats_critical_persistent_notification_with_all_alarms(diskguard
         assert all(alarm in stderr for alarm in expected)
     assert len(calls) == 2
     for command, kwargs in calls:
-        assert command[:4] == ["notify-send", "--urgency=critical", "--expire-time=0",
-                               "moneymachine: recording capacity alarm"]
+        assert command[:4] == [
+            "notify-send",
+            "--urgency=critical",
+            "--expire-time=0",
+            "moneymachine: recording capacity alarm",
+        ]
         assert len(command) == 5
         assert all(alarm in command[4] for alarm in expected)
         assert kwargs == {"check": True, "timeout": 10}
 
 
-@pytest.mark.parametrize("failure", [FileNotFoundError("notify-send"),
-    subprocess.CalledProcessError(1, ["notify-send"]),
-    subprocess.TimeoutExpired(["notify-send"], 10),
-])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        FileNotFoundError("notify-send"),
+        subprocess.CalledProcessError(1, ["notify-send"]),
+        subprocess.TimeoutExpired(["notify-send"], 10),
+    ],
+)
 def test_main_notification_failure_cannot_return_success(diskguard, site, monkeypatch, failure):
     write_report(site.mirror, "agent", capacity=sample(0))
     calls = []
@@ -379,8 +416,7 @@ def mirror_site(tmp_path, monkeypatch):
         return statvfs_result(measurements.get(path, sample()))
 
     monkeypatch.setattr(os, "statvfs", measure)
-    return SimpleNamespace(live=live, app=app, mirror=out,
-                           measurements=measurements, measured=measured)
+    return SimpleNamespace(live=live, app=app, mirror=out, measurements=measurements, measured=measured)
 
 
 def test_mirror_reports_each_source_volume_capacity_and_publishes_manifest_last(mirror_site, monkeypatch):

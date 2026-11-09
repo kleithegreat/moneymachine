@@ -39,8 +39,14 @@ def dsr(returns, n_trials):
         s = r.mean() / sd
         z = (r - r.mean()) / r.std(ddof=0)
         skew, kurt = (z**3).mean(), (z**4).mean()
-        s0 = 0.0 if n_trials <= 1 else ((1 - np.euler_gamma) * norm.ppf(1 - 1 / n_trials)
-                                        + np.euler_gamma * norm.ppf(1 - 1 / (n_trials * np.e))) / np.sqrt(t - 1)
+        s0 = (
+            0.0
+            if n_trials <= 1
+            else (
+                (1 - np.euler_gamma) * norm.ppf(1 - 1 / n_trials) + np.euler_gamma * norm.ppf(1 - 1 / (n_trials * np.e))
+            )
+            / np.sqrt(t - 1)
+        )
         var = 1 - skew * s + (kurt - 1) / 4 * s**2
         if var <= 1e-12 * (1 + abs(skew * s) + (kurt - 1) / 4 * s**2):
             return 0.0
@@ -55,7 +61,8 @@ def trials(ledger, campaign, agent=None):
         "SELECT e.trial, r.returns, r.summary, e.program FROM experiments e "
         "JOIN results r ON r.experiment_id = e.id "
         "WHERE e.campaign = ? AND e.mode = 'search' AND (? IS NULL OR e.agent = ?) ORDER BY e.id",
-        (campaign, agent, agent)).fetchall()
+        (campaign, agent, agent),
+    ).fetchall()
     out = {}
     for key, blob, summary, program in rows:
         if key not in out and json.loads(summary)["fills"] > 0:
@@ -89,7 +96,9 @@ def search_decision(ledger, campaign, agent=None):
     spa = SPA(np.zeros(len(r)), -r, block_size=BLOCK, reps=REPS, seed=seed)
     spa.compute()
     p = float(spa.pvalues["consistent"])
-    report.update(spa_p=p, screened=screened, max_dsr=max(dsrs.values()), top5=sorted(names, key=lambda h: -sharpes[h])[:5])
+    report.update(
+        spa_p=p, screened=screened, max_dsr=max(dsrs.values()), top5=sorted(names, key=lambda h: -sharpes[h])[:5]
+    )
     finalists = stepm(r, screened, seed) if p <= ALPHA else []
     report["finalists"] = finalists
     report["effective_n"] = effective_n(r, p, seed)
@@ -178,7 +187,9 @@ def holm(pvalues):
 def freeze(ledger, campaign, hashes, note):
     """Record each finalist's selection in the ledger before the holdout is opened."""
     for h in hashes:
-        subprocess.run(command("select", h, campaign, "gate", ledger, None, "--note", note), check=True, capture_output=True)
+        subprocess.run(
+            command("select", h, campaign, "gate", ledger, None, "--note", note), check=True, capture_output=True
+        )
 
 
 def mechanism_check(market, ledger, campaign, programs):
@@ -191,8 +202,12 @@ def mechanism_check(market, ledger, campaign, programs):
             continue
         p = m / f"mech-{h[:16]}.json"
         p.write_text(json.dumps(prog))
-        r = subprocess.run(command("eval", p, campaign, "gate-mechanism", ledger, m, "--mechanism", "on"),
-                           capture_output=True, text=True, check=True)
+        r = subprocess.run(
+            command("eval", p, campaign, "gate-mechanism", ledger, m, "--mechanism", "on"),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         out[h] = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
         p.unlink()
     return out
@@ -203,8 +218,21 @@ def release(market, ledger, campaign, programs, holdout_from=None):
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
         fh.write("".join(json.dumps(p) + "\n" for p in programs.values()))
     extra = ["--holdout-from", str(holdout_from)] if holdout_from else []
-    out = subprocess.run(command("holdout", fh.name, campaign, "gate", ledger, market, "--holdout-store",
-                                 str(Path(market) / "holdout"), *extra), capture_output=True, text=True)
+    out = subprocess.run(
+        command(
+            "holdout",
+            fh.name,
+            campaign,
+            "gate",
+            ledger,
+            market,
+            "--holdout-store",
+            str(Path(market) / "holdout"),
+            *extra,
+        ),
+        capture_output=True,
+        text=True,
+    )
     Path(fh.name).unlink()
     return out
 
@@ -220,7 +248,9 @@ def holdout_run(market, ledger, campaign, programs, holdout_from=None):
     results = {}
     for line, h in zip(out.stdout.splitlines(), programs):
         d = json.loads(line)
-        blob, summary = db.execute("SELECT returns, summary FROM results WHERE experiment_id = ?", (d["experiment"],)).fetchone()
+        blob, summary = db.execute(
+            "SELECT returns, summary FROM results WHERE experiment_id = ?", (d["experiment"],)
+        ).fetchone()
         results[h] = (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], d["disclosure"]["diagnostics"])
     return results
 
@@ -230,17 +260,29 @@ ABSENT = (np.zeros(0), 0.0, None)  # a finalist without a holdout result: p = 1 
 
 def committed_holdout(ledger, campaign):
     """{trial: (net returns, total return, None)} of the campaign's committed holdout results; no diagnostics."""
-    rows = sqlite3.connect(ledger).execute(
-        "SELECT e.trial, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
-        "WHERE e.campaign = ? AND e.mode = 'holdout'", (campaign,)).fetchall()
+    rows = (
+        sqlite3.connect(ledger)
+        .execute(
+            "SELECT e.trial, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
+            "WHERE e.campaign = ? AND e.mode = 'holdout'",
+            (campaign,),
+        )
+        .fetchall()
+    )
     return {t: (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], None) for t, blob, summary in rows}
 
 
 def committed_diagnostics(ledger, campaign):
     """{trial: diagnostics}, stored with each holdout result; read only after the promotions are committed (C3.4)."""
-    rows = sqlite3.connect(ledger).execute(
-        "SELECT e.trial, d.content FROM disclosures d JOIN experiments e ON e.id = d.experiment_id "
-        "WHERE e.campaign = ? AND e.mode = 'holdout'", (campaign,)).fetchall()
+    rows = (
+        sqlite3.connect(ledger)
+        .execute(
+            "SELECT e.trial, d.content FROM disclosures d JOIN experiments e ON e.id = d.experiment_id "
+            "WHERE e.campaign = ? AND e.mode = 'holdout'",
+            (campaign,),
+        )
+        .fetchall()
+    )
     return {t: json.loads(content)["diagnostics"] for t, content in rows}
 
 
@@ -252,8 +294,11 @@ def promote(results):
     p = np.array([holdout_pvalue(results[h][0]) for h in hashes])
     adj = holm(p)
     promoted = [h for h, a in zip(hashes, adj) if results[h][1] > 0 and a <= ALPHA]
-    return promoted, {"holdout_p": dict(zip(hashes, p.tolist())), "holm": dict(zip(hashes, adj.tolist())),
-                      "holdout_total_return": {h: results[h][1] for h in hashes}}
+    return promoted, {
+        "holdout_p": dict(zip(hashes, p.tolist())),
+        "holm": dict(zip(hashes, adj.tolist())),
+        "holdout_total_return": {h: results[h][1] for h in hashes},
+    }
 
 
 def with_diagnostics(decision, results):

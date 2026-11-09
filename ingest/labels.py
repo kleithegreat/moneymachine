@@ -27,7 +27,11 @@ def discourse(http, rng, data_root):
         ids = sorted(set(raw.filter(raw["forum"] == forum)["upstream_id"].to_list()))
         for pid in rng.sample(ids, min(PER_KEY, len(ids))):
             r = http.get(f"https://{forum}/posts/{pid}.json")
-            yield {"forum": forum, "id": pid, "text": clean(r.json().get("cooked", "")) if r.status_code == 200 else f"[HTTP {r.status_code}]"}
+            yield {
+                "forum": forum,
+                "id": pid,
+                "text": clean(r.json().get("cooked", "")) if r.status_code == 200 else f"[HTTP {r.status_code}]",
+            }
             time.sleep(2)
 
 
@@ -47,7 +51,6 @@ def sample(source, data_root, out):
     Path(out).write_text(json.dumps(rows, indent=1))
 
 
-
 def evaluate(source, sample_path, labels_path):
     spec = SOURCES[source]
     sample = json.loads(Path(sample_path).read_text())
@@ -58,7 +61,9 @@ def evaluate(source, sample_path, labels_path):
     for i, item in enumerate(sample):
         mapped = coin_of[item[spec["key"]]]
         assets = {norm(a) for a in labels[str(i)]["assets"]}
-        k = per_key.setdefault(item[spec["key"]], {"coin": mapped, "n": 0, "concerns_mapped": 0, "none": 0, "uncertain": 0})
+        k = per_key.setdefault(
+            item[spec["key"]], {"coin": mapped, "n": 0, "concerns_mapped": 0, "none": 0, "uncertain": 0}
+        )
         k["n"] += 1
         k["concerns_mapped"] += mapped in assets
         k["none"] += not assets
@@ -71,6 +76,8 @@ def evaluate(source, sample_path, labels_path):
         k["precision"] = round(k["concerns_mapped"] / k["n"], 3)
     for c in per_coin.values():
         c["recall_within_sample"] = round(c["in_mapped_key"] / c["labeled"], 3)
-    return {"per_key": per_key, "per_coin": per_coin,
-            "labels": [{spec["key"]: s[spec["key"]], "id": s["id"], **labels[str(i)]} for i, s in enumerate(sample)]}
-
+    return {
+        "per_key": per_key,
+        "per_coin": per_coin,
+        "labels": [{spec["key"]: s[spec["key"]], "id": s["id"], **labels[str(i)]} for i, s in enumerate(sample)],
+    }

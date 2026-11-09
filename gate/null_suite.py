@@ -129,9 +129,7 @@ def sparse_bursts(rng, m, n):
     """Stationary sparse activity with standardized truncated-t bursts."""
     p_flat_to_active = 1.0 / 36.0
     p_active_to_flat = 1.0 / 4.0
-    p_active = p_flat_to_active / (
-        p_flat_to_active + p_active_to_flat
-    )
+    p_active = p_flat_to_active / (p_flat_to_active + p_active_to_flat)
 
     active = rng.random(m) < p_active
     out = np.empty((n, m), dtype=np.float64)
@@ -141,9 +139,7 @@ def sparse_bursts(rng, m, n):
         out[t] = np.where(active, 0.03 * z, 0.0)
 
         if t + 1 < n:
-            p_switch = np.where(
-                active, p_active_to_flat, p_flat_to_active
-            )
+            p_switch = np.where(active, p_active_to_flat, p_flat_to_active)
             active ^= rng.random(m) < p_switch
 
     return out.T
@@ -171,9 +167,7 @@ def vol_regime(rng, m, n):
     """Stationary volatility regimes with unrescaled truncated normals."""
     p_calm_to_stressed = 1.0 / 50.0
     p_stressed_to_calm = 1.0 / 10.0
-    p_stressed = p_calm_to_stressed / (
-        p_calm_to_stressed + p_stressed_to_calm
-    )
+    p_stressed = p_calm_to_stressed / (p_calm_to_stressed + p_stressed_to_calm)
 
     stressed = rng.random(m) < p_stressed
     out = np.empty((n, m), dtype=np.float64)
@@ -184,9 +178,7 @@ def vol_regime(rng, m, n):
         out[t] = sigma * z
 
         if t + 1 < n:
-            p_switch = np.where(
-                stressed, p_stressed_to_calm, p_calm_to_stressed
-            )
+            p_switch = np.where(stressed, p_stressed_to_calm, p_calm_to_stressed)
             stressed ^= rng.random(m) < p_switch
 
     return out.T
@@ -276,13 +268,7 @@ def gpt_b(rng, m, n):
         cumulative_return += r
         cumulative_square += np.square(r)
 
-        crossed = (
-            (cumulative_square > 0.0)
-            & (
-                cumulative_return
-                >= 2.75 * np.sqrt(cumulative_square)
-            )
-        )
+        crossed = (cumulative_square > 0.0) & (cumulative_return >= 2.75 * np.sqrt(cumulative_square))
         active &= ~crossed
 
     return out.T

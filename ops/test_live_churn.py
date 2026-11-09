@@ -38,8 +38,10 @@ def manifest(out):
 
 @pytest.mark.parametrize("published", [False, True])
 @pytest.mark.parametrize("phase", ["stat", "copy", "comparison"])
-@pytest.mark.parametrize("rel", [PLAIN, Path("campaign/swarm/A4/work/nested/notes.jsonl"),
-                                Path("campaign/swarm/A4/work/nested/notes.sqlite")])
+@pytest.mark.parametrize(
+    "rel",
+    [PLAIN, Path("campaign/swarm/A4/work/nested/notes.jsonl"), Path("campaign/swarm/A4/work/nested/notes.sqlite")],
+)
 def test_plain_source_disappearing_during_mirror_is_omitted(volume, monkeypatch, published, phase, rel):
     app, out, root = volume
     source = put(root, rel)

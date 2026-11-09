@@ -70,8 +70,16 @@ def test_as_of_never_leaks(revised, t, version):
     s = revised
     got = s.as_of("bars_4h", t, version)
     assert (got["knownAt"] <= t).all() and (got["fetchedAt"] <= version).all()
-    latest = s.revisions("bars_4h").filter(pl.col("fetchedAt") <= version).sort("fetchedAt").group_by(["coin", "eventTime"]).last()
-    expect = latest.filter(pl.col("eventTime") + DELTA <= t).with_columns((pl.col("eventTime") + DELTA).alias("knownAt"))
+    latest = (
+        s.revisions("bars_4h")
+        .filter(pl.col("fetchedAt") <= version)
+        .sort("fetchedAt")
+        .group_by(["coin", "eventTime"])
+        .last()
+    )
+    expect = latest.filter(pl.col("eventTime") + DELTA <= t).with_columns(
+        (pl.col("eventTime") + DELTA).alias("knownAt")
+    )
     assert got.sort(["coin", "eventTime"]).equals(expect.sort(["coin", "eventTime"]).select(got.columns))
 
 
@@ -95,7 +103,9 @@ def test_knownat_is_never_stored(tmp_path):
 def test_a_later_revision_governs_its_key(tmp_path):
     """mm's resolution: the latest revision by the cutoff, known by its own fields, never an earlier one."""
     s = market_store(tmp_path)
-    late = lambda r: pl.DataFrame({"coin": ["A"], "eventTime": [2 * H], "fundingRate": [0.0], "premium": [0.0], "reportedTime": [r]})
+    late = lambda r: pl.DataFrame(
+        {"coin": ["A"], "eventTime": [2 * H], "fundingRate": [0.0], "premium": [0.0], "reportedTime": [r]}
+    )
     s.write("funding", late(2 * H + 50), 100, "t")
     s.write("funding", late(2 * H + 887_645), 200, "t")
     assert s.as_of("funding", 2 * H + DELTA, 100)["knownAt"].to_list() == [2 * H + DELTA]
@@ -135,8 +145,10 @@ def test_search_store_refuses_holdout(tmp_path):
 
 
 def posts(ids, content="a", key="forum"):
-    return pl.DataFrame([{key: "f", "upstream_id": i, "eventTime": i * H, "sha": content} for i in ids],
-                        schema={key: pl.Utf8, "upstream_id": pl.Int64, "eventTime": pl.Int64, "sha": pl.Utf8})
+    return pl.DataFrame(
+        [{key: "f", "upstream_id": i, "eventTime": i * H, "sha": content} for i in ids],
+        schema={key: pl.Utf8, "upstream_id": pl.Int64, "eventTime": pl.Int64, "sha": pl.Utf8},
+    )
 
 
 @pytest.mark.parametrize("key", ["forum", "space"])
@@ -149,7 +161,9 @@ def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path, key):
     assert s.write("p", posts([1, 3], key=key).with_columns(edited), 200, "t", complete=whole) == 2
     assert s.write("p", posts([1, 2, 3], key=key), 300, "t", complete=whole) == 2
     assert s.write("p", posts([1], key=key), 400, "t", complete=pl.col(key) == "other") == 0
-    view = lambda t, v=None: {r["upstream_id"]: r["sha"] for r in s.as_of("p", t, t if v is None else v).iter_rows(named=True)}
+    view = lambda t, v=None: {
+        r["upstream_id"]: r["sha"] for r in s.as_of("p", t, t if v is None else v).iter_rows(named=True)
+    }
     assert view(99) == {}
     assert view(100) == view(199) == {1: "a", 2: "a", 3: "a"}
     assert view(200) == view(299) == {1: "a", 3: "b"}
@@ -160,4 +174,6 @@ def test_edits_tombstones_and_restorations_at_exact_boundaries(tmp_path, key):
 
 
 def test_a_new_column_makes_every_row_a_revision(store):
-    assert store.write("bars_4h", rows(["A", "B"], range(10)).with_columns(pl.lit("v2").alias("lineage")), 200, "t") == 20
+    assert (
+        store.write("bars_4h", rows(["A", "B"], range(10)).with_columns(pl.lit("v2").alias("lineage")), 200, "t") == 20
+    )

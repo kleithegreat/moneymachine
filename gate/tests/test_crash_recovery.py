@@ -69,7 +69,7 @@ def test_random_sigkill_keeps_every_started_campaign_once_and_releases_the_lock(
     recover(MODULE, tmp_path)
     rows = campaign.records(log)
     assert log.read_bytes().startswith(original)
-    assert rows[:len(before)] == before
+    assert rows[: len(before)] == before
     assert [row["id"] for row in rows] == IDS
     for row in rows:
         if row["id"] in unrecorded:

@@ -22,8 +22,17 @@ def base(rng):
     for k in range(n):
         o = px
         c = o * (1 + rng.gauss(0, 0.02))
-        bars.append({"open_time": k * BAR, "event": (k + 1) * BAR, "open": o, "high": max(o, c) * 1.01,
-                     "low": min(o, c) * 0.99, "close": c, "trades": rng.randint(1, 50)})
+        bars.append(
+            {
+                "open_time": k * BAR,
+                "event": (k + 1) * BAR,
+                "open": o,
+                "high": max(o, c) * 1.01,
+                "low": min(o, c) * 0.99,
+                "close": c,
+                "trades": rng.randint(1, 50),
+            }
+        )
         px = c
     for k in sorted(rng.sample(range(1, n - 1), rng.randint(0, 3))):
         bars[k] = None
@@ -45,9 +54,19 @@ def valid_fill(rng, case):
     dp = reference * rng.uniform(0.9, 1.1)
     qty = round(rng.choice([1, -1]) * rng.uniform(0.001, 9999) / dp, 3) or 0.001
     p = price(reference, qty, case["cost_bps"])
-    return {"why": "fill", "qty": qty, "inputs_known": known, "decision_price": dp, "decided": decided,
-            "submitted": submitted, "filled": filled, "source_open": src["open_time"], "reference": reference,
-            "price": p, "fee": abs(qty) * p * case["taker_fee"]}
+    return {
+        "why": "fill",
+        "qty": qty,
+        "inputs_known": known,
+        "decision_price": dp,
+        "decided": decided,
+        "submitted": submitted,
+        "filled": filled,
+        "source_open": src["open_time"],
+        "reference": reference,
+        "price": p,
+        "fee": abs(qty) * p * case["taker_fee"],
+    }
 
 
 def closeout_reference(why, qty, bar):
@@ -64,9 +83,19 @@ def valid_closeout(rng, case):
     why = rng.choice(["liquidation", "delisting"])
     reference = closeout_reference(why, qty, src)
     p = price(reference, qty, case["cost_bps"])
-    return {"why": why, "qty": qty, "inputs_known": t, "decision_price": reference, "decided": t, "submitted": t,
-            "filled": t, "source_open": src["open_time"], "reference": reference, "price": p,
-            "fee": abs(qty) * p * case["taker_fee"]}
+    return {
+        "why": why,
+        "qty": qty,
+        "inputs_known": t,
+        "decision_price": reference,
+        "decided": t,
+        "submitted": t,
+        "filled": t,
+        "source_open": src["open_time"],
+        "reference": reference,
+        "price": p,
+        "fee": abs(qty) * p * case["taker_fee"],
+    }
 
 
 def refresh(f, case):
@@ -83,12 +112,30 @@ def plant(rng, case, f):
     bars = case["bars"]
     kinds = ["known_after_decision", "submitted_before_decision", "filled_before_submission"]
     if f["why"] == "fill":
-        kinds += ["later_bar", "bar_before_submission", "bar_after_fill", "zero_trades", "reference_is_close",
-                  "price_ulp", "wrong_bucket", "wrong_side", "fee_off", "missing_bar", "notional_cap",
-                  "rolled_to_later_bar", "zero_qty"]
+        kinds += [
+            "later_bar",
+            "bar_before_submission",
+            "bar_after_fill",
+            "zero_trades",
+            "reference_is_close",
+            "price_ulp",
+            "wrong_bucket",
+            "wrong_side",
+            "fee_off",
+            "missing_bar",
+            "notional_cap",
+            "rolled_to_later_bar",
+            "zero_qty",
+        ]
     else:
-        kinds += ["closeout_wrong_reference", "closeout_bar_not_closed", "closeout_stale_bar", "price_ulp", "fee_off",
-                  "zero_qty"]
+        kinds += [
+            "closeout_wrong_reference",
+            "closeout_bar_not_closed",
+            "closeout_stale_bar",
+            "price_ulp",
+            "fee_off",
+            "zero_qty",
+        ]
     kind = rng.choice(kinds)
     src = bar_at(case, f["source_open"])
     if kind == "known_after_decision":

@@ -119,9 +119,16 @@ def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(recor
     rec, clock = recorder_clock
     boundary = record.BAR
     rec.verify = rec.verify[:1]
-    first = {"kind": "funding", "coin": "coin0", "boundary": boundary, "purpose": "first",
-             "sent": boundary + 5_000, "recv": boundary + 5_000,
-             "data": [{"time": boundary, "fundingRate": "0.001", "premium": "0"}], "found": True}
+    first = {
+        "kind": "funding",
+        "coin": "coin0",
+        "boundary": boundary,
+        "purpose": "first",
+        "sent": boundary + 5_000,
+        "recv": boundary + 5_000,
+        "data": [{"time": boundary, "fundingRate": "0.001", "premium": "0"}],
+        "found": True,
+    }
     rec.log(first)
 
     def fail(*request):
@@ -158,6 +165,7 @@ def test_first_polls_precede_one_backlogged_verification(recorder_clock):
     assert calls[-1][-1] == "verify" and calls[-1][2] == record.BAR
     rec.step()
     assert len(calls) == 24 and calls[-1][-1] == "verify"
+
 
 # GPT's bug hunt (audit/reviews/2026-11-02-gpt-hunt-recorders.md), finding 1. The child's writes fail past a size limit,
 # as they do on a full disk, leaving the record torn.

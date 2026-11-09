@@ -21,8 +21,10 @@ def main():
     params = markets.null_params()
     for model in ("N1", "N2", "N3"):
         a = markets.generate(model, params.get(model), f"c41-{model}", DAYS)
-        blob = b"".join(np.ascontiguousarray(a[k], dtype="<f8").tobytes()
-                        for k in ("open", "high", "low", "close", "volume", "funding", "premium"))
+        blob = b"".join(
+            np.ascontiguousarray(a[k], dtype="<f8").tobytes()
+            for k in ("open", "high", "low", "close", "volume", "funding", "premium")
+        )
         (OUT / f"{model}.f64").write_bytes(blob)
         print(model, len(blob), hashlib.sha256(blob).hexdigest())
 

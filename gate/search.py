@@ -21,6 +21,8 @@ DISCLOSED = ("sharpe_annualized",)
 def identity():
     """The searchers' pin (stage 2): sha256 of this code and of the statistics disclosed to them."""
     return hashlib.sha256(Path(__file__).read_bytes() + json.dumps(DISCLOSED).encode()).hexdigest()
+
+
 WINDOWS = (4, 8, 12, 24, 48, 96, 168, 336)
 SIZES = (0.02, 0.05, 0.1)
 
@@ -82,8 +84,12 @@ def compile_node(n):
 def compile_genome(g):
     sig = compile_node(g["sig"])
     w = op("sign", sig) if g["squash"] == "sign" else op("clip", sig, const(-1.0), const(1.0))
-    return {"dsl": 1, "name": "search", "mechanism": {"counterparty": "unstated", "predictions": [], "capacity": "-"},
-            "weight": op("mul", w, const(g["size"]))}
+    return {
+        "dsl": 1,
+        "name": "search",
+        "mechanism": {"counterparty": "unstated", "predictions": [], "capacity": "-"},
+        "weight": op("mul", w, const(g["size"])),
+    }
 
 
 def random_node(rng, depth, nf):
@@ -105,13 +111,25 @@ def random_node(rng, depth, nf):
 
 
 def random_genome(rng, nf):
-    return {"sig": random_node(rng, rng.randint(0, 3), nf), "size": rng.choice(SIZES), "squash": rng.choice(["sign", "clip"])}
+    return {
+        "sig": random_node(rng, rng.randint(0, 3), nf),
+        "size": rng.choice(SIZES),
+        "squash": rng.choice(["sign", "clip"]),
+    }
 
 
 def children(n):
     """Indices of a node's child nodes."""
-    return {"feat": [], "neg": [1], "sub": [1, 2], "mul": [1, 2], "smooth": [3], "xsdemean": [1], "xsrank": [1],
-            "cond": [1, 2, 3]}[n[0]]
+    return {
+        "feat": [],
+        "neg": [1],
+        "sub": [1, 2],
+        "mul": [1, 2],
+        "smooth": [3],
+        "xsdemean": [1],
+        "xsrank": [1],
+        "cond": [1, 2, 3],
+    }[n[0]]
 
 
 def paths(n, p=()):
@@ -161,8 +179,13 @@ class Evaluator:
     """Streams programs through one `mm eval -` process and returns only the disclosed statistics."""
 
     def __init__(self, market, ledger, campaign, agent):
-        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, ledger, market, "--disclose", ",".join(DISCLOSED)),
-                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+        self.proc = subprocess.Popen(
+            command("eval", "-", campaign, agent, ledger, market, "--disclose", ",".join(DISCLOSED)),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
         self.seen = {}
 
     def __call__(self, genomes):
@@ -201,8 +224,13 @@ def genetic(evaluate, budget, rng, nf, population=20):
         children = []
         while len(children) < min(population, budget - evaluate.spent):
             r = rng.random()
-            child = (crossover(rng, rng.choice(parents), rng.choice(parents)) if r < 0.3
-                     else mutate(rng, rng.choice(parents), nf) if r < 0.8 else random_genome(rng, nf))
+            child = (
+                crossover(rng, rng.choice(parents), rng.choice(parents))
+                if r < 0.3
+                else mutate(rng, rng.choice(parents), nf)
+                if r < 0.8
+                else random_genome(rng, nf)
+            )
             children.append(child)
         scored = scored[: population // 2] + list(zip(children, evaluate(children)))
 

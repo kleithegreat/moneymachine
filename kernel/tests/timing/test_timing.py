@@ -34,15 +34,24 @@ def test_labels_cover_every_violation(cases):
     planted = sum(c["label"] != "ok" for c in cs)
     print(f"{len(cs)} traces, {planted} with planted violations")
     assert planted >= len(cs) / 2
-    assert {c["kind"] for c in cs} >= {"later_bar", "bar_before_submission", "zero_trades", "known_after_decision",
-                                       "submitted_before_decision", "filled_before_submission", "notional_cap",
-                                       "rolled_to_later_bar", "closeout_stale_bar", "closeout_wrong_reference", "zero_qty"}
+    assert {c["kind"] for c in cs} >= {
+        "later_bar",
+        "bar_before_submission",
+        "zero_trades",
+        "known_after_decision",
+        "submitted_before_decision",
+        "filled_before_submission",
+        "notional_cap",
+        "rolled_to_later_bar",
+        "closeout_stale_bar",
+        "closeout_wrong_reference",
+        "zero_qty",
+    }
 
 
 def test_kernel_checker_matches_labels(cases):
     path, cs = cases
-    out = subprocess.run([str(MM), "check-fills", str(path)],
-                         capture_output=True, text=True, check=True).stdout
+    out = subprocess.run([str(MM), "check-fills", str(path)], capture_output=True, text=True, check=True).stdout
     assert mismatches(cs, [json.loads(l)["verdict"] for l in out.splitlines()]) == []
 
 

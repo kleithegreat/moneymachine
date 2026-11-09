@@ -9,8 +9,13 @@ from criteria.evidence import load
 from gate import null_suite, sweep
 
 P_MIN, Z_MAX = 0.001, 3.7
-TOLERANCE = {"mean_abs_eps": ("rel", 0.05), "kurtosis": ("rel", 0.20), "acf1_abs_eps": ("abs", 0.05),
-             "cross_corr": ("abs", 0.05), "funding_ar": ("abs", 0.05)}
+TOLERANCE = {
+    "mean_abs_eps": ("rel", 0.05),
+    "kurtosis": ("rel", 0.20),
+    "acf1_abs_eps": ("abs", 0.05),
+    "cross_corr": ("abs", 0.05),
+    "funding_ar": ("abs", 0.05),
+}
 
 
 @pytest.mark.parametrize("run", ["stage2/c21-fixed-probes.v3.json", "stage2/c21-top5.json"])
@@ -63,12 +68,17 @@ def test_c25_mixed_fdr():
 
 def test_c26_campaign_counts_and_the_recorded_power():
     cells = load("stage2/sweeps.json")["mixed"]
-    assert {k: v["n"] for k, v in cells.items()} == {k: 100 for k in ["N2-long", "N2-s1", "N2-s2", "N2-s3", "N3-s1", "N3-s2", "N3-s3"]}
+    assert {k: v["n"] for k, v in cells.items()} == {
+        k: 100 for k in ["N2-long", "N2-s1", "N2-s2", "N2-s3", "N3-s1", "N3-s2", "N3-s3"]
+    }
     assert cells["N2-long"]["power"] == 0.05
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="C2.6's waiver of 2026-10-28 (audit/criteria.md), by human decision: N2-long's power 0.05 against 0.30")
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="C2.6's waiver of 2026-10-28 (audit/criteria.md), by human decision: N2-long's power 0.05 against 0.30",
+)
 def test_c26_power_amended():
     """C2.6 amendment of 2026-10-26: power >= 0.30 in the long-holdout cell. C2.6 as written (N2-s3) is judged in
     the stage 2 report and listed under Qualifications if it fails."""

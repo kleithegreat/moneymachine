@@ -22,8 +22,14 @@ def watch(limit, capture):
 
 
 def pytest_addoption(parser):
-    parser.addoption("--shard-report", default=None, help="write each test's outcome and seconds here as JSON (ops/shards.py)")
-    parser.addini("worker_memory_gb", "Resident memory at which a pytest process ends, in GiB (children are not counted)", default="2")
+    parser.addoption(
+        "--shard-report", default=None, help="write each test's outcome and seconds here as JSON (ops/shards.py)"
+    )
+    parser.addini(
+        "worker_memory_gb",
+        "Resident memory at which a pytest process ends, in GiB (children are not counted)",
+        default="2",
+    )
 
 
 def pytest_configure(config):

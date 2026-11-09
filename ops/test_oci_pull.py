@@ -40,7 +40,9 @@ def oracle_pull(tmp_path):
     base.mkdir(parents=True)
     (base / "host.env").write_text("MM_OCI_ID=000000000001\nMM_OCI_IP=192.0.2.1\n")
     (base / "last-pull").write_text("last-good\n")
-    (root / "PROGRESS.md").write_text("# Progress\n\n## Blockers\n\n- Existing blocker.\n\n## Qualifications\n\nUnchanged.\n")
+    (root / "PROGRESS.md").write_text(
+        "# Progress\n\n## Blockers\n\n- Existing blocker.\n\n## Qualifications\n\nUnchanged.\n"
+    )
     for volume in ("live", "clock", "datalayer", "sources_live"):
         (source / volume).mkdir(parents=True)
     destination = base / "000000000001/live"
@@ -49,14 +51,24 @@ def oracle_pull(tmp_path):
         '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> "$RSYNC_ARGS"\n'
         'if [ -n "${RSYNC_ERROR:-}" ]; then printf "%s\\n" "$RSYNC_ERROR" >&2; exit 255; fi\n'
         'args=("$@")\nvolume="${args[-2]%/}"\nvolume="${volume##*/}"\n'
-        'args[-2]="$FAKE_OCI/$volume/"\nexec "$LOCAL_RSYNC" "${args[@]}"\n')
+        'args[-2]="$FAKE_OCI/$volume/"\nexec "$LOCAL_RSYNC" "${args[@]}"\n'
+    )
     (tools / "rsync").chmod(0o755)
 
     def run(**extra_env):
-        return subprocess.run(["bash", str(scripts / "pull.sh")], capture_output=True, text=True,
-                              env={"PATH": f"{tools}:{os.environ['PATH']}", "HOME": str(tmp_path),
-                                   "FAKE_OCI": str(source), "LOCAL_RSYNC": shutil.which("rsync"),
-                                   "RSYNC_ARGS": str(root / "rsync.args"), **extra_env})
+        return subprocess.run(
+            ["bash", str(scripts / "pull.sh")],
+            capture_output=True,
+            text=True,
+            env={
+                "PATH": f"{tools}:{os.environ['PATH']}",
+                "HOME": str(tmp_path),
+                "FAKE_OCI": str(source),
+                "LOCAL_RSYNC": shutil.which("rsync"),
+                "RSYNC_ARGS": str(root / "rsync.args"),
+                **extra_env,
+            },
+        )
 
     return root, source / "live", destination, run
 
@@ -199,8 +211,9 @@ def test_publish_reports_all_divergences_on_one_line(tmp_path):
         (destination / name).write_bytes(b"old\n")
     with pytest.raises(SystemExit) as error:
         publish(source, destination)
-    assert error.value.code == "; ".join(f"{destination / name}: source no longer extends destination"
-                                         for name in ("a.jsonl", "b.jsonl"))
+    assert error.value.code == "; ".join(
+        f"{destination / name}: source no longer extends destination" for name in ("a.jsonl", "b.jsonl")
+    )
 
 
 @pytest.mark.parametrize("kill_first", [False, True])
@@ -225,13 +238,22 @@ def paused(path, target):
 Path.replace = paused
 module['publish'](sys.argv[2], sys.argv[3])
 """
-    first = subprocess.Popen([sys.executable, "-c", pause, str(publisher), str(short), str(destination)],
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    first = subprocess.Popen(
+        [sys.executable, "-c", pause, str(publisher), str(short), str(destination)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     second = None
     try:
         assert first.stdout.readline() == "before replace\n"
-        second = subprocess.Popen([sys.executable, str(publisher), str(long), str(destination)],
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        second = subprocess.Popen(
+            [sys.executable, str(publisher), str(long), str(destination)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         try:
             second.communicate(timeout=0.5)
         except subprocess.TimeoutExpired:

@@ -45,7 +45,9 @@ def cost(snapshot, side, notional):
     full = snapshot["data"]
     mid = (float(full["levels"][0][0]["px"]) + float(full["levels"][1][0]["px"])) / 2
     c = walk_cost(full, side, notional, mid)
-    return c if math.isfinite(c) or not all(snapshot["agg"]["levels"]) else walk_cost(snapshot["agg"], side, notional, mid)
+    return (
+        c if math.isfinite(c) or not all(snapshot["agg"]["levels"]) else walk_cost(snapshot["agg"], side, notional, mid)
+    )
 
 
 def costs_by_cell(polls):
@@ -74,8 +76,14 @@ def calibrate_and_validate(cells):
         excess = float(np.median(q - finite)) if len(finite) and math.isfinite(q) else math.inf
         q90 = float(np.sort(test)[math.ceil(0.9 * len(test)) - 1]) if len(test) else math.inf
         report[f"{coin}:{side}:{size}"] = {
-            "n_cal": int(k), "n_test": int(len(test)), "model_bps": q, "coverage": coverage,
-            "median_excess_bps": excess, "test_q90_bps": q90, "model_above_test_q90_bps": q - q90, "test_median_bps": float(np.median(finite)) if len(finite) else math.inf,
+            "n_cal": int(k),
+            "n_test": int(len(test)),
+            "model_bps": q,
+            "coverage": coverage,
+            "median_excess_bps": excess,
+            "test_q90_bps": q90,
+            "model_above_test_q90_bps": q - q90,
+            "test_median_bps": float(np.median(finite)) if len(finite) else math.inf,
             "calibration_span": [times[0], times[k - 1]] if k else None,
         }
     return model, report
@@ -104,7 +112,19 @@ def calibrate(live_dir, sources_dir, model_out, report_out, oci_dir=None):
     model, report = calibrate_and_validate(costs_by_cell(polls))
     coins = json.loads((Path(__file__).resolve().parents[1] / "data" / "universe.json").read_text())["universe"]
     model, flagged = fill_missing(model, coins)
-    Path(model_out).write_text(json.dumps({"quantile": QUANTILE, "calibration_fraction": CALIBRATION,
-                                           "no_live_book_cellwise_max": flagged, "cost_bps_ex_fee": model,
-                                           "calibration_relative_range": relative_ranges(polls, report)}, indent=1) + "\n")
-    Path(report_out).write_text(json.dumps({"window": window, **contributions(hosts, polls), **report}, indent=1) + "\n")
+    Path(model_out).write_text(
+        json.dumps(
+            {
+                "quantile": QUANTILE,
+                "calibration_fraction": CALIBRATION,
+                "no_live_book_cellwise_max": flagged,
+                "cost_bps_ex_fee": model,
+                "calibration_relative_range": relative_ranges(polls, report),
+            },
+            indent=1,
+        )
+        + "\n"
+    )
+    Path(report_out).write_text(
+        json.dumps({"window": window, **contributions(hosts, polls), **report}, indent=1) + "\n"
+    )

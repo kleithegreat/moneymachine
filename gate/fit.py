@@ -72,26 +72,40 @@ def fit(data_root, version, coins):
     excess = (r.abs() - 5 * sigma_bar)[big]
     short = [c for c in coins if c not in long_enough]
     fund, prem = markets.store_funding(str(Path(data_root) / "store"), version, tuple(long_enough))
-    source = {"store": str(Path(data_root) / "store"), "version": version, "coins": coins, "short": short,
-              "block_hours": 168, "sha256": hashlib.sha256(np.ascontiguousarray(np.r_[fund, prem]).tobytes()).hexdigest()}
+    source = {
+        "store": str(Path(data_root) / "store"),
+        "version": version,
+        "coins": coins,
+        "short": short,
+        "block_hours": 168,
+        "sha256": hashlib.sha256(np.ascontiguousarray(np.r_[fund, prem]).tobytes()).hexdigest(),
+    }
     params = {
         "coins": coins,
         "fitted_on": {"version": version, "search_end": HOLDOUT_START, "short_history_coins": short},
-        "N2": {"garch": {k: per(garch, k) for k in ("omega", "alpha", "beta")}, "lambda": lam,
-               "funding": source},
-        "N3": {"regime": {"P": P.tolist(), "m": m.tolist(), "rho": [max(x, 0.0) for x in rho],
-                          "sigma": [float(sigma_bar[c]) if c in long_enough else float(np.median(sigma_bar[long_enough])) for c in coins],
-                          "p_jump": float(big[long_enough].to_numpy().mean()),
-                          "k_jump": float(np.nanmean(excess[long_enough].to_numpy()))},
-               "funding": source},
+        "N2": {"garch": {k: per(garch, k) for k in ("omega", "alpha", "beta")}, "lambda": lam, "funding": source},
+        "N3": {
+            "regime": {
+                "P": P.tolist(),
+                "m": m.tolist(),
+                "rho": [max(x, 0.0) for x in rho],
+                "sigma": [
+                    float(sigma_bar[c]) if c in long_enough else float(np.median(sigma_bar[long_enough])) for c in coins
+                ],
+                "p_jump": float(big[long_enough].to_numpy().mean()),
+                "k_jump": float(np.nanmean(excess[long_enough].to_numpy())),
+            },
+            "funding": source,
+        },
     }
     return params
 
 
-
 def write(data_root, version, out):
     """Fit to the search part of the store at `version`; returns the file's sha256 (the frozen hash)."""
-    coins = list(json.loads((Path(__file__).resolve().parents[1] / "venue/hyperliquid/rules.json").read_text())["coins"])
+    coins = list(
+        json.loads((Path(__file__).resolve().parents[1] / "venue/hyperliquid/rules.json").read_text())["coins"]
+    )
     text = json.dumps(fit(data_root, int(version), coins), indent=1, default=float) + "\n"
     Path(out).write_text(text)
     return hashlib.sha256(text.encode()).hexdigest()

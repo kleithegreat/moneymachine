@@ -40,9 +40,17 @@ def test_an_interrupted_run_resumes_where_it_stopped(tmp_path, monkeypatch):
     items = [{"name": f"p{i}", "program": "{}", "markets": ["A", "B"] if i % 2 else ["A"]} for i in range(150)]
     corpus = "".join(json.dumps(it) + "\n" for it in items)
     (tmp_path / d.CORPUS).write_text(corpus)
-    (tmp_path / d.MANIFEST).write_text(json.dumps({"corpus_sha256": d.sha(corpus), "seed": 1, "generated": 150, "minimum": 1,
-                                                   "markets": {"A": {"market_sha256": "a", "version": 1},
-                                                               "B": {"market_sha256": "b", "version": 1}}}))
+    (tmp_path / d.MANIFEST).write_text(
+        json.dumps(
+            {
+                "corpus_sha256": d.sha(corpus),
+                "seed": 1,
+                "generated": 150,
+                "minimum": 1,
+                "markets": {"A": {"market_sha256": "a", "version": 1}, "B": {"market_sha256": "b", "version": 1}},
+            }
+        )
+    )
     monkeypatch.setattr(d, "build", lambda: None)
     monkeypatch.setattr(d, "markets_of", lambda seed, work: {"A": work / "A", "B": work / "B"})
     monkeypatch.setattr(d, "market_hash", lambda root: root.name.lower())
@@ -64,6 +72,6 @@ def test_an_interrupted_run_resumes_where_it_stopped(tmp_path, monkeypatch):
     first = list(ran)
     ran.append("again")
     report = d.run(out, audit=tmp_path)
-    redone = ran[len(first) + 1:]
+    redone = ran[len(first) + 1 :]
     assert report == {"programs": 150, "runs": 225, "pass": True, "verdict_disagreements": 0, "run_disagreements": 0}
     assert not set(first) & set(redone) and len(first) + len(redone) == 5

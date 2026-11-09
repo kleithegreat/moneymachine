@@ -12,13 +12,15 @@ def launcher(tmp_path, busy, *stop):
     stubs = tmp_path / "stubs"
     stubs.mkdir()
     for name, code in (("claude", 0), ("pgrep", 0 if busy else 1)):
-        (stubs / name).write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/{name}.args\n'
-                                  f'echo "$TMPDIR $CLAUDE_CODE_TMPDIR $(test -d "$TMPDIR" && echo exists)" > {tmp_path}/{name}.env\nexit {code}\n')
+        (stubs / name).write_text(
+            f'#!/bin/sh\necho "$@" >> {tmp_path}/{name}.args\n'
+            f'echo "$TMPDIR $CLAUDE_CODE_TMPDIR $(test -d "$TMPDIR" && echo exists)" > {tmp_path}/{name}.env\nexit {code}\n'
+        )
         (stubs / name).chmod(0o755)
-    (stubs / "systemd-run").write_text(f'''#!/bin/sh
+    (stubs / "systemd-run").write_text(f"""#!/bin/sh
 echo "$@" >> {tmp_path}/systemd-run.args
 case " $* " in *" --scope "*) while [ "$1" != env ]; do shift; done; exec "$@";; esac
-''')
+""")
     (stubs / "systemd-run").chmod(0o755)
     (stubs / "nix").write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/nix.args\nshift 2\nexec "$@"\n')
     (stubs / "nix").chmod(0o755)
@@ -29,7 +31,11 @@ case " $* " in *" --scope "*) while [ "$1" != env ]; do shift; done; exec "$@";;
 
 def test_run_starts_a_named_session_and_logs_its_id(tmp_path):
     (start, exit_), args = launcher(tmp_path, busy=False), (tmp_path / "claude.args").read_text()
-    assert [start[1], exit_[1]] == ["start", "exit 0"] and start[2] == exit_[2] and start[3:] == ["sonnet", "stage 3 check"]
+    assert (
+        [start[1], exit_[1]] == ["start", "exit 0"]
+        and start[2] == exit_[2]
+        and start[3:] == ["sonnet", "stage 3 check"]
+    )
     assert f"-p --name builder: stage 3 check --model sonnet --permission-mode auto --session-id {start[2]} " in args
     assert (tmp_path / "nix.args").read_text().startswith(f"develop -c {tmp_path}/stubs/claude -p ")
     assert (tmp_path / f"data/builder/{start[2]}.out").exists()

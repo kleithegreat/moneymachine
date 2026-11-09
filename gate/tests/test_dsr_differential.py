@@ -12,10 +12,15 @@ def cases():
     for _ in range(1000):
         t = int(rng.integers(3, 4000))
         kind = rng.integers(4)
-        r = (rng.normal(rng.normal(0, 0.002), rng.uniform(0.001, 0.05), t) if kind == 0 else
-             rng.standard_t(rng.uniform(2.5, 10), t) * 0.01 + rng.normal(0, 0.001) if kind == 1 else
-             np.exp(rng.normal(0, rng.uniform(0.1, 2), t)) * 0.001 - 0.0005 if kind == 2 else
-             np.where(rng.random(t) < 0.02, rng.normal(0.2, 0.05, t), rng.normal(-0.001, 0.002, t)))
+        r = (
+            rng.normal(rng.normal(0, 0.002), rng.uniform(0.001, 0.05), t)
+            if kind == 0
+            else rng.standard_t(rng.uniform(2.5, 10), t) * 0.01 + rng.normal(0, 0.001)
+            if kind == 1
+            else np.exp(rng.normal(0, rng.uniform(0.1, 2), t)) * 0.001 - 0.0005
+            if kind == 2
+            else np.where(rng.random(t) < 0.02, rng.normal(0.2, 0.05, t), rng.normal(-0.001, 0.002, t))
+        )
         yield r, int(rng.integers(1, 5000))
     rng = np.random.default_rng(5)
     yield rng.normal(0.01, 0.02, 500), 1
@@ -53,7 +58,11 @@ def test_dsr_implementations_agree():
 
 
 def test_extreme_finite_returns_agree_without_overflow():
-    for r in (np.array([0.0, 0.0, 1e300, -1e300]), np.array([1e-300, 2e-300, 0.0, 5e-301]), np.r_[np.ones(50), 1 + 2e-16]):
+    for r in (
+        np.array([0.0, 0.0, 1e300, -1e300]),
+        np.array([1e-300, 2e-300, 0.0, 5e-301]),
+        np.r_[np.ones(50), 1 + 2e-16],
+    ):
         a, b = gate.dsr(r, 10), gpt_dsr.dsr(r, 10)
         assert np.isfinite(a) and abs(a - b) <= 1e-9, (r[:4], a, b)
 

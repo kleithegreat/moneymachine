@@ -14,17 +14,49 @@ from gate.kernel import MM
 REPO = Path(__file__).resolve().parents[2]
 _rng = np.random.default_rng(0)
 _F = np.where(_rng.random((2000, 11)) < 0.5, 1.25e-5, _rng.standard_t(3, (2000, 11)) * 3e-5)
-FUNDING = {"arrays": (_F, _F * 8 + _rng.normal(0, 1e-5, _F.shape)), "coins": [f"C{i}" for i in range(12)],
-           "short": ["C8"], "block_hours": 168}
+FUNDING = {
+    "arrays": (_F, _F * 8 + _rng.normal(0, 1e-5, _F.shape)),
+    "coins": [f"C{i}" for i in range(12)],
+    "short": ["C8"],
+    "block_hours": 168,
+}
 N2 = {"funding": FUNDING, "lambda": 0.5, "garch": {"omega": [4e-5] * 12, "alpha": [0.08] * 12, "beta": [0.9] * 12}}
-N3 = {"funding": FUNDING, "regime": {"P": [[0.98, 0.02], [0.05, 0.95]], "m": [0.7, 1.8], "rho": [0.3, 0.7],
-                                     "sigma": [0.02] * 12, "p_jump": 0.002, "k_jump": 0.05}}
+N3 = {
+    "funding": FUNDING,
+    "regime": {
+        "P": [[0.98, 0.02], [0.05, 0.95]],
+        "m": [0.7, 1.8],
+        "rho": [0.3, 0.7],
+        "sigma": [0.02] * 12,
+        "p_jump": 0.002,
+        "k_jump": 0.05,
+    },
+}
 
 
 def run_mm(root, strategy, tmp_path):
     trace = tmp_path / "t.jsonl"
-    r = subprocess.run([str(MM), "eval", str(strategy), "--campaign", "c", "--agent", "a", "--store", str(root / "store"),
-                        "--venue", str(root / "venue"), "--ledger", str(tmp_path / "l.sqlite"), "--trace", str(trace)], capture_output=True, text=True)
+    r = subprocess.run(
+        [
+            str(MM),
+            "eval",
+            str(strategy),
+            "--campaign",
+            "c",
+            "--agent",
+            "a",
+            "--store",
+            str(root / "store"),
+            "--venue",
+            str(root / "venue"),
+            "--ledger",
+            str(tmp_path / "l.sqlite"),
+            "--trace",
+            str(trace),
+        ],
+        capture_output=True,
+        text=True,
+    )
     assert r.returncode == 0, r.stdout + r.stderr
     return [json.loads(l) for l in trace.read_text().splitlines()]
 
@@ -36,8 +68,16 @@ def test_funding_passes_through_exactly(tmp_path, built_kernel):
     root = markets.write(tmp_path / "m", arrays, 0, {s: {"1000": 3.0, "10000": 5.0} for s in ("buy", "sell")})
     strategy = tmp_path / "s.json"
     weight = {"op": "mul", "args": [{"op": "sign", "args": [{"input": "premium"}]}, {"const": 0.15, "unit": "1"}]}
-    strategy.write_text(json.dumps({"dsl": 1, "name": "flip", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
-                                    "weight": weight}))
+    strategy.write_text(
+        json.dumps(
+            {
+                "dsl": 1,
+                "name": "flip",
+                "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+                "weight": weight,
+            }
+        )
+    )
     trace = run_mm(root, strategy, tmp_path)
     fills = [e for e in trace if e["type"] == "fill"]
     funding = [e for e in trace if e["type"] == "funding"]
@@ -81,10 +121,35 @@ def test_event_series_reach_the_kernel(tmp_path, built_kernel):
     events = {"arrays": counts, "coins": [0, 3], "block_hours": 24}
     arrays = markets.generate("N1", None, "events", days=30, events=events)
     root = markets.write(tmp_path / "m", arrays, 0, {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")})
-    w = {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
-        {"op": "mean", "args": [{"input": "forum_posts"}], "hours": 24}, {"const": 0.3, "unit": "ev"}]}]}, {"const": 0.1, "unit": "1"}]}
+    w = {
+        "op": "mul",
+        "args": [
+            {
+                "op": "sign",
+                "args": [
+                    {
+                        "op": "sub",
+                        "args": [
+                            {"op": "mean", "args": [{"input": "forum_posts"}], "hours": 24},
+                            {"const": 0.3, "unit": "ev"},
+                        ],
+                    }
+                ],
+            },
+            {"const": 0.1, "unit": "1"},
+        ],
+    }
     s = tmp_path / "s.json"
-    s.write_text(json.dumps({"dsl": 1, "name": "ev", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"}, "weight": w}))
+    s.write_text(
+        json.dumps(
+            {
+                "dsl": 1,
+                "name": "ev",
+                "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+                "weight": w,
+            }
+        )
+    )
     trace = run_mm(root, s, tmp_path)
     coins = {e["coin"] for e in trace if e["type"] == "fill"}
     assert coins and coins <= {"S0", "S3"}
@@ -97,8 +162,12 @@ def test_store_events_reads_the_search_part_on_common_coverage(tmp_path):
     from ingest.store import stores, write_split
 
     hours = list(range(HOLDOUT_START - 10 * H, HOLDOUT_START + 5 * H, H))
-    rows = [(c, t, float(i + 10 * (c == "AAVE"))) for c in ("BTC", "AAVE") for i, t in enumerate(hours)
-            if not (c == "AAVE" and t < HOLDOUT_START - 6 * H)]
+    rows = [
+        (c, t, float(i + 10 * (c == "AAVE")))
+        for c in ("BTC", "AAVE")
+        for i, t in enumerate(hours)
+        if not (c == "AAVE" and t < HOLDOUT_START - 6 * H)
+    ]
     df = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "count": pl.Float64}, orient="row")
     search, holdout = stores(tmp_path)
     write_split(search, holdout, "events_forum", df, 5, "t")

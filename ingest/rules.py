@@ -18,38 +18,73 @@ def build(info, coins, today):
         "venue": "hyperliquid",
         "fetched": today,
         "rules": {
-            "taker_fee": {"value": 0.00045, "source": f"{DOCS}/trading/fees", "effective_from": today,
-                          "flag": "base tier was 0.035% before an undated change; the higher 0.045% is applied to all of W"},
-            "maker_fee": {"value": 0.00015, "source": f"{DOCS}/trading/fees", "effective_from": today,
-                          "flag": unknown_history},
-            "funding_interval_ms": {"value": 3_600_000, "source": f"{DOCS}/trading/funding", "effective_from": today,
-                                    "flag": "fundingHistory is hourly from 2023-05; checked in data"},
-            "funding_convention": {"value": "payment = size * oracle_price * rate; rate > 0 means longs pay shorts",
-                                   "source": f"{DOCS}/trading/funding", "effective_from": today},
-            "funding_cap_per_hour": {"value": 0.04, "source": f"{DOCS}/trading/funding", "effective_from": today,
-                                     "flag": unknown_history},
-            "min_order_notional_usd": {"value": 10.0, "source": f"{DOCS}/for-developers/api/error-responses",
-                                       "effective_from": today, "flag": unknown_history,
-                                       "note": "reduce-only orders that exactly close a position are exempt"},
-            "size_rounding": {"value": "truncate toward zero to szDecimals",
-                              "source": f"{DOCS}/for-developers/api/tick-and-lot-size", "effective_from": today},
-            "maintenance_margin": {"value": "1 / (2 * maxLeverage of the margin tier containing the position notional)",
-                                   "source": f"{DOCS}/trading/liquidations", "effective_from": today,
-                                   "flag": unknown_history},
-            "liquidation_trigger": {"value": "account equity at mark < total maintenance margin (cross)",
-                                    "source": f"{DOCS}/trading/liquidations", "effective_from": today,
-                                    "flag": "historical marks unavailable; evaluator uses each bar's adverse extreme"},
+            "taker_fee": {
+                "value": 0.00045,
+                "source": f"{DOCS}/trading/fees",
+                "effective_from": today,
+                "flag": "base tier was 0.035% before an undated change; the higher 0.045% is applied to all of W",
+            },
+            "maker_fee": {
+                "value": 0.00015,
+                "source": f"{DOCS}/trading/fees",
+                "effective_from": today,
+                "flag": unknown_history,
+            },
+            "funding_interval_ms": {
+                "value": 3_600_000,
+                "source": f"{DOCS}/trading/funding",
+                "effective_from": today,
+                "flag": "fundingHistory is hourly from 2023-05; checked in data",
+            },
+            "funding_convention": {
+                "value": "payment = size * oracle_price * rate; rate > 0 means longs pay shorts",
+                "source": f"{DOCS}/trading/funding",
+                "effective_from": today,
+            },
+            "funding_cap_per_hour": {
+                "value": 0.04,
+                "source": f"{DOCS}/trading/funding",
+                "effective_from": today,
+                "flag": unknown_history,
+            },
+            "min_order_notional_usd": {
+                "value": 10.0,
+                "source": f"{DOCS}/for-developers/api/error-responses",
+                "effective_from": today,
+                "flag": unknown_history,
+                "note": "reduce-only orders that exactly close a position are exempt",
+            },
+            "size_rounding": {
+                "value": "truncate toward zero to szDecimals",
+                "source": f"{DOCS}/for-developers/api/tick-and-lot-size",
+                "effective_from": today,
+            },
+            "maintenance_margin": {
+                "value": "1 / (2 * maxLeverage of the margin tier containing the position notional)",
+                "source": f"{DOCS}/trading/liquidations",
+                "effective_from": today,
+                "flag": unknown_history,
+            },
+            "liquidation_trigger": {
+                "value": "account equity at mark < total maintenance margin (cross)",
+                "source": f"{DOCS}/trading/liquidations",
+                "effective_from": today,
+                "flag": "historical marks unavailable; evaluator uses each bar's adverse extreme",
+            },
         },
         "coins": {
-            c: {"szDecimals": assets[c]["szDecimals"], "maxLeverage": assets[c]["maxLeverage"],
+            c: {
+                "szDecimals": assets[c]["szDecimals"],
+                "maxLeverage": assets[c]["maxLeverage"],
                 "marginTiers": tables[assets[c]["marginTableId"]]["marginTiers"]
-                if assets[c].get("marginTableId") in tables else [{"lowerBound": "0.0", "maxLeverage": assets[c]["maxLeverage"]}],
+                if assets[c].get("marginTableId") in tables
+                else [{"lowerBound": "0.0", "maxLeverage": assets[c]["maxLeverage"]}],
                 "delisted": bool(assets[c].get("isDelisted")),
-                "flag": unknown_history}
+                "flag": unknown_history,
+            }
             for c in coins
         },
     }
-
 
 
 def write(data_root, out):

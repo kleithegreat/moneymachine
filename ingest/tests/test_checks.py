@@ -7,12 +7,22 @@ from ingest.store import known_at
 from ingest.tests.test_store import market_store
 
 
-
 def frames(hours, skip_funding=(), skip_bars=()):
-    f = funding_frame([{"coin": "A", "time": h * HOUR + 40, "fundingRate": "0.0000125", "premium": "0.0"}
-                       for h in range(hours) if h not in skip_funding])
-    b = bar_frame([{"s": "A", "t": t, "o": "1", "h": "2", "l": "0.5", "c": "1.5", "v": "3", "n": 1}
-                   for t in range(0, hours * HOUR, BAR) if t not in skip_bars], fetched_at=10**15)
+    f = funding_frame(
+        [
+            {"coin": "A", "time": h * HOUR + 40, "fundingRate": "0.0000125", "premium": "0.0"}
+            for h in range(hours)
+            if h not in skip_funding
+        ]
+    )
+    b = bar_frame(
+        [
+            {"s": "A", "t": t, "o": "1", "h": "2", "l": "0.5", "c": "1.5", "v": "3", "n": 1}
+            for t in range(0, hours * HOUR, BAR)
+            if t not in skip_bars
+        ],
+        fetched_at=10**15,
+    )
     return f, b
 
 
@@ -48,6 +58,14 @@ def test_replay_view_matches_keys(tmp_path):
 
 
 def test_late_settlement_delays_known_at():
-    on_time, late = funding_frame([{"coin": "A", "time": 5 * HOUR + 48, "fundingRate": "0", "premium": "0"},
-                                   {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"}]).select(known_at("funding", POLICY)).to_series()
+    on_time, late = (
+        funding_frame(
+            [
+                {"coin": "A", "time": 5 * HOUR + 48, "fundingRate": "0", "premium": "0"},
+                {"coin": "A", "time": 6 * HOUR + 887_645, "fundingRate": "0", "premium": "0"},
+            ]
+        )
+        .select(known_at("funding", POLICY))
+        .to_series()
+    )
     assert on_time == 5 * HOUR + DELTA and late == 6 * HOUR + 887_645 + 60_000

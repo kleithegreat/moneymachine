@@ -55,8 +55,13 @@ def reduce(lines):
         if not bids or not asks:
             continue
         mid = (float(bids[0]["px"]) + float(asks[0]["px"])) / 2
-        out.append((book["time"], mid, {f"{side}:{size}": walk_cost(book, side, size, mid) for side in ("buy", "sell")
-                                        for size in SIZES}))
+        out.append(
+            (
+                book["time"],
+                mid,
+                {f"{side}:{size}": walk_cost(book, side, size, mid) for side in ("buy", "sell") for size in SIZES},
+            )
+        )
     return out
 
 
@@ -82,7 +87,9 @@ def fetch(out_dir, coins, hours=HOURS, window=None, client=None):
                 if path.exists():
                     continue
                 try:
-                    obj = client.get_object(Bucket=BUCKET, Key=f"market_data/{d}/{h}/l2Book/{coin}.lz4", RequestPayer="requester")
+                    obj = client.get_object(
+                        Bucket=BUCKET, Key=f"market_data/{d}/{h}/l2Book/{coin}.lz4", RequestPayer="requester"
+                    )
                 except client.exceptions.NoSuchKey:
                     continue
                 with io.TextIOWrapper(lz4.frame.open(obj["Body"]), encoding="utf-8") as lines:
@@ -127,10 +134,16 @@ def coin_report(coin, out_dir, table):
         entry = table[coin][side][size]
         groups = defaultdict(list)
         for d, chunks in by_day.items():
-            for g in ("all", f"vol-{'low' if rv.get(d, math.inf) <= cuts[0] else 'mid' if rv.get(d, math.inf) <= cuts[1] else 'high'}",
-                      f"{d[:4]}Q{(int(d[4:6]) - 1) // 3 + 1}"):
+            for g in (
+                "all",
+                f"vol-{'low' if rv.get(d, math.inf) <= cuts[0] else 'mid' if rv.get(d, math.inf) <= cuts[1] else 'high'}",
+                f"{d[:4]}Q{(int(d[4:6]) - 1) // 3 + 1}",
+            ):
                 groups[g] += chunks
-        out[f"{coin}:{cell}"] = {"table": entry, **{g: summary(np.concatenate(cs), entry) for g, cs in sorted(groups.items())}}
+        out[f"{coin}:{cell}"] = {
+            "table": entry,
+            **{g: summary(np.concatenate(cs), entry) for g, cs in sorted(groups.items())},
+        }
     return out
 
 
@@ -138,9 +151,12 @@ def summary(costs, entry):
     c = np.asarray(costs, dtype=float)
     costed = c[np.isfinite(c)]
     q = float(np.quantile(costed, QUANTILE, method="higher")) if len(costed) else None
-    return {"snapshots": len(c), "censored": float(np.mean(~np.isfinite(c))),
-            "above_table": float(np.mean(costed > entry)) if len(costed) else None,
-            "quantile_over_table": q / entry if q is not None and entry > 0 else None}
+    return {
+        "snapshots": len(c),
+        "censored": float(np.mean(~np.isfinite(c))),
+        "above_table": float(np.mean(costed > entry)) if len(costed) else None,
+        "quantile_over_table": q / entry if q is not None and entry > 0 else None,
+    }
 
 
 def archived(out_dir, coin, window):
@@ -166,8 +182,16 @@ def live(live_dirs, coins, window):
                     continue
                 book = p["data"]
                 mid = (float(book["levels"][0][0]["px"]) + float(book["levels"][1][0]["px"])) / 2
-                out[p["coin"]].append((book["time"], {f"{side}:{size}": walk_cost(book, side, size, mid)
-                                                      for side in ("buy", "sell") for size in SIZES}))
+                out[p["coin"]].append(
+                    (
+                        book["time"],
+                        {
+                            f"{side}:{size}": walk_cost(book, side, size, mid)
+                            for side in ("buy", "sell")
+                            for size in SIZES
+                        },
+                    )
+                )
     return out
 
 
@@ -194,16 +218,26 @@ def equivalence(archive_dir, live_dirs, coins):
             if near is not None and abs(times[near] - t) <= MATCH_MS:
                 pairs.append((costs, arch[near][1]))
         cells = {}
-        for cell in (snaps[0][1] if snaps else {}):
+        for cell in snaps[0][1] if snaps else {}:
             both = [(l[cell], a[cell]) for l, a in pairs]
             censoring = float(np.mean([math.isinf(x) == math.isinf(y) for x, y in both])) if both else 0.0
             costed = [(x, y) for x, y in both if math.isfinite(x) and math.isfinite(y)]
             cost = float(np.mean([agree(y, x) for x, y in costed])) if costed else 1.0
-            cells[cell] = {"pairs": len(both), "censoring_agree": censoring, "costed": len(costed), "cost_agree": cost,
-                           "pass": censoring >= AGREE and cost >= AGREE}
+            cells[cell] = {
+                "pairs": len(both),
+                "censoring_agree": censoring,
+                "costed": len(costed),
+                "cost_agree": cost,
+                "pass": censoring >= AGREE and cost >= AGREE,
+            }
         matched = len(pairs) / len(snaps) if snaps else 0.0
-        out[coin] = {"live": len(snaps), "matched": len(pairs), "matched_share": matched, "cells": cells,
-                     "pass": matched >= MATCHED and bool(cells) and all(c["pass"] for c in cells.values())}
+        out[coin] = {
+            "live": len(snaps),
+            "matched": len(pairs),
+            "matched_share": matched,
+            "cells": cells,
+            "pass": matched >= MATCHED and bool(cells) and all(c["pass"] for c in cells.values()),
+        }
     return {"coins": out, "pass": all(c["pass"] for c in out.values())}
 
 
@@ -228,8 +262,13 @@ def table(archive_dir, coins, c07=REPO / "venue/hyperliquid/execution.json"):
     for k in kept:
         coin, side, size = k.split(":")
         model.setdefault(coin, {}).setdefault(side, {})[size] = frozen[coin][side][size]
-    return {"window": [str(TABLE[0]), str(TABLE[1])], "slot_ms": SLOT_MS, "cost_bps_ex_fee": model,
-            "kept_from_c07": kept, "validation": validation}
+    return {
+        "window": [str(TABLE[0]), str(TABLE[1])],
+        "slot_ms": SLOT_MS,
+        "cost_bps_ex_fee": model,
+        "kept_from_c07": kept,
+        "validation": validation,
+    }
 
 
 def main(step):
@@ -241,7 +280,10 @@ def main(step):
     store = REPO / "data/archive"
     if step == "equivalence":
         fetch(store / "equivalence", coins, range(24), EQUIVALENCE)
-        out, path = equivalence(store / "equivalence", [REPO / "data/live", *oci], coins), REPO / "audit/stage3/archive-equivalence.json"
+        out, path = (
+            equivalence(store / "equivalence", [REPO / "data/live", *oci], coins),
+            REPO / "audit/stage3/archive-equivalence.json",
+        )
     elif step == "table":
         check = json.loads((REPO / "audit/stage3/archive-equivalence.json").read_text())
         if not check["pass"]:

@@ -25,7 +25,8 @@ def stage0_version():
 VENUE = Path(os.environ.get("MM_VENUE", REPO / "venue" / "hyperliquid"))
 pytestmark = pytest.mark.skipif(
     stage0_version() is None or not (VENUE / "execution.json").exists(),
-    reason="needs the stage 0 backfill in data/ and the C0.7 execution model")
+    reason="needs the stage 0 backfill in data/ and the C0.7 execution model",
+)
 
 
 KINDS = ("equity", "decision", "hold", "fill", "liquidation", "delisting", "unfilled", "funding")
@@ -42,9 +43,28 @@ def steps(events):
 def test_kernel_matches_witness(tmp_path, built_kernel):
     version = stage0_version()
     out = tmp_path / "trace.jsonl"
-    r = subprocess.run([str(MM), "eval", str(REPO / "kernel/strategies/w0.json"), "--campaign", "stage1-differential",
-                        "--agent", "test", "--version", str(version), "--trace", str(out), "--venue", str(VENUE),
-                        "--ledger", str(tmp_path / "l.sqlite")], cwd=REPO, capture_output=True, text=True)
+    r = subprocess.run(
+        [
+            str(MM),
+            "eval",
+            str(REPO / "kernel/strategies/w0.json"),
+            "--campaign",
+            "stage1-differential",
+            "--agent",
+            "test",
+            "--version",
+            str(version),
+            "--trace",
+            str(out),
+            "--venue",
+            str(VENUE),
+            "--ledger",
+            str(tmp_path / "l.sqlite"),
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
     assert r.returncode == 0, r.stderr
     kernel = [json.loads(l) for l in out.read_text().splitlines()]
     py, worst = witness.run(REPO / "data", version, VENUE)

@@ -18,8 +18,10 @@ FORUMS = ["delvingbitcoin.org"]
 SPACES = ["aavedao.eth"]
 HUB = "https://hub.snapshot.org/graphql"
 POLL = 240
-QUERY = ('{ proposals(first: 20, where: {space: "%s"}, orderBy: "created", orderDirection: desc) '
-         '{ id created updated start end state author ipfs } }')
+QUERY = (
+    '{ proposals(first: 20, where: {space: "%s"}, orderBy: "created", orderDirection: desc) '
+    "{ id created updated start end state author ipfs } }"
+)
 
 
 def kernel_clock():
@@ -41,8 +43,7 @@ def main(out_dir):
     while not stop.is_set():
         started = time.time()
         jobs = [("discourse", f, lambda f=f: reply(http.get(f"https://{f}/posts.json"))) for f in FORUMS]
-        jobs += [("snapshot", s, lambda s=s: reply(http.post(HUB, json={"query": QUERY % s})))
-                 for s in SPACES]
+        jobs += [("snapshot", s, lambda s=s: reply(http.post(HUB, json={"query": QUERY % s}))) for s in SPACES]
         jobs += [("clock", "kernel", kernel_clock)]
         for source, key, request in jobs:
             if stop.is_set():
@@ -51,11 +52,22 @@ def main(out_dir):
             try:
                 data = request()
                 if source == "discourse" and "latest_posts" in data:
-                    keep = ("id", "topic_id", "post_number", "created_at", "updated_at", "version", "deleted_at", "hidden")
-                    data = [{k: p.get(k) for k in keep} | {"cooked_sha256": hashlib.sha256(p.get("cooked", "").encode()).hexdigest()}
-                            for p in data["latest_posts"]]
+                    keep = (
+                        "id",
+                        "topic_id",
+                        "post_number",
+                        "created_at",
+                        "updated_at",
+                        "version",
+                        "deleted_at",
+                        "hidden",
+                    )
+                    data = [
+                        {k: p.get(k) for k in keep}
+                        | {"cooked_sha256": hashlib.sha256(p.get("cooked", "").encode()).hexdigest()}
+                        for p in data["latest_posts"]
+                    ]
             except Exception as e:
                 data = {"error": repr(e)}
             append(out, "sources", sent, {"source": source, "key": key, "sent": sent, "recv": now_ms(), "data": data})
         stop.wait(max(0, POLL - (time.time() - started)))
-

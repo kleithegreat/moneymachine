@@ -18,10 +18,13 @@ def stats(arrays):
     z = (e - e.mean(0)) / e.std(0)
     c = np.corrcoef(e.T)
     a = np.abs(e)
-    return {"mean_abs_eps": float(a.mean()), "kurtosis": float((z**4).mean()),
-            "acf1_abs_eps": float(np.mean([np.corrcoef(a[:-1, i], a[1:, i])[0, 1] for i in range(e.shape[1])])),
-            "cross_corr": float(c[np.triu_indices_from(c, 1)].mean()),
-            "funding_ar": float(np.mean([np.polyfit(f[:-1, i], f[1:, i], 1)[0] for i in range(f.shape[1])]))}
+    return {
+        "mean_abs_eps": float(a.mean()),
+        "kurtosis": float((z**4).mean()),
+        "acf1_abs_eps": float(np.mean([np.corrcoef(a[:-1, i], a[1:, i])[0, 1] for i in range(e.shape[1])])),
+        "cross_corr": float(c[np.triu_indices_from(c, 1)].mean()),
+        "funding_ar": float(np.mean([np.polyfit(f[:-1, i], f[1:, i], 1)[0] for i in range(f.shape[1])])),
+    }
 
 
 def run(out):
@@ -34,5 +37,9 @@ def run(out):
         n = YEARS * 365 // MARKET_DAYS
         ours = [markets.generate(model, p, f"c22-ours-{model}-{i}", MARKET_DAYS) for i in range(n)]
         theirs = [gpt_nulls.generate(model, p, F, P, short, 1000 + i, MARKET_DAYS) for i in range(n)]
-        report[model] = {"ours": stats(ours), "gpt": stats(theirs), "gpt_regression_min_p": min(probes.pooled_pvalues(theirs))}
+        report[model] = {
+            "ours": stats(ours),
+            "gpt": stats(theirs),
+            "gpt_regression_min_p": min(probes.pooled_pvalues(theirs)),
+        }
     Path(out).write_text(json.dumps(report, indent=1))

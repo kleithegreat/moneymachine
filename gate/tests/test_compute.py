@@ -73,19 +73,35 @@ if __name__ == '__main__':
     params = markets.null_params().get(model)
     if params:
         funding = np.arange(48 * 12).reshape(48, 12)
-        params["funding"] = {"arrays": [(funding / 1e7).tolist(), (funding / 1e5).tolist()],
-                             "coins": [f"S{i}" for i in range(12)], "block_hours": 24}
-    spec = {"id": f"start-method-{model}", "model": model, "params": params, "searcher": "G10", "days": 40,
-            "holdout_days": 10, "planted": [0, 1], "beta": 0.01, "cost_cells": markets.FLAT_COST,
-            "events": {"arrays": np.arange(300).reshape(-1, 1).tolist(), "coins": [0], "block_hours": 24}}
+        params["funding"] = {
+            "arrays": [(funding / 1e7).tolist(), (funding / 1e5).tolist()],
+            "coins": [f"S{i}" for i in range(12)],
+            "block_hours": 24,
+        }
+    spec = {
+        "id": f"start-method-{model}",
+        "model": model,
+        "params": params,
+        "searcher": "G10",
+        "days": 40,
+        "holdout_days": 10,
+        "planted": [0, 1],
+        "beta": 0.01,
+        "cost_cells": markets.FLAT_COST,
+        "events": {"arrays": np.arange(300).reshape(-1, 1).tolist(), "coins": [0], "block_hours": 24},
+    }
     source, program = tmp_path / "spec.json", tmp_path / "compare.py"
     source.write_text(json.dumps(spec))
     program.write_text(script)
     results, ledgers = [], []
     for method in ("fork", "forkserver"):
         out = tmp_path / method
-        subprocess.run([sys.executable, str(program), str(source), method, str(out)], check=True, timeout=60,
-                       env={**os.environ, "PYTHONPATH": str(kernel.REPO)})
+        subprocess.run(
+            [sys.executable, str(program), str(source), method, str(out)],
+            check=True,
+            timeout=60,
+            env={**os.environ, "PYTHONPATH": str(kernel.REPO)},
+        )
         result = json.loads((out / "result.json").read_text())
         assert "crash" not in result, result.get("crash")
         results.append({k: v for k, v in result.items() if k != "seconds"})

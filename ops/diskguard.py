@@ -7,15 +7,22 @@ import sys
 import time
 from pathlib import Path
 
-VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data/datalayer", "thesis": "data/thesis",
-           "agent": "data/agent"}
+VOLUMES = {
+    "hl": "data/live",
+    "sources": "data/sources_live",
+    "datalayer": "data/datalayer",
+    "thesis": "data/thesis",
+    "agent": "data/agent",
+}
 MAX_AGE = 30 * 60
 
 
 def capacity(path):
     s = os.statvfs(path)
-    return {"bytes": {"free": s.f_bavail * s.f_frsize, "total": s.f_blocks * s.f_frsize},
-            "inodes": {"free": s.f_favail, "total": s.f_files}}
+    return {
+        "bytes": {"free": s.f_bavail * s.f_frsize, "total": s.f_blocks * s.f_frsize},
+        "inodes": {"free": s.f_favail, "total": s.f_files},
+    }
 
 
 def problems(sample):
@@ -58,8 +65,11 @@ def main(data=Path("data"), mirror=Path("/srv/moneymachine/mirror")):
         return 0
     body = "\n".join(alarms) + "\nAdd capacity or remove only regenerable data; never delete recordings."
     print(body, file=sys.stderr)
-    subprocess.run(["notify-send", "--urgency=critical", "--expire-time=0",
-                    "moneymachine: recording capacity alarm", body], check=True, timeout=10)
+    subprocess.run(
+        ["notify-send", "--urgency=critical", "--expire-time=0", "moneymachine: recording capacity alarm", body],
+        check=True,
+        timeout=10,
+    )
     return 1
 
 

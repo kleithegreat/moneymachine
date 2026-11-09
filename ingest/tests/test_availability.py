@@ -36,9 +36,25 @@ def test_a_late_boundary_poll_restarts_the_window(tmp_path):
     b = t0 + HOUR
     with open(tmp_path / "polls-x.jsonl", "a") as f:
         for recv in (b + 5_000, b + 45_001):
-            f.write(json.dumps({"kind": "funding", "coin": "A", "boundary": b, "purpose": "first", "sent": recv, "recv": recv}) + "\n")
-        f.write(json.dumps({"kind": "funding", "coin": "A", "boundary": b + HOUR, "purpose": "first",
-                            "sent": b + HOUR + 35_000, "recv": b + HOUR + 35_000}) + "\n")
+            f.write(
+                json.dumps(
+                    {"kind": "funding", "coin": "A", "boundary": b, "purpose": "first", "sent": recv, "recv": recv}
+                )
+                + "\n"
+            )
+        f.write(
+            json.dumps(
+                {
+                    "kind": "funding",
+                    "coin": "A",
+                    "boundary": b + HOUR,
+                    "purpose": "first",
+                    "sent": b + HOUR + 35_000,
+                    "recv": b + HOUR + 35_000,
+                }
+            )
+            + "\n"
+        )
     assert availability.window(tmp_path, tmp_path, after=t0) == (b + 45_001, b + 45_001 + SPAN)
 
 
@@ -49,15 +65,20 @@ def test_a_clock_log_gap_restarts_the_window(tmp_path):
     readings = [t0 - 300_000, t0 + 200_000] + list(range(restart, t0 + 2 * SPAN, 300_000))
     with open(tmp_path / "sources-x.jsonl", "w") as f:
         for t in readings:
-            f.write(json.dumps({"source": "clock", "key": "timesyncd", "sent": t, "recv": t, "data": {"offset_ms": 1.5}}) + "\n")
+            f.write(
+                json.dumps({"source": "clock", "key": "timesyncd", "sent": t, "recv": t, "data": {"offset_ms": 1.5}})
+                + "\n"
+            )
     assert availability.window(tmp_path, tmp_path, after=t0) == (restart, restart + SPAN)
 
 
 def test_a_bar_is_observed_once_its_close_has_passed_without_waiting_for_the_next_bar():
     b = 10 * SPAN
     bar = {"t": b - BAR, "o": "1", "h": "2", "l": "0.5", "c": "1.5", "v": "9", "n": 3}
-    polls = [{"kind": "bar", "coin": "A", "boundary": b, "purpose": p, "sent": t, "recv": t, "data": [bar]}
-             for p, t in (("first", b + 5_000), ("verify", b + 600_000))]
+    polls = [
+        {"kind": "bar", "coin": "A", "boundary": b, "purpose": p, "sent": t, "recv": t, "data": [bar]}
+        for p, t in (("first", b + 5_000), ("verify", b + 600_000))
+    ]
     out = availability.analyze(polls)
     assert out["failures"] == [] and out["first_observed_lag_ms"]["max"] == 5_000
 
@@ -79,31 +100,53 @@ def host(root, l2=(), boundary=(), clock=()):
         for coin, t in l2:
             f.write(json.dumps({"kind": "l2", "coin": coin, "sent": t, "recv": t}) + "\n")
         for kind, coin, b, purpose, t in boundary:
-            f.write(json.dumps({"kind": kind, "coin": coin, "boundary": b, "purpose": purpose, "sent": t, "recv": t}) + "\n")
+            f.write(
+                json.dumps({"kind": kind, "coin": coin, "boundary": b, "purpose": purpose, "sent": t, "recv": t}) + "\n"
+            )
     with open(root / "sources-x.jsonl", "w") as f:
         for i, t in enumerate(clock):
-            f.write(json.dumps({"source": "clock", "key": "timesyncd", "sent": t, "recv": t, "data": {"offset_ms": 1.5 + i % 2}}) + "\n")
+            f.write(
+                json.dumps(
+                    {"source": "clock", "key": "timesyncd", "sent": t, "recv": t, "data": {"offset_ms": 1.5 + i % 2}}
+                )
+                + "\n"
+            )
     return root, root
 
 
 def test_merge_keeps_one_snapshot_per_slot_preferring_the_first_host_and_drops_unclocked_polls(tmp_path):
     clock = list(range(0, 2 * SPAN, 300_000))
     local = host(tmp_path / "local", [("A", 1_000), ("A", 31_000)], clock=clock)
-    oci = host(tmp_path / "oci", [("A", 2_000), ("A", 61_000), ("A", 2 * SPAN + 10 * availability.CLOCK_SLACK)], clock=clock)
+    oci = host(
+        tmp_path / "oci", [("A", 2_000), ("A", 61_000), ("A", 2 * SPAN + 10 * availability.CLOCK_SLACK)], clock=clock
+    )
     polls = availability.merge([("local", *local), ("oci", *oci)])
     assert sorted((p["host"], p["sent"]) for p in polls) == [("local", 1_000), ("local", 31_000), ("oci", 61_000)]
 
 
 def test_each_boundary_comes_from_the_first_host_whose_polls_are_complete(tmp_path):
     b, clock = 10 * SPAN, list(range(10 * SPAN - 600_000, 10 * SPAN + 3_600_000, 300_000))
-    local = host(tmp_path / "local", boundary=[("funding", "A", b, "first", b + 5_000), ("funding", "A", b, "first", b + 45_000),
-                                              ("funding", "A", b, "verify", b + 600_000)], clock=clock)
-    oci = host(tmp_path / "oci", boundary=[("funding", "A", b, "first", b + 9_000), ("funding", "A", b, "verify", b + 600_000)],
-               clock=clock)
+    local = host(
+        tmp_path / "local",
+        boundary=[
+            ("funding", "A", b, "first", b + 5_000),
+            ("funding", "A", b, "first", b + 45_000),
+            ("funding", "A", b, "verify", b + 600_000),
+        ],
+        clock=clock,
+    )
+    oci = host(
+        tmp_path / "oci",
+        boundary=[("funding", "A", b, "first", b + 9_000), ("funding", "A", b, "verify", b + 600_000)],
+        clock=clock,
+    )
     polls = availability.merge([("local", *local), ("oci", *oci)])
     assert {p["host"] for p in polls} == {"oci"}
-    complete_local = host(tmp_path / "local2", boundary=[("funding", "A", b, "first", b + 30_000), ("funding", "A", b, "verify", b + 600_000)],
-                          clock=clock)
+    complete_local = host(
+        tmp_path / "local2",
+        boundary=[("funding", "A", b, "first", b + 30_000), ("funding", "A", b, "verify", b + 600_000)],
+        clock=clock,
+    )
     assert {p["host"] for p in availability.merge([("local", *complete_local), ("oci", *oci)])} == {"local"}
 
 
@@ -113,8 +156,11 @@ def test_the_merged_window_starts_at_the_threshold_and_bridges_a_local_outage(tm
     steady = range(t0 - SPAN, t0 + 2 * SPAN, S)
     clock = list(range(t0 - SPAN, t0 + 2 * SPAN, 300_000))
     outage = (t0 + HOUR, t0 + 3 * HOUR)
-    local = host(tmp_path / "local", [("A", t) for t in steady if not outage[0] < t < outage[1]],
-                 clock=[t for t in clock if not outage[0] < t < outage[1]])
+    local = host(
+        tmp_path / "local",
+        [("A", t) for t in steady if not outage[0] < t < outage[1]],
+        clock=[t for t in clock if not outage[0] < t < outage[1]],
+    )
     host(tmp_path / "oci" / "live", [("A", t) for t in steady], clock=())
     host(tmp_path / "oci" / "clock", clock=clock)
     assert availability.window(*local, after=t0) != (t0, t0 + SPAN)

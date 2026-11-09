@@ -16,8 +16,12 @@ def main(data_root, audit_path):
     for f in sorted((Path(data_root) / "holdout").rglob("*.parquet")):
         rel = str(f.relative_to(data_root))
         if rel not in known:
-            entries.append({"path": rel, "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
-                            "recorded": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+            entries.append(
+                {
+                    "path": rel,
+                    "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
+                    "recorded": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }
+            )
     audit.parent.mkdir(exist_ok=True)
     audit.write_text(json.dumps(entries, indent=1) + "\n")
-

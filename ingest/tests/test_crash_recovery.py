@@ -80,7 +80,7 @@ def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path, mode,
     assert set(acks) <= set(indices)
     recover(MODULE, tmp_path)
     rows = list(live.read(tmp_path, prefix))
-    assert rows[:len(before)] == before
+    assert rows[: len(before)] == before
     assert all(path.read_bytes().startswith(raw) for path, raw in history.items())
     if prefix != "datalayer":
         assert rows == [observation(i) for i in range(COUNT)]

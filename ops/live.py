@@ -38,27 +38,89 @@ def token(key):
     return {"name": "CLAUDE_CODE_OAUTH_TOKEN", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}}}
 
 
-POOL = [{"name": f"CLAUDE_CODE_OAUTH_TOKEN_{account.upper()}", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}}}
-        for account, key in (("TAMU", "TAMU"), ("Cornell", CORNELL))]
+POOL = [
+    {
+        "name": f"CLAUDE_CODE_OAUTH_TOKEN_{account.upper()}",
+        "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}},
+    }
+    for account, key in (("TAMU", "TAMU"), ("Cornell", CORNELL))
+]
 PROC = "Unmasked"  # the runners' procMount, as the sandbox gate settled it
 
 # name: (kind, command, {volume: read-only}, runner, (cpu, memory request, memory limit), grace seconds, extra)
 WORKLOADS = {
-    "hl": ("StatefulSet", ["record", "data/live/universe.json", "venue/hyperliquid/rules.json", "data/live", "480"],
-           {"hl": False}, False, ("100m", "256Mi", "512Mi"), 300, {}),
-    "sources": ("StatefulSet", ["sources-record", "data/sources_live"], {"sources": False}, False,
-                ("100m", "256Mi", "512Mi"), 300, {}),
-    "datalayer": ("StatefulSet", ["datalayer-record", "data/datalayer"], {"datalayer": False}, False,
-                  ("100m", "256Mi", "512Mi"), 300, {"keys": True}),
-    "thesis": ("StatefulSet", ["thesis-run"], {"thesis": False, "datalayer": True}, "PERSONAL", ("500m", "2Gi", "4Gi"), 15_000, {}),
-    "agent-series": ("Job", ["agent-null", "swarm"], {"agent": False}, CORNELL, ("1", "3Gi", "6Gi"), 9_000,
-                     {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]}),
-    "agent-real": ("Job", ["agent-real", "data/agent/real", "1792613363942"], {"agent": False}, CORNELL, ("1", "3Gi", "6Gi"), 9_000,
-                   {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}], "once": True}),
-    "mirror": ("CronJob", ["ops/live.py", "mirror"], {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False}, False,
-               ("200m", "256Mi", "512Mi"), 600, {"schedule": "*/10 * * * *"}),
-    "mirror-verify": ("CronJob", ["ops/live.py", "verify"], {**{v: True for v in VOLUMES}, "mirror": True}, False,
-                      ("200m", "256Mi", "512Mi"), 600, {"schedule": "41 3 * * *"}),
+    "hl": (
+        "StatefulSet",
+        ["record", "data/live/universe.json", "venue/hyperliquid/rules.json", "data/live", "480"],
+        {"hl": False},
+        False,
+        ("100m", "256Mi", "512Mi"),
+        300,
+        {},
+    ),
+    "sources": (
+        "StatefulSet",
+        ["sources-record", "data/sources_live"],
+        {"sources": False},
+        False,
+        ("100m", "256Mi", "512Mi"),
+        300,
+        {},
+    ),
+    "datalayer": (
+        "StatefulSet",
+        ["datalayer-record", "data/datalayer"],
+        {"datalayer": False},
+        False,
+        ("100m", "256Mi", "512Mi"),
+        300,
+        {"keys": True},
+    ),
+    "thesis": (
+        "StatefulSet",
+        ["thesis-run"],
+        {"thesis": False, "datalayer": True},
+        "PERSONAL",
+        ("500m", "2Gi", "4Gi"),
+        15_000,
+        {},
+    ),
+    "agent-series": (
+        "Job",
+        ["agent-null", "swarm"],
+        {"agent": False},
+        CORNELL,
+        ("1", "3Gi", "6Gi"),
+        9_000,
+        {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]},
+    ),
+    "agent-real": (
+        "Job",
+        ["agent-real", "data/agent/real", "1792613363942"],
+        {"agent": False},
+        CORNELL,
+        ("1", "3Gi", "6Gi"),
+        9_000,
+        {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}], "once": True},
+    ),
+    "mirror": (
+        "CronJob",
+        ["ops/live.py", "mirror"],
+        {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False},
+        False,
+        ("200m", "256Mi", "512Mi"),
+        600,
+        {"schedule": "*/10 * * * *"},
+    ),
+    "mirror-verify": (
+        "CronJob",
+        ["ops/live.py", "verify"],
+        {**{v: True for v in VOLUMES}, "mirror": True},
+        False,
+        ("200m", "256Mi", "512Mi"),
+        600,
+        {"schedule": "41 3 * * *"},
+    ),
 }
 
 
@@ -72,61 +134,113 @@ def pod_spec(name, digest, command, volumes, runner, size, grace, extra, proc=PR
     the bubblewrap profiles and that token."""
     cpu, memory, limit = size
     mounts = [{"name": "tmp", "mountPath": "/tmp"}, {"name": "scratch", "mountPath": "/scratch"}]
-    mounts += [{"name": v, "mountPath": "/mirror" if v == "mirror" else f"{APP}/{VOLUMES[v]}", "readOnly": ro}
-               for v, ro in volumes.items()]
+    mounts += [
+        {"name": v, "mountPath": "/mirror" if v == "mirror" else f"{APP}/{VOLUMES[v]}", "readOnly": ro}
+        for v, ro in volumes.items()
+    ]
     vols = [{"name": n, "emptyDir": {"sizeLimit": "2Gi"}} for n in ("tmp", "scratch")]
     vols += [{"name": v, "persistentVolumeClaim": {"claimName": v}} for v in volumes]
     if extra.get("keys"):
         mounts.append({"name": "keys", "mountPath": f"{APP}/.keys.env", "subPath": ".keys.env", "readOnly": True})
         vols.append({"name": "keys", "secret": {"secretName": "datalayer-keys"}})
-    profile = ({"type": "Localhost", "localhostProfile": SECCOMP}, {"type": "Localhost", "localhostProfile": APPARMOR}) \
-        if runner else ({"type": "RuntimeDefault"}, {"type": "RuntimeDefault"})
+    profile = (
+        ({"type": "Localhost", "localhostProfile": SECCOMP}, {"type": "Localhost", "localhostProfile": APPARMOR})
+        if runner
+        else ({"type": "RuntimeDefault"}, {"type": "RuntimeDefault"})
+    )
     script = command[0].endswith(".py")
     return {
-        "serviceAccountName": "live", "automountServiceAccountToken": False, "enableServiceLinks": False,
-        "priorityClassName": NAMESPACE, "nodeSelector": {"kubernetes.io/hostname": NODE},
-        "terminationGracePeriodSeconds": grace, **({"hostUsers": False} if runner else {}),
-        "securityContext": {"runAsUser": 1000, "runAsGroup": 100, "fsGroup": 100, "runAsNonRoot": True,
-                            "seccompProfile": profile[0], "appArmorProfile": profile[1]},
-        "containers": [{
-            "name": name, "image": f"{jobs.REGISTRY}@{digest}", "workingDir": APP,
-            "command": ["python", *([] if script else ["-m", "cli"]), *command],
-            "env": [*([token(runner)] if runner else []), *extra.get("env", [])],
-            "resources": {"requests": {"cpu": cpu, "memory": memory}, "limits": {"memory": limit}},
-            "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
-                                "capabilities": {"drop": ["ALL"]}, **({"procMount": proc} if runner else {})},
-            "volumeMounts": mounts}],
-        "volumes": vols}
+        "serviceAccountName": "live",
+        "automountServiceAccountToken": False,
+        "enableServiceLinks": False,
+        "priorityClassName": NAMESPACE,
+        "nodeSelector": {"kubernetes.io/hostname": NODE},
+        "terminationGracePeriodSeconds": grace,
+        **({"hostUsers": False} if runner else {}),
+        "securityContext": {
+            "runAsUser": 1000,
+            "runAsGroup": 100,
+            "fsGroup": 100,
+            "runAsNonRoot": True,
+            "seccompProfile": profile[0],
+            "appArmorProfile": profile[1],
+        },
+        "containers": [
+            {
+                "name": name,
+                "image": f"{jobs.REGISTRY}@{digest}",
+                "workingDir": APP,
+                "command": ["python", *([] if script else ["-m", "cli"]), *command],
+                "env": [*([token(runner)] if runner else []), *extra.get("env", [])],
+                "resources": {"requests": {"cpu": cpu, "memory": memory}, "limits": {"memory": limit}},
+                "securityContext": {
+                    "allowPrivilegeEscalation": False,
+                    "readOnlyRootFilesystem": True,
+                    "capabilities": {"drop": ["ALL"]},
+                    **({"procMount": proc} if runner else {}),
+                },
+                "volumeMounts": mounts,
+            }
+        ],
+        "volumes": vols,
+    }
 
 
 def manifest(name, digest):
     kind, command, volumes, runner, size, grace, extra = WORKLOADS[name]
     meta = {"name": name, "labels": {"app": name}}
-    template = {"metadata": {"labels": {"app": name}}, "spec": pod_spec(name, digest, command, volumes, runner, size, grace, extra)}
+    template = {
+        "metadata": {"labels": {"app": name}},
+        "spec": pod_spec(name, digest, command, volumes, runner, size, grace, extra),
+    }
     if kind == "StatefulSet":
-        spec = {"replicas": 1, "serviceName": name, "selector": {"matchLabels": {"app": name}}, "template": template,
-                **({"updateStrategy": {"type": "OnDelete"}} if name == "thesis" else {})}
+        spec = {
+            "replicas": 1,
+            "serviceName": name,
+            "selector": {"matchLabels": {"app": name}},
+            "template": template,
+            **({"updateStrategy": {"type": "OnDelete"}} if name == "thesis" else {}),
+        }
     elif kind == "Job":
         once = extra.get("once")
         template["spec"]["restartPolicy"] = "Never" if once else "OnFailure"
         spec = {"backoffLimit": 0 if once else 20, "template": template}
     else:
         template["spec"]["restartPolicy"] = "Never"
-        spec = {"schedule": extra["schedule"], "concurrencyPolicy": "Forbid", "successfulJobsHistoryLimit": 1,
-                "jobTemplate": {"spec": {"backoffLimit": 0, "template": template}}}
-    return {"apiVersion": "batch/v1" if kind != "StatefulSet" else "apps/v1", "kind": kind, "metadata": meta, "spec": spec}
+        spec = {
+            "schedule": extra["schedule"],
+            "concurrencyPolicy": "Forbid",
+            "successfulJobsHistoryLimit": 1,
+            "jobTemplate": {"spec": {"backoffLimit": 0, "template": template}},
+        }
+    return {
+        "apiVersion": "batch/v1" if kind != "StatefulSet" else "apps/v1",
+        "kind": kind,
+        "metadata": meta,
+        "spec": spec,
+    }
 
 
 def apply(digest, *names):
-    kubectl("apply", "-f", "-", stdin=json.dumps({"apiVersion": "v1", "kind": "List",
-                                                   "items": [manifest(n, digest) for n in names]}))
+    kubectl(
+        "apply",
+        "-f",
+        "-",
+        stdin=json.dumps({"apiVersion": "v1", "kind": "List", "items": [manifest(n, digest) for n in names]}),
+    )
 
 
 def run_pod(name, spec):
     """Run one pod to completion; its log, and whether it succeeded. The pod is deleted afterwards."""
     spec["restartPolicy"] = "Never"
-    created = kubectl("create", "-f", "-", "-o", "json", stdin=json.dumps(
-        {"apiVersion": "v1", "kind": "Pod", "metadata": {"generateName": name + "-"}, "spec": spec}))
+    created = kubectl(
+        "create",
+        "-f",
+        "-",
+        "-o",
+        "json",
+        stdin=json.dumps({"apiVersion": "v1", "kind": "Pod", "metadata": {"generateName": name + "-"}, "spec": spec}),
+    )
     name = json.loads(created)["metadata"]["name"]
     started = time.time()
     while (phase := kubectl("get", "pod", name, "-o", "jsonpath={.status.phase}")) not in ("Succeeded", "Failed"):
@@ -174,8 +288,10 @@ def seed(digest, volume, *pairs):
         seed_paths(None, [dest])
         if not src.exists():
             raise SystemExit(f"missing seed source: {src}")
-        files.extend((f, dest / f.relative_to(src) if src.is_dir() else dest)
-                     for f in ([src] if src.is_file() else sorted(p for p in src.rglob("*") if p.is_file())))
+        files.extend(
+            (f, dest / f.relative_to(src) if src.is_dir() else dest)
+            for f in ([src] if src.is_file() else sorted(p for p in src.rglob("*") if p.is_file()))
+        )
     paths = seed_paths(None, [rel for _, rel in files])
     if len(set(paths)) != len(paths):
         raise SystemExit("duplicate seed destination")
@@ -191,9 +307,16 @@ def seed(digest, volume, *pairs):
             shutil.copy2(f, stage / rel)
         sums[str(rel)] = sha256(stage / rel)
     (stage / "SHA256.json").write_text(json.dumps(sums, indent=1))
-    spec = pod_spec("seed", digest, ["ops/live.py", "seed-run", volume, f"/mirror/seed/{stage.name}"],
-                    {volume: False, "mirror": True}, False,
-                    ("100m", "128Mi", "512Mi"), 60, {})
+    spec = pod_spec(
+        "seed",
+        digest,
+        ["ops/live.py", "seed-run", volume, f"/mirror/seed/{stage.name}"],
+        {volume: False, "mirror": True},
+        False,
+        ("100m", "128Mi", "512Mi"),
+        60,
+        {},
+    )
     log, ok = run_pod(f"seed-{volume}", spec)
     print(log)
     if not ok:
@@ -262,10 +385,21 @@ def mirror(app=APP, out="/mirror"):
             continue
         dst.mkdir(parents=True, exist_ok=True)
         new = {}
-        days = {p: mirror_source(p, "day", p.stat) for p in src.rglob("*.jsonl")
-                if p.is_file() and mirror_kind(p.relative_to(src)) == "day"}
-        files = set(days) | {p for p in src.rglob("*") if p.is_file() and mirror_kind(p.relative_to(src)) != "day"
-                            and p.suffix != ".tmp" and p.name != ".writer.lock" and "-wal" not in p.name and not p.name.endswith("-shm")}
+        days = {
+            p: mirror_source(p, "day", p.stat)
+            for p in src.rglob("*.jsonl")
+            if p.is_file() and mirror_kind(p.relative_to(src)) == "day"
+        }
+        files = set(days) | {
+            p
+            for p in src.rglob("*")
+            if p.is_file()
+            and mirror_kind(p.relative_to(src)) != "day"
+            and p.suffix != ".tmp"
+            and p.name != ".writer.lock"
+            and "-wal" not in p.name
+            and not p.name.endswith("-shm")
+        }
         for f in sorted(files):
             rel = str(f.relative_to(src))
             kind = mirror_kind(rel)
@@ -318,8 +452,9 @@ def mirror(app=APP, out="/mirror"):
         if gone := [r for r in old if mirror_kind(r) != "plain" and r not in new]:
             raise SystemExit(f"{vol}: recording files vanished from the source: {gone}")
         usage = capacity(src)
-        (dst / "MANIFEST.json.tmp").write_text(json.dumps({"taken": int(time.time() * 1000), "files": new,
-                                                            "capacity": usage}))
+        (dst / "MANIFEST.json.tmp").write_text(
+            json.dumps({"taken": int(time.time() * 1000), "files": new, "capacity": usage})
+        )
         (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
 
 
@@ -368,11 +503,38 @@ def view():
 
     work = Path(tempfile.mkdtemp())
     harness.build_workspace(work)
-    r = subprocess.run(session.sandbox_command(work, harness.CLIENT, ["/bin/sh", "-c", VIEW]),
-                       capture_output=True, text=True, check=True)
-    keep = [l for l in r.stdout.splitlines() if not l.startswith(("Name", "Umask", "State", "Tgid", "Ngid", "Pid", "PPid",
-                                                                    "TracerPid", "Vm", "Rss", "Threads", "voluntary",
-                                                                    "nonvoluntary", "Cpus", "Mems", "Sig", "Shd", "FD"))]
+    r = subprocess.run(
+        session.sandbox_command(work, harness.CLIENT, ["/bin/sh", "-c", VIEW]),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    keep = [
+        l
+        for l in r.stdout.splitlines()
+        if not l.startswith(
+            (
+                "Name",
+                "Umask",
+                "State",
+                "Tgid",
+                "Ngid",
+                "Pid",
+                "PPid",
+                "TracerPid",
+                "Vm",
+                "Rss",
+                "Threads",
+                "voluntary",
+                "nonvoluntary",
+                "Cpus",
+                "Mems",
+                "Sig",
+                "Shd",
+                "FD",
+            )
+        )
+    ]
     return [" ".join(l.split()[4:5] + l.split()[8:9]) if l.count(" - ") == 1 else l for l in keep if not l.isdigit()]
 
 
@@ -411,27 +573,51 @@ def gate_run(targets):
         lines = (work / "transcript.jsonl").read_text().splitlines()
         events = [json.loads(l) for l in lines if l.startswith("{")]
         result = [e for e in events if e.get("type") == "result"]
-        return {"stopped": run["stopped"], "exit": run["exit"], "other_output": [l for l in lines if not l.startswith("{")][:20],
-                **({k: result[-1].get(k) for k in ("is_error", "result")} if result else {}),
-                "models": sorted(result[-1].get("modelUsage", {})) if result else []}
+        return {
+            "stopped": run["stopped"],
+            "exit": run["exit"],
+            "other_output": [l for l in lines if not l.startswith("{")][:20],
+            **({k: result[-1].get(k) for k in ("is_error", "result")} if result else {}),
+            "models": sorted(result[-1].get("modelUsage", {})) if result else [],
+        }
 
     def tests():
-        run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider",
-                              "gate/tests/test_sandbox.py"], capture_output=True, text=True)
+        run = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider", "gate/tests/test_sandbox.py"],
+            capture_output=True,
+            text=True,
+        )
         return {"exit": run.returncode, "output": run.stdout.strip().splitlines()[-12:]}
 
     parts = {
-        "harness": (lambda: {"current": harness.harness_hash(),
-                             "frozen": json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"]},
-                    lambda r: r["current"] == r["frozen"]),
+        "harness": (
+            lambda: {
+                "current": harness.harness_hash(),
+                "frozen": json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"],
+            },
+            lambda r: r["current"] == r["frozen"],
+        ),
         "tests": (tests, lambda r: r["exit"] == 0),
-        "view": (view, bool), "windows": (campaigns.windows, bool),
-        "network": (lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
-                    lambda r: r.get("api.anthropic.com:443") is True and
-                    all(v == (k == "api.anthropic.com:443") for k, v in r.items())),
+        "view": (view, bool),
+        "windows": (campaigns.windows, bool),
+        "network": (
+            lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
+            lambda r: (
+                r.get("api.anthropic.com:443") is True
+                and all(v == (k == "api.anthropic.com:443") for k, v in r.items())
+            ),
+        ),
         "retrieval": (retrieval_reach, lambda r: 200 in r.values()),
-        "session": (session_record, lambda r: r["exit"] == 0 and r["stopped"] == "finished" and
-                    r.get("is_error") is False and r.get("result", "").strip() == "READY")}
+        "session": (
+            session_record,
+            lambda r: (
+                r["exit"] == 0
+                and r["stopped"] == "finished"
+                and r.get("is_error") is False
+                and r.get("result", "").strip() == "READY"
+            ),
+        ),
+    }
     record, failed = {}, []
     for name, (part, passes) in parts.items():
         try:
@@ -448,14 +634,30 @@ def gate_run(targets):
 
 # Reachable from a runner: the model API only; refused: every node's services, the API server, the registry, this
 # PC's NFS, the cluster's service network, the tailnet, and IPv6.
-TARGETS = [("api.anthropic.com", 443), *[(f"192.168.8.{n}", p) for n in (131, 153, 222, 229) for p in (22, 6443, 10250)],
-           ("192.168.8.239", 6443), ("192.168.8.240", 443), ("192.168.8.131", 2049), ("10.43.0.1", 443),
-           ("100.126.146.120", 22), ("2606:4700:4700::1111", 443)]
+TARGETS = [
+    ("api.anthropic.com", 443),
+    *[(f"192.168.8.{n}", p) for n in (131, 153, 222, 229) for p in (22, 6443, 10250)],
+    ("192.168.8.239", 6443),
+    ("192.168.8.240", 443),
+    ("192.168.8.131", 2049),
+    ("10.43.0.1", 443),
+    ("100.126.146.120", 22),
+    ("2606:4700:4700::1111", 443),
+]
 
 
 def gate(digest, proc):
-    spec = pod_spec("gate", digest, ["ops/live.py", "gate-run", json.dumps(TARGETS)], {}, CORNELL, ("500m", "1Gi", "2Gi"),
-                    60, {}, proc=proc)
+    spec = pod_spec(
+        "gate",
+        digest,
+        ["ops/live.py", "gate-run", json.dumps(TARGETS)],
+        {},
+        CORNELL,
+        ("500m", "1Gi", "2Gi"),
+        60,
+        {},
+        proc=proc,
+    )
     log, ok = run_pod(f"gate-{proc.lower()}", spec)
     out = REPO / "audit/cluster" / f"gate-{proc.lower()}.json"
     out.write_text(log)
@@ -473,4 +675,6 @@ if __name__ == "__main__":
     elif cmd == "view":
         print("\n".join(view()))
     else:
-        {"seed": seed, "seed-run": seed_run, "gate": gate, "gate-run": gate_run, "mirror": mirror, "verify": verify}[cmd](*args)
+        {"seed": seed, "seed-run": seed_run, "gate": gate, "gate-run": gate_run, "mirror": mirror, "verify": verify}[
+            cmd
+        ](*args)

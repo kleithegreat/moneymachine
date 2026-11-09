@@ -19,7 +19,9 @@ def series(tmp_path, monkeypatch, chunk):
     monkeypatch.setattr(campaigns.canary, "passes", lambda: True)
     monkeypatch.setattr(campaigns, "windows", lambda token=None: {"five_hour": [0.99, 100]})
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "cornell")
-    monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False, "wait": wait, "set": lambda self: None})())
+    monkeypatch.setattr(
+        campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False, "wait": wait, "set": lambda self: None})()
+    )
     campaigns.run_series("agent")
 
 

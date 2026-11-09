@@ -45,7 +45,7 @@ def test_holdout_pvalue_bets_the_truncated_plug_in_on_the_past():
     assert gate.holdout_pvalue([]) == 1.0
     assert gate.holdout_pvalue(np.zeros(540)) == 1.0
     assert gate.holdout_pvalue(np.full(546, -0.01)) == 1.0
-    assert gate.holdout_pvalue(np.full(546, 0.05)) == pytest.approx(1 / 1.025 ** 545, rel=1e-12)
+    assert gate.holdout_pvalue(np.full(546, 0.05)) == pytest.approx(1 / 1.025**545, rel=1e-12)
     assert gate.holdout_pvalue(np.r_[0.01, -1.0, np.zeros(10)]) == 1.0
 
 
@@ -67,12 +67,23 @@ def test_parameter_variants_are_separate_trials(tmp_path, built_kernel):
     import json, subprocess
     from pathlib import Path
     from gate.markets import write_market
+
     repo = Path(__file__).resolve().parents[2]
     mm = built_kernel
     m = write_market(tmp_path / "m", market_id="params", days=40)
     base = json.loads((repo / "kernel/strategies/w0.json").read_text())
-    base["weight"] = {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
-        {"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}]}]}, {"param": "size"}]}
+    base["weight"] = {
+        "op": "mul",
+        "args": [
+            {
+                "op": "sign",
+                "args": [
+                    {"op": "sub", "args": [{"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}]}
+                ],
+            },
+            {"param": "size"},
+        ],
+    }
     batch = tmp_path / "b.jsonl"
     lines = []
     for size in (0.01, 0.02, 0.01):
@@ -81,8 +92,25 @@ def test_parameter_variants_are_separate_trials(tmp_path, built_kernel):
         lines.append(json.dumps(b))
     batch.write_text("\n".join(lines) + "\n")
     ledger = tmp_path / "l.sqlite"
-    subprocess.run([str(mm), "eval", str(batch), "--campaign", "c", "--agent", "a",
-                    "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)], check=True, capture_output=True)
+    subprocess.run(
+        [
+            str(mm),
+            "eval",
+            str(batch),
+            "--campaign",
+            "c",
+            "--agent",
+            "a",
+            "--store",
+            str(m / "store"),
+            "--venue",
+            str(m / "venue"),
+            "--ledger",
+            str(ledger),
+        ],
+        check=True,
+        capture_output=True,
+    )
     cands = gate.candidates(ledger, "c")
     assert len(cands) == 2
     progs = gate.programs(ledger, "c", list(cands))
@@ -91,6 +119,7 @@ def test_parameter_variants_are_separate_trials(tmp_path, built_kernel):
 
 def test_stepm_keeps_every_model_when_all_are_superior():
     import pandas as pd
+
     rng = np.random.default_rng(6)
     r = pd.DataFrame({k: rng.normal(0.01 * (i + 1), 0.01, 600) for i, k in enumerate("abc")})
     assert gate.stepm(r, list(r.columns), 1) == ["a", "b", "c"]
@@ -98,9 +127,12 @@ def test_stepm_keeps_every_model_when_all_are_superior():
 
 def test_clusters_and_effective_n():
     import pandas as pd
+
     rng = np.random.default_rng(4)
     base = rng.normal(0, 0.01, 500)
-    r = pd.DataFrame({"a": base, "b": base + rng.normal(0, 1e-4, 500), "c": rng.normal(0, 0.01, 500), "z": np.zeros(500)})
+    r = pd.DataFrame(
+        {"a": base, "b": base + rng.normal(0, 1e-4, 500), "c": rng.normal(0, 0.01, 500), "z": np.zeros(500)}
+    )
     assert gate.clusters(r, 0.9) == 3
     report = gate.effective_n(r, 0.5, 1)
     assert [v["n"] for v in report["by_n"].values()] == [4, 3, 3] and report["fragile"] == []

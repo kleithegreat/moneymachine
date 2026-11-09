@@ -12,8 +12,14 @@ REPO = Path(__file__).resolve().parents[1]
 
 def start(tmp_path, *args):
     env = {**os.environ, "RUNAWAY_STARTED": str(tmp_path / "started")}
-    return subprocess.Popen([sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider", *args], cwd=REPO, env=env,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    return subprocess.Popen(
+        [sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider", *args],
+        cwd=REPO,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
 
 
 def test_timeout_stops_a_test_that_ignores_sigterm(tmp_path):

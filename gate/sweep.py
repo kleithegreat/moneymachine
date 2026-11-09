@@ -33,8 +33,10 @@ TOP5_CAMPAIGNS = 20
 def cost_cells():
     """Median over U of each C0.7 cost cell."""
     cost = json.loads(Path("venue/hyperliquid/execution.json").read_text())["cost_bps_ex_fee"]
-    return {side: {size: float(np.median([cost[c][side][size] for c in cost])) for size in ("1000", "10000")}
-            for side in ("buy", "sell")}
+    return {
+        side: {size: float(np.median([cost[c][side][size] for c in cost])) for size in ("1000", "10000")}
+        for side in ("buy", "sell")
+    }
 
 
 SEARCHER = Path(__file__).resolve().parents[1] / "audit/stage2/searcher.json"
@@ -44,13 +46,17 @@ def freeze_searcher():
     """Record the searchers' pin before the first judged sweep, once."""
     if SEARCHER.exists():
         raise FileExistsError(SEARCHER)
-    SEARCHER.write_text(json.dumps({"searcher": search.identity(), "disclosed": list(search.DISCLOSED)}, indent=1) + "\n")
+    SEARCHER.write_text(
+        json.dumps({"searcher": search.identity(), "disclosed": list(search.DISCLOSED)}, indent=1) + "\n"
+    )
     return str(SEARCHER)
 
 
 def require_frozen_searcher():
     if not SEARCHER.exists() or json.loads(SEARCHER.read_text())["searcher"] != search.identity():
-        raise SystemExit(f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change")
+        raise SystemExit(
+            f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change"
+        )
 
 
 # Peak memory per task, measured, with margin: a campaign (684 MiB for the long cell with 80 finalists through the
@@ -61,31 +67,54 @@ CAMPAIGN_BYTES, CALIBRATION_BYTES = 1_000_000_000, 1_300_000_000
 def run_all(specs, path):
     require_frozen_searcher()
     out = path.with_suffix("")
-    with campaign.resume([s["id"] for s in specs], path, out) as (todo, fh), \
-            Pool(workers(CAMPAIGN_BYTES), initializer=campaign.KeepLock(fh)) as pool:
-        for r in pool.imap_unordered(partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in set(todo)]):
+    with (
+        campaign.resume([s["id"] for s in specs], path, out) as (todo, fh),
+        Pool(workers(CAMPAIGN_BYTES), initializer=campaign.KeepLock(fh)) as pool,
+    ):
+        for r in pool.imap_unordered(
+            partial(campaign.run_campaign, out=out), [s for s in specs if s["id"] in set(todo)]
+        ):
             fh.write(json.dumps(r) + "\n")
             fh.flush()
             print(r["id"], "crash" if r.get("crash") else len(r["promoted"]), r["seconds"], flush=True)
 
 
 def spec(cid, model, searcher, planted=(), beta=0.0):
-    return {"id": cid, "model": model, "params": null_params().get(model), "searcher": searcher, "planted": list(planted),
-            "beta": beta, "cost_cells": cost_cells(), "days": DAYS, "holdout_days": HOLDOUT_DAYS}
+    return {
+        "id": cid,
+        "model": model,
+        "params": null_params().get(model),
+        "searcher": searcher,
+        "planted": list(planted),
+        "beta": beta,
+        "cost_cells": cost_cells(),
+        "days": DAYS,
+        "holdout_days": HOLDOUT_DAYS,
+    }
 
 
 def null_specs(markets=300, rnd=ROUND):
-    return [spec(f"c24{rnd}-{m}-{s}-{i}", m, s) for m in ("N1", "N2", "N3") for s in ("G100", "G400", "H400")
-            for i in range(markets)]
+    return [
+        spec(f"c24{rnd}-{m}-{s}-{i}", m, s)
+        for m in ("N1", "N2", "N3")
+        for s in ("G100", "G400", "H400")
+        for i in range(markets)
+    ]
 
 
 def mixed_specs(betas, markets=100, rnd=ROUND):
     """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long (`rnd`: the round tag; the first
     round had none)."""
-    return [spec(f"c25{rnd}-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"]) for m in ("N2", "N3") for s in (1, 2, 3)
-            for i in range(markets)] + \
-        [spec(f"c25{rnd}-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"]) | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
-         for i in range(markets)]
+    return [
+        spec(f"c25{rnd}-{m}-s{s}-{i}", m, "G400", PLANTED, betas[f"{m}-s{s}"])
+        for m in ("N2", "N3")
+        for s in (1, 2, 3)
+        for i in range(markets)
+    ] + [
+        spec(f"c25{rnd}-N2-long-{i}", "N2", "G400", PLANTED, betas["N2-long"])
+        | {"days": LONG_DAYS, "holdout_days": LONG_HOLDOUT_DAYS}
+        for i in range(markets)
+    ]
 
 
 def events_specs(events, markets=300):
@@ -95,18 +124,28 @@ def events_specs(events, markets=300):
 def net_returns(program, model, beta, market_id, years):
     """Per-step net returns of a program on one fresh market without holdout."""
     with tempfile.TemporaryDirectory() as tmp:
-        root = write(Path(tmp) / "m", generate(model, null_params().get(model), market_id, years * 365, PLANTED, beta), 0,
-                     cost_cells())
+        root = write(
+            Path(tmp) / "m",
+            generate(model, null_params().get(model), market_id, years * 365, PLANTED, beta),
+            0,
+            cost_cells(),
+        )
         p = Path(tmp) / "p.json"
         p.write_text(json.dumps(program))
-        out = subprocess.run(command("eval", p, market_id, "truth", Path(tmp) / "l.sqlite", root),
-                             capture_output=True, text=True)
+        out = subprocess.run(
+            command("eval", p, market_id, "truth", Path(tmp) / "l.sqlite", root), capture_output=True, text=True
+        )
         if out.returncode:
-            raise RuntimeError(f"mm eval on {market_id} (beta {beta}) exited {out.returncode}: "
-                               f"{out.stdout.strip()[-1000:]} {out.stderr.strip()[-2000:]}")
+            raise RuntimeError(
+                f"mm eval on {market_id} (beta {beta}) exited {out.returncode}: "
+                f"{out.stdout.strip()[-1000:]} {out.stderr.strip()[-2000:]}"
+            )
         exp = json.loads(out.stdout)["experiment"]
-        blob = sqlite3.connect(Path(tmp) / "l.sqlite").execute(
-            "SELECT returns FROM results WHERE experiment_id = ?", (exp,)).fetchone()[0]
+        blob = (
+            sqlite3.connect(Path(tmp) / "l.sqlite")
+            .execute("SELECT returns FROM results WHERE experiment_id = ?", (exp,))
+            .fetchone()[0]
+        )
         return np.frombuffer(blob, "<f8")
 
 
@@ -116,8 +155,14 @@ def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS, threads=1):
     if weight is not None:
         program["weight"]["args"][1]["const"] = weight
     with ThreadPoolExecutor(threads) as ex:
-        return np.concatenate(list(ex.map(lambda i: net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years),
-                                          range(TRUTH_MARKETS))))
+        return np.concatenate(
+            list(
+                ex.map(
+                    lambda i: net_returns(program, model, beta, f"oracle-{tag}-{model}-{i}", years),
+                    range(TRUTH_MARKETS),
+                )
+            )
+        )
 
 
 def oracle_sharpe(model, beta, tag, threads=1):
@@ -154,10 +199,12 @@ def bisect(key, f, target, lo, hi, steps):
 
 
 # N2's oracle reaches Sharpe 3 only above 0.05, so its s3 range is [0, 0.08]; N3's never reaches 3, so its cell is 2.5.
-CALIBRATIONS = {**{f"{m}-s{s}": (partial(oracle_sharpe, m, tag=f"cal{s}"), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2)},
-                "N2-s3": (partial(oracle_sharpe, "N2", tag="cal3"), 3, 0.0, 0.08, 12),
-                "N3-s3": (partial(oracle_sharpe, "N3", tag="cal2.5"), 2.5, 0.044, 0.06, 12),
-                "N2-long": (oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16)}
+CALIBRATIONS = {
+    **{f"{m}-s{s}": (partial(oracle_sharpe, m, tag=f"cal{s}"), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2)},
+    "N2-s3": (partial(oracle_sharpe, "N2", tag="cal3"), 3, 0.0, 0.08, 12),
+    "N3-s3": (partial(oracle_sharpe, "N3", tag="cal2.5"), 2.5, 0.044, 0.06, 12),
+    "N2-long": (oracle_cap_mean, LONG_MEAN, 0.0, 0.5, 16),
+}
 
 
 def calibrate(key, threads):
@@ -179,8 +226,9 @@ def betas(keys=None):
 
 def is_true(program, model, beta, tag):
     """True iff mean net return over 200 fresh years is positive with a 99% CI excluding 0."""
-    means = np.array([net_returns(program, model, beta, f"truth-{tag}-{i}", TRUTH_YEARS).mean()
-                      for i in range(TRUTH_MARKETS)])
+    means = np.array(
+        [net_returns(program, model, beta, f"truth-{tag}-{i}", TRUTH_YEARS).mean() for i in range(TRUTH_MARKETS)]
+    )
     lo = means.mean() - stats.t.ppf(0.995, len(means) - 1) * means.std(ddof=1) / np.sqrt(len(means))
     return bool(lo > 0)
 
@@ -196,7 +244,10 @@ def cp_upper(k, n, level=0.95):
 
 def cp_interval(k, n, level=0.95):
     a = (1 - level) / 2
-    return [0.0 if k == 0 else float(stats.beta.ppf(a, k, n - k + 1)), 1.0 if k == n else float(stats.beta.ppf(1 - a, k + 1, n - k))]
+    return [
+        0.0 if k == 0 else float(stats.beta.ppf(a, k, n - k + 1)),
+        1.0 if k == n else float(stats.beta.ppf(1 - a, k + 1, n - k)),
+    ]
 
 
 def truth_id(campaign_id, h):
@@ -208,8 +259,12 @@ def truth():
     path, beta = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
     with campaign.exclusive(path) as fh:
         done = campaign.recorded(path)
-        todo = [(truth_id(r["id"], p["hash"]), p["program"], r["id"].split("-")[1], beta["-".join(r["id"].split("-")[1:3])])
-                for r in results("mixed") for p in r.get("promoted", []) if truth_id(r["id"], p["hash"]) not in done]
+        todo = [
+            (truth_id(r["id"], p["hash"]), p["program"], r["id"].split("-")[1], beta["-".join(r["id"].split("-")[1:3])])
+            for r in results("mixed")
+            for p in r.get("promoted", [])
+            if truth_id(r["id"], p["hash"]) not in done
+        ]
         with Pool(workers(CALIBRATION_BYTES), initializer=campaign.KeepLock(fh)) as pool:
             for tid, true in pool.imap_unordered(judge, todo):
                 fh.write(json.dumps({"id": tid, "true": true}) + "\n")
@@ -252,14 +307,28 @@ def mixed_summary():
         c["with_true"] += any(ts)
     for c in cells.values():
         fdr = float(np.mean(c.pop("fdp")))
-        c.update(fdr=fdr, fdr_upper=fdr + math.sqrt(math.log(20) / (2 * c["n"])), power=c["with_true"] / c["n"],
-                 power_ci=cp_interval(c["with_true"], c["n"]))
+        c.update(
+            fdr=fdr,
+            fdr_upper=fdr + math.sqrt(math.log(20) / (2 * c["n"])),
+            power=c["with_true"] / c["n"],
+            power_ci=cp_interval(c["with_true"], c["n"]),
+        )
     return cells
 
 
 def summary(out):
-    Path(out).write_text(json.dumps({"null": null_summary(), "mixed": mixed_summary(), "events": null_summary("events"),
-                                     "qualifications": "PROGRESS.md, Qualifications, stage 2"}, indent=1) + "\n")
+    Path(out).write_text(
+        json.dumps(
+            {
+                "null": null_summary(),
+                "mixed": mixed_summary(),
+                "events": null_summary("events"),
+                "qualifications": "PROGRESS.md, Qualifications, stage 2",
+            },
+            indent=1,
+        )
+        + "\n"
+    )
 
 
 def top5_programs(first=TOP5_CAMPAIGNS):

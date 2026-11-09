@@ -12,26 +12,57 @@ from ingest.live import now_ms
 from ingest.policy import BAR, HOLDOUT_START, HOUR, W_END, W_START
 from ingest.store import stores, write_split
 
+
 def funding_frame(rows):
     return pl.DataFrame(
-        [{"coin": r["coin"], "eventTime": r["time"] // HOUR * HOUR,
-          "fundingRate": float(r["fundingRate"]), "premium": float(r["premium"]), "reportedTime": r["time"]}
-         for r in rows],
-        schema={"coin": pl.Utf8, "eventTime": pl.Int64, "fundingRate": pl.Float64,
-                "premium": pl.Float64, "reportedTime": pl.Int64},
+        [
+            {
+                "coin": r["coin"],
+                "eventTime": r["time"] // HOUR * HOUR,
+                "fundingRate": float(r["fundingRate"]),
+                "premium": float(r["premium"]),
+                "reportedTime": r["time"],
+            }
+            for r in rows
+        ],
+        schema={
+            "coin": pl.Utf8,
+            "eventTime": pl.Int64,
+            "fundingRate": pl.Float64,
+            "premium": pl.Float64,
+            "reportedTime": pl.Int64,
+        },
     )
 
 
 def bar_frame(rows, fetched_at):
     closed = [c for c in rows if c["t"] + BAR <= fetched_at]
     return pl.DataFrame(
-        [{"coin": c["s"], "eventTime": c["t"] + BAR, "openTime": c["t"],
-          "open": float(c["o"]), "high": float(c["h"]), "low": float(c["l"]), "close": float(c["c"]),
-          "volume": float(c["v"]), "trades": int(c["n"])}
-         for c in closed],
-        schema={"coin": pl.Utf8, "eventTime": pl.Int64, "openTime": pl.Int64,
-                "open": pl.Float64, "high": pl.Float64, "low": pl.Float64, "close": pl.Float64,
-                "volume": pl.Float64, "trades": pl.Int64},
+        [
+            {
+                "coin": c["s"],
+                "eventTime": c["t"] + BAR,
+                "openTime": c["t"],
+                "open": float(c["o"]),
+                "high": float(c["h"]),
+                "low": float(c["l"]),
+                "close": float(c["c"]),
+                "volume": float(c["v"]),
+                "trades": int(c["n"]),
+            }
+            for c in closed
+        ],
+        schema={
+            "coin": pl.Utf8,
+            "eventTime": pl.Int64,
+            "openTime": pl.Int64,
+            "open": pl.Float64,
+            "high": pl.Float64,
+            "low": pl.Float64,
+            "close": pl.Float64,
+            "volume": pl.Float64,
+            "trades": pl.Int64,
+        },
     )
 
 
@@ -71,4 +102,3 @@ def main(data_root, budget):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=1) + "\n")
     return str(out)
-

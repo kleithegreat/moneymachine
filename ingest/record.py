@@ -52,8 +52,18 @@ class Recorder:
         else:
             data = self.info.candles(coin, "4h", boundary - BAR, boundary)
             found = any(c["t"] == boundary - BAR for c in data)
-        self.log({"kind": kind, "coin": coin, "boundary": boundary, "purpose": purpose,
-                  "sent": sent, "recv": now_ms(), "found": found, "data": data})
+        self.log(
+            {
+                "kind": kind,
+                "coin": coin,
+                "boundary": boundary,
+                "purpose": purpose,
+                "sent": sent,
+                "recv": now_ms(),
+                "found": found,
+                "data": data,
+            }
+        )
         return found
 
     def poll_l2(self, coin):
@@ -67,7 +77,9 @@ class Recorder:
         return ["funding"] + (["bar"] if h % BAR == 0 else [])
 
     def queue_verification(self, boundary):
-        self.verify.extend((boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins)
+        self.verify.extend(
+            (boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins
+        )
 
     def step(self):
         t = now_ms()
@@ -95,9 +107,21 @@ class Recorder:
                 if failures < 3:
                     self.verify[0] = (at, kind, coin, failures)
                 else:
-                    self.log({"kind": kind, "coin": coin, "boundary": at - VERIFY_AFTER, "purpose": "dropped",
-                              "sent": sent, "recv": now_ms(), "found": False, "data": [],
-                              "error": repr(e), "attempts": failures, "dropped": True})
+                    self.log(
+                        {
+                            "kind": kind,
+                            "coin": coin,
+                            "boundary": at - VERIFY_AFTER,
+                            "purpose": "dropped",
+                            "sent": sent,
+                            "recv": now_ms(),
+                            "found": False,
+                            "data": [],
+                            "error": repr(e),
+                            "attempts": failures,
+                            "dropped": True,
+                        }
+                    )
                     self.verify.pop(0)
             else:
                 self.verify.pop(0)

@@ -25,27 +25,39 @@ HUNT = "audit/reviews/2026-11-03-gpt-hunt-kernel.md"
 
 
 def arrays(bars=8, coins=1):
-    return {**{k: np.full((bars, coins), 100.0) for k in ("open", "high", "low", "close", "volume")},
-            "funding": np.zeros((4 * bars + 1, coins)), "premium": np.zeros((4 * bars + 1, coins))}
+    return {
+        **{k: np.full((bars, coins), 100.0) for k in ("open", "high", "low", "close", "volume")},
+        "funding": np.zeros((4 * bars + 1, coins)),
+        "premium": np.zeros((4 * bars + 1, coins)),
+    }
 
 
 def write_market(path, a, bps=0, fee=0, holdout_days=0):
-    return markets.write(path, a, holdout_days,
-                         {side: {"1000": bps, "10000": bps} for side in ("buy", "sell")}, taker_fee=fee)
+    return markets.write(
+        path, a, holdout_days, {side: {"1000": bps, "10000": bps} for side in ("buy", "sell")}, taker_fee=fee
+    )
 
 
 def evaluate(mm, market, tmp_path, weight, name="s", holdout_from=None):
     strategy = tmp_path / f"{name}.json"
-    strategy.write_text(json.dumps({
-        "dsl": 1, "name": name,
-        "mechanism": {"counterparty": "synthetic", "predictions": [], "capacity": "small"},
-        "weight": weight,
-    }))
+    strategy.write_text(
+        json.dumps(
+            {
+                "dsl": 1,
+                "name": name,
+                "mechanism": {"counterparty": "synthetic", "predictions": [], "capacity": "small"},
+                "weight": weight,
+            }
+        )
+    )
     ledger, trace = tmp_path / f"{name}.sqlite", tmp_path / f"{name}.jsonl"
 
     def run(cmd, path, *extra):
-        r = subprocess.run(kernel.command(cmd, path, "kernel-defects", "gate", ledger, market,
-                                           *extra, binary=mm), capture_output=True, text=True)
+        r = subprocess.run(
+            kernel.command(cmd, path, "kernel-defects", "gate", ledger, market, *extra, binary=mm),
+            capture_output=True,
+            text=True,
+        )
         assert r.returncode == 0, r.stdout + r.stderr
         return json.loads(r.stdout)
 
@@ -54,8 +66,16 @@ def evaluate(mm, market, tmp_path, weight, name="s", holdout_from=None):
         with sqlite3.connect(ledger) as db:
             trial = db.execute("SELECT trial FROM experiments").fetchone()[0]
         run("select", trial, "--note", "synthetic frozen trial")
-        out = run("holdout", strategy, "--holdout-store", str(market / "holdout"),
-                  "--holdout-from", str(holdout_from), "--trace", str(trace))
+        out = run(
+            "holdout",
+            strategy,
+            "--holdout-store",
+            str(market / "holdout"),
+            "--holdout-from",
+            str(holdout_from),
+            "--trace",
+            str(trace),
+        )
     else:
         out = run("eval", strategy, "--trace", str(trace))
     with sqlite3.connect(ledger) as db:
@@ -84,29 +104,46 @@ def test_future_trades_cannot_change_current_orders(built_kernel, tmp_path):
     known = []
     for name, last in (("early", 12 * HOUR), ("late", 20 * HOUR)):
         market = write_market(tmp_path / name, a)
-        markets.write_venue(market, {"S0": (3, 10, True), "S1": (3, 10, False)},
-                            {side: {"1000": 0, "10000": 0} for side in ("buy", "sell")}, taker_fee=0)
+        markets.write_venue(
+            market,
+            {"S0": (3, 10, True), "S1": (3, 10, False)},
+            {side: {"1000": 0, "10000": 0} for side in ("buy", "sell")},
+            taker_fee=0,
+        )
         for path in (market / "store" / "bars_4h").glob("*.parquet"):
             df = pl.read_parquet(path).with_columns(
                 pl.when((pl.col("coin") == "S0") & (pl.col("eventTime") > last))
-                .then(0).otherwise(pl.col("trades")).alias("trades"))
+                .then(0)
+                .otherwise(pl.col("trades"))
+                .alias("trades")
+            )
             path.chmod(0o644)
             df.write_parquet(path)
         store = Store(market / "store")
         store.write("delistings", pl.DataFrame({"coin": ["S0"], "eventTime": [24 * HOUR]}), 1, "synthetic")
-        known.append([store.revisions("delistings"),
-                      *[store.as_of(dataset, 12 * HOUR + DELTA, 1).sort(["coin", "eventTime"])
-                        for dataset in ("bars_4h", "funding")]])
+        known.append(
+            [
+                store.revisions("delistings"),
+                *[
+                    store.as_of(dataset, 12 * HOUR + DELTA, 1).sort(["coin", "eventTime"])
+                    for dataset in ("bars_4h", "funding")
+                ],
+            ]
+        )
         _, trace, _ = evaluate(built_kernel, market, tmp_path, const(2), name)
         traces.append(trace)
     assert all(x.equals(y) for x, y in zip(*known))
     for trace in traces:
-        assert [(e["coin"], e["weight"], e["qty"]) for e in events(trace, "decision", 4 * HOUR + DELTA)] == \
-            [("S0", 1, 100), ("S1", 1, 100)]
+        assert [(e["coin"], e["weight"], e["qty"]) for e in events(trace, "decision", 4 * HOUR + DELTA)] == [
+            ("S0", 1, 100),
+            ("S1", 1, 100),
+        ]
         assert [(e["coin"], e["qty"]) for e in events(trace, "fill", 8 * HOUR)] == [("S0", 100), ("S1", 100)]
     for hour in (8, 12):
-        decisions = [[(e["coin"], e["weight"], e["qty"])
-                      for e in events(trace, "decision", hour * HOUR + DELTA)] for trace in traces]
+        decisions = [
+            [(e["coin"], e["weight"], e["qty"]) for e in events(trace, "decision", hour * HOUR + DELTA)]
+            for trace in traces
+        ]
         assert decisions[0] == decisions[1] == [], {"hour": hour, "decisions": decisions}
     equity = [events(trace, "equity", 16 * HOUR)[0]["equity"] for trace in traces]
     assert equity == pytest.approx([10_000 + 100 * (110 - 100)] * 2)
@@ -126,9 +163,9 @@ def test_zero_close_cannot_reopen_after_liquidation(built_kernel, tmp_path):
     market = write_market(tmp_path / "market", a)
     weight = op("if", op("lt", {"input": "premium"}, const(0)), const(-0.5), const(0))
     result, trace, _ = evaluate(built_kernel, market, tmp_path, weight)
-    entry, = events(trace, "fill", 8 * HOUR)
+    (entry,) = events(trace, "fill", 8 * HOUR)
     assert (entry["qty"], entry["price"]) == (-50, 100)
-    close, = events(trace, "decision", 12 * HOUR + DELTA)
+    (close,) = events(trace, "decision", 12 * HOUR + DELTA)
     assert (close["weight"], close["qty"]) == (0, 50)
     liquidations = events(trace, "liquidation", 16 * HOUR)
     assert len(liquidations) == 1 and liquidations[0]["qty"] == 50
@@ -157,7 +194,8 @@ def test_undefined_holds_reserve_portfolio_budget(built_kernel, tmp_path):
     fresh = sum(e["qty"] for e in fills if e["coin"] == "S1" and e["t"] <= 20 * HOUR)
     assert held == 200
     assert events(trace, "hold", 12 * HOUR + DELTA) == [
-        {"type": "hold", "t": 12 * HOUR + DELTA, "coin": "S0", "why": "undefined"}]
+        {"type": "hold", "t": 12 * HOUR + DELTA, "coin": "S0", "why": "undefined"}
+    ]
     assert events(trace, "equity", 20 * HOUR)[0]["equity"] == 10_000
     assert 200 * (100 - 95) == 1_000
     equity24 = events(trace, "equity", 24 * HOUR)[0]["equity"]
@@ -170,9 +208,9 @@ def test_next_target_uses_post_fill_equity(built_kernel, tmp_path):
     """Finding 4: DSL weight 1 targets actual equity (I5), net of completed fill costs."""
     market = write_market(tmp_path / "market", arrays(), bps=10, fee=0.001)
     _, trace, _ = evaluate(built_kernel, market, tmp_path, const(1))
-    first, = events(trace, "decision", 4 * HOUR + DELTA)
+    (first,) = events(trace, "decision", 4 * HOUR + DELTA)
     assert (first["weight"], first["qty"]) == (1, 100)
-    entry, = events(trace, "fill", 8 * HOUR)
+    (entry,) = events(trace, "fill", 8 * HOUR)
     assert (entry["qty"], entry["price"], entry["fee"]) == pytest.approx((100, 100.1, 10.01))
     equity = 10_000 - 100 * (100.1 - 100) - 10.01
     assert equity == pytest.approx(9_979.99)
@@ -190,7 +228,7 @@ def test_reporting_window_cannot_resurrect_bankrupt_account(built_kernel, tmp_pa
     a["high"][3] = 400
     market = write_market(tmp_path / "market", a, holdout_days=1)
     prefix, prefix_trace, _ = evaluate(built_kernel, market, tmp_path, const(-0.5), "prefix")
-    liquidation, = events(prefix_trace, "liquidation", 16 * HOUR)
+    (liquidation,) = events(prefix_trace, "liquidation", 16 * HOUR)
     assert (liquidation["qty"], liquidation["price"]) == (50, 400)
     assert prefix["final_equity"] == 0
     assert prefix["total_return"] == -1
@@ -211,9 +249,9 @@ def test_reporting_trace_includes_boundary_fill_costs(built_kernel, tmp_path):
     weight = op("if", op("gt", {"input": "premium"}, const(0)), const(0.5), const(0))
     full_market = write_market(tmp_path / "full-market", a, bps=10, fee=0.001)
     _, full_trace, _ = evaluate(built_kernel, full_market, tmp_path, weight, "full")
-    order, = events(full_trace, "decision", 20 * HOUR + DELTA)
+    (order,) = events(full_trace, "decision", 20 * HOUR + DELTA)
     assert (order["weight"], order["qty"]) == (0.5, 50)
-    entry, = events(full_trace, "fill", 24 * HOUR)
+    (entry,) = events(full_trace, "fill", 24 * HOUR)
     assert (entry["qty"], entry["price"], entry["fee"]) == pytest.approx((50, 100.1, 5.005))
     result, trace, returns = evaluate(built_kernel, market, tmp_path, weight, holdout_from=24 * HOUR)
     entry_fee, exit_fee = 50 * 100.1 * 0.001, 50 * 99.9 * 0.001
@@ -223,7 +261,10 @@ def test_reporting_trace_includes_boundary_fill_costs(built_kernel, tmp_path):
     assert result["total_return"] == pytest.approx(-0.002)
     fills = events(trace, "fill")
     assert [(e["t"], e["qty"]) for e in fills] == [(24 * HOUR, 50), (28 * HOUR, -50)], {
-        "fills": fills, "result": result, "returns": returns}
+        "fills": fills,
+        "result": result,
+        "returns": returns,
+    }
     assert sum(e["fee"] for e in fills) == pytest.approx(entry_fee + exit_fee)
     assert result["fees"] == pytest.approx(10)
     assert result["slippage"] == pytest.approx(10)

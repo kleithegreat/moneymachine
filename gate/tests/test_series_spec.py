@@ -24,28 +24,45 @@ def run(stopped="finished", exit=0):
     return {"stopped": stopped, "exit": exit}
 
 
-@pytest.mark.parametrize("record,expected", [
-    ({}, True), (run(), False), (run(exit=1), True),
-    (run(exit=-9), True), (run("turn limit"), False), (run("wall time"), False),
-])
+@pytest.mark.parametrize(
+    "record,expected",
+    [
+        ({}, True),
+        (run(), False),
+        (run(exit=1), True),
+        (run(exit=-9), True),
+        (run("turn limit"), False),
+        (run("wall time"), False),
+    ],
+)
 def test_c32_crashes_versus_designed_ends(record, expected):
     assert series.crashed(record) is expected
 
 
-@pytest.mark.parametrize("promoted,runs,evaluations,expected", [
-    (False, [run()], [1], False), (False, [run()], [0], True),
-    (False, [{}], [1], True), (False, [run(exit=1)], [1], True),
-    (True, [run()], [1], True), (False, [run("turn limit")], [1], False),
-    (False, [run("wall time")], [1], False),
-])
+@pytest.mark.parametrize(
+    "promoted,runs,evaluations,expected",
+    [
+        (False, [run()], [1], False),
+        (False, [run()], [0], True),
+        (False, [{}], [1], True),
+        (False, [run(exit=1)], [1], True),
+        (True, [run()], [1], True),
+        (False, [run("turn limit")], [1], False),
+        (False, [run("wall time")], [1], False),
+    ],
+)
 def test_c32_no_evaluation_or_crash_counts_even_without_a_promotion(promoted, runs, evaluations, expected):
     assert series.counts(promoted, runs, evaluations) is expected
 
 
 def agent(evaluations=1, received=True, holds=True, record=None):
     """Four agent_evidence records are the swarm_class interface, not simulated ledgers."""
-    return {"evaluations": evaluations, "received": received, "holds": holds,
-            "run": run() if record is None else record}
+    return {
+        "evaluations": evaluations,
+        "received": received,
+        "holds": holds,
+        "run": run() if record is None else record,
+    }
 
 
 def test_swarm_established_needs_only_two_evaluations_not_the_obsolete_floor():
@@ -54,15 +71,18 @@ def test_swarm_established_needs_only_two_evaluations_not_the_obsolete_floor():
     assert series.swarm_class(False, None, agents, 1, True) == "established"
 
 
-@pytest.mark.parametrize("trials,history,agents,expected", [
-    (0, True, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
-    (1, False, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
-    (1, True, [agent(), agent(0, False), agent(0, False), agent(0, False)], "not established"),
-    (0, False, [agent(0, False)] * 4, "not established"),
-    (1, True, [agent(holds=False)] + [agent()] * 3, "unresolved"),
-    (1, True, [agent(record=run(exit=1))] + [agent()] * 3, "unresolved"),
-    (1, True, [agent(record={})] + [agent()] * 3, "unresolved"),
-])
+@pytest.mark.parametrize(
+    "trials,history,agents,expected",
+    [
+        (0, True, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
+        (1, False, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
+        (1, True, [agent(), agent(0, False), agent(0, False), agent(0, False)], "not established"),
+        (0, False, [agent(0, False)] * 4, "not established"),
+        (1, True, [agent(holds=False)] + [agent()] * 3, "unresolved"),
+        (1, True, [agent(record=run(exit=1))] + [agent()] * 3, "unresolved"),
+        (1, True, [agent(record={})] + [agent()] * 3, "unresolved"),
+    ],
+)
 def test_swarm_evidence_boundaries(trials, history, agents, expected):
     assert series.swarm_class(False, None, agents, trials, history) == expected
 
@@ -78,17 +98,22 @@ def test_missing_agent_evidence_is_unresolved():
     assert series.swarm_class(False, None, [agent()] * 3, 1, True) == "unresolved"
 
 
-@pytest.mark.parametrize("classes,expected", [
-    ([], "not established"), (["established"] * 9, "not established"),
-    (["established"] * 10, "pass"),
-    (["established"] * 9 + ["promoted"], "pass"),
-    (["established"] * 9 + ["unresolved"], "pass"),
-    (["established"] * 9 + ["not established"], "pass"),
-    (["established"] * 8 + ["not established"] * 2, "not established"),
-    (["established"] * 8 + ["promoted", "not established"], "pass"),
-    (["established"] * 8 + ["promoted", "unresolved"], "failed"),
-    (["unresolved"] * 2, "failed"), (["promoted"] * 2, "failed"),
-])
+@pytest.mark.parametrize(
+    "classes,expected",
+    [
+        ([], "not established"),
+        (["established"] * 9, "not established"),
+        (["established"] * 10, "pass"),
+        (["established"] * 9 + ["promoted"], "pass"),
+        (["established"] * 9 + ["unresolved"], "pass"),
+        (["established"] * 9 + ["not established"], "pass"),
+        (["established"] * 8 + ["not established"] * 2, "not established"),
+        (["established"] * 8 + ["promoted", "not established"], "pass"),
+        (["established"] * 8 + ["promoted", "unresolved"], "failed"),
+        (["unresolved"] * 2, "failed"),
+        (["promoted"] * 2, "failed"),
+    ],
+)
 def test_swarm_verdict_thresholds_and_failed_precedence(classes, expected):
     """Ten required, at most one adverse and one 'not established' class; two adverse fail."""
     assert series.swarm_verdict(classes) == expected
@@ -105,8 +130,7 @@ def test_declared_ids_are_exact_fresh_v3_cohorts(tmp_path, monkeypatch):
 
 def usage_row(before, after, account="TAMU", tokens=1):
     """One token-bearing campaign and the two probes of its account's usage windows."""
-    return {"account": account, "usage": {"input_tokens": tokens},
-            "windows": {"before": before, "after": after}}
+    return {"account": account, "usage": {"input_tokens": tokens}, "windows": {"before": before, "after": after}}
 
 
 def log_rows(path, rows):
@@ -123,24 +147,29 @@ def test_need_empty_or_no_token_campaign_measures_nothing(tmp_path):
 
 def test_need_uses_max_not_sum_across_accounts_and_ignores_reset_crossings(tmp_path):
     """Deltas 1/8 and 3/8 yield 3/8, not 1/2; a changed reset measures neither."""
-    log = log_rows(tmp_path / "swarm-null-3.jsonl", [
-        usage_row({"w": [0.125, "r"], "week": [0.25, "s"]},
-                  {"w": [0.25, "r"], "week": [0.5, "s"]}),
-        usage_row({"w": [0.25, "r"]}, {"w": [0.625, "r"]}, "Cornell"),
-        usage_row({"w": [0.0, "old"]}, {"w": [0.75, "new"]}),
-        usage_row({"w": [0.0, "r"]}, {"w": [0.75, "r"]}, tokens=0),
-    ])
+    log = log_rows(
+        tmp_path / "swarm-null-3.jsonl",
+        [
+            usage_row({"w": [0.125, "r"], "week": [0.25, "s"]}, {"w": [0.25, "r"], "week": [0.5, "s"]}),
+            usage_row({"w": [0.25, "r"]}, {"w": [0.625, "r"]}, "Cornell"),
+            usage_row({"w": [0.0, "old"]}, {"w": [0.75, "new"]}),
+            usage_row({"w": [0.0, "r"]}, {"w": [0.75, "r"]}, tokens=0),
+        ],
+    )
     assert series.need(log) == {"w": 0.375, "week": 0.25}
 
 
 def test_need_ties_and_missing_probes_do_not_create_measurements(tmp_path):
     """Two equal deltas of 1/8 still reserve 1/8; a one-sided probe measures nothing."""
-    log = log_rows(tmp_path / "swarm-null-3.jsonl", [
-        usage_row({"w": [0.0, "r"]}, {"w": [0.125, "r"]}),
-        usage_row({"w": [0.25, "r"]}, {"w": [0.375, "r"]}),
-        usage_row({}, {"week": [0.75, "s"]}),
-        usage_row({"week": [0.0, "s"]}, {}),
-    ])
+    log = log_rows(
+        tmp_path / "swarm-null-3.jsonl",
+        [
+            usage_row({"w": [0.0, "r"]}, {"w": [0.125, "r"]}),
+            usage_row({"w": [0.25, "r"]}, {"w": [0.375, "r"]}),
+            usage_row({}, {"week": [0.75, "s"]}),
+            usage_row({"week": [0.0, "s"]}, {}),
+        ],
+    )
     assert series.need(log) == {"w": 0.125}
 
 
@@ -155,9 +184,14 @@ def pacing(tmp_path, monkeypatch):
     return tmp_path / "swarm-null-3.jsonl", stop
 
 
-@pytest.mark.parametrize("tamu,cornell,expected", [
-    (0.25, 0.25, "TAMU"), (0.3, 0.1, "TAMU"), (0.300001, 0.3, "Cornell"),
-])
+@pytest.mark.parametrize(
+    "tamu,cornell,expected",
+    [
+        (0.25, 0.25, "TAMU"),
+        (0.3, 0.1, "TAMU"),
+        (0.300001, 0.3, "Cornell"),
+    ],
+)
 def test_first_need_half_and_ceiling_point_eight_include_exact_ties(pacing, monkeypatch, tamu, cornell, expected):
     """FIRST_NEED=0.5: 0.3+0.5=0.8 fits, but 0.300001+0.5 does not; TAMU wins ties."""
     log, _ = pacing
@@ -173,8 +207,10 @@ def test_all_windows_must_fit_and_measured_need_replaces_first_need(pacing, monk
     """Measured w=1/8 permits 0.625; unmeasured week needs 1/2 and blocks TAMU's 0.31."""
     log, _ = pacing
     log_rows(log, [usage_row({"w": [0.125, "r"]}, {"w": [0.25, "r"]})])
-    probes = {"synthetic-tamu": {"w": [0.625, "r"], "week": [0.31, "s"]},
-              "synthetic-cornell": {"w": [0.625, "r"], "week": [0.25, "s"]}}
+    probes = {
+        "synthetic-tamu": {"w": [0.625, "r"], "week": [0.31, "s"]},
+        "synthetic-cornell": {"w": [0.625, "r"], "week": [0.25, "s"]},
+    }
     monkeypatch.setattr(series, "windows", lambda token=None: probes[token])
     assert series.wait_for_room(log) == ("Cornell", probes["synthetic-cornell"])
 
@@ -276,10 +312,17 @@ def test_killed_series_recovers_started_id_without_running_it_again(tmp_path):
         "c.windows=lambda *a:{}\nc.usage=lambda *a:{}\n"
     )
     child = subprocess.Popen(
-        [sys.executable, "-c", setup +
-         "def killed(cid,inputs):\n assert (c.OUT/cid).is_dir()\n print('STARTED',flush=True)\n time.sleep(60)\n"
-         "c.SERIES['agent']=killed\nc.run_series('agent')\n", str(tmp_path)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        [
+            sys.executable,
+            "-c",
+            setup
+            + "def killed(cid,inputs):\n assert (c.OUT/cid).is_dir()\n print('STARTED',flush=True)\n time.sleep(60)\n"
+            "c.SERIES['agent']=killed\nc.run_series('agent')\n",
+            str(tmp_path),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     try:
         assert child.stdout.readline().strip() == "STARTED"
@@ -290,10 +333,16 @@ def test_killed_series_recovers_started_id_without_running_it_again(tmp_path):
             child.kill()
         child.communicate(timeout=10)
     resumed = subprocess.run(
-        [sys.executable, "-c", setup +
-         "def forbidden(*a):\n raise AssertionError('started campaign rerun')\n"
-         "c.SERIES['agent']=forbidden\nc.run_series('agent')\n", str(tmp_path)],
-        capture_output=True, text=True, timeout=20,
+        [
+            sys.executable,
+            "-c",
+            setup + "def forbidden(*a):\n raise AssertionError('started campaign rerun')\n"
+            "c.SERIES['agent']=forbidden\nc.run_series('agent')\n",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
     )
     assert resumed.returncode == 0, resumed.stderr
     rows = [json.loads(line) for line in (tmp_path / "agent-null-3.jsonl").read_text().splitlines()]

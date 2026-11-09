@@ -61,18 +61,28 @@ def store_funding(store, version, coins):
     """Hourly funding and premium of `coins` over the search part of a store: (T x K, T x K)."""
     df = Store(store).as_of("funding", HOLDOUT_START, version).to_pandas()
     grid = np.arange(W_START, HOLDOUT_START, HOUR)
-    piv = {k: df.pivot(index="eventTime", columns="coin", values=k).reindex(grid)[list(coins)].to_numpy()
-           for k in ("fundingRate", "premium")}
+    piv = {
+        k: df.pivot(index="eventTime", columns="coin", values=k).reindex(grid)[list(coins)].to_numpy()
+        for k in ("fundingRate", "premium")
+    }
     return piv["fundingRate"], piv["premium"]
 
 
 def store_events(store, version, coins, block_hours=24):
     """event_paths spec from the real forum counts of `coins` (U's order) over the search part, on the
     hours every mapped coin is covered."""
-    piv = Store(store).as_of("events_forum", HOLDOUT_START, version).to_pandas().pivot(
-        index="eventTime", columns="coin", values="count")
+    piv = (
+        Store(store)
+        .as_of("events_forum", HOLDOUT_START, version)
+        .to_pandas()
+        .pivot(index="eventTime", columns="coin", values="count")
+    )
     have = [c for c in coins if c in piv.columns]
-    return {"arrays": piv[have].dropna().to_numpy(), "coins": [coins.index(c) for c in have], "block_hours": block_hours}
+    return {
+        "arrays": piv[have].dropna().to_numpy(),
+        "coins": [coins.index(c) for c in have],
+        "block_hours": block_hours,
+    }
 
 
 def frozen_funding(spec, inputs=None):
@@ -107,7 +117,7 @@ def block_indices(rng, n, length, mean_block):
     while i < n:
         start, size = rng.integers(length), rng.geometric(1 / mean_block)
         take = min(size, n - i)
-        idx[i:i + take] = (start + np.arange(take)) % length
+        idx[i : i + take] = (start + np.arange(take)) % length
         i += take
     return idx
 
@@ -197,8 +207,18 @@ def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
     low = np.minimum(o, c) * (1 - w[1])
     volume = rng.lognormal(10, 0.5, (n, coins))
     forum = event_paths(np.random.default_rng(seed(market_id + "/events")), events, coins, hours) if events else None
-    return {"forum_posts": forum, "open": o, "close": c, "high": high, "low": low, "volume": volume, "funding": f, "premium": premium,
-            "eps": eps, "sigma": sig}
+    return {
+        "forum_posts": forum,
+        "open": o,
+        "close": c,
+        "high": high,
+        "low": low,
+        "volume": volume,
+        "funding": f,
+        "premium": premium,
+        "eps": eps,
+        "sigma": sig,
+    }
 
 
 def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=1):
@@ -208,33 +228,47 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
     hours = arrays["funding"].shape[0]
     names = [f"S{i}" for i in range(coins)]
     k = np.arange(n)
-    bars = pl.DataFrame({
-        "coin": np.repeat(names, n),
-        "eventTime": np.tile((k + 1) * BAR, coins),
-        "openTime": np.tile(k * BAR, coins),
-        **{col: arrays[col].T.reshape(-1) for col in ("open", "high", "low", "close", "volume")},
-        "trades": np.full(n * coins, 100),
-    })
+    bars = pl.DataFrame(
+        {
+            "coin": np.repeat(names, n),
+            "eventTime": np.tile((k + 1) * BAR, coins),
+            "openTime": np.tile(k * BAR, coins),
+            **{col: arrays[col].T.reshape(-1) for col in ("open", "high", "low", "close", "volume")},
+            "trades": np.full(n * coins, 100),
+        }
+    )
     h = np.arange(hours)
-    funding = pl.DataFrame({
-        "coin": np.repeat(names, hours),
-        "eventTime": np.tile(h * HOUR, coins),
-        "fundingRate": arrays["funding"].T.reshape(-1),
-        "premium": arrays["premium"].T.reshape(-1),
-        "reportedTime": np.tile(h * HOUR, coins),
-    })
+    funding = pl.DataFrame(
+        {
+            "coin": np.repeat(names, hours),
+            "eventTime": np.tile(h * HOUR, coins),
+            "fundingRate": arrays["funding"].T.reshape(-1),
+            "premium": arrays["premium"].T.reshape(-1),
+            "reportedTime": np.tile(h * HOUR, coins),
+        }
+    )
     w_end = n * BAR + HOUR
     holdout_start = n * BAR - holdout_days * DAY if holdout_days else w_end
-    search, holdout = Store(root / "store", event_before=holdout_start), Store(root / "holdout", policy_root=root / "store")
+    search, holdout = (
+        Store(root / "store", event_before=holdout_start),
+        Store(root / "holdout", policy_root=root / "store"),
+    )
     write_split(search, holdout, "funding", funding, fetched_at, "synthetic", holdout_start)
     write_split(search, holdout, "bars_4h", bars, fetched_at, "synthetic", holdout_start)
     if arrays.get("forum_posts") is not None:
         ev = arrays["forum_posts"]
-        rows = [(names[c], int(t * HOUR), float(ev[t, c])) for c in range(coins) for t in range(hours) if not np.isnan(ev[t, c])]
+        rows = [
+            (names[c], int(t * HOUR), float(ev[t, c]))
+            for c in range(coins)
+            for t in range(hours)
+            if not np.isnan(ev[t, c])
+        ]
         events = pl.DataFrame(rows, schema={"coin": pl.Utf8, "eventTime": pl.Int64, "count": pl.Float64}, orient="row")
         write_split(search, holdout, "events_forum", events, fetched_at, "synthetic", holdout_start)
     write_venue(root, {c: (3, 10, False) for c in names}, cost_cells, taker_fee)
-    (root / "store" / "policy.json").write_text(json.dumps(POLICY | {"w_start": 0, "holdout_start": holdout_start, "w_end": w_end}))
+    (root / "store" / "policy.json").write_text(
+        json.dumps(POLICY | {"w_start": 0, "holdout_start": holdout_start, "w_end": w_end})
+    )
     (root / "version").write_text(f"{fetched_at}\n")
     return root
 
@@ -243,13 +277,23 @@ def write_venue(root, coins, cost_cells, taker_fee=0.00045):
     """<root>/venue: rules for {coin: (szDecimals, maxLeverage, delisted)} and every coin at `cost_cells`."""
     venue = Path(root) / "venue"
     venue.mkdir(parents=True, exist_ok=True)
-    rules = {"rules": {"taker_fee": {"value": taker_fee}, "min_order_notional_usd": {"value": 10.0}},
-             "coins": {c: {"szDecimals": sz, "maxLeverage": lev, "marginTiers": [{"lowerBound": "0.0", "maxLeverage": lev}],
-                           "delisted": delisted} for c, (sz, lev, delisted) in coins.items()}}
+    rules = {
+        "rules": {"taker_fee": {"value": taker_fee}, "min_order_notional_usd": {"value": 10.0}},
+        "coins": {
+            c: {
+                "szDecimals": sz,
+                "maxLeverage": lev,
+                "marginTiers": [{"lowerBound": "0.0", "maxLeverage": lev}],
+                "delisted": delisted,
+            }
+            for c, (sz, lev, delisted) in coins.items()
+        },
+    }
     (venue / "rules.json").write_text(json.dumps(rules))
     (venue / "execution.json").write_text(json.dumps({"cost_bps_ex_fee": {c: cost_cells for c in coins}}))
 
 
-def write_market(root, market_id="test", days=60, holdout_days=0, model="N1", params=None,
-                 cost_cells=None, planted=(), beta=0.0):
+def write_market(
+    root, market_id="test", days=60, holdout_days=0, model="N1", params=None, cost_cells=None, planted=(), beta=0.0
+):
     return write(root, generate(model, params, market_id, days, planted, beta), holdout_days, cost_cells or FLAT_COST)

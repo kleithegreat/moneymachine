@@ -20,18 +20,26 @@ def worktree(tmp_path):
         (repo / name).write_text("original\n")
     (repo / ".gitignore").write_text("data/\n.keys.env\nforced.py\n")
     subprocess.run(["git", "add", "."], cwd=repo, check=True)
-    subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "initial"],
-                   cwd=repo, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "initial"],
+        cwd=repo,
+        check=True,
+    )
     return repo
 
 
 def test_arguments(worktree):
     assert shards.arguments([str(worktree)]) == (worktree, ["local", "prodesk5", "gmktec", "prodesk7"], [])
     assert shards.arguments([str(worktree), "-k", "one or two", "ops", "--machines", "local,gmktec"]) == (
-        worktree, ["local", "gmktec"], ["-k", "one or two", "ops"])
+        worktree,
+        ["local", "gmktec"],
+        ["-k", "one or two", "ops"],
+    )
 
 
-@pytest.mark.parametrize("machines", ["prodesk7", "prodesk5", "local,192.168.8.222", "local,local", "local;touch /tmp/no"])
+@pytest.mark.parametrize(
+    "machines", ["prodesk7", "prodesk5", "local,192.168.8.222", "local,local", "local;touch /tmp/no"]
+)
 def test_refuses_unapproved_machines_before_any_subprocess(monkeypatch, machines, capsys):
     def unexpected(*args, **kwargs):
         pytest.fail("refusal must precede even local subprocesses")
@@ -43,7 +51,9 @@ def test_refuses_unapproved_machines_before_any_subprocess(monkeypatch, machines
     assert "refused" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("args", [[], ["/nonexistent"], [".", "--basetemp=/tmp/outside"], [".", "-n", "3"], [".", "-p", "x"]])
+@pytest.mark.parametrize(
+    "args", [[], ["/nonexistent"], [".", "--basetemp=/tmp/outside"], [".", "-n", "3"], [".", "-p", "x"]]
+)
 def test_bad_arguments(args):
     with pytest.raises(SystemExit) as e:
         shards.arguments(args)
@@ -96,22 +106,44 @@ def test_a_machine_with_overhead_gets_fewer_tests_and_overhead_is_learned_from_t
     parts = shards.assign(ids, durations, cores, {"gmktec": 3.0})
     assert len(parts["gmktec"]) == 30 - 15 and len(parts["local"]) == 45
     rows = {"a": {"seconds": 40.0}, "b": {"seconds": 20.0}}
-    learned = shards.learn_overhead({"gmktec": 10.0}, {"gmktec": 50.0, "local": 5.0}, {"a": "gmktec", "b": "gmktec"}, rows, {"gmktec": 4, "local": 12})
+    learned = shards.learn_overhead(
+        {"gmktec": 10.0},
+        {"gmktec": 50.0, "local": 5.0},
+        {"a": "gmktec", "b": "gmktec"},
+        rows,
+        {"gmktec": 4, "local": 12},
+    )
     assert learned == {"gmktec": pytest.approx((10.0 + 50.0 - 60.0 / 4) / 2)}
 
 
 def shim(root, code):
     (root / "bin").mkdir(parents=True)
     tool = root / "bin" / "nix"
-    tool.write_text(f'#!/bin/sh\nprintf \'%s\\n\' "$HOME" "$TMPDIR" "$@" > "$HOME/../nix-args"\ncd "$PWD"; '
-                    f'cat "$HOME/../w/modified.py" "$HOME/../w/new file.py" > "$HOME/../seen"; ls "$HOME/../w" >> "$HOME/../seen"; exit {code}\n')
+    tool.write_text(
+        f'#!/bin/sh\nprintf \'%s\\n\' "$HOME" "$TMPDIR" "$@" > "$HOME/../nix-args"\ncd "$PWD"; '
+        f'cat "$HOME/../w/modified.py" "$HOME/../w/new file.py" > "$HOME/../seen"; ls "$HOME/../w" >> "$HOME/../seen"; exit {code}\n'
+    )
     tool.chmod(0o755)
 
 
 def remote(root, tar, env_path):
     with tar.open("rb") as stdin:
-        return subprocess.run(["bash", "-c", shards.REMOTE, "bash", str(root), str(root.parent / "tmp"), f"{root}/report.run1.json", "auto"], stdin=stdin, capture_output=True, text=True,
-                              env=os.environ | {"PATH": f"{env_path}:{os.environ['PATH']}"})
+        return subprocess.run(
+            [
+                "bash",
+                "-c",
+                shards.REMOTE,
+                "bash",
+                str(root),
+                str(root.parent / "tmp"),
+                f"{root}/report.run1.json",
+                "auto",
+            ],
+            stdin=stdin,
+            capture_output=True,
+            text=True,
+            env=os.environ | {"PATH": f"{env_path}:{os.environ['PATH']}"},
+        )
 
 
 @pytest.mark.parametrize("code", [0, 1, 5])
@@ -136,7 +168,9 @@ def test_remote_script_checks_out_the_dirty_tree_keeps_builds_and_returns_the_st
         assert f"@{root}/in/ids" in args and "--basetemp" in args and f"{root}/report.run1.json" in args
         assert not (root / "in").exists() and not (root.parent / "tmp").exists()
         (root / "w/build-output").write_text("kept\n")
-        assert subprocess.run(["git", "-C", str(root / "w"), "ls-files", "new file.py"], capture_output=True, text=True).stdout
+        assert subprocess.run(
+            ["git", "-C", str(root / "w"), "ls-files", "new file.py"], capture_output=True, text=True
+        ).stdout
     assert (root / "w/build-output").read_text() == "kept\n"
     assert Path(root / "lock").exists()
 
@@ -173,23 +207,40 @@ def test_each_node_run_fetches_only_its_own_report(worktree, monkeypatch, tmp_pa
     assert first != second and "report.json" not in first
     assert all(shards.ROOT + "/report." in c for c in (first, second))
     runs = [c for c in calls if "cat" not in c]
-    assert first.split("report.")[1].split(".json")[0] in runs[0] and second.split("report.")[1].split(".json")[0] in runs[1]
+    assert (
+        first.split("report.")[1].split(".json")[0] in runs[0]
+        and second.split("report.")[1].split(".json")[0] in runs[1]
+    )
 
 
 def test_a_remote_run_dies_with_its_session_and_frees_the_lock(tmp_path):
     root = tmp_path / "runner"
     shim(root, 0)
-    (root / "bin" / "nix").write_text("#!/bin/sh\necho $$ > \"$HOME/../nix-pid\"\nexec sleep 300\n")
+    (root / "bin" / "nix").write_text('#!/bin/sh\necho $$ > "$HOME/../nix-pid"\nexec sleep 300\n')
     tar = tmp_path / "in.tar.gz"
     repo = tmp_path / "wt"
     repo.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     (repo / "flake.nix").write_text("x\n")
-    subprocess.run(["git", "-c", "user.name=T", "-c", "user.email=t@x.invalid", "commit", "-q", "--allow-empty", "-m", "i"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=T", "-c", "user.email=t@x.invalid", "commit", "-q", "--allow-empty", "-m", "i"],
+        cwd=repo,
+        check=True,
+    )
     shards.package(repo, ["a.py::t"], tar)
     launcher = subprocess.Popen(
-        ["sh", "-c", 'setsid bash -c "$1" bash "$2" "$3" "$2/report.run1.json" auto < "$4" & wait', "sh", shards.REMOTE, str(root), str(tmp_path / "tmp"), str(tar)],
-        env=os.environ | {"PATH": f"{root}/bin:{os.environ['PATH']}"})
+        [
+            "sh",
+            "-c",
+            'setsid bash -c "$1" bash "$2" "$3" "$2/report.run1.json" auto < "$4" & wait',
+            "sh",
+            shards.REMOTE,
+            str(root),
+            str(tmp_path / "tmp"),
+            str(tar),
+        ],
+        env=os.environ | {"PATH": f"{root}/bin:{os.environ['PATH']}"},
+    )
     pidfile = root / "nix-pid"
     for _ in range(100):
         if pidfile.exists():
@@ -276,21 +327,33 @@ def test_the_unit_run_holds_its_lifeline_open_until_the_unit_ends_and_cleans_its
 
 
 @pytest.mark.parametrize("size, kept", [(shards.REPORT_CAP, True), (shards.REPORT_CAP + 1, False)])
-def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(worktree, monkeypatch, tmp_path, size, kept):
+def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(
+    worktree, monkeypatch, tmp_path, size, kept
+):
     def fake(argv, **kwargs):
         if "head" in argv[-1]:
             cap = int(argv[-1].split("-c ")[1].split()[0])
-            return SimpleNamespace(returncode=0, stdout=(b"x" * (size if "report.json" in argv[-1] else shards.LOG_CAP * 2))[:cap])
+            return SimpleNamespace(
+                returncode=0, stdout=(b"x" * (size if "report.json" in argv[-1] else shards.LOG_CAP * 2))[:cap]
+            )
         if kwargs.get("stdin"):
             kwargs["stdin"].read()
         return SimpleNamespace(returncode=0, stdout=b"")
 
     class Start:
         stdin = SimpleNamespace(close=lambda: None)
-        def __init__(self, *a, **k): pass
-        def __enter__(self): return self
-        def __exit__(self, *e): return False
-        def wait(self, timeout): return 0
+
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *e):
+            return False
+
+        def wait(self, timeout):
+            return 0
 
     monkeypatch.setattr(shards.subprocess, "run", fake)
     monkeypatch.setattr(shards.subprocess, "Popen", Start)

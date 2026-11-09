@@ -1,5 +1,6 @@
 # Written by GPT 6.1 Sol from whitepaper.tex and INVARIANTS.md alone.
 
+
 def check(case: dict) -> str:
     """Check one case in the documented mm check-fills format."""
     fill = case["fill"]
@@ -35,11 +36,7 @@ def check(case: dict) -> str:
         )
         if source is None:
             return "R_FILL"
-        if not (
-            source["open_time"] == fill["source_open"]
-            and source["open_time"] <= filled
-            and source["trades"] >= 1
-        ):
+        if not (source["open_time"] == fill["source_open"] and source["open_time"] <= filled and source["trades"] >= 1):
             return "R_FILL"
         reference = float(source["open"])
     else:

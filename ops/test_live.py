@@ -23,6 +23,7 @@ def killed_at(action, install):
         def stop():
             child.send("paused")
             child.recv()
+
         install(stop)
         action()
         child.send("finished")
@@ -50,9 +51,11 @@ def test_seed_validates_all_destinations_before_copy(tmp_path, monkeypatch, dest
     source.write_bytes(b"new")
     copied = []
     copy = live.shutil.copy2
+
     def tracked(*a):
         copied.append(a)
         return copy(*a)
+
     monkeypatch.setattr(live.shutil, "copy2", tracked)
     monkeypatch.setattr(live, "run_pod", lambda *a: ("", True))
     with pytest.raises((SystemExit, ValueError)):
@@ -62,9 +65,11 @@ def test_seed_validates_all_destinations_before_copy(tmp_path, monkeypatch, dest
 
 def local_seed_runner(name, spec):
     path = live.Path
+
     def mapped(p):
         p = path(p)
         return live.MIRROR / p.relative_to("/mirror") if p.is_relative_to("/mirror") else p
+
     live.Path = mapped
     try:
         live.seed_run(*spec["containers"][0]["command"][3:])
@@ -137,18 +142,22 @@ def test_seed_interruption_does_not_publish_partial_file(tmp_path, monkeypatch):
     def install(stop):
         copy = live.shutil.copyfileobj
         copy2 = live.shutil.copy2
+
         def interrupted(a, b, *args):
             if not Path(b.name).is_relative_to(tmp_path / "app"):
                 return copy(a, b, *args)
             b.write(a.read(1))
             b.flush()
             stop()
+
         live.shutil.copyfileobj = interrupted
+
         def copy_file(a, b):
             if not Path(b).is_relative_to(tmp_path / "app"):
                 return copy2(a, b)
             with open(a, "rb") as src, open(b, "wb") as dst:
                 interrupted(src, dst)
+
         live.shutil.copy2 = copy_file
         live.run_pod = local_seed_runner
 
@@ -190,9 +199,11 @@ def test_concurrent_seed_destination_creation_is_not_overwritten(tmp_path, monke
     (stage / "SHA256.json").write_text(json.dumps({"input": live.sha256(stage / "input")}))
     target = tmp_path / "app/data/agent/input"
     link = live.os.link
+
     def concurrent(src, dst):
         target.write_bytes(b"recording")
         return link(src, dst)
+
     monkeypatch.setattr(live.os, "link", concurrent)
     with pytest.raises(FileExistsError):
         live.seed_run("agent", stage)
@@ -224,12 +235,15 @@ def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path, monkeyp
         raise AssertionError(args)
 
     monkeypatch.setattr(live, "kubectl", fake)
+
     def install(stop):
         def interrupted(*args, **kw):
             if args[0] == "delete":
                 stop()
             return fake(*args, **kw)
+
         live.kubectl = interrupted
+
     killed_at(lambda: live.run_pod("seed-agent", {}), install)
     leftover = set(json.loads(store.read_text()))
     log, ok = live.run_pod("seed-agent", {})
@@ -252,9 +266,11 @@ def passing_gate(tmp_path, monkeypatch):
     monkeypatch.setattr(live, "reach", lambda h, p: h == "api.anthropic.com")
     monkeypatch.setattr(live, "retrieval_reach", lambda: {"certified": 200})
     monkeypatch.setattr(session, "workspace", lambda *a: None)
+
     def run(work, *a):
         (work / "transcript.jsonl").write_text(json.dumps({"type": "result", "is_error": False, "result": "READY"}))
         return {"stopped": "finished", "exit": 0}
+
     monkeypatch.setattr(session, "run", run)
     return harness, campaigns, session
 
@@ -269,8 +285,10 @@ def test_gate_exits_nonzero_with_named_failure(passing_gate, monkeypatch, capsys
     elif failure == "session":
         monkeypatch.setattr(session, "run", lambda *a: {"stopped": "turn limit", "exit": 1})
     elif failure == "windows":
+
         def broken():
             raise RuntimeError("unavailable")
+
         monkeypatch.setattr(campaigns, "windows", broken)
     elif failure == "network":
         monkeypatch.setattr(live, "reach", lambda *a: True)
@@ -284,12 +302,16 @@ def test_gate_exits_nonzero_with_named_failure(passing_gate, monkeypatch, capsys
     assert failure in str(error.value) + capsys.readouterr().out
 
 
-@pytest.mark.parametrize("result", [{"is_error": True, "result": "READY"}, {"is_error": False, "result": "NOT READY"}, {}])
+@pytest.mark.parametrize(
+    "result", [{"is_error": True, "result": "READY"}, {"is_error": False, "result": "NOT READY"}, {}]
+)
 def test_gate_refuses_unsuccessful_session_results(passing_gate, monkeypatch, result):
     _, _, session = passing_gate
+
     def run(work, *a):
         (work / "transcript.jsonl").write_text(json.dumps({"type": "result"} | result))
         return {"stopped": "finished", "exit": 0}
+
     monkeypatch.setattr(session, "run", run)
     with pytest.raises(SystemExit, match="session"):
         live.gate_run(json.dumps(live.TARGETS))
@@ -343,8 +365,7 @@ def verify_clock(monkeypatch):
         assert clock.elapsed <= live.MIRROR_VERIFY_WAIT
         clock.on_sleep()
 
-    monkeypatch.setattr(live, "time", SimpleNamespace(
-        monotonic=lambda: clock.elapsed, sleep=sleep, time=time.time))
+    monkeypatch.setattr(live, "time", SimpleNamespace(monotonic=lambda: clock.elapsed, sleep=sleep, time=time.time))
     return clock
 
 
@@ -502,20 +523,25 @@ def test_verify_overlaps_flat_file_publication(tmp_path, monkeypatch):
 def test_killed_manifest_publication_is_detected_and_recoverable(tmp_path, monkeypatch, verify_clock, published):
     app, out = changing_mirror(tmp_path, monkeypatch)
     before = (out / "thesis/MANIFEST.json").read_bytes()
+
     def install(stop):
         write = Path.write_text
         replace = Path.replace
+
         def interrupted(path, *a, **kw):
             if not published and path.name.startswith("MANIFEST.json"):
                 stop()
             return write(path, *a, **kw)
+
         def after_publication(path, *a, **kw):
             result = replace(path, *a, **kw)
             if published and path.name == "MANIFEST.json.tmp":
                 stop()
             return result
+
         Path.write_text = interrupted
         Path.replace = after_publication
+
     killed_at(lambda: live.mirror(app, out), install)
     assert ((out / "thesis/MANIFEST.json").read_bytes() != before) == published
     if published:
@@ -630,11 +656,15 @@ def test_manifests_keep_the_boundaries():
         c, runner = spec["containers"][0], live.WORKLOADS[name][3]
         claims = {v["persistentVolumeClaim"]["claimName"] for v in spec["volumes"] if "persistentVolumeClaim" in v}
         assert claims <= set(live.VOLUMES) | {"mirror"} and not claims & {"inputs", "results"}
-        assert [e["valueFrom"]["secretKeyRef"]["key"] for e in c["env"] if e["name"] == "CLAUDE_CODE_OAUTH_TOKEN"] == ([runner] if runner else [])
+        assert [e["valueFrom"]["secretKeyRef"]["key"] for e in c["env"] if e["name"] == "CLAUDE_CODE_OAUTH_TOKEN"] == (
+            [runner] if runner else []
+        )
         assert (spec.get("hostUsers") is False) == bool(runner)
         assert ("keys" in {v["name"] for v in spec["volumes"]}) == (name == "datalayer")
         assert spec["securityContext"]["seccompProfile"]["type"] == ("Localhost" if runner else "RuntimeDefault")
-        assert c["securityContext"]["readOnlyRootFilesystem"] and c["securityContext"]["capabilities"] == {"drop": ["ALL"]}
+        assert c["securityContext"]["readOnlyRootFilesystem"] and c["securityContext"]["capabilities"] == {
+            "drop": ["ALL"]
+        }
         assert not spec["automountServiceAccountToken"] and spec["priorityClassName"] == live.NAMESPACE
         assert c["image"].startswith(live.jobs.REGISTRY + "@sha256:")
     assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"thesis", "agent-series", "agent-real"}
@@ -661,7 +691,10 @@ def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool():
     assert series["backoffLimit"] == 20 and series["template"]["spec"]["restartPolicy"] == "OnFailure"
     env = spec["containers"][0]["env"]
     assert env == series["template"]["spec"]["containers"][0]["env"] and {e["name"] for e in env} >= {
-        "CLAUDE_CODE_OAUTH_TOKEN_TAMU", "CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "CARGO_TARGET_DIR"}
+        "CLAUDE_CODE_OAUTH_TOKEN_TAMU",
+        "CLAUDE_CODE_OAUTH_TOKEN_CORNELL",
+        "CARGO_TARGET_DIR",
+    }
     assert [v["name"] for v in spec["volumes"] if "persistentVolumeClaim" in v] == ["agent"]
     command = spec["containers"][0]["command"]
     assert command[-3:] == ["agent-real", "data/agent/real", "1792613363942"]

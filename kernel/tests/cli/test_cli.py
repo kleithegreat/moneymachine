@@ -21,8 +21,24 @@ from gate.markets import write_market
 
 REPO = Path(__file__).resolve().parents[3]
 W0 = REPO / "kernel" / "strategies" / "w0.json"
-IDENTITY = ["strategy_hash", "params", "universe", "window_start", "window_end", "dataset_version", "data_hash",
-            "conventions", "rules_hash", "execution_hash", "kernel", "seed", "identity", "mechanism", "equivalence", "trial"]
+IDENTITY = [
+    "strategy_hash",
+    "params",
+    "universe",
+    "window_start",
+    "window_end",
+    "dataset_version",
+    "data_hash",
+    "conventions",
+    "rules_hash",
+    "execution_hash",
+    "kernel",
+    "seed",
+    "identity",
+    "mechanism",
+    "equivalence",
+    "trial",
+]
 pytestmark = pytest.mark.usefixtures("built_kernel")
 
 
@@ -37,9 +53,11 @@ def test_holdout_is_split_off(market):
 
 def mm(market, *args, ledger, text=True):
     m = Path(market)
-    return subprocess.run([str(MM), *args, "--store", str(m / "store"), "--venue", str(m / "venue"),
-                           "--ledger", str(ledger)],
-                          capture_output=True, text=text)
+    return subprocess.run(
+        [str(MM), *args, "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(ledger)],
+        capture_output=True,
+        text=text,
+    )
 
 
 def evaluate(market, ledger, strategy=W0, text=True):
@@ -51,7 +69,9 @@ def data_hash(store, version):
     order, each file at or before `version` in version order, its name and the SHA-256 of its bytes."""
     h = hashlib.sha256()
     for dataset in ("funding", "bars_4h", "events_forum", "events_governance"):
-        for _, f in sorted((int(f.stem), f) for f in (Path(store) / dataset).glob("*.parquet") if int(f.stem) <= version):
+        for _, f in sorted(
+            (int(f.stem), f) for f in (Path(store) / dataset).glob("*.parquet") if int(f.stem) <= version
+        ):
             h.update(f.name.encode() + hashlib.sha256(f.read_bytes()).digest())
     return h.hexdigest()
 
@@ -62,12 +82,19 @@ def test_eval_records_identity_and_disclosure(market, tmp_path):
     assert r.returncode == 0, r.stderr
     out = json.loads(r.stdout)
     db = sqlite3.connect(ledger)
-    row = dict(zip([d[1] for d in db.execute("PRAGMA table_info(experiments)")],
-                   db.execute("SELECT * FROM experiments").fetchone()))
+    row = dict(
+        zip(
+            [d[1] for d in db.execute("PRAGMA table_info(experiments)")],
+            db.execute("SELECT * FROM experiments").fetchone(),
+        )
+    )
     assert all(row[k] not in (None, "") for k in IDENTITY)
     sha = lambda path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
-    assert (row["rules_hash"], row["execution_hash"], row["kernel"]) == \
-        (sha(Path(market) / "venue" / "rules.json"), sha(Path(market) / "venue" / "execution.json"), sha(MM))
+    assert (row["rules_hash"], row["execution_hash"], row["kernel"]) == (
+        sha(Path(market) / "venue" / "rules.json"),
+        sha(Path(market) / "venue" / "execution.json"),
+        sha(MM),
+    )
     assert row["data_hash"] == data_hash(Path(market) / "store", row["dataset_version"])
     disclosed = db.execute("SELECT content FROM disclosures WHERE experiment_id = ?", (out["experiment"],)).fetchone()
     assert json.loads(disclosed[0]) == out["disclosure"]
@@ -106,18 +133,35 @@ def test_a_changed_store_value_changes_the_data_hash_and_the_identity(market, tm
     f = sorted((copy / "store" / "funding").glob("*.parquet"))[0]
     df = pl.read_parquet(f)
     f.chmod(0o644)
-    df.with_columns(pl.when(pl.int_range(pl.len()) == 0).then(pl.col("fundingRate") + 1e-6).otherwise(pl.col("fundingRate"))
-                    .alias("fundingRate")).write_parquet(f)
+    df.with_columns(
+        pl.when(pl.int_range(pl.len()) == 0)
+        .then(pl.col("fundingRate") + 1e-6)
+        .otherwise(pl.col("fundingRate"))
+        .alias("fundingRate")
+    ).write_parquet(f)
     rows = []
     for i, m in enumerate((market, copy)):
         assert evaluate(m, tmp_path / f"{i}.sqlite").returncode == 0
-        rows.append(sqlite3.connect(tmp_path / f"{i}.sqlite").execute("SELECT data_hash, identity FROM experiments").fetchone())
+        rows.append(
+            sqlite3.connect(tmp_path / f"{i}.sqlite").execute("SELECT data_hash, identity FROM experiments").fetchone()
+        )
     assert rows[0][0] != rows[1][0] and rows[0][1] != rows[1][1]
 
 
 def test_the_committed_disclosure_holds_only_the_disclosed_fields(market, tmp_path):
     ledger = tmp_path / "l.sqlite"
-    r = mm(market, "eval", str(W0), "--campaign", "c", "--agent", "a", "--disclose", "sharpe_annualized,fills", ledger=ledger)
+    r = mm(
+        market,
+        "eval",
+        str(W0),
+        "--campaign",
+        "c",
+        "--agent",
+        "a",
+        "--disclose",
+        "sharpe_annualized,fills",
+        ledger=ledger,
+    )
     out = json.loads(r.stdout)["disclosure"]
     assert set(out["result"]) == {"sharpe_annualized", "fills"}
     committed = sqlite3.connect(ledger).execute("SELECT content FROM disclosures").fetchone()[0]
@@ -129,8 +173,13 @@ def test_identity_covers_every_policy_field(market, tmp_path):
     copy = tmp_path / "m"
     shutil.copytree(market, copy)
     policy = json.loads((copy / "store" / "policy.json").read_text())
-    (copy / "store" / "policy.json").write_text(json.dumps(policy | {"settlement_latency_ms": policy["settlement_latency_ms"] + 1}))
-    a, b = (json.loads(evaluate(m, tmp_path / f"{i}.sqlite").stdout)["disclosure"]["identity"] for i, m in enumerate((market, copy)))
+    (copy / "store" / "policy.json").write_text(
+        json.dumps(policy | {"settlement_latency_ms": policy["settlement_latency_ms"] + 1})
+    )
+    a, b = (
+        json.loads(evaluate(m, tmp_path / f"{i}.sqlite").stdout)["disclosure"]["identity"]
+        for i, m in enumerate((market, copy))
+    )
     assert a != b
 
 
@@ -139,7 +188,9 @@ def test_a_selection_records_every_disclosure_before_it(market, tmp_path):
     ledger = tmp_path / "l.sqlite"
     evaluate(market, ledger)
     mm(market, "eval", str(W0), "--campaign", "c", "--agent", "b", ledger=ledger)
-    subprocess.run(kernel.command("select", "h", "c", "gate", ledger, None, "--note", "n"), check=True, capture_output=True)
+    subprocess.run(
+        kernel.command("select", "h", "c", "gate", ledger, None, "--note", "n"), check=True, capture_output=True
+    )
     db = sqlite3.connect(ledger)
     last = db.execute("SELECT MAX(id) FROM disclosures").fetchone()[0]
     assert db.execute("SELECT seen_through FROM selections").fetchall() == [(last,)]
@@ -166,8 +217,21 @@ def test_copied_holdout_rows_abort_search_mode(market, tmp_path):
 
 def test_holdout_store_itself_aborts_search_mode(market, tmp_path):
     m = Path(market)
-    args = lambda store: [str(MM), "eval", str(W0), "--campaign", "c", "--agent", "a", "--store", str(store),
-                          "--venue", str(m / "venue"), "--ledger", str(tmp_path / "l.sqlite")]
+    args = lambda store: [
+        str(MM),
+        "eval",
+        str(W0),
+        "--campaign",
+        "c",
+        "--agent",
+        "a",
+        "--store",
+        str(store),
+        "--venue",
+        str(m / "venue"),
+        "--ledger",
+        str(tmp_path / "l.sqlite"),
+    ]
     r = subprocess.run(args(m / "holdout"), capture_output=True, text=True)
     assert r.returncode == 3 and r.stdout == "" and "policy.json" in r.stderr
     copy = tmp_path / "holdout-copy"
@@ -194,21 +258,47 @@ def freeze(market, ledger, strategy):
     """Evaluate `strategy` in search mode and record the gate's selection of its trial."""
     evaluate(market, ledger, strategy)
     trial = sqlite3.connect(ledger).execute("SELECT trial FROM experiments ORDER BY id DESC").fetchone()[0]
-    subprocess.run(kernel.command("select", trial, "c", "gate", ledger, None, "--note", "frozen"), check=True, capture_output=True)
+    subprocess.run(
+        kernel.command("select", trial, "c", "gate", ledger, None, "--note", "frozen"), check=True, capture_output=True
+    )
 
 
 def holdout(market, ledger, strategy=W0, *extra, frozen=True):
     m = Path(market)
     if frozen:
         freeze(market, ledger, strategy)
-    return subprocess.run([str(MM), "holdout", str(strategy), "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
-                           "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"),
-                           "--ledger", str(ledger), *extra], capture_output=True, text=True)
+    return subprocess.run(
+        [
+            str(MM),
+            "holdout",
+            str(strategy),
+            "--campaign",
+            "c",
+            "--agent",
+            "gate",
+            "--store",
+            str(m / "store"),
+            "--holdout-store",
+            str(m / "holdout"),
+            "--venue",
+            str(m / "venue"),
+            "--ledger",
+            str(ledger),
+            *extra,
+        ],
+        capture_output=True,
+        text=True,
+    )
 
 
 def holdout_returns(ledger):
-    blob = sqlite3.connect(ledger).execute(
-        "SELECT r.returns FROM results r JOIN experiments e ON e.id = r.experiment_id WHERE e.mode = 'holdout'").fetchone()[0]
+    blob = (
+        sqlite3.connect(ledger)
+        .execute(
+            "SELECT r.returns FROM results r JOIN experiments e ON e.id = r.experiment_id WHERE e.mode = 'holdout'"
+        )
+        .fetchone()[0]
+    )
     return struct.unpack(f"<{len(blob) // 8}d", blob)
 
 
@@ -223,9 +313,28 @@ def test_holdout_evaluates_exactly_the_frozen_selections_from_a_file(tmp_path):
     extra = holdout(market, ledger, batch, frozen=False)
     assert json.loads(extra.stdout)["code"] == "R_HOLDOUT_FAMILY"
     m = Path(market)
-    stdin = subprocess.run([str(MM), "holdout", "-", "--campaign", "c", "--agent", "gate", "--store", str(m / "store"),
-                            "--holdout-store", str(m / "holdout"), "--venue", str(m / "venue"), "--ledger", str(ledger)],
-                           input=W0.read_text(), capture_output=True, text=True)
+    stdin = subprocess.run(
+        [
+            str(MM),
+            "holdout",
+            "-",
+            "--campaign",
+            "c",
+            "--agent",
+            "gate",
+            "--store",
+            str(m / "store"),
+            "--holdout-store",
+            str(m / "holdout"),
+            "--venue",
+            str(m / "venue"),
+            "--ledger",
+            str(ledger),
+        ],
+        input=W0.read_text(),
+        capture_output=True,
+        text=True,
+    )
     assert stdin.returncode == 3 and not stdin.stdout
     empty = tmp_path / "empty.jsonl"
     empty.write_text("")
@@ -242,14 +351,32 @@ def test_holdout_is_evaluated_once_over_its_window(tmp_path):
     assert out["mode"] == "holdout" and out["result"]["steps"] == 10 * 6 - 1
     again = holdout(market, ledger)
     assert again.returncode == 1 and json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
-    row = sqlite3.connect(ledger).execute("SELECT mode, window_start FROM experiments WHERE mode = 'holdout'").fetchall()
+    row = (
+        sqlite3.connect(ledger).execute("SELECT mode, window_start FROM experiments WHERE mode = 'holdout'").fetchall()
+    )
     assert row == [("holdout", json.loads((Path(market) / "store" / "policy.json").read_text())["holdout_start"])]
 
 
 def momentum(tmp_path):
     """A strategy that trades every bar."""
-    program = dict(json.loads(W0.read_text()), weight={"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
-        {"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}]}]}, {"const": 0.5, "unit": "1"}]})
+    program = dict(
+        json.loads(W0.read_text()),
+        weight={
+            "op": "mul",
+            "args": [
+                {
+                    "op": "sign",
+                    "args": [
+                        {
+                            "op": "sub",
+                            "args": [{"input": "close"}, {"op": "lag", "args": [{"input": "close"}], "hours": 4}],
+                        }
+                    ],
+                },
+                {"const": 0.5, "unit": "1"},
+            ],
+        },
+    )
     path = tmp_path / "momentum.json"
     path.write_text(json.dumps(program))
     return path
@@ -263,7 +390,10 @@ def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path):
     e["calibration_relative_range"] = {"S0": [0.0, 1.0], "S1": [5.0, 6.0]}
     execution.write_text(json.dumps(e))
     strategy = momentum(tmp_path)
-    out = {m: json.loads(holdout(m, tmp_path / f"{Path(m).name}.sqlite", strategy).stdout)["disclosure"] for m in (plain, ranged)}
+    out = {
+        m: json.loads(holdout(m, tmp_path / f"{Path(m).name}.sqlite", strategy).stdout)["disclosure"]
+        for m in (plain, ranged)
+    }
     assert out[plain]["result"] == out[ranged]["result"]
     d = out[ranged]["diagnostics"]
     assert d["total_return_2x_costs"] < out[ranged]["result"]["total_return"]
@@ -275,9 +405,27 @@ def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path):
 
 def test_stream_eval_answers_each_line(market, tmp_path):
     m = Path(market)
-    p = subprocess.Popen([str(MM), "eval", "-", "--campaign", "c", "--agent", "a", "--store", str(m / "store"),
-                          "--venue", str(m / "venue"), "--ledger", str(tmp_path / "l.sqlite")],
-                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+    p = subprocess.Popen(
+        [
+            str(MM),
+            "eval",
+            "-",
+            "--campaign",
+            "c",
+            "--agent",
+            "a",
+            "--store",
+            str(m / "store"),
+            "--venue",
+            str(m / "venue"),
+            "--ledger",
+            str(tmp_path / "l.sqlite"),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
     good = json.dumps(json.loads(W0.read_text()))
     p.stdin.write(good + "\n")
     p.stdin.flush()
@@ -317,8 +465,27 @@ def test_mechanism_report(market, tmp_path):
     plain = json.loads(evaluate(market, tmp_path / "a.sqlite", p).stdout)["disclosure"]
     assert "mechanism" not in plain["result"]
     m = Path(market)
-    r = subprocess.run([str(MM), "eval", str(p), "--campaign", "c", "--agent", "gate", "--mechanism", "on",
-                        "--store", str(m / "store"), "--venue", str(m / "venue"), "--ledger", str(tmp_path / "b.sqlite")], capture_output=True, text=True)
+    r = subprocess.run(
+        [
+            str(MM),
+            "eval",
+            str(p),
+            "--campaign",
+            "c",
+            "--agent",
+            "gate",
+            "--mechanism",
+            "on",
+            "--store",
+            str(m / "store"),
+            "--venue",
+            str(m / "venue"),
+            "--ledger",
+            str(tmp_path / "b.sqlite"),
+        ],
+        capture_output=True,
+        text=True,
+    )
     mech = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
     assert set(mech) >= {"exposures_true", "exposures_false", "mean_true", "mean_false", "share_true", "pass"}
     assert plain["strategy"] == json.loads(r.stdout)["disclosure"]["strategy"]
@@ -327,13 +494,22 @@ def test_mechanism_report(market, tmp_path):
 def test_equivalence_key_is_stable_across_processes(tmp_path):
     import random
     from gate import search
+
     rng = random.Random(5)
     keys = []
     for i in range(40):
         p = tmp_path / f"p{i}.json"
         p.write_text(json.dumps(search.compile_genome(search.random_genome(rng, 6))))
-        runs = [json.loads(subprocess.run([str(MM), "check", str(p), "--ledger", str(tmp_path / f"l{k}.sqlite")],
-                                          capture_output=True, text=True).stdout)["equivalence"] for k in range(2)]
+        runs = [
+            json.loads(
+                subprocess.run(
+                    [str(MM), "check", str(p), "--ledger", str(tmp_path / f"l{k}.sqlite")],
+                    capture_output=True,
+                    text=True,
+                ).stdout
+            )["equivalence"]
+            for k in range(2)
+        ]
         assert runs[0] == runs[1]
         keys.append(runs[0])
     assert len(set(keys)) > 30
@@ -341,9 +517,27 @@ def test_equivalence_key_is_stable_across_processes(tmp_path):
 
 def test_unknown_options_are_refused(market, tmp_path):
     m = Path(market)
-    r = subprocess.run([str(MM), "eval", str(W0), "--campaign", "c", "--agent", "a", "--store", str(m / "store"),
-                        "--venue", str(m / "venue"), "--policy", "elsewhere.json", "--ledger", str(tmp_path / "l.sqlite")],
-                       capture_output=True, text=True)
+    r = subprocess.run(
+        [
+            str(MM),
+            "eval",
+            str(W0),
+            "--campaign",
+            "c",
+            "--agent",
+            "a",
+            "--store",
+            str(m / "store"),
+            "--venue",
+            str(m / "venue"),
+            "--policy",
+            "elsewhere.json",
+            "--ledger",
+            str(tmp_path / "l.sqlite"),
+        ],
+        capture_output=True,
+        text=True,
+    )
     assert r.returncode == 3 and "unknown option --policy" in r.stderr and r.stdout == ""
 
 
@@ -366,14 +560,36 @@ def test_event_inputs_only_in_the_holdout_are_unbound_in_search(tmp_path):
     import numpy as np
     from gate import markets
 
-    ev = {"arrays": np.random.default_rng(1).poisson(2.0, (24 * 30, 3)).astype(float), "coins": [0, 1, 2], "block_hours": 24}
+    ev = {
+        "arrays": np.random.default_rng(1).poisson(2.0, (24 * 30, 3)).astype(float),
+        "coins": [0, 1, 2],
+        "block_hours": 24,
+    }
     arrays = markets.generate("N1", None, "unbound", 40, events=ev)
     arrays["forum_posts"][: (40 - 10) * 24 + 1] = np.nan
     root = markets.write(tmp_path / "m", arrays, 10, {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")})
-    assert not (root / "store" / "events_forum").exists() and list((root / "holdout" / "events_forum").glob("*.parquet"))
+    assert not (root / "store" / "events_forum").exists() and list(
+        (root / "holdout" / "events_forum").glob("*.parquet")
+    )
     prog = tmp_path / "p.json"
-    prog.write_text(json.dumps({"dsl": 1, "name": "forum", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
-                                "weight": {"op": "mul", "args": [{"op": "sign", "args": [{"op": "sub", "args": [
-                                    {"input": "forum_posts"}, {"const": 2, "unit": "ev"}]}]}, {"const": 0.05, "unit": "1"}]}}))
+    prog.write_text(
+        json.dumps(
+            {
+                "dsl": 1,
+                "name": "forum",
+                "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+                "weight": {
+                    "op": "mul",
+                    "args": [
+                        {
+                            "op": "sign",
+                            "args": [{"op": "sub", "args": [{"input": "forum_posts"}, {"const": 2, "unit": "ev"}]}],
+                        },
+                        {"const": 0.05, "unit": "1"},
+                    ],
+                },
+            }
+        )
+    )
     r = evaluate(root, tmp_path / "l.sqlite", prog)
     assert r.returncode == 1 and "R_INPUT_UNAVAILABLE" in r.stdout + r.stderr

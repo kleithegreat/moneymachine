@@ -37,7 +37,8 @@ def test_retry_uses_recorded_inputs_without_local_files(batch):
     retry, ids, _ = jobs.state("original-r1")
     assert ids == ["two"]
     assert {k: retry[k] for k in ("mm", "betas", "image", "commit")} == {
-        k: original[k] for k in ("mm", "betas", "image", "commit")}
+        k: original[k] for k in ("mm", "betas", "image", "commit")
+    }
 
 
 @pytest.mark.parametrize("field", ["mm", "betas", "ids"])
@@ -77,6 +78,7 @@ def test_run_name_is_single_use_even_when_apply_fails(batch, monkeypatch):
 def test_killed_submission_still_consumes_run_name(batch, monkeypatch):
     def install(stop):
         jobs.kubectl = lambda *a, **kw: stop()
+
     killed_at(lambda: jobs.submit("used", "mixed", "sha256:A"), install)
     before = (jobs.RESULTS / "used/record.json").read_bytes()
     with pytest.raises(FileExistsError):

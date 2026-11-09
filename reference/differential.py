@@ -47,8 +47,11 @@ def build():
 
 def null_market(root, model, seed):
     params = markets.null_params()
-    ev = {"arrays": np.random.default_rng(seed).poisson(2.0, (24 * 60, len(EVENT_COINS))).astype(float),
-          "coins": EVENT_COINS, "block_hours": 24}
+    ev = {
+        "arrays": np.random.default_rng(seed).poisson(2.0, (24 * 60, len(EVENT_COINS))).astype(float),
+        "coins": EVENT_COINS,
+        "block_hours": 24,
+    }
     arrays = markets.generate(model, params.get(model), f"differential-{model}-{seed}", DAYS, events=ev)
     return markets.write(root, arrays, 0, markets.FLAT_COST)
 
@@ -69,7 +72,11 @@ def expected():
     out = {"W0": list(NULLS)} | {f"probe-{p['name']}": list(NULLS) for p in probes.probes(True)}
     out |= {f"case-{k}": ms for k, _, ms in edge_markets.cases(NULLS)}
     out |= {f"reject-{k}": [] for k in edge_markets.rejections()}
-    return out | {f"adversarial-{f.stem}": [] for d in ("adversarial", "admitted") for f in sorted((REPO / "kernel/tests" / d).glob("*.case"))}
+    return out | {
+        f"adversarial-{f.stem}": []
+        for d in ("adversarial", "admitted")
+        for f in sorted((REPO / "kernel/tests" / d).glob("*.case"))
+    }
 
 
 def complete(items, generated_n, minimum=1000):
@@ -109,7 +116,10 @@ def divergence(a, b):
     ta, tb = a.get("trace", []), b.get("trace", [])
     for i, (x, y) in enumerate(zip(ta, tb)):
         fl = FLOATS.get(x[0], ()) if x[0] == y[0] else ()
-        if "discrete" not in first and (len(x) != len(y) or [v for j, v in enumerate(x) if j not in fl] != [v for j, v in enumerate(y) if j not in fl]):
+        if "discrete" not in first and (
+            len(x) != len(y)
+            or [v for j, v in enumerate(x) if j not in fl] != [v for j, v in enumerate(y) if j not in fl]
+        ):
             first["discrete"] = ("trace", i, x, y)
         if "numeric" not in first and fl and [x[j] for j in fl] != [y[j] for j in fl]:
             first["numeric"] = ("trace", i, x, y)
@@ -133,8 +143,8 @@ def stream_divergence(sa, sb, nodes, coins):
     first, xs, ys = {}, Path(sa).read_bytes(), Path(sb).read_bytes()
     i = j = k = 0
     while i < len(xs) and j < len(ys) and len(first) < 2:
-        x = None if xs[i] == 0 else xs[i + 1:i + 9].hex()
-        y = None if ys[j] == 0 else ys[j + 1:j + 9].hex()
+        x = None if xs[i] == 0 else xs[i + 1 : i + 9].hex()
+        y = None if ys[j] == 0 else ys[j + 1 : j + 9].hex()
         at = (k // (nodes * coins), k // coins % nodes, k % coins)
         if (x is None) != (y is None):
             first.setdefault("discrete", ("node definedness", at, x, y))
@@ -171,7 +181,11 @@ def chunk(names, texts, market, root, version, tmp):
     (d / "list").write_text("".join(f"{p}\n" for p in paths))
     (d / "a").mkdir()
     (d / "b").mkdir()
-    subprocess.run([str(DUMP), d / "list", root / "store", root / "venue", str(version), d / "mk.json", d / "a"], check=True, capture_output=True)
+    subprocess.run(
+        [str(DUMP), d / "list", root / "store", root / "venue", str(version), d / "mk.json", d / "a"],
+        check=True,
+        capture_output=True,
+    )
     subprocess.run([str(REF), "run", d / "list", d / "mk.json", d / "b"], check=True, capture_output=True)
     coins = len(json.loads((d / "mk.json").read_text())["venue"]["sz_decimals"])
     out = []
@@ -181,7 +195,11 @@ def chunk(names, texts, market, root, version, tmp):
         same = sa.exists() == sb.exists() and (not sa.exists() or filecmp.cmp(sa, sb, shallow=False))
         first = divergence(a, b) if a != b else {}
         if not same:
-            first |= stream_divergence(sa, sb, len(a["types"]), coins) if sa.exists() and sb.exists() else {"discrete": ("stream file", 0, sa.exists(), sb.exists())}
+            first |= (
+                stream_divergence(sa, sb, len(a["types"]), coins)
+                if sa.exists() and sb.exists()
+                else {"discrete": ("stream file", 0, sa.exists(), sb.exists())}
+            )
         out.append((name, market, a == b and same, first, coverage(a)))
     shutil.rmtree(d)
     return out
@@ -224,11 +242,22 @@ def run(out, audit=AUDIT):
     for it in items:
         for m in it["markets"]:
             by_market.setdefault(m, []).append(it)
-    chunks = [(f"{m}-{k}", m, its[i:i + CHUNK]) for m, its in by_market.items() for k, i in enumerate(range(0, len(its), CHUNK))]
+    chunks = [
+        (f"{m}-{k}", m, its[i : i + CHUNK])
+        for m, its in by_market.items()
+        for k, i in enumerate(range(0, len(its), CHUNK))
+    ]
 
     def run_chunk(c):
         key, m, its = c
-        rs = chunk([it["name"] for it in its], [it["program"] for it in its], m, roots[m], manifest["markets"][m]["version"], work)
+        rs = chunk(
+            [it["name"] for it in its],
+            [it["program"] for it in its],
+            m,
+            roots[m],
+            manifest["markets"][m]["version"],
+            work,
+        )
         (done / "chunks" / f"{key}.tmp").write_text(json.dumps(rs))
         (done / "chunks" / f"{key}.tmp").rename(done / "chunks" / f"{key}.json")
 
@@ -255,9 +284,19 @@ def run(out, audit=AUDIT):
             total[k] = total.get(k, 0) + v
     failures = [{"name": n, "market": m, "first": d} for n, m, ok, d, _ in results if not ok]
     missing = complete(items, manifest["generated"], manifest["minimum"])
-    report = {"manifest_sha256": sha((audit / MANIFEST).read_text()), "programs": len(items),
-              "verdict_disagreements": verdicts, "verdict_codes": codes, "runs": len(results),
-              "run_disagreements": failures, "coverage": total, "corpus_missing": missing,
-              "pass": not verdicts and not failures and not missing}
+    report = {
+        "manifest_sha256": sha((audit / MANIFEST).read_text()),
+        "programs": len(items),
+        "verdict_disagreements": verdicts,
+        "verdict_codes": codes,
+        "runs": len(results),
+        "run_disagreements": failures,
+        "coverage": total,
+        "corpus_missing": missing,
+        "pass": not verdicts and not failures and not missing,
+    }
     Path(out).write_text(json.dumps(report, indent=1) + "\n")
-    return {k: report[k] for k in ("programs", "runs", "pass")} | {"verdict_disagreements": len(verdicts), "run_disagreements": len(failures)}
+    return {k: report[k] for k in ("programs", "runs", "pass")} | {
+        "verdict_disagreements": len(verdicts),
+        "run_disagreements": len(failures),
+    }

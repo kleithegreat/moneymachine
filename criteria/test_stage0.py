@@ -8,7 +8,9 @@ import pytest
 from criteria.evidence import REPO, ingest_reports, load
 from ingest.policy import DAY
 
-LISTED = [c for c, r in json.loads((REPO / "venue/hyperliquid/rules.json").read_text())["coins"].items() if not r["delisted"]]
+LISTED = [
+    c for c, r in json.loads((REPO / "venue/hyperliquid/rules.json").read_text())["coins"].items() if not r["delisted"]
+]
 
 
 def judged_ingest():
@@ -25,8 +27,14 @@ def test_c02_coverage_and_integrity():
         assert c["bars_missing"] <= 0.01 * c["bars_expected"], coin
         assert c["max_gap_h"] <= 24, coin
     i = report["integrity"]
-    assert (i["funding_duplicate_keys"], i["bar_duplicate_keys"], i["bars_misaligned"], i["bars_ohlc_inconsistent"],
-            i["bars_negative_volume"], i["funding_over_cap"]) == (0, 0, 0, 0, 0, 0)
+    assert (
+        i["funding_duplicate_keys"],
+        i["bar_duplicate_keys"],
+        i["bars_misaligned"],
+        i["bars_ohlc_inconsistent"],
+        i["bars_negative_volume"],
+        i["funding_over_cap"],
+    ) == (0, 0, 0, 0, 0, 0)
 
 
 def test_c03_availability():
@@ -57,19 +65,31 @@ C07_RECORDED_FAILURES = {("BTC", "sell", 1000), ("SUI", "sell", 10000), ("kPEPE"
 
 def c07_failed_cells():
     e = load("stage0/execution.json")
-    return {(coin, side, size) for coin, side, size in CELLS
-            if not (e[f"{coin}:{side}:{size}"]["coverage"] >= 0.9 and e[f"{coin}:{side}:{size}"]["model_above_test_q90_bps"] <= 3.0)}
+    return {
+        (coin, side, size)
+        for coin, side, size in CELLS
+        if not (
+            e[f"{coin}:{side}:{size}"]["coverage"] >= 0.9
+            and e[f"{coin}:{side}:{size}"]["model_above_test_q90_bps"] <= 3.0
+        )
+    }
 
 
 def test_c07_evidence_and_the_recorded_failures_are_exactly_as_recorded():
     e = load("stage0/execution.json")
     assert len(CELLS) == 44
-    assert all(e[f"{coin}:{side}:{size}"]["n_cal"] + e[f"{coin}:{side}:{size}"]["n_test"] >= 24 * 60 for coin, side, size in CELLS)
+    assert all(
+        e[f"{coin}:{side}:{size}"]["n_cal"] + e[f"{coin}:{side}:{size}"]["n_test"] >= 24 * 60
+        for coin, side, size in CELLS
+    )
     assert c07_failed_cells() == C07_RECORDED_FAILURES
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="C0.7's qualification of 2026-10-26 (audit/criteria.md), by human decision: 3 of 44 cells under its coverage")
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="C0.7's qualification of 2026-10-26 (audit/criteria.md), by human decision: 3 of 44 cells under its coverage",
+)
 def test_c07_execution_model():
     assert not c07_failed_cells()
 

@@ -17,7 +17,20 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-SSH = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4", "-o", "StrictHostKeyChecking=yes"]
+SSH = [
+    "ssh",
+    "-T",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=10",
+    "-o",
+    "ServerAliveInterval=15",
+    "-o",
+    "ServerAliveCountMax=4",
+    "-o",
+    "StrictHostKeyChecking=yes",
+]
 NODES = {"prodesk5": ("kevin@192.168.8.229", 6), "gmktec": ("kevin@192.168.8.153", 8), "prodesk7": ("prodesk7", 5)}
 UNIT = "prodesk7"
 UNIT_STAGE = "/var/lib/mmtest/stage"
@@ -35,7 +48,7 @@ OVERHEAD = "_overhead"
 BOUND = 3900
 LOG_CAP = 8 << 20
 REPORT_CAP = 16 << 20
-REMOTE = '''set -eu
+REMOTE = """set -eu
 root=$1
 tmp=$2
 report=$3
@@ -70,25 +83,31 @@ xargs -0 -r -a "$root/in/deleted" git rm -q -f --ignore-unmatch --
 xargs -0 -r -a "$root/in/manifest" git add -f --
 timeout 3600 nice -n 10 nix --extra-experimental-features 'nix-command flakes' develop -c env TMPDIR="$tmp" \\
     pytest -n "$workers" "@$root/in/ids" --shard-report "$report" --basetemp "$tmp/p" -p no:cacheprovider -q
-'''
+"""
 
 
 def arguments(argv):
-    parser = argparse.ArgumentParser(usage="%(prog)s <worktree> [--machines local,prodesk5,gmktec] [pytest selection args...]",
-                                     description="Selection arguments (paths, -k, -m) go to collection only; "
-                                                 "the shards run the collected ids.")
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s <worktree> [--machines local,prodesk5,gmktec] [pytest selection args...]",
+        description="Selection arguments (paths, -k, -m) go to collection only; the shards run the collected ids.",
+    )
     parser.add_argument("worktree", type=Path)
     parser.add_argument("--machines", default=",".join([LOCAL, *NODES]))
     args, selection = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
     machines = args.machines.split(",")
-    if LOCAL not in machines or any(m != LOCAL and m not in NODES for m in machines) or len(set(machines)) != len(machines):
+    if (
+        LOCAL not in machines
+        or any(m != LOCAL and m not in NODES for m in machines)
+        or len(set(machines)) != len(machines)
+    ):
         parser.error(f"--machines takes {LOCAL} and any of {', '.join(NODES)}; every other node is refused")
     if any(a == "--basetemp" or a.startswith(("--basetemp=", "--junitxml", "-p", "-n", "--dist")) for a in selection):
         parser.error("the runner owns --basetemp, --junitxml, -p, -n and --dist")
     worktree = args.worktree.expanduser().resolve()
     try:
-        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=worktree, check=True,
-                             capture_output=True, text=True).stdout.strip()
+        top = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"], cwd=worktree, check=True, capture_output=True, text=True
+        ).stdout.strip()
         if Path(top) != worktree or not (worktree / "flake.nix").is_file():
             raise ValueError("expected the root of a worktree containing flake.nix")
     except (OSError, subprocess.CalledProcessError, ValueError) as e:
@@ -98,8 +117,12 @@ def arguments(argv):
 
 def files(worktree):
     """(names to ship, names deleted here): the current tree, without data/ and ignored files, as NUL-terminated bytes."""
-    names = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-                           cwd=worktree, capture_output=True, check=True).stdout.split(b"\0")
+    names = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=worktree,
+        capture_output=True,
+        check=True,
+    ).stdout.split(b"\0")
     kept, gone = [], []
     for name in sorted(set(names) - {b""}):
         path = worktree / os.fsdecode(name)
@@ -117,8 +140,13 @@ def files(worktree):
 
 
 def collect(worktree, selection):
-    out = subprocess.run(["nix", "develop", "-c", "pytest", "--collect-only", "-q", "-n0", "-p", "no:cacheprovider", *selection],
-                         cwd=worktree, capture_output=True, text=True, env=dict(os.environ, PYTEST_ADDOPTS=""))
+    out = subprocess.run(
+        ["nix", "develop", "-c", "pytest", "--collect-only", "-q", "-n0", "-p", "no:cacheprovider", *selection],
+        cwd=worktree,
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, PYTEST_ADDOPTS=""),
+    )
     if out.returncode:
         raise ValueError(f"collection failed:\n{out.stdout[-3000:]}{out.stderr[-3000:]}")
     ids = [line for line in out.stdout.splitlines() if re.match(r"^\S+\.py::", line)]
@@ -164,10 +192,30 @@ def package(worktree, ids, tar_path):
 def run_local(worktree, ids, log, report):
     with tempfile.TemporaryDirectory(prefix="mm-shard-", dir="/dev/shm") as tmp:
         (Path(tmp) / "ids").write_text("\n".join(ids) + "\n")
-        command = ["nix", "develop", "-c", "env", f"TMPDIR={tmp}", "pytest", f"@{tmp}/ids", "--shard-report", str(report),
-                   "--basetemp", f"{tmp}/p", "-p", "no:cacheprovider", "-q"]
-        return subprocess.run(command, cwd=worktree, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
-                              env=dict(os.environ, PYTEST_ADDOPTS="")).returncode
+        command = [
+            "nix",
+            "develop",
+            "-c",
+            "env",
+            f"TMPDIR={tmp}",
+            "pytest",
+            f"@{tmp}/ids",
+            "--shard-report",
+            str(report),
+            "--basetemp",
+            f"{tmp}/p",
+            "-p",
+            "no:cacheprovider",
+            "-q",
+        ]
+        return subprocess.run(
+            command,
+            cwd=worktree,
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env=dict(os.environ, PYTEST_ADDOPTS=""),
+        ).returncode
 
 
 def run_node(worktree, host, ids, log, report):
@@ -177,12 +225,25 @@ def run_node(worktree, host, ids, log, report):
         package(worktree, ids, tar_path)
         with tar_path.open("rb") as tar:
             try:
-                code = subprocess.run([*SSH, host, shlex.join(["bash", "-c", REMOTE, "bash", ROOT, TMP, f"{ROOT}/report.{run}.json", "auto"])], stdin=tar,
-                                      stdout=log, stderr=subprocess.STDOUT, timeout=BOUND).returncode
+                code = subprocess.run(
+                    [
+                        *SSH,
+                        host,
+                        shlex.join(["bash", "-c", REMOTE, "bash", ROOT, TMP, f"{ROOT}/report.{run}.json", "auto"]),
+                    ],
+                    stdin=tar,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    timeout=BOUND,
+                ).returncode
             except subprocess.TimeoutExpired:
                 code = 124
     try:
-        got = subprocess.run([*SSH, host, shlex.join(["sh", "-c", 'cat "$1" && rm -f "$1"', "sh", f"{ROOT}/report.{run}.json"])], capture_output=True, timeout=60)
+        got = subprocess.run(
+            [*SSH, host, shlex.join(["sh", "-c", 'cat "$1" && rm -f "$1"', "sh", f"{ROOT}/report.{run}.json"])],
+            capture_output=True,
+            timeout=60,
+        )
     except subprocess.TimeoutExpired:
         return code
     if got.returncode == 0:
@@ -192,7 +253,9 @@ def run_node(worktree, host, ids, log, report):
 
 def unit_file(host, path, cap):
     """At most cap + 1 bytes of a file the unit wrote: more than cap tells the caller it was too big, and nothing is held beyond that."""
-    return subprocess.run([*SSH, host, shlex.join(["head", "-c", str(cap + 1), path])], capture_output=True, timeout=60).stdout
+    return subprocess.run(
+        [*SSH, host, shlex.join(["head", "-c", str(cap + 1), path])], capture_output=True, timeout=60
+    ).stdout
 
 
 def run_unit(worktree, host, ids, log, report, workers):
@@ -203,21 +266,36 @@ def run_unit(worktree, host, ids, log, report, workers):
     with tempfile.TemporaryDirectory(prefix="mm-shard-") as scratch:
         tar_path = Path(scratch) / "in.tar.gz"
         package(worktree, ids, tar_path)
-        prepare = ('find "$1" -mindepth 1 -maxdepth 1 -mmin +180 -exec rm -rf {} + ; umask 027 && mkdir -m 750 "$2" && cd "$2" && '
-                   'printf %s "$3" > run.sh && printf %s "$4" > workers && : > out.log && : > report.json && chmod 660 out.log report.json && cat > in.tar.gz')
+        prepare = (
+            'find "$1" -mindepth 1 -maxdepth 1 -mmin +180 -exec rm -rf {} + ; umask 027 && mkdir -m 750 "$2" && cd "$2" && '
+            'printf %s "$3" > run.sh && printf %s "$4" > workers && : > out.log && : > report.json && chmod 660 out.log report.json && cat > in.tar.gz'
+        )
         with tar_path.open("rb") as tar:
-            put = subprocess.run([*SSH, host, shlex.join(["sh", "-c", prepare, "sh", UNIT_STAGE, stage, REMOTE, str(workers)])],
-                                 stdin=tar, stdout=log, stderr=subprocess.STDOUT, timeout=600).returncode
+            put = subprocess.run(
+                [*SSH, host, shlex.join(["sh", "-c", prepare, "sh", UNIT_STAGE, stage, REMOTE, str(workers)])],
+                stdin=tar,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=600,
+            ).returncode
     code = put
     if not put:
-        with subprocess.Popen([*SSH, host, shlex.join(["sudo", "mm-tests", "start", run])], stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT) as start:
+        with subprocess.Popen(
+            [*SSH, host, shlex.join(["sudo", "mm-tests", "start", run])],
+            stdin=subprocess.PIPE,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        ) as start:
             try:
                 code = start.wait(timeout=BOUND)
             except subprocess.TimeoutExpired:
                 code = 124
             start.stdin.close()
         text = unit_file(host, f"{stage}/out.log", LOG_CAP)
-        log.write(text[:LOG_CAP].decode(errors="replace") + (f"\n[log truncated at {LOG_CAP} bytes]\n" if len(text) > LOG_CAP else ""))
+        log.write(
+            text[:LOG_CAP].decode(errors="replace")
+            + (f"\n[log truncated at {LOG_CAP} bytes]\n" if len(text) > LOG_CAP else "")
+        )
         log.flush()
         data = unit_file(host, f"{stage}/report.json", REPORT_CAP)
         if 0 < len(data) <= REPORT_CAP:
@@ -235,7 +313,9 @@ def shard_result(report):
 
 def rerun(shards, rows):
     """The tests of the nodes that no result or a skip came back for: a node may lack what this PC has."""
-    return [i for m, part in shards.items() if m != LOCAL for i in part if i not in rows or rows[i]["outcome"] == "skipped"]
+    return [
+        i for m, part in shards.items() if m != LOCAL for i in part if i not in rows or rows[i]["outcome"] == "skipped"
+    ]
 
 
 def update(durations, slowness, ran, rows, ids, full):
@@ -244,7 +324,11 @@ def update(durations, slowness, ran, rows, ids, full):
     it. A full collection forgets ids that no longer exist."""
     slowness = dict(slowness)
     for m in set(ran.values()):
-        known = [(rows[i]["seconds"], durations[i]) for i, r in ran.items() if r == m and i in rows and durations.get(i, 0) > 0.5]
+        known = [
+            (rows[i]["seconds"], durations[i])
+            for i, r in ran.items()
+            if r == m and i in rows and durations.get(i, 0) > 0.5
+        ]
         if known:
             slowness[m] = (slowness.get(m, 1.0) + sum(a for a, _ in known) / sum(b for _, b in known)) / 2
     kept = {i: d for i, d in durations.items() if not full or i in set(ids)}
@@ -332,8 +416,11 @@ def run(worktree, machines, selection):
         print(f"{r['outcome'].upper()} {i}\n{r.get('text', '')}", flush=True)
     for i in missing:
         print(f"MISSING {i}: no shard reported it", flush=True)
-    print(f"{len(rows)} of {len(ids)} tests reported: {', '.join(f'{n} {k}' for k, n in sorted(counts.items()))}; "
-          f"{len(missing)} missing; shard exits {codes}; wall {time.time() - started:.0f}s", flush=True)
+    print(
+        f"{len(rows)} of {len(ids)} tests reported: {', '.join(f'{n} {k}' for k, n in sorted(counts.items()))}; "
+        f"{len(missing)} missing; shard exits {codes}; wall {time.time() - started:.0f}s",
+        flush=True,
+    )
     ok = not bad and not missing and all(c == 0 for c in codes.values())
     if ok:
         shutil.rmtree(out)

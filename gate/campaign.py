@@ -22,9 +22,20 @@ def run_campaign(spec, out):
     work.mkdir(parents=True)
     root = work / "m"
     try:
-        markets.write(root, markets.generate(spec["model"], spec["params"], spec["id"], spec["days"],
-                                             spec.get("planted", ()), spec.get("beta", 0.0), spec.get("events")),
-                      spec["holdout_days"], spec["cost_cells"])
+        markets.write(
+            root,
+            markets.generate(
+                spec["model"],
+                spec["params"],
+                spec["id"],
+                spec["days"],
+                spec.get("planted", ()),
+                spec.get("beta", 0.0),
+                spec.get("events"),
+            ),
+            spec["holdout_days"],
+            spec["cost_cells"],
+        )
         ledger = root / "ledger.sqlite"
         spent = search.run(spec["searcher"], root, ledger, spec["id"], markets.seed(spec["id"]))
         finalists, report = gate.search_decision(ledger, spec["id"])
@@ -32,9 +43,14 @@ def run_campaign(spec, out):
         programs = gate.programs(ledger, spec["id"], finalists)
         promoted, holdout = gate.holdout_decision(root, ledger, spec["id"], programs)
         top = gate.programs(ledger, spec["id"], report.get("top5", []))
-        result = {"spent": spent, "search": report, "holdout": holdout, "bankrupt": gate.bankrupt(ledger),
-                  "promoted": [{"hash": h, "program": programs[h]} for h in promoted],
-                  "top5": [{"hash": h, "program": top[h]} for h in report.get("top5", [])]}
+        result = {
+            "spent": spent,
+            "search": report,
+            "holdout": holdout,
+            "bankrupt": gate.bankrupt(ledger),
+            "promoted": [{"hash": h, "program": programs[h]} for h in promoted],
+            "top5": [{"hash": h, "program": top[h]} for h in report.get("top5", [])],
+        }
     except Exception:
         result = {"crash": traceback.format_exc()}
     for kept in ("ledger.sqlite", "holdout/spent.jsonl"):

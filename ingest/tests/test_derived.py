@@ -19,13 +19,22 @@ def load(name):
 
 
 def ours(c):
-    return sorted(map(tuple, events.counts([tuple(o) for o in c["observations"]], c["polls"], c["coin_of"], c["margin"], c["version"])))
+    return sorted(
+        map(
+            tuple,
+            events.counts([tuple(o) for o in c["observations"]], c["polls"], c["coin_of"], c["margin"], c["version"]),
+        )
+    )
 
 
 def cut(c, t):
     """The case's records at version t."""
     polls = {k: [p for p in ps if p <= t] for k, ps in c["polls"].items()}
-    return c | {"observations": [o for o in c["observations"] if o[3] <= t], "polls": {k: ps for k, ps in polls.items() if ps}, "version": t}
+    return c | {
+        "observations": [o for o in c["observations"] if o[3] <= t],
+        "polls": {k: ps for k, ps in polls.items() if ps},
+        "version": t,
+    }
 
 
 def test_rows_never_depend_on_later_records():
@@ -49,6 +58,9 @@ def test_cases_exercise_the_boundaries():
 
 def test_independent_implementation_agrees():
     other = load("independent")
-    bad = [(i, c) for i, c in enumerate(load("gen").generate(2000, 55))
-           if ours(c) != sorted(tuple(r) for r in other.counts(c))]
+    bad = [
+        (i, c)
+        for i, c in enumerate(load("gen").generate(2000, 55))
+        if ours(c) != sorted(tuple(r) for r in other.counts(c))
+    ]
     assert not bad, f"{len(bad)} of 2000 differ, first: case {bad[0][0]}"

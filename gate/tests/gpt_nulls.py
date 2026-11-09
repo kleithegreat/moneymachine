@@ -11,11 +11,7 @@ _T5_THETA = np.arctan(8.0 / np.sqrt(5.0))
 _T5_TRUNC_VAR = (
     5.0
     * (_T5_THETA / 8.0 - np.sin(4.0 * _T5_THETA) / 32.0)
-    / (
-        3.0 * _T5_THETA / 8.0
-        + np.sin(2.0 * _T5_THETA) / 4.0
-        + np.sin(4.0 * _T5_THETA) / 32.0
-    )
+    / (3.0 * _T5_THETA / 8.0 + np.sin(2.0 * _T5_THETA) / 4.0 + np.sin(4.0 * _T5_THETA) / 32.0)
 )
 _T5_TRUNC_SD = np.sqrt(_T5_TRUNC_VAR)
 
@@ -41,9 +37,7 @@ def _truncated_laplace(rng, scale):
 def _vector(value, name, length):
     result = np.asarray(value, dtype=np.float64)
     if result.shape != (length,) or not np.all(np.isfinite(result)):
-        raise ValueError(
-            "{} must be a finite vector of length {}".format(name, length)
-        )
+        raise ValueError("{} must be a finite vector of length {}".format(name, length))
     return result
 
 
@@ -55,16 +49,12 @@ def _scalar(value, name):
 
 
 def _integer(value, name):
-    if isinstance(value, (bool, np.bool_)) or not isinstance(
-        value, (int, np.integer)
-    ):
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
         raise ValueError("{} must be an integer".format(name))
     return int(value)
 
 
-def generate(
-    model, params, funding_source, premium_source, short_slots, seed, days
-):
+def generate(model, params, funding_source, premium_source, short_slots, seed, days):
     """Generate the N2 or N3 null market using only NumPy.
 
     Prices start at 100, and each later open equals the preceding close.
@@ -89,9 +79,7 @@ def generate(
         raise ValueError("days must be nonnegative")
 
     slots = [_integer(slot, "short slot") for slot in short_slots]
-    if len(set(slots)) != len(slots) or any(
-        slot < 0 or slot >= 12 for slot in slots
-    ):
+    if len(set(slots)) != len(slots) or any(slot < 0 or slot >= 12 for slot in slots):
         raise ValueError("short_slots must contain unique indices in 0..11")
 
     is_short = np.zeros(12, dtype=bool)
@@ -100,16 +88,8 @@ def generate(
 
     source_f = np.asarray(funding_source, dtype=np.float64)
     source_p = np.asarray(premium_source, dtype=np.float64)
-    if (
-        source_f.ndim != 2
-        or source_p.shape != source_f.shape
-        or source_f.shape[0] == 0
-        or source_f.shape[1] == 0
-    ):
-        raise ValueError(
-            "funding_source and premium_source must have matching, "
-            "nonempty (T, K) shapes"
-        )
+    if source_f.ndim != 2 or source_p.shape != source_f.shape or source_f.shape[0] == 0 or source_f.shape[1] == 0:
+        raise ValueError("funding_source and premium_source must have matching, nonempty (T, K) shapes")
     if not np.all(np.isfinite(source_f)) or not np.all(np.isfinite(source_p)):
         raise ValueError("source arrays must contain only finite values")
 
@@ -130,15 +110,8 @@ def generate(
         omega = _vector(garch["omega"], "omega", 12)
         alpha = _vector(garch["alpha"], "alpha", 12)
         beta = _vector(garch["beta"], "beta", 12)
-        if (
-            np.any(omega < 0.0)
-            or np.any(alpha < 0.0)
-            or np.any(beta < 0.0)
-            or np.any(alpha + beta >= 1.0)
-        ):
-            raise ValueError(
-                "GARCH requires omega, alpha, beta >= 0 and alpha + beta < 1"
-            )
+        if np.any(omega < 0.0) or np.any(alpha < 0.0) or np.any(beta < 0.0) or np.any(alpha + beta >= 1.0):
+            raise ValueError("GARCH requires omega, alpha, beta >= 0 and alpha + beta < 1")
 
         loading = _scalar(params["lambda"], "lambda")
         if not 0.0 <= loading <= 1.0:
@@ -146,7 +119,7 @@ def generate(
         idiosyncratic_loading = np.sqrt(1.0 - loading * loading)
 
         # The supplied omega values already implement variance targeting.
-        variance_cap = 0.0625 ** 2
+        variance_cap = 0.0625**2
         variance = np.minimum(omega / (1.0 - alpha - beta), variance_cap)
     else:
         regime = params["regime"]
@@ -156,9 +129,7 @@ def generate(
             or not np.all(np.isfinite(transition))
             or np.any(transition < 0.0)
             or np.any(transition > 1.0)
-            or not np.allclose(
-                transition.sum(axis=1), 1.0, rtol=0.0, atol=1e-12
-            )
+            or not np.allclose(transition.sum(axis=1), 1.0, rtol=0.0, atol=1e-12)
         ):
             raise ValueError("P must be a row-stochastic 2-by-2 matrix")
 
@@ -177,8 +148,7 @@ def generate(
 
     n_bars = days * 6
     result = {
-        name: np.empty((n_bars, 12), dtype=np.float64)
-        for name in ("open", "close", "high", "low", "volume", "eps")
+        name: np.empty((n_bars, 12), dtype=np.float64) for name in ("open", "close", "high", "low", "volume", "eps")
     }
     result["funding"] = np.empty((n_bars * 4 + 1, 12), dtype=np.float64)
     result["premium"] = np.empty((n_bars * 4 + 1, 12), dtype=np.float64)
@@ -207,9 +177,7 @@ def generate(
 
     if model == "N3" and n_bars:
         switch_sum = transition[0, 1] + transition[1, 0]
-        high_probability = (
-            transition[0, 1] / switch_sum if switch_sum > 0.0 else 0.5
-        )
+        high_probability = transition[0, 1] / switch_sum if switch_sum > 0.0 else 0.5
         state = int(rng.random() < high_probability)
 
     previous_close = np.full(12, 100.0, dtype=np.float64)
@@ -247,29 +215,18 @@ def generate(
                         short_rows[coin] = rng.integers(source_length)
                         short_columns[coin] = rng.integers(source_count)
                     else:
-                        short_rows[coin] = (
-                            short_rows[coin] + 1
-                        ) % source_length
+                        short_rows[coin] = (short_rows[coin] + 1) % source_length
 
                     row = short_rows[coin]
                     column = short_columns[coin]
-                    funding[hour, coin] = np.clip(
-                        source_f[row, column], -0.04, 0.04
-                    )
+                    funding[hour, coin] = np.clip(source_f[row, column], -0.04, 0.04)
                     premium[hour, coin] = source_p[row, column]
             else:
                 column = source_columns[coin]
-                funding[first_hour:last_hour, coin] = np.clip(
-                    source_f[shared_rows, column], -0.04, 0.04
-                )
-                premium[first_hour:last_hour, coin] = source_p[
-                    shared_rows, column
-                ]
+                funding[first_hour:last_hour, coin] = np.clip(source_f[shared_rows, column], -0.04, 0.04)
+                premium[first_hour:last_hour, coin] = source_p[shared_rows, column]
 
-            innovation = (
-                common_loading * market_innovation
-                + individual_loading * _student_t(rng)
-            )
+            innovation = common_loading * market_innovation + individual_loading * _student_t(rng)
             raw_epsilon = sigma[coin] * innovation
 
             if model == "N3" and rng.random() < jump_probability:
@@ -284,27 +241,19 @@ def generate(
 
             rates = funding[first_hour:last_hour, coin]
             opening = previous_close[coin]
-            closing = opening * (
-                1.0 + rates[0] + rates[1] + rates[2] + epsilon
-            ) / (1.0 - rates[3])
+            closing = opening * (1.0 + rates[0] + rates[1] + rates[2] + epsilon) / (1.0 - rates[3])
 
             result["open"][bar, coin] = opening
             result["close"][bar, coin] = closing
-            result["high"][bar, coin] = (
-                max(opening, closing) * (1.0 + upper_wick)
-            )
-            result["low"][bar, coin] = (
-                min(opening, closing) * (1.0 - lower_wick)
-            )
+            result["high"][bar, coin] = max(opening, closing) * (1.0 + upper_wick)
+            result["low"][bar, coin] = min(opening, closing) * (1.0 - lower_wick)
             result["volume"][bar, coin] = volume
             result["eps"][bar, coin] = epsilon
             previous_close[coin] = closing
 
             if model == "N2":
                 variance[coin] = min(
-                    omega[coin]
-                    + alpha[coin] * epsilon * epsilon
-                    + beta[coin] * variance[coin],
+                    omega[coin] + alpha[coin] * epsilon * epsilon + beta[coin] * variance[coin],
                     variance_cap,
                 )
 

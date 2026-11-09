@@ -24,10 +24,16 @@ def test_killed_series_append_recovers_as_a_crash(tmp_path, monkeypatch, tail):
     prefix = (json.dumps({"id": ids[0], "counts_as_promotion": False}) + "\n").encode()
     log.write_bytes(prefix)
     (tmp_path / ids[1]).mkdir()
-    killed = subprocess.run([sys.executable, "-c",
-                             "import os, signal, sys; f = os.open(sys.argv[1], os.O_WRONLY | os.O_APPEND); "
-                             "os.write(f, bytes.fromhex(sys.argv[2])); os.kill(os.getpid(), signal.SIGKILL)",
-                             str(log), tail.hex()])
+    killed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, signal, sys; f = os.open(sys.argv[1], os.O_WRONLY | os.O_APPEND); "
+            "os.write(f, bytes.fromhex(sys.argv[2])); os.kill(os.getpid(), signal.SIGKILL)",
+            str(log),
+            tail.hex(),
+        ]
+    )
     assert killed.returncode == -signal.SIGKILL
     mirror = tmp_path.parent / "mirror"
     monkeypatch.setattr(live, "VOLUMES", {"agent": "."})
@@ -65,7 +71,7 @@ def test_complete_final_result_without_newline_is_preserved(tmp_path):
     assert rows[0] == row and rows[1]["id"] == "interrupted" and rows[1]["counts_as_promotion"]
 
 
-@pytest.mark.parametrize("corrupt", [b'{"broken":\n', b'\xff\n'])
+@pytest.mark.parametrize("corrupt", [b'{"broken":\n', b"\xff\n"])
 def test_torn_records_are_ignored_without_changing_history(tmp_path, corrupt):
     log = tmp_path / "series.jsonl"
     original = b'{"id":"complete"}\n' + corrupt + b'{"id":"later"}\n'

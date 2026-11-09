@@ -47,7 +47,10 @@ def test_torn_records_are_named_skipped_and_never_overwritten(tmp_path, capsys, 
     assert path.name in capsys.readouterr().err
 
 
-@pytest.mark.xfail(strict=True, reason="live.read promises to name and skip a torn record; a UTF-8 character cut after byte c3 raises UnicodeDecodeError and loses access to valid rows")
+@pytest.mark.xfail(
+    strict=True,
+    reason="live.read promises to name and skip a torn record; a UTF-8 character cut after byte c3 raises UnicodeDecodeError and loses access to valid rows",
+)
 def test_torn_utf8_record_is_skipped_without_hiding_acknowledged_rows(tmp_path, capsys):
     """A kill can split the UTF-8 encoding c3 a9 of é, not only JSON punctuation."""
     path = tmp_path / "poll-synthetic.jsonl"
@@ -59,8 +62,10 @@ def test_torn_utf8_record_is_skipped_without_hiding_acknowledged_rows(tmp_path, 
 def kill_after_ack(code, root):
     """SIGKILL a real child only after its explicit acknowledgement; never wait by sleeping."""
     child = subprocess.Popen(
-        [sys.executable, "-c", code, str(root)], stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, text=True,
+        [sys.executable, "-c", code, str(root)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     try:
         assert child.stdout.readline().strip() == "ACK"
@@ -80,7 +85,8 @@ def test_acknowledged_append_survives_sigkill_and_torn_successor(tmp_path):
         "append(p,'poll',0,{'n':1})\n"
         "with next(p.glob('poll-*.jsonl')).open('ab',buffering=0) as f:\n"
         " f.write(b'{\"torn\":')\n os.fsync(f.fileno())\n"
-        " print('ACK',flush=True)\n time.sleep(60)\n", tmp_path,
+        " print('ACK',flush=True)\n time.sleep(60)\n",
+        tmp_path,
     )
     live.append(tmp_path, "poll", 0, {"n": 2})
     assert list(live.read(tmp_path, "poll")) == [{"n": 1}, {"n": 2}]
@@ -89,17 +95,30 @@ def test_acknowledged_append_survives_sigkill_and_torn_successor(tmp_path):
 def test_one_writer_and_sigterm_wakes_stop_event(tmp_path):
     """CLUSTER §2: a second writer exits; SIGTERM wakes the owner without killing it."""
     child = subprocess.Popen(
-        [sys.executable, "-c",
-         "import sys\nfrom ingest.live import recording\n"
-         "s=recording(sys.argv[1])\nprint('LOCKED',flush=True)\n"
-         "assert s.wait(30)\nprint('STOPPED',flush=True)\n", str(tmp_path)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        [
+            sys.executable,
+            "-c",
+            "import sys\nfrom ingest.live import recording\n"
+            "s=recording(sys.argv[1])\nprint('LOCKED',flush=True)\n"
+            "assert s.wait(30)\nprint('STOPPED',flush=True)\n",
+            str(tmp_path),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     try:
         assert child.stdout.readline().strip() == "LOCKED"
         other = subprocess.run(
-            [sys.executable, "-c", "import sys\nfrom ingest.live import recording\nrecording(sys.argv[1])", str(tmp_path)],
-            capture_output=True, text=True, timeout=10,
+            [
+                sys.executable,
+                "-c",
+                "import sys\nfrom ingest.live import recording\nrecording(sys.argv[1])",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         assert other.returncode != 0
         child.send_signal(signal.SIGTERM)
@@ -119,7 +138,9 @@ def recorder(tmp_path, monkeypatch):
     return record.Recorder(120, ["BTC"], tmp_path)
 
 
-@pytest.mark.parametrize("hour,expected", [(0, {"funding", "bar"}), (3_600_000, {"funding"}), (14_400_000, {"funding", "bar"})])
+@pytest.mark.parametrize(
+    "hour,expected", [(0, {"funding", "bar"}), (3_600_000, {"funding"}), (14_400_000, {"funding", "bar"})]
+)
 def test_only_four_hour_boundaries_request_bars(recorder, hour, expected):
     assert set(recorder.kinds(hour)) == expected
 
@@ -149,6 +170,7 @@ def test_found_boundary_is_verified_once_at_ten_minutes(recorder, monkeypatch):
 
 def test_l2_preserves_server_time_and_local_send_receive_times(recorder, monkeypatch):
     """A snapshot time of 7 is neither the local send 100 nor receive 160, nor an NTP offset."""
+
     class Info:
         def l2_book(self, coin, sig_figs=None):
             assert coin == "BTC"
@@ -222,7 +244,8 @@ def test_datalayer_acknowledged_response_survives_sigkill(tmp_path):
         "import sys,time,httpx\nfrom ingest.datalayer import get\n"
         "h=httpx.Client(transport=httpx.MockTransport(lambda r:httpx.Response(200,content=b'abc')))\n"
         "get(h,'synthetic','https://example.invalid/feed',None,sys.argv[1])\n"
-        "print('ACK',flush=True)\ntime.sleep(60)\n", tmp_path,
+        "print('ACK',flush=True)\ntime.sleep(60)\n",
+        tmp_path,
     )
     assert datalayer.last_polls(tmp_path).keys() == {"synthetic"}
     assert datalayer.body(tmp_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") == b"abc"
@@ -236,7 +259,8 @@ def test_kill_between_body_and_row_then_repoll_loses_no_acknowledged_body(tmp_pa
         " print('ACK',flush=True)\n time.sleep(60)\n"
         "d.append=pause\n"
         "h=httpx.Client(transport=httpx.MockTransport(lambda r:httpx.Response(200,content=b'abc')))\n"
-        "d.get(h,'synthetic','https://example.invalid/feed',None,sys.argv[1])\n", tmp_path,
+        "d.get(h,'synthetic','https://example.invalid/feed',None,sys.argv[1])\n",
+        tmp_path,
     )
     assert datalayer.last_polls(tmp_path) == {}
     row = get_body(tmp_path, monkeypatch)
@@ -247,10 +271,16 @@ def test_kill_between_body_and_row_then_repoll_loses_no_acknowledged_body(tmp_pa
 @pytest.mark.parametrize("status,unsynced", [(0, False), (0x40, True), (0x01, False)])
 def test_kernel_clock_converts_microsecond_bounds_without_inventing_offsets(monkeypatch, status, unsynced):
     """Linux adjtimex: 1500/250 µs are 1.5/0.25 ms; only STA_UNSYNC (0x40) marks unsynced."""
+
     class TimexPrefix(ctypes.Structure):
-        _fields_ = [("modes", ctypes.c_uint), ("offset", ctypes.c_long),
-                    ("freq", ctypes.c_long), ("maxerror", ctypes.c_long),
-                    ("esterror", ctypes.c_long), ("status", ctypes.c_int)]
+        _fields_ = [
+            ("modes", ctypes.c_uint),
+            ("offset", ctypes.c_long),
+            ("freq", ctypes.c_long),
+            ("maxerror", ctypes.c_long),
+            ("esterror", ctypes.c_long),
+            ("status", ctypes.c_int),
+        ]
 
     class Libc:
         def adjtimex(self, pointer):

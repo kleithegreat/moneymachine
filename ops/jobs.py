@@ -33,8 +33,9 @@ SCRATCH = 2**30
 
 def kubectl(*args, stdin=None, namespace=NAMESPACE, config="moneymachine.yaml"):
     env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube" / config)}
-    return subprocess.run(["kubectl", "-n", namespace, *args], input=stdin, capture_output=True, text=True, env=env,
-                          check=True).stdout
+    return subprocess.run(
+        ["kubectl", "-n", namespace, *args], input=stdin, capture_output=True, text=True, env=env, check=True
+    ).stdout
 
 
 def sha256(path):
@@ -51,14 +52,28 @@ def stage(data):
 
 
 def push():
-    out = subprocess.run(["nix", "build", "--no-link", "--print-out-paths", f"{REPO}#image"], capture_output=True,
-                         text=True, check=True).stdout.strip()
-    tag = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True,
-                         check=True).stdout.strip()
+    out = subprocess.run(
+        ["nix", "build", "--no-link", "--print-out-paths", f"{REPO}#image"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    tag = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.strip()
     with tempfile.TemporaryDirectory() as tmp:
         digestfile = Path(tmp) / "digest"
-        subprocess.run(["skopeo", "copy", "--authfile", str(AUTHFILE), "--digestfile", str(digestfile),
-                        f"docker-archive:{out}", f"docker://{REGISTRY}:{tag}"], check=True, capture_output=True)
+        subprocess.run(
+            [
+                "skopeo",
+                "copy",
+                "--authfile",
+                str(AUTHFILE),
+                "--digestfile",
+                str(digestfile),
+                f"docker-archive:{out}",
+                f"docker://{REGISTRY}:{tag}",
+            ],
+            check=True,
+            capture_output=True,
+        )
         digest = digestfile.read_text().strip()
     print(json.dumps({"tag": tag, "digest": digest, "image": out}))
     return digest
@@ -82,28 +97,51 @@ def manifest(run, ids, record, node=None):
         "priorityClassName": "moneymachine-batch",
         "restartPolicy": "Never",
         "tolerations": [{"key": "moneymachine/batch", "operator": "Equal", "value": "true", "effect": "NoSchedule"}],
-        "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "runAsGroup": 100,
-                            "seccompProfile": {"type": "RuntimeDefault"}},
-        "containers": [{
-            "name": "task",
-            "image": f"{REGISTRY}@{record['image']}",
-            "command": ["choom", "-n", "1000", "--", "python", "/app/repo/ops/jobs.py", "task", run],
-            "env": [{"name": "PYTHONPATH", "value": "/app/repo"}, {"name": "TMPDIR", "value": "/scratch/tmp"}],
-            "resources": {"requests": {"cpu": "1", "memory": mib(CAMPAIGN_BYTES), "ephemeral-storage": mib(SCRATCH)},
-                          "limits": {"memory": mib(CAMPAIGN_BYTES * 5 // 4), "ephemeral-storage": mib(2 * SCRATCH)}},
-            "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
-            "volumeMounts": [{"name": "inputs", "mountPath": "/inputs", "readOnly": True},
-                             {"name": "results", "mountPath": "/results"},
-                             {"name": "scratch", "mountPath": "/scratch"}]}],
-        "volumes": [{"name": "inputs", "persistentVolumeClaim": {"claimName": "inputs", "readOnly": True}},
-                    {"name": "results", "persistentVolumeClaim": {"claimName": "results"}},
-                    {"name": "scratch", "emptyDir": {"sizeLimit": mib(2 * SCRATCH)}}]}
+        "securityContext": {
+            "runAsNonRoot": True,
+            "runAsUser": 1000,
+            "runAsGroup": 100,
+            "seccompProfile": {"type": "RuntimeDefault"},
+        },
+        "containers": [
+            {
+                "name": "task",
+                "image": f"{REGISTRY}@{record['image']}",
+                "command": ["choom", "-n", "1000", "--", "python", "/app/repo/ops/jobs.py", "task", run],
+                "env": [{"name": "PYTHONPATH", "value": "/app/repo"}, {"name": "TMPDIR", "value": "/scratch/tmp"}],
+                "resources": {
+                    "requests": {"cpu": "1", "memory": mib(CAMPAIGN_BYTES), "ephemeral-storage": mib(SCRATCH)},
+                    "limits": {"memory": mib(CAMPAIGN_BYTES * 5 // 4), "ephemeral-storage": mib(2 * SCRATCH)},
+                },
+                "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
+                "volumeMounts": [
+                    {"name": "inputs", "mountPath": "/inputs", "readOnly": True},
+                    {"name": "results", "mountPath": "/results"},
+                    {"name": "scratch", "mountPath": "/scratch"},
+                ],
+            }
+        ],
+        "volumes": [
+            {"name": "inputs", "persistentVolumeClaim": {"claimName": "inputs", "readOnly": True}},
+            {"name": "results", "persistentVolumeClaim": {"claimName": "results"}},
+            {"name": "scratch", "emptyDir": {"sizeLimit": mib(2 * SCRATCH)}},
+        ],
+    }
     if node:
         pod["nodeSelector"] = {"kubernetes.io/hostname": node}
-    return {"apiVersion": "batch/v1", "kind": "Job", "metadata": {"name": f"mm-{run}", "labels": {"moneymachine/run": run}},
-            "spec": {"completionMode": "Indexed", "completions": len(ids), "parallelism": len(ids),
-                     "backoffLimitPerIndex": 0, "ttlSecondsAfterFinished": 86400,
-                     "template": {"metadata": {"labels": {"moneymachine/run": run}}, "spec": pod}}}
+    return {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {"name": f"mm-{run}", "labels": {"moneymachine/run": run}},
+        "spec": {
+            "completionMode": "Indexed",
+            "completions": len(ids),
+            "parallelism": len(ids),
+            "backoffLimitPerIndex": 0,
+            "ttlSecondsAfterFinished": 86400,
+            "template": {"metadata": {"labels": {"moneymachine/run": run}}, "spec": pod},
+        },
+    }
 
 
 def stage_funding():
@@ -119,10 +157,16 @@ def stage_funding():
 def submit(run, sweep, digest, node=None):
     """Stage this checkout's inputs once, then launch a new run."""
     ids = [s["id"] for s in campaign_specs(sweep)]
-    record = {"sweep": sweep, "image": digest, "commit": subprocess.run(
-                  ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip(),
-              "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
-              "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()), "node": node}
+    record = {
+        "sweep": sweep,
+        "image": digest,
+        "commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
+        ).stdout.strip(),
+        "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
+        "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()),
+        "node": node,
+    }
     stage_funding()
     launch(run, record, ids)
 
@@ -134,9 +178,15 @@ def launch(run, record, ids):
     record = record | {"run": run, "ids": stage(json.dumps(ids).encode())}
     (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
     print(kubectl("create", "-f", "-", stdin=json.dumps(manifest(run, ids, record, record["node"]))).strip())
-    while not (ended := {c["type"] for c in job(run).get("conditions", []) if c["status"] == "True"} & {"Complete", "Failed"}):
+    while not (
+        ended := {c["type"] for c in job(run).get("conditions", []) if c["status"] == "True"} & {"Complete", "Failed"}
+    ):
         time.sleep(30)
-    print(json.dumps({"run": run, "succeeded": job(run).get("succeeded", 0), "failedIndexes": job(run).get("failedIndexes", "")}))
+    print(
+        json.dumps(
+            {"run": run, "succeeded": job(run).get("succeeded", 0), "failedIndexes": job(run).get("failedIndexes", "")}
+        )
+    )
     if "Failed" in ended:
         raise SystemExit(f"mm-{run}: an index failed; `resubmit {run}` reruns it after the integrity check")
 
@@ -279,12 +329,22 @@ def leave():
     """Cordon and drain this PC's node, then leave the cluster; stopping k3s deletes the node (the desktop's NixOS config)."""
     env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube/moneymachine.yaml")}
     subprocess.run(["kubectl", "cordon", NODE], check=True, env=env)
-    subprocess.run(["kubectl", "drain", NODE, "--ignore-daemonsets", "--delete-emptydir-data", "--timeout=600s"],
-                   check=True, env=env)
+    subprocess.run(
+        ["kubectl", "drain", NODE, "--ignore-daemonsets", "--delete-emptydir-data", "--timeout=600s"],
+        check=True,
+        env=env,
+    )
     subprocess.run(["systemctl", "stop", "k3s"], check=True)
 
 
 if __name__ == "__main__":
-    commands = {"push": push, "submit": submit, "task": task, "resubmit": resubmit,
-                "collect": collect, "join": join, "leave": leave}
+    commands = {
+        "push": push,
+        "submit": submit,
+        "task": task,
+        "resubmit": resubmit,
+        "collect": collect,
+        "join": join,
+        "leave": leave,
+    }
     commands[sys.argv[1]](*sys.argv[2:])

@@ -19,8 +19,10 @@ def test_every_declared_feed_has_certified_terms():
 
 
 def test_a_feed_without_certified_terms_is_refused(tmp_path):
-    spec = {"user_agent": "x", "feeds": [{"name": "x", "source": "ecb", "every_h": 1,
-                                          "url": "https://example.org/data"}]}
+    spec = {
+        "user_agent": "x",
+        "feeds": [{"name": "x", "source": "ecb", "every_h": 1, "url": "https://example.org/data"}],
+    }
     (tmp_path / "f.json").write_text(json.dumps(spec))
     with pytest.raises(PermissionError):
         datalayer.feeds(tmp_path / "f.json")
@@ -37,8 +39,10 @@ def test_poll_keeps_the_body_content_addressed_with_its_times(tmp_path):
 
 
 def test_discover_fetches_the_index_then_the_release_it_names(tmp_path):
-    bodies = {"/gdeltv2/lastupdate.txt": b"1 ab http://data.gdeltproject.org/gdeltv2/20261023184500.export.CSV.zip\n",
-              "/gdeltv2/20261023184500.export.CSV.zip": b"zip"}
+    bodies = {
+        "/gdeltv2/lastupdate.txt": b"1 ab http://data.gdeltproject.org/gdeltv2/20261023184500.export.CSV.zip\n",
+        "/gdeltv2/20261023184500.export.CSV.zip": b"zip",
+    }
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=bodies[req.url.path])))
     feed = next(f for f in datalayer.feeds()["feeds"] if f["name"] == "gdelt-events")
     rec = datalayer.poll(http, feed, tmp_path)
@@ -50,24 +54,41 @@ def test_discover_fetches_the_index_then_the_release_it_names(tmp_path):
 
 def test_a_discovered_url_without_certified_terms_is_refused(tmp_path):
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b"x")))
-    feed = {"name": "x", "source": "gdelt", "every_h": 1,
-            "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"}}
+    feed = {
+        "name": "x",
+        "source": "gdelt",
+        "every_h": 1,
+        "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"},
+    }
     with pytest.raises(PermissionError):
         datalayer.poll(http, feed, tmp_path)
 
 
 def test_a_credential_is_sent_but_never_logged(tmp_path):
     seen = []
-    http = httpx.Client(transport=httpx.MockTransport(lambda req: seen.append(req) or httpx.Response(200, content=b"{}")))
-    feed = {"name": "k", "url": "https://api.example.org/v1/x?series=A", "every_h": 1,
-            "auth": {"param": "api_key", "env": "K"}}
+    http = httpx.Client(
+        transport=httpx.MockTransport(lambda req: seen.append(req) or httpx.Response(200, content=b"{}"))
+    )
+    feed = {
+        "name": "k",
+        "url": "https://api.example.org/v1/x?series=A",
+        "every_h": 1,
+        "auth": {"param": "api_key", "env": "K"},
+    }
     rec = datalayer.poll(http, feed, tmp_path, {"K": "s3cret"})
     assert seen[0].url.params["api_key"] == "s3cret" and seen[0].url.params["series"] == "A"
-    ua = {"name": "u", "url": "https://api.example.org/v1/y", "every_h": 1, "auth": {"header": "User-Agent", "env": "U"}}
+    ua = {
+        "name": "u",
+        "url": "https://api.example.org/v1/y",
+        "every_h": 1,
+        "auth": {"header": "User-Agent", "env": "U"},
+    }
     datalayer.poll(http, ua, tmp_path, {"U": "Name name@example.org"})
     assert seen[1].headers["User-Agent"] == "Name name@example.org"
     echo = {"name": "e", "url": "https://api.example.org/v1/z", "every_h": 1, "auth": {"param": "key", "env": "K"}}
-    echoed = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b'{"UserID": "s3cret"}')))
+    echoed = httpx.Client(
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b'{"UserID": "s3cret"}'))
+    )
     stored = datalayer.body(tmp_path, datalayer.poll(echoed, echo, tmp_path, {"K": "s3cret"})["sha256"])
     assert stored == b'{"UserID": "<credential>"}'
     logged = "".join(p.read_text() for p in tmp_path.glob("datalayer-*.jsonl"))
@@ -102,7 +123,9 @@ while True:
 
 def fetch_again(out):
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=BODY)))
-    return datalayer.poll(http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}, out)
+    return datalayer.poll(
+        http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}, out
+    )
 
 
 def test_a_body_write_that_fails_leaves_nothing_a_later_poll_of_the_same_body_reuses(tmp_path):
@@ -149,8 +172,14 @@ def test_a_damaged_body_keeps_its_bytes_and_the_repair_is_on_the_record(tmp_path
     raw, bad = damaged_on_disk(tmp_path)
     fetch_again(tmp_path)
     [(repair)] = list(live.read(tmp_path, "repairs"))
-    assert repair["sha256"] == raw.name.removesuffix(".gz") and repair["damaged_sha256"] == hashlib.sha256(bad).hexdigest()
-    assert (raw.parent / repair["kept"]).read_bytes() == bad and repair["feed"] == "ecb-exr" and repair["bytes"] == len(bad)
+    assert (
+        repair["sha256"] == raw.name.removesuffix(".gz") and repair["damaged_sha256"] == hashlib.sha256(bad).hexdigest()
+    )
+    assert (
+        (raw.parent / repair["kept"]).read_bytes() == bad
+        and repair["feed"] == "ecb-exr"
+        and repair["bytes"] == len(bad)
+    )
 
 
 def test_a_body_with_other_content_under_its_name_is_repaired_too(tmp_path):
@@ -172,9 +201,21 @@ def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path, monkeypatch)
     raw = tmp_path / "raw" / f"{hashlib.sha256(index).hexdigest()}.gz"
     raw.parent.mkdir(parents=True)
     raw.write_bytes(gzip.compress(index)[:6])
-    http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=index if "index" in str(req.url) else b"csv")))
-    feed = {"name": "d", "source": "x", "every_h": 1,
-            "discover": {"url": "https://api.example.org/index", "pattern": r"file-(\d+)\.csv", "template": "https://api.example.org/file-{}.csv"}}
+    http = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda req: httpx.Response(200, content=index if "index" in str(req.url) else b"csv")
+        )
+    )
+    feed = {
+        "name": "d",
+        "source": "x",
+        "every_h": 1,
+        "discover": {
+            "url": "https://api.example.org/index",
+            "pattern": r"file-(\d+)\.csv",
+            "template": "https://api.example.org/file-{}.csv",
+        },
+    }
     monkeypatch.setattr(datalayer, "certify", lambda feed, url: None)
     assert datalayer.poll(http, feed, tmp_path, {})["url"].endswith("file-7.csv")
 

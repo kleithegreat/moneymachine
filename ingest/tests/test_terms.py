@@ -14,8 +14,12 @@ FETCHED = {
 
 
 def test_every_fetched_host_has_certified_terms():
-    missing = [(source, host) for source, hosts in FETCHED.items() for host in hosts
-               if not terms.admits(terms.allowlist(source), host, "/")]
+    missing = [
+        (source, host)
+        for source, hosts in FETCHED.items()
+        for host in hosts
+        if not terms.admits(terms.allowlist(source), host, "/")
+    ]
     assert not missing
     assert datalayer.feeds()["feeds"]
 
@@ -26,8 +30,13 @@ def test_every_record_is_certified():
 
 
 def test_a_record_without_its_evidence_fails():
-    good = {"host": "x.org", "url": "https://x.org/tos", "retrieved": date(2026, 10, 22), "basis": "permitting clause",
-            "quote": "You may automate access."}
+    good = {
+        "host": "x.org",
+        "url": "https://x.org/tos",
+        "retrieved": date(2026, 10, 22),
+        "basis": "permitting clause",
+        "quote": "You may automate access.",
+    }
     assert terms.certified(good)
     for drop in ("url", "retrieved", "basis", "quote"):
         assert not terms.certified({k: v for k, v in good.items() if k != drop})

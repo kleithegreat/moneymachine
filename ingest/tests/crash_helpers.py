@@ -27,8 +27,14 @@ def command(module, root, phase):
 
 def kill_during(module, root, target, seed):
     """SIGKILL the worker and its children after a seeded delay from `target`; return completed-call acks."""
-    child = subprocess.Popen(command(module, root, "crash"), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, start_new_session=True, bufsize=0)
+    child = subprocess.Popen(
+        command(module, root, "crash"),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+        bufsize=0,
+    )
     acks = []
     deadline = time.monotonic() + 60
     selector = selectors.DefaultSelector()
