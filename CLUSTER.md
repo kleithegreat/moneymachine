@@ -51,6 +51,8 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
 | `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
+| `thesis-prewarm` | Job, rerun until a pass leaves no listed market cold | `cli thesis-prewarm` | `thesis` | none | 300 s |
+| `thesis-freeze` | Job, one attempt; the manifest record in its log | `cli thesis-freeze` | as `thesis` | `claude-token` | 300 s |
 | `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5; stage 3's `agent` cohort is done) | `agent` | `claude-token` | 9,000 s |
 | `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |

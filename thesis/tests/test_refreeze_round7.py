@@ -37,7 +37,7 @@ def test_f1_a_missing_listing_observation_is_not_a_not_listed_market():
     assert runner.unbenchmarkable({**snapshot, "listings": {"ETH": False}}, "BTC", (0, DAY)) == "not listed"
 
 
-def test_f1_the_first_monday_midnight_needs_an_observation_before_it(track, monkeypatch, tmp_path):
+def test_f1_the_first_monday_midnight_needs_an_observation_before_it(track, monkeypatch, tmp_path, capsys):
     frozen = MONDAY + 10 * HOUR
     fake = FakeMarket(frozen)
     monkeypatch.setattr(runner, "ROOT", tmp_path)
@@ -53,13 +53,13 @@ def test_f1_the_first_monday_midnight_needs_an_observation_before_it(track, monk
     monkeypatch.setattr(runner, "Market", lambda *a: fake_empty)
     with pytest.raises(SystemExit, match="listing observation"):
         runner.freeze()
-    assert not (tmp_path / "manifest.json").exists()
+    assert not capsys.readouterr().out
     monkeypatch.setattr(runner, "Market", lambda *a: fake)
     runner.freeze()
-    assert json.loads((tmp_path / "manifest.json").read_text())["frozen"] == frozen
+    assert json.loads(capsys.readouterr().out)["frozen"] == frozen
 
 
-def test_f1_a_freeze_before_the_first_monday_needs_no_observation(track, monkeypatch, tmp_path):
+def test_f1_a_freeze_before_the_first_monday_needs_no_observation(track, monkeypatch, tmp_path, capsys):
     frozen = MONDAY - 2 * DAY
     fake = FakeMarket(frozen)
     fake.listings_at = lambda at: (None, {})
@@ -71,7 +71,7 @@ def test_f1_a_freeze_before_the_first_monday_needs_no_observation(track, monkeyp
     monkeypatch.setattr(runner.harness, "manifest_hash", lambda kernel: "1" * 64)
     monkeypatch.setattr(runner, "now_ms", lambda: frozen)
     runner.freeze()
-    assert (tmp_path / "manifest.json").exists()
+    assert json.loads(capsys.readouterr().out)["manifest"] == "1" * 64
 
 
 def test_f2_monday_asks_only_for_benchmark_markets_beyond_the_current_listing(track, monkeypatch):

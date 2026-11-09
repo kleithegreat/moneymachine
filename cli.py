@@ -108,8 +108,8 @@ COMMANDS = {
     "differential-run": ("reference.differential", "run", ["out"], "C6.4's judged run of mm against refmm on the frozen corpus"),
     "mutants": ("cli", "mutants", ["slots:int?"], "apply each mutant to a copy of the tree; its named test must fail"),
     "check": ("cli", "check", [], "pytest, cargo tests and mutants concurrently (run it in a capped scope)"),
-    "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
-    "thesis-prewarm": ("thesis.runner", "prewarm", [], "acquire funding before freezing; runner must be stopped (resumable)"),
+    "thesis-freeze": ("thesis.runner", "freeze", [], "print the manifest record to commit (starts a track version)"),
+    "thesis-prewarm": ("thesis.runner", "prewarm", [], "fill funding before a freeze (runner stopped); exits nonzero while a listed market is cold"),
     "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),
     "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),
 }

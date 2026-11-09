@@ -471,10 +471,13 @@ def fill(market: Market, order: Iterable[str], stop: threading.Event, limit: int
     for m in order:
         if stop.is_set() or (limit is not None and now_ms() - began >= limit):
             return
+        sent, at = market.sent(), now_ms()
         try:
-            market.prewarm(m, now_ms(), stop)
+            market.prewarm(m, at, stop)
         except (httpx.HTTPError, ValueError) as e:
             print(time.strftime("%FT%T"), "prewarm", m, repr(e), flush=True)
+        if sent := market.sent() - sent:
+            print(time.strftime("%FT%T"), "prewarm", m, sent, "requests in", (now_ms() - at) // 1000, "s", flush=True)
 
 
 def joined(reads: dict[str, Json], now: int) -> Json:
@@ -504,19 +507,24 @@ def forever(name: str, step: Callable[[], None], wait: Callable[[int], float], s
             print(time.strftime("%FT%T"), name, repr(e), flush=True)
 
 
-def pinned_kernel(root: str | Path, fresh: bool = False) -> Path:
-    """The track's own copy of the `mm` binary, which writes its ledger: copied from the current build when absent, or
-    afresh at a freeze, so later kernel builds never change a running track version."""
+def pinned_kernel(root: str | Path) -> Path:
+    """The track's own copy of the `mm` binary, which writes its ledger: copied from the current build when absent, so
+    later kernel builds never change a track version. A pod builds none: its volume's copy was seeded."""
     path = Path(root) / "bin" / "mm"
-    if fresh or not path.exists():
+    if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(kernel.build(), path)
     return path
 
 
+def cold(market: Market, listings: dict[str, bool], now: int) -> list[str]:
+    """The listed markets whose funding history is not ready at `now`."""
+    return [m for m, delisted in sorted(listings.items()) if not delisted and not market.ready(m, now)]
+
+
 def freeze() -> None:
-    """Record the manifest, with the kernel binary pinned, once the sandbox canary passes: the start of a track version
-    and of C10.5's observation window."""
+    """Print the manifest record, the start of a track version and of C10.5's observation window, once the sandbox canary
+    passes and every listed market is ready. The operator commits it as FROZEN: a pod's repository is read-only."""
     canary.check()
     market = Market(ROOT / "market", Exchange(ROOT / "exchange"))
     now = now_ms()
@@ -525,17 +533,14 @@ def freeze() -> None:
         raise SystemExit("no listing observation before this Monday's midnight: the window's first benchmark would find none "
                          "and skip every market; run `thesis-prewarm` on the new code before the next Monday 00:00 UTC "
                          "(Sunday 19:00 EST) and freeze after it")
-    cold = [m for m, delisted in sorted(market.listings().items()) if not delisted and not market.ready(m, now)]
-    if cold:
-        raise SystemExit(f"funding history is not ready for {len(cold)} listed markets, such as {cold[:5]}: let the background "
-                         "fill finish before the freeze")
-    manifest = harness.manifest_hash(pinned_kernel(ROOT, fresh=True))
-    FROZEN.parent.mkdir(parents=True, exist_ok=True)
+    if left := cold(market, market.listings(), now):
+        raise SystemExit(f"funding history is not ready for {len(left)} listed markets, such as {left[:5]}: rerun "
+                         "`thesis-prewarm` until it exits 0, then freeze")
+    manifest = harness.manifest_hash(pinned_kernel(ROOT))
     old = json.loads(FROZEN.read_text()) if FROZEN.exists() else None
     if old and old["manifest"] == manifest:
         raise SystemExit("this manifest is already frozen")
-    FROZEN.write_text(json.dumps({"manifest": manifest, "version": f"thesis-{manifest[:12]}",
-                                  "frozen": now, "previous": old}, indent=1) + "\n")
+    print(json.dumps({"manifest": manifest, "version": f"thesis-{manifest[:12]}", "frozen": now, "previous": old}, indent=1))
 
 
 def run() -> None:
@@ -543,14 +548,21 @@ def run() -> None:
 
 
 def prewarm() -> None:
-    """One resumable acquisition pass, without starting or freezing a track. Run only with the runner stopped."""
+    """One resumable acquisition pass, without starting or freezing a track, exiting nonzero while a listed market is still
+    cold, so a Job reruns it until none is. Run only with the runner stopped."""
     ROOT.mkdir(parents=True, exist_ok=True)
     with (ROOT / "run.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         stop = threading.Event()
         signal.signal(signal.SIGTERM, lambda *_: stop.set())
         market = Market(ROOT / "market", Exchange(ROOT / "exchange"))
-        fill(market, [m for m, delisted in sorted(market.listings(background=True).items()) if not delisted], stop)
+        listings = market.listings(background=True)
+        listed = [m for m, delisted in sorted(listings.items()) if not delisted]
+        print(time.strftime("%FT%T"), "prewarm", len(listed), "listed,", len(cold(market, listings, now_ms())), "cold", flush=True)
+        fill(market, listed, stop)
+        if left := cold(market, listings, now_ms()):
+            raise SystemExit(f"{len(left)} of {len(listed)} listed markets still cold, such as {left[:5]}")
+        print(time.strftime("%FT%T"), "prewarm", len(listed), "listed, none cold", flush=True)
 
 
 def report(out: str | Path) -> None:

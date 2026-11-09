@@ -86,7 +86,7 @@ def test_g3_the_latency_allowance_is_derived_from_the_stress_inventory():
     assert "1,144" not in tex and r"796\cdot0.45=358.2" in tex
 
 
-def test_g4_freeze_records_the_instant_its_guard_decided(tmp_path, monkeypatch):
+def test_g4_freeze_records_the_instant_its_guard_decided(tmp_path, monkeypatch, capsys):
     clock = [MONDAY - 1_000]
     monkeypatch.setattr(runner, "ROOT", tmp_path)
     monkeypatch.setattr(runner, "FROZEN", tmp_path / "manifest.json")
@@ -114,5 +114,5 @@ def test_g4_freeze_records_the_instant_its_guard_decided(tmp_path, monkeypatch):
             return True
     monkeypatch.setattr(runner, "Market", lambda *a: Slow())
     runner.freeze()
-    frozen = json.loads((tmp_path / "manifest.json").read_text())["frozen"]
+    frozen = json.loads(capsys.readouterr().out)["frozen"]
     assert frozen == MONDAY - 1_000

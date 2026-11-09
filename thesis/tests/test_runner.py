@@ -9,12 +9,13 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 import httpx
 import pytest
 
 from ingest.policy import DAY, DELTA, HOUR
-from thesis import report, runner
+from thesis import registry, report, runner
 from thesis.market import FRESH
 
 ZERO = {"buy": {"1000": 0.0, "10000": 0.0}, "sell": {"1000": 0.0, "10000": 0.0}}
@@ -763,4 +764,36 @@ def test_a_freeze_waits_for_every_listed_market_to_have_its_funding_history(monk
     monkeypatch.setattr(runner.canary, "check", lambda: None)
     with pytest.raises(SystemExit, match=r"not ready for 1 listed markets, such as \['ETH'\]"):
         runner.freeze()
-    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_a_freeze_in_a_pod_prints_its_record_and_builds_no_kernel(monkeypatch, tmp_path, capsys):
+    """A pod's repository is read-only and has no cargo: the record goes to the log, the kernel is the volume's copy."""
+    class Warm:
+        def __init__(self, *_):
+            pass
+
+        def listings(self):
+            return {"BTC": False}
+
+        def listings_at(self, at):
+            return at, {"BTC": False}
+
+        def ready(self, m, now):
+            return True
+
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "mm").write_bytes(b"pinned")
+    frozen = tmp_path / "manifest.json"
+    frozen.write_text(json.dumps({"manifest": "0" * 64}))
+    frozen.chmod(0o444)
+    monkeypatch.setattr(runner, "Market", Warm)
+    monkeypatch.setattr(runner, "Exchange", lambda *_: None)
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "FROZEN", frozen)
+    monkeypatch.setattr(runner.canary, "check", lambda: None)
+    monkeypatch.setattr(runner.kernel, "build", lambda: pytest.fail("a freeze built the kernel"))
+    monkeypatch.setattr(runner.harness, "manifest_hash", lambda k: registry.sha256(Path(k).read_bytes()))
+    runner.freeze()
+    record = json.loads(capsys.readouterr().out)
+    assert record["manifest"] == registry.sha256(b"pinned") and record["previous"] == {"manifest": "0" * 64}
+    assert json.loads(frozen.read_text()) == {"manifest": "0" * 64}

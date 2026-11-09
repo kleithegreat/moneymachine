@@ -97,19 +97,43 @@ def test_session_hold_covers_background_inventory(tmp_path, monkeypatch):
     assert blocked and not thread.is_alive() and len(sent) == 3
 
 
-def test_bootstrap_is_available_without_a_frozen_track(tmp_path, monkeypatch):
+@pytest.mark.parametrize("warmed", [False, True])
+def test_bootstrap_is_available_without_a_frozen_track_and_fails_while_a_listed_market_is_cold(tmp_path, monkeypatch,
+                                                                                                capsys, warmed):
+    """A Job reruns a failed pass: the exit status says whether every listed market is ready."""
     import cli
 
     calls = []
     m = market.Market(tmp_path / "m", Venue([]))
-    m.listings = lambda **kw: {"X": False, "OLD": True}
+    m.listings = lambda **kw: {"X": False, "Y": False, "OLD": True}
     m.prewarm = lambda name, now, stop: calls.append(name)
+    m.ready = lambda name, now: warmed or name == "Y"
     monkeypatch.setattr(runner, "Market", lambda *a: m)
     monkeypatch.setattr(runner, "Exchange", lambda *a: None)
     monkeypatch.setattr(runner, "ROOT", tmp_path)
     monkeypatch.setattr(runner, "FROZEN", tmp_path / "absent.json")
-    cli.main(["thesis-prewarm"])
-    assert calls == ["X"] and not runner.FROZEN.exists()
+    if warmed:
+        cli.main(["thesis-prewarm"])
+        assert "2 listed, none cold" in capsys.readouterr().out
+    else:
+        with pytest.raises(SystemExit, match=r"1 of 2 listed markets still cold, such as \['X'\]"):
+            cli.main(["thesis-prewarm"])
+    assert calls == ["X", "Y"] and not runner.FROZEN.exists()
+
+
+def test_a_pass_logs_each_market_it_sent_requests_for(tmp_path, capsys):
+    class Counting:
+        n = 0
+
+        def sent(self):
+            return self.n
+
+        def prewarm(self, name, now, stop):
+            self.n += 3 if name == "X" else 0
+
+    runner.fill(Counting(), ["X", "Y"], threading.Event())
+    out = capsys.readouterr().out
+    assert "prewarm X 3 requests in" in out and "Y" not in out
 
 
 def test_legacy_rows_survive_refill_without_claiming_range_coverage(tmp_path):

@@ -643,7 +643,7 @@ def test_manifests_keep_the_boundaries():
         assert c["securityContext"]["readOnlyRootFilesystem"] and c["securityContext"]["capabilities"] == {"drop": ["ALL"]}
         assert not spec["automountServiceAccountToken"] and spec["priorityClassName"] == live.NAMESPACE
         assert c["image"].startswith(live.jobs.REGISTRY + "@sha256:")
-    assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"thesis", "agent-series", "agent-real"}
+    assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"thesis", "thesis-freeze", "agent-series", "agent-real"}
     assert live.manifest("thesis", "sha256:0")["spec"]["updateStrategy"] == {"type": "OnDelete"}
     json.dumps([live.manifest(n, "sha256:0") for n in live.WORKLOADS])
 
@@ -671,6 +671,24 @@ def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool():
     assert [v["name"] for v in spec["volumes"] if "persistentVolumeClaim" in v] == ["agent"]
     command = spec["containers"][0]["command"]
     assert command[-3:] == ["agent-real", "data/agent/real", "1792613363942"]
+
+
+def test_the_thesis_cutover_jobs_run_on_the_track_s_volume():
+    """The prewarm reruns until its pass finds no cold market, with no token; the freeze runs once, as the runner would,
+    the canary on the track's own account, and its record goes to the log."""
+    prewarm, freeze, thesis = (live.manifest(n, "sha256:0")["spec"] for n in ("thesis-prewarm", "thesis-freeze", "thesis"))
+    pod = prewarm["template"]["spec"]
+    assert prewarm["backoffLimit"] == 20 and pod["restartPolicy"] == "OnFailure"
+    assert pod["containers"][0]["command"][-1] == "thesis-prewarm" and pod["containers"][0]["env"] == []
+    assert [(v["name"], v["readOnly"]) for v in pod["containers"][0]["volumeMounts"] if v["name"] not in ("tmp", "scratch")] == \
+        [("thesis", False)]
+    once = freeze["template"]["spec"]
+    assert freeze["backoffLimit"] == 0 and once["restartPolicy"] == "Never"
+    assert once["containers"][0]["command"][-1] == "thesis-freeze"
+    run = thesis["template"]["spec"]
+    for key in ("volumes", "securityContext", "hostUsers"):
+        assert once[key] == run[key]
+    assert once["containers"][0]["env"] == run["containers"][0]["env"]
 
 
 def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_path, verify_clock):
