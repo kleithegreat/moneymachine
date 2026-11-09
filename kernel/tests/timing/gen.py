@@ -5,34 +5,49 @@ construction, carried in `label` and `kind` beside the case format of kernel/INV
 import json
 import random
 import sys
+from typing import Any
 
 from ingest.policy import BAR, HOUR
 
+Bar = dict[str, Any]
+Case = dict[str, Any]
+Fill = dict[str, Any]
+CostBps = dict[str, list[float]]
 
-def price(reference, qty, cost):
+
+def price(reference: float, qty: float, cost: CostBps) -> float:
     side = "buy" if qty > 0 else "sell"
     bucket = 0 if abs(qty) * reference <= 1000 else 1
     s = 1.0 if qty > 0 else -1.0
     return reference * (1.0 + s * cost[side][bucket] / 1e4)
 
 
-def base(rng):
+def base(rng: random.Random) -> Case:
     n = 12
-    bars, px = [], rng.uniform(1, 500)
+    bars: list[Bar] = []
+    px = rng.uniform(1, 500)
     for k in range(n):
         o = px
         c = o * (1 + rng.gauss(0, 0.02))
-        bars.append({"open_time": k * BAR, "event": (k + 1) * BAR, "open": o, "high": max(o, c) * 1.01,
-                     "low": min(o, c) * 0.99, "close": c, "trades": rng.randint(1, 50)})
+        bars.append(
+            {
+                "open_time": k * BAR,
+                "event": (k + 1) * BAR,
+                "open": o,
+                "high": max(o, c) * 1.01,
+                "low": min(o, c) * 0.99,
+                "close": c,
+                "trades": rng.randint(1, 50),
+            }
+        )
         px = c
-    for k in sorted(rng.sample(range(1, n - 1), rng.randint(0, 3))):
-        bars[k] = None
-    bars = [b for b in bars if b]
+    dropped = set(rng.sample(range(1, n - 1), rng.randint(0, 3)))
+    bars = [b for k, b in enumerate(bars) if k not in dropped]
     cost = {"buy": [rng.uniform(0, 5), rng.uniform(5, 20)], "sell": [rng.uniform(0, 5), rng.uniform(5, 20)]}
     return {"taker_fee": rng.choice([0.00045, 0.00035, 0.001]), "cost_bps": cost, "bars": bars}
 
 
-def valid_fill(rng, case):
+def valid_fill(rng: random.Random, case: Case) -> Fill:
     bars = case["bars"]
     src = rng.choice(bars[1:])
     earlier = [b for b in bars if b["open_time"] < src["open_time"]]
@@ -45,16 +60,27 @@ def valid_fill(rng, case):
     dp = reference * rng.uniform(0.9, 1.1)
     qty = round(rng.choice([1, -1]) * rng.uniform(0.001, 9999) / dp, 3) or 0.001
     p = price(reference, qty, case["cost_bps"])
-    return {"why": "fill", "qty": qty, "inputs_known": known, "decision_price": dp, "decided": decided,
-            "submitted": submitted, "filled": filled, "source_open": src["open_time"], "reference": reference,
-            "price": p, "fee": abs(qty) * p * case["taker_fee"]}
+    return {
+        "why": "fill",
+        "qty": qty,
+        "inputs_known": known,
+        "decision_price": dp,
+        "decided": decided,
+        "submitted": submitted,
+        "filled": filled,
+        "source_open": src["open_time"],
+        "reference": reference,
+        "price": p,
+        "fee": abs(qty) * p * case["taker_fee"],
+    }
 
 
-def closeout_reference(why, qty, bar):
-    return bar["close"] if why == "delisting" else (bar["high"] if qty > 0 else bar["low"])
+def closeout_reference(why: str, qty: float, bar: Bar) -> float:
+    reference: float = bar["close"] if why == "delisting" else (bar["high"] if qty > 0 else bar["low"])
+    return reference
 
 
-def valid_closeout(rng, case):
+def valid_closeout(rng: random.Random, case: Case) -> Fill:
     bars = case["bars"]
     i = rng.randrange(len(bars))
     src = bars[i]
@@ -64,31 +90,59 @@ def valid_closeout(rng, case):
     why = rng.choice(["liquidation", "delisting"])
     reference = closeout_reference(why, qty, src)
     p = price(reference, qty, case["cost_bps"])
-    return {"why": why, "qty": qty, "inputs_known": t, "decision_price": reference, "decided": t, "submitted": t,
-            "filled": t, "source_open": src["open_time"], "reference": reference, "price": p,
-            "fee": abs(qty) * p * case["taker_fee"]}
+    return {
+        "why": why,
+        "qty": qty,
+        "inputs_known": t,
+        "decision_price": reference,
+        "decided": t,
+        "submitted": t,
+        "filled": t,
+        "source_open": src["open_time"],
+        "reference": reference,
+        "price": p,
+        "fee": abs(qty) * p * case["taker_fee"],
+    }
 
 
-def refresh(f, case):
+def refresh(f: Fill, case: Case) -> None:
     f["price"] = price(f["reference"], f["qty"], case["cost_bps"])
     f["fee"] = abs(f["qty"]) * f["price"] * case["taker_fee"]
 
 
-def bar_at(case, t):
-    return next((b for b in case["bars"] if b["open_time"] == t), None)
+def bar_at(case: Case, t: int) -> Bar:
+    return next(b for b in case["bars"] if b["open_time"] == t)
 
 
-def plant(rng, case, f):
+def plant(rng: random.Random, case: Case, f: Fill) -> tuple[str, str] | None:
     """Return (label, kind) after planting one violation in f, or None if not applicable."""
     bars = case["bars"]
     kinds = ["known_after_decision", "submitted_before_decision", "filled_before_submission"]
     if f["why"] == "fill":
-        kinds += ["later_bar", "bar_before_submission", "bar_after_fill", "zero_trades", "reference_is_close",
-                  "price_ulp", "wrong_bucket", "wrong_side", "fee_off", "missing_bar", "notional_cap",
-                  "rolled_to_later_bar", "zero_qty"]
+        kinds += [
+            "later_bar",
+            "bar_before_submission",
+            "bar_after_fill",
+            "zero_trades",
+            "reference_is_close",
+            "price_ulp",
+            "wrong_bucket",
+            "wrong_side",
+            "fee_off",
+            "missing_bar",
+            "notional_cap",
+            "rolled_to_later_bar",
+            "zero_qty",
+        ]
     else:
-        kinds += ["closeout_wrong_reference", "closeout_bar_not_closed", "closeout_stale_bar", "price_ulp", "fee_off",
-                  "zero_qty"]
+        kinds += [
+            "closeout_wrong_reference",
+            "closeout_bar_not_closed",
+            "closeout_stale_bar",
+            "price_ulp",
+            "fee_off",
+            "zero_qty",
+        ]
     kind = rng.choice(kinds)
     src = bar_at(case, f["source_open"])
     if kind == "known_after_decision":
@@ -188,11 +242,12 @@ def plant(rng, case, f):
         f["qty"] = 0.0
         refresh(f, case)
         return "R_FILL", kind
+    return None
 
 
-def generate(n, seed):
+def generate(n: int, seed: int) -> list[Case]:
     rng = random.Random(seed)
-    out = []
+    out: list[Case] = []
     while len(out) < n:
         case = base(rng)
         f = valid_fill(rng, case) if rng.random() < 0.8 else valid_closeout(rng, case)

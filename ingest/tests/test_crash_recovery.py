@@ -33,7 +33,7 @@ def poll(root, i):
         return datalayer.poll(http, {"name": f"feed-{i}", "url": f"https://example.invalid/{i}"}, root, {})
 
 
-def worker(root, interactive):
+def worker(root, interactive) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
     if mode in ("live", "record"):
@@ -63,7 +63,7 @@ def worker(root, interactive):
 
 @pytest.mark.parametrize("mode", ["live", "record", "datalayer", "repair"])
 @pytest.mark.parametrize("seed", SEEDS)
-def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path, mode, seed):
+def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path: Path, mode, seed) -> None:
     (tmp_path / "mode").write_text(mode)
     if mode == "repair":
         (tmp_path / "raw").mkdir()
@@ -80,7 +80,7 @@ def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path, mode,
     assert set(acks) <= set(indices)
     recover(MODULE, tmp_path)
     rows = list(live.read(tmp_path, prefix))
-    assert rows[:len(before)] == before
+    assert rows[: len(before)] == before
     assert all(path.read_bytes().startswith(raw) for path, raw in history.items())
     if prefix != "datalayer":
         assert rows == [observation(i) for i in range(COUNT)]

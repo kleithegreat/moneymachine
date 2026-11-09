@@ -4,9 +4,12 @@ import json
 import sqlite3
 import subprocess
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 from arch.bootstrap import SPA, StepM
 from scipy.stats import norm
@@ -20,8 +23,12 @@ BLOCK = 6
 REPS = 1000
 LOSS_BOUND = 1.0
 
+type Returns = npt.NDArray[np.float64]
+type Decision = tuple[list[str], dict[str, Any]]
+type Holdout = tuple[Returns, float, Any]
 
-def dsr(returns, n_trials):
+
+def dsr(returns: npt.ArrayLike, n_trials: int) -> float:
     """Deflated Sharpe ratio of one per-period return series (paper §8): S0 is the expected maximum of n_trials
     null Sharpe estimates, each with the null sampling variance 1 / (T - 1). Computed on r / max |r|, to which every
     statistic is invariant, so no finite input overflows."""
@@ -39,15 +46,21 @@ def dsr(returns, n_trials):
         s = r.mean() / sd
         z = (r - r.mean()) / r.std(ddof=0)
         skew, kurt = (z**3).mean(), (z**4).mean()
-        s0 = 0.0 if n_trials <= 1 else ((1 - np.euler_gamma) * norm.ppf(1 - 1 / n_trials)
-                                        + np.euler_gamma * norm.ppf(1 - 1 / (n_trials * np.e))) / np.sqrt(t - 1)
+        s0 = (
+            0.0
+            if n_trials <= 1
+            else (
+                (1 - np.euler_gamma) * norm.ppf(1 - 1 / n_trials) + np.euler_gamma * norm.ppf(1 - 1 / (n_trials * np.e))
+            )
+            / np.sqrt(t - 1)
+        )
         var = 1 - skew * s + (kurt - 1) / 4 * s**2
         if var <= 1e-12 * (1 + abs(skew * s) + (kurt - 1) / 4 * s**2):
             return 0.0
         return float(norm.cdf((s - s0) * np.sqrt(t - 1) / np.sqrt(var)))
 
 
-def trials(ledger, campaign, agent=None):
+def trials(ledger: str | Path, campaign: str, agent: str | None = None) -> dict[str, tuple[Returns, dict[str, Any]]]:
     """Distinct trials an arm evaluated in search mode that filled at least once: {trial key: (returns, program)},
     both from the key's first such evaluation."""
     db = sqlite3.connect(ledger)
@@ -55,29 +68,32 @@ def trials(ledger, campaign, agent=None):
         "SELECT e.trial, r.returns, r.summary, e.program FROM experiments e "
         "JOIN results r ON r.experiment_id = e.id "
         "WHERE e.campaign = ? AND e.mode = 'search' AND (? IS NULL OR e.agent = ?) ORDER BY e.id",
-        (campaign, agent, agent)).fetchall()
-    out = {}
+        (campaign, agent, agent),
+    ).fetchall()
+    out: dict[str, tuple[Returns, dict[str, Any]]] = {}
     for key, blob, summary, program in rows:
         if key not in out and json.loads(summary)["fills"] > 0:
             out[key] = (np.frombuffer(blob, "<f8"), json.loads(program))
     return out
 
 
-def candidates(ledger, campaign, agent=None):
+def candidates(ledger: str | Path, campaign: str, agent: str | None = None) -> dict[str, Returns]:
     return {k: r for k, (r, _) in trials(ledger, campaign, agent).items()}
 
 
-def programs(ledger, campaign, keys, agent=None):
+def programs(
+    ledger: str | Path, campaign: str, keys: Iterable[str], agent: str | None = None
+) -> dict[str, dict[str, Any]]:
     """The submitted program of each of an arm's trials, from the evaluation `candidates` takes its returns from."""
     found = trials(ledger, campaign, agent)
     return {k: found[k][1] for k in keys}
 
 
-def search_decision(ledger, campaign, agent=None):
+def search_decision(ledger: str | Path, campaign: str, agent: str | None = None) -> Decision:
     """Screen, SPA and StepM on the search period. Returns the finalists' strategy hashes and a report."""
     cands = candidates(ledger, campaign, agent)
     n = len(cands)
-    report = {"n": n, "spa_p": None, "screened": [], "finalists": []}
+    report: dict[str, Any] = {"n": n, "spa_p": None, "screened": [], "finalists": []}
     if n == 0:
         return [], report
     names = list(cands)
@@ -89,14 +105,16 @@ def search_decision(ledger, campaign, agent=None):
     spa = SPA(np.zeros(len(r)), -r, block_size=BLOCK, reps=REPS, seed=seed)
     spa.compute()
     p = float(spa.pvalues["consistent"])
-    report.update(spa_p=p, screened=screened, max_dsr=max(dsrs.values()), top5=sorted(names, key=lambda h: -sharpes[h])[:5])
+    report.update(
+        spa_p=p, screened=screened, max_dsr=max(dsrs.values()), top5=sorted(names, key=lambda h: -sharpes[h])[:5]
+    )
     finalists = stepm(r, screened, seed) if p <= ALPHA else []
     report["finalists"] = finalists
     report["effective_n"] = effective_n(r, p, seed)
     return finalists, report
 
 
-def stepm(r, screened, seed):
+def stepm(r: pd.DataFrame, screened: list[str], seed: int) -> list[str]:
     if not screened:
         return []
     st = StepM(np.zeros(len(r)), -r[screened], size=ALPHA, block_size=BLOCK, reps=REPS, seed=seed)
@@ -104,13 +122,13 @@ def stepm(r, screened, seed):
     return [h for h in screened if h in set(st.superior_models)]
 
 
-def cluster_labels(r, threshold):
+def cluster_labels(r: pd.DataFrame, threshold: float) -> dict[str, tuple[str, str] | int]:
     """Each column's complete-linkage cluster at |rho| >= threshold; zero-variance series are singletons."""
     from scipy.cluster.hierarchy import fcluster, linkage
     from scipy.spatial.distance import squareform
 
     varying = [c for c in r.columns if r[c].std() > 0]
-    out = {c: ("single", c) for c in r.columns}
+    out: dict[str, tuple[str, str] | int] = {c: ("single", c) for c in r.columns}
     if len(varying) < 2:
         return out
     d = 1 - np.abs(np.nan_to_num(np.corrcoef(r[varying].to_numpy().T)))
@@ -119,13 +137,13 @@ def cluster_labels(r, threshold):
     return out | {c: int(k) for c, k in zip(varying, labels)}
 
 
-def clusters(r, threshold):
+def clusters(r: pd.DataFrame, threshold: float) -> int:
     return len(set(cluster_labels(r, threshold).values()))
 
 
-def effective_n(r, spa_p, seed):
+def effective_n(r: pd.DataFrame, spa_p: float, seed: int) -> dict[str, Any]:
     """Screen and StepM rerun at each effective-N estimate (SPA does not depend on N)."""
-    out = {"spa_p": spa_p, "by_n": {}}
+    out: dict[str, Any] = {"spa_p": spa_p, "by_n": {}}
     for name, n in [("raw", len(r.columns)), ("cluster_0.9", clusters(r, 0.9)), ("cluster_0.5", clusters(r, 0.5))]:
         screened = [h for h in r.columns if dsr(r[h], n) >= DSR_MIN]
         finalists = stepm(r, screened, seed) if spa_p <= ALPHA else []
@@ -135,7 +153,7 @@ def effective_n(r, spa_p, seed):
     return out
 
 
-def holdout_pvalues(r):
+def holdout_pvalues(r: npt.ArrayLike) -> Any:
     """Testing by betting (audit/criteria.md, stage 2, calibration v3) along the last axis: wealth prod(1 + λ_t r_t)
     with the aGRAPA bet λ_t = clip(S_{t-1} / Q_{t-1}, 0, 1/(2B)) from the past sums of r and r², and
     p = min(1, 1 / max wealth). Valid by Ville's inequality under paper S3's conditional null on pre-absorption
@@ -155,17 +173,17 @@ def holdout_pvalues(r):
     return 1 / wealth
 
 
-def bankrupt(ledger):
+def bankrupt(ledger: str | Path) -> list[int]:
     """The experiments whose returns reach −B, I10's bankruptcy step (NULLS.md, No edge)."""
     rows = sqlite3.connect(ledger).execute("SELECT experiment_id, returns FROM results").fetchall()
     return [e for e, blob in rows if (np.frombuffer(blob, "<f8") <= -LOSS_BOUND).any()]
 
 
-def holdout_pvalue(r):
+def holdout_pvalue(r: npt.ArrayLike) -> float:
     return float(holdout_pvalues(r))
 
 
-def holm(pvalues):
+def holm(pvalues: npt.ArrayLike) -> Returns:
     p = np.asarray(pvalues, float)
     if not ((p >= 0) & (p <= 1)).all():
         raise ValueError("p-value outside [0, 1]")
@@ -175,41 +193,74 @@ def holm(pvalues):
     return adjusted
 
 
-def freeze(ledger, campaign, hashes, note):
+def freeze(ledger: str | Path, campaign: str, hashes: Iterable[str], note: str) -> None:
     """Record each finalist's selection in the ledger before the holdout is opened."""
     for h in hashes:
-        subprocess.run(command("select", h, campaign, "gate", ledger, None, "--note", note), check=True, capture_output=True)
+        subprocess.run(
+            command("select", h, campaign, "gate", ledger, None, "--note", note), check=True, capture_output=True
+        )
 
 
-def mechanism_check(market, ledger, campaign, programs):
+def mechanism_check(
+    market: str | Path, ledger: str | Path, campaign: str, programs: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
     """For each finalist: its pre-registered prediction tested on the search period (never disclosed to agents)."""
     m = Path(market)
-    out = {}
+    out: dict[str, Any] = {}
     for h, prog in programs.items():
         if "prediction" not in prog:
             out[h] = {"pass": False, "reason": "no prediction"}
             continue
         p = m / f"mech-{h[:16]}.json"
         p.write_text(json.dumps(prog))
-        r = subprocess.run(command("eval", p, campaign, "gate-mechanism", ledger, m, "--mechanism", "on"),
-                           capture_output=True, text=True, check=True)
+        r = subprocess.run(
+            command("eval", p, campaign, "gate-mechanism", ledger, m, "--mechanism", "on"),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         out[h] = json.loads(r.stdout)["disclosure"]["result"]["mechanism"]
         p.unlink()
     return out
 
 
-def release(market, ledger, campaign, programs, holdout_from=None):
+def release(
+    market: str | Path,
+    ledger: str | Path,
+    campaign: str,
+    programs: dict[str, dict[str, Any]],
+    holdout_from: str | Path | None = None,
+) -> subprocess.CompletedProcess[str]:
     """The holdout's one `mm holdout` batch, as the finished process: the kernel claims the window, then evaluates."""
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
         fh.write("".join(json.dumps(p) + "\n" for p in programs.values()))
     extra = ["--holdout-from", str(holdout_from)] if holdout_from else []
-    out = subprocess.run(command("holdout", fh.name, campaign, "gate", ledger, market, "--holdout-store",
-                                 str(Path(market) / "holdout"), *extra), capture_output=True, text=True)
+    out = subprocess.run(
+        command(
+            "holdout",
+            fh.name,
+            campaign,
+            "gate",
+            ledger,
+            market,
+            "--holdout-store",
+            str(Path(market) / "holdout"),
+            *extra,
+        ),
+        capture_output=True,
+        text=True,
+    )
     Path(fh.name).unlink()
     return out
 
 
-def holdout_run(market, ledger, campaign, programs, holdout_from=None):
+def holdout_run(
+    market: str | Path,
+    ledger: str | Path,
+    campaign: str,
+    programs: dict[str, dict[str, Any]],
+    holdout_from: str | Path | None = None,
+) -> dict[str, Holdout]:
     """The single holdout batch: {hash: (net returns, total return, diagnostics)} for every frozen finalist."""
     if not programs:
         return {}
@@ -217,34 +268,52 @@ def holdout_run(market, ledger, campaign, programs, holdout_from=None):
     if out.returncode != 0:
         raise RuntimeError(out.stdout + out.stderr)
     db = sqlite3.connect(ledger)
-    results = {}
+    results: dict[str, Holdout] = {}
     for line, h in zip(out.stdout.splitlines(), programs):
         d = json.loads(line)
-        blob, summary = db.execute("SELECT returns, summary FROM results WHERE experiment_id = ?", (d["experiment"],)).fetchone()
+        blob, summary = db.execute(
+            "SELECT returns, summary FROM results WHERE experiment_id = ?", (d["experiment"],)
+        ).fetchone()
         results[h] = (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], d["disclosure"]["diagnostics"])
     return results
 
 
-ABSENT = (np.zeros(0), 0.0, None)  # a finalist without a holdout result: p = 1 and return 0 in its family (C3.3)
+ABSENT: Holdout = (
+    np.zeros(0),
+    0.0,
+    None,
+)  # a finalist without a holdout result: p = 1 and return 0 in its family (C3.3)
 
 
-def committed_holdout(ledger, campaign):
+def committed_holdout(ledger: str | Path, campaign: str) -> dict[str, Holdout]:
     """{trial: (net returns, total return, None)} of the campaign's committed holdout results; no diagnostics."""
-    rows = sqlite3.connect(ledger).execute(
-        "SELECT e.trial, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
-        "WHERE e.campaign = ? AND e.mode = 'holdout'", (campaign,)).fetchall()
+    rows = (
+        sqlite3.connect(ledger)
+        .execute(
+            "SELECT e.trial, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
+            "WHERE e.campaign = ? AND e.mode = 'holdout'",
+            (campaign,),
+        )
+        .fetchall()
+    )
     return {t: (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], None) for t, blob, summary in rows}
 
 
-def committed_diagnostics(ledger, campaign):
+def committed_diagnostics(ledger: str | Path, campaign: str) -> dict[str, Any]:
     """{trial: diagnostics}, stored with each holdout result; read only after the promotions are committed (C3.4)."""
-    rows = sqlite3.connect(ledger).execute(
-        "SELECT e.trial, d.content FROM disclosures d JOIN experiments e ON e.id = d.experiment_id "
-        "WHERE e.campaign = ? AND e.mode = 'holdout'", (campaign,)).fetchall()
+    rows = (
+        sqlite3.connect(ledger)
+        .execute(
+            "SELECT e.trial, d.content FROM disclosures d JOIN experiments e ON e.id = d.experiment_id "
+            "WHERE e.campaign = ? AND e.mode = 'holdout'",
+            (campaign,),
+        )
+        .fetchall()
+    )
     return {t: json.loads(content)["diagnostics"] for t, content in rows}
 
 
-def promote(results):
+def promote(results: dict[str, Holdout]) -> Decision:
     """Net holdout return > 0 and the betting p-value passing Holm across `results`."""
     if not results:
         return [], {}
@@ -252,17 +321,26 @@ def promote(results):
     p = np.array([holdout_pvalue(results[h][0]) for h in hashes])
     adj = holm(p)
     promoted = [h for h, a in zip(hashes, adj) if results[h][1] > 0 and a <= ALPHA]
-    return promoted, {"holdout_p": dict(zip(hashes, p.tolist())), "holm": dict(zip(hashes, adj.tolist())),
-                      "holdout_total_return": {h: results[h][1] for h in hashes}}
+    return promoted, {
+        "holdout_p": dict(zip(hashes, p.tolist())),
+        "holm": dict(zip(hashes, adj.tolist())),
+        "holdout_total_return": {h: results[h][1] for h in hashes},
+    }
 
 
-def with_diagnostics(decision, results):
+def with_diagnostics(decision: Decision, results: dict[str, Holdout]) -> Decision:
     """The promotion decision, then the diagnostics it never read (audit/criteria.md, C3.4 revision)."""
     promoted, report = decision
     return promoted, {**report, "diagnostics": {h: results[h][2] for h in report.get("holdout_p", {})}}
 
 
-def holdout_decision(market, ledger, campaign, finalists_programs, holdout_from=None):
+def holdout_decision(
+    market: str | Path,
+    ledger: str | Path,
+    campaign: str,
+    finalists_programs: dict[str, dict[str, Any]],
+    holdout_from: str | Path | None = None,
+) -> Decision:
     """Evaluate the frozen finalists on the holdout once; promote by net return > 0 and Holm."""
     results = holdout_run(market, ledger, campaign, finalists_programs, holdout_from)
     return with_diagnostics(promote(results), results)

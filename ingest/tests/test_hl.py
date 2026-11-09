@@ -1,11 +1,12 @@
 """The HL client retries 429s, 5xxs and transport errors, and charges every attempt against its per-minute budget."""
 
 import httpx
+import pytest
 
 from ingest import hl
 
 
-def test_each_retry_is_charged(monkeypatch):
+def test_each_retry_is_charged(monkeypatch: pytest.MonkeyPatch) -> None:
     replies = iter([429, 500, "timeout", 200])
 
     def reply(req):

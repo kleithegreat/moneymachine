@@ -29,6 +29,7 @@
         lz4
         pytest
         mypy
+        ruff
         pytest-xdist
         pytest-timeout
         hypothesis
@@ -68,11 +69,11 @@
           recorder = pkgs.mkShell {
             packages = [ (pkgs.python313.withPackages (ps: [ ps.httpx ])) ];
           };
-          # Cloud access: AWS (Hyperliquid's requester-pays archives), BigQuery (public chain datasets) and OCI (the
+          # Cloud access: AWS (Hyperliquid's requester-pays archives) and OCI (the
           # recorder VM, ops/oci).
           cloud = pkgs.mkShell {
-            packages = [ pkgs.awscli2 pkgs.google-cloud-sdk pkgs.oci-cli pkgs.lz4
-                         (pkgs.python313.withPackages (ps: [ ps.google-cloud-bigquery ps.packaging ps.boto3 ps.lz4 ps.numpy ps.polars ])) ];
+            packages = [ pkgs.awscli2 pkgs.oci-cli pkgs.lz4
+                         (pkgs.python313.withPackages (ps: [ ps.packaging ps.boto3 ps.lz4 ps.numpy ps.polars ])) ];
           };
         });
 

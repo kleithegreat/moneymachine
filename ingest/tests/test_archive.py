@@ -2,20 +2,26 @@
 
 import json
 import math
+from pathlib import Path
 
 from ingest import archive
 
 
 def line(bids, asks, t=1):
     lv = lambda xs: [{"px": str(p), "sz": str(s), "n": 1} for p, s in xs]
-    return json.dumps({"time": "x", "ver_num": 1, "raw": {"channel": "l2Book", "data": {"coin": "X", "time": t,
-                                                                                         "levels": [lv(bids), lv(asks)]}}})
+    return json.dumps(
+        {
+            "time": "x",
+            "ver_num": 1,
+            "raw": {"channel": "l2Book", "data": {"coin": "X", "time": t, "levels": [lv(bids), lv(asks)]}},
+        }
+    )
 
 
-def test_costs_and_censoring():
+def test_costs_and_censoring() -> None:
     # $5,050 of asks at 101 and $9,900 of bids at 99 around a mid of 100: $1,000 costs 100 bps either way, and
     # neither side can fill $10,000.
-    (t, mid, costs), = archive.reduce([line([(99, 100)], [(101, 50)])])
+    ((t, mid, costs),) = archive.reduce([line([(99, 100)], [(101, 50)])])
     assert (t, mid) == (1, 100.0)
     assert math.isclose(costs["buy:1000"], 100.0) and math.isclose(costs["sell:1000"], 100.0)
     assert math.isinf(costs["buy:10000"]) and math.isinf(costs["sell:10000"])
@@ -27,16 +33,18 @@ def book(t, bid_sz=100, ask_sz=50):
     return {"coin": "X", "time": t, "levels": [lv([(99, bid_sz)]), lv([(101, ask_sz)])]}
 
 
-def write_archive(root, day, hour, coin, books):
+def write_archive(root, day, hour, coin, books) -> None:
     import gzip
 
-    rows = archive.reduce([json.dumps({"time": "x", "ver_num": 1, "raw": {"channel": "l2Book", "data": b}}) for b in books])
+    rows = archive.reduce(
+        [json.dumps({"time": "x", "ver_num": 1, "raw": {"channel": "l2Book", "data": b}}) for b in books]
+    )
     path = root / day / str(hour) / f"{coin}.json.gz"
     path.parent.mkdir(parents=True)
     path.write_bytes(gzip.compress(json.dumps(rows).encode()))
 
 
-def test_equivalence_matches_by_book_time_and_requires_every_cell(tmp_path):
+def test_equivalence_matches_by_book_time_and_requires_every_cell(tmp_path: Path) -> None:
     t0 = 1792368000000  # 2026-10-20 00:00 UTC
     write_archive(tmp_path / "a", "20261020", 0, "X", [book(t0 + k * 5000) for k in range(10)])
     live_dir = tmp_path / "live"
@@ -53,7 +61,7 @@ def test_equivalence_matches_by_book_time_and_requires_every_cell(tmp_path):
     assert not archive.equivalence(tmp_path / "a", [live_dir], ["X"])["pass"]
 
 
-def test_table_keeps_c07_for_a_cell_censored_anywhere(tmp_path):
+def test_table_keeps_c07_for_a_cell_censored_anywhere(tmp_path: Path) -> None:
     t0 = 1780272000000  # 2026-06-01 00:00 UTC
     books = [book(t0 + k * 30_000, ask_sz=50 if k else 500) for k in range(40)]
     write_archive(tmp_path / "a", "20260601", 0, "X", books)
@@ -61,10 +69,12 @@ def test_table_keeps_c07_for_a_cell_censored_anywhere(tmp_path):
     c07.write_text(json.dumps({"cost_bps_ex_fee": {"X": {s: {"1000": 7.0, "10000": 9.0} for s in ("buy", "sell")}}}))
     t = archive.table(tmp_path / "a", ["X"], c07)
     assert sorted(t["kept_from_c07"]) == ["X:buy:10000", "X:sell:10000"]
-    assert t["cost_bps_ex_fee"]["X"]["buy"]["10000"] == 9.0 and math.isclose(t["cost_bps_ex_fee"]["X"]["buy"]["1000"], 100.0)
+    assert t["cost_bps_ex_fee"]["X"]["buy"]["10000"] == 9.0 and math.isclose(
+        t["cost_bps_ex_fee"]["X"]["buy"]["1000"], 100.0
+    )
 
 
-def test_a_streamed_archive_file_reduces_as_a_whole_one():
+def test_a_streamed_archive_file_reduces_as_a_whole_one() -> None:
     import io
 
     import lz4.frame
@@ -75,14 +85,20 @@ def test_a_streamed_archive_file_reduces_as_a_whole_one():
         assert archive.reduce(streamed) == archive.reduce(lz4.frame.decompress(blob).decode().splitlines())
 
 
-def test_report_summarizes_each_cell_by_regime(tmp_path):
+def test_report_summarizes_each_cell_by_regime(tmp_path: Path) -> None:
     t0 = 1792368000000
     for day, sz in (("20261020", 100), ("20261021", 40)):
         write_archive(tmp_path, day, 0, "X", [book(t0 + k * 5000, bid_sz=sz, ask_sz=sz) for k in range(10)])
     table = tmp_path / "execution.json"
-    table.write_text(json.dumps({"cost_bps_ex_fee": {"X": {s: {"1000": 50.0, "10000": 50.0} for s in ("buy", "sell")}}}))
+    table.write_text(
+        json.dumps({"cost_bps_ex_fee": {"X": {s: {"1000": 50.0, "10000": 50.0} for s in ("buy", "sell")}}})
+    )
     out = archive.report(tmp_path, table)["X:buy:10000"]
     # Day one's asks ($10,100 at 101) fill $10,000 at 100 bps; day two's ($4,040) cannot.
-    assert {k: out["all"][k] for k in ("snapshots", "censored", "above_table")} == {"snapshots": 20, "censored": 0.5, "above_table": 1.0}
+    assert {k: out["all"][k] for k in ("snapshots", "censored", "above_table")} == {
+        "snapshots": 20,
+        "censored": 0.5,
+        "above_table": 1.0,
+    }
     assert math.isclose(out["all"]["quantile_over_table"], 2.0)
     assert out["2026Q4"] == out["all"] and out["vol-low"]["snapshots"] == 20

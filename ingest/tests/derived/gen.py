@@ -17,7 +17,8 @@ one per covered hour, in any order.
 
 import random
 
-from ingest.policy import DELTA, HOUR as H
+from ingest.policy import DELTA
+from ingest.policy import HOUR as H
 
 MARGIN = 60_000
 GAP = 600_000

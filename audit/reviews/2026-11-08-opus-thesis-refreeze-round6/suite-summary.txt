@@ -1,0 +1,14 @@
+1934 tests collected in 8s; logs in /tmp/mm-shards-a4ydeck6
+  prodesk5 finished: exit 0 in 130s
+  gmktec finished: exit 0 in 146s
+  prodesk7 finished: exit 0 in 146s
+  local finished: exit 1 in 454s
+  local.rerun finished: exit 0 in 12s
+FAILED kernel/tests/cli/test_differential.py::test_kernel_matches_witness
+E       AssertionError: load error: data/store/policy.json: No such file or directory (os error 2)
+E        +  where 3 = CompletedProcess(args=['/home/kevin/repos/mm-rv-rf6/kernel/target/release/mm', 'eval', '/home/kevin/repos/mm-rv-rf6/ke...lite'], returncode=3, stdout='', stderr='load error: data/store/policy.json: No such file or directory (os error 2)\n').returncode
+FAILED reference/tests/test_differential.py::test_an_interrupted_run_resumes_where_it_stopped
+E               FileNotFoundError: [Errno 2] No such file or directory: '/home/kevin/repos/mm-rv-rf6/data/tmp2sj4100v'
+FAILED reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit
+E           FileNotFoundError: data/store/funding: no revisions
+1934 of 1934 tests reported: 3 failed, 1910 passed, 2 skipped, 19 xfailed; 0 missing; shard exits {'local': 1, 'prodesk5': 0, 'gmktec': 0, 'prodesk7': 0, 'rerun': 0}; wall 475s

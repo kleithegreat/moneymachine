@@ -1,0 +1,44 @@
+"""Round-nine review N1: one transient read failure (a venue blip that outlasts Info.post's six attempts, about 31 s,
+once) during the Monday snapshot. Before round nine the acquisition raised and was repeated a minute later; after it,
+the failure is attested in the snapshot for the whole date, and BTC is skipped operationally, so the batch is not
+executed (C10.5 fails outright under the 2026-11-09 revision)."""
+import os, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, os.getcwd())
+import httpx
+from gate import kernel
+from thesis import runner
+from thesis.tests.test_runner import DAY, MONDAY, FakeMarket
+
+runner.kernel.build = lambda: kernel.MM
+runner.harness.manifest_hash = lambda binary: "0" * 64
+
+
+class Blip(FakeMarket):
+    failed_once = False
+
+    def bars(self, market, interval, now=None):
+        if market == "BTC" and interval == "1h" and not Blip.failed_once:
+            Blip.failed_once = True
+            raise httpx.HTTPStatusError("502 from candleSnapshot, once", request=httpx.Request("POST", "https://x"),
+                                        response=httpx.Response(502))
+        return super().bars(market, interval, now)
+
+
+t = runner.Track(Path(tempfile.mkdtemp(prefix="n1-", dir=os.environ.get("TMPDIR", "/tmp"))))
+t.market = Blip(MONDAY + 40 * DAY)
+from thesis.tests import test_runner
+t.config = lambda markets: {"initial": 10_000.0, "fee": 0.0, "costs": {m: test_runner.ZERO for m in markets}, "fallback": []}
+clock = [MONDAY + runner.SNAPSHOT_OFFSET + 60_000]
+runner.now_ms = lambda: clock[0]
+for minute in range(3):
+    try:
+        t.acquisitions(clock[0], MONDAY)
+    except Exception as e:
+        print("acquisition pass raised:", repr(e)[:80])
+    clock[0] += 60_000
+att = t.attested(MONDAY, MONDAY + runner.DAY)
+print("attested:", att is not None, "| failed:", (att or {}).get("failed"))
+t.benchmarks(clock[0], MONDAY - DAY)
+print("skips:", {c["market"]: c["reason"][:60] for _, _, c in t.ledger.records("skip", "benchmark")})
+print("registered:", sorted(th["legs"][0][0] for th in t.ledger.theses("benchmark")))

@@ -43,10 +43,17 @@ def requests(plan, pull, today, outrights=None):
         q = {"dataset": plan["dataset"], "stype_in": pull["stype_in"], "schema": pull["schema"]}
         if pull["stype_in"] == "parent":
             d += dt.timedelta(days=d.weekday() == 5)
-            yield q | {"symbols": ",".join(f"{r}.FUT" for r in plan["roots"]), "start": d.isoformat(),
-                       "end": (d + dt.timedelta(days=1)).isoformat()}
+            yield q | {
+                "symbols": ",".join(f"{r}.FUT" for r in plan["roots"]),
+                "start": d.isoformat(),
+                "end": (d + dt.timedelta(days=1)).isoformat(),
+            }
         elif end > d:
-            yield q | {"symbols": ",".join(outrights[d.isoformat()[:7]]), "start": d.isoformat(), "end": end.isoformat()}
+            yield q | {
+                "symbols": ",".join(outrights[d.isoformat()[:7]]),
+                "start": d.isoformat(),
+                "end": end.isoformat(),
+            }
 
 
 def outrights(out_dir):
@@ -103,7 +110,7 @@ def price(name, out_dir, out=None, workers=10):
     return total
 
 
-def pull(name, out_dir, http=None, plan_path=PLAN, today=None):
+def pull(name, out_dir, http=None, plan_path=PLAN, today=None) -> None:
     """Fetch the pull's requests not yet in the manifest, each priced first, within the spend cap."""
     plan = json.loads(Path(plan_path).read_text())
     qs = plan_requests(plan, name, out_dir, today or dt.date.today())
@@ -123,7 +130,18 @@ def pull(name, out_dir, http=None, plan_path=PLAN, today=None):
             digest = hashlib.sha256(body).hexdigest()
             (out / "raw" / f"{digest}.dbn.zst").write_bytes(body)
             with open(manifest, "a") as f:
-                f.write(json.dumps({"pull": name, "request": q, "cost_usd": cost, "bytes": len(body), "sha256": digest,
-                                    "fetched": now_ms()}) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "pull": name,
+                            "request": q,
+                            "cost_usd": cost,
+                            "bytes": len(body),
+                            "sha256": digest,
+                            "fetched": now_ms(),
+                        }
+                    )
+                    + "\n"
+                )
             spent += cost
     print(json.dumps({"pull": name, "spent_usd": round(spent, 4)}))

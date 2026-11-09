@@ -1,0 +1,80 @@
+"""Finding: two processes on one thesis root (the runner and a `thesis-report`, which builds its own Track and replays
+through the venue) commit the same cache file through the same fixed temporary name, with only in-process locks
+(thesis/market.py:475-484 and :391-396). A torn or interleaved .tmp can be renamed into place, after which every read of
+that market raises: its resolutions, registrations and every daily snapshot (which reads every listed market) fail.
+
+Run from the worktree root: TMPDIR=/tmp nix develop -c python <this file>
+"""
+
+import json
+import multiprocessing as mp
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+sys.path.insert(0, os.getcwd())
+from ingest.policy import HOUR  # noqa: E402
+from thesis.market import Market  # noqa: E402
+
+
+def writer(root, seed, seconds, errors):
+    m = Market(root, exchange=None)
+    path = m._funding_path("BTC")
+    end = time.time() + seconds
+    k = 0
+    while time.time() < end:
+        k += 1
+        rows = [[h * HOUR, 1e-05] for h in range(30_000)]  # a full scope's worth of rows
+        a = (seed * 1_000_000 + k * 2) * HOUR  # each commit adds its own acquired range, so the two files' lengths differ
+        try:
+            m._funding_commit(path, rows, a, a + HOUR)
+        except Exception as e:  # noqa: BLE001
+            errors.put(f"{seed}: {type(e).__name__}: {e}"[:160])
+    errors.put(("commits", seed, k))
+
+
+def reader(root, seconds, errors):
+    path = Market(root, exchange=None)._funding_path("BTC")
+    end, bad = time.time() + seconds, 0
+    while time.time() < end:
+        try:
+            json.loads(path.read_text())
+        except FileNotFoundError:
+            pass
+        except ValueError:
+            bad += 1
+    errors.put(("unreadable", bad))
+
+
+if __name__ == "__main__":
+    root = Path(tempfile.mkdtemp(prefix="r4-", dir=os.environ.get("TMPDIR", "/tmp")))
+    errors = mp.Queue()
+    procs = [mp.Process(target=writer, args=(root, s, 20, errors)) for s in (1, 2)] + [mp.Process(target=reader, args=(root, 20, errors))]
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join()
+    seen, commits, unreadable = [], 0, 0
+    while not errors.empty():
+        e = errors.get()
+        if isinstance(e, tuple) and e[0] == "commits":
+            commits += e[2]
+        elif isinstance(e, tuple):
+            unreadable = e[1]
+        else:
+            seen.append(e)
+    path = Market(root, exchange=None)._funding_path("BTC")
+    try:
+        json.loads(path.read_text())
+        state = "valid JSON"
+    except ValueError as e:
+        state = f"CORRUPT: {e}"
+    print("commits attempted:", commits, "| raised in the writers:", len(seen), seen[:1])
+    print("reads of the cache file that failed to parse while both wrote:", unreadable)
+    if state == "valid JSON":
+        print("acquired ranges on disk:", len(json.loads(path.read_text())["fetched"]), "of", commits - len(seen), "commits that returned")
+    print("cache file after the race:", state)
+    assert seen or state != "valid JSON", "not reproduced in this run"
+    print("REPRODUCED: two processes' commits collide on one cache file")

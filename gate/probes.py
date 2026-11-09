@@ -27,8 +27,11 @@ def observables(a, k0=7):
     k = np.arange(k0, n)
     out = []
     for i in range(coins):
-        cols = [f[4 * k - 1, i], p[4 * k - 1, i]] + [ret[k - j, i] for j in range(1, 7)] + [
-            (h[k - 1, i] - l[k - 1, i]) / c[k - 1, i], np.log(v[k - 1, i]), ret[k - 1].mean(axis=1)]
+        cols = (
+            [f[4 * k - 1, i], p[4 * k - 1, i]]
+            + [ret[k - j, i] for j in range(1, 7)]
+            + [(h[k - 1, i] - l[k - 1, i]) / c[k - 1, i], np.log(v[k - 1, i]), ret[k - 1].mean(axis=1)]
+        )
         if ev is not None and not np.isnan(ev[:, i]).any():
             cum = np.r_[0.0, np.cumsum(ev[:, i])]
             first = np.maximum(4 * k - 47, 0)
@@ -51,12 +54,19 @@ def pooled_pvalues(arrays):
 
 
 def regression_pvalues(model, params, events=None):
-    return pooled_pvalues(markets.generate(model, params, f"probe-reg-{model}-{m}", YEARS_PER_MARKET * 365, events=events)
-                          for m in range(MARKETS))
+    return pooled_pvalues(
+        markets.generate(model, params, f"probe-reg-{model}-{m}", YEARS_PER_MARKET * 365, events=events)
+        for m in range(MARKETS)
+    )
 
 
 def program(name, weight):
-    return {"dsl": 1, "name": name, "mechanism": {"counterparty": "probe", "predictions": [], "capacity": "-"}, "weight": weight}
+    return {
+        "dsl": 1,
+        "name": name,
+        "mechanism": {"counterparty": "probe", "predictions": [], "capacity": "-"},
+        "weight": weight,
+    }
 
 
 def sign_probe(name, feature, size=0.05):
@@ -72,15 +82,37 @@ def probes(events=False):
         ps.append(sign_probe(f"sign-{x}-return", compile_feature(0, x, 4)))
     ps.append(sign_probe("sign-funding", op("div", {"input": "funding"}, const(1e-4, "1/h"))))
     ps.append(sign_probe("sign-premium", {"input": "premium"}))
-    ps.append(sign_probe("sign-volume", op("sub", op("div", {"input": "volume"}, op("mean", {"input": "volume"}, hours=48)), const(1))))
-    ps.append(sign_probe("sign-range", op("sub", op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"}),
-                                          op("mean", op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"}), hours=48))))
+    ps.append(
+        sign_probe(
+            "sign-volume",
+            op("sub", op("div", {"input": "volume"}, op("mean", {"input": "volume"}, hours=48)), const(1)),
+        )
+    )
+    ps.append(
+        sign_probe(
+            "sign-range",
+            op(
+                "sub",
+                op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"}),
+                op("mean", op("div", op("sub", {"input": "high"}, {"input": "low"}), {"input": "close"}), hours=48),
+            ),
+        )
+    )
     ps.append(sign_probe("xs-demean-return", op("xs_demean", compile_feature(0, "close", 24))))
     ps.append(sign_probe("xs-rank-return", op("sub", op("xs_rank", compile_feature(0, "close", 24)), const(0.5))))
     ps.append(sign_probe("xs-mean-return", op("xs_mean", compile_feature(0, "close", 4))))
     drawdown = op("max", op("neg", compile_feature(0, "close", 96)), const(0.0))
-    ps.append(program("martingale-sizing", op("clip", op("mul", op("add", const(1.0), op("mul", drawdown, const(20.0))), const(0.05)),
-                                              const(0.0), const(0.15))))
+    ps.append(
+        program(
+            "martingale-sizing",
+            op(
+                "clip",
+                op("mul", op("add", const(1.0), op("mul", drawdown, const(20.0))), const(0.05)),
+                const(0.0),
+                const(0.15),
+            ),
+        )
+    )
     return ps
 
 
@@ -89,12 +121,17 @@ def gross_pnl(programs, model, params, market_id, cost_cells, events=None):
     fresh market. Per-step returns have zero conditional mean under a null; dollar PnL of a
     compounding strategy is too skewed across markets for a z-test."""
     with tempfile.TemporaryDirectory() as tmp:
-        root = markets.write(Path(tmp) / "m", markets.generate(model, params, market_id, YEARS_PER_MARKET * 365, events=events), 0,
-                             cost_cells)
+        root = markets.write(
+            Path(tmp) / "m",
+            markets.generate(model, params, market_id, YEARS_PER_MARKET * 365, events=events),
+            0,
+            cost_cells,
+        )
         batch = Path(tmp) / "p.jsonl"
         batch.write_text("".join(json.dumps(p) + "\n" for p in programs))
-        out = subprocess.run(command("eval", batch, market_id, "probe", Path(tmp) / "l.sqlite", root),
-                             capture_output=True, text=True)
+        out = subprocess.run(
+            command("eval", batch, market_id, "probe", Path(tmp) / "l.sqlite", root), capture_output=True, text=True
+        )
         results = []
         for line in out.stdout.splitlines():
             r = json.loads(line)["disclosure"]["result"]
@@ -105,7 +142,9 @@ def gross_pnl(programs, model, params, market_id, cost_cells, events=None):
 
 
 def probe_zscores(programs, model, params, cost_cells, tag="", events=None):
-    g = np.array([gross_pnl(programs, model, params, f"probe{tag}-{model}-{m}", cost_cells, events) for m in range(MARKETS)])
+    g = np.array(
+        [gross_pnl(programs, model, params, f"probe{tag}-{model}-{m}", cost_cells, events) for m in range(MARKETS)]
+    )
     mean, se = g.mean(axis=0), g.std(axis=0, ddof=1) / np.sqrt(MARKETS)
     z = np.divide(mean, se, out=np.zeros_like(mean), where=se > 0)
     if np.any((se == 0) & (mean != 0)):
@@ -113,7 +152,7 @@ def probe_zscores(programs, model, params, cost_cells, tag="", events=None):
     return {p["name"]: float(x) for p, x in zip(programs, z)}
 
 
-def run(out, data_root=None, version=None):
+def run(out, data_root=None, version=None) -> None:
     """The probes on null markets; with a dataset, its real event counts replayed."""
     events = None
     if data_root:
@@ -122,14 +161,14 @@ def run(out, data_root=None, version=None):
     measure(out, events=events)
 
 
-def top5(out):
+def top5(out) -> None:
     """The probes plus the complete-null sweep's first in-sample top-5 strategies."""
     from gate import sweep
 
     measure(out, sweep.top5_programs())
 
 
-def measure(out, extra_programs=None, events=None):
+def measure(out, extra_programs=None, events=None) -> None:
     """Regression p-values and probe z-scores per null model on the frozen parameters. With `events`
     (markets.store_events), the markets replay real event counts and event probes join."""
     params = markets.null_params()

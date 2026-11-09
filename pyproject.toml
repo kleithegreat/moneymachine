@@ -5,3 +5,23 @@ addopts = "-n auto --dist worksteal"
 markers = ["slow: tests taking over 20 seconds, including setup; run by default"]
 timeout = 600
 timeout_method = "thread"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B905", "E501", "E731", "E741", "SIM115"]
+
+[tool.mypy]
+strict = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["pytest.*", "_pytest.*"]
+follow_imports = "normal"
+
+[[tool.mypy.overrides]]
+module = ["scipy.*", "pandas.*", "statsmodels.*", "arch.*", "pyarrow.*", "polars.*", "lz4.*", "hypothesis.*"]
+ignore_missing_imports = true

@@ -5,11 +5,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("mutants", REPO / "kernel/mutants/mutants.py")
+assert spec is not None and spec.loader is not None
 mutants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mutants)
 
 
-def test_every_mutant_edit_matches_exactly_once():
-    stale = [(name, f, old) for name, (_, edits) in mutants.MUTANTS.items() for f, old, _ in edits
-             if (REPO / f).read_text().count(old) != 1]
+def test_every_mutant_edit_matches_exactly_once() -> None:
+    stale = [
+        (name, f, old)
+        for name, (_, edits) in mutants.MUTANTS.items()
+        for f, old, _ in edits
+        if (REPO / f).read_text().count(old) != 1
+    ]
     assert stale == []

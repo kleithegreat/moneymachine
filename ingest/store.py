@@ -21,7 +21,6 @@ import polars as pl
 
 from ingest.policy import HOLDOUT_START, HOUR, POLICY
 
-
 KEY = ["coin", "eventTime"]
 META = ["fetchedAt", "source", "hash"]
 
@@ -51,7 +50,7 @@ def _hash(row):
 
 
 class Store:
-    def __init__(self, root, event_before=None, key=KEY, policy_root=None):
+    def __init__(self, root, event_before=None, key=KEY, policy_root=None) -> None:
         self.root = Path(root)
         self.event_before = event_before
         self.key = list(key)
@@ -69,7 +68,11 @@ class Store:
         files = self._files(dataset)
         cached = self._cache.get(dataset)
         if cached is None or cached[0] != files:
-            df = pl.concat([pl.read_parquet(f).drop("knownAt", strict=False) for f in files], how="diagonal_relaxed") if files else None
+            df = (
+                pl.concat([pl.read_parquet(f).drop("knownAt", strict=False) for f in files], how="diagonal_relaxed")
+                if files
+                else None
+            )
             self._cache[dataset] = cached = (files, df)
         return cached[1]
 
@@ -82,7 +85,9 @@ class Store:
             raise ValueError(f"{self.root} refuses rows with eventTime >= {self.event_before}")
         cols = list(dict.fromkeys(self.key + ["eventTime"] + [c for c in df.columns if c not in META]))
         hashed = lambda d: pl.Series("hash", [_hash(r) for r in d.select(cols).iter_rows(named=True)], pl.Utf8)
-        df = df.with_columns(hashed(df), pl.lit(fetched_at, pl.Int64).alias("fetchedAt"), pl.lit(source).alias("source"))
+        df = df.with_columns(
+            hashed(df), pl.lit(fetched_at, pl.Int64).alias("fetchedAt"), pl.lit(source).alias("source")
+        )
         old = self.revisions(dataset)
         if old is not None:
             latest = old.sort("fetchedAt").group_by(self.key).last()
@@ -91,12 +96,17 @@ class Store:
             if set(cols) <= set(current.columns):
                 df = df.join(current.select(self.key).with_columns(hashed(current)), on=self.key + ["hash"], how="anti")
             if complete is not None:
-                gone = (latest.filter(complete & live(latest)).join(listed, on=self.key, how="anti")
-                        .select(list(dict.fromkeys(self.key + ["eventTime"])))
-                        .with_columns(pl.lit(True).alias("tombstone")))
+                gone = (
+                    latest.filter(complete & live(latest))
+                    .join(listed, on=self.key, how="anti")
+                    .select(list(dict.fromkeys(self.key + ["eventTime"])))
+                    .with_columns(pl.lit(True).alias("tombstone"))
+                )
                 gone = gone.with_columns(
                     pl.Series("hash", [_hash(r) for r in gone.iter_rows(named=True)], pl.Utf8),
-                    pl.lit(fetched_at, pl.Int64).alias("fetchedAt"), pl.lit(source).alias("source"))
+                    pl.lit(fetched_at, pl.Int64).alias("fetchedAt"),
+                    pl.lit(source).alias("source"),
+                )
                 df = pl.concat([df, gone], how="diagonal_relaxed")
         if df.height == 0:
             return 0
@@ -116,13 +126,24 @@ class Store:
             raise FileNotFoundError(f"{self.root / dataset}: no revisions")
         df = df.filter(pl.col("fetchedAt") <= version).sort("fetchedAt")
         values = [c for c in df.columns if c not in self.key + META + ["tombstone"]]
-        first = df.group_by(self.key, maintain_order=True).first().select(self.key + [pl.col(c).alias(f"{c}#first") for c in values])
+        first = (
+            df.group_by(self.key, maintain_order=True)
+            .first()
+            .select(self.key + [pl.col(c).alias(f"{c}#first") for c in values])
+        )
         same = pl.all_horizontal([pl.col(c).eq_missing(pl.col(f"{c}#first")) for c in values])
         rule = known_at(dataset, self.policy() if ruled(dataset) else None)
-        return (df.group_by(self.key, maintain_order=True).last().filter(live(df))
-                .join(first, on=self.key, how="left", maintain_order="left")
-                .with_columns(pl.when(same).then(rule).otherwise(pl.max_horizontal(rule, pl.col("fetchedAt"))).alias("knownAt"))
-                .drop([f"{c}#first" for c in values]).filter(pl.col("knownAt") <= t))
+        return (
+            df.group_by(self.key, maintain_order=True)
+            .last()
+            .filter(live(df))
+            .join(first, on=self.key, how="left", maintain_order="left")
+            .with_columns(
+                pl.when(same).then(rule).otherwise(pl.max_horizontal(rule, pl.col("fetchedAt"))).alias("knownAt")
+            )
+            .drop([f"{c}#first" for c in values])
+            .filter(pl.col("knownAt") <= t)
+        )
 
 
 def stores(data_root):
@@ -140,5 +161,7 @@ def stores(data_root):
 
 def write_split(search, holdout, dataset, df, fetched_at, source, holdout_start=HOLDOUT_START):
     split = pl.col("eventTime") < holdout_start
-    return (search.write(dataset, df.filter(split), fetched_at, source),
-            holdout.write(dataset, df.filter(~split), fetched_at, source))
+    return (
+        search.write(dataset, df.filter(split), fetched_at, source),
+        holdout.write(dataset, df.filter(~split), fetched_at, source),
+    )

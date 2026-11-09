@@ -18,6 +18,8 @@ The swap rule: when a task replaces X with Y -- a refactor, a fix, a syntax chan
 
 Comments are where you fail hardest. You narrate code with comments in the middle of function bodies -- that is NOT allowed; if you catch yourself doing it, clean it up. You also accumulate comments and never remove them, clogging files. Be aggressive: keep only what is truly essential. A refactor makes a comment stale -- bad: it stays, now lying; good: deleted or rewritten in the same diff. A TODO gets done -- bad: the marker remains; good: it leaves with the fix.
 
+Write for the reader. Erasure removes concepts, not whitespace: a dense line is not a simpler design, and packing several steps into one hides the bugs reviewers are there to find. Name intermediate values instead of nesting expressions, keep one idea per line, and never put a side effect in a comprehension. Names and types say what the code does; a docstring adds only what they cannot: the contract it implements, cited rather than restated; an invariant invisible locally (units, ordering, crash safety); the reason for a non-obvious choice, pointing to its derivation. Every Python function is fully annotated and passes `mypy --strict`, and `ruff format` and `ruff check` own mechanical style, both enforced by tests; code a frozen identity hashes joins at its next fork.
+
 Prose rots the same way. Before finishing ANY task, and before each commit, ask: what did this change make obsolete -- and did I delete it, in the same commit?
 
 The one exception is the audit record (§3): pre-registered criteria, the experiment ledger, campaign results, and spent holdouts are append-only. Erasure never touches them.
@@ -113,4 +115,4 @@ Fetch automatically only under a certificate that quotes a permitting clause, sh
 
 Everything runs through the flake (`nix develop -c <cmd>`); new dependencies go in `flake.nix`. Strategies are data, a JSON AST the kernel type-checks and interprets, never host-language code. The ledger is SQLite whose triggers reject UPDATE and DELETE; data is Parquet under `data/`, gitignored.
 
-Today the engine is Rust (`kernel/`), the rest Python (`gate/`, using `arch.bootstrap` for SPA and StepM), and the proofs Lean (`reference/lean`). A Lean engine with OCaml plumbing replaces both in its own stage between 7 and 8, under its own criteria (`audit/decisions.md`, language plan). Don't start it early: every judged pilot result comes from one frozen kernel.
+Today the engine is Rust (`kernel/`), the rest Python (`gate/`, using `arch.bootstrap` for SPA and StepM), and the proofs Lean (`reference/lean`). Every judged pilot result comes from one frozen kernel; the Lean engine with OCaml plumbing is deferred with stage 7 (the human, 2026-11-08, `audit/decisions.md`).

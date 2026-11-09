@@ -1,0 +1,15 @@
+"""What the stress case would cost if the snapshot never asked for daily rows it cannot show by its cutoff (the
+current day's candle: SHOWN["1d"] = DAY + DELTA), removing the 348 daily terminal requests; the 176 hourly ones stay.
+Uses the round-six test's own inventory and packing exercise."""
+from thesis.tests.test_snapshot_schedule import inventory, packed
+
+
+def test_daily_cap_packing(monkeypatch, tmp_path):
+    rows = {"recorded": inventory(349), "stress": inventory(863),
+            "recorded, daily cap": inventory(349 - 10), "stress, daily cap": inventory(863 - 348)}
+    out = {}
+    for i, (k, w) in enumerate(rows.items()):
+        out[k] = (len(w), sum(w), packed(monkeypatch, tmp_path / str(i), w))
+    for k, v in out.items():
+        print(f"{k:20s} requests {v[0]:5d} weight {v[1]:6d} packing {v[2]} min")
+    assert out["recorded"][2] == 155 and out["stress"][2] == 257

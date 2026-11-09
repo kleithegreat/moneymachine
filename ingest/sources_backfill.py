@@ -15,8 +15,8 @@ import httpx
 import polars as pl
 
 from ingest.live import ms, now_ms
-from ingest.sources_record import FORUMS, HUB, SPACES
 from ingest.policy import DAY, W_START
+from ingest.sources_record import FORUMS, HUB, SPACES
 from ingest.store import Store
 
 START = W_START - 30 * DAY
@@ -32,9 +32,18 @@ def backfill(forum, http):
         if not page:
             return rows
         for p in page:
-            rows.append({"forum": forum, "upstream_id": p["id"], "eventTime": ms(p["created_at"]), "topic_id": p["topic_id"], "post_number": p["post_number"],
-                         "updated": ms(p["updated_at"]), "version": p.get("version") or 1,
-                         "content_sha256": hashlib.sha256((p.get("cooked") or "").encode()).hexdigest()})
+            rows.append(
+                {
+                    "forum": forum,
+                    "upstream_id": p["id"],
+                    "eventTime": ms(p["created_at"]),
+                    "topic_id": p["topic_id"],
+                    "post_number": p["post_number"],
+                    "updated": ms(p["updated_at"]),
+                    "version": p.get("version") or 1,
+                    "content_sha256": hashlib.sha256((p.get("cooked") or "").encode()).hexdigest(),
+                }
+            )
         before = min(p["id"] for p in page)
         if ms(page[-1]["created_at"]) < START:
             return [x for x in rows if x["eventTime"] >= START]
@@ -44,10 +53,15 @@ def backfill(forum, http):
 def proposals(space, http):
     rows, skip = [], 0
     while True:
-        query = ('{ proposals(first: 1000, skip: %d, where: {space: "%s", created_gte: %d}, orderBy: "created", '
-                 'orderDirection: asc) { id created updated } }') % (skip, space, START // 1000)
+        query = (
+            f'{{ proposals(first: 1000, skip: {skip}, where: {{space: "{space}", created_gte: {START // 1000}}}, '
+            'orderBy: "created", orderDirection: asc) { id created updated } }'
+        )
         page = http.post(HUB, json={"query": query}).json()["data"]["proposals"]
-        rows += [{"space": space, "upstream_id": p["id"], "eventTime": p["created"] * 1000, "updated": p["updated"]} for p in page]
+        rows += [
+            {"space": space, "upstream_id": p["id"], "eventTime": p["created"] * 1000, "updated": p["updated"]}
+            for p in page
+        ]
         if len(page) < 1000:
             return rows
         skip += 1000
@@ -65,6 +79,7 @@ def main(data_root, source="discourse"):
         print(k, len(got), file=sys.stderr, flush=True)
         rows += got
     store = Store(Path(data_root) / "sources", key=[key, "upstream_id"])
-    written = store.write(source, pl.DataFrame(rows), fetched_at, f"{source}-backfill", complete=pl.col(key).is_in(keys))
+    written = store.write(
+        source, pl.DataFrame(rows), fetched_at, f"{source}-backfill", complete=pl.col(key).is_in(keys)
+    )
     return {"version": fetched_at, "written": written}
-
