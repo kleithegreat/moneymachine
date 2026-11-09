@@ -126,8 +126,8 @@ summary lists the campaigns' ids and kernels; `agent-real` starts only if they a
 
 The thesis and series pods take `CLAUDE_CODE_OAUTH_TOKEN` from `claude-token`, and `sandbox/session.py` passes it into
 each session's cleared environment. That is the only way a session gets a credential: no credential file is copied.
-Pacing (`wait_for_room`) runs in the series pod and reads each account's windows, TAMU first (the thesis track also
-draws on Cornell); it runs the next campaign on the first with room, and the series log records the account's name, never
+Pacing (`wait_for_room`) runs in the series pod and reads each account's windows, TAMU first; it
+runs the next campaign on the first with room, and the series log records the account's name, never
 the token. Recorders hold no credential but `datalayer-keys`.
 
 **Gate:** a sandboxed session in the runner pod authenticates with the token alone, as the intended account and

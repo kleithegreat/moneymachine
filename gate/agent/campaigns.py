@@ -35,7 +35,7 @@ FIRST_NEED = 0.5  # a campaign's assumed share of each window until one has been
 ACCOUNTS = (
     ("TAMU", "CLAUDE_CODE_OAUTH_TOKEN_TAMU"),
     ("Cornell", "CLAUDE_CODE_OAUTH_TOKEN_CORNELL"),
-)  # in preference order: the thesis track also draws on Cornell
+)  # in preference order
 TOKENS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
 STOP = threading.Event()  # set by SIGTERM: the series ends between campaigns
 NO_CLAIM = "One campaign per arm supports no claim that either generator is better."
