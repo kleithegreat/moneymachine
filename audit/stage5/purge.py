@@ -6,6 +6,7 @@ import os
 import shutil
 import time
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 
@@ -17,11 +18,16 @@ BANNED = {
     "forum.celestia.org",
     "ethresear.ch",
 }
-sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
-log = []
 
 
-def replace(path: Path, data) -> None:
+def sha(p: str | Path) -> str:
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+log: list[dict[str, Any]] = []
+
+
+def replace(path: Path, data: bytes | str) -> None:
     tmp = Path(str(path) + ".purge")
     tmp.write_bytes(data) if isinstance(data, bytes) else tmp.write_text(data)
     os.chmod(tmp, os.stat(path).st_mode & 0o777)
@@ -118,7 +124,7 @@ log.append(
     }
 )
 
-for f in [
+for name in [
     "data/holdout/events_forum/1792701059079.parquet",
     "audit/stage5/coverage-1792701055113.json",
     "audit/stage5/reconcile-1792701110136.json",
@@ -128,9 +134,13 @@ for f in [
     "data/tmp/sources-backfill.err",
     "data/tmp/sources-backfill.json",
 ]:
-    p = Path(f)
+    p = Path(name)
     if p.exists():
-        entry = {"file": f, "action": "deleted: derived wholly or partly from banned forums", "sha256_before": sha(p)}
+        entry: dict[str, Any] = {
+            "file": name,
+            "action": "deleted: derived wholly or partly from banned forums",
+            "sha256_before": sha(p),
+        }
         if p.suffix == ".json":
             entry["content"] = json.loads(p.read_text()) if p.stat().st_size < 4000 else "summary in the note"
         os.chmod(p, 0o644)

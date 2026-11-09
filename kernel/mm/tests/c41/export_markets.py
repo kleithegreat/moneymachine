@@ -6,7 +6,6 @@ arrays open, high, low, close, volume (DAYS*6 bars x 12 coins, row-major), then 
 (DAYS*24+1 hours x 12 coins). rules.rs pins each file's sha256."""
 
 import hashlib
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -30,4 +29,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
