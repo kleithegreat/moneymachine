@@ -62,7 +62,7 @@ def mutants_module():
     return module
 
 
-def mutants(slots=None):
+def mutants(slots=None) -> None:
     mutants_module().main(slots)
 
 
@@ -234,7 +234,7 @@ COMMANDS = {
 TYPES = {"int": int}
 
 
-def main(argv):
+def main(argv) -> None:
     parser = argparse.ArgumentParser(prog="python -m cli")
     sub = parser.add_subparsers(dest="command", required=True)
     for name, (_, _, args, help_) in COMMANDS.items():

@@ -3,6 +3,7 @@ resuming from the manifest."""
 
 import datetime as dt
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -18,7 +19,7 @@ PLAN = {
 }
 
 
-def test_windows_start_at_the_plan_start_then_each_month():
+def test_windows_start_at_the_plan_start_then_each_month() -> None:
     assert [d.isoformat() for d in databento.months("2010-06-06", dt.date(2010, 9, 1))] == [
         "2010-06-06",
         "2010-07-01",
@@ -30,7 +31,7 @@ def test_windows_start_at_the_plan_start_then_each_month():
     assert (qs[-1]["start"], qs[-1]["end"]) == ("2011-01-02", "2011-01-03"), "a Saturday's snapshot moves to the Sunday"
 
 
-def test_a_pull_by_raw_symbol_takes_each_whole_month_for_its_snapshot_outrights():
+def test_a_pull_by_raw_symbol_takes_each_whole_month_for_its_snapshot_outrights() -> None:
     pull = {"name": "s", "schema": "statistics", "stype_in": "raw_symbol"}
     qs = list(databento.requests(PLAN, pull, dt.date(2010, 8, 1), {"2010-06": ["CLN0", "GCQ0"], "2010-07": ["CLQ0"]}))
     assert [(q["symbols"], q["start"], q["end"]) for q in qs] == [
@@ -49,7 +50,7 @@ def server(cost, calls):
     return httpx.Client(transport=httpx.MockTransport(handle), base_url=databento.API)
 
 
-def test_each_request_is_priced_first_and_the_cap_stops_the_pull(tmp_path):
+def test_each_request_is_priced_first_and_the_cap_stops_the_pull(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     plan.write_text(json.dumps(PLAN))
     calls = []
@@ -63,7 +64,7 @@ def test_each_request_is_priced_first_and_the_cap_stops_the_pull(tmp_path):
     assert all((tmp_path / "out" / "raw" / f"{r['sha256']}.dbn.zst").exists() for r in rows)
 
 
-def test_a_pull_resumes_from_its_manifest(tmp_path):
+def test_a_pull_resumes_from_its_manifest(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     plan.write_text(json.dumps(PLAN | {"spend_cap_usd": 10.0}))
     databento.pull("d", tmp_path / "out", server(0.1, []), plan, dt.date(2010, 7, 15))
@@ -73,7 +74,7 @@ def test_a_pull_resumes_from_its_manifest(tmp_path):
     assert len(open(tmp_path / "out" / "manifest.jsonl").readlines()) == 3
 
 
-def test_a_server_error_is_retried(monkeypatch):
+def test_a_server_error_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(databento.time, "sleep", lambda s: None)
     replies = iter([httpx.Response(504), httpx.Response(200, json=0.5)])
     http = httpx.Client(transport=httpx.MockTransport(lambda req: next(replies)), base_url=databento.API)

@@ -273,7 +273,7 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
     return root
 
 
-def write_venue(root, coins, cost_cells, taker_fee=0.00045):
+def write_venue(root, coins, cost_cells, taker_fee=0.00045) -> None:
     """<root>/venue: rules for {coin: (szDecimals, maxLeverage, delisted)} and every coin at `cost_cells`."""
     venue = Path(root) / "venue"
     venue.mkdir(parents=True, exist_ok=True)

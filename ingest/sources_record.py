@@ -36,7 +36,7 @@ def reply(r):
     return r.json() if r.status_code == 200 else {"status": r.status_code}
 
 
-def main(out_dir):
+def main(out_dir) -> None:
     out = Path(out_dir)
     stop = recording(out)
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-recorder (read-only)"})

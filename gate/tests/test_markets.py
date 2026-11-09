@@ -34,7 +34,7 @@ N3 = {
 }
 
 
-def run_mm(root, strategy, tmp_path):
+def run_mm(root, strategy, tmp_path: Path):
     trace = tmp_path / "t.jsonl"
     r = subprocess.run(
         [
@@ -61,7 +61,7 @@ def run_mm(root, strategy, tmp_path):
     return [json.loads(l) for l in trace.read_text().splitlines()]
 
 
-def test_funding_passes_through_exactly(tmp_path, built_kernel):
+def test_funding_passes_through_exactly(tmp_path: Path, built_kernel) -> None:
     params = dict(N2, garch={"omega": [0.0] * 12, "alpha": [0.0] * 12, "beta": [0.5] * 12})
     arrays = markets.generate("N2", params, "passthrough", days=30)
     assert np.all(arrays["eps"] == 0) and np.abs(arrays["funding"]).max() > 1e-4
@@ -89,7 +89,7 @@ def test_funding_passes_through_exactly(tmp_path, built_kernel):
 
 
 @pytest.mark.parametrize("model,params", [("N1", None), ("N2", N2), ("N3", N3)])
-def test_innovations_are_null(model, params):
+def test_innovations_are_null(model, params) -> None:
     eps, prev_f = [], []
     for i in range(20):
         a = markets.generate(model, params, f"null-{model}-{i}", days=120)
@@ -103,7 +103,7 @@ def test_innovations_are_null(model, params):
         assert abs(r) < 4 / np.sqrt(e.size)
 
 
-def test_planted_signal_shifts_the_mean():
+def test_planted_signal_shifts_the_mean() -> None:
     beta = 0.02
     a = markets.generate("N2", N2, "planted", days=730, planted=(0, 1), beta=beta)
     signal = -np.clip((a["funding"][4 * np.arange(1, a["eps"].shape[0]) - 4] - 1.25e-5) / 1e-4, -1, 1)
@@ -116,7 +116,7 @@ def test_planted_signal_shifts_the_mean():
     assert all(np.polyfit(signal[:, i], e[:, i], 1)[0] > 0 for i in (0, 1))
 
 
-def test_event_series_reach_the_kernel(tmp_path, built_kernel):
+def test_event_series_reach_the_kernel(tmp_path: Path, built_kernel) -> None:
     counts = np.random.default_rng(1).poisson(0.3, (500, 2))
     events = {"arrays": counts, "coins": [0, 3], "block_hours": 24}
     arrays = markets.generate("N1", None, "events", days=30, events=events)
@@ -155,10 +155,11 @@ def test_event_series_reach_the_kernel(tmp_path, built_kernel):
     assert coins and coins <= {"S0", "S3"}
 
 
-def test_store_events_reads_the_search_part_on_common_coverage(tmp_path):
+def test_store_events_reads_the_search_part_on_common_coverage(tmp_path: Path) -> None:
     import polars as pl
 
-    from ingest.policy import HOLDOUT_START, HOUR as H
+    from ingest.policy import HOLDOUT_START
+    from ingest.policy import HOUR as H
     from ingest.store import stores, write_split
 
     hours = list(range(HOLDOUT_START - 10 * H, HOLDOUT_START + 5 * H, H))

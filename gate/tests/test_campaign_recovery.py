@@ -2,6 +2,7 @@ import json
 import signal
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -11,7 +12,7 @@ from ops import live
 
 
 @pytest.mark.parametrize("tail", [b'{"id":"interrupted",', b'{"id":"\xe2\x82'])
-def test_killed_series_append_recovers_as_a_crash(tmp_path, monkeypatch, tail):
+def test_killed_series_append_recovers_as_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tail) -> None:
     tmp_path = tmp_path / "app"
     tmp_path.mkdir()
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
@@ -60,7 +61,7 @@ def test_killed_series_append_recovers_as_a_crash(tmp_path, monkeypatch, tail):
     assert log.read_bytes() == raw and started == ids[2:]
 
 
-def test_complete_final_result_without_newline_is_preserved(tmp_path):
+def test_complete_final_result_without_newline_is_preserved(tmp_path: Path) -> None:
     log = tmp_path / "series.jsonl"
     row = {"id": "complete", "counts_as_promotion": False}
     log.write_text(json.dumps(row))
@@ -72,7 +73,7 @@ def test_complete_final_result_without_newline_is_preserved(tmp_path):
 
 
 @pytest.mark.parametrize("corrupt", [b'{"broken":\n', b"\xff\n"])
-def test_torn_records_are_ignored_without_changing_history(tmp_path, corrupt):
+def test_torn_records_are_ignored_without_changing_history(tmp_path: Path, corrupt) -> None:
     log = tmp_path / "series.jsonl"
     original = b'{"id":"complete"}\n' + corrupt + b'{"id":"later"}\n'
     log.write_bytes(original)
@@ -82,13 +83,12 @@ def test_torn_records_are_ignored_without_changing_history(tmp_path, corrupt):
     assert log.read_bytes() == original
 
 
-def test_exclusive_is_only_a_lock(tmp_path):
+def test_exclusive_is_only_a_lock(tmp_path: Path) -> None:
     log = tmp_path / "series.jsonl"
     original = b'{"id":"torn'
     log.write_bytes(original)
     with campaign.exclusive(log):
         assert log.read_bytes() == original
-        with pytest.raises(RuntimeError, match="another run"):
-            with campaign.exclusive(log):
-                pytest.fail("lock was not exclusive")
+        with pytest.raises(RuntimeError, match="another run"), campaign.exclusive(log):
+            pytest.fail("lock was not exclusive")
     assert log.read_bytes() == original

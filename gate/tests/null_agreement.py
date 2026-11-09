@@ -27,7 +27,7 @@ def stats(arrays):
     }
 
 
-def run(out):
+def run(out) -> None:
     params = json.loads(Path("gate/nulls.json").read_text())
     report = {}
     for model in ("N2", "N3"):

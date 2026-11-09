@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import polars as pl
 
 from ingest import checks
@@ -26,22 +28,22 @@ def frames(hours, skip_funding=(), skip_bars=()):
     return f, b
 
 
-def test_gaps():
+def test_gaps() -> None:
     assert checks._gaps([0, 1, 4], 0, 6, 1) == [(2, 4), (5, 6)]
 
 
-def test_coverage_counts_missing():
+def test_coverage_counts_missing() -> None:
     f, b = frames(48, skip_funding={5, 6}, skip_bars={8 * HOUR})
     cov = checks.coverage(f, b, {"A": (0, 48 * HOUR)})["A"]
     assert (cov["funding_missing"], cov["bars_missing"], cov["max_gap_h"]) == (2, 1, 4)
 
 
-def test_unclosed_bar_dropped():
+def test_unclosed_bar_dropped() -> None:
     b = bar_frame([{"s": "A", "t": 0, "o": "1", "h": "1", "l": "1", "c": "1", "v": "1", "n": 1}], fetched_at=BAR - 1)
     assert b.height == 0
 
 
-def test_replay_view_matches_keys(tmp_path):
+def test_replay_view_matches_keys(tmp_path: Path) -> None:
     f, b = frames(48, skip_funding={12}, skip_bars={20 * HOUR})
     s = market_store(tmp_path)
     s.write("funding", f, 1, "t")
@@ -57,7 +59,7 @@ def test_replay_view_matches_keys(tmp_path):
     assert s.as_of("funding", 12 * HOUR + DELTA - 1, 1)["eventTime"].max() == 11 * HOUR
 
 
-def test_late_settlement_delays_known_at():
+def test_late_settlement_delays_known_at() -> None:
     on_time, late = (
         funding_frame(
             [

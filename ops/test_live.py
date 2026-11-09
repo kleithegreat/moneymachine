@@ -8,19 +8,19 @@ import json
 import multiprocessing
 import sqlite3
 import time
-from types import SimpleNamespace
 from pathlib import Path
-
-import pytest
+from types import SimpleNamespace
+from typing import Never
 
 import live
+import pytest
 
 
-def killed_at(action, install):
+def killed_at(action, install) -> None:
     parent, child = multiprocessing.get_context("fork").Pipe()
 
-    def worker():
-        def stop():
+    def worker() -> None:
+        def stop() -> None:
             child.send("paused")
             child.recv()
 
@@ -43,7 +43,7 @@ def killed_at(action, install):
 
 
 @pytest.mark.parametrize("dest", ["../../hl/record.jsonl", "absolute", "safe/../record", "SHA256.json"])
-def test_seed_validates_all_destinations_before_copy(tmp_path, monkeypatch, dest):
+def test_seed_validates_all_destinations_before_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dest) -> None:
     if dest == "absolute":
         dest = str(tmp_path / "outside/record.jsonl")
     monkeypatch.setattr(live, "MIRROR", tmp_path)
@@ -79,7 +79,7 @@ def local_seed_runner(name, spec):
 
 
 @pytest.mark.parametrize("success", [False, True])
-def test_seed_removes_only_its_own_successful_stage(tmp_path, monkeypatch, success):
+def test_seed_removes_only_its_own_successful_stage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, success) -> None:
     monkeypatch.setattr(live, "APP", tmp_path / "app")
     monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
     leftover = live.MIRROR / "seed/earlier-stage"
@@ -107,7 +107,7 @@ def test_seed_removes_only_its_own_successful_stage(tmp_path, monkeypatch, succe
     assert (leftover / "diagnostic").read_text() == "keep"
 
 
-def test_reseed_never_replaces_concurrently_appended_file(tmp_path, monkeypatch):
+def test_reseed_never_replaces_concurrently_appended_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(live, "APP", tmp_path / "app")
     monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
     source = tmp_path / "source"
@@ -132,14 +132,14 @@ def test_reseed_never_replaces_concurrently_appended_file(tmp_path, monkeypatch)
     assert target.read_bytes() == b"AB"
 
 
-def test_seed_interruption_does_not_publish_partial_file(tmp_path, monkeypatch):
+def test_seed_interruption_does_not_publish_partial_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(live, "APP", tmp_path / "app")
     monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
     source = tmp_path / "source"
     source.write_bytes(b"complete")
     target = tmp_path / "app/data/agent/input"
 
-    def install(stop):
+    def install(stop) -> None:
         copy = live.shutil.copyfileobj
         copy2 = live.shutil.copy2
 
@@ -165,7 +165,9 @@ def test_seed_interruption_does_not_publish_partial_file(tmp_path, monkeypatch):
     assert not target.exists()
 
 
-def test_seed_refuses_conflicts_and_symlinks_before_installing_any_file(tmp_path, monkeypatch):
+def test_seed_refuses_conflicts_and_symlinks_before_installing_any_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(live, "APP", tmp_path / "app")
     target = tmp_path / "app/data/agent"
     target.mkdir(parents=True)
@@ -191,7 +193,9 @@ def test_seed_refuses_conflicts_and_symlinks_before_installing_any_file(tmp_path
     assert not (target / "first").exists()
 
 
-def test_concurrent_seed_destination_creation_is_not_overwritten(tmp_path, monkeypatch):
+def test_concurrent_seed_destination_creation_is_not_overwritten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(live, "APP", tmp_path / "app")
     stage = tmp_path / "stage"
     stage.mkdir()
@@ -210,7 +214,7 @@ def test_concurrent_seed_destination_creation_is_not_overwritten(tmp_path, monke
     assert target.read_bytes() == b"recording"
 
 
-def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path, monkeypatch):
+def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = tmp_path / "pods.json"
     store.write_text("{}")
 
@@ -236,7 +240,7 @@ def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path, monkeyp
 
     monkeypatch.setattr(live, "kubectl", fake)
 
-    def install(stop):
+    def install(stop) -> None:
         def interrupted(*args, **kw):
             if args[0] == "delete":
                 stop()
@@ -251,7 +255,7 @@ def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path, monkeyp
 
 
 @pytest.fixture
-def passing_gate(tmp_path, monkeypatch):
+def passing_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     from gate.agent import campaigns, harness
     from sandbox import session
 
@@ -276,7 +280,9 @@ def passing_gate(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("failure", ["tests", "harness", "session", "windows", "network", "retrieval", "view"])
-def test_gate_exits_nonzero_with_named_failure(passing_gate, monkeypatch, capsys, failure):
+def test_gate_exits_nonzero_with_named_failure(
+    passing_gate, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], failure
+) -> None:
     harness, campaigns, session = passing_gate
     if failure == "tests":
         monkeypatch.setattr(live.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=1, stdout="failed"))
@@ -286,7 +292,7 @@ def test_gate_exits_nonzero_with_named_failure(passing_gate, monkeypatch, capsys
         monkeypatch.setattr(session, "run", lambda *a: {"stopped": "turn limit", "exit": 1})
     elif failure == "windows":
 
-        def broken():
+        def broken() -> Never:
             raise RuntimeError("unavailable")
 
         monkeypatch.setattr(campaigns, "windows", broken)
@@ -305,7 +311,7 @@ def test_gate_exits_nonzero_with_named_failure(passing_gate, monkeypatch, capsys
 @pytest.mark.parametrize(
     "result", [{"is_error": True, "result": "READY"}, {"is_error": False, "result": "NOT READY"}, {}]
 )
-def test_gate_refuses_unsuccessful_session_results(passing_gate, monkeypatch, result):
+def test_gate_refuses_unsuccessful_session_results(passing_gate, monkeypatch: pytest.MonkeyPatch, result) -> None:
     _, _, session = passing_gate
 
     def run(work, *a):
@@ -317,17 +323,17 @@ def test_gate_refuses_unsuccessful_session_results(passing_gate, monkeypatch, re
         live.gate_run(json.dumps(live.TARGETS))
 
 
-def test_gate_requires_model_api_reachable(passing_gate, monkeypatch):
+def test_gate_requires_model_api_reachable(passing_gate, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(live, "reach", lambda *a: False)
     with pytest.raises(SystemExit, match="network"):
         live.gate_run(json.dumps(live.TARGETS))
 
 
-def test_gate_accepts_all_passing_checks(passing_gate):
+def test_gate_accepts_all_passing_checks(passing_gate) -> None:
     live.gate_run(json.dumps(live.TARGETS))
 
 
-def test_gate_propagates_failed_helper(tmp_path, monkeypatch):
+def test_gate_propagates_failed_helper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(live, "REPO", tmp_path)
     (tmp_path / "audit/cluster").mkdir(parents=True)
     monkeypatch.setattr(live, "run_pod", lambda *a: ("tests failed", False))
@@ -335,7 +341,7 @@ def test_gate_propagates_failed_helper(tmp_path, monkeypatch):
         live.gate("sha256:A", "Unmasked")
 
 
-def changing_mirror(tmp_path, monkeypatch):
+def changing_mirror(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis"})
     app, out = tmp_path / "app", tmp_path / "mirror"
     source = app / "data/thesis"
@@ -355,10 +361,10 @@ def changing_mirror(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def verify_clock(monkeypatch):
+def verify_clock(monkeypatch: pytest.MonkeyPatch):
     clock = SimpleNamespace(elapsed=0, sleeps=[], on_sleep=lambda: None)
 
-    def sleep(seconds):
+    def sleep(seconds) -> None:
         assert 0 < seconds <= 5
         clock.sleeps.append(seconds)
         clock.elapsed += seconds
@@ -369,7 +375,7 @@ def verify_clock(monkeypatch):
     return clock
 
 
-def test_mirror_publishes_only_flat_files_and_manifest(tmp_path, monkeypatch):
+def test_mirror_publishes_only_flat_files_and_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     live.mirror(app, out)
     volume = out / "thesis"
@@ -384,7 +390,9 @@ def test_mirror_publishes_only_flat_files_and_manifest(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("initial", [False, True])
-def test_killed_whole_file_copy_never_publishes_partial_target(tmp_path, monkeypatch, initial):
+def test_killed_whole_file_copy_never_publishes_partial_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial
+) -> None:
     monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis"})
     app, out = tmp_path / "app", tmp_path / "mirror"
     source = app / "data/thesis/input"
@@ -396,7 +404,7 @@ def test_killed_whole_file_copy_never_publishes_partial_target(tmp_path, monkeyp
     source.write_bytes(b"complete replacement")
     (source.parent / "unrelated.tmp").write_bytes(b"partial writer output")
 
-    def install(stop):
+    def install(stop) -> None:
         copy = live.shutil.copy2
 
         def interrupted(src, dst, *args, **kwargs):
@@ -422,7 +430,7 @@ def test_killed_whole_file_copy_never_publishes_partial_target(tmp_path, monkeyp
     live.verify(app, out)
 
 
-def test_killed_sqlite_backup_preserves_complete_snapshot(tmp_path, monkeypatch):
+def test_killed_sqlite_backup_preserves_complete_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     source = app / "data/thesis/ledger.sqlite"
     target = out / "thesis/ledger.sqlite"
@@ -431,7 +439,7 @@ def test_killed_sqlite_backup_preserves_complete_snapshot(tmp_path, monkeypatch)
         db.execute("create table body (payload)")
         db.execute("insert into body values (zeroblob(65536))")
 
-    def install(stop):
+    def install(stop) -> None:
         connect = live.sqlite3.connect
 
         class InterruptedConnection(sqlite3.Connection):
@@ -439,7 +447,7 @@ def test_killed_sqlite_backup_preserves_complete_snapshot(tmp_path, monkeypatch)
                 path = Path(destination.execute("pragma database_list").fetchone()[2])
                 assert path != target and path.suffix == ".tmp"
 
-                def progress(status, remaining, total):
+                def progress(status, remaining, total) -> None:
                     assert remaining > 0
                     stop()
 
@@ -459,12 +467,12 @@ def test_killed_sqlite_backup_preserves_complete_snapshot(tmp_path, monkeypatch)
     live.verify(app, out)
 
 
-def test_verify_overlaps_flat_file_publication(tmp_path, monkeypatch):
+def test_verify_overlaps_flat_file_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     manifest = out / "thesis/MANIFEST.json"
     parent, child = multiprocessing.get_context("fork").Pipe()
 
-    def verifier():
+    def verifier() -> None:
         read = Path.read_text
         elapsed = [0]
         first = [True]
@@ -477,7 +485,7 @@ def test_verify_overlaps_flat_file_publication(tmp_path, monkeypatch):
                 child.recv()
             return text
 
-        def sleep(seconds):
+        def sleep(seconds) -> None:
             child.send("waiting for publication")
             child.recv()
             elapsed[0] += seconds
@@ -520,11 +528,13 @@ def test_verify_overlaps_flat_file_publication(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("published", [False, True])
-def test_killed_manifest_publication_is_detected_and_recoverable(tmp_path, monkeypatch, verify_clock, published):
+def test_killed_manifest_publication_is_detected_and_recoverable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify_clock, published
+) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     before = (out / "thesis/MANIFEST.json").read_bytes()
 
-    def install(stop):
+    def install(stop) -> None:
         write = Path.write_text
         replace = Path.replace
 
@@ -555,7 +565,9 @@ def test_killed_manifest_publication_is_detected_and_recoverable(tmp_path, monke
     live.verify(app, out)
 
 
-def test_verify_source_prefix_mismatch_fails_without_waiting(tmp_path, monkeypatch, verify_clock):
+def test_verify_source_prefix_mismatch_fails_without_waiting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify_clock
+) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     (app / "data/thesis/day.jsonl").write_text("bad\nnew\n")
     with pytest.raises(SystemExit, match="day.jsonl"):
@@ -563,7 +575,9 @@ def test_verify_source_prefix_mismatch_fails_without_waiting(tmp_path, monkeypat
     assert verify_clock.sleeps == []
 
 
-def test_verify_waits_for_a_healthy_next_manifest(tmp_path, monkeypatch, verify_clock):
+def test_verify_waits_for_a_healthy_next_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify_clock
+) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     (out / "thesis/other").write_text("replacement")
     manifest = out / "thesis/MANIFEST.json"
@@ -574,7 +588,9 @@ def test_verify_waits_for_a_healthy_next_manifest(tmp_path, monkeypatch, verify_
     assert 0 < verify_clock.elapsed <= 5
 
 
-def test_verify_rereads_an_already_changed_manifest_without_waiting(tmp_path, monkeypatch, verify_clock):
+def test_verify_rereads_an_already_changed_manifest_without_waiting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify_clock
+) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     manifest = out / "thesis/MANIFEST.json"
     read = Path.read_text
@@ -594,7 +610,9 @@ def test_verify_rereads_an_already_changed_manifest_without_waiting(tmp_path, mo
 
 
 @pytest.mark.parametrize("name", ["other", "day.jsonl"])
-def test_verify_refuses_corruption_preserved_across_later_manifest(tmp_path, monkeypatch, verify_clock, name):
+def test_verify_refuses_corruption_preserved_across_later_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify_clock, name
+) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     live.mirror(app, out)
     manifest = out / "thesis/MANIFEST.json"
@@ -604,7 +622,7 @@ def test_verify_refuses_corruption_preserved_across_later_manifest(tmp_path, mon
     corruption = b"x" * target.stat().st_size
     target.write_bytes(corruption)
 
-    def publish_unrelated_change():
+    def publish_unrelated_change() -> None:
         (app / "data/thesis/unrelated").write_text("new file")
         live.mirror(app, out)
         assert manifest.read_bytes() != before
@@ -618,7 +636,9 @@ def test_verify_refuses_corruption_preserved_across_later_manifest(tmp_path, mon
 
 
 @pytest.mark.parametrize("damage", ["missing", "corrupt"])
-def test_verify_bounds_wait_without_a_new_manifest(tmp_path, monkeypatch, verify_clock, damage):
+def test_verify_bounds_wait_without_a_new_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify_clock, damage
+) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     target = out / "thesis/other"
     if damage == "missing":
@@ -631,7 +651,7 @@ def test_verify_bounds_wait_without_a_new_manifest(tmp_path, monkeypatch, verify
 
 
 @pytest.mark.parametrize("damage", ["missing", "shorter"])
-def test_mirror_still_refuses_lost_published_bytes(tmp_path, monkeypatch, damage):
+def test_mirror_still_refuses_lost_published_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, damage) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     target = out / "thesis/day.jsonl"
     if damage == "missing":
@@ -642,14 +662,14 @@ def test_mirror_still_refuses_lost_published_bytes(tmp_path, monkeypatch, damage
         live.mirror(app, out)
 
 
-def test_mirror_documentation_states_snapshot_order_and_missing_manifest_refusal():
+def test_mirror_documentation_states_snapshot_order_and_missing_manifest_refusal() -> None:
     section = (Path(__file__).resolve().parents[1] / "CLUSTER.md").read_text().split("## 5.")[1].split("## 6.")[0]
     assert "day-file sizes before listing" in section
     assert "copies only those prefixes" in section
     assert "refuses a missing manifest" in section
 
 
-def test_manifests_keep_the_boundaries():
+def test_manifests_keep_the_boundaries() -> None:
     for name in live.WORKLOADS:
         m = live.manifest(name, "sha256:0")
         spec = m["spec"].get("template", m["spec"].get("jobTemplate", {}).get("spec", {}).get("template"))["spec"]
@@ -672,7 +692,7 @@ def test_manifests_keep_the_boundaries():
     json.dumps([live.manifest(n, "sha256:0") for n in live.WORKLOADS])
 
 
-def test_mirror_verify_wait_fits_job_deadline_and_mounts_mirror_read_only():
+def test_mirror_verify_wait_fits_job_deadline_and_mounts_mirror_read_only() -> None:
     assert live.MIRROR_VERIFY_WAIT == 2 * 10 * 60
     job = live.manifest("mirror-verify", "sha256:0")["spec"]["jobTemplate"]["spec"]
     pod = job["template"]["spec"]
@@ -684,7 +704,7 @@ def test_mirror_verify_wait_fits_job_deadline_and_mounts_mirror_read_only():
     assert len(mirror) == 1 and mirror[0]["readOnly"] is True
 
 
-def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool():
+def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool() -> None:
     real, series = (live.manifest(n, "sha256:0")["spec"] for n in ("agent-real", "agent-series"))
     spec = real["template"]["spec"]
     assert real["backoffLimit"] == 0 and spec["restartPolicy"] == "Never"
@@ -700,7 +720,7 @@ def test_the_real_campaign_is_one_attempt_on_the_series_volume_and_pool():
     assert command[-3:] == ["agent-real", "data/agent/real", "1792613363942"]
 
 
-def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_path, verify_clock):
+def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_path: Path, verify_clock) -> None:
     app, out = tmp_path / "app", tmp_path / "mirror"
     live_dir, thesis = app / "data/live", app / "data/thesis"
     for path in live.VOLUMES.values():
@@ -732,7 +752,7 @@ def test_the_mirror_appends_refuses_rewritten_history_and_snapshots_ledgers(tmp_
 
 
 @pytest.mark.parametrize("missing", [None, *live.VOLUMES])
-def test_verify_refuses_missing_volume_manifests(tmp_path, missing):
+def test_verify_refuses_missing_volume_manifests(tmp_path: Path, missing) -> None:
     app, out = tmp_path / "app", tmp_path / "mirror"
     for path in live.VOLUMES.values():
         (app / path).mkdir(parents=True)
@@ -745,7 +765,9 @@ def test_verify_refuses_missing_volume_manifests(tmp_path, missing):
 
 
 @pytest.mark.parametrize("initial", [False, True])
-def test_mirror_copies_only_the_log_prefix_before_body_enumeration(tmp_path, monkeypatch, initial):
+def test_mirror_copies_only_the_log_prefix_before_body_enumeration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial
+) -> None:
     monkeypatch.setattr(live, "VOLUMES", {"datalayer": "data/datalayer"})
     app, out = tmp_path / "app", tmp_path / "mirror"
     source = app / "data/datalayer"
@@ -783,7 +805,7 @@ def test_mirror_copies_only_the_log_prefix_before_body_enumeration(tmp_path, mon
     assert gzip.decompress((out / "datalayer/raw" / f"{new_digest}.gz").read_bytes()) == b"new"
 
 
-def test_malformed_datalayer_lines_do_not_block_later_volumes(tmp_path, monkeypatch):
+def test_malformed_datalayer_lines_do_not_block_later_volumes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(live, "VOLUMES", {"datalayer": "data/datalayer", "agent": "data/agent"})
     app, out = tmp_path / "app", tmp_path / "mirror"
     for path in live.VOLUMES.values():
@@ -796,7 +818,7 @@ def test_malformed_datalayer_lines_do_not_block_later_volumes(tmp_path, monkeypa
     live.verify(app, out)
 
 
-def test_the_mirror_skips_a_writer_s_transient_tmp_file(tmp_path):
+def test_the_mirror_skips_a_writer_s_transient_tmp_file(tmp_path: Path) -> None:
     """Claude's round 2 review, R7: an atomic write's `.tmp` can vanish between the listing and the copy."""
     app, out = tmp_path / "app", tmp_path / "mirror"
     for path in live.VOLUMES.values():
@@ -808,7 +830,9 @@ def test_the_mirror_skips_a_writer_s_transient_tmp_file(tmp_path):
 
 
 @pytest.mark.parametrize("note", ["notes.jsonl", "notes.sqlite"])
-def test_a_note_an_agent_rewrites_in_its_workspace_never_stops_the_mirror(tmp_path, monkeypatch, note):
+def test_a_note_an_agent_rewrites_in_its_workspace_never_stops_the_mirror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, note
+) -> None:
     """The thesis brief invites notes in the workspace, which is data/thesis/sessions/<version>/<session>/work, and the
     Write tool replaces a file whole."""
     monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis", "agent": "data/agent"})
@@ -827,7 +851,9 @@ def test_a_note_an_agent_rewrites_in_its_workspace_never_stops_the_mirror(tmp_pa
 
 @pytest.mark.parametrize("workspace", ["sessions/thesis-0/main-0/work", "campaign/run/work", "campaign/swarm/A1/work"])
 @pytest.mark.parametrize("note", ["notes.jsonl", "notes.sqlite"])
-def test_workspace_notes_are_whole_files_not_source_history(tmp_path, monkeypatch, workspace, note):
+def test_workspace_notes_are_whole_files_not_source_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, workspace, note
+) -> None:
     monkeypatch.setattr(live, "VOLUMES", {"thesis": "data/thesis"})
     app, out = tmp_path / "app", tmp_path / "mirror"
     rel = Path(workspace) / "nested" / note

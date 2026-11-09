@@ -87,7 +87,7 @@ def build(info, coins, today):
     }
 
 
-def write(data_root, out):
+def write(data_root, out) -> None:
     coins = json.loads((Path(data_root) / "universe.json").read_text())["universe"]
     rules = build(Info(), coins, time.strftime("%Y-%m-%d", time.gmtime()))
     Path(out).parent.mkdir(parents=True, exist_ok=True)

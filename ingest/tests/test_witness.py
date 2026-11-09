@@ -1,4 +1,5 @@
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from ingest.witness import Book
 
@@ -16,7 +17,7 @@ from ingest.witness import Book
         max_size=30,
     )
 )
-def test_cash_equity_reconciles_with_entry_accounting(events):
+def test_cash_equity_reconciles_with_entry_accounting(events) -> None:
     book, marks = Book(), {}
     for coin, qty, price, rate in events:
         book.fill(coin, qty, price, fee=abs(qty) * price * 0.00045)

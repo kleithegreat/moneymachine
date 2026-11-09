@@ -2,13 +2,14 @@
 
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 from conftest import build_once
 
 
-def test_builds_are_shared_across_processes_but_not_sessions(tmp_path):
+def test_builds_are_shared_across_processes_but_not_sessions(tmp_path: Path) -> None:
     script = """
 from pathlib import Path
 import sys
@@ -33,10 +34,10 @@ build_once(root, 'shared', build)
                 p.wait()
 
 
-def test_a_failed_build_is_retried(tmp_path):
+def test_a_failed_build_is_retried(tmp_path: Path) -> None:
     calls = []
 
-    def build():
+    def build() -> None:
         calls.append(1)
         if len(calls) == 1:
             raise RuntimeError("compiler failed")

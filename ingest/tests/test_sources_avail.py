@@ -1,6 +1,7 @@
 """C5.3 live-versus-backfill reconciliation: deletions (including tombstones), edits and backdated items."""
 
 import json
+from pathlib import Path
 
 import polars as pl
 
@@ -14,7 +15,7 @@ def post(i, created, sha="a"):
     return {"id": i, "created_at": iso(created), "updated_at": iso(created), "version": 1, "cooked_sha256": sha}
 
 
-def test_reconcile(tmp_path):
+def test_reconcile(tmp_path: Path) -> None:
     live_dir = tmp_path / "live"
     live_dir.mkdir()
     polls = [
@@ -49,7 +50,7 @@ def test_reconcile(tmp_path):
     assert r["backdated_examples"] == [("f", 5)]
 
 
-def test_availability_report_counts_new_items_and_edits(tmp_path):
+def test_availability_report_counts_new_items_and_edits(tmp_path: Path) -> None:
     live_dir = tmp_path / "live"
     live_dir.mkdir()
     edited = post(1, 10 * H - 5) | {"version": 2, "updated_at": iso(11 * H - 1_000)}
@@ -73,7 +74,7 @@ def test_availability_report_counts_new_items_and_edits(tmp_path):
     assert abs(r["uptime_fraction"] - 300_000 / (2 * H)) < 1e-12
 
 
-def test_a_poll_sharing_no_item_with_the_previous_one_is_counted(tmp_path):
+def test_a_poll_sharing_no_item_with_the_previous_one_is_counted(tmp_path: Path) -> None:
     live_dir = tmp_path / "live"
     live_dir.mkdir()
     polls = [
@@ -91,7 +92,7 @@ def test_a_poll_sharing_no_item_with_the_previous_one_is_counted(tmp_path):
     assert r["polls_without_overlap"] == 1 and r["failed_polls"] == 1
 
 
-def test_kernel_clock_is_a_bound_and_validity_checked(tmp_path):
+def test_kernel_clock_is_a_bound_and_validity_checked(tmp_path: Path) -> None:
     from ingest.sources_record import kernel_clock
 
     read = kernel_clock()

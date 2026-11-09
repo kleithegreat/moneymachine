@@ -1,17 +1,18 @@
 """Sweep summaries: counts and Clopper-Pearson bounds for the complete null; FDR and power for mixed markets."""
 
 import json
+from pathlib import Path
 
 import pytest
 
 from gate import campaign, sweep
 
 
-def write(path, rows):
+def write(path, rows) -> None:
     path.write_text("".join(json.dumps(r) + "\n" for r in rows))
 
 
-def test_null_summary_counts_crashes_as_promotions(tmp_path, monkeypatch):
+def test_null_summary_counts_crashes_as_promotions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sweep, "OUT", tmp_path)
     rows = [
         {
@@ -28,7 +29,7 @@ def test_null_summary_counts_crashes_as_promotions(tmp_path, monkeypatch):
     assert c["bankrupt"] == 0
 
 
-def test_mixed_summary_fdr_and_power(tmp_path, monkeypatch):
+def test_mixed_summary_fdr_and_power(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sweep, "OUT", tmp_path)
     rows, truth = [], []
     for i in range(100):
@@ -46,7 +47,7 @@ def test_mixed_summary_fdr_and_power(tmp_path, monkeypatch):
     assert sweep.cp_interval(40, 100)[0] < 0.40 < sweep.cp_interval(40, 100)[1]
 
 
-def test_campaign_records_top5_and_serializes_with_events(tmp_path, built_kernel):
+def test_campaign_records_top5_and_serializes_with_events(tmp_path: Path, built_kernel) -> None:
     import lzma
     import sqlite3
 
@@ -75,7 +76,7 @@ def test_campaign_records_top5_and_serializes_with_events(tmp_path, built_kernel
     assert r["bankrupt"] == []
 
 
-def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path):
+def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path: Path) -> None:
     log, out = tmp_path / "x.jsonl", tmp_path / "x"
     (out / "b").mkdir(parents=True)
     log.write_text(json.dumps({"id": "a", "promoted": []}) + "\n")
@@ -86,19 +87,18 @@ def test_a_started_unrecorded_campaign_is_a_crash_and_never_reruns(tmp_path):
     assert [r["id"] for r in rows] == ["a", "b"] and campaign.promoted_anything(rows[1])
 
 
-def test_a_resume_refuses_while_another_run_of_the_log_is_alive(tmp_path):
+def test_a_resume_refuses_while_another_run_of_the_log_is_alive(tmp_path: Path) -> None:
     import pytest
 
     log, out = tmp_path / "x.jsonl", tmp_path / "x"
     (out / "b").mkdir(parents=True)
-    with campaign.resume(["a", "b"], log, out):
-        with pytest.raises(RuntimeError, match="alive"):
-            with campaign.resume(["a", "b"], log, out):
-                pass
+    with campaign.resume(["a", "b"], log, out), pytest.raises(RuntimeError, match="alive"):
+        with campaign.resume(["a", "b"], log, out):
+            pass
     assert [json.loads(l)["id"] for l in open(log)] == ["b"]
 
 
-def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path, monkeypatch):
+def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     import pytest
@@ -116,7 +116,7 @@ def test_sweeps_refuse_an_unfrozen_or_changed_searcher(tmp_path, monkeypatch):
     assert json.loads((tmp_path / "searcher.json").read_text())["disclosed"] == ["sharpe_annualized"]
 
 
-def test_a_campaign_crashing_before_its_market_exists_is_recorded_not_raised(tmp_path):
+def test_a_campaign_crashing_before_its_market_exists_is_recorded_not_raised(tmp_path: Path) -> None:
     r = campaign.run_campaign(
         {
             "id": "bad",
@@ -132,7 +132,7 @@ def test_a_campaign_crashing_before_its_market_exists_is_recorded_not_raised(tmp
     assert r["crash"] and campaign.promoted_anything(r)
 
 
-def test_bisect_records_each_step_and_resumes(tmp_path, monkeypatch):
+def test_bisect_records_each_step_and_resumes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
     calls = []
 
@@ -152,7 +152,9 @@ def test_bisect_records_each_step_and_resumes(tmp_path, monkeypatch):
         sweep.bisect("k", lambda x: x, 0.3, 0.0, 2.0, 6)
 
 
-def test_calibration_passes_parallelism_without_inherited_globals(tmp_path, monkeypatch):
+def test_calibration_passes_parallelism_without_inherited_globals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
     calls = []
 

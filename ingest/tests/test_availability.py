@@ -1,6 +1,9 @@
 """C0.3/C0.7 judged window: the first 24 h without an L2 gap over 60 s, complete or None."""
 
 import json
+from pathlib import Path
+
+import pytest
 
 from ingest import availability
 from ingest.availability import MAX_GAP, SPAN
@@ -9,7 +12,7 @@ from ingest.policy import BAR, HOUR
 S = 30_000
 
 
-def write(tmp_path, times):
+def write(tmp_path: Path, times):
     with open(tmp_path / "polls-x.jsonl", "w") as f:
         for coin, ts in times.items():
             for t in ts:
@@ -17,7 +20,7 @@ def write(tmp_path, times):
     return tmp_path
 
 
-def test_window_restarts_after_a_gap_and_needs_a_full_span(tmp_path):
+def test_window_restarts_after_a_gap_and_needs_a_full_span(tmp_path: Path) -> None:
     t0 = 10 * SPAN
     steady = list(range(t0, t0 + 2 * SPAN, S))
     gap_at = t0 + HOUR
@@ -30,7 +33,7 @@ def test_window_restarts_after_a_gap_and_needs_a_full_span(tmp_path):
     assert availability.window(edge, edge, after=t0) == (t0, t0 + SPAN)
 
 
-def test_a_late_boundary_poll_restarts_the_window(tmp_path):
+def test_a_late_boundary_poll_restarts_the_window(tmp_path: Path) -> None:
     t0 = 10 * SPAN
     write(tmp_path, {"A": list(range(t0, t0 + 2 * SPAN, S))})
     b = t0 + HOUR
@@ -58,7 +61,7 @@ def test_a_late_boundary_poll_restarts_the_window(tmp_path):
     assert availability.window(tmp_path, tmp_path, after=t0) == (b + 45_001, b + 45_001 + SPAN)
 
 
-def test_a_clock_log_gap_restarts_the_window(tmp_path):
+def test_a_clock_log_gap_restarts_the_window(tmp_path: Path) -> None:
     t0 = 10 * SPAN
     write(tmp_path, {"A": list(range(t0, t0 + 2 * SPAN, S))})
     restart = t0 + 200_000 + availability.CLOCK_SLACK + 1
@@ -72,7 +75,7 @@ def test_a_clock_log_gap_restarts_the_window(tmp_path):
     assert availability.window(tmp_path, tmp_path, after=t0) == (restart, restart + SPAN)
 
 
-def test_a_bar_is_observed_once_its_close_has_passed_without_waiting_for_the_next_bar():
+def test_a_bar_is_observed_once_its_close_has_passed_without_waiting_for_the_next_bar() -> None:
     b = 10 * SPAN
     bar = {"t": b - BAR, "o": "1", "h": "2", "l": "0.5", "c": "1.5", "v": "9", "n": 3}
     polls = [
@@ -83,7 +86,7 @@ def test_a_bar_is_observed_once_its_close_has_passed_without_waiting_for_the_nex
     assert out["failures"] == [] and out["first_observed_lag_ms"]["max"] == 5_000
 
 
-def test_the_clock_record_reports_offsets_gaps_and_how_long_one_exchange_is_reported():
+def test_the_clock_record_reports_offsets_gaps_and_how_long_one_exchange_is_reported() -> None:
     m = 60_000
     start, end = 100 * m, 200 * m
     readings = [(t * m, 5.0 if t < 140 else -7.0) for t in range(95, 206, 5)] + [(10 * m, 900.0)]
@@ -114,7 +117,7 @@ def host(root, l2=(), boundary=(), clock=()):
     return root, root
 
 
-def test_merge_keeps_one_snapshot_per_slot_preferring_the_first_host_and_drops_unclocked_polls(tmp_path):
+def test_merge_keeps_one_snapshot_per_slot_preferring_the_first_host_and_drops_unclocked_polls(tmp_path: Path) -> None:
     clock = list(range(0, 2 * SPAN, 300_000))
     local = host(tmp_path / "local", [("A", 1_000), ("A", 31_000)], clock=clock)
     oci = host(
@@ -124,7 +127,7 @@ def test_merge_keeps_one_snapshot_per_slot_preferring_the_first_host_and_drops_u
     assert sorted((p["host"], p["sent"]) for p in polls) == [("local", 1_000), ("local", 31_000), ("oci", 61_000)]
 
 
-def test_each_boundary_comes_from_the_first_host_whose_polls_are_complete(tmp_path):
+def test_each_boundary_comes_from_the_first_host_whose_polls_are_complete(tmp_path: Path) -> None:
     b, clock = 10 * SPAN, list(range(10 * SPAN - 600_000, 10 * SPAN + 3_600_000, 300_000))
     local = host(
         tmp_path / "local",
@@ -150,7 +153,9 @@ def test_each_boundary_comes_from_the_first_host_whose_polls_are_complete(tmp_pa
     assert {p["host"] for p in availability.merge([("local", *complete_local), ("oci", *oci)])} == {"local"}
 
 
-def test_the_merged_window_starts_at_the_threshold_and_bridges_a_local_outage(tmp_path, monkeypatch):
+def test_the_merged_window_starts_at_the_threshold_and_bridges_a_local_outage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     t0 = 10 * SPAN
     monkeypatch.setattr(availability, "THRESHOLD", t0)
     steady = range(t0 - SPAN, t0 + 2 * SPAN, S)
@@ -170,7 +175,9 @@ def test_the_merged_window_starts_at_the_threshold_and_bridges_a_local_outage(tm
     assert {p["host"] for p in polls} == {"oci"}
 
 
-def test_a_complete_local_window_from_before_the_threshold_is_judged_alone(tmp_path, monkeypatch):
+def test_a_complete_local_window_from_before_the_threshold_is_judged_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     t0 = availability.RECORDING_FROM + SPAN
     monkeypatch.setattr(availability, "THRESHOLD", t0 + HOUR)
     clock = list(range(t0 - HOUR, t0 + 2 * SPAN, 300_000))

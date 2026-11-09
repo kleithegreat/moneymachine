@@ -32,7 +32,7 @@ def rank(info):
     return sorted(rows, key=lambda r: -r["usd_volume"])
 
 
-def write(out):
+def write(out) -> None:
     ranked = rank(Info())
     Path(out).write_text(
         json.dumps(

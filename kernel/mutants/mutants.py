@@ -187,7 +187,7 @@ def failed_by_assertion(log):
     return bool(RUST_ASSERTION.search(log) or PYTEST_ASSERTION.search(log) and "AssertionError" in log)
 
 
-def check(name, slot):
+def check(name, slot) -> str:
     """Whether the mutant's named test passes on a clean copy of the tree and fails by assertion on the mutated one."""
     test, edits = MUTANTS[name]
     slug = "-".join(name.split())
@@ -212,7 +212,7 @@ def check(name, slot):
     return f"caught {name}"
 
 
-def main(n=None):
+def main(n=None) -> None:
     """Every mutant, `n` at a time (by default as many as memory allows); each slot keeps its own cargo target, reused
     across its mutants."""
     from gate import compute

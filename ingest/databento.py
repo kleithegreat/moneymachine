@@ -110,7 +110,7 @@ def price(name, out_dir, out=None, workers=10):
     return total
 
 
-def pull(name, out_dir, http=None, plan_path=PLAN, today=None):
+def pull(name, out_dir, http=None, plan_path=PLAN, today=None) -> None:
     """Fetch the pull's requests not yet in the manifest, each priced first, within the spend cap."""
     plan = json.loads(Path(plan_path).read_text())
     qs = plan_requests(plan, name, out_dir, today or dt.date.today())

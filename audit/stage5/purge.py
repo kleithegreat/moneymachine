@@ -1,7 +1,11 @@
 """One-off purge (human decision 2026-10-22): delete data from Discourse forums whose terms do not permit our automated use."""
 
-import hashlib, json, os, sys, time
+import hashlib
+import json
+import os
+import time
 from pathlib import Path
+
 import polars as pl
 
 BANNED = {
@@ -16,7 +20,7 @@ sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
 log = []
 
 
-def replace(path, data):
+def replace(path, data) -> None:
     tmp = Path(str(path) + ".purge")
     tmp.write_bytes(data) if isinstance(data, bytes) else tmp.write_text(data)
     os.chmod(tmp, os.stat(path).st_mode & 0o777)

@@ -58,7 +58,7 @@ def compile_feature(kind, price, h):
     return op("div", op("sub", e, mean), op("add", mean, const(1.0, "ev")))
 
 
-def features(market):
+def features(market) -> int:
     """How many feature kinds the market's inputs support."""
     return 7 if (Path(market) / "store" / "events_forum").exists() else 6
 
@@ -178,7 +178,7 @@ def crossover(rng, a, b):
 class Evaluator:
     """Streams programs through one `mm eval -` process and returns only the disclosed statistics."""
 
-    def __init__(self, market, ledger, campaign, agent):
+    def __init__(self, market, ledger, campaign, agent) -> None:
         self.proc = subprocess.Popen(
             command("eval", "-", campaign, agent, ledger, market, "--disclose", ",".join(DISCLOSED)),
             stdin=subprocess.PIPE,
@@ -204,7 +204,7 @@ class Evaluator:
             out.append(self.seen[text])
         return out
 
-    def close(self):
+    def close(self) -> None:
         self.proc.stdin.close()
         self.proc.wait()
 
@@ -213,7 +213,7 @@ class Evaluator:
         return len(self.seen)
 
 
-def genetic(evaluate, budget, rng, nf, population=20):
+def genetic(evaluate, budget, rng, nf, population=20) -> None:
     pop = [random_genome(rng, nf) for _ in range(population)]
     scored = list(zip(pop, evaluate(pop)))
     for _ in range(100 * budget):
@@ -235,7 +235,7 @@ def genetic(evaluate, budget, rng, nf, population=20):
         scored = scored[: population // 2] + list(zip(children, evaluate(children)))
 
 
-def hill_climb(evaluate, budget, rng, nf):
+def hill_climb(evaluate, budget, rng, nf) -> None:
     best = random_genome(rng, nf)
     best_score = evaluate([best])[0]["sharpe_annualized"]
     stall = 0

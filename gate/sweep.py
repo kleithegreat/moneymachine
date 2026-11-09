@@ -52,7 +52,7 @@ def freeze_searcher():
     return str(SEARCHER)
 
 
-def require_frozen_searcher():
+def require_frozen_searcher() -> None:
     if not SEARCHER.exists() or json.loads(SEARCHER.read_text())["searcher"] != search.identity():
         raise SystemExit(
             f"the searchers differ from {SEARCHER}: freeze them first, and rerun with fresh ids after a change"
@@ -64,7 +64,7 @@ def require_frozen_searcher():
 CAMPAIGN_BYTES, CALIBRATION_BYTES = 1_000_000_000, 1_300_000_000
 
 
-def run_all(specs, path):
+def run_all(specs, path) -> None:
     require_frozen_searcher()
     out = path.with_suffix("")
     with (
@@ -212,7 +212,7 @@ def calibrate(key, threads):
     return bisect(key, partial(f, threads=threads), *args)
 
 
-def betas(keys=None):
+def betas(keys=None) -> None:
     """Calibrate the given keys (comma-separated; all by default), resuming from STEPS, one process per key and as many
     markets at a time in each as memory allows; betas.json is written once every key is calibrated."""
     OUT.mkdir(parents=True, exist_ok=True)
@@ -250,11 +250,11 @@ def cp_interval(k, n, level=0.95):
     ]
 
 
-def truth_id(campaign_id, h):
+def truth_id(campaign_id, h) -> str:
     return f"{campaign_id}-{h}"
 
 
-def truth():
+def truth() -> None:
     """Whether each promotion of the mixed sweep is true, appended to truth.jsonl as each is judged."""
     path, beta = OUT / "truth.jsonl", json.loads((OUT / "betas.json").read_text())
     with campaign.exclusive(path) as fh:
@@ -316,7 +316,7 @@ def mixed_summary():
     return cells
 
 
-def summary(out):
+def summary(out) -> None:
     Path(out).write_text(
         json.dumps(
             {
@@ -341,7 +341,7 @@ def top5_programs(first=TOP5_CAMPAIGNS):
     return out
 
 
-def sweep(name, data_root=None, version=None):
+def sweep(name, data_root=None, version=None) -> None:
     """Run the `null`, `mixed` or `events` sweep (events: real forum counts at a dataset version)."""
     OUT.mkdir(parents=True, exist_ok=True)
     if name == "null":

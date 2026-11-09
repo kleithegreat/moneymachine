@@ -15,9 +15,9 @@ import polars as pl
 import pytest
 
 from gate import kernel
-from ingest.policy import DAY
 from gate.kernel import MM
 from gate.markets import write_market
+from ingest.policy import DAY
 
 REPO = Path(__file__).resolve().parents[3]
 W0 = REPO / "kernel" / "strategies" / "w0.json"
@@ -43,11 +43,11 @@ pytestmark = pytest.mark.usefixtures("built_kernel")
 
 
 @pytest.fixture(scope="module")
-def market(tmp_path_factory):
+def market(tmp_path_factory: pytest.TempPathFactory):
     return write_market(tmp_path_factory.mktemp("m"), market_id="cli", days=40, holdout_days=10)
 
 
-def test_holdout_is_split_off(market):
+def test_holdout_is_split_off(market) -> None:
     assert list((Path(market) / "holdout" / "bars_4h").glob("*.parquet"))
 
 
@@ -76,7 +76,7 @@ def data_hash(store, version):
     return h.hexdigest()
 
 
-def test_eval_records_identity_and_disclosure(market, tmp_path):
+def test_eval_records_identity_and_disclosure(market, tmp_path: Path) -> None:
     ledger = tmp_path / "l.sqlite"
     r = evaluate(market, ledger)
     assert r.returncode == 0, r.stderr
@@ -100,7 +100,7 @@ def test_eval_records_identity_and_disclosure(market, tmp_path):
     assert json.loads(disclosed[0]) == out["disclosure"]
 
 
-def test_ledger_rejects_update_and_delete(market, tmp_path):
+def test_ledger_rejects_update_and_delete(market, tmp_path: Path) -> None:
     ledger = tmp_path / "l.sqlite"
     strategy = json.loads(evaluate(market, ledger).stdout)["disclosure"]["strategy"]
     assert mm(market, "select", strategy, "--campaign", "c", "--agent", "a", ledger=ledger).returncode == 0
@@ -112,7 +112,7 @@ def test_ledger_rejects_update_and_delete(market, tmp_path):
                 db.execute(sql)
 
 
-def test_unwritable_ledger_emits_no_statistics(market, tmp_path):
+def test_unwritable_ledger_emits_no_statistics(market, tmp_path: Path) -> None:
     ledger, trace = tmp_path / "l.sqlite", tmp_path / "trace.jsonl"
     assert evaluate(market, ledger).returncode == 0
     os.chmod(ledger, 0o444)
@@ -122,12 +122,12 @@ def test_unwritable_ledger_emits_no_statistics(market, tmp_path):
     assert len(r.stderr.splitlines()) == 1 and r.stderr.startswith("R_LEDGER")
 
 
-def test_fresh_processes_give_identical_results(market, tmp_path):
+def test_fresh_processes_give_identical_results(market, tmp_path: Path) -> None:
     a, b = (evaluate(market, tmp_path / f"{k}.sqlite", text=False) for k in "ab")
     assert a.returncode == 0 and a.stdout == b.stdout
 
 
-def test_a_changed_store_value_changes_the_data_hash_and_the_identity(market, tmp_path):
+def test_a_changed_store_value_changes_the_data_hash_and_the_identity(market, tmp_path: Path) -> None:
     copy = tmp_path / "m"
     shutil.copytree(market, copy)
     f = sorted((copy / "store" / "funding").glob("*.parquet"))[0]
@@ -148,7 +148,7 @@ def test_a_changed_store_value_changes_the_data_hash_and_the_identity(market, tm
     assert rows[0][0] != rows[1][0] and rows[0][1] != rows[1][1]
 
 
-def test_the_committed_disclosure_holds_only_the_disclosed_fields(market, tmp_path):
+def test_the_committed_disclosure_holds_only_the_disclosed_fields(market, tmp_path: Path) -> None:
     ledger = tmp_path / "l.sqlite"
     r = mm(
         market,
@@ -168,7 +168,7 @@ def test_the_committed_disclosure_holds_only_the_disclosed_fields(market, tmp_pa
     assert json.loads(committed) == out
 
 
-def test_identity_covers_every_policy_field(market, tmp_path):
+def test_identity_covers_every_policy_field(market, tmp_path: Path) -> None:
     """A policy change that can change a result, such as funding's settlement latency, changes the identity."""
     copy = tmp_path / "m"
     shutil.copytree(market, copy)
@@ -183,7 +183,7 @@ def test_identity_covers_every_policy_field(market, tmp_path):
     assert a != b
 
 
-def test_a_selection_records_every_disclosure_before_it(market, tmp_path):
+def test_a_selection_records_every_disclosure_before_it(market, tmp_path: Path) -> None:
     """The gate selects after reading every agent's results, so seen_through is the last disclosure of any agent."""
     ledger = tmp_path / "l.sqlite"
     evaluate(market, ledger)
@@ -196,7 +196,7 @@ def test_a_selection_records_every_disclosure_before_it(market, tmp_path):
     assert db.execute("SELECT seen_through FROM selections").fetchall() == [(last,)]
 
 
-def test_rejection_is_disclosed_without_data(market, tmp_path):
+def test_rejection_is_disclosed_without_data(market, tmp_path: Path) -> None:
     bad = tmp_path / "bad.json"
     bad.write_text(W0.read_text().replace('"input": "funding"', '"input": "next_open"'))
     ledger = tmp_path / "l.sqlite"
@@ -206,7 +206,7 @@ def test_rejection_is_disclosed_without_data(market, tmp_path):
     assert kinds == ["reject"]
 
 
-def test_copied_holdout_rows_abort_search_mode(market, tmp_path):
+def test_copied_holdout_rows_abort_search_mode(market, tmp_path: Path) -> None:
     copy = tmp_path / "copy"
     shutil.copytree(market, copy)
     for f in (copy / "holdout" / "bars_4h").glob("*.parquet"):
@@ -215,7 +215,7 @@ def test_copied_holdout_rows_abort_search_mode(market, tmp_path):
     assert r.returncode == 1 and json.loads(r.stdout)["code"] == "R_HOLDOUT"
 
 
-def test_holdout_store_itself_aborts_search_mode(market, tmp_path):
+def test_holdout_store_itself_aborts_search_mode(market, tmp_path: Path) -> None:
     m = Path(market)
     args = lambda store: [
         str(MM),
@@ -241,7 +241,7 @@ def test_holdout_store_itself_aborts_search_mode(market, tmp_path):
     assert r.returncode == 1 and json.loads(r.stdout)["code"] == "R_HOLDOUT"
 
 
-def test_batch_eval_one_line_per_program(market, tmp_path):
+def test_batch_eval_one_line_per_program(market, tmp_path: Path) -> None:
     batch = tmp_path / "b.jsonl"
     good = json.dumps(json.loads(W0.read_text()))
     batch.write_text(good + "\n" + good.replace('"input": "funding"', '"input": "nope"') + "\n" + good + "\n")
@@ -254,7 +254,7 @@ def test_batch_eval_one_line_per_program(market, tmp_path):
     assert kinds == ["eval", "reject", "eval"]
 
 
-def freeze(market, ledger, strategy):
+def freeze(market, ledger, strategy) -> None:
     """Evaluate `strategy` in search mode and record the gate's selection of its trial."""
     evaluate(market, ledger, strategy)
     trial = sqlite3.connect(ledger).execute("SELECT trial FROM experiments ORDER BY id DESC").fetchone()[0]
@@ -302,7 +302,7 @@ def holdout_returns(ledger):
     return struct.unpack(f"<{len(blob) // 8}d", blob)
 
 
-def test_holdout_evaluates_exactly_the_frozen_selections_from_a_file(tmp_path):
+def test_holdout_evaluates_exactly_the_frozen_selections_from_a_file(tmp_path: Path) -> None:
     market = write_market(tmp_path / "m", market_id="family", days=40, holdout_days=10)
     ledger = tmp_path / "l.sqlite"
     unfrozen = holdout(market, ledger, frozen=False)
@@ -342,7 +342,7 @@ def test_holdout_evaluates_exactly_the_frozen_selections_from_a_file(tmp_path):
     assert holdout(market, ledger, frozen=False).returncode == 0
 
 
-def test_holdout_is_evaluated_once_over_its_window(tmp_path):
+def test_holdout_is_evaluated_once_over_its_window(tmp_path: Path) -> None:
     market = write_market(tmp_path / "m", market_id="once", days=40, holdout_days=10)
     ledger = tmp_path / "l.sqlite"
     r = holdout(market, ledger)
@@ -357,7 +357,7 @@ def test_holdout_is_evaluated_once_over_its_window(tmp_path):
     assert row == [("holdout", json.loads((Path(market) / "store" / "policy.json").read_text())["holdout_start"])]
 
 
-def momentum(tmp_path):
+def momentum(tmp_path: Path):
     """A strategy that trades every bar."""
     program = dict(
         json.loads(W0.read_text()),
@@ -382,7 +382,7 @@ def momentum(tmp_path):
     return path
 
 
-def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path):
+def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path: Path) -> None:
     """C3.4 revision: a full rerun at twice the cost table and calibrated-range coverage, outside the judged result."""
     plain, ranged = (write_market(tmp_path / name, market_id="diag", days=40, holdout_days=10) for name in ("a", "b"))
     execution = Path(ranged) / "venue" / "execution.json"
@@ -403,7 +403,7 @@ def test_holdout_reports_diagnostics_beside_an_unchanged_result(tmp_path):
     assert out[plain]["diagnostics"]["relative_range_coverage"]["S0"] is None
 
 
-def test_stream_eval_answers_each_line(market, tmp_path):
+def test_stream_eval_answers_each_line(market, tmp_path: Path) -> None:
     m = Path(market)
     p = subprocess.Popen(
         [
@@ -437,7 +437,7 @@ def test_stream_eval_answers_each_line(market, tmp_path):
     assert p.wait() == 1 and "disclosure" in first and second["code"] == "E_UNKNOWN_INPUT"
 
 
-def test_holdout_from_and_overlap(tmp_path):
+def test_holdout_from_and_overlap(tmp_path: Path) -> None:
     market = write_market(tmp_path / "m", market_id="overlap", days=40, holdout_days=10)
     ledger = tmp_path / "l.sqlite"
     m = Path(market)
@@ -457,7 +457,7 @@ def test_holdout_from_and_overlap(tmp_path):
     assert json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
 
 
-def test_mechanism_report(market, tmp_path):
+def test_mechanism_report(market, tmp_path: Path) -> None:
     s = json.loads(W0.read_text())
     s["prediction"] = {"condition": {"op": "gt", "args": [{"input": "premium"}, {"const": 0, "unit": "1"}]}}
     p = tmp_path / "s.json"
@@ -491,8 +491,9 @@ def test_mechanism_report(market, tmp_path):
     assert plain["strategy"] == json.loads(r.stdout)["disclosure"]["strategy"]
 
 
-def test_equivalence_key_is_stable_across_processes(tmp_path):
+def test_equivalence_key_is_stable_across_processes(tmp_path: Path) -> None:
     import random
+
     from gate import search
 
     rng = random.Random(5)
@@ -515,7 +516,7 @@ def test_equivalence_key_is_stable_across_processes(tmp_path):
     assert len(set(keys)) > 30
 
 
-def test_unknown_options_are_refused(market, tmp_path):
+def test_unknown_options_are_refused(market, tmp_path: Path) -> None:
     m = Path(market)
     r = subprocess.run(
         [
@@ -541,7 +542,7 @@ def test_unknown_options_are_refused(market, tmp_path):
     assert r.returncode == 3 and "unknown option --policy" in r.stderr and r.stdout == ""
 
 
-def test_fresh_ledger_cannot_reuse_a_spent_holdout(tmp_path):
+def test_fresh_ledger_cannot_reuse_a_spent_holdout(tmp_path: Path) -> None:
     m = write_market(tmp_path / "m", market_id="spent", days=40, holdout_days=10)
     first = holdout(m, tmp_path / "a.sqlite")
     assert first.returncode == 0, first.stdout + first.stderr
@@ -549,15 +550,16 @@ def test_fresh_ledger_cannot_reuse_a_spent_holdout(tmp_path):
     assert again.returncode == 1 and json.loads(again.stdout)["code"] == "R_HOLDOUT_SPENT"
 
 
-def test_holdout_from_cannot_move_earlier(tmp_path):
+def test_holdout_from_cannot_move_earlier(tmp_path: Path) -> None:
     market = write_market(tmp_path / "m", market_id="clamp", days=40, holdout_days=10)
     r = holdout(market, tmp_path / "l.sqlite", W0, "--holdout-from", "0")
     assert json.loads(r.stdout)["disclosure"]["result"]["steps"] == 10 * 6 - 1
 
 
-def test_event_inputs_only_in_the_holdout_are_unbound_in_search(tmp_path):
+def test_event_inputs_only_in_the_holdout_are_unbound_in_search(tmp_path: Path) -> None:
     """Stage 5's deferral of C5.6: with every event row past the holdout boundary, search cannot read them."""
     import numpy as np
+
     from gate import markets
 
     ev = {

@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 
 
-def test_agent_dsl_is_frozen():
+def test_agent_dsl_is_frozen() -> None:
     dsl = Path(__file__).resolve().parents[2] / "kernel/DSL.md"
     assert (
         hashlib.sha256(dsl.read_bytes()).hexdigest()

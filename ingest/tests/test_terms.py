@@ -13,7 +13,7 @@ FETCHED = {
 }
 
 
-def test_every_fetched_host_has_certified_terms():
+def test_every_fetched_host_has_certified_terms() -> None:
     missing = [
         (source, host)
         for source, hosts in FETCHED.items()
@@ -24,12 +24,12 @@ def test_every_fetched_host_has_certified_terms():
     assert datalayer.feeds()["feeds"]
 
 
-def test_every_record_is_certified():
+def test_every_record_is_certified() -> None:
     records = [t for s in terms.registry().values() for t in s.get("terms", [])]
     assert records and all(terms.certified(t) for t in records)
 
 
-def test_a_record_without_its_evidence_fails():
+def test_a_record_without_its_evidence_fails() -> None:
     good = {
         "host": "x.org",
         "url": "https://x.org/tos",
@@ -44,7 +44,7 @@ def test_a_record_without_its_evidence_fails():
     assert not terms.certified(good | {"url": "http://x.org/tos"})
 
 
-def test_a_prefix_entry_admits_only_its_prefix():
+def test_a_prefix_entry_admits_only_its_prefix() -> None:
     entries = {"api.x.org", "www.y.gov/feeds/"}
     assert terms.admits(entries, "api.x.org", "/anything") and terms.admits(entries, "www.y.gov", "/feeds/a.xml")
     assert not terms.admits(entries, "www.y.gov", "/newsevents/a.htm") and not terms.admits(entries, "x.org", "/")

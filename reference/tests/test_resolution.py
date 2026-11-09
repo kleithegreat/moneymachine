@@ -16,7 +16,7 @@ DUMP = REPO / "reference/mmdump/target/release/mmdump"
 LATE = 887_645
 
 
-def test_loader_matches_as_of(tmp_path, built_mmdump):
+def test_loader_matches_as_of(tmp_path: Path, built_mmdump) -> None:
     root = write_market(tmp_path / "m", market_id="resolution", days=20)
     store = Store(root / "store")
     restated = (

@@ -5,17 +5,16 @@ import json
 import multiprocessing
 import sqlite3
 from pathlib import Path
-
-import pytest
+from typing import Never
 
 import live
-
+import pytest
 
 PLAIN = Path("swarm-null-3-N2-3/swarm/A4/home/.claude/.last-cleanup")
 
 
 @pytest.fixture
-def volume(tmp_path, monkeypatch):
+def volume(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(live, "VOLUMES", {"agent": "data/agent"})
     monkeypatch.setattr(live, "MIRROR_VERIFY_WAIT", 0)
     app, out = tmp_path / "app", tmp_path / "mirror"
@@ -42,7 +41,9 @@ def manifest(out):
     "rel",
     [PLAIN, Path("campaign/swarm/A4/work/nested/notes.jsonl"), Path("campaign/swarm/A4/work/nested/notes.sqlite")],
 )
-def test_plain_source_disappearing_during_mirror_is_omitted(volume, monkeypatch, published, phase, rel):
+def test_plain_source_disappearing_during_mirror_is_omitted(
+    volume, monkeypatch: pytest.MonkeyPatch, published, phase, rel
+) -> None:
     app, out, root = volume
     source = put(root, rel)
     if published:
@@ -100,7 +101,7 @@ def test_plain_source_disappearing_during_mirror_is_omitted(volume, monkeypatch,
 
 
 @pytest.mark.parametrize("phase", ["enumeration", "copy"])
-def test_plain_directory_disappearing_is_allowed(volume, monkeypatch, phase):
+def test_plain_directory_disappearing_is_allowed(volume, monkeypatch: pytest.MonkeyPatch, phase) -> None:
     app, out, root = volume
     rel = Path("scratch/nested/note")
     source = put(root, rel)
@@ -109,7 +110,7 @@ def test_plain_directory_disappearing_is_allowed(volume, monkeypatch, phase):
     rglob, copy = Path.rglob, live.shutil.copy2
     vanished = []
 
-    def disappear():
+    def disappear() -> None:
         vanished.append(True)
         source.unlink()
         source.parent.rmdir()
@@ -138,7 +139,9 @@ def test_plain_directory_disappearing_is_allowed(volume, monkeypatch, phase):
 
 @pytest.mark.parametrize("name", ["day.jsonl", "ledger.sqlite"])
 @pytest.mark.parametrize("phase", ["observed", "previously_manifested"])
-def test_recording_disappearance_alarms_without_replacing_manifest(volume, monkeypatch, name, phase):
+def test_recording_disappearance_alarms_without_replacing_manifest(
+    volume, monkeypatch: pytest.MonkeyPatch, name, phase
+) -> None:
     app, out, root = volume
     live.mirror(app, out)
     source = root / name
@@ -175,7 +178,9 @@ def test_recording_disappearance_alarms_without_replacing_manifest(volume, monke
     assert manifest(out).read_bytes() == before
 
 
-def test_day_disappearing_between_prefix_snapshot_and_general_listing_alarms(volume, monkeypatch):
+def test_day_disappearing_between_prefix_snapshot_and_general_listing_alarms(
+    volume, monkeypatch: pytest.MonkeyPatch
+) -> None:
     app, out, root = volume
     live.mirror(app, out)
     before = manifest(out).read_bytes()
@@ -208,7 +213,9 @@ def test_day_disappearing_between_prefix_snapshot_and_general_listing_alarms(vol
 
 @pytest.mark.parametrize("rel", [PLAIN, Path("day.jsonl")])
 @pytest.mark.parametrize("missing", ["source", "mirror", "both", "source_at_hash"])
-def test_verify_distinguishes_source_churn_from_missing_mirror(volume, monkeypatch, rel, missing):
+def test_verify_distinguishes_source_churn_from_missing_mirror(
+    volume, monkeypatch: pytest.MonkeyPatch, rel, missing
+) -> None:
     app, out, root = volume
     source = put(root, rel, b"recorded bytes\n")
     live.mirror(app, out)
@@ -240,7 +247,9 @@ def test_verify_distinguishes_source_churn_from_missing_mirror(volume, monkeypat
 
 @pytest.mark.parametrize("published", [False, True])
 @pytest.mark.parametrize("phase", ["copy", "comparison"])
-def test_missing_plain_destination_is_not_source_churn(volume, monkeypatch, published, phase):
+def test_missing_plain_destination_is_not_source_churn(
+    volume, monkeypatch: pytest.MonkeyPatch, published, phase
+) -> None:
     app, out, root = volume
     source = put(root, PLAIN)
     if not published:
@@ -290,7 +299,9 @@ def test_missing_plain_destination_is_not_source_churn(volume, monkeypatch, publ
 
 @pytest.mark.parametrize("error_number", [errno.EACCES, errno.EIO])
 @pytest.mark.parametrize("phase", ["stat", "copy", "comparison", "verify"])
-def test_io_errors_are_not_treated_as_source_churn(volume, monkeypatch, error_number, phase):
+def test_io_errors_are_not_treated_as_source_churn(
+    volume, monkeypatch: pytest.MonkeyPatch, error_number, phase
+) -> None:
     app, out, root = volume
     source = put(root, PLAIN)
     live.mirror(app, out)
@@ -299,7 +310,7 @@ def test_io_errors_are_not_treated_as_source_churn(volume, monkeypatch, error_nu
     fired, copied = [], []
     stat, copy, digest = Path.stat, live.shutil.copy2, live.sha256
 
-    def fail():
+    def fail() -> Never:
         fired.append(True)
         raise OSError(error_number, "injected storage failure", str(source))
 
@@ -336,7 +347,7 @@ def test_io_errors_are_not_treated_as_source_churn(volume, monkeypatch, error_nu
     assert manifest(out).read_bytes() == before
 
 
-def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(volume):
+def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(volume) -> None:
     app, out, root = volume
     source = put(root, PLAIN)
     live.mirror(app, out)
@@ -345,7 +356,7 @@ def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(volume
     context = multiprocessing.get_context("fork")
     parent, child = context.Pipe()
 
-    def worker():
+    def worker() -> None:
         copy = live.shutil.copy2
 
         def interrupted(src, dst, *args, **kwargs):

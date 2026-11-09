@@ -9,7 +9,7 @@ mutants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mutants)
 
 
-def test_every_mutant_edit_matches_exactly_once():
+def test_every_mutant_edit_matches_exactly_once() -> None:
     stale = [
         (name, f, old)
         for name, (_, edits) in mutants.MUTANTS.items()

@@ -17,7 +17,7 @@ spec.loader.exec_module(gen)
 
 
 @pytest.fixture(scope="module")
-def cases(tmp_path_factory, built_kernel):
+def cases(tmp_path_factory: pytest.TempPathFactory, built_kernel):
     path = tmp_path_factory.mktemp("t") / "cases.jsonl"
     cs = gen.generate(2000, 11)
     path.write_text("".join(json.dumps(c) + "\n" for c in cs))
@@ -29,7 +29,7 @@ def mismatches(cases, verdicts):
     return [(c["id"], c["kind"], c["label"], v) for c, v in zip(cases, verdicts) if c["label"] != v]
 
 
-def test_labels_cover_every_violation(cases):
+def test_labels_cover_every_violation(cases) -> None:
     _, cs = cases
     planted = sum(c["label"] != "ok" for c in cs)
     print(f"{len(cs)} traces, {planted} with planted violations")
@@ -49,13 +49,13 @@ def test_labels_cover_every_violation(cases):
     }
 
 
-def test_kernel_checker_matches_labels(cases):
+def test_kernel_checker_matches_labels(cases) -> None:
     path, cs = cases
     out = subprocess.run([str(MM), "check-fills", str(path)], capture_output=True, text=True, check=True).stdout
     assert mismatches(cs, [json.loads(l)["verdict"] for l in out.splitlines()]) == []
 
 
-def test_gpt_checker_matches_labels(cases):
+def test_gpt_checker_matches_labels(cases) -> None:
     _, cs = cases
     spec = importlib.util.spec_from_file_location("gpt_checker", HERE / "gpt_checker.py")
     mod = importlib.util.module_from_spec(spec)

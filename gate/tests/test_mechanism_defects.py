@@ -4,6 +4,7 @@ import json
 import sqlite3
 import struct
 import subprocess
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -24,7 +25,7 @@ def arrays(bars):
     }
 
 
-def evaluate(mm, market, tmp_path, weight, condition, name="s"):
+def evaluate(mm, market, tmp_path: Path, weight, condition, name="s"):
     strategy = tmp_path / f"{name}.json"
     strategy.write_text(
         json.dumps(
@@ -60,7 +61,7 @@ def evaluate(mm, market, tmp_path, weight, condition, name="s"):
 
 
 @pytest.fixture
-def closing(built_kernel, tmp_path):
+def closing(built_kernel, tmp_path: Path):
     a = arrays(6)
     a["volume"][0] = 1000
     a["premium"][:] = [1, -1]
@@ -72,7 +73,7 @@ def closing(built_kernel, tmp_path):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 1: closing costs omitted")
-def test_mechanism_mean_net_return_includes_closing_fills(closing):
+def test_mechanism_mean_net_return_includes_closing_fills(closing) -> None:
     """Two flat-price, one-exposure round trips; both fees and slippage must be netted."""
     disclosure, trace, _ = closing
     result = disclosure["result"]
@@ -98,7 +99,7 @@ def test_mechanism_mean_net_return_includes_closing_fills(closing):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 2: undefined predictions shrink coverage")
-def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_kernel, tmp_path):
+def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_kernel, tmp_path: Path) -> None:
     """The constant-prediction replay measures all held exposures without changing trading."""
     a = arrays(104)
     a["funding"][:, 0] = -1e-5
@@ -130,7 +131,7 @@ def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 4: REPLACE bypasses append-only triggers")
-def test_separate_connection_cannot_replace_kernel_result(closing):
+def test_separate_connection_cannot_replace_kernel_result(closing) -> None:
     _, _, ledger = closing
     with sqlite3.connect(ledger) as db:
         db.execute("PRAGMA recursive_triggers = OFF")
@@ -146,7 +147,7 @@ def test_separate_connection_cannot_replace_kernel_result(closing):
         assert db.execute("SELECT experiment_id, returns, summary, result_hash FROM results").fetchone() == original
 
 
-def test_insert_or_ignore_duplicate_strategy_is_harmless(closing):
+def test_insert_or_ignore_duplicate_strategy_is_harmless(closing) -> None:
     _, _, ledger = closing
     with sqlite3.connect(ledger) as db:
         db.execute("PRAGMA recursive_triggers = OFF")

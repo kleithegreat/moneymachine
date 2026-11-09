@@ -14,7 +14,7 @@ from gate.kernel import MM
 REPO = Path(__file__).resolve().parents[2]
 
 
-def test_event_feature_runs_where_events_exist(tmp_path, built_kernel):
+def test_event_feature_runs_where_events_exist(tmp_path: Path, built_kernel) -> None:
     events = {"arrays": np.random.default_rng(0).poisson(2.0, (500, 2)).tolist(), "coins": [0, 3], "block_hours": 24}
     plain = markets.write_market(tmp_path / "plain", days=30)
     with_events = markets.write(

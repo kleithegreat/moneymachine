@@ -39,7 +39,7 @@ def report(pvalues):
     return {"judged_pairs": k, "confidence": confidence, "cells": cells}
 
 
-def main(work, audit):
+def main(work, audit) -> None:
     path = Path(work)
     pvalues = json.loads(path.read_text()) if path.exists() else {}
     for gen in null_suite.GENERATORS:

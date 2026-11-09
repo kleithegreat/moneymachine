@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 
-def launcher(tmp_path, busy, *stop):
+def launcher(tmp_path: Path, busy, *stop):
     (tmp_path / "ops").mkdir()
     shutil.copy(Path(__file__).with_name("builder.sh"), tmp_path / "ops")
     stubs = tmp_path / "stubs"
@@ -29,7 +29,7 @@ case " $* " in *" --scope "*) while [ "$1" != env ]; do shift; done; exec "$@";;
     return [line.split("\t") for line in (tmp_path / "data/builder/log.tsv").read_text().splitlines()]
 
 
-def test_run_starts_a_named_session_and_logs_its_id(tmp_path):
+def test_run_starts_a_named_session_and_logs_its_id(tmp_path: Path) -> None:
     (start, exit_), args = launcher(tmp_path, busy=False), (tmp_path / "claude.args").read_text()
     assert (
         [start[1], exit_[1]] == ["start", "exit 0"]
@@ -44,20 +44,20 @@ def test_run_starts_a_named_session_and_logs_its_id(tmp_path):
     assert "RuntimeMaxSec" not in scope
 
 
-def test_a_builder_has_its_own_temporary_directory_removed_when_it_exits(tmp_path):
+def test_a_builder_has_its_own_temporary_directory_removed_when_it_exits(tmp_path: Path) -> None:
     (start, _) = launcher(tmp_path, busy=False)
     tmp = f"/tmp/b{start[2][:4]}"
     assert (tmp_path / "claude.env").read_text().split() == [tmp, tmp, "exists"]
     assert not Path(tmp).exists()
 
 
-def test_a_stop_time_bounds_the_scope(tmp_path):
+def test_a_stop_time_bounds_the_scope(tmp_path: Path) -> None:
     launcher(tmp_path, False, "+1 hour")
     limit = (tmp_path / "systemd-run.args").read_text().split("RuntimeMaxSec=")[1].split()[0]
     assert 3590 <= int(limit) <= 3600
 
 
-def test_run_defers_while_another_builder_runs(tmp_path):
+def test_run_defers_while_another_builder_runs(tmp_path: Path) -> None:
     busy, scheduled = launcher(tmp_path, busy=True)
     assert [busy[1], scheduled[1]] == ["busy", "scheduled"] and not (tmp_path / "claude.args").exists()
     assert (tmp_path / "systemd-run.args").read_text().rstrip().endswith("ops/builder.sh run stage 3 check sonnet")

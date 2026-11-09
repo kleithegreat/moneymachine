@@ -17,7 +17,7 @@ DAYS = 30
 OUT = Path(__file__).resolve().parent
 
 
-def main():
+def main() -> None:
     params = markets.null_params()
     for model in ("N1", "N2", "N3"):
         a = markets.generate(model, params.get(model), f"c41-{model}", DAYS)

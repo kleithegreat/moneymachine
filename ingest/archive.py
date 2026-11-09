@@ -69,7 +69,7 @@ def day_of(d):
     return dt.date(int(d[:4]), int(d[4:6]), int(d[6:]))
 
 
-def fetch(out_dir, coins, hours=HOURS, window=None, client=None):
+def fetch(out_dir, coins, hours=HOURS, window=None, client=None) -> None:
     """Reduce each chosen coin-hour into `out_dir`/<date>/<hour>/<coin>.json.gz (resumable: done files are skipped): the
     given hours of every archive day in `window` ([start, end) dates), or by default of every day outside SKIP."""
     import boto3
@@ -271,7 +271,7 @@ def table(archive_dir, coins, c07=REPO / "venue/hyperliquid/execution.json"):
     }
 
 
-def main(step):
+def main(step) -> None:
     """`python -m ingest.archive STEP` in the cloud shell, after stage 0 is committed: `equivalence` (fetch the check's
     hours, then judge), `table` (fetch the window, then fit; only after the check passed), `diagnostic` (fetch the
     sampled hours, then report). Outputs go to audit/stage3/ and audit/diagnostics/."""

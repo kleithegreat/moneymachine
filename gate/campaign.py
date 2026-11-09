@@ -82,7 +82,7 @@ def recorded(path):
 class KeepLock:
     """Pool initializer retaining the parent's flock even if the parent is killed."""
 
-    def __init__(self, file):
+    def __init__(self, file) -> None:
         self.file = file
 
     def __getstate__(self):

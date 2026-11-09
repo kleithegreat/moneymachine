@@ -3,13 +3,15 @@
 import os
 from pathlib import Path
 
+import pytest
+
 from gate.agent import campaigns
 
 
-def series(tmp_path, monkeypatch, chunk):
+def series(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk) -> None:
     held = []
 
-    def wait(self, seconds):
+    def wait(self, seconds) -> None:
         Path(os.environ["RUNAWAY_STARTED"]).touch()
         held.append(b"x" * chunk)
 
@@ -25,9 +27,9 @@ def series(tmp_path, monkeypatch, chunk):
     campaigns.run_series("agent")
 
 
-def test_loops(tmp_path, monkeypatch):
+def test_loops(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     series(tmp_path, monkeypatch, 1)
 
 
-def test_allocates(tmp_path, monkeypatch):
+def test_allocates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     series(tmp_path, monkeypatch, 10**7)

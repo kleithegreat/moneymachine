@@ -1,9 +1,12 @@
 """The shared in-sandbox client: arity (a count or "+"), file arguments sent as text, usage otherwise."""
 
 import json
+from pathlib import Path
 
-from sandbox import session
+import pytest
+
 from gate.agent.daemon import SPEC as RESEARCH
+from sandbox import session
 from thesis.daemon import SPEC as THESIS
 
 
@@ -14,7 +17,7 @@ def client(spec, sent):
     return ns["main"]
 
 
-def test_arity_files_and_usage(tmp_path, capsys):
+def test_arity_files_and_usage(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     sent = []
     research, thesis = client(RESEARCH, sent), client(THESIS, sent)
     a, b = tmp_path / "a.json", tmp_path / "b.json"

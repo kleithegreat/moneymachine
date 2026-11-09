@@ -20,7 +20,7 @@ def judged_ingest():
     return reports
 
 
-def test_c02_coverage_and_integrity():
+def test_c02_coverage_and_integrity() -> None:
     report = judged_ingest()[-1]
     for coin, c in report["coverage"].items():
         assert c["funding_missing"] <= 0.01 * c["funding_expected"], coin
@@ -37,7 +37,7 @@ def test_c02_coverage_and_integrity():
     ) == (0, 0, 0, 0, 0, 0)
 
 
-def test_c03_availability():
+def test_c03_availability() -> None:
     a = load("stage0/availability.json")
     assert a["window"] is not None and a["failures"] == []
     for coin in LISTED:
@@ -47,12 +47,12 @@ def test_c03_availability():
         assert c["max_abs_ms"] < 1000 and c["brackets"] and c["max_gap_min"] <= 10 and c["max_unchanged_min"] <= 40
 
 
-def test_c04_second_version_at_least_24h_later():
+def test_c04_second_version_at_least_24h_later() -> None:
     first, last = judged_ingest()[0], judged_ingest()[-1]
     assert last["version"] - first["version"] >= DAY
 
 
-def test_c05_replay_completeness():
+def test_c05_replay_completeness() -> None:
     """The as_of view is recomputed under C0.4's amendment of 2026-10-22."""
     report = judged_ingest()[-1]
     assert report["replay_from_keys"]["fraction_ok"] >= 0.99
@@ -75,7 +75,7 @@ def c07_failed_cells():
     }
 
 
-def test_c07_evidence_and_the_recorded_failures_are_exactly_as_recorded():
+def test_c07_evidence_and_the_recorded_failures_are_exactly_as_recorded() -> None:
     e = load("stage0/execution.json")
     assert len(CELLS) == 44
     assert all(
@@ -90,14 +90,14 @@ def test_c07_evidence_and_the_recorded_failures_are_exactly_as_recorded():
     raises=AssertionError,
     reason="C0.7's qualification of 2026-10-26 (audit/criteria.md), by human decision: 3 of 44 cells under its coverage",
 )
-def test_c07_execution_model():
+def test_c07_execution_model() -> None:
     assert not c07_failed_cells()
 
 
-def test_c08_witness_reconciles():
+def test_c08_witness_reconciles() -> None:
     assert load("stage0/witness.json")["worst_reconciliation_rel"] <= 1e-9
 
 
-def test_c09_holdout_hashes_recorded():
+def test_c09_holdout_hashes_recorded() -> None:
     entries = load("holdout.json")
     assert entries and all(e["path"].startswith("holdout/") and len(e["sha256"]) == 64 for e in entries)

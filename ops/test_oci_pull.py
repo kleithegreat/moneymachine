@@ -12,7 +12,7 @@ from ops.oci.publish import publish
 FILTER = Path(__file__).parent / "oci/forward-window.exclude"
 
 
-def test_forward_window_days_are_not_pulled(tmp_path):
+def test_forward_window_days_are_not_pulled(tmp_path: Path) -> None:
     src, dst = tmp_path / "src", tmp_path / "dst"
     src.mkdir()
     dst.mkdir()
@@ -29,7 +29,7 @@ def test_forward_window_days_are_not_pulled(tmp_path):
 
 
 @pytest.fixture
-def oracle_pull(tmp_path):
+def oracle_pull(tmp_path: Path):
     root, source = tmp_path / "repo", tmp_path / "source"
     scripts, tools = root / "ops/oci", tmp_path / "bin"
     scripts.mkdir(parents=True)
@@ -74,7 +74,7 @@ def oracle_pull(tmp_path):
 
 
 @pytest.mark.parametrize("incoming", [b"A\n", b"A\nC\n", b"A\nC\nD\n"])
-def test_oracle_pull_refuses_a_source_that_does_not_extend_its_copy(oracle_pull, incoming):
+def test_oracle_pull_refuses_a_source_that_does_not_extend_its_copy(oracle_pull, incoming) -> None:
     root, source, destination, run = oracle_pull
     name = "polls-20261020.jsonl"
     (source / name).write_bytes(incoming)
@@ -93,7 +93,7 @@ def test_oracle_pull_refuses_a_source_that_does_not_extend_its_copy(oracle_pull,
 
 
 @pytest.mark.parametrize("incoming", [b"A\nB\n", b"A\nB\nC\n"])
-def test_oracle_pull_accepts_an_identical_or_extended_source(oracle_pull, incoming):
+def test_oracle_pull_accepts_an_identical_or_extended_source(oracle_pull, incoming) -> None:
     root, source, destination, run = oracle_pull
     name = "polls-20261020.jsonl"
     (source / name).write_bytes(incoming)
@@ -106,13 +106,13 @@ def test_oracle_pull_accepts_an_identical_or_extended_source(oracle_pull, incomi
     assert "Cloud recorder pull failing" not in (root / "PROGRESS.md").read_text()
 
 
-def test_oracle_pull_does_not_checksum_history(oracle_pull):
+def test_oracle_pull_does_not_checksum_history(oracle_pull) -> None:
     root, source, destination, run = oracle_pull
     assert run().returncode == 0
     assert "--checksum" not in (root / "rsync.args").read_text().splitlines()
 
 
-def test_publish_does_not_read_unchanged_hard_links(tmp_path, monkeypatch):
+def test_publish_does_not_read_unchanged_hard_links(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     source, destination = tmp_path / "stage", tmp_path / "destination"
     source.mkdir()
     destination.mkdir()
@@ -132,7 +132,7 @@ def test_publish_does_not_read_unchanged_hard_links(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("divergent", ["a.jsonl", "b.jsonl", "c.jsonl"])
-def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull, divergent):
+def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull, divergent) -> None:
     root, source, destination, run = oracle_pull
     for name in ("a.jsonl", "b.jsonl", "c.jsonl"):
         (destination / name).write_bytes(b"old\n")
@@ -148,7 +148,7 @@ def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull,
 
 
 @pytest.mark.parametrize("names", [("a.jsonl", "b.jsonl"), ("a\ncontinuation.jsonl", "b.jsonl")])
-def test_oracle_pull_reports_every_divergence_and_clears_the_blocker_after_recovery(oracle_pull, names):
+def test_oracle_pull_reports_every_divergence_and_clears_the_blocker_after_recovery(oracle_pull, names) -> None:
     root, source, destination, run = oracle_pull
     progress = root / "PROGRESS.md"
     original = progress.read_bytes()
@@ -170,7 +170,7 @@ def test_oracle_pull_reports_every_divergence_and_clears_the_blocker_after_recov
     assert len(report.splitlines()) == len(original.decode().splitlines()) + 1
 
 
-def test_oracle_pull_keeps_only_the_last_rsync_error_line_and_recovers(oracle_pull):
+def test_oracle_pull_keeps_only_the_last_rsync_error_line_and_recovers(oracle_pull) -> None:
     root, source, destination, run = oracle_pull
     progress = root / "PROGRESS.md"
     original = progress.read_bytes()
@@ -188,7 +188,7 @@ def test_oracle_pull_keeps_only_the_last_rsync_error_line_and_recovers(oracle_pu
     assert last_good == "last-good\n"
 
 
-def test_publish_replaces_a_recorder_status_file_and_still_refuses_a_diverged_log(tmp_path):
+def test_publish_replaces_a_recorder_status_file_and_still_refuses_a_diverged_log(tmp_path: Path) -> None:
     source, destination = tmp_path / "staged", tmp_path / "copy"
     source.mkdir()
     destination.mkdir()
@@ -202,7 +202,7 @@ def test_publish_replaces_a_recorder_status_file_and_still_refuses_a_diverged_lo
     assert (destination / "day.jsonl").read_text() == "a\nb\n"
 
 
-def test_publish_reports_all_divergences_on_one_line(tmp_path):
+def test_publish_reports_all_divergences_on_one_line(tmp_path: Path) -> None:
     source, destination = tmp_path / "source", tmp_path / "destination"
     source.mkdir()
     destination.mkdir()
@@ -217,7 +217,7 @@ def test_publish_reports_all_divergences_on_one_line(tmp_path):
 
 
 @pytest.mark.parametrize("kill_first", [False, True])
-def test_overlapping_pulls_preserve_the_longest_history(tmp_path, kill_first):
+def test_overlapping_pulls_preserve_the_longest_history(tmp_path: Path, kill_first) -> None:
     short, long, destination = (tmp_path / name for name in ("short", "long", "destination"))
     for path in (short, long, destination):
         path.mkdir()
@@ -274,7 +274,7 @@ module['publish'](sys.argv[2], sys.argv[3])
                 proc.communicate()
 
 
-def test_oracle_pull_skips_a_writer_s_transient_tmp_file(oracle_pull):
+def test_oracle_pull_skips_a_writer_s_transient_tmp_file(oracle_pull) -> None:
     """Claude's round 2 review, R7: rsync exits 24 when a listed `.tmp` vanishes before its copy."""
     root, source, destination, run = oracle_pull
     (source.parent / "datalayer/raw").mkdir()

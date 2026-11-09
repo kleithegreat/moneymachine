@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -21,10 +22,10 @@ def acquire_lock():
         return multiprocessing.get_start_method()
 
 
-def test_pool_does_not_copy_a_live_threads_lock():
+def test_pool_does_not_copy_a_live_threads_lock() -> None:
     ready, release = threading.Event(), threading.Event()
 
-    def hold():
+    def hold() -> None:
         with LOCK:
             ready.set()
             release.wait()
@@ -40,15 +41,14 @@ def test_pool_does_not_copy_a_live_threads_lock():
         thread.join()
 
 
-def test_pool_keeps_the_campaign_lock_after_its_parent_releases_it(tmp_path):
+def test_pool_keeps_the_campaign_lock_after_its_parent_releases_it(tmp_path: Path) -> None:
     log = tmp_path / "series.jsonl"
     with campaign.exclusive(log) as fh:
         pool = compute.Pool(2, initializer=campaign.KeepLock(fh))
     try:
         assert pool.apply_async(os.getpid).get(timeout=10) != os.getpid()
-        with pytest.raises(RuntimeError, match="another run"):
-            with campaign.exclusive(log):
-                pytest.fail("pool lost the lock")
+        with pytest.raises(RuntimeError, match="another run"), campaign.exclusive(log):
+            pytest.fail("pool lost the lock")
     finally:
         pool.terminate()
         pool.join()
@@ -57,7 +57,7 @@ def test_pool_keeps_the_campaign_lock_after_its_parent_releases_it(tmp_path):
 
 
 @pytest.mark.parametrize("model", ["N1", "N2", "N3"])
-def test_campaign_results_and_ledgers_agree_across_start_methods(tmp_path, model, built_kernel):
+def test_campaign_results_and_ledgers_agree_across_start_methods(tmp_path: Path, model, built_kernel) -> None:
     script = """
 import json, multiprocessing, sys
 from pathlib import Path

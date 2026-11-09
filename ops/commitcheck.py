@@ -12,7 +12,7 @@ def unpaired(line):
     return len(UTC.findall(line)) > len(EASTERN.findall(line))
 
 
-def main(message_file):
+def main(message_file) -> None:
     message = [l for l in open(message_file).read().splitlines() if not l.startswith("#")]
     errors = [f"UTC time without its Eastern time: {l}" for l in message if unpaired(l)]
     if errors:

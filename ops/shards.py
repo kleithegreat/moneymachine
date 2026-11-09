@@ -174,7 +174,7 @@ def assign(ids, durations, cores, overhead):
     return shards
 
 
-def package(worktree, ids, tar_path):
+def package(worktree, ids, tar_path) -> None:
     manifest, deleted = files(worktree)
     with tempfile.TemporaryDirectory(prefix="mm-bundle-") as scratch:
         bundle = Path(scratch) / "repo.bundle"
@@ -349,14 +349,14 @@ def learn_overhead(overhead, walls, ran, rows, count):
     return overhead
 
 
-def write_durations(path, durations, slowness, overhead):
+def write_durations(path, durations, slowness, overhead) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps({**durations, SLOWNESS: slowness, OVERHEAD: overhead}))
     os.replace(temp, path)
 
 
-def run(worktree, machines, selection):
+def run(worktree, machines, selection) -> int:
     started = time.time()
     ids = collect(worktree, selection)
     try:

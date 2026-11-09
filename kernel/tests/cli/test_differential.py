@@ -40,7 +40,7 @@ def steps(events):
     return [(e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS)]
 
 
-def test_kernel_matches_witness(tmp_path, built_kernel):
+def test_kernel_matches_witness(tmp_path: Path, built_kernel) -> None:
     version = stage0_version()
     out = tmp_path / "trace.jsonl"
     r = subprocess.run(

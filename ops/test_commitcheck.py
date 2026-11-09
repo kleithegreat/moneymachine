@@ -13,12 +13,12 @@ def git(*args):
     return subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, check=True).stdout.splitlines()
 
 
-def test_a_utc_time_needs_its_eastern_time():
+def test_a_utc_time_needs_its_eastern_time() -> None:
     assert unpaired("at 20:13 UTC") and unpaired("20:13 UTC (16:13 EDT) and 21:00 UTC")
     assert not unpaired("at 20:13 UTC (16:13 EDT)") and not unpaired("no time here")
 
 
-def test_added_lines_pair_their_times():
+def test_added_lines_pair_their_times() -> None:
     added = [
         l[1:] for l in git("diff", SINCE, "--", "PROGRESS.md", "audit") if l.startswith("+") and not l.startswith("+++")
     ]

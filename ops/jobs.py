@@ -144,7 +144,7 @@ def manifest(run, ids, record, node=None):
     }
 
 
-def stage_funding():
+def stage_funding() -> None:
     """The null models' funding source as the store yields it, staged under its frozen sha256 (gate/fit.py)."""
     import numpy as np
 
@@ -154,7 +154,7 @@ def stage_funding():
         stage(np.concatenate(markets.frozen_funding(markets.null_params()[model]["funding"])).tobytes())
 
 
-def submit(run, sweep, digest, node=None):
+def submit(run, sweep, digest, node=None) -> None:
     """Stage this checkout's inputs once, then launch a new run."""
     ids = [s["id"] for s in campaign_specs(sweep)]
     record = {
@@ -171,7 +171,7 @@ def submit(run, sweep, digest, node=None):
     launch(run, record, ids)
 
 
-def launch(run, record, ids):
+def launch(run, record, ids) -> None:
     """Reserve a single-use run name before writing provenance or creating its Job."""
     out = RESULTS / run
     out.mkdir()
@@ -195,7 +195,7 @@ def job(run):
     return json.loads(kubectl("get", "job", f"mm-{run}", "-o", "json"))["status"]
 
 
-def task(run):
+def task(run) -> None:
     """In a pod: the campaign at this index."""
     record = json.loads((Path("/results") / run / "record.json").read_text())
     ids = json.loads((Path("/inputs") / record["ids"]).read_bytes())
@@ -247,7 +247,7 @@ def state(run):
     return record, ids, done
 
 
-def resubmit(run):
+def resubmit(run) -> None:
     """The ids without a result, as a new Job, once the Job has no active pods and no partial file remains."""
     record, ids, done = state(run)
     if job(run).get("active"):
@@ -266,7 +266,7 @@ def resubmit(run):
 UNPACK_BYTES = 200_000_000
 
 
-def collect(*runs, out=None):
+def collect(*runs, out=None) -> None:
     """A Job and its retries, into `out` (the campaigns directory by default): every id once, each ledger on the
     record's kernel."""
     from functools import partial
@@ -321,11 +321,11 @@ def unpack(item, dest, mm):
     return row
 
 
-def join():
+def join() -> None:
     subprocess.run(["systemctl", "start", "k3s"], check=True)
 
 
-def leave():
+def leave() -> None:
     """Cordon and drain this PC's node, then leave the cluster; stopping k3s deletes the node (the desktop's NixOS config)."""
     env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube/moneymachine.yaml")}
     subprocess.run(["kubectl", "cordon", NODE], check=True, env=env)

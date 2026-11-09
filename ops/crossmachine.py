@@ -42,7 +42,7 @@ def rows(ledger_xz, ignore=("created",)):
         return out
 
 
-def compare(a_jsonl, a_dir, b_jsonl, b_dir, *ids, ignore=("created",)):
+def compare(a_jsonl, a_dir, b_jsonl, b_dir, *ids, ignore=("created",)) -> None:
     def results(path):
         return {
             r["id"]: {k: v for k, v in r.items() if k != "seconds"}
@@ -66,7 +66,7 @@ def compare(a_jsonl, a_dir, b_jsonl, b_dir, *ids, ignore=("created",)):
     )
 
 
-def reproduce(out_dir, *ids):
+def reproduce(out_dir, *ids) -> None:
     from gate import compute, sweep
 
     betas = json.loads((sweep.OUT / "betas.json").read_text())

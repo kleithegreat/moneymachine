@@ -59,7 +59,7 @@ def check(data, mirror, now=None):
     return alarms
 
 
-def main(data=Path("data"), mirror=Path("/srv/moneymachine/mirror")):
+def main(data=Path("data"), mirror=Path("/srv/moneymachine/mirror")) -> int:
     alarms = check(data, mirror)
     if not alarms:
         return 0

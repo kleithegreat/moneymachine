@@ -1,7 +1,6 @@
 # Independent N2/N3 null generators for C2.2, written by GPT 6.1 Sol from gate/NULLS.md and gate/nulls.json alone, tools denied.
 import numpy as np
 
-
 __all__ = ["generate"]
 
 
@@ -37,20 +36,20 @@ def _truncated_laplace(rng, scale):
 def _vector(value, name, length):
     result = np.asarray(value, dtype=np.float64)
     if result.shape != (length,) or not np.all(np.isfinite(result)):
-        raise ValueError("{} must be a finite vector of length {}".format(name, length))
+        raise ValueError(f"{name} must be a finite vector of length {length}")
     return result
 
 
 def _scalar(value, name):
     result = float(value)
     if not np.isfinite(result):
-        raise ValueError("{} must be finite".format(name))
+        raise ValueError(f"{name} must be finite")
     return result
 
 
 def _integer(value, name):
     if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
-        raise ValueError("{} must be an integer".format(name))
+        raise ValueError(f"{name} must be an integer")
     return int(value)
 
 

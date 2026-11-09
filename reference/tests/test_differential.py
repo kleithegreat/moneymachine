@@ -2,6 +2,9 @@
 and the inventory names what a corpus lacks."""
 
 import struct
+from pathlib import Path
+
+import pytest
 
 from reference import differential as d
 
@@ -10,7 +13,7 @@ def stream(values):
     return b"".join(b"\0" if v is None else b"\1" + struct.pack("<d", v) for v in values)
 
 
-def test_stream_divergence_locates_the_first_differences(tmp_path):
+def test_stream_divergence_locates_the_first_differences(tmp_path: Path) -> None:
     a, b = tmp_path / "a", tmp_path / "b"
     a.write_bytes(stream([1.0, None, 2.0, 3.0, 4.0, -0.0]))
     b.write_bytes(stream([1.0, 5.0, 2.0, 3.0, 4.0, 0.0]))
@@ -21,7 +24,7 @@ def test_stream_divergence_locates_the_first_differences(tmp_path):
     assert d.stream_divergence(a, b, 2, 3)["discrete"][0] == "stream length"
 
 
-def test_the_inventory_names_what_is_missing():
+def test_the_inventory_names_what_is_missing() -> None:
     items = [{"name": k, "markets": ms} for k, ms in d.expected().items()]
     items += [{"name": f"gen-{i}", "program": str(i), "markets": list(d.NULLS)} for i in range(1000)]
     assert d.complete(items, 1000) == []
@@ -32,7 +35,7 @@ def test_the_inventory_names_what_is_missing():
     assert any("case-op-add" in m for m in d.complete(moved, 1000))
 
 
-def test_an_interrupted_run_resumes_where_it_stopped(tmp_path, monkeypatch):
+def test_an_interrupted_run_resumes_where_it_stopped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
     import pytest

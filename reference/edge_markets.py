@@ -22,7 +22,8 @@ import numpy as np
 import polars as pl
 
 from gate.markets import FLAT_COST, write_venue
-from gate.search import const as c, op
+from gate.search import const as c
+from gate.search import op
 from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
 

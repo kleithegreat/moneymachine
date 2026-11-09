@@ -37,7 +37,7 @@ def cut(c, t):
     }
 
 
-def test_rows_never_depend_on_later_records():
+def test_rows_never_depend_on_later_records() -> None:
     """I1 for the derivation: a row at tau is the same at every version from its tick tau + DELTA on."""
     rng = __import__("random").Random(8)
     for c in load("gen").generate(2000, 56):
@@ -48,7 +48,7 @@ def test_rows_never_depend_on_later_records():
         assert [r for r in ours(c) if r[1] + DELTA <= t] == ours(cut(c, min(t, c["version"])))
 
 
-def test_cases_exercise_the_boundaries():
+def test_cases_exercise_the_boundaries() -> None:
     cs = load("gen").generate(2000, 55)
     rows = [r for c in cs for r in ours(c)]
     assert sum(c["margin"] > 0 for c in cs) > 800 and len(rows) > 4_000
@@ -56,7 +56,7 @@ def test_cases_exercise_the_boundaries():
     assert any(not ours(c) and c["polls"] for c in cs)
 
 
-def test_independent_implementation_agrees():
+def test_independent_implementation_agrees() -> None:
     other = load("independent")
     bad = [
         (i, c)

@@ -18,7 +18,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture(autouse=True)
-def token(monkeypatch):
+def token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "test-token")
 
 
@@ -31,7 +31,7 @@ def inside(workdir, script):
     )
 
 
-def test_sandbox_view(tmp_path):
+def test_sandbox_view(tmp_path: Path) -> None:
     harness.build_workspace(tmp_path)
     secret_paths = [str(REPO), str(REPO / "data"), str(Path.home()), str(tmp_path), "/run", "/var", "/etc/static"]
     script = "; ".join(f"test -e '{p}' && echo VISIBLE {p}" for p in secret_paths)
@@ -44,7 +44,7 @@ def test_sandbox_view(tmp_path):
     assert "shadow" not in lines and "nixos" not in lines
 
 
-def test_only_the_closure_of_the_store_and_no_host_environment(tmp_path):
+def test_only_the_closure_of_the_store_and_no_host_environment(tmp_path: Path) -> None:
     """Flake source snapshots of the repo sit in /nix/store; only the CLI's, Python's and coreutils' closure is
     mounted."""
     harness.build_workspace(tmp_path)
@@ -56,7 +56,7 @@ def test_only_the_closure_of_the_store_and_no_host_environment(tmp_path):
     assert "CLAUDE_CODE_OAUTH_TOKEN=test-token" in env.split()
 
 
-def test_the_client_cannot_be_replaced_or_fed_modules(tmp_path):
+def test_the_client_cannot_be_replaced_or_fed_modules(tmp_path: Path) -> None:
     harness.build_workspace(tmp_path)
     (tmp_path / "work" / "json.py").write_text("print('PLANTED')\n")
     r = inside(
@@ -66,7 +66,7 @@ def test_the_client_cannot_be_replaced_or_fed_modules(tmp_path):
     assert r.stdout.endswith("#!"), r.stdout + r.stderr
 
 
-def test_network_only_through_the_relay_to_its_hosts(tmp_path):
+def test_network_only_through_the_relay_to_its_hosts(tmp_path: Path) -> None:
     harness.build_workspace(tmp_path)
     proxy = Proxy((tmp_path / "tool").resolve() / "egress.sock", ["example.invalid"], tmp_path / "egress.log")
     probe = (
@@ -85,7 +85,7 @@ def test_network_only_through_the_relay_to_its_hosts(tmp_path):
     assert log[0]["request"].startswith("CONNECT api.hyperliquid.xyz:443") and not log[0]["allowed"]
 
 
-def test_swarm_agents_cannot_reach_each_other(tmp_path):
+def test_swarm_agents_cannot_reach_each_other(tmp_path: Path) -> None:
     """C4.3: an agent's sandbox sees neither another agent's workspace nor its socket."""
     a1, a2 = tmp_path / "A1", tmp_path / "A2"
     for a in (a1, a2):
@@ -111,7 +111,7 @@ def test_swarm_agents_cannot_reach_each_other(tmp_path):
     assert "mm-agent.sock" not in r.stdout.splitlines()[-1]
 
 
-def test_closing_the_proxy_stops_its_thread(tmp_path):
+def test_closing_the_proxy_stops_its_thread(tmp_path: Path) -> None:
     import threading
 
     before = threading.active_count()

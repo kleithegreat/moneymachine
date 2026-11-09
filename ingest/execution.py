@@ -103,7 +103,7 @@ def relative_ranges(polls, report):
     return {coin: [min(r), max(r)] for coin, r in sorted(ranges.items())}
 
 
-def calibrate(live_dir, sources_dir, model_out, report_out, oci_dir=None):
+def calibrate(live_dir, sources_dir, model_out, report_out, oci_dir=None) -> None:
     """The cost model from the judged L2 snapshots to `model_out`, its held-out validation to `report_out`."""
     judged = judgment(live_dir, sources_dir, oci_dir)
     if judged is None:

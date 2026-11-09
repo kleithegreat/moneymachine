@@ -7,7 +7,6 @@ non-C-contiguous; every output has dtype float64 and shape (m, n).
 
 import numpy as np
 
-
 SUITE_ID = "holdout-calibration-locked-v3"
 LENGTHS = (540, 546, 1080)
 

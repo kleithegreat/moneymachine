@@ -2,7 +2,7 @@ from ingest import execution
 from ingest.policy import BAR
 
 
-def test_relative_ranges_use_reference_bars_inside_each_coins_calibration_span():
+def test_relative_ranges_use_reference_bars_inside_each_coins_calibration_span() -> None:
     report = {"A:buy:1000": {"calibration_span": [0, 3 * BAR]}, "B:buy:1000": {"calibration_span": None}}
     bar = lambda t, h: {"t": t, "o": "100", "h": str(h), "l": "100"}
     polls = [

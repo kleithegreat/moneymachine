@@ -43,7 +43,7 @@ def snapshot(http, rng, data_root):
             yield {"space": row["space"], "id": p["id"], "text": clean(p["title"] + ". " + p["body"])}
 
 
-def sample(source, data_root, out):
+def sample(source, data_root, out) -> None:
     rng = random.Random(51)
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-labeling (read-only)"})
     rows = list({"discourse": discourse, "snapshot": snapshot}[source](http, rng, data_root))

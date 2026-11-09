@@ -184,7 +184,7 @@ def holm(pvalues):
     return adjusted
 
 
-def freeze(ledger, campaign, hashes, note):
+def freeze(ledger, campaign, hashes, note) -> None:
     """Record each finalist's selection in the ledger before the holdout is opened."""
     for h in hashes:
         subprocess.run(

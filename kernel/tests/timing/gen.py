@@ -98,7 +98,7 @@ def valid_closeout(rng, case):
     }
 
 
-def refresh(f, case):
+def refresh(f, case) -> None:
     f["price"] = price(f["reference"], f["qty"], case["cost_bps"])
     f["fee"] = abs(f["qty"]) * f["price"] * case["taker_fee"]
 

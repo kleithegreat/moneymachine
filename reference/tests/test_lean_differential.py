@@ -5,6 +5,7 @@ differential harness. A smoke version of C6.4, which is judged on its own frozen
 import json
 import random
 import subprocess
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -14,12 +15,11 @@ from gate.probes import probes
 from reference import differential
 from reference.differential import REF, REPO, verdict_mm
 
-
 pytestmark = pytest.mark.usefixtures("built_kernel", "built_mmdump", "built_refmm")
 
 
 @pytest.mark.slow
-def test_verdicts_agree(tmp_path):
+def test_verdicts_agree(tmp_path: Path) -> None:
     texts = [
         c.read_text().split("\n", 1)[1]
         for d in ("adversarial", "admitted")
@@ -37,7 +37,7 @@ def test_verdicts_agree(tmp_path):
     assert bad == []
 
 
-def test_runs_agree_bit_for_bit(tmp_path):
+def test_runs_agree_bit_for_bit(tmp_path: Path) -> None:
     params = json.loads((REPO / "gate/nulls.json").read_text())
     ev = {
         "arrays": np.random.default_rng(3).poisson(2.0, (300, 3)).astype(float),

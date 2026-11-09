@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 from scipy.stats import norm
@@ -6,7 +8,7 @@ from statsmodels.stats.multitest import multipletests
 from gate import gate
 
 
-def test_dsr_single_trial_is_psr():
+def test_dsr_single_trial_is_psr() -> None:
     r = np.random.default_rng(0).normal(0.01, 0.05, 1000)
     s = r.mean() / r.std(ddof=1)
     z = (r - r.mean()) / r.std()
@@ -15,31 +17,31 @@ def test_dsr_single_trial_is_psr():
     assert abs(gate.dsr(r, 1) - expect) < 1e-12
 
 
-def test_dsr_deflates_with_more_trials():
+def test_dsr_deflates_with_more_trials() -> None:
     r = np.random.default_rng(1).normal(0.001, 0.02, 3000)
     values = [gate.dsr(r, n) for n in (1, 10, 100, 1000)]
     assert all(a >= b for a, b in zip(values, values[1:])) and values[0] > 0.9 > 0.5 > values[-1]
 
 
-def test_dsr_edge_cases():
+def test_dsr_edge_cases() -> None:
     assert gate.dsr(np.zeros(100), 5) == 0.0
     assert gate.dsr(np.array([0.1, 0.2]), 5) == 0.0
     with pytest.raises(ValueError):
         gate.dsr(np.array([0.1, np.nan, 0.2]), 5)
 
 
-def test_holm_matches_statsmodels():
+def test_holm_matches_statsmodels() -> None:
     p = np.random.default_rng(2).uniform(0, 0.2, 17)
     assert np.allclose(gate.holm(p), multipletests(p, method="holm")[1])
 
 
-def test_holm_refuses_a_p_value_outside_the_unit_interval():
+def test_holm_refuses_a_p_value_outside_the_unit_interval() -> None:
     for bad in (np.nan, -0.1, 1.5):
         with pytest.raises(ValueError):
             gate.holm([0.01, bad])
 
 
-def test_holdout_pvalue_bets_the_truncated_plug_in_on_the_past():
+def test_holdout_pvalue_bets_the_truncated_plug_in_on_the_past() -> None:
     # Bets 0, then clip(0.1/0.01) = 0.5, then clip(0.2/0.02) = 0.5: wealth 1, 1.05, 1.05 * 0.975.
     assert gate.holdout_pvalue([0.1, 0.1, -0.05]) == 1 / 1.05
     assert gate.holdout_pvalue([]) == 1.0
@@ -49,13 +51,13 @@ def test_holdout_pvalue_bets_the_truncated_plug_in_on_the_past():
     assert gate.holdout_pvalue(np.r_[0.01, -1.0, np.zeros(10)]) == 1.0
 
 
-def test_holdout_pvalue_rejects_returns_outside_its_scope():
+def test_holdout_pvalue_rejects_returns_outside_its_scope() -> None:
     for bad in ([0.1, np.nan], [0.1, np.inf], [0.1, -1.0000001]):
         with pytest.raises(ValueError):
             gate.holdout_pvalue(bad)
 
 
-def test_holdout_pvalues_are_valid_on_a_fair_martingale_and_vectorized():
+def test_holdout_pvalues_are_valid_on_a_fair_martingale_and_vectorized() -> None:
     rng = np.random.default_rng(5)
     x = np.where(rng.random((20_000, 546)) < 0.5, 0.01, -0.01)
     p = gate.holdout_pvalues(x)
@@ -63,9 +65,11 @@ def test_holdout_pvalues_are_valid_on_a_fair_martingale_and_vectorized():
     assert all(gate.holdout_pvalue(x[i]) == p[i] for i in range(20))
 
 
-def test_parameter_variants_are_separate_trials(tmp_path, built_kernel):
-    import json, subprocess
+def test_parameter_variants_are_separate_trials(tmp_path: Path, built_kernel) -> None:
+    import json
+    import subprocess
     from pathlib import Path
+
     from gate.markets import write_market
 
     repo = Path(__file__).resolve().parents[2]
@@ -117,7 +121,7 @@ def test_parameter_variants_are_separate_trials(tmp_path, built_kernel):
     assert sorted(p["params"]["size"]["value"] for p in progs.values()) == [0.01, 0.02]
 
 
-def test_stepm_keeps_every_model_when_all_are_superior():
+def test_stepm_keeps_every_model_when_all_are_superior() -> None:
     import pandas as pd
 
     rng = np.random.default_rng(6)
@@ -125,7 +129,7 @@ def test_stepm_keeps_every_model_when_all_are_superior():
     assert gate.stepm(r, list(r.columns), 1) == ["a", "b", "c"]
 
 
-def test_clusters_and_effective_n():
+def test_clusters_and_effective_n() -> None:
     import pandas as pd
 
     rng = np.random.default_rng(4)
@@ -138,7 +142,7 @@ def test_clusters_and_effective_n():
     assert [v["n"] for v in report["by_n"].values()] == [4, 3, 3] and report["fragile"] == []
 
 
-def test_bankrupt_lists_experiments_reaching_minus_b(tmp_path):
+def test_bankrupt_lists_experiments_reaching_minus_b(tmp_path: Path) -> None:
     import sqlite3
 
     db = sqlite3.connect(tmp_path / "l.sqlite")

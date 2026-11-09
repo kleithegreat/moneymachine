@@ -15,8 +15,8 @@ import httpx
 import polars as pl
 
 from ingest.live import ms, now_ms
-from ingest.sources_record import FORUMS, HUB, SPACES
 from ingest.policy import DAY, W_START
+from ingest.sources_record import FORUMS, HUB, SPACES
 from ingest.store import Store
 
 START = W_START - 30 * DAY

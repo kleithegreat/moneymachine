@@ -1,7 +1,7 @@
 from kernel.mutants.mutants import failed_by_assertion
 
 
-def test_only_a_test_failing_by_assertion_counts():
+def test_only_a_test_failing_by_assertion_counts() -> None:
     rust = (
         "thread 't' panicked at mm/tests/fixtures.rs:386:5:\nassertion failed\ntest result: FAILED. 0 passed; 1 failed"
     )

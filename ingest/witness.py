@@ -35,11 +35,11 @@ def truncate(x, decimals):
 class Book:
     """Cash-based account, plus an independent average-entry PnL ledger for reconciliation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.cash, self.pos = INITIAL, {}
         self.entry, self.realized, self.fees, self.funding = {}, 0.0, 0.0, 0.0
 
-    def fill(self, coin, qty, price, fee):
+    def fill(self, coin, qty, price, fee) -> None:
         old = self.pos.get(coin, 0.0)
         new = old + qty
         if old and (old > 0) != (qty > 0):
@@ -97,7 +97,7 @@ def run(data_root, version, venue=VENUE):
     book, trace, worst, orders, marks = Book(), [], 0.0, {}, {}
     held_coins = lambda: sorted(book.pos, key=list(rules["coins"]).index)
 
-    def execute(t, coin, qty, ref, why):
+    def execute(t, coin, qty, ref, why) -> None:
         side = "buy" if qty > 0 else "sell"
         bps = cost[coin][side]["1000" if abs(qty) * ref <= 1000 else "10000"]
         price = ref * (1 + (bps if side == "buy" else -bps) / 1e4)

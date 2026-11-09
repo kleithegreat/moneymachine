@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 
-def main(data_root, audit_path):
+def main(data_root, audit_path) -> None:
     audit = Path(audit_path)
     entries = json.loads(audit.read_text()) if audit.exists() else []
     known = {e["path"] for e in entries}

@@ -22,14 +22,14 @@ def call(sock, req):
 
 
 @pytest.fixture
-def daemon(tmp_path, built_kernel):
+def daemon(tmp_path: Path, built_kernel):
     market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
     d = Daemon(tmp_path / "a.sock", market, tmp_path / "l.sqlite", "camp", "A", 3, tmp_path / "log.jsonl").serve()
     yield d, tmp_path
     d.close()
 
 
-def test_budget_disclosure_and_log(daemon):
+def test_budget_disclosure_and_log(daemon) -> None:
     d, tmp = daemon
     text = json.dumps(W0)
     outs = [
@@ -44,7 +44,7 @@ def test_budget_disclosure_and_log(daemon):
     assert db.execute("SELECT COUNT(DISTINCT campaign) FROM experiments").fetchone()[0] == 1
 
 
-def test_rejections_count_and_check_is_free(daemon):
+def test_rejections_count_and_check_is_free(daemon) -> None:
     d, _ = daemon
     bad = json.dumps(W0).replace('"input": "funding"', '"input": "next_open"')
     assert call(d.socket_path, {"cmd": "check", "args": [bad]})["code"] == "E_UNKNOWN_INPUT"
@@ -53,7 +53,7 @@ def test_rejections_count_and_check_is_free(daemon):
     assert call(d.socket_path, {"cmd": "budget"})["remaining"] == 2
 
 
-def test_select_requires_evaluated_programs(daemon):
+def test_select_requires_evaluated_programs(daemon) -> None:
     d, tmp = daemon
     text = json.dumps(W0)
     assert not call(d.socket_path, {"cmd": "select", "args": [text]})["ok"]
@@ -63,13 +63,13 @@ def test_select_requires_evaluated_programs(daemon):
     assert rows == [("A", "agent selection")]
 
 
-def test_bad_requests(daemon):
+def test_bad_requests(daemon) -> None:
     d, _ = daemon
     assert not call(d.socket_path, {"cmd": "holdout", "args": ["{}"]})["ok"]
     assert not call(d.socket_path, {"cmd": "eval", "args": ["{}", "{}"]})["ok"]
 
 
-def test_swarm_history_is_shared_logged_and_capped(tmp_path, built_kernel):
+def test_swarm_history_is_shared_logged_and_capped(tmp_path: Path, built_kernel) -> None:
     from gate.agent.daemon import HISTORY_LIMIT, Swarm
 
     market = write_market(tmp_path / "m", market_id="swarm", days=40, holdout_days=10)
@@ -97,7 +97,7 @@ def test_swarm_history_is_shared_logged_and_capped(tmp_path, built_kernel):
             d.close()
 
 
-def test_history_injection_cannot_change_daemon_behavior(tmp_path, built_kernel):
+def test_history_injection_cannot_change_daemon_behavior(tmp_path: Path, built_kernel) -> None:
     """C4.3: text one agent submits reaches others only as data: it cannot add kernel requests,
     forge another agent's records, or move any daemon's budget, history count or responses."""
     from gate.agent.daemon import Swarm
@@ -135,10 +135,11 @@ def test_history_injection_cannot_change_daemon_behavior(tmp_path, built_kernel)
             d.close()
 
 
-def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_path, built_kernel):
+def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_path: Path, built_kernel) -> None:
     """C3.1 as written: under arm A's own budget, the 101st evaluation is refused, and overrides of the store, ledger,
     campaign and agent change nothing."""
     import inspect
+
     from gate.agent import harness
 
     budget = inspect.signature(harness.run_agent).parameters["budget"].default

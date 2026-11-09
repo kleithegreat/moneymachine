@@ -39,7 +39,7 @@ def sha(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def build():
+def build() -> None:
     kernel.build()
     subprocess.run(["lake", "build"], cwd=REPO / "reference/lean", check=True, capture_output=True)
     subprocess.run(["cargo", "build", "--release", "--offline", "-q"], cwd=REPO / "reference/mmdump", check=True)
@@ -248,7 +248,7 @@ def run(out, audit=AUDIT):
         for k, i in enumerate(range(0, len(its), CHUNK))
     ]
 
-    def run_chunk(c):
+    def run_chunk(c) -> None:
         key, m, its = c
         rs = chunk(
             [it["name"] for it in its],

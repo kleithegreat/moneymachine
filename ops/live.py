@@ -221,7 +221,7 @@ def manifest(name, digest):
     }
 
 
-def apply(digest, *names):
+def apply(digest, *names) -> None:
     kubectl(
         "apply",
         "-f",
@@ -278,7 +278,7 @@ def seed_paths(root, names):
     return paths
 
 
-def seed(digest, volume, *pairs):
+def seed(digest, volume, *pairs) -> None:
     """Copy `src:dest` pairs (a file or directory of this PC, a path in the volume) through the mirror export; a pod
     copies them into the volume and checks every sha256. An existing file is never overwritten."""
     VOLUMES[volume]
@@ -324,7 +324,7 @@ def seed(digest, volume, *pairs):
     shutil.rmtree(stage)
 
 
-def seed_run(volume, stage):
+def seed_run(volume, stage) -> None:
     src, dst = Path(stage), Path(APP) / VOLUMES[volume]
     sums = json.loads((src / "SHA256.json").read_text())
     seed_paths(dst, sums)
@@ -369,7 +369,7 @@ def mirror_source(source, kind, read, *args):
         return None
 
 
-def mirror(app=APP, out="/mirror"):
+def mirror(app=APP, out="/mirror") -> None:
     """Each volume into /mirror/<volume>, the live data's only copy, every step checked; any failure stops the run:
     - outside sandbox workspaces (`work/`), day files (*.jsonl) only grow: shrinkage, rewrites or disappearance are refused;
     - day-file sizes are captured before listing bodies; only those prefixes are copied;
@@ -458,7 +458,7 @@ def mirror(app=APP, out="/mirror"):
         (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
 
 
-def verify(app=APP, out="/mirror"):
+def verify(app=APP, out="/mirror") -> None:
     """Daily: verify prefixes; confirm mirror mismatches against a later manifest within MIRROR_VERIFY_WAIT."""
     for vol, path in VOLUMES.items():
         dst = Path(out) / vol
@@ -538,7 +538,7 @@ def view():
     return [" ".join(l.split()[4:5] + l.split()[8:9]) if l.count(" - ") == 1 else l for l in keep if not l.isdigit()]
 
 
-def reach(host, port):
+def reach(host, port) -> bool | None:
     try:
         socket.create_connection((host, port), timeout=5).close()
         return True
@@ -559,7 +559,7 @@ def retrieval_reach():
     return out
 
 
-def gate_run(targets):
+def gate_run(targets) -> None:
     """In a runner pod: the frozen hashes, the isolation tests, the sandbox's view, the network from the runner, the
     subscription's windows, and one sandboxed session authenticated by the token alone. Each part is recorded, its
     error included, whether or not another fails."""
@@ -646,7 +646,7 @@ TARGETS = [
 ]
 
 
-def gate(digest, proc):
+def gate(digest, proc) -> None:
     spec = pod_spec(
         "gate",
         digest,

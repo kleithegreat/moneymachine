@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 from pathlib import Path
+from typing import Never
 
 import numpy as np
 import pytest
@@ -66,7 +67,7 @@ class Campaign:
     """The stubs around `real`: the model session runs `evals` through the real daemon, the searcher commits one
     evaluation, and the search gate passes every filled trial when `finalists` is set."""
 
-    def __init__(self, tmp_path, monkeypatch):
+    def __init__(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         self.root = write_market(tmp_path / "real", days=60, holdout_days=20)
         policy = json.loads((self.root / "store/policy.json").read_text())
         self.from_ = policy["holdout_start"]
@@ -136,7 +137,7 @@ class Campaign:
         )
         return run
 
-    def searcher(self, name, market, ledger, cid, seed, die=False):
+    def searcher(self, name, market, ledger, cid, seed, die=False) -> None:
         self.searches += 1
         file = market.parent / "g.json"
         file.write_text(program(24))
@@ -148,7 +149,7 @@ class Campaign:
         finalists = list(campaigns.gate.candidates(ledger, cid, agent)) if self.finalists else []
         return finalists, {"n": len(finalists), "spa_p": 0.01, "screened": [], "finalists": finalists}
 
-    def run(self, version=1):
+    def run(self, version=1) -> None:
         campaigns.real(self.root, version, self.from_)
 
     def claims(self):
@@ -166,13 +167,13 @@ class Campaign:
 
 
 @pytest.fixture
-def c(tmp_path, monkeypatch, request):
+def c(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     if os.access(REPO, os.W_OK):
         request.getfixturevalue("built_kernel")
     return Campaign(tmp_path, monkeypatch)
 
 
-def test_a_complete_campaign_commits_promotions_before_reading_diagnostics(c, monkeypatch):
+def test_a_complete_campaign_commits_promotions_before_reading_diagnostics(c, monkeypatch: pytest.MonkeyPatch) -> None:
     read = campaigns.gate.committed_diagnostics
 
     def diagnostics(ledger, cid):
@@ -198,7 +199,7 @@ def test_a_complete_campaign_commits_promotions_before_reading_diagnostics(c, mo
     )
 
 
-def test_a_dead_session_with_evaluations_stands(c, monkeypatch):
+def test_a_dead_session_with_evaluations_stands(c, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
     monkeypatch.setattr(campaigns.harness, "run_agent", lambda *a: session(*a, die=True))
     with pytest.raises(Crash):
@@ -211,7 +212,7 @@ def test_a_dead_session_with_evaluations_stands(c, monkeypatch):
 
 
 @pytest.mark.parametrize("stopped, exit", [("finished", 0), ("turn limit", -9), ("wall time", -9)])
-def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c, stopped, exit):
+def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c, stopped, exit) -> None:
     c.evals, c.end = [], {"stopped": stopped, "exit": exit}
     with pytest.raises(SystemExit, match="void"):
         c.run()
@@ -222,7 +223,7 @@ def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c, stop
     assert [x["campaign"] for x in c.claims()] == ["stage3-real-2"]
 
 
-def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c):
+def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c) -> None:
     c.evals = []
     (c.out / "stage3-real/run").mkdir(parents=True)
     with pytest.raises(SystemExit, match="goes to the human"):
@@ -234,7 +235,7 @@ def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c):
 
 
 @pytest.mark.parametrize("exit", [1, -9, -15, 137])
-def test_a_session_without_a_designed_end_and_no_evaluation_goes_to_the_human(c, exit):
+def test_a_session_without_a_designed_end_and_no_evaluation_goes_to_the_human(c, exit) -> None:
     """A child killed from outside while its runner survives leaves a normal run record with a signal or nonzero exit."""
     c.evals, c.end = [], {"stopped": "finished", "exit": exit}
     for _ in range(2):
@@ -244,7 +245,7 @@ def test_a_session_without_a_designed_end_and_no_evaluation_goes_to_the_human(c,
     assert not (c.out / "stage3-real-2").exists()
 
 
-def test_a_resume_with_another_dataset_version_is_refused(c, monkeypatch):
+def test_a_resume_with_another_dataset_version_is_refused(c, monkeypatch: pytest.MonkeyPatch) -> None:
     crash_once(monkeypatch, campaigns.gate, "mechanism_check")
     with pytest.raises(Crash):
         c.run()
@@ -255,7 +256,7 @@ def test_a_resume_with_another_dataset_version_is_refused(c, monkeypatch):
     assert c.report()["version"] == 1 and len(c.claims()) == 1
 
 
-def test_a_run_record_never_disclosed_is_disclosed_on_resume(c, monkeypatch):
+def test_a_run_record_never_disclosed_is_disclosed_on_resume(c, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
     monkeypatch.setattr(campaigns.harness, "run_agent", lambda *a: session(*a, undisclosed=True))
     with pytest.raises(Crash):
@@ -267,7 +268,7 @@ def test_a_run_record_never_disclosed_is_disclosed_on_resume(c, monkeypatch):
     assert c.sessions == 1 and len(c.claims()) == 1
 
 
-def test_a_run_record_that_differs_from_its_disclosure_stops_before_arm_b(c, monkeypatch):
+def test_a_run_record_that_differs_from_its_disclosure_stops_before_arm_b(c, monkeypatch: pytest.MonkeyPatch) -> None:
     crash_once(monkeypatch, campaigns.gate, "mechanism_check")
     with pytest.raises(Crash):
         c.run()
@@ -278,17 +279,17 @@ def test_a_run_record_that_differs_from_its_disclosure_stops_before_arm_b(c, mon
     assert c.searches == 0 and c.claims() == []
 
 
-def test_zero_finalists_make_no_claim_and_say_so(c):
+def test_zero_finalists_make_no_claim_and_say_so(c) -> None:
     c.finalists = False
     c.run()
     r = c.report()
     assert r["released"] is False and c.claims() == [] and c.releases == 0 and r["A"]["promoted"] == []
 
 
-def partial_release(c, survivors):
+def partial_release(c, survivors) -> None:
     """A batch that stopped after its claim: the kernel's real claim, and real results only for `survivors`' programs."""
 
-    def release(market, ledger, cid, programs, holdout_from):
+    def release(market, ledger, cid, programs, holdout_from) -> None:
         c.releases += 1
         batch = market.parent / "batch.jsonl"
         batch.write_text("".join(json.dumps(programs[h]) + "\n" for h in list(programs)[:survivors]))
@@ -321,7 +322,7 @@ def partial_release(c, survivors):
     c.monkeypatch.setattr(campaigns.gate, "release", release)
 
 
-def test_an_aborted_finalist_counts_as_p_one_in_its_family_and_recovery_never_evaluates_again(c):
+def test_an_aborted_finalist_counts_as_p_one_in_its_family_and_recovery_never_evaluates_again(c) -> None:
     partial_release(c, 1)
     with pytest.raises(SystemExit, match="incomplete"):
         c.run()
@@ -338,8 +339,8 @@ def test_an_aborted_finalist_counts_as_p_one_in_its_family_and_recovery_never_ev
     assert c.releases == 1 and len(c.claims()) == 1 and len(c.disclosures("promotion")) == 1
 
 
-def test_a_batch_killed_right_after_its_claim_is_reported_as_lost(c):
-    def release(market, ledger, cid, programs, holdout_from):
+def test_a_batch_killed_right_after_its_claim_is_reported_as_lost(c) -> None:
+    def release(market, ledger, cid, programs, holdout_from) -> Never:
         with open(market / "holdout" / "spent.jsonl", "a") as fh:
             fh.write(json.dumps({"start": holdout_from, "end": 2**62, "campaign": cid}) + "\n")
         raise Crash
@@ -354,7 +355,7 @@ def test_a_batch_killed_right_after_its_claim_is_reported_as_lost(c):
     assert set(r["A"]["holdout"]["holdout_p"].values()) == {1.0}
 
 
-def crash_once(monkeypatch, owner, name):
+def crash_once(monkeypatch: pytest.MonkeyPatch, owner, name) -> None:
     real = getattr(owner, name)
     state = {"armed": True}
 
@@ -367,7 +368,7 @@ def crash_once(monkeypatch, owner, name):
     monkeypatch.setattr(owner, name, wrapped)
 
 
-def crash_on_write(monkeypatch, filename):
+def crash_on_write(monkeypatch: pytest.MonkeyPatch, filename) -> None:
     real = campaigns.write_json
     state = {"armed": True}
 
@@ -392,7 +393,7 @@ STEPS = {
 
 
 @pytest.mark.parametrize("step", STEPS)
-def test_recovery_after_a_crash_at_each_step(c, monkeypatch, step):
+def test_recovery_after_a_crash_at_each_step(c, monkeypatch: pytest.MonkeyPatch, step) -> None:
     STEPS[step](monkeypatch)
     with pytest.raises(Crash):
         c.run()
@@ -403,7 +404,7 @@ def test_recovery_after_a_crash_at_each_step(c, monkeypatch, step):
     assert len(c.disclosures("promotion")) == 1 and all(r["A"]["holdout"]["diagnostics"].values())
 
 
-def test_a_searcher_that_died_ended_its_arm(c, monkeypatch):
+def test_a_searcher_that_died_ended_its_arm(c, monkeypatch: pytest.MonkeyPatch) -> None:
     searcher = c.searcher
     monkeypatch.setattr(campaigns.search, "run", lambda *a: searcher(*a, die=True))
     with pytest.raises(Crash):
@@ -415,8 +416,8 @@ def test_a_searcher_that_died_ended_its_arm(c, monkeypatch):
 @pytest.mark.parametrize(
     "spoil", ["searcher", "harness", "c32", "c32 v1", "kernel", "failed audit", "no audit", "holdout", "claim"]
 )
-def test_nothing_starts_unless_it_is_ready(c, monkeypatch, spoil):
-    def refuse():
+def test_nothing_starts_unless_it_is_ready(c, monkeypatch: pytest.MonkeyPatch, spoil) -> None:
+    def refuse() -> Never:
         raise SystemExit("pin")
 
     if spoil == "searcher":
@@ -447,7 +448,7 @@ def test_nothing_starts_unless_it_is_ready(c, monkeypatch, spoil):
     assert c.sessions == 0 and not (c.out / "stage3-real/run").exists()
 
 
-def test_the_harness_is_checked_again_after_pacing(c, monkeypatch):
+def test_the_harness_is_checked_again_after_pacing(c, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
 
     def wait(log):
@@ -460,7 +461,7 @@ def test_the_harness_is_checked_again_after_pacing(c, monkeypatch):
     assert calls == ["frozen"] and c.sessions == 0
 
 
-def test_arm_a_waits_for_the_canary_and_a_stop_meanwhile_commits_nothing(c, monkeypatch):
+def test_arm_a_waits_for_the_canary_and_a_stop_meanwhile_commits_nothing(c, monkeypatch: pytest.MonkeyPatch) -> None:
     stop = threading.Event()
     monkeypatch.setattr(campaigns, "STOP", stop)
     monkeypatch.setattr(campaigns, "wait_for_room", lambda log: None if stop.is_set() else ("TAMU", {}))
@@ -473,7 +474,7 @@ def test_arm_a_waits_for_the_canary_and_a_stop_meanwhile_commits_nothing(c, monk
     assert not (c.out / "stage3-real" / "run").exists()
 
 
-def test_an_input_changed_during_the_arms_stops_the_release(c, monkeypatch):
+def test_an_input_changed_during_the_arms_stops_the_release(c, monkeypatch: pytest.MonkeyPatch) -> None:
     run_agent = c.session
 
     def session(market, ledger, cid, workdir):
@@ -487,7 +488,7 @@ def test_an_input_changed_during_the_arms_stops_the_release(c, monkeypatch):
     assert c.claims() == [] and c.releases == 0
 
 
-def test_a_failed_audit_stops_before_arm_b(c, monkeypatch):
+def test_a_failed_audit_stops_before_arm_b(c, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
 
     def forged(market, ledger, cid, workdir):
@@ -501,7 +502,7 @@ def test_a_failed_audit_stops_before_arm_b(c, monkeypatch):
     assert c.searches == 0 and c.claims() == []
 
 
-def test_audit_matches_per_kind_in_order_and_tolerates_a_session_without_calls(tmp_path, c):
+def test_audit_matches_per_kind_in_order_and_tolerates_a_session_without_calls(tmp_path: Path, c) -> None:
     market, ledger, run = c.root, tmp_path / "l.sqlite", tmp_path / "run"
     c.session(market, ledger, "x", run)
     a = campaigns.audit_run(run, ledger, "x")
@@ -518,7 +519,7 @@ def test_audit_matches_per_kind_in_order_and_tolerates_a_session_without_calls(t
     assert campaigns.audit_run(empty, ledger, "y")["match"]
 
 
-def null_campaign(c, monkeypatch, session):
+def null_campaign(c, monkeypatch: pytest.MonkeyPatch, session):
     """`agent_null` on the fixture's market, with `session` as the model session and its run record disclosed."""
 
     def run(market, ledger, cid, workdir):
@@ -547,7 +548,9 @@ def checks_only(market, ledger, cid, workdir):
 
 
 @pytest.mark.parametrize("session", [no_call, checks_only])
-def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(c, monkeypatch, session):
+def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(
+    c, monkeypatch: pytest.MonkeyPatch, session
+) -> None:
     r = null_campaign(c, monkeypatch, session)
     assert r["counts_as_promotion"] and r["evaluations"] == 0 and r["promoted"] == []
 
@@ -562,7 +565,9 @@ def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(c, monkeyp
         ("finished", 0, False),
     ],
 )
-def test_a_null_session_that_crashed_counts_as_a_promotion(c, monkeypatch, stopped, exit, counts):
+def test_a_null_session_that_crashed_counts_as_a_promotion(
+    c, monkeypatch: pytest.MonkeyPatch, stopped, exit, counts
+) -> None:
     def evaluates(market, ledger, cid, workdir):
         return {
             "spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent,
@@ -574,11 +579,11 @@ def test_a_null_session_that_crashed_counts_as_a_promotion(c, monkeypatch, stopp
     assert r["evaluations"] == 1 and r["promoted"] == [] and r["counts_as_promotion"] == counts
 
 
-def test_no_returns_mean_p_one():
+def test_no_returns_mean_p_one() -> None:
     assert campaigns.gate.holdout_pvalue(np.zeros(0)) == 1.0
 
 
-def series_in_the_pods_view():
+def series_in_the_pods_view() -> None:
     """One campaign of the agent series, run by `test_the_series_in_its_pods_view` inside the pod's view: everything
     real but the model sessions (the canary's, and the agent's through the real daemon), pacing and the funding blob,
     synthetic and seeded here."""
@@ -607,7 +612,7 @@ def series_in_the_pods_view():
     ), rows
 
 
-def test_the_series_in_its_pods_view(tmp_path, built_kernel):
+def test_the_series_in_its_pods_view(tmp_path: Path, built_kernel) -> None:
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
     (REPO / "data").mkdir(exist_ok=True)
     volume = tmp_path / "agent"
@@ -642,7 +647,7 @@ def test_the_series_in_its_pods_view(tmp_path, built_kernel):
     assert out.returncode == 0, out.stdout + out.stderr
 
 
-def test_under_a_read_only_root(tmp_path, built_kernel):
+def test_under_a_read_only_root(tmp_path: Path, built_kernel) -> None:
     target = f"{Path(__file__)}::test_a_complete_campaign_commits_promotions_before_reading_diagnostics"
     out = subprocess.run(
         [

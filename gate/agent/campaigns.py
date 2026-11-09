@@ -47,7 +47,7 @@ SMOKE = {
 }
 
 
-def freeze_harness():
+def freeze_harness() -> None:
     """Record the harness hash, naming the freeze it supersedes, once the sandbox canary passes. A freeze is for the
     declared cohorts and the real attempt they lead to, so it is refused once any of them started: a changed harness
     needs fresh ids in COHORTS."""
@@ -61,14 +61,14 @@ def freeze_harness():
     )
 
 
-def check_frozen(mm=None):
+def check_frozen(mm=None) -> None:
     if not FROZEN.exists() or json.loads(FROZEN.read_text())["harness"] != harness.harness_hash():
         sys.exit(f"the harness differs from {FROZEN}: null campaigns must be rerun with fresh ids after a change")
     if mm is not None and sha256(MM) != mm:
         sys.exit(f"the kernel differs from the series' recorded hash {mm}")
 
 
-def row_kind(entry):
+def row_kind(entry) -> str | None:
     """The disclosure kind a daemon call commits, by the kernel's own rule; None if it commits none."""
     cmd, r = entry["cmd"], entry["response"]
     if cmd == "eval" and r.get("code") != "BUDGET":
@@ -153,7 +153,7 @@ def null_market(cid, inputs):
     )
 
 
-def crashed(run):
+def crashed(run) -> bool:
     """A session that did not reach a designed end (a clean exit, the turn limit or the wall time): a nonzero exit, a
     signal, or no run record of its own. A stop from outside the session shows only as one of these."""
     return not (
@@ -247,7 +247,7 @@ def agent_evidence(ledger, campaign_id, run_dir, agent):
     }
 
 
-def swarm_class(promoted, crash, agents, trials, history):
+def swarm_class(promoted, crash, agents, trials, history) -> str:
     """C4.5 v3's class of a campaign: `promoted` whatever else happened; `unresolved` on a failed harness or evidence step,
     evidence that doesn't hold, or a crashed session that had received a disclosure; `established` once the gate has a
     filled trial, two agents evaluated and history crossed agents; otherwise `not established`. An agent with its records
@@ -264,7 +264,7 @@ def swarm_class(promoted, crash, agents, trials, history):
     return "established" if trials >= 1 and active >= 2 and history else "not established"
 
 
-def swarm_verdict(classes):
+def swarm_verdict(classes) -> str:
     """C4.5 v3's result from the campaigns' classes: `failed` dominates, `pass` needs all ten recorded."""
     assert set(classes) <= {"promoted", "unresolved", "established", "not established"}
     if sum(c in ("promoted", "unresolved") for c in classes) >= 2:
@@ -485,7 +485,7 @@ def usage(work):
     return total
 
 
-def run_series(name):
+def run_series(name) -> None:
     """The campaigns of `cohort(name)` once `series_inputs` resolve, resumable (a started, unrecorded id is recorded as a
     crash), each started when its account is `ready` and the harness and kernel are unchanged, its directory made first
     as the mark that it started, and recorded with its account, usage, kernel and the windows around it. SIGTERM ends
@@ -518,7 +518,7 @@ def run_series(name):
                 fh.write(json.dumps({"id": cid, **result}) + "\n")
 
 
-def write_json(path, value):
+def write_json(path, value) -> None:
     """`path` holds the whole of `value` or is untouched, whenever the process dies."""
     tmp = path.with_name(path.name + ".tmp")
     with open(tmp, "w") as fh:
@@ -551,7 +551,7 @@ def inputs(root):
     return found | {"mm": sha256(MM)}
 
 
-def check_ready(work, data_root, version, report_from):
+def check_ready(work, data_root, version, report_from) -> None:
     """Everything that would make the release invalid and can be known without it: C3.2 recorded and passed, C3.1's
     audit holding for every null run, the frozen harness and searcher, the writable paths, no overlapping claim, the
     holdout as C0.9 recorded it, and the inputs, dataset version and holdout start as this campaign first recorded them.
@@ -647,7 +647,7 @@ def run_record(run_dir, ledger, campaign):
     return run
 
 
-def both_arms(work, data_root, version, report_from, voids):
+def both_arms(work, data_root, version, report_from, voids) -> None:
     """Everything before the release, ending in the frozen finalists and `pre-release.json`. An arm runs only if it never
     started: one that started and has no record ended there (One attempt), and every later step can simply run again."""
     cid = work.name
@@ -712,7 +712,7 @@ def both_arms(work, data_root, version, report_from, voids):
     )
 
 
-def commit_promotions(ledger, campaign, decisions):
+def commit_promotions(ledger, campaign, decisions) -> None:
     """The promotion decisions as one ledger disclosure, once; a later report must reach the same ones."""
     row = (
         sqlite3.connect(ledger)
@@ -780,7 +780,7 @@ def real_attempt():
     return cid, voids
 
 
-def real(data_root, version, report_from=REAL_REPORT_FROM):
+def real(data_root, version, report_from=REAL_REPORT_FROM) -> None:
     """The one real campaign: both arms, one holdout batch with Holm within each arm, its report. Running it again resumes
     the same attempt and never repeats an arm or the release; only a void attempt moves on to a fresh id."""
     OUT.mkdir(parents=True, exist_ok=True)
@@ -1061,7 +1061,7 @@ def swarm_report(rows):
     }
 
 
-def summary(name, out):
+def summary(name, out) -> None:
     """A null series (`agent` or `swarm`): its campaigns' ids, counted promotions, kernels, C3.1 audits (None where a
     campaign recorded none), evaluations and history use, and the spreads of SPA p-values, maximum DSR and screened
     counts beside its baseline searcher's complete-null N2 runs."""

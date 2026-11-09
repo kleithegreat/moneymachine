@@ -84,13 +84,15 @@ def outcome(i, new):
         "tool outside PERMITTED",
     ],
 )
-def test_counterexamples_fail(monkeypatch, calls):
+def test_counterexamples_fail(monkeypatch: pytest.MonkeyPatch, calls) -> None:
     monkeypatch.setattr(session, "run", scripted(calls))
     with pytest.raises(canary.Broken):
         canary.check()
 
 
-def test_the_good_session_passes_and_a_session_that_did_not_run_is_unavailable(monkeypatch, capsys):
+def test_the_good_session_passes_and_a_session_that_did_not_run_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.setattr(session, "run", scripted(GOOD))
     assert canary.check()["write"] and canary.passes()
     monkeypatch.setattr(session, "run", scripted([], exit=1))
@@ -103,5 +105,5 @@ def test_the_good_session_passes_and_a_session_that_did_not_run_is_unavailable(m
     not (os.environ.get("MM_CANARY") == "1" and os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")),
     reason="spends model turns: set MM_CANARY=1 and CLAUDE_CODE_OAUTH_TOKEN",
 )
-def test_the_real_cli():
+def test_the_real_cli() -> None:
     canary.check()

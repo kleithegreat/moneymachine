@@ -37,7 +37,7 @@ def cases():
         yield 0.01 * (f + z), 7
 
 
-def test_edge_cases_are_exercised():
+def test_edge_cases_are_exercised() -> None:
     hits = 0
     for r, n in cases():
         if r.std() == 0:
@@ -48,7 +48,7 @@ def test_edge_cases_are_exercised():
     assert hits >= 10
 
 
-def test_dsr_implementations_agree():
+def test_dsr_implementations_agree() -> None:
     disagreements = []
     for i, (r, n) in enumerate(cases()):
         a, b = gate.dsr(r, n), gpt_dsr.dsr(r, n)
@@ -57,7 +57,7 @@ def test_dsr_implementations_agree():
     assert disagreements == [], disagreements[:5]
 
 
-def test_extreme_finite_returns_agree_without_overflow():
+def test_extreme_finite_returns_agree_without_overflow() -> None:
     for r in (
         np.array([0.0, 0.0, 1e300, -1e300]),
         np.array([1e-300, 2e-300, 0.0, 5e-301]),
@@ -68,7 +68,7 @@ def test_extreme_finite_returns_agree_without_overflow():
 
 
 @pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
-def test_both_refuse_a_nonfinite_return(bad):
+def test_both_refuse_a_nonfinite_return(bad) -> None:
     r = np.r_[np.random.default_rng(7).normal(0, 0.01, 50), bad]
     for dsr in (gate.dsr, gpt_dsr.dsr):
         with pytest.raises(ValueError):

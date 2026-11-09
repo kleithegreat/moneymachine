@@ -238,7 +238,7 @@ def ntp_readings(sources_dir):
     ]
 
 
-def report(live_dir, sources_dir, out, oci_dir=None):
+def report(live_dir, sources_dir, out, oci_dir=None) -> None:
     """The judged window, the polls each host contributed, the analysis of the polls inside it, and each host's NTP
     record over it."""
     judged = judgment(live_dir, sources_dir, oci_dir)

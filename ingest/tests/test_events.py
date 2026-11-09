@@ -1,6 +1,8 @@
 """Stage 5 derivation: hourly counts by knownAt (prospective, with the source's margin), coverage, and recompute."""
 
 import json
+from datetime import UTC
+from pathlib import Path
 
 import polars as pl
 
@@ -9,7 +11,7 @@ from ingest.policy import HOUR as H
 from ingest.store import Store
 
 
-def setup(tmp_path, posts, live):
+def setup(tmp_path: Path, posts, live):
     raw = Store(tmp_path / "data" / "sources", key=["forum", "upstream_id"])
     raw.write(
         "discourse",
@@ -38,9 +40,9 @@ def setup(tmp_path, posts, live):
 
 
 def iso(t):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.fromtimestamp(t / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.fromtimestamp(t / 1000, UTC).isoformat().replace("+00:00", "Z")
 
 
 def poll(t, items=()):
@@ -57,7 +59,7 @@ def every_5_min(start, end, skip=()):
     return [poll(t) for t in range(start, end + 1, 300_000) if not any(a <= t < b for a, b in skip)]
 
 
-def test_counts_are_prospective_with_the_margin(tmp_path):
+def test_counts_are_prospective_with_the_margin(tmp_path: Path) -> None:
     posts = [(1, 10 * H + 5), (2, 10 * H + 1_000_000)]
     live = every_5_min(90 * H, 120 * H) + [
         poll(90 * H, [(4, 89 * H + 1)]),
@@ -72,14 +74,14 @@ def test_counts_are_prospective_with_the_margin(tmp_path):
     assert events.derive(root, 120 * H, live_dir).equals(df)
 
 
-def test_hours_a_recording_gap_touches_are_undefined(tmp_path):
+def test_hours_a_recording_gap_touches_are_undefined(tmp_path: Path) -> None:
     live = every_5_min(90 * H, 110 * H, skip=[(100 * H + 1, 100 * H + 40 * 60_000)])
     root, live_dir = setup(tmp_path, [(1, 10 * H)], live)
     hours = set(events.derive(root, 110 * H, live_dir)["eventTime"])
     assert {100 * H, 102 * H} <= hours and 101 * H not in hours
 
 
-def test_stored_derivation_recomputes_byte_identically(tmp_path):
+def test_stored_derivation_recomputes_byte_identically(tmp_path: Path) -> None:
     """C5.2: the derived dataset in the store is reproduced exactly from the raw store and recordings."""
     from ingest.store import _hash, stores
 
