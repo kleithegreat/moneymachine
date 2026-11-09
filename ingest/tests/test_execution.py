@@ -1,11 +1,19 @@
+from typing import Any
+
 from ingest import execution
 from ingest.policy import BAR
 
 
 def test_relative_ranges_use_reference_bars_inside_each_coins_calibration_span() -> None:
-    report = {"A:buy:1000": {"calibration_span": [0, 3 * BAR]}, "B:buy:1000": {"calibration_span": None}}
-    bar = lambda t, h: {"t": t, "o": "100", "h": str(h), "l": "100"}
-    polls = [
+    report: dict[str, dict[str, Any]] = {
+        "A:buy:1000": {"calibration_span": [0, 3 * BAR]},
+        "B:buy:1000": {"calibration_span": None},
+    }
+
+    def bar(t: int, h: int) -> dict[str, Any]:
+        return {"t": t, "o": "100", "h": str(h), "l": "100"}
+
+    polls: list[dict[str, Any]] = [
         {"kind": "bar", "purpose": "verify", "coin": "A", "boundary": t + BAR, "data": [bar(t, h), bar(t + BAR, 999)]}
         for t, h in ((0, 102), (BAR, 101), (2 * BAR, 105), (3 * BAR, 150))
     ]

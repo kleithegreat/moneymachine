@@ -9,18 +9,21 @@ Recorded keys that map to no coin of U are listed with their raw counts and gaps
 """
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from ingest import events
 from ingest.policy import HOLDOUT_START, HOUR, W_START
+from ingest.units import EpochMs
 
 
-def gaps(polls):
+def gaps(polls: list[EpochMs]) -> list[list[EpochMs]]:
     return [[a, b] for a, b in zip(polls, polls[1:]) if b - a > events.GAP]
 
 
-def runs(hours):
-    out = []
+def runs(hours: Iterable[EpochMs]) -> list[list[EpochMs]]:
+    out: list[list[EpochMs]] = []
     for h in hours:
         if out and h == out[-1][1] + HOUR:
             out[-1][1] = h
@@ -29,25 +32,25 @@ def runs(hours):
     return out
 
 
-def report(data_root, version, live_dir):
+def report(data_root: str | Path, version: EpochMs, live_dir: str | Path) -> dict[str, Any]:
     coins = json.loads((Path(data_root) / "universe.json").read_text())["universe"]
-    out = {}
+    out: dict[str, Any] = {}
     for source, spec in events.SOURCES.items():
         key_of = {r["coin"]: r[spec["key"]] for r in json.loads(spec["map"].read_text())["rows"]}
         coin_of = {k: c for c, k in key_of.items()}
         obs, polled = events.records(data_root, live_dir, source, version)
         rows = events.counts(obs, polled, coin_of, spec["margin"], version)
-        raw = {}
+        raw: dict[str, int] = {}
         for (key, _), (created, _) in events.items(obs).items():
             raw[key] = raw.get(key, 0) + (W_START <= created < HOLDOUT_START)
-        per = {}
+        per: dict[str, Any] = {}
         for coin in coins:
-            key = key_of.get(coin)
+            mapped = key_of.get(coin)
             hours = sorted(h for c, h, _ in rows if c == coin)
-            t = sorted(polled.get(key, []))
+            t = sorted(polled.get(mapped, [])) if mapped else []
             per[coin] = {
-                "mapped_key": key,
-                "raw_items_created_in_search_part": raw.get(key, 0),
+                "mapped_key": mapped,
+                "raw_items_created_in_search_part": raw.get(mapped, 0) if mapped else 0,
                 "search_part_rows": 0,
                 "live_counted_items": sum(n for c, _, n in rows if c == coin),
                 "covered_hours": len(hours),

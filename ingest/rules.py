@@ -3,13 +3,14 @@
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 from ingest.hl import Info
 
 DOCS = "https://hyperliquid.gitbook.io/hyperliquid-docs"
 
 
-def build(info, coins, today):
+def build(info: Info, coins: list[str], today: str) -> dict[str, Any]:
     meta = info.meta()
     tables = dict(meta["marginTables"])
     assets = {a["name"]: a for a in meta["universe"]}
@@ -87,7 +88,7 @@ def build(info, coins, today):
     }
 
 
-def write(data_root, out) -> None:
+def write(data_root: Path | str, out: Path | str) -> None:
     coins = json.loads((Path(data_root) / "universe.json").read_text())["universe"]
     rules = build(Info(), coins, time.strftime("%Y-%m-%d", time.gmtime()))
     Path(out).parent.mkdir(parents=True, exist_ok=True)

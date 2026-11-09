@@ -16,21 +16,24 @@ DUMP = REPO / "reference/mmdump/target/release/mmdump"
 LATE = 887_645
 
 
-def test_loader_matches_as_of(tmp_path: Path, built_mmdump) -> None:
+def test_loader_matches_as_of(tmp_path: Path, built_mmdump: None) -> None:
     root = write_market(tmp_path / "m", market_id="resolution", days=20)
     store = Store(root / "store")
-    restated = (
-        store.revisions("funding")
-        .filter(pl.col("eventTime") % DAY == 10 * HOUR)
-        .select("coin", "eventTime", "fundingRate", "premium", pl.col("reportedTime") + LATE)
+    funding = store.revisions("funding")
+    assert funding is not None
+    restated = funding.filter(pl.col("eventTime") % DAY == 10 * HOUR).select(
+        "coin", "eventTime", "fundingRate", "premium", pl.col("reportedTime") + LATE
     )
     assert store.write("funding", restated, 2, "t") == restated.height
-    bars = store.revisions("bars_4h").drop("fetchedAt", "source", "hash")
+    all_bars = store.revisions("bars_4h")
+    assert all_bars is not None
+    bars = all_bars.drop("fetchedAt", "source", "hash")
     corrected = bars.filter(pl.col("eventTime") % DAY == 8 * HOUR).with_columns(pl.col("close") * 1.01)
     assert store.write("bars_4h", corrected, 30 * DAY, "t") == corrected.height
+    latest_bars = store.revisions("bars_4h")
+    assert latest_bars is not None
     s1 = (
-        store.revisions("bars_4h")
-        .sort("fetchedAt")
+        latest_bars.sort("fetchedAt")
         .group_by("coin", "eventTime")
         .last()
         .filter(pl.col("coin") == "S1")

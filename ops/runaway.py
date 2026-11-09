@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from gate.agent import campaigns
+from sandbox import canary
 
 
 def series(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk: int) -> None:
@@ -18,7 +19,7 @@ def series(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk: int) -> None:
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "check_frozen", lambda: None)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "x"})
-    monkeypatch.setattr(campaigns.canary, "passes", lambda: True)
+    monkeypatch.setattr(canary, "passes", lambda: True)
     monkeypatch.setattr(campaigns, "windows", lambda token=None: {"five_hour": [0.99, 100]})
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_CORNELL", "cornell")
     monkeypatch.setattr(

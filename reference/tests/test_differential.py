@@ -3,13 +3,14 @@ and the inventory names what a corpus lacks."""
 
 import struct
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from reference import differential as d
 
 
-def stream(values):
+def stream(values: list[float | None]) -> bytes:
     return b"".join(b"\0" if v is None else b"\1" + struct.pack("<d", v) for v in values)
 
 
@@ -59,9 +60,11 @@ def test_an_interrupted_run_resumes_where_it_stopped(tmp_path: Path, monkeypatch
     monkeypatch.setattr(d, "market_hash", lambda root: root.name.lower())
     monkeypatch.setattr(d, "complete", lambda *a: [])
     monkeypatch.setattr(d, "verdict", lambda i, it, work: {"i": i, "name": it["name"], "mm": "ok", "ref": "ok"})
-    ran = []
+    ran: list[str] = []
 
-    def chunk(names, texts, market, root, version, tmp):
+    def chunk(
+        names: list[str], texts: list[str], market: str, root: Path, version: int, tmp: Path
+    ) -> list[tuple[Any, ...]]:
         if len(ran) == 2 and not ran[-1].startswith("again"):
             raise RuntimeError("interrupted")
         ran.append(f"{market}:{names[0]}")

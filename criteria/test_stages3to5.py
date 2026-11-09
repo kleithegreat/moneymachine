@@ -109,7 +109,7 @@ def test_c53_prospective_sources_reported() -> None:
     assert sorted((REPO / "audit/stage5").glob("reconcile-*.json"))
 
 
-def search_event_datasets(store):
+def search_event_datasets(store: Path) -> list[str]:
     return sorted(p.name for p in store.iterdir() if p.name.startswith("events_"))
 
 

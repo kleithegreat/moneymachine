@@ -18,9 +18,9 @@ strict = true
 follow_imports = "skip"
 
 [[tool.mypy.overrides]]
-module = ["pytest.*", "_pytest.*"]
+module = ["pytest.*", "_pytest.*", "hypothesis.*"]
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "pandas.*", "statsmodels.*", "arch.*", "pyarrow.*", "polars.*", "hypothesis.*"]
+module = ["scipy.*", "pandas.*", "statsmodels.*", "arch.*", "pyarrow.*", "polars.*"]
 ignore_missing_imports = true

@@ -68,6 +68,6 @@ def test_runs_agree_bit_for_bit(tmp_path: Path) -> None:
     programs = [w0, since] + probes(True)[:6]
     programs += [search.compile_genome(search.random_genome(rng, 7)) for _ in range(6)]
     results = differential.chunk(
-        list(range(len(programs))), [json.dumps(p) for p in programs], "smoke", root, 1, tmp_path
+        [str(i) for i in range(len(programs))], [json.dumps(p) for p in programs], "smoke", root, 1, tmp_path
     )
     assert [name for name, _, agreed, _, _ in results if not agreed] == []

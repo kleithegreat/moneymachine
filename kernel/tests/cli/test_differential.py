@@ -5,7 +5,9 @@ same datum)."""
 import json
 import os
 import subprocess
+from collections.abc import Collection
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -16,7 +18,7 @@ REPO = Path(__file__).resolve().parents[3]
 TOL = 1e-6
 
 
-def stage0_version():
+def stage0_version() -> int | None:
     """The latest stage 0 dataset version: the judged second fetch once it exists."""
     reports = sorted((REPO / "audit" / "stage0").glob("ingest-*.json"))
     return int(reports[-1].stem.rsplit("-", 1)[1]) if reports else None
@@ -32,15 +34,15 @@ pytestmark = pytest.mark.skipif(
 KINDS = ("equity", "decision", "hold", "fill", "liquidation", "delisting", "unfilled", "funding")
 
 
-def by_type(events, kinds):
+def by_type(events: list[dict[str, Any]], kinds: Collection[str]) -> list[dict[str, Any]]:
     return [e for e in events if e["type"] in kinds]
 
 
-def steps(events):
+def steps(events: list[dict[str, Any]]) -> list[tuple[Any, str, str]]:
     return [(e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS)]
 
 
-def test_kernel_matches_witness(tmp_path: Path, built_kernel) -> None:
+def test_kernel_matches_witness(tmp_path: Path, built_kernel: Path) -> None:
     version = stage0_version()
     out = tmp_path / "trace.jsonl"
     r = subprocess.run(

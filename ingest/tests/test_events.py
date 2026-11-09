@@ -1,8 +1,10 @@
 """Stage 5 derivation: hourly counts by knownAt (prospective, with the source's margin), coverage, and recompute."""
 
 import json
+from collections.abc import Iterable, Sequence
 from datetime import UTC
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 
@@ -11,7 +13,7 @@ from ingest.policy import HOUR as H
 from ingest.store import Store
 
 
-def setup(tmp_path: Path, posts, live):
+def setup(tmp_path: Path, posts: Iterable[tuple[int, int]], live: Iterable[dict[str, Any]]) -> tuple[Path, Path]:
     raw = Store(tmp_path / "data" / "sources", key=["forum", "upstream_id"])
     raw.write(
         "discourse",
@@ -39,13 +41,13 @@ def setup(tmp_path: Path, posts, live):
     return tmp_path / "data", live_dir
 
 
-def iso(t):
+def iso(t: int) -> str:
     from datetime import datetime
 
     return datetime.fromtimestamp(t / 1000, UTC).isoformat().replace("+00:00", "Z")
 
 
-def poll(t, items=()):
+def poll(t: int, items: Iterable[tuple[int, int]] = ()) -> dict[str, Any]:
     return {
         "source": "discourse",
         "key": "delvingbitcoin.org",
@@ -55,7 +57,7 @@ def poll(t, items=()):
     }
 
 
-def every_5_min(start, end, skip=()):
+def every_5_min(start: int, end: int, skip: Sequence[tuple[int, int]] = ()) -> list[dict[str, Any]]:
     return [poll(t) for t in range(start, end + 1, 300_000) if not any(a <= t < b for a, b in skip)]
 
 
@@ -88,7 +90,9 @@ def test_stored_derivation_recomputes_byte_identically(tmp_path: Path) -> None:
     live = every_5_min(20 * H, 40 * H) + [poll(t * H, [(9, 30 * H + 7)]) for t in (31, 40)]
     root, live_dir = setup(tmp_path, [(1, 10 * H + 5), (2, 33 * H)], live)
     out = events.main(root, 100 * H, live_dir, audit=tmp_path)
-    stored = stores(root)[0].revisions("events_forum").sort("eventTime")
+    revisions = stores(root)[0].revisions("events_forum")
+    assert revisions is not None
+    stored = revisions.sort("eventTime")
     again = events.derive(root, 100 * H, live_dir)
     assert again["count"].sum() == 1
     assert stored.height == again.height > 0

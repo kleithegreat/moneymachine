@@ -22,7 +22,7 @@ def token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "test-token")
 
 
-def inside(workdir, script):
+def inside(workdir: Path, script: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         session.sandbox_command(workdir, harness.CLIENT, ["/bin/sh", "-c", script]),
         capture_output=True,

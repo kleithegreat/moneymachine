@@ -3,16 +3,17 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from gate import campaign
+from gate import campaign, sweep
 from gate.agent import campaigns
 from ops import live
 
 
 @pytest.mark.parametrize("tail", [b'{"id":"interrupted",', b'{"id":"\xe2\x82'])
-def test_killed_series_append_recovers_as_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tail) -> None:
+def test_killed_series_append_recovers_as_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tail: bytes) -> None:
     tmp_path = tmp_path / "app"
     tmp_path.mkdir()
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
@@ -39,8 +40,13 @@ def test_killed_series_append_recovers_as_a_crash(tmp_path: Path, monkeypatch: p
     mirror = tmp_path.parent / "mirror"
     monkeypatch.setattr(live, "VOLUMES", {"agent": "."})
     live.mirror(tmp_path, mirror)
-    started = []
-    monkeypatch.setitem(campaigns.SERIES, "agent", lambda cid, _: started.append(cid) or {"counts_as_promotion": False})
+    started: list[str] = []
+
+    def complete(cid: str, inputs: dict[str, Any]) -> dict[str, Any]:
+        started.append(cid)
+        return {"counts_as_promotion": False}
+
+    monkeypatch.setitem(campaigns.SERIES, "agent", complete)
 
     campaigns.run_series("agent")
 
@@ -53,7 +59,7 @@ def test_killed_series_append_recovers_as_a_crash(tmp_path: Path, monkeypatch: p
     live.mirror(tmp_path, mirror)
     live.verify(tmp_path, mirror)
     assert campaigns.need(log) == {}
-    monkeypatch.setattr(campaigns.sweep, "results", lambda _: [])
+    monkeypatch.setattr(sweep, "results", lambda _: [])
     summary = tmp_path / "summary.json"
     campaigns.summary("agent", summary)
     assert json.loads(summary.read_text())["ids"] == ids
@@ -73,7 +79,7 @@ def test_complete_final_result_without_newline_is_preserved(tmp_path: Path) -> N
 
 
 @pytest.mark.parametrize("corrupt", [b'{"broken":\n', b"\xff\n"])
-def test_torn_records_are_ignored_without_changing_history(tmp_path: Path, corrupt) -> None:
+def test_torn_records_are_ignored_without_changing_history(tmp_path: Path, corrupt: bytes) -> None:
     log = tmp_path / "series.jsonl"
     original = b'{"id":"complete"}\n' + corrupt + b'{"id":"later"}\n'
     log.write_bytes(original)

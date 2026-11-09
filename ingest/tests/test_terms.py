@@ -1,12 +1,13 @@
 """Terms certification (paper §5): every place the code fetches from automatically has a certified record in the
 registry `venue/sources.toml`, and a record without its evidence is not certified."""
 
+from collections.abc import Sequence
 from datetime import date
 from urllib.parse import urlparse
 
 from ingest import datalayer, hl, sources_record, terms
 
-FETCHED = {
+FETCHED: dict[str, Sequence[str | None]] = {
     "discourse": sources_record.FORUMS,
     "snapshot": [urlparse(sources_record.HUB).hostname],
     "hyperliquid": [urlparse(hl.URL).hostname],

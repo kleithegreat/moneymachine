@@ -2,11 +2,13 @@
 # alone, tools denied (reply: audit/stage2/screen-impl-gpt-2.md).
 """Independent DSR screen implementing the 2026-10-27 18:43 UTC revision."""
 
+from typing import Any
+
 import numpy as np
 from scipy.special import ndtr, ndtri_exp
 
 
-def dsr(returns, n_trials) -> float:
+def dsr(returns: Any, n_trials: int) -> float:
     """Return the DSR score, not the Boolean DSR >= 0.95 screen decision."""
     # Convention: reject invalid inputs rather than omit observations or
     # manufacture a score. Accept Python/NumPy integers, but not booleans.

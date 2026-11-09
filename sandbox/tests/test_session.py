@@ -2,12 +2,16 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 from sandbox import session
 
 
 def test_client_calls_count_invocations_in_commands_that_ran(tmp_path: Path) -> None:
-    bash = lambda i, cmd: {"type": "tool_use", "id": i, "name": "Bash", "input": {"command": cmd}}
+
+    def bash(i: str, cmd: str) -> dict[str, Any]:
+        return {"type": "tool_use", "id": i, "name": "Bash", "input": {"command": cmd}}
+
     lines = [
         {
             "type": "assistant",

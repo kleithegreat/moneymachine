@@ -22,10 +22,12 @@ import itertools
 import json
 import math
 import sqlite3
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -39,7 +41,7 @@ from gate.agent import campaigns, daemon
 
 @pytest.mark.parametrize("n", [1, 2, 17, 400])
 @pytest.mark.parametrize("sign", [-1, 0, 1])
-def test_dsr_hand_moments(n, sign) -> None:
+def test_dsr_hand_moments(n: int, sign: int) -> None:
     """r=sign+(-1,0,1): s=1, skew=0, ordinary kurtosis=3/2.
 
     Thus S=sign, V=1+sign²/8 and z=(sign*sqrt(2)-Z_N)/sqrt(V).
@@ -53,13 +55,13 @@ def test_dsr_hand_moments(n, sign) -> None:
 
 
 @pytest.mark.parametrize("r", [[], [1], [1, 2], [0, 0, 0], [3, 3, 3]])
-def test_dsr_short_or_constant(r) -> None:
+def test_dsr_short_or_constant(r: Sequence[float]) -> None:
     """Criteria 2026-10-27 18:43: T<3 or sd=0 gives score 0."""
     assert gate.dsr(r, 1) == 0
 
 
 @pytest.mark.parametrize("offset, expected", [(0.0, 0.0), (1e-7, 0.0), (1e-4, 1.0)])
-def test_dsr_degenerate_variance(offset, expected) -> None:
+def test_dsr_degenerate_variance(offset: float, expected: float) -> None:
     """Three a's and one a+1 have sd=1/2, skew=2/sqrt(3), kurt=7/3.
 
     At a=sqrt(3)/2-1/4, S=sqrt(3), V=(1-S/sqrt(3))²=0.
@@ -71,21 +73,21 @@ def test_dsr_degenerate_variance(offset, expected) -> None:
 
 
 @pytest.mark.parametrize("scale", [1e-300, 1.0, 1e300])
-def test_dsr_finite_rescaling(scale) -> None:
+def test_dsr_finite_rescaling(scale: float) -> None:
     """The 19:02 revision requires positive-scale invariance, even near overflow."""
     assert gate.dsr(np.array([0.0, 1.0, 2.0]) * scale, 1) == pytest.approx(norm.cdf(4 / 3))
 
 
 @pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
 @pytest.mark.parametrize("prefix", [[], [0.0], [0.0, 1.0, 2.0]])
-def test_dsr_nonfinite_is_failure_even_when_short(bad, prefix) -> None:
+def test_dsr_nonfinite_is_failure_even_when_short(bad: float, prefix: list[float]) -> None:
     """The 18:50 revision says any nonfinite return raises, never score zero."""
     with pytest.raises(ValueError):
         gate.dsr(prefix + [bad], 1)
 
 
 @pytest.fixture
-def ledger(tmp_path: Path):
+def ledger(tmp_path: Path) -> Path:
     """Minimal in-memory-generated SQL wire fixture, not a production ledger."""
     path = tmp_path / "synthetic.sqlite"
     with sqlite3.connect(path) as db:
@@ -99,7 +101,15 @@ def ledger(tmp_path: Path):
     return path
 
 
-def add_trial(ledger, key, returns, fills=1, agent="A", campaign="spec", mode="search") -> None:
+def add_trial(
+    ledger: Path,
+    key: str,
+    returns: Sequence[float],
+    fills: int = 1,
+    agent: str = "A",
+    campaign: str = "spec",
+    mode: str = "search",
+) -> None:
     with sqlite3.connect(ledger) as db:
         number = db.execute("SELECT count(*)+1 FROM experiments").fetchone()[0]
         db.execute(
@@ -112,7 +122,7 @@ def add_trial(ledger, key, returns, fills=1, agent="A", campaign="spec", mode="s
         )
 
 
-def test_trial_count_is_not_evaluation_budget(ledger) -> None:
+def test_trial_count_is_not_evaluation_budget(ledger: Path) -> None:
     """Stage 3 counts duplicate/zero-fill evals in budget; N counts distinct filled trials."""
     add_trial(ledger, "same", [0.0, 1.0, 2.0])
     add_trial(ledger, "same", [0.0, 1.0, 2.0])
@@ -124,7 +134,7 @@ def test_trial_count_is_not_evaluation_budget(ledger) -> None:
     assert set(gate.trials(ledger, "spec")) == {"same", "other-arm"}
 
 
-def test_evaluation_ledger_counts_rejections_and_duplicates_not_checks(ledger) -> None:
+def test_evaluation_ledger_counts_rejections_and_duplicates_not_checks(ledger: Path) -> None:
     """C3.1/Swarm accounting: 2 identical evals + rejection + abort = 4.
     A check's path-bearing rejection and non-evaluation disclosures are free.
     Campaign/agent filtering prevents spending another arm's budget.
@@ -149,7 +159,7 @@ def test_evaluation_ledger_counts_rejections_and_duplicates_not_checks(ledger) -
     assert campaigns.evaluations(ledger, "empty", "A") == 0
 
 
-def test_empty_search_never_selects(ledger) -> None:
+def test_empty_search_never_selects(ledger: Path) -> None:
     finalists, report = gate.search_decision(ledger, "spec")
     assert finalists == []
     assert report["n"] == 0
@@ -157,7 +167,9 @@ def test_empty_search_never_selects(ledger) -> None:
 
 
 @pytest.mark.parametrize("spa_p, selected", [(0.049, True), (0.05, True), (0.051, False)])
-def test_spa_consistent_pvalue_and_bootstrap_contract(monkeypatch: pytest.MonkeyPatch, ledger, spa_p, selected) -> None:
+def test_spa_consistent_pvalue_and_bootstrap_contract(
+    monkeypatch: pytest.MonkeyPatch, ledger: Path, spa_p: float, selected: bool
+) -> None:
     """Criteria: flat benchmark, losses=-returns, all trials, consistent p,
     studentization, stationary blocks of 6, 1000 replicates and id-derived seed.
     The three reported SPA variants deliberately imply different decisions.
@@ -168,7 +180,7 @@ def test_spa_consistent_pvalue_and_bootstrap_contract(monkeypatch: pytest.Monkey
     calls = []
 
     class SPA:
-        def __init__(self, benchmark, models, **kwargs) -> None:
+        def __init__(self, benchmark: Any, models: Any, **kwargs: Any) -> None:
             calls.append((np.asarray(benchmark), np.asarray(models), kwargs))
             self.pvalues = pd.Series({"lower": 0.0, "consistent": spa_p, "upper": 1.0})
 
@@ -195,7 +207,7 @@ def test_spa_consistent_pvalue_and_bootstrap_contract(monkeypatch: pytest.Monkey
     assert calls[-1][2]["seed"] != first_seed
 
 
-def test_screen_threshold_inclusive_and_raw_n_controls_selection(monkeypatch: pytest.MonkeyPatch, ledger) -> None:
+def test_screen_threshold_inclusive_and_raw_n_controls_selection(monkeypatch: pytest.MonkeyPatch, ledger: Path) -> None:
     """DSR>=.95 includes equality; a clustered N=1 cannot replace raw N=2.
     Both series are perfectly correlated but distinct trials, so diagnostics
     also exercise recomputing the screen at the smaller cluster counts.
@@ -204,7 +216,7 @@ def test_screen_threshold_inclusive_and_raw_n_controls_selection(monkeypatch: py
     add_trial(ledger, "below", [0.02, 0.04] * 30)
 
     class SPA:
-        def __init__(self, *args, **kwargs) -> None:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             self.pvalues = pd.Series({"consistent": 0.0})
 
         def compute(self) -> None:
@@ -226,7 +238,7 @@ def test_stepm_subset_and_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
     r = pd.DataFrame({"a": [2.0, 3.0] * 8, "omit": [-3.0, -2.0] * 8, "b": [3.0, 2.0] * 8})
 
     class StepM:
-        def __init__(self, benchmark, models, **kwargs) -> None:
+        def __init__(self, benchmark: Any, models: Any, **kwargs: Any) -> None:
             np.testing.assert_array_equal(benchmark, np.zeros(16))
             np.testing.assert_array_equal(models, -r[["b", "a"]])
             assert kwargs["block_size"] == 6
@@ -245,7 +257,7 @@ def test_stepm_subset_and_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
     assert gate.stepm(r, [], 71) == []
 
 
-def test_spa_and_stepm_separated_supports(ledger) -> None:
+def test_spa_and_stepm_separated_supports(ledger: Path) -> None:
     """Returns in [2,3] have mean>=2; centered bootstrap means are at most 1.
 
     Thus their observed statistic exceeds every resampled statistic: SPA p=0.
@@ -262,7 +274,7 @@ def test_spa_and_stepm_separated_supports(ledger) -> None:
 
 
 @pytest.mark.parametrize("threshold", [0.5, 0.9])
-def test_effective_n_absolute_correlation_and_constants(threshold) -> None:
+def test_effective_n_absolute_correlation_and_constants(threshold: float) -> None:
     """Stage 4: |rho| clusters sign reversals; zero-variance trials are singletons."""
     x = np.array([-1.0, -1.0, 1.0, 1.0])
     y = np.array([-1.0, 1.0, -1.0, 1.0])
@@ -274,7 +286,7 @@ def test_effective_n_absolute_correlation_and_constants(threshold) -> None:
 
 
 @pytest.mark.parametrize("mean_block", [1, 6, 168])
-def test_stationary_bootstrap_geometric_blocks(mean_block) -> None:
+def test_stationary_bootstrap_geometric_blocks(mean_block: int) -> None:
     """With n=997, P(next=(current+1) mod n)=1-1/L+1/(997L).
 
     The extra term accounts for a restart that happens to choose the successor.
@@ -305,7 +317,7 @@ def test_funding_bootstrap_joint_rows_and_168_hours(monkeypatch: pytest.MonkeyPa
     calls = []
     actual = markets.block_indices
 
-    def indices(rng, n, length, mean_block):
+    def indices(rng: np.random.Generator, n: int, length: int, mean_block: int) -> Any:
         calls.append(mean_block)
         return actual(rng, n, length, mean_block)
 
@@ -331,7 +343,7 @@ def test_funding_bootstrap_joint_rows_and_168_hours(monkeypatch: pytest.MonkeyPa
         ([1.0, 1.0, -1.0, 1.0], Fraction(2, 3)),
     ],
 )
-def test_betting_hand_wealth(r, expected) -> None:
+def test_betting_hand_wealth(r: Sequence[float], expected: Fraction) -> None:
     """λ1=0. For [4,1,1], λ2=1/4, λ3=5/17: Kmax=(5/4)(22/17).
 
     [1,1,-1] peaks at 3/2 before losing: use maximum, not terminal wealth.
@@ -355,7 +367,7 @@ def test_betting_vectorization_zeros_and_no_retired_activity_floor() -> None:
 
 
 @pytest.mark.parametrize("bad", [np.nextafter(-1.0, -np.inf), -2.0, np.nan, np.inf, -np.inf])
-def test_betting_loss_bound_and_nonfinite_are_failures(bad) -> None:
+def test_betting_loss_bound_and_nonfinite_are_failures(bad: float) -> None:
     """Every return, including the first with λ=0, must be finite and >=-B=-1."""
     with pytest.raises(ValueError):
         gate.holdout_pvalue([bad])
@@ -368,7 +380,7 @@ def test_betting_loss_bound_and_nonfinite_are_failures(bad) -> None:
     reason="Paper §8 permits all finite returns >=-1 and requires λ=S/Q; overflowing Q makes [1e200,1e200] return p=1 instead of 1/2, and larger finite sums raise",
 )
 @pytest.mark.parametrize("value, n", [(1e200, 2), (1e308, 3)])
-def test_betting_large_finite_constant_returns(value, n) -> None:
+def test_betting_large_finite_constant_returns(value: float, n: int) -> None:
     """For n identical A>=2, λ_t=1/A for t>=2; Kmax=2^(n-1).
     No mathematical wealth overflows here: Kmax is only 2 or 4.
     Neither 1e200 nor 1e308 is a campaign-producible per-bar return.
@@ -403,7 +415,7 @@ def test_betting_all_bounded_coin_paths_are_superuniform() -> None:
 
 
 @pytest.mark.parametrize("null", ["fair", "predictable_scale", "rare_loss"])
-def test_betting_seeded_null_calibration(null) -> None:
+def test_betting_seeded_null_calibration(null: str) -> None:
     """4096 paths of length 128; every generator is a conditional-mean-zero null.
 
     Fair: ±1. Predictable scale: ±(.1 or 1), scale set by the previous sign.
@@ -440,7 +452,7 @@ def test_betting_seeded_null_calibration(null) -> None:
         ([0.05 / 3, 0.025, 0.05], [0.05, 0.05, 0.05]),
     ],
 )
-def test_holm_hand_adjustments_and_permutations(p, adjusted) -> None:
+def test_holm_hand_adjustments_and_permutations(p: list[float], adjusted: list[float]) -> None:
     """Holm: sorted q_j=min(1,max_{k<=j}(m-k+1)p_(k)); undo sorting.
     Enumerating permutations checks original order and exchangeable ties.
     """
@@ -456,9 +468,9 @@ def test_promotion_needs_positive_return_and_keeps_entire_family() -> None:
     r = np.ones(10)
     assert gate.promote({"a": (r, 1.0, None)})[0] == ["a"]
     assert gate.promote({"a": (r, 1.0, None), "missing": (np.array([]), 0.0, None)})[0] == []
-    for total in [0.0, -np.finfo(float).eps, -1.0]:
+    for total in [0.0, float(-np.finfo(float).eps), -1.0]:
         assert gate.promote({"a": (r, total, None)})[0] == []
-    assert gate.promote({"a": (r, np.finfo(float).tiny, None)})[0] == ["a"]
+    assert gate.promote({"a": (r, float(np.finfo(float).tiny), None)})[0] == ["a"]
     assert gate.promote({})[0] == []
     peak_then_bankrupt = np.r_[np.ones(12), -1.0]
     assert gate.holdout_pvalue(peak_then_bankrupt) < 0.05
@@ -485,14 +497,14 @@ def test_betting_and_holm_have_no_retired_pvalue_floor() -> None:
 class SyntheticProcess:
     """Only the CLI transport is replaced; the real daemon enforces its budget."""
 
-    def __init__(self, response) -> None:
+    def __init__(self, response: dict[str, Any]) -> None:
         self.stdin = io.StringIO()
         self.stdout = io.StringIO((json.dumps(response) + "\n") * 110)
 
     def terminate(self) -> None:
         pass
 
-    def wait(self, *args, **kwargs) -> int:
+    def wait(self, *args: Any, **kwargs: Any) -> int:
         return 0
 
     def poll(self) -> None:
@@ -507,7 +519,9 @@ class SyntheticProcess:
     ],
 )
 def test_budget_duplicates_rejections_zero_fills_and_free_checks(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, response
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    response: dict[str, bool | dict[str, float]] | dict[str, bool | str],
 ) -> None:
     """Stage 3/4: each arm has 100 evaluations; checks free, every eval counts.
     Four agents therefore permit exactly 400 calls, not 400 distinct strategies.
@@ -515,7 +529,7 @@ def test_budget_duplicates_rejections_zero_fills_and_free_checks(
     """
     processes = []
 
-    def popen(*args, **kwargs):
+    def popen(*args: Any, **kwargs: Any) -> SyntheticProcess:
         process = SyntheticProcess(response)
         processes.append(process)
         return process
@@ -556,7 +570,7 @@ def test_budget_reservation_is_atomic(monkeypatch: pytest.MonkeyPatch, tmp_path:
         d.close()
 
 
-def synthetic_params():
+def synthetic_params() -> dict[str, Any]:
     return {
         "funding": None,
         "lambda": 0.5,
@@ -572,16 +586,16 @@ def synthetic_params():
     }
 
 
-def truncated_t_fourth():
+def truncated_t_fourth() -> float:
     """t5|(|t5|<=8): E[t^4]=25 I_z(5/2,1/2)/I_z(1/2,5/2)."""
     z = 64 / 69
     variance = (5 / 3) * betainc(1.5, 1.5, z) / betainc(0.5, 2.5, z)
     fourth = 25 * betainc(2.5, 0.5, z) / betainc(0.5, 2.5, z)
-    return fourth / variance**2
+    return float(fourth / variance**2)
 
 
 @pytest.mark.parametrize("nu, bound", [(5, 8.0), (5, 1.0), (4, 8.0)])
-def test_truncated_student_exact_second_moment(nu, bound) -> None:
+def test_truncated_student_exact_second_moment(nu: int, bound: float) -> None:
     """Integrating the t density gives conditional E[X²]=nu/(nu-2)
     * I_z(3/2,(nu-2)/2)/I_z(1/2,nu/2), z=b²/(nu+b²).
     This is a truncated, not winsorized, t and not the untruncated sd.
@@ -604,7 +618,7 @@ def test_truncated_innovations_have_unit_variance_and_symmetric_mean() -> None:
 
 
 @pytest.mark.parametrize("model", ["N1", "N2", "N3"])
-def test_null_conditional_accounting_and_symmetric_moments(model) -> None:
+def test_null_conditional_accounting_and_symmetric_moments(model: str) -> None:
     """NULLS: c/o=(1+f1+f2+f3+eps)/(1-f4), hence gross PnL/(q*o)=eps.
     Conditional on the predictable sigma, E[eps]=0. Here volatility is low
     enough that the bounded innovations never hit the symmetric clipping cap.
@@ -690,24 +704,24 @@ def test_n3_jump_rejects_outside_truncation_interval(monkeypatch: pytest.MonkeyP
     factory = np.random.default_rng
 
     class RNG:
-        def __init__(self, seed, jump) -> None:
+        def __init__(self, seed: int, jump: bool) -> None:
             self.rng = factory(seed)
             self.jump = jump
             self.calls = 0
 
-        def __getattr__(self, name):
+        def __getattr__(self, name: str) -> Any:
             return getattr(self.rng, name)
 
-        def laplace(self, loc=0.0, scale=1.0, size=None):
+        def laplace(self, loc: float = 0.0, scale: float = 1.0, size: Any = None) -> Any:
             self.calls += 1
             value = (0.3 if self.calls == 1 else 0.1) if self.jump else 0.0
             return np.full(size, value)
 
     params = synthetic_params()
     params["regime"].update(sigma=[0.001] * 12, p_jump=0.02, k_jump=0.01)
-    monkeypatch.setattr(markets.np.random, "default_rng", lambda seed: RNG(seed, False))
+    monkeypatch.setattr(np.random, "default_rng", lambda seed: RNG(seed, False))
     baseline = markets.generate("N3", params, "spec-truncation-0", 1)
-    monkeypatch.setattr(markets.np.random, "default_rng", lambda seed: RNG(seed, True))
+    monkeypatch.setattr(np.random, "default_rng", lambda seed: RNG(seed, True))
     jumped = markets.generate("N3", params, "spec-truncation-0", 1)
     delta = jumped["eps"][0] - baseline["eps"][0]
     assert np.any(delta)
@@ -770,13 +784,13 @@ def test_planted_signal_uses_previous_boundary_and_both_clip_limits() -> None:
 
 
 @pytest.mark.parametrize("beta, limit", [(8.0, 0.5), (-8.0, -0.5)])
-def test_planted_epsilon_saturates_at_stated_bound(beta, limit) -> None:
+def test_planted_epsilon_saturates_at_stated_bound(beta: float, limit: float) -> None:
     """N1 g=1/8; beta=±8 makes the whole support exceed ±.5 before clipping."""
     a = markets.generate("N1", {}, "spec-plant-saturate", 2, planted=[0], beta=beta)
     np.testing.assert_array_equal(a["eps"][1:, 0], np.full(11, limit))
 
 
-def evidence(evaluations=0, received=False, holds=True, crash=False):
+def evidence(evaluations: int = 0, received: bool = False, holds: bool = True, crash: bool = False) -> dict[str, Any]:
     return {
         "evaluations": evaluations,
         "received": received,
@@ -803,12 +817,12 @@ def evidence(evaluations=0, received=False, holds=True, crash=False):
         ({"agents": [evidence(1, True), evidence(1, True), evidence(holds=False), evidence()]}, "unresolved"),
     ],
 )
-def test_c45_v3_classes(change, expected) -> None:
+def test_c45_v3_classes(change: dict[str, Any], expected: str) -> None:
     """Latest revision: promotions dominate; silence is not a failed procedure.
     Two evaluating agents, one filled trial and cross-agent history suffice;
     a crash after any disclosure or missing evidence instead makes unresolved.
     """
-    args = dict(
+    args: dict[str, Any] = dict(
         promoted=False,
         crash=False,
         agents=[evidence(1, True), evidence(1, True), evidence(), evidence()],
@@ -834,7 +848,7 @@ def test_c45_v3_classes(change, expected) -> None:
         (["unresolved"] * 2 + ["established"] * 8, "failed"),
     ],
 )
-def test_c45_v3_verdict_arithmetic(classes, expected) -> None:
+def test_c45_v3_verdict_arithmetic(classes: list[str], expected: str) -> None:
     """Failure at P+U>=2 dominates even an incomplete series; pass needs ten.
     Neither an incomplete series nor two residual classes is a free retry/pass.
     """

@@ -4,6 +4,8 @@ event streams."""
 
 import importlib.util
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 from ingest import events
 from ingest.policy import DELTA
@@ -11,14 +13,15 @@ from ingest.policy import DELTA
 HERE = Path(__file__).parent / "derived"
 
 
-def load(name):
+def load(name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, HERE / f"{name}.py")
+    assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
 
 
-def ours(c):
+def ours(c: dict[str, Any]) -> list[tuple[Any, ...]]:
     return sorted(
         map(
             tuple,
@@ -27,7 +30,7 @@ def ours(c):
     )
 
 
-def cut(c, t):
+def cut(c: dict[str, Any], t: int) -> dict[str, Any]:
     """The case's records at version t."""
     polls = {k: [p for p in ps if p <= t] for k, ps in c["polls"].items()}
     return c | {

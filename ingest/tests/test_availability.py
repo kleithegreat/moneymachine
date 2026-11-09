@@ -1,6 +1,7 @@
 """C0.3/C0.7 judged window: the first 24 h without an L2 gap over 60 s, complete or None."""
 
 import json
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ from ingest.policy import BAR, HOUR
 S = 30_000
 
 
-def write(tmp_path: Path, times):
+def write(tmp_path: Path, times: Mapping[str, Iterable[int]]) -> Path:
     with open(tmp_path / "polls-x.jsonl", "w") as f:
         for coin, ts in times.items():
             for t in ts:
@@ -26,7 +27,9 @@ def test_window_restarts_after_a_gap_and_needs_a_full_span(tmp_path: Path) -> No
     gap_at = t0 + HOUR
     holed = [t for t in steady if not gap_at < t < gap_at + MAX_GAP + S]
     root = write(tmp_path, {"A": steady, "B": holed})
-    start, end = availability.window(root, root, after=t0)
+    span = availability.window(root, root, after=t0)
+    assert span is not None
+    start, end = span
     assert start == min(t for t in holed if t > gap_at) and end == start + SPAN
     assert availability.window(root, root, after=t0 + SPAN + MAX_GAP) is None
     edge = write(tmp_path, {"A": list(range(t0, t0 + SPAN - MAX_GAP + 1, S))})
@@ -91,12 +94,19 @@ def test_the_clock_record_reports_offsets_gaps_and_how_long_one_exchange_is_repo
     start, end = 100 * m, 200 * m
     readings = [(t * m, 5.0 if t < 140 else -7.0) for t in range(95, 206, 5)] + [(10 * m, 900.0)]
     c = availability.clock(readings, (start, end))
+    assert c is not None
     assert c["max_abs_ms"] == 7.0 and c["brackets"] and c["max_gap_min"] == 5
     assert c["exchanges"] == 2 and c["max_unchanged_min"] == 65
-    assert not availability.clock(readings[2:], (start, end))["brackets"]
+    later = availability.clock(readings[2:], (start, end))
+    assert later is not None and not later["brackets"]
 
 
-def host(root, l2=(), boundary=(), clock=()):
+def host(
+    root: Path,
+    l2: Iterable[tuple[str, int]] = (),
+    boundary: Iterable[tuple[str, str, int, str, int]] = (),
+    clock: Iterable[int] = (),
+) -> tuple[Path, Path]:
     """A host's directories: L2 (coin, sent) polls, boundary (kind, coin, boundary, purpose, recv) polls, clock times."""
     root.mkdir(parents=True, exist_ok=True)
     with open(root / "polls-x.jsonl", "w") as f:
@@ -169,7 +179,9 @@ def test_the_merged_window_starts_at_the_threshold_and_bridges_a_local_outage(
     host(tmp_path / "oci" / "live", [("A", t) for t in steady], clock=())
     host(tmp_path / "oci" / "clock", clock=clock)
     assert availability.window(*local, after=t0) != (t0, t0 + SPAN)
-    window, hosts, polls = availability.judgment(*local, tmp_path / "oci")
+    judged = availability.judgment(*local, tmp_path / "oci")
+    assert judged is not None
+    window, hosts, polls = judged
     assert window == (t0, t0 + SPAN)
     assert [h[0] for h in hosts] == ["oci"]
     assert {p["host"] for p in polls} == {"oci"}
@@ -182,5 +194,7 @@ def test_a_complete_local_window_from_before_the_threshold_is_judged_alone(
     monkeypatch.setattr(availability, "THRESHOLD", t0 + HOUR)
     clock = list(range(t0 - HOUR, t0 + 2 * SPAN, 300_000))
     local = host(tmp_path / "local", [("A", t) for t in range(t0, t0 + 2 * SPAN, S)], clock=clock)
-    window, hosts, polls = availability.judgment(*local, tmp_path / "oci")
+    judged = availability.judgment(*local, tmp_path / "oci")
+    assert judged is not None
+    window, hosts, polls = judged
     assert window == (t0, t0 + SPAN) and [h[0] for h in hosts] == ["local"]

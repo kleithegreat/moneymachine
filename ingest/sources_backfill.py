@@ -10,6 +10,7 @@ import hashlib
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import polars as pl
@@ -23,8 +24,9 @@ START = W_START - 30 * DAY
 PAUSE = 2.0
 
 
-def backfill(forum, http):
-    rows, before = [], None
+def backfill(forum: str, http: httpx.Client) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    before = None
     while True:
         r = http.get(f"https://{forum}/posts.json", params={"before": before} if before else None)
         r.raise_for_status()
@@ -50,8 +52,9 @@ def backfill(forum, http):
         time.sleep(PAUSE)
 
 
-def proposals(space, http):
-    rows, skip = [], 0
+def proposals(space: str, http: httpx.Client) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    skip = 0
     while True:
         query = (
             f'{{ proposals(first: 1000, skip: {skip}, where: {{space: "{space}", created_gte: {START // 1000}}}, '
@@ -68,12 +71,12 @@ def proposals(space, http):
         time.sleep(PAUSE)
 
 
-def main(data_root, source="discourse"):
+def main(data_root: str | Path, source: str = "discourse") -> dict[str, int]:
     """One complete fetch from START of every recorded key of `source`, written as revisions."""
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-backfill (read-only)"})
     fetched_at = now_ms()
     keys, key, fetch = (FORUMS, "forum", backfill) if source == "discourse" else (SPACES, "space", proposals)
-    rows = []
+    rows: list[dict[str, Any]] = []
     for k in keys:
         got = fetch(k, http)
         print(k, len(got), file=sys.stderr, flush=True)

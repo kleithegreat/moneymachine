@@ -65,7 +65,7 @@ def test_holdout_pvalues_are_valid_on_a_fair_martingale_and_vectorized() -> None
     assert all(gate.holdout_pvalue(x[i]) == p[i] for i in range(20))
 
 
-def test_parameter_variants_are_separate_trials(tmp_path: Path, built_kernel) -> None:
+def test_parameter_variants_are_separate_trials(tmp_path: Path, built_kernel: Path) -> None:
     import json
     import subprocess
     from pathlib import Path

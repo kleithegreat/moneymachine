@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from ingest.hl import Info
 from ingest.policy import DAY, W_START
@@ -11,8 +12,8 @@ RANK_START = W_START - 30 * DAY
 SIZE = 12
 
 
-def rank(info):
-    rows = []
+def rank(info: Info) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     for asset in info.meta()["universe"]:
         coin = asset["name"]
         first = info.post({"type": "fundingHistory", "coin": coin, "startTime": 0}, per_items=20)
@@ -32,7 +33,7 @@ def rank(info):
     return sorted(rows, key=lambda r: -r["usd_volume"])
 
 
-def write(out) -> None:
+def write(out: str | Path) -> None:
     ranked = rank(Info())
     Path(out).write_text(
         json.dumps(

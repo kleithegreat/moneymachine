@@ -3,7 +3,9 @@
 import json
 import socket
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -14,22 +16,23 @@ REPO = Path(__file__).resolve().parents[2]
 W0 = json.loads((REPO / "kernel/strategies/w0.json").read_text())
 
 
-def call(sock, req):
+def call(sock: Path, req: dict[str, Any]) -> dict[str, Any]:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(str(sock))
     s.sendall(json.dumps(req).encode() + b"\n")
-    return json.loads(s.makefile().readline())
+    reply: dict[str, Any] = json.loads(s.makefile().readline())
+    return reply
 
 
 @pytest.fixture
-def daemon(tmp_path: Path, built_kernel):
+def daemon(tmp_path: Path, built_kernel: Path) -> Iterator[tuple[Daemon, Path]]:
     market = write_market(tmp_path / "m", market_id="daemon", days=40, holdout_days=10)
     d = Daemon(tmp_path / "a.sock", market, tmp_path / "l.sqlite", "camp", "A", 3, tmp_path / "log.jsonl").serve()
     yield d, tmp_path
     d.close()
 
 
-def test_budget_disclosure_and_log(daemon) -> None:
+def test_budget_disclosure_and_log(daemon: tuple[Daemon, Path]) -> None:
     d, tmp = daemon
     text = json.dumps(W0)
     outs = [
@@ -44,7 +47,7 @@ def test_budget_disclosure_and_log(daemon) -> None:
     assert db.execute("SELECT COUNT(DISTINCT campaign) FROM experiments").fetchone()[0] == 1
 
 
-def test_rejections_count_and_check_is_free(daemon) -> None:
+def test_rejections_count_and_check_is_free(daemon: tuple[Daemon, Path]) -> None:
     d, _ = daemon
     bad = json.dumps(W0).replace('"input": "funding"', '"input": "next_open"')
     assert call(d.socket_path, {"cmd": "check", "args": [bad]})["code"] == "E_UNKNOWN_INPUT"
@@ -53,7 +56,7 @@ def test_rejections_count_and_check_is_free(daemon) -> None:
     assert call(d.socket_path, {"cmd": "budget"})["remaining"] == 2
 
 
-def test_select_requires_evaluated_programs(daemon) -> None:
+def test_select_requires_evaluated_programs(daemon: tuple[Daemon, Path]) -> None:
     d, tmp = daemon
     text = json.dumps(W0)
     assert not call(d.socket_path, {"cmd": "select", "args": [text]})["ok"]
@@ -63,13 +66,13 @@ def test_select_requires_evaluated_programs(daemon) -> None:
     assert rows == [("A", "agent selection")]
 
 
-def test_bad_requests(daemon) -> None:
+def test_bad_requests(daemon: tuple[Daemon, Path]) -> None:
     d, _ = daemon
     assert not call(d.socket_path, {"cmd": "holdout", "args": ["{}"]})["ok"]
     assert not call(d.socket_path, {"cmd": "eval", "args": ["{}", "{}"]})["ok"]
 
 
-def test_swarm_history_is_shared_logged_and_capped(tmp_path: Path, built_kernel) -> None:
+def test_swarm_history_is_shared_logged_and_capped(tmp_path: Path, built_kernel: Path) -> None:
     from gate.agent.daemon import HISTORY_LIMIT, Swarm
 
     market = write_market(tmp_path / "m", market_id="swarm", days=40, holdout_days=10)
@@ -97,7 +100,7 @@ def test_swarm_history_is_shared_logged_and_capped(tmp_path: Path, built_kernel)
             d.close()
 
 
-def test_history_injection_cannot_change_daemon_behavior(tmp_path: Path, built_kernel) -> None:
+def test_history_injection_cannot_change_daemon_behavior(tmp_path: Path, built_kernel: Path) -> None:
     """C4.3: text one agent submits reaches others only as data: it cannot add kernel requests,
     forge another agent's records, or move any daemon's budget, history count or responses."""
     from gate.agent.daemon import Swarm
@@ -135,7 +138,7 @@ def test_history_injection_cannot_change_daemon_behavior(tmp_path: Path, built_k
             d.close()
 
 
-def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_path: Path, built_kernel) -> None:
+def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_path: Path, built_kernel: Path) -> None:
     """C3.1 as written: under arm A's own budget, the 101st evaluation is refused, and overrides of the store, ledger,
     campaign and agent change nothing."""
     import inspect
