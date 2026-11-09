@@ -53,7 +53,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-**For the human to choose (blocks the freeze):** C10.2's next design (`audit/reviews/2026-11-09-opus-thesis-refreeze-round11.md`, R1: the transcript grammar fails 40 of 40 recorded honest sessions). (A) enforce the grammar before execution (a frozen hook, proven by the canary); (B) re-derive C10.2 on the daemon recording each call before replying plus the isolation canary, dropping the transcript count (simpler; may count as loosening the frozen C10.2 text). The advisor recommends (B).
+C10.2 re-derived on daemon-before-reply recording plus the isolation canary (the human chose B, 2026-11-09); building on `thesis-refreeze`.
 
 From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
 
