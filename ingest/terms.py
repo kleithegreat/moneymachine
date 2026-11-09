@@ -17,14 +17,23 @@ def registry(path=REGISTRY):
 
 
 def certified(record):
-    return (str(record.get("url", "")).startswith("https://") and isinstance(record.get("retrieved"), date)
-            and record.get("basis") in BASES and bool(str(record.get("quote", "")).strip()))
+    return (
+        str(record.get("url", "")).startswith("https://")
+        and isinstance(record.get("retrieved"), date)
+        and record.get("basis") in BASES
+        and bool(str(record.get("quote", "")).strip())
+    )
 
 
 def allowlist(source=None, retrieval=False, path=REGISTRY):
     """The certified `host[/prefix]` entries of one source, of every source, or of the retrieval allowlist."""
-    return {t["host"] for name, s in registry(path).items() if source in (None, name)
-            for t in s.get("terms", []) if certified(t) and (not retrieval or t.get("retrieval"))}
+    return {
+        t["host"]
+        for name, s in registry(path).items()
+        if source in (None, name)
+        for t in s.get("terms", [])
+        if certified(t) and (not retrieval or t.get("retrieval"))
+    }
 
 
 def admits(entries, host, path):

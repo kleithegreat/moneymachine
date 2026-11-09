@@ -16,9 +16,10 @@ then the decision at b + 4h + delta.
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 from ingest import checks
-from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START
+from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START, EpochMs
 from ingest.store import stores
 
 INITIAL = 10_000.0
@@ -27,19 +28,23 @@ VENUE = Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"
 SIZE = 0.008333333333333333  # W0's per-coin weight, 0.1 / |U|, as the literal in kernel/strategies/w0.json
 
 
-def truncate(x, decimals):
+def truncate(x: float, decimals: int) -> float:
     f = 10**decimals
-    return math.trunc(x * f) / f
+    return float(math.trunc(x * f) / f)
 
 
 class Book:
     """Cash-based account, plus an independent average-entry PnL ledger for reconciliation."""
 
     def __init__(self) -> None:
-        self.cash, self.pos = INITIAL, {}
-        self.entry, self.realized, self.fees, self.funding = {}, 0.0, 0.0, 0.0
+        self.cash = INITIAL
+        self.pos: dict[str, float] = {}
+        self.entry: dict[str, float] = {}
+        self.realized = 0.0
+        self.fees = 0.0
+        self.funding = 0.0
 
-    def fill(self, coin, qty, price, fee) -> None:
+    def fill(self, coin: str, qty: float, price: float, fee: float) -> None:
         old = self.pos.get(coin, 0.0)
         new = old + qty
         if old and (old > 0) != (qty > 0):
@@ -57,21 +62,21 @@ class Book:
         self.cash -= qty * price + fee
         self.fees += fee
 
-    def settle(self, coin, price, rate):
+    def settle(self, coin: str, price: float, rate: float) -> float:
         pay = self.pos.get(coin, 0.0) * price * rate
         self.cash -= pay
         self.funding -= pay
         return pay
 
-    def equity(self, marks):
-        return self.cash + sum(q * marks[c] for c, q in self.pos.items())
+    def equity(self, marks: dict[str, float]) -> float:
+        return float(self.cash + sum(q * marks[c] for c, q in self.pos.items()))
 
-    def reconciled(self, marks):
+    def reconciled(self, marks: dict[str, float]) -> float:
         unrealized = sum(q * (marks[c] - self.entry[c]) for c, q in self.pos.items())
-        return INITIAL + self.realized + unrealized - self.fees + self.funding
+        return float(INITIAL + self.realized + unrealized - self.fees + self.funding)
 
 
-def run(data_root, version, venue=VENUE):
+def run(data_root: str | Path, version: EpochMs, venue: str | Path = VENUE) -> tuple[list[dict[str, Any]], float]:
     root = Path(data_root)
     search, _ = stores(root)
     venue = Path(venue)
@@ -94,10 +99,16 @@ def run(data_root, version, venue=VENUE):
     }
     bar_view = {(c, t): (k, r) for c, t, k, r in bars.select("coin", "eventTime", "knownAt", "close").iter_rows()}
 
-    book, trace, worst, orders, marks = Book(), [], 0.0, {}, {}
-    held_coins = lambda: sorted(book.pos, key=list(rules["coins"]).index)
+    book = Book()
+    trace: list[dict[str, Any]] = []
+    worst = 0.0
+    orders: dict[EpochMs, dict[str, float]] = {}
+    marks: dict[str, float] = {}
 
-    def execute(t, coin, qty, ref, why) -> None:
+    def held_coins() -> list[str]:
+        return sorted(book.pos, key=list(rules["coins"]).index)
+
+    def execute(t: EpochMs, coin: str, qty: float, ref: float, why: str) -> None:
         side = "buy" if qty > 0 else "sell"
         bps = cost[coin][side]["1000" if abs(qty) * ref <= 1000 else "10000"]
         price = ref * (1 + (bps if side == "buy" else -bps) / 1e4)
@@ -174,7 +185,7 @@ def run(data_root, version, venue=VENUE):
     return trace, worst
 
 
-def replay(data_root, version, out, venue=VENUE):
+def replay(data_root: str | Path, version: EpochMs | str, out: str | Path, venue: str | Path = VENUE) -> dict[str, Any]:
     """W0's trace to `out`; returns its summary."""
     trace, worst = run(data_root, int(version), venue)
     Path(out).write_text("\n".join(json.dumps(r) for r in trace) + "\n")
