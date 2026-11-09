@@ -39,7 +39,7 @@ Tests: `thesis/tests/test_refreeze_round8.py`, each failing on `c775fbb` first.
 - G4: `freeze` takes one `now` for the guard, the cold check and `frozen`.
 - Suite (`ops/shards.py`): 1,956 of 1,956 reported, 1,936 passed, 1 skipped, 19 xfailed, 0 missing; the data-dependent tests ran on nodes with data.
 
-## Round nine (2026-11-09 07:25 UTC (02:25 EST)), the Opus hunt of `cb21d7c` (audit/reviews/2026-11-09-opus-hunt-thesis.md)
+## Round nine (2026-11-09 06:45 UTC (01:45 EST)), the Opus hunt of `cb21d7c` (audit/reviews/2026-11-09-opus-hunt-thesis.md)
 
 Tests: `thesis/tests/test_refreeze_round9.py`, each built from the hunt's reproduction and failing on `d7448d2` first, except the bar-cache two-process test, which passed there (kept as a guard).
 - F1 (`runner.snapshot`, `unbenchmarkable`, `benchmarks`): a market whose daily or hourly read, or readiness check, raises is recorded in the snapshot's `failed` ({market: reason}), left out of `markets` and `daily`, and `ready` is false for it; the rest of the snapshot is attested. A cancelled acquisition still raises out. The benchmark skips such a market "market read failed at the snapshot: <reason>" (an operational skip, so the batch is still not executed). The batch loop isolates each market (`register_benchmark`): a failing one is logged and retried next pass, and at `BENCHMARK_GIVE_UP` only it is "run missed". Four old tests expected the batch to stop at the first failure; updated.
