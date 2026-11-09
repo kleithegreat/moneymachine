@@ -19,7 +19,7 @@ TOLERANCE = {
 
 
 @pytest.mark.parametrize("run", ["stage2/c21-fixed-probes.v3.json", "stage2/c21-top5.json"])
-def test_c21_nulls_are_null(run) -> None:
+def test_c21_nulls_are_null(run: str) -> None:
     r = load(run)
     for model in ("N1", "N2", "N3"):
         assert min(r[model]["regression_p"]) > P_MIN, model

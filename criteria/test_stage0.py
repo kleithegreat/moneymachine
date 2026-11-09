@@ -2,6 +2,7 @@
 (venue/hyperliquid/sources.md, rules.json); C0.4's store tests live in ingest/tests/test_store.py."""
 
 import json
+from typing import Any
 
 import pytest
 
@@ -13,7 +14,7 @@ LISTED = [
 ]
 
 
-def judged_ingest():
+def judged_ingest() -> list[Any]:
     """C0.2 and C0.5 are judged on the second fetch, at least 24 h after the first (C0.3 revision)."""
     reports = ingest_reports()
     assert len(reports) >= 2, "stage 0 has exited, so the second fetch of W is recorded"
@@ -63,7 +64,7 @@ CELLS = [(coin, side, size) for coin in LISTED for side in ("buy", "sell") for s
 C07_RECORDED_FAILURES = {("BTC", "sell", 1000), ("SUI", "sell", 10000), ("kPEPE", "sell", 10000)}
 
 
-def c07_failed_cells():
+def c07_failed_cells() -> set[tuple[str, str, int]]:
     e = load("stage0/execution.json")
     return {
         (coin, side, size)
