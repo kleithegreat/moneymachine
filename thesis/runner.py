@@ -328,9 +328,10 @@ class Track:
             return {}
         calls = [c for _, _, c in self.ledger.records("call", kind) if c["session"] == name]
         try:
-            return harness.audit(transcript, calls)
+            audit: Json = harness.audit(transcript, calls)
         except Exception as e:
             return {"audit_error": repr(e)}
+        return audit
 
     def warm_order(self) -> list[str]:
         """The listed markets the background fill keeps ready, the benchmark's first, then the accounts', then the rest: a
