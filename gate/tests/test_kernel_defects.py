@@ -12,6 +12,7 @@ import sqlite3
 import struct
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -25,7 +26,7 @@ from ingest.store import Store
 HUNT = "audit/reviews/2026-11-03-gpt-hunt-kernel.md"
 
 
-def arrays(bars: int = 8, coins: int = 1):
+def arrays(bars: int = 8, coins: int = 1) -> dict[str, Any]:
     return {
         **{k: np.full((bars, coins), 100.0) for k in ("open", "high", "low", "close", "volume")},
         "funding": np.zeros((4 * bars + 1, coins)),
@@ -33,13 +34,15 @@ def arrays(bars: int = 8, coins: int = 1):
     }
 
 
-def write_market(path: Path, a, bps: int = 0, fee: int = 0, holdout_days: int = 0):
+def write_market(path: Path, a: dict[str, Any], bps: int = 0, fee: float = 0, holdout_days: int = 0) -> Path:
     return markets.write(
         path, a, holdout_days, {side: {"1000": bps, "10000": bps} for side in ("buy", "sell")}, taker_fee=fee
     )
 
 
-def evaluate(mm, market, tmp_path: Path, weight, name: str = "s", holdout_from=None):
+def evaluate(
+    mm: Path, market: Path, tmp_path: Path, weight: dict[str, Any], name: str = "s", holdout_from: int | None = None
+) -> tuple[dict[str, Any], list[dict[str, Any]], tuple[float, ...]]:
     strategy = tmp_path / f"{name}.json"
     strategy.write_text(
         json.dumps(
@@ -53,14 +56,15 @@ def evaluate(mm, market, tmp_path: Path, weight, name: str = "s", holdout_from=N
     )
     ledger, trace = tmp_path / f"{name}.sqlite", tmp_path / f"{name}.jsonl"
 
-    def run(cmd, path: Path, *extra):
+    def run(cmd: str, path: Path, *extra: str) -> dict[str, Any]:
         r = subprocess.run(
             kernel.command(cmd, path, "kernel-defects", "gate", ledger, market, *extra, binary=mm),
             capture_output=True,
             text=True,
         )
         assert r.returncode == 0, r.stdout + r.stderr
-        return json.loads(r.stdout)
+        parsed: dict[str, Any] = json.loads(r.stdout)
+        return parsed
 
     if holdout_from is not None:
         run("eval", strategy)
@@ -85,12 +89,12 @@ def evaluate(mm, market, tmp_path: Path, weight, name: str = "s", holdout_from=N
     return out["disclosure"]["result"], [json.loads(line) for line in trace.read_text().splitlines()], returns
 
 
-def events(trace, kind, t=None):
+def events(trace: list[dict[str, Any]], kind: str, t: int | None = None) -> list[dict[str, Any]]:
     return [e for e in trace if e["type"] == kind and (t is None or e["t"] == t)]
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 1: future trading activity changes current allocation")
-def test_future_trades_cannot_change_current_orders(built_kernel, tmp_path: Path) -> None:
+def test_future_trades_cannot_change_current_orders(built_kernel: Path, tmp_path: Path) -> None:
     """I1, SEMANTICS §3/§7: identical observations through 12:02 imply identical decisions.
 
     Both histories state S0's halt at 24:00, known at 24:02 under §3, with no settlement price.
@@ -151,7 +155,7 @@ def test_future_trades_cannot_change_current_orders(built_kernel, tmp_path: Path
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 2: pending zero-weight close reopens after liquidation")
-def test_zero_close_cannot_reopen_after_liquidation(built_kernel, tmp_path: Path) -> None:
+def test_zero_close_cannot_reopen_after_liquidation(built_kernel: Path, tmp_path: Path) -> None:
     """Finding 2: closing an already liquidated short must leave $500 flat (DSL zero close)."""
     a = arrays()
     a["premium"][:12] = -1
@@ -178,7 +182,7 @@ def test_zero_close_cannot_reopen_after_liquidation(built_kernel, tmp_path: Path
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 3: mandatory holds reserve no portfolio gross budget")
-def test_undefined_holds_reserve_portfolio_budget(built_kernel, tmp_path: Path) -> None:
+def test_undefined_holds_reserve_portfolio_budget(built_kernel: Path, tmp_path: Path) -> None:
     """Finding 3: $20k held on $10k equity leaves zero of the advertised 2× budget."""
     a = arrays(coins=2)
     a["premium"][:12] = [1, -1]
@@ -205,7 +209,7 @@ def test_undefined_holds_reserve_portfolio_budget(built_kernel, tmp_path: Path) 
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 4: next target uses pre-fill equity")
-def test_next_target_uses_post_fill_equity(built_kernel, tmp_path: Path) -> None:
+def test_next_target_uses_post_fill_equity(built_kernel: Path, tmp_path: Path) -> None:
     """Finding 4: DSL weight 1 targets actual equity (I5), net of completed fill costs."""
     market = write_market(tmp_path / "market", arrays(), bps=10, fee=0.001)
     _, trace, _ = evaluate(built_kernel, market, tmp_path, const(1))
@@ -223,7 +227,7 @@ def test_next_target_uses_post_fill_equity(built_kernel, tmp_path: Path) -> None
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 5: reporting window resurrects bankrupt equity")
-def test_reporting_window_cannot_resurrect_bankrupt_account(built_kernel, tmp_path: Path) -> None:
+def test_reporting_window_cannot_resurrect_bankrupt_account(built_kernel: Path, tmp_path: Path) -> None:
     """Finding 5: I10 equity stays zero even when the bankruptcy is in the replay prefix."""
     a = arrays(bars=12)
     a["high"][3] = 400
@@ -242,7 +246,7 @@ def test_reporting_window_cannot_resurrect_bankrupt_account(built_kernel, tmp_pa
 
 
 @pytest.mark.xfail(strict=True, reason=f"{HUNT} finding 6: holdout trace and cost summary omit boundary fill")
-def test_reporting_trace_includes_boundary_fill_costs(built_kernel, tmp_path: Path) -> None:
+def test_reporting_trace_includes_boundary_fill_costs(built_kernel: Path, tmp_path: Path) -> None:
     """Finding 6: a full I5/disclosure reconciliation includes the entry at boundary H."""
     a = arrays(bars=12)
     a["premium"][20:24] = 1
