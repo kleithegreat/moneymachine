@@ -315,11 +315,22 @@ class Track:
         try:
             with self.market.hold():
                 run = harness.run_session(work, kind, lambda sock: self.daemon(sock, name, kind, snapshot, commands, ablation_of), task)
-            calls = [c for _, _, c in self.ledger.records("call", kind) if c["session"] == name]
-            run["audit"] = harness.audit(work / "transcript.jsonl", calls)
         except Exception as e:
             run = {"kind": kind, "error": repr(e)}
-        self.ledger.disclose("session_end", kind, {"session": name, **run})
+        self.ledger.disclose("session_end", kind, {"session": name, **run, **self.audited(kind, name)})
+
+    def audited(self, kind: str, name: str) -> Json:
+        """The audit of a session's transcript on disk, however the session ended: nothing if the CLI never started (no
+        transcript), else its daemon call count and tools outside PERMITTED, or `audit_error` (which fails C10.2) if
+        the transcript cannot be read."""
+        transcript = self.root / "sessions" / self.version / name / "transcript.jsonl"
+        if not transcript.exists():
+            return {}
+        calls = [c for _, _, c in self.ledger.records("call", kind) if c["session"] == name]
+        try:
+            return harness.audit(transcript, calls)
+        except Exception as e:
+            return {"audit_error": repr(e)}
 
     def warm_order(self) -> list[str]:
         """The listed markets the background fill keeps ready, the benchmark's first, then the accounts', then the rest: a
@@ -341,7 +352,8 @@ class Track:
         for _, _, c in self.ledger.records("session"):
             if c["session"] not in ended:
                 self.ledger.disclose("session_end", c["kind"], {"session": c["session"], "kind": c["kind"],
-                                                                "error": "the runner died during the session"})
+                                                                "error": "the runner died during the session",
+                                                                **self.audited(c["kind"], c["session"])})
 
     def ablation_task(self, th: Json, snapshot: Json) -> tuple[Json, Json]:
         cutoff = {m: [r for r in snapshot["daily"].get(m, []) if r[0] + DAY <= th["t_r"]] for m, _ in th["legs"]}

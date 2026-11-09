@@ -76,8 +76,9 @@ def account_report(track, account, now):
 
 def c10_2(sessions):
     """C10.2's per-session condition (audit/stage10/criteria-revision-round11-draft.md, wording (b)): no session used a tool
-    outside `sandbox.session.PERMITTED`; a tool name cannot fail an honest session as shell text could."""
-    outside = {s["session"]: s["outside_permitted"] for s in sessions if s.get("outside_permitted")}
+    outside `sandbox.session.PERMITTED`, and every session that started the CLI has an auditable transcript (`audit_error`
+    fails). A tool name cannot fail an honest session as shell text could."""
+    outside = {s["session"]: s.get("outside_permitted", []) for s in sessions if s.get("outside_permitted") or "audit_error" in s}
     return {"pass": not outside, "outside_permitted": outside}
 
 
