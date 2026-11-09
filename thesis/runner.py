@@ -48,6 +48,12 @@ MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
 NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 
 
+def scope_of(d: Json, benchmark_listings: Json) -> set[str]:
+    """The markets a snapshot covers: every listed one, and on a Monday the benchmark's that are listed at its midnight."""
+    scope: set[str] = d["listings"].keys() | benchmark_listings.keys() & set(BENCHMARK)
+    return scope
+
+
 def unbenchmarkable(snapshot: Json, m: str, days: Iterable[int]) -> str | None:
     """Why `snapshot` holds no daily close of `m` on each of `days`, by cause; None if it holds them."""
     if not snapshot["listings"]:
@@ -131,69 +137,86 @@ class Track:
                              self.data(self.markets_of(account), now, self.starts(self.ledger.theses(account))), now)
 
     def snapshot(self, now: int) -> Json | None:
-        """One acquisition pass of the date's snapshot (`acquire` calls it only for an unattested date, each minute): the first
-        pass reads everything; once it has attempted its whole scope, later passes are retries of only the failures, with
-        the retry deadline checked within the pass and by the limiter before network attempts. Until then every pass is
-        initial. At the deadline failures are final, including new failures on an initial
-        pass then. All readiness checks use the first pass's fixed time. A core listing failure still raises."""
-        path = self.root / "snapshots" / f"{now}.json"
+        """One acquisition pass of the date's snapshot (`acquire` calls it only for an unattested date, each minute). Every
+        market, and every builder dex's listing, is attempted once, whenever its pass comes; a later pass retries only what
+        failed, and no retry is admitted at or after the retry deadline (checked before each retry and by the limiter before
+        each network admission; a request already admitted may finish, and its market's readiness is checked after it).
+        At the deadline failures are final, including first failures then. The draft (its readiness time and what each
+        pass has read) is saved after every pass, so a restart resumes it. A core listing failure still raises."""
         date = now // DAY * DAY
-        retrying = self.draft is not None and self.draft[0] == now and self.draft[1]["scoped"]
         retry_end = date + RETRY_UNTIL
+        retrying = False
 
         def cancelled() -> bool:
             return bool(self.stop.is_set() or now_ms() >= last_acquisition(date))
 
         def check() -> None:
-            if cancelled() or retrying and now_ms() >= retry_end:
+            if cancelled():
                 raise TimeoutError("snapshot acquisition ended")
 
-        if self.draft is None or self.draft[0] != now:
-            self.draft = now, {"requests": 0, "listings": None, "unlisted": [], "observed": False, "scoped": False, "failed_dexes": {}, "failed": {},
-                               "read": set(), "markets": {}, "daily": {}, "ready": {}, "readiness_at": now_ms(), "listed_at": None}
-        d = self.draft[1]
+        def begin(retry: bool) -> bool:
+            """Whether an attempt, a retry or a first, may start now; the limiter cancels a retry's admissions at the deadline."""
+            nonlocal retrying
+            retrying = retry
+            return not (retry and now_ms() >= retry_end)
+
+        d = self.draft_of(now)
         observed, benchmark_listings = self.market.listings_at(date) if is_monday(date) else (None, {})
         before = self.market.sent()
         try:
             with self.market.hold(cancel=lambda: cancelled() or retrying and now_ms() >= retry_end):
                 check()
-                self.list_pass(d, check)
-                scope = d["listings"].keys() | benchmark_listings.keys() & set(BENCHMARK)
-                self.read_pass(d, now, scope, benchmark_listings, check)
-                d["scoped"] = True
-        except TimeoutError:
-            if cancelled() or not retrying or now_ms() < retry_end:
-                raise
+                self.list_pass(d, check, begin)
+                self.read_pass(d, now, benchmark_listings, check, begin)
         finally:
             d["requests"] += self.market.sent() - before
-        if d["listings"] is None:
-            return None
-        scope = d["listings"].keys() | benchmark_listings.keys() & set(BENCHMARK)
-        for m in scope:
-            if m not in d["ready"] and dex_of(m) not in d["failed_dexes"]:
-                d["failed"].setdefault(m, "retry deadline reached before acquisition completed")
+            self.save_draft(now, d)
         failed = {**d["failed"], **{f"{dex}:*": reason for dex, reason in d["failed_dexes"].items()}}
         if failed and now_ms() < retry_end:
             return None
-        if cancelled():
-            raise TimeoutError("snapshot acquisition ended")
+        check()
         listings = d["listings"]
         available = {m: v for m, v in d["markets"].items() if m not in failed and dex_of(m) not in d["failed_dexes"]}
         snap = {"taken": now, "listed_at": d["listed_at"], "requests": d["requests"], "listings": listings,
                 "markets": {m: v for m, v in available.items() if not listings.get(m, True)},
                 "daily": {m: v for m, v in d["daily"].items() if m in available},
                 "readiness_at": d["readiness_at"],
-                "ready": {m: m not in failed and dex_of(m) not in d["failed_dexes"] and d["ready"].get(m, False) for m in scope},
+                "ready": {m: m not in failed and dex_of(m) not in d["failed_dexes"] and d["ready"].get(m, False)
+                          for m in scope_of(d, benchmark_listings)},
                 "failed": failed}
         if is_monday(date):
             snap.update(benchmark_listings=benchmark_listings, benchmark_listings_at=observed,
                          benchmark_markets={m: v for m, v in available.items() if not benchmark_listings.get(m, True)})
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path = self.root / "snapshots" / f"{now}.json"
         registry.write_atomic(path, json.dumps(snap))
         self.draft = None
+        self.draft_path(now).unlink(missing_ok=True)
         return snap
 
-    def list_pass(self, d: Json, check: Callable[[], None]) -> None:
+    def draft_path(self, now: int) -> Path:
+        return self.root / "snapshots" / f"{now}.draft.json"
+
+    def draft_of(self, now: int) -> Json:
+        """The pass state of the snapshot taken at `now`: in memory, else saved by an earlier process, else new (its
+        readiness time is fixed here, for every check of the date). A new draft deletes any older one's file."""
+        if self.draft is None or self.draft[0] != now:
+            path = self.draft_path(now)
+            if path.exists():
+                saved = json.loads(path.read_text())
+            else:
+                for old in path.parent.glob("*.draft.json"):
+                    old.unlink()
+                saved = {"requests": 0, "listings": None, "unlisted": [], "observed": False, "failed_dexes": {}, "failed": {},
+                         "read": [], "markets": {}, "daily": {}, "ready": {}, "readiness_at": now_ms(), "listed_at": None}
+            self.draft = now, saved
+        return self.draft[1]
+
+    def save_draft(self, now: int, d: Json) -> None:
+        path = self.draft_path(now)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        registry.write_atomic(path, json.dumps(d))
+
+    def list_pass(self, d: Json, check: Callable[[], None], begin: Callable[[bool], bool]) -> None:
         """Read the core venue's listing once, then each builder dex's not yet read, recording a failing dex; the discovery is
         observed once it is complete."""
         if d["listings"] is None:
@@ -201,6 +224,8 @@ class Track:
             d["listings"], d["unlisted"] = self.market.universe(), self.market.dexes()
         for dex in list(d["unlisted"]):
             check()
+            if not begin(dex in d["failed_dexes"]):
+                continue
             try:
                 d["listings"].update(self.market.universe(dex))
             except Exception as e:
@@ -213,39 +238,35 @@ class Track:
             self.market.observe(d["listings"])
             d["observed"] = True
 
-    def read_pass(self, d: Json, now: int, scope: Iterable[str], benchmark_listings: Json, check: Callable[[], None]) -> None:
-        """Read each market of `scope` not yet read (nor on a failing dex), then check the readiness of each not yet checked,
-        recording a failing market."""
-        for m in sorted(scope):
+    def read_pass(self, d: Json, now: int, benchmark_listings: Json, check: Callable[[], None], begin: Callable[[bool], bool]) -> None:
+        """Take each market of the scope, not done and not on a failing dex, through its reads and its readiness check, recording
+        a failing market. A market that needs neither (unlisted, delisted) is done at once."""
+        for m in sorted(scope_of(d, benchmark_listings)):
             check()
-            if m in d["read"] or dex_of(m) in d["failed_dexes"]:
+            if m in d["ready"] or dex_of(m) in d["failed_dexes"]:
                 continue
             if d["listings"].get(m, True) and benchmark_listings.get(m, True):
-                d["read"].add(m)
+                d["ready"][m] = False
+                continue
+            if not begin(m in d["failed"]):
                 continue
             try:
-                daily = self.market.bars(m, "1d", now)
-                check()
-                hourly = [] if len(daily) < registry.MIN_DAILY_BARS else [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
-            except Exception as e:
-                check()
-                d["failed"][m] = repr(e)
-                continue
-            d["read"].add(m)
-            if hourly:
-                d["markets"][m] = {"last_close": hourly[-1][2], "t": hourly[-1][0] + HOUR}
-                d["daily"][m] = daily
-        for m in sorted(scope):
-            check()
-            if m in d["ready"] or m not in d["read"]:
-                continue
-            try:
+                if m not in d["read"]:
+                    self.read_market(d, m, now)
                 d["ready"][m] = self.market.ready(m, d["readiness_at"])
             except Exception as e:
                 check()
                 d["failed"][m] = repr(e)
             else:
                 d["failed"].pop(m, None)
+
+    def read_market(self, d: Json, m: str, now: int) -> None:
+        daily = self.market.bars(m, "1d", now)
+        hourly = [] if len(daily) < registry.MIN_DAILY_BARS else [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
+        d["read"].append(m)
+        if hourly:
+            d["markets"][m] = {"last_close": hourly[-1][2], "t": hourly[-1][0] + HOUR}
+            d["daily"][m] = daily
 
     def attested(self, date: int, by: int | None = None) -> Json | None:
         """The day's snapshot if the ledger attests its exact bytes as published before `by` (the session deadline by default):
