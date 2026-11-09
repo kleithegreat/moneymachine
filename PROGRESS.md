@@ -42,10 +42,8 @@ Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet bu
 5. **Reading arm:** the advisor proposes search APIs, with their terms, for the human's certificate.
 6. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
-**Cleanup the advisor could not do:**
-- `git worktree remove ../moneymachine-stage7`: the branch is pushed and parked, but the removal was denied to the advisor.
+**Cleanup:**
 - `../mm-fable`, the meta review's worktree: remove it once its Fable session closes.
-- `main` is ahead of GitHub: the push failed (keyring locked).
 
 ### Next, in order
 
