@@ -47,6 +47,8 @@ NOREAD_COMMANDS = ("markets", "prices", "register", "positions", "exit")
 
 def unbenchmarkable(snapshot: Json, m: str, days: Iterable[int]) -> str | None:
     """Why `snapshot` holds no daily close of `m` on each of `days`, by cause; None if it holds them."""
+    if not snapshot["listings"]:
+        return "no listing observation by Monday 00:00 UTC (Sunday 19:00 EST)"
     if m not in snapshot["listings"]:
         return "not listed"
     if snapshot["listings"][m]:
@@ -56,6 +58,8 @@ def unbenchmarkable(snapshot: Json, m: str, days: Iterable[int]) -> str | None:
     have = {r[0] for r in snapshot["daily"][m]}
     if missing := [d for d in days if d not in have]:
         return f"no daily close at {missing}"
+    if not snapshot["ready"].get(m, False):
+        return "funding not ready at the snapshot"
     return None
 
 
@@ -121,14 +125,10 @@ class Track:
                              self.data(self.markets_of(account), now, self.starts(self.ledger.theses(account))), now)
 
     def snapshot(self, now: int) -> Json:
-        """Reuse only attested bytes; otherwise acquire afresh until the date's deadline or stop."""
+        """Acquire afresh until the date's deadline or stop (`acquire` calls it only for an unattested date)."""
         path = self.root / "snapshots" / f"{now}.json"
         date = now // DAY * DAY
-        if any(c["taken"] == now for _, _, c in self.ledger.records("snapshot_ready", "main")):
-            saved = self.attested(date, last_acquisition(date))
-            if saved is None:
-                raise ValueError("attested snapshot bytes are missing or changed")
-            return saved
+
         def cancelled() -> bool:
             return bool(self.stop.is_set() or now_ms() >= last_acquisition(date))
 
@@ -141,8 +141,8 @@ class Track:
             check()
             listed_at = now_ms()
             listings = self.market.listings()
-            benchmark_listings = self.market.listings_at(date) if is_monday(date) else {}
-            scope = listings.keys() | benchmark_listings.keys()
+            observed, benchmark_listings = self.market.listings_at(date) if is_monday(date) else (None, {})
+            scope = listings.keys() | benchmark_listings.keys() & set(BENCHMARK)
             for m in sorted(scope):
                 check()
                 if listings.get(m, True) and benchmark_listings.get(m, True):
@@ -162,7 +162,7 @@ class Track:
                 "markets": {m: v for m, v in markets.items() if not listings.get(m, True)}, "daily": daily,
                 "readiness_at": readiness_at, "ready": ready}
         if is_monday(date):
-            snap.update(benchmark_listings=benchmark_listings,
+            snap.update(benchmark_listings=benchmark_listings, benchmark_listings_at=observed,
                         benchmark_markets={m: v for m, v in markets.items() if not benchmark_listings.get(m, True)})
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
@@ -181,11 +181,6 @@ class Track:
             return None
         contents = path.read_bytes()
         return json.loads(contents) if registry.sha256(contents) == saved[0]["sha256"] else None
-
-    def attested_at(self, date: int) -> int:
-        """When the day's snapshot was attested, as milliseconds after the date's start."""
-        return int(min(c["acquired"] for _, _, c in self.ledger.records("snapshot_ready", "main")
-                       if c["taken"] == date + SNAPSHOT_OFFSET) - date)
 
     def acquire(self, date: int) -> None:
         """Take the day's snapshot and attest it, unless it is attested or its last moment has passed or SIGTERM came: the
@@ -326,7 +321,7 @@ class Track:
                        "L": 0.1, "catalyst": "frozen benchmark: the sign of the 20-day return", "catalyst_id": "benchmark",
                        "sources": [], "outcome_market": None}
             _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, now_ms, set(), config, data,
-                                          p_is_base_rate=True, forecast_at=monday)
+                                          p_is_base_rate=True, forecast_at=monday, listings_at=snapshot["benchmark_listings_at"])
             if errors:
                 self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
 
@@ -408,20 +403,17 @@ class Track:
             t.join()
 
     def benchmarks(self, now: int, frozen: int) -> None:
-        """Run each Monday batch after attestation and the session deadline, rounded up to an hour except in the last hour.
-        A date without an attested snapshot is logged as missed; transient failures leave the batch to the next pass."""
+        """Run each Monday batch at the first pass after its snapshot is attested. A date without an attested snapshot, or
+        whose batch the date's end finds unfinished, is logged as missed; transient failures leave the batch to the next pass."""
         for monday in range(frozen // DAY * DAY, now + 1, DAY):
             if is_monday(monday) and self.unbenchmarked(monday):
-                elapsed, snap = now - monday, self.attested(monday, monday + DAY)
-                due = max(SESSION_OFFSET, self.attested_at(monday)) if snap is not None else 0
-                if snap is not None and elapsed < DAY:
-                    if due < 23 * HOUR:
-                        due = -(-due // HOUR) * HOUR
-                    if elapsed >= due:
-                        self.benchmark(monday)
-                elif reason := "run missed" if snap is not None else "no attested snapshot" if elapsed >= DAY else None:
+                attested = self.attested(monday, monday + DAY) is not None
+                if attested and now < monday + DAY:
+                    self.benchmark(monday)
+                elif now >= monday + DAY:
                     for m in self.unbenchmarked(monday):
-                        self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": reason})
+                        self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "run missed" if attested
+                                                                   else "no attested snapshot"})
 
     def acquisitions(self, now: int, frozen: int) -> None:
         """Every date since the freeze of a version frozen at `frozen` whose snapshot is due and whose last acquisition moment
@@ -522,6 +514,11 @@ def freeze() -> None:
     and of C10.5's observation window."""
     canary.check()
     market = Market(ROOT / "market", Exchange(ROOT / "exchange"))
+    first = next(d for d in range(now_ms() // DAY * DAY, now_ms() + 8 * DAY, DAY) if is_monday(d))
+    if first <= now_ms() and not market.listings_at(first)[1]:
+        raise SystemExit("no listing observation before this Monday's midnight: the window's first benchmark would find none "
+                         "and skip every market; run `thesis-prewarm` on the new code before the next Monday 00:00 UTC "
+                         "(Sunday 19:00 EST) and freeze after it")
     cold = [m for m, delisted in sorted(market.listings().items()) if not delisted and not market.ready(m, now_ms())]
     if cold:
         raise SystemExit(f"funding history is not ready for {len(cold)} listed markets, such as {cold[:5]}: let the background "

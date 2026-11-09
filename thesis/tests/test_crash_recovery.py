@@ -59,7 +59,7 @@ def worker(root, interactive):
         def model(work, kind, start_daemon, task=None):
             checkpoint(f"model:{kind}", interactive)
             if kind == "main":
-                snapshot = t.snapshot(MONDAY + runner.SNAPSHOT_OFFSET)
+                snapshot = t.attested(MONDAY)
                 for i in range(2):
                     config, data = t.inputs("main", ["BTC"], now, snapshot)
                     th, errors = registry.register(

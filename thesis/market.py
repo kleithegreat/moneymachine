@@ -346,11 +346,15 @@ class Market:
             append(self.root, "listings", at, {"at": at, "listings": out})
         return out
 
-    def listings_at(self, at: int) -> dict[str, bool]:
-        """The latest complete discovery observed by `at`; later metadata cannot establish earlier listing status."""
+    def listings_at(self, at: int) -> tuple[int | None, dict[str, bool]]:
+        """(when, listings) of the latest complete discovery observed by `at`, or (None, {}): later metadata cannot
+        establish earlier listing status."""
         with self.locks.setdefault(self.root / "listings", threading.Lock()):
             observations = [r for r in read(self.root, "listings") if r["at"] <= at]
-        return dict(max(reversed(observations), key=lambda r: r["at"])["listings"]) if observations else {}
+        if not observations:
+            return None, {}
+        latest = max(reversed(observations), key=lambda r: r["at"])
+        return latest["at"], dict(latest["listings"])
 
     def listed(self, markets: Iterable[str]) -> dict[str, bool]:
         """{market: delisted} now, of `markets` the venue lists, reading only their dexes: a dex it doesn't list lists none."""
@@ -361,7 +365,8 @@ class Market:
         return {m: universes[dex_of(m)][m] for m in markets if m in universes.get(dex_of(m), {})}
 
     def _cached(self, market: str, kind: str, fetch: Callable[[int, int], list[list[Any]]], now: int) -> list[list[Any]]:
-        """The rows of `kind` shown by `now`: the cache's final ones and those read in this process not yet final."""
+        """The rows of `kind` shown by `now`: the cache's final ones and those read in this process not yet final. The
+        venue is never asked past the last row `now` can show."""
         path, step = self.root / market.replace(":", "_") / f"{kind}.json", STEP[kind]
         with self.locks.setdefault(path, threading.Lock()):
             rows = json.loads(path.read_text()) if path.exists() else []
@@ -372,10 +377,12 @@ class Market:
             known = {r[0] for r in rows}
             last = self.repaired.get(path)
             repair = last is None or now_ms() - last >= self.repair_every
+            newest = (now - SHOWN[kind]) // step * step
+            end = min(now, newest + step)
             if repair or not rows or expired:
-                spans = holes(rows, step, now - HISTORY[kind], now)
+                spans = holes(rows, step, now - HISTORY[kind], end)
             else:
-                spans = [] if (now - SHOWN[kind]) // step * step in known | set(pending) else [(rows[-1][0] + 1, now)]
+                spans = [] if newest in known | set(pending) else [(rows[-1][0] + 1, end)]
             fresh = {r[0]: r for a, b in spans if a < b for r in fetch(a, b) if r[0] not in known and r[0] + SHOWN[kind] <= now}
             if repair:
                 self.repaired[path] = now_ms()

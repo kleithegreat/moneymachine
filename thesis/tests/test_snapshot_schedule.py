@@ -80,7 +80,7 @@ def test_the_paper_snapshot_envelope_includes_real_prefix_tail_and_empty_request
         return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(x.http, "post", post)
-    for kind, expected in [("1d", [31, 21, 21]), ("1h", [92, 21, 21])]:
+    for kind, expected in [("1d", [31, 21]), ("1h", [92, 21, 21])]:
         path = m.root / "X" / f"{kind}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         step = market.STEP[kind]
@@ -92,8 +92,8 @@ def test_the_paper_snapshot_envelope_includes_real_prefix_tail_and_empty_request
 
 def inventory(tails):
     """The weights of one snapshot of the 2026-10-28 inventory (counts only: ages, no prices): 348 live listings, ten dexes.
-    `tails` is the number of 21-weight requests: 349 when the venue returns the unclosed candle (the 10 daily scopes with no
-    trade yet add a terminal request each), 863 when it omits it (a terminal request for all 348 daily and 176 hourly)."""
+    `tails` is the number of 21-weight requests: 339 when the venue returns the unclosed candle, 515 when it omits it (a
+    terminal request for each of the 176 hourly scopes; a daily fetch never asks past the last row it can show)."""
     others = [(22, 8), (23, 7), (24, 9), (25, 5), (26, 2), (27, 7), (28, 16), (29, 5), (30, 9), (31, 2), (39, 197), (53, 1), (57, 1)]
     return [20] * 12 + [21] * tails + [w for w, n in others for _ in range(n)]
 
@@ -107,11 +107,11 @@ def packed(monkeypatch, tmp_path, weights):
     return clock[0] // 60_000
 
 
-def test_the_recorded_and_stress_histograms_pack_in_155_and_257_zero_latency_minutes(tmp_path, monkeypatch):
-    recorded, stress = inventory(349), inventory(863)
-    assert (len(recorded), sum(recorded)) == (630, 17_206) and (len(stress), sum(stress)) == (1_144, 28_000)
-    assert packed(monkeypatch, tmp_path / "a", recorded) == 155
-    assert packed(monkeypatch, tmp_path / "b", stress) == 257
+def test_the_recorded_and_stress_histograms_pack_in_153_and_188_zero_latency_minutes(tmp_path, monkeypatch):
+    recorded, stress = inventory(339), inventory(515)
+    assert (len(recorded), sum(recorded)) == (620, 16_996) and (len(stress), sum(stress)) == (796, 20_692)
+    assert packed(monkeypatch, tmp_path / "a", recorded) == 153
+    assert packed(monkeypatch, tmp_path / "b", stress) == 188
 
 
 def test_snapshot_discovery_costs_one_core_one_inventory_and_each_dex(tmp_path, monkeypatch):

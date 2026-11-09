@@ -82,9 +82,9 @@ def test_attested_snapshot_remains_the_shared_immutable_snapshot(subject, monkey
     cutoff = MONDAY + runner.SNAPSHOT_OFFSET
     monkeypatch.setattr(runner, "now_ms", lambda: cutoff)
     subject.acquire(MONDAY)
-    before = subject.snapshot(cutoff)
+    before = subject.attested(MONDAY)
     subject.market.delisted.add("BTC")
-    assert subject.snapshot(cutoff) == before
+    assert subject.attested(MONDAY) == before
 
 
 def test_attested_returns_the_exact_bytes_verified_before_file_mutation(subject, monkeypatch):

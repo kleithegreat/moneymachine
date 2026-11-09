@@ -35,7 +35,7 @@ class FakeMarket:
         return {m: m in self.delisted for m in (*runner.BENCHMARK, "X") if m in markets}
 
     def listings_at(self, at):
-        return {m: m in self.delisted for m in (*runner.BENCHMARK, "X")}
+        return at - HOUR, {m: m in self.delisted for m in (*runner.BENCHMARK, "X")}
 
     def bars(self, market, interval, now=None):
         """Daily bars known by `now`, as the real market's: a bar is known DELTA after its close."""
@@ -287,7 +287,7 @@ def run_session(work, kind, start_daemon, task=None):
     return {"kind": kind}
 runner.harness.run_session = run_session
 runner.harness.audit = lambda transcript, calls: {}
-t.day(MONDAY, t.snapshot(MONDAY + runner.SNAPSHOT_OFFSET))
+t.day(MONDAY, t.attested(MONDAY))
 """
 
 
