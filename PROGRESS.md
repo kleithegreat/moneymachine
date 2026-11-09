@@ -24,7 +24,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round eleven replaces C10.2 shell attribution with authoritative daemon invocations and literal-execution counting, and fixes acquisition retry deadlines/readiness. Build record: `audit/reviews/2026-11-08-sonnet-refreeze-round7-build.md`, Round eleven. Not freeze-ready.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round eleven committed; authoritative daemon invocations/literal-execution counting, inside-pass retry cutoff, fixed first-pass readiness. Final sharded suite: 2,011 passed, 1 skipped, 19 xfailed, 0 missing of 2,031; T3/PDF rebuilt. Build record: `audit/reviews/2026-11-08-sonnet-refreeze-round7-build.md`, Round eleven; exact proposed (a)/(b): `audit/stage10/criteria-revision-round11-draft.md`. Not freeze-ready; findings 5–8 and independent review pending. No push or deployment by this build.
 - **Stage 7: parked** (the human, 2026-11-08), with slices 1-5 on `stage7` (slice 4 merged at `30db80e` after Argon's re-check, `audit/stage7/slice4-recheck-argon.md`).
 - **Next research step, after the refreeze:** the positive-control study. GPT's design (`positive-controls`): Opus says redesign (`audit/reviews/2026-11-08-opus-positive-controls-design.md`); GPT redesigns after its reset, then Opus and Argon review the criteria.
 
