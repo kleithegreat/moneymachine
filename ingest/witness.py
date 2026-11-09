@@ -35,11 +35,11 @@ def truncate(x, decimals):
 class Book:
     """Cash-based account, plus an independent average-entry PnL ledger for reconciliation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.cash, self.pos = INITIAL, {}
         self.entry, self.realized, self.fees, self.funding = {}, 0.0, 0.0, 0.0
 
-    def fill(self, coin, qty, price, fee):
+    def fill(self, coin, qty, price, fee) -> None:
         old = self.pos.get(coin, 0.0)
         new = old + qty
         if old and (old > 0) != (qty > 0):
@@ -85,15 +85,19 @@ def run(data_root, version, venue=VENUE):
     delisted = {c for c, r in rules["coins"].items() if r["delisted"]}
     listed = checks.listed_intervals(bars, W_START, W_END, delisted)
     intervals = {c: (listed[c][0], min(listed[c][1], HOLDOUT_START)) for c in rules["coins"] if c in listed}
-    bar = {(c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()}
+    bar = {
+        (c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()
+    }
     rate_at = {(c, t): r for c, t, r in funding.select("coin", "eventTime", "fundingRate").iter_rows()}
-    funding_view = {(c, t): (k, r) for c, t, k, r in funding.select("coin", "eventTime", "knownAt", "fundingRate").iter_rows()}
+    funding_view = {
+        (c, t): (k, r) for c, t, k, r in funding.select("coin", "eventTime", "knownAt", "fundingRate").iter_rows()
+    }
     bar_view = {(c, t): (k, r) for c, t, k, r in bars.select("coin", "eventTime", "knownAt", "close").iter_rows()}
 
     book, trace, worst, orders, marks = Book(), [], 0.0, {}, {}
     held_coins = lambda: sorted(book.pos, key=list(rules["coins"]).index)
 
-    def execute(t, coin, qty, ref, why):
+    def execute(t, coin, qty, ref, why) -> None:
         side = "buy" if qty > 0 else "sell"
         bps = cost[coin][side]["1000" if abs(qty) * ref <= 1000 else "10000"]
         price = ref * (1 + (bps if side == "buy" else -bps) / 1e4)
@@ -108,13 +112,18 @@ def run(data_root, version, venue=VENUE):
                 if (coin, h) in rate_at and (coin, h - h % BAR) in bar:
                     px = bar[(coin, h - h % BAR)][0]
                     paid = book.settle(coin, px, rate_at[(coin, h)])
-                    trace.append({"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px, "paid": paid})
+                    trace.append(
+                        {"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px, "paid": paid}
+                    )
         for coin in held_coins():
             if (coin, b) in bar:
                 marks[coin] = bar[(coin, b)][3]
         adverse = {c: bar[(c, b)][2] if q > 0 else bar[(c, b)][1] for c, q in book.pos.items() if (c, b) in bar}
         eq_adverse = book.cash + sum(q * adverse.get(c, marks[c]) for c, q in book.pos.items())
-        mm = sum(abs(q) * adverse.get(c, marks[c]) / (2 * min(t["maxLeverage"] for t in rules["coins"][c]["marginTiers"])) for c, q in book.pos.items())
+        mm = sum(
+            abs(q) * adverse.get(c, marks[c]) / (2 * min(t["maxLeverage"] for t in rules["coins"][c]["marginTiers"]))
+            for c, q in book.pos.items()
+        )
         if book.pos and eq_adverse < mm:
             for coin in held_coins():
                 execute(b + BAR, coin, -book.pos[coin], adverse.get(coin, marks[coin]), "liquidation")
@@ -149,8 +158,18 @@ def run(data_root, version, venue=VENUE):
             qty = -held if target == 0.0 else truncate(target - held, rules["coins"][coin]["szDecimals"])
             if qty and (abs(qty) * price >= min_notional or target == 0.0):
                 orders.setdefault(b + 2 * BAR, {})[coin] = qty
-                trace.append({"t": t_d, "type": "decision", "coin": coin, "rate": rate, "price": price, "weight": w,
-                              "qty": qty, "inputs_knownAt": known})
+                trace.append(
+                    {
+                        "t": t_d,
+                        "type": "decision",
+                        "coin": coin,
+                        "rate": rate,
+                        "price": price,
+                        "weight": w,
+                        "qty": qty,
+                        "inputs_knownAt": known,
+                    }
+                )
         b += BAR
     return trace, worst
 
@@ -160,5 +179,10 @@ def replay(data_root, version, out, venue=VENUE):
     trace, worst = run(data_root, int(version), venue)
     Path(out).write_text("\n".join(json.dumps(r) for r in trace) + "\n")
     eq = [r for r in trace if r["type"] == "equity"]
-    return {"steps": len(eq), "final_equity": eq[-1]["equity"], "worst_reconciliation_rel": worst,
-            "fills": sum(r["type"] == "fill" for r in trace), "holds": sum(r["type"] == "hold" for r in trace)}
+    return {
+        "steps": len(eq),
+        "final_equity": eq[-1]["equity"],
+        "worst_reconciliation_rel": worst,
+        "fills": sum(r["type"] == "fill" for r in trace),
+        "holds": sum(r["type"] == "hold" for r in trace),
+    }

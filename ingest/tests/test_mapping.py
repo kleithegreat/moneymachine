@@ -7,7 +7,7 @@ MAP = Path(__file__).resolve().parents[2] / "venue/sources/discourse_map.json"
 SNAP = Path(__file__).resolve().parents[2] / "venue/sources/snapshot_map.json"
 
 
-def test_golden_set():
+def test_golden_set() -> None:
     forum = {r["forum"]: r["coin"] for r in json.loads(MAP.read_text())["rows"]}
     space = {r["space"]: r["coin"] for r in json.loads(SNAP.read_text())["rows"]}
     assert forum == {"delvingbitcoin.org": "BTC"} and space == {"aavedao.eth": "AAVE"}

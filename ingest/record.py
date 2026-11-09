@@ -28,7 +28,7 @@ L2_BUDGET = 120
 
 
 class Recorder:
-    def __init__(self, budget, coins, out_dir):
+    def __init__(self, budget, coins, out_dir) -> None:
         self.info, self.l2_info = Info(budget - L2_BUDGET), Info(L2_BUDGET)
         self.coins, self.out = coins, Path(out_dir)
         self.write = threading.Lock()
@@ -40,7 +40,7 @@ class Recorder:
             self.queue_verification(self.hour)
         self.last_l2 = {c: 0 for c in coins}
 
-    def log(self, rec):
+    def log(self, rec) -> None:
         with self.write:
             append(self.out, "polls", rec["sent"], rec)
 
@@ -52,11 +52,21 @@ class Recorder:
         else:
             data = self.info.candles(coin, "4h", boundary - BAR, boundary)
             found = any(c["t"] == boundary - BAR for c in data)
-        self.log({"kind": kind, "coin": coin, "boundary": boundary, "purpose": purpose,
-                  "sent": sent, "recv": now_ms(), "found": found, "data": data})
+        self.log(
+            {
+                "kind": kind,
+                "coin": coin,
+                "boundary": boundary,
+                "purpose": purpose,
+                "sent": sent,
+                "recv": now_ms(),
+                "found": found,
+                "data": data,
+            }
+        )
         return found
 
-    def poll_l2(self, coin):
+    def poll_l2(self, coin) -> None:
         sent = now_ms()
         book = self.l2_info.l2_book(coin)
         agg = self.l2_info.l2_book(coin, sig_figs=4)
@@ -66,10 +76,12 @@ class Recorder:
     def kinds(h):
         return ["funding"] + (["bar"] if h % BAR == 0 else [])
 
-    def queue_verification(self, boundary):
-        self.verify.extend((boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins)
+    def queue_verification(self, boundary) -> None:
+        self.verify.extend(
+            (boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins
+        )
 
-    def step(self):
+    def step(self) -> None:
         t = now_ms()
         h = t // HOUR * HOUR
         if h > self.hour:
@@ -95,21 +107,33 @@ class Recorder:
                 if failures < 3:
                     self.verify[0] = (at, kind, coin, failures)
                 else:
-                    self.log({"kind": kind, "coin": coin, "boundary": at - VERIFY_AFTER, "purpose": "dropped",
-                              "sent": sent, "recv": now_ms(), "found": False, "data": [],
-                              "error": repr(e), "attempts": failures, "dropped": True})
+                    self.log(
+                        {
+                            "kind": kind,
+                            "coin": coin,
+                            "boundary": at - VERIFY_AFTER,
+                            "purpose": "dropped",
+                            "sent": sent,
+                            "recv": now_ms(),
+                            "found": False,
+                            "data": [],
+                            "error": repr(e),
+                            "attempts": failures,
+                            "dropped": True,
+                        }
+                    )
                     self.verify.pop(0)
             else:
                 self.verify.pop(0)
 
-    def step_l2(self):
+    def step_l2(self) -> None:
         for c in self.coins:
             if now_ms() - self.last_l2[c] >= POLL:
                 self.last_l2[c] = now_ms()
                 self.poll_l2(c)
 
 
-def forever(step, stop):
+def forever(step, stop) -> None:
     while not stop.is_set():
         try:
             step()
@@ -119,7 +143,7 @@ def forever(step, stop):
         stop.wait(0.5)
 
 
-def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
+def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN) -> None:
     """`budget` per minute in all; after stage 0's window it drops to 480 so the thesis track's 120 fits under half
     the documented limit."""
     delisted = json.loads(Path(rules_path).read_text())["coins"]

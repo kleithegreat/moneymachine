@@ -29,6 +29,7 @@
         lz4
         pytest
         mypy
+        ruff
         pytest-xdist
         pytest-timeout
         hypothesis

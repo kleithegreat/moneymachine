@@ -16,24 +16,40 @@ and 1 ms after it). Forum counts are bound for E0 and E1, and governance counts 
 """
 
 import json
+from collections.abc import Callable, Collection, Iterable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import polars as pl
 
 from gate.markets import FLAT_COST, write_venue
-from gate.search import const as c, op
+from gate.search import const as c
+from gate.search import op
 from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
 
+Node = Any
+Row = dict[str, Any]
 
-def _walk(rng, n, flat=()):
+
+def _walk(rng: np.random.Generator, n: int, flat: Iterable[int] = ()) -> npt.NDArray[np.float64]:
     r = rng.normal(0, 0.02, n)
     r[list(flat)] = 0.0
-    return 100 * np.exp(np.cumsum(r))
+    prices: npt.NDArray[np.float64] = 100 * np.exp(np.cumsum(r))
+    return prices
 
 
-def _write(root, bars, funding, coins, delisted=(), events=None, revisions=None):
+def _write(
+    root: str | Path,
+    bars: list[Row],
+    funding: list[Row],
+    coins: dict[str, tuple[int, int]],
+    delisted: Collection[str] = (),
+    events: list[Row] | None = None,
+    revisions: list[Row] | None = None,
+) -> Path:
     root = Path(root)
     end = max(b["eventTime"] for b in bars) + HOUR
     store = Store(root / "store")
@@ -48,16 +64,31 @@ def _write(root, bars, funding, coins, delisted=(), events=None, revisions=None)
     return root
 
 
-def _bar(coin, k, o, c, rng, trades=7):
-    return {"coin": coin, "eventTime": (k + 1) * BAR, "openTime": k * BAR, "open": float(o), "high": float(max(o, c) * (1 + abs(rng.normal(0, 0.005)))),
-            "low": float(min(o, c) * (1 - abs(rng.normal(0, 0.005)))), "close": float(c), "volume": float(rng.uniform(1, 9)), "trades": trades}
+def _bar(coin: str, k: int, o: float, c: float, rng: np.random.Generator, trades: int = 7) -> Row:
+    return {
+        "coin": coin,
+        "eventTime": (k + 1) * BAR,
+        "openTime": k * BAR,
+        "open": float(o),
+        "high": float(max(o, c) * (1 + abs(rng.normal(0, 0.005)))),
+        "low": float(min(o, c) * (1 - abs(rng.normal(0, 0.005)))),
+        "close": float(c),
+        "volume": float(rng.uniform(1, 9)),
+        "trades": trades,
+    }
 
 
-def _funding(coin, h, rate, premium, late=0):
-    return {"coin": coin, "eventTime": h * HOUR, "fundingRate": float(rate), "premium": float(premium), "reportedTime": h * HOUR + 50 + late}
+def _funding(coin: str, h: int, rate: float, premium: float, late: int = 0) -> Row:
+    return {
+        "coin": coin,
+        "eventTime": h * HOUR,
+        "fundingRate": float(rate),
+        "premium": float(premium),
+        "reportedTime": h * HOUR + 50 + late,
+    }
 
 
-def edge(root):
+def edge(root: str | Path) -> Path:
     rng = np.random.default_rng(64)
     n, hours = 40 * 6, 40 * 24 + 1
     px = _walk(rng, n + 1, flat=range(30, 42))
@@ -66,7 +97,12 @@ def edge(root):
         for coin in ("E0", "E1", "E2", "E3"):
             if coin == "E2" and (k < 60 or 120 <= k < 123):
                 continue
-            o, c = (px[k], px[k + 1]) if coin in ("E0", "E1") else (px[k] * 1.5, px[k + 1] * 1.5 + (0.3 if k % 3 else -0.2))
+            o: float
+            c: float
+            if coin in ("E0", "E1"):
+                o, c = px[k], px[k + 1]
+            else:
+                o, c = px[k] * 1.5, px[k + 1] * 1.5 + (0.3 if k % 3 else -0.2)
             trades = 0 if (coin == "E2" and k in (60, 140, 141)) or (coin == "E3" and k >= 180) else 7
             bars.append(_bar(coin, k, o, c, rng, trades))
     for h in range(hours):
@@ -74,15 +110,24 @@ def edge(root):
             if coin == "E2" and (h < 240 or 600 <= h < 630):
                 continue
             rate = [0.0, -0.0, 1.25e-5, -2e-5, 3e-4][h % 5] if coin == "E0" else rng.normal(1e-5, 5e-5)
-            funding.append(_funding(coin, h, rate, [0.0, -0.0, 4e-4, -6e-4][h % 4] if coin == "E0" else rng.normal(0, 5e-4)))
-    events = [{"coin": c, "eventTime": h * HOUR, "count": float(rng.poisson(1.5))} for c in ("E0", "E1") for h in range(hours)]
+            funding.append(
+                _funding(coin, h, rate, [0.0, -0.0, 4e-4, -6e-4][h % 4] if coin == "E0" else rng.normal(0, 5e-4))
+            )
+    events = [
+        {"coin": c, "eventTime": h * HOUR, "count": float(rng.poisson(1.5))} for c in ("E0", "E1") for h in range(hours)
+    ]
     revisions = [_funding("E0", h, 2e-4, 1e-3) for h in range(100, 110)]
-    revisions += [_funding("E0", 200, 1e-4, 0.0, late=887_595), _funding("E0", 300, -1e-4, 0.0, late=59_950),
-                  _funding("E0", 301, -1e-4, 0.0, late=59_951)]
-    return _write(root, bars, funding, {"E0": (3, 10), "E1": (0, 3), "E2": (1, 20), "E3": (2, 5)}, {"E3"}, events, revisions)
+    revisions += [
+        _funding("E0", 200, 1e-4, 0.0, late=887_595),
+        _funding("E0", 300, -1e-4, 0.0, late=59_950),
+        _funding("E0", 301, -1e-4, 0.0, late=59_951),
+    ]
+    return _write(
+        root, bars, funding, {"E0": (3, 10), "E1": (0, 3), "E2": (1, 20), "E3": (2, 5)}, {"E3"}, events, revisions
+    )
 
 
-def crash(root, drop):
+def crash(root: str | Path, drop: float) -> Path:
     rng = np.random.default_rng(int(drop * 100))
     n = 20 * 6
     px = _walk(rng, n + 1)
@@ -98,18 +143,26 @@ def crash(root, drop):
     return _write(root, bars, funding, {"C0": (3, 2), "C1": (2, 2)})
 
 
-MARKETS = {"edge": edge, "liquidation": lambda r: crash(r, 0.4), "ruin": lambda r: crash(r, 0.6)}
+def _liquidation(root: str | Path) -> Path:
+    return crash(root, 0.4)
 
 
-def inp(name):
+def _ruin(root: str | Path) -> Path:
+    return crash(root, 0.6)
+
+
+MARKETS: dict[str, Callable[[str | Path], Path]] = {"edge": edge, "liquidation": _liquidation, "ruin": _ruin}
+
+
+def inp(name: str) -> Node:
     return {"input": name}
 
 
-def ret(x, h=4):
+def ret(x: str, h: int = 4) -> Node:
     return op("sub", op("div", inp(x), op("lag", inp(x), hours=h)), c(1.0))
 
 
-def w(x, scale=0.3):
+def w(x: Node, scale: float = 0.3) -> Node:
     return op("mul", op("clip", x, c(-1.0), c(1.0)), c(scale))
 
 
@@ -119,8 +172,13 @@ P = op("mul", inp("premium"), c(1e3))
 NAN = op("sub", op("exp", c(1000.0)), op("exp", c(1000.0)))
 
 
-def program(name, weight, lets=None, params=None):
-    p = {"dsl": 1, "name": name, "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"}, "weight": weight}
+def program(name: str, weight: Node, lets: dict[str, Node] | None = None, params: Node | None = None) -> Node:
+    p: Node = {
+        "dsl": 1,
+        "name": name,
+        "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+        "weight": weight,
+    }
     if lets:
         p["let"] = lets
     if params:
@@ -128,12 +186,14 @@ def program(name, weight, lets=None, params=None):
     return p
 
 
-def weights():
+def weights() -> dict[str, Node]:
     out = {f"op-{o}": w(op(o, R, F)) for o in ("add", "sub", "mul", "min", "max")}
     out |= {
         "op-div": w(op("div", R, F)),
         "op-div-by-zero": w(op("div", R, op("sign", inp("premium")))),
-        "op-neg": w(op("neg", R)), "op-abs": w(op("abs", R)), "op-sign": w(op("sign", R)),
+        "op-neg": w(op("neg", R)),
+        "op-abs": w(op("abs", R)),
+        "op-sign": w(op("sign", R)),
         "op-log": w(op("log", op("div", inp("close"), op("lag", inp("close"), hours=4)))),
         "op-log-nonpositive": w(op("log", ret("close"))),
         "op-exp": w(op("exp", R)),
@@ -141,13 +201,26 @@ def weights():
         "op-sqrt-negative": w(op("sqrt", R)),
         "op-clip": op("clip", R, c(-0.2), c(0.4)),
         "op-if": w(op("if", op("gt", R, c(0.0)), F, P)),
-        "op-not-and-or": w(op("if", op("or", op("and", op("ge", R, c(0.1)), op("not", op("lt", F, c(0.0)))), op("le", P, c(-0.3))), c(1.0), c(-1.0))),
+        "op-not-and-or": w(
+            op(
+                "if",
+                op("or", op("and", op("ge", R, c(0.1)), op("not", op("lt", F, c(0.0)))), op("le", P, c(-0.3))),
+                c(1.0),
+                c(-1.0),
+            )
+        ),
         "op-convert": w(op("mul", op("convert", inp("funding"), to="1/d"), c(100.0, "d"))),
         "op-convert-year": w(op("mul", op("convert", inp("funding"), to="1/y"), c(1.0, "y"))),
-        "op-lag": w(op("lag", R, hours=6)), "op-mean": w(op("mean", R, hours=6)), "op-sum": w(op("sum", R, hours=13)),
-        "op-std": w(op("std", R, hours=6), 2.0), "op-min-over": w(op("min_over", R, hours=24)), "op-max-over": w(op("max_over", R, hours=24)),
+        "op-lag": w(op("lag", R, hours=6)),
+        "op-mean": w(op("mean", R, hours=6)),
+        "op-sum": w(op("sum", R, hours=13)),
+        "op-std": w(op("std", R, hours=6), 2.0),
+        "op-min-over": w(op("min_over", R, hours=24)),
+        "op-max-over": w(op("max_over", R, hours=24)),
         "op-ema": w(op("ema", R, hours=4)),
-        "op-xs-mean": w(op("xs_mean", R)), "op-xs-demean": w(op("xs_demean", R)), "op-xs-rank": op("sub", op("xs_rank", R), c(0.5)),
+        "op-xs-mean": w(op("xs_mean", R)),
+        "op-xs-demean": w(op("xs_demean", R)),
+        "op-xs-rank": op("sub", op("xs_rank", R), c(0.5)),
         "op-xs-rank-ties": op("sub", op("xs_rank", inp("premium")), c(0.5)),
         "op-hours-since": w(op("div", op("hours_since", op("gt", F, c(0.5))), c(24.0, "h"))),
         "input-volume": w(op("sub", op("div", inp("volume"), op("mean", inp("volume"), hours=24)), c(1.0))),
@@ -155,11 +228,16 @@ def weights():
         "input-open": w(ret("open", 8)),
         "input-forum": w(op("sub", op("div", inp("forum_posts"), c(1.5, "ev")), c(1.0))),
         "input-governance-unbound": w(op("div", inp("gov_proposals"), c(1.0, "ev"))),
-        "if-stateful-unselected": w(op("if", op("gt", P, c(0.0)), op("ema", R, hours=4), op("mean", op("lag", F, hours=6), hours=6))),
-        "ema-seeding": w(op("ema", op("sub", op("div", op("lag", inp("close"), hours=24), inp("close")), c(1.0)), hours=13)),
+        "if-stateful-unselected": w(
+            op("if", op("gt", P, c(0.0)), op("ema", R, hours=4), op("mean", op("lag", F, hours=6), hours=6))
+        ),
+        "ema-seeding": w(
+            op("ema", op("sub", op("div", op("lag", inp("close"), hours=24), inp("close")), c(1.0)), hours=13)
+        ),
         "window-longer-than-history": w(op("mean", R, hours=4380)),
         "nan-intermediate": w(op("add", NAN, R)),
-        "nan-min-first": w(op("min", NAN, R)), "nan-max-second": w(op("max", R, NAN)),
+        "nan-min-first": w(op("min", NAN, R)),
+        "nan-max-second": w(op("max", R, NAN)),
         "infinite-weight": op("exp", c(1000.0)),
         "literal-negative-zero-normalizes": c(-0.0),
         "signed-zero-neg": op("neg", c(0.0)),
@@ -178,12 +256,16 @@ def weights():
         "truncation": c(0.0137),
         "huge-finite": op("mul", c(1e300), op("sign", R)),
     }
-    out["params-and-lets"] = program("params-and-lets", w(op("mul", {"ref": "r"}, {"param": "k"})),
-                                     lets={"f": F, "r": op("add", R, {"ref": "f"})}, params={"k": {"value": 0.5, "unit": "1"}})
+    out["params-and-lets"] = program(
+        "params-and-lets",
+        w(op("mul", {"ref": "r"}, {"param": "k"})),
+        lets={"f": F, "r": op("add", R, {"ref": "f"})},
+        params={"k": {"value": 0.5, "unit": "1"}},
+    )
     return {k: v if "dsl" in v else program(k, v) for k, v in out.items()}
 
 
-def cases(nulls):
+def cases(nulls: Iterable[str]) -> list[tuple[str, Node, list[str]]]:
     """[(name, program, [markets])]: every weight on `edge` and on each null market, and the lifecycle programs on
     the crash markets."""
     ws = weights()
@@ -193,7 +275,7 @@ def cases(nulls):
     return out
 
 
-def rejections():
+def rejections() -> dict[str, Node]:
     """Programs `mm` must reject, one per rejection path not already in kernel/tests/adversarial."""
     bad = {
         "unit-mismatch": op("add", F, inp("funding")),

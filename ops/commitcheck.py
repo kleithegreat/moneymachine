@@ -3,18 +3,20 @@
 
 import re
 import sys
+from pathlib import Path
 
 UTC = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\s*UTC\b")
 EASTERN = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\s*E[DS]T\b")
 
 
-def unpaired(line):
+def unpaired(line: str) -> bool:
     return len(UTC.findall(line)) > len(EASTERN.findall(line))
 
 
-def main(message_file):
-    message = [l for l in open(message_file).read().splitlines() if not l.startswith("#")]
-    errors = [f"UTC time without its Eastern time: {l}" for l in message if unpaired(l)]
+def main(message_file: str) -> None:
+    lines = Path(message_file).read_text().splitlines()
+    message = [line for line in lines if not line.startswith("#")]
+    errors = [f"UTC time without its Eastern time: {line}" for line in message if unpaired(line)]
     if errors:
         sys.exit("commit-msg: " + "\n            ".join(errors))
 

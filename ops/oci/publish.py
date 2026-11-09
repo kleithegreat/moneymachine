@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 
-def extends(source, destination):
+def extends(source: Path, destination: Path) -> bool:
     with source.open("rb") as incoming, destination.open("rb") as previous:
         while block := previous.read(1 << 20):
             if incoming.read(len(block)) != block:
@@ -16,7 +16,7 @@ def extends(source, destination):
     return True
 
 
-def publish(source, destination):
+def publish(source: str | Path, destination: str | Path) -> None:
     source, destination = Path(source), Path(destination)
     files = sorted(p for p in source.rglob("*") if p.is_file())
     with (destination / ".pull.lock").open("a") as lock:

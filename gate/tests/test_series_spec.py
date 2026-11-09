@@ -13,6 +13,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import Never
 
 import pytest
 
@@ -24,77 +25,102 @@ def run(stopped="finished", exit=0):
     return {"stopped": stopped, "exit": exit}
 
 
-@pytest.mark.parametrize("record,expected", [
-    ({}, True), (run(), False), (run(exit=1), True),
-    (run(exit=-9), True), (run("turn limit"), False), (run("wall time"), False),
-])
-def test_c32_crashes_versus_designed_ends(record, expected):
+@pytest.mark.parametrize(
+    "record,expected",
+    [
+        ({}, True),
+        (run(), False),
+        (run(exit=1), True),
+        (run(exit=-9), True),
+        (run("turn limit"), False),
+        (run("wall time"), False),
+    ],
+)
+def test_c32_crashes_versus_designed_ends(record, expected) -> None:
     assert series.crashed(record) is expected
 
 
-@pytest.mark.parametrize("promoted,runs,evaluations,expected", [
-    (False, [run()], [1], False), (False, [run()], [0], True),
-    (False, [{}], [1], True), (False, [run(exit=1)], [1], True),
-    (True, [run()], [1], True), (False, [run("turn limit")], [1], False),
-    (False, [run("wall time")], [1], False),
-])
-def test_c32_no_evaluation_or_crash_counts_even_without_a_promotion(promoted, runs, evaluations, expected):
+@pytest.mark.parametrize(
+    "promoted,runs,evaluations,expected",
+    [
+        (False, [run()], [1], False),
+        (False, [run()], [0], True),
+        (False, [{}], [1], True),
+        (False, [run(exit=1)], [1], True),
+        (True, [run()], [1], True),
+        (False, [run("turn limit")], [1], False),
+        (False, [run("wall time")], [1], False),
+    ],
+)
+def test_c32_no_evaluation_or_crash_counts_even_without_a_promotion(promoted, runs, evaluations, expected) -> None:
     assert series.counts(promoted, runs, evaluations) is expected
 
 
 def agent(evaluations=1, received=True, holds=True, record=None):
     """Four agent_evidence records are the swarm_class interface, not simulated ledgers."""
-    return {"evaluations": evaluations, "received": received, "holds": holds,
-            "run": run() if record is None else record}
+    return {
+        "evaluations": evaluations,
+        "received": received,
+        "holds": holds,
+        "run": run() if record is None else record,
+    }
 
 
-def test_swarm_established_needs_only_two_evaluations_not_the_obsolete_floor():
+def test_swarm_established_needs_only_two_evaluations_not_the_obsolete_floor() -> None:
     """1+1+0+0=2, far below 200, establishes v3 if a filled trial and history exist."""
     agents = [agent(), agent(), agent(0, False), agent(0, False, record=run(exit=1))]
     assert series.swarm_class(False, None, agents, 1, True) == "established"
 
 
-@pytest.mark.parametrize("trials,history,agents,expected", [
-    (0, True, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
-    (1, False, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
-    (1, True, [agent(), agent(0, False), agent(0, False), agent(0, False)], "not established"),
-    (0, False, [agent(0, False)] * 4, "not established"),
-    (1, True, [agent(holds=False)] + [agent()] * 3, "unresolved"),
-    (1, True, [agent(record=run(exit=1))] + [agent()] * 3, "unresolved"),
-    (1, True, [agent(record={})] + [agent()] * 3, "unresolved"),
-])
-def test_swarm_evidence_boundaries(trials, history, agents, expected):
+@pytest.mark.parametrize(
+    "trials,history,agents,expected",
+    [
+        (0, True, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
+        (1, False, [agent(), agent(), agent(0, False), agent(0, False)], "not established"),
+        (1, True, [agent(), agent(0, False), agent(0, False), agent(0, False)], "not established"),
+        (0, False, [agent(0, False)] * 4, "not established"),
+        (1, True, [agent(holds=False)] + [agent()] * 3, "unresolved"),
+        (1, True, [agent(record=run(exit=1))] + [agent()] * 3, "unresolved"),
+        (1, True, [agent(record={})] + [agent()] * 3, "unresolved"),
+    ],
+)
+def test_swarm_evidence_boundaries(trials, history, agents, expected) -> None:
     assert series.swarm_class(False, None, agents, trials, history) == expected
 
 
-def test_swarm_gate_failure_is_unresolved_but_promotion_dominates():
+def test_swarm_gate_failure_is_unresolved_but_promotion_dominates() -> None:
     agents = [agent()] * 4
     assert series.swarm_class(False, "holdout did not complete", agents, 1, True) == "unresolved"
     assert series.swarm_class(True, "holdout did not complete", [], 0, False) == "promoted"
 
 
-def test_missing_agent_evidence_is_unresolved():
+def test_missing_agent_evidence_is_unresolved() -> None:
     """Three valid records cannot establish the declared four-agent campaign."""
     assert series.swarm_class(False, None, [agent()] * 3, 1, True) == "unresolved"
 
 
-@pytest.mark.parametrize("classes,expected", [
-    ([], "not established"), (["established"] * 9, "not established"),
-    (["established"] * 10, "pass"),
-    (["established"] * 9 + ["promoted"], "pass"),
-    (["established"] * 9 + ["unresolved"], "pass"),
-    (["established"] * 9 + ["not established"], "pass"),
-    (["established"] * 8 + ["not established"] * 2, "not established"),
-    (["established"] * 8 + ["promoted", "not established"], "pass"),
-    (["established"] * 8 + ["promoted", "unresolved"], "failed"),
-    (["unresolved"] * 2, "failed"), (["promoted"] * 2, "failed"),
-])
-def test_swarm_verdict_thresholds_and_failed_precedence(classes, expected):
+@pytest.mark.parametrize(
+    "classes,expected",
+    [
+        ([], "not established"),
+        (["established"] * 9, "not established"),
+        (["established"] * 10, "pass"),
+        (["established"] * 9 + ["promoted"], "pass"),
+        (["established"] * 9 + ["unresolved"], "pass"),
+        (["established"] * 9 + ["not established"], "pass"),
+        (["established"] * 8 + ["not established"] * 2, "not established"),
+        (["established"] * 8 + ["promoted", "not established"], "pass"),
+        (["established"] * 8 + ["promoted", "unresolved"], "failed"),
+        (["unresolved"] * 2, "failed"),
+        (["promoted"] * 2, "failed"),
+    ],
+)
+def test_swarm_verdict_thresholds_and_failed_precedence(classes, expected) -> None:
     """Ten required, at most one adverse and one 'not established' class; two adverse fail."""
     assert series.swarm_verdict(classes) == expected
 
 
-def test_declared_ids_are_exact_fresh_v3_cohorts(tmp_path, monkeypatch):
+def test_declared_ids_are_exact_fresh_v3_cohorts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """C3.2 has 20 IDs, C4.5 has 10; NULLS forbids recycling an older version's seed IDs."""
     monkeypatch.setattr(series, "OUT", tmp_path)
     for name, prefix, size in [("agent", "agent-null-3", 20), ("swarm", "swarm-null-3", 10)]:
@@ -105,8 +131,7 @@ def test_declared_ids_are_exact_fresh_v3_cohorts(tmp_path, monkeypatch):
 
 def usage_row(before, after, account="TAMU", tokens=1):
     """One token-bearing campaign and the two probes of its account's usage windows."""
-    return {"account": account, "usage": {"input_tokens": tokens},
-            "windows": {"before": before, "after": after}}
+    return {"account": account, "usage": {"input_tokens": tokens}, "windows": {"before": before, "after": after}}
 
 
 def log_rows(path, rows):
@@ -114,38 +139,43 @@ def log_rows(path, rows):
     return path
 
 
-def test_need_empty_or_no_token_campaign_measures_nothing(tmp_path):
+def test_need_empty_or_no_token_campaign_measures_nothing(tmp_path: Path) -> None:
     log = tmp_path / "swarm-null-3.jsonl"
     assert series.need(log) == {}
     log_rows(log, [usage_row({"w": [0.0, "r"]}, {"w": [0.75, "r"]}, tokens=0)])
     assert series.need(log) == {}
 
 
-def test_need_uses_max_not_sum_across_accounts_and_ignores_reset_crossings(tmp_path):
+def test_need_uses_max_not_sum_across_accounts_and_ignores_reset_crossings(tmp_path: Path) -> None:
     """Deltas 1/8 and 3/8 yield 3/8, not 1/2; a changed reset measures neither."""
-    log = log_rows(tmp_path / "swarm-null-3.jsonl", [
-        usage_row({"w": [0.125, "r"], "week": [0.25, "s"]},
-                  {"w": [0.25, "r"], "week": [0.5, "s"]}),
-        usage_row({"w": [0.25, "r"]}, {"w": [0.625, "r"]}, "Cornell"),
-        usage_row({"w": [0.0, "old"]}, {"w": [0.75, "new"]}),
-        usage_row({"w": [0.0, "r"]}, {"w": [0.75, "r"]}, tokens=0),
-    ])
+    log = log_rows(
+        tmp_path / "swarm-null-3.jsonl",
+        [
+            usage_row({"w": [0.125, "r"], "week": [0.25, "s"]}, {"w": [0.25, "r"], "week": [0.5, "s"]}),
+            usage_row({"w": [0.25, "r"]}, {"w": [0.625, "r"]}, "Cornell"),
+            usage_row({"w": [0.0, "old"]}, {"w": [0.75, "new"]}),
+            usage_row({"w": [0.0, "r"]}, {"w": [0.75, "r"]}, tokens=0),
+        ],
+    )
     assert series.need(log) == {"w": 0.375, "week": 0.25}
 
 
-def test_need_ties_and_missing_probes_do_not_create_measurements(tmp_path):
+def test_need_ties_and_missing_probes_do_not_create_measurements(tmp_path: Path) -> None:
     """Two equal deltas of 1/8 still reserve 1/8; a one-sided probe measures nothing."""
-    log = log_rows(tmp_path / "swarm-null-3.jsonl", [
-        usage_row({"w": [0.0, "r"]}, {"w": [0.125, "r"]}),
-        usage_row({"w": [0.25, "r"]}, {"w": [0.375, "r"]}),
-        usage_row({}, {"week": [0.75, "s"]}),
-        usage_row({"week": [0.0, "s"]}, {}),
-    ])
+    log = log_rows(
+        tmp_path / "swarm-null-3.jsonl",
+        [
+            usage_row({"w": [0.0, "r"]}, {"w": [0.125, "r"]}),
+            usage_row({"w": [0.25, "r"]}, {"w": [0.375, "r"]}),
+            usage_row({}, {"week": [0.75, "s"]}),
+            usage_row({"week": [0.0, "s"]}, {}),
+        ],
+    )
     assert series.need(log) == {"w": 0.125}
 
 
 @pytest.fixture
-def pacing(tmp_path, monkeypatch):
+def pacing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Fresh stop signal and fake account tokens; never probe a real subscription."""
     stop = threading.Event()
     monkeypatch.setattr(series, "STOP", stop)
@@ -155,10 +185,17 @@ def pacing(tmp_path, monkeypatch):
     return tmp_path / "swarm-null-3.jsonl", stop
 
 
-@pytest.mark.parametrize("tamu,cornell,expected", [
-    (0.25, 0.25, "TAMU"), (0.3, 0.1, "TAMU"), (0.300001, 0.3, "Cornell"),
-])
-def test_first_need_half_and_ceiling_point_eight_include_exact_ties(pacing, monkeypatch, tamu, cornell, expected):
+@pytest.mark.parametrize(
+    "tamu,cornell,expected",
+    [
+        (0.25, 0.25, "TAMU"),
+        (0.3, 0.1, "TAMU"),
+        (0.300001, 0.3, "Cornell"),
+    ],
+)
+def test_first_need_half_and_ceiling_point_eight_include_exact_ties(
+    pacing, monkeypatch: pytest.MonkeyPatch, tamu, cornell, expected
+) -> None:
     """FIRST_NEED=0.5: 0.3+0.5=0.8 fits, but 0.300001+0.5 does not; TAMU wins ties."""
     log, _ = pacing
     probes = {"synthetic-tamu": {"w": [tamu, "r"]}, "synthetic-cornell": {"w": [cornell, "r"]}}
@@ -169,20 +206,24 @@ def test_first_need_half_and_ceiling_point_eight_include_exact_ties(pacing, monk
     assert os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "synthetic-" + expected.lower()
 
 
-def test_all_windows_must_fit_and_measured_need_replaces_first_need(pacing, monkeypatch):
+def test_all_windows_must_fit_and_measured_need_replaces_first_need(pacing, monkeypatch: pytest.MonkeyPatch) -> None:
     """Measured w=1/8 permits 0.625; unmeasured week needs 1/2 and blocks TAMU's 0.31."""
     log, _ = pacing
     log_rows(log, [usage_row({"w": [0.125, "r"]}, {"w": [0.25, "r"]})])
-    probes = {"synthetic-tamu": {"w": [0.625, "r"], "week": [0.31, "s"]},
-              "synthetic-cornell": {"w": [0.625, "r"], "week": [0.25, "s"]}}
+    probes = {
+        "synthetic-tamu": {"w": [0.625, "r"], "week": [0.31, "s"]},
+        "synthetic-cornell": {"w": [0.625, "r"], "week": [0.25, "s"]},
+    }
     monkeypatch.setattr(series, "windows", lambda token=None: probes[token])
     assert series.wait_for_room(log) == ("Cornell", probes["synthetic-cornell"])
 
 
-def test_failed_probe_cannot_select_an_account_and_stop_interrupts_wait(pacing, monkeypatch):
+def test_failed_probe_cannot_select_an_account_and_stop_interrupts_wait(
+    pacing, monkeypatch: pytest.MonkeyPatch
+) -> None:
     log, stop = pacing
 
-    def unavailable(token=None):
+    def unavailable(token=None) -> None:
         stop.set()
         return None
 
@@ -191,11 +232,11 @@ def test_failed_probe_cannot_select_an_account_and_stop_interrupts_wait(pacing, 
     assert os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "synthetic-original"
 
 
-def test_already_stopped_never_probes_an_account(pacing, monkeypatch):
+def test_already_stopped_never_probes_an_account(pacing, monkeypatch: pytest.MonkeyPatch) -> None:
     log, stop = pacing
     stop.set()
 
-    def forbidden(*args):
+    def forbidden(*args) -> None:
         pytest.fail("a stopped series must not make a model call")
 
     monkeypatch.setattr(series, "windows", forbidden)
@@ -203,7 +244,7 @@ def test_already_stopped_never_probes_an_account(pacing, monkeypatch):
 
 
 @pytest.fixture
-def synthetic_series(tmp_path, monkeypatch):
+def synthetic_series(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """One injected cohort; inputs, canary and kernel checks cannot touch live resources."""
     monkeypatch.setattr(series, "OUT", tmp_path)
     monkeypatch.setattr(series, "STOP", threading.Event())
@@ -218,7 +259,9 @@ def synthetic_series(tmp_path, monkeypatch):
     return ids, log
 
 
-def test_started_unrecorded_is_counted_crash_and_never_rerun(synthetic_series, tmp_path, monkeypatch):
+def test_started_unrecorded_is_counted_crash_and_never_rerun(
+    synthetic_series, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Directory 0 started and died; only campaign 1 may execute, even on the next resume."""
     ids, log = synthetic_series
     (tmp_path / ids[0]).mkdir()
@@ -243,10 +286,10 @@ def test_started_unrecorded_is_counted_crash_and_never_rerun(synthetic_series, t
     assert called == [ids[1]]
 
 
-def test_input_failure_starts_nothing(synthetic_series, tmp_path, monkeypatch):
+def test_input_failure_starts_nothing(synthetic_series, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ids, log = synthetic_series
 
-    def missing():
+    def missing() -> Never:
         raise FileNotFoundError("synthetic missing funding blob")
 
     monkeypatch.setattr(series, "series_inputs", missing)
@@ -256,7 +299,7 @@ def test_input_failure_starts_nothing(synthetic_series, tmp_path, monkeypatch):
     assert not log.exists()
 
 
-def test_stop_before_ready_starts_nothing(synthetic_series, tmp_path, monkeypatch):
+def test_stop_before_ready_starts_nothing(synthetic_series, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ids, log = synthetic_series
     monkeypatch.setattr(series, "ready", lambda log: None)
     series.run_series("agent")
@@ -264,7 +307,7 @@ def test_stop_before_ready_starts_nothing(synthetic_series, tmp_path, monkeypatc
     assert not log.exists() or not log.read_bytes()
 
 
-def test_killed_series_recovers_started_id_without_running_it_again(tmp_path):
+def test_killed_series_recovers_started_id_without_running_it_again(tmp_path: Path) -> None:
     """SIGKILL inside the first campaign leaves its directory; restart counts it, not a retry."""
     setup = (
         "import sys,time,threading\nfrom pathlib import Path\n"
@@ -276,10 +319,17 @@ def test_killed_series_recovers_started_id_without_running_it_again(tmp_path):
         "c.windows=lambda *a:{}\nc.usage=lambda *a:{}\n"
     )
     child = subprocess.Popen(
-        [sys.executable, "-c", setup +
-         "def killed(cid,inputs):\n assert (c.OUT/cid).is_dir()\n print('STARTED',flush=True)\n time.sleep(60)\n"
-         "c.SERIES['agent']=killed\nc.run_series('agent')\n", str(tmp_path)],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        [
+            sys.executable,
+            "-c",
+            setup
+            + "def killed(cid,inputs):\n assert (c.OUT/cid).is_dir()\n print('STARTED',flush=True)\n time.sleep(60)\n"
+            "c.SERIES['agent']=killed\nc.run_series('agent')\n",
+            str(tmp_path),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     try:
         assert child.stdout.readline().strip() == "STARTED"
@@ -290,10 +340,16 @@ def test_killed_series_recovers_started_id_without_running_it_again(tmp_path):
             child.kill()
         child.communicate(timeout=10)
     resumed = subprocess.run(
-        [sys.executable, "-c", setup +
-         "def forbidden(*a):\n raise AssertionError('started campaign rerun')\n"
-         "c.SERIES['agent']=forbidden\nc.run_series('agent')\n", str(tmp_path)],
-        capture_output=True, text=True, timeout=20,
+        [
+            sys.executable,
+            "-c",
+            setup + "def forbidden(*a):\n raise AssertionError('started campaign rerun')\n"
+            "c.SERIES['agent']=forbidden\nc.run_series('agent')\n",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
     )
     assert resumed.returncode == 0, resumed.stderr
     rows = [json.loads(line) for line in (tmp_path / "agent-null-3.jsonl").read_text().splitlines()]

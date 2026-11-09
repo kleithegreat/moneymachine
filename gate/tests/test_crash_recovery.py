@@ -18,7 +18,7 @@ def result(cid):
     return {"id": cid, "counts_as_promotion": False, "proof": "é🦉" * 200_000}
 
 
-def worker(root, interactive):
+def worker(root, interactive) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
 
@@ -54,7 +54,9 @@ def worker(root, interactive):
 @pytest.mark.parametrize("mode", ["resume", "series"])
 @pytest.mark.parametrize("cut", ["start", "campaign"])
 @pytest.mark.parametrize("seed", [7, 29, 101, 307])
-def test_random_sigkill_keeps_every_started_campaign_once_and_releases_the_lock(tmp_path, mode, cut, seed):
+def test_random_sigkill_keeps_every_started_campaign_once_and_releases_the_lock(
+    tmp_path: Path, mode, cut, seed
+) -> None:
     (tmp_path / "mode").write_text(mode)
     target = random.Random(seed).choice(IDS[1:-1])
     kill_during(MODULE, tmp_path, "start" if cut == "start" else f"campaign:{target}", seed)
@@ -69,7 +71,7 @@ def test_random_sigkill_keeps_every_started_campaign_once_and_releases_the_lock(
     recover(MODULE, tmp_path)
     rows = campaign.records(log)
     assert log.read_bytes().startswith(original)
-    assert rows[:len(before)] == before
+    assert rows[: len(before)] == before
     assert [row["id"] for row in rows] == IDS
     for row in rows:
         if row["id"] in unrecorded:

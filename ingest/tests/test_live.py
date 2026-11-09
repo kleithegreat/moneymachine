@@ -1,25 +1,26 @@
 """A recorder holds its directory alone and stops between polls on SIGTERM."""
 
-import json
 import os
 import signal
 import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
+from typing import Never
 
 import pytest
 
 from ingest import availability, live, record
 
 
-def test_forever_stops_between_steps():
+def test_forever_stops_between_steps() -> None:
     stop, steps = threading.Event(), []
     record.forever(lambda: (steps.append(1), stop.set()), stop)
     assert steps == [1]
 
 
-def test_recording_holds_the_writer_lock_and_stops_on_sigterm(tmp_path):
+def test_recording_holds_the_writer_lock_and_stops_on_sigterm(tmp_path: Path) -> None:
     before = signal.getsignal(signal.SIGTERM)
     try:
         stop = live.recording(tmp_path)
@@ -33,7 +34,7 @@ def test_recording_holds_the_writer_lock_and_stops_on_sigterm(tmp_path):
 
 
 @pytest.fixture
-def recorder_clock(tmp_path, monkeypatch):
+def recorder_clock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     clock = [record.BAR + record.FIRST_AFTER]
     monkeypatch.setattr(record, "now_ms", lambda: clock[0])
     monkeypatch.setattr(record, "Info", lambda budget: None)
@@ -42,12 +43,12 @@ def recorder_clock(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("failed", [0, 3, 21])
-def test_verification_retries_failed_request_without_losing_the_batch(recorder_clock, failed):
+def test_verification_retries_failed_request_without_losing_the_batch(recorder_clock, failed) -> None:
     rec, clock = recorder_clock
     expected = [(kind, coin, record.BAR, "verify") for kind in ("funding", "bar") for coin in rec.coins]
     attempts = []
 
-    def poll(*request):
+    def poll(*request) -> bool:
         attempts.append(request)
         if len(attempts) == failed + 1:
             raise RuntimeError("request exhausted its retries")
@@ -64,7 +65,7 @@ def test_verification_retries_failed_request_without_losing_the_batch(recorder_c
     assert len(attempts) == len(expected) + 1
 
 
-def test_four_hour_boundary_verifies_each_request_once(recorder_clock):
+def test_four_hour_boundary_verifies_each_request_once(recorder_clock) -> None:
     rec, clock = recorder_clock
     calls = []
     rec.poll = lambda *request: calls.append(request) or True
@@ -87,13 +88,13 @@ def test_four_hour_boundary_verifies_each_request_once(recorder_clock):
     assert calls == expected
 
 
-def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_clock):
+def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_clock) -> None:
     rec, clock = recorder_clock
     clock[0] = record.BAR + record.VERIFY_AFTER
     calls, errors = [], []
     rec.log = errors.append
 
-    def poll(*request):
+    def poll(*request) -> bool:
         calls.append(request)
         if request[1] == "coin0":
             raise TypeError("invalid response")
@@ -115,16 +116,23 @@ def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_c
     assert not rec.verify and len(errors) == 2
 
 
-def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(recorder_clock):
+def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(recorder_clock) -> None:
     rec, clock = recorder_clock
     boundary = record.BAR
     rec.verify = rec.verify[:1]
-    first = {"kind": "funding", "coin": "coin0", "boundary": boundary, "purpose": "first",
-             "sent": boundary + 5_000, "recv": boundary + 5_000,
-             "data": [{"time": boundary, "fundingRate": "0.001", "premium": "0"}], "found": True}
+    first = {
+        "kind": "funding",
+        "coin": "coin0",
+        "boundary": boundary,
+        "purpose": "first",
+        "sent": boundary + 5_000,
+        "recv": boundary + 5_000,
+        "data": [{"time": boundary, "fundingRate": "0.001", "premium": "0"}],
+        "found": True,
+    }
     rec.log(first)
 
-    def fail(*request):
+    def fail(*request) -> Never:
         raise RuntimeError("verification unavailable")
 
     rec.poll = fail
@@ -147,7 +155,7 @@ def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(recor
     assert result["events"] == {"funding:coin0": 1} and result["failures"] == []
 
 
-def test_first_polls_precede_one_backlogged_verification(recorder_clock):
+def test_first_polls_precede_one_backlogged_verification(recorder_clock) -> None:
     rec, clock = recorder_clock
     calls = []
     rec.poll = lambda *request: calls.append(request) or True
@@ -158,6 +166,7 @@ def test_first_polls_precede_one_backlogged_verification(recorder_clock):
     assert calls[-1][-1] == "verify" and calls[-1][2] == record.BAR
     rec.step()
     assert len(calls) == 24 and calls[-1][-1] == "verify"
+
 
 # GPT's bug hunt (audit/reviews/2026-11-02-gpt-hunt-recorders.md), finding 1. The child's writes fail past a size limit,
 # as they do on a full disk, leaving the record torn.
@@ -173,31 +182,33 @@ except OSError:
 """
 
 
-def torn(tmp_path):
+def torn(tmp_path: Path) -> None:
     live.append(tmp_path, "x", 0, {"n": 1})
     assert subprocess.run([sys.executable, "-c", FILE_LIMIT, str(tmp_path)]).returncode == 3
     assert not (tmp_path / "x-19700101.jsonl").read_bytes().endswith(b"\n")
 
 
-def test_an_append_after_a_torn_record_starts_on_its_own_line(tmp_path, capsys):
+def test_an_append_after_a_torn_record_starts_on_its_own_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     torn(tmp_path)
     live.append(tmp_path, "x", 0, {"n": 2})
     assert list(live.read(tmp_path, "x")) == [{"n": 1}, {"n": 2}]
     assert "x-19700101.jsonl:2" in capsys.readouterr().err
 
 
-def test_a_torn_tail_does_not_stop_a_read(tmp_path):
+def test_a_torn_tail_does_not_stop_a_read(tmp_path: Path) -> None:
     torn(tmp_path)
     assert list(live.read(tmp_path, "x")) == [{"n": 1}]
 
 
-def test_a_complete_record_that_lost_only_its_newline_is_kept(tmp_path):
+def test_a_complete_record_that_lost_only_its_newline_is_kept(tmp_path: Path) -> None:
     (tmp_path / "x-19700101.jsonl").write_text('{"n":1}')
     live.append(tmp_path, "x", 0, {"n": 2})
     assert list(live.read(tmp_path, "x")) == [{"n": 1}, {"n": 2}]
 
 
-def test_a_torn_record_of_one_byte_is_still_separated(tmp_path):
+def test_a_torn_record_of_one_byte_is_still_separated(tmp_path: Path) -> None:
     (tmp_path / "x-19700101.jsonl").write_text("{")
     live.append(tmp_path, "x", 0, {"n": 1})
     assert list(live.read(tmp_path, "x")) == [{"n": 1}]
@@ -211,7 +222,7 @@ while True:
 """
 
 
-def test_a_writer_killed_mid_append_leaves_a_directory_the_next_writer_and_reader_can_use(tmp_path):
+def test_a_writer_killed_mid_append_leaves_a_directory_the_next_writer_and_reader_can_use(tmp_path: Path) -> None:
     child = subprocess.Popen([sys.executable, "-c", APPENDS, str(tmp_path)])
     f = tmp_path / "x-19700101.jsonl"
     while not f.exists() or f.stat().st_size == 0:

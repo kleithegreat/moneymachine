@@ -11,13 +11,13 @@ import sys
 import time
 
 
-def checkpoint(name, interactive):
+def checkpoint(name, interactive) -> None:
     print(json.dumps({"checkpoint": name}), flush=True)
     if interactive and sys.stdin.readline() != "go\n":
         raise RuntimeError("crash controller disconnected")
 
 
-def acknowledge(value):
+def acknowledge(value) -> None:
     print(json.dumps({"ack": value}), flush=True)
 
 
@@ -27,8 +27,14 @@ def command(module, root, phase):
 
 def kill_during(module, root, target, seed):
     """SIGKILL the worker and its children after a seeded delay from `target`; return completed-call acks."""
-    child = subprocess.Popen(command(module, root, "crash"), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, start_new_session=True, bufsize=0)
+    child = subprocess.Popen(
+        command(module, root, "crash"),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+        bufsize=0,
+    )
     acks = []
     deadline = time.monotonic() + 60
     selector = selectors.DefaultSelector()
@@ -59,7 +65,7 @@ def kill_during(module, root, target, seed):
         child.communicate(timeout=10)
 
 
-def recover(module, root):
+def recover(module, root) -> None:
     result = subprocess.run(command(module, root, "recover"), capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
 

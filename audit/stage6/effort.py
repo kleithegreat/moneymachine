@@ -18,7 +18,9 @@ for f in D.glob("*.jsonl"):
     for line in open(f, errors="ignore"):
         m = TS.search(line)
         if m:
-            sessions.setdefault(f.stem, []).append(datetime.datetime.fromisoformat(m.group(1).replace("Z", "+00:00")).timestamp())
+            sessions.setdefault(f.stem, []).append(
+                datetime.datetime.fromisoformat(m.group(1).replace("Z", "+00:00")).timestamp()
+            )
 for ts in sessions.values():
     ts.sort()
 
@@ -37,7 +39,15 @@ for (_, ph, pt), (n, h, t) in zip(times, times[1:]):
         active += sum(b - a for a, b in zip(ev, ev[1:]) if b - a <= 300)
         active_sessions += bool(ev)
     subjects = git("log", "--format=%s", f"{ph}..{h}").splitlines()
-    rows.append({"milestone": n, "commit": h, "elapsed_h": round((t - pt) / 3600, 2), "active_h": round(active / 3600, 2),
-                 "sessions": active_sessions, "commits": len(subjects),
-                 "revisions_or_in_progress": sum("revision" in s or "in progress" in s for s in subjects)})
+    rows.append(
+        {
+            "milestone": n,
+            "commit": h,
+            "elapsed_h": round((t - pt) / 3600, 2),
+            "active_h": round(active / 3600, 2),
+            "sessions": active_sessions,
+            "commits": len(subjects),
+            "revisions_or_in_progress": sum("revision" in s or "in progress" in s for s in subjects),
+        }
+    )
 print(json.dumps(rows, indent=1))

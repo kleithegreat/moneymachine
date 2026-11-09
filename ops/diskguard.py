@@ -6,20 +6,28 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
-VOLUMES = {"hl": "data/live", "sources": "data/sources_live", "datalayer": "data/datalayer", "thesis": "data/thesis",
-           "agent": "data/agent"}
+VOLUMES = {
+    "hl": "data/live",
+    "sources": "data/sources_live",
+    "datalayer": "data/datalayer",
+    "thesis": "data/thesis",
+    "agent": "data/agent",
+}
 MAX_AGE = 30 * 60
 
 
-def capacity(path):
+def capacity(path: str | Path) -> dict[str, dict[str, int]]:
     s = os.statvfs(path)
-    return {"bytes": {"free": s.f_bavail * s.f_frsize, "total": s.f_blocks * s.f_frsize},
-            "inodes": {"free": s.f_favail, "total": s.f_files}}
+    return {
+        "bytes": {"free": s.f_bavail * s.f_frsize, "total": s.f_blocks * s.f_frsize},
+        "inodes": {"free": s.f_favail, "total": s.f_files},
+    }
 
 
-def problems(sample):
-    alarms = []
+def problems(sample: Any) -> list[str]:
+    alarms: list[str] = []
     for resource in ("bytes", "inodes"):
         try:
             free, total = sample[resource]["free"], sample[resource]["total"]
@@ -32,8 +40,8 @@ def problems(sample):
     return alarms
 
 
-def check(data, mirror, now=None):
-    alarms = []
+def check(data: str | Path, mirror: str | Path, now: float | None = None) -> list[str]:
+    alarms: list[str] = []
     for name, path in (("PC data", data), ("PC mirror", mirror)):
         try:
             alarms.extend(f"{name} ({path}): {p}" for p in problems(capacity(path)))
@@ -52,14 +60,17 @@ def check(data, mirror, now=None):
     return alarms
 
 
-def main(data=Path("data"), mirror=Path("/srv/moneymachine/mirror")):
+def main(data: Path = Path("data"), mirror: Path = Path("/srv/moneymachine/mirror")) -> int:
     alarms = check(data, mirror)
     if not alarms:
         return 0
     body = "\n".join(alarms) + "\nAdd capacity or remove only regenerable data; never delete recordings."
     print(body, file=sys.stderr)
-    subprocess.run(["notify-send", "--urgency=critical", "--expire-time=0",
-                    "moneymachine: recording capacity alarm", body], check=True, timeout=10)
+    subprocess.run(
+        ["notify-send", "--urgency=critical", "--expire-time=0", "moneymachine: recording capacity alarm", body],
+        check=True,
+        timeout=10,
+    )
     return 1
 
 

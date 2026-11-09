@@ -50,9 +50,7 @@ def counts(case):
         known_at = witness + margin
         # The unique grid hour whose tick interval contains known_at:
         # tau + offset - hour < known_at <= tau + offset.
-        tau = (
-            (known_at - _TICK_OFFSET + _HOUR - 1) // _HOUR
-        ) * _HOUR
+        tau = ((known_at - _TICK_OFFSET + _HOUR - 1) // _HOUR) * _HOUR
         event_counts[key][tau] += 1
 
     rows = []
@@ -68,10 +66,12 @@ def counts(case):
             first_tau = ((lower + _HOUR - 1) // _HOUR) * _HOUR
 
             for tau in range(first_tau, upper + 1, _HOUR):
-                rows.append([
-                    coin_of[key],
-                    tau,
-                    event_counts[key][tau],
-                ])
+                rows.append(
+                    [
+                        coin_of[key],
+                        tau,
+                        event_counts[key][tau],
+                    ]
+                )
 
     return rows
