@@ -25,7 +25,8 @@ from typing import Any, Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jobs  # noqa: E402
-from diskguard import VOLUMES, capacity  # noqa: E402
+from diskguard import VOLUMES as VOLUMES  # noqa: E402
+from diskguard import capacity  # noqa: E402
 from jobs import sha256  # noqa: E402
 
 REPO = jobs.REPO
@@ -334,7 +335,7 @@ def seed(digest: str, volume: str, *pairs: str) -> None:
     shutil.rmtree(stage)
 
 
-def seed_run(volume: str, stage: str) -> None:
+def seed_run(volume: str, stage: str | Path) -> None:
     src, dst = Path(stage), Path(APP) / VOLUMES[volume]
     sums = json.loads((src / "SHA256.json").read_text())
     seed_paths(dst, sums)
@@ -379,7 +380,7 @@ def mirror_source[T](source: Path, kind: str, read: Callable[..., T], *args: Any
         return None
 
 
-def mirror(app: str = APP, out: str = "/mirror") -> None:
+def mirror(app: str | Path = APP, out: str | Path = "/mirror") -> None:
     """Each volume into /mirror/<volume>, the live data's only copy, every step checked; any failure stops the run:
     - outside sandbox workspaces (`work/`), day files (*.jsonl) only grow: shrinkage, rewrites or disappearance are
       refused;
@@ -469,7 +470,7 @@ def mirror(app: str = APP, out: str = "/mirror") -> None:
         (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
 
 
-def verify(app: str = APP, out: str = "/mirror") -> None:
+def verify(app: str | Path = APP, out: str | Path = "/mirror") -> None:
     """Daily: verify prefixes; confirm mirror mismatches against a later manifest within MIRROR_VERIFY_WAIT."""
     for vol, path in VOLUMES.items():
         dst = Path(out) / vol
