@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from ingest import events
-from ingest.policy import HOLDOUT_START, HOUR, W_START, EpochMs
+from ingest.policy import HOLDOUT_START, HOUR, W_START
+from ingest.units import EpochMs
 
 
 def gaps(polls: list[EpochMs]) -> list[list[EpochMs]]:

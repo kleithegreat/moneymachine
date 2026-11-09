@@ -9,7 +9,8 @@ from typing import Any
 
 import polars as pl
 
-from ingest.policy import BAR, DELTA, HOUR, EpochMs
+from ingest.policy import BAR, DELTA, HOUR
+from ingest.units import EpochMs
 
 Intervals = dict[str, tuple[EpochMs, EpochMs]]
 Gaps = list[tuple[EpochMs, EpochMs]]

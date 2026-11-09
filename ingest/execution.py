@@ -13,7 +13,7 @@ import math
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
 
@@ -24,10 +24,10 @@ from ingest.policy import BAR
 SIZES = (1_000, 10_000)
 QUANTILE = 0.95
 CALIBRATION = 0.7
-Book: TypeAlias = dict[str, Any]
-Polls: TypeAlias = list[dict[str, Any]]
-Cells: TypeAlias = dict[tuple[str, str, int], tuple[list[int], np.ndarray[Any, Any]]]
-Model: TypeAlias = dict[str, dict[str, dict[str, float]]]
+type Book = dict[str, Any]
+type Polls = list[dict[str, Any]]
+type Cells = dict[tuple[str, str, int], tuple[list[int], np.ndarray[Any, Any]]]
+type Model = dict[str, dict[str, dict[str, float]]]
 
 
 def walk_cost(book: Book, side: str, notional: float, mid: float | None = None) -> float:

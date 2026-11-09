@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import Any
 
 from ingest import checks
-from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START, EpochMs
+from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START
 from ingest.store import stores
+from ingest.units import EpochMs
 
 INITIAL = 10_000.0
 THRESHOLD = 1e-4

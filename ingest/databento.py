@@ -14,7 +14,7 @@ import time
 from collections.abc import Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any
 
 import httpx
 
@@ -25,8 +25,8 @@ REPO = Path(__file__).resolve().parents[1]
 PLAN = REPO / "venue/sources/databento.json"
 API = "https://hist.databento.com/v0/"
 DBNCONV = REPO / "ingest/dbnconv"
-Plan: TypeAlias = dict[str, Any]
-Query: TypeAlias = dict[str, str]
+type Plan = dict[str, Any]
+type Query = dict[str, str]
 
 
 def months(start: str, end: dt.date) -> Iterator[dt.date]:

@@ -17,10 +17,8 @@ from sandbox.server import Server
 
 FIELDS = ("sharpe_annualized", "fills", "total_return", "max_drawdown")
 HISTORY_LIMIT = 20
-SPEC = {
-    "usage": "usage: ./mm-agent check FILE | eval FILE | select FILE [FILE ...] | budget | history",
-    "commands": {"check": [1, "file"], "eval": [1, "file"], "select": ["+", "file"], "budget": [0], "history": [0]},
-}
+SPEC = {"usage": "usage: ./mm-agent check FILE | eval FILE | select FILE [FILE ...] | budget | history",
+        "commands": {"check": [1, "file"], "eval": [1, "file"], "select": ["+", "file"], "budget": [0], "history": [0]}}
 
 
 class Swarm:
@@ -47,27 +45,13 @@ class Daemon:
         self.swarm, self.history_calls = swarm, 0
         self.lock = threading.Lock()
         self.evaluated = {}
-        self.proc = subprocess.Popen(
-            command("eval", "-", campaign, agent, self.ledger, self.market, "--disclose", ",".join(FIELDS)),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
+        self.proc = subprocess.Popen(command("eval", "-", campaign, agent, self.ledger, self.market, "--disclose", ",".join(FIELDS)),
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 
     def log(self, cmd, payload, response):
         with open(self.log_path, "a") as fh:
-            fh.write(
-                json.dumps(
-                    {
-                        "t": time.time(),
-                        "cmd": cmd,
-                        "sha256": hashlib.sha256(payload.encode()).hexdigest(),
-                        "response": response,
-                    }
-                )
-                + "\n"
-            )
+            fh.write(json.dumps({"t": time.time(), "cmd": cmd, "sha256": hashlib.sha256(payload.encode()).hexdigest(),
+                                 "response": response}) + "\n")
 
     def eval(self, text):
         if self.spent >= self.budget:
@@ -87,9 +71,7 @@ class Daemon:
         self.evaluated[hashlib.sha256(text.encode()).hexdigest()] = d["disclosure"]["strategy"]
         fields = d["disclosure"]["result"]
         if self.swarm:
-            self.swarm.add(
-                {"agent": self.agent, "equivalence": d["disclosure"]["equivalence"], "program": text, **fields}
-            )
+            self.swarm.add({"agent": self.agent, "equivalence": d["disclosure"]["equivalence"], "program": text, **fields})
         return {"ok": True, **fields, "remaining": self.budget - self.spent}
 
     def history(self):
@@ -103,20 +85,15 @@ class Daemon:
         with tempfile.NamedTemporaryFile("w", suffix=".json") as fh:
             fh.write(json.dumps(payload))
             fh.flush()
-            subprocess.run(
-                command("disclose", fh.name, self.campaign, self.agent, self.ledger, None, "--kind", "history"),
-                check=True,
-                capture_output=True,
-            )
+            subprocess.run(command("disclose", fh.name, self.campaign, self.agent, self.ledger, None, "--kind", "history"),
+                           check=True, capture_output=True)
         return payload
 
     def check(self, text):
         with tempfile.NamedTemporaryFile("w", suffix=".json") as fh:
             fh.write(text)
             fh.flush()
-            out = subprocess.run(
-                command("check", fh.name, self.campaign, self.agent, self.ledger), capture_output=True, text=True
-            )
+            out = subprocess.run(command("check", fh.name, self.campaign, self.agent, self.ledger), capture_output=True, text=True)
         line = (out.stdout or out.stderr).strip().splitlines()
         return json.loads(line[-1]) if line else {"ok": False, "code": "KERNEL"}
 
@@ -125,11 +102,8 @@ class Daemon:
         if len(texts) > 10 or None in hashes:
             return {"ok": False, "message": "select at most 10 strategies, each already evaluated (same file content)"}
         for h in hashes:
-            subprocess.run(
-                command("select", h, self.campaign, self.agent, self.ledger, None, "--note", "agent selection"),
-                check=True,
-                capture_output=True,
-            )
+            subprocess.run(command("select", h, self.campaign, self.agent, self.ledger, None, "--note", "agent selection"),
+                           check=True, capture_output=True)
         return {"ok": True, "selected": len(hashes)}
 
     def handle(self, req):

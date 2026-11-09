@@ -38,9 +38,7 @@ SPACING = 1  # seconds after each poll, so a burst of due feeds never hammers on
 def certify(feed: dict[str, Any], url: str) -> None:
     u = urlsplit(url)
     if u.scheme != "https" or not terms.admits(terms.allowlist(feed["source"]), u.hostname, u.path):
-        raise PermissionError(
-            f"{feed['name']}: {u.hostname}{u.path} has no certified terms for source {feed['source']}"
-        )
+        raise PermissionError(f"{feed['name']}: {u.hostname}{u.path} has no certified terms for source {feed['source']}")
 
 
 def feeds(path: str | Path = FEEDS) -> dict[str, Any]:
@@ -86,20 +84,8 @@ def quarantine(raw: Path, out_dir: str | Path, name: str, url: str) -> None:
     bad = raw.read_bytes()
     damaged = hashlib.sha256(bad).hexdigest()
     kept = f"{raw.name}.damaged-{damaged}"
-    append(
-        out_dir,
-        "repairs",
-        t,
-        {
-            "t": t,
-            "feed": name,
-            "url": url,
-            "sha256": raw.name.removesuffix(".gz"),
-            "kept": kept,
-            "damaged_sha256": damaged,
-            "bytes": len(bad),
-        },
-    )
+    append(out_dir, "repairs", t, {"t": t, "feed": name, "url": url, "sha256": raw.name.removesuffix(".gz"), "kept": kept,
+                                   "damaged_sha256": damaged, "bytes": len(bad)})
     os.replace(raw, raw.with_name(kept))
 
 
@@ -108,9 +94,7 @@ def last_polls(out_dir: str | Path) -> dict[str, int]:
     return {p["feed"].removesuffix("/index"): p["sent"] for p in read(out_dir, "datalayer")}
 
 
-def poll(
-    http: httpx.Client, feed: dict[str, Any], out_dir: str | Path, keys: dict[str, str] | None = None
-) -> dict[str, Any]:
+def poll(http: httpx.Client, feed: dict[str, Any], out_dir: str | Path, keys: dict[str, str] | None = None) -> dict[str, Any]:
     """Fetch the feed once (its index first, if it declares one); returns the last record."""
     auth = credentials(feed, secrets() if keys is None else keys)
     if "discover" not in feed:
@@ -125,14 +109,8 @@ def poll(
     return get(http, feed["name"], url, feed.get("accept"), out_dir, auth)
 
 
-def get(
-    http: httpx.Client,
-    name: str,
-    url: str,
-    accept: str | None,
-    out_dir: str | Path,
-    auth: tuple[dict[str, str], dict[str, str]] = ({}, {}),
-) -> dict[str, Any]:
+def get(http: httpx.Client, name: str, url: str, accept: str | None, out_dir: str | Path,
+        auth: tuple[dict[str, str], dict[str, str]] = ({}, {})) -> dict[str, Any]:
     """One GET of `url`, logged and stored without the credential `auth` adds."""
     params, headers = auth
     sent = now_ms()
@@ -155,15 +133,7 @@ def get(
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, raw)
-    rec = {
-        "feed": name,
-        "url": url,
-        "sent": sent,
-        "recv": now_ms(),
-        "status": status,
-        "sha256": digest,
-        "bytes": len(body),
-    }
+    rec = {"feed": name, "url": url, "sent": sent, "recv": now_ms(), "status": status, "sha256": digest, "bytes": len(body)}
     append(out_dir, "datalayer", sent, rec)
     return rec
 

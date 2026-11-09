@@ -9,15 +9,16 @@ passed between them unseen."""
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any
 
 from ingest.events import GAP, SOURCES, polls
 from ingest.live import ms
-from ingest.policy import HOUR, EpochMs
+from ingest.policy import HOUR
+from ingest.units import EpochMs
 
 RULE_MS: EpochMs = 600_000
-Post: TypeAlias = dict[str, Any]
-Fields: TypeAlias = tuple[Callable[[Post], EpochMs], Callable[[Post], Any], Callable[[Post], EpochMs]]
+type Post = dict[str, Any]
+type Fields = tuple[Callable[[Post], EpochMs], Callable[[Post], Any], Callable[[Post], EpochMs]]
 FIELDS: dict[str, Fields] = {
     "discourse": (
         lambda p: ms(p["created_at"]),

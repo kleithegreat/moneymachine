@@ -80,10 +80,8 @@ class Info:
         """All candles with start <= t < end, including any unclosed last one."""
         rows: list[Any] = []
         while start < end:
-            body = {
-                "type": "candleSnapshot",
-                "req": {"coin": coin, "interval": interval, "startTime": start, "endTime": end - 1},
-            }
+            body = {"type": "candleSnapshot",
+                    "req": {"coin": coin, "interval": interval, "startTime": start, "endTime": end - 1}}
             page = self.post(body, per_items=60)
             page = [c for c in page if start <= c["t"] < end]
             if not page:

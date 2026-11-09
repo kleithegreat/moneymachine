@@ -2,18 +2,23 @@
 
 import json
 import math
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from ingest import archive
 
 
-def line(bids, asks, t=1):
-    lv = lambda xs: [{"px": str(p), "sz": str(s), "n": 1} for p, s in xs]
+def levels(xs: Iterable[tuple[int, int]]) -> list[dict[str, Any]]:
+    return [{"px": str(p), "sz": str(s), "n": 1} for p, s in xs]
+
+
+def line(bids: Iterable[tuple[int, int]], asks: Iterable[tuple[int, int]], t: int = 1) -> str:
     return json.dumps(
         {
             "time": "x",
             "ver_num": 1,
-            "raw": {"channel": "l2Book", "data": {"coin": "X", "time": t, "levels": [lv(bids), lv(asks)]}},
+            "raw": {"channel": "l2Book", "data": {"coin": "X", "time": t, "levels": [levels(bids), levels(asks)]}},
         }
     )
 
@@ -28,12 +33,11 @@ def test_costs_and_censoring() -> None:
     assert archive.reduce([line([], [(101, 5)])]) == []
 
 
-def book(t, bid_sz=100, ask_sz=50):
-    lv = lambda xs: [{"px": str(p), "sz": str(s), "n": 1} for p, s in xs]
-    return {"coin": "X", "time": t, "levels": [lv([(99, bid_sz)]), lv([(101, ask_sz)])]}
+def book(t: int, bid_sz: int = 100, ask_sz: int = 50) -> dict[str, Any]:
+    return {"coin": "X", "time": t, "levels": [levels([(99, bid_sz)]), levels([(101, ask_sz)])]}
 
 
-def write_archive(root, day, hour, coin, books) -> None:
+def write_archive(root: Path, day: str, hour: int, coin: str, books: Iterable[dict[str, Any]]) -> None:
     import gzip
 
     rows = archive.reduce(
@@ -49,7 +53,9 @@ def test_equivalence_matches_by_book_time_and_requires_every_cell(tmp_path: Path
     write_archive(tmp_path / "a", "20261020", 0, "X", [book(t0 + k * 5000) for k in range(10)])
     live_dir = tmp_path / "live"
     live_dir.mkdir()
-    polls = [{"kind": "l2", "coin": "X", "sent": 0, "recv": 0, "data": book(t0 + k * 5000 + 300)} for k in range(10)]
+    polls: list[dict[str, Any]] = [
+        {"kind": "l2", "coin": "X", "sent": 0, "recv": 0, "data": book(t0 + k * 5000 + 300)} for k in range(10)
+    ]
     polls.append({"kind": "l2", "coin": "X", "sent": 0, "recv": 0, "data": book(t0 + 2 * 3_600_000)})
     (live_dir / "polls-20261020.jsonl").write_text("".join(json.dumps(p) + "\n" for p in polls))
     out = archive.equivalence(tmp_path / "a", [live_dir], ["X"])

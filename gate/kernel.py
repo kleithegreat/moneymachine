@@ -16,16 +16,6 @@ def build():
 def command(cmd, path, campaign, agent, ledger, market=None, *extra, binary=MM):
     """`mm cmd path` for one campaign and agent (by `binary`, the current build unless a caller pins its own); with
     `market`, on its store and venue at the dataset version its `version` file pins."""
-    m = (
-        [
-            "--store",
-            str(Path(market) / "store"),
-            "--venue",
-            str(Path(market) / "venue"),
-            "--version",
-            (Path(market) / "version").read_text().strip(),
-        ]
-        if market
-        else []
-    )
+    m = ["--store", str(Path(market) / "store"), "--venue", str(Path(market) / "venue"),
+         "--version", (Path(market) / "version").read_text().strip()] if market else []
     return [str(binary), cmd, str(path), "--campaign", campaign, "--agent", agent, *m, "--ledger", str(ledger), *extra]

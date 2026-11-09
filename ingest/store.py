@@ -21,7 +21,8 @@ from typing import Any
 
 import polars as pl
 
-from ingest.policy import HOLDOUT_START, HOUR, POLICY, EpochMs, Policy
+from ingest.policy import HOLDOUT_START, HOUR, POLICY
+from ingest.units import EpochMs, Policy
 
 KEY = ["coin", "eventTime"]
 META = ["fetchedAt", "source", "hash"]

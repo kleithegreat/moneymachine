@@ -26,34 +26,23 @@ def build_workspace(workdir, swarm=False):
 def harness_hash():
     """Identity of the frozen harness: brief, notes, daemon, this file, the shared sandbox, the `claude` build (its store
     path), model and limits."""
-    return session.identity(
-        [HERE / f for f in ("brief.md", "research.md", "swarm.md", "daemon.py", "harness.py")],
-        [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, SWARM_PROMPT, session.tools(CLIENT), session.claude_binary()],
-    )
+    return session.identity([HERE / f for f in ("brief.md", "research.md", "swarm.md", "daemon.py", "harness.py")],
+                            [MODEL, MAX_TURNS, WALL_SECONDS, session.PROMPT, SWARM_PROMPT, session.tools(CLIENT),
+                             session.claude_binary()])
 
 
 def run_agent(market, ledger, campaign, workdir, budget=100, prompt=session.PROMPT, agent="A", swarm=None):
     workdir = Path(workdir)
     build_workspace(workdir, swarm is not None)
-    daemon = Daemon(
-        session.socket_path(workdir, CLIENT), market, ledger, campaign, agent, budget, workdir / "daemon.log", swarm
-    ).serve()
+    daemon = Daemon(session.socket_path(workdir, CLIENT), market, ledger, campaign, agent, budget, workdir / "daemon.log",
+                    swarm).serve()
     s = session.run(workdir, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS, prompt)
     daemon.close()
-    run = {
-        "campaign": campaign,
-        "agent": agent,
-        "spent": daemon.spent,
-        "history_calls": daemon.history_calls,
-        **s,
-        "harness": harness_hash(),
-    }
+    run = {"campaign": campaign, "agent": agent, "spent": daemon.spent, "history_calls": daemon.history_calls, **s,
+           "harness": harness_hash()}
     (workdir / "run.json").write_text(json.dumps(run))
-    subprocess.run(
-        command("disclose", workdir / "run.json", campaign, agent, ledger, None, "--kind", "run"),
-        check=True,
-        capture_output=True,
-    )
+    subprocess.run(command("disclose", workdir / "run.json", campaign, agent, ledger, None, "--kind", "run"),
+                   check=True, capture_output=True)
     return run
 
 
@@ -63,12 +52,6 @@ def run_swarm(market, ledger, campaign, workdir, agents=4, budget=100):
 
     swarm = Swarm()
     with ThreadPoolExecutor(agents) as pool:
-        runs = list(
-            pool.map(
-                lambda i: run_agent(
-                    market, ledger, campaign, Path(workdir) / f"A{i + 1}", budget, SWARM_PROMPT, f"A{i + 1}", swarm
-                ),
-                range(agents),
-            )
-        )
+        runs = list(pool.map(lambda i: run_agent(market, ledger, campaign, Path(workdir) / f"A{i + 1}", budget,
+                                                 SWARM_PROMPT, f"A{i + 1}", swarm), range(agents)))
     return {"runs": runs, "evaluations": len(swarm.snapshot())}

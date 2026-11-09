@@ -21,7 +21,8 @@ from typing import Any
 
 from ingest.hl import BUDGET_PER_MIN, Info
 from ingest.live import append, now_ms, recording
-from ingest.policy import BAR, HOUR, EpochMs
+from ingest.policy import BAR, HOUR
+from ingest.units import EpochMs
 
 POLL = 30_000
 FIRST_AFTER = 5_000
