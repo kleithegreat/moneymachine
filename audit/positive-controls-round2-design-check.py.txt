@@ -1,4 +1,4 @@
-"""Design arithmetic only: committed audit usage and distribution functions; no market/model calls."""
+"""Final design arithmetic only: committed usage metadata and distributions; no market/model calls."""
 
 import json
 from pathlib import Path
@@ -31,15 +31,15 @@ windows = np.array([row["windows"]["after"]["five_hour"][0] - row["windows"]["be
 dollars = np.array([row["usage"]["cost_usd"] for row in rows])
 n_agent, cutoff = decision_design()
 n_free = minimum_n(0.05)
-m = 100 * (n_agent + n_free) + 1
+m = 100 * n_agent + 101 * n_free + 4
 out = {"agent_n": n_agent, "agent_reject_rare_at": cutoff,
        "agent_test_size": float(stats.binom.sf(cutoff - 1, n_agent, 0.2)),
        "agent_test_power_at_half": float(stats.binom.sf(cutoff - 1, n_agent, 0.5)),
        "model_free_n": n_free,
-       "precision": {str(n): worst_half_width(n) for n in (n_agent - 1, n_agent, n_free - 1, n_free)},
+        "precision": {str(n): worst_half_width(n) for n in (8, 16, 33, 116, 401, 402)},
        "candidate_bound": m, "truth_replays": 40 * m,
-       "truth_t19": float(stats.t.ppf(1 - 0.01 / (4 * (m + 1)), 19)),
-       "validation_normal_approx_tolerance": float(stats.t.ppf(0.995, 38) * np.sqrt(2 / 200)),
+        "truth_t19": float(stats.t.ppf(1 - 0.01 / (4 * m), 19)),
+        "validation_t19": float(stats.t.ppf(0.995, 19)),
        "usage": {"sessions": len(rows), "turns": int(turns.sum()), "five_hour_sum": float(windows.sum()),
                  "cost_usd_sum": float(dollars.sum()), "mean_turns": float(turns.mean()), "max_turns": int(turns.max())}}
 for name, values in (("five_hour", windows), ("cost_usd", dollars)):
@@ -52,13 +52,35 @@ for name, values in (("five_hour", windows), ("cost_usd", dollars)):
                               for t in (65.9, 100, 200)},
                  "cohort_empirical_expectation": float(values.sum() * n_agent / len(rows))}
 out["planning"] = {"full_turn_admission_five_hour": 0.75,
-                   "full_turn_admission_week": 0.75 * 0.091,
+                    "full_turn_admission_week": 0.07,
                    "cohort_full_reservation_windows": n_agent * 0.75,
-                   "cohort_full_reservation_weekly_points": 100 * n_agent * 0.75 * 0.091,
+                    "cohort_full_reservation_weekly_points": 100 * n_agent * 0.75 * 0.091,
+                    "cohort_rounded_weekly_admission_points": 100 * n_agent * .07,
                    "hard_model_hours": 2 * n_agent,
-                   "truth_core_hours_at_reviewers_0.7_seconds_per_replay": 0.7 * 40 * m / 3600}
+                    "truth_core_hours_at_reviewers_rate": 25 * 40 * m / 128640,
+                    "wasted_construction_core_hours": 41 * 40 * m / 3600,
+                    "extra_model_free_markets": n_free - n_agent}
+out["sixteen_agent_test"] = {
+    str(k): {"size": float(stats.binom.sf(k - 1, 16, .2)),
+             "power": float(stats.binom.sf(k - 1, 16, .5))}
+    for k in range(17) if stats.binom.sf(k - 1, 16, .2) <= .025
+}
+mu, v = .01 / np.sqrt(2190), .01
+g = mu / 2 - (v * v + mu * mu) / 8
+out["confirmation_illustration"] = {"mean": mu, "growth": g, "log_wealth_360": 360 * g,
+                                    "horizon_steps": float(np.log(20) / g),
+                                    "horizon_years": float(np.log(20) / g / 2190)}
+out["cost_cases"] = {}
+for t in (100, 200):
+    w = [out["five_hour"]["at_turns"][str(t)][f] * n_agent for f in ("loglog", "quadratic")]
+    d = [out["cost_usd"]["at_turns"][str(t)][f] * n_agent for f in ("loglog", "quadratic")]
+    out["cost_cases"][str(t)] = {"windows": w, "dollars": d,
+                                  "weekly_points_range": [100 * min(w) * .081, 100 * max(w) * .091]}
 assert (n_agent, cutoff) == (33, 12)
 assert worst_half_width(n_free - 1) > 0.05 >= worst_half_width(n_free)
 assert out["planning"]["full_turn_admission_five_hour"] > out["five_hour"]["at_turns"]["200"]["loglog"]
 assert out["planning"]["full_turn_admission_five_hour"] > out["five_hour"]["at_turns"]["200"]["quadratic"]
+assert (m, 40 * m, n_free - n_agent) == (43906, 1756240, 369)
+assert all(stats.binom.sf(k - 1, n, .2) > .025 or stats.binom.sf(k - 1, n, .5) < .95
+           for n in range(1, n_agent) for k in range(n + 1))
 print(json.dumps(out, indent=2))

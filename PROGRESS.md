@@ -28,8 +28,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Paper erasure:** DSL.md's derivation prose leaves after the pilot.
 - **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round eight fixed round seven's review (G1-G4). Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
 - **Stage 7: parked** (the human, 2026-11-08), with slices 1-5 on `stage7` (slice 4 merged at `30db80e` after Argon's re-check, `audit/stage7/slice4-recheck-argon.md`).
-- **Next research step, after the refreeze:** the positive-control study. GPT's design (`positive-controls`): Opus says redesign (`audit/reviews/2026-11-08-opus-positive-controls-design.md`); GPT redesigns after its reset, then Opus and Argon review the criteria.
-- **Positive-control branch:** reconcile the two saved writers against Opus F1–F14; paper §17 and criteria remain unfrozen. Unlimited budget, TAMU/Cornell only, never personal; no run authorization.
+- **Next research step, after the refreeze:** positive controls (`positive-controls`): reconciled paper §17/`audit/positive-controls-criteria-draft.md`, 33 paired agent markets/402 total G100-reference markets, material truth, agent-real reused. Opus and Argon review before a criteria-only freeze. Unlimited budget, TAMU/Cornell only, never personal; no run authorization.
 
 1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there; the Lean L1 branch `claude/lean-l1-kernel-defects-h273e5` with it): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
 2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
@@ -41,7 +40,7 @@ Open research question (the human), unblocked now that stage 4 has exited: does 
 
 ### Finished
 
-- Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
+- Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §18; current qualifications below.
 
 ## Blockers
 
