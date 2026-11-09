@@ -404,14 +404,14 @@ def test_a_benchmark_market_that_fails_is_retried_with_the_rest_of_its_batch(tra
     assert track.market.calls.count(("listings",)) <= 1
 
 
-def test_a_benchmark_batch_cut_off_past_its_day_logs_each_market_left_as_missed(track, monkeypatch):
+def test_a_benchmark_batch_failing_past_its_give_up_time_logs_each_market_left_as_missed(track, monkeypatch):
     now = MONDAY + 6 * HOUR
     monkeypatch.setattr(runner, "now_ms", lambda: now)
     track.acquire(MONDAY)
     failing_once(track.market, "ETH")
     with pytest.raises(httpx.TransportError):
         track.benchmarks(now, MONDAY)
-    track.benchmarks(MONDAY + DAY, MONDAY)
+    track.benchmarks(MONDAY + runner.BENCHMARK_GIVE_UP, MONDAY)
     skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark") if c["date"] == MONDAY}
     assert sorted(on_record(track, MONDAY)) == sorted(runner.BENCHMARK)
     assert skips == {m: "run missed" for m in runner.BENCHMARK if m != "BTC"}

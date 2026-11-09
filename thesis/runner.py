@@ -36,6 +36,7 @@ ROOT = REPO / "data" / "thesis"
 FROZEN = REPO / "audit" / "stage10" / "manifest.json"
 SNAPSHOT_OFFSET = 5 * 60_000
 SESSION_OFFSET = 5 * HOUR
+BENCHMARK_GIVE_UP = 2 * DAY
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
 INITIAL = 10_000.0
@@ -403,17 +404,21 @@ class Track:
             t.join()
 
     def benchmarks(self, now: int, frozen: int) -> None:
-        """Run each Monday batch at the first pass after its snapshot is attested. A date without an attested snapshot, or
-        whose batch the date's end finds unfinished, is logged as missed; transient failures leave the batch to the next pass."""
+        """Run each Monday batch at the first pass that finds its snapshot attested, whenever that is: the inputs are fixed at
+        Monday 00:00 UTC and the attestation was due before the date's end. A date whose end finds no attested snapshot, the
+        decision waiting for an attestation in flight, is logged as such. Transient failures leave the batch to the next pass
+        until BENCHMARK_GIVE_UP after Monday's midnight, when what is left is logged as missed."""
         for monday in range(frozen // DAY * DAY, now + 1, DAY):
-            if is_monday(monday) and self.unbenchmarked(monday):
+            if not is_monday(monday) or not self.unbenchmarked(monday):
+                continue
+            with self.attestation:
                 attested = self.attested(monday, monday + DAY) is not None
-                if attested and now < monday + DAY:
-                    self.benchmark(monday)
-                elif now >= monday + DAY:
-                    for m in self.unbenchmarked(monday):
-                        self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "run missed" if attested
-                                                                   else "no attested snapshot"})
+            if now >= monday + BENCHMARK_GIVE_UP or (not attested and now >= monday + DAY):
+                for m in self.unbenchmarked(monday):
+                    self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "run missed" if attested
+                                                               else "no attested snapshot"})
+            elif attested:
+                self.benchmark(monday)
 
     def acquisitions(self, now: int, frozen: int) -> None:
         """Every date since the freeze of a version frozen at `frozen` whose snapshot is due and whose last acquisition moment
@@ -514,12 +519,13 @@ def freeze() -> None:
     and of C10.5's observation window."""
     canary.check()
     market = Market(ROOT / "market", Exchange(ROOT / "exchange"))
-    first = next(d for d in range(now_ms() // DAY * DAY, now_ms() + 8 * DAY, DAY) if is_monday(d))
-    if first <= now_ms() and not market.listings_at(first)[1]:
+    now = now_ms()
+    first = next(d for d in range(now // DAY * DAY, now + 8 * DAY, DAY) if is_monday(d))
+    if first <= now and not market.listings_at(first)[1]:
         raise SystemExit("no listing observation before this Monday's midnight: the window's first benchmark would find none "
                          "and skip every market; run `thesis-prewarm` on the new code before the next Monday 00:00 UTC "
                          "(Sunday 19:00 EST) and freeze after it")
-    cold = [m for m, delisted in sorted(market.listings().items()) if not delisted and not market.ready(m, now_ms())]
+    cold = [m for m, delisted in sorted(market.listings().items()) if not delisted and not market.ready(m, now)]
     if cold:
         raise SystemExit(f"funding history is not ready for {len(cold)} listed markets, such as {cold[:5]}: let the background "
                          "fill finish before the freeze")
@@ -529,7 +535,7 @@ def freeze() -> None:
     if old and old["manifest"] == manifest:
         raise SystemExit("this manifest is already frozen")
     FROZEN.write_text(json.dumps({"manifest": manifest, "version": f"thesis-{manifest[:12]}",
-                                  "frozen": now_ms(), "previous": old}, indent=1) + "\n")
+                                  "frozen": now, "previous": old}, indent=1) + "\n")
 
 
 def run() -> None:
