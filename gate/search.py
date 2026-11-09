@@ -27,7 +27,7 @@ WINDOWS = (4, 8, 12, 24, 48, 96, 168, 336)
 SIZES = (0.02, 0.05, 0.1)
 
 
-def const(x, unit: str = "1"):
+def const(x, unit="1"):
     return {"const": x, "unit": unit}
 
 
@@ -213,7 +213,7 @@ class Evaluator:
         return len(self.seen)
 
 
-def genetic(evaluate, budget, rng, nf, population: int = 20) -> None:
+def genetic(evaluate, budget, rng, nf, population=20) -> None:
     pop = [random_genome(rng, nf) for _ in range(population)]
     scored = list(zip(pop, evaluate(pop)))
     for _ in range(100 * budget):

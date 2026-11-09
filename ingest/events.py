@@ -4,38 +4,31 @@
 import hashlib
 import json
 import time
-from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, TypeAlias
 
 import numpy as np
 import polars as pl
 
 from ingest.live import ms, read
-from ingest.policy import DELTA, HOUR, EpochMs
+from ingest.policy import DELTA, HOUR
 from ingest.store import Store, live, stores, write_split
 
 VENUE = Path(__file__).resolve().parents[1] / "venue/sources"
 AUDIT = Path(__file__).resolve().parents[1] / "audit/stage5"
-GAP: EpochMs = 600_000
-Observation: TypeAlias = tuple[str, Any, EpochMs, EpochMs]
-SOURCES: dict[str, dict[str, Any]] = {
+GAP = 600_000
+SOURCES = {
     "discourse": {"dataset": "events_forum", "map": VENUE / "discourse_map.json", "key": "forum", "margin": 60_000},
     "snapshot": {"dataset": "events_governance", "map": VENUE / "snapshot_map.json", "key": "space", "margin": 0},
 }
 
 
-def polls(live_dir: str | Path) -> Iterator[Any]:
-    recorded: Iterator[Any] = read(live_dir, "sources")
-    return recorded
+def polls(live_dir):
+    return read(live_dir, "sources")
 
 
-def records(
-    data_root: str | Path, live_dir: str | Path, source: str, version: EpochMs
-) -> tuple[list[Observation], dict[str, list[EpochMs]]]:
+def records(data_root, live_dir, source, version):
     """(observations, polls) at or before `version`: [(key, id, created, at)] and {key: [recv]}."""
-    obs: list[Observation] = []
-    polled: dict[str, list[EpochMs]] = {}
+    obs, polled = [], {}
     key = SOURCES[source]["key"]
     raw = Store(Path(data_root) / "sources", key=[key, "upstream_id"]).revisions(source)
     if raw is not None:
@@ -58,15 +51,15 @@ def records(
     return obs, polled
 
 
-def items(obs: list[Observation]) -> dict[tuple[str, Any], tuple[EpochMs, EpochMs]]:
+def items(obs):
     """(key, id) -> (created, witness), both from the item's earliest observation."""
-    first: dict[tuple[str, Any], tuple[EpochMs, EpochMs]] = {}
+    first = {}
     for key, item, created, at in sorted(obs, key=lambda o: (o[3], o[2])):
         first.setdefault((key, item), (created, at))
     return first
 
 
-def covered(times: list[EpochMs], margin: EpochMs, version: EpochMs) -> np.ndarray[Any, Any]:
+def covered(times, margin, version):
     """The hours τ whose tick τ + DELTA is <= version and whose witness window [τ + DELTA - HOUR - margin,
     τ + DELTA - margin] the polls cover: every instant in it has a poll within the last GAP ms, at or before it."""
     p = np.unique(np.array(times, dtype=np.int64))
@@ -74,21 +67,14 @@ def covered(times: list[EpochMs], margin: EpochMs, version: EpochMs) -> np.ndarr
     a, b = hours + DELTA - HOUR - margin, hours + DELTA - margin
     ia, ib = np.searchsorted(p, a, side="right") - 1, np.searchsorted(p, b, side="right") - 1
     gaps = np.concatenate([[0], np.cumsum(np.diff(p) > GAP)])
-    ticks: np.ndarray[Any, Any] = hours[(b - p[ib] < GAP) & (gaps[ib] == gaps[ia])]
-    return ticks
+    return hours[(b - p[ib] < GAP) & (gaps[ib] == gaps[ia])]
 
 
-def counts(
-    obs: list[Observation],
-    polled: dict[str, list[EpochMs]],
-    coin_of: dict[str, str],
-    margin: EpochMs,
-    version: EpochMs,
-) -> list[tuple[str, EpochMs, int]]:
+def counts(obs, polled, coin_of, margin, version):
     """[(coin, hour, count)] over each mapped key's covered hours: items created since the key's first poll, each
     known `margin` ms after its earliest observation, counted at the tick whose hour ends at or after that."""
     first = items(obs)
-    out: list[tuple[str, EpochMs, int]] = []
+    out = []
     for key, times in sorted(polled.items()):
         if key not in coin_of:
             continue
@@ -102,11 +88,11 @@ def counts(
     return out
 
 
-def sha(x: Any) -> str:
+def sha(x):
     return hashlib.sha256(json.dumps(x, sort_keys=True).encode()).hexdigest()
 
 
-def derive(data_root: str | Path, version: EpochMs, live_dir: str | Path, source: str = "discourse") -> pl.DataFrame:
+def derive(data_root, version, live_dir, source="discourse"):
     """The derived rows at cut `version`, each carrying its lineage: the cut, and the hashes of this code, the
     mapping file and the records read."""
     spec = SOURCES[source]
@@ -122,16 +108,14 @@ def derive(data_root: str | Path, version: EpochMs, live_dir: str | Path, source
     return pl.DataFrame([{"coin": c, "eventTime": h, "count": float(n)} | lineage for c, h, n in rows])
 
 
-def manifest(df: pl.DataFrame) -> dict[str, Any]:
+def manifest(df):
     return {k: df[k][0] for k in ("cut", "code_sha256", "map_sha256", "inputs_sha256")} | {
         "rows": df.height,
         "rows_sha256": sha(sorted(df.select("coin", "eventTime", "count").rows())),
     }
 
 
-def main(
-    data_root: str | Path, version: EpochMs, live_dir: str | Path, source: str = "discourse", audit: Path = AUDIT
-) -> dict[str, Any]:
+def main(data_root, version, live_dir, source="discourse", audit=AUDIT):
     """Write the derived version and its lineage manifest (`audit/stage5/lineage-<source>-<version>.json`)."""
     df = derive(data_root, version, live_dir, source)
     search, holdout = stores(data_root)
@@ -156,7 +140,7 @@ def main(
     return out
 
 
-def verify(lineage: str | Path, data_root: str | Path, live_dir: str | Path) -> dict[str, Any]:
+def verify(lineage, data_root, live_dir):
     """Recompute a derived version from the raw store and recordings at its cut, and compare it with its
     manifest, without reading the stored rows."""
     m = json.loads(Path(lineage).read_text())
