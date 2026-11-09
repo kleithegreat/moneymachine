@@ -29,3 +29,12 @@ Builder: Sonnet 5.5 on `thesis-refreeze` (`../mm-thesis-rf`). An earlier session
 ## Suite
 
 `ops/shards.py` on the final tree: 1,948 of 1,948 reported, 1,928 passed, 1 skipped, 19 xfailed, 0 missing. The first run found six failures, all tests of the old behaviour (hour-rounded registration, `listings_at` returning a dict, a snapshot without `ready`, a `freeze` double without `listings_at`) and one record line missing its Eastern time; each updated to the new rule.
+
+## Round eight (2026-11-09 02:30 UTC (21:30 EST)), G1-G4 of the Opus round-seven review
+
+Tests: `thesis/tests/test_refreeze_round8.py`, each failing on `c775fbb` first.
+- G1: `benchmarks` runs a batch at any pass that finds it attested (the inputs are fixed at Monday midnight); "no attested snapshot" is decided from the date's end, under `self.attestation`; transient failures are given up at `BENCHMARK_GIVE_UP` (two days after Monday midnight, Tuesday 19:00 EST), logged "run missed". Attestations at 23:59:30 and 23:59:59 UTC (18:59:30 and 18:59:59 EST) register; the in-flight race waits. The old cut-off test now uses the give-up time.
+- G2: draft item 2 now says a market skipped for an operational reason does not count and a batch with any operational skip is not executed (a tightening only); a text test.
+- G3: the latency allowance is 0.45 s per stress request (796 * 0.45 = 358.2 s, six minutes), so every completion time is unchanged; PDF rebuilt.
+- G4: `freeze` takes one `now` for the guard, the cold check and `frozen`.
+- Suite (`ops/shards.py`): 1,956 of 1,956 reported, 1,936 passed, 1 skipped, 19 xfailed, 0 missing; the data-dependent tests ran on nodes with data.
