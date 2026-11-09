@@ -9,10 +9,10 @@ use mm::{dsl, market, sim};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-fn load(store: &Path, venue_dir: &Path, version: i64) -> (market::Market, market::Venue, market::Policy, i64) {
+fn load(store: &Path, venue_dir: &Path, version: i64) -> (market::Market<'static>, market::Venue, market::Policy, i64) {
     let policy = market::policy(&store.join("policy.json")).unwrap();
     let venue = market::venue(venue_dir).unwrap();
-    let m = market::load(&[store.to_path_buf()], version, &venue, &policy, Some(policy.holdout_start)).unwrap();
+    let m = market::load(&[store.to_path_buf()], version, common::registry(), &venue, &policy, Some(policy.holdout_start)).unwrap();
     let end = policy.holdout_start.min(policy.w_end);
     (m, venue, policy, end)
 }

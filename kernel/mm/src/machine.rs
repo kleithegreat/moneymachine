@@ -108,8 +108,16 @@ impl Win {
     }
 }
 
-/// A delivered observation: one revision of a key, as the machine reads it (Lean's `Obs`, less the execution roles).
-/// `vals` follows the source's declared fields; a retraction's are all undefined. `slot` is an event source's hour.
+/// A role provider's payload, as execution reads it (Lean's `RolePayload`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RolePayload {
+    Bar { open: f64, high: f64, low: f64, close: f64, trades: i64 },
+    Rate(f64),
+}
+
+/// One resolved observation: a revision of a key (Lean's `Obs`). `vals` follows the source's declared fields, `role`
+/// is a provider's payload; a retraction has neither. `slot` is an event source's hour, `last` Lean's `final` (the
+/// key's last revision, what execution reads), `recorded` the revision's fetchedAt.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Obs {
     pub source: usize,
@@ -118,7 +126,10 @@ pub struct Obs {
     pub slot: Option<i64>,
     pub known: i64,
     pub vals: Vec<Option<f64>>,
+    pub role: Option<RolePayload>,
+    pub last: bool,
     pub retraction: bool,
+    pub recorded: i64,
 }
 
 pub struct Machine<'p> {
@@ -140,8 +151,8 @@ fn finite(x: f64) -> Option<f64> {
 }
 
 impl<'p> Machine<'p> {
-    /// A machine for `prog`, whose input table is the registry's: one slot per source of that table.
-    pub fn new(prog: &'p Program, coins: usize) -> Machine<'p> {
+    /// A machine for `prog` over a registry of `sources` declarations (Lean's `MState.init`).
+    pub fn new(prog: &'p Program, sources: usize, coins: usize) -> Machine<'p> {
         let wins = prog
             .nodes
             .iter()
@@ -150,7 +161,6 @@ impl<'p> Machine<'p> {
                 _ => (0..coins).map(|_| None).collect(),
             })
             .collect();
-        let sources = prog.inputs.iter().map(|i| i.source + 1).max().unwrap_or(0);
         Machine {
             prog,
             coins,
@@ -315,9 +325,12 @@ mod tests {
 
     const DELTA: i64 = 120_000;
 
+    fn registry() -> Vec<crate::source::Declaration> {
+        crate::source::registry(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources"))).unwrap()
+    }
+
     fn prog(lets: &str) -> Program {
-        let reg = crate::source::registry(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sources"))).unwrap();
-        dsl::parse(&crate::source::inputs(&reg), &format!(
+        dsl::parse(&crate::source::inputs(&registry()), &format!(
             r#"{{"dsl": 1, "name": "m", "mechanism": {{"counterparty": "-", "predictions": [], "capacity": "-"}}, "let": {{{lets}}}, "weight": {{"const": 0, "unit": "1"}}}}"#
         ))
         .unwrap()
@@ -327,7 +340,7 @@ mod tests {
         let i = p.inputs.iter().find(|i| i.name == input).unwrap();
         let mut vals = vec![None; i.field + 1];
         vals[i.field] = v;
-        Obs { source: i.source, coin: 0, key, slot, known, vals, retraction: v.is_none() }
+        Obs { source: i.source, coin: 0, key, slot, known, vals, role: None, last: true, retraction: v.is_none(), recorded: known }
     }
 
     fn at(p: &Program, m: &Machine, name: &str) -> Option<f64> {
@@ -339,7 +352,7 @@ mod tests {
     #[test]
     fn held_and_event_reads() {
         let p = prog(r#""f": {"input": "funding"}, "n": {"input": "forum_posts"}"#);
-        let mut m = Machine::new(&p, 1);
+        let mut m = Machine::new(&p, registry().len(), 1);
         m.tick(&[true], 0);
         assert_eq!((at(&p, &m, "f"), at(&p, &m, "n")), (None, None), "nothing delivered reads undefined, not zero");
 
@@ -357,17 +370,29 @@ mod tests {
         assert_eq!(at(&p, &m, "f"), None, "a retraction undefines the held value");
     }
 
+    /// `latest` has a row per registry declaration (Lean's `MState.init`), field-less ones included.
+    #[test]
+    fn latest_has_a_row_per_declaration() {
+        let (p, reg) = (prog(r#""f": {"input": "funding"}"#), registry());
+        let mut m = Machine::new(&p, reg.len(), 1);
+        let s = reg.iter().rposition(|d| d.fields.is_empty()).unwrap();
+        assert!(s > p.inputs.iter().map(|i| i.source).max().unwrap());
+        let o = Obs { source: s, coin: 0, key: 0, slot: None, known: 0, vals: vec![], role: None, last: true, retraction: false, recorded: 0 };
+        m.deliver(o.clone(), 0).unwrap();
+        assert_eq!(m.latest[s][0], Some(o));
+    }
+
     /// Named test 19: an older correction delivered after the current hour's event row (GPT B7).
     #[test]
     fn late_correction_undefines_event() {
         let p = prog(r#""n": {"input": "forum_posts"}"#);
-        let mut m = Machine::new(&p, 1);
+        let mut m = Machine::new(&p, registry().len(), 1);
         m.deliver(obs(&p, "forum_posts", 5 * HOUR, Some(5 * HOUR), 5 * HOUR + DELTA, Some(3.0)), 5 * HOUR + DELTA).unwrap();
         m.deliver(obs(&p, "forum_posts", 4 * HOUR, Some(4 * HOUR), 5 * HOUR + DELTA + 1, Some(9.0)), 5 * HOUR + DELTA + 1).unwrap();
         m.tick(&[true], 5 * HOUR);
         assert_eq!(at(&p, &m, "n"), None);
 
-        let mut m = Machine::new(&p, 1);
+        let mut m = Machine::new(&p, registry().len(), 1);
         m.deliver(obs(&p, "forum_posts", 4 * HOUR, Some(4 * HOUR), 5 * HOUR + DELTA, Some(9.0)), 5 * HOUR + DELTA).unwrap();
         m.deliver(obs(&p, "forum_posts", 5 * HOUR, Some(5 * HOUR), 5 * HOUR + DELTA + 1, Some(3.0)), 5 * HOUR + DELTA + 1).unwrap();
         m.tick(&[true], 5 * HOUR);

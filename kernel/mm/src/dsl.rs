@@ -61,10 +61,6 @@ pub enum Ty {
     Bool,
 }
 
-/// Store datasets of the event inputs, as (DSL name, dataset): the machine, the loader and the simulator still index
-/// event inputs by their row here until the observation-based machine and loader replace them (port plan, slices 3 to 5).
-pub const EVENT_INPUTS: [(&str, &str); 2] = [("forum_posts", "events_forum"), ("gov_proposals", "events_governance")];
-
 /// A DSL input as the registry declares it (Lean's `Input`, under its name): its declaration's registry index, the
 /// field's position in that declaration, whether the declaration is an event source (defined only at its own hour's
 /// tick) and the field's unit. A program's `Node::Input(i)` indexes the table it was checked against.
@@ -587,19 +583,6 @@ impl Program {
                 }
             }
         }
-        v
-    }
-
-    /// Event datasets this program reads (for R_INPUT_UNAVAILABLE).
-    pub fn event_datasets(&self) -> Vec<&'static str> {
-        let mut v: Vec<&'static str> = self
-            .nodes
-            .iter()
-            .filter_map(|n| if let Node::Input(k) = n { EVENT_INPUTS.iter().find(|e| e.0 == self.inputs[*k].name) } else { None })
-            .map(|e| e.1)
-            .collect();
-        v.sort();
-        v.dedup();
         v
     }
 }

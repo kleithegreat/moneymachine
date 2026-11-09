@@ -2,14 +2,14 @@
 //! martingale: log returns Gaussian with sigma 2% and mean -sigma^2/2, so no program has an edge.
 //! Zero funding and production costs: the taker fee, minimum notional and each coin's C0.7 cost cells from
 //! venue/hyperliquid (synthetic coin i takes U's i-th coin's cells). No admitted program may reach an
-//! annualized net Sharpe above 4 on any seed. The leaking evaluator is the same kernel fed bars
-//! whose timestamps claim they were known two bars early (so a decision sees the bar its order
-//! will be held through), which must exceed 20.
+//! annualized net Sharpe above 4 on any seed. The leaking evaluator is the same kernel fed, at each
+//! bar's event time, the values of the bar two ahead (so a decision sees the bar its order will be
+//! held through), while execution trades the true bars; it must exceed 20.
 
 mod common;
 
 use mm::dsl;
-use mm::market::{Bar, CoinRules, Funding, Market, Policy, Venue, BAR, HOUR};
+use mm::market::{CoinRules, Market, Policy, Venue, BAR, HOUR};
 use mm::sim;
 use std::fs;
 use std::path::Path;
@@ -42,53 +42,33 @@ impl Rng {
     }
 }
 
-/// `early` shifts every bar's event and knownAt back by two bars: the leak.
-fn market(seed: u64, early: bool) -> (Market, Venue, Policy, i64) {
+/// `early` gives each bar observation the values of the bar two ahead, its role payload unchanged: the leak.
+fn market(seed: u64, early: bool) -> (Market<'static>, Venue, Policy, i64) {
     let mut rng = Rng(seed);
     let n_bars = DAYS * 6;
     let end = n_bars * BAR;
-    let shift = if early { 2 * BAR } else { 0 };
-    let mut bars = vec![];
+    let mut obs = vec![];
     for c in 0..COINS {
         let mut px = 100.0;
-        for k in 0..n_bars {
+        let mut bars = vec![];
+        for _ in 0..n_bars {
             let open = px;
             let close = open * (SIGMA * rng.normal() - SIGMA * SIGMA / 2.0).exp();
             let wick = (SIGMA * rng.normal()).abs() * 0.5;
-            bars.push(Bar {
-                coin: c,
-                open_time: k * BAR,
-                event: (k + 1) * BAR - shift,
-                known: (k + 1) * BAR + DELTA - shift,
-                open,
-                high: open.max(close) * (1.0 + wick),
-                low: open.min(close) * (1.0 - wick),
-                close,
-                volume: 1.0,
-                trades: 1,
-                retraction: false,
-                recorded: 0,
-            });
+            bars.push([open, open.max(close) * (1.0 + wick), open.min(close) * (1.0 - wick), close]);
             px = close;
         }
+        for (k, &b) in bars.iter().enumerate() {
+            let event = (k as i64 + 1) * BAR;
+            let mut o = common::bar(c, event, event + DELTA, b, 1.0, 1);
+            if early {
+                o.vals = bars.get(k + 2).map_or(vec![None; o.vals.len()], |&ahead| common::bar(c, event, event + DELTA, ahead, 1.0, 1).vals);
+            }
+            obs.push(o);
+        }
+        obs.extend((0..=n_bars * 4).map(|h| common::funding(c, h * HOUR, h * HOUR + DELTA, 0.0, 0.0)));
     }
-    let funding: Vec<Funding> = (0..COINS)
-        .flat_map(|c| (0..=n_bars * 4).map(move |h| Funding { coin: c, event: h * HOUR, known: h * HOUR + DELTA, rate: 0.0, premium: 0.0, retraction: false, recorded: 0 }))
-        .collect();
-    let mut bar_times = vec![vec![]; COINS];
-    for b in &bars {
-        bar_times[b.coin].push(b.open_time);
-    }
-    let m = Market {
-        bar_at: bars.iter().enumerate().map(|(i, b)| ((b.coin, b.open_time), i)).collect(),
-        rate_at: funding.iter().map(|f| ((f.coin, f.event), f.rate)).collect(),
-        bar_times,
-        intervals: vec![(0, end); COINS],
-        events: std::collections::HashMap::new(),
-        funding,
-        bars,
-        data_hash: String::new(),
-    };
+    let m = common::market(obs, vec![(0, end); COINS]);
     let production = mm::market::venue(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../venue/hyperliquid")).unwrap();
     assert_eq!(production.rules.len(), COINS);
     let v = Venue {

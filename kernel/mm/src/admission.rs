@@ -6,6 +6,7 @@ use crate::source::{self, Cadence, Declaration};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The run manifest's provider of each role, as registry indices.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Roles {
     pub bars: usize,
     pub settlement: usize,

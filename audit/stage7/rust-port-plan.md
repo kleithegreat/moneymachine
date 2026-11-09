@@ -17,8 +17,8 @@ per-dataset branches in `market.rs` are gone (C7.4).
 | `Source`: `Registry.closure/inputs/valid`, `Roles.valid`, `Program.sources` | `source.rs::registry` (unique inputs, registered acyclic deps) | Adds `inputs` (declaration order, then input-name order: `BTreeMap` already gives it), evidence and role-column conditions of `valid`, and `Roles` (a run's manifest selects one provider per role, SOURCES.md §6). |
 | `Source`: `Grant`, `Access`, `Cert`, `Binding`, `Mode`, `Meta`, `Meta.valid/matches/delivered/required`, `stage1`, `stage2`, `Loader`, `Abort` | none (`main.rs::load_ctx`, `market::LoadError::Holdout`, `sim::Abort`) | New `admission.rs`: `Meta` read from the ledger (certificates, supersessions, position) and the run manifest (bindings, roles); `stage1` and `stage2` exactly as Lean, with positions (`Abort.position`). `sim::Abort` gains `Uncertified`, `Holdout`, `Roles`, `Binding`, `Invalid`. Certificate payloads and ids per CERTIFICATES.md; issuance is C7.3's verifier, outside this port. |
 | `Source`: `Cell`, `Revision`, `Stored`; `Resolve`: `RuleExpr.eval`, `Stored.eligible/keys/validAt`, `differs`, `timeline`, `rolePayload`, `slotOf`, `decodes`, `resolveAll`, `Obs` | `market.rs` (`read_rows`, `resolve`, `known`, `same_values`, `NOT_VALUES`), `rule.rs` (`evaluate`, `resolve`, `effective`) | New `resolve.rs`: Parquet rows decoded to `Revision`s with declared columns only, then `timeline` and `resolveAll` as Lean (bitemporal, every eligible revision delivered, retractions, upstream keys (source, stored entity, event) with bounds recorded no later than the derived revision). `market.rs::known`'s dataset branch, `resolve`, `same_values` and `NOT_VALUES` die (undeclared columns are never compared). `rule.rs::evaluate` stays (C7.6); `rule.rs::resolve`/`effective`, version 1's snapshot resolver, die once the resolver suite is revised (§3, B3). |
-| `Machine`: `BarRow`, `RateRow`, `Win`, `MState` (`latest` per source and coin), `deliver`, `input`, `eval`, `tickNode`, `tick`, `rank` | `machine.rs` (`Machine`: `funding`, `bar`, `events` typed slots; `deliver_funding/bar/event`) | The three typed slots and three deliver functions become `latest: Vec<Vec<Option<Obs>>>` and one `deliver`; `input` is Lean's (a held input reads the latest observation, an event input only when its slot is the current hour). `Win`, `eval`, `tick`, `rank` are already the same functions. |
-| `Sim`: `Fill`, `Event`, `Venue`, `Policy`, `Run`, `Book`, `Index`, `checkFill`, `Order`, `SState`, `barRow`, `rateRow`, `Ctx`, `Ctx.make/deliver/execute/closeout/bankrupt/start/step/bounds/evaluate`, `accountingOk` | `sim.rs` (`run`), `market.rs` (`Market`, `Venue`, `Policy`, `Funding`, `Bar`, `Event`, `bar_at`, `rate_at`, `bar_times`) | `sim::run` takes a `Ctx` built as `Ctx.make`: delivered observations ordered by (knownAt, source, coin, tie), execution's bars and rates projected from the role providers' final observations, `Index` over them. `Market`'s typed vectors and `sim::run`'s three delivery loops die. `Market.intervals` becomes `Meta.intervals`, still computed by the front end from the venue's delisting (until C8.1). |
+| `Machine`: `BarRow`, `RateRow`, `Win`, `MState` (`latest` per source and coin), `deliver`, `input`, `eval`, `tickNode`, `tick`, `rank` | `machine.rs` (`Machine`, `Obs`, `RolePayload`), `sim.rs` (`BarRow`) | Done (slices 3 and 4): `latest` per source and coin, sized from the registry, one `deliver`, Lean's `input`. |
+| `Sim`: `Fill`, `Event`, `Venue`, `Policy`, `Run`, `Book`, `Index`, `checkFill`, `Order`, `SState`, `barRow`, `rateRow`, `Ctx`, `Ctx.make/deliver/execute/closeout/bankrupt/start/step/bounds/evaluate`, `accountingOk` | `sim.rs` (`Ctx`, `Index`, `bar_rows`, `check_fill`, `run`), `market.rs` (`Market`: observations, bound sources, roles, intervals) | Done (slice 4): `Ctx::make` orders the delivered observations by (knownAt, source, coin, tie) and projects execution's bars and rates from the role providers' final observations into `Index`. `Market.intervals` becomes `Meta.intervals` with admission, still computed by the front end from the venue's delisting (until C8.1). |
 | `Sim`: `Ctx.admissible`, `readFrom`, `accesses`, `inScope`, `admit`, `admission`, `runProgram`, `run` | none | `admission.rs`: run admission (`R_BINDING`), scope (`R_UNCERTIFIED`, position 7), `run` from text (`R_INVALID` at position 0). `main.rs`'s `eval`/`holdout` call `admission` and then evaluate; nothing reads a payload before stage 2 passes (named tests 17, 18). |
 | `Resolve`: `Ledger`, `Trusted` | `ledger.rs` | `Trusted` is what `mm` must discharge, not port: content hashes for bindings, ledger tables for certificates and supersessions (append-only triggers), the staging tests. New tables only; existing ones untouched. |
 | `Num`, `Float`, `Units` (`evalU`), `Spec`, `Laws`, `Exec`, `Proof/*` | `f64`; `canon.rs` (egg rules) | Proof-side, no port. `canon.rs`'s rewrites must stay the rule set `Spec.Rule` lists (L3_rewrite): checked once in slice 2, since `op_symbol` prints input names. `Exec`'s compiled replacements are Lean-only. |
@@ -32,15 +32,32 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    `registry` lacked (evidence cadence exactly for evidence entities, without fields or roles). Done 2026-11-01;
    check: `kernel/mm/tests/sources.rs`. The role-column clause holds since B1's decision; Lean's `controls`
    arrived with admission (slice 6), `values` comes with `inScope`.
-2. **The checker over the registry** (`dsl.rs`, `canon.rs`, `main.rs check`, `reference/mmdump`). Done 2026-11-02 (`e2b4925`): the six event-feed and evidence declarations are registered; `dsl::parse` takes `source::inputs(registry)` (`mm check --sources`, default the repository's `sources/`, fixed at build; the pod needs it passed); `Node::Input` indexes the table and the `Input` enum and `HELD` are gone. Interim until slice 3: `machine.rs`'s `Read::of` maps input names to the typed slots, and `EVENT_INPUTS` stays for the loader and simulator. Checked: all 1,196 C6.4 verdicts agree with `refmm` (0 disagreements); `cargo test --release`, `kernel/tests/cli` and the daemon tests pass; `canon.rs`'s 16 rewrites are Lean's 17 schemas less `ifNotRev`, which the e-graph's equalities (symmetric) already give. The run half of the harness (`differential.run`) stops before comparing: market N1 does not rebuild as frozen in this tree (nothing in this slice touches markets; cause not yet found). *Revision 2026-11-04 07:59 UTC (02:59 EST):* the cause was `stage7` lacking `main`'s `dd9580d` (the version pin left out of `market_hash`), merged since; at `0738c2d` verdicts and the 1,170 runs on N1 and the edge markets agree, N2 and N3 wait for `data/store` (`slice2-differential.md`). The slice needed the event feeds'
+2. **The checker over the registry** (`dsl.rs`, `canon.rs`, `main.rs check`, `reference/mmdump`). Done 2026-11-02 (`e2b4925`): the six event-feed and evidence declarations are registered; `dsl::parse` takes `source::inputs(registry)` (`mm check --sources`, default the repository's `sources/`, fixed at build; the pod needs it passed); `Node::Input` indexes the table and the `Input` enum and `HELD` are gone. Checked: all 1,196 C6.4 verdicts agree with `refmm` (0 disagreements); `cargo test --release`, `kernel/tests/cli` and the daemon tests pass; `canon.rs`'s 16 rewrites are Lean's 17 schemas less `ifNotRev`, which the e-graph's equalities (symmetric) already give. The run half of the harness (`differential.run`) stops before comparing: market N1 does not rebuild as frozen in this tree (nothing in this slice touches markets; cause not yet found). *Revision 2026-11-04 07:59 UTC (02:59 EST):* the cause was `stage7` lacking `main`'s `dd9580d` (the version pin left out of `market_hash`), merged since; at `0738c2d` verdicts and the 1,170 runs on N1 and the edge markets agree, N2 and N3 wait for `data/store` (`slice2-differential.md`). The slice needed the event feeds'
    declarations in `sources/registry.json`, as the annex states them after B2. Checks: C6.4's harness
    (`reference/differential.py`, development run) on all 1,196 verdicts against `refmm`, whose fixed registry has the
    same four inputs; `kernel/tests/adversarial` and `admitted` verdicts unchanged.
 3. **The machine over observations** (`machine.rs`). Checks: C6.4's harness, every run's node streams against
-   `refmm`; named tests 16 (`machine.rs::held_and_event_reads`) and 19 (`late_correction_undefines_event`). Built 2026-11-07 on branch `slice3`; `sim.rs::Wiring` is the interim adapter slice 4 deletes with `EVENT_INPUTS`.
+   `refmm`; named tests 16 (`machine.rs::held_and_event_reads`) and 19 (`late_correction_undefines_event`). Built 2026-11-07 on branch `slice3`.
 4. **The simulator from `Ctx`** (`sim.rs`, `market.rs`). Checks: C6.4's harness on its runs (trace, returns, gross
    returns, equity); `mm eval --trace` of `933b3f4` against the new binary on W0, the stage 2 probes and the first 200
    C6.4 programs over C6.4's markets, byte-identical (the C7.4 comparison, as a development run before its baseline).
+   Built 2026-11-08 on branch `slice4` (`audit/decisions.md`): `market::load` decodes every timeline entry into Lean's
+   `Obs` under the registry, `sim::Ctx` is `Ctx.make`/`deliver`/`evaluate`, `Index` and `BarRow` as Lean's; `Wiring`,
+   `Feed`, the typed market and `EVENT_INPUTS` are gone. Left for slice 6: the store-to-declaration bindings
+   (`market.rs::BINDINGS`) and the role providers come from the run manifest, and `sim::run`'s unbound-source check
+   becomes stage 1's. Results (development runs, `cc90772`): C6.4's harness, all 1,196 verdicts and 3,372 runs agree with `refmm`, 0
+   and 0 disagreements, `pass` false only on the 22 verdict-only `corpus_missing` cases as before
+   (`slice4-differential-full-report.json`). `mm eval --trace` against `933b3f4`, the
+   216 programs (W0, 15 probes, the first 200) on all six markets: N1, N2 and N3 byte-identical (result, result hash,
+   trace hash); liquidation and ruin identical but for the two probes refused R_INPUT_UNAVAILABLE on both, whose message
+   now names the input; edge differs on all 57 completed runs, and is byte-identical to `794860d` (the parent): the
+   restated keys B3 delivers since slice 5 (`edge-regression.md`), not this slice. Rerun on the committed binary
+   (`slice4-trace-identity-933b3f4.json`, `slice4-trace-identity-794860d.json`); `cargo test --release` passes. Mutants I1 (both), I2, I3, I5, I9,
+   I10, S1, S2 and S3, retargeted where they named deleted code, are all caught. Argon's review: merge after fixes
+   (`slice4-review-argon.md`); fixed in `b94cba6` and `700bbe6` (`audit/decisions.md`, 2026-11-09). Rerun at `700bbe6`:
+   `cargo test --release` passes (72, the bench ignored); C6.4's harness and the 933b3f4 comparison write reports
+   byte-identical to the two above; against `794860d`, all six markets (`slice4-fixes-trace-identity-794860d.json`): N1, N2,
+   N3 and edge byte-identical, liquidation and ruin as before. No run newly differs.
 5. **The resolver** (`resolve.rs`, `market.rs` loader): after B3. Built 2026-11-07 on branch `slice5` (`audit/decisions.md`); left:
    GPT's resolver, the structural holdout review. Checks: the revised C7.6 resolver suite across
    Python (`store.as_of`'s bitemporal replacement), the Rust loader, GPT's independent resolver and Lean's `timeline`
@@ -98,15 +115,10 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
   reads. Its records have no coin (Lean's `coin = none`), never an entity index; Lean's `entityColumns` are the other
   key columns, so its controls are its times, `fetchedAt`, its key columns and `tombstone`, as `Declaration::controls`
   computes (`source.rs` reads the event column since this revision).
-- **Delivery order** differs only in form: `mm` delivers funding, then bars, then events at each tick, each by
-  (knownAt, coin, event or store position); Lean orders all by (knownAt, source, coin, tie). Machine state is per
-  source and coin and `maxKnown` a maximum, so the interleaving is unobservable; slice 4 adopts Lean's order and its
-  ties (event time then recording time for held sources, recording time then event time for event sources), which
-  drops the store-position tie.
+- **Delivery order.** Settled in slice 4: `mm` orders as Lean, by (knownAt, source, coin, tie), the tie event time then
+  recording time for held sources, recording time then event time for event sources.
 
 ## 4. Next
 
-B1 and B2 are decided (B2's revision is frozen only after its review, `b2-revision.md`), and slice 6's metadata half
-is done. What rests on neither the annex's draft declarations (slices 2
-to 4) nor B3 (slice 5): slice 6's ledger tables (certificates, supersessions, the admission position) and `Meta`
-read from them and the run manifest.
+Parked after slice 4 (the human, 2026-11-08, `audit/decisions.md`): no slice 6 or further C7 work; the port
+resumes as a vertical slice for an actual study.

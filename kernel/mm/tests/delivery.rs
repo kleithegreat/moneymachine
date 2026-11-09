@@ -21,7 +21,7 @@ fn scratch(tag: &str) -> PathBuf {
 
 fn run(root: &Path, program: &str) -> sim::Run {
     let policy = store::policy(HOURS);
-    let market = market::load(&[root.to_path_buf()], i64::MAX / 2, &store::venue(), &policy, None).unwrap();
+    let market = market::load(&[root.to_path_buf()], i64::MAX / 2, common::registry(), &store::venue(), &policy, None).unwrap();
     let program = dsl::parse(&common::inputs(), program).unwrap();
     sim::run(&program, &market, &store::venue(), &policy, HOURS * HOUR).unwrap()
 }
@@ -110,6 +110,30 @@ fn observations_sharing_a_known_at_arrive_in_recording_order() {
     store::write_counts(&root, k12 + 1000, &[row(12, 2.0)]);
     store::write_counts(&root, k16 + 1000, &[row(16, 3.0)]);
     store::write_counts(&root, k16 + DELTA, &[row(12, 3.0)]);
+    let r = run(&root, &program(r#"{"op": "if", "args": [{"op": "gt", "args": [{"ref": "e"}, {"const": 1, "unit": "ev"}]}, {"const": 0.05, "unit": "1"}, {"const": 0, "unit": "1"}]}"#, r#""e": {"input": "forum_posts"}"#));
+    assert_eq!(at(&r, k16 + DELTA, 0), vec!["hold undefined"]);
+}
+
+/// Key 12h of coin A is retracted at 16h + delta, the instant key 16h becomes known, by a tombstone recorded after key
+/// 16h: the retraction keeps the slot of what it retracts (Lean's `resolveAll`), so it is delivered last as an event
+/// source's record and leaves 16h's count unread. Argon's review of slice 4 (`slice4-review-argon.md`), F1.
+#[test]
+fn an_event_retraction_keeps_its_slot() {
+    let root = scratch("r");
+    full_base(&root);
+    let k16 = 16 * HOUR;
+    store::write_counts(&root, 1000, &store::counts(HOURS).into_iter().filter(|c| !(c.coin == "A" && c.hour == 16)).collect::<Vec<_>>());
+    store::write_counts(&root, k16 + 1000, &[store::Count { coin: "A", hour: 16, count: 3.0 }]);
+    store::write(
+        &root.join(format!("events_forum/{}.parquet", k16 + DELTA)),
+        vec![
+            ("coin", Col::S(vec![Some("A".into())])),
+            ("eventTime", Col::I(vec![Some(12 * HOUR)])),
+            ("count", Col::F(vec![Some(0.0)])),
+            ("tombstone", Col::B(vec![Some(true)])),
+            ("fetchedAt", Col::I(vec![Some(k16 + DELTA)])),
+        ],
+    );
     let r = run(&root, &program(r#"{"op": "if", "args": [{"op": "gt", "args": [{"ref": "e"}, {"const": 1, "unit": "ev"}]}, {"const": 0.05, "unit": "1"}, {"const": 0, "unit": "1"}]}"#, r#""e": {"input": "forum_posts"}"#));
     assert_eq!(at(&r, k16 + DELTA, 0), vec!["hold undefined"]);
 }
