@@ -1,6 +1,6 @@
 # Progress
 
-Current state only; history is in git. Commands: `nix develop -c python -m cli <command>` (`-h` lists them). Criteria checks are tests in `criteria/` over evidence in `audit/` (frozen criteria `audit/criteria.md`, decisions `audit/decisions.md`).
+Current state only; history is in git. Commands: `nix develop -c python -m cli <command>` (`-h` lists them). Criteria checks are tests in `criteria/` over evidence in `audit/`.
 
 ## Now
 
@@ -8,34 +8,33 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
   - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources` (delvingbitcoin.org, Snapshot; clock record: the kernel's bound, `CLUSTER.md`), `datalayer` (`venue/sources/datalayer.json`).
-  - `thesis` (`sha256:8ad0b655…`, commit `29a25cb`): stage 10, track `thesis-310449610583` (`audit/stage10/manifest.json`); C10.5's 28-day window counts from its freeze, 2026-11-03 00:02 UTC (2026-11-02 19:02 EST). A canary runs before each session; a failure prints `SANDBOX CONTRACT BROKEN` or waits on availability. The pod gate's `retrieval` part fetches each certified retrieval entry (at least one 200 means main sessions can read).
-  - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`) since 2026-11-08 02:31 UTC (2026-11-07 21:31 EST). `agent-series` completed C4.5 v3's ten campaigns; logs and reports in `mirror/agent/`.
+  - `thesis` stopped (0 replicas): `thesis-310449610583` got SIGTERM 2026-11-09 02:57 UTC (2026-11-08 21:57 EST), exited by itself 03:35 UTC (22:35 EST); its window incomplete, never pooled.
+  - Job `thesis-prewarm` (`sha256:a2261d4c…`, `thesis-refreeze` `247871b`), started 2026-11-09 03:36 UTC (2026-11-08 22:36 EST): the new code's funding fill on the thesis's 120 weight/min, no token; first pass: 347 listed, 347 cold (paper bound about 6.65 days). Logs `prewarm <market> <n> requests in <s> s`; a pass ends `… still cold` (exit 1, rerun, at most 20) or `none cold` (Job Complete: the readiness report).
+  - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
   - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
+  - prodesk7 also runs test shards, only inside its isolated `mm-tests@` unit (Homelab `mm-test-node`; `CLUSTER.md` §7).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs at 97%, mostly old session dirs: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
-- **Budget.** No campaign runs; every account is free for Claude work.
+- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
+- **Budget.** No campaign runs. GPT's weekly allowance is nearly spent until about 2026-11-13; Argon's is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST). Claude builds and reviews meanwhile, labeled Claude-only.
+
+### Wake-ups (2026-11-08, fallbacks if the advisor's session has closed)
+
+- **thesis freeze** (advisor): when Job `thesis-prewarm` is Complete (failed: read why, fix, reapply), freeze on a day that is not Monday, just after 00:00 UTC (19:00 EST) and before the 00:05 UTC (19:05 EST) cutoff, so the version's first date is that day (frozen before midnight, the old day's sessions are recorded missed): `python ops/live.py apply <digest> thesis-freeze` from `../mm-thesis-rf` on the image of the exact code to be frozen (`sha256:a2261d4c…` while the branch is at `247871b`). Its log is the manifest record: commit it as `audit/stage10/manifest.json` (`stage 10: new track version thesis-… frozen …`, with the decisions entry), build that commit's image (`python ops/live.py push`), apply `thesis` on it, which runs `thesis-run`, and delete the Jobs `thesis-freeze` and `thesis-prewarm`.
 
 ### Next, in order
 
-- **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot, stage 7's specs when it lands.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round six fixes resolution FIFO, mark cohorts/retries/seal, attested-only recovery, acquisition cancellation, Monday-midnight benchmark inputs/window and daily readiness; T3/draft reflect the approved revisions (`audit/reviews/2026-11-08-gpt-refreeze-round6-build.md`). Next: independent review and a new forward-window decision. Nothing frozen or deployed.
-- **Lean L1 for the corrected engine** parked on `claude/lean-l1-kernel-defects-h273e5`, with its stage 6 criteria revision; lands after stage 7's byte-identical tag.
-- **Stage 7:** B3 frozen; slices 5 and 3 and the revision-carrying exporter on `stage7` (C6.4's 3,372 runs agree, `audit/stage7/edge-regression.md`). Slice 4 building (Opus, `slice4`, `../mm-slice4`); then a review with the C6.4 harness by Argon after its reset (~2026-11-14 00:25 UTC (11-13 19:25 EST); GPT stays blind to C7.7's kernel code, Sonnet never reviews Opus). Then merge and slice 6 (Claude-built: GPT red-teams C7.7).
-- **Test runner:** Sonnet balancing `ops/shards.py` (`shard-weights`, `../mm-shard-weights`); then prodesk7 joins as an isolated node (Homelab `9929aa9`: `mm-tests@.service`, 4 GB cap, idle CPU, recordings inaccessible), Opus reviewing role and runner before its first run.
+- **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot.
+- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round eight fixed round seven's review (G1-G4). Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
+- **Stage 7: parked** (the human, 2026-11-08), with slices 1-5 on `stage7` (slice 4 merged at `30db80e` after Argon's re-check, `audit/stage7/slice4-recheck-argon.md`).
+- **Next research step, after the refreeze:** the positive-control study. GPT's design (`positive-controls`): Opus says redesign (`audit/reviews/2026-11-08-opus-positive-controls-design.md`); GPT redesigns after its reset, then Opus and Argon review the criteria.
 
-5. **Stage 7** (branch `stage7`, worktree `../moneymachine-stage7`; off `main` until the pilot's judged runs are done). Unblocked, below the critical path:
-   1. The Rust kernel to the same definitions under the corpus differential (`audit/stage7/rust-port-plan.md` there). When stage 7 merges, the paper's snapshot-only point-in-time paragraph changes with it. C7.7's corpus also needs a registry and certificates.
-   2. Then C7.6 (the store's resolver through `knownat`), C7.2 and C7.3 (verifier, policy v2, `mm certify`, `mm bind`, preflight), C7.4 (event feeds as derived sources, baseline), C7.5 (new-feed demonstrations), C7.7 (GPT's declaration red team).
-   - Judged runs wait for the rebase onto the pilot's baseline commit.
-   - Also: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates e-Holm on terminal wealth and λ-grid mixtures with λ ≤ 1/L; lower-tail clipping, AR(1) pre-whitening and Argon's running-maximum adjuster admit false discoveries, and O1 must not reuse 1/(2B): `audit/reviews/2026-11-08-opus-research-statistical-gates.md`).
-6. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
-7. **When stage 7 nears its exit**: the Lean engine stage's criteria (decision of 2026-10-30 01:30 UTC (2026-10-29 21:30 EDT)). **When stage 7 lands on `main`**: the repo-wide erasure pass (same entry).
-8. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
-9. **Parked (human):** a meta-process review: does the project's execution follow the intent of the first web chat? (`ctx`, its origin import.)
+1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there; the Lean L1 branch `claude/lean-l1-kernel-defects-h273e5` with it): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
+2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
+3. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
 
-Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout.
+Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
-Open research question, after stage 4 (the human): does memory across campaigns help agents without raising false discoveries? Pre-register first.
+Open research question (the human), unblocked now that stage 4 has exited: does memory across campaigns help agents without raising false discoveries? Pre-register first.
 
 ### Finished
 
@@ -43,7 +42,6 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Blockers
 
-- **Thesis refreeze adoption blocked:** shared-IP coordination and arbitrary foreground/HTTP service bounds remain unproved. T3's omit-unclosed-candle stress budget misses the start; the miss rule handles it. Monday separates effective `t_r` from actual `registered_at`; missing historical listings cannot be backdated. Independent review, dated criteria adoption and a new forward-window decision precede any freeze/deployment; four executed benchmark batches remain required.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
@@ -57,7 +55,7 @@ Open research question, after stage 4 (the human): does memory across campaigns 
 
 ## Decisions awaiting the human's review
 
-None.
+From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
 
 ## Qualifications
 
@@ -71,4 +69,4 @@ Failed criteria, labeled amendments and known limitations, each beside its crite
 - **Stage 4:** C4.5 v1 and v2 failed (strict xfails); v3 passes as written, N2-8 unresolved (A4's refused `Edit` fails `audit_holds`; calls equal ledger rows). A smoke test: no finalist, so the holdout and betting path never ran; the C4.5 qualifications stand. Pooled: 22 started, 21 known non-promotions (bound 0.133), v2's crashed N2-9 unknown (0.198 if counted); the series report reads only logs in `data/agent` and omits v2.
 - **Stage 5:** C5.3 failed as written for Discourse, met under the 2026-10-22 amendment and its clarification; C5.6's calibration deferred, required before any search store carries an event dataset (`criteria/test_stages3to5.py` enforces it); the 2026-10-19 migration's predecessor hash unrecorded; unlocks a blocked category (no free source).
 - **Stage 6:** C6.1 judged for Lean only (amendment of 2026-10-23; Bend's L5 not accepted); C6.3 not met; C6.5's effort a recovered proxy and its thread configuration a known limitation; C6.4 met on its third judged run; L1, L3 and L4 false as frozen, revised before their proofs.
-- **Stage 10:** C10.4's tolerance revised during its first differential run, after a one-ulp disagreement, and again on 2026-10-25 before live registration (missing funding had counted as zero); met on the run after. The running frozen version omits partly entered spreads from `as_managed_mean`, though equity carries their P&L (`audit/decisions.md`, 2026-11-03); corrected here, undeployed.
+- **Stage 10:** C10.4's tolerance revised during its first differential run, after a one-ulp disagreement, and again on 2026-10-25 before live registration (missing funding had counted as zero); met on the run after. `as_managed_mean` omits a spread with one leg entered, though the equity carries its P&L (strict xfail, audit/decisions.md, 2026-11-03), until the next refreeze.

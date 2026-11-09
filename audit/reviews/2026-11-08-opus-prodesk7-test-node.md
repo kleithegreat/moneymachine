@@ -122,3 +122,82 @@ under memory pressure (priority −50, `CLUSTER.md` §1), so every memory escape
 - Host changes by the Determinate installer: `/etc/bash.bashrc`, `/etc/zshrc`, `/etc/profile.d/nix.sh` (interactive
   shells only), nixbld uids 30001–32, a tmpfiles symlink into `/nix`. No sysctl, k3s, containerd or cgroup-delegation
   change (`99-homelab.conf` predates the install).
+
+## Re-review, 2026-11-08 18:21 UTC (13:21 EST)
+
+Reviewed: Homelab `cbaff55` (the deployed tree as found) and `baebaeb` (fixes), checked against the node: every unit,
+drop-in, script and setting matches `baebaeb`. Also the runner on branch `prodesk7-node` at `2760267` in `../mm-prodesk7`
+(`git diff main...prodesk7-node`: `ops/shards.py` `run_unit`, `CLUSTER.md` §7, `ops/test_shards.py`). The probes went
+through the controller's real code path: a driver imported `ops/shards.py` from that worktree, replaced only `REMOTE`
+(the probe script) and `package` (an empty tarball), and called `run_unit(…, "prodesk7", …)`. That ran the real
+`prepare` over SSH, `sudo mm-tests start` with the stdin lifeline, the `cat`s and the final `rm -rf`. Probes ran
+18:18–18:20 UTC (13:18–13:20 EST). Afterwards: stage empty, no mmtest processes, no probe files in `/dev/shm`, no mmtest
+SysV segments, and the probe's store paths deleted. Pods' restart counts were unchanged (1 each, 11 h old).
+
+**Verdict: yes, safe to run the full suite there.** Every escape from the first review is closed, and the reproduced ones
+were re-run and now fail. One adversarial gap stays open: write IOPS (open item 1). It is a latency risk the project's
+own suite does not exercise, so it does not block.
+
+Probe results:
+
+- **Host `/dev/shm` and SysV IPC: closed (re-run).** In the unit, `/dev/shm` and `/tmp` are each a private 1 GiB tmpfs.
+  The probe wrote `/dev/shm/mm-review-probe` and an `ipcmk -M 4096` segment. After the unit ended, the host had neither.
+- **Two concurrent instances: serialized (re-run).** Two `run_unit` calls started together. B ran
+  18:18:52.8–18:19:04.9 UTC, and A started at 18:19:05.4 UTC, after B ended. The wrapper's flock on `/run/mm-tests.lock`
+  is held outside the unit: the unit's fds were stdin, the pipe and `out.log`, with no lock fd, so a test cannot release
+  it. Both ran in `/mmtest.slice/mm-tests@<id>.service`. The slice caps the aggregate anyway (`memory.max` 5 GiB,
+  `pids.max` 8192, `cpu.idle` 1, CPUs 0-9, `io.max` on 7:0 and 8:0).
+- **Symlink planting, confused deputy: closed (re-run through `run_unit`).** As mmtest, every attempt was refused: `ln -s`
+  into `stage/<id>`, `mv report.json`, a hard link of `out.log`, `chmod out.log`, and `touch` in `/var/lib/mmtest` and
+  `stage/`. `stage/<id>` is `drwxr-s--- kevin:mmtest`; the inputs are 0640, and `out.log` and `report.json` are 0660
+  kevin-owned. The controller read back only what the unit wrote into those files, and `rm -rf` removed the directory.
+- **Crash loop: apport gone; a root helper remains, judged acceptable.** 300 SIGSEGVs took 0.9 s, and the host sampler
+  saw no `apport` or helper process. With `core_pattern = |/bin/false`, the kernel still execs `/bin/false` as root,
+  outside every cgroup, once per crash, because pipe helpers ignore `RLIMIT_CORE`. It lives about a millisecond, and the
+  crashes are only produced as fast as the idle-class loop runs. **The node-wide change is right:** `core` plus
+  `LimitCORE=0` would stop the helper for the unit, but k3s runs with `LimitCORE=infinity`, so crashing containers would
+  start writing full core files into their working directories, possibly on the PVCs' filesystem. `|/bin/false`
+  writes nothing anywhere. The only cost is crash dumps on prodesk7, which apport never collected for containers
+  anyway.
+- **Memory hog: capped (re-run).** The probe filled 1000 MiB of `/dev/shm` and 900 MiB of `/tmp`, then added anonymous
+  memory in 256 MiB steps. The slice rose to 5,368,504,320 B (the 5 GiB cap; the daemon's cache was reclaimed first),
+  and the OOM killer ended the unit at 3,072 MiB of anonymous memory (`OOMPolicy=kill`, group kill). Host MemAvailable
+  never fell below 7.5 GB, kubepods stayed at ~2.9 GB, the Nix daemon kept running (`NRestarts=0`), and the slice fell
+  back to 17 MB. The controller still got the report written before the hog and returned exit 1.
+- **Nix daemon routes: closed.**
+  - `nix store info`: `Trusted: 0`.
+  - A build requested with `sandbox false`, `sandbox-fallback true`, `sandbox-paths /var/lib/rancher` and
+    `build-users-group ""` drew "ignoring the client-specified setting … restricted setting" for each, and ran
+    sandboxed with only busybox `sh`.
+  - `sandbox-fallback = false` is in `nix.custom.conf`.
+  - Connecting to `determinate-nixd.socket` (now `srw------- root`) fails with EACCES.
+  - The daemon and the gc are in `mmtest.slice`, so its `TasksMax=1048576` is bounded by the slice's 8192.
+- **Reboot and mount ordering (checked by config).** `mm-tests@` has `Requires=var-lib-mmtest.mount` and
+  `RequiresMountsFor=/nix`, so it is ordered after both mounts. `mmtest.slice` depends only on `-.slice`. apport is
+  `disabled`, and `99-mm-test-node.conf` sets `core_pattern` at boot. `/var/lib/mmtest` is root 0755, and only
+  `runner` and `stage` are writable by the unit. Nothing orders before k3s.
+
+`run_unit` (three-dot from main): correct. Prepare uses umask 027, `mkdir -m 750`, pre-creates the outputs and sets them
+to 660. The lifeline pipe is held until `wait` returns (`close_fds` keeps it out of the other shards' children), and on
+`BOUND` closing it stops the unit. An empty `report.json` parses to `{}`, so that node's tests are rerun here. The final
+`rm -rf` runs even when prepare fails, and a stage orphaned by a killed controller is reaped after 180 min, safely now,
+since mmtest cannot create entries there.
+
+Still open, none of it blocking:
+
+1. **Write IOPS cap above the drive's sync capacity (adversarial, not measured).** `IOWriteIOPSMax=1000` on loop0, but
+   the role's own note measures the drive under the PVCs at 290 synchronous 4 KiB writes per second. Each fsync on the
+   image becomes a backing-file fsync on the root fs, so a test can fsync from `runner/` faster than the drive can serve
+   them. jbd2's journal writes are a root kthread's and are not throttled at all. Recorders' SQLite fsyncs then queue
+   behind them on the same journal and drive. Outcome: write stalls; a **gap** only if a recorder misses a poll it
+   cannot retake. The honest suite fsyncs little on the image (basetemp is tmpfs). Fix: set the write IOPS cap well
+   under 290 (e.g. 100), then measure fsync latency on the root fs during a short capped storm while recorders are
+   idle. I did not run that storm, because it is the harm being tested for.
+2. **The controller buffers whole files (PC side).** `cat out.log` and `cat report.json` use `capture_output`, and
+   `out.log` can grow to the image's free space. Within the 60 s timeout that is several GB in the controller's memory
+   on the PC. Fix: read with a size cap (`tail -c`/`head -c`). Outcome: PC memory, not prodesk7.
+3. **A full suite has not yet run there.** The private 1 GiB `/tmp` holds basetemp for 5 workers. ENOSPC would show up as
+   test failures, not reruns, so the first full run should be compared against a local one. Outcome: false failures
+   only.
+4. **Leftover empty `mm.slice`** (parent of the old `mm-test.slice` name; no processes, no unit file). It goes at the
+   next reboot or with `systemctl stop mm.slice`.

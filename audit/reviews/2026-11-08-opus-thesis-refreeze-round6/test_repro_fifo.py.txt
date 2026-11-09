@@ -1,0 +1,140 @@
+"""Round six's FIFO limiter under real threads and a warped clock: fairness against a saturating snapshot,
+the background filler, cancellation and a re-charging (429-style) retry. Run from the worktree:
+PYTHONPATH=. TMPDIR=/tmp nix develop -c python -m pytest -p conftest -q <this file>"""
+import sys, threading
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+import pytest
+from warp import Warp, install
+from ingest import hl
+
+K = 400
+
+
+def snapshot_loop(lim, warp, weight, stop, sent, latency=0.3):
+    while not stop.is_set():
+        lim.charge(weight)
+        sent.append(warp.monotonic())
+        warp.sleep(latency)
+
+
+@pytest.mark.parametrize("weight", [20, 21])
+def test_ten_resolution_reads_are_not_starved_by_a_saturating_snapshot(monkeypatch, weight):
+    warp = Warp(K, 0)
+    install(monkeypatch, warp)
+    lim, stop, sent, paid = hl.WeightLimit(120), threading.Event(), [], {}
+    snap = threading.Thread(target=snapshot_loop, args=(lim, warp, weight, stop, sent), daemon=True)
+    snap.start()
+    warp.until(300)
+
+    def resolve(i):
+        for page in range(2):
+            lim.charge(22)
+            paid.setdefault(i, []).append(warp.monotonic())
+            warp.sleep(0.3)
+
+    rs = [threading.Thread(target=resolve, args=(i,), daemon=True) for i in range(10)]
+    for t in rs:
+        t.start()
+    for t in rs:
+        t.join(60)
+    stop.set()
+    snap.join(10)
+    done = max(max(v) for v in paid.values())
+    in_window = [s for s in sent if 300 <= s <= done]
+    print(f"weight {weight}: 20 resolution pages (440 weight) done {done - 300:.0f} s after arrival; "
+          f"snapshot sent {len(in_window)} meanwhile; queue now {lim.foreground}")
+    assert len(paid) == 10 and all(len(v) == 2 for v in paid.values())
+    assert done - 300 < 8 * 60, "resolution pages starved"
+    assert len(in_window) > 0, "snapshot itself starved"
+    assert lim.foreground == []
+
+
+def test_background_waits_for_hold_and_queue_and_then_runs(monkeypatch):
+    warp = Warp(K, 0)
+    install(monkeypatch, warp)
+    lim, stop, sent, bg = hl.WeightLimit(120), threading.Event(), [], []
+
+    def background():
+        while not stop.is_set() and len(bg) < 5:
+            lim.charge(22, background=True)
+            bg.append(warp.monotonic())
+
+    def held():
+        with lim.hold():
+            snapshot_loop(lim, warp, 21, stop_snap, sent)
+
+    stop_snap = threading.Event()
+    h = threading.Thread(target=held, daemon=True)
+    h.start()
+    warp.until(1)
+    b = threading.Thread(target=background, daemon=True)
+    b.start()
+    warp.until(600)
+    assert bg == [], f"background admitted during a hold at {bg}"
+    stop_snap.set()
+    h.join(10)
+    b.join(30)
+    print("background admissions after the hold ended at 600 s:", [round(x) for x in bg])
+    assert len(bg) == 5 and min(bg) >= 600 and max(bg) < 600 + 3 * 60
+    assert lim.holds == 0 and lim.foreground == []
+
+
+def test_cancel_releases_the_queue_head_and_the_hold(monkeypatch):
+    warp = Warp(K, 0)
+    install(monkeypatch, warp)
+    lim = hl.WeightLimit(120)
+    deadline, err, other = 90.0, [], []
+    lim.spent = [(0.0, 120)]
+
+    def snapshot():
+        try:
+            with lim.hold(cancel=lambda: warp.monotonic() >= deadline):
+                while True:
+                    lim.charge(104)
+        except TimeoutError as e:
+            err.append((warp.monotonic(), repr(e)))
+
+    s = threading.Thread(target=snapshot, daemon=True)
+    s.start()
+    warp.until(5)
+
+    def resolve():
+        lim.charge(22)
+        other.append(warp.monotonic())
+
+    r = threading.Thread(target=resolve, daemon=True)
+    r.start()
+    s.join(30)
+    r.join(30)
+    print("cancelled at", err, "the resolution behind it admitted at", other)
+    assert err and deadline <= err[0][0] < deadline + 2
+    assert other, "a cancelled head blocked the queue"
+    assert lim.holds == 0 and lim.foreground == [] and getattr(lim.local, "cancel", None) is None
+
+
+def test_a_retrying_caller_releases_its_ticket_while_it_backs_off(monkeypatch):
+    """Info.post re-charges after a 429: during its backoff it must hold no ticket."""
+    warp = Warp(K, 0)
+    install(monkeypatch, warp)
+    import httpx
+    lim = hl.WeightLimit(120)
+    info = hl.Info(limiter=lim)
+    calls = []
+
+    def send(body):
+        calls.append(warp.monotonic())
+        status = 429 if len(calls) < 5 else 200
+        return httpx.Response(status, json=[], request=httpx.Request("POST", hl.URL))
+
+    monkeypatch.setattr(info, "_send", send)
+    seen = []
+    t = threading.Thread(target=lambda: info.post({"type": "meta"}), daemon=True)
+    t.start()
+    while t.is_alive():
+        with lim.lock:
+            seen.append(len(lim.foreground))
+        warp.sleep(0.5)
+    t.join()
+    print("429 attempts at", [round(c, 1) for c in calls], "max queue length seen", max(seen))
+    assert len(calls) == 5 and lim.foreground == []

@@ -1,0 +1,41 @@
+"""Round five: the recorded inventory's packing with the candle terminal requests counted as the venue's recorded
+behaviour gives them, and as T3's "venue omits the unclosed candle" case gives them (daily and hourly).
+Reuses round four's simulator (../2026-11-08-opus-thesis-refreeze-round4/sim_acquisition.py.txt) with ten dexes
+(12 discovery requests). Usage: python sim_terminals.py <round4 sim> <2026-10-28 snapshot.json>"""
+import sys
+src = open(sys.argv[1]).read().replace("out = [20] * 7", "out = [20] * 12").split("env = [20]")[0]
+sys.argv = sys.argv[1:]
+g = {}
+exec(src, g)
+s, w, minutes, live, age = g["s"], g["w"], g["minutes"], g["live"], g["age"]
+
+
+def plan(daily_terminals, hourly_terminals):
+    out, k = [20] * 12, 0
+    for m in live:
+        a = age.get(m, 60)
+        if a >= 1125:
+            out.append(w(2))
+        elif a < 500:
+            out.append(w(1126))
+        else:
+            out += [w(1126 - a), w(2)]
+        if k < daily_terminals:
+            out.append(w(1)); k += 1
+        if m in s["daily"] and ":" not in m:
+            out.append(w(25))
+            if a < 200:
+                out.append(w(4801 - 24 * a))
+            if hourly_terminals:
+                out.append(w(1))
+    return out
+
+
+for d, h, label in [(10, False, "recorded behaviour: 10 daily terminals"), (348, False, "T3's case: daily terminals only"),
+                    (348, True, "venue omits the unclosed candle: daily and hourly terminals")]:
+    p = plan(d, h)
+    print(f"{label}: {len(p)} requests, {sum(p)} weight, {round(minutes(p))} min")
+# Output on the 2026-10-28 snapshot:
+# recorded behaviour: 10 daily terminals: 630 requests, 17206 weight, 155 min
+# T3's case: daily terminals only: 968 requests, 24304 weight, 217 min
+# venue omits the unclosed candle: daily and hourly terminals: 1144 requests, 28000 weight, 252 min

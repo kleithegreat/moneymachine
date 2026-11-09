@@ -232,15 +232,25 @@ python3 ops/shards.py /path/to/worktree --machines local,gmktec
 ```
 The runner collects the test ids here (selection arguments, paths, `-k`, `-m`, go to collection only), splits them into
 shards balanced by recorded durations (`~/.cache/mm-shards/durations.json`, refreshed by every run; an unseen test counts
-as the median) and by cores (this PC 12, prodesk5 6, gmktec 8), learned slowness and learned per-machine overhead (seconds beyond the tests: transfer, Nix, collection, tail), runs the shards at once (`pytest -n auto` on each) and
+as the median) and by cores (this PC 12, prodesk5 6, gmktec 8, prodesk7 5 workers), learned slowness and learned per-machine overhead (seconds beyond the tests: transfer, Nix, collection, tail), runs the shards at once (`pytest -n auto` on each) and
 merges them: one summary, one exit status. The status is nonzero if any shard exits nonzero, any test fails or errors, or
 any collected test goes unreported; tests of a node that gave no result are rerun here. Logs are in a `/tmp/mm-shards-*`
 directory, deleted on success. `conftest.py` writes each shard's outcomes under `--shard-report`.
 
 - **Nodes:** prodesk5 (`kevin@192.168.8.229`) and gmktec (`kevin@192.168.8.153`), both with Nix (found by a login shell,
-  not by a plain `ssh host command`; the runner extends PATH itself). **prodesk7 holds every live recording and has no Nix:
-  it is refused before SSH**, and so is every other destination. SSH must already work noninteractively with a known host
-  key; failures are not worked around.
+  not by a plain `ssh host command`; the runner extends PATH itself), and prodesk7 (below). SSH must already work
+  noninteractively with a known host key; failures are not worked around, and every other destination is refused.
+- **prodesk7 holds every live recording**, so it runs tests only through the Homelab role `mm-test-node`: the same
+  package is staged in `/var/lib/mmtest/stage/<run>/` and `sudo mm-tests start <run>` runs it as `mmtest` in
+  `mm-tests@<run>.service`, under `mmtest.slice`: one budget for the unit, the Nix daemon and its builds and garbage
+  collection (5 GiB memory with no swap, 8192 tasks, CPUs 0-9, idle CPU weight, 40 MB/s write and 80 MB/s read on the
+  image's device). The pods keep what the node leaves: 14.9 GiB minus kubepods' 4.76 GiB peak, the host's 2.4 GiB and the slice's 5 GiB is
+  2.7 GiB. The unit sees none of k3s, the PVCs or `/home`; `/tmp` and `/dev/shm` are 1 GiB tmpfs each, private to it and
+  counted in the budget; runs go one at a time under a lock outside every unit, a run lasts at most an hour, and
+  the unit stops when the controller's ssh dies (SIGKILL included). Nix and its home live in a 48 GiB sparse image at
+  `/var/lib/mmtest`, not on the PVCs' filesystem. Five workers because a worker measured about 0.4 GiB (peak resident
+  sum 2.3 GiB for six, locally). Tests that need what the unit lacks must skip (`LOCAL_ONLY` or a capability check);
+  a skipped or unreported test is rerun here.
 - **A node's checkout is persistent:** `/home/kevin/.cache/mm-runner` (its own HOME with the Nix and Cargo caches, and `w/`; TMPDIR and pytest's basetemp are on tmpfs, `/dev/shm/mm-runner`, emptied after each run, since the SIGKILL tests are storage-sensitive, `audit/2026-11-04-suite-speed.md`),
   so the kernel build and Nix evaluation are incremental. Each run sends one tarball (a HEAD bundle, the current tracked and
   non-ignored files, the deleted names and the ids), resets `w/` to the bundle's HEAD, overlays the files and stages them for

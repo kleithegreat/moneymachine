@@ -1,0 +1,29 @@
+"""A time warp for real threads: virtual seconds run K times faster than real ones."""
+import time as _t
+
+
+class Warp:
+    def __init__(self, K, base_ms):
+        self.K, self.t0, self.base = K, _t.monotonic(), base_ms
+
+    def monotonic(self):
+        return (_t.monotonic() - self.t0) * self.K
+
+    def sleep(self, s):
+        _t.sleep(max(s, 0) / self.K)
+
+    def now_ms(self):
+        return int(self.base + self.monotonic() * 1000)
+
+    def until(self, virtual_s):
+        while self.monotonic() < virtual_s:
+            _t.sleep(0.0005)
+
+
+def install(monkeypatch, warp, *modules):
+    from ingest import hl
+    for mod in (hl, *modules):
+        monkeypatch.setattr(mod, "time", warp)
+    for mod in modules:
+        if hasattr(mod, "now_ms"):
+            monkeypatch.setattr(mod, "now_ms", warp.now_ms)

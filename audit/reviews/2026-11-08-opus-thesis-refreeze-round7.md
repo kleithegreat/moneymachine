@@ -1,0 +1,72 @@
+# Thesis refreeze round seven, review by Claude Opus, 2026-11-09 02:18 UTC (2026-11-08 21:18 EST)
+
+Reviewer: Claude Opus 5.5, a fresh session; the last review before the refreeze. It ran things in `/home/kevin/repos/mm-rv-rf7`, detached at `c775fbb` (`thesis-refreeze`), with no `data/`. Reviewed: round seven by Sonnet, three-dot from `35e7efb` (`5c26864`, `c775fbb`; build record `audit/reviews/2026-11-08-sonnet-refreeze-round7-build.md` on the branch), against F1-F8 of `audit/reviews/2026-11-08-opus-thesis-refreeze-round6.md` and the human's decisions of 2026-11-08 21:44 UTC (16:44 EST) on `main`. I made no venue call and read no protected data. Reproductions: `2026-11-08-opus-thesis-refreeze-round7/test_repro_round7.py.txt` (rename to `.py`; run from the worktree with `PYTHONPATH=. TMPDIR=/tmp nix develop -c python -m pytest -p conftest -s <file>`). Every UTC time is paired with Eastern (EST = UTC-5).
+
+## Verdict: ready after fixes
+
+Seven of the eight round-six findings (F1, F2, F3, F5, F6, F7, F8) are fixed at their cause; F3's fetch cap drops no row a read should show. F4 is not: the deadline is applied to when a pass runs, not to when the snapshot was attested, so the draft's own sentence "an attestation in the day's last minutes still registers" is false for the last pass interval, and the human's approved rule ("registers at attestation rather than missing the batch") is not what the code does. That, and what counts as an "executed" batch, must be settled before the draft is committed as criteria, because neither can be edited after. Both fixes are small and testable from the reproductions below; neither changes the design, so no further review round is needed beyond targeted tests (a second look at the G1 diff by any reviewer is cheap and enough).
+
+## Round six's findings, rerun against `c775fbb`
+
+The round-six reproductions (`2026-11-08-opus-thesis-refreeze-round6/*.py.txt`), run unchanged: 21 passed, 2 failed. Both failures are assertions that encoded a defect, which now no longer occurs: `test_first_monday_without_a_listing_observation_before_midnight` (BTC is now skipped "no listing observation by Monday 00:00 UTC (Sunday 19:00 EST)", not "not listed") and `test_a_cold_benchmark_market_blocks_the_rest_of_its_batch` (no pass raises any more; ETH is skipped, the rest register). The FIFO, cohort, seal-boundary, deadline-cancellation, midnight-inputs and cross-arm readiness reproductions still pass.
+
+| Round six | At its cause? | Evidence |
+|---|---|---|
+| F1 "not listed" for an unobserved Monday | Yes, with one note (G4) | `unbenchmarkable` checks the absent observation first (`runner.py:50-51`); `freeze()` refuses on a Monday with no observation before its midnight (`runner.py:517-521`). On any other day the freeze's own cold check calls `listings()`, which writes an observation before the next Monday. |
+| F2 Monday scope | Yes | `runner.py:145`: `|` binds looser than `&`, so the scope is the current listing plus BENCHMARK markets listed at midnight. A BENCHMARK market dropped from `meta` between midnight and the snapshot is still asked for (residual, note below). |
+| F3 fetch cap | Yes; no row lost | `market.py:380-381`. `test_f3_every_shown_row_is_fetched_at_each_boundary`: a real `Exchange` (real `Info.candles` pagination) on a venue reading `[startTime, endTime]` inclusively by open time, or by close time T = t + step - 1; core and builder (`xyz:GOLD`) daily, core hourly; reads at newest + SHOWN - 1, SHOWN, SHOWN + 1 and at step - 1, step, step + 1, each in repair and incremental mode. Every read's last row equals the uncapped expectation (all t with t + SHOWN <= now) and no recent row is missing. Why it cannot drop one: `newest` is by construction the last row shown at `now`, and `end = newest + step` makes `endTime = newest + step - 1`, which contains `newest` under either reading. The one failing combination, hourly under a close-time filter, is pre-existing (end = now before too) and is not the venue: the recorded 2026-10-28 inventory has the unclosed hourly candle returned in all 176 scopes for `endTime = now - 1`, which a close-time filter would exclude. A builder market's hourly bars are marks and never pass through `_cached`. |
+| F4 hour rounding and the last hour | **Partly**; see G1 | The rounding and `attested_at` are gone, but the `now < monday + DAY` gate remains. |
+| F5 the benchmark's listing time | Yes | `listings_at` returns `(at, listings)`; the snapshot stores `benchmark_listings_at`; `register` records `[at, at]` as `listings_read` (`registry.py:182`). Nothing else reads `listings_read`. |
+| F6 the numbers | Yes, one stale derivation left (G3) | Walked by hand: recorded 153 + 1 + 2 + 6 = 162 min of work from 00:05 UTC (19:05 EST); it is running at 00:59:05, 01:59:05 and 02:59:05 UTC (19:59:05, 20:59:05, 21:59:05 EST), so three 8-minute pauses: 186 min, **03:11 UTC (22:11 EST)**, 1 h 49 min before 05:00 UTC (00:00 EST). Stress 188 + 9 = 197, three pauses, 221 min, **03:46 UTC (22:46 EST)**, 1 h 14 min before the start and 1 h 13 min before the 04:59:05 UTC (23:59:05 EST) preparation, which it does not reach. Inventories: 630 - 10 = 620 requests and 17,206 - 10 * 21 = 16,996 weight; 1,144 - 348 = 796 and 28,000 - 348 * 21 = 20,692. Packing 153 and 188 reproduced by `test_snapshot_schedule.py`. Cold envelope 348 * 39 + 176 * 121 + 240 = 35,108 weight, 348 + 2 * 176 + 12 = 712 calls. Miss table: floor(28 - 20/1.4) = 13. `test_refreeze_t3.py::completion` now counts the pauses the timeline reaches. |
+| F7 unreachable reuse | Yes | `Track.snapshot` only acquires; its one caller, `acquire`, returns first for an attested date. |
+| F8 a cold benchmark market | Yes | `unbenchmarkable` skips it "funding not ready at the snapshot" (`runner.py:61-62`) before `inputs` could raise. `inputs` checks readiness only for the requested market, so an earlier benchmark market gone cold cannot block it. |
+
+## Findings, ranked
+
+**G1 (medium: the approved rule and the draft's text, about to become criteria). An attested Monday batch is still logged "run missed" when its attestation falls after the last pass before midnight, and "no attested snapshot" is decided without waiting for an attestation in flight.**
+- **Where.** `runner.py:410-416`. `benchmarks` runs the batch only `if attested and now < monday + DAY`; at `now >= monday + DAY` it logs every remaining market "run missed" (or "no attested snapshot"). The `benchmarks` loop passes every 60 s plus its own duration, at an arbitrary phase, and Monday acquisition may attest until 24:00 UTC (19:00 EST) (`last_acquisition`).
+- **Reproduced.** `test_f4_an_attestation_after_the_last_pass_before_midnight_misses_the_batch`: passes at :15; attestation at 23:59:30 UTC (18:59:30 EST) and at 23:59:59 UTC (18:59:59 EST), both accepted by `attested(monday, monday + DAY)`. Result: 0 theses, all five markets "run missed". Round seven's own `test_f4_...[23:59:30]` passes only because it runs the pass at the attestation's instant.
+- **The race.** `schedule` takes `self.attestation` before deciding a miss (`runner.py:433`; draft item 2: "the miss decision waits for an attestation in flight"); `benchmarks` does not. `test_f4_benchmarks_decides_no_attested_snapshot_without_waiting_...`: an attestation stamped 100 ms before midnight whose ledger write lands after a pass at 00:00:01 UTC (19:00:01 EST) leaves all five skipped "no attested snapshot", while the ledger then attests a snapshot acquired before midnight. Milliseconds wide, but its recorded reason is false.
+- **Outcome at stake.** C10.5's four executed batches (an on-time-enough snapshot loses the week) and C10.6's honesty of skip reasons. Under the literal C10.5 text a batch of five "run missed" skips may even count as executed (G2), which would be a pass with no benchmark at all.
+- **Cause and fix.** The deadline belongs to the attestation, not to the pass: `attested(monday, monday + DAY)` already requires acquisition before midnight, and the batch's inputs, `t_r` and `T` are fixed at Monday midnight whenever it registers, so nothing depends on the pass time. Run the batch at any pass that finds it attested; decide "no attested snapshot" at or after midnight under `self.attestation`. A give-up for transient failures, if one is wanted, is a separate, stated time (for example the next day's end), not the attestation deadline. Then draft item 5's sentence becomes true.
+
+**G2 (medium for the criteria commit, low plausibility). What counts as an "executed" batch is undefined for operational skips.**
+- **Where.** Draft items 2 and 5; C10.5 ("4 executed benchmark batches, each listing every market as registered or skipped with its reason"). The draft excludes only "a batch skipped for want of a snapshot".
+- **Passes while the claim is false.** Four Mondays whose markets are all skipped "funding not ready at the snapshot" (F8's new reason), "no listing observation by Monday 00:00 UTC (Sunday 19:00 EST)" (F1's), or "run missed" (G1). Every market is "listed with its reason", so each batch reads as executed, and C10.5's benchmark condition holds with zero benchmark theses: no reference exists.
+- **Fails while the claim holds.** None found beyond G1's.
+- **Fix (text, before the commit).** A market skipped for a property of the market at Monday midnight (not listed, delisted, too few daily bars or no hourly close, no daily close) counts as benchmarked; one skipped for an operational reason (no attested snapshot, no listing observation, funding not ready at the snapshot, run missed) does not, and a batch with any such market is not executed. This tightens C10.5's counting, so it cannot raise false discoveries.
+
+**G3 (low; a derivation in the paper). The six-minute latency allowance is still derived from the old stress count.**
+- **Where.** `docs/whitepaper.tex:711`: "approximately 0.3 s per stress request ($1,144\cdot0.3=343.2$ s, rounded up)". The stress inventory is now 796 requests: 796 * 0.3 = 238.8 s, 4 minutes.
+- **Effect.** The draft's 6 minutes are now unexplained (0.45 s per request). Keep 6 and derive it (for example 0.45 s per stress request, 358.2 s), or use 4: stress 03:44 UTC (22:44 EST), recorded (620 * 0.3 = 186 s, 4 min) 03:09 UTC (22:09 EST). Either way, rebuild the PDF; `test_refreeze_t3.py` checks the text and should check this figure too.
+
+**G4 (low). The freeze guard reads the clock at the start, `frozen` at the end.**
+- **Where.** `runner.py:517` decides whether today is a Monday from `now_ms()` before the cold check's discovery and the kernel pin; `frozen` is `now_ms()` at line 532.
+- **Reproduced.** `test_f1_the_guard_reads_the_clock_before_the_freeze_records_frozen`: a freeze begun at Sunday 23:59:59 UTC (18:59:59 EST) records `frozen` 7 s after Monday midnight; its own observation is stamped 2 s after midnight, so the window's first Monday has none before it and every market of that batch is skipped (honestly, now, but the batch is lost, and under G2's fix not executed).
+- **Fix.** Take one `now` for the freeze, check the guard against it and record it as `frozen`; or check after the pin against the `frozen` written. Seconds wide; fix only because it is one line.
+
+**Notes, not acted on, since none changes a judged outcome as things stand:**
+- PROGRESS says `freeze` refuses without a new-code prewarm before Monday 2026-11-16 00:00 UTC (Sunday 19:00 EST). It refuses only on a Monday; a freeze Tuesday to Sunday writes its own observation. Prewarm is needed anyway for funding readiness.
+- F2's residual: a BENCHMARK market listed at midnight but absent from `meta` at the snapshot is still asked for; if the venue errors on an unknown coin, the Monday snapshot fails. It needs one of five large markets to vanish within minutes of midnight.
+- A daily read in repair mode whose cache already holds `newest` still sends one request for `(newest + 1, newest + step)`, which can return nothing (only after a restart mid-snapshot; one request, as before round seven).
+- `runner.py:131` keeps a blank line where F7's branch was.
+
+## T3 and the draft
+
+The draft (`audit/stage10/criteria-revision-draft.md`) agrees with the code and with the human's 21:44 UTC (16:44 EST) decisions except where G1 makes item 5's "an attestation in the day's last minutes still registers" false, and item 2's "the miss decision waits for an attestation in flight" false for the benchmark. Every number in item 1 is derived in T3 and reproduced above; the latency allowance's derivation is G3's. Item 5's freeze precondition and the F1, F5, F8 reasons match the code.
+
+**Constructions.**
+- **Passes while the claim is false.** G2: four batches of operational skips, zero benchmark theses, C10.5's benchmark condition met. G1 makes one route to it easy: a Monday attested at 23:59:30 UTC (18:59:30 EST) is five "run missed" skips.
+- **Fails while the claim holds.** G1: the fourth Monday's snapshot attested before midnight but after the last pass; the batch is missed and C10.5 fails, although the snapshot was attested in time and the inputs are fixed at midnight. Round six's other construction (a venue omitting unclosed candles makes every day a miss) no longer holds: under the cap the stress case completes at 03:46 UTC (22:46 EST).
+
+**Ready to commit alone as the dated revision?** After G1 (code, or else item 5's wording), G2 (one sentence in items 2 and 5) and G3 (the paper's derivation). Nothing else in it needs to change.
+
+## Full suite
+
+`ops/shards.py` at `c775fbb`: 1,948 of 1,948 reported in 493 s, 1,923 passed, 4 failed, 2 skipped, 19 xfailed, 0 missing (`2026-11-08-opus-thesis-refreeze-round7/suite-summary.txt`). All four failures depend on `data/`, absent from this worktree, and round seven touched neither `kernel/` nor `reference/`:
+- `kernel/tests/cli/test_differential.py::test_kernel_matches_witness` (`data/store/policy.json`);
+- `reference/tests/test_differential.py::test_an_interrupted_run_resumes_where_it_stopped` (`data/store/funding: no revisions`);
+- `reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit` (cannot create a temporary directory under `data/`);
+- `reference/tests/test_lean_differential.py::test_verdicts_agree` (`R_LEDGER: unable to open database file: data/ledger.sqlite`).
+
+Every thesis test passed. My reproductions: 9 passed, 2 skipped (builder hourly, which is marks), 1 xfailed (the pre-existing close-time hourly case); each G1 and G4 assertion encodes the observed defect.

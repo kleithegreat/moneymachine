@@ -1,0 +1,19 @@
+"""Whether the venue returned the unclosed candle: per candleSnapshot request in the pre-window exchange archive
+data/thesis/exchange/info-20261028.jsonl, the last returned candle's open time against the requested end's bar.
+Reads request bodies and response timestamps only, no price. Usage: python count_terminals.py <info-20261028.jsonl>"""
+import collections, json, sys
+c = collections.Counter()
+for line in open(sys.argv[1]):
+    r = json.loads(line)
+    b = r["request"] if isinstance(r["request"], dict) else json.loads(r["request"])
+    if b.get("type") != "candleSnapshot":
+        continue
+    q = b["req"]
+    step = 3_600_000 if q["interval"] == "1h" else 86_400_000
+    resp = r["response"] if not isinstance(r["response"], str) else json.loads(r["response"])
+    if not resp:
+        c[q["interval"], "empty"] += 1
+    else:
+        c[q["interval"], "unclosed included" if max(x["t"] for x in resp) == q["endTime"] // step * step else "last closed only"] += 1
+print(dict(c))
+# Output: {('1d', 'unclosed included'): 338, ('1h', 'unclosed included'): 176, ('1d', 'last closed only'): 10, ('1d', 'empty'): 10}

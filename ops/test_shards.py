@@ -26,12 +26,12 @@ def worktree(tmp_path):
 
 
 def test_arguments(worktree):
-    assert shards.arguments([str(worktree)]) == (worktree, ["local", "prodesk5", "gmktec"], [])
+    assert shards.arguments([str(worktree)]) == (worktree, ["local", "prodesk5", "gmktec", "prodesk7"], [])
     assert shards.arguments([str(worktree), "-k", "one or two", "ops", "--machines", "local,gmktec"]) == (
         worktree, ["local", "gmktec"], ["-k", "one or two", "ops"])
 
 
-@pytest.mark.parametrize("machines", ["local,prodesk7", "prodesk5", "local,192.168.8.222", "local,local", "local;touch /tmp/no"])
+@pytest.mark.parametrize("machines", ["prodesk7", "prodesk5", "local,192.168.8.222", "local,local", "local;touch /tmp/no"])
 def test_refuses_unapproved_machines_before_any_subprocess(monkeypatch, machines, capsys):
     def unexpected(*args, **kwargs):
         pytest.fail("refusal must precede even local subprocesses")
@@ -40,7 +40,7 @@ def test_refuses_unapproved_machines_before_any_subprocess(monkeypatch, machines
     with pytest.raises(SystemExit) as e:
         shards.arguments(["/nonexistent", "--machines", machines])
     assert e.value.code == 2
-    assert "prodesk7" in capsys.readouterr().err
+    assert "refused" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("args", [[], ["/nonexistent"], [".", "--basetemp=/tmp/outside"], [".", "-n", "3"], [".", "-p", "x"]])
@@ -110,7 +110,7 @@ def shim(root, code):
 
 def remote(root, tar, env_path):
     with tar.open("rb") as stdin:
-        return subprocess.run(["bash", "-c", shards.REMOTE, "bash", str(root), str(root.parent / "tmp"), "run1"], stdin=stdin, capture_output=True, text=True,
+        return subprocess.run(["bash", "-c", shards.REMOTE, "bash", str(root), str(root.parent / "tmp"), f"{root}/report.run1.json", "auto"], stdin=stdin, capture_output=True, text=True,
                               env=os.environ | {"PATH": f"{env_path}:{os.environ['PATH']}"})
 
 
@@ -188,7 +188,7 @@ def test_a_remote_run_dies_with_its_session_and_frees_the_lock(tmp_path):
     subprocess.run(["git", "-c", "user.name=T", "-c", "user.email=t@x.invalid", "commit", "-q", "--allow-empty", "-m", "i"], cwd=repo, check=True)
     shards.package(repo, ["a.py::t"], tar)
     launcher = subprocess.Popen(
-        ["sh", "-c", 'setsid bash -c "$1" bash "$2" "$3" run1 < "$4" & wait', "sh", shards.REMOTE, str(root), str(tmp_path / "tmp"), str(tar)],
+        ["sh", "-c", 'setsid bash -c "$1" bash "$2" "$3" "$2/report.run1.json" auto < "$4" & wait', "sh", shards.REMOTE, str(root), str(tmp_path / "tmp"), str(tar)],
         env=os.environ | {"PATH": f"{root}/bin:{os.environ['PATH']}"})
     pidfile = root / "nix-pid"
     for _ in range(100):
@@ -231,3 +231,73 @@ def test_durations_are_written_atomically(tmp_path):
     shards.write_durations(path, {"a": 1.0}, {"local": 1.5}, {"local": 2.0})
     assert json.loads(path.read_text()) == {"a": 1.0, shards.SLOWNESS: {"local": 1.5}, shards.OVERHEAD: {"local": 2.0}}
     assert [p.name for p in path.parent.iterdir()] == ["durations.json"]
+
+
+def test_the_unit_run_holds_its_lifeline_open_until_the_unit_ends_and_cleans_its_stage(worktree, monkeypatch, tmp_path):
+    seen, order = [], []
+
+    class Start:
+        def __init__(self, argv, **kwargs):
+            seen.append(argv[-1])
+            self.stdin = SimpleNamespace(close=lambda: order.append("closed"))
+            assert kwargs["stdin"] == subprocess.PIPE
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def wait(self, timeout):
+            order.append("waited")
+            return 0
+
+    def fake(argv, **kwargs):
+        seen.append(argv[-1])
+        if "report.json" in argv[-1]:
+            return SimpleNamespace(returncode=0, stdout=b'{"t": {"outcome": "passed"}}')
+        if "out.log" in argv[-1]:
+            return SimpleNamespace(returncode=0, stdout=b"log\n")
+        if kwargs.get("stdin"):
+            kwargs["stdin"].read()
+        return SimpleNamespace(returncode=0, stdout=b"log\n")
+
+    monkeypatch.setattr(shards.subprocess, "run", fake)
+    monkeypatch.setattr(shards.subprocess, "Popen", Start)
+    monkeypatch.setattr(shards, "package", lambda worktree, ids, path: Path(path).write_bytes(b"x"))
+    report = tmp_path / "r.json"
+    with open(os.devnull, "w") as log:
+        assert shards.run_unit(worktree, "prodesk7", ["a.py::t"], log, report, 3) == 0
+    assert json.loads(report.read_text()) == {"t": {"outcome": "passed"}}
+    assert order == ["waited", "closed"]
+    stage = [c for c in seen if "rm -rf" in c or c.startswith("rm ")]
+    assert stage and shards.UNIT_STAGE in stage[-1]
+    assert "mkdir -m 750" in seen[0] and seen[1].startswith("sudo mm-tests start ")
+
+
+@pytest.mark.parametrize("size, kept", [(shards.REPORT_CAP, True), (shards.REPORT_CAP + 1, False)])
+def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(worktree, monkeypatch, tmp_path, size, kept):
+    def fake(argv, **kwargs):
+        if "head" in argv[-1]:
+            cap = int(argv[-1].split("-c ")[1].split()[0])
+            return SimpleNamespace(returncode=0, stdout=(b"x" * (size if "report.json" in argv[-1] else shards.LOG_CAP * 2))[:cap])
+        if kwargs.get("stdin"):
+            kwargs["stdin"].read()
+        return SimpleNamespace(returncode=0, stdout=b"")
+
+    class Start:
+        stdin = SimpleNamespace(close=lambda: None)
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *e): return False
+        def wait(self, timeout): return 0
+
+    monkeypatch.setattr(shards.subprocess, "run", fake)
+    monkeypatch.setattr(shards.subprocess, "Popen", Start)
+    monkeypatch.setattr(shards, "package", lambda worktree, ids, path: Path(path).write_bytes(b"x"))
+    report, log = tmp_path / "r.json", tmp_path / "log"
+    with log.open("w") as handle:
+        shards.run_unit(worktree, "prodesk7", ["a.py::t"], handle, report, 3)
+    assert report.exists() is kept
+    text = log.read_text()
+    assert len(text) < shards.LOG_CAP + 100 and "[log truncated" in text

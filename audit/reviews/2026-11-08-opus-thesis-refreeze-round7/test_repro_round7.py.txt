@@ -1,0 +1,161 @@
+"""Round seven, Opus's reproductions against c775fbb. Synthetic venue and prices only; no network.
+
+Rename to .py, then from the worktree: PYTHONPATH=. TMPDIR=/tmp nix develop -c python -m pytest -p conftest -s <file>.
+Each F4/F1 assertion encodes the observed defect; F3's encode the property that holds."""
+import json
+import threading
+
+import httpx
+import pytest
+
+from ingest import hl
+from ingest.policy import DAY, DELTA, HOUR
+from thesis import market, registry, runner
+from thesis.tests.test_market import fake_clock
+from thesis.tests.test_refreeze_round6_inputs import acquire, synthetic_market
+from thesis.tests.test_runner import MONDAY, track  # noqa: F401
+
+MIN = 60_000
+
+
+# --- F3: does the fetch cap ever drop a row a read should show? -------------------------------------------------------
+
+def exchange(tmp_path, monkeypatch, clock, rows, filter_by):
+    """A real Exchange (real Info.candles pagination) on a venue holding a candle at every step in `rows`; `filter_by` is
+    how the venue reads [startTime, endTime], both inclusive: by open time t, or by close time T = t + step - 1."""
+    fake_clock(monkeypatch, clock)
+    x = market.Exchange(tmp_path / "x", limiter=market.WeightLimit(10 ** 9))
+    sent = []
+
+    def post(url, json):
+        r = json["req"]
+        step = hl.INTERVAL_MS[r["interval"]]
+        key = (lambda t: t) if filter_by == "open" else (lambda t: t + step - 1)
+        sent.append((r["startTime"], r["endTime"]))
+        page = [{"t": t, "T": t + step - 1, "o": "1", "c": "1"} for t in rows[r["interval"]]
+                if r["startTime"] <= key(t) <= r["endTime"] and t <= clock[0]]
+        return httpx.Response(200, json=page, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(x.http, "post", post)
+    return x, sent
+
+
+@pytest.mark.parametrize("filter_by", ["open", "close"])
+@pytest.mark.parametrize("coin", ["BTC", "xyz:GOLD"])
+@pytest.mark.parametrize("kind", ["1d", "1h"])
+def test_f3_every_shown_row_is_fetched_at_each_boundary(tmp_path, monkeypatch, filter_by, coin, kind):
+    if kind == "1h" and ":" in coin:
+        pytest.skip("a builder market's hourly bars are its marks, not candles")
+    if kind == "1h" and filter_by == "close":
+        pytest.xfail("pre-existing and not the venue: a close-time filter would hide the current hour, as end = now did "
+                     "before round seven; the recorded 2026-10-28 inventory (unclosed hourly candle returned in all 176 "
+                     "scopes for endTime = now - 1) shows the venue does not filter by close time")
+    step, shown = market.STEP[kind], market.SHOWN[kind]
+    base = MONDAY + 30 * DAY
+    rows = {kind: list(range(base - 600 * step, base + 3 * step, step))}
+    clock = [base]
+    x, sent = exchange(tmp_path, monkeypatch, clock, rows, filter_by)
+    m = market.Market(tmp_path / "m", x, repair_every=HOUR)
+    checked = 0
+    for now in sorted({b + d for b in (base, base + step) for d in (shown - 1, shown, shown + 1, step - 1, step, step + 1)}):
+        for repair in (True, False):
+            if repair:
+                m.repaired.clear()
+            clock[0] = now
+            got = [r[0] for r in m.bars(coin, kind, now)]
+            want = [t for t in rows[kind] if t + shown <= now and t >= now - market.HISTORY[kind]]
+            assert got[-1] == want[-1], (now - base, repair, got[-3:], want[-3:])
+            assert set(want[-5:]) <= set(got)
+            checked += 1
+    assert checked
+    print(kind, coin, filter_by, "reads", checked, "requests", len(sent))
+
+
+# --- F4: an attestation in the last pass interval before midnight -----------------------------------------------------
+
+@pytest.mark.parametrize("attest", [23 * HOUR + 59 * MIN + 30_000, DAY - 1_000])
+def test_f4_an_attestation_after_the_last_pass_before_midnight_misses_the_batch(track, tmp_path, monkeypatch, attest):
+    """The runner's `benchmarks` loop passes every 60 s at an arbitrary phase (here :15). The draft says "an attestation
+    in the day's last minutes still registers" and the human approved "registers at attestation rather than missing the
+    batch". Observed: the attested batch is logged "run missed" for every market."""
+    clock, _, _, _ = synthetic_market(track, tmp_path, monkeypatch)
+    clock[0] = MONDAY + DAY - 45_000
+    track.benchmarks(clock[0], MONDAY)
+    acquire(track, clock, MONDAY + attest)
+    [(_, _, att)] = track.ledger.records("snapshot_ready", "main")
+    assert att["acquired"] < MONDAY + DAY
+    clock[0] = MONDAY + DAY + 15_000
+    track.benchmarks(clock[0], MONDAY)
+    skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
+    print("attested", (att["acquired"] - MONDAY) / MIN, "min; theses", len(track.ledger.theses("benchmark")), "skips", skips)
+    assert track.ledger.theses("benchmark") == []
+    assert set(skips.values()) == {"run missed"}
+
+
+def test_f4_benchmarks_decides_no_attested_snapshot_without_waiting_for_an_attestation_in_flight(track, tmp_path, monkeypatch):
+    """`schedule` takes `self.attestation` before deciding a miss (draft item 2: "the miss decision waits for an attestation
+    in flight"); `benchmarks` does not. An attestation stamped 23:59:59.9 UTC (18:59:59.9 EST) whose ledger write lands after a
+    pass at midnight UTC (19:00 EST): the batch is skipped "no attested snapshot" while the ledger attests a snapshot acquired before midnight."""
+    clock, _, _, _ = synthetic_market(track, tmp_path, monkeypatch)
+    writing, release = threading.Event(), threading.Event()
+    disclose = track.ledger.disclose
+
+    def slow(kind, account, content):
+        if kind == "snapshot_ready":
+            writing.set()
+            release.wait(5)
+        return disclose(kind, account, content)
+
+    monkeypatch.setattr(track.ledger, "disclose", slow)
+    clock[0] = MONDAY + DAY - 100
+    t = threading.Thread(target=track.acquire, args=(MONDAY,))
+    t.start()
+    assert writing.wait(5)
+    clock[0] = MONDAY + DAY + 1_000
+    track.benchmarks(clock[0], MONDAY)
+    release.set()
+    t.join()
+    [(_, _, att)] = track.ledger.records("snapshot_ready", "main")
+    skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark")}
+    print("acquired", att["acquired"] - MONDAY - DAY, "ms before midnight; skips", skips)
+    assert att["acquired"] < MONDAY + DAY and set(skips.values()) == {"no attested snapshot"}
+    assert track.attested(MONDAY, MONDAY + DAY) is not None
+
+
+# --- F1: the freeze guard and the time it is evaluated -----------------------------------------------------------------
+
+def test_f1_the_guard_reads_the_clock_before_the_freeze_records_frozen(track, monkeypatch, tmp_path):
+    """The guard decides "not a Monday" at Sunday 23:59:59 UTC (18:59:59 EST); the cold check's discovery and the kernel pin then take a
+    few seconds and `frozen` is recorded on Monday. The window then starts on a Monday that has no observation before its
+    midnight (the freeze's own discovery is stamped after it): every market of the first batch is skipped."""
+    clock = [MONDAY - 1_000]
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(runner, "FROZEN", tmp_path / "manifest.json")
+    monkeypatch.setattr(runner.canary, "check", lambda: None)
+    monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
+    monkeypatch.setattr(runner.harness, "manifest_hash", lambda kernel: "1" * 64)
+
+    def pin(*a, **k):
+        clock[0] += 5_000
+    monkeypatch.setattr(runner, "pinned_kernel", pin)
+
+    class Slow:
+        def __init__(self, *a):
+            self.seen = []
+
+        def listings_at(self, at):
+            return (None, {}) if not self.seen or self.seen[0] > at else (self.seen[0], {"BTC": False})
+
+        def listings(self):
+            clock[0] += 3_000
+            self.seen.append(clock[0])
+            return {"BTC": False}
+
+        def ready(self, m, now):
+            return True
+    slow = Slow()
+    monkeypatch.setattr(runner, "Market", lambda *a: slow)
+    runner.freeze()
+    frozen = json.loads((tmp_path / "manifest.json").read_text())["frozen"]
+    print("frozen", (frozen - MONDAY) / 1000, "s after Monday midnight; observation", (slow.seen[0] - MONDAY) / 1000, "s")
+    assert runner.is_monday(frozen // DAY * DAY) and slow.listings_at(MONDAY)[1] == {}

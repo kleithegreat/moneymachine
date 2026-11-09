@@ -12,11 +12,12 @@ def launcher(tmp_path, busy, *stop):
     stubs = tmp_path / "stubs"
     stubs.mkdir()
     for name, code in (("claude", 0), ("pgrep", 0 if busy else 1)):
-        (stubs / name).write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/{name}.args\nexit {code}\n')
+        (stubs / name).write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/{name}.args\n'
+                                  f'echo "$TMPDIR $CLAUDE_CODE_TMPDIR $(test -d "$TMPDIR" && echo exists)" > {tmp_path}/{name}.env\nexit {code}\n')
         (stubs / name).chmod(0o755)
     (stubs / "systemd-run").write_text(f'''#!/bin/sh
 echo "$@" >> {tmp_path}/systemd-run.args
-case " $* " in *" --scope "*) while [ "$1" != nix ]; do shift; done; exec "$@";; esac
+case " $* " in *" --scope "*) while [ "$1" != env ]; do shift; done; exec "$@";; esac
 ''')
     (stubs / "systemd-run").chmod(0o755)
     (stubs / "nix").write_text(f'#!/bin/sh\necho "$@" >> {tmp_path}/nix.args\nshift 2\nexec "$@"\n')
@@ -35,6 +36,13 @@ def test_run_starts_a_named_session_and_logs_its_id(tmp_path):
     scope = (tmp_path / "systemd-run.args").read_text()
     assert f"--unit=mm-builder-{start[2]} " in scope and "-p OOMPolicy=continue " in scope and "MemoryMax=" in scope
     assert "RuntimeMaxSec" not in scope
+
+
+def test_a_builder_has_its_own_temporary_directory_removed_when_it_exits(tmp_path):
+    (start, _) = launcher(tmp_path, busy=False)
+    tmp = f"/tmp/b{start[2][:4]}"
+    assert (tmp_path / "claude.env").read_text().split() == [tmp, tmp, "exists"]
+    assert not Path(tmp).exists()
 
 
 def test_a_stop_time_bounds_the_scope(tmp_path):
