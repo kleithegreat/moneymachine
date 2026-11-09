@@ -1,0 +1,93 @@
+"""Paper §17 (PC1-PC6) arithmetic from distributions and committed usage metadata only; no market or model calls.
+Run from the repository root: nix develop -c python audit/positive-controls-design-check.py.txt"""
+
+import json
+from pathlib import Path
+
+import numpy as np
+from scipy import optimize, stats
+
+AGENT_MARKETS, BUDGET, REFERENCES, CONTROLS = 33, 100, 4, 3
+TRUTH_FAMILY_ERROR = 0.01
+CERTIFIABLE_SHARPE, SHARPE_SD, H_SD = 0.5, 0.5, 0.15
+SEARCH_STEPS, STEPS_PER_YEAR = 3300, 2190
+
+
+def decision_design():
+    """Smallest (n, k) with P_.2(X >= k) <= .025 and P_.5(X >= k) >= .95."""
+    for n in range(1, 200):
+        for k in range(n + 1):
+            if stats.binom.sf(k - 1, n, 0.2) <= 0.025 and stats.binom.sf(k - 1, n, 0.5) >= 0.95:
+                return n, k
+
+
+def tail(m, df):
+    return float(stats.t.ppf(1 - TRUTH_FAMILY_ERROR / (4 * m), df))
+
+
+def power(n, q, effect):
+    """Noncentral-t power of one lower endpoint at a standardized per-market effect."""
+    return float(stats.nct.sf(q, n - 1, np.sqrt(n) * effect))
+
+
+n_agent, cutoff = decision_design()
+m = 2 * AGENT_MARKETS * BUDGET + REFERENCES + CONTROLS
+decision = lambda pi: stats.binom.sf(cutoff - 1, n_agent, 0.5 * pi)
+pi_min = optimize.brentq(lambda pi: decision(pi) - 0.95, 0.9, 1.0)
+pi, per_condition = 0.99, 0.995
+pairs = next(n for n in range(2, 500) if power(n, tail(m, n - 1), CERTIFIABLE_SHARPE / SHARPE_SD) >= per_condition)
+q = tail(m, pairs - 1)
+effect = optimize.brentq(lambda d: power(pairs, q, d) - per_condition, 0.1, 3)
+search_se = np.sqrt(STEPS_PER_YEAR / SEARCH_STEPS)
+z95 = stats.norm.ppf(0.95)
+
+rows = [json.loads(line) for line in Path("audit/stage3/null-v3.jsonl").read_text().splitlines()]
+turns = np.array([r["agent_run"]["turns"] for r in rows], float)
+windows = np.array([r["windows"]["after"]["five_hour"][0] - r["windows"]["before"]["five_hour"][0] for r in rows])
+dollars = np.array([r["usage"]["cost_usd"] for r in rows])
+
+
+def fits(values, t):
+    """Per-session use at `t` turns: the log-log power law and the through-origin quadratic."""
+    exponent, log_scale = np.polyfit(np.log(turns), np.log(values), 1)
+    quadratic = np.dot(turns**2, values) / np.dot(turns**2, turns**2)
+    return float(np.exp(log_scale) * t**exponent), float(quadratic * t * t)
+
+
+size = float(stats.binom.sf(cutoff - 1, n_agent, 0.2))
+week = int((0.8 - 0.07) / 0.07 + 1e-9) + 1
+out = {
+    "decision": {"n": n_agent, "cutoff": cutoff, "size": size, "power": float(stats.binom.sf(cutoff - 1, n_agent, 0.5)),
+                 "best_power_at_16": max(float(stats.binom.sf(k - 1, 16, 0.5)) for k in range(17)
+                                         if stats.binom.sf(k - 1, 16, 0.2) <= 0.025),
+                 "nominal_total_with_truth": 2 * size + TRUTH_FAMILY_ERROR},
+    "truth": {"M": m, "pi_min": pi_min, "decision_power_at_pi": float(decision(pi)), "pairs": pairs, "q": q,
+              "q19_validation": tail(m, 19), "certifiable_sharpe": effect * SHARPE_SD,
+              "materiality_margin": effect * H_SD, "rho_at_G_R_1.2": 0.5 + effect * H_SD / 1.2,
+              "replays": 2 * pairs * m, "constructions": 660 + 40 + 2 * pairs,
+              "replay_core_hours": 25 * 2 * pairs * m / 128640,
+              "construction_core_hours": (660 + 40 + 2 * pairs) * 41 / 3600,
+              "validation_failure_at_S1_sd041": float(stats.norm.cdf(tail(m, 19) - 1 / (0.41 / np.sqrt(20)))),
+              "dsr_pass_at_S05_N1": float(stats.norm.cdf(0.5 / search_se - z95))},
+    "reference_screen_at_S1": float(stats.norm.cdf(1 / search_se - z95)),
+    "usage": {"sessions": len(rows), "turns": int(turns.sum()), "dollars": float(dollars.sum()),
+              "windows": float(windows.sum()),
+              "expected_33": [float(dollars.sum() * n_agent / len(rows)), float(windows.sum() * n_agent / len(rows))],
+              **{f"at_{t}_turns_33": {"dollars": [n_agent * x for x in fits(dollars, t)],
+                                      "points": [100 * n_agent * min(fits(windows, t)) * 0.081,
+                                                 100 * n_agent * max(fits(windows, t)) * 0.091]}
+                 for t in (100, 200)},
+              "window_fits_at_200": fits(windows, 200)},
+    "calendar": {"sessions_per_account_week": week, "weeks_for_33_on_2": n_agent / (2 * week)},
+}
+mu, v = 0.01 / np.sqrt(STEPS_PER_YEAR), 0.01
+g = mu / 2 - (v * v + mu * mu) / 8
+out["confirmation"] = {"steps": float(np.log(20) / g), "years": float(np.log(20) / g / STEPS_PER_YEAR)}
+
+assert (n_agent, cutoff, m, pairs) == (33, 12, 6607, 69)
+assert 0.98 < pi_min <= 0.985 and decision(pi) >= 0.95
+assert all(stats.binom.sf(k - 1, n, 0.2) > 0.025 or stats.binom.sf(k - 1, n, 0.5) < 0.95
+           for n in range(1, n_agent) for k in range(n + 1))
+assert power(pairs - 1, tail(m, pairs - 2), CERTIFIABLE_SHARPE / SHARPE_SD) < per_condition
+assert week == 11 and 0.75 > max(out["usage"]["window_fits_at_200"]) and 0.07 > 0.75 * 0.091
+print(json.dumps(out, indent=1))
