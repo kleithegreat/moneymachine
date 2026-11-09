@@ -167,7 +167,7 @@ def test_the_snapshot_records_when_its_listings_were_read(track, monkeypatch):
     clock = [MONDAY + 3 * HOUR]
     monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
     snap = track.snapshot(MONDAY + runner.SNAPSHOT_OFFSET)
-    assert snap["taken"] == MONDAY + runner.SNAPSHOT_OFFSET and snap["listed_at"] == MONDAY + 3 * HOUR
+    assert snap["taken"] == MONDAY + runner.SNAPSHOT_OFFSET and snap["listed_at"] == {"": MONDAY + 3 * HOUR}
 
 
 def test_the_schedule_is_cutoff_0005_and_start_and_deadline_0500():
@@ -256,4 +256,4 @@ def test_each_dates_attestation_carries_its_timing_and_request_count_into_the_re
     report.write(track, MONDAY + runner.SESSION_OFFSET, tmp_path / "report.json")
     [row] = json.loads((tmp_path / "report.json").read_text())["snapshots"]
     assert row["taken"] == MONDAY + runner.SNAPSHOT_OFFSET and row["acquired"] == MONDAY + runner.SNAPSHOT_OFFSET
-    assert row["listed_at"] == MONDAY + runner.SNAPSHOT_OFFSET and row["requests"] == len(sent) == 2
+    assert row["listed_at"] == {"": MONDAY + runner.SNAPSHOT_OFFSET} and row["requests"] == len(sent) == 2

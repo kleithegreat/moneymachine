@@ -141,9 +141,11 @@ class Track:
         """One acquisition pass of the date's snapshot (`acquire` calls it only for an unattested date, each minute). Every
         market, and every builder dex's listing, is attempted once, whenever its pass comes; a later pass retries only what
         failed, and no retry is admitted at or after the retry deadline (checked before each retry and by the limiter before
-        each network admission; a request already admitted may finish, and its market's readiness is checked after it).
-        At the deadline failures are final, including first failures then. The draft (its readiness time and what each
-        pass has read) is saved after every pass, so a restart resumes it. A core listing failure still raises."""
+        each network admission: a request admitted before it may finish, and if it was its market's last, that market's
+        readiness is checked; a retry left incomplete there stays failed). At the deadline failures are final, including
+        first failures then. The draft (its readiness time and what has been read) is on disk from its creation and saved
+        after every listing, market read and readiness check, so a restart, even after SIGKILL, resumes it. A core listing
+        or builder-dex list failure still raises."""
         date = now // DAY * DAY
         retry_end = date + RETRY_UNTIL
         retrying = False
@@ -162,16 +164,23 @@ class Track:
             return not (retry and now_ms() >= retry_end)
 
         d = self.draft_of(now)
+        counted = self.market.sent()
+
+        def save() -> None:
+            nonlocal counted
+            sent = self.market.sent()
+            d["requests"] += sent - counted
+            counted = sent
+            self.save_draft(now, d)
+
         observed, benchmark_listings = self.market.listings_at(date) if is_monday(date) else (None, {})
-        before = self.market.sent()
         try:
             with self.market.hold(cancel=lambda: cancelled() or retrying and now_ms() >= retry_end):
                 check()
-                self.list_pass(d, check, begin)
-                self.read_pass(d, now, benchmark_listings, check, begin)
+                self.list_pass(d, check, begin, save)
+                self.read_pass(d, now, benchmark_listings, check, begin, save)
         finally:
-            d["requests"] += self.market.sent() - before
-            self.save_draft(now, d)
+            save()
         failed = {**d["failed"], **{f"{dex}:*": reason for dex, reason in d["failed_dexes"].items()}}
         if failed and now_ms() < retry_end:
             return None
@@ -198,8 +207,10 @@ class Track:
         return self.root / "snapshots" / f"{now}.draft.json"
 
     def draft_of(self, now: int) -> Json:
-        """The pass state of the snapshot taken at `now`: in memory, else saved by an earlier process, else new (its
-        readiness time is fixed here, for every check of the date). A new draft deletes any older one's file."""
+        """The pass state of the snapshot taken at `now`: in memory, else saved by an earlier process, else new and saved at
+        once (its readiness time is fixed here, for every check of the date). A new draft deletes any older one's file.
+        `listed_at` is each listing source's read time ("" the core venue); `unlisted` the builder dexes not yet listed,
+        None until their list is read."""
         if self.draft is None or self.draft[0] != now:
             path = self.draft_path(now)
             if path.exists():
@@ -207,8 +218,9 @@ class Track:
             else:
                 for old in path.parent.glob("*.draft.json"):
                     old.unlink()
-                saved = {"requests": 0, "listings": None, "unlisted": [], "observed": False, "failed_dexes": {}, "failed": {},
-                         "read": [], "markets": {}, "daily": {}, "ready": {}, "readiness_at": now_ms(), "listed_at": None}
+                saved = {"requests": 0, "listings": None, "unlisted": None, "observed": False, "failed_dexes": {}, "failed": {},
+                         "read": [], "markets": {}, "daily": {}, "ready": {}, "readiness_at": now_ms(), "listed_at": {}}
+                self.save_draft(now, saved)
             self.draft = now, saved
         return self.draft[1]
 
@@ -217,12 +229,16 @@ class Track:
         path.parent.mkdir(parents=True, exist_ok=True)
         registry.write_atomic(path, json.dumps(d))
 
-    def list_pass(self, d: Json, check: Callable[[], None], begin: Callable[[bool], bool]) -> None:
-        """Read the core venue's listing once, then each builder dex's not yet read, recording a failing dex; the discovery is
-        observed once it is complete."""
+    def list_pass(self, d: Json, check: Callable[[], None], begin: Callable[[bool], bool], save: Callable[[], None]) -> None:
+        """Read the core venue's listing once and the builder-dex list once, each kept as soon as read, then each builder dex's
+        listing not yet read, recording a failing dex and each source's read time; the discovery is observed once complete."""
         if d["listings"] is None:
-            d["listed_at"] = now_ms()
-            d["listings"], d["unlisted"] = self.market.universe(), self.market.dexes()
+            d["listings"] = self.market.universe()
+            d["listed_at"][""] = now_ms()
+            save()
+        if d["unlisted"] is None:
+            d["unlisted"] = self.market.dexes()
+            save()
         for dex in list(d["unlisted"]):
             check()
             if not begin(dex in d["failed_dexes"]):
@@ -233,13 +249,16 @@ class Track:
                 check()
                 d["failed_dexes"][dex] = repr(e)
             else:
+                d["listed_at"][dex] = now_ms()
                 d["unlisted"].remove(dex)
                 d["failed_dexes"].pop(dex, None)
+            save()
         if not d["unlisted"] and not d["observed"]:
             self.market.observe(d["listings"])
             d["observed"] = True
 
-    def read_pass(self, d: Json, now: int, benchmark_listings: Json, check: Callable[[], None], begin: Callable[[bool], bool]) -> None:
+    def read_pass(self, d: Json, now: int, benchmark_listings: Json, check: Callable[[], None], begin: Callable[[bool], bool],
+                  save: Callable[[], None]) -> None:
         """Take each market of the scope, not done and not on a failing dex, through its reads and its readiness check, recording
         a failing market."""
         for m in sorted(scope_of(d, benchmark_listings)):
@@ -250,21 +269,26 @@ class Track:
                 continue
             try:
                 if m not in d["read"]:
-                    self.read_market(d, m, now)
+                    self.read_market(d, m, now, save)
                 d["ready"][m] = self.market.ready(m, d["readiness_at"])
             except Exception as e:
                 check()
                 d["failed"][m] = repr(e)
             else:
                 d["failed"].pop(m, None)
+            save()
 
-    def read_market(self, d: Json, m: str, now: int) -> None:
-        daily = self.market.bars(m, "1d", now)
-        hourly = [] if len(daily) < registry.MIN_DAILY_BARS else [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
+    def read_market(self, d: Json, m: str, now: int, save: Callable[[], None]) -> None:
+        """A market's daily bars, kept as soon as read so a retry never asks for them again, then, with enough of them, its
+        last hourly close; `read` once both are done. Only markets with an hourly close reach the snapshot."""
+        if m not in d["daily"]:
+            d["daily"][m] = self.market.bars(m, "1d", now)
+            save()
+        if len(d["daily"][m]) >= registry.MIN_DAILY_BARS:
+            hourly = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
+            if hourly:
+                d["markets"][m] = {"last_close": hourly[-1][2], "t": hourly[-1][0] + HOUR}
         d["read"].append(m)
-        if hourly:
-            d["markets"][m] = {"last_close": hourly[-1][2], "t": hourly[-1][0] + HOUR}
-            d["daily"][m] = daily
 
     def attested(self, date: int, by: int | None = None) -> Json | None:
         """The day's snapshot if the ledger attests its exact bytes as published before `by` (the session deadline by default):
