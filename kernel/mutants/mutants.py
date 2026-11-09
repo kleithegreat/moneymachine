@@ -144,8 +144,8 @@ MUTANTS = {
         [
             (
                 EVENTS,
-                'counts = np.searchsorted(k, hours + DELTA, side="right") - np.searchsorted(k, hours + DELTA - HOUR, side="right")',
-                'counts = np.searchsorted(k, hours + DELTA + HOUR, side="right") - np.searchsorted(k, hours + DELTA, side="right")',
+                'counts = np.searchsorted(k, hours + DELTA, side="right") - np.searchsorted(\n            k, hours + DELTA - HOUR, side="right"\n        )',
+                'counts = np.searchsorted(k, hours + DELTA + HOUR, side="right") - np.searchsorted(\n            k, hours + DELTA, side="right"\n        )',
             )
         ],
     ),
@@ -155,7 +155,7 @@ MUTANTS = {
     ),
     "C5 as_of returns the latest content": (
         "pytest -q -n0 ingest/tests/test_store.py",
-        [(STORE, '.filter(pl.col("knownAt") <= t))', ")")],
+        [(STORE, '            .filter(pl.col("knownAt") <= t)\n', "")],
     ),
     "C5 tombstones dropped": (
         "pytest -q -n0 ingest/tests/test_store.py",
