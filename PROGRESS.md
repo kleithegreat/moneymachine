@@ -22,7 +22,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet builds (`CLAUDE.md`; the human's decision of 2026-11-09 20:34 UTC (15:34 EST), accepting all of `audit/reviews/2026-11-09-fable-meta-review.md`). The thesis freeze wake-up is cancelled until the redesign. Job `thesis-prewarm` runs on; the redesign decides if it is needed.
 
-1. **Round fifteen** (Opus builder, started before the role change) in the local clone `~/repos/mm-r15`, branch `thesis-refreeze`, not pushed and not yet fetched here. Scope: Argon's D1-D5 and the two Guarantee 1 gaps (`audit/reviews/2026-11-09-argon-web-refreeze-rounds13-14.md`), code only, in thesis-only code, with the stage 3 harness hash unchanged (`6a335714…`). Next: Sonnet finishes what is left; fetch into `thesis-refreeze`, then delete the clone.
+1. **Round fifteen**, paused, in the local clone `~/repos/mm-r15` (`thesis-refreeze` at `9719be0`, not pushed, not fetched here): D2, D4 and D5 fixed from failing tests, harness hash unchanged. D1, D3 and the two Guarantee 1 gaps are planned in its `round15-handoff.md`. Next: Sonnet builds them, the full suite runs, then fetch into `thesis-refreeze` and delete the clone and the handoff.
 2. **Fable's calibration:** its section 6A constructed Argon's D3 blind. Log it in `audit/decisions.md` once round fifteen reproduces D3.
 3. **Thesis redesign** (Fable architects, on `thesis-refreeze`):
    - the identity split;
