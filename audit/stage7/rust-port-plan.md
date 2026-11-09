@@ -53,7 +53,11 @@ Each slice is bit-identical on everything version 1 can express (keys with one r
    now names the input; edge differs on all 57 completed runs, and is byte-identical to `794860d` (the parent): the
    restated keys B3 delivers since slice 5 (`edge-regression.md`), not this slice. Rerun on the committed binary
    (`slice4-trace-identity-933b3f4.json`, `slice4-trace-identity-794860d.json`); `cargo test --release` passes. Mutants I1 (both), I2, I3, I5, I9,
-   I10, S1, S2 and S3, retargeted where they named deleted code, are all caught.
+   I10, S1, S2 and S3, retargeted where they named deleted code, are all caught. Argon's review: merge after fixes
+   (`slice4-review-argon.md`); fixed in `b94cba6` and `700bbe6` (`audit/decisions.md`, 2026-11-09). Rerun at `700bbe6`:
+   `cargo test --release` passes (72, the bench ignored); C6.4's harness and the 933b3f4 comparison write reports
+   byte-identical to the two above; against `794860d`, all six markets (`slice4-fixes-trace-identity-794860d.json`): N1, N2,
+   N3 and edge byte-identical, liquidation and ruin as before. No run newly differs.
 5. **The resolver** (`resolve.rs`, `market.rs` loader): after B3. Built 2026-11-07 on branch `slice5` (`audit/decisions.md`); left:
    GPT's resolver, the structural holdout review. Checks: the revised C7.6 resolver suite across
    Python (`store.as_of`'s bitemporal replacement), the Rust loader, GPT's independent resolver and Lean's `timeline`
