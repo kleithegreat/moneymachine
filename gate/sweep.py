@@ -6,9 +6,11 @@ import math
 import sqlite3
 import subprocess
 import tempfile
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from scipy import stats
@@ -16,7 +18,10 @@ from scipy import stats
 from gate import campaign, search
 from gate.compute import Pool, workers
 from gate.kernel import command
-from gate.markets import generate, null_params, store_events, write
+from gate.markets import CostCells, generate, null_params, store_events, write
+from ingest.units import Record
+
+type Calibration = tuple[Callable[..., float], float, float, float, int]
 
 OUT = Path("data/campaigns")
 # The sweeps' round, carried by every campaign id, so a rerun after a gate or null change draws fresh markets.
@@ -30,7 +35,7 @@ PER_YEAR = 365 * 6
 TOP5_CAMPAIGNS = 20
 
 
-def cost_cells():
+def cost_cells() -> CostCells:
     """Median over U of each C0.7 cost cell."""
     cost = json.loads(Path("venue/hyperliquid/execution.json").read_text())["cost_bps_ex_fee"]
     return {
@@ -42,7 +47,7 @@ def cost_cells():
 SEARCHER = Path(__file__).resolve().parents[1] / "audit/stage2/searcher.json"
 
 
-def freeze_searcher():
+def freeze_searcher() -> str:
     """Record the searchers' pin before the first judged sweep, once."""
     if SEARCHER.exists():
         raise FileExistsError(SEARCHER)
@@ -64,7 +69,7 @@ def require_frozen_searcher() -> None:
 CAMPAIGN_BYTES, CALIBRATION_BYTES = 1_000_000_000, 1_300_000_000
 
 
-def run_all(specs, path) -> None:
+def run_all(specs: list[Record], path: Path) -> None:
     require_frozen_searcher()
     out = path.with_suffix("")
     with (
@@ -79,7 +84,7 @@ def run_all(specs, path) -> None:
             print(r["id"], "crash" if r.get("crash") else len(r["promoted"]), r["seconds"], flush=True)
 
 
-def spec(cid, model, searcher, planted=(), beta=0.0):
+def spec(cid: str, model: str, searcher: str, planted: Sequence[int] = (), beta: float = 0.0) -> Record:
     return {
         "id": cid,
         "model": model,
@@ -93,7 +98,7 @@ def spec(cid, model, searcher, planted=(), beta=0.0):
     }
 
 
-def null_specs(markets=300, rnd=ROUND):
+def null_specs(markets: int = 300, rnd: str = ROUND) -> list[Record]:
     return [
         spec(f"c24{rnd}-{m}-{s}-{i}", m, s)
         for m in ("N1", "N2", "N3")
@@ -102,7 +107,7 @@ def null_specs(markets=300, rnd=ROUND):
     ]
 
 
-def mixed_specs(betas, markets=100, rnd=ROUND):
+def mixed_specs(betas: dict[str, float], markets: int = 100, rnd: str = ROUND) -> list[Record]:
     """C2.5's cells, s1 to s3 on each base, and C2.6's long-holdout cell, N2-long (`rnd`: the round tag; the first
     round had none)."""
     return [
@@ -117,11 +122,11 @@ def mixed_specs(betas, markets=100, rnd=ROUND):
     ]
 
 
-def events_specs(events, markets=300):
+def events_specs(events: Record, markets: int = 300) -> list[Record]:
     return [{**spec(f"c56{ROUND}-N2-G400-{i}", "N2", "G400"), "events": events} for i in range(markets)]
 
 
-def net_returns(program, model, beta, market_id, years):
+def net_returns(program: Record, model: str, beta: float, market_id: str, years: int) -> Any:
     """Per-step net returns of a program on one fresh market without holdout."""
     with tempfile.TemporaryDirectory() as tmp:
         root = write(
@@ -149,7 +154,9 @@ def net_returns(program, model, beta, market_id, years):
         return np.frombuffer(blob, "<f8")
 
 
-def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS, threads=1):
+def oracle_returns(
+    model: str, beta: float, tag: str, weight: float | None = None, years: int = TRUTH_YEARS, threads: int = 1
+) -> Any:
     """The oracle's per-step net returns over TRUTH_MARKETS fresh markets; `weight` replaces its per-coin weight."""
     program = json.loads(ORACLE.read_text())
     if weight is not None:
@@ -165,13 +172,13 @@ def oracle_returns(model, beta, tag, weight=None, years=TRUTH_YEARS, threads=1):
         )
 
 
-def oracle_sharpe(model, beta, tag, threads=1):
+def oracle_sharpe(model: str, beta: float, tag: str, threads: int = 1) -> float:
     """Annualized net Sharpe of the oracle over TRUTH_MARKETS x TRUTH_YEARS simulated years."""
     r = oracle_returns(model, beta, tag, threads=threads)
     return float(r.mean() / r.std(ddof=1) * np.sqrt(PER_YEAR))
 
 
-def oracle_cap_mean(beta, threads=1):
+def oracle_cap_mean(beta: float, threads: int = 1) -> float:
     """Mean net return per step of the oracle at the kernel's gross cap (weight 2.0) on N2, over TRUTH_MARKETS fresh
     LONG_YEARS-year markets: the long-holdout cell's strength."""
     return float(oracle_returns("N2", beta, "cal-long", weight=2.0, years=LONG_YEARS, threads=threads).mean())
@@ -180,10 +187,13 @@ def oracle_cap_mean(beta, threads=1):
 STEPS = OUT / "betas-steps.jsonl"
 
 
-def bisect(key, f, target, lo, hi, steps):
+def bisect(key: str, f: Callable[[float], float], target: float, lo: float, hi: float, steps: int) -> float:
     """The point in [lo, hi] where the increasing f reaches target, each step's value recorded in STEPS as it is
     computed, so a rerun resumes at the first unrecorded step (a crash loses at most one)."""
-    done = {r["step"]: r for r in map(json.loads, open(STEPS)) if r["key"] == key} if STEPS.exists() else {}
+    done: dict[int, Record] = {}
+    if STEPS.exists():
+        with open(STEPS) as fh:
+            done = {r["step"]: r for r in map(json.loads, fh) if r["key"] == key}
     for k in range(steps):
         mid = (lo + hi) / 2
         if k in done:
@@ -199,7 +209,7 @@ def bisect(key, f, target, lo, hi, steps):
 
 
 # N2's oracle reaches Sharpe 3 only above 0.05, so its s3 range is [0, 0.08]; N3's never reaches 3, so its cell is 2.5.
-CALIBRATIONS = {
+CALIBRATIONS: dict[str, Calibration] = {
     **{f"{m}-s{s}": (partial(oracle_sharpe, m, tag=f"cal{s}"), s, 0.0, 0.05, 12) for m in ("N2", "N3") for s in (1, 2)},
     "N2-s3": (partial(oracle_sharpe, "N2", tag="cal3"), 3, 0.0, 0.08, 12),
     "N3-s3": (partial(oracle_sharpe, "N3", tag="cal2.5"), 2.5, 0.044, 0.06, 12),
@@ -207,12 +217,12 @@ CALIBRATIONS = {
 }
 
 
-def calibrate(key, threads):
-    f, *args = CALIBRATIONS[key]
-    return bisect(key, partial(f, threads=threads), *args)
+def calibrate(key: str, threads: int) -> float:
+    f, target, lo, hi, steps = CALIBRATIONS[key]
+    return bisect(key, partial(f, threads=threads), target, lo, hi, steps)
 
 
-def betas(keys=None) -> None:
+def betas(keys: str | None = None) -> None:
     """Calibrate the given keys (comma-separated; all by default), resuming from STEPS, one process per key and as many
     markets at a time in each as memory allows; betas.json is written once every key is calibrated."""
     OUT.mkdir(parents=True, exist_ok=True)
@@ -224,7 +234,7 @@ def betas(keys=None) -> None:
         (OUT / "betas.json").write_text(json.dumps({k: values[k] for k in CALIBRATIONS}, indent=1))
 
 
-def is_true(program, model, beta, tag):
+def is_true(program: Record, model: str, beta: float, tag: str) -> bool:
     """True iff mean net return over 200 fresh years is positive with a 99% CI excluding 0."""
     means = np.array(
         [net_returns(program, model, beta, f"truth-{tag}-{i}", TRUTH_YEARS).mean() for i in range(TRUTH_MARKETS)]
@@ -233,16 +243,16 @@ def is_true(program, model, beta, tag):
     return bool(lo > 0)
 
 
-def results(name):
-    path = OUT / f"{name}.jsonl"
-    return campaign.records(path)
+def results(name: str) -> list[Record]:
+    rows: list[Record] = campaign.records(OUT / f"{name}.jsonl")
+    return rows
 
 
-def cp_upper(k, n, level=0.95):
+def cp_upper(k: int, n: int, level: float = 0.95) -> float:
     return 1.0 if k >= n else float(stats.beta.ppf(level, k + 1, n - k))
 
 
-def cp_interval(k, n, level=0.95):
+def cp_interval(k: int, n: int, level: float = 0.95) -> list[float]:
     a = (1 - level) / 2
     return [
         0.0 if k == 0 else float(stats.beta.ppf(a, k, n - k + 1)),
@@ -250,7 +260,7 @@ def cp_interval(k, n, level=0.95):
     ]
 
 
-def truth_id(campaign_id, h) -> str:
+def truth_id(campaign_id: str, h: str) -> str:
     return f"{campaign_id}-{h}"
 
 
@@ -271,16 +281,16 @@ def truth() -> None:
                 fh.flush()
 
 
-def judge(item):
+def judge(item: tuple[str, Record, str, float]) -> tuple[str, bool]:
     tid, program, model, beta = item
     return tid, is_true(program, model, beta, tid)
 
 
-def null_summary(name="null"):
+def null_summary(name: str = "null") -> dict[str, Record]:
     """Per (model, searcher): campaigns, promoting campaigns (a crash promotes), campaigns where SPA
     rejected and finalists existed, one-sided 95% Clopper-Pearson upper bounds on both rates, and campaigns with
     a bankrupt evaluation (NULLS.md, No edge)."""
-    cells = {}
+    cells: dict[str, Record] = {}
     for r in results(name):
         _, model, searcher, _ = r["id"].split("-")
         c = cells.setdefault(f"{model}-{searcher}", {"n": 0, "promoted": 0, "spa_and_finalists": 0, "bankrupt": 0})
@@ -293,11 +303,11 @@ def null_summary(name="null"):
     return cells
 
 
-def mixed_summary():
+def mixed_summary() -> dict[str, Record]:
     """Per (model, s): FDR (a crash is one false promotion) with a one-sided Hoeffding upper bound
     at 95% over markets, and the rate of markets with a true promotion with its 95% CI."""
     true = {t["id"]: t["true"] for t in results("truth")}
-    cells = {}
+    cells: dict[str, Record] = {}
     for r in results("mixed"):
         _, model, s, _ = r["id"].split("-")
         ts = [False] if r.get("crash") else [true[truth_id(r["id"], p["hash"])] for p in r["promoted"]]
@@ -316,7 +326,7 @@ def mixed_summary():
     return cells
 
 
-def summary(out) -> None:
+def summary(out: str | Path) -> None:
     Path(out).write_text(
         json.dumps(
             {
@@ -331,17 +341,17 @@ def summary(out) -> None:
     )
 
 
-def top5_programs(first=TOP5_CAMPAIGNS):
+def top5_programs(first: int = TOP5_CAMPAIGNS) -> list[Record]:
     """The in-sample top-5 strategies of the first `first` complete-null campaigns in null_specs() order."""
     by_id = {r["id"]: r for r in results("null")}
-    out = []
+    out: list[Record] = []
     for s in null_specs()[:first]:
         for rank, p in enumerate(by_id[s["id"]].get("top5", [])):
             out.append({**p["program"], "name": f"top5-{s['id']}-{rank}"})
     return out
 
 
-def sweep(name, data_root=None, version=None) -> None:
+def sweep(name: str, data_root: str | Path | None = None, version: int | str | None = None) -> None:
     """Run the `null`, `mixed` or `events` sweep (events: real forum counts at a dataset version)."""
     OUT.mkdir(parents=True, exist_ok=True)
     if name == "null":
@@ -349,6 +359,8 @@ def sweep(name, data_root=None, version=None) -> None:
     elif name == "mixed":
         specs = mixed_specs(json.loads((OUT / "betas.json").read_text()))
     else:
+        if data_root is None or version is None:
+            raise SystemExit("the events sweep needs a data root and a dataset version")
         coins = tuple(json.loads((Path(data_root) / "universe.json").read_text())["universe"])
         specs = events_specs(store_events(str(Path(data_root) / "store"), int(version), coins))
     run_all(specs, OUT / f"{name}.jsonl")

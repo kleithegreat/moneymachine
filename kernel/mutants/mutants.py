@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -167,7 +168,7 @@ MUTANTS = {
 SLOT_BYTES = 2_200_000_000
 
 
-def run(cmd, cwd, log, env):
+def run(cmd: str, cwd: str | Path, log: Path, env: Mapping[str, str]) -> int:
     with open(log, "w") as fh:
         return subprocess.run(["bash", "-c", cmd], cwd=cwd, stdout=fh, stderr=subprocess.STDOUT, env=env).returncode
 
@@ -177,7 +178,7 @@ RUST_ASSERTION = re.compile(r"panicked at \S*/tests/\S+:\d+")
 PYTEST_ASSERTION = re.compile(r"^FAILED \S+::", re.M)
 
 
-def failed_by_assertion(log):
+def failed_by_assertion(log: str) -> bool:
     """Whether a nonzero run's log shows the test itself failing: a panic inside a Rust test file, or a failed pytest test
     with an AssertionError. A build or collection error, a timeout or a memory kill is not that."""
     if BROKEN.search(log):
@@ -185,7 +186,7 @@ def failed_by_assertion(log):
     return bool(RUST_ASSERTION.search(log) or PYTEST_ASSERTION.search(log) and "AssertionError" in log)
 
 
-def check(name, slot) -> str:
+def check(name: str, slot: int | str) -> str:
     """Whether the mutant's named test passes on a clean copy of the tree and fails by assertion on the mutated one.
     Its commands run with this interpreter's directory first on PATH: under pytest, PATH leads to an unwrapped `pytest`
     without the environment's plugins."""
