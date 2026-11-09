@@ -3,14 +3,16 @@ resuming from the manifest."""
 
 import datetime as dt
 import json
+import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
 
 from ingest import databento
 
-PLAN = {
+PLAN: dict[str, Any] = {
     "dataset": "GLBX.MDP3",
     "roots": ["CL", "GC"],
     "start": "2010-06-06",
@@ -40,8 +42,8 @@ def test_a_pull_by_raw_symbol_takes_each_whole_month_for_its_snapshot_outrights(
     ]
 
 
-def server(cost, calls):
-    def handle(req):
+def server(cost: float, calls: list[str]) -> httpx.Client:
+    def handle(req: httpx.Request) -> httpx.Response:
         calls.append(req.url.path)
         if req.url.path.endswith("metadata.get_cost"):
             return httpx.Response(200, json=cost)
@@ -53,7 +55,7 @@ def server(cost, calls):
 def test_each_request_is_priced_first_and_the_cap_stops_the_pull(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     plan.write_text(json.dumps(PLAN))
-    calls = []
+    calls: list[str] = []
     with pytest.raises(SystemExit, match="over the cap"):
         databento.pull("d", tmp_path / "out", server(0.4, calls), plan, dt.date(2010, 9, 15))
     assert calls == ["/v0/metadata.get_cost", "/v0/timeseries.get_range"] * 2 + ["/v0/metadata.get_cost"]
@@ -68,14 +70,14 @@ def test_a_pull_resumes_from_its_manifest(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     plan.write_text(json.dumps(PLAN | {"spend_cap_usd": 10.0}))
     databento.pull("d", tmp_path / "out", server(0.1, []), plan, dt.date(2010, 7, 15))
-    calls = []
+    calls: list[str] = []
     databento.pull("d", tmp_path / "out", server(0.1, calls), plan, dt.date(2010, 8, 15))
     assert calls == ["/v0/metadata.get_cost", "/v0/timeseries.get_range"]
     assert len(open(tmp_path / "out" / "manifest.jsonl").readlines()) == 3
 
 
 def test_a_server_error_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(databento.time, "sleep", lambda s: None)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
     replies = iter([httpx.Response(504), httpx.Response(200, json=0.5)])
     http = httpx.Client(transport=httpx.MockTransport(lambda req: next(replies)), base_url=databento.API)
     assert databento.send(http, "metadata.get_cost", {}).json() == 0.5

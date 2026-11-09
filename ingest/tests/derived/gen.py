@@ -16,6 +16,7 @@ one per covered hour, in any order.
 """
 
 import random
+from typing import Any
 
 from ingest.policy import DELTA
 from ingest.policy import HOUR as H
@@ -24,24 +25,27 @@ MARGIN = 60_000
 GAP = 600_000
 
 
-def edge(rng, t):
+def edge(rng: random.Random, t: int) -> int:
     """t moved onto, or one millisecond around, a nearby hour boundary, tick or availability edge."""
     b = (t // H + rng.choice([0, 1])) * H + rng.choice([0, DELTA])
-    return rng.choice([t, b, b - 1, b + 1, b - MARGIN, b - MARGIN + 1, b - MARGIN - 1])
+    chosen: int = rng.choice([t, b, b - 1, b + 1, b - MARGIN, b - MARGIN + 1, b - MARGIN - 1])
+    return chosen
 
 
-def window_edge(rng, t, margin):
+def window_edge(rng: random.Random, t: int, margin: int) -> int:
     """t moved onto, or one millisecond around, a nearby hour's coverage-window edge, less up to a gap."""
     b = (t // H + rng.choice([0, 1])) * H + DELTA - margin - rng.choice([0, H])
-    return b - rng.choice([0, GAP, GAP - 1, GAP + 1]) + rng.choice([0, 1, -1])
+    moved: int = b - rng.choice([0, GAP, GAP - 1, GAP + 1]) + rng.choice([0, 1, -1])
+    return moved
 
 
-def case(rng):
+def case(rng: random.Random) -> dict[str, Any]:
     base = rng.randint(400_000, 500_000) * H + rng.choice([0, 0, 1, H - 1, rng.randrange(H)])
     keys = [f"k{i}" for i in range(rng.randint(1, 4))]
     coin_of = {k: f"C{i}" for i, k in enumerate(keys) if rng.random() < 0.8}
     margin = rng.choice([0, MARGIN])
-    polls, obs = {}, []
+    polls: dict[str, list[int]] = {}
+    obs: list[list[Any]] = []
     for k in keys:
         s = edge(rng, base + rng.randrange(3 * H))
         if rng.random() < 0.85:
@@ -76,6 +80,6 @@ def case(rng):
     return {"observations": obs, "polls": polls, "coin_of": coin_of, "margin": margin, "version": version}
 
 
-def generate(n, seed):
+def generate(n: int, seed: int) -> list[dict[str, Any]]:
     rng = random.Random(seed)
     return [case(rng) for _ in range(n)]
