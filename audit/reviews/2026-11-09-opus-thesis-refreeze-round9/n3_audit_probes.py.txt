@@ -1,0 +1,37 @@
+"""Round-nine review: C10.2's mapping. (a) the hunt's r2 with records that carry their request; (b) a call that reached the
+daemon classified refused_locally because an earlier call in the same command printed the client's error; (c) that
+misclassification plus an unrecorded daemon call reads match True."""
+import json, os, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, os.getcwd())
+from thesis import harness
+
+ERR = '{"ok": false, "error": "[Errno 2] No such file or directory: \'missing.json\'"}'
+REPLY = '{"errors":["T is not a UTC midnight"],"ok":false}'
+
+
+def transcript(calls):
+    lines = []
+    for i, (command, output) in enumerate(calls):
+        lines += [{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": str(i), "name": "Bash", "input": {"command": command}}]}},
+                  {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": str(i), "content": [{"type": "text", "text": output}]}]}}]
+    lines.append({"type": "result", "permission_denials": []})
+    p = Path(tempfile.mkdtemp(dir=os.environ.get("TMPDIR", "/tmp"))) / "t.jsonl"
+    p.write_text("\n".join(json.dumps(l) for l in lines) + "\n")
+    return p
+
+
+def rec(cmd, *args):
+    return {"session": "s", "request": {"cmd": cmd, "args": list(args)}}
+
+a = harness.audit(transcript([("./thesis-agent prices", "usage"), ("./thesis-agent markets", "{}")]), [rec("markets")])
+print("(a) r2 honest:", a["match"], a)
+b = harness.audit(transcript([("./thesis-agent register missing.json; ./thesis-agent register a.json", ERR + "\n" + REPLY)]),
+                  [rec("register", "{...a...}")])
+print("(b) reached call classified refused:", b["refused_locally"], "refused; match", b["match"], "(fails closed)")
+c = harness.audit(transcript([("./thesis-agent register missing.json; ./thesis-agent register a.json", ERR + "\n" + REPLY),
+                              ("./thesis-agent register b.json", REPLY)]),
+                  [rec("register", "{...a...}")])
+print("(c) b.json reached the daemon with no record, a.json's record absorbs it: match", c["match"], c)
+d = harness.audit(transcript([("./thesis-agent exit $(cat args.txt)", REPLY)]), [rec("exit", "t1", "why")])
+print("(d) shell-expanded arity classified refused though it reached:", d["refused_locally"], "match", d["match"])
