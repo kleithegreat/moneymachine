@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Wake-ups (2026-11-08, fallbacks if the advisor's session has closed)
 
 - **refreeze round seven review** (Opus, after round seven): if that build record is not on `thesis-refreeze` yet, reschedule yourself with `ops/builder.sh at` 30 minutes on and stop. Otherwise the last review before the refreeze, three-dot from round six's head, in a fresh worktree without `data/`: each F1-F8 at its cause, regressions nearby, T3 and the draft (ready to commit alone?), the sharded suite; write and commit `audit/reviews/2026-11-08-opus-thesis-refreeze-round7.md` on `main`. No freeze or deploy.
-- **stage7 slice 4 fixes** (Opus, after the review): skip if done. Otherwise finish the fixes to `audit/stage7/slice4-review-argon.md` on `slice4` (`../mm-slice4`; fixes at `b94cba6`, `SEMANTICS.md` edit uncommitted): rerun `cargo test --release`, the C6.4 harness and the byte comparison against `933b3f4` and `794860d` on N1-N3, explain any newly differing run, commit, push. Do not merge: Argon rechecks it.
+- **stage7 slice 4 fixes** (Opus, after the review): skip if done. Otherwise finish the fixes to `audit/stage7/slice4-review-argon.md` on `slice4` (`../mm-slice4`; fixes at `b94cba6`, `SEMANTICS.md` edit uncommitted): rerun `cargo test --release`, the C6.4 harness and the byte comparison against `933b3f4` and `794860d` on N1-N3, explain any newly differing run, commit, push. Do not merge: Argon rechecks it. First, from a failing test: `reference/differential.py`'s per-run scratch under `data/` leaks when the run is killed (37 GB on 2026-11-09 tripped the disk guard at the mirror's disk); at start, reap scratch whose run is no longer alive.
 
 ### Next, in order
 
