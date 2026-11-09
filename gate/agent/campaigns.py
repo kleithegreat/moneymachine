@@ -38,13 +38,18 @@ class Audit(TypedDict):
     denials: int
 
 
-class AgentEvidence(TypedDict):
+class AgentOutcome(TypedDict):
+    """What `swarm_class` reads of one agent's evidence."""
+
     run: Record | None
-    audit: Audit | None
     evaluations: int
     holds: bool
-    missing_or_mismatched: list[str]
     received: bool
+
+
+class AgentEvidence(AgentOutcome):
+    audit: Audit | None
+    missing_or_mismatched: list[str]
     denials: dict[str, int]
 
 
@@ -302,7 +307,7 @@ def agent_evidence(ledger: Path, campaign_id: str, run_dir: Path, agent: str) ->
     )
 
 
-def swarm_class(promoted: list[str], crash: Any, agents: list[AgentEvidence], trials: int, history: bool) -> str:
+def swarm_class(promoted: list[str], crash: Any, agents: list[AgentOutcome], trials: int, history: bool) -> str:
     """C4.5 v3's class of a campaign: `promoted` whatever else happened; `unresolved` on a failed harness or evidence step,
     evidence that doesn't hold, or a crashed session that had received a disclosure; `established` once the gate has a
     filled trial, two agents evaluated and history crossed agents; otherwise `not established`. An agent with its records
