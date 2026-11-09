@@ -137,3 +137,9 @@ def test_the_harness_budget_rejects_the_next_evaluation_and_every_override(tmp_p
     assert {k for o in outs[:budget] for k in o} == set(FIELDS) | {"ok", "remaining"}
     assert sqlite3.connect(tmp_path / "l.sqlite").execute("SELECT DISTINCT campaign, agent FROM experiments").fetchall() == [("camp", "A")]
     assert not (tmp_path / "other.sqlite").exists()
+
+
+def test_a_client_refusal_is_answered_with_its_own_text(daemon):
+    d, _ = daemon
+    out = call(d.socket_path, {"cmd": None, "args": [], "argv": ["--help"], "refusal": "usage: mm-agent ..."})
+    assert out == {"ok": False, "message": "usage: mm-agent ..."}

@@ -132,12 +132,13 @@ class Track:
 
     def snapshot(self, now: int) -> Json | None:
         """One acquisition pass of the date's snapshot (`acquire` calls it only for an unattested date, each minute): the first
-        pass reads everything; later passes retry only failures, with the retry deadline checked within the pass and by
-        the limiter before network attempts. At the deadline failures are final, including new failures on an initial
+        pass reads everything; once it has attempted its whole scope, later passes are retries of only the failures, with
+        the retry deadline checked within the pass and by the limiter before network attempts. Until then every pass is
+        initial. At the deadline failures are final, including new failures on an initial
         pass then. All readiness checks use the first pass's fixed time. A core listing failure still raises."""
         path = self.root / "snapshots" / f"{now}.json"
         date = now // DAY * DAY
-        retrying = self.draft is not None and self.draft[0] == now
+        retrying = self.draft is not None and self.draft[0] == now and self.draft[1]["scoped"]
         retry_end = date + RETRY_UNTIL
 
         def cancelled() -> bool:
@@ -148,7 +149,7 @@ class Track:
                 raise TimeoutError("snapshot acquisition ended")
 
         if self.draft is None or self.draft[0] != now:
-            self.draft = now, {"requests": 0, "listings": None, "unlisted": [], "observed": False, "failed_dexes": {}, "failed": {},
+            self.draft = now, {"requests": 0, "listings": None, "unlisted": [], "observed": False, "scoped": False, "failed_dexes": {}, "failed": {},
                                "read": set(), "markets": {}, "daily": {}, "ready": {}, "readiness_at": now_ms(), "listed_at": None}
         d = self.draft[1]
         observed, benchmark_listings = self.market.listings_at(date) if is_monday(date) else (None, {})
@@ -159,6 +160,7 @@ class Track:
                 self.list_pass(d, check)
                 scope = d["listings"].keys() | benchmark_listings.keys() & set(BENCHMARK)
                 self.read_pass(d, now, scope, benchmark_listings, check)
+                d["scoped"] = True
         except TimeoutError:
             if cancelled() or not retrying or now_ms() < retry_end:
                 raise
