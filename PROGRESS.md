@@ -25,8 +25,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 ### Next, in order
 
 - **Paper erasure:** DSL.md's derivation prose leaves after the pilot.
-- **Thesis refreeze** on `thesis-refreeze` (pushed): rounds nine to eleven answered the 11-09 hunt, Opus's round-nine check and Argon's partial round-ten review; round eleven (GPT) re-derived C10.2 on daemon-recorded invocations (a stage 3 harness fork) and enforces the 04:45 UTC (23:45 EST) retry cutoff. Opus reviews round eleven (2026-11-09); then the criteria wording as a second dated revision, and the freeze. Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
-- **Next research step, after the refreeze:** the positive-control study (`positive-controls`): GPT reconciled the design (33 agent markets, 402 model-free; agent-real reused); Opus reviews it (2026-11-09), then Argon, then the criteria alone.
+- **Thesis refreeze** on `thesis-refreeze` (pushed, `92f0b61`, main merged in): round thirteen applied the human's C10.2 choice (B: record before reply, the client the only channel, no tool outside Read/Write/Bash; the transcript mapping and round eleven's fork deleted, the stage 3 harness back on its pin); round fourteen fixed Argon's F1-F2 and a restart losing the draft. Argon reviews rounds 13-14 (`~/Downloads/argon-review-refreeze-rounds13-14.md`, the human runs it); then the criteria wording as a second dated revision, and the freeze. Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
+- **Next research step, after the refreeze:** the positive-control study (`positive-controls`, `80d85d1`): round four (Opus) answered Argon's F1-F8; F1-F3 changed the design (recovery is capture of a planted edge, the report marks which programs read funding), so GPT reviews it when the human resumes GPT; then the criteria alone, committed after the refreeze lands. `real()` stays (the human).
 
 1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there; the Lean L1 branch `claude/lean-l1-kernel-defects-h273e5` with it): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
 2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
@@ -53,7 +53,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-C10.2 re-derived on daemon-before-reply recording plus the isolation canary (the human chose B, 2026-11-09); building on `thesis-refreeze`.
+C10.2 re-derived on daemon-before-reply recording plus the isolation canary and the per-session tool-name check (the human chose B, 2026-11-09); built on `thesis-refreeze` (rounds 13-14). The positive-control claim reworded to capture of a planted edge (round four, Opus), awaiting GPT's review.
 
 From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
 
