@@ -103,7 +103,7 @@ Second sharded run: **2,030/2,030 reported, 2,010 passed, 19 xfailed, 1 skipped,
 - Implementation commits: `ef20061` (authoritative invocations), `c7dc2f3` (retry/readiness), `4a57c43` (full-size reproductions and explicit synthetic test pin), `98c89bd` (exact draft, T3/PDF and literal grammar). This handoff appends verification and updates current status only.
 - **Not freeze-ready:** findings 5–8 remain unavailable, and the redesign needs independent review. No freeze, deployment or push was performed. No exchange endpoint was called and no protected prices/returns or live recordings were inspected. Exact proposed (a)/(b), including the grammar: `audit/stage10/criteria-revision-round11-draft.md`; nothing adopted in `audit/criteria.md`.
 
-## Round twelve (2026-11-09 12:25 UTC (07:25 EST)), Sonnet builder, R2, R4, R5, R6 of the Opus round-eleven review (audit/reviews/2026-11-09-opus-thesis-refreeze-round11.md)
+## Round twelve (2026-11-09 12:10 UTC (07:10 EST)), Sonnet builder, R2, R4, R5, R6 of the Opus round-eleven review (audit/reviews/2026-11-09-opus-thesis-refreeze-round11.md)
 
 Not touched: R1 and R3 (the C10.2 transcript check), which await the human's choice of design.
 
@@ -112,3 +112,4 @@ Not touched: R1 and R3 (the C10.2 transcript check), which await the human's cho
 - **R6:** a failure of the builder-dex list already raises like the core listing's; wording (a) in the draft is now the review's endorsed text exactly, and T3 says the same. `test_a_builder_dex_list_failure_leaves_no_snapshot_until_it_heals` pins the behaviour (it passed on `fa1d084`: the code was right, the wording was not).
 - **R5:** the duplicate `client_calls` of `harness.audit` is deleted; no reader remained but one test assertion, also removed.
 - The PDF is rebuilt from the paper.
+- Sharded suite (`ops/shards.py`, 2026-11-09 12:21 UTC (07:21 EST)): **2,035 of 2,035 reported: 2,015 passed, 1 skipped, 19 xfailed, 0 failed, 0 missing**; every shard exit 0; wall 743 s.
