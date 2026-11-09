@@ -9,6 +9,7 @@ bits) for every coin at every tick of the machine's schedule, a replay of that s
 run. Both are compared byte for byte. `pass` also requires the corpus to hold every expected component.
 """
 
+import fcntl
 import filecmp
 import hashlib
 import json
@@ -17,6 +18,7 @@ import shutil
 import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
@@ -33,6 +35,32 @@ DAYS = 550
 EVENT_COINS = [0, 4, 7]
 FLOATS = {"decision": (3, 4), "fill": (3, 5, 10, 11, 12), "unfilled": (3,), "funding": (3, 4, 5), "equity": (2, 3)}
 MANIFEST, CORPUS = "differential-manifest.json", "differential-corpus.jsonl"
+SCRATCH = REPO / "data" / "differential"
+
+
+@contextmanager
+def scratch(root=SCRATCH):
+    """A run's scratch directory under `root` (on disk: its markets and stream files outgrow /tmp), removed when the run
+    ends. The run holds the directory's lock for its lifetime, so a directory whose lock is free belongs to a killed run;
+    such directories are removed first, under `root`'s lock, which also covers a directory's creation."""
+    root.mkdir(parents=True, exist_ok=True)
+    with open(root / "lock", "w") as guard:
+        fcntl.flock(guard, fcntl.LOCK_EX)
+        for old in root.glob("run-*"):
+            with open(old / "lock", "a") as fh:
+                try:
+                    fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    continue
+            shutil.rmtree(old)
+        work = Path(tempfile.mkdtemp(prefix="run-", dir=root))
+        held = open(work / "lock", "w")
+        fcntl.flock(held, fcntl.LOCK_EX)
+    with held:
+        try:
+            yield work
+        finally:
+            shutil.rmtree(work)
 
 
 def sha(text):
@@ -212,12 +240,6 @@ def run(out, audit=AUDIT):
         raise ValueError("the corpus differs from the frozen manifest")
     items = [json.loads(l) for l in text.splitlines()]
     build()
-    work = Path(tempfile.mkdtemp(dir=REPO / "data"))
-    (work / "checks").mkdir()
-    roots = markets_of(manifest["seed"], work)
-    for m, r in roots.items():
-        if market_hash(r) != manifest["markets"][m]["market_sha256"]:
-            raise ValueError(f"market {m} does not rebuild as frozen")
     done = Path(f"{out}.d")
     (done / "chunks").mkdir(parents=True, exist_ok=True)
     by_market = {}
@@ -225,23 +247,28 @@ def run(out, audit=AUDIT):
         for m in it["markets"]:
             by_market.setdefault(m, []).append(it)
     chunks = [(f"{m}-{k}", m, its[i:i + CHUNK]) for m, its in by_market.items() for k, i in enumerate(range(0, len(its), CHUNK))]
+    with scratch() as work:
+        (work / "checks").mkdir()
+        roots = markets_of(manifest["seed"], work)
+        for m, r in roots.items():
+            if market_hash(r) != manifest["markets"][m]["market_sha256"]:
+                raise ValueError(f"market {m} does not rebuild as frozen")
 
-    def run_chunk(c):
-        key, m, its = c
-        rs = chunk([it["name"] for it in its], [it["program"] for it in its], m, roots[m], manifest["markets"][m]["version"], work)
-        (done / "chunks" / f"{key}.tmp").write_text(json.dumps(rs))
-        (done / "chunks" / f"{key}.tmp").rename(done / "chunks" / f"{key}.json")
+        def run_chunk(c):
+            key, m, its = c
+            rs = chunk([it["name"] for it in its], [it["program"] for it in its], m, roots[m], manifest["markets"][m]["version"], work)
+            (done / "chunks" / f"{key}.tmp").write_text(json.dumps(rs))
+            (done / "chunks" / f"{key}.tmp").rename(done / "chunks" / f"{key}.json")
 
-    with campaign.exclusive(done / "verdicts.jsonl") as fh:
-        seen = {json.loads(l)["i"] for l in open(done / "verdicts.jsonl")}
-        with ThreadPoolExecutor(compute.workers(CHECK_BYTES)) as pool:
-            for v in pool.map(lambda x: verdict(*x, work), [(i, it) for i, it in enumerate(items) if i not in seen]):
-                fh.write(json.dumps(v) + "\n")
-                fh.flush()
-        with ThreadPoolExecutor(compute.workers(CHUNK_BYTES)) as pool:
-            list(pool.map(run_chunk, [c for c in chunks if not (done / "chunks" / f"{c[0]}.json").exists()]))
-        found = {v["i"]: v for v in map(json.loads, open(done / "verdicts.jsonl"))}
-    shutil.rmtree(work)
+        with campaign.exclusive(done / "verdicts.jsonl") as fh:
+            seen = {json.loads(l)["i"] for l in open(done / "verdicts.jsonl")}
+            with ThreadPoolExecutor(compute.workers(CHECK_BYTES)) as pool:
+                for v in pool.map(lambda x: verdict(*x, work), [(i, it) for i, it in enumerate(items) if i not in seen]):
+                    fh.write(json.dumps(v) + "\n")
+                    fh.flush()
+            with ThreadPoolExecutor(compute.workers(CHUNK_BYTES)) as pool:
+                list(pool.map(run_chunk, [c for c in chunks if not (done / "chunks" / f"{c[0]}.json").exists()]))
+            found = {v["i"]: v for v in map(json.loads, open(done / "verdicts.jsonl"))}
     verdicts, codes = [], {}
     for i in range(len(items)):
         v = found[i]

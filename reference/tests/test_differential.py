@@ -2,6 +2,7 @@
 and the inventory names what a corpus lacks."""
 
 import struct
+from pathlib import Path
 
 from reference import differential as d
 
@@ -81,3 +82,26 @@ def test_a_chunk_frees_its_scratch_even_when_a_kernel_fails(tmp_path, monkeypatc
     with pytest.raises(subprocess.CalledProcessError):
         d.chunk(["p"], ["{}"], "m", tmp_path, 1, tmp_path)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_run_reaps_the_scratch_of_killed_runs_only(tmp_path):
+    import signal
+    import subprocess
+    import sys
+
+    def hold():
+        p = subprocess.Popen([sys.executable, "-c", "import sys, time\nfrom pathlib import Path\nfrom reference import differential as d\n"
+                              "with d.scratch(Path(sys.argv[1])) as w:\n    (w / 'market').write_bytes(bytes(1000))\n    print(w, flush=True)\n    time.sleep(600)",
+                              str(tmp_path)], stdout=subprocess.PIPE, text=True, cwd=d.REPO)
+        return p, Path(p.stdout.readline().strip())
+
+    killed, dead = hold()
+    killed.send_signal(signal.SIGKILL)
+    killed.wait()
+    live, alive = hold()
+    try:
+        with d.scratch(tmp_path) as mine:
+            assert not dead.exists() and (alive / "market").exists()
+        assert not mine.exists()
+    finally:
+        live.kill()
