@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from ingest.live import now_ms
-from sandbox.server import Server, refused
+from sandbox.server import Server
 from thesis import registry
 from thesis.positions import Json, exact
 
@@ -121,9 +121,7 @@ class Daemon:
             self.seq += 1
             t = self.clock()
             cmd, args = req.get("cmd"), req.get("args", [])
-            if (out := refused(req)) is not None:
-                pass
-            elif cmd not in self.commands or not isinstance(args, list) or not all(isinstance(a, str) for a in args):
+            if cmd not in self.commands or not isinstance(args, list) or not all(isinstance(a, str) for a in args):
                 out = {"ok": False, "message": f"commands: {', '.join(sorted(self.commands))}"}
             else:
                 try:

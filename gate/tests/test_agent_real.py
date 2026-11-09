@@ -483,12 +483,7 @@ def test_no_returns_mean_p_one():
 def series_in_the_pods_view():
     """One campaign of the agent series, run by `test_the_series_in_its_pods_view` inside the pod's view: everything
     real but the model sessions (the canary's, and the agent's through the real daemon), pacing and the funding blob,
-    synthetic and seeded here. Its temporary harness pin is the recorded round-eleven development fork, not a freeze
-    or a rewrite of stage 3's existing evidence (`audit/decisions.md`, 2026-11-09)."""
-    previous = json.loads(campaigns.FROZEN.read_text())
-    campaigns.FROZEN = Path(tempfile.mkdtemp()) / "harness-round11.json"
-    campaigns.FROZEN.write_text(json.dumps({"harness": campaigns.harness.harness_hash(),
-                                           "previous": previous, "development_fork": "round eleven; audit/decisions.md"}))
+    synthetic and seeded here."""
     spec = markets.null_params()["N2"]
     t, k = len(range(W_START, HOLDOUT_START, HOUR)), len(set(spec["funding"]["coins"]) - set(spec["funding"]["short"]))
     blob = np.random.default_rng(0).normal(1.25e-5, 1e-5, (2 * t, k)).tobytes()

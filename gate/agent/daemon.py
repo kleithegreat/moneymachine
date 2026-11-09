@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from gate.kernel import command
-from sandbox.server import Server, refused
+from sandbox.server import Server
 
 FIELDS = ("sharpe_annualized", "fills", "total_return", "max_drawdown")
 HISTORY_LIMIT = 20
@@ -111,9 +111,7 @@ class Daemon:
         if not isinstance(texts, list) or not all(isinstance(t, str) for t in texts):
             cmd, texts = None, []
         with self.lock:
-            if (out := refused(req)) is not None:
-                pass
-            elif cmd == "eval" and len(texts) == 1:
+            if cmd == "eval" and len(texts) == 1:
                 out = self.eval(texts[0])
             elif cmd == "check" and len(texts) == 1:
                 out = self.check(texts[0])

@@ -22,18 +22,18 @@ def call(req):
 
 def main(argv):
     spec = SPEC["commands"].get(argv[0]) if argv else None
-    refusal, status = None, 0
-    args = argv[1:]
     if spec is None or (len(argv) - 1 != spec[0] if spec[0] != "+" else len(argv) < 2):
-        refusal, status = SPEC["usage"], 2
-    elif "file" in spec:
+        print(SPEC["usage"])
+        return 2
+    args = argv[1:]
+    if "file" in spec:
         try:
             args = [open(a).read() for a in args]
-        except (OSError, UnicodeError, ValueError) as e:
-            refusal, status = f"unreadable FILE: {e}", 1
-    print(call({"cmd": argv[0] if refusal is None else None, "args": args if refusal is None else [],
-                "argv": argv, "refusal": refusal}))
-    return status
+        except OSError as e:
+            print(json.dumps({"ok": False, "error": str(e)}))
+            return 1
+    print(call({"cmd": argv[0], "args": args}))
+    return 0
 
 
 if __name__ == "__main__":
