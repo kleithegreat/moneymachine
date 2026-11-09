@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -135,8 +136,6 @@ for f in [
         os.chmod(p, 0o644)
         p.unlink()
         log.append(entry)
-import shutil
-
 for d in ["data/tmp/gpt5.JLS9"]:
     if Path(d).exists():
         shutil.rmtree(d)

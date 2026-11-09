@@ -54,9 +54,9 @@ def proposals(space, http):
     rows, skip = [], 0
     while True:
         query = (
-            '{ proposals(first: 1000, skip: %d, where: {space: "%s", created_gte: %d}, orderBy: "created", '
-            "orderDirection: asc) { id created updated } }"
-        ) % (skip, space, START // 1000)
+            f'{{ proposals(first: 1000, skip: {skip}, where: {{space: "{space}", created_gte: {START // 1000}}}, '
+            'orderBy: "created", orderDirection: asc) { id created updated } }'
+        )
         page = http.post(HUB, json={"query": query}).json()["data"]["proposals"]
         rows += [
             {"space": space, "upstream_id": p["id"], "eventTime": p["created"] * 1000, "updated": p["updated"]}

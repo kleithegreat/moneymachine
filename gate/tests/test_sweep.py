@@ -92,9 +92,12 @@ def test_a_resume_refuses_while_another_run_of_the_log_is_alive(tmp_path: Path) 
 
     log, out = tmp_path / "x.jsonl", tmp_path / "x"
     (out / "b").mkdir(parents=True)
-    with campaign.resume(["a", "b"], log, out), pytest.raises(RuntimeError, match="alive"):
-        with campaign.resume(["a", "b"], log, out):
-            pass
+    with (
+        campaign.resume(["a", "b"], log, out),
+        pytest.raises(RuntimeError, match="alive"),
+        campaign.resume(["a", "b"], log, out),
+    ):
+        pass
     assert [json.loads(l)["id"] for l in open(log)] == ["b"]
 
 

@@ -1,3 +1,4 @@
+import contextlib
 import os
 import shutil
 import subprocess
@@ -254,10 +255,8 @@ module['publish'](sys.argv[2], sys.argv[3])
             stderr=subprocess.PIPE,
             text=True,
         )
-        try:
+        with contextlib.suppress(subprocess.TimeoutExpired):
             second.communicate(timeout=0.5)
-        except subprocess.TimeoutExpired:
-            pass
         if kill_first:
             first.kill()
             first.communicate(timeout=5)

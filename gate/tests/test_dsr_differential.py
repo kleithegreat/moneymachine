@@ -39,7 +39,7 @@ def cases():
 
 def test_edge_cases_are_exercised() -> None:
     hits = 0
-    for r, n in cases():
+    for r, _ in cases():
         if r.std() == 0:
             continue
         s = r.mean() / r.std(ddof=1)
