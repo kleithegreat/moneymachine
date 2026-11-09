@@ -370,3 +370,18 @@ def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(
     assert report.exists() is kept
     text = log.read_text()
     assert len(text) < shards.LOG_CAP + 100 and "[log truncated" in text
+
+
+@pytest.mark.parametrize(("available", "cpus", "expected"), [(64 << 30, 12, 12), (4 << 30, 12, 6), (1, 12, 1)])
+def test_the_local_shard_sizes_its_workers_from_free_memory(
+    monkeypatch: pytest.MonkeyPatch, available: int, cpus: int, expected: int
+) -> None:
+    from gate import compute
+
+    monkeypatch.setattr(compute, "available", lambda: available)
+    monkeypatch.setattr(os, "cpu_count", lambda: cpus)
+    seen: list[list[str]] = []
+    monkeypatch.setattr(subprocess, "run", lambda command, **_: seen.append(command) or SimpleNamespace(returncode=0))
+    shards.run_local(Path("."), ["a.py::t"], open(os.devnull, "w"), Path("report.json"))
+    command = seen[0]
+    assert command[command.index("-n") + 1] == str(expected)

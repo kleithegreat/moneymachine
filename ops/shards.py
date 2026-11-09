@@ -19,6 +19,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, TextIO
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from gate import compute  # noqa: E402
+
 Rows = dict[str, dict[str, Any]]
 Seconds = dict[str, float]
 
@@ -47,6 +50,7 @@ LOCAL_ONLY = (
     "reference/tests/",
     "gate/tests/test_sandbox.py",
 )
+WORKER_BYTES = 650_000_000
 DURATIONS = Path.home() / ".cache/mm-shards/durations.json"
 SLOWNESS = "_slowness"
 OVERHEAD = "_overhead"
@@ -197,6 +201,8 @@ def package(worktree: Path, ids: list[str], tar_path: Path) -> None:
 
 
 def run_local(worktree: Path, ids: list[str], log: TextIO, report: Path) -> int:
+    """Workers as cores allow and as free memory fits at WORKER_BYTES, a worker's peak (595 MiB measured 2026-11-09 over
+    the store, shards and compute tests), so two concurrent suites shrink rather than exhaust the PC."""
     with tempfile.TemporaryDirectory(prefix="mm-shard-", dir="/dev/shm") as tmp:
         (Path(tmp) / "ids").write_text("\n".join(ids) + "\n")
         command = [
@@ -207,6 +213,8 @@ def run_local(worktree: Path, ids: list[str], log: TextIO, report: Path) -> int:
             f"TMPDIR={tmp}",
             "pytest",
             f"@{tmp}/ids",
+            "-n",
+            str(compute.workers(WORKER_BYTES)),
             "--shard-report",
             str(report),
             "--basetemp",
