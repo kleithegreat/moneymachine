@@ -99,13 +99,16 @@ reported.
   Each one's knownAt is computed from its observed fields by the policy's rule [market.rs `source`]: a funding row at max(reportedTime floored to the hour + δ, reportedTime +
   `settlement_latency_ms`), a bar, an event count or a delisting at eventTime + δ. A stored knownAt
   is never read. A run receives every revision of a key, each at its own knownAt (a retraction is a flagged
-  revision whose values are undefined); the held state keeps the latest delivered per source and coin. The adapter supplies the rows; an admissible market has unique keys,
-  bars with eventTime = openTime + BAR, coin and slot indices within range, and a delisting record for every coin its
-  rules mark delisted. An inadmissible market aborts the run before any delivery with R_MARKET. No certified source
+  revision whose values are undefined); the held state keeps the latest delivered per source and coin. The adapter supplies the rows; an admissible market has one final
+  record per key; declarations and coins within range and one value per field; a role payload exactly on the role
+  providers' records that are not retractions; a slot exactly on event sources' records (a retraction keeps the slot of
+  what it retracts) [sim.rs `Ctx::admissible`]; and a delisting record for every coin its rules mark delisted. An
+  inadmissible market aborts the run before any delivery with R_BINDING. No certified source
   states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible; the recorded venue marks
   FTM delisted, so no real-data market is admissible to the corrected engine until one exists.
-- **Delivery order.** All observations are sorted by (knownAt, source, coin, tie), the tie being (eventTime,
-  recording time) for a held source and (recording time, eventTime) for an event source [sim.rs `Ctx::make`].
+- **Delivery order.** The observations of the bound sources that are not evidence are sorted by (knownAt, source,
+  coin, tie), the tie being (eventTime, recording time) for a source declared held and (recording time, eventTime) for
+  one declared event [sim.rs `Ctx::make`].
   Before the tick at time τ, every observation with knownAt ≤ τ not yet delivered is delivered in that order [sim.rs
   `Ctx::deliver`].
 - **Held state.** Delivery of a row with knownAt > τ aborts with R_CAUSALITY [machine.rs
