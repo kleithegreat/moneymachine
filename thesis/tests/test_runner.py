@@ -96,7 +96,7 @@ def test_benchmark_registers_the_trend_sign_with_its_base_rate_and_logs_skips(tr
 
 def test_a_benchmark_skip_names_its_cause():
     snapshot = {"listings": {"BTC": False, "flx:OIL": True, "xyz:GOLD": False}, "markets": {"BTC": {}},
-                "daily": {"BTC": [[0, 1.0, 1.0], [DAY, 1.0, 1.0]]}}
+                "daily": {"BTC": [[0, 1.0, 1.0], [DAY, 1.0, 1.0]]}, "ready": {"BTC": True}}
     causes = {m: runner.unbenchmarkable(snapshot, m, (0, DAY)) for m in ("BTC", "flx:OIL", "xyz:GOLD", "xyz:XYZ100")}
     assert causes == {"BTC": None, "flx:OIL": "delisted", "xyz:GOLD": "fewer than 90 daily bars or no hourly close",
                       "xyz:XYZ100": "not listed"}
@@ -750,6 +750,9 @@ def test_a_freeze_waits_for_every_listed_market_to_have_its_funding_history(monk
 
         def listings(self):
             return {"BTC": False, "OLD": True, "ETH": False}
+
+        def listings_at(self, at):
+            return at, {"BTC": False}
 
         def ready(self, m, now):
             return m == "BTC"

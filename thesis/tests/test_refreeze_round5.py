@@ -129,15 +129,13 @@ def test_the_benchmark_reads_the_days_attested_snapshot_with_bars_known_at_midni
     assert not (track.root / "snapshots" / f"{MONDAY}.json").exists()
 
 
-def test_the_benchmark_waits_for_its_days_snapshot_and_registers_at_the_first_whole_hour_after_it(track, monkeypatch):
+def test_the_benchmark_registers_at_the_first_pass_after_its_days_snapshot_is_attested(track, monkeypatch):
     clock = [MONDAY + 6 * HOUR + 30 * MIN]
     monkeypatch.setattr(runner, "now_ms", lambda: clock[0])
-    track.acquisitions(clock[0], MONDAY)
-    assert track.attested(MONDAY) is None and track.attested(MONDAY, MONDAY + DAY) is not None
-    clock[0] = MONDAY + 7 * HOUR - 1
     track.benchmarks(clock[0], MONDAY)
     assert track.ledger.theses("benchmark") == []
-    clock[0] = MONDAY + 7 * HOUR
+    track.acquisitions(clock[0], MONDAY)
+    assert track.attested(MONDAY) is None and track.attested(MONDAY, MONDAY + DAY) is not None
     track.benchmarks(clock[0], MONDAY)
     assert len(track.ledger.theses("benchmark")) == 4
 

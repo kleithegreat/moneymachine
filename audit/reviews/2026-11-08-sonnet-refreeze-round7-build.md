@@ -28,3 +28,4 @@ Builder: Sonnet 5.5 on `thesis-refreeze` (`../mm-thesis-rf`). An earlier session
 
 ## Suite
 
+`ops/shards.py` on the final tree: 1,948 of 1,948 reported, 1,928 passed, 1 skipped, 19 xfailed, 0 missing. The first run found six failures, all tests of the old behaviour (hour-rounded registration, `listings_at` returning a dict, a snapshot without `ready`, a `freeze` double without `listings_at`) and one record line missing its Eastern time; each updated to the new rule.

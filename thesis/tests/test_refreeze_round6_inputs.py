@@ -206,8 +206,8 @@ def test_listing_observations_are_completed_metadata_only_and_prospective(track,
     clock[0] = MONDAY + 5 * HOUR
     track.benchmark(MONDAY)
     assert "BTC" in {th["legs"][0][0] for th in track.ledger.theses("benchmark")}
-    assert track.market.listings_at(MONDAY) == old
-    assert track.market.listings_at(MONDAY - HOUR - 1) == {}
+    assert track.market.listings_at(MONDAY)[1] == old
+    assert track.market.listings_at(MONDAY - HOUR - 1) == (None, {})
     observations = [json.loads(line) for path in (tmp_path / "market").glob("listings-*.jsonl")
                     for line in path.read_text().splitlines()]
     assert observations and all(set(row) == {"at", "listings"} for row in observations)
@@ -237,7 +237,7 @@ def test_incomplete_discovery_cannot_publish_a_partial_listing_observation(track
     track.benchmark(MONDAY)
     assert "BTC" in {th["legs"][0][0] for th in track.ledger.theses("benchmark")}
     assert snap["benchmark_listings"] == old
-    assert track.market.listings_at(MONDAY) == old
+    assert track.market.listings_at(MONDAY)[1] == old
 
 
 def test_snapshot_fixes_readiness_near_the_end_of_acquisition(track, tmp_path, monkeypatch):
