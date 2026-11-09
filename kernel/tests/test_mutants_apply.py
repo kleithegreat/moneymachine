@@ -5,6 +5,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("mutants", REPO / "kernel/mutants/mutants.py")
+assert spec is not None and spec.loader is not None
 mutants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mutants)
 

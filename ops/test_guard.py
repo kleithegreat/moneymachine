@@ -1,4 +1,5 @@
-"""The test guard: a runaway test ends at the timeout even if it ignores SIGTERM, and at the memory limit if it allocates."""
+"""The test guard: a runaway test ends at the timeout even if it ignores SIGTERM, and at the memory limit if it
+allocates."""
 
 import os
 import signal
@@ -10,7 +11,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 
-def start(tmp_path: Path, *args):
+def start(tmp_path: Path, *args: str) -> subprocess.Popen[str]:
     env = {**os.environ, "RUNAWAY_STARTED": str(tmp_path / "started")}
     return subprocess.Popen(
         [sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider", *args],

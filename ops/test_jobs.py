@@ -1,8 +1,9 @@
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Never
+from typing import Any, Never
 
 import jobs
 import pytest
@@ -24,10 +25,10 @@ def batch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(jobs, "manifest", lambda *a: {})
     monkeypatch.setattr(jobs, "kubectl", lambda *a, **kw: "created")
     monkeypatch.setattr(jobs, "job", lambda run: {"conditions": [{"type": "Complete", "status": "True"}]})
-    monkeypatch.setattr(jobs.subprocess, "run", lambda *a, **kw: SimpleNamespace(stdout="commit"))
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: SimpleNamespace(stdout="commit"))
 
 
-def test_retry_uses_recorded_inputs_without_local_files(batch) -> None:
+def test_retry_uses_recorded_inputs_without_local_files(batch: None) -> None:
     jobs.submit("original", "mixed", "sha256:A")
     original, _, _ = jobs.state("original")
     (jobs.RESULTS / "original/one.tar").touch()
@@ -42,7 +43,7 @@ def test_retry_uses_recorded_inputs_without_local_files(batch) -> None:
 
 
 @pytest.mark.parametrize("field", ["mm", "betas", "ids"])
-def test_retry_refuses_changed_recorded_input(batch, field) -> None:
+def test_retry_refuses_changed_recorded_input(batch: None, field: str) -> None:
     jobs.submit("original", "mixed", "sha256:A")
     record, _, _ = jobs.state("original")
     (jobs.INPUTS / record[field]).write_text("[]" if field == "ids" else "corrupt")
@@ -52,7 +53,7 @@ def test_retry_refuses_changed_recorded_input(batch, field) -> None:
 
 
 @pytest.mark.parametrize("field", ["betas", "image"])
-def test_collect_refuses_mixed_provenance(batch, field) -> None:
+def test_collect_refuses_mixed_provenance(batch: None, field: str) -> None:
     jobs.submit("original", "mixed", "sha256:A")
     record, _, _ = jobs.state("original")
     other = jobs.RESULTS / "other"
@@ -62,8 +63,8 @@ def test_collect_refuses_mixed_provenance(batch, field) -> None:
         jobs.collect("original", "other")
 
 
-def test_run_name_is_single_use_even_when_apply_fails(batch, monkeypatch: pytest.MonkeyPatch) -> None:
-    def refuse(*a, **kw) -> Never:
+def test_run_name_is_single_use_even_when_apply_fails(batch: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*a: Any, **kw: Any) -> Never:
         raise subprocess.CalledProcessError(1, "fake apply")
 
     monkeypatch.setattr(jobs, "kubectl", refuse)
@@ -75,9 +76,9 @@ def test_run_name_is_single_use_even_when_apply_fails(batch, monkeypatch: pytest
     assert (jobs.RESULTS / "used/record.json").read_bytes() == before
 
 
-def test_killed_submission_still_consumes_run_name(batch, monkeypatch: pytest.MonkeyPatch) -> None:
-    def install(stop) -> None:
-        jobs.kubectl = lambda *a, **kw: stop()
+def test_killed_submission_still_consumes_run_name(batch: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    def install(stop: Callable[[], None]) -> None:
+        jobs.kubectl = lambda *a, **kw: stop()  # type: ignore[assignment]
 
     killed_at(lambda: jobs.submit("used", "mixed", "sha256:A"), install)
     before = (jobs.RESULTS / "used/record.json").read_bytes()
@@ -89,9 +90,9 @@ def test_killed_submission_still_consumes_run_name(batch, monkeypatch: pytest.Mo
 def test_push_digest_belongs_to_copy_not_mutable_tag(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    calls = []
+    calls: list[list[str]] = []
 
-    def run(args, **kw):
+    def run(args: list[str], **kw: Any) -> SimpleNamespace:
         calls.append(args)
         if args[:2] == ["nix", "build"]:
             return SimpleNamespace(stdout="/fake/image")
@@ -103,7 +104,7 @@ def test_push_digest_belongs_to_copy_not_mutable_tag(
             return SimpleNamespace(stdout="")
         return SimpleNamespace(stdout=json.dumps({"Digest": "sha256:B"}))
 
-    monkeypatch.setattr(jobs.subprocess, "run", run)
+    monkeypatch.setattr(subprocess, "run", run)
     assert jobs.push() == "sha256:A"
     assert not any(a[:2] == ["skopeo", "inspect"] for a in calls)
     assert json.loads(capsys.readouterr().out)["digest"] == "sha256:A"

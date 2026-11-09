@@ -10,7 +10,9 @@ recordings (merge amendment of 2026-10-23 and its extension of 2026-10-24), so t
 import json
 import sys
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 
@@ -27,20 +29,27 @@ CLOCK_SLACK = 600_000
 THRESHOLD = 1792879093607  # 2026-10-24 21:58:13.607 UTC (17:58 EDT): 24 h after the cloud host's first clock reading
 SLOT = 30_000
 
+Poll = dict[str, Any]
+Span = tuple[int, int]
+Host = tuple[str, str | Path, str | Path]
+Reading = tuple[int, float]
 
-def load(live_dir):
-    return read(live_dir, "polls")
+
+def load(live_dir: str | Path) -> list[Poll]:
+    polls: list[Poll] = read(live_dir, "polls")
+    return polls
 
 
-def window(live_dir, sources_dir, after=RECORDING_FROM):
+def window(live_dir: str | Path, sources_dir: str | Path, after: int = RECORDING_FROM) -> Span | None:
     """(start, end) of the local-only span, or None while no complete one exists yet. A gap of more than CLOCK_SLACK
     in the NTP log (`sources_dir`) restarts it, like an L2 gap (C0.3 amendment of 2026-10-23)."""
     return span(load(live_dir), [t for t, _ in ntp_readings(sources_dir)], after)
 
 
-def span(polls, clock_times, after):
+def span(polls: Iterable[Poll], clock_times: Iterable[int], after: int) -> Span | None:
     """The first complete 24 h span of `polls` from `after` without an L2, boundary or clock-log gap, or None."""
-    sent, rows = defaultdict(list), defaultdict(list)
+    sent: defaultdict[str, list[int]] = defaultdict(list)
+    rows: defaultdict[tuple[str, str, int], list[int]] = defaultdict(list)
     for p in polls:
         if p["kind"] == "l2" and p["sent"] >= after:
             sent[p["coin"]].append(p["sent"])
@@ -66,7 +75,7 @@ def span(polls, clock_times, after):
     return (start, end) if all(max(ts) >= end - MAX_GAP for ts in sent.values()) else None
 
 
-def inside(polls, window):
+def inside(polls: Iterable[Poll], window: Span) -> list[Poll]:
     """The polls C0.3 and C0.7 judge: L2 snapshots inside the window, and the boundaries whose
     first and verify polls both fall inside it."""
     start, end = window
@@ -78,7 +87,7 @@ def inside(polls, window):
     ]
 
 
-def complete(polls, boundary):
+def complete(polls: Iterable[Poll], boundary: int) -> bool:
     """Whether one host's polls of a boundary have no first-poll gap over BOUNDARY_GAP and include the verify poll."""
     first = sorted(p["recv"] for p in polls if p["purpose"] == "first")
     return (
@@ -88,13 +97,14 @@ def complete(polls, boundary):
     )
 
 
-def merge(hosts):
+def merge(hosts: Sequence[Host]) -> list[Poll]:
     """One host-tagged poll stream from `hosts`, [(name, live_dir, clock_dir)] in preference order (merge amendment
     of 2026-10-23 and its extension of 2026-10-24): a host's polls outside its clock log or inside a gap of more
     than CLOCK_SLACK in it are dropped; each (coin, 30 s slot) keeps one L2 snapshot, the first host's, earliest send
     within it; each boundary's polls come from the first host whose polls for it are complete, else the first host
     that has any. Hosts are chosen by which polls exist, never by their values or delays."""
-    l2, rows = {}, defaultdict(dict)
+    l2: dict[tuple[str, int], Poll] = {}
+    rows: defaultdict[tuple[str, str, int], dict[str, list[Poll]]] = defaultdict(dict)
     for name, live_dir, clock_dir in hosts:
         clock = sorted(t for t, _ in ntp_readings(clock_dir))
         holes = [(a, b) for a, b in zip(clock, clock[1:]) if b - a > CLOCK_SLACK]
@@ -117,25 +127,28 @@ def merge(hosts):
     return list(l2.values()) + [p for ps in chosen for p in ps]
 
 
-def clock_ok(record):
+def clock_ok(record: dict[str, Any] | None) -> bool:
     """C0.3's clock requirement (revision of 2026-10-21) over one window."""
+    if not record:
+        return False
     return (
-        bool(record)
-        and record["max_abs_ms"] < 1000
-        and record["brackets"]
+        record["max_abs_ms"] < 1000
+        and bool(record["brackets"])
         and record["max_gap_min"] <= 10
         and record["max_unchanged_min"] <= 40
     )
 
 
-def judgment(live_dir, sources_dir, oci_dir=None):
+def judgment(
+    live_dir: str | Path, sources_dir: str | Path, oci_dir: str | Path | None = None
+) -> tuple[Span, list[Host], list[Poll]] | None:
     """(window, hosts, judged polls) of the earliest complete window, or None: the local-only window if it started
     before THRESHOLD, else the merged window from THRESHOLD on, in which a host whose clock fails C0.3's requirement
     over the window contributes nothing (merge amendment and its extension, audit/criteria.md)."""
     local = window(live_dir, sources_dir)
     if local is not None and local[0] < THRESHOLD:
         return local, [("local", live_dir, sources_dir)], inside(load(live_dir), local)
-    hosts = [("local", live_dir, sources_dir)] + (
+    hosts: list[Host] = [("local", live_dir, sources_dir)] + (
         [("oci", Path(oci_dir) / "live", Path(oci_dir) / "clock")] if oci_dir else []
     )
     while hosts:
@@ -150,7 +163,7 @@ def judgment(live_dir, sources_dir, oci_dir=None):
     return None
 
 
-def _value(kind, data, boundary):
+def _value(kind: str, data: Iterable[dict[str, Any]], boundary: int) -> str | None:
     if kind == "funding":
         rows = [r for r in data if r["time"] // HOUR * HOUR == boundary]
         return json.dumps([rows[0]["fundingRate"], rows[0]["premium"]]) if rows else None
@@ -158,12 +171,14 @@ def _value(kind, data, boundary):
     return json.dumps([rows[0][k] for k in "ohlcvn"]) if rows else None
 
 
-def analyze(polls):
-    seen = defaultdict(list)
+def analyze(polls: Iterable[Poll]) -> dict[str, Any]:
+    seen: defaultdict[tuple[str, str, int], list[Poll]] = defaultdict(list)
     for p in polls:
         if p["kind"] != "l2":
             seen[(p["kind"], p["coin"], p["boundary"])].append(p)
-    events, failures, margins = defaultdict(int), [], []
+    events: defaultdict[tuple[str, str], int] = defaultdict(int)
+    failures: list[dict[str, Any]] = []
+    margins: list[int] = []
     for (kind, coin, boundary), ps in sorted(seen.items()):
         ref = [_value(kind, p["data"], boundary) for p in ps if p["purpose"] == "verify"]
         if not ref or ref[0] is None:
@@ -210,7 +225,7 @@ def analyze(polls):
     }
 
 
-def clock(readings, span):
+def clock(readings: Iterable[Reading], span: Span) -> dict[str, Any] | None:
     """The NTP offsets logged around the window (C0.3 revision of 2026-10-21): readings from CLOCK_SLACK before
     its start to CLOCK_SLACK after its end, the largest gap between them, and the longest run of one unchanged
     value, which bounds the age of the NTP exchange each reading reports."""
@@ -229,7 +244,7 @@ def clock(readings, span):
     }
 
 
-def ntp_readings(sources_dir):
+def ntp_readings(sources_dir: str | Path) -> list[Reading]:
     """(time, offset ms) of each host-clock reading the stage 5 recorder logged from systemd-timesyncd."""
     return [
         (p["recv"], p["data"]["offset_ms"])
@@ -238,7 +253,7 @@ def ntp_readings(sources_dir):
     ]
 
 
-def report(live_dir, sources_dir, out, oci_dir=None) -> None:
+def report(live_dir: str | Path, sources_dir: str | Path, out: str | Path, oci_dir: str | Path | None = None) -> None:
     """The judged window, the polls each host contributed, the analysis of the polls inside it, and each host's NTP
     record over it."""
     judged = judgment(live_dir, sources_dir, oci_dir)
@@ -259,5 +274,5 @@ def report(live_dir, sources_dir, out, oci_dir=None) -> None:
     )
 
 
-def contributions(hosts, polls):
+def contributions(hosts: Iterable[Host], polls: Iterable[Poll]) -> dict[str, Any]:
     return {"hosts": {name: sum(p.get("host", "local") == name for p in polls) for name, _, _ in hosts}}

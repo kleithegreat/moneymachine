@@ -4,6 +4,7 @@ import hashlib
 import json
 import warnings
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,10 +18,10 @@ from ingest.store import Store
 MIN_BARS = 1000
 
 
-def bar_innovations(bars, funding, coins):
+def bar_innovations(bars: pd.DataFrame, funding: pd.DataFrame, coins: list[str]) -> pd.DataFrame:
     """r = c/o - 1 - (f1 + f2 + f3) - f4 c/o per coin and bar (the generator's epsilon, inverted)."""
     f = funding.pivot(index="eventTime", columns="coin", values="fundingRate")
-    out = {}
+    out: dict[str, pd.Series] = {}
     for coin in coins:
         b = bars[(bars.coin == coin) & (bars.trades > 0)].set_index("openTime").sort_index()
         fs = [f[coin].reindex(b.index + i * HOUR).to_numpy() for i in (1, 2, 3, 4)]
@@ -29,7 +30,7 @@ def bar_innovations(bars, funding, coins):
     return pd.DataFrame(out)
 
 
-def fit_garch(r):
+def fit_garch(r: pd.Series) -> tuple[dict[str, float], pd.Series]:
     """(alpha, beta) from a GARCH-t fit; omega by variance targeting (NULLS.md)."""
     r = r.dropna()
     res = arch_model(100 * r, mean="Zero", vol="GARCH", p=1, q=1, dist="t").fit(disp="off")
@@ -37,22 +38,28 @@ def fit_garch(r):
     return {"omega": r.var() * (1 - a - b), "alpha": a, "beta": b}, r / (res.conditional_volatility / 100)
 
 
-def mean_pairwise_corr(df):
+def mean_pairwise_corr(df: pd.DataFrame) -> float:
     c = df.corr().to_numpy()
     return float(np.nanmean(c[np.triu_indices_from(c, 1)]))
 
 
-def fit(data_root, version, coins):
+def fit(data_root: str | Path, version: int, coins: list[str]) -> dict[str, Any]:
     store = Store(Path(data_root) / "store")
     bars = store.as_of("bars_4h", HOLDOUT_START, version).to_pandas()
     funding = store.as_of("funding", HOLDOUT_START, version).to_pandas()
     r = bar_innovations(bars, funding, coins)
     long_enough = [c for c in coins if r[c].count() >= MIN_BARS]
-    garch, z = {}, {}
+    garch: dict[str, dict[str, float]] = {}
+    z: dict[str, pd.Series] = {}
     for c in long_enough:
         garch[c], z[c] = fit_garch(r[c])
-    med = lambda d, k: float(np.median([d[c][k] for c in long_enough]))
-    per = lambda d, k: [d[c][k] if c in d else med(d, k) for c in coins]
+
+    def med(d: dict[str, dict[str, float]], k: str) -> float:
+        return float(np.median([d[c][k] for c in long_enough]))
+
+    def per(d: dict[str, dict[str, float]], k: str) -> list[float]:
+        return [d[c][k] if c in d else med(d, k) for c in coins]
+
     lam = float(np.sqrt(max(mean_pairwise_corr(pd.DataFrame(z)), 0.0)))
 
     mkt = r[long_enough].mean(axis=1).dropna()
@@ -101,7 +108,7 @@ def fit(data_root, version, coins):
     return params
 
 
-def write(data_root, version, out):
+def write(data_root: str | Path, version: int | str, out: str | Path) -> str:
     """Fit to the search part of the store at `version`; returns the file's sha256 (the frozen hash)."""
     coins = list(
         json.loads((Path(__file__).resolve().parents[1] / "venue/hyperliquid/rules.json").read_text())["coins"]

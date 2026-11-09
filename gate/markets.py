@@ -4,13 +4,21 @@
 import functools
 import hashlib
 import json
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import polars as pl
 
 from ingest.policy import BAR, DAY, HOLDOUT_START, HOUR, POLICY, W_START
 from ingest.store import Store, write_split
+
+type Array = npt.NDArray[np.float64]
+type Spec = dict[str, Any]
+type Arrays = dict[str, Any]
+type CostCells = dict[str, dict[str, float]]
 
 CAP = 0.04
 EPS_MAX = 0.5
@@ -18,26 +26,27 @@ SIGMA_MAX = 0.0625
 
 
 NULLS = Path(__file__).resolve().parent / "nulls.json"
-FLAT_COST = {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
+FLAT_COST: CostCells = {s: {"1000": 2.0, "10000": 4.0} for s in ("buy", "sell")}
 
 
-def null_params():
-    return json.loads(NULLS.read_text())
+def null_params() -> Spec:
+    params: Spec = json.loads(NULLS.read_text())
+    return params
 
 
-def seed(text):
+def seed(text: str) -> int:
     return int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "little")
 
 
 @functools.lru_cache(maxsize=8)
-def truncated_t_sd(nu, bound):
+def truncated_t_sd(nu: float, bound: float) -> float:
     """Standard deviation of Student-t(nu) conditional on |x| <= bound."""
     from scipy import stats
 
     return float(np.sqrt(stats.t(nu).expect(lambda x: x * x, lb=-bound, ub=bound, conditional=True)))
 
 
-def truncated_t(rng, nu, shape, bound=8.0):
+def truncated_t(rng: np.random.Generator, nu: float, shape: tuple[int, ...], bound: float = 8.0) -> Array:
     """Student-t(nu) truncated symmetrically at +-bound by resampling, then scaled to unit variance."""
     x = rng.standard_t(nu, shape)
     bad = np.abs(x) > bound
@@ -47,7 +56,7 @@ def truncated_t(rng, nu, shape, bound=8.0):
     return x / truncated_t_sd(nu, bound)
 
 
-def truncated_normal(rng, shape, bound=8.0):
+def truncated_normal(rng: np.random.Generator, shape: tuple[int, ...], bound: float = 8.0) -> Array:
     x = rng.standard_normal(shape)
     bad = np.abs(x) > bound
     while bad.any():
@@ -57,7 +66,7 @@ def truncated_normal(rng, shape, bound=8.0):
 
 
 @functools.lru_cache(maxsize=4)
-def store_funding(store, version, coins):
+def store_funding(store: str, version: int, coins: tuple[str, ...]) -> tuple[Array, Array]:
     """Hourly funding and premium of `coins` over the search part of a store: (T x K, T x K)."""
     df = Store(store).as_of("funding", HOLDOUT_START, version).to_pandas()
     grid = np.arange(W_START, HOLDOUT_START, HOUR)
@@ -68,7 +77,7 @@ def store_funding(store, version, coins):
     return piv["fundingRate"], piv["premium"]
 
 
-def store_events(store, version, coins, block_hours=24):
+def store_events(store: str | Path, version: int, coins: list[str], block_hours: int = 24) -> Spec:
     """event_paths spec from the real forum counts of `coins` (U's order) over the search part, on the
     hours every mapped coin is covered."""
     piv = (
@@ -85,7 +94,7 @@ def store_events(store, version, coins, block_hours=24):
     }
 
 
-def frozen_funding(spec, inputs=None):
+def frozen_funding(spec: Spec, inputs: str | Path | None = None) -> tuple[Array, Array]:
     """A null model's funding source (F, P), from its blob `inputs`/<sha256> as `ops/jobs.py` stages it, or without
     `inputs` from the store it was fitted on; either way checked against its frozen sha256 (gate/fit.py)."""
     if inputs:
@@ -100,19 +109,20 @@ def frozen_funding(spec, inputs=None):
     return both[:t], both[t:]
 
 
-def funding_source(spec):
+def funding_source(spec: Spec) -> tuple[Array, Array, list[int | None]]:
     """(F, P) source arrays (`spec["arrays"]` if given, else the frozen source) and, per synthetic coin, its source
     column (None: independent blocks)."""
     F, P = spec["arrays"] if "arrays" in spec else frozen_funding(spec)
-    cols, k = [], 0
+    cols: list[int | None] = []
+    k = 0
     for c in spec["coins"]:
         cols.append(None if c in spec.get("short", ()) else k)
         k += c not in spec.get("short", ())
     return np.nan_to_num(F, nan=1.25e-5), np.nan_to_num(P), cols
 
 
-def block_indices(rng, n, length, mean_block):
-    idx = np.empty(n, int)
+def block_indices(rng: np.random.Generator, n: int, length: int, mean_block: float) -> npt.NDArray[np.int_]:
+    idx: npt.NDArray[np.int_] = np.empty(n, int)
     i = 0
     while i < n:
         start, size = rng.integers(length), rng.geometric(1 / mean_block)
@@ -122,7 +132,7 @@ def block_indices(rng, n, length, mean_block):
     return idx
 
 
-def funding_paths(rng, spec, coins, hours):
+def funding_paths(rng: np.random.Generator, spec: Spec | None, coins: int, hours: int) -> tuple[Array, Array]:
     """Stationary block bootstrap of real funding and premium (NULLS.md); zeros when spec is None."""
     if spec is None:
         return np.zeros((hours, coins)), np.zeros((hours, coins))
@@ -139,7 +149,7 @@ def funding_paths(rng, spec, coins, hours):
     return np.clip(f, -CAP, CAP), p
 
 
-def event_paths(rng, spec, coins, hours):
+def event_paths(rng: np.random.Generator, spec: Spec, coins: int, hours: int) -> Array:
     """Hourly event counts per coin, block-bootstrapped from real counts independently of epsilon
     (stage 5): {"arrays": (T x K counts), "coins": [synthetic coin index per column], "block_hours"}.
     Synthetic coins without a column get no rows (the input is undefined there)."""
@@ -151,8 +161,17 @@ def event_paths(rng, spec, coins, hours):
     return out
 
 
-def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
+def generate(
+    model: str,
+    params: Spec | None,
+    market_id: str,
+    days: int,
+    planted: Iterable[int] = (),
+    beta: float = 0.0,
+    events: Spec | None = None,
+) -> Arrays:
     """Arrays for one market: per-bar o, c, high, low, volume and hourly funding, premium."""
+    params = params or {}
     rng = np.random.default_rng(seed(market_id))
     coins = 12
     n = days * 6
@@ -173,7 +192,7 @@ def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
         P = np.asarray(r["P"], float)
         m = np.asarray(r["m"], float)
         rho = np.asarray(r["rho"], float)
-        state = np.zeros(n, int)
+        state: npt.NDArray[np.int_] = np.zeros(n, int)
         u = rng.random(n)
         for k in range(1, n):
             state[k] = state[k - 1] if u[k] < P[state[k - 1], state[k - 1]] else 1 - state[k - 1]
@@ -184,7 +203,7 @@ def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
         x = np.sqrt(rs) * zm + np.sqrt(1 - rs) * zi + jumps / sig
     else:
         raise ValueError(model)
-    planted_mask = np.zeros(coins, bool)
+    planted_mask: npt.NDArray[np.bool_] = np.zeros(coins, bool)
     planted_mask[list(planted)] = True
     var = np.minimum(omega / (1 - alpha - beta_g), SIGMA_MAX**2) if model == "N2" else None
     for k in range(n):
@@ -221,7 +240,14 @@ def generate(model, params, market_id, days, planted=(), beta=0.0, events=None):
     }
 
 
-def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=1):
+def write(
+    root: str | Path,
+    arrays: Arrays,
+    holdout_days: int,
+    cost_cells: CostCells,
+    taker_fee: float = 0.00045,
+    fetched_at: int = 1,
+) -> Path:
     """Write a generated market; rows from the last `holdout_days` go to <root>/holdout."""
     root = Path(root)
     n, coins = arrays["open"].shape
@@ -273,7 +299,9 @@ def write(root, arrays, holdout_days, cost_cells, taker_fee=0.00045, fetched_at=
     return root
 
 
-def write_venue(root, coins, cost_cells, taker_fee=0.00045) -> None:
+def write_venue(
+    root: str | Path, coins: dict[str, tuple[int, int, bool]], cost_cells: CostCells, taker_fee: float = 0.00045
+) -> None:
     """<root>/venue: rules for {coin: (szDecimals, maxLeverage, delisted)} and every coin at `cost_cells`."""
     venue = Path(root) / "venue"
     venue.mkdir(parents=True, exist_ok=True)
@@ -294,6 +322,14 @@ def write_venue(root, coins, cost_cells, taker_fee=0.00045) -> None:
 
 
 def write_market(
-    root, market_id="test", days=60, holdout_days=0, model="N1", params=None, cost_cells=None, planted=(), beta=0.0
-):
+    root: str | Path,
+    market_id: str = "test",
+    days: int = 60,
+    holdout_days: int = 0,
+    model: str = "N1",
+    params: Spec | None = None,
+    cost_cells: CostCells | None = None,
+    planted: Iterable[int] = (),
+    beta: float = 0.0,
+) -> Path:
     return write(root, generate(model, params, market_id, days, planted, beta), holdout_days, cost_cells or FLAT_COST)

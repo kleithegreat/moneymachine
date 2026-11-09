@@ -1,7 +1,9 @@
 # Written by GPT 6.1 Sol from whitepaper.tex and INVARIANTS.md alone.
 
+from typing import Any
 
-def check(case: dict) -> str:
+
+def check(case: dict[str, Any]) -> str:
     """Check one case in the documented mm check-fills format."""
     fill = case["fill"]
     why = fill["why"]
@@ -80,8 +82,7 @@ def check(case: dict) -> str:
     # The case format supplies no equity, weights, size precision, or prior
     # position. Its specified portfolio verdict tests only decision notional;
     # it cannot establish bankruptcy, truncation, or the exact-close exception.
-    if why == "fill":
-        if magnitude * float(fill["decision_price"]) > 10000.0:
-            return "R_PORTFOLIO"
+    if why == "fill" and magnitude * float(fill["decision_price"]) > 10000.0:
+        return "R_PORTFOLIO"
 
     return "ok"

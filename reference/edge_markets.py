@@ -16,9 +16,12 @@ and 1 ms after it). Forum counts are bound for E0 and E1, and governance counts 
 """
 
 import json
+from collections.abc import Callable, Collection, Iterable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import polars as pl
 
 from gate.markets import FLAT_COST, write_venue
@@ -27,14 +30,26 @@ from gate.search import op
 from ingest.policy import BAR, HOUR, POLICY
 from ingest.store import Store
 
+Node = Any
+Row = dict[str, Any]
 
-def _walk(rng, n, flat=()):
+
+def _walk(rng: np.random.Generator, n: int, flat: Iterable[int] = ()) -> npt.NDArray[np.float64]:
     r = rng.normal(0, 0.02, n)
     r[list(flat)] = 0.0
-    return 100 * np.exp(np.cumsum(r))
+    prices: npt.NDArray[np.float64] = 100 * np.exp(np.cumsum(r))
+    return prices
 
 
-def _write(root, bars, funding, coins, delisted=(), events=None, revisions=None):
+def _write(
+    root: str | Path,
+    bars: list[Row],
+    funding: list[Row],
+    coins: dict[str, tuple[int, int]],
+    delisted: Collection[str] = (),
+    events: list[Row] | None = None,
+    revisions: list[Row] | None = None,
+) -> Path:
     root = Path(root)
     end = max(b["eventTime"] for b in bars) + HOUR
     store = Store(root / "store")
@@ -49,7 +64,7 @@ def _write(root, bars, funding, coins, delisted=(), events=None, revisions=None)
     return root
 
 
-def _bar(coin, k, o, c, rng, trades=7):
+def _bar(coin: str, k: int, o: float, c: float, rng: np.random.Generator, trades: int = 7) -> Row:
     return {
         "coin": coin,
         "eventTime": (k + 1) * BAR,
@@ -63,7 +78,7 @@ def _bar(coin, k, o, c, rng, trades=7):
     }
 
 
-def _funding(coin, h, rate, premium, late=0):
+def _funding(coin: str, h: int, rate: float, premium: float, late: int = 0) -> Row:
     return {
         "coin": coin,
         "eventTime": h * HOUR,
@@ -73,7 +88,7 @@ def _funding(coin, h, rate, premium, late=0):
     }
 
 
-def edge(root):
+def edge(root: str | Path) -> Path:
     rng = np.random.default_rng(64)
     n, hours = 40 * 6, 40 * 24 + 1
     px = _walk(rng, n + 1, flat=range(30, 42))
@@ -82,11 +97,12 @@ def edge(root):
         for coin in ("E0", "E1", "E2", "E3"):
             if coin == "E2" and (k < 60 or 120 <= k < 123):
                 continue
-            o, c = (
-                (px[k], px[k + 1])
-                if coin in ("E0", "E1")
-                else (px[k] * 1.5, px[k + 1] * 1.5 + (0.3 if k % 3 else -0.2))
-            )
+            o: float
+            c: float
+            if coin in ("E0", "E1"):
+                o, c = px[k], px[k + 1]
+            else:
+                o, c = px[k] * 1.5, px[k + 1] * 1.5 + (0.3 if k % 3 else -0.2)
             trades = 0 if (coin == "E2" and k in (60, 140, 141)) or (coin == "E3" and k >= 180) else 7
             bars.append(_bar(coin, k, o, c, rng, trades))
     for h in range(hours):
@@ -111,7 +127,7 @@ def edge(root):
     )
 
 
-def crash(root, drop):
+def crash(root: str | Path, drop: float) -> Path:
     rng = np.random.default_rng(int(drop * 100))
     n = 20 * 6
     px = _walk(rng, n + 1)
@@ -127,18 +143,26 @@ def crash(root, drop):
     return _write(root, bars, funding, {"C0": (3, 2), "C1": (2, 2)})
 
 
-MARKETS = {"edge": edge, "liquidation": lambda r: crash(r, 0.4), "ruin": lambda r: crash(r, 0.6)}
+def _liquidation(root: str | Path) -> Path:
+    return crash(root, 0.4)
 
 
-def inp(name):
+def _ruin(root: str | Path) -> Path:
+    return crash(root, 0.6)
+
+
+MARKETS: dict[str, Callable[[str | Path], Path]] = {"edge": edge, "liquidation": _liquidation, "ruin": _ruin}
+
+
+def inp(name: str) -> Node:
     return {"input": name}
 
 
-def ret(x, h=4):
+def ret(x: str, h: int = 4) -> Node:
     return op("sub", op("div", inp(x), op("lag", inp(x), hours=h)), c(1.0))
 
 
-def w(x, scale=0.3):
+def w(x: Node, scale: float = 0.3) -> Node:
     return op("mul", op("clip", x, c(-1.0), c(1.0)), c(scale))
 
 
@@ -148,8 +172,8 @@ P = op("mul", inp("premium"), c(1e3))
 NAN = op("sub", op("exp", c(1000.0)), op("exp", c(1000.0)))
 
 
-def program(name, weight, lets=None, params=None):
-    p = {
+def program(name: str, weight: Node, lets: dict[str, Node] | None = None, params: Node | None = None) -> Node:
+    p: Node = {
         "dsl": 1,
         "name": name,
         "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
@@ -162,7 +186,7 @@ def program(name, weight, lets=None, params=None):
     return p
 
 
-def weights():
+def weights() -> dict[str, Node]:
     out = {f"op-{o}": w(op(o, R, F)) for o in ("add", "sub", "mul", "min", "max")}
     out |= {
         "op-div": w(op("div", R, F)),
@@ -241,7 +265,7 @@ def weights():
     return {k: v if "dsl" in v else program(k, v) for k, v in out.items()}
 
 
-def cases(nulls):
+def cases(nulls: Iterable[str]) -> list[tuple[str, Node, list[str]]]:
     """[(name, program, [markets])]: every weight on `edge` and on each null market, and the lifecycle programs on
     the crash markets."""
     ws = weights()
@@ -251,7 +275,7 @@ def cases(nulls):
     return out
 
 
-def rejections():
+def rejections() -> dict[str, Node]:
     """Programs `mm` must reject, one per rejection path not already in kernel/tests/adversarial."""
     bad = {
         "unit-mismatch": op("add", F, inp("funding")),

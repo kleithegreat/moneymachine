@@ -9,7 +9,10 @@ import importlib.util
 import json
 import os
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 REPO = Path(__file__).resolve().parent
 
@@ -18,7 +21,7 @@ REPO = Path(__file__).resolve().parent
 PYTEST_BYTES, CARGO_BYTES = 450_000_000, 300_000_000
 
 
-def check():
+def check() -> dict[str, Any]:
     """The whole suite at once: pytest, the kernel's cargo tests and the mutants, their pools split from the memory free
     to this process (the mutants take up to half, pytest the rest). Each writes its log to data/check/; returns each
     part's last line and the lines naming each failed test or mutant, and exits nonzero if any part fails."""
@@ -30,7 +33,7 @@ def check():
     m = mutants_module()
     free = compute.available() - CARGO_BYTES
     slots = max(1, min(len(m.MUTANTS), free // 2 // m.SLOT_BYTES))
-    n = max(1, min(os.cpu_count(), (free - slots * m.SLOT_BYTES) // PYTEST_BYTES))
+    n = max(1, min(os.cpu_count() or 1, (free - slots * m.SLOT_BYTES) // PYTEST_BYTES))
     logs = REPO / "data" / "check"
     logs.mkdir(parents=True, exist_ok=True)
     parts = {
@@ -55,14 +58,15 @@ def check():
     return out
 
 
-def mutants_module():
+def mutants_module() -> ModuleType:
     spec = importlib.util.spec_from_file_location("mutants", REPO / "kernel/mutants/mutants.py")
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def mutants(slots=None) -> None:
+def mutants(slots: int | None = None) -> None:
     mutants_module().main(slots)
 
 
@@ -234,7 +238,7 @@ COMMANDS = {
 TYPES = {"int": int}
 
 
-def main(argv) -> None:
+def main(argv: Sequence[str]) -> None:
     parser = argparse.ArgumentParser(prog="python -m cli")
     sub = parser.add_subparsers(dest="command", required=True)
     for name, (_, _, args, help_) in COMMANDS.items():

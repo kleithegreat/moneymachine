@@ -17,3 +17,11 @@ ignore = ["B905", "E741", "SIM115"]
 [tool.mypy]
 strict = true
 follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["pytest.*", "_pytest.*"]
+follow_imports = "normal"
+
+[[tool.mypy.overrides]]
+module = ["scipy.*", "pandas.*", "statsmodels.*", "arch.*", "pyarrow.*", "polars.*", "lz4.*", "hypothesis.*"]
+ignore_missing_imports = true

@@ -35,7 +35,7 @@ build_once(root, 'shared', build)
 
 
 def test_a_failed_build_is_retried(tmp_path: Path) -> None:
-    calls = []
+    calls: list[int] = []
 
     def build() -> None:
         calls.append(1)

@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 
-def launcher(tmp_path: Path, busy, *stop):
+def launcher(tmp_path: Path, busy: bool, *stop: str) -> list[list[str]]:
     (tmp_path / "ops").mkdir()
     shutil.copy(Path(__file__).with_name("builder.sh"), tmp_path / "ops")
     stubs = tmp_path / "stubs"
@@ -14,7 +14,8 @@ def launcher(tmp_path: Path, busy, *stop):
     for name, code in (("claude", 0), ("pgrep", 0 if busy else 1)):
         (stubs / name).write_text(
             f'#!/bin/sh\necho "$@" >> {tmp_path}/{name}.args\n'
-            f'echo "$TMPDIR $CLAUDE_CODE_TMPDIR $(test -d "$TMPDIR" && echo exists)" > {tmp_path}/{name}.env\nexit {code}\n'
+            f'echo "$TMPDIR $CLAUDE_CODE_TMPDIR $(test -d "$TMPDIR" && echo exists)" > {tmp_path}/{name}.env\n'
+            f"exit {code}\n"
         )
         (stubs / name).chmod(0o755)
     (stubs / "systemd-run").write_text(f"""#!/bin/sh

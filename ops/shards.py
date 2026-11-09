@@ -14,8 +14,13 @@ import tarfile
 import tempfile
 import time
 import uuid
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any, TextIO
+
+Rows = dict[str, dict[str, Any]]
+Seconds = dict[str, float]
 
 SSH = [
     "ssh",
@@ -86,7 +91,7 @@ timeout 3600 nice -n 10 nix --extra-experimental-features 'nix-command flakes' d
 """
 
 
-def arguments(argv):
+def arguments(argv: Sequence[str] | None) -> tuple[Path, list[str], list[str]]:
     parser = argparse.ArgumentParser(
         usage="%(prog)s <worktree> [--machines local,prodesk5,gmktec] [pytest selection args...]",
         description="Selection arguments (paths, -k, -m) go to collection only; the shards run the collected ids.",
@@ -115,15 +120,17 @@ def arguments(argv):
     return worktree, machines, selection
 
 
-def files(worktree):
-    """(names to ship, names deleted here): the current tree, without data/ and ignored files, as NUL-terminated bytes."""
+def files(worktree: Path) -> tuple[bytes, bytes]:
+    """(names to ship, names deleted here): the current tree, without data/ and ignored files, as NUL-terminated
+    bytes."""
     names = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         cwd=worktree,
         capture_output=True,
         check=True,
     ).stdout.split(b"\0")
-    kept, gone = [], []
+    kept: list[bytes] = []
+    gone: list[bytes] = []
     for name in sorted(set(names) - {b""}):
         path = worktree / os.fsdecode(name)
         if name.split(b"/", 1)[0] == b"data":
@@ -139,7 +146,7 @@ def files(worktree):
     return b"".join(kept), b"".join(gone)
 
 
-def collect(worktree, selection):
+def collect(worktree: Path, selection: Sequence[str]) -> list[str]:
     out = subprocess.run(
         ["nix", "develop", "-c", "pytest", "--collect-only", "-q", "-n0", "-p", "no:cacheprovider", *selection],
         cwd=worktree,
@@ -155,13 +162,13 @@ def collect(worktree, selection):
     return ids
 
 
-def assign(ids, durations, cores, overhead):
+def assign(ids: list[str], durations: Seconds, cores: Seconds, overhead: Seconds) -> dict[str, list[str]]:
     """{machine: ids}: the local-only tests on the desktop, the rest longest first onto the machine that would finish
     soonest. `cores` is each machine's speed: its cores over how much slower than predicted its last run was; `overhead`
     is the seconds each machine spends outside its tests (transfer, Nix, collection, worker start, the tail)."""
     guess = statistics.median(durations.values()) if durations else 1.0
     load = {m: overhead.get(m, 0.0) for m in cores}
-    shards = {m: [] for m in cores}
+    shards: dict[str, list[str]] = {m: [] for m in cores}
     local = [i for i in ids if i.startswith(LOCAL_ONLY)]
     rest = sorted((i for i in ids if not i.startswith(LOCAL_ONLY)), key=lambda i: -durations.get(i, guess))
     for i in local:
@@ -174,7 +181,7 @@ def assign(ids, durations, cores, overhead):
     return shards
 
 
-def package(worktree, ids, tar_path) -> None:
+def package(worktree: Path, ids: list[str], tar_path: Path) -> None:
     manifest, deleted = files(worktree)
     with tempfile.TemporaryDirectory(prefix="mm-bundle-") as scratch:
         bundle = Path(scratch) / "repo.bundle"
@@ -185,11 +192,11 @@ def package(worktree, ids, tar_path) -> None:
                 info = tarfile.TarInfo(name)
                 info.size = len(data)
                 tar.addfile(info, io.BytesIO(data))
-            for name in manifest.split(b"\0")[:-1]:
-                tar.add(worktree / os.fsdecode(name), "files/" + os.fsdecode(name), recursive=False)
+            for entry in manifest.split(b"\0")[:-1]:
+                tar.add(worktree / os.fsdecode(entry), "files/" + os.fsdecode(entry), recursive=False)
 
 
-def run_local(worktree, ids, log, report):
+def run_local(worktree: Path, ids: list[str], log: TextIO, report: Path) -> int:
     with tempfile.TemporaryDirectory(prefix="mm-shard-", dir="/dev/shm") as tmp:
         (Path(tmp) / "ids").write_text("\n".join(ids) + "\n")
         command = [
@@ -218,7 +225,7 @@ def run_local(worktree, ids, log, report):
         ).returncode
 
 
-def run_node(worktree, host, ids, log, report):
+def run_node(worktree: Path, host: str, ids: list[str], log: TextIO, report: Path) -> int:
     run = uuid.uuid4().hex[:8]
     with tempfile.TemporaryDirectory(prefix="mm-shard-") as scratch:
         tar_path = Path(scratch) / "in.tar.gz"
@@ -251,24 +258,27 @@ def run_node(worktree, host, ids, log, report):
     return code
 
 
-def unit_file(host, path, cap):
-    """At most cap + 1 bytes of a file the unit wrote: more than cap tells the caller it was too big, and nothing is held beyond that."""
-    return subprocess.run(
-        [*SSH, host, shlex.join(["head", "-c", str(cap + 1), path])], capture_output=True, timeout=60
-    ).stdout
+def unit_file(host: str, path: str, cap: int) -> bytes:
+    """At most cap + 1 bytes of a file the unit wrote: more than cap tells the caller it was too big, and nothing is
+    held beyond that."""
+    head = subprocess.run([*SSH, host, shlex.join(["head", "-c", str(cap + 1), path])], capture_output=True, timeout=60)
+    return head.stdout
 
 
-def run_unit(worktree, host, ids, log, report, workers):
-    """prodesk7: stage the package for `mm-tests@<run>.service` (Homelab role mm-test-node), which runs REMOTE as mmtest
-    under its memory cap. The held stdin pipe is the unit's lifeline: if this process dies, the wrapper stops the unit."""
+def run_unit(worktree: Path, host: str, ids: list[str], log: TextIO, report: Path, workers: int) -> int:
+    """prodesk7: stage the package for `mm-tests@<run>.service` (Homelab role mm-test-node), which runs REMOTE as
+    mmtest under its memory cap. The held stdin pipe is the unit's lifeline: if this process dies, the wrapper stops
+    the unit."""
     run = uuid.uuid4().hex[:8]
     stage = f"{UNIT_STAGE}/{run}"
     with tempfile.TemporaryDirectory(prefix="mm-shard-") as scratch:
         tar_path = Path(scratch) / "in.tar.gz"
         package(worktree, ids, tar_path)
         prepare = (
-            'find "$1" -mindepth 1 -maxdepth 1 -mmin +180 -exec rm -rf {} + ; umask 027 && mkdir -m 750 "$2" && cd "$2" && '
-            'printf %s "$3" > run.sh && printf %s "$4" > workers && : > out.log && : > report.json && chmod 660 out.log report.json && cat > in.tar.gz'
+            'find "$1" -mindepth 1 -maxdepth 1 -mmin +180 -exec rm -rf {} + ; '
+            'umask 027 && mkdir -m 750 "$2" && cd "$2" && '
+            'printf %s "$3" > run.sh && printf %s "$4" > workers && : > out.log && : > report.json && '
+            "chmod 660 out.log report.json && cat > in.tar.gz"
         )
         with tar_path.open("rb") as tar:
             put = subprocess.run(
@@ -290,6 +300,7 @@ def run_unit(worktree, host, ids, log, report, workers):
                 code = start.wait(timeout=BOUND)
             except subprocess.TimeoutExpired:
                 code = 124
+            assert start.stdin is not None
             start.stdin.close()
         text = unit_file(host, f"{stage}/out.log", LOG_CAP)
         log.write(
@@ -304,24 +315,27 @@ def run_unit(worktree, host, ids, log, report, workers):
     return code
 
 
-def shard_result(report):
+def shard_result(report: Path) -> Rows:
     try:
-        return json.loads(Path(report).read_text())
+        rows: Rows = json.loads(Path(report).read_text())
+        return rows
     except (OSError, ValueError):
         return {}
 
 
-def rerun(shards, rows):
+def rerun(shards: dict[str, list[str]], rows: Rows) -> list[str]:
     """The tests of the nodes that no result or a skip came back for: a node may lack what this PC has."""
     return [
         i for m, part in shards.items() if m != LOCAL for i in part if i not in rows or rows[i]["outcome"] == "skipped"
     ]
 
 
-def update(durations, slowness, ran, rows, ids, full):
-    """(durations, slowness) after a run. Durations are in this PC's seconds: a machine's slowness is how much longer its
-    tests took than the stored durations (of the tests that last over half a second), and a run's seconds are divided by
-    it. A full collection forgets ids that no longer exist."""
+def update(
+    durations: Seconds, slowness: Seconds, ran: dict[str, str], rows: Rows, ids: list[str], full: bool
+) -> tuple[Seconds, Seconds]:
+    """(durations, slowness) after a run. Durations are in this PC's seconds: a machine's slowness is how much longer
+    its tests took than the stored durations (of the tests that last over half a second), and a run's seconds are
+    divided by it. A full collection forgets ids that no longer exist."""
     slowness = dict(slowness)
     for m in set(ran.values()):
         known = [
@@ -339,8 +353,11 @@ def update(durations, slowness, ran, rows, ids, full):
     return kept, slowness
 
 
-def learn_overhead(overhead, walls, ran, rows, count):
-    """Each machine's wall seconds beyond its tests' seconds spread over its `count` cores, averaged with the last value."""
+def learn_overhead(
+    overhead: Seconds, walls: Seconds, ran: dict[str, str], rows: Rows, count: dict[str, int]
+) -> Seconds:
+    """Each machine's wall seconds beyond its tests' seconds spread over its `count` cores, averaged with the last
+    value."""
     overhead = dict(overhead)
     for m, wall in walls.items():
         seconds = [rows[i]["seconds"] for i, r in ran.items() if r == m]
@@ -349,14 +366,14 @@ def learn_overhead(overhead, walls, ran, rows, count):
     return overhead
 
 
-def write_durations(path, durations, slowness, overhead) -> None:
+def write_durations(path: Path, durations: Seconds, slowness: Seconds, overhead: Seconds) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps({**durations, SLOWNESS: slowness, OVERHEAD: overhead}))
     os.replace(temp, path)
 
 
-def run(worktree, machines, selection) -> int:
+def run(worktree: Path, machines: list[str], selection: Sequence[str]) -> int:
     started = time.time()
     ids = collect(worktree, selection)
     try:
@@ -365,7 +382,7 @@ def run(worktree, machines, selection) -> int:
         durations = {}
     slowness = durations.pop(SLOWNESS, {})
     overhead = durations.pop(OVERHEAD, {})
-    count = {m: os.cpu_count() if m == LOCAL else NODES[m][1] for m in machines}
+    count = {m: (os.cpu_count() or 1) if m == LOCAL else NODES[m][1] for m in machines}
     cores = {m: count[m] / slowness.get(m, 1.0) for m in machines}
     shards = assign(ids, durations, cores, overhead)
     out = Path(tempfile.mkdtemp(prefix="mm-shards-"))
@@ -374,9 +391,9 @@ def run(worktree, machines, selection) -> int:
         predicted = overhead.get(m, 0.0) + sum(durations.get(i, 1.0) for i in part) / cores[m]
         print(f"  {m}: {len(part)} tests, about {predicted:.0f}s", flush=True)
 
-    walls = {}
+    walls: Seconds = {}
 
-    def go(m, part, tag=""):
+    def go(m: str, part: list[str], tag: str = "") -> tuple[str, int, Rows]:
         t = time.time()
         log, report = out / f"{m}{tag}.log", out / f"{m}{tag}.json"
         with log.open("w") as handle:
@@ -392,7 +409,9 @@ def run(worktree, machines, selection) -> int:
 
     with ThreadPoolExecutor(len(machines)) as pool:
         results = list(pool.map(lambda kv: go(*kv), [(m, part) for m, part in shards.items() if part]))
-    rows, codes, ran = {}, {}, {}
+    rows: Rows = {}
+    codes: dict[str, int] = {}
+    ran: dict[str, str] = {}
     for m, code, report in results:
         rows.update(report)
         codes[m] = code
@@ -408,7 +427,7 @@ def run(worktree, machines, selection) -> int:
     missing = [i for i in ids if i not in rows]
     kept, slowness = update(durations, slowness, ran, rows, ids, not selection)
     write_durations(DURATIONS, kept, slowness, learned)
-    counts = {}
+    counts: dict[str, int] = {}
     for r in rows.values():
         counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
     bad = {i: r for i, r in rows.items() if r["outcome"] in ("failed", "error")}
@@ -427,7 +446,7 @@ def run(worktree, machines, selection) -> int:
     return 0 if ok else 1
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> int:
     try:
         return run(*arguments(argv))
     except (OSError, ValueError, subprocess.CalledProcessError) as e:

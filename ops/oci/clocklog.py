@@ -8,7 +8,7 @@ import sys
 from ingest.live import append, now_ms
 
 
-def clock_offset_ms():
+def clock_offset_ms() -> float | None:
     out = subprocess.run(["timedatectl", "timesync-status"], capture_output=True, text=True).stdout
     m = re.search(r"Offset: ([+-]?[\d.]+)(us|ms|s)\b", out)
     return float(m.group(1)) * {"us": 1e-3, "ms": 1.0, "s": 1e3}[m.group(2)] if m else None

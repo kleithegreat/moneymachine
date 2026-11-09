@@ -2,11 +2,12 @@
 diagnostic on it (human-approved 2026-10-26, a labeled diagnostic that decides nothing).
 
 `fetch` downloads chosen hours of chosen archive days for the coins of U (for the diagnostic, hours 0, 6, 12 and 18 of
-every day outside stage 3's holdout window) and reduces each coin-hour file at once to per-snapshot costs per C0.7 cell (C0.7's own `walk_cost` on the 20-level book;
-an order the 20 levels cannot fill is censored, never costed, since the archive lacks the aggregated book C0.7 falls
-back to) and its mid prices. `report` puts each day in a volatility tercile per coin, by the realized volatility of
-those mids, and by calendar quarter, and compares each cell with the frozen table. `equivalence` and `table` are stage 3's
-revision of 2026-10-26: the archive checked against our live books, then a cost table fitted before the holdout.
+every day outside stage 3's holdout window) and reduces each coin-hour file at once to per-snapshot costs per C0.7 cell
+(C0.7's own `walk_cost` on the 20-level book; an order the 20 levels cannot fill is censored, never costed, since the
+archive lacks the aggregated book C0.7 falls back to) and its mid prices. `report` puts each day in a volatility tercile
+per coin, by the realized volatility of those mids, and by calendar quarter, and compares each cell with the frozen
+table. `equivalence` and `table` are stage 3's revision of 2026-10-26: the archive checked against our live books, then
+a cost table fitted before the holdout.
 
 Run it in the `cloud` dev shell, which holds boto3, lz4, numpy and polars.
 """
@@ -18,8 +19,10 @@ import io
 import json
 import math
 from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -34,9 +37,14 @@ MATCH_MS, MATCHED, AGREE, SLOT_MS = 1_000, 0.5, 0.95, 30_000
 HOUR = 3_600_000
 REPO = Path(__file__).resolve().parents[1]
 
+Window = tuple[dt.date, dt.date]
+Costs = dict[str, float]
+Snapshot = tuple[int, Costs]
 
-def days(client):
-    out, token = [], None
+
+def days(client: Any) -> list[str]:
+    out: list[str] = []
+    token = None
     while True:
         kw = {"Bucket": BUCKET, "Prefix": "market_data/", "Delimiter": "/", "RequestPayer": "requester"}
         page = client.list_objects_v2(**kw, **({"ContinuationToken": token} if token else {}))
@@ -46,9 +54,9 @@ def days(client):
         token = page["NextContinuationToken"]
 
 
-def reduce(lines):
+def reduce(lines: Iterable[str]) -> list[tuple[int, float, Costs]]:
     """Per snapshot: (time, mid, {cell: cost or inf}) from one coin-hour file's JSON lines."""
-    out = []
+    out: list[tuple[int, float, Costs]] = []
     for line in lines:
         book = json.loads(line)["raw"]["data"]
         bids, asks = book["levels"]
@@ -65,14 +73,20 @@ def reduce(lines):
     return out
 
 
-def day_of(d):
+def day_of(d: str) -> dt.date:
     return dt.date(int(d[:4]), int(d[4:6]), int(d[6:]))
 
 
-def fetch(out_dir, coins, hours=HOURS, window=None, client=None) -> None:
+def fetch(
+    out_dir: str | Path,
+    coins: Iterable[str],
+    hours: Iterable[int] = HOURS,
+    window: Window | None = None,
+    client: Any = None,
+) -> None:
     """Reduce each chosen coin-hour into `out_dir`/<date>/<hour>/<coin>.json.gz (resumable: done files are skipped): the
     given hours of every archive day in `window` ([start, end) dates), or by default of every day outside SKIP."""
-    import boto3
+    import boto3  # type: ignore[import-not-found]  # cloud dev shell only
     import lz4.frame
 
     client = client or boto3.client("s3", region_name="us-east-1")
@@ -102,7 +116,7 @@ def fetch(out_dir, coins, hours=HOURS, window=None, client=None) -> None:
 REPORT_BYTES = 2_500_000_000
 
 
-def report(out_dir, table_path=REPO / "venue/hyperliquid/execution.json"):
+def report(out_dir: str | Path, table_path: str | Path = REPO / "venue/hyperliquid/execution.json") -> dict[str, Any]:
     """Per coin and cell, by volatility tercile and by quarter: snapshots, the censored share, the share costing more
     than the table, and the ratio of the C0.7 quantile of costed snapshots to the table's entry. Coins are independent,
     so each is reported by its own worker, holding only that coin's costs."""
@@ -115,9 +129,9 @@ def report(out_dir, table_path=REPO / "venue/hyperliquid/execution.json"):
     return {k: v for part in parts for k, v in part.items()}
 
 
-def coin_report(coin, out_dir, table):
-    per = defaultdict(lambda: defaultdict(list))
-    vol = {}
+def coin_report(coin: str, out_dir: str | Path, table: Mapping[str, Any]) -> dict[str, Any]:
+    per: defaultdict[str, defaultdict[str, list[Any]]] = defaultdict(lambda: defaultdict(list))
+    vol: dict[str, list[float]] = {}
     for path in sorted(Path(out_dir).glob(f"*/*/{coin}.json.gz")):
         d = path.parts[-3]
         rows = json.loads(gzip.decompress(path.read_bytes()))
@@ -128,15 +142,17 @@ def coin_report(coin, out_dir, table):
             per[cell][d].append(np.array([costs[cell] for _, _, costs in rows]))
     rv = {d: float(np.mean(v)) for d, v in vol.items()}
     cuts = np.quantile(list(rv.values()), [1 / 3, 2 / 3]) if rv else [math.inf, math.inf]
-    out = {}
+    out: dict[str, Any] = {}
     for cell, by_day in sorted(per.items()):
         side, size = cell.split(":")
         entry = table[coin][side][size]
-        groups = defaultdict(list)
+        groups: defaultdict[str, list[Any]] = defaultdict(list)
         for d, chunks in by_day.items():
+            volatility = rv.get(d, math.inf)
+            tercile = "low" if volatility <= cuts[0] else "mid" if volatility <= cuts[1] else "high"
             for g in (
                 "all",
-                f"vol-{'low' if rv.get(d, math.inf) <= cuts[0] else 'mid' if rv.get(d, math.inf) <= cuts[1] else 'high'}",
+                f"vol-{tercile}",
                 f"{d[:4]}Q{(int(d[4:6]) - 1) // 3 + 1}",
             ):
                 groups[g] += chunks
@@ -147,7 +163,7 @@ def coin_report(coin, out_dir, table):
     return out
 
 
-def summary(costs, entry):
+def summary(costs: Any, entry: float) -> dict[str, float | None]:
     c = np.asarray(costs, dtype=float)
     costed = c[np.isfinite(c)]
     q = float(np.quantile(costed, QUANTILE, method="higher")) if len(costed) else None
@@ -159,19 +175,19 @@ def summary(costs, entry):
     }
 
 
-def archived(out_dir, coin, window):
+def archived(out_dir: str | Path, coin: str, window: Window) -> list[Snapshot]:
     """[(book time, {cell: cost})] of a coin's reduced archive snapshots on the days of `window`, by time."""
-    rows = []
+    rows: list[Snapshot] = []
     for path in Path(out_dir).glob(f"*/*/{coin}.json.gz"):
         if window[0] <= day_of(path.parts[-3]) < window[1]:
             rows += [(t, costs) for t, _, costs in json.loads(gzip.decompress(path.read_bytes()))]
     return sorted(rows, key=lambda r: r[0])
 
 
-def live(live_dirs, coins, window):
+def live(live_dirs: Iterable[str | Path], coins: Iterable[str], window: Window) -> defaultdict[str, list[Snapshot]]:
     """{coin: [(book time, {cell: cost})]} of every live L2 snapshot the recorders logged on the days of `window`,
     costed like the archive's, on the 20-level book alone."""
-    out = defaultdict(list)
+    out: defaultdict[str, list[Snapshot]] = defaultdict(list)
     for d in live_dirs:
         for path in sorted(Path(d).glob("polls-*.jsonl")):
             if not window[0] <= day_of(path.stem.split("-")[1]) < window[1]:
@@ -195,17 +211,17 @@ def live(live_dirs, coins, window):
     return out
 
 
-def agree(a, b):
+def agree(a: float, b: float) -> bool:
     return abs(a - b) <= max(0.5, 0.1 * abs(b))
 
 
-def equivalence(archive_dir, live_dirs, coins):
+def equivalence(archive_dir: str | Path, live_dirs: Iterable[str | Path], coins: Sequence[str]) -> dict[str, Any]:
     """The frozen equivalence check (stage 3 revision of 2026-10-26): per coin, the share of its live snapshots matched
     to an archive snapshot within MATCH_MS of book time, over the hours both cover; per cell, among matched pairs, the
     share agreeing on censoring and, among pairs both costed (vacuously met when there are none: clarification of
     2026-10-26), on cost. It passes only if every coin and cell does."""
     recorded = live(live_dirs, coins, EQUIVALENCE)
-    out = {}
+    out: dict[str, Any] = {}
     for coin in coins:
         arch = archived(archive_dir, coin, EQUIVALENCE)
         hours = {t // HOUR for t, _ in arch}
@@ -241,13 +257,16 @@ def equivalence(archive_dir, live_dirs, coins):
     return {"coins": out, "pass": all(c["pass"] for c in out.values())}
 
 
-def table(archive_dir, coins, c07=REPO / "venue/hyperliquid/execution.json"):
-    """Stage 3's cost table: C0.7's procedure on the archive's books in TABLE, one snapshot per SLOT_MS slot (the first),
-    with every cell censored in any snapshot of the window keeping C0.7's value."""
+def table(
+    archive_dir: str | Path, coins: Iterable[str], c07: str | Path = REPO / "venue/hyperliquid/execution.json"
+) -> dict[str, Any]:
+    """Stage 3's cost table: C0.7's procedure on the archive's books in TABLE, one snapshot per SLOT_MS slot (the
+    first), with every cell censored in any snapshot of the window keeping C0.7's value."""
     frozen = json.loads(Path(c07).read_text())["cost_bps_ex_fee"]
-    cells, kept = {}, []
+    cells: dict[tuple[str, str, int], tuple[list[int], Any]] = {}
+    kept: list[str] = []
     for coin in coins:
-        slots = {}
+        slots: dict[int, Snapshot] = {}
         for t, costs in archived(archive_dir, coin, TABLE):
             slots.setdefault(t // SLOT_MS, (t, costs))
         rows = [slots[k] for k in sorted(slots)]
@@ -260,8 +279,8 @@ def table(archive_dir, coins, c07=REPO / "venue/hyperliquid/execution.json"):
                     cells[(coin, side, size)] = ([t for t, _ in rows], c)
     model, validation = calibrate_and_validate(cells)
     for k in kept:
-        coin, side, size = k.split(":")
-        model.setdefault(coin, {}).setdefault(side, {})[size] = frozen[coin][side][size]
+        coin, side, size_key = k.split(":")
+        model.setdefault(coin, {}).setdefault(side, {})[size_key] = frozen[coin][side][size_key]
     return {
         "window": [str(TABLE[0]), str(TABLE[1])],
         "slot_ms": SLOT_MS,
@@ -271,7 +290,7 @@ def table(archive_dir, coins, c07=REPO / "venue/hyperliquid/execution.json"):
     }
 
 
-def main(step) -> None:
+def main(step: str) -> None:
     """`python -m ingest.archive STEP` in the cloud shell, after stage 0 is committed: `equivalence` (fetch the check's
     hours, then judge), `table` (fetch the window, then fit; only after the check passed), `diagnostic` (fetch the
     sampled hours, then report). Outputs go to audit/stage3/ and audit/diagnostics/."""

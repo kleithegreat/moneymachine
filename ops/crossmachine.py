@@ -15,18 +15,20 @@ import lzma
 import sqlite3
 import sys
 import tempfile
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
-def rows(ledger_xz, ignore=("created",)):
+def rows(ledger_xz: str | Path, ignore: tuple[str, ...] = ("created",)) -> dict[str, list[tuple[Any, ...]]]:
     with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
         f.write(lzma.decompress(Path(ledger_xz).read_bytes()))
         f.flush()
         db = sqlite3.connect(f.name)
-        out = {}
+        out: dict[str, list[tuple[Any, ...]]] = {}
         for (table,) in db.execute("select name from sqlite_master where type = 'table' order by name"):
             cols = [c[1] for c in db.execute(f"pragma table_info({table})") if c[1] not in ignore]
             got = db.execute(f"select {', '.join(cols)} from {table} order by rowid").fetchall()
@@ -42,13 +44,14 @@ def rows(ledger_xz, ignore=("created",)):
         return out
 
 
-def compare(a_jsonl, a_dir, b_jsonl, b_dir, *ids, ignore=("created",)) -> None:
-    def results(path):
-        return {
-            r["id"]: {k: v for k, v in r.items() if k != "seconds"}
-            for r in map(json.loads, open(path))
-            if r["id"] in ids
-        }
+def compare(
+    a_jsonl: str, a_dir: str, b_jsonl: str, b_dir: str, *ids: str, ignore: tuple[str, ...] = ("created",)
+) -> None:
+    def results(path: str) -> dict[str, dict[str, Any]]:
+        with open(path) as f:
+            return {
+                r["id"]: {k: v for k, v in r.items() if k != "seconds"} for r in map(json.loads, f) if r["id"] in ids
+            }
 
     a, b = results(a_jsonl), results(b_jsonl)
     report = {
@@ -66,7 +69,7 @@ def compare(a_jsonl, a_dir, b_jsonl, b_dir, *ids, ignore=("created",)) -> None:
     )
 
 
-def reproduce(out_dir, *ids) -> None:
+def reproduce(out_dir: str, *ids: str) -> None:
     from gate import compute, sweep
 
     betas = json.loads((sweep.OUT / "betas.json").read_text())
@@ -89,7 +92,7 @@ def reproduce(out_dir, *ids) -> None:
     )
 
 
-def reproduce_one(spec, out_dir):
+def reproduce_one(spec: dict[str, Any], out_dir: str) -> tuple[str, bool, set[str]]:
     from gate import markets, search, sweep
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -121,8 +124,9 @@ def reproduce_one(spec, out_dir):
 
 
 if __name__ == "__main__":
-    {
+    commands: dict[str, Callable[..., None]] = {
         "compare": compare,
         "reproduce": reproduce,
         "compare-kernel": partial(compare, ignore=("created", "kernel", "identity")),
-    }[sys.argv[1]](*sys.argv[2:])
+    }
+    commands[sys.argv[1]](*sys.argv[2:])

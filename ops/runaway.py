@@ -8,10 +8,10 @@ import pytest
 from gate.agent import campaigns
 
 
-def series(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk) -> None:
-    held = []
+def series(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chunk: int) -> None:
+    held: list[bytes] = []
 
-    def wait(self, seconds) -> None:
+    def wait(self: object, seconds: float) -> None:
         Path(os.environ["RUNAWAY_STARTED"]).touch()
         held.append(b"x" * chunk)
 
