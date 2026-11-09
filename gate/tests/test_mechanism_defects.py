@@ -5,6 +5,7 @@ import sqlite3
 import struct
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -17,7 +18,7 @@ DECISION = "audit/decisions.md: the mechanism check's two defects are qualified,
 HUNT = "audit/reviews/2026-11-03-gpt-hunt-gate.md"
 
 
-def arrays(bars):
+def arrays(bars: int) -> dict[str, Any]:
     return {
         **{k: np.full((bars, 2), 100.0) for k in ("open", "high", "low", "close", "volume")},
         "funding": np.zeros((4 * bars + 1, 2)),
@@ -25,7 +26,9 @@ def arrays(bars):
     }
 
 
-def evaluate(mm, market, tmp_path: Path, weight, condition, name: str = "s"):
+def evaluate(
+    mm: Path, market: Path, tmp_path: Path, weight: dict[str, Any], condition: dict[str, Any], name: str = "s"
+) -> tuple[dict[str, Any], list[dict[str, Any]], Path]:
     strategy = tmp_path / f"{name}.json"
     strategy.write_text(
         json.dumps(
@@ -61,7 +64,7 @@ def evaluate(mm, market, tmp_path: Path, weight, condition, name: str = "s"):
 
 
 @pytest.fixture
-def closing(built_kernel, tmp_path: Path):
+def closing(built_kernel: Path, tmp_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], Path]:
     a = arrays(6)
     a["volume"][0] = 1000
     a["premium"][:] = [1, -1]
@@ -73,7 +76,9 @@ def closing(built_kernel, tmp_path: Path):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 1: closing costs omitted")
-def test_mechanism_mean_net_return_includes_closing_fills(closing) -> None:
+def test_mechanism_mean_net_return_includes_closing_fills(
+    closing: tuple[dict[str, Any], list[dict[str, Any]], Path],
+) -> None:
     """Two flat-price, one-exposure round trips; both fees and slippage must be netted."""
     disclosure, trace, _ = closing
     result = disclosure["result"]
@@ -99,7 +104,7 @@ def test_mechanism_mean_net_return_includes_closing_fills(closing) -> None:
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 2: undefined predictions shrink coverage")
-def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_kernel, tmp_path: Path) -> None:
+def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_kernel: Path, tmp_path: Path) -> None:
     """The constant-prediction replay measures all held exposures without changing trading."""
     a = arrays(104)
     a["funding"][:, 0] = -1e-5
@@ -131,7 +136,9 @@ def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 4: REPLACE bypasses append-only triggers")
-def test_separate_connection_cannot_replace_kernel_result(closing) -> None:
+def test_separate_connection_cannot_replace_kernel_result(
+    closing: tuple[dict[str, Any], list[dict[str, Any]], Path],
+) -> None:
     _, _, ledger = closing
     with sqlite3.connect(ledger) as db:
         db.execute("PRAGMA recursive_triggers = OFF")
@@ -147,7 +154,9 @@ def test_separate_connection_cannot_replace_kernel_result(closing) -> None:
         assert db.execute("SELECT experiment_id, returns, summary, result_hash FROM results").fetchone() == original
 
 
-def test_insert_or_ignore_duplicate_strategy_is_harmless(closing) -> None:
+def test_insert_or_ignore_duplicate_strategy_is_harmless(
+    closing: tuple[dict[str, Any], list[dict[str, Any]], Path],
+) -> None:
     _, _, ledger = closing
     with sqlite3.connect(ledger) as db:
         db.execute("PRAGMA recursive_triggers = OFF")

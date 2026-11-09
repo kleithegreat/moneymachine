@@ -4,6 +4,7 @@ it, so with zero innovations a held position's gross PnL is zero; and innovation
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -34,7 +35,7 @@ N3 = {
 }
 
 
-def run_mm(root: Path, strategy, tmp_path: Path):
+def run_mm(root: Path, strategy: Path, tmp_path: Path) -> list[dict[str, Any]]:
     trace = tmp_path / "t.jsonl"
     r = subprocess.run(
         [
@@ -61,7 +62,7 @@ def run_mm(root: Path, strategy, tmp_path: Path):
     return [json.loads(l) for l in trace.read_text().splitlines()]
 
 
-def test_funding_passes_through_exactly(tmp_path: Path, built_kernel) -> None:
+def test_funding_passes_through_exactly(tmp_path: Path, built_kernel: Path) -> None:
     params = dict(N2, garch={"omega": [0.0] * 12, "alpha": [0.0] * 12, "beta": [0.5] * 12})
     arrays = markets.generate("N2", params, "passthrough", days=30)
     assert np.all(arrays["eps"] == 0) and np.abs(arrays["funding"]).max() > 1e-4
@@ -89,7 +90,7 @@ def test_funding_passes_through_exactly(tmp_path: Path, built_kernel) -> None:
 
 
 @pytest.mark.parametrize("model,params", [("N1", None), ("N2", N2), ("N3", N3)])
-def test_innovations_are_null(model, params) -> None:
+def test_innovations_are_null(model: str, params: Any) -> None:
     eps, prev_f = [], []
     for i in range(20):
         a = markets.generate(model, params, f"null-{model}-{i}", days=120)
@@ -116,7 +117,7 @@ def test_planted_signal_shifts_the_mean() -> None:
     assert all(np.polyfit(signal[:, i], e[:, i], 1)[0] > 0 for i in (0, 1))
 
 
-def test_event_series_reach_the_kernel(tmp_path: Path, built_kernel) -> None:
+def test_event_series_reach_the_kernel(tmp_path: Path, built_kernel: Path) -> None:
     counts = np.random.default_rng(1).poisson(0.3, (500, 2))
     events = {"arrays": counts, "coins": [0, 3], "block_hours": 24}
     arrays = markets.generate("N1", None, "events", days=30, events=events)

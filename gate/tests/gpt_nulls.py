@@ -1,5 +1,8 @@
 # Independent N2/N3 null generators for C2.2, written by GPT 6.1 Sol from gate/NULLS.md and gate/nulls.json alone, tools denied.
+from typing import Any
+
 import numpy as np
+import numpy.typing as npt
 
 __all__ = ["generate"]
 
@@ -15,45 +18,53 @@ _T5_TRUNC_VAR = (
 _T5_TRUNC_SD = np.sqrt(_T5_TRUNC_VAR)
 
 
-def _student_t(rng):
+def _student_t(rng: np.random.Generator) -> float:
     """Rejection-truncate a Student-t(5) at +/-8, then standardize."""
     while True:
         value = rng.standard_t(5)
         if abs(value) <= 8.0:
-            return value / _T5_TRUNC_SD
+            return float(value / _T5_TRUNC_SD)
 
 
-def _truncated_laplace(rng, scale):
+def _truncated_laplace(rng: np.random.Generator, scale: float) -> float:
     """Sample Laplace(0, scale) conditional on absolute value <= 0.2."""
     if scale == 0.0:
         return 0.0
     while True:
         value = rng.laplace(0.0, scale)
         if abs(value) <= 0.2:
-            return value
+            return float(value)
 
 
-def _vector(value, name, length):
+def _vector(value: Any, name: str, length: int) -> npt.NDArray[np.float64]:
     result = np.asarray(value, dtype=np.float64)
     if result.shape != (length,) or not np.all(np.isfinite(result)):
         raise ValueError(f"{name} must be a finite vector of length {length}")
     return result
 
 
-def _scalar(value, name):
+def _scalar(value: Any, name: str) -> float:
     result = float(value)
     if not np.isfinite(result):
         raise ValueError(f"{name} must be finite")
     return result
 
 
-def _integer(value, name):
+def _integer(value: Any, name: str) -> int:
     if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
         raise ValueError(f"{name} must be an integer")
     return int(value)
 
 
-def generate(model, params, funding_source, premium_source, short_slots, seed, days):
+def generate(
+    model: str,
+    params: dict[str, Any],
+    funding_source: Any,
+    premium_source: Any,
+    short_slots: Any,
+    seed: int,
+    days: int,
+) -> dict[str, Any]:
     """Generate the N2 or N3 null market using only NumPy.
 
     Prices start at 100, and each later open equals the preceding close.
@@ -81,7 +92,7 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
     if len(set(slots)) != len(slots) or any(slot < 0 or slot >= 12 for slot in slots):
         raise ValueError("short_slots must contain unique indices in 0..11")
 
-    is_short = np.zeros(12, dtype=bool)
+    is_short: npt.NDArray[np.bool_] = np.zeros(12, dtype=bool)
     is_short[slots] = True
     long_slots = np.flatnonzero(~is_short)
 
@@ -101,7 +112,7 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
         raise ValueError("block_hours must be at least 1")
     restart_probability = 1.0 / mean_block
 
-    source_columns = np.full(12, -1, dtype=np.int64)
+    source_columns: npt.NDArray[np.int64] = np.full(12, -1, dtype=np.int64)
     source_columns[long_slots] = np.arange(len(long_slots))
 
     if model == "N2":
@@ -146,7 +157,7 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
             raise ValueError("p_jump must be in [0, 1] and k_jump >= 0")
 
     n_bars = days * 6
-    result = {
+    result: dict[str, npt.NDArray[np.float64]] = {
         name: np.empty((n_bars, 12), dtype=np.float64) for name in ("open", "close", "high", "low", "volume", "eps")
     }
     result["funding"] = np.empty((n_bars * 4 + 1, 12), dtype=np.float64)
@@ -158,8 +169,8 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
 
     # Initialize stationary bootstrap paths at uniformly sampled source rows.
     shared_row = int(rng.integers(source_length))
-    short_rows = np.zeros(12, dtype=np.int64)
-    short_columns = np.zeros(12, dtype=np.int64)
+    short_rows: npt.NDArray[np.int64] = np.zeros(12, dtype=np.int64)
+    short_columns: npt.NDArray[np.int64] = np.zeros(12, dtype=np.int64)
 
     for coin in range(12):
         if is_short[coin]:
@@ -169,7 +180,7 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
             short_columns[coin] = column
         else:
             row = shared_row
-            column = source_columns[coin]
+            column = int(source_columns[coin])
 
         funding[0, coin] = np.clip(source_f[row, column], -0.04, 0.04)
         premium[0, coin] = source_p[row, column]
@@ -179,7 +190,7 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
         high_probability = transition[0, 1] / switch_sum if switch_sum > 0.0 else 0.5
         state = int(rng.random() < high_probability)
 
-    previous_close = np.full(12, 100.0, dtype=np.float64)
+    previous_close: npt.NDArray[np.float64] = np.full(12, 100.0, dtype=np.float64)
 
     for bar in range(n_bars):
         if model == "N2":
@@ -196,7 +207,7 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
         market_innovation = _student_t(rng)
 
         # Shared long-history bootstrap path for this bar's four settlements.
-        shared_rows = np.empty(4, dtype=np.int64)
+        shared_rows: npt.NDArray[np.int64] = np.empty(4, dtype=np.int64)
         for hour in range(4):
             if rng.random() < restart_probability:
                 shared_row = int(rng.integers(source_length))
@@ -216,12 +227,12 @@ def generate(model, params, funding_source, premium_source, short_slots, seed, d
                     else:
                         short_rows[coin] = (short_rows[coin] + 1) % source_length
 
-                    row = short_rows[coin]
-                    column = short_columns[coin]
+                    row = int(short_rows[coin])
+                    column = int(short_columns[coin])
                     funding[hour, coin] = np.clip(source_f[row, column], -0.04, 0.04)
                     premium[hour, coin] = source_p[row, column]
             else:
-                column = source_columns[coin]
+                column = int(source_columns[coin])
                 funding[first_hour:last_hour, coin] = np.clip(source_f[shared_rows, column], -0.04, 0.04)
                 premium[first_hour:last_hour, coin] = source_p[shared_rows, column]
 

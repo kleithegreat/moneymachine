@@ -3,6 +3,7 @@
 import json
 import random
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -14,15 +15,15 @@ MODULE = __name__
 IDS = [f"crash-swarm-N2-{i}" for i in range(5)]
 
 
-def result(cid):
+def result(cid: str) -> dict[str, Any]:
     return {"id": cid, "counts_as_promotion": False, "proof": "é🦉" * 200_000}
 
 
-def worker(root: Path, interactive) -> None:
+def worker(root: Path, interactive: bool) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
 
-    def swarm(cid, inputs):
+    def swarm(cid: str, inputs: dict[str, Any]) -> dict[str, Any]:
         with (root / "invocations.jsonl").open("a") as stream:
             stream.write(json.dumps(cid) + "\n")
         checkpoint(f"campaign:{cid}", interactive)
@@ -41,11 +42,12 @@ def worker(root: Path, interactive) -> None:
         campaigns.OUT = root
         campaigns.COHORTS["swarm"] = ("crash-swarm", len(IDS))
         campaigns.SERIES["swarm"] = swarm
-        campaigns.series_inputs = lambda: {"mm": "synthetic-kernel"}
-        campaigns.ready = lambda log: ("synthetic-account", {})
-        campaigns.check_frozen = lambda mm: None
-        campaigns.windows = lambda token=None: {}
-        campaigns.usage = lambda work: {}
+        patch = pytest.MonkeyPatch()
+        patch.setattr(campaigns, "series_inputs", lambda: {"mm": "synthetic-kernel"})
+        patch.setattr(campaigns, "ready", lambda log: ("synthetic-account", {}))
+        patch.setattr(campaigns, "check_frozen", lambda mm: None)
+        patch.setattr(campaigns, "windows", lambda token=None: {})
+        patch.setattr(campaigns, "usage", lambda work: {})
         checkpoint("start", interactive)
         campaigns.run_series("swarm")
     checkpoint("finished", interactive)
@@ -55,7 +57,7 @@ def worker(root: Path, interactive) -> None:
 @pytest.mark.parametrize("cut", ["start", "campaign"])
 @pytest.mark.parametrize("seed", [7, 29, 101, 307])
 def test_random_sigkill_keeps_every_started_campaign_once_and_releases_the_lock(
-    tmp_path: Path, mode, cut, seed
+    tmp_path: Path, mode: str, cut: str, seed: int
 ) -> None:
     (tmp_path / "mode").write_text(mode)
     target = random.Random(seed).choice(IDS[1:-1])

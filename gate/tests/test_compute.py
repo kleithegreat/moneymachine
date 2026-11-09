@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -17,7 +18,7 @@ from ops.crossmachine import rows
 LOCK = threading.Lock()
 
 
-def acquire_lock():
+def acquire_lock() -> str:
     with LOCK:
         return multiprocessing.get_start_method()
 
@@ -57,7 +58,9 @@ def test_pool_keeps_the_campaign_lock_after_its_parent_releases_it(tmp_path: Pat
 
 
 @pytest.mark.parametrize("model", ["N1", "N2", "N3"])
-def test_campaign_results_and_ledgers_agree_across_start_methods(tmp_path: Path, model, built_kernel) -> None:
+def test_campaign_results_and_ledgers_agree_across_start_methods(
+    tmp_path: Path, model: str, built_kernel: Path
+) -> None:
     script = """
 import json, multiprocessing, sys
 from pathlib import Path
@@ -78,7 +81,7 @@ if __name__ == '__main__':
             "coins": [f"S{i}" for i in range(12)],
             "block_hours": 24,
         }
-    spec = {
+    spec: dict[str, Any] = {
         "id": f"start-method-{model}",
         "model": model,
         "params": params,
@@ -93,7 +96,8 @@ if __name__ == '__main__':
     source, program = tmp_path / "spec.json", tmp_path / "compare.py"
     source.write_text(json.dumps(spec))
     program.write_text(script)
-    results, ledgers = [], []
+    results: list[dict[str, Any]] = []
+    ledgers: list[Any] = []
     for method in ("fork", "forkserver"):
         out = tmp_path / method
         subprocess.run(
