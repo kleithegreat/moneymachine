@@ -5,6 +5,8 @@
 # <stop> is a time `date -d` reads; there the builder and everything it started are stopped. A builder is one scope, capped so
 # that its heaviest process dies alone (OOMPolicy=continue), never this PC's other work.
 # Every schedule, deferral, start and exit is a line of data/builder/log.tsv; a session's output is data/builder/<id>.out.
+# A builder's temporary files (its nix shells, pytest and Claude Code's own) live in /tmp/b<id prefix>, deleted when it exits:
+# /tmp is a small tmpfs that leaked shells filled twice on 2026-11-08, and the short path keeps Unix sockets under their limit.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p data/builder
@@ -28,9 +30,12 @@ run)
   log start "$id"
   status=0
   limit=(); [ -z "$stop" ] || limit=(-p "RuntimeMaxSec=$(( $(date -d "$stop" +%s) - $(date +%s) ))")
+  tmp=/tmp/b${id:0:4}
+  mkdir -p "$tmp"
   systemd-run --user --scope --quiet --unit="mm-builder-$id" -p MemoryMax=11G -p MemorySwapMax=2G -p OOMPolicy=continue "${limit[@]}" \
-    nix develop -c "$(command -v claude)" -p --name "builder: $task" --model "$model" --permission-mode auto --session-id "$id" \
+    env TMPDIR="$tmp" CLAUDE_CODE_TMPDIR="$tmp" nix develop -c "$(command -v claude)" -p --name "builder: $task" --model "$model" --permission-mode auto --session-id "$id" \
     "Fresh session, started by ops/builder.sh inside the dev shell: run commands directly, not through nix develop -c. Read CLAUDE.md and PROGRESS.md. Task: the wake-up \"$task\" in PROGRESS's Now." \
     > "data/builder/$id.out" 2>&1 < /dev/null || status=$?
+  rm -rf "$tmp"
   log "exit $status" "$id" ;;
 esac
