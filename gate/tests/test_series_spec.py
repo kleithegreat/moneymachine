@@ -20,7 +20,7 @@ import pytest
 from gate.agent import campaigns as series
 
 
-def run(stopped="finished", exit=0):
+def run(stopped: str = "finished", exit: int = 0):
     """Session wire shape only; expected crash accounting comes from C3.2."""
     return {"stopped": stopped, "exit": exit}
 
@@ -56,7 +56,7 @@ def test_c32_no_evaluation_or_crash_counts_even_without_a_promotion(promoted, ru
     assert series.counts(promoted, runs, evaluations) is expected
 
 
-def agent(evaluations=1, received=True, holds=True, record=None):
+def agent(evaluations: int = 1, received: bool = True, holds: bool = True, record=None):
     """Four agent_evidence records are the swarm_class interface, not simulated ledgers."""
     return {
         "evaluations": evaluations,
@@ -129,12 +129,12 @@ def test_declared_ids_are_exact_fresh_v3_cohorts(tmp_path: Path, monkeypatch: py
         assert Path(log).name == f"{prefix}.jsonl"
 
 
-def usage_row(before, after, account="TAMU", tokens=1):
+def usage_row(before, after, account: str = "TAMU", tokens: int = 1):
     """One token-bearing campaign and the two probes of its account's usage windows."""
     return {"account": account, "usage": {"input_tokens": tokens}, "windows": {"before": before, "after": after}}
 
 
-def log_rows(path, rows):
+def log_rows(path: Path, rows):
     path.write_text("".join(json.dumps(row) + "\n" for row in rows))
     return path
 

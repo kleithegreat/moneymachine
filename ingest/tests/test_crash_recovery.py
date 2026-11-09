@@ -28,12 +28,12 @@ def body(i):
     return random.Random(i).randbytes(300_000)
 
 
-def poll(root, i):
+def poll(root: Path, i):
     with httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=body(i)))) as http:
         return datalayer.poll(http, {"name": f"feed-{i}", "url": f"https://example.invalid/{i}"}, root, {})
 
 
-def worker(root, interactive) -> None:
+def worker(root: Path, interactive) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
     if mode in ("live", "record"):

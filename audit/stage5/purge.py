@@ -21,7 +21,7 @@ sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
 log = []
 
 
-def replace(path, data) -> None:
+def replace(path: Path, data) -> None:
     tmp = Path(str(path) + ".purge")
     tmp.write_bytes(data) if isinstance(data, bytes) else tmp.write_text(data)
     os.chmod(tmp, os.stat(path).st_mode & 0o777)

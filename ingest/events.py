@@ -92,7 +92,7 @@ def sha(x):
     return hashlib.sha256(json.dumps(x, sort_keys=True).encode()).hexdigest()
 
 
-def derive(data_root, version, live_dir, source="discourse"):
+def derive(data_root, version, live_dir, source: str = "discourse"):
     """The derived rows at cut `version`, each carrying its lineage: the cut, and the hashes of this code, the
     mapping file and the records read."""
     spec = SOURCES[source]
@@ -115,7 +115,7 @@ def manifest(df):
     }
 
 
-def main(data_root, version, live_dir, source="discourse", audit=AUDIT):
+def main(data_root, version, live_dir, source: str = "discourse", audit=AUDIT):
     """Write the derived version and its lineage manifest (`audit/stage5/lineage-<source>-<version>.json`)."""
     df = derive(data_root, version, live_dir, source)
     search, holdout = stores(data_root)

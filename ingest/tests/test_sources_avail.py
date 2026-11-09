@@ -11,7 +11,7 @@ from ingest.store import Store
 from ingest.tests.test_events import iso
 
 
-def post(i, created, sha="a"):
+def post(i, created, sha: str = "a"):
     return {"id": i, "created_at": iso(created), "updated_at": iso(created), "version": 1, "cooked_sha256": sha}
 
 

@@ -62,7 +62,7 @@ def test_torn_utf8_record_is_skipped_without_hiding_acknowledged_rows(
     assert path.name in capsys.readouterr().err
 
 
-def kill_after_ack(code, root) -> None:
+def kill_after_ack(code, root: Path) -> None:
     """SIGKILL a real child only after its explicit acknowledgement; never wait by sleeping."""
     child = subprocess.Popen(
         [sys.executable, "-c", code, str(root)],
@@ -191,7 +191,7 @@ def test_l2_preserves_server_time_and_local_send_receive_times(recorder, monkeyp
     assert rows[0]["agg"]["precision"] == 4
 
 
-def get_body(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content=b"abc", status=200, auth=({}, {})):
+def get_body(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content=b"abc", status: int = 200, auth=({}, {})):
     """Synthetic HTTP response; SHA256('abc') is the published 64-digit test vector."""
     times = iter([100, 160])
     monkeypatch.setattr(datalayer, "now_ms", lambda: next(times, 160))
@@ -404,7 +404,7 @@ def test_concurrent_day_growth_waits_for_the_next_mirror(volumes, monkeypatch: p
     original = mirror.sha256
     grew = []
 
-    def grow_while_hashing(path, size=None):
+    def grow_while_hashing(path: Path, size=None):
         if Path(path).name == source.name and not grew:
             grew.append(True)
             raw = source.parent / "raw/new.gz"

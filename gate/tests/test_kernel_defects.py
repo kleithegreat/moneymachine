@@ -25,7 +25,7 @@ from ingest.store import Store
 HUNT = "audit/reviews/2026-11-03-gpt-hunt-kernel.md"
 
 
-def arrays(bars=8, coins=1):
+def arrays(bars: int = 8, coins: int = 1):
     return {
         **{k: np.full((bars, coins), 100.0) for k in ("open", "high", "low", "close", "volume")},
         "funding": np.zeros((4 * bars + 1, coins)),
@@ -33,13 +33,13 @@ def arrays(bars=8, coins=1):
     }
 
 
-def write_market(path, a, bps=0, fee=0, holdout_days=0):
+def write_market(path: Path, a, bps: int = 0, fee: int = 0, holdout_days: int = 0):
     return markets.write(
         path, a, holdout_days, {side: {"1000": bps, "10000": bps} for side in ("buy", "sell")}, taker_fee=fee
     )
 
 
-def evaluate(mm, market, tmp_path: Path, weight, name="s", holdout_from=None):
+def evaluate(mm, market, tmp_path: Path, weight, name: str = "s", holdout_from=None):
     strategy = tmp_path / f"{name}.json"
     strategy.write_text(
         json.dumps(
@@ -53,7 +53,7 @@ def evaluate(mm, market, tmp_path: Path, weight, name="s", holdout_from=None):
     )
     ledger, trace = tmp_path / f"{name}.sqlite", tmp_path / f"{name}.jsonl"
 
-    def run(cmd, path, *extra):
+    def run(cmd, path: Path, *extra):
         r = subprocess.run(
             kernel.command(cmd, path, "kernel-defects", "gate", ledger, market, *extra, binary=mm),
             capture_output=True,

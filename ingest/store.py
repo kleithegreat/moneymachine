@@ -50,7 +50,7 @@ def _hash(row):
 
 
 class Store:
-    def __init__(self, root, event_before=None, key=KEY, policy_root=None) -> None:
+    def __init__(self, root: Path, event_before=None, key=KEY, policy_root=None) -> None:
         self.root = Path(root)
         self.event_before = event_before
         self.key = list(key)

@@ -18,7 +18,7 @@ def result(cid):
     return {"id": cid, "counts_as_promotion": False, "proof": "é🦉" * 200_000}
 
 
-def worker(root, interactive) -> None:
+def worker(root: Path, interactive) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
 

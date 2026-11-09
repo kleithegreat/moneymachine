@@ -34,7 +34,7 @@ N3 = {
 }
 
 
-def run_mm(root, strategy, tmp_path: Path):
+def run_mm(root: Path, strategy, tmp_path: Path):
     trace = tmp_path / "t.jsonl"
     r = subprocess.run(
         [

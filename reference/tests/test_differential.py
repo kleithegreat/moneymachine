@@ -61,7 +61,7 @@ def test_an_interrupted_run_resumes_where_it_stopped(tmp_path: Path, monkeypatch
     monkeypatch.setattr(d, "verdict", lambda i, it, work: {"i": i, "name": it["name"], "mm": "ok", "ref": "ok"})
     ran = []
 
-    def chunk(names, texts, market, root, version, tmp):
+    def chunk(names, texts, market, root: Path, version, tmp):
         if len(ran) == 2 and not ran[-1].startswith("again"):
             raise RuntimeError("interrupted")
         ran.append(f"{market}:{names[0]}")

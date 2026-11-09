@@ -17,7 +17,7 @@ YEARS_PER_MARKET = 10
 MARKETS = 20
 
 
-def observables(a, k0=7):
+def observables(a, k0: int = 7):
     """Per coin: X (bars k0.., features known at each bar's open) and y = epsilon of that bar. Forum
     counts, where the coin has them, enter as the last 4 hours' sum and the mean over up to 48 hours."""
     o, c, h, l, v, f, p, e = (a[x] for x in ("open", "close", "high", "low", "volume", "funding", "premium", "eps"))
@@ -69,11 +69,11 @@ def program(name, weight):
     }
 
 
-def sign_probe(name, feature, size=0.05):
+def sign_probe(name, feature, size: float = 0.05):
     return program(name, op("mul", op("sign", feature), const(size)))
 
 
-def probes(events=False):
+def probes(events: bool = False):
     ps = [program("buy-and-hold", const(0.08))]
     if events:
         ps.append(sign_probe("sign-forum-activity", compile_feature(6, None, 48)))
@@ -141,7 +141,7 @@ def gross_pnl(programs, model, params, market_id, cost_cells, events=None):
         return results
 
 
-def probe_zscores(programs, model, params, cost_cells, tag="", events=None):
+def probe_zscores(programs, model, params, cost_cells, tag: str = "", events=None):
     g = np.array(
         [gross_pnl(programs, model, params, f"probe{tag}-{model}-{m}", cost_cells, events) for m in range(MARKETS)]
     )

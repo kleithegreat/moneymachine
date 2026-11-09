@@ -68,7 +68,7 @@ def proposals(space, http):
         time.sleep(PAUSE)
 
 
-def main(data_root, source="discourse"):
+def main(data_root, source: str = "discourse"):
     """One complete fetch from START of every recorded key of `source`, written as revisions."""
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-backfill (read-only)"})
     fetched_at = now_ms()

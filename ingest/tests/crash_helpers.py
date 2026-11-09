@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 
 def checkpoint(name, interactive) -> None:
@@ -21,11 +22,11 @@ def acknowledge(value) -> None:
     print(json.dumps({"ack": value}), flush=True)
 
 
-def command(module, root, phase):
+def command(module, root: Path, phase):
     return [sys.executable, "-m", "ingest.tests.crash_helpers", module, str(root), phase]
 
 
-def kill_during(module, root, target, seed):
+def kill_during(module, root: Path, target, seed):
     """SIGKILL the worker and its children after a seeded delay from `target`; return completed-call acks."""
     child = subprocess.Popen(
         command(module, root, "crash"),
@@ -65,7 +66,7 @@ def kill_during(module, root, target, seed):
         child.communicate(timeout=10)
 
 
-def recover(module, root) -> None:
+def recover(module, root: Path) -> None:
     result = subprocess.run(command(module, root, "recover"), capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
 

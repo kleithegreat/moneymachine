@@ -22,7 +22,7 @@ GOOD = [
 ]
 
 
-def scripted(calls, exit=0):
+def scripted(calls, exit: int = 0):
     """A session whose effects are always the good ones (the note holds the nonce, the daemon gets it) and whose
     transcript holds `calls`, each (id, tool, input, "ok" | "error" | "denied" | "no result")."""
 

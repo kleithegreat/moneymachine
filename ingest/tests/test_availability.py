@@ -96,7 +96,7 @@ def test_the_clock_record_reports_offsets_gaps_and_how_long_one_exchange_is_repo
     assert not availability.clock(readings[2:], (start, end))["brackets"]
 
 
-def host(root, l2=(), boundary=(), clock=()):
+def host(root: Path, l2=(), boundary=(), clock=()):
     """A host's directories: L2 (coin, sent) polls, boundary (kind, coin, boundary, purpose, recv) polls, clock times."""
     root.mkdir(parents=True, exist_ok=True)
     with open(root / "polls-x.jsonl", "w") as f:

@@ -11,14 +11,14 @@ from ingest.policy import HOUR as H
 from ingest.store import Store, stores, write_split
 
 
-def market_store(path, **policy):
+def market_store(path: Path, **policy):
     """A store holding venue datasets, with its own policy.json (the repository's, changed by `policy`)."""
     path.mkdir(parents=True, exist_ok=True)
     (path / "policy.json").write_text(json.dumps(POLICY | policy))
     return Store(path)
 
 
-def rows(coins, hours, value=0.0):
+def rows(coins, hours, value: float = 0.0):
     """Bars-like rows: the policy's rule makes each known at eventTime + DELTA."""
     return pl.DataFrame(
         [{"coin": c, "eventTime": h * H, "rate": value + h} for c in coins for h in hours],
@@ -147,7 +147,7 @@ def test_search_store_refuses_holdout(tmp_path: Path) -> None:
     assert holdout.revisions("bars_4h")["eventTime"].min() >= HOLDOUT_START
 
 
-def posts(ids, content="a", key="forum"):
+def posts(ids, content: str = "a", key: str = "forum"):
     return pl.DataFrame(
         [{key: "f", "upstream_id": i, "eventTime": i * H, "sha": content} for i in ids],
         schema={key: pl.Utf8, "upstream_id": pl.Int64, "eventTime": pl.Int64, "sha": pl.Utf8},

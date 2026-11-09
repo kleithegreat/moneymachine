@@ -21,7 +21,7 @@ RESOURCES = ("bytes", "inodes")
 NOW = 1_800_000_000.0
 
 
-def sample(free=80, total=100):
+def sample(free: int = 80, total: int = 100):
     return {resource: {"free": free, "total": total} for resource in RESOURCES}
 
 
@@ -75,7 +75,7 @@ def site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     measurements = {data: sample(), mirror: sample()}
     measured = []
 
-    def measure(path):
+    def measure(path: Path):
         path = Path(path)
         measured.append(path)
         result = measurements[path]
@@ -93,7 +93,7 @@ def test_capacity_uses_available_blocks_fragment_size_and_available_inodes(
 ) -> None:
     calls = []
 
-    def measure(path):
+    def measure(path: Path):
         calls.append(path)
         return SimpleNamespace(
             f_bavail=11, f_bfree=99, f_blocks=100, f_frsize=4096, f_bsize=8192, f_favail=13, f_ffree=88, f_files=200
@@ -300,7 +300,7 @@ def test_check_reads_only_manifest_metadata(diskguard, site, monkeypatch: pytest
     opened = []
 
     def guarded(original):
-        def open_file(path, mode="r", *args, **kwargs):
+        def open_file(path: Path, mode: str = "r", *args, **kwargs):
             assert Path(path) in allowed, path
             assert "w" not in mode and "a" not in mode and "+" not in mode
             opened.append(Path(path))
@@ -418,7 +418,7 @@ def mirror_site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             "inodes": {"free": 60 + index, "total": 200 + index},
         }
 
-    def measure(path):
+    def measure(path: Path):
         path = Path(path)
         measured.append(path)
         return statvfs_result(measurements.get(path, sample()))
@@ -434,7 +434,7 @@ def test_mirror_reports_each_source_volume_capacity_and_publishes_manifest_last(
     published = []
     replace = Path.replace
 
-    def publish(path, target):
+    def publish(path: Path, target):
         target = Path(target)
         if target.name == "MANIFEST.json":
             volume = target.parent.name
@@ -474,7 +474,7 @@ def test_killed_mirror_cannot_refresh_report_before_final_publication(diskguard,
     def worker() -> None:
         replace = Path.replace
 
-        def interrupted(path, destination):
+        def interrupted(path: Path, destination):
             if Path(destination) == target:
                 child.send("paused before manifest publication")
                 child.recv()

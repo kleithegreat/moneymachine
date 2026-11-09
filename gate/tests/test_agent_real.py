@@ -121,7 +121,7 @@ class Campaign:
 
         monkeypatch.setattr(campaigns.gate, "release", release)
 
-    def session(self, market, ledger, cid, workdir, die=False, undisclosed=False):
+    def session(self, market, ledger, cid, workdir, die: bool = False, undisclosed: bool = False):
         self.sessions += 1
         d = daemon_session(market, ledger, cid, workdir, self.evals)
         if die:
@@ -137,7 +137,7 @@ class Campaign:
         )
         return run
 
-    def searcher(self, name, market, ledger, cid, seed, die=False) -> None:
+    def searcher(self, name, market, ledger, cid, seed, die: bool = False) -> None:
         self.searches += 1
         file = market.parent / "g.json"
         file.write_text(program(24))
@@ -149,16 +149,16 @@ class Campaign:
         finalists = list(campaigns.gate.candidates(ledger, cid, agent)) if self.finalists else []
         return finalists, {"n": len(finalists), "spa_p": 0.01, "screened": [], "finalists": finalists}
 
-    def run(self, version=1) -> None:
+    def run(self, version: int = 1) -> None:
         campaigns.real(self.root, version, self.from_)
 
     def claims(self):
         return campaigns.claims(self.root / "holdout")
 
-    def report(self, cid="stage3-real"):
+    def report(self, cid: str = "stage3-real"):
         return json.loads((self.out / cid / "real.json").read_text())
 
-    def disclosures(self, kind, cid="stage3-real"):
+    def disclosures(self, kind, cid: str = "stage3-real"):
         return (
             sqlite3.connect(self.out / cid / "ledger.sqlite")
             .execute("SELECT content FROM disclosures WHERE kind = ?", (kind,))
@@ -372,7 +372,7 @@ def crash_on_write(monkeypatch: pytest.MonkeyPatch, filename) -> None:
     real = campaigns.write_json
     state = {"armed": True}
 
-    def wrapped(path, value):
+    def wrapped(path: Path, value):
         if state["armed"] and path.name == filename:
             state["armed"] = False
             raise Crash

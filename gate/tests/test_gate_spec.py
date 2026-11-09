@@ -99,7 +99,9 @@ def ledger(tmp_path: Path):
     return path
 
 
-def add_trial(ledger, key, returns, fills=1, agent="A", campaign="spec", mode="search") -> None:
+def add_trial(
+    ledger, key, returns, fills: int = 1, agent: str = "A", campaign: str = "spec", mode: str = "search"
+) -> None:
     with sqlite3.connect(ledger) as db:
         number = db.execute("SELECT count(*)+1 FROM experiments").fetchone()[0]
         db.execute(
@@ -698,7 +700,7 @@ def test_n3_jump_rejects_outside_truncation_interval(monkeypatch: pytest.MonkeyP
         def __getattr__(self, name):
             return getattr(self.rng, name)
 
-        def laplace(self, loc=0.0, scale=1.0, size=None):
+        def laplace(self, loc: float = 0.0, scale: float = 1.0, size=None):
             self.calls += 1
             value = (0.3 if self.calls == 1 else 0.1) if self.jump else 0.0
             return np.full(size, value)
@@ -776,7 +778,7 @@ def test_planted_epsilon_saturates_at_stated_bound(beta, limit) -> None:
     np.testing.assert_array_equal(a["eps"][1:, 0], np.full(11, limit))
 
 
-def evidence(evaluations=0, received=False, holds=True, crash=False):
+def evidence(evaluations: int = 0, received: bool = False, holds: bool = True, crash: bool = False):
     return {
         "evaluations": evaluations,
         "received": received,

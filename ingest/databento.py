@@ -75,7 +75,7 @@ def plan_requests(plan, name, out_dir, today):
     return list(requests(plan, spec, today, outrights(out_dir) if spec["stype_in"] == "raw_symbol" else None))
 
 
-def send(http, path, q, tries=4):
+def send(http, path: Path, q, tries: int = 4):
     """One POST, retried after a 5xx or a transport error, 30 s apart and more each time."""
     for attempt in range(tries):
         time.sleep(30 * attempt)
@@ -93,7 +93,7 @@ def client():
     return httpx.Client(base_url=API, auth=(secrets()["DATABENTO_API_KEY"].strip('"'), ""), timeout=600)
 
 
-def price(name, out_dir, out=None, workers=10):
+def price(name, out_dir, out=None, workers: int = 10):
     """The pull's total cost from `metadata.get_cost`, request by request (free), `workers` calls at a time, with
     progress printed every 20 requests."""
     qs = plan_requests(json.loads(PLAN.read_text()), name, out_dir, dt.date.today())

@@ -25,7 +25,7 @@ def arrays(bars):
     }
 
 
-def evaluate(mm, market, tmp_path: Path, weight, condition, name="s"):
+def evaluate(mm, market, tmp_path: Path, weight, condition, name: str = "s"):
     strategy = tmp_path / f"{name}.json"
     strategy.write_text(
         json.dumps(

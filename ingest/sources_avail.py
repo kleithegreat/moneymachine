@@ -38,7 +38,7 @@ def quantiles(xs):
     )
 
 
-def analyze(live_dir, source="discourse"):
+def analyze(live_dir, source: str = "discourse"):
     created, revision, updated = FIELDS[source]
     seen, versions, first_poll, last_poll, gaps, items, edits, offsets, bounds = set(), {}, {}, {}, [], [], [], [], []
     failed, no_overlap, previous = 0, 0, {}
@@ -105,7 +105,7 @@ CONTENT = {
 }
 
 
-def reconcile(data_root, live_dir, version, source="discourse"):
+def reconcile(data_root, live_dir, version, source: str = "discourse"):
     """The re-backfill at store version `version` against what the recorder saw live up to it. Live items are
     every item listed in a poll up to `version`, over the window from the first such poll to the last; deleted,
     those created since their key's first poll that the backfill lacks; edited, those whose content differs; backdated, backfilled items claimed inside the live
