@@ -109,3 +109,17 @@ def test_restart_keeps_the_draft_so_readiness_at_and_the_cutoff_survive_it(track
     track.acquire(MONDAY)
     snap = track.attested(MONDAY, MONDAY + DAY)
     assert track.market.btc == attempts and "BTC" in snap["failed"] and snap["readiness_at"] == NINE
+
+
+def test_c10_2_fails_a_session_that_used_a_tool_outside_the_permitted_set(track, monkeypatch, tmp_path):
+    import json
+
+    from thesis import report
+
+    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
+    for name, outside in (("main-1", []), ("noread-1", ["WebFetch"])):
+        track.ledger.disclose("session_end", "main", {"session": name, "kind": "main", "daemon_calls": 3, "outside_permitted": outside})
+    track.ledger.disclose("session_end", "main", {"session": "main-2", "kind": "main", "error": "the runner died during the session"})
+    report.write(track, MONDAY + DAY, tmp_path / "r.json")
+    c10_2 = json.loads((tmp_path / "r.json").read_text())["c10_2"]
+    assert c10_2 == {"pass": False, "outside_permitted": {"noread-1": ["WebFetch"]}}

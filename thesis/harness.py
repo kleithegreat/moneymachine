@@ -63,6 +63,6 @@ def run_session(workdir, kind, start_daemon, task=None):
 
 
 def audit(transcript, calls):
-    """The session's daemon call records and any tool it used outside `session.PERMITTED`. C10.2 rests on the daemon's
-    records and the client being the only channel (audit/stage10/criteria-revision-round11-draft.md), not on this count."""
+    """The session's daemon call records and any tool it used outside `session.PERMITTED`. C10.2 fails a session
+    with any such tool (`report.c10_2`); the call count is information (audit/stage10/criteria-revision-round11-draft.md)."""
     return {"daemon_calls": len(calls), "outside_permitted": session.tool_use(transcript, CLIENT)["outside_permitted"]}
