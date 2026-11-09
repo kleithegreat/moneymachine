@@ -4,7 +4,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ## Now
 
-- **Code style:** ruff clean over the covered files and 103 of 123 under `mypy --strict` (merged); the last 20 (gate/agent/campaigns.py, gate/sweep.py, ops/jobs.py and their tests) on `typing2` (`../mm-typing`, Sonnet, 2026-11-09).
+- **Code style:** done: every covered Python file passes ruff and `mypy --strict` (`ops/test_style.py`); frozen files join at their next fork.
 
 ### Running, and how to inspect it
 

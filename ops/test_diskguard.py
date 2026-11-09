@@ -539,27 +539,27 @@ def test_killed_mirror_cannot_refresh_report_before_final_publication(
 
 
 @pytest.mark.parametrize("age", [0, 3600])
-def test_a_pull_no_older_than_an_hour_does_not_alarm(diskguard, site, age) -> None:
+def test_a_pull_no_older_than_an_hour_does_not_alarm(diskguard: ModuleType, site: SimpleNamespace, age: int) -> None:
     write_last_pull(site.data, NOW - age)
     assert diskguard.stale_pull(site.data, now=NOW) == []
 
 
 @pytest.mark.parametrize("age", [3601, -1])
-def test_an_old_or_future_pull_alarms(diskguard, site, age) -> None:
+def test_an_old_or_future_pull_alarms(diskguard: ModuleType, site: SimpleNamespace, age: int) -> None:
     write_last_pull(site.data, NOW - age)
     named(diskguard.stale_pull(site.data, now=NOW), "last-pull")
 
 
-def test_a_missing_pull_record_alarms(diskguard, site) -> None:
+def test_a_missing_pull_record_alarms(diskguard: ModuleType, site: SimpleNamespace) -> None:
     (site.data / "live-oci/last-pull").unlink()
     named(diskguard.stale_pull(site.data, now=NOW), "last-pull")
 
 
 def test_main_notifies_when_the_cloud_recorder_has_not_been_pulled(
-    diskguard, site, monkeypatch: pytest.MonkeyPatch
+    diskguard: ModuleType, site: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     write_last_pull(site.data, NOW - 7200)
-    calls = []
+    calls: list[tuple[Any, ...]] = []
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: calls.append(args))
     assert diskguard.main(site.data, site.mirror) == 1
     assert "last-pull" in calls[0][0][-1]

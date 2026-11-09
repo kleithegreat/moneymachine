@@ -1,14 +1,16 @@
 """Sweep summaries: counts and Clopper-Pearson bounds for the complete null; FDR and power for mixed markets."""
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from gate import campaign, sweep
 
 
-def write(path, rows) -> None:
+def write(path: Path, rows: Iterable[dict[str, Any]]) -> None:
     path.write_text("".join(json.dumps(r) + "\n" for r in rows))
 
 
@@ -31,7 +33,8 @@ def test_null_summary_counts_crashes_as_promotions(tmp_path: Path, monkeypatch: 
 
 def test_mixed_summary_fdr_and_power(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sweep, "OUT", tmp_path)
-    rows, truth = [], []
+    rows: list[dict[str, Any]] = []
+    truth: list[dict[str, Any]] = []
     for i in range(100):
         promoted = [{"hash": f"{i:016d}a"}, {"hash": f"{i:016d}b"}] if i < 40 else []
         rows.append({"id": f"c25-N2-s3-{i}", "promoted": promoted})
@@ -47,7 +50,7 @@ def test_mixed_summary_fdr_and_power(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert sweep.cp_interval(40, 100)[0] < 0.40 < sweep.cp_interval(40, 100)[1]
 
 
-def test_campaign_records_top5_and_serializes_with_events(tmp_path: Path, built_kernel) -> None:
+def test_campaign_records_top5_and_serializes_with_events(tmp_path: Path, built_kernel: Path) -> None:
     import lzma
     import sqlite3
 
@@ -137,9 +140,9 @@ def test_a_campaign_crashing_before_its_market_exists_is_recorded_not_raised(tmp
 
 def test_bisect_records_each_step_and_resumes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
-    calls = []
+    calls: list[float] = []
 
-    def f(x):
+    def f(x: float) -> float:
         calls.append(x)
         if len(calls) == 3:
             raise RuntimeError("crash")
@@ -149,7 +152,12 @@ def test_bisect_records_each_step_and_resumes(tmp_path: Path, monkeypatch: pytes
         sweep.bisect("k", f, 0.3, 0.0, 1.0, 6)
     assert len(open(tmp_path / "steps.jsonl").readlines()) == 2
     calls.clear()
-    full = sweep.bisect("k", lambda x: calls.append(x) or x, 0.3, 0.0, 1.0, 6)
+
+    def record(x: float) -> float:
+        calls.append(x)
+        return x
+
+    full = sweep.bisect("k", record, 0.3, 0.0, 1.0, 6)
     assert len(calls) == 4 and abs(full - 0.3) < 1 / 2**6
     with pytest.raises(SystemExit, match="recorded at"):
         sweep.bisect("k", lambda x: x, 0.3, 0.0, 2.0, 6)
@@ -159,9 +167,9 @@ def test_calibration_passes_parallelism_without_inherited_globals(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(sweep, "STEPS", tmp_path / "steps.jsonl")
-    calls = []
+    calls: list[tuple[float, int]] = []
 
-    def evaluate(beta, threads):
+    def evaluate(beta: float, threads: int) -> float:
         calls.append((beta, threads))
         return beta
 

@@ -61,20 +61,17 @@ def test_c32_no_evaluation_or_crash_counts_even_without_a_promotion(
 
 def agent(
     evaluations: int = 1, received: bool = True, holds: bool = True, record: dict[str, Any] | None = None
-) -> dict[str, Any]:
+) -> series.AgentOutcome:
     """Four agent_evidence records are the swarm_class interface, not simulated ledgers."""
-    return {
-        "evaluations": evaluations,
-        "received": received,
-        "holds": holds,
-        "run": run() if record is None else record,
-    }
+    return series.AgentOutcome(
+        evaluations=evaluations, received=received, holds=holds, run=run() if record is None else record
+    )
 
 
 def test_swarm_established_needs_only_two_evaluations_not_the_obsolete_floor() -> None:
     """1+1+0+0=2, far below 200, establishes v3 if a filled trial and history exist."""
     agents = [agent(), agent(), agent(0, False), agent(0, False, record=run(exit=1))]
-    assert series.swarm_class(False, None, agents, 1, True) == "established"
+    assert series.swarm_class([], None, agents, 1, True) == "established"
 
 
 @pytest.mark.parametrize(
@@ -89,19 +86,19 @@ def test_swarm_established_needs_only_two_evaluations_not_the_obsolete_floor() -
         (1, True, [agent(record={})] + [agent()] * 3, "unresolved"),
     ],
 )
-def test_swarm_evidence_boundaries(trials: Any, history: Any, agents: list[dict[str, Any]], expected: Any) -> None:
-    assert series.swarm_class(False, None, agents, trials, history) == expected
+def test_swarm_evidence_boundaries(trials: Any, history: Any, agents: list[series.AgentOutcome], expected: str) -> None:
+    assert series.swarm_class([], None, agents, trials, history) == expected
 
 
 def test_swarm_gate_failure_is_unresolved_but_promotion_dominates() -> None:
     agents = [agent()] * 4
-    assert series.swarm_class(False, "holdout did not complete", agents, 1, True) == "unresolved"
-    assert series.swarm_class(True, "holdout did not complete", [], 0, False) == "promoted"
+    assert series.swarm_class([], "holdout did not complete", agents, 1, True) == "unresolved"
+    assert series.swarm_class(["h"], "holdout did not complete", [], 0, False) == "promoted"
 
 
 def test_missing_agent_evidence_is_unresolved() -> None:
     """Three valid records cannot establish the declared four-agent campaign."""
-    assert series.swarm_class(False, None, [agent()] * 3, 1, True) == "unresolved"
+    assert series.swarm_class([], None, [agent()] * 3, 1, True) == "unresolved"
 
 
 @pytest.mark.parametrize(
@@ -205,7 +202,9 @@ def test_first_need_half_and_ceiling_point_eight_include_exact_ties(
     log, _ = pacing
     probes = {"synthetic-tamu": {"w": [tamu, "r"]}, "synthetic-cornell": {"w": [cornell, "r"]}}
     monkeypatch.setattr(series, "windows", lambda token=None: probes[token])
-    account, windows = series.wait_for_room(log)
+    room = series.wait_for_room(log)
+    assert room is not None
+    account, windows = room
     assert account == expected
     assert windows == probes["synthetic-" + expected.lower()]
     assert os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "synthetic-" + expected.lower()

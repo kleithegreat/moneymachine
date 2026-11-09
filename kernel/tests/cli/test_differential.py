@@ -44,6 +44,7 @@ def steps(events: list[dict[str, Any]]) -> list[tuple[Any, str, str]]:
 
 def test_kernel_matches_witness(tmp_path: Path, built_kernel: Path) -> None:
     version = stage0_version()
+    assert version is not None
     out = tmp_path / "trace.jsonl"
     r = subprocess.run(
         [

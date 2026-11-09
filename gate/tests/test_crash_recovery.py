@@ -23,7 +23,7 @@ def worker(root: Path, interactive: bool) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
 
-    def swarm(cid: str, inputs: dict[str, Any]) -> dict[str, Any]:
+    def swarm(cid: str, inputs: campaigns.SeriesInputs) -> dict[str, Any]:
         with (root / "invocations.jsonl").open("a") as stream:
             stream.write(json.dumps(cid) + "\n")
         checkpoint(f"campaign:{cid}", interactive)
@@ -35,7 +35,7 @@ def worker(root: Path, interactive: bool) -> None:
         with campaign.resume(IDS, root / "series.jsonl", root) as (todo, _):
             for cid in todo:
                 (root / cid).mkdir()
-                row = swarm(cid, {})
+                row = swarm(cid, campaigns.SeriesInputs(params={}, cost_cells={}, mm=""))
                 with (root / "series.jsonl").open("a") as stream:
                     stream.write(json.dumps(row) + "\n")
     else:

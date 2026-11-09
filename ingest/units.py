@@ -1,6 +1,6 @@
 """Units and records shared across `ingest` and `gate`."""
 
-from typing import TypedDict
+from typing import Any, TypedDict
 
 type EpochMs = int
 
@@ -13,3 +13,6 @@ class Policy(TypedDict):
     w_start: EpochMs
     holdout_start: EpochMs
     w_end: EpochMs
+
+
+type Record = dict[str, Any]

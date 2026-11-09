@@ -1,4 +1,5 @@
 import copy
+from typing import Any
 
 import pytest
 
@@ -33,7 +34,7 @@ def test_swarm_evidence_rejects_a_summary_v3_does_not_support(monkeypatch: pytes
     ids = campaigns.cohort("swarm")[0]
     good = {"match": True, "outside_permitted": []}
     names = [f"A{i + 1}" for i in range(4)]
-    summary = {
+    summary: dict[str, Any] = {
         "n": 10,
         "ids": ids,
         "classes": dict.fromkeys(ids, "established"),

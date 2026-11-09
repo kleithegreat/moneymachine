@@ -7,7 +7,7 @@ Uptime is the share of the recording span outside gaps of more than GAP between 
 check counts polls whose list shares no item with the key's previous successful poll: items could have
 passed between them unseen."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,7 @@ def listed(source: str, poll: dict[str, Any]) -> Any:
     return (d.get("data") or {}).get("proposals") if isinstance(d, dict) else None
 
 
-def quantiles(values: list[float]) -> dict[str, float]:
+def quantiles(values: Sequence[float]) -> dict[str, float]:
     xs = sorted(values)
     return (
         {"n": len(xs), "min": xs[0], "p50": xs[len(xs) // 2], "p90": xs[int(0.9 * (len(xs) - 1))], "max": xs[-1]}

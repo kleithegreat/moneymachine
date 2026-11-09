@@ -16,6 +16,7 @@ from scipy.stats import norm
 
 from gate import markets
 from gate.kernel import command
+from ingest.units import EpochMs
 
 ALPHA = 0.05
 DSR_MIN = 0.95
@@ -229,7 +230,7 @@ def release(
     ledger: str | Path,
     campaign: str,
     programs: dict[str, dict[str, Any]],
-    holdout_from: str | Path | None = None,
+    holdout_from: EpochMs | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """The holdout's one `mm holdout` batch, as the finished process: the kernel claims the window, then evaluates."""
     with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
@@ -259,7 +260,7 @@ def holdout_run(
     ledger: str | Path,
     campaign: str,
     programs: dict[str, dict[str, Any]],
-    holdout_from: str | Path | None = None,
+    holdout_from: EpochMs | None = None,
 ) -> dict[str, Holdout]:
     """The single holdout batch: {hash: (net returns, total return, diagnostics)} for every frozen finalist."""
     if not programs:
@@ -339,7 +340,7 @@ def holdout_decision(
     ledger: str | Path,
     campaign: str,
     finalists_programs: dict[str, dict[str, Any]],
-    holdout_from: str | Path | None = None,
+    holdout_from: EpochMs | None = None,
 ) -> Decision:
     """Evaluate the frozen finalists on the holdout once; promote by net return > 0 and Holm."""
     results = holdout_run(market, ledger, campaign, finalists_programs, holdout_from)
