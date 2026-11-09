@@ -1,5 +1,6 @@
 """Argon's round-ten concrete counterexamples; synthetic inputs only."""
 import json
+import socket
 import subprocess
 import sys
 
@@ -112,3 +113,27 @@ def test_unattributable_transcripts_fail_closed(tmp_path, damage):
         lines.pop(1)
     t.write_text("\n".join(lines) + "\n")
     assert harness.audit(t, [record("markets")])["match"] is False
+
+
+def test_killing_a_client_before_recording_never_gets_a_refusal_exemption(tmp_path):
+    sock = tmp_path / "unrecorded.sock"
+    script = tmp_path / "thesis-agent"
+    script.write_text(f"SPEC = {SPEC | {'socket': str(sock)}!r}\n" + (session.HERE / "client.py").read_text())
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+        server.bind(str(sock))
+        server.listen()
+        server.settimeout(5)
+        proc = subprocess.Popen([sys.executable, "-I", str(script), "markets"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            conn, _ = server.accept()
+            with conn:
+                conn.settimeout(5)
+                assert json.loads(conn.makefile("rb").readline())["argv"] == ["markets"]
+                proc.kill()
+                proc.communicate(timeout=5)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate(timeout=5)
+    t = transcript(tmp_path, [("./thesis-agent markets", "Exit code 137\nkilled")])
+    assert proc.returncode < 0 and harness.audit(t, [])["match"] is False

@@ -240,10 +240,11 @@ def test_incomplete_discovery_cannot_publish_a_partial_listing_observation(track
     assert track.market.listings_at(MONDAY)[1] == old
 
 
-def test_snapshot_fixes_readiness_near_the_end_of_acquisition(track, tmp_path, monkeypatch):
+def test_snapshot_fixes_readiness_at_the_first_pass_start(track, tmp_path, monkeypatch):
     clock, _, _, _ = synthetic_market(track, tmp_path, monkeypatch)
     bars, reads = track.market.bars, []
     end = MONDAY + 3 * HOUR
+    start = MONDAY + runner.SNAPSHOT_OFFSET
 
     def slow(name, interval, now=None):
         clock[0] = end
@@ -252,10 +253,10 @@ def test_snapshot_fixes_readiness_near_the_end_of_acquisition(track, tmp_path, m
     monkeypatch.setattr(track.market, "bars", slow)
     monkeypatch.setattr(track.market, "ready", lambda name, now: reads.append((name, now)) or name != "X")
     snap = acquire(track, clock)
-    assert snap["readiness_at"] == end
+    assert snap["readiness_at"] == start
     assert snap["ready"]["X"] is False and snap["ready"]["BTC"] is True
     assert set(snap["ready"]) >= set(snap["markets"])
-    assert reads and {now for _, now in reads} == {end}
+    assert reads and {now for _, now in reads} == {start}
 
 
 def test_shared_ready_true_survives_the_500_hour_freshness_boundary(track, tmp_path, monkeypatch):
