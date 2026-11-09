@@ -60,11 +60,10 @@ def test_g1_a_batch_failing_past_the_stated_give_up_time_is_logged_missed(track,
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 6 * HOUR)
     track.acquire(MONDAY)
     failing_once(track.market, "ETH")
-    with pytest.raises(httpx.TransportError):
-        track.benchmarks(MONDAY + 6 * HOUR, MONDAY)
+    track.benchmarks(MONDAY + 6 * HOUR, MONDAY)
     track.benchmarks(runner.BENCHMARK_GIVE_UP + MONDAY, MONDAY)
     assert track.unbenchmarked(MONDAY) == []
-    assert skips(track) == {m: "run missed" for m in runner.BENCHMARK if m != "BTC"}
+    assert skips(track) == {"ETH": "run missed", "flx:OIL": f"no daily close at {[MONDAY - 2 * DAY]}"}
 
 
 def test_g1_no_snapshot_for_the_whole_date_is_logged_at_its_end(track):

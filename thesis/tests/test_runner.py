@@ -97,7 +97,7 @@ def test_benchmark_registers_the_trend_sign_with_its_base_rate_and_logs_skips(tr
 
 def test_a_benchmark_skip_names_its_cause():
     snapshot = {"listings": {"BTC": False, "flx:OIL": True, "xyz:GOLD": False}, "markets": {"BTC": {}},
-                "daily": {"BTC": [[0, 1.0, 1.0], [DAY, 1.0, 1.0]]}, "ready": {"BTC": True}}
+                "daily": {"BTC": [[0, 1.0, 1.0], [DAY, 1.0, 1.0]]}, "ready": {"BTC": True}, "failed": {}}
     causes = {m: runner.unbenchmarkable(snapshot, m, (0, DAY)) for m in ("BTC", "flx:OIL", "xyz:GOLD", "xyz:XYZ100")}
     assert causes == {"BTC": None, "flx:OIL": "delisted", "xyz:GOLD": "fewer than 90 daily bars or no hourly close",
                       "xyz:XYZ100": "not listed"}
@@ -396,9 +396,8 @@ def test_a_benchmark_market_that_fails_is_retried_with_the_rest_of_its_batch(tra
     monkeypatch.setattr(runner, "now_ms", lambda: now)
     track.acquire(MONDAY)
     armed = failing_once(track.market, "ETH")
-    with pytest.raises(httpx.TransportError):
-        track.benchmarks(now, MONDAY)
-    assert on_record(track, MONDAY) == ["BTC"]
+    track.benchmarks(now, MONDAY)
+    assert sorted(on_record(track, MONDAY)) == sorted(set(runner.BENCHMARK) - {"ETH"})
     armed.clear()
     track.benchmarks(now, MONDAY)
     assert sorted(on_record(track, MONDAY)) == sorted(runner.BENCHMARK)
@@ -410,12 +409,11 @@ def test_a_benchmark_batch_failing_past_its_give_up_time_logs_each_market_left_a
     monkeypatch.setattr(runner, "now_ms", lambda: now)
     track.acquire(MONDAY)
     failing_once(track.market, "ETH")
-    with pytest.raises(httpx.TransportError):
-        track.benchmarks(now, MONDAY)
+    track.benchmarks(now, MONDAY)
     track.benchmarks(MONDAY + runner.BENCHMARK_GIVE_UP, MONDAY)
     skips = {c["market"]: c["reason"] for _, _, c in track.ledger.records("skip", "benchmark") if c["date"] == MONDAY}
     assert sorted(on_record(track, MONDAY)) == sorted(runner.BENCHMARK)
-    assert skips == {m: "run missed" for m in runner.BENCHMARK if m != "BTC"}
+    assert skips == {"ETH": "run missed", "flx:OIL": f"no daily close at {[MONDAY - 2 * DAY]}"}
 
 
 def test_every_monday_the_runner_was_down_for_is_logged_missed(track):
@@ -578,8 +576,7 @@ def test_a_resumed_benchmark_keeps_midnight_sizing_and_its_base_rate(track, monk
     monkeypatch.setattr(track, "config", lambda markets: {"initial": 10_000.0, "fee": 0.0, "costs": {m: cells for m in markets}, "fallback": []})
     monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
     armed = failing_once(track.market, "ETH")
-    with pytest.raises(httpx.TransportError):
-        benchmark(track)
+    benchmark(track)
     armed.clear()
     later = MONDAY + 5 * HOUR
     monkeypatch.setattr(runner, "now_ms", lambda: later)

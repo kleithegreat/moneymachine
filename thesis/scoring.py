@@ -11,6 +11,7 @@ from thesis.positions import Bars, exact, fill, outcome
 WINDOW_YEARS_DAYS = 1095
 MIN_WINDOWS = 10
 REPLICATES = 10_000
+COMPARISONS = ("base_rate", "ablation")
 SEED = 10
 
 
@@ -127,7 +128,7 @@ def bootstrap(test, result):
     if len(resolved) < 2:
         return None
     rng = np.random.default_rng(SEED)
-    stats, undefined = [], 0
+    stats, undefined = [], dict.fromkeys(COMPARISONS, 0)
     for _ in range(REPLICATES):
         rows = []
         for k in rng.integers(0, len(resolved), len(resolved)):
@@ -137,9 +138,10 @@ def bootstrap(test, result):
                              "p_ablation": by_id[tid]["p_ablation"]})
         s = scores(rows)
         stats.append(s)
-        undefined += any(s[k]["skill"] is None for k in ("base_rate", "ablation"))
+        for k in COMPARISONS:
+            undefined[k] += s[k]["skill"] is None
     interval = lambda xs: [float(np.percentile(xs, 2.5)), float(np.percentile(xs, 97.5))] if xs else None
     out = {"B": interval([s["B"] for s in stats]), "replicates_with_undefined_skill": undefined}
-    for k in ("base_rate", "ablation"):
+    for k in COMPARISONS:
         out[k] = {f: interval([s[k][f] for s in stats if s[k][f] is not None]) for f in ("diff", "skill")}
     return out

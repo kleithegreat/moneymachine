@@ -3,6 +3,7 @@ the session's brief, its task file (for an ablation) and `./thesis-agent`."""
 
 import functools
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -52,16 +53,87 @@ def workspace(workdir, kind, task=None):
 
 
 def run_session(workdir, kind, start_daemon, task=None):
-    """Run one session; `start_daemon(socket_path)` returns the session's serving daemon."""
+    """Run one session; `start_daemon(socket_path)` returns the session's serving daemon, closed however the session ends."""
     workspace(workdir, kind, task)
     daemon = start_daemon(session.socket_path(workdir, CLIENT))
-    s = session.run(workdir, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS)
-    daemon.close()
+    try:
+        s = session.run(workdir, CLIENT, MODEL, MAX_TURNS, WALL_SECONDS)
+    finally:
+        daemon.close()
     return {"kind": kind, **s}
 
 
+def invocations(command):
+    """The `./thesis-agent` calls in a Bash command: each one's arguments, up to the next shell operator."""
+    lexer = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError:
+        tokens = command.split()
+    calls = []
+    for i, token in enumerate(tokens):
+        if token == f"./{CLIENT}":
+            end = next((j for j in range(i + 1, len(tokens)) if set(tokens[j]) <= set(";&|<>()")), len(tokens))
+            args = tokens[i + 1:end]
+            if end < len(tokens) and tokens[end][0] in "<>" and args and args[-1].isdigit():
+                args.pop()
+            calls.append(args)
+    return calls
+
+
+def results(transcript):
+    """{tool call id: the text of its result} in a transcript."""
+    out = {}
+    for line in open(transcript):
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        content = d.get("message", {}).get("content") if d.get("type") == "user" else None
+        for c in content if isinstance(content, list) else []:
+            if c.get("type") == "tool_result":
+                body = c.get("content")
+                out[c["tool_use_id"]] = body if isinstance(body, str) else "".join(b.get("text", "") for b in body or [])
+    return out
+
+
+def refused_locally(argv, output):
+    """Whether the client refused the call itself, never reaching the daemon: an unknown command or a wrong number of
+    arguments (it prints the usage line), or a FILE it could not read (it prints an `error`; no daemon reply has one)."""
+    spec = SPEC["commands"].get(argv[0]) if argv else None
+    if spec is None or len(argv) - 1 != spec[0]:
+        return True
+    return "file" in spec and output.lstrip().startswith('{"ok": false, "error"')
+
+
 def audit(transcript, calls):
-    """Client calls in the transcript against the session's daemon call records, and tools outside the set."""
-    use = session.tool_use(transcript, CLIENT)
-    return {"client_calls": use["client_calls"], "daemon_calls": len(calls), "match": use["client_calls"] == len(calls),
-            "outside_permitted": use["outside_permitted"]}
+    """C10.2's per-session mapping: every client call in the transcript that reached the daemon (the Bash commands that ran,
+    less the calls the client refused itself, `refused_locally`) to its own daemon call record, by command and arguments
+    (a FILE argument by its count; an argument with a shell expansion matches any), and each record to a call. The
+    tools outside the permitted set are listed. A call made by a loop or a script in one command reads as unmatched."""
+    uses, denied, _ = session.calls(transcript)
+    outputs = results(transcript)
+    sent, refused = [], 0
+    for i, u in uses.items():
+        if u["name"] == "Bash" and i not in denied:
+            for argv in invocations(u["input"].get("command", "")):
+                if refused_locally(argv, outputs.get(i, "")):
+                    refused += 1
+                else:
+                    sent.append(argv)
+    records = [(c["request"].get("cmd"), c["request"].get("args", [])) for c in calls]
+
+    def fits(argv, record):
+        (cmd, args), spec = record, SPEC["commands"].get(argv[0], [])
+        return argv[0] == cmd and (len(argv) == len(args) + 1 if "file" in spec else
+                                   all(a == b or any(ch in a for ch in "$`") for a, b in zip(argv[1:], args)))
+
+    free = list(records)
+    unmatched = []
+    for argv in sorted(sent, key=lambda a: any(ch in "".join(a) for ch in "$`")):
+        hit = next((r for r in free if fits(argv, r)), None)
+        free.remove(hit) if hit is not None else unmatched.append(argv)
+    return {"client_calls": len(sent) + refused, "refused_locally": refused, "daemon_calls": len(calls),
+            "unmatched_client_calls": len(unmatched), "unmatched_daemon_calls": len(free),
+            "match": not unmatched and not free, "outside_permitted": session.tool_use(transcript, CLIENT)["outside_permitted"]}

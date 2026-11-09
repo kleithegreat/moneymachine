@@ -40,6 +40,7 @@ BENCHMARK_GIVE_UP = 2 * DAY
 ACCOUNTS = ("main", "noread", "benchmark")
 BENCHMARK = ("BTC", "ETH", "xyz:XYZ100", "xyz:GOLD", "flx:OIL")
 INITIAL = 10_000.0
+NOT_READY = "the model or the sandbox canary was not ready before the date's end"
 PREWARM_EVERY = 15 * 60_000  # between passes of the background funding fill
 RESOLUTION_GRACE = 90 * 60_000  # well before C10.5's two hours; `deadlines` reads only the ledger, each minute
 MAIN_COMMANDS = ("markets", "prices", "fetch", "register", "positions", "exit")
@@ -54,6 +55,8 @@ def unbenchmarkable(snapshot: Json, m: str, days: Iterable[int]) -> str | None:
         return "not listed"
     if snapshot["listings"][m]:
         return "delisted"
+    if m in snapshot["failed"]:
+        return f"market read failed at the snapshot: {snapshot['failed'][m]}"
     if m not in snapshot["markets"]:
         return f"fewer than {registry.MIN_DAILY_BARS} daily bars or no hourly close"
     have = {r[0] for r in snapshot["daily"][m]}
@@ -137,7 +140,7 @@ class Track:
             if cancelled():
                 raise TimeoutError("snapshot acquisition ended")
 
-        markets, daily, before = {}, {}, self.market.sent()
+        markets, daily, failed, before = {}, {}, {}, self.market.sent()
         with self.market.hold(cancel=cancelled):
             check()
             listed_at = now_ms()
@@ -148,28 +151,37 @@ class Track:
                 check()
                 if listings.get(m, True) and benchmark_listings.get(m, True):
                     continue
-                d = self.market.bars(m, "1d", now)
-                if len(d) < registry.MIN_DAILY_BARS:
+                try:
+                    d = self.market.bars(m, "1d", now)
+                    if len(d) < registry.MIN_DAILY_BARS:
+                        continue
+                    check()
+                    h = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
+                except Exception as e:
+                    check()
+                    failed[m] = repr(e)
                     continue
-                check()
-                h = [r for r in self.market.bars(m, "1h", now) if r[2] is not None]
                 if h:
                     markets[m] = {"last_close": h[-1][2], "t": h[-1][0] + HOUR}
                     daily[m] = d
             readiness_at = now_ms()
-            ready = {m: self.market.ready(m, readiness_at) for m in scope}
+            ready = {}
+            for m in scope:
+                try:
+                    ready[m] = m not in failed and self.market.ready(m, readiness_at)
+                except Exception as e:
+                    check()
+                    failed[m], ready[m] = repr(e), False
         check()
         snap = {"taken": now, "listed_at": listed_at, "requests": self.market.sent() - before, "listings": listings,
                 "markets": {m: v for m, v in markets.items() if not listings.get(m, True)}, "daily": daily,
-                "readiness_at": readiness_at, "ready": ready}
+                "readiness_at": readiness_at, "ready": ready, "failed": failed}
         if is_monday(date):
             snap.update(benchmark_listings=benchmark_listings, benchmark_listings_at=observed,
                         benchmark_markets={m: v for m, v in markets.items() if not benchmark_listings.get(m, True)})
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(snap))
         check()
-        os.replace(tmp, path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        registry.write_atomic(path, json.dumps(snap))
         return snap
 
     def attested(self, date: int, by: int | None = None) -> Json | None:
@@ -268,7 +280,7 @@ class Track:
             self.stop.wait(session.RETRY)
         return False
 
-    def miss(self, date: int, account: str, name: str, reason: str = "snapshot or readiness unavailable before the start deadline") -> None:
+    def miss(self, date: int, account: str, name: str, reason: str) -> None:
         self.ledger.disclose("session_missed", account, {"date": date, "session": name,
                                                           "reason": reason})
 
@@ -283,11 +295,12 @@ class Track:
             if self.stop.is_set():
                 return
             if snapshot is None or now_ms() >= date + DAY:
-                self.miss(date, "main", main)
+                self.miss(date, "main", main, NOT_READY)
             else:
                 self.session("main", date, snapshot, MAIN_COMMANDS)
+        why = NOT_READY
         if not any(c["session"] == main for _, _, c in self.ledger.records("session")):
-            snapshot = None
+            snapshot, why = None, "main was missed"
         theses = [t for t in self.ledger.theses("main") if t["session"] == main]
         for kind, name, th in [("ablation", f"ablation-{t['id']}", t) for t in theses] + [("noread", f"noread-{date}", None)]:
             if name in self.settled():
@@ -301,7 +314,7 @@ class Track:
             elif self.stop.is_set():
                 return
             else:
-                self.miss(date, kind, name)
+                self.miss(date, kind, name, why)
 
     def benchmark(self, monday: int) -> None:
         """Register the deterministic Monday-midnight reference, retaining its actual receipt time separately."""
@@ -311,20 +324,27 @@ class Track:
         last = (monday - DELTA) // DAY * DAY - DAY
         before = last - 20 * DAY
         for m in self.unbenchmarked(monday):
-            if reason := unbenchmarkable(snapshot, m, (before, last)):
-                self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": reason})
-                continue
-            closes = {r[0]: r[2] for r in snapshot["daily"][m]}
-            w = 1 if closes[last] > closes[before] else -1
-            config, data = self.inputs("benchmark", [m], monday, snapshot)
-            data["listed"] = lambda markets: {m: snapshot["listings"][m] for m in markets if m in snapshot["listings"]}
-            request = {"request_id": f"benchmark-{monday}-{m}", "legs": [[m, w]], "T": monday + 21 * DAY, "p": None,
-                       "L": 0.1, "catalyst": "frozen benchmark: the sign of the 20-day return", "catalyst_id": "benchmark",
-                       "sources": [], "outcome_market": None}
-            _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, now_ms, set(), config, data,
-                                          p_is_base_rate=True, forecast_at=monday, listings_at=snapshot["benchmark_listings_at"])
-            if errors:
-                self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
+            try:
+                self.register_benchmark(monday, snapshot, m, last, before)
+            except Exception as e:
+                print(time.strftime("%FT%T"), "benchmark", m, repr(e), flush=True)
+
+    def register_benchmark(self, monday: int, snapshot: Json, m: str, last: int, before: int) -> None:
+        """One market of a Monday's batch: skipped with its cause, or registered; a failure raises and leaves it to the next pass."""
+        if reason := unbenchmarkable(snapshot, m, (before, last)):
+            self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": reason})
+            return
+        closes = {r[0]: r[2] for r in snapshot["daily"][m]}
+        w = 1 if closes[last] > closes[before] else -1
+        config, data = self.inputs("benchmark", [m], monday, snapshot)
+        data["listed"] = lambda markets: {m: snapshot["listings"][m] for m in markets if m in snapshot["listings"]}
+        request = {"request_id": f"benchmark-{monday}-{m}", "legs": [[m, w]], "T": monday + 21 * DAY, "p": None,
+                   "L": 0.1, "catalyst": "frozen benchmark: the sign of the 20-day return", "catalyst_id": "benchmark",
+                   "sources": [], "outcome_market": None}
+        _, errors = registry.register(self.ledger, "benchmark", f"benchmark-{monday}", request, now_ms, set(), config, data,
+                                      p_is_base_rate=True, forecast_at=monday, listings_at=snapshot["benchmark_listings_at"])
+        if errors:
+            self.ledger.disclose("skip", "benchmark", {"date": monday, "market": m, "reason": "; ".join(errors)})
 
     def resolve(self, now: int) -> None:
         """Record each due thesis's outcome once, from its own markets alone. Each market a due thesis needs is read once a

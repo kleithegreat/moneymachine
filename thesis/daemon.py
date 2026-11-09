@@ -131,7 +131,9 @@ class Daemon:
             record = out.pop("record", None)
             body = registry.canonical(out).encode()
             digest = registry.sha256(body)
-            (self.responses / f"{digest}.json").write_bytes(body)
+            stored = self.responses / f"{digest}.json"
+            if not stored.exists() or registry.sha256(stored.read_bytes()) != digest:
+                registry.write_atomic(stored, body)
             self.ledger.disclose("call", self.account, {"session": self.session, "seq": self.seq, "t": t,
                                                         "request": req,
                                                         "ok": out.get("ok", False), "response_sha256": digest,

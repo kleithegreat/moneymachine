@@ -2,7 +2,7 @@
 
 The adapter is the venue's public info endpoint with only the frozen read request types; there is no
 signing, account or order operation anywhere. Every response is archived with its retrieval time.
-Final bars and funding rows are cached per market, each file rewritten atomically under its own lock: extended
+Final bars and funding rows are cached per market, each file rewritten atomically under a lock held against every thread and process: extended
 incrementally, every hole the venue left, before the first row too, retried each `repair_every` for as long as it stays
 one, and a cached row is never rewritten. Funding is kept with the ranges the venue has been asked for: a read of
 [start, now) asks only for what those ranges and the rows leave open inside it, and commits each validated page as it
@@ -33,6 +33,7 @@ from ingest.hl import BUDGET_PER_MIN as IP_BUDGET_PER_MIN
 from ingest.hl import INTERVAL_MS, RECORDER_WEIGHT_PER_MIN, TIMEOUT, Info, WeightLimit
 from ingest.live import append, now_ms, read
 from ingest.policy import DAY, DELTA, HOUR
+from thesis.registry import exclusive, write_atomic
 
 ALLOWED = frozenset({"meta", "perpDexs", "candleSnapshot", "fundingHistory", "metaAndAssetCtxs"})
 BUDGET_PER_MIN = IP_BUDGET_PER_MIN - RECORDER_WEIGHT_PER_MIN
@@ -368,7 +369,7 @@ class Market:
         """The rows of `kind` shown by `now`: the cache's final ones and those read in this process not yet final. The
         venue is never asked past the last row `now` can show."""
         path, step = self.root / market.replace(":", "_") / f"{kind}.json", STEP[kind]
-        with self.locks.setdefault(path, threading.Lock()):
+        with exclusive(path):
             rows = json.loads(path.read_text()) if path.exists() else []
             pending = self.pending.setdefault(path, {})
             expired = [t for t in pending if t + FINAL[kind] <= now]
@@ -389,11 +390,8 @@ class Market:
             final = [r for t, r in fresh.items() if t + FINAL[kind] <= now]
             pending.update((t, r) for t, r in fresh.items() if t + FINAL[kind] > now)
             if final:
-                path.parent.mkdir(parents=True, exist_ok=True)
                 rows = sorted(rows + final)
-                tmp = path.with_suffix(".tmp")
-                tmp.write_text(json.dumps(rows, separators=(",", ":")))
-                os.replace(tmp, path)
+                write_atomic(path, json.dumps(rows, separators=(",", ":")))
             return sorted(r for r in rows + list(pending.values()) if r[0] + SHOWN[kind] <= now)
 
     def record_marks(self, due: int) -> None:
@@ -405,9 +403,7 @@ class Market:
                 if not isinstance(dexes, list) or any(d is not None and (not isinstance(d, dict) or not isinstance(d.get("name"), str)) for d in dexes):
                     raise ValueError("invalid perpDexs response")
                 names = sorted({d["name"] for d in dexes if d})
-                tmp = cache.with_suffix(".tmp")
-                tmp.write_text(json.dumps(names))
-                os.replace(tmp, cache)
+                write_atomic(cache, json.dumps(names))
             except (httpx.HTTPError, ValueError) as e:
                 print(f"dex discovery failed: {e!r}", file=sys.stderr)
                 if not cache.exists():
@@ -474,14 +470,11 @@ class Market:
 
     def _funding_commit(self, path: Path, new: Iterable[list[Any]], a: int, b: int) -> None:
         """Add rows not yet cached (a cached row is never rewritten) and the range [a, b), atomically."""
-        with self.locks.setdefault(path, threading.Lock()):
+        with exclusive(path):
             rows, fetched = self._funding_load(path)
             by_hour = {r[0]: r for r in new} | {r[0]: r for r in rows}
             rows = sorted(by_hour.values())
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".tmp")
-            tmp.write_text(json.dumps({"rows": rows, "fetched": union(fetched, a, b)}, separators=(",", ":")))
-            os.replace(tmp, path)
+            write_atomic(path, json.dumps({"rows": rows, "fetched": union(fetched, a, b)}, separators=(",", ":")))
 
     def _funding_gaps(self, path: Path, lo: int, now: int) -> list[tuple[int, int]]:
         """The part of [lo, the newest fetched time) the venue was never asked for: a prefix a read widened to, or a gap."""

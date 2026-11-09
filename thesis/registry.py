@@ -5,14 +5,17 @@ ledger, one campaign per track version and one agent name per paper account. Kin
 `resolution`, and `call` (every daemon call, before its response is released).
 """
 
+import contextlib
+import fcntl
 import hashlib
 import json
 import math
+import os
 import sqlite3
 import subprocess
 import tempfile
 import threading
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Iterator
 from contextlib import closing
 from pathlib import Path
 from typing import Any
@@ -33,6 +36,30 @@ def canonical(obj: Any) -> str:
 
 def sha256(text: str | bytes) -> str:
     return hashlib.sha256(text.encode() if isinstance(text, str) else text).hexdigest()
+
+
+def write_atomic(path: str | Path, data: str | bytes) -> None:
+    """Replace `path` by `data` whole: a reader or a crash sees the old file or the new one, never part of either, and the
+    temporary file is the writer's own."""
+    path = Path(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data.encode() if isinstance(data, str) else data)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
+@contextlib.contextmanager
+def exclusive(path: str | Path) -> Iterator[None]:
+    """Hold `path`'s lock against every other thread and process, for a read-modify-write of that file."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path.with_name(f".{path.name}.lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
 
 
 class Ledger:

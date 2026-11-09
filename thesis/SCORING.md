@@ -38,13 +38,13 @@ For each leg (market m, sign w):
   - the price is r · (1 + bps/10⁴) for a buy and r · (1 − bps/10⁴) for a sell;
   - the fee is |k| · price · fee.
 - **Leg contribution.** The entry is a fill of q at open(e), and the exit a fill of −q at open(x). The leg contributes q · (exit price − entry price) − entry fee − exit fee.
-- **Funding.** For every hour h with e < h ≤ x, the leg contributes −q · rate · mark(h), where rate is m's funding row for h. If any of these rows is missing, the thesis is unresolved (outcome null). Here mark(t) uses the hourly bars: take the last bar with openTime s ≤ t; it is its close if s + HOUR ≤ t and that close is not null, otherwise its open.
+- **Funding.** For every hour h with e < h ≤ x, the leg contributes −q · rate · mark(h), where rate is m's funding row for h. If any of these rows is missing, the thesis is unresolved (outcome null). Here mark(t) uses the hourly bars: take the last bar with openTime s ≤ t; it is its close if s + HOUR ≤ t and that close is not null, otherwise its open. A bar has opened by every hour h > e, because the entry bar (openTime e) exists, so mark(h) is always defined for a scored thesis; a test set where no bar has opened by h is outside the input contract.
 - **Result.** R_net = (sum of the leg contributions) / N, and o = 1 if R_net > 0, else 0.
 
 ## Base rate
 
 - **Duration.** D = floor((T − t_r) / DAY + 0.5) days.
-- **Anchor.** a = the largest daily openTime ≤ t_r that every leg has. If there is none, the base rate is unavailable.
+- **Anchor.** a = the largest daily openTime ≤ t_r that every leg has. If there is none, or D < 1, the base rate is unavailable: p_ref is null, with m = x = 0.
 - **Windows.** For k = 0, 1, 2, …, window k has exit day x_k = a − k · D · DAY and entry day e_k = x_k − D · DAY. It is considered only while e_k ≥ t_r − 1,095 · DAY.
 - **Completeness.** A window is complete if every leg has daily bars at e_k and x_k. Incomplete windows are omitted, and the others do not move.
 - **Window return.** It is computed as the outcome, with daily opens instead of hourly opens, the same N, fee and cost cells, and the leg's quantity q = w · N / daily open(e_k). For every hour h with e_k < h ≤ x_k, the funding row for h is priced at the open of the daily bar with openTime ≤ h < openTime + DAY. If a funding row or that daily bar is missing, the window is incomplete.
