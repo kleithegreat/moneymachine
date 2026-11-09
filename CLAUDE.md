@@ -18,6 +18,8 @@ The swap rule: when a task replaces X with Y -- a refactor, a fix, a syntax chan
 
 Comments are where you fail hardest. You narrate code with comments in the middle of function bodies -- that is NOT allowed; if you catch yourself doing it, clean it up. You also accumulate comments and never remove them, clogging files. Be aggressive: keep only what is truly essential. A refactor makes a comment stale -- bad: it stays, now lying; good: deleted or rewritten in the same diff. A TODO gets done -- bad: the marker remains; good: it leaves with the fix.
 
+Write for the reader. Erasure removes concepts, not whitespace: a dense line is not a simpler design, and packing several steps into one hides the bugs reviewers are there to find. Name intermediate values instead of nesting expressions, keep one idea per line, and never put a side effect in a comprehension. Names and types say what the code does; a docstring adds only what they cannot: the contract it implements, cited rather than restated; an invariant invisible locally (units, ordering, crash safety); the reason for a non-obvious choice, pointing to its derivation. Every Python function is fully annotated and passes `mypy --strict`, and `ruff format` and `ruff check` own mechanical style, both enforced by tests; code a frozen identity hashes joins at its next fork.
+
 Prose rots the same way. Before finishing ANY task, and before each commit, ask: what did this change make obsolete -- and did I delete it, in the same commit?
 
 The one exception is the audit record (§3): pre-registered criteria, the experiment ledger, campaign results, and spent holdouts are append-only. Erasure never touches them.
