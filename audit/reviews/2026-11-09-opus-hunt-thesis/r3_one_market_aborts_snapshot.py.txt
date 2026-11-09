@@ -1,0 +1,62 @@
+"""Finding: one listed market whose candle read keeps failing aborts every acquisition of the date, so no snapshot is
+ever attested: main and no-reading are missed, and on a Monday the whole benchmark batch is skipped "no attested
+snapshot" (not an executed batch under the 2026-11-09 revision). thesis/runner.py:147-158 (no per-market handling),
+:192-195 (only TimeoutError is caught), :396 (the loop logs and retries the whole acquisition).
+
+Run from the worktree root: TMPDIR=/tmp nix develop -c python <this file>
+"""
+
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, os.getcwd())
+import httpx  # noqa: E402
+
+from gate import kernel  # noqa: E402
+from thesis import runner  # noqa: E402
+from thesis.tests.test_runner import DAY, HOUR, MONDAY, FakeMarket  # noqa: E402
+
+runner.kernel.build = lambda: kernel.MM
+runner.harness.manifest_hash = lambda binary: "0" * 64
+
+
+class OneBadListing(FakeMarket):
+    """The FakeMarket of thesis/tests/test_runner.py, plus one listed, non-benchmark market (never eligible: it has no
+    daily bars to speak of) whose candle request the venue refuses, as Info.post raises after its retries or on a 4xx."""
+
+    def listings(self, *, background=False):
+        return {**super().listings(), "NEW": False}
+
+    def bars(self, market, interval, now=None):
+        if market == "NEW":
+            raise httpx.HTTPStatusError("500 from candleSnapshot", request=httpx.Request("POST", "https://x"),
+                                        response=httpx.Response(500))
+        return super().bars(market, interval, now)
+
+
+t = runner.Track(Path(tempfile.mkdtemp(prefix="r3-", dir=os.environ.get("TMPDIR", "/tmp"))))
+t.market = OneBadListing(MONDAY + 40 * DAY)
+t.config = lambda markets: {"initial": 10_000.0, "fee": 0.0, "costs": {}, "fallback": []}
+
+errors = 0
+for minute in range(1, 20):  # the acquisition loop's passes, each a minute apart
+    runner.now_ms = lambda: MONDAY + runner.SNAPSHOT_OFFSET + minute * 60_000
+    try:
+        t.acquisitions(runner.now_ms(), MONDAY - DAY)
+    except httpx.HTTPError:
+        errors += 1
+print("acquisition passes that raised:", errors, "of 19; attestations:", len(t.ledger.records("snapshot_ready", "main")))
+
+runner.now_ms = lambda: MONDAY + runner.SESSION_OFFSET
+t.ready = lambda date: True
+t.schedule(MONDAY + runner.SESSION_OFFSET, MONDAY)
+print("missed:", [(c["session"], c["reason"]) for _, _, c in t.ledger.records("session_missed")])
+runner.now_ms = lambda: MONDAY + DAY
+t.benchmarks(MONDAY + DAY, MONDAY)
+skips = [(c["market"], c["reason"]) for _, _, c in t.ledger.records("skip", "benchmark")]
+print("benchmark:", skips)
+assert errors == 19 and not t.ledger.records("snapshot_ready", "main")
+assert all(r == "no attested snapshot" for _, r in skips) and len(skips) == 5
+print("REPRODUCED: one bad listing costs the date's main, no-reading and the Monday batch")

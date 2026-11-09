@@ -5,7 +5,8 @@
     python ops/jobs.py resubmit <run>
     python ops/jobs.py collect <run>...
 
-`submit` and `resubmit` block until the Job completes or fails. `mm`, the betas and each Job's id list are staged by sha256 and checked in every pod. A task runs one campaign in local
+`submit` and `resubmit` block until the Job completes or fails. `mm`, the betas and each Job's id list are staged by
+sha256 and checked in every pod. A task runs one campaign in local
 scratch (SQLite never over NFS) and renames one tar per campaign id into the results volume. A campaign crash is a
 result; an OOM kill fails the index, and `resubmit` reruns it once no partial file remains."""
 
@@ -19,7 +20,9 @@ import sys
 import tarfile
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
@@ -31,17 +34,24 @@ NODE = "desktop"
 SCRATCH = 2**30
 
 
-def kubectl(*args, stdin=None, namespace=NAMESPACE, config="moneymachine.yaml"):
+def kubectl(*args: str, stdin: str | None = None, namespace: str = NAMESPACE, config: str = "moneymachine.yaml") -> str:
     env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube" / config)}
-    return subprocess.run(["kubectl", "-n", namespace, *args], input=stdin, capture_output=True, text=True, env=env,
-                          check=True).stdout
+    return subprocess.run(
+        ["kubectl", "-n", namespace, *args], input=stdin, capture_output=True, text=True, env=env, check=True
+    ).stdout
 
 
-def sha256(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def sha256(path: str | Path, size: int | None = None) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        left = size if size is not None else sys.maxsize
+        while left > 0 and (b := f.read(min(1 << 20, left))):
+            h.update(b)
+            left -= len(b)
+    return h.hexdigest()
 
 
-def stage(data):
+def stage(data: bytes) -> str:
     """Write bytes into the inputs volume under their sha256 (once), and return the hash."""
     h = hashlib.sha256(data).hexdigest()
     if not (INPUTS / h).exists():
@@ -50,63 +60,107 @@ def stage(data):
     return h
 
 
-def push():
-    out = subprocess.run(["nix", "build", "--no-link", "--print-out-paths", f"{REPO}#image"], capture_output=True,
-                         text=True, check=True).stdout.strip()
-    tag = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True,
-                         check=True).stdout.strip()
+def push() -> str:
+    out = subprocess.run(
+        ["nix", "build", "--no-link", "--print-out-paths", f"{REPO}#image"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    tag = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.strip()
     with tempfile.TemporaryDirectory() as tmp:
         digestfile = Path(tmp) / "digest"
-        subprocess.run(["skopeo", "copy", "--authfile", str(AUTHFILE), "--digestfile", str(digestfile),
-                        f"docker-archive:{out}", f"docker://{REGISTRY}:{tag}"], check=True, capture_output=True)
+        subprocess.run(
+            [
+                "skopeo",
+                "copy",
+                "--authfile",
+                str(AUTHFILE),
+                "--digestfile",
+                str(digestfile),
+                f"docker-archive:{out}",
+                f"docker://{REGISTRY}:{tag}",
+            ],
+            check=True,
+            capture_output=True,
+        )
         digest = digestfile.read_text().strip()
     print(json.dumps({"tag": tag, "digest": digest, "image": out}))
     return digest
 
 
-def campaign_specs(sweep):
-    """A sweep's specs: `null`, `mixed`, or `xm`, the mixed cells under ids `xm-…` with fixed test betas, never judged."""
+def campaign_specs(sweep: str) -> list[dict[str, Any]]:
+    """A sweep's specs: `null`, `mixed`, or `xm`, the mixed cells under ids `xm-…` with fixed test betas, never
+    judged."""
     from gate import sweep as sw
 
     if sweep == "xm":
         betas = {f"{m}-s{k}": 0.01 * k for m in ("N2", "N3") for k in (1, 2, 3)} | {"N2-long": 0.1}
         return [s | {"id": "xm-" + s["id"].split("-", 1)[1]} for s in sw.mixed_specs(betas, markets=1)]
-    return sw.null_specs() if sweep == "null" else sw.mixed_specs(json.loads((sw.OUT / "betas.json").read_text()))
+    specs: list[dict[str, Any]] = (
+        sw.null_specs() if sweep == "null" else sw.mixed_specs(json.loads((sw.OUT / "betas.json").read_text()))
+    )
+    return specs
 
 
-def manifest(run, ids, record, node=None):
+def mib(size: int) -> str:
+    return f"{size // 2**20}Mi"
+
+
+def manifest(run: str, ids: list[str], record: dict[str, Any], node: str | None = None) -> dict[str, Any]:
     from gate.sweep import CAMPAIGN_BYTES
 
-    mib = lambda b: f"{b // 2**20}Mi"
-    pod = {
+    pod: dict[str, Any] = {
         "priorityClassName": "moneymachine-batch",
         "restartPolicy": "Never",
         "tolerations": [{"key": "moneymachine/batch", "operator": "Equal", "value": "true", "effect": "NoSchedule"}],
-        "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "runAsGroup": 100,
-                            "seccompProfile": {"type": "RuntimeDefault"}},
-        "containers": [{
-            "name": "task",
-            "image": f"{REGISTRY}@{record['image']}",
-            "command": ["choom", "-n", "1000", "--", "python", "/app/repo/ops/jobs.py", "task", run],
-            "env": [{"name": "PYTHONPATH", "value": "/app/repo"}, {"name": "TMPDIR", "value": "/scratch/tmp"}],
-            "resources": {"requests": {"cpu": "1", "memory": mib(CAMPAIGN_BYTES), "ephemeral-storage": mib(SCRATCH)},
-                          "limits": {"memory": mib(CAMPAIGN_BYTES * 5 // 4), "ephemeral-storage": mib(2 * SCRATCH)}},
-            "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
-            "volumeMounts": [{"name": "inputs", "mountPath": "/inputs", "readOnly": True},
-                             {"name": "results", "mountPath": "/results"},
-                             {"name": "scratch", "mountPath": "/scratch"}]}],
-        "volumes": [{"name": "inputs", "persistentVolumeClaim": {"claimName": "inputs", "readOnly": True}},
-                    {"name": "results", "persistentVolumeClaim": {"claimName": "results"}},
-                    {"name": "scratch", "emptyDir": {"sizeLimit": mib(2 * SCRATCH)}}]}
+        "securityContext": {
+            "runAsNonRoot": True,
+            "runAsUser": 1000,
+            "runAsGroup": 100,
+            "seccompProfile": {"type": "RuntimeDefault"},
+        },
+        "containers": [
+            {
+                "name": "task",
+                "image": f"{REGISTRY}@{record['image']}",
+                "command": ["choom", "-n", "1000", "--", "python", "/app/repo/ops/jobs.py", "task", run],
+                "env": [{"name": "PYTHONPATH", "value": "/app/repo"}, {"name": "TMPDIR", "value": "/scratch/tmp"}],
+                "resources": {
+                    "requests": {"cpu": "1", "memory": mib(CAMPAIGN_BYTES), "ephemeral-storage": mib(SCRATCH)},
+                    "limits": {"memory": mib(CAMPAIGN_BYTES * 5 // 4), "ephemeral-storage": mib(2 * SCRATCH)},
+                },
+                "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}},
+                "volumeMounts": [
+                    {"name": "inputs", "mountPath": "/inputs", "readOnly": True},
+                    {"name": "results", "mountPath": "/results"},
+                    {"name": "scratch", "mountPath": "/scratch"},
+                ],
+            }
+        ],
+        "volumes": [
+            {"name": "inputs", "persistentVolumeClaim": {"claimName": "inputs", "readOnly": True}},
+            {"name": "results", "persistentVolumeClaim": {"claimName": "results"}},
+            {"name": "scratch", "emptyDir": {"sizeLimit": mib(2 * SCRATCH)}},
+        ],
+    }
     if node:
         pod["nodeSelector"] = {"kubernetes.io/hostname": node}
-    return {"apiVersion": "batch/v1", "kind": "Job", "metadata": {"name": f"mm-{run}", "labels": {"moneymachine/run": run}},
-            "spec": {"completionMode": "Indexed", "completions": len(ids), "parallelism": len(ids),
-                     "backoffLimitPerIndex": 0, "ttlSecondsAfterFinished": 86400,
-                     "template": {"metadata": {"labels": {"moneymachine/run": run}}, "spec": pod}}}
+    return {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {"name": f"mm-{run}", "labels": {"moneymachine/run": run}},
+        "spec": {
+            "completionMode": "Indexed",
+            "completions": len(ids),
+            "parallelism": len(ids),
+            "backoffLimitPerIndex": 0,
+            "ttlSecondsAfterFinished": 86400,
+            "template": {"metadata": {"labels": {"moneymachine/run": run}}, "spec": pod},
+        },
+    }
 
 
-def stage_funding():
+def stage_funding() -> None:
     """The null models' funding source as the store yields it, staged under its frozen sha256 (gate/fit.py)."""
     import numpy as np
 
@@ -116,36 +170,49 @@ def stage_funding():
         stage(np.concatenate(markets.frozen_funding(markets.null_params()[model]["funding"])).tobytes())
 
 
-def submit(run, sweep, digest, node=None):
+def submit(run: str, sweep: str, digest: str, node: str | None = None) -> None:
     """Stage this checkout's inputs once, then launch a new run."""
     ids = [s["id"] for s in campaign_specs(sweep)]
-    record = {"sweep": sweep, "image": digest, "commit": subprocess.run(
-                  ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True).stdout.strip(),
-              "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
-              "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()), "node": node}
+    record = {
+        "sweep": sweep,
+        "image": digest,
+        "commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
+        ).stdout.strip(),
+        "mm": stage((REPO / "kernel/target/release/mm").read_bytes()),
+        "betas": stage((REPO / "data/campaigns/betas.json").read_bytes()),
+        "node": node,
+    }
     stage_funding()
     launch(run, record, ids)
 
 
-def launch(run, record, ids):
+def launch(run: str, record: dict[str, Any], ids: list[str]) -> None:
     """Reserve a single-use run name before writing provenance or creating its Job."""
     out = RESULTS / run
     out.mkdir()
     record = record | {"run": run, "ids": stage(json.dumps(ids).encode())}
     (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
     print(kubectl("create", "-f", "-", stdin=json.dumps(manifest(run, ids, record, record["node"]))).strip())
-    while not (ended := {c["type"] for c in job(run).get("conditions", []) if c["status"] == "True"} & {"Complete", "Failed"}):
+    while not (
+        ended := {c["type"] for c in job(run).get("conditions", []) if c["status"] == "True"} & {"Complete", "Failed"}
+    ):
         time.sleep(30)
-    print(json.dumps({"run": run, "succeeded": job(run).get("succeeded", 0), "failedIndexes": job(run).get("failedIndexes", "")}))
+    print(
+        json.dumps(
+            {"run": run, "succeeded": job(run).get("succeeded", 0), "failedIndexes": job(run).get("failedIndexes", "")}
+        )
+    )
     if "Failed" in ended:
         raise SystemExit(f"mm-{run}: an index failed; `resubmit {run}` reruns it after the integrity check")
 
 
-def job(run):
-    return json.loads(kubectl("get", "job", f"mm-{run}", "-o", "json"))["status"]
+def job(run: str) -> dict[str, Any]:
+    status: dict[str, Any] = json.loads(kubectl("get", "job", f"mm-{run}", "-o", "json"))["status"]
+    return status
 
 
-def task(run):
+def task(run: str) -> None:
     """In a pod: the campaign at this index."""
     record = json.loads((Path("/results") / run / "record.json").read_text())
     ids = json.loads((Path("/inputs") / record["ids"]).read_bytes())
@@ -187,7 +254,7 @@ def task(run):
     tmp.rename(final)
 
 
-def state(run):
+def state(run: str) -> tuple[dict[str, Any], list[str], set[str]]:
     record = json.loads((RESULTS / run / "record.json").read_text())
     for name in ("mm", "betas", "ids"):
         if sha256(INPUTS / record[name]) != record[name]:
@@ -197,7 +264,7 @@ def state(run):
     return record, ids, done
 
 
-def resubmit(run):
+def resubmit(run: str) -> None:
     """The ids without a result, as a new Job, once the Job has no active pods and no partial file remains."""
     record, ids, done = state(run)
     if job(run).get("active"):
@@ -216,7 +283,7 @@ def resubmit(run):
 UNPACK_BYTES = 200_000_000
 
 
-def collect(*runs, out=None):
+def collect(*runs: str, out: str | Path | None = None) -> None:
     """A Job and its retries, into `out` (the campaigns directory by default): every id once, each ledger on the
     record's kernel."""
     from functools import partial
@@ -229,7 +296,7 @@ def collect(*runs, out=None):
     if any(r[k] != records[0][k] for r in records for k in ("sweep", "mm", "betas", "image")):
         raise SystemExit("the runs differ in sweep, binary, calibration or image")
     planned = json.loads((INPUTS / records[0]["ids"]).read_bytes())
-    found = {}
+    found: dict[str, Path] = {}
     for r in runs:
         for p in (RESULTS / r).glob("*.tar"):
             cid = p.name.removesuffix(".tar")
@@ -248,7 +315,7 @@ def collect(*runs, out=None):
     print(json.dumps({"collected": len(rows), "file": str(target)}))
 
 
-def unpack(item, dest, mm):
+def unpack(item: tuple[str, Path], dest: Path, mm: str) -> dict[str, Any]:
     """One campaign's tar into `dest`/<id>/, its ledger checked to carry the record's kernel; returns its result."""
     import lzma
     import sqlite3
@@ -256,11 +323,15 @@ def unpack(item, dest, mm):
 
     cid, path = item
     with tarfile.open(path) as tar:
-        row = json.loads(tar.extractfile("result.json").read())
+        result = tar.extractfile("result.json")
+        assert result is not None
+        row: dict[str, Any] = json.loads(result.read())
         (dest / cid).mkdir(parents=True, exist_ok=True)
         for m in tar.getmembers():
             if m.name != "result.json":
-                (dest / cid / m.name).write_bytes(tar.extractfile(m).read())
+                member = tar.extractfile(m)
+                assert member is not None
+                (dest / cid / m.name).write_bytes(member.read())
     ledger = dest / cid / "ledger.sqlite.xz"
     if ledger.exists():
         with tempfile.NamedTemporaryFile(suffix=".sqlite") as f:
@@ -271,20 +342,31 @@ def unpack(item, dest, mm):
     return row
 
 
-def join():
+def join() -> None:
     subprocess.run(["systemctl", "start", "k3s"], check=True)
 
 
-def leave():
-    """Cordon and drain this PC's node, then leave the cluster; stopping k3s deletes the node (the desktop's NixOS config)."""
+def leave() -> None:
+    """Cordon and drain this PC's node, then leave the cluster; stopping k3s deletes the node (the desktop's NixOS
+    config)."""
     env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube/moneymachine.yaml")}
     subprocess.run(["kubectl", "cordon", NODE], check=True, env=env)
-    subprocess.run(["kubectl", "drain", NODE, "--ignore-daemonsets", "--delete-emptydir-data", "--timeout=600s"],
-                   check=True, env=env)
+    subprocess.run(
+        ["kubectl", "drain", NODE, "--ignore-daemonsets", "--delete-emptydir-data", "--timeout=600s"],
+        check=True,
+        env=env,
+    )
     subprocess.run(["systemctl", "stop", "k3s"], check=True)
 
 
 if __name__ == "__main__":
-    commands = {"push": push, "submit": submit, "task": task, "resubmit": resubmit,
-                "collect": collect, "join": join, "leave": leave}
+    commands: dict[str, Callable[..., object]] = {
+        "push": push,
+        "submit": submit,
+        "task": task,
+        "resubmit": resubmit,
+        "collect": collect,
+        "join": join,
+        "leave": leave,
+    }
     commands[sys.argv[1]](*sys.argv[2:])

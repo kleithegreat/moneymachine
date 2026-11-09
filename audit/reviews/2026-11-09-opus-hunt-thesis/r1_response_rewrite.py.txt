@@ -1,0 +1,58 @@
+"""Finding: a SIGKILL while a later session rewrites an identical response file destroys the bytes an earlier,
+already-disclosed call record points to (thesis/daemon.py:134, Path.write_bytes truncates in place).
+
+Run from the worktree root: TMPDIR=/tmp nix develop -c python <this file>
+"""
+
+import json
+import os
+import signal
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, os.getcwd())
+from thesis import daemon as thesis_daemon  # noqa: E402
+from thesis import registry  # noqa: E402
+
+SNAPSHOT = {"taken": 1, "listings": {"X": False},
+            "markets": {f"M{i}": {"last_close": 100.0 + i, "t": 1} for i in range(4000)},  # a realistic, large `markets` body
+            "daily": {}}
+
+
+def daemon(root, session, account):
+    ledger = registry.Ledger(root / "l.sqlite", "thesis-repro")
+    return thesis_daemon.Daemon(root / "s.sock", session, account, ledger, SNAPSHOT, None, root / "responses",
+                                lambda a, n: {}, lambda a, m, n: ({}, {}), ("markets",), clock=lambda: 5), ledger
+
+
+root = Path(tempfile.mkdtemp(prefix="r1-", dir=os.environ.get("TMPDIR", "/tmp")))
+main, ledger = daemon(root, "main-0", "main")
+main.handle({"cmd": "markets", "args": []})
+first = ledger.records("call", "main")[0][2]
+path = root / "responses" / f"{first['response_sha256']}.json"
+assert registry.sha256(path.read_bytes()) == first["response_sha256"]
+print("main's disclosed response intact:", path.stat().st_size, "bytes")
+
+pid = os.fork()
+if pid == 0:
+    # the no-reading session, same snapshot: its `markets` response is byte-identical, so the same file is rewritten.
+    original = Path.write_bytes
+
+    def killed_midway(self, data):
+        with open(self, "wb") as f:   # what Path.write_bytes does: truncate, then write
+            f.write(data[: len(data) // 3])
+            f.flush()
+            os.kill(os.getpid(), signal.SIGKILL)
+
+    Path.write_bytes = killed_midway
+    noread, _ = daemon(root, "noread-0", "noread")
+    noread.handle({"cmd": "markets", "args": []})
+    os._exit(0)
+os.waitpid(pid, 0)
+
+now = registry.sha256(path.read_bytes()) if path.exists() else None
+print("after SIGKILL during the no-reading session's identical write:", path.stat().st_size, "bytes")
+print("main's call record still says", first["response_sha256"][:16], "; the file now hashes to", (now or "missing")[:16])
+assert now != first["response_sha256"], "not reproduced"
+print("REPRODUCED: an already-disclosed response's bytes are lost")

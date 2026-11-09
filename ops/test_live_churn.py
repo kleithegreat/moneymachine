@@ -3,19 +3,22 @@
 import errno
 import json
 import multiprocessing
+import os
+import shutil
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
-
-import pytest
+from typing import Any, Never
 
 import live
-
+import pytest
+from jobs import sha256
 
 PLAIN = Path("swarm-null-3-N2-3/swarm/A4/home/.claude/.last-cleanup")
 
 
 @pytest.fixture
-def volume(tmp_path, monkeypatch):
+def volume(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
     monkeypatch.setattr(live, "VOLUMES", {"agent": "data/agent"})
     monkeypatch.setattr(live, "MIRROR_VERIFY_WAIT", 0)
     app, out = tmp_path / "app", tmp_path / "mirror"
@@ -25,44 +28,50 @@ def volume(tmp_path, monkeypatch):
     return app, out, root
 
 
-def put(root, rel, content=b"original"):
+def put(root: Path, rel: str | Path, content: bytes = b"original") -> Path:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     return path
 
 
-def manifest(out):
+def manifest(out: Path) -> Path:
     return out / "agent/MANIFEST.json"
 
 
 @pytest.mark.parametrize("published", [False, True])
 @pytest.mark.parametrize("phase", ["stat", "copy", "comparison"])
-@pytest.mark.parametrize("rel", [PLAIN, Path("campaign/swarm/A4/work/nested/notes.jsonl"),
-                                Path("campaign/swarm/A4/work/nested/notes.sqlite")])
-def test_plain_source_disappearing_during_mirror_is_omitted(volume, monkeypatch, published, phase, rel):
+@pytest.mark.parametrize(
+    "rel",
+    [PLAIN, Path("campaign/swarm/A4/work/nested/notes.jsonl"), Path("campaign/swarm/A4/work/nested/notes.sqlite")],
+)
+def test_plain_source_disappearing_during_mirror_is_omitted(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch, published: bool, phase: str, rel: Path
+) -> None:
     app, out, root = volume
     source = put(root, rel)
     if published:
         live.mirror(app, out)
     source.write_bytes(b"a longer replacement")
-    stat, rglob, copy, digest = Path.stat, Path.rglob, live.shutil.copy2, live.sha256
-    enumerated, copied, vanished = [], [], []
+    stat, rglob, copy, digest = Path.stat, Path.rglob, shutil.copy2, sha256
+    enumerated: list[bool] = []
+    copied: list[bool] = []
+    vanished: list[bool] = []
 
-    def listing(path, pattern, *args, **kwargs):
+    def listing(path: Path, pattern: str, *args: Any, **kwargs: Any) -> Iterator[Path]:
         paths = list(rglob(path, pattern, *args, **kwargs))
         if path == root and source in paths:
             enumerated.append(True)
         return iter(paths)
 
-    def source_stat(path, *args, **kwargs):
+    def source_stat(path: Path, *args: Any, **kwargs: Any) -> os.stat_result:
         result = stat(path, *args, **kwargs)
         if phase == "stat" and path == source and enumerated and not vanished:
             vanished.append(True)
             source.unlink()
         return result
 
-    def source_copy(src, dst, *args, **kwargs):
+    def source_copy(src: Any, dst: Any, *args: Any, **kwargs: Any) -> Any:
         if Path(src) == source:
             if phase == "copy" and not vanished:
                 vanished.append(True)
@@ -72,16 +81,16 @@ def test_plain_source_disappearing_during_mirror_is_omitted(volume, monkeypatch,
             return result
         return copy(src, dst, *args, **kwargs)
 
-    def source_hash(path, *args, **kwargs):
+    def source_hash(path: str | Path, *args: Any, **kwargs: Any) -> str:
         if phase == "comparison" and Path(path) == source and copied and not vanished:
             vanished.append(True)
             source.unlink()
-        return digest(path, *args, **kwargs)
+        return str(digest(path, *args, **kwargs))
 
     with monkeypatch.context() as patcher:
         patcher.setattr(Path, "rglob", listing)
         patcher.setattr(Path, "stat", source_stat)
-        patcher.setattr(live.shutil, "copy2", source_copy)
+        patcher.setattr(shutil, "copy2", source_copy)
         patcher.setattr(live, "sha256", source_hash)
         live.mirror(app, out)
     assert vanished, f"{phase} hook was not exercised"
@@ -98,35 +107,37 @@ def test_plain_source_disappearing_during_mirror_is_omitted(volume, monkeypatch,
 
 
 @pytest.mark.parametrize("phase", ["enumeration", "copy"])
-def test_plain_directory_disappearing_is_allowed(volume, monkeypatch, phase):
+def test_plain_directory_disappearing_is_allowed(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
     app, out, root = volume
     rel = Path("scratch/nested/note")
     source = put(root, rel)
     live.mirror(app, out)
     source.write_bytes(b"a longer replacement")
-    rglob, copy = Path.rglob, live.shutil.copy2
-    vanished = []
+    rglob, copy = Path.rglob, shutil.copy2
+    vanished: list[bool] = []
 
-    def disappear():
+    def disappear() -> None:
         vanished.append(True)
         source.unlink()
         source.parent.rmdir()
         source.parent.parent.rmdir()
 
-    def listing(path, pattern, *args, **kwargs):
+    def listing(path: Path, pattern: str, *args: Any, **kwargs: Any) -> Iterator[Path]:
         paths = list(rglob(path, pattern, *args, **kwargs))
         if phase == "enumeration" and path == root and source in paths and not vanished:
             disappear()
         return iter(paths)
 
-    def source_copy(src, dst, *args, **kwargs):
+    def source_copy(src: Any, dst: Any, *args: Any, **kwargs: Any) -> Any:
         if phase == "copy" and Path(src) == source and not vanished:
             disappear()
         return copy(src, dst, *args, **kwargs)
 
     with monkeypatch.context() as patcher:
         patcher.setattr(Path, "rglob", listing)
-        patcher.setattr(live.shutil, "copy2", source_copy)
+        patcher.setattr(shutil, "copy2", source_copy)
         live.mirror(app, out)
     assert vanished
     assert str(rel) not in json.loads(manifest(out).read_text())["files"]
@@ -136,7 +147,9 @@ def test_plain_directory_disappearing_is_allowed(volume, monkeypatch, phase):
 
 @pytest.mark.parametrize("name", ["day.jsonl", "ledger.sqlite"])
 @pytest.mark.parametrize("phase", ["observed", "previously_manifested"])
-def test_recording_disappearance_alarms_without_replacing_manifest(volume, monkeypatch, name, phase):
+def test_recording_disappearance_alarms_without_replacing_manifest(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch, name: str, phase: str
+) -> None:
     app, out, root = volume
     live.mirror(app, out)
     source = root / name
@@ -149,10 +162,10 @@ def test_recording_disappearance_alarms_without_replacing_manifest(volume, monke
     if phase == "previously_manifested":
         live.mirror(app, out)
     before = manifest(out).read_bytes()
-    vanished = []
+    vanished: list[bool] = []
     stat = Path.stat
 
-    def after_observation(path, *args, **kwargs):
+    def after_observation(path: Path, *args: Any, **kwargs: Any) -> os.stat_result:
         result = stat(path, *args, **kwargs)
         if path == source and not vanished:
             vanished.append(True)
@@ -173,21 +186,24 @@ def test_recording_disappearance_alarms_without_replacing_manifest(volume, monke
     assert manifest(out).read_bytes() == before
 
 
-def test_day_disappearing_between_prefix_snapshot_and_general_listing_alarms(volume, monkeypatch):
+def test_day_disappearing_between_prefix_snapshot_and_general_listing_alarms(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
     app, out, root = volume
     live.mirror(app, out)
     before = manifest(out).read_bytes()
     source = put(root, "day.jsonl", b"recorded bytes\n")
     stat, rglob = Path.stat, Path.rglob
-    observed, vanished = [], []
+    observed: list[bool] = []
+    vanished: list[bool] = []
 
-    def observation(path, *args, **kwargs):
+    def observation(path: Path, *args: Any, **kwargs: Any) -> os.stat_result:
         result = stat(path, *args, **kwargs)
         if path == source:
             observed.append(True)
         return result
 
-    def listing(path, pattern, *args, **kwargs):
+    def listing(path: Path, pattern: str, *args: Any, **kwargs: Any) -> Iterator[Path]:
         if path == root and pattern == "*" and observed and not vanished:
             vanished.append(True)
             source.unlink()
@@ -206,7 +222,9 @@ def test_day_disappearing_between_prefix_snapshot_and_general_listing_alarms(vol
 
 @pytest.mark.parametrize("rel", [PLAIN, Path("day.jsonl")])
 @pytest.mark.parametrize("missing", ["source", "mirror", "both", "source_at_hash"])
-def test_verify_distinguishes_source_churn_from_missing_mirror(volume, monkeypatch, rel, missing):
+def test_verify_distinguishes_source_churn_from_missing_mirror(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch, rel: Path, missing: str
+) -> None:
     app, out, root = volume
     source = put(root, rel, b"recorded bytes\n")
     live.mirror(app, out)
@@ -215,13 +233,14 @@ def test_verify_distinguishes_source_churn_from_missing_mirror(volume, monkeypat
         source.unlink()
     if missing in {"mirror", "both"}:
         (out / "agent" / rel).unlink()
-    digest, vanished = live.sha256, []
+    digest = sha256
+    vanished: list[bool] = []
 
-    def source_hash(path, *args, **kwargs):
+    def source_hash(path: str | Path, *args: Any, **kwargs: Any) -> str:
         if missing == "source_at_hash" and Path(path) == source and not vanished:
             vanished.append(True)
             source.unlink()
-        return digest(path, *args, **kwargs)
+        return str(digest(path, *args, **kwargs))
 
     monkeypatch.setattr(live, "sha256", source_hash)
     if rel == PLAIN and missing in {"source", "source_at_hash"}:
@@ -238,7 +257,9 @@ def test_verify_distinguishes_source_churn_from_missing_mirror(volume, monkeypat
 
 @pytest.mark.parametrize("published", [False, True])
 @pytest.mark.parametrize("phase", ["copy", "comparison"])
-def test_missing_plain_destination_is_not_source_churn(volume, monkeypatch, published, phase):
+def test_missing_plain_destination_is_not_source_churn(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch, published: bool, phase: str
+) -> None:
     app, out, root = volume
     source = put(root, PLAIN)
     if not published:
@@ -247,10 +268,11 @@ def test_missing_plain_destination_is_not_source_churn(volume, monkeypatch, publ
     before = manifest(out).read_bytes()
     put(root, PLAIN, b"a longer replacement")
     target = out / "agent" / PLAIN
-    copy, digest = live.shutil.copy2, live.sha256
-    copied, missing = [], []
+    copy, digest = shutil.copy2, sha256
+    copied: list[Path] = []
+    missing: list[Path] = []
 
-    def source_copy(src, dst, *args, **kwargs):
+    def source_copy(src: Any, dst: Any, *args: Any, **kwargs: Any) -> Any:
         if Path(src) == source:
             if phase == "copy":
                 assert not Path(dst).exists()
@@ -261,14 +283,14 @@ def test_missing_plain_destination_is_not_source_churn(volume, monkeypatch, publ
             return result
         return copy(src, dst, *args, **kwargs)
 
-    def destination_hash(path, *args, **kwargs):
+    def destination_hash(path: str | Path, *args: Any, **kwargs: Any) -> str:
         if phase == "comparison" and copied and Path(path) in {*copied, target} and not missing:
             missing.append(Path(path))
             Path(path).unlink()
-        return digest(path, *args, **kwargs)
+        return str(digest(path, *args, **kwargs))
 
     with monkeypatch.context() as patcher:
-        patcher.setattr(live.shutil, "copy2", source_copy)
+        patcher.setattr(shutil, "copy2", source_copy)
         patcher.setattr(live, "sha256", destination_hash)
         with pytest.raises((OSError, SystemExit)) as error:
             live.mirror(app, out)
@@ -277,6 +299,7 @@ def test_missing_plain_destination_is_not_source_churn(volume, monkeypatch, publ
     if isinstance(error.value, OSError):
         assert error.value.filename == str(missing[0])
     else:
+        assert isinstance(error.value, SystemExit)
         assert error.value.code
     assert source.read_bytes() == b"a longer replacement"
     assert manifest(out).read_bytes() == before
@@ -288,25 +311,28 @@ def test_missing_plain_destination_is_not_source_churn(volume, monkeypatch, publ
 
 @pytest.mark.parametrize("error_number", [errno.EACCES, errno.EIO])
 @pytest.mark.parametrize("phase", ["stat", "copy", "comparison", "verify"])
-def test_io_errors_are_not_treated_as_source_churn(volume, monkeypatch, error_number, phase):
+def test_io_errors_are_not_treated_as_source_churn(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch, error_number: int, phase: str
+) -> None:
     app, out, root = volume
     source = put(root, PLAIN)
     live.mirror(app, out)
     before = manifest(out).read_bytes()
     source.write_bytes(b"a longer replacement")
-    fired, copied = [], []
-    stat, copy, digest = Path.stat, live.shutil.copy2, live.sha256
+    fired: list[bool] = []
+    copied: list[bool] = []
+    stat, copy, digest = Path.stat, shutil.copy2, sha256
 
-    def fail():
+    def fail() -> Never:
         fired.append(True)
         raise OSError(error_number, "injected storage failure", str(source))
 
-    def source_stat(path, *args, **kwargs):
+    def source_stat(path: Path, *args: Any, **kwargs: Any) -> os.stat_result:
         if phase == "stat" and path == source:
             fail()
         return stat(path, *args, **kwargs)
 
-    def source_copy(src, dst, *args, **kwargs):
+    def source_copy(src: Any, dst: Any, *args: Any, **kwargs: Any) -> Any:
         if Path(src) == source:
             if phase == "copy":
                 fail()
@@ -315,16 +341,16 @@ def test_io_errors_are_not_treated_as_source_churn(volume, monkeypatch, error_nu
             return result
         return copy(src, dst, *args, **kwargs)
 
-    def source_hash(path, *args, **kwargs):
+    def source_hash(path: str | Path, *args: Any, **kwargs: Any) -> str:
         if phase == "comparison" and Path(path) == source and copied:
             fail()
         if phase == "verify" and Path(path) == out / "agent" / PLAIN:
             fail()
-        return digest(path, *args, **kwargs)
+        return str(digest(path, *args, **kwargs))
 
     with monkeypatch.context() as patcher:
         patcher.setattr(Path, "stat", source_stat)
-        patcher.setattr(live.shutil, "copy2", source_copy)
+        patcher.setattr(shutil, "copy2", source_copy)
         patcher.setattr(live, "sha256", source_hash)
         with pytest.raises((OSError, SystemExit)) as error:
             (live.verify if phase == "verify" else live.mirror)(app, out)
@@ -334,7 +360,9 @@ def test_io_errors_are_not_treated_as_source_churn(volume, monkeypatch, error_nu
     assert manifest(out).read_bytes() == before
 
 
-def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(volume):
+def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(
+    volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
     app, out, root = volume
     source = put(root, PLAIN)
     live.mirror(app, out)
@@ -343,10 +371,10 @@ def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(volume
     context = multiprocessing.get_context("fork")
     parent, child = context.Pipe()
 
-    def worker():
-        copy = live.shutil.copy2
+    def worker() -> None:
+        copy = shutil.copy2
 
-        def interrupted(src, dst, *args, **kwargs):
+        def interrupted(src: Any, dst: Any, *args: Any, **kwargs: Any) -> Any:
             if Path(src) != source:
                 return copy(src, dst, *args, **kwargs)
             with open(dst, "wb") as writer:
@@ -355,7 +383,7 @@ def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(volume
                 child.send(str(dst))
                 child.recv()
 
-        live.shutil.copy2 = interrupted
+        monkeypatch.setattr(shutil, "copy2", interrupted)
         live.mirror(app, out)
 
     process = context.Process(target=worker)

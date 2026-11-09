@@ -16,10 +16,12 @@ then the decision at b + 4h + delta.
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 from ingest import checks
 from ingest.policy import BAR, DELTA, HOLDOUT_START, HOUR, W_END, W_START
 from ingest.store import stores
+from ingest.units import EpochMs
 
 INITIAL = 10_000.0
 THRESHOLD = 1e-4
@@ -27,19 +29,23 @@ VENUE = Path(__file__).resolve().parents[1] / "venue" / "hyperliquid"
 SIZE = 0.008333333333333333  # W0's per-coin weight, 0.1 / |U|, as the literal in kernel/strategies/w0.json
 
 
-def truncate(x, decimals):
+def truncate(x: float, decimals: int) -> float:
     f = 10**decimals
-    return math.trunc(x * f) / f
+    return float(math.trunc(x * f) / f)
 
 
 class Book:
     """Cash-based account, plus an independent average-entry PnL ledger for reconciliation."""
 
-    def __init__(self):
-        self.cash, self.pos = INITIAL, {}
-        self.entry, self.realized, self.fees, self.funding = {}, 0.0, 0.0, 0.0
+    def __init__(self) -> None:
+        self.cash = INITIAL
+        self.pos: dict[str, float] = {}
+        self.entry: dict[str, float] = {}
+        self.realized = 0.0
+        self.fees = 0.0
+        self.funding = 0.0
 
-    def fill(self, coin, qty, price, fee):
+    def fill(self, coin: str, qty: float, price: float, fee: float) -> None:
         old = self.pos.get(coin, 0.0)
         new = old + qty
         if old and (old > 0) != (qty > 0):
@@ -57,21 +63,21 @@ class Book:
         self.cash -= qty * price + fee
         self.fees += fee
 
-    def settle(self, coin, price, rate):
+    def settle(self, coin: str, price: float, rate: float) -> float:
         pay = self.pos.get(coin, 0.0) * price * rate
         self.cash -= pay
         self.funding -= pay
         return pay
 
-    def equity(self, marks):
-        return self.cash + sum(q * marks[c] for c, q in self.pos.items())
+    def equity(self, marks: dict[str, float]) -> float:
+        return float(self.cash + sum(q * marks[c] for c, q in self.pos.items()))
 
-    def reconciled(self, marks):
+    def reconciled(self, marks: dict[str, float]) -> float:
         unrealized = sum(q * (marks[c] - self.entry[c]) for c, q in self.pos.items())
-        return INITIAL + self.realized + unrealized - self.fees + self.funding
+        return float(INITIAL + self.realized + unrealized - self.fees + self.funding)
 
 
-def run(data_root, version, venue=VENUE):
+def run(data_root: str | Path, version: EpochMs, venue: str | Path = VENUE) -> tuple[list[dict[str, Any]], float]:
     root = Path(data_root)
     search, _ = stores(root)
     venue = Path(venue)
@@ -85,15 +91,25 @@ def run(data_root, version, venue=VENUE):
     delisted = {c for c, r in rules["coins"].items() if r["delisted"]}
     listed = checks.listed_intervals(bars, W_START, W_END, delisted)
     intervals = {c: (listed[c][0], min(listed[c][1], HOLDOUT_START)) for c in rules["coins"] if c in listed}
-    bar = {(c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()}
+    bar = {
+        (c, t): r for c, t, *r in bars.select("coin", "openTime", "open", "high", "low", "close", "trades").iter_rows()
+    }
     rate_at = {(c, t): r for c, t, r in funding.select("coin", "eventTime", "fundingRate").iter_rows()}
-    funding_view = {(c, t): (k, r) for c, t, k, r in funding.select("coin", "eventTime", "knownAt", "fundingRate").iter_rows()}
+    funding_view = {
+        (c, t): (k, r) for c, t, k, r in funding.select("coin", "eventTime", "knownAt", "fundingRate").iter_rows()
+    }
     bar_view = {(c, t): (k, r) for c, t, k, r in bars.select("coin", "eventTime", "knownAt", "close").iter_rows()}
 
-    book, trace, worst, orders, marks = Book(), [], 0.0, {}, {}
-    held_coins = lambda: sorted(book.pos, key=list(rules["coins"]).index)
+    book = Book()
+    trace: list[dict[str, Any]] = []
+    worst = 0.0
+    orders: dict[EpochMs, dict[str, float]] = {}
+    marks: dict[str, float] = {}
 
-    def execute(t, coin, qty, ref, why):
+    def held_coins() -> list[str]:
+        return sorted(book.pos, key=list(rules["coins"]).index)
+
+    def execute(t: EpochMs, coin: str, qty: float, ref: float, why: str) -> None:
         side = "buy" if qty > 0 else "sell"
         bps = cost[coin][side]["1000" if abs(qty) * ref <= 1000 else "10000"]
         price = ref * (1 + (bps if side == "buy" else -bps) / 1e4)
@@ -108,13 +124,18 @@ def run(data_root, version, venue=VENUE):
                 if (coin, h) in rate_at and (coin, h - h % BAR) in bar:
                     px = bar[(coin, h - h % BAR)][0]
                     paid = book.settle(coin, px, rate_at[(coin, h)])
-                    trace.append({"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px, "paid": paid})
+                    trace.append(
+                        {"t": h, "type": "funding", "coin": coin, "rate": rate_at[(coin, h)], "price": px, "paid": paid}
+                    )
         for coin in held_coins():
             if (coin, b) in bar:
                 marks[coin] = bar[(coin, b)][3]
         adverse = {c: bar[(c, b)][2] if q > 0 else bar[(c, b)][1] for c, q in book.pos.items() if (c, b) in bar}
         eq_adverse = book.cash + sum(q * adverse.get(c, marks[c]) for c, q in book.pos.items())
-        mm = sum(abs(q) * adverse.get(c, marks[c]) / (2 * min(t["maxLeverage"] for t in rules["coins"][c]["marginTiers"])) for c, q in book.pos.items())
+        mm = sum(
+            abs(q) * adverse.get(c, marks[c]) / (2 * min(t["maxLeverage"] for t in rules["coins"][c]["marginTiers"]))
+            for c, q in book.pos.items()
+        )
         if book.pos and eq_adverse < mm:
             for coin in held_coins():
                 execute(b + BAR, coin, -book.pos[coin], adverse.get(coin, marks[coin]), "liquidation")
@@ -149,16 +170,31 @@ def run(data_root, version, venue=VENUE):
             qty = -held if target == 0.0 else truncate(target - held, rules["coins"][coin]["szDecimals"])
             if qty and (abs(qty) * price >= min_notional or target == 0.0):
                 orders.setdefault(b + 2 * BAR, {})[coin] = qty
-                trace.append({"t": t_d, "type": "decision", "coin": coin, "rate": rate, "price": price, "weight": w,
-                              "qty": qty, "inputs_knownAt": known})
+                trace.append(
+                    {
+                        "t": t_d,
+                        "type": "decision",
+                        "coin": coin,
+                        "rate": rate,
+                        "price": price,
+                        "weight": w,
+                        "qty": qty,
+                        "inputs_knownAt": known,
+                    }
+                )
         b += BAR
     return trace, worst
 
 
-def replay(data_root, version, out, venue=VENUE):
+def replay(data_root: str | Path, version: EpochMs | str, out: str | Path, venue: str | Path = VENUE) -> dict[str, Any]:
     """W0's trace to `out`; returns its summary."""
     trace, worst = run(data_root, int(version), venue)
     Path(out).write_text("\n".join(json.dumps(r) for r in trace) + "\n")
     eq = [r for r in trace if r["type"] == "equity"]
-    return {"steps": len(eq), "final_equity": eq[-1]["equity"], "worst_reconciliation_rel": worst,
-            "fills": sum(r["type"] == "fill" for r in trace), "holds": sum(r["type"] == "hold" for r in trace)}
+    return {
+        "steps": len(eq),
+        "final_equity": eq[-1]["equity"],
+        "worst_reconciliation_rel": worst,
+        "fills": sum(r["type"] == "fill" for r in trace),
+        "holds": sum(r["type"] == "hold" for r in trace),
+    }

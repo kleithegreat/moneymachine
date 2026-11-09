@@ -4,6 +4,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ## Now
 
+- **Code style:** done: every covered Python file passes ruff and `mypy --strict` (`ops/test_style.py`); frozen files join at their next fork.
+
 ### Running, and how to inspect it
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
@@ -11,7 +13,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - `thesis` stopped (0 replicas): `thesis-310449610583` got SIGTERM 2026-11-09 02:57 UTC (2026-11-08 21:57 EST), exited by itself 03:35 UTC (22:35 EST); its window incomplete, never pooled.
   - Job `thesis-prewarm` (`sha256:a2261d4c…`, `thesis-refreeze` `247871b`), started 2026-11-09 03:36 UTC (2026-11-08 22:36 EST): the new code's funding fill on the thesis's 120 weight/min, no token; first pass: 347 listed, 347 cold (paper bound about 6.65 days). Logs `prewarm <market> <n> requests in <s> s`; a pass ends `… still cold` (exit 1, rerun, at most 20) or `none cold` (Job Complete: the readiness report).
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
-  - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
   - prodesk7 also runs test shards, only inside its isolated `mm-tests@` unit (Homelab `mm-test-node`; `CLUSTER.md` §7).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
@@ -19,14 +20,13 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ### Wake-ups (2026-11-08, fallbacks if the advisor's session has closed)
 
-- **Thesis freeze blocked:** round eleven is development only; no freeze or deployment authorized by this build. Argon's missing findings 5–8 and independent review remain owed. Any later authorized freeze needs an image of the exact reviewed head, a dated criteria revision and a new forward window.
+- **thesis freeze** (advisor): when Job `thesis-prewarm` is Complete (failed: read why, fix, reapply), freeze on a day that is not Monday, just after 00:00 UTC (19:00 EST) and before the 00:05 UTC (19:05 EST) cutoff, so the version's first date is that day (frozen before midnight, the old day's sessions are recorded missed): `python ops/live.py apply <digest> thesis-freeze` from `../mm-thesis-rf` on an image built from the head actually frozen (`python ops/live.py push` from that head), not the prewarm image (`sha256:a2261d4c…`, `247871b`). Its log is the manifest record: commit it as `audit/stage10/manifest.json` (`stage 10: new track version thesis-… frozen …`, with the decisions entry), build that commit's image (`python ops/live.py push`), apply `thesis` on it, which runs `thesis-run`, and delete the Jobs `thesis-freeze` and `thesis-prewarm`.
 
 ### Next, in order
 
-- **Paper erasure:** SCORING.md's derivation prose leaves at the refreeze, DSL.md's after the pilot.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`): round eleven committed; authoritative daemon invocations/literal-execution counting, inside-pass retry cutoff, fixed first-pass readiness. Final sharded suite: 2,011 passed, 1 skipped, 19 xfailed, 0 missing of 2,031; T3/PDF rebuilt. Build record: `audit/reviews/2026-11-08-sonnet-refreeze-round7-build.md`, Round eleven; exact proposed (a)/(b): `audit/stage10/criteria-revision-round11-draft.md`. Not freeze-ready; findings 5–8 and independent review pending. No push or deployment by this build.
-- **Stage 7: parked** (the human, 2026-11-08), with slices 1-5 on `stage7` (slice 4 merged at `30db80e` after Argon's re-check, `audit/stage7/slice4-recheck-argon.md`).
-- **Next research step, after the refreeze:** the positive-control study. GPT's design (`positive-controls`): Opus says redesign (`audit/reviews/2026-11-08-opus-positive-controls-design.md`); GPT redesigns after its reset, then Opus and Argon review the criteria.
+- **Paper erasure:** DSL.md's derivation prose leaves after the pilot.
+- **Thesis refreeze** on `thesis-refreeze` (pushed, main merged): round fourteen answered Argon's partial rounds 11-12 review (per-market retries, a saved draft that survives a restart) and made a tool outside PERMITTED fail C10.2 per session (`audit/reviews/2026-11-08-sonnet-refreeze-round7-build.md`). C10.2 is re-derived on record-before-reply (the human, option B). Next: review of rounds 11-14 and the criteria wording as a second dated revision, then the freeze. Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
+- **Next research step, after the refreeze:** the positive-control study (`positive-controls`): GPT reconciled the design (33 agent markets, 402 model-free; agent-real reused); Opus reviews it (2026-11-09), then Argon, then the criteria alone.
 
 1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there; the Lean L1 branch `claude/lean-l1-kernel-defects-h273e5` with it): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
 2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
@@ -34,15 +34,12 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
-Open research question (the human), unblocked now that stage 4 has exited: does memory across campaigns help agents without raising false discoveries? Pre-register first.
-
 ### Finished
 
 - Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
-- **Round-eleven review:** C10.2 and N1 fixes need independent review; Argon findings 5–8 are still missing. T3 and the proposed clauses (a)/(b) now describe the code (`audit/stage10/criteria-revision-round11-draft.md`); no revision is adopted. The shared-client harness fork is recorded, but the frozen stage-3 pin is unchanged, so launch must refuse it until a later reviewed freeze; future campaigns need fresh ids. Initial acquisition/in-flight HTTP/filesystem waits retain timing limits, not a completion guarantee.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
@@ -56,9 +53,9 @@ Open research question (the human), unblocked now that stage 4 has exited: does 
 
 ## Decisions awaiting the human's review
 
-From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
+C10.2 re-derived on daemon-before-reply recording plus the isolation canary (the human chose B, 2026-11-09); building on `thesis-refreeze`.
 
-Round eleven's development choices (`audit/decisions.md`): the shared-client identity fork and literal-only Bash audit; one first-pass readiness time; finality of failures first seen after the retry cutoff. Nothing frozen or deployed; independent review and findings 5–8 remain owed.
+From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
 
 ## Qualifications
 

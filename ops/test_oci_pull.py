@@ -1,9 +1,12 @@
+import contextlib
 import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -11,8 +14,10 @@ from ops.oci.publish import publish
 
 FILTER = Path(__file__).parent / "oci/forward-window.exclude"
 
+type OraclePull = tuple[Path, Path, Path, Callable[..., subprocess.CompletedProcess[str]]]
 
-def test_forward_window_days_are_not_pulled(tmp_path):
+
+def test_forward_window_days_are_not_pulled(tmp_path: Path) -> None:
     src, dst = tmp_path / "src", tmp_path / "dst"
     src.mkdir()
     dst.mkdir()
@@ -29,7 +34,7 @@ def test_forward_window_days_are_not_pulled(tmp_path):
 
 
 @pytest.fixture
-def oracle_pull(tmp_path):
+def oracle_pull(tmp_path: Path) -> OraclePull:
     root, source = tmp_path / "repo", tmp_path / "source"
     scripts, tools = root / "ops/oci", tmp_path / "bin"
     scripts.mkdir(parents=True)
@@ -40,7 +45,6 @@ def oracle_pull(tmp_path):
     base.mkdir(parents=True)
     (base / "host.env").write_text("MM_OCI_ID=000000000001\nMM_OCI_IP=192.0.2.1\n")
     (base / "last-pull").write_text("last-good\n")
-    (root / "PROGRESS.md").write_text("# Progress\n\n## Blockers\n\n- Existing blocker.\n\n## Qualifications\n\nUnchanged.\n")
     for volume in ("live", "clock", "datalayer", "sources_live"):
         (source / volume).mkdir(parents=True)
     destination = base / "000000000001/live"
@@ -49,20 +53,30 @@ def oracle_pull(tmp_path):
         '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> "$RSYNC_ARGS"\n'
         'if [ -n "${RSYNC_ERROR:-}" ]; then printf "%s\\n" "$RSYNC_ERROR" >&2; exit 255; fi\n'
         'args=("$@")\nvolume="${args[-2]%/}"\nvolume="${volume##*/}"\n'
-        'args[-2]="$FAKE_OCI/$volume/"\nexec "$LOCAL_RSYNC" "${args[@]}"\n')
+        'args[-2]="$FAKE_OCI/$volume/"\nexec "$LOCAL_RSYNC" "${args[@]}"\n'
+    )
     (tools / "rsync").chmod(0o755)
 
-    def run(**extra_env):
-        return subprocess.run(["bash", str(scripts / "pull.sh")], capture_output=True, text=True,
-                              env={"PATH": f"{tools}:{os.environ['PATH']}", "HOME": str(tmp_path),
-                                   "FAKE_OCI": str(source), "LOCAL_RSYNC": shutil.which("rsync"),
-                                   "RSYNC_ARGS": str(root / "rsync.args"), **extra_env})
+    def run(**extra_env: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", str(scripts / "pull.sh")],
+            capture_output=True,
+            text=True,
+            env={
+                "PATH": f"{tools}:{os.environ['PATH']}",
+                "HOME": str(tmp_path),
+                "FAKE_OCI": str(source),
+                "LOCAL_RSYNC": shutil.which("rsync") or "rsync",
+                "RSYNC_ARGS": str(root / "rsync.args"),
+                **extra_env,
+            },
+        )
 
     return root, source / "live", destination, run
 
 
 @pytest.mark.parametrize("incoming", [b"A\n", b"A\nC\n", b"A\nC\nD\n"])
-def test_oracle_pull_refuses_a_source_that_does_not_extend_its_copy(oracle_pull, incoming):
+def test_oracle_pull_refuses_a_source_that_does_not_extend_its_copy(oracle_pull: OraclePull, incoming: bytes) -> None:
     root, source, destination, run = oracle_pull
     name = "polls-20261020.jsonl"
     (source / name).write_bytes(incoming)
@@ -76,12 +90,11 @@ def test_oracle_pull_refuses_a_source_that_does_not_extend_its_copy(oracle_pull,
     assert "no longer extends" in result.stderr
     assert (destination / name).read_bytes() == b"A\nB\n"
     assert (root / "data/live-oci/last-pull").read_text() == "last-good\n"
-    report = (root / "PROGRESS.md").read_text()
-    assert "Cloud recorder pull failing" in report and "no longer extends" in report
+    assert not (root / "PROGRESS.md").exists()
 
 
 @pytest.mark.parametrize("incoming", [b"A\nB\n", b"A\nB\nC\n"])
-def test_oracle_pull_accepts_an_identical_or_extended_source(oracle_pull, incoming):
+def test_oracle_pull_accepts_an_identical_or_extended_source(oracle_pull: OraclePull, incoming: bytes) -> None:
     root, source, destination, run = oracle_pull
     name = "polls-20261020.jsonl"
     (source / name).write_bytes(incoming)
@@ -91,16 +104,16 @@ def test_oracle_pull_accepts_an_identical_or_extended_source(oracle_pull, incomi
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert (destination / name).read_bytes() == incoming
-    assert "Cloud recorder pull failing" not in (root / "PROGRESS.md").read_text()
+    assert (root / "data/live-oci/last-pull").read_text() != "last-good\n"
 
 
-def test_oracle_pull_does_not_checksum_history(oracle_pull):
+def test_oracle_pull_does_not_checksum_history(oracle_pull: OraclePull) -> None:
     root, source, destination, run = oracle_pull
     assert run().returncode == 0
     assert "--checksum" not in (root / "rsync.args").read_text().splitlines()
 
 
-def test_publish_does_not_read_unchanged_hard_links(tmp_path, monkeypatch):
+def test_publish_does_not_read_unchanged_hard_links(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     source, destination = tmp_path / "stage", tmp_path / "destination"
     source.mkdir()
     destination.mkdir()
@@ -109,7 +122,7 @@ def test_publish_does_not_read_unchanged_hard_links(tmp_path, monkeypatch):
     (source / target.name).hardlink_to(target)
     original = Path.open
 
-    def refuse_history_read(path, *args, **kwargs):
+    def refuse_history_read(path: Path, *args: Any, **kwargs: Any) -> Any:
         assert path.name != target.name, "unchanged inode was opened for comparison"
         return original(path, *args, **kwargs)
 
@@ -120,7 +133,7 @@ def test_publish_does_not_read_unchanged_hard_links(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("divergent", ["a.jsonl", "b.jsonl", "c.jsonl"])
-def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull, divergent):
+def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull: OraclePull, divergent: str) -> None:
     root, source, destination, run = oracle_pull
     for name in ("a.jsonl", "b.jsonl", "c.jsonl"):
         (destination / name).write_bytes(b"old\n")
@@ -136,47 +149,42 @@ def test_oracle_pull_publishes_healthy_files_despite_one_divergence(oracle_pull,
 
 
 @pytest.mark.parametrize("names", [("a.jsonl", "b.jsonl"), ("a\ncontinuation.jsonl", "b.jsonl")])
-def test_oracle_pull_reports_every_divergence_and_clears_the_blocker_after_recovery(oracle_pull, names):
+def test_oracle_pull_reports_every_divergence_on_one_stderr_line_and_recovers(
+    oracle_pull: OraclePull, names: tuple[str, str]
+) -> None:
     root, source, destination, run = oracle_pull
-    progress = root / "PROGRESS.md"
-    original = progress.read_bytes()
     for name in names:
         (destination / name).write_bytes(b"old\n")
         (source / name).write_bytes(b"divergent\n")
     result = run()
-    report = progress.read_text()
     for name in names:
         (source / name).write_bytes(b"old\nnew\n")
     recovered = run()
 
     assert result.returncode != 0
     assert recovered.returncode == 0, recovered.stderr
-    assert progress.read_bytes() == original
+    assert not (root / "PROGRESS.md").exists()
     assert all(name.replace("\n", " ") in result.stderr for name in names)
     assert result.stderr.count("no longer extends") == 2
     assert len(result.stderr.splitlines()) == 1 and "; " in result.stderr
-    assert len(report.splitlines()) == len(original.decode().splitlines()) + 1
 
 
-def test_oracle_pull_keeps_only_the_last_rsync_error_line_and_recovers(oracle_pull):
+def test_oracle_pull_keeps_only_the_last_rsync_error_line_and_recovers(oracle_pull: OraclePull) -> None:
     root, source, destination, run = oracle_pull
-    progress = root / "PROGRESS.md"
-    original = progress.read_bytes()
     last_line = "rsync error: unexplained error (code 255) at io.c(232) [Receiver=3.4.1]"
     result = run(RSYNC_ERROR=f"ssh: connect to host 192.0.2.1 port 22: Connection timed out\n{last_line}")
-    report = progress.read_text()
+    report = result.stderr
     last_good = (root / "data/live-oci/last-pull").read_text()
     recovered = run()
 
     assert result.returncode != 0 and recovered.returncode == 0
-    assert progress.read_bytes() == original
+    assert not (root / "PROGRESS.md").exists()
     assert "192.0.2.1" not in report + result.stderr
     assert all(f"{volume}: {last_line}" in report for volume in ("live", "clock", "datalayer", "sources_live"))
-    assert len(report.splitlines()) == len(original.decode().splitlines()) + 1
     assert last_good == "last-good\n"
 
 
-def test_publish_replaces_a_recorder_status_file_and_still_refuses_a_diverged_log(tmp_path):
+def test_publish_replaces_a_recorder_status_file_and_still_refuses_a_diverged_log(tmp_path: Path) -> None:
     source, destination = tmp_path / "staged", tmp_path / "copy"
     source.mkdir()
     destination.mkdir()
@@ -190,7 +198,7 @@ def test_publish_replaces_a_recorder_status_file_and_still_refuses_a_diverged_lo
     assert (destination / "day.jsonl").read_text() == "a\nb\n"
 
 
-def test_publish_reports_all_divergences_on_one_line(tmp_path):
+def test_publish_reports_all_divergences_on_one_line(tmp_path: Path) -> None:
     source, destination = tmp_path / "source", tmp_path / "destination"
     source.mkdir()
     destination.mkdir()
@@ -199,12 +207,13 @@ def test_publish_reports_all_divergences_on_one_line(tmp_path):
         (destination / name).write_bytes(b"old\n")
     with pytest.raises(SystemExit) as error:
         publish(source, destination)
-    assert error.value.code == "; ".join(f"{destination / name}: source no longer extends destination"
-                                         for name in ("a.jsonl", "b.jsonl"))
+    assert error.value.code == "; ".join(
+        f"{destination / name}: source no longer extends destination" for name in ("a.jsonl", "b.jsonl")
+    )
 
 
 @pytest.mark.parametrize("kill_first", [False, True])
-def test_overlapping_pulls_preserve_the_longest_history(tmp_path, kill_first):
+def test_overlapping_pulls_preserve_the_longest_history(tmp_path: Path, kill_first: bool) -> None:
     short, long, destination = (tmp_path / name for name in ("short", "long", "destination"))
     for path in (short, long, destination):
         path.mkdir()
@@ -225,17 +234,25 @@ def paused(path, target):
 Path.replace = paused
 module['publish'](sys.argv[2], sys.argv[3])
 """
-    first = subprocess.Popen([sys.executable, "-c", pause, str(publisher), str(short), str(destination)],
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    second = None
+    first = subprocess.Popen(
+        [sys.executable, "-c", pause, str(publisher), str(short), str(destination)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    second: subprocess.Popen[str] | None = None
     try:
+        assert first.stdout is not None
         assert first.stdout.readline() == "before replace\n"
-        second = subprocess.Popen([sys.executable, str(publisher), str(long), str(destination)],
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        try:
+        second = subprocess.Popen(
+            [sys.executable, str(publisher), str(long), str(destination)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        with contextlib.suppress(subprocess.TimeoutExpired):
             second.communicate(timeout=0.5)
-        except subprocess.TimeoutExpired:
-            pass
         if kill_first:
             first.kill()
             first.communicate(timeout=5)
@@ -252,7 +269,7 @@ module['publish'](sys.argv[2], sys.argv[3])
                 proc.communicate()
 
 
-def test_oracle_pull_skips_a_writer_s_transient_tmp_file(oracle_pull):
+def test_oracle_pull_skips_a_writer_s_transient_tmp_file(oracle_pull: OraclePull) -> None:
     """Claude's round 2 review, R7: rsync exits 24 when a listed `.tmp` vanishes before its copy."""
     root, source, destination, run = oracle_pull
     (source.parent / "datalayer/raw").mkdir()

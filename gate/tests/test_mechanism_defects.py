@@ -4,6 +4,8 @@ import json
 import sqlite3
 import struct
 import subprocess
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -16,39 +18,67 @@ DECISION = "audit/decisions.md: the mechanism check's two defects are qualified,
 HUNT = "audit/reviews/2026-11-03-gpt-hunt-gate.md"
 
 
-def arrays(bars):
-    return {**{k: np.full((bars, 2), 100.0) for k in ("open", "high", "low", "close", "volume")},
-            "funding": np.zeros((4 * bars + 1, 2)), "premium": np.zeros((4 * bars + 1, 2))}
+def arrays(bars: int) -> dict[str, Any]:
+    return {
+        **{k: np.full((bars, 2), 100.0) for k in ("open", "high", "low", "close", "volume")},
+        "funding": np.zeros((4 * bars + 1, 2)),
+        "premium": np.zeros((4 * bars + 1, 2)),
+    }
 
 
-def evaluate(mm, market, tmp_path, weight, condition, name="s"):
+def evaluate(
+    mm: Path, market: Path, tmp_path: Path, weight: dict[str, Any], condition: dict[str, Any], name: str = "s"
+) -> tuple[dict[str, Any], list[dict[str, Any]], Path]:
     strategy = tmp_path / f"{name}.json"
-    strategy.write_text(json.dumps({
-        "dsl": 1, "name": name,
-        "mechanism": {"counterparty": "synthetic", "predictions": ["true earns more"], "capacity": "small"},
-        "weight": weight, "prediction": {"condition": condition},
-    }))
+    strategy.write_text(
+        json.dumps(
+            {
+                "dsl": 1,
+                "name": name,
+                "mechanism": {"counterparty": "synthetic", "predictions": ["true earns more"], "capacity": "small"},
+                "weight": weight,
+                "prediction": {"condition": condition},
+            }
+        )
+    )
     ledger, trace = tmp_path / f"{name}.sqlite", tmp_path / f"{name}.jsonl"
-    run = subprocess.run(kernel.command("eval", strategy, "mechanism-defects", "gate", ledger, market,
-                                        "--mechanism", "on", "--trace", str(trace), binary=mm),
-                         capture_output=True, text=True)
+    run = subprocess.run(
+        kernel.command(
+            "eval",
+            strategy,
+            "mechanism-defects",
+            "gate",
+            ledger,
+            market,
+            "--mechanism",
+            "on",
+            "--trace",
+            str(trace),
+            binary=mm,
+        ),
+        capture_output=True,
+        text=True,
+    )
     assert run.returncode == 0, run.stdout + run.stderr
     return json.loads(run.stdout)["disclosure"], [json.loads(line) for line in trace.read_text().splitlines()], ledger
 
 
 @pytest.fixture
-def closing(built_kernel, tmp_path):
+def closing(built_kernel: Path, tmp_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], Path]:
     a = arrays(6)
     a["volume"][0] = 1000
     a["premium"][:] = [1, -1]
-    market = markets.write(tmp_path / "market", a, 0,
-                           {side: {"1000": 10.0, "10000": 10.0} for side in ("buy", "sell")}, taker_fee=0.001)
+    market = markets.write(
+        tmp_path / "market", a, 0, {side: {"1000": 10.0, "10000": 10.0} for side in ("buy", "sell")}, taker_fee=0.001
+    )
     weight = op("if", op("gt", {"input": "volume"}, const(500, "coin")), const(0.1), const(0))
     return evaluate(built_kernel, market, tmp_path, weight, op("gt", {"input": "premium"}, const(0)))
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 1: closing costs omitted")
-def test_mechanism_mean_net_return_includes_closing_fills(closing):
+def test_mechanism_mean_net_return_includes_closing_fills(
+    closing: tuple[dict[str, Any], list[dict[str, Any]], Path],
+) -> None:
     """Two flat-price, one-exposure round trips; both fees and slippage must be netted."""
     disclosure, trace, _ = closing
     result = disclosure["result"]
@@ -74,13 +104,14 @@ def test_mechanism_mean_net_return_includes_closing_fills(closing):
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 2: undefined predictions shrink coverage")
-def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_kernel, tmp_path):
+def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_kernel: Path, tmp_path: Path) -> None:
     """The constant-prediction replay measures all held exposures without changing trading."""
     a = arrays(104)
     a["funding"][:, 0] = -1e-5
     a["premium"][4:8] = [1, -1]
-    market = markets.write(tmp_path / "market", a, 0,
-                           {side: {"1000": 0.0, "10000": 0.0} for side in ("buy", "sell")}, taker_fee=0)
+    market = markets.write(
+        tmp_path / "market", a, 0, {side: {"1000": 0.0, "10000": 0.0} for side in ("buy", "sell")}, taker_fee=0
+    )
     premium = {"input": "premium"}
     undefined_bool = op("gt", op("div", const(1), const(0)), const(0))
     condition = op("if", op("gt", op("abs", premium), const(0)), op("gt", premium, const(0)), undefined_bool)
@@ -88,8 +119,9 @@ def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_
     total, total_trace, _ = evaluate(built_kernel, market, tmp_path, const(0.1), op("gt", const(1), const(0)), "total")
     assert sparse["strategy"] == total["strategy"]
     assert trace == total_trace
-    assert {k: v for k, v in sparse["result"].items() if k != "mechanism"} == \
-        {k: v for k, v in total["result"].items() if k != "mechanism"}
+    assert {k: v for k, v in sparse["result"].items() if k != "mechanism"} == {
+        k: v for k, v in total["result"].items() if k != "mechanism"
+    }
     fills = [e for e in trace if e["type"] == "fill"]
     assert len(fills) == 2 and all(e["t"] == 8 * HOUR and e["qty"] == 10 for e in fills)
     held = 2 * sum(e["type"] == "equity" and e["t"] > 8 * HOUR for e in trace)
@@ -104,7 +136,9 @@ def test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage(built_
 
 
 @pytest.mark.xfail(strict=True, reason=f"{DECISION}; {HUNT} finding 4: REPLACE bypasses append-only triggers")
-def test_separate_connection_cannot_replace_kernel_result(closing):
+def test_separate_connection_cannot_replace_kernel_result(
+    closing: tuple[dict[str, Any], list[dict[str, Any]], Path],
+) -> None:
     _, _, ledger = closing
     with sqlite3.connect(ledger) as db:
         db.execute("PRAGMA recursive_triggers = OFF")
@@ -113,19 +147,25 @@ def test_separate_connection_cannot_replace_kernel_result(closing):
         summary = json.dumps(json.loads(original[2]) | {"total_return": 1.0})
         replacement = (original[0], struct.pack("<100d", *([0.1] * 100)), summary, "replacement")
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-            db.execute("INSERT OR REPLACE INTO results (experiment_id, returns, summary, result_hash) VALUES (?, ?, ?, ?)",
-                       replacement)
+            db.execute(
+                "INSERT OR REPLACE INTO results (experiment_id, returns, summary, result_hash) VALUES (?, ?, ?, ?)",
+                replacement,
+            )
         assert db.execute("SELECT experiment_id, returns, summary, result_hash FROM results").fetchone() == original
 
 
-def test_insert_or_ignore_duplicate_strategy_is_harmless(closing):
+def test_insert_or_ignore_duplicate_strategy_is_harmless(
+    closing: tuple[dict[str, Any], list[dict[str, Any]], Path],
+) -> None:
     _, _, ledger = closing
     with sqlite3.connect(ledger) as db:
         db.execute("PRAGMA recursive_triggers = OFF")
         original = db.execute("SELECT hash, canonical, created FROM strategies").fetchall()
         assert len(original) == 1
         strategy_hash, _, created = original[0]
-        cursor = db.execute("INSERT OR IGNORE INTO strategies (hash, canonical, created) VALUES (?, ?, ?)",
-                            (strategy_hash, "must not overwrite the canonical strategy", created + 1))
+        cursor = db.execute(
+            "INSERT OR IGNORE INTO strategies (hash, canonical, created) VALUES (?, ?, ?)",
+            (strategy_hash, "must not overwrite the canonical strategy", created + 1),
+        )
         assert cursor.rowcount == 0
         assert db.execute("SELECT hash, canonical, created FROM strategies").fetchall() == original

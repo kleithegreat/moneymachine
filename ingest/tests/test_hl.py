@@ -6,10 +6,10 @@ import pytest
 from ingest import hl
 
 
-def test_each_retry_is_charged(monkeypatch):
+def test_each_retry_is_charged(monkeypatch: pytest.MonkeyPatch) -> None:
     replies = iter([429, 500, "timeout", 200])
 
-    def reply(req):
+    def reply(req: httpx.Request) -> httpx.Response:
         r = next(replies)
         if r == "timeout":
             raise httpx.ReadTimeout("timed out", request=req)
@@ -22,7 +22,7 @@ def test_each_retry_is_charged(monkeypatch):
     assert [w for _, w in info.limiter.spent] == [20, 20, 20, 20]
 
 
-def test_an_impossible_charge_is_rejected_without_waiting(monkeypatch):
+def test_an_impossible_charge_is_rejected_without_waiting(monkeypatch: pytest.MonkeyPatch) -> None:
     info = hl.Info(60)
     monkeypatch.setattr(hl.time, "sleep", lambda s: pytest.fail("impossible charge waited"))
     with pytest.raises(ValueError, match="weight"):
@@ -30,12 +30,14 @@ def test_an_impossible_charge_is_rejected_without_waiting(monkeypatch):
 
 
 @pytest.mark.parametrize("body, per_items", [({"type": "fundingHistory"}, 20), ({"type": "candleSnapshot"}, 60)])
-def test_recorder_requests_keep_base_then_actual_item_charging(monkeypatch, body, per_items):
+def test_recorder_requests_keep_base_then_actual_item_charging(
+    monkeypatch: pytest.MonkeyPatch, body: dict[str, str], per_items: int
+) -> None:
     info = hl.Info(360)
-    charged = []
+    charged: list[int] = []
     monkeypatch.setattr(info, "_charge", lambda weight, background=False: charged.append(weight))
 
-    def reply(req):
+    def reply(req: httpx.Request) -> httpx.Response:
         assert charged == [20]
         return httpx.Response(200, json=[{}])
 
@@ -44,13 +46,13 @@ def test_recorder_requests_keep_base_then_actual_item_charging(monkeypatch, body
     assert charged == [20, 0]
 
 
-def test_shared_client_charges_only_returned_items_after_a_full_page(monkeypatch):
+def test_shared_client_charges_only_returned_items_after_a_full_page(monkeypatch: pytest.MonkeyPatch) -> None:
     info = hl.Info(120)
     page = [{"t": i * hl.HOUR} for i in range(4800)]
-    charged = []
+    charged: list[int] = []
     monkeypatch.setattr(info, "_charge", lambda weight, background=False: charged.append(weight))
 
-    def reply(req):
+    def reply(req: httpx.Request) -> httpx.Response:
         assert charged == [20]
         return httpx.Response(200, json=page)
 
@@ -59,10 +61,10 @@ def test_shared_client_charges_only_returned_items_after_a_full_page(monkeypatch
     assert charged == [20, 80]
 
 
-def test_shared_client_does_not_retry_a_malformed_successful_response(monkeypatch):
-    calls = []
+def test_shared_client_does_not_retry_a_malformed_successful_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[httpx.Request] = []
 
-    def reply(req):
+    def reply(req: httpx.Request) -> httpx.Response:
         calls.append(req)
         return httpx.Response(200, text="{torn") if len(calls) == 1 else httpx.Response(200, json=[])
 

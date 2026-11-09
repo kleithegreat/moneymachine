@@ -1,0 +1,73 @@
+"""P2: a Monday core-listing outage that heals at 04:46 UTC (23:46 EST) leaves the date with no snapshot all day.
+Run from the review worktree root: TMPDIR=/tmp nix develop -c python <this file>."""
+import sys
+import tempfile
+import threading
+from pathlib import Path
+from types import SimpleNamespace
+
+import httpx
+
+sys.path.insert(0, ".")
+from ingest.policy import DAY, HOUR  # noqa: E402
+from thesis import runner  # noqa: E402
+from thesis.tests.test_runner import MONDAY, FakeMarket  # noqa: E402
+
+clock = [0]
+runner.now_ms = lambda: clock[0]
+HEAL = MONDAY + 4 * HOUR + 46 * 60_000
+
+
+class Outage(FakeMarket):
+    def universe(self, dex=None, *, background=False):
+        if clock[0] < HEAL:
+            raise httpx.ConnectError("venue down")
+        return super().universe(dex)
+
+
+track = object.__new__(runner.Track)
+track.root, track.draft, track.stop, track.market = Path(tempfile.mkdtemp()), None, threading.Event(), Outage(MONDAY + 40 * DAY)
+track.ledger = SimpleNamespace(theses=lambda account: [])
+attested = None
+for minute in range(5, 24 * 60):
+    clock[0] = MONDAY + minute * 60_000
+    try:
+        snap = track.snapshot(MONDAY + runner.SNAPSHOT_OFFSET)
+    except httpx.HTTPError:
+        continue
+    if snap is not None:
+        attested = minute
+        break
+print("venue healed at 04:46 UTC (23:46 EST); snapshot returned at minute", attested, "(None: never, so the Monday batch is 'no attested snapshot')")
+
+
+# (b) the outage heals at 04:30 UTC (23:30 EST); the first complete read of the date then runs as a "retry" pass and is cut at 04:45 UTC (23:45 EST).
+HEAL = MONDAY + 4 * HOUR + 30 * 60_000
+
+
+class SlowAfterOutage(Outage):
+    def universe(self, dex=None, *, background=False):
+        if clock[0] < HEAL:
+            raise httpx.ConnectError("venue down")
+        return {m: False for m in (*runner.BENCHMARK, *(f"A{i:02}" for i in range(20)))}
+
+    def listings_at(self, at):
+        return at - HOUR, {m: False for m in runner.BENCHMARK}
+
+    def bars(self, market, interval, now=None):
+        clock[0] += 30_000
+        return super().bars(market, interval, now)
+
+
+track.draft, track.market, clock[0] = None, SlowAfterOutage(MONDAY + 40 * DAY), 0
+for minute in range(5, 24 * 60):
+    clock[0] = max(clock[0], MONDAY + minute * 60_000)
+    try:
+        snap = track.snapshot(MONDAY + runner.SNAPSHOT_OFFSET)
+    except httpx.HTTPError:
+        continue
+    if snap is not None:
+        break
+print("(b) healed 04:30 UTC (23:30 EST): attested benchmark markets failed:",
+      {m: snap["failed"].get(m) for m in runner.BENCHMARK if m in snap["failed"]})
+print("    benchmark reason for xyz:GOLD:", runner.unbenchmarkable(snap, "xyz:GOLD", []), "| attested at", (clock[0] - MONDAY) / HOUR, "h")

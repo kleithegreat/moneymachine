@@ -1,8 +1,8 @@
 """C6.4: `mm` against the Lean reference kernel `refmm` on a frozen corpus (audit/criteria.md, stage 6).
 
 `run` takes the corpus frozen in `audit/stage6/differential-corpus.jsonl` (its generator and freeze are in git at
-the manifest's commit). It rebuilds every market from the manifest and checks each against its frozen hash (store and venue). It
-then compares every program's verdict, and every run through `mmdump` (mm's own loader, simulator and
+the manifest's commit). It rebuilds every market from the manifest and checks each against its frozen hash (store and
+venue). It then compares every program's verdict, and every run through `mmdump` (mm's own loader, simulator and
 machine) and `refmm`. A run's output is the trace, returns, gross returns, each node's static type and the count of
 defined node values, every float as its bits, and a stream file holding every node's value (definedness and
 bits) for every coin at every tick of the machine's schedule, a replay of that schedule beside the simulator
@@ -16,8 +16,10 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -34,28 +36,36 @@ EVENT_COINS = [0, 4, 7]
 FLOATS = {"decision": (3, 4), "fill": (3, 5, 10, 11, 12), "unfilled": (3,), "funding": (3, 4, 5), "equity": (2, 3)}
 MANIFEST, CORPUS = "differential-manifest.json", "differential-corpus.jsonl"
 
+Json = dict[str, Any]
+Divergence = dict[str, tuple[Any, ...]]
 
-def sha(text):
+
+def sha(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def build():
+def build() -> None:
     kernel.build()
     subprocess.run(["lake", "build"], cwd=REPO / "reference/lean", check=True, capture_output=True)
     subprocess.run(["cargo", "build", "--release", "--offline", "-q"], cwd=REPO / "reference/mmdump", check=True)
 
 
-def null_market(root, model, seed):
+def null_market(root: Path, model: str, seed: int) -> Path:
     params = markets.null_params()
-    ev = {"arrays": np.random.default_rng(seed).poisson(2.0, (24 * 60, len(EVENT_COINS))).astype(float),
-          "coins": EVENT_COINS, "block_hours": 24}
+    ev = {
+        "arrays": np.random.default_rng(seed).poisson(2.0, (24 * 60, len(EVENT_COINS))).astype(float),
+        "coins": EVENT_COINS,
+        "block_hours": 24,
+    }
     arrays = markets.generate(model, params.get(model), f"differential-{model}-{seed}", DAYS, events=ev)
-    return markets.write(root, arrays, 0, markets.FLAT_COST)
+    written: Path = markets.write(root, arrays, 0, markets.FLAT_COST)
+    return written
 
 
-def market_hash(root):
+def market_hash(root: Path) -> str:
     """Of every file of the market: the store, its policy and the venue's rules and execution model. The `version`
-    pin, which markets gained after the corpus froze, is left out: it names the store version, whose files are hashed."""
+    pin, which markets gained after the corpus froze, is left out: it names the store version, whose files are
+    hashed."""
     h = hashlib.sha256()
     for f in sorted(Path(root).rglob("*")):
         if f.is_file() and f.relative_to(root) != Path("version"):
@@ -64,15 +74,19 @@ def market_hash(root):
     return h.hexdigest()
 
 
-def expected():
+def expected() -> dict[str, list[str]]:
     """name -> markets of every corpus item but the generated programs."""
     out = {"W0": list(NULLS)} | {f"probe-{p['name']}": list(NULLS) for p in probes.probes(True)}
     out |= {f"case-{k}": ms for k, _, ms in edge_markets.cases(NULLS)}
     out |= {f"reject-{k}": [] for k in edge_markets.rejections()}
-    return out | {f"adversarial-{f.stem}": [] for d in ("adversarial", "admitted") for f in sorted((REPO / "kernel/tests" / d).glob("*.case"))}
+    return out | {
+        f"adversarial-{f.stem}": []
+        for d in ("adversarial", "admitted")
+        for f in sorted((REPO / "kernel/tests" / d).glob("*.case"))
+    }
 
 
-def complete(items, generated_n, minimum=1000):
+def complete(items: Sequence[Json], generated_n: int, minimum: int = 1000) -> list[str]:
     """What the corpus lacks against C6.4's list, or []: every expected item on exactly its markets, all
     `generated_n` generated programs on every null market, and at least `minimum` (0 for a development run) of
     them distinct (both sides of a rewrite instance can coincide)."""
@@ -86,21 +100,21 @@ def complete(items, generated_n, minimum=1000):
     return missing
 
 
-def markets_of(seed, work):
+def markets_of(seed: int, work: Path) -> dict[str, Path]:
     roots = {m: null_market(work / m, m, seed) for m in NULLS}
     roots |= {m: f(work / m) for m, f in edge_markets.MARKETS.items()}
     return roots
 
 
-def verdict_mm(path):
+def verdict_mm(path: Path) -> str:
     r = subprocess.run([str(kernel.MM), "check", str(path)], capture_output=True, text=True)
     d = json.loads((r.stdout + r.stderr).strip().splitlines()[-1])
     return "ok" if d.get("ok") else d["code"]
 
 
-def divergence(a, b):
+def divergence(a: Json, b: Json) -> Divergence:
     """The first discrete and the first numeric divergence between two runs, as (field, index, mm, ref)."""
-    first = {}
+    first: Divergence = {}
     for key in sorted(set(a) | set(b)):
         if key in ("trace", "returns", "gross_returns", "nodes"):
             continue
@@ -109,7 +123,10 @@ def divergence(a, b):
     ta, tb = a.get("trace", []), b.get("trace", [])
     for i, (x, y) in enumerate(zip(ta, tb)):
         fl = FLOATS.get(x[0], ()) if x[0] == y[0] else ()
-        if "discrete" not in first and (len(x) != len(y) or [v for j, v in enumerate(x) if j not in fl] != [v for j, v in enumerate(y) if j not in fl]):
+        if "discrete" not in first and (
+            len(x) != len(y)
+            or [v for j, v in enumerate(x) if j not in fl] != [v for j, v in enumerate(y) if j not in fl]
+        ):
             first["discrete"] = ("trace", i, x, y)
         if "numeric" not in first and fl and [x[j] for j in fl] != [y[j] for j in fl]:
             first["numeric"] = ("trace", i, x, y)
@@ -117,9 +134,9 @@ def divergence(a, b):
         first.setdefault("discrete", ("trace length", min(len(ta), len(tb)), len(ta), len(tb)))
     for key in ("returns", "gross_returns"):
         xs, ys = a.get(key, []), b.get(key, [])
-        i = next((i for i, (x, y) in enumerate(zip(xs, ys)) if x != y), None)
-        if i is not None:
-            first.setdefault("numeric", (key, i, xs[i], ys[i]))
+        at = next((i for i, (x, y) in enumerate(zip(xs, ys)) if x != y), None)
+        if at is not None:
+            first.setdefault("numeric", (key, at, xs[at], ys[at]))
         if len(xs) != len(ys):
             first.setdefault("discrete", (f"{key} length", min(len(xs), len(ys)), len(xs), len(ys)))
     if a.get("nodes") != b.get("nodes"):
@@ -127,14 +144,15 @@ def divergence(a, b):
     return first
 
 
-def stream_divergence(sa, sb, nodes, coins):
+def stream_divergence(sa: Path, sb: Path, nodes: int, coins: int) -> Divergence:
     """The first discrete (definedness) and first numeric (bits) difference between two stream files, as
     (field, (tick, node, coin), mm, ref)."""
-    first, xs, ys = {}, Path(sa).read_bytes(), Path(sb).read_bytes()
+    first: Divergence = {}
+    xs, ys = Path(sa).read_bytes(), Path(sb).read_bytes()
     i = j = k = 0
     while i < len(xs) and j < len(ys) and len(first) < 2:
-        x = None if xs[i] == 0 else xs[i + 1:i + 9].hex()
-        y = None if ys[j] == 0 else ys[j + 1:j + 9].hex()
+        x = None if xs[i] == 0 else xs[i + 1 : i + 9].hex()
+        y = None if ys[j] == 0 else ys[j + 1 : j + 9].hex()
         at = (k // (nodes * coins), k // coins % nodes, k % coins)
         if (x is None) != (y is None):
             first.setdefault("discrete", ("node definedness", at, x, y))
@@ -146,9 +164,9 @@ def stream_divergence(sa, sb, nodes, coins):
     return first
 
 
-def coverage(run):
+def coverage(run: Json) -> dict[str, int]:
     """Event counts of one run, defined node values, and an abort under its code."""
-    c = {f"abort {run['abort']}": 1} if "abort" in run else {}
+    c: dict[str, int] = {f"abort {run['abort']}": 1} if "abort" in run else {}
     for e in run.get("trace", []):
         k = e[1] if e[0] == "fill" else e[0]
         c[k] = c.get(k, 0) + 1
@@ -160,18 +178,24 @@ def coverage(run):
 CHUNK = 64
 
 
-def chunk(names, texts, market, root, version, tmp):
+def chunk(
+    names: Sequence[str], texts: Sequence[str], market: str, root: Path, version: int | str, tmp: Path
+) -> list[tuple[str, str, bool, Divergence, dict[str, int]]]:
     """Run programs on one market through both kernels, each loading the market once; per program, (name, market,
     agreed, first divergences, coverage)."""
     d = Path(tempfile.mkdtemp(dir=tmp))
-    paths = []
+    paths: list[Path] = []
     for i, text in enumerate(texts):
         paths.append(d / f"p{i}.json")
         paths[-1].write_text(text)
     (d / "list").write_text("".join(f"{p}\n" for p in paths))
     (d / "a").mkdir()
     (d / "b").mkdir()
-    subprocess.run([str(DUMP), d / "list", root / "store", root / "venue", str(version), d / "mk.json", d / "a"], check=True, capture_output=True)
+    subprocess.run(
+        [str(DUMP), d / "list", root / "store", root / "venue", str(version), d / "mk.json", d / "a"],
+        check=True,
+        capture_output=True,
+    )
     subprocess.run([str(REF), "run", d / "list", d / "mk.json", d / "b"], check=True, capture_output=True)
     coins = len(json.loads((d / "mk.json").read_text())["venue"]["sz_decimals"])
     out = []
@@ -181,7 +205,11 @@ def chunk(names, texts, market, root, version, tmp):
         same = sa.exists() == sb.exists() and (not sa.exists() or filecmp.cmp(sa, sb, shallow=False))
         first = divergence(a, b) if a != b else {}
         if not same:
-            first |= stream_divergence(sa, sb, len(a["types"]), coins) if sa.exists() and sb.exists() else {"discrete": ("stream file", 0, sa.exists(), sb.exists())}
+            first |= (
+                stream_divergence(sa, sb, len(a["types"]), coins)
+                if sa.exists() and sb.exists()
+                else {"discrete": ("stream file", 0, sa.exists(), sb.exists())}
+            )
         out.append((name, market, a == b and same, first, coverage(a)))
     shutil.rmtree(d)
     return out
@@ -193,14 +221,14 @@ def chunk(names, texts, market, root, version, tmp):
 CHUNK_BYTES, CHECK_BYTES = 700_000_000, 250_000_000
 
 
-def verdict(i, it, work):
+def verdict(i: int, it: Json, work: Path) -> Json:
     f = work / "checks" / f"{i}.json"
     f.write_text(it["program"])
     ref = subprocess.run([str(REF), "check", str(f)], capture_output=True, text=True).stdout.strip()
     return {"i": i, "name": it["name"], "mm": verdict_mm(f), "ref": ref}
 
 
-def run(out, audit=AUDIT):
+def run(out: str | Path, audit: str | Path = AUDIT) -> Json:
     """The judged run on the frozen manifest; writes the report to `out`. Resumable: each verdict and each chunk's runs
     are recorded under `<out>.d/` as they finish, and a rerun skips what is recorded; pools are sized by memory."""
     from gate import campaign, compute
@@ -220,44 +248,69 @@ def run(out, audit=AUDIT):
             raise ValueError(f"market {m} does not rebuild as frozen")
     done = Path(f"{out}.d")
     (done / "chunks").mkdir(parents=True, exist_ok=True)
-    by_market = {}
+    by_market: dict[str, list[Json]] = {}
     for it in items:
         for m in it["markets"]:
             by_market.setdefault(m, []).append(it)
-    chunks = [(f"{m}-{k}", m, its[i:i + CHUNK]) for m, its in by_market.items() for k, i in enumerate(range(0, len(its), CHUNK))]
+    chunks = [
+        (f"{m}-{k}", m, its[i : i + CHUNK])
+        for m, its in by_market.items()
+        for k, i in enumerate(range(0, len(its), CHUNK))
+    ]
 
-    def run_chunk(c):
+    def check(indexed: tuple[int, Json]) -> Json:
+        return verdict(*indexed, work)
+
+    def run_chunk(c: tuple[str, str, list[Json]]) -> None:
         key, m, its = c
-        rs = chunk([it["name"] for it in its], [it["program"] for it in its], m, roots[m], manifest["markets"][m]["version"], work)
+        rs = chunk(
+            [it["name"] for it in its],
+            [it["program"] for it in its],
+            m,
+            roots[m],
+            manifest["markets"][m]["version"],
+            work,
+        )
         (done / "chunks" / f"{key}.tmp").write_text(json.dumps(rs))
         (done / "chunks" / f"{key}.tmp").rename(done / "chunks" / f"{key}.json")
 
     with campaign.exclusive(done / "verdicts.jsonl") as fh:
         seen = {json.loads(l)["i"] for l in open(done / "verdicts.jsonl")}
         with ThreadPoolExecutor(compute.workers(CHECK_BYTES)) as pool:
-            for v in pool.map(lambda x: verdict(*x, work), [(i, it) for i, it in enumerate(items) if i not in seen]):
+            for v in pool.map(check, [(i, it) for i, it in enumerate(items) if i not in seen]):
                 fh.write(json.dumps(v) + "\n")
                 fh.flush()
         with ThreadPoolExecutor(compute.workers(CHUNK_BYTES)) as pool:
             list(pool.map(run_chunk, [c for c in chunks if not (done / "chunks" / f"{c[0]}.json").exists()]))
         found = {v["i"]: v for v in map(json.loads, open(done / "verdicts.jsonl"))}
     shutil.rmtree(work)
-    verdicts, codes = [], {}
+    verdicts: list[Json] = []
+    codes: dict[str, int] = {}
     for i in range(len(items)):
         v = found[i]
         codes[v["mm"]] = codes.get(v["mm"], 0) + 1
         if v["ref"] != v["mm"]:
             verdicts.append({"name": v["name"], "mm": v["mm"], "ref": v["ref"]})
     results = [r for key, _, _ in chunks for r in json.loads((done / "chunks" / f"{key}.json").read_text())]
-    total = {}
+    total: dict[str, int] = {}
     for *_, cov in results:
         for k, v in cov.items():
             total[k] = total.get(k, 0) + v
     failures = [{"name": n, "market": m, "first": d} for n, m, ok, d, _ in results if not ok]
     missing = complete(items, manifest["generated"], manifest["minimum"])
-    report = {"manifest_sha256": sha((audit / MANIFEST).read_text()), "programs": len(items),
-              "verdict_disagreements": verdicts, "verdict_codes": codes, "runs": len(results),
-              "run_disagreements": failures, "coverage": total, "corpus_missing": missing,
-              "pass": not verdicts and not failures and not missing}
+    report = {
+        "manifest_sha256": sha((audit / MANIFEST).read_text()),
+        "programs": len(items),
+        "verdict_disagreements": verdicts,
+        "verdict_codes": codes,
+        "runs": len(results),
+        "run_disagreements": failures,
+        "coverage": total,
+        "corpus_missing": missing,
+        "pass": not verdicts and not failures and not missing,
+    }
     Path(out).write_text(json.dumps(report, indent=1) + "\n")
-    return {k: report[k] for k in ("programs", "runs", "pass")} | {"verdict_disagreements": len(verdicts), "run_disagreements": len(failures)}
+    return {k: report[k] for k in ("programs", "runs", "pass")} | {
+        "verdict_disagreements": len(verdicts),
+        "run_disagreements": len(failures),
+    }

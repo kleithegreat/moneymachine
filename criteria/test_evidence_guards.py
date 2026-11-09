@@ -1,4 +1,5 @@
 import copy
+from typing import Any
 
 import pytest
 
@@ -6,23 +7,53 @@ from criteria import test_stages3to5 as stages
 from gate.agent import campaigns
 
 
-@pytest.mark.parametrize("defect", ["mismatch", "outside", "missing_agent", "missing_campaign", "no_audit", "agent_over_budget",
-                                    "missing_budget", "evidence_fails", "crashed_after_data", "missing_evidence",
-                                    "two_unresolved_called_pass", "all_not_established_called_pass", "unknown_class",
-                                    "no_trials", "one_active_agent", "no_history", "one_campaign_short", "hidden_unresolved"])
-def test_swarm_evidence_rejects_a_summary_v3_does_not_support(monkeypatch, defect):
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "mismatch",
+        "outside",
+        "missing_agent",
+        "missing_campaign",
+        "no_audit",
+        "agent_over_budget",
+        "missing_budget",
+        "evidence_fails",
+        "crashed_after_data",
+        "missing_evidence",
+        "two_unresolved_called_pass",
+        "all_not_established_called_pass",
+        "unknown_class",
+        "no_trials",
+        "one_active_agent",
+        "no_history",
+        "one_campaign_short",
+        "hidden_unresolved",
+    ],
+)
+def test_swarm_evidence_rejects_a_summary_v3_does_not_support(monkeypatch: pytest.MonkeyPatch, defect: str) -> None:
     ids = campaigns.cohort("swarm")[0]
     good = {"match": True, "outside_permitted": []}
     names = [f"A{i + 1}" for i in range(4)]
-    summary = {"n": 10, "ids": ids, "classes": dict.fromkeys(ids, "established"), "verdict": "pass",
-               "statement": campaigns.SMOKE["swarm"], "trials": dict.fromkeys(ids, 3), "history": dict.fromkeys(ids, True),
-               "evidence": {c: {a: {"holds": True, "received": True, "crashed": False} for a in names} for c in ids},
-               "evaluations_by_agent": {c: dict.fromkeys(names, 100) for c in ids},
-               "audits": {c: {a: copy.deepcopy(good) for a in names} for c in ids}}
+    summary: dict[str, Any] = {
+        "n": 10,
+        "ids": ids,
+        "classes": dict.fromkeys(ids, "established"),
+        "verdict": "pass",
+        "statement": campaigns.SMOKE["swarm"],
+        "trials": dict.fromkeys(ids, 3),
+        "history": dict.fromkeys(ids, True),
+        "evidence": {c: {a: {"holds": True, "received": True, "crashed": False} for a in names} for c in ids},
+        "evaluations_by_agent": {c: dict.fromkeys(names, 100) for c in ids},
+        "audits": {c: {a: copy.deepcopy(good) for a in names} for c in ids},
+    }
     monkeypatch.setattr(stages, "load", lambda _: summary)
     stages.test_c45_swarm_smoke()
     last = ids[-1]
-    audits, evidence, evaluations = summary["audits"][last], summary["evidence"][last], summary["evaluations_by_agent"][last]
+    audits, evidence, evaluations = (
+        summary["audits"][last],
+        summary["evidence"][last],
+        summary["evaluations_by_agent"][last],
+    )
     if defect == "mismatch":
         audits["A4"]["match"] = False
     elif defect == "outside":

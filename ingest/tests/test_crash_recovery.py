@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import random
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -20,26 +21,29 @@ MODULE = __name__
 SEEDS = (7, 29, 101, 307)
 
 
-def observation(i):
+def observation(i: int) -> dict[str, Any]:
     return {"seq": i, "sent": 0, "recv": 0, "data": "é🦉" * 200_000}
 
 
-def body(i):
+def body(i: int) -> bytes:
     return random.Random(i).randbytes(300_000)
 
 
-def poll(root, i):
+def poll(root: Path, i: int) -> dict[str, Any]:
     with httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=body(i)))) as http:
-        return datalayer.poll(http, {"name": f"feed-{i}", "url": f"https://example.invalid/{i}"}, root, {})
+        record: dict[str, Any] = datalayer.poll(
+            http, {"name": f"feed-{i}", "url": f"https://example.invalid/{i}"}, root, {}
+        )
+    return record
 
 
-def worker(root, interactive):
+def worker(root: Path, interactive: bool) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
     if mode in ("live", "record"):
         prefix = "observations" if mode == "live" else "polls"
         done = {row["seq"] for row in live.read(root, prefix)}
-        record.Info = lambda budget: None
+        pytest.MonkeyPatch().setattr(record, "Info", lambda budget: None)
         recorder = record.Recorder(480, [], root) if mode == "record" else None
         for i in range(COUNT):
             if i in done:
@@ -63,7 +67,7 @@ def worker(root, interactive):
 
 @pytest.mark.parametrize("mode", ["live", "record", "datalayer", "repair"])
 @pytest.mark.parametrize("seed", SEEDS)
-def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path, mode, seed):
+def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path: Path, mode: str, seed: int) -> None:
     (tmp_path / "mode").write_text(mode)
     if mode == "repair":
         (tmp_path / "raw").mkdir()
@@ -80,7 +84,7 @@ def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path, mode,
     assert set(acks) <= set(indices)
     recover(MODULE, tmp_path)
     rows = list(live.read(tmp_path, prefix))
-    assert rows[:len(before)] == before
+    assert rows[: len(before)] == before
     assert all(path.read_bytes().startswith(raw) for path, raw in history.items())
     if prefix != "datalayer":
         assert rows == [observation(i) for i in range(COUNT)]

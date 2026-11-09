@@ -7,6 +7,8 @@ import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -14,19 +16,21 @@ import pytest
 from ingest import datalayer, live
 
 
-def test_every_declared_feed_has_certified_terms():
+def test_every_declared_feed_has_certified_terms() -> None:
     assert datalayer.feeds()["feeds"]
 
 
-def test_a_feed_without_certified_terms_is_refused(tmp_path):
-    spec = {"user_agent": "x", "feeds": [{"name": "x", "source": "ecb", "every_h": 1,
-                                          "url": "https://example.org/data"}]}
+def test_a_feed_without_certified_terms_is_refused(tmp_path: Path) -> None:
+    spec = {
+        "user_agent": "x",
+        "feeds": [{"name": "x", "source": "ecb", "every_h": 1, "url": "https://example.org/data"}],
+    }
     (tmp_path / "f.json").write_text(json.dumps(spec))
     with pytest.raises(PermissionError):
         datalayer.feeds(tmp_path / "f.json")
 
 
-def test_poll_keeps_the_body_content_addressed_with_its_times(tmp_path):
+def test_poll_keeps_the_body_content_addressed_with_its_times(tmp_path: Path) -> None:
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b"<data/>")))
     feed = {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}
     rec = datalayer.poll(http, feed, tmp_path)
@@ -36,9 +40,11 @@ def test_poll_keeps_the_body_content_addressed_with_its_times(tmp_path):
     assert datalayer.last_polls(tmp_path) == {"ecb-exr": rec["sent"]}
 
 
-def test_discover_fetches_the_index_then_the_release_it_names(tmp_path):
-    bodies = {"/gdeltv2/lastupdate.txt": b"1 ab http://data.gdeltproject.org/gdeltv2/20261023184500.export.CSV.zip\n",
-              "/gdeltv2/20261023184500.export.CSV.zip": b"zip"}
+def test_discover_fetches_the_index_then_the_release_it_names(tmp_path: Path) -> None:
+    bodies = {
+        "/gdeltv2/lastupdate.txt": b"1 ab http://data.gdeltproject.org/gdeltv2/20261023184500.export.CSV.zip\n",
+        "/gdeltv2/20261023184500.export.CSV.zip": b"zip",
+    }
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=bodies[req.url.path])))
     feed = next(f for f in datalayer.feeds()["feeds"] if f["name"] == "gdelt-events")
     rec = datalayer.poll(http, feed, tmp_path)
@@ -48,33 +54,53 @@ def test_discover_fetches_the_index_then_the_release_it_names(tmp_path):
     assert set(datalayer.last_polls(tmp_path)) == {"gdelt-events"}
 
 
-def test_a_discovered_url_without_certified_terms_is_refused(tmp_path):
+def test_a_discovered_url_without_certified_terms_is_refused(tmp_path: Path) -> None:
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b"x")))
-    feed = {"name": "x", "source": "gdelt", "every_h": 1,
-            "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"}}
+    feed = {
+        "name": "x",
+        "source": "gdelt",
+        "every_h": 1,
+        "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"},
+    }
     with pytest.raises(PermissionError):
         datalayer.poll(http, feed, tmp_path)
 
 
-def test_a_credential_is_sent_but_never_logged(tmp_path):
-    seen = []
-    http = httpx.Client(transport=httpx.MockTransport(lambda req: seen.append(req) or httpx.Response(200, content=b"{}")))
-    feed = {"name": "k", "url": "https://api.example.org/v1/x?series=A", "every_h": 1,
-            "auth": {"param": "api_key", "env": "K"}}
+def test_a_credential_is_sent_but_never_logged(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"{}")
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
+    feed = {
+        "name": "k",
+        "url": "https://api.example.org/v1/x?series=A",
+        "every_h": 1,
+        "auth": {"param": "api_key", "env": "K"},
+    }
     rec = datalayer.poll(http, feed, tmp_path, {"K": "s3cret"})
     assert seen[0].url.params["api_key"] == "s3cret" and seen[0].url.params["series"] == "A"
-    ua = {"name": "u", "url": "https://api.example.org/v1/y", "every_h": 1, "auth": {"header": "User-Agent", "env": "U"}}
+    ua = {
+        "name": "u",
+        "url": "https://api.example.org/v1/y",
+        "every_h": 1,
+        "auth": {"header": "User-Agent", "env": "U"},
+    }
     datalayer.poll(http, ua, tmp_path, {"U": "Name name@example.org"})
     assert seen[1].headers["User-Agent"] == "Name name@example.org"
     echo = {"name": "e", "url": "https://api.example.org/v1/z", "every_h": 1, "auth": {"param": "key", "env": "K"}}
-    echoed = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b'{"UserID": "s3cret"}')))
+    echoed = httpx.Client(
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b'{"UserID": "s3cret"}'))
+    )
     stored = datalayer.body(tmp_path, datalayer.poll(echoed, echo, tmp_path, {"K": "s3cret"})["sha256"])
     assert stored == b'{"UserID": "<credential>"}'
     logged = "".join(p.read_text() for p in tmp_path.glob("datalayer-*.jsonl"))
     assert "s3cret" not in logged and "name@example.org" not in logged and rec["url"] == feed["url"]
 
 
-def test_secrets_reads_name_value_lines(tmp_path):
+def test_secrets_reads_name_value_lines(tmp_path: Path) -> None:
     (tmp_path / "k.env").write_text("# keys\nA=1\n\nB=x=y\n")
     assert datalayer.secrets(tmp_path / "k.env") == {"A": "1", "B": "x=y"}
 
@@ -100,17 +126,19 @@ while True:
 """
 
 
-def fetch_again(out):
+def fetch_again(out: Path) -> dict[str, Any]:
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=BODY)))
-    return datalayer.poll(http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}, out)
+    feed = {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}
+    record: dict[str, Any] = datalayer.poll(http, feed, out)
+    return record
 
 
-def test_a_body_write_that_fails_leaves_nothing_a_later_poll_of_the_same_body_reuses(tmp_path):
+def test_a_body_write_that_fails_leaves_nothing_a_later_poll_of_the_same_body_reuses(tmp_path: Path) -> None:
     assert subprocess.run([sys.executable, "-c", FETCH, str(tmp_path), "4096"]).returncode == 3
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
 
 
-def test_a_recorder_killed_while_writing_a_body_leaves_every_logged_body_readable(tmp_path):
+def test_a_recorder_killed_while_writing_a_body_leaves_every_logged_body_readable(tmp_path: Path) -> None:
     child = subprocess.Popen([sys.executable, "-c", FETCH, str(tmp_path), "0"])
     raw = tmp_path / "raw"
     while not raw.exists():
@@ -122,7 +150,7 @@ def test_a_recorder_killed_while_writing_a_body_leaves_every_logged_body_readabl
     assert all(datalayer.body(tmp_path, p["sha256"]) == BODY for p in live.read(tmp_path, "datalayer"))
 
 
-def test_a_torn_log_line_does_not_stop_a_restart(tmp_path):
+def test_a_torn_log_line_does_not_stop_a_restart(tmp_path: Path) -> None:
     rec = fetch_again(tmp_path)
     log = next(tmp_path.glob("datalayer-*.jsonl"))
     with open(log, "a") as f:
@@ -131,7 +159,7 @@ def test_a_torn_log_line_does_not_stop_a_restart(tmp_path):
 
 
 # GPT's review of the bundle (audit/reviews/2026-11-02-gpt-thesis-fixes.md), F8: a body the old writer damaged.
-def damaged_on_disk(out):
+def damaged_on_disk(out: Path) -> tuple[Path, bytes]:
     """The body's final .gz as the old writer's killed run could leave it, with the bytes it holds."""
     raw = out / "raw" / f"{hashlib.sha256(BODY).hexdigest()}.gz"
     raw.parent.mkdir(parents=True)
@@ -140,26 +168,32 @@ def damaged_on_disk(out):
     return raw, bad
 
 
-def test_a_truncated_final_body_is_rewritten_when_its_content_returns(tmp_path):
+def test_a_truncated_final_body_is_rewritten_when_its_content_returns(tmp_path: Path) -> None:
     damaged_on_disk(tmp_path)
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
 
 
-def test_a_damaged_body_keeps_its_bytes_and_the_repair_is_on_the_record(tmp_path):
+def test_a_damaged_body_keeps_its_bytes_and_the_repair_is_on_the_record(tmp_path: Path) -> None:
     raw, bad = damaged_on_disk(tmp_path)
     fetch_again(tmp_path)
     [(repair)] = list(live.read(tmp_path, "repairs"))
-    assert repair["sha256"] == raw.name.removesuffix(".gz") and repair["damaged_sha256"] == hashlib.sha256(bad).hexdigest()
-    assert (raw.parent / repair["kept"]).read_bytes() == bad and repair["feed"] == "ecb-exr" and repair["bytes"] == len(bad)
+    assert (
+        repair["sha256"] == raw.name.removesuffix(".gz") and repair["damaged_sha256"] == hashlib.sha256(bad).hexdigest()
+    )
+    assert (
+        (raw.parent / repair["kept"]).read_bytes() == bad
+        and repair["feed"] == "ecb-exr"
+        and repair["bytes"] == len(bad)
+    )
 
 
-def test_a_body_with_other_content_under_its_name_is_repaired_too(tmp_path):
+def test_a_body_with_other_content_under_its_name_is_repaired_too(tmp_path: Path) -> None:
     raw, _ = damaged_on_disk(tmp_path)
     raw.write_bytes(gzip.compress(b"something else"))
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
 
 
-def test_an_intact_body_is_left_alone_with_nothing_to_record(tmp_path):
+def test_an_intact_body_is_left_alone_with_nothing_to_record(tmp_path: Path) -> None:
     fetch_again(tmp_path)
     raw = next((tmp_path / "raw").glob("*.gz"))
     before = raw.stat().st_mtime_ns
@@ -167,19 +201,31 @@ def test_an_intact_body_is_left_alone_with_nothing_to_record(tmp_path):
     assert raw.stat().st_mtime_ns == before and list(live.read(tmp_path, "repairs")) == []
 
 
-def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path, monkeypatch):
+def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     index = b'<a href="file-7.csv">'
     raw = tmp_path / "raw" / f"{hashlib.sha256(index).hexdigest()}.gz"
     raw.parent.mkdir(parents=True)
     raw.write_bytes(gzip.compress(index)[:6])
-    http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=index if "index" in str(req.url) else b"csv")))
-    feed = {"name": "d", "source": "x", "every_h": 1,
-            "discover": {"url": "https://api.example.org/index", "pattern": r"file-(\d+)\.csv", "template": "https://api.example.org/file-{}.csv"}}
+    http = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda req: httpx.Response(200, content=index if "index" in str(req.url) else b"csv")
+        )
+    )
+    feed = {
+        "name": "d",
+        "source": "x",
+        "every_h": 1,
+        "discover": {
+            "url": "https://api.example.org/index",
+            "pattern": r"file-(\d+)\.csv",
+            "template": "https://api.example.org/file-{}.csv",
+        },
+    }
     monkeypatch.setattr(datalayer, "certify", lambda feed, url: None)
     assert datalayer.poll(http, feed, tmp_path, {})["url"].endswith("file-7.csv")
 
 
-def test_a_recorder_killed_during_a_repair_keeps_the_damaged_bytes_and_repairs_on_restart(tmp_path):
+def test_a_recorder_killed_during_a_repair_keeps_the_damaged_bytes_and_repairs_on_restart(tmp_path: Path) -> None:
     raw, bad = damaged_on_disk(tmp_path)
     child = subprocess.Popen([sys.executable, "-c", FETCH, str(tmp_path), "0"])
     while not list(raw.parent.glob("*.damaged-*")):
@@ -212,7 +258,7 @@ datalayer.poll(http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/
 
 
 @pytest.mark.parametrize("step", ["record", "move"])
-def test_a_repair_killed_after_any_step_is_on_the_record_with_its_damaged_bytes(tmp_path, step):
+def test_a_repair_killed_after_any_step_is_on_the_record_with_its_damaged_bytes(tmp_path: Path, step: str) -> None:
     raw, bad = damaged_on_disk(tmp_path)
     assert subprocess.run([sys.executable, "-c", KILLED_AT, str(tmp_path), step]).returncode == -signal.SIGKILL
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY

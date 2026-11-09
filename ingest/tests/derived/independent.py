@@ -1,13 +1,15 @@
 """Compute hourly derived-event counts using only the Python standard library."""
 
 from collections import Counter, defaultdict
+from collections.abc import Iterator
+from typing import Any
 
 _HOUR = 3_600_000
 _TICK_OFFSET = 120_000
 _POLL_LIFETIME = 600_000
 
 
-def _poll_runs(times):
+def _poll_runs(times: list[int]) -> Iterator[tuple[int, int]]:
     """Yield maximal polling intervals as [start, end) pairs."""
     start = previous = times[0]
     for current in times[1:]:
@@ -18,13 +20,13 @@ def _poll_runs(times):
     yield start, previous + _POLL_LIFETIME
 
 
-def counts(case):
+def counts(case: dict[str, Any]) -> list[list[Any]]:
     """Return [coin, tau, count] for every covered hour."""
     version = case["version"]
     margin = case["margin"]
     coin_of = case["coin_of"]
 
-    polls = {}
+    polls: dict[str, list[int]] = {}
     for key, times in case["polls"].items():
         if key in coin_of:
             eligible = sorted(set(t for t in times if t <= version))
@@ -33,7 +35,7 @@ def counts(case):
 
     # Lexicographic ordering selects the earliest observation, breaking
     # equal observation times by the smallest claimed creation time.
-    earliest = {}
+    earliest: dict[tuple[str, Any], tuple[int, int]] = {}
     for key, item_id, created, observed_at in case["observations"]:
         if key not in polls or observed_at > version:
             continue
@@ -42,7 +44,7 @@ def counts(case):
         if item not in earliest or candidate < earliest[item]:
             earliest[item] = candidate
 
-    event_counts = defaultdict(Counter)
+    event_counts: defaultdict[str, Counter[int]] = defaultdict(Counter)
     for (key, _), (witness, created) in earliest.items():
         if created < polls[key][0]:
             continue
@@ -50,9 +52,7 @@ def counts(case):
         known_at = witness + margin
         # The unique grid hour whose tick interval contains known_at:
         # tau + offset - hour < known_at <= tau + offset.
-        tau = (
-            (known_at - _TICK_OFFSET + _HOUR - 1) // _HOUR
-        ) * _HOUR
+        tau = ((known_at - _TICK_OFFSET + _HOUR - 1) // _HOUR) * _HOUR
         event_counts[key][tau] += 1
 
     rows = []
@@ -68,10 +68,12 @@ def counts(case):
             first_tau = ((lower + _HOUR - 1) // _HOUR) * _HOUR
 
             for tau in range(first_tau, upper + 1, _HOUR):
-                rows.append([
-                    coin_of[key],
-                    tau,
-                    event_counts[key][tau],
-                ])
+                rows.append(
+                    [
+                        coin_of[key],
+                        tau,
+                        event_counts[key][tau],
+                    ]
+                )
 
     return rows

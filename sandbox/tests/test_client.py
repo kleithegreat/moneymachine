@@ -1,21 +1,32 @@
 """The shared in-sandbox client: arity (a count or "+"), file arguments sent as text, usage otherwise."""
 
 import json
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
-from sandbox import session
+import pytest
+
 from gate.agent.daemon import SPEC as RESEARCH
+from sandbox import session
 from thesis.daemon import SPEC as THESIS
 
 
-def client(spec, sent):
-    ns = {"__name__": "client", "SPEC": spec | {"socket": "x.sock"}}
+def client(spec: dict[str, Any], sent: list[Any]) -> Callable[..., Any]:
+    ns: dict[str, Any] = {"__name__": "client", "SPEC": spec | {"socket": "x.sock"}}
     exec((session.HERE / "client.py").read_text(), ns)
-    ns["call"] = lambda req: (sent.append(req), json.dumps({"ok": True}))[1]
-    return ns["main"]
+
+    def call(request: Any) -> str:
+        sent.append(request)
+        return json.dumps({"ok": True})
+
+    ns["call"] = call
+    main: Callable[..., Any] = ns["main"]
+    return main
 
 
-def test_arity_files_and_usage(tmp_path, capsys):
-    sent = []
+def test_arity_files_and_usage(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    sent: list[Any] = []
     research, thesis = client(RESEARCH, sent), client(THESIS, sent)
     a, b = tmp_path / "a.json", tmp_path / "b.json"
     a.write_text("A")

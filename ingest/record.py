@@ -15,11 +15,14 @@ import json
 import sys
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from ingest.hl import BUDGET_PER_MIN, Info
 from ingest.live import append, now_ms, recording
 from ingest.policy import BAR, HOUR
+from ingest.units import EpochMs
 
 POLL = 30_000
 FIRST_AFTER = 5_000
@@ -28,23 +31,23 @@ L2_BUDGET = 120
 
 
 class Recorder:
-    def __init__(self, budget, coins, out_dir):
+    def __init__(self, budget: int, coins: list[str], out_dir: str | Path) -> None:
         self.info, self.l2_info = Info(budget - L2_BUDGET), Info(L2_BUDGET)
         self.coins, self.out = coins, Path(out_dir)
         self.write = threading.Lock()
         self.out.mkdir(parents=True, exist_ok=True)
         self.hour = now_ms() // HOUR * HOUR
-        self.pending = {}
-        self.verify = []
+        self.pending: dict[tuple[str, str], tuple[EpochMs, EpochMs]] = {}
+        self.verify: list[tuple[EpochMs, str, str, int]] = []
         if now_ms() < self.hour + VERIFY_AFTER:
             self.queue_verification(self.hour)
-        self.last_l2 = {c: 0 for c in coins}
+        self.last_l2: dict[str, EpochMs] = {c: 0 for c in coins}
 
-    def log(self, rec):
+    def log(self, rec: dict[str, Any]) -> None:
         with self.write:
             append(self.out, "polls", rec["sent"], rec)
 
-    def poll(self, kind, coin, boundary, purpose):
+    def poll(self, kind: str, coin: str, boundary: EpochMs, purpose: str) -> bool:
         sent = now_ms()
         if kind == "funding":
             data = self.info.post({"type": "fundingHistory", "coin": coin, "startTime": boundary - 1}, per_items=20)
@@ -52,24 +55,36 @@ class Recorder:
         else:
             data = self.info.candles(coin, "4h", boundary - BAR, boundary)
             found = any(c["t"] == boundary - BAR for c in data)
-        self.log({"kind": kind, "coin": coin, "boundary": boundary, "purpose": purpose,
-                  "sent": sent, "recv": now_ms(), "found": found, "data": data})
+        self.log(
+            {
+                "kind": kind,
+                "coin": coin,
+                "boundary": boundary,
+                "purpose": purpose,
+                "sent": sent,
+                "recv": now_ms(),
+                "found": found,
+                "data": data,
+            }
+        )
         return found
 
-    def poll_l2(self, coin):
+    def poll_l2(self, coin: str) -> None:
         sent = now_ms()
         book = self.l2_info.l2_book(coin)
         agg = self.l2_info.l2_book(coin, sig_figs=4)
         self.log({"kind": "l2", "coin": coin, "sent": sent, "recv": now_ms(), "data": book, "agg": agg})
 
     @staticmethod
-    def kinds(h):
+    def kinds(h: EpochMs) -> list[str]:
         return ["funding"] + (["bar"] if h % BAR == 0 else [])
 
-    def queue_verification(self, boundary):
-        self.verify.extend((boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins)
+    def queue_verification(self, boundary: EpochMs) -> None:
+        self.verify.extend(
+            (boundary + VERIFY_AFTER, kind, coin, 0) for kind in self.kinds(boundary) for coin in self.coins
+        )
 
-    def step(self):
+    def step(self) -> None:
         t = now_ms()
         h = t // HOUR * HOUR
         if h > self.hour:
@@ -95,21 +110,33 @@ class Recorder:
                 if failures < 3:
                     self.verify[0] = (at, kind, coin, failures)
                 else:
-                    self.log({"kind": kind, "coin": coin, "boundary": at - VERIFY_AFTER, "purpose": "dropped",
-                              "sent": sent, "recv": now_ms(), "found": False, "data": [],
-                              "error": repr(e), "attempts": failures, "dropped": True})
+                    self.log(
+                        {
+                            "kind": kind,
+                            "coin": coin,
+                            "boundary": at - VERIFY_AFTER,
+                            "purpose": "dropped",
+                            "sent": sent,
+                            "recv": now_ms(),
+                            "found": False,
+                            "data": [],
+                            "error": repr(e),
+                            "attempts": failures,
+                            "dropped": True,
+                        }
+                    )
                     self.verify.pop(0)
             else:
                 self.verify.pop(0)
 
-    def step_l2(self):
+    def step_l2(self) -> None:
         for c in self.coins:
             if now_ms() - self.last_l2[c] >= POLL:
                 self.last_l2[c] = now_ms()
                 self.poll_l2(c)
 
 
-def forever(step, stop):
+def forever(step: Callable[[], None], stop: threading.Event) -> None:
     while not stop.is_set():
         try:
             step()
@@ -119,7 +146,7 @@ def forever(step, stop):
         stop.wait(0.5)
 
 
-def main(universe_path, rules_path, out_dir, budget=BUDGET_PER_MIN):
+def main(universe_path: str | Path, rules_path: str | Path, out_dir: str | Path, budget: int = BUDGET_PER_MIN) -> None:
     """Record at the supplied total allocation; the co-egress deployment takes its share from ingest.hl."""
     delisted = json.loads(Path(rules_path).read_text())["coins"]
     coins = [c for c in json.loads(Path(universe_path).read_text())["universe"] if not delisted[c]["delisted"]]

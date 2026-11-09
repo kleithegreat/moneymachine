@@ -1,0 +1,48 @@
+"""Finding 3, second path: in the Monday batch, a persistent failure reading the first market's inputs stops the loop
+before every later market (thesis/runner.py:313-327 has no per-market isolation), so after BENCHMARK_GIVE_UP all five
+are skipped "run missed" and the batch is not executed (2026-11-09 revision, item 2), though four were registrable.
+
+Run from the worktree root: TMPDIR=/tmp nix develop -c python <this file>
+"""
+
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, os.getcwd())
+import httpx  # noqa: E402
+
+from gate import kernel  # noqa: E402
+from thesis import runner  # noqa: E402
+from thesis.tests.test_runner import DAY, MONDAY, ZERO, FakeMarket  # noqa: E402
+
+runner.kernel.build = lambda: kernel.MM
+runner.harness.manifest_hash = lambda binary: "0" * 64
+
+
+class BtcFundingFails(FakeMarket):
+    def funding(self, market, now=None, start=None):
+        if market == "BTC":
+            raise httpx.ReadTimeout("BTC's funding tail keeps timing out")
+        return super().funding(market, now, start)
+
+
+t = runner.Track(Path(tempfile.mkdtemp(prefix="r3b-", dir=os.environ.get("TMPDIR", "/tmp"))))
+t.market = BtcFundingFails(MONDAY + 40 * DAY)
+t.config = lambda markets: {"initial": 10_000.0, "fee": 0.0, "costs": {m: ZERO for m in markets}, "fallback": []}
+runner.now_ms = lambda: MONDAY + runner.SNAPSHOT_OFFSET
+t.acquire(MONDAY)
+for minute in range(0, 2 * 24 * 60, 60):  # an hourly sample of the benchmarks loop's passes over two days
+    runner.now_ms = lambda: MONDAY + runner.SNAPSHOT_OFFSET + minute * 60_000  # noqa: E731
+    try:
+        t.benchmarks(runner.now_ms(), MONDAY - DAY)
+    except httpx.HTTPError:
+        pass
+runner.now_ms = lambda: MONDAY + runner.BENCHMARK_GIVE_UP
+t.benchmarks(runner.now_ms(), MONDAY - DAY)
+print("registered:", [th["legs"][0][0] for th in t.ledger.theses("benchmark")])
+skips = [(c["market"], c["reason"]) for _, _, c in t.ledger.records("skip", "benchmark")]
+print("skipped:", skips)
+assert not t.ledger.theses("benchmark") and {m for m, r in skips if r == "run missed"} >= {"BTC", "ETH", "xyz:XYZ100", "xyz:GOLD"}
+print("REPRODUCED: BTC's failure costs the four markets after it")

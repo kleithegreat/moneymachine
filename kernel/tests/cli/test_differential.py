@@ -5,7 +5,9 @@ same datum)."""
 import json
 import os
 import subprocess
+from collections.abc import Collection
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -16,7 +18,7 @@ REPO = Path(__file__).resolve().parents[3]
 TOL = 1e-6
 
 
-def stage0_version():
+def stage0_version() -> int | None:
     """The latest stage 0 dataset version: the judged second fetch once it exists."""
     reports = sorted((REPO / "audit" / "stage0").glob("ingest-*.json"))
     return int(reports[-1].stem.rsplit("-", 1)[1]) if reports else None
@@ -25,26 +27,47 @@ def stage0_version():
 VENUE = Path(os.environ.get("MM_VENUE", REPO / "venue" / "hyperliquid"))
 pytestmark = pytest.mark.skipif(
     stage0_version() is None or not (VENUE / "execution.json").exists(),
-    reason="needs the stage 0 backfill in data/ and the C0.7 execution model")
+    reason="needs the stage 0 backfill in data/ and the C0.7 execution model",
+)
 
 
 KINDS = ("equity", "decision", "hold", "fill", "liquidation", "delisting", "unfilled", "funding")
 
 
-def by_type(events, kinds):
+def by_type(events: list[dict[str, Any]], kinds: Collection[str]) -> list[dict[str, Any]]:
     return [e for e in events if e["type"] in kinds]
 
 
-def steps(events):
+def steps(events: list[dict[str, Any]]) -> list[tuple[Any, str, str]]:
     return [(e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS)]
 
 
-def test_kernel_matches_witness(tmp_path, built_kernel):
+def test_kernel_matches_witness(tmp_path: Path, built_kernel: Path) -> None:
     version = stage0_version()
+    assert version is not None
     out = tmp_path / "trace.jsonl"
-    r = subprocess.run([str(MM), "eval", str(REPO / "kernel/strategies/w0.json"), "--campaign", "stage1-differential",
-                        "--agent", "test", "--version", str(version), "--trace", str(out), "--venue", str(VENUE),
-                        "--ledger", str(tmp_path / "l.sqlite")], cwd=REPO, capture_output=True, text=True)
+    r = subprocess.run(
+        [
+            str(MM),
+            "eval",
+            str(REPO / "kernel/strategies/w0.json"),
+            "--campaign",
+            "stage1-differential",
+            "--agent",
+            "test",
+            "--version",
+            str(version),
+            "--trace",
+            str(out),
+            "--venue",
+            str(VENUE),
+            "--ledger",
+            str(tmp_path / "l.sqlite"),
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
     assert r.returncode == 0, r.stderr
     kernel = [json.loads(l) for l in out.read_text().splitlines()]
     py, worst = witness.run(REPO / "data", version, VENUE)

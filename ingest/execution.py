@@ -13,6 +13,7 @@ import math
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -23,9 +24,13 @@ from ingest.policy import BAR
 SIZES = (1_000, 10_000)
 QUANTILE = 0.95
 CALIBRATION = 0.7
+type Book = dict[str, Any]
+type Polls = list[dict[str, Any]]
+type Cells = dict[tuple[str, str, int], tuple[list[int], np.ndarray[Any, Any]]]
+type Model = dict[str, dict[str, dict[str, float]]]
 
 
-def walk_cost(book, side, notional, mid=None):
+def walk_cost(book: Book, side: str, notional: float, mid: float | None = None) -> float:
     bids, asks = book["levels"]
     if mid is None:
         mid = (float(bids[0]["px"]) + float(asks[0]["px"])) / 2
@@ -41,19 +46,21 @@ def walk_cost(book, side, notional, mid=None):
     return math.inf
 
 
-def cost(snapshot, side, notional):
+def cost(snapshot: dict[str, Any], side: str, notional: float) -> float:
     full = snapshot["data"]
     mid = (float(full["levels"][0][0]["px"]) + float(full["levels"][1][0]["px"])) / 2
     c = walk_cost(full, side, notional, mid)
-    return c if math.isfinite(c) or not all(snapshot["agg"]["levels"]) else walk_cost(snapshot["agg"], side, notional, mid)
+    return (
+        c if math.isfinite(c) or not all(snapshot["agg"]["levels"]) else walk_cost(snapshot["agg"], side, notional, mid)
+    )
 
 
-def costs_by_cell(polls):
-    snaps = defaultdict(list)
+def costs_by_cell(polls: Polls) -> Cells:
+    snaps: defaultdict[str, Polls] = defaultdict(list)
     for p in polls:
         if p["kind"] == "l2" and "agg" in p and all(p["data"]["levels"]):
             snaps[p["coin"]].append(p)
-    out = {}
+    out: Cells = {}
     for coin, ps in snaps.items():
         ps.sort(key=lambda p: p["sent"])
         for side in ("buy", "sell"):
@@ -62,8 +69,9 @@ def costs_by_cell(polls):
     return out
 
 
-def calibrate_and_validate(cells):
-    model, report = {}, {}
+def calibrate_and_validate(cells: Cells) -> tuple[Model, dict[str, dict[str, Any]]]:
+    model: Model = {}
+    report: dict[str, dict[str, Any]] = {}
     for (coin, side, size), (times, c) in cells.items():
         k = int(len(c) * CALIBRATION)
         cal, test = c[:k], c[k:]
@@ -74,18 +82,24 @@ def calibrate_and_validate(cells):
         excess = float(np.median(q - finite)) if len(finite) and math.isfinite(q) else math.inf
         q90 = float(np.sort(test)[math.ceil(0.9 * len(test)) - 1]) if len(test) else math.inf
         report[f"{coin}:{side}:{size}"] = {
-            "n_cal": int(k), "n_test": int(len(test)), "model_bps": q, "coverage": coverage,
-            "median_excess_bps": excess, "test_q90_bps": q90, "model_above_test_q90_bps": q - q90, "test_median_bps": float(np.median(finite)) if len(finite) else math.inf,
+            "n_cal": int(k),
+            "n_test": int(len(test)),
+            "model_bps": q,
+            "coverage": coverage,
+            "median_excess_bps": excess,
+            "test_q90_bps": q90,
+            "model_above_test_q90_bps": q - q90,
+            "test_median_bps": float(np.median(finite)) if len(finite) else math.inf,
             "calibration_span": [times[0], times[k - 1]] if k else None,
         }
     return model, report
 
 
-def relative_ranges(polls, report):
+def relative_ranges(polls: Polls, report: dict[str, dict[str, Any]]) -> dict[str, list[float]]:
     """Per coin, [min, max] of (high - low)/open over its recorded 4h bars inside its calibration span,
     from the reference (verify) polls."""
     spans = {key.split(":")[0]: r["calibration_span"] for key, r in report.items() if r["calibration_span"]}
-    ranges = defaultdict(list)
+    ranges: defaultdict[str, list[float]] = defaultdict(list)
     for p in polls:
         if p["kind"] == "bar" and p["purpose"] == "verify" and p["coin"] in spans:
             start, end = spans[p["coin"]]
@@ -95,7 +109,13 @@ def relative_ranges(polls, report):
     return {coin: [min(r), max(r)] for coin, r in sorted(ranges.items())}
 
 
-def calibrate(live_dir, sources_dir, model_out, report_out, oci_dir=None):
+def calibrate(
+    live_dir: str | Path,
+    sources_dir: str | Path,
+    model_out: str | Path,
+    report_out: str | Path,
+    oci_dir: str | Path | None = None,
+) -> None:
     """The cost model from the judged L2 snapshots to `model_out`, its held-out validation to `report_out`."""
     judged = judgment(live_dir, sources_dir, oci_dir)
     if judged is None:
@@ -104,7 +124,19 @@ def calibrate(live_dir, sources_dir, model_out, report_out, oci_dir=None):
     model, report = calibrate_and_validate(costs_by_cell(polls))
     coins = json.loads((Path(__file__).resolve().parents[1] / "data" / "universe.json").read_text())["universe"]
     model, flagged = fill_missing(model, coins)
-    Path(model_out).write_text(json.dumps({"quantile": QUANTILE, "calibration_fraction": CALIBRATION,
-                                           "no_live_book_cellwise_max": flagged, "cost_bps_ex_fee": model,
-                                           "calibration_relative_range": relative_ranges(polls, report)}, indent=1) + "\n")
-    Path(report_out).write_text(json.dumps({"window": window, **contributions(hosts, polls), **report}, indent=1) + "\n")
+    Path(model_out).write_text(
+        json.dumps(
+            {
+                "quantile": QUANTILE,
+                "calibration_fraction": CALIBRATION,
+                "no_live_book_cellwise_max": flagged,
+                "cost_bps_ex_fee": model,
+                "calibration_relative_range": relative_ranges(polls, report),
+            },
+            indent=1,
+        )
+        + "\n"
+    )
+    Path(report_out).write_text(
+        json.dumps({"window": window, **contributions(hosts, polls), **report}, indent=1) + "\n"
+    )

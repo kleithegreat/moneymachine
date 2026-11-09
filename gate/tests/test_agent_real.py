@@ -11,16 +11,21 @@ import subprocess
 import sys
 import tempfile
 import threading
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any, Never
 
 import numpy as np
 import pytest
 
-from gate import markets
-from gate.agent import campaigns
+from gate import gate, markets, search, sweep
+from gate.agent import campaigns, harness
 from gate.agent.daemon import Daemon
 from gate.kernel import MM, command
-from gate.markets import HOLDOUT_START, HOUR, W_START, write_market
+from gate.markets import write_market
+from ingest.policy import HOLDOUT_START, HOUR, W_START
+from sandbox import canary
+from sandbox import session as sandbox_session
 
 REPO = Path(__file__).resolve().parents[2]
 BAD = '{"dsl": 1}'
@@ -30,14 +35,26 @@ class Crash(Exception):
     pass
 
 
-def program(hours):
+def program(hours: int) -> str:
     close = {"input": "close"}
-    momentum = {"op": "sub", "args": [{"op": "div", "args": [close, {"op": "lag", "args": [close], "hours": hours}]}, {"const": 1, "unit": "1"}]}
-    return json.dumps({"dsl": 1, "name": "momentum", "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
-                       "weight": {"op": "mul", "args": [{"op": "sign", "args": [momentum]}, {"const": 0.05, "unit": "1"}]}})
+    momentum = {
+        "op": "sub",
+        "args": [
+            {"op": "div", "args": [close, {"op": "lag", "args": [close], "hours": hours}]},
+            {"const": 1, "unit": "1"},
+        ],
+    }
+    return json.dumps(
+        {
+            "dsl": 1,
+            "name": "momentum",
+            "mechanism": {"counterparty": "-", "predictions": [], "capacity": "-"},
+            "weight": {"op": "mul", "args": [{"op": "sign", "args": [momentum]}, {"const": 0.05, "unit": "1"}]},
+        }
+    )
 
 
-def daemon_session(market, ledger, cid, workdir, evals):
+def daemon_session(market: Path, ledger: Path, cid: str, workdir: Path, evals: list[str]) -> Daemon:
     """A model session's calls, made through the real daemon: a rejected free check, then `evals`."""
     workdir.mkdir(parents=True)
     (workdir / "transcript.jsonl").write_text("")
@@ -54,37 +71,61 @@ class Campaign:
     """The stubs around `real`: the model session runs `evals` through the real daemon, the searcher commits one
     evaluation, and the search gate passes every filled trial when `finalists` is set."""
 
-    def __init__(self, tmp_path, monkeypatch):
+    def __init__(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         self.root = write_market(tmp_path / "real", days=60, holdout_days=20)
         policy = json.loads((self.root / "store/policy.json").read_text())
         self.from_ = policy["holdout_start"]
         self.out, self.monkeypatch = tmp_path / "agent", monkeypatch
-        self.evals, self.finalists, self.sessions, self.searches, self.releases = [program(8), program(12)], True, 0, 0, 0
+        self.evals, self.finalists, self.sessions, self.searches, self.releases = (
+            [program(8), program(12)],
+            True,
+            0,
+            0,
+            0,
+        )
         self.end = {"stopped": "finished", "exit": 0}
         record, null = tmp_path / "holdout.json", tmp_path / "null.json"
-        record.write_text(json.dumps([{"path": str(p.relative_to(self.root)), "sha256": campaigns.sha256(p)}
-                                      for p in sorted((self.root / "holdout").rglob("*.parquet"))]))
+        record.write_text(
+            json.dumps(
+                [
+                    {"path": str(p.relative_to(self.root)), "sha256": campaigns.sha256(p)}
+                    for p in sorted((self.root / "holdout").rglob("*.parquet"))
+                ]
+            )
+        )
         ids = campaigns.cohort("agent")[0]
         audit = {"match": True, "outside_permitted": []}
-        null.write_text(json.dumps({"ids": ids, "mm": [campaigns.sha256(MM)], "counted_promotions": 0, "audits": dict.fromkeys(ids, audit)}))
-        for name, value in [("OUT", self.out), ("VENUE", self.root / "venue"), ("HOLDOUT_RECORD", record), ("NULL_SUMMARY", null),
-                            ("check_frozen", lambda: None), ("wait_for_room", lambda log: ("TAMU", {"five_hour": [0.1, 100]}))]:
+        null.write_text(
+            json.dumps(
+                {"ids": ids, "mm": [campaigns.sha256(MM)], "counted_promotions": 0, "audits": dict.fromkeys(ids, audit)}
+            )
+        )
+        for name, value in [
+            ("OUT", self.out),
+            ("VENUE", self.root / "venue"),
+            ("HOLDOUT_RECORD", record),
+            ("NULL_SUMMARY", null),
+            ("check_frozen", lambda: None),
+            ("wait_for_room", lambda log: ("TAMU", {"five_hour": [0.1, 100]})),
+        ]:
             monkeypatch.setattr(campaigns, name, value)
-        monkeypatch.setattr(campaigns.sweep, "require_frozen_searcher", lambda: None)
-        monkeypatch.setattr(campaigns.canary, "passes", lambda: True)
-        monkeypatch.setattr(campaigns.harness, "run_agent", self.session)
-        monkeypatch.setattr(campaigns.search, "run", self.searcher)
-        monkeypatch.setattr(campaigns.gate, "search_decision", self.decision)
-        monkeypatch.setattr(campaigns.gate, "mechanism_check", lambda m, l, c, programs: {h: {"pass": True} for h in programs})
-        real_release = campaigns.gate.release
+        monkeypatch.setattr(sweep, "require_frozen_searcher", lambda: None)
+        monkeypatch.setattr(canary, "passes", lambda: True)
+        monkeypatch.setattr(harness, "run_agent", self.session)
+        monkeypatch.setattr(search, "run", self.searcher)
+        monkeypatch.setattr(gate, "search_decision", self.decision)
+        monkeypatch.setattr(gate, "mechanism_check", lambda m, l, c, programs: {h: {"pass": True} for h in programs})
+        real_release = gate.release
 
-        def release(*args):
+        def release(*args: Any) -> Any:
             self.releases += 1
             return real_release(*args)
 
-        monkeypatch.setattr(campaigns.gate, "release", release)
+        monkeypatch.setattr(gate, "release", release)
 
-    def session(self, market, ledger, cid, workdir, die=False, undisclosed=False):
+    def session(
+        self, market: Path, ledger: Path, cid: str, workdir: Path, die: bool = False, undisclosed: bool = False
+    ) -> dict[str, Any]:
         self.sessions += 1
         d = daemon_session(market, ledger, cid, workdir, self.evals)
         if die:
@@ -93,10 +134,14 @@ class Campaign:
         (workdir / "run.json").write_text(json.dumps(run))
         if undisclosed:
             raise Crash
-        subprocess.run(command("disclose", workdir / "run.json", cid, "A", ledger, None, "--kind", "run"), check=True, capture_output=True)
+        subprocess.run(
+            command("disclose", workdir / "run.json", cid, "A", ledger, None, "--kind", "run"),
+            check=True,
+            capture_output=True,
+        )
         return run
 
-    def searcher(self, name, market, ledger, cid, seed, die=False):
+    def searcher(self, name: str, market: Path, ledger: Path, cid: str, seed: int, die: bool = False) -> None:
         self.searches += 1
         file = market.parent / "g.json"
         file.write_text(program(24))
@@ -104,54 +149,71 @@ class Campaign:
         if die:
             raise Crash
 
-    def decision(self, ledger, cid, agent=None):
-        finalists = list(campaigns.gate.candidates(ledger, cid, agent)) if self.finalists else []
+    def decision(self, ledger: Path, cid: str, agent: str | None = None) -> tuple[list[str], dict[str, Any]]:
+        finalists = list(gate.candidates(ledger, cid, agent)) if self.finalists else []
         return finalists, {"n": len(finalists), "spa_p": 0.01, "screened": [], "finalists": finalists}
 
-    def run(self, version=1):
+    def run(self, version: int = 1) -> None:
         campaigns.real(self.root, version, self.from_)
 
-    def claims(self):
+    def claims(self) -> list[dict[str, Any]]:
         return campaigns.claims(self.root / "holdout")
 
-    def report(self, cid="stage3-real"):
-        return json.loads((self.out / cid / "real.json").read_text())
+    def report(self, cid: str = "stage3-real") -> dict[str, Any]:
+        record: dict[str, Any] = json.loads((self.out / cid / "real.json").read_text())
+        return record
 
-    def disclosures(self, kind, cid="stage3-real"):
-        return sqlite3.connect(self.out / cid / "ledger.sqlite").execute(
-            "SELECT content FROM disclosures WHERE kind = ?", (kind,)).fetchall()
+    def disclosures(self, kind: str, cid: str = "stage3-real") -> list[tuple[Any, ...]]:
+        return (
+            sqlite3.connect(self.out / cid / "ledger.sqlite")
+            .execute("SELECT content FROM disclosures WHERE kind = ?", (kind,))
+            .fetchall()
+        )
 
 
 @pytest.fixture
-def c(tmp_path, monkeypatch, request):
+def c(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> Campaign:
     if os.access(REPO, os.W_OK):
         request.getfixturevalue("built_kernel")
     return Campaign(tmp_path, monkeypatch)
 
 
-def test_a_complete_campaign_commits_promotions_before_reading_diagnostics(c, monkeypatch):
-    read = campaigns.gate.committed_diagnostics
+def test_a_complete_campaign_commits_promotions_before_reading_diagnostics(
+    c: Campaign, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read = gate.committed_diagnostics
 
-    def diagnostics(ledger, cid):
+    def diagnostics(ledger: Path, cid: str) -> Any:
         assert c.disclosures("promotion")
         return read(ledger, cid)
 
-    monkeypatch.setattr(campaigns.gate, "committed_diagnostics", diagnostics)
+    monkeypatch.setattr(gate, "committed_diagnostics", diagnostics)
     c.run()
     r = c.report()
     assert r["released"] and r["batch"]["missing"] == [] and len(c.claims()) == 1 and c.claims()[0]["start"] == c.from_
-    assert r["A"]["evaluations"] == 2 and r["B"]["evaluations"] == 1 and len(r["A"]["kept"]) == 2 and len(r["B"]["kept"]) == 1
+    assert (
+        r["A"]["evaluations"] == 2
+        and r["B"]["evaluations"] == 1
+        and len(r["A"]["kept"]) == 2
+        and len(r["B"]["kept"]) == 1
+    )
     assert all(r["A"]["holdout"]["diagnostics"].values()) and r["comparison"]["statement"] == campaigns.NO_CLAIM
     assert r["audit"]["match"] and r["audit"]["ledger_rows"] == 3
-    assert r["account"] == "TAMU" and r["windows"] == {"five_hour": [0.1, 100]} and "token" not in json.dumps(r).lower().replace("_tokens", "")
+    assert (
+        r["account"] == "TAMU"
+        and r["windows"] == {"five_hour": [0.1, 100]}
+        and "token" not in json.dumps(r).lower().replace("_tokens", "")
+    )
 
 
-def test_a_dead_session_with_evaluations_stands(c, monkeypatch):
+def test_a_dead_session_with_evaluations_stands(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
-    monkeypatch.setattr(campaigns.harness, "run_agent", lambda *a: session(*a, die=True))
+    monkeypatch.setattr(
+        harness, "run_agent", lambda market, ledger, cid, workdir: session(market, ledger, cid, workdir, die=True)
+    )
     with pytest.raises(Crash):
         c.run()
-    monkeypatch.setattr(campaigns.harness, "run_agent", lambda *a: pytest.fail("a second attempt"))
+    monkeypatch.setattr(harness, "run_agent", lambda *a: pytest.fail("a second attempt"))
     c.run()
     r = c.report()
     assert r["agent_run"]["crashed"] and r["A"]["evaluations"] == 2 and r["released"] and c.searches == 1
@@ -159,7 +221,7 @@ def test_a_dead_session_with_evaluations_stands(c, monkeypatch):
 
 
 @pytest.mark.parametrize("stopped, exit", [("finished", 0), ("turn limit", -9), ("wall time", -9)])
-def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c, stopped, exit):
+def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c: Campaign, stopped: str, exit: int) -> None:
     c.evals, c.end = [], {"stopped": stopped, "exit": exit}
     with pytest.raises(SystemExit, match="void"):
         c.run()
@@ -170,7 +232,7 @@ def test_zero_evaluations_are_void_and_the_next_attempt_takes_a_fresh_id(c, stop
     assert [x["campaign"] for x in c.claims()] == ["stage3-real-2"]
 
 
-def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c):
+def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c: Campaign) -> None:
     c.evals = []
     (c.out / "stage3-real/run").mkdir(parents=True)
     with pytest.raises(SystemExit, match="goes to the human"):
@@ -182,7 +244,7 @@ def test_an_attempt_stopped_from_outside_before_any_evaluation_is_not_void(c):
 
 
 @pytest.mark.parametrize("exit", [1, -9, -15, 137])
-def test_a_session_without_a_designed_end_and_no_evaluation_goes_to_the_human(c, exit):
+def test_a_session_without_a_designed_end_and_no_evaluation_goes_to_the_human(c: Campaign, exit: int) -> None:
     """A child killed from outside while its runner survives leaves a normal run record with a signal or nonzero exit."""
     c.evals, c.end = [], {"stopped": "finished", "exit": exit}
     for _ in range(2):
@@ -192,8 +254,8 @@ def test_a_session_without_a_designed_end_and_no_evaluation_goes_to_the_human(c,
     assert not (c.out / "stage3-real-2").exists()
 
 
-def test_a_resume_with_another_dataset_version_is_refused(c, monkeypatch):
-    crash_once(monkeypatch, campaigns.gate, "mechanism_check")
+def test_a_resume_with_another_dataset_version_is_refused(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
+    crash_once(monkeypatch, gate, "mechanism_check")
     with pytest.raises(Crash):
         c.run()
     with pytest.raises(SystemExit, match="inputs differ"):
@@ -203,9 +265,13 @@ def test_a_resume_with_another_dataset_version_is_refused(c, monkeypatch):
     assert c.report()["version"] == 1 and len(c.claims()) == 1
 
 
-def test_a_run_record_never_disclosed_is_disclosed_on_resume(c, monkeypatch):
+def test_a_run_record_never_disclosed_is_disclosed_on_resume(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
-    monkeypatch.setattr(campaigns.harness, "run_agent", lambda *a: session(*a, undisclosed=True))
+    monkeypatch.setattr(
+        harness,
+        "run_agent",
+        lambda market, ledger, cid, workdir: session(market, ledger, cid, workdir, undisclosed=True),
+    )
     with pytest.raises(Crash):
         c.run()
     assert c.disclosures("run") == []
@@ -215,8 +281,10 @@ def test_a_run_record_never_disclosed_is_disclosed_on_resume(c, monkeypatch):
     assert c.sessions == 1 and len(c.claims()) == 1
 
 
-def test_a_run_record_that_differs_from_its_disclosure_stops_before_arm_b(c, monkeypatch):
-    crash_once(monkeypatch, campaigns.gate, "mechanism_check")
+def test_a_run_record_that_differs_from_its_disclosure_stops_before_arm_b(
+    c: Campaign, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    crash_once(monkeypatch, gate, "mechanism_check")
     with pytest.raises(Crash):
         c.run()
     run_json = c.out / "stage3-real/run/run.json"
@@ -226,32 +294,50 @@ def test_a_run_record_that_differs_from_its_disclosure_stops_before_arm_b(c, mon
     assert c.searches == 0 and c.claims() == []
 
 
-def test_zero_finalists_make_no_claim_and_say_so(c):
+def test_zero_finalists_make_no_claim_and_say_so(c: Campaign) -> None:
     c.finalists = False
     c.run()
     r = c.report()
     assert r["released"] is False and c.claims() == [] and c.releases == 0 and r["A"]["promoted"] == []
 
 
-def partial_release(c, survivors):
+def partial_release(c: Campaign, survivors: Any) -> None:
     """A batch that stopped after its claim: the kernel's real claim, and real results only for `survivors`' programs."""
 
-    def release(market, ledger, cid, programs, holdout_from):
+    def release(market: Path, ledger: Path, cid: str, programs: dict[str, dict[str, Any]], holdout_from: int) -> None:
         c.releases += 1
         batch = market.parent / "batch.jsonl"
         batch.write_text("".join(json.dumps(programs[h]) + "\n" for h in list(programs)[:survivors]))
         for h in list(programs)[:survivors]:
-            subprocess.run(command("select", h, cid, "partial", ledger, None, "--note", "x"), check=True, capture_output=True)
-        subprocess.run(command("holdout", batch, cid, "partial", ledger, market, "--holdout-store", str(market / "holdout"),
-                               "--holdout-from", str(holdout_from)), check=True, capture_output=True)
+            subprocess.run(
+                command("select", h, cid, "partial", ledger, None, "--note", "x"), check=True, capture_output=True
+            )
+        subprocess.run(
+            command(
+                "holdout",
+                batch,
+                cid,
+                "partial",
+                ledger,
+                market,
+                "--holdout-store",
+                str(market / "holdout"),
+                "--holdout-from",
+                str(holdout_from),
+            ),
+            check=True,
+            capture_output=True,
+        )
         file = market.parent / "abort.json"
         file.write_text('{"ok": false, "code": "R_BOUND"}')
-        subprocess.run(command("disclose", file, cid, "gate", ledger, None, "--kind", "abort"), check=True, capture_output=True)
+        subprocess.run(
+            command("disclose", file, cid, "gate", ledger, None, "--kind", "abort"), check=True, capture_output=True
+        )
 
-    c.monkeypatch.setattr(campaigns.gate, "release", release)
+    c.monkeypatch.setattr(gate, "release", release)
 
 
-def test_an_aborted_finalist_counts_as_p_one_in_its_family_and_recovery_never_evaluates_again(c):
+def test_an_aborted_finalist_counts_as_p_one_in_its_family_and_recovery_never_evaluates_again(c: Campaign) -> None:
     partial_release(c, 1)
     with pytest.raises(SystemExit, match="incomplete"):
         c.run()
@@ -268,13 +354,13 @@ def test_an_aborted_finalist_counts_as_p_one_in_its_family_and_recovery_never_ev
     assert c.releases == 1 and len(c.claims()) == 1 and len(c.disclosures("promotion")) == 1
 
 
-def test_a_batch_killed_right_after_its_claim_is_reported_as_lost(c):
-    def release(market, ledger, cid, programs, holdout_from):
+def test_a_batch_killed_right_after_its_claim_is_reported_as_lost(c: Campaign) -> None:
+    def release(market: Path, ledger: Path, cid: str, programs: list[str], holdout_from: int) -> Never:
         with open(market / "holdout" / "spent.jsonl", "a") as fh:
             fh.write(json.dumps({"start": holdout_from, "end": 2**62, "campaign": cid}) + "\n")
         raise Crash
 
-    c.monkeypatch.setattr(campaigns.gate, "release", release)
+    c.monkeypatch.setattr(gate, "release", release)
     with pytest.raises(Crash):
         c.run()
     with pytest.raises(SystemExit, match="incomplete"):
@@ -284,11 +370,11 @@ def test_a_batch_killed_right_after_its_claim_is_reported_as_lost(c):
     assert set(r["A"]["holdout"]["holdout_p"].values()) == {1.0}
 
 
-def crash_once(monkeypatch, owner, name):
+def crash_once(monkeypatch: pytest.MonkeyPatch, owner: Any, name: str) -> None:
     real = getattr(owner, name)
     state = {"armed": True}
 
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
         if state["armed"]:
             state["armed"] = False
             raise Crash
@@ -297,30 +383,32 @@ def crash_once(monkeypatch, owner, name):
     monkeypatch.setattr(owner, name, wrapped)
 
 
-def crash_on_write(monkeypatch, filename):
+def crash_on_write(monkeypatch: pytest.MonkeyPatch, filename: str) -> None:
     real = campaigns.write_json
     state = {"armed": True}
 
-    def wrapped(path, value):
+    def wrapped(path: Path, value: Any) -> None:
         if state["armed"] and path.name == filename:
             state["armed"] = False
             raise Crash
-        return real(path, value)
+        real(path, value)
 
     monkeypatch.setattr(campaigns, "write_json", wrapped)
 
 
-STEPS = {"screening": lambda m: crash_once(m, campaigns.gate, "mechanism_check"),
-         "freeze": lambda m: crash_once(m, campaigns.gate, "freeze"),
-         "pre-release": lambda m: crash_on_write(m, "pre-release.json"),
-         "before the claim": lambda m: crash_once(m, campaigns.gate, "release"),
-         "promotions": lambda m: crash_once(m, campaigns, "commit_promotions"),
-         "diagnostics": lambda m: crash_once(m, campaigns.gate, "committed_diagnostics"),
-         "report": lambda m: crash_on_write(m, "real.json")}
+STEPS = {
+    "screening": lambda m: crash_once(m, gate, "mechanism_check"),
+    "freeze": lambda m: crash_once(m, gate, "freeze"),
+    "pre-release": lambda m: crash_on_write(m, "pre-release.json"),
+    "before the claim": lambda m: crash_once(m, gate, "release"),
+    "promotions": lambda m: crash_once(m, campaigns, "commit_promotions"),
+    "diagnostics": lambda m: crash_once(m, gate, "committed_diagnostics"),
+    "report": lambda m: crash_on_write(m, "real.json"),
+}
 
 
 @pytest.mark.parametrize("step", STEPS)
-def test_recovery_after_a_crash_at_each_step(c, monkeypatch, step):
+def test_recovery_after_a_crash_at_each_step(c: Campaign, monkeypatch: pytest.MonkeyPatch, step: str) -> None:
     STEPS[step](monkeypatch)
     with pytest.raises(Crash):
         c.run()
@@ -331,48 +419,61 @@ def test_recovery_after_a_crash_at_each_step(c, monkeypatch, step):
     assert len(c.disclosures("promotion")) == 1 and all(r["A"]["holdout"]["diagnostics"].values())
 
 
-def test_a_searcher_that_died_ended_its_arm(c, monkeypatch):
+def test_a_searcher_that_died_ended_its_arm(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     searcher = c.searcher
-    monkeypatch.setattr(campaigns.search, "run", lambda *a: searcher(*a, die=True))
+    monkeypatch.setattr(
+        search, "run", lambda name, market, ledger, cid, seed: searcher(name, market, ledger, cid, seed, die=True)
+    )
     with pytest.raises(Crash):
         c.run()
     c.run()
     assert c.searches == 1 and c.report()["B"]["evaluations"] == 1
 
 
-@pytest.mark.parametrize("spoil", ["searcher", "harness", "c32", "c32 v1", "kernel", "failed audit", "no audit", "holdout", "claim"])
-def test_nothing_starts_unless_it_is_ready(c, monkeypatch, spoil):
-    def refuse():
+@pytest.mark.parametrize(
+    "spoil", ["searcher", "harness", "c32", "c32 v1", "kernel", "failed audit", "no audit", "holdout", "claim"]
+)
+def test_nothing_starts_unless_it_is_ready(c: Campaign, monkeypatch: pytest.MonkeyPatch, spoil: str) -> None:
+    def refuse() -> Never:
         raise SystemExit("pin")
 
     if spoil == "searcher":
-        monkeypatch.setattr(campaigns.sweep, "require_frozen_searcher", refuse)
+        monkeypatch.setattr(sweep, "require_frozen_searcher", refuse)
     elif spoil == "harness":
         monkeypatch.setattr(campaigns, "check_frozen", refuse)
     elif spoil.startswith("c32") or spoil in ("kernel", "failed audit", "no audit"):
         null = json.loads(campaigns.NULL_SUMMARY.read_text())
         last = campaigns.cohort("agent")[0][-1]
-        null |= {"c32": {"counted_promotions": 3}, "c32 v1": {"ids": [f"agent-null-N2-{i}" for i in range(20)]},
-                 "kernel": {"mm": ["other"]},
-                 "failed audit": {"audits": null["audits"] | {last: {"match": True, "outside_permitted": ["WebFetch"]}}},
-                 "no audit": {"audits": null["audits"] | {last: None}}}[spoil]
+        null |= {
+            "c32": {"counted_promotions": 3},
+            "c32 v1": {"ids": [f"agent-null-N2-{i}" for i in range(20)]},
+            "kernel": {"mm": ["other"]},
+            "failed audit": {"audits": null["audits"] | {last: {"match": True, "outside_permitted": ["WebFetch"]}}},
+            "no audit": {"audits": null["audits"] | {last: None}},
+        }[spoil]
         campaigns.NULL_SUMMARY.write_text(json.dumps(null))
     elif spoil == "holdout":
         file = next((c.root / "holdout").rglob("*.parquet"))
         file.chmod(0o644)
         file.write_bytes(b"other")
     else:
-        (c.root / "holdout/spent.jsonl").write_text(json.dumps({"start": c.from_, "end": 2**62, "campaign": "other"}) + "\n")
+        (c.root / "holdout/spent.jsonl").write_text(
+            json.dumps({"start": c.from_, "end": 2**62, "campaign": "other"}) + "\n"
+        )
     with pytest.raises(SystemExit):
         c.run()
     assert c.sessions == 0 and not (c.out / "stage3-real/run").exists()
 
 
-def test_the_harness_is_checked_again_after_pacing(c, monkeypatch):
-    calls = []
+def test_the_harness_is_checked_again_after_pacing(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
 
-    def wait(log):
-        monkeypatch.setattr(campaigns, "check_frozen", lambda: calls.append("frozen") or sys.exit("changed"))
+    def changed() -> Never:
+        calls.append("frozen")
+        sys.exit("changed")
+
+    def wait(log: Path) -> Any:
+        monkeypatch.setattr(campaigns, "check_frozen", changed)
         return "TAMU", {}
 
     monkeypatch.setattr(campaigns, "wait_for_room", wait)
@@ -381,106 +482,143 @@ def test_the_harness_is_checked_again_after_pacing(c, monkeypatch):
     assert calls == ["frozen"] and c.sessions == 0
 
 
-def test_arm_a_waits_for_the_canary_and_a_stop_meanwhile_commits_nothing(c, monkeypatch):
+def test_arm_a_waits_for_the_canary_and_a_stop_meanwhile_commits_nothing(
+    c: Campaign, monkeypatch: pytest.MonkeyPatch
+) -> None:
     stop = threading.Event()
     monkeypatch.setattr(campaigns, "STOP", stop)
     monkeypatch.setattr(campaigns, "wait_for_room", lambda log: None if stop.is_set() else ("TAMU", {}))
-    monkeypatch.setattr(campaigns.session, "RETRY", 0)
+    monkeypatch.setattr(sandbox_session, "RETRY", 0)
     checks = iter([False, True])
-    monkeypatch.setattr(campaigns.canary, "passes", lambda: next(checks) and (stop.set() or True))
+
+    def passes() -> bool:
+        if not next(checks):
+            return False
+        stop.set()
+        return True
+
+    monkeypatch.setattr(canary, "passes", passes)
     with pytest.raises(SystemExit, match="stopped before arm A"):
         c.run()
     assert c.sessions == 0 and not (c.out / "stage3-real" / "account.json").exists()
     assert not (c.out / "stage3-real" / "run").exists()
 
 
-def test_an_input_changed_during_the_arms_stops_the_release(c, monkeypatch):
+def test_an_input_changed_during_the_arms_stops_the_release(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     run_agent = c.session
 
-    def session(market, ledger, cid, workdir):
+    def session(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
         run = run_agent(market, ledger, cid, workdir)
         (c.root / "store/funding/extra.parquet").write_bytes(b"x")
         return run
 
-    monkeypatch.setattr(campaigns.harness, "run_agent", session)
+    monkeypatch.setattr(harness, "run_agent", session)
     with pytest.raises(SystemExit, match="inputs differ"):
         c.run()
     assert c.claims() == [] and c.releases == 0
 
 
-def test_a_failed_audit_stops_before_arm_b(c, monkeypatch):
+def test_a_failed_audit_stops_before_arm_b(c: Campaign, monkeypatch: pytest.MonkeyPatch) -> None:
     session = c.session
 
-    def forged(market, ledger, cid, workdir):
+    def forged(market: Path, ledger: Path, cid: str, workdir: Path) -> Any:
         run = session(market, ledger, cid, workdir)
         (workdir / "daemon.log").unlink()
         return run
 
-    monkeypatch.setattr(campaigns.harness, "run_agent", forged)
+    monkeypatch.setattr(harness, "run_agent", forged)
     with pytest.raises(SystemExit, match="audit"):
         c.run()
     assert c.searches == 0 and c.claims() == []
 
 
-def test_audit_matches_per_kind_in_order_and_tolerates_a_session_without_calls(tmp_path, c):
+def test_audit_matches_per_kind_in_order_and_tolerates_a_session_without_calls(tmp_path: Path, c: Campaign) -> None:
     market, ledger, run = c.root, tmp_path / "l.sqlite", tmp_path / "run"
     c.session(market, ledger, "x", run)
     a = campaigns.audit_run(run, ledger, "x")
-    assert a["match"] and a["daemon_calls"] == 3
+    assert a is not None and a["match"] and a["daemon_calls"] == 3
     lines = (run / "daemon.log").read_text().splitlines()
     (run / "daemon.log").write_text("\n".join(lines[1:] + lines[:1]) + "\n")
-    assert not campaigns.audit_run(run, ledger, "x")["match"]
+    reordered = campaigns.audit_run(run, ledger, "x")
+    assert reordered is not None and not reordered["match"]
     empty = tmp_path / "empty"
     empty.mkdir()
     (empty / "transcript.jsonl").write_text("")
-    subprocess.run(command("disclose", run / "run.json", "y", "A", ledger, None, "--kind", "run"), check=True, capture_output=True)
-    assert campaigns.audit_run(empty, ledger, "y")["match"]
+    subprocess.run(
+        command("disclose", run / "run.json", "y", "A", ledger, None, "--kind", "run"), check=True, capture_output=True
+    )
+    silent = campaigns.audit_run(empty, ledger, "y")
+    assert silent is not None and silent["match"]
 
 
-def null_campaign(c, monkeypatch, session):
+def null_campaign(
+    c: Campaign, monkeypatch: pytest.MonkeyPatch, session: Callable[[Path, Path, str, Path], dict[str, Any]]
+) -> dict[str, Any]:
     """`agent_null` on the fixture's market, with `session` as the model session and its run record disclosed."""
-    def run(market, ledger, cid, workdir):
+
+    def run(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
         result = session(market, ledger, cid, workdir)
-        subprocess.run(command("disclose", REPO / "kernel/strategies/w0.json", cid, "A", ledger, None, "--kind", "run"), check=True, capture_output=True)
+        subprocess.run(
+            command("disclose", REPO / "kernel/strategies/w0.json", cid, "A", ledger, None, "--kind", "run"),
+            check=True,
+            capture_output=True,
+        )
         return {"stopped": "finished", "exit": 0} | result
 
     (c.out / "null-0").mkdir(parents=True)
     monkeypatch.setattr(campaigns, "null_market", lambda cid, cells: c.root)
-    monkeypatch.setattr(campaigns.harness, "run_agent", run)
-    return campaigns.agent_null("null-0", {})
+    monkeypatch.setattr(harness, "run_agent", run)
+    row: dict[str, Any] = campaigns.agent_null("null-0", campaigns.SeriesInputs(params={}, cost_cells={}, mm=""))
+    return row
 
 
-def no_call(market, ledger, cid, workdir):
+def no_call(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
     workdir.mkdir(parents=True)
     (workdir / "transcript.jsonl").write_text("")
     return {}
 
 
-def checks_only(market, ledger, cid, workdir):
+def checks_only(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
     return {"spent": daemon_session(market, ledger, cid, workdir, []).spent}
 
 
 @pytest.mark.parametrize("session", [no_call, checks_only])
-def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(c, monkeypatch, session):
+def test_a_null_session_that_made_no_evaluation_counts_as_a_promotion(
+    c: Campaign, monkeypatch: pytest.MonkeyPatch, session: Callable[[Path, Path, str, Path], dict[str, Any]]
+) -> None:
     r = null_campaign(c, monkeypatch, session)
     assert r["counts_as_promotion"] and r["evaluations"] == 0 and r["promoted"] == []
 
 
-@pytest.mark.parametrize("stopped, exit, counts", [("finished", 1, True), ("finished", -9, True), ("wall time", -9, False),
-                                                   ("turn limit", -9, False), ("finished", 0, False)])
-def test_a_null_session_that_crashed_counts_as_a_promotion(c, monkeypatch, stopped, exit, counts):
-    def evaluates(market, ledger, cid, workdir):
-        return {"spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent, "stopped": stopped, "exit": exit}
+@pytest.mark.parametrize(
+    "stopped, exit, counts",
+    [
+        ("finished", 1, True),
+        ("finished", -9, True),
+        ("wall time", -9, False),
+        ("turn limit", -9, False),
+        ("finished", 0, False),
+    ],
+)
+def test_a_null_session_that_crashed_counts_as_a_promotion(
+    c: Campaign, monkeypatch: pytest.MonkeyPatch, stopped: str, exit: int, counts: bool
+) -> None:
+    def evaluates(market: Path, ledger: Path, cid: str, workdir: Path) -> dict[str, Any]:
+        return {
+            "spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent,
+            "stopped": stopped,
+            "exit": exit,
+        }
 
     r = null_campaign(c, monkeypatch, evaluates)
     assert r["evaluations"] == 1 and r["promoted"] == [] and r["counts_as_promotion"] == counts
 
 
-def test_no_returns_mean_p_one():
-    assert campaigns.gate.holdout_pvalue(np.zeros(0)) == 1.0
+def test_no_returns_mean_p_one() -> None:
+    assert gate.holdout_pvalue(np.zeros(0)) == 1.0
 
 
-def series_in_the_pods_view():
+def series_in_the_pods_view() -> None:
     """One campaign of the agent series, run by `test_the_series_in_its_pods_view` inside the pod's view: everything
     real but the model sessions (the canary's, and the agent's through the real daemon), pacing and the funding blob,
     synthetic and seeded here."""
@@ -492,35 +630,86 @@ def series_in_the_pods_view():
     (campaigns.OUT / "inputs" / spec["funding"]["sha256"]).write_bytes(blob)
     markets.NULLS = Path(tempfile.mkdtemp()) / "nulls.json"
     markets.NULLS.write_text(json.dumps({"N2": spec}))
-    rooms = iter([("TAMU", {})])
+    rooms: Iterator[tuple[str, dict[str, Any]]] = iter([("TAMU", {})])
     campaigns.wait_for_room = lambda log: next(rooms, None)
     campaigns.windows = lambda token=None: None
-    campaigns.canary.passes = lambda: True
-    campaigns.harness.run_agent = lambda market, ledger, cid, workdir: {"spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent}
+    canary.passes = lambda: True
+    harness.run_agent = lambda market, ledger, cid, workdir: {
+        "spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent
+    }
     campaigns.run_series("agent")
     rows = [json.loads(l) for l in open(campaigns.cohort("agent")[1])]
-    assert len(rows) == 1 and "crash" not in rows[0] and rows[0]["audit"]["match"] and rows[0]["mm"] == campaigns.sha256(MM), rows
+    assert (
+        len(rows) == 1
+        and "crash" not in rows[0]
+        and rows[0]["audit"]["match"]
+        and rows[0]["mm"] == campaigns.sha256(MM)
+    ), rows
 
 
 @pytest.mark.skipif(shutil.which("bwrap") is None, reason="bwrap is absent on this node")
-def test_the_series_in_its_pods_view(tmp_path, built_kernel):
+def test_the_series_in_its_pods_view(tmp_path: Path, built_kernel: Path) -> None:
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
     (REPO / "data").mkdir(exist_ok=True)
     volume = tmp_path / "agent"
     (volume / "kernel/release").mkdir(parents=True)
     shutil.copy2(MM, volume / "kernel/release/mm")
-    out = subprocess.run(["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
-                          "--tmpfs", REPO / "data", "--bind", volume, REPO / "data/agent", sys.executable, "-c",
-                          "from gate.tests.test_agent_real import series_in_the_pods_view; series_in_the_pods_view()"],
-                         capture_output=True, text=True, cwd=REPO,
-                         env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1", "CARGO_TARGET_DIR": str(REPO / "data/agent/kernel")})
+    out = subprocess.run(
+        [
+            "bwrap",
+            "--ro-bind",
+            "/",
+            "/",
+            "--dev",
+            "/dev",
+            "--proc",
+            "/proc",
+            "--tmpfs",
+            "/tmp",
+            "--tmpfs",
+            REPO / "data",
+            "--bind",
+            volume,
+            REPO / "data/agent",
+            sys.executable,
+            "-c",
+            "from gate.tests.test_agent_real import series_in_the_pods_view; series_in_the_pods_view()",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1", "CARGO_TARGET_DIR": str(REPO / "data/agent/kernel")},
+    )
     assert out.returncode == 0, out.stdout + out.stderr
 
 
 @pytest.mark.skipif(shutil.which("bwrap") is None, reason="bwrap is absent on this node")
-def test_under_a_read_only_root(tmp_path, built_kernel):
+def test_under_a_read_only_root(tmp_path: Path, built_kernel: Path) -> None:
     target = f"{Path(__file__)}::test_a_complete_campaign_commits_promotions_before_reading_diagnostics"
-    out = subprocess.run(["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp", sys.executable, "-m", "pytest",
-                          "-q", "-n0", "-p", "no:cacheprovider", target], capture_output=True, text=True, cwd=REPO,
-                         env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1"})
+    out = subprocess.run(
+        [
+            "bwrap",
+            "--ro-bind",
+            "/",
+            "/",
+            "--dev",
+            "/dev",
+            "--proc",
+            "/proc",
+            "--tmpfs",
+            "/tmp",
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-n0",
+            "-p",
+            "no:cacheprovider",
+            target,
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        env=os.environ | {"PYTHONDONTWRITEBYTECODE": "1"},
+    )
     assert out.returncode == 0, out.stdout + out.stderr

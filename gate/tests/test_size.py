@@ -1,20 +1,23 @@
+from pathlib import Path
+
 import numpy as np
+import pytest
 
 from gate import null_suite, size
 
 
-def test_each_generator_gives_bounded_finite_series_of_the_declared_shape():
+def test_each_generator_gives_bounded_finite_series_of_the_declared_shape() -> None:
     for name in null_suite.GENERATORS:
         x = size.series(name, 540, m=50)
         assert x.shape == (50, 540) and np.isfinite(x).all() and x.min() >= -1, name
 
 
-def test_series_are_seeded_by_the_suite_and_cell():
+def test_series_are_seeded_by_the_suite_and_cell() -> None:
     assert np.array_equal(size.series("peso_noisy", 546, m=5), size.series("peso_noisy", 546, m=5))
     assert not np.array_equal(size.series("peso_noisy", 546, m=5), size.series("peso_noisy", 540, m=5)[:, :540])
 
 
-def test_report_bounds_each_judged_level_over_all_judged_pairs():
+def test_report_bounds_each_judged_level_over_all_judged_pairs() -> None:
     r = size.report({f"a/{n}": np.linspace(0, 1, 20000) for n in null_suite.LENGTHS})
     assert r["judged_pairs"] == 9 and r["confidence"] == 1 - 0.05 / 9
     level = r["cells"]["a/540"]["levels"]["0.05"]
@@ -22,7 +25,7 @@ def test_report_bounds_each_judged_level_over_all_judged_pairs():
     assert "upper" not in r["cells"]["a/540"]["levels"]["0.001"]
 
 
-def test_main_writes_work_and_report(tmp_path, monkeypatch):
+def test_main_writes_work_and_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(size, "SERIES", 4)
     monkeypatch.setattr(null_suite, "GENERATORS", {"peso": null_suite.GENERATORS["peso"]})
     monkeypatch.setattr(null_suite, "LENGTHS", (540,))

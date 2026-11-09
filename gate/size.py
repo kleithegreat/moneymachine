@@ -3,8 +3,10 @@ scored once by the betting p-value; finished cells are kept in a work file, so a
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from gate import markets, null_suite
 from gate.gate import holdout_pvalues
@@ -15,21 +17,21 @@ JUDGED = (0.05, 0.01, 0.005)
 REPORTED = (0.001, 0.0005)
 
 
-def series(gen, n, m=SERIES):
+def series(gen: str, n: int, m: int = SERIES) -> npt.NDArray[np.float64]:
     tag = f"{null_suite.SUITE_ID}/{gen}/{n}"
     rng = np.random.default_rng(markets.seed(tag))
     return null_suite.GENERATORS[gen](rng, m, n)
 
 
-def report(pvalues):
+def report(pvalues: dict[str, Any]) -> dict[str, Any]:
     """Per cell and level: rejection count and rate, and at the judged levels the one-sided
     Clopper-Pearson upper bound at confidence 1 - 0.05/K over the K judged (cell, level) pairs."""
     k = len(pvalues) * len(JUDGED)
     confidence = 1 - 0.05 / k
-    cells = {}
+    cells: dict[str, Any] = {}
     for c, p in pvalues.items():
         p = np.asarray(p)
-        levels = {}
+        levels: dict[str, Any] = {}
         for u in JUDGED + REPORTED:
             count = int((p <= u).sum())
             levels[str(u)] = {"rejections": count, "rate": count / len(p)}
@@ -39,9 +41,9 @@ def report(pvalues):
     return {"judged_pairs": k, "confidence": confidence, "cells": cells}
 
 
-def main(work, audit):
+def main(work: str | Path, audit: str | Path) -> None:
     path = Path(work)
-    pvalues = json.loads(path.read_text()) if path.exists() else {}
+    pvalues: dict[str, Any] = json.loads(path.read_text()) if path.exists() else {}
     for gen in null_suite.GENERATORS:
         for n in null_suite.LENGTHS:
             if f"{gen}/{n}" not in pvalues:

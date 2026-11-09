@@ -1,25 +1,33 @@
 """A recorder holds its directory alone and stops between polls on SIGTERM."""
 
-import json
 import os
 import signal
 import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
+from typing import Any, Never
 
 import pytest
 
 from ingest import availability, live, record
+from ingest.policy import BAR
 
 
-def test_forever_stops_between_steps():
-    stop, steps = threading.Event(), []
-    record.forever(lambda: (steps.append(1), stop.set()), stop)
+def test_forever_stops_between_steps() -> None:
+    stop = threading.Event()
+    steps: list[int] = []
+
+    def step() -> None:
+        steps.append(1)
+        stop.set()
+
+    record.forever(step, stop)
     assert steps == [1]
 
 
-def test_recording_holds_the_writer_lock_and_stops_on_sigterm(tmp_path):
+def test_recording_holds_the_writer_lock_and_stops_on_sigterm(tmp_path: Path) -> None:
     before = signal.getsignal(signal.SIGTERM)
     try:
         stop = live.recording(tmp_path)
@@ -33,8 +41,8 @@ def test_recording_holds_the_writer_lock_and_stops_on_sigterm(tmp_path):
 
 
 @pytest.fixture
-def recorder_clock(tmp_path, monkeypatch):
-    clock = [record.BAR + record.FIRST_AFTER]
+def recorder_clock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[record.Recorder, list[int]]:
+    clock = [BAR + record.FIRST_AFTER]
     monkeypatch.setattr(record, "now_ms", lambda: clock[0])
     monkeypatch.setattr(record, "Info", lambda budget: None)
     coins = [f"coin{i}" for i in range(11)]
@@ -42,19 +50,21 @@ def recorder_clock(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("failed", [0, 3, 21])
-def test_verification_retries_failed_request_without_losing_the_batch(recorder_clock, failed):
+def test_verification_retries_failed_request_without_losing_the_batch(
+    recorder_clock: tuple[record.Recorder, list[int]], failed: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
     rec, clock = recorder_clock
-    expected = [(kind, coin, record.BAR, "verify") for kind in ("funding", "bar") for coin in rec.coins]
-    attempts = []
+    expected = [(kind, coin, BAR, "verify") for kind in ("funding", "bar") for coin in rec.coins]
+    attempts: list[tuple[Any, ...]] = []
 
-    def poll(*request):
+    def poll(*request: Any) -> bool:
         attempts.append(request)
         if len(attempts) == failed + 1:
             raise RuntimeError("request exhausted its retries")
         return True
 
-    rec.poll = poll
-    clock[0] = record.BAR + record.VERIFY_AFTER
+    monkeypatch.setattr(rec, "poll", poll)
+    clock[0] = BAR + record.VERIFY_AFTER
     for _ in range(len(expected) + 1):
         before = len(attempts)
         rec.step()
@@ -64,47 +74,57 @@ def test_verification_retries_failed_request_without_losing_the_batch(recorder_c
     assert len(attempts) == len(expected) + 1
 
 
-def test_four_hour_boundary_verifies_each_request_once(recorder_clock):
+def test_four_hour_boundary_verifies_each_request_once(
+    recorder_clock: tuple[record.Recorder, list[int]], monkeypatch: pytest.MonkeyPatch
+) -> None:
     rec, clock = recorder_clock
-    calls = []
-    rec.poll = lambda *request: calls.append(request) or True
-    clock[0] = record.BAR + record.VERIFY_AFTER
+    calls: list[tuple[Any, ...]] = []
+
+    def poll(*request: Any) -> bool:
+        calls.append(request)
+        return True
+
+    monkeypatch.setattr(rec, "poll", poll)
+    clock[0] = BAR + record.VERIFY_AFTER
     for _ in range(22):
         rec.step()
     calls.clear()
-    clock[0] = 2 * record.BAR + record.FIRST_AFTER
+    clock[0] = 2 * BAR + record.FIRST_AFTER
     rec.step()
     assert len(calls) == 22 and all(call[-1] == "first" for call in calls)
     calls.clear()
-    clock[0] = 2 * record.BAR + record.VERIFY_AFTER
+    clock[0] = 2 * BAR + record.VERIFY_AFTER
     for _ in range(22):
         before = len(calls)
         rec.step()
         assert len(calls) == before + 1
-    expected = [(kind, coin, 2 * record.BAR, "verify") for kind in ("funding", "bar") for coin in rec.coins]
+    expected = [(kind, coin, 2 * BAR, "verify") for kind in ("funding", "bar") for coin in rec.coins]
     assert calls == expected
     rec.step()
     assert calls == expected
 
 
-def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_clock):
+def test_verification_drops_a_persistent_failure_after_three_attempts(
+    recorder_clock: tuple[record.Recorder, list[int]], monkeypatch: pytest.MonkeyPatch
+) -> None:
     rec, clock = recorder_clock
-    clock[0] = record.BAR + record.VERIFY_AFTER
-    calls, errors = [], []
-    rec.log = errors.append
+    clock[0] = BAR + record.VERIFY_AFTER
+    calls: list[tuple[Any, ...]] = []
+    errors: list[dict[str, Any]] = []
+    monkeypatch.setattr(rec, "log", errors.append)
 
-    def poll(*request):
+    def poll(*request: Any) -> bool:
         calls.append(request)
         if request[1] == "coin0":
             raise TypeError("invalid response")
         return True
 
-    rec.poll = poll
+    monkeypatch.setattr(rec, "poll", poll)
     for _ in range(3):
         rec.step()
     assert len(calls) == 3 and len(errors) == 1
     error = errors[0]
-    assert error["kind"] == "funding" and error["coin"] == "coin0" and error["boundary"] == record.BAR
+    assert error["kind"] == "funding" and error["coin"] == "coin0" and error["boundary"] == BAR
     assert error["purpose"] == "dropped" and error["dropped"] and error["attempts"] == 3
     assert error["data"] == [] and not error["found"]
     assert "invalid response" in error["error"] and error["sent"] <= error["recv"]
@@ -115,19 +135,28 @@ def test_verification_drops_a_persistent_failure_after_three_attempts(recorder_c
     assert not rec.verify and len(errors) == 2
 
 
-def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(recorder_clock):
+def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(
+    recorder_clock: tuple[record.Recorder, list[int]], monkeypatch: pytest.MonkeyPatch
+) -> None:
     rec, clock = recorder_clock
-    boundary = record.BAR
+    boundary = BAR
     rec.verify = rec.verify[:1]
-    first = {"kind": "funding", "coin": "coin0", "boundary": boundary, "purpose": "first",
-             "sent": boundary + 5_000, "recv": boundary + 5_000,
-             "data": [{"time": boundary, "fundingRate": "0.001", "premium": "0"}], "found": True}
+    first = {
+        "kind": "funding",
+        "coin": "coin0",
+        "boundary": boundary,
+        "purpose": "first",
+        "sent": boundary + 5_000,
+        "recv": boundary + 5_000,
+        "data": [{"time": boundary, "fundingRate": "0.001", "premium": "0"}],
+        "found": True,
+    }
     rec.log(first)
 
-    def fail(*request):
+    def fail(*request: Any) -> Never:
         raise RuntimeError("verification unavailable")
 
-    rec.poll = fail
+    monkeypatch.setattr(rec, "poll", fail)
     clock[0] = boundary + record.VERIFY_AFTER
     for _ in range(3):
         rec.step()
@@ -147,17 +176,25 @@ def test_merge_uses_the_other_hosts_reference_after_a_dropped_verification(recor
     assert result["events"] == {"funding:coin0": 1} and result["failures"] == []
 
 
-def test_first_polls_precede_one_backlogged_verification(recorder_clock):
+def test_first_polls_precede_one_backlogged_verification(
+    recorder_clock: tuple[record.Recorder, list[int]], monkeypatch: pytest.MonkeyPatch
+) -> None:
     rec, clock = recorder_clock
-    calls = []
-    rec.poll = lambda *request: calls.append(request) or True
-    clock[0] = 2 * record.BAR + record.FIRST_AFTER
+    calls: list[tuple[Any, ...]] = []
+
+    def poll(*request: Any) -> bool:
+        calls.append(request)
+        return True
+
+    monkeypatch.setattr(rec, "poll", poll)
+    clock[0] = 2 * BAR + record.FIRST_AFTER
     rec.step()
     assert len(calls) == 23
     assert all(call[-1] == "first" for call in calls[:22])
-    assert calls[-1][-1] == "verify" and calls[-1][2] == record.BAR
+    assert calls[-1][-1] == "verify" and calls[-1][2] == BAR
     rec.step()
     assert len(calls) == 24 and calls[-1][-1] == "verify"
+
 
 # GPT's bug hunt (audit/reviews/2026-11-02-gpt-hunt-recorders.md), finding 1. The child's writes fail past a size limit,
 # as they do on a full disk, leaving the record torn.
@@ -173,31 +210,33 @@ except OSError:
 """
 
 
-def torn(tmp_path):
+def torn(tmp_path: Path) -> None:
     live.append(tmp_path, "x", 0, {"n": 1})
     assert subprocess.run([sys.executable, "-c", FILE_LIMIT, str(tmp_path)]).returncode == 3
     assert not (tmp_path / "x-19700101.jsonl").read_bytes().endswith(b"\n")
 
 
-def test_an_append_after_a_torn_record_starts_on_its_own_line(tmp_path, capsys):
+def test_an_append_after_a_torn_record_starts_on_its_own_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     torn(tmp_path)
     live.append(tmp_path, "x", 0, {"n": 2})
     assert list(live.read(tmp_path, "x")) == [{"n": 1}, {"n": 2}]
     assert "x-19700101.jsonl:2" in capsys.readouterr().err
 
 
-def test_a_torn_tail_does_not_stop_a_read(tmp_path):
+def test_a_torn_tail_does_not_stop_a_read(tmp_path: Path) -> None:
     torn(tmp_path)
     assert list(live.read(tmp_path, "x")) == [{"n": 1}]
 
 
-def test_a_complete_record_that_lost_only_its_newline_is_kept(tmp_path):
+def test_a_complete_record_that_lost_only_its_newline_is_kept(tmp_path: Path) -> None:
     (tmp_path / "x-19700101.jsonl").write_text('{"n":1}')
     live.append(tmp_path, "x", 0, {"n": 2})
     assert list(live.read(tmp_path, "x")) == [{"n": 1}, {"n": 2}]
 
 
-def test_a_torn_record_of_one_byte_is_still_separated(tmp_path):
+def test_a_torn_record_of_one_byte_is_still_separated(tmp_path: Path) -> None:
     (tmp_path / "x-19700101.jsonl").write_text("{")
     live.append(tmp_path, "x", 0, {"n": 1})
     assert list(live.read(tmp_path, "x")) == [{"n": 1}]
@@ -211,7 +250,7 @@ while True:
 """
 
 
-def test_a_writer_killed_mid_append_leaves_a_directory_the_next_writer_and_reader_can_use(tmp_path):
+def test_a_writer_killed_mid_append_leaves_a_directory_the_next_writer_and_reader_can_use(tmp_path: Path) -> None:
     child = subprocess.Popen([sys.executable, "-c", APPENDS, str(tmp_path)])
     f = tmp_path / "x-19700101.jsonl"
     while not f.exists() or f.stat().st_size == 0:

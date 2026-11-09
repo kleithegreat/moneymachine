@@ -2,17 +2,17 @@
 # alone, tools denied (reply: audit/stage2/screen-impl-gpt-2.md).
 """Independent DSR screen implementing the 2026-10-27 18:43 UTC revision."""
 
+from typing import Any
+
 import numpy as np
 from scipy.special import ndtr, ndtri_exp
 
 
-def dsr(returns, n_trials) -> float:
+def dsr(returns: Any, n_trials: int) -> float:
     """Return the DSR score, not the Boolean DSR >= 0.95 screen decision."""
     # Convention: reject invalid inputs rather than omit observations or
     # manufacture a score. Accept Python/NumPy integers, but not booleans.
-    if isinstance(n_trials, (bool, np.bool_)) or not isinstance(
-        n_trials, (int, np.integer)
-    ):
+    if isinstance(n_trials, (bool, np.bool_)) or not isinstance(n_trials, (int, np.integer)):
         raise ValueError("n_trials must be an integer")
     n = int(n_trials)
     if n < 0:
@@ -61,13 +61,9 @@ def dsr(returns, n_trials) -> float:
         skew_term = skew * sharpe
         kurtosis_term = (kurtosis - 1.0) * sharpe * sharpe / 4.0
         variance = 1.0 - skew_term + kurtosis_term
-        tolerance = 1e-12 * (
-            1.0 + np.abs(skew_term) + kurtosis_term
-        )
+        tolerance = 1e-12 * (1.0 + np.abs(skew_term) + kurtosis_term)
 
-        if not np.all(np.isfinite(
-            [sharpe, skew, kurtosis, variance, tolerance]
-        )):
+        if not np.all(np.isfinite([sharpe, skew, kurtosis, variance, tolerance])):
             raise FloatingPointError("non-finite DSR intermediate")
 
         if variance <= tolerance:
@@ -84,15 +80,10 @@ def dsr(returns, n_trials) -> float:
             shift = max(0, n.bit_length() - 53)
             log_n = np.log(float(n >> shift)) + shift * np.log(2.0)
             gamma = np.euler_gamma
-            z_n = (
-                (1.0 - gamma) * (-ndtri_exp(-log_n))
-                + gamma * (-ndtri_exp(-log_n - 1.0))
-            )
+            z_n = (1.0 - gamma) * (-ndtri_exp(-log_n)) + gamma * (-ndtri_exp(-log_n - 1.0))
             s0 = z_n / root_t_minus_one
 
-        statistic = (
-            (sharpe - s0) * root_t_minus_one / np.sqrt(variance)
-        )
+        statistic = (sharpe - s0) * root_t_minus_one / np.sqrt(variance)
         if not np.isfinite(statistic):
             raise FloatingPointError("non-finite DSR statistic")
         return float(ndtr(statistic))

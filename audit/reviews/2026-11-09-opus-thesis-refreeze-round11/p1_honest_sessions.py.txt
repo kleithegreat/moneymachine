@@ -1,0 +1,53 @@
+"""P1: honest sessions whose every client call is recorded exactly once read match False under ef20061.
+Run from the review worktree root: TMPDIR=/tmp nix develop -c python <this file>."""
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, ".")
+from thesis import harness  # noqa: E402
+
+
+def record(cmd, *args):
+    return {"session": "s", "request": {"cmd": cmd, "args": list(args), "argv": [cmd, *args], "refusal": None}}
+
+
+def transcript(calls, complete=True, dangling=None):
+    lines = []
+    for i, (command, output) in enumerate(calls):
+        lines += [{"type": "assistant", "message": {"content": [
+                      {"type": "tool_use", "id": str(i), "name": "Bash", "input": {"command": command}}]}},
+                  {"type": "user", "message": {"content": [
+                      {"type": "tool_result", "tool_use_id": str(i), "is_error": False,
+                       "content": [{"type": "text", "text": output}]}]}}]
+    if dangling:
+        lines.append({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "last", "name": "Bash", "input": {"command": dangling}}]}})
+    if complete:
+        lines.append({"type": "result", "permission_denials": []})
+    path = Path(tempfile.mkdtemp()) / "t.jsonl"
+    path.write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+    return path
+
+
+cases = {
+    # shapes seen running (not denied) in stage 4's 40 sessions, whose brief already forbade them
+    "ls, then the client": ([("ls -la", "brief.md thesis-agent"), ("./thesis-agent markets", "{}")], [record("markets")]),
+    "ls && client": ([("ls -la && ./thesis-agent markets", "{}")], [record("markets")]),
+    "client 2>&1": ([("./thesis-agent markets 2>&1", "{}")], [record("markets")]),
+    "client; client": ([("./thesis-agent prices BTC; ./thesis-agent prices ETH", "{}{}")],
+                       [record("prices", "BTC"), record("prices", "ETH")]),
+    "cat the brief": ([("cat brief.md", "..."), ("./thesis-agent markets", "{}")], [record("markets")]),
+    # stopped by the runner at its turn limit or wall time: no result line, all literal calls recorded
+    "turn-limit kill, nothing in flight": ([("./thesis-agent markets", "{}")], [record("markets")], False),
+    "turn-limit kill, last call in flight": ([("./thesis-agent markets", "{}")], [record("markets"), record("positions")],
+                                             False, "./thesis-agent positions"),
+    "control: literal calls only": ([("./thesis-agent markets", "{}"), ("./thesis-agent prices BTC", "{}")],
+                                    [record("markets"), record("prices", "BTC")]),
+}
+for name, (calls, records, *rest) in cases.items():
+    complete = rest[0] if rest else True
+    dangling = rest[1] if len(rest) > 1 else None
+    a = harness.audit(transcript(calls, complete, dangling), records)
+    print(f"{name:40} match={a['match']}  {({k: a[k] for k in a if k != 'match'})}")

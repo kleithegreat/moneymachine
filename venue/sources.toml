@@ -649,25 +649,6 @@ The documentation offers the archive for download, with the requester paying, an
 Hyperliquid's API, use of the read-only public data is the operator's decision: the human configured the AWS account
 and approved spending up to $20 (2026-10-26). Uploads come about once a month.'''
 
-[bigquery-crypto]
-description = '''
-# Google BigQuery public datasets `bigquery-public-data.crypto_ethereum` and `crypto_bitcoin` (checked 2026-10-26)
-
-Read with the human's Application Default Credentials in project `moneymachine-512800`, a BigQuery sandbox without
-billing (the `cloud` dev shell; the `bq` CLI needs a gcloud login, so access is through the Python client).
-
-- The tables are views with hidden definitions. On 2026-10-26 at 01:18 UTC the latest Ethereum block was 01:17:47
-  and the latest Bitcoin block 01:14:38, so both are current within minutes.
-- Ethereum `blocks` filters on `timestamp`; Bitcoin `blocks` on `timestamp_month`. Scanning Ethereum blocks since
-  2026-08-01 read 210 MB; Bitcoin, 16 MB. A query bills at least 10 MB, against the sandbox's 1 TB a month.
-- Query results come back through the API (7,566 rows in 5.3 s). The sandbox can create datasets and destination
-  tables, which expire within 60 days. Extraction to Cloud Storage needs a bucket, and so billing: not available.
-- Point-in-time use needs certification: the tables are rewritten in place, so a value's availability must come
-  from the block timestamp under a certified rule, not from the table.
-
-Terms are not yet certified: no automated research use until a terms record is added.'''
-
-
 [bls]
 description = '''
 # U.S. Bureau of Labor Statistics: the Public Data API v2 and the release calendar (keyed data layer)

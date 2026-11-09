@@ -5,8 +5,13 @@ Sequential generators are vectorized across series. Their outputs may be
 non-C-contiguous; every output has dtype float64 and shape (m, n).
 """
 
-import numpy as np
+from collections.abc import Callable
 
+import numpy as np
+import numpy.typing as npt
+
+type Series = npt.NDArray[np.float64]
+type Generator = Callable[[np.random.Generator, int, int], Series]
 
 SUITE_ID = "holdout-calibration-locked-v3"
 LENGTHS = (540, 546, 1080)
@@ -21,7 +26,7 @@ _T4_TRUNC_SD = np.sqrt(64.0 / 35.0)
 _LEFT_TAIL_CENTER = 0.028
 
 
-def _standardized_truncated_t4(rng, size):
+def _standardized_truncated_t4(rng: np.random.Generator, size: int) -> Series:
     """Draw t_4 conditioned on |T| <= 8, then standardize its variance."""
     z = rng.standard_t(4.0, size=size)
     bad = np.abs(z) > 8.0
@@ -32,7 +37,7 @@ def _standardized_truncated_t4(rng, size):
     return z
 
 
-def _truncated_standard_normal(rng, size):
+def _truncated_standard_normal(rng: np.random.Generator, size: int) -> Series:
     """Draw a standard normal conditioned on absolute value at most 6."""
     z = rng.standard_normal(size=size)
     bad = np.abs(z) > 6.0
@@ -42,16 +47,16 @@ def _truncated_standard_normal(rng, size):
     return z
 
 
-def peso(rng, m, n):
+def peso(rng: np.random.Generator, m: int, n: int) -> Series:
     """Independent rare losses with exactly compensating positive carry."""
     q = 0.002
     a = 0.9 * q / (1.0 - q)
-    out = np.full((m, n), a, dtype=np.float64)
+    out: Series = np.full((m, n), a, dtype=np.float64)
     out[rng.random((m, n)) < q] = -0.9
     return out
 
 
-def peso_noisy(rng, m, n):
+def peso_noisy(rng: np.random.Generator, m: int, n: int) -> Series:
     """Independent rare losses; non-loss returns have uniform noise."""
     q = 0.005
     a = 0.5 * q / (1.0 - q)
@@ -62,12 +67,12 @@ def peso_noisy(rng, m, n):
     return out
 
 
-def ruin(rng, m, n):
+def ruin(rng: np.random.Generator, m: int, n: int) -> Series:
     """Fair positive carry until an absorbing total loss."""
     q = 0.002
     a = q / (1.0 - q)
-    alive = np.ones(m, dtype=bool)
-    out = np.empty((n, m), dtype=np.float64)
+    alive: npt.NDArray[np.bool_] = np.ones(m, dtype=bool)
+    out: Series = np.empty((n, m), dtype=np.float64)
 
     for t in range(n):
         crash = alive & (rng.random(m) < q)
@@ -78,7 +83,7 @@ def ruin(rng, m, n):
     return out.T
 
 
-def left_tail(rng, m, n):
+def left_tail(rng: np.random.Generator, m: int, n: int) -> Series:
     """Centered capped Pareto losses, with an analytic centering constant."""
     # V lies in (0, 1], including when rng.random returns zero.
     out = rng.random((m, n))
@@ -90,7 +95,7 @@ def left_tail(rng, m, n):
     return out
 
 
-def right_tail(rng, m, n):
+def right_tail(rng: np.random.Generator, m: int, n: int) -> Series:
     """Centered mean-one lognormal returns."""
     log_sd = 1.5
     out = rng.lognormal(
@@ -103,14 +108,14 @@ def right_tail(rng, m, n):
     return out
 
 
-def garch_t(rng, m, n):
+def garch_t(rng: np.random.Generator, m: int, n: int) -> Series:
     """Capped GARCH volatility with standardized truncated-t innovations."""
     alpha = 0.08
     beta = 0.9
     omega = 0.0004 * (1.0 - alpha - beta)
 
-    variance = np.full(m, 0.0004, dtype=np.float64)
-    out = np.empty((n, m), dtype=np.float64)
+    variance: Series = np.full(m, 0.0004, dtype=np.float64)
+    out: Series = np.empty((n, m), dtype=np.float64)
 
     for t in range(500 + n):
         z = _standardized_truncated_t4(rng, m)
@@ -125,34 +130,30 @@ def garch_t(rng, m, n):
     return out.T
 
 
-def sparse_bursts(rng, m, n):
+def sparse_bursts(rng: np.random.Generator, m: int, n: int) -> Series:
     """Stationary sparse activity with standardized truncated-t bursts."""
     p_flat_to_active = 1.0 / 36.0
     p_active_to_flat = 1.0 / 4.0
-    p_active = p_flat_to_active / (
-        p_flat_to_active + p_active_to_flat
-    )
+    p_active = p_flat_to_active / (p_flat_to_active + p_active_to_flat)
 
     active = rng.random(m) < p_active
-    out = np.empty((n, m), dtype=np.float64)
+    out: Series = np.empty((n, m), dtype=np.float64)
 
     for t in range(n):
         z = _standardized_truncated_t4(rng, m)
         out[t] = np.where(active, 0.03 * z, 0.0)
 
         if t + 1 < n:
-            p_switch = np.where(
-                active, p_active_to_flat, p_flat_to_active
-            )
+            p_switch = np.where(active, p_active_to_flat, p_flat_to_active)
             active ^= rng.random(m) < p_switch
 
     return out.T
 
 
-def doubling(rng, m, n):
+def doubling(rng: np.random.Generator, m: int, n: int) -> Series:
     """Fair signs with exposure doubling after losses, capped at eight."""
-    exposure = np.ones(m, dtype=np.float64)
-    out = np.empty((n, m), dtype=np.float64)
+    exposure: Series = np.ones(m, dtype=np.float64)
+    out: Series = np.empty((n, m), dtype=np.float64)
 
     for t in range(n):
         positive = rng.random(m) < 0.5
@@ -167,16 +168,14 @@ def doubling(rng, m, n):
     return out.T
 
 
-def vol_regime(rng, m, n):
+def vol_regime(rng: np.random.Generator, m: int, n: int) -> Series:
     """Stationary volatility regimes with unrescaled truncated normals."""
     p_calm_to_stressed = 1.0 / 50.0
     p_stressed_to_calm = 1.0 / 10.0
-    p_stressed = p_calm_to_stressed / (
-        p_calm_to_stressed + p_stressed_to_calm
-    )
+    p_stressed = p_calm_to_stressed / (p_calm_to_stressed + p_stressed_to_calm)
 
     stressed = rng.random(m) < p_stressed
-    out = np.empty((n, m), dtype=np.float64)
+    out: Series = np.empty((n, m), dtype=np.float64)
 
     for t in range(n):
         z = _truncated_standard_normal(rng, m)
@@ -184,15 +183,13 @@ def vol_regime(rng, m, n):
         out[t] = sigma * z
 
         if t + 1 < n:
-            p_switch = np.where(
-                stressed, p_stressed_to_calm, p_calm_to_stressed
-            )
+            p_switch = np.where(stressed, p_stressed_to_calm, p_calm_to_stressed)
             stressed ^= rng.random(m) < p_switch
 
     return out.T
 
 
-def gpt_a(rng, m, n):
+def gpt_a(rng: np.random.Generator, m: int, n: int) -> Series:
     """Deadline-dependent carry with a single absorbing crash.
 
     Index steps by k = 0, ..., n-1. While alive, the crash probability is
@@ -217,8 +214,8 @@ def gpt_a(rng, m, n):
     the survival state and all previous observations.
     """
     p = 0.9
-    alive = np.ones(m, dtype=bool)
-    out = np.empty((n, m), dtype=np.float64)
+    alive: npt.NDArray[np.bool_] = np.ones(m, dtype=bool)
+    out: Series = np.empty((n, m), dtype=np.float64)
 
     for k in range(n):
         denominator = n - p * k
@@ -235,7 +232,7 @@ def gpt_a(rng, m, n):
     return out.T
 
 
-def gpt_b(rng, m, n):
+def gpt_b(rng: np.random.Generator, m: int, n: int) -> Series:
     """Predictable volatility growth and self-normalized optional stopping.
 
     While trading, returns are independent fair signs times a
@@ -255,10 +252,10 @@ def gpt_b(rng, m, n):
     determined by the past. The next sign is independent and fair, so
     the conditional mean remains exactly zero.
     """
-    active = np.ones(m, dtype=bool)
-    cumulative_return = np.zeros(m, dtype=np.float64)
-    cumulative_square = np.zeros(m, dtype=np.float64)
-    out = np.empty((n, m), dtype=np.float64)
+    active: npt.NDArray[np.bool_] = np.ones(m, dtype=bool)
+    cumulative_return: Series = np.zeros(m, dtype=np.float64)
+    cumulative_square: Series = np.zeros(m, dtype=np.float64)
+    out: Series = np.empty((n, m), dtype=np.float64)
 
     log_scale_ratio = np.log(50.0)
     horizon = max(n - 1, 1)
@@ -276,19 +273,13 @@ def gpt_b(rng, m, n):
         cumulative_return += r
         cumulative_square += np.square(r)
 
-        crossed = (
-            (cumulative_square > 0.0)
-            & (
-                cumulative_return
-                >= 2.75 * np.sqrt(cumulative_square)
-            )
-        )
+        crossed = (cumulative_square > 0.0) & (cumulative_return >= 2.75 * np.sqrt(cumulative_square))
         active &= ~crossed
 
     return out.T
 
 
-GENERATORS = {
+GENERATORS: dict[str, Generator] = {
     "peso": peso,
     "peso_noisy": peso_noisy,
     "ruin": ruin,

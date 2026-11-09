@@ -1,0 +1,38 @@
+"""Finding: a `./thesis-agent` call the client refuses locally (wrong arity, or an unreadable FILE) never reaches the
+daemon, yet harness.audit counts it as a client call, so C10.2's per-session mapping reads as a mismatch
+(sandbox/client.py:24-34, sandbox/session.py:176-179, thesis/harness.py:63-67).
+
+Run from the worktree root: TMPDIR=/tmp nix develop -c python <this file>
+"""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, os.getcwd())
+from sandbox import session  # noqa: E402
+from thesis import harness  # noqa: E402
+from thesis.daemon import SPEC  # noqa: E402
+
+work = Path(tempfile.mkdtemp(prefix="r2-", dir=os.environ.get("TMPDIR", "/tmp")))
+session.workspace(work, {"brief.md": "x"}, harness.CLIENT, SPEC)
+client = (work / "tool").resolve() / harness.CLIENT
+for argv in (["prices"], ["register", "missing.json"]):
+    r = subprocess.run([sys.executable, str(client), *argv], capture_output=True, text=True, cwd=work / "work")
+    # the socket in SPEC is /tool/thesis-agent.sock, which does not exist here: a call that tried to connect would raise
+    print(argv, "->", r.returncode, r.stdout.strip()[:80], "| stderr:", r.stderr.strip()[-60:] or "none")
+
+transcript = work / "transcript.jsonl"
+lines = [{"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "a", "name": "Bash", "input": {"command": "./thesis-agent prices"}},
+            {"type": "tool_use", "id": "b", "name": "Bash", "input": {"command": "./thesis-agent markets"}}]}},
+         {"type": "result", "permission_denials": []}]
+transcript.write_text("\n".join(json.dumps(l) for l in lines) + "\n")
+daemon_records = [{"session": "s", "seq": 1}]  # only `markets` reached the daemon
+audit = harness.audit(transcript, daemon_records)
+print("audit:", audit)
+assert audit["match"] is False and audit["client_calls"] == 2
+print("REPRODUCED: a locally refused client call reads as an unmatched client call")

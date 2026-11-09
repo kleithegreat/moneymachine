@@ -6,7 +6,6 @@ arrays open, high, low, close, volume (DAYS*6 bars x 12 coins, row-major), then 
 (DAYS*24+1 hours x 12 coins). rules.rs pins each file's sha256."""
 
 import hashlib
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -17,15 +16,17 @@ DAYS = 30
 OUT = Path(__file__).resolve().parent
 
 
-def main():
+def main() -> None:
     params = markets.null_params()
     for model in ("N1", "N2", "N3"):
         a = markets.generate(model, params.get(model), f"c41-{model}", DAYS)
-        blob = b"".join(np.ascontiguousarray(a[k], dtype="<f8").tobytes()
-                        for k in ("open", "high", "low", "close", "volume", "funding", "premium"))
+        blob = b"".join(
+            np.ascontiguousarray(a[k], dtype="<f8").tobytes()
+            for k in ("open", "high", "low", "close", "volume", "funding", "premium")
+        )
         (OUT / f"{model}.f64").write_bytes(blob)
         print(model, len(blob), hashlib.sha256(blob).hexdigest())
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

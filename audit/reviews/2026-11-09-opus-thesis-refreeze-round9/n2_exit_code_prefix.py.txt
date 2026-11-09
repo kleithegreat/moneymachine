@@ -1,0 +1,24 @@
+"""Round-nine review N2 (run from the worktree root: TMPDIR=/tmp nix develop -c python <this file>): Claude Code's transcript gives a nonzero-exit Bash result as "Exit code N\n<output>" with
+is_error true (observed in this CLI's own transcript, 2026-11-09). The client exits 1 for an unreadable FILE, so the
+real result starts "Exit code 1", and harness.refused_locally's prefix test misses it: the hunt's F4 false failure
+remains for that case."""
+import json, os, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, os.getcwd())
+from thesis import harness
+from thesis.daemon import SPEC
+
+ERR = '{"ok": false, "error": "[Errno 2] No such file or directory: \'missing.json\'"}'
+calls = [("./thesis-agent register missing.json", "Exit code 1\n" + ERR, True),
+         ("./thesis-agent prices", "Exit code 2\n" + SPEC["usage"], True),
+         ("./thesis-agent markets", '{"markets":{},"ok":true,"taken":1}', False)]
+lines = []
+for i, (command, output, err) in enumerate(calls):
+    lines += [{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": str(i), "name": "Bash", "input": {"command": command}}]}},
+              {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": str(i), "is_error": err, "content": output}]}}]
+lines.append({"type": "result", "permission_denials": []})
+p = Path(tempfile.mkdtemp(dir=os.environ.get("TMPDIR", "/tmp"))) / "t.jsonl"
+p.write_text("\n".join(json.dumps(l) for l in lines) + "\n")
+a = harness.audit(p, [{"session": "s", "request": {"cmd": "markets", "args": []}}])
+print(a)
+print("REPRODUCED: an unreadable FILE refused by the client reads as an unmatched call" if not a["match"] else "not reproduced")

@@ -2,34 +2,43 @@
 (venue/hyperliquid/sources.md, rules.json); C0.4's store tests live in ingest/tests/test_store.py."""
 
 import json
+from typing import Any
 
 import pytest
 
 from criteria.evidence import REPO, ingest_reports, load
 from ingest.policy import DAY
 
-LISTED = [c for c, r in json.loads((REPO / "venue/hyperliquid/rules.json").read_text())["coins"].items() if not r["delisted"]]
+LISTED = [
+    c for c, r in json.loads((REPO / "venue/hyperliquid/rules.json").read_text())["coins"].items() if not r["delisted"]
+]
 
 
-def judged_ingest():
+def judged_ingest() -> list[Any]:
     """C0.2 and C0.5 are judged on the second fetch, at least 24 h after the first (C0.3 revision)."""
     reports = ingest_reports()
     assert len(reports) >= 2, "stage 0 has exited, so the second fetch of W is recorded"
     return reports
 
 
-def test_c02_coverage_and_integrity():
+def test_c02_coverage_and_integrity() -> None:
     report = judged_ingest()[-1]
     for coin, c in report["coverage"].items():
         assert c["funding_missing"] <= 0.01 * c["funding_expected"], coin
         assert c["bars_missing"] <= 0.01 * c["bars_expected"], coin
         assert c["max_gap_h"] <= 24, coin
     i = report["integrity"]
-    assert (i["funding_duplicate_keys"], i["bar_duplicate_keys"], i["bars_misaligned"], i["bars_ohlc_inconsistent"],
-            i["bars_negative_volume"], i["funding_over_cap"]) == (0, 0, 0, 0, 0, 0)
+    assert (
+        i["funding_duplicate_keys"],
+        i["bar_duplicate_keys"],
+        i["bars_misaligned"],
+        i["bars_ohlc_inconsistent"],
+        i["bars_negative_volume"],
+        i["funding_over_cap"],
+    ) == (0, 0, 0, 0, 0, 0)
 
 
-def test_c03_availability():
+def test_c03_availability() -> None:
     a = load("stage0/availability.json")
     assert a["window"] is not None and a["failures"] == []
     for coin in LISTED:
@@ -39,12 +48,12 @@ def test_c03_availability():
         assert c["max_abs_ms"] < 1000 and c["brackets"] and c["max_gap_min"] <= 10 and c["max_unchanged_min"] <= 40
 
 
-def test_c04_second_version_at_least_24h_later():
+def test_c04_second_version_at_least_24h_later() -> None:
     first, last = judged_ingest()[0], judged_ingest()[-1]
     assert last["version"] - first["version"] >= DAY
 
 
-def test_c05_replay_completeness():
+def test_c05_replay_completeness() -> None:
     """The as_of view is recomputed under C0.4's amendment of 2026-10-22."""
     report = judged_ingest()[-1]
     assert report["replay_from_keys"]["fraction_ok"] >= 0.99
@@ -55,29 +64,41 @@ CELLS = [(coin, side, size) for coin in LISTED for side in ("buy", "sell") for s
 C07_RECORDED_FAILURES = {("BTC", "sell", 1000), ("SUI", "sell", 10000), ("kPEPE", "sell", 10000)}
 
 
-def c07_failed_cells():
+def c07_failed_cells() -> set[tuple[str, str, int]]:
     e = load("stage0/execution.json")
-    return {(coin, side, size) for coin, side, size in CELLS
-            if not (e[f"{coin}:{side}:{size}"]["coverage"] >= 0.9 and e[f"{coin}:{side}:{size}"]["model_above_test_q90_bps"] <= 3.0)}
+    return {
+        (coin, side, size)
+        for coin, side, size in CELLS
+        if not (
+            e[f"{coin}:{side}:{size}"]["coverage"] >= 0.9
+            and e[f"{coin}:{side}:{size}"]["model_above_test_q90_bps"] <= 3.0
+        )
+    }
 
 
-def test_c07_evidence_and_the_recorded_failures_are_exactly_as_recorded():
+def test_c07_evidence_and_the_recorded_failures_are_exactly_as_recorded() -> None:
     e = load("stage0/execution.json")
     assert len(CELLS) == 44
-    assert all(e[f"{coin}:{side}:{size}"]["n_cal"] + e[f"{coin}:{side}:{size}"]["n_test"] >= 24 * 60 for coin, side, size in CELLS)
+    assert all(
+        e[f"{coin}:{side}:{size}"]["n_cal"] + e[f"{coin}:{side}:{size}"]["n_test"] >= 24 * 60
+        for coin, side, size in CELLS
+    )
     assert c07_failed_cells() == C07_RECORDED_FAILURES
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="C0.7's qualification of 2026-10-26 (audit/criteria.md), by human decision: 3 of 44 cells under its coverage")
-def test_c07_execution_model():
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="C0.7's qualification of 2026-10-26 (audit/criteria.md), by human decision: 3 of 44 cells under its coverage",
+)
+def test_c07_execution_model() -> None:
     assert not c07_failed_cells()
 
 
-def test_c08_witness_reconciles():
+def test_c08_witness_reconciles() -> None:
     assert load("stage0/witness.json")["worst_reconciliation_rel"] <= 1e-9
 
 
-def test_c09_holdout_hashes_recorded():
+def test_c09_holdout_hashes_recorded() -> None:
     entries = load("holdout.json")
     assert entries and all(e["path"].startswith("holdout/") and len(e["sha256"]) == 64 for e in entries)

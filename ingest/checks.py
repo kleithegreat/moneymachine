@@ -4,17 +4,25 @@ They run on fetched frames at ingestion, before the holdout split, and report on
 counts, gaps and boolean outcomes, so the holdout's values are never read afterwards.
 """
 
+from collections.abc import Callable, Iterable
+from typing import Any
+
 import polars as pl
 
 from ingest.policy import BAR, DELTA, HOUR
+from ingest.units import EpochMs
 
+Intervals = dict[str, tuple[EpochMs, EpochMs]]
+Gaps = list[tuple[EpochMs, EpochMs]]
+View = Callable[[str, EpochMs], dict[str, EpochMs]]
 FUNDING_CAP = 0.04
 
 
-def _gaps(present, start, end, step):
+def _gaps(present: Iterable[EpochMs], start: EpochMs, end: EpochMs, step: EpochMs) -> Gaps:
     """Contiguous runs [a, b) of the grid start, start+step, ... < end missing from present."""
     have = set(present)
-    gaps, run = [], None
+    gaps: Gaps = []
+    run: EpochMs | None = None
     for t in range(start, end, step):
         if t not in have:
             run = run or t
@@ -26,7 +34,7 @@ def _gaps(present, start, end, step):
     return gaps
 
 
-def listed_intervals(bars, w_start, w_end, delisted):
+def listed_intervals(bars: pl.DataFrame, w_start: EpochMs, w_end: EpochMs, delisted: Iterable[str]) -> Intervals:
     """[start, end) per coin: W, cut for delisted coins at the close of their last traded bar.
 
     Funding rows do not mark delisting: the venue keeps writing zero rows afterwards.
@@ -35,8 +43,8 @@ def listed_intervals(bars, w_start, w_end, delisted):
     return {c: (w_start, last[c] if c in delisted else w_end) for c in last}
 
 
-def coverage(funding, bars, intervals):
-    out = {}
+def coverage(funding: pl.DataFrame, bars: pl.DataFrame, intervals: Intervals) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
     for coin, (start, end) in intervals.items():
         f = funding.filter((pl.col("coin") == coin) & pl.col("eventTime").is_between(start, end - 1))
         b = bars.filter((pl.col("coin") == coin) & pl.col("openTime").is_between(start, end - 1))
@@ -44,15 +52,18 @@ def coverage(funding, bars, intervals):
         bg = _gaps(b["openTime"], start - start % BAR + (BAR if start % BAR else 0), end, BAR)
         n_f, n_b = (end - start) // HOUR, (end - start) // BAR
         out[coin] = {
-            "funding_expected": n_f, "funding_missing": sum((b_ - a) // HOUR for a, b_ in fg),
-            "bars_expected": n_b, "bars_missing": sum((b_ - a) // BAR for a, b_ in bg),
+            "funding_expected": n_f,
+            "funding_missing": sum((b_ - a) // HOUR for a, b_ in fg),
+            "bars_expected": n_b,
+            "bars_missing": sum((b_ - a) // BAR for a, b_ in bg),
             "max_gap_h": max([(b_ - a) / HOUR for a, b_ in fg + bg], default=0),
-            "funding_gaps": fg, "bar_gaps": bg,
+            "funding_gaps": fg,
+            "bar_gaps": bg,
         }
     return out
 
 
-def integrity(funding, bars):
+def integrity(funding: pl.DataFrame, bars: pl.DataFrame) -> dict[str, Any]:
     pos = funding.filter(pl.col("premium") > 5e-4)
     return {
         "funding_duplicate_keys": funding.height - funding.unique(["coin", "eventTime"]).height,
@@ -63,27 +74,33 @@ def integrity(funding, bars):
         ).height,
         "bars_negative_volume": bars.filter(pl.col("volume") < 0).height,
         "funding_over_cap": funding.filter(pl.col("fundingRate").abs() > FUNDING_CAP).height,
-        "funding_reported_lag_ms": [int((funding["reportedTime"] - funding["eventTime"]).min()),
-                                    int((funding["reportedTime"] - funding["eventTime"]).max())],
+        "funding_reported_lag_ms": [
+            int((funding["reportedTime"] - funding["eventTime"]).min()),
+            int((funding["reportedTime"] - funding["eventTime"]).max()),
+        ],
         "funding_modal_rate": funding["fundingRate"].mode().sort()[0],
         "funding_premium_corr": funding.select(pl.corr("fundingRate", "premium")).item(),
         "funding_positive_when_premium_gt_5bp": (pos.filter(pl.col("fundingRate") > 0).height, pos.height),
     }
 
 
-def replay_completeness(funding, bars, intervals, view=None):
+def replay_completeness(
+    funding: pl.DataFrame, bars: pl.DataFrame, intervals: Intervals, view: View | None = None
+) -> dict[str, Any]:
     """(B, coin) pairs whose view at B + DELTA lacks the funding at B or the bar ending at B.
 
     view(dataset, t) -> {coin: latest eventTime known at t}. With view=None it is derived
     from keys alone, which is how the holdout is checked at ingestion.
     """
-    def from_keys(df):
+
+    def from_keys(df: pl.DataFrame) -> dict[str, set[EpochMs]]:
         return {c: set(g["eventTime"]) for (c,), g in df.group_by("coin")}
 
     keys = {"funding": from_keys(funding), "bars_4h": from_keys(bars)}
     lo = min(s for s, _ in intervals.values())
     hi = max(e for _, e in intervals.values())
-    failures, total = [], 0
+    failures: list[tuple[EpochMs, str]] = []
+    total = 0
     for b in range(lo + (-lo) % BAR, hi, BAR):
         latest = {d: view(d, b + DELTA) for d in keys} if view else None
         for coin, (start, end) in intervals.items():
@@ -96,5 +113,9 @@ def replay_completeness(funding, bars, intervals, view=None):
                 ok = all(latest[d].get(coin) == b for d in keys)
             if not ok:
                 failures.append((b, coin))
-    return {"pairs": total, "failures": len(failures), "fraction_ok": 1 - len(failures) / max(total, 1),
-            "failure_list": failures}
+    return {
+        "pairs": total,
+        "failures": len(failures),
+        "fraction_ok": 1 - len(failures) / max(total, 1),
+        "failure_list": failures,
+    }
