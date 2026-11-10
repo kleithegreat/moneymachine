@@ -86,7 +86,7 @@ def c10_2(sessions: list[Json], unclosed: list[str]) -> Json:
 
 
 def write(track, now, out):
-    calls = [c for _, _, c in track.ledger.records("call")]
+    calls = track.ledger.calls()
     sessions = [c for _, _, c in track.ledger.records("session_end")]
     ended = {c["session"] for c in sessions}
     unclosed = [c["session"] for _, _, c in track.ledger.records("session") if c["session"] not in ended]

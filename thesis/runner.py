@@ -346,7 +346,7 @@ class Track:
         CLI never started (`session.run` opens the transcript before the CLI starts); a missing one with daemon calls or
         an exit status, an unreadable one or an incomplete one is `audit_error`, which fails C10.2."""
         transcript = self.root / "sessions" / self.version / name / "transcript.jsonl"
-        calls = [c for _, _, c in self.ledger.records("call", kind) if c["session"] == name]
+        calls = [c for c in self.ledger.calls(kind) if c["session"] == name]
         if not transcript.exists():
             return {"audit_error": "the transcript is missing"} if calls or "exit" in run else {}
         try:

@@ -80,7 +80,7 @@ def a_daemon(root, session, account):
 def test_f2_an_identical_response_does_not_rewrite_the_bytes_a_record_cites(tmp_path, monkeypatch):
     main, ledger = a_daemon(tmp_path, "main-0", "main")
     main.handle({"cmd": "markets", "args": []})
-    cited = ledger.records("call", "main")[0][2]["response_sha256"]
+    cited = ledger.calls("main")[0]["response_sha256"]
     path = tmp_path / "responses" / f"{cited}.json"
 
     def killed_midway(self, data):
@@ -102,7 +102,7 @@ def test_f2_a_response_never_appears_partly_written(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "replace", lambda *a: (_ for _ in ()).throw(OSError("killed before the rename")))
     with pytest.raises(OSError):
         daemon.handle({"cmd": "markets", "args": []})
-    assert list((tmp_path / "responses").glob("*.json")) == [] and not ledger.records("call", "main")
+    assert list((tmp_path / "responses").glob("*.json")) == [] and not ledger.calls("main")
 
 
 COMMITS = 150

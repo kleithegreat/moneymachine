@@ -56,7 +56,7 @@ def test_every_call_is_recorded_with_the_hash_of_its_exact_bytes(make, tmp_path)
     d, ledger = make()
     outs = [d.handle({"cmd": "markets", "args": []}), d.handle({"cmd": "nope"}), d.handle({"cmd": "fetch", "args": ["https://bad"]}),
             d.handle({"cmd": "fetch", "args": ["https://ok"]})]
-    calls = [c for _, _, c in ledger.records("call", "main")]
+    calls = ledger.calls("main")
     assert [c["seq"] for c in calls] == [1, 2, 3, 4]
     for body, c in zip(outs, calls):
         assert c["response_sha256"] == registry.sha256(body)
@@ -92,7 +92,7 @@ def test_exits_only_own_open_positions_and_session_commands(make):
     ablation, ledger = make(commands=("prices", "forecast"), ablation_of=th["id"])
     assert not call(ablation, "register", thesis(request_id="z"))["ok"]
     assert call(ablation, "forecast", "0.4")["ok"] and not call(ablation, "forecast", "0.5")["ok"]
-    assert [c for _, _, c in ledger.records("ablation")] == [{"thesis": th["id"], "p": 0.4, "session": "s1"}]
+    assert [registry.without_call(c) for _, _, c in ledger.records("ablation")] == [{"thesis": th["id"], "p": 0.4, "session": "s1"}]
 
 
 def test_a_retry_returns_its_committed_thesis_without_admission_or_market_reads(make):
