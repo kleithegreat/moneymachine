@@ -1,0 +1,103 @@
+"""Reproduces the numbers in audit/program/architecture.md, sections 2 to 6, and the paper's section 10 and T4.
+
+Run: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute). Reads no data.
+"""
+
+import math
+
+import numpy as np
+from scipy.stats import norm
+from scipy.stats import t as student
+
+Z80 = norm.ppf(0.95) + norm.ppf(0.80)
+
+
+def wall() -> None:
+    print(f"z* = {Z80:.3f}, z*^2 = {Z80**2:.2f}; Holm over 3: {norm.ppf(1 - 0.05 / 3) + norm.ppf(0.8):.2f}")
+    for d in (0.05, 0.06, 0.1, 0.2, 0.3):
+        print(f"  d = {d}: n = {Z80**2 / d**2:.0f}")
+    for sharpe in (0.5, 1, 1.5, 2, 3, 5):
+        years80 = Z80**2 / sharpe**2
+        years50 = norm.ppf(0.95) ** 2 / sharpe**2
+        print(f"  Sharpe {sharpe}: {years80:.2f} years at 80% power ({12 * years80:.1f} months), {years50:.2f} at even odds")
+    for years in (60 / 365, 91 / 365, 1, 1.3, 1.8, 2.2):
+        holm = (norm.ppf(1 - 0.05 / 3) + norm.ppf(0.8)) / math.sqrt(years)
+        print(f"  T = {years:.3f} years: Sharpe {Z80 / math.sqrt(years):.2f} at 80%, {holm:.2f} with Holm over 3")
+    for steps in (360, 546):
+        print(f"  gate bet, {steps} steps: Sharpe {math.sqrt(2 * math.log(20) * 6 * 365 / steps):.2f} (paper S4a)")
+
+
+def rates() -> None:
+    rows = [
+        ("thesis on perps", 0.05, 15), ("thesis on perps", 0.05, 40), ("thesis on perps", 0.1, 15), ("thesis on perps", 0.1, 40),
+        ("events on returns", 0.1, 20), ("events on returns", 0.1, 40), ("events on returns", 0.2, 20), ("events on returns", 0.2, 40),
+        ("event contracts", 0.05, 100), ("event contracts", 0.05, 400), ("event contracts", 0.07, 100),
+        ("event contracts", 0.07, 400), ("event contracts", 0.1, 100), ("event contracts", 0.1, 400),
+    ]  # fmt: skip
+    for name, d, n in rows:
+        print(f"  {name:18s} d = {d:<4} n = {n:3d} a month: {Z80**2 / (d * d * n):6.1f} months")
+    for ic in (0.03, 0.05):
+        sharpe = ic * math.sqrt(52 * 20)
+        print(f"  breadth, IC {ic}, 20 bets a week: Sharpe {sharpe:.2f}, {12 * Z80**2 / sharpe**2:.0f} months")
+    for bets in (180, 480):
+        for d in (0.05, 0.1):
+            sharpe = d * math.sqrt(bets)
+            print(f"  {bets} theses a year, d = {d}: Sharpe {sharpe:.2f}, {12 * Z80**2 / sharpe**2:.0f} months")
+
+
+def looks() -> None:
+    for level, weeks in ((0.01, 26), (0.04, 52)):
+        z = norm.ppf(1 - level) + norm.ppf(0.8)
+        effects = ", ".join(f"{m} a week: d = {z / math.sqrt(weeks * m):.3f}" for m in (30, 60, 100))
+        print(f"  week {weeks} at level {level}: {effects}; annualized Sharpe {z / math.sqrt(weeks / 52):.2f}")
+
+
+def sequential(p0: float = 0.2, p1: float = 0.5, alpha: float = 0.05, beta: float = 0.05, n_max: int = 33, cutoff: int = 12) -> None:
+    """Wald's test of p0 against p1, truncated at n_max with a terminal cutoff, by exact enumeration."""
+    upper, lower = math.log((1 - beta) / alpha), math.log(beta / (1 - alpha))
+    up, down = math.log(p1 / p0), math.log((1 - p1) / (1 - p0))
+    for p in (0.1, 0.2, 0.3, 0.35, 0.5, 0.6):
+        alive, accept_p1, expected = {0: 1.0}, 0.0, 0.0
+        for n in range(1, n_max + 1):
+            nxt: dict[int, float] = {}
+            for successes, mass in alive.items():
+                for step, q in ((1, p), (0, 1 - p)):
+                    s = successes + step
+                    ratio = s * up + (n - s) * down
+                    if ratio >= upper or ratio <= lower or n == n_max:
+                        expected += n * mass * q
+                        if ratio >= upper or (lower < ratio < upper and s >= cutoff):
+                            accept_p1 += mass * q
+                    else:
+                        nxt[s] = nxt.get(s, 0.0) + mass * q
+            alive = nxt
+        print(f"  true rate {p}: accepts 0.5 with probability {accept_p1:.4f}, expected markets {expected:.1f}")
+
+
+def peso(reps: int = 200_000) -> None:
+    """Size of a one-sided 5% Student test on weekly returns of mean-zero favorites bought at one price."""
+    rng = np.random.default_rng(7)
+    for price in (0.5, 0.8, 0.9, 0.95, 0.98):
+        cells = []
+        for clusters in (1, 5, 20):
+            for weeks in (26, 52):
+                wins = rng.binomial(clusters, price, size=(reps, weeks))
+                returns = (wins * (1 - price) / price - (clusters - wins)) / clusters
+                mean, sd = returns.mean(1), returns.std(1, ddof=1)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    stat = np.where(sd > 0, mean / (sd / math.sqrt(weeks)), np.where(mean > 0, np.inf, -np.inf))
+                cells.append(f"{clusters:2d} clusters, {weeks} weeks: {(stat > student.ppf(0.95, weeks - 1)).mean():.3f}")
+        print(f"  price {price}: " + "; ".join(cells))
+
+
+if __name__ == "__main__":
+    print("The wall (section 2)")
+    wall()
+    print("Information rates (section 3)")
+    rates()
+    print("Study 2's looks (sections 4 and 5.5)")
+    looks()
+    print("Study 1's sequential test (section 6)")
+    sequential()
+    print("The Student test under a skewed null (section 5.5)")
+    peso()
