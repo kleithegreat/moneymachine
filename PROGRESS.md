@@ -22,9 +22,9 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet builds (`CLAUDE.md`; the human's decision of 2026-11-09 20:34 UTC (15:34 EST), accepting all of `audit/reviews/2026-11-09-fable-meta-review.md`). The thesis freeze wake-up is cancelled until the redesign. Job `thesis-prewarm` runs on; the redesign decides if it is needed.
 
-1. **Round fifteen**, paused, in the local clone `~/repos/mm-r15` (`thesis-refreeze` at `9719be0`, not pushed, not fetched here): D2, D4 and D5 fixed from failing tests, harness hash unchanged. D1, D3 and the two Guarantee 1 gaps are planned in its `round15-handoff.md`. Next: Sonnet builds them, the full suite runs, then fetch into `thesis-refreeze` and delete the clone and the handoff.
+1. **Round fifteen** on `thesis-refreeze` (`../mm-thesis-rf`, from `9719be0`): D2, D4 and D5 fixed; Sonnet is building D1, D3 and the two Guarantee 1 gaps from `round15-handoff.md` (started 2026-11-10 02:40 UTC (2026-11-09 21:40 EST)).
 2. **Fable's calibration:** its section 6A constructed Argon's D3 blind. Log it in `audit/decisions.md` once round fifteen reproduces D3.
-3. **Thesis redesign** (Fable architects, on `thesis-refreeze`):
+3. **Thesis redesign**, Fable architecting on `thesis-split` (`../mm-thesis-split`), started 2026-11-10 02:41 UTC (2026-11-09 21:41 EST):
    - the identity split;
    - the three scientific parameters (dependence unit, throughput, the reading arm);
    - the smallest refreeze: lazy reads of immutable history, with two cautions: past listings cannot be refetched, and revisions are unchecked;
@@ -42,8 +42,6 @@ Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet bu
 5. **Reading arm:** the advisor proposes search APIs, with their terms, for the human's certificate.
 6. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
-**Cleanup:**
-- `../mm-fable`, the meta review's worktree: remove it once its Fable session closes.
 
 ### Next, in order
 
