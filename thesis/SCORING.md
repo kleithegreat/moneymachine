@@ -3,7 +3,7 @@
 This is the specification for C10.4 (audit/criteria.md, stage 10; the paper derives each rule: docs/whitepaper.tex,
 `sec:thesis`, `app:thesis`, `app:thesis-sample`, `app:thesis-policy`). An implementation reads one test set and
 returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY = 86,400,000,
-δ = 120,000.
+δ = 120,000, WEEK = 604,800,000, and MONDAY = 345,600,000 (1970-01-05 00:00 UTC, a Monday).
 
 ## Input
 
@@ -15,7 +15,7 @@ returns the outputs below. All times are UTC milliseconds. HOUR = 3,600,000, DAY
   "daily": {"<market>": [[openTime, open, close], ...]},
   "funding": {"<market>": [[hour, rate], ...]},
   "now": ms,
-  "theses": [{"id": "t1", "session": "s1", "catalyst_id": "c1", "legs": [["<market>", 1 | -1], ...],
+  "theses": [{"id": "t1", "legs": [["<market>", 1 | -1], ...],
               "t_r": ms, "T": ms, "N": dollars, "p": 0.6, "p_ablation": 0.55 | null}]
 }
 ```
@@ -54,17 +54,13 @@ For each leg (market m, sign w):
 
 Only resolved theses count, and p is the main probability.
 - **B** (`app:thesis-sample`). The mean of (p − o)² over resolved theses, or null if there are none.
-- **Base-rate comparison.** Over resolved theses with a non-null p_ref (the pairs): B_pair = the mean of (p − o)², B_ref = the mean of (p_ref − o)², n_pairs, and diff = B_pair − B_ref. skill = 1 − B_pair / B_ref, or null if B_ref = 0 or there are no pairs.
-- **Ablation comparison.** The same with p_ablation in place of p_ref.
+- **Base-rate comparison** (descriptive). Over resolved theses with a non-null p_ref (the pairs): B_pair = the mean of (p − o)², B_ref = the mean of (p_ref − o)², n_pairs, and diff = B_pair − B_ref. skill = 1 − B_pair / B_ref, or null if B_ref = 0 or there are no pairs.
+- **Paired difference** (`app:thesis-sample`, the protocol's statistic). Over resolved theses with a non-null p_ablation (the pairs), d = (p − o)² − (p_ablation − o)². mean_d is the mean of d over the n_pairs pairs. For each unit w (below) with at least one pair, s_w is the sum over its pairs of (d − mean_d); W is the number of such units; se = sqrt(sum of s_w²) / n_pairs; t = mean_d / se. If there are no pairs, mean_d is null; if W < 2 or se = 0, se and t are null.
 
-## Clusters
+## Units
 
-- **Graph.** Nodes are all theses, resolved or not, including size zero. Two theses are linked if they have:
-  - the same session;
-  - the same catalyst_id; or
-  - a common market among their legs (either direction), where the closed intervals [t_r, T] intersect (touching counts).
-- **Clusters.** The clusters are the connected components. Each is named by its earliest thesis in input order, and members are listed in input order.
-- **Resolved.** A cluster is resolved if all its members are resolved.
+- **Unit.** A thesis's unit is its registration week: week = floor((t_r − MONDAY) / WEEK). Nodes are all theses, resolved or not, including size zero.
+- **Resolved.** A unit is resolved if all its members are resolved. Units are listed by week, members in input order.
 
 ## Output
 
@@ -72,6 +68,6 @@ Only resolved theses count, and p is the main probability.
 {"theses": {"t1": {"outcome": {"R_net": x, "o": 0 | 1} | null, "p_ref": x | null, "m": int, "x": int}},
  "scores": {"n_resolved": int, "B": x | null,
             "base_rate": {"n_pairs": int, "B": x | null, "B_ref": x | null, "diff": x | null, "skill": x | null},
-            "ablation": {"n_pairs": int, "B": x | null, "B_ref": x | null, "diff": x | null, "skill": x | null}},
- "clusters": [{"name": "t1", "members": ["t1", "t3"], "resolved": true}]}
+            "paired": {"n_pairs": int, "mean_d": x | null, "W": int, "se": x | null, "t": x | null}},
+ "units": [{"week": int, "members": ["t1", "t3"], "resolved": true}]}
 ```
