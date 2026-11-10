@@ -809,3 +809,7 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **GPT:** unpaused for one review only; the advisor gives it to this architecture.
   - **What it supersedes:** the separate research-program and positive-control architect briefs of 2026-11-10 03:06 UTC (2026-11-09 22:06 EST). Both died at Cornell's five-hour limit about seven minutes after starting at 06:53 UTC (01:53 EST): two parallel Fable sessions used up the window. From now on, Fable runs one session at a time.
   - **Reverse:** a later decision of the human's.
+- 2026-11-10 22:12 UTC (17:12 EST), advisor: **Fable 5.2 is calibrated for review roles** (CLAUDE.md, "a model new to a role is calibrated blind").
+  - Its meta review's section 6A constructed Argon's D3 blind, on the same code (`thesis-refreeze` `92f0b61`): `server_tool_use` blocks and swallowed lines pass the C10.2 audit. It added `mcp_tool_use` and the `harness_hash` consequence. Round fifteen reproduced D3 from failing tests (`3e997c0`).
+  - It did not find D1, D2, D4 or D5, which it ranked as operational. It did not check the paper's gate mathematics either: it took S4a's Sharpe 4.9 as given, and Argon's whole-paper check later broke that figure (`audit/reviews/2026-11-10-argon-web-paper-math.md`, Finding 1).
+  - So its findings count, but it is no substitute for an adversarial check of mathematics.
