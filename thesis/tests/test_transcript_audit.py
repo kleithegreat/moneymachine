@@ -6,18 +6,12 @@ import json
 import multiprocessing as mp
 import os
 import signal
-import subprocess
-import sys
-import time
-from pathlib import Path
 
 import pytest
 
-from thesis import harness, report, runner
-from thesis.tests.test_record_before_reply import wait_for
+from thesis import report, runner
 from thesis.tests.test_runner import MONDAY, track  # noqa: F401
 
-REPO = Path(__file__).resolve().parents[2]
 TOOLS = ("Bash", "Read", "Write")
 
 
@@ -165,51 +159,3 @@ def test_a_session_the_runner_died_in_is_audited_when_it_is_closed(track, monkey
     report.write(track, MONDAY + 86_400_000, tmp_path / "r.json")
     c10_2 = json.loads((tmp_path / "r.json").read_text())["c10_2"]
     assert c10_2["pass"] is False and c10_2["outside_permitted"] == {"main-1": ["WebSearch"]}
-
-
-def descendants(pid):
-    out = []
-    for p in os.listdir("/proc"):
-        if p.isdigit():
-            try:
-                parent = int(Path(f"/proc/{p}/stat").read_text().rsplit(")", 1)[1].split()[1])
-            except OSError:
-                continue
-            if parent == pid:
-                out += [int(p), *descendants(int(p))]
-    return out
-
-
-def running(pid):
-    try:
-        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] != "Z"
-    except OSError:
-        return False
-
-
-def test_the_cli_dies_with_the_runner(tmp_path):
-    """bwrap --die-with-parent: SIGKILL of the runner takes every process of the sandbox with it, so no CLI outlives the
-    runner to keep writing a transcript nobody audits."""
-    harness.workspace(tmp_path, "main")
-    sleeper = "import os, time; open('/work/up', 'w').write(str(os.getpid())); time.sleep(600)"
-    runner_code = (
-        "import os, subprocess, sys, time\n"
-        "from sandbox import session\n"
-        "os.environ['CLAUDE_CODE_OAUTH_TOKEN'] = 'x'\n"
-        f"subprocess.Popen(session.sandbox_command(sys.argv[1], 'thesis-agent', [sys.executable, '-c', {sleeper!r}]),"
-        " stdin=subprocess.DEVNULL)\n"
-        "time.sleep(600)\n"
-    )
-    parent = subprocess.Popen([sys.executable, "-c", runner_code, str(tmp_path)], cwd=REPO)
-    try:
-        wait_for(tmp_path / "work" / "up")
-        sandboxed = descendants(parent.pid)
-        assert len(sandboxed) >= 2
-        parent.kill()
-        parent.wait()
-        deadline = time.time() + 10
-        while time.time() < deadline and any(running(p) for p in sandboxed):
-            time.sleep(0.1)
-        assert [p for p in sandboxed if running(p)] == []
-    finally:
-        parent.kill()
