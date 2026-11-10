@@ -375,4 +375,13 @@ As a repair of the frozen design it is competent: it removes the percolating uni
 
 ### Changed in sections 1 to 9 after reading it
 
-The looks (sections 4, 5.5 and 8), the shown-universe line (section 5.6), and the blind note at the top. Nothing else.
+The looks (sections 4, 5.5 and 8), the shown-universe line (section 5.6), and the blind note at the top. Later, the header's pointer to `arithmetic.py.txt`. Nothing else.
+
+## 11. Open questions for the human
+
+1. **Event contracts as the thesis track's universe.** This is my recommendation and the program's largest departure: the paper named macro theses on perps as the most promising direction. Do you also want the perp instance run as a multi-year record? It costs about a session a day and cannot inform before 2028 at a plausible effect.
+2. **A search API certificate.** One API that meets section 5.4, from the advisor's survey. Study 2 does not freeze without it.
+3. **Order-book depth.** Polymarket's operator decision names the data API's host only, and its best ask carries no size. Extend the decision to the order-book host, or accept top-of-book fills with a stated qualification?
+4. **Reading result pages directly.** The 5.1 design's route: one public GET per result page under `robots.txt`, by your operator decision. Section 5.4 assumes no, and content only through the certified API.
+5. **Kalshi as a second venue.** It needs a certificate. It matters for stage 11 more than for study 2: it is the venue you could trade on, if the leads in section 3 G hold.
+6. **Stage 11's venue.** Hyperliquid's interface excludes United States residents (`venue/sources.toml`). If study 2 rejects its null, small live size would be on an event venue.
