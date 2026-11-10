@@ -4,7 +4,7 @@
 import functools
 import hashlib
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -68,7 +68,7 @@ def truncated_normal(rng: np.random.Generator, shape: tuple[int, ...], bound: fl
 @functools.lru_cache(maxsize=4)
 def store_funding(store: str, version: int, coins: tuple[str, ...]) -> tuple[Array, Array]:
     """Hourly funding and premium of `coins` over the search part of a store: (T x K, T x K)."""
-    df = Store(store).as_of("funding", HOLDOUT_START, version).to_pandas()
+    df = Store(Path(store)).as_of("funding", HOLDOUT_START, version).to_pandas()
     grid = np.arange(W_START, HOLDOUT_START, HOUR)
     piv = {
         k: df.pivot(index="eventTime", columns="coin", values=k).reindex(grid)[list(coins)].to_numpy()
@@ -77,11 +77,11 @@ def store_funding(store: str, version: int, coins: tuple[str, ...]) -> tuple[Arr
     return piv["fundingRate"], piv["premium"]
 
 
-def store_events(store: str | Path, version: int, coins: list[str], block_hours: int = 24) -> Spec:
+def store_events(store: str | Path, version: int, coins: Sequence[str], block_hours: int = 24) -> Spec:
     """event_paths spec from the real forum counts of `coins` (U's order) over the search part, on the
     hours every mapped coin is covered."""
     piv = (
-        Store(store)
+        Store(Path(store))
         .as_of("events_forum", HOLDOUT_START, version)
         .to_pandas()
         .pivot(index="eventTime", columns="coin", values="count")

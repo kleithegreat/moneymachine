@@ -4,7 +4,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ## Now
 
-- **Code style, branch `code-style`:** ruff format and check clean over the covered files (`ops/test_style.py`); `mypy --strict` still fails on 92 of 124 covered files (mostly untyped test parameters and untyped calls between modules), so its test is `xfail(strict=True)`. Finish the typing per package, then drop the xfail. Not merged.
+- **Code style:** done: every covered Python file passes ruff and `mypy --strict` (`ops/test_style.py`); frozen files join at their next fork.
 
 ### Running, and how to inspect it
 
@@ -13,34 +13,36 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - `thesis` stopped (0 replicas): `thesis-310449610583` got SIGTERM 2026-11-09 02:57 UTC (2026-11-08 21:57 EST), exited by itself 03:35 UTC (22:35 EST); its window incomplete, never pooled.
   - Job `thesis-prewarm` (`sha256:a2261d4c…`, `thesis-refreeze` `247871b`), started 2026-11-09 03:36 UTC (2026-11-08 22:36 EST): the new code's funding fill on the thesis's 120 weight/min, no token; first pass: 347 listed, 347 cold (paper bound about 6.65 days). Logs `prewarm <market> <n> requests in <s> s`; a pass ends `… still cold` (exit 1, rerun, at most 20) or `none cold` (Job Complete: the readiness report).
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
-  - CronJobs `mirror` (10 min) and `mirror-verify` (daily): each volume to `/srv/moneymachine/mirror/<volume>` on this PC, the only copy.
   - prodesk7 also runs test shards, only inside its isolated `mm-tests@` unit (Homelab `mm-test-node`; `CLUSTER.md` §7).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
-- **Budget.** No campaign runs. GPT's weekly allowance is nearly spent until about 2026-11-13; Argon's is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST). Claude builds and reviews meanwhile, labeled Claude-only.
+- **Budget.** No campaign runs. GPT's weekly allowance is nearly spent until about 2026-11-13; Argon's is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST). Fable has a reset on each of the three accounts.
 
-### Wake-ups (2026-11-08, fallbacks if the advisor's session has closed)
+### Resume here (the human paused the work 2026-11-09 20:35 UTC (15:35 EST))
 
-- **thesis freeze** (advisor): when Job `thesis-prewarm` is Complete (failed: read why, fix, reapply), freeze on a day that is not Monday, just after 00:00 UTC (19:00 EST) and before the 00:05 UTC (19:05 EST) cutoff, so the version's first date is that day (frozen before midnight, the old day's sessions are recorded missed): `python ops/live.py apply <digest> thesis-freeze` from `../mm-thesis-rf` on an image built from the head actually frozen (`python ops/live.py push` from that head), not the prewarm image (`sha256:a2261d4c…`, `247871b`). Its log is the manifest record: commit it as `audit/stage10/manifest.json` (`stage 10: new track version thesis-… frozen …`, with the decisions entry), build that commit's image (`python ops/live.py push`), apply `thesis` on it, which runs `thesis-run`, and delete the Jobs `thesis-freeze` and `thesis-prewarm`.
+Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet builds (`CLAUDE.md`; the human's decision of 2026-11-09 20:34 UTC (15:34 EST), accepting all of `audit/reviews/2026-11-09-fable-meta-review.md`). The thesis freeze wake-up is cancelled until the redesign. Job `thesis-prewarm` runs on; the redesign decides if it is needed.
+
+1. **Round fifteen** done on `thesis-refreeze` (`9d8f6e2`, pushed; reviewed by the advisor): C10.2's audit fails closed, one ledger record per call, fetched bodies stored by hash, harness hash unchanged.
+2. **Fable's calibration:** its section 6A constructed Argon's D3 blind. Log it in `audit/decisions.md` once round fifteen reproduces D3.
+3. **Thesis redesign** designed by Fable on `thesis-split` (`c044b68`, pushed): week unit, 4 theses a day, C10.7 paired Brier protocol, identity split, lazy acquisition, 14-step build plan (`audit/stage10/redesign-build-plan.md`). Next: Argon's adversarial review (`~/Downloads/argon-thesis-redesign.md`; GPT too if the human resumes it), the human's five open questions, then the criteria alone and Sonnet's build.
+4. **Positive control cut to discovery**, Fable architecting on `positive-controls` (`../mm-pos-controls`), started 2026-11-10 03:08 UTC (2026-11-09 22:08 EST): exact capture, an SPRT, forced release and kills as tests, harness `6a335714…`.
+4b. **Research program after the pilot**, Fable architecting on `research-program` (`../mm-program`), started 2026-11-10 03:06 UTC (2026-11-09 22:06 EST). **Argon:** the whole paper's mathematics, adversarially (`~/Downloads/argon-paper-math-check.md`; the human runs it).
+5. **Reading arm:** the advisor proposes search APIs, with their terms, for the human's certificate.
+6. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
+
 
 ### Next, in order
 
 - **Paper erasure:** DSL.md's derivation prose leaves after the pilot.
-- **Thesis refreeze** on `thesis-refreeze` (`../mm-thesis-rf`, pushed): round eight fixed round seven's review (G1-G4). Cut over (the human, 2026-11-09): prewarm running, the freeze a wake-up.
-- **Stage 7: parked** (the human, 2026-11-08), with slices 1-5 on `stage7` (slice 4 merged at `30db80e` after Argon's re-check, `audit/stage7/slice4-recheck-argon.md`).
-- **Next research step, after the refreeze:** positive controls (`positive-controls`): round four (Opus) answered Argon's round-three F1-F8 (any route to the plant counts; gross plant Sharpe; 73 truth pairs; paper PC1-PC6, `audit/positive-controls-criteria-draft.md`). F1-F3 changed the design, so another model reviews it, then the criteria alone. Unlimited budget, TAMU/Cornell only, never personal; no run authorization.
-
-1. **Stage 7, parked** (branch `stage7`, worktree `../moneymachine-stage7`; plan `audit/stage7/rust-port-plan.md` there; the Lean L1 branch `claude/lean-l1-kernel-defects-h273e5` with it): resumes as a vertical slice for a study. Still owed when the gate or corpora next change: a delisting corpus in a market without a funding gap (C6.4's lost it); before O1 (per-step loss cap B = 0.2, provisional, decision of 2026-10-28), a better-powered B = 1 betting test (candidates and rejected fixes: `audit/reviews/2026-11-08-opus-research-statistical-gates.md`; O1 must not reuse 1/(2B)).
+1. **Stage 7, parked** (branch `stage7`, its plan there, and the Lean L1 branch): no gate, kernel, Lean, O1, nine-defect or delisting-corpus work until a study needs it; then it resumes as that study's vertical slice (the human, 2026-11-09).
 2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
 3. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
 
 Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
 
-Open research question (the human), unblocked now that stage 4 has exited: does memory across campaigns help agents without raising false discoveries? Pre-register first.
-
 ### Finished
 
-- Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §18; current qualifications below.
+- Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
@@ -56,6 +58,8 @@ Open research question (the human), unblocked now that stage 4 has exited: does 
 - **Stage 8 data gaps:** policy-rate announcement times (BIS: effective dates only), ECB YC series and revisions, CFTC TFF history, Treasury average rates' revisions, the ECB release calendar.
 
 ## Decisions awaiting the human's review
+
+C10.2 re-derived on daemon-before-reply recording plus the isolation canary and the per-session tool-name check (the human chose B, 2026-11-09); built on `thesis-refreeze` (rounds 13-14). The positive-control claim reworded to capture of a planted edge (round four, Opus), awaiting GPT's review.
 
 From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
 

@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from pathlib import Path
 
 import polars as pl
@@ -9,7 +10,9 @@ from ingest.store import known_at
 from ingest.tests.test_store import market_store
 
 
-def frames(hours, skip_funding=(), skip_bars=()):
+def frames(
+    hours: int, skip_funding: Collection[int] = (), skip_bars: Collection[int] = ()
+) -> tuple[pl.DataFrame, pl.DataFrame]:
     f = funding_frame(
         [
             {"coin": "A", "time": h * HOUR + 40, "fundingRate": "0.0000125", "premium": "0.0"}
@@ -49,7 +52,7 @@ def test_replay_view_matches_keys(tmp_path: Path) -> None:
     s.write("funding", f, 1, "t")
     s.write("bars_4h", b, 1, "t")
 
-    def view(d, t):
+    def view(d: str, t: int) -> dict[str, int]:
         return dict(s.as_of(d, t, 1).group_by("coin").agg(pl.col("eventTime").max()).iter_rows())
 
     iv = {"A": (0, 48 * HOUR)}

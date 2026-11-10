@@ -17,8 +17,9 @@ from ingest.witness import Book
         max_size=30,
     )
 )
-def test_cash_equity_reconciles_with_entry_accounting(events) -> None:
-    book, marks = Book(), {}
+def test_cash_equity_reconciles_with_entry_accounting(events: list[tuple[str, float, float, float]]) -> None:
+    book = Book()
+    marks: dict[str, float] = {}
     for coin, qty, price, rate in events:
         book.fill(coin, qty, price, fee=abs(qty) * price * 0.00045)
         marks[coin] = price

@@ -3,8 +3,10 @@ import os
 import signal
 import subprocess
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -12,7 +14,7 @@ from ops import shards
 
 
 @pytest.fixture
-def worktree(tmp_path: Path):
+def worktree(tmp_path: Path) -> Path:
     repo = tmp_path / "work tree"
     repo.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
@@ -28,7 +30,7 @@ def worktree(tmp_path: Path):
     return repo
 
 
-def test_arguments(worktree) -> None:
+def test_arguments(worktree: Path) -> None:
     assert shards.arguments([str(worktree)]) == (worktree, ["local", "prodesk5", "gmktec", "prodesk7"], [])
     assert shards.arguments([str(worktree), "-k", "one or two", "ops", "--machines", "local,gmktec"]) == (
         worktree,
@@ -41,12 +43,12 @@ def test_arguments(worktree) -> None:
     "machines", ["prodesk7", "prodesk5", "local,192.168.8.222", "local,local", "local;touch /tmp/no"]
 )
 def test_refuses_unapproved_machines_before_any_subprocess(
-    monkeypatch: pytest.MonkeyPatch, machines, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch, machines: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    def unexpected(*args, **kwargs) -> None:
+    def unexpected(*args: Any, **kwargs: Any) -> None:
         pytest.fail("refusal must precede even local subprocesses")
 
-    monkeypatch.setattr(shards.subprocess, "run", unexpected)
+    monkeypatch.setattr(subprocess, "run", unexpected)
     with pytest.raises(SystemExit) as e:
         shards.arguments(["/nonexistent", "--machines", machines])
     assert e.value.code == 2
@@ -56,13 +58,13 @@ def test_refuses_unapproved_machines_before_any_subprocess(
 @pytest.mark.parametrize(
     "args", [[], ["/nonexistent"], [".", "--basetemp=/tmp/outside"], [".", "-n", "3"], [".", "-p", "x"]]
 )
-def test_bad_arguments(args) -> None:
+def test_bad_arguments(args: list[str]) -> None:
     with pytest.raises(SystemExit) as e:
         shards.arguments(args)
     assert e.value.code == 2
 
 
-def test_rejects_nonroot_and_nonflake_worktrees(worktree) -> None:
+def test_rejects_nonroot_and_nonflake_worktrees(worktree: Path) -> None:
     child = worktree / "child"
     child.mkdir()
     with pytest.raises(SystemExit):
@@ -72,7 +74,7 @@ def test_rejects_nonroot_and_nonflake_worktrees(worktree) -> None:
         shards.arguments([str(worktree)])
 
 
-def test_manifest_is_current_tree_without_ignored_data_and_names_deletions(worktree) -> None:
+def test_manifest_is_current_tree_without_ignored_data_and_names_deletions(worktree: Path) -> None:
     (worktree / "modified.py").write_text("dirty\n")
     (worktree / "deleted.py").unlink()
     (worktree / "new file.py").write_text("new\n")
@@ -118,7 +120,7 @@ def test_a_machine_with_overhead_gets_fewer_tests_and_overhead_is_learned_from_t
     assert learned == {"gmktec": pytest.approx((10.0 + 50.0 - 60.0 / 4) / 2)}
 
 
-def shim(root, code) -> None:
+def shim(root: Path, code: int) -> None:
     (root / "bin").mkdir(parents=True)
     tool = root / "bin" / "nix"
     tool.write_text(
@@ -128,7 +130,7 @@ def shim(root, code) -> None:
     tool.chmod(0o755)
 
 
-def remote(root, tar, env_path):
+def remote(root: Path, tar: Path, env_path: Path) -> subprocess.CompletedProcess[str]:
     with tar.open("rb") as stdin:
         return subprocess.run(
             [
@@ -150,7 +152,7 @@ def remote(root, tar, env_path):
 
 @pytest.mark.parametrize("code", [0, 1, 5])
 def test_remote_script_checks_out_the_dirty_tree_keeps_builds_and_returns_the_status(
-    worktree, tmp_path: Path, code
+    worktree: Path, tmp_path: Path, code: int
 ) -> None:
     root = tmp_path / "runner"
     shim(root, code)
@@ -179,7 +181,7 @@ def test_remote_script_checks_out_the_dirty_tree_keeps_builds_and_returns_the_st
     assert Path(root / "lock").exists()
 
 
-def test_a_waiting_run_leaves_the_previous_runs_report_for_its_controller(worktree, tmp_path: Path) -> None:
+def test_a_waiting_run_leaves_the_previous_runs_report_for_its_controller(worktree: Path, tmp_path: Path) -> None:
     root = tmp_path / "runner"
     shim(root, 0)
     (root / "report.previous.json").write_text("{}")
@@ -193,17 +195,19 @@ def test_ssh_notices_a_dead_node() -> None:
     assert "ServerAliveInterval=15" in shards.SSH and "ServerAliveCountMax=4" in shards.SSH
 
 
-def test_each_node_run_fetches_only_its_own_report(worktree, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    calls = []
+def test_each_node_run_fetches_only_its_own_report(
+    worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[str] = []
 
-    def fake(argv, **kwargs):
+    def fake(argv: Sequence[str], **kwargs: Any) -> SimpleNamespace:
         calls.append(argv[-1])
         if "cat" in argv[-1]:
             return SimpleNamespace(returncode=0, stdout=b"{}")
         kwargs["stdin"].read()
         return SimpleNamespace(returncode=255)
 
-    monkeypatch.setattr(shards.subprocess, "run", fake)
+    monkeypatch.setattr(subprocess, "run", fake)
     monkeypatch.setattr(shards, "package", lambda worktree, ids, path: Path(path).write_bytes(b"x"))
     for _ in range(2):
         shards.run_node(worktree, "kevin@h", ["a.py::t"], open(os.devnull, "w"), tmp_path / "r.json")
@@ -289,27 +293,28 @@ def test_durations_are_written_atomically(tmp_path: Path) -> None:
 
 
 def test_the_unit_run_holds_its_lifeline_open_until_the_unit_ends_and_cleans_its_stage(
-    worktree, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    seen, order = [], []
+    seen: list[str] = []
+    order: list[str] = []
 
     class Start:
-        def __init__(self, argv, **kwargs) -> None:
+        def __init__(self, argv: Sequence[str], **kwargs: Any) -> None:
             seen.append(argv[-1])
             self.stdin = SimpleNamespace(close=lambda: order.append("closed"))
             assert kwargs["stdin"] == subprocess.PIPE
 
-        def __enter__(self):
+        def __enter__(self) -> "Start":
             return self
 
-        def __exit__(self, *exc):
-            return False
+        def __exit__(self, *exc: object) -> None:
+            return None
 
-        def wait(self, timeout) -> int:
+        def wait(self, timeout: float) -> int:
             order.append("waited")
             return 0
 
-    def fake(argv, **kwargs):
+    def fake(argv: Sequence[str], **kwargs: Any) -> SimpleNamespace:
         seen.append(argv[-1])
         if "report.json" in argv[-1]:
             return SimpleNamespace(returncode=0, stdout=b'{"t": {"outcome": "passed"}}')
@@ -319,8 +324,8 @@ def test_the_unit_run_holds_its_lifeline_open_until_the_unit_ends_and_cleans_its
             kwargs["stdin"].read()
         return SimpleNamespace(returncode=0, stdout=b"log\n")
 
-    monkeypatch.setattr(shards.subprocess, "run", fake)
-    monkeypatch.setattr(shards.subprocess, "Popen", Start)
+    monkeypatch.setattr(subprocess, "run", fake)
+    monkeypatch.setattr(subprocess, "Popen", Start)
     monkeypatch.setattr(shards, "package", lambda worktree, ids, path: Path(path).write_bytes(b"x"))
     report = tmp_path / "r.json"
     with open(os.devnull, "w") as log:
@@ -334,9 +339,9 @@ def test_the_unit_run_holds_its_lifeline_open_until_the_unit_ends_and_cleans_its
 
 @pytest.mark.parametrize("size, kept", [(shards.REPORT_CAP, True), (shards.REPORT_CAP + 1, False)])
 def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(
-    worktree, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, size, kept
+    worktree: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, size: int, kept: bool
 ) -> None:
-    def fake(argv, **kwargs):
+    def fake(argv: Sequence[str], **kwargs: Any) -> SimpleNamespace:
         if "head" in argv[-1]:
             cap = int(argv[-1].split("-c ")[1].split()[0])
             return SimpleNamespace(
@@ -349,20 +354,20 @@ def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(
     class Start:
         stdin = SimpleNamespace(close=lambda: None)
 
-        def __init__(self, *a, **k) -> None:
+        def __init__(self, *a: Any, **k: Any) -> None:
             pass
 
-        def __enter__(self):
+        def __enter__(self) -> "Start":
             return self
 
-        def __exit__(self, *e):
-            return False
+        def __exit__(self, *e: object) -> None:
+            return None
 
-        def wait(self, timeout) -> int:
+        def wait(self, timeout: float) -> int:
             return 0
 
-    monkeypatch.setattr(shards.subprocess, "run", fake)
-    monkeypatch.setattr(shards.subprocess, "Popen", Start)
+    monkeypatch.setattr(subprocess, "run", fake)
+    monkeypatch.setattr(subprocess, "Popen", Start)
     monkeypatch.setattr(shards, "package", lambda worktree, ids, path: Path(path).write_bytes(b"x"))
     report, log = tmp_path / "r.json", tmp_path / "log"
     with log.open("w") as handle:
@@ -370,3 +375,23 @@ def test_an_oversize_unit_report_is_no_report_and_an_oversize_log_is_truncated(
     assert report.exists() is kept
     text = log.read_text()
     assert len(text) < shards.LOG_CAP + 100 and "[log truncated" in text
+
+
+@pytest.mark.parametrize(("available", "cpus", "expected"), [(64 << 30, 12, 12), (4 << 30, 12, 6), (1, 12, 1)])
+def test_the_local_shard_sizes_its_workers_from_free_memory(
+    monkeypatch: pytest.MonkeyPatch, available: int, cpus: int, expected: int
+) -> None:
+    from gate import compute
+
+    monkeypatch.setattr(compute, "available", lambda: available)
+    monkeypatch.setattr(os, "cpu_count", lambda: cpus)
+    seen: list[list[str]] = []
+
+    def record(command: list[str], **_: Any) -> SimpleNamespace:
+        seen.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", record)
+    shards.run_local(Path("."), ["a.py::t"], open(os.devnull, "w"), Path("report.json"))
+    command = seen[0]
+    assert command[command.index("-n") + 1] == str(expected)

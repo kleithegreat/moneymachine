@@ -1,0 +1,21 @@
+"""P3: ef20061's transcript parser and grammar on the 40 real stage 4 transcripts (counts only; client renamed).
+Run from the review worktree root: TMPDIR=/tmp nix develop -c python <this file> <transcripts...>."""
+import re
+import sys
+
+sys.path.insert(0, ".")
+from thesis import harness  # noqa: E402
+
+EXE = re.compile(harness.EXECUTION.pattern.replace("thesis-agent", "mm-agent"))
+sessions_failing, parsed, literal, nonliteral, denied_n = 0, 0, 0, 0, 0
+for path in sys.argv[1:]:
+    uses, outputs, denied = harness.results(path)
+    parsed += 1
+    bad = [i for i, u in uses.items() if u["name"] == "Bash" and i not in denied
+           and not (EXE.fullmatch(u["input"].get("command", "")) and i in outputs)]
+    literal += sum(1 for i, u in uses.items() if u["name"] == "Bash" and i not in denied) - len(bad)
+    nonliteral += len(bad)
+    denied_n += len(denied)
+    sessions_failing += bool(bad)
+print(f"{parsed} transcripts parsed; non-denied Bash: {literal} literal, {nonliteral} not; denied {denied_n}; "
+      f"sessions that would read match False: {sessions_failing} of {parsed}")

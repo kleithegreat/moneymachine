@@ -4,13 +4,12 @@ seeding of their volumes from this PC; the gates; and the mirror steps that run 
     python ops/live.py push                          build and push the image; prints its digest
     python ops/live.py apply <digest> <name>...      apply workloads (WORKLOADS' names)
     python ops/live.py seed <digest> <volume> <src:dest>...   copy files of this PC into a volume, checked by sha256
-    python ops/live.py gate <digest> <Default|Unmasked>       the credential and sandbox gates in a runner pod
+    python ops/live.py gate <digest>                                the credential and sandbox gates in a runner pod
     python ops/live.py view                          the sandbox's view (namespaces, maps, mounts), as the gate
                                                      records it
 In pods: `mirror`, `verify`, `seed-run <volume> <stage>`, `gate-run <targets>`.
 """
 
-import hashlib
 import json
 import os
 import shutil
@@ -26,7 +25,9 @@ from typing import Any, Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jobs  # noqa: E402
-from diskguard import VOLUMES, capacity  # noqa: E402
+from diskguard import VOLUMES as VOLUMES  # noqa: E402
+from diskguard import capacity  # noqa: E402
+from jobs import sha256  # noqa: E402
 
 REPO = jobs.REPO
 NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk7", "/app/repo"
@@ -147,7 +148,6 @@ def pod_spec(
     size: Size,
     grace: int,
     extra: Json,
-    proc: str = PROC,
 ) -> Json:
     """A restricted pod on prodesk7 running `python -m cli <command>` (or `python <script>`), each volume at its repo
     path; a runner (thesis, series, gates), `runner` naming the claude-token key it reads, also gets its own user
@@ -197,7 +197,7 @@ def pod_spec(
                     "allowPrivilegeEscalation": False,
                     "readOnlyRootFilesystem": True,
                     "capabilities": {"drop": ["ALL"]},
-                    **({"procMount": proc} if runner else {}),
+                    **({"procMount": PROC} if runner else {}),
                 },
                 "volumeMounts": mounts,
             }
@@ -275,16 +275,6 @@ def run_pod(name: str, spec: Json) -> tuple[str, bool]:
     return log, phase == "Succeeded"
 
 
-def sha256(path: str | Path, size: int | None = None) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        left = size if size is not None else sys.maxsize
-        while left > 0 and (b := f.read(min(1 << 20, left))):
-            h.update(b)
-            left -= len(b)
-    return h.hexdigest()
-
-
 def seed_paths(root: Path | None, names: Sequence[str | Path]) -> list[Path]:
     paths = [Path(n) for n in names]
     for p in paths:
@@ -345,7 +335,7 @@ def seed(digest: str, volume: str, *pairs: str) -> None:
     shutil.rmtree(stage)
 
 
-def seed_run(volume: str, stage: str) -> None:
+def seed_run(volume: str, stage: str | Path) -> None:
     src, dst = Path(stage), Path(APP) / VOLUMES[volume]
     sums = json.loads((src / "SHA256.json").read_text())
     seed_paths(dst, sums)
@@ -390,7 +380,7 @@ def mirror_source[T](source: Path, kind: str, read: Callable[..., T], *args: Any
         return None
 
 
-def mirror(app: str = APP, out: str = "/mirror") -> None:
+def mirror(app: str | Path = APP, out: str | Path = "/mirror") -> None:
     """Each volume into /mirror/<volume>, the live data's only copy, every step checked; any failure stops the run:
     - outside sandbox workspaces (`work/`), day files (*.jsonl) only grow: shrinkage, rewrites or disappearance are
       refused;
@@ -480,7 +470,7 @@ def mirror(app: str = APP, out: str = "/mirror") -> None:
         (dst / "MANIFEST.json.tmp").replace(dst / "MANIFEST.json")
 
 
-def verify(app: str = APP, out: str = "/mirror") -> None:
+def verify(app: str | Path = APP, out: str | Path = "/mirror") -> None:
     """Daily: verify prefixes; confirm mirror mismatches against a later manifest within MIRROR_VERIFY_WAIT."""
     for vol, path in VOLUMES.items():
         dst = Path(out) / vol
@@ -669,7 +659,7 @@ TARGETS = [
 ]
 
 
-def gate(digest: str, proc: str) -> None:
+def gate(digest: str) -> None:
     spec = pod_spec(
         "gate",
         digest,
@@ -679,10 +669,9 @@ def gate(digest: str, proc: str) -> None:
         ("500m", "1Gi", "2Gi"),
         60,
         {},
-        proc=proc,
     )
-    log, ok = run_pod(f"gate-{proc.lower()}", spec)
-    out = REPO / "audit/cluster" / f"gate-{proc.lower()}.json"
+    log, ok = run_pod("gate", spec)
+    out = REPO / "audit/cluster/gate.json"
     out.write_text(log)
     print(log[-3000:], "ok" if ok else "FAILED", out)
     if not ok:

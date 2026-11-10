@@ -26,7 +26,6 @@
         statsmodels
         httpx
         certifi
-        lz4
         pytest
         mypy
         ruff
@@ -69,11 +68,9 @@
           recorder = pkgs.mkShell {
             packages = [ (pkgs.python313.withPackages (ps: [ ps.httpx ])) ];
           };
-          # Cloud access: AWS (Hyperliquid's requester-pays archives) and OCI (the
-          # recorder VM, ops/oci).
+          # OCI access (the recorder VM, ops/oci).
           cloud = pkgs.mkShell {
-            packages = [ pkgs.awscli2 pkgs.oci-cli pkgs.lz4
-                         (pkgs.python313.withPackages (ps: [ ps.packaging ps.boto3 ps.lz4 ps.numpy ps.polars ])) ];
+            packages = [ pkgs.oci-cli ];
           };
         });
 

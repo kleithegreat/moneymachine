@@ -41,8 +41,14 @@ def kubectl(*args: str, stdin: str | None = None, namespace: str = NAMESPACE, co
     ).stdout
 
 
-def sha256(path: str | Path) -> str:
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def sha256(path: str | Path, size: int | None = None) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        left = size if size is not None else sys.maxsize
+        while left > 0 and (b := f.read(min(1 << 20, left))):
+            h.update(b)
+            left -= len(b)
+    return h.hexdigest()
 
 
 def stage(data: bytes) -> str:

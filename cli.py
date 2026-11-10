@@ -5,70 +5,10 @@ in the arguments are written by the function.
 """
 
 import argparse
-import importlib.util
+import importlib
 import json
-import os
 import sys
 from collections.abc import Sequence
-from pathlib import Path
-from types import ModuleType
-from typing import Any
-
-REPO = Path(__file__).resolve().parent
-
-
-# Peak memory of a pytest worker (about 360 MiB measured) and of the kernel's cargo tests (203 MiB), with margin.
-PYTEST_BYTES, CARGO_BYTES = 450_000_000, 300_000_000
-
-
-def check() -> dict[str, Any]:
-    """The whole suite at once: pytest, the kernel's cargo tests and the mutants, their pools split from the memory free
-    to this process (the mutants take up to half, pytest the rest). Each writes its log to data/check/; returns each
-    part's last line and the lines naming each failed test or mutant, and exits nonzero if any part fails."""
-    import re
-    import subprocess
-
-    from gate import compute
-
-    m = mutants_module()
-    free = compute.available() - CARGO_BYTES
-    slots = max(1, min(len(m.MUTANTS), free // 2 // m.SLOT_BYTES))
-    n = max(1, min(os.cpu_count() or 1, (free - slots * m.SLOT_BYTES) // PYTEST_BYTES))
-    logs = REPO / "data" / "check"
-    logs.mkdir(parents=True, exist_ok=True)
-    parts = {
-        "pytest": (["pytest", "-q", "-n", str(n), "--dist", "loadfile"], REPO),
-        "cargo": (["cargo", "test", "-q", "--release"], REPO / "kernel"),
-        "mutants": ([sys.executable, "-m", "cli", "mutants", str(slots)], REPO),
-    }
-    procs = {
-        k: subprocess.Popen(cmd, cwd=cwd, stdout=open(logs / f"{k}.log", "w"), stderr=subprocess.STDOUT)
-        for k, (cmd, cwd) in parts.items()
-    }
-    codes = {k: p.wait() for k, p in procs.items()}
-    failure = re.compile(r"^(FAILED|ERROR|MISSED|BROKEN) |^test .* FAILED$")
-    lines = {k: (logs / f"{k}.log").read_text().strip().splitlines() for k in parts}
-    out = {
-        k: {"exit": c, "last": lines[k][-1:], "failed": [l for l in lines[k] if failure.match(l)]}
-        for k, c in codes.items()
-    }
-    if any(codes.values()):
-        print(json.dumps(out, indent=1))
-        sys.exit(1)
-    return out
-
-
-def mutants_module() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("mutants", REPO / "kernel/mutants/mutants.py")
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def mutants(slots: int | None = None) -> None:
-    mutants_module().main(slots)
-
 
 # name: (module, function, arguments, help). An argument is "name" or "name:int"; a trailing "?" makes it
 # optional.
@@ -228,8 +168,6 @@ COMMANDS = {
         ["out"],
         "C6.4's judged run of mm against refmm on the frozen corpus",
     ),
-    "mutants": ("cli", "mutants", ["slots:int?"], "apply each mutant to a copy of the tree; its named test must fail"),
-    "check": ("cli", "check", [], "pytest, cargo tests and mutants concurrently (run it in a capped scope)"),
     "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
     "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),
     "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),

@@ -9,7 +9,7 @@ from ingest import hl
 def test_each_retry_is_charged(monkeypatch: pytest.MonkeyPatch) -> None:
     replies = iter([429, 500, "timeout", 200])
 
-    def reply(req):
+    def reply(req: httpx.Request) -> httpx.Response:
         r = next(replies)
         if r == "timeout":
             raise httpx.ReadTimeout("timed out", request=req)

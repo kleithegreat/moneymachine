@@ -1,5 +1,8 @@
 """C2.3: the gate's DSR and GPT's independent one agree to 1e-9 on random and edge-case inputs."""
 
+from collections.abc import Iterator
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -7,7 +10,7 @@ from gate import gate
 from gate.tests import gpt_dsr
 
 
-def cases():
+def cases() -> Iterator[tuple[Any, ...]]:
     rng = np.random.default_rng(23)
     for _ in range(1000):
         t = int(rng.integers(3, 4000))
@@ -68,7 +71,7 @@ def test_extreme_finite_returns_agree_without_overflow() -> None:
 
 
 @pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
-def test_both_refuse_a_nonfinite_return(bad) -> None:
+def test_both_refuse_a_nonfinite_return(bad: float) -> None:
     r = np.r_[np.random.default_rng(7).normal(0, 0.01, 50), bad]
     for dsr in (gate.dsr, gpt_dsr.dsr):
         with pytest.raises(ValueError):

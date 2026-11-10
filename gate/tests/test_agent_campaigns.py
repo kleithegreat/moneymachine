@@ -2,24 +2,28 @@
 
 import hashlib
 import json
+import os
 import sqlite3
 import struct
 import subprocess
+import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Never
+from typing import Any, Never
 
 import pytest
 
-from gate import sweep
-from gate.agent import campaigns
+from gate import gate, markets, sweep
+from gate.agent import campaigns, harness
 from gate.kernel import MM
 from gate.markets import write_market
+from sandbox import canary, session
 
 REPO = Path(__file__).resolve().parents[2]
 
 
-def failing_canary(model=None) -> Never:
-    raise campaigns.canary.Broken("the sandbox canary failed")
+def failing_canary(model: str | None = None) -> Never:
+    raise canary.Broken("the sandbox canary failed")
 
 
 def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(
@@ -28,15 +32,18 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(sweep, "OUT", tmp_path)
     ids, log = campaigns.cohort("agent")
-    run = lambda i, p: {
-        "id": ids[i],
-        "search": {"spa_p": 0.5, "max_dsr": 0.1 * i, "screened": []},
-        "promoted": p,
-        "counts_as_promotion": bool(p),
-        "mm": "k",
-        "audit": {"match": i != 2},
-        "evaluations": i,
-    }
+
+    def run(i: int, p: list[str]) -> dict[str, Any]:
+        return {
+            "id": ids[i],
+            "search": {"spa_p": 0.5, "max_dsr": 0.1 * i, "screened": []},
+            "promoted": p,
+            "counts_as_promotion": bool(p),
+            "mm": "k",
+            "audit": {"match": i != 2},
+            "evaluations": i,
+        }
+
     rows = [run(i, ["x"] if i == 3 else []) for i in range(19)] + [
         {"id": ids[19], "crash": "x", "counts_as_promotion": True}
     ]
@@ -58,7 +65,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(
         json.dumps({"id": f"c24{sweep.ROUND}-N2-G100-0", "search": {"spa_p": 0.9, "max_dsr": 0.2, "screened": ["a"]}})
         + "\n"
     )
-    s = {}
+    s: dict[str, Any] = {}
     for name in ("agent", "swarm"):
         campaigns.summary(name, tmp_path / f"{name}.json")
         s[name] = json.loads((tmp_path / f"{name}.json").read_text())
@@ -75,7 +82,7 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(
     assert s["swarm"]["H400_null_n2"]["spa_p"] is None
 
 
-def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path: Path, built_kernel) -> None:
+def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path: Path, built_kernel: Path) -> None:
     m = write_market(tmp_path / "m", days=30)
     ledger = tmp_path / "l.sqlite"
     for agent in ("A", "A", "G100"):
@@ -98,13 +105,16 @@ def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path: Path, bu
             check=True,
             capture_output=True,
         )
-    arm = lambda ev, mech: {
-        "evaluations": ev,
-        "search": {"n": 1, "spa_p": 0.4, "screened": [], "finalists": []},
-        "mechanism": mech,
-        "holdout": {"holm": {"h": 0.3}, "holdout_p": {"h": 0.2}, "holdout_total_return": {"h": 0.01}},
-        "promoted": [],
-    }
+
+    def arm(ev: int, mech: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "evaluations": ev,
+            "search": {"n": 1, "spa_p": 0.4, "screened": [], "finalists": []},
+            "mechanism": mech,
+            "holdout": {"holm": {"h": 0.3}, "holdout_p": {"h": 0.2}, "holdout_total_return": {"h": 0.01}},
+            "promoted": [],
+        }
+
     c = campaigns.comparison({"id": "c", "A": arm(2, {"h": {"pass": False}}), "B": arm(1, {})}, ledger)
     assert c["A"]["distinct_canonical"] == 1 and c["A"]["evaluations"] == 2 and c["A"]["mechanism_failures"] == ["h"]
     assert c["B"]["holdout"]["h"] == {"return": 0.01, "p": 0.2, "holm": 0.3} and c["statement"] == campaigns.NO_CLAIM
@@ -116,12 +126,13 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "check_frozen", lambda mm: None)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
-    monkeypatch.setattr(campaigns.canary, "passes", lambda: True)
+    monkeypatch.setattr(canary, "passes", lambda: True)
     monkeypatch.setitem(campaigns.COHORTS, "agent", ("agent-null-3", 3))
     ids, log = campaigns.cohort("agent")
-    started, slept = [], []
+    started: list[str] = []
+    slept: list[float] = []
 
-    def run(cid, inputs):
+    def run(cid: str, inputs: campaigns.SeriesInputs) -> dict[str, Any]:
         started.append(cid)
         (tmp_path / cid / "transcript.jsonl").write_text(
             json.dumps({"type": "result", "usage": {"output_tokens": 1}}) + "\n"
@@ -147,14 +158,14 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(
     monkeypatch.setattr(
         campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False, "wait": lambda self, s: slept.append(s)})()
     )
-    monkeypatch.setattr(campaigns.time, "time", lambda: 0)
+    monkeypatch.setattr(time, "time", lambda: 0)
     (tmp_path / ids[0]).mkdir()
     campaigns.run_series("agent")
     rows = [json.loads(l) for l in open(log)]
     assert [r["id"] for r in rows] == ids
     assert rows[0]["counts_as_promotion"] and "interrupted" in rows[0]["crash"]
     assert started == ids[1:]
-    assert slept == [campaigns.session.RETRY, 100, 200]
+    assert slept == [session.RETRY, 100, 200]
     assert rows[1]["account"] == "Cornell" and rows[1]["mm"] == "k"
     assert rows[1]["windows"] == {"before": {"five_hour": [0.2, 200]}, "after": {"five_hour": [0.3, 200]}}
     assert campaigns.need(log)["five_hour"] == pytest.approx(0.1)
@@ -164,8 +175,10 @@ def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(
 
 @pytest.mark.parametrize("family, other", [("agent", "swarm"), ("swarm", "agent")])
 @pytest.mark.parametrize("current", [None, "", "measured"])
-def test_need_measures_all_sibling_logs_of_only_the_same_family(tmp_path: Path, family, other, current) -> None:
-    def row(account, five_hour, week, tokens=1, reset=1):
+def test_need_measures_all_sibling_logs_of_only_the_same_family(
+    tmp_path: Path, family: str, other: str, current: str | None
+) -> None:
+    def row(account: str, five_hour: float, week: float, tokens: int = 1, reset: int = 1) -> str:
         return (
             json.dumps(
                 {
@@ -200,7 +213,7 @@ def test_need_measures_all_sibling_logs_of_only_the_same_family(tmp_path: Path, 
 @pytest.mark.parametrize("week, allowed", [(0.7, True), (0.79, False)])
 @pytest.mark.parametrize("measured_week", [True, False])
 def test_a_new_cohort_uses_earlier_need_without_exceeding_the_ceiling(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, family, week, allowed, measured_week
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, family: str, week: float, allowed: bool, measured_week: bool
 ) -> None:
     log = tmp_path / f"{family}-null-3.jsonl"
     log.touch()
@@ -215,8 +228,8 @@ def test_a_new_cohort_uses_earlier_need_without_exceeding_the_ceiling(
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "unused")
     windows = {"five_hour": [0.6, 100], "week": [week, 200]}
     monkeypatch.setattr(campaigns, "windows", lambda token=None: windows)
-    monkeypatch.setattr(campaigns.time, "time", lambda: 0)
-    slept = []
+    monkeypatch.setattr(time, "time", lambda: 0)
+    slept: list[float] = []
     monkeypatch.setattr(
         campaigns,
         "STOP",
@@ -261,7 +274,9 @@ def test_a_campaign_measured_on_one_account_paces_every_account(
     )
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN_TAMU", "tamu")
     monkeypatch.setattr(campaigns, "windows", lambda token=None: {"five_hour": [0.3, 1]})
-    assert campaigns.wait_for_room(log)[0] == "TAMU"
+    room = campaigns.wait_for_room(log)
+    assert room is not None
+    assert room[0] == "TAMU"
 
 
 def test_a_missing_series_input_starts_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -273,18 +288,20 @@ def test_a_missing_series_input_starts_nothing(tmp_path: Path, monkeypatch: pyte
 
 
 @pytest.mark.parametrize("family", ["agent", "swarm"])
-def test_a_kernel_changed_during_pacing_starts_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, family) -> None:
+def test_a_kernel_changed_during_pacing_starts_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, family: str
+) -> None:
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     binary, frozen = tmp_path / "mm", tmp_path / "harness.json"
     binary.write_bytes(b"kernel A")
     frozen.write_text(json.dumps({"harness": "unchanged"}))
     monkeypatch.setattr(campaigns, "MM", binary)
     monkeypatch.setattr(campaigns, "FROZEN", frozen)
-    monkeypatch.setattr(campaigns.harness, "harness_hash", lambda: "unchanged")
+    monkeypatch.setattr(harness, "harness_hash", lambda: "unchanged")
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": campaigns.sha256(binary)})
     monkeypatch.setitem(campaigns.SERIES, family, lambda *a: pytest.fail("started under a different kernel"))
 
-    def ready(log):
+    def ready(log: Path) -> tuple[str, dict[str, Any]]:
         binary.write_bytes(b"kernel B")
         return "TAMU", {}
 
@@ -300,13 +317,13 @@ def test_a_failing_canary_starts_nothing_and_paces_again_after_a_wait(
 ) -> None:
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "series_inputs", lambda: {"mm": "k"})
-    monkeypatch.setattr(campaigns.canary, "check", failing_canary)
+    monkeypatch.setattr(canary, "check", failing_canary)
     monkeypatch.setattr(campaigns, "SERIES", {"agent": lambda cid, inputs: pytest.fail("started")})
-    slept = []
+    slept: list[float] = []
     monkeypatch.setattr(campaigns, "STOP", type("Stop", (), {"wait": lambda self, s: slept.append(s)})())
     monkeypatch.setattr(campaigns, "wait_for_room", lambda log: None if len(slept) == 2 else ("TAMU", {}))
     campaigns.run_series("agent")
-    assert slept == [campaigns.session.RETRY] * 2
+    assert slept == [session.RETRY] * 2
     assert [p for p in tmp_path.iterdir() if p.is_dir()] == [] and campaigns.cohort("agent")[1].read_text() == ""
     assert capsys.readouterr().out.count("SANDBOX CONTRACT BROKEN") == 2
 
@@ -322,11 +339,13 @@ def test_the_series_runs_on_the_first_account_with_room_tamu_first(
         campaigns, "STOP", type("Stop", (), {"is_set": lambda self: False, "wait": lambda self, s: None})()
     )
     assert campaigns.wait_for_room(tmp_path / "log.jsonl") == ("Cornell", {"five_hour": [0.1, 100]})
-    assert campaigns.os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "cornell"
+    assert os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "cornell"
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "x")
     used["tamu"] = {"five_hour": [0.1, 100]}
-    assert campaigns.wait_for_room(tmp_path / "log.jsonl")[0] == "TAMU"
-    assert campaigns.os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "tamu"
+    room = campaigns.wait_for_room(tmp_path / "log.jsonl")
+    assert room is not None
+    assert room[0] == "TAMU"
+    assert os.environ["CLAUDE_CODE_OAUTH_TOKEN"] == "tamu"
 
 
 def test_a_freeze_is_refused_once_a_campaign_it_is_for_started_and_waits_for_the_canary(
@@ -337,12 +356,12 @@ def test_a_freeze_is_refused_once_a_campaign_it_is_for_started_and_waits_for_the
     monkeypatch.setattr(campaigns, "FROZEN", tmp_path / "harness.json")
     monkeypatch.setitem(campaigns.COHORTS, "agent", ("agent-null-3", 2))
     hashes = iter(["a", "b", "c"])
-    monkeypatch.setattr(campaigns.harness, "harness_hash", lambda: next(hashes))
-    monkeypatch.setattr(campaigns.canary, "check", failing_canary)
-    with pytest.raises(campaigns.canary.Broken):
+    monkeypatch.setattr(harness, "harness_hash", lambda: next(hashes))
+    monkeypatch.setattr(canary, "check", failing_canary)
+    with pytest.raises(canary.Broken):
         campaigns.freeze_harness()
     assert not (tmp_path / "harness.json").exists()
-    monkeypatch.setattr(campaigns.canary, "check", lambda: {})
+    monkeypatch.setattr(canary, "check", lambda: {})
     for earlier in ("agent-null-N2-0", "agent-null-2-N2-19", "stage3-real"):
         (out / earlier).mkdir(parents=True)
     (out / "stage3-real" / "void.json").write_text("{}")
@@ -365,14 +384,16 @@ def test_a_budget_refusal_is_not_an_evaluation(tmp_path: Path, monkeypatch: pyte
         {"cmd": "check", "response": {"ok": True}},
     ]
     (tmp_path / "daemon.log").write_text("".join(json.dumps(e) + "\n" for e in log))
-    assert campaigns.evaluations_made(None, "c", tmp_path) == 2
+    assert campaigns.evaluations_made(tmp_path / "ledger.sqlite", "c", tmp_path) == 2
 
 
 def test_swarm_class_counts_only_what_can_hide_or_is_a_promotion() -> None:
     done, died = {"stopped": "finished", "exit": 0}, {"stopped": "finished", "exit": 1}
 
-    def agent(run=done, holds=True, evaluations=5, received=True):
-        return {"run": run, "holds": holds, "evaluations": evaluations, "received": received}
+    def agent(
+        run: dict[str, Any] | None = done, holds: bool = True, evaluations: int = 5, received: bool = True
+    ) -> campaigns.AgentOutcome:
+        return campaigns.AgentOutcome(run=run, holds=holds, evaluations=evaluations, received=received)
 
     cls, four = campaigns.swarm_class, [agent()] * 4
     silent = agent(evaluations=0, received=False)
@@ -404,7 +425,9 @@ def test_swarm_verdict_needs_all_ten_and_two_counted_fail() -> None:
     assert v([e] * 8 + [n, n]) == "not established" and v([e] * 9) == "not established"
 
 
-def evidence_fixture(tmp_path: Path, history=({"ok": True, "evaluations": [{"agent": "A2"}]},)):
+def evidence_fixture(
+    tmp_path: Path, history: Sequence[dict[str, Any]] = ({"ok": True, "evaluations": [{"agent": "A2"}]},)
+) -> tuple[Path, Path, sqlite3.Connection]:
     d = tmp_path / "A1"
     d.mkdir()
     (d / "transcript.jsonl").write_text("{}\n")
@@ -475,14 +498,14 @@ def test_swarm_evidence_ignores_the_log_and_missing_evidence_is_unresolved(
     }
     monkeypatch.setattr(campaigns, "agent_evidence", lambda *a: evidence)
     monkeypatch.setattr(campaigns, "cross_agent_history", lambda *a: True)
-    monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {"t": 1})
+    monkeypatch.setattr(gate, "trials", lambda *a: {"t": 1})
     assert campaigns.swarm_evidence("c", "k")["class"] == "unresolved"
     (c / "decision.json").write_text("{torn")
     e = campaigns.swarm_evidence("c", "k")
     assert e["class"] == "unresolved" and not e["complete"]
     (c / "decision.json").write_text(json.dumps({"promoted": []}))
     assert campaigns.swarm_evidence("c", "k")["class"] == "established"
-    monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {})
+    monkeypatch.setattr(gate, "trials", lambda *a: {})
     assert campaigns.swarm_evidence("c", "k")["class"] == "not established"
     (c / "decision.json").write_text(json.dumps({"promoted": ["h"]}))
     assert campaigns.swarm_evidence("c", "k")["class"] == "promoted"
@@ -494,7 +517,7 @@ def test_swarm_evidence_ignores_the_log_and_missing_evidence_is_unresolved(
 @pytest.mark.parametrize("mode", ["search", "holdout"])
 @pytest.mark.parametrize("recorded_kernel", ["series-kernel", "other-kernel", None])
 def test_swarm_establishment_requires_every_ledger_kernel_to_match_the_series(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode, recorded_kernel
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, recorded_kernel: str | None
 ) -> None:
     """C4.5 v3: unchanged kernel; mismatched ledger is unresolved, but promotions always count."""
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
@@ -552,7 +575,7 @@ def test_a_failed_agent_costs_the_swarm_nothing_but_its_count(tmp_path: Path, mo
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     monkeypatch.setattr(campaigns, "null_market", lambda cid, inputs: "market")
 
-    def fails(market, ledger, cid, work, agents) -> Never:
+    def fails(market: Any, ledger: Path, cid: str, work: Path, agents: int) -> Never:
         run = Path(work) / "A1" / "run.json"
         run.parent.mkdir(parents=True)
         run.write_text(json.dumps({"agent": "A1", "stopped": "finished", "exit": 0}))
@@ -563,13 +586,13 @@ def test_a_failed_agent_costs_the_swarm_nothing_but_its_count(tmp_path: Path, mo
         db.commit()
         raise RuntimeError("disclose")
 
-    monkeypatch.setattr(campaigns.harness, "run_swarm", fails)
+    monkeypatch.setattr(harness, "run_swarm", fails)
     (tmp_path / "c").mkdir()
     monkeypatch.setattr(campaigns, "screened", lambda market, ledger, cid: ({"n": 1}, {}, []))
-    monkeypatch.setattr(campaigns.gate, "freeze", lambda *a: None)
-    monkeypatch.setattr(campaigns.gate, "holdout_decision", lambda *a: ([], {"diagnostics": {}}))
-    monkeypatch.setattr(campaigns.gate, "bankrupt", lambda ledger: [])
-    monkeypatch.setattr(campaigns.gate, "trials", lambda *a: {"t": 1})
+    monkeypatch.setattr(gate, "freeze", lambda *a: None)
+    monkeypatch.setattr(gate, "holdout_decision", lambda *a: ([], {"diagnostics": {}}))
+    monkeypatch.setattr(gate, "bankrupt", lambda ledger: [])
+    monkeypatch.setattr(gate, "trials", lambda *a: {"t": 1})
     monkeypatch.setattr(
         campaigns,
         "agent_evidence",
@@ -582,7 +605,7 @@ def test_a_failed_agent_costs_the_swarm_nothing_but_its_count(tmp_path: Path, mo
             "denials": {},
         },
     )
-    row = campaigns.swarm_null("c", {"mm": "k"})
+    row = campaigns.swarm_null("c", campaigns.SeriesInputs(params={}, cost_cells={}, mm="k"))
     assert (
         "disclose" in row["crash"]
         and row["counts_as_promotion"]
@@ -602,7 +625,9 @@ def test_a_null_campaign_counts_if_it_promotes_crashes_or_an_agent_made_no_evalu
     assert campaigns.counts([], [done] * 4, [5, 0, 12, 7])
 
 
-def qualification_campaign(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, promoted=()):
+def qualification_campaign(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, promoted: Sequence[str] = ()
+) -> tuple[str, Path, sqlite3.Connection, dict[str, Any]]:
     """Committed outputs only, following C4.5's 2026-11-04 qualification; no kernel evaluation."""
     monkeypatch.setattr(campaigns, "OUT", tmp_path)
     cid = campaigns.cohort("swarm")[0][0]
@@ -642,7 +667,16 @@ def qualification_campaign(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, prom
     return cid, work, db, row
 
 
-def committed_result(db, cid, experiment, trial="h", mode="search", fills=1, turnover=3.0, returns=(-0.2, 0.1)) -> None:
+def committed_result(
+    db: sqlite3.Connection,
+    cid: str,
+    experiment: int,
+    trial: str = "h",
+    mode: str = "search",
+    fills: int = 1,
+    turnover: float = 3.0,
+    returns: Sequence[float] = (-0.2, 0.1),
+) -> None:
     db.execute("INSERT INTO experiments VALUES (?, ?, 'A1', ?, 'k', ?, '{}')", (experiment, cid, mode, trial))
     db.execute(
         "INSERT INTO results VALUES (?, ?, ?)",
@@ -667,14 +701,14 @@ def test_v3_reports_each_finalists_committed_search_and_completed_holdout_separa
     committed_result(db, "other-campaign", 6, mode="holdout", turnover=333, returns=(-0.7,))
     before = (work / "ledger.sqlite").read_bytes()
 
-    def forbidden(*args, **kwargs) -> None:
+    def forbidden(*args: Any, **kwargs: Any) -> None:
         pytest.fail("reporting must not evaluate, read a market, or recompute a decision")
 
-    monkeypatch.setattr(campaigns.subprocess, "run", forbidden)
-    monkeypatch.setattr(campaigns.markets, "generate", forbidden)
-    monkeypatch.setattr(campaigns.gate, "search_decision", forbidden)
-    monkeypatch.setattr(campaigns.gate, "promote", forbidden)
-    monkeypatch.setattr(campaigns.gate, "release", forbidden)
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(markets, "generate", forbidden)
+    monkeypatch.setattr(gate, "search_decision", forbidden)
+    monkeypatch.setattr(gate, "promote", forbidden)
+    monkeypatch.setattr(gate, "release", forbidden)
     report = campaigns.swarm_report([row])
     diagnostics = report["finalist_diagnostics"][cid]
     assert set(diagnostics) == {"h", "mechanism-rejected"}
@@ -701,7 +735,7 @@ def test_v3_reports_each_finalists_committed_search_and_completed_holdout_separa
 
 @pytest.mark.parametrize("missing", ["search", "holdout", "incomplete holdout", "empty returns", "turnover", "ledger"])
 def test_v3_names_unavailable_finalist_results_without_substituting_or_reclassifying(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing: str
 ) -> None:
     cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
     if missing != "search":
@@ -742,7 +776,7 @@ def test_v3_names_unavailable_finalist_results_without_substituting_or_reclassif
     ],
 )
 def test_v3_promotions_report_every_establishment_requirement_without_changing_the_verdict(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str | None
 ) -> None:
     cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
     committed_result(db, cid, 1, fills=0 if failure == "no filled trial" else 1)
@@ -806,7 +840,7 @@ def test_v3_exposes_the_masking_false_pass_channel_but_does_not_repair_it(
     for other in ids[1:]:
         (tmp_path / other).mkdir()
 
-    def evidence(other, mm):
+    def evidence(other: str, mm: str | None) -> campaigns.SwarmEvidence:
         if other == cid:
             return original(other, mm)
         return established | {"class": "not established" if other == ids[1] else "established", "promoted": []}
@@ -831,7 +865,7 @@ def test_v3_recovers_frozen_finalist_identities_but_names_a_missing_search_repor
 
 @pytest.mark.parametrize("missing", ["run", "transcript", "history JSON", "disclosures table"])
 def test_v3_names_missing_or_unreadable_promotion_evidence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing: str
 ) -> None:
     cid, work, db, row = qualification_campaign(tmp_path, monkeypatch, promoted=["h"])
     committed_result(db, cid, 1)

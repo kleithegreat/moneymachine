@@ -13,6 +13,7 @@ import math
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -23,9 +24,13 @@ from ingest.policy import BAR
 SIZES = (1_000, 10_000)
 QUANTILE = 0.95
 CALIBRATION = 0.7
+type Book = dict[str, Any]
+type Polls = list[dict[str, Any]]
+type Cells = dict[tuple[str, str, int], tuple[list[int], np.ndarray[Any, Any]]]
+type Model = dict[str, dict[str, dict[str, float]]]
 
 
-def walk_cost(book, side, notional, mid=None):
+def walk_cost(book: Book, side: str, notional: float, mid: float | None = None) -> float:
     bids, asks = book["levels"]
     if mid is None:
         mid = (float(bids[0]["px"]) + float(asks[0]["px"])) / 2
@@ -41,7 +46,7 @@ def walk_cost(book, side, notional, mid=None):
     return math.inf
 
 
-def cost(snapshot, side, notional):
+def cost(snapshot: dict[str, Any], side: str, notional: float) -> float:
     full = snapshot["data"]
     mid = (float(full["levels"][0][0]["px"]) + float(full["levels"][1][0]["px"])) / 2
     c = walk_cost(full, side, notional, mid)
@@ -50,12 +55,12 @@ def cost(snapshot, side, notional):
     )
 
 
-def costs_by_cell(polls):
-    snaps = defaultdict(list)
+def costs_by_cell(polls: Polls) -> Cells:
+    snaps: defaultdict[str, Polls] = defaultdict(list)
     for p in polls:
         if p["kind"] == "l2" and "agg" in p and all(p["data"]["levels"]):
             snaps[p["coin"]].append(p)
-    out = {}
+    out: Cells = {}
     for coin, ps in snaps.items():
         ps.sort(key=lambda p: p["sent"])
         for side in ("buy", "sell"):
@@ -64,8 +69,9 @@ def costs_by_cell(polls):
     return out
 
 
-def calibrate_and_validate(cells):
-    model, report = {}, {}
+def calibrate_and_validate(cells: Cells) -> tuple[Model, dict[str, dict[str, Any]]]:
+    model: Model = {}
+    report: dict[str, dict[str, Any]] = {}
     for (coin, side, size), (times, c) in cells.items():
         k = int(len(c) * CALIBRATION)
         cal, test = c[:k], c[k:]
@@ -89,11 +95,11 @@ def calibrate_and_validate(cells):
     return model, report
 
 
-def relative_ranges(polls, report):
+def relative_ranges(polls: Polls, report: dict[str, dict[str, Any]]) -> dict[str, list[float]]:
     """Per coin, [min, max] of (high - low)/open over its recorded 4h bars inside its calibration span,
     from the reference (verify) polls."""
     spans = {key.split(":")[0]: r["calibration_span"] for key, r in report.items() if r["calibration_span"]}
-    ranges = defaultdict(list)
+    ranges: defaultdict[str, list[float]] = defaultdict(list)
     for p in polls:
         if p["kind"] == "bar" and p["purpose"] == "verify" and p["coin"] in spans:
             start, end = spans[p["coin"]]
@@ -103,7 +109,13 @@ def relative_ranges(polls, report):
     return {coin: [min(r), max(r)] for coin, r in sorted(ranges.items())}
 
 
-def calibrate(live_dir, sources_dir, model_out, report_out, oci_dir=None) -> None:
+def calibrate(
+    live_dir: str | Path,
+    sources_dir: str | Path,
+    model_out: str | Path,
+    report_out: str | Path,
+    oci_dir: str | Path | None = None,
+) -> None:
     """The cost model from the judged L2 snapshots to `model_out`, its held-out validation to `report_out`."""
     judged = judgment(live_dir, sources_dir, oci_dir)
     if judged is None:

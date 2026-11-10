@@ -1,13 +1,10 @@
 """Every mutant's edits still apply: each old text occurs exactly once in the current tree."""
 
-import importlib.util
 from pathlib import Path
 
+from kernel.mutants import mutants
+
 REPO = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("mutants", REPO / "kernel/mutants/mutants.py")
-assert spec is not None and spec.loader is not None
-mutants = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mutants)
 
 
 def test_every_mutant_edit_matches_exactly_once() -> None:

@@ -3,6 +3,7 @@ statistics both must agree on, and the regression p-value of GPT's markets."""
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -12,7 +13,7 @@ from gate.tests import gpt_nulls
 YEARS, MARKET_DAYS = 100, 3650
 
 
-def stats(arrays):
+def stats(arrays: list[dict[str, Any]]) -> dict[str, float]:
     e = np.concatenate([a["eps"] for a in arrays])
     f = np.concatenate([a["funding"] for a in arrays])
     z = (e - e.mean(0)) / e.std(0)
@@ -27,7 +28,7 @@ def stats(arrays):
     }
 
 
-def run(out) -> None:
+def run(out: str | Path) -> None:
     params = json.loads(Path("gate/nulls.json").read_text())
     report = {}
     for model in ("N2", "N3"):

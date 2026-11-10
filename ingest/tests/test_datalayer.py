@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -66,10 +67,13 @@ def test_a_discovered_url_without_certified_terms_is_refused(tmp_path: Path) -> 
 
 
 def test_a_credential_is_sent_but_never_logged(tmp_path: Path) -> None:
-    seen = []
-    http = httpx.Client(
-        transport=httpx.MockTransport(lambda req: seen.append(req) or httpx.Response(200, content=b"{}"))
-    )
+    seen: list[httpx.Request] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"{}")
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
     feed = {
         "name": "k",
         "url": "https://api.example.org/v1/x?series=A",
@@ -122,11 +126,11 @@ while True:
 """
 
 
-def fetch_again(out):
+def fetch_again(out: Path) -> dict[str, Any]:
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=BODY)))
-    return datalayer.poll(
-        http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}, out
-    )
+    feed = {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/service/data/EXR/x", "every_h": 6}
+    record: dict[str, Any] = datalayer.poll(http, feed, out)
+    return record
 
 
 def test_a_body_write_that_fails_leaves_nothing_a_later_poll_of_the_same_body_reuses(tmp_path: Path) -> None:
@@ -155,7 +159,7 @@ def test_a_torn_log_line_does_not_stop_a_restart(tmp_path: Path) -> None:
 
 
 # GPT's review of the bundle (audit/reviews/2026-11-02-gpt-thesis-fixes.md), F8: a body the old writer damaged.
-def damaged_on_disk(out):
+def damaged_on_disk(out: Path) -> tuple[Path, bytes]:
     """The body's final .gz as the old writer's killed run could leave it, with the bytes it holds."""
     raw = out / "raw" / f"{hashlib.sha256(BODY).hexdigest()}.gz"
     raw.parent.mkdir(parents=True)
@@ -254,7 +258,7 @@ datalayer.poll(http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/
 
 
 @pytest.mark.parametrize("step", ["record", "move"])
-def test_a_repair_killed_after_any_step_is_on_the_record_with_its_damaged_bytes(tmp_path: Path, step) -> None:
+def test_a_repair_killed_after_any_step_is_on_the_record_with_its_damaged_bytes(tmp_path: Path, step: str) -> None:
     raw, bad = damaged_on_disk(tmp_path)
     assert subprocess.run([sys.executable, "-c", KILLED_AT, str(tmp_path), step]).returncode == -signal.SIGKILL
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY

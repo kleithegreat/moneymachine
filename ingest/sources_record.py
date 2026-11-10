@@ -8,7 +8,10 @@ import ctypes
 import hashlib
 import struct
 import time
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -24,7 +27,7 @@ QUERY = (
 )
 
 
-def kernel_clock():
+def kernel_clock() -> dict[str, float | bool]:
     buf = ctypes.create_string_buffer(256)
     if ctypes.CDLL(None).adjtimex(buf) < 0:
         raise OSError("adjtimex")
@@ -32,18 +35,26 @@ def kernel_clock():
     return {"maxerror_ms": maxerror / 1000, "esterror_ms": esterror / 1000, "unsynced": bool(status & 0x40)}
 
 
-def reply(r):
+def reply(r: httpx.Response) -> Any:
     return r.json() if r.status_code == 200 else {"status": r.status_code}
 
 
-def main(out_dir) -> None:
+def _forum(http: httpx.Client, forum: str) -> Any:
+    return reply(http.get(f"https://{forum}/posts.json"))
+
+
+def _space(http: httpx.Client, space: str) -> Any:
+    return reply(http.post(HUB, json={"query": QUERY % space}))
+
+
+def main(out_dir: str | Path) -> None:
     out = Path(out_dir)
     stop = recording(out)
     http = httpx.Client(timeout=30, headers={"User-Agent": "moneymachine-research-recorder (read-only)"})
     while not stop.is_set():
         started = time.time()
-        jobs = [("discourse", f, lambda f=f: reply(http.get(f"https://{f}/posts.json"))) for f in FORUMS]
-        jobs += [("snapshot", s, lambda s=s: reply(http.post(HUB, json={"query": QUERY % s}))) for s in SPACES]
+        jobs: list[tuple[str, str, Callable[[], Any]]] = [("discourse", f, partial(_forum, http, f)) for f in FORUMS]
+        jobs += [("snapshot", s, partial(_space, http, s)) for s in SPACES]
         jobs += [("clock", "kernel", kernel_clock)]
         for source, key, request in jobs:
             if stop.is_set():
