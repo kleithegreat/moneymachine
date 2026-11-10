@@ -4,7 +4,7 @@ Written 2026-11-10 21:04 UTC (16:04 EST) by Claude Fable 5.2 (`claude-fable-5-2`
 
 **Read:** `CLAUDE.md`, `PROGRESS.md`; the human's first session (`ctx` leaf 0); the paper's sections 1, 2, 8 to 17 and appendices S, D, T and O; my meta review of 2026-11-09 and the human's acceptance of it (`audit/decisions.md`, 2026-11-09 20:34 UTC (15:34 EST)) and the entry of 2026-11-10 03:10 UTC (2026-11-09 22:10 EST); `docs/future-work.md`; `thesis/brief.md`, `thesis/SCORING.md`; `venue/sources.toml` (every host; the Hyperliquid and Polymarket certificates in full) and the Polymarket feeds in `venue/sources/datalayer.json`; PC1 to PC6 on `positive-controls` at `8c7b7fa`. **Not read:** GPT's meta review again (I rely on my section 7), most of `audit/`, any code beyond four greps, anything under `data/`. **Run:** one script (the wall table and the exact operating characteristics in section 6); no model, cluster or campaign. **Web:** four searches; what they returned is marked *lead* and is unchecked against the papers themselves. Citations given from memory are marked *lead* too.
 
-**Blind:** sections 1 to 9 were committed before I opened anything on `thesis-split`. One leak: `PROGRESS.md`, which every session reads first, summarizes that design in one line ("week unit, 4 theses a day, C10.7 paired Brier protocol, identity split, lazy acquisition, 14-step build plan"). Section 10 was added afterwards.
+**Blind:** sections 1 to 9 were committed (`d5a715c`, figures corrected in the next commit) before I opened anything on `thesis-split`. Section 10 lists the three places they changed afterwards. One leak: `PROGRESS.md`, which every session reads first, summarizes that design in one line ("week unit, 4 theses a day, C10.7 paired Brier protocol, identity split, lazy acquisition, 14-step build plan"). Section 10 was added afterwards.
 
 ## 1. What the aim asks
 
@@ -172,9 +172,9 @@ Two studies, in this order, then the human's stage 11. Nothing else is built unt
 - **Claim:** the paper portfolio of the agent's registered positions, sized by rule and priced at recorded quotes with fees, has a positive mean weekly net return.
 - **Unit:** the portfolio's return over one calendar week.
 - **Count:** 4.3 a month, each carrying about 60 registered positions.
-- **Power:** 80% at 26 weeks if the per-bet effect is 0.063 with 60 independent bets a week (0.089 with 30; 0.049 with 100); at 52 weeks, 0.045 with 60. In Sharpe terms the portfolio needs 3.5 annualized to finish in 26 weeks and 2.5 in 52. Breadth is what makes that reachable: 3,000 independent bets a year at `d` = 0.063.
+- **Power:** 80% at the week-26 look (level 1%) if the per-bet effect is 0.080 with 60 independent bets a week (0.113 with 30; 0.062 with 100); at the week-52 look (level 4%), 0.046 with 60 (0.066 with 30; 0.036 with 100). In Sharpe terms the portfolio needs 4.5 annualized to finish at week 26 and 2.6 at week 52. Breadth is what makes that reachable: 3,000 independent bets a year at `d` = 0.046.
 - **Vertical slice:** a market adapter with three functions (quote at registration, weekly mark, resolution) for Polymarket's certified host; admission rules; the weekly accounting, specified for an independent implementation; one search API under the human's certificate; the existing registry, daemon, sandbox and record-before-reply; the scientific manifest and the operational layer.
-- **Calendar:** design, criteria and build in parallel with study 1; a shakedown week that is not evidence; then the freeze. Looks at weeks 13, 26, 39 and 52.
+- **Calendar:** design, criteria and build in parallel with study 1; a shakedown week that is not evidence; then the freeze. Looks at weeks 26 and 52.
 
 ### Why this order
 
@@ -245,8 +245,8 @@ Derived from power, not from cost: about 60 admitted positions a week, so 8 to 9
 
 - **Null:** in every week, the portfolio's net return has non-positive mean given everything before that week. This is the gate's holdout null (paper, section 8).
 - **Statistic:** the one-sided Student statistic of the weekly net returns.
-- **Looks:** weeks 13, 26, 39 and 52, with an alpha-spending boundary of O'Brien and Fleming's shape and total level 5%.
-- **The gameable part, and its guard.** A portfolio of favorites bought near 1 wins a little most weeks and loses everything rarely. With one cluster a week bought at 0.95, a mean-zero portfolio passes a 5% Student test 26% of the time at 26 weeks, because no loss has yet occurred (my simulation, 200,000 runs; 59% at 0.98). With 20 independent clusters a week and entry prices capped at 0.90 the size is 6.4% at 26 weeks and 6.1% at 52; capped at 0.80, 5.7% and 5.4%. So the entry-price band and the category cap are part of the test, and the critical values are set by simulation at the worst null the admission rules allow, so that the size is at most 5% there. The gate's betting test would be exactly valid under any skew, but its bound is the whole stake at risk, which breadth does not shrink, so it has no power here; it is reported, not judged.
+- **Looks:** week 26 at level 1% and week 52 at level 4%. The split is Bonferroni's, so the total is at most 5% under any dependence between the looks (section 10).
+- **The gameable part, and its guard.** A portfolio of favorites bought near 1 wins a little most weeks and loses everything rarely. With one cluster a week bought at 0.95, a mean-zero portfolio passes a 5% Student test 26% of the time at 26 weeks, because no loss has yet occurred (my simulation, 200,000 runs; 59% at 0.98). With 20 independent clusters a week and entry prices capped at 0.90 the size is 6.4% at 26 weeks and 6.1% at 52; capped at 0.80, 5.7% and 5.4%. So the entry-price band and the category cap are part of the test, and each look's critical value is set by simulation at the worst null the admission rules allow, so that the size is at most 5% there. The gate's betting test would be exactly valid under any skew, but its bound is the whole stake at risk, which breadth does not shrink, so it has no power here; it is reported, not judged.
 - **Accounting.** A position fills at the ask in the daemon's own quote fetched at registration, plus the venue's fee. It is marked at the recorded bid. A missing mark carries the last one forward, which moves return between weeks and never changes the total. A position whose resolution is never obtained loses its stake. No registered position ever leaves the portfolio.
 - **The claim on rejection:** this frozen procedure's paper portfolio earned a positive mean weekly net return over its window at recorded quotes. Not that it will, and not that size could trade: that is stage 11.
 - **Reported, never judged:** Brier against the market price, calibration, results by category and by price and liquidity bucket, the three replays, the betting test's wealth.
@@ -257,7 +257,7 @@ As the human accepted on 2026-11-09, with the boundary made testable.
 - **Scientific manifest:** the model id, the brief, the tools and limits, the universe and admission rules, the stake, the fill, mark, fee and resolution rules, the protocol.
 - **Operational layer:** acquisition, retries, the limiter, scheduling, storage, the report's rendering.
 - **The invariant that makes the split honest:** scoring is a pure function of the recorded bytes and the scientific manifest. An operational patch may change which bytes exist. It can never change what a recorded quote, mark or resolution is worth. A test replays the whole record under two operational commits and requires identical scores.
-- **Where it still leaks:** an acquisition failure changes what the agent is shown. That is predictable information, decided before any outcome, so it cannot bias a test of the portfolio's mean. Failures after registration could: hence "no position leaves the portfolio" and the lost-stake rule.
+- **Where it still leaks:** an acquisition failure changes what the agent is shown, so what each session was shown is itself a recorded disclosure and a report line. It is predictable information, decided before any outcome, so it cannot bias a test of the portfolio's mean. Failures after registration could: hence "no position leaves the portfolio" and the lost-stake rule.
 
 ### 5.7 What of the acquisition machinery stays
 
@@ -321,7 +321,7 @@ The starting point is my meta review's recommendation 4: discovery only, exact c
 - Five consecutive sessions lost to one operational cause pause it; they still count.
 
 **Study 2.**
-- Efficacy at a look ends it with the claim.
+- A rejection at week 26 ends it with the claim.
 - Futility: at week 26, a Student statistic below zero ends it; at week 52 it ends regardless.
 - Before the freeze: if the shakedown cannot sustain 30 positions a week, or realized breadth is under half the admitted count, the throughput and admission rules are re-derived. After the freeze the same shortfall is reported and the protocol runs to its looks: a forward test is never rescued by a change.
 - A scientific change is a new instance with a new window. Instances are never pooled.
@@ -346,3 +346,33 @@ It is never rescued by lowering a threshold, pooling instances, or reading the f
 8. **Whether "discovery by evaluation" is the right event** for study 1, since an arm that evaluates more programs has more chances. Budgets are equal by construction, and the agent may choose to use less.
 9. **The baseline as the anchor.** Calibrating the plant on G100 makes the claim relative to G100. A reviewer may prefer a fixed economic strength; then the anchor is a choice again.
 10. **Venue facts** (Kalshi's status, its fee formula, Polymarket's fees) are from memory.
+
+## 10. Against the Fable 5.1 design on `thesis-split`
+
+Read after sections 1 to 9 were committed: the paper's thesis section and T1 to T3 at `c044b68`, `audit/stage10/redesign-build-plan.md`, and `audit/stage10/redesign/units_sim.txt`. Not read: its criteria draft, its `SCORING.md`, any code.
+
+That design keeps the track on perps, raises it to four theses a day, deletes the full no-reading arm and the Monday benchmark, makes the registration week the unit, and pre-registers one protocol (C10.7): the paired Brier difference between the main thesis and its conditional ablation, at two looks over 52 weeks.
+
+### Keep
+
+1. **Two Bonferroni looks, 1% at week 26 and 4% at week 52.** It is valid under any dependence between looks and needs no spending function. I had four looks on an O'Brien-Fleming boundary, which leans on the normality that section 5.5 already distrusts. Adopted. The cost is at the first look only: 0.080 detectable instead of 0.063.
+2. **The week as the unit, and its evidence against components.** Its simulation resolves 0 to 30 components in a year where the floor was 200, which is worse than my meta review's estimate. The criteria note cites it.
+3. **C10.2 as two guarantees** (one ledger record per call, committed before any reply byte; the client as the only channel), with the transcript audit failing closed as a report line, and a failed session's theses kept in the sample. Study 2 carries this unchanged.
+4. **"Each session's shown universe is a recorded disclosure."** Added to section 5.6.
+5. **The search API conditions,** which match section 5.4. It names one route I left out: the human's operator decision to read result pages directly, one public GET each under `robots.txt`. That is the human's option (open question 4).
+6. **The 28-day horizon cap,** for resolution speed. Study 2's design should consider the same cap on a contract's scheduled end.
+7. **For the parked perp instance:** lazy reads of immutable history, the base rate computed at report time, and the deletions in its build plan's steps 5 to 12. If the instance is revived, it starts there.
+
+### Discard
+
+1. **The claim.** C10.7's power comes from an assumed miscalibration of the ablation, 0.15 in standard deviation, of which reading removes half (`E[d]` = −0.0115). That is an assumption about how noisy the no-reading forecast is, not about what reading learns of a market. A run that passes while the aim's claim is false: an agent that reading only makes more cautious, so that its error is half the ablation's, has `E[d]` = −0.75σ² and rejects, having learned nothing about any market. Both arms can then lose to the base rate, and the paper portfolio can lose money. Section 2.3's bound is for an ablation that is itself near the truth; where it is not, the contrast measures the ablation. Either way a rejection would not tell the human to do anything.
+2. **The universe.** Perps at four theses a day are row E: a year of the personal account, at an estimated 0.56 of its weekly allowance, for a result about forecast noise.
+3. **The build plan's steps 1 to 4 and 13,** which build that protocol: the unit and paired scoring, ablation parity, the mark-bar move, and an outside model's rerun of C10.4.
+
+### Was it wasteful
+
+As a repair of the frozen design it is competent: it removes the percolating unit, the benchmark and the snapshot machine, and its simulation is honest about a small effect (power 0.11 at best). The waste is upstream of it, and partly mine. It re-derived the track's statistics without asking what a rejection would let the human do, and my meta review's recommendation 2 named that protocol. A fourteen-step build then follows from the wrong question.
+
+### Changed in sections 1 to 9 after reading it
+
+The looks (sections 4, 5.5 and 8), the shown-universe line (section 5.6), and the blind note at the top. Nothing else.
