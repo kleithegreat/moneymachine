@@ -1,0 +1,43 @@
+A. resolved units after 91 and 365 days (components | weeks); one session/day
+  pool 278 markets, 1.4 theses/day, horizon <= 60 d: components   6.0 |   29.6   weeks  5.5 | 44.7   (theses 510)
+  pool  60 markets, 1.4 theses/day, horizon <= 60 d: components   2.7 |   14.1   weeks  5.2 | 44.5   (theses 516)
+  pool  60 markets, 2 theses/day, horizon <= 60 d: components   0.3 |    1.9   weeks  4.8 | 44.2   (theses 730)
+  pool  30 markets, 2 theses/day, horizon <= 60 d: components   0.1 |    0.1   weeks  4.8 | 44.0   (theses 730)
+  pool  60 markets, 2 theses/day, horizon <= 28 d: components   1.1 |    5.6   weeks  9.1 | 48.2   (theses 730)
+  pool  60 markets, 4 theses/day, horizon <= 28 d: components   0.0 |    0.0   weeks  9.0 | 48.1   (theses 1460)
+
+B. the paired difference d = (p-o)^2 - (p_abl-o)^2; pool 60, Zipf, factor model; horizon 7..28 d unless stated
+   coverage of a nominal 95% interval for E[d]: iid | week-cluster | week-HAC (Bartlett, lag ceil(h_max/7));
+   power: one-sided 5% week-cluster t test of E[d] < 0 (t quantile on W - 1 df)
+  null: reading adds noise only: E[d] = +0.0072 (horizon <= 60 d: +0.0078)
+    13 weeks x 2/day, horizon <= 28: coverage iid 0.954  cluster 0.940  HAC 0.859   power 0.002
+    13 weeks x 4/day, horizon <= 28: coverage iid 0.909  cluster 0.936  HAC 0.868   power 0.007
+    26 weeks x 2/day, horizon <= 28: coverage iid 0.944  cluster 0.956  HAC 0.911   power 0.001
+    26 weeks x 4/day, horizon <= 28: coverage iid 0.907  cluster 0.942  HAC 0.901   power 0.000
+    26 weeks x 4/day, horizon <= 60: coverage iid 0.892  cluster 0.935  HAC 0.848   power 0.000
+    39 weeks x 4/day, horizon <= 28: coverage iid 0.884  cluster 0.944  HAC 0.901   power 0.000
+    52 weeks x 4/day, horizon <= 28: coverage iid 0.892  cluster 0.947  HAC 0.931   power 0.000
+  small: a quarter of the miscalibration: E[d] = -0.0022 (horizon <= 60 d: -0.0019)
+    13 weeks x 2/day, horizon <= 28: coverage iid 0.955  cluster 0.937  HAC 0.846   power 0.058
+    13 weeks x 4/day, horizon <= 28: coverage iid 0.920  cluster 0.940  HAC 0.859   power 0.071
+    26 weeks x 2/day, horizon <= 28: coverage iid 0.945  cluster 0.944  HAC 0.900   power 0.066
+    26 weeks x 4/day, horizon <= 28: coverage iid 0.897  cluster 0.938  HAC 0.887   power 0.078
+    26 weeks x 4/day, horizon <= 60: coverage iid 0.909  cluster 0.951  HAC 0.834   power 0.078
+    39 weeks x 4/day, horizon <= 28: coverage iid 0.887  cluster 0.925  HAC 0.889   power 0.110
+    52 weeks x 4/day, horizon <= 28: coverage iid 0.881  cluster 0.938  HAC 0.920   power 0.089
+  medium: half of it, less session shift: E[d] = -0.0115 (horizon <= 60 d: -0.0123)
+    13 weeks x 2/day, horizon <= 28: coverage iid 0.968  cluster 0.951  HAC 0.862   power 0.428
+    13 weeks x 4/day, horizon <= 28: coverage iid 0.958  cluster 0.947  HAC 0.855   power 0.618
+    26 weeks x 2/day, horizon <= 28: coverage iid 0.949  cluster 0.942  HAC 0.900   power 0.669
+    26 weeks x 4/day, horizon <= 28: coverage iid 0.937  cluster 0.948  HAC 0.897   power 0.869
+    26 weeks x 4/day, horizon <= 60: coverage iid 0.940  cluster 0.943  HAC 0.845   power 0.867
+    39 weeks x 4/day, horizon <= 28: coverage iid 0.951  cluster 0.960  HAC 0.934   power 0.960
+    52 weeks x 4/day, horizon <= 28: coverage iid 0.926  cluster 0.950  HAC 0.926   power 0.994
+  large: three quarters of a larger one: E[d] = -0.0293 (horizon <= 60 d: -0.0302)
+    13 weeks x 2/day, horizon <= 28: coverage iid 0.977  cluster 0.941  HAC 0.862   power 0.788
+    13 weeks x 4/day, horizon <= 28: coverage iid 0.964  cluster 0.944  HAC 0.852   power 0.959
+    26 weeks x 2/day, horizon <= 28: coverage iid 0.965  cluster 0.952  HAC 0.898   power 0.968
+    26 weeks x 4/day, horizon <= 28: coverage iid 0.939  cluster 0.938  HAC 0.877   power 0.996
+    26 weeks x 4/day, horizon <= 60: coverage iid 0.947  cluster 0.941  HAC 0.844   power 0.999
+    39 weeks x 4/day, horizon <= 28: coverage iid 0.939  cluster 0.942  HAC 0.903   power 1.000
+    52 weeks x 4/day, horizon <= 28: coverage iid 0.935  cluster 0.942  HAC 0.909   power 1.000
