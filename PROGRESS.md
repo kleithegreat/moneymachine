@@ -22,7 +22,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet builds (`CLAUDE.md`; the human's decision of 2026-11-09 20:34 UTC (15:34 EST), accepting all of `audit/reviews/2026-11-09-fable-meta-review.md`). The thesis freeze wake-up is cancelled until the redesign. Job `thesis-prewarm` runs on; the redesign decides if it is needed.
 
-1. **Round fifteen** on `thesis-refreeze` (`../mm-thesis-rf`, from `9719be0`): D2, D4 and D5 fixed; Sonnet is building D1, D3 and the two Guarantee 1 gaps from `round15-handoff.md` (started 2026-11-10 02:40 UTC (2026-11-09 21:40 EST)).
+1. **Round fifteen** done on `thesis-refreeze` (`9d8f6e2`, pushed; reviewed by the advisor): C10.2's audit fails closed, one ledger record per call, fetched bodies stored by hash, harness hash unchanged.
 2. **Fable's calibration:** its section 6A constructed Argon's D3 blind. Log it in `audit/decisions.md` once round fifteen reproduces D3.
 3. **Thesis redesign**, Fable architecting on `thesis-split` (`../mm-thesis-split`), started 2026-11-10 02:41 UTC (2026-11-09 21:41 EST):
    - the identity split;
@@ -39,6 +39,7 @@ Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet bu
    - pinned to harness `6a335714…`.
 
    Another model reviews it, then the criteria are committed alone, then Sonnet builds, then it runs on TAMU and Cornell.
+4b. **Research program after the pilot**, Fable architecting on `research-program` (`../mm-program`), started 2026-11-10 03:06 UTC (2026-11-09 22:06 EST). **Argon:** the whole paper's mathematics, adversarially (`~/Downloads/argon-paper-math-check.md`; the human runs it).
 5. **Reading arm:** the advisor proposes search APIs, with their terms, for the human's certificate.
 6. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 

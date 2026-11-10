@@ -53,7 +53,7 @@ Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harn
 
 ### Decisions
 
-One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, the advisor asks two fresh reviewers, a Claude session and GPT (another model in GPT's place when GPT built the work), without giving them its conclusion; then decides and acts, logging in `audit/decisions.md` what, why, what reviewers said and how to reverse it; the human reviews it afterwards under "Decisions awaiting the human's review". Only the list below waits for the human.
+One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, the advisor has it reviewed: a Fable design by its adversarial reviewers (Orchestration), anything else by two fresh reviewers, a Claude session and GPT (another model in GPT's place when GPT built the work), without giving them its conclusion. Then it decides and acts, logging in `audit/decisions.md` what, why, what reviewers said and how to reverse it; the human reviews it afterwards under "Decisions awaiting the human's review". Only the list below waits for the human.
 
 A new rule names the failure it prevents, and goes when that failure can no longer happen.
 
@@ -93,10 +93,16 @@ Work that could change a false-discovery or leakage outcome gets an independent 
 ### Orchestration
 
 Plan usage is the binding cost, so roles follow each model's record here and the independence rules above (the human, 2026-11-09):
-- **Claude Fable** architects: it designs studies, redesigns, derivations and criteria, and gives project-level reviews. Its allowance is the scarcest (at most half of a Pro week), so it never builds, and another model reviews its designs.
+- **Claude Fable** architects: it designs studies, redesigns, derivations and criteria, and gives project-level reviews. Its allowance is the scarcest (at most half of a Pro week), so it never builds. For each build it writes a plan of ordered steps, each stating the behaviour its tests must show.
 - **Claude Opus** orchestrates as the advisor: it turns designs into builder briefs, routes work, reviews Sonnet's builds, and gives the last review before anything that can't be undone or changes a judged result (a freeze, a stage exit, a criteria commit), of work it did not build.
-- **Sonnet** builds, as subagents, from a design and a brief, test-first, committing each step. It does not review.
-- **Outside models** review where independence is required: **GPT** (opencode, `openai/gpt-6.1-sol#high`) and **Gemini 4 Argon** (derivations and mathematics, through a self-contained bundle in the Gemini web UI or `agy` from a clean worktree; one run at a time, never near its weekly limit, since a 429 discards the run). Ask Argon for findings in parts: long web replies were cut off twice. Every `opencode run` takes stdin from `/dev/null`, or in the background it waits on stdin forever. Probe first (`timeout 120 opencode run -m <model> "Reply with OK."`); if an outside model is unavailable, never block: a fresh Fable or Opus session reviews, labeled as such, with the outside review queued, and an independent implementation waits unless its criterion says otherwise.
+- **Sonnet** builds Fable's plan exactly, as subagents. For each step:
+  - a session that does not build the step writes its tests from the plan, without reading the code;
+  - the builder makes them pass without editing them, in one commit;
+  - a wall the plan did not foresee goes back to Fable as a question and is never patched around (§1);
+  - Opus checks the commit against its step.
+
+  Sonnet does not review.
+- **Outside models** are Fable's adversarial reviewers: **GPT** (opencode, `openai/gpt-6.1-sol#high`) and **Gemini 4 Argon** (through a self-contained bundle in the Gemini web UI, or `agy` from a clean worktree; one run at a time, never near its weekly limit, since a 429 discards the run). They get everything Fable had, its conclusions included, and try to break the design at the theoretical level rather than re-derive it. Only what Reviewers withholds stays withheld. Ask Argon for findings in parts: long web replies were cut off twice. Every `opencode run` takes stdin from `/dev/null`, or in the background it waits on stdin forever. Probe first (`timeout 120 opencode run -m <model> "Reply with OK."`); if an outside model is unavailable, never block: a fresh Opus session reviews, labeled as such, with the outside review queued, and an independent implementation waits unless its criterion says otherwise.
 - A model new to a role is calibrated blind on a settled case before its findings count.
 
 Builders commit each finished step and write long runs' output to disk, so a usage cutoff costs one step (GPT stopped mid-work four times, 2026-11-06 and 07). As a plan nears its limit, stop the least important Claude work first: the advisor shares the account.
