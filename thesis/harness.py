@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from ingest import terms
 from sandbox import session
@@ -62,7 +63,36 @@ def run_session(workdir, kind, start_daemon, task=None):
     return {"kind": kind, **s}
 
 
-def audit(transcript, calls):
-    """The session's daemon call records and any tool it used outside `session.PERMITTED`. C10.2 fails a session
-    with any such tool (`report.c10_2`); the call count is information (audit/stage10/criteria-revision-round11-draft.md)."""
-    return {"daemon_calls": len(calls), "outside_permitted": session.tool_use(transcript, CLIENT)["outside_permitted"]}
+BLOCK_TYPES = {"text", "thinking", "redacted_thinking", "fallback", "tool_use", "tool_result"}
+
+
+def events(transcript: Path) -> list[dict[str, Any]]:
+    """The CLI's stream-json events, every line parsed: a torn or corrupt line raises, so a transcript that cannot be read in
+    full cannot pass."""
+    parsed = [json.loads(line) for line in transcript.read_text().splitlines() if line.strip()]
+    if not all(isinstance(e, dict) for e in parsed):
+        raise ValueError("a transcript line is not an event")
+    return parsed
+
+
+def audit(transcript: Path, calls: list[dict[str, Any]]) -> dict[str, Any]:
+    """The session's daemon call count and the tools it executed outside `session.PERMITTED` (audit/criteria.md, stage 10,
+    C10.2 wording (b)). It raises, and the session fails C10.2, unless the transcript is complete: every line parses, it opens
+    with the `system/init` event and ends with `result`, and every content block is of a type in `BLOCK_TYPES` (a
+    `server_tool_use` or `mcp_tool_use` block is not). A call to a tool outside the set is not counted when the CLI refused it
+    (its id is in `permission_denials`) or the tool is not in init's `tools`, so it never ran."""
+    stream = events(transcript)
+    init = [e for e in stream if e.get("type") == "system" and e.get("subtype") == "init"]
+    if not init or stream[-1].get("type") != "result":
+        raise ValueError("the transcript lacks its init event or its result")
+    available = set(init[0]["tools"])
+    denied = {d["tool_use_id"] for d in stream[-1].get("permission_denials", [])}
+    executed = set()
+    for event in stream:
+        content = event.get("message", {}).get("content") if event.get("type") in ("assistant", "user") else None
+        for block in content if isinstance(content, list) else []:
+            if block.get("type") not in BLOCK_TYPES:
+                raise ValueError(f"content block of type {block.get('type')!r}")
+            if block["type"] == "tool_use" and block["id"] not in denied and block["name"] in available:
+                executed.add(block["name"])
+    return {"daemon_calls": len(calls), "outside_permitted": sorted(executed - session.PERMITTED)}
