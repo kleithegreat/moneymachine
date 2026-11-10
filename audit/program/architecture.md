@@ -62,7 +62,7 @@ So **in every study that claims edge, the unit of inference is the period return
 
 Compute and ideas are not scarce: the one real campaign cost $1.50. Two things are:
 
-- **Forward calendar days under a frozen protocol.** They cannot be bought later. The thesis track has run 23 days and banked none; the forward window has run ten days with nothing registered to confirm in it. A day spent perfecting plumbing before a freeze costs exactly as much as a day lost to an outage.
+- **Forward calendar days under a frozen protocol.** They cannot be bought later. The thesis track ran fourteen days across seven frozen versions, banked none, and has been stopped since 2026-11-09; the forward window has run ten days with nothing registered to confirm in it. A day spent perfecting plumbing before a freeze costs exactly as much as a day lost to an outage.
 - **Plan usage and the human's attention,** which is why the program below is two small studies in order and not a platform.
 
 ### 2.6 Assumptions, stated for attack
@@ -82,7 +82,7 @@ Months to 80% power are `6.18 / I` with `I = d²·n_eff` per month (section 2.1)
 | A | The pilot: a frontier model's strategy, confirmed forward on perps | year of returns | 1/12 year | Sharpe 1; 2; 3; 5 | 74; 18.5; 8.2; 3.0 |
 | B | The same, with a model whose cutoff is about two years old | year of returns | none needed: `T` ≈ 1.3 to 2.2 years already exist | Sharpe 1.7 to 2.2 (2.0 to 2.6 with three finalists) | 0, but see threats |
 | C | Events on returns: releases, earnings, governance | event | 20 to 40 | `d` = 0.1; 0.2 | 15 to 31; 4 to 8 |
-| D | Breadth: a cross-sectional rule over all listed perps, forward | year of returns | 1/12 year, at Sharpe `IC·√(52·N_eff)` | `IC` = 0.03; 0.05 at `N_eff` = 20 | 76; 29 |
+| D | Breadth: a cross-sectional rule over all listed perps, forward | year of returns | 1/12 year, at Sharpe `IC·√(52·N_eff)` | `IC` = 0.03; 0.05 at `N_eff` = 20 | 79; 29 |
 | E | The thesis track as frozen: perp theses, return-sign outcome | thesis, after overlap | 15 to 40 | `d` = 0.05; 0.1 | 62 to 165; 15 to 41 |
 | F | The positive control: planted edges in synthetic markets | market (one session) | about 90 on two accounts | discovery in half of markets against a fifth | 0.5 |
 | G | Theses on exactly resolved event contracts | event | 100 to 400 | `d` = 0.05; 0.07; 0.1 | 6 to 25; 3 to 13; 1.5 to 6 |
@@ -117,7 +117,7 @@ It is the baseline. Its machinery is honest (no null promotion in any calibratio
 
 ### D. Breadth across markets
 
-Breadth is a multiplier on Sharpe, not a design of its own. For `N` markets with mean pairwise correlation `ρ`, the effective number of independent bets is `N / (1 + (N − 1)ρ)`, which tends to `1/ρ`. Crypto perps co-move at `ρ` near 0.5 to 0.7 (from the literature, unmeasured here), so the 347 listings are about two directional bets. After the common factor is hedged out, residual correlation near 0.05 gives about 20, and the builder markets on equities, commodities and currencies add perhaps 5 to 10 more. A weekly cross-sectional rule then has `S = IC·√(52·N_eff)`: 0.97 at `IC` = 0.03, 1.6 at 0.05, and forward confirmation in 76 or 29 months. Breadth helps and does not make a frontier model's systematic strategy confirmable within a year.
+Breadth is a multiplier on Sharpe, not a design of its own. For `N` markets with mean pairwise correlation `ρ`, the effective number of independent bets is `N / (1 + (N − 1)ρ)`, which tends to `1/ρ`. Crypto perps co-move at `ρ` near 0.5 to 0.7 (from the literature, unmeasured here), so the 347 listings are about two directional bets. After the common factor is hedged out, residual correlation near 0.05 gives about 20, and the builder markets on equities, commodities and currencies add perhaps 5 to 10 more. A weekly cross-sectional rule then has `S = IC·√(52·N_eff)`: 0.97 at `IC` = 0.03, 1.6 at 0.05, and forward confirmation in 79 or 29 months. Breadth helps and does not make a frontier model's systematic strategy confirmable within a year.
 
 Breadth through long histories of many asset classes (the paper's stage 8) helps only the search period. For an LLM researcher those histories lie before the cutoff, on the wrong side of the wall. Combined with B it would need `IC` near 0.06 across 20 independent bets to reach Sharpe 2.
 
