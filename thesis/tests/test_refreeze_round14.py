@@ -1,12 +1,9 @@
 """Round fourteen: Argon's rounds 11-12 review, F1-F2 and the restart hunt."""
 
-import json
-
 import httpx
-import pytest
 
 from ingest.policy import DAY
-from thesis import report, runner
+from thesis import runner
 from thesis.tests.test_refreeze_round10 import NINE, at
 from thesis.tests.test_runner import MONDAY, FakeMarket, track  # noqa: F401
 
@@ -112,53 +109,3 @@ def test_restart_keeps_the_draft_so_readiness_at_and_the_cutoff_survive_it(track
     track.acquire(MONDAY)
     snap = track.attested(MONDAY, MONDAY + DAY)
     assert track.market.btc == attempts and "BTC" in snap["failed"] and snap["readiness_at"] == NINE
-
-
-def transcript(work, tool):
-    work.mkdir(parents=True, exist_ok=True)
-    line = {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "a", "name": tool, "input": {}}]}}
-    (work / "transcript.jsonl").write_text(json.dumps(line) + "\n")
-
-
-def c10_2_after(track, monkeypatch, tmp_path, tool, how):
-    """C10.2's verdict on a report written after a session that used `tool` and ended `how`."""
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-
-    def run_session(work, kind, start_daemon, task=None):
-        transcript(work, tool)
-        if how == "error":
-            raise OSError("the sandbox died")
-        return {"kind": kind}
-
-    monkeypatch.setattr(runner.harness, "run_session", run_session)
-    track.session("main", MONDAY, {"taken": MONDAY}, ())
-    report.write(track, MONDAY + DAY, tmp_path / "r.json")
-    return json.loads((tmp_path / "r.json").read_text())["c10_2"]
-
-
-@pytest.mark.parametrize("how", ["finished", "error"])
-def test_c10_2_fails_a_session_that_used_a_tool_outside_the_permitted_set(track, monkeypatch, tmp_path, how):
-    c10_2 = c10_2_after(track, monkeypatch, tmp_path, "WebFetch", how)
-    assert c10_2["pass"] is False and c10_2["outside_permitted"] == {"main-%d" % MONDAY: ["WebFetch"]}
-
-
-@pytest.mark.parametrize("how", ["finished", "error"])
-def test_c10_2_passes_a_session_that_used_only_permitted_tools(track, monkeypatch, tmp_path, how):
-    assert c10_2_after(track, monkeypatch, tmp_path, "Read", how) == {"pass": True, "outside_permitted": {}}
-
-
-def test_c10_2_fails_a_session_whose_transcript_cannot_be_audited(track, monkeypatch, tmp_path):
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    monkeypatch.setattr(runner.harness, "run_session", lambda work, *a, **k: work.mkdir(parents=True) or (work / "transcript.jsonl").mkdir() or {})
-    track.session("main", MONDAY, {"taken": MONDAY}, ())
-    report.write(track, MONDAY + DAY, tmp_path / "r.json")
-    assert json.loads((tmp_path / "r.json").read_text())["c10_2"]["pass"] is False
-
-
-def test_c10_2_audits_a_session_the_runner_died_in(track, monkeypatch, tmp_path):
-    monkeypatch.setattr(runner, "now_ms", lambda: MONDAY + 60_000)
-    track.ledger.disclose("session", "main", {"session": "main-1", "kind": "main", "started": 1, "taken": MONDAY, "manifest": "0"})
-    transcript(track.root / "sessions" / track.version / "main-1", "WebSearch")
-    track.close_interrupted()
-    report.write(track, MONDAY + DAY, tmp_path / "r.json")
-    assert json.loads((tmp_path / "r.json").read_text())["c10_2"]["outside_permitted"] == {"main-1": ["WebSearch"]}

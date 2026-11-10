@@ -10,7 +10,7 @@ from ingest.datalayer import body
 from ingest.live import read
 from ingest.policy import HOUR
 from thesis import scoring
-from thesis.positions import exact
+from thesis.positions import Json, exact
 
 DATALAYER = Path(__file__).resolve().parents[1] / "data" / "datalayer"
 
@@ -74,20 +74,25 @@ def account_report(track, account, now):
     }
 
 
-def c10_2(sessions):
-    """C10.2's per-session condition (audit/stage10/criteria-revision-round11-draft.md, wording (b)): no session used a tool
-    outside `sandbox.session.PERMITTED`, and every session that started the CLI has an auditable transcript (`audit_error`
-    fails). A tool name cannot fail an honest session as shell text could."""
-    outside = {s["session"]: s.get("outside_permitted", []) for s in sessions if s.get("outside_permitted") or "audit_error" in s}
-    return {"pass": not outside, "outside_permitted": outside}
+def c10_2(sessions: list[Json], unclosed: list[str]) -> Json:
+    """C10.2's per-session condition (audit/stage10/criteria-revision-round11-draft.md, wording (b)): no session executed a tool
+    outside `sandbox.session.PERMITTED`, every session that started the CLI has a complete transcript (`audit_error` fails),
+    and every session started has ended on the record: `unclosed` sessions fail until the runner closes them, since a report
+    can be written beside a live runner."""
+    outside = {s["session"]: s["outside_permitted"] for s in sessions if s.get("outside_permitted")}
+    unauditable = [s["session"] for s in sessions if "audit_error" in s]
+    return {"pass": not (outside or unauditable or unclosed), "outside_permitted": outside, "audit_errors": unauditable,
+            "unclosed": unclosed}
 
 
 def write(track, now, out):
-    calls = [c for _, _, c in track.ledger.records("call")]
+    calls = track.ledger.calls()
     sessions = [c for _, _, c in track.ledger.records("session_end")]
+    ended = {c["session"] for c in sessions}
+    unclosed = [c["session"] for _, _, c in track.ledger.records("session") if c["session"] not in ended]
     report = {
         "version": track.version, "as_of": now, "qualifications": "PROGRESS.md, Qualifications, stage 10",
-        "sessions": sessions, "c10_2": c10_2(sessions),
+        "sessions": sessions, "c10_2": c10_2(sessions, unclosed),
         "sessions_missed": [c for _, _, c in track.ledger.records("session_missed")],
         "snapshots": [c for _, _, c in track.ledger.records("snapshot_ready", "main")],
         "registration_attempts": sum(c["request"].get("cmd") == "register" for c in calls if isinstance(c["request"], dict)),

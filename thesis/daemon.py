@@ -1,9 +1,10 @@
 """The thesis daemon: outside the sandbox, the only path from a thesis agent to markets, the web and the
 ledger (audit/criteria.md, stage 10).
 
-Every call, rejected and failed ones included, is written to the ledger as a `call` record with the
-sha256 of the exact response bytes, which are stored under `responses/`, before the bytes are
-released. The daemon's clock sets every time; requests carry none.
+Every call, rejected and failed ones included, has one ledger record with the sha256 of the exact response
+bytes, which are stored under `responses/`, committed before the bytes are released: a `call` row, or, for a
+call that changes the ledger, its effect row carrying the call record (`registry`). A fetched body is stored
+under `responses/` by its own sha256 first. The daemon's clock sets every time; requests carry none.
 """
 
 import json
@@ -42,6 +43,9 @@ class Daemon:
         self.retrievals: set[str] = set()
         self.registered: set[str] = set()
         self.ablation_of, self.forecasted = ablation_of, False
+        self.called: int = 0
+        self.request: Json = {}
+        self.sealed: bytes | None = None
 
     def markets(self, args: list[str]) -> Json:
         return {"ok": True, "taken": self.snapshot["taken"], "markets": self.snapshot["markets"]}
@@ -61,6 +65,7 @@ class Daemon:
         self.retrievals.add(rid)
         record = {k: r[k] for k in ("url", "final_url", "redirects", "status", "content_type", "truncated", "started", "ended")}
         record["body_sha256"] = registry.sha256(r["body"])
+        registry.write_atomic(self.responses / f"{record['body_sha256']}.body", r["body"])
         return {"ok": True, "retrieval_id": rid, **record, "text": r["body"].decode("utf-8", "replace"), "record": record}
 
     def register(self, args: list[str]) -> Json:
@@ -81,12 +86,17 @@ class Daemon:
             if preflight := registry.prerequisites(request, now, daily):
                 return {"ok": False, "errors": preflight}
             config, data = self.register_inputs(self.account, registry.markets_of(request), now)
-            retry = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data)
+            retry = registry.register(self.ledger, self.account, self.session, request, self.clock, self.retrievals, config, data,
+                                      seal=lambda th: self.seal(self.registered_reply(th)))
         th, errors = retry
         if th is None:
             return {"ok": False, "errors": errors}
         if th["session"] == self.session:
             self.registered.add(th["id"])
+        return self.registered_reply(th)
+
+    @staticmethod
+    def registered_reply(th: Json) -> Json:
         return {"ok": True, "thesis": th | {k: float(exact(th[k])) for k in registry.AMOUNTS}}
 
     def open_positions(self, args: list[str]) -> Json:
@@ -99,8 +109,10 @@ class Daemon:
         if state is None or state["size"] == 0 or state["exit"] is not None:
             return {"ok": False, "message": f"{args[0]} is not an open position of this account"}
         t_x = self.clock()
-        self.ledger.disclose("exit", self.account, {"id": args[0], "t_x": t_x, "reason": args[1], "session": self.session})
-        return {"ok": True, "id": args[0], "t_x": t_x}
+        out = {"ok": True, "id": args[0], "t_x": t_x}
+        self.ledger.disclose("exit", self.account, {"id": args[0], "t_x": t_x, "reason": args[1], "session": self.session,
+                                                    "call": self.seal(out)})
+        return out
 
     def forecast(self, args: list[str]) -> Json:
         try:
@@ -110,16 +122,31 @@ class Daemon:
         if self.ablation_of is None or self.forecasted or not registry.number(p, 0.01, 0.99):
             return {"ok": False, "message": "forecast P, once, with P in [0.01, 0.99]"}
         self.forecasted = True
-        self.ledger.disclose("ablation", self.account, {"thesis": self.ablation_of, "p": p, "session": self.session})
-        return {"ok": True, "thesis": self.ablation_of, "p": p}
+        out = {"ok": True, "thesis": self.ablation_of, "p": p}
+        self.ledger.disclose("ablation", self.account, {"thesis": self.ablation_of, "p": p, "session": self.session,
+                                                        "call": self.seal(out)})
+        return out
 
     COMMANDS = {"markets": markets, "prices": prices, "fetch": fetch, "register": register, "positions": open_positions,
                 "exit": exit, "forecast": forecast}
 
+    def seal(self, out: Json) -> Json:
+        """Store `out`'s response bytes under `responses/` and return the call record naming them: the daemon commits it
+        with the call's effect, or alone. A command seals at most once, as it commits."""
+        record = out.pop("record", None)
+        body = registry.canonical(out).encode()
+        digest = registry.sha256(body)
+        stored = self.responses / f"{digest}.json"
+        if not stored.exists() or registry.sha256(stored.read_bytes()) != digest:
+            registry.write_atomic(stored, body)
+        self.sealed = body
+        return {"session": self.session, "seq": self.seq, "t": self.called, "request": self.request,
+                "ok": out.get("ok", False), "response_sha256": digest, **({"fetch": record} if record else {})}
+
     def handle(self, req: Json) -> bytes:
         with self.lock:
             self.seq += 1
-            t = self.clock()
+            self.called, self.request, self.sealed = self.clock(), req, None
             cmd, args = req.get("cmd"), req.get("args", [])
             if cmd not in self.commands or not isinstance(args, list) or not all(isinstance(a, str) for a in args):
                 out = {"ok": False, "message": f"commands: {', '.join(sorted(self.commands))}"}
@@ -128,17 +155,11 @@ class Daemon:
                     out = self.COMMANDS[cmd](self, args)
                 except Exception as e:
                     out = {"ok": False, "message": f"daemon error: {type(e).__name__}"}
-            record = out.pop("record", None)
-            body = registry.canonical(out).encode()
-            digest = registry.sha256(body)
-            stored = self.responses / f"{digest}.json"
-            if not stored.exists() or registry.sha256(stored.read_bytes()) != digest:
-                registry.write_atomic(stored, body)
-            self.ledger.disclose("call", self.account, {"session": self.session, "seq": self.seq, "t": t,
-                                                        "request": req,
-                                                        "ok": out.get("ok", False), "response_sha256": digest,
-                                                        **({"fetch": record} if record else {})})
-            return body
+                    self.sealed = None
+            if self.sealed is None:
+                self.ledger.disclose("call", self.account, self.seal(out))
+            assert self.sealed is not None
+            return self.sealed
 
     def serve(self) -> "Daemon":
         self.server = Server(self.socket_path, self.handle)

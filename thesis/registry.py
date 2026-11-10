@@ -1,8 +1,10 @@
 """The thesis ledger and registration (audit/criteria.md, stage 10).
 
 Records are canonical JSON (sorted keys, no whitespace) written with `mm disclose` to an append-only
-ledger, one campaign per track version and one agent name per paper account. Kinds: `thesis`, `exit`,
-`resolution`, and `call` (every daemon call, before its response is released).
+ledger, one campaign per track version and one agent name per paper account. Kinds: `thesis`, `exit`, `ablation`,
+`resolution`, and `call`. Every daemon call has one record, committed before its response is released: a `call` row, or,
+for a call that changes the ledger (a registration, an exit, a forecast), its effect row carrying the call record under a
+`call` key, so no effect exists without its call. `Ledger.calls` reads them all.
 """
 
 import contextlib
@@ -84,20 +86,35 @@ class Ledger:
 
     def records(self, kind: str, account: str | None = None) -> list[tuple[int, str, Any]]:
         """[(ledger id, created, content)] in commit order; no committed schema means no records."""
+        return [(i, created, content) for i, _, created, content in self.rows((kind,), account)]
+
+    def rows(self, kinds: tuple[str, ...], account: str | None = None) -> list[tuple[int, str, str, Any]]:
         if not self.path.exists():
             return []
+        marks = ", ".join("?" for _ in kinds)
         with closing(sqlite3.connect(self.path)) as db:
             if not db.execute("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'disclosures'").fetchone():
                 return []
-            rows = db.execute("SELECT id, created, content FROM disclosures WHERE campaign = ? AND kind = ? AND (? IS NULL OR agent = ?) "
-                              "ORDER BY id", (self.track, kind, account, account)).fetchall()
-        return [(i, c, json.loads(t)) for i, c, t in rows]
+            rows = db.execute(f"SELECT id, kind, created, content FROM disclosures WHERE campaign = ? AND kind IN ({marks}) "
+                              "AND (? IS NULL OR agent = ?) ORDER BY id", (self.track, *kinds, account, account)).fetchall()
+        return [(i, k, c, json.loads(t)) for i, k, c, t in rows]
+
+    def calls(self, account: str | None = None) -> list[Json]:
+        """Every daemon call record in commit order: the `call` rows and the call records inside effect rows."""
+        return [c["call"] if kind in EFFECTS else c for _, kind, _, c in self.rows(("call", *EFFECTS), account) if kind == "call" or "call" in c]
 
     def theses(self, account: str) -> list[Json]:
-        return [c for _, _, c in self.records("thesis", account)]
+        return [without_call(c) for _, _, c in self.records("thesis", account)]
 
     def exits(self, account: str) -> list[Json]:
-        return [c for _, _, c in self.records("exit", account)]
+        return [without_call(c) for _, _, c in self.records("exit", account)]
+
+
+EFFECTS = ("thesis", "exit", "ablation")
+
+
+def without_call(content: Json) -> Json:
+    return {k: v for k, v in content.items() if k != "call"}
 
 
 def number(x: Any, lo: float, hi: float) -> bool:
@@ -180,7 +197,7 @@ def committed(ledger: Ledger, account: str, request: Any, p_is_base_rate: bool =
 
 def register(ledger: Ledger, account: str, session: str, request: Any, clock: Callable[[], int], disclosed: Collection[str], config: Json,
              data: Json, p_is_base_rate: bool = False, *, forecast_at: int | None = None,
-             listings_at: int | None = None) -> tuple[Json, None] | tuple[None, list[str]]:
+             listings_at: int | None = None, seal: Callable[[Json], Json] | None = None) -> tuple[Json, None] | tuple[None, list[str]]:
     """Validate, size and commit one thesis. Under the ledger's lock a retry returns what it `committed`; a well-formed new
     request has its markets' listings read (`data["listed"]`), t_r read from `clock` as that read returns, then is checked
     against them, sized (`positions.admit`), given its base rate and committed, so commit order is t_r order, slow inputs
@@ -191,7 +208,8 @@ def register(ledger: Ledger, account: str, session: str, request: Any, clock: Ca
     `p_is_base_rate` the request's p is null and p is that p_ref, or the thesis is refused for lacking one. Returns
     (thesis, None) or (None, errors). The deterministic benchmark alone supplies its approved fixed `forecast_at`;
     its actual receipt remains `registered_at`, distinct from the effective forecast/holding time `t_r`, and its listings
-    are an archived observation, whose time `listings_at` is recorded as `listings_read`."""
+    are an archived observation, whose time `listings_at` is recorded as `listings_read`. A daemon passes `seal`: given the
+    thesis as it will be committed, it stores the response and returns the call record, which the thesis row carries."""
     with ledger.lock:
         if (retry := committed(ledger, account, request, p_is_base_rate)) is not None:
             return retry
@@ -217,5 +235,5 @@ def register(ledger: Ledger, account: str, session: str, request: Any, clock: Ca
             if p_ref is None:
                 return None, ["no base rate"]
             th["p"] = p_ref
-        ledger.disclose("thesis", account, th)
+        ledger.disclose("thesis", account, th if seal is None else th | {"call": seal(th)})
     return th, None
