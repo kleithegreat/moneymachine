@@ -829,3 +829,16 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Argon's paper findings** (question 9): Fable's three recommendations are accepted. The paper is corrected for findings 1, 4, 6, 8, 10, 13 and 14 and the four qualifications are appended; the parked machinery's defects go in one table; no kernel-only aggregate crosses the licensing boundary until it is redesigned.
   - **Open:** the perp instance (question 7) and the Polymarket recordings (question 8).
   - **Reverse:** a later decision of the human's.
+- 2026-11-11 17:25 UTC (12:25 EST), the human: **study 2's bankroll is $2,500**, which can grow later, so a purchase is at most $125 (the stake rule's 5% cap). The reference stake is $125, and the detailed design may derive it otherwise. Questions 7 and 8 follow the advisor's recommendations:
+  - the perp instance is parked and Job `thesis-prewarm` is stopped. The advisor's `kubectl` was refused, so the human runs it;
+  - the Polymarket recordings are kept sealed, read by nothing, until a later decision of the human's.
+  - **Reverse:** a later decision of the human's.
+- 2026-11-11 17:25 UTC (12:25 EST), advisor: **Kalshi's API terms do not permit study 2 as designed.** No certificate exists.
+  - **The text:** the Kalshi Developer Agreement v1.1 (https://kalshi-public-docs.s3.amazonaws.com/Kalshi-Developer-Agreement.pdf, read 2026-11-11), which docs.kalshi.com says binds any use of the API (section 1). kalshi.com's own copy returned a 429.
+  - **Use:** "Use of Kalshi APIs is expressly limited to facilitating a members own trading on the Exchange; all other usages are disallowed" (section 3). A paper account places no trades.
+  - **Storage and sharing:** section 3.1 prohibits "collecting, caching, aggregating, or storing data or content accessed via the API except for purposes of facilitating your own trading on Kalshi", and sharing it "with third parties in any manner without prior written authorization from Kalshi". The language model's provider is a third party.
+  - **Benchmarking:** section 3.5 prohibits access "for any other benchmarking or competitive purposes".
+  - **Publication:** section 6.4 requires Kalshi's prior written approval for "public disclosures … relating to Kalshi".
+  - **The fee schedule** (PDF, "Last updated and effective: July 7, 2026", saved by the human): the taker fee is round up(0.07·C·P·(1−P)).
+  - **Ways forward, the human's:** Kalshi's written authorization for the study's uses, Polymarket US (partner-oriented API, terms unread), or a redesign by the architect.
+  - **Reverse:** a written authorization from Kalshi, or a later version of the agreement that permits the uses.
