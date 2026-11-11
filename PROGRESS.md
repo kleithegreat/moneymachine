@@ -9,25 +9,25 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
   - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources` (delvingbitcoin.org, Snapshot; clock record: the kernel's bound, `CLUSTER.md`), `datalayer` (`venue/sources/datalayer.json`).
   - `thesis` stopped (0 replicas): `thesis-310449610583` got SIGTERM 2026-11-09 02:57 UTC (2026-11-08 21:57 EST), exited by itself 03:35 UTC (22:35 EST); its window incomplete, never pooled.
-  - Job `thesis-prewarm` (`sha256:a2261d4c…`, `thesis-refreeze` `247871b`), started 2026-11-09 03:36 UTC (2026-11-08 22:36 EST): the new code's funding fill on the thesis's 120 weight/min, no token; first pass: 347 listed, 347 cold (paper bound about 6.65 days). Logs `prewarm <market> <n> requests in <s> s`; a pass ends `… still cold` (exit 1, rerun, at most 20) or `none cold` (Job Complete: the readiness report).
+  - Job `thesis-prewarm` stopped by the human on 2026-11-11 (the perp instance is parked).
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
   - prodesk7 also runs test shards, only inside its isolated `mm-tests@` unit (Homelab `mm-test-node`; `CLUSTER.md` §7).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
-- **Budget.** No campaign runs. Cornell has about 14% of its week left (the human, 2026-11-10 22:00 UTC (17:00 EST)); the personal account's five-hour window ran out at 21:07 UTC (16:07 EST). GPT is unpaused for one review. Argon runs through the web UI; `agy` is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST).
+- **Budget.** No campaign runs. Fable runs on the personal account, one session at a time; GPT's one review is spent. Argon runs through the web UI; `agy` is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST).
 
 ### Work in progress
 
-Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review Fable adversarially (`CLAUDE.md`). Fable 5.2 runs one session at a time through `data/builder/run-architect.sh`. The thesis freeze is cancelled until the redesign. The perp instance is parked (the human, 2026-11-11): the human stops Job `thesis-prewarm`.
+Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review Fable adversarially (`CLAUDE.md`). Fable 5.2 runs one session at a time through `data/builder/run-architect.sh`. The perp instance is parked (the human, 2026-11-11).
 
 1. **Round fifteen** done on `thesis-refreeze` (`9d8f6e2`, pushed; reviewed by the advisor): C10.2's audit fails closed, one ledger record per call, fetched bodies stored by hash, harness hash unchanged.
 2. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, pushed at `35cf871`; `audit/program/`). Revision 2 answers GPT's review (`audit/reviews/2026-11-10-gpt-rearchitecture.md`, all 11 findings accepted).
    - **The program:** the positive control first, as a paired comparison against the baseline on every market. Then a paper account in event contracts on a CFTC-designated venue whose terms permit automated use, judged by its cash under Ville's inequality.
    - **The human answered** (`audit/decisions.md`, 2026-11-11 15:16 UTC (10:16 EST)): study 2 on Kalshi, a $2,500 bankroll ($125 reference stake), no no-reading account, no direct fetch of result pages, Fable's three recommendations on Argon's findings, the perp instance parked, the Polymarket recordings sealed.
-   - **Argon, round 2** (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`): do not approve, with 4 critical findings (the mirror account, the stake and pause rules, depth, and study 1's table under independence). It is the second round, and neither event-contract venue's terms permit the study (Blockers), so Fable re-derives from the root (`data/builder/architect-rederive.txt`).
-   - **Next:** Fable's re-derivation. `paper-changes.md` waits for it.
+   - **Revision 3** (`337619f`, re-derived from the root after Argon's round 2): no forward study of a reading agent has honest power within two years on anything certifiable, so study 2 is withdrawn. Study 1 is kept, with discovery measured as the plant's effect on a pick's score between twin markets, up to 100 markets. Fable recommends study 1, a paper rewritten around the wall, then a stop. Its six open questions (`architecture.md` section 11) await the human, including dropping stage 11.
+   - **Next:** Argon attacks revision 3 (`~/Downloads/argon-rearchitecture-r3.md`). `argon-paper-findings.md`, `paper-changes.md` and brief 1 were not rewritten before the session hit its limit at 18:00 UTC (13:00 EST).
    - **Fable usage, measured:** a five-hour Pro window is about 100K Fable output tokens, and one xhigh response used 53K. Run fresh sessions sized to one window, at `high` unless the task is a hard derivation.
-3. **Search API:** Argon (web) surveys the candidates against `architecture.md` section 5.6 (`~/Downloads/argon-search-api-survey.md`). The advisor checks its citations and drafts the certificate; the human certifies.
+3. **Search API:** surveyed (`docs/research/2026-11-11-argon-search-api-survey.md`, the advisor's checks at its top). Not needed under revision 3.
 4. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
 
