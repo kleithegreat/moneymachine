@@ -849,3 +849,5 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The API documentation** (apidocs.polymarketexchange.com) is behind an access code.
   - **Consequence:** both venues need written permission. Argon's round 2 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`) also changed the design in its second round, so the architect re-derives the program (CLAUDE.md, Reviews).
   - **Reverse:** written permission from either venue.
+- 2026-11-11 17:46 UTC (12:46 EST), the human: **no request for written permission** to Kalshi or Polymarket US. Fable re-derives the program (session `8afb2434`, `data/builder/architect-rederive.txt`).
+  - **Reverse:** a later decision of the human's.
