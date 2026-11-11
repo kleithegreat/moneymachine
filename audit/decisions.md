@@ -859,3 +859,23 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The certified recorders** keep running.
   - **Pending:** Argon's adversarial round on revision 3 (`~/Downloads/argon-rearchitecture-r3.md`). A finding that changes the design reopens these decisions.
   - **Reverse:** a later decision of the human's.
+- 2026-11-11 20:57 UTC (15:57 EST), the human: **"our goal is both the means and the end."**
+  - **The machinery is an aim in itself:** the research system built here is one of the project's aims, not only a route to a result. The paper is not the main product.
+  - **Presentation:** the human wants the project's previous research presented in an organized way.
+  - **Argon's round 3 on revision 3** (`audit/reviews/2026-11-11-argon-web-rearchitecture-r3.md`) disputes the negative conclusion. Fable revises: revision 4 is the first fix round of the re-derivation, session `7aee132c`.
+  - **The decisions of 20:41 UTC (15:41 EST) on stopping** wait for revision 4.
+  - **Reverse:** a later decision of the human's.
+- 2026-11-11 21:21 UTC (16:21 EST), the human: **build the Hyperliquid archive reader now** (`ingest/ARCHIVE.md`), spending within the $20 approved on 2026-10-26.
+  - **Where the spend falls:** requester-pays S3 charges on the human's AWS account, and the IAM user's budget denies at 100%.
+  - **Process:** in parallel with the design, as reversible tooling.
+  - **Reverse:** delete the module; the raw files stay.
+- 2026-11-11 21:40 UTC (16:40 EST), the human approves revision 4's recommendations (`rearchitecture` `44fb5ae`, `audit/program/architecture.md` section 12):
+  - **Study 2** is the replication of a published Hyperliquid strategy (the Astraeus vault), as the positive control of the confirmer: fidelity first, then a frozen forward test.
+  - **Study 1's changes:** G100 targets 0.15, calibration on 2,000 markets, and the claim "more often than G100's 100 evaluations".
+  - **`docs/findings.md`** indexes the earlier research.
+  - **The advisor counts** the thesis track's independent bets a week from its ledger.
+  - **The archive's spend** stays within the approved $20.
+  - **Kernel version 2** (any timeframe, limit and maker orders) is Fable's next design: the replica needs it.
+  - **The vault's address:** the human is looking for it.
+  - **Reverse:** a later decision of the human's.
+- 2026-11-11 21:27 UTC (16:27 EST), advisor: correction to the entry above. Its time is 21:26 UTC (16:26 EST), not 21:40 UTC (16:40 EST), which the advisor wrote without reading the clock.

@@ -83,12 +83,16 @@ Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper 
 
 Work that could change a false-discovery or leakage outcome gets an independent review, whichever model wrote it. Research agents' models are frozen in their harnesses.
 
-**Reviews** are for consequential boundaries: what could change a judged result, leak protected data, lose a recording or can't be undone. Reversible work (housekeeping, tooling) gets targeted tests, not review rounds. Reviews take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change: a score or judged result, a leak, a lost recording. Tripping an operational check is not one. A finding that can't change an outcome is noted, not acted on. Work that isn't active gets no review rounds. A review is evidence only when its reviewer could have failed it:
+**Adversarial review of a design** is for coverage: models cover each other's gaps and converge on a shared best answer, at the cost of time and usage. A design under review lives on a branch, so nothing it decides is beyond undoing. **Reviews of built work** are for consequential boundaries: what could change a judged result, leak protected data, lose a recording or can't be undone. Reversible work (housekeeping, tooling) gets targeted tests, not review rounds. Reviews take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change: a score or judged result, a leak, a lost recording. Tripping an operational check is not one. A finding that can't change an outcome is noted, not acted on. Work that isn't active gets no review rounds. A review is evidence only when its reviewer could have failed it:
 - The reviewer runs things in its own worktree, and a slice's review runs the harness of every criterion the slice can break: read-only reviews missed what one run showed (C6.4's edge market after slice 5, `audit/stage7/edge-regression.md`).
 - The diff it reads is three-dot from the merge base: a two-dot diff against a moved `main` produced a false finding (2026-11-07).
 - A reviewer's suggested fix is a hypothesis: the builder fixes the cause it finds, from a failing test (Argon's read-only ledger became refreeze round two's worst regression).
 - A review repeats only if a finding changed the design, and then on another model: each round so far caught what the one before missed.
-- A fix-and-review loop gets two rounds. If the second review still changes the design, stop: the design is wrong (§1), so the architect re-derives it (the failure this prevents: the thesis refreeze's fourteen rounds, `audit/reviews/2026-11-09-fable-meta-review.md`).
+- No fixed count of rounds. A design and its adversarial reviewers iterate until they converge.
+  - **Each round ends with a ledger:** the points now agreed, and the disputes still open, each one either settled by a derivation both sides accept, or reduced to an assumption only the human can choose.
+  - **Convergence:** no open dispute would change what is built or run.
+  - **Patching is not converging:** findings that keep landing on patches mean the design is wrong (§1), and the architect re-derives it. That was the failure of the thesis refreeze's fourteen rounds (`audit/reviews/2026-11-09-fable-meta-review.md`).
+  - **After each round,** the advisor gives the human a plain summary: what changed, what is agreed, what is disputed and why.
 
 ### Orchestration
 

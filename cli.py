@@ -51,6 +51,12 @@ COMMANDS = {
         ["name", "out_dir"],
         "a declared Databento pull, each request priced first, within the plan's spend cap (resumable)",
     ),
+    "archive-fetch": (
+        "ingest.archive",
+        "main",
+        ["start", "end", "coins:str+", "--hours:int+", "--max-dollars:float"],
+        "fetch Hyperliquid book archive days [start, end) for the coins and parse them (requester pays; max dollars default 1)",
+    ),
     "witness": ("ingest.witness", "replay", ["data_root", "version:int", "out"], "W0's independent replay"),
     "holdout-hashes": ("ingest.holdout", "main", ["data_root", "audit_path"], "record the sha256 of new holdout files"),
     "sources-record": (
@@ -173,7 +179,7 @@ COMMANDS = {
     "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),
 }
 
-TYPES = {"int": int}
+TYPES = {"int": int, "float": float, "str": str}
 
 
 def main(argv: Sequence[str]) -> None:
@@ -183,7 +189,9 @@ def main(argv: Sequence[str]) -> None:
         p = sub.add_parser(name, help=help_)
         for a in args:
             arg, _, kind = a.rstrip("?").partition(":")
-            p.add_argument(arg, nargs="?" if a.endswith("?") else None, type=TYPES.get(kind, str))
+            many = kind.endswith("+")
+            nargs = "+" if many else ("?" if a.endswith("?") else None)
+            p.add_argument(arg, nargs=nargs, type=TYPES[kind.rstrip("+")] if kind else str)
     ns = vars(parser.parse_args(argv))
     module, function, args, _ = COMMANDS[ns.pop("command")]
     out = getattr(importlib.import_module(module), function)(**{k: v for k, v in ns.items() if v is not None})

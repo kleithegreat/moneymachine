@@ -24,8 +24,13 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
 2. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, pushed at `35cf871`; `audit/program/`). Revision 2 answers GPT's review (`audit/reviews/2026-11-10-gpt-rearchitecture.md`, all 11 findings accepted).
    - **The program:** the positive control first, as a paired comparison against the baseline on every market. Then a paper account in event contracts on a CFTC-designated venue whose terms permit automated use, judged by its cash under Ville's inequality.
    - **The human answered** (`audit/decisions.md`, 2026-11-11 15:16 UTC (10:16 EST)): study 2 on Kalshi, a $2,500 bankroll ($125 reference stake), no no-reading account, no direct fetch of result pages, Fable's three recommendations on Argon's findings, the perp instance parked, the Polymarket recordings sealed.
-   - **Revision 3** (`337619f`, re-derived from the root after Argon's round 2): no forward study of a reading agent has honest power within two years on anything certifiable, so study 2 is withdrawn. Study 1 is kept, with discovery measured as the plant's effect on a pick's score between twin markets, up to 100 markets. Fable recommends study 1, a paper rewritten around the wall, then a stop. Its six open questions (`architecture.md` section 11) await the human, including dropping stage 11.
-   - **Next:** Argon attacks revision 3 (`~/Downloads/argon-rearchitecture-r3.md`). `argon-paper-findings.md`, `paper-changes.md` and brief 1 were not rewritten before the session hit its limit at 18:00 UTC (13:00 EST).
+   - **Revision 4** (`44fb5ae`, `9e5240b`; Argon's round 3 answered): two positive controls and no stop.
+     - **Study 1:** can the agent find an edge that exists. Fixed at six causes; each market gets its own fresh twin pairs.
+     - **Study 2:** can the confirmer confirm a published rule, the Astraeus vault replication. Fidelity against the vault's record first, then a frozen forward test with power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years.
+     - **No reading-agent study** until a measured count of at least 33 independent bets a week.
+     - **`docs/findings.md`** indexes the earlier research.
+     - **Not written before the session hit its limit at 21:17 UTC (16:17 EST):** parts 2 to 4 (`argon-paper-findings.md` is partial; `paper-changes.md`, brief 1). Its five questions await the human.
+   - **Building now:** the archive reader and bars of any interval (`ingest/ARCHIVE.md`). Sonnet writes the tests, then another Sonnet builds against them.
    - **Fable usage, measured:** a five-hour Pro window is about 100K Fable output tokens, and one xhigh response used 53K. Run fresh sessions sized to one window, at `high` unless the task is a hard derivation.
 3. **Search API:** surveyed (`docs/research/2026-11-11-argon-search-api-survey.md`, the advisor's checks at its top). Not needed under revision 3.
 4. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
