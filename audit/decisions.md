@@ -820,3 +820,12 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Earlier recordings:** kept, unused, until the human decides.
   - **Thesis track:** event contracts move to a venue with terms permitting automated use, Kalshi or Polymarket US, each certified first.
   - **Reverse:** a later decision of the human's, on terms that permit it.
+- 2026-11-11 15:16 UTC (10:16 EST), the human, on the rearchitecture's open questions (`rearchitecture` `35cf871`, `audit/program/architecture.md` section 12):
+  - **Study 2 runs** (question 1), **on Kalshi** (question 2), certified first as section 5.5 lists.
+  - **Reference stake:** $2,500 (question 3), read as the size of one purchase costed against the recorded book; to be confirmed by the human.
+  - **No no-reading account** for now (question 4).
+  - **Reading result pages** (question 5): the human left it to whichever is more effective. The advisor decides **no direct fetch**: the certified search API must return page content itself (section 5.6, requirement 3). A fetch of arbitrary result pages under `robots.txt` alone would reach sites whose terms forbid automated collection, the failure that ended Polymarket's certificate.
+  - **Search API** (question 6): surveyed first, by Argon (web), its citations leads until the advisor checks them.
+  - **Argon's paper findings** (question 9): Fable's three recommendations are accepted. The paper is corrected for findings 1, 4, 6, 8, 10, 13 and 14 and the four qualifications are appended; the parked machinery's defects go in one table; no kernel-only aggregate crosses the licensing boundary until it is redesigned.
+  - **Open:** the perp instance (question 7) and the Polymarket recordings (question 8).
+  - **Reverse:** a later decision of the human's.
