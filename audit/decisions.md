@@ -869,3 +869,12 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Where the spend falls:** requester-pays S3 charges on the human's AWS account, and the IAM user's budget denies at 100%.
   - **Process:** in parallel with the design, as reversible tooling.
   - **Reverse:** delete the module; the raw files stay.
+- 2026-11-11 21:40 UTC (16:40 EST), the human approves revision 4's recommendations (`rearchitecture` `44fb5ae`, `audit/program/architecture.md` section 12):
+  - **Study 2** is the replication of a published Hyperliquid strategy (the Astraeus vault), as the positive control of the confirmer: fidelity first, then a frozen forward test.
+  - **Study 1's changes:** G100 targets 0.15, calibration on 2,000 markets, and the claim "more often than G100's 100 evaluations".
+  - **`docs/findings.md`** indexes the earlier research.
+  - **The advisor counts** the thesis track's independent bets a week from its ledger.
+  - **The archive's spend** stays within the approved $20.
+  - **Kernel version 2** (any timeframe, limit and maker orders) is Fable's next design: the replica needs it.
+  - **The vault's address:** the human is looking for it.
+  - **Reverse:** a later decision of the human's.
