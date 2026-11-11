@@ -865,3 +865,7 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Argon's round 3 on revision 3** (`audit/reviews/2026-11-11-argon-web-rearchitecture-r3.md`) disputes the negative conclusion. Fable revises: revision 4 is the first fix round of the re-derivation, session `7aee132c`.
   - **The decisions of 20:41 UTC (15:41 EST) on stopping** wait for revision 4.
   - **Reverse:** a later decision of the human's.
+- 2026-11-11 21:21 UTC (16:21 EST), the human: **build the Hyperliquid archive reader now** (`ingest/ARCHIVE.md`), spending within the $20 approved on 2026-10-26.
+  - **Where the spend falls:** requester-pays S3 charges on the human's AWS account, and the IAM user's budget denies at 100%.
+  - **Process:** in parallel with the design, as reversible tooling.
+  - **Reverse:** delete the module; the raw files stay.

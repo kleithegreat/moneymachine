@@ -32,6 +32,8 @@
         pytest-xdist
         pytest-timeout
         hypothesis
+        lz4
+        boto3
       ]);
     in
     {
