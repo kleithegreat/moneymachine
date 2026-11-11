@@ -849,3 +849,13 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The API documentation** (apidocs.polymarketexchange.com) is behind an access code.
   - **Consequence:** both venues need written permission. Argon's round 2 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`) also changed the design in its second round, so the architect re-derives the program (CLAUDE.md, Reviews).
   - **Reverse:** written permission from either venue.
+- 2026-11-11 17:46 UTC (12:46 EST), the human: **no request for written permission** to Kalshi or Polymarket US. Fable re-derives the program (session `8afb2434`, `data/builder/architect-rederive.txt`).
+  - **Reverse:** a later decision of the human's.
+- 2026-11-11 20:41 UTC (15:41 EST), the human, on revision 3's open questions (`rearchitecture` `337619f`, `audit/program/architecture.md` section 11):
+  - **The forward line stops** after study 1 and the paper. Study 2 is withdrawn, reversing the decision of 15:16 UTC (10:16 EST) that it runs.
+  - **Stage 11 leaves the roadmap.** The project is academic: a study of what can and cannot be confirmed about an agent's edge. It is not a path to live trading.
+  - **Study 1** runs to at most 100 markets.
+  - **The paper** is rewritten around the wall as the finding on Q3, with study 1 as the remaining experiment and Argon's paper finding 11 added to the defect table.
+  - **The certified recorders** keep running.
+  - **Pending:** Argon's adversarial round on revision 3 (`~/Downloads/argon-rearchitecture-r3.md`). A finding that changes the design reopens these decisions.
+  - **Reverse:** a later decision of the human's.
