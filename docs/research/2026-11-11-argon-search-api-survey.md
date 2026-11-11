@@ -4,6 +4,13 @@
 - **Format:** two parts, saved by the human as a PDF at 2026-11-11 17:55 UTC (12:55 EST), filed beside this file. The text below is extracted with `pdftotext` and otherwise unchanged.
 - **Status:** its citations are leads until the advisor checks them (CLAUDE.md, Where information lives). Argon read most terms through search-index excerpts, not whole pages, and says so.
 
+**Checked by the advisor, 2026-11-11:**
+- **Parallel fails requirement 2, against Argon:** its Customer Terms (https://parallel.ai/customer-terms, no date on the page) say "Customer shall not copy, cache, or store any significant portion of any Customer Output" (2(b)(ii)). They also grant Parallel a licence to train on Customer IP (4(b)).
+- **Tavily:**
+  - Its Platform Terms ("Last updated: May 4, 2026") are silent on storing Output: "the term 'Services' does not include Output" (1.7), and no clause restricts or permits it.
+  - The licence is "solely for Customer's internal business purposes" (2, 3.2).
+  - The help-centre articles Argon quotes for storage, AI use and publication could not be found by search. Until they are read, requirement 2 is unclear, not passed.
+
 **Ranking:** 1. Tavily, 2. Parallel, 3. Perplexity's Search API (or Exa once its terms are read). Every provider disclaims any licence over the publishers' text it returns.
 
 ---
