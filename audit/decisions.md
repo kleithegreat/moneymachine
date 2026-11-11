@@ -888,3 +888,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The post reports about 11,000 fills.** The difference is unexplained.
   - **Data from 2026-11-01 on** is read only after 2027-01-31.
 - 2026-11-11 21:28 UTC (16:28 EST), advisor: correction to the entry above. Its time is 2026-11-11 21:27 UTC (16:27 EST), not 21:33 UTC (16:33 EST).
+- 2026-11-11 21:34 UTC (16:34 EST), advisor, revision 4's question 4: **the thesis track's count of bets.**
+  - **Source:** this PC's copy of `data/thesis/ledger.sqlite`, 2026-10-26 to 10-28, counts of disclosures by kind only, no content read.
+  - **Count:** the reading agent (`main`) and the no-reading arm (`noread`) ran one session a day each and registered **no theses**: 0 `thesis` disclosures in 6 sessions. The benchmark registered 4 and skipped 11.
+  - **The cluster's later copy** (to 2026-11-09) is not counted here. Its days from 2026-11-01 on are the forward window.
+  - **Consequence:** the reading-agent line is far below revision 4's threshold of 33 independent bets a week. It stays closed.
