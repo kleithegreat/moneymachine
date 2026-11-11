@@ -24,8 +24,8 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
 2. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, pushed at `35cf871`; `audit/program/`). Revision 2 answers GPT's review (`audit/reviews/2026-11-10-gpt-rearchitecture.md`, all 11 findings accepted).
    - **The program:** the positive control first, as a paired comparison against the baseline on every market. Then a paper account in event contracts on a CFTC-designated venue whose terms permit automated use, judged by its cash under Ville's inequality.
    - **The human answered** (`audit/decisions.md`, 2026-11-11 15:16 UTC (10:16 EST)): study 2 on Kalshi, a $2,500 bankroll ($125 reference stake), no no-reading account, no direct fetch of result pages, Fable's three recommendations on Argon's findings, the perp instance parked, the Polymarket recordings sealed.
-   - **Wall:** Kalshi's Developer Agreement limits the API to a member's own trading and forbids storing or sharing its data otherwise, benchmarking, and unapproved public statements (Blockers). Study 2 has no venue until the human chooses a way forward.
-   - **Next:** Argon reviews revision 2, the second and last fix round (`~/Downloads/argon-rearchitecture-r2.md`, the human's answers included). Then Sonnet applies `audit/program/paper-changes.md`, the advisor drafts Kalshi's certificate, and Fable writes the detailed designs.
+   - **Argon, round 2** (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`): do not approve, with 4 critical findings (the mirror account, the stake and pause rules, depth, and study 1's table under independence). It is the second round, and neither event-contract venue's terms permit the study (Blockers), so Fable re-derives from the root (`data/builder/architect-rederive.txt`).
+   - **Next:** Fable's re-derivation. `paper-changes.md` waits for it.
    - **Fable usage, measured:** a five-hour Pro window is about 100K Fable output tokens, and one xhigh response used 53K. Run fresh sessions sized to one window, at `high` unless the task is a hard derivation.
 3. **Search API:** Argon (web) surveys the candidates against `architecture.md` section 5.6 (`~/Downloads/argon-search-api-survey.md`). The advisor checks its citations and drafts the certificate; the human certifies.
 4. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
@@ -44,7 +44,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
 
 ## Blockers
 
-- **Kalshi: no certificate for study 2** (`audit/decisions.md`, 2026-11-11 17:25 UTC (12:25 EST)). Developer Agreement v1.1, sections 3, 3.1, 3.5 and 6.4. Ways forward: Kalshi's written authorization, Polymarket US, or a redesign.
+- **No US event-contract venue is certified for study 2** (`audit/decisions.md`, 2026-11-11). Kalshi's Developer Agreement (sections 3, 3.1, 3.5, 6.4) and Polymarket US's Participant Agreement (sections 19, 22) permit only trading use without written permission.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 

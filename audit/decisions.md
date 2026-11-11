@@ -842,3 +842,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The fee schedule** (PDF, "Last updated and effective: July 7, 2026", saved by the human): the taker fee is round up(0.07·C·P·(1−P)).
   - **Ways forward, the human's:** Kalshi's written authorization for the study's uses, Polymarket US (partner-oriented API, terms unread), or a redesign by the architect.
   - **Reverse:** a written authorization from Kalshi, or a later version of the agreement that permits the uses.
+- 2026-11-11 17:39 UTC (12:39 EST), advisor: **Polymarket US does not permit study 2 by its terms either.** No US event-contract venue is certified.
+  - **Agreement:** the Individual Participant and Clearing Member Agreement (https://polymarketexchange.com/files/legal/latest/participant-agreement, version 08.06.2026 per docs.polymarket.us, read 2026-11-11).
+  - **Section 22:** "All data and information available via the System is proprietary to PMUS and may be accessed and used solely as permitted by this Agreement, the Rules, and Applicable Law. Such data and information may not be redistributed except as PMUS expressly permits." Nothing in it permits a non-trading use, storage for research, or showing the data to a third party's model.
+  - **Section 19:** no production API use "unless and until you have received written approval to do so from Polymarket US".
+  - **The API documentation** (apidocs.polymarketexchange.com) is behind an access code.
+  - **Consequence:** both venues need written permission. Argon's round 2 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`) also changed the design in its second round, so the architect re-derives the program (CLAUDE.md, Reviews).
+  - **Reverse:** written permission from either venue.
