@@ -893,3 +893,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Count:** the reading agent (`main`) and the no-reading arm (`noread`) ran one session a day each and registered **no theses**: 0 `thesis` disclosures in 6 sessions. The benchmark registered 4 and skipped 11.
   - **The cluster's later copy** (to 2026-11-09) is not counted here. Its days from 2026-11-01 on are the forward window.
   - **Consequence:** the reading-agent line is far below revision 4's threshold of 33 independent bets a week. It stays closed.
+- 2026-11-11 21:48 UTC (16:48 EST), the human:
+  - **Accounts:** Cornell and TAMU are available for about two more weeks, so study 1's sessions must fit inside that.
+  - **Deletion:** everything stale may be deleted, including under `audit/`. This authorizes the deletions that `CLAUDE.md` reserves for the human. Each deletion pass logs its list in `audit/erasure/`. Git keeps the history.
+  - **Statistics:** the human does not know statistics, and "statistically significant" is open-ended to them. So the choices stay the conventional ones, stated plainly in every summary: a 5% chance that a strategy with no edge passes, 80% power, and two years for a forward test.
+  - **Bend:** the human asks whether all untrusted code could be written in Bend, against laws written first by another agent. The advisor answers from stage 6 (`audit/stage6/bend.md`).
