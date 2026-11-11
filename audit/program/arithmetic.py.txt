@@ -9,7 +9,7 @@ import math
 import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import brentq
-from scipy.stats import beta, norm
+from scipy.stats import beta, binom, norm
 
 Z80 = norm.ppf(0.95) + norm.ppf(0.80)
 LOG20 = math.log(20)
@@ -151,6 +151,13 @@ def argon() -> None:
     rho = 8 / math.sqrt(46.25 * 2.6)
     print(f"  5. correlation {rho:.4f}; a null survivor at z = 3 passes the sign check with probability {norm.cdf(3 * rho / math.sqrt(1 - rho**2)):.4f}")
     print(f"  6. Hoeffding cutoff {0.2 - math.sqrt(math.log(20) / 200):.4f}; over 9 cells {0.2 - math.sqrt(math.log(180) / 200):.4f}")
+    for steps in (100, 546, 5400):
+        most = steps - 2 + 1 / (steps - 1)
+        print(f"  7. T = {steps}: the DSR ceiling is under 0.95 only above kurtosis {1 + 4 * (steps - 1) / norm.ppf(0.95) ** 2:.0f}; a sample's is at most {most:.0f}")
+    for level, tolerance, inflated in ((0.05, 0.0625, 0.056), (0.01, 0.015, 0.012), (0.005, 0.01, 0.0075)):
+        passing = max(x for x in range(2000) if beta.ppf(1 - 0.05 / 99, x + 1, 20_000 - x) <= tolerance)
+        chance = binom.cdf(passing, 20_000, inflated)
+        print(f"  10. level {level}, tolerance {tolerance}: up to {passing} rejections in 20,000 pass; a true rate of {inflated} passes with probability {chance:.2f}")
     phi, keep = 1 - 1 / 42, 5 / 6
     print(f"  11. long-run variance factor {(1 + phi) / (1 - phi):.1f}, of which blocks of mean 6 keep {(1 + phi * keep) / (1 - phi * keep):.2f}")
     print("  13. expected maximum of N Gaussians against sqrt(2 log N), and the ceiling at 3, 10, 20 years:")
