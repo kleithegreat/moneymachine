@@ -813,3 +813,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - Its meta review's section 6A constructed Argon's D3 blind, on the same code (`thesis-refreeze` `92f0b61`): `server_tool_use` blocks and swallowed lines pass the C10.2 audit. It added `mcp_tool_use` and the `harness_hash` consequence. Round fifteen reproduced D3 from failing tests (`3e997c0`).
   - It did not find D1, D2, D4 or D5, which it ranked as operational. It did not check the paper's gate mathematics either: it took S4a's Sharpe 4.9 as given, and Argon's whole-paper check later broke that figure (`audit/reviews/2026-11-10-argon-web-paper-math.md`, Finding 1).
   - So its findings count, but it is no substitute for an adversarial check of mathematics.
+- 2026-11-11 02:25 UTC (2026-11-10 21:25 EST), the human, on GPT's finding 9 (`audit/reviews/2026-11-10-gpt-rearchitecture.md`): **Polymarket collection is paused.**
+  - **Why:** the full terms, effective 2026-08-11 and read by the advisor on 2026-11-10, prohibit automated data gathering and extraction, and license only personal use of the site (section 4.2, section 5.1). The operator decision of 2026-10-23 rested on a fetch that saw only a banner, so its basis is gone.
+  - **Change:** the two Polymarket feeds leave `venue/sources/datalayer.json`. The `[polymarket]` certificate records the withdrawal, with `retrieval = false`.
+  - **Deploy:** the data-layer recorder on the cluster and on the Oracle VM.
+  - **Earlier recordings:** kept, unused, until the human decides.
+  - **Thesis track:** event contracts move to a venue with terms permitting automated use, Kalshi or Polymarket US, each certified first.
+  - **Reverse:** a later decision of the human's, on terms that permit it.

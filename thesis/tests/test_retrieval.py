@@ -124,7 +124,7 @@ def test_refuses_hosts_without_certified_terms_on_every_hop():
 
 def test_the_default_allowlist_is_the_certified_sources():
     assert retrieval.Fetcher().allowed == {"api.gdeltproject.org", "data.gdeltproject.org", "api.fiscaldata.treasury.gov",
-                                           "publicreporting.cftc.gov", "www.federalreserve.gov/feeds/", "gamma-api.polymarket.com"}
+                                           "publicreporting.cftc.gov", "www.federalreserve.gov/feeds/"}
 
 
 def test_robots_follows_a_redirect_on_its_host_only():
