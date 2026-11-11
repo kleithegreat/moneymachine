@@ -1,103 +1,121 @@
-"""Reproduces the numbers in audit/program/architecture.md, sections 2 to 6, and the paper's section 10 and T4.
+"""Reproduces the numbers in audit/program/architecture.md (revision 2) and the paper's section 10, S4a and T4.
 
-Run: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute). Reads no data.
+Run: python3 audit/program/arithmetic.py.txt   (numpy and scipy; under a minute). Reads no data.
 """
 
 import math
 
 import numpy as np
+from scipy.optimize import brentq
 from scipy.stats import norm
-from scipy.stats import t as student
 
 Z80 = norm.ppf(0.95) + norm.ppf(0.80)
+LOG20 = math.log(20)
+STEPS_A_YEAR = 6 * 365
 
 
-def wall() -> None:
+def yardstick() -> None:
+    """The Gaussian fixed-horizon yardstick: z = S * sqrt(T). An assumption-laden reference, not a limit."""
     print(f"z* = {Z80:.3f}, z*^2 = {Z80**2:.2f}; Holm over 3: {norm.ppf(1 - 0.05 / 3) + norm.ppf(0.8):.2f}")
-    for d in (0.05, 0.06, 0.1, 0.2, 0.3):
-        print(f"  d = {d}: n = {Z80**2 / d**2:.0f}")
     for sharpe in (0.5, 1, 1.5, 2, 3, 5):
         years80 = Z80**2 / sharpe**2
-        years50 = norm.ppf(0.95) ** 2 / sharpe**2
-        print(f"  Sharpe {sharpe}: {years80:.2f} years at 80% power ({12 * years80:.1f} months), {years50:.2f} at even odds")
+        print(f"  Sharpe {sharpe}: {years80:.2f} years at 80% power ({12 * years80:.1f} months), {norm.ppf(0.95) ** 2 / sharpe**2:.2f} at even odds")
     for years in (60 / 365, 91 / 365, 1, 1.3, 1.8, 2.2):
-        holm = (norm.ppf(1 - 0.05 / 3) + norm.ppf(0.8)) / math.sqrt(years)
-        print(f"  T = {years:.3f} years: Sharpe {Z80 / math.sqrt(years):.2f} at 80%, {holm:.2f} with Holm over 3")
-    for steps in (360, 546):
-        print(f"  gate bet, {steps} steps: Sharpe {math.sqrt(2 * math.log(20) * 6 * 365 / steps):.2f} (paper S4a)")
+        print(f"  T = {years:.3f} years: Sharpe {Z80 / math.sqrt(years):.2f} at 80% power")
+
+
+def wealth_wall(sigma: float = 0.02, cap: float = 0.5) -> None:
+    """Assumption-free confirmation: a bet's wealth must reach 20. Expected log growth at a constant bet is
+    lambda*mu - lambda^2*(sigma^2 + mu^2)/2, and lambda may not exceed 1/L (the gate: L = 2, so 1/2)."""
+    for steps in (360, 546, 1080, 2 * STEPS_A_YEAR, 5400):
+        free = math.sqrt(2 * LOG20 * STEPS_A_YEAR / steps)
+        kelly = free / math.sqrt(STEPS_A_YEAR) / sigma
+        mu = brentq(lambda m: steps * (cap * m - cap**2 * (sigma**2 + m**2) / 2) - LOG20, 0, 1)
+        capped = mu / sigma * math.sqrt(STEPS_A_YEAR)
+        print(f"  {steps} steps: uncapped Kelly needs Sharpe {free:.2f} at bet {kelly:.2f}; capped at {cap}: mean {100 * mu:.2f}% a step, Sharpe {capped:.1f}")
+    growth = 546 * (cap * 0.002095 - cap**2 * (sigma**2 + 0.002095**2) / 2)
+    print(f"  Sharpe 4.9 at the cap over 546 steps: expected log wealth {growth:.3f} against {LOG20:.3f}")
 
 
 def rates() -> None:
-    rows = [
-        ("thesis on perps", 0.05, 15), ("thesis on perps", 0.05, 40), ("thesis on perps", 0.1, 15), ("thesis on perps", 0.1, 40),
-        ("events on returns", 0.1, 20), ("events on returns", 0.1, 40), ("events on returns", 0.2, 20), ("events on returns", 0.2, 40),
-        ("event contracts", 0.05, 100), ("event contracts", 0.05, 400), ("event contracts", 0.07, 100),
-        ("event contracts", 0.07, 400), ("event contracts", 0.1, 100), ("event contracts", 0.1, 400),
-    ]  # fmt: skip
-    for name, d, n in rows:
+    """Months to 80% power on the Gaussian yardstick, 6.18 / (d^2 * n)."""
+    for name, d, n in (("theses on perps", 0.05, 15), ("theses on perps", 0.05, 40), ("theses on perps", 0.1, 15),
+                       ("theses on perps", 0.1, 40), ("events on returns", 0.1, 20), ("events on returns", 0.2, 40)):  # fmt: skip
         print(f"  {name:18s} d = {d:<4} n = {n:3d} a month: {Z80**2 / (d * d * n):6.1f} months")
     for ic in (0.03, 0.05):
         sharpe = ic * math.sqrt(52 * 20)
         print(f"  breadth, IC {ic}, 20 bets a week: Sharpe {sharpe:.2f}, {12 * Z80**2 / sharpe**2:.0f} months")
-    for bets in (180, 480):
-        for d in (0.05, 0.1):
-            sharpe = d * math.sqrt(bets)
-            print(f"  {bets} theses a year, d = {d}: Sharpe {sharpe:.2f}, {12 * Z80**2 / sharpe**2:.0f} months")
+    print(f"  paired Brier at q = 0.01, ablation 0.06, main exact: effect {0.05 / (2 * math.sqrt(0.01 * 0.99)):.4f}")
 
 
-def looks() -> None:
-    for level, weeks in ((0.01, 26), (0.04, 52)):
-        z = norm.ppf(1 - level) + norm.ppf(0.8)
-        effects = ", ".join(f"{m} a week: d = {z / math.sqrt(weeks * m):.3f}" for m in (30, 60, 100))
-        print(f"  week {weeks} at level {level}: {effects}; annualized Sharpe {z / math.sqrt(weeks / 52):.2f}")
-
-
-def sequential(p0: float = 0.2, p1: float = 0.5, alpha: float = 0.05, beta: float = 0.05, n_max: int = 33, cutoff: int = 12) -> None:
-    """Wald's test of p0 against p1, truncated at n_max with a terminal cutoff, by exact enumeration."""
-    upper, lower = math.log((1 - beta) / alpha), math.log(beta / (1 - alpha))
-    up, down = math.log(p1 / p0), math.log((1 - p1) / (1 - p0))
-    for p in (0.1, 0.2, 0.3, 0.35, 0.5, 0.6):
-        alive, accept_p1, expected = {0: 1.0}, 0.0, 0.0
+def paired(n_max: int, theta1: float = 0.8, alpha: float = 0.05, beta_: float = 0.05) -> None:
+    """Study 1: Wald's sign test on discordant markets (exactly one arm carries the plant), theta = 1/2 against
+    theta1, stopped at n_max markets without a decision. Exact, by enumeration over (wins, losses)."""
+    upper, lower = math.log((1 - beta_) / alpha), math.log(beta_ / (1 - alpha))
+    win, loss = math.log(theta1 / 0.5), math.log((1 - theta1) / 0.5)
+    print(f"  at most {n_max} markets; a win adds {win:.3f}, a loss {loss:.3f}; boundaries {upper:.3f} and {lower:.3f}")
+    cases = [(f"agent {a}, G100 {b}", a * (1 - b), b * (1 - a)) for a, b in ((0.2, 0.2), (0.5, 0.5), (0.3, 0.2), (0.35, 0.2), (0.5, 0.2), (0.6, 0.2), (0.8, 0.3))]
+    for label, a_only, b_only in [("every market discordant, even", 0.5, 0.5), *cases]:
+        alive, up, down, expected = {(0, 0): 1.0}, 0.0, 0.0, 0.0
         for n in range(1, n_max + 1):
-            nxt: dict[int, float] = {}
-            for successes, mass in alive.items():
-                for step, q in ((1, p), (0, 1 - p)):
-                    s = successes + step
-                    ratio = s * up + (n - s) * down
-                    if ratio >= upper or ratio <= lower or n == n_max:
+            nxt: dict[tuple[int, int], float] = {}
+            for (w, l), mass in alive.items():
+                for dw, dl, q in ((1, 0, a_only), (0, 1, b_only), (0, 0, 1 - a_only - b_only)):
+                    state, ratio = (w + dw, l + dl), (w + dw) * win + (l + dl) * loss
+                    if ratio >= upper:
+                        up, expected = up + mass * q, expected + n * mass * q
+                    elif ratio <= lower:
+                        down, expected = down + mass * q, expected + n * mass * q
+                    elif n == n_max:
                         expected += n * mass * q
-                        if ratio >= upper or (lower < ratio < upper and s >= cutoff):
-                            accept_p1 += mass * q
                     else:
-                        nxt[s] = nxt.get(s, 0.0) + mass * q
+                        nxt[state] = nxt.get(state, 0.0) + mass * q
             alive = nxt
-        print(f"  true rate {p}: accepts 0.5 with probability {accept_p1:.4f}, expected markets {expected:.1f}")
+        theta = a_only / (a_only + b_only)
+        print(f"    {label} (theta {theta:.3f}): upper {up:.4f}, lower {down:.4f}, undecided {1 - up - down:.4f}, expected markets {expected:.1f}")
 
 
-def peso(reps: int = 200_000) -> None:
-    """Size of a one-sided 5% Student test on weekly returns of mean-zero favorites bought at one price."""
-    rng = np.random.default_rng(7)
-    for price in (0.5, 0.8, 0.9, 0.95, 0.98):
-        cells = []
-        for clusters in (1, 5, 20):
-            for weeks in (26, 52):
-                wins = rng.binomial(clusters, price, size=(reps, weeks))
-                returns = (wins * (1 - price) / price - (clusters - wins)) / clusters
-                mean, sd = returns.mean(1), returns.std(1, ddof=1)
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    stat = np.where(sd > 0, mean / (sd / math.sqrt(weeks)), np.where(mean > 0, np.inf, -np.inf))
-                cells.append(f"{clusters:2d} clusters, {weeks} weeks: {(stat > student.ppf(0.95, weeks - 1)).mean():.3f}")
-        print(f"  price {price}: " + "; ".join(cells))
+def study1() -> None:
+    for n_max in (40, 60, 2000):
+        paired(n_max)
+    print("  the size is largest when every market is discordant; 2,000 markets stands for no truncation")
+
+
+def student_fails() -> None:
+    """GPT's null: 60 events a week at price 0.50; with probability 30/31 exactly 31 pay, otherwise none do."""
+    for weeks in (26, 52):
+        print(f"  no losing week in {weeks}: {(30 / 31) ** weeks:.4f} (the Student statistic is then infinite)")
+    weeks = math.ceil(LOG20 / math.log(31 / 30))
+    print(f"  the same null against the wealth test: {weeks} winning weeks needed, probability {(30 / 31) ** weeks:.4f}")
+
+
+def wealth_test(paths: int = 20_000, weeks: int = 156, cost: float = 0.5) -> None:
+    """Study 2's power, for planning only: `bets` independent contracts a week at all-in cost `cost`, true
+    probability cost*(1 + edge), the share `deployed` of cash staked each week in equal parts, all settled within
+    the week. Wealth is cash. Validity needs none of this; power does."""
+    rng = np.random.default_rng(11)
+    print("  edge is expected net return per dollar staked; columns: P(wealth reaches 20 by week 26, 52, 104, 156)")
+    for deployed in (1.0, 0.5):
+        for bets in (30, 60):
+            for edge in (0.02, 0.04, 0.08, 0.12, 0.16):
+                wins = rng.binomial(bets, cost * (1 + edge), size=(paths, weeks))
+                factor = 1 - deployed + deployed * wins / (bets * cost)
+                peak = np.maximum.accumulate(np.cumprod(factor, axis=1), axis=1)
+                growth = float(np.mean(np.log(np.maximum(factor, 1e-300))))
+                reach = ", ".join(f"{(peak[:, w - 1] >= 20).mean():.2f}" for w in (26, 52, 104, 156))
+                print(f"    deployed {deployed}, {bets} bets a week, edge {edge:.2f}: growth {growth:.4f} a week, {LOG20 / growth:5.0f} weeks expected; {reach}")
 
 
 if __name__ == "__main__":
-    print("The wall (section 2)")
-    wall()
-    print("Information rates (section 3)")
+    print("The Gaussian yardstick (section 2.1)")
+    yardstick()
+    print("Assumption-free confirmation and the gate's cap (section 2.2)")
+    wealth_wall()
+    print("Yardstick rates for the candidate designs (section 3)")
     rates()
-    print("Study 2's looks (sections 4 and 5.5)")
-    looks()
-    print("Study 1's sequential test (section 6)")
-    sequential()
-    print("The Student test under a skewed null (section 5.5)")
-    peso()
+    print("Study 1 (section 6)")
+    study1()
+    print("Why a Student test is not judged (section 5.5)")
+    student_fails()
+    print("Study 2's power under the wealth test (section 5.5)")
+    wealth_test()
