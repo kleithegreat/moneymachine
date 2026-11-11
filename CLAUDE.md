@@ -88,7 +88,11 @@ Work that could change a false-discovery or leakage outcome gets an independent 
 - The diff it reads is three-dot from the merge base: a two-dot diff against a moved `main` produced a false finding (2026-11-07).
 - A reviewer's suggested fix is a hypothesis: the builder fixes the cause it finds, from a failing test (Argon's read-only ledger became refreeze round two's worst regression).
 - A review repeats only if a finding changed the design, and then on another model: each round so far caught what the one before missed.
-- A fix-and-review loop gets two rounds. If the second review still changes the design, stop: the design is wrong (§1), so the architect re-derives it (the failure this prevents: the thesis refreeze's fourteen rounds, `audit/reviews/2026-11-09-fable-meta-review.md`).
+- No fixed count of rounds. A design and its adversarial reviewers iterate until they converge.
+  - **Each round ends with a ledger:** the points now agreed, and the disputes still open, each one either settled by a derivation both sides accept, or reduced to an assumption only the human can choose.
+  - **Convergence:** no open dispute would change what is built or run.
+  - **Patching is not converging:** findings that keep landing on patches mean the design is wrong (§1), and the architect re-derives it. That was the failure of the thesis refreeze's fourteen rounds (`audit/reviews/2026-11-09-fable-meta-review.md`).
+  - **After each round,** the advisor gives the human a plain summary: what changed, what is agreed, what is disputed and why.
 
 ### Orchestration
 
