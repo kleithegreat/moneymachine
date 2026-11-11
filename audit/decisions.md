@@ -878,3 +878,4 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Kernel version 2** (any timeframe, limit and maker orders) is Fable's next design: the replica needs it.
   - **The vault's address:** the human is looking for it.
   - **Reverse:** a later decision of the human's.
+- 2026-11-11 21:27 UTC (16:27 EST), advisor: correction to the entry above. Its time is 21:26 UTC (16:26 EST), not 21:40 UTC (16:40 EST), which the advisor wrote without reading the clock.

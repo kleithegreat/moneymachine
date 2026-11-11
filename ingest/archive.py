@@ -2,6 +2,7 @@
 
 import datetime as dt
 import json
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Protocol
@@ -14,6 +15,8 @@ BUCKET = "hyperliquid-archive"
 FORWARD_WINDOW = (dt.date(2026, 11, 1), dt.date(2027, 1, 31))
 DOLLARS_PER_GB = 0.09
 DOLLARS_PER_GET = 0.0004 / 1000
+DOLLARS_PER_LIST = 0.005 / 1000
+WORKERS = 16
 DAY_MS = 86_400_000
 LEVELS = ("bid_px", "bid_sz", "ask_px", "ask_sz")
 
@@ -122,34 +125,45 @@ def fetch(
     _refuse_window(start, end)
     days = [start + dt.timedelta(days=i) for i in range((end - start).days)]
     wanted = [(d, h, c) for d in days for h in hours for c in coins if not _raw_path(root, d, h, c).exists()]
+    wanted_keys = {_key(*w) for w in wanted}
     listed: dict[str, int] = {}
-    for day, hour, coin in wanted:
-        key = _key(day, hour, coin)
-        page = client.list_objects_v2(Bucket=BUCKET, Prefix=key, RequestPayer="requester")
-        listed.update({x["Key"]: x["Size"] for x in page.get("Contents", []) if x["Key"] == key})
-    missing = [_key(*w) for w in wanted if _key(*w) not in listed]
-    for key in missing:
-        _append(root / "hl-archive" / "missing.tsv", [key, "NotListed"])
+    list_calls = 0
+    for day in sorted({d for d, _, _ in wanted}):
+        token: str | None = None
+        while True:
+            extra = {"ContinuationToken": token} if token else {}
+            page = client.list_objects_v2(
+                Bucket=BUCKET, Prefix=f"market_data/{day:%Y%m%d}/", RequestPayer="requester", **extra
+            )
+            list_calls += 1
+            listed.update({x["Key"]: x["Size"] for x in page.get("Contents", []) if x["Key"] in wanted_keys})
+            if not page.get("IsTruncated"):
+                break
+            token = page["NextContinuationToken"]
+    missing_path = root / "hl-archive" / "missing.tsv"
+    for key in sorted(wanted_keys - listed.keys()):
+        _append(missing_path, [key, "NotListed"])
     size = sum(listed.values())
-    estimate = size / 1e9 * DOLLARS_PER_GB + len(listed) * DOLLARS_PER_GET
-    print(f"{len(listed)} files, {size} bytes, estimated ${estimate:.4f} (limit ${max_dollars})")
+    estimate = size / 1e9 * DOLLARS_PER_GB + len(listed) * DOLLARS_PER_GET + list_calls * DOLLARS_PER_LIST
+    print(f"{len(listed)} files, {size} bytes, {list_calls} lists, estimated ${estimate:.4f} (limit ${max_dollars})")
     refused = estimate > max_dollars
     stamp = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
-    _append(
-        root / "hl-archive" / "spend.tsv",
-        [stamp, len(listed), size, f"{estimate:.4f}", *(["refused"] if refused else [])],
-    )
+    spend = [stamp, len(listed), size, f"{estimate:.4f}", *(["refused"] if refused else [])]
+    _append(root / "hl-archive" / "spend.tsv", spend)
+    fresh: set[tuple[str, dt.date]] = set()
     if not refused:
-        for day, hour, coin in wanted:
-            key = _key(day, hour, coin)
-            if key not in listed:
-                continue
-            code = _download(client, key, _raw_path(root, day, hour, coin))
-            if code is not None:
-                _append(root / "hl-archive" / "missing.tsv", [key, code])
+        found = [w for w in wanted if _key(*w) in listed]
+        with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+            codes = list(pool.map(lambda w: _download(client, _key(*w), _raw_path(root, w[0], w[1], w[2])), found))
+        for (day, hour, coin), code in zip(found, codes, strict=True):
+            if code is None:
+                fresh.add((coin, day))
+            else:
+                _append(missing_path, [_key(day, hour, coin), code])
     for day in days:
         for coin in coins:
-            _write_snapshots(root, coin, day, hours)
+            if (coin, day) in fresh or not _snapshot_path(root, coin, day).exists():
+                _write_snapshots(root, coin, day, hours)
 
 
 def bars(coin: str, start_ms: int, end_ms: int, interval_ms: int, root: Path) -> pl.DataFrame:
