@@ -79,7 +79,7 @@ The cause is the test, so the test changes. A self-financing paper account's wea
 - **A2.** A model's knowledge contaminates all history before `c + m`, for systematic strategies as much as for discretionary ones.
 - **A3.** `d` ≤ 0.1 per independent bet for priced outcomes: a prior, not a derivation. If it is too pessimistic, every forward study finishes sooner and none is harmed.
 - **A4.** In study 2, a purchase's recorded cost is one at which the reference stake could have been bought. The account's validity rests on this and on the null, and on nothing about dependence, marks or timing.
-- **A5.** Forward days are unrecoverable, and an operational defect cannot raise a judged statistic (section 5.7 makes the second half a tested property).
+- **A5.** Forward days are unrecoverable, and an operational defect after a registration cannot create a false rejection (section 5.7, property 2).
 
 ## 3. Candidate designs compared
 
@@ -254,7 +254,7 @@ As the human accepted on 2026-11-09, with the boundary made testable.
 - **Operational layer:** fetching, retries, the limiter, scheduling, storage, the report's rendering.
 - **Three tested properties make the split honest:**
   1. Both accounts are pure functions of the recorded bytes and the manifest: a replay under two operational commits gives identical cash paths.
-  2. Removing any settlement record never raises the account's cash at any time. So no failure after a registration can create a rejection; it can only delay or lose a payout, and a payout recorded late still counts when it is recorded.
+  2. With the purchases and their stake fractions held fixed, cash at every time is non-decreasing in each recorded payout: a lost settlement record lowers it and a late one delays it. A lost record can also change later purchases, through cash or the pause, but those are decided before their outcomes, so the bound of section 5.1 still holds. So no failure after a registration can raise the chance of a false rejection above 5%.
   3. A registration's book is committed before the agent sees a reply (C10.2).
 - **What a failure before registration does.** It removes a purchase before its outcome exists, or changes what the agent is shown. Both are decided before any outcome, and the null's supermartingale survives any such choice. What each session was shown is a recorded disclosure and a report line.
 - **What remains a qualification.** A recorded book may be stale, or gone before an order could reach it. The report costs the same purchases at the delayed book, and stage 11 is the test.
@@ -357,7 +357,7 @@ Nothing is rescued by lowering a threshold, pooling instances, or reading the fo
 | | Finding | Disposition | What changed |
 |---|---|---|---|
 | 1 | A common-shock null defeats the Student protocol | Accept | The cause is the test, not the admission rules. Study 2 is judged by an account's cash under Ville's inequality (sections 2.5, 5.1). The null and the claim are now negations of each other |
-| 2 | Missing marks and unexecutable fills | Accept; the fix differs from the one proposed | No marks exist. A stake leaves cash at registration and a payout enters when recorded, so a missing record can only lower the statistic (5.7, property 2). Acquisition is not frozen; it is shown unable to raise the statistic. Fills walk the recorded book at a reference stake; staleness stays a named qualification |
+| 2 | Missing marks and unexecutable fills | Accept; the fix differs from the one proposed | No marks exist. A stake leaves cash at registration and a payout enters when recorded, so a missing record cannot create a false rejection (5.7, property 2). Acquisition is not frozen; it is shown unable to create one. Fills walk the recorded book at a reference stake; staleness stays a named qualification |
 | 3 | "Exact capture" is not expected net return | Accept | Discovery claims no expectation: it is a pathwise alignment of holdings rebuilt from fills, on the session's pick (section 6) |
 | 4 | The SPRT establishes neither endpoint | Accept | The decisions are renamed for what they establish, with the exact table; a crash is named as part of the estimand; judging the pick closes evaluate-and-discard |
 | 5 | Calibration does not make a known null | Accept | The baseline runs on every study market and the test is paired. No rate is certified. 0.2 is a stated choice for power |
