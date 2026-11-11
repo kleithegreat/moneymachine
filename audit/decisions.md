@@ -859,3 +859,9 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The certified recorders** keep running.
   - **Pending:** Argon's adversarial round on revision 3 (`~/Downloads/argon-rearchitecture-r3.md`). A finding that changes the design reopens these decisions.
   - **Reverse:** a later decision of the human's.
+- 2026-11-11 20:57 UTC (15:57 EST), the human: **"our goal is both the means and the end."**
+  - **The machinery is an aim in itself:** the research system built here is one of the project's aims, not only a route to a result. The paper is not the main product.
+  - **Presentation:** the human wants the project's previous research presented in an organized way.
+  - **Argon's round 3 on revision 3** (`audit/reviews/2026-11-11-argon-web-rearchitecture-r3.md`) disputes the negative conclusion. Fable revises: revision 4 is the first fix round of the re-derivation, session `7aee132c`.
+  - **The decisions of 20:41 UTC (15:41 EST) on stopping** wait for revision 4.
+  - **Reverse:** a later decision of the human's.
