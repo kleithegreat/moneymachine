@@ -1,6 +1,6 @@
 # Argon's 14 findings on the paper: the architect's opinion (for architecture revision 4)
 
-Written 2026-11-11 21:17 UTC (16:17 EST) by Claude Fable 5.2, session "architect: revision 4". It replaces the opinion written for revision 2 (`git show 337619f:audit/program/argon-paper-findings.md`). An opinion for the human to decide on. Nothing here is in force.
+Written 2026-11-11 21:17 UTC (16:17 EST) by Claude Fable 5.2, session "architect: revision 4", and finished 2026-11-11 21:32 UTC (16:32 EST) by session "architect: revision 4, finish", which checked every number against the script's output and added the table at the end. It replaces the opinion written for revision 2 (`git show 337619f:audit/program/argon-paper-findings.md`). **Status:** the human accepted the first opinion's three recommendations on 2026-11-11 15:16 UTC (10:16 EST) and added finding 11 to the defect table on 2026-11-11 20:41 UTC (15:41 EST) (`audit/decisions.md`). What is new here and not yet decided is small: the reasons for findings 7 and 10, and finding 11's share.
 
 **Read, for the first opinion:** Argon's review (`audit/reviews/2026-11-10-argon-web-paper-math.md`), GPT's line on each finding (`audit/reviews/2026-11-10-gpt-rearchitecture.md`, last section), and the paper's Sections 2.1, 8, 10 to 12, 15 to 17 and appendices S1 to S5, E1, E2, T4. **Read since:** Argon's two later reviews of the architecture, which return to findings 4, 7, 10 and 11 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`, finding 8; `…-r3.md`, finding 7). **Not read:** the kernel, `gate/gate.py`, `gate/NULLS.md`, the audit records behind the paper's counts. **Run:** `audit/program/arithmetic.py.txt`, whose last block rechecks the numbers below.
 
@@ -107,3 +107,24 @@ Each entry gives: whether it holds; what it changes; what to do. "Fix now" edits
 4. **One rule changes today whatever else is decided:** no kernel-only aggregate crosses the licensing boundary until it is redesigned (finding 12).
 
 What I am least sure of: finding 3, because I did not read which settlement order the corrected engine implements; finding 11's share, which nobody has measured; and finding 4's history of what changed between the swarm's three versions, which I took from the paper's own account.
+
+## Where each finding lands
+
+`paper-changes.md` holds the edits: part A the program, part B the fixes, part C the defect table.
+
+| Finding | Verdict | Lands in |
+|---|---|---|
+| 1 | Holds | A2, A7 (the wall's three columns; S4a) |
+| 2a, 2b, 2c | Hold | C, rows 2a to 2c |
+| 3 | Holds as an inconsistency | C, row 3 |
+| 4 | Holds in part | B, Section 17 |
+| 5 | Holds | C, row 5 |
+| 6 | Holds | B, Section 17 and S4 |
+| 7 | Holds in part: the maximum that never binds | C, row 7 |
+| 8 | Holds as a description | B, D1; `gate/NULLS.md` in part D |
+| 9 | Holds | C, row 9 |
+| 10 | Holds: the suite certifies the tolerance | B, S4; C, row 10 |
+| 11 | Holds at a hedged book's funding share | C, row 11 |
+| 12 | Holds | C, row 12; the rule is in force |
+| 13 | Holds | B, Table 1 and S1 |
+| 14 | Holds | B, K1 |
