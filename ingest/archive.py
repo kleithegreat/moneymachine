@@ -2,8 +2,8 @@
 
 import datetime as dt
 import json
-from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Protocol
 
