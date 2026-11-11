@@ -887,3 +887,4 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - a client order id on all but 23, which matches the published grouping "by order tag".
   - **The post reports about 11,000 fills.** The difference is unexplained.
   - **Data from 2026-11-01 on** is read only after 2027-01-31.
+- 2026-11-11 21:28 UTC (16:28 EST), advisor: correction to the entry above. Its time is 2026-11-11 21:27 UTC (16:27 EST), not 21:33 UTC (16:33 EST).
