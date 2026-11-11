@@ -879,3 +879,11 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The vault's address:** the human is looking for it.
   - **Reverse:** a later decision of the human's.
 - 2026-11-11 21:27 UTC (16:27 EST), advisor: correction to the entry above. Its time is 21:26 UTC (16:26 EST), not 21:40 UTC (16:40 EST), which the advisor wrote without reading the clock.
+- 2026-11-11 21:33 UTC (16:33 EST), advisor: **the vault for study 2 is very likely `0x53375ca9a649f337d83d0834fec0db97640a2a06`**, FuturAI Labs, "High Sharpe, Medium Volatility". The human found it on tradingstrategy.ai.
+  - **Its fills match the published description.** The fills were read through the certified info API (`userFillsByTime`), only before the forward window, from 2026-04-03 to 2026-10-31, and no price was printed. They show:
+    - 5,806 fills, every one "Open Long" or "Close Long";
+    - 17 large-cap coins;
+    - 85% maker;
+    - a client order id on all but 23, which matches the published grouping "by order tag".
+  - **The post reports about 11,000 fills.** The difference is unexplained.
+  - **Data from 2026-11-01 on** is read only after 2027-01-31.
