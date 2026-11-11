@@ -23,12 +23,11 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
 1. **Round fifteen** done on `thesis-refreeze` (`9d8f6e2`, pushed; reviewed by the advisor): C10.2's audit fails closed, one ledger record per call, fetched bodies stored by hash, harness hash unchanged.
 2. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, pushed at `35cf871`; `audit/program/`). Revision 2 answers GPT's review (`audit/reviews/2026-11-10-gpt-rearchitecture.md`, all 11 findings accepted).
    - **The program:** the positive control first, as a paired comparison against the baseline on every market. Then a paper account in event contracts on a CFTC-designated venue whose terms permit automated use, judged by its cash under Ville's inequality.
-   - **Waiting on the human:** nine open questions (`architecture.md`, end), including the venue (Kalshi recommended), the reference stake, the search API, and the three decisions on Argon's findings.
-   - **Next:** Argon reviews revision 2 (the second and last fix round); Sonnet applies `audit/program/paper-changes.md`; then the detailed designs.
+   - **The human answered** (`audit/decisions.md`, 2026-11-11 15:16 UTC (10:16 EST)): study 2 on Kalshi, a $2,500 reference stake (to be confirmed as per purchase), no no-reading account, no direct fetch of result pages, Fable's three recommendations on Argon's findings. Still open: the perp instance and the Polymarket recordings.
+   - **Next:** Argon reviews revision 2, the second and last fix round (`~/Downloads/argon-rearchitecture-r2.md`, the human's answers included). Then Sonnet applies `audit/program/paper-changes.md`, the advisor drafts Kalshi's certificate, and Fable writes the detailed designs.
    - **Fable usage, measured:** a five-hour Pro window is about 100K Fable output tokens, and one xhigh response used 53K. Run fresh sessions sized to one window, at `high` unless the task is a hard derivation.
-3. **Argon's paper findings** (`audit/reviews/2026-11-10-argon-web-paper-math.md`): Fable's opinion is `audit/program/argon-paper-findings.md`. Fix 7 in the paper now, with four qualifications; carry 6 about parked machinery in one known-defects table; stop kernel-only aggregates crossing (none crosses today: no stage 8 class is admitted and no report runs). The human decides.
-4. **Reading arm:** the advisor proposes search APIs, with their terms, for the human's certificate.
-5. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
+3. **Search API:** Argon (web) surveys the candidates against `architecture.md` section 5.6 (`~/Downloads/argon-search-api-survey.md`). The advisor checks its citations and drafts the certificate; the human certifies.
+4. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
 
 ### Next, in order
