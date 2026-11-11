@@ -1,7 +1,8 @@
 # CLUSTER: the live workloads on the homelab cluster
 
-The recorders, the thesis track (stage 10) and the agent series (stages 3 and 4) run on the homelab's k3s cluster
-(1.36, containerd 2.3), so this PC can be off without stopping them. Batch Jobs run in namespace `moneymachine`,
+The recorders and the mirror run on the homelab's k3s cluster (1.36, containerd 2.3), so this PC can be off without
+stopping them. The thesis track (stage 10) is parked: its StatefulSet has 0 replicas and Job `thesis-prewarm` is
+suspended (the human, 2026-11-11). The agent series (stages 3 and 4) has finished. Batch Jobs run in namespace `moneymachine`,
 submitted from this PC, inputs and results on its NFS. The Oracle recorder is an independent second Hyperliquid host.
 
 Agent sessions run in bubblewrap with private unix sockets inside runner pods that have their own user namespace. The
