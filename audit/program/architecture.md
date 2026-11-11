@@ -1,215 +1,236 @@
-# The research architecture, re-derived (revision 3)
+# The research architecture (revision 4)
 
-Written 2026-11-11 17:59 UTC (12:59 EST) by Claude Fable 5.2 (`claude-fable-5-2`), session "architect: rederive", on branch `rearchitecture`. Revision 1 is at `git show 51fd365:audit/program/architecture.md` and revision 2 at `git show 35cf871:audit/program/architecture.md`. Two fix rounds have run (GPT on revision 1, Argon on revision 2) and the second still changed the design, so this is not a third fix round: it re-derives the program from its root (`CLAUDE.md`, Reviews). It is a design awaiting the advisor's decision; nothing here is decided until it is logged in `audit/decisions.md`.
+Written 2026-11-11 21:11 UTC (16:11 EST) by Claude Fable 5.2 (`claude-fable-5-2`), session "architect: revision 4", on branch `rearchitecture`. Earlier revisions: 1 at `git show 51fd365:audit/program/architecture.md`, 2 at `35cf871`, 3 at `337619f`. Revision 3 re-derived the program from its root; Argon reviewed it and said do not approve (`audit/reviews/2026-11-11-argon-web-rearchitecture-r3.md`). This is the first fix round of that re-derivation. It is a design awaiting the advisor's decision; nothing here is decided until it is logged in `audit/decisions.md`.
 
-**Read:** revision 2; Argon's round 2 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`); `audit/decisions.md` from 2026-11-11 02:25 UTC (2026-11-10 21:25 EST) on; GPT's finding 3; the `[hyperliquid]` certificate; `argon-paper-findings.md`, `paper-changes.md`, the briefs and the criteria notes; the paper's line 645; the funding lines of `gate/markets.py`. **Not read:** any other code, any venue's terms beyond what the decisions quote, anything under `data/`. Counts of events and citations from memory are *leads*. **Run:** `audit/program/arithmetic.py.txt`, which prints every number here.
+**Read:** revision 3; Argon's review of it; `audit/decisions.md` from 2026-11-11 20:41 UTC (15:41 EST); the advisor's brief with the human's direction of 2026-11-11; `gate/markets.py` lines 150 to 234; the fields of `audit/stage3/null-v3.jsonl`. **Not read:** the paper, any other code, the thesis track, anything under `data/`, any venue's terms. Citations from memory are *leads*. **Run:** `audit/program/arithmetic.py.txt`, which prints every derived number here; cited numbers carry their source.
 
-**The result, in five lines.**
-1. The root cause is the event-contract premise: that some venue gives a reading agent enough independent bets to confirm a plausible edge within a model's lifetime.
-2. No forward study of a reading agent has honest power on a certified venue within two years. Study 2 is withdrawn and nothing replaces it.
-3. Study 1, the positive control, is the one study with honest power. It is kept, with discovery defined by the plant's effect on a pick's score and its power stated for every dependence between the arms.
-4. The program answers Q1. Its answer to Q3 is the wall itself, with matched numbers. Q2 is not answered.
-5. I recommend running study 1, writing the paper around that, and stopping until a named condition changes.
+**The result, in six lines.**
+1. Argon is right that revision 3 overstated the wall, by about two. An exact test that stops at its threshold needs `8.59 / e²` bets, not 11.8, and the gate's Sharpe 4.0 at two years is its loss cap, not a law: with the rule's own loss bound it is 2.07, against the yardstick's 1.76.
+2. No forward study of a reading agent has honest power yet. The number that would have to change is one product: independent bets a week times net edge squared, at least 0.083. That is 33 a week at 0.05. Nobody has measured the count.
+3. A frozen rule with a forward Sharpe of 2.07 can now be confirmed in two years. The only rules with evidence near that are published ones with live records, so the replication the human proposes has a place: it is the positive control of the confirmer, as study 1 is of the search (section 6).
+4. Study 1 is kept and fixed at six causes. Discovery is a majority over fresh twin pairs drawn for each market, which needs no estimate, no shared sample and no `K`.
+5. The program is the wall with matched numbers and two positive controls: can the agent find an edge that exists (study 1), and can the confirmer confirm one that plausibly exists (study 2).
+6. I do not recommend stopping after study 1. Study 2's first result needs no waiting, and its forward test costs replays of recordings that already run.
 
-## 1. The root cause
+## 1. What this round traces to
 
-**The assumption.** Revision 1 derived the confirmation wall: evidence grows as effect times the square root of the number of independent bets, a frontier model has few judged days, so an ordinary edge cannot be confirmed in time. It then listed ways the wall "moves" and took one as a door: binary contracts, whose worst loss is near their typical size, so that an exact test is not crippled by its cap. That property is true and it fixes only the cap. The count stays: an exact test needs about `11.8 / e²` independent bets for 80% power at a net edge `e` (section 2.2), which is 1,838 bets at 8 cents a dollar and 4,706 at 5. Both revisions reached "a year" by assuming the count: sixty independent purchases a week, all cash staked, 8 cents of net edge, on a venue whose terms nobody had read. None of the four was measured or certified.
+Revision 3 found that two rounds failed on power computed for an idealization. It then did the same thing in the other direction, three times:
+- **A terminal threshold for a stopped test.** It asked for wealth of 20 at the end. The test stops when wealth first reaches 20, which is likelier: the power at revision 3's count is 0.896, not 0.80.
+- **One settlement timing taken as the design.** Its account paid every purchase at the week's end. That was revision 2's event calendar, not a property of bets on perps, and it starves the stake.
+- **The gate's cap taken as a law.** The gate bets at most `1/L` with `L = 2`, a hundred standard deviations of a step. `L` is the rule's own worst loss, which a rule on isolated margin sets itself.
 
-**How two rounds trace to it.** Every finding on study 2 is one of two kinds. Either it removes one of those props: the venue (GPT 9, and now the terms of both exchanges), the count and the capital (GPT 7; Argon 2 and 3), full staking (Argon 5), a power figure reported at even odds (Argon 7). Or it breaks a device added to extract a verdict from a study that could not give one: first the Student statistic and weekly marks (GPT 1 and 2), then the mirror, the pause and the stake rule (Argon 1, 2 and 5). The mirror existed because "not confirmed" was the likely outcome and I wanted a negative. The pause existed because cash understates wealth. Each was a patch on missing power, written as if the power were there.
+Study 1 carried a fourth instance: its measure was a mean estimated on one shared sample and described as a property with an error of 3·10⁻⁵.
 
-**What survived and what did not.** The validity arguments were re-derived after GPT and mostly stand: Argon accepts the account under Ville's inequality, and its one attack on it fails (section 8, finding 5). What failed in both rounds is power. It was computed each time for an idealization (a simultaneous batch, independent arms, a count from memory) and not for the procedure as specified on a venue that exists. Since "is this study worth its usage" is a question about power, the design was chosen on numbers its own rules could not reach.
-
-**So yes, it is the event-contract premise itself.** With the terms read there is no venue. With the count at what anyone has estimated, 5 to 15 readable events a week, 80% power within two years needs 9 to 18 cents of net edge on every dollar staked, against published evidence of parity with the market before costs of 3 to 5 cents (section 4). Re-deriving does not produce a better study 2. It produces none.
-
-**Study 1 shares the method's fault and not the premise's.** Its operating table assumed independent arms, and its measure of discovery was a proxy (an alignment of holdings) where the thing itself, the plant's effect on a program's score, can be computed at no cost. Its observations really are free, so it is kept and re-derived (section 5).
+**What stood.** The validity arguments again. Argon's one attack on the account's bound gives no failing example (section 9, finding 4), and the size of study 1's test held under every joint law. What moved is power, in both directions, and the meaning of study 1's claim.
 
 ## 2. The binding constraint
 
 ### 2.1 The yardstick
 
-A claim tested on `n` independent observations with standardized effect `d` has evidence `z = d·√n`. A one-sided 5% test with 80% power needs `z* = 2.49`, so `n = 6.18 / d²`. For a strategy of annualized Sharpe `S` held `T` years, `T = 6.18 / S²`: 6.2 years at Sharpe 1, 1.55 at 2, 0.25 at 5 (Bailey and López de Prado 2012). It assumes independent, near-Gaussian observations and a fixed length. It is a planning reference and a lower bound on what a valid test costs here, not a test.
+A claim tested on `n` independent observations with standardized effect `d` has evidence `z = d·√n`. A one-sided 5% test with 80% power needs `z* = 2.49`, so `n = 6.18 / d²`. For a strategy of annualized Sharpe `S` held `T` years, `T = 6.18 / S²` (Bailey and López de Prado 2012). It assumes independent, near-Gaussian observations and a fixed length. It is a planning reference, not a test.
 
-### 2.2 The exact test, what it costs, and its cap
+### 2.2 The exact test and what it costs
 
 A test that assumes only its null is a bet (Ville 1939; Kelly 1956; Shafer 2021; Waudby-Smith and Ramdas 2024; *leads*). If each bet's return is at least `−L` and has non-positive conditional mean under the null, wealth bet at a predictable fraction of at most `1/L` is a non-negative supermartingale and reaches 20 with probability at most 5%, under any dependence and any stopping rule.
 
-- **What it costs.** For independent even bets with net edge `e`, staked at Kelly's fraction, log wealth after `N` bets is near Gaussian with mean `N·e²/2` and standard deviation `e·√N`. Reaching 20 with 80% power needs `N = 11.8 / e²`, about twice the yardstick's 6.18, and 6.0 at even odds. Every figure below is at 80% power unless it says otherwise.
-- **The cap.** That rate holds only when Kelly's fraction fits under `1/L`. The gate has `L = 2` against 2% a four-hour step: at Sharpe 4.9 Kelly's bet is 5.2 and the cap 0.5. Capped, 80% power over 546 steps needs Sharpe 27.7 (26.0 at even odds), and over two years 4.0. This is Argon's first paper finding with its power matched to the yardstick's (Argon's round 2, finding 7).
+- **What it costs.** For independent even bets with net edge `e`, staked at Kelly's fraction, log wealth is near a Brownian motion with drift `e²/2` and variance `e²` a bet. It reaches `log 20` before `N` bets with probability 0.80 when `N = 8.59 / e²` (the reflection formula; Argon wrote 8.67). That is 1.39 times the yardstick's 6.18. Every figure below is at 80% power.
+- **The fraction must be chosen before the data.** A bet sized for Sharpe 2 has power 0.77 within two years at a true Sharpe of 2, 0.47 at 1.4 and 0.90 at 2.4. Averaging the bets for Sharpe 1, 2 and 3 is worse at each of those (0.71, 0.41, 0.86), so the fraction is one registered number.
+- **The cap is the rule's own loss bound.** Kelly's fraction fits under `1/L` while a step's worst loss is at most `√2190 / S` standard deviations of a step: 23.4 at Sharpe 2, 33.4 at 1.4. The gate has 100, which is why it needs Sharpe 4.0 at two years. A bound must be a property of the tested rule, not a clip applied afterwards: clipping a loss raises the mean and breaks the null. A rule on isolated margin has one, the margin it posts for the step.
 
 ### 2.3 The cutoff makes T small
 
-A model's proposals are selected on everything it read before its cutoff `c`, so only data after `c` plus a margin can judge them (the human, 2026-10-23). Today `c` is June 2026 and the pilot's holdout holds 91 judged days by 2027-01-31. **The wall, with matched power:** at 91 days a Gaussian test needs Sharpe 4.98 and the gate's capped test 27.7. At two years they need 1.76 and 4.0. An ordinary edge, Sharpe at most 1, takes more than six years under any test.
+A model's proposals are selected on everything it read before its cutoff `c`, so only data after `c` plus a margin can judge them (the human, 2026-10-23). Today `c` is June 2026 and the pilot's holdout holds 91 judged days by 2027-01-31.
 
-The wall moves only by more independent observations: a longer calendar, a faster source of independent bets, or synthetic markets, where observations are free and which answer Q1 only.
+**The wall, with matched power:**
+
+| Length | Yardstick | Exact test at Kelly's fraction | The gate's test, `L = 2` |
+|---|---|---|---|
+| 91 days | 4.98 | 5.87 | 27.6 |
+| One year | 2.49 | 2.93 | 7.4 |
+| Two years | 1.76 | 2.07 | 4.0 |
+
+An ordinary edge, Sharpe at most 1, takes 6.2 years on the yardstick and 8.6 under an exact test.
+
+The wall moves only by more independent observations: a longer calendar, a faster source of independent bets, or synthetic markets, where observations are free and which answer Q1 only. **A rule that someone else froze is a longer calendar.** A model's cutoff binds what the model proposes. A published rule is bound by the date we freeze our copy of it, and the evidence that it is worth freezing is a live record, not a backtest.
 
 ### 2.4 The effect a forward study can expect
 
-- **The prior.** For an outcome a market prices, I take a net effect of 0.05 a bet as the top of what a skilled forecaster keeps, and 0.1 as implausible (a prior, not a derivation). The published evidence is weaker: LLM forecasters at or below the crowd (Halawi et al. 2024; ForecastBench, Karger et al. 2025), and Prophet Arena's best model at a Brier score of 0.184 ± 0.006 against the market's 0.187 ± 0.006 (arXiv 2510.17638, Table 2, checked by GPT). Parity before costs.
-- **Costs on an event-contract exchange.** Kalshi's taker fee is 3.4% of the stake at an even price, 5.5% at 0.20 (its schedule of 2026-07-07). With a one-cent half spread, an assumption, a purchase at a mid of 0.50 breaks even only if the event is 2.7 points likelier than the mid says.
-- **The bankroll.** $2,500 caps a purchase at $125: 250 contracts at 0.50. The account is in test units, so the bankroll changes no power figure. It removes the book walk Argon's finding 3 priced and leaves fee and spread.
+For an outcome a market prices, I take a net effect of 0.05 a bet as the top of what a skilled forecaster keeps, and 0.1 as implausible (a prior, not a derivation). The published evidence is weaker: LLM forecasters at or below the crowd (Halawi et al. 2024; ForecastBench, Karger et al. 2025), and Prophet Arena's best model within the error of the market's own Brier score (arXiv 2510.17638, Table 2, checked by GPT). That is parity before costs. For a frozen rule the best evidence is a live record: the vault the human names reports Sharpe 2.4, about 1.4 recently.
 
 ## 3. What is certified today
 
-- **Hyperliquid's public info API,** read-only, by the human's operator decision of 2026-10-23, recorded since October. The certificate records that the operator is a Restricted Person under clause 1.6 of the interface's terms. So nothing confirmed there is tradeable by the human, and stage 11 has no venue there.
-- **The sources with `retrieval = true`:** public statistics, filings and forums. None carries a price of an event contract.
-- **No event-contract exchange.** Kalshi's Developer Agreement limits API use to "facilitating a members own trading" and forbids storing the data otherwise, sharing it with third parties, benchmarking, and public statements without approval. Polymarket US's agreement makes its data usable "solely as permitted" and requires written approval for production API use (`audit/decisions.md`, 2026-11-11).
-- **No search API.** The survey has not run.
+The project is academic (the human, 2026-11-11): a study of what can and cannot be confirmed about an agent's edge. A venue need not be tradeable by the human, and stage 11 is gone.
+
+- **Hyperliquid, for reading:** its public info API, and its S3 archive with 5-second L2 books from 2023-04-15 (`venue/sources.toml`, `[hyperliquid]` and `[hyperliquid-archive]`). The certified recorders run.
+- **The sources with `retrieval = true`:** public statistics, filings and forums.
+- **No event-contract exchange** (`audit/decisions.md`, 2026-11-11 17:25 UTC (12:25 EST) and 17:39 UTC (12:39 EST)), and no search API.
 - **Synthetic markets** need no certificate.
 
 ## 4. The aims against that ground
 
-- **Q1, capability:** when an edge exists, do agents find it more often than cheap search at the same budget? Answered by study 1 on synthetic markets.
-- **Q3, edge:** does anything an agent proposes earn a positive expected net return? Not answerable forward within two years. The table shows why.
-- **Q2, information:** does reading change an agent's forecasts for the better? In the form that matters, better than the price, it is Q3 and meets the same wall. In the form that is cheap, an agent with search against the same agent without, on public releases, the answer is yes for a trivial reason (the arm without search does not know this month's data) and says nothing about edge. Not answered, and not cheap.
+- **Q1, capability:** when an edge exists, does the agent find it more often than cheap search? Study 1.
+- **Q3, edge:** does anything an agent proposes earn a positive expected net return? The table below.
+- **Q2, information:** does reading change an agent's forecasts for the better? Argon proposes pairing an agent that reads filings with the same agent without them, on the same contracts and prices. The pairing is fair, and it removes revision 3's objection that the arm without text lacks current data. It does not buy power. Where the two arms agree the difference is zero and carries nothing; where they disagree it is a full bet. So Q2 obeys the same law in discordant forecasts: 859 if reading adds five points of hit rate, 3,437 if it adds two and a half, and two sessions a forecast.
 
-Every forward design, with the sequential rule simulated: each purchase stakes Kelly's fraction for the true edge, capped at 5% of the cash left at that moment, and pays before the next week's purchases. That is the best a perfectly calibrated agent can do; half of Kelly's fraction is slower at small edges.
+Every forward design on Hyperliquid, with the account simulated as specified: each purchase stakes Kelly's fraction for the true edge, at most 5% of the cash left at that moment, and is paid a day's purchases later.
 
-| Design | Venue | Independent bets a week | Net edge for 80% power within two years | Power within two years at net 0.04, and at 0.08 |
-|---|---|---|---|---|
-| A reading agent's theses on perps (the parked instance) | Hyperliquid: certified to read, not tradeable by the human | 4 to 9 (my estimate) | 0.183 at 5 a week, 0.115 at 10: a hit rate of 59% or 56% on a return's sign | 0.00 and 0.07 at 5; 0.03 and 0.40 at 10 |
-| A reading agent's account in event contracts (revision 2's study 2) | none certifiable | 5 to 15 (Argon's estimate) | 0.183, 0.115, 0.090 at 5, 10, 15: at an even mid, the event 12.4, 8.8 or 7.5 points likelier than the mid, on every purchase | 0.10 and 0.67 at 15 |
-| The same, at counts nobody has claimed | none | 30; 60 | 0.065; 0.055 | 0.29 and 0.95; 0.50 and 0.99 |
-| A frozen systematic strategy replayed on recordings (the pilot) | Hyperliquid, no session needed | a return series | Sharpe 4.0 under the gate's test, 1.76 on the yardstick | none at Sharpe 1 |
+| Design | Independent bets a week | Net edge for 80% power within two years | Power within two years at net 0.03, 0.05, 0.08 |
+|---|---|---|---|
+| A reading agent's bracketed theses on perps | 5 | 0.177: a hit rate of 59% | |
+| | 10 | 0.108 | 0.00, 0.16, 0.48 |
+| | 15 | 0.083 | |
+| | 33 | 0.052 | 0.21, 0.76, 0.99 |
+| | 60 | 0.039 | |
+| A frozen rule replayed on recordings | a return series | Sharpe 2.07 with its own loss bound; 4.0 under the gate | at Sharpe 1, 1.4, 2, 2.4, bet for 2: 0.28, 0.47, 0.77, 0.90 |
 
-No count in the table is measured. The conclusion does not need them to be exact: at the plausible ceiling of 0.05 the smallest count with 80% power is above 60 independent bets a week, sustained for two years, and under the null the same simulation crosses 20 in 1% of paths.
+- **Settlement timing.** Paid before the next purchase, the edges are 0.170, 0.102, 0.078, 0.050 and 0.037. Paid at the week's end, revision 3's batch, they are 0.202, 0.130, 0.104, 0.071 and 0.056. Below 33 a week the 5% cap binds, which is why 5 a week needs more than the closed form's 0.129.
+- **The size.** An account staking the cap on fair bets, 33 a week, reaches 20 within two years in 2.4% of paths. The bound is 5% over any horizon.
+- **The law.** Where the cap does not bind: bets a week times `e²` is at least `8.59 / 104 = 0.083`. That is 92 a week at 0.03, 33 at 0.05 and 13 at 0.08.
 
-**No forward study of a reading agent has honest power on a certified venue within two years.** On the one certified venue it needs a hit rate no forecaster of priced outcomes is known to hold, at a session a day on the personal account, for a result the human could not trade. On an event-contract exchange it needs written permission first and then the same.
+**A reading agent.** No count is measured. Mine was 4 to 9 theses a week; Argon asserts 45 independent pairs. At my count the study needs a hit rate of 55% to 59% after costs on outcomes a market prices. At Argon's it has 90% power at the top of the prior and 46% at 0.03, for two years of daily sessions on a model that may be retired before the end. **So no forward study of a reading agent has honest power today, and the number that would have to change is the count:** at least 33 bets a week, measured, whose outcomes are near independent. Dependence between bets costs power and never validity. If the thesis track's ledger holds registered theses it already contains a count; I did not read it.
 
-## 5. Study 1: the positive control (Q1)
+**A frozen rule.** The threshold is now a Sharpe of 2.07, not 4.0. I know no evidence that anything the pilot's agent proposes reaches it, and revision 3's judgment of the systematic line stands at Sharpe 1: power 0.28. A published rule with a live record near 2 is the one case with evidence at the threshold. That is study 2.
+
+## 5. Study 1: the positive control of the search (Q1)
 
 ### 5.1 The claim, the measure and the test
 
-- **Claim, on rejection:** on synthetic markets carrying a planted funding edge, the pilot agent's session ends on a program that earns from the plant with a higher chance than G100's search does, at the same evaluation budget.
-- **Arms.** A, the pilot's agent under the frozen stage 3 harness and kernel (`harness_hash` `6a335714…`), with its brief and its 100-evaluation budget. B, G100, with a seed fixed in the manifest. Both run on every study market.
-- **A session's pick** is its evaluated program with the highest search-period score, read from the ledger the same way for both arms. A session with no evaluation has no pick.
-- **A pick earns from the plant** when the plant's effect on its score is at least half the plant's effect on the locked reference program's score. The effect is the program's mean score over `K` fresh planted markets minus its mean score over their twins, which share every seed and have plant strength zero. The fresh markets' seeds are fixed in the manifest and shared by all picks.
-- **Why this measure.** It is the thing the claim names, not a proxy. Fees, liquidation, clipping and rounding are inside the score, so a program that holds the signal and is ruined does not count unless the plant still raises its score (GPT 3; Argon 6). Whatever the frozen kernel pays that is not the plant, a defect or a leak, it pays on both twins, and the difference removes it. It costs kernel evaluations and no model session.
-- **Null:** on every study market, the agent's chance of a pick that earns from the plant is at most G100's.
-- **Test:** Wald's sequential sign test on discordant markets (exactly one arm's pick earns from the plant), `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, ending at 100 markets. The upper boundary is the claim. The lower boundary is a futility stop and claims nothing.
+- **Claim, on rejection:** on synthetic markets carrying a planted funding edge, the frozen pilot agent's session ends on a program that earns from the plant with a higher chance than G100's search does. The agent may use 100 evaluations and uses what it chooses; G100 uses all 100.
+- **Population.** A market is a draw from the pilot's generator at the calibrated plant strength, its seed fixed in the manifest. A session is one run of the pinned model under the frozen stage 3 harness and kernel (`harness_hash` `6a335714…`).
+- **Arms.** A, the agent, with its brief and its 100-evaluation budget. B, G100, its search seed derived from the manifest's seed and the market's id. Both run on every study market.
+- **A session's pick** is its evaluated program with the highest search-period score, read from the ledger the same way for both arms.
+- **A market's fresh pairs.** For study market `m`, 32 markets with ids `m/fresh/0` to `m/fresh/31`, each generated twice: with the study's planted coins and strength, and with strength zero, its twin. The generator seeds every draw from the id, and the strength changes no draw (`gate/markets.py`, `generate`). So twins share funding, premium, innovations and volume, and their unplanted coins are identical. They differ in the planted coins' returns and, under N2, in those coins' variance paths, which feed on the planted return. A twin is the same world without the plant, not the planted world minus a term.
+- **A program's effect on a pair** is its score on the planted market minus its score on the twin.
+- **A pick earns from the plant** when, on at least 24 of its market's 32 pairs, its effect is at least half the locked reference program's effect on the same pair, and that effect is positive.
+- **Null:** for a market drawn from that population, the chance that only the agent's pick earns from the plant is at most the chance that only G100's does. That is, the agent's chance is at most G100's.
+- **Test:** Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, ending at 100 markets. The upper boundary is the claim. The lower boundary is a futility stop and claims nothing.
+
+**Why this measure.**
+- **It is a stated property, not an estimate.** There is no mean, no standard error and no `K`. A pick whose chance of beating half the reference on a fresh pair is at most one half passes with probability at most 0.0035, exactly, whatever its variance or tails. At a chance of 0.9 it passes with probability 0.997. The reference is scored on the same pair, so its noise is inside the comparison.
+- **It reads the median, and convexity moves the mean.** Argon's construction is a floor under losses: a term of mean zero added above a floor raises the expected score of a program that knows nothing. It does not raise that program's chance of beating half the reference on a given pair above one half. The same holds for a program near bankruptcy, whose twin difference is large and of either sign.
+- **Selection cannot act on it.** A session never sees its fresh pairs, so a pick fitted to its own market's noise carries nothing over.
+- **Markets stay independent.** Each market's pairs derive from its own id. Nothing random is shared between two markets' classifications.
+- **It is the thing the claim names.** Fees, liquidation, clipping and rounding are inside the score, so a program that holds the signal and is ruined does not count.
 
 ### 5.2 Why the test is valid
 
-- **Dependence between the arms.** Whatever the joint law of the two arms on one market, the null makes a discordant market the agent's win with probability at most one half, so the size holds for every joint law: at most 0.043, by exact enumeration. Argon's finding 4 is about power, and power is now stated across the joint laws (5.3).
-- **Dependence between markets.** Seeds are distinct and fixed, sessions share no memory, and calibration markets share no seed with the study's. The null is stated market by market, so a change in the served model mid-study changes the claim's population and not the size. The report states the model id each response carried.
-- **Operational failures.**
-  - An agent session that crashes or evaluates nothing is a miss for the agent and is never replaced. This can only lower the agent's rate.
-  - G100's picks on all 100 study markets are computed and classified before the first session and kept from the sessions. No failure of G100 can occur during the study.
-  - The stopping rule is applied in the manifest's market order. Sessions run beyond the stop are reported and not counted.
-- **The frozen kernel's defects** (bankruptcy resurrection among them) act on both arms' picks alike and cancel between twins. They can lower both rates. They cannot manufacture the claim, which is literal: this pick's score rises with the plant.
+- **Between markets.** The pairs of outcomes are independent: distinct seeds, no memory between sessions, fresh pairs of their own. G100's outcome on each study market is computed before the first session and is a fixed number by then. That changes nothing: the test conditions on nothing, and the manifest, with its seeds and their order, is committed before G100 runs. The null is about the population, not about each market, where G100's chance is 0 or 1.
+- **Between the arms.** A discordant market is the agent's win with probability at most one half under the null, whatever the joint law. The size is at most 0.043, by exact enumeration.
+- **The model.** The manifest pins the model's id, and every response's id is recorded. A session that carries another id is not counted; the study stops there and reports what it has, for the pinned model. A change the provider does not disclose is invisible to any study of a hosted model, and this one lasts two to five weeks.
+- **Operational failures.** A session is void when the harness exits non-zero with no evaluation in the ledger. It is rerun on the same market before the next market is read. The rule is decided before any score of that session exists, so it cannot select on an outcome, and an outage is not an observation of the agent. Three voids on one market pause the study, which resumes at that market. Every other session counts: one that ends by its own choice with no evaluation is a miss, and one cut off after an evaluation is judged on its pick.
+- **The stopping rule** is applied in the manifest's order. Sessions run beyond the stop are reported and not counted.
 
 ### 5.3 Power, for the rule as specified
 
-Difficulty is one plant strength, chosen without a model on 400 calibration markets a grid value: the one at which G100's rate is nearest 0.2, inside 0.15 to 0.25 (standard error 0.02). The agent's target rate is 0.5.
+The plant's strength is found without a model, by bisection: the strength at which G100's rate on 2,000 calibration markets is between 0.13 and 0.17. The standard error there is 0.008, so the true rate is between 0.11 and 0.19 unless the estimate is off by 2.5 standard errors. The target is 0.15 and not revision 3's 0.2 because the top of the band must still leave the study powered: at 0.25 it did not.
 
-| Agent, G100 | Overlap between the arms | Claim | Futility stop | Undecided | Markets expected |
-|---|---|---|---|---|---|
-| every market discordant, `θ` = 1/2 (worst null) | | 0.043 | 0.936 | 0.021 | 33 |
-| 0.2, 0.2 | independent | 0.026 | 0.580 | 0.393 | 75 |
-| 0.5, 0.2 | least; independent; most | 0.922; 0.989; 1.000 | 0.024; 0.001; 0 | 0.054; 0.010; 0 | 43; 37; 30 |
-| 0.5, 0.25 | least; independent | 0.758; 0.932 | 0.099; 0.006 | 0.143; 0.061 | 52; 47 |
-| 0.5, 0.15 | least | 0.988 | 0.003 | 0.009 | 33 |
-| 0.35, 0.2 | independent | 0.610 | 0.047 | 0.343 | 71 |
-| 0.3, 0.2 | independent | 0.336 | 0.137 | 0.527 | 81 |
+Chance of the claim, at least overlap; independent arms; most overlap (the arms succeed on as few, or as many, common markets as their rates allow):
 
-"Least overlap" is the joint law in which the arms succeed on as few common markets as their rates allow, the worst case for power. Revision 2's design (`θ` = 0.8, 60 markets) had power 0.676 there at the target, and 0.521 at G100's rate of 0.3 with independent arms (Argon wrote 0.685). At about 22 sessions a week the study takes under five weeks at most and about two at the target.
+| Agent's rate | G100 at 0.11 | G100 at 0.15 | G100 at 0.19 |
+|---|---|---|---|
+| 0.5 | 0.999; 1.000; 1.000 | 0.988; 0.999; 1.000 | 0.943; 0.993; 1.000 |
+| 0.4 | 0.981; 0.996; 1.000 | 0.901; 0.968; 1.000 | 0.734; 0.871; 1.000 |
+| 0.3 | 0.822; 0.888; 0.998 | 0.568; 0.667; 0.973 | 0.323; 0.396; 0.783 |
+| equal to G100's, independent | 0.014 | 0.020 | 0.025 |
+
+- **At the target of 0.5 the claim's chance is at least 0.943 across the band and every overlap,** in 41 markets expected at worst. At 0.4 it is 0.73 to 1.00. At 0.3 the study is not powered.
+- **The worst null,** every market discordant at `θ = 1/2`: claim 0.043, futility stop 0.936, 33 markets.
+- **Argon's rows.** G100 at 0.3 against 0.5, least overlap: 0.529. That is 16 standard errors of the calibration above the band's 0.17. Rates of 0.25 and 0.2 with 0.1875 in common: claim 0.083, undecided 0.917, since 100 markets hold 7.5 discordant ones and the claim needs nine wins, and three more for every two losses. The study is not powered for a gap of 0.05 and does not say it is.
+- **The agent's rate is not known.** In all 20 of stage 3's null campaigns the agent stopped on its own after 6 to 22 evaluations, median 10.5. Those markets held nothing to find, so this says little about planted ones. If the agent stops as early there, the claim is the stronger for it and its chance the smaller. The futility boundary ends a study that is going nowhere: six straight discordant losses.
+- **Length.** At 22 sessions a week, an assumption, 100 markets take 4.5 weeks and 41 take 1.9.
 
 ### 5.4 What a result may be called
 
 | Result | What it is called | Consequence |
 |---|---|---|
-| Upper boundary | The agent's sessions end on a program that earns from the planted edge more often than G100's | Search is not what the systematic line lacks. It lacks a confirmer and a calendar (section 2.3), so it stays parked. The second cell, a plant with no economic story, becomes worth its sessions |
-| Futility stop | Not shown, at the power in 5.3, with each arm's rate and exact intervals | Never "no better": an agent at 0.3 against 0.2 stops here 14% of the time and ends undecided 53% |
+| Upper boundary | The agent's sessions end on a program that earns from the planted edge more often than G100's 100 evaluations do | Search is not what the systematic line lacks. It lacks a rule with a Sharpe of 2 (section 2.3). The second cell, a plant with no economic story, becomes worth its sessions |
+| Futility stop | Not shown, at the power in 5.3, with each arm's rate and exact intervals | Never "no better": an agent at 0.3 against 0.15 stops here up to 8% of the time and ends undecided up to 36% |
 | 100 markets, no boundary | Inconclusive, with the same report | As above |
 
-**Not claimed:** real edge; that agents search better in general; anything about the gate; search apart from prior, since the brief names the family the plant belongs to.
+**Not claimed:** real edge; that agents search better in general; that the agent is better at an equal count of evaluations (reported, not judged); anything about the gate; search apart from prior, since the brief names the family the plant belongs to.
 
 ### 5.5 Before any session, and what is reported
 
-- **Two walls, both model-free. A failure sends the design back to the architect:**
-  1. On calibration seeds, the reference program's plant effect is positive, and `K` is the smallest count at which half of it is at least four standard errors of a pick's estimated effect, for the reference program and for G100's calibration picks. A pick whose true effect is zero or the reference's is then misclassified with probability 3·10⁻⁵. If the generator cannot produce twins that share every seed, that is a wall too.
-  2. Some grid strength puts G100's rate inside 0.15 to 0.25.
-- **Reported, never judged:** each pick's mean score on the planted fresh markets and on their twins, by arm, with standard errors (a positive mean on the twins is a defect or a leak paying); whether each session evaluated any program that earns from the plant; evaluations used and why the agent stopped; each arm's rate with exact intervals.
-- **Free, first:** each arm's search-period scores in the stage 3 ledgers, and why that agent stopped at 9 of 100 evaluations.
-- **Vertical slice:** the measure and its calibration; a sequential runner on the frozen harness and kernel; a report. No kernel, DSL, gate or harness change. PC1 to PC6 on `positive-controls` are replaced, and that branch is not merged.
+**Four walls, all model-free. A failure sends the design back to the architect.**
+1. **Twins.** Between a market and its twin, funding, premium, volume and every unplanted coin's prices are identical, and the planted coins' closes differ.
+2. **The measure finds what is there.** The reference program's effect is positive on at least 95% of calibration pairs.
+3. **The measure pays nothing else.** A locked set of programs that cannot read funding (constant long and short, each at the highest leverage the DSL allows; momentum; reversal; a fixed random position at three leverages) is classified on 200 calibration markets each. At most 1% of those classifications earn from the plant. More means the score pays convexity on most pairs, and the measure is wrong.
+4. **The strength exists.** The bisection ends inside the band within eight steps.
 
-## 6. Q3: no study, and what to do instead
+**Reported, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions and their causes; each arm's rate with exact intervals; every response's model id.
 
-### 6.1 Recommendation
+**Cost in kernel evaluations:** 192 a study market to classify both picks and the reference; about 1.2 million for the calibration. The builder times one evaluation first.
+
+**Vertical slice:** the measure and its walls; the calibration; a sequential runner on the frozen harness and kernel; a report. No kernel, DSL, gate or harness change. PC1 to PC6 on `positive-controls` are replaced, and that branch is not merged. The build plan is `briefs/1-positive-control.md`.
+
+## 6. Study 2: the positive control of the confirmer
+
+**The place of a replication.** The human proposes replicating published Hyperliquid strategies, the example being a reverse-engineered vault: a long-only ladder that buys dips in large caps, with a reported Sharpe of 2.4 and about 1.4 recently. The program has a place for it, and it is not a search for edge. Study 1 asks whether the agent finds an edge that exists. A replication asks the matching question of the other half of the machinery: given a rule that plausibly has an edge, on evidence better than any backtest, can the confirmer confirm it within the calendar? It can establish three things, in order of cost. **Fidelity, with no waiting:** the replica run by the kernel over the archive, against the vault's own public record over the same dates. This is the first check of the kernel's fills, fees and funding against an account that really traded, and it is a result about the machinery whatever the edge. **Decomposition, with no waiting, descriptive only:** how much of the reported Sharpe is the return of holding the vault's average exposure, and how much is timing. A long-only dip buyer in a rising market earns the market. **Forward confirmation:** the frozen replica under the exact test of 2.2, from the freeze date on. It cannot establish that an agent has edge, or that the vault's record is skill: we know of the vault because it survived, so nothing recorded before our freeze judges anything. Replication of published predictors is an old design with a known finding: returns fall by about a quarter out of sample and by more than half after publication (McLean and Pontiff 2016; Hou, Xue and Zhang 2020; *leads*). The reported decay from 2.4 to 1.4 is in line with it. The advisor plans feasibility; what follows is the design that plan must meet.
+
+- **Claim, on rejection:** from the freeze on, not every four-hour step of the frozen replica, hedged, had a non-positive expected net return given its past.
+- **The tested series.** The replica's net return a step, minus a fixed short of its universe sized to its average exposure before the freeze, every leg on isolated margin posted at the step's start. The step's loss cannot exceed the margin posted, and that bound must be at most 23.4 standard deviations of a step. The unhedged series is reported.
+- **Test.** Wealth starts at 1 and bets Kelly's fraction for a Sharpe of 2, computed from the replay before the freeze and registered. The claim is wealth of 20. It reads only steps after the freeze.
+- **Power within one year and two:** 0.12 and 0.28 at Sharpe 1; 0.22 and 0.47 at 1.4; 0.42 and 0.77 at 2; 0.57 and 0.90 at 2.4. Under no edge, 0.04. Eighty percent takes 1.5 years at 2.4 and 4.4 at 1.4. **So it has honest power only if the forward Sharpe is about 2 or more, and at the vault's recent figure it has less than even odds.**
+- **A non-rejection** is "not confirmed", with the realized Sharpe, its standard error (0.71 at two years) and the power row.
+- **Why run it at those odds.** The fidelity result stands alone. After it, the forward test costs a replay each month of recordings that already run. And either outcome measures the wall on a real rule, which is the paper's subject.
+- **Walls before any forward step:** the archive's dates cover the vault's record; the replica reproduces the vault's daily returns within a tolerance registered before the comparison; the kernel can post isolated margin a step on recorded books. If the kernel cannot, the bound is not real and the test is not exact: back to the architect.
+
+**The account, if a reading-agent study is ever opened.** Cash starts at 1. A purchase pays a stake the agent registers, at most 5% of cash, at the recorded all-in cost `c < 1`, and holds `stake/c` units. A recorded settlement `x` in [0, 1] pays `(stake/c)·x` into cash. The null is rejected when cash reaches 20. **Null:** for every purchase, `E[x | everything that has happened by its registration, recorded or not] ≤ c`. **Validity,** on the world's filtration, to which the recorder's own delays are adapted: let `V` be cash plus, for every position not yet recorded as paid, `stake/c` times the conditional expectation of `x`. A registration lowers cash by the stake and adds at most the stake to the sum, by the null. Between events each term is a martingale. A recording moves a realized payout from the sum into cash and changes nothing. So `V` is a non-negative supermartingale starting at 1, cash never exceeds it, and cash reaches 20 with probability at most 5%, whenever and in whatever order records arrive.
+
+## 7. The program
 
 1. **Run study 1.** It costs TAMU and Cornell sessions and nothing on the personal account.
-2. **Run no forward study.** Study 2 is withdrawn. The perp instance stays parked. The search API survey is not needed.
-3. **Keep the certified recorders running.** Calendar time is the only thing that moves the wall, and recording costs no plan usage. Recorded days nobody has read are the holdout of any later campaign.
-4. **Write the result.** On Q3 the project's finding is the wall: what a retail operator with certified sources can and cannot confirm about an agent's edge within its model's lifetime, with the pilot's calibrated null and study 1's answer on capability. `paper-changes.md` lists the edits.
-5. **Then stop,** until one of the conditions in 6.2 holds. The frozen instruments stay: a new model is a rerun of study 1, not a rebuild.
+2. **Plan study 2,** fidelity first. The advisor settles feasibility: the vault's public record, the archive's cost, the kernel on recorded books.
+3. **Run no reading-agent study.** Reopen it on a measured count of 33 independent bets a week or more on a certified venue.
+4. **Keep the certified recorders running.** They are study 2's forward data and the holdout of any later campaign.
+5. **Write the result.** The paper's finding on Q3 is the wall with the three columns of 2.3. `paper-changes.md` lists every edit.
+6. **Present the earlier research in one index,** `docs/findings.md`: a row for each completed study with its question, its result in a line, its audit record, and whether it stands. It holds no number that is not in the paper or the record (`paper-changes.md`, last section).
 
-### 6.2 What would reopen a forward study
+**What is machinery and what is result.** The confirmer of 2.2 with a rule's own loss bound is a specification now and is built with study 2. The frozen gate stays as the pilot's instrument: its judged results came from it and are not rerun.
 
-- **Written permission from an event-contract exchange.** The request must name each use, because each is forbidden by a clause:
-  - *Kalshi:* an automated program reading market data that places no order (Developer Agreement section 3); storing every response indefinitely, and sending market data to a third party's language model (3.1); scoring a model's forecasts against Kalshi's prices (3.5); publishing aggregate results that name Kalshi (6.4).
-  - *Polymarket US:* production API use (Participant Agreement section 19); the same storage, model and research uses, and publication of aggregates (section 22).
+## 8. Stop rules
 
-  Permission alone is not enough: the table of section 4 still applies. I recommend not asking for the study's sake.
-- **An earlier-cutoff campaign** (the human's idea, 2026-10-23): when study 1 reaches its claim for the frontier agent and for a model at least two years past its cutoff, and a confirmer has been re-derived whose stated 80% power at that length reaches the edge it is meant to see. At two years the yardstick itself asks Sharpe 1.76.
-- **A measured count** of more than 60 independent readable bets a week on a certified venue.
+- **Study 1** ends at a boundary or at 100 markets, with no extension. It does not start if a wall of 5.5 fails.
+- **Study 2** does not freeze if a wall of section 6 fails, and its forward test ends at wealth 20 or at two years from the freeze.
+- **The program** pauses for the human when study 1 has reported and study 2's fidelity result is in. Nothing is rescued by lowering a threshold, by reading the forward window, or by calling a non-rejection absence.
 
-### 6.3 The account, if a forward study is ever reopened
-
-Kept as a specification because its validity argument is what two rounds established.
-
-- **Claim, on rejection:** not every purchase the frozen procedure made was at a non-positive expected net return.
-- **The account** starts with cash 1. A purchase pays a stake the agent registers, at most 5% of cash, at the all-in cost `c < 1` of buying the reference stake from the recorded asks, and holds `stake/c` units. A recorded settlement `x` in [0, 1] pays `(stake/c)·x` into cash. Nothing else moves cash. The null is rejected when cash reaches 20.
-- **Null:** for every purchase, `E[x | everything recorded up to its registration] ≤ c`.
-- **Validity.** Cash plus the conditional expected payout of every position not yet recorded as paid is a non-negative supermartingale on the record's own filtration, and cash never exceeds it. A payout recorded late, or never, is a position still open in that sum. No assumption is made about when records arrive: a delay may depend on outcomes already realized, because every stake is fixed before its own outcome, and a null stated on a finer filtration implies the one on the record. So the 5% bound holds under any dependence between contracts and any recording failure (Argon's finding 5, section 8).
-- **Gone, each a patch on power:** the mirror, the pause, the stake rule computed from a registered probability, and revision 2's second tested property, which was false as worded.
-- **A non-rejection** is "not confirmed", with the realized net return per dollar staked and the power row for the realized count. There is no negative verdict.
-- **Power:** section 4's table.
-
-## 7. Stop rules
-
-- **Study 1** ends at a boundary or at 100 markets, with no extension. It does not start if a wall of 5.5 fails. Five consecutive sessions lost to one operational cause pause it; they still count.
-- **The program** pauses for the human when study 1 has reported. Nothing is rescued by lowering a threshold, by reading the forward window, or by calling a non-rejection absence.
-
-## 8. Argon's ten findings
+## 9. Argon's seven findings
 
 | | Finding | Verdict | Reason, and where it is answered |
 |---|---|---|---|
-| 1 | The mirror tests the wrong null and convicts a profitable procedure | Holds | Rejecting "every purchase had non-negative return" is not "the procedure loses". Its example is worse than written: the account grows 0.0152 a week (197 weeks; Argon wrote 0.0201 and 149) while the mirror reaches 20 in 20.3. There is no mirror and no negative verdict (6.3) |
-| 2 | Half Kelly is improper, under-deploys, and the pause deadlocks | Holds | Reporting 0.54 for a true 0.52 grows 0.00080 a bet against 0.00060; sixty purchases at 1.25% stake 53% of cash. The agent registers its stake, the pause is gone, and power is simulated for the sequential rule (section 4, 6.3). `c ≥ 1` was already refused by `p > c`; it broke only the mirror |
-| 3 | $2,500 a purchase collapses breadth and edge | Partly | Depth: void at the human's $125 (250 contracts at 0.50). Count and costs: hold, and are the root cause; its 499 weeks at 8 bets a week reproduces (sections 1, 2.4, 4) |
-| 4 | Study 1's table assumes independent arms | Holds for power, not for size | The size holds under every joint law. Power did depend on the overlap and on G100's band: 0.521 at (0.5, 0.3), below Argon's 0.685. Section 5.3 states power across joint laws on a narrower band; the lower boundary claims nothing, so its (0.25, 0.20) case is a true rejection |
-| 5 | Late records inflate cash; polling must be independent of outcomes; the script simulated a batch | Partly | The path arithmetic is right (8.10 against 20.29) and revision 2's second property was false as worded. The 5% bound is not broken: no independence of polling is needed (6.3), and under a fair null recorded cash reaches 20 in 3.7% of paths on time and 1.4% with every payout 20 purchases late. The batch simulation: holds, replaced |
-| 6 | The pick and the alignment are corrupted by the kernel's defects, scale invariance, and a masked leak check | Holds, except one clause | A single aligned step does not match a full path's cosine. The rest stands, including my wrong sentence that study 1 "reads no return". Discovery is now the plant's effect on the pick's score between twins, and the leak check is a reported number (5.1, 5.5) |
-| 7 | The wall compares 80% power with even odds, and so did row G | Holds | 27.7 against 4.98 at 91 days, 4.0 against 1.76 at two years (2.2, 2.3). Every forward figure is at 80% power (section 4) |
-| 8 | My dispositions of its paper findings 4, 7, 10 and 11 | 11 holds in part; 4 in part; 7 and 10 do not | 11: I withdraw "martingale differences"; the understatement depends on funding's share of a step's variance, 1.002 at a share of 2.5·10⁻⁵, 4.9 at Argon's 0.10. 4: the count should say two campaigns had no evaluation; no bound uses them. 7: the DSR's limit in its own example is `z` = 11.3, so there is no ceiling; its examples show a Sharpe failing, which is the test working. 10: the 0.05/99 is the suite's own rule (paper, line 645), not mine; the sentence now names it. All in `argon-paper-findings.md` |
-| 9 | `paper-changes.md` carries four errors into the paper | Holds on three, moot on one | The growth formula, row G and the mirror edit are withdrawn with study 2. The suite's bound is now named. `paper-changes.md` is rewritten for this revision |
-| 10 | Search-API copyright, the Polymarket recordings, the perp instance | Partly | No study uses a search API now. "No API can license page text" is an untested universal and would be a condition of any certificate. The recordings are sealed and the perp instance parked by the human's decisions of 2026-11-11 |
+| 1 | Shared `K` couples the markets; twins do not cancel convexity; the 3·10⁻⁵ is false | Holds, except two clauses | Given the manifest's fixed sample the classification was a fixed function, so the size held; but the claim then rested on one draw, on a mean that tails can move, and on a `K` calibrated on one arm. Each market now has its own fresh pairs and the rule is a majority with an exact bound (5.1). The advisor confirmed that twins are not additive. Its `funding * leak` example fails: funding is drawn before the plant and is identical between twins |
+| 2 | The negative conclusion rests on batch lock-up, terminal power and the gate's cap | Holds on all three; its two constructions do not follow | 8.59 for 11.8; three settlement timings simulated; 2.07 for 4.0 (2.2, 2.3, section 4). Its 45 independent bets a week are asserted, not measured, and its paired design for Q2 has no power where the arms agree (section 4). The reading-agent conclusion stands with its threshold near halved. The frozen-rule conclusion changes: study 2 |
+| 3 | "92% under every dependence" is false across the band, and rows were computed and not shown | Holds | 0.758 at the band's edge. The band is now 0.11 to 0.19 from 2,000 calibration markets, every row is in 5.3, and the least figure is quoted: 0.943. Its (0.25, 0.2) row gives a claim of 0.083, not 0.321, and the study does not claim power there |
+| 4 | Outcome-dependent delays break the account's bound; `late_records` is an artifact | First half does not hold; second holds | No path or law is given on which the bound fails: its example is a Doob martingale throughout. An agent that reads news of an unrecorded outcome and buys at a stale price is the alternative, not a failure. The proof is restated on the world's filtration, where the null lives (section 6). The simulation compared two deployments and proved nothing; it is deleted |
+| 5 | G100 is deterministic on a fixed market; the null is an intersection; five crashes can force a futility stop | Holds | The null is about the population of markets and the pinned model, and a change of model id stops the study (5.1, 5.2). A crash on a market G100 won cost 0.51 of 2.94. A session that fails before any evaluation is now void and rerun, by a rule fixed before any score exists (5.2) |
+| 6 | Four inconsistencies between the text and the script | Holds on all four | The event-contract rows and their two cost bases are gone with the venue. "Costs of 3 to 5 cents" was a percentage of the stake and is gone. The null line now names its rule (section 4). The script prints every derived number and reads stage 3's counts from the record |
+| 7 | The dispositions of paper findings 7, 10 and 11 | 11 holds; 10 in part; 7 does not | 11: at funding shares of 0.05 to 0.25 the bootstrap understates the variance of the mean by 3.6 to 6.8, and it enters the defect table at that share. 10: an upper bound under the tolerance at a Bonferroni level makes each cell harder to pass, so the direction is right; but the suite certifies the tolerance, and a true 0.056 passes 72% of the time because it is inside 0.0625. The paper must quote the tolerance as the certified size. 7: Sharpe 3.5 over 91 days against a threshold of 2 has `z = 0.75` on any test, which is the wall; and a sample's kurtosis is at least its skewness squared plus one, so the radicand is at least `(1 − skewness·S/2)²` and cannot be negative. All in `argon-paper-findings.md` |
 
-GPT's eleven findings were disposed of in revision 2's section 10 (`git show 35cf871`). Its findings 1, 2, 7, 9, 10 and 11 concern study 2 and end with it; 3, 4 and 5 are answered by section 5; 6 by section 2; 8 by sections 5.4 and 6.3.
+Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf871`), Argon's ten in revision 3's section 8 (`git show 337619f`).
 
-## 9. Infrastructure
+## 10. Infrastructure
 
 - **Used:** the frozen pilot kernel, `gate/markets.py`, `gate/search.py`, `gate/campaign.py`, `gate/agent/` under its frozen hash, `sandbox/`, the ledger; pre-registration of statistical criteria; fresh-session bug hunts; the two-round rule.
 - **Running, with no work done on it:** the certified recorders.
-- **Parked, each until a condition of 6.2:** the thesis track entire (`thesis/`, branches `thesis-refreeze` and `thesis-split`, Job `thesis-prewarm`); the gate's holdout test and screens with the defects in the paper's table; stage 7, the Lean engine, `reference/lean`; the swarm; stages 8 and 9, superseded. The stage 3 forward window lapses on 2027-01-31 with nothing registered in it, and its prices stay unread.
-- **Not built:** a venue adapter, an account, a search API certificate.
-- **`CLAUDE.md` rules proposed for removal,** each because its failure can no longer happen: "a source-blind red team after each kernel milestone" (none is scheduled); "The thesis track's forward use is its own design" (no forward study runs); "Before any work on stage N" reads "study" for "stage".
+- **To build:** study 1's slice; for study 2, an archive reader, the replica, and the confirmer of 2.2.
+- **Parked:** the thesis track entire (`thesis/`, branches `thesis-refreeze` and `thesis-split`, Job `thesis-prewarm`), until a measured count; stage 7, the Lean engine, `reference/lean`; the swarm; stages 8 and 9, superseded. The stage 3 forward window lapses on 2027-01-31 with nothing registered in it, and its prices stay unread.
+- **Gone:** stage 11.
+- **Every stale file and rule** is listed with its edit in `paper-changes.md`.
 
-## 10. Unsure, and where to attack
+## 11. Unsure, and where to attack
 
-1. **The counts.** Every count of independent bets is an estimate, mine or Argon's. The conclusion needs fewer than about 60 a week; a certified venue with several times that would reopen it.
-2. **The prior on the effect.** If an agent that chooses where to bet keeps more than 0.1 net, section 4 is too pessimistic. The published benchmarks test forecasting on given questions, not selection among thin markets.
-3. **Twin markets.** I have not read whether N2 can produce a zero-strength twin that shares every innovation. If it cannot, unpaired fresh markets and a larger `K` give the same measure with more noise.
-4. **The reference program's effect** may be small against its standard error at the calibrated strength, making `K` large. It is kernel time only.
-5. **Least overlap** is the worst case for study 1's power and I think it unlikely: easy seeds should be easy for both arms.
-6. **Independence across study 1's markets** if the provider changes the served model silently.
-7. **A lead I did not check:** whether Hyperliquid's certified API now lists exactly settled outcome contracts (its HIP-4, from memory). One request by the advisor would show it. It would give the account of 6.3 a certified venue, still not tradeable by the human and still short of the count.
-8. **Whether stopping is right.** It follows from the arithmetic and from the human's own constraints. A larger tolerance for unconfirmed risk is the human's to state, not a result.
+1. **The score's behaviour on a pair.** I have not read how the score treats a bankrupt program. Wall 3 exists because I cannot argue from the code that no funding-blind program beats half the reference on most pairs.
+2. **The reference's effect a pair.** If it is small against a pair's noise, an honest pick fails the majority and both rates fall. Wall 2 catches the reference; a pick with 70% of its effect is not checked before the study.
+3. **Least overlap** is the worst case for power and I think it unlikely: easy seeds should be easy for both arms.
+4. **The hedge in study 2.** A fixed short sized before the freeze is my choice. A wrong size leaves market return in the tested series, and a rising market would then be confirmed as edge. The decomposition result is the check, and it is descriptive.
+5. **Isolated margin on recorded books.** If a step's loss can exceed the margin in the replay, the test is not exact.
+6. **The count.** 33 a week is a threshold, not an estimate. Someone who has read the thesis track's ledger knows more than I do.
+7. **The prior of 0.05.** The benchmarks test forecasting on given questions, not selection among perps.
 
-## 11. Open questions for the human
+## 12. Open questions for the human
 
-1. **Stop the forward line.** No reading-agent study has honest power within two years on anything certifiable. I recommend: study 1, the paper, then a stop until a condition of 6.2 holds. This reverses your decision of 2026-11-11 15:16 UTC (10:16 EST) that study 2 runs.
-2. **Whether to ask Kalshi or Polymarket US for written permission.** I recommend no. Granted in full, it buys a study that needs the event 7.5 to 12.4 points likelier than the mid on every purchase.
-3. **Stage 11.** It has no venue: Hyperliquid's terms exclude a US operator, and the exchanges permit your own trading but not an agent that reads their API. I recommend removing it from the roadmap. A $2,500 live account confirms nothing sooner than paper does.
-4. **Study 1 at up to 100 markets** in place of 60, about five weeks of TAMU and Cornell sessions at most. I recommend yes: it holds 92% power at the target under every dependence between the arms.
-5. **The paper.** Rewrite the roadmap around the wall as the finding on Q3 and study 1 as the remaining experiment (`paper-changes.md`). I recommend yes, with Argon's finding 11 added to the defect table.
-6. **The recorders.** I recommend they run on: they are what a later model's campaign would be judged on, and they cost no plan usage.
+1. **Study 2.** A replication as the positive control of the confirmer: fidelity first, then a frozen forward test whose power is 0.47 at the vault's recent Sharpe and 0.90 at its reported one. I recommend yes, subject to the advisor's feasibility plan, with nothing before the freeze judged.
+2. **Study 1's changes.** G100's target rate falls from 0.2 to 0.15, the calibration grows to 2,000 markets, and the claim says "more often than G100's 100 evaluations", not "at the same budget". Still at most 100 markets. I recommend yes.
+3. **The findings index,** `docs/findings.md`, as the organized presentation of earlier research, with the paper as the home of every number. I recommend yes.
+4. **A count for the reading agent.** Reading the thesis track's ledger for theses a week costs nothing and decides whether that line is ever reopened. I recommend the advisor does it, and that no sessions are spent on a count.
+5. **The archive's cost.** If Hyperliquid's S3 archive bills the requester (a lead), study 2 spends money. That is yours to approve once the advisor has a figure.

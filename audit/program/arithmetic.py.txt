@@ -1,10 +1,14 @@
-"""Reproduces the numbers in audit/program/architecture.md (revision 3), audit/program/paper-changes.md and
-audit/program/argon-paper-findings.md.
+"""Reproduces every derived number in audit/program/architecture.md (revision 4), audit/program/paper-changes.md
+and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
 
-Run: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute). Reads no data.
+Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
+Reads one file, audit/stage3/null-v3.jsonl, for the agent's evaluation counts.
 """
 
+import json
 import math
+import statistics
+from pathlib import Path
 
 import numpy as np
 from scipy.integrate import quad
@@ -15,16 +19,83 @@ Z80 = norm.ppf(0.95) + norm.ppf(0.80)
 LOG20 = math.log(20)
 STEPS_A_YEAR = 6 * 365
 STAKE_CAP = 0.05
+SESSIONS_A_WEEK = 22  # an assumption: TAMU and Cornell together
 
 
 def yardstick() -> None:
     """The Gaussian fixed-horizon yardstick, z = S * sqrt(T): a planning reference, not a limit on every test."""
     print(f"z* = {Z80:.3f}, z*^2 = {Z80**2:.2f}")
-    for sharpe in (0.5, 1, 1.5, 2, 3, 5):
-        years = Z80**2 / sharpe**2
-        print(f"  Sharpe {sharpe}: {years:.2f} years at 80% power ({12 * years:.1f} months)")
+    for sharpe in (1, 1.4, 2, 2.4, 5):
+        print(f"  Sharpe {sharpe}: {Z80**2 / sharpe**2:.2f} years at 80% power")
     for years in (91 / 365, 1, 2):
         print(f"  T = {years:.3f} years: Sharpe {Z80 / math.sqrt(years):.2f} at 80% power")
+
+
+def crossing(drift: float, spread: float) -> float:
+    """P(a Brownian log wealth with total drift `drift` and total standard deviation `spread` reaches log 20
+    at any time before the end): the reflection formula. The test stops at 20, so this is its power."""
+    reflected = math.exp(min(0.0, 2 * drift * LOG20 / spread**2 + norm.logcdf((-drift - LOG20) / spread)))
+    return float(norm.cdf((drift - LOG20) / spread)) + reflected
+
+
+def kelly_power(u: float) -> float:
+    """Power of an exact test staked at Kelly's fraction, where u = effect * sqrt(count)."""
+    return crossing(u * u / 2, u)
+
+
+U80 = brentq(lambda u: kelly_power(u) - 0.8, 1, 6)
+
+
+def exact_cost() -> None:
+    """Independent even bets with net edge e, staked at Kelly's fraction e: log wealth after N bets is near
+    Gaussian with mean N*e^2/2 and standard deviation e*sqrt(N)."""
+    z = norm.ppf(0.80)
+    terminal = z + math.sqrt(z * z + 2 * LOG20)
+    print(f"  stopping at 20: N = {U80**2:.2f} / e^2 for 80% power (u = {U80:.3f}; Argon wrote 8.67); the yardstick: {Z80**2:.2f} / e^2, so the exact test costs {U80**2 / Z80**2:.2f} times as much")
+    print(f"  revision 3 asked for wealth of 20 at the end: N = {terminal**2:.1f} / e^2, where the power is really {kelly_power(terminal):.3f}")
+    for edge in (0.03, 0.05, 0.08, 0.1):
+        print(f"    net edge {edge}: {U80**2 / edge**2:,.0f} independent bets")
+    print(f"  within 104 weeks: count a week * e^2 >= {U80**2 / 104:.4f}")
+    for bets in (5, 10, 15, 33, 45, 60):
+        edge = U80 / math.sqrt(104 * bets)
+        print(f"    {bets} bets a week: net edge {edge:.3f} (a hit rate of {(1 + edge) / 2:.3f} on an even bet); power at 0.03, 0.05, 0.08: " + ", ".join(f"{kelly_power(e * math.sqrt(104 * bets)):.2f}" for e in (0.03, 0.05, 0.08)))
+    for edge in (0.03, 0.05, 0.08):
+        print(f"    net edge {edge}: {U80**2 / (104 * edge**2):.0f} bets a week")
+    print(f"  discordant paired forecasts for a hit-rate gain of 0.05 (edge 0.1): {U80**2 / 0.1**2:.0f}; of 0.025: {U80**2 / 0.05**2:.0f}")
+
+
+def account(bets: int, hold: int, edge: float, fraction: float, weeks: int = 104, paths: int = 4000) -> float:
+    """A paper account in even bets with net edge `edge`: `bets` purchases a week, each staking `fraction` of the
+    cash left at that moment and paid `hold` purchases later (0: before the next purchase). Returns P(cash reaches
+    20 within `weeks`)."""
+    rng = np.random.default_rng(11)
+    cash = np.ones(paths)
+    pending = np.zeros((paths, hold + 1))
+    reached = np.zeros(paths, dtype=bool)
+    for bet in range(weeks * bets):
+        slot = bet % (hold + 1)
+        cash = cash + pending[:, slot]
+        reached |= cash >= 20
+        stake = fraction * cash
+        cash = cash - stake
+        pending[:, slot] = 2 * stake * (rng.random(paths) < (1 + edge) / 2)
+    reached |= cash + pending.sum(axis=1) >= 20
+    return float(reached.mean())
+
+
+def forward_account() -> None:
+    """The account's sequential rule simulated with three settlement timings: before the next purchase, a day
+    later, and a week later (revision 3's batch, which Argon's finding 2 showed starves the stake)."""
+    print(f"  no edge, 33 bets a week staking the cap, paid a day later: {account(33, 5, 0.0, STAKE_CAP, paths=20_000):.3f} of paths reach 20 (Ville's bound: 0.05 over any horizon)")
+    print("  net edge for 80% power within 104 weeks, stake min(5%, Kelly) of cash:")
+    for bets in (5, 10, 15, 33, 60):
+        found = []
+        for hold in (0, math.ceil(bets / 7), bets):
+            found.append(brentq(lambda e: account(bets, hold, e, min(STAKE_CAP, e)) - 0.8, 0.01, 0.6, xtol=0.001))
+        print(f"    {bets:2d} bets a week: paid at once {found[0]:.3f}, a day later {found[1]:.3f} (a hit rate of {(1 + found[1]) / 2:.3f}), a week later {found[2]:.3f}; closed form {U80 / math.sqrt(104 * bets):.3f}")
+    for bets in (10, 33):
+        hold = math.ceil(bets / 7)
+        print(f"    {bets} bets a week paid a day later, power at 0.03, 0.05, 0.08: " + ", ".join(f"{account(bets, hold, e, min(STAKE_CAP, e)):.2f}" for e in (0.03, 0.05, 0.08)))
 
 
 def capped_growth(mu: float, sigma: float, cap: float) -> float:
@@ -32,43 +103,45 @@ def capped_growth(mu: float, sigma: float, cap: float) -> float:
     return cap * mu - cap**2 * (sigma**2 + mu**2) / 2
 
 
-def capped_bet(sigma: float = 0.02, cap: float = 0.5) -> None:
-    """The gate's exact test: wealth must reach 20 and the bet may not exceed 1/L (L = 2). Two thresholds a
-    length: expected log wealth equal to log 20 (about even odds), and 80% power, taking log wealth as Gaussian
-    with standard deviation cap * sigma * sqrt(steps) (Argon's round 2, finding 7)."""
-    for steps in (360, 546, 1080, 2 * STEPS_A_YEAR, 5400):
-        spread = norm.ppf(0.80) * cap * sigma * math.sqrt(steps)
-        even = brentq(lambda m: steps * capped_growth(m, sigma, cap) - LOG20, 0, 1)
-        power = brentq(lambda m: steps * capped_growth(m, sigma, cap) - LOG20 - spread, 0, 1)
-        annual = math.sqrt(STEPS_A_YEAR) / sigma
-        print(f"  {steps} steps: Sharpe {even * annual:.1f} at even odds, {power * annual:.1f} at 80% power")
-    mu = 4.9 / math.sqrt(STEPS_A_YEAR) * sigma
-    print(f"  Sharpe 4.9: Kelly's bet {mu / sigma**2:.1f} against the cap {cap}; expected log wealth over 546 steps {546 * capped_growth(mu, sigma, cap):.2f} against {LOG20:.2f}")
+def series_power(sharpe: float, planned: tuple[float, ...], paths: int = 20_000) -> tuple[float, float]:
+    """A frozen rule's four-hour returns with annualized Sharpe `sharpe`, Gaussian. The confirmer's wealth is the
+    mean of the wealths that bet Kelly's fraction for each planned Sharpe. Returns P(wealth reaches 20) within one
+    year and within two."""
+    rng = np.random.default_rng(7)
+    dt = 1 / STEPS_A_YEAR
+    wealth = np.ones((len(planned), paths))
+    bets = np.array(planned)[:, None]
+    reached = np.zeros(paths, dtype=bool)
+    first = reached
+    for step in range(2 * STEPS_A_YEAR):
+        wealth = wealth * (1 + bets * rng.normal(sharpe * dt, math.sqrt(dt), paths))
+        reached |= wealth.mean(axis=0) >= 20
+        if step == STEPS_A_YEAR - 1:
+            first = reached.copy()
+    return float(first.mean()), float(reached.mean())
 
 
-def betting_cost() -> None:
-    """Independent even bets with net edge e per unit of worst loss, staked at Kelly's fraction e: log wealth
-    after N bets is near Gaussian with mean N*e^2/2 and standard deviation e*sqrt(N). With u = e*sqrt(N), 80%
-    power needs u^2/2 - z80*u = log 20."""
-    z = norm.ppf(0.80)
-    u = z + math.sqrt(z * z + 2 * LOG20)
-    print(f"  an exact test at Kelly's stake: N = {u * u:.1f} / e^2 for 80% power, {2 * LOG20:.1f} / e^2 at even odds; the yardstick: {Z80**2:.2f} / e^2")
-    for edge in (0.025, 0.05, 0.08, 0.1):
-        print(f"    net edge {edge}: {u * u / edge**2:,.0f} independent bets")
-    for bets in (5, 10, 15, 30, 60):
-        print(f"    {bets} bets a week for 104 weeks: 80% power at a net edge of {u / math.sqrt(104 * bets):.3f} if the stake cap did not bind")
-
-
-def rates() -> None:
-    """Months to 80% power on the yardstick, 6.18 / (d^2 * n)."""
-    rows = (("theses on perps", 0.05, 15), ("theses on perps", 0.05, 40), ("theses on perps", 0.1, 15),
-            ("theses on perps", 0.1, 40))  # fmt: skip
-    for name, d, n in rows:
-        print(f"  {name} d = {d:<4} n = {n:3d} a month: {Z80**2 / (d * d * n):6.1f} months")
-    for ic in (0.03, 0.05):
-        sharpe = ic * math.sqrt(52 * 20)
-        print(f"  breadth, IC {ic}, 20 bets a week: Sharpe {sharpe:.2f}, {12 * Z80**2 / sharpe**2:.0f} months")
-    print(f"  a 0.03 Brier gain over a forecast of 0.50 needs a true probability of {0.5 + math.sqrt(0.03):.3f}")
+def confirmer(sigma: float = 0.02) -> None:
+    """A frozen return series under three confirmers: the yardstick, the gate's test (bet at most 1/L, L = 2), and
+    an exact test whose loss bound is the rule's own, so that Kelly's fraction fits (Argon's finding 2)."""
+    annual = math.sqrt(STEPS_A_YEAR)
+    print("  Sharpe for 80% power: yardstick; exact test at Kelly's fraction; the gate's capped test")
+    for years in (91 / 365, 1, 2):
+        steps = round(years * STEPS_A_YEAR)
+        spread = 0.5 * sigma * math.sqrt(steps)
+        capped = brentq(lambda m: crossing(steps * capped_growth(m, sigma, 0.5), spread) - 0.8, 0, 1)
+        print(f"    {steps} steps: {Z80 / math.sqrt(years):.2f}; {U80 / math.sqrt(years):.2f}; {capped * annual / sigma:.1f}")
+    for sharpe in (1.4, 2, 2.4):
+        print(f"  Kelly's fraction fits under 1/L while the worst step loss L is at most {annual / sharpe:.1f} step standard deviations at Sharpe {sharpe}; the gate's L is {2 / sigma:.0f}")
+    print("  power within one year and two, by true Sharpe; betting Kelly's fraction for Sharpe 2 (closed form at two years), and the mean of the bets for 1, 2 and 3:")
+    for sharpe in (0, 1, 1.4, 2, 2.4, 3):
+        fixed = series_power(sharpe, (2.0,))
+        mixed = series_power(sharpe, (1.0, 2.0, 3.0))
+        closed = crossing((2 * sharpe - 2) * 2, 2 * math.sqrt(2))
+        print(f"    Sharpe {sharpe}: for 2, {fixed[0]:.2f} and {fixed[1]:.2f} ({closed:.2f}); mean of three, {mixed[0]:.2f} and {mixed[1]:.2f}; at Kelly's own fraction {kelly_power(sharpe * math.sqrt(2)) if sharpe else 0:.2f} at two years")
+    print(f"  the standard error of a Sharpe measured over two years is {1 / math.sqrt(2):.2f}")
+    for sharpe in (1.4, 2.4):
+        print(f"  years to 80% power at Sharpe {sharpe}: {U80**2 / sharpe**2:.2f} at Kelly's fraction")
 
 
 def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], ...]) -> None:
@@ -107,126 +180,30 @@ def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], 
 
 
 def study1() -> None:
-    """The joint law of the two arms on one market is (agent's rate, G100's rate, both): the test's size holds
-    for every joint law with the agent's rate at most G100's, and its power depends on all three."""
-    joint = (
-        ("null, every market discordant", 0.5, 0.5, 0.0),
-        ("null 0.2, 0.2, independent", 0.2, 0.2, 0.04),
-        ("0.5, 0.2, least overlap", 0.5, 0.2, 0.0),
-        ("0.5, 0.2, independent", 0.5, 0.2, 0.1),
-        ("0.5, 0.2, most overlap", 0.5, 0.2, 0.2),
-        ("0.5, 0.25, least overlap", 0.5, 0.25, 0.0),
-        ("0.5, 0.25, independent", 0.5, 0.25, 0.125),
-        ("0.5, 0.15, least overlap", 0.5, 0.15, 0.0),
-        ("0.5, 0.3, least overlap", 0.5, 0.3, 0.0),
-        ("0.5, 0.3, independent", 0.5, 0.3, 0.15),
-        ("0.5, 0.3, both 0.05 (Argon)", 0.5, 0.3, 0.05),
-        ("0.5, 0.3, most overlap", 0.5, 0.3, 0.3),
-        ("0.5, 0.1, independent", 0.5, 0.1, 0.05),
-        ("0.35, 0.2, independent", 0.35, 0.2, 0.07),
-        ("0.3, 0.2, independent", 0.3, 0.2, 0.06),
-        ("0.25, 0.2, both 0.1875 (Argon)", 0.25, 0.2, 0.1875),
-    )
-    cases = tuple((label, agent - both, searcher - both) for label, agent, searcher, both in joint)
-    for theta1, n_max in ((0.8, 60), (0.7, 100), (0.7, 400)):
-        sign_test(n_max, theta1, cases)
-    print("  the size is largest when every market is discordant; 400 markets stands for no truncation")
-    print(f"  G100's rate near 0.2 on 400 calibration markets has standard error {math.sqrt(0.2 * 0.8 / 400):.3f}")
-    print(f"  a pick whose effect is 4 standard errors from the threshold is misclassified with probability {norm.sf(4):.0e}")
-
-
-def account(bets: int, cost: float, edge: float, fraction: float, weeks: int = 104, paths: int = 10_000) -> tuple[float, float]:
-    """A self-financing paper account under the sequential rule: `bets` independent purchases a week at all-in
-    cost `cost` and true probability cost*(1 + edge), each staking `fraction` of the cash left at that moment,
-    all paid before the next week's purchases. Returns P(cash reaches 20) by week 52 and by `weeks`."""
-    rng = np.random.default_rng(11)
-    cash = np.ones(paths)
-    by52 = np.zeros(paths, dtype=bool)
-    reached = np.zeros(paths, dtype=bool)
-    for week in range(weeks):
-        payout = np.zeros(paths)
-        for _ in range(bets):
-            stake = fraction * cash
-            cash = cash - stake
-            payout += stake / cost * (rng.random(paths) < cost * (1 + edge))
-        cash = cash + payout
-        reached |= cash >= 20
-        if week == 51:
-            by52 = reached.copy()
-    return float(by52.mean()), float(reached.mean())
-
-
-def kelly(cost: float, edge: float) -> float:
-    return cost * edge / (1 - cost)
-
-
-def forward_power() -> None:
-    """Power of a forward account in bounded bets, for planning: the stake is Kelly's fraction for the true edge,
-    capped at 5% of cash (the best a calibrated agent can do), or half of it."""
-    print("  columns: P(cash reaches 20 by week 52), by week 104")
-    print(f"    no edge, 60 even bets a week at the cap: {account(60, 0.5, 0.0, STAKE_CAP)[1]:.3f} (the size; at most 0.05)")
-    for bets in (5, 10, 15, 30, 60):
-        for edge in (0.02, 0.04, 0.08, 0.12, 0.16):
-            full = account(bets, 0.5, edge, min(STAKE_CAP, kelly(0.5, edge)))
-            half = account(bets, 0.5, edge, min(STAKE_CAP, kelly(0.5, edge) / 2))
-            print(f"    {bets:2d} even bets a week, net edge {edge:.2f}: Kelly capped {full[0]:.2f}, {full[1]:.2f}; half of it {half[0]:.2f}, {half[1]:.2f}")
-    for bets in (5, 10, 15, 30, 60):
-        found = brentq(lambda e: account(bets, 0.5, e, min(STAKE_CAP, kelly(0.5, e)))[1] - 0.8, 0.02, 0.6, xtol=0.002)
-        print(f"    {bets:2d} even bets a week: 80% power within 104 weeks at a net edge of {found:.3f}")
-    for edge in (0.115, 0.183):
-        print(f"    on a return's sign, a net edge of {edge} is a hit rate of {(1 + edge) / 2:.3f}")
-    for cost, points in ((0.2, 0.02), (0.2, 0.04), (0.8, 0.04)):
-        edge = points / cost
-        got = account(10, cost, edge, min(STAKE_CAP, kelly(cost, edge)))
-        print(f"    10 bets a week at cost {cost}, {points} of probability (net edge {edge:.2f}): {got[0]:.2f}, {got[1]:.2f}")
-
-
-def event_costs() -> None:
-    """Kalshi's taker fee is round up(0.07 * C * P * (1 - P)) (fee schedule of 2026-07-07, audit/decisions.md).
-    The half spread of one cent is an assumption, not a measurement."""
-    half_spread = 0.01
-    for mid in (0.2, 0.5, 0.8):
-        ask = mid + half_spread
-        fee = 0.07 * ask * (1 - ask)
-        cost = ask + fee
-        needs = ", ".join(f"net {edge:g}: {100 * (cost * (1 + edge) - mid):.1f}" for edge in (0.0, 0.04, 0.09, 0.115, 0.183))
-        print(f"  mid {mid}: fee {100 * fee / ask:.1f}% of the stake, all-in cost {cost:.4f}; points of probability above the mid for {needs}")
-    print(f"  $125 at 0.50 is {125 / 0.5:.0f} contracts, at 0.20 {125 / 0.2:.0f}; fee on 250 at 0.50: ${math.ceil(7 * 250 * 0.25) / 100:.2f}")
-
-
-def log_growth(chance: float, gain: float, loss: float) -> float:
-    return chance * math.log(1 + gain) + (1 - chance) * math.log(1 - loss)
-
-
-def late_records(hold: int, bets: int = 400, paths: int = 200_000) -> float:
-    """A fair account (every purchase at cost 0.05 with probability 0.05, staking 5% of recorded cash) whose every
-    payout is recorded only `hold` purchases late, as in Argon's finding 5. Returns P(recorded cash reaches 20)."""
-    rng = np.random.default_rng(5)
-    cash = np.ones(paths)
-    pending = np.zeros((paths, hold + 1))
-    reached = np.zeros(paths, dtype=bool)
-    for bet in range(bets):
-        slot = bet % (hold + 1)
-        cash = cash + pending[:, slot]
-        reached |= cash >= 20
-        stake = STAKE_CAP * cash
-        cash = cash - stake
-        pending[:, slot] = stake / 0.05 * (rng.random(paths) < 0.05)
-    return float(reached.mean())
-
-
-def argon_round2() -> None:
-    """Constructions of Argon's round 2 (audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md), rechecked."""
-    main = 30 * log_growth(0.22, 0.03125 * 4, 0.03125) + 5 * log_growth(0.88, 0.05 * 0.05 / 0.95, 0.05)
-    mirror = 30 * log_growth(0.78, 0.03125 / 4, 0.03125) + 5 * log_growth(0.12, 0.05 * 0.95 / 0.05, 0.05)
-    print(f"  1. account {main:+.4f} a week ({LOG20 / main:.0f} weeks to 20; Argon wrote +0.0201 and 149); mirror {mirror:+.4f} ({LOG20 / mirror:.1f} weeks)")
-    honest, inflated = log_growth(0.52, 0.02, 0.02), log_growth(0.52, 0.04, 0.04)
-    print(f"  2. true 0.52 at cost 0.50: reporting 0.52 under half Kelly grows {honest:.5f} a bet, reporting 0.54 grows {inflated:.5f}")
-    print(f"     sixty purchases of 1.25% of remaining cash stake {1 - 0.9875**60:.3f} of it; thirty of 2%, {1 - 0.98**30:.3f}")
-    print(f"  3. eight bets a week at 3% of cash: growth {8 * (0.03 * 0.015 - 0.03**2 / 2):.4f} at net edge 0.015; {LOG20 / (8 * (0.03 * 0.04 - 0.03**2 / 2)):.0f} weeks at 0.04")
-    print(f"  5. Argon's path: on time {(1.80 + 9.50) * 0.95**20 * 2:.2f}, late {(1.80 * 0.95**20 + 9.50) * 2:.2f}")
-    print(f"     under a fair null, recorded cash reaches 20 with probability {late_records(0):.4f} on time and {late_records(20):.4f} with every payout 20 purchases late")
-    print(f"  9. sixty even bets, edge 0.08, fully staked: e - 1/(2m) = {0.08 - 1 / 120:.4f}; with -e^2/2, {0.08 - 1 / 120 - 0.0032:.4f}; exact {float(np.sum(binom.pmf(np.arange(61), 60, 0.54) * np.log(np.maximum(np.arange(61) / 30, 1e-300)))):.4f}")
+    """The joint law of the two arms on one market is (agent's rate, G100's rate, both). The size holds for every
+    joint law with the agent's rate at most G100's; power depends on all three, so every row is printed."""
+    rows: list[tuple[str, float, float]] = [("null, every market discordant", 0.5, 0.5)]
+    for rate in (0.11, 0.15, 0.19):
+        rows.append((f"null {rate}, {rate}, independent", rate * (1 - rate), rate * (1 - rate)))
+    for agent in (0.5, 0.4, 0.3):
+        for searcher in (0.11, 0.15, 0.19):
+            for name, both in (("least", 0.0), ("independent", agent * searcher), ("most", searcher)):
+                rows.append((f"{agent}, {searcher}, {name} overlap", agent - both, searcher - both))
+    rows.append(("0.5, 0.25, least overlap (revision 3's band edge)", 0.5, 0.25))
+    rows.append(("0.5, 0.3, least overlap (Argon)", 0.5, 0.3))
+    rows.append(("0.25, 0.2, both 0.1875 (Argon)", 0.0625, 0.0125))
+    sign_test(100, 0.7, tuple(rows))
+    print(f"  a discordant win adds {math.log(0.7 / 0.5):.4f}, a loss {math.log(0.3 / 0.5):.4f}; the boundaries are +-{math.log(19):.4f}: {math.ceil(math.log(19) / math.log(1.4))} straight wins claim, {math.ceil(math.log(19) / -math.log(0.6))} straight losses stop")
+    for markets in (400, 2000):
+        print(f"  G100's rate near 0.15 on {markets} calibration markets has standard error {math.sqrt(0.15 * 0.85 / markets):.4f}")
+    print(f"  G100 at 0.3 is {(0.3 - 0.17) / math.sqrt(0.15 * 0.85 / 2000):.0f} standard errors above the band's 0.17; rates 0.25 and 0.2 with 0.1875 in common leave {100 * (0.0625 + 0.0125):.1f} discordant markets in 100")
+    print("  a pick earns from the plant when it beats half the reference on at least 24 of its market's 32 fresh pairs; by its chance q on one pair:")
+    print("    " + ", ".join(f"q = {q}: {binom.sf(23, 32, q):.4f}" for q in (0.5, 0.6, 0.75, 0.9, 0.95)))
+    print(f"  kernel evaluations: {3 * 2 * 32} a study market to classify both picks and the reference, {100 * 3 * 2 * 32:,} for 100; calibration, 8 strengths of 400 markets and one of 2,000: {(8 * 400 + 2000) * (100 + 2 * 2 * 32):,}")
+    spent = [json.loads(line)["agent_run"] for line in Path("audit/stage3/null-v3.jsonl").read_text().splitlines()]
+    counts = sorted(run["spent"] for run in spent)
+    print(f"  stage 3's {len(spent)} null campaigns: the agent spent {counts[0]} to {counts[-1]} of 100 evaluations, median {statistics.median(counts)}; stopped: {sorted({run['stopped'] for run in spent})}")
+    print(f"  at {SESSIONS_A_WEEK} sessions a week (an assumption), 100 markets take {100 / SESSIONS_A_WEEK:.1f} weeks, 41 take {41 / SESSIONS_A_WEEK:.1f}")
 
 
 def expected_max(count: int) -> float:
@@ -252,6 +229,8 @@ def argon_paper() -> None:
     for steps in (100, 546, 5400):
         print(f"  7. T = {steps}: the limit of the DSR's z as the Sharpe grows is under 1.645 only above kurtosis {1 + 4 * (steps - 1) / norm.ppf(0.95) ** 2:.0f}; a sample's is at most {steps}")
     print(f"     Argon's examples at T = 546 against a threshold of 2: Sharpe 3.5 has z at most {dsr_z(3.5 / year, 2 / year, 546, 0, 1):.3f}; Sharpe 6, skewness -4, kurtosis 18 has z = {dsr_z(6 / year, 2 / year, 546, -4, 18):.3f}; the limit at kurtosis 18 is {2 * math.sqrt(545 / 17):.1f}")
+    worst = min((1 - skew * sharpe / 2) ** 2 for skew in np.linspace(-6, 6, 25) for sharpe in np.linspace(0, 3, 31))
+    print(f"     a sample's kurtosis is at least its skewness squared plus 1, so the DSR's radicand is at least (1 - skewness * Sharpe / 2)^2 >= {worst:.0f}; Argon's skewness 4 with kurtosis 10 is no sample's ({4**2 + 1} at least)")
     for level, tolerance, inflated in ((0.05, 0.0625, 0.056), (0.01, 0.015, 0.012), (0.005, 0.01, 0.0075)):
         suite = max(x for x in range(2000) if beta.ppf(1 - 0.05 / 99, x + 1, 20_000 - x) <= tolerance)
         single = max(x for x in range(2000) if beta.ppf(0.95, x + 1, 20_000 - x) <= tolerance)
@@ -260,7 +239,7 @@ def argon_paper() -> None:
     phi, keep = 1 - 1 / 42, 5 / 6
     whole, kept = (1 + phi) / (1 - phi), (1 + phi * keep) / (1 - phi * keep)
     print(f"  11. a funding leg's long-run variance factor is {whole:.1f}, of which blocks of mean 6 keep {kept:.2f}")
-    for share in (0.000025, 0.001, 0.01, 0.1):
+    for share in (0.000025, 0.001, 0.01, 0.05, 0.1, 0.25):
         print(f"      funding at {share:g} of a step's variance: the bootstrap understates the variance of the mean by {(1 - share + share * whole) / (1 - share + share * kept):.3f}")
     share = brentq(lambda w: (1 - w + w * whole) / (1 - w + w * kept) - 1.1, 0, 1)
     print(f"      the understatement reaches 10% at a share of {share:.4f}: a funding standard deviation of {100 * math.sqrt(share) * 0.02:.3f}% a step beside 2% of price")
@@ -276,19 +255,13 @@ def argon_paper() -> None:
 if __name__ == "__main__":
     print("The yardstick (section 2.1)")
     yardstick()
-    print("The gate's capped test (section 2.2)")
-    capped_bet()
-    print("What an exact test costs in independent bets (section 2.2)")
-    betting_cost()
-    print("Yardstick rates for the candidate designs (section 4)")
-    rates()
+    print("What an exact test costs (section 2.2)")
+    exact_cost()
+    print("A frozen series under three confirmers (sections 2.2, 2.3 and 6)")
+    confirmer()
+    print("A forward account in bounded bets (section 4)")
+    forward_account()
     print("Study 1 (section 5)")
     study1()
-    print("A forward account in bounded bets (section 6)")
-    forward_power()
-    print("Costs on an event-contract exchange (section 6)")
-    event_costs()
-    print("Argon's round 2, rechecked (section 9)")
-    argon_round2()
     print("Argon's findings on the paper, rechecked")
     argon_paper()
