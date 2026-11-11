@@ -182,7 +182,7 @@ Study 1 finishes soonest, and its answer prices the systematic side. Study 2's c
 
 - **The mirror.** A second account, computed from the same record, buys for each purchase the complementary claim, which pays `1 − x`, at `1 − c`, staking the fraction of its own cash that the account staked of its cash. Under the hypothesis that every purchase had non-negative expected net return it is a non-negative supermartingale. If it reaches 20, that hypothesis is rejected at 5% and the procedure is said to lose net of costs. It is the same accounting run from the other side, and it is the only way a result is called negative.
 - **Neither account reaches 20:** "not confirmed". The report gives both accounts' paths, the realized net return per dollar staked, and the planning table's row for the realized turnover, so a reader sees which edges the study could have detected. It is never called absence of edge, and never a statement about a model generation.
-- **Q2 is not answered.** A rejection shows that the procedure's purchases had edge. A rule that reads nothing and buys a known premium would show the same. Attribution to reading needs a no-reading account over the same weeks, not a later one (open question 3).
+- **Q2 is not answered.** A rejection shows that the procedure's purchases had edge. A rule that reads nothing and buys a known premium would show the same. Attribution to reading needs a no-reading account over the same weeks, not a later one (open question 4).
 - **Reruns.** Each instance tests its own procedure at 5%, and twenty null instances have a 64% chance of one rejection. So a rejection is a candidate for stage 11, whose live record is the replication, and each report states how many instances were frozen before it.
 
 ### 5.3 Rules that are part of the experiment
@@ -190,7 +190,7 @@ Study 1 finishes soonest, and its answer prices the systematic side. Study 2's c
 Validity needs none of them. Each is a scientific parameter kept for power or for what the claim means, and the detailed design derives or drops it.
 
 - **The market is open for trading at the recorded book,** and the registration's time is that record's time. No backdating and no catch-up. A contract whose event has already happened but which still trades at a stale price is a legitimate purchase, since the price is executable, and is reported apart.
-- **The reference stake fills** from the recorded asks. Otherwise the registration is refused.
+- **The reference stake fills** from the recorded asks. Otherwise the registration is refused. Its size in dollars is the human's (open question 3).
 - **The contract's scheduled end is within a horizon cap.** Turnover is the study's speed (section 3 G). Seven days is the starting point.
 - **One open position per event,** by the venue's own event grouping, so that a ladder of thresholds is one bet.
 - **The stake rule.** Recommended start: half of Kelly's fraction from the agent's own registered probability `p`, `(p − c) / (2(1 − c))` of cash, capped at 5% of cash, and no purchase unless `p > c`. Log wealth under Kelly's rule is a proper score, so the agent's honest probability is its best report. The cap is a choice against overconfidence.
@@ -372,7 +372,7 @@ Its numerical notes: the noncentral-t figures are moot with the Student test; A3
 
 ## 11. What survives from the Fable 5.1 design on `thesis-split`
 
-Revision 1's section 10 compared the two designs blind and is in git. Study 2 still carries from it: C10.2 as two guarantees, with the transcript audit failing closed as a report line and a failed session's purchases kept; each session's shown universe as a recorded disclosure; the search API conditions, and its route of reading result pages directly (open question 4). For the parked perp instance: lazy reads of immutable history, the base rate computed at report time, and the deletions in its build plan's steps 5 to 12. The two Bonferroni looks and the week as the unit, which revision 1 adopted from it, are superseded by the account. Its claim, the paired contrast on perps, stays discarded for the reason in section 2.4.
+Revision 1's section 10 compared the two designs blind and is in git. Study 2 still carries from it: C10.2 as two guarantees, with the transcript audit failing closed as a report line and a failed session's purchases kept; each session's shown universe as a recorded disclosure; the search API conditions, and its route of reading result pages directly (open question 5). For the parked perp instance: lazy reads of immutable history, the base rate computed at report time, and the deletions in its build plan's steps 5 to 12. The two Bonferroni looks and the week as the unit, which revision 1 adopted from it, are superseded by the account. Its claim, the paired contrast on perps, stays discarded for the reason in section 2.4.
 
 ## 12. Open questions for the human
 
