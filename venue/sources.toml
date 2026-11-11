@@ -389,8 +389,15 @@ terms bar US persons from the international product. The developer documentation
 
 The operator is in the United States. Human decision of 2026-10-23, on the same basis as Hyperliquid's: use the
 read-only public data API, with no account, no trading, a US IP and no VPN. Revisit if Polymarket publishes API
-terms, or before any step toward trading.'''
-retrieval = true
+terms, or before any step toward trading.
+
+Collection paused 2026-11-11 (the human; `audit/decisions.md`). The full terms
+(https://polymarket.com/tos, "Effective as of August 11, 2026", read by the advisor 2026-11-10) prohibit, in
+section 4.2, using "data mining tools, robots, crawlers, or similar data gathering and extraction tools to scrape",
+and to "harvest or otherwise collect information … for any unauthorized purpose"; the only licence (5.1) is
+personal use of the Site. The 2026-10-23 decision was made without that text. Feeds removed from the data layer;
+not on the retrieval allowlist.'''
+retrieval = false
 
 [gdelt]
 description = "GDELT; on the stage 10 retrieval allowlist."

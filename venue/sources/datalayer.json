@@ -74,18 +74,6 @@
    "url": "https://www.eia.gov/opendata/bulk/PET.zip"
   },
   {
-   "name": "polymarket-active",
-   "source": "polymarket",
-   "every_h": 3,
-   "url": "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=500&order=volume24hr&ascending=false"
-  },
-  {
-   "name": "polymarket-resolved",
-   "source": "polymarket",
-   "every_h": 3,
-   "url": "https://gamma-api.polymarket.com/markets?closed=true&limit=500&order=closedTime&ascending=false"
-  },
-  {
    "name": "treasury-avg-rates",
    "source": "treasury",
    "every_h": 24,

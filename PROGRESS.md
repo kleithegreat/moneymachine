@@ -4,8 +4,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 ## Now
 
-- **Code style:** done: every covered Python file passes ruff and `mypy --strict` (`ops/test_style.py`); frozen files join at their next fork.
-
 ### Running, and how to inspect it
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
@@ -16,19 +14,21 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - prodesk7 also runs test shards, only inside its isolated `mm-tests@` unit (Homelab `mm-test-node`; `CLUSTER.md` §7).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
-- **Budget.** No campaign runs. GPT's weekly allowance is nearly spent until about 2026-11-13; Argon's is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST). Fable has a reset on each of the three accounts.
+- **Budget.** No campaign runs. Cornell has about 14% of its week left (the human, 2026-11-10 22:00 UTC (17:00 EST)); the personal account's five-hour window ran out at 21:07 UTC (16:07 EST). GPT is unpaused for one review. Argon runs through the web UI; `agy` is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST).
 
-### Resume here (the human paused the work 2026-11-09 20:35 UTC (15:35 EST))
+### Work in progress
 
-Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet builds (`CLAUDE.md`; the human's decision of 2026-11-09 20:34 UTC (15:34 EST), accepting all of `audit/reviews/2026-11-09-fable-meta-review.md`). The thesis freeze wake-up is cancelled until the redesign. Job `thesis-prewarm` runs on; the redesign decides if it is needed.
+Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review Fable adversarially (`CLAUDE.md`). Fable 5.2 runs one session at a time through `data/builder/run-architect.sh`. The thesis freeze is cancelled until the redesign. The perp instance is parked (the human, 2026-11-11): the human stops Job `thesis-prewarm`.
 
 1. **Round fifteen** done on `thesis-refreeze` (`9d8f6e2`, pushed; reviewed by the advisor): C10.2's audit fails closed, one ledger record per call, fetched bodies stored by hash, harness hash unchanged.
-2. **Fable's calibration:** its section 6A constructed Argon's D3 blind. Log it in `audit/decisions.md` once round fifteen reproduces D3.
-3. **Thesis redesign** designed by Fable 5.1 (the Agent tool's `fable` alias; 5.2 needs `data/builder/run-architect.sh`) on `thesis-split` (`c044b68`, pushed): week unit, 4 theses a day, C10.7 paired Brier protocol, identity split, lazy acquisition, 14-step build plan (`audit/stage10/redesign-build-plan.md`). Next: Argon's adversarial review (`~/Downloads/argon-thesis-redesign.md`; GPT too if the human resumes it), the human's five open questions, then the criteria alone and Sonnet's build.
-4. **Positive control cut to discovery** and 4b. **the research program after the pilot**: two headless Fable 5.2 architects, started 2026-11-10 06:53 UTC (01:53 EST) on Cornell, on `positive-controls` (`../mm-pos-controls`) and `research-program` (`../mm-program`). Their reports are `data/builder/e6f7df3b….out` and `d7fade81….out` (`log.tsv` records each exit). Then each design goes to adversarial review.
-   **Argon** (the human runs these): `~/Downloads/argon-paper-math-check.md` (the whole paper), then `~/Downloads/argon-thesis-redesign.md`.
-5. **Reading arm:** the advisor proposes search APIs, with their terms, for the human's certificate.
-6. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
+2. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, pushed at `35cf871`; `audit/program/`). Revision 2 answers GPT's review (`audit/reviews/2026-11-10-gpt-rearchitecture.md`, all 11 findings accepted).
+   - **The program:** the positive control first, as a paired comparison against the baseline on every market. Then a paper account in event contracts on a CFTC-designated venue whose terms permit automated use, judged by its cash under Ville's inequality.
+   - **The human answered** (`audit/decisions.md`, 2026-11-11 15:16 UTC (10:16 EST)): study 2 on Kalshi, a $2,500 bankroll ($125 reference stake), no no-reading account, no direct fetch of result pages, Fable's three recommendations on Argon's findings, the perp instance parked, the Polymarket recordings sealed.
+   - **Argon, round 2** (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`): do not approve, with 4 critical findings (the mirror account, the stake and pause rules, depth, and study 1's table under independence). It is the second round, and neither event-contract venue's terms permit the study (Blockers), so Fable re-derives from the root (`data/builder/architect-rederive.txt`).
+   - **Next:** Fable's re-derivation. `paper-changes.md` waits for it.
+   - **Fable usage, measured:** a five-hour Pro window is about 100K Fable output tokens, and one xhigh response used 53K. Run fresh sessions sized to one window, at `high` unless the task is a hard derivation.
+3. **Search API:** Argon (web) surveys the candidates against `architecture.md` section 5.6 (`~/Downloads/argon-search-api-survey.md`). The advisor checks its citations and drafts the certificate; the human certifies.
+4. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
 
 ### Next, in order
@@ -38,14 +38,13 @@ Roles from now on: Fable architects, Opus orchestrates as the advisor, Sonnet bu
 2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
 3. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
 
-Open, status unclear: a research arm whose model has an earlier knowledge cutoff, freeing more historical holdout (the human, 2026-10-23).
-
 ### Finished
 
 - Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
 
+- **No US event-contract venue is certified for study 2** (`audit/decisions.md`, 2026-11-11). Kalshi's Developer Agreement (sections 3, 3.1, 3.5, 6.4) and Polymarket US's Participant Agreement (sections 19, 22) permit only trading use without written permission.
 - **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
 - **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
 
@@ -59,7 +58,7 @@ Open, status unclear: a research arm whose model has an earlier knowledge cutoff
 
 ## Decisions awaiting the human's review
 
-C10.2 re-derived on daemon-before-reply recording plus the isolation canary and the per-session tool-name check (the human chose B, 2026-11-09); built on `thesis-refreeze` (rounds 13-14). The positive-control claim reworded to capture of a planted edge (round four, Opus), awaiting GPT's review.
+Round fifteen's design choices, reviewed by the advisor only (`audit/decisions.md`, 2026-11-10 02:52 UTC (2026-11-09 21:52 EST)): C10.2's audit fails closed; every call has one ledger record (effect rows carry their call); fetched bodies are stored by their hash.
 
 From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
 

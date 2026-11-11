@@ -802,3 +802,50 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
 
   **Reverse:** a later decision of the human's.
 - 2026-11-10 03:10 UTC (2026-11-09 22:10 EST), the human: GPT and Argon become Fable's adversarial reviewers. They get everything Fable had, its conclusions included, and try to break the design at the theoretical level instead of re-deriving it; only the holdout material and kernel-only rows stay withheld. Sonnet builds Fable's plan exactly: each step's tests are written from the plan by a session that does not build the step, the builder may not edit them, a wall the plan did not foresee goes back to Fable, and Opus checks each commit against its step (`CLAUDE.md`, Orchestration and Decisions). Fable also designs the research program after the pilot (branch `research-program`). The whole paper gets an adversarial mathematics check by Argon in the web UI (bundle `~/Downloads/argon-paper-math-check.md`, `main` at `b1f280b`, thesis sections excluded). Fable's work runs on Cornell. Reverse: a later decision of the human's.
+- 2026-11-10 20:47 UTC (15:47 EST), the human:
+  - **Rearchitecture.** One Fable 5.2 session re-derives the whole research architecture from first principles: the program, the roles of the thesis track and the positive control, and what infrastructure stays. It is blind to the stage 10 redesign on `thesis-split` until its own architecture is committed. The detailed designs follow one at a time.
+  - **Why:** the `thesis-split` redesign ran on Fable 5.1, because the Agent tool's `fable` alias in Claude Code 2.1.318 predates 5.2. The human found 5.1 wasteful and weaker than Opus.
+  - **Account:** Fable runs on the personal account, as logged in. This is design and review, not the positive control's study budget.
+  - **GPT:** unpaused for one review only; the advisor gives it to this architecture.
+  - **What it supersedes:** the separate research-program and positive-control architect briefs of 2026-11-10 03:06 UTC (2026-11-09 22:06 EST). Both died at Cornell's five-hour limit about seven minutes after starting at 06:53 UTC (01:53 EST): two parallel Fable sessions used up the window. From now on, Fable runs one session at a time.
+  - **Reverse:** a later decision of the human's.
+- 2026-11-10 22:12 UTC (17:12 EST), advisor: **Fable 5.2 is calibrated for review roles** (CLAUDE.md, "a model new to a role is calibrated blind").
+  - Its meta review's section 6A constructed Argon's D3 blind, on the same code (`thesis-refreeze` `92f0b61`): `server_tool_use` blocks and swallowed lines pass the C10.2 audit. It added `mcp_tool_use` and the `harness_hash` consequence. Round fifteen reproduced D3 from failing tests (`3e997c0`).
+  - It did not find D1, D2, D4 or D5, which it ranked as operational. It did not check the paper's gate mathematics either: it took S4a's Sharpe 4.9 as given, and Argon's whole-paper check later broke that figure (`audit/reviews/2026-11-10-argon-web-paper-math.md`, Finding 1).
+  - So its findings count, but it is no substitute for an adversarial check of mathematics.
+- 2026-11-11 02:25 UTC (2026-11-10 21:25 EST), the human, on GPT's finding 9 (`audit/reviews/2026-11-10-gpt-rearchitecture.md`): **Polymarket collection is paused.**
+  - **Why:** the full terms, effective 2026-08-11 and read by the advisor on 2026-11-10, prohibit automated data gathering and extraction, and license only personal use of the site (section 4.2, section 5.1). The operator decision of 2026-10-23 rested on a fetch that saw only a banner, so its basis is gone.
+  - **Change:** the two Polymarket feeds leave `venue/sources/datalayer.json`. The `[polymarket]` certificate records the withdrawal, with `retrieval = false`.
+  - **Deploy:** the data-layer recorder on the cluster and on the Oracle VM.
+  - **Earlier recordings:** kept, unused, until the human decides.
+  - **Thesis track:** event contracts move to a venue with terms permitting automated use, Kalshi or Polymarket US, each certified first.
+  - **Reverse:** a later decision of the human's, on terms that permit it.
+- 2026-11-11 15:16 UTC (10:16 EST), the human, on the rearchitecture's open questions (`rearchitecture` `35cf871`, `audit/program/architecture.md` section 12):
+  - **Study 2 runs** (question 1), **on Kalshi** (question 2), certified first as section 5.5 lists.
+  - **Reference stake:** $2,500 (question 3), read as the size of one purchase costed against the recorded book; to be confirmed by the human.
+  - **No no-reading account** for now (question 4).
+  - **Reading result pages** (question 5): the human left it to whichever is more effective. The advisor decides **no direct fetch**: the certified search API must return page content itself (section 5.6, requirement 3). A fetch of arbitrary result pages under `robots.txt` alone would reach sites whose terms forbid automated collection, the failure that ended Polymarket's certificate.
+  - **Search API** (question 6): surveyed first, by Argon (web), its citations leads until the advisor checks them.
+  - **Argon's paper findings** (question 9): Fable's three recommendations are accepted. The paper is corrected for findings 1, 4, 6, 8, 10, 13 and 14 and the four qualifications are appended; the parked machinery's defects go in one table; no kernel-only aggregate crosses the licensing boundary until it is redesigned.
+  - **Open:** the perp instance (question 7) and the Polymarket recordings (question 8).
+  - **Reverse:** a later decision of the human's.
+- 2026-11-11 17:25 UTC (12:25 EST), the human: **study 2's bankroll is $2,500**, which can grow later, so a purchase is at most $125 (the stake rule's 5% cap). The reference stake is $125, and the detailed design may derive it otherwise. Questions 7 and 8 follow the advisor's recommendations:
+  - the perp instance is parked and Job `thesis-prewarm` is stopped. The advisor's `kubectl` was refused, so the human runs it;
+  - the Polymarket recordings are kept sealed, read by nothing, until a later decision of the human's.
+  - **Reverse:** a later decision of the human's.
+- 2026-11-11 17:25 UTC (12:25 EST), advisor: **Kalshi's API terms do not permit study 2 as designed.** No certificate exists.
+  - **The text:** the Kalshi Developer Agreement v1.1 (https://kalshi-public-docs.s3.amazonaws.com/Kalshi-Developer-Agreement.pdf, read 2026-11-11), which docs.kalshi.com says binds any use of the API (section 1). kalshi.com's own copy returned a 429.
+  - **Use:** "Use of Kalshi APIs is expressly limited to facilitating a members own trading on the Exchange; all other usages are disallowed" (section 3). A paper account places no trades.
+  - **Storage and sharing:** section 3.1 prohibits "collecting, caching, aggregating, or storing data or content accessed via the API except for purposes of facilitating your own trading on Kalshi", and sharing it "with third parties in any manner without prior written authorization from Kalshi". The language model's provider is a third party.
+  - **Benchmarking:** section 3.5 prohibits access "for any other benchmarking or competitive purposes".
+  - **Publication:** section 6.4 requires Kalshi's prior written approval for "public disclosures … relating to Kalshi".
+  - **The fee schedule** (PDF, "Last updated and effective: July 7, 2026", saved by the human): the taker fee is round up(0.07·C·P·(1−P)).
+  - **Ways forward, the human's:** Kalshi's written authorization for the study's uses, Polymarket US (partner-oriented API, terms unread), or a redesign by the architect.
+  - **Reverse:** a written authorization from Kalshi, or a later version of the agreement that permits the uses.
+- 2026-11-11 17:39 UTC (12:39 EST), advisor: **Polymarket US does not permit study 2 by its terms either.** No US event-contract venue is certified.
+  - **Agreement:** the Individual Participant and Clearing Member Agreement (https://polymarketexchange.com/files/legal/latest/participant-agreement, version 08.06.2026 per docs.polymarket.us, read 2026-11-11).
+  - **Section 22:** "All data and information available via the System is proprietary to PMUS and may be accessed and used solely as permitted by this Agreement, the Rules, and Applicable Law. Such data and information may not be redistributed except as PMUS expressly permits." Nothing in it permits a non-trading use, storage for research, or showing the data to a third party's model.
+  - **Section 19:** no production API use "unless and until you have received written approval to do so from Polymarket US".
+  - **The API documentation** (apidocs.polymarketexchange.com) is behind an access code.
+  - **Consequence:** both venues need written permission. Argon's round 2 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r2.md`) also changed the design in its second round, so the architect re-derives the program (CLAUDE.md, Reviews).
+  - **Reverse:** written permission from either venue.
