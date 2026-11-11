@@ -9,7 +9,7 @@
 - **Tavily:**
   - Its Platform Terms ("Last updated: May 4, 2026") are silent on storing Output: "the term 'Services' does not include Output" (1.7), and no clause restricts or permits it.
   - The licence is "solely for Customer's internal business purposes" (2, 3.2).
-  - The help-centre articles Argon quotes for storage, AI use and publication could not be found by search. Until they are read, requirement 2 is unclear, not passed.
+  - The storage article, saved by the human (`2026-11-11-tavily-storing-caching.pdf`, https://help.tavily.com/articles/1612400809-storing-caching-retaining-output, "last updated 9 days ago" on 2026-11-11), confirms it: "You may store search result metadata, snippets, full page content, and complete API responses, including long-term, with no maximum retention period and no deletion requirement". It adds that "the underlying web content belongs to its publishers". So requirement 2 passes. The AI-use and publication articles are still unread.
 
 **Ranking:** 1. Tavily, 2. Parallel, 3. Perplexity's Search API (or Exa once its terms are read). Every provider disclaims any licence over the publishers' text it returns.
 
