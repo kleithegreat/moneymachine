@@ -30,7 +30,7 @@ def yardstick() -> None:
 def capped_bet(sigma: float = 0.02, cap: float = 0.5) -> None:
     """The exact test: wealth must reach 20. Expected log growth a step at a constant bet lam is
     lam*mu - lam^2*(sigma^2 + mu^2)/2, and lam may not exceed 1/L (the gate: L = 2)."""
-    for steps in (360, 546, 1080, 2 * STEPS_A_YEAR, 5400):
+    for steps in (360, 546, 1080, STEPS_A_YEAR, 2 * STEPS_A_YEAR, 5400):
         free = math.sqrt(2 * LOG20 * STEPS_A_YEAR / steps)
         kelly = free / math.sqrt(STEPS_A_YEAR) / sigma
         mu = brentq(lambda m: steps * (cap * m - cap**2 * (sigma**2 + m**2) / 2) - LOG20, 0, 1)
