@@ -50,7 +50,8 @@ def oracle_pull(tmp_path: Path) -> OraclePull:
     destination = base / "000000000001/live"
     destination.mkdir(parents=True)
     (tools / "rsync").write_text(
-        '#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> "$RSYNC_ARGS"\n'
+        f"#!{shutil.which('bash')}\n"
+        'printf "%s\\n" "$@" >> "$RSYNC_ARGS"\n'
         'if [ -n "${RSYNC_ERROR:-}" ]; then printf "%s\\n" "$RSYNC_ERROR" >&2; exit 255; fi\n'
         'args=("$@")\nvolume="${args[-2]%/}"\nvolume="${volume##*/}"\n'
         'args[-2]="$FAKE_OCI/$volume/"\nexec "$LOCAL_RSYNC" "${args[@]}"\n'
@@ -212,6 +213,7 @@ def test_publish_reports_all_divergences_on_one_line(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.local
 @pytest.mark.parametrize("kill_first", [False, True])
 def test_overlapping_pulls_preserve_the_longest_history(tmp_path: Path, kill_first: bool) -> None:
     short, long, destination = (tmp_path / name for name in ("short", "long", "destination"))

@@ -11,6 +11,8 @@ from gate import campaign
 from gate.agent import campaigns
 from ingest.tests.crash_helpers import acknowledge, checkpoint, kill_during, recover
 
+pytestmark = pytest.mark.local
+
 MODULE = __name__
 IDS = [f"crash-swarm-N2-{i}" for i in range(5)]
 

@@ -15,7 +15,7 @@ from gate.probes import probes
 from reference import differential
 from reference.differential import REF, REPO, verdict_mm
 
-pytestmark = pytest.mark.usefixtures("built_kernel", "built_mmdump", "built_refmm")
+pytestmark = [pytest.mark.local, pytest.mark.usefixtures("built_kernel", "built_mmdump", "built_refmm")]
 
 
 def test_verdicts_agree(tmp_path: Path) -> None:
