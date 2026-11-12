@@ -1,21 +1,29 @@
 # Study 1, the positive control of the search: build plan
 
-Written 2026-11-12 01:25 UTC (20:25 EST) by Claude Fable 5.2, session "architect: study 1 fix". It replaces the plan written for revision 4 (`git show 4273da5:audit/program/briefs/1-positive-control.md`), after Argon's round 4 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r4.md`, findings 3 and 6). The design is `audit/program/architecture.md`, section 5 as revised on the same day. This file is the plan `CLAUDE.md`'s Orchestration asks for: ordered steps, each stating the behaviour its tests must show and the laws that hold for every input.
+Written 2026-11-12 01:25 UTC (20:25 EST) by Claude Fable 5.2, session "architect: study 1 fix", after Argon's round 4, and revised later that day as the next section says. The design is `audit/program/architecture.md`, section 5. This file is the plan `CLAUDE.md`'s Orchestration asks for: ordered steps, each stating the behaviour its tests must show and the laws that hold for every input.
 
-## What changed, and what it makes obsolete
+## What changed on 2026-11-12, and what it makes obsolete
 
-| Change | Why (architecture) | Steps |
-|---|---|---|
-| A program earns by any route. The funding-blind set becomes five mirror pairs, and wall 3 classifies their even parts | 5.1, 5.5 | 2, 4, 5 |
-| The rule is 39 of 57 pairs, not 24 of 32 | 5.1 | 1, 2, 5 |
-| The search runs on 1,600 markets until the rate is within 0.005 of 0.15; the check on 10,000 within 0.12 to 0.18 | 5.3 | 5 |
-| A session is void when it does not reach a designed end, whatever it evaluated | 5.2 | 8 |
-| The study may be ended early as inconclusive | 5.2 | 8, 9 |
-| Every step has laws | 5.5 | all |
+Revised 2026-11-12 11:06 UTC (06:06 EST) by Claude Fable 5.2, session "architect: study 1 open items", after the model fallback found in the pilot's sessions and Argon's round 5. Steps 1 to 6 were built from the text before it (`git show c46c786:audit/program/briefs/1-positive-control.md`), and the tests of steps 7 to 9 were written from it (`fffed7e`).
 
-- **Built and unchanged:** step 3 (`pick.py`) and step 6 (`sequential.py`), with their tests `test_pick.py` and `test_sequential.py`. Both gain laws, in new files.
-- **Built and changed:** `constants.py`, which the builder brings to the table below in step 1's commit.
-- **Obsolete tests, to be deleted and rewritten from this plan** by a session that has not read the code: `test_pairs.py` (it fixes 32 pairs), `test_measure.py` (24 of 32 throughout; another model writes it), `test_programs.py` (the seven funding-blind programs), `test_calibrate.py` (eight steps on 400 markets, wall 3's 14 of 1,400, the projected count). `support.py` is kept or rewritten as the new tests need.
+| Change | Why (architecture) | Code that changes | Tests that change |
+|---|---|---|---|
+| The agent is the harness as served. A fallback to `claude-opus-4-8` is judged; only an id outside `SERVED` ends the study, and it is an end | 5.1, 5.2, 5.4 | `constants.py` (`SERVED`); steps 7 to 9, unbuilt | `fakes.py` (its foreign id is `claude-opus-4-8`), `test_runner.py`, `test_report.py`, `test_manifest.py` |
+| A void is a session with no evaluation and no designed end. A cut-off session is judged, a killed one from its kept ledger | 5.2 | Step 8, unbuilt | `fakes.py`, `test_runner.py` |
+| The report's second decision counts every void as a miss, and the report reads no ledger | 5.2, 5.4 | Step 9, unbuilt | `test_report.py` |
+| Wall 3 is judged for each mirror pair, at most 4 of 200. Wall 5 bounds constant positions at 51 of 200 | 5.5 | `constants.py`, `calibrate.py` | `test_calibrate.py` |
+| The calibration times a whole market, and makes each twin once | Step 5 | `calibrate.py` | `test_calibrate.py` |
+| The tolerance includes its ends; the laws' inputs are exact | Steps 2, 5 | None, if the built code already does both | `test_calibrate.py` and `test_measure.py`, where they draw other inputs |
+| The manifest hashes the judged path, not `tests/` or the report | Step 7 | Step 7, unbuilt | `test_manifest.py` |
+| The lines carry each pick's inputs, and G100's earlier bests | Steps 7 to 9 | Steps 7 to 9, unbuilt | `fakes.py`, `test_manifest.py`, `test_runner.py`, `test_report.py` |
+
+- **Built and unchanged:** steps 1, 3, 4 and 6, and step 2 with `scores(programs, pairs)` as the advisor adopted it (`audit/decisions.md`, 2026-11-12 02:58 UTC (2026-11-11 21:58 EST)).
+- **Obsolete tests, to be deleted, and rewritten from this plan** by the session that wrote them or another that has not read the code:
+  - `test_runner.py`: `test_a_crashed_session_with_evaluations_is_void_and_a_turn_limit_or_wall_time_session_is_judged`, `test_killed_during_a_session_is_a_void_whatever_its_ledger_holds`, `test_a_void_session_is_kept_with_its_ledger`, `test_model_ids_record_a_fallback_to_another_model`, `test_the_pinned_model_is_the_manifests`, and the checks behind L8.5 and L8.6;
+  - `test_report.py`: the three tests of the void rule, `test_an_unfinished_study_is_reported_as_not_ended` for its "model changed" case, and the `judge` argument throughout;
+  - `test_manifest.py`: `test_files_name_everything_the_plan_hashes`;
+  - `test_calibrate.py`: wall 3's pooled count and the timing of 20 evaluations.
+- **Stale words:** `test_measure.py`'s note that architecture 5.1 quotes "0.67" (it now reads 0.671), and `test_programs.py`'s "fixed pseudo-random position".
 
 ## How to use it
 
@@ -29,11 +37,11 @@ Written 2026-11-12 01:25 UTC (20:25 EST) by Claude Fable 5.2, session "architect
 
 ## The order, against the accounts' window
 
-Cornell and TAMU are free until about 2026-11-25, and each day before the first session costs three markets (architecture 5.3). So the work is ordered by what the first session needs:
+Cornell and TAMU are free until about 2026-11-25, TAMU's week resets on 2026-11-14 04:00 UTC (2026-11-13 23:00 EST), and each day before the first session costs three markets (architecture 5.3). So the work is ordered by what the first session needs:
 
-1. **On the path:** tests and laws for steps 1, 2, 4 and 5, then their builds; the calibration run, about 20 core-hours on the cluster; steps 7 and 8, whose tests use stubs and can be written and built while the calibration runs; the criterion's review and commit (step 0); the manifest's commit and G100's arm; the bug hunt and Opus's last review.
+1. **On the path:** the changes to `constants.py` and `calibrate.py` with their tests, then the calibration run, about 20 core-hours on the cluster; the four facts from the pilot's transcripts (architecture 5.2); the rewritten tests of steps 7 and 8, then their builds, while the calibration runs; the criterion's review and commit (step 0); the manifest's commit and G100's arm; the bug hunt and Opus's last review.
 2. **Off the path, after the first session starts:** step 9, the Lean proofs, and the laws of steps 3 and 6, whose code already passes its tests.
-3. **If the window ends before a boundary,** the runner is left paused. Whether it resumes on another account or the study is ended as inconclusive is the human's choice (architecture, section 12, question 6).
+3. **If the window ends before a boundary,** the runner is left paused, and the study resumes later on another account under the same manifest (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)).
 
 ## What exists, and is used unchanged
 
@@ -227,17 +235,22 @@ Laws. A sequence's decision is the decision at its shortest prefix that is not `
 
 ## Step 7. The manifest and the searcher's arm (`gate/control/manifest.py`)
 
-`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; the hash of `gate/control/`; the model the harness asks for; `SERVED`; `calibration.json`'s hash.
+`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above, `SERVED` among them; the model the harness asks for; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; `calibration.json`'s hash; and the hash of each file of the judged path.
+
+- **The judged path** is every file under `gate/control/` that the searcher's or the runner's module imports, directly or through another module, and `programs/`. These are the files that can change a line of `searcher.jsonl` or `results.jsonl`.
+- **Outside it:** `tests/`, the report, and any module neither arm imports. The report recounts lines and judges nothing (L9.2). So laws, proofs and step 9 may land after the first session without failing `verify()`.
 
 Behaviour:
-1. Writing a manifest where one exists is an error.
+1. Writing a manifest where one exists is an error. So is writing one from a calibration that has no strength or in which a wall stopped.
 2. `verify()` recomputes every hash and fails naming the first that differs. Every entry point of steps 7 to 9 calls it first.
-3. After the manifest's commit and CS1.1's, `python -m gate.control.searcher` runs G100 on each study market in a ledger of its own, classifies its pick, and appends one line a market to `audit/control-1/searcher.jsonl`: the id, the seed, the evaluations spent, the pick's hash, its count of pairs won, the reference's median effect, and whether it earns.
+3. After the manifest's commit and CS1.1's, `python -m gate.control.searcher` runs G100 on each study market in a ledger of its own, classifies its pick, and appends one line a market to `audit/control-1/searcher.jsonl`: the id, the seed, the evaluations spent, the pick's hash and the inputs it reads, its count of pairs won, the reference's median effect, whether it earns, and its earlier bests. An earlier best is a program that was G100's pick after some evaluation: the line gives that evaluation's number, the program's hash, its count of pairs won and whether it earns, so that G100's pick among its first `k` evaluations can be read for any `k`.
 4. It refuses to run when a study market has an agent run directory: G100's arm is complete before the first session.
 5. Run twice, it gives the same file.
 
 Laws:
 - **L7.1** `verify()` passes on an untouched tree and, after a change to any one byte of any hashed file, fails naming that file.
+- **L7.3** The hashed files are exactly the judged path, found by the test from the modules' imports: a new module that an arm imports is hashed without being listed, and a new file under `tests/` is not.
+- **L7.4** Each earlier best is the pick of the ledger cut at its evaluation, and the last one is the pick.
 - **L7.2** The searcher's file does not depend on the order in which markets run or on the number of workers.
 
 ## Step 8. The runner (`gate/control/runner.py`)
@@ -248,9 +261,10 @@ Entry point `python -m gate.control.runner`, one market at a time in the manifes
 2. **Void.** The session is void when its ledger holds no evaluation and it reached no designed end. Its directory is kept under a numbered name, one line is appended to `audit/control-1/voids.jsonl` (the id, the run record if there is one, the model ids, how it ended), and the market is run again with a fresh ledger. Three voids on one market stop the runner with the state "paused", and a restart resumes at that market.
 3. **Model.** The session's model ids and fallback events are read first, whatever else is true of the session, and recorded. A fallback to an id in the manifest's `SERVED` is part of the agent and changes nothing. If any id is outside `SERVED`, the session is not counted, its market gets no result line and no void line, one line with the state "model changed", the market's id and the ids is appended, and no session ever starts again under this manifest.
 4. Every other session counts, on the pick in its ledger: a cut-off session, whether it crashed or the runner died under it; one that ends at the turn limit or the wall time; one that ends by its own choice. No pick is a miss.
-5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl` and flush it to disk before anything else happens: the id, the run record, the model ids, the evaluations spent, why the session stopped, the pick's hash and count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
+5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl`, in one write, before anything else happens: the id, the run record (none for a killed session), the model ids with their counts and the fallback events, the evaluations spent, how the session ended (the run's `stopped`, "crashed" or "killed"), the pick's hash and the inputs it reads, its count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
+   - **No fsync is asked for.** A line is a function of files that are kept: the run record, the transcript, the ledger and `searcher.jsonl`. A line lost with the machine is written again on restart, by behaviours 5 and 6, and those are tested by killing the process.
 6. Stop at `claim`, `futility` or `undecided`. With `continue`, go to market `i + 1`.
-7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it the runner starts no session.
+7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it, as after "model changed", the runner starts no session.
 
 Behaviour, with the harness and the kernel replaced by stubs in tests:
 1. A sequence of stub outcomes produces the decisions step 6 gives, and the runner launches no session after a stop.
@@ -277,12 +291,16 @@ Laws, for every random script of stub sessions (outcomes, crashes, foreign model
 `python -m gate.control.report` writes `audit/control-1/report.md` from the manifest, `calibration.json`, `searcher.jsonl`, `results.jsonl` and `voids.jsonl`, and reads nothing else: no ledger, and no kernel.
 
 Behaviour:
-1. It states the decision and the name architecture 5.4 gives it, word for word, and never "no better".
-2. Each arm's rate with its exact (Clopper-Pearson) 95% interval; the discordant counts; the power table's row nearest the observed rates.
-3. Reported, never judged: each pick's count of pairs won by arm; each pick's median effect and the reference's; whether each pick reads funding, premium, prices or none; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; every model id; evaluations that named an input N2 lacks.
+1. It states the decision and its name, word for word from the second column of architecture 5.4's table, and never "no better". Under a claim it names the models that answered, and where item 4's decision is not a claim it adds 5.4's sentence.
+2. Each arm's rate with its exact (Clopper-Pearson) 95% interval, and the discordant counts. It points to architecture 5.3's power table and quotes no row of it: a row chosen by the observed rates restates the result as power (Hoenig and Heisey, "The abuse of power", 2001).
+3. Reported, never judged, all from the lines:
+   - each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads;
+   - G100's pick among its first `k` evaluations, `k` being the agent's count on that market: the last earlier best at or before `k`, and none when `k` is 0;
+   - evaluations used and how each session ended;
+   - each session's model ids with their counts, and its fallback events; the agent's rate, with its exact interval, among sessions with a fallback and among those without.
 4. Void sessions with their causes and model ids, and the decision that the same markets give when every market with a void counts as the agent's miss, in place of its rerun's outcome. Where that path has reached no boundary at the markets judged, the report says so. Also the cut-off sessions that were judged, with their evaluations and outcomes.
 5. Sessions run beyond the stop, if any, appear in a separate table and in no rate.
-6. On a results file that ends "paused" or "model changed" it reports what there is and says the study has not ended. On one that ends "ended early" it reports "inconclusive" at the markets judged.
+6. On a results file that ends "paused", or that has reached no end, it reports what there is and says the study has "not ended". On one that ends "ended early" or "model changed" it reports "Inconclusive at the markets judged", with the cause.
 
 Laws, for every random set of input files that the runner could have written:
 - **L9.1** The report is a function of its inputs: the same files give the same bytes.

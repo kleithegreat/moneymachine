@@ -116,7 +116,7 @@ They were revised again on 2026-11-12 11:01 UTC (06:01 EST) by Claude Fable 5.2,
 - **So the claim changes and the measure does not.** Revision 4's wall 3 said that no funding-blind program may earn. That was a statement about routes, it was false, and a momentum program tripping it would have been the measure working. The claim now says "plant" where it said "funding edge" and does not imply that the pick reads funding. Making the plant invisible in prices, as Argon proposes, would change the frozen generator to defend a statement the study does not need.
 
 **Why this measure.**
-- **It is a test of a stated property, with an exact operating curve.** Let `q` be a pick's chance of beating half the reference on a fresh pair. The rule is the smallest that classes a pick at `q = 1/2` as earning with probability at most 0.005 and a pick at `q = 3/4` with probability at least 0.9: 39 of 57, which gives 0.0038 and 0.901, whatever the pick's variance or tails. Between the two the step is soft: 0.12 at 0.6, 0.48 at 0.67, 0.99 at 0.8. Revision 4's 24 of 32 passed a pick at `q = 3/4` only 0.59 of the time, which is the second half of Argon's finding 3. The reference is scored on the same pair, so its noise is inside the comparison.
+- **It is a test of a stated property, with an exact operating curve.** Let `q` be a pick's chance of beating half the reference on a fresh pair. The rule is the smallest that classes a pick at `q = 1/2` as earning with probability at most 0.005 and a pick at `q = 3/4` with probability at least 0.9: 39 of 57, which gives 0.0038 and 0.901, whatever the pick's variance or tails. Between the two the step is soft: 0.12 at 0.6, 0.48 at 0.671, 0.99 at 0.8. Revision 4's 24 of 32 passed a pick at `q = 3/4` only 0.59 of the time, which is the second half of Argon's finding 3. The reference is scored on the same pair, so its noise is inside the comparison.
 - **A soft step cannot make a false claim.** Both arms are classed by one rule, and G100's rate is calibrated under it. A pick in the soft zone costs its arm some rate, so softness can cost the agent the claim and never give it. How many of G100's picks sit there is measured before any session (5.5).
 - **It pays only an effect that keeps its sign from pair to pair,** and the plant's effect on a score has three parts. A score is a mean return over its standard deviation, and the plant moves both.
   - *The drift captured.* Negating every position negates it, and it keeps its sign across pairs. It is what the claim names.
@@ -207,12 +207,16 @@ Chance of the claim, at least overlap; independent arms; most overlap (the arms 
 
 ### 5.4 What a result may be called
 
-| Result | What it is called | Consequence |
-|---|---|---|
-| Upper boundary | The agent's sessions end on a program that earns from the plant more often than G100's 100 evaluations do | Search is not what the systematic line lacks. It lacks a rule with a Sharpe of 2 (section 2.3). The second cell, a plant with no economic story, becomes worth its sessions |
-| Futility stop | Not shown, at the power in 5.3, with each arm's rate and exact intervals | Never "no better": an agent at 0.3 stops here up to 24% of the time and ends undecided up to 50%, both at G100's 0.19 |
-| 100 markets, no boundary | Inconclusive, with the same report | As above |
-| Ended early, no boundary | Inconclusive at the markets judged, with the same report | As above |
+The report prints the second column word for word.
+
+| Result | Name | Reported with it | Consequence |
+|---|---|---|---|
+| Upper boundary | The agent's sessions end on a program that earns from the plant more often than G100's 100 evaluations do | The models that answered. Where the decision with every void counted as a miss (5.2) is not a claim: "With its void sessions counted as misses, the claim is not reached" | Search is not what the systematic line lacks. It lacks a rule with a Sharpe of 2 (section 2.3). The second cell, a plant with no economic story, becomes worth its sessions |
+| Futility stop | Not shown | The power in 5.3, each arm's rate and exact intervals | Never "no better": an agent at 0.3 stops here up to 24% of the time and ends undecided up to 50%, both at G100's 0.19 |
+| 100 markets, no boundary | Inconclusive | The same | As above |
+| Ended early, no boundary: by hand, or by a model the manifest does not name (5.2) | Inconclusive at the markets judged | The same, and the cause | As above |
+
+A paused study has no result yet, and the report says that it has not ended.
 
 **Not claimed:** real edge; that agents search better in general; anything about `claude-opus-5-5` or `claude-opus-4-8` alone; that the agent is better at an equal count of evaluations (reported, not judged); that a pick reads funding or names the plant's mechanism (the inputs each pick reads are reported); anything about the gate; search apart from prior, since the brief names the family the plant belongs to.
 
@@ -231,7 +235,7 @@ Chance of the claim, at least overlap; independent arms; most overlap (the arms 
 
 **Reported with the result, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions with their causes, and the decision recomputed with each void counted as the agent's miss; the counted sessions that were cut off, with their evaluations; each arm's rate with exact intervals; each session's model ids with their counts of responses, and its fallback event; the agent's rate among sessions with a fallback and among those without.
 
-**Cost in kernel evaluations:** 342 a study market to classify both picks and the reference; about 8.0 million for the calibration, 10.1 million at most, and 0.25 million for wall 3. One evaluation took about 9 ms here (100 in 0.88 s, `gate/control/tests/test_pick.py`), so about 20 core-hours. The builder times it first.
+**Cost in kernel evaluations:** 342 a study market to classify both picks and the reference, and 114 more for each earlier best of G100's, about five a market; about 8.0 million for the calibration, 10.1 million at most, and 0.25 million for wall 3. One evaluation took about 9 ms here (100 in 0.88 s, `gate/control/tests/test_pick.py`), so about 20 core-hours. The builder times it first.
 
 **Laws first.** Each step of the build has laws: properties that hold for every input, written by a session other than the builder and checked on random inputs before the code exists. The laws that the judged number rests on, the rule's bound and the sequential test's size, are also proved in Lean. They are in the build plan.
 
