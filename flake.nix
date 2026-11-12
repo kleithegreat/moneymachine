@@ -293,6 +293,7 @@
             vendor = pkgs.rustPlatform.importCargoLock { lockFile = ./reference/mmdump/Cargo.lock; };
           };
           sandbox = pytestCheck { name = "sandbox"; paths = "sandbox/tests"; };
+          lean-proofs = self.packages.${system}.refmm;
         };
 
       apps.x86_64-linux =
