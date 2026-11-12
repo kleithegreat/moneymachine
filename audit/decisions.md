@@ -898,3 +898,9 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Deletion:** everything stale may be deleted, including under `audit/`. This authorizes the deletions that `CLAUDE.md` reserves for the human. Each deletion pass logs its list in `audit/erasure/`. Git keeps the history.
   - **Statistics:** the human does not know statistics, and "statistically significant" is open-ended to them. So the choices stay the conventional ones, stated plainly in every summary: a 5% chance that a strategy with no edge passes, 80% power, and two years for a forward test.
   - **Bend:** the human asks whether all untrusted code could be written in Bend, against laws written first by another agent. The advisor answers from stage 6 (`audit/stage6/bend.md`).
+- 2026-11-12 01:41 UTC (20:41 EST), the human:
+  - **Study 1 resumes after the window:** if Cornell and TAMU lapse before a boundary, it resumes later on another account with the pinned model.
+  - **The pair rule** stays as Fable set it: a chance of 3/4 on a pair passes nine times in ten.
+  - **New code goes in Lean as far as possible, and OCaml for the rest.** This revives the language plan of 2026-10-26, deferred on 2026-11-08 with stage 7. It applies to new code; study 1's slice stays on the frozen Python stack, which its harness and window require.
+  - **The human asks what Nix could replace.** The advisor answers.
+  - **No Fable on the personal account** in its current five-hour window.
