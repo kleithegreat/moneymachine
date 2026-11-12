@@ -2,6 +2,7 @@
 pythonpath = ["."]
 testpaths = ["ingest", "gate", "kernel/tests", "criteria", "reference", "sandbox", "ops"]
 addopts = "-n auto --dist worksteal"
+markers = ["local: needs this PC (real data/, user namespaces, a killed process, git history); `nix flake check` skips it, `nix run .#test` runs it"]
 timeout = 600
 timeout_method = "thread"
 

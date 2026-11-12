@@ -138,6 +138,7 @@ def test_a_body_write_that_fails_leaves_nothing_a_later_poll_of_the_same_body_re
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
 
 
+@pytest.mark.local
 def test_a_recorder_killed_while_writing_a_body_leaves_every_logged_body_readable(tmp_path: Path) -> None:
     child = subprocess.Popen([sys.executable, "-c", FETCH, str(tmp_path), "0"])
     raw = tmp_path / "raw"
@@ -225,6 +226,7 @@ def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path: Path, monkey
     assert datalayer.poll(http, feed, tmp_path, {})["url"].endswith("file-7.csv")
 
 
+@pytest.mark.local
 def test_a_recorder_killed_during_a_repair_keeps_the_damaged_bytes_and_repairs_on_restart(tmp_path: Path) -> None:
     raw, bad = damaged_on_disk(tmp_path)
     child = subprocess.Popen([sys.executable, "-c", FETCH, str(tmp_path), "0"])
@@ -257,6 +259,7 @@ datalayer.poll(http, {"name": "ecb-exr", "url": "https://data-api.ecb.europa.eu/
 """
 
 
+@pytest.mark.local
 @pytest.mark.parametrize("step", ["record", "move"])
 def test_a_repair_killed_after_any_step_is_on_the_record_with_its_damaged_bytes(tmp_path: Path, step: str) -> None:
     raw, bad = damaged_on_disk(tmp_path)

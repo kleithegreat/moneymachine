@@ -484,6 +484,7 @@ def test_mirror_reports_each_source_volume_capacity_and_publishes_manifest_last(
         assert source in site.measured
 
 
+@pytest.mark.local
 def test_killed_mirror_cannot_refresh_report_before_final_publication(
     diskguard: ModuleType, mirror_site: SimpleNamespace
 ) -> None:

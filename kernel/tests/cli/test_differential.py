@@ -42,6 +42,7 @@ def steps(events: list[dict[str, Any]]) -> list[tuple[Any, str, str]]:
     return [(e["t"], e["type"], e.get("coin", "")) for e in by_type(events, KINDS)]
 
 
+@pytest.mark.local
 def test_kernel_matches_witness(tmp_path: Path, built_kernel: Path) -> None:
     version = stage0_version()
     assert version is not None

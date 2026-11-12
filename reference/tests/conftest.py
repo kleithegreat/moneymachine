@@ -1,3 +1,4 @@
+import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -19,6 +20,9 @@ def built_mmdump(session_build: Callable[[str, Callable[[], object]], None]) -> 
 
 @pytest.fixture(scope="session")
 def built_refmm(session_build: Callable[[str, Callable[[], object]], None]) -> None:
-    session_build(
-        "lean", lambda: subprocess.run(["lake", "build"], cwd=REPO / "reference/lean", check=True, capture_output=True)
-    )
+    """`REFMM` names a prebuilt binary (the flake's `refmm`, which the `reference` check sets); unset, Lake builds it."""
+    if "REFMM" not in os.environ:
+        session_build(
+            "lean",
+            lambda: subprocess.run(["lake", "build"], cwd=REPO / "reference/lean", check=True, capture_output=True),
+        )

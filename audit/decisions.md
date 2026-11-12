@@ -952,3 +952,23 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Fact 3 fails:** in all 20 fallback sessions, `claude-opus-4-8` responses come *before* the event line. In `agent-null-3-N2-0`, three responses precede the event at line 7. The client writes the event after the retried responses, so a reader that requires the event first would call every fallback session a model change.
   - **Fact 4:** from run records, all 41 sessions finished with exit 0. None missed every designed end, with or without a fallback.
   - **Consequence:** the reader of ids goes back to the architect, as 5.2 requires. These facts suggest a session is either all `claude-opus-5-5` or all `claude-opus-4-8`, with the event anywhere in the session.
+- 2026-11-12 15:23 UTC (10:23 EST), advisor: **correction to the four facts above.** The scan missed the swarm's transcripts, which sit at `*/swarm/A*/transcript.jsonl`.
+  - **Over every pilot transcript in the mirror and `data/agent`:** 169 sessions (128 swarm, 20 stage 3 null v2, 20 null v3, 1 real), of which 109 have a fallback event (89 swarm, 10, 9 and 1).
+  - **Ids:** `claude-opus-5-5` 3,606 responses, `claude-opus-4-8` 7,034, no other.
+  - **Fact 2 holds:** at most one event, and no 5.5 response after it.
+  - **Fact 3 fails** in all 109 fallback sessions.
+  - **"One id throughout" is not quite true:** 3 sessions (`swarm-null-2-N2-4` A1, `swarm-null-2-N2-7` A2, `swarm-null-N2-1` A1) have one `claude-opus-5-5` response before switching.
+  - **Effect on the rule:** Fable's reader of ids (`rearchitecture` `afb73dd`) already counts mixed sessions as the agent and reports the rate by set of ids, so it stands. Its text's counts ("41 sessions", "none was answered by both") are corrected in its next revision.
+- 2026-11-12 15:29 UTC (10:29 EST), advisor: **the client's own id, `NOTICE`, owed before study 1's manifest** (architecture 5.2, `rearchitecture` `afb73dd`). It is `<synthetic>`.
+  - **How it was found:** the frozen client (Claude Code 2.1.304, the dev shell's, the build `harness_hash` names) ran `claude -p --model claude-opus-5-5` with `ANTHROPIC_BASE_URL=http://127.0.0.1:9`, an address that refuses connections, so no request reached Anthropic.
+  - **What it wrote:** after its retries, one assistant line with `message.model` = `<synthetic>`, marked `isApiErrorMessage: true` in its transcript, and a result line with `is_error: true`. Only ids and line types were read.
+- 2026-11-12 15:43 UTC (10:43 EST), builder, erasure items 6, 10, 11 and 12 (`erasure` branch): **tests are flake checks with a `local` marker; the launchers are `ops/session.sh` behind `apps.session` and `apps.heavy`; the timers are `ops/units.nix`, exported as `homeManagerModules.default`, not installed; stages 8 and 9 are deleted from `audit/criteria.md`** (the human's approval, 2026-11-12 03:20 UTC (2026-11-11 22:20 EST)).
+  - **Departure from the plan:** the Lean differential (`reference/tests/test_lean_differential.py`, both tests) is marked `local`, not run in the `reference` check: a Lake-built binary needs the host's dynamic loader, which the Nix sandbox lacks.
+  - **Reverse:** `git revert`; the frozen criteria text is at `ab42e5e:audit/criteria.md`.
+- 2026-11-12 15:47 UTC (10:47 EST), the human: **Lean builds staying local is a big drawback, one of the main sources of drag.** The erasure pass left the Lean differential local, because a Lake-built binary needs the host's dynamic loader, which the Nix sandbox lacks. Lean is to be built inside Nix, so that its proofs and differential run as flake checks on the remote builders. This is the next infrastructure item, and the advisor plans it on the human's word to continue.
+- 2026-11-12 16:04 UTC (11:04 EST), advisor: **Lean builds through Nix** (merged `768bb4d`, the human's direction of 2026-11-12):
+  - `packages.refmm` builds `reference/lean` offline with Lake and is patched to Nix's loader. `checks.lean-proofs` type-checks every theorem; a scratch false lemma made it fail.
+  - The Lean differential now runs in the `reference` check (6 passed).
+  - **The frozen funding blob** is a fixed-output input (`requireFile`, sha256 `d07162b8…5c39`): the calibration input over `[W_START, HOLDOUT_START)`, before 2026-04-03, from Hyperliquid's `fundingHistory`. It holds no holdout or forward-window data. Each builder registers it once with `nix-store --add-fixed sha256` on a copy of the file.
+  - `flake.lock` and `claude-code`'s store path are unchanged.
+  - **One second path remains,** in `ops/shards.py`'s `LOCAL_ONLY`, and it goes with phase D.
