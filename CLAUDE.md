@@ -28,7 +28,7 @@ The one exception is the audit record (§3): pre-registered criteria, the experi
 
 The human directs the project and is sometimes present: ask when it matters. The advisor is one long-lived session; builders are fresh, self-contained sessions or subagents. Every session reads `PROGRESS.md` first, and a builder ends by updating it. Some work runs unattended (oftentimes overnight); then nobody answers, so write what you would have asked under Blockers, commit, and carry on with whatever does not depend on it.
 
-The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap sets the stages, and stage 11 is the human's. If the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record that under Blockers before changing it. After a paper change, commit the rebuilt PDF (`nix build .#whitepaper`, copy `result` to `docs/whitepaper.pdf`).
+The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap sets the studies. The project is academic: no live trading (the human, 2026-11-11). If the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record that under Blockers before changing it. After a paper change, commit the rebuilt PDF (`nix build .#whitepaper`, copy `result` to `docs/whitepaper.pdf`).
 
 ### The advisor
 
@@ -44,12 +44,12 @@ One authoritative home per kind of information; anything elsewhere is a summary 
 - **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
 - **Source certificates:** `venue/sources.toml`, read by the terms tests.
 - **Outside research:** `docs/research/`, deep-research reports kept verbatim; their citations are leads until checked.
-- **Specs for independent implementers:** the upper-case `.md` beside the code it defines (`kernel/DSL.md`, `thesis/SCORING.md`), complete enough to implement from alone.
+- **Specs for independent implementers:** the upper-case `.md` beside the code it defines (`kernel/DSL.md`, `ingest/ARCHIVE.md`), complete enough to implement from alone.
 - **History:** `ctx view | zoom | grep`, a retrieval aid and never evidence: before relying on a summary, read the leaf (`ctx zoom <ref>`) and the audit record.
 
 ### Frozen identities
 
-Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harness, the thesis track's scientific manifest, the kernel of the pilot's judged runs), unless the change is meant to fork it. The thesis track's operational layer is outside its identity: a patch to it gets a decisions line and a targeted test, and each session records its operational commit. A fork never gets to rerun what it judged on the same evidence: a changed harness needs fresh null campaign ids, a real arm a new, later holdout, and a thesis refreeze a new forward window. Check first: `gate/agent/harness.py`'s `harness_hash`, `audit/stage10/manifest.json`, `audit/criteria.md`.
+Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harness, the kernel of the pilot's judged runs, and the parked thesis track's manifest at `archive/thesis`), unless the change is meant to fork it. A fork never gets to rerun what it judged on the same evidence: a changed harness needs fresh null campaign ids, and a real arm needs a new, later holdout. Check first: `gate/agent/harness.py`'s `harness_hash` (which hashes the `claude` store path, so `flake.lock` does not move while a study runs on it), `audit/criteria.md`.
 
 ### Decisions
 
@@ -69,11 +69,11 @@ Pre-register only conditions that judge a number someone could game, such as a s
 
 ### Correctness
 
-Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record. Everything that can change a judged result or lose a recording is held to its spec, not only the kernel: the gate, the series, the thesis track, the recorders, the mirror. A different session writes its tests from the spec without reading the code, a different model where a judged result depends on them; a defect starts as a failing test, and failure paths are tested by killing the process. One fresh session hunts bugs in the code a stage rests on before its exit and before each refreeze (the failure this prevents: `audit/reviews/2026-11-02-gpt-hunt-*.md`).
+Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record. Everything that can change a judged result or lose a recording is held to its spec, not only the kernel: the gate, the series, the studies, the recorders, the mirror. A different session writes its tests from the spec without reading the code, a different model where a judged result depends on them; a defect starts as a failing test, and failure paths are tested by killing the process. One fresh session hunts bugs in the code a stage rests on before its exit and before each refreeze (the failure this prevents: `audit/reviews/2026-11-02-gpt-hunt-*.md`).
 
 ### Holdout
 
-Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper §8 describes; a spent holdout is never reused. Nothing derived from an unreleased holdout, an embargo or the forward confirmation window [2026-11-01, 2027-01-31), live recordings included, reaches research, selection, or anyone reviewing unfrozen work. Anyone who can change a brief, strategy, universe, execution assumption or finalist inspects those recordings for integrity only (status, sizes, hashes, gaps), never prices or returns, and records any other access (`audit/criteria.md`, stage 3). The thesis track's forward use is its own design.
+Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper §8 describes; a spent holdout is never reused. Nothing derived from an unreleased holdout, an embargo or the forward confirmation window [2026-11-01, 2027-01-31), live recordings included, reaches research, selection, or anyone reviewing unfrozen work. Anyone who can change a brief, strategy, universe, execution assumption or finalist inspects those recordings for integrity only (status, sizes, hashes, gaps), never prices or returns, and records any other access (`audit/criteria.md`, stage 3).
 
 ### Reviewers
 
