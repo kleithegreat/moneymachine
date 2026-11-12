@@ -35,6 +35,23 @@
         lz4
         boto3
       ]);
+      linux = nixpkgs.legacyPackages.x86_64-linux;
+      apps64 = {
+        session = linux.writeShellApplication {
+          name = "session";
+          runtimeInputs = [ linux.coreutils linux.util-linux linux.procps ];
+          text = builtins.readFile ./ops/session.sh;
+        };
+        # Heavy work on this PC (CLAUDE.md, Running things): `nix run .#heavy -- 8G pytest ...`.
+        heavy = linux.writeShellApplication {
+          name = "heavy";
+          runtimeInputs = [ linux.coreutils ];
+          text = ''
+            memory=$1; shift
+            exec systemd-run --user --scope -p MemoryMax="$memory" -p MemorySwapMax=1G choom -n 1000 -- nix develop -c "$@"
+          '';
+        };
+      };
     in
     {
       devShells = forAll (pkgs:
@@ -255,11 +272,17 @@
           sandbox = pytestCheck { name = "sandbox"; paths = "sandbox/tests"; };
         };
 
-      apps.x86_64-linux.test =
-        let pkgs = nixpkgs.legacyPackages.x86_64-linux;
-        in {
-          type = "app";
-          program = pkgs.lib.getExe (pkgs.writeShellApplication {
+      apps.x86_64-linux =
+        let
+          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+          app = script: {
+            type = "app";
+            program = pkgs.lib.getExe script;
+          };
+        in
+        builtins.mapAttrs (_: app) apps64
+        // {
+          test = app (pkgs.writeShellApplication {
             name = "test";
             runtimeInputs = [ pkgs.nix ];
             text = ''
