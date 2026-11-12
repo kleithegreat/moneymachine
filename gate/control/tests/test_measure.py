@@ -1,13 +1,10 @@
-"""Study 1, step 2: the measure, and its laws L2.1 to L2.12 (audit/program/briefs/1-positive-control.md at 05a3e0d,
+"""Study 1, step 2: the measure, and its laws L2.1 to L2.12 (audit/program/briefs/1-positive-control.md at 54c11fb,
 "Definitions the tests rest on" and step 2; audit/program/architecture.md 5.1). Written from the plan before the
 code, by another model than the builder's.
 
 A pair is (planted score, twin score); a program's effect on it is planted minus twin, undefined when either score
 is missing or not finite. A pick wins a pair when both effects are defined, the reference's is positive and the
 pick's is at least SHARE times it; it earns from the plant when it wins at least MAJORITY of the PAIRS pairs.
-
-`scores(programs, pairs)` takes several programs, so that a pick and the reference stream through one evaluator per
-fresh market (Argon, round 5, finding 4); it returns one list of score pairs per program.
 
 Laws marked for Lean in the plan: L2.8 (`test_l2_8_*`) and L2.10 (`test_l2_10_*`). The plan's other four Lean laws,
 L6.1, L6.4, L6.5 and L6.6, are step 6's and are not in this file.
@@ -206,11 +203,18 @@ def test_even_is_the_mean_of_the_members_scores_on_each_market() -> None:
     assert [tuple(pair) for pair in even(member, mirror)] == expected
 
 
-# Every drawn float is a multiple of 1/32 below 2^12 in magnitude, so each sum, difference, product and half the
-# laws form is exact in float64 and none overflows (Argon, round 5, finding 4).
-finite = st.integers(-160, 160).map(lambda i: i / 4)
-shifts = st.integers(-16000, 16000).map(lambda i: i / 4)
-raises = st.integers(0, 400).map(lambda i: i / 4)
+UNIT = 2.0**-16
+
+
+def grid(low: int, high: int) -> st.SearchStrategy[float]:
+    """Multiples k of 2^-16 with low <= k <= high: step 2 draws finite scores with |k| <= 2^20, so that sums,
+    differences and halves are exact in binary64."""
+    return st.integers(low, high).map(lambda k: k * UNIT)
+
+
+finite = grid(-(2**20), 2**20)
+half_range = grid(-(2**19), 2**19)
+raises = grid(0, 2**20)
 bad = st.sampled_from(BAD)
 any_score = st.one_of(finite, finite, finite, bad)
 present_score = st.one_of(finite, finite, finite, st.none())
@@ -223,14 +227,15 @@ def pair_lists(scores_: st.SearchStrategy[Score]) -> st.SearchStrategy[list[Pair
 
 @st.composite
 def close_contests(draw: st.DrawFn) -> Contest:
-    """A reference with positive effects and a pick at a multiple of each, so counts fall near the majority."""
+    """A reference with positive effects, multiples of 2^-14, and a pick at a multiple of 1/4 of each, so that counts
+    fall near the majority and every score stays on step 2's grid."""
     pick: list[Pair] = []
     reference: list[Pair] = []
     for _ in range(PAIRS):
-        reference_effect = draw(st.integers(1, 40)) / 4
-        reference_twin = draw(finite)
-        pick_effect = reference_effect * draw(st.integers(-4, 16)) / 8
-        pick_twin = draw(finite)
+        reference_effect = draw(st.integers(1, 2**16)) * 4 * UNIT
+        reference_twin = draw(half_range)
+        pick_effect = reference_effect * draw(st.integers(-2, 8)) / 4
+        pick_twin = draw(half_range)
         reference.append((reference_twin + reference_effect, reference_twin))
         pick.append((pick_twin + pick_effect, pick_twin))
     return pick, reference
@@ -259,7 +264,7 @@ def shifted(pair: Pair, by: float) -> Pair:
     return (None if planted is None else planted + by, None if twin is None else twin + by)
 
 
-@given(contests(), st.lists(shifts, min_size=PAIRS, max_size=PAIRS), st.lists(shifts, min_size=PAIRS, max_size=PAIRS))
+@given(contests(), st.lists(finite, min_size=PAIRS, max_size=PAIRS), st.lists(finite, min_size=PAIRS, max_size=PAIRS))
 def test_l2_2_adding_one_number_to_both_scores_of_a_pair_changes_nothing(
     contest: Contest, pick_shifts: list[float], reference_shifts: list[float]
 ) -> None:
@@ -338,17 +343,28 @@ def scaled_pick(reference: list[Pair], twins: list[float], c: float) -> list[Pai
     return pick
 
 
-@given(pair_lists(finite), st.lists(finite, min_size=PAIRS, max_size=PAIRS), st.integers(-16, 32))
+@st.composite
+def stepped_references(draw: st.DrawFn) -> list[Pair]:
+    """A finite reference whose effects are multiples of 2^-14, as L2.7 draws them."""
+    reference: list[Pair] = []
+    for _ in range(PAIRS):
+        reference_twin = draw(half_range)
+        reference_effect = draw(st.integers(-(2**15), 2**15)) * 4 * UNIT
+        reference.append((reference_twin + reference_effect, reference_twin))
+    return reference
+
+
+@given(stepped_references(), st.lists(half_range, min_size=PAIRS, max_size=PAIRS), st.integers(-8, 16))
 def test_l2_7_a_pick_at_c_times_the_references_effect_wins_its_positive_pairs_when_c_reaches_share(
-    reference: list[Pair], twins: list[float], eighths: int
+    reference: list[Pair], twins: list[float], quarters: int
 ) -> None:
-    """Every scale c = k/8 for k in -16..32 is checked on the count; the drawn one also pair by pair."""
+    """Every scale c = k/4 for k in -8..16 is checked on the count; the drawn one also pair by pair."""
     positive = positive_pairs(reference)
-    for k in range(-16, 33):
-        count, _ = classify(scaled_pick(reference, twins, k / 8), reference)
-        assert count == (len(positive) if k / 8 >= SHARE else 0)
-    expected = positive if eighths / 8 >= SHARE else set()
-    assert won_pairs(scaled_pick(reference, twins, eighths / 8), reference) == expected
+    for k in range(-8, 17):
+        count, _ = classify(scaled_pick(reference, twins, k / 4), reference)
+        assert count == (len(positive) if k / 4 >= SHARE else 0)
+    expected = positive if quarters / 4 >= SHARE else set()
+    assert won_pairs(scaled_pick(reference, twins, quarters / 4), reference) == expected
 
 
 def negated(pick: list[Pair]) -> list[Pair]:
@@ -448,7 +464,6 @@ def test_a_chance_of_three_quarters_earns_with_probability_0_901() -> None:
     ids=("0.6", "0.671", "0.8"),
 )
 def test_the_soft_step_is_the_architectures(q: Fraction, chance: float) -> None:
-    """Architecture 5.1 quotes 0.48 "at 0.67"; that is q = 0.671 (arithmetic.py.txt), and 0.67 gives 0.47."""
     assert round(float(pass_chance(q)), 2) == chance
     assert pass_chance(q) == tail(57, 39, q)
 
