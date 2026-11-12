@@ -39,7 +39,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - tests revised for steps 2 (`../mm-s1-measure`), 5 (`../mm-s1-calib`) and 7 to 9 (`../mm-s1-runner`);
        - then the builds: steps 7 to 9, and the changes to steps 2 and 5.
      - **For the human:**
-       - Argon's review of CS1.1, `~/Downloads/argon-study1-r6.md`. Rebuild the bundle first if it predates `54c11fb`;
+       - Argon's review of CS1.1, `~/Downloads/argon-study1-r6.md`. (rebuilt at `54c11fb`);
        - review of H8 (the agent as served);
        - the criterion's commit;
        - then calibration (about 20 core-hours), G100 on the study markets, and the first sessions.
