@@ -84,13 +84,25 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 - **A designed end** of a session is a finish with a zero exit, the turn limit, or the wall time: `crashed(run)` is false. A session that left no run record did not end. **A void** is a session with no evaluation in its ledger and no designed end. **A cut-off session** has an evaluation in its ledger and no designed end; it is judged.
 - **G100's seed on a market** is the first eight bytes, as an unsigned integer, of `sha256("<manifest seed>:<market id>:G100")`.
 
-## Step 0. The criterion (the advisor, before step 7)
+## Step 0. The criterion (the advisor, before step 7's manifest)
 
-`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one. The advisor has this draft reviewed and commits it alone, as `criteria: study 1`, before any G100 run or session on a study market. The review is also the round that this revision owes on another model (`audit/program/ledger.md`). Steps 1 to 6 are model-free tooling and may be built first.
+`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one. This is its final text. The advisor has it reviewed and commits it alone, as `criteria: study 1`, before the manifest, any G100 run or any session on a study market. Its review is the round this revision owes (`audit/program/ledger.md`): Argon on the settlements of D9-a, D9-b and D10, and another model on the agent as served and the void rule, which is a fresh Opus session, labeled, while GPT is spent. Before the commit the advisor also records the four facts from the pilot's transcripts (architecture 5.2); if one of the first three fails, the text comes back to the architect.
 
-> **CS1.1.** Claim: on synthetic N2 markets in which six coins carry a planted drift at the manifest's strength, the frozen agent's session ends on a program that earns from the plant with a higher chance than G100's 100 evaluations do. Judged by Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, in the manifest's order, ending at 100 markets, over sessions that reach a designed end. Met when the upper boundary is crossed. The lower boundary, the end at 100 markets and an early end are reported as "not shown" and "inconclusive", never as "no better". Definitions: this file's, by commit hash. Size at most 0.043 by exact enumeration (`audit/program/arithmetic.py.txt`, `sign_test`).
-> - *Passes while the claim is false:* only by chance, at most 0.043, or by a measure that pays something other than the drift captured. Wall 3 bounds the second before any session.
-> - *Fails while the claim holds:* an agent at 0.3 against G100 at 0.15 to 0.19 ends without the claim with probability 0.33 to 0.68, unless the arms' successes overlap almost entirely. The study states that it is not powered there. A study ended early fails more often at every rate.
+> **CS1.1.** Claim: on synthetic N2 markets in which six coins carry a planted drift at the manifest's strength, the frozen agent's session ends on a program that earns from the plant with a higher chance than G100's 100 evaluations do.
+> - **The agent** is the stage 3 harness, `harness_hash` `6a335714…`, as served: it asks for `claude-opus-5-5`, and its responses come from `claude-opus-5-5` or, after the client reports a safeguard fallback, from `claude-opus-4-8`.
+> - **Judged by** Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, in the manifest's order, ending at 100 markets. Each market is judged on its first session that leaves an evaluation in its ledger or reaches a designed end.
+> - **Met** when the upper boundary is crossed.
+> - **Otherwise** the result is named "Not shown" at the lower boundary, "Inconclusive" at 100 markets, and "Inconclusive at the markets judged" at an early end, whether by hand or because a model the manifest does not name answered. It is never named "no better".
+> - **Definitions:** `audit/program/architecture.md`, section 5, and `audit/program/briefs/1-positive-control.md`, at the commit this criterion's commit names. Size at most 0.043 by exact enumeration (`audit/program/arithmetic.py.txt`, `sign_test`).
+> - *Passes while the claim is false:*
+>   - by chance, at most 0.043;
+>   - by a measure that pays something other than the drift captured, or pays a program that reads nothing. Walls 3 and 5 bound both before any session;
+>   - by voids that hide losses. A session is void only with no evaluation, so it has seen no score. Were each void to hide a loss all the same, the size would be 0.073 at one void and 0.117 at two (`voids`). So the report also gives the decision with every void counted as the agent's miss, which holds whatever made the voids. A claim that this decision does not reach is reported with the sentence "With its void sessions counted as misses, the claim is not reached".
+> - *Fails while the claim holds:*
+>   - an agent at 0.3 against G100 at 0.15 to 0.19 ends without the claim with probability 0.33 to 0.68, unless the arms' successes overlap almost entirely. The study states that it is not powered there;
+>   - a session cut off after an evaluation is judged on a search it did not finish, which lowers the agent's rate where outages are common;
+>   - a study ended early fails more often at every rate.
+> - *Not claimed:* anything about `claude-opus-5-5` or `claude-opus-4-8` alone, and the rest of architecture 5.4's list. A change of model that the provider does not disclose is invisible to this study.
 
 Everything else in this plan is a test, a law or a wall, not a criterion.
 
