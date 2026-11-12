@@ -35,14 +35,16 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
      - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.
      - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-2. **Erasure pass** (`../mm-erasure`), in progress. An Opus session writes the deletion list (`audit/erasure/2026-11-12-deletion-list.md`); Sonnet executes it. The list covers:
-   - the thesis track, to an archive tag;
-   - stale files, `audit/` included;
-   - glue to Nix flake apps and declared timers;
-   - tests as flake checks on Nix remote builders, so `ops/shards.py` goes;
-   - `ops/crossmachine.py`.
-
-   Frozen identities, the live recorders and everything study 1 uses stay.
+2. **Erasure pass** (`../mm-erasure`, list `audit/erasure/2026-11-12-deletion-list.md`).
+   - **Phase A is merged** (`11bb3fa`): the thesis track and `ops/crossmachine.py` are gone, about −6,300 lines of Python. The thesis is archived at `archive/thesis` and `archive/thesis-refreeze`, and the `thesis-refreeze` branch is deleted.
+   - **For the human:** delete StatefulSet `thesis` and Job `thesis-prewarm` in `moneymachine-live`, keeping the PVC, and remove the key `PERSONAL` from Secret `claude-token`.
+   - **Next:**
+     - phase B: flake checks, and a `local` pytest marker for tests that stay local;
+     - phase C: remote builders, applied by the human in Homelab and dotfiles;
+     - phase D: `shards.py` deleted after one full remote check;
+     - phase E: launchers and timers as flake apps and declared units;
+     - phase F: stages 8 and 9's criteria, and `agent-real` with study 1's criterion.
+   - **Constraint:** `flake.lock` does not move while study 1 runs on the frozen harness.
 
 ### Next, in order
 
