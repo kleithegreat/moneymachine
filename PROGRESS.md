@@ -8,43 +8,47 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
   - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources` (delvingbitcoin.org, Snapshot; clock record: the kernel's bound, `CLUSTER.md`), `datalayer` (`venue/sources/datalayer.json`).
-  - `thesis` stopped (0 replicas): `thesis-310449610583` got SIGTERM 2026-11-09 02:57 UTC (2026-11-08 21:57 EST), exited by itself 03:35 UTC (22:35 EST); its window incomplete, never pooled.
-  - Job `thesis-prewarm` stopped by the human on 2026-11-11 (the perp instance is parked).
+  - The thesis track is parked: StatefulSet `thesis` at 0 replicas, Job `thesis-prewarm` suspended (2026-11-11).
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
   - prodesk7 also runs test shards, only inside its isolated `mm-tests@` unit (Homelab `mm-test-node`; `CLUSTER.md` §7).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
-- **Budget.** No campaign runs. Fable runs on the personal account, one session at a time; GPT's one review is spent. Argon runs through the web UI; `agy` is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST).
+- **Accounts** (the human, 2026-11-11 and 12):
+  - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
+  - **TAMU's week** is spent until 2026-11-13 23:00 EST (2026-11-14 04:00 UTC).
+  - **Fable** runs one session at a time, on whichever account is logged in, never two at once.
+  - **GPT's** one review is spent.
+  - **Argon** runs through the web UI (the human); `agy` is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST).
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`: the program and study 1's build); `../mm-erasure` (`erasure`). Agents that edit at the same time get separate worktrees.
 
 ### Work in progress
 
-Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review Fable adversarially (`CLAUDE.md`). Fable 5.2 runs one session at a time through `data/builder/run-architect.sh`. The perp instance is parked (the human, 2026-11-11).
+Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when available) review Fable adversarially until they converge, with a plain summary for the human after each round (`CLAUDE.md`). Laws (properties for every input) come before code, written by another agent; the steps a judged number depends on get Lean proofs. New code is maximal Lean plus OCaml (the human, 2026-11-12).
 
-1. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, `audit/program/`; reviews in `audit/reviews/2026-11-1*`; the human's decisions in `audit/decisions.md`, 2026-11-11).
-   - **Revision 4** (`44fb5ae`, `9e5240b`; Argon's round 3 answered): two positive controls and no stop.
-     - **Study 1:** can the agent find an edge that exists. Fixed at six causes; each market gets its own fresh twin pairs.
-     - **Study 2:** can the confirmer confirm a published rule, the Astraeus vault replication. Fidelity against the vault's record first, then a frozen forward test with power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years.
-     - **No reading-agent study** until a measured count of at least 33 independent bets a week.
-     - **`docs/findings.md`** indexes the earlier research.
-     - **Approved by the human** (`audit/decisions.md`, 2026-11-11 21:26 UTC (16:26 EST)). Finished at `63e81cf`: `paper-changes.md` (parts A to D, every stale file), study 1's build plan (`briefs/1-positive-control.md`, nine steps) and `ledger.md` (14 agreed, 8 disputed).
-     - **Study 2's vault** is identified: `0x53375ca9…2a06`. Its archive data for April 3 to October 31 is downloading, about 27 GB and $2.46.
-   - **Built:** the archive reader and bars of any interval (`ingest/archive.py`, `4bcd768`).
-   - **Study 1 build** (`rearchitecture`):
-     - Tests for steps 1 to 6 are written before the code (`8c17b5d`, `07f0fc7`).
-     - Steps 3 and 6 are built (`834c51e`, `4273da5`; 61 tests pass).
-     - Steps 1, 2, 4 and 5 wait for Fable's fix of Argon's round 4 finding 3: session `7049e7c6`, started 2026-11-12 01:08 UTC (2026-11-11 20:08 EST). If it is cut off, commit its work and rerun the remainder.
-     - Cornell and TAMU are free for about two weeks only.
-   - **Archive:** study 2's 17 coins, 2026-04-03 to 10-31: 80,845 raw files (26 GB), parsed into 3,379 coin-day snapshot tables (15 GB), every one checked readable. Spent about $2.46.
-   - **Next:** Fable designs kernel version 2 (maximal Lean, OCaml for the rest, no Rust or Python: the human, 2026-11-12) with study 2's hedge and margin (Argon round 4's findings 1, 2, 4 and 5). Sonnet applies `paper-changes.md`. Then one deletion pass of stale files, `audit/` included (the human's leave).
-2. **Erasure** (one pass, with stale `audit/` files allowed and the Nix replacements and tests as flake checks on remote builders, `shards.py` and `crossmachine.py` out: `audit/decisions.md` 2026-11-12) per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
+1. **The program** (`audit/program/` on `rearchitecture`; revision 4 approved by the human 2026-11-11; `ledger.md` lists what is agreed and disputed). The project is academic: no live trading, no stage 11.
+   - **Study 1, the positive control of search:** does the agent find a planted edge more often than G100? At most 100 markets, on Cornell and TAMU.
+     - Steps 1 to 6 are built against tests written first (last commit `c46c786`).
+     - Open, for Fable: Argon's D9-a (wall 3 per mirror pair), D9-b (constant positions, the reference's coins), D10 (void bias in CS1.1), the random-pair encoding (`audit/decisions.md`, 2026-11-12), and "0.67" in 5.1, which should read 0.671.
+     - Then: steps 7 to 9 (manifest, runner, report), the criterion CS1.1's review and commit, calibration (about 20 core-hours, no Claude usage), G100 on the study markets, the first sessions. If the window ends first, it resumes later with the pinned model.
+   - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
+     - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
+     - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.
+     - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
+   - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
+2. **Erasure pass** (`../mm-erasure`), in progress. An Opus session writes the deletion list (`audit/erasure/2026-11-12-deletion-list.md`); Sonnet executes it. The list covers:
+   - the thesis track, to an archive tag;
+   - stale files, `audit/` included;
+   - glue to Nix flake apps and declared timers;
+   - tests as flake checks on Nix remote builders, so `ops/shards.py` goes;
+   - `ops/crossmachine.py`.
 
+   Frozen identities, the live recorders and everything study 1 uses stay.
 
 ### Next, in order
 
-- **Paper erasure:** DSL.md's derivation prose leaves after the pilot.
-1. **Stage 7, parked** (branch `stage7`, its plan there, and the Lean L1 branch): no gate, kernel, Lean, O1, nine-defect or delisting-corpus work until a study needs it; then it resumes as that study's vertical slice (the human, 2026-11-09).
-2. **Stage 8 data** (below the critical path): recording only, integrity-only inspection. `audit/stage8/scope-manifest.md`: no class admitted, every blocker stays; the exposure inventory comes before any annex. Databento is complete for the plan, within its sign-up credit.
-3. **Post-pilot ideas:** `docs/future-work.md`. Before O1's B, stage 8's screens, the C7.7/C8 corpora or the C8/C9 annexes are frozen: `audit/reviews/2026-11-06-gpt-assumption-sweep.md` (guessed numbers to derive first).
+1. **Fable:** study 1's open points; then kernel version 2 (Lean and OCaml) with study 2's hedge and margin.
+2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
+3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
 ### Finished
 
@@ -52,23 +56,12 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
 
 ## Blockers
 
-- **No US event-contract venue is certified for study 2** (`audit/decisions.md`, 2026-11-11). Kalshi's Developer Agreement (sections 3, 3.1, 3.5, 6.4) and Polymarket US's Participant Agreement (sections 19, 22) permit only trading use without written permission.
-- **Derivations owed:** paper appendix A (`audit/reviews/2026-11-06-gpt-assumption-sweep.md`); risk-cap/power claims narrowed to the supported scope, judgments unchanged.
-- **Nine-defect spec.** (1) No certified source states a delisting time yet, so a market whose rules mark a coin delisted is inadmissible (`R_MARKET`); the recorded venue marks FTM delisted, so no real-data market is admissible to the corrected engine until one exists. K1's provisional `store/delistings` adapter/certificate binding is undefined (§3). (2) `kernel/DSL.md` (hash-frozen) is revised with the harness fork that first runs agents on the corrected engine.
-
-- **FRED and ALFRED: the API terms forbid our use; the human decides.** https://fred.stlouisfed.org/legal/ (read 2026-10-26): clause (l) forbids storing, caching or archiving FRED content or putting it in any database (our store is one), and (k) use in developing or training machine learning. Key unused; no permission request for now (human). Macro vintages come from the Philadelphia Fed's RTDSM.
-- **IMF** "prohibits bulk download of information by automated technology without explicit permission" (https://www.imf.org/en/About/copyright-and-terms, 2026-10-23).
-- **Stage 8 equities and index constituents:** no purchase, indefinitely (the human, `audit/decisions.md`); stage 8 reports its admitted scope.
-- **ICE via Databento:** its non-display licence is unclear; ICE stays out until the human settles it.
-- **On-chain: hardware.** A Hyperliquid node: 16 vCPUs, 128 GB RAM, 100 GB of logs a day; Ethereum or Polygon: 2–4 TB NVMe.
-- **Not certifiable as they stand:** ClinicalTrials.gov (no automation clause); usda.gov (403); MarineCadastre AIS (no terms; GBs a day); World Bank Pink Sheet (per-release URL on a page forbidding automation; its Data Catalog API unchecked); EIA hourly grid (about 699 MB twice a day).
-- **Stage 8 data gaps:** policy-rate announcement times (BIS: effective dates only), ECB YC series and revisions, CFTC TFF history, Treasury average rates' revisions, the ECB release calendar.
+None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
 ## Decisions awaiting the human's review
 
-Round fifteen's design choices, reviewed by the advisor only (`audit/decisions.md`, 2026-11-10 02:52 UTC (2026-11-09 21:52 EST)): C10.2's audit fails closed; every call has one ledger record (effect rows carry their call); fetched bodies are stored by their hash.
-
-From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the refreeze schedule (start 05:00 UTC (00:00 EST), not 19:00 UTC (14:00 EST)); the Monday benchmark rule (on `thesis-refreeze`); the research reviews' actions; the cluster runner not adopted.
+- From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the research reviews' actions; the cluster runner not adopted.
+- **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending Fable.
 
 ## Qualifications
 
@@ -82,4 +75,4 @@ Failed criteria, labeled amendments and known limitations, each beside its crite
 - **Stage 4:** C4.5 v1 and v2 failed (strict xfails); v3 passes as written, N2-8 unresolved (A4's refused `Edit` fails `audit_holds`; calls equal ledger rows). A smoke test: no finalist, so the holdout and betting path never ran; the C4.5 qualifications stand. Pooled: 22 started, 21 known non-promotions (bound 0.133), v2's crashed N2-9 unknown (0.198 if counted); the series report reads only logs in `data/agent` and omits v2.
 - **Stage 5:** C5.3 failed as written for Discourse, met under the 2026-10-22 amendment and its clarification; C5.6's calibration deferred, required before any search store carries an event dataset (`criteria/test_stages3to5.py` enforces it); the 2026-10-19 migration's predecessor hash unrecorded; unlocks a blocked category (no free source).
 - **Stage 6:** C6.1 judged for Lean only (amendment of 2026-10-23; Bend's L5 not accepted); C6.3 not met; C6.5's effort a recovered proxy and its thread configuration a known limitation; C6.4 met on its third judged run; L1, L3 and L4 false as frozen, revised before their proofs.
-- **Stage 10:** C10.4's tolerance revised during its first differential run, after a one-ulp disagreement, and again on 2026-10-25 before live registration (missing funding had counted as zero); met on the run after. `as_managed_mean` omits a spread with one leg entered, though the equity carries its P&L (strict xfail, audit/decisions.md, 2026-11-03), until the next refreeze.
+- **Stage 10:** C10.4's tolerance revised during its first differential run, after a one-ulp disagreement, and again on 2026-10-25 before live registration (missing funding had counted as zero); met on the run after. `as_managed_mean` omits a spread with one leg entered, though the equity carries its P&L (strict xfail, audit/decisions.md, 2026-11-03); the thesis track is parked.
