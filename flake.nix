@@ -51,6 +51,17 @@
             exec systemd-run --user --scope -p MemoryMax="$memory" -p MemorySwapMax=1G choom -n 1000 -- nix develop -c "$@"
           '';
         };
+        # The timers' jobs (ops/units.nix): they run the working directory's files with this flake's Python.
+        diskguard = linux.writeShellApplication {
+          name = "diskguard";
+          runtimeInputs = [ (pythonFor linux) linux.libnotify ];
+          text = "exec python ops/diskguard.py";
+        };
+        oci-pull = linux.writeShellApplication {
+          name = "oci-pull";
+          runtimeInputs = [ (pythonFor linux) linux.bash linux.coreutils linux.rsync linux.openssh ];
+          text = "exec bash ops/oci/pull.sh";
+        };
       };
     in
     {
@@ -182,7 +193,7 @@
           claude = self.packages.${system}.claude-code;
           tools = [ python claude pkgs.git pkgs.sqlite pkgs.jq pkgs.openssh pkgs.rsync pkgs.procps pkgs.util-linux ];
           prose = [ ./docs ./audit/reviews ./audit/decisions.md ./audit/erasure ./CLAUDE.md ./PROGRESS.md
-                   ./flake.nix ./flake.lock ./.githooks ./.gitignore ];
+                   ./flake.nix ./flake.lock ./.githooks ./.gitignore ./ops/units.nix ];
           # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that
           # reads excluded prose fails in its check, which is how a missed dependency shows.
           srcAll = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions prose); };
@@ -291,6 +302,8 @@
             '';
           });
         };
+
+      homeManagerModules.default = import ./ops/units.nix { inherit (apps64) diskguard; ociPull = apps64.oci-pull; };
 
       formatter = forAll (pkgs: pkgs.nixfmt-rfc-style);
     };
