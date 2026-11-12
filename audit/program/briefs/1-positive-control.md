@@ -6,9 +6,13 @@ Written 2026-11-12 01:25 UTC (20:25 EST) by Claude Fable 5.2, session "architect
 
 Revised 2026-11-12 11:06 UTC (06:06 EST) by Claude Fable 5.2, session "architect: study 1 open items", after the model fallback found in the pilot's sessions and Argon's round 5. Steps 1 to 6 were built from the text before it (`git show c46c786:audit/program/briefs/1-positive-control.md`), and the tests of steps 7 to 9 were written from it (`fffed7e`).
 
+Revised again 2026-11-12 15:19 UTC (10:19 EST) by Claude Fable 5.2, session "architect: study 1 reader of ids", after the four facts from the pilot's transcripts (`audit/decisions.md`, 2026-11-12 15:13 UTC (10:13 EST)): the two rows on a session's model ids, and their tests below.
+
 | Change | Why (architecture) | Code that changes | Tests that change |
 |---|---|---|---|
 | The agent is the harness as served. A fallback to `claude-opus-4-8` is judged; only an id outside `SERVED` ends the study, and it is an end | 5.1, 5.2, 5.4 | `constants.py` (`SERVED`); steps 7 to 9, unbuilt | `fakes.py` (its foreign id is `claude-opus-4-8`), `test_runner.py`, `test_report.py`, `test_manifest.py` |
+| A session's model is read from its responses' ids alone. The fallback event is not read, and no rule depends on the order of a transcript's lines | 5.2 | Steps 8 and 9, unbuilt | `fakes.py` (`transcript`), `test_runner.py`, `test_report.py` |
+| The client's own lines are passed over, by an id the manifest names | 5.2 | `constants.py` (`NOTICE`); steps 7 and 8, unbuilt | `fakes.py`, `test_manifest.py`, `test_runner.py` |
 | A void is a session with no evaluation and no designed end. A cut-off session is judged, a killed one from its kept ledger | 5.2 | Step 8, unbuilt | `fakes.py`, `test_runner.py` |
 | The report's second decision counts every void as a miss, and the report reads no ledger | 5.2, 5.4 | Step 9, unbuilt | `test_report.py` |
 | Wall 3 is judged for each mirror pair, at most 4 of 200. Wall 5 bounds constant positions at 51 of 200 | 5.5 | `constants.py`, `calibrate.py` | `test_calibrate.py` |
@@ -19,9 +23,25 @@ Revised 2026-11-12 11:06 UTC (06:06 EST) by Claude Fable 5.2, session "architect
 
 - **Built and unchanged:** steps 1, 3, 4 and 6, and step 2 with `scores(programs, pairs)` as the advisor adopted it (`audit/decisions.md`, 2026-11-12 02:58 UTC (2026-11-11 21:58 EST)).
 - **Obsolete tests, to be deleted, and rewritten from this plan** by the session that wrote them or another that has not read the code:
-  - `test_runner.py`: `test_a_crashed_session_with_evaluations_is_void_and_a_turn_limit_or_wall_time_session_is_judged`, `test_killed_during_a_session_is_a_void_whatever_its_ledger_holds`, `test_a_void_session_is_kept_with_its_ledger`, `test_model_ids_record_a_fallback_to_another_model`, `test_the_pinned_model_is_the_manifests`, and the checks behind L8.5 and L8.6;
-  - `test_report.py`: the three tests of the void rule, `test_an_unfinished_study_is_reported_as_not_ended` for its "model changed" case, and the `judge` argument throughout;
-  - `test_manifest.py`: `test_files_name_everything_the_plan_hashes`;
+  - `fakes.py`:
+    - `FOREIGN`, which is `claude-opus-4-8`, an id the agent is served: it becomes an id outside `SERVED`;
+    - `transcript(pinned, foreign)`, which writes the event before the responses it explains, the order the pilot's record refutes: it takes the ids that answer, in order, and writes the event after the first responses, as the client does;
+    - `Behaviour.foreign` and the script's one "foreign" kind: a session's ids, with kinds for `claude-opus-4-8` throughout and for both;
+    - `manifest(model)`, which gains `SERVED` and `NOTICE`, and `simulate`, whose `"models": [model]` becomes each session's ids with their counts;
+    - the void rule and the lines' new fields, as the table says.
+  - `test_runner.py`:
+    - the void rule: `test_a_crashed_session_with_evaluations_is_void_and_a_turn_limit_or_wall_time_session_is_judged`, `test_killed_during_a_session_is_a_void_whatever_its_ledger_holds`, `test_a_void_session_is_kept_with_its_ledger`, and the checks behind L8.5 and L8.6;
+    - deleted: `test_model_ids_record_a_fallback_to_another_model` and `test_the_pinned_model_is_the_manifests`. In their place, step 8's behaviour 4 and L8.7;
+    - `test_model_ids_of_a_session_answered_by_the_pinned_model` and `test_model_ids_skip_lines_that_do_not_parse_and_keep_the_order_of_first_appearance`: ids with their counts, and the second also passes over a line of the client's id;
+    - `test_a_foreign_model_stops_the_study_and_its_market_has_no_result_line` stands once `FOREIGN` is outside `SERVED`, and gains the crashed session of behaviour 4;
+    - the laws' `SCRIPTED` gains the two new kinds, which count like any session;
+    - the module's note on `model_ids(transcript) -> list[str]` and on a line's "models".
+  - `test_report.py`:
+    - the three tests of the void rule, and the `judge` argument throughout;
+    - `test_an_unfinished_study_is_reported_as_not_ended` for its "model changed" case, which is an end named "Inconclusive at the markets judged";
+    - `test_every_counted_and_void_market_and_every_model_id_appears` and `recount`, for "models" as ids with counts and for the agent's rate by set of ids, which no test covers yet;
+    - no test there reads a fallback event, so none is deleted on that account.
+  - `test_manifest.py`: `test_files_name_everything_the_plan_hashes`; `NAMES` gains `SERVED` and `NOTICE`, so that `test_build_holds_every_entry_the_plan_lists` covers them. Its `content["model"]`, the id the harness asks for, stands;
   - `test_calibrate.py`: wall 3's pooled count and the timing of 20 evaluations.
 - **Stale words:** `test_measure.py`'s note that architecture 5.1 quotes "0.67" (it now reads 0.671), and `test_programs.py`'s "fixed pseudo-random position".
 
@@ -39,7 +59,7 @@ Revised 2026-11-12 11:06 UTC (06:06 EST) by Claude Fable 5.2, session "architect
 
 Cornell and TAMU are free until about 2026-11-25, TAMU's week resets on 2026-11-14 04:00 UTC (2026-11-13 23:00 EST), and each day before the first session costs three markets (architecture 5.3). So the work is ordered by what the first session needs:
 
-1. **On the path:** the changes to `constants.py` and `calibrate.py` with their tests, then the calibration run, about 20 core-hours on the cluster; the four facts from the pilot's transcripts (architecture 5.2); the rewritten tests of steps 7 and 8, then their builds, while the calibration runs; the criterion's review and commit (step 0); the manifest's commit and G100's arm; the bug hunt and Opus's last review.
+1. **On the path:** the changes to `constants.py` and `calibrate.py` with their tests, then the calibration run, about 20 core-hours on the cluster; the id of the client's own lines, recorded by the advisor before the manifest (architecture 5.2, `NOTICE`); the rewritten tests of steps 7 and 8, then their builds, while the calibration runs; the criterion's review and commit (step 0); the manifest's commit and G100's arm; the bug hunt and Opus's last review.
 2. **Off the path, after the first session starts:** step 9, the Lean proofs, and the laws of steps 3 and 6, whose code already passes its tests.
 3. **If the window ends before a boundary,** the runner is left paused, and the study resumes later on another account under the same manifest (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)).
 
@@ -71,6 +91,7 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 | `PLANTED` | coins 0 to 5 of 12 | A choice: half the coins, so each market keeps unplanted coins that wall 1 can compare |
 | `MAX_VOIDS` | 3 | Architecture 5.2 |
 | `SERVED` | `claude-opus-5-5`, `claude-opus-4-8` | The ids that answered the pilot's sessions: the one the harness asks for, and the client's fallback (architecture 5.2) |
+| `NOTICE` | The id the advisor records, or none | The id under which the frozen client writes a line of its own when a request fails (architecture 5.2). A fact owed before the manifest |
 
 - **Ids.** A study market is `control-1-m000` to `control-1-m099`. Its fresh pairs are `<market id>/fresh/0` to `/fresh/56`. The search's markets are `control-1-cal-a-0000` to `-1599`, the check's `control-1-cal-b-0000` to `-9999`, wall 3's `control-1-blind-000` to `-199`. No two sets share an id, so none shares a seed.
 - **A market at strength `b`** is `generate("N2", params, id, 730, PLANTED, b)` written with 180 holdout days and the series' cost cells. **Its twin** is the same call with strength 0.
@@ -80,16 +101,16 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 - **A program earns from the plant on market `m`** when it wins at least `MAJORITY` of `m`'s `PAIRS` fresh pairs. What it reads plays no part.
 - **A program's mirror** is the same program with every target position negated. **A mirror pair's even part** on a pair of markets has, as its two scores, the means of the two members' scores on the planted market and on the twin. It is classified like a program, and has no score where either member has none.
 - **A session's pick** is, among the programs that session evaluated on its study market, the one with the highest disclosed search-period `sharpe_annualized`. Ties go to the earliest evaluation. A program with no disclosed statistic is not a candidate. A session with no candidate has no pick, and that arm misses the market.
-- **A session's model ids** are the `message.model` of its transcript's assistant lines, each with its count of lines, in order of first appearance. A line that does not parse is skipped. The client's own notices carry an id that is no model's (architecture 5.2, fact 1); they are counted apart and are not ids. **A fallback event** is a transcript line of subtype `model_refusal_fallback`.
+- **A session's model ids** are the `message.model` of its transcript's assistant lines, each with its count of lines, in order of first appearance. A line that does not parse is passed over, and so is an assistant line whose id is `NOTICE`. No other line of the transcript is read: the ids do not depend on a `model_refusal_fallback` line, or on where it stands (architecture 5.2).
 - **A designed end** of a session is a finish with a zero exit, the turn limit, or the wall time: `crashed(run)` is false. A session that left no run record did not end. **A void** is a session with no evaluation in its ledger and no designed end. **A cut-off session** has an evaluation in its ledger and no designed end; it is judged.
 - **G100's seed on a market** is the first eight bytes, as an unsigned integer, of `sha256("<manifest seed>:<market id>:G100")`.
 
 ## Step 0. The criterion (the advisor, before step 7's manifest)
 
-`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one. This is its final text. The advisor has it reviewed and commits it alone, as `criteria: study 1`, before the manifest, any G100 run or any session on a study market. Its review is the round this revision owes (`audit/program/ledger.md`): Argon on the settlements of D9-a, D9-b and D10, and another model on the agent as served and the void rule, which is a fresh Opus session, labeled, while GPT is spent. Before the commit the advisor also records the four facts from the pilot's transcripts (architecture 5.2); if one of the first three fails, the text comes back to the architect.
+`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one. This is its final text. The advisor has it reviewed and commits it alone, as `criteria: study 1`, before the manifest, any G100 run or any session on a study market. Its review is the round this revision owes (`audit/program/ledger.md`): Argon on the settlements of D9-a, D9-b and D10, and another model on the agent as served and the void rule, which is a fresh Opus session, labeled, while GPT is spent. The four facts from the pilot's transcripts are recorded (`audit/decisions.md`, 2026-11-12 15:13 UTC (10:13 EST)). The third failed, and the agent's line below was rewritten for it: it no longer places the fallback before the responses.
 
 > **CS1.1.** Claim: on synthetic N2 markets in which six coins carry a planted drift at the manifest's strength, the frozen agent's session ends on a program that earns from the plant with a higher chance than G100's 100 evaluations do.
-> - **The agent** is the stage 3 harness, `harness_hash` `6a335714…`, as served: it asks for `claude-opus-5-5`, and its responses come from `claude-opus-5-5` or, after the client reports a safeguard fallback, from `claude-opus-4-8`.
+> - **The agent** is the stage 3 harness, `harness_hash` `6a335714…`, as served: it asks for `claude-opus-5-5`, and each response comes from `claude-opus-5-5` or from `claude-opus-4-8`, the client's fallback when the provider's safeguards refuse. A session is the agent's when every response in its transcript names one of the two.
 > - **Judged by** Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, in the manifest's order, ending at 100 markets. Each market is judged on its first session that leaves an evaluation in its ledger or reaches a designed end.
 > - **Met** when the upper boundary is crossed.
 > - **Otherwise** the result is named "Not shown" at the lower boundary, "Inconclusive" at 100 markets, and "Inconclusive at the markets judged" at an early end, whether by hand or because a model the manifest does not name answered. It is never named "no better".
@@ -247,7 +268,7 @@ Laws. A sequence's decision is the decision at its shortest prefix that is not `
 
 ## Step 7. The manifest and the searcher's arm (`gate/control/manifest.py`)
 
-`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above, `SERVED` among them; the model the harness asks for; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; `calibration.json`'s hash; and the hash of each file of the judged path.
+`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above, `SERVED` and `NOTICE` among them; the model the harness asks for; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; `calibration.json`'s hash; and the hash of each file of the judged path.
 
 - **The judged path** is every file under `gate/control/` that the searcher's or the runner's module imports, directly or through another module, and `programs/`. These are the files that can change a line of `searcher.jsonl` or `results.jsonl`.
 - **Outside it:** `tests/`, the report, and any module neither arm imports. The report recounts lines and judges nothing (L9.2). So laws, proofs and step 9 may land after the first session without failing `verify()`.
@@ -271,9 +292,9 @@ Entry point `python -m gate.control.runner`, one market at a time in the manifes
 
 1. Write the market at the strength. Run `harness.run_agent` with a ledger and run directory of that market's own. G100's ledger for the market is not readable from the session.
 2. **Void.** The session is void when its ledger holds no evaluation and it reached no designed end. Its directory is kept under a numbered name, one line is appended to `audit/control-1/voids.jsonl` (the id, the run record if there is one, the model ids, how it ended), and the market is run again with a fresh ledger. Three voids on one market stop the runner with the state "paused", and a restart resumes at that market.
-3. **Model.** The session's model ids and fallback events are read first, whatever else is true of the session, and recorded. A fallback to an id in the manifest's `SERVED` is part of the agent and changes nothing. If any id is outside `SERVED`, the session is not counted, its market gets no result line and no void line, one line with the state "model changed", the market's id and the ids is appended, and no session ever starts again under this manifest.
+3. **Model.** The session's model ids are read first, whatever else is true of the session, and recorded. A session whose every id is in the manifest's `SERVED` is the agent's, whatever the ids' order or mix, and whether or not its transcript holds a fallback event. If any id is outside `SERVED`, the session is not counted, its market gets no result line and no void line, one line with the state "model changed", the market's id and the ids is appended, and no session ever starts again under this manifest.
 4. Every other session counts, on the pick in its ledger: a cut-off session, whether it crashed or the runner died under it; one that ends at the turn limit or the wall time; one that ends by its own choice. No pick is a miss.
-5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl`, in one write, before anything else happens: the id, the run record (none for a killed session), the model ids with their counts and the fallback events, the evaluations spent, how the session ended (the run's `stopped`, "crashed" or "killed"), the pick's hash and the inputs it reads, its count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
+5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl`, in one write, before anything else happens: the id, the run record (none for a killed session), the model ids with their counts, the evaluations spent, how the session ended (the run's `stopped`, "crashed" or "killed"), the pick's hash and the inputs it reads, its count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
    - **No fsync is asked for.** A line is a function of files that are kept: the run record, the transcript, the ledger and `searcher.jsonl`. A line lost with the machine is written again on restart, by behaviours 5 and 6, and those are tested by killing the process.
 6. Stop at `claim`, `futility` or `undecided`. With `continue`, go to market `i + 1`.
 7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it, as after "model changed", the runner starts no session.
@@ -282,7 +303,7 @@ Behaviour, with the harness and the kernel replaced by stubs in tests:
 1. A sequence of stub outcomes produces the decisions step 6 gives, and the runner launches no session after a stop.
 2. A void session is rerun on the same market, and it has no line in `results.jsonl`. The third void pauses.
 3. A crashed session with an evaluation in its ledger is judged on its pick and is not rerun. A crashed session with none is void. A session that finishes with a zero exit and no evaluation is a miss. A session that ends at the turn limit with evaluations is judged.
-4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` after a fallback event, and one answered by both are all judged, and their lines record the ids, the counts and the event. An id outside `SERVED` ends the study, in a session that reached a designed end and in one that crashed alike, and the market has no result line and no void line.
+4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` throughout and one answered by both are all judged, and their lines record the ids and the counts. A `model_refusal_fallback` line changes nothing: with it after the first responses, as the pilot's client wrote it, before them, last, or absent, the session gives the same ids, the same line and the same decision. An assistant line whose id is `NOTICE` is not an id and ends nothing. An id outside `SERVED` ends the study, in a session that reached a designed end and in one that crashed alike, and the market has no result line and no void line.
 5. **Killed between a session's end and its result line** (the test kills the process): on restart the session is not run again, the pick is classified from the kept ledger, and one line is written.
 6. **Killed during a session:** on restart that session is not run again. With an evaluation in its kept ledger it is judged on its pick, its line holding no run record and "killed" as how it ended. With none it is a void, and the market is run again. The kept ledger is final: the daemon that writes it runs in the runner's process and dies with it. If the frozen harness does not give that, it is a wall.
 7. A market with a result line is never run again, and `results.jsonl` is never rewritten, only appended.
@@ -297,6 +318,7 @@ Laws, for every random script of stub sessions (outcomes, crashes, foreign model
 - **L8.4** No session starts after a line whose state or decision ends the study.
 - **L8.5** Kills that fall outside a session change no result line. A kill during a session makes that session a void when its ledger holds no evaluation, and otherwise gives the line of that ledger's pick; it changes nothing else.
 - **L8.6** A void adds no result line, and every session launched is a result line, a void, the "model changed" line, or the one in flight.
+- **L8.7** A session's model ids are a function of its assistant lines whose id is not `NOTICE`, in their order: adding, removing or moving any other line of the transcript changes no id and no count.
 
 ## Step 9. The report (`gate/control/report.py`)
 
@@ -309,7 +331,7 @@ Behaviour:
    - each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads;
    - G100's pick among its first `k` evaluations, `k` being the agent's count on that market: the last earlier best at or before `k`, and none when `k` is 0;
    - evaluations used and how each session ended;
-   - each session's model ids with their counts, and its fallback events; the agent's rate, with its exact interval, among sessions with a fallback and among those without.
+   - each session's model ids with their counts; the agent's rate, with its exact interval, for each set of ids that answered a session.
 4. Void sessions with their causes and model ids, and the decision that the same markets give when every market with a void counts as the agent's miss, in place of its rerun's outcome. Where that path has reached no boundary at the markets judged, the report says so. Also the cut-off sessions that were judged, with their evaluations and outcomes.
 5. Sessions run beyond the stop, if any, appear in a separate table and in no rate.
 6. On a results file that ends "paused", or that has reached no end, it reports what there is and says the study has "not ended". On one that ends "ended early" or "model changed" it reports "Inconclusive at the markets judged", with the cause.
