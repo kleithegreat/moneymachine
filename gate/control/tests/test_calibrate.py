@@ -5,36 +5,46 @@ The plan fixes behaviour, not names, so these tests fix the interface they use:
   (bool, true exactly when strength is None) and "rate" (the strength's rate on `ids`, None when stopped).
   `earns(strength, market_id) -> bool` is whether G100's pick earns from the plant there; the stub stands in for the
   kernel. With workers above 1, `earns` is a picklable module-level callable and may run in threads or processes.
-  `log` is the JSON-lines file, one line per (strength, market) evaluated, that a restarted run resumes from. Caching
-  the strength-zero twins across candidates is allowed, so the tests never count twin work, only `earns` calls.
+  `log` is the JSON-lines file, one line per (strength, market) evaluated, that a restarted run resumes from.
 - The bracket is [0, HI], HI = 0.01; the rule is the plan's. A rate is within the tolerance when
-  `abs(rate - TARGET) <= TOLERANCE`, inclusive. The tests skip rates exactly on that edge, which floats cannot decide.
+  `abs(rate - TARGET) <= TOLERANCE` in exact arithmetic, the ends included: 29 to 31 of 200 are inside.
+- Twins are made once: `g100_earns_in(scratch, strength, market_id)` is G100's earning on one market with `scratch`
+  shared across strengths; across calls with the same `scratch`, a fresh pair's twin is generated (`pairs.arrays` at
+  strength 0) once, and the planted market once per strength.
 - `rate_at(earns, strength, ids, log, workers=1) -> float`: G100's rate at a strength (the check).
-- `wall_2(effects)`, `wall_3(earns)`, `wall_4(strength, earns)` return {"count", "denominator", "status"}, status
-  "pass" or "stop". `effects` are the reference's effects, None where undefined; `earns` are booleans, one per
-  classification (wall 3) or per check market (wall 4); `strength` is the search's result, None when it found none.
-  Thresholds come from `constants` (EVEN_ALLOWED, BAND) and 0.95 for wall 2.
-- `make_report(*, search, effects, even_earns, check_earns, mirror_rates, pick_wins) -> dict` with keys "strength",
-  "walls" ({"2","3","4"} reports), "mirror_rates" (as given) and "pick_histogram" (58 counts, index k the number of
-  picks that won k pairs). The last two are never judged.
+- `wall_2(effects)`, `wall_3(earns)`, `wall_4(strength, earns)`, `wall_5(earns)` return {"count", "denominator",
+  "status"}, status "pass" or "stop". `effects` are the reference's effects, None where undefined. `wall_4`'s `earns`
+  are booleans per check market and `strength` is the search's result, None when it found none. `wall_3`'s `earns`
+  maps each of the five mirror pairs ("constant", "trend", "random_low", "random_mid", "random_high") to its 200
+  classifications of the even part; `wall_5`'s maps "long" and "short" to their 200 classifications as picks. For
+  these two, "count" is the largest of the counts, "denominator" the length of one list, and "counts" maps each key
+  to its own count. Thresholds come from `constants` (EVEN_ALLOWED = 4, CONSTANT_ALLOWED = 51, BAND) and 0.95 for
+  wall 2. Wall 3 is judged per pair, not pooled.
+- `make_report(*, search, effects, even_earns, constant_earns, check_earns, mirror_rates, pick_wins) -> dict` with
+  keys "strength", "walls" ({"2","3","4","5"} reports), "mirror_rates" (as given) and "pick_histogram" (58 counts,
+  index k the number of picks that won k pairs). The last two are never judged.
 - `cal_a_ids()`, `cal_b_ids()`, `blind_ids()`; `g100_seed(manifest_seed, market_id) -> int`;
   `g100_earns(strength, market_id, work, manifest_seed="control-1") -> bool`, one market through the kernel;
-  `projected_seconds(seconds_per_evaluation, cores=1)`; `projection_ok(seconds_per_evaluation, cores) -> bool`, true
-  when the projection is at most 24 hours."""
+  `timed_market() -> float`, the seconds one whole cal-a market takes at the bracket's upper end, everything included;
+  `projected_seconds(seconds_per_market, cores=1)`, the whole job's time, in markets: 13 strengths on 1,600, one on
+  10,000, and wall 3's blind markets counted as at most 1,000 market-equivalents (the plan's 250,800 evaluations are
+  765); `projection_ok(seconds_per_market, cores) -> bool`, true when the projection is at most 24 hours."""
 
 import contextlib
 import hashlib
 import json
 import math
 import tempfile
+from collections.abc import Callable, Sequence
 from fractions import Fraction
 from pathlib import Path
+from typing import Any
 
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from gate.control import calibrate, constants
+from gate.control import calibrate, constants, pairs
 from gate.control.constants import BAND, EVEN_ALLOWED, MAX_STEPS, PAIRS, TARGET, TOLERANCE
 
 HI = 0.01
@@ -81,8 +91,7 @@ def realized(stub: Rate, strength: float, ids: list[str]) -> Fraction:
 def classify(rate: Fraction) -> str:
     gap = abs(rate - Fraction(str(TARGET)))
     edge = Fraction(str(TOLERANCE))
-    assume(gap != edge)
-    return "inside" if gap < edge else ("above" if rate > Fraction(str(TARGET)) else "below")
+    return "inside" if gap <= edge else ("above" if rate > Fraction(str(TARGET)) else "below")
 
 
 def reference_search(stub: Rate, ids: list[str]) -> tuple[float | None, list[float]]:
@@ -107,7 +116,7 @@ def reference_search(stub: Rate, ids: list[str]) -> tuple[float | None, list[flo
     return None, visited
 
 
-def run(stub: Rate, ids: list[str], log: Path, workers: int = 1) -> dict[str, object]:
+def run(stub: Callable[[float, str], bool], ids: list[str], log: Path, workers: int = 1) -> dict[str, object]:
     result: dict[str, object] = calibrate.find_strength(stub, ids, log, workers)
     return result
 
@@ -134,6 +143,7 @@ def fresh_log() -> Path:
 def test_the_constants_the_search_rests_on() -> None:
     assert (TARGET, TOLERANCE, MAX_STEPS, SEARCH_SIZE, constants.CHECK_MARKETS) == (0.15, 0.005, 12, 1600, 10000)
     assert tuple(BAND) == (0.12, 0.18)
+    assert (EVEN_ALLOWED, constants.CONSTANT_ALLOWED, constants.BLIND_MARKETS) == (4, 51, 200)
 
 
 def test_rising_rate_crossing_the_target_returns_a_strength(tmp_path: Path) -> None:
@@ -149,6 +159,25 @@ def test_the_upper_end_is_evaluated_first_on_every_market(tmp_path: Path) -> Non
     stub = Rate(0.3)
     run(stub, IDS, tmp_path / "log.jsonl")
     assert [s for s, _ in stub.calls[:SEARCH_SIZE]] == [HI] * SEARCH_SIZE
+
+
+class First:
+    """G100 earns exactly on the first `count` markets, at every strength."""
+
+    def __init__(self, count: int) -> None:
+        self.earning = set(SMALL[:count])
+
+    def __call__(self, strength: float, market_id: str) -> bool:
+        return market_id in self.earning
+
+
+@pytest.mark.parametrize(("count", "strength"), [(29, HI), (30, HI), (31, HI), (28, None), (32, None)])
+def test_the_tolerances_ends_are_inside(tmp_path: Path, count: int, strength: float | None) -> None:
+    """145/1000 and 155/1000 are 0.005 from the target: inside. A rate one market beyond is outside, and a constant
+    rate beyond it has no strength at the upper end or on any midpoint."""
+    result = run(First(count), SMALL, tmp_path / "log.jsonl")
+    assert result["strength"] == strength
+    assert result["stopped"] is (strength is None)
 
 
 def test_a_rate_below_the_band_at_the_upper_end_stops_the_run(tmp_path: Path) -> None:
@@ -197,18 +226,57 @@ def test_g100_seed_is_the_first_eight_bytes_of_the_sha256(manifest_seed: str, ma
     assert calibrate.g100_seed(manifest_seed, market_id) == int.from_bytes(digest[:8], "big")
 
 
-def test_the_projection_is_the_plans_count_of_evaluations() -> None:
-    evaluations = 328 * 1600 * 13 + 328 * 10000 + 250_800
-    assert evaluations == 10_353_200
-    assert calibrate.projected_seconds(1.0) == pytest.approx(evaluations)
-    assert calibrate.projected_seconds(0.25, 8) == pytest.approx(evaluations / 32)
+MARKETS = 13 * 1600 + 10000
 
 
-@given(st.floats(0.001, 1.0), st.integers(1, 200))
+@given(st.floats(0.001, 100.0), st.integers(1, 200))
+def test_the_projection_counts_whole_markets_and_the_blind_ones(seconds: float, cores: int) -> None:
+    per_core = calibrate.projected_seconds(seconds, cores) * cores / seconds
+    assert MARKETS <= per_core <= MARKETS + 1000
+
+
+@given(st.floats(0.001, 100.0), st.integers(1, 200), st.floats(1.0, 10.0))
+def test_the_projection_is_linear_in_the_market_time_and_inverse_in_the_cores(
+    seconds: float, cores: int, factor: float
+) -> None:
+    base = calibrate.projected_seconds(seconds, cores)
+    assert calibrate.projected_seconds(seconds * factor, cores) == pytest.approx(base * factor)
+    assert calibrate.projected_seconds(seconds, cores * 2) == pytest.approx(base / 2)
+
+
+@given(st.floats(0.01, 20.0), st.integers(1, 200))
 def test_a_projection_above_24_hours_stops_the_job(seconds: float, cores: int) -> None:
     projected = calibrate.projected_seconds(seconds, cores)
     assume(abs(projected - 86400) > 1)
     assert calibrate.projection_ok(seconds, cores) is (projected <= 86400)
+
+
+@pytest.mark.slow  # one whole market through the kernel
+def test_the_timed_market_is_a_whole_markets_time() -> None:
+    seconds = calibrate.timed_market()
+    assert math.isfinite(seconds) and seconds > 1.0
+
+
+@pytest.mark.slow  # three strengths of one market through G100 and the kernel
+def test_a_twin_is_made_once_across_strengths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    market_id = "control-1-cal-a-0000"
+    made: list[tuple[str, float]] = []
+    original = pairs.arrays
+
+    def spy(market: str, strength: float) -> Any:
+        made.append((market, strength))
+        return original(market, strength)
+
+    monkeypatch.setattr(pairs, "arrays", spy)
+    strengths = (0.002, 0.004, 0.006)
+    for strength in strengths:
+        calibrate.g100_earns_in(tmp_path, strength, market_id)
+    fresh = set(pairs.fresh_ids(market_id))
+    twins = [m for m, s in made if m in fresh and s == 0.0]
+    assert sorted(twins) == sorted(fresh)
+    for strength in strengths:
+        planted = [m for m, s in made if m in fresh and s == strength]
+        assert sorted(planted) == sorted(fresh)
 
 
 @pytest.mark.slow  # 100 G100 evaluations, 342 scorings, kernel
@@ -236,13 +304,40 @@ def test_wall_2_counts_zero_negative_missing_and_nonfinite_effects_as_not_positi
     assert calibrate.wall_2([other] * 100)["status"] == "stop"
 
 
-def test_wall_3_allows_at_most_the_constant_of_the_classifications() -> None:
-    total = 5 * constants.BLIND_MARKETS
-    ok = calibrate.wall_3([True] * EVEN_ALLOWED + [False] * (total - EVEN_ALLOWED))
-    assert (ok["count"], ok["denominator"], ok["status"]) == (EVEN_ALLOWED, total, "pass")
-    bad = calibrate.wall_3([True] * (EVEN_ALLOWED + 1) + [False] * (total - EVEN_ALLOWED - 1))
-    assert (bad["count"], bad["denominator"], bad["status"]) == (EVEN_ALLOWED + 1, total, "stop")
-    assert calibrate.wall_3([False] * total)["status"] == "pass"
+PAIR_NAMES = ("constant", "trend", "random_low", "random_mid", "random_high")
+BLIND = constants.BLIND_MARKETS
+
+
+def counted(count: int, total: int = BLIND) -> list[bool]:
+    return [True] * count + [False] * (total - count)
+
+
+def pairs_with(counts: Sequence[int]) -> dict[str, list[bool]]:
+    return {name: counted(count) for name, count in zip(PAIR_NAMES, counts)}
+
+
+def test_wall_3_is_judged_per_pair_not_pooled() -> None:
+    ok = calibrate.wall_3(pairs_with([EVEN_ALLOWED] * 5))
+    assert (ok["count"], ok["denominator"], ok["status"]) == (EVEN_ALLOWED, BLIND, "pass")
+    assert ok["counts"] == dict.fromkeys(PAIR_NAMES, EVEN_ALLOWED)
+    for bad_pair in range(5):
+        counts = [0] * 5
+        counts[bad_pair] = EVEN_ALLOWED + 1
+        bad = calibrate.wall_3(pairs_with(counts))
+        assert (bad["count"], bad["denominator"], bad["status"]) == (EVEN_ALLOWED + 1, BLIND, "stop")
+        assert bad["counts"][PAIR_NAMES[bad_pair]] == EVEN_ALLOWED + 1
+    assert calibrate.wall_3(pairs_with([0] * 5))["status"] == "pass"
+
+
+def test_wall_5_allows_each_constant_at_most_its_constant() -> None:
+    ok = calibrate.wall_5({"long": counted(constants.CONSTANT_ALLOWED), "short": counted(constants.CONSTANT_ALLOWED)})
+    assert (ok["count"], ok["denominator"], ok["status"]) == (constants.CONSTANT_ALLOWED, BLIND, "pass")
+    assert ok["counts"] == {"long": constants.CONSTANT_ALLOWED, "short": constants.CONSTANT_ALLOWED}
+    for bad_side in ("long", "short"):
+        sides = {"long": counted(0), "short": counted(0)}
+        sides[bad_side] = counted(constants.CONSTANT_ALLOWED + 1)
+        bad = calibrate.wall_5(sides)
+        assert (bad["count"], bad["status"]) == (constants.CONSTANT_ALLOWED + 1, "stop")
 
 
 def test_wall_4_needs_a_strength_and_a_check_rate_inside_the_band() -> None:
@@ -267,13 +362,14 @@ def test_the_report_holds_each_wall_and_the_unjudged_figures() -> None:
     report = calibrate.make_report(
         search={"strength": 0.004, "stopped": False, "rate": 0.15},
         effects=effects_with(960, 1000),
-        even_earns=[False] * 1000,
+        even_earns=pairs_with([0] * 5),
+        constant_earns={"long": counted(0), "short": counted(0)},
         check_earns=[True] * (n * 15 // 100) + [False] * (n - n * 15 // 100),
         mirror_rates={"long": 0.3},
         pick_wins=wins,
     )
     assert report["strength"] == 0.004
-    assert {k: report["walls"][k]["status"] for k in "234"} == {"2": "pass", "3": "pass", "4": "pass"}
+    assert {k: report["walls"][k]["status"] for k in "2345"} == dict.fromkeys("2345", "pass")
     assert report["mirror_rates"] == {"long": 0.3}
     histogram = report["pick_histogram"]
     assert len(histogram) == PAIRS + 1
@@ -282,7 +378,8 @@ def test_the_report_holds_each_wall_and_the_unjudged_figures() -> None:
     other = calibrate.make_report(
         search={"strength": 0.004, "stopped": False, "rate": 0.15},
         effects=effects_with(960, 1000),
-        even_earns=[False] * 1000,
+        even_earns=pairs_with([0] * 5),
+        constant_earns={"long": counted(0), "short": counted(0)},
         check_earns=[True] * (n * 15 // 100) + [False] * (n - n * 15 // 100),
         mirror_rates={"long": 0.9},
         pick_wins=[20] * 50,
@@ -354,11 +451,18 @@ def test_l5_5_wall_2_passes_exactly_when_the_count_is_at_least_95_percent(count:
     assert (report["status"] == "pass") is (count >= 950)
 
 
-@given(st.integers(0, 1000))
-def test_l5_5_wall_3_passes_exactly_when_the_count_is_at_most_the_allowance(count: int) -> None:
-    report = calibrate.wall_3([True] * count + [False] * (1000 - count))
-    assert report["count"] == count
-    assert (report["status"] == "pass") is (count <= EVEN_ALLOWED)
+@given(st.lists(st.integers(0, BLIND), min_size=5, max_size=5))
+def test_l5_5_wall_3_passes_exactly_when_every_pairs_count_is_at_most_the_allowance(counts: list[int]) -> None:
+    report = calibrate.wall_3(pairs_with(counts))
+    assert report["counts"] == dict(zip(PAIR_NAMES, counts))
+    assert (report["status"] == "pass") is all(c <= EVEN_ALLOWED for c in counts)
+
+
+@given(st.integers(0, BLIND), st.integers(0, BLIND))
+def test_l5_5_wall_5_passes_exactly_when_both_counts_are_at_most_the_allowance(long: int, short: int) -> None:
+    report = calibrate.wall_5({"long": counted(long), "short": counted(short)})
+    assert report["counts"] == {"long": long, "short": short}
+    assert (report["status"] == "pass") is (max(long, short) <= constants.CONSTANT_ALLOWED)
 
 
 @given(st.integers(0, 1000))
