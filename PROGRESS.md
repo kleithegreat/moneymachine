@@ -34,7 +34,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
      - Steps 3 and 6 are built (`834c51e`, `4273da5`; 61 tests pass).
      - Steps 1, 2, 4 and 5 wait for Fable's fix of Argon's round 4 finding 3: session `7049e7c6`, started 2026-11-12 01:08 UTC (2026-11-11 20:08 EST). If it is cut off, commit its work and rerun the remainder.
      - Cornell and TAMU are free for about two weeks only.
-   - **Archive:** all 80,845 raw files are on disk (26 GB). Snapshot parsing is resuming after a low-memory kill (`data/hl-archive/fetch-2026-11-11b.log`). Then check that every snapshot parquet reads, since the kill may have left a partial file.
+   - **Archive:** study 2's 17 coins, 2026-04-03 to 10-31: 80,845 raw files (26 GB), parsed into 3,379 coin-day snapshot tables (15 GB), every one checked readable. Spent about $2.46.
    - **Next:** Fable designs kernel version 2 (maximal Lean, OCaml for the rest, no Rust or Python: the human, 2026-11-12) with study 2's hedge and margin (Argon round 4's findings 1, 2, 4 and 5). Sonnet applies `paper-changes.md`. Then one deletion pass of stale files, `audit/` included (the human's leave).
 2. **Erasure** (one pass, with stale `audit/` files allowed and the Nix replacements of `audit/decisions.md` 2026-11-12) per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
