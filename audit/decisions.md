@@ -933,3 +933,15 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
 - 2026-11-12 06:41 UTC (01:41 EST), builder, erasure phase A (`erasure` branch, local tags `archive/thesis` at `ab42e5e` and `archive/thesis-refreeze` at `9d8f6e2`): **`thesis/`, its three CLI commands, the `thesis` workload, `retrieval_reach` and its gate part, `ops/crossmachine.py` with its start-method test, and five stale audit files are deleted.**
   - The style check's exclusion is now the frozen identities plus the modules the recorder image loads; `gate/kernel.py`, `ingest/fallback.py` and `sandbox/canary.py` are formatted and annotated.
   - Reverse: `git show archive/thesis:<path>`.
+- 2026-11-12 07:10 UTC (02:10 EST), advisor: **many of the pilot's agent sessions answered with Claude Opus 4.8, not Opus 5.5.**
+  - **Found by:** study 1's step 8 test writer, then checked by the advisor from model-id fields only, in transcripts of synthetic null campaigns and the real campaign's search session.
+  - **What happened:** each such session holds a `model_refusal_fallback` event ("Opus 5.5's safeguards flagged this session", category "cyber", scope "session"). After it, every assistant response is from `claude-opus-4-8`.
+  - **The count:** stage 3's null campaigns v3, 9 of 20 sessions; stage 3's real campaign (`stage3-real`), its one search session; stage 4's swarm, 31 of 40 by the writer's count.
+  - **What it changes:**
+    - every result that names the agent's model: stages 3 and 4, and the paper's description of the pilot's agent;
+    - study 1's model-id stop, which would end the study within a few markets.
+
+    It changes no judged number: no promotion occurred, and the null bounds hold whatever model searched.
+  - **Next:**
+    - a qualification beside C3 and C4.5, and the paper, by Fable's paper step;
+    - study 1's handling of fallback sessions, and whether to pin a model the safeguards do not flag, by Fable, before the criterion.

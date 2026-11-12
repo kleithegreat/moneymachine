@@ -28,6 +28,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 1. **The program** (`audit/program/` on `rearchitecture`; revision 4 approved by the human 2026-11-11; `ledger.md` lists what is agreed and disputed). The project is academic: no live trading, no stage 11.
    - **Study 1, the positive control of search:** does the agent find a planted edge more often than G100? At most 100 markets, on Cornell and TAMU.
      - Steps 1 to 6 are built against tests written first (last commit `c46c786`).
+     - **Wall, for Fable first:** Opus 5.5's safeguards flag about half of the agent's sessions as "cyber" and fall back to Opus 4.8, so step 8's model-id stop would end the study within a few markets (`audit/decisions.md`, 2026-11-12).
      - Open, for Fable: Argon's D9-a (wall 3 per mirror pair), D9-b (constant positions, the reference's coins), D10 (void bias in CS1.1), the random-pair encoding (`audit/decisions.md`, 2026-11-12), and "0.67" in 5.1, which should read 0.671.
      - Then: steps 7 to 9 (manifest, runner, report), the criterion CS1.1's review and commit, calibration (about 20 core-hours, no Claude usage), G100 on the study markets, the first sessions. If the window ends first, it resumes later with the pinned model.
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
@@ -68,6 +69,8 @@ None blocks the program. Source certificates that fail, with their clauses, are 
 ## Qualifications
 
 Failed criteria, labeled amendments and known limitations, each beside its criterion in `audit/criteria.md`; reports cite this list.
+
+- **The agent's model (stages 3 and 4):** many sessions fell back from Opus 5.5 to Opus 4.8 after a "cyber" safeguard flag: 9 of 20 stage 3 null sessions, the real campaign's search session, and 31 of 40 in stage 4's swarm (`audit/decisions.md`, 2026-11-12). No judged number changes. Reports name the model that answered.
 
 - **Pilot (stages 0 to 5):** version 1's snapshot resolution, so a later correction can change what a decision saw (24 funding keys with several revisions); stage 7 resolves bitemporally.
 - **Stage 0:** window [2026-10-20 07:39:41, 2026-10-21 07:39:41) UTC spent (invalid C0.3 clock instrument; C0.7 over the 3 bps median-excess limit in 7 cells), so a pass under the 2026-10-21 revision passes only that amendment. The judged window [2026-10-25 09:35:29, 2026-10-26 09:35:29) UTC failed C0.7's coverage in 3 of 44 cells; every result using the cost table (stages 2, 3, 10) carries it.
