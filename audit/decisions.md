@@ -930,3 +930,6 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - `agent-real` goes when study 1's criterion is committed, if it still has no release path.
 
   Phase A runs now. The tests for study 1's steps 7 to 9 are written now, in their own worktree.
+- 2026-11-12 06:41 UTC (01:41 EST), builder, erasure phase A (`erasure` branch, local tags `archive/thesis` at `ab42e5e` and `archive/thesis-refreeze` at `9d8f6e2`): **`thesis/`, its three CLI commands, the `thesis` workload, `retrieval_reach` and its gate part, `ops/crossmachine.py` with its start-method test, and five stale audit files are deleted.**
+  - The style check's exclusion is now the frozen identities plus the modules the recorder image loads; `gate/kernel.py`, `ingest/fallback.py` and `sandbox/canary.py` are formatted and annotated.
+  - Reverse: `git show archive/thesis:<path>`.
