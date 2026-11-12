@@ -1,0 +1,42 @@
+{
+  "dsl": 1,
+  "mechanism": {
+    "capacity": "study 1 control",
+    "counterparty": "none: pseudo-random position, negated",
+    "predictions": []
+  },
+  "name": "random_mid_neg",
+  "weight": {
+    "args": [
+      {
+        "args": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "input": "volume"
+                      }
+                    ],
+                    "hours": 168,
+                    "op": "mean"
+                  }
+                ],
+                "op": "xs_demean"
+              }
+            ],
+            "op": "sign"
+          },
+          {
+            "const": 0.05,
+            "unit": "1"
+          }
+        ],
+        "op": "mul"
+      }
+    ],
+    "op": "neg"
+  }
+}
