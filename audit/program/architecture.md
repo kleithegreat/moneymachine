@@ -118,7 +118,13 @@ They were revised again on 2026-11-12 11:01 UTC (06:01 EST) by Claude Fable 5.2,
 **Why this measure.**
 - **It is a test of a stated property, with an exact operating curve.** Let `q` be a pick's chance of beating half the reference on a fresh pair. The rule is the smallest that classes a pick at `q = 1/2` as earning with probability at most 0.005 and a pick at `q = 3/4` with probability at least 0.9: 39 of 57, which gives 0.0038 and 0.901, whatever the pick's variance or tails. Between the two the step is soft: 0.12 at 0.6, 0.48 at 0.67, 0.99 at 0.8. Revision 4's 24 of 32 passed a pick at `q = 3/4` only 0.59 of the time, which is the second half of Argon's finding 3. The reference is scored on the same pair, so its noise is inside the comparison.
 - **A soft step cannot make a false claim.** Both arms are classed by one rule, and G100's rate is calibrated under it. A pick in the soft zone costs its arm some rate, so softness can cost the agent the claim and never give it. How many of G100's picks sit there is measured before any session (5.5).
-- **It pays only the part of the effect that knows the plant's sign.** The plant's effect on a score has two parts. Negating every position negates the first, the drift captured. It leaves the second: the variance path, liquidation, clipping, ruin. Argon's convexity is the second part. With effects exactly opposite, a program and its mirror win disjoint pairs and never both earn, since twice 39 exceeds 57. Wall 3 measures the second part directly, on mirror pairs of programs.
+- **It pays only an effect that keeps its sign from pair to pair,** and the plant's effect on a score has three parts. A score is a mean return over its standard deviation, and the plant moves both.
+  - *The drift captured.* Negating every position negates it, and it keeps its sign across pairs. It is what the claim names.
+  - *The plant's change in volatility,* which under N2 rescales the whole score. Negating every position negates this too: Argon's round 5 holds, and the earlier text was wrong to count it in the even part. For a program blind to the drift, its sign on a pair is set by the sign of the program's own score on the twin, a fresh coin on every pair. The rule bounds that at 0.0038 for any program, with no wall. It is second order in the drift.
+  - *The even part,* what the plant does to a program and its mirror alike: fees against a changed volatility, liquidation, ruin. Argon's convexity is here. It can keep one sign across pairs, so the rule cannot bound it, and wall 3 measures it on mirror pairs of programs.
+
+  With effects exactly opposite, a program and its mirror win disjoint pairs and never both earn, since twice 39 exceeds 57.
+- **The reference holds all twelve coins,** and so does every pick. A DSL program is one weight expression applied to every coin (`kernel/DSL.md`), so no program can hold the planted six alone. Half the reference's effect is 0.354 of the effect of an oracle on the planted six, at equal variances. The oracle is not a program a search could return, and Argon's programs concentrated on the planted coins are not either.
 - **Selection cannot act on it.** A session never sees its fresh pairs, so a pick fitted to its own market's noise carries nothing over.
 - **Markets stay independent.** Each market's pairs derive from its own id. Nothing random is shared between two markets' classifications.
 - **It is the thing the claim names.** Fees, liquidation, clipping and rounding are inside the score, so a program that holds the signal and is ruined does not count.
@@ -146,11 +152,18 @@ They were revised again on 2026-11-12 11:01 UTC (06:01 EST) by Claude Fable 5.2,
     4. from run records alone, the count of sessions that missed every designed end, with and without a fallback.
 
     A fact that fails the first three changes the named ids or the reader of ids, and comes back to the architect. The fourth is reported.
-- **Operational failures.** A session is void when it does not reach a designed end: a finish with a zero exit, the turn limit, or the wall time (`gate.agent.campaigns.crashed`, stage 3's definition). It is void whatever it had evaluated, and the market is run again with a fresh session before the next market is read. Three voids on one market pause the study, which resumes at that market.
-  - **Why this is valid.** The rule reads how the session ended and never a score. The session counted for a market is the first to reach a designed end, markets stay independent, and the null is about such sessions.
-  - **Why not judge a cut-off session on its pick,** as revision 4 did after a first evaluation. That scores an outage as a miss on a search the agent did not finish, which is the third part of Argon's finding 6: it holds. Resuming a session, Argon's fix, is not something the frozen harness does.
-  - **What it costs.** An outage is likelier to fall in a long session, so the counted sessions lean short. The lean is second order while voids are few, and the report shows it: every void with its evaluations, and the decision recomputed with each void judged on its pick.
-  - Every other session counts: one that ends by its own choice with no evaluation is a miss, and one that ends at the turn limit or the wall time is judged on its pick.
+- **Operational failures.** A designed end is a finish with a zero exit, the turn limit, or the wall time (`gate.agent.campaigns.crashed`, stage 3's definition). A session is void when it leaves no evaluation in its ledger and reaches no designed end. The market is then run again with a fresh session before the next market is read, and three voids on one market pause the study, which resumes at that market. Every other session counts, on the pick in its ledger:
+  - one cut off after an evaluation, by a crash or by the runner's death;
+  - one that ends at the turn limit or the wall time;
+  - one that ends by its own choice, which with no evaluation is a miss.
+
+  This is revision 4's rule again. The first revision of this section voided every cut-off session, and Argon's round 5 broke that.
+  - **Three things are wanted, and the frozen harness allows two.** No selection that a score could inform; no outage scored against the agent; no change to the harness, which cannot resume a session. Argon's round 4 asked for the second and its round 5 for the first, and both findings hold. The first is the one a criterion exists for, since it guards the claim. The second costs power, and is stated.
+  - **Why a rerun after an evaluation selects.** A search that is losing runs longer, so it is cut off more often, and each rerun is a fresh draw that G100 never gets. In Argon's example a rate of 0.15 becomes 0.187 and the size 0.114.
+  - **Why no cap on such reruns repairs it.** If each void hides a loss, the size is 0.073 at one void, 0.117 at two and 0.338 at five, by exact enumeration.
+  - **Why the remaining voids are safe.** A session with no evaluation has seen no score of its market, so how it ended cannot follow from how its search was going. The channel that remains needs something that both ends a session before its first evaluation and changes its chance of earning: which model answered, say.
+  - **What bounds that channel.** The report gives the decision with every void counted as the agent's miss on its market. That path holds whatever made the voids, and a claim it does not reach is named so (5.4).
+  - **What it costs.** A session cut off after an evaluation is judged on a search it did not finish. Where outages are common this lowers the agent's rate. The report lists every such session.
 - **The stopping rule** is applied in the manifest's order. Sessions run beyond the stop are reported and not counted.
 - **An early end.** The study may be ended before a boundary, for any reason: it then ends undecided at its last judged market. The size holds, because a claim is made only at the upper boundary within the first 100 markets, and ending sooner only removes paths to it. For the same reason a paused study may resume later, at the same market and under the same manifest, on any account.
 
@@ -178,19 +191,19 @@ Chance of the claim, at least overlap; independent arms; most overlap (the arms 
 - **Argon's earlier rows.** G100 at 0.3 against 0.5, least overlap: 0.529. That is 31 standard errors of the check above the band's 0.18. Rates of 0.25 and 0.2 with 0.1875 in common: claim 0.083, undecided 0.917, since 100 markets hold 7.5 discordant ones and the claim needs nine wins, and three more for every two losses. The study is not powered for a gap of 0.05 and does not say it is.
 - **The agent's rate is not known.** In all 20 of stage 3's null campaigns the agent stopped on its own after 6 to 22 evaluations, median 10.5. Those markets held nothing to find, so this says little about planted ones. If the agent stops as early there, the claim is the stronger for it and its chance the smaller. The futility boundary ends a study that is going nowhere: six straight discordant losses.
 
-**Sessions and the window.** The sessions run on the Cornell and TAMU accounts, which are free until about 2026-11-25 (the human, 2026-11-11). At 22 sessions a week, an assumption, that is 44 sessions from 2026-11-11, and 3.1 fewer for each day before the first session. A void costs a session and judges no market.
+**Sessions and the window.** The sessions run on the Cornell and TAMU accounts, which are free until about 2026-11-25 (the human, 2026-11-11). At 22 sessions a week, an assumption, that is 44 sessions from 2026-11-11, and 3.1 fewer for each day before the first session. A fallback costs nothing, since its session counts (5.2). A void costs a session and judges no market.
 
-| Case (agent, G100, overlap) | Expected markets | Claim within 22 | 28 | 44 | 66 markets |
-|---|---|---|---|---|---|
-| 0.5, 0.15, independent: the target | 29 | 0.32 | 0.55 | 0.89 | 0.99 |
-| 0.5, 0.19, least: the worst powered row | 41 | 0.23 | 0.37 | 0.65 | 0.84 |
-| 0.4, 0.15, independent | 44 | 0.11 | 0.25 | 0.59 | 0.85 |
-| Worst null: either boundary | 33 | 0.39 | 0.53 | 0.78 | 0.91 |
-| Equal rates of 0.15, independent: either boundary | 82 | 0.01 | 0.03 | 0.11 | 0.26 |
+| Case (agent, G100, overlap) | Expected markets | Claim within 22 | 28 | 35 | 44 | 66 markets |
+|---|---|---|---|---|---|---|
+| 0.5, 0.15, independent: the target | 29 | 0.32 | 0.55 | 0.75 | 0.89 | 0.99 |
+| 0.5, 0.19, least: the worst powered row | 41 | 0.23 | 0.37 | 0.51 | 0.65 | 0.84 |
+| 0.4, 0.15, independent | 44 | 0.11 | 0.25 | 0.41 | 0.59 | 0.85 |
+| Worst null: either boundary | 33 | 0.39 | 0.53 | 0.66 | 0.78 | 0.91 |
+| Equal rates of 0.15, independent: either boundary | 82 | 0.01 | 0.03 | 0.06 | 0.11 | 0.26 |
 
 - **Expected:** 29 markets at the target, 1.3 weeks. **Worst case:** 100 markets and their voids, 4.5 weeks or more, which the window does not hold.
-- **The window is short for the study.** If the first session runs on 2026-11-16, 28 sessions are left: the claim is reached with probability 0.55 at the target and 0.37 on the worst powered row. Every day saved before the first session is worth three markets.
-- **If the window ends before a boundary,** the runner is paused, which loses nothing (5.2). The study then either resumes on another account or is ended as inconclusive at the markets it has. Which of the two is the human's to choose (section 12), and neither can make a false claim.
+- **The window is short for the study.** TAMU's week resets on 2026-11-14 04:00 UTC (2026-11-13 23:00 EST). If the first session runs that day, 35 sessions are left: the claim is reached with probability 0.75 at the target and 0.51 on the worst powered row. If it runs on 2026-11-16, 28 are left: 0.55 and 0.37. Every day saved before the first session is worth three markets.
+- **If the window ends before a boundary,** the runner is paused, which loses nothing (5.2), and the study resumes later on another account under the same manifest (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)).
 
 ### 5.4 What a result may be called
 
@@ -205,17 +218,18 @@ Chance of the claim, at least overlap; independent arms; most overlap (the arms 
 
 ### 5.5 Before any session, and what is reported
 
-**Four walls, all model-free. A failure sends the design back to the architect.**
+**Five walls, all model-free. A failure sends the design back to the architect.**
 1. **Twins.** Between a market and its twin, funding, premium, volume and every unplanted coin's prices are identical, and the planted coins' closes differ.
 2. **The measure finds what is there.** The reference program's effect is positive on at least 95% of the check markets' pairs.
-3. **The measure pays only the drift captured.** A locked set of five mirror pairs of programs, each the other with every position negated: constant long and short at the highest leverage the DSL allows; momentum and reversal; a fixed random position at three leverages, each with its negation. On a pair of markets, a mirror pair's even part is the mean of its two members' effects: what the plant does to both alike, so not the drift. Each mirror pair's even part is classified as if it were a pick on 200 calibration markets. At most 9 of those 1,000 classifications earn: under the rule's bound of 0.0038 each, more has probability 0.005. More means the score pays variance, liquidation or ruin on most pairs, and the measure is wrong.
+3. **The measure pays only the drift captured.** A locked set of five mirror pairs of programs, each the other with every position negated: constant long and short at the highest leverage the DSL allows; momentum and reversal; a fixed random position at three leverages, each with its negation. On a pair of markets, a mirror pair's even part is the mean of its two members' effects: what the plant does to both alike, so not the drift. Each mirror pair's even part is classified as if it were a pick on 200 calibration markets. For each mirror pair, at most 4 of its 200 classifications earn: under the rule's bound of 0.0038 each, some pair exceeding that has probability 0.005. The count was 9 of the 1,000 pooled, which let the one pair that trades often earn on 9 of its 200 (Argon's round 5). More means the score pays fees, liquidation or ruin on most pairs, and the measure is wrong.
 4. **The strength exists.** The search ends within its 12 steps and the check is inside the band.
+5. **The plant is not free.** Constant long and constant short read nothing. Each earns on at most 51 of wall 3's 200 markets: a program at the top of G100's band, 0.18, exceeds that with probability 0.003. More means an agent could reach the claim with no search, by holding one side (Argon's round 5).
 
 **Reported with the walls, never judged:**
 - each mirror-set program's own rate of earning at the study's strength, which is how much of the plant can be earned without reading funding;
 - the count of pairs won by each of G100's picks on the check markets, which shows how many picks sit in the rule's soft zone.
 
-**Reported with the result, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions with their causes and evaluations, and the decision recomputed with each void judged on its pick; each arm's rate with exact intervals; each session's model ids with their counts of responses, and its fallback event; the agent's rate among sessions with a fallback and among those without.
+**Reported with the result, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions with their causes, and the decision recomputed with each void counted as the agent's miss; the counted sessions that were cut off, with their evaluations; each arm's rate with exact intervals; each session's model ids with their counts of responses, and its fallback event; the agent's rate among sessions with a fallback and among those without.
 
 **Cost in kernel evaluations:** 342 a study market to classify both picks and the reference; about 8.0 million for the calibration, 10.1 million at most, and 0.25 million for wall 3. One evaluation took about 9 ms here (100 in 0.88 s, `gate/control/tests/test_pick.py`), so about 20 core-hours. The builder times it first.
 
@@ -294,4 +308,4 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 3. **The findings index,** `docs/findings.md`, as the organized presentation of earlier research, with the paper as the home of every number. I recommend yes.
 4. **A count for the reading agent.** Reading the thesis track's ledger for theses a week costs nothing and decides whether that line is ever reopened. I recommend the advisor does it, and that no sessions are spent on a count.
 5. **The archive's cost.** If Hyperliquid's S3 archive bills the requester (a lead), study 2 spends money. That is yours to approve once the advisor has a figure.
-6. **Study 1 after the window.** If Cornell and TAMU end before a boundary, the study pauses with nothing lost. It can resume on another account that runs the pinned model, which spends that account's sessions, or end as inconclusive at the markets judged (5.2, 5.3). I recommend resuming: at 28 sessions the claim is reached about half the time even when the agent is at the target.
+6. **Study 1 after the window.** Answered: it resumes on another account (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)), under the same manifest (5.2).

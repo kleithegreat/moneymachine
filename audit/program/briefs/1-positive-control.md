@@ -58,7 +58,8 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 | `TARGET`, `TOLERANCE`, `MAX_STEPS` | 0.15, 0.005, 12 | The search stops at a strength where G100's rate is within the tolerance of the target |
 | `SEARCH_MARKETS`, `CHECK_MARKETS` | 1,600, 10,000 | A check that fails by sampling alone has probability 0.005 |
 | `BAND` | 0.12 to 0.18 | The check's rate; the true rate is then 0.11 to 0.19 at 2.5 standard errors |
-| `BLIND_MARKETS`, `EVEN_ALLOWED` | 200, 9 | Wall 3: five mirror pairs on 200 markets; more than 9 of 1,000 has probability 0.005 under the rule's bound |
+| `BLIND_MARKETS`, `EVEN_ALLOWED` | 200, 4 | Wall 3: each of five mirror pairs on 200 markets; some pair above 4 has probability 0.005 under the rule's bound |
+| `CONSTANT_ALLOWED` | 51 | Wall 5: a program at the band's top, 0.18, earns on more than 51 of 200 markets with probability 0.003 |
 | `PLANTED` | coins 0 to 5 of 12 | A choice: half the coins, so each market keeps unplanted coins that wall 1 can compare |
 | `MAX_VOIDS` | 3 | Architecture 5.2 |
 | `SERVED` | `claude-opus-5-5`, `claude-opus-4-8` | The ids that answered the pilot's sessions: the one the harness asks for, and the client's fallback (architecture 5.2) |
@@ -72,7 +73,7 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 - **A program's mirror** is the same program with every target position negated. **A mirror pair's even part** on a pair of markets has, as its two scores, the means of the two members' scores on the planted market and on the twin. It is classified like a program, and has no score where either member has none.
 - **A session's pick** is, among the programs that session evaluated on its study market, the one with the highest disclosed search-period `sharpe_annualized`. Ties go to the earliest evaluation. A program with no disclosed statistic is not a candidate. A session with no candidate has no pick, and that arm misses the market.
 - **A session's model ids** are the `message.model` of its transcript's assistant lines, each with its count of lines, in order of first appearance. A line that does not parse is skipped. The client's own notices carry an id that is no model's (architecture 5.2, fact 1); they are counted apart and are not ids. **A fallback event** is a transcript line of subtype `model_refusal_fallback`.
-- **A designed end** of a session is a finish with a zero exit, the turn limit, or the wall time: `crashed(run)` is false. **A void** is a session without one.
+- **A designed end** of a session is a finish with a zero exit, the turn limit, or the wall time: `crashed(run)` is false. A session that left no run record did not end. **A void** is a session with no evaluation in its ledger and no designed end. **A cut-off session** has an evaluation in its ledger and no designed end; it is judged.
 - **G100's seed on a market** is the first eight bytes, as an unsigned integer, of `sha256("<manifest seed>:<market id>:G100")`.
 
 ## Step 0. The criterion (the advisor, before step 7)
@@ -114,10 +115,10 @@ Pure behaviour, `classify(pick, reference)`, each argument a list of `PAIRS` `(p
 
 Kernel behaviour:
 6. `score(program, market)` returns the disclosed statistic, or `None` for a program the kernel rejects. Scoring the same program on the same market twice gives the same number. It writes to a scratch ledger, never to a study ledger.
-7. `scores(program, pairs)` returns the `PAIRS` score pairs for a list of fresh pairs. It streams a market's evaluations through one evaluator: a process an evaluation would multiply the calibration's 8 million evaluations by the kernel's start-up time.
+7. `scores(programs, pairs)` returns, for each program, the `PAIRS` score pairs for a list of fresh pairs. It runs one evaluator process a market and streams every program through it, so a pick and the reference share it: a process an evaluation would multiply the calibration's 8 million evaluations by the kernel's start-up time.
 8. A program that never trades has equal scores on a market and its twin, or none on both.
 
-Laws of the pure layer, for every pair of lists (finite scores drawn as dyadic numbers, so that sums are exact):
+Laws of the pure layer, for every pair of lists. Finite scores are drawn as `k × 2^-16` with `|k| ≤ 2^20`, so that sums, differences and halves are exact in binary64; in L2.7, `c` is a multiple of 1/4 and the reference's effects are multiples of `2^-14`.
 - **L2.1** The count is between 0 and `PAIRS`, and the verdict is true exactly when the count is at least `MAJORITY`.
 - **L2.2** Adding one number to both scores of a pair, for either program, changes nothing.
 - **L2.3** One permutation applied to both lists changes nothing.
@@ -169,7 +170,7 @@ If no DSL program can express the reference with inputs the kernel allows at dec
 Entry point `python -m gate.control.calibrate`, a batch job (`ops/jobs.py`), writing `audit/control-1/calibration.json` and one JSON line a market as it goes, so a stopped run resumes without recomputing.
 
 - **G100's rate at strength `b` on a set of markets** is the share on which G100's pick earns from the plant: per market, the market at `b`, G100 with its derived seed, the pick, the `PAIRS` fresh pairs at `b`, the pick and the reference classified.
-- **The search.** Bracket `[0, 0.01]`, on the 1,600 markets `cal-a`. The first candidate is the bracket's upper end, and after it each bracket's midpoint, at most `MAX_STEPS` midpoints. A candidate whose rate is within `TOLERANCE` of `TARGET` is the strength, and the search ends. Otherwise the upper end with a rate below the target ends the search with no strength; a midpoint with a rate above the target becomes the upper end, and one below it the lower end. The same markets for every candidate make the rate one function of strength.
+- **The search.** Bracket `[0, 0.01]`, on the 1,600 markets `cal-a`. The first candidate is the bracket's upper end, and after it each bracket's midpoint, at most `MAX_STEPS` midpoints. A candidate whose rate is at most `TOLERANCE` from `TARGET`, the ends included, is the strength, and the search ends. Otherwise the upper end with a rate below the target ends the search with no strength; a midpoint with a rate above the target becomes the upper end, and one below it the lower end. The same markets for every candidate make the rate one function of strength.
 - **The check.** G100's rate at the strength on the 10,000 markets `cal-b`.
 
 Behaviour, on a stub rate function, without the kernel:
@@ -179,12 +180,14 @@ Behaviour, on a stub rate function, without the kernel:
 
 The walls, reported in `calibration.json` with their counts. Each is a pass or a stop, and a stop goes to the architect:
 - **Wall 2.** Over the `cal-b` pairs, the reference's effect is positive on at least 95%.
-- **Wall 3.** On each of the 200 `blind` markets at the strength, each mirror pair's even part is classified as if it were a pick. At most `EVEN_ALLOWED` of the 1,000 classifications earn.
+- **Wall 3.** On each of the 200 `blind` markets at the strength, each mirror pair's even part is classified as if it were a pick. For each of the five mirror pairs, at most `EVEN_ALLOWED` of its 200 classifications earn. The report holds the five counts.
 - **Wall 4.** The search returns a strength, and G100's rate on `cal-b` is inside `BAND`.
+- **Wall 5.** On the `blind` markets, constant long and constant short, each classified as a pick, each earn on at most `CONSTANT_ALLOWED`.
 
 4. The report holds, for each wall, the count, the denominator and pass or stop; a test builds each from stub scores on both sides of its threshold.
 5. The report also holds, never judged: each mirror-set program's own rate of earning on the `blind` markets, and the number of G100's `cal-b` picks at each count of pairs won, 0 to 57.
-6. Before the first kernel run the job times 20 evaluations and prints the projected time for the whole job on the hosts it will use: 328 evaluations a market at one strength, at most 13 strengths on 1,600 markets and one on 10,000, 10,102,400, plus wall 3's 250,800. A projection above 24 hours stops the job: a wall.
+6. Before the search the job times one whole `cal-a` market at the bracket's upper end, with everything a market costs: generating and writing it and its 57 pairs, each evaluator's start, G100's 100 evaluations, and the classification. It prints the projected time for the whole job on the hosts it will use: at most 13 strengths on 1,600 markets and one on 10,000, plus wall 3. A projection above 24 hours stops the job: a wall.
+7. A twin does not depend on the strength. Over a search of several strengths, each `cal-a` twin is generated once and the reference is scored on it once.
 
 Laws, on stub rate functions:
 - **L5.1** For every rate function, rising or not, a returned strength has a rate within `TOLERANCE` of `TARGET` on the search's markets. Otherwise the search reports that it found none.
@@ -241,20 +244,20 @@ Laws:
 Entry point `python -m gate.control.runner`, one market at a time in the manifest's order, on the TAMU and Cornell accounts through `wait_for_room`, never the personal account. For market `i`:
 
 1. Write the market at the strength. Run `harness.run_agent` with a ledger and run directory of that market's own. G100's ledger for the market is not readable from the session.
-2. **Void.** The session is void when `crashed(run)` is true, whatever its ledger holds. Its directory and ledger are kept under a numbered name, one line is appended to `audit/control-1/voids.jsonl` (the id, the run record, the evaluations spent), and the market is run again with a fresh ledger. The runner reads no score of a void session. Three voids on one market stop the runner with the state "paused", and a restart resumes at that market.
+2. **Void.** The session is void when its ledger holds no evaluation and it reached no designed end. Its directory is kept under a numbered name, one line is appended to `audit/control-1/voids.jsonl` (the id, the run record if there is one, the model ids, how it ended), and the market is run again with a fresh ledger. Three voids on one market stop the runner with the state "paused", and a restart resumes at that market.
 3. **Model.** The session's model ids and fallback events are read first, whatever else is true of the session, and recorded. A fallback to an id in the manifest's `SERVED` is part of the agent and changes nothing. If any id is outside `SERVED`, the session is not counted, its market gets no result line and no void line, one line with the state "model changed", the market's id and the ids is appended, and no session ever starts again under this manifest.
-4. Every other session counts: no pick is a miss; a session that ends at the turn limit or the wall time is judged on its pick.
+4. Every other session counts, on the pick in its ledger: a cut-off session, whether it crashed or the runner died under it; one that ends at the turn limit or the wall time; one that ends by its own choice. No pick is a miss.
 5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl` and flush it to disk before anything else happens: the id, the run record, the model ids, the evaluations spent, why the session stopped, the pick's hash and count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
 6. Stop at `claim`, `futility` or `undecided`. With `continue`, go to market `i + 1`.
 7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it the runner starts no session.
 
 Behaviour, with the harness and the kernel replaced by stubs in tests:
 1. A sequence of stub outcomes produces the decisions step 6 gives, and the runner launches no session after a stop.
-2. A void session is rerun on the same market, and its outcome is not in `results.jsonl`. The third void pauses.
-3. A crashed session with evaluations in its ledger is void and rerun, not judged. A session that ends at the turn limit with evaluations is judged.
+2. A void session is rerun on the same market, and it has no line in `results.jsonl`. The third void pauses.
+3. A crashed session with an evaluation in its ledger is judged on its pick and is not rerun. A crashed session with none is void. A session that finishes with a zero exit and no evaluation is a miss. A session that ends at the turn limit with evaluations is judged.
 4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` after a fallback event, and one answered by both are all judged, and their lines record the ids, the counts and the event. An id outside `SERVED` ends the study, in a session that reached a designed end and in one that crashed alike, and the market has no result line and no void line.
 5. **Killed between a session's end and its result line** (the test kills the process): on restart the session is not run again, the pick is classified from the kept ledger, and one line is written.
-6. **Killed during a session:** on restart that session is a void, whatever its ledger holds, and the market is run again.
+6. **Killed during a session:** on restart that session is not run again. With an evaluation in its kept ledger it is judged on its pick, its line holding no run record and "killed" as how it ended. With none it is a void, and the market is run again. The kept ledger is final: the daemon that writes it runs in the runner's process and dies with it. If the frozen harness does not give that, it is a wall.
 7. A market with a result line is never run again, and `results.jsonl` is never rewritten, only appended.
 8. A session's working directory holds no file of another market, of G100's arm, or of `audit/control-1/`.
 9. `verify()` failing stops the runner before any session.
@@ -265,18 +268,18 @@ Laws, for every random script of stub sessions (outcomes, crashes, foreign model
 - **L8.2** Its market lines are in the manifest's order with no gap and no market twice.
 - **L8.3** Each line's running wins and losses equal a recount of the lines above it, and its decision equals `decide` on them.
 - **L8.4** No session starts after a line whose state or decision ends the study.
-- **L8.5** Kills that fall outside a session change no result line. A kill during a session adds one void and changes nothing else.
-- **L8.6** A void adds no result line, and every session launched is a result line, a void, or the one in flight.
+- **L8.5** Kills that fall outside a session change no result line. A kill during a session makes that session a void when its ledger holds no evaluation, and otherwise gives the line of that ledger's pick; it changes nothing else.
+- **L8.6** A void adds no result line, and every session launched is a result line, a void, the "model changed" line, or the one in flight.
 
 ## Step 9. The report (`gate/control/report.py`)
 
-`python -m gate.control.report` writes `audit/control-1/report.md` from the manifest, `calibration.json`, `searcher.jsonl`, `results.jsonl` and `voids.jsonl`, and reads nothing else, except for item 4, which reads the kept ledgers of void sessions and classifies their picks with step 2.
+`python -m gate.control.report` writes `audit/control-1/report.md` from the manifest, `calibration.json`, `searcher.jsonl`, `results.jsonl` and `voids.jsonl`, and reads nothing else: no ledger, and no kernel.
 
 Behaviour:
 1. It states the decision and the name architecture 5.4 gives it, word for word, and never "no better".
 2. Each arm's rate with its exact (Clopper-Pearson) 95% interval; the discordant counts; the power table's row nearest the observed rates.
 3. Reported, never judged: each pick's count of pairs won by arm; each pick's median effect and the reference's; whether each pick reads funding, premium, prices or none; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; every model id; evaluations that named an input N2 lacks.
-4. Void sessions with their causes and evaluations, and the decision that the same markets give when each market's first void session with a pick is judged on that pick in place of its rerun, which is revision 4's rule. Where that path runs past the markets judged, the report says so.
+4. Void sessions with their causes and model ids, and the decision that the same markets give when every market with a void counts as the agent's miss, in place of its rerun's outcome. Where that path has reached no boundary at the markets judged, the report says so. Also the cut-off sessions that were judged, with their evaluations and outcomes.
 5. Sessions run beyond the stop, if any, appear in a separate table and in no rate.
 6. On a results file that ends "paused" or "model changed" it reports what there is and says the study has not ended. On one that ends "ended early" it reports "inconclusive" at the markets judged.
 
