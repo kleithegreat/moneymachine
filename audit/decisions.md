@@ -904,3 +904,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **New code goes in Lean as far as possible, and OCaml for the rest.** This revives the language plan of 2026-10-26, deferred on 2026-11-08 with stage 7. It applies to new code; study 1's slice stays on the frozen Python stack, which its harness and window require.
   - **The human asks what Nix could replace.** The advisor answers.
   - **No Fable on the personal account** in its current five-hour window.
+- 2026-11-12 01:45 UTC (20:45 EST), the human: **the Nix replacements join the erasure pass.**
+  - The launch scripts (`data/builder/run-architect.sh`, `ops/builder.sh`, ad-hoc `systemd-run`) become flake apps.
+  - The user timers (`mm-diskguard`, `mm-oci-pull`, builder wake-ups) become declared units, through a home-manager or Homelab module.
+  - `ops/test_style.py` and the progress cap become `nix flake check` checks.
+  - The Oracle VM's move to NixOS is last, since it holds the only copy of some recordings.

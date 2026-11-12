@@ -36,7 +36,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
      - Cornell and TAMU are free for about two weeks only.
    - **Archive:** all 80,845 raw files are on disk (26 GB). Snapshot parsing is resuming after a low-memory kill (`data/hl-archive/fetch-2026-11-11b.log`). Then check that every snapshot parquet reads, since the kill may have left a partial file.
    - **Next:** Fable designs kernel version 2 with study 2's hedge and margin (Argon round 4's findings 1, 2, 4 and 5). Sonnet applies `paper-changes.md`. Then one deletion pass of stale files, `audit/` included (the human's leave).
-2. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
+2. **Erasure** (one pass, with stale `audit/` files allowed and the Nix replacements of `audit/decisions.md` 2026-11-12) per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
 
 ### Next, in order
