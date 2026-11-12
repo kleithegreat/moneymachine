@@ -27,16 +27,28 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 1. **The program** (`audit/program/` on `rearchitecture`; revision 4 approved by the human 2026-11-11; `ledger.md` lists what is agreed and disputed). The project is academic: no live trading, no stage 11.
    - **Study 1, the positive control of search:** does the agent find a planted edge more often than G100? At most 100 markets, on Cornell and TAMU.
-     - Steps 1 to 6 are built against tests written first (last commit `c46c786`).
-     - **Wall, for Fable first:** Opus 5.5's safeguards flag about half of the agent's sessions as "cyber" and fall back to Opus 4.8, so step 8's model-id stop would end the study within a few markets (`audit/decisions.md`, 2026-11-12).
-     - Open, for Fable: Argon's D9-a (wall 3 per mirror pair), D9-b (constant positions, the reference's coins), D10 (void bias in CS1.1), the random-pair encoding (`audit/decisions.md`, 2026-11-12), and "0.67" in 5.1, which should read 0.671.
-     - Then: steps 7 to 9 (manifest, runner, report), the criterion CS1.1's review and commit, calibration (about 20 core-hours, no Claude usage), G100 on the study markets, the first sessions. If the window ends first, it resumes later with the pinned model.
+     - **Steps 1 to 6 are built** (`c46c786`; 212 tests).
+     - **Fable settled the open items** (`b12ce44` to `54c11fb`):
+       - the agent is the frozen harness as served, Opus 5.5 or its fallback Opus 4.8;
+       - a session's model is read from its responses' ids alone;
+       - wall 3 is per mirror pair, at most 4 of 200, and a new wall 5 handles constant positions;
+       - no session with an evaluation is void;
+       - CS1.1's final text is written (brief, Step 0).
+     - **The advisor's facts are recorded:** 169 pilot sessions, 109 fallbacks, 3 mixed; `NOTICE` is `<synthetic>` (`audit/decisions.md`, 2026-11-12).
+     - **In flight, each in its own worktree:**
+       - tests revised for steps 2 (`../mm-s1-measure`), 5 (`../mm-s1-calib`) and 7 to 9 (`../mm-s1-runner`);
+       - then the builds: steps 7 to 9, and the changes to steps 2 and 5.
+     - **For the human:**
+       - Argon's review of CS1.1, `~/Downloads/argon-study1-r6.md`. Rebuild the bundle first if it predates `54c11fb`;
+       - review of H8 (the agent as served);
+       - the criterion's commit;
+       - then calibration (about 20 core-hours), G100 on the study markets, and the first sessions.
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
      - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.
      - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-2. **Erasure pass** (`../mm-erasure`, list `audit/erasure/2026-11-12-deletion-list.md`).
+2. **Erasure pass** (`../mm-erasure`, list `audit/erasure/2026-11-12-deletion-list.md`). Phases B, E and F12 are in flight: flake checks, the launcher app, the timers module, and stages 8 and 9 deleted.
    - **Phase A is merged** (`11bb3fa`): the thesis track and `ops/crossmachine.py` are gone, about −6,300 lines of Python. The thesis is archived at `archive/thesis` and `archive/thesis-refreeze`, and the `thesis-refreeze` branch is deleted.
    - **For the human:** delete StatefulSet `thesis` and Job `thesis-prewarm` in `moneymachine-live`, keeping the PVC, and remove the key `PERSONAL` from Secret `claude-token`.
    - **Next:**
