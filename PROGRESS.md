@@ -19,7 +19,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - **Fable** runs one session at a time, on whichever account is logged in, never two at once.
   - **GPT's** one review is spent.
   - **Argon** runs through the web UI (the human); `agy` is spent until about 2026-11-14 00:25 UTC (11-13 19:25 EST).
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`: the program and study 1's build); `../mm-erasure` (`erasure`). Agents that edit at the same time get separate worktrees.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-measure`, `../mm-s1-calib` and `../mm-s1-runner`, the revised tests for study 1's steps 2, 5 and 7 to 9 (`e80debf`, `1da9870`, `6e626e6`), merged into `rearchitecture` with the builds. Agents that edit at the same time get separate worktrees.
 
 ### Work in progress
 
@@ -35,9 +35,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - no session with an evaluation is void;
        - CS1.1's final text is written (brief, Step 0).
      - **The advisor's facts are recorded:** 169 pilot sessions, 109 fallbacks, 3 mixed; `NOTICE` is `<synthetic>` (`audit/decisions.md`, 2026-11-12).
-     - **In flight, each in its own worktree:**
-       - tests revised for steps 2 (`../mm-s1-measure`), 5 (`../mm-s1-calib`) and 7 to 9 (`../mm-s1-runner`);
-       - then the builds: steps 7 to 9, and the changes to steps 2 and 5.
+     - **Argon's review of CS1.1** (`audit/reviews/2026-11-12-argon-web-study1-r6.md`): it converges once D9-b, D10-a, D10-b and D16 are applied. Fable settles those, with two gaps the test writer found (an orphaned `mm`, and the judged path's scope), in a short Cornell session (`data/builder/architect-cs11-converge.txt`), launched when the human logs in after its reset. Then the tests that changes affects, then the builds.
      - **For the human:**
        - Argon's review of CS1.1, `~/Downloads/argon-study1-r6.md`. (rebuilt at `54c11fb`);
        - review of H8 (the agent as served);
@@ -48,7 +46,14 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
      - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.
      - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-2. **Erasure pass** (`../mm-erasure`, list `audit/erasure/2026-11-12-deletion-list.md`). Phases B, E and F12 are in flight: flake checks, the launcher app, the timers module, and stages 8 and 9 deleted.
+2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`). Phases A, B, E and F12 are merged:
+   - 11 flake checks and `nix run .#test`;
+   - the launcher `nix run .#session`;
+   - the timers module `homeManagerModules.default`;
+   - stages 8 and 9 deleted;
+   - Lean built through Nix (`refmm`, `lean-proofs`, the differential in `reference`).
+
+   Phase C is the human's: remote builders in Homelab (each registers the frozen funding blob with `nix-store --add-fixed sha256`), and the dotfiles import of the timers module. Then phase D deletes `ops/shards.py`.
    - **Phase A is merged** (`11bb3fa`): the thesis track and `ops/crossmachine.py` are gone, about −6,300 lines of Python. The thesis is archived at `archive/thesis` and `archive/thesis-refreeze`, and the `thesis-refreeze` branch is deleted.
    - **For the human:** delete StatefulSet `thesis` and Job `thesis-prewarm` in `moneymachine-live`, keeping the PVC, and remove the key `PERSONAL` from Secret `claude-token`.
    - **Next:**

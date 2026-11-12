@@ -966,3 +966,9 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Departure from the plan:** the Lean differential (`reference/tests/test_lean_differential.py`, both tests) is marked `local`, not run in the `reference` check: a Lake-built binary needs the host's dynamic loader, which the Nix sandbox lacks.
   - **Reverse:** `git revert`; the frozen criteria text is at `ab42e5e:audit/criteria.md`.
 - 2026-11-12 15:47 UTC (10:47 EST), the human: **Lean builds staying local is a big drawback, one of the main sources of drag.** The erasure pass left the Lean differential local, because a Lake-built binary needs the host's dynamic loader, which the Nix sandbox lacks. Lean is to be built inside Nix, so that its proofs and differential run as flake checks on the remote builders. This is the next infrastructure item, and the advisor plans it on the human's word to continue.
+- 2026-11-12 16:04 UTC (11:04 EST), advisor: **Lean builds through Nix** (merged `768bb4d`, the human's direction of 2026-11-12):
+  - `packages.refmm` builds `reference/lean` offline with Lake and is patched to Nix's loader. `checks.lean-proofs` type-checks every theorem; a scratch false lemma made it fail.
+  - The Lean differential now runs in the `reference` check (6 passed).
+  - **The frozen funding blob** is a fixed-output input (`requireFile`, sha256 `d07162b8…5c39`): the calibration input over `[W_START, HOLDOUT_START)`, before 2026-04-03, from Hyperliquid's `fundingHistory`. It holds no holdout or forward-window data. Each builder registers it once with `nix-store --add-fixed sha256` on a copy of the file.
+  - `flake.lock` and `claude-code`'s store path are unchanged.
+  - **One second path remains,** in `ops/shards.py`'s `LOCAL_ONLY`, and it goes with phase D.
