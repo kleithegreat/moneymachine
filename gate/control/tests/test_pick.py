@@ -64,6 +64,7 @@ def test_rescored_pick_equals_the_ledgers_score(tmp_path: Path, market: Path) ->
     ledger = tmp_path / "l.sqlite"
     fill(ledger, market, candidates())
     chosen = pick.pick(ledger, "c", "A")
+    assert chosen is not None
     _, best = best_of(ledger, "c", "A")
     assert measure.score(chosen, market) == best
 
@@ -110,10 +111,13 @@ def test_pick_reads_only_its_campaign_and_agent(tmp_path: Path, market: Path) ->
     fill(ledger, market, [best], "c2", "A")
     fill(ledger, market, [ranked[2], worst], "c2", "B")
     first = pick.pick(ledger, "c1", "A")
+    assert first is not None
     assert first == json.loads(best_of(ledger, "c1", "A")[0])
     assert first["name"] != best["name"]
     assert pick.pick(ledger, "c2", "B") == json.loads(best_of(ledger, "c2", "B")[0])
-    assert pick.pick(ledger, "c1", "B")["name"] == best["name"]
+    other = pick.pick(ledger, "c1", "B")
+    assert other is not None
+    assert other["name"] == best["name"]
     assert pick.pick(ledger, "c3", "A") is None
 
 
