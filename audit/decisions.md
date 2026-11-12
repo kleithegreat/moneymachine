@@ -909,3 +909,7 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - The user timers (`mm-diskguard`, `mm-oci-pull`, builder wake-ups) become declared units, through a home-manager or Homelab module.
   - `ops/test_style.py` and the progress cap become `nix flake check` checks.
   - The Oracle VM's move to NixOS is last, since it holds the only copy of some recordings.
+- 2026-11-12 01:46 UTC (20:46 EST), the human: **kernel version 2 is maximal Lean, with OCaml for the rest, and no Rust or Python.**
+  - **Lean:** the engine, its semantics, fill rules and laws, proved on the running code.
+  - **OCaml:** everything Lean cannot reasonably do: data loading, I/O, orchestration.
+  - **Constraint:** Fable's kernel version 2 design must keep to this. The archive reader (`ingest/archive.py`) and the frozen pilot stack are outside it until ported or retired.
