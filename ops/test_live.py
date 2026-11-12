@@ -274,7 +274,6 @@ def passing_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Modul
     monkeypatch.setattr(live, "view", lambda: ["view"])
     monkeypatch.setattr(campaigns, "windows", lambda: {"five_hour": 0.1})
     monkeypatch.setattr(live, "reach", lambda h, p: h == "api.anthropic.com")
-    monkeypatch.setattr(live, "retrieval_reach", lambda: {"certified": 200})
     monkeypatch.setattr(session, "workspace", lambda *a: None)
 
     def run(work: Path, *a: Any) -> dict[str, Any]:
@@ -285,7 +284,7 @@ def passing_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Modul
     return harness, campaigns, session
 
 
-@pytest.mark.parametrize("failure", ["tests", "harness", "session", "windows", "network", "retrieval", "view"])
+@pytest.mark.parametrize("failure", ["tests", "harness", "session", "windows", "network", "view"])
 def test_gate_exits_nonzero_with_named_failure(
     passing_gate: tuple[ModuleType, ModuleType, ModuleType],
     monkeypatch: pytest.MonkeyPatch,
@@ -307,8 +306,6 @@ def test_gate_exits_nonzero_with_named_failure(
         monkeypatch.setattr(campaigns, "windows", broken)
     elif failure == "network":
         monkeypatch.setattr(live, "reach", lambda *a: True)
-    elif failure == "retrieval":
-        monkeypatch.setattr(live, "retrieval_reach", lambda: {"certified": 403})
     else:
         monkeypatch.setattr(live, "view", lambda: [])
     with pytest.raises(SystemExit) as error:
@@ -703,8 +700,7 @@ def test_manifests_keep_the_boundaries() -> None:
         }
         assert not spec["automountServiceAccountToken"] and spec["priorityClassName"] == live.NAMESPACE
         assert c["image"].startswith(REGISTRY + "@sha256:")
-    assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"thesis", "agent-series", "agent-real"}
-    assert live.manifest("thesis", "sha256:0")["spec"]["updateStrategy"] == {"type": "OnDelete"}
+    assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"agent-series", "agent-real"}
     json.dumps([live.manifest(n, "sha256:0") for n in live.WORKLOADS])
 
 

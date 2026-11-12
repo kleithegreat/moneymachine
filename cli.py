@@ -174,9 +174,6 @@ COMMANDS = {
         ["out"],
         "C6.4's judged run of mm against refmm on the frozen corpus",
     ),
-    "thesis-freeze": ("thesis.runner", "freeze", [], "freeze the thesis track manifest (starts a track version)"),
-    "thesis-run": ("thesis.runner", "run", [], "the thesis track's schedule (runs until killed)"),
-    "thesis-report": ("thesis.runner", "report", ["out"], "the thesis track's report"),
 }
 
 TYPES = {"int": int, "float": float, "str": str}

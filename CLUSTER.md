@@ -1,8 +1,7 @@
 # CLUSTER: the live workloads on the homelab cluster
 
 The recorders and the mirror run on the homelab's k3s cluster (1.36, containerd 2.3), so this PC can be off without
-stopping them. The thesis track (stage 10) is parked: its StatefulSet has 0 replicas and Job `thesis-prewarm` is
-suspended (the human, 2026-11-11). The agent series (stages 3 and 4) has finished. Batch Jobs run in namespace `moneymachine`,
+stopping them. The agent series (stages 3 and 4) has finished. Batch Jobs run in namespace `moneymachine`,
 submitted from this PC, inputs and results on its NFS. The Oracle recorder is an independent second Hyperliquid host.
 
 Agent sessions run in bubblewrap with private unix sockets inside runner pods that have their own user namespace. The
@@ -27,7 +26,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi. This PC's NixOS
   configuration exports that directory beside `inputs` and `results`. It holds the only copy of the live data.
 - **Secrets**, created by the advisor with kubectl from local files, outside Git:
-  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `PERSONAL`, the personal account's, which the thesis reads (each runner names its key in `ops/live.py`'s `WORKLOADS`); key `TAMU`, the TAMU account's, which only `agent-series` and `agent-real` read (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
+  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `TAMU`, the TAMU account's, which only `agent-series` and `agent-real` read (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
   - `datalayer-keys`: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
     (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key.
 - **RBAC**: ServiceAccount `deployer`, its kubeconfig at this PC's `~/.kube/moneymachine-live.yaml`, may create, get, list, watch, update, patch and
@@ -48,7 +47,6 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `hl` | StatefulSet | `cli record data/live/universe.json venue/hyperliquid/rules.json data/live 480` | `hl` | none | 300 s |
 | `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
-| `thesis` | StatefulSet | `cli thesis-run` | `thesis`; `datalayer` read-only | `claude-token` | 15,000 s |
 | `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5) | `agent` | `claude-token` | 9,000 s |
 | `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
@@ -57,18 +55,15 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - Each volume is mounted at its repo path (`hl` at `data/live`, `sources` at `data/sources_live`, `datalayer` at
   `data/datalayer`, `thesis` at `data/thesis`, `agent` at `data/agent`), so every command runs as it does here.
 - All run on prodesk7 (a `kubernetes.io/hostname` node selector) with the `moneymachine-live` priority, as uid 1000, gid 100, read-only root and the commands in exec
-  form (Python is PID 1). The thesis and series pods add `hostUsers: false`, `procMount: Unmasked` and the Localhost
+  form (Python is PID 1). The series pods add `hostUsers: false`, `procMount: Unmasked` and the Localhost
   profiles. The recorders and the mirror jobs are ordinary restricted pods with RuntimeDefault: NFS takes no
   idmapped mounts.
 - **One writer per directory.** Each writer holds an exclusive `flock` on a lock file in its directory and exits if it
-  is held: the thesis runner and the series do already, and the recorders take one too. A pod on an
+  is held: the series does already, and the recorders take one too. A pod on an
   unreachable node is never force-deleted until the node is confirmed down.
-- **Stopping.** On SIGTERM, recorders stop between polls, the thesis runner after its current step (a day's
-  sessions, at most four of an hour each, hence its grace), and the series between campaigns. Their waits wake on SIGTERM. The thesis StatefulSet uses `updateStrategy: OnDelete`, so a restart
-  is always deliberate. Bubblewrap's `--die-with-parent` ends a session with its runner.
+- **Stopping.** On SIGTERM, recorders stop between polls and the series between campaigns. Their waits wake on SIGTERM. Bubblewrap's `--die-with-parent` ends a session with its runner.
 - **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
-  promotion), never rerun. The real campaign resumes its attempt and never repeats an arm or the release. The thesis runner records each date's
-  sessions in its ledger and does not repeat one. A Kubernetes retry never becomes a fresh attempt.
+  promotion), never rerun. The real campaign resumes its attempt and never repeats an arm or the release. A Kubernetes retry never becomes a fresh attempt. A rollback never reruns a consumed campaign or date.
 - **Clocks.** `sources` logs the node kernel's own bound on its clock error (`adjtimex`: `maxerror_ms`, `esterror_ms`,
   `unsynced`) every cycle as source "clock", key "kernel". It is a bound the kernel's NTP daemon reports, never an
   offset against anything, and it does not prove freshness. C5.3's 72 h segment reports its maximum and requires
@@ -79,13 +74,13 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
     reads;
   - writable `emptyDir` for `/tmp` and the sessions' work directories;
   - its `/bin` and `/usr`, which bubblewrap binds into the sandbox, hold what the PC's do: `/bin/sh` and `/usr/bin/env`.
-  The dev shell carries the same claude-code, so the harness hash and the thesis manifest computed here equal the
+  The dev shell carries the same claude-code, so the harness hash computed here equal the
   pod's. Each result records the image digest beside the frozen hashes, not inside them.
 - **Seeding.** `mm` is never in the image (its identity embeds its build path). `ops/live.py seed` delivers the exact
   bytes: files go through the mirror export, and a pod copies
   them into the volume and checks every sha256. It never overwrites a file with other content. The series finds `mm`
-  through `CARGO_TARGET_DIR`; the thesis track pins its own copy.
-- **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); thesis 500m and 2Gi (4Gi); series 1 CPU and 3Gi
+  through `CARGO_TARGET_DIR`.
+- **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); series 1 CPU and 3Gi
   (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5.
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
@@ -101,10 +96,9 @@ fails, it exits with nothing started.
 
 ## 3. Credentials and usage
 
-The thesis and series pods take `CLAUDE_CODE_OAUTH_TOKEN` from `claude-token`, and `sandbox/session.py` passes it into
+The series pods take `CLAUDE_CODE_OAUTH_TOKEN` from `claude-token`, and `sandbox/session.py` passes it into
 each session's cleared environment. That is the only way a session gets a credential: no credential file is copied.
-Pacing (`wait_for_room`) runs in the series pod and reads each account's windows, TAMU first (the thesis track also
-draws on Cornell); it runs the next campaign on the first with room, and the series log records the account's name, never
+Pacing (`wait_for_room`) runs in the series pod and reads each account's windows, TAMU first; it runs the next campaign on the first with room, and the series log records the account's name, never
 the token. Recorders hold no credential but `datalayer-keys`.
 
 ## 4. Agent sessions
@@ -129,8 +123,8 @@ the network policy above, and no service account token.
   own, stacked label included.
 - From the runner pod, the network policy is tested on the cluster's actual dataplane: node addresses and their
   services, the API server, the LAN, this PC's NFS, IPv6, and a homelab service's public address all refused.
-- The stage 3 harness hash and the thesis manifest are computed in the pod. Each launch checks them against the frozen
-  ones.
+- The stage 3 harness hash is computed in the pod. Each launch checks it against the frozen
+  one.
 
 ## 5. The mirror on this PC: the live data's only copy
 
@@ -190,18 +184,12 @@ For the visible alarm check, this injects only an in-memory test result (expecte
 nix develop -c python -c 'from ops import diskguard as d; d.check = lambda *a: ["SYNTHETIC TEST: filesystem at 19% available"]; raise SystemExit(d.main())'
 ```
 
-## 6. Cut-over
-
-Done 2026-10-30 (`audit/cluster/handoff.md`): the stage 3 harness was refrozen and the thesis track cut a new version
-at the move; this PC's recorders handed off at a reboot, after the overlaps reconciled. Git keeps the old paths for
-rollback, and a rollback never reruns a consumed campaign or date.
-
 ## 7. Sharded test runs (no live workloads)
 
 A full suite finishes fastest when one run spreads across this desktop and the idle nodes:
 ```
 python3 ops/shards.py /path/to/worktree
-python3 ops/shards.py /path/to/worktree ops thesis -k "registry"
+python3 ops/shards.py /path/to/worktree ops -k "live"
 python3 ops/shards.py /path/to/worktree --machines local,gmktec
 ```
 The runner collects the test ids here (selection arguments, paths, `-k`, `-m`, go to collection only), splits them into

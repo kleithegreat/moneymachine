@@ -5,8 +5,8 @@ identities, so a file leaves it the moment it joins a fork:
 - the stage 3 harness hash (`gate.agent.harness.harness_hash`): the `.py` files it hashes, with the sandbox's own;
 - the two modules that hash their own bytes into a record, `gate.search` (the searchers' pin, `search.identity`) and
   `ingest.events` (the `code_sha256` of every derived version's lineage, `events.derive`);
-- the thesis manifest (`thesis.harness.manifest_files`): the modules `thesis.runner` and `thesis.report` load. The
-  thesis-refreeze branch replaces that code, so all of `thesis/` is excluded as well as the modules it loads elsewhere.
+- the code the deployed recorder image loads (the modules `ingest.record`, `ingest.sources_record` and
+  `ingest.datalayer` import), which changes only with the next image.
 """
 
 import json
@@ -24,14 +24,12 @@ captured = []
 session.identity = lambda files, extra: captured.extend(files) or ""
 session.claude_binary = lambda: ""
 from gate.agent import harness as stage3
-from thesis import harness as thesis
 from gate import search
-from ingest import events
+from ingest import events, datalayer, record, sources_record
 stage3.harness_hash()
-thesis.manifest_hash.__wrapped__("")
-hashed = {Path(f).resolve() for f in [*captured, *session.FILES, search.__file__, events.__file__]}
-loaded = {p for p in map(Path, thesis.manifest_files.__wrapped__("")) if p.exists()} | hashed
-print(json.dumps(sorted(str(p.relative_to(%r)) for p in loaded if p.is_relative_to(%r) and p.suffix == ".py")))
+recorder = [m.__file__ for m in sys.modules.values() if getattr(m, "__file__", None) and m.__name__.startswith("ingest")]
+hashed = {Path(f).resolve() for f in [*captured, *session.FILES, search.__file__, events.__file__, *recorder]}
+print(json.dumps(sorted(str(p.relative_to(%r)) for p in hashed if p.is_relative_to(%r) and p.suffix == ".py")))
 """
 
 
@@ -43,10 +41,10 @@ def frozen() -> set[str]:
 
 
 def covered() -> list[str]:
-    """Every tracked `.py` file outside the frozen identities and `thesis/`."""
+    """Every tracked `.py` file outside the frozen identities."""
     tracked = subprocess.run(["git", "ls-files", "*.py"], cwd=REPO, capture_output=True, text=True, check=True)
     excluded = frozen()
-    return sorted(f for f in tracked.stdout.split() if f not in excluded and not f.startswith("thesis/"))
+    return sorted(f for f in tracked.stdout.split() if f not in excluded)
 
 
 def _run(*command: str) -> None:

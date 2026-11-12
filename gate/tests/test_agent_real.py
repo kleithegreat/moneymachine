@@ -633,7 +633,7 @@ def series_in_the_pods_view() -> None:
     rooms: Iterator[tuple[str, dict[str, Any]]] = iter([("TAMU", {})])
     campaigns.wait_for_room = lambda log: next(rooms, None)
     campaigns.windows = lambda token=None: None
-    canary.passes = lambda: True
+    canary.passes = lambda model="": True
     harness.run_agent = lambda market, ledger, cid, workdir: {
         "spent": daemon_session(market, ledger, cid, workdir, [program(8)]).spent
     }

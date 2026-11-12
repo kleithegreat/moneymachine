@@ -35,7 +35,7 @@ MIRROR = Path("/srv/moneymachine/mirror")
 MIRROR_VERIFY_WAIT = 2 * 10 * 60  # next ten-minute run plus ten minutes to finish copying
 LEDGERS = ("thesis", "agent")
 SECCOMP, APPARMOR = "profiles/moneymachine-sandbox.json", "moneymachine-sandbox"
-CORNELL = "CLAUDE_CODE_OAUTH_TOKEN"  # claude-token's key of the Cornell account; PERSONAL and TAMU are the others
+CORNELL = "CLAUDE_CODE_OAUTH_TOKEN"  # claude-token's key of the Cornell account; TAMU is the other
 
 
 Json = dict[str, Any]
@@ -85,15 +85,6 @@ WORKLOADS: dict[str, Workload] = {
         ("100m", "256Mi", "512Mi"),
         300,
         {"keys": True},
-    ),
-    "thesis": (
-        "StatefulSet",
-        ["thesis-run"],
-        {"thesis": False, "datalayer": True},
-        "PERSONAL",
-        ("500m", "2Gi", "4Gi"),
-        15_000,
-        {},
     ),
     "agent-series": (
         "Job",
@@ -150,7 +141,7 @@ def pod_spec(
     extra: Json,
 ) -> Json:
     """A restricted pod on prodesk7 running `python -m cli <command>` (or `python <script>`), each volume at its repo
-    path; a runner (thesis, series, gates), `runner` naming the claude-token key it reads, also gets its own user
+    path; a runner (series, gates), `runner` naming the claude-token key it reads, also gets its own user
     namespace, the bubblewrap profiles and that token."""
     cpu, memory, limit = size
     mounts: list[Json] = [{"name": "tmp", "mountPath": "/tmp"}, {"name": "scratch", "mountPath": "/scratch"}]
@@ -220,7 +211,6 @@ def manifest(name: str, digest: str) -> Json:
             "serviceName": name,
             "selector": {"matchLabels": {"app": name}},
             "template": template,
-            **({"updateStrategy": {"type": "OnDelete"}} if name == "thesis" else {}),
         }
     elif kind == "Job":
         once = extra.get("once")
@@ -558,19 +548,6 @@ def reach(host: str, port: int) -> bool:
         return False
 
 
-def retrieval_reach() -> Json:
-    """Each certified retrieval entry fetched through the thesis fetcher (robots.txt and TLS included): its status, or
-    why it was refused. A deployment whose main sessions can read shows at least one 200."""
-    from ingest import terms
-    from thesis.retrieval import Fetcher
-
-    fetcher, out = Fetcher(), {}
-    for entry in sorted(terms.allowlist(retrieval=True)):
-        r = fetcher.fetch(f"https://{entry if '/' in entry else entry + '/'}")
-        out[entry] = r.get("status") or r.get("refused", "")[:120]
-    return out
-
-
 def gate_run(targets: str) -> None:
     """In a runner pod: the frozen hashes, the isolation tests, the sandbox's view, the network from the runner, the
     subscription's windows, and one sandboxed session authenticated by the token alone. Each part is recorded, its
@@ -619,7 +596,6 @@ def gate_run(targets: str) -> None:
                 and all(v == (k == "api.anthropic.com:443") for k, v in r.items())
             ),
         ),
-        "retrieval": (retrieval_reach, lambda r: 200 in r.values()),
         "session": (
             session_record,
             lambda r: (
