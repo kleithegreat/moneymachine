@@ -945,3 +945,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Next:**
     - a qualification beside C3 and C4.5, and the paper, by Fable's paper step;
     - study 1's handling of fallback sessions, and whether to pin a model the safeguards do not flag, by Fable, before the criterion.
+- 2026-11-12 15:13 UTC (10:13 EST), advisor: **the four facts architecture 5.2 asks for before CS1.1's commit** (`rearchitecture` `be96683`).
+  - **Source:** the pilot's 41 agent transcripts with run records: stage 3's null and real campaigns in the mirror, and stage 4's swarm in `data/agent`. Only assistant `message.model`, system event types and `run.json` were read.
+  - **Fact 1 holds:** every assistant model is `claude-opus-5-5` (757 responses) or `claude-opus-4-8` (1,041). No other id appears.
+  - **Fact 2 holds:** no session has more than one fallback event, and none has a `claude-opus-5-5` response after it. 20 of 41 sessions have the event. All 20 have **zero** `claude-opus-5-5` responses before it, so every fallback session was `claude-opus-4-8` from its first response.
+  - **Fact 3 fails:** in all 20 fallback sessions, `claude-opus-4-8` responses come *before* the event line. In `agent-null-3-N2-0`, three responses precede the event at line 7. The client writes the event after the retried responses, so a reader that requires the event first would call every fallback session a model change.
+  - **Fact 4:** from run records, all 41 sessions finished with exit 0. None missed every designed end, with or without a fallback.
+  - **Consequence:** the reader of ids goes back to the architect, as 5.2 requires. These facts suggest a session is either all `claude-opus-5-5` or all `claude-opus-4-8`, with the event anywhere in the session.
