@@ -153,7 +153,8 @@ Laws, for every ledger built from a random list of evaluations, some without a s
 Locked DSL programs, each a JSON file, each hash in the manifest.
 
 - **The reference** holds, on every coin and every bar, a position in the direction of the plant's signal and proportional to it: short when the coin's funding four hours before the bar is above `1.25e-5`, long when below, at full size from a distance of `1e-4`. It uses only inputs available at the bar's decision time. If PC2's reference program on branch `positive-controls` meets the tests it is reused.
-- **The mirror set,** five mirror pairs, ten programs: constant long and constant short on every coin, each at the highest leverage the DSL allows; momentum and reversal on the last day's close-to-close return; one fixed pseudo-random position a coin at three leverages (lowest, middle, highest), each with its negation.
+- **The mirror set,** five mirror pairs, ten programs: constant long and constant short on every coin, each at the highest leverage the DSL allows; momentum and reversal on the last day's close-to-close return; one position blind to the plant at three leverages, each with its negation.
+- **The blind position** is `sign(xs_demean(mean(volume, 168)))` times 0.01, 0.05 or 2/12 (`random_low`, `random_mid`, `random_high`, the builder's encoding, accepted). The DSL has no per-coin constant, so a fixed random position cannot be written. What the wall needs from one is that it carries nothing of the plant, and this has it: `generate` draws volume independently of funding, returns and the plant, and twins share it. It turns over about weekly, which wall 3 needs and a fixed position lacks.
 
 Behaviour:
 1. Every program type-checks in the frozen kernel and has a score on a calibration market.
