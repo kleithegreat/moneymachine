@@ -168,8 +168,8 @@ def test_no_candidate_inside_the_tolerance_stops_the_run(tmp_path: Path) -> None
 
 def test_a_stopped_run_restarted_stays_stopped_without_new_evaluations(tmp_path: Path) -> None:
     log = tmp_path / "log.jsonl"
-    run(Rate(0.1), SMALL, log)
-    again = Rate(0.1)
+    run(Rate(0.05), SMALL, log)
+    again = Rate(0.05)
     assert run(again, SMALL, log)["stopped"] is True
     assert again.calls == []
 
