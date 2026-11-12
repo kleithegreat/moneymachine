@@ -225,10 +225,9 @@ directory, deleted on success. `conftest.py` writes each shard's outcomes under 
   (`SLOT_BYTES`, 2.2 GB) across the run's workers, each with its own cargo target.
 - **This PC only** (`LOCAL_ONLY` in `ops/shards.py`): `data/` is never shipped (a node gets an empty `w/data`), so the
   tests that need `data/store` run here, and fail in a worktree without one
-  (`kernel/tests/cli/test_differential.py::test_kernel_matches_witness`,
-  `reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit`). All of `reference/tests/` stays here, because
-  its Lean build took a node six to twelve minutes cold and killed a worker on gmktec, which also runs game servers. So do
-  the `gate/tests/test_sandbox.py` tests that resolve host binaries (`/usr/bin/dash`) into the Nix store, which the nodes'
+  (`kernel/tests/cli/test_differential.py::test_kernel_matches_witness`). So does
+  `reference/tests/` under this runner, which builds Lean by Lake; the flake check `reference` runs it with the Nix-built
+  `refmm` and the frozen funding blob, on any builder. So do the `gate/tests/test_sandbox.py` tests that resolve host binaries (`/usr/bin/dash`) into the Nix store, which the nodes'
   Ubuntu layout (`/usr/lib/cargo/bin/coreutils`) breaks.
 - Links escaping the worktree and nested repositories are refused. Don't edit the source during transfer. The local index
   is not changed.

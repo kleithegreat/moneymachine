@@ -28,7 +28,7 @@ from reference import edge_markets
 
 REPO = Path(__file__).resolve().parents[1]
 AUDIT = REPO / "audit" / "stage6"
-REF = REPO / "reference/lean/.lake/build/bin/refmm"
+REF = Path(os.environ.get("REFMM", REPO / "reference/lean/.lake/build/bin/refmm"))
 DUMP = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "reference/mmdump/target")) / "release" / "mmdump"
 NULLS = ("N1", "N2", "N3")
 DAYS = 550

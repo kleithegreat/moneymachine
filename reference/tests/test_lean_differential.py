@@ -3,6 +3,7 @@ program, and exact runs (trace, returns, node types and streams) on a short null
 differential harness. A smoke version of C6.4, which is judged on its own frozen corpus."""
 
 import json
+import os
 import random
 import subprocess
 from pathlib import Path
@@ -15,7 +16,7 @@ from gate.probes import probes
 from reference import differential
 from reference.differential import REF, REPO, verdict_mm
 
-pytestmark = [pytest.mark.local, pytest.mark.usefixtures("built_kernel", "built_mmdump", "built_refmm")]
+pytestmark = [pytest.mark.usefixtures("built_kernel", "built_mmdump", "built_refmm")]
 
 
 def test_verdicts_agree(tmp_path: Path) -> None:
@@ -38,6 +39,8 @@ def test_verdicts_agree(tmp_path: Path) -> None:
 
 def test_runs_agree_bit_for_bit(tmp_path: Path) -> None:
     params = json.loads((REPO / "gate/nulls.json").read_text())
+    funding = params["N2"]["funding"]
+    funding["arrays"] = markets.frozen_funding(funding, os.environ.get("FUNDING_INPUTS"))
     ev = {
         "arrays": np.random.default_rng(3).poisson(2.0, (300, 3)).astype(float),
         "coins": [0, 4, 7],
