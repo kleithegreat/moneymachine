@@ -36,7 +36,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
      - Cornell and TAMU are free for about two weeks only.
    - **Archive:** study 2's 17 coins, 2026-04-03 to 10-31: 80,845 raw files (26 GB), parsed into 3,379 coin-day snapshot tables (15 GB), every one checked readable. Spent about $2.46.
    - **Next:** Fable designs kernel version 2 (maximal Lean, OCaml for the rest, no Rust or Python: the human, 2026-11-12) with study 2's hedge and margin (Argon round 4's findings 1, 2, 4 and 5). Sonnet applies `paper-changes.md`. Then one deletion pass of stale files, `audit/` included (the human's leave).
-2. **Erasure** (one pass, with stale `audit/` files allowed and the Nix replacements of `audit/decisions.md` 2026-11-12) per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
+2. **Erasure** (one pass, with stale `audit/` files allowed and the Nix replacements and tests as flake checks on remote builders, `shards.py` and `crossmachine.py` out: `audit/decisions.md` 2026-11-12) per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
 
 ### Next, in order

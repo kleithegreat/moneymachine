@@ -913,3 +913,7 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Lean:** the engine, its semantics, fill rules and laws, proved on the running code.
   - **OCaml:** everything Lean cannot reasonably do: data loading, I/O, orchestration.
   - **Constraint:** Fable's kernel version 2 design must keep to this. The archive reader (`ingest/archive.py`) and the frozen pilot stack are outside it until ported or retired.
+- 2026-11-12 01:51 UTC (20:51 EST), the human: **in the erasure pass, tests become Nix flake checks run on Nix remote builders** (prodesk5, gmktec and prodesk7, the last with a resource cap on its Nix daemon).
+  - **Goes:** `ops/shards.py`, with its duration cache and node checkouts, and the `mm-test-node` role, reduced to that cap.
+  - **Stays local:** tests that need real `data/`, user namespaces or kill-the-process storage behaviour, marked as `LOCAL_ONLY` is today.
+  - **Also goes, ideally:** `ops/crossmachine.py`, the campaign bit-identity tool, once nothing a recorded result relies on needs it again. The pass lists its callers first.
