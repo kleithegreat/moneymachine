@@ -168,6 +168,18 @@
           installPhase = "cp -r lean-4.34.0-linux $out";
           autoPatchelfIgnoreMissingDeps = true;
         };
+        # The Lean reference kernel (stage 6), built offline by Lake. Its source is `reference/lean` alone, so it is cached by that;
+        # building the `Ref` library checks every theorem, so this build is the proof check.
+        refmm = pkgs.stdenv.mkDerivation {
+          pname = "refmm";
+          version = "0";
+          src = ./reference/lean;
+          nativeBuildInputs = [ self.packages.${pkgs.stdenv.hostPlatform.system}.lean pkgs.autoPatchelfHook ];
+          buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp ];
+          dontConfigure = true;
+          buildPhase = "export HOME=$TMPDIR; lake build";
+          installPhase = "install -D .lake/build/bin/refmm $out/bin/refmm";
+        };
         whitepaper = pkgs.runCommand "whitepaper.pdf" {
           nativeBuildInputs = [
             (pkgs.texliveBasic.withPackages (ps: with ps; [
@@ -220,10 +232,20 @@
             buildPhase = "cd kernel && cargo build --release --offline";
             installPhase = "cp -r target $out";
           };
+          # The null models' funding source: the search part's hourly funding and premium (before the holdout), as the store
+          # yielded it when `gate/nulls.json` froze, named by its sha256 (`gate/fit.py`; staged for the cluster by `ops/jobs.py`).
+          # Add it with `nix-store --add-fixed sha256 /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39`.
+          fundingInputs =
+            let blob = pkgs.requireFile {
+              name = "d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39";
+              sha256 = "d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39";
+              message = "nix-store --add-fixed sha256 /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39";
+            };
+            in pkgs.runCommand "funding-inputs" { } "mkdir $out && ln -s ${blob} $out/${blob.name}";
           pytestCheck =
-            { name, paths, src ? srcAll, select ? "not local", kernel ? false, prebuilt ? false, vendor ? null }:
+            { name, paths, src ? srcAll, select ? "not local", kernel ? false, prebuilt ? false, vendor ? null, env ? { } }:
             pkgs.stdenv.mkDerivation ({
-              inherit name src;
+              inherit name src env;
               nativeBuildInputs = tools ++ lib.optionals kernel cargoTools;
               dontConfigure = true;
               buildPhase = ''
@@ -271,7 +293,6 @@
           ingest = pytestCheck { name = "ingest"; paths = "ingest/tests"; };
           criteria = pytestCheck { name = "criteria"; src = srcCriteria; paths = "criteria"; };
           ops = pytestCheck { name = "ops"; paths = "ops"; };
-          # The Lean differential runs locally: Lake's binaries need the host's dynamic loader, which the sandbox lacks.
           # mmdump's lock holds the kernel's crates too, so one vendor directory serves both builds.
           reference = pytestCheck {
             name = "reference";
@@ -279,8 +300,10 @@
             kernel = true;
             prebuilt = true;
             vendor = pkgs.rustPlatform.importCargoLock { lockFile = ./reference/mmdump/Cargo.lock; };
+            env = { REFMM = "${self.packages.${system}.refmm}/bin/refmm"; FUNDING_INPUTS = "${fundingInputs}"; };
           };
           sandbox = pytestCheck { name = "sandbox"; paths = "sandbox/tests"; };
+          lean-proofs = self.packages.${system}.refmm;
         };
 
       apps.x86_64-linux =
