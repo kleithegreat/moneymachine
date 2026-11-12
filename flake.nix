@@ -168,6 +168,18 @@
           installPhase = "cp -r lean-4.34.0-linux $out";
           autoPatchelfIgnoreMissingDeps = true;
         };
+        # The Lean reference kernel (stage 6), built offline by Lake. Its source is `reference/lean` alone, so it is cached by that;
+        # building the `Ref` library checks every theorem, so this build is the proof check.
+        refmm = pkgs.stdenv.mkDerivation {
+          pname = "refmm";
+          version = "0";
+          src = ./reference/lean;
+          nativeBuildInputs = [ self.packages.${pkgs.stdenv.hostPlatform.system}.lean pkgs.autoPatchelfHook ];
+          buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp ];
+          dontConfigure = true;
+          buildPhase = "export HOME=$TMPDIR; lake build";
+          installPhase = "install -D .lake/build/bin/refmm $out/bin/refmm";
+        };
         whitepaper = pkgs.runCommand "whitepaper.pdf" {
           nativeBuildInputs = [
             (pkgs.texliveBasic.withPackages (ps: with ps; [
