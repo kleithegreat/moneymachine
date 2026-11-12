@@ -492,7 +492,7 @@ def twin(root: Path, market_id: str) -> Path:
 
 
 def scored(programs: list[Program], pairs: list[tuple[Path, Path]]) -> list[list[Pair]]:
-    return [[tuple(pair) for pair in per_program] for per_program in scores(programs, pairs)]
+    return [[(planted, twin) for planted, twin in per_program] for per_program in scores(programs, pairs)]
 
 
 def tree(root: Path) -> dict[str, str]:
