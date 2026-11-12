@@ -275,10 +275,13 @@ Laws. A sequence's decision is the decision at its shortest prefix that is not `
 
 ## Step 7. The manifest and the searcher's arm (`gate/control/manifest.py`)
 
-`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above, `SERVED` and `NOTICE` among them; the model the harness asks for; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; `calibration.json`'s hash; and the hash of each file of the judged path.
+`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above, `SERVED` and `NOTICE` among them; the model the harness asks for; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; `calibration.json`'s hash; `flake.lock`'s hash; and the hash of each file of the judged path.
 
-- **The judged path** is every file under `gate/control/` that the searcher's or the runner's module imports, directly or through another module, and `programs/`. These are the files that can change a line of `searcher.jsonl` or `results.jsonl`.
+- **The judged path** is every file of this repository that the searcher's or the runner's module imports, directly or through another module, whatever its directory, and `gate/control/programs/`. These are the files that can change a line of `searcher.jsonl` or `results.jsonl`. Beyond `gate/control/` they include `gate/search.py` (G100), `gate/markets.py` (the generator), `gate/sweep.py` and `gate/agent/campaigns.py`, which the text before this left out.
+  - **No exception for the harness's files.** The harness hash covers some of them already. A file is hashed because an arm imports it, so nobody keeps a list of what something else covers.
+  - **`flake.lock`** fixes the interpreter and the libraries. The generator draws through them, so a moved lock could give a session a market that G100 never searched.
 - **Outside it:** `tests/`, the report, and any module neither arm imports. The report recounts lines and judges nothing (L9.2). So laws, proofs and step 9 may land after the first session without failing `verify()`.
+- **Both arms run from a worktree of their own at the manifest's commit,** so that the hashed files stay still while `main` moves.
 
 Behaviour:
 1. Writing a manifest where one exists is an error. So is writing one from a calibration that has no strength or in which a wall stopped.
@@ -289,59 +292,62 @@ Behaviour:
 
 Laws:
 - **L7.1** `verify()` passes on an untouched tree and, after a change to any one byte of any hashed file, fails naming that file.
-- **L7.3** The hashed files are exactly the judged path, found by the test from the modules' imports: a new module that an arm imports is hashed without being listed, and a new file under `tests/` is not.
+- **L7.3** The hashed files are exactly the judged path, found by the test from the modules' imports: a new module that an arm imports is hashed without being listed, in `gate/control/` or anywhere else in the repository, and a new file under `tests/` is not.
 - **L7.4** Each earlier best is the pick of the ledger cut at its evaluation, and the last one is the pick.
 - **L7.2** The searcher's file does not depend on the order in which markets run or on the number of workers.
 
 ## Step 8. The runner (`gate/control/runner.py`)
 
-Entry point `python -m gate.control.runner`, one market at a time in the manifest's order, on the TAMU and Cornell accounts through `wait_for_room`, never the personal account. For market `i`:
+Entry point `python -m gate.control.runner`, one market at a time in the manifest's order, on the TAMU and Cornell accounts through `wait_for_room`, never the personal account. Each market gets one session (architecture 5.2). For market `i`:
 
 1. Write the market at the strength. Run `harness.run_agent` with a ledger and run directory of that market's own. G100's ledger for the market is not readable from the session.
-2. **Void.** The session is void when its ledger holds no evaluation and it reached no designed end. Its directory is kept under a numbered name, one line is appended to `audit/control-1/voids.jsonl` (the id, the run record if there is one, the model ids, how it ended), and the market is run again with a fresh ledger. Three voids on one market stop the runner with the state "paused", and a restart resumes at that market.
-3. **Model.** The session's model ids are read first, whatever else is true of the session, and recorded. A session whose every id is in the manifest's `SERVED` is the agent's, whatever the ids' order or mix, and whether or not its transcript holds a fallback event. If any id is outside `SERVED`, the session is not counted, its market gets no result line and no void line, one line with the state "model changed", the market's id and the ids is appended, and no session ever starts again under this manifest.
-4. Every other session counts, on the pick in its ledger: a cut-off session, whether it crashed or the runner died under it; one that ends at the turn limit or the wall time; one that ends by its own choice. No pick is a miss.
-5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl`, in one write, before anything else happens: the id, the run record (none for a killed session), the model ids with their counts, the evaluations spent, how the session ended (the run's `stopped`, "crashed" or "killed"), the pick's hash and the inputs it reads, its count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
+2. **The model.** The session's model ids are read and recorded. A session whose every id is in the manifest's `SERVED` is the agent's, whatever the ids' order or mix, and whether or not its transcript holds a fallback event. A session with an id outside `SERVED` is not the agent's: it is the agent's miss whatever its ledger holds, and its line holds the ids and no pick.
+3. **The pick.** Every other session is judged on the pick in its ledger, however it ended: by its own choice, at the turn limit or the wall time, by a crash, or with the runner killed under it. No pick is a miss.
+4. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl`, in one write, before anything else happens: the id, the run record (none for a killed session), the model ids with their counts, whether the session is the agent's, the evaluations spent, how the session ended (the run's `stopped`, "crashed" or "killed"), the pick's hash and the inputs it reads, its count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
    - **No fsync is asked for.** A line is a function of files that are kept: the run record, the transcript, the ledger and `searcher.jsonl`. A line lost with the machine is written again on restart, by behaviours 5 and 6, and those are tested by killing the process.
-6. Stop at `claim`, `futility` or `undecided`. With `continue`, go to market `i + 1`.
-7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it, as after "model changed", the runner starts no session.
+5. Stop at `claim`, `futility` or `undecided`.
+6. **A person looks.** With `continue`, when the session crashed or is not the agent's, the runner exits with an error that names the market and the cause, and writes nothing more. The next start goes on at market `i + 1`. Otherwise go to market `i + 1`. A killed session needs no exit: its line is written by the start that a person made.
+7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it the runner starts no session.
 
 Behaviour, with the harness and the kernel replaced by stubs in tests:
 1. A sequence of stub outcomes produces the decisions step 6 gives, and the runner launches no session after a stop.
-2. A void session is rerun on the same market, and it has no line in `results.jsonl`. The third void pauses.
-3. A crashed session with an evaluation in its ledger is judged on its pick and is not rerun. A crashed session with none is void. A session that finishes with a zero exit and no evaluation is a miss. A session that ends at the turn limit with evaluations is judged.
-4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` throughout and one answered by both are all judged, and their lines record the ids and the counts. A `model_refusal_fallback` line changes nothing: with it after the first responses, as the pilot's client wrote it, before them, last, or absent, the session gives the same ids, the same line and the same decision. An assistant line whose id is `NOTICE` is not an id and ends nothing. An id outside `SERVED` ends the study, in a session that reached a designed end and in one that crashed alike, and the market has no result line and no void line.
+2. No market gets a second session, whatever its session did.
+3. A crashed session with an evaluation in its ledger is judged on its pick. A crashed session with none is a miss. After either, the runner exits without starting the next market, and the next start begins there. A session that finishes with a zero exit and no evaluation is a miss, and one that ends at the turn limit with evaluations is judged: the runner goes on after both.
+4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` throughout and one answered by both are all judged, and their lines record the ids and the counts. A `model_refusal_fallback` line changes nothing: with it after the first responses, as the pilot's client wrote it, before them, last, or absent, the session gives the same ids, the same line and the same decision. An assistant line whose id is `NOTICE` is not an id. A session with an id outside `SERVED` is a miss even when its ledger's pick would earn, in a session that reached a designed end and in one that crashed alike: its line holds the ids, the decision counts the miss, the runner exits, and the next start goes on at the next market.
 5. **Killed between a session's end and its result line** (the test kills the process): on restart the session is not run again, the pick is classified from the kept ledger, and one line is written.
-6. **Killed during a session:** on restart that session is not run again. With an evaluation in its kept ledger it is judged on its pick, its line holding no run record and "killed" as how it ended. With none it is a void, and the market is run again. The kept ledger is final: the daemon that writes it runs in the runner's process and dies with it. If the frozen harness does not give that, it is a wall.
+6. **Killed during a session:** on restart that session is not run again. It is judged on its kept ledger, its line holding no run record and "killed" as how it ended, and with no evaluation it is a miss. The restart then goes on to the next market, unless the session is not the agent's.
+   - **The kept ledger is read only once it is final.** The session's `claude` dies with the runner, by the sandbox's `--die-with-parent`. The daemon's kernel process (`mm eval -`, `gate/agent/daemon.py`) does not: it may still commit the evaluation it was given, and it exits when its input ends. Its command line names the ledger. So before a restart reads a kept ledger, it waits until no process's command line names that ledger (`/proc`). The only process that starts one is dead, so one scan that finds none is final.
+   - **The test** kills the runner while a stand-in for the kernel process, started with the ledger's path among its arguments, has an evaluation still to commit. The restart's line is the line of the ledger after that commit, however long the commit takes.
 7. A market with a result line is never run again, and `results.jsonl` is never rewritten, only appended.
 8. A session's working directory holds no file of another market, of G100's arm, or of `audit/control-1/`.
 9. `verify()` failing stops the runner before any session.
 10. After `--end`, a restart launches nothing.
 
-Laws, for every random script of stub sessions (outcomes, crashes, foreign models) and every set of points at which the runner is killed and restarted:
+Laws, for every random script of stub sessions (outcomes, crashes, unnamed ids) and every set of points at which the runner is killed and restarted:
 - **L8.1** `results.jsonl` only grows: its content at any moment is a prefix of its content at every later one.
 - **L8.2** Its market lines are in the manifest's order with no gap and no market twice.
 - **L8.3** Each line's running wins and losses equal a recount of the lines above it, and its decision equals `decide` on them.
 - **L8.4** No session starts after a line whose state or decision ends the study.
-- **L8.5** Kills that fall outside a session change no result line. A kill during a session makes that session a void when its ledger holds no evaluation, and otherwise gives the line of that ledger's pick; it changes nothing else.
-- **L8.6** A void adds no result line, and every session launched is a result line, a void, the "model changed" line, or the one in flight.
+- **L8.5** A kill outside a session changes no line. A kill during a session gives that market the line of its kept ledger, with "killed" as how it ended, and changes no other line.
+- **L8.6** Every session launched is one market line, or the one in flight: the sessions launched never exceed the market lines by more than one.
 - **L8.7** A session's model ids are a function of its assistant lines whose id is not `NOTICE`, in their order: adding, removing or moving any other line of the transcript changes no id and no count.
+- **L8.8** A line whose session is not the agent's, or has no pick, says that the agent does not earn.
 
 ## Step 9. The report (`gate/control/report.py`)
 
-`python -m gate.control.report` writes `audit/control-1/report.md` from the manifest, `calibration.json`, `searcher.jsonl`, `results.jsonl` and `voids.jsonl`, and reads nothing else: no ledger, and no kernel.
+`python -m gate.control.report` writes `audit/control-1/report.md` from the manifest, `calibration.json`, `searcher.jsonl` and `results.jsonl`, and reads nothing else: no ledger, and no kernel.
 
 Behaviour:
-1. It states the decision and its name, word for word from the second column of architecture 5.4's table, and never "no better". Under a claim it names the models that answered, and where item 4's decision is not a claim it adds 5.4's sentence.
+1. It states the decision and its name, word for word from the second column of architecture 5.4's table, and never "no better". Under a claim it names the models that answered.
 2. Each arm's rate with its exact (Clopper-Pearson) 95% interval, and the discordant counts. It points to architecture 5.3's power table and quotes no row of it: a row chosen by the observed rates restates the result as power (Hoenig and Heisey, "The abuse of power", 2001).
 3. Reported, never judged, all from the lines:
    - each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads;
    - G100's pick among its first `k` evaluations, `k` being the agent's count on that market: the last earlier best at or before `k`, and none when `k` is 0;
    - evaluations used and how each session ended;
-   - each session's model ids with their counts; the agent's rate, with its exact interval, for each set of ids that answered a session.
-4. Void sessions with their causes and model ids, and the decision that the same markets give when every market with a void counts as the agent's miss, in place of its rerun's outcome. Where that path has reached no boundary at the markets judged, the report says so. Also the cut-off sessions that were judged, with their evaluations and outcomes.
+   - each session's model ids with their counts; the agent's rate, with its exact interval, for each set of ids that answered a session, and each set's share of the sessions. Beside them, the sentence "The sets are not arms: which ids answer a session depends on how long it runs".
+4. The sessions that reached no designed end, with their evaluations, how they ended and their outcomes. The sessions that an unnamed id answered, with the ids.
 5. Sessions run beyond the stop, if any, appear in a separate table and in no rate.
-6. On a results file that ends "paused", or that has reached no end, it reports what there is and says the study has "not ended". On one that ends "ended early" or "model changed" it reports "Inconclusive at the markets judged", with the cause.
+6. On a results file that has reached no end, it reports what there is and says the study has "not ended". On one that ends "ended early" it reports "Inconclusive at the markets judged".
 
 Laws, for every random set of input files that the runner could have written:
 - **L9.1** The report is a function of its inputs: the same files give the same bytes.
@@ -352,7 +358,7 @@ Laws, for every random set of input files that the runner could have written:
 
 - A fresh session hunts bugs in `gate/control/` (`CLAUDE.md`, Correctness).
 - Opus checks each commit against its step, and gives the last review before step 7's manifest commit.
-- The advisor adds the runner's workload to `CLUSTER.md`.
+- The advisor adds the runner's workload to `CLUSTER.md`, with the worktree it runs from (step 7), and names the manifest among `CLAUDE.md`'s frozen identities.
 
 ## What the builder reports
 
