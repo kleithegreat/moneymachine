@@ -41,7 +41,7 @@ Cornell and TAMU are free until about 2026-11-25, and each day before the first 
 - `gate.markets.write(root, arrays, holdout_days, cost_cells)`: a market in the kernel's store format.
 - `gate.agent.campaigns.series_inputs()`: N2's parameters with the frozen funding blob, the cost cells, and the kernel's hash. `gate.sweep.DAYS = 730`, `HOLDOUT_DAYS = 180`.
 - `gate.search.run("G100", market, ledger, campaign, seed)`: the searcher, 100 evaluations, every one in the ledger. `gate.search.Evaluator` streams programs through `mm eval` and returns the disclosed `sharpe_annualized`.
-- `gate.agent.harness.run_agent(market, ledger, campaign, run_dir)`: one agent session under the frozen harness, model `claude-opus-5-5`. Its run record has `spent`, `stopped`, `exit` and `transcript_sha256`.
+- `gate.agent.harness.run_agent(market, ledger, campaign, run_dir)`: one agent session under the frozen harness, which asks for `claude-opus-5-5` (`harness.MODEL`). Its run record has `spent`, `stopped`, `exit` and `transcript_sha256`.
 - `gate.agent.campaigns.crashed(run)`: whether a session missed every designed end. `evaluations_made`, `wait_for_room`, `windows`: evaluations in a ledger, and pacing on the subscription accounts.
 
 ## Definitions the tests rest on
@@ -61,6 +61,7 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 | `BLIND_MARKETS`, `EVEN_ALLOWED` | 200, 9 | Wall 3: five mirror pairs on 200 markets; more than 9 of 1,000 has probability 0.005 under the rule's bound |
 | `PLANTED` | coins 0 to 5 of 12 | A choice: half the coins, so each market keeps unplanted coins that wall 1 can compare |
 | `MAX_VOIDS` | 3 | Architecture 5.2 |
+| `SERVED` | `claude-opus-5-5`, `claude-opus-4-8` | The ids that answered the pilot's sessions: the one the harness asks for, and the client's fallback (architecture 5.2) |
 
 - **Ids.** A study market is `control-1-m000` to `control-1-m099`. Its fresh pairs are `<market id>/fresh/0` to `/fresh/56`. The search's markets are `control-1-cal-a-0000` to `-1599`, the check's `control-1-cal-b-0000` to `-9999`, wall 3's `control-1-blind-000` to `-199`. No two sets share an id, so none shares a seed.
 - **A market at strength `b`** is `generate("N2", params, id, 730, PLANTED, b)` written with 180 holdout days and the series' cost cells. **Its twin** is the same call with strength 0.
@@ -70,6 +71,7 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 - **A program earns from the plant on market `m`** when it wins at least `MAJORITY` of `m`'s `PAIRS` fresh pairs. What it reads plays no part.
 - **A program's mirror** is the same program with every target position negated. **A mirror pair's even part** on a pair of markets has, as its two scores, the means of the two members' scores on the planted market and on the twin. It is classified like a program, and has no score where either member has none.
 - **A session's pick** is, among the programs that session evaluated on its study market, the one with the highest disclosed search-period `sharpe_annualized`. Ties go to the earliest evaluation. A program with no disclosed statistic is not a candidate. A session with no candidate has no pick, and that arm misses the market.
+- **A session's model ids** are the `message.model` of its transcript's assistant lines, each with its count of lines, in order of first appearance. A line that does not parse is skipped. The client's own notices carry an id that is no model's (architecture 5.2, fact 1); they are counted apart and are not ids. **A fallback event** is a transcript line of subtype `model_refusal_fallback`.
 - **A designed end** of a session is a finish with a zero exit, the turn limit, or the wall time: `crashed(run)` is false. **A void** is a session without one.
 - **G100's seed on a market** is the first eight bytes, as an unsigned integer, of `sha256("<manifest seed>:<market id>:G100")`.
 
@@ -221,7 +223,7 @@ Laws. A sequence's decision is the decision at its shortest prefix that is not `
 
 ## Step 7. The manifest and the searcher's arm (`gate/control/manifest.py`)
 
-`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; the hash of `gate/control/`; the pinned model id; `calibration.json`'s hash.
+`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; the hash of `gate/control/`; the model the harness asks for; `SERVED`; `calibration.json`'s hash.
 
 Behaviour:
 1. Writing a manifest where one exists is an error.
@@ -240,7 +242,7 @@ Entry point `python -m gate.control.runner`, one market at a time in the manifes
 
 1. Write the market at the strength. Run `harness.run_agent` with a ledger and run directory of that market's own. G100's ledger for the market is not readable from the session.
 2. **Void.** The session is void when `crashed(run)` is true, whatever its ledger holds. Its directory and ledger are kept under a numbered name, one line is appended to `audit/control-1/voids.jsonl` (the id, the run record, the evaluations spent), and the market is run again with a fresh ledger. The runner reads no score of a void session. Three voids on one market stop the runner with the state "paused", and a restart resumes at that market.
-3. **Model.** Every model id in the session's transcript is recorded. If any differs from the manifest's, the session is not counted, the runner stops with the state "model changed", and no later market runs.
+3. **Model.** The session's model ids and fallback events are read first, whatever else is true of the session, and recorded. A fallback to an id in the manifest's `SERVED` is part of the agent and changes nothing. If any id is outside `SERVED`, the session is not counted, its market gets no result line and no void line, one line with the state "model changed", the market's id and the ids is appended, and no session ever starts again under this manifest.
 4. Every other session counts: no pick is a miss; a session that ends at the turn limit or the wall time is judged on its pick.
 5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl` and flush it to disk before anything else happens: the id, the run record, the model ids, the evaluations spent, why the session stopped, the pick's hash and count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
 6. Stop at `claim`, `futility` or `undecided`. With `continue`, go to market `i + 1`.
@@ -250,7 +252,7 @@ Behaviour, with the harness and the kernel replaced by stubs in tests:
 1. A sequence of stub outcomes produces the decisions step 6 gives, and the runner launches no session after a stop.
 2. A void session is rerun on the same market, and its outcome is not in `results.jsonl`. The third void pauses.
 3. A crashed session with evaluations in its ledger is void and rerun, not judged. A session that ends at the turn limit with evaluations is judged.
-4. A foreign model id stops the study, and the market has no result line.
+4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` after a fallback event, and one answered by both are all judged, and their lines record the ids, the counts and the event. An id outside `SERVED` ends the study, in a session that reached a designed end and in one that crashed alike, and the market has no result line and no void line.
 5. **Killed between a session's end and its result line** (the test kills the process): on restart the session is not run again, the pick is classified from the kept ledger, and one line is written.
 6. **Killed during a session:** on restart that session is a void, whatever its ledger holds, and the market is run again.
 7. A market with a result line is never run again, and `results.jsonl` is never rewritten, only appended.

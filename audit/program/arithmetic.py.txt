@@ -1,10 +1,11 @@
-"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's round 4), audit/program/paper-changes.md
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 and 5), audit/program/paper-changes.md
 and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
 
 Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
 Reads one file, audit/stage3/null-v3.jsonl, for the agent's evaluation counts.
 """
 
+import functools
 import json
 import math
 import statistics
@@ -144,7 +145,7 @@ def confirmer(sigma: float = 0.02) -> None:
         print(f"  years to 80% power at Sharpe {sharpe}: {U80**2 / sharpe**2:.2f} at Kelly's fraction")
 
 
-WINDOWS = (22, 28, 44, 66)
+WINDOWS = (22, 28, 35, 44, 66)
 
 
 def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], ...]) -> None:
@@ -205,12 +206,21 @@ def pair_rule() -> tuple[int, int]:
 
 
 def walls(pairs: int, majority: int) -> None:
-    """Wall 3 classifies the even part of each of 5 mirror pairs on 200 markets. Argon's momentum: the share of
-    the reference's Sharpe that an average of past returns keeps, when the plant is an AR(1) drift."""
+    """Wall 3 classifies the even part of each of 5 mirror pairs on 200 markets, each pair against its own count.
+    Wall 5 bounds a program that reads no input by the top of G100's band. Argon's momentum: the share of the
+    reference's Sharpe that an average of past returns keeps, when the plant is an AR(1) drift."""
     size = binom.sf(majority - 1, pairs, 0.5)
-    cells = 5 * 200
-    allowed = next(count for count in range(cells) if binom.sf(count, cells, size) <= 0.01)
-    print(f"  wall 3: even parts at q <= 1/2 earn with probability at most {size:.4f} each; more than {allowed} of {cells} has probability {binom.sf(allowed, cells, size):.4f}")
+    mirror_pairs, markets = 5, 200
+
+    def any_pair_stops(count: int) -> float:
+        return float(1 - (1 - binom.sf(count, markets, size)) ** mirror_pairs)
+
+    allowed = next(count for count in range(markets) if any_pair_stops(count) <= 0.01)
+    print(f"  wall 3: an even part at q <= 1/2 earns with probability at most {size:.4f}; more than {allowed} of {markets} for some of the {mirror_pairs} mirror pairs has probability {any_pair_stops(allowed):.4f} (at {allowed - 1}: {any_pair_stops(allowed - 1):.4f}); an even part that earns on 4.5% of markets passes with probability {binom.cdf(allowed, markets, 0.045):.3f}")
+    top = 0.18
+    constant = next(count for count in range(markets) if binom.sf(count, markets, top) <= 0.005)
+    print(f"  wall 5: a program that earns at the band's top, {top}, earns on more than {constant} of {markets} markets with probability {binom.sf(constant, markets, top):.4f}")
+    print(f"  the DSL has one weight expression for all 12 coins: half the reference's effect is {0.5 / math.sqrt(2):.3f} of a six-coin oracle's, at equal variances")
     phi = 1 - 1 / 42
     for snr in (0.03, 0.06, 0.12, 0.25):
         shares = []
@@ -219,6 +229,30 @@ def walls(pairs: int, majority: int) -> None:
             variance = (1 - decay) / (1 + decay) * (1 + (1 + decay * phi) / (1 - decay * phi) * snr**2)
             shares.append(f"{covariance / math.sqrt(variance):.2f}")
         print(f"  a momentum average's correlation with the planted drift, at a drift of {snr} step standard deviations (persistence 1 - 1/42), by decay 0.8, 0.9, 0.95, 0.98: {', '.join(shares)}")
+
+
+def voids(n_max: int = 100, theta1: float = 0.7) -> None:
+    """Study 1's void rule, at its worst: every market discordant at one half, and a void that hides a loss whenever
+    hiding one raises the chance of the claim. Exact, by backward induction over (wins, losses, markets, voids)."""
+    upper = math.log(19)
+    win = math.log(theta1 / 0.5)
+    loss = math.log((1 - theta1) / 0.5)
+
+    @functools.cache
+    def claim(wins: int, losses: int, markets: int, left: int) -> float:
+        ratio = wins * win + losses * loss
+        if ratio >= upper:
+            return 1.0
+        if ratio <= -upper or markets == n_max:
+            return 0.0
+        kept = claim(wins, losses + 1, markets + 1, left)
+        hidden = claim(wins, losses, markets, left - 1) if left else 0.0
+        return 0.5 * claim(wins + 1, losses, markets + 1, left) + 0.5 * max(kept, hidden)
+
+    sizes = ", ".join(f"{count}: {claim(0, 0, 0, count):.3f}" for count in range(6))
+    print(f"  the size when up to v voids each hide a loss, by v: {sizes}")
+    for share in (9 / 20, 31 / 40):
+        print(f"  were a session with a fallback void (a share of {share:.3f}), a counted market would cost {1 / (1 - share):.1f} sessions: {29 / (1 - share):.0f} for 29 markets, {41 / (1 - share):.0f} for 41")
 
 
 def calibration(pairs: int) -> None:
@@ -258,12 +292,13 @@ def study1() -> None:
     print(f"  G100 at 0.3 is {(0.3 - 0.18) / math.sqrt(0.18 * 0.82 / 10_000):.0f} standard errors above the band's 0.18; rates 0.25 and 0.2 with 0.1875 in common leave {100 * (0.0625 + 0.0125):.1f} discordant markets in 100")
     pairs, majority = pair_rule()
     walls(pairs, majority)
+    voids()
     calibration(pairs)
     spent = [json.loads(line)["agent_run"] for line in Path("audit/stage3/null-v3.jsonl").read_text().splitlines()]
     counts = sorted(run["spent"] for run in spent)
     print(f"  stage 3's {len(spent)} null campaigns: the agent spent {counts[0]} to {counts[-1]} of 100 evaluations, median {statistics.median(counts)}; stopped: {sorted({run['stopped'] for run in spent})}")
     print(f"  at {SESSIONS_A_WEEK} sessions a week (an assumption), 100 markets take {100 / SESSIONS_A_WEEK:.1f} weeks, 41 take {41 / SESSIONS_A_WEEK:.1f}, 29 take {29 / SESSIONS_A_WEEK:.1f}; with one session in ten void, 100 markets take {100 / 0.9:.0f} sessions")
-    print("  sessions left in a 14-day window when the first runs on day d: " + ", ".join(f"d = {day}: {SESSIONS_A_WEEK * (14 - day) / 7:.0f}" for day in (0, 4, 5, 6, 7)))
+    print("  sessions left in a 14-day window when the first runs on day d: " + ", ".join(f"d = {day}: {SESSIONS_A_WEEK * (14 - day) / 7:.0f}" for day in (0, 3, 4, 5, 6, 7)))
 
 
 def expected_max(count: int) -> float:

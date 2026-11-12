@@ -97,8 +97,11 @@ Every forward design on Hyperliquid, with the account simulated as specified: ea
 
 Sections 5.1 to 5.5 were revised on 2026-11-12 01:22 UTC (20:22 EST) by Claude Fable 5.2, session "architect: study 1 fix", after Argon's round 4 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r4.md`, findings 3 and 6). Revision 4's text is at `git show 4273da5:audit/program/architecture.md`.
 
+They were revised again on 2026-11-12 11:01 UTC (06:01 EST) by Claude Fable 5.2, session "architect: study 1 open items", after the model fallback found in the pilot's sessions (`audit/decisions.md`, 2026-11-12 07:10 UTC (02:10 EST)) and Argon's round 5 (`audit/reviews/2026-11-12-argon-web-study1-r5.md`). The text before that is at `git show c46c786:audit/program/architecture.md`.
+
 - **Claim, on rejection:** on synthetic markets in which six coins carry a planted drift, set by each coin's lagged funding, the frozen pilot agent's session ends on a program that earns from the plant with a higher chance than G100's search does. The agent may use 100 evaluations and uses what it chooses; G100 uses all 100. Earning is the plant's effect on the program's score, whatever inputs the program reads.
-- **Population.** A market is a draw from the pilot's generator at the calibrated plant strength, its seed fixed in the manifest. A session is one run of the pinned model under the frozen stage 3 harness and kernel (`harness_hash` `6a335714…`) that reaches a designed end (5.2).
+- **Population.** A market is a draw from the pilot's generator at the calibrated plant strength, its seed fixed in the manifest. A session is one run of the frozen stage 3 harness and kernel (`harness_hash` `6a335714…`) that reaches a designed end (5.2).
+- **The agent** is that harness as the provider serves it. The harness asks for `claude-opus-5-5`. The responses come from `claude-opus-5-5` or, once the client reports a safeguard fallback, from `claude-opus-4-8` (5.2).
 - **Arms.** A, the agent, with its brief and its 100-evaluation budget. B, G100, its search seed derived from the manifest's seed and the market's id. Both run on every study market.
 - **A session's pick** is its evaluated program with the highest search-period score, read from the ledger the same way for both arms.
 - **A market's fresh pairs.** For study market `m`, 57 markets with ids `m/fresh/0` to `m/fresh/56`, each generated twice: with the study's planted coins and strength, and with strength zero, its twin. The generator seeds every draw from the id, and the strength changes no draw (`gate/markets.py`, `generate`). So twins share funding, premium, innovations and volume, and their unplanted coins are identical. They differ in the planted coins' returns and, under N2, in those coins' variance paths, which feed on the planted return. A twin is the same world without the plant, not the planted world minus a term.
@@ -124,14 +127,32 @@ Sections 5.1 to 5.5 were revised on 2026-11-12 01:22 UTC (20:22 EST) by Claude F
 
 - **Between markets.** The pairs of outcomes are independent: distinct seeds, no memory between sessions, fresh pairs of their own. G100's outcome on each study market is computed before the first session and is a fixed number by then. That changes nothing: the test conditions on nothing, and the manifest, with its seeds and their order, is committed before G100 runs. The null is about the population, not about each market, where G100's chance is 0 or 1.
 - **Between the arms.** A discordant market is the agent's win with probability at most one half under the null, whatever the joint law. The size is at most 0.043: making an outcome better never undoes a claim, and removing concordant markets never does, so the worst null is every market discordant at one half, and that case is enumerated exactly.
-- **The model.** The manifest pins the model's id, and every response's id is recorded. A session that carries another id is not counted; the study stops there and reports what it has, for the pinned model. A change the provider does not disclose is invisible to any study of a hosted model.
+- **The model.** The subject is the harness, and the model is something it asks for.
+  - **What the pilot's sessions show.** The harness passes `--model claude-opus-5-5`. In 9 of stage 3's 20 null sessions, in the real campaign's one search session and in 31 of stage 4's 40 swarm sessions, the client logged `model_refusal_fallback` (category "cyber", scope "session"), and every later response came from `claude-opus-4-8` (`audit/decisions.md`, 2026-11-12 07:10 UTC (02:10 EST)). The first line of each transcript still names `claude-opus-5-5`.
+  - **So a session has no one model.** What is frozen and hashed is a request, a client build and a brief. Which model answers is the provider's choice, made in each session and disclosed in each response. "The pinned model" named something the harness never fixed.
+  - **The subject is the pilot's agent as it ran.** The study is a control of the pilot's search, and the pilot's search was this mixture: every one of its results came from it. A control of anything narrower would test an agent the pilot did not use.
+  - **The alternatives fail.**
+    - *A session with a fallback is void and rerun.* At the pilot's shares of 0.45 to 0.78, a counted market costs 1.8 to 4.4 sessions, so the 29 markets expected at the target cost 53 to 129, against a window of about 35. The counted sessions would also be the ones a classifier passed, which is a selection on what the agent wrote.
+    - *Pin `claude-opus-4-8`.* The model's name is inside the harness hash, so this is a fork, and its subject is one part of the pilot's agent.
+    - *Avoid the trigger.* The brief is inside the hash too, and the trigger is a classifier of the provider's that may change on any day.
+  - **What is recorded.** For each session: every id that answered, in order of first appearance, with its count of responses, and each fallback event. An id is the `message.model` of an assistant line; the client's own notices, which carry no model's id, are counted apart.
+  - **What is fixed.** The manifest names the ids that may answer, `claude-opus-5-5` and `claude-opus-4-8`. A session answered by any other id is not counted, and it ends the study as inconclusive at the markets judged (5.4): the agent is no longer the registered one, and a manifest is never rewritten. This is what "the pinned model" was for, and it holds a resumed study to the same agent.
+  - **Validity.** The null is stated for each market's session. The share of sessions with a fallback may drift during the study, and the size holds, because it is enumerated for every sequence of markets whose chance of a win is at most one half (5.2, between the arms).
+  - **A change the provider does not disclose** is invisible to any study of a hosted model.
+  - **Before the criterion is committed,** the advisor reads the pilot's transcripts, model ids and events only, and records four facts in `audit/decisions.md`:
+    1. every `message.model` of an assistant line is one of the two ids or the client's notice id, and which id that is;
+    2. a session holds at most one fallback event and no `claude-opus-5-5` response after it, and how many such responses come before it;
+    3. no response from `claude-opus-4-8` comes without an event before it;
+    4. from run records alone, the count of sessions that missed every designed end, with and without a fallback.
+
+    A fact that fails the first three changes the named ids or the reader of ids, and comes back to the architect. The fourth is reported.
 - **Operational failures.** A session is void when it does not reach a designed end: a finish with a zero exit, the turn limit, or the wall time (`gate.agent.campaigns.crashed`, stage 3's definition). It is void whatever it had evaluated, and the market is run again with a fresh session before the next market is read. Three voids on one market pause the study, which resumes at that market.
   - **Why this is valid.** The rule reads how the session ended and never a score. The session counted for a market is the first to reach a designed end, markets stay independent, and the null is about such sessions.
   - **Why not judge a cut-off session on its pick,** as revision 4 did after a first evaluation. That scores an outage as a miss on a search the agent did not finish, which is the third part of Argon's finding 6: it holds. Resuming a session, Argon's fix, is not something the frozen harness does.
   - **What it costs.** An outage is likelier to fall in a long session, so the counted sessions lean short. The lean is second order while voids are few, and the report shows it: every void with its evaluations, and the decision recomputed with each void judged on its pick.
   - Every other session counts: one that ends by its own choice with no evaluation is a miss, and one that ends at the turn limit or the wall time is judged on its pick.
 - **The stopping rule** is applied in the manifest's order. Sessions run beyond the stop are reported and not counted.
-- **An early end.** The study may be ended before a boundary, for any reason: it then ends undecided at its last judged market. The size holds, because a claim is made only at the upper boundary within the first 100 markets, and ending sooner only removes paths to it. For the same reason a paused study may resume later, at the same market and under the same manifest, on any account that runs the pinned model.
+- **An early end.** The study may be ended before a boundary, for any reason: it then ends undecided at its last judged market. The size holds, because a claim is made only at the upper boundary within the first 100 markets, and ending sooner only removes paths to it. For the same reason a paused study may resume later, at the same market and under the same manifest, on any account.
 
 ### 5.3 Power, for the rule as specified
 
@@ -180,7 +201,7 @@ Chance of the claim, at least overlap; independent arms; most overlap (the arms 
 | 100 markets, no boundary | Inconclusive, with the same report | As above |
 | Ended early, no boundary | Inconclusive at the markets judged, with the same report | As above |
 
-**Not claimed:** real edge; that agents search better in general; that the agent is better at an equal count of evaluations (reported, not judged); that a pick reads funding or names the plant's mechanism (the inputs each pick reads are reported); anything about the gate; search apart from prior, since the brief names the family the plant belongs to.
+**Not claimed:** real edge; that agents search better in general; anything about `claude-opus-5-5` or `claude-opus-4-8` alone; that the agent is better at an equal count of evaluations (reported, not judged); that a pick reads funding or names the plant's mechanism (the inputs each pick reads are reported); anything about the gate; search apart from prior, since the brief names the family the plant belongs to.
 
 ### 5.5 Before any session, and what is reported
 
@@ -194,7 +215,7 @@ Chance of the claim, at least overlap; independent arms; most overlap (the arms 
 - each mirror-set program's own rate of earning at the study's strength, which is how much of the plant can be earned without reading funding;
 - the count of pairs won by each of G100's picks on the check markets, which shows how many picks sit in the rule's soft zone.
 
-**Reported with the result, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions with their causes and evaluations, and the decision recomputed with each void judged on its pick; each arm's rate with exact intervals; every response's model id.
+**Reported with the result, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions with their causes and evaluations, and the decision recomputed with each void judged on its pick; each arm's rate with exact intervals; each session's model ids with their counts of responses, and its fallback event; the agent's rate among sessions with a fallback and among those without.
 
 **Cost in kernel evaluations:** 342 a study market to classify both picks and the reference; about 8.0 million for the calibration, 10.1 million at most, and 0.25 million for wall 3. One evaluation took about 9 ms here (100 in 0.88 s, `gate/control/tests/test_pick.py`), so about 20 core-hours. The builder times it first.
 
