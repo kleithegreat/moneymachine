@@ -1,23 +1,29 @@
-"""Fakes and a reference for study 1's steps 7 to 9 (audit/program/briefs/1-positive-control.md), written from the plan
-before the code. Nothing here runs an agent session, the kernel or an account check.
+"""Fakes and a reference for study 1's steps 7 to 9 (audit/program/briefs/1-positive-control.md at 54c11fb), written
+from the plan before the code. Nothing here runs an agent session, the kernel or an account check.
 
 The interfaces these fakes stand in for are stated in `test_runner.py`, `test_manifest.py` and `test_report.py`. In
 short, the runner takes six injected effects, each defaulting to the real one:
 - `verify() -> manifest`: `manifest.verify`, which raises before the runner does anything else;
 - `room() -> object | None`: pacing on the TAMU and Cornell accounts (`wait_for_room`); None ends the runner;
 - `market(root, market_id, strength) -> Path`: `pairs.write_market`;
-- `session(market, ledger, campaign, workdir) -> run record`: `harness.run_agent`, which writes the record to
-  `workdir/run.json` and the transcript to `workdir/transcript.jsonl` before it returns;
-- `spent(ledger, campaign, workdir) -> int`: `campaigns.evaluations_made`;
+- `session(market, ledger, campaign, workdir) -> run record`: `harness.run_agent`, which streams the transcript to
+  `workdir/transcript.jsonl` and, at a designed end or a crash, writes the run record to `workdir/run.json` before it
+  returns;
+- `spent(ledger, campaign, workdir) -> int`: `campaigns.evaluations_made`, the session's evaluations;
 - `judge(market_id, strength, ledger) -> judgement`: the pick (step 3) of agent "A" in campaign `market_id`,
-  classified on the market's fresh pairs (steps 1, 2).
+  classified on the market's fresh pairs (steps 1, 2): {"pick", "reads", "pairs_won", "reference_median",
+  "pick_median", "earns"}.
 
-A fake session writes a ledger that is a JSON file naming the session and its scripted behaviour; only the fake
-`spent` and `judge` read it. Every fake call appends one line to `ctl/calls.log` with the size and hash of
-`results.jsonl` at that moment, so a test can check what the runner had written whenever it acted. A kill point
-`(kind, n)` makes the n-th call of that kind (counted over every restart) SIGKILL the process that runs the code
-under test, and itself."""
+A fake session writes its transcript and a ledger that is a JSON file naming the session, its scripted kind and its
+evaluations, before it can be killed; only the fake `spent` and `judge` read the ledger. Every fake call appends one
+line to `ctl/calls.log` with the size and hash of `results.jsonl` at that moment. A kill point `(kind, n)` makes the
+n-th call of that kind (counted over every restart) SIGKILL the process that runs the code under test, and itself.
 
+The kinds of session follow the pilot's record (`audit/decisions.md`, 2026-11-12 15:23 UTC): of 169 sessions, 109
+were answered by `claude-opus-4-8` with one `model_refusal_fallback` line written after the responses it explains,
+3 of those after one `claude-opus-5-5` response, and the rest by `claude-opus-5-5` throughout."""
+
+import copy
 import hashlib
 import json
 import multiprocessing
@@ -36,8 +42,11 @@ from gate.control.sequential import decide, outcome
 
 Record = dict[str, Any]
 
-PINNED = "claude-opus-5-5"
-FOREIGN = "claude-opus-4-8"
+ASKED = "claude-opus-5-5"
+FALLBACK = "claude-opus-4-8"
+SERVED = (ASKED, FALLBACK)
+NOTICE = "client-notice-id"
+FOREIGN = "claude-other-9-9"
 STRENGTH = 0.004
 SEED = "control-1-test-seed"
 IDS = [f"control-1-m{i:03d}" for i in range(MAX_MARKETS)]
@@ -45,10 +54,12 @@ ENDING_DECISIONS = ("claim", "futility", "undecided")
 ENDING_STATES = ("model changed", "ended early")
 MARKET_KEYS = (
     "id",
+    "run",
     "models",
     "evaluations",
-    "stopped",
+    "ended",
     "pick",
+    "reads",
     "pairs_won",
     "reference_median",
     "pick_median",
@@ -62,29 +73,34 @@ MARKET_KEYS = (
 
 
 @dataclass(frozen=True)
-class Behaviour:
+class Kind:
     stopped: str
     exit: int
-    has_pick: bool
+    evaluations: int
     earns: bool
-    foreign: bool
+    answers: tuple[str, ...]
+    event_at: int | None
 
 
-BEHAVIOURS = {
-    "earn": Behaviour("finished", 0, True, True, False),
-    "miss": Behaviour("finished", 0, True, False, False),
-    "nopick": Behaviour("finished", 0, False, False, False),
-    "turns": Behaviour("turn limit", -9, True, True, False),
-    "wall": Behaviour("wall time", -9, True, False, False),
-    "crash": Behaviour("finished", 1, True, True, False),
-    "crash-miss": Behaviour("finished", 1, True, False, False),
-    "signal": Behaviour("finished", -15, True, True, False),
-    "foreign": Behaviour("finished", 0, True, True, True),
+KINDS = {
+    "earn": Kind("finished", 0, 6, True, (ASKED,) * 3, None),
+    "miss": Kind("finished", 0, 6, False, (ASKED,) * 3, None),
+    "nopick": Kind("finished", 0, 0, False, (ASKED,) * 2, None),
+    "turns": Kind("turn limit", -9, 9, True, (ASKED,) * 4, None),
+    "wall": Kind("wall time", -9, 9, False, (ASKED,) * 4, None),
+    "crash": Kind("finished", 1, 4, True, (ASKED,) * 2, None),
+    "signal": Kind("finished", -15, 4, False, (ASKED,) * 2, None),
+    "empty": Kind("finished", 1, 0, False, (ASKED,), None),
+    "fallback": Kind("finished", 0, 6, True, (FALLBACK,) * 3, 2),
+    "mixed": Kind("finished", 0, 6, True, (ASKED,) + (FALLBACK,) * 3, 3),
+    "notice": Kind("finished", 0, 6, True, (ASKED, ASKED, NOTICE, ASKED), None),
+    "foreign": Kind("finished", 0, 6, True, (ASKED, FOREIGN, FOREIGN), None),
+    "foreign-crash": Kind("finished", 1, 0, False, (FOREIGN,), None),
 }
 DEFAULT = "miss"
 
 
-def behaviour_of(script: Sequence[str], session: int) -> str:
+def kind_of(script: Sequence[str], session: int) -> str:
     return script[session] if session < len(script) else DEFAULT
 
 
@@ -92,56 +108,85 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def evaluations(session: int) -> int:
-    return 1 + (7 * session) % 23
+def evaluations(session: int, kind: str) -> int:
+    base = KINDS[kind].evaluations
+    return base + session % 5 if base else 0
 
 
-def judgement(session: int, behaviour: str) -> Record:
-    b = BEHAVIOURS[behaviour]
-    if not b.has_pick:
-        return {"pick": None, "pairs_won": 0, "reference_median": 0.5, "pick_median": None, "earns": False}
+def judgement(session: int, kind: str) -> Record:
+    k = KINDS[kind]
+    if not k.evaluations:
+        return {"pick": None, "reads": [], "pairs_won": 0, "reference_median": 0.5, "pick_median": None, "earns": False}
     return {
         "pick": f"pick-{session}",
-        "pairs_won": 45 if b.earns else 20,
+        "reads": ["funding"] if k.earns else ["prices"],
+        "pairs_won": 45 if k.earns else 20,
         "reference_median": 0.5,
-        "pick_median": 0.4 if b.earns else 0.1,
-        "earns": b.earns,
+        "pick_median": 0.4 if k.earns else 0.1,
+        "earns": k.earns,
     }
 
 
-def transcript(pinned: str, foreign: bool) -> str:
-    answered = FOREIGN if foreign else pinned
-    lines: list[Record] = [{"type": "system", "subtype": "init", "model": pinned, "tools": ["Bash", "Read", "Write"]}]
-    if foreign:
-        lines.append(
-            {
-                "type": "system",
-                "subtype": "model_refusal_fallback",
-                "original_model": pinned,
-                "fallback_model": FOREIGN,
-            }
-        )
-    for text in ("reading the brief", "done"):
-        lines.append({"type": "assistant", "message": {"model": answered, "content": [{"type": "text", "text": text}]}})
-    usage = {pinned: {"outputTokens": 1}, FOREIGN: {"outputTokens": 9}} if foreign else {pinned: {"outputTokens": 9}}
+def ids_of(answers: Sequence[str], notice: str | None = NOTICE) -> list[list[Any]]:
+    """The model ids the plan defines: each assistant id but `notice`, with its count, in order of first appearance."""
+    counts: dict[str, int] = {}
+    for answer in answers:
+        if answer != notice:
+            counts[answer] = counts.get(answer, 0) + 1
+    return [[model, count] for model, count in counts.items()]
+
+
+def event_line() -> Record:
+    return {
+        "type": "system",
+        "subtype": "model_refusal_fallback",
+        "trigger": "refusal",
+        "scope": "session",
+        "original_model": ASKED,
+        "fallback_model": FALLBACK,
+        "api_refusal_category": "cyber",
+    }
+
+
+def transcript(answers: Sequence[str], event_at: int | None = None) -> str:
+    """A stream-json transcript: the init line naming the model asked for, then each answer as an assistant line with a
+    tool result after it, the fallback event after the first `event_at` answers (none when None), and a result line
+    whose usage names the model asked for too."""
+    lines: list[Record] = [{"type": "system", "subtype": "init", "model": ASKED, "tools": ["Bash", "Read", "Write"]}]
+    for index, answer in enumerate(answers):
+        if event_at == index:
+            lines.append(event_line())
+        lines.append({"type": "assistant", "message": {"model": answer, "content": [{"type": "text", "text": "x"}]}})
+        lines.append({"type": "user", "message": {"content": [{"type": "tool_result", "content": "ok"}]}})
+    if event_at is not None and event_at >= len(answers):
+        lines.append(event_line())
+    usage = {model: {"outputTokens": 1} for model in dict.fromkeys((ASKED, *answers))}
     lines.append({"type": "result", "subtype": "success", "modelUsage": usage})
     return "".join(json.dumps(line) + "\n" for line in lines)
 
 
-def run_record(session: int, behaviour: str, campaign: str, transcript_sha: str | None) -> Record:
-    b = BEHAVIOURS[behaviour]
+def run_record(session: int, kind: str, campaign: str, transcript_sha: str | None) -> Record:
+    k = KINDS[kind]
     return {
         "campaign": campaign,
         "agent": "A",
-        "spent": evaluations(session),
+        "spent": evaluations(session, kind),
         "history_calls": 0,
-        "turns": 3 + session % 5,
-        "stopped": b.stopped,
-        "exit": b.exit,
+        "turns": len(k.answers),
+        "stopped": k.stopped,
+        "exit": k.exit,
         "seconds": 0,
         "transcript_sha256": transcript_sha,
         "harness": "fake",
     }
+
+
+def earlier(market_id: str, earns: bool) -> list[Record]:
+    return [
+        {"evaluation": 1, "pick": f"g100-{market_id}-1", "pairs_won": 10, "earns": False},
+        {"evaluation": 7, "pick": f"g100-{market_id}-7", "pairs_won": 41, "earns": True},
+        {"evaluation": 40, "pick": f"g100-{market_id}", "pairs_won": 45 if earns else 10, "earns": earns},
+    ]
 
 
 def searcher_line(market_id: str, earns: bool) -> Record:
@@ -150,14 +195,22 @@ def searcher_line(market_id: str, earns: bool) -> Record:
         "seed": int.from_bytes(hashlib.sha256(f"{SEED}:{market_id}:G100".encode()).digest()[:8], "big"),
         "evaluations": 100,
         "pick": f"g100-{market_id}",
+        "reads": ["prices"],
         "pairs_won": 45 if earns else 10,
         "reference_median": 0.5,
         "earns": earns,
+        "earlier": earlier(market_id, earns),
     }
 
 
-def manifest(model: str = PINNED) -> Record:
-    return {"seed": SEED, "markets": list(IDS), "strength": STRENGTH, "model": model}
+def manifest(served: Sequence[str] = SERVED, notice: str | None = NOTICE) -> Record:
+    return {
+        "seed": SEED,
+        "markets": list(IDS),
+        "strength": STRENGTH,
+        "model": ASKED,
+        "constants": {"SERVED": list(served), "NOTICE": notice, "MAX_VOIDS": MAX_VOIDS},
+    }
 
 
 def jsonl(path: Path) -> list[Record]:
@@ -178,11 +231,11 @@ def ends_study(line: Mapping[str, Any]) -> bool:
 
 
 def simulate(
-    g100: Sequence[bool], script: Sequence[str], killed: Collection[int] = (), model: str = PINNED
+    g100: Sequence[bool], script: Sequence[str], killed: Collection[int] = ()
 ) -> tuple[list[Record], list[Record], int]:
     """The plan's step 8, applied to a script of sessions with a restart after every pause: the results lines, the
-    void lines (with the session that each void was) and the number of sessions launched. `killed` holds the
-    sessions killed while running, which are voids whatever their script says."""
+    void lines and the number of sessions launched. `killed` holds the sessions killed while running: they left their
+    transcript and ledger, and no run record."""
     lines: list[Record] = []
     voids: list[Record] = []
     launched = 0
@@ -197,16 +250,25 @@ def simulate(
             continue
         session = launched
         launched += 1
-        behaviour = behaviour_of(script, session)
-        record = run_record(session, behaviour, market_id, None)
-        if session in killed or crashed(record):
-            voids.append({"id": market_id, "session": session, "evaluations": evaluations(session), "run": record})
+        kind = kind_of(script, session)
+        models = ids_of(KINDS[kind].answers)
+        if any(model not in SERVED for model, _ in models):
+            lines.append({"state": "model changed", "id": market_id, "models": models})
+            break
+        record = None if session in killed else run_record(session, kind, market_id, None)
+        designed = record is not None and not crashed(record)
+        count = evaluations(session, kind)
+        if record is None:
+            ended = "killed"
+        elif designed:
+            ended = record["stopped"]
+        else:
+            ended = "crashed"
+        if count == 0 and not designed:
+            voids.append({"id": market_id, "run": record, "models": models, "ended": ended, "session": session})
             since_pause += 1
             continue
-        if BEHAVIOURS[behaviour].foreign:
-            lines.append({"state": "model changed", "id": market_id})
-            break
-        judged = judgement(session, behaviour)
+        judged = judgement(session, kind)
         result = outcome(judged["earns"], g100[index])
         wins += result == "win"
         losses += result == "loss"
@@ -215,10 +277,11 @@ def simulate(
             {
                 "id": market_id,
                 "run": record,
-                "models": [model],
-                "evaluations": evaluations(session),
-                "stopped": record["stopped"],
+                "models": models,
+                "evaluations": count,
+                "ended": ended,
                 "pick": judged["pick"],
+                "reads": judged["reads"],
                 "pairs_won": judged["pairs_won"],
                 "reference_median": judged["reference_median"],
                 "pick_median": judged["pick_median"],
@@ -239,10 +302,18 @@ def simulate(
 
 
 def project(line: Mapping[str, Any]) -> Record:
-    """What a results line must say: a market line's plan fields, or a state line's state and market."""
+    """What a results line must say: a market line's plan fields, without the run record's transcript hash, which a
+    fake writes and `simulate` cannot know; or a state line's state, market and ids."""
     if is_market_line(line):
-        return {key: line[key] for key in MARKET_KEYS}
-    return {key: line[key] for key in ("state", "id", "markets") if key in line}
+        projected = {key: line[key] for key in MARKET_KEYS}
+        if projected["run"] is not None:
+            projected["run"] = {k: v for k, v in projected["run"].items() if k != "transcript_sha256"}
+        return projected
+    return {key: line[key] for key in ("state", "id", "markets", "models") if key in line}
+
+
+def project_void(line: Mapping[str, Any]) -> Record:
+    return {"id": line["id"], "models": line["models"], "ended": line["ended"], "run": line["run"] is not None}
 
 
 def append(path: Path, entry: Mapping[str, Any]) -> None:
@@ -265,12 +336,13 @@ def world(
     g100: Sequence[bool],
     script: Sequence[str],
     kills: Iterable[tuple[str, int]] = (),
-    model: str = PINNED,
     room_limit: int | None = None,
     pause_seconds: float = 0.0,
+    event_at: int | None = -1,
 ) -> None:
     """A study directory: `out` (audit/control-1's stand-in, holding searcher.jsonl), `work` (G100's arm under
-    `work/searcher`), and `ctl` (the fakes' script, kill points and call log)."""
+    `work/searcher`), and `ctl` (the fakes' script, kill points and call log). `event_at`, when not -1, puts every
+    session's fallback event after that many answers (None: no event)."""
     out, work, ctl = root / "out", root / "work", root / "ctl"
     out.mkdir(parents=True)
     ctl.mkdir()
@@ -280,11 +352,12 @@ def world(
     (out / "searcher.jsonl").write_text("".join(json.dumps(searcher_line(i, e)) + "\n" for i, e in zip(IDS, g100)))
     (out / "calibration.json").write_text(json.dumps({"strength": STRENGTH, "walls": {}}))
     settings = {
-        "manifest": manifest(model),
+        "manifest": manifest(),
         "script": list(script),
         "kills": [list(k) for k in kills],
         "room_limit": room_limit,
         "pause_seconds": pause_seconds,
+        "event_at": event_at,
     }
     (ctl / "settings.json").write_text(json.dumps(settings))
 
@@ -300,6 +373,7 @@ class Fakes:
         self.kills = {(kind, n) for kind, n in settings["kills"]}
         self.room_limit: int | None = settings["room_limit"]
         self.pause_seconds: float = settings["pause_seconds"]
+        self.event_at: int | None = settings["event_at"]
 
     def log(self, kind: str, **extra: Any) -> int:
         n = len([call for call in calls(self.ctl) if call["kind"] == kind])
@@ -317,7 +391,7 @@ class Fakes:
 
     def verify(self) -> Record:
         self.log("verify")
-        return dict(self.manifest)
+        return copy.deepcopy(self.manifest)
 
     def room(self) -> object | None:
         n = self.log("room")
@@ -355,16 +429,18 @@ class Fakes:
         market, ledger, workdir = Path(market), Path(ledger), Path(workdir)
         n = self.log("session", id=campaign, workdir=str(workdir), ledger=str(ledger))
         self.check_isolation(market, ledger, campaign, workdir)
-        behaviour = behaviour_of(self.script, n)
+        kind = kind_of(self.script, n)
+        k = KINDS[kind]
         workdir.mkdir(parents=True, exist_ok=True)
         (workdir / "token").write_text(f"session-{n}")
+        event_at = k.event_at if self.event_at == -1 else self.event_at
+        text = transcript(k.answers, event_at)
+        (workdir / "transcript.jsonl").write_text(text)
         ledger.parent.mkdir(parents=True, exist_ok=True)
-        ledger.write_text(json.dumps({"session": n, "behaviour": behaviour}))
+        ledger.write_text(json.dumps({"session": n, "kind": kind, "evaluations": evaluations(n, kind)}))
         time.sleep(self.pause_seconds)
         self.kill_point("session", n)
-        text = transcript(self.manifest["model"], BEHAVIOURS[behaviour].foreign)
-        (workdir / "transcript.jsonl").write_text(text)
-        record = run_record(n, behaviour, campaign, sha256(text.encode()))
+        record = run_record(n, kind, campaign, sha256(text.encode()))
         (workdir / "run.json").write_text(json.dumps(record))
         return record
 
@@ -374,7 +450,7 @@ class Fakes:
         ledger = Path(ledger)
         if not ledger.exists():
             return 0
-        return evaluations(json.loads(ledger.read_text())["session"])
+        return int(json.loads(ledger.read_text())["evaluations"])
 
     def judge(self, market_id: str, strength: float, ledger: Path) -> Record:
         ledger = Path(ledger)
@@ -385,7 +461,7 @@ class Fakes:
             self.violation(f"judged {market_id} at {strength}")
         if content is None:
             return judgement(-1, "nopick")
-        return judgement(content["session"], content["behaviour"])
+        return judgement(content["session"], content["kind"])
 
 
 def calls(ctl: Path) -> list[Record]:
@@ -425,7 +501,8 @@ def drive(
     root: Path, run: Callable[..., object], restarts: int = 60, kill_after: Callable[[], float] | None = None
 ) -> Drive:
     """Run `run` in a forked process until it returns other than paused, restarting it after a kill or a pause, at
-    most `restarts` times. With `kill_after`, each process is also killed after that many seconds unless it has returned."""
+    most `restarts` times. With `kill_after`, each process is also killed after that many seconds unless it has
+    returned."""
     context = multiprocessing.get_context("fork")
     exits: list[int] = []
     snapshots: list[bytes] = []
