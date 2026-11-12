@@ -952,3 +952,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Fact 3 fails:** in all 20 fallback sessions, `claude-opus-4-8` responses come *before* the event line. In `agent-null-3-N2-0`, three responses precede the event at line 7. The client writes the event after the retried responses, so a reader that requires the event first would call every fallback session a model change.
   - **Fact 4:** from run records, all 41 sessions finished with exit 0. None missed every designed end, with or without a fallback.
   - **Consequence:** the reader of ids goes back to the architect, as 5.2 requires. These facts suggest a session is either all `claude-opus-5-5` or all `claude-opus-4-8`, with the event anywhere in the session.
+- 2026-11-12 15:23 UTC (10:23 EST), advisor: **correction to the four facts above.** The scan missed the swarm's transcripts, which sit at `*/swarm/A*/transcript.jsonl`.
+  - **Over every pilot transcript in the mirror and `data/agent`:** 169 sessions (128 swarm, 20 stage 3 null v2, 20 null v3, 1 real), of which 109 have a fallback event (89 swarm, 10, 9 and 1).
+  - **Ids:** `claude-opus-5-5` 3,606 responses, `claude-opus-4-8` 7,034, no other.
+  - **Fact 2 holds:** at most one event, and no 5.5 response after it.
+  - **Fact 3 fails** in all 109 fallback sessions.
+  - **"One id throughout" is not quite true:** 3 sessions (`swarm-null-2-N2-4` A1, `swarm-null-2-N2-7` A2, `swarm-null-N2-1` A1) have one `claude-opus-5-5` response before switching.
+  - **Effect on the rule:** Fable's reader of ids (`rearchitecture` `afb73dd`) already counts mixed sessions as the agent and reports the rate by set of ids, so it stands. Its text's counts ("41 sessions", "none was answered by both") are corrected in its next revision.
