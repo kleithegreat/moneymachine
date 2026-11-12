@@ -95,19 +95,27 @@ Every forward design on Hyperliquid, with the account simulated as specified: ea
 
 ### 5.1 The claim, the measure and the test
 
-- **Claim, on rejection:** on synthetic markets carrying a planted funding edge, the frozen pilot agent's session ends on a program that earns from the plant with a higher chance than G100's search does. The agent may use 100 evaluations and uses what it chooses; G100 uses all 100.
-- **Population.** A market is a draw from the pilot's generator at the calibrated plant strength, its seed fixed in the manifest. A session is one run of the pinned model under the frozen stage 3 harness and kernel (`harness_hash` `6a335714…`).
+Sections 5.1 to 5.5 were revised on 2026-11-12 01:22 UTC (20:22 EST) by Claude Fable 5.2, session "architect: study 1 fix", after Argon's round 4 (`audit/reviews/2026-11-11-argon-web-rearchitecture-r4.md`, findings 3 and 6). Revision 4's text is at `git show 4273da5:audit/program/architecture.md`.
+
+- **Claim, on rejection:** on synthetic markets in which six coins carry a planted drift, set by each coin's lagged funding, the frozen pilot agent's session ends on a program that earns from the plant with a higher chance than G100's search does. The agent may use 100 evaluations and uses what it chooses; G100 uses all 100. Earning is the plant's effect on the program's score, whatever inputs the program reads.
+- **Population.** A market is a draw from the pilot's generator at the calibrated plant strength, its seed fixed in the manifest. A session is one run of the pinned model under the frozen stage 3 harness and kernel (`harness_hash` `6a335714…`) that reaches a designed end (5.2).
 - **Arms.** A, the agent, with its brief and its 100-evaluation budget. B, G100, its search seed derived from the manifest's seed and the market's id. Both run on every study market.
 - **A session's pick** is its evaluated program with the highest search-period score, read from the ledger the same way for both arms.
-- **A market's fresh pairs.** For study market `m`, 32 markets with ids `m/fresh/0` to `m/fresh/31`, each generated twice: with the study's planted coins and strength, and with strength zero, its twin. The generator seeds every draw from the id, and the strength changes no draw (`gate/markets.py`, `generate`). So twins share funding, premium, innovations and volume, and their unplanted coins are identical. They differ in the planted coins' returns and, under N2, in those coins' variance paths, which feed on the planted return. A twin is the same world without the plant, not the planted world minus a term.
+- **A market's fresh pairs.** For study market `m`, 57 markets with ids `m/fresh/0` to `m/fresh/56`, each generated twice: with the study's planted coins and strength, and with strength zero, its twin. The generator seeds every draw from the id, and the strength changes no draw (`gate/markets.py`, `generate`). So twins share funding, premium, innovations and volume, and their unplanted coins are identical. They differ in the planted coins' returns and, under N2, in those coins' variance paths, which feed on the planted return. A twin is the same world without the plant, not the planted world minus a term.
 - **A program's effect on a pair** is its score on the planted market minus its score on the twin.
-- **A pick earns from the plant** when, on at least 24 of its market's 32 pairs, its effect is at least half the locked reference program's effect on the same pair, and that effect is positive.
+- **A pick earns from the plant** when, on at least 39 of its market's 57 pairs, its effect is at least half the locked reference program's effect on the same pair, and that effect is positive.
 - **Null:** for a market drawn from that population, the chance that only the agent's pick earns from the plant is at most the chance that only G100's does. That is, the agent's chance is at most G100's.
 - **Test:** Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, ending at 100 markets. The upper boundary is the claim. The lower boundary is a futility stop and claims nothing.
 
+**What the plant is, and who earns from it.** Argon's finding 3 holds, and what it breaks is revision 4's wall 3, not the measure.
+- **The plant is a drift.** It adds `strength × signal` to a planted coin's return each bar, the signal a clipped function of that coin's funding four hours earlier. Funding is persistent and is not centred on the signal's zero. So the drift persists and has a mean, and a program can earn from it three ways: by reading funding; by averaging the coin's past returns, which estimates the drift; by a constant position on the side of the drift's mean. For the second, the average's correlation with the drift is 0.43 at a drift of 0.12 step standard deviations and passes one half near 0.2. Argon's 0.516 is an arithmetic slip; its point stands.
+- **All three are discoveries.** A twin is the same world without the plant, so a program's effect is what the plant does to its score. A program that wins most fresh pairs earns from the plant on markets it has never seen, and any honest confirmer in that world would confirm it. That is what a search is for. What the program reads is its route, which is reported and not judged.
+- **So the claim changes and the measure does not.** Revision 4's wall 3 said that no funding-blind program may earn. That was a statement about routes, it was false, and a momentum program tripping it would have been the measure working. The claim now says "plant" where it said "funding edge" and does not imply that the pick reads funding. Making the plant invisible in prices, as Argon proposes, would change the frozen generator to defend a statement the study does not need.
+
 **Why this measure.**
-- **It is a stated property, not an estimate.** There is no mean, no standard error and no `K`. A pick whose chance of beating half the reference on a fresh pair is at most one half passes with probability at most 0.0035, exactly, whatever its variance or tails. At a chance of 0.9 it passes with probability 0.997. The reference is scored on the same pair, so its noise is inside the comparison.
-- **It reads the median, and convexity moves the mean.** Argon's construction is a floor under losses: a term of mean zero added above a floor raises the expected score of a program that knows nothing. It does not raise that program's chance of beating half the reference on a given pair above one half. The same holds for a program near bankruptcy, whose twin difference is large and of either sign.
+- **It is a test of a stated property, with an exact operating curve.** Let `q` be a pick's chance of beating half the reference on a fresh pair. The rule is the smallest that classes a pick at `q = 1/2` as earning with probability at most 0.005 and a pick at `q = 3/4` with probability at least 0.9: 39 of 57, which gives 0.0038 and 0.901, whatever the pick's variance or tails. Between the two the step is soft: 0.12 at 0.6, 0.48 at 0.67, 0.99 at 0.8. Revision 4's 24 of 32 passed a pick at `q = 3/4` only 0.59 of the time, which is the second half of Argon's finding 3. The reference is scored on the same pair, so its noise is inside the comparison.
+- **A soft step cannot make a false claim.** Both arms are classed by one rule, and G100's rate is calibrated under it. A pick in the soft zone costs its arm some rate, so softness can cost the agent the claim and never give it. How many of G100's picks sit there is measured before any session (5.5).
+- **It pays only the part of the effect that knows the plant's sign.** The plant's effect on a score has two parts. Negating every position negates the first, the drift captured. It leaves the second: the variance path, liquidation, clipping, ruin. Argon's convexity is the second part. With effects exactly opposite, a program and its mirror win disjoint pairs and never both earn, since twice 39 exceeds 57. Wall 3 measures the second part directly, on mirror pairs of programs.
 - **Selection cannot act on it.** A session never sees its fresh pairs, so a pick fitted to its own market's noise carries nothing over.
 - **Markets stay independent.** Each market's pairs derive from its own id. Nothing random is shared between two markets' classifications.
 - **It is the thing the claim names.** Fees, liquidation, clipping and rounding are inside the score, so a program that holds the signal and is ruined does not count.
@@ -115,14 +123,24 @@ Every forward design on Hyperliquid, with the account simulated as specified: ea
 ### 5.2 Why the test is valid
 
 - **Between markets.** The pairs of outcomes are independent: distinct seeds, no memory between sessions, fresh pairs of their own. G100's outcome on each study market is computed before the first session and is a fixed number by then. That changes nothing: the test conditions on nothing, and the manifest, with its seeds and their order, is committed before G100 runs. The null is about the population, not about each market, where G100's chance is 0 or 1.
-- **Between the arms.** A discordant market is the agent's win with probability at most one half under the null, whatever the joint law. The size is at most 0.043, by exact enumeration.
-- **The model.** The manifest pins the model's id, and every response's id is recorded. A session that carries another id is not counted; the study stops there and reports what it has, for the pinned model. A change the provider does not disclose is invisible to any study of a hosted model, and this one lasts two to five weeks.
-- **Operational failures.** A session is void when the harness exits non-zero with no evaluation in the ledger. It is rerun on the same market before the next market is read. The rule is decided before any score of that session exists, so it cannot select on an outcome, and an outage is not an observation of the agent. Three voids on one market pause the study, which resumes at that market. Every other session counts: one that ends by its own choice with no evaluation is a miss, and one cut off after an evaluation is judged on its pick.
+- **Between the arms.** A discordant market is the agent's win with probability at most one half under the null, whatever the joint law. The size is at most 0.043: making an outcome better never undoes a claim, and removing concordant markets never does, so the worst null is every market discordant at one half, and that case is enumerated exactly.
+- **The model.** The manifest pins the model's id, and every response's id is recorded. A session that carries another id is not counted; the study stops there and reports what it has, for the pinned model. A change the provider does not disclose is invisible to any study of a hosted model.
+- **Operational failures.** A session is void when it does not reach a designed end: a finish with a zero exit, the turn limit, or the wall time (`gate.agent.campaigns.crashed`, stage 3's definition). It is void whatever it had evaluated, and the market is run again with a fresh session before the next market is read. Three voids on one market pause the study, which resumes at that market.
+  - **Why this is valid.** The rule reads how the session ended and never a score. The session counted for a market is the first to reach a designed end, markets stay independent, and the null is about such sessions.
+  - **Why not judge a cut-off session on its pick,** as revision 4 did after a first evaluation. That scores an outage as a miss on a search the agent did not finish, which is the third part of Argon's finding 6: it holds. Resuming a session, Argon's fix, is not something the frozen harness does.
+  - **What it costs.** An outage is likelier to fall in a long session, so the counted sessions lean short. The lean is second order while voids are few, and the report shows it: every void with its evaluations, and the decision recomputed with each void judged on its pick.
+  - Every other session counts: one that ends by its own choice with no evaluation is a miss, and one that ends at the turn limit or the wall time is judged on its pick.
 - **The stopping rule** is applied in the manifest's order. Sessions run beyond the stop are reported and not counted.
+- **An early end.** The study may be ended before a boundary, for any reason: it then ends undecided at its last judged market. The size holds, because a claim is made only at the upper boundary within the first 100 markets, and ending sooner only removes paths to it. For the same reason a paused study may resume later, at the same market and under the same manifest, on any account that runs the pinned model.
 
 ### 5.3 Power, for the rule as specified
 
-The plant's strength is found without a model, by bisection: the strength at which G100's rate on 2,000 calibration markets is between 0.13 and 0.17. The standard error there is 0.008, so the true rate is between 0.11 and 0.19 unless the estimate is off by 2.5 standard errors. The target is 0.15 and not revision 3's 0.2 because the top of the band must still leave the study powered: at 0.25 it did not.
+**The strength** is found without a model, in two parts on separate markets.
+- **The search.** A bisection on one set of 1,600 markets, until G100's rate there is within 0.005 of 0.15, in at most 12 steps. The same markets at every step make the rate one function of strength.
+- **The check.** G100's rate at that strength on 10,000 fresh markets must be between 0.12 and 0.18. Its standard error at 0.19 is 0.0039, so the true rate is between 0.11 and 0.19 unless the estimate is off by 2.5 standard errors.
+- **Why these sizes.** Revision 4 searched on 400 markets and checked on 2,000 within 0.02. The search's own error, 0.018, then failed the check 31% of the time when a strength existed: the first part of Argon's finding 6 holds. Now a false stop has probability 0.005.
+
+The target is 0.15 and not revision 3's 0.2 because the top of the band must still leave the study powered: at 0.25 it did not.
 
 Chance of the claim, at least overlap; independent arms; most overlap (the arms succeed on as few, or as many, common markets as their rates allow):
 
@@ -133,33 +151,54 @@ Chance of the claim, at least overlap; independent arms; most overlap (the arms 
 | 0.3 | 0.822; 0.888; 0.998 | 0.568; 0.667; 0.973 | 0.323; 0.396; 0.783 |
 | equal to G100's, independent | 0.014 | 0.020 | 0.025 |
 
-- **At the target of 0.5 the claim's chance is at least 0.943 across the band and every overlap,** in 41 markets expected at worst. At 0.4 it is 0.73 to 1.00. At 0.3 the study is not powered.
+- **At the target of 0.5 the claim's chance is at least 0.943 across the band and every overlap,** in 41 markets expected at worst. At 0.4 it is 0.73 to 1.00.
+- **At 0.3 the study is not powered.** The claim's chance falls to 0.32 at G100's 0.19, where the futility stop takes up to 0.24 and the undecided end up to 0.50. Revision 4 quoted these at 0.15 only; the fourth part of Argon's finding 6 holds.
 - **The worst null,** every market discordant at `θ = 1/2`: claim 0.043, futility stop 0.936, 33 markets.
-- **Argon's rows.** G100 at 0.3 against 0.5, least overlap: 0.529. That is 16 standard errors of the calibration above the band's 0.17. Rates of 0.25 and 0.2 with 0.1875 in common: claim 0.083, undecided 0.917, since 100 markets hold 7.5 discordant ones and the claim needs nine wins, and three more for every two losses. The study is not powered for a gap of 0.05 and does not say it is.
+- **Argon's earlier rows.** G100 at 0.3 against 0.5, least overlap: 0.529. That is 31 standard errors of the check above the band's 0.18. Rates of 0.25 and 0.2 with 0.1875 in common: claim 0.083, undecided 0.917, since 100 markets hold 7.5 discordant ones and the claim needs nine wins, and three more for every two losses. The study is not powered for a gap of 0.05 and does not say it is.
 - **The agent's rate is not known.** In all 20 of stage 3's null campaigns the agent stopped on its own after 6 to 22 evaluations, median 10.5. Those markets held nothing to find, so this says little about planted ones. If the agent stops as early there, the claim is the stronger for it and its chance the smaller. The futility boundary ends a study that is going nowhere: six straight discordant losses.
-- **Length.** At 22 sessions a week, an assumption, 100 markets take 4.5 weeks and 41 take 1.9.
+
+**Sessions and the window.** The sessions run on the Cornell and TAMU accounts, which are free until about 2026-11-25 (the human, 2026-11-11). At 22 sessions a week, an assumption, that is 44 sessions from 2026-11-11, and 3.1 fewer for each day before the first session. A void costs a session and judges no market.
+
+| Case (agent, G100, overlap) | Expected markets | Claim within 22 | 28 | 44 | 66 markets |
+|---|---|---|---|---|---|
+| 0.5, 0.15, independent: the target | 29 | 0.32 | 0.55 | 0.89 | 0.99 |
+| 0.5, 0.19, least: the worst powered row | 41 | 0.23 | 0.37 | 0.65 | 0.84 |
+| 0.4, 0.15, independent | 44 | 0.11 | 0.25 | 0.59 | 0.85 |
+| Worst null: either boundary | 33 | 0.39 | 0.53 | 0.78 | 0.91 |
+| Equal rates of 0.15, independent: either boundary | 82 | 0.01 | 0.03 | 0.11 | 0.26 |
+
+- **Expected:** 29 markets at the target, 1.3 weeks. **Worst case:** 100 markets and their voids, 4.5 weeks or more, which the window does not hold.
+- **The window is short for the study.** If the first session runs on 2026-11-16, 28 sessions are left: the claim is reached with probability 0.55 at the target and 0.37 on the worst powered row. Every day saved before the first session is worth three markets.
+- **If the window ends before a boundary,** the runner is paused, which loses nothing (5.2). The study then either resumes on another account or is ended as inconclusive at the markets it has. Which of the two is the human's to choose (section 12), and neither can make a false claim.
 
 ### 5.4 What a result may be called
 
 | Result | What it is called | Consequence |
 |---|---|---|
-| Upper boundary | The agent's sessions end on a program that earns from the planted edge more often than G100's 100 evaluations do | Search is not what the systematic line lacks. It lacks a rule with a Sharpe of 2 (section 2.3). The second cell, a plant with no economic story, becomes worth its sessions |
-| Futility stop | Not shown, at the power in 5.3, with each arm's rate and exact intervals | Never "no better": an agent at 0.3 against 0.15 stops here up to 8% of the time and ends undecided up to 36% |
+| Upper boundary | The agent's sessions end on a program that earns from the plant more often than G100's 100 evaluations do | Search is not what the systematic line lacks. It lacks a rule with a Sharpe of 2 (section 2.3). The second cell, a plant with no economic story, becomes worth its sessions |
+| Futility stop | Not shown, at the power in 5.3, with each arm's rate and exact intervals | Never "no better": an agent at 0.3 stops here up to 24% of the time and ends undecided up to 50%, both at G100's 0.19 |
 | 100 markets, no boundary | Inconclusive, with the same report | As above |
+| Ended early, no boundary | Inconclusive at the markets judged, with the same report | As above |
 
-**Not claimed:** real edge; that agents search better in general; that the agent is better at an equal count of evaluations (reported, not judged); anything about the gate; search apart from prior, since the brief names the family the plant belongs to.
+**Not claimed:** real edge; that agents search better in general; that the agent is better at an equal count of evaluations (reported, not judged); that a pick reads funding or names the plant's mechanism (the inputs each pick reads are reported); anything about the gate; search apart from prior, since the brief names the family the plant belongs to.
 
 ### 5.5 Before any session, and what is reported
 
 **Four walls, all model-free. A failure sends the design back to the architect.**
 1. **Twins.** Between a market and its twin, funding, premium, volume and every unplanted coin's prices are identical, and the planted coins' closes differ.
-2. **The measure finds what is there.** The reference program's effect is positive on at least 95% of calibration pairs.
-3. **The measure pays nothing else.** A locked set of programs that cannot read funding (constant long and short, each at the highest leverage the DSL allows; momentum; reversal; a fixed random position at three leverages) is classified on 200 calibration markets each. At most 1% of those classifications earn from the plant. More means the score pays convexity on most pairs, and the measure is wrong.
-4. **The strength exists.** The bisection ends inside the band within eight steps.
+2. **The measure finds what is there.** The reference program's effect is positive on at least 95% of the check markets' pairs.
+3. **The measure pays only the drift captured.** A locked set of five mirror pairs of programs, each the other with every position negated: constant long and short at the highest leverage the DSL allows; momentum and reversal; a fixed random position at three leverages, each with its negation. On a pair of markets, a mirror pair's even part is the mean of its two members' effects: what the plant does to both alike, so not the drift. Each mirror pair's even part is classified as if it were a pick on 200 calibration markets. At most 9 of those 1,000 classifications earn: under the rule's bound of 0.0038 each, more has probability 0.005. More means the score pays variance, liquidation or ruin on most pairs, and the measure is wrong.
+4. **The strength exists.** The search ends within its 12 steps and the check is inside the band.
 
-**Reported, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions and their causes; each arm's rate with exact intervals; every response's model id.
+**Reported with the walls, never judged:**
+- each mirror-set program's own rate of earning at the study's strength, which is how much of the plant can be earned without reading funding;
+- the count of pairs won by each of G100's picks on the check markets, which shows how many picks sit in the rule's soft zone.
 
-**Cost in kernel evaluations:** 192 a study market to classify both picks and the reference; about 1.2 million for the calibration. The builder times one evaluation first.
+**Reported with the result, never judged:** each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads; G100's pick among its first `k` evaluations, `k` being the agent's count on that market, classified the same way; evaluations used and why each session stopped; void sessions with their causes and evaluations, and the decision recomputed with each void judged on its pick; each arm's rate with exact intervals; every response's model id.
+
+**Cost in kernel evaluations:** 342 a study market to classify both picks and the reference; about 8.0 million for the calibration, 10.1 million at most, and 0.25 million for wall 3. One evaluation took about 9 ms here (100 in 0.88 s, `gate/control/tests/test_pick.py`), so about 20 core-hours. The builder times it first.
+
+**Laws first.** Each step of the build has laws: properties that hold for every input, written by a session other than the builder and checked on random inputs before the code exists. The laws that the judged number rests on, the rule's bound and the sequential test's size, are also proved in Lean. They are in the build plan.
 
 **Vertical slice:** the measure and its walls; the calibration; a sequential runner on the frozen harness and kernel; a report. No kernel, DSL, gate or harness change. PC1 to PC6 on `positive-controls` are replaced, and that branch is not merged. The build plan is `briefs/1-positive-control.md`.
 
@@ -219,8 +258,8 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 
 ## 11. Unsure, and where to attack
 
-1. **The score's behaviour on a pair.** I have not read how the score treats a bankrupt program. Wall 3 exists because I cannot argue from the code that no funding-blind program beats half the reference on most pairs.
-2. **The reference's effect a pair.** If it is small against a pair's noise, an honest pick fails the majority and both rates fall. Wall 2 catches the reference; a pick with 70% of its effect is not checked before the study.
+1. **The score's behaviour on a pair.** I have not read how the score treats a bankrupt program. Wall 3 exists because I cannot argue from the code that the even part of an effect, which knows nothing of the plant's sign, stays under half the reference on most pairs.
+2. **The reference's effect a pair.** If it is small against a pair's noise, an honest pick sits in the rule's soft zone and both rates fall. Wall 2 catches the reference; the count of pairs won by G100's picks, reported with the walls, shows the soft zone before any session. I expect it to be thin, because twins share their noise, and I have not measured it.
 3. **Least overlap** is the worst case for power and I think it unlikely: easy seeds should be easy for both arms.
 4. **The hedge in study 2.** A fixed short sized before the freeze is my choice. A wrong size leaves market return in the tested series, and a rising market would then be confirmed as edge. The decomposition result is the check, and it is descriptive.
 5. **Isolated margin on recorded books.** If a step's loss can exceed the margin in the replay, the test is not exact.
@@ -234,3 +273,4 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 3. **The findings index,** `docs/findings.md`, as the organized presentation of earlier research, with the paper as the home of every number. I recommend yes.
 4. **A count for the reading agent.** Reading the thesis track's ledger for theses a week costs nothing and decides whether that line is ever reopened. I recommend the advisor does it, and that no sessions are spent on a count.
 5. **The archive's cost.** If Hyperliquid's S3 archive bills the requester (a lead), study 2 spends money. That is yours to approve once the advisor has a figure.
+6. **Study 1 after the window.** If Cornell and TAMU end before a boundary, the study pauses with nothing lost. It can resume on another account that runs the pinned model, which spends that account's sessions, or end as inconclusive at the markets judged (5.2, 5.3). I recommend resuming: at 28 sessions the claim is reached about half the time even when the agent is at the target.

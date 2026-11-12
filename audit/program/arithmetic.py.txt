@@ -1,4 +1,4 @@
-"""Reproduces every derived number in audit/program/architecture.md (revision 4), audit/program/paper-changes.md
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's round 4), audit/program/paper-changes.md
 and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
 
 Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
@@ -144,10 +144,14 @@ def confirmer(sigma: float = 0.02) -> None:
         print(f"  years to 80% power at Sharpe {sharpe}: {U80**2 / sharpe**2:.2f} at Kelly's fraction")
 
 
+WINDOWS = (22, 28, 44, 66)
+
+
 def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], ...]) -> None:
     """Study 1: Wald's sequential sign test on discordant markets, theta <= 1/2 against theta1 at nominal errors
     5%, ending undecided at n_max markets. A case is (label, P(only the agent's pick earns the plant),
-    P(only G100's does)). Exact, by enumeration over (wins, losses)."""
+    P(only G100's does)). Exact, by enumeration over (wins, losses). The last column is the chance that the
+    claim, and that either boundary, is reached within each count of WINDOWS."""
     upper = math.log(0.95 / 0.05)
     lower = math.log(0.05 / 0.95)
     win = math.log(theta1 / 0.5)
@@ -156,6 +160,7 @@ def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], 
     for label, agent_only, searcher_only in cases:
         alive = {(0, 0): 1.0}
         up = down = expected = 0.0
+        within = []
         for n in range(1, n_max + 1):
             nxt: dict[tuple[int, int], float] = {}
             for (wins, losses), mass in alive.items():
@@ -175,8 +180,64 @@ def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], 
                     else:
                         nxt[state] = nxt.get(state, 0.0) + reached
             alive = nxt
+            if n in WINDOWS:
+                within.append(f"{up:.2f}/{up + down:.2f}")
         theta = agent_only / (agent_only + searcher_only)
-        print(f"    {label:44s} theta {theta:.3f}: claim {up:.3f}, futility stop {down:.3f}, undecided {1 - up - down:.3f}, markets {expected:.0f}")
+        print(f"    {label:44s} theta {theta:.3f}: claim {up:.3f}, futility stop {down:.3f}, undecided {1 - up - down:.3f}, markets {expected:.0f}; within {WINDOWS}: {', '.join(within)}")
+
+
+def pair_rule() -> tuple[int, int]:
+    """A pick earns from the plant when it beats half the reference on at least `majority` of its market's `pairs`
+    fresh pairs: a binomial test of q, its chance on one pair. The rule is the smallest that classes a pick at
+    q = 1/2 with probability at most 0.005 and a pick at q = 3/4 with probability at least 0.9."""
+    found = next(
+        (pairs, majority)
+        for pairs in range(1, 400)
+        for majority in range(pairs + 1)
+        if binom.sf(majority - 1, pairs, 0.5) <= 0.005 and binom.sf(majority - 1, pairs, 0.75) >= 0.9
+    )
+    chances = (0.5, 0.6, 0.671, 0.75, 0.8, 0.9)
+    for pairs, majority in ((32, 24), found):
+        passes = ", ".join(f"q = {q}: {binom.sf(majority - 1, pairs, q):.4f}" for q in chances)
+        print(f"  {majority} of {pairs} pairs, the chance a pick is classed as earning: {passes}")
+    print(f"  the rule is {found[1]} of {found[0]}; with exactly opposite effects a program and its mirror win disjoint pairs, and 2 * {found[1]} > {found[0]}, so they never both earn")
+    return found
+
+
+def walls(pairs: int, majority: int) -> None:
+    """Wall 3 classifies the even part of each of 5 mirror pairs on 200 markets. Argon's momentum: the share of
+    the reference's Sharpe that an average of past returns keeps, when the plant is an AR(1) drift."""
+    size = binom.sf(majority - 1, pairs, 0.5)
+    cells = 5 * 200
+    allowed = next(count for count in range(cells) if binom.sf(count, cells, size) <= 0.01)
+    print(f"  wall 3: even parts at q <= 1/2 earn with probability at most {size:.4f} each; more than {allowed} of {cells} has probability {binom.sf(allowed, cells, size):.4f}")
+    phi = 1 - 1 / 42
+    for snr in (0.03, 0.06, 0.12, 0.25):
+        shares = []
+        for decay in (0.8, 0.9, 0.95, 0.98):
+            covariance = (1 - decay) * phi / (1 - decay * phi) * snr
+            variance = (1 - decay) / (1 + decay) * (1 + (1 + decay * phi) / (1 - decay * phi) * snr**2)
+            shares.append(f"{covariance / math.sqrt(variance):.2f}")
+        print(f"  a momentum average's correlation with the planted drift, at a drift of {snr} step standard deviations (persistence 1 - 1/42), by decay 0.8, 0.9, 0.95, 0.98: {', '.join(shares)}")
+
+
+def calibration(pairs: int) -> None:
+    """The strength is where G100's rate on `search` markets is within 0.005 of 0.15; it is accepted when the rate
+    on `check` fresh markets is within `tolerance` of 0.15. A false stop is that check failing by sampling alone."""
+    target = 0.15 * 0.85
+
+    def false_stop(search: int, check: int, tolerance: float, offset: float) -> float:
+        spread = math.sqrt(target / search + target / check)
+        return float(norm.sf((tolerance - offset) / spread) + norm.sf((tolerance + offset) / spread))
+
+    print(f"  revision 4, a search on 400 markets and a check on 2,000 within 0.02: a false stop with probability {false_stop(400, 2000, 0.02, 0):.2f}")
+    search, check, tolerance = 1600, 10_000, 0.03
+    edge = math.sqrt(0.19 * 0.81 / check)
+    print(f"  a search on {search:,} and a check on {check:,} within {tolerance}: a false stop with probability {false_stop(search, check, tolerance, 0.005):.4f}; an accepted strength has a true rate within {tolerance + 2.5 * edge:.3f} of 0.15 (2.5 standard errors of {edge:.4f} at 0.19)")
+    market = 100 + 2 * 2 * pairs
+    steps = (9, 13)
+    wall3 = 200 * 2 * pairs * (10 + 1)
+    print(f"  kernel evaluations: {3 * 2 * pairs} a study market to classify both picks and the reference, {100 * 3 * 2 * pairs:,} for 100; a calibration market at one strength, {market}; the search at {steps[0]} strengths (at most {steps[1]}) and the check: {(steps[0] * search + check) * market:,} (at most {(steps[1] * search + check) * market:,}); wall 3: {wall3:,}")
 
 
 def study1() -> None:
@@ -194,16 +255,15 @@ def study1() -> None:
     rows.append(("0.25, 0.2, both 0.1875 (Argon)", 0.0625, 0.0125))
     sign_test(100, 0.7, tuple(rows))
     print(f"  a discordant win adds {math.log(0.7 / 0.5):.4f}, a loss {math.log(0.3 / 0.5):.4f}; the boundaries are +-{math.log(19):.4f}: {math.ceil(math.log(19) / math.log(1.4))} straight wins claim, {math.ceil(math.log(19) / -math.log(0.6))} straight losses stop")
-    for markets in (400, 2000):
-        print(f"  G100's rate near 0.15 on {markets} calibration markets has standard error {math.sqrt(0.15 * 0.85 / markets):.4f}")
-    print(f"  G100 at 0.3 is {(0.3 - 0.17) / math.sqrt(0.15 * 0.85 / 2000):.0f} standard errors above the band's 0.17; rates 0.25 and 0.2 with 0.1875 in common leave {100 * (0.0625 + 0.0125):.1f} discordant markets in 100")
-    print("  a pick earns from the plant when it beats half the reference on at least 24 of its market's 32 fresh pairs; by its chance q on one pair:")
-    print("    " + ", ".join(f"q = {q}: {binom.sf(23, 32, q):.4f}" for q in (0.5, 0.6, 0.75, 0.9, 0.95)))
-    print(f"  kernel evaluations: {3 * 2 * 32} a study market to classify both picks and the reference, {100 * 3 * 2 * 32:,} for 100; calibration, 8 strengths of 400 markets and one of 2,000: {(8 * 400 + 2000) * (100 + 2 * 2 * 32):,}")
+    print(f"  G100 at 0.3 is {(0.3 - 0.18) / math.sqrt(0.18 * 0.82 / 10_000):.0f} standard errors above the band's 0.18; rates 0.25 and 0.2 with 0.1875 in common leave {100 * (0.0625 + 0.0125):.1f} discordant markets in 100")
+    pairs, majority = pair_rule()
+    walls(pairs, majority)
+    calibration(pairs)
     spent = [json.loads(line)["agent_run"] for line in Path("audit/stage3/null-v3.jsonl").read_text().splitlines()]
     counts = sorted(run["spent"] for run in spent)
     print(f"  stage 3's {len(spent)} null campaigns: the agent spent {counts[0]} to {counts[-1]} of 100 evaluations, median {statistics.median(counts)}; stopped: {sorted({run['stopped'] for run in spent})}")
-    print(f"  at {SESSIONS_A_WEEK} sessions a week (an assumption), 100 markets take {100 / SESSIONS_A_WEEK:.1f} weeks, 41 take {41 / SESSIONS_A_WEEK:.1f}")
+    print(f"  at {SESSIONS_A_WEEK} sessions a week (an assumption), 100 markets take {100 / SESSIONS_A_WEEK:.1f} weeks, 41 take {41 / SESSIONS_A_WEEK:.1f}, 29 take {29 / SESSIONS_A_WEEK:.1f}; with one session in ten void, 100 markets take {100 / 0.9:.0f} sessions")
+    print("  sessions left in a 14-day window when the first runs on day d: " + ", ".join(f"d = {day}: {SESSIONS_A_WEEK * (14 - day) / 7:.0f}" for day in (0, 4, 5, 6, 7)))
 
 
 def expected_max(count: int) -> float:
