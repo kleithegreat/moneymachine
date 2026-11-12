@@ -250,6 +250,7 @@ while True:
 """
 
 
+@pytest.mark.local
 def test_a_writer_killed_mid_append_leaves_a_directory_the_next_writer_and_reader_can_use(tmp_path: Path) -> None:
     child = subprocess.Popen([sys.executable, "-c", APPENDS, str(tmp_path)])
     f = tmp_path / "x-19700101.jsonl"

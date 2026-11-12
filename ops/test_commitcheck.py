@@ -3,6 +3,8 @@
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from ops.commitcheck import unpaired
 
 REPO = Path(__file__).resolve().parents[1]
@@ -18,6 +20,7 @@ def test_a_utc_time_needs_its_eastern_time() -> None:
     assert not unpaired("at 20:13 UTC (16:13 EDT)") and not unpaired("no time here")
 
 
+@pytest.mark.local
 def test_added_lines_pair_their_times() -> None:
     diff = git("diff", SINCE, "--", "PROGRESS.md", "audit")
     added = [line[1:] for line in diff if line.startswith("+") and not line.startswith("+++")]

@@ -11,6 +11,8 @@ from gate import campaign, sweep
 from gate.agent import campaigns
 from ops import live
 
+pytestmark = pytest.mark.local
+
 
 @pytest.mark.parametrize("tail", [b'{"id":"interrupted",', b'{"id":"\xe2\x82'])
 def test_killed_series_append_recovers_as_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tail: bytes) -> None:

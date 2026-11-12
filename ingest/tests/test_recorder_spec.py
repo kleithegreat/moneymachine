@@ -82,6 +82,7 @@ def kill_after_ack(code: str, root: Path) -> None:
         child.communicate(timeout=10)
 
 
+@pytest.mark.local
 def test_acknowledged_append_survives_sigkill_and_torn_successor(tmp_path: Path) -> None:
     """An acknowledged row survives process death; a subsequent half-row is skipped."""
     kill_after_ack(
@@ -270,6 +271,7 @@ def test_corrupted_body_is_preserved_and_repaired(tmp_path: Path, monkeypatch: p
     assert len(list(live.read(tmp_path, "repairs"))) == 1
 
 
+@pytest.mark.local
 def test_datalayer_acknowledged_response_survives_sigkill(tmp_path: Path) -> None:
     kill_after_ack(
         "import sys,time,httpx\nfrom ingest.datalayer import get\n"
@@ -282,6 +284,7 @@ def test_datalayer_acknowledged_response_survives_sigkill(tmp_path: Path) -> Non
     assert datalayer.body(tmp_path, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad") == b"abc"
 
 
+@pytest.mark.local
 def test_kill_between_body_and_row_then_repoll_loses_no_acknowledged_body(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

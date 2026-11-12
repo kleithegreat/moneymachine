@@ -647,6 +647,7 @@ def series_in_the_pods_view() -> None:
     ), rows
 
 
+@pytest.mark.local
 def test_the_series_in_its_pods_view(tmp_path: Path, built_kernel: Path) -> None:
     """The series pod's view: a read-only root, `data/` hidden but for the `agent` volume holding the seeded kernel."""
     (REPO / "data").mkdir(exist_ok=True)
@@ -682,6 +683,7 @@ def test_the_series_in_its_pods_view(tmp_path: Path, built_kernel: Path) -> None
     assert out.returncode == 0, out.stdout + out.stderr
 
 
+@pytest.mark.local
 def test_under_a_read_only_root(tmp_path: Path, built_kernel: Path) -> None:
     target = f"{Path(__file__)}::test_a_complete_campaign_commits_promotions_before_reading_diagnostics"
     out = subprocess.run(

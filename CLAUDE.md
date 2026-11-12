@@ -40,7 +40,7 @@ One authoritative home per kind of information; anything elsewhere is a summary 
 - **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is summarized there, linking its audit record. Specs and criteria say what, and cite the paper for why.
 - **Process:** this file.
 - **The live system:** `CLUSTER.md`.
-- **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (`ops/test_progress.py`), leaving history to git.
+- **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (the flake check `progress-cap`), leaving history to git.
 - **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
 - **Source certificates:** `venue/sources.toml`, read by the terms tests.
 - **Outside research:** `docs/research/`, deep-research reports kept verbatim; their citations are leads until checked.
@@ -118,10 +118,10 @@ Fetch automatically only under a certificate that quotes a permitting clause, sh
 ### Running things
 
 - **Live workloads:** on the cluster; read `CLUSTER.md` before touching one. Recordings can't be refetched: never delete or move them, nor a file a running process reads.
-- **Heavy jobs:** batches run on the cluster (`ops/jobs.py`). Other heavy work on this PC: `systemd-run --user --scope -p MemoryMax=… -p MemorySwapMax=1G choom -n 1000 -- nix develop -c ...`.
+- **Heavy jobs:** batches run on the cluster (`ops/jobs.py`). Other heavy work on this PC: `nix run .#heavy -- <memory> <command>`.
 - **Performance:** use every core while work is queued, with pools sized from measured peak memory and free memory (`gate/compute.py`). An idle host with work waiting is a bug.
 - **Full test suites:** run them with the sharded runner, `python3 ops/shards.py <worktree>` (`CLUSTER.md` §7), not bare `pytest`: it spreads one suite over this PC and the idle nodes.
-- **Waiting:** heavy entry points block, so run them as background tasks. For an unattended wake-up, write its condition and action into Now and schedule `ops/builder.sh at <when> <task> [model]`. A wake-up still in Now after its time, with no start in `data/builder/log.tsv`, was missed (timers run only while logged in): do it. Claude builder sessions are named `builder: <task>`.
+- **Waiting:** heavy entry points block, so run them as background tasks. For an unattended wake-up, write its condition and action into Now and schedule `nix run .#session -- at <when> builder <task> [model]`. A wake-up still in Now after its time, with no start in `data/builder/log.tsv`, was missed (timers run only while logged in): do it. Claude builder sessions are named `builder: <task>`.
 
 ### Tech
 
