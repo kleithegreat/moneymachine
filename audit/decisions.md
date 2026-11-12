@@ -959,3 +959,6 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Fact 3 fails** in all 109 fallback sessions.
   - **"One id throughout" is not quite true:** 3 sessions (`swarm-null-2-N2-4` A1, `swarm-null-2-N2-7` A2, `swarm-null-N2-1` A1) have one `claude-opus-5-5` response before switching.
   - **Effect on the rule:** Fable's reader of ids (`rearchitecture` `afb73dd`) already counts mixed sessions as the agent and reports the rate by set of ids, so it stands. Its text's counts ("41 sessions", "none was answered by both") are corrected in its next revision.
+- 2026-11-12 15:29 UTC (10:29 EST), advisor: **the client's own id, `NOTICE`, owed before study 1's manifest** (architecture 5.2, `rearchitecture` `afb73dd`). It is `<synthetic>`.
+  - **How it was found:** the frozen client (Claude Code 2.1.304, the dev shell's, the build `harness_hash` names) ran `claude -p --model claude-opus-5-5` with `ANTHROPIC_BASE_URL=http://127.0.0.1:9`, an address that refuses connections, so no request reached Anthropic.
+  - **What it wrote:** after its retries, one assistant line with `message.model` = `<synthetic>`, marked `isApiErrorMessage: true` in its transcript, and a result line with `is_error: true`. Only ids and line types were read.
