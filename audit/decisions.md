@@ -945,3 +945,6 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Next:**
     - a qualification beside C3 and C4.5, and the paper, by Fable's paper step;
     - study 1's handling of fallback sessions, and whether to pin a model the safeguards do not flag, by Fable, before the criterion.
+- 2026-11-12 15:43 UTC (10:43 EST), builder, erasure items 6, 10, 11 and 12 (`erasure` branch): **tests are flake checks with a `local` marker; the launchers are `ops/session.sh` behind `apps.session` and `apps.heavy`; the timers are `ops/units.nix`, exported as `homeManagerModules.default`, not installed; stages 8 and 9 are deleted from `audit/criteria.md`** (the human's approval, 2026-11-12 03:20 UTC (2026-11-11 22:20 EST)).
+  - **Departure from the plan:** the Lean differential (`reference/tests/test_lean_differential.py`, both tests) is marked `local`, not run in the `reference` check: a Lake-built binary needs the host's dynamic loader, which the Nix sandbox lacks.
+  - **Reverse:** `git revert`; the frozen criteria text is at `ab42e5e:audit/criteria.md`.
