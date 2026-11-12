@@ -20,8 +20,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review Fable adversarially (`CLAUDE.md`). Fable 5.2 runs one session at a time through `data/builder/run-architect.sh`. The perp instance is parked (the human, 2026-11-11).
 
-1. **Round fifteen** done on `thesis-refreeze` (`9d8f6e2`, pushed; reviewed by the advisor): C10.2's audit fails closed, one ledger record per call, fetched bodies stored by hash, harness hash unchanged.
-2. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, `audit/program/`; reviews in `audit/reviews/2026-11-1*`; the human's decisions in `audit/decisions.md`, 2026-11-11).
+1. **Rearchitecture** (Fable 5.2, branch `rearchitecture`, `audit/program/`; reviews in `audit/reviews/2026-11-1*`; the human's decisions in `audit/decisions.md`, 2026-11-11).
    - **Revision 4** (`44fb5ae`, `9e5240b`; Argon's round 3 answered): two positive controls and no stop.
      - **Study 1:** can the agent find an edge that exists. Fixed at six causes; each market gets its own fresh twin pairs.
      - **Study 2:** can the confirmer confirm a published rule, the Astraeus vault replication. Fidelity against the vault's record first, then a frozen forward test with power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years.
@@ -30,10 +29,14 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; GPT and Argon review 
      - **Approved by the human** (`audit/decisions.md`, 2026-11-11 21:26 UTC (16:26 EST)). Finished at `63e81cf`: `paper-changes.md` (parts A to D, every stale file), study 1's build plan (`briefs/1-positive-control.md`, nine steps) and `ledger.md` (14 agreed, 8 disputed).
      - **Study 2's vault** is identified: `0x53375ca9…2a06`. Its archive data for April 3 to October 31 is downloading, about 27 GB and $2.46.
    - **Built:** the archive reader and bars of any interval (`ingest/archive.py`, `4bcd768`).
-   - **Building now:** study 1's steps 1 to 6 on `rearchitecture`. Sonnet writes the tests for steps 1, 3, 4 and 5, and Opus those for steps 2 and 6, which carry the judged number; then a Sonnet builds.
-   - **Waiting:** Argon's round 4 (the human runs it); then Sonnet applies `paper-changes.md`; then Fable designs kernel version 2.
-   - **Fable usage, measured:** a five-hour Pro window is about 100K Fable output tokens, and one xhigh response used 53K. Run fresh sessions sized to one window, at `high` unless the task is a hard derivation.
-3. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
+   - **Study 1 build** (`rearchitecture`):
+     - Tests for steps 1 to 6 are written before the code (`8c17b5d`, `07f0fc7`).
+     - Steps 3 and 6 are built (`834c51e`, `4273da5`; 61 tests pass).
+     - Steps 1, 2, 4 and 5 wait for Fable's fix of Argon's round 4 finding 3: session `7049e7c6`, started 2026-11-12 01:08 UTC (2026-11-11 20:08 EST). If it is cut off, commit its work and rerun the remainder.
+     - Cornell and TAMU are free for about two weeks only.
+   - **Archive:** all 80,845 raw files are on disk (26 GB). Snapshot parsing is resuming after a low-memory kill (`data/hl-archive/fetch-2026-11-11b.log`). Then check that every snapshot parquet reads, since the kill may have left a partial file.
+   - **Next:** Fable designs kernel version 2 with study 2's hedge and margin (Argon round 4's findings 1, 2, 4 and 5). Sonnet applies `paper-changes.md`. Then one deletion pass of stale files, `audit/` included (the human's leave).
+2. **Erasure** per the meta review's section 5. The round-named thesis tests go with the redesign. Stage 8 and 9 criteria are marked superseded when a study is defined.
 
 
 ### Next, in order
