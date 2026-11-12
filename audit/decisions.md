@@ -920,3 +920,6 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
 - 2026-11-12 02:06 UTC (21:06 EST), the human: **TAMU's weekly allowance is spent until Friday 2026-11-13 23:00 EST (2026-11-14 04:00 UTC).**
   - Study 1's sessions before then can run only on Cornell, which also carries this advisor and Fable.
   - Calibration (about 20 core-hours), the criterion's commit and G100's run on the study markets come first anyway, so the first sessions are planned for around the TAMU reset.
+- 2026-11-12 02:58 UTC (21:58 EST), advisor, on study 1's build (`rearchitecture`), both reversible:
+  - **`measure.scores(programs, pairs)`** takes several programs and runs one kernel process per market, so a pick and the reference share an evaluator. This follows Argon's batching note (`audit/reviews/2026-11-12-argon-web-study1-r5.md`) and departs from the plan's single-program signature.
+  - **The random mirror pairs** use `sign(xs_demean(mean(volume, 168)))` times a leverage of 0.01, 0.05 or 2/12. The DSL cannot express a fixed per-coin random position. The architect accepts or amends this with Argon's open points D9-a, D9-b and D10.
