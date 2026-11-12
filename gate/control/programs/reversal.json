@@ -1,0 +1,54 @@
+{
+  "dsl": 1,
+  "mechanism": {
+    "capacity": "study 1 control",
+    "counterparty": "none: last day's return reverses",
+    "predictions": []
+  },
+  "name": "reversal",
+  "weight": {
+    "args": [
+      {
+        "args": [
+          {
+            "args": [
+              {
+                "args": [
+                  {
+                    "args": [
+                      {
+                        "input": "close"
+                      },
+                      {
+                        "args": [
+                          {
+                            "input": "close"
+                          }
+                        ],
+                        "hours": 24,
+                        "op": "lag"
+                      }
+                    ],
+                    "op": "div"
+                  },
+                  {
+                    "const": 1.0,
+                    "unit": "1"
+                  }
+                ],
+                "op": "sub"
+              }
+            ],
+            "op": "sign"
+          },
+          {
+            "const": 0.16666666666666666,
+            "unit": "1"
+          }
+        ],
+        "op": "mul"
+      }
+    ],
+    "op": "neg"
+  }
+}
