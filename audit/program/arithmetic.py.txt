@@ -1,4 +1,4 @@
-"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 and 5), audit/program/paper-changes.md
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6), audit/program/paper-changes.md
 and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
 
 Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
@@ -148,41 +148,53 @@ def confirmer(sigma: float = 0.02) -> None:
 WINDOWS = (22, 28, 35, 44, 66)
 
 
-def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], ...]) -> None:
+def sign_path(n_max: int, theta1: float, agent_only: float, searcher_only: float) -> tuple[float, float, float, list[str]]:
     """Study 1: Wald's sequential sign test on discordant markets, theta <= 1/2 against theta1 at nominal errors
-    5%, ending undecided at n_max markets. A case is (label, P(only the agent's pick earns the plant),
-    P(only G100's does)). Exact, by enumeration over (wins, losses). The last column is the chance that the
-    claim, and that either boundary, is reached within each count of WINDOWS."""
+    5%, ending undecided at n_max markets, when only the agent's pick earns the plant with chance `agent_only` and
+    only G100's with `searcher_only`. Exact, by enumeration over (wins, losses). Returns the chance of the claim, of
+    the futility stop, the expected markets, and the chance that the claim, and that either boundary, is reached
+    within each count of WINDOWS."""
     upper = math.log(0.95 / 0.05)
     lower = math.log(0.05 / 0.95)
     win = math.log(theta1 / 0.5)
     loss = math.log((1 - theta1) / 0.5)
+    alive = {(0, 0): 1.0}
+    up = down = expected = 0.0
+    within = []
+    for n in range(1, n_max + 1):
+        nxt: dict[tuple[int, int], float] = {}
+        for (wins, losses), mass in alive.items():
+            steps = ((1, 0, agent_only), (0, 1, searcher_only), (0, 0, 1 - agent_only - searcher_only))
+            for more_wins, more_losses, chance in steps:
+                state = (wins + more_wins, losses + more_losses)
+                ratio = state[0] * win + state[1] * loss
+                reached = mass * chance
+                if ratio >= upper:
+                    up += reached
+                    expected += n * reached
+                elif ratio <= lower:
+                    down += reached
+                    expected += n * reached
+                elif n == n_max:
+                    expected += n * reached
+                else:
+                    nxt[state] = nxt.get(state, 0.0) + reached
+        alive = nxt
+        if n in WINDOWS:
+            within.append(f"{up:.2f}/{up + down:.2f}")
+    return up, down, expected, within
+
+
+def claim_chance(agent: float, searcher: float) -> float:
+    """The chance of study 1's claim when the arms earn independently at these rates."""
+    return sign_path(100, 0.7, agent * (1 - searcher), searcher * (1 - agent))[0]
+
+
+def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], ...]) -> None:
+    """A case is (label, P(only the agent's pick earns the plant), P(only G100's does))."""
     print(f"  theta1 = {theta1}, at most {n_max} markets")
     for label, agent_only, searcher_only in cases:
-        alive = {(0, 0): 1.0}
-        up = down = expected = 0.0
-        within = []
-        for n in range(1, n_max + 1):
-            nxt: dict[tuple[int, int], float] = {}
-            for (wins, losses), mass in alive.items():
-                steps = ((1, 0, agent_only), (0, 1, searcher_only), (0, 0, 1 - agent_only - searcher_only))
-                for more_wins, more_losses, chance in steps:
-                    state = (wins + more_wins, losses + more_losses)
-                    ratio = state[0] * win + state[1] * loss
-                    reached = mass * chance
-                    if ratio >= upper:
-                        up += reached
-                        expected += n * reached
-                    elif ratio <= lower:
-                        down += reached
-                        expected += n * reached
-                    elif n == n_max:
-                        expected += n * reached
-                    else:
-                        nxt[state] = nxt.get(state, 0.0) + reached
-            alive = nxt
-            if n in WINDOWS:
-                within.append(f"{up:.2f}/{up + down:.2f}")
+        up, down, expected, within = sign_path(n_max, theta1, agent_only, searcher_only)
         theta = agent_only / (agent_only + searcher_only)
         print(f"    {label:44s} theta {theta:.3f}: claim {up:.3f}, futility stop {down:.3f}, undecided {1 - up - down:.3f}, markets {expected:.0f}; within {WINDOWS}: {', '.join(within)}")
 
@@ -207,7 +219,7 @@ def pair_rule() -> tuple[int, int]:
 
 def walls(pairs: int, majority: int) -> None:
     """Wall 3 classifies the even part of each of 5 mirror pairs on 200 markets, each pair against its own count.
-    Wall 5 bounds a program that reads no input by the top of G100's band. Argon's momentum: the share of the
+    Wall 5 holds a program that reads no input below the bottom of G100's band. Argon's momentum: the share of the
     reference's Sharpe that an average of past returns keeps, when the plant is an AR(1) drift."""
     size = binom.sf(majority - 1, pairs, 0.5)
     mirror_pairs, markets = 5, 200
@@ -217,9 +229,12 @@ def walls(pairs: int, majority: int) -> None:
 
     allowed = next(count for count in range(markets) if any_pair_stops(count) <= 0.01)
     print(f"  wall 3: an even part at q <= 1/2 earns with probability at most {size:.4f}; more than {allowed} of {markets} for some of the {mirror_pairs} mirror pairs has probability {any_pair_stops(allowed):.4f} (at {allowed - 1}: {any_pair_stops(allowed - 1):.4f}); an even part that earns on 4.5% of markets passes with probability {binom.cdf(allowed, markets, 0.045):.3f}")
-    top = 0.18
-    constant = next(count for count in range(markets) if binom.sf(count, markets, top) <= 0.005)
-    print(f"  wall 5: a program that earns at the band's top, {top}, earns on more than {constant} of {markets} markets with probability {binom.sf(constant, markets, top):.4f}")
+    bottom = 0.11
+    constant = max(count for count in range(markets) if binom.cdf(count, markets, bottom) <= 0.05)
+    grey = ", ".join(f"{rate}: {binom.cdf(constant, markets, rate):.3f}" for rate in (0.03, 0.05, 0.07, 0.11, 0.15))
+    print(f"  wall 5: a constant position that earns at the bottom of G100's band, {bottom}, earns on at most {constant} of {markets} markets with probability {binom.cdf(constant, markets, bottom):.3f} (at {constant + 1}: {binom.cdf(constant + 1, markets, bottom):.3f}); the wall passes a constant by its rate, {grey}; one at q = 0.55 on a pair (a rate of {binom.sf(majority - 1, pairs, 0.55):.4f}) with probability {binom.cdf(constant, markets, binom.sf(majority - 1, pairs, 0.55)):.4f}")
+    print(f"  an agent that submits one constant on every market, with no search, claims with probability {claim_chance(0.11, 0.11):.3f} when the constant earns at G100's 0.11, and {claim_chance(0.11, 0.19):.3f} against G100's 0.19")
+    print(f"  the wall it replaces, 51 of {markets}: a constant that earns at 0.255 passes with probability {binom.cdf(51, markets, 0.255):.3f} and claims with probability {claim_chance(0.255, 0.15):.3f} against G100 at 0.15, {claim_chance(0.255, 0.12):.3f} at 0.12; one at 0.18 passes with {binom.cdf(51, markets, 0.18):.3f} and claims with {claim_chance(0.18, 0.12):.3f} at 0.12 (Argon's round 6 wrote 0.538, 0.768 and 0.284)")
     print(f"  the DSL has one weight expression for all 12 coins: half the reference's effect is {0.5 / math.sqrt(2):.3f} of a six-coin oracle's, at equal variances")
     phi = 1 - 1 / 42
     for snr in (0.03, 0.06, 0.12, 0.25):
@@ -231,9 +246,10 @@ def walls(pairs: int, majority: int) -> None:
         print(f"  a momentum average's correlation with the planted drift, at a drift of {snr} step standard deviations (persistence 1 - 1/42), by decay 0.8, 0.9, 0.95, 0.98: {', '.join(shares)}")
 
 
-def voids(n_max: int = 100, theta1: float = 0.7) -> None:
-    """Study 1's void rule, at its worst: every market discordant at one half, and a void that hides a loss whenever
-    hiding one raises the chance of the claim. Exact, by backward induction over (wins, losses, markets, voids)."""
+def reruns(n_max: int = 100, theta1: float = 0.7) -> None:
+    """Why study 1 runs no session again, at the worst: every market discordant at one half, and a rerun that hides a
+    loss whenever hiding one raises the chance of the claim. Exact, by backward induction over (wins, losses,
+    markets, reruns)."""
     upper = math.log(19)
     win = math.log(theta1 / 0.5)
     loss = math.log((1 - theta1) / 0.5)
@@ -250,9 +266,9 @@ def voids(n_max: int = 100, theta1: float = 0.7) -> None:
         return 0.5 * claim(wins + 1, losses, markets + 1, left) + 0.5 * max(kept, hidden)
 
     sizes = ", ".join(f"{count}: {claim(0, 0, 0, count):.3f}" for count in range(6))
-    print(f"  the size when up to v voids each hide a loss, by v: {sizes}")
-    for share in (9 / 20, 31 / 40):
-        print(f"  were a session with a fallback void (a share of {share:.3f}), a counted market would cost {1 / (1 - share):.1f} sessions: {29 / (1 - share):.0f} for 29 markets, {41 / (1 - share):.0f} for 41")
+    print(f"  the size when up to v reruns each hide a loss, by v: {sizes}")
+    for share in (19 / 40, 89 / 128):
+        print(f"  were a session with a fallback run again (a share of {share:.3f}), a counted market would cost {1 / (1 - share):.1f} sessions: {29 / (1 - share):.0f} for 29 markets, {41 / (1 - share):.0f} for 41")
 
 
 def calibration(pairs: int) -> None:
@@ -284,6 +300,10 @@ def study1() -> None:
         for searcher in (0.11, 0.15, 0.19):
             for name, both in (("least", 0.0), ("independent", agent * searcher), ("most", searcher)):
                 rows.append((f"{agent}, {searcher}, {name} overlap", agent - both, searcher - both))
+    for lost in (0.07, 0.2):
+        agent = 0.5 * (1 - lost)
+        rows.append((f"0.5 with {lost} of sessions lost, 0.15, independent", agent * 0.85, 0.15 * (1 - agent)))
+        rows.append((f"0.5 with {lost} of sessions lost, 0.19, least", agent, 0.19))
     rows.append(("0.5, 0.25, least overlap (revision 3's band edge)", 0.5, 0.25))
     rows.append(("0.5, 0.3, least overlap (Argon)", 0.5, 0.3))
     rows.append(("0.25, 0.2, both 0.1875 (Argon)", 0.0625, 0.0125))
@@ -292,12 +312,13 @@ def study1() -> None:
     print(f"  G100 at 0.3 is {(0.3 - 0.18) / math.sqrt(0.18 * 0.82 / 10_000):.0f} standard errors above the band's 0.18; rates 0.25 and 0.2 with 0.1875 in common leave {100 * (0.0625 + 0.0125):.1f} discordant markets in 100")
     pairs, majority = pair_rule()
     walls(pairs, majority)
-    voids()
+    reruns()
+    print(f"  the pilot's 41 sessions with run records all reached a designed end: the share that does not is at most {1 - 0.05 ** (1 / 41):.3f} at 95%")
     calibration(pairs)
     spent = [json.loads(line)["agent_run"] for line in Path("audit/stage3/null-v3.jsonl").read_text().splitlines()]
     counts = sorted(run["spent"] for run in spent)
     print(f"  stage 3's {len(spent)} null campaigns: the agent spent {counts[0]} to {counts[-1]} of 100 evaluations, median {statistics.median(counts)}; stopped: {sorted({run['stopped'] for run in spent})}")
-    print(f"  at {SESSIONS_A_WEEK} sessions a week (an assumption), 100 markets take {100 / SESSIONS_A_WEEK:.1f} weeks, 41 take {41 / SESSIONS_A_WEEK:.1f}, 29 take {29 / SESSIONS_A_WEEK:.1f}; with one session in ten void, 100 markets take {100 / 0.9:.0f} sessions")
+    print(f"  at {SESSIONS_A_WEEK} sessions a week (an assumption), 100 markets take {100 / SESSIONS_A_WEEK:.1f} weeks, 41 take {41 / SESSIONS_A_WEEK:.1f}, 29 take {29 / SESSIONS_A_WEEK:.1f}")
     print("  sessions left in a 14-day window when the first runs on day d: " + ", ".join(f"d = {day}: {SESSIONS_A_WEEK * (14 - day) / 7:.0f}" for day in (0, 3, 4, 5, 6, 7)))
 
 
