@@ -360,6 +360,7 @@ def test_io_errors_are_not_treated_as_source_churn(
     assert manifest(out).read_bytes() == before
 
 
+@pytest.mark.local
 def test_sigkill_during_plain_copy_preserves_manifest_and_published_bytes(
     volume: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:

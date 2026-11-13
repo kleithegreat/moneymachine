@@ -122,6 +122,7 @@ def test_the_c56_guard_sees_any_search_event_dataset(tmp_path: Path) -> None:
         search_event_datasets(tmp_path / "missing")
 
 
+@pytest.mark.local
 def test_c56_or_no_search_event_inputs() -> None:
     """C5.6 is deferred while the search store carries no event dataset (clarification of 2026-10-22): once
     one exists, C5.6's evidence is required, and this fails without it."""

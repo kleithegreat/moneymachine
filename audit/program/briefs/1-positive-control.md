@@ -2,48 +2,51 @@
 
 Written 2026-11-12 01:25 UTC (20:25 EST) by Claude Fable 5.2, session "architect: study 1 fix", after Argon's round 4, and revised later that day as the next section says. The design is `audit/program/architecture.md`, section 5. This file is the plan `CLAUDE.md`'s Orchestration asks for: ordered steps, each stating the behaviour its tests must show and the laws that hold for every input.
 
-## What changed on 2026-11-12, and what it makes obsolete
+## What is built, and what this text changes
 
-Revised 2026-11-12 11:06 UTC (06:06 EST) by Claude Fable 5.2, session "architect: study 1 open items", after the model fallback found in the pilot's sessions and Argon's round 5. Steps 1 to 6 were built from the text before it (`git show c46c786:audit/program/briefs/1-positive-control.md`), and the tests of steps 7 to 9 were written from it (`fffed7e`).
+Revised 2026-11-12 22:19 UTC (17:19 EST) by Claude Fable 5.2, session "architect: CS1.1 convergence", after Argon's round 6 (`audit/reviews/2026-11-12-argon-web-study1-r6.md`) and two gaps that the test writer of steps 7 to 9 found. The text before it is at `git show 54c11fb:audit/program/briefs/1-positive-control.md`, and the two before that at `be96683` and `c46c786`.
 
-Revised again 2026-11-12 15:19 UTC (10:19 EST) by Claude Fable 5.2, session "architect: study 1 reader of ids", after the four facts from the pilot's transcripts (`audit/decisions.md`, 2026-11-12 15:13 UTC (10:13 EST)): the two rows on a session's model ids, and their tests below.
+- **Built,** from the text at `c46c786`: steps 1 to 6. Steps 1, 3, 4 and 6 stand, and step 2 with `scores(programs, pairs)` as the advisor adopted it (`audit/decisions.md`, 2026-11-12 02:58 UTC (2026-11-11 21:58 EST)).
+- **Tests written, code not yet,** from the text at `54c11fb`: step 5's changes (branch `study1-calib`, `1da9870`) and steps 7 to 9 (branch `study1-runner`, `6e626e6`).
+- **`constants.py`** still holds `EVEN_ALLOWED = 9` and `MAX_VOIDS`, and lacks `CONSTANT_ALLOWED`, `SERVED` and `NOTICE`.
 
-| Change | Why (architecture) | Code that changes | Tests that change |
+What the code and the tests still owe:
+
+| Change | Why (architecture) | Code that changes | Tests |
 |---|---|---|---|
-| The agent is the harness as served. A fallback to `claude-opus-4-8` is judged; only an id outside `SERVED` ends the study, and it is an end | 5.1, 5.2, 5.4 | `constants.py` (`SERVED`); steps 7 to 9, unbuilt | `fakes.py` (its foreign id is `claude-opus-4-8`), `test_runner.py`, `test_report.py`, `test_manifest.py` |
-| A session's model is read from its responses' ids alone. The fallback event is not read, and no rule depends on the order of a transcript's lines | 5.2 | Steps 8 and 9, unbuilt | `fakes.py` (`transcript`), `test_runner.py`, `test_report.py` |
-| The client's own lines are passed over, by an id the manifest names | 5.2 | `constants.py` (`NOTICE`); steps 7 and 8, unbuilt | `fakes.py`, `test_manifest.py`, `test_runner.py` |
-| A void is a session with no evaluation and no designed end. A cut-off session is judged, a killed one from its kept ledger | 5.2 | Step 8, unbuilt | `fakes.py`, `test_runner.py` |
-| The report's second decision counts every void as a miss, and the report reads no ledger | 5.2, 5.4 | Step 9, unbuilt | `test_report.py` |
-| Wall 3 is judged for each mirror pair, at most 4 of 200. Wall 5 bounds constant positions at 51 of 200 | 5.5 | `constants.py`, `calibrate.py` | `test_calibrate.py` |
-| The calibration times a whole market, and makes each twin once | Step 5 | `calibrate.py` | `test_calibrate.py` |
+| The agent is the harness as served. A fallback to `claude-opus-4-8` is judged | 5.1, 5.2 | `constants.py` (`SERVED`); steps 7 to 9 | Written, and stand |
+| A session's model is read from its responses' ids alone. The fallback event is not read | 5.2 | Steps 8 and 9 | Written, and stand |
+| The client's own lines are passed over, by the id `<synthetic>` | 5.2 | `constants.py` (`NOTICE`); steps 7 and 8 | Written, and stand |
+| One session a market: no void, no rerun, no `voids.jsonl`. A session with no pick, or not the agent's, is a miss. The runner stops after a session with no designed end, or with an unnamed id | 5.2 | `constants.py` (`MAX_VOIDS` goes); step 8 | Obsolete, below |
+| A restart reads a kept ledger only after the killed session's kernel process has exited | Step 8, behaviour 6 | Step 8 | New |
+| The report has one decision, gives each set of ids' share of the sessions, and reads no ledger | 5.2, 5.4 | Step 9 | Obsolete, below |
+| Wall 3 is judged for each mirror pair, at most 4 of 200. Wall 5 bounds constant positions at 14 of 200 | 5.5 | `constants.py`, `calibrate.py` | Written on `study1-calib`; one changes, below |
+| The calibration times a whole market, and makes each twin once | Step 5 | `calibrate.py` | Written on `study1-calib` |
 | The tolerance includes its ends; the laws' inputs are exact | Steps 2, 5 | None, if the built code already does both | `test_calibrate.py` and `test_measure.py`, where they draw other inputs |
-| The manifest hashes the judged path, not `tests/` or the report | Step 7 | Step 7, unbuilt | `test_manifest.py` |
-| The lines carry each pick's inputs, and G100's earlier bests | Steps 7 to 9 | Steps 7 to 9, unbuilt | `fakes.py`, `test_manifest.py`, `test_runner.py`, `test_report.py` |
+| The manifest hashes every file of the repository that an arm imports, and `flake.lock` | Step 7 | Step 7 | Obsolete, below |
+| The lines carry each pick's inputs, and G100's earlier bests | Steps 7 to 9 | Steps 7 to 9 | Written, and stand |
 
-- **Built and unchanged:** steps 1, 3, 4 and 6, and step 2 with `scores(programs, pairs)` as the advisor adopted it (`audit/decisions.md`, 2026-11-12 02:58 UTC (2026-11-11 21:58 EST)).
-- **Obsolete tests, to be deleted, and rewritten from this plan** by the session that wrote them or another that has not read the code:
-  - `fakes.py`:
-    - `FOREIGN`, which is `claude-opus-4-8`, an id the agent is served: it becomes an id outside `SERVED`;
-    - `transcript(pinned, foreign)`, which writes the event before the responses it explains, the order the pilot's record refutes: it takes the ids that answer, in order, and writes the event after the first responses, as the client does;
-    - `Behaviour.foreign` and the script's one "foreign" kind: a session's ids, with kinds for `claude-opus-4-8` throughout and for both;
-    - `manifest(model)`, which gains `SERVED` and `NOTICE`, and `simulate`, whose `"models": [model]` becomes each session's ids with their counts;
-    - the void rule and the lines' new fields, as the table says.
-  - `test_runner.py`:
-    - the void rule: `test_a_crashed_session_with_evaluations_is_void_and_a_turn_limit_or_wall_time_session_is_judged`, `test_killed_during_a_session_is_a_void_whatever_its_ledger_holds`, `test_a_void_session_is_kept_with_its_ledger`, and the checks behind L8.5 and L8.6;
-    - deleted: `test_model_ids_record_a_fallback_to_another_model` and `test_the_pinned_model_is_the_manifests`. In their place, step 8's behaviour 4 and L8.7;
-    - `test_model_ids_of_a_session_answered_by_the_pinned_model` and `test_model_ids_skip_lines_that_do_not_parse_and_keep_the_order_of_first_appearance`: ids with their counts, and the second also passes over a line of the client's id;
-    - `test_a_foreign_model_stops_the_study_and_its_market_has_no_result_line` stands once `FOREIGN` is outside `SERVED`, and gains the crashed session of behaviour 4;
-    - the laws' `SCRIPTED` gains the two new kinds, which count like any session;
-    - the module's note on `model_ids(transcript) -> list[str]` and on a line's "models".
-  - `test_report.py`:
-    - the three tests of the void rule, and the `judge` argument throughout;
-    - `test_an_unfinished_study_is_reported_as_not_ended` for its "model changed" case, which is an end named "Inconclusive at the markets judged";
-    - `test_every_counted_and_void_market_and_every_model_id_appears` and `recount`, for "models" as ids with counts and for the agent's rate by set of ids, which no test covers yet;
-    - no test there reads a fallback event, so none is deleted on that account.
-  - `test_manifest.py`: `test_files_name_everything_the_plan_hashes`; `NAMES` gains `SERVED` and `NOTICE`, so that `test_build_holds_every_entry_the_plan_lists` covers them. Its `content["model"]`, the id the harness asks for, stands;
-  - `test_calibrate.py`: wall 3's pooled count and the timing of 20 evaluations.
-- **Stale words:** `test_measure.py`'s note that architecture 5.1 quotes "0.67" (it now reads 0.671), and `test_programs.py`'s "fixed pseudo-random position".
+**Tests that this revision makes obsolete.** They are deleted, or rewritten from this plan by the session that wrote them or by another that has not read the code. Names are as at `6e626e6`, and `test_calibrate.py`'s as at `1da9870`.
+- `test_runner.py`:
+  - deleted: `test_a_void_is_rerun_on_the_same_market_and_has_no_result_line`, `test_a_void_session_is_kept_under_its_market`, `test_the_third_void_on_a_market_pauses_the_runner_and_a_restart_resumes_at_that_market`, `test_a_restart_after_a_pause_gives_the_market_three_more_sessions`;
+  - rewritten for step 8's behaviour 3: `test_a_crash_after_an_evaluation_is_judged_a_crash_before_one_is_void_and_a_zero_exit_without_one_is_a_miss`;
+  - rewritten for behaviour 4: `test_an_id_outside_served_ends_the_study_and_its_market_has_no_result_line_and_no_void_line`;
+  - rewritten for behaviour 6: `test_killed_during_a_session_without_an_evaluation_is_a_void_and_the_market_is_run_again`. `test_killed_during_a_session_with_an_evaluation_is_judged_from_its_kept_ledger_and_not_rerun` stands and gains the kernel process that commits after the kill;
+  - rewritten for the laws as they now read: `test_l8_5_a_kill_outside_a_session_changes_nothing_and_one_during_it_gives_a_void_or_its_ledgers_line`, `test_l8_6_a_void_adds_no_result_line_and_every_session_is_a_line_a_void_or_the_model_change`;
+  - `test_l8_4_no_session_starts_after_a_line_that_ends_the_study` and `test_l8_laws_hold_under_kills_at_random_moments` stand on the changed fakes. `SCRIPTED` gains a crash before any evaluation and an unnamed id, which now count like any session;
+  - the module's note on `voids.jsonl`, on the states "paused" and "model changed", and on a pause at the third void; the imports of `MAX_VOIDS` and `project_void`.
+- `test_report.py`:
+  - deleted: `NOT_REACHED`, `test_a_claim_that_voids_counted_as_misses_do_not_reach_carries_the_sentence`, `test_voids_counted_as_misses_can_still_claim`, `test_a_model_change_is_an_end_inconclusive_at_the_markets_judged_with_its_cause`;
+  - rewritten: `test_a_paused_or_unfinished_study_is_reported_as_not_ended`, since no line says "paused"; `test_a_claim_names_the_models_that_answered` and `test_the_agents_rate_for_each_set_of_ids`, for each set's share and step 9's sentence; `test_cut_off_sessions_and_every_market_model_id_and_ending_appear`, for the sessions an unnamed id answered and for no `voids.jsonl`;
+  - the laws stand on inputs without `voids.jsonl`. `NAMES` loses any entry for "model changed".
+- `test_manifest.py`:
+  - rewritten for the repository's judged path and `flake.lock`: `test_files_name_the_inputs_and_exactly_the_judged_path`, `test_l7_3_a_new_module_an_arm_imports_is_hashed_and_a_new_test_is_not`, their helpers `imported`, `judged_path`, `hashed_under` and `check_judged`, and the module's note on `manifest.files`;
+  - `NAMES` loses `MAX_VOIDS`.
+- `fakes.py`: `ENDING_STATES` keeps "ended early" alone; `simulate` loses its voids, its pause and its "model changed" end, and makes a miss of an unnamed id and of a crash with no evaluation; `project_void` and `Drive.voids` go; `KINDS` gains those two as sessions that count; the fakes gain a stand-in for the kernel process that commits after its runner is killed. `NOTICE` may stay a stand-in, since the runner reads the id from the manifest.
+- `test_calibrate.py`: `test_the_constants_the_search_rests_on` and the module's note, where 51 becomes 14. `test_wall_5_allows_each_constant_at_most_its_constant` and `test_l5_5_wall_5_passes_exactly_when_both_counts_are_at_most_the_allowance` read the constant and stand.
+- `test_sequential.py`: none.
+
+**Stale words,** if still there: `test_measure.py`'s note that architecture 5.1 quotes "0.67" (it reads 0.671), and `test_programs.py`'s "fixed pseudo-random position".
 
 ## How to use it
 
@@ -59,9 +62,9 @@ Revised again 2026-11-12 15:19 UTC (10:19 EST) by Claude Fable 5.2, session "arc
 
 Cornell and TAMU are free until about 2026-11-25, TAMU's week resets on 2026-11-14 04:00 UTC (2026-11-13 23:00 EST), and each day before the first session costs three markets (architecture 5.3). So the work is ordered by what the first session needs:
 
-1. **On the path:** the changes to `constants.py` and `calibrate.py` with their tests, then the calibration run, about 20 core-hours on the cluster; the id of the client's own lines, recorded by the advisor before the manifest (architecture 5.2, `NOTICE`); the rewritten tests of steps 7 and 8, then their builds, while the calibration runs; the criterion's review and commit (step 0); the manifest's commit and G100's arm; the bug hunt and Opus's last review.
+1. **On the path:** the changes to `constants.py` and `calibrate.py` with their tests, then the calibration run, about 20 core-hours on the cluster; the rewritten tests of steps 7 and 8, then their builds, while the calibration runs; the criterion's review and commit (step 0); the manifest's commit and G100's arm; the bug hunt and Opus's last review.
 2. **Off the path, after the first session starts:** step 9, the Lean proofs, and the laws of steps 3 and 6, whose code already passes its tests.
-3. **If the window ends before a boundary,** the runner is left paused, and the study resumes later on another account under the same manifest (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)).
+3. **If the window ends before a boundary,** the runner is left stopped, and the study resumes later on another account under the same manifest (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)).
 
 ## What exists, and is used unchanged
 
@@ -87,11 +90,10 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 | `SEARCH_MARKETS`, `CHECK_MARKETS` | 1,600, 10,000 | A check that fails by sampling alone has probability 0.005 |
 | `BAND` | 0.12 to 0.18 | The check's rate; the true rate is then 0.11 to 0.19 at 2.5 standard errors |
 | `BLIND_MARKETS`, `EVEN_ALLOWED` | 200, 4 | Wall 3: each of five mirror pairs on 200 markets; some pair above 4 has probability 0.005 under the rule's bound |
-| `CONSTANT_ALLOWED` | 51 | Wall 5: a program at the band's top, 0.18, earns on more than 51 of 200 markets with probability 0.003 |
+| `CONSTANT_ALLOWED` | 14 | Wall 5: a constant position that earns at the bottom of G100's band, 0.11, earns on at most 14 of 200 markets with probability 0.039 |
 | `PLANTED` | coins 0 to 5 of 12 | A choice: half the coins, so each market keeps unplanted coins that wall 1 can compare |
-| `MAX_VOIDS` | 3 | Architecture 5.2 |
 | `SERVED` | `claude-opus-5-5`, `claude-opus-4-8` | The ids that answered the pilot's sessions: the one the harness asks for, and the client's fallback (architecture 5.2) |
-| `NOTICE` | The id the advisor records, or none | The id under which the frozen client writes a line of its own when a request fails (architecture 5.2). A fact owed before the manifest |
+| `NOTICE` | `<synthetic>` | The id under which the frozen client writes a line of its own when a request fails (`audit/decisions.md`, 2026-11-12 15:29 UTC (10:29 EST)) |
 
 - **Ids.** A study market is `control-1-m000` to `control-1-m099`. Its fresh pairs are `<market id>/fresh/0` to `/fresh/56`. The search's markets are `control-1-cal-a-0000` to `-1599`, the check's `control-1-cal-b-0000` to `-9999`, wall 3's `control-1-blind-000` to `-199`. No two sets share an id, so none shares a seed.
 - **A market at strength `b`** is `generate("N2", params, id, 730, PLANTED, b)` written with 180 holdout days and the series' cost cells. **Its twin** is the same call with strength 0.
@@ -102,28 +104,33 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 - **A program's mirror** is the same program with every target position negated. **A mirror pair's even part** on a pair of markets has, as its two scores, the means of the two members' scores on the planted market and on the twin. It is classified like a program, and has no score where either member has none.
 - **A session's pick** is, among the programs that session evaluated on its study market, the one with the highest disclosed search-period `sharpe_annualized`. Ties go to the earliest evaluation. A program with no disclosed statistic is not a candidate. A session with no candidate has no pick, and that arm misses the market.
 - **A session's model ids** are the `message.model` of its transcript's assistant lines, each with its count of lines, in order of first appearance. A line that does not parse is passed over, and so is an assistant line whose id is `NOTICE`. No other line of the transcript is read: the ids do not depend on a `model_refusal_fallback` line, or on where it stands (architecture 5.2).
-- **A designed end** of a session is a finish with a zero exit, the turn limit, or the wall time: `crashed(run)` is false. A session that left no run record did not end. **A void** is a session with no evaluation in its ledger and no designed end. **A cut-off session** has an evaluation in its ledger and no designed end; it is judged.
+- **A designed end** of a session is a finish with a zero exit, the turn limit, or the wall time: `crashed(run)` is false. A session that left no run record did not end. **A session is the agent's** when every one of its model ids is in `SERVED`.
 - **G100's seed on a market** is the first eight bytes, as an unsigned integer, of `sha256("<manifest seed>:<market id>:G100")`.
 
 ## Step 0. The criterion (the advisor, before step 7's manifest)
 
-`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one. This is its final text. The advisor has it reviewed and commits it alone, as `criteria: study 1`, before the manifest, any G100 run or any session on a study market. Its review is the round this revision owes (`audit/program/ledger.md`): Argon on the settlements of D9-a, D9-b and D10, and another model on the agent as served and the void rule, which is a fresh Opus session, labeled, while GPT is spent. The four facts from the pilot's transcripts are recorded (`audit/decisions.md`, 2026-11-12 15:13 UTC (10:13 EST)). The third failed, and the agent's line below was rewritten for it: it no longer places the fallback before the responses.
+`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one. This is its final text. The advisor has it reviewed and commits it alone, as `criteria: study 1`, before the manifest, any G100 run or any session on a study market.
+- **Reviewed so far:** Argon's round 6, on the text before this one. Its four findings are settled in this text (`audit/program/ledger.md`).
+- **Owed:** the last review before a criteria commit, by Opus (`CLAUDE.md`, Orchestration), of this text. It is also the other model that a changed design is owed, since one session a market came from round 6.
 
 > **CS1.1.** Claim: on synthetic N2 markets in which six coins carry a planted drift at the manifest's strength, the frozen agent's session ends on a program that earns from the plant with a higher chance than G100's 100 evaluations do.
-> - **The agent** is the stage 3 harness, `harness_hash` `6a335714…`, as served: it asks for `claude-opus-5-5`, and each response comes from `claude-opus-5-5` or from `claude-opus-4-8`, the client's fallback when the provider's safeguards refuse. A session is the agent's when every response in its transcript names one of the two.
-> - **Judged by** Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, in the manifest's order, ending at 100 markets. Each market is judged on its first session that leaves an evaluation in its ledger or reaches a designed end.
+> - **The agent** is the stage 3 harness, `harness_hash` `6a335714…`, as served while the study runs: it asks for `claude-opus-5-5`, and each response comes from `claude-opus-5-5` or from `claude-opus-4-8`, the client's fallback when the provider's safeguards refuse. A session is the agent's when every response in its transcript names one of the two.
+> - **Judged by** Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, in the manifest's order, ending at 100 markets. Each market has one session, which is never run again. The market is judged on the pick in that session's ledger, however the session ended. A session that leaves no pick, or that is not the agent's, is the agent's miss.
 > - **Met** when the upper boundary is crossed.
-> - **Otherwise** the result is named "Not shown" at the lower boundary, "Inconclusive" at 100 markets, and "Inconclusive at the markets judged" at an early end, whether by hand or because a model the manifest does not name answered. It is never named "no better".
+> - **Otherwise** the result is named "Not shown" at the lower boundary, "Inconclusive" at 100 markets, and "Inconclusive at the markets judged" at an early end. It is never named "no better".
 > - **Definitions:** `audit/program/architecture.md`, section 5, and `audit/program/briefs/1-positive-control.md`, at the commit this criterion's commit names. Size at most 0.043 by exact enumeration (`audit/program/arithmetic.py.txt`, `sign_test`).
 > - *Passes while the claim is false:*
->   - by chance, at most 0.043;
->   - by a measure that pays something other than the drift captured, or pays a program that reads nothing. Walls 3 and 5 bound both before any session;
->   - by voids that hide losses. A session is void only with no evaluation, so it has seen no score. Were each void to hide a loss all the same, the size would be 0.073 at one void and 0.117 at two (`voids`). So the report also gives the decision with every void counted as the agent's miss, which holds whatever made the voids. A claim that this decision does not reach is reported with the sentence "With its void sessions counted as misses, the claim is not reached".
+>   - by chance, at most 0.043. No failure of a session adds to that: a failure can only turn a market into the agent's miss, and a miss in place of any outcome never makes a claim;
+>   - by a measure that pays something other than the drift captured. Wall 3 bounds it before any session;
+>   - by a program that reads nothing, submitted with no search. Wall 5 passes a constant position that earns as often as G100 does with probability at most 0.039 (`walls`).
 > - *Fails while the claim holds:*
 >   - an agent at 0.3 against G100 at 0.15 to 0.19 ends without the claim with probability 0.33 to 0.68, unless the arms' successes overlap almost entirely. The study states that it is not powered there;
->   - a session cut off after an evaluation is judged on a search it did not finish, which lowers the agent's rate where outages are common;
+>   - a session that an outage ends is judged on what it left, and is a miss if it left no evaluation. With 0.07 of sessions lost, an agent at 0.5 against G100 at 0.19 claims with probability 0.896, for 0.943 with none lost; with one in five lost, 0.734;
 >   - a study ended early fails more often at every rate.
-> - *Not claimed:* anything about `claude-opus-5-5` or `claude-opus-4-8` alone, and the rest of architecture 5.4's list. A change of model that the provider does not disclose is invisible to this study.
+> - *Not claimed:*
+>   - anything about `claude-opus-5-5` or `claude-opus-4-8` alone, or about one against the other. The report's rate for each set of ids is confounded by how long a session runs;
+>   - the agent at a share of fallback other than those the report shows, the pilot's included. Where the share moved during the study, the claim is of the agent at some share it met;
+>   - the rest of architecture 5.4's list. A change of model that the provider does not disclose is invisible to this study.
 
 Everything else in this plan is a test, a law or a wall, not a criterion.
 
@@ -268,10 +275,13 @@ Laws. A sequence's decision is the decision at its shortest prefix that is not `
 
 ## Step 7. The manifest and the searcher's arm (`gate/control/manifest.py`)
 
-`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above, `SERVED` and `NOTICE` among them; the model the harness asks for; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; `calibration.json`'s hash; and the hash of each file of the judged path.
+`audit/control-1/manifest.json`, written once after step 5 passes, then committed alone. It holds: the seed; the 100 market ids in order; `PLANTED` and the strength; every constant above, `SERVED` and `NOTICE` among them; the model the harness asks for; the hashes of the kernel binary, the harness, the funding blob and N2's parameters; the reference's and the mirror set's hashes; `calibration.json`'s hash; `flake.lock`'s hash; and the hash of each file of the judged path.
 
-- **The judged path** is every file under `gate/control/` that the searcher's or the runner's module imports, directly or through another module, and `programs/`. These are the files that can change a line of `searcher.jsonl` or `results.jsonl`.
+- **The judged path** is every file of this repository that the searcher's or the runner's module imports, directly or through another module, whatever its directory, and `gate/control/programs/`. These are the files that can change a line of `searcher.jsonl` or `results.jsonl`. Beyond `gate/control/` they include `gate/search.py` (G100), `gate/markets.py` (the generator), `gate/sweep.py` and `gate/agent/campaigns.py`, which the text before this left out.
+  - **No exception for the harness's files.** The harness hash covers some of them already. A file is hashed because an arm imports it, so nobody keeps a list of what something else covers.
+  - **`flake.lock`** fixes the interpreter and the libraries. The generator draws through them, so a moved lock could give a session a market that G100 never searched.
 - **Outside it:** `tests/`, the report, and any module neither arm imports. The report recounts lines and judges nothing (L9.2). So laws, proofs and step 9 may land after the first session without failing `verify()`.
+- **Both arms run from a worktree of their own at the manifest's commit,** so that the hashed files stay still while `main` moves.
 
 Behaviour:
 1. Writing a manifest where one exists is an error. So is writing one from a calibration that has no strength or in which a wall stopped.
@@ -282,59 +292,62 @@ Behaviour:
 
 Laws:
 - **L7.1** `verify()` passes on an untouched tree and, after a change to any one byte of any hashed file, fails naming that file.
-- **L7.3** The hashed files are exactly the judged path, found by the test from the modules' imports: a new module that an arm imports is hashed without being listed, and a new file under `tests/` is not.
+- **L7.3** The hashed files are exactly the judged path, found by the test from the modules' imports: a new module that an arm imports is hashed without being listed, in `gate/control/` or anywhere else in the repository, and a new file under `tests/` is not.
 - **L7.4** Each earlier best is the pick of the ledger cut at its evaluation, and the last one is the pick.
 - **L7.2** The searcher's file does not depend on the order in which markets run or on the number of workers.
 
 ## Step 8. The runner (`gate/control/runner.py`)
 
-Entry point `python -m gate.control.runner`, one market at a time in the manifest's order, on the TAMU and Cornell accounts through `wait_for_room`, never the personal account. For market `i`:
+Entry point `python -m gate.control.runner`, one market at a time in the manifest's order, on the TAMU and Cornell accounts through `wait_for_room`, never the personal account. Each market gets one session (architecture 5.2). For market `i`:
 
 1. Write the market at the strength. Run `harness.run_agent` with a ledger and run directory of that market's own. G100's ledger for the market is not readable from the session.
-2. **Void.** The session is void when its ledger holds no evaluation and it reached no designed end. Its directory is kept under a numbered name, one line is appended to `audit/control-1/voids.jsonl` (the id, the run record if there is one, the model ids, how it ended), and the market is run again with a fresh ledger. Three voids on one market stop the runner with the state "paused", and a restart resumes at that market.
-3. **Model.** The session's model ids are read first, whatever else is true of the session, and recorded. A session whose every id is in the manifest's `SERVED` is the agent's, whatever the ids' order or mix, and whether or not its transcript holds a fallback event. If any id is outside `SERVED`, the session is not counted, its market gets no result line and no void line, one line with the state "model changed", the market's id and the ids is appended, and no session ever starts again under this manifest.
-4. Every other session counts, on the pick in its ledger: a cut-off session, whether it crashed or the runner died under it; one that ends at the turn limit or the wall time; one that ends by its own choice. No pick is a miss.
-5. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl`, in one write, before anything else happens: the id, the run record (none for a killed session), the model ids with their counts, the evaluations spent, how the session ended (the run's `stopped`, "crashed" or "killed"), the pick's hash and the inputs it reads, its count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
+2. **The model.** The session's model ids are read and recorded. A session whose every id is in the manifest's `SERVED` is the agent's, whatever the ids' order or mix, and whether or not its transcript holds a fallback event. A session with an id outside `SERVED` is not the agent's: it is the agent's miss whatever its ledger holds, and its line holds the ids and no pick.
+3. **The pick.** Every other session is judged on the pick in its ledger, however it ended: by its own choice, at the turn limit or the wall time, by a crash, or with the runner killed under it. No pick is a miss.
+4. Classify the pick on the market's fresh pairs with the reference. Append one line to `audit/control-1/results.jsonl`, in one write, before anything else happens: the id, the run record (none for a killed session), the model ids with their counts, whether the session is the agent's, the evaluations spent, how the session ended (the run's `stopped`, "crashed" or "killed"), the pick's hash and the inputs it reads, its count of pairs won, the reference's and the pick's median effects, whether each arm earns, the outcome, the running wins and losses, and the decision.
    - **No fsync is asked for.** A line is a function of files that are kept: the run record, the transcript, the ledger and `searcher.jsonl`. A line lost with the machine is written again on restart, by behaviours 5 and 6, and those are tested by killing the process.
-6. Stop at `claim`, `futility` or `undecided`. With `continue`, go to market `i + 1`.
-7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it, as after "model changed", the runner starts no session.
+5. Stop at `claim`, `futility` or `undecided`.
+6. **A person looks.** With `continue`, when the session crashed or is not the agent's, the runner exits with an error that names the market and the cause, and writes nothing more. The next start goes on at market `i + 1`. Otherwise go to market `i + 1`. A killed session needs no exit: its line is written by the start that a person made.
+7. **An early end.** `python -m gate.control.runner --end` appends a last line with the state "ended early" and the count of markets judged. After it the runner starts no session.
 
 Behaviour, with the harness and the kernel replaced by stubs in tests:
 1. A sequence of stub outcomes produces the decisions step 6 gives, and the runner launches no session after a stop.
-2. A void session is rerun on the same market, and it has no line in `results.jsonl`. The third void pauses.
-3. A crashed session with an evaluation in its ledger is judged on its pick and is not rerun. A crashed session with none is void. A session that finishes with a zero exit and no evaluation is a miss. A session that ends at the turn limit with evaluations is judged.
-4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` throughout and one answered by both are all judged, and their lines record the ids and the counts. A `model_refusal_fallback` line changes nothing: with it after the first responses, as the pilot's client wrote it, before them, last, or absent, the session gives the same ids, the same line and the same decision. An assistant line whose id is `NOTICE` is not an id and ends nothing. An id outside `SERVED` ends the study, in a session that reached a designed end and in one that crashed alike, and the market has no result line and no void line.
+2. No market gets a second session, whatever its session did.
+3. A crashed session with an evaluation in its ledger is judged on its pick. A crashed session with none is a miss. After either, the runner exits without starting the next market, and the next start begins there. A session that finishes with a zero exit and no evaluation is a miss, and one that ends at the turn limit with evaluations is judged: the runner goes on after both.
+4. A session answered by `claude-opus-5-5` throughout, one answered by `claude-opus-4-8` throughout and one answered by both are all judged, and their lines record the ids and the counts. A `model_refusal_fallback` line changes nothing: with it after the first responses, as the pilot's client wrote it, before them, last, or absent, the session gives the same ids, the same line and the same decision. An assistant line whose id is `NOTICE` is not an id. A session with an id outside `SERVED` is a miss even when its ledger's pick would earn, in a session that reached a designed end and in one that crashed alike: its line holds the ids, the decision counts the miss, the runner exits, and the next start goes on at the next market.
 5. **Killed between a session's end and its result line** (the test kills the process): on restart the session is not run again, the pick is classified from the kept ledger, and one line is written.
-6. **Killed during a session:** on restart that session is not run again. With an evaluation in its kept ledger it is judged on its pick, its line holding no run record and "killed" as how it ended. With none it is a void, and the market is run again. The kept ledger is final: the daemon that writes it runs in the runner's process and dies with it. If the frozen harness does not give that, it is a wall.
+6. **Killed during a session:** on restart that session is not run again. It is judged on its kept ledger, its line holding no run record and "killed" as how it ended, and with no evaluation it is a miss. The restart then goes on to the next market, unless the session is not the agent's.
+   - **The kept ledger is read only once it is final.** The session's `claude` dies with the runner, by the sandbox's `--die-with-parent`. The daemon's kernel process (`mm eval -`, `gate/agent/daemon.py`) does not: it may still commit the evaluation it was given, and it exits when its input ends. Its command line names the ledger. So before a restart reads a kept ledger, it waits until no process's command line names that ledger (`/proc`). The only process that starts one is dead, so one scan that finds none is final.
+   - **The test** kills the runner while a stand-in for the kernel process, started with the ledger's path among its arguments, has an evaluation still to commit. The restart's line is the line of the ledger after that commit, however long the commit takes.
 7. A market with a result line is never run again, and `results.jsonl` is never rewritten, only appended.
 8. A session's working directory holds no file of another market, of G100's arm, or of `audit/control-1/`.
 9. `verify()` failing stops the runner before any session.
 10. After `--end`, a restart launches nothing.
 
-Laws, for every random script of stub sessions (outcomes, crashes, foreign models) and every set of points at which the runner is killed and restarted:
+Laws, for every random script of stub sessions (outcomes, crashes, unnamed ids) and every set of points at which the runner is killed and restarted:
 - **L8.1** `results.jsonl` only grows: its content at any moment is a prefix of its content at every later one.
 - **L8.2** Its market lines are in the manifest's order with no gap and no market twice.
 - **L8.3** Each line's running wins and losses equal a recount of the lines above it, and its decision equals `decide` on them.
 - **L8.4** No session starts after a line whose state or decision ends the study.
-- **L8.5** Kills that fall outside a session change no result line. A kill during a session makes that session a void when its ledger holds no evaluation, and otherwise gives the line of that ledger's pick; it changes nothing else.
-- **L8.6** A void adds no result line, and every session launched is a result line, a void, the "model changed" line, or the one in flight.
+- **L8.5** A kill outside a session changes no line. A kill during a session gives that market the line of its kept ledger, with "killed" as how it ended, and changes no other line.
+- **L8.6** Every session launched is one market line, or the one in flight: the sessions launched never exceed the market lines by more than one.
 - **L8.7** A session's model ids are a function of its assistant lines whose id is not `NOTICE`, in their order: adding, removing or moving any other line of the transcript changes no id and no count.
+- **L8.8** A line whose session is not the agent's, or has no pick, says that the agent does not earn.
 
 ## Step 9. The report (`gate/control/report.py`)
 
-`python -m gate.control.report` writes `audit/control-1/report.md` from the manifest, `calibration.json`, `searcher.jsonl`, `results.jsonl` and `voids.jsonl`, and reads nothing else: no ledger, and no kernel.
+`python -m gate.control.report` writes `audit/control-1/report.md` from the manifest, `calibration.json`, `searcher.jsonl` and `results.jsonl`, and reads nothing else: no ledger, and no kernel.
 
 Behaviour:
-1. It states the decision and its name, word for word from the second column of architecture 5.4's table, and never "no better". Under a claim it names the models that answered, and where item 4's decision is not a claim it adds 5.4's sentence.
+1. It states the decision and its name, word for word from the second column of architecture 5.4's table, and never "no better". Under a claim it names the models that answered.
 2. Each arm's rate with its exact (Clopper-Pearson) 95% interval, and the discordant counts. It points to architecture 5.3's power table and quotes no row of it: a row chosen by the observed rates restates the result as power (Hoenig and Heisey, "The abuse of power", 2001).
 3. Reported, never judged, all from the lines:
    - each pick's count of pairs won, by arm; each pick's median effect and the reference's; the inputs each pick reads;
    - G100's pick among its first `k` evaluations, `k` being the agent's count on that market: the last earlier best at or before `k`, and none when `k` is 0;
    - evaluations used and how each session ended;
-   - each session's model ids with their counts; the agent's rate, with its exact interval, for each set of ids that answered a session.
-4. Void sessions with their causes and model ids, and the decision that the same markets give when every market with a void counts as the agent's miss, in place of its rerun's outcome. Where that path has reached no boundary at the markets judged, the report says so. Also the cut-off sessions that were judged, with their evaluations and outcomes.
+   - each session's model ids with their counts; the agent's rate, with its exact interval, for each set of ids that answered a session, and each set's share of the sessions. Beside them, the sentence "The sets are not arms: which ids answer a session depends on how long it runs".
+4. The sessions that reached no designed end, with their evaluations, how they ended and their outcomes. The sessions that an unnamed id answered, with the ids.
 5. Sessions run beyond the stop, if any, appear in a separate table and in no rate.
-6. On a results file that ends "paused", or that has reached no end, it reports what there is and says the study has "not ended". On one that ends "ended early" or "model changed" it reports "Inconclusive at the markets judged", with the cause.
+6. On a results file that has reached no end, it reports what there is and says the study has "not ended". On one that ends "ended early" it reports "Inconclusive at the markets judged".
 
 Laws, for every random set of input files that the runner could have written:
 - **L9.1** The report is a function of its inputs: the same files give the same bytes.
@@ -345,7 +358,7 @@ Laws, for every random set of input files that the runner could have written:
 
 - A fresh session hunts bugs in `gate/control/` (`CLAUDE.md`, Correctness).
 - Opus checks each commit against its step, and gives the last review before step 7's manifest commit.
-- The advisor adds the runner's workload to `CLUSTER.md`.
+- The advisor adds the runner's workload to `CLUSTER.md`, with the worktree it runs from (step 7), and names the manifest among `CLAUDE.md`'s frozen identities.
 
 ## What the builder reports
 

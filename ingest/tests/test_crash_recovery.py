@@ -16,6 +16,8 @@ import pytest
 from ingest import datalayer, live, record
 from ingest.tests.crash_helpers import acknowledge, checkpoint, kill_during, recover
 
+pytestmark = pytest.mark.local
+
 COUNT = 7
 MODULE = __name__
 SEEDS = (7, 29, 101, 307)
