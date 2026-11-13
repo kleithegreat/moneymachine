@@ -1133,3 +1133,28 @@ Frozen 2026-10-23, before any stage 7 code. GPT reviewed the draft, and this is 
 Exit when C7.1 to C7.7 hold.
 
 Stages 8 and 9 were deleted on 2026-11-12, superseded before anything was judged (`audit/program/architecture.md`, revision 4, on `rearchitecture`). Their frozen text is at `ab42e5e:audit/criteria.md`. What would revive them is in the paper's roadmap.
+
+### Study 1: the positive control of search
+
+Committed 2026-11-12 under the human's word, after Argon's round 6 (`audit/reviews/2026-11-12-argon-web-study1-r6.md`) and the advisor's last review (`audit/reviews/2026-11-12-opus-cs11-last-review.md`). Its definitions are at `rearchitecture` `ce7ff38`: `audit/program/architecture.md` section 5, and `audit/program/briefs/1-positive-control.md`.
+
+**CS1.1.** Claim: on synthetic N2 markets in which six coins carry a planted drift at the manifest's strength, the frozen agent's session ends on a program that earns from the plant with a higher chance than G100's 100 evaluations do.
+- **The agent** is the stage 3 harness, `harness_hash` `6a335714…`, as served while the study runs: it asks for `claude-opus-5-5`, and each response comes from `claude-opus-5-5` or from `claude-opus-4-8`, the client's fallback when the provider's safeguards refuse. A session is the agent's when every response in its transcript names one of the two.
+- **Judged by** Wald's sequential sign test on discordant markets, `θ ≤ 1/2` against `θ = 0.7`, nominal errors 5%, in the manifest's order, ending at 100 markets. Each market has one session, which is never run again. The market is judged on the pick in that session's ledger, however the session ended. A session that leaves no pick, or that is not the agent's, is the agent's miss.
+- **Met** when the upper boundary is crossed.
+- **Otherwise** the result is named "Not shown" at the lower boundary, "Inconclusive" at 100 markets, and "Inconclusive at the markets judged" at an early end. It is never named "no better".
+- **Definitions:** `audit/program/architecture.md`, section 5, and `audit/program/briefs/1-positive-control.md`, at the commit this criterion's commit names. Size at most 0.043 by exact enumeration (`audit/program/arithmetic.py.txt`, `sign_test`).
+- *Passes while the claim is false:*
+  - by chance, at most 0.043. No failure of a session adds to that: a failure can only turn a market into the agent's miss, and a miss in place of any outcome never makes a claim;
+  - by a measure that pays something other than the drift captured. Wall 3 bounds it before any session;
+  - by a program that reads nothing, submitted with no search. Wall 5 passes a constant position that earns as often as G100 does with probability at most 0.039 (`walls`).
+- *Fails while the claim holds:*
+  - an agent at 0.3 against G100 at 0.15 to 0.19 ends without the claim with probability 0.33 to 0.68, unless the arms' successes overlap almost entirely. The study states that it is not powered there;
+  - a session that an outage ends is judged on what it left, and is a miss if it left no evaluation. With 0.07 of sessions lost, an agent at 0.5 against G100 at 0.19 claims with probability 0.896, for 0.943 with none lost; with one in five lost, 0.734;
+  - a study ended early fails more often at every rate.
+- *Not claimed:*
+  - anything about `claude-opus-5-5` or `claude-opus-4-8` alone, or about one against the other. The report's rate for each set of ids is confounded by how long a session runs;
+  - the agent at a share of fallback other than those the report shows, the pilot's included. Where the share moved during the study, the claim is of the agent at some share it met;
+  - the rest of architecture 5.4's list. A change of model that the provider does not disclose is invisible to this study.
+
+Exit when CS1.1 is judged: Met, Not shown, Inconclusive, or Inconclusive at the markets judged.
