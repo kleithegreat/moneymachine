@@ -26,6 +26,8 @@ A spec for an independent implementer. The source is `venue/sources.toml` `[hype
 - **Cost guard.** Before any download, the fetch lists the keys, sums their sizes, and prints the bytes and the estimated cost at $0.09 per GB plus $0.0004 per 1,000 GETs. It downloads only if the estimate is at most `--max-dollars`, which defaults to 1. Each run appends one line to `data/hl-archive/spend.tsv`: UTC time, files, bytes, estimate.
 - **Missing data is recorded, never filled.** A missing coin-hour is a row in `data/hl-archive/missing.tsv`: the key and the S3 error code. It is not retried silently.
 - **Raw files are append-only.** Nothing deletes or rewrites a raw file. Parsing is a pure function of the raw bytes, so snapshots can always be rebuilt.
+- **A snapshot table is a function of every raw hour on disk for its coin and day.** A fetch rebuilds any table whose source hours differ from the raw hours now on disk, whatever that run downloaded: a run killed between its downloads and its tables leaves no stale table behind.
+- **`missing.tsv` holds each missing key once,** however many runs find it missing.
 - **Snapshots are sorted** by `time` and deduplicated on it.
 
 ## Interface

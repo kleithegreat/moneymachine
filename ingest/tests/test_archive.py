@@ -303,3 +303,28 @@ def test_coarse_bars_agree_with_aggregated_fine_bars(tmp_path: Path) -> None:
         assert bar["low"] == min(f["low"] for f in parts)
         assert bar["close"] == parts[-1]["close"]
         assert (bar["bid"], bar["ask"]) == (parts[-1]["bid"], parts[-1]["ask"])
+
+
+def test_a_table_is_rebuilt_from_every_raw_hour_on_disk_whatever_the_run_fetched(tmp_path: Path) -> None:
+    keys = {h: key(DAY, h, "BTC") for h in (0, 1)}
+    files = {keys[0]: book_file("BTC", [BASE + 5]), keys[1]: book_file("BTC", [BASE + 3_600_005])}
+    archive.fetch(DAY, DAY + dt.timedelta(days=1), ["BTC"], tmp_path, FakeS3(files), hours=[0, 1])
+    table_path = archive_dir(tmp_path) / "snapshots" / "BTC" / f"{DAY:%Y%m%d}.parquet"
+    pl.read_parquet(table_path).head(1).write_parquet(table_path)
+    archive.fetch(DAY, DAY + dt.timedelta(days=1), ["BTC"], tmp_path, FakeS3(files), hours=[0, 1])
+    assert pl.read_parquet(table_path)["time"].to_list() == [BASE + 5, BASE + 3_600_005]
+
+
+def test_a_missing_key_is_recorded_once_across_runs(tmp_path: Path) -> None:
+    present = key(DAY, 0, "BTC")
+    for _ in range(3):
+        archive.fetch(
+            DAY,
+            DAY + dt.timedelta(days=1),
+            ["BTC"],
+            tmp_path,
+            FakeS3({present: book_file("BTC", [BASE])}),
+            hours=[0, 1],
+        )
+    recorded = [r[0] for r in rows(archive_dir(tmp_path) / "missing.tsv")]
+    assert recorded == [key(DAY, 1, "BTC")]
