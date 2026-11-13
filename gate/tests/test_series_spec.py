@@ -319,6 +319,7 @@ def test_stop_before_ready_starts_nothing(
     assert not log.exists() or not log.read_bytes()
 
 
+@pytest.mark.local
 def test_killed_series_recovers_started_id_without_running_it_again(tmp_path: Path) -> None:
     """SIGKILL inside the first campaign leaves its directory; restart counts it, not a retry."""
     setup = (

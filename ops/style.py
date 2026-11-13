@@ -1,4 +1,5 @@
-"""The covered code holds to `ruff format`, `ruff check` and `mypy --strict` (CLAUDE.md §2, "Write for the reader").
+"""The files that must pass `ruff format`, `ruff check` and `mypy --strict` (CLAUDE.md §2, "Write for the reader"),
+one per line; the flake check `style` runs the three over them.
 
 Frozen code is excluded until its identity forks, and the exclusion is computed from the functions that define those
 identities, so a file leaves it the moment it joins a fork:
@@ -15,6 +16,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+SKIPPED = {"data", "result", "__pycache__"}
 
 _FROZEN_FILES = """
 import json, sys
@@ -41,29 +43,14 @@ def frozen() -> set[str]:
 
 
 def covered() -> list[str]:
-    """Every tracked `.py` file outside the frozen identities."""
-    tracked = subprocess.run(["git", "ls-files", "*.py"], cwd=REPO, capture_output=True, text=True, check=True)
-    excluded = frozen()
-    return sorted(f for f in tracked.stdout.split() if f not in excluded)
+    """Every `.py` file of the tree outside the frozen identities, build outputs and `data/`."""
+    found: set[str] = set()
+    for path in REPO.rglob("*.py"):
+        parts = path.relative_to(REPO).parts
+        if not any(part in SKIPPED or part.startswith((".", "target")) for part in parts):
+            found.add(str(path.relative_to(REPO)))
+    return sorted(found - frozen())
 
 
-def _run(*command: str) -> None:
-    result = subprocess.run([sys.executable, "-m", *command, *covered()], cwd=REPO, capture_output=True, text=True)
-    assert result.returncode == 0, result.stdout + result.stderr
-
-
-def test_the_covered_files_are_formatted() -> None:
-    _run("ruff", "format", "--check")
-
-
-def test_the_covered_files_pass_ruff_check() -> None:
-    _run("ruff", "check")
-
-
-def test_the_covered_files_pass_mypy_strict() -> None:
-    _run("mypy")
-
-
-def test_the_exclusion_is_only_frozen_code() -> None:
-    assert "gate/agent/harness.py" in frozen()
-    assert "ops/test_style.py" not in frozen()
+if __name__ == "__main__":
+    print("\n".join(covered()))

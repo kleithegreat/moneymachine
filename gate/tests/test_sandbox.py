@@ -14,6 +14,8 @@ from gate.agent import harness
 from sandbox import session
 from sandbox.egress import Proxy
 
+pytestmark = pytest.mark.local
+
 REPO = Path(__file__).resolve().parents[2]
 
 

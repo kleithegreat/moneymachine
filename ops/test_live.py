@@ -137,6 +137,7 @@ def test_reseed_never_replaces_concurrently_appended_file(tmp_path: Path, monkey
     assert target.read_bytes() == b"AB"
 
 
+@pytest.mark.local
 def test_seed_interruption_does_not_publish_partial_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(live, "APP", tmp_path / "app")
     monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
@@ -219,6 +220,7 @@ def test_concurrent_seed_destination_creation_is_not_overwritten(
     assert target.read_bytes() == b"recording"
 
 
+@pytest.mark.local
 def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = tmp_path / "pods.json"
     store.write_text("{}")
@@ -399,6 +401,7 @@ def test_mirror_publishes_only_flat_files_and_manifest(tmp_path: Path, monkeypat
     live.verify(app, out)
 
 
+@pytest.mark.local
 @pytest.mark.parametrize("initial", [False, True])
 def test_killed_whole_file_copy_never_publishes_partial_target(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial: bool
@@ -440,6 +443,7 @@ def test_killed_whole_file_copy_never_publishes_partial_target(
     live.verify(app, out)
 
 
+@pytest.mark.local
 def test_killed_sqlite_backup_preserves_complete_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     app, out = changing_mirror(tmp_path, monkeypatch)
     source = app / "data/thesis/ledger.sqlite"
@@ -538,6 +542,7 @@ def test_verify_overlaps_flat_file_publication(tmp_path: Path, monkeypatch: pyte
     live.verify(app, out)
 
 
+@pytest.mark.local
 @pytest.mark.parametrize("published", [False, True])
 def test_killed_manifest_publication_is_detected_and_recoverable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify_clock: SimpleNamespace, published: bool

@@ -154,7 +154,7 @@ its manifest, and staged into batch inputs by hash.
 
 ### Capacity guard
 
-`ops/diskguard.py`, run hourly by the existing `mm-diskguard.timer` through `ops/diskguard.sh`, alarms when
+`ops/diskguard.py`, run hourly by `mm-diskguard.timer` (declared in `ops/units.nix`, the flake's `homeManagerModules.default`, running `nix run .#diskguard`; until the dotfiles import it, the symlinked `ops/diskguard.sh` unit runs), alarms when
 **available bytes or inodes are at or below 20% of the filesystem's total**. The choice and its limitations live in
 the paper's appendix O2. It measures this PC's `data/` and `/srv/moneymachine/mirror` directly and checks all five
 prodesk7 volumes through their manifests' `capacity` counters and `taken` timestamp. These are real filesystem
@@ -225,10 +225,9 @@ directory, deleted on success. `conftest.py` writes each shard's outcomes under 
   (`SLOT_BYTES`, 2.2 GB) across the run's workers, each with its own cargo target.
 - **This PC only** (`LOCAL_ONLY` in `ops/shards.py`): `data/` is never shipped (a node gets an empty `w/data`), so the
   tests that need `data/store` run here, and fail in a worktree without one
-  (`kernel/tests/cli/test_differential.py::test_kernel_matches_witness`,
-  `reference/tests/test_lean_differential.py::test_runs_agree_bit_for_bit`). All of `reference/tests/` stays here, because
-  its Lean build took a node six to twelve minutes cold and killed a worker on gmktec, which also runs game servers. So do
-  the `gate/tests/test_sandbox.py` tests that resolve host binaries (`/usr/bin/dash`) into the Nix store, which the nodes'
+  (`kernel/tests/cli/test_differential.py::test_kernel_matches_witness`). So does
+  `reference/tests/` under this runner, which builds Lean by Lake; the flake check `reference` runs it with the Nix-built
+  `refmm` and the frozen funding blob, on any builder. So do the `gate/tests/test_sandbox.py` tests that resolve host binaries (`/usr/bin/dash`) into the Nix store, which the nodes'
   Ubuntu layout (`/usr/lib/cargo/bin/coreutils`) breaks.
 - Links escaping the worktree and nested repositories are refused. Don't edit the source during transfer. The local index
   is not changed.
