@@ -67,12 +67,9 @@ def g100_seed(manifest_seed: str, market_id: str) -> int:
     return int.from_bytes(digest[:8], "big")
 
 
-def g100_trial(
-    strength: float, market_id: str, work: Path, manifest_seed: str = MANIFEST_SEED, twins: Path | None = None
-) -> Result:
+def g100_trial(strength: float, market_id: str, work: Path, manifest_seed: str = MANIFEST_SEED) -> Result:
     """G100 on the market at `strength`: whether its pick earns from the plant, the pairs it wins, and the
-    reference's effect on each fresh pair. `work` is scratch, removed on return; the twins go to `twins`, which
-    defaults to a directory of `work`."""
+    reference's effect on each fresh pair. `work` is scratch, removed on return."""
     work.mkdir(parents=True, exist_ok=True)
     try:
         market = pairs.write_market(work, market_id, strength)
@@ -81,7 +78,7 @@ def g100_trial(
         chosen = pick(ledger, CAMPAIGN, SEARCHER)
         shutil.rmtree(market)
         programs = [load_program("reference")] + ([chosen] if chosen is not None else [])
-        reference_scores, *picked = fresh_scores(strength, market_id, programs, work, twins or work / "twins")
+        reference_scores, *picked = fresh_scores(strength, market_id, programs, work)
         wins, earns = classify(picked[0], reference_scores) if picked else (0, False)
         return {"earns": earns, "wins": wins, "effects": [effect(p) for p in reference_scores]}
     finally:
@@ -98,7 +95,7 @@ def blind_trial(strength: float, market_id: str, work: Path) -> Result:
     work.mkdir(parents=True, exist_ok=True)
     try:
         programs = [load_program(name) for name in ["reference", *MIRROR_NAMES]]
-        reference, *rest = fresh_scores(strength, market_id, programs, work, work / "twins")
+        reference, *rest = fresh_scores(strength, market_id, programs, work)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     mine = dict(zip(MIRROR_NAMES, rest))
@@ -113,7 +110,7 @@ def work_in(scratch: Path, label: str, strength: float, market_id: str) -> Path:
 
 
 def g100_in(scratch: Path, strength: float, market_id: str) -> Result:
-    return g100_trial(strength, market_id, work_in(scratch, "g100", strength, market_id), twins=scratch / "twins")
+    return g100_trial(strength, market_id, work_in(scratch, "g100", strength, market_id))
 
 
 def g100_earns_in(scratch: Path, strength: float, market_id: str) -> bool:
@@ -295,7 +292,7 @@ def projection_ok(seconds_per_market: float, cores: int) -> bool:
 
 
 def timed_market() -> float:
-    """Seconds one whole cal-a market takes at the bracket's upper end, with a cold twin cache: generating and
+    """Seconds one whole cal-a market takes at the bracket's upper end: generating and
     writing it and its pairs, each evaluator's start, G100's evaluations and the classification."""
     with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as scratch:
         started = time.perf_counter()

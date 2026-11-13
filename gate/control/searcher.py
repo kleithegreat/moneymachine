@@ -46,7 +46,7 @@ def g100_trial(market_id: str, strength: float, seed: int, scratch: Path) -> dic
     judged: list[dict[str, Any]] = []
     if numbers:
         with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as temporary:
-            judged = judge([programs[n - 1] for n in numbers], strength, market_id, Path(temporary), Path(temporary))
+            judged = judge([programs[n - 1] for n in numbers], strength, market_id, Path(temporary))
     earlier = [
         {"evaluation": n, "pick": j["pick"], "pairs_won": j["pairs_won"], "earns": j["earns"]}
         for n, j in zip(numbers, judged)

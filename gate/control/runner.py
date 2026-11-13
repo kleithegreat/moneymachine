@@ -116,7 +116,7 @@ def judge_ledger(market_id: str, strength: float, ledger: Path) -> Line:
     if program is None:
         return dict(NO_PICK)
     with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as scratch:
-        return judge_programs([program], strength, market_id, Path(scratch), Path(scratch))[0]
+        return judge_programs([program], strength, market_id, Path(scratch))[0]
 
 
 def wait_for_room() -> object | None:
