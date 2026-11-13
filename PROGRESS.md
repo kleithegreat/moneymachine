@@ -33,7 +33,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
-     - **Wall, for Fable:** calibration as planned is not feasible. A market write costs about 1.9 s and 13.4 MB (the store hashes rows in Python), so the plan needs about 1,900 core-hours, and caching the twins would need about 1.2 TB. Fable's estimate of 20 core-hours counted kernel evaluations only.
+     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are owed by Fable: part 0 of the kernel version 2 session, launched at 2026-11-14 00:12 UTC (11-13 19:12 EST) on the personal token.
      - **Then:** calibration, G100 on the study markets, the first sessions (Cornell, and TAMU from 2026-11-14 04:00 UTC (11-13 23:00 EST)).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
