@@ -18,7 +18,7 @@ The plan fixes behaviour, not names, so these tests fix the interface they use:
   maps each of the five mirror pairs ("constant", "trend", "random_low", "random_mid", "random_high") to its 200
   classifications of the even part; `wall_5`'s maps "long" and "short" to their 200 classifications as picks. For
   these two, "count" is the largest of the counts, "denominator" the length of one list, and "counts" maps each key
-  to its own count. Thresholds come from `constants` (EVEN_ALLOWED = 4, CONSTANT_ALLOWED = 51, BAND) and 0.95 for
+  to its own count. Thresholds come from `constants` (EVEN_ALLOWED = 4, CONSTANT_ALLOWED = 14, BAND) and 0.95 for
   wall 2. Wall 3 is judged per pair, not pooled.
 - `make_report(*, search, effects, even_earns, constant_earns, check_earns, mirror_rates, pick_wins) -> dict` with
   keys "strength", "walls" ({"2","3","4","5"} reports), "mirror_rates" (as given) and "pick_histogram" (58 counts,
@@ -143,7 +143,7 @@ def fresh_log() -> Path:
 def test_the_constants_the_search_rests_on() -> None:
     assert (TARGET, TOLERANCE, MAX_STEPS, SEARCH_SIZE, constants.CHECK_MARKETS) == (0.15, 0.005, 12, 1600, 10000)
     assert tuple(BAND) == (0.12, 0.18)
-    assert (EVEN_ALLOWED, constants.CONSTANT_ALLOWED, constants.BLIND_MARKETS) == (4, 51, 200)
+    assert (EVEN_ALLOWED, constants.CONSTANT_ALLOWED, constants.BLIND_MARKETS) == (4, 14, 200)
 
 
 def test_rising_rate_crossing_the_target_returns_a_strength(tmp_path: Path) -> None:
