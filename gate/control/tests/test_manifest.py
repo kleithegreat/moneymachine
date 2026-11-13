@@ -1,14 +1,16 @@
 """Study 1, step 7: the manifest and the searcher's arm (gate/control/manifest.py, gate/control/searcher.py), their
-behaviours and laws L7.1 to L7.4, from audit/program/briefs/1-positive-control.md at 54c11fb. Written from the plan
+behaviours and laws L7.1 to L7.4, from audit/program/briefs/1-positive-control.md at ce7ff38. Written from the plan
 before the code, by another model than the builder's. No kernel run happens here: G100's trial is a fake, and L7.4
 runs step 3's `pick` on ledgers that hold only the two tables it reads.
 
 The plan fixes behaviour, not names, so these tests fix the interface they use:
 - `manifest.files(root=REPO) -> dict[str, Path]`: every hashed file by a name of its own: the kernel binary
   (`gate.kernel.MM`), the funding blob (`data/agent/inputs/<N2's funding sha256>`), the null models' parameters
-  (`gate/markets.py`'s `NULLS`), `audit/control-1/calibration.json`, and the judged path under `root`: every file of
-  `root/gate/control/` that `runner.py` or `searcher.py` imports, directly or through another module there, and every
-  file of `programs/`. The package's `__init__.py` may be among them. One entry a file, so a failure names the file.
+  (`gate/markets.py`'s `NULLS`), `audit/control-1/calibration.json`, `flake.lock`, and the judged path under `root`:
+  every file of the repository that `gate/control/runner.py` or `gate/control/searcher.py` imports, directly or through
+  other modules, whatever its directory, the two arms themselves, and every file of `gate/control/programs/`.
+  Packages' `__init__.py` files may be among them; nothing under a `tests/` directory is. One entry a file, so a
+  failure names the file.
 - `manifest.build(seed, calibration, files) -> dict`, `calibration` the path of step 5's `calibration.json`, and a
   ValueError when it has no strength or any wall's status is "stop". The manifest holds "seed"; "markets",
   `control-1-m000` to `control-1-m099` in order; "strength", the calibration's; "constants", every constant of
@@ -81,7 +83,6 @@ NAMES = (
     "EVEN_ALLOWED",
     "CONSTANT_ALLOWED",
     "PLANTED",
-    "MAX_VOIDS",
     "SERVED",
     "NOTICE",
 )
@@ -101,82 +102,128 @@ def digest(path: Path) -> str:
 
 # The judged path, found here from the modules' imports
 
+SKIPPED = {".git", "data", "__pycache__", ".hypothesis", ".pytest_cache", "result"}
 
-def imported(module: Path, control: Path) -> set[str]:
-    """The modules of `control` (by stem) that `module` imports, absolutely or relatively, anywhere in its body."""
-    found: set[str] = set()
+
+def module_file(root: Path, parts: list[str]) -> Path | None:
+    """The repository file of a dotted module, as a module or as a package; None when it is not in the repository."""
+    base = root.joinpath(*parts)
+    for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        if parts and candidate.is_file():
+            return candidate
+    return None
+
+
+def imported(module: Path, root: Path) -> set[Path]:
+    """The repository files that `module` imports, absolutely or relatively, anywhere in its body: each named module,
+    each package on its way, and each name of a `from` import that is itself a module."""
+    package = list(module.relative_to(root).parent.parts)
+    found: set[Path | None] = set()
     for node in ast.walk(ast.parse(module.read_text())):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 parts = alias.name.split(".")
-                if parts[:2] == ["gate", "control"] and len(parts) > 2:
-                    found.add(parts[2])
+                found.update(module_file(root, parts[:k]) for k in range(1, len(parts) + 1))
         elif isinstance(node, ast.ImportFrom):
-            parts = (node.module or "").split(".") if node.module else []
-            if node.level == 1:
-                parts = ["gate", "control", *parts]
-            if parts[:2] != ["gate", "control"]:
-                continue
-            if len(parts) > 2:
-                found.add(parts[2])
-            else:
-                found.update(alias.name for alias in node.names)
-    return {name for name in found if (control / f"{name}.py").exists()}
+            stem = node.module.split(".") if node.module else []
+            parts = package[: len(package) - node.level + 1] + stem if node.level else stem
+            found.update(module_file(root, parts[:k]) for k in range(1, len(parts) + 1))
+            found.update(module_file(root, [*parts, alias.name]) for alias in node.names)
+    return {path for path in found if path is not None}
 
 
 def judged_path(root: Path) -> set[Path]:
+    """Every repository file that runner.py or searcher.py imports, through any chain, with the arms themselves, the
+    programs and `flake.lock`. Packages' `__init__.py` files are left out here and allowed in the hashed set."""
     control = root / "gate" / "control"
-    todo = list(ARMS)
-    seen: set[str] = set()
+    todo = [control / f"{arm}.py" for arm in ARMS]
+    seen: set[Path] = set()
     while todo:
-        name = todo.pop()
-        if name in seen:
+        module = todo.pop()
+        if module in seen:
             continue
-        seen.add(name)
-        todo.extend(imported(control / f"{name}.py", control))
-    programs = {p.resolve() for p in (control / "programs").rglob("*") if p.is_file()}
-    return {(control / f"{name}.py").resolve() for name in seen} | programs
+        seen.add(module)
+        todo.extend(imported(module, root))
+    programs = {p for p in (control / "programs").rglob("*") if p.is_file()}
+    modules = {p for p in seen if p.name != "__init__.py"}
+    return {p.resolve() for p in modules | programs | {root / "flake.lock"}}
 
 
 def hashed_under(files: Mapping[str, Path], root: Path) -> set[Path]:
-    control = (root / "gate" / "control").resolve()
-    return {Path(p).resolve() for p in files.values() if Path(p).resolve().is_relative_to(control)}
+    """The hashed files of the repository at `root` that are Python modules, programs or `flake.lock`."""
+    programs = (root / "gate" / "control" / "programs").resolve()
+    found = set()
+    for path in (Path(p).resolve() for p in files.values()):
+        if not path.is_relative_to(root.resolve()):
+            continue
+        if path.suffix == ".py" or path.is_relative_to(programs) or path.name == "flake.lock":
+            found.add(path)
+    return found
 
 
 def check_judged(files: Mapping[str, Path], root: Path) -> None:
     want = judged_path(root)
     got = hashed_under(files, root)
-    init = (root / "gate" / "control" / "__init__.py").resolve()
-    assert want <= got <= want | {init}, (sorted(map(str, got - want)), sorted(map(str, want - got)))
+    extra = {p for p in got - want if p.name != "__init__.py"}
+    missing = want - got
+    assert not extra and not missing, (sorted(map(str, extra)), sorted(map(str, missing)))
+    assert not any("tests" in p.relative_to(root.resolve()).parts for p in got)
 
 
 def test_files_name_the_inputs_and_exactly_the_judged_path() -> None:
     files = manifest().files()
     paths = {Path(p).resolve() for p in files.values()}
     funding = campaigns.OUT / "inputs" / markets.null_params()["N2"]["funding"]["sha256"]
-    for required in (kernel.MM, funding, markets.NULLS, REPO / "audit" / "control-1" / "calibration.json"):
-        assert Path(required).resolve() in paths, required
+    required = (
+        kernel.MM,
+        funding,
+        markets.NULLS,
+        REPO / "audit" / "control-1" / "calibration.json",
+        REPO / "flake.lock",
+    )
+    for path in required:
+        assert Path(path).resolve() in paths, path
     check_judged(files, REPO)
-    assert not any("tests" in p.relative_to(CONTROL).parts for p in hashed_under(files, REPO))
+    for named in ("gate/search.py", "gate/markets.py", "gate/sweep.py", "gate/agent/campaigns.py"):
+        assert (REPO / named).resolve() in paths, named
 
 
-def test_l7_3_a_new_module_an_arm_imports_is_hashed_and_a_new_test_is_not(tmp_path: Path) -> None:
+def copy_repository(root: Path) -> None:
+    """The repository's Python modules, programs and `flake.lock`, in a tree of their own."""
+    for directory, names, filenames in os.walk(REPO):
+        names[:] = [name for name in names if name not in SKIPPED and not name.startswith("result")]
+        for filename in filenames:
+            source = Path(directory) / filename
+            relative = source.relative_to(REPO)
+            if source.suffix == ".py" or relative.parts[:3] == ("gate", "control", "programs"):
+                (root / relative).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, root / relative)
+    shutil.copy2(REPO / "flake.lock", root / "flake.lock")
+
+
+def test_l7_3_a_new_module_an_arm_imports_is_hashed_anywhere_in_the_repository_and_a_new_test_is_not(
+    tmp_path: Path,
+) -> None:
     root = tmp_path / "repo"
-    shutil.copytree(CONTROL, root / "gate" / "control", ignore=shutil.ignore_patterns("__pycache__"))
+    copy_repository(root)
     control = root / "gate" / "control"
-    (control / "deeper_extra.py").write_text("DEPTH = 2\n")
-    (control / "unjudged_extra.py").write_text("NOTE = 3\n")
-    (control / "judged_extra.py").write_text("from gate.control import deeper_extra\n\nWEIGHT = deeper_extra.DEPTH\n")
+    (root / "ingest" / "deeper_extra.py").write_text("DEPTH = 2\n")
+    (root / "ingest" / "unjudged_extra.py").write_text("NOTE = 3\n")
+    (control / "unjudged_extra.py").write_text("NOTE = 4\n")
+    (control / "judged_extra.py").write_text("from ingest import deeper_extra\n\nWEIGHT = deeper_extra.DEPTH\n")
     runner = control / "runner.py"
     runner.write_text(runner.read_text() + "\nfrom gate.control import judged_extra  # noqa: E402,F401\n")
     (control / "tests" / "test_new_law.py").write_text("def test_nothing() -> None: ...\n")
+    (root / "gate" / "tests").mkdir(exist_ok=True)
+    (root / "gate" / "tests" / "test_another_law.py").write_text("def test_nothing() -> None: ...\n")
     files = manifest().files(root)
     check_judged(files, root)
     got = hashed_under(files, root)
     assert (control / "judged_extra.py").resolve() in got
-    assert (control / "deeper_extra.py").resolve() in got
+    assert (root / "ingest" / "deeper_extra.py").resolve() in got
+    assert (root / "ingest" / "unjudged_extra.py").resolve() not in got
     assert (control / "unjudged_extra.py").resolve() not in got
-    assert (control / "tests" / "test_new_law.py").resolve() not in got
+    assert (root / "flake.lock").resolve() in got
     if (control / "report.py").exists():
         assert (control / "report.py").resolve() not in got
 
@@ -234,6 +281,7 @@ def test_build_holds_every_entry_the_plan_lists(tmp_path: Path) -> None:
     assert {name: content["constants"][name] for name in NAMES} == expected
     assert content["constants"]["PLANTED"] == [0, 1, 2, 3, 4, 5]
     assert content["constants"]["SERVED"] == ["claude-opus-5-5", "claude-opus-4-8"]
+    assert content["constants"]["NOTICE"] == "<synthetic>"
     assert content["harness"] == harness_hash()
     assert content["model"] == MODEL == "claude-opus-5-5"
     assert list(content["hashes"]) == list(files)
