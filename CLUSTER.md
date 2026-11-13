@@ -154,7 +154,7 @@ its manifest, and staged into batch inputs by hash.
 
 ### Capacity guard
 
-`ops/diskguard.py`, run hourly by `mm-diskguard.timer` (declared in `ops/units.nix`, the flake's `homeManagerModules.default`, running `nix run .#diskguard`; until the dotfiles import it, the symlinked `ops/diskguard.sh` unit runs), alarms when
+`ops/diskguard.py`, run hourly by `mm-diskguard.timer` (declared in `ops/units.nix`, the flake's `homeManagerModules.default`, running `nix run .#diskguard`), alarms when
 **available bytes or inodes are at or below 20% of the filesystem's total**. The choice and its limitations live in
 the paper's appendix O2. It measures this PC's `data/` and `/srv/moneymachine/mirror` directly and checks all five
 prodesk7 volumes through their manifests' `capacity` counters and `taken` timestamp. These are real filesystem

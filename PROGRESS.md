@@ -12,7 +12,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
+- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **TAMU's week** is spent until 2026-11-13 23:00 EST (2026-11-14 04:00 UTC).
@@ -40,22 +40,11 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
      - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.
      - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`). Phases A, B, E and F12 are merged:
-   - 11 flake checks and `nix run .#test`;
-   - the launcher `nix run .#session`;
-   - the timers module `homeManagerModules.default`;
-   - stages 8 and 9 deleted;
-   - Lean built through Nix (`refmm`, `lean-proofs`, the differential in `reference`).
-
-   Phase C is the human's: remote builders in Homelab (each registers the frozen funding blob with `nix-store --add-fixed sha256`), and the dotfiles import of the timers module. Then phase D deletes `ops/shards.py`.
-   - **Phase A is merged** (`11bb3fa`): the thesis track and `ops/crossmachine.py` are gone, about −6,300 lines of Python. The thesis is archived at `archive/thesis` and `archive/thesis-refreeze`, and the `thesis-refreeze` branch is deleted.
+2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
+   - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
+   - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
    - **For the human:** delete StatefulSet `thesis` and Job `thesis-prewarm` in `moneymachine-live`, keeping the PVC, and remove the key `PERSONAL` from Secret `claude-token`.
-   - **Next:**
-     - phase B: flake checks, and a `local` pytest marker for tests that stay local;
-     - phase C: remote builders, applied by the human in Homelab and dotfiles;
-     - phase D: `shards.py` deleted after one full remote check;
-     - phase E: launchers and timers as flake apps and declared units;
-     - phase F: stages 8 and 9's criteria, and `agent-real` with study 1's criterion.
+   - **Next:** phase F's `agent-real` with study 1's criterion.
    - **Constraint:** `flake.lock` does not move while study 1 runs on the frozen harness.
 
 ### Next, in order
