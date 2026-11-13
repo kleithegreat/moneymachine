@@ -4,49 +4,23 @@ Written 2026-11-12 01:25 UTC (20:25 EST) by Claude Fable 5.2, session "architect
 
 ## What is built, and what this text changes
 
-Revised 2026-11-12 22:19 UTC (17:19 EST) by Claude Fable 5.2, session "architect: CS1.1 convergence", after Argon's round 6 (`audit/reviews/2026-11-12-argon-web-study1-r6.md`) and two gaps that the test writer of steps 7 to 9 found. The text before it is at `git show 54c11fb:audit/program/briefs/1-positive-control.md`, and the two before that at `be96683` and `c46c786`.
+Revised 2026-11-13 17:28 UTC (12:28 EST) by Claude Fable 5.2, session "architect: study 1 calibration cost", after the advisor measured that step 5 could not run as written. The text before it is at `git show 960cfc9:audit/program/briefs/1-positive-control.md`, and those before that at `54c11fb`, `be96683` and `c46c786`.
 
-- **Built,** from the text at `c46c786`: steps 1 to 6. Steps 1, 3, 4 and 6 stand, and step 2 with `scores(programs, pairs)` as the advisor adopted it (`audit/decisions.md`, 2026-11-12 02:58 UTC (2026-11-11 21:58 EST)).
-- **Tests written, code not yet,** from the text at `54c11fb`: step 5's changes (branch `study1-calib`, `1da9870`) and steps 7 to 9 (branch `study1-runner`, `6e626e6`).
-- **`constants.py`** still holds `EVEN_ALLOWED = 9` and `MAX_VOIDS`, and lacks `CONSTANT_ALLOWED`, `SERVED` and `NOTICE`.
+- **Built,** from that text: steps 1 to 9, on branch `study1-build` at `a3fc471`.
+- **The wall.** The calibration was costed at 20 core-hours, by its kernel evaluations. It costs about 1,200 to 1,400, and its twins 1.21 TB of disk (`arithmetic.py.txt`, `calibration_cost`).
+- **The cause.** A fresh pair took 4.2 s, and 3.4 s of that was `ingest/store.py` hashing every row of its two markets in Python, into a column that the kernel never reads (`kernel/mm/src/market.rs`, `UNREAD`). The revision store is the recorders' archive, and its row hash tells one fetch's revision of a row from the next. A market made once from its id has no revisions, and a fresh pair exists only for the kernel to score.
+- **The change.** A fresh pair is written with the columns the kernel reads, which takes 0.85 s for the same scores (step 1, behaviour 5 and L1.5). No twin and no score is kept, so a trial is a function of its market and its strength alone, and the job spreads over hosts (step 5).
+- **What does not change.** Every definition, constant, wall and size above step 1, and so everything CS1.1 names. `gate/markets.py`, `ingest/store.py`, the kernel, the harness and the recorders are not touched. A market that a session or G100 searches is still written by `gate.markets.write`, as the pilot's were.
 
-What the code and the tests still owe:
-
-| Change | Why (architecture) | Code that changes | Tests |
+| Change | Why | Code that changes | Tests |
 |---|---|---|---|
-| The agent is the harness as served. A fallback to `claude-opus-4-8` is judged | 5.1, 5.2 | `constants.py` (`SERVED`); steps 7 to 9 | Written, and stand |
-| A session's model is read from its responses' ids alone. The fallback event is not read | 5.2 | Steps 8 and 9 | Written, and stand |
-| The client's own lines are passed over, by the id `<synthetic>` | 5.2 | `constants.py` (`NOTICE`); steps 7 and 8 | Written, and stand |
-| One session a market: no void, no rerun, no `voids.jsonl`. A session with no pick, or not the agent's, is a miss. The runner stops after a session with no designed end, or with an unnamed id | 5.2 | `constants.py` (`MAX_VOIDS` goes); step 8 | Obsolete, below |
-| A restart reads a kept ledger only after the killed session's kernel process has exited | Step 8, behaviour 6 | Step 8 | New |
-| The report has one decision, gives each set of ids' share of the sessions, and reads no ledger | 5.2, 5.4 | Step 9 | Obsolete, below |
-| Wall 3 is judged for each mirror pair, at most 4 of 200. Wall 5 bounds constant positions at 14 of 200 | 5.5 | `constants.py`, `calibrate.py` | Written on `study1-calib`; one changes, below |
-| The calibration times a whole market, and makes each twin once | Step 5 | `calibrate.py` | Written on `study1-calib` |
-| The tolerance includes its ends; the laws' inputs are exact | Steps 2, 5 | None, if the built code already does both | `test_calibrate.py` and `test_measure.py`, where they draw other inputs |
-| The manifest hashes every file of the repository that an arm imports, and `flake.lock` | Step 7 | Step 7 | Obsolete, below |
-| The lines carry each pick's inputs, and G100's earlier bests | Steps 7 to 9 | Steps 7 to 9 | Written, and stand |
+| A fresh pair is written for scoring | The row hash was four fifths of a pair's time and, with the holdout rows, most of its bytes | `pairs.py` (`write_pair`); `judge.py`, whose `fresh_scores` becomes `write_pair` and step 2's `scores` | New: L1.5, by a model other than the builder's. The two built tests of `write_pair` stand |
+| Nothing is kept between trials | A kept twin is 13.3 MB, and it saved time only while a write was slow | `judge.py`: `twin_in`, `twin_scores` and the `twins` argument go, and with it the argument in `calibrate.py`, `searcher.py` and `runner.py` | Obsolete, below |
+| The job spreads over hosts | 352 to 443 core-hours | `calibrate.py` | New: step 5's behaviours 7 and 8, L5.6 |
 
-**Tests that this revision makes obsolete.** They are deleted, or rewritten from this plan by the session that wrote them or by another that has not read the code. Names are as at `6e626e6`, and `test_calibrate.py`'s as at `1da9870`.
-- `test_runner.py`:
-  - deleted: `test_a_void_is_rerun_on_the_same_market_and_has_no_result_line`, `test_a_void_session_is_kept_under_its_market`, `test_the_third_void_on_a_market_pauses_the_runner_and_a_restart_resumes_at_that_market`, `test_a_restart_after_a_pause_gives_the_market_three_more_sessions`;
-  - rewritten for step 8's behaviour 3: `test_a_crash_after_an_evaluation_is_judged_a_crash_before_one_is_void_and_a_zero_exit_without_one_is_a_miss`;
-  - rewritten for behaviour 4: `test_an_id_outside_served_ends_the_study_and_its_market_has_no_result_line_and_no_void_line`;
-  - rewritten for behaviour 6: `test_killed_during_a_session_without_an_evaluation_is_a_void_and_the_market_is_run_again`. `test_killed_during_a_session_with_an_evaluation_is_judged_from_its_kept_ledger_and_not_rerun` stands and gains the kernel process that commits after the kill;
-  - rewritten for the laws as they now read: `test_l8_5_a_kill_outside_a_session_changes_nothing_and_one_during_it_gives_a_void_or_its_ledgers_line`, `test_l8_6_a_void_adds_no_result_line_and_every_session_is_a_line_a_void_or_the_model_change`;
-  - `test_l8_4_no_session_starts_after_a_line_that_ends_the_study` and `test_l8_laws_hold_under_kills_at_random_moments` stand on the changed fakes. `SCRIPTED` gains a crash before any evaluation and an unnamed id, which now count like any session;
-  - the module's note on `voids.jsonl`, on the states "paused" and "model changed", and on a pause at the third void; the imports of `MAX_VOIDS` and `project_void`.
-- `test_report.py`:
-  - deleted: `NOT_REACHED`, `test_a_claim_that_voids_counted_as_misses_do_not_reach_carries_the_sentence`, `test_voids_counted_as_misses_can_still_claim`, `test_a_model_change_is_an_end_inconclusive_at_the_markets_judged_with_its_cause`;
-  - rewritten: `test_a_paused_or_unfinished_study_is_reported_as_not_ended`, since no line says "paused"; `test_a_claim_names_the_models_that_answered` and `test_the_agents_rate_for_each_set_of_ids`, for each set's share and step 9's sentence; `test_cut_off_sessions_and_every_market_model_id_and_ending_appear`, for the sessions an unnamed id answered and for no `voids.jsonl`;
-  - the laws stand on inputs without `voids.jsonl`. `NAMES` loses any entry for "model changed".
-- `test_manifest.py`:
-  - rewritten for the repository's judged path and `flake.lock`: `test_files_name_the_inputs_and_exactly_the_judged_path`, `test_l7_3_a_new_module_an_arm_imports_is_hashed_and_a_new_test_is_not`, their helpers `imported`, `judged_path`, `hashed_under` and `check_judged`, and the module's note on `manifest.files`;
-  - `NAMES` loses `MAX_VOIDS`.
-- `fakes.py`: `ENDING_STATES` keeps "ended early" alone; `simulate` loses its voids, its pause and its "model changed" end, and makes a miss of an unnamed id and of a crash with no evaluation; `project_void` and `Drive.voids` go; `KINDS` gains those two as sessions that count; the fakes gain a stand-in for the kernel process that commits after its runner is killed. `NOTICE` may stay a stand-in, since the runner reads the id from the manifest.
-- `test_calibrate.py`: `test_the_constants_the_search_rests_on` and the module's note, where 51 becomes 14. `test_wall_5_allows_each_constant_at_most_its_constant` and `test_l5_5_wall_5_passes_exactly_when_both_counts_are_at_most_the_allowance` read the constant and stand.
-- `test_sequential.py`: none.
-
-**Stale words,** if still there: `test_measure.py`'s note that architecture 5.1 quotes "0.67" (it reads 0.671), and `test_programs.py`'s "fixed pseudo-random position".
+**Tests that this revision makes obsolete.**
+- `test_calibrate.py`: `test_a_twin_is_made_once_across_strengths` is deleted, with the behaviour it tested. It ran for about 780 s against the repository's 600 s limit, so nothing is split and no limit rises. The module's note loses its words on a cold twin cache.
+- No other test names a twin's cache. A test that passes `twins` to `judge`, `fresh_scores` or `g100_trial` drops the argument.
 
 ## How to use it
 
@@ -62,14 +36,14 @@ What the code and the tests still owe:
 
 Cornell and TAMU are free until about 2026-11-25, TAMU's week resets on 2026-11-14 04:00 UTC (2026-11-13 23:00 EST), and each day before the first session costs three markets (architecture 5.3). So the work is ordered by what the first session needs:
 
-1. **On the path:** the changes to `constants.py` and `calibrate.py` with their tests, then the calibration run, about 20 core-hours on the cluster; the rewritten tests of steps 7 and 8, then their builds, while the calibration runs; the criterion's review and commit (step 0); the manifest's commit and G100's arm; the bug hunt and Opus's last review.
+1. **On the path:** L1.5 and step 5's new tests, then the change to `pairs.py`, `judge.py` and `calibrate.py`; the calibration run, 352 core-hours and at most 443, which is 12 to 15 hours on 30 cores (`calibration_cost`); the manifest's commit and G100's arm, 2 core-hours; the bug hunt and Opus's last review.
 2. **Off the path, after the first session starts:** step 9, the Lean proofs, and the laws of steps 3 and 6, whose code already passes its tests.
 3. **If the window ends before a boundary,** the runner is left stopped, and the study resumes later on another account under the same manifest (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)).
 
 ## What exists, and is used unchanged
 
 - `gate.markets.generate(model, params, market_id, days, planted, beta)`: arrays for one market. Every random draw is seeded from `market_id`, and `planted` and `beta` change no draw. The plant adds `beta × signal` to each planted coin's bar return before the clip, where `signal = −clip((f − 1.25e-5) / 1e-4, −1, 1)` and `f` is that coin's funding four hours before the bar.
-- `gate.markets.write(root, arrays, holdout_days, cost_cells)`: a market in the kernel's store format.
+- `gate.markets.write(root, arrays, holdout_days, cost_cells)`: a market in the recorders' revision store, as the pilot's sessions were given theirs.
 - `gate.agent.campaigns.series_inputs()`: N2's parameters with the frozen funding blob, the cost cells, and the kernel's hash. `gate.sweep.DAYS = 730`, `HOLDOUT_DAYS = 180`.
 - `gate.search.run("G100", market, ledger, campaign, seed)`: the searcher, 100 evaluations, every one in the ledger. `gate.search.Evaluator` streams programs through `mm eval` and returns the disclosed `sharpe_annualized`.
 - `gate.agent.harness.run_agent(market, ledger, campaign, run_dir)`: one agent session under the frozen harness, which asks for `claude-opus-5-5` (`harness.MODEL`). Its run record has `spent`, `stopped`, `exit` and `transcript_sha256`.
@@ -109,9 +83,7 @@ Constants, all in one place (`gate/control/constants.py`) and all copied into th
 
 ## Step 0. The criterion (the advisor, before step 7's manifest)
 
-`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one. This is its final text. The advisor has it reviewed and commits it alone, as `criteria: study 1`, before the manifest, any G100 run or any session on a study market.
-- **Reviewed so far:** Argon's round 6, on the text before this one. Its four findings are settled in this text (`audit/program/ledger.md`).
-- **Owed:** the last review before a criteria commit, by Opus (`CLAUDE.md`, Orchestration), of this text. It is also the other model that a changed design is owed, since one session a market came from round 6.
+`CLAUDE.md` asks that a condition judging a number be pre-registered. The study has one, committed alone on `main` as `criteria: study 1` (`10fedc5`), with its definitions at `ce7ff38`. The revision of 2026-11-13 changes no word of it and nothing it defines: the definitions above, the constants, the walls and the sizes are as they were at `ce7ff38`, and L1.5 makes every score the same number.
 
 > **CS1.1.** Claim: on synthetic N2 markets in which six coins carry a planted drift at the manifest's strength, the frozen agent's session ends on a program that earns from the plant with a higher chance than G100's 100 evaluations do.
 > - **The agent** is the stage 3 harness, `harness_hash` `6a335714…`, as served while the study runs: it asks for `claude-opus-5-5`, and each response comes from `claude-opus-5-5` or from `claude-opus-4-8`, the client's fallback when the provider's safeguards refuse. A session is the agent's when every response in its transcript names one of the two.
@@ -141,7 +113,10 @@ Behaviour:
 2. `fresh_ids(m)` returns the 57 ids `m/fresh/0` to `m/fresh/56`, in order.
 3. `arrays(id, b)` returns `generate` for the study's model, parameters, days and `PLANTED`.
 4. **Wall 1, as a test.** For 20 ids and a positive strength, between `arrays(id, b)` and `arrays(id, 0)`: funding, premium and volume are equal for every coin; open, high, low and close are equal for every coin not in `PLANTED`; and the close differs somewhere for every coin in `PLANTED`.
-5. `write_pair(root, id, b)` writes the planted market and the twin under two directories of `root` and returns both paths. A market whose id contains `/` is written without error.
+5. `write_pair(root, id, b)` writes the planted market and the twin for scoring, under two directories of `root`, and returns both paths. A market whose id contains `/` is written without error.
+   - **Written for scoring,** a market holds its search period as the kernel reads it: the rows and values of the `store/` that `gate.markets.write` gives for the same arrays, holdout days and cost cells, with `fetchedAt`, and the same policy, venue and version. It has no `hash` and no `source` column, and no `holdout/`.
+   - **Why the score cannot differ.** The frozen kernel skips both columns as it reads (`kernel/mm/src/market.rs`, `UNREAD`), and in search mode it reads `store/` alone and refuses any row at or after the holdout's start. What differs is the files' bytes, which enter an evaluation's identity in its scratch ledger and not its statistic. L1.5 tests it.
+   - **Only pairs are written so.** `write_market(root, id, b)` is `gate.markets.write`, for the market that a session or G100 searches.
 6. Two different ids give different funding arrays.
 
 Laws, for every id and every strength in the bracket:
@@ -149,6 +124,7 @@ Laws, for every id and every strength in the bracket:
 - **L1.2** The strength changes no draw: between any two strengths, funding, premium, volume and every unplanted coin's open, high, low and close are equal.
 - **L1.3** `arrays(id, 0)` equals `generate` with no planted coin.
 - **L1.4** The fresh ids of two different markets share no id, and no fresh id is a study, calibration or blind id.
+- **L1.5** A market written for scoring scores as the market does. For every id, every strength, zero included, and every program drawn from G100's generator, the reference and the mirror set: the statistic that `mm eval` discloses on `write_pair`'s market equals, bit for bit, the one it discloses on `write_market`'s, and it is missing on both or on neither. The judged number rests on this law, so its test is written by a model other than the builder's.
 
 ## Step 2. The measure (`gate/control/measure.py`). Judged: tests and laws by another model
 
@@ -163,7 +139,7 @@ Pure behaviour, `classify(pick, reference)`, each argument a list of `PAIRS` `(p
 
 Kernel behaviour:
 6. `score(program, market)` returns the disclosed statistic, or `None` for a program the kernel rejects. Scoring the same program on the same market twice gives the same number. It writes to a scratch ledger, never to a study ledger.
-7. `scores(programs, pairs)` returns, for each program, the `PAIRS` score pairs for a list of fresh pairs. It runs one evaluator process a market and streams every program through it, so a pick and the reference share it: a process an evaluation would multiply the calibration's 8 million evaluations by the kernel's start-up time.
+7. `scores(programs, pairs)` returns, for each program, the `PAIRS` score pairs for a list of fresh pairs. It runs one evaluator process a market and streams every program through it, so a pick and the reference share it: a process an evaluation would multiply the calibration's 8 million evaluations by the kernel's start-up time, 0.18 s.
 8. A program that never trades has equal scores on a market and its twin, or none on both.
 
 Laws of the pure layer, for every pair of lists. Finite scores are drawn as `k × 2^-16` with `|k| ≤ 2^20`, so that sums, differences and halves are exact in binary64; in L2.7, `c` is a multiple of 1/4 and the reference's effects are multiples of `2^-14`.
