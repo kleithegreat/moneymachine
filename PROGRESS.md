@@ -28,19 +28,12 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 1. **The program** (`audit/program/` on `rearchitecture`; revision 4 approved by the human 2026-11-11; `ledger.md` lists what is agreed and disputed). The project is academic: no live trading, no stage 11.
    - **Study 1, the positive control of search:** does the agent find a planted edge more often than G100? At most 100 markets, on Cornell and TAMU.
      - **Steps 1 to 6 are built** (`c46c786`; 212 tests).
-     - **Fable settled the open items** (`b12ce44` to `54c11fb`):
-       - the agent is the frozen harness as served, Opus 5.5 or its fallback Opus 4.8;
-       - a session's model is read from its responses' ids alone;
-       - wall 3 is per mirror pair, at most 4 of 200, and a new wall 5 handles constant positions;
-       - no session with an evaluation is void;
-       - CS1.1's final text is written (brief, Step 0).
-     - **The advisor's facts are recorded:** 169 pilot sessions, 109 fallbacks, 3 mixed; `NOTICE` is `<synthetic>` (`audit/decisions.md`, 2026-11-12).
-     - **Argon's review of CS1.1** (`audit/reviews/2026-11-12-argon-web-study1-r6.md`): it converges once D9-b, D10-a, D10-b and D16 are applied. Fable settles those, with two gaps the test writer found (an orphaned `mm`, and the judged path's scope), in a short Cornell session (`data/builder/architect-cs11-converge.txt`), launched when the human logs in after its reset. Then the tests that changes affects, then the builds.
-     - **For the human:**
-       - Argon's review of CS1.1, `~/Downloads/argon-study1-r6.md`. (rebuilt at `54c11fb`);
-       - review of H8 (the agent as served);
-       - the criterion's commit;
-       - then calibration (about 20 core-hours), G100 on the study markets, and the first sessions.
+     - **Converged and committed:** CS1.1 is in `audit/criteria.md` (`criteria: study 1`, `10fedc5`), with definitions at `rearchitecture` `ce7ff38`.
+       - Each market has one session, never rerun; a session with no pick, or not answered by Opus 5.5 or 4.8, is the agent's miss.
+       - The subject is the agent as served (H8, approved by the human).
+       - Wall 5 is 14 of 200.
+     - **Tests for the converged plan:** steps 2 (`e80debf`) and 5 (`a58c1a5`) are done; steps 7 to 9 (`../mm-s1-runner`) are in progress.
+     - **Then:** builds of steps 7 to 9 and the changes to steps 5 and 8; calibration (about 20 core-hours); G100 on the study markets; the first sessions, on Cornell, and on TAMU from 2026-11-14 04:00 UTC (11-13 23:00 EST).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
      - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.

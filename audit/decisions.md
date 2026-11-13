@@ -972,3 +972,7 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The frozen funding blob** is a fixed-output input (`requireFile`, sha256 `d07162b8…5c39`): the calibration input over `[W_START, HOLDOUT_START)`, before 2026-04-03, from Hyperliquid's `fundingHistory`. It holds no holdout or forward-window data. Each builder registers it once with `nix-store --add-fixed sha256` on a copy of the file.
   - `flake.lock` and `claude-code`'s store path are unchanged.
   - **One second path remains,** in `ops/shards.py`'s `LOCAL_ONLY`, and it goes with phase D.
+- 2026-11-13 03:06 UTC (22:06 EST), the human:
+  - **Approves H8:** study 1's subject is the stage 3 harness as served, Opus 5.5 or its fallback Opus 4.8, rather than a fork pinned to one model.
+  - **Approves the commit of CS1.1** (`criteria: study 1`, `10fedc5`), with definitions at `rearchitecture` `ce7ff38`.
+  - **Next:** the steps 7 to 9 tests for the converged plan, the builds, calibration, G100 on the study markets, then the first sessions.
