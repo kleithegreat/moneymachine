@@ -1,17 +1,18 @@
 """Calibration and the model-free walls (step 5).
 
 `python -m gate.control.calibrate` finds the strength at which G100 earns from the plant at TARGET, checks it on fresh
-markets, and judges walls 2, 3 and 4 (audit/program/briefs/1-positive-control.md, step 5). Every market's result is
+markets, and judges walls 2 to 5 (audit/program/briefs/1-positive-control.md, step 5). Every market's result is
 one JSON line in a log, so a stopped run resumes without recomputing."""
 
 import hashlib
 import json
+import math
 import os
 import shutil
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from fractions import Fraction
 from functools import partial
@@ -20,20 +21,21 @@ from typing import Any
 
 from gate import search
 from gate.control import constants, pairs
-from gate.control.measure import ScorePair, classify, effect, even, finite, score, scores
+from gate.control.judge import fresh_scores, load_program
+from gate.control.measure import classify, effect, even, finite
 from gate.control.pick import pick
 
 HI = 0.01
 SECONDS_LIMIT = 24 * 3600
-MIRROR_PAIRS = [
-    ("long", "short"),
-    ("momentum", "reversal"),
-    ("random_low", "random_low_neg"),
-    ("random_mid", "random_mid_neg"),
-    ("random_high", "random_high_neg"),
-]
-MIRROR_NAMES = [name for pair in MIRROR_PAIRS for name in pair]
-PROGRAMS = Path(__file__).resolve().parent / "programs"
+MIRROR_PAIRS = {
+    "constant": ("long", "short"),
+    "trend": ("momentum", "reversal"),
+    "random_low": ("random_low", "random_low_neg"),
+    "random_mid": ("random_mid", "random_mid_neg"),
+    "random_high": ("random_high", "random_high_neg"),
+}
+MIRROR_NAMES = [name for pair in MIRROR_PAIRS.values() for name in pair]
+CONSTANTS = ("long", "short")
 OUT = Path(__file__).resolve().parents[2] / "audit" / "control-1"
 MANIFEST_SEED = "control-1"
 CAMPAIGN = "calibration"
@@ -41,8 +43,8 @@ SEARCHER = "G100"
 G100_EVALUATIONS = 100
 EVALUATIONS_A_MARKET = G100_EVALUATIONS + 2 * 2 * constants.PAIRS
 BLIND_EVALUATIONS = constants.BLIND_MARKETS * (1 + len(MIRROR_NAMES)) * 2 * constants.PAIRS
+BLIND_MARKETS_EQUIVALENT = math.ceil(BLIND_EVALUATIONS / EVALUATIONS_A_MARKET)
 STRENGTHS = constants.MAX_STEPS + 1
-TIMED_EVALUATIONS = 20
 
 Result = Any
 Log = dict[tuple[float, str], Result]
@@ -65,31 +67,12 @@ def g100_seed(manifest_seed: str, market_id: str) -> int:
     return int.from_bytes(digest[:8], "big")
 
 
-def load_program(name: str) -> dict[str, Any]:
-    loaded: dict[str, Any] = json.loads((PROGRAMS / f"{name}.json").read_text())
-    return loaded
-
-
-def fresh_scores(
-    strength: float, market_id: str, programs: Sequence[dict[str, Any]], work: Path
-) -> list[list[ScorePair]]:
-    """Each program's score pairs on the market's fresh pairs, one pair on disk at a time."""
-    per_program: list[list[ScorePair]] = [[] for _ in programs]
-    root = work / "fresh"
-    for fresh in pairs.fresh_ids(market_id):
-        pair = pairs.write_pair(root, fresh, strength)
-        try:
-            scored = scores(programs, [pair])
-        finally:
-            shutil.rmtree(root)
-        for mine, theirs in zip(per_program, scored):
-            mine.extend(theirs)
-    return per_program
-
-
-def g100_trial(strength: float, market_id: str, work: Path, manifest_seed: str = MANIFEST_SEED) -> Result:
+def g100_trial(
+    strength: float, market_id: str, work: Path, manifest_seed: str = MANIFEST_SEED, twins: Path | None = None
+) -> Result:
     """G100 on the market at `strength`: whether its pick earns from the plant, the pairs it wins, and the
-    reference's effect on each fresh pair. `work` is scratch, removed on return."""
+    reference's effect on each fresh pair. `work` is scratch, removed on return; the twins go to `twins`, which
+    defaults to a directory of `work`."""
     work.mkdir(parents=True, exist_ok=True)
     try:
         market = pairs.write_market(work, market_id, strength)
@@ -98,7 +81,7 @@ def g100_trial(strength: float, market_id: str, work: Path, manifest_seed: str =
         chosen = pick(ledger, CAMPAIGN, SEARCHER)
         shutil.rmtree(market)
         programs = [load_program("reference")] + ([chosen] if chosen is not None else [])
-        reference_scores, *picked = fresh_scores(strength, market_id, programs, work)
+        reference_scores, *picked = fresh_scores(strength, market_id, programs, work, twins or work / "twins")
         wins, earns = classify(picked[0], reference_scores) if picked else (0, False)
         return {"earns": earns, "wins": wins, "effects": [effect(p) for p in reference_scores]}
     finally:
@@ -115,12 +98,12 @@ def blind_trial(strength: float, market_id: str, work: Path) -> Result:
     work.mkdir(parents=True, exist_ok=True)
     try:
         programs = [load_program(name) for name in ["reference", *MIRROR_NAMES]]
-        reference, *rest = fresh_scores(strength, market_id, programs, work)
+        reference, *rest = fresh_scores(strength, market_id, programs, work, work / "twins")
     finally:
         shutil.rmtree(work, ignore_errors=True)
     mine = dict(zip(MIRROR_NAMES, rest))
     return {
-        "even": [classify(even(mine[a], mine[b]), reference)[1] for a, b in MIRROR_PAIRS],
+        "even": {name: classify(even(mine[a], mine[b]), reference)[1] for name, (a, b) in MIRROR_PAIRS.items()},
         "programs": {name: classify(mine[name], reference)[1] for name in MIRROR_NAMES},
     }
 
@@ -130,7 +113,7 @@ def work_in(scratch: Path, label: str, strength: float, market_id: str) -> Path:
 
 
 def g100_in(scratch: Path, strength: float, market_id: str) -> Result:
-    return g100_trial(strength, market_id, work_in(scratch, "g100", strength, market_id))
+    return g100_trial(strength, market_id, work_in(scratch, "g100", strength, market_id), twins=scratch / "twins")
 
 
 def g100_earns_in(scratch: Path, strength: float, market_id: str) -> bool:
@@ -249,10 +232,21 @@ def wall_2(effects: Sequence[float | None]) -> dict[str, Any]:
     return report(positive, len(effects), len(effects) > 0 and 20 * positive >= 19 * len(effects))
 
 
-def wall_3(earns: Sequence[bool]) -> dict[str, Any]:
-    """At most EVEN_ALLOWED of the mirror pairs' even parts earn."""
-    count = sum(earns)
-    return report(count, len(earns), count <= constants.EVEN_ALLOWED)
+def each_at_most(earns: Mapping[str, Sequence[bool]], allowed: int) -> dict[str, Any]:
+    counts = {name: sum(flags) for name, flags in earns.items()}
+    denominator = len(next(iter(earns.values())))
+    largest = max(counts.values())
+    return {**report(largest, denominator, largest <= allowed), "counts": counts}
+
+
+def wall_3(earns: Mapping[str, Sequence[bool]]) -> dict[str, Any]:
+    """Each mirror pair's even part earns on at most EVEN_ALLOWED markets."""
+    return each_at_most(earns, constants.EVEN_ALLOWED)
+
+
+def wall_5(earns: Mapping[str, Sequence[bool]]) -> dict[str, Any]:
+    """Each constant position, classified as a pick, earns on at most CONSTANT_ALLOWED markets."""
+    return each_at_most(earns, constants.CONSTANT_ALLOWED)
 
 
 def wall_4(strength: float | None, earns: Sequence[bool]) -> dict[str, Any]:
@@ -267,7 +261,8 @@ def make_report(
     *,
     search: dict[str, Any],
     effects: Sequence[float | None],
-    even_earns: Sequence[bool],
+    even_earns: Mapping[str, Sequence[bool]],
+    constant_earns: Mapping[str, Sequence[bool]],
     check_earns: Sequence[bool],
     mirror_rates: dict[str, float],
     pick_wins: Sequence[int],
@@ -281,41 +276,37 @@ def make_report(
             "2": wall_2(effects),
             "3": wall_3(even_earns),
             "4": wall_4(search["strength"], check_earns),
+            "5": wall_5(constant_earns),
         },
         "mirror_rates": mirror_rates,
         "pick_histogram": histogram,
     }
 
 
-def projected_seconds(seconds_per_evaluation: float, cores: int = 1) -> float:
-    evaluations = (
-        EVALUATIONS_A_MARKET * constants.SEARCH_MARKETS * STRENGTHS
-        + EVALUATIONS_A_MARKET * constants.CHECK_MARKETS
-        + BLIND_EVALUATIONS
-    )
-    return evaluations * seconds_per_evaluation / cores
+def projected_seconds(seconds_per_market: float, cores: int = 1) -> float:
+    """The job's time in whole markets: every strength on the search's markets, one on the check's, and wall 3's
+    and wall 5's blind markets."""
+    markets = STRENGTHS * constants.SEARCH_MARKETS + constants.CHECK_MARKETS + BLIND_MARKETS_EQUIVALENT
+    return markets * seconds_per_market / cores
 
 
-def projection_ok(seconds_per_evaluation: float, cores: int) -> bool:
-    return projected_seconds(seconds_per_evaluation, cores) <= SECONDS_LIMIT
+def projection_ok(seconds_per_market: float, cores: int) -> bool:
+    return projected_seconds(seconds_per_market, cores) <= SECONDS_LIMIT
 
 
-def timed_evaluation() -> float:
-    """Seconds an evaluation of the reference takes on a calibration market, from a timed run of 20."""
-    with tempfile.TemporaryDirectory() as scratch:
-        market = pairs.write_market(Path(scratch), cal_a_ids()[0], HI)
-        reference = load_program("reference")
-        score(reference, market)
+def timed_market() -> float:
+    """Seconds one whole cal-a market takes at the bracket's upper end, with a cold twin cache: generating and
+    writing it and its pairs, each evaluator's start, G100's evaluations and the classification."""
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as scratch:
         started = time.perf_counter()
-        for _ in range(TIMED_EVALUATIONS):
-            score(reference, market)
-        return (time.perf_counter() - started) / TIMED_EVALUATIONS
+        g100_trial(HI, cal_a_ids()[0], Path(scratch) / "market")
+        return time.perf_counter() - started
 
 
 def main() -> int:
     cores = os.cpu_count() or 1
-    each = timed_evaluation()
-    print(f"{each:.3f} s an evaluation on {cores} cores: projected {projected_seconds(each, cores) / 3600:.1f} h")
+    each = timed_market()
+    print(f"{each:.1f} s a market on {cores} cores: projected {projected_seconds(each, cores) / 3600:.1f} h")
     if not projection_ok(each, cores):
         print("wall: the projection is above 24 hours")
         return 1
@@ -335,7 +326,8 @@ def main() -> int:
     result = make_report(
         search=found,
         effects=[e for c in checks for e in c["effects"]],
-        even_earns=[e for b in blinds for e in b["even"]],
+        even_earns={name: [b["even"][name] for b in blinds] for name in MIRROR_PAIRS},
+        constant_earns={name: [b["programs"][name] for b in blinds] for name in CONSTANTS},
         check_earns=[bool(c["earns"]) for c in checks],
         mirror_rates={n: sum(b["programs"][n] for b in blinds) / max(len(blinds), 1) for n in MIRROR_NAMES},
         pick_wins=[c["wins"] for c in checks],
