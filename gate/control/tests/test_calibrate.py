@@ -8,9 +8,10 @@ The plan fixes behaviour, not names, so these tests fix the interface they use:
   `log` is the JSON-lines file, one line per (strength, market) evaluated, that a restarted run resumes from.
 - The bracket is [0, HI], HI = 0.01; the rule is the plan's. A rate is within the tolerance when
   `abs(rate - TARGET) <= TOLERANCE` in exact arithmetic, the ends included: 29 to 31 of 200 are inside.
-- Twins are made once: `g100_earns_in(scratch, strength, market_id)` is G100's earning on one market with `scratch`
-  shared across strengths; across calls with the same `scratch`, a fresh pair's twin is generated (`pairs.arrays` at
-  strength 0) once, and the planted market once per strength.
+- Nothing is kept between trials (revision of 2026-11-13): a trial is a function of its market and its strength
+  alone. `g100_earns` makes every pair it scores, both members through `pairs.arrays`, and leaves no market in `work`
+  when it returns. Lines that hosts write for a strength's markets are merged into `log` in any order, so each line
+  names its market as a JSON string.
 - `rate_at(earns, strength, ids, log, workers=1) -> float`: G100's rate at a strength (the check).
 - `wall_2(effects)`, `wall_3(earns)`, `wall_4(strength, earns)`, `wall_5(earns)` return {"count", "denominator",
   "status"}, status "pass" or "stop". `effects` are the reference's effects, None where undefined. `wall_4`'s `earns`
@@ -257,9 +258,10 @@ def test_the_timed_market_is_a_whole_markets_time() -> None:
     assert math.isfinite(seconds) and seconds > 1.0
 
 
-@pytest.mark.slow  # three strengths of one market through G100 and the kernel
-def test_a_twin_is_made_once_across_strengths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.slow  # two trials of one market through G100 and the kernel
+def test_a_trial_makes_its_own_pairs_and_keeps_no_market(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     market_id = "control-1-cal-a-0000"
+    fresh = set(pairs.fresh_ids(market_id))
     made: list[tuple[str, float]] = []
     original = pairs.arrays
 
@@ -268,15 +270,14 @@ def test_a_twin_is_made_once_across_strengths(tmp_path: Path, monkeypatch: pytes
         return original(market, strength)
 
     monkeypatch.setattr(pairs, "arrays", spy)
-    strengths = (0.002, 0.004, 0.006)
-    for strength in strengths:
-        calibrate.g100_earns_in(tmp_path, strength, market_id)
-    fresh = set(pairs.fresh_ids(market_id))
-    twins = [m for m, s in made if m in fresh and s == 0.0]
-    assert sorted(twins) == sorted(fresh)
-    for strength in strengths:
-        planted = [m for m, s in made if m in fresh and s == strength]
-        assert sorted(planted) == sorted(fresh)
+    work = tmp_path / "work"
+    for strength in (0.002, 0.004):
+        made.clear()
+        calibrate.g100_earns(strength, market_id, work)
+        for beta in (strength, 0.0):
+            generated = [m for m, s in made if m in fresh and s == beta]
+            assert sorted(generated) == sorted(fresh), beta
+        assert list(work.rglob("*.parquet")) == []
 
 
 @pytest.mark.slow  # 100 G100 evaluations, 342 scorings, kernel
@@ -442,6 +443,48 @@ def test_l5_4_a_rate_does_not_depend_on_the_order_markets_finish_or_the_workers(
     rnd.shuffle(shuffled)  # type: ignore[attr-defined]
     other = run(Rate(stub.slope, stub.wiggle, stub.freq), shuffled, fresh_log(), workers)
     assert verdict(other) == verdict(base)
+
+
+def trials(lines: list[str], visited: list[float]) -> list[tuple[float, str]]:
+    """The (strength, market) of each log line. A line names its market; strengths are searched one after another,
+    so a market's k-th line is its trial at the k-th strength visited."""
+    seen: dict[str, int] = {}
+    found: list[tuple[float, str]] = []
+    for line in lines:
+        [market] = [market_id for market_id in SMALL if f'"{market_id}"' in line]
+        found.append((visited[seen.get(market, 0)], market))
+        seen[market] = seen.get(market, 0) + 1
+    return found
+
+
+@LAW
+@given(any_rate, st.data())
+def test_l5_3_and_l5_4_lines_merged_from_any_hosts_in_any_order_resume_to_the_same_report(
+    stub: Rate, data: st.DataObject
+) -> None:
+    """Hosts that share out a strength's markets each append their lines, so a merged log holds every line of the
+    strengths already searched and any subset of the current one's, in any order. Resumed from it, the run gives the
+    clean run's report and evaluates exactly the trials whose lines are missing."""
+    clean_stub = Rate(stub.slope, stub.wiggle, stub.freq)
+    clean_log = fresh_log()
+    clean = run(clean_stub, SMALL, clean_log)
+    visited = visited_in_order(clean_stub.calls)
+    lines = clean_log.read_text().splitlines()
+    of_line = dict(zip(lines, trials(lines, visited)))
+    assert sorted(of_line.values()) == sorted(clean_stub.calls)
+    current = visited[data.draw(st.integers(0, len(visited) - 1))]
+    searched = [line for line in lines if visited.index(of_line[line][0]) < visited.index(current)]
+    open_lines = [line for line in lines if of_line[line][0] == current]
+    done = data.draw(st.lists(st.sampled_from(open_lines), unique=True))
+    merged = searched + done
+    data.draw(st.randoms(use_true_random=False)).shuffle(merged)
+    log = fresh_log()
+    log.write_text("".join(line + "\n" for line in merged))
+    resumed_stub = Rate(stub.slope, stub.wiggle, stub.freq)
+    resumed = run(resumed_stub, SMALL, log)
+    assert verdict(resumed) == verdict(clean)
+    kept = {of_line[line] for line in merged}
+    assert sorted(resumed_stub.calls) == sorted(set(clean_stub.calls) - kept)
 
 
 @given(st.integers(0, 1000))

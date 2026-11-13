@@ -11,6 +11,7 @@ L6.1, L6.4, L6.5 and L6.6, are step 6's and are not in this file.
 """
 
 import hashlib
+import json
 import math
 import random
 import subprocess
@@ -27,6 +28,8 @@ from hypothesis import strategies as st
 from gate import markets, search
 from gate.control.constants import MAJORITY, PAIRS, SHARE
 from gate.control.measure import classify, even, score, scores
+from gate.control.pairs import write_pair
+from gate.control.tests import support
 
 Score = float | None
 Pair = tuple[Score, Score]
@@ -480,6 +483,9 @@ FLAT: Program = {
     "weight": {"const": 0.0, "unit": "1"},
 }
 REJECTED: Program = FLAT | {"weight": {"op": "sign", "args": [{"input": "forum_posts"}]}}
+LOCKED_REFERENCE: Program = json.loads(
+    (Path(__file__).resolve().parents[1] / "programs" / "reference.json").read_text()
+)
 PLANTED = range(6)
 
 
@@ -568,6 +574,33 @@ def test_scores_starts_at_most_one_kernel_process_a_market_for_all_its_programs(
     monkeypatch.setattr(subprocess.Popen, "__init__", counting)
     scores([MOMENTUM, FLAT, REJECTED], pairs)
     assert 0 < len(started) <= 2 * len(pairs)
+
+
+def test_scores_on_pairs_written_for_scoring_are_the_markets_scores_one_process_a_market(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, built_kernel: Path
+) -> None:
+    """Step 2, behaviour 7, as revised 2026-11-13: the calibration scores pairs that `write_pair` writes for scoring,
+    and each score is the one `score` gives on the market as `gate.markets.write` stores it (L1.5)."""
+    market_id = "control-1-cal-a-0003/fresh/4"
+    strength = 0.005
+    pair = write_pair(tmp_path / "pair", market_id, strength)
+    full = (
+        support.study_market(tmp_path / "full-planted", market_id, strength),
+        support.study_market(tmp_path / "full-twin", market_id, 0.0),
+    )
+    programs = [MOMENTUM, FLAT, REJECTED, LOCKED_REFERENCE]
+    expected = [[(score(program, full[0]), score(program, full[1]))] for program in programs]
+    started: list[object] = []
+    original: Callable[..., None] = subprocess.Popen.__init__
+
+    def counting(self: object, *args: Any, **kwargs: Any) -> None:
+        started.append(args[0] if args else kwargs.get("args"))
+        original(self, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess.Popen, "__init__", counting)
+    got = scored(programs, [(Path(pair[0]), Path(pair[1]))])
+    assert got == expected
+    assert 0 < len(started) <= 2
 
 
 def test_a_rejected_program_has_no_scores_and_spoils_no_other(isolated: Path) -> None:
