@@ -184,50 +184,31 @@ For the visible alarm check, this injects only an in-memory test result (expecte
 nix develop -c python -c 'from ops import diskguard as d; d.check = lambda *a: ["SYNTHETIC TEST: filesystem at 19% available"]; raise SystemExit(d.main())'
 ```
 
-## 7. Sharded test runs (no live workloads)
+## 6. Tests (no live workloads)
 
-A full suite finishes fastest when one run spreads across this desktop and the idle nodes:
+`nix run .#test`, from the worktree, runs the whole suite in two steps:
 ```
-python3 ops/shards.py /path/to/worktree
-python3 ops/shards.py /path/to/worktree ops -k "live"
-python3 ops/shards.py /path/to/worktree --machines local,gmktec
+nix flake check -L          # the checks: built on the remote builders, cached by their inputs
+nix develop -c pytest -m local   # the tests marked `local`, here
 ```
-The runner collects the test ids here (selection arguments, paths, `-k`, `-m`, go to collection only), splits them into
-shards balanced by recorded durations (`~/.cache/mm-shards/durations.json`, refreshed by every run; an unseen test counts
-as the median) and by cores (this PC 12, prodesk5 6, gmktec 8, prodesk7 5 workers), learned slowness and learned per-machine overhead (seconds beyond the tests: transfer, Nix, collection, tail), runs the shards at once (`pytest -n auto` on each node; here, workers sized from free memory at 650 MB each, `gate/compute.py`, so concurrent suites shrink) and
-merges them: one summary, one exit status. The status is nonzero if any shard exits nonzero, any test fails or errors, or
-any collected test goes unreported; tests of a node that gave no result are rerun here. Logs are in a `/tmp/mm-shards-*`
-directory, deleted on success. `conftest.py` writes each shard's outcomes under `--shard-report`.
+A flake sees only tracked files, so `git add` new ones first. `nix build -L .#checks.x86_64-linux.<name>` runs one group
+and `nix log <drv>` shows a failure's full output.
 
-- **Nodes:** prodesk5 (`kevin@192.168.8.229`) and gmktec (`kevin@192.168.8.153`), both with Nix (found by a login shell,
-  not by a plain `ssh host command`; the runner extends PATH itself), and prodesk7 (below). SSH must already work
-  noninteractively with a known host key; failures are not worked around, and every other destination is refused.
-- **prodesk7 holds every live recording**, so it runs tests only through the Homelab role `mm-test-node`: the same
-  package is staged in `/var/lib/mmtest/stage/<run>/` and `sudo mm-tests start <run>` runs it as `mmtest` in
-  `mm-tests@<run>.service`, under `mmtest.slice`: one budget for the unit, the Nix daemon and its builds and garbage
-  collection (5 GiB memory with no swap, 8192 tasks, CPUs 0-9, idle CPU weight, 40 MB/s write and 80 MB/s read on the
-  image's device). The pods keep what the node leaves: 14.9 GiB minus kubepods' 4.76 GiB peak, the host's 2.4 GiB and the slice's 5 GiB is
-  2.7 GiB. The unit sees none of k3s, the PVCs or `/home`; `/tmp` and `/dev/shm` are 1 GiB tmpfs each, private to it and
-  counted in the budget; runs go one at a time under a lock outside every unit, a run lasts at most an hour, and
-  the unit stops when the controller's ssh dies (SIGKILL included). Nix and its home live in a 48 GiB sparse image at
-  `/var/lib/mmtest`, not on the PVCs' filesystem. Five workers because a worker measured about 0.4 GiB (peak resident
-  sum 2.3 GiB for six, locally). Tests that need what the unit lacks must skip (`LOCAL_ONLY` or a capability check);
-  a skipped or unreported test is rerun here.
-- **A node's checkout is persistent:** `/home/kevin/.cache/mm-runner` (its own HOME with the Nix and Cargo caches, and `w/`; TMPDIR and pytest's basetemp are on tmpfs, `/dev/shm/mm-runner`, emptied after each run, since the SIGKILL tests are storage-sensitive, `audit/2026-11-04-suite-speed.md`),
-  so the kernel build and Nix evaluation are incremental. Each run sends one tarball (a HEAD bundle, the current tracked and
-  non-ignored files, the deleted names and the ids), resets `w/` to the bundle's HEAD, overlays the files and stages them for
-  Nix; ignored build output stays. A `flock` on the directory serializes runs on a node, so a second builder waits there;
-  `nice -n 10`, one hour cap. Nothing outside that directory is read or changed (Nix daemon store operations aside), and the
-  checkout is **not a sandbox** for untrusted tests. Delete `/home/kevin/.cache/mm-runner` to reset a node.
-- **Rust:** `kernel/tests/test_rust.py` runs the kernel's `cargo test --release` and each mutant (`kernel/mutants/mutants.py`: the
-  test must pass on a copy of the tree and fail by assertion on the mutated copy) as ordinary tests, so any shard with a
-  toolchain runs them; where `cargo` is missing they skip and are rerun here. Mutants take slots of free memory
-  (`SLOT_BYTES`, 2.2 GB) across the run's workers, each with its own cargo target.
-- **This PC only** (`LOCAL_ONLY` in `ops/shards.py`): `data/` is never shipped (a node gets an empty `w/data`), so the
-  tests that need `data/store` run here, and fail in a worktree without one
-  (`kernel/tests/cli/test_differential.py::test_kernel_matches_witness`). So does
-  `reference/tests/` under this runner, which builds Lean by Lake; the flake check `reference` runs it with the Nix-built
-  `refmm` and the frozen funding blob, on any builder. So do the `gate/tests/test_sandbox.py` tests that resolve host binaries (`/usr/bin/dash`) into the Nix store, which the nodes'
-  Ubuntu layout (`/usr/lib/cargo/bin/coreutils`) breaks.
-- Links escaping the worktree and nested repositories are refused. Don't edit the source during transfer. The local index
-  is not changed.
+- **The checks** (`flake.nix`, `checks.x86_64-linux`): `style`, `progress-cap`, `kernel-cargo`, `kernel-mutants`,
+  `kernel-py`, `gate`, `ingest`, `criteria`, `ops`, `reference`, `sandbox` and `lean-proofs`. Each runs `pytest -m "not local"`
+  over its paths in a Nix sandbox, so it is rebuilt only when its inputs (its source subset) change. Prose (`docs`, `CLAUDE.md`,
+  `PROGRESS.md`, ...) is outside every source subset, so a prose-only commit leaves all of them cached.
+- **The `local` marker** (`pyproject.toml`): tests that need this PC, because they read the real `data/` (`data/store`; link it
+  into a worktree, never commit it), use user namespaces, kill a process, or read git history. `nix flake check` skips them and
+  `nix run .#test` runs them here.
+- **Builders:** the three nodes (prodesk5, gmktec, prodesk7) are Nix remote builders for this PC (dotfiles). prodesk7 holds
+  every live recording, so its builds run in the Nix daemon's `mmtest.slice` (5 GiB memory with no swap, CPUs 0-9, idle CPU
+  weight, I/O caps on the image's device), with `ProtectHome` and the PVCs and k3s inaccessible; Nix's sandbox does the rest.
+  Nothing of the project is kept on a node besides the Nix store.
+- **The funding blob:** the `reference` check reads the null models' funding source, a fixed-output input that is not in any
+  cache (`fundingInputs` in `flake.nix`). Each builder must hold it, registered once with
+  `nix-store --add-fixed sha256 /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39`;
+  without it the build fails with `requireFile`'s message, which names that command.
+- **Rust:** `kernel-cargo` and `kernel-mutants` run `kernel/tests/test_rust.py`, the kernel's `cargo test --release` and each
+  mutant (`kernel/mutants/mutants.py`: the test must pass on a copy of the tree and fail by assertion on the mutated copy).
+  Mutants take slots of free memory (`SLOT_BYTES`, 2.2 GB) across the run's workers, each with its own cargo target.

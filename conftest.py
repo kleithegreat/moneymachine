@@ -1,5 +1,4 @@
 import fcntl
-import json
 import os
 import sys
 import threading
@@ -7,7 +6,6 @@ from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from time import sleep
-from typing import Any
 
 import pytest
 from _pytest.capture import CaptureManager
@@ -26,9 +24,6 @@ def watch(limit: int, capture: CaptureManager) -> None:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption(
-        "--shard-report", default=None, help="write each test's outcome and seconds here as JSON (ops/shards.py)"
-    )
     parser.addini(
         "worker_memory_gb",
         "Resident memory at which a pytest process ends, in GiB (children are not counted)",
@@ -42,26 +37,6 @@ def pytest_configure(config: pytest.Config) -> None:
             os.environ.setdefault(name, "1")
     limit = int(float(config.getini("worker_memory_gb")) * 2**30)
     threading.Thread(target=watch, args=(limit, config.pluginmanager.getplugin("capturemanager")), daemon=True).start()
-
-
-ROWS: dict[str, dict[str, Any]] = {}
-
-
-def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    """With --shard-report (ops/shards.py), the controller keeps each test's outcome, seconds and failure text."""
-    row = ROWS.setdefault(report.nodeid, {"outcome": "passed", "seconds": 0.0})
-    row["seconds"] += report.duration
-    if report.failed:
-        row["outcome"] = "failed" if report.when == "call" else "error"
-        row["text"] = report.longreprtext[-800:]
-    elif report.skipped and row["outcome"] == "passed":
-        row["outcome"] = "xfailed" if hasattr(report, "wasxfail") else "skipped"
-
-
-def pytest_sessionfinish(session: pytest.Session) -> None:
-    path = session.config.getoption("shard_report")
-    if path and not hasattr(session.config, "workerinput"):
-        Path(path).write_text(json.dumps(ROWS))
 
 
 def build_once(directory: Path, name: str, build: Callable[[], object]) -> None:
