@@ -32,8 +32,9 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - Each market has one session, never rerun; a session with no pick, or not answered by Opus 5.5 or 4.8, is the agent's miss.
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
-     - **Tests for the converged plan:** steps 2 (`e80debf`) and 5 (`a58c1a5`) are done; steps 7 to 9 (`../mm-s1-runner`) are in progress.
-     - **Then:** builds of steps 7 to 9 and the changes to steps 5 and 8; calibration (about 20 core-hours); G100 on the study markets; the first sessions, on Cornell, and on TAMU from 2026-11-14 04:00 UTC (11-13 23:00 EST).
+     - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
+     - **Wall, for Fable:** calibration as planned is not feasible. A market write costs about 1.9 s and 13.4 MB (the store hashes rows in Python), so the plan needs about 1,900 core-hours, and caching the twins would need about 1.2 TB. Fable's estimate of 20 core-hours counted kernel evaluations only.
+     - **Then:** calibration, G100 on the study markets, the first sessions (Cornell, and TAMU from 2026-11-14 04:00 UTC (11-13 23:00 EST)).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
      - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.
