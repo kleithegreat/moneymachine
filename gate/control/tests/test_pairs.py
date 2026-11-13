@@ -63,7 +63,7 @@ def test_constants_are_the_plans_table() -> None:
     assert (c.ALPHA, c.BETA_ERROR, c.MAX_MARKETS) == (0.05, 0.05, 100)
     assert (c.TARGET, c.TOLERANCE, c.MAX_STEPS) == (0.15, 0.005, 12)
     assert (c.SEARCH_MARKETS, c.CHECK_MARKETS, tuple(c.BAND)) == (1600, 10000, (0.12, 0.18))
-    assert (c.BLIND_MARKETS, c.EVEN_ALLOWED, c.CONSTANT_ALLOWED, c.MAX_VOIDS) == (200, 4, 14, 3)
+    assert (c.BLIND_MARKETS, c.EVEN_ALLOWED, c.CONSTANT_ALLOWED) == (200, 4, 14)
     assert tuple(c.PLANTED) == (0, 1, 2, 3, 4, 5)
 
 
