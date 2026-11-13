@@ -127,4 +127,4 @@ Fetch automatically only under a certificate that quotes a permitting clause, sh
 
 Everything runs through the flake (`nix develop -c <cmd>`); new dependencies go in `flake.nix`. Strategies are data, a JSON AST the kernel type-checks and interprets, never host-language code. The ledger is SQLite whose triggers reject UPDATE and DELETE; data is Parquet under `data/`, gitignored.
 
-Today the engine is Rust (`kernel/`), the rest Python (`gate/`, using `arch.bootstrap` for SPA and StepM), and the proofs Lean (`reference/lean`). Every judged pilot result comes from one frozen kernel; the Lean engine with OCaml plumbing is deferred with stage 7 (the human, 2026-11-08, `audit/decisions.md`).
+Today the engine is Rust (`kernel/`), the rest Python (`gate/`, using `arch.bootstrap` for SPA and StepM), and the proofs Lean (`reference/lean`, built by Nix as flake checks). Every judged pilot result, and study 1, come from one frozen kernel. New code is maximal Lean with OCaml for the rest, and no new Rust or Python; kernel version 2 is the first (the human, 2026-11-12, `audit/decisions.md`).
