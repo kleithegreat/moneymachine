@@ -356,6 +356,15 @@ The human was unsure whether to run a test expected to end "not confirmed". Both
 - **What it lacks** is in the build plan's table: settled funding, fetched at replay time; hourly dated copies of coin rules and fees; the vault's fills, pulled hourly with overlap.
 - **Reading it.** The first replay runs after 2027-01-31, and the kernel itself refuses the dates before their release (kernel A13).
 
+### 6.7 The human's four answers of 2026-11-14 14:59 UTC (09:59 EST), in the design
+
+| Answer | What the reviewers said | Decided | Where |
+|---|---|---|---|
+| 1. `M` or `W`: whatever is most informative | Argon: report `W`, judge a corrected `M*`. GPT: report both, judge one named hypothesis, consider a timing test | Neither alone, and no choice is needed: two nested nulls on one wealth, "earned" then "timed", 5% for the pair. `M*` is refused (it removes the rule), the timing test is rung 2 in an exact, any-time form | 6.1 |
+| 2. Leverage above 1 under a certificate: yes | Both: the rule gives a non-negative account, not an exact test | The permission stands for the kernel, which builds leverage and reports `absorbed`. The judged test takes none: a floored account confirms falsely up to `(1 + E[absorbed]) / 20`, and nothing certifies an expectation. So no certificate of V7 is needed for study 2 | 6.2, kernel A11 |
+| 3. `mm` deleted, under a tag, after study 1's last judged run | Both: version 2 then cannot run a market of bars | Version 2 becomes the only kernel, so bars belong in it: as a source whose bars the engine turns into a quote and two prints under four registered assumptions (spread, depth, path, that the extremes traded). No second fill rule, no cost table, no comparison with `mm`. A later cell of study 1 would run there | kernel A16, B4; section 7 |
+| 4. The forward test, expected "not confirmed": unsure | Both: run it as prospective validation with a budget and a reading | Run it. It measures the wall's forecast, the fill rules and the trigger on dates nobody fitted. Its budget is a replay a month and disk, and its reading is registered beforehand | 6.6 |
+
 **The account, if a reading-agent study is ever opened (D15, conceded).** Cash starts at 1. A purchase pays a stake the agent registers, at most 5% of cash, at the all-in cost `c < 1` of its fill, and holds `stake/c` units. A recorded settlement `x` in [0, 1] pays `(stake/c)·x` into cash. The null is rejected when cash reaches 20; a payout not yet paid is never cash. **Null:** for every purchase, `E[x | everything that has happened by its fill, recorded or not] ≤ c`, the cost being known at the fill and not at the registration. A perp bracket is such a purchase only on isolated margin equal to the stake, with funding deducted, which kernel version 2 does not build until a study needs it. **Validity,** on the world's filtration, to which the recorder's own delays are adapted: let `V` be cash plus, for every position not yet recorded as paid, `stake/c` times the conditional expectation of `x`. A fill lowers cash by the stake and adds at most the stake to the sum, by the null. Between events each term is a martingale. A recording moves a realized payout from the sum into cash and changes nothing. So `V` is a non-negative supermartingale starting at 1, cash never exceeds it, and cash reaches 20 with probability at most 5%, whenever and in whatever order records arrive.
 
 ## 7. The program
@@ -367,7 +376,7 @@ The human was unsure whether to run a test expected to end "not confirmed". Both
 5. **Write the result.** The paper's finding on Q3 is the wall with the three columns of 2.3. `paper-changes.md` lists every edit.
 6. **Present the earlier research in one index,** `docs/findings.md`: a row for each completed study with its question, its result in a line, its audit record, and whether it stands. It holds no number that is not in the paper or the record (`paper-changes.md`, last section).
 
-**What is machinery and what is result.** The confirmer of 2.2 with a rule's own loss bound is a specification now and is built with study 2. The frozen gate stays as the pilot's instrument: its judged results came from it and are not rerun.
+**What is machinery and what is result.** The confirmer of 2.2 with a rule's own loss bound is a specification now and is built with study 2. The frozen gate and version 1 of the kernel (`mm`) stay as the pilot's instrument until study 1's last judged run. Then `mm` is deleted under a git tag, from which the pilot's judged results stay reproducible and are not rerun (the human, 2026-11-14). From then kernel version 2 is the only kernel. Before the deletion the advisor stores the reference evaluator's streams on the C6.4 corpus under a hash (kernel B4) and lists what runs only on `mm`, the gate's search and campaign code included, since it goes to the tag too. `ingest/archive.py` stays, as a test's oracle.
 
 ## 8. Stop rules
 
@@ -391,7 +400,7 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 
 ## 10. Infrastructure
 
-- **Used:** the frozen pilot kernel, `gate/markets.py`, `gate/search.py`, `gate/campaign.py`, `gate/agent/` under its frozen hash, `sandbox/`, the ledger; pre-registration of statistical criteria; fresh-session bug hunts; the two-round rule.
+- **Used, until study 1's last judged run:** the frozen pilot kernel, `gate/markets.py`, `gate/search.py`, `gate/campaign.py`, `gate/agent/` under its frozen hash, `sandbox/`, the ledger; pre-registration of statistical criteria; fresh-session bug hunts; the two-round rule.
 - **Running, with no work done on it:** the certified recorders.
 - **To build:** study 1's slice; for study 2, kernel version 2 (`kernel-v2.md`, `briefs/3-kernel-v2.md`), the replica as a program in its language, and the confirmer of section 6, a function of the kernel's report.
 - **Parked:** the thesis track entire (`thesis/`, branches `thesis-refreeze` and `thesis-split`, Job `thesis-prewarm`), until a measured count; stage 7, the Lean engine, `reference/lean`; the swarm; stages 8 and 9, superseded. The stage 3 forward window lapses on 2027-01-31 with nothing registered in it, and its prices stay unread.
