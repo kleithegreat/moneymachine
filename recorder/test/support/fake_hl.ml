@@ -8,7 +8,15 @@ type config =
   ; stream : (conn:int -> seq:int -> string) option
   ; stream_interval_ms : int
   ; tls : tls option
+  ; fault : conn:int -> fault option
   }
+
+and fault =
+  | Close_in_handshake
+  | Partial_response
+  | Reset_in_handshake
+  | Answer_with of int
+  | Reset_mid_frame
 
 and tls =
   { crt_file : string
@@ -22,6 +30,7 @@ let default_config =
   ; stream = None
   ; stream_interval_ms = 100
   ; tls = None
+  ; fault = (fun ~conn:_ -> None)
   }
 ;;
 
@@ -79,6 +88,18 @@ let serve_rest t config reader writer headers =
   Writer.close writer
 ;;
 
+let reset writer =
+  let%bind () = Writer.flushed writer in
+  Fd.with_file_descr_exn (Writer.fd writer) (fun fd ->
+    Core_unix.setsockopt_optint fd Core_unix.SO_LINGER (Some 0));
+  Writer.close writer
+;;
+
+let reset_mid_frame writer =
+  Writer.write writer "\x81\x7e\x10\x00partial";
+  reset writer
+;;
+
 let serve_ws t config reader writer headers conn =
   let key = Option.value_exn (header headers "sec-websocket-key") in
   let accept = Websocket.sec_websocket_accept_header_value ~sec_websocket_key:key in
@@ -91,6 +112,7 @@ let serve_ws t config reader writer headers conn =
   let rd, wr = Websocket.pipes ws in
   let finished = Ivar.create () in
   let subscribed = ref false in
+  let resetting = ref false in
   let send text = if not (Pipe.is_closed wr) then Pipe.write_without_pushback wr text in
   let close () =
     Pipe.close wr;
@@ -111,6 +133,13 @@ let serve_ws t config reader writer headers conn =
            send (stream ~conn ~seq:!seq))));
   let handle text =
     t.received := (conn, now_ms (), text) :: !(t.received);
+    if Poly.equal (config.fault ~conn) (Some Reset_mid_frame)
+    then (
+      if not !resetting
+      then (
+        resetting := true;
+        don't_wait_for (reset_mid_frame writer)))
+    else (
     match json_of_text text with
     | Some (`Assoc fields) ->
       (match List.Assoc.find fields ~equal:String.equal "method" with
@@ -122,7 +151,7 @@ let serve_ws t config reader writer headers conn =
          if config.ack_subscriptions then send (ack_frame subscription)
        | Some (`String "ping") -> if config.ack_subscriptions then send {|{"channel":"pong"}|}
        | _ -> ())
-    | _ -> ()
+    | _ -> ())
   in
   let%bind () = Pipe.iter_without_pushback rd ~f:handle in
   close ();
@@ -144,7 +173,19 @@ let start config =
       incr counter;
       let conn = !counter in
       t.accepts := (conn, now_ms ()) :: !(t.accepts);
-      serve_ws t config reader writer headers conn)
+      match config.fault ~conn with
+      | Some Close_in_handshake -> Writer.close writer
+      | Some Partial_response ->
+        Writer.write writer "HTTP/1.1 101 Switching Protocols\r\nUpgrade: web";
+        let%bind () = Writer.flushed writer in
+        Writer.close writer
+      | Some Reset_in_handshake -> reset writer
+      | Some (Answer_with code) ->
+        Writer.write
+          writer
+          (sprintf "HTTP/1.1 %d Refused\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" code);
+        Writer.close writer
+      | Some Reset_mid_frame | None -> serve_ws t config reader writer headers conn)
     else serve_rest t config reader writer headers
   in
   let where = Tcp.Where_to_listen.bind_to Localhost On_port_chosen_by_os in

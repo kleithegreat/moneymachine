@@ -86,7 +86,7 @@
           tests = pkgs.stdenv.mkDerivation {
             name = "mmrec-tests";
             inherit src;
-            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib pkgs.zstd ];
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib pkgs.zstd pkgs.libfaketime ];
             buildInputs = testLibs ++ [ pkgs.zstd.dev ];
             buildPhase = ''
               export HOME=$TMPDIR DUNE_CACHE=disabled

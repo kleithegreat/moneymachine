@@ -13,14 +13,26 @@ type config =
         (** once a connection has subscribed, send this frame every [stream_interval_ms] *)
   ; stream_interval_ms : int
   ; tls : tls option  (** serve the websocket over TLS with this certificate *)
+  ; fault : conn:int -> fault option  (** how connection [conn] misbehaves, if it does *)
   }
+
+(** A connection's failure: the server closes the socket on reading the upgrade request, answering nothing; closes it
+    after the first bytes of a [101] response; resets it (TCP RST) on reading the upgrade request; answers
+    the upgrade with this HTTP status instead of [101]; or, after the handshake and the first message received, sends
+    the start of a websocket frame and resets the connection (TCP RST) in the middle of it. *)
+and fault =
+  | Close_in_handshake
+  | Partial_response
+  | Reset_in_handshake
+  | Answer_with of int
+  | Reset_mid_frame
 
 and tls =
   { crt_file : string
   ; key_file : string
   }
 
-(** Acks, never closes, streams nothing, REST answers [{}]. *)
+(** Acks, never closes, never misbehaves, streams nothing, REST answers [{}]. *)
 val default_config : config
 
 type t
