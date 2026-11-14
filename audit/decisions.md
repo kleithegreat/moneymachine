@@ -976,3 +976,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Approves H8:** study 1's subject is the stage 3 harness as served, Opus 5.5 or its fallback Opus 4.8, rather than a fork pinned to one model.
   - **Approves the commit of CS1.1** (`criteria: study 1`, `10fedc5`), with definitions at `rearchitecture` `ce7ff38`.
   - **Next:** the steps 7 to 9 tests for the converged plan, the builds, calibration, G100 on the study markets, then the first sessions.
+- 2026-11-14 00:34 UTC (19:34 EST), the human, on Fable's kernel version 2 questions (`data/builder/architect-kernel-v2-report-1.md`):
+  - **Version 2 is a clean-room reimplementation from first principles,** owing nothing to existing code: it implements the current `reference/SEMANTICS.md`, not a byte-for-byte port of `mm`. This supersedes the order of 2026-11-04 to port first.
+  - **The trades bucket** (`s3://hl-mainnet-node-data`) may be certified and read if Fable finds it useful, within the $20 archive approval of 2026-10-26 ($17.54 left).
+  - **Study 2's tested account** (dollar-neutral or unhedged): the human cannot judge it. The advisor adopts Fable's lean, dollar-neutral, as the design under review: the unhedged series is reported descriptively. Argon attacks it in the next round. Reverse by choosing unhedged before study 2's criterion is committed.
+  - **Forward data:** add recorders for everything study 2 or kernel version 2 could need.
