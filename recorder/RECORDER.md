@@ -53,7 +53,8 @@ subscription, and writes a `refused` event naming the coin.
   ±20 % jitter, and resets after 10 minutes up. On reopening it resubscribes everything it held.
 - **Listings change.** Each hour's listings are compared with the last. A new perp is subscribed. A delisted one is
   unsubscribed and stays recorded up to then.
-- **Stopping.** On SIGTERM it flushes and closes every file, then exits within 10 s.
+- **Stopping.** On SIGTERM it stops reading, flushes and closes every file, then exits with code 0 within 10 s. Every
+  frame received before SIGTERM is on disk.
 
 ## Storage
 
@@ -75,7 +76,11 @@ The hour is the UTC hour of the receive time.
   - `start` and `stop`;
   - `open`, `close` and `error` for each connection, with its reason;
   - `subscribed`, `unacked` and `refused`;
-  - `listing` changes.
+  - `listing`: the first read after a start is one event with each dex's count of perps; each later read gives one
+    event per coin added or delisted, with `coin`, `dex` and `change`.
+
+  Recorder-wide events (`start`, `stop`, `listing`, `refused`) carry `"conn": null`. Fields are named `coin`, `dex`,
+  `channel` and `reason` where they apply.
 
   Every gap is therefore readable from `events`. Missing data is recorded, never filled.
 - **Compression.** Lines are buffered and written as one zstd frame (level 3) every second or every 1 MiB, whichever
@@ -94,12 +99,16 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
 
 ## Interface
 
-- **`mmrec run <root> [--connections 8] [--max-subscriptions 950]`.**
-- **`mmrec check <root> <from YYYYMMDDHH> <to>`** prints, per channel and hour:
-  - bytes and frames;
-  - lines;
-  - whether the last frame is truncated;
-  - each gap from `events`.
+- **`mmrec run <root> [--connections 8] [--max-subscriptions 950] [--ws-url wss://api.hyperliquid.xyz/ws]
+  [--rest-url https://api.hyperliquid.xyz/info] [--listings-interval-s 3600]`.** The URLs and interval exist so tests
+  can run against a local fake; production uses the defaults. SIGTERM exits with code 0.
+- **`mmrec check <root> <from YYYYMMDDHH> <to>`** prints tab-separated lines:
+  - per channel and hour: `hour  channel  bytes  frames  lines  truncated`, where bytes are the file's compressed
+    size and truncated is `yes` or `no`;
+  - then per gap: `gap  conn  from_ms  to_ms`, where a gap runs from a connection's `close` or `error` (the earlier,
+    if both) to its next `open`, or to the end of the range (`to_ms` empty).
+
+  It reads only the envelope fields `recv` and `conn`, and the frame fields `channel` and `event`.
 - **`mmrec cat <file>`** decompresses a recording to stdout. Reading prices is the caller's act, under the rule above.
 
 ## Implementation
@@ -112,7 +121,7 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
   - `ppx_jane` for derivers.
 - **JSON:** `yojson` reads only `channel`, the listings and the subscription acks. Frames are written as received, not
   re-serialized.
-- **zstd:** its one-shot `ZSTD_compress` and the frame-size query, through one small C stub file. No OCaml zstd library
+- **zstd:** its one-shot `ZSTD_compress`, the frame-size query and `ZSTD_decompress`, through one small C stub file. No OCaml zstd library
   is in nixpkgs.
 - **Deployment:** StatefulSet `ws` in `moneymachine-live` (`ops/live.py`, `CLUSTER.md` section 2):
   - its own local-path PVC `ws` on prodesk7;
@@ -159,5 +168,10 @@ that has not read the code. Kill tests kill the process.
 9. **Sent-message limits.** Over any minute, the messages sent across connections stay at or below 2,000, at any rate
    of listing changes and reconnects.
 10. **Stopping.** SIGTERM flushes every buffer and exits within 10 s, and every file decompresses whole.
-11. **Integrity tool.** `check` gives the right byte, frame and line counts and gaps on a synthetic root. Its output
-    is identical for two roots that differ only in the values of fields other than `channel` and `event`.
+11. **Integrity tool.** `check` gives the right byte, frame and line counts and gaps on a synthetic root. For two roots
+    that differ only in the values of fields other than `recv`, `conn`, `channel` and `event`, its output is identical
+    apart from the byte counts.
+12. **Acknowledgements.** A subscription the fake never acknowledges gives one `unacked` event 30 s after it was sent,
+    and is re-sent on that connection's next reconnect.
+13. **Hour end.** At the first frame of a new hour, the previous hour's file is closed: its bytes never change again,
+    even across a restart later in the new hour.
