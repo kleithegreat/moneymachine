@@ -7,4 +7,4 @@ __pycache__/
 .pytest_cache/
 .keys.env
 .TAMU_TOKEN
-.CLAUDE_CODE_OAUTH_TOKEN*
+.CLAUDE_CODE_OAUTH_TOKEN*_build/
