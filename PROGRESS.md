@@ -49,7 +49,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **After Fable's report:** Argon (or GPT) reviews kernel version 2's revision; the advisor summarizes for the human.
+1. **Kernel version 2's round 2 runs:** Argon and GPT, side by side, on `rearchitecture` `2a4cd2a`, from 15:00 UTC (10:00 EST). Then the advisor summarizes for the human, and Fable answers both in one session.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
@@ -65,7 +65,7 @@ None blocks the program. Source certificates that fail, with their clauses, are 
 
 - From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the research reviews' actions; the cluster runner not adopted.
 - **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending Fable.
-- **Fable's four new questions** (`data/builder/architect-kernel-v2-report-2.md`): may "earned" (`W`) ever be study 2's claim; leverage in the judged account if a certificate quotes the no-debt rule; `mm` stays as the pilot's instrument; run a forward test expected to end "not confirmed".
+- **Fable's four new questions, answered** (`audit/decisions.md`, 2026-11-14 14:59 UTC, 09:59 EST): the claim (`M` or `W`) and the forward test go to round 2's reviewers, then Fable; leverage above 1 under a certificate, yes; `mm` is deleted after study 1, kept as a git tag.
 
 ## Qualifications
 
