@@ -2,7 +2,8 @@
  (names
   fake_hl_selftest
   item02_routing_e2e
-  item04_kill9_e2e
+  item03_hours_e2e
+  item04_compression_e2e
   item06_listings_e2e
   item07_reconnect_e2e
   item07_backoff_e2e
@@ -10,8 +11,11 @@
   item08_heartbeat_e2e
   item10_sigterm_e2e
   item11_check_cli_e2e
+  item11_kill_gap_e2e
+  item11_memory_e2e
   item12_unacked_e2e
-  item14_connect_error_e2e)
+  item14_connect_error_e2e
+  item15_failures_e2e)
  (libraries core core_unix core_unix.signal_unix async async_unix async_websocket yojson mmrec rec_support core_unix.filename_unix)
  (preprocess
   (pps ppx_jane))
@@ -20,4 +24,5 @@
   ../support/tls_server.crt
   ../support/tls_server.key
   ../support/tls_unrelated_ca.pem
-  %{bin:zstd}))
+  %{bin:zstd}
+  %{bin:faketime}))

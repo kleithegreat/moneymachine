@@ -1,4 +1,4 @@
-(* Item 10: SIGTERM flushes every buffer and exits within 10 s, and every file decompresses whole. *)
+(* Item 10: SIGTERM flushes every buffer and exits within 10 s, and every file decompresses whole, with zstd's own tool (a closed stream, checksum verified). *)
 
 open Core
 open Async
@@ -32,11 +32,10 @@ let () =
     let files = H.recordings root in
     H.check (not (List.is_empty files)) "no recordings";
     List.iter files ~f:(fun path ->
-      let decoded = Mmrec.Frames.decode (H.read_file path) in
-      H.check (not decoded.truncated) (sprintf "%s ends in a cut frame" path);
-      H.check (String.equal decoded.data (H.zstd_binary_decode path)) (sprintf "%s does not decompress whole" path);
+      let text = H.zstd_binary_decode path in
+      H.check (String.is_suffix text ~suffix:"\n") (sprintf "%s does not end in a whole line" path);
       H.check
-        (List.for_all (String.split_lines decoded.data) ~f:(fun line ->
+        (List.for_all (String.split_lines text) ~f:(fun line ->
            match Yojson.Safe.from_string line with
            | `Assoc _ -> true
            | _ -> false

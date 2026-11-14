@@ -104,7 +104,8 @@ let connect url =
 
 let rec read_headers reader acc =
   match%bind Reader.read_line reader with
-  | `Eof | `Ok "" -> return (List.rev acc)
+  | `Eof -> return None
+  | `Ok "" -> return (Some (List.rev acc))
   | `Ok line -> read_headers reader (line :: acc)
 ;;
 
@@ -126,29 +127,39 @@ let handshake_key () =
   Cryptokit.transform_string (Cryptokit.Base64.encode_compact ()) nonce
 ;;
 
-let websocket url =
+let handshake_failure what = failwithf "websocket handshake: %s" what ()
+
+let upgrade url (net : t) =
+  Writer.write
+    net.writer
+    (sprintf
+       "GET %s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n"
+       url.path
+       url.host
+       (handshake_key ()));
+  match%bind Reader.read_line net.reader with
+  | `Eof -> handshake_failure "eof"
+  | `Ok status ->
+    if status_code status <> 101 then handshake_failure status;
+    (match%map read_headers net.reader [] with
+     | None -> handshake_failure "eof"
+     | Some _ -> Websocket.create ~role:Client net.reader net.writer)
+;;
+
+(** Connects and upgrades within 30 s. [connected] receives the transport as soon as it exists (a late one is the
+    caller's to close), so that whatever fails afterwards, the caller can close it. Failures are raised to the caller's
+    monitor, which the transport's reader and writer report to as well. *)
+let websocket url ~connected =
   let url = parse_url url in
-  let%bind net = connect url in
-  let handshake () =
-    Writer.write
-      net.writer
-      (sprintf
-         "GET %s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n"
-         url.path
-         url.host
-         (handshake_key ()));
-    match%bind Reader.read_line net.reader with
-    | `Eof -> failwith "websocket handshake: eof"
-    | `Ok status ->
-      if status_code status <> 101 then failwithf "websocket handshake: %s" status ();
-      let%map (_ : string list) = read_headers net.reader [] in
-      Websocket.create ~role:Client net.reader net.writer
+  let establish () =
+    let%bind net = connect url in
+    connected net;
+    let%map ws = upgrade url net in
+    ws
   in
-  match%bind try_with handshake with
-  | Ok ws -> return (ws, net)
-  | Error exn ->
-    let%bind () = net.close () in
-    raise exn
+  match%bind Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (establish ()) with
+  | `Result ws -> return ws
+  | `Timeout -> handshake_failure "timed out"
 ;;
 
 let rec read_chunks reader acc =
@@ -185,6 +196,7 @@ let post url ~body =
     | `Eof -> failwith "rest: eof"
     | `Ok status ->
       let%bind headers = read_headers net.reader [] in
+      let headers = Option.value_or_thunk headers ~default:(fun () -> failwith "rest: eof") in
       let%map response =
         match header headers "transfer-encoding" with
         | Some "chunked" -> read_chunks net.reader []

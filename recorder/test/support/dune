@@ -1,5 +1,10 @@
 (library
  (name rec_support)
- (libraries core core_unix core_unix.signal_unix core_unix.sys_unix async async_unix async_websocket async_ssl yojson mmrec)
+ (libraries core core_unix core_unix.signal_unix core_unix.sys_unix core_unix.filename_unix async async_unix async_websocket async_ssl yojson mmrec)
+ (foreign_stubs
+  (language c)
+  (names zstd_lossless_stubs))
+ (c_library_flags
+  (-lzstd))
  (preprocess
   (pps ppx_jane)))

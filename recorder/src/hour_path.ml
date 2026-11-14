@@ -9,12 +9,13 @@ let hour_key ~recv_ms =
   sprintf "%04d%02d%02d%02d" (Date.year date) (Month.to_int (Date.month date)) (Date.day date) hour
 ;;
 
-let of_recv ~root route ~recv_ms =
+let of_recv ~root route ~run ~recv_ms =
   let key = hour_key ~recv_ms in
   sprintf
-    "%s/%s/%s/%s.jsonl.zst"
+    "%s/%s/%s/%s.%d.jsonl.zst"
     root
     (Route.dir route)
     (String.prefix key 8)
     (String.suffix key 2)
+    run
 ;;

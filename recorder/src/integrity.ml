@@ -4,7 +4,7 @@ type entry =
   { channel : string
   ; hour : string
   ; bytes : int
-  ; frames : int
+  ; files : int
   ; lines : int
   ; truncated : bool
   }
@@ -31,61 +31,115 @@ let list_dir path =
   | _ -> []
 ;;
 
+(** [HH.jsonl.zst] (run -1, the earlier form) or [HH.<run>.jsonl.zst]: the hour's digits and the run. *)
+let hour_and_run_of_name name =
+  let open Option.Let_syntax in
+  let%bind stem = String.chop_suffix name ~suffix in
+  let hh = String.prefix stem 2 in
+  let rest = String.drop_prefix stem 2 in
+  let%bind () = Option.some_if (String.length hh = 2 && String.for_all hh ~f:Char.is_digit) () in
+  let%map run =
+    match String.chop_prefix rest ~prefix:"." with
+    | _ when String.is_empty rest -> Some (-1)
+    | Some digits when (not (String.is_empty digits)) && String.for_all digits ~f:Char.is_digit ->
+      Some (Int.of_string digits)
+    | _ -> None
+  in
+  hh, run
+;;
+
+(** The files of the range in recording order: by hour, then run. *)
 let files_in_range ~root ~from_ ~to_ =
   List.concat_map (list_dir root) ~f:(fun channel ->
     List.concat_map (list_dir (Filename.concat root channel)) ~f:(fun date ->
       let dir = String.concat ~sep:"/" [ root; channel; date ] in
       List.filter_map (list_dir dir) ~f:(fun name ->
-        match String.chop_suffix name ~suffix with
-        | None -> None
-        | Some hh ->
-          let hour = date ^ hh in
-          if String.compare hour from_ >= 0 && String.compare hour to_ <= 0
-          then Some (channel, hour, Filename.concat dir name)
-          else None)))
-;;
-
-let read_file path = In_channel.read_all path
-
-let entry_of (channel, hour, path) =
-  let raw = read_file path in
-  let decoded = Frames.decode raw in
-  let lines = String.count decoded.data ~f:(Char.equal '\n') in
-  { channel; hour; bytes = String.length raw; frames = decoded.frames; lines; truncated = decoded.truncated }
+        let%bind.Option hh, run = hour_and_run_of_name name in
+        let hour = date ^ hh in
+        if String.compare hour from_ >= 0 && String.compare hour to_ <= 0
+        then Some ((hour, run), (channel, hour, Filename.concat dir name))
+        else None)))
+  |> List.stable_sort ~compare:(fun (a, _) (b, _) -> [%compare: string * int] a b)
+  |> List.map ~f:snd
 ;;
 
 type fact =
   { recv_ms : int
-  ; conn : int
+  ; conn : int option
   ; event : string
   }
 
-let facts_of_line line =
+let event_fact line =
   let open Yojson.Safe.Util in
-  let json = Yojson.Safe.from_string line in
-  match member "conn" json, member "recv" json, member "event" (member "msg" json) with
-  | `Int conn, `Int recv_ms, `String event -> Some { recv_ms; conn; event }
-  | _ -> None
+  match Yojson.Safe.from_string line with
+  | exception Yojson.Json_error _ -> None
+  | json ->
+    (match member "conn" json, member "recv" json, member "event" (member "msg" json) with
+     | `Int conn, `Int recv_ms, `String event -> Some { recv_ms; conn = Some conn; event }
+     | `Null, `Int recv_ms, `String event -> Some { recv_ms; conn = None; event }
+     | _ -> None)
 ;;
 
-let facts path =
-  (Frames.decode (read_file path)).data
-  |> String.split_lines
-  |> List.filter_map ~f:facts_of_line
+type scan =
+  { channel : string
+  ; hour : string
+  ; bytes : int
+  ; lines : int
+  ; truncated : bool
+  ; last_line : (int * int) list
+  ; facts : fact list
+  }
 
-let gaps_of_facts facts =
-  let sorted = List.stable_sort facts ~compare:(fun a b -> Int.compare a.recv_ms b.recv_ms) in
+let scan (channel, hour, path) =
+  let is_events = String.equal channel (Route.dir Route.Events) in
+  let last = Hashtbl.create (module Int) in
+  let note_line (lines, facts) line =
+    Option.iter (Line.envelope line) ~f:(fun (recv_ms, conn) ->
+      Option.iter conn ~f:(fun conn ->
+        Hashtbl.update last conn ~f:(Option.value_map ~default:recv_ms ~f:(Int.max recv_ms))));
+    let facts =
+      if is_events then Option.fold (event_fact line) ~init:facts ~f:(fun facts fact -> fact :: facts) else facts
+    in
+    lines + 1, facts
+  in
+  let (lines, facts), truncated = Recording.fold_lines path ~init:(0, []) ~f:note_line in
+  let facts = List.rev facts in
+  { channel
+  ; hour
+  ; bytes = (Core_unix.stat path).st_size |> Int64.to_int_exn
+  ; lines
+  ; truncated
+  ; last_line = Hashtbl.to_alist last
+  ; facts
+  }
+;;
+
+let gaps_of_facts facts ~last_lines =
   let closed = Hashtbl.create (module Int) in
+  let is_open = Hash_set.create (module Int) in
+  let close conn at_ms = ignore (Hashtbl.add closed ~key:conn ~data:at_ms : [ `Ok | `Duplicate ]) in
+  let last_line_before conn ~ms =
+    List.filter_map last_lines ~f:(fun (c, recv_ms) -> Option.some_if (c = conn && recv_ms < ms) recv_ms)
+    |> List.max_elt ~compare:Int.compare
+  in
   let finished =
-    List.filter_map sorted ~f:(fun fact ->
-      match fact.event with
-      | "close" | "error" ->
-        ignore (Hashtbl.add closed ~key:fact.conn ~data:fact.recv_ms : [ `Ok | `Duplicate ]);
-        None
-      | "open" ->
-        Option.map (Hashtbl.find_and_remove closed fact.conn) ~f:(fun closed_ms ->
-          { conn = fact.conn; closed_ms; reopened_ms = Some fact.recv_ms })
-      | _ -> None)
+    List.concat_map facts ~f:(fun fact ->
+      match fact.event, fact.conn with
+      | ("close" | "error"), Some conn ->
+        Hash_set.remove is_open conn;
+        close conn fact.recv_ms;
+        []
+      | "open", Some conn ->
+        Hash_set.add is_open conn;
+        Option.to_list
+          (Option.map (Hashtbl.find_and_remove closed conn) ~f:(fun closed_ms ->
+             { conn; closed_ms; reopened_ms = Some fact.recv_ms }))
+      | "start", _ ->
+        Hash_set.iter is_open ~f:(fun conn ->
+          Option.iter (last_line_before conn ~ms:fact.recv_ms) ~f:(close conn));
+        Hash_set.clear is_open;
+        []
+      | _ -> [])
   in
   let unfinished =
     Hashtbl.fold closed ~init:[] ~f:(fun ~key:conn ~data:closed_ms acc ->
@@ -94,14 +148,30 @@ let gaps_of_facts facts =
   List.sort (finished @ unfinished) ~compare:(fun a b -> Int.compare a.closed_ms b.closed_ms)
 ;;
 
+let entries_of scans =
+  let by_hour_channel = Hashtbl.create (module struct
+    type t = string * string [@@deriving compare, hash, sexp_of]
+  end) in
+  List.iter scans ~f:(fun s ->
+    Hashtbl.update by_hour_channel (s.channel, s.hour) ~f:(function
+      | None -> { channel = s.channel; hour = s.hour; bytes = s.bytes; files = 1; lines = s.lines; truncated = s.truncated }
+      | Some e ->
+        { e with
+          bytes = e.bytes + s.bytes
+        ; files = e.files + 1
+        ; lines = e.lines + s.lines
+        ; truncated = e.truncated || s.truncated
+        }));
+  Hashtbl.data by_hour_channel
+;;
+
 let check ~root ~from_ ~to_ =
-  let files = files_in_range ~root ~from_ ~to_ in
-  let event_files =
-    List.filter_map files ~f:(fun (channel, _, path) ->
-      if String.equal channel (Route.dir Route.Events) then Some path else None)
-  in
-  { entries = List.map files ~f:entry_of
-  ; gaps = gaps_of_facts (List.concat_map event_files ~f:facts)
+  let scans = List.map (files_in_range ~root ~from_ ~to_) ~f:scan in
+  { entries = entries_of scans
+  ; gaps =
+      gaps_of_facts
+        (List.concat_map scans ~f:(fun s -> s.facts))
+        ~last_lines:(List.concat_map scans ~f:(fun s -> s.last_line))
   }
 ;;
 
@@ -116,7 +186,7 @@ let render report =
       [ e.hour
       ; e.channel
       ; Int.to_string e.bytes
-      ; Int.to_string e.frames
+      ; Int.to_string e.files
       ; Int.to_string e.lines
       ; (if e.truncated then "yes" else "no")
       ]
