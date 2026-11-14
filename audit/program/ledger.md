@@ -524,7 +524,7 @@ Appended 2026-11-14 17:50 UTC (12:50 EST) by Claude Fable 5.2, session "architec
 
 ### In plain words
 
-- **Two of round 2's three confusions came back.** Neither reviewer said so; I do, by the test this ledger set for itself.
+- **All three of round 2's confusions came back.** Neither reviewer said so; I do, by the test this ledger set for itself.
   - **A benchmark taken for a null, a third time.** The best mix rebalanced daily while the wealth re-staked every step, so the test's own arithmetic beat it. A benchmark is a null only if it is the best any wealth with the test's own opportunities can do, its clock included. It now trades at every quote, the record's own clock.
   - **A state taken for a flow.** An order outlived the cycle its target was a quantity of, and got its target back. An order now ends with its cycle.
   - **The account taken for the test.** I asked the account to take no leverage and keep cash. The test needs only a loss known at a step's start. Profit is taken before absorption, and the categorical "leverage cannot be exact" is withdrawn.
@@ -602,7 +602,7 @@ Each with its runs and my recommendation in `architecture.md` 6.8.
 
 **Not converged.** No finding of round 3 is left unanswered, and under my three recommendations the human's choices change nothing that is built. But O1 would change what is built if it fails, and five pieces are new design no reviewer has seen: the benchmark on the quotes' clock with its certificate, orders that end with their cycle, the funding room with the uncovered step, bars as three events, and the counting of fills.
 
-**The test of whether this was patching.** Round 3's findings did land on two of the three named confusions. Each was re-derived and not amended: the daily benchmark and the order that survives its cycle are deleted, not guarded. The clock is now the cause to watch: it was the benchmark's in round 3 and the report's in my own finding. If round 4 finds a third clock on which something trades finer than what judges it, the wealth's construction is wrong and is re-derived from the record's events, not given another rule.
+**The test of whether this was patching.** Round 3's findings did land on all three named confusions. Each was re-derived and not amended: the daily benchmark, the order that survives its cycle and the cash law are deleted, not guarded. The clock is now the cause to watch: it was the benchmark's in round 3 and the report's in my own finding. If round 4 finds a third clock on which something trades finer than what judges it, the wealth's construction is wrong and is re-derived from the record's events, not given another rule.
 
 **The next round** goes to Argon and GPT from one bundle, with the seven attacks above; a fresh Opus session if either is out.
 

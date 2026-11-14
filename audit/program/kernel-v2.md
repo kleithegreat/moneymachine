@@ -353,7 +353,7 @@ A book market is slow and a bar market fast. The wall for books: one run of 16 c
 
 ## Part C. Round 3, answered
 
-A is Argon's finding, G is GPT's, both of round 3. Findings are grouped by cause, and each cause is removed once. Nothing below is a tolerance, a flag or an exemption. Two of round 2's three confusions did come back, and the first rows say where.
+A is Argon's finding, G is GPT's, both of round 3. Findings are grouped by cause, and each cause is removed once. Nothing below is a tolerance, a flag or an exemption. All three of round 2's confusions came back, and the rows that name them say where.
 
 | Cause | Findings | Verdict | What changed |
 |---|---|---|---|
