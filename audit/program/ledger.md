@@ -360,3 +360,76 @@ None is open.
 - **What may be built now:** `constants.py`, `calibrate.py`, the calibration run, the rewritten tests of steps 7 to 9 and their builds. **What waits for the criteria commit:** the manifest, G100's arm and the first session.
 
 **Study 2:** D11 to D14 are open and unanswered.
+
+## After Argon's round 1 on kernel version 2, and study 2 re-derived
+
+Appended 2026-11-14 07:52 UTC (02:52 EST) by Claude Fable 5.2, session "architect: kernel version 2, study 2 and the build plan". **Read for it:** `facts-kernel-v2.md`; Argon's round 1 in full (`audit/reviews/2026-11-14-argon-cli-kernel-v2-r1.md`); `architecture.md` sections 2 and 6; the last session's report; the human's five answers of 2026-11-14. **Not read:** any price, any code of version 1 or of stage 7, `SEMANTICS.md` itself (its content through the fact pack and Argon's citations). Numbering continues after A47 on `study1-build`.
+
+### In plain words
+
+- **What changed in the kernel.** Argon's seven findings all hold in substance, and I patched none of them. Three causes carried them:
+  - **Floats computed orders, and money sat on a grid.** Now a float decides whether, exact arithmetic decides where and how much, and the ledger is rational and never rounds. Findings 1 and 2 have nothing to land on.
+  - **A fill rule was about one order.** Now a fill is an allotment of recorded evidence over all the account's orders, each lot once, and trades are built. Finding 3.
+  - **Version 2 carried version 1's venue only to be compared with it.** Under the human's clean-room answer the `table` venue, the target slot and the decision comparison are deleted; what is compared with `mm` is the float evaluator, bit for bit. Finding 6.
+  - Also deleted: legs, isolated margin, the rounding law, the single-order monotonicity law.
+- **What changed in study 2.** The tested wealth is the replica's own account, long only and compounding, measured in units of a basket of its universe held at the account's own exposure. That one object answers the margin, the hedge and the bet (D11 to D13) and round 1's findings 4 and 5. Fidelity is defined on the vault's fills in four layers (D14).
+- **What it costs.** No exact test bets more than an account that cannot owe. A dip-buying ladder keeps room for 27.6 first buys and holds 2 on average, so its account is nearly idle, and the forward test is expected to end "not confirmed". The table of years by account volatility says so in advance. This is study 2's finding, not its failure.
+- **What is disputed.** Nothing I have refused. Everything below is unexamined by Argon in its new form.
+
+### Who has seen what
+
+- **Argon:** parts A and B at `a829c07` and my notes on D11 to D15. It has not seen this revision.
+- **GPT, Opus:** neither has seen kernel version 2 or the re-derived study 2.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A48 | One event-driven machine; venues are records of what varies | Examined by Argon, round 1, ledger point 1 | kernel A1, A3 |
+| A49 | Own-state inputs arrive with the observation delay; no order fills on evidence the program saw | Examined by Argon, round 1, point 2 | kernel A5, L1, L1b |
+| A50 | Lean holds what decides a number, behind four pure functions; OCaml holds the world | Examined by Argon, round 1, point 3 | kernel B1, B2 |
+| A51 | Version 2 is a clean-room design | The human, 2026-11-14; Argon, point 4 | kernel B4 |
+| A52 | D14's layers on the vault's fills, and D15 | Examined by Argon, round 1, point 5. The fourth layer and the wall on layer 3 are new since | architecture 6.3 |
+| A53 | The threshold `20(1 + ε̄)` is wrong under compounding | Conceded to Argon, finding 4: 0.0550 at 21 (`study2`) | architecture 6.1 |
+| A54 | A hedge made of orders fails the minimum order and initial margin | Conceded to Argon, finding 5 | architecture 6.1 |
+| A55 | Single-order laws say nothing of runs, and a rule about one order counts a seller once a rung | Conceded to Argon, finding 3 | kernel A7 |
+| A56 | A list of excused differences excuses a broken engine | Conceded to Argon, finding 6 | kernel B4 |
+| A57 | Properties alone are met by an engine that does nothing; funding and cycles had no law | Conceded to Argon, finding 7 | kernel B3 |
+
+### Settled by a derivation Argon has not seen
+
+| | Dispute | Settled by | Changes |
+|---|---|---|---|
+| D11 | **Margin and the loss bound.** | The wealth is an account that cannot owe, so it is non-negative with nothing added. Against "mean at most zero, loss at most `L`" the exact wealths are those betting at most `1/L`, so nothing bets more than the account. Leverage above 1 waits for a certificate of V7 | **Yes** |
+| D12 | **The hedge, against changing exposure.** | A null true for every rule without skill under unknown drift needs the benchmark at the rule's exposure at every step. So the benchmark is the unit of wealth, `M = W / B`, not a position. Market-wide timing is then invisible, and no exact test can see it | **Yes** |
+| D13 | **The frozen bet.** | The bet is the account's sizing, `b / σ̂` of equity with `σ̂` trailing, under a cap. 5.32 years at a bet of 2 and Sharpe 1.4 by this program's formula; Argon's 6.13 is not reproduced, and neither is 4.4 right | **Yes** |
+| D14 | **Fidelity on fitted dates.** | Each part is checked against what was not fitted through the kernel: the ledger against the venue's own arithmetic, the rules against real maker fills, the ladder given real first buys with constants read off fill prices. The trigger, the one fitted part, is checked only after 2027-01-31 | **Yes** |
+| D15 | **Perp brackets in the account.** | Conceded: the null at the fill, pending payouts never cash (`account`; section 4's week-end column moved by up to 0.015) | No study uses it |
+| D17 | **Binary64 and directed rounding.** | Conceded; two sorts with total crossings, decimals recovered or rejected, no tolerance | **Yes** |
+| D18 | **The integer ledger's laws contradict.** | Conceded; a rational ledger that never rounds | **Yes** |
+| D19 | **The overlap with version 1.** | Conceded; the `table` venue is deleted and the evaluator alone is compared | **Yes** |
+| D20 | **Specification gaps and missing laws.** | Conceded; `time` and `known`, a horizon, one admission order, latest-known inputs, and a characterization for every rule | **Yes** |
+| H10 | **Physical or statistical hedge and sizing.** Argon gave it to the human; the human gave it back | Neither as posed. Sizing is physical, because only an account has a loss bound. The benchmark is neither an order nor a subtraction: it is the numeraire. A subtraction has no lower bound when the basket rallies, so it is not exact | **Yes** |
+| H11 | **Trades now or later.** | Now. The forward recorder carries them, the judged venue needs them, and the bucket is read slow period first within 12 USD | **Yes** |
+
+### What Argon should attack first
+
+1. **`M = W / B` as the claim.** Build a rule with no skill that makes `M` drift up: by beta, by coins that are not exchangeable, by steps of five minutes, by the basket's membership changing. And build an exact test that credits market-wide timing under unknown drift, which I say cannot exist.
+2. **"Nothing bets more than the account."** Find an exact wealth on a ladder's returns that grows faster than the account, without a bound the rule does not have.
+3. **Evidence allotment.** Find a path where `pessimistic` credits a lot that no seller offered through the price: across successive snapshots, between a print and a quote, at an arrival and a resting fill on one quote.
+4. **The decimal reading.** A recorded double that is read as a decimal the venue never wrote, within 15 digits.
+5. **Layer 3's wall.** A fill rule that flatters forward and still sums under the vault's profit before the freeze.
+6. **What the deletion of the `table` venue loses,** if anything a later study would need that two `market` slots do not give.
+
+### Assumptions only the human can choose
+
+- **Whether "earned" may ever be the claim.** The judged wealth is `M`, on the advisor's decision. If the vault's edge is buying market-wide dips, `M` shows nothing by construction, and `W`, which a rising market can satisfy, is the only wealth that would show it.
+- **Leverage in a judged account.** Above 1 the test's exactness rests on the venue's own rule that an account cannot owe. A certificate can quote it; whether a quoted rule is enough is a terms reading.
+
+### Convergence
+
+**Kernel version 2: not converged.** Every finding of round 1 is conceded and re-derived, but the re-derivation is new design that no reviewer has seen: the two sorts, the rational ledger, the allotment, and three deletions. A second round is owed, on another model than the first where one is available.
+
+**Study 2: not converged.** D11 to D15 are settled by derivations Argon has not seen, and the claim's object changed. Nothing of study 2 may be registered before a round on section 6.
+
+**Study 1** is as the section above leaves it.
