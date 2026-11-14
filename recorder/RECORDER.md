@@ -103,7 +103,8 @@ stepping back never reopens a closed file.
   - Flushing keeps each second's context for the next, which halves the size against a zstd frame per second (measured on
     2026-11-14's hour 04 UTC: 73 against 161 MB), and a crash still loses at most the unflushed second.
   - A file whose stream was never ended (the run was killed) is truncated: the reader reports it, and keeps every
-    whole line before the cut.
+    whole line before the cut. Read such a file with `mmrec cat`, not the `zstd` tool, which (1.5.7) can stop up to
+    128 KiB short of a cut without saying so (2026-11-14: 3 of 40 random cuts).
 - **Files are append-only.** Nothing rewrites, renames or deletes a recording. A file is written by one run only; at
   the hour's end, or when the run stops, it is closed and never opened again.
 
