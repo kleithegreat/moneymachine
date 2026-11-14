@@ -72,8 +72,9 @@ val cut_copy : src:string -> dst:string -> bytes:int -> unit
 (** The UTC hour of a time in ms since the epoch, as [YYYYMMDDHH]. *)
 val hour_of_ms : int -> string
 
-(** The content of a recording by [zstd -dc], keeping whatever it decoded before an error, cut back to whole lines
-    (everything up to the last newline). Never raises on a truncated file. *)
+(** The content of a recording by a lossless stub over libzstd (the [zstd] CLI drops up to 128 KiB of flushed blocks
+    from an unended stream): everything decodable before an error or the cut, cut back to whole lines. Never raises
+    on a truncated file. *)
 val zstd_lenient_decode : string -> string
 
 (** Environment variables that make a child process's clock read [at_ms] now and run on from there (libfaketime,
