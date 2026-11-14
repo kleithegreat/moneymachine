@@ -21,10 +21,13 @@ Coverage is set by Hyperliquid's own listings, re-read every hour, never by a ha
    every dex.
 3. **For every perp that is listed and not delisted, on every dex:**
    - `trades`;
-   - `l2Book` with no optional fields: 20 levels a side at full precision.
-4. **Spot is not in phase 1.** One IP admits 1,000 subscriptions; the perps take about 700 (350 perps on 2026-11-14,
-   two each, plus one). Spot's 351 pairs need a second IP: phase 2 runs a second instance on the Oracle VM, recording
-   spot `trades` and `bbo` there.
+   - `l2Book` with `"fast": true`: 5 levels a side at full precision, about every 0.55 s for BTC (measured
+     2026-11-14: 55 frames in 30 s), the archive's cadence before 2026-06-21.
+4. **For every perp on the main dex** (`"dex": ""`): also `l2Book` with no optional fields, 20 levels a side, about
+   every 10 s (3 frames in 30 s for BTC). Depth beyond five levels is for the pessimistic fill bound.
+5. **Spot, and the builder-deployed dexes' 20-level books, are not in phase 1.** One IP admits 1,000 subscriptions;
+   phase 1 takes about 880 (350 perps' two, 179 main-dex books, one). Phase 2 runs a second instance on the Oracle VM,
+   with its own IP, for spot `trades` and `bbo` and the remaining 20-level books.
 
 Coins are named as the API names them: `BTC` on the main dex, `xyz:TSLA` on dex `xyz`.
 
@@ -44,8 +47,9 @@ subscription, and writes a `refused` event naming the coin.
 
 ## Behaviour
 
-- **Planning.** Subscriptions are spread over the connections so that each carries about the same number of `l2Book`
-  subscriptions. A coin's `trades` and `l2Book` share a connection, so one connection's loss is one gap per coin.
+- **Planning.** Connections are of two kinds. Deep connections, a quarter of them rounded up (2 of 8), carry only the
+  20-level books. Fast connections carry everything else: each coin's `trades` and fast `l2Book` together, spread so
+  each fast connection holds about the same number of coins, and `allDexsAssetCtxs` on the first.
 - **Subscribing.** Each connection sends its subscriptions at most 10 a second, and stores each `subscriptionResponse`.
   One that is not acknowledged within 30 s is an `unacked` event, and it is retried on the next reconnect.
 - **Heartbeat.** A connection that has received nothing for 30 s sends `{"method": "ping"}`.
@@ -61,7 +65,7 @@ subscription, and writes a `refused` event naming the coin.
 Under one root, `data/ws/`:
 
 ```
-<root>/<channel>/<YYYYMMDD>/<HH>.jsonl.zst     channel ∈ trades, l2Book, allDexsAssetCtxs, events
+<root>/<channel>/<YYYYMMDD>/<HH>.jsonl.zst     channel ∈ trades, l2Book, l2Book-fast, allDexsAssetCtxs, events
 <root>/listings/<YYYYMMDD>/<HH>.jsonl.zst      one line per REST response
 ```
 
@@ -70,11 +74,14 @@ The hour is the UTC hour of the receive time, or the latest hour already opened 
 - **A line** is one received frame: `{"recv": <ms since epoch, receive time>, "conn": <k>, "msg": <frame>}`. `<frame>`
   is the server's text, spliced in byte for byte, except that a raw CR or LF becomes a space. JSON forbids raw control
   characters inside strings, so this changes no value. Nothing is parsed into a different shape or dropped.
-- **Routing.** A frame goes to the file of its `channel` field. `subscriptionResponse`, `pong`, `error` and anything
+- **Routing.** A frame goes to the file of its `channel` field, except that an `l2Book` frame received on a fast
+  connection goes to `l2Book-fast`. The server's frames do not say which subscription they answer; the connection's
+  kind does. `subscriptionResponse`, `pong`, `error` and anything
   unknown go to `events`.
 - **Events** also record the recorder's own facts, one line each, with `"msg": {"event": ...}`:
   - `start` and `stop`;
-  - `open`, `close` and `error` for each connection, with its reason;
+  - `open`, `close` and `error` for each connection, with its reason: the actual error raised, never a timeout that
+    hides it;
   - `subscribed`, `unacked` and `refused`;
   - `listing`: the first read after a start is one event with each dex's count of perps; each later read gives one
     event per coin added or delisted, with `coin`, `dex` and `change`.
@@ -144,7 +151,8 @@ that has not read the code. Kill tests kill the process.
 
 1. **Lines.** A frame is written byte for byte inside its line, except CR and LF, which become spaces. A frame with a raw
    newline between tokens round-trips to an equal JSON value.
-2. **Routing.** Each channel's frames land in its file. Acks, pongs, errors and unknown channels land in `events`.
+2. **Routing.** Each channel's frames land in its file; an `l2Book` frame on a fast connection lands in `l2Book-fast`,
+   one on a deep connection in `l2Book`. Acks, pongs, errors and unknown channels land in `events`.
 3. **Hours.** A frame received at 10:59:59.999 UTC goes to hour 10, and one at 11:00:00.000 to hour 11. A restart
    within an hour appends to its file.
 4. **Compression:**
@@ -152,8 +160,10 @@ that has not read the code. Kill tests kill the process.
    - a file cut at any byte yields every complete frame before the cut, and reports the cut;
    - `kill -9` during writing leaves a file whose complete frames all decompress.
 5. **Planning:**
-   - with N perps on D dexes, every non-delisted perp gets `trades` and `l2Book`, and there is one `allDexsAssetCtxs`;
-   - subscriptions never exceed the maximum, and a coin's two subscriptions share a connection;
+   - with N perps on D dexes, every non-delisted perp gets `trades` and fast `l2Book`, every main-dex perp also gets
+     20-level `l2Book`, and there is one `allDexsAssetCtxs`;
+   - subscriptions never exceed the maximum; a coin's `trades` and fast `l2Book` share a fast connection; a deep
+     connection carries only 20-level books;
    - past the maximum, a new listing is `refused` and nothing existing is dropped.
 6. **Listings.** A coin added between two hourly reads is subscribed; one delisted is unsubscribed; both are events.
 7. **Reconnecting:**
@@ -173,3 +183,5 @@ that has not read the code. Kill tests kill the process.
     and is re-sent on that connection's next reconnect.
 13. **Hour end.** At the first frame of a new hour, the previous hour's file is closed: its bytes never change again,
     even across a restart later in the new hour.
+14. **Connect errors.** A TLS failure (the fake presents a certificate the CA file does not trust) is an `error` event
+    whose reason names the TLS failure, on every connection that meets it, within 5 s.
