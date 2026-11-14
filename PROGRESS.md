@@ -16,7 +16,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **Fable** runs one session at a time, on whichever account is logged in, never two at once.
-  - **GPT's** one review is spent.
   - **Argon** runs through the web UI (the human) or `agy`.
 - **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-build` (`study1-build`). Agents that edit at the same time get separate worktrees.
 
@@ -39,7 +38,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
      - **Kernel version 2:** semantics and the Lean/OCaml split with its laws are written (`rearchitecture` `c1a4421`, `a829c07`, `audit/program/kernel-v2.md`). Tasks 2b to 5 done on TAMU in 24 minutes (`f54d3db` to `2a4cd2a`; report `data/builder/architect-kernel-v2-report-2.md`): all seven of Argon's findings conceded and re-derived; study 2's wealth measured in its own basket; an eleven-step build plan. Not yet reviewed.
      - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. Hour 04 UTC: 161 MB (3.9 GB a day), and a handshake failure killed the process (restarted in 1 s). Fixed (`5cbfbbd`): failures stay in their connection; one zstd stream per run and hour (73 MB for that hour); `check` streams and sees a killed run's gaps. Hour 07 UTC: 66.5 MB (1.6 GB a day), no restart, no gap. Known: `check` misses the 04:17 UTC (23:17 EST) crash's gaps (both runs share pre-fix files); `events` shows it.
+   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. At 1.6 GB a day since the fix of the 04:17 UTC (23:17 EST) crash (`audit/decisions.md`, 05:07 UTC, 00:07 EST). Known: `check` misses the 04:17 UTC (23:17 EST) crash's gaps (both runs share pre-fix files); `events` shows it.
 2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
    - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
@@ -49,7 +48,8 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2's round 2 runs:** Argon and GPT, side by side, on `rearchitecture` `2a4cd2a`, from 15:00 UTC (10:00 EST). Then the advisor summarizes for the human, and Fable answers both in one session.
+1. **Kernel version 2, round 3 is in** (`audit/reviews/2026-11-14-{argon-cli,gpt}-kernel-v2-r3.md`): not converged; both judge round 2's causes mostly removed at the cause. Fable answers at TAMU's reset, 20:12 UTC (15:12 EST), brief `data/builder/architect-kernel-v2-part4.txt`, report `-report-4.md`.
+   - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; the vault's pre-freeze fill responses under `data/` with a hash; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
@@ -65,7 +65,6 @@ None blocks the program. Source certificates that fail, with their clauses, are 
 
 - From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the research reviews' actions; the cluster runner not adopted.
 - **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending Fable.
-- **Fable's four new questions, answered** (`audit/decisions.md`, 2026-11-14 14:59 UTC, 09:59 EST): the claim (`M` or `W`) and the forward test go to round 2's reviewers, then Fable; leverage above 1 under a certificate, yes; `mm` is deleted after study 1, kept as a git tag.
 
 ## Qualifications
 
