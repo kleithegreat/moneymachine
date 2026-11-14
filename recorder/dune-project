@@ -1,0 +1,17 @@
+(lang dune 3.0)
+
+(package
+ (name mmrec)
+ (synopsis "Hyperliquid websocket recorder (recorder/RECORDER.md)")
+ (depends
+  (ocaml
+   (>= 5.4.1))
+  core
+  core_unix
+  async
+  async_ssl
+  async_websocket
+  ppx_jane
+  ppx_expect
+  base_quickcheck
+  yojson))

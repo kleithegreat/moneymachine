@@ -63,6 +63,38 @@
           text = "exec bash ops/oci/pull.sh";
         };
       };
+      # The websocket recorder (recorder/RECORDER.md): OCaml 5 with Jane Street's stack, every library from the pinned
+      # nixpkgs. Its tests need `zstd` (an independent decoder) and loopback sockets, which the sandbox has.
+      mmrecFor = pkgs:
+        let
+          o = pkgs.ocamlPackages;
+          libs = [ o.core o.core_unix o.async o.async_ssl o.async_websocket o.ppx_jane o.yojson ];
+          testLibs = libs ++ [ o.ppx_expect o.base_quickcheck ];
+          src = pkgs.lib.fileset.toSource {
+            root = ./recorder;
+            fileset = pkgs.lib.fileset.difference ./recorder ./recorder/RECORDER.md;
+          };
+        in {
+          package = o.buildDunePackage {
+            pname = "mmrec";
+            version = "0";
+            inherit src;
+            duneVersion = "3";
+            buildInputs = libs ++ [ pkgs.zstd.dev pkgs.zstd ];
+            doCheck = false;
+          };
+          tests = pkgs.stdenv.mkDerivation {
+            name = "mmrec-tests";
+            inherit src;
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib pkgs.zstd ];
+            buildInputs = testLibs ++ [ pkgs.zstd.dev ];
+            buildPhase = ''
+              export HOME=$TMPDIR DUNE_CACHE=disabled
+              dune build --root . --display short @runtest
+            '';
+            installPhase = "touch $out";
+          };
+        };
     in
     {
       devShells = forAll (pkgs:
@@ -180,6 +212,7 @@
           buildPhase = "export HOME=$TMPDIR; lake build";
           installPhase = "install -D .lake/build/bin/refmm $out/bin/refmm";
         };
+        mmrec = (mmrecFor pkgs).package;
         whitepaper = pkgs.runCommand "whitepaper.pdf" {
           nativeBuildInputs = [
             (pkgs.texliveBasic.withPackages (ps: with ps; [
@@ -304,6 +337,7 @@
           };
           sandbox = pytestCheck { name = "sandbox"; paths = "sandbox/tests"; };
           lean-proofs = self.packages.${system}.refmm;
+          mmrec-tests = (mmrecFor pkgs).tests;
         };
 
       apps.x86_64-linux =

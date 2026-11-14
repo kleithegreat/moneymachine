@@ -1,0 +1,18 @@
+(tests
+ (names
+  fake_hl_selftest
+  item02_routing_e2e
+  item04_kill9_e2e
+  item06_listings_e2e
+  item07_reconnect_e2e
+  item07_backoff_e2e
+  item07_item09_churn_e2e
+  item08_heartbeat_e2e
+  item10_sigterm_e2e
+  item11_check_cli_e2e)
+ (libraries core core_unix core_unix.signal_unix async async_unix async_websocket yojson mmrec rec_support)
+ (preprocess
+  (pps ppx_jane))
+ (deps
+  ../../bin/mmrec.exe
+  %{bin:zstd}))
