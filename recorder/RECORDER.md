@@ -127,17 +127,15 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
   - its own local-path PVC `ws` on prodesk7;
   - requests 250m and 512Mi;
   - the cluster image, with `mmrec` added.
-- **The mirror** treats `*.jsonl.zst` under `data/ws` as files that only grow, as it treats day files. Until it does, it
-  copies them whole whenever their size changes.
+- **No mirror, for now:** the PVC `ws` is the recordings' only copy, by the human's choice (2026-11-14). A second copy
+  waits for a disk with room.
 
 ## Storage budget
 
 This is an estimate to be replaced by a measurement. The archive's `l2Book` files average about 7.5 MB a coin-day
 (lz4) for the vault's 17 large coins. Most of the 350 perps update far less often. The first day's measured bytes set
-the projection, and `ops/diskguard.py` alarms when the PVC's projected time to full falls under 60 days.
-
-prodesk7 has about 370 GB free. This PC, which holds the mirror, has about 65 GB free: **where the second copy lives
-is a question for the human** (PROGRESS, Blockers).
+the projection. prodesk7 had about 370 GB free on 2026-11-14. Nothing alarms on the PVC's fill while it is not
+mirrored: the advisor checks it by hand.
 
 ## The behaviour its tests must show
 

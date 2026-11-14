@@ -40,7 +40,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
      - **Kernel version 2:** semantics and the Lean/OCaml split with its laws are written (`rearchitecture` `c1a4421`, `a829c07`, `audit/program/kernel-v2.md`). Tasks 3 to 5 (D11 to D15, the build plan, the ledger) wait for a TAMU Fable session: brief `data/builder/architect-kernel-v2-part2.txt`, whose starting derivations are in `data/builder/architect-kernel-v2-report-1.md`.
      - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`b95572c`, `mmrec`, about 1,100 lines of OCaml on Jane Street's stack): 69 unit and 11 end-to-end tests, written first by another session, pass unedited as a flake check; a 90 s smoke run against the live API recorded every channel with no gap but the stop. **Next:** the StatefulSet `ws` (`ops/live.py`, the image with `mmrec`), once the human picks the second copy's disk.
+   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`b95572c`, `mmrec`, about 1,100 lines of OCaml on Jane Street's stack): 69 unit and 11 end-to-end tests, written first by another session, pass unedited as a flake check; a 90 s smoke run against the live API recorded every channel with no gap but the stop. **Deploying:** StatefulSet `ws`, one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice). Check its first day's bytes against prodesk7's free space.
 2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
    - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
@@ -59,8 +59,6 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 - Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
-
-- **Where the websocket recorder's second copy lives:** the mirror is on this PC, which has about 65 GB free; the recorder may write about 1 GB a day (to be measured). The human chooses a disk.
 
 None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
