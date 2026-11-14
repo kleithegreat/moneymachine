@@ -1,4 +1,7 @@
-"""Every line added to PROGRESS.md or audit/ since the rule began names an Eastern time beside each UTC time."""
+"""Every line the project adds to PROGRESS.md or audit/ since the rule began names an Eastern time beside each UTC time.
+
+`audit/reviews/` is left out: it holds outside reviewers' text verbatim, which is never edited.
+"""
 
 import subprocess
 from pathlib import Path
@@ -22,8 +25,8 @@ def test_a_utc_time_needs_its_eastern_time() -> None:
 
 @pytest.mark.local
 def test_added_lines_pair_their_times() -> None:
-    diff = git("diff", SINCE, "--", "PROGRESS.md", "audit")
+    diff = git("diff", SINCE, "--", "PROGRESS.md", "audit", ":!audit/reviews")
     added = [line[1:] for line in diff if line.startswith("+") and not line.startswith("+++")]
-    for path in git("ls-files", "--others", "--exclude-standard", "--", "audit"):
+    for path in git("ls-files", "--others", "--exclude-standard", "--", "audit", ":!audit/reviews"):
         added += (REPO / path).read_text(errors="replace").splitlines()
     assert [line for line in added if unpaired(line)] == []
