@@ -144,7 +144,7 @@
         # serves the sandbox's closure query, read-only; the tools reach it through a file naming them.
         image = let
           tools = with pkgs; [ (pythonFor pkgs) coreutils util-linux self.packages.${system}.claude-code bubblewrap sqlite
-                               nix self.packages.${system}.mmrec ];
+                               nix self.packages.${system}.mmrec cacert ];
         in pkgs.dockerTools.buildLayeredImageWithNixDb {
           name = "moneymachine";
           tag = self.shortRev or "dirty";
@@ -160,6 +160,7 @@
             Env = [
               "HOME=/scratch"
               "PYTHONDONTWRITEBYTECODE=1"
+              "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               "NIX_REMOTE=local?read-only=true"
               "NIX_CONFIG=extra-experimental-features = read-only-local-store"
               "PATH=${pkgs.lib.makeBinPath tools}:/bin:/usr/bin"
