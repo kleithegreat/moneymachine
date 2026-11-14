@@ -36,6 +36,15 @@ Field semantics:
 Reproduce: `python -m cli universe data/universe.json`, then
 `python -m cli backfill data 200`.
 
+Websocket (`wss://api.hyperliquid.xyz/ws`, `recorder/RECORDER.md`, added 2026-11-14): public market channels
+only (`trades`, `l2Book`, `bbo`, `allDexsAssetCtxs`), for every listed perp on every dex (`perpDexs`; `meta` with
+`"dex"`; builder-deployed coins are named `<dex>:<COIN>`), and `spotMeta`. Documented limits per IP
+([rate limits](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits),
+retrieved 2026-11-14): "Maximum of 10 websocket connections", "Maximum of 30 new websocket connections per minute",
+"Maximum of 1000 websocket subscriptions", "Maximum of 2000 messages sent to Hyperliquid per minute across all
+websocket connections"; and "The server will close any connection if it hasn't sent a message to it in the last 60
+seconds" ([heartbeats](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/timeouts-and-heartbeats)).
+
 Rolling retention means the 4h bars at the start of W drop out of the API around
 2027-01. Our first fetch is the only lasting copy, so the store is append-only.'''
 
