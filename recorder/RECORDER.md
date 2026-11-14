@@ -57,6 +57,10 @@ subscription, and writes a `refused` event naming the coin.
   ±20 % jitter, and resets after 10 minutes up. On reopening it resubscribes everything it held.
 - **Listings change.** Each hour's listings are compared with the last. A new perp is subscribed. A delisted one is
   unsubscribed and stays recorded up to then.
+- **Failures stay in their connection.** Anything raised while a connection connects, handshakes, subscribes, reads or
+  writes is that connection's `error` event, with what was raised as its reason, and the connection reopens with
+  backoff. No connection's failure ends the process (on 2026-11-14 a server closing during the websocket handshake
+  raised `Failure "websocket handshake: eof"` and killed the recorder).
 - **Stopping.** On SIGTERM it stops reading, flushes and closes every file, then exits with code 0 within 10 s. Every
   frame received before SIGTERM is on disk.
 
@@ -65,11 +69,15 @@ subscription, and writes a `refused` event naming the coin.
 Under one root, `data/ws/`:
 
 ```
-<root>/<channel>/<YYYYMMDD>/<HH>.jsonl.zst     channel ∈ trades, l2Book, l2Book-fast, allDexsAssetCtxs, events
-<root>/listings/<YYYYMMDD>/<HH>.jsonl.zst      one line per REST response
+<root>/<channel>/<YYYYMMDD>/<HH>.<run>.jsonl.zst     channel ∈ trades, l2Book, l2Book-fast, allDexsAssetCtxs, events
+<root>/listings/<YYYYMMDD>/<HH>.<run>.jsonl.zst      one line per REST response
 ```
 
-The hour is the UTC hour of the receive time, or the latest hour already opened if that is later: a clock stepping back never reopens a closed hour.
+`<run>` is the run's start, in ms since epoch: each run writes its own files, and an hour's recording is every file of
+that hour. Recordings made before this rule are one `<HH>.jsonl.zst` per hour, read the same way.
+
+The hour is the UTC hour of the receive time, or the latest hour this run has already opened if that is later: a clock
+stepping back never reopens a closed file.
 
 - **A line** is one received frame: `{"recv": <ms since epoch, receive time>, "conn": <k>, "msg": <frame>}`. `<frame>`
   is the server's text, spliced in byte for byte, except that a raw CR or LF becomes a space. JSON forbids raw control
@@ -90,18 +98,19 @@ The hour is the UTC hour of the receive time, or the latest hour already opened 
   `channel` and `reason` where they apply.
 
   Every gap is therefore readable from `events`. Missing data is recorded, never filled.
-- **Compression.** Lines are buffered and written as one zstd frame (level 3) every second or every 1 MiB, whichever
-  comes first, and appended to the hour's file.
-  - A file is a concatenation of complete frames, so it only grows.
-  - A crash loses at most the unflushed second.
-  - A truncated last frame is detectable, and the reader keeps every frame before it.
-- **Files are append-only.** Nothing rewrites, renames or deletes a recording. At the hour's end its file is closed and
-  never opened again; a restart in the same hour appends to it.
+- **Compression.** A file is one zstd stream (level 9, with its checksum), flushed every second or every 1 MiB of
+  lines, whichever comes first, and ended when the file closes.
+  - Flushing keeps each second's context for the next, which halves the size against a zstd frame per second (measured on
+    2026-11-14's hour 04 UTC: 73 against 161 MB), and a crash still loses at most the unflushed second.
+  - A file whose stream was never ended (the run was killed) is truncated: the reader reports it, and keeps every
+    whole line before the cut.
+- **Files are append-only.** Nothing rewrites, renames or deletes a recording. A file is written by one run only; at
+  the hour's end, or when the run stops, it is closed and never opened again.
 
 ## The forward window
 
 The recorder only writes. Recordings in [2026-11-01, 2027-01-31) are read for integrity only, never for prices or
-returns: status, sizes, hashes, frame and line counts, gaps (`CLAUDE.md`, Holdout). The integrity tool reports exactly
+returns: status, sizes, hashes, file and line counts, gaps (`CLAUDE.md`, Holdout). The integrity tool reports exactly
 those, per channel and hour, and parses only the `channel` and `event` fields.
 
 ## Interface
@@ -111,13 +120,16 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
   can run against a local fake; production uses the defaults. `--connections` below 2 is refused, since a run needs one
   deep and one fast connection. Unsubscribing repeats the subscription exactly, `"fast": true` included. SIGTERM exits with code 0.
 - **`mmrec check <root> <from YYYYMMDDHH> <to>`** prints tab-separated lines:
-  - per channel and hour: `hour  channel  bytes  frames  lines  truncated`, where bytes are the file's compressed
-    size and truncated is `yes` or `no`;
-  - then per gap: `gap  conn  from_ms  to_ms`, where a gap runs from a connection's `close` or `error` (the earlier,
-    if both) to its next `open`, or to the end of the range (`to_ms` empty).
+  - per channel and hour: `hour  channel  bytes  files  lines  truncated`, where bytes are the hour's files'
+    compressed size, and truncated is `yes` if any of them is;
+  - then per gap: `gap  conn  from_ms  to_ms`. A gap runs from a connection's `close` or `error` (the earlier, if
+    both), or, when a `start` finds it open (the run before was killed), from its last received line, to its next
+    `open`, or to the end of the range (`to_ms` empty).
 
   It reads only the envelope fields `recv` and `conn`, and the frame fields `channel` and `event`.
 - **`mmrec cat <file>`** decompresses a recording to stdout. Reading prices is the caller's act, under the rule above.
+- **Both read as a stream:** their memory does not grow with a file's size (the first `check` of an hour of fast books
+  needed 3.6 GB).
 
 ## Implementation
 
@@ -129,8 +141,8 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
   - `ppx_jane` for derivers.
 - **JSON:** `yojson` reads only `channel`, the listings and the subscription acks. Frames are written as received, not
   re-serialized.
-- **zstd:** its one-shot `ZSTD_compress`, the frame-size query and `ZSTD_decompress`, through one small C stub file. No OCaml zstd library
-  is in nixpkgs.
+- **zstd:** its streaming `ZSTD_compressStream2` and `ZSTD_decompressStream`, through one small C stub file. No OCaml
+  zstd library is in nixpkgs.
 - **Deployment:** StatefulSet `ws` in `moneymachine-live` (`ops/live.py`, `CLUSTER.md` section 2):
   - its own local-path PVC `ws` on prodesk7;
   - requests 250m and 512Mi;
@@ -140,10 +152,10 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
 
 ## Storage budget
 
-This is an estimate to be replaced by a measurement. The archive's `l2Book` files average about 7.5 MB a coin-day
-(lz4) for the vault's 17 large coins. Most of the 350 perps update far less often. The first day's measured bytes set
-the projection. prodesk7 had about 370 GB free on 2026-11-14. Nothing alarms on the PVC's fill while it is not
-mirrored: the advisor checks it by hand.
+Hour 04 UTC of 2026-11-14, a quiet Saturday hour, measured 1.27 GB of lines, 161 MB as a zstd frame per second, and 73 MB as
+one stream flushed each second: about 1.8 GB a day. The 300 GiB PVC (prodesk7 had 392 GB free) then lasts months
+even if busy days run three times that. Nothing alarms on the PVC's fill while it is not mirrored: the advisor checks
+it by hand.
 
 ## The behaviour its tests must show
 
@@ -155,11 +167,12 @@ that has not read the code. Kill tests kill the process.
 2. **Routing.** Each channel's frames land in its file; an `l2Book` frame on a fast connection lands in `l2Book-fast`,
    one on a deep connection in `l2Book`. Acks, pongs, errors and unknown channels land in `events`.
 3. **Hours.** A frame received at 10:59:59.999 UTC goes to hour 10, and one at 11:00:00.000 to hour 11. A restart
-   within an hour appends to its file.
+   within an hour writes a new file of that hour, and the earlier file's bytes do not change.
 4. **Compression:**
-   - a file of flushed frames decompresses to exactly the lines written;
-   - a file cut at any byte yields every complete frame before the cut, and reports the cut;
-   - `kill -9` during writing leaves a file whose complete frames all decompress.
+   - a closed file decompresses, with the `zstd` tool, to exactly the lines written, and its checksum verifies;
+   - a file cut at any byte yields whole lines only, a prefix of those written, and reports the cut; cut where a flush
+     ended, it yields exactly the lines flushed before the cut;
+   - after `kill -9` during writing, every line received more than 2 s before the kill is read back.
 5. **Planning:**
    - with N perps on D dexes, every non-delisted perp gets `trades` and fast `l2Book`, every main-dex perp also gets
      20-level `l2Book`, and there is one `allDexsAssetCtxs`;
@@ -177,12 +190,21 @@ that has not read the code. Kill tests kill the process.
 9. **Sent-message limits.** Over any minute, the messages sent across connections stay at or below 2,000, at any rate
    of listing changes and reconnects.
 10. **Stopping.** SIGTERM flushes every buffer and exits within 10 s, and every file decompresses whole.
-11. **Integrity tool.** `check` gives the right byte, frame and line counts and gaps on a synthetic root. For two roots
-    that differ only in the values of fields other than `recv`, `conn`, `channel` and `event`, its output is identical
-    apart from the byte counts.
+11. **Integrity tool.**
+    - `check` gives the right byte, file and line counts and gaps on a synthetic root, including an hour of two runs'
+      files and a file in the earlier `<HH>.jsonl.zst` form;
+    - after a `kill -9` and a restart, it gives a gap for every connection open at the kill, from that connection's
+      last received line;
+    - for two roots that differ only in the values of fields other than `recv`, `conn`, `channel` and `event`, its
+      output is identical apart from the byte counts;
+    - `check` and `cat` on a file of 1 GiB of lines peak below 128 MiB resident.
 12. **Acknowledgements.** A subscription the fake never acknowledges gives one `unacked` event 30 s after it was sent,
     and is re-sent on that connection's next reconnect.
-13. **Hour end.** At the first frame of a new hour, the previous hour's file is closed: its bytes never change again,
-    even across a restart later in the new hour.
+13. **Hour end.** At the first frame of a new hour, the previous hour's file is closed and its stream ended: its bytes
+    never change again, even across a restart later in the new hour.
 14. **Connect errors.** A TLS failure (the fake presents a certificate the CA file does not trust) is an `error` event
     whose reason names the TLS failure, on every connection that meets it, within 5 s.
+15. **Failures stay in their connection.** When the fake server closes a connection during the websocket handshake,
+    answers the upgrade with something other than `101`, or resets a connection in the middle of a frame, that
+    connection gives an `error` event naming what happened and reopens, and the process keeps running and recording on
+    the others.
