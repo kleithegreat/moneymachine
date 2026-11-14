@@ -35,7 +35,7 @@ A test that assumes only its null is a bet (Ville 1939; Kelly 1956; Shafer 2021;
 
 - **What it costs.** For independent even bets with net edge `e`, staked at Kelly's fraction, log wealth is near a Brownian motion with drift `e²/2` and variance `e²` a bet. It reaches `log 20` before `N` bets with probability 0.80 when `N = 8.59 / e²` (the reflection formula; Argon wrote 8.67). That is 1.39 times the yardstick's 6.18. Every figure below is at 80% power.
 - **The fraction must be chosen before the data.** A bet sized for Sharpe 2 has power 0.77 within two years at a true Sharpe of 2, 0.47 at 1.4 and 0.90 at 2.4. Averaging the bets for Sharpe 1, 2 and 3 is worse at each of those (0.71, 0.41, 0.86), so the fraction is one registered number.
-- **The cap is the rule's own loss bound.** Kelly's fraction fits under `1/L` while a step's worst loss is at most `√2190 / S` standard deviations of a step: 23.4 at Sharpe 2, 33.4 at 1.4. The gate has 100, which is why it needs Sharpe 4.0 at two years. A bound must be a property of the tested rule, not a clip applied afterwards: clipping a loss raises the mean and breaks the null. And nothing bets more than the bound allows: against the null "mean at most zero, loss at most `L`", the only wealths that are exact are those betting a fraction of at most `1/L`. An account that cannot owe has `L = 1`, so the largest exact bet on it is the account itself (section 6).
+- **The cap is the rule's own loss bound.** Kelly's fraction fits under `1/L` while a step's worst loss is at most `√2190 / S` standard deviations of a step: 23.4 at Sharpe 2, 33.4 at 1.4. The gate has 100, which is why it needs Sharpe 4.0 at two years. A bound must be a property of the tested rule, not a clip applied afterwards: clipping a loss raises the mean and breaks the null. And the bound is each step's own: against "mean at most zero, this step's loss at most `L_t`, known at its start", the exact wealths are those betting a fraction of at most `1/L_t` that step. For a long-only account `L_t` is what it has at risk, so the largest exact bet keeps the wealth fully staked and no more (section 6).
 
 ### 2.3 The cutoff makes T small
 
@@ -247,66 +247,114 @@ A study stopped between markets has no result yet, and the report says that it h
 
 **The place of a replication.** The human proposes replicating published Hyperliquid strategies, the example being a reverse-engineered vault: a long-only ladder that buys dips in large caps, with a reported Sharpe of 2.4 and about 1.4 recently. The program has a place for it, and it is not a search for edge. Study 1 asks whether the agent finds an edge that exists. A replication asks the matching question of the other half of the machinery: given a rule that plausibly has an edge, on evidence better than any backtest, can an exact confirmer confirm it within the calendar? It cannot establish that an agent has edge, or that the vault's record is skill: we know of the vault because it survived, so nothing recorded before our freeze judges anything. Replication of published predictors is an old design with a known finding: returns fall by about a quarter out of sample and by more than half after publication (McLean and Pontiff 2016; Hou, Xue and Zhang 2020; *leads*).
 
-**Re-derived on kernel version 2** (`kernel-v2.md`), after Argon's round 4 (D11 to D15) and round 1 on the kernel (findings 4 and 5). Revision 4 took the replica's return series as given and then tried to give it, from outside, a loss bound (isolated margin a step), a hedge (a fixed short) and a bet (a frozen Kelly fraction). Each attack landed on one of the three, and each fix I conceded last session (one cross account with a hedge leg, a threshold of `20(1 + ε̄)`) was attacked again. The cause is one: a loss bound, an exposure and a bet size are properties of an account, so the tested wealth must be an account.
+**Re-derived twice.** Revision 4 gave a return series a loss bound, a hedge and a bet from outside, and round 4 broke each. The first re-derivation made the tested wealth the account itself, measured against a basket at its own exposure (`M = W / B`). Round 2, by Argon and GPT side by side, broke that in the same places, and they agree where:
+- **The benchmark.** A ratio to a benchmark is a fair game for every rule without skill only when the benchmark is the best holding there is; any other benchmark can be beaten by holding something duller. An equal-weight basket at the account's exposure is not the best holding, so `M` rose without skill five ways. And my claim that no exact test can credit market timing was false: it holds against a drift that may follow the rule around, and not against a market whose days are alike.
+- **The bet.** I merged the account with the test's wealth. The account gives a loss bound; the wealth is a bet on the account, and may bet more or less than it.
+- **Leverage.** A floor on equity is money paid in by the venue.
+
+Each is removed below, not patched. The literature had this: the growth-optimal portfolio as the one benchmark that makes every other wealth's ratio a supermartingale (Long 1990; Cover and Thomas 2006, theorem 16.2.1), the best constant mix in hindsight (Cover 1991), a test whose denominator is the null's best fit (Wasserman, Ramdas and Balakrishnan 2020), and trading rules judged against resampled orderings of the same returns (Brock, Lakonishok and LeBaron 1992). All are *leads*, cited from memory.
 
 ### 6.1 The test
 
-- **The account.** The frozen replica runs in the kernel as one cross-margined account, long only, every size a fraction of its current equity. `W` is its equity at mids over its starting equity, read at the end of every five-minute step.
-- **The loss bound (D11, conceded and re-derived).** An account that cannot owe has `W ≥ 0` (law L6), and that is the whole bound: no margin a leg, no threshold to correct. At a leverage of 1 it needs nothing of the venue, since a long bought with cash is not liquidated by any price; only funding can take cash below zero, and the kernel's liquidation covers that. Above 1 it rests on the venue bearing a shortfall (assumption V7), so a certificate of that comes first. The test ends, not confirmed, at the first liquidation.
-- **What the bound costs.** No exact test bets more than the account does (2.2). Kelly's bet needs a worst step within 23.4 ordinary ones. A ladder's is far outside: a full ladder holds 27.6 first buys, the vault's cycles held 1.99 on average, and 78% never passed the first. An account with room for its own worst case is nearly idle on an ordinary day. Isolated margin bought a tighter bound only by turning the rule into one that liquidates through its own ladder (round 4, finding 1), which is a different rule with no live record.
-- **The benchmark (D12, conceded and re-derived).** A null that holds for every rule without skill, whatever the market's drift, must give the benchmark the rule's own exposure at every step: with exposure `e` and benchmark exposure `ē`, a step's expected excess is `(e − ē)` times the drift, which no one knows. So the benchmark is not a position. It is the unit wealth is measured in:
-  - `B` is a basket's wealth: over each step it earns `e · r`, with `e` the account's long notional over its equity at the step's start, and `r` the equal-weight mean of the listed coins' mid returns over the step.
-  - **The tested wealth is `M = W / B`.** The null: at every step, the expected ratio of the account's growth to the basket's, given the past, is at most 1. Then `M` is a non-negative supermartingale from 1, and reaches 20 with probability at most 5% under any dependence and any stopping.
-  - It needs no short, no order, no margin, no funding on a hedge and no hedge delay, so the 10 USD minimum and the initial-margin findings of round 1 have nothing to land on. It is a ratio of two columns of the kernel's report (A12).
-  - A step whose basket factor `1 + e · r` is not positive ends the test, not confirmed. At a leverage of 1 that takes every coin going to zero.
-- **What the null removes, and what no test can see.** It removes drift along any path of exposure: round 4's shift from 0.25 to 0.65 in a rising market gives a ratio of 1. With it goes market-wide dip timing: a rule that raises its exposure before the market rises is, step by step, the same event as drift, so no test valid under every drift can credit it. What is credited is held coins that outgrow the basket, and fills better than the mid. Two residuals are stated, not removed: a coin whose beta to the basket is not 1 keeps `(β − 1)` of the drift, and coins that are not exchangeable leave a term of second order in a step's return.
-- **Earned, and timed.** `W` alone tests "the account earned", which a rising market can satisfy without skill; it is reported and never called a confirmation. `log W = log B + log M` is the decomposition, before the freeze and after. Only `M` is judged (the advisor's decision of 2026-11-14 on my lean).
-- **The bet (D13, conceded).** The bet is the account's own sizing: a first buy's notional is the equity times `b / σ̂`, `σ̂` being the coin's own trailing volatility known at the tick, a float the program computes and crosses with `exact(·)`, under a gross cap `G`, the header's leverage. A shift in volatility moves the size with it, so nothing frozen on old volatility remains. `b` is the value that maximizes two-year power in a block bootstrap of the replay before the freeze; `G` is 1 unless V7 is certified. Both are registered at the freeze.
-- **The venue.** `pessimistic`, with trades, at registered `λ` and `δ`: every fill it credits is a lot the record shows was offered through the price. The `optimistic` run is reported beside it. Neither bounds the other (kernel A7).
-- **Claim, on rejection:** from the freeze on, the frozen replica's account, filled only on flow through its prices, did not grow at most as fast as a basket of its universe held at its own exposure.
-- **A non-rejection** is "not confirmed", with `M`, `W`, `B`, the account's realized volatility and Sharpe, and the power row.
+**The account.** The frozen replica runs in the kernel as one account at a leverage of 1, long only, with constant sizes: a first buy of a registered notional, the ladder's multiples of it, and starting cash that covers every coin's full ladder at once, so no order is ever refused for margin. Its equity is never an input. It rests only the next `k` levels of a ladder, `k` registered, for the reason under "the bound".
 
-### 6.2 Power, said in advance
+**The bound.** At the start of each step (the interval between two deciding ticks) the kernel reports `at_risk`: the positions at mids plus every buy that is live or pending, at its price with its fee. Prices are not negative, so the step's loss, funding aside, is at most that (law Q1); with funding it is at most `a = at_risk × (1 + ρ̄)` (assumption V16, the venue's certified cap). Nothing else is assumed: no floor, no margin, no stop.
 
-With the account as the wealth, the bet is the account's volatility. For Gaussian steps (`arithmetic.py.txt`, `study2`), power within two years and the years to 80%:
+**The wealth.** `V` starts at 1, and over each step
 
-| Account's yearly volatility | Sharpe 1.4 | Sharpe 2 | Sharpe 2.4 |
+  `V ← V × (1 + φ · pnl / a)`,
+
+with `pnl` the account's profit over the step in dollars at mids and `φ ≤ 1` one registered number. A step with nothing at risk leaves `V` alone.
+- `V` is never negative, on every path. It is the account's profit on what it had at stake, kept fully staked: the account's scale and idle cash cancel, so the sizing `b / σ̂`, the cap `G` and the compounding account of the last revision are deleted.
+- **This is what "nothing bets more than the account" got wrong.** The largest exact bet is `1 / a` of this step, not of the worst step there could ever be. But a ladder that rests every level has every level at risk, and `V` would be 3.6% invested after a first buy. Resting the next level only makes it 51% (`arithmetic.py.txt`), at the cost of levels that fill within one step of the one before; layer 2 counts those in the vault's record before `k` is registered.
+- `V` holds at most what it stakes, so it is never more than fully invested, and its volatility is at most that of the coins it holds.
+
+**Two rungs on one wealth.** The human asked for the claim that is most informative; neither `W` nor `M` is, and the choice is not needed.
+
+| Rung | Null | Rejected when | Passes without skill | Cannot see |
+|---|---|---|---|---|
+| **1, earned** | At every step, the account's expected profit, given the past, is at most zero | `V ≥ 20` | A market that rose; any risk that is paid | Whether a holder who did nothing earned the same |
+| **2, timed** | Some constant mix of the universe's coins and cash, long only and rebalanced daily, is a holding the wealth cannot be expected to outgrow on any day | `V ≥ 20 × B°` at a day's end, `B°` the wealth of the best such mix in hindsight | See "what rung 2's null means" | Nothing a constant holding earns: drift, beta, carry, the choice of coins |
+
+- **`B°`.** A coin's day returns its mid's change less the funding a unit position paid, over its mid at the day's start; a coin whose listing ended keeps its settlement price. A mix `b` has weights that are not negative and sum to at most 1, and its wealth multiplies by `1 + b · r` each day. `B°` is the largest over all mixes; cash is a mix, so `B° ≥ 1`.
+- **Validity.** Under rung 2's null, for its mix `b`, `V / B(b)` at the days' ends is a non-negative supermartingale from 1, and `V / B° ≤ V / B(b)`. So `V` reaches `20 × B°` on any day with probability at most 5%, under any dependence and any stopping. Under rung 1's null `V` itself is one.
+- **Both at 5%, together.** Cash is a mix, so rung 1's null is inside rung 2's, and rung 2's rejection implies rung 1's. Whatever is true, a false claim needs the rejection of a true null among nested ones: the chance is at most 5% for the pair. The result is the highest rung reached.
+- **What rung 2's null means.** If each day's returns have the same law given the past, the growth-optimal mix `b*` is constant, and every holding chosen before the day has an expected ratio to it of at most 1 (the lead above). So in a market whose days are alike, nothing that only holds can pass: not a rising market, not a high-beta coin, not a quiet coin against a noisy basket, not carry, not any path of exposure that does not know the next day. These were round 2's five constructions, and each is a constant mix or worse than one.
+- **What does pass it.** Knowing when: a market whose next day depends on its past in a way the rule used, at any scale from a minute up, which is what a dip buyer claims. Also knowing how risky: a rule that holds less when volatility is high beats constant mixes without forecasting a mean, and the rung credits it (this ladder does the opposite). Also fills better than mids net of fees. And two stated residuals: trading inside the day against mixes rebalanced daily earns `1.7 · 10⁻⁵` of log growth a year with no timing (`arithmetic.py.txt`), and the frictionless benchmark pays no fee, against the account.
+- **What was refused.** Argon's `M*`, a benchmark that holds the account's own coins over its own intervals: it removes everything the rule does and leaves its fees. Argon's paired statistic: for a rule that buys after a fall it has a positive mean on independent returns. GPT's permutation test is valid under the same null as rung 2, but needs the rule replayed on reordered books, which no recording is, and a fixed horizon.
+- **The certificate.** `B°` is a maximum over mixes, and the kernel does not trust an optimizer. OCaml proposes a mix; Lean checks it. For a proposed mix with daily factors `f`, every mix's wealth is at most the proposed one's times the `t`-th power of the largest of the coins' and cash's mean daily ratios to `f` (the arithmetic and geometric means; law K2). At the best mix that factor is 1; the simulation's widest slack was `6 · 10⁻⁷` of log wealth. A worse proposal can only fail to confirm.
+
+**The venue.** `pessimistic`, at registered `λ` and `δ`: a maker fill is credited only on a seller's print through the price. The `optimistic` run is reported beside it. Neither bounds the other (kernel A7).
+
+**Claims.** "Earned": from the freeze on, a bet on the frozen replica's profit against its stake, filled only on sells through its prices, multiplied 20 times. "Timed": and 20 times more than every constant mix of its coins did. Neither says skill; the second says the profit was not a holding's.
+
+**A non-rejection** is "not confirmed", with `V`, `B°` and its mix, the wealth of the equal-weight basket and of BTC for reference, `V`'s realized volatility and Sharpe, and the power row. A step whose funding exceeds V16 voids the run, and is reported as that.
+
+### 6.2 Leverage
+
+The human allows leverage above 1 if a certificate quotes the venue's rule that an account cannot owe. Both reviewers answer that the rule makes equity non-negative and does not make the test exact. They are right, and the gap is a number.
+
+Let `A` be what the venue absorbs when a levered account goes bankrupt, in units of starting equity. Without the floor, the account's equity is a supermartingale under fair prices, and it is negative by `A` at a bankruptcy. Stopping at 20 or at bankruptcy gives `20 · P(reach 20) − E[A] ≤ 1`, so
+
+  `P(false confirmation) ≤ (1 + E[A]) / 20`,
+
+and GPT's construction comes within a tenth of it (0.1250 against 0.1372). The excess is the venue's guarantee, paid to a rule with no skill. A certificate can establish that the venue pays; nothing can establish what it is expected to pay, since that is a statement about crashes. **So leverage cannot be exact against a null about prices.**
+
+It also buys nothing here. `V` already bets everything at stake each step; the only exact bound is that prices are not negative, and under it a bet above full investment can lose more than everything. So the judged test takes no leverage, needs no certificate of V7, and is the same whatever the account's size. The kernel still builds cross margin, liquidation and the floor for programs that want them, and reports `absorbed` so that any such run states its own gift.
+
+### 6.3 Power, said in advance
+
+For Gaussian steps (`arithmetic.py.txt`, `study2`), power within two years and the years to 80%, by the judged wealth's own volatility and Sharpe:
+
+| Yearly volatility | Sharpe 1.4 | Sharpe 2 | Sharpe 2.4 |
 |---|---|---|---|
 | 0.25 | 0.00; 11.3 | 0.00; 7.5 | 0.00; 6.1 |
 | 0.5 | 0.01; 6.7 | 0.05; 4.2 | 0.14; 3.4 |
 | 1.0 | 0.28; 4.6 | 0.59; 2.6 | 0.78; 2.0 |
-| 2.0 (revision 4's bet) | 0.48; 5.3 | 0.77; 2.1 | 0.90; 1.5 |
+| 2.0 | 0.48; 5.3 | 0.77; 2.1 | 0.90; 1.5 |
 
-- The table is an upper reference: a dip buyer's returns are skewed against it, and the figures are for `W` at the stated Sharpe, where `M` has what is left after the basket. The real figure is the bootstrap's.
-- **Revision 4's row is not reachable.** A long-only account without leverage has at most the basket's volatility, and one that keeps room for its ladder far less. I have read no price, so I do not know the row; I expect 0.5 or under.
-- **So the forward test is expected to end "not confirmed" at two years, and the result of study 2 that matters is available at the freeze:** the wall for a real rule, as the account volatility an exact test can reach and the years it implies. That is the paper's subject, measured.
-- **D13's figure.** A bet of 2 at a Sharpe of 1.4 takes 5.32 years by this document's reflection formula, not revision 4's 4.4; Argon's 6.13 is not reproduced by it. A fraction frozen on old volatility, at 1.5 times the volatility, has a log drift of −0.30 a year.
-- **Why run the forward test anyway.** It costs a replay a month of recordings that already run, and its "not confirmed" comes with a measured volatility and Sharpe on dates nobody fitted.
+- **Where `V` sits.** About half invested in whatever it holds, whenever it holds anything; a coin's yearly volatility is 0.8 to 1 (an assumption until the replay). So `V`'s is about 0.45 times the square root of its share of time in the market: the 0.25 to 0.5 rows. Argon's 13.9 times the account's bet is a wealth 13.9 times as invested as an idle account, which is this one; it is not a volatility of 1.5.
+- **Rung 2 costs more.** In a simulated market of 16 coins with no drift, the best mix in hindsight ends two years at 2.2 times its start at the median and 7.5 at the 0.9 quantile; with every coin drifting 0.5 a year, 5.9 and 20. At the driftless median, a ratio of volatility 1.0 and Sharpe 2 has power 0.36, against 0.59.
+- **The last two rows need leverage,** and 6.2 says what that costs. So **the wall for a long-only rule is full investment:** an exact test cannot see a Sharpe of 2 in two years unless the rule's fully staked profit is as volatile as a coin, all the time.
+- **The forward test is therefore expected to end "not confirmed".** The table is an upper reference: a dip buyer's returns are skewed against it. The real figure is a block bootstrap of the replay before the freeze, which also chooses `φ`.
 
-### 6.3 Fidelity, from what can be read (D14)
+### 6.4 Fidelity, from what can be read
 
-The vault's equity history cannot be read before 2027-01-31 (`vaultDetails` and `portfolio` take no end time), so fidelity is defined on its 5,806 fills to 2026-10-31. Argon's objection was that a ladder fitted and checked on the same dates absorbs the fill model's errors into its thresholds. The answer is to check each part against something that was not fitted through the kernel.
+The vault's equity history cannot be read before 2027-01-31, so fidelity is defined on its 5,806 fills to 2026-10-31. Round 2 broke the wall of the last revision: a sum of profits lets a flattered class of cycles hide behind a starved one, and no number about the past shows a rule will not flatter later. The wall is deleted. What replaces it is not a sum:
 
-1. **The ledger, against the venue's own arithmetic.** The fills are fed to the ledger as given. It must give every fill's fee and `closedPnl` to the digits the venue prints, every `startPosition` exactly, every price on the assumed grid and every size in whole lots (V1, V3), and every `userFunding` payment in the period from A9 (that the endpoint takes a start and an end is a lead to check). Any difference is a defect or a wrong assumption. This is a test suite, not a criterion.
-2. **The fill rules, against real maker fills.** For each of the 4,956 maker fills, an order of its price and size resting from before: does each rule fill it, and how long before or after the real time? Reported by rule, by the archive's three cadence periods, with and without trades, and on the fast period decimated to 5.4 s. Nothing here was fitted.
-3. **The ladder, given the real first buys.** For each of the 2,019 cycles the published ladder and take-profit are started from the real first fill. Under each rule: which levels fill against which really filled, when the cycle closes, and its profit against the real one. The ladder's constants were read off the fills' own prices (facts §7), not tuned through the kernel, so a wrong fill rule cannot hide in them.
-4. **The trigger, where nothing was fitted.** The trigger is the one part reverse-engineered through data, so no fidelity is claimed for it before the freeze. After 2027-01-31 the whole replica is compared with the vault's fills in the released window: first buys matched within a registered time. The forward test does not depend on it; the reading "a rule with a live record" does.
+1. **The ledger, against the venue's own arithmetic.** The fills are fed to the ledger as given. It must give every fill's fee and `closedPnl` to the digits the venue prints, every `startPosition` exactly, every price on the assumed grid and every size in whole lots, and every `userFunding` payment from A9. A test suite: the step is done at no difference.
+2. **The fill rules, against the vault's own orders, one by one.** The orders are every real maker fill (an order known to have filled, 4,956 of them, first buys included), and every level and take-profit the published constants imply from a real first fill, for as long as the real cycle was open (an order known to have filled or not; a real cycle that ended by a taker exit ends its orders there). For each order and each rule: whether and when it fills, against whether and when the real one did. Reported by role (first buy, level, take-profit), by size, by the archive's cadence period, and by whether the market was falling.
+   - **The one-sided property.** The real order stood at the same price and ahead. So `pessimistic` may never fill an order before the real one filled, or fill one the vault's never did. Every violation is listed and explained: the vault did not rest that order, the record is incomplete, or the rule is wrong. Like layer 1's differences they are examined one by one, not summed, so this is a test and not a criterion.
+   - `optimistic` fills no later than the real order, by the mirror argument; its violations are listed the same way.
+   - Also counted here: levels that really filled within one step of the level before, which is what resting `k` levels costs.
+3. **The trigger, where nothing was fitted.** The trigger is the one part reverse-engineered through data, so no fidelity is claimed for it before the freeze. After 2027-01-31 the replica's first buys are compared with the vault's in the released window, within a registered time. The forward test does not depend on it; the reading "a rule with a live record" does.
 
-**The trades bucket (H11, settled).** `s3://hl-mainnet-node-data` is certified first, as a terms decision the advisor has reviewed. Its sizes are listed before any read. `node_trades` is read for the slow period first (2026-06-21 on, where a wick leaves no trace in the snapshots), then the rest, stopping at 12 USD of the 17.54 left.
+**What stays unknown, and is said in the claim.** How the rules treat an order where the vault had none: the replica's own entries. Only the forward comparison of layer 3 bears on it, which is why both claims name the venue's rule and neither says the fills are real.
 
-### 6.4 Walls before the freeze
+**Trades are now required** (kernel A7): `pessimistic` fills on prints alone. `s3://hl-mainnet-node-data` is certified first, as a terms decision the advisor has reviewed; its sizes are listed before any read; `node_trades` is read slow period first, stopping at 12 USD of the 17.54 left. If it cannot be certified or afforded, layer 2 and the replay before the freeze cannot run under the judged rule, and that is a blocker, not a reason to fill on snapshots.
+
+### 6.5 Walls before the freeze
 
 - The kernel's build plan is complete and its laws proved (`briefs/3-kernel-v2.md`).
-- Layer 1 has no unexplained difference.
-- Layers 2 and 3 are reported. For the judged venue, the sum of layer 3's cycle profits is at most the vault's real sum in each cadence period, within a tolerance registered before the comparison: the venue the claim is about does not flatter. This one is a number, so it goes to `audit/criteria.md` with its review.
-- The replay before the freeze gives the account's volatility, the bootstrap's power and the share of ladder orders refused for margin, and `b`, `G`, `λ`, `δ` are registered.
+- Layer 1 has no difference, and layer 2 no unexplained violation.
+- The replay before the freeze gives `V`'s volatility and Sharpe, the bootstrap's power at each rung, and the largest funding a step paid against V16; `φ`, `k`, `ρ̄`, `λ`, `δ`, the universe and the first buy's notional are registered. The rungs and their nulls go to `audit/criteria.md` with their review.
 - If a wall fails: back to the architect.
 
-### 6.5 Forward data
+### 6.6 The forward test: run it, as a measurement
 
-- **From when.** The websocket recorder (`recorder/RECORDER.md`) has run since 2026-11-14 03:43 UTC (2026-11-13 22:43 EST): `trades` and five-level books about every 0.55 s for every perp, 20-level books about every 10 s on the main dex, asset contexts and hourly listings. Judged steps start at the freeze, which is later.
-- **What it lacks.** Settled hourly funding rows, which `fundingHistory` gives for any past range, so they are fetched at replay time. Books deeper than five levels between the ten-second ones: the policy's order cap keeps every order inside five levels, and a liquidation's remainder closes at the last level, against the account. A dated copy of the fee schedule and of each coin's margin tiers, to be recorded daily from now.
-- **Reading it.** The first replay runs after 2027-01-31 and monthly from then, so nothing of the pilot's forward window is read before its release. The vault's fills for layer 4 are read then, at once, since the API keeps only the latest 10,000.
+The human was unsure whether to run a test expected to end "not confirmed". Both reviewers say run it, as prospective validation with a stated budget and reading. I decide the same, for what it measures that nothing else can:
+- `V`'s volatility and Sharpe on dates nobody fitted, which says whether the bootstrap's forecast of the wall transports;
+- the fill rules against the vault's forward fills on the recorder's books and prints, the best record there will be (layer 2, forward);
+- the trigger (layer 3).
+
+**Its budget.** One replay a month from February 2027 (an hour of one core and one builder session); the hourly copies below; and disk. The recorder writes 1.6 GB a day for every perp, so its 300 Gi volume is full about 2027-05-20 and two years are about 1.2 TB a copy. That is the one cost that needs the human (section 12).
+
+**Its reading, registered with the criteria.** It ends at "timed", or two years after the freeze. "Not confirmed" is the expected end and is not evidence of absence. Study 2's result is the pair: the wall, measured before the freeze as the volatility a fully staked rule reaches and the years that implies, and the forward measurement of whether that forecast held. Nothing is rescued by reading the window early or by a third rung.
+
+**Forward data.**
+- **From when.** The websocket recorder (`recorder/RECORDER.md`) has run since 2026-11-14 03:43 UTC (2026-11-13 22:43 EST): `trades` and five-level books about every 0.55 s for every perp, 20-level books about every 10 s on the main dex, asset contexts and hourly listings. Judged steps start at the freeze, which is later: the vault's public record up to the freeze can influence the decision to freeze.
+- **What it lacks** is in the build plan's table: settled funding, fetched at replay time; hourly dated copies of coin rules and fees; the vault's fills, pulled hourly with overlap.
+- **Reading it.** The first replay runs after 2027-01-31, and the kernel itself refuses the dates before their release (kernel A13).
 
 **The account, if a reading-agent study is ever opened (D15, conceded).** Cash starts at 1. A purchase pays a stake the agent registers, at most 5% of cash, at the all-in cost `c < 1` of its fill, and holds `stake/c` units. A recorded settlement `x` in [0, 1] pays `(stake/c)·x` into cash. The null is rejected when cash reaches 20; a payout not yet paid is never cash. **Null:** for every purchase, `E[x | everything that has happened by its fill, recorded or not] ≤ c`, the cost being known at the fill and not at the registration. A perp bracket is such a purchase only on isolated margin equal to the stake, with funding deducted, which kernel version 2 does not build until a study needs it. **Validity,** on the world's filtration, to which the recorder's own delays are adapted: let `V` be cash plus, for every position not yet recorded as paid, `stake/c` times the conditional expectation of `x`. A fill lowers cash by the stake and adds at most the stake to the sum, by the null. Between events each term is a martingale. A recording moves a realized payout from the sum into cash and changes nothing. So `V` is a non-negative supermartingale starting at 1, cash never exceeds it, and cash reaches 20 with probability at most 5%, whenever and in whatever order records arrive.
 
@@ -324,7 +372,7 @@ The vault's equity history cannot be read before 2027-01-31 (`vaultDetails` and 
 ## 8. Stop rules
 
 - **Study 1** ends at a boundary or at 100 markets, with no extension. It does not start if a wall of 5.5 fails.
-- **Study 2** does not freeze if a wall of section 6 fails, and its forward test ends at wealth 20 or at two years from the freeze.
+- **Study 2** does not freeze if a wall of section 6 fails, and its forward test ends at its second rung or at two years from the freeze.
 - **The program** pauses for the human when study 1 has reported and study 2's fidelity result is in. Nothing is rescued by lowering a threshold, by reading the forward window, or by calling a non-rejection absence.
 
 ## 9. Argon's seven findings
@@ -345,7 +393,7 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 
 - **Used:** the frozen pilot kernel, `gate/markets.py`, `gate/search.py`, `gate/campaign.py`, `gate/agent/` under its frozen hash, `sandbox/`, the ledger; pre-registration of statistical criteria; fresh-session bug hunts; the two-round rule.
 - **Running, with no work done on it:** the certified recorders.
-- **To build:** study 1's slice; for study 2, kernel version 2 (`kernel-v2.md`, `briefs/3-kernel-v2.md`), the replica as a program in its language, and the confirmer of section 6, which is a ratio of two columns of the kernel's report.
+- **To build:** study 1's slice; for study 2, kernel version 2 (`kernel-v2.md`, `briefs/3-kernel-v2.md`), the replica as a program in its language, and the confirmer of section 6, a function of the kernel's report.
 - **Parked:** the thesis track entire (`thesis/`, branches `thesis-refreeze` and `thesis-split`, Job `thesis-prewarm`), until a measured count; stage 7, the Lean engine, `reference/lean`; the swarm; stages 8 and 9, superseded. The stage 3 forward window lapses on 2027-01-31 with nothing registered in it, and its prices stay unread.
 - **Gone:** stage 11.
 - **Every stale file and rule** is listed with its edit in `paper-changes.md`.
@@ -355,14 +403,15 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 1. **The score's behaviour on a pair.** I have not read how the score treats a bankrupt program. Wall 3 exists because I cannot argue from the code that the even part of an effect, which knows nothing of the plant's sign, stays under half the reference on most pairs.
 2. **The reference's effect a pair.** If it is small against a pair's noise, an honest pick sits in the rule's soft zone and both rates fall. Wall 2 catches the reference; the count of pairs won by G100's picks, reported with the walls, shows the soft zone before any session. I expect it to be thin, because twins share their noise, and I have not measured it.
 3. **Least overlap** is the worst case for power and I think it unlikely: easy seeds should be easy for both arms.
-4. **Study 2's claim is narrow.** Measured against a basket at its own exposure, a rule whose whole edge is buying market-wide dips shows nothing, by construction. I derive that no exact test can do better under unknown drift; Argon should try to build one.
-5. **Study 2's account volatility.** I have read no price, so the power table's row is unknown until the replay. If it is under 0.5 a year the forward test is a formality, and section 6 says so in advance.
-6. **The count.** 33 a week is a threshold, not an estimate. Someone who has read the thesis track's ledger knows more than I do.
-7. **The prior of 0.05.** The benchmarks test forecasting on given questions, not selection among perps.
+4. **Rung 2's null.** "Some constant mix cannot be outgrown" is exact as stated, and means "no timing" only where days are alike. A reviewer should build a rule with no knowledge of when, and no fill better than a mid, that beats every constant mix by 20 more than one time in twenty.
+5. **The bound's funding term (V16)** is the one assumption under `V ≥ 0`. I have read no funding payment, so I do not know how far the largest sits below the cap.
+6. **The wealth's volatility.** I have read no price, so the power table's row is unknown until the replay. I expect 0.25 to 0.5, which makes the forward test a measurement and not a confirmation, and section 6 says so in advance.
+7. **The count.** 33 a week is a threshold, not an estimate. Someone who has read the thesis track's ledger knows more than I do.
+8. **The prior of 0.05.** The benchmarks test forecasting on given questions, not selection among perps.
 
 ## 12. Open questions for the human
 
-1. **Study 2.** A replication as the positive control of the confirmer: fidelity first, then a frozen forward test. Re-derived on kernel version 2 (section 6), its power depends on the replica account's volatility, which the replay will measure; without leverage I expect it to be low. I still recommend yes: fidelity and the measured wall stand alone, and nothing before the freeze is judged.
+1. **Study 2.** A replication as the positive control of the confirmer: fidelity first, then a frozen forward test. Re-derived after round 2 (section 6): two nested claims, "earned" and "timed", on a bet that is never more than fully invested, with no leverage, since leverage cannot be exact (6.2). I expect "not confirmed" and have decided to run it as a measurement (6.6). What it needs from you is disk: the recorder's volume is full about 2027-05-20, and two years are about 1.2 TB a copy. I recommend buying it; the alternative is to record only study 2's 17 coins from then, which ends the recordings' use as a holdout for anything else.
 2. **Study 1's changes.** G100's target rate falls from 0.2 to 0.15, the calibration grows to 2,000 markets, and the claim says "more often than G100's 100 evaluations", not "at the same budget". Still at most 100 markets. I recommend yes.
 3. **The findings index,** `docs/findings.md`, as the organized presentation of earlier research, with the paper as the home of every number. I recommend yes.
 4. **A count for the reading agent.** Reading the thesis track's ledger for theses a week costs nothing and decides whether that line is ever reopened. I recommend the advisor does it, and that no sessions are spent on a count.

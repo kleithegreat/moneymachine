@@ -1,4 +1,4 @@
-"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived on kernel version 2), audit/program/paper-changes.md
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after round 2 on kernel version 2), audit/program/paper-changes.md
 and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
 
 Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy.integrate import quad
-from scipy.optimize import brentq
+from scipy.optimize import brentq, minimize, minimize_scalar
 from scipy.stats import beta, binom, norm
 
 Z80 = norm.ppf(0.95) + norm.ppf(0.80)
@@ -32,11 +32,11 @@ def yardstick() -> None:
         print(f"  T = {years:.3f} years: Sharpe {Z80 / math.sqrt(years):.2f} at 80% power")
 
 
-def crossing(drift: float, spread: float) -> float:
-    """P(a Brownian log wealth with total drift `drift` and total standard deviation `spread` reaches log 20
-    at any time before the end): the reflection formula. The test stops at 20, so this is its power."""
-    reflected = math.exp(min(0.0, 2 * drift * LOG20 / spread**2 + norm.logcdf((-drift - LOG20) / spread)))
-    return float(norm.cdf((drift - LOG20) / spread)) + reflected
+def crossing(drift: float, spread: float, level: float = LOG20) -> float:
+    """P(a Brownian log wealth with total drift `drift` and total standard deviation `spread` reaches `level`
+    at any time before the end): the reflection formula. The test stops there, so this is its power."""
+    reflected = math.exp(min(0.0, 2 * drift * level / spread**2 + norm.logcdf((-drift - level) / spread)))
+    return float(norm.cdf((drift - level) / spread)) + reflected
 
 
 def kelly_power(u: float) -> float:
@@ -159,18 +159,74 @@ def years_to_power(sharpe: float, vol: float, power: float = 0.8) -> float:
     return brentq(shortfall, 0.01, 1000) if shortfall(1000) > 0 else math.inf
 
 
+def best_mix(returns: np.ndarray) -> tuple[float, float]:
+    """The best constant mix in hindsight of the columns of `returns` (days by coins, simple) and cash, long only,
+    rebalanced each day. Returns its log wealth and a certified upper bound on every mix's: for a mix b0 with
+    factors f, the product over days of (1 + b.r)/f is at most the mean over days to the power of the count
+    (arithmetic and geometric means), and that mean is linear in b, so its maximum is at a corner."""
+    days, coins = returns.shape
+    gross = np.hstack([1 + returns, np.ones((days, 1))])
+    start = np.full(coins + 1, 1 / (coins + 1))
+    found = minimize(
+        lambda b: -np.log(gross @ b).sum(),
+        start,
+        jac=lambda b: -(gross / (gross @ b)[:, None]).sum(axis=0),
+        bounds=[(0, 1)] * (coins + 1),
+        constraints={"type": "eq", "fun": lambda b: b.sum() - 1, "jac": lambda b: np.ones(coins + 1)},
+        method="SLSQP",
+        options={"maxiter": 500, "ftol": 1e-13},
+    )
+    mix = np.clip(found.x, 0, None)
+    mix = mix / mix.sum()
+    factors = gross @ mix
+    corner = (gross / factors[:, None]).mean(axis=0).max()
+    log_wealth = float(np.log(factors).sum())
+    return log_wealth, log_wealth + days * math.log(corner)
+
+
+def hindsight_cost(drift: float, paths: int = 200, days: int = 730, coins: int = 16, vol: float = 0.8, shared: float = 0.6) -> tuple[float, float, float]:
+    """The log wealth of the best constant mix in hindsight over two years of independent days: `coins` coins of
+    yearly volatility `vol`, a share `shared` of each one's variance common, every coin's yearly drift `drift`
+    (assumptions, not measurements). Returns the median and the 0.9 quantile of the certified bound, and the
+    widest gap between the bound and the mix found."""
+    rng = np.random.default_rng(13)
+    step = vol / math.sqrt(365)
+    bounds, gaps = [], []
+    for _ in range(paths):
+        common = rng.normal(0, step * math.sqrt(shared), (days, 1))
+        own = rng.normal(0, step * math.sqrt(1 - shared), (days, coins))
+        returns = np.expm1((drift - vol**2 / 2) / 365 + common + own)
+        log_wealth, bound = best_mix(returns)
+        bounds.append(bound)
+        gaps.append(bound - log_wealth)
+    return float(np.median(bounds)), float(np.quantile(bounds, 0.9)), max(gaps)
+
+
+def rebalancing_residual(drift: float = 0.3, vol: float = 0.8) -> float:
+    """Yearly log growth of the best constant exposure rebalanced continuously, less that of the best rebalanced
+    daily, in one lognormal coin: what trading inside the day can earn against a daily mix with no timing."""
+    step = vol / math.sqrt(365)
+    mean = (drift - vol**2 / 2) / 365
+
+    def daily(exposure: float) -> float:
+        return quad(lambda x: math.log1p(exposure * math.expm1(x)) * norm.pdf(x, mean, step), mean - 10 * step, mean + 10 * step)[0]
+
+    best_daily = -minimize_scalar(lambda e: -daily(e), bounds=(0, 1), method="bounded").fun * 365
+    exposure = min(1.0, max(0.0, drift / vol**2))
+    return exposure * drift - exposure**2 * vol**2 / 2 - best_daily
+
+
 def study2() -> None:
-    """Section 6: the wealth is the replica's own account, so the bet is the account's volatility."""
-    print(f"  a bet of 2 at a true Sharpe of 1.4 has 80% power after {years_to_power(1.4, 2.0):.2f} years by the reflection formula (D13: 4.4 was at Kelly's own bet, 1.4; Argon's 6.13 is not reproduced)")
-    shifted = 2 * 1.5 * 1.4 - 2 * 1.5**2
-    print(f"  a fraction frozen at 2 over the old volatility, volatility then 1.5 times: log drift {shifted:.2f} a year, power at two years {crossing(2 * shifted, 3 * math.sqrt(2)):.2f}")
-    print(f"  a wealth that may fall 5% below zero when it stops reaches 21 with probability up to {21 ** (-1 / 1.05):.4f} (Argon's round 1, finding 4): the threshold is not patched, the account cannot owe")
+    """Section 6 after round 2: the wealth is a bet on the account's profit against what it has at risk."""
     held = np.cumsum(LADDER_NOTIONAL)
     cycles = np.array(CYCLES_BY_BUYS)
     mean_held = float((cycles * held).sum() / cycles.sum())
-    print(f"  a full ladder holds {held[-1]:.1f} first buys; the vault's {cycles.sum()} cycles held {mean_held:.2f} at their deepest on average, {held[-1] / mean_held:.1f} times less")
-    print(f"  {cycles[0] / cycles.sum():.3f} of cycles never pass the first buy, where the bet is {1 / held[-1]:.3f} of what a full ladder's room allows")
-    print("  the account as the wealth: power within one year and two, and years to 80%, by the account's yearly volatility and its Sharpe")
+    print(f"  a full ladder holds {held[-1]:.1f} first buys; the vault's {cycles.sum()} cycles held {mean_held:.2f} at their deepest on average; {cycles[0] / cycles.sum():.3f} never pass the first buy")
+    print("  the wealth's share invested after each buy, resting the whole ladder and resting the next level only:")
+    for buys in range(1, len(LADDER_NOTIONAL)):
+        print(f"    after {buys}: {held[buys - 1] / held[-1]:.3f} and {held[buys - 1] / held[buys]:.3f}")
+
+    print("  the wealth's power within one year and two, and years to 80%, by its yearly volatility and Sharpe (rung 1)")
     for vol in (0.1, 0.25, 0.5, 1.0, 2.0):
         cells = []
         for sharpe in (1.4, 2, 2.4):
@@ -178,6 +234,29 @@ def study2() -> None:
             one, two = crossing(drift, vol), crossing(2 * drift, vol * math.sqrt(2))
             cells.append(f"Sharpe {sharpe}: {one:.2f}, {two:.2f}, {years_to_power(sharpe, vol):.1f} y")
         print(f"    volatility {vol}: " + "; ".join(cells))
+
+    print("  rung 2's bar: log of the best constant mix in hindsight over two years, median and 0.9 quantile (certified bound; the widest slack of the certificate)")
+    costs = {}
+    for drift in (0.0, 0.5):
+        costs[drift] = hindsight_cost(drift)
+        print(f"    every coin's yearly drift {drift}: {costs[drift][0]:.2f} and {costs[drift][1]:.2f} ({costs[drift][2]:.1e}); as a factor {math.exp(costs[drift][0]):.1f} and {math.exp(costs[drift][1]):.1f}")
+    print("  rung 2's power within two years with the bar raised by the driftless median, by the ratio's own volatility and Sharpe:")
+    for vol in (0.5, 1.0):
+        print(f"    volatility {vol}: " + "; ".join(f"Sharpe {sharpe}: {crossing(2 * (sharpe * vol - vol**2 / 2), vol * math.sqrt(2), LOG20 + costs[0.0][0]):.2f}" for sharpe in (1.4, 2, 2.4)))
+    print(f"  what trading inside the day earns against a daily mix with no timing: {rebalancing_residual():.1e} of log growth a year")
+
+    swing = 0.1
+    print(f"  GPT's finding 1: holding a still coin against a basket half in a coin moving {swing} either way, W / B gains {-0.5 * math.log(1 - swing**2 / 4):.5f} of log a step with no skill; against the best mix it gains nothing, since cash is a mix")
+    rng = np.random.default_rng(5)
+    returns = rng.normal(0.0002, 0.01, 1_000_000)
+    exposure = (returns < 0).astype(float)
+    paired = (exposure[1:-1] - exposure[:-2]) * (returns[2:] - returns[1:-1])
+    print(f"  Argon's paired statistic for a rule that buys after any fall, on independent returns: mean {paired.mean():.5f}, {paired.mean() / paired.std() * math.sqrt(len(paired)):.0f} standard errors above zero; it is not a null statistic")
+
+    wins = math.ceil(LOG20 / math.log(2.8))
+    absorbed = sum(0.5**k * 0.8 * 2.8 ** (k - 1) for k in range(1, wins + 1))
+    print(f"  GPT's finding 5, equity 1 at twice leverage in a fair coin moving 0.9: the floored account reaches 20 with probability {0.5**wins:.4f}; the bound (1 + E[absorbed]) / 20 is {(1 + absorbed) / 20:.4f}, with E[absorbed] = {absorbed:.3f}")
+    print(f"  a simulated null of 20,000 paths at exactly 5% shows at most {int(binom.ppf(0.9999, 20_000, 0.05))} crossings with probability 0.9999 (1,000 would fail half the time)")
 
 
 WINDOWS = (22, 28, 35, 44, 66)
