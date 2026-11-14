@@ -35,7 +35,7 @@ let () =
     H.check (not (List.is_empty closes)) "no close event";
     let recv, conn, _, _ = List.hd_exn closes in
     let reopen =
-      List.find events ~f:(fun (r, c, name, _) -> c = conn && r > recv && String.equal name "open")
+      List.find events ~f:(fun (r, c, name, _) -> Option.equal Int.equal c conn && r > recv && String.equal name "open")
     in
     (match reopen with
      | None -> failwith "no open event after the close"

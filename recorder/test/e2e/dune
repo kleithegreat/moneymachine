@@ -9,7 +9,8 @@
   item07_item09_churn_e2e
   item08_heartbeat_e2e
   item10_sigterm_e2e
-  item11_check_cli_e2e)
+  item11_check_cli_e2e
+  item12_unacked_e2e)
  (libraries core core_unix core_unix.signal_unix async async_unix async_websocket yojson mmrec rec_support)
  (preprocess
   (pps ppx_jane))

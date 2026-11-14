@@ -11,7 +11,8 @@ val max_buffer_bytes : int
 
 (** [add t route ~recv_ms line] buffers a ["\n"]-terminated [line] for the file of [route] and the hour of
     [recv_ms]. When that buffer reaches [max_buffer_bytes] it is written at once as one frame. Lines of different
-    hours never share a frame. *)
+    hours never share a frame. The first line of a later hour for a route writes and closes that route's earlier
+    hour file for good (RECORDER.md, Storage: "Files are append-only"). *)
 val add : t -> Route.t -> recv_ms:int -> string -> unit
 
 (** Writes, as one frame appended to its file, every buffer whose oldest line is at least 1000 ms old by the clock. *)

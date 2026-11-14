@@ -24,8 +24,10 @@ let () =
     (* Mid-second: the buffers hold frames that no tick has written. *)
     let%bind () = after (Time_float.Span.of_ms 350.) in
     let sent_before = List.map (F.accepts fake) ~f:(fun (conn, _) -> sprintf "K%d" conn, F.streamed fake ~conn) in
+    (* Those frames were received long before the signal: every one must be on disk. *)
+    let%bind () = after (Time_float.Span.of_ms 100.) in
     let%bind status, seconds = H.sigterm_and_wait process in
-    H.check (match status with Ok () | Error (`Exit_non_zero _) -> true | Error (`Signal _) -> false) "killed by a signal";
+    H.check (Result.is_ok status) "exit code is not 0";
     H.check (Float.( <= ) seconds 10.) (sprintf "took %.1f s to exit" seconds);
     let files = H.recordings root in
     H.check (not (List.is_empty files)) "no recordings";
@@ -45,6 +47,6 @@ let () =
     let recorded = H.contiguous_prefixes (H.trade_ids ~root) in
     List.iter recorded ~f:(fun (coin, m) ->
       let before = Option.value (List.Assoc.find sent_before ~equal:String.equal coin) ~default:0 in
-      H.check (m + 30 >= before) (sprintf "%s: %d recorded, %d were sent before SIGTERM" coin m before));
+      H.check (m >= before) (sprintf "%s: %d recorded, %d were sent before SIGTERM" coin m before));
     F.stop fake)
 ;;

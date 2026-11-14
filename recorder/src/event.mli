@@ -13,5 +13,5 @@ val name : t -> string
 val field : t -> string -> Yojson.Safe.t option
 
 (** The recorded line, ["\n"]-terminated, with the event as [msg] (Storage: "A line"). [conn] is the connection
-    the fact concerns. *)
-val to_line : recv_ms:int -> conn:int -> t -> string
+    the fact concerns; [None] for recorder-wide events (start, stop, listing, refused), written as ["conn": null]. *)
+val to_line : recv_ms:int -> conn:int option -> t -> string

@@ -99,7 +99,8 @@ let channel_lines ~root ~channel =
       in
       let conn =
         match List.Assoc.find_exn fields ~equal:String.equal "conn" with
-        | `Int n -> n
+        | `Int n -> Some n
+        | `Null -> None
         | _ -> failwith "conn"
       in
       recv, conn, List.Assoc.find_exn fields ~equal:String.equal "msg"

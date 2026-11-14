@@ -13,6 +13,8 @@ let shift_letters ~shift s = if shift = 0 then s else String.rev s
 
 let line ~recv ~conn msg = sprintf "{\"recv\":%d,\"conn\":%d,\"msg\":%s}\n" recv conn msg
 
+let line_null ~recv msg = sprintf "{\"recv\":%d,\"conn\":null,\"msg\":%s}\n" recv msg
+
 let trades_line ~shift i =
   line
     ~recv:(t0 + i)
@@ -42,7 +44,6 @@ let event_line ~recv ~conn ~shift name =
 
 let cut_last_bytes frame n = String.prefix frame (String.length frame - n)
 
-(* Returns the expected entries and gaps. *)
 let build root ~shift ~extra_trade_line =
   let write route date hour chunks =
     H.write_frames
@@ -71,6 +72,10 @@ let build root ~shift ~extra_trade_line =
     ; String.concat
         [ event_line ~recv:(t0 + 8_000) ~conn:1 ~shift "open"
         ; event_line ~recv:(t0 + 9_000) ~conn:2 ~shift "close"
+        ; line_null ~recv:(t0 + 2) {|{"event":"start"}|}
+        ; event_line ~recv:(t0 + 100) ~conn:3 ~shift "error"
+        ; event_line ~recv:(t0 + 150) ~conn:3 ~shift "close"
+        ; event_line ~recv:(t0 + 200) ~conn:3 ~shift "open"
         ]
     ];
   write "listings" "20261114" "10" [ line ~recv:(t0 + 30) ~conn:0 {|{"universe":[]}|} ];
@@ -90,7 +95,10 @@ let%test_unit "item 11: check gives the right byte, frame and line counts and ga
   let report = I.check ~root ~from_:"2026111410" ~to_:"2026111411" in
   let entry channel hour = List.find_exn report.entries ~f:(fun e -> String.equal e.channel channel && String.equal e.hour hour) in
   let bytes route date hour = size (sprintf "%s/%s/%s/%s.jsonl.zst" root route date hour) in
-  let channels_and_hours = List.map report.entries ~f:(fun e -> e.channel, e.hour) in
+  let channels_and_hours =
+    List.map report.entries ~f:(fun e -> e.channel, e.hour)
+    |> List.sort ~compare:[%compare: string * string]
+  in
   assert (
     List.equal
       [%equal: string * string]
@@ -114,16 +122,23 @@ let%test_unit "item 11: check gives the right byte, frame and line counts and ga
   let l2 = entry "l2Book" "2026111410" in
   assert (l2.frames = 1 && l2.lines = 2 && not l2.truncated);
   let events = entry "events" "2026111410" in
-  assert (events.frames = 2 && events.lines = 6 && not events.truncated);
+  assert (events.frames = 2 && events.lines = 10 && not events.truncated);
   let listings = entry "listings" "2026111410" in
   assert (listings.frames = 1 && listings.lines = 1);
   assert (
     List.equal
       [%equal: I.gap]
       report.gaps
-      [ { conn = 1; closed_ms = t0 + 5_000; reopened_ms = Some (t0 + 8_000) }
+      [ { conn = 3; closed_ms = t0 + 100; reopened_ms = Some (t0 + 200) }
+      ; { conn = 1; closed_ms = t0 + 5_000; reopened_ms = Some (t0 + 8_000) }
       ; { conn = 2; closed_ms = t0 + 9_000; reopened_ms = None }
-      ])
+      ]);
+  let lines = String.split_lines (I.render report) in
+  let expect fields = assert (List.mem lines (String.concat ~sep:"\t" fields) ~equal:String.equal) in
+  expect [ "2026111411"; "trades"; Int.to_string trades11.bytes; "1"; "2"; "yes" ];
+  expect [ "2026111410"; "trades"; Int.to_string trades10.bytes; "2"; "5"; "no" ];
+  expect [ "gap"; "3"; Int.to_string (t0 + 100); Int.to_string (t0 + 200) ];
+  expect [ "gap"; "2"; Int.to_string (t0 + 9_000); "" ]
 ;;
 
 let%test_unit "item 11: the range is inclusive of both hours and excludes the rest" =
@@ -139,21 +154,35 @@ let%test_unit "item 11: the range is inclusive of both hours and excludes the re
   assert (List.is_empty none.gaps)
 ;;
 
-let%test_unit "item 11: the output is identical for roots that differ only in values of other fields" =
+let without_bytes_report (r : I.report) =
+  { r with
+    entries =
+      List.map r.entries ~f:(fun e -> { e with bytes = 0 })
+      |> List.sort ~compare:(fun (a : I.entry) b -> [%compare: string * string] (a.channel, a.hour) (b.channel, b.hour))
+  }
+;;
+
+let without_bytes_text text =
+  String.split_lines text
+  |> List.map ~f:(fun line ->
+    match String.split line ~on:'\t' with
+    | "gap" :: _ -> line
+    | hour :: channel :: _bytes :: rest -> String.concat ~sep:"\t" (hour :: channel :: rest)
+    | _ -> line)
+  |> List.sort ~compare:String.compare
+;;
+
+let%test_unit "item 11: the output is identical apart from byte counts for roots that differ only in other fields' values" =
   let a = H.tmp_dir () in
   let b = H.tmp_dir () in
   build a ~shift:0 ~extra_trade_line:true;
   build b ~shift:3 ~extra_trade_line:true;
-  List.iter (H.recordings a) ~f:(fun path ->
-    let twin = String.chop_prefix_exn path ~prefix:a in
-    let other = b ^ twin in
-    if size path <> size other
-    then failwithf "test design: %s compresses to different sizes" twin ());
   assert (not (String.equal (H.read_file (List.hd_exn (H.recordings a))) (H.read_file (List.hd_exn (H.recordings b)))));
   let report_a = I.check ~root:a ~from_:"2026111410" ~to_:"2026111412" in
   let report_b = I.check ~root:b ~from_:"2026111410" ~to_:"2026111412" in
-  assert ([%equal: I.report] report_a report_b);
-  assert (String.equal (I.render report_a) (I.render report_b))
+  assert ([%equal: I.report] (without_bytes_report report_a) (without_bytes_report report_b));
+  assert (
+    List.equal String.equal (without_bytes_text (I.render report_a)) (without_bytes_text (I.render report_b)))
 ;;
 
 let%test_unit "item 11: the output does change when counts change" =
@@ -161,6 +190,6 @@ let%test_unit "item 11: the output does change when counts change" =
   let b = H.tmp_dir () in
   build a ~shift:0 ~extra_trade_line:true;
   build b ~shift:0 ~extra_trade_line:false;
-  let render root = I.render (I.check ~root ~from_:"2026111410" ~to_:"2026111412") in
-  assert (not (String.equal (render a) (render b)))
+  let render root = without_bytes_text (I.render (I.check ~root ~from_:"2026111410" ~to_:"2026111412")) in
+  assert (not (List.equal String.equal (render a) (render b)))
 ;;

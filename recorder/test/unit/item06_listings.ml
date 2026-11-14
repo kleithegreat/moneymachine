@@ -111,9 +111,34 @@ let%test_unit "item 6: past the maximum a new listing is refused and nothing exi
     assert (Option.is_some (P.conn_of planner (Sub.L2_book coin))))
 ;;
 
-let%expect_test "item 6: the first read subscribes everything" =
+let str_field event key =
+  match Mmrec.Event.field event key with
+  | Some (`String v) -> Some v
+  | _ -> None
+;;
+
+let%test_unit "item 6: an added coin's event has coin, dex and change" =
+  let planner = planner_with [ "A" ] in
+  let actions = U.apply planner ~before:[ "A" ] ~after:[ "A"; "xyz:TSLA" ] in
+  let event = List.hd_exn (events actions) in
+  assert (Option.equal String.equal (str_field event "coin") (Some "xyz:TSLA"));
+  assert (Option.equal String.equal (str_field event "dex") (Some "xyz"));
+  assert (Option.equal String.equal (str_field event "change") (Some "added"));
+  let actions = U.apply planner ~before:[ "A"; "xyz:TSLA" ] ~after:[ "xyz:TSLA" ] in
+  let event = List.hd_exn (events actions) in
+  assert (Option.equal String.equal (str_field event "coin") (Some "A"));
+  assert (Option.equal String.equal (str_field event "dex") (Some ""));
+  assert (Option.equal String.equal (str_field event "change") (Some "delisted"))
+;;
+
+let%test_unit "item 6: the first read subscribes everything and is one listing event, not one per coin" =
   let planner = P.create ~connections:3 ~max_subscriptions:950 in
-  let actions = U.apply planner ~before:[] ~after:[ "A"; "B"; "C"; "D" ] in
-  printf "%d subscribes\n" (List.length (subscribes actions));
-  [%expect {| 8 subscribes |}]
+  let actions = U.first_read planner [ "A"; "B"; "xyz:C"; "xyz:D"; "xyz:E" ] in
+  assert (List.length (subscribes actions) = 10);
+  let evs = events actions in
+  assert (List.length evs = 1);
+  let event = List.hd_exn evs in
+  assert (String.equal (Mmrec.Event.name event) "listing");
+  assert (Option.is_none (coin_of event));
+  assert (P.total planner = 11)
 ;;

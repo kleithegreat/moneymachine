@@ -114,7 +114,7 @@ let%test_unit "item 1: sanitize changes only CR and LF (quickcheck)" =
 
 let%expect_test "item 1: an event is a line whose msg carries the event name" =
   let event = Mmrec.Event.make "refused" [ "coin", `String "xyz:TSLA" ] in
-  let line = Mmrec.Event.to_line ~recv_ms:42 ~conn:7 event in
+  let line = Mmrec.Event.to_line ~recv_ms:42 ~conn:(Some 7) event in
   assert (String.is_suffix line ~suffix:"}\n");
   let json = Yojson.Safe.from_string line in
   let msg = Yojson.Safe.Util.member "msg" json in
@@ -126,5 +126,8 @@ let%expect_test "item 1: an event is a line whose msg carries the event name" =
     "xyz:TSLA"
     42 |}];
   print_endline (Mmrec.Event.name event);
-  [%expect {| refused |}]
+  [%expect {| refused |}];
+  let line = Mmrec.Event.to_line ~recv_ms:43 ~conn:None event in
+  print_endline (Yojson.Safe.to_string (Yojson.Safe.Util.member "conn" (Yojson.Safe.from_string line)));
+  [%expect {| null |}]
 ;;

@@ -40,10 +40,10 @@ val zstd_binary_decode : string -> string
 
 (** The lines of every recording of a channel under [root], in path order, each parsed far enough to give
     [(recv, conn, msg-as-JSON)], via Yojson. *)
-val channel_lines : root:string -> channel:string -> (int * int * Yojson.Safe.t) list
+val channel_lines : root:string -> channel:string -> (int * int option * Yojson.Safe.t) list
 
 (** The names of the [events] under [root] with their JSON, in order of [recv]. *)
-val events : root:string -> (int * int * string * Yojson.Safe.t) list
+val events : root:string -> (int * int option * string * Yojson.Safe.t) list
 
 (** The decompressed content of every recording of a channel under [root], in path order, whole frames only. *)
 val raw_channel_data : root:string -> channel:string -> string
