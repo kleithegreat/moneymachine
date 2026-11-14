@@ -20,7 +20,7 @@ Everything else is shared: the clock, the language, orders, the ledger, fees, fu
 
 ### A2. Numbers
 
-- **The ledger is exact.** A price is an integer count of 10⁻⁸ USD. A size is an integer count of lots, a lot being 10^(−`szDecimals`) of the coin. Money is an integer count of 10⁻¹³ USD, so that a price times a size needs no rounding. A rate (fee, funding) is a decimal held as an integer and its scale.
+- **The ledger is exact.** A price is an integer count of 10⁻⁸ USD, the finest the venue quotes. A size is an integer count of lots, a lot being 10^(−`szDecimals`) of the coin. Money is an integer count of 10⁻¹³ USD, so that a price times a size needs no rounding. A rate (fee, funding) is a decimal held as an integer and its scale.
 - **Every rounding is against the account** and is at most one unit of money: a fee and a funding payment made round up, a funding payment received rounds down. Nothing else in the ledger rounds.
 - **Expressions are binary64,** evaluated by the stage 6 evaluator unchanged in operation order (`reference/SEMANTICS.md` §1, §5). A float leaves the evaluator in two places only: a slot's price, rounded to the price grid away from the market (a buy down, a sell up), and a slot's size, truncated toward zero to lots. A float that is not finite makes the slot inactive.
 - **A recorded price enters** as the decimal nearest its stored double at 8 places; a double further than 10⁻⁹ relative from that decimal rejects the market (`E_PRICE`).
@@ -211,3 +211,83 @@ Each is an assumption. "Checked by" names evidence already readable; where there
 | Margin once a step, cross | At every price event; cross and isolated (A10) |
 | Delisting | Listing events; the current text's rule (A12) |
 | I7's conventions | A13 |
+
+## Part B. The split, and the laws
+
+### B1. What is Lean
+
+Everything that decides a number: the program's parser and checker; the evaluator; slots and reconciliation; the three venues; the ledger, fees, funding, margin and the floor; the trace and the report's returns. It is one Lake library, `Engine`, in a new package `kernel2/lean`, with no executable and no `IO`.
+
+- **The evaluator is reused, not rewritten.** Stage 6's `Ref` (on `main`, L1 to L6 proved, bit-identical to `mm` on 11.36 billion values) or the parked stage 7 tree, whose evaluator already takes its inputs from declared sources (`Ref/Source.lean`, `Ref/Resolve.lean`, L7 and L8). The new inputs of A5 are declared sources, so the second fits better; the build plan's step 0 settles which, by reading both. `reference/lean` on `main` is not edited: it stays the pilot's reference.
+- **The exported surface** is four pure functions, `@[export]`ed to C:
+  - `check : String → String`, a program's JSON to a verdict;
+  - `start : String → String → Except String State`, a program and a market's header (venue, policy, coin rules, fee schedule, alias map);
+  - `feed : State → Chunk → State`, a chunk being flat arrays of events (kinds, coins, times, and one `FloatArray` of values with offsets);
+  - `finish : State → String`, the report and the trace.
+- **What is proved is what runs.** The ledger is integers, so its laws are theorems about the compiled code with no numeric caveat. The evaluator's laws stay as stage 6 left them: proved over abstract numbers, with binary64 resting on the differential of B4.
+
+### B2. What is OCaml
+
+Everything that touches the world, and nothing that decides: one dune project, `kernel2/ocaml`, giving the executable `mm2`.
+
+- **Reading.** Parquet through DuckDB 1.5.2's C API, by hand-written C stubs (`docs/research/2026-11-13-argon-ocaml-parquet-duckdb.md`, a lead I accept: `arrow-cpp` is C++, and no binding is in the pinned nixpkgs). One query a coin-day, ordered by time; the stubs copy each chunk's columns into arrays before the chunk is freed, and release OCaml's runtime lock while DuckDB works. Funding rows, coin rules, the fee schedule and policy are JSON (`yojson`).
+- **Merging** the coins' streams into the order (time, class, coin), and cutting chunks.
+- **Calling Lean.** The executable is OCaml's; it links the engine's compiled C and Lean's static runtime through one stub file that initializes the runtime once and holds the `State` in a custom block whose finalizer releases it. One run a process, one thread in Lean.
+- **Writing.** The SQLite ledger (`ocaml_sqlite3`), whose schema rejects UPDATE, DELETE and REPLACE (the gate hunt's M4); reports and traces to disk; file hashes for the identity.
+- **Orchestration.** A pool of processes sized from measured peak memory and free memory, and the command line.
+- **Nix.** `packages.mm2` builds both; `checks.engine-proofs` type-checks every theorem with no `sorryAx`; OCaml 5.4.1, dune 3.21.1, `ctypes` not needed. Everything is in the pinned nixpkgs, so `flake.lock` does not move.
+
+**The trust boundary.** Not proved: Lean's compiler and runtime, `Float` as the platform's double, the C stubs, DuckDB, OCaml's reader and merge, and the printing of JSON. What guards it:
+- Lean re-checks the order of what it is fed (law C2), so the reader can only be wrong about content.
+- Chunk boundaries cannot matter (law C1).
+- The reader is compared with the existing one (`ingest/archive.py`) on sampled coin-days, event for event; that Python stays a test's oracle, outside the kernel, until it is ported or retired.
+- The archive defect of facts §6 (a table with fewer hours than its raw files) becomes the reader's check: a coin-day's row count and hours against its raw files' manifest.
+
+### B3. The laws
+
+★ marks a law that a judged number depends on. It is proved in Lean on the running code, and its statement is frozen before its proof, as stage 7's were. The others are property tests, or hold by a differential as said.
+
+**Causality**
+- **L1 ★ Non-interference.** Two markets whose events with `knownAt ≤ τ_k` are equal give equal machine states, wishes, orders and traces through tick `k`. Own-state inputs are inside the statement.
+- **L1b ★ No fill on what was seen.** An order wished at `τ` has no fill, arrival or resting, on an event with time at most `τ + λ`.
+
+**The language** (stage 6's, restated over legs and slots)
+- **L2 Units.** The instrumented machine never raises a unit error, with size and money as units; erasing units gives the executable values. Proved.
+- **L3 Rewrites.** Every rule of R v1 preserves node values and traces. Proved, abstract numbers.
+- **L5 Binding.** `inputUnavailable` exactly when a slot of the registry is unbound. Proved.
+- **N1 Renaming.** For every bijection of source names, the renamed program on the renamed market gives the same trace up to the renaming. Proved.
+
+**Orders and fills**
+- **L4 ★ Fills.** Every fill belongs to one order that is live at its time. A maker fill is at the order's price. A taker fill is at recorded levels' prices, each no worse than the limit, taking no more than each level shows, in price order. An order's fills sum to at most its size. A post-only order never takes. A `reduce_only` order never raises the leg's position in absolute value and never flips it. A fill's fee is its notional times the rate of its role and tier at its time, rounded up.
+- **R1 Reconciliation.** A wish equal to the live order places and cancels nothing. Reconciling twice at one tick equals once.
+- **F1 ★ The rules are ordered.** On any admitted market, for one resting order: if the pessimistic rule fills it at a quote, the optimistic rule fills it at that quote or an earlier one.
+- **F2 ★ The rules are monotone in evidence.** For one resting order, adding quotes to the market never makes its fill later, under either rule. (Not a law of whole runs: A7.)
+- **F3 Trades.** On a market with no trade events, the trade-aware rules are the snapshot rules. Proved when trade events are built.
+
+**The ledger**
+- **A1 ★ Conservation.** At every event, equity at mids equals the starting equity plus realized and unrealized profit minus fees and funding, exactly. The legs' positions sum to the account's net position in every coin, and the legs' profits, fees and funding to the account's.
+- **A2 ★ Average entry.** A leg's `entry` is the size-weighted mean price of its opening fills since it was flat, and a closing fill realizes its size times the difference between its price and `entry`.
+- **A3 ★ Rounding.** Every rounding lowers equity, by less than one unit of money, and there is at most one for each fee and funding payment.
+- **M1 ★ Margin.** The account is liquidated at an event exactly when, after that event's fills, its equity at adverse prices is below its maintenance. No order is admitted that takes initial margin above equity at adverse prices. An isolated position loses at most its margin.
+- **L6 ★ The floor.** Equity is never negative, every report step's return is at least −1, and after a bankruptcy every return is zero.
+
+**The boundary**
+- **C1 ★ Chunking.** `feed` over a list of events equals `feed` over any cutting of it into chunks.
+- **C2 ★ Admission.** A fed event that is out of order, crossed or off its coin's rules puts the state in a rejecting state that `finish` reports, whatever follows.
+- **D1 Determinism.** A run is a function of its program, market and header. In Lean this is purity; across the boundary it is tested by running twice, on two hosts.
+
+**What is deliberately not a law.** That either venue's return bounds the truth (A7). That the snapshot rules reproduce real fills: that is measured on the vault's own orders (architecture 6), by cadence.
+
+### B4. Against version 1
+
+Version 2 is not required to equal `mm` bit for bit, for two reasons. Its ledger is exact where `mm`'s is binary64. And `mm` holds the nine defects (K1 to K6, M1, M2, M4), which the current `reference/SEMANTICS.md` fixes and no engine implements; version 2's `table` venue implements the current text, and never the defects behind a switch. The frozen kernel's judged results stay its own. The overlap is checked in three parts, on the frozen C6.4 corpus (3,372 runs):
+
+1. **The evaluator, bit for bit.** Each corpus program is lifted to version 2: one leg, one `target` slot, a tick of one hour, a decision every fourth tick. Its node streams equal `mm`'s on every run. Expressions read nothing of the ledger, so the defects cannot touch this, and it is the full strength of stage 6's check.
+2. **The ledger, by replay.** The ledger can be driven by given fills in place of a venue's. `mm`'s own fills and funding rows, replayed, must give `mm`'s equity at every step until the run's first stop-out or bankruptcy, within the sum of two derived terms: `mm`'s own float tolerance (I5), and one price unit a fill, since version 2 rounds a table price to 10⁻⁸ USD against the account. The same replay, fed the vault's real fills, is study 2's accounting check; it is one mechanism.
+3. **Decisions, with every difference named.** The whole `table` venue is run on the corpus and compared with `mm` step by step. A run agrees, or its first differing step satisfies the stated condition of one of K1 to K6 (or the stop-out at Λ = 4) in the current text. A difference that no defect's condition explains is a failure. The count of agreeing runs is reported, not judged. The nine strict-xfail tests (`gate/tests/test_kernel_defects.py`, `test_mechanism_defects.py`) are ported to run against `mm2` and must pass.
+
+Where a size falls within 10⁻⁹ of a lot boundary, an exact ledger and a float one may truncate differently. Such steps are listed and counted with the K conditions.
+
+### B5. Scale
+
+Study 2 runs a fixed rule a handful of times, not a search. The wall: one run of 16 coins over 212 days at every recorded snapshot (229 million quotes) finishes within one hour on one core and within 2 GB, since events stream and no book is kept. A search over book markets at the pilot's scale (10 million evaluations) is out of reach at any plausible speed (facts §9) and is not a goal of version 2.
