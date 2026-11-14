@@ -33,11 +33,11 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
-     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are owed by Fable: part 0 of the kernel version 2 session, launched at 2026-11-14 00:12 UTC (11-13 19:12 EST) on the personal token.
+     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are written (`4844762`, behaviours 7 and 8, L5.6, plus a cross-host probe that numpy's results agree bit for bit). Owed: L5.6's remaining tests by a model other than the builder's, then the build. A one-host run can start now.
      - **Then:** calibration, G100 on the study markets, the first sessions (Cornell, and TAMU from 2026-11-14 04:00 UTC (11-13 23:00 EST)).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
-     - Argon's round 4 findings 1, 2, 4 and 5 (the hedge, the margin, the frozen bet) are open for the kernel version 2 design.
+     - **Kernel version 2:** semantics and the Lean/OCaml split with its laws are written (`rearchitecture` `c1a4421`, `a829c07`, `audit/program/kernel-v2.md`). Tasks 3 to 5 (D11 to D15, the build plan, the ledger) wait for a TAMU Fable session: brief `data/builder/architect-kernel-v2-part2.txt`, whose starting derivations are in `data/builder/architect-kernel-v2-report-1.md`.
      - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
 2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
@@ -49,7 +49,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Fable:** study 1's open points; then kernel version 2 (Lean and OCaml) with study 2's hedge and margin.
+1. **Fable on TAMU:** kernel version 2's tasks 3 to 5; then Argon reviews the design.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
@@ -65,6 +65,7 @@ None blocks the program. Source certificates that fail, with their clauses, are 
 
 - From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the research reviews' actions; the cluster runner not adopted.
 - **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending Fable.
+- **Fable's five kernel version 2 questions** (`data/builder/architect-kernel-v2-report-1.md`): version 2 implements `SEMANTICS.md` rather than porting `mm` byte for byte; certify the trades bucket only if fill checks need it; study 2's account dollar-neutral or unhedged; forward data for the 12 unrecorded coins; the evaluator base (stage 6 or stage 7).
 
 ## Qualifications
 
