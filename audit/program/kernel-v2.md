@@ -1,293 +1,304 @@
 # Kernel version 2: semantics, the Lean and OCaml split, and the laws
 
-Written 2026-11-14 UTC by Claude Fable 5.2, session "architect: kernel version 2 and study 2", from `facts-kernel-v2.md` (`d8200f0`). A design on branch `rearchitecture`, not yet reviewed. Part A is the contract a Lean specification and an OCaml implementation are written from. Part B says which language holds what, and the laws. The build plan is `briefs/3-kernel-v2.md`; study 2, which needs this kernel, is `architecture.md` section 6.
+Written 2026-11-14 UTC by Claude Fable 5.2 from `facts-kernel-v2.md` (`d8200f0`); revised 2026-11-14 07:43 UTC (02:43 EST) after Argon's round 1 (`audit/reviews/2026-11-14-argon-cli-kernel-v2-r1.md`), whose seven findings are answered in part C. A design on branch `rearchitecture`. Part A is the contract the Lean engine is written from. Part B says which language holds what, and the laws. The build plan is `briefs/3-kernel-v2.md`; study 2, which needs this kernel, is `architecture.md` section 6.
 
-Binding: maximal Lean, OCaml for the rest, no Rust or Python; strategies are data; the frozen pilot kernel `mm` and its judged results are not rerun here.
+Binding: maximal Lean, OCaml for the rest, no Rust or Python; strategies are data; version 2 is a clean-room design owing nothing to version 1's code (the human, 2026-11-14), and the frozen pilot kernel `mm` and its judged results are not rerun here.
 
 ## Part A. Semantics
 
-### A1. One machine, and what varies
+### A1. One machine
 
-Version 1 hard-wired a four-hour bar into its loop, its fills, its funding and its margin. Version 2 is one event-driven machine, and a **venue** is the record of rules that vary:
+Version 2 is one event-driven machine: a program places priced orders against recorded books and trades, and an exact ledger keeps its account. A **venue** is the record of what varies between runs: the fill rule (`optimistic` or `pessimistic`, A7), the order delay `λ`, the observation delay `δ`, the gap length `G`, the order cap and the minimum order. There is no second engine and no switch inside a rule.
 
-| Venue | Price evidence | Fills | Used for |
-|---|---|---|---|
-| `book-optimistic` | L2 snapshots | arrival against the book; a resting order at a touch (A7) | study 2 |
-| `book-pessimistic` | L2 snapshots | arrival against the book; a resting order at a trade-through (A7) | study 2 |
-| `table` | bars | market orders only, at the next bar's open with the cost table | the overlap with version 1 (B4) |
-
-Everything else is shared: the clock, the language, orders, the ledger, fees, funding, margin, the floor, the trace. Version 1 is the `table` venue with a tick of one hour and a decision every fourth tick. There is no second engine and no switch inside a rule.
+Version 1's bar-and-cost-table fills are not in version 2 (A15). `mm` stays the pilot's instrument.
 
 ### A2. Numbers
 
-- **The ledger is exact.** A price is an integer count of 10⁻⁸ USD, the finest the venue quotes. A size is an integer count of lots, a lot being 10^(−`szDecimals`) of the coin. Money is an integer count of 10⁻¹³ USD, so that a price times a size needs no rounding. A rate (fee, funding) is a decimal held as an integer and its scale.
-- **Every rounding is against the account** and is at most one unit of money: a fee and a funding payment made round up, a funding payment received rounds down. Nothing else in the ledger rounds.
-- **Expressions are binary64,** evaluated by the stage 6 evaluator unchanged in operation order (`reference/SEMANTICS.md` §1, §5). A float leaves the evaluator in two places only: a slot's price, rounded to the price grid away from the market (a buy down, a sell up), and a slot's size, truncated toward zero to lots. A float that is not finite makes the slot inactive.
-- **A recorded price enters** as the decimal nearest its stored double at 8 places; a double further than 10⁻⁹ relative from that decimal rejects the market (`E_PRICE`).
-- **Why.** Version 1 checked its float ledger against a second ledger to a tolerance (I5). With an exact ledger the accounting laws are theorems about the code that runs, and floats can choose an order but cannot corrupt a balance.
-- **Returns** are computed once, at the report: the ratio of two exact equities, converted to binary64.
+There are two sorts of number, and the ledger holds only one.
+
+- **Exact** numbers are rationals. Prices, sizes, money and rates are exact. The ledger's state is cash and a position in each coin; equity is cash plus each position times its mark. **Nothing in the ledger rounds.** Every amount it moves is a product of recorded decimals, so cash is always a finite decimal, and it is printed in full.
+- **Float** numbers are binary64, evaluated in stage 6's operation order (`reference/SEMANTICS.md` §1, §5). Signals, windows and transcendental functions are floats.
+- **Two crossings, both total.** `exact(f)` is the rational that the float `f` is; it changes no value. `float(e)` is the binary64 nearest the rational `e`, ties to even. A float that is not finite makes whatever reads it undefined.
+- **Three roundings in the whole machine,** each of an exact value: a slot's price to the coin's price grid, away from the market (a buy down, a sell up); a slot's size to lots, toward zero; and the report's returns to binary64.
+- **A recorded number enters as a decimal.** A source declares each field's scale `d` (8 for a price, `szDecimals` for a size, 12 for a rate). A stored double `x` is read as the decimal `n · 10⁻ᵈ` with `|n| < 10¹⁵` whose nearest binary64 is `x` bit for bit. At most one exists, since 15 significant digits survive binary64. If none exists the market is rejected (`E_DECIMAL`). There is no tolerance.
+
+**Why.** Round 1 found two faults in the first draft, with one cause: I let floats compute an order's price and size and then rounded with a direction, and I kept money on an integer grid. The first moves `10 × 0.9775` one tick off the grid; the second cannot hold an average entry or a mid. Both go when the boundary is put where the meaning changes: a float decides *whether*, exact arithmetic decides *where and how much*, and a view such as average entry is a rational that needs no grid.
 
 ### A3. Time and events
 
-Times are integer milliseconds. A market is a finite list of events, each with a coin, a time `t` and a kind:
+Times are integer milliseconds. A market has a horizon `[w_start, w_end)` and a finite list of events. Each has a coin, a `time` at which it happened and a `known` time, at or after it, from which a program may see it.
 
 | Kind | Holds | Class |
 |---|---|---|
-| listing | the coin's rules from `t` on: `szDecimals`, the price grid, margin tiers; or the end of its listing | 1 |
+| listing | the coin's rules from `time` on: `szDecimals`, the price grid, margin tiers; or the end of its listing, with a settlement price | 1 |
 | funding | the settled rate, and the oracle price when the source has it | 2 |
 | quote | a snapshot: up to 20 bid and 20 ask levels, each a price and a size, best first | 3 |
-| range | a bar: its start, open, high, low, close, volume | 3 |
-| trade | a print: price, size, aggressor side (only if a certified source has trades, A7) | 3 |
+| trade | a print: price, size, aggressor side | 3 |
+| observation | one value of a declared source (a name, a unit, a float) | 3 |
 | tick | the program's clock (A4); not in the market | 4 |
 
-The machine consumes events in the order (time, class, coin). Admission rejects a market whose events are not strictly ordered in each coin and kind, whose quote is crossed or one-sided (the reader drops and counts those; the count is in the identity), or which mixes quotes and ranges for one coin.
+The machine consumes events in the order (time, class, coin, kind as listed, position in its source). Admission rejects a market whose events are out of that order, whose quote is crossed or one-sided (the reader drops and counts those; the count is in the identity), or whose numbers fail A2.
 
-**Gaps.** A venue has a registered gap length `G`. Two successive quotes of a coin further apart than `G` make a gap. The machine does nothing inside a gap, since there is no evidence there; the trace marks it, and the report gives the share of each coin's time in gaps and whether a position or an order was open across one.
+- **`known`.** A quote's and a trade's is `time + δ`. A funding row's and an observation's is given by its source's certificate. The ledger acts on an event at its `time`; the program sees it from its `known`.
+- **Observations** are how any other data enters: version 1's bars, a forum count, a signal. The machine never builds one.
+- **Gaps.** Two successive quotes of a coin further apart than `G` make a gap. Inside a gap the coin's price inputs are undefined, no order of that coin fills, and no check runs, since there is no evidence. The trace marks it; the report gives each coin's share of time in gaps and whether a position or an order was open across one.
 
 ### A4. The clock
 
-The program declares `tick`, any whole number of seconds from 1 up, and `decide_every`, a whole number of ticks. Tick `k` is at `τ = k·tick + δ`, with `δ` the observation delay of the market's policy.
-- At every tick, every observation with `knownAt ≤ τ` is delivered and every expression is evaluated once. Windows count ticks.
+The program declares `tick`, a whole number of seconds from 1 up, and `decide_every`, a whole number of ticks. Tick `k` is at `τ = k · tick`, for every `τ` in the horizon.
+- At every tick, every event with `known ≤ τ` has been delivered and every expression is evaluated once. Windows count ticks.
 - At every `decide_every`-th tick, counted from the epoch, the slots are read and reconciled (A6).
-- A bar input is the bar of the tick interval just closed, built from quote mids (book venues) or given (the `table` venue, whose range events must be multiples of the tick). A quote's `knownAt` is `t + δ`; a bar's is its end plus `δ`; a funding row's is version 1's rule.
+- An input's value at a tick is its latest delivered value. A tick with no new quote reads the same book as the tick before: that is what "latest known" means, and a window over a tick finer than the data's cadence is defined. Only a gap (A3) makes a price input undefined.
 
-Fills, funding, margin and the floor are not on the clock: they happen at their events (A7 to A11).
+Fills, funding, margin and the floor are not on the clock: they happen at their events.
 
 ### A5. The language
 
-Strategies stay data: one JSON AST, type-checked, interpreted. Version 2 adds to version 1's surface; it removes `weight` as a special output and keeps it as a slot kind.
+Strategies stay data: one JSON AST, type-checked, interpreted.
 
-**Header.** `version: 2`, `tick`, `decide_every`, `leverage` (a number for each coin or one for all, at most the coin's maximum), `margin` (`cross`, or `isolated`), and `legs`.
+**Header.** `version: 2`, `tick`, `decide_every`, and `leverage`, a number for each coin or one for all, at most the coin's maximum.
 
-**Legs.** A program is a list of named legs. A leg has its own slots and its own state. The account nets the legs' positions coin by coin, as the venue would, and margins the net. A program with one leg is the common case; a second leg exists so that a rule and its hedge can live in one account (study 2) without the hedge's fills corrupting the rule's average entry.
-
-**Slots.** A leg has a fixed list of at most 16 named slots, the same for every coin. A slot is a standing wish, not a command:
+**Slots.** A program has a fixed list of at most 16 named slots, the same for every coin. A slot is a standing wish, not a command:
 
 | Field | Type | Meaning |
 |---|---|---|
-| `kind` | `target`, `market`, `limit` | |
-| `side` | `buy`, `sell` | absent for `target` |
+| `kind` | `market`, `limit` | |
+| `side` | `buy`, `sell` | |
 | `when` | bool | the slot is active; undefined is false |
-| `price` | price | `limit` only |
-| `size` | size, notional, or `close` | the amount this slot is to have filled in the current cycle; `close` is the leg's whole position |
+| `price` | exact, a price | `limit` only |
+| `size` | exact, a size or a notional; or `close` | the amount this slot is to have filled in the current cycle; `close` is the whole position |
 | `tif` | `gtc`, `alo`, `ioc` | `limit` only; `alo` is post-only |
-| `reduce_only` | bool | the order never exceeds the leg's position and never opens |
-| `weight` | ratio | `target` only: version 1's target fraction of equity |
+| `reduce_only` | bool | the order never opens, and a fill is cut to the position |
 
-A notional is turned into a size at the slot's price (`limit`) or the last known mid (`market`).
+A notional becomes a size by exact division by the slot's price (`limit`) or the latest known mid (`market`).
 
-**A cycle** of a leg on a coin runs from its first fill while flat to the fill that makes it flat. A slot's `filled` counts within the cycle and resets when the cycle ends. A slot whose `filled` has reached its `size` wants nothing more until the next cycle. This is the whole of the ladder's memory: a level that has filled does not fill again, and a level that has not rests.
+**A cycle** on a coin runs from the first fill while flat to the fill that makes it flat. A slot's `filled` counts within the cycle and resets when it ends. A slot whose `filled` has reached its `size` wants nothing more until the next cycle. This is the whole of a ladder's memory.
 
-**New inputs.** All are per coin, typed with version 1's units, and delivered with a `knownAt` like any observation:
+**Inputs.** All are per coin and delivered with a `known` time like any event:
 
-| Input | Unit | Value |
+| Input | Sort, unit | Value |
 |---|---|---|
-| `bid`, `ask`, `mid` | price | the latest known quote's best prices and their mean (book venues) |
-| `bid_size`, `ask_size` | size | the best levels' sizes |
-| `oracle` | price | the latest known funding row's oracle price, where the source has it |
-| `pos` | size | the leg's signed position |
-| `entry` | price | the leg's average entry price; undefined when flat |
-| `first_price` | price | the price of the cycle's first fill; undefined when flat |
-| `age` | ticks | ticks since the cycle's first fill; undefined when flat |
-| `filled(slot)`, `resting(slot)`, `resting_price(slot)` | size, size, price | the slot's fills this cycle, and its live order's remainder and price |
-| `equity`, `free_margin` | money | the account's, at mids and at adverse prices |
-| `leg(name, input)` | as the input | another leg's `pos`, `entry` or notional |
+| `bid`, `ask`, `mid` | exact, price | the latest known quote's best prices and their mean |
+| `bid_size`, `ask_size` | exact, size | the best levels' sizes |
+| `high`, `low` | exact, price | the highest and lowest mid, and trade price where the market has trades, known since the last tick; the latest mid when nothing arrived |
+| `traded` | exact, size | the size printed since the last tick; an unknown input (`E_UNKNOWN_INPUT`) on a market with no trades |
+| `oracle`, `funding` | exact, price and rate | the latest known funding row's |
+| `pos` | exact, size | the signed position |
+| `entry` | exact, price | the position's cost over its size; undefined when flat |
+| `first_price`, `first_size` | exact | the price and size of the cycle's first fill; undefined when flat |
+| `age` | exact, ticks | ticks since the cycle's first fill; undefined when flat |
+| `filled(slot)`, `resting(slot)`, `resting_price(slot)` | exact | the slot's fills this cycle, and its live order's remainder and price |
+| `equity`, `free_margin` | exact, money | the account's, at mids and at adverse prices |
+| a declared source's name | float, its unit | its latest known observation |
 
-The `table` venue has no quote, so `bid`, `ask`, `mid` and the size inputs are unknown inputs there (`E_UNKNOWN_INPUT`), and `limit` slots are a type error (`E_NO_BOOK`).
+**Expressions.** Float expressions are stage 6's. Exact expressions are decimal literals, exact inputs, `+ − × ÷`, `min`, `max`, negation and `exact(f)`; a division by zero is undefined. Comparisons of either sort give a bool. A float expression reads an exact one through `float(e)`.
 
-**Typing.** Version 1's unit checker (L2) gains two units, size and money, and one rule: price times size is money. A slot's fields must have the types of the table above. A `reduce_only` slot may not be `target`. A slot may not read its own `resting` in its `when` in a way that makes the wish depend on the order it creates within one tick; the checker forbids nothing here, because the inputs it reads are those known at the tick, before reconciliation.
+**Typing.** Stage 6's unit checker (L2) gains the sort, the units size and money, and the rule that price times size is money. A literal in an exact expression is the decimal as written. A slot's fields have the types of the table.
 
-**Causality.** An own-state input is a function of the leg's fills, and a fill at time `t` is known at `t + δ`. So the state a program reads at tick `τ` is a function of events with `knownAt ≤ τ`, its own fills included, and non-interference (L1) is stated over the whole machine (B3). An order wished at `τ` cannot fill on evidence at or before `τ + λ` (A6). The program can never fill against the book it saw.
+**Causality.** An own-state input is a function of the account's fills, and a fill at `t` is known at `t + δ`. So what a program reads at tick `τ` is a function of events with `known ≤ τ`, its own fills included (law L1). An order wished at `τ` cannot fill on evidence at or before `τ + λ` (law L1b). A program never fills against the book it saw.
 
-**What the ladder looks like.** One leg; a `limit` entry slot whose `when` is the trigger; five `limit` `alo` buy slots at `first_price` times (1 − 2.25%), and so on, with notional sizes in the published multiples of the entry; one `limit` `reduce_only` sell slot of size `close` at `entry` times 1.0056. No kernel rule knows what a ladder is.
+**What the ladder looks like.** A `limit` entry slot whose `when` is the trigger; five `limit` `alo` buy slots at `first_price × 0.9775`, and so on, sized `first_size × 1`, `× 1.93`, …; one `limit` `reduce_only` sell slot of size `close` at `entry × 1.0056`. Every constant is a decimal, so `10 × 0.9775` is `9.775` and `1.93` coins are 193 lots. No kernel rule knows what a ladder is.
 
 ### A6. Orders
 
-At a deciding tick `τ` each slot's wish is compared with its live order. The wish is the pair (price, `size − filled`), or nothing when the slot is inactive or wants nothing more. If the wish differs from the live order, the live order is cancelled and the wished one placed, both taking effect at `τ + λ`, `λ` being the venue's registered order delay. Until then the old order can still fill. So:
-- **cancel** is a slot going inactive;
-- **expiry** is a `when` that reads `age` or the clock;
-- **replace** is a wish whose price or size has moved.
+At a deciding tick `τ` each slot's wish is compared with its live order. The wish is the pair (price, `size − filled`), rounded as A2 says, or nothing when the slot is inactive or wants nothing more. If the wish differs from the live order, the live order is cancelled and the wished one placed, both taking effect at `τ + λ`. Until then the old order can still fill. So **cancel** is a slot going inactive, **expiry** is a `when` that reads `age`, and **replace** is a wish whose price or size has moved.
 
-An order is admitted at `τ + λ` only if, with it, the initial margin of the net positions and of every live opening order fits in the account's equity at adverse prices (A10); if its notional is at least the venue's minimum, 10 USD, unless it is `reduce_only` and closes the position exactly; and if its notional is at most the policy's cap. Otherwise it is refused, with a reason in the trace, and the slot stays empty until the next deciding tick. A `target` slot places version 1's order: a market order of size `trunc(weight · equity / price − held)`, under version 1's portfolio rules.
+Orders taking effect at one time are admitted one by one: first every `reduce_only` order, then the others, each group by (coin, slot) in the program's order. An order is admitted only if
+- with it, the initial margin of the positions and of every live opening order, each order valued at its limit price or, for a market order, the latest known ask, fits in equity at adverse prices (A10);
+- its notional is at least the venue's minimum, 10 USD, unless it is `reduce_only` and closes the position exactly;
+- its notional is at most the policy's cap.
+
+Otherwise it is refused, with a reason in the trace, and the slot stays empty until the next deciding tick. The order of admission is a convention; it is in the identity.
 
 ### A7. Fills
 
-**The `table` venue** fills a market order as version 1 does: at the open of the first range starting at or after `τ + λ`, at the cost table's price, in full, and not at all if that range has no trade (I3).
-
-**The book venues.** Let an order go live at `ℓ = τ + λ`. Its **arrival** is the coin's first quote with `t > ℓ`. Write the best bid and ask there as `b`, `a`. For a buy (a sell mirrors):
-- **market:** it takes the ask levels in order until it is filled or the 20 levels end; the unfilled rest is cancelled.
+Let an order go live at `ℓ = τ + λ`. Its **arrival** is the coin's first quote with `time > ℓ`. Write the best bid and ask there as `b`, `a`. For a buy (a sell mirrors):
+- **market:** it takes the ask levels in order until it is filled or the levels end; the rest is cancelled.
 - **limit, `a ≤ p`** (marketable): `alo` is refused; `gtc` and `ioc` take the ask levels priced at most `p`; the rest of a `gtc` rests at `p`, the rest of an `ioc` is cancelled.
 - **limit, `a > p`:** it rests at `p`; an `ioc` is cancelled.
 
-A fill at arrival is a taker fill at the levels' prices. A **resting** order is judged at each later quote, and fills as a maker, in full, at `p`:
-- **optimistic, at a touch:** when `b ≤ p`. No recorded bid is ahead of it, so the next seller would reach it.
-- **pessimistic, at a trade-through:** when the ask levels priced strictly below `p` hold at least the order's remainder. A seller has then rested below the order's price with at least its size left over, which he would have sold to it first.
+A fill at arrival is a taker fill at the levels' prices. Orders arriving at one quote take from it in admission order, and a level's size is taken once.
 
-Neither rule fills in part, and neither has a queue.
+**A resting order fills on evidence.** At each later quote or trade of its coin, the record shows some number of lots that a seller offered at a price where this order stood first. The venue's rule says how many:
 
-**What the two rules bound.** Take one order and suppose the book were seen continuously and our order moved nobody (assumption V10). A resting bid cannot fill while a recorded bid is above it, so the true fill is no earlier than the touch. And a seller who rests below `p` with the order's size left over would have filled it, so the true fill is no later than the trade-through. Between them the truth depends on the queue and on trades, which snapshots do not hold.
+| | A quote | A trade at price `x`, size `s` |
+|---|---|---|
+| `optimistic` | `b ≤ p`: the whole remainder | `x ≤ p`: the whole remainder |
+| `pessimistic` | the ask sizes priced strictly below `p`, if they cover the remainder; else nothing | `x < p`: `s` |
 
-**What they do not bound.** Fills feed back: a fill starts a take-profit, ends a cycle, frees margin. So the two venues give two runs, and neither run's return bounds the other's or the truth's. Both are reported. The pessimistic run fills a dip-buyer only when price went through its level, which is when the fill is worst; the optimistic run also fills it at the exact low.
+The order fills, as a maker, at `p`, the lesser of its remainder and its evidence. Evidence is allotted to the account's resting orders best price first, then by (slot), and **each recorded lot is allotted once at its event**, after that quote's arrivals have taken theirs. A `reduce_only` fill is cut to the position, and what is cut is cancelled.
 
-**The cadence.** The archive's snapshots are 0.54 s apart until 2026-06-15, 2.2 s for five days, then 5.4 s (facts §6). Both rules are monotone in the evidence: add snapshots and an order fills no later, under either rule (law F2, B3). Two consequences:
-- The pessimistic rule stays valid at any cadence. Evidence that it saw is evidence that existed; a sparser record only makes it later, or miss.
-- The optimistic rule stops being a bound. A wick that touches the price and recovers between two snapshots fills the real order and leaves no trace, so the true fill can precede the "optimistic" one. After 2026-06-21 a dip shorter than about 5 s is invisible to both rules.
+**Why these.** Under `optimistic` no recorded bid is ahead of the order, so the next seller could have reached it: no fill can be earlier. Under `pessimistic` a seller sold, or rests, at a price worse for him than `p`, so he would have sold to this order first: every lot filled is a lot the record shows was offered through the price (assumption V10). Trade evidence adds up, because each print is a different sale. Quote evidence does not, because the same resting seller is in the next snapshot, so a quote can only complete an order.
 
-So the two runs bracket the truth only up to wicks, and how much that is must be measured, not assumed: study 2's fill check counts, by cadence period, the vault's real maker fills that each rule reproduces (architecture 6). Decimating the fast period to the slow cadence, and rerunning, measures the cadence's cost directly on dates where the finer truth is known.
+**What the rules do not bound.** Fills feed back: a fill starts a take-profit, ends a cycle, frees margin. The two venues give two runs, and neither run's return bounds the other's or the truth's, in either direction (Argon's two constructions, round 1, finding 3). There is no law of whole runs. A study names the venue its claim is about (study 2: `pessimistic`), and measures both rules against an account that really traded.
 
-**What the trades bucket would add** (`s3://hl-mainnet-node-data`, not certified): every print between snapshots. With trade events the optimistic rule becomes "a print at or below `p`, or the touch", which is again the earliest possible fill at any cadence, and the pessimistic rule becomes "prints strictly below `p` of at least the order's size, or the trade-through", which is certain and earlier. The bracket then holds at any cadence, and its width is the queue alone. The machine already has the event kind; the rules above are their limit with no trade events.
+**On a book that held the real order.** In the vault's own history its order was in the book, so `optimistic` fires when that order became the best bid and `pessimistic` only on flow beyond what filled it. That is what the rules mean: they price a second, identical order. A replica trading beside the vault is such an order.
+
+**Cadence and trades.** The archive's snapshots are 0.54 s apart until 2026-06-15, 2.2 s for five days, then 5.4 s (facts §6). Without trades a wick between two snapshots fills a real order and leaves no trace, so `optimistic` is no longer the earliest fill and `pessimistic` misses more. With trades both rules see every print, and what is left between them is the queue alone. So **trade events are built**, not deferred: the forward recorder has carried `trades` for every perp since 2026-11-14 03:43 UTC (2026-11-13 22:43 EST), and the judged run needs them. For the archive's dates the trades are in `s3://hl-mainnet-node-data`, to be certified and read within the 17.54 USD left (architecture 6); until then the archive runs are the rules' limit with no trade events, and the cost of the cadence is measured by decimating the fast period.
 
 ### A8. Fees
 
-A fill's fee is its notional times the rate of its role, maker or taker, in the fee schedule in force at the fill's time. The schedule is a market input: a list of dated tiers, each a maker and a taker rate. The fill's trace row records the role, the tier and the rate, so the tier is recorded per fill. Today the schedule has one tier, the venue's base (maker 0.015%, taker 0.045%), from 2026-04-03: every one of the vault's 5,806 fills paid exactly it (facts §7). The simulated account does not move between tiers (assumption V4).
+A fill's fee is its notional times the rate of its role, maker or taker, in the fee schedule in force at the fill's time, exactly. The schedule is a market input: a list of dated tiers. The fill's trace row records the role, the tier and the rate. Today the schedule has one tier, the venue's base (maker 0.015%, taker 0.045%), from 2026-04-03: every one of the vault's 5,806 fills paid it (facts §7). The simulated account does not move between tiers (assumption V4).
 
 ### A9. Funding
 
-At a funding event of a coin at time `t` with rate `ρ`, the account pays `q · O · ρ`, `q` being its net position in the coin at `t`, fills at `t` included, and `O` the event's oracle price. Where the source has no oracle price, `O` is the mid of the latest quote at or before `t` (book venues) or version 1's bar open (`table`). A coin with a position and no funding event within its hour's registered lateness aborts the run (`R_SETTLEMENT_MISSING`), as in version 1. Each leg is charged for its own position, so the legs' payments sum to the account's.
+At a funding event of a coin at `time` with rate `ρ`, cash falls by `q · O · ρ` exactly, `q` being the position at that time, fills at it included, and `O` the event's oracle price, or where the source has none the mid of the latest quote at or before it. A coin with a position and no funding event within its hour's registered lateness aborts the run (`R_SETTLEMENT_MISSING`).
 
 ### A10. Margin and liquidation
 
-**Marks.** At a quote the account is marked twice: at mids for reporting, and at adverse prices, the bid for a long and the ask for a short, for every check. At a range, adverse is the low for a long and the high for a short (version 1).
+**Marks.** The account is marked at mids for reporting and at adverse prices for every check: the bid for a long and the ask for a short, and at a trade the print's price when it is worse.
 
-**Cross.** One balance. Equity is the balance plus each net position's unrealized profit. Maintenance is the sum over coins of notional times `1 / (2 · maxLeverage)` of the tier holding that notional. Initial margin is notional over the header's leverage, for net positions and for live opening orders. At every quote or range of a held coin, after fills: if equity at adverse prices is below maintenance, the account is **liquidated**: every order is cancelled, and every position is closed as a market order against that quote's levels (at the adverse extreme of a range), paying the taker fee, a remainder beyond the levels closing at the last level's price. What is left stays in the account.
+**Cross margin, one balance.** Maintenance is the sum over coins of notional times `1 / (2 · maxLeverage)` of the tier holding that notional. Initial margin is notional over the header's leverage, for positions and for live opening orders. At every quote or trade of a held coin, after that event's fills: if equity at adverse prices is below maintenance, the account is **liquidated**. Every order is cancelled, and every position is closed as a market order against its coin's latest quote, paying the taker fee, a remainder beyond the levels closing at the last level's price.
 
-**Isolated.** Each coin's position carries its own margin, taken from the balance at each opening fill as notional over leverage. The position is liquidated alone when its margin plus its unrealized profit at the adverse price is below its maintenance. Its loss is at most its margin: a shortfall is the venue's, and what is left of the margin is lost with it (assumption V5, the pessimistic reading). No study uses isolated margin; it is specified for the bracket account (architecture 6, D15) and is not built until a study names it.
+Fills come before the check because a resting bid fills as the price passes it, which is before the low. Isolated margin is not in version 2: no study uses it.
 
 ### A11. The floor
 
-After any liquidation, if equity is not positive the account is **bankrupt**: equity is set to zero, the shortfall is recorded as `absorbed`, every later return is zero, and the run goes on only to keep the trace's shape. So equity is never negative and no step's return is below −1. A liquidation and a bankruptcy are both events in the trace with their times, so a study can end its test at the first of either (study 2 does).
+After a liquidation, if equity is not positive the account is **bankrupt**: equity is set to zero, the shortfall is recorded as `absorbed`, and every later return is zero. So equity is never negative and no step's return is below −1. A liquidation and a bankruptcy are events in the trace, so a study can end its test at the first of either (study 2 does).
 
 ### A12. One event, in order
 
-At an event's time, by class:
-1. **Listing:** the coin's rules change; a coin whose listing ends is closed at its record's settlement price, as the current `SEMANTICS.md` says.
+1. **Listing:** the coin's rules change; a coin whose listing ends has its orders cancelled and its position closed at the record's settlement price.
 2. **Funding:** A9.
-3. **Quote, range or trade:** orders whose life starts or ends by now do so; arrival fills; resting fills; fees; cycles and `filled` updated; then marks, liquidation, the floor.
-4. **Tick:** deliver, evaluate, and at a deciding tick reconcile (A6).
+3. **Quote or trade:** orders whose life starts or ends by now do so; arrival fills; resting fills; fees; cycles and `filled` updated; then marks, liquidation, the floor. An observation changes nothing here.
+4. **Tick:** deliver, evaluate, and at a deciding tick reconcile.
 
-A report step is a whole number of ticks; its return is the ratio of equities at mids at its ends.
+A report step is a whole number of ticks. For each step the report gives the equity at mids at its end, exactly, its return in binary64, the long and short notional at mids, and every listed coin's mid, so that a study can form any benchmark from the report alone.
 
 ### A13. Identity and the ledger
 
-A run's identity hashes what version 1's did (I7) with the conventions now being: the venue and its parameters (`λ`, `δ`, `G`, the cap, the minimum), the fee schedule, the coin rules, the reader's dropped-row counts, and the engine's build. The evaluation ledger stays SQLite with triggers rejecting UPDATE and DELETE.
+A run's identity hashes the program, the market's every file, the venue (`λ`, `δ`, `G`, the cap, the minimum, the admission order), the fee schedule, the coin rules, the sources' scales and `known` rules, the reader's dropped-row counts, and the engine's build. The evaluation ledger is SQLite whose schema rejects UPDATE, DELETE and REPLACE.
 
 **What a harness needs** (`docs/research/2026-11-13-argon-multiagent-strategy-research.md`, part 3, experiments 1, 2 and 6):
-- **Forced continuation and budgets:** every ledger row carries a `session` and an `agent`, and the count of a session's rows is the budget's only meter. The kernel never stops a session; the harness does.
-- **Team topologies:** a row carries `parents`, the rows its author had seen. A harness gives an agent a view, the rows of a named set of agents, so islands, swarms and migrations are views of one ledger, and what each agent could see is on record.
-- **Anonymized inputs:** a market may carry an alias map, a bijection from source names to opaque names. A program written in aliases runs as its translation (law N1, B3), and the map is in the identity.
+- **Budgets:** every ledger row carries a `session` and an `agent`, and the count of a session's rows is the budget's only meter. The kernel never stops a session; the harness does.
+- **Team topologies:** a row carries `parents`, the rows its author had seen. A harness gives an agent a view, so islands, swarms and migrations are views of one ledger.
+- **Anonymized inputs:** a market may carry an alias map, a bijection from source and coin names to opaque names. A program written in aliases runs as its translation (law N1), and the map is in the identity.
 
 ### A14. What the venue's terms and our certificates do not establish
 
-Each is an assumption. "Checked by" names evidence already readable; where there is none the consequence stands.
-
 | # | Not established | Assumed | Consequence if wrong | Checked by |
 |---|---|---|---|---|
-| V1 | The price grid | 5 significant figures and at most `6 − szDecimals` decimals (a lead) | A wished price off the real grid; under one grid step an order | Every price of the vault's fills must lie on it |
-| V2 | Order types and their rules | `gtc`, `ioc`, post-only refused when marketable, `reduce_only` capped at the position | A refused order that would have rested, or the reverse | The fills' `crossed` flag against each slot's `tif` |
+| V1 | The price grid | 5 significant figures and at most `6 − szDecimals` decimals (a lead) | A wished price off the real grid, by under one grid step | Every price of the vault's fills must lie on it |
+| V2 | Order types and their rules | `gtc`, `ioc`, post-only refused when marketable, `reduce_only` cut to the position | A refused order that would have rested, or the reverse | The fills' `crossed` flag against each slot's `tif` |
 | V3 | Lot sizes, leverage and tiers of 12 of the 17 coins, and any coin's history | Today's `meta`, constant since 2026-04-03 | Sizes off by a lot; a wrong maintenance | Every fill's size is a whole number of lots |
-| V4 | The fee tiers, rebates and their history | The base tier, for every fill of the simulated account | Fees overstated for an account large enough to leave the base tier | The vault's fills, exactly, to 2026-10-31 |
-| V5 | Isolated margin | A10 | Only the bracket account | Nothing |
-| V6 | Historical mark prices | Checks at the book's adverse side | A liquidation earlier than the venue's, never later, on a snapshot | Nothing; the vault was never liquidated |
-| V7 | Who bears a shortfall | The venue (A11) | A bankrupt account's loss is understated | Nothing. Study 2 ends its test at the first liquidation, so no claim rests on it |
-| V8 | The oracle price in history | The mid at the settlement | A funding payment off by the basis, a few basis points of a payment | `userFunding`, which gives the payment and so the price |
-| V9 | An account's delays | `λ` and `δ` registered, each at least one snapshot gap; results at two values | Fills and reactions too early | Nothing |
-| V10 | Impact | Our order moves nobody; the policy caps an order's notional | The pessimistic rule is not certain for a large order | The trade-through's size condition covers the order itself |
-| V11 | Whether a resting order reserves margin | It does | A ladder needs more equity than the venue asks | Nothing; pessimistic |
-| V12 | Partial maker fills | None | Fill timing only; 13% of the vault's orders filled in parts | The fill check's counts |
-| V13 | That the archive is complete | Gaps are marked and nothing happens in them | A liquidation or a fill inside a gap is missed | The report's gap shares |
-| V14 | What happens after a liquidation | The remainder stays (A10) | Equity after a liquidation overstated | Nothing. As V7 |
+| V4 | The fee tiers and their history | The base tier, for every fill | Fees overstated for an account large enough to leave it | The vault's fills, exactly, to 2026-10-31 |
+| V6 | Historical mark prices | Checks at the book's adverse side and at prints | A liquidation earlier than the venue's | Nothing; the vault was never liquidated |
+| V7 | Who bears a shortfall | The venue: an account cannot owe (A11) | A levered account's loss is understated, and an exact test of it is not exact | A certificate, before any run that takes leverage above 1 (architecture 6) |
+| V8 | The oracle price in history | The mid at the settlement | A funding payment off by the basis | `userFunding`, which gives the payment and so the price |
+| V9 | An account's delays | `λ` and `δ` registered; results at two values | Fills and reactions too early | Nothing |
+| V10 | Impact | Our order moves nobody; the policy caps an order's notional; the book refills between events | `pessimistic` is not certain for a large order | The evidence rule covers the order's own size at each event |
+| V11 | Whether a resting order reserves margin | It does, at its limit price | A ladder needs more equity than the venue asks | Nothing; pessimistic |
+| V12 | The queue | None: `optimistic` fills whole at a touch, `pessimistic` only on flow through the price | Fill timing between the two rules | The fill check's counts (13% of the vault's orders filled in parts) |
+| V13 | That the record is complete | Gaps are marked and nothing happens in them | A liquidation or a fill inside a gap is missed | The report's gap shares |
+| V14 | What is left after a liquidation | The remainder stays | Equity after a liquidation overstated | Nothing. Study 2 ends its test at the first liquidation |
 | V15 | The market order's slippage limit | None beyond the 20 levels | A fill the venue would have cut short | Nothing; the cap keeps orders inside the levels |
 
-### A15. Version 1's nine choices (facts §2)
+### A15. Against version 1's nine choices (facts §2)
 
 | Version 1 | Version 2 |
 |---|---|
-| The four-hour grid and hourly clock | `tick` and `decide_every` (A4) |
-| No book, sub-bar price or own state | The new inputs (A5) |
-| One target weight a coin | Slots; `target` is one kind (A5) |
-| The fill at the next open | The venue (A1, A7) |
-| One taker fee | The schedule and the role (A8) |
-| Funding at the bar's open | At the oracle price or the mid; the `table` venue keeps the open (A9) |
-| Margin once a step, cross | At every price event; cross and isolated (A10) |
-| Delisting | Listing events; the current text's rule (A12) |
+| The four-hour grid and hourly clock | `tick` and `decide_every` |
+| No book, sub-bar price or own state | The inputs of A5 |
+| One target weight a coin | Slots. A target weight is two `market` slots, a buy when `weight × equity ÷ mid − pos` is positive and a sell when negative; no slot kind is needed |
+| The fill at the next open with a cost table | Not built. Version 2 fills against recorded books and trades only; a market of bars alone is not runnable, and bars are observations |
+| One taker fee | The schedule and the role |
+| Funding at the bar's open | At the oracle price, else the mid |
+| Margin once a step | At every quote and trade |
+| Delisting | Listing events |
 | I7's conventions | A13 |
+
+The nine defects' lessons are laws here and not ported code: no fill after a liquidation's cancel (K2: L4), no future listing in today's state (K1: L1), a bankrupt account stays bankrupt (K5: L6), REPLACE rejected (M4: B2). K3, K4 and K6 are about the target-weight loop and the reporting window, which do not exist.
 
 ## Part B. The split, and the laws
 
 ### B1. What is Lean
 
-Everything that decides a number: the program's parser and checker; the evaluator; slots and reconciliation; the three venues; the ledger, fees, funding, margin and the floor; the trace and the report's returns. It is one Lake library, `Engine`, in a new package `kernel2/lean`, with no executable and no `IO`.
+Everything that decides a number: the program's parser and checker; both evaluators; slots and reconciliation; the fill rules; the ledger, fees, funding, margin and the floor; the reading of recorded doubles as decimals; the trace and the report. One Lake library, `Engine`, in a new package `kernel2/lean`, with no executable and no `IO`. Exact numbers are core Lean's `Rat`.
 
-- **The evaluator is reused, not rewritten.** Stage 6's `Ref` (on `main`, L1 to L6 proved, bit-identical to `mm` on 11.36 billion values) or the parked stage 7 tree, whose evaluator already takes its inputs from declared sources (`Ref/Source.lean`, `Ref/Resolve.lean`, L7 and L8). The new inputs of A5 are declared sources, so the second fits better; the build plan's step 0 settles which, by reading both. `reference/lean` on `main` is not edited: it stays the pilot's reference.
+- **The float evaluator is stage 6's semantics,** which is what a clean derivation produces for a language that stays the same typed AST: one fixed operation order, proved laws, and an oracle of 11.36 billion values. Its inputs are declared sources, as the parked stage 7 tree already has them (`Ref/Source.lean`, `Ref/Resolve.lean`). The build plan's first step takes those files if they stand alone, and otherwise writes the evaluator from `SEMANTICS.md` §1 to §5; either way B4 judges it. `reference/lean` on `main` is not edited.
+- **The engine is written as its own specification:** plain, total, pure functions over lists and maps, with no second fast copy. A law is then a theorem about the code that runs. Only if the wall of B5 fails does a step get a faster twin, proved equal to it as stage 7's `csimp` replacements were.
 - **The exported surface** is four pure functions, `@[export]`ed to C:
   - `check : String → String`, a program's JSON to a verdict;
-  - `start : String → String → Except String State`, a program and a market's header (venue, policy, coin rules, fee schedule, alias map);
-  - `feed : State → Chunk → State`, a chunk being flat arrays of events (kinds, coins, times, and one `FloatArray` of values with offsets);
-  - `finish : State → String`, the report and the trace.
-- **What is proved is what runs.** The ledger is integers, so its laws are theorems about the compiled code with no numeric caveat. The evaluator's laws stay as stage 6 left them: proved over abstract numbers, with binary64 resting on the differential of B4.
+  - `start : String → String → Except String State`, a program and a market's header (horizon, venue, policy, coin rules, fee schedule, sources and their scales, alias map);
+  - `feed : State → Chunk → State`, a chunk being flat arrays of events: kinds, coins, `time`s, `known`s, and one `FloatArray` of values with offsets;
+  - `finish : State → String`, which runs the clock to the horizon's end and gives the report and the trace.
 
 ### B2. What is OCaml
 
-Everything that touches the world, and nothing that decides: one dune project, `kernel2/ocaml`, giving the executable `mm2`.
+Everything that touches the world, and nothing that decides: one dune project, `kernel2/ocaml`, giving the executable `mm2`, on Jane Street's stack as the project decided (`core`, `async`, `ppx_expect`, `base_quickcheck`, v0.17, in the pinned nixpkgs).
 
-- **Reading.** Parquet through DuckDB 1.5.2's C API, by hand-written C stubs (`docs/research/2026-11-13-argon-ocaml-parquet-duckdb.md`, a lead I accept: `arrow-cpp` is C++, and no binding is in the pinned nixpkgs). One query a coin-day, ordered by time; the stubs copy each chunk's columns into arrays before the chunk is freed, and release OCaml's runtime lock while DuckDB works. Funding rows, coin rules, the fee schedule and policy are JSON (`yojson`).
-- **Merging** the coins' streams into the order (time, class, coin), and cutting chunks.
+- **Reading.** The archive's Parquet through DuckDB 1.5.2's C API, by hand-written C stubs (`docs/research/2026-11-13-argon-ocaml-parquet-duckdb.md`, a lead I accept). The recorder's hourly zstd streams of JSON lines through `mmrec cat` (`recorder/RECORDER.md`). Trades, when certified, in their source's format. Decimal strings become doubles by `Float.of_string`, which rounds correctly, and Lean recovers the decimal (A2), so the reader does no arithmetic. Headers and funding rows are JSON (`yojson`).
+- **Merging** the coins' streams into the order of A3, and cutting chunks.
 - **Calling Lean.** The executable is OCaml's; it links the engine's compiled C and Lean's static runtime through one stub file that initializes the runtime once and holds the `State` in a custom block whose finalizer releases it. One run a process, one thread in Lean.
-- **Writing.** The SQLite ledger (`ocaml_sqlite3`), whose schema rejects UPDATE, DELETE and REPLACE (the gate hunt's M4); reports and traces to disk; file hashes for the identity.
+- **Writing.** The SQLite ledger (`ocaml_sqlite3` 5.3.1; `sqlite3` is not an attribute of the pinned nixpkgs), reports and traces to disk, file hashes for the identity.
 - **Orchestration.** A pool of processes sized from measured peak memory and free memory, and the command line.
-- **Nix.** `packages.mm2` builds both; `checks.engine-proofs` type-checks every theorem with no `sorryAx`; OCaml 5.4.1, dune 3.21.1, `ctypes` not needed. Everything is in the pinned nixpkgs, so `flake.lock` does not move.
+- **Nix.** `packages.mm2` builds both; `checks.engine-proofs` type-checks every theorem with no `sorryAx`. OCaml 5.4.1, dune 3.21.1. Everything is in the pinned nixpkgs, so `flake.lock` does not move.
 
-**The trust boundary.** Not proved: Lean's compiler and runtime, `Float` as the platform's double, the C stubs, DuckDB, OCaml's reader and merge, and the printing of JSON. What guards it:
-- Lean re-checks the order of what it is fed (law C2), so the reader can only be wrong about content.
-- Chunk boundaries cannot matter (law C1).
-- The reader is compared with the existing one (`ingest/archive.py`) on sampled coin-days, event for event; that Python stays a test's oracle, outside the kernel, until it is ported or retired.
-- The archive defect of facts §6 (a table with fewer hours than its raw files) becomes the reader's check: a coin-day's row count and hours against its raw files' manifest.
+**The trust boundary.** Not proved: Lean's compiler and runtime, `Float` as the platform's double, the C stubs, DuckDB, OCaml's readers and merge, and the printing of JSON. What guards it:
+- Lean re-checks the order of what it is fed (C2) and that every number is a decimal of its scale (A2), so a reader can only be wrong about content that is still well formed.
+- Chunk boundaries cannot matter (C1).
+- Each reader is compared, event for event, with an independent one on sampled coin-days: the archive's with `ingest/archive.py`, which stays a test's oracle outside the kernel.
+- A coin-day's row count and hours are checked against its raw files' manifest (the defect of facts §6).
 
 ### B3. The laws
 
-★ marks a law that a judged number depends on. It is proved in Lean on the running code, and its statement is frozen before its proof, as stage 7's were. The others are property tests, or hold by a differential as said.
+★ marks a law a judged number depends on: proved in Lean on the running code, its statement frozen before its proof. The rest are property tests or differentials as said. Round 1 showed that properties alone can be met by an engine that does nothing, so each rule also has a **characterization**: an "exactly when", which an empty engine fails.
 
 **Causality**
-- **L1 ★ Non-interference.** Two markets whose events with `knownAt ≤ τ_k` are equal give equal machine states, wishes, orders and traces through tick `k`. Own-state inputs are inside the statement.
-- **L1b ★ No fill on what was seen.** An order wished at `τ` has no fill, arrival or resting, on an event with time at most `τ + λ`.
+- **L1 ★ Non-interference.** Two markets whose events with `known ≤ τ_k` are equal give equal machine states, wishes, orders and traces through tick `k`. Own-state inputs and listings are inside the statement.
+- **L1b ★ No fill on what was seen.** An order wished at `τ` has no fill on an event with `time ≤ τ + λ`.
 
-**The language** (stage 6's, restated over legs and slots)
-- **L2 Units.** The instrumented machine never raises a unit error, with size and money as units; erasing units gives the executable values. Proved.
-- **L3 Rewrites.** Every rule of R v1 preserves node values and traces. Proved, abstract numbers.
-- **L5 Binding.** `inputUnavailable` exactly when a slot of the registry is unbound. Proved.
-- **N1 Renaming.** For every bijection of source names, the renamed program on the renamed market gives the same trace up to the renaming. Proved.
+**Numbers and the language**
+- **X1 ★ The crossing.** A placed order's price and size are the A2 roundings of its slot's exact values. A program with no `exact(·)` node places the same orders whatever the float evaluator returns.
+- **X2 Decimals.** Reading a recorded double gives a decimal whose nearest binary64 it is, or rejects. A property test over every decimal of each scale's range sampled, and a differential with OCaml's printing.
+- **L2 Units.** The instrumented machine never raises a unit or sort error; erasing them gives the executable values. Proved.
+- **L3 Rewrites, L5 Binding, N1 Renaming.** As stage 6 and 7 state them, over declared sources. Proved, abstract numbers.
 
 **Orders and fills**
-- **L4 ★ Fills.** Every fill belongs to one order that is live at its time. A maker fill is at the order's price. A taker fill is at recorded levels' prices, each no worse than the limit, taking no more than each level shows, in price order. An order's fills sum to at most its size. A post-only order never takes. A `reduce_only` order never raises the leg's position in absolute value and never flips it. A fill's fee is its notional times the rate of its role and tier at its time, rounded up.
-- **R1 Reconciliation.** A wish equal to the live order places and cancels nothing. Reconciling twice at one tick equals once.
-- **F1 ★ The rules are ordered.** On any admitted market, for one resting order: if the pessimistic rule fills it at a quote, the optimistic rule fills it at that quote or an earlier one.
-- **F2 ★ The rules are monotone in evidence.** For one resting order, adding quotes to the market never makes its fill later, under either rule. (Not a law of whole runs: A7.)
-- **F3 Trades.** On a market with no trade events, the trade-aware rules are the snapshot rules. Proved when trade events are built.
+- **R1 ★ Reconciliation.** A wish equal to the live order places and cancels nothing; reconciling twice at one tick equals once. Orders are admitted in A6's order, and an order is admitted exactly when A6's three conditions hold.
+- **F0 ★ Fills, exactly.** At a quote or trade, a resting order's fill is the lesser of its remainder and its allotted evidence under the venue's rule of A7, and an arriving order's fill is A7's walk of the levels. No other fill exists.
+- **E1 ★ Evidence once.** At one event the lots filled by resting orders and taken by arriving ones, level by level and print by print, are at most the lots recorded.
+- **L4 ★ Fills are well formed.** Every fill belongs to one order live at its time. A maker fill is at the order's price; a taker fill at recorded levels' prices, each no worse than the limit. An order's fills sum to at most its size. A post-only order never takes. A `reduce_only` fill never raises the position in absolute value and never flips it. No order survives a liquidation.
+- **F1 ★ The rules are ordered, one event at a time.** From one state at one event, each resting order's `pessimistic` fill is at most its `optimistic` fill. (Not a law of runs: A7.)
+- **S1 ★ Cycles.** Within a cycle a slot's fills sum to at most its `size`; `filled` resets exactly when the position returns to zero.
 
 **The ledger**
-- **A1 ★ Conservation.** At every event, equity at mids equals the starting equity plus realized and unrealized profit minus fees and funding, exactly. The legs' positions sum to the account's net position in every coin, and the legs' profits, fees and funding to the account's.
-- **A2 ★ Average entry.** A leg's `entry` is the size-weighted mean price of its opening fills since it was flat, and a closing fill realizes its size times the difference between its price and `entry`.
-- **A3 ★ Rounding.** Every rounding lowers equity, by less than one unit of money, and there is at most one for each fee and funding payment.
-- **M1 ★ Margin.** The account is liquidated at an event exactly when, after that event's fills, its equity at adverse prices is below its maintenance. No order is admitted that takes initial margin above equity at adverse prices. An isolated position loses at most its margin.
+- **A1 ★ Conservation.** Cash is the starting cash, minus buys, plus sells, minus fees, minus funding, each exactly as A7 to A9 give it; equity at mids is cash plus positions at mids. `entry` is the cost of the open position over its size, so realized and unrealized profit, as views, sum with fees and funding to the change in equity. No operation of the ledger rounds.
+- **U1 ★ Funding.** At every funding event of a held coin cash changes by exactly `−q · O · ρ`, and at no other time for funding. A held coin's hour with no event inside its lateness rejects the run.
+- **M1 ★ Margin.** The account is liquidated at an event exactly when, after that event's fills, its equity at adverse prices is below its maintenance.
 - **L6 ★ The floor.** Equity is never negative, every report step's return is at least −1, and after a bankruptcy every return is zero.
 
 **The boundary**
 - **C1 ★ Chunking.** `feed` over a list of events equals `feed` over any cutting of it into chunks.
-- **C2 ★ Admission.** A fed event that is out of order, crossed or off its coin's rules puts the state in a rejecting state that `finish` reports, whatever follows.
+- **C2 ★ Admission.** A fed event that is out of order, crossed, off its coin's rules or not a decimal of its scale puts the state in a rejecting state that `finish` reports, whatever follows.
 - **D1 Determinism.** A run is a function of its program, market and header. In Lean this is purity; across the boundary it is tested by running twice, on two hosts.
 
-**What is deliberately not a law.** That either venue's return bounds the truth (A7). That the snapshot rules reproduce real fills: that is measured on the vault's own orders (architecture 6), by cadence.
+**What is deliberately not a law.** That either venue's return bounds the truth. That the rules reproduce real fills: that is measured on the vault's own orders (architecture 6).
 
-### B4. Against version 1
+### B4. Against stage 6
 
-Version 2 is not required to equal `mm` bit for bit, for two reasons. Its ledger is exact where `mm`'s is binary64. And `mm` holds the nine defects (K1 to K6, M1, M2, M4), which the current `reference/SEMANTICS.md` fixes and no engine implements; version 2's `table` venue implements the current text, and never the defects behind a switch. The frozen kernel's judged results stay its own. The overlap is checked in three parts, on the frozen C6.4 corpus (3,372 runs):
+Version 2 shares one thing with version 1: the float expression language. That is checked at full strength. Each program of the frozen C6.4 corpus (3,372 runs) is run with version 1's inputs given as observations, a tick of one hour and no slots, and its node streams equal `mm`'s bit for bit on every run. Expressions read nothing of the ledger, so no defect of `mm` can touch this.
 
-1. **The evaluator, bit for bit.** Each corpus program is lifted to version 2: one leg, one `target` slot, a tick of one hour, a decision every fourth tick. Its node streams equal `mm`'s on every run. Expressions read nothing of the ledger, so the defects cannot touch this, and it is the full strength of stage 6's check.
-2. **The ledger, by replay.** The ledger can be driven by given fills in place of a venue's. `mm`'s own fills and funding rows, replayed, must give `mm`'s equity at every step until the run's first stop-out or bankruptcy, within the sum of two derived terms: `mm`'s own float tolerance (I5), and one price unit a fill, since version 2 rounds a table price to 10⁻⁸ USD against the account. The same replay, fed the vault's real fills, is study 2's accounting check; it is one mechanism.
-3. **Decisions, with every difference named.** The whole `table` venue is run on the corpus and compared with `mm` step by step. A run agrees, or its first differing step satisfies the stated condition of one of K1 to K6 (or the stop-out at Λ = 4) in the current text. A difference that no defect's condition explains is a failure. The count of agreeing runs is reported, not judged. The nine strict-xfail tests (`gate/tests/test_kernel_defects.py`, `test_mechanism_defects.py`) are ported to run against `mm2` and must pass.
-
-Where a size falls within 10⁻⁹ of a lot boundary, an exact ledger and a float one may truncate differently. Such steps are listed and counted with the K conditions.
+Nothing else is compared with `mm`. Its ledger is binary64 and holds nine defects, so a comparison of decisions needs a list of excused differences, and round 1 showed that such a list excuses a broken engine (finding 6). The ledger's oracle is better than `mm`: 5,806 fills of a real account, each with the venue's own fee, realized profit and position (architecture 6, layer 1).
 
 ### B5. Scale
 
-Study 2 runs a fixed rule a handful of times, not a search. The wall: one run of 16 coins over 212 days at every recorded snapshot (229 million quotes) finishes within one hour on one core and within 2 GB, since events stream and no book is kept. A search over book markets at the pilot's scale (10 million evaluations) is out of reach at any plausible speed (facts §9) and is not a goal of version 2.
+Study 2 runs a fixed rule a handful of times, not a search. The wall: one run of 16 coins over 212 days at every recorded snapshot (229 million quotes) finishes within one hour on one core and within 2 GB, since events stream and no book is kept. It is measured at the build plan's first slice that feeds quotes, before anything is built on top. A search over book markets at the pilot's scale is not a goal of version 2 (facts §9).
+
+## Part C. Argon's round 1, answered
+
+| Finding | Answer | What changed |
+|---|---|---|
+| 1. Directed rounding of binary64 moves `9.775` to `9.774` and 193 lots to 192; sizes and rates enter as floats with no rule | **Conceded.** The proposed tolerance is a patch: any tolerance has its own boundary. The cause is that floats computed the order | Two sorts and total crossings; slot prices and sizes are exact expressions; recorded doubles are read as the decimals they came from, or rejected (A2, A5, X1, X2) |
+| 2. Conservation, average entry and one rounding a payment cannot all hold on integers | **Conceded.** The proposed finer unit and floors are patches. The cause is a grid for money | The ledger is rational and never rounds; cash is the state and `entry` a view; the rounding law is deleted (A2, A1) |
+| 3a. Whole runs invert in both directions | **Already the design** (the first draft's "what they do not bound"), now with Argon's constructions cited. No venue is called conservative for a run | A7 |
+| 3b. The trade-through counted one seller for every rung | **Conceded.** The cause is a rule about one order. Fills are now an allotment of recorded evidence over all the account's orders, each lot once | A7, E1, F0 |
+| 3c. The vault's own order was in the archive's book | **Refuted as a defect, kept as the reading.** The rules price a second identical order, which is what a replica beside the vault is | A7 |
+| 3d. F2 is false at arrival and under liquidation; trades unbuilt leave most of the calendar unbracketed | **Conceded.** F2 is deleted: no single-order monotonicity survives the allotment, and none is needed. Trade events are built (H11 is settled: now) | A7, B3 |
+| 4. The threshold 20(1 + ε̄) is wrong under compounding | **Conceded.** No threshold is patched: the tested account cannot owe (architecture 6) | Architecture 6 |
+| 5. The 16-coin hedge fails the 10 USD minimum; Kelly scaling fails initial margin | **Conceded.** The hedge is not an order at all: the benchmark is the unit the wealth is measured in. Legs, which existed only for the hedge, are deleted | A5, architecture 6 |
+| 6. "First difference satisfies a K condition" passes a broken engine; part A contradicts `SEMANTICS.md` §7 | **Conceded.** Under the human's clean-room answer nothing needs the `table` venue but that comparison, so the venue, `target` and the comparison are deleted, and with them the contradictions | A1, A15, B4 |
+| 7a. A tick finer than the data gives undefined bars | **Conceded.** The machine builds no bars; inputs are latest known values | A4, A5 |
+| 7b. Simultaneous admission, depletion, `reduce_only` | **Conceded.** One admission order; evidence once; a `reduce_only` fill cut to the position | A6, A7 |
+| 7c. One time an event; no horizon | **Conceded.** `time` and `known`; the horizon in the header | A3, B1 |
+| 7d. No law on funding, cycles or progress | **Conceded.** U1, S1, and a characterization for every rule (F0, R1, M1) | B3 |
