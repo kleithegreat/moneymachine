@@ -607,3 +607,93 @@ Each with its runs and my recommendation in `architecture.md` 6.8.
 **The next round** goes to Argon and GPT from one bundle, with the seven attacks above; a fresh Opus session if either is out.
 
 **Study 1** is as the earlier section leaves it.
+
+## After round 4 on kernel version 2 and study 2: the test wealth re-derived
+
+Appended 2026-11-14 20:20 UTC (15:20 EST) by Claude Fable 5.2, session "architect: kernel version 2, the test wealth re-derived" and its continuation (the first session committed tasks 1 to 4 and hit its usage limit before the report). **Read for it:** both reviews in full by the first session (`audit/reviews/2026-11-14-argon-cli-kernel-v2-r4.md`, `audit/reviews/2026-11-14-gpt-kernel-v2-r4.md`); by the continuation, `kernel-v2.md` A12 and part C, `architecture.md` section 6 and this ledger's last section, with `arithmetic.py.txt` rerun whole, and not the reviews again. **Not read:** any price, any code. Numbering continues. The findings, cause by cause, are in `kernel-v2.md` part C.
+
+### In plain words
+
+- **Round 4 found the third clock, and the rule this ledger set was applied.** The stake `at_risk` moved at deciding ticks while lots were marked at quotes, so a print between the two let a wish or a fill resize the stake on a lot whose next move was known. All three confusions were back. `V` was not given another rule. It is gone.
+- **The test is now a ledger of its own.** Cash and units, never negative. It trades only when the account fills, at the account's prices, from its own cash. A coin has one price, which a print moves. No fill beats the tape (law T1), so no trade of the test's can raise its wealth, and a stake cannot move without a fill.
+- **The comparator is the same line of the derivation:** at a price event the wealth multiplies by `1 + w·r` and a constant mix by `1 + b·r`.
+- **The claim narrowed.** Where one price event foretells the next, an account that only rebalances outgrows every constant mix. No clock repairs that. Rung 2 claims "outgrew", not "timed", and is registered only if the replay shows the bar above the hourly and daily mixes.
+- **What was deleted:** `at_risk`, `fundable`, the step and its row, law Q1, the deferred counting of fills (D25, my own find of round 3), the uncovered step, O1 as an argument, and layer 2's run of each real fill as an order.
+- **Nothing of round 4 was refuted.**
+
+### Who has seen what
+
+- **Argon and GPT:** `99f8fd5`, from the same bundle. Neither has seen this revision (`1f6a3f8` to this commit).
+- **Opus:** has not reviewed kernel version 2 or study 2.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A79 | What is sound and kept: the exact rational ledger, the world and view states, cycle-bound orders, prints as evidence, profit before absorption, the Lean and OCaml split | Both, round 4 | kernel A1, A2, A6, A7; B1, B2 |
+| A80 | A stake that moves on one clock while held lots are marked on another is a trade at an old price: `V` over `at_risk` gains with no skill | Both (GPT's 1; Argon's 1.1), conceded; O1 failed | architecture 6.1, lines 3 and 4 |
+| A81 | A fill held out of the report until a later quote is a state taken for a flow: a sale still open, a loss never booked, `absorbed` and its close in different steps | Both (GPT's 2, 3; Argon's 2), conceded; D25 withdrawn | kernel A12, P1 |
+| A82 | The test is re-derived from one self-financing ledger on every event, the comparator from the same factorization, and compressed only afterwards | Both asked for it; done | architecture 6.1; kernel A12, K1, K2 |
+| A83 | The bar's formula had a domain, its accuracy is relative, and the confirmer must see a return at or below minus one | Both (GPT's 4, 12, 13; Argon's 3), conceded | kernel A12, K1, K2; architecture 6.1 |
+| A84 | A cycle ends at its closing fill, a liquidation's included; `close` is what of the position an order would reduce | Argon alone (4, 2.2), conceded | kernel A5, A6, A10, S1 |
+| A85 | A wish must not carry a grid across a change of rules | GPT alone (5), conceded | kernel A6, X1 |
+| A86 | A bar's three events a millisecond apart, a locked quote, an open known early and unsized depth each broke a rule | Both (GPT's 7, 8; Argon's 6), conceded | kernel A3, A16 |
+| A87 | A real fill replayed as an order meets what an order meets and a fill does not | Both (GPT's 9, 10; Argon's 7), conceded | architecture 6.4 |
+| A88 | An unsaturated page shows only what the API had indexed | GPT alone (11), conceded as V18 | kernel A14 |
+| A89 | Rung 2 is worded "outgrew every constant mix"; a zero count of V10's takes certifies nothing; disk is sized from the measured volume, with a second copy | Both agree with the three recommendations, with these qualifications, taken | architecture 6.8 |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Dispute | Settled by | Changes what is built |
+|---|---|---|---|
+| D29 | The test wealth (replaces D11-v4, D25 and O1) | The test ledger: units and cash never negative, trades only at the account's fills at their prices, one price a coin that a print moves, law T1. `W` is a supermartingale under either null for every scale that is not negative | **Yes** |
+| D12-v5 | The comparator and its certificate | The mix at the same price events; spans; three fixed-point sums and the least return a coin; `n` growing with `D`; the branch for `Q ≤ 0` | **Yes** |
+| D30 | What rung 2 can claim (Argon's 1.2) | Conceded as a limit: the null is false where price events foretell each other. On every path a holding never traded cannot pass, apart from funding's second-order term. The name "timed" and round 3's sentence are withdrawn; rung 2 is registered only if the bar is the highest of three | **Yes**, the replay's wall |
+| D31 | The stake rule | A budget a cycle, `φ` of free cash, over a registered depth `d`. It decides power only; the replay chooses both | **Yes** |
+| D32 | Funding (replaces the funding room and the uncovered step) | Paid at its event from the test's cash; one it cannot pay ends the test at a stopping time; V16 is only that a settlement charges a unit less than its price | **Yes** |
+| D33 | Leverage | The ledger pays for what it holds, so the account's leverage cannot lever it; the judged account takes 1 and needs no certificate of V7 | **Yes** |
+| D14-v5 | Layer 2 | The wall is a join: each real maker fill's own print is in the record, and F0 then says `optimistic` fills an order resting there. Orders are run only for a measurement by classes | **Yes** |
+| D19-v4 | Bars | One time, the bar's end; prints before a quote of their millisecond; bid down and ask up; a registered depth | **Yes** |
+| D23-v3 | Completeness of the forward record | V18: a registered delay, re-read whole each day | **Yes**, the recorder |
+
+### Disputed, still open
+
+| | Dispute | State | Would change what is built |
+|---|---|---|---|
+| O1 | Rung 2 where prints lead quotes | **Closed: it failed** (A80) | |
+| O2 | The reviewers' "not converged" on round 3 | **Closed:** they were right | |
+| O3 | Rung 1's null on prices that prints move. A real book's prints bounce between bid and ask, so that null is false there whatever the rule | I argue only a maker's fill can gain from the bounce: lots held before a print take it down and back, and a take is filled at a quote after the price has moved. A maker paid to stand is a pass the claim already names. An argument, the architect's, seen by nobody | **Yes**, if a rule that is no maker gains: the price a print moves |
+| O4 | The guard on rung 2: the bar highest of the event, hourly and daily mixes | A measurement I chose, not a derived condition. A record could pass it and still let a rebalancer through at another scale | **Yes**, if a sharper condition exists; else rung 2's limit is only said |
+| O5 | What the test borrows from the account: a cycle's end, a sale's fraction, never short; and its own state, the unspent budgets | I believe each touches power and not size, since any scale that is not negative is valid. Unreviewed | **Yes**, if one is a trade without a fill |
+
+### What the next round should attack first
+
+1. **The test ledger (D29).** A change in its units or cash that is not a fill at the fill's price: through the scale, the budget's return at a cycle's end, a sale's fraction when the ledger followed less than the account, or the cut when cash is short. One such move, with an account without skill whose `W` drifts up, breaks it.
+2. **Law T1.** A fill of any of the three kinds better than its coin's price after its event: a resting order on a quote, a print at the price exactly, a settlement, a bar's two prints, `optimistic`.
+3. **O3.** A book whose prints bounce, and an account that is no maker and gains.
+4. **Rung 2's limit and its guard (D30, O4).** A market that passes the guard where a rebalancer still passes "outgrew"; whether a condition on the record exists under which no holding passes.
+5. **The certificate (D12-v5).** A coin whose least return is at or below minus one; `Q ≤ 0` in several coins at once; a span of one event; the fixed-point rounding against a mix an optimizer finds.
+6. **The end of the test (D32).** Whether ending at a payment the cash cannot pay keeps the size; a payment above the unit's price.
+7. **Layer 2's join (D14-v5).** A real maker fill whose print is in the record and which `optimistic` still would not fill.
+
+### Assumptions only the human can choose
+
+Each with its runs and my recommendation in `architecture.md` 6.8.
+- **What rung 2 is to claim.** I recommend "outgrew every constant mix, at every price event", with its limit said beside every use.
+- **Replenishment (V10).** I recommend accepting it, named in both claims; the count is a diagnostic and certifies nothing.
+- **Disk for two years.** I recommend more disk with a second copy on another node, sized from a measured month of the volume, decided by 2027-03-01. The 300 GiB volume is full about 2027-05-20.
+
+### Owed
+
+- **By the advisor:** as the last section lists, and the measurement of the recorder's volume.
+- **By the architect:** `KERNEL.md`'s encodings and grammar; study 2's criteria, after convergence.
+
+### Convergence
+
+**Not converged.** No finding of round 4 is left unanswered, and under my three recommendations the human's choices change nothing that is built. But the test itself is new and unseen, and O3, O4 and O5 would each change what is built if they fail.
+
+**The test of whether this was patching.** Round 4's findings landed on all three confusions, on the clock the last section named. The answer has fewer parts than what it replaced: no stake, no step, no second account of when a fill counts. The cause to watch is no longer a clock, since the test has none of its own. It is **a move in the test's books that is not a fill**. If round 5 finds one, the fault is in the ledger's rules and is fixed there. If round 5 instead finds a market where rung 2 passes without skill that the guard does not catch, the claim narrows again or rung 2 goes, and no rule is added to save it.
+
+**The next round** goes to Argon and GPT from one bundle, with the seven attacks above; a fresh Opus session if either is out.
+
+**Study 1** is as the earlier section leaves it.
