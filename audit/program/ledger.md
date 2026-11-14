@@ -517,3 +517,93 @@ Appended 2026-11-14 15:40 UTC (10:40 EST) by Claude Fable 5.2, session "architec
 **The next round** goes to both outside models again, since each caught what the other missed (Argon the ladder's own numbers, GPT the laws and the three leaks), with the six attacks above; a fresh Opus session if either is out.
 
 **Study 1** is as the earlier section leaves it.
+
+## After round 3 on kernel version 2 and study 2, by Argon and GPT side by side
+
+Appended 2026-11-14 17:50 UTC (12:50 EST) by Claude Fable 5.2, session "architect: kernel version 2, round 3" and its continuation (the first session hit its usage limit in task 3). **Read for it:** both reviews in full by the first session (`audit/reviews/2026-11-14-argon-cli-kernel-v2-r3.md`, `audit/reviews/2026-11-14-gpt-kernel-v2-r3.md`); by the continuation, my own `kernel-v2.md`, `architecture.md` section 6, the build plan and this ledger's last section, and not the reviews again. **Not read:** any price, any code. Numbering continues. The findings, cause by cause, are in `kernel-v2.md` part C.
+
+### In plain words
+
+- **Two of round 2's three confusions came back.** Neither reviewer said so; I do, by the test this ledger set for itself.
+  - **A benchmark taken for a null, a third time.** The best mix rebalanced daily while the wealth re-staked every step, so the test's own arithmetic beat it. A benchmark is a null only if it is the best any wealth with the test's own opportunities can do, its clock included. It now trades at every quote, the record's own clock.
+  - **A state taken for a flow.** An order outlived the cycle its target was a quantity of, and got its target back. An order now ends with its cycle.
+  - **The account taken for the test.** I asked the account to take no leverage and keep cash. The test needs only a loss known at a step's start. Profit is taken before absorption, and the categorical "leverage cannot be exact" is withdrawn.
+- **What was deleted:** the daily benchmark, its proposed mix and the inequality of means; the void of an uncovered run; the cash law at a leverage of 1; the replay of the vault's cycles in layer 2; a bar's own times and `known` rule, and the claim that bars are read classically; quote evidence under `optimistic` on `b ≤ p`.
+- **What was added:** three sums a coin in the report; `fundable`; spans; one wish a slot a tick; the view's own staleness; the report's counting of fills.
+- **One finding is mine and unreviewed.** The report valued a fill at a mid older than the fill. At steps near the quote interval an account with no skill gained from it (`arithmetic.py.txt`). The report now counts a fill from its coin's next quote.
+- **What I refused:** Argon's stranded target weight, the 10 USD remainder, and undefined inputs at the first tick, each by a line in `kernel-v2.md` part C.
+
+### Who has seen what
+
+- **Argon and GPT:** `d014b87`, from the same bundle. Neither has seen this revision (`7c3ffe3` to this commit).
+- **Opus:** has not reviewed kernel version 2 or study 2.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A69 | Round 2's causes are largely removed at the cause: two states, fills on prints, a bet on what is at risk | Both, round 3 | kernel A1, A7; architecture 6.1 |
+| A70 | A benchmark that trades slower than the wealth, or in a wider domain, is not a null: rung 2 passed without timing, and the certificate was false for a non-positive factor | Both (GPT's 1, 2; Argon's 1.1 to 1.3, 1.5), conceded | architecture 6.1 |
+| A71 | An order that outlives its cycle regains its target; fills during the delay break the step's bound | Both (GPT's 3, 10; Argon's 2.1, 2.2), conceded | kernel A6, S1, Q1 |
+| A72 | A cap on a rate is not a cap on a payment; voiding a run truncates a loss | Both (GPT's 4; Argon's 2.3), conceded | kernel V16; architecture 6.1 |
+| A73 | The delivery law is provable only if staleness belongs to the delayed view | Both (GPT's 9; Argon's 5.1, 5.2), conceded | kernel A3, L1a |
+| A74 | Targets and `close` need the semantics of a pending action and of an order's status | Both (GPT's 10; Argon's 5), conceded | kernel A1, A6, R1 |
+| A75 | The bar source contradicted the fill rules and its classical readings | Both (GPT's 11; Argon's 6), conceded | kernel A16 |
+| A76 | Laws bounded from one side admit a confirmer that never confirms | Both, conceded | kernel K1, K2 |
+| A77 | `optimistic` must read `a ≤ p`; `absorbed` must not be in `pnl`; grid rounding broke the replayed layer 2 | Argon alone, conceded | kernel A7, A12; architecture 6.4 |
+| A78 | The leverage prohibition was sound only conditionally; funding can take reserved cash; layer 2 did not know when a real order stood; copies at intervals and overlapping pulls do not prove completeness; a global set of trade IDs breaks the memory wall | GPT alone, conceded | architecture 6.2, 6.4; kernel A6, B1; the build plan's table |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Dispute | Settled by | Changes what is built |
+|---|---|---|---|
+| D12-v4 | Rung 2 passes without timing; the certificate | The benchmark on the quotes' clock, a mix for each span, the rung ending at a payment at or above the mid. The certificate is `log(1 + x) ≤ x − x²/2 + x³/3`, three sums a coin and a multiplier's dual bound, checked in Lean | **Yes** |
+| D11-v4 | Q1 and V16; leverage | `at_risk` counts the live order and the wishes on their way; `fundable` gives funding room only where a settlement is due; an uncovered step ends the test in step order. `V` is exact at any leverage once profit is before absorption | **Yes** |
+| D24 | Orders across cycles | An order belongs to one cycle and is cancelled at its end; one wish a slot a tick, compared on arrival | **Yes** |
+| D14-v4 | The two fill rules; layer 2 | One principle, the burden of proof. Each real maker fill is one order alone at its own price; `optimistic` must fill it by its real time, and `pessimistic`'s lateness is measured | **Yes** |
+| D19-v3 | Bars | Three ordinary events at a bar's end; the classical equivalence withdrawn | **Yes** |
+| D20-v3 | The laws | L1a's two premises; K1 and K2 as "exactly when"; fills of three kinds; the mirror for sells defined once | **Yes** |
+| D23-v2 | Completeness of the forward record | Paged pulls to an unsaturated page; V3 and V4 say what no copy sees | **Yes**, the recorder |
+| D25 | A fill valued at a price older than itself (the architect's) | The report counts a fill from its coin's next price; `at_risk` carries uncounted buys at cost; Q1 keeps its form | **Yes** |
+| D26 | Argon's 1.4: a rule that holds less in turbulent days passes rung 2 | Not a defect; the reading of "timed", the human's | No, unless the human chooses otherwise |
+| D27 | Argon's 4.1: one seller taken twice | Conceded as V10 and not removed: removing it is a model of how books refill | No, unless the human chooses otherwise |
+| D28 | Argon's 5.3 and 7.2 | Refuted: a controller reading late reaches its weight at the next tick that sees the sale; the venue's minimum; nothing is known at the first tick | No |
+
+### Disputed, still open
+
+| | Dispute | State | Would change what is built |
+|---|---|---|---|
+| O1 | Rung 2's null where prints lead quotes: given the prints since a coin's last quote, its next mid is predictable | I argue it cannot favour an account without skill, since its stake in held lots was fixed at that quote. An argument, not a proof (architecture 6.1) | **Yes**, if it fails: the report's prices |
+| O2 | The reviewers' "not converged" on round 3 | Answered in full, unseen by them | Unknown until round 4 |
+
+### What the next round should attack first
+
+1. **O1.** A market whose prints lead its quotes, coins quoted in turn, and an account without skill whose `V / B̄` drifts up. Try to make the stake in held lots depend on prints through fills.
+2. **The counting of fills (D25).** A coin never quoted again; a bankruptcy whose closes are not yet counted; a sale counted late; whether Q1 as restated is the transitions'.
+3. **The certificate (D12-v4).** A coin whose `Q` is negative; a return above 1; a span of one quote; the multiplier's bound against a mix an optimizer finds.
+4. **Orders that end with their cycle (D24).** A fill that ends a cycle while a wish is in flight; a liquidation inside a step; `at_risk` with `λ` longer than two steps.
+5. **The uncovered step and V16.** Whether stopping in step order keeps the size; a payment inside the room that still takes `V` below zero.
+6. **Bars (D19-v3).** Three events a millisecond apart against `δ`, `λ` and a tick of one second; an order arriving at a derived quote.
+7. **Layer 2 (D14-v4).** A real maker fill that `optimistic` cannot fill by its time though the record is complete.
+
+### Assumptions only the human can choose
+
+Each with its runs and my recommendation in `architecture.md` 6.8.
+- **The reading of "timed".** I recommend the constant mix on the record's own clock, claimed as "not a constant holding's".
+- **Replenishment (V10).** I recommend accepting it, named and counted; and a judged run with a non-zero count having no result, if the replay's count is zero.
+- **Disk for two years.** I recommend more disk with a second copy on another node, decided by 2027-03-01. The 300 GiB volume is full about 2027-05-20.
+
+### Owed
+
+- **By the advisor:** the trades bucket's certificate; the vault's pre-freeze fills and `userFunding` rows stored under `data/` with a hash; the recorder's hourly copies of rules and fees and the paged pull of the vault's fills; `historicalOrders` if it can be certified; before `mm` is deleted, the reference evaluator's streams on the C6.4 corpus under a hash.
+- **By the architect:** `KERNEL.md`'s encodings and grammar; the rounding at 128 bits; study 2's criteria, after convergence.
+
+### Convergence
+
+**Not converged.** No finding of round 3 is left unanswered, and under my three recommendations the human's choices change nothing that is built. But O1 would change what is built if it fails, and five pieces are new design no reviewer has seen: the benchmark on the quotes' clock with its certificate, orders that end with their cycle, the funding room with the uncovered step, bars as three events, and the counting of fills.
+
+**The test of whether this was patching.** Round 3's findings did land on two of the three named confusions. Each was re-derived and not amended: the daily benchmark and the order that survives its cycle are deleted, not guarded. The clock is now the cause to watch: it was the benchmark's in round 3 and the report's in my own finding. If round 4 finds a third clock on which something trades finer than what judges it, the wealth's construction is wrong and is re-derived from the record's events, not given another rule.
+
+**The next round** goes to Argon and GPT from one bundle, with the seven attacks above; a fresh Opus session if either is out.
+
+**Study 1** is as the earlier section leaves it.
