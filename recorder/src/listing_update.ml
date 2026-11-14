@@ -17,9 +17,9 @@ let add_coin planner coin ~change =
   match Planner.add planner ~coin with
   | Planner.Refused -> [ Record (Event.make "refused" [ "coin", `String coin ]) ]
   | Planner.Added ->
-    let conn = Option.value_exn (Planner.conn_of planner (Sub.Trades coin)) in
     let subscribes =
-      List.map [ Sub.Trades coin; Sub.L2_book coin ] ~f:(fun sub -> Subscribe { conn; sub })
+      List.filter_map [ Sub.Trades coin; Sub.L2_book_fast coin; Sub.L2_book coin ] ~f:(fun sub ->
+        Option.map (Planner.conn_of planner sub) ~f:(fun conn -> Subscribe { conn; sub }))
     in
     let listing =
       Option.to_list

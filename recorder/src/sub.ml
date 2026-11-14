@@ -3,12 +3,15 @@ open Core
 type t =
   | All_dexs_asset_ctxs
   | Trades of string
+  | L2_book_fast of string
   | L2_book of string
 [@@deriving sexp_of, compare, equal]
 
 let subscription = function
   | All_dexs_asset_ctxs -> `Assoc [ "type", `String "allDexsAssetCtxs" ]
   | Trades coin -> `Assoc [ "type", `String "trades"; "coin", `String coin ]
+  | L2_book_fast coin ->
+    `Assoc [ "type", `String "l2Book"; "coin", `String coin; "fast", `Bool true ]
   | L2_book coin -> `Assoc [ "type", `String "l2Book"; "coin", `String coin ]
 ;;
 
@@ -30,7 +33,10 @@ let of_ack frame =
        (match member "method" data, member "type" subscription, member "coin" subscription with
         | `String "subscribe", `String "allDexsAssetCtxs", _ -> Some All_dexs_asset_ctxs
         | `String "subscribe", `String "trades", `String coin -> Some (Trades coin)
-        | `String "subscribe", `String "l2Book", `String coin -> Some (L2_book coin)
+        | `String "subscribe", `String "l2Book", `String coin ->
+          (match member "fast" subscription with
+           | `Bool true -> Some (L2_book_fast coin)
+           | _ -> Some (L2_book coin))
         | _ -> None)
      | _ -> None
      | exception _ -> None)

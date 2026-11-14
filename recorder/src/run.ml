@@ -44,6 +44,8 @@ let reason_field exn = "reason", `String (Exn.to_string exn)
 let sub_fields = function
   | Sub.All_dexs_asset_ctxs -> [ "channel", `String "allDexsAssetCtxs" ]
   | Sub.Trades coin -> [ "channel", `String "trades"; "coin", `String coin ]
+  | Sub.L2_book_fast coin ->
+    [ "channel", `String "l2Book"; "coin", `String coin; "fast", `Bool true ]
   | Sub.L2_book coin -> [ "channel", `String "l2Book"; "coin", `String coin ]
 ;;
 
@@ -80,21 +82,25 @@ let serve t conn ws =
   List.iter (Planner.subs t.planner ~conn:conn.id) ~f:(fun sub ->
     enqueue conn (Sub.subscribe_message sub) (Some sub));
   let send (message, sub) =
-    let paced = Rate_limit.reserve pace ~now_ms:(now_ms ()) ~n:1 in
-    let at = Rate_limit.reserve t.send_limit ~now_ms:paced ~n:1 in
-    let%map () =
-      Deferred.any_unit [ wait_ms t (at - now_ms ()); Ivar.read ended |> Deferred.ignore_m ]
-    in
-    if not (Ivar.is_full ended)
-    then (
-      Pipe.write_without_pushback_if_open writer message;
-      Option.iter sub ~f:(Ack_tracker.sent acks ~now_ms:(now_ms ())))
+    if Ivar.is_full ended
+    then return ()
+    else (
+      let paced = Rate_limit.reserve pace ~now_ms:(now_ms ()) ~n:1 in
+      let at = Rate_limit.reserve t.send_limit ~now_ms:paced ~n:1 in
+      let%map () =
+        Deferred.any_unit [ wait_ms t (at - now_ms ()); Ivar.read ended |> Deferred.ignore_m ]
+      in
+      if not (Ivar.is_full ended)
+      then (
+        Pipe.write_without_pushback_if_open writer message;
+        Option.iter sub ~f:(Ack_tracker.sent acks ~now_ms:(now_ms ()))))
   in
   don't_wait_for (Pipe.iter outbox_reader ~f:send);
   let on_frame frame =
     let recv_ms = now_ms () in
     Conn_health.received health ~now_ms:recv_ms;
-    let route = Route.of_frame frame in
+    let fast = Planner.equal_kind (Planner.kind t.planner ~conn:conn.id) Planner.Fast in
+    let route = Route.of_frame ~fast frame in
     File_writer.add t.writer route ~recv_ms (Line.of_frame ~recv_ms ~conn:conn.id frame);
     if Route.equal route Route.Events
     then

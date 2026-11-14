@@ -1,7 +1,13 @@
 open Core
 
+type kind =
+  | Deep
+  | Fast
+[@@deriving sexp_of, compare, equal]
+
 type t =
   { max_subscriptions : int
+  ; first_deep : int
   ; held : Sub.t list array
   ; mutable total : int
   }
@@ -11,11 +17,14 @@ type outcome =
   | Refused
 
 let create ~connections ~max_subscriptions =
+  if connections < 2 then invalid_argf "planner: %d connections, need at least 2" connections ();
+  let deep = (connections + 3) / 4 in
   let held = Array.create ~len:connections [] in
   held.(0) <- [ Sub.All_dexs_asset_ctxs ];
-  { max_subscriptions; held; total = 1 }
+  { max_subscriptions; first_deep = connections - deep; held; total = 1 }
 ;;
 
+let kind t ~conn = if conn >= t.first_deep then Deep else Fast
 let subs t ~conn = List.rev t.held.(conn)
 
 let conn_of t sub =
@@ -24,39 +33,57 @@ let conn_of t sub =
 ;;
 
 let total t = t.total
+let is_main coin = not (String.mem coin ':')
 
-let l2_count held =
-  List.count held ~f:(function
-    | Sub.L2_book _ -> true
-    | _ -> false)
+let least_loaded t ~kind:wanted ~f =
+  let best = ref None in
+  Array.iteri t.held ~f:(fun conn held ->
+    if equal_kind (kind t ~conn) wanted
+    then (
+      match !best with
+      | Some (_, load) when load <= List.count held ~f -> ()
+      | _ -> best := Some (conn, List.count held ~f)));
+  fst (Option.value_exn !best)
 ;;
 
-let fewest_l2 t =
-  let best = ref 0 in
-  Array.iteri t.held ~f:(fun conn held ->
-    if l2_count held < l2_count t.held.(!best) then best := conn);
-  !best
+let is_trades = function
+  | Sub.Trades _ -> true
+  | _ -> false
+;;
+
+let is_deep_book = function
+  | Sub.L2_book _ -> true
+  | _ -> false
+;;
+
+let place t conn subs =
+  t.held.(conn) <- List.rev_append subs t.held.(conn);
+  t.total <- t.total + List.length subs
 ;;
 
 let add t ~coin =
+  let cost = if is_main coin then 3 else 2 in
   if Option.is_some (conn_of t (Sub.Trades coin))
   then Added
-  else if t.total + 2 > t.max_subscriptions
+  else if t.total + cost > t.max_subscriptions
   then Refused
   else (
-    let conn = fewest_l2 t in
-    t.held.(conn) <- Sub.L2_book coin :: Sub.Trades coin :: t.held.(conn);
-    t.total <- t.total + 2;
+    let fast = least_loaded t ~kind:Fast ~f:is_trades in
+    place t fast [ Sub.Trades coin; Sub.L2_book_fast coin ];
+    if is_main coin
+    then (
+      let deep = least_loaded t ~kind:Deep ~f:is_deep_book in
+      place t deep [ Sub.L2_book coin ]);
     Added)
 ;;
 
 let remove t ~coin =
-  match conn_of t (Sub.Trades coin) with
-  | None -> []
-  | Some conn ->
-    let dropped = [ Sub.Trades coin; Sub.L2_book coin ] in
-    t.held.(conn)
-    <- List.filter t.held.(conn) ~f:(fun sub -> not (List.mem dropped sub ~equal:Sub.equal));
-    t.total <- t.total - 2;
-    List.map dropped ~f:(fun sub -> conn, sub)
+  let dropped =
+    List.filter_map [ Sub.Trades coin; Sub.L2_book_fast coin; Sub.L2_book coin ] ~f:(fun sub ->
+      Option.map (conn_of t sub) ~f:(fun conn -> conn, sub))
+  in
+  List.iter dropped ~f:(fun (conn, sub) ->
+    t.held.(conn) <- List.filter t.held.(conn) ~f:(fun held -> not (Sub.equal held sub));
+    t.total <- t.total - 1);
+  dropped
 ;;

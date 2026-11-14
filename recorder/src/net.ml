@@ -40,12 +40,29 @@ let close_tcp reader writer () =
   Reader.close reader
 ;;
 
+let tls_context : (unit, Error.t) Result.t Ivar.t = Ivar.create ()
+let tls_context_probed = ref false
+
 let connect_tls ~host reader writer =
+  let probing = not !tls_context_probed in
+  tls_context_probed := true;
   let net_to_ssl = Reader.pipe reader in
   let ssl_to_net_r, ssl_to_net = Pipe.create () in
   let app_to_ssl_r, app_to_ssl_w = Pipe.create () in
   let ssl_to_app_r, ssl_to_app_w = Pipe.create () in
-  don't_wait_for (Writer.transfer writer ssl_to_net_r (Writer.write writer));
+  let to_net data =
+    Ivar.fill_if_empty tls_context (Ok ());
+    Writer.write writer data
+  in
+  don't_wait_for (Writer.transfer writer ssl_to_net_r to_net);
+  let%bind () =
+    if probing
+    then return ()
+    else (
+      match%map Ivar.read tls_context with
+      | Ok () -> ()
+      | Error error -> Error.raise error)
+  in
   let%bind session =
     Async_ssl.Ssl.client
       ~hostname:host
@@ -56,6 +73,9 @@ let connect_tls ~host reader writer =
       ~ssl_to_net
       ()
   in
+  (match session with
+   | Error error -> Ivar.fill_if_empty tls_context (Error error)
+   | Ok _ -> ());
   let session = Or_error.ok_exn session in
   Or_error.ok_exn (Async_ssl.Ssl.Connection.check_peer_certificate_host session host);
   let%bind app_reader = Reader.of_pipe (Info.of_string "tls") ssl_to_app_r in
@@ -98,6 +118,11 @@ let status_code line =
   | _ -> failwithf "bad status line: %s" line ()
 ;;
 
+let handshake_key () =
+  let nonce = String.init 16 ~f:(fun _ -> Char.of_int_exn (Random.int 256)) in
+  Cryptokit.transform_string (Cryptokit.Base64.encode_compact ()) nonce
+;;
+
 let websocket url =
   let url = parse_url url in
   let%bind net = connect url in
@@ -105,9 +130,10 @@ let websocket url =
     Writer.write
       net.writer
       (sprintf
-         "GET %s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+         "GET %s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n"
          url.path
-         url.host);
+         url.host
+         (handshake_key ()));
     match%bind Reader.read_line net.reader with
     | `Eof -> failwith "websocket handshake: eof"
     | `Ok status ->

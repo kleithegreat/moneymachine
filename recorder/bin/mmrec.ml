@@ -22,6 +22,7 @@ let run =
        flag "--listings-interval-s" (optional_with_default 3600 int) ~doc:"N seconds between listing reads"
      in
      fun () ->
+       if connections < 2 then failwithf "--connections %d: need at least 2 (one deep, one fast)" connections ();
        Mmrec.Run.run
          { root; connections; max_subscriptions; ws_url; rest_url; listings_interval_s })
 ;;
