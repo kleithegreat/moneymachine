@@ -123,7 +123,7 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
   - per channel and hour: `hour  channel  bytes  files  lines  truncated`, where bytes are the hour's files'
     compressed size, and truncated is `yes` if any of them is;
   - then per gap: `gap  conn  from_ms  to_ms`. A gap runs from a connection's `close` or `error` (the earlier, if
-    both), or, when a `start` finds it open (the run before was killed), from its last received line, to its next
+    both), or, when a `start` finds it open (the run before was killed), from the last line with its `conn`, to its next
     `open`, or to the end of the range (`to_ms` empty).
 
   It reads only the envelope fields `recv` and `conn`, and the frame fields `channel` and `event`.
@@ -194,7 +194,7 @@ that has not read the code. Kill tests kill the process.
     - `check` gives the right byte, file and line counts and gaps on a synthetic root, including an hour of two runs'
       files and a file in the earlier `<HH>.jsonl.zst` form;
     - after a `kill -9` and a restart, it gives a gap for every connection open at the kill, from that connection's
-      last received line;
+      last line;
     - for two roots that differ only in the values of fields other than `recv`, `conn`, `channel` and `event`, its
       output is identical apart from the byte counts;
     - `check` and `cat` on a file of 1 GiB of lines peak below 128 MiB resident.
@@ -207,4 +207,4 @@ that has not read the code. Kill tests kill the process.
 15. **Failures stay in their connection.** When the fake server closes a connection during the websocket handshake,
     answers the upgrade with something other than `101`, or resets a connection in the middle of a frame, that
     connection gives an `error` event naming what happened and reopens, and the process keeps running and recording on
-    the others.
+    the others. A handshake that has not completed within 30 s is such a failure.
