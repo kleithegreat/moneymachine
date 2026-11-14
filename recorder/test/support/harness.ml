@@ -90,13 +90,9 @@ let whole_lines text =
   | Some i -> String.prefix text (i + 1)
 ;;
 
-let zstd_lenient_decode path =
-  let command = sprintf "zstd -dc %s 2>/dev/null" (Filename.quote path) in
-  let channel = Core_unix.open_process_in command in
-  let out = In_channel.input_all channel in
-  ignore (Core_unix.close_process_in channel : Core_unix.Exit_or_signal.t);
-  whole_lines out
-;;
+external decode_lossless : string -> string = "mm_test_zstd_decode_lossless"
+
+let zstd_lenient_decode path = whole_lines (decode_lossless (read_file path))
 
 let parse_line line =
   match Yojson.Safe.from_string line with

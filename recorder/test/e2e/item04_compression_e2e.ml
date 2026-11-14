@@ -142,7 +142,7 @@ let flush_end_cut () =
   H.check (String.is_suffix cat ~suffix:"\n") "a file cut at a flush ends in a partial line";
   H.check
     (String.equal cat (H.zstd_lenient_decode cut_path))
-    "cat of a file cut where a flush ended differs from what zstd decodes of it";
+    "cat of a file cut where a flush ended differs from what the lossless decoder reads of it";
   let killed_lines = H.zstd_lenient_decode path in
   H.check (String.is_prefix killed_lines ~prefix:cat) "the flushed lines are not a prefix of the killed file's lines";
   let old_enough =
