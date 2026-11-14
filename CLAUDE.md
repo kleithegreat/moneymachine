@@ -120,11 +120,11 @@ Fetch automatically only under a certificate that quotes a permitting clause, sh
 - **Live workloads:** on the cluster; read `CLUSTER.md` before touching one. Recordings can't be refetched: never delete or move them, nor a file a running process reads.
 - **Heavy jobs:** batches run on the cluster (`ops/jobs.py`). Other heavy work on this PC: `nix run .#heavy -- <memory> <command>`.
 - **Performance:** use every core while work is queued, with pools sized from measured peak memory and free memory (`gate/compute.py`). An idle host with work waiting is a bug.
-- **Full test suites:** run them with the sharded runner, `python3 ops/shards.py <worktree>` (`CLUSTER.md` §7), not bare `pytest`: it spreads one suite over this PC and the idle nodes.
+- **Full test suites:** `nix run .#test` from the worktree (`CLUSTER.md` §6): the flake checks build on the remote builders, cached by their inputs, then the tests marked `local` run here. A flake sees only tracked files, so `git add` new ones first.
 - **Waiting:** heavy entry points block, so run them as background tasks. For an unattended wake-up, write its condition and action into Now and schedule `nix run .#session -- at <when> builder <task> [model]`. A wake-up still in Now after its time, with no start in `data/builder/log.tsv`, was missed (timers run only while logged in): do it. Claude builder sessions are named `builder: <task>`.
 
 ### Tech
 
 Everything runs through the flake (`nix develop -c <cmd>`); new dependencies go in `flake.nix`. Strategies are data, a JSON AST the kernel type-checks and interprets, never host-language code. The ledger is SQLite whose triggers reject UPDATE and DELETE; data is Parquet under `data/`, gitignored.
 
-Today the engine is Rust (`kernel/`), the rest Python (`gate/`, using `arch.bootstrap` for SPA and StepM), and the proofs Lean (`reference/lean`). Every judged pilot result comes from one frozen kernel; the Lean engine with OCaml plumbing is deferred with stage 7 (the human, 2026-11-08, `audit/decisions.md`).
+Today the engine is Rust (`kernel/`), the rest Python (`gate/`, using `arch.bootstrap` for SPA and StepM), and the proofs Lean (`reference/lean`, built by Nix as flake checks). Every judged pilot result, and study 1, come from one frozen kernel. New code is maximal Lean with OCaml for the rest, and no new Rust or Python; kernel version 2 is the first (the human, 2026-11-12, `audit/decisions.md`).

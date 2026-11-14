@@ -2,7 +2,7 @@
 
 import datetime as dt
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Protocol
@@ -11,13 +11,17 @@ import lz4.frame  # type: ignore[import-untyped]
 import polars as pl
 from botocore.exceptions import ClientError  # type: ignore[import-untyped]
 
+from gate.compute import Pool, workers
+
 BUCKET = "hyperliquid-archive"
 FORWARD_WINDOW = (dt.date(2026, 11, 1), dt.date(2027, 1, 31))
 DOLLARS_PER_GB = 0.09
 DOLLARS_PER_GET = 0.0004 / 1000
 DOLLARS_PER_LIST = 0.005 / 1000
 WORKERS = 16
+SNAPSHOT_BYTES = 1_250_000_000
 DAY_MS = 86_400_000
+HOURS_KEY = "source_hours"
 LEVELS = ("bid_px", "bid_sz", "ask_px", "ask_sz")
 
 
@@ -102,14 +106,32 @@ def _download(client: S3Client, key: str, path: Path) -> str | None:
     return None
 
 
-def _write_snapshots(root: Path, coin: str, day: dt.date, hours: Iterable[int]) -> None:
-    files = [p for p in (_raw_path(root, day, h, coin) for h in hours) if p.exists()]
-    if not files:
-        return
-    frame = pl.concat([parse(p) for p in files]).sort("time").unique("time", keep="first", maintain_order=True)
+def _raw_hours(root: Path, coin: str, day: dt.date) -> list[int]:
+    return [h for h in range(24) if _raw_path(root, day, h, coin).exists()]
+
+
+def _built_hours(path: Path) -> list[int] | None:
+    """The source hours recorded in a snapshot table, or None if the table does not exist."""
+    if not path.exists():
+        return None
+    recorded = pl.read_parquet_metadata(path).get(HOURS_KEY, "[]")
+    return [int(h) for h in json.loads(recorded)]
+
+
+def _write_snapshot(root: Path, coin: str, day: dt.date, hours: list[int]) -> None:
+    frame = pl.concat([parse(_raw_path(root, day, h, coin)) for h in hours])
+    frame = frame.sort("time").unique("time", keep="first", maintain_order=True)
     path = _snapshot_path(root, coin, day)
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.write_parquet(path)
+    partial = path.with_suffix(".part")
+    frame.write_parquet(partial, metadata={HOURS_KEY: json.dumps(hours)})
+    partial.rename(path)
+
+
+def _record_missing(path: Path, key: str, code: str) -> None:
+    known = {line.split("\t")[0] for line in path.read_text().splitlines()} if path.exists() else set()
+    if key not in known:
+        _append(path, [key, code])
 
 
 def fetch(
@@ -121,7 +143,7 @@ def fetch(
     hours: Sequence[int] = tuple(range(24)),
     max_dollars: float = 1.0,
 ) -> None:
-    """Fetch the raw coin-hours of days [start, end) not yet on disk, then rebuild their snapshots."""
+    """Fetch the raw coin-hours of days [start, end) not yet on disk, then rebuild every snapshot whose source hours differ from the raw hours on disk."""
     _refuse_window(start, end)
     days = [start + dt.timedelta(days=i) for i in range((end - start).days)]
     wanted = [(d, h, c) for d in days for h in hours for c in coins if not _raw_path(root, d, h, c).exists()]
@@ -142,7 +164,7 @@ def fetch(
             token = page["NextContinuationToken"]
     missing_path = root / "hl-archive" / "missing.tsv"
     for key in sorted(wanted_keys - listed.keys()):
-        _append(missing_path, [key, "NotListed"])
+        _record_missing(missing_path, key, "NotListed")
     size = sum(listed.values())
     estimate = size / 1e9 * DOLLARS_PER_GB + len(listed) * DOLLARS_PER_GET + list_calls * DOLLARS_PER_LIST
     print(f"{len(listed)} files, {size} bytes, {list_calls} lists, estimated ${estimate:.4f} (limit ${max_dollars})")
@@ -150,20 +172,22 @@ def fetch(
     stamp = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
     spend = [stamp, len(listed), size, f"{estimate:.4f}", *(["refused"] if refused else [])]
     _append(root / "hl-archive" / "spend.tsv", spend)
-    fresh: set[tuple[str, dt.date]] = set()
     if not refused:
         found = [w for w in wanted if _key(*w) in listed]
         with ThreadPoolExecutor(max_workers=WORKERS) as pool:
             codes = list(pool.map(lambda w: _download(client, _key(*w), _raw_path(root, w[0], w[1], w[2])), found))
         for (day, hour, coin), code in zip(found, codes, strict=True):
-            if code is None:
-                fresh.add((coin, day))
-            else:
-                _append(missing_path, [_key(day, hour, coin), code])
+            if code is not None:
+                _record_missing(missing_path, _key(day, hour, coin), code)
+    stale = []
     for day in days:
         for coin in coins:
-            if (coin, day) in fresh or not _snapshot_path(root, coin, day).exists():
-                _write_snapshots(root, coin, day, hours)
+            raw = _raw_hours(root, coin, day)
+            if raw and _built_hours(_snapshot_path(root, coin, day)) != raw:
+                stale.append((root, coin, day, raw))
+    if stale:
+        with Pool(workers(SNAPSHOT_BYTES)) as snapshot_pool:
+            snapshot_pool.starmap(_write_snapshot, stale)
 
 
 def bars(coin: str, start_ms: int, end_ms: int, interval_ms: int, root: Path) -> pl.DataFrame:
