@@ -2,7 +2,7 @@
 
 open Core
 
-let route frame = Mmrec.Route.dir (Mmrec.Route.of_frame frame)
+let route ?(fast = false) frame = Mmrec.Route.dir (Mmrec.Route.of_frame ~fast frame)
 
 let%expect_test "item 2: each channel's frames land in its file" =
   List.iter
@@ -63,18 +63,54 @@ let%expect_test "item 2: only the top-level channel field counts" =
 
 let%expect_test "item 2: directory names" =
   List.iter
-    Mmrec.Route.[ Trades; L2_book; All_dexs_asset_ctxs; Events; Listings ]
+    Mmrec.Route.[ Trades; L2_book; L2_book_fast; All_dexs_asset_ctxs; Events; Listings ]
     ~f:(fun r -> print_endline (Mmrec.Route.dir r));
   [%expect {|
     trades
     l2Book
+    l2Book-fast
     allDexsAssetCtxs
     events
     listings |}]
 ;;
 
+let%expect_test "item 2: an l2Book frame goes to l2Book-fast on a fast connection and to l2Book on a deep one" =
+  let l2 = {|{"channel":"l2Book","data":{"coin":"BTC","levels":[[],[]]}}|} in
+  print_endline (route ~fast:true l2);
+  print_endline (route ~fast:false l2);
+  [%expect {|
+    l2Book-fast
+    l2Book |}]
+;;
+
+let%expect_test "item 2: the connection's kind changes no other frame's file" =
+  List.iter
+    [ {|{"channel":"trades","data":[]}|}
+    ; {|{"channel":"allDexsAssetCtxs","data":{"ctxs":[]}}|}
+    ; {|{"channel":"subscriptionResponse","data":{"method":"subscribe","subscription":{"type":"l2Book","coin":"BTC","fast":true}}}|}
+    ; {|{"channel":"pong"}|}
+    ; {|{"channel":"error","data":"boom"}|}
+    ; {|{"channel":"bbo","data":{}}|}
+    ; "not json"
+    ]
+    ~f:(fun frame ->
+      let fast = route ~fast:true frame in
+      let deep = route ~fast:false frame in
+      print_endline (if String.equal fast deep then fast else sprintf "DIFFERS %s %s" fast deep));
+  [%expect {|
+    trades
+    allDexsAssetCtxs
+    events
+    events
+    events
+    events
+    events |}]
+;;
+
 let%test_unit "item 2: a frame is never routed to listings (quickcheck)" =
   Base_quickcheck.Test.run_exn
     (module String)
-    ~f:(fun frame -> assert (not (Mmrec.Route.equal (Mmrec.Route.of_frame frame) Listings)))
+    ~f:(fun frame ->
+      List.iter [ true; false ] ~f:(fun fast ->
+        assert (not (Mmrec.Route.equal (Mmrec.Route.of_frame ~fast frame) Listings))))
 ;;

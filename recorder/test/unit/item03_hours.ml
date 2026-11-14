@@ -22,12 +22,13 @@ let%expect_test "item 3: 10:59:59.999 is hour 10 and 11:00:00.000 is hour 11" =
 
 let%expect_test "item 3: every channel has its directory, listings included" =
   List.iter
-    Mmrec.Route.[ Trades; L2_book; All_dexs_asset_ctxs; Events; Listings ]
+    Mmrec.Route.[ Trades; L2_book; L2_book_fast; All_dexs_asset_ctxs; Events; Listings ]
     ~f:(fun route ->
       print_endline (Mmrec.Hour_path.of_recv ~root:"data/ws" route ~recv_ms:at_10_59));
   [%expect {|
     data/ws/trades/20261114/10.jsonl.zst
     data/ws/l2Book/20261114/10.jsonl.zst
+    data/ws/l2Book-fast/20261114/10.jsonl.zst
     data/ws/allDexsAssetCtxs/20261114/10.jsonl.zst
     data/ws/events/20261114/10.jsonl.zst
     data/ws/listings/20261114/10.jsonl.zst |}]

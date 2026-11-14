@@ -7,6 +7,12 @@ type config =
   ; close_after_ms : conn:int -> int option
   ; stream : (conn:int -> seq:int -> string) option
   ; stream_interval_ms : int
+  ; tls : tls option
+  }
+
+and tls =
+  { crt_file : string
+  ; key_file : string
   }
 
 let default_config =
@@ -15,12 +21,15 @@ let default_config =
   ; close_after_ms = (fun ~conn:_ -> None)
   ; stream = None
   ; stream_interval_ms = 100
+  ; tls = None
   }
 ;;
 
 type t =
-  { server : (Socket.Address.Inet.t, int) Tcp.Server.t
-  ; port : int
+  { servers : (Socket.Address.Inet.t, int) Tcp.Server.t list
+  ; ws_port : int
+  ; rest_port : int
+  ; ws_scheme : string
   ; accepts : (int * int) list ref
   ; received : (int * int * string) list ref
   ; rest_requests : string list ref
@@ -123,7 +132,7 @@ let serve_ws t config reader writer headers conn =
 let start config =
   let t_ref = ref None in
   let counter = ref 0 in
-  let handler _addr reader writer =
+  let handler reader writer =
     let t = Option.value_exn !t_ref in
     let%bind headers = read_headers reader [] in
     let is_upgrade =
@@ -138,15 +147,27 @@ let start config =
       serve_ws t config reader writer headers conn)
     else serve_rest t config reader writer headers
   in
-  let%map server =
-    Tcp.Server.create
-      ~on_handler_error:`Ignore
-      (Tcp.Where_to_listen.bind_to Localhost On_port_chosen_by_os)
-      handler
+  let where = Tcp.Where_to_listen.bind_to Localhost On_port_chosen_by_os in
+  let%bind plain = Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> handler r w) in
+  let%map servers, ws_port, ws_scheme =
+    match config.tls with
+    | None -> return ([ plain ], Tcp.Server.listening_on plain, "ws")
+    | Some { crt_file; key_file } ->
+      let tls_config = Async_ssl.Config.Server.create ~crt_file ~key_file ~ca_file:None ~ca_path:None () in
+      let%map secure =
+        Async_ssl.Tls.listen
+          tls_config
+          where
+          ~on_handler_error:`Ignore
+          ~f:(fun _ _ reader writer -> handler reader writer)
+      in
+      [ plain; secure ], Tcp.Server.listening_on secure, "wss"
   in
   let t =
-    { server
-    ; port = Tcp.Server.listening_on server
+    { servers
+    ; ws_port
+    ; rest_port = Tcp.Server.listening_on plain
+    ; ws_scheme
     ; accepts = ref []
     ; received = ref []
     ; rest_requests = ref []
@@ -157,9 +178,9 @@ let start config =
   t
 ;;
 
-let stop t = Tcp.Server.close t.server
-let ws_url t = sprintf "ws://127.0.0.1:%d/ws" t.port
-let rest_url t = sprintf "http://127.0.0.1:%d/info" t.port
+let stop t = Deferred.List.iter ~how:`Sequential t.servers ~f:Tcp.Server.close
+let ws_url t = sprintf "%s://127.0.0.1:%d/ws" t.ws_scheme t.ws_port
+let rest_url t = sprintf "http://127.0.0.1:%d/info" t.rest_port
 let accepts t = List.rev !(t.accepts)
 let received t = List.rev !(t.received)
 let streamed t ~conn = Option.value (Hashtbl.find t.streamed conn) ~default:0
@@ -185,6 +206,23 @@ let subscribed_on t ~conn =
            Some (str "type", str "coin")
          | _ -> None)
       | _ -> None))
+;;
+
+let carries_fast_book t ~conn =
+  List.exists (received t) ~f:(fun (c, _, text) ->
+    c = conn
+    &&
+    match json_of_text text with
+    | Some (`Assoc fields) ->
+      (match
+         ( List.Assoc.find fields ~equal:String.equal "method"
+         , List.Assoc.find fields ~equal:String.equal "subscription" )
+       with
+       | Some (`String "subscribe"), Some (`Assoc sub) ->
+         Poly.equal (List.Assoc.find sub ~equal:String.equal "type") (Some (`String "l2Book"))
+         && Poly.equal (List.Assoc.find sub ~equal:String.equal "fast") (Some (`Bool true))
+       | _ -> false)
+    | _ -> false)
 ;;
 
 let meta_json ~live ~delisted =

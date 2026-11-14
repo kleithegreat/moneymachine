@@ -193,3 +193,17 @@ let%test_unit "item 11: the output does change when counts change" =
   let render root = without_bytes_text (I.render (I.check ~root ~from_:"2026111410" ~to_:"2026111412")) in
   assert (not (List.equal String.equal (render a) (render b)))
 ;;
+
+let%test_unit "item 11: l2Book-fast is a channel of its own, apart from l2Book" =
+  let root = H.tmp_dir () in
+  let write route chunks =
+    H.write_frames ~path:(sprintf "%s/%s/20261114/10.jsonl.zst" root route) chunks
+  in
+  write "l2Book-fast" [ String.concat [ l2_line ~shift:0 1; l2_line ~shift:0 2; l2_line ~shift:0 3 ] ];
+  write "l2Book" [ l2_line ~shift:0 4 ];
+  let report = I.check ~root ~from_:"2026111410" ~to_:"2026111410" in
+  let entry channel = List.find_exn report.entries ~f:(fun e -> String.equal e.channel channel) in
+  assert (List.length report.entries = 2);
+  assert ((entry "l2Book-fast").lines = 3);
+  assert ((entry "l2Book").lines = 1)
+;;

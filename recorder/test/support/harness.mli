@@ -14,9 +14,11 @@ val tmp_dir : unit -> string
 (** The built executable, relative to the test's working directory. *)
 val mmrec_exe : string
 
-(** Runs [mmrec run <root> ...] against the fake, [extra] flags appended. Its output is drained and discarded. *)
+(** Runs [mmrec run <root> ...] against the fake, [extra] flags appended and [env] added to the environment.
+    Its output is drained and discarded. *)
 val spawn_run
   :  root:string
+  -> ?env:(string * string) list
   -> ?listings_interval_s:int
   -> ?extra:string list
   -> Fake_hl.t

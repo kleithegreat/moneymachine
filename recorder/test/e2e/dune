@@ -10,10 +10,14 @@
   item08_heartbeat_e2e
   item10_sigterm_e2e
   item11_check_cli_e2e
-  item12_unacked_e2e)
- (libraries core core_unix core_unix.signal_unix async async_unix async_websocket yojson mmrec rec_support)
+  item12_unacked_e2e
+  item14_connect_error_e2e)
+ (libraries core core_unix core_unix.signal_unix async async_unix async_websocket yojson mmrec rec_support core_unix.filename_unix)
  (preprocess
   (pps ppx_jane))
  (deps
   ../../bin/mmrec.exe
+  ../support/tls_server.crt
+  ../support/tls_server.key
+  ../support/tls_unrelated_ca.pem
   %{bin:zstd}))

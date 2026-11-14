@@ -15,7 +15,7 @@ let drain_all process =
   don't_wait_for (Reader.drain (Process.stderr process))
 ;;
 
-let spawn_run ~root ?(listings_interval_s = 3600) ?(extra = []) fake =
+let spawn_run ~root ?(env = []) ?(listings_interval_s = 3600) ?(extra = []) fake =
   let args =
     [ "run"
     ; root
@@ -28,7 +28,7 @@ let spawn_run ~root ?(listings_interval_s = 3600) ?(extra = []) fake =
     ]
     @ extra
   in
-  let%map process = Process.create_exn ~prog:mmrec_exe ~args () in
+  let%map process = Process.create_exn ~prog:mmrec_exe ~args ~env:(`Extend env) () in
   drain_all process;
   process
 ;;

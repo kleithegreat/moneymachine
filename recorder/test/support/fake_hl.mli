@@ -1,5 +1,6 @@
 (** A local fake of Hyperliquid for the offline tests: one plain-TCP port serving the websocket at any path and
-    the REST [info] endpoint at any other, with no TLS. It parses requests with Yojson on its own, not with the
+    the REST [info] endpoint at any other, with no TLS, unless [tls] is set: then the websocket is served over TLS
+    on its own port (a [wss://] URL) and REST stays plain on another. It parses requests with Yojson on its own, not with the
     library under test. Times are real, in ms since the epoch. *)
 
 open Async
@@ -11,6 +12,12 @@ type config =
   ; stream : (conn:int -> seq:int -> string) option
         (** once a connection has subscribed, send this frame every [stream_interval_ms] *)
   ; stream_interval_ms : int
+  ; tls : tls option  (** serve the websocket over TLS with this certificate *)
+  }
+
+and tls =
+  { crt_file : string
+  ; key_file : string
   }
 
 (** Acks, never closes, streams nothing, REST answers [{}]. *)
@@ -34,6 +41,10 @@ val streamed : t -> conn:int -> int
 
 (** The REST request bodies received, in order. *)
 val rest_requests : t -> string list
+
+(** Whether [conn] has subscribed to a fast [l2Book] ([l2Book] with ["fast": true]): true of a fast
+    connection, false of a deep one and of one that subscribed to nothing. *)
+val carries_fast_book : t -> conn:int -> bool
 
 (** The coins of the [subscribe] requests received on [conn], per subscription type, e.g. [("trades", "BTC")];
     [("allDexsAssetCtxs", "")] has no coin. *)

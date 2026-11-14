@@ -1,4 +1,6 @@
-(* Items 1 and 2 against the running recorder: frames land byte for byte in the file of their channel; acks,
+(* Items 1 and 2 against the running recorder: frames land byte for byte in the file of their channel; an l2Book
+   frame lands in l2Book-fast if it came on a fast connection and in l2Book if on a deep one (the fake streams
+   every kind of frame on every connection, and the connection's kind is read from what it subscribed to); acks,
    pongs, errors and unknown channels land in events. *)
 
 open Core
@@ -16,13 +18,22 @@ let frame ~conn ~seq =
   | _ -> sprintf "{\"channel\":\"unknownThing\",\n\"data\":[],\"n\":%d,\"c\":%d}" seq conn
 ;;
 
-let channel_of_seq seq =
+let is_deep fake ~conn =
+  let subs = F.subscribed_on fake ~conn in
+  (not (List.is_empty subs))
+  && List.for_all subs ~f:(fun (ty, _) -> String.equal ty "l2Book")
+  && not (F.carries_fast_book fake ~conn)
+;;
+
+let channel_of_seq fake ~conn seq =
   match seq mod 6 with
   | 1 -> "trades"
-  | 2 -> "l2Book"
+  | 2 -> if is_deep fake ~conn then "l2Book" else "l2Book-fast"
   | 3 -> "allDexsAssetCtxs"
   | _ -> "events"
 ;;
+
+let all_channels = [ "trades"; "l2Book"; "l2Book-fast"; "allDexsAssetCtxs"; "events" ]
 
 let sanitize s = String.map s ~f:(function '\r' | '\n' -> ' ' | c -> c)
 
@@ -44,16 +55,16 @@ let () =
     in
     let%bind status, _ = H.sigterm_and_wait process in
     H.check (Result.is_ok status) "exit status";
-    let data = Map.of_alist_exn (module String) (List.map [ "trades"; "l2Book"; "allDexsAssetCtxs"; "events" ] ~f:(fun c -> c, H.raw_channel_data ~root ~channel:c)) in
+    let data = Map.of_alist_exn (module String) (List.map all_channels ~f:(fun c -> c, H.raw_channel_data ~root ~channel:c)) in
     let checked = ref 0 in
     List.iter (F.accepts fake) ~f:(fun (conn, _) ->
       for seq = 1 to F.streamed fake ~conn - 20 do
         let expected = sanitize (frame ~conn ~seq) in
-        let home = channel_of_seq seq in
+        let home = channel_of_seq fake ~conn seq in
         H.check
           (String.is_substring (Map.find_exn data home) ~substring:(expected ^ "}\n"))
           (sprintf "frame conn=%d seq=%d is not byte for byte in %s" conn seq home);
-        List.iter [ "trades"; "l2Book"; "allDexsAssetCtxs"; "events" ] ~f:(fun other ->
+        List.iter all_channels ~f:(fun other ->
           if not (String.equal other home)
           then
             H.check
@@ -62,6 +73,9 @@ let () =
         incr checked
       done);
     H.check (!checked >= 60) "too few frames checked";
+    let kinds = List.map (F.accepts fake) ~f:(fun (conn, _) -> is_deep fake ~conn) in
+    H.check (List.mem kinds true ~equal:Bool.equal) "no deep connection was seen";
+    H.check (List.mem kinds false ~equal:Bool.equal) "no fast connection was seen";
     let events = Map.find_exn data "events" in
     H.check (String.is_substring events ~substring:{|"channel":"subscriptionResponse"|}) "acks are in events";
     H.check
