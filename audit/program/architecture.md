@@ -17,7 +17,7 @@ Written 2026-11-11 21:11 UTC (16:11 EST) by Claude Fable 5.2 (`claude-fable-5-2`
 Revision 3 found that two rounds failed on power computed for an idealization. It then did the same thing in the other direction, three times:
 - **A terminal threshold for a stopped test.** It asked for wealth of 20 at the end. The test stops when wealth first reaches 20, which is likelier: the power at revision 3's count is 0.896, not 0.80.
 - **One settlement timing taken as the design.** Its account paid every purchase at the week's end. That was revision 2's event calendar, not a property of bets on perps, and it starves the stake.
-- **The gate's cap taken as a law.** The gate bets at most `1/L` with `L = 2`, a hundred standard deviations of a step. `L` is the rule's own worst loss, which a rule on isolated margin sets itself.
+- **The gate's cap taken as a law.** The gate bets at most `1/L` with `L = 2`, a hundred standard deviations of a step. `L` is the rule's own worst loss. A rule whose worst step is within a few tens of ordinary steps can bet Kelly's fraction; study 2's dip-buying ladder cannot (section 6).
 
 Study 1 carried a fourth instance: its measure was a mean estimated on one shared sample and described as a property with an error of 3·10⁻⁵.
 
@@ -35,7 +35,7 @@ A test that assumes only its null is a bet (Ville 1939; Kelly 1956; Shafer 2021;
 
 - **What it costs.** For independent even bets with net edge `e`, staked at Kelly's fraction, log wealth is near a Brownian motion with drift `e²/2` and variance `e²` a bet. It reaches `log 20` before `N` bets with probability 0.80 when `N = 8.59 / e²` (the reflection formula; Argon wrote 8.67). That is 1.39 times the yardstick's 6.18. Every figure below is at 80% power.
 - **The fraction must be chosen before the data.** A bet sized for Sharpe 2 has power 0.77 within two years at a true Sharpe of 2, 0.47 at 1.4 and 0.90 at 2.4. Averaging the bets for Sharpe 1, 2 and 3 is worse at each of those (0.71, 0.41, 0.86), so the fraction is one registered number.
-- **The cap is the rule's own loss bound.** Kelly's fraction fits under `1/L` while a step's worst loss is at most `√2190 / S` standard deviations of a step: 23.4 at Sharpe 2, 33.4 at 1.4. The gate has 100, which is why it needs Sharpe 4.0 at two years. A bound must be a property of the tested rule, not a clip applied afterwards: clipping a loss raises the mean and breaks the null. A rule on isolated margin has one, the margin it posts for the step.
+- **The cap is the rule's own loss bound.** Kelly's fraction fits under `1/L` while a step's worst loss is at most `√2190 / S` standard deviations of a step: 23.4 at Sharpe 2, 33.4 at 1.4. The gate has 100, which is why it needs Sharpe 4.0 at two years. A bound must be a property of the tested rule, not a clip applied afterwards: clipping a loss raises the mean and breaks the null. And nothing bets more than the bound allows: against the null "mean at most zero, loss at most `L`", the only wealths that are exact are those betting a fraction of at most `1/L`. An account that cannot owe has `L = 1`, so the largest exact bet on it is the account itself (section 6).
 
 ### 2.3 The cutoff makes T small
 
@@ -76,14 +76,14 @@ Every forward design on Hyperliquid, with the account simulated as specified: ea
 
 | Design | Independent bets a week | Net edge for 80% power within two years | Power within two years at net 0.03, 0.05, 0.08 |
 |---|---|---|---|
-| A reading agent's bracketed theses on perps | 5 | 0.177: a hit rate of 59% | |
-| | 10 | 0.108 | 0.00, 0.16, 0.48 |
-| | 15 | 0.083 | |
-| | 33 | 0.052 | 0.21, 0.76, 0.99 |
+| A reading agent's bracketed theses on perps | 5 | 0.178: a hit rate of 59% | |
+| | 10 | 0.109 | 0.00, 0.16, 0.47 |
+| | 15 | 0.084 | |
+| | 33 | 0.053 | 0.21, 0.75, 0.99 |
 | | 60 | 0.039 | |
-| A frozen rule replayed on recordings | a return series | Sharpe 2.07 with its own loss bound; 4.0 under the gate | at Sharpe 1, 1.4, 2, 2.4, bet for 2: 0.28, 0.47, 0.77, 0.90 |
+| A frozen rule replayed on recordings | a return series | Sharpe 2.07 if its own loss bound allows Kelly's bet; 4.0 under the gate; section 6 for a rule that cannot | at Sharpe 1, 1.4, 2, 2.4, bet for 2: 0.28, 0.47, 0.77, 0.90 |
 
-- **Settlement timing.** Paid before the next purchase, the edges are 0.170, 0.102, 0.078, 0.050 and 0.037. Paid at the week's end, revision 3's batch, they are 0.202, 0.130, 0.104, 0.071 and 0.056. Below 33 a week the 5% cap binds, which is why 5 a week needs more than the closed form's 0.129.
+- **Settlement timing.** Paid before the next purchase, the edges are 0.170, 0.102, 0.078, 0.050 and 0.037. Paid at the week's end, revision 3's batch, they are 0.211, 0.139, 0.113, 0.084 and 0.071, counting as cash only what has been paid. Below 33 a week the 5% cap binds, which is why 5 a week needs more than the closed form's 0.129.
 - **The size.** An account staking the cap on fair bets, 33 a week, reaches 20 within two years in 2.4% of paths. The bound is 5% over any horizon.
 - **The law.** Where the cap does not bind: bets a week times `e²` is at least `8.59 / 104 = 0.083`. That is 92 a week at 0.03, 33 at 0.05 and 13 at 0.08.
 
@@ -245,17 +245,70 @@ A study stopped between markets has no result yet, and the report says that it h
 
 ## 6. Study 2: the positive control of the confirmer
 
-**The place of a replication.** The human proposes replicating published Hyperliquid strategies, the example being a reverse-engineered vault: a long-only ladder that buys dips in large caps, with a reported Sharpe of 2.4 and about 1.4 recently. The program has a place for it, and it is not a search for edge. Study 1 asks whether the agent finds an edge that exists. A replication asks the matching question of the other half of the machinery: given a rule that plausibly has an edge, on evidence better than any backtest, can the confirmer confirm it within the calendar? It can establish three things, in order of cost. **Fidelity, with no waiting:** the replica run by the kernel over the archive, against the vault's own public record over the same dates. This is the first check of the kernel's fills, fees and funding against an account that really traded, and it is a result about the machinery whatever the edge. **Decomposition, with no waiting, descriptive only:** how much of the reported Sharpe is the return of holding the vault's average exposure, and how much is timing. A long-only dip buyer in a rising market earns the market. **Forward confirmation:** the frozen replica under the exact test of 2.2, from the freeze date on. It cannot establish that an agent has edge, or that the vault's record is skill: we know of the vault because it survived, so nothing recorded before our freeze judges anything. Replication of published predictors is an old design with a known finding: returns fall by about a quarter out of sample and by more than half after publication (McLean and Pontiff 2016; Hou, Xue and Zhang 2020; *leads*). The reported decay from 2.4 to 1.4 is in line with it. The advisor plans feasibility; what follows is the design that plan must meet.
+**The place of a replication.** The human proposes replicating published Hyperliquid strategies, the example being a reverse-engineered vault: a long-only ladder that buys dips in large caps, with a reported Sharpe of 2.4 and about 1.4 recently. The program has a place for it, and it is not a search for edge. Study 1 asks whether the agent finds an edge that exists. A replication asks the matching question of the other half of the machinery: given a rule that plausibly has an edge, on evidence better than any backtest, can an exact confirmer confirm it within the calendar? It cannot establish that an agent has edge, or that the vault's record is skill: we know of the vault because it survived, so nothing recorded before our freeze judges anything. Replication of published predictors is an old design with a known finding: returns fall by about a quarter out of sample and by more than half after publication (McLean and Pontiff 2016; Hou, Xue and Zhang 2020; *leads*).
 
-- **Claim, on rejection:** from the freeze on, not every four-hour step of the frozen replica, hedged, had a non-positive expected net return given its past.
-- **The tested series.** The replica's net return a step, minus a fixed short of its universe sized to its average exposure before the freeze, every leg on isolated margin posted at the step's start. The step's loss cannot exceed the margin posted, and that bound must be at most 23.4 standard deviations of a step. The unhedged series is reported.
-- **Test.** Wealth starts at 1 and bets Kelly's fraction for a Sharpe of 2, computed from the replay before the freeze and registered. The claim is wealth of 20. It reads only steps after the freeze.
-- **Power within one year and two:** 0.12 and 0.28 at Sharpe 1; 0.22 and 0.47 at 1.4; 0.42 and 0.77 at 2; 0.57 and 0.90 at 2.4. Under no edge, 0.04. Eighty percent takes 1.5 years at 2.4 and 4.4 at 1.4. **So it has honest power only if the forward Sharpe is about 2 or more, and at the vault's recent figure it has less than even odds.**
-- **A non-rejection** is "not confirmed", with the realized Sharpe, its standard error (0.71 at two years) and the power row.
-- **Why run it at those odds.** The fidelity result stands alone. After it, the forward test costs a replay each month of recordings that already run. And either outcome measures the wall on a real rule, which is the paper's subject.
-- **Walls before any forward step:** the archive's dates cover the vault's record; the replica reproduces the vault's daily returns within a tolerance registered before the comparison; the kernel can post isolated margin a step on recorded books. If the kernel cannot, the bound is not real and the test is not exact: back to the architect.
+**Re-derived on kernel version 2** (`kernel-v2.md`), after Argon's round 4 (D11 to D15) and round 1 on the kernel (findings 4 and 5). Revision 4 took the replica's return series as given and then tried to give it, from outside, a loss bound (isolated margin a step), a hedge (a fixed short) and a bet (a frozen Kelly fraction). Each attack landed on one of the three, and each fix I conceded last session (one cross account with a hedge leg, a threshold of `20(1 + ε̄)`) was attacked again. The cause is one: a loss bound, an exposure and a bet size are properties of an account, so the tested wealth must be an account.
 
-**The account, if a reading-agent study is ever opened.** Cash starts at 1. A purchase pays a stake the agent registers, at most 5% of cash, at the recorded all-in cost `c < 1`, and holds `stake/c` units. A recorded settlement `x` in [0, 1] pays `(stake/c)·x` into cash. The null is rejected when cash reaches 20. **Null:** for every purchase, `E[x | everything that has happened by its registration, recorded or not] ≤ c`. **Validity,** on the world's filtration, to which the recorder's own delays are adapted: let `V` be cash plus, for every position not yet recorded as paid, `stake/c` times the conditional expectation of `x`. A registration lowers cash by the stake and adds at most the stake to the sum, by the null. Between events each term is a martingale. A recording moves a realized payout from the sum into cash and changes nothing. So `V` is a non-negative supermartingale starting at 1, cash never exceeds it, and cash reaches 20 with probability at most 5%, whenever and in whatever order records arrive.
+### 6.1 The test
+
+- **The account.** The frozen replica runs in the kernel as one cross-margined account, long only, every size a fraction of its current equity. `W` is its equity at mids over its starting equity, read at the end of every five-minute step.
+- **The loss bound (D11, conceded and re-derived).** An account that cannot owe has `W ≥ 0` (law L6), and that is the whole bound: no margin a leg, no threshold to correct. At a leverage of 1 it needs nothing of the venue, since a long bought with cash is not liquidated by any price; only funding can take cash below zero, and the kernel's liquidation covers that. Above 1 it rests on the venue bearing a shortfall (assumption V7), so a certificate of that comes first. The test ends, not confirmed, at the first liquidation.
+- **What the bound costs.** No exact test bets more than the account does (2.2). Kelly's bet needs a worst step within 23.4 ordinary ones. A ladder's is far outside: a full ladder holds 27.6 first buys, the vault's cycles held 1.99 on average, and 78% never passed the first. An account with room for its own worst case is nearly idle on an ordinary day. Isolated margin bought a tighter bound only by turning the rule into one that liquidates through its own ladder (round 4, finding 1), which is a different rule with no live record.
+- **The benchmark (D12, conceded and re-derived).** A null that holds for every rule without skill, whatever the market's drift, must give the benchmark the rule's own exposure at every step: with exposure `e` and benchmark exposure `ē`, a step's expected excess is `(e − ē)` times the drift, which no one knows. So the benchmark is not a position. It is the unit wealth is measured in:
+  - `B` is a basket's wealth: over each step it earns `e · r`, with `e` the account's long notional over its equity at the step's start, and `r` the equal-weight mean of the listed coins' mid returns over the step.
+  - **The tested wealth is `M = W / B`.** The null: at every step, the expected ratio of the account's growth to the basket's, given the past, is at most 1. Then `M` is a non-negative supermartingale from 1, and reaches 20 with probability at most 5% under any dependence and any stopping.
+  - It needs no short, no order, no margin, no funding on a hedge and no hedge delay, so the 10 USD minimum and the initial-margin findings of round 1 have nothing to land on. It is a ratio of two columns of the kernel's report (A12).
+  - A step whose basket factor `1 + e · r` is not positive ends the test, not confirmed. At a leverage of 1 that takes every coin going to zero.
+- **What the null removes, and what no test can see.** It removes drift along any path of exposure: round 4's shift from 0.25 to 0.65 in a rising market gives a ratio of 1. With it goes market-wide dip timing: a rule that raises its exposure before the market rises is, step by step, the same event as drift, so no test valid under every drift can credit it. What is credited is held coins that outgrow the basket, and fills better than the mid. Two residuals are stated, not removed: a coin whose beta to the basket is not 1 keeps `(β − 1)` of the drift, and coins that are not exchangeable leave a term of second order in a step's return.
+- **Earned, and timed.** `W` alone tests "the account earned", which a rising market can satisfy without skill; it is reported and never called a confirmation. `log W = log B + log M` is the decomposition, before the freeze and after. Only `M` is judged (the advisor's decision of 2026-11-14 on my lean).
+- **The bet (D13, conceded).** The bet is the account's own sizing: a first buy's notional is the equity times `b / σ̂`, `σ̂` being the coin's own trailing volatility known at the tick, a float the program computes and crosses with `exact(·)`, under a gross cap `G`, the header's leverage. A shift in volatility moves the size with it, so nothing frozen on old volatility remains. `b` is the value that maximizes two-year power in a block bootstrap of the replay before the freeze; `G` is 1 unless V7 is certified. Both are registered at the freeze.
+- **The venue.** `pessimistic`, with trades, at registered `λ` and `δ`: every fill it credits is a lot the record shows was offered through the price. The `optimistic` run is reported beside it. Neither bounds the other (kernel A7).
+- **Claim, on rejection:** from the freeze on, the frozen replica's account, filled only on flow through its prices, did not grow at most as fast as a basket of its universe held at its own exposure.
+- **A non-rejection** is "not confirmed", with `M`, `W`, `B`, the account's realized volatility and Sharpe, and the power row.
+
+### 6.2 Power, said in advance
+
+With the account as the wealth, the bet is the account's volatility. For Gaussian steps (`arithmetic.py.txt`, `study2`), power within two years and the years to 80%:
+
+| Account's yearly volatility | Sharpe 1.4 | Sharpe 2 | Sharpe 2.4 |
+|---|---|---|---|
+| 0.25 | 0.00; 11.3 | 0.00; 7.5 | 0.00; 6.1 |
+| 0.5 | 0.01; 6.7 | 0.05; 4.2 | 0.14; 3.4 |
+| 1.0 | 0.28; 4.6 | 0.59; 2.6 | 0.78; 2.0 |
+| 2.0 (revision 4's bet) | 0.48; 5.3 | 0.77; 2.1 | 0.90; 1.5 |
+
+- The table is an upper reference: a dip buyer's returns are skewed against it, and the figures are for `W` at the stated Sharpe, where `M` has what is left after the basket. The real figure is the bootstrap's.
+- **Revision 4's row is not reachable.** A long-only account without leverage has at most the basket's volatility, and one that keeps room for its ladder far less. I have read no price, so I do not know the row; I expect 0.5 or under.
+- **So the forward test is expected to end "not confirmed" at two years, and the result of study 2 that matters is available at the freeze:** the wall for a real rule, as the account volatility an exact test can reach and the years it implies. That is the paper's subject, measured.
+- **D13's figure.** A bet of 2 at a Sharpe of 1.4 takes 5.32 years by this document's reflection formula, not revision 4's 4.4; Argon's 6.13 is not reproduced by it. A fraction frozen on old volatility, at 1.5 times the volatility, has a log drift of −0.30 a year.
+- **Why run the forward test anyway.** It costs a replay a month of recordings that already run, and its "not confirmed" comes with a measured volatility and Sharpe on dates nobody fitted.
+
+### 6.3 Fidelity, from what can be read (D14)
+
+The vault's equity history cannot be read before 2027-01-31 (`vaultDetails` and `portfolio` take no end time), so fidelity is defined on its 5,806 fills to 2026-10-31. Argon's objection was that a ladder fitted and checked on the same dates absorbs the fill model's errors into its thresholds. The answer is to check each part against something that was not fitted through the kernel.
+
+1. **The ledger, against the venue's own arithmetic.** The fills are fed to the ledger as given. It must give every fill's fee and `closedPnl` to the digits the venue prints, every `startPosition` exactly, every price on the assumed grid and every size in whole lots (V1, V3), and every `userFunding` payment in the period from A9 (that the endpoint takes a start and an end is a lead to check). Any difference is a defect or a wrong assumption. This is a test suite, not a criterion.
+2. **The fill rules, against real maker fills.** For each of the 4,956 maker fills, an order of its price and size resting from before: does each rule fill it, and how long before or after the real time? Reported by rule, by the archive's three cadence periods, with and without trades, and on the fast period decimated to 5.4 s. Nothing here was fitted.
+3. **The ladder, given the real first buys.** For each of the 2,019 cycles the published ladder and take-profit are started from the real first fill. Under each rule: which levels fill against which really filled, when the cycle closes, and its profit against the real one. The ladder's constants were read off the fills' own prices (facts §7), not tuned through the kernel, so a wrong fill rule cannot hide in them.
+4. **The trigger, where nothing was fitted.** The trigger is the one part reverse-engineered through data, so no fidelity is claimed for it before the freeze. After 2027-01-31 the whole replica is compared with the vault's fills in the released window: first buys matched within a registered time. The forward test does not depend on it; the reading "a rule with a live record" does.
+
+**The trades bucket (H11, settled).** `s3://hl-mainnet-node-data` is certified first, as a terms decision the advisor has reviewed. Its sizes are listed before any read. `node_trades` is read for the slow period first (2026-06-21 on, where a wick leaves no trace in the snapshots), then the rest, stopping at 12 USD of the 17.54 left.
+
+### 6.4 Walls before the freeze
+
+- The kernel's build plan is complete and its laws proved (`briefs/3-kernel-v2.md`).
+- Layer 1 has no unexplained difference.
+- Layers 2 and 3 are reported. For the judged venue, the sum of layer 3's cycle profits is at most the vault's real sum in each cadence period, within a tolerance registered before the comparison: the venue the claim is about does not flatter. This one is a number, so it goes to `audit/criteria.md` with its review.
+- The replay before the freeze gives the account's volatility, the bootstrap's power and the share of ladder orders refused for margin, and `b`, `G`, `λ`, `δ` are registered.
+- If a wall fails: back to the architect.
+
+### 6.5 Forward data
+
+- **From when.** The websocket recorder (`recorder/RECORDER.md`) has run since 2026-11-14 03:43 UTC (2026-11-13 22:43 EST): `trades` and five-level books about every 0.55 s for every perp, 20-level books about every 10 s on the main dex, asset contexts and hourly listings. Judged steps start at the freeze, which is later.
+- **What it lacks.** Settled hourly funding rows, which `fundingHistory` gives for any past range, so they are fetched at replay time. Books deeper than five levels between the ten-second ones: the policy's order cap keeps every order inside five levels, and a liquidation's remainder closes at the last level, against the account. A dated copy of the fee schedule and of each coin's margin tiers, to be recorded daily from now.
+- **Reading it.** The first replay runs after 2027-01-31 and monthly from then, so nothing of the pilot's forward window is read before its release. The vault's fills for layer 4 are read then, at once, since the API keeps only the latest 10,000.
+
+**The account, if a reading-agent study is ever opened (D15, conceded).** Cash starts at 1. A purchase pays a stake the agent registers, at most 5% of cash, at the all-in cost `c < 1` of its fill, and holds `stake/c` units. A recorded settlement `x` in [0, 1] pays `(stake/c)·x` into cash. The null is rejected when cash reaches 20; a payout not yet paid is never cash. **Null:** for every purchase, `E[x | everything that has happened by its fill, recorded or not] ≤ c`, the cost being known at the fill and not at the registration. A perp bracket is such a purchase only on isolated margin equal to the stake, with funding deducted, which kernel version 2 does not build until a study needs it. **Validity,** on the world's filtration, to which the recorder's own delays are adapted: let `V` be cash plus, for every position not yet recorded as paid, `stake/c` times the conditional expectation of `x`. A fill lowers cash by the stake and adds at most the stake to the sum, by the null. Between events each term is a martingale. A recording moves a realized payout from the sum into cash and changes nothing. So `V` is a non-negative supermartingale starting at 1, cash never exceeds it, and cash reaches 20 with probability at most 5%, whenever and in whatever order records arrive.
 
 ## 7. The program
 
@@ -292,7 +345,7 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 
 - **Used:** the frozen pilot kernel, `gate/markets.py`, `gate/search.py`, `gate/campaign.py`, `gate/agent/` under its frozen hash, `sandbox/`, the ledger; pre-registration of statistical criteria; fresh-session bug hunts; the two-round rule.
 - **Running, with no work done on it:** the certified recorders.
-- **To build:** study 1's slice; for study 2, an archive reader, the replica, and the confirmer of 2.2.
+- **To build:** study 1's slice; for study 2, kernel version 2 (`kernel-v2.md`, `briefs/3-kernel-v2.md`), the replica as a program in its language, and the confirmer of section 6, which is a ratio of two columns of the kernel's report.
 - **Parked:** the thesis track entire (`thesis/`, branches `thesis-refreeze` and `thesis-split`, Job `thesis-prewarm`), until a measured count; stage 7, the Lean engine, `reference/lean`; the swarm; stages 8 and 9, superseded. The stage 3 forward window lapses on 2027-01-31 with nothing registered in it, and its prices stay unread.
 - **Gone:** stage 11.
 - **Every stale file and rule** is listed with its edit in `paper-changes.md`.
@@ -302,14 +355,14 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 1. **The score's behaviour on a pair.** I have not read how the score treats a bankrupt program. Wall 3 exists because I cannot argue from the code that the even part of an effect, which knows nothing of the plant's sign, stays under half the reference on most pairs.
 2. **The reference's effect a pair.** If it is small against a pair's noise, an honest pick sits in the rule's soft zone and both rates fall. Wall 2 catches the reference; the count of pairs won by G100's picks, reported with the walls, shows the soft zone before any session. I expect it to be thin, because twins share their noise, and I have not measured it.
 3. **Least overlap** is the worst case for power and I think it unlikely: easy seeds should be easy for both arms.
-4. **The hedge in study 2.** A fixed short sized before the freeze is my choice. A wrong size leaves market return in the tested series, and a rising market would then be confirmed as edge. The decomposition result is the check, and it is descriptive.
-5. **Isolated margin on recorded books.** If a step's loss can exceed the margin in the replay, the test is not exact.
+4. **Study 2's claim is narrow.** Measured against a basket at its own exposure, a rule whose whole edge is buying market-wide dips shows nothing, by construction. I derive that no exact test can do better under unknown drift; Argon should try to build one.
+5. **Study 2's account volatility.** I have read no price, so the power table's row is unknown until the replay. If it is under 0.5 a year the forward test is a formality, and section 6 says so in advance.
 6. **The count.** 33 a week is a threshold, not an estimate. Someone who has read the thesis track's ledger knows more than I do.
 7. **The prior of 0.05.** The benchmarks test forecasting on given questions, not selection among perps.
 
 ## 12. Open questions for the human
 
-1. **Study 2.** A replication as the positive control of the confirmer: fidelity first, then a frozen forward test whose power is 0.47 at the vault's recent Sharpe and 0.90 at its reported one. I recommend yes, subject to the advisor's feasibility plan, with nothing before the freeze judged.
+1. **Study 2.** A replication as the positive control of the confirmer: fidelity first, then a frozen forward test. Re-derived on kernel version 2 (section 6), its power depends on the replica account's volatility, which the replay will measure; without leverage I expect it to be low. I still recommend yes: fidelity and the measured wall stand alone, and nothing before the freeze is judged.
 2. **Study 1's changes.** G100's target rate falls from 0.2 to 0.15, the calibration grows to 2,000 markets, and the claim says "more often than G100's 100 evaluations", not "at the same budget". Still at most 100 markets. I recommend yes.
 3. **The findings index,** `docs/findings.md`, as the organized presentation of earlier research, with the paper as the home of every number. I recommend yes.
 4. **A count for the reading agent.** Reading the thesis track's ledger for theses a week costs nothing and decides whether that line is ever reopened. I recommend the advisor does it, and that no sessions are spent on a count.

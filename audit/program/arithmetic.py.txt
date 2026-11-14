@@ -1,4 +1,4 @@
-"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6), audit/program/paper-changes.md
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived on kernel version 2), audit/program/paper-changes.md
 and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
 
 Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
@@ -68,7 +68,7 @@ def exact_cost() -> None:
 def account(bets: int, hold: int, edge: float, fraction: float, weeks: int = 104, paths: int = 4000) -> float:
     """A paper account in even bets with net edge `edge`: `bets` purchases a week, each staking `fraction` of the
     cash left at that moment and paid `hold` purchases later (0: before the next purchase). Returns P(cash reaches
-    20 within `weeks`)."""
+    20 within `weeks`); a payout still pending at the end is not cash (Argon's round 4, finding 7)."""
     rng = np.random.default_rng(11)
     cash = np.ones(paths)
     pending = np.zeros((paths, hold + 1))
@@ -80,7 +80,6 @@ def account(bets: int, hold: int, edge: float, fraction: float, weeks: int = 104
         stake = fraction * cash
         cash = cash - stake
         pending[:, slot] = 2 * stake * (rng.random(paths) < (1 + edge) / 2)
-    reached |= cash + pending.sum(axis=1) >= 20
     return float(reached.mean())
 
 
@@ -143,6 +142,42 @@ def confirmer(sigma: float = 0.02) -> None:
     print(f"  the standard error of a Sharpe measured over two years is {1 / math.sqrt(2):.2f}")
     for sharpe in (1.4, 2.4):
         print(f"  years to 80% power at Sharpe {sharpe}: {U80**2 / sharpe**2:.2f} at Kelly's fraction")
+
+
+LADDER_NOTIONAL = (1.0, 0.978, 1.864, 3.607, 6.944, 13.24)  # the first buy and five levels, facts-kernel-v2.md section 7
+CYCLES_BY_BUYS = (1569, 201, 121, 77, 30, 21)  # cycles with one buy order, two, ..., six or more
+
+
+def years_to_power(sharpe: float, vol: float, power: float = 0.8) -> float:
+    """Years until an account of yearly volatility `vol` and Sharpe `sharpe`, taken as the wealth, has reached 20
+    with probability `power`. Infinite when it never does."""
+    drift = sharpe * vol - vol**2 / 2
+
+    def shortfall(years: float) -> float:
+        return crossing(drift * years, vol * math.sqrt(years)) - power
+
+    return brentq(shortfall, 0.01, 1000) if shortfall(1000) > 0 else math.inf
+
+
+def study2() -> None:
+    """Section 6: the wealth is the replica's own account, so the bet is the account's volatility."""
+    print(f"  a bet of 2 at a true Sharpe of 1.4 has 80% power after {years_to_power(1.4, 2.0):.2f} years by the reflection formula (D13: 4.4 was at Kelly's own bet, 1.4; Argon's 6.13 is not reproduced)")
+    shifted = 2 * 1.5 * 1.4 - 2 * 1.5**2
+    print(f"  a fraction frozen at 2 over the old volatility, volatility then 1.5 times: log drift {shifted:.2f} a year, power at two years {crossing(2 * shifted, 3 * math.sqrt(2)):.2f}")
+    print(f"  a wealth that may fall 5% below zero when it stops reaches 21 with probability up to {21 ** (-1 / 1.05):.4f} (Argon's round 1, finding 4): the threshold is not patched, the account cannot owe")
+    held = np.cumsum(LADDER_NOTIONAL)
+    cycles = np.array(CYCLES_BY_BUYS)
+    mean_held = float((cycles * held).sum() / cycles.sum())
+    print(f"  a full ladder holds {held[-1]:.1f} first buys; the vault's {cycles.sum()} cycles held {mean_held:.2f} at their deepest on average, {held[-1] / mean_held:.1f} times less")
+    print(f"  {cycles[0] / cycles.sum():.3f} of cycles never pass the first buy, where the bet is {1 / held[-1]:.3f} of what a full ladder's room allows")
+    print("  the account as the wealth: power within one year and two, and years to 80%, by the account's yearly volatility and its Sharpe")
+    for vol in (0.1, 0.25, 0.5, 1.0, 2.0):
+        cells = []
+        for sharpe in (1.4, 2, 2.4):
+            drift = sharpe * vol - vol**2 / 2
+            one, two = crossing(drift, vol), crossing(2 * drift, vol * math.sqrt(2))
+            cells.append(f"Sharpe {sharpe}: {one:.2f}, {two:.2f}, {years_to_power(sharpe, vol):.1f} y")
+        print(f"    volatility {vol}: " + "; ".join(cells))
 
 
 WINDOWS = (22, 28, 35, 44, 66)
@@ -377,6 +412,8 @@ if __name__ == "__main__":
     confirmer()
     print("A forward account in bounded bets (section 4)")
     forward_account()
+    print("Study 2 on kernel version 2 (section 6)")
+    study2()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
