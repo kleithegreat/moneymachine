@@ -269,6 +269,84 @@ def study2() -> None:
     print(f"  a simulated null of 20,000 paths at exactly 5% shows at most {int(binom.ppf(0.9999, 20_000, 0.05))} crossings with probability 0.9999 (1,000 would fail half the time)")
 
 
+def stale_mark(quote_every: int, step_every: int, cycles: int, padded: bool, sigma: float = 1e-4, hold_steps: int = 3, seed: int = 31) -> tuple[float, float, float, float]:
+    """The mean gain of V over one cycle of an account with no skill, under two valuations of a fill, each with its standard error.
+
+    The price is a driftless walk that prints at every instant and is quoted every `quote_every` instants; there is no fee and no spread. The account rests
+    one unit a step's deviation under the mid, and once that has filled either rests two more (a ladder) or, `padded`, a hundred at half the mid, which never
+    fill and only raise at_risk; it sells at the first quote after `hold_steps` steps. The first valuation is equity at mids; the second counts a fill from
+    its coin's next quote (kernel A12).
+    """
+    rng = np.random.default_rng(seed)
+    gap = sigma * math.sqrt(step_every)
+    gains_at_mids: list[float] = []
+    gains_counted: list[float] = []
+    price = 100.0
+    instant = 0
+    while len(gains_at_mids) < cycles:
+        mid = price
+        cash = position = cash_counted = position_counted = 0.0
+        uncounted: list[tuple[float, float]] = []
+        resting: list[tuple[float, float]] = []
+        wealth_at_mids = wealth_counted = 1.0
+        equity_at_mids = equity_counted = risk_at_mids = risk_counted = 0.0
+        phase = "flat"
+        steps = filled_step = 0
+        while phase != "done":
+            instant += 1
+            price *= math.exp(sigma * rng.standard_normal())
+            still_resting = []
+            for order_price, size in resting:
+                if price < order_price:
+                    cash -= order_price * size
+                    position += size
+                    uncounted.append((size, order_price))
+                    if phase == "first":
+                        phase = "filled"
+                else:
+                    still_resting.append((order_price, size))
+            resting = still_resting
+            if instant % quote_every == 0:
+                mid = price
+                if phase == "selling":
+                    cash += position * mid
+                    uncounted.append((-position, mid))
+                    position = 0.0
+                    phase = "sold"
+                for size, fill_price in uncounted:
+                    cash_counted -= fill_price * size
+                    position_counted += size
+                uncounted = []
+            if (instant + 3) % step_every == 0:
+                new_at_mids = cash + position * mid
+                new_counted = cash_counted + position_counted * mid
+                if risk_at_mids > 0:
+                    wealth_at_mids *= 1 + (new_at_mids - equity_at_mids) / risk_at_mids
+                if risk_counted > 0:
+                    wealth_counted *= 1 + (new_counted - equity_counted) / risk_counted
+                equity_at_mids, equity_counted = new_at_mids, new_counted
+                steps += 1
+                if phase in ("flat", "first"):
+                    resting = [(mid * (1 - gap), 1.0)]
+                    phase = "first"
+                elif phase == "filled":
+                    resting = [(mid / 2, 100.0)] if padded else [(mid * (1 - gap), 2.0)]
+                    phase = "second"
+                    filled_step = steps
+                elif phase == "second" and steps - filled_step >= hold_steps:
+                    resting = []
+                    phase = "selling"
+                elif phase == "sold" and not uncounted:
+                    phase = "done"
+                orders = sum(order_price * size for order_price, size in resting)
+                risk_at_mids = position * mid + orders
+                risk_counted = position_counted * mid + sum(size * fill_price for size, fill_price in uncounted if size > 0) + orders
+        gains_at_mids.append(wealth_at_mids - 1)
+        gains_counted.append(wealth_counted - 1)
+    root = math.sqrt(cycles)
+    return (statistics.mean(gains_at_mids), statistics.stdev(gains_at_mids) / root, statistics.mean(gains_counted), statistics.stdev(gains_counted) / root)
+
+
 def round3() -> None:
     """Round 3's constructions, and the numbers of their repairs."""
     daily = -minimize_scalar(lambda b: -(0.25 * math.log1p(-0.75 * b) + 0.25 * math.log1p(3 * b)), bounds=(0, 1), method="bounded").fun
@@ -304,6 +382,15 @@ def round3() -> None:
 
     count, bits, log_bar = 2**32, 128, 6.0
     print(f"  rounding: {count} multiplications each rounded at {bits} bits move the wealth by at most 2^{math.log2(count) - bits + 1:.0f} of itself; exp(D) <= (1 - D/n)^-n with n = 2^40 overstates a bar of exp({log_bar}) by {log_bar**2 / 2 / 2**40:.1e} of itself")
+
+    print("  a fill valued at a mid older than itself (found by the architect, not by a reviewer): the mean gain of V in one cycle of an account with no skill, at mids and then with each fill counted from its coin's next quote")
+    for name, quote_every, step_every, cycles, padded in (
+        ("an account that pads its stake after a fill, steps of 1.2 quotes", 40, 48, 12_000, True),
+        ("a two-level ladder, steps of 1.2 quotes", 40, 48, 12_000, False),
+        ("the same ladder, steps of 60 quotes", 40, 2400, 400, False),
+    ):
+        at_mids, at_mids_error, counted, counted_error = stale_mark(quote_every, step_every, cycles, padded)
+        print(f"    {name}: {at_mids:+.2e} (standard error {at_mids_error:.1e}) at mids, {counted:+.2e} ({counted_error:.1e}) counted")
 
 
 WINDOWS = (22, 28, 35, 44, 66)
