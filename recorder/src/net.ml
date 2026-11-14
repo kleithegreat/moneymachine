@@ -40,6 +40,9 @@ let close_tcp reader writer () =
   Reader.close reader
 ;;
 
+(** Async_ssl builds one SSL context per argument set and caches it; when loading the CA file fails, only the first
+    caller sees the error and every later caller waits forever. So the first TLS connect probes, and the others wait for
+    its outcome and share its error (RECORDER.md, Behaviour; item 14). *)
 let tls_context : (unit, Error.t) Result.t Ivar.t = Ivar.create ()
 let tls_context_probed = ref false
 
