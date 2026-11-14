@@ -433,3 +433,87 @@ Appended 2026-11-14 07:52 UTC (02:52 EST) by Claude Fable 5.2, session "architec
 **Study 2: not converged.** D11 to D15 are settled by derivations Argon has not seen, and the claim's object changed. Nothing of study 2 may be registered before a round on section 6.
 
 **Study 1** is as the section above leaves it.
+
+## After round 2 on kernel version 2 and study 2, by Argon and GPT side by side
+
+Appended 2026-11-14 15:40 UTC (10:40 EST) by Claude Fable 5.2, session "architect: kernel version 2, round 2". **Read for it:** both reviews in full (`audit/reviews/2026-11-14-argon-cli-kernel-v2-r2.md`, `audit/reviews/2026-11-14-gpt-kernel-v2-r2.md`); the human's answers of 2026-11-14 14:59 UTC (09:59 EST); my own `kernel-v2.md`, `architecture.md` sections 2.2 and 6, the build plan, `arithmetic.py.txt`'s study 2 part, and five lines of the fact pack (funding's cap, the fills cap). **Not read:** any price, any code, `SEMANTICS.md`. Numbering continues.
+
+### In plain words
+
+- **The reviewers were right that round 1's causes had survived.** Both said so, and named where. I found three confusions under their findings, each of which I had carried from one representation to the next:
+  - **A state taken for a flow.** A quote shows who is standing; I counted it as a sale, once an event, so one seller filled five levels in five snapshots. The same confusion made the program's late copy of `filled` decide what the world still owed an order, and made one law speak of a single "machine state". Now only a seller's print fills a resting order, an order is a target whose remainder the world computes, and the world and the program's view are two states with a law each.
+  - **The account taken for the test.** The account gives a loss bound; the test is a bet on the account. Merged, they gave "nothing bets more than the account", an account that had to compound and size itself by volatility, and a floor that looked like a bound. Now the bet is the account's profit over what it has at risk each step. The account's size cancels. Leverage cannot be exact, and the reason is a formula.
+  - **A benchmark taken for a null.** `M = W / B` and layer 3's wall were the same move: pick a comparison, then say what passing it means. A ratio to a benchmark is fair only against the best holding, and a sum on the past says nothing of flattery later. Now the claim is two nested nulls, each named for exactly what it says, and fidelity is order by order with no wall.
+- **What was deleted:** `M` and `B`, the sizing `b / σ̂` and the cap `G`, the certificate of V7 as a wall of study 2, layer 3's wall and one fidelity layer, quote evidence, the market order, the old L1, F1 as a law.
+- **What was added:** the report's `at_risk`; a certificate that Lean checks for the best mix in hindsight; a bar source; protected dates and recorded-before-published in the kernel.
+- **What I refused:** Argon's `M*`, his paired statistic, and his reading of notional sizing as a defect. Each by a derivation in `kernel-v2.md` part C and `architecture.md` 6.1, the second by a number in `arithmetic.py.txt`.
+
+### Who has seen what
+
+- **Argon and GPT:** `2a4cd2a`, from the same bundle. Neither has seen this revision (`c4b9d77` to this commit).
+- **Opus:** has not reviewed kernel version 2 or study 2.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A58 | One event-driven account and an exact rational ledger; the Lean and OCaml split | Examined by both in round 2 (Argon's agreed points 1 and 2; GPT's 1 and 2) | kernel A1, A2, B1, B2 |
+| A59 | Neither fill rule bounds a run | Both (GPT's point 3) | kernel A7 |
+| A60 | A ratio to a benchmark is a valid test of its own stated null, and that null is not "no skill" | GPT's point 4, conceded by me | architecture 6.1 |
+| A61 | A floor gives a non-negative account, not a supermartingale under fair prices | Both (Argon's finding 2, GPT's 5), conceded | architecture 6.2 |
+| A62 | The account is not the fastest exact wealth on its returns; the bound is a step's own | Both (Argon's finding 2, GPT's 4), conceded | architecture 6.1 |
+| A63 | Evidence allotted once an event still spends one seller across events | Both (Argon's 3, GPT's 6), conceded | kernel A7 |
+| A64 | A sum of profits on the past does not show a rule will not flatter | Both (Argon's 5, GPT's 8), conceded | architecture 6.4 |
+| A65 | L1, S1, the funding convention and conservation contradicted the transitions | Both (Argon's 7, GPT's 9 to 13), conceded | kernel B3 |
+| A66 | The forward test should run as prospective validation, with a budget and a reading; a non-confirmation is not absence | Both recommended it; decided | architecture 6.6 |
+| A67 | Deleting `mm` under a tag keeps the pilot's results reproducible, and leaves version 2 unable to run bars unless it is given them | Both; the human's answer 3 | kernel A16 |
+| A68 | Protected dates, metered disclosure and effective-dated rules were work instructions, not contracts | GPT's 16 to 18, conceded | kernel A13; the build plan's table |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Dispute (the reviewers' names) | Settled by | Changes what is built |
+|---|---|---|---|
+| D12-v3 | `M = W / B` leaks drift five ways | Deleted. Two nested nulls on one wealth; rung 2 measures against the best constant mix in hindsight, so every constant holding is inside the null. Exact by Ville on the null's own mix, 5% for the pair by nesting | **Yes** |
+| D12-v3b | An exact test that credits market timing | Conceded that one exists; it is rung 2. GPT's permutation test is valid under the same reading and needs reordered books; Argon's pairing is not a null statistic (435 standard errors above zero on independent returns) | **Yes** |
+| D11-v3 | The bet at a leverage of 1; the floor above it | The wealth bets a step's profit over its `at_risk` (law Q1, assumption V16). Leverage: `P ≤ (1 + E[absorbed]) / 20`, so no exact test takes it. Argon's 0.59 to 0.80 of power is not reached: 13.9 times an idle account is a fully staked one, with volatility near 0.25 to 0.5 | **Yes** |
+| D14-v3 | Double counting across events; layer 3's wall | Only sell-aggressor prints through the price fill a resting order. The wall is deleted; layer 2 is order by order with a one-sided property | **Yes** |
+| D17-v2 | The decimal bound | Strings enter as integers; doubles are read only from the archive; the range is a range; X2 is a theorem; the grid catches a double that was never a decimal | **Yes** |
+| D19-v2 | Bars and target weights after `mm` | A bar source derives a quote and two prints under four registered assumptions; a target weight is two `ioc` slots under target semantics | **Yes** |
+| D20-v2 | Laws against transitions; missing laws | Two states; L1, L1a, S1, U1, A1, X1 restated from the transitions; P1, Q1, K1, K2 added | **Yes** |
+| D21 | GPT's 11: a later quote decides an earlier gap | Staleness is causal | **Yes** |
+| D22 | GPT's 16 and 17: dates and the meter | The windows compiled in and checked at admission; an attempt row before the engine starts and a result row before anything is published | **Yes** |
+| D23 | GPT's 18: polling | Hourly copies; a missed change of grid fails admission; the vault's own fills witness the fee schedule; overlapping pulls prove none was lost | **Yes**, the recorder |
+| H12 | Which claim study 2 judges (Argon gave it to the human; the human gave it back) | Both rungs, with no choice to make | **Yes** |
+| H13 | A leverage of 1 with a predictable bet, or physical leverage | The first, by 6.2 | **Yes** |
+
+**Still open in substance, by my own account:** the program's grammar, the chunk's layout and the events' encodings are not written (GPT's finding 15). They are owed before the build's steps 3 and 4 and need no review round of their own unless they change a rule.
+
+### What the next round should attack first
+
+1. **Rung 2.** Build a rule that knows nothing of when, and gets no fill better than a mid, yet reaches 20 times the best constant mix more than one time in twenty. Try volatility that clusters, patterns inside the day, the daily step against steps of a minute, a mark carried through staleness, a coin leaving the universe. Try to break the nesting, and the certificate.
+2. **Q1 and V16.** Find a path where a step loses more than its `at_risk × (1 + ρ̄)`: an order pending across steps, a replaced order and its replacement both filling, a delay `λ` longer than a step, funding at an oracle price far from the mid.
+3. **6.2's bound.** Find an exact test that takes leverage, or a hole in `(1 + E[absorbed]) / 20`.
+4. **Sells through the price.** A path where `pessimistic` credits a lot no seller offered; a sound rule that breaks layer 2's one-sided property (a hidden order, an aggressor flag that is wrong, an order the vault moved).
+5. **Two states and targets.** Whether L1a is provable as written; an effect the view should not have, or lacks; a program that `close` or a target strands.
+6. **Bars.** A contradiction between A16 and A7, or a fifth assumption hiding in the four.
+
+### Assumptions only the human can choose
+
+- **The reading of "timed".** Its null is exact as stated. It means "no knowledge of when" only in a market whose days are alike; a rule that holds less when volatility is high also passes it. GPT lists the choice of such an assumption as the human's.
+- **Replenishment (V10).** A taker's fill does not thin the next snapshot. The cap keeps this small; it is a hypothesis and not evidence.
+- **Disk for two years of recordings.** The forward test's one cost beyond a replay a month.
+
+### Owed
+
+- **By the advisor:** the trades bucket's certificate, now a requirement and not an option; the vault's pre-freeze fill responses stored under `data/` with a hash; the recorder's hourly copies of rules and fees and the hourly, overlapping pull of the vault's fills; before `mm` is deleted, the reference evaluator's streams on the C6.4 corpus under a hash, and the list of what runs only on `mm`.
+- **By the architect:** `KERNEL.md`'s encodings and grammar; study 2's criteria (the two rungs and their nulls), after the next round.
+
+### Convergence
+
+**Not converged, on kernel version 2 or on study 2.** Every finding of round 2 is conceded and re-derived or refuted, but six pieces are new design that no reviewer has seen: the two rungs, the bet on what is at risk, fills on prints alone, orders as targets, the two states, and the bar source. Nothing of study 2 may be registered before a round on `architecture.md` 6.1 and 6.2.
+
+**The test of whether this was patching.** Round 1's causes came back in round 2 because I had changed their representation and kept the confusion. If round 3's findings land again on a state counted as a flow, on the account standing in for the test, or on a comparison standing in for a null, the design is still wrong there and is re-derived again, not amended. Findings on the six new pieces are the ordinary cost of new design.
+
+**The next round** goes to both outside models again, since each caught what the other missed (Argon the ladder's own numbers, GPT the laws and the three leaks), with the six attacks above; a fresh Opus session if either is out.
+
+**Study 1** is as the earlier section leaves it.
