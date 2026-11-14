@@ -63,17 +63,20 @@ let apply_actions t actions =
     | Listing_update.Record event -> record t event)
 ;;
 
-let close_reason ws =
-  match Deferred.peek (Websocket.close_finished ws) with
-  | Some (reason, _, _) ->
-    Sexp.to_string (Websocket.Connection_close_reason.sexp_of_t reason)
-  | None -> "eof"
+let close_outcome ws =
+  match%map
+    Clock_ns.with_timeout (Time_ns.Span.of_sec 5.) (Websocket.close_finished ws)
+  with
+  | `Result ((Websocket.Connection_close_reason.Normal_closure | Endpoint_going_away) as code, reason, _) ->
+    Ok (sprintf "%s: %s" (Sexp.to_string (Websocket.Connection_close_reason.sexp_of_t code)) reason)
+  | `Result (code, reason, _) ->
+    Error (sprintf "%s: %s" (Sexp.to_string (Websocket.Connection_close_reason.sexp_of_t code)) reason)
+  | `Timeout -> Error "connection lost: no close"
 ;;
 
-let serve t conn ws =
+let serve t conn ws ~ended =
   let reader, writer = Websocket.pipes ws in
   let outbox_reader, outbox = Pipe.create () in
-  let ended = Ivar.create () in
   let finish reason = Ivar.fill_if_empty ended reason in
   let health = Conn_health.create ~now_ms:(now_ms ()) in
   let acks = Ack_tracker.create () in
@@ -108,13 +111,16 @@ let serve t conn ws =
         Ack_tracker.acked acks sub;
         record t ~conn:conn.id (Event.make "subscribed" (sub_fields sub)))
   in
-  upon (Pipe.iter_without_pushback reader ~f:on_frame) (fun () -> finish (close_reason ws));
-  upon (Ivar.read t.stop) (fun () -> finish "stopping");
+  upon
+    (let%bind () = Pipe.iter_without_pushback reader ~f:on_frame in
+     close_outcome ws)
+    finish;
+  upon (Ivar.read t.stop) (fun () -> finish (Ok "stopping"));
   Clock_ns.every ~stop:(Deferred.ignore_m (Ivar.read ended)) (span_of_ms 1000) (fun () ->
     let now_ms = now_ms () in
     List.iter (Conn_health.poll health ~now_ms) ~f:(function
       | Conn_health.Send_ping -> enqueue conn {|{"method":"ping"}|} None
-      | Conn_health.Reopen -> finish "nothing received for 45 s");
+      | Conn_health.Reopen -> finish (Ok "nothing received for 45 s"));
     List.iter (Ack_tracker.expired acks ~now_ms) ~f:(fun sub ->
       record t ~conn:conn.id (Event.make "unacked" (sub_fields sub))));
   let%map reason = Ivar.read ended in
@@ -125,22 +131,31 @@ let serve t conn ws =
 ;;
 
 let attempt t conn backoff =
-  let connect () =
-    Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (Net.websocket t.config.ws_url)
-  in
-  match%bind try_with connect with
-  | Error exn ->
-    record t ~conn:conn.id (Event.make "error" [ reason_field exn ]);
-    return ()
-  | Ok `Timeout ->
-    record t ~conn:conn.id (Event.make "error" [ "reason", `String "connect timed out" ]);
-    return ()
-  | Ok (`Result (ws, net)) ->
+  let ended = Ivar.create () in
+  let transport = ref None in
+  let over = ref false in
+  let opened = ref false in
+  let connected net = if !over then don't_wait_for (net.Net.close ()) else transport := Some net in
+  let life () =
+    let%bind ws = Net.websocket t.config.ws_url ~connected in
     Backoff.opened backoff ~now:(Float.of_int (now_ms ()) /. 1000.);
     record t ~conn:conn.id (Event.make "open" []);
-    let%bind reason = serve t conn ws in
-    record t ~conn:conn.id (Event.make "close" [ "reason", `String reason ]);
-    Clock_ns.with_timeout (Time_ns.Span.of_sec 5.) (net.close ()) |> Deferred.ignore_m
+    opened := true;
+    serve t conn ws ~ended
+  in
+  let fail exn = Ivar.fill_if_empty ended (Error (Exn.to_string exn)) in
+  let%bind outcome = try_with ~rest:(`Call fail) life in
+  over := true;
+  (match outcome with
+   | Ok (Ok reason) -> record t ~conn:conn.id (Event.make "close" [ "reason", `String reason ])
+   | Ok (Error reason) -> record t ~conn:conn.id (Event.make "error" [ "reason", `String reason ])
+   | Error exn ->
+     fail exn;
+     let reason = if !opened then "connection lost: " ^ Exn.to_string exn else Exn.to_string exn in
+     record t ~conn:conn.id (Event.make "error" [ "reason", `String reason ]));
+  match !transport with
+  | None -> return ()
+  | Some net -> Clock_ns.with_timeout (Time_ns.Span.of_sec 5.) (net.close ()) |> Deferred.ignore_m
 ;;
 
 let rec keep_connected t conn backoff =
