@@ -226,7 +226,7 @@ With `mm` gone, version 2 is the only kernel, and synthetic markets, where obser
 | a quote | `t` | bid `o × (1 − h)`, ask `o × (1 + h)`, one level a side |
 | two prints | `t + Δ/3`, `t + 2Δ/3` | the low as a sell-aggressor print and the high as a buy-aggressor print; the low first when the bar closed at or above its open, else the high first |
 
-All are known at `t + Δ + δ`, when the bar is. A price is the rational its double is, rounded to the grid's nearest step. The bar's values are also observations, for signals.
+The quote is known at `t + δ`, since an open is seen at the open; the prints at `t + Δ + δ`, since a bar does not say when its extremes happened. A price is the rational its double is, rounded to the grid's nearest step. The bar's values are also observations, for signals.
 
 **The four assumptions,** registered in the market's header and hashed:
 - **B1, the spread:** a half-spread `h`, one rate or one a coin. A bar shows none.
