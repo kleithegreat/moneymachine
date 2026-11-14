@@ -34,6 +34,7 @@ NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "p
 MIRROR = Path("/srv/moneymachine/mirror")
 MIRROR_VERIFY_WAIT = 2 * 10 * 60  # next ten-minute run plus ten minutes to finish copying
 LEDGERS = ("thesis", "agent")
+CLAIMS = {**VOLUMES, "ws": "data/ws"}  # ws is not mirrored: one copy, the human's choice of 2026-11-14
 SECCOMP, APPARMOR = "profiles/moneymachine-sandbox.json", "moneymachine-sandbox"
 CORNELL = "CLAUDE_CODE_OAUTH_TOKEN"  # claude-token's key of the Cornell account; TAMU is the other
 
@@ -61,7 +62,16 @@ Workload = tuple[str, list[str], dict[str, bool], str | Literal[False], Size, in
 WORKLOADS: dict[str, Workload] = {
     "hl": (
         "StatefulSet",
-        ["record", "data/live/universe.json", "venue/hyperliquid/rules.json", "data/live", "480"],
+        [
+            "python",
+            "-m",
+            "cli",
+            "record",
+            "data/live/universe.json",
+            "venue/hyperliquid/rules.json",
+            "data/live",
+            "480",
+        ],
         {"hl": False},
         False,
         ("100m", "256Mi", "512Mi"),
@@ -70,7 +80,7 @@ WORKLOADS: dict[str, Workload] = {
     ),
     "sources": (
         "StatefulSet",
-        ["sources-record", "data/sources_live"],
+        ["python", "-m", "cli", "sources-record", "data/sources_live"],
         {"sources": False},
         False,
         ("100m", "256Mi", "512Mi"),
@@ -79,7 +89,7 @@ WORKLOADS: dict[str, Workload] = {
     ),
     "datalayer": (
         "StatefulSet",
-        ["datalayer-record", "data/datalayer"],
+        ["python", "-m", "cli", "datalayer-record", "data/datalayer"],
         {"datalayer": False},
         False,
         ("100m", "256Mi", "512Mi"),
@@ -88,7 +98,7 @@ WORKLOADS: dict[str, Workload] = {
     ),
     "agent-series": (
         "Job",
-        ["agent-null", "swarm"],
+        ["python", "-m", "cli", "agent-null", "swarm"],
         {"agent": False},
         CORNELL,
         ("1", "3Gi", "6Gi"),
@@ -97,16 +107,25 @@ WORKLOADS: dict[str, Workload] = {
     ),
     "agent-real": (
         "Job",
-        ["agent-real", "data/agent/real", "1792613363942"],
+        ["python", "-m", "cli", "agent-real", "data/agent/real", "1792613363942"],
         {"agent": False},
         CORNELL,
         ("1", "3Gi", "6Gi"),
         9_000,
         {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}], "once": True},
     ),
+    "ws": (
+        "StatefulSet",
+        ["mmrec", "run", "data/ws"],
+        {"ws": False},
+        False,
+        ("250m", "512Mi", "1Gi"),
+        30,
+        {},
+    ),
     "mirror": (
         "CronJob",
-        ["ops/live.py", "mirror"],
+        ["python", "ops/live.py", "mirror"],
         {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False},
         False,
         ("200m", "256Mi", "512Mi"),
@@ -115,7 +134,7 @@ WORKLOADS: dict[str, Workload] = {
     ),
     "mirror-verify": (
         "CronJob",
-        ["ops/live.py", "verify"],
+        ["python", "ops/live.py", "verify"],
         {**{v: True for v in VOLUMES}, "mirror": True},
         False,
         ("200m", "256Mi", "512Mi"),
@@ -140,13 +159,12 @@ def pod_spec(
     grace: int,
     extra: Json,
 ) -> Json:
-    """A restricted pod on prodesk7 running `python -m cli <command>` (or `python <script>`), each volume at its repo
-    path; a runner (series, gates), `runner` naming the claude-token key it reads, also gets its own user
+    """A restricted pod on prodesk7 running `command`, each volume at its repo path; a runner (series, gates), `runner` naming the claude-token key it reads, also gets its own user
     namespace, the bubblewrap profiles and that token."""
     cpu, memory, limit = size
     mounts: list[Json] = [{"name": "tmp", "mountPath": "/tmp"}, {"name": "scratch", "mountPath": "/scratch"}]
     mounts += [
-        {"name": v, "mountPath": "/mirror" if v == "mirror" else f"{APP}/{VOLUMES[v]}", "readOnly": ro}
+        {"name": v, "mountPath": "/mirror" if v == "mirror" else f"{APP}/{CLAIMS[v]}", "readOnly": ro}
         for v, ro in volumes.items()
     ]
     vols: list[Json] = [{"name": n, "emptyDir": {"sizeLimit": "2Gi"}} for n in ("tmp", "scratch")]
@@ -159,7 +177,6 @@ def pod_spec(
         if runner
         else ({"type": "RuntimeDefault"}, {"type": "RuntimeDefault"})
     )
-    script = command[0].endswith(".py")
     return {
         "serviceAccountName": "live",
         "automountServiceAccountToken": False,
@@ -181,7 +198,7 @@ def pod_spec(
                 "name": name,
                 "image": f"{jobs.REGISTRY}@{digest}",
                 "workingDir": APP,
-                "command": ["python", *([] if script else ["-m", "cli"]), *command],
+                "command": command,
                 "env": [*([token(runner)] if runner else []), *extra.get("env", [])],
                 "resources": {"requests": {"cpu": cpu, "memory": memory}, "limits": {"memory": limit}},
                 "securityContext": {
@@ -311,7 +328,7 @@ def seed(digest: str, volume: str, *pairs: str) -> None:
     spec = pod_spec(
         "seed",
         digest,
-        ["ops/live.py", "seed-run", volume, f"/mirror/seed/{stage.name}"],
+        ["python", "ops/live.py", "seed-run", volume, f"/mirror/seed/{stage.name}"],
         {volume: False, "mirror": True},
         False,
         ("100m", "128Mi", "512Mi"),
@@ -639,7 +656,7 @@ def gate(digest: str) -> None:
     spec = pod_spec(
         "gate",
         digest,
-        ["ops/live.py", "gate-run", json.dumps(TARGETS)],
+        ["python", "ops/live.py", "gate-run", json.dumps(TARGETS)],
         {},
         CORNELL,
         ("500m", "1Gi", "2Gi"),

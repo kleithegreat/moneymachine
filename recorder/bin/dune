@@ -1,0 +1,7 @@
+(executable
+ (name mmrec)
+ (public_name mmrec)
+ (package mmrec)
+ (libraries mmrec core core_unix async async_unix)
+ (preprocess
+  (pps ppx_jane)))

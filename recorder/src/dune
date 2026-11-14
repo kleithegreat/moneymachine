@@ -1,0 +1,10 @@
+(library
+ (name mmrec)
+ (libraries core core_unix core_unix.sys_unix async async_unix async_ssl async_websocket yojson cryptokit)
+ (preprocess
+  (pps ppx_jane))
+ (foreign_stubs
+  (language c)
+  (names zstd_stubs))
+ (c_library_flags
+  (-lzstd)))

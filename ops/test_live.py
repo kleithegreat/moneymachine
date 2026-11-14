@@ -693,7 +693,7 @@ def test_manifests_keep_the_boundaries() -> None:
         spec = m["spec"].get("template", m["spec"].get("jobTemplate", {}).get("spec", {}).get("template"))["spec"]
         c, runner = spec["containers"][0], live.WORKLOADS[name][3]
         claims = {v["persistentVolumeClaim"]["claimName"] for v in spec["volumes"] if "persistentVolumeClaim" in v}
-        assert claims <= set(live.VOLUMES) | {"mirror"} and not claims & {"inputs", "results"}
+        assert claims <= set(live.CLAIMS) | {"mirror"} and not claims & {"inputs", "results"}
         assert [e["valueFrom"]["secretKeyRef"]["key"] for e in c["env"] if e["name"] == "CLAUDE_CODE_OAUTH_TOKEN"] == (
             [runner] if runner else []
         )
