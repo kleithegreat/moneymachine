@@ -38,7 +38,7 @@ let () =
     in
     let%bind () =
       H.wait_until ~timeout_s:20. ~what:"initial subscriptions" (fun () ->
-        List.length (requests_of fake ~meth:"subscribe" ~coin:"B") = 2)
+        List.length (requests_of fake ~meth:"subscribe" ~coin:"B") = 3)
     in
     universe := [ "A"; "C"; "D" ];
     let%bind () =
