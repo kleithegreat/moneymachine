@@ -65,7 +65,7 @@ Under one root, `data/ws/`:
 <root>/listings/<YYYYMMDD>/<HH>.jsonl.zst      one line per REST response
 ```
 
-The hour is the UTC hour of the receive time.
+The hour is the UTC hour of the receive time, or the latest hour already opened if that is later: a clock stepping back never reopens a closed hour.
 
 - **A line** is one received frame: `{"recv": <ms since epoch, receive time>, "conn": <k>, "msg": <frame>}`. `<frame>`
   is the server's text, spliced in byte for byte, except that a raw CR or LF becomes a space. JSON forbids raw control
