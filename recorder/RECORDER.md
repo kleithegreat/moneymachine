@@ -108,7 +108,8 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
 
 - **`mmrec run <root> [--connections 8] [--max-subscriptions 950] [--ws-url wss://api.hyperliquid.xyz/ws]
   [--rest-url https://api.hyperliquid.xyz/info] [--listings-interval-s 3600]`.** The URLs and interval exist so tests
-  can run against a local fake; production uses the defaults. SIGTERM exits with code 0.
+  can run against a local fake; production uses the defaults. `--connections` below 2 is refused, since a run needs one
+  deep and one fast connection. Unsubscribing repeats the subscription exactly, `"fast": true` included. SIGTERM exits with code 0.
 - **`mmrec check <root> <from YYYYMMDDHH> <to>`** prints tab-separated lines:
   - per channel and hour: `hour  channel  bytes  frames  lines  truncated`, where bytes are the file's compressed
     size and truncated is `yes` or `no`;
