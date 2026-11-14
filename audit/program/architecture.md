@@ -379,6 +379,40 @@ The human was unsure whether to run a test expected to end "not confirmed". Both
 
 **The account, if a reading-agent study is ever opened (D15, conceded).** Cash starts at 1. A purchase pays a stake the agent registers, at most 5% of cash, at the all-in cost `c < 1` of its fill, and holds `stake/c` units. A recorded settlement `x` in [0, 1] pays `(stake/c)·x` into cash. The null is rejected when cash reaches 20; a payout not yet paid is never cash. **Null:** for every purchase, `E[x | everything that has happened by its fill, recorded or not] ≤ c`, the cost being known at the fill and not at the registration. A perp bracket is such a purchase only on isolated margin equal to the stake, with funding deducted, which kernel version 2 does not build until a study needs it. **Validity,** on the world's filtration, to which the recorder's own delays are adapted: let `V` be cash plus, for every position not yet recorded as paid, `stake/c` times the conditional expectation of `x`. A fill lowers cash by the stake and adds at most the stake to the sum, by the null. Between events each term is a martingale. A recording moves a realized payout from the sum into cash and changes nothing. So `V` is a non-negative supermartingale starting at 1, cash never exceeds it, and cash reaches 20 with probability at most 5%, whenever and in whatever order records arrive.
 
+### 6.8 The three choices only the human can make
+
+Both reviewers of round 3 reduced what is left to three assumptions that no derivation settles. For each: what a run looks like under each choice, and what I recommend. The design as written builds my recommendation in each case; the others are stated so that choosing one is a known change and not a new design.
+
+**1. What "timed" is to mean.**
+
+| Choice | What is built and run | What a pass says | What it costs |
+|---|---|---|---|
+| **a. Outgrew every constant mix, on the record's own clock** (6.1 as written) | The report's three sums a coin; the confirmer's bar from them; rung 2 checked at each day's last step | The profit was not a constant holding's at any clock. It credits knowing when, and also knowing how risky: a rule that only steps aside in turbulent days can pass with no forecast of a mean (Argon's finding 1.4) | Nothing further. The bar is higher than a daily one by the coins' quote-to-quote noise, unmeasured until the replay |
+| **b. Knew when expected returns were higher, and nothing else** | Rung 2 is not registered. Study 2 freezes with rung 1 alone, or waits. A third statistic has to be designed whose null lets volatility vary predictably while means do not; under that null no constant mix is the best holding, so nothing of 6.1's rung 2 carries over | Timing of the mean alone | At least one more design round with both reviewers, and I know of no exact test of it that stops at any time without a model of volatility. It may not exist |
+| **c. Outgrew every constant mix rebalanced daily** (round 2's rung, renamed, GPT's first option) | The same sums taken once a day | Almost nothing about the rule: an account that buys once and never trades passes in about 480 days in GPT's market, through the test's own re-staking | Nothing to build. The result could not be called "timed" |
+
+**I recommend a,** with the claim's words kept to what it says: "not a constant holding's", never "knew when returns would be higher". The ladder holds more when volatility is high, so the risk reading does not flatter it. I advise against c under any name: a rung the test passes by itself judges nothing.
+
+**2. Whether a claim may rest on replenishment (V10).**
+
+| Choice | What a run looks like | What the claims say |
+|---|---|---|
+| **a. Accept it, named** (as written) | An arriving order takes the levels of the first book recorded after it; nothing remembers what earlier orders took. The report counts taker fills made within `G` of an earlier one on the same coin and side. The replica takes at most once a cycle, at its entry, so I expect that count near zero; the replay before the freeze shows it | Both claims say "assuming our orders move nobody", and quote the count |
+| **b. Reject it: a book that remembers** | The kernel carries, a coin and a side, the lots the account has taken, and subtracts them from later snapshots' levels at those prices until a registered rule says the book has refilled (the best price moving away, or a time). That rule is a second hypothesis about refilling, no more testable than the first; it is new state, a new law and a new review round, inside the frozen kernel | "Under a registered depletion rule" |
+| **c. Reject it by restriction** | The kernel as written. Study 2's criteria add that a judged run whose count is not zero has no judged result | The taker half of V10 is not used; the maker half (every print would have happened as recorded) remains, named |
+
+**I recommend a, and c's check with it if the replay's count is zero:** then the claim leans on V10 only for prints. I advise against b: it replaces an assumption the cap keeps small with a model nobody can validate. V10's truth is a fact about the venue; the choice is only whether an academic claim may be conditioned on it.
+
+**3. Disk for two years of recordings.** Today: one 300 GiB volume on prodesk7, one copy, about 1.6 GB a day for every perp. It is full about 2027-05-20, some four months after a freeze. Two years from the freeze are about 1.2 TB a copy.
+
+| Choice | What a run looks like | What is lost |
+|---|---|---|
+| **a. Add disk before 2027-05-20** | The recorder goes on for every perp. New hours are written to the new volume; nothing recorded is moved or deleted (`CLUSTER.md`). The forward test runs its two years on gapless books and prints | Money: about 1.2 TB for one copy. One copy on one node is one disk failure from losing the forward window, so a second copy on another node is the same sum again |
+| **b. Keep 300 GiB, and from a named date record only study 2's 17 coins** | About 150 MB a day (Argon's figure, unchecked), so the volume lasts the two years. Study 2 runs whole | Every other perp's record from that date: the recordings stop being a holdout for anything but these 17 coins |
+| **c. Neither** | The volume fills about 2027-05-20 and the recorder stops. The forward test ends there, "not confirmed", after four months at a power near zero; it is ended by a dated decision, never run on over a gap | The forward measurement, which is most of what study 2 still offers |
+
+**I recommend a, with the second copy,** decided by 2027-03-01 so the volume is in place with weeks to spare. Failing that, b. Not c.
+
 ## 7. The program
 
 1. **Run study 1.** It costs TAMU and Cornell sessions and nothing on the personal account.
@@ -432,7 +466,7 @@ Earlier rounds: GPT's eleven findings in revision 2's section 10 (`git show 35cf
 
 ## 12. Open questions for the human
 
-1. **Study 2.** A replication as the positive control of the confirmer: fidelity first, then a frozen forward test. Re-derived after round 2 (section 6): two nested claims, "earned" and "timed", on a bet that is never more than fully invested, with no leverage, since leverage cannot be exact (6.2). I expect "not confirmed" and have decided to run it as a measurement (6.6). What it needs from you is disk: the recorder's volume is full about 2027-05-20, and two years are about 1.2 TB a copy. I recommend buying it; the alternative is to record only study 2's 17 coins from then, which ends the recordings' use as a holdout for anything else.
+1. **Study 2.** A replication as the positive control of the confirmer: fidelity first, then a frozen forward test. Re-derived after rounds 2 and 3 (section 6): two claims, "earned" and "timed", on a bet that is never more than fully invested. I expect "not confirmed" and have decided to run it as a measurement (6.6). It needs three choices from you, each with its runs and my recommendation in 6.8: what "timed" means (I recommend: outgrew every constant mix on the record's own clock, said in those words); whether a claim may assume our orders move nobody (yes, named, with its count); and disk before 2027-05-20 (buy about 1.2 TB, twice if a second copy).
 2. **Study 1's changes.** G100's target rate falls from 0.2 to 0.15, the calibration grows to 2,000 markets, and the claim says "more often than G100's 100 evaluations", not "at the same budget". Still at most 100 markets. I recommend yes.
 3. **The findings index,** `docs/findings.md`, as the organized presentation of earlier research, with the paper as the home of every number. I recommend yes.
 4. **A count for the reading agent.** Reading the thesis track's ledger for theses a week costs nothing and decides whether that line is ever reopened. I recommend the advisor does it, and that no sessions are spent on a count.
