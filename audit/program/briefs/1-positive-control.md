@@ -16,10 +16,10 @@ Revised 2026-11-13 17:28 UTC (12:28 EST) by Claude Fable 5.2, session "architect
 |---|---|---|---|
 | A fresh pair is written for scoring | The row hash was four fifths of a pair's time and, with the holdout rows, most of its bytes | `pairs.py` (`write_pair`); `judge.py`, whose `fresh_scores` becomes `write_pair` and step 2's `scores` | New: L1.5, by a model other than the builder's. The two built tests of `write_pair` stand |
 | Nothing is kept between trials | A kept twin is 13.3 MB, and it saved time only while a write was slow | `judge.py`: `twin_in`, `twin_scores` and the `twins` argument go, and with it the argument in `calibrate.py`, `searcher.py` and `runner.py` | Obsolete, below |
-| The job spreads over hosts | 352 to 443 core-hours | `calibrate.py` | New: step 5's behaviours 7 and 8, L5.6 |
+| The job spreads over hosts | 352 to 443 core-hours | `calibrate.py`: `g100_earns_in`, `g100_in`, `blind_in` and `main`'s shared scratch go; `shares` and the `--share` run are new | New: step 5's behaviours 7 and 8, L5.6. The merged-log half is tested (`16483b5`) |
 
 **Tests that this revision makes obsolete.**
-- `test_calibrate.py`: `test_a_twin_is_made_once_across_strengths` is deleted, with the behaviour it tested. It ran for about 780 s against the repository's 600 s limit, so nothing is split and no limit rises. The module's note loses its words on a cold twin cache.
+- `test_calibrate.py`: `test_a_twin_is_made_once_across_strengths` is deleted, with the behaviour it tested. It ran for about 780 s against the repository's 600 s limit, so nothing is split and no limit rises. `test_a_trial_makes_its_own_pairs_and_keeps_no_market` stands in its place (`16483b5`, behaviour 7). The module's note loses its paragraph "Twins are made once", with `g100_earns_in` and its shared `scratch`; `g100_earns(strength, market, work)` is the interface. When L5.6's remaining tests land, the note's first line names L5.1 to L5.6.
 - No other test names a twin's cache. A test that passes `twins` to `judge`, `fresh_scores` or `g100_trial` drops the argument.
 
 ## How to use it
@@ -212,7 +212,14 @@ The walls, reported in `calibration.json` with their counts. Each is a pass or a
 4. The report holds, for each wall, the count, the denominator and pass or stop; a test builds each from stub scores on both sides of its threshold.
 5. The report also holds, never judged: each mirror-set program's own rate of earning on the `blind` markets, and the number of G100's `cal-b` picks at each count of pairs won, 0 to 57.
 6. Before the search the job times one whole `cal-a` market at the bracket's upper end, with everything a market costs: generating and writing it and its 57 pairs, each evaluator's start, G100's 100 evaluations, and the classification. It prints the projected time for the whole job on the hosts it will use: at most 13 strengths on 1,600 markets and one on 10,000, plus wall 3. A projection above 24 hours stops the job: a wall.
-7. A twin does not depend on the strength. Over a search of several strengths, each `cal-a` twin is generated once and the reference is scored on it once.
+7. A trial keeps nothing. `g100_earns(strength, market, work)` makes every pair it scores, both members, and leaves no market under `work` when it returns. So a trial's result is a function of its market and its strength alone, and any host can run it at any time.
+8. The job spreads over hosts, and the resumption of behaviour 3 is the whole mechanism: no host coordinates another.
+   - **The split.** `shares(ids, weights)` cuts the ordered ids into one contiguous run a host, in proportion to the weights, which are the hosts' cores. Every id is in exactly one share.
+   - **A host's run.** `python -m gate.control.calibrate --share k --weights w0,w1,...` reads the merged log, replays the search from it, and stops at the first set of markets not wholly in the log: a strength of the search, then the check, then wall 3. It evaluates its share's missing trials there, appends each as a line to its own file, and exits without deciding anything.
+   - **The merge.** The hosts' new lines are appended to the log, in any order. A line names its strength and its market and holds the trial's result, and nothing of its host or its time. How files travel between hosts is the batch runner's (`ops/jobs.py`), and no law rests on it.
+   - **The decision.** A run with no share is the run of behaviours 1 to 6 on the merged log. It evaluates whatever is still missing and writes the report. One round of hosts and merge advances the search by one strength, so the job is at most 15 rounds.
+   - **The same trial twice.** Two lines of one trial with equal results count once. Two with different results stop the run with no report: a wall, since a trial was not a function of its market and strength.
+   - **The probe.** Behaviour 6's timed market is run on every host, which the projection needs anyway: the projected time is the work divided by the sum of the hosts' rates, each from its own time and cores. The probe's whole result, its effects and not only whether it earns, must be equal on every host before the search starts. A difference is a wall. Why: `generate` is numpy, whose transcendental functions are chosen by CPU and may differ in the last bit between hosts, and the kernel is one store path on all of them.
 
 Laws, on stub rate functions:
 - **L5.1** For every rate function, rising or not, a returned strength has a rate within `TOLERANCE` of `TARGET` on the search's markets. Otherwise the search reports that it found none.
@@ -220,6 +227,7 @@ Laws, on stub rate functions:
 - **L5.3** A run interrupted after any number of markets and restarted gives the same report as an uninterrupted one and evaluates no market at a strength twice.
 - **L5.4** A rate does not depend on the order in which its markets finish or on the number of workers.
 - **L5.5** For every count, a wall passes exactly when the count is on the passing side of its threshold.
+- **L5.6** The report does not depend on the hosts. For every list of ids and every list of positive weights, the shares are disjoint and their union is the ids. For every rate function, every number of hosts and weights, every order of merging and any trial evaluated by more than one host, the run over shares and merges gives the one-host report, and evaluates each trial of that report at least once and no trial outside it. A log with two lines of one trial that differ gives no report. The test of 16483b5 (`test_l5_3_and_l5_4_lines_merged_from_any_hosts_in_any_order_resume_to_the_same_report`) already shows the merged-log half: any subset of the current strength's lines, in any order, resumes to the clean report and evaluates exactly the missing trials. What remains to be written: the partition, a host's run stopping at the first incomplete set, repeated lines, differing lines, and the probe's comparison. The calibrated strength rests on this law and CS1.1 on the strength, so the remaining tests are written by a model other than the builder's.
 
 ## Step 6. The sequential rule (`gate/control/sequential.py`). Built. Judged: tests and laws by another model
 
