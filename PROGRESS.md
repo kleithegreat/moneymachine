@@ -16,7 +16,6 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **Fable** runs one session at a time, on whichever account is logged in, never two at once.
-  - **GPT's** one review is spent.
   - **Argon** runs through the web UI (the human) or `agy`.
 - **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-build` (`study1-build`). Agents that edit at the same time get separate worktrees.
 
@@ -49,7 +48,8 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2's round 2 is in** (`audit/reviews/2026-11-14-{argon-cli,gpt}-kernel-v2-r2.md`): not converged. Fable answers both on TAMU from 15:16 UTC (10:16 EST), brief `data/builder/architect-kernel-v2-part3.txt`, report to `-report-3.md`. If it hits its limit, rerun the same brief: it resumes from `git log`.
+1. **Kernel version 2, round 3 runs** (Argon and GPT from 15:40 UTC, 10:40 EST) on Fable's answer to round 2 (`rearchitecture` `d014b87`; its ledger's last section replaces a report, since TAMU's window ran out after the four tasks). Fable answers round 3 when TAMU resets at 20:10 UTC (15:10 EST).
+   - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; the vault's pre-freeze fill responses under `data/` with a hash; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
@@ -65,7 +65,6 @@ None blocks the program. Source certificates that fail, with their clauses, are 
 
 - From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the research reviews' actions; the cluster runner not adopted.
 - **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending Fable.
-- **Fable's four new questions, answered** (`audit/decisions.md`, 2026-11-14 14:59 UTC, 09:59 EST): the claim (`M` or `W`) and the forward test go to round 2's reviewers, then Fable; leverage above 1 under a certificate, yes; `mm` is deleted after study 1, kept as a git tag.
 
 ## Qualifications
 
