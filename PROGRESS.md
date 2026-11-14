@@ -48,7 +48,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2, round 3 is in** (`audit/reviews/2026-11-14-{argon-cli,gpt}-kernel-v2-r3.md`): not converged; both judge round 2's causes mostly removed at the cause. Fable answers on the personal account from 17:07 UTC (12:07 EST), task 1 committed (`7c3ffe3`); if cut off, the same brief resumes on Cornell (the human), brief `data/builder/architect-kernel-v2-part4.txt`, report `-report-4.md`.
+1. **Kernel version 2, round 4 is in** (`audit/reviews/2026-11-14-{argon-cli,gpt}-kernel-v2-r4.md`): both find Fable's three confusions again and ask for the test wealth re-derived from one ledger of every event; the engine's foundations stand. Fable re-derives it on TAMU from 20:11 UTC (15:11 EST), Cornell the fallback, brief `data/builder/architect-kernel-v2-part5.txt`, report `-report-5.md`. The human's three choices: `architecture.md` 6.8.
    - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; the vault's pre-freeze fill responses under `data/` with a hash; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
