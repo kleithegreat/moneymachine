@@ -48,7 +48,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2: converged in Fable's judgment** (`rearchitecture` `8106078`, report `data/builder/architect-kernel-v2-report-6.md`); a confirming round 6 by Argon and GPT runs from 02:20 UTC (21:20 EST). If it finds only wording, study 2's criteria can be written. Disk is deferred with the human.
+1. **Kernel version 2: converged in Fable's judgment** after round 6 (`audit/reviews/2026-11-15-*-kernel-v2-r6.md`; fixes `rearchitecture` `95cf489`, report `data/builder/architect-kernel-v2-report-7.md`). Owed: a short GPT read of the fixes (running), and Fable's ledger section after round 6 (brief `architect-kernel-v2-part7.txt`, task 2; Cornell's weekly ran out at 02:40 UTC, 21:40 EST). Then study 2's criteria. Disk is deferred with the human.
    - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; the vault's pre-freeze fill responses under `data/` with a hash; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
