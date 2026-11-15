@@ -11,7 +11,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. Batch Jobs: none queued. `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
+- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. Batch Jobs: study 1's calibration (above). `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **Fable** runs one session at a time, on whichever account is logged in, never two at once.
@@ -30,7 +30,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
-     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are written (`4844762`, behaviours 7 and 8, L5.6, plus a cross-host probe that numpy's results agree bit for bit). **Step 5 spreads over hosts:** tests by GPT, built by Sonnet, merged (`study1-build` `fb6fc73`); all 336 study 1 tests pass. **Calibration stopped at behaviour 6's wall** (`cal-1`, `ops/jobs.py calibrate`): a market is 70, 111 and 163 s on this PC, prodesk7 and gmktec, so the worst case projects 31 h. Nothing evaluated; the probes are equal and kept.
+     - **Calibration is running** as `cal-2` (`ops/jobs.py calibrate`, unit `mm-calibrate`, log `~/.cache/mm-calibration/cal-2.log`, image `sha256:6bb979cf…`, `study1-build` `4fd8356`; started 2026-11-15 09:53 UTC, 04:53 EST) on this PC, prodesk7 and gmktec, 27 cores; projected 34 h at the most, about 25 at nine strengths. `cal-1` stopped at a 24 h projection limit that Fable found was never derived and removed (`df55e51`, decisions 2026-11-15); 346 study 1 tests pass. The PC stays on: the batch's inputs are NFS from it.
      - **Then:** calibration, G100 on the study markets, the first sessions (Cornell and TAMU).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
@@ -46,8 +46,8 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2 converged** (Fable, then GPT's confirming read `audit/reviews/2026-11-15-gpt-kernel-v2-r6-confirm.md`; Argon round 6). `rearchitecture` `6f5bd43`. Owed: GPT's wording note on B1 and A12. Next: study 2's criteria.
-   - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; the vault's pre-freeze fill responses under `data/` with a hash; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
+1. **Kernel version 2 converged** (Fable, then GPT's confirming read `audit/reviews/2026-11-15-gpt-kernel-v2-r6-confirm.md`; Argon round 6). GPT's wording note closed (`05b9421`); `kernel2/KERNEL.md` written (`211bceb`). **Study 2's criteria and brief drafted** (`criteria-notes.md`, `briefs/4-study-2.md`, `bf2064d`; report `data/builder/architect-wall-and-s2-report-1.md`), under review by GPT and Argon (`~/.cache/mm-{gpt,argon}/s2-criteria-r1`). Fable's O6: certify the venue's tick rule for whole-number prices above five figures before study 2's registration.
+   - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
@@ -57,7 +57,6 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ## Blockers
 
-- **Study 1's calibration projects 31 h against its 24 h wall** (above): Fable's to re-derive.
 None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
 ## Decisions awaiting the human's review
