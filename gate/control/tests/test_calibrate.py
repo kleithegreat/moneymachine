@@ -26,22 +26,27 @@ The plan fixes behaviour, not names, so these tests fix the interface they use:
   index k the number of picks that won k pairs). The last two are never judged.
 - `cal_a_ids()`, `cal_b_ids()`, `blind_ids()`; `g100_seed(manifest_seed, market_id) -> int`;
   `g100_earns(strength, market_id, work, manifest_seed="control-1") -> bool`, one market through the kernel;
-  `timed_market() -> float`, the seconds one whole cal-a market takes at the bracket's upper end, everything included;
-  `projected_seconds(seconds_per_market, cores=1)`, the whole job's time, in markets: 13 strengths on 1,600, one on
+  `timed_trials(work, workers) -> (seconds, results)`, the first cal-a market at HI once per worker, all at once,
+  in separate directories through the evaluation pool, timed from before its start to its last whole result;
+  `rates(probes) -> list[Fraction]`, exactly `Fraction(len(results)) / Fraction(seconds)` per host;
+  `projected_seconds(rates)`, the whole job's time over the sum of the rates, in markets: 13 strengths on 1,600, one on
   10,000, and wall 3's blind markets counted as at most 1,000 market-equivalents (the plan's 250,800 evaluations are
    765); the projection is printed and stops nothing: `main` runs whatever its probes' times.
-- `shares(ids, weights) -> list[list[str]]`: one contiguous share per positive integer core count, in host order.
-   Rounding is unspecified; when the proportions are integral, the lengths are exact.
+- `shares(ids, weights) -> list[list[str]]`: one contiguous share per positive weight, an int or a Fraction,
+    in host order. Rounding is unspecified; when the proportions are integral, the lengths are exact.
 - `main(argv, *, out, work, trial, blind, probes)` is the batch entry point with injected effects for these tests;
-   normal CLI use supplies the real effects. `argv` accepts `--share k --weights w0,w1,...`, with no share for a
+   normal CLI use supplies the real effects. `argv` accepts `--share k` alone, with no share for a
    deciding run. `out/calibration.jsonl` is the merged input; a share only appends to `out/share-k.jsonl`, never
    rewrites the merged input or writes `out/calibration.json`. A deciding run appends missing trials to the merged
-   input and writes that report. Conflicting trials or probes raise RuntimeError or a nonzero SystemExit.
+   input and writes that report. Shares cut the ordered ids absent from the merged input, then skip their own file's
+   trials. Weights come from `rates(probes())`. Conflicting trials or probes raise RuntimeError or a nonzero SystemExit.
 - `trial(strength, market_id, work) -> dict` holds "earns", "pairs_won", "reference_effects" and "pick_effects"
    (PAIRS effects each). `blind(strength, market_id, work) -> dict` holds "even_earns", "constant_earns" and
    "mirror_earns", each mapping names to booleans. These are full trial results, not just their judged bits.
-- `probes() -> list[tuple[float, dict]]` supplies each host's whole timed trial result and seconds, in weights order,
-   collected from the hosts before this run. All results must agree before any search trial; times may differ.
+- `probes() -> list[tuple[float, list[dict]]]` supplies each host's seconds and its runs' whole results, in host order,
+   collected before this run. Every result must agree with every other and with the log's line of the trial at HI on
+   the first cal-a market, when present, before any search trial; times may differ. `file_probes(out)` reads these
+   from `probe-0.json`, `probe-1.json` and on, to the first missing file, each holding "seconds" and "results".
    Probe transport, like log transport, belongs to the batch runner, not these tests."""
 
 import contextlib
@@ -49,6 +54,7 @@ import copy
 import hashlib
 import json
 import math
+import random
 import re
 import tempfile
 from collections.abc import Callable, Sequence
@@ -245,24 +251,34 @@ def test_g100_seed_is_the_first_eight_bytes_of_the_sha256(manifest_seed: str, ma
 MARKETS = 13 * 1600 + 10000
 
 
-@given(st.floats(0.001, 100.0), st.integers(1, 200))
-def test_the_projection_counts_whole_markets_and_the_blind_ones(seconds: float, cores: int) -> None:
-    per_core = calibrate.projected_seconds(seconds, cores) * cores / seconds
-    assert MARKETS <= per_core <= MARKETS + 1000
+POSITIVE_WEIGHT = st.one_of(st.integers(1, 8), st.builds(Fraction, st.integers(1, 8), st.integers(1, 4)))
+WEIGHTS = st.lists(POSITIVE_WEIGHT, min_size=1, max_size=6)
 
 
-@given(st.floats(0.001, 100.0), st.integers(1, 200), st.floats(1.0, 10.0))
-def test_the_projection_is_linear_in_the_market_time_and_inverse_in_the_cores(
-    seconds: float, cores: int, factor: float
+@LAW
+@given(WEIGHTS)
+def test_the_projection_counts_whole_markets_and_the_blind_ones(rates: list[int | Fraction]) -> None:
+    host_rates = [Fraction(rate) for rate in rates]
+    work = calibrate.projected_seconds(host_rates) * sum(host_rates)
+    assert MARKETS <= work <= MARKETS + 1000
+
+
+@LAW
+@given(WEIGHTS, POSITIVE_WEIGHT)
+def test_the_projection_doubles_when_rates_halve_and_falls_when_a_host_is_added(
+    rates: list[int | Fraction], extra: int | Fraction
 ) -> None:
-    base = calibrate.projected_seconds(seconds, cores)
-    assert calibrate.projected_seconds(seconds * factor, cores) == pytest.approx(base * factor)
-    assert calibrate.projected_seconds(seconds, cores * 2) == pytest.approx(base / 2)
+    host_rates = [Fraction(rate) for rate in rates]
+    base = calibrate.projected_seconds(host_rates)
+    assert calibrate.projected_seconds([Fraction(rate) / 2 for rate in rates]) == pytest.approx(base * 2)
+    assert calibrate.projected_seconds([*host_rates, Fraction(extra)]) < base
 
 
-@pytest.mark.slow  # one whole market through the kernel
-def test_the_timed_market_is_a_whole_markets_time() -> None:
-    seconds = calibrate.timed_market()
+@pytest.mark.slow
+def test_the_timed_trials_measure_two_loaded_whole_markets(tmp_path: Path) -> None:
+    seconds, results = calibrate.timed_trials(tmp_path, 2)
+    assert len(results) == 2
+    assert results[0] == results[1]
     assert math.isfinite(seconds) and seconds > 1.0
 
 
@@ -485,7 +501,7 @@ def test_l5_3_and_l5_4_lines_merged_from_any_hosts_in_any_order_resume_to_the_sa
     open_lines = [line for line in lines if of_line[line][0] == current]
     done = data.draw(st.lists(st.sampled_from(open_lines), unique=True))
     merged = searched + done
-    data.draw(st.randoms(use_true_random=False)).shuffle(merged)
+    random.Random(data.draw(st.integers(0, 2**32 - 1))).shuffle(merged)
     log = fresh_log()
     log.write_text("".join(line + "\n" for line in merged))
     resumed_stub = Rate(stub.slope, stub.wiggle, stub.freq)
@@ -525,7 +541,7 @@ def test_l5_5_wall_4_passes_exactly_when_the_check_rate_is_inside_the_band(count
     assert (report["status"] == "pass") is (BAND[0] * n < count < BAND[1] * n)
 
 
-CORE_WEIGHTS = st.lists(st.integers(1, 8), min_size=1, max_size=6)
+WORKERS = st.lists(st.integers(1, 8), min_size=1, max_size=6)
 CHECK = [f"control-1-cal-b-{i:04d}" for i in range(200)]
 BLIND_IDS = [f"control-1-blind-{i:03d}" for i in range(12)]
 Trial = tuple[str, float, str]
@@ -533,8 +549,8 @@ Record = dict[str, Any]
 
 
 @LAW
-@given(st.lists(st.text(min_size=1, max_size=20), unique=True, max_size=100), CORE_WEIGHTS)
-def test_l5_6_shares_are_disjoint_contiguous_and_cover_every_id(ids: list[str], weights: list[int]) -> None:
+@given(st.lists(st.text(min_size=1, max_size=20), unique=True, max_size=100), WEIGHTS)
+def test_l5_6_shares_are_disjoint_contiguous_and_cover_every_id(ids: list[str], weights: list[int | Fraction]) -> None:
     shares = calibrate.shares(ids, weights)
     assert len(shares) == len(weights)
     assert [market for share in shares for market in share] == ids
@@ -543,10 +559,14 @@ def test_l5_6_shares_are_disjoint_contiguous_and_cover_every_id(ids: list[str], 
 
 
 @LAW
-@given(CORE_WEIGHTS, st.integers(1, 4))
-def test_l5_6_integral_share_lengths_are_proportional_to_the_hosts_cores(weights: list[int], multiple: int) -> None:
-    ids = [str(i) for i in range(sum(weights) * multiple)]
-    assert [len(share) for share in calibrate.shares(ids, weights)] == [weight * multiple for weight in weights]
+@given(WEIGHTS, st.integers(1, 4))
+def test_l5_6_integral_share_lengths_are_proportional_to_the_weights(
+    weights: list[int | Fraction], multiple: int
+) -> None:
+    denominator = math.lcm(*(Fraction(weight).denominator for weight in weights))
+    units = [int(weight * denominator) for weight in weights]
+    ids = [str(i) for i in range(sum(units) * multiple)]
+    assert [len(share) for share in calibrate.shares(ids, weights)] == [unit * multiple for unit in units]
 
 
 def small_search_ids() -> list[str]:
@@ -577,17 +597,48 @@ def trial_result(earns: bool) -> Record:
     }
 
 
+def test_rates_are_the_exact_number_of_loaded_trials_over_their_seconds() -> None:
+    result = trial_result(True)
+    rates = calibrate.rates([(2.0, [result] * 3), (0.5, [result])])
+    assert rates == [Fraction(3, 2), Fraction(2)]
+    assert all(isinstance(rate, Fraction) for rate in rates)
+
+
+@LAW
+@given(st.lists(st.tuples(st.floats(0.001, 1000.0), st.integers(1, 8)), min_size=1, max_size=6))
+def test_rates_use_exact_fractions_of_the_measured_seconds(measurements: list[tuple[float, int]]) -> None:
+    result = trial_result(True)
+    probes = [(seconds, [result] * workers) for seconds, workers in measurements]
+    rates = calibrate.rates(probes)
+    assert rates == [Fraction(workers) / Fraction(seconds) for seconds, workers in measurements]
+    assert all(isinstance(rate, Fraction) for rate in rates)
+
+
+def test_file_probes_read_loaded_results_in_host_order_to_the_first_missing_host(tmp_path: Path) -> None:
+    result = trial_result(True)
+    for host, seconds, workers in [(0, 2.0, 3), (1, 0.5, 1), (3, 4.0, 2)]:
+        (tmp_path / f"probe-{host}.json").write_text(json.dumps({"seconds": seconds, "results": [result] * workers}))
+    assert calibrate.file_probes(tmp_path) == [(2.0, [result] * 3), (0.5, [result])]
+
+
 class Batch:
-    def __init__(self, rate: Rate, hosts: int = 1) -> None:
+    def __init__(self, rate: Rate, weights: Sequence[int] = (1,)) -> None:
         self.rate = rate
         self.calls: list[Trial] = []
-        self.samples = [(0.01, trial_result(True)) for _ in range(hosts)]
+        result = trial_result(uniform(SMALL[0]) < rate.rate(HI))
+        self.samples: list[tuple[float, list[Record]]] = [
+            (1.0, [copy.deepcopy(result) for _ in range(weight)]) for weight in weights
+        ]
         self.changed: Trial | None = None
         self.changed_field = "reference_effects"
 
-    def probes(self) -> list[tuple[float, Record]]:
+    def probes(self) -> list[tuple[float, list[Record]]]:
         assert self.calls == []
-        return copy.deepcopy(self.samples)
+        first = ("search", HI, SMALL[0])
+        return [
+            (seconds, [self.result(first, result) for result in results])
+            for seconds, results in copy.deepcopy(self.samples)
+        ]
 
     def result(self, key: Trial, result: Record) -> Record:
         if key == self.changed:
@@ -626,11 +677,9 @@ class Batch:
         )
 
 
-def batch(stub: Batch, out: Path, weights: list[int], share: int | None = None) -> None:
+def batch(stub: Batch, out: Path, share: int | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    argv = ["--weights", ",".join(map(str, weights))]
-    if share is not None:
-        argv += ["--share", str(share)]
+    argv = [] if share is None else ["--share", str(share)]
     calibrate.main(argv, out=out, work=out / "work", trial=stub.trial, blind=stub.blind, probes=stub.probes)
 
 
@@ -651,7 +700,7 @@ def batch_report(out: Path) -> Record:
 
 @pytest.mark.parametrize("crosses_target", [False, True])
 @LAW
-@given(any_rate, CORE_WEIGHTS, st.data())
+@given(any_rate, WORKERS, st.data())
 def test_l5_6_each_host_stops_at_the_first_incomplete_set_and_rounds_give_the_one_host_report(
     crosses_target: bool, rate: Rate, weights: list[int], data: st.DataObject
 ) -> None:
@@ -661,74 +710,116 @@ def test_l5_6_each_host_stops_at_the_first_incomplete_set_and_rounds_give_the_on
         small_batch(patch)
         root = fresh_log().parent
         clean_stub = Batch(rate)
-        batch(clean_stub, root / "clean", [1])
+        batch(clean_stub, root / "clean")
         clean_lines = batch_lines(root / "clean")
         assert len(clean_lines) == len(clean_stub.calls)
         of_trial = dict(zip(clean_stub.calls, clean_lines))
         stages = list(dict.fromkeys((kind, strength) for kind, strength, _ in clean_stub.calls))
+        seconds = data.draw(
+            st.lists(st.sampled_from([0.5, 1.0, 2.0, 3.0]), min_size=len(weights), max_size=len(weights))
+        )
+        rates = [Fraction(weight) / Fraction(elapsed) for weight, elapsed in zip(weights, seconds)]
         merged: list[str] = []
         evaluated: list[Trial] = []
         for round_number, stage in enumerate(stages):
             current = [key for key in clean_stub.calls if key[:2] == stage]
-            done = data.draw(st.lists(st.sampled_from(current), unique=True, max_size=len(current) - 1))
+            mask = data.draw(st.integers(0, (1 << len(current)) - 2))
+            done = [key for index, key in enumerate(current) if mask & (1 << index)]
             merged += [of_trial[key] for key in done]
             evaluated += done
             outputs: list[str] = []
-            shares = calibrate.shares([key[2] for key in current], weights)
+            missing = [key for key in current if key not in done]
+            shares = calibrate.shares([key[2] for key in missing], rates)
             for host, assigned in enumerate(shares):
                 out = root / f"round-{round_number}-host-{host}"
                 put_lines(out, merged)
                 before = (out / "calibration.jsonl").read_bytes()
-                stub = Batch(rate, len(weights))
-                batch(stub, out, weights, host)
-                expected = [key for key in current if key[2] in assigned and key not in done]
+                assigned_trials = [key for key in missing if key[2] in assigned]
+                local = assigned_trials[: data.draw(st.integers(0, len(assigned_trials)))]
+                (out / f"share-{host}.jsonl").write_text("".join(of_trial[key] + "\n" for key in local))
+                evaluated += local
+                stub = Batch(rate, weights)
+                stub.samples = [(elapsed, results) for elapsed, (_, results) in zip(seconds, stub.samples)]
+                batch(stub, out, host)
+                expected = [key for key in assigned_trials if key not in local]
                 assert sorted(stub.calls) == sorted(expected)
                 assert (out / "calibration.jsonl").read_bytes() == before
                 assert not (out / "calibration.json").exists()
                 lines = batch_lines(out, f"share-{host}.jsonl")
-                assert len(lines) == len(expected)
+                assert len(lines) == len(assigned_trials)
                 assert sorted(json.dumps(json.loads(line), sort_keys=True) for line in lines) == sorted(
-                    json.dumps(json.loads(of_trial[key]), sort_keys=True) for key in expected
+                    json.dumps(json.loads(of_trial[key]), sort_keys=True) for key in assigned_trials
                 )
                 outputs += lines
                 evaluated += stub.calls
             merged += outputs
-            data.draw(st.randoms(use_true_random=True)).shuffle(merged)
+            random.Random(data.draw(st.integers(0, 2**32 - 1))).shuffle(merged)
         assert sorted(evaluated) == sorted(clean_stub.calls)
         out = root / "decision"
         put_lines(out, merged)
         for host in range(len(weights)):
-            finished = Batch(rate, len(weights))
-            batch(finished, out, weights, host)
+            finished = Batch(rate, weights)
+            finished.samples = [(elapsed, results) for elapsed, (_, results) in zip(seconds, finished.samples)]
+            batch(finished, out, host)
             assert finished.calls == []
             assert not (out / "calibration.json").exists()
-        deciding = Batch(rate, len(weights))
-        batch(deciding, out, weights)
+        deciding = Batch(rate, weights)
+        deciding.samples = [(elapsed, results) for elapsed, (_, results) in zip(seconds, deciding.samples)]
+        batch(deciding, out)
         assert deciding.calls == []
         assert batch_report(out) == batch_report(root / "clean")
 
 
+def test_l5_6_a_resumed_round_redistributes_missing_ids_even_when_one_old_share_held_them_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    small_batch(monkeypatch)
+    clean = Batch(Rate(0.3))
+    batch(clean, tmp_path / "clean")
+    of_trial = dict(zip(clean.calls, batch_lines(tmp_path / "clean")))
+    missing = SMALL[10:22]
+    merged = [of_trial[("search", HI, market)] for market in SMALL if market not in missing]
+    assert set(missing) <= set(calibrate.shares(SMALL, [1, 3])[0])
+    for host, assigned in enumerate([missing[:3], missing[3:]]):
+        out = tmp_path / f"host-{host}"
+        put_lines(out, merged)
+        before = (out / "calibration.jsonl").read_bytes()
+        stub = Batch(Rate(0.3), [1, 3])
+        batch(stub, out, host)
+        assert sorted(stub.calls) == sorted(("search", HI, market) for market in assigned)
+        lines = batch_lines(out, f"share-{host}.jsonl")
+        assert sorted(json.dumps(json.loads(line), sort_keys=True) for line in lines) == sorted(
+            json.dumps(json.loads(of_trial[("search", HI, market)]), sort_keys=True) for market in assigned
+        )
+        retry = Batch(Rate(0.3), [1, 3])
+        batch(retry, out, host)
+        assert retry.calls == []
+        assert batch_lines(out, f"share-{host}.jsonl") == lines
+        assert (out / "calibration.jsonl").read_bytes() == before
+        assert not (out / "calibration.json").exists()
+
+
 @LAW
-@given(any_rate, CORE_WEIGHTS, st.data())
+@given(any_rate, WORKERS, st.data())
 def test_l5_6_repeated_equal_trial_lines_count_once_and_change_no_report(
     rate: Rate, weights: list[int], data: st.DataObject
 ) -> None:
     with pytest.MonkeyPatch.context() as patch:
         small_batch(patch)
         root = fresh_log().parent
-        batch(Batch(rate), root / "clean", [1])
+        batch(Batch(rate), root / "clean")
         lines = batch_lines(root / "clean")
         repeated = lines + data.draw(st.lists(st.sampled_from(lines), min_size=1, max_size=100))
-        data.draw(st.randoms(use_true_random=False)).shuffle(repeated)
+        random.Random(data.draw(st.integers(0, 2**32 - 1))).shuffle(repeated)
         put_lines(root / "repeated", repeated)
-        stub = Batch(rate, len(weights))
-        batch(stub, root / "repeated", weights)
+        stub = Batch(rate, weights)
+        batch(stub, root / "repeated")
         assert stub.calls == []
         assert batch_report(root / "repeated") == batch_report(root / "clean")
 
 
 @LAW
-@given(any_rate, CORE_WEIGHTS, st.data())
+@given(any_rate, WORKERS, st.data())
 def test_l5_6_two_lines_of_one_trial_with_differing_results_give_no_report_including_effect_only_changes(
     rate: Rate, weights: list[int], data: st.DataObject
 ) -> None:
@@ -736,7 +827,7 @@ def test_l5_6_two_lines_of_one_trial_with_differing_results_give_no_report_inclu
         small_batch(patch)
         root = fresh_log().parent
         clean = Batch(rate)
-        batch(clean, root / "clean", [1])
+        batch(clean, root / "clean")
         changed = data.draw(st.sampled_from(clean.calls))
         other = Batch(rate)
         other.changed = changed
@@ -746,17 +837,17 @@ def test_l5_6_two_lines_of_one_trial_with_differing_results_give_no_report_inclu
             else ["earns", "pairs_won", "reference_effects", "pick_effects"]
         )
         other.changed_field = data.draw(st.sampled_from(fields))
-        batch(other, root / "other", [1])
+        batch(other, root / "other")
         alternate = dict(zip(other.calls, batch_lines(root / "other")))[changed]
         original = dict(zip(clean.calls, batch_lines(root / "clean")))[changed]
         assert json.loads(alternate) != json.loads(original)
         lines = batch_lines(root / "clean") + [alternate]
-        data.draw(st.randoms(use_true_random=False)).shuffle(lines)
+        random.Random(data.draw(st.integers(0, 2**32 - 1))).shuffle(lines)
         out = root / "conflict"
         put_lines(out, lines)
-        stub = Batch(rate, len(weights))
+        stub = Batch(rate, weights)
         with pytest.raises((RuntimeError, SystemExit)) as stopped:
-            batch(stub, out, weights)
+            batch(stub, out)
         if isinstance(stopped.value, SystemExit):
             assert stopped.value.code not in (None, 0)
         assert stub.calls == []
@@ -765,29 +856,72 @@ def test_l5_6_two_lines_of_one_trial_with_differing_results_give_no_report_inclu
 
 @pytest.mark.parametrize("field", ["earns", "pairs_won", "reference_effects", "pick_effects"])
 @pytest.mark.parametrize("share", [None, 0, 1])
+@pytest.mark.parametrize("conflict", ["hosts", "within_host", "log"])
 def test_host_probes_compare_the_whole_result_before_any_search_trial(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str, share: int | None
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    field: str,
+    share: int | None,
+    conflict: str,
 ) -> None:
     small_batch(monkeypatch)
-    stub = Batch(Rate(0.3), 2)
-    result = stub.samples[1][1]
-    if field.endswith("effects"):
-        result[field][-1] = math.nextafter(result[field][-1], math.inf)
-    elif field == "earns":
-        result[field] = False
+    stub = Batch(Rate(0.3), [1, 3])
+    out = tmp_path / "conflict"
+    put_lines(out, [])
+    if conflict == "log":
+        clean = Batch(Rate(0.3))
+        batch(clean, tmp_path / "clean")
+        of_trial = dict(zip(clean.calls, batch_lines(tmp_path / "clean")))
+        put_lines(out, [of_trial[("search", HI, SMALL[0])]])
+        targets = [result for _, results in stub.samples for result in results]
+    elif conflict == "within_host":
+        targets = [stub.samples[1][1][-1]]
     else:
-        result[field] -= 1
+        targets = stub.samples[1][1]
+    for result in targets:
+        if field.endswith("effects"):
+            result[field][-1] = math.nextafter(result[field][-1], math.inf)
+        elif field == "earns":
+            result[field] = not result[field]
+        else:
+            result[field] -= 1
+    before = (out / "calibration.jsonl").read_bytes()
     with pytest.raises((RuntimeError, SystemExit)) as stopped:
-        batch(stub, tmp_path, [1, 3], share)
+        batch(stub, out, share)
     if isinstance(stopped.value, SystemExit):
         assert stopped.value.code not in (None, 0)
+    if conflict == "log":
+        captured = capsys.readouterr()
+        assert "wall: the hosts' timed trials differ from the log's" in (
+            str(stopped.value) + captured.out + captured.err
+        )
     assert stub.calls == []
-    assert batch_lines(tmp_path) == []
-    assert not (tmp_path / "calibration.json").exists()
+    assert (out / "calibration.jsonl").read_bytes() == before
+    assert all(not path.read_bytes() for path in out.glob("share-*.jsonl"))
+    assert not (out / "calibration.json").exists()
+
+
+def test_host_probes_equal_the_logs_trial_as_json_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    small_batch(monkeypatch)
+    clean = Batch(Rate(0.3))
+    batch(clean, tmp_path / "clean")
+    of_trial = dict(zip(clean.calls, batch_lines(tmp_path / "clean")))
+    first = ("search", HI, SMALL[0])
+    out = tmp_path / "resumed"
+    put_lines(out, [json.dumps(json.loads(of_trial[first]), sort_keys=True, separators=(",", ":"))])
+    stub = Batch(Rate(0.3), [1, 3])
+    for _, results in stub.samples:
+        for result in results:
+            result["reference_effects"] = [1] * PAIRS
+    batch(stub, out)
+    assert first not in stub.calls
+    assert sorted(stub.calls) == sorted(key for key in clean.calls if key != first)
+    assert batch_report(out) == batch_report(tmp_path / "clean")
 
 
 @pytest.mark.parametrize(("seconds", "weights"), [([1.0, 1000.0], [1, 100]), ([1000.0, 100.0], [100, 1])])
-def test_equal_host_probes_allow_differing_times_and_print_the_projection_by_the_sum_of_core_rates(
+def test_equal_host_probes_allow_differing_times_and_print_the_projection_by_the_sum_of_hosts_rates(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -795,20 +929,28 @@ def test_equal_host_probes_allow_differing_times_and_print_the_projection_by_the
     weights: list[int],
 ) -> None:
     small_batch(monkeypatch)
-    stub = Batch(Rate(0.3), 2)
-    stub.samples = [(seconds[host], result) for host, (_, result) in enumerate(stub.samples)]
-    throughput = sum(cores / elapsed for cores, elapsed in zip(weights, seconds))
-    batch(stub, tmp_path, weights)
+    stub = Batch(Rate(0.3), weights)
+    stub.samples = [(seconds[host], results) for host, (_, results) in enumerate(stub.samples)]
+    throughput = sum(len(results) / elapsed for elapsed, results in stub.samples)
+    batch(stub, tmp_path)
     assert stub.calls
     assert batch_report(tmp_path)["strength"] is not None
-    printed = float(re.search(r"projected ([0-9.]+) h", capsys.readouterr().out).group(1))  # type: ignore[union-attr]
+    output = capsys.readouterr().out
+    match = re.search(r"projected ([0-9]+\.[0-9]) h\b", output)
+    assert match is not None
+    printed = float(match.group(1))
     assert MARKETS / throughput / 3600 - 0.05 <= printed <= (MARKETS + 1000) / throughput / 3600 + 0.05
+    numbers = [float(value) for value in re.findall(r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", output)]
+    for elapsed, results in stub.samples:
+        assert any(value == pytest.approx(3600 * len(results) / elapsed, abs=0.05) for value in numbers)
 
 
 def test_a_projection_far_above_a_day_stops_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     small_batch(monkeypatch)
-    stub = Batch(Rate(0.3), 2)
-    stub.samples = [(10.0**6, result) for _, result in stub.samples]
-    batch(stub, tmp_path, [1, 3])
-    assert stub.calls
-    assert batch_report(tmp_path)["strength"] is not None
+    fast = Batch(Rate(0.3), [1, 3])
+    batch(fast, tmp_path / "fast")
+    stub = Batch(Rate(0.3), [1, 3])
+    stub.samples = [(10.0**6, results) for _, results in stub.samples]
+    batch(stub, tmp_path / "slow")
+    assert sorted(stub.calls) == sorted(fast.calls)
+    assert batch_report(tmp_path / "slow") == batch_report(tmp_path / "fast")
