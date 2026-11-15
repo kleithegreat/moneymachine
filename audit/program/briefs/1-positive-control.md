@@ -22,6 +22,25 @@ Revised 2026-11-13 17:28 UTC (12:28 EST) by Claude Fable 5.2, session "architect
 - `test_calibrate.py`: `test_a_twin_is_made_once_across_strengths` is deleted, with the behaviour it tested. It ran for about 780 s against the repository's 600 s limit, so nothing is split and no limit rises. `test_a_trial_makes_its_own_pairs_and_keeps_no_market` stands in its place (`16483b5`, behaviour 7). The module's note loses its paragraph "Twins are made once", with `g100_earns_in` and its shared `scratch`; `g100_earns(strength, market, work)` is the interface. When L5.6's remaining tests land, the note's first line names L5.1 to L5.6.
 - No other test names a twin's cache. A test that passes `twins` to `judge`, `fresh_scores` or `g100_trial` drops the argument.
 
+### The projection is not a wall
+
+Revised 2026-11-15 09:18 UTC (04:18 EST) by Claude Fable 5.2, session "architect: study 1's calibration wall, kernel version 2's wording, study 2's criteria", after run `cal-1` stopped at step 5's behaviour 6 with nothing evaluated.
+
+- **What happened.** The probes took 70.5 s on this PC, 110.6 s on prodesk7 and 163.3 s on gmktec, each on one core, with equal results. That is 3.53 s a market on their 27 cores together, and 31.0 hours at 13 strengths against a limit of 24 (`calibration_cost`).
+- **What the limit was for.** It was written when the job was costed at 20 core-hours, to catch a costing that had missed a term before the job spent the path's time and the hosts' disk on it. The number 24 was never derived.
+- **Why it goes.** A stop is worth something only when running loses what stopping keeps, and since the revision of 2026-11-13 running loses nothing:
+  - **Nothing computed is lost.** A trial is a function of its market and its strength alone (behaviour 7), every trial is a line of the log, and a killed run resumes at the next missing one (L5.3). A later change of cost that keeps the scores, as L1.5's did, keeps every line.
+  - **Nothing is filled.** A trial leaves no market behind (behaviour 7), so the disk a run holds does not grow with its length.
+  - **Nothing waits for the hosts.** No other batch is queued on them.
+  - **So a stopped job is the running job minus the trials it would have made.** Whatever the architect is asked, the job running meanwhile is at least as good as the job stopped. `cal-1`'s stop cost the hosts' hours since and saved nothing.
+- **No limit can be derived from the window either.** The accounts' window has no last useful hour: every day before the first session costs 3.1 sessions of it (architecture 5.3), and a study that the window cuts short resumes on another account under the same manifest. A cost that is linear in time has no threshold.
+- **What stays.** The probe, which behaviour 8 needs for the hosts' equality, and the printed projection, which is what the advisor schedules by. A projection that changes the order below is the advisor's question to the architect, asked while the job runs.
+- **What does not change.** No trial, no strength, no report, no constant in `constants.py`, and so nothing CS1.1 names. `calibration.json` never held the projection, since the report does not depend on the hosts (L5.6).
+
+| Change | Code that changes | Tests |
+|---|---|---|
+| The projection stops nothing | `calibrate.py`: `SECONDS_LIMIT` and `projection_ok` go, and `main` loses the two lines that raise "wall: the projection is above 24 hours". `projected_seconds`, `effective_seconds`, `check_probes` and the printed line stand. `ops/jobs.py` does not change | `test_calibrate.py`: `test_a_projection_above_24_hours_stops_the_job` is deleted. The module note's clause on `projection_ok` (lines 30 to 32) goes, and in its place: "the projection is printed and stops nothing: `main` runs whatever its probes' times". New, by a session that has not read the code: with probes of equal results whose times project far above any limit (10^6 s each), `main` evaluates its trials and writes its report as with fast ones |
+
 ## How to use it
 
 - **The test writer** works from this file and `architecture.md` section 5, without reading any code under `gate/control/`. It may read the signatures of the existing functions named under "What exists", and `kernel/DSL.md`.
@@ -36,7 +55,7 @@ Revised 2026-11-13 17:28 UTC (12:28 EST) by Claude Fable 5.2, session "architect
 
 Cornell and TAMU are free until about 2026-11-25, TAMU's week resets on 2026-11-14 04:00 UTC (2026-11-13 23:00 EST), and each day before the first session costs three markets (architecture 5.3). So the work is ordered by what the first session needs:
 
-1. **On the path:** L1.5 and step 5's new tests, then the change to `pairs.py`, `judge.py` and `calibrate.py`; the calibration run, 352 core-hours and at most 443, which is 12 to 15 hours on 30 cores (`calibration_cost`); the manifest's commit and G100's arm, 2 core-hours; the bug hunt and Opus's last review.
+1. **On the path:** L1.5 and step 5's new tests, then the change to `pairs.py`, `judge.py` and `calibrate.py`; the calibration run, 12 to 31 hours on this PC, prodesk7 and gmktec as probed, 25 at nine strengths (`calibration_cost`); the manifest's commit and G100's arm, 2 core-hours; the bug hunt and Opus's last review.
 2. **Off the path, after the first session starts:** step 9, the Lean proofs, and the laws of steps 3 and 6, whose code already passes its tests.
 3. **If the window ends before a boundary,** the runner is left stopped, and the study resumes later on another account under the same manifest (the human, 2026-11-12 01:41 UTC (2026-11-11 20:41 EST)).
 
@@ -211,7 +230,7 @@ The walls, reported in `calibration.json` with their counts. Each is a pass or a
 
 4. The report holds, for each wall, the count, the denominator and pass or stop; a test builds each from stub scores on both sides of its threshold.
 5. The report also holds, never judged: each mirror-set program's own rate of earning on the `blind` markets, and the number of G100's `cal-b` picks at each count of pairs won, 0 to 57.
-6. Before the search the job times one whole `cal-a` market at the bracket's upper end, with everything a market costs: generating and writing it and its 57 pairs, each evaluator's start, G100's 100 evaluations, and the classification. It prints the projected time for the whole job on the hosts it will use: at most 13 strengths on 1,600 markets and one on 10,000, plus wall 3. A projection above 24 hours stops the job: a wall.
+6. Before the search the job times one whole `cal-a` market at the bracket's upper end, with everything a market costs: generating and writing it and its 57 pairs, each evaluator's start, G100's 100 evaluations, and the classification. It prints the projected time for the whole job on the hosts it will use, at the most the search can take: 13 strengths on 1,600 markets and one on 10,000, plus wall 3. The projection stops nothing, at any length ("The projection is not a wall", above).
 7. A trial keeps nothing. `g100_earns(strength, market, work)` makes every pair it scores, both members, and leaves no market under `work` when it returns. So a trial's result is a function of its market and its strength alone, and any host can run it at any time.
 8. The job spreads over hosts, and the resumption of behaviour 3 is the whole mechanism: no host coordinates another.
    - **The split.** `shares(ids, weights)` cuts the ordered ids into one contiguous run a host, in proportion to the weights, which are the hosts' cores. Every id is in exactly one share.
