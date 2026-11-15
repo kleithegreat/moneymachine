@@ -190,7 +190,7 @@ Listings and the header are always `string`.
 
 ### The price grid
 
-A coin's rules hold `figures` and `decimals` (V1). A price is **on the grid** when it is above zero, is a whole multiple of `10^−decimals`, and has at most `figures` significant figures. For `p` in `[10ᵉ, 10ᵉ⁺¹)` the grid's step is `10^max(e − figures + 1, −decimals)`. A buy's price rounds to the greatest grid price at or below it, and to zero when there is none; a sell's to the least at or above. An order at zero is A6's to admit or refuse like any other, and it buys nothing: no ask and no print is at or below it. A bar's print rounds to the nearest, a tie to the higher. A size is a whole multiple of `10^−sz_decimals`.
+A coin's rules hold `figures` and `decimals` (V1). **V1 is a lead, and this rule is not built before the venue's tick rule is certified** (`audit/program/ledger.md`, O6): the venue's page is said also to allow any whole-number price, which this rule refuses from six figures on, and the rule's form is code a registered build hashes. A price is **on the grid** when it is above zero, is a whole multiple of `10^−decimals`, and has at most `figures` significant figures. For `p` in `[10ᵉ, 10ᵉ⁺¹)` the grid's step is `10^max(e − figures + 1, −decimals)`. A buy's price rounds to the greatest grid price at or below it, and to zero when there is none; a sell's to the least at or above. An order at zero is A6's to admit or refuse like any other, and it buys nothing: no ask and no print is at or below it. A bar's print rounds to the nearest, a tie to the higher. A size is a whole multiple of `10^−sz_decimals`.
 
 ### The chunk
 

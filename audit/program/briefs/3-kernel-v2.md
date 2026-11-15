@@ -32,6 +32,7 @@ Written 2026-11-14 07:52 UTC (02:52 EST) by Claude Fable 5.2; revised 2026-11-14
 
 ### 1. ◆ Exact numbers and the two readings of a decimal (A2)
 
+- **Before it is built:** the venue's tick rule, certified (`ledger.md`, O6). The grid's rule is code the build hashes, so one found wrong after study 2's registration cannot be corrected inside that study. The grid's tests at the edge of its figures (99,999, 100,000, 100,001 and 100,000.5 at five figures and one decimal) are written from the certificate.
 - **Builds:** `Engine.Exact`: grid rounding (a buy's price down, a sell's up, a size toward zero); the reading of a double's bits at a scale, and the nearest double of a rational, both by integer arithmetic. The putting of a placed decimal at a field's scale (A18). In OCaml, the placing of a decimal string's digits: the digits as one integer, and the count of those after the point, zeros at the end not counted.
 - **The tests must show:**
   1. `10 × 0.9775` is `9.775` and rounds to itself as a buy on a grid of 0.001; `10 × 1.0056` to `10.056` as a sell; `1.93` coins are 193 lots and `0.29` are 29.
