@@ -699,7 +699,7 @@ def test_l5_6_each_host_stops_at_the_first_incomplete_set_and_rounds_give_the_on
                 outputs += lines
                 evaluated += stub.calls
             merged += outputs
-            data.draw(st.randoms(use_true_random=False)).shuffle(merged)
+            data.draw(st.randoms(use_true_random=True)).shuffle(merged)
         assert sorted(evaluated) == sorted(clean_stub.calls)
         out = root / "decision"
         put_lines(out, merged)
