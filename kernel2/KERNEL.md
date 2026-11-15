@@ -37,7 +37,7 @@ A program is one JSON document, read strictly: an unknown field, a missing one, 
 | `decide_every` | a whole number of ticks, from 1 (A4) |
 | `leverage` | a whole number from 1, as the venue takes them; or an object giving one for each coin of the market. `start` rejects one above the greatest leverage of its coin's tiers, or an object that does not name exactly the market's coins (`E_LEVERAGE`) |
 | `sources` | a list of the declared sources the program reads (A3), each a name and the unit the program takes it in. `start` rejects a market that does not declare one of them under that unit (`E_UNKNOWN_INPUT`) |
-| `params` | a list of named constants, read by `{"param": name}`. A JSON number is a float and keeps its bits, so `-0.0` stays; a string is an exact decimal |
+| `params` | a list of named constants, each a `value` and a `unit`, read by `{"param": name}`. A value that is a JSON number is a float and keeps its bits, so `-0.0` stays; one that is a string is an exact decimal |
 | `let` | a list of named expressions, read by `{"ref": name}`. One may read only those before it in the list |
 | `slots` | a list of at most 16 (A5), in the order A6 admits them |
 | `probes` | a list of named expressions of any type, written to the trace at every tick, for every coin |
@@ -82,7 +82,7 @@ Every expression is a JSON object of one of these forms.
 - **Pinned here:** a slot with no live order has `resting` of zero and an undefined `resting_price`. `funding` and `oracle` are undefined before the coin's first known funding row.
 - **Pinned here: a program names the sources it reads, with their units,** so that `check` types it with no market. An input in neither this table nor the program's `sources` is `E_UNKNOWN_INPUT` from `check`. `start` gives the same code when the market lacks a source the program names, or has no trade source for `traded` (A5).
 
-**Operators.** `u`, `v` are units; `T` is any one type.
+**Operators.** `u` and `v` are units.
 
 | Op | Arguments | Result |
 |---|---|---|
