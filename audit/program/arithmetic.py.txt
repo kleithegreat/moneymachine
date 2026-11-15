@@ -473,11 +473,25 @@ def study2_criteria() -> None:
     assert ledger.units["A"] == 0 and ledger.cash > 0
     print(f"  CS2.1, a quote that never stood: an arriving buy of {first_buy} at a limit of 101 meets a recorded ask of 5 while the coin trades at 100. Its size was fixed by its limit, so the ledger at phi = 1 and a depth of the first buy spends {float(1 - ledger.cash):.3f} of its cash and is worth {never_stood:.2f} at the next true quote: under 2 for each such quote, never 20 from one. What the ledger pays is the row's cash for each unit, so a settlement at zero is a sale for no cash and nothing divides by a notional (GPT's finding 15)")
 
-    fall, climb = math.log(4 / 100), 18
-    first_sum, second_sum, third_sum = fall + climb * 0.4, 0.01 + climb * 0.4**2, climb * 0.4**3
-    bound = dual_bound(np.array([first_sum]), np.array([second_sum]), np.array([third_sum]))
-    marked = 0.25 * 4 * 1.4**climb
-    print(f"  CS2.1, Argon's construction A: a coin falls from 100 to 4, the ledger buys 0.25 of it with its 1, and before a midnight the ask is pulled up 18 times while the bid stays at 4 and nothing trades: the mid is {4 * 1.4**climb:,.1f}, the wealth at prices {marked:.1f}, the bar {max(math.exp(bound), 4 * 1.4**climb / 100):.2f}, and the wealth at the bid still 1. The condition is met by a wealth nobody could sell at")
+    at_prices, at_bid, bar, last_bid = construction_a(bid_follows=False)
+    assert at_prices >= 20 * bar and at_bid < 1 and at_bid <= at_prices and last_bid == 4
+    followed_prices, followed_bid, followed_bar, followed_last = construction_a(bid_follows=True)
+    assert followed_bid >= 20 * followed_bar and followed_bid <= followed_prices
+    print(f"  CS2.1, Argon's construction A, at prices the engine admits: a coin is quoted down from 100 to 4, the ledger spends its 1 at the ask there, and before a midnight 18 quotes pull the ask up while the bid stays at 4 and nothing trades. The wealth at prices is {float(at_prices):.1f} against a bar of {bar:.2f}, so a test of it says 'outgrew'; the wealth at the bid is {float(at_bid):.4f}, and the rungs compare that (the human, 2026-11-15). Where the bid rises with the ask, to {float(followed_last):,.1f}, the wealth at the bid is {float(followed_bid):.1f} against a bar of {followed_bar:.2f} and the rung is reached: a buyer stood there")
+
+    held_book = Books()
+    held_book.cash, held_book.units = Fraction(1, 2), {"A": Fraction(1, 8)}
+    four = {"A": Fraction(4)}
+    for case, price in (("a print under the bid", Fraction(3)), ("a print over it", Fraction(5)), ("a settlement under the last bid", Fraction(0))):
+        assert held_book.wealth_at_bid(four, {"A": price}) == Fraction(1, 2) + Fraction(1, 8) * min(Fraction(4), price) <= held_book.wealth({"A": price}), case
+    assert Books().wealth_at_bid({}, {}) == Books().wealth({}) == 1
+    print("    never above the wealth: with a bid of 4, a coin printed at 3 is valued at 3, one printed at 5 at 4, and one settled at 0 at 0; a ledger that holds nothing has one wealth. A stale coin's bid is its last quote's, and the same line holds")
+    moved = []
+    for gap in (0.001, 0.01):
+        level = LOG20 - math.log(1 - gap)
+        moved.append(max(abs(crossing(2 * (sharpe * vol - vol**2 / 2), vol * math.sqrt(2), level) - crossing(2 * (sharpe * vol - vol**2 / 2), vol * math.sqrt(2))) for vol in (0.25, 0.5, 1.0, 2.0) for sharpe in (1.4, 2, 2.4)))
+    assert moved[0] < 0.0005
+    print(f"    what the bid costs: the wealth at the bid is at least (1 - h) of the wealth, h the widest gap from price to bid among the coins held, so the rung is at most -log(1 - h) further off. At ten basis points that is {-math.log(1 - 0.001):.4f} of log against {LOG20:.2f}, and the two-year power of no cell of section 6.3's table moves by more than {moved[0]:.4f}; at one percent, by {moved[1]:.4f}")
     wick = dual_bound(np.array([4 - 0.8]), np.array([16 + 0.64]), np.array([64 - 0.512]))
     print(f"    Argon's construction B: one print five times the price and the next back, on any coin of the universe: the best mix made {1 + 3.2 * 0.5 - 3.2 * 0.25:.1f} of it and the bar is exp({wick:.2f}) = {math.exp(wick):.1e} for ever after. The bound's slack is large only at returns no book has, and one misprint is such a return")
 
@@ -641,6 +655,10 @@ class Books:
     def wealth(self, prices: dict[str, Fraction]) -> Fraction:
         return self.cash + sum((held * prices[coin] for coin, held in self.units.items()), Fraction(0))
 
+    def wealth_at_bid(self, bids: dict[str, Fraction], prices: dict[str, Fraction]) -> Fraction:
+        """What the rungs compare (architecture 6.1): each coin at its bid price, the lesser of its latest quote's best bid and its price."""
+        return self.cash + sum((held * min(bids[coin], prices[coin]) for coin, held in self.units.items()), Fraction(0))
+
 
 class TestLedger(Books):
     """The test ledger of architecture 6.1 and kernel A12, exact. It trades only at the account's fills, at their prices and fee rates. A cycle's scale
@@ -766,6 +784,52 @@ def guard_reach(market: list[tuple[int, str, Fraction]], clock: int, minutes: in
                 over = math.exp(math.log(wealth) - bar_log(market, day_end))
                 most[day_end // DAY] = max(most.get(day_end // DAY, 0.0), over)
     return most
+
+
+def grid_step(price: Fraction, figures: int, decimals: int) -> Fraction:
+    """The price grid's step at a price above zero (KERNEL.md A18): for a price in [10^e, 10^(e+1)) it is 10^max(min(e - figures + 1, 0), -decimals)."""
+    exponent = 0
+    while Fraction(10) ** (exponent + 1) <= price:
+        exponent += 1
+    while Fraction(10) ** exponent > price:
+        exponent -= 1
+    return Fraction(10) ** max(min(exponent - figures + 1, 0), -decimals)
+
+
+def to_grid(price: Fraction, figures: int, decimals: int, up: bool) -> Fraction:
+    """A sell's price rounds up to the grid and a buy's down (kernel A2)."""
+    step = grid_step(price, figures, decimals)
+    return (math.ceil(price / step) if up else math.floor(price / step)) * step
+
+
+def construction_a(bid_follows: bool) -> tuple[Fraction, Fraction, float, Fraction]:
+    """Argon's construction A on study 2's criteria, at prices the engine admits (five figures, four decimals). One coin is quoted down from 100 to 4
+    in a thousand quotes. The ledger, at phi = 1 and a depth of the buy's notional, buys at the ask of 4.0002 with the taker's fee. Then 18 quotes
+    each raise the mid by two fifths with no print: the ask alone, the bid staying at 4, or with `bid_follows` both sides, the bid a thousandth under
+    the mid. Returns the wealth at prices, the wealth at the bid, the bar and the last bid, at that day's end."""
+    figures, decimals, taker = 5, 4, Fraction(45, 100_000)
+    quotes: list[tuple[Fraction, Fraction]] = []
+    for step in range(1000):
+        centre = Fraction(100 * 0.04 ** (step / 1000))
+        low = to_grid(centre, figures, decimals, up=False)
+        quotes.append((low, low + grid_step(low, figures, decimals)))
+    floor = Fraction(4)
+    quotes.append((floor, Fraction(40_002, 10_000)))
+    ledger = TestLedger(Fraction(1), Fraction(100))
+    ledger.buy("A", Fraction(100) / quotes[-1][1], quotes[-1][1], taker)
+    for pull in range(1, 19):
+        mid = floor * Fraction(7, 5) ** pull
+        if bid_follows:
+            quotes.append((to_grid(mid * Fraction(999, 1000), figures, decimals, up=False), to_grid(mid * Fraction(1001, 1000), figures, decimals, up=True)))
+        else:
+            quotes.append((floor, to_grid(2 * mid - floor, figures, decimals, up=True)))
+    assert all(0 < bid < ask and bid % grid_step(bid, figures, decimals) == 0 and ask % grid_step(ask, figures, decimals) == 0 for bid, ask in quotes)
+    mids = [(bid + ask) / 2 for bid, ask in quotes]
+    returns = np.array([float(after / before - 1) for before, after in zip(mids, mids[1:])])
+    bound = dual_bound(np.array([returns.sum()]), np.array([(returns**2).sum()]), np.array([(returns**3).sum()]))
+    bar = max(math.exp(bound), float(mids[-1] / mids[0]))
+    bid, price = quotes[-1][0], mids[-1]
+    return ledger.wealth({"A": price}), ledger.wealth_at_bid({"A": bid}, {"A": price}), bar, bid
 
 
 def round_down(value: Fraction, bits: int = 128) -> Fraction:

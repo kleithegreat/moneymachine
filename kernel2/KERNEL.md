@@ -278,7 +278,7 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 | Kind | Fields, after the kind | When |
 |---|---|---|
 | `flow` | `time`, `coin`, `what`, `cycle`, `units`, `cash`, `fee`, `before`, `price` | each cash flow, at its event |
-| `coin` | `time`, `coin`, `span`, `at`, `price`, `first`, `events`, `least`, `funding`, `sum1`, `sum2`, `sum3` | each of the span's coins, in coin order, at each day's end and at the span's end |
+| `coin` | `time`, `coin`, `span`, `at`, `price`, `bid`, `quoted`, `first`, `events`, `least`, `funding`, `sum1`, `sum2`, `sum3` | each of the span's coins, in coin order, at each day's end and at the span's end |
 | `account` | `time`, `equity`, `absorbed`, `funding`, `long`, `short`, `near`, then for each coin of the header `stale`, `open` | each day's end, after that day's `coin` rows |
 
 **`flow`:**
@@ -292,6 +292,7 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 **`coin`:**
 - `span` counts spans from 1. `at` is `day` or `span`, the row's occasion; a span that ends at a midnight has both rows, read as above.
 - `price` is the coin's price, and `first` its first in the span: its price at the span's start, or its first after. Both are undefined before the coin's first quote.
+- `bid` is the best bid of the coin's latest quote, and `quoted` that quote's `time`. Both are undefined before the coin's first quote. A print and a listing's end move the price and neither of these. The coin's bid price (A12) is not a field: it is the lesser of `bid` and `price`, which K1 takes, and a second copy could disagree with them.
 - `events`, `least`, `funding`, `sum1`, `sum2`, `sum3` are A12's, since the span began: the count of price events; the least of their returns and zero; the funding a unit paid; the sums of the returns, of their squares and of their cubes.
 
 **`account`:**
