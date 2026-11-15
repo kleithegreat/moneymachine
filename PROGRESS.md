@@ -30,7 +30,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
-     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are written (`4844762`, behaviours 7 and 8, L5.6, plus a cross-host probe that numpy's results agree bit for bit). **Step 5 spreads over hosts:** tests by GPT, built by Sonnet, merged (`study1-build` `fb6fc73`); all 336 study 1 tests pass. Next: a `calibrate` Job in `ops/jobs.py` over the shares.
+     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are written (`4844762`, behaviours 7 and 8, L5.6, plus a cross-host probe that numpy's results agree bit for bit). **Step 5 spreads over hosts:** tests by GPT, built by Sonnet, merged (`study1-build` `fb6fc73`); all 336 study 1 tests pass. **Calibration stopped at behaviour 6's wall** (`cal-1`, `ops/jobs.py calibrate`): a market is 70, 111 and 163 s on this PC, prodesk7 and gmktec, so the worst case projects 31 h. Nothing evaluated; the probes are equal and kept.
      - **Then:** calibration, G100 on the study markets, the first sessions (Cornell and TAMU).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
@@ -46,7 +46,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2 converged** (Fable, then GPT's confirming read `audit/reviews/2026-11-15-gpt-kernel-v2-r6-confirm.md`; Argon round 6). `rearchitecture` `95cf489` plus Fable's ledger section (running on TAMU from 02:44 UTC, 21:44 EST). Owed: GPT's wording note on B1 and A12. Next: study 2's criteria. Disk is deferred with the human.
+1. **Kernel version 2 converged** (Fable, then GPT's confirming read `audit/reviews/2026-11-15-gpt-kernel-v2-r6-confirm.md`; Argon round 6). `rearchitecture` `6f5bd43`. Owed: GPT's wording note on B1 and A12. Next: study 2's criteria.
    - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; the vault's pre-freeze fill responses under `data/` with a hash; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
@@ -57,6 +57,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ## Blockers
 
+- **Study 1's calibration projects 31 h against its 24 h wall** (above): Fable's to re-derive.
 None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
 ## Decisions awaiting the human's review
