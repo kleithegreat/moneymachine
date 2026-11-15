@@ -295,8 +295,9 @@ def calibration_cost(pairs: int, search: int, check: int, steps: tuple[int, int]
     """What the calibration costs in seconds of one core, from the parts of one market. Measured 2026-11-13 on this
     PC at a3fc471, means over 8 markets: `generate`; `gate.markets.write`, which hashes each of a market's 262,812
     rows in Python (ingest/store.py); the same market's search period written with the columns the kernel reads;
-    one `mm eval` process, which loads the market; one locked program in it; G100's 100 evaluations. The probes are
-    run `cal-1`'s, 2026-11-15: each host's cores and the seconds its one whole market took on one of them."""
+    one `mm eval` process, which loads the market; one locked program in it; G100's 100 evaluations. The hosts are
+    run `cal-2`'s, 2026-11-15: each one's workers and the markets an hour it finished in round `r0`, all of them
+    busy."""
     generate, start, program, g100 = 0.095, 0.18, 0.05, 0.88
     stored, scored = (1.71, 13.3e6), (0.05, 2.9e6)
     blind_markets, mirror_set, cores = 200, 10, 30
@@ -316,11 +317,19 @@ def calibration_cost(pairs: int, search: int, check: int, steps: tuple[int, int]
         low, high = (hours(write, twins_once, count) for count in steps)
         print(f"  {name}: {low:,.0f} core-hours at {steps[0]} strengths, {high:,.0f} at {steps[1]}; on {cores} cores {low / cores:.1f} to {high / cores:.1f} hours, on 26 {low / 26:.1f} to {high / 26:.1f}, on 12 {low / 12:.1f} to {high / 12:.1f}")
     print(f"  disk: the search's twins kept through the revision store, {search * pairs * stored[1] / 1e12:.2f} TB; with nothing kept, a worker holds one searched market or one pair, at most {max(stored[1], 2 * scored[1]) / 1e6:.1f} MB, so {cores} workers hold {cores * max(stored[1], 2 * scored[1]) / 1e9:.2f} GB")
-    probes = {"this PC": (11, 70.5), "prodesk7": (10, 110.6), "gmktec": (6, 163.3)}
-    each = 1 / sum(host_cores / seconds for host_cores, seconds in probes.values())
+    hosts = {"this PC": (11, 279), "prodesk7": (10, 164), "gmktec": (6, 59)}
+    workers = sum(count for count, _ in hosts.values())
+    together = sum(rate for _, rate in hosts.values())
     blind_equivalent = math.ceil(blind_markets * (mirror_set + 1) * 2 * pairs / (100 + 2 * 2 * pairs))
-    least, usual, most = ((count * search + check + blind_equivalent) * each / 3600 for count in (1, *steps))
-    print(f"  as probed on the hosts that run it ({', '.join(f'{name}: {host_cores} cores at {seconds} s' for name, (host_cores, seconds) in probes.items())}): {each:.2f} s a market on the hosts together; a strength of the search {search * each / 3600:.1f} h, the check {check * each / 3600:.1f} h; the job {least:.1f} h at one strength, {usual:.1f} h at {steps[0]}, {most:.1f} h at {steps[1]}")
+    work = [count * search + check + blind_equivalent for count in (1, *steps)]
+    by_rate = [markets / together for markets in work]
+    by_cores = [max(markets * count / workers / rate for count, rate in hosts.values()) for markets in work]
+    print(f"  as measured on the hosts that run it ({', '.join(f'{name}: {rate} markets an hour on {count} workers' for name, (count, rate) in hosts.items())}): {together} an hour together, {3600 / together:.2f} s a market")
+    print(f"    a round of the search split by rates: shares {', '.join(str(round(search * rate / together)) for _, rate in hosts.values())}, {search / together:.1f} h; by workers: shares {', '.join(str(round(search * count / workers)) for count, _ in hosts.values())}, {max(search * count / workers / rate for count, rate in hosts.values()):.1f} h")
+    print(f"    the job at one strength, {steps[0]} and {steps[1]}: {', '.join(f'{h:.1f}' for h in by_rate)} h by rates; {', '.join(f'{h:.1f}' for h in by_cores)} h by workers")
+    for name, (count, rate) in hosts.items():
+        part = rate / together
+        print(f"    {name}: {part:.1%} of the rate; without it a round by rates is {search / (together - rate):.1f} h; it shortens the job while its weight's error is below {part / (1 - part):.0%}; by workers its error is {count / workers / part - 1:+.0%}")
     bests = 5
     print(f"  the study's arms: G100's pick, its {bests} earlier bests and the reference on a market's {pairs} pairs, {pairs * 2 * (generate + scored[0] + start + (bests + 2) * program):.0f} s; the agent's pick and the reference, {pairs * pair:.0f} s; 100 markets, both arms, {100 * pairs * (2 * (generate + scored[0] + start + (bests + 2) * program) + pair) / 3600:.1f} core-hours")
 
