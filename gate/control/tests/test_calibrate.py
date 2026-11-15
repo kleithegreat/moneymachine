@@ -49,6 +49,7 @@ import copy
 import hashlib
 import json
 import math
+import re
 import tempfile
 from collections.abc import Callable, Sequence
 from fractions import Fraction
@@ -785,29 +786,23 @@ def test_host_probes_compare_the_whole_result_before_any_search_trial(
     assert not (tmp_path / "calibration.json").exists()
 
 
-@pytest.mark.parametrize(
-    ("seconds", "weights", "allowed"), [([1.0, 1000.0], [1, 100], True), ([1000.0, 100.0], [100, 1], False)]
-)
-def test_equal_host_probes_allow_differing_times_and_project_using_the_sum_of_core_rates(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, seconds: list[float], weights: list[int], allowed: bool
+@pytest.mark.parametrize(("seconds", "weights"), [([1.0, 1000.0], [1, 100]), ([1000.0, 100.0], [100, 1])])
+def test_equal_host_probes_allow_differing_times_and_print_the_projection_by_the_sum_of_core_rates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    seconds: list[float],
+    weights: list[int],
 ) -> None:
     small_batch(monkeypatch)
     stub = Batch(Rate(0.3), 2)
     stub.samples = [(seconds[host], result) for host, (_, result) in enumerate(stub.samples)]
     throughput = sum(cores / elapsed for cores, elapsed in zip(weights, seconds))
-    assert ((MARKETS + 1000) / throughput <= 86400) is allowed
-    assert (MARKETS / throughput <= 86400) is allowed
-    if allowed:
-        batch(stub, tmp_path, weights)
-        assert stub.calls
-        assert batch_report(tmp_path)["strength"] is not None
-    else:
-        with pytest.raises((RuntimeError, SystemExit)) as stopped:
-            batch(stub, tmp_path, weights)
-        if isinstance(stopped.value, SystemExit):
-            assert stopped.value.code not in (None, 0)
-        assert stub.calls == []
-        assert not (tmp_path / "calibration.json").exists()
+    batch(stub, tmp_path, weights)
+    assert stub.calls
+    assert batch_report(tmp_path)["strength"] is not None
+    printed = float(re.search(r"projected ([0-9.]+) h", capsys.readouterr().out).group(1))  # type: ignore[union-attr]
+    assert MARKETS / throughput / 3600 - 0.05 <= printed <= (MARKETS + 1000) / throughput / 3600 + 0.05
 
 
 def test_a_projection_far_above_a_day_stops_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
