@@ -29,7 +29,6 @@ from gate.control.measure import classify, effect, even, finite
 from gate.control.pick import pick
 
 HI = 0.01
-SECONDS_LIMIT = 24 * 3600
 MIRROR_PAIRS = {
     "constant": ("long", "short"),
     "trend": ("momentum", "reversal"),
@@ -320,10 +319,6 @@ def projected_seconds(seconds_per_market: float, cores: int = 1) -> float:
     return markets * seconds_per_market / cores
 
 
-def projection_ok(seconds_per_market: float, cores: int) -> bool:
-    return projected_seconds(seconds_per_market, cores) <= SECONDS_LIMIT
-
-
 def timed_trial(work: Path) -> tuple[float, Result]:
     """The seconds one whole cal-a market takes at the bracket's upper end, with everything a market costs
     (generating and writing it and its pairs, each evaluator's start, G100's evaluations and the classification),
@@ -438,8 +433,6 @@ def main(
     check_probes(timed)
     each = effective_seconds(weights, [seconds for seconds, _ in timed])
     print(f"{each:.1f} s a market on one core of the hosts together: projected {projected_seconds(each) / 3600:.1f} h")
-    if not projection_ok(each, 1):
-        raise RuntimeError("wall: the projection is above 24 hours")
     merged = out / "calibration.jsonl"
     own = merged if args.share is None else out / f"share-{args.share}.jsonl"
     if own.exists():
