@@ -790,3 +790,77 @@ Each answers a finding both sides agree on. What is unseen is the fix.
 **The next round** goes to Argon and GPT from one bundle, with the seven checks above; a fresh Opus session if either is out.
 
 **Study 1** is as the earlier section leaves it.
+
+## After round 6 on kernel version 2 and study 2: what the specification admits
+
+Appended 2026-11-15 02:49 UTC (2026-11-14 21:49 EST) by Claude Fable 5.2, session "architect: kernel version 2, round 6", the third of its brief (the first two answered the round and committed `95cf489`). **Read for it:** both reviews in full (`audit/reviews/2026-11-15-argon-cli-kernel-v2-r6.md`, `audit/reviews/2026-11-15-gpt-kernel-v2-r6.md`); commit `95cf489` word by word against them; `kernel-v2.md` A3, A8, A9, A12, B1, the laws T1 to K2 and part D; `architecture.md` 6.1's bar and guard; the build plan's steps 2, 9 and 10; this ledger's last section; `arithmetic.py.txt` rerun whole, exit 0. **Not read:** any price, any code, the rest of the design. Numbering continues. The findings, cause by cause, are in `kernel-v2.md` part D.
+
+### In plain words
+
+- **Round 6 confirmed round 5's answers.** Both reviewers find every round-5 finding fixed at its cause, and both keep the test ledger and the narrowed claims. Neither found a move in the ledger's books that is not a fill.
+- **What it found was the specification's domain.** Argon calls the design converged with two edits to step 10. GPT calls it not converged on four gaps, each a market the engine admits, or an input an instrument is handed, that a law does not hold on. GPT asks for no change of design.
+- **All six are conceded, each by the change its reviewer named as the smallest that removes the cause.** A fee rate is from 0 to 1. An ended coin leaves the spans after it. The guard reads every funding event in the machine's order. Its fixtures are a market the engine admits. The decimation is deleted and the bootstrap goes to study 2's brief.
+- **One answer was incomplete and I completed it.** The answer to GPT's second finding said an ended coin has no event after its end, and no rule made that so. Admission now refuses one (D42).
+- **The design did not change.** No finding touched the ledger's rules, the bar or a claim, and none needed a second clock, a deferred count or a stake that moves without a fill.
+
+### Who has seen what
+
+- **Argon and GPT:** `8106078`, from one bundle each. Both have now seen and confirmed D34 to D40 and D14-v6. Neither has seen round 6's answers (`95cf489`, `2dff3ba`).
+- **Opus:** has not reviewed kernel version 2 or study 2.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A105 | Every finding of round 5 is fixed at its cause: the stake rule, the ledger's grid, T1 on every fill, the bar's term and K2's domain, the guard as a refusal only, the null on the whole event, the join | Both, round 6 (confirms D34 to D40 and D14-v6) | kernel A12, T1, K1, K2; architecture 6.1, 6.4 |
+| A106 | The test ledger and the narrowed claims are kept | Both, round 6 | architecture 6.1 |
+| A107 | A fee rate bounded only below lets a sale cost cash: a dated tier of 2 takes the ledger's cash from 0 to −1 | GPT alone (F1), conceded | kernel A8, K1, T1 |
+| A108 | A coin whose listing ended was still a coin of the next span, and settled at zero it was a first price of zero | GPT alone (F2), conceded | kernel A3, A12, K2, P1 |
+| A109 | A tick's total of funding loses the order that decides whether a rule's cash runs out: two payments in a minute, and a payment and a rebalance at one tick | Both (GPT's F3; Argon's finding 1), conceded as one cause | kernel A12, B1 |
+| A110 | The guard's fixtures were markets the engine refuses, with a bar typed in | GPT alone (F4), conceded | build plan, step 10 |
+| A111 | Step 10 listed a decimation and a bootstrap that no test of it calls | Argon alone (finding 2), conceded | build plan, step 10 |
+| A112 | Denominators do not grow and numerators can; the ratio to the null's mix is the supermartingale, not the ratio to the bar | GPT's two notes, conceded as wording | kernel A12; architecture 6.1 |
+
+### Settled by a derivation the reviewers have not seen
+
+Each answers a finding its reviewer and the architect agree on. What is unseen is the fix. None changes the design: each narrows what is admitted, changes what an instrument is handed, or replaces a fixture.
+
+| | Dispute | Settled by | As the reviewer named it | Changes what is built |
+|---|---|---|---|---|
+| D41 | The range of a fee rate | 0 to 1, at `start` and in the replay of given fills. A sale then brings at least nothing, so K1 holds for every admitted schedule | **Yes** (GPT's own bound) | **Yes** |
+| D42 | Which coins a span has | The universe coins still listed at its start. Every quote's and print's price is above zero, so no first price is zero and nothing tests for one. **And admission refuses any event of a coin after its listing's end,** a funding event at the end's own millisecond included: without it P1 was false of an admitted market | **Yes** for the first two (GPT's). **The refusal is the architect's,** found while writing this, named by nobody | **Yes** |
+| D43 | What the guard reads of funding, and in what order | The trace holds every funding event of a universe coin, held or not, and no total. The guard folds them in the machine's order: at one timestamp a span's end, then funding, then the tick | **Yes** for the events (GPT's). **The order differs from Argon's sentence in one place:** Argon put funding before a span's end. The machine's order (A3) puts a listing first. The ended coin has no funding there (D42), and another coin's is paid on the next span's mix, as the engine's own account pays it | **Yes** |
+| D44 | The guard's fixtures | A pair of a quarter up and a fifth down, at 100, 125 and 80 for ever, from admitted events through the engine, the trace and both instruments, with the bar from the same report. The five-minute rule stands 30.5 times over the bar at the first day's end; all four clocks are silent on the astride market while a rebalancer gains 1.0119 of the bar a minute | **Yes** (GPT's own pair) | **Yes**, the tests |
+| D45 | Step 10's two untested builds | The decimation is deleted, since layer 2 reads the archive's cadence as a class. The bootstrap is built under study 2's brief with the replay it resamples; it chooses `φ` and `d` and forecasts power, and decides no result | **Yes** (Argon's first alternative) | **Yes**, where it is built |
+
+### Disputed, still open
+
+**None.** The architect refuted nothing in round 6. Two places are not what a reviewer wrote and no reviewer has answered them: the refusal in D42 and the order in D43. Neither is a dispute until someone disagrees, and each is a question in the read below.
+
+### What the short read should check
+
+Not a round: by this project's rule a review repeats only when a finding changed the design, and none did. One short read of `git diff 716d382...rearchitecture` by GPT, whose four findings these are, or by a fresh Opus session labeled as such if GPT is out:
+
+1. Is there still an admitted input on which the ledger's cash or units go below zero without the ledger ending?
+2. Does the guard's fold, as kernel B1 writes it, decide every order it depends on from the trace alone?
+3. At one timestamp, is a span's end before funding right for the guard (D43)?
+4. Is refusing every event of a coin after its listing's end right, a funding event at the end's own millisecond included (D42)?
+
+### Assumptions only the human can choose
+
+- **None new.** Disk for two years stays deferred, as the last section leaves it.
+
+### Owed
+
+- **By the advisor:** the check of `95cf489` and `2dff3ba` against the reviews, and the short read. A count, taken without reading a price, of archive rows of a universe coin at or after its listing's end: if there is one, the engine now refuses that market, and what the reader does with it is a question for the architect. The earlier sections' items stand.
+- **By the architect:** `KERNEL.md`'s encodings and grammar; the layout of the report's rows and of the trace, which now has a row for each funding event; study 2's criteria and its brief, which now carries the bootstrap, its block and its test.
+
+### Convergence
+
+**Converged: no open dispute would change what is built or run.** Round 5's settlements, which were the new design, have been seen by both reviewers and confirmed. Round 6's six items are closed by the changes their reviewers named, and none is design. Argon said converged given its two edits, and both are made. GPT said not converged until F1 to F4 were closed, and they are, by its own changes; its word on that is the short read. Study 2's criteria may be drafted now. They are committed only after the read and after their own review.
+
+**The test of whether this was patching.** None of round 6's findings landed on the three confusions, and the last section's two tripwires did not fire: no move in the ledger's books that is not a fill was found, and no sentence still reads the guard as clearing a record. But four of the six items, and the one I found, share a cause, and it is a pattern to name: **admission is a list of refusals, each law states its own domain, and the two can differ at an edge.** Fees were bounded on one side in round 5 and on the other in round 6. I found one more edge in a few minutes of reading, so I do not claim the list is complete. More review rounds are the wrong instrument for the rest. Every starred law is proved in Lean over every admitted market, so an edge that admission misses is a goal that does not close. That wall comes back to the architect as a question and is never patched around, and its answer narrows admission or states the law's domain. If such a wall instead needs a rule in the ledger, the bar or a claim, this convergence is void for that part and it is re-derived.
+
+**The next step** is the short read, then study 2's criteria. No round 7 is asked for.
+
+**Study 1** is as the earlier section leaves it.
