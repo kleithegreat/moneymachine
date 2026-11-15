@@ -14,9 +14,9 @@ Written 2026-11-14 07:52 UTC (02:52 EST) by Claude Fable 5.2; revised 2026-11-14
 
 **Data a builder may read.** The archive before 2026-11-01 and the vault's fills before 2026-11-01. Nothing dated in [2026-11-01, 2027-01-31). From step 3 the executable enforces it (kernel A13); before that, and for every fixture of the recorder's format, data is synthetic.
 
-**Layout.** `kernel2/lean` (Lake library `Engine`, no executable, no `IO`), `kernel2/ocaml` (dune project, executable `mm2`), `kernel2/KERNEL.md` (part A of `kernel-v2.md`, moved there at step 0 as the spec beside the code, with `kernel-v2.md` keeping parts B and C and linking to it).
+**Layout.** `kernel2/lean` (Lake library `Engine`, no executable, no `IO`), `kernel2/ocaml` (dune project, executable `mm2`), `kernel2/KERNEL.md` (the spec beside the code: it holds A17, the program's grammar, and A18, the market's encoding, and at step 0 part A of `kernel-v2.md` is moved there above them, with `kernel-v2.md` keeping parts B to D and linking to it).
 
-**Owed by the architect before step 3:** in `KERNEL.md`, the chunk's layout and the canonical encoding of every event; **before step 4:** the program's JSON grammar, the float operators that name the hour restated in ticks, and funding's lateness rule; **before step 9:** the layout of the report's three kinds of row and of the trace. Nothing is owed for step 10: the test ledger rounds nothing but a trade's size, and the step states that cut. A builder who meets one of these missing stops and asks.
+**Written by the architect, in `KERNEL.md`:** the header, the chunk's layout and the encoding of every event, the whole order of a millisecond and funding's lateness rule (A18, for step 3 on); the program's JSON grammar and the float operators that name the hour restated in ticks (A17, for step 4 on). **Still owed, before step 9:** the layout of the report's three kinds of row and of the trace (A19). A builder who meets it missing stops and asks. Nothing is owed for step 10: the test ledger rounds nothing but a trade's size, and the step states that cut.
 
 ## The steps
 
@@ -32,12 +32,12 @@ Written 2026-11-14 07:52 UTC (02:52 EST) by Claude Fable 5.2; revised 2026-11-14
 
 ### 1. ◆ Exact numbers and the two readings of a decimal (A2)
 
-- **Builds:** `Engine.Exact`: grid rounding (a buy's price down, a sell's up, a size toward zero); the reading of a double's bits at a scale, and the nearest double of a rational, both by integer arithmetic. In OCaml, the placing of a decimal string's digits into an integer at a scale.
+- **Builds:** `Engine.Exact`: grid rounding (a buy's price down, a sell's up, a size toward zero); the reading of a double's bits at a scale, and the nearest double of a rational, both by integer arithmetic. The putting of a placed decimal at a field's scale (A18). In OCaml, the placing of a decimal string's digits: the digits as one integer, and the count of those after the point, zeros at the end not counted.
 - **The tests must show:**
   1. `10 × 0.9775` is `9.775` and rounds to itself as a buy on a grid of 0.001; `10 × 1.0056` to `10.056` as a sell; `1.93` coins are 193 lots and `0.29` are 29.
   2. For every scale from 0 to 12 and sampled `n` with `|n| < 10¹⁵`, the nearest double of `n · 10⁻ᵈ` reads back as `n`, and agrees with OCaml's `Float.of_string` on the written decimal.
   3. Rejected: `0.1 + 0.2` at every scale from 0 to 12; a NaN; an infinity; `10⁷` at scale 8 (its `n` is `10¹⁵`). Negative zero reads as zero.
-  4. A string with more decimals than its scale is rejected, as is `"100.00000000000001"` at scale 8, which `Float.of_string` would have rounded to 100 (Argon's finding 4).
+  4. A string with more decimals than its scale is rejected by the engine, as is `"100.00000000000001"` at scale 8, which `Float.of_string` would have rounded to 100 (Argon's finding 4). `"5.0"` at scale 0 is 5; `"5.01"` at scale 1 is rejected. The reader is given no scale.
   5. A value off the grid by any amount rounds in its direction and by less than one grid step.
 - **Laws ★:** X2, as a theorem on bits; the rounding bounds of test 5.
 - **Foreseeable wall:** Lean's `Float` is opaque to proofs. X2 is about the integer functions on bits; `Float.toBits` stays in the trust boundary.

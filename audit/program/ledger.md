@@ -955,9 +955,52 @@ The four doubts at the end of the notes: whether CS2.3's half is a derivation; w
 ### Owed
 
 - **By the advisor:** the review of the notes and the brief by Argon and GPT; then `criteria: study 2`, alone.
-- **By the architect:** `KERNEL.md`'s encodings and grammar; the layout of the report's rows and of the trace.
+- **By the architect:** the layout of the report's rows and of the trace. `KERNEL.md`'s encodings and grammar are written (the next section).
 
 ### Convergence
 
 **Study 2's criteria: not converged.** Nothing here has been reviewed. CS2.1 restates what six rounds agreed; CS2.2, CS2.3 and the brief are new.
+
+## `KERNEL.md`: the program's grammar and the market's encoding
+
+Appended 2026-11-15 09:48 UTC (04:48 EST) by Claude Fable 5.2, session "architect: study 1's calibration wall, kernel version 2's wording, study 2's criteria (continued)". **Written:** `kernel2/KERNEL.md`, A17 (the program) and A18 (the market: header, chunk, events, the order of a millisecond, funding's lateness). **Read for it:** `kernel-v2.md` whole, brief 3, the facts, `reference/SEMANTICS.md`, `kernel/DSL.md`. **Read of the data:** the count of significant figures and decimals of best bids on five coin-days before 2026-11-01, for the grid; no price was printed. No reviewer has seen any of it.
+
+### In plain words
+
+- **Most of it is layout,** and changes no rule: which bytes hold an event, which JSON field holds a slot.
+- **Twelve points pin something part A left open.** Each is marked "Pinned here" in the file or is a row below. None reverses a sentence of part A, and none touches the ledger, the fills, the bar or a claim.
+- **Part A changed in wording at four places** to agree: a field has its scale and a source only its encoding (A2); the "policy's cap" is the venue's (A6, A7, B1), since A1 already puts the cap in the venue; `known` is never sooner than a registered `lag` (A3); A5 points at A17 and A18.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D51 | How a program says which sort a number is | By its form: `exact` holds a decimal in a string, `const` a JSON number. An operator takes one sort, and only `exact` and `float` cross. No exact `if`, as A5 lists none: a choice between two prices is two slots | **Yes** |
+| D52 | What "version 2 counts ticks" is in units | One more base unit, `tick`. `ticks_since` and `age` have it, a window's length is `ticks`, and `convert` is stage 6's unchanged: a program that wants hours multiplies by its own constant of `h/tick`. At a tick of an hour that constant is one, which is B4 | **Yes** |
+| D53 | How long a window may be | The `ticks` of a program's windows sum to at most 2²⁰: under 0.2 GB of B5's 2 GB at 17 coins, 12 days at a second, 728 days at a minute. A choice, with that reason | **Yes** |
+| D54 | How `check` types a program with no market | The program names the sources it reads, with their units; `start` holds the market to them | **Yes** |
+| D55 | Who puts a decimal string at its scale | The engine. The reader gives the digits and the count after the point and knows no scale and no coin's rules, so a size's scale, which a listing event changes, is never the reader's to get wrong. A zero at a string's end is not a decimal more than the scale | **Yes** (brief 3, step 1) |
+| D56 | What happens within one millisecond, in what order | The fed events in A3's order; the tick; the wishes that arrive; funding's check. An order is admitted against the world of its own arrival. A7's "first quote with `time > ℓ`" and L1b need the wishes after the events, and `λ = 0` needs them after the tick | **Yes** |
+| D57 | The order in which the view takes what became known | By `known`, and within one `known` the order the world met or made it | **Yes** |
+| D58 | What the engine holds a `known` to | Exactly `time + δ` for a quote, a trade and a bar; at least `time + lag` for the rest, `lag` registered for each source in the header. Above that floor it is the reader's reading of the source, inside the trust boundary like any content | **Yes** |
+| D59 | Funding's lateness | An hour is due when `H + late` is inside the horizon; a coin held into a due hour with no event naming it aborts the run at `H + late`. An event outside `[H, H + late]`, or a second for its coin and hour, is refused by `feed`: a longer lateness is registered, never paid around | **Yes** |
+| D60 | What the header's coins are | The universe, in the order every "coin order" means, each with its rules at the horizon's start. There is no coin outside it | **Yes** |
+| D61 | Three inputs' edges | A slot with no live order has `resting` of zero and no `resting_price`. A slot whose price or target is undefined is inactive. `leverage` is a whole number, as the venue takes them | **Yes** |
+| D62 | Two roundings' edges | A buy priced under the least grid price rounds to zero and is A6's to refuse like any order; no fourth condition of admission is added, so R1 stands. A bar's print at a tie rounds to the higher | **Yes** |
+
+### Open
+
+| | Point | Why it is open | When it must close |
+|---|---|---|---|
+| O4 | **Whole-number prices above five figures.** V1's grid is five significant figures. The venue's documents are said to allow any whole-number price whatever its figures (a lead from the architect's memory, in no certificate of ours). No recorded price before 2026-11-01 sampled has more than five figures, BTC's included, so nothing has tested it | Under A18 as written, a coin quoted at six whole digits is off the grid and admission rejects the market. That is loud, and it would stop a registered forward run on the day BTC passed 100,000 | **Before study 2's registration:** the tick rule certified from the venue's documents, and the grid's definition in A18 stated to match |
+| O5 | A listing event that lowers a coin's greatest leverage under the program's | A10 gives initial margin by the header's leverage and says nothing of this | Before any levered run; study 2 takes none |
+
+### Owed
+
+- **By the advisor:** a short read of `KERNEL.md` by GPT and Argon, D51 to D62 named, in the bundle that carries study 2's criteria; O4's certificate.
+- **By the architect:** A19, the layout of the report's rows and of the trace, before step 9.
+
+### Convergence
+
+**Kernel version 2: converged as before on parts A and B.** A17 and A18 are unreviewed. They are not a round: a finding against one of D51 to D62 is answered in `KERNEL.md` alone unless it shows a rule of part A false.
 
