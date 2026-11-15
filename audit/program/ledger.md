@@ -1134,3 +1134,74 @@ Nothing. No reviewer has been asked.
 - **By the architect:** nothing.
 
 **Study 1: converged, as before.**
+
+## The wealth at the bid, and the certified grid
+
+Appended 2026-11-15 20:00 UTC (15:00 EST) by Claude Fable 5.2, session "architect: study 2's wealth at the bid, and the grid", in two sessions of one brief (`ac1f9ea`, `152f13a`). It follows two decisions of 2026-11-15 (`audit/decisions.md`): the human's on O8, and the advisor's certificate for O6. No outside model has seen either change, nor the answers to round 1 in the section before the last. Numbers here start at A132: the calibration's section above reused A120 to A125, which stay as written.
+
+### In plain words
+
+- **The rungs compare the wealth at the bid, `Wᵇ`:** the ledger's cash plus its units of each coin at the lesser of its latest quote's best bid and its price. `W`, the books, the bar, the guard's rules and the proof are as six rounds left them.
+- **`Wᵇ` is never above `W`,** so it reaches 20, or 20 times the bar, only where `W` does, and each rung's 5% stands with nothing added to its proof. Nothing in the books reads a bid, so there is no second clock and no stake that moves without a fill.
+- **Construction A no longer passes:** 426.7 at prices against a bar of 18.64, and 0.9995 at the bid.
+- **One reading went past the human's words.** The decision says "for the two comparisons only". The bootstrap and CS2.2's volatility read `Wᵇ` as well, since one forecasts the rungs and the other checks that forecast. No trade, scale, bar or guard's rule reads a bid.
+- **The grid is the venue's certified rule,** whole numbers included, in one step. Brief 3's step 1 waits for nothing.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A132 | "Worth 20" values the ledger's coins at the lesser of the latest bid and the price | The human, 2026-11-15, on O8 | `audit/decisions.md` |
+| A133 | The venue's price rule: at most 5 significant figures, at most `6 − szDecimals` decimals for a perp, and a whole-number price whatever its figures | The advisor's certificate, 2026-11-15, on O6 | `venue/sources.toml`, "Price grid" |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D77 | What the bid price is, and whether the machine gains a valuation | The lesser of the latest quote's best bid and the price, which is A10's adverse price of a long. A print under the bid has spent that bid. A quote is never one-sided (A3), so a quoted coin has a bid | **Yes** (`confirm`) |
+| D78 | Whether `Wᵇ` can be above `W` | No: units are never negative (K1) and a bid price is at most the price. A coin with no quote is not held, since nothing fills before a coin's first quote. A stale bid, a bid a print has passed and a listing's end are each the lesser of two numbers one of which is the price | No (a line of K1) |
+| D79 | Whether a comparison needs a second clock or a stake that moves without a fill | Neither. A scale reads the cash, a trade its row, the ledger's end a payment and the cash. `Wᵇ` is a valuation at a day's end and no state | No |
+| D80 | What else reads a bid | The bootstrap and CS2.2's `held`, because they forecast and check what the rungs compare. The bar does not: it bounds mixes that trade at prices, and a lower bar is the unsafe side. The guard's rules do not: they ask whether the record rejected the null, which speaks of prices, and at the bid they could only refuse less | **Yes** (brief 4, steps 1 and 5) |
+| D81 | What the report's coin rows carry | `bid` and `quoted`: the latest quote's best bid and that quote's time, moved by no print and no listing's end. The bid price is not a field, since a copy could disagree with `bid` and `price`. `quoted` judges nothing: a claim says when the record last showed the bid it was valued at | **Yes** (`KERNEL.md` A19; P1) |
+| D82 | What the bid costs | `Wᵇ ≥ W × (1 − h)`, `h` the widest gap from price to bid among the coins held: 0.001 of log against 3.0 at ten basis points, and no cell of the power table moves by more than 0.0003 | No |
+| D83 | What still passes without a buyer | A bid of one lot, which values every unit; a bid last shown before a gap; a bid that stepped over the replica's own resting sale with no print. The claim says how the coins are valued and gives each bid's time, and says nothing of size | No (the claim's words) |
+| D84 | The grid as one step (closes O6) | A price is on the grid when it is above zero, a whole multiple of `10^−decimals`, and of at most `figures` significant figures or a whole number. In `[10ᵉ, 10ᵉ⁺¹)` those are the multiples of `10^max(min(e − figures + 1, 0), −decimals)`: the two sets of multiples are nested each time. Checked against a count of digits on 336,000 prices (`arithmetic.py.txt`, `price_grid`) | **Yes** (`Engine.Exact`; brief 3, step 1) |
+| D85 | Where the venue enters the grid | In the market's writer: `figures` of 5 and `decimals` of `6 − szDecimals`, stopping at a `szDecimals` above 6, of which the page says nothing. The engine takes the two numbers and knows no venue; `rules.json` is untouched. `feed` rejects `figures` of zero, where the step is no grid | **Yes** (brief 3, step 3) |
+| D86 | What witnesses the grid | Admission on every recorded price, and every price of the vault's fills (brief 3, step 2). Both see a grid too narrow. Nothing sees one too wide, which rests on the page; and the page was read on 2026-11-15, so its rule before then is V1's assumption | No |
+
+### Disputed, still open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O6 | Whole-number prices above five figures | **Closed** by A133 and D84 | |
+| O8 | The ledger's coins valued at a mid nobody may sell at | **Closed** by A132; D77 to D83 are its derivation, unseen | |
+| O7 | A listing event that lowers a coin's greatest leverage | As before; study 2 takes no leverage | Not for study 2 |
+
+### What the confirming read should check
+
+Checks 1 to 8 of the section "After round 1" stand as written. Its check 9 is replaced by 9 to 13 here, and 14 is new.
+
+9. **D78.** A market the engine admits on which a coin the ledger holds has a bid price above its price, or none: a coin held with no row in a day's rows, a span that ends at a midnight, a listing's end in a day's last millisecond.
+10. **D79.** Anything in the books, the bar, the guard or `confirm`'s other outputs that reads a bid, or two markets equal but for their bids that leave the ledger different cash or units.
+11. **D80.** Whether the bootstrap and CS2.2 must read `Wᵇ`, as I say, or whether that passes the human's "for the two comparisons only"; and any place where a forecast is still of `W` and its rung of `Wᵇ`.
+12. **D81.** A12, K1, K2, P1 and `KERNEL.md` A19 against each other: one meaning of `bid` and `quoted`, at a span's end and after a settlement.
+13. **D83,** blind: whether the claim, with its coins "valued at the lesser of its price and the last bid the record showed", is honest about the three cases left, and whether a fourth exists.
+14. **D84 to D86.** A price at which the step and the sentence differ, or a rounding that lands off the grid; A18's words against the certificate's; whether stopping at a `szDecimals` above 6 is the right reading of the page's silence.
+
+### Assumptions only the human can choose
+
+- **Whether D80 is what "for the two comparisons only" meant.** I read "only" as: no trade, scale, bar or guard's rule reads a bid. If the human meant the bootstrap and CS2.2 to stay on `W`, `held` and the bootstrap read `W`: one sentence in CS2.2 and one in brief 4. In an ordinary book the two series differ by a few basis points and no verdict moves; the cost of leaving them on `W` is a forecast of one quantity checked against another.
+- **Disk for two years:** deferred by the human, as before.
+
+### Owed
+
+- **By the advisor:** the confirming read by GPT and Argon from one bundle, with checks 1 to 14 (a fresh Opus session if either is out); then `criteria: study 2`, alone, before any step of brief 4. Brief 3's step 1 may start.
+- **By the architect:** nothing, unless the read finds a design change.
+
+### Convergence
+
+**Study 2's criteria: not converged, and ready for a confirming read,** as before, now with twenty-three settlements unseen: the thirteen of round 1 and D77 to D86.
+
+**Whether this was patching.** The bid is not a case added to the ledger. The fault was in what the rungs compared, and the change is there and nowhere else: one valuation, which the kernel already had as a long's adverse price, read by `confirm` at a day's end. No law of the books changed, and K1 gained one line. The grid's change is one `min` in one formula, from a certificate.
+
+**Kernel version 2: converged as before on parts A and B,** with A12, K1, K2 and P1 reworded for the bid and V1 for the certificate. `KERNEL.md` A18's grid and A19's two fields are unreviewed.
