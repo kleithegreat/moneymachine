@@ -1,5 +1,5 @@
-"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 6 on kernel version 2), audit/program/paper-changes.md
-and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 6 on kernel version 2), audit/program/paper-changes.md,
+audit/program/argon-paper-findings.md and the study 2 notes of audit/program/criteria-notes.md. Cited numbers carry their sources there.
 
 Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
 Reads one file, audit/stage3/null-v3.jsonl, for the agent's evaluation counts.
@@ -275,6 +275,62 @@ def study2() -> None:
     absorbed = sum(0.5**k * 0.8 * 2.8 ** (k - 1) for k in range(1, wins + 1))
     print(f"  GPT's finding 5, equity 1 at twice leverage in a fair coin moving 0.9: the floored account reaches 20 with probability {0.5**wins:.4f}; the bound (1 + E[absorbed]) / 20 is {(1 + absorbed) / 20:.4f}, with E[absorbed] = {absorbed:.3f}")
     print(f"  a simulated null of 20,000 paths at exactly 5% shows at most {int(binom.ppf(0.9999, 20_000, 0.05))} crossings with probability 0.9999 (1,000 would fail half the time)")
+
+
+def forecast_ratio(returns: np.ndarray, record: int, forward: int, block: int, draws: int, rng: np.random.Generator) -> np.ndarray:
+    """Draws of (the mean square of a pseudo-forward of `forward` days) over (that of a pseudo-record of `record`
+    days), each made of circular blocks of `block` days of `returns`: study 2's bootstrap for CS2.2."""
+    days = len(returns)
+    squares = returns**2
+
+    def mean_squares(length: int) -> np.ndarray:
+        starts = rng.integers(0, days, size=(draws, math.ceil(length / block)))
+        index = ((starts[:, :, None] + np.arange(block)[None, None, :]) % days).reshape(draws, -1)[:, :length]
+        return squares[index].mean(axis=1)
+
+    return mean_squares(forward) / mean_squares(record)
+
+
+def clustered_days(days: int, persistence: float, rng: np.random.Generator) -> np.ndarray:
+    """Daily returns whose variance follows a GARCH(1,1) of the given persistence, a tenth of it from the last
+    return's square, started from its stationary mean after a burn-in of 500 days."""
+    reaction = 0.1
+    variance, out = 1.0, np.empty(days + 500)
+    for day in range(days + 500):
+        out[day] = math.sqrt(variance) * rng.standard_normal()
+        variance = (1 - persistence) + reaction * out[day] ** 2 + (persistence - reaction) * variance
+    return out[500:]
+
+
+def study2_criteria() -> None:
+    """The numbers of study 2's criteria notes (criteria-notes.md, CS2.1 to CS2.3)."""
+    record, forward, block = 212, 730, 14
+    naive = math.sqrt((1 / forward) / (1 / record + 1 / forward))
+    print(f"  CS2.2, a forward mean square against the record's, {record} and {forward} independent days: an interval made of the forward draw's spread alone covers {2 * norm.cdf(norm.ppf(0.975) * naive) - 1:.3f} at a nominal 0.95, at any kurtosis; the ratio of a pseudo-forward to a pseudo-record carries both spreads")
+    rng = np.random.default_rng(47)
+    trials = 400
+    for persistence in (0.0, 0.9, 0.97):
+        inside, widths, logs = 0, [], []
+        for _ in range(trials):
+            path = clustered_days(record + forward, persistence, rng) if persistence else rng.standard_normal(record + forward)
+            seen, later = path[:record], path[record:]
+            low, high = np.quantile(forecast_ratio(seen, record, forward, block, 1000, rng), [0.025, 0.975])
+            realized = (later**2).mean() / (seen**2).mean()
+            inside += low <= realized <= high
+            widths.append(math.sqrt(high / low))
+            logs.append(math.log(realized))
+        logs_array = np.array(logs)
+        held = float((np.abs(logs_array) <= math.log(2)).mean())
+        caught = float((np.abs(logs_array + math.log(4)) > math.log(2)).mean())
+        print(f"    simulated, variance persistence {persistence}, {trials} records: the bootstrap's interval at blocks of {block} days, a factor of {statistics.median(widths):.2f} from end to end in volatility, covers {inside / trials:.2f} at a nominal 0.95; the forward volatility is within a factor of sqrt(2) of the record's in {held:.2f}, and a forward volatility of half the record's is outside it in {caught:.2f}")
+    print(f"    the table's rows of volatility are a factor of 2 apart, so half a row is sqrt(2) = {math.sqrt(2):.3f} in volatility and 2 in a mean square; at a Sharpe of 2 the rows 0.5 and 1.0 have power {crossing(2 * (2 * 0.5 - 0.5**2 / 2), 0.5 * math.sqrt(2)):.2f} and {crossing(2 * (2 * 1.0 - 1.0**2 / 2), 1.0 * math.sqrt(2)):.2f} within two years")
+
+    cycles, coins, days = 2022, 17, 212
+    rate = cycles / days / coins
+    window = 0.10 * 60
+    print(f"  CS2.3: the vault opened {cycles / days:.2f} cycles a day, {rate:.3f} a coin; a tenth of its cycles end within {window:.0f} minutes; an entry at a random time is within {window:.0f} minutes of one of the vault's on its coin with probability {1 - math.exp(-rate * 2 * window / 1440):.4f}; from 2026-11-15 to 2027-01-31, {(77 * cycles / days):.0f} cycles at that rate, and a share of a half has a standard error of {math.sqrt(0.25 / (77 * cycles / days)):.3f} if entries were independent; at 100 entries, {math.sqrt(0.25 / 100):.2f}")
+    print(f"    the months held back before the freeze, 2026-09-01 to 10-31: {61 * cycles / days:.0f} cycles at that rate")
+    print(f"  CS2.1: the guard's refusal, 20 ** (212 / 730) = {20 ** (212 / 730):.2f}; the ladder's depths in first buys: {', '.join(f'{depth:.2f}' for depth in np.cumsum(LADDER_NOTIONAL))}")
 
 
 def round3() -> None:
@@ -1103,6 +1159,8 @@ if __name__ == "__main__":
     round5()
     print("Round 6 on kernel version 2 (section 6, kernel-v2.md part D)")
     round6()
+    print("Study 2's criteria (criteria-notes.md)")
+    study2_criteria()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")

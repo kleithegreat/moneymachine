@@ -922,3 +922,42 @@ Appended 2026-11-15 09:20 UTC (04:20 EST) by Claude Fable 5.2, session "architec
 | A117 | A coin whose listing ended leaves the later spans (D42) | GPT's read, "F2: closed at cause". Question 4's own case, a funding event at the end's millisecond, was not answered by name | kernel A3, A12 |
 
 **Kernel version 2: converged.** No dispute is open. Study 2's criteria and brief are drafted next (`criteria-notes.md`, `briefs/4-study-2.md`) and go to Argon and GPT before anything is committed to `audit/criteria.md`.
+
+## Study 2's criteria and brief, drafted
+
+Appended 2026-11-15 09:35 UTC (04:35 EST) by Claude Fable 5.2, the same session. **Written:** CS2.1 to CS2.3 as notes (`criteria-notes.md`) and `briefs/4-study-2.md`. **Read for it:** `architecture.md` section 6, `kernel-v2.md` A6, A7, A12 to A14 and B1, the facts' section 7, brief 3's step 10 and its recorders' table. **Not read:** any price. No reviewer has seen any of it.
+
+### In plain words
+
+- **Three conditions, one for each statement someone could bend:** what the forward test confirmed (CS2.1, architecture 6.1 as converged), whether the wall held (CS2.2), and whether the replica's entries were the vault's (CS2.3). Fidelity's layers 1 and 2 stay tests and walls.
+- **Two things are new design,** and both came from walls met while deriving a number.
+  - **The forecast is not judged by the bootstrap's interval.** From 212 days it covers the next two years' volatility 0.56 of the time where variance persists. The judge is half a row of the power table, which is what the wall is read by.
+  - **The trigger is fitted before 2026-09-01 and checked on two months held back,** by the statistic that judges it forward.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D46 | What "the forecast held" means | The ledger's forward mean square of daily returns is from half the replay's to twice it: half a row of the table, `√2` in volatility. Not judged under 212 days | **Yes** (`held`) |
+| D47 | What "the trigger is the vault's" means | Entries matched one to one within six minutes, more than half of each side's, under `optimistic`, on [2026-11-15, 2027-01-31) | **Yes** (`matched`) |
+| D48 | How `φ` and `d` are chosen | Of 30 pairs, the greatest bootstrap share at the top registered rung. Blocks of 14 days, the same draws for every pair, the bar `confirm`'s own on chained rows | **Yes** |
+| D49 | The guard's refusal, exactly | A rule's wealth over the bar at the replay's last day's end, to the 730th power, at least 20 to the replay's days | **Yes** (`refused`) |
+| D50 | The delays | Each the first whole second at or above the forward record's slowest cadence of quotes | The registration |
+
+### Open, and asked of the reviewers
+
+The four doubts at the end of the notes: whether CS2.3's half is a derivation; whether entries should be matched on fills; whether CS2.2 should be in the basket's units; and the defence against a quote that never stood.
+
+### Assumptions only the human can choose
+
+- **None new.** Disk for two years stays deferred.
+
+### Owed
+
+- **By the advisor:** the review of the notes and the brief by Argon and GPT; then `criteria: study 2`, alone.
+- **By the architect:** `KERNEL.md`'s encodings and grammar; the layout of the report's rows and of the trace.
+
+### Convergence
+
+**Study 2's criteria: not converged.** Nothing here has been reviewed. CS2.1 restates what six rounds agreed; CS2.2, CS2.3 and the brief are new.
+
