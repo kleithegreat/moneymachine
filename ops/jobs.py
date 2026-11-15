@@ -361,7 +361,7 @@ def leave() -> None:
     subprocess.run(["systemctl", "stop", "k3s"], check=True)
 
 
-CAL_HOSTS = (("desktop", 11), ("prodesk7", 10), ("gmktec", 8), ("prodesk5", 6))
+CAL_HOSTS = (("desktop", 11), ("prodesk7", 10), ("gmktec", 6), ("prodesk5", 4))
 CAL_WORKER_BYTES = 512 * 2**20
 CAL_ROUND_RETRIES = 2
 
@@ -423,6 +423,7 @@ def cal_manifest(run: str, step: str, k: int, mode: str, record: dict[str, Any])
     pod = manifest(run, ["calibration"], record, node)["spec"]["template"]["spec"]
     pod["volumes"][2]["emptyDir"]["sizeLimit"] = mib(8 * SCRATCH)
     container = pod["containers"][0]
+    container["volumeMounts"].append({"name": "inputs", "mountPath": "/app/repo/data/agent/inputs", "readOnly": True})
     container["command"] = [
         "choom",
         "-n",
