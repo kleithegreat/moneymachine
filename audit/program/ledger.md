@@ -909,3 +909,16 @@ Appended 2026-11-15 09:19 UTC (04:19 EST) by Claude Fable 5.2, session "architec
 | A113 | The calibration's projection is printed and stops nothing. The 24 hours were never derived, and no limit can be: a run that keeps every trial and no market loses nothing by running, and the window's cost is linear in time | The plan, "The projection is not a wall"; behaviour 7, L5.3 | No. The strength and the report are the same trials |
 
 **Study 1: converged, as before.**
+
+## After GPT's short read on kernel version 2
+
+Appended 2026-11-15 09:20 UTC (04:20 EST) by Claude Fable 5.2, session "architect: study 1's calibration wall, kernel version 2's wording, study 2's criteria". The read is `audit/reviews/2026-11-15-gpt-kernel-v2-r6-confirm.md`: three of round 6's four questions answered, and its word "converged".
+
+| # | Point | How it was agreed | Where |
+|---|---|---|---|
+| A114 | No admitted input takes the ledger's cash or units below zero without ending it | GPT's read, answer 1, with a boundary construction | kernel A8, K1 |
+| A115 | The guard's fold is decided by the trace and the report's coin rows together, and not by the trace alone as question 2 asked. The trace holds every listing's end of a universe coin | GPT's read, answer 2; conceded as wording, with the one row | kernel A12, B1; build plan, step 9 |
+| A116 | At one timestamp a span's end comes before funding (D43) | GPT's read, answer 3 | kernel B1 |
+| A117 | A coin whose listing ended leaves the later spans (D42) | GPT's read, "F2: closed at cause". Question 4's own case, a funding event at the end's millisecond, was not answered by name | kernel A3, A12 |
+
+**Kernel version 2: converged.** No dispute is open. Study 2's criteria and brief are drafted next (`criteria-notes.md`, `briefs/4-study-2.md`) and go to Argon and GPT before anything is committed to `audit/criteria.md`.
