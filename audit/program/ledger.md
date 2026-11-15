@@ -697,3 +697,96 @@ Each with its runs and my recommendation in `architecture.md` 6.8.
 **The next round** goes to Argon and GPT from one bundle, with the seven attacks above; a fresh Opus session if either is out.
 
 **Study 1** is as the earlier section leaves it.
+
+## After round 5 on kernel version 2 and study 2: the specification's faults
+
+Appended 2026-11-15 02:18 UTC (2026-11-14 21:18 EST) by Claude Fable 5.2, session "architect: kernel version 2, round 5" and its continuation (the first session committed tasks 1 and 2 and was paused for usage; the continuation revised the build plan and wrote this). **Read for it:** both reviews in full by the first session (`audit/reviews/2026-11-14-argon-cli-kernel-v2-r5.md`, `audit/reviews/2026-11-14-gpt-kernel-v2-r5.md`); by the continuation, their closing ledgers, `kernel-v2.md` whole, `architecture.md` section 6, the build plan and this ledger's last section, with `arithmetic.py.txt` rerun whole. **Not read:** any price, any code. Numbering continues. The findings, cause by cause, are in `kernel-v2.md` part C.
+
+### In plain words
+
+- **Round 5 kept the test.** Both reviewers judge the test ledger a re-derivation at the cause, and neither asks for the wealth to be built again. Their round-4 constructions no longer work.
+- **What it found were faults in the specification,** most by both reviewers: a budget kept beside the cash it stood for, a rounded ledger called a bound, a liquidation written for one side, a guard read as clearing a record, a null's condition stated on too little, and edges of the certificate and of layer 2's join.
+- **Every finding is conceded, and none needed a rule added to save another.** The budget and the rounded ledger are deleted. The guard's reading is withdrawn.
+- **The human decided two of the three choices** and deferred the third (`audit/decisions.md`, 2026-11-14 20:29 UTC (15:29 EST)): "outgrew", V10 as a named assumption, disk later.
+- **One gap was mine and found by nobody:** the design did not say where the guard's prices come from. It reads the engine's own trace (D38).
+
+### Who has seen what
+
+- **Argon and GPT:** `f2f7c45`, from the same bundle. Neither has seen round 5's answers (`111cf55` to this commit).
+- **Opus:** has not reviewed kernel version 2 or study 2.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A90 | The test ledger removes the three confusions at their cause and is kept: units and cash never negative, trades only at the account's fills at their prices, one price a coin that a print moves | Both, round 5 (closes D29) | architecture 6.1; kernel A12 |
+| A91 | Ending the ledger at a payment its cash cannot meet keeps the size under V16; V16 is an assumption that a path which confirms cannot establish | Both; GPT's qualification taken (closes D32) | architecture 6.1; kernel A14 |
+| A92 | A taker in a standing book does not gain from the bounce of prints between bid and ask. Rung 1's null is still false of real prints, and a maker paid to stand passes "earned" | Both examined it (closes O3) | architecture 6.1 |
+| A93 | What the ledger borrows from the account (a cycle's end, a sale's fraction, a cut to cash) selects valid trades and imports no equity | Both (closes O5, apart from the budgets, which are D34) | kernel A12 |
+| A94 | The cubic envelope, the dual bound and the direction of every rounding are sound where every return is at least minus one | Both (GPT's notes, Argon's 4) | kernel K2 |
+| A95 | A budget set aside beside the cash lets funding make a scale negative | Both (GPT's 1; Argon's 1.2), conceded | kernel A12, K1 |
+| A96 | A ledger whose stored balances are rounded down is another ledger, not a lower bound | Both (GPT's 2; Argon's 1.1), conceded | kernel A2, A12, K1 |
+| A97 | A liquidated short was bought back under the tape; a settlement must move the price; T1 must bound fees | Both; Argon; GPT (3; 2), conceded | kernel A3, A8, A10, A12, T1 |
+| A98 | An hourly and daily guard passes markets where a mechanical rebalancer outgrows the bar, and no finite list of clocks repairs that | Both (GPT's 4; Argon's 3), conceded (closes O4) | architecture 6.1, 6.5 |
+| A99 | One law for each return alone does not give rung 2's null: which coin moves next can be known | GPT alone (5), conceded | architecture 6.1 |
+| A100 | A holding's funding is not second order and no mix bounds it | GPT alone, conceded | architecture 6.1; kernel K2 |
+| A101 | A span ending inside a day lost events; the veto must read every span; `n` at `D = 0`; the search's bound when several `Q < 0` | Argon alone (4), conceded | kernel A12, K1, K2 |
+| A102 | The join must not decide staleness a second time; a print's size covers the sum of its fills; a matching print shows no placement history | Argon (5) and GPT (a note), conceded | kernel A3; architecture 6.4 |
+| A103 | The human's three choices as recommended: both reviewers agree with each | Both, round 5; the human decided two (A104) | architecture 6.8 |
+| A104 | Rung 2 claims "outgrew" with its limit beside every use; V10 is a named assumption of both claims; disk is deferred | The human, 2026-11-14 | architecture 6.1, 6.8; kernel A7, A14 |
+
+### Settled by a derivation the reviewers have not seen
+
+Each answers a finding both sides agree on. What is unseen is the fix.
+
+| | Dispute | Settled by | Changes what is built |
+|---|---|---|---|
+| D34 | The stake rule (replaces D31) | A cycle's scale is `φ` of the ledger's cash at its first buy, over `d`. Nothing is set aside or returned. Argon proposed a clamp; the promise is deleted instead, since a number kept beside the cash it stands for is a state taken for a flow. Cycles deep together share the cash, which is power | **Yes** |
+| D35 | The ledger's arithmetic (replaces the rounding at 128 bits) | Trades in whole test lots of `10⁻³⁰`, a size being a scale the test may choose. Cash is then a whole multiple of half of `10⁻⁵⁰`, exact, and bounded. K1 promises cash and units after every event and wealth at a day's end | **Yes** |
+| D36 | What rung 2's bar holds (extends D12-v5) | Beside the mixes' bound, each coin held alone with its funding paid in cash, from two exact numbers a coin and span. A holding never traded is a mean of those and of cash. Rows at a span's end; K2 stated on records with no return below minus one | **Yes** |
+| D37 | What the guard is for (replaces D30's wall) | Rung 2's own test run on rules without skill, at four registered clocks. It can refuse a registration, at a rate that reaches 20 times in two years, and is quoted beside the claim. It cannot clear a record, and a test asserts its silence on a market where a rebalancer wins | **Yes**, the replay's wall |
+| D38 | Where the guard's numbers come from | The engine's trace holds each coin's price and unit funding at every tick. Lean carries each rule in the test ledger's books, from the trace of a run with no slots at a tick of a minute. Found by the architect while writing the build plan | **Yes** |
+| D39 | Rung 2's null, as a sufficient condition | Each price event as a whole (its coin, its return, its time) has one law whatever came before. Where it fails the claim's limit applies, and the claim says so | No: wording and criteria |
+| D40 | T1 | Every fill of the three kinds, a short's buying back and a settlement included, and no fee negative | **Yes** |
+| D14-v6 | Layer 2's join | Reads the engine's mark on each print | **Yes** |
+
+### Disputed, still open
+
+| | Dispute | State | Would change what is built |
+|---|---|---|---|
+| O3 | Rung 1's null where prints bounce | **Closed** (A92) | |
+| O4 | The guard as a condition on the record | **Closed: it failed** (A98); replaced by D37 | |
+| O5 | What the test borrows, and its own state | **Closed** (A93), the budgets by deletion (D34) | |
+
+**No dispute is open.** The architect refuted nothing in round 5, and the reviewers have not yet seen D34 to D40.
+
+### What the confirming round should check
+
+1. **D34.** A scale or balance below zero; a change in the ledger's books that is not a fill or a funding payment; whether first come first served touches anything but power.
+2. **D35.** A price, rate or fraction that takes cash or units off the grid, or a number that grows with the run.
+3. **D40.** A fill of any kind better than the coin's price after its event: a short at a settlement, a liquidation's tail beyond the levels.
+4. **D36.** A holding with funding that still beats the bar; an event no span's last row holds; the veto across spans.
+5. **D37 and D38.** A sentence that still reads the guard as clearing a record; the refusal's threshold; whether a rule in the ledger's books, traded at the trace's prices, is of the null's own kind.
+6. **D39,** and the two claims with their limits.
+7. **The build plan's steps 9 and 10.** A test that an empty or constant instrument passes.
+
+### Assumptions only the human can choose
+
+- **What rung 2 claims, and V10:** decided (A104).
+- **Disk for two years:** deferred by the human. The recommendation stands: more disk with a second copy on another node, sized from a measured month of the volume, decided by 2027-03-01.
+- **For the human's review, not a new choice:** the bar's term of D36, which can only raise the bar (`architecture.md` 6.8).
+
+### Owed
+
+- **By the advisor:** as the earlier sections list, and the measurement of the recorder's volume.
+- **By the architect:** `KERNEL.md`'s encodings and grammar; the layout of the report's rows and of the trace; study 2's criteria, after the confirming round. The rounding at 128 bits is no longer owed: the ledger has none.
+
+### Convergence
+
+**Converged in the architect's judgment, and not yet confirmed.** No dispute is open, so none would change what is built or run. But eight settlements are fixes no reviewer has seen, and four of them (D34, D35, D36, D38) are new design and not a correction in place. Convergence is the design's and its reviewers' together, so one confirming round is owed before study 2's criteria are written.
+
+**The test of whether this was patching.** Round 5's findings did not land on the three confusions again, with one exception that the last section named: the unspent budgets were a state taken for a flow, and they are deleted, not clamped. The other fixes each removed something or stated a domain: the rounded ledger, the guard's reading, K2 outside its record. Two things were added, the bar's term for a coin held alone and the guard's books, and each reuses what exists: two exact numbers in a coin's row that already existed, and the test ledger's own books. If the confirming round finds a move in the ledger's books that is not a fill, the ledger's rules are wrong and are fixed there. If it finds the guard still read as more than a refusal and a quoted figure, the guard goes, and rung 2 with it if the claim cannot stand without.
+
+**The next round** goes to Argon and GPT from one bundle, with the seven checks above; a fresh Opus session if either is out.
+
+**Study 1** is as the earlier section leaves it.
