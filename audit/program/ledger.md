@@ -1008,3 +1008,98 @@ Appended 2026-11-15 09:48 UTC (04:48 EST) by Claude Fable 5.2, session "architec
 
 **Kernel version 2: converged as before on parts A and B.** A17 to A19 are unreviewed. They are not a round: a finding against one of D51 to D66 is answered in `KERNEL.md` alone unless it shows a rule of part A false.
 
+
+## After round 1 on study 2's criteria, its brief and `KERNEL.md`
+
+Appended 2026-11-15 19:23 UTC (14:23 EST) by Claude Fable 5.2, session "architect: study 2's criteria, round 1", the second of its brief (the first stopped at its usage limit with the answers uncommitted; they were checked against both reviews and finished here, `56e6b45`, `8ab434b`). **Read for it:** both reviews in full (`audit/reviews/2026-11-15-gpt-study2-criteria-r1.md`, `2026-11-15-argon-cli-study2-criteria-r1.md`); the Study 2 notes, brief 4, `KERNEL.md` A18 and A19, `architecture.md` section 6, `kernel-v2.md` A6, A13, B1 and the laws, brief 3's steps 1, 3, 5, 6, 9 and 10, `venue/hyperliquid/rules.json` and the facts' section on the venue's rules. **Not read:** any price. `arithmetic.py.txt` runs clean with the new tests.
+
+### In plain words
+
+- **Both reviewers said not ready, and both said the converged ledger and benchmark stand.** Every finding is conceded. One proposal of mine, the veto on taker fills without a print, both reviewers rejected, and it is withdrawn with a derivation.
+- **Most findings had one cause:** a number, a window or a search that someone would settle after a price was read. The delays came from the forward record, the guard's mixes and the bar's multiplier from a search of any effort, the first buy and the bootstrap's seed from nowhere yet, CS2.3's window from a calendar date the freeze would pass, and CS2.2's span from whenever the record stopped. Each is now a constant in the notes or the brief, or a function Lean computes from the run's own rows.
+- **The wealth, the bar, the rungs and the guard's role did not change.** Three things around them did: `confirm` computes its multiplier and takes none; the guard's family is two fixed mixes and not a search; the engine's build leaves the protected-windows file out.
+- **One finding I could not close without changing the converged ledger,** so I stopped: a book with its ask pulled far up has a mid far over its bid, and the ledger's coins are valued at the mid (O8).
+- **O6 cannot be closed from the documents on record,** and must close before brief 3's step 1, earlier than I had written.
+
+### Who has seen what
+
+- **Argon and GPT:** `bf2064d` and `211bceb`, from one bundle each. Neither has seen the answers.
+- **Opus:** has not reviewed study 2's criteria.
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A118 | Nothing in the round reopens the test ledger, the bar, the two rungs, the threshold of 20 or the guard as a refusal and a quoted control | Both, round 1 | architecture 6.1 |
+| A119 | CS2.1's sentence was not its condition: "filled only on sells through its prices" is false of a taker's entry, and "multiplied 20 times" is true of a wealth that fell back before midnight | GPT alone (F1), conceded | CS2.1 |
+| A120 | A mean square is not a variance, and a ledger that never moved made 0/0 "held" | Both (GPT's F2 and F3; Argon's 2), conceded | CS2.2; brief 4, step 1 |
+| A121 | A span that ends when the record stops lets a stop choose CS2.2's verdict, and an early "outgrew" left it unjudged | Argon alone (2), conceded | CS2.2; brief 4, step 7 |
+| A122 | Matched times of first fills show neither the same cycle nor the same rule; the gate of 100 entries rested on independence, and 0.0047 bounds nothing for two rules that buy falls | GPT (F4, the number audit) and Argon (CS2.3, B), conceded | CS2.3 |
+| A123 | A search's effort decided the guard's refusal: a poor mix or a poor multiplier lowers a rule's wealth over the bar. A rule with no cash ends at its first charge. The refusal read one day | Both (GPT's F5; Argon's 1), conceded as one cause | CS2.1; kernel B1, K2 |
+| A124 | Protected or unfrozen information reached a judged number four ways: the delays read off the forward record; CS2.3's window beginning before the freeze; "whole days" chosen by someone; a split enforced by file names | Both (GPT's F6 to F9; Argon's 3), conceded as one cause | CS2.3; brief 4, steps 3 and 6 |
+| A125 | A release changed the hash the registration pinned, so no registered run could read the released days | GPT alone (F10), conceded | kernel A13; brief 4, step 6 |
+| A126 | A run of a whole month loses an earlier crossing to a later failure | GPT alone (F11), conceded | CS2.1, "the days run" |
+| A127 | The veto on taker fills without a print is not adopted: a print says what traded then, not what stood later, and a paper order that lifts a true ask leaves no print | Both (GPT's F12; Argon's answer 4) | CS2.1 |
+| A128 | The bootstrap's blocks keep neither every cycle nor the weekday; its seed, its funding scaling and the choice's tie-break were open | GPT (F13) and Argon (4), conceded | brief 4, step 5 |
+| A129 | An unfixed first buy can put a full ladder's close over the venue's cap, and tests of steps 2 and 3 passed a replica that does nothing | Argon alone (4), conceded | brief 4, steps 2 and 3 |
+| A130 | `KERNEL.md`: arrivals "in the order sent" against A6's order; a fee rate of 0/0 at a settlement at zero; the last span's two rows at one midnight; L1a at `δ = 0` | Both on the first two, Argon on the others, conceded | `KERNEL.md` A18, A19; L1a |
+| A131 | The four questions: a half is the word "most" and no test; entries are matched on fills; CS2.2 stays in the ledger's own units, the basket's ratio beside it; no veto | Both | CS2.2, CS2.3 |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D67 | What "the volatility held" means (replaces D46) | The variance of daily returns about their mean, divided by their count, over the first 212 judged days, from half the replay's to twice it, judged once. Not judged under 212 days run, on an ended ledger or on a replay of no variance. A stop can make "not judged" and never "held" | **Yes** (`held`) |
+| D68 | What CS2.3 counts, and where (replaces D47) | The first 61 judged days, the length of the months held back. Entries are fills that find the position at zero, read from the engine's rows of the judged run and of the vault's fills through the ledger. No gate and no day left out. `optimistic` beside, judging nothing | **Yes** (`entries`, `matched`) |
+| D69 | The guard's family and its refusal (replaces D49; narrows D37) | At each of four clocks, equal weights and the bar's own mix, each times 24/25. Refused on 20 times the bar at any day's end of the replay, or on the last day's rate. Nothing searches | **Yes** (`rules`, `refused`) |
+| D70 | Who finds the bar's multiplier | Lean: `D` is convex and a quadratic between the points where a coin's term changes form, so its least is among zero, those points and the zeros of its slope between them. `confirm` takes no multiplier. K2 still holds at any | **Yes** (`confirm`; brief 3, step 10) |
+| D71 | The venue and the account (replaces D50) | Delays of 1,000 ms from the recorder's written design; staleness 60,000 ms; first buy 100 USD, inside the minimum and the cap for a full ladder; cash 50,000 USD. All in the notes, from no record | **Yes** |
+| D72 | What a failure late in a record does to an earlier day | Nothing: the replay is cut back to the last midnight at or before the failure, and by L1 a day's end is the same in every replay that reaches it | **Yes** (brief 4, step 7) |
+| D73 | What a registration pins of the engine | The build, which hashes every source but the protected-windows file, and the windows that file held. `study2 forward` runs when the file differs by a release alone | **Yes** (kernel A13; brief 3, step 3) |
+| D74 | What a quote that never stood can add | About the stake of the one buy it fills, since the buy's size was fixed by its limit: 1.94 times at the whole of the cash. Reported as a case the claim does not exclude | No |
+| D75 | The bootstrap's draws (amends D48) | A block's start is a BLAKE2b digest of fixed text, modulo the replay's days: no seed exists to register. One span of the coins with a row every day; a day's funding scaled by the path's price, the same at its start and its end | **Yes** |
+| D76 | How the fit is kept from the months held back | It reads an export cut by each record's time through the engine's admission, in a sandbox that cannot open the archive or the fills. It has its own wall on its own span before the months are read | **Yes** (brief 4, step 3) |
+| D56-v2 | The order of one millisecond | Arrivals of one millisecond place their orders in A6's order, reduce-only first. An effect made after a tick in the tick's own millisecond is in the next view, which is seen only at `δ = 0`; L1a's premise says so. `start` rejects a venue's negative delays and bad limits | **Yes** |
+| D64-v2 | The last span at the horizon's end | A span is read from one row a coin: a span that ended from its `span` rows before the day's, the open one from the day's. The day's rows, the account's, then the span's | **Yes** |
+| D65-v2 | What the ledger reads of a fill's row | Its cost a unit, `−cash / units`, and a buy's notional before the fee. Nothing divides by a notional | **Yes** |
+
+### Disputed, still open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O6 | Whole-number prices above five figures | **Open, and the advisor's.** The documents on record hold no price rule: `rules.json` cites the venue's tick and lot size page for size rounding alone. To certify, word for word from that page: the most significant figures of a price; the most decimals of a perp's price as a function of `szDecimals`; whether a whole-number price is allowed whatever its figures. If the third is there, a price is on the grid when it has at most `figures` significant figures or is a whole number, and the step in `[10ᵉ, 10ᵉ⁺¹)` is `10^max(min(e − figures + 1, 0), −decimals)`. If not, A18 stands and a six-figure price ends the forward run | **Yes**, and before brief 3's step 1, since the rule's form is code the build hashes |
+| O8 | The ledger's coins are valued at a mid nobody may be able to sell at (Argon's construction A: 427 against a bar of 18.5, worth 1 at the bid) | **Reduced to a choice** below. As committed the claim says "valued at their prices" and lists the case | **Yes**, if chosen: K1's wealth, A12, the report's coin rows |
+| O7 | A listing event that lowers a coin's greatest leverage | As before; study 2 takes no leverage | Not for study 2 |
+
+### What the confirming read should check
+
+1. **D67.** A pair of wealth lists that `held` judges wrongly; anything about the 212 days that someone still chooses.
+2. **D68.** Whether reading entries off the judged run, under `pessimistic`, makes "not shown" the likely end for a faithful trigger, and whether the sentence licensed says no more than the count.
+3. **D69.** A record on which the bar's own mix is undefined or its rule ends despite the cash kept; whether two fixed mixes can still refuse the pairs every five minutes (brief 4, step 4, test 3) and stay silent astride the minute.
+4. **D70.** A set of sums on which the least of `D` is not in the list; a tie.
+5. **D72.** Whether a replay cut back to an earlier midnight can differ at a day's end from the longer one: funding due near the horizon's end (`KERNEL.md`, funding's lateness), and `finish`'s rows.
+6. **D73.** A change to the protected-windows file that is not a release and still runs; a change of computation that the build misses.
+7. **D76.** A path by which the fit reads September or October.
+8. **D56-v2, D64-v2, D65-v2,** against part A.
+9. **O8,** blind: whether the claim as worded is honest without the change.
+
+### Assumptions only the human can choose
+
+- **O8, what "worth 20" means.** At prices, as six rounds converged, or at what the top of the book would pay.
+  - **Recommended:** for the two comparisons only, value the coins at the lesser of the latest bid and the price. That wealth is never above `W`, so it reaches 20 no more often and the 5% holds; it costs half a spread; and a pass then needs a bid that stood, where today one wrong ask at one midnight is enough.
+  - **Its cost:** it changes the test ledger the brief bound me to keep, so it is a design round of its own with a confirming read: K1's wealth, A12's "no mark but the price", and a bid in the report's coin rows.
+  - **If refused,** nothing changes: the claim stands as worded.
+- **Disk for two years:** deferred by the human, as before.
+
+### Owed
+
+- **By the advisor:** O6's certificate, before brief 3's step 1; the confirming read by GPT and Argon from one bundle, with the nine checks above (a fresh Opus session if either is out); the human's answer on O8; then `criteria: study 2`, alone, before any step of brief 4.
+- **By the architect:** O8's round, if chosen.
+
+### Convergence
+
+**Study 2's criteria: not converged, and ready for a confirming read.** No finding is disputed. But thirteen settlements are fixes no reviewer has seen, and four of them (D67 to D70) replace a statistic, a window, a family and an interface, so they are new design in the criteria and not corrections in place.
+
+**The test of whether this was patching.** The findings did not land on patches of round 6: they landed on the three conditions and the brief, which no reviewer had seen. And the fixes share one move, which removes things: a search, a proposer, a seed, a gate, an exclusion rule, a veto and a discretionary span are gone, and what replaced them is a constant or a function of the run's rows. Two things were added: the cash a guard's rule keeps, and the build's leaving one file out. If the confirming read finds a choice still made after a price is read, the cause was not removed and the notes are re-derived, not amended.
+
+**Kernel version 2: converged as before on parts A and B,** with A13's build, L1a's premise and K2's multiplier reworded to agree. `KERNEL.md`'s D56, D64 and D65 are answered in place.

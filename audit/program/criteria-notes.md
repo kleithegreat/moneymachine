@@ -132,7 +132,7 @@ Drafted 2026-11-15 09:31 UTC (04:31 EST) by the architect (Claude Fable 5.2), af
 
 Exit when CS2.1 is final and CS2.2 and CS2.3 have each had their one judging.
 
-**One decision before the commit, for the advisor.** Argon's construction A passes CS2.1 with a wealth that is 1 at the bid. The cause is that the ledger's coins are valued where it cannot sell them: a sale is at or under the price (law T1), and the price is a mid. Valuing them for the two comparisons at adverse prices (the lesser of the latest bid and the price, kernel A10) removes the case, keeps the size (that wealth is never above `W`, so it reaches 20 no more often) and costs half a spread. It also changes what six rounds converged on: K1's wealth, A12's "no mark but the price", and the report's coin rows, which hold no bid. So it is recommended and not made. If it is refused, the claim stands as worded above, valued at prices.
+**One decision before the commit (`ledger.md`, O8).** Argon's construction A passes CS2.1 with a wealth that is 1 at the bid. The cause is that the ledger's coins are valued where it cannot sell them: a sale is at or under the price (law T1), and the price is a mid. Valuing them for the two comparisons at adverse prices (the lesser of the latest bid and the price, kernel A10) removes the case, keeps the size (that wealth is never above `W`, so it reaches 20 no more often) and costs half a spread. It also changes what six rounds converged on: K1's wealth, A12's "no mark but the price", and the report's coin rows, which hold no bid. So it is recommended and not made. If it is refused, the claim stands as worded above, valued at prices.
 
 ## Stages 1, 2 and 4: what a recorded pass shows
 
