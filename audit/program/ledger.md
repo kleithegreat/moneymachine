@@ -1103,3 +1103,34 @@ Appended 2026-11-15 19:23 UTC (14:23 EST) by Claude Fable 5.2, session "architec
 **The test of whether this was patching.** The findings did not land on patches of round 6: they landed on the three conditions and the brief, which no reviewer had seen. And the fixes share one move, which removes things: a search, a proposer, a seed, a gate, an exclusion rule, a veto and a discretionary span are gone, and what replaced them is a constant or a function of the run's rows. Two things were added: the cash a guard's rule keeps, and the build's leaving one file out. If the confirming read finds a choice still made after a price is read, the cause was not removed and the notes are re-derived, not amended.
 
 **Kernel version 2: converged as before on parts A and B,** with A13's build, L1a's premise and K2's multiplier reworded to agree. `KERNEL.md`'s D56, D64 and D65 are answered in place.
+
+## Study 1's calibration: a share is by the host's measured rate
+
+Appended 2026-11-15 19:36 UTC (14:36 EST) by Claude Fable 5.2, session "architect: study 1's calibration shares". No outside model has seen it. It changes no trial and no judged number, but its build touches `main`, which the strength rests on: L5.6's tests are another model's, as the plan already says.
+
+### In plain words
+
+- Run `cal-2` split each round by the hosts' cores and projected from one idle core. Both rested on one assumption, that a host's rate is its cores over an idle core's time. It is not: the cores are logical, and a loaded market takes 1.7 to 2.2 times the idle one, differently on each host.
+- A round ends with its last host, so it is shortest when shares are in proportion to the rates under load. The probe now measures that rate directly, and the shares and the projection are both made from it.
+- Every host stays: by rate, each one shortens every round.
+- `cal-2` runs until the new build has passed its tests. Then it is stopped and run `cal-3` starts from its lines, all of them kept.
+
+| # | Point | Rests on | Could it change a judged result? |
+|---|---|---|---|
+| A120 | A host's share is in proportion to its rate with all its workers busy. A round lasts the greatest `n_k / r_k`, least when every host ends together, at the set over the sum of the rates | The plan, "A share is by the host's measured rate"; `arithmetic.py.txt`, `calibration_cost` | No (A46) |
+| A121 | The rate is measured by the probe run as a round runs: one market on every worker at once. On this PC that gave 279 markets an hour against the rounds' 279 and 284, and no host's rate moved by more than 4% between two rounds, so nothing re-measures | The same; measured 2026-11-15 19:28 UTC (14:28 EST) on `cal-2`'s kernel. Not yet measured on prodesk7 and gmktec, which were busy | No |
+| A122 | The projection is the work over the sum of those rates, which is the job's time only under A120's split: 63 hours at most, where shares by cores take 119 and the idle probes said 34 | The same | No (A113) |
+| A123 | What a round splits is what the merged log lacks of its set, so a retried or resumed round is balanced too | The plan, behaviour 8 | No (A46) |
+| A124 | A host is in the job while its weight's error is below `f / (1 − f)`, `f` its part of the rate: 13% for gmktec. By cores gmktec's was 89% and the job was slower with it; by a measured rate all three belong | The plan; `calibration_cost` | No |
+| A125 | A run on the same kernel may start from another's lines, under any build and split. The probe's trial is the log's first, so every host tests the new build against the old before the search, and a trial evaluated again must agree | Behaviour 7; A46; the plan, "Another run's lines" | Yes, if a build's trial differed: the probe and the repeated-trial wall are what would stop it |
+
+### Disputed
+
+Nothing. No reviewer has been asked.
+
+### Owed
+
+- **By the advisor:** the build, from the plan's table: tests first, L5.6's by a model other than the builder's; then `cal-3` from `cal-2`. `merge_shares`' defect starts as a failing test. After `cal-3`'s probes, compare prodesk7's and gmktec's rates with `cal-2`'s rounds (164 to 168, 59 to 61): A121 is measured on one host of three.
+- **By the architect:** nothing.
+
+**Study 1: converged, as before.**
