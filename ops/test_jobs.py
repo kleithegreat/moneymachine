@@ -189,7 +189,7 @@ def test_calibrate_carries_every_complete_source_line_records_from_and_leaves_th
         return jobs.REPO / "kernel/target/release/mm"
 
     monkeypatch.setattr(jobs, "cal_kernel", cal_kernel)
-    monkeypatch.setattr(jobs, "cal_effect", stop_calibration_cluster)
+    monkeypatch.setattr(jobs, "cal_step", stop_calibration_cluster)
     before = source_files(calibration_source)
     with pytest.raises(CalibrationClusterStoppedError):
         jobs.calibrate("carried", "sha256:B", "source")
@@ -219,7 +219,7 @@ def test_calibrate_refuses_to_carry_another_kernel_without_changing_the_source(
         return jobs.REPO / "kernel/target/release/mm"
 
     monkeypatch.setattr(jobs, "cal_kernel", cal_kernel)
-    monkeypatch.setattr(jobs, "cal_effect", stop_calibration_cluster)
+    monkeypatch.setattr(jobs, "cal_step", stop_calibration_cluster)
     before = source_files(calibration_source)
     (jobs.REPO / "kernel/target/release/mm").write_bytes(b"kernel B")
     with pytest.raises((SystemExit, RuntimeError, ValueError)) as stopped:
@@ -239,7 +239,7 @@ def test_calibrate_carries_source_lines_only_when_the_new_run_is_made(
         return jobs.REPO / "kernel/target/release/mm"
 
     monkeypatch.setattr(jobs, "cal_kernel", cal_kernel)
-    monkeypatch.setattr(jobs, "cal_effect", stop_calibration_cluster)
+    monkeypatch.setattr(jobs, "cal_step", stop_calibration_cluster)
     with pytest.raises(CalibrationClusterStoppedError):
         jobs.calibrate("carried", "sha256:B", "source")
     out = jobs.RESULTS / "carried"
