@@ -177,7 +177,7 @@ One JSON document, read as strictly as a program; a fault is `E_HEADER`. Times a
 - **`late`** is funding's registered lateness, below one hour.
 - **`aliases`** are A13's bijections, real name to opaque. With them the program is written in the opaque names and every row is written in them.
 
-`start` also rejects: a horizon that meets an unreleased protected window (`R_PROTECTED`); a venue whose `lambda` or `delta` is below zero, whose `stale` is below 1, whose `cap` is not above zero or whose `minimum` is below zero, a `pessimistic` venue on a book market with no trades, a bar market with `G < Δ` or a half-spread not above zero (`E_VENUE`); a fee rate outside 0 to 1 (`E_HEADER`).
+`start` also rejects: a horizon that meets an unreleased protected window (`R_PROTECTED`); a venue whose `lambda` or `delta` is below zero, whose `stale` is below 1, whose `cap` is not above zero or whose `minimum` is below zero, a `pessimistic` venue on a book market with no trades, a bar market with `G < Δ` or a half-spread not above zero (`E_VENUE`); a fee rate outside 0 to 1, or a coin's rules that `feed` would reject in a listing (`E_HEADER`).
 
 ### An exact field
 
@@ -190,7 +190,11 @@ Listings and the header are always `string`.
 
 ### The price grid
 
-A coin's rules hold `figures` and `decimals` (V1). **V1 is a lead, and this rule is not built before the venue's tick rule is certified** (`audit/program/ledger.md`, O6): the venue's page is said also to allow any whole-number price, which this rule refuses from six figures on, and the rule's form is code a registered build hashes. A price is **on the grid** when it is above zero, is a whole multiple of `10^−decimals`, and has at most `figures` significant figures. For `p` in `[10ᵉ, 10ᵉ⁺¹)` the grid's step is `10^max(e − figures + 1, −decimals)`. A buy's price rounds to the greatest grid price at or below it, and to zero when there is none; a sell's to the least at or above. An order at zero is A6's to admit or refuse like any other, and it buys nothing: no ask and no print is at or below it. A bar's print rounds to the nearest, a tie to the higher. A size is a whole multiple of `10^−sz_decimals`.
+A coin's rules hold `figures`, from 1, and `decimals` (V1). A price is **on the grid** when it is above zero, is a whole multiple of `10^−decimals`, and either has at most `figures` significant figures or is a whole number. A `p` in `[10ᵉ, 10ᵉ⁺¹)` has at most `figures` significant figures when it is a whole multiple of `10^(e − figures + 1)`, so the grid's prices there are the whole multiples of the step `10^max(min(e − figures + 1, 0), −decimals)`. The `min` is the whole numbers: without it the step from `figures` figures up would be above one (`audit/program/arithmetic.py.txt`, `price_grid`, checks the step against a count of digits on every price of a range).
+
+**The rule is the venue's, certified** (`venue/sources.toml`, Hyperliquid's description, "Price grid"): at most 5 significant figures, at most `6 − szDecimals` decimals for a perp, and a whole-number price whatever its figures, so `123456` is a price and `12345.6` is not. A market of the venue's perps therefore gives each coin `figures` of 5 and `decimals` of `6 − sz_decimals`, and its writer refuses a coin whose `sz_decimals` is above 6, of which the page says nothing. The engine takes the two numbers as the coin's rules and knows no venue. The certificate is of the page as read on 2026-11-15; that the venue enforced it at every time of a horizon is V1's assumption, and its witness is in the record: admission rejects a recorded price off the grid (C2), and every price of the vault's fills must be on it (brief 3, step 2). Both can show a grid too narrow and neither one too wide, which rests on the page alone.
+
+A buy's price rounds to the greatest grid price at or below it, and to zero when there is none; a sell's to the least at or above. An order at zero is A6's to admit or refuse like any other, and it buys nothing: no ask and no print is at or below it. A bar's print rounds to the nearest, a tie to the higher. A size is a whole multiple of `10^−sz_decimals`.
 
 ### The chunk
 
@@ -232,7 +236,7 @@ A3's admission and C2 say what a market may hold. Of the encoding itself, `feed`
 - a quote's levels not strictly best first, or a level's size not above zero;
 - a funding event whose hour `H` is not a whole hour, whose `time` is outside `[H, H + late]`, or which is the second for its coin and hour;
 - a bar whose `time` is not a whole multiple of `Δ`, whose values are not all finite, whose prices are not above zero with the low at most the open and the close and the high at least them, or whose volume is below zero; a trade or a quote on a bar market, and a bar on a book market;
-- a listing's new rules with `decimals` above 8, `sz_decimals` above 12, no tier, or tiers that do not rise from zero.
+- a listing's new rules with `figures` of zero, `decimals` above 8, `sz_decimals` above 12, no tier, or tiers that do not rise from zero.
 
 An observation's value may be any double: one that is not finite reads as undefined (A2).
 

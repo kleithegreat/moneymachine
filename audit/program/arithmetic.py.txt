@@ -802,6 +802,46 @@ def to_grid(price: Fraction, figures: int, decimals: int, up: bool) -> Fraction:
     return (math.ceil(price / step) if up else math.floor(price / step)) * step
 
 
+def on_grid(price: Fraction, figures: int, decimals: int) -> bool:
+    """A18's grid as its sentence says it, with no step: above zero, a whole multiple of 10^-decimals, and of at most `figures` significant figures or
+    a whole number. For a decimal of at most 8 places, a price's scale."""
+    scaled = price * 10**8
+    assert scaled.denominator == 1
+    digits = str(scaled.numerator).rstrip("0")
+    multiple = (price * Fraction(10) ** decimals).denominator == 1
+    return price > 0 and multiple and (len(digits) <= figures or price.denominator == 1)
+
+
+def price_grid() -> None:
+    """The venue's certified grid (venue/sources.toml, "Price grid"): its two examples, the edge of five figures, and on every price of a range that
+    the sentence and the step are one grid and the two roundings are its neighbours."""
+    cases = {"123456": True, "12345.6": False, "99999": True, "100000": True, "100001": True, "100000.5": False, "9999.9": True, "0.5": True}
+    for text, expected in cases.items():
+        assert on_grid(Fraction(text), 5, 1) is expected, text
+    for text, down, up in (("100000.5", 100_000, 100_001), ("12345.6", 12_345, 12_346), ("99999.5", 99_999, 100_000)):
+        assert to_grid(Fraction(text), 5, 1, up=False) == down and to_grid(Fraction(text), 5, 1, up=True) == up, text
+    without_whole_numbers = Fraction(10) ** max(5 - 5 + 1, -1)
+    assert Fraction(100_001) % without_whole_numbers != 0
+    checked = 0
+    for figures, decimals_tried, top in ((1, (-1, 0, 1, 2), 12_000), (2, (-1, 0, 1, 2), 12_000), (3, (0, 1), 120_000)):
+        for decimals in decimals_tried:
+            prices = [Fraction(hundredths, 100) for hundredths in range(1, top + 1)]
+            members = [price for price in prices if on_grid(price, figures, decimals)]
+            place = 0
+            for price in prices:
+                while place < len(members) and members[place] < price:
+                    place += 1
+                step = grid_step(price, figures, decimals)
+                assert ((price / step).denominator == 1) == (place < len(members) and members[place] == price), (price, figures, decimals)
+                below = members[place] if place < len(members) and members[place] == price else members[place - 1] if place else Fraction(0)
+                assert to_grid(price, figures, decimals, up=False) == below, (price, figures, decimals)
+                if place < len(members):
+                    assert to_grid(price, figures, decimals, up=True) == members[place], (price, figures, decimals)
+                checked += 1
+    print(f"  the certificate's two examples at five figures and one decimal: 123456 is a price and 12345.6 is not, a buy there rounding to 12345 and a sell to 12346. At the edge of five figures 99,999, 100,000 and 100,001 are prices and 100,000.5 is not; the step without the whole numbers was {without_whole_numbers} from 100,000 up and refused 100,001")
+    print(f"  the sentence and the step are one grid: on {checked:,} prices in hundredths, at one to three figures and from -1 to 2 decimals, a price is a whole multiple of its step exactly when it is on the grid as the sentence says, a buy rounds to the greatest grid price at or below it (zero when there is none) and a sell to the least at or above")
+
+
 def construction_a(bid_follows: bool) -> tuple[Fraction, Fraction, float, Fraction]:
     """Argon's construction A on study 2's criteria, at prices the engine admits (five figures, four decimals). One coin is quoted down from 100 to 4
     in a thousand quotes. The ledger, at phi = 1 and a depth of the buy's notional, buys at the ask of 4.0002 with the taker's fee. Then 18 quotes
@@ -1387,6 +1427,8 @@ if __name__ == "__main__":
     round6()
     print("Study 2's criteria (criteria-notes.md)")
     study2_criteria()
+    print("The venue's price grid (KERNEL.md A18)")
+    price_grid()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")

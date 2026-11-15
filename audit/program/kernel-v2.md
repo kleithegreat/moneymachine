@@ -36,7 +36,7 @@ Times are integer milliseconds. A market has a horizon `[w_start, w_end)` and a 
 
 | Kind | Holds | Class |
 |---|---|---|
-| listing | the coin's rules from `time` on: `szDecimals`, the price grid as its rule (the most significant figures and the most decimals, V1), margin tiers; or the end of its listing, with a settlement price | 1 |
+| listing | the coin's rules from `time` on: `szDecimals`, the price grid as its rule (the most significant figures and the most decimals, `KERNEL.md` A18), margin tiers; or the end of its listing, with a settlement price | 1 |
 | funding | the hour it settles, the settled rate, and the oracle price when the source has it | 2 |
 | trade | a print: its venue id, price, size, aggressor side | 3 |
 | quote | a snapshot: up to 20 bid and 20 ask levels, each a price and a size, best first | 3 |
@@ -222,7 +222,7 @@ A session's count of attempts is the budget's meter, so a run killed anywhere is
 
 | # | Not established | Assumed | Consequence if wrong | Checked by |
 |---|---|---|---|---|
-| V1 | The price grid | 5 significant figures and at most `6 − szDecimals` decimals (a lead) | A wished price off the real grid | Every price of the vault's fills must lie on it |
+| V1 | The price grid, as enforced and before 2026-11-15 | The page's rule as certified that day (`venue/sources.toml`, "Price grid"; `KERNEL.md` A18): 5 significant figures, at most `6 − szDecimals` decimals, and any whole number | Too narrow: a recorded price fails admission and the run ends there. Too wide: a wished price the venue would have refused or rounded | Admission, on every recorded price, and every price of the vault's fills: both see a grid too narrow, and nothing sees one too wide |
 | V2 | Order types and their rules | `gtc`, `ioc`, post-only refused when marketable, `reduce_only` cut to the position | A refused order that would have rested, or the reverse | The fills' `crossed` flag against each slot's `tif` |
 | V3 | Lot sizes, the grid, leverage and tiers, and their history | The hourly copy of `meta`, and that no rule changed and changed back between two copies | An order admitted or refused wrongly inside that hour; a wrong maintenance for a levered account | Every recorded price and size on the copied grid; nothing sees a change no trade crossed (GPT's finding 12) |
 | V4 | The fee tiers and their history | The base tier, for every fill; no change and return between two copies | Fees wrong from an unseen change | Every fill of the vault, to the digit; nothing while the vault does not trade |
