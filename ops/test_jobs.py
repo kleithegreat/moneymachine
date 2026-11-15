@@ -108,3 +108,12 @@ def test_push_digest_belongs_to_copy_not_mutable_tag(
     assert jobs.push() == "sha256:A"
     assert not any(a[:2] == ["skopeo", "inspect"] for a in calls)
     assert json.loads(capsys.readouterr().out)["digest"] == "sha256:A"
+
+
+def test_merge_shares_appends_complete_lines_and_keeps_each_share_under_its_step(tmp_path: Path) -> None:
+    (tmp_path / "calibration.jsonl").write_text('{"a": 1}\n')
+    (tmp_path / "share-0.jsonl").write_text('{"b": 2}\n{"c": 3}\n')
+    (tmp_path / "share-1.jsonl").write_text('{"d": 4}\n{"e": ')
+    assert jobs.merge_shares(tmp_path, "r0") == 3
+    assert (tmp_path / "calibration.jsonl").read_text() == '{"a": 1}\n{"b": 2}\n{"c": 3}\n{"d": 4}\n'
+    assert sorted(f.name for f in tmp_path.glob("share-*")) == ["share-0.r0.jsonl", "share-1.r0.jsonl"]

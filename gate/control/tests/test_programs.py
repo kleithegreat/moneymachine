@@ -2,8 +2,9 @@
 
 Interface the plan leaves open: eleven flat JSON files in `programs/`. `reference.json` is the reference. The mirror
 set is five pairs, ten files, named as in PAIRS below (the first of a pair is the plain one, the second its negation):
-constant long/short, momentum/reversal on the last day's close-to-close return, and a fixed pseudo-random position a
-coin at the lowest, middle and highest leverage, each with its negation. The DSL has no per-file negation flag, so a
+constant long/short, momentum/reversal on the last day's close-to-close return, and a blind position,
+`sign(xs_demean(mean(volume, 168)))` times 0.01, 0.05 or 2/12 (`random_low`, `random_mid`, `random_high`), each with its
+negation. The DSL has no per-file negation flag, so a
 program's negation is its weight wrapped in `neg`, or equivalently a constant with its sign flipped, a double `neg`
 removed; every other field except `name` and `mechanism` is equal (L4.1)."""
 
