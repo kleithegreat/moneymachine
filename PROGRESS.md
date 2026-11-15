@@ -31,7 +31,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
-     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are written (`4844762`, behaviours 7 and 8, L5.6, plus a cross-host probe that numpy's results agree bit for bit). Owed: L5.6's remaining tests by a model other than the builder's, then the build. A one-host run can start now.
+     - **Calibration's cost is fixed** (`study1-build` `bb4ec62`): fresh pairs are written with only the columns the kernel reads, at 0.30 s a pair against 3.56 s, and nothing is kept between trials. 316 tests pass. The run is about 350 to 440 core-hours, 12 to 15 hours across this PC and the nodes. Step 5's host-spreading rules are written (`4844762`, behaviours 7 and 8, L5.6, plus a cross-host probe that numpy's results agree bit for bit). L5.6's remaining tests: GPT writing them on branch `study1-l56-tests` (worktree `../mm-s1-l56`) from 02:50 UTC (21:50 EST); then the advisor checks and commits them, Sonnet builds. A one-host run can start now.
      - **Then:** calibration, G100 on the study markets, the first sessions (Cornell and TAMU).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
@@ -48,7 +48,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2: converged in Fable's judgment** after round 6 (`audit/reviews/2026-11-15-*-kernel-v2-r6.md`; fixes `rearchitecture` `95cf489`, report `data/builder/architect-kernel-v2-report-7.md`). Owed: a short GPT read of the fixes (running), and Fable's ledger section after round 6 (brief `architect-kernel-v2-part7.txt`, task 2; Cornell's weekly ran out at 02:40 UTC, 21:40 EST). Then study 2's criteria. Disk is deferred with the human.
+1. **Kernel version 2 converged** (Fable, then GPT's confirming read `audit/reviews/2026-11-15-gpt-kernel-v2-r6-confirm.md`; Argon round 6). `rearchitecture` `95cf489` plus Fable's ledger section (running on TAMU from 02:44 UTC, 21:44 EST). Owed: GPT's wording note on B1 and A12. Next: study 2's criteria. Disk is deferred with the human.
    - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; the vault's pre-freeze fill responses under `data/` with a hash; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
