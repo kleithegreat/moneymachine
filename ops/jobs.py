@@ -361,7 +361,7 @@ def leave() -> None:
     subprocess.run(["systemctl", "stop", "k3s"], check=True)
 
 
-CAL_HOSTS = (("desktop", 11), ("prodesk7", 10), ("gmktec", 6), ("prodesk5", 4))
+CAL_HOSTS = (("desktop", 11), ("prodesk7", 10), ("gmktec", 6))
 CAL_WORKER_BYTES = 512 * 2**20
 CAL_ROUND_RETRIES = 2
 
