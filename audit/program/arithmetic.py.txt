@@ -413,19 +413,37 @@ def whole_lots(units: Fraction) -> Fraction:
     return (units // TEST_LOT) * TEST_LOT
 
 
-class TestLedger:
-    """The test ledger of architecture 6.1 and kernel A12, exact. It holds cash, from 1, and units of coins in whole test lots, and trades only at the
-    account's fills, at their prices and fee rates. A cycle's scale is fixed at its first buy as `share` of the ledger's cash then over `depth`, a sum
-    in the account's money; the ledger copies the cycle's first `depth` of the account's buys at that scale, each cut to its cash and down to whole
-    lots, and nothing after. No number in it is rounded but a trade's size, so there is no second, approximate ledger to compare it with."""
+class Books:
+    """Cash, from 1, and units of coins in whole test lots, neither ever negative, valued at prices. Funding is paid from the cash, and a payment the
+    cash cannot meet ends the books. The test ledger and the guard's rules are both these books, and differ only in what makes them trade."""
 
-    def __init__(self, share: Fraction, depth: Fraction) -> None:
-        self.share, self.depth = share, depth
+    def __init__(self) -> None:
         self.cash = Fraction(1)
         self.units: dict[str, Fraction] = {}
+        self.ended = False
+
+    def fund(self, coin: str, unit_payment: Fraction) -> None:
+        payment = self.units.get(coin, Fraction(0)) * unit_payment
+        if payment > self.cash:
+            self.ended = True
+        else:
+            self.cash -= payment
+
+    def wealth(self, prices: dict[str, Fraction]) -> Fraction:
+        return self.cash + sum((held * prices[coin] for coin, held in self.units.items()), Fraction(0))
+
+
+class TestLedger(Books):
+    """The test ledger of architecture 6.1 and kernel A12, exact. It trades only at the account's fills, at their prices and fee rates. A cycle's scale
+    is fixed at its first buy as `share` of the ledger's cash then over `depth`, a sum in the account's money; the ledger copies the cycle's first
+    `depth` of the account's buys at that scale, each cut to its cash and down to whole lots, and nothing after. No number in it is rounded but a
+    trade's size, so there is no second, approximate ledger to compare it with."""
+
+    def __init__(self, share: Fraction, depth: Fraction) -> None:
+        super().__init__()
+        self.share, self.depth = share, depth
         self.scale: dict[str, Fraction] = {}
         self.followed: dict[str, Fraction] = {}
-        self.ended = False
 
     def buy(self, coin: str, lots: Fraction, price: Fraction, fee: Fraction) -> None:
         if coin not in self.scale:
@@ -447,15 +465,59 @@ class TestLedger:
         if fraction == 1:
             del self.scale[coin], self.followed[coin]
 
-    def fund(self, coin: str, unit_payment: Fraction) -> None:
-        payment = self.units.get(coin, Fraction(0)) * unit_payment
-        if payment > self.cash:
-            self.ended = True
-        else:
-            self.cash -= payment
 
-    def wealth(self, prices: dict[str, Fraction]) -> Fraction:
-        return self.cash + sum((held * prices[coin] for coin, held in self.units.items()), Fraction(0))
+class GuardRule(Books):
+    """One rule of rung 2's guard (architecture 6.1): a constant mix held in the books above and traded back to its weights at its clock's times, at
+    prices and at no cost. A trade at the price moves no wealth, so the rule is of the test ledger's kind and uses nothing."""
+
+    def __init__(self, weights: dict[str, Fraction]) -> None:
+        super().__init__()
+        assert all(weight >= 0 for weight in weights.values()) and sum(weights.values()) <= 1
+        self.weights = weights
+
+    def rebalance(self, prices: dict[str, Fraction]) -> None:
+        wealth = self.wealth(prices)
+        self.units = {coin: whole_lots(weight * wealth / prices[coin]) for coin, weight in self.weights.items()}
+        self.cash = wealth - sum((held * prices[coin] for coin, held in self.units.items()), Fraction(0))
+
+
+def pairs_market(period: int, minutes: int, astride: bool = False) -> list[dict[str, Fraction]]:
+    """Argon's market with the pairs alternating (GPT's finding 4, round 5), as the trace gives it: each coin's price at every minute's tick. In a pair
+    A moves and then B, one up 0.25 and the other down 0.15, the two changing places from one pair to the next. A pair comes every `period` minutes,
+    A in its first minute and B in its second; or, `astride`, every minute, A just before a tick and B just after it. Prices stay on the grid of 8
+    decimals."""
+    grid = Fraction(1, 10**8)
+    up, down = Fraction(5, 4), Fraction(17, 20)
+    prices = {"A": Fraction(100), "B": Fraction(100)}
+    ticks = [dict(prices)]
+    for minute in range(1, minutes + 1):
+        if astride:
+            moved = {"A": minute - 1, "B": minute - 2}
+        else:
+            pair, phase = divmod(minute - 1, period)
+            moved = {"AB"[phase]: pair} if phase < 2 else {}
+        for coin, pair in moved.items():
+            if pair >= 0:
+                rose = (pair % 2 == 0) == (coin == "A")
+                prices[coin] = prices[coin] * (up if rose else down) // grid * grid
+        ticks.append(dict(prices))
+    return ticks
+
+
+def guard_reach(ticks: list[dict[str, Fraction]], clock: int, bar_log_a_minute: float) -> float:
+    """The most that the best mix found at `clock` minutes stood over the bar at a day's end. The search is a grid of tenths: any mix is a witness, so
+    a poor search can only miss one."""
+    most = 0.0
+    for tenths_a in range(11):
+        for tenths_b in range(11 - tenths_a):
+            rule = GuardRule({"A": Fraction(tenths_a, 10), "B": Fraction(tenths_b, 10)})
+            for minute, prices in enumerate(ticks):
+                if minute % clock == 0:
+                    rule.rebalance(prices)
+                    assert rule.cash >= 0 and (rule.cash / CASH_GRID).denominator == 1
+                if minute > 0 and minute % 1440 == 0:
+                    most = max(most, math.exp(math.log(rule.wealth(prices)) - bar_log_a_minute * minute))
+    return most
 
 
 def round_down(value: Fraction, bits: int = 128) -> Fraction:
@@ -605,6 +667,25 @@ def round5() -> None:
     print(f"    round 4's guard, the bar above the hourly and daily mixes, passes; the pair's rebalancer is {pair_mix / math.exp(dual):.5f} of the bar a block and 20 times it after {blocks:.0f} blocks. Argon's finding 3, a pair every five minutes: the bar is {math.exp(dual / 2):.5f} a pair against the hourly mix's {math.sqrt(held):.6f}")
     replay_days, test_days = 212, 730
     print(f"    the guard as the test run on rules without skill: over a replay of {replay_days} days a rule on course to reach 20 in {test_days} has reached {20 ** (replay_days / test_days):.2f} times the bar; under rung 2's null a rule fixed beforehand does that with chance at most {20 ** (-replay_days / test_days):.2f}. The pair's rebalancer is refused if a registered clock is the pair's, and no finite list of clocks holds every pair's")
+
+    clocks = {"a minute": 1, "five minutes": 5, "an hour": 60, "a day": 1440}
+    print("    the guard as built, each rule in exact books traded back to its mix at its clock's ticks, at the prices a trace of minute ticks holds, over two days:")
+    five = pairs_market(5, 2880)
+    reached = {name: guard_reach(five, clock, dual / 2 / 5) for name, clock in clocks.items()}
+    assert reached["five minutes"] >= 20 and all(reach < 1 for name, reach in reached.items() if name != "five minutes")
+    print("      a pair every five minutes: the most each clock's best mix stood over the bar at a day's end is " + ", ".join(f"{name} {reach:.3g}" for name, reach in reached.items()))
+    astride = pairs_market(1, 2880, astride=True)
+    reached = {name: guard_reach(astride, clock, dual / 2) for name, clock in clocks.items()}
+    assert all(reach < 1 for reach in reached.values())
+    print("      a pair astride every minute's end, A just before it and B just after: at every tick both coins have moved the same way since the last, and the most is " + ", ".join(f"{name} {reach:.3g}" for name, reach in reached.items()) + f"; a half-and-half mix traded between the pairs still gains {pair_mix ** 0.5 / math.exp(dual / 2):.5f} of the bar a minute. A quiet guard is not a safe record")
+    holder = GuardRule({"A": Fraction(1)})
+    holder.rebalance({"A": Fraction(100)})
+    holder.fund("A", Fraction(1))
+    saver = GuardRule({"A": Fraction(9, 10)})
+    saver.rebalance({"A": Fraction(100)})
+    saver.fund("A", Fraction(1))
+    assert holder.ended and not saver.ended
+    print(f"      a rule wholly in a coin that then charges funding has no cash to pay and ends; one that keeps a tenth in cash goes on, with cash {float(saver.cash):.3f}")
 
     step = 0.01
     print(f"  GPT's finding 5, two coins moving in turn, each up {step} at its event: every return is {step} whatever came before, yet a holder of the coin due to move grows {(1 + step) ** 2:.6f} a pair against the best mix's {(1 + step / 2) ** 2:.6f}. What came before told which coin moves")
