@@ -421,7 +421,7 @@ def cal_task(run: str, k: str, mode: str) -> None:
 def cal_manifest(run: str, step: str, k: int, mode: str, record: dict[str, Any]) -> dict[str, Any]:
     node, cores = CAL_HOSTS[k]
     pod = manifest(run, ["calibration"], record, node)["spec"]["template"]["spec"]
-    pod["volumes"][2]["emptyDir"]["sizeLimit"] = mib(16 * SCRATCH)
+    pod["volumes"][2]["emptyDir"]["sizeLimit"] = mib(8 * SCRATCH)
     container = pod["containers"][0]
     container["command"] = [
         "choom",
@@ -437,7 +437,7 @@ def cal_manifest(run: str, step: str, k: int, mode: str, record: dict[str, Any])
     ]
     container["resources"] = {
         "requests": {"cpu": str(cores), "memory": mib(cores * CAL_WORKER_BYTES), "ephemeral-storage": mib(4 * SCRATCH)},
-        "limits": {"memory": mib(cores * CAL_WORKER_BYTES * 5 // 4 + 2**30), "ephemeral-storage": mib(16 * SCRATCH)},
+        "limits": {"memory": mib(cores * CAL_WORKER_BYTES * 5 // 4 + 2**30), "ephemeral-storage": mib(8 * SCRATCH)},
     }
     name = f"mm-{run}-{step}-{k}"
     return {
