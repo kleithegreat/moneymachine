@@ -177,7 +177,7 @@ One JSON document, read as strictly as a program; a fault is `E_HEADER`. Times a
 - **`late`** is funding's registered lateness, below one hour.
 - **`aliases`** are A13's bijections, real name to opaque. With them the program is written in the opaque names and every row is written in them.
 
-`start` also rejects: a horizon that meets an unreleased protected window (`R_PROTECTED`); a `pessimistic` venue on a book market with no trades, a bar market with `G < Δ` or a half-spread not above zero (`E_VENUE`); a fee rate outside 0 to 1 (`E_HEADER`).
+`start` also rejects: a horizon that meets an unreleased protected window (`R_PROTECTED`); a venue whose `lambda` or `delta` is below zero, whose `stale` is below 1, whose `cap` is not above zero or whose `minimum` is below zero, a `pessimistic` venue on a book market with no trades, a bar market with `G < Δ` or a half-spread not above zero (`E_VENUE`); a fee rate outside 0 to 1 (`E_HEADER`).
 
 ### An exact field
 
@@ -241,8 +241,8 @@ An observation's value may be any double: one that is not finite reads as undefi
 A3's order of events is `(time, class, coin, kind, source)`, and events equal in all five keep the order the reader fed them, which is their position in their source. `feed` rejects a record that is before its predecessor in that order.
 
 - A bar stands where a trade would. It becomes its two prints, its quote and its five observations (A16), which no fed event of that coin and millisecond may precede or come between: a bar market has no other print or quote, and a declared source's observation comes after by its kind and its source.
-- **Pinned here: all that happens in one millisecond,** in order. First the fed events, as above. Then the tick, when the millisecond is one (A4). Then the wishes that arrive at it (A6), in the order sent. So a wish sent at a tick with `λ = 0` arrives after that tick, and an order placed at `ℓ` comes after every event of `ℓ`, as A7's "first quote with `time > ℓ`" and L1b need. An order is admitted against the world of its own arrival, never that of its coin's next event. Then, last, the funding check below.
-- **Pinned here: the view's order.** At a tick `τ` the view takes every event and effect with `known ≤ τ` that it has not taken, in the order of `known`, and those of one `known` in the order the world met or made them. That order is what "latest" and "in order of delivery" mean (A3).
+- **Pinned here: all that happens in one millisecond,** in order. First the fed events, as above. Then the tick, when the millisecond is one (A4). Then the wishes that arrive at it (A6), which are those of one tick, one a slot and coin: each does its case of A6's three, and the orders they place are admitted in A6's order, every `reduce_only` one first and then the others, each group by coin and slot. That order is also the order in which they take from the quote they arrive at (A7). So a wish sent at a tick with `λ = 0` arrives after that tick, and an order placed at `ℓ` comes after every event of `ℓ`, as A7's "first quote with `time > ℓ`" and L1b need. An order is admitted against the world of its own arrival, never that of its coin's next event. Then, last, the funding check below.
+- **Pinned here: the view's order.** At a tick `τ` the view takes every event and effect with `known ≤ τ` that it has not taken, in the order of `known`, and those of one `known` in the order the world met or made them. That order is what "latest" and "in order of delivery" mean (A3). An effect made after a tick in the tick's own millisecond, as a wish's on arriving, is not yet made when the view is taken, and is taken at the next tick. That is seen only at `δ = 0`: at any other `δ` such an effect's `known` is after the tick.
 
 ### Funding's lateness
 
@@ -271,7 +271,9 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 
 ### The report
 
-**A day's end** is a UTC midnight `T` with `w_start < T ≤ w_end`. Its rows show the world after every event with `time < T`, and stand before any row of an event at `T`. **The last span ends at the horizon's end,** so every span has rows at its end, written by `finish` for the last.
+**A day's end** is a UTC midnight `T` with `w_start < T ≤ w_end`. Its rows show the world after every event with `time < T`, and stand before any row of an event at `T`: the `coin` rows of the day, then the `account` row. **The last span ends at the horizon's end,** so every span has rows at its end, written by `finish` for the last, after the last day's.
+
+**A span is read from one row a coin.** At a day's end the bar is a product over spans (K2): a span that ended takes its `span` rows, which stand before that day's rows, and the span open there takes that day's `day` rows. A span's `span` rows that stand after a day's rows are not that day's, at one timestamp or not, so the last span is never counted twice at the horizon's end.
 
 | Kind | Fields, after the kind | When |
 |---|---|---|
@@ -283,12 +285,12 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 - `what` is `fill` (an order's), `liquidation`, `settlement`, `funding` or `absorbed`. An absorption has no coin and no cycle.
 - `cycle` counts the coin's cycles from 1 (A5).
 - `units` is what the row bought, below zero for a sale, and zero for a payment. `cash` is the change in the account's cash, the fee inside it; `fee` is the fee alone. So starting cash plus the rows' `cash` is the world's cash, and a coin's `units` sum to its position (P1).
-- A fill's price is `−(cash + fee) / units`, and its fee rate `fee` over that price times the size. They are not fields: K1's ledger reads them so, and a second copy could disagree with the cash.
+- A fill's price and fee rate are not fields: a second copy could disagree with the cash. K1's ledger needs two numbers of a fill and divides by nothing but its units, which are never zero: what a unit cost or brought with its fee, `−cash / units`, and for a buy its notional before the fee, `−(cash + fee)`. A trade at the row's price and fee rate is a trade at that cost a unit. A settlement at zero is a sale of units for no cash, and no rate is recovered from a notional of zero.
 - A `funding` row is written at every funding event of a held coin, a payment of zero included, and what a unit paid is `−cash / before`.
 - `before` is the coin's position before the row. `price` is the coin's price after the row's event.
 
 **`coin`:**
-- `span` counts spans from 1. `at` is `day` or `span`, the row's occasion; a span that ends at a midnight has both rows.
+- `span` counts spans from 1. `at` is `day` or `span`, the row's occasion; a span that ends at a midnight has both rows, read as above.
 - `price` is the coin's price, and `first` its first in the span: its price at the span's start, or its first after. Both are undefined before the coin's first quote.
 - `events`, `least`, `funding`, `sum1`, `sum2`, `sum3` are A12's, since the span began: the count of price events; the least of their returns and zero; the funding a unit paid; the sums of the returns, of their squares and of their cubes.
 

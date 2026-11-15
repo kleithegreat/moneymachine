@@ -278,17 +278,16 @@ def study2() -> None:
 
 
 def forecast_ratio(returns: np.ndarray, record: int, forward: int, block: int, draws: int, rng: np.random.Generator) -> np.ndarray:
-    """Draws of (the mean square of a pseudo-forward of `forward` days) over (that of a pseudo-record of `record`
-    days), each made of circular blocks of `block` days of `returns`: study 2's bootstrap for CS2.2."""
+    """Draws of (the variance of a pseudo-forward of `forward` days) over (that of a pseudo-record of `record` days), each made of circular blocks of
+    `block` days of `returns` and each about its own mean, divided by its count: study 2's bootstrap for CS2.2."""
     days = len(returns)
-    squares = returns**2
 
-    def mean_squares(length: int) -> np.ndarray:
+    def variances(length: int) -> np.ndarray:
         starts = rng.integers(0, days, size=(draws, math.ceil(length / block)))
         index = ((starts[:, :, None] + np.arange(block)[None, None, :]) % days).reshape(draws, -1)[:, :length]
-        return squares[index].mean(axis=1)
+        return returns[index].var(axis=1)
 
-    return mean_squares(forward) / mean_squares(record)
+    return variances(forward) / variances(record)
 
 
 def clustered_days(days: int, persistence: float, rng: np.random.Generator) -> np.ndarray:
@@ -302,35 +301,189 @@ def clustered_days(days: int, persistence: float, rng: np.random.Generator) -> n
     return out[500:]
 
 
+def held(replay: list[Fraction], forward: list[Fraction]) -> str:
+    """CS2.2's verdict from two lists of daily returns, exact: each list's variance is about its own mean and divided by its count, and the two are
+    compared by cross-multiplying. A replay of no variance has no ratio."""
+
+    def scaled(returns: list[Fraction]) -> Fraction:
+        return len(returns) * sum(r * r for r in returns) - sum(returns) ** 2
+
+    below, above = scaled(replay) * len(forward) ** 2, scaled(forward) * len(replay) ** 2
+    if below == 0:
+        return "not judged"
+    return "held" if below <= 2 * above and above <= 2 * below else "did not hold"
+
+
+def dual_share(s1: Fraction, q: Fraction, multiplier: Fraction) -> Fraction:
+    """The weight in [0, 1] at which one coin's term of the bar's bound, (s1 - multiplier) b - q b^2, is greatest; a tie goes to the lesser."""
+    if q > 0:
+        return min(Fraction(1), max(Fraction(0), (s1 - multiplier) / (2 * q)))
+    return Fraction(int(s1 - multiplier > q))
+
+
+def least_dual(first: list[Fraction], curve: list[Fraction]) -> tuple[Fraction, Fraction]:
+    """The bar's bound D at the multiplier Lean computes for it, and that multiplier (architecture 6.1, the certificate). D is convex in the
+    multiplier, and between two neighbouring points where a coin's term changes form it is a quadratic. So its least over every multiplier is its
+    least over zero, those points above zero, and between two neighbours the point where its slope is zero when there is one: a finite list of
+    rationals, each exact. Ties go to the least multiplier."""
+
+    def dual(multiplier: Fraction) -> Fraction:
+        shares = [dual_share(s1, q, multiplier) for s1, q in zip(first, curve)]
+        terms = ((s1 - multiplier) * share - q * share**2 for s1, q, share in zip(first, curve, shares))
+        return multiplier + sum(terms, Fraction(0))
+
+    coins = list(zip(first, curve))
+    changes = {point for s1, q in coins for point in ((s1, s1 - 2 * q) if q > 0 else (s1 - q,)) if point > 0}
+    points = sorted(changes | {Fraction(0)})
+    candidates = list(points)
+    for low, high in zip(points, points[1:]):
+        middle = (low + high) / 2
+        partial = [(s1, q) for s1, q in coins if q > 0 and 0 < s1 - middle < 2 * q]
+        whole = sum(1 for s1, q in coins if dual_share(s1, q, middle) == 1)
+        if partial:
+            flat = (sum((s1 / (2 * q) for s1, q in partial), Fraction(0)) + whole - 1) / sum((1 / (2 * q) for _, q in partial), Fraction(0))
+            if low < flat < high:
+                candidates.append(flat)
+    return min((dual(multiplier), multiplier) for multiplier in candidates)
+
+
+def bar_mix(first: list[Fraction], curve: list[Fraction]) -> list[Fraction]:
+    """The bar's own mix: each coin's weight where its term of the bound is greatest at the least multiplier, all divided by their sum when that is
+    above 1. It is the guard's second mix, and nothing searches for it."""
+    _, multiplier = least_dual(first, curve)
+    shares = [dual_share(s1, q, multiplier) for s1, q in zip(first, curve)]
+    return [share / max(Fraction(1), sum(shares, Fraction(0))) for share in shares]
+
+
+GUARD_INVESTED = Fraction(24, 25)  # a guard rule keeps 1/25 in cash: the venue caps an hour's funding at 4% of the notional (rules.json)
+
+
+def reach(market: list[tuple[int, str, Fraction]], funding: list[tuple[int, str, Fraction]], weights: dict[str, Fraction], clock: int, minutes: int) -> tuple[list[float], bool]:
+    """A guard rule's wealth over the bar at each day's end of a record, and whether it ended. `funding` holds (time, coin, what a unit paid); the
+    bar here is of the prices alone, which a small charge moves by its own size over the price."""
+    events = sorted([(time, "price", coin, new) for time, coin, new in market] + [(time, "funding", coin, paid) for time, coin, paid in funding])
+    rule = GuardRule(weights)
+    wealth_at = guard_fold(rule, events, clock, minutes * MINUTE, {"A": Fraction(100), "B": Fraction(100)})
+    return [float(wealth) / math.exp(bar_log(market, day_end)) for day_end, wealth in sorted(wealth_at.items())], rule.ended
+
+
+def refused(rules: list[list[Fraction]]) -> bool:
+    """CS2.1's refusal of rung 2, exact, from each guard rule's wealth over the bar at each day's end of the replay: some rule stood 20 times over
+    the bar at a day's end, or stands at the last so far over it that the same rate reaches 20 within the 730 judged days."""
+    return any(max(ratios) >= 20 or ratios[-1] ** 730 >= 20 ** len(ratios) for ratios in rules)
+
+
 def study2_criteria() -> None:
-    """The numbers of study 2's criteria notes (criteria-notes.md, CS2.1 to CS2.3)."""
-    record, forward, block = 212, 730, 14
-    naive = math.sqrt((1 / forward) / (1 / record + 1 / forward))
-    print(f"  CS2.2, a forward mean square against the record's, {record} and {forward} independent days: an interval made of the forward draw's spread alone covers {2 * norm.cdf(norm.ppf(0.975) * naive) - 1:.3f} at a nominal 0.95, at any kurtosis; the ratio of a pseudo-forward to a pseudo-record carries both spreads")
+    """The numbers of study 2's criteria notes (criteria-notes.md, CS2.1 to CS2.3), as revised after the round of 2026-11-15
+    (audit/reviews/2026-11-15-gpt-study2-criteria-r1.md, 2026-11-15-argon-cli-study2-criteria-r1.md)."""
+    hundredth, nothing = Fraction(1, 100), Fraction(0)
+    flat, swing, drift = [hundredth] * 4, [hundredth, -hundredth] * 2, [3 * hundredth, hundredth] * 2
+
+    def mean_square(returns: list[Fraction]) -> Fraction:
+        return sum((r * r for r in returns), Fraction(0)) / len(returns)
+
+    assert mean_square(flat) == mean_square(swing) and held(flat, swing) == "not judged" and held(swing, flat) == "did not hold"
+    assert mean_square(drift) == 5 * mean_square(swing) and held(swing, drift) == "held"
+    assert held([nothing] * 4, [nothing] * 4) == "not judged"
+    twice, halved, beyond = [2 * hundredth, -2 * hundredth, nothing, nothing], [hundredth, -hundredth, nothing, nothing], [2 * hundredth, -2 * hundredth, hundredth, nothing]
+    assert held(swing, twice) == "held" and held(swing, halved) == "held" and held(swing, beyond) == "did not hold" and held(swing, [nothing] * 4) == "did not hold"
+    print("  CS2.2, GPT's finding 2. Replay returns of +0.01 every day and forward returns of +0.01 and -0.01 in turn have one mean square, and a replay of no variance at all; forward returns of +0.03 and +0.01 in turn against +0.01 and -0.01 have one variance, and mean squares 5 apart. The variance about the mean judges the first 'not judged' (a replay that never moved has no ratio) and the second 'held'")
+
+    window, block = 212, 14
+    naive = math.sqrt(0.5)
+    print(f"  CS2.2, two variances of {window} independent days each: an interval made of the forward draw's spread alone covers {2 * norm.cdf(norm.ppf(0.975) * naive) - 1:.3f} at a nominal 0.95, at any kurtosis; the ratio of two pseudo-records carries both spreads")
     rng = np.random.default_rng(47)
     trials = 400
     for persistence in (0.0, 0.9, 0.97):
         inside, widths, logs = 0, [], []
         for _ in range(trials):
-            path = clustered_days(record + forward, persistence, rng) if persistence else rng.standard_normal(record + forward)
-            seen, later = path[:record], path[record:]
-            low, high = np.quantile(forecast_ratio(seen, record, forward, block, 1000, rng), [0.025, 0.975])
-            realized = (later**2).mean() / (seen**2).mean()
+            path = clustered_days(2 * window, persistence, rng) if persistence else rng.standard_normal(2 * window)
+            seen, later = path[:window], path[window:]
+            low, high = np.quantile(forecast_ratio(seen, window, window, block, 1000, rng), [0.025, 0.975])
+            realized = later.var() / seen.var()
             inside += low <= realized <= high
             widths.append(math.sqrt(high / low))
             logs.append(math.log(realized))
         logs_array = np.array(logs)
-        held = float((np.abs(logs_array) <= math.log(2)).mean())
+        inside_factor = float((np.abs(logs_array) <= math.log(2)).mean())
         caught = float((np.abs(logs_array + math.log(4)) > math.log(2)).mean())
-        print(f"    simulated, variance persistence {persistence}, {trials} records: the bootstrap's interval at blocks of {block} days, a factor of {statistics.median(widths):.2f} from end to end in volatility, covers {inside / trials:.2f} at a nominal 0.95; the forward volatility is within a factor of sqrt(2) of the record's in {held:.2f}, and a forward volatility of half the record's is outside it in {caught:.2f}")
-    print(f"    the table's rows of volatility are a factor of 2 apart, so half a row is sqrt(2) = {math.sqrt(2):.3f} in volatility and 2 in a mean square; at a Sharpe of 2 the rows 0.5 and 1.0 have power {crossing(2 * (2 * 0.5 - 0.5**2 / 2), 0.5 * math.sqrt(2)):.2f} and {crossing(2 * (2 * 1.0 - 1.0**2 / 2), 1.0 * math.sqrt(2)):.2f} within two years")
+        print(f"    simulated, variance persistence {persistence}, {trials} records: a block bootstrap's interval at blocks of {block} days, a factor of {statistics.median(widths):.2f} from end to end in volatility, covers {inside / trials:.2f} at a nominal 0.95; the later volatility is within a factor of sqrt(2) of the earlier in {inside_factor:.2f}, and a later volatility of half the earlier is outside it in {caught:.2f}")
+    print(f"    the table's rows of volatility are a factor of 2 apart, so half the way from one to the next is sqrt(2) = {math.sqrt(2):.3f} in volatility and 2 in a variance; at a Sharpe of 2 the rows 0.5 and 1.0 have power {crossing(2 * (2 * 0.5 - 0.5**2 / 2), 0.5 * math.sqrt(2)):.2f} and {crossing(2 * (2 * 1.0 - 1.0**2 / 2), 1.0 * math.sqrt(2)):.2f} within two years")
+    day = 1.0 / math.sqrt(365)
+    print(f"    a simple daily return against a log one, at a yearly volatility of 1 ({day:.3f} a day): the two variances differ by about {day**2 * 100:.1f}% of themselves, far inside a factor of 2")
 
-    cycles, coins, days = 2022, 17, 212
+    cycles, coins, days, tolerance, judged = 2022, 17, 212, 6, 61
     rate = cycles / days / coins
-    window = 0.10 * 60
-    print(f"  CS2.3: the vault opened {cycles / days:.2f} cycles a day, {rate:.3f} a coin; a tenth of its cycles end within {window:.0f} minutes; an entry at a random time is within {window:.0f} minutes of one of the vault's on its coin with probability {1 - math.exp(-rate * 2 * window / 1440):.4f}; from 2026-11-15 to 2027-01-31, {(77 * cycles / days):.0f} cycles at that rate, and a share of a half has a standard error of {math.sqrt(0.25 / (77 * cycles / days)):.3f} if entries were independent; at 100 entries, {math.sqrt(0.25 / 100):.2f}")
-    print(f"    the months held back before the freeze, 2026-09-01 to 10-31: {61 * cycles / days:.0f} cycles at that rate")
-    print(f"  CS2.1: the guard's refusal, 20 ** (212 / 730) = {20 ** (212 / 730):.2f}; the ladder's depths in first buys: {', '.join(f'{depth:.2f}' for depth in np.cumsum(LADDER_NOTIONAL))}")
+    print(f"  CS2.3: the vault opened {cycles / days:.2f} cycles a day, {rate:.3f} a coin; a tenth of its cycles end within {tolerance} minutes; an entry at a random time is within {tolerance} minutes of one of the vault's on its coin with probability {1 - math.exp(-rate * 2 * tolerance / 1440):.4f}, which is no bound for two rules that both buy falls; the first {judged} judged days hold {judged * cycles / days:.0f} cycles at that rate, as the months held back before the freeze do")
+
+    levels = np.cumsum(LADDER_NOTIONAL)
+    full = float(levels[-1]) * 1.0056
+    first_buy = 100
+    print(f"  CS2.1: the guard's refusal, 20 ** (212 / 730) = {20 ** (212 / 730):.2f}; the ladder's depths in first buys: {', '.join(f'{depth:.2f}' for depth in levels)}")
+    print(f"    the first buy's notional: level 1, {LADDER_NOTIONAL[1]} of it, meets the minimum of 10 from {10 / LADDER_NOTIONAL[1]:.2f}; a full ladder's close, {full:.2f} of it, stays under the cap of 10,000 up to {10_000 / full:.1f}. At {first_buy} the close is {first_buy * full:,.0f}, and 17 full ladders are {17 * first_buy * float(levels[-1]):,.0f}")
+    on_course, short_of = [Fraction(1)] * 211 + [Fraction(239, 100)], [Fraction(1)] * 211 + [Fraction(238, 100)]
+    fell_back = [Fraction(1)] * 9 + [Fraction(25)] + [Fraction(0)] * 202
+    assert refused([short_of, on_course]) and not refused([short_of]) and refused([fell_back]) and fell_back[-1] ** 730 < 20 ** len(fell_back)
+    print("    the refusal, exact: over 212 days a rule that ends 2.39 times over the bar refuses rung 2 and one at 2.38 does not; a rule that stood 25 times over it on day 10 and has nothing at the end refuses by its reach, and would not by its last day")
+
+    rng = np.random.default_rng(59)
+    worst = 0.0
+    for _ in range(2000):
+        size = int(rng.integers(1, 18))
+        first = [Fraction(int(v), 1000) for v in rng.integers(-3000, 6000, size)]
+        curve = [Fraction(int(v), 1000) for v in rng.integers(-2000, 4000, size)]
+        bound, multiplier = least_dual(first, curve)
+        assert multiplier >= 0
+        second = np.array([float(2 * q) if q > 0 else 0.0 for q in curve])
+        third = np.array([0.0 if q > 0 else float(-3 * q) for q in curve])
+        searched = dual_bound(np.array([float(s) for s in first]), second, third)
+        assert float(bound) <= searched + 1e-9
+        worst = max(worst, searched - float(bound))
+        mix = bar_mix(first, curve)
+        assert all(0 <= weight <= 1 for weight in mix) and sum(mix) <= 1
+    three = least_dual([Fraction(3)] * 2, [Fraction(9, 2) - Fraction(27, 3)] * 2)
+    assert three == (Fraction(15, 2), Fraction(15, 2))
+    print(f"    the bar's multiplier, computed and not proposed (GPT's finding 5, Argon's finding 1): on 2,000 random sets of sums for 1 to 17 coins the exact least of D over a finite list of rationals is never above what a bounded search finds, and under it by at most {worst:.1e}; two coins with one return of 3 each give D = {three[0]} at {three[1]}")
+
+    five = pairs_market(5, 2880)
+    up, down = PAIR_UP - 1, PAIR_DOWN - 1
+    pairs = len(five) // 4
+    sums = [pairs * (up**power + down**power) for power in (1, 2, 3)]
+    own = bar_mix([sums[0]] * 2, [sums[1] / 2 - max(sums[2], Fraction(0)) / 3] * 2)
+    half = Fraction(1, 2)
+    assert own == [half, half]
+    kept = half * GUARD_INVESTED
+    charge = [(60 * MINUTE, "A", Fraction(1, 10_000))]
+    plain, _ = reach(five, [], {"A": half, "B": half}, 5, 2880)
+    full_in, full_ended = reach(five, charge, {"A": half, "B": half}, 5, 2880)
+    reserved, reserved_ended = reach(five, charge, {"A": kept, "B": kept}, 5, 2880)
+    capped, capped_ended = reach(five, [(hour * 60 * MINUTE, "A", Fraction(4)) for hour in range(1, 48)], {"A": kept, "B": kept}, 5, 2880)
+    crossed, crossed_ended = reach(five, [(1441 * MINUTE, "A", Fraction(10))], {"A": kept, "B": kept}, 5, 2880)
+    assert full_ended and max(full_in) == 0 and not reserved_ended and reserved[0] >= 20 and not capped_ended
+    assert crossed_ended and crossed[0] >= 20 and crossed[-1] == 0
+    print(f"    the guard's rules, Argon's finding 1, on the pairs every five minutes: the bar's own mix there is {own[0]} and {own[1]}. Held whole it stands {plain[0]:.3g} times over the bar after a day; with one charge of 0.0001 a unit of A in the first hour it has no cash, ends there and stands at {max(full_in):.0f}. At {kept} each, {1 - GUARD_INVESTED} in cash, it goes on and stands {reserved[0]:.3g} times over; charged 4 a unit of A every hour, the venue's cap at a price of 100, it never ends ({capped[0]:.3g} times after a day). Charged 10 a unit a minute into the second day, it ends: {crossed[0]:.3g} times over the bar at the first day's end and nothing at the second, so its reach refuses and its last day does not")
+
+    ledger = TestLedger(Fraction(1), Fraction(first_buy))
+    limit, low_ask, taker = Fraction(101), Fraction(5), Fraction(45, 100_000)
+    ledger.buy("A", first_buy / limit, low_ask, taker)
+    never_stood = float(ledger.wealth({"A": Fraction(100)}))
+    cost, bought, scaled = -(first_buy / limit) * low_ask * (1 + taker), first_buy / limit, ledger.units["A"]
+    assert 1 - ledger.cash == -cost * scaled / bought and never_stood < 2
+    ledger.sell("A", Fraction(1), Fraction(0), Fraction(0))
+    assert ledger.units["A"] == 0 and ledger.cash > 0
+    print(f"  CS2.1, a quote that never stood: an arriving buy of {first_buy} at a limit of 101 meets a recorded ask of 5 while the coin trades at 100. Its size was fixed by its limit, so the ledger at phi = 1 and a depth of the first buy spends {float(1 - ledger.cash):.3f} of its cash and is worth {never_stood:.2f} at the next true quote: under 2 for each such quote, never 20 from one. What the ledger pays is the row's cash for each unit, so a settlement at zero is a sale for no cash and nothing divides by a notional (GPT's finding 15)")
+
+    fall, climb = math.log(4 / 100), 18
+    first_sum, second_sum, third_sum = fall + climb * 0.4, 0.01 + climb * 0.4**2, climb * 0.4**3
+    bound = dual_bound(np.array([first_sum]), np.array([second_sum]), np.array([third_sum]))
+    marked = 0.25 * 4 * 1.4**climb
+    print(f"  CS2.1, Argon's construction A: a coin falls from 100 to 4, the ledger buys 0.25 of it with its 1, and before a midnight the ask is pulled up 18 times while the bid stays at 4 and nothing trades: the mid is {4 * 1.4**climb:,.1f}, the wealth at prices {marked:.1f}, the bar {max(math.exp(bound), 4 * 1.4**climb / 100):.2f}, and the wealth at the bid still 1. The condition is met by a wealth nobody could sell at")
+    wick = dual_bound(np.array([4 - 0.8]), np.array([16 + 0.64]), np.array([64 - 0.512]))
+    print(f"    Argon's construction B: one print five times the price and the next back, on any coin of the universe: the best mix made {1 + 3.2 * 0.5 - 3.2 * 0.25:.1f} of it and the bar is exp({wick:.2f}) = {math.exp(wick):.1e} for ever after. The bound's slack is large only at returns no book has, and one misprint is such a return")
+
+    record_start, record_end, path_before = Fraction(80), Fraction(100), Fraction(7)
+    assert path_before / record_start == path_before * (record_end / record_start) / record_end
+    print("  The bootstrap's funding (Argon's finding 4): a day's funding scaled by the path's price over the record's is one number at the day's start and at its end, since the path's price moves by the record's own ratio")
 
 
 def round3() -> None:
@@ -601,8 +754,8 @@ def guard_fold(rule: GuardRule, events: list[tuple[int, str, str, Fraction]], cl
 
 
 def guard_reach(market: list[tuple[int, str, Fraction]], clock: int, minutes: int) -> dict[int, float]:
-    """The most that the best mix found at `clock` minutes stood over the bar at each day's end. The search is a grid of tenths: any mix is a witness,
-    so a poor search can only miss one."""
+    """The most that a mix on a grid of tenths, rebalanced every `clock` minutes, stood over the bar at each day's end: round 6's fixtures. The
+    criteria's guard searches nothing (bar_mix, study2_criteria)."""
     events = [(time, "price", coin, new) for time, coin, new in market]
     most: dict[int, float] = {}
     for tenths_a in range(11):

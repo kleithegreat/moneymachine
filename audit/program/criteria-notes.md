@@ -40,76 +40,99 @@ Committed as CS1.1 (`audit/criteria.md`, `criteria: study 1`, `10fedc5`). No not
 
 ## Study 2: the positive control of the confirmer
 
-Drafted 2026-11-15 09:31 UTC (04:31 EST) by the architect (Claude Fable 5.2, session "architect: study 1's calibration wall, kernel version 2's wording, study 2's criteria"), after kernel version 2 converged (`ledger.md`, A114 to A117). A draft for Argon and GPT: nothing here is in force. After their review the advisor commits the three conditions alone as `criteria: study 2`, before the replay of the brief's step 4 reads a price, since that replay decides whether rung 2 is registered. The design is `architecture.md` section 6, the build `briefs/4-study-2.md`, and every number is printed by `arithmetic.py.txt` (`study2`, `study2_criteria`).
+Drafted 2026-11-15 09:31 UTC (04:31 EST) by the architect (Claude Fable 5.2), after kernel version 2 converged (`ledger.md`, A114 to A117). Revised 2026-11-15 19:17 UTC (14:17 EST) after round 1 by GPT and Argon (`audit/reviews/2026-11-15-gpt-study2-criteria-r1.md`, `2026-11-15-argon-cli-study2-criteria-r1.md`; answered finding by finding in `ledger.md`). A draft: nothing here is in force. After a confirming read the advisor commits the three conditions alone as `criteria: study 2`, before any step of the brief starts. The design is `architecture.md` section 6, the build `briefs/4-study-2.md`, and every number is printed by `arithmetic.py.txt` (`study2`, `study2_criteria`).
 
-**What is a criterion here and what is not.** Study 2 makes three statements that someone could bend after seeing the numbers: what the forward test confirmed, whether the wall measured before the freeze held, and whether the replica's entries were the vault's. Each gets one condition. Layers 1 and 2 of fidelity, the kernel's laws and the recorders are readiness, so they are test suites and walls in the briefs (`CLAUDE.md`, Pre-registered criteria).
+**What is a criterion here and what is not.** Study 2 makes three statements that someone could bend after seeing the numbers: what the forward test confirmed, whether the volatility measured before the freeze held, and whether the replica's entries matched the vault's. Each gets one condition. Layers 1 and 2 of fidelity, the kernel's laws and the recorders are readiness, so they are test suites and walls in the briefs (`CLAUDE.md`, Pre-registered criteria).
+
+**Nothing in a condition is chosen after a price is read.** Round 1 found one cause under most of its findings: a number or a window that someone, or a search, would settle later. Each is now a constant here or in the brief, or a function Lean computes from the run's own rows.
 
 **Definitions the three share.**
-- **The replica** is the frozen program and its venue: the ladder and trigger of the brief's steps 2 and 3, run by kernel version 2 as one account at a leverage of 1 under `pessimistic`.
-- **The registration** is one commit, `registration: study 2`, pushed the day it is made. It names the engine's build, the program's hash, the universe, the venue with its delays, the first buy's notional and the starting cash, `φ` and `d`, whether rung 2 is registered, the guard's four clocks, and the record's mean square of CS2.2. **The freeze** is that commit's time on the remote.
-- **The judged days** are the 730 UTC days from the first midnight at or after the freeze. **The forward run** is the replica run from that midnight on the websocket recorder's record, with the test ledger starting at 1 there.
-- **`W`, `B̄`, a ledger's end and a return below minus one** are `confirm`'s, as kernel A12 and architecture 6.1 define them.
+- **The replica** is the frozen program and its venue: the ladder and trigger of the brief's steps 2 and 3, run by kernel version 2 as one account at a leverage of 1. The venue is `pessimistic`, with `λ` and `δ` of 1,000 ms, a staleness length of 60,000 ms, a cap of 10,000 USD and a minimum of 10 USD. The first buy is 100 USD and the starting cash 50,000 USD.
+- **The registration** is one commit, `registration: study 2`, pushed the day it is made. It names the engine's build, the protected windows its file held, the program's hash, the universe, `φ` and `d`, whether rung 2 is registered, and the replay's report, with the variance CS2.2 reads from it. **The freeze** is that commit's time on the remote.
+- **The judged days** are the 730 UTC days from the first midnight at or after the freeze: two years of 365 days. **The forward run** is the replica run from that midnight on the websocket recorder's record, with the test ledger starting at 1 there.
+- **The days run** are the judged days, in order from the first, that the engine has completed. A replay runs the engine from the first judged midnight to the last midnight the record reaches. Where the engine rejects the record or aborts at some time, the replay is run again to the last midnight at or before that time, and the report gives the engine's error. No later event changes a row of an earlier day (law L1), so what a day's end showed stands in every later replay.
+- **`W`, `B̄`, a ledger's end and a return below minus one** are `confirm`'s, as kernel A12 and architecture 6.1 define them. `W` values the ledger's coins at their prices. `B̄` is at the least multiplier, which Lean computes.
 - **One registration.** A second one is a new study with its own two years, and its report says how many came before.
 
-**CS2.1.** Claim, in two rungs on one wealth. *Earned:* from the freeze on, a ledger that copied the replica's fills at the registered stake, paid for from its own cash and filled only on sells through its prices, multiplied 20 times. *Outgrew:* and 20 times more than every constant mix of its coins did, rebalanced at every price event at no cost, and than any of them held.
-- **Judged by** `confirm` over the forward run's report at each judged day's end. "Earned" at the first day's end with `W ≥ 20`. "Outgrew" at the first with `W ≥ 20 × B̄`, if rung 2 is registered.
-- **Rung 2 is registered** unless the guard refuses it: on the replay before the freeze, at the replay's last day's end one of the best mixes found at the four clocks stood so far over the bar that its wealth over the bar, raised to the 730th power, is at least 20 raised to the replay's days: 2.39 times at 212 days (architecture 6.5).
-- **The test ends** at "outgrew", or at the last judged day, or at a dated decision to stop recording. It is replayed once a month from February 2027, and every judged day's end so far is examined each time.
+**CS2.1.** Claim, in two rungs on one wealth. *Earned:* at a judged day's end, a ledger that started at 1 at the freeze, copied the replica's fills at the registered stake and paid for them from its own cash was worth 20 or more, its coins valued at their prices. The fills are the venue's rule's on the record: an arriving order at the recorded quotes, a resting order only on a print through its price. *Outgrew:* and 20 times what the best constant mix of its coins was worth there, rebalanced at every price event at no cost, or any of them held.
+- **Judged by** `confirm` over the forward run's report at the end of each day run. "Earned" at the first day's end with `W ≥ 20`. "Outgrew" at the first with `W ≥ 20 × B̄`, if rung 2 is registered.
+- **The guard's rules,** on a record: at each of four clocks (a minute, five minutes, an hour and a day) two mixes of each span's coins, each weight times 24/25.
+  - **Equal weights.**
+  - **The bar's own mix** at the record's last day's end: each coin's weight in [0, 1] where its term of the bound is greatest at the least multiplier, the lesser at a tie, and all of them divided by their sum when that is above 1.
+
+  `guard` (kernel B1) gives each rule's wealth at each day's end. Nothing proposes a mix and nothing searches for one.
+- **Rung 2 is registered** unless the guard refuses it. It refuses when, on the replay before the freeze, the wealth of one of its rules over the bar is 20 or more at some day's end, or at the last day's end is such that its 730th power is at least 20 raised to the replay's days: 2.39 times at 212 days (architecture 6.5).
+- **The test is final** at "outgrew", and otherwise at the 730th judged day. A record that stops, or that the engine cannot run past some time, ends it at the last day run, and the report says which day and why. It is replayed once a month from February 2027, and each time the end of every day run so far is examined.
 - **Named:** "Outgrew"; "Earned" where rung 1 alone was reached by the end; otherwise "Not confirmed", with the day and the cause where the ledger ended or a return fell below minus one. Never "no edge", and never "skill".
-- **Said with every claim:** the venue's rule and delays; "assuming our orders move nobody" (V10); and with "outgrew" its limit and the most a rule of the guard's reached over the bar on the judged record (architecture 6.1).
+- **Said with every claim:** the venue's rule and delays; "assuming our orders move nobody" (V10); that the 5% holds if no settlement charged a unit more than its price (V16); that the coins are valued at their prices; and with "outgrew" its limit and the most a rule of the guard's stood over the bar at a day's end of the judged record (architecture 6.1).
 - **Numbers.**
   - 20 is one over 5%: a wealth that is never negative and is expected not to grow reaches 20 times its start with probability at most 1/20, at any stopping (Ville; law K3). The 5% covers both rungs together, since `B̄ ≥ 1` makes rung 2's rejection imply rung 1's.
-  - 730 days is the two years the human approved for the forward test (architecture 6.6).
+  - 730 days are the two years the human approved for the forward test (architecture 6.6).
   - 2.39 is `20^(212/730)`: a rule that stood there after the replay's 212 days is on course to reach 20 times the bar within the judged days with no skill. The rule is kept in whole powers so that it is exact.
-  - `φ` and `d` are those of 30 registered pairs, `φ` of 1/16, 1/8, 1/4, 1/2 and 1 and `d` of the ladder's six depths (1, 1.98, 3.84, 7.45, 14.39 and 27.63 first buys), with the greatest power at the top registered rung in the bootstrap of the brief's step 5, ties to the greatest wealth at the replay's end. Every pair is valid (law K1), so the choice moves power and never size.
+  - 24/25 leaves a rule 1/25 of its wealth in cash at every rebalance. The venue caps an hour's funding at 4% of the notional (`rules.json`), and a rule's funding is paid from its cash: one that kept none ends at its first charge, however small.
+  - The four clocks run from the trace's own tick, a minute, to the day the test is judged at. They are a choice: a pair's clock need not be among them (architecture 6.1).
+  - One second is the engine's least tick (kernel A4) and the first whole one at or above the recorder's design cadence of 0.55 s (`recorder/RECORDER.md`). It is read from the recorder's specification and from no record. A second pair of delays, 5,000 ms each, is run beside and judges nothing (V9). The staleness length is the guard's tick, eight times the widest spacing of the archive's quotes on the days sampled outside its gaps, 7.6 s.
+  - The first buy of 100 USD keeps the ladder inside the venue's minimum and cap: level 1 meets the minimum from 10.22, and a full ladder's close, 27.79 first buys, stays under the cap up to 359.9. 50,000 USD covers 17 full ladders, 46,976.
+  - `φ` and `d` are one of 30 pairs, chosen by the rule of the brief's step 5, which is fixed there before the replay runs. Every pair is valid (law K1), so the choice moves power and never size.
 - *Passes while the claim is false:*
   - by chance, at most 5% for the pair, under V16. Without V16 the size is `(1 + E[shortfall]) / 20`;
   - by fills the venue would not have given: delays too short, a queue the rule does not model, or our orders moving the book. The claim names the rule and V10 and does not say the fills are real. Layer 2's forward measurement on the vault's real fills is quoted beside it;
-  - by a quote that never stood: a recorded ask at a twentieth of the price fills an arriving buy, and admission sees nothing wrong in it. **Proposed, and open:** before a claim is reported, each of the ledger's taker fills is joined to the trade record as layer 2 joins a maker's, a print at its price or beyond within `G`, and a claim that rests on a fill with no such print is withheld and reported as that. It can only withhold a claim;
+  - by a record that is wrong where admission cannot see it. A recorded ask far under the price fills an arriving buy. The buy's size was fixed by its limit, so such a quote adds to `W` at most about what the ledger staked on that buy (1.94 times at the whole of its cash, `arithmetic.py.txt`), and no one of them makes 20. Nothing in the record shows that a quote stood: a print within the staleness length does not, since it says what traded then and not what stood later. Round 1's veto on taker fills without a print is withdrawn, and the claim is of the record as recorded;
+  - by a mid nobody could sell at. A book whose ask is pulled far up before a midnight, with the bid where it was and no print, has a mid far over its bid, and `W` is valued at the mid: 427 against a bar of 18.5, for a ledger worth 1 at the bid (Argon's construction A; `arithmetic.py.txt`). The claim says how the coins are valued. Valuing them at the bid would remove the case and would change the converged ledger, so it is not done here (see "One decision before the commit");
   - by a registration whose date is false, so that judged days had been read. The registration is pushed when made, and the kernel refuses a protected date until its release is a commit (kernel A13);
   - "outgrew" where one price event tells of the next: a rule that knows nothing can pass, the guard cannot exclude it, and the claim says so in its own words.
 - *Fails while the claim holds:*
   - at the wall of architecture 6.3: a ledger of volatility 0.5 and Sharpe 2 is confirmed within two years with probability 0.05. "Not confirmed" is the expected end;
-  - `pessimistic` leaves out maker fills that were real, and the bar holds the slack of its bound and each coin's noise between price events;
+  - a wealth that passed 20 inside a day and was under it at midnight is not confirmed: the test looks at days' ends;
+  - `pessimistic` leaves out maker fills that were real, and the bar holds the slack of its bound and each coin's noise between price events. One print far from the book, on any coin of the universe, puts the bar out of reach for the rest of its span: five times the price and back gives a bar of 9.3 million where the best mix made 1.8. Rung 1 is untouched by it;
   - a gap in the record is staleness, in which nothing fills; a full disk ends the test early (architecture 6.8);
   - a funding payment the ledger's cash cannot meet ends it, and a return below minus one ends what may be confirmed.
-- *Not claimed:* skill; that the rule's profit is the vault's; anything about a size that could trade; anything about another rule, stake or venue.
+- *Not claimed:* skill; that the rule's profit is the vault's; that the wealth could be sold for what it is valued at, or anything else about a size that could trade; anything about another rule, stake or venue.
 
-**CS2.2.** Claim: the wall measured before the freeze held on dates nobody fitted. The test ledger was as volatile on the judged days as on the replay, to within half a row of the power table.
-- **Judged by** the ratio of two mean squares of the ledger's daily returns, `W` at a day's end over `W` at the day's end before, less one, at the registered `φ` and `d`: over the judged days up to the test's end, and over the replay's days, the second fixed in the registration.
-- **Met** ("the wall held") when the ratio is from 1/2 to 2, the ends included. **Otherwise** "the wall did not hold", with the ratio. **Not judged** when the forward run has fewer than 212 judged days, or the ledger ended on either record.
+**CS2.2.** Claim: the volatility the wall was computed from held on days nobody fitted. The test ledger's daily volatility over the first 212 judged days was within a factor of `√2` of its volatility over the replay.
+- **Judged once,** at the first replay after the 212th judged day is run, by `held`, at the registered `φ` and `d`. The forward run goes on to that day whatever CS2.1 has named by then.
+- **A day's return** is `W` at its end over `W` at the end of the day before, less one; the first day's is from the 1 the ledger began with. **A variance** is of a list of those returns about their own mean, divided by their count. The forward variance is of the first 212 judged days, and the replay's of the replay's days, fixed in the registration.
+- **Met** ("the volatility held") when the forward variance is from half the replay's to twice it, the ends included. **Otherwise** "the volatility did not hold", with the ratio. **Not judged** when fewer than 212 judged days were run, when either ledger ended or was worth nothing at a day's end of its list, or when the replay's variance is zero. The report then says which, and gives both variances.
 - **Numbers.**
-  - A ratio of 2 in a mean square is `√2` in volatility. The power table's rows are a factor of 2 apart in volatility, and the row is what the wall says: at a Sharpe of 2, the rows 0.5 and 1.0 have power 0.05 and 0.59. A forecast within half a row reads the same row.
-  - 212 days is the replay's own length: a shorter forward measure is noisier than the forecast it judges.
-- **Why not the bootstrap's own interval.** Its ends are a factor of 1.2 to 1.4 apart in volatility, and where variance persists it covers the forward volatility 0.56 to 0.82 of the time at a nominal 0.95. It is reported beside the ratio and judges nothing.
-- *Passes while the claim is false:* a forward volatility just outside half a row, by sampling; and a ledger equally volatile for another reason, in fewer and deeper cycles. The claim is of the volatility and of nothing else the wall rests on: the forward Sharpe is reported with its standard error, 0.7 or more over two years, and judges nothing.
-- *Fails while the claim holds:* in a market whose variance persists at 0.97 a day and whose law never changes, the forward volatility leaves the half row 0.10 of the time. A change in every coin's volatility moves the ledger's with it: the basket's own ratio is reported beside, and the verdict stands, because the years a test needs are set by the volatility there is.
-- *Not claimed:* that the bootstrap's power was right, which one path cannot show.
-
-**CS2.3.** Claim: most of the replica's entries were the vault's, and most of the vault's were the replica's, on dates nobody fitted.
-- **Judged once,** at the first replay after 2027-01-31, on [2026-11-15 00:00, 2027-01-31 00:00) UTC, the released days the websocket recorder holds whole. The replica is run there from a flat account under `optimistic`, which fills an order wherever the record does not exclude it, so that the fill rule's lateness is not counted against the trigger.
-- **An entry** is a cycle's first fill: its coin and its time. Two entries match when they are of one coin and at most 6 minutes apart. The matched count is the size of the largest set of pairs, one of the replica's and one of the vault's each, no entry in two.
-- **Met** when the matched count is more than half of the replica's entries and more than half of the vault's. **Otherwise** "not shown". **Not judged** when the vault has fewer than 100 entries there.
-- **What it licenses.** The words "a rule most of whose entries were the vault's". Without it the forward test is read as of "a rule fitted to the vault's record".
-- **Numbers.**
-  - 6 minutes is the first decile of the vault's cycle lengths, 0.10 hours: within it nine cycles in ten are still open, so a matched entry is an entry into the same cycle.
-  - A half is what "most" means. An entry at a random time matches with probability 0.0047, so chance is far below it.
-  - 100 entries give a share to within 0.05 at one standard error; the vault's rate gives about 734 there, so fewer than 100 means the vault stopped or changed.
-- *Passes while the claim is false:* entries that match while levels, sizes or exits differ. The claim is of entries; the matched cycles' depths and exits are reported beside. A replica that enters on every dip matches most of the vault's and fails on its own share.
+  - A factor of 2 in a variance is `√2` in volatility. The power table's rows are a factor of 2 apart in volatility, so `√2` is half the way from one row to the next. It is a chosen tolerance and nothing follows from it but the sentence above: two volatilities within it can lie on two sides of a row, and their powers can differ.
+  - 212 days are the replay's own length. The two variances are of spans of one length, and the forward span is fixed here, so nobody chooses when to measure.
+- **Why a fixed factor and not an interval.** A block bootstrap's 95% interval for this ratio covers it 0.63 to 0.93 of the time on simulated records, the less the longer variance persists. It would judge by a width that is wrong in the cases that matter, so none is built.
+- *Passes while the claim is false:* a forward volatility just outside the factor, by sampling; and a ledger equally volatile for another reason, in fewer and deeper cycles, or by moves inside the day that cancel by midnight. The claim is of the volatility of the wealth at days' ends and of nothing else the wall rests on: the forward Sharpe is reported with its standard error and judges nothing.
 - *Fails while the claim holds:*
-  - the vault's order waited in the queue more than 6 minutes after the touch that fills the replica's;
+  - in a market whose variance persists at 0.97 a day and whose law never changes, the later of two spans of 212 days leaves the factor 0.16 of the time;
+  - one day's mark moves a variance: a wealth up 30% at one midnight and back the next can add more than the rest of the span;
+  - a change in every coin's volatility moves the ledger's with it. The basket's own ratio is reported beside, and the verdict stands, because the years a test needs are set by the volatility there is.
+- *A record that stops before the 212th day* leaves the condition not judged, with the ratio so far in the report. Stopping can turn a failure into "not judged", which the report shows. It cannot make "held".
+- *Not claimed:* that the bootstrap's power was right, which one path cannot show; anything about the bar; anything about the days after the 212th.
+
+**CS2.3.** Claim: over the first 61 judged days, more than half of the replica's entries and more than half of the vault's were matched one to one, on the same coin and within 6 minutes.
+- **Judged once,** at the first replay after the 61st judged day is run.
+- **An entry** is a fill that finds its coin's position at zero: its coin and its time. The replica's entries are those of the forward run itself, the run CS2.1 judges, read from its report's rows. The vault's are read the same way from its own fills, replayed through the ledger from its first fill (brief 3, layer 1), which holds every fill to the position the one before left. Both lists are the engine's rows, so neither holds a date the engine refuses. An entry counts when its time is in the 61 days.
+- **Two entries match** when they are of one coin and at most 6 minutes apart. The matched count is the size of the largest set of pairs, one of the replica's and one of the vault's each, no entry in two.
+- **Met** when twice the matched count is more than the replica's entries and more than the vault's. **Otherwise** "not shown". **Not judged** when fewer than 61 judged days were run, or when the vault's fills fail their replay, a missing fill among them; the report says which.
+- **No day is left out.** A gap in the recorder's streams is staleness, in which the replica enters nothing, and those days count against the match.
+- **What it licenses.** The words "a rule most of whose entries matched the vault's", with the three counts. Without it the forward test is read as of "a rule fitted to the vault's record".
+- **Reported beside, judging nothing:** the same counts with the replica run under `optimistic`; the matched cycles' depths and exits.
+- **Numbers.**
+  - 6 minutes is a tolerance: the first decile of the vault's cycle lengths, 0.10 hours, so that an entry is seldom matched to one of a later cycle of the vault's. It does not make a matched pair one cycle.
+  - A half is what "most" means. It is no test: two rules that both buy falls meet more often than chance, 0.0047 for an entry at a random time.
+  - 61 days are the length of the two months held back before the freeze, so the wall there and this condition are one statistic on spans of one length. The vault's rate gives about 582 entries in them.
+- *Passes while the claim is false:* the claim is of the times of first fills and of nothing else.
+  - Entries match where neither account was in the other's cycle: the replica in and out before the vault enters.
+  - Two different rules react to one fall of the market.
+  - Levels, sizes and exits differ; the matched cycles' are reported beside.
+  - A replica that enters on every dip matches most of the vault's entries, and fails on its own share.
+- *Fails while the claim holds:*
+  - `pessimistic` credits the replica's resting buy later than the vault's was filled, or never. The replica as judged then did not enter where the vault did, and "not shown" is true of it; the counts under `optimistic` say how much of that is the fill rule;
+  - the vault's order waited in the queue more than 6 minutes after the print that fills the replica's;
   - the vault's operator changed the rule after 2026-10-31;
-  - the two accounts drifted apart in which coins they hold, so that one cannot enter where the other does.
-  - The same statistic on the months held back before the freeze (the brief's step 3) says beforehand how large the first and third are.
-- *Not claimed:* that the replica's profit is the vault's, or that either has an edge.
+  - one exit the replica does not copy leaves it in a cycle while the vault opens others, and each of those is unmatched on both sides.
+  - The same statistic on the months held back before the freeze (the brief's step 3) says beforehand how large these are.
+- *Not claimed:* that a matched entry came from the same order, placed for the same reason; that the replica's profit is the vault's, or that either has an edge.
 
-Exit when CS2.1 and CS2.2 are named at the test's end and CS2.3 after its one judging.
+Exit when CS2.1 is final and CS2.2 and CS2.3 have each had their one judging.
 
-**Unsure, for the reviewers.**
-1. Whether CS2.3's half is a derivation or only a word. The alternative is no verdict: the two shares and no sentence that depends on them.
-2. Whether entries should be matched on fills at all. The vault's placements are not on record unless `historicalOrders` is certified; with them the match would be of orders, and the queue would leave it.
-3. Whether CS2.2 should judge the volatility in units of the basket's, which would separate the rule's wall from the market's weather and lose the link to the years a test needs.
-4. The defence against a quote that never stood, proposed under CS2.1.
+**One decision before the commit, for the advisor.** Argon's construction A passes CS2.1 with a wealth that is 1 at the bid. The cause is that the ledger's coins are valued where it cannot sell them: a sale is at or under the price (law T1), and the price is a mid. Valuing them for the two comparisons at adverse prices (the lesser of the latest bid and the price, kernel A10) removes the case, keeps the size (that wealth is never above `W`, so it reaches 20 no more often) and costs half a spread. It also changes what six rounds converged on: K1's wealth, A12's "no mark but the price", and the report's coin rows, which hold no bid. So it is recommended and not made. If it is refused, the claim stands as worded above, valued at prices.
 
 ## Stages 1, 2 and 4: what a recorded pass shows
 
