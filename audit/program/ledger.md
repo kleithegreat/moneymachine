@@ -395,3 +395,13 @@ Written 2026-11-14 00:14 UTC (2026-11-13 19:14 EST) by Claude Fable 5.2, session
 ### Convergence
 
 **Study 1: converged, as after round six.** The revision changes cost and not the claim. A44 is the one point on which a judged number rests, and it is a tested law, not an argument.
+
+## After the calibration's time limit, study 1
+
+Appended 2026-11-15 09:19 UTC (04:19 EST) by Claude Fable 5.2, session "architect: study 1's calibration wall, kernel version 2's wording, study 2's criteria". No outside model has seen it, and none is owed: it changes no trial and no judged number.
+
+| # | Point | Rests on | Could it change a judged result? |
+|---|---|---|---|
+| A113 | The calibration's projection is printed and stops nothing. The 24 hours were never derived, and no limit can be: a run that keeps every trial and no market loses nothing by running, and the window's cost is linear in time | The plan, "The projection is not a wall"; behaviour 7, L5.3 | No. The strength and the report are the same trials |
+
+**Study 1: converged, as before.**
