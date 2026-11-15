@@ -1,4 +1,4 @@
-"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 5 on kernel version 2), audit/program/paper-changes.md
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 6 on kernel version 2), audit/program/paper-changes.md
 and audit/program/argon-paper-findings.md. Cited numbers carry their sources there.
 
 Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
@@ -481,42 +481,81 @@ class GuardRule(Books):
         self.cash = wealth - sum((held * prices[coin] for coin, held in self.units.items()), Fraction(0))
 
 
-def pairs_market(period: int, minutes: int, astride: bool = False) -> list[dict[str, Fraction]]:
-    """Argon's market with the pairs alternating (GPT's finding 4, round 5), as the trace gives it: each coin's price at every minute's tick. In a pair
-    A moves and then B, one up 0.25 and the other down 0.15, the two changing places from one pair to the next. A pair comes every `period` minutes,
-    A in its first minute and B in its second; or, `astride`, every minute, A just before a tick and B just after it. Prices stay on the grid of 8
-    decimals."""
-    grid = Fraction(1, 10**8)
-    up, down = Fraction(5, 4), Fraction(17, 20)
-    prices = {"A": Fraction(100), "B": Fraction(100)}
-    ticks = [dict(prices)]
-    for minute in range(1, minutes + 1):
-        if astride:
-            moved = {"A": minute - 1, "B": minute - 2}
-        else:
-            pair, phase = divmod(minute - 1, period)
-            moved = {"AB"[phase]: pair} if phase < 2 else {}
-        for coin, pair in moved.items():
-            if pair >= 0:
-                rose = (pair % 2 == 0) == (coin == "A")
-                prices[coin] = prices[coin] * (up if rose else down) // grid * grid
-        ticks.append(dict(prices))
-    return ticks
+PAIR_UP, PAIR_DOWN = Fraction(5, 4), Fraction(4, 5)
+MINUTE = 60_000
+DAY = 1440 * MINUTE
 
 
-def guard_reach(ticks: list[dict[str, Fraction]], clock: int, bar_log_a_minute: float) -> float:
-    """The most that the best mix found at `clock` minutes stood over the bar at a day's end. The search is a grid of tenths: any mix is a witness, so
-    a poor search can only miss one."""
-    most = 0.0
+def pairs_market(period: int, minutes: int, astride: bool = False) -> list[tuple[int, str, Fraction]]:
+    """Two coins quoted in turn, as price events (time in ms, coin, new price) in the machine's order. In a pair A moves and then B, one up a quarter
+    and the other down a fifth, the two changing places from one pair to the next, so A's price is 100 or 125 and B's 100 or 80 for ever: on the
+    venue's grid of five significant figures and inside its range, which Argon's 0.25 and -0.15 left within three moves (GPT's finding 4, round 6).
+    A pair comes every `period` minutes, A in its first minute and B in its second; or, `astride`, every minute, A a millisecond before a tick and B
+    a millisecond after it."""
+    events = []
+    spacing = MINUTE if astride else period * MINUTE
+    for pair in range(minutes * MINUTE // spacing):
+        a_rises = pair % 2 == 0
+        a_time = (pair + 1) * MINUTE - 1 if astride else pair * spacing + MINUTE // 2
+        b_time = (pair + 1) * MINUTE + 1 if astride else pair * spacing + 3 * MINUTE // 2
+        events.append((a_time, "A", Fraction(125 if a_rises else 100)))
+        events.append((b_time, "B", Fraction(80 if a_rises else 100)))
+    return sorted(event for event in events if event[0] <= minutes * MINUTE)
+
+
+def bar_log(events: list[tuple[int, str, Fraction]], until: int) -> float:
+    """The log of the bar at time `until`, from what the report's coin rows hold then (kernel A12, K2): each coin's three sums over its price events,
+    and its price over its first. One span, no funding."""
+    price = {"A": Fraction(100), "B": Fraction(100)}
+    sums = {coin: np.zeros(3) for coin in price}
+    for time, coin, new in events:
+        if time > until:
+            break
+        change = float(new / price[coin] - 1)
+        sums[coin] += [change, change**2, change**3]
+        price[coin] = new
+    first, second, third = (np.array([sums[coin][power] for coin in "AB"]) for power in range(3))
+    alone = max(float(now) / 100 for now in price.values())
+    return max(dual_bound(first, second, third), math.log(alone))
+
+
+def guard_fold(rule: GuardRule, events: list[tuple[int, str, str, Fraction]], clock: int, until: int, first: dict[str, Fraction]) -> dict[int, Fraction]:
+    """Kernel B1's `guard`: the rule's books folded over the engine's price and funding events and a minute's ticks in the machine's order, a tick
+    after every event of its timestamp. `events` are (time, kind, coin, value): a "price" sets the coin's price, and a "funding" is paid, as the
+    ledger pays it, on the units held into it, where the first the cash cannot meet ends the rule. The rule sees prices only at ticks, and trades
+    back to its mix at those that are whole multiples of `clock` minutes. Returns its wealth at each day's end, zero once it has ended."""
+    price = dict(first)
+    wealth_at: dict[int, Fraction] = {}
+    pending = iter(events)
+    event = next(pending, None)
+    for tick in range(0, until + 1, MINUTE):
+        while event is not None and event[0] <= tick:
+            _, kind, coin, value = event
+            if kind == "price":
+                price[coin] = value
+            elif not rule.ended:
+                rule.fund(coin, value)
+            event = next(pending, None)
+        if not rule.ended and tick % (clock * MINUTE) == 0:
+            rule.rebalance(price)
+            assert rule.cash >= 0 and (rule.cash / CASH_GRID).denominator == 1
+        if tick > 0 and tick % DAY == 0:
+            wealth_at[tick] = Fraction(0) if rule.ended else rule.wealth(price)
+    return wealth_at
+
+
+def guard_reach(market: list[tuple[int, str, Fraction]], clock: int, minutes: int) -> dict[int, float]:
+    """The most that the best mix found at `clock` minutes stood over the bar at each day's end. The search is a grid of tenths: any mix is a witness,
+    so a poor search can only miss one."""
+    events = [(time, "price", coin, new) for time, coin, new in market]
+    most: dict[int, float] = {}
     for tenths_a in range(11):
         for tenths_b in range(11 - tenths_a):
             rule = GuardRule({"A": Fraction(tenths_a, 10), "B": Fraction(tenths_b, 10)})
-            for minute, prices in enumerate(ticks):
-                if minute % clock == 0:
-                    rule.rebalance(prices)
-                    assert rule.cash >= 0 and (rule.cash / CASH_GRID).denominator == 1
-                if minute > 0 and minute % 1440 == 0:
-                    most = max(most, math.exp(math.log(rule.wealth(prices)) - bar_log_a_minute * minute))
+            start = {"A": Fraction(100), "B": Fraction(100)}
+            for day_end, wealth in guard_fold(rule, events, clock, minutes * MINUTE, start).items():
+                over = math.exp(math.log(wealth) - bar_log(market, day_end))
+                most[day_end // DAY] = max(most.get(day_end // DAY, 0.0), over)
     return most
 
 
@@ -527,9 +566,9 @@ def round_down(value: Fraction, bits: int = 128) -> Fraction:
     return (value // unit) * unit
 
 
-def ledger_fuzz(runs: int = 300, events: int = 400, seed: int = 41) -> tuple[int, int, Fraction]:
-    """Random long-only accounts on three coins under random stake rules, fills at prices no better than the tape (T1), fees not negative, funding of
-    either sign at most a unit's price (V16). Asserts what law K1 says: scales, cash and units never negative, every number on its grid, and no fill
+def ledger_fuzz(runs: int = 300, events: int = 400, seed: int = 41, fee_top: int = 100) -> tuple[int, int, Fraction]:
+    """Random long-only accounts on three coins under random stake rules, fills at prices no better than the tape (T1), fee rates from 0 to below
+    `fee_top` of 10^-5 (kernel A8 admits 0 to 1), funding of either sign at most a unit's price (V16). Asserts what law K1 says: scales, cash and units never negative, every number on its grid, and no fill
     raising the wealth. Returns the events folded, the ledgers a payment ended, and the largest cash in grid units."""
     rng = np.random.default_rng(seed)
     cents = Fraction(1, 10**8)
@@ -542,7 +581,7 @@ def ledger_fuzz(runs: int = 300, events: int = 400, seed: int = 41) -> tuple[int
         for _ in range(events):
             coin = "ABC"[int(rng.integers(3))]
             kind = int(rng.integers(4))
-            fee = Fraction(int(rng.integers(0, 100)), 10**5)
+            fee = Fraction(int(rng.integers(0, fee_top)), 10**5)
             if kind == 0:
                 prices[coin] = max(cents, prices[coin] * Fraction(int(rng.integers(900, 1101)), 1000) // (cents / 2) * (cents / 2))
             elif kind == 1:
@@ -668,25 +707,6 @@ def round5() -> None:
     replay_days, test_days = 212, 730
     print(f"    the guard as the test run on rules without skill: over a replay of {replay_days} days a rule on course to reach 20 in {test_days} has reached {20 ** (replay_days / test_days):.2f} times the bar; under rung 2's null a rule fixed beforehand does that with chance at most {20 ** (-replay_days / test_days):.2f}. The pair's rebalancer is refused if a registered clock is the pair's, and no finite list of clocks holds every pair's")
 
-    clocks = {"a minute": 1, "five minutes": 5, "an hour": 60, "a day": 1440}
-    print("    the guard as built, each rule in exact books traded back to its mix at its clock's ticks, at the prices a trace of minute ticks holds, over two days:")
-    five = pairs_market(5, 2880)
-    reached = {name: guard_reach(five, clock, dual / 2 / 5) for name, clock in clocks.items()}
-    assert reached["five minutes"] >= 20 and all(reach < 1 for name, reach in reached.items() if name != "five minutes")
-    print("      a pair every five minutes: the most each clock's best mix stood over the bar at a day's end is " + ", ".join(f"{name} {reach:.3g}" for name, reach in reached.items()))
-    astride = pairs_market(1, 2880, astride=True)
-    reached = {name: guard_reach(astride, clock, dual / 2) for name, clock in clocks.items()}
-    assert all(reach < 1 for reach in reached.values())
-    print("      a pair astride every minute's end, A just before it and B just after: at every tick both coins have moved the same way since the last, and the most is " + ", ".join(f"{name} {reach:.3g}" for name, reach in reached.items()) + f"; a half-and-half mix traded between the pairs still gains {pair_mix ** 0.5 / math.exp(dual / 2):.5f} of the bar a minute. A quiet guard is not a safe record")
-    holder = GuardRule({"A": Fraction(1)})
-    holder.rebalance({"A": Fraction(100)})
-    holder.fund("A", Fraction(1))
-    saver = GuardRule({"A": Fraction(9, 10)})
-    saver.rebalance({"A": Fraction(100)})
-    saver.fund("A", Fraction(1))
-    assert holder.ended and not saver.ended
-    print(f"      a rule wholly in a coin that then charges funding has no cash to pay and ends; one that keeps a tenth in cash goes on, with cash {float(saver.cash):.3f}")
-
     step = 0.01
     print(f"  GPT's finding 5, two coins moving in turn, each up {step} at its event: every return is {step} whatever came before, yet a holder of the coin due to move grows {(1 + step) ** 2:.6f} a pair against the best mix's {(1 + step / 2) ** 2:.6f}. What came before told which coin moves")
     rng = np.random.default_rng(47)
@@ -724,6 +744,86 @@ def round5() -> None:
     gap = 60_000
     record = [(0, "quote"), (gap + 10, "print"), (gap + 10, "quote"), (gap + 20, "print")]
     print(f"  layer 2's join, Argon's finding 5: a print at {gap + 10} ms sharing its millisecond with the first quote after a gap of G = {gap}: stale at the print is {stale_at(record, 1, gap)}, since the quote comes after it in the machine's order; at the next print, {stale_at(record, 3, gap)}")
+
+
+def round6() -> None:
+    """Round 6's constructions, each against the specification that admitted it and against its repair."""
+    one, none = Fraction(1), Fraction(0)
+    cash_after = {}
+    for rate in (Fraction(2), one):
+        ledger = TestLedger(one, one)
+        ledger.buy("A", one, one, none)
+        ledger.sell("A", one, one, rate)
+        cash_after[rate] = ledger.cash
+    assert cash_after[Fraction(2)] == -1 and cash_after[one] == 0
+    folded, ended, _ = ledger_fuzz(seed=53, fee_top=10**5 + 1)
+    print(f"  GPT's finding 1, phi = 1 and d = 1: one unit bought at 1 with no fee and sold at 1 under a dated tier of 2 leaves cash {cash_after[Fraction(2)]}, in books defined as never negative; at a rate of 1, the most A8 now admits, it leaves {cash_after[one]}. {folded:,} random events with rates over the whole of 0 to 1 ({ended} ledgers ended by a payment): no scale, cash or unit balance negative")
+
+    settled = {"A": none, "B": one}
+    listed = [coin for coin in settled if coin != "A"]
+    try:
+        GuardRule({"A": Fraction(1, 2)}).rebalance(settled)
+        divides = False
+    except ZeroDivisionError:
+        divides = True
+    after = GuardRule({coin: Fraction(1, 2) for coin in listed})
+    after.rebalance(settled)
+    assert divides and after.units == {"B": Fraction(1, 2)} and after.wealth(settled) == 1
+    print(f"  GPT's finding 2, A and B at 1 and A settled at zero at noon: A's return of -1 is in the closing span's row; the next span's coin held alone and a guard's weight in A both divide by a first price of {settled['A']}. With a span's coins those still listed, the next span's are {listed}, its bar is over B and cash, and a rule weighing {listed} holds {float(after.units['B'])} of B: nothing divides by zero, and no zero is tested for")
+
+    def books(a_first: bool) -> GuardRule:
+        rule = GuardRule({"A": Fraction(495, 1000), "B": Fraction(495, 1000)})
+        charge, payment = ("funding", "A", Fraction(4, 100)), ("funding", "B", Fraction(-4, 100))
+        first, second = (charge, payment) if a_first else (payment, charge)
+        guard_fold(rule, [(30_000, *first), (40_000, *second)], 1, MINUTE, {"A": one, "B": one})
+        return rule
+
+    in_x, in_y = books(True), books(False)
+    assert in_x.ended and not in_y.ended and in_y.cash == Fraction(1, 100)
+    print(f"  GPT's finding 3, cash 0.01 and 0.495 of A and of B at 1, and within one minute A charges 0.04 a unit and B pays 0.04: a tick's totals are the same in both orders; with A first the bill of {0.495 * 0.04:.4f} is more than the cash and the rule {'ends' if in_x.ended else 'goes on'}, with B first it {'ends' if in_y.ended else 'goes on'} with cash {float(in_y.cash):.2f}. The guard reads the events")
+
+    def hour(funding_first: bool) -> GuardRule:
+        rule = GuardRule({"A": Fraction(9, 10)})
+        rule.rebalance({"A": Fraction(100)})
+        if funding_first:
+            guard_fold(rule, [(59 * MINUTE, "price", "A", Fraction(400)), (60 * MINUTE, "funding", "A", Fraction(15))], 60, 60 * MINUTE, {"A": Fraction(100)})
+        else:
+            rule.rebalance({"A": Fraction(400)})
+            rule.fund("A", Fraction(15))
+        return rule
+
+    machine, swapped = hour(True), hour(False)
+    assert machine.ended and not swapped.ended
+    print(f"  Argon's finding 1, nine tenths in A at 100, A at 400 by the hour and charging 15 a unit on it: in the machine's order, funding before the tick of its timestamp, the rule owes {0.009 * 15:.3f} from cash of 0.100 and {'ends' if machine.ended else 'goes on'}; rebalanced first it {'ends' if swapped.ended else 'goes on'}, having paid on {float(swapped.units['A']):.6f} units and not the 0.009000 it held into the payment")
+
+    holder = GuardRule({"A": one})
+    saver = GuardRule({"A": Fraction(9, 10)})
+    for rule in (holder, saver):
+        guard_fold(rule, [(30_000, "funding", "A", one)], 1440, MINUTE, {"A": Fraction(100)})
+    assert holder.ended and not saver.ended
+    print(f"    a rule wholly in a coin that then charges funding has no cash to pay and ends; one that keeps a tenth in cash goes on, with cash {float(saver.cash):.3f}")
+
+    up, down = float(PAIR_UP - 1), float(PAIR_DOWN - 1)
+    sums = (np.full(2, up + down), np.full(2, up**2 + down**2), np.full(2, up**3 + down**3))
+    dual = dual_bound(*sums)
+    pair_mix = (1 + up / 2 + down / 2) ** 2
+    event_mix = ((1 + up / 2) * (1 + down / 2)) ** 2
+    print(f"  GPT's finding 4, the guard's fixtures. Argon's pair of +0.25 and -0.15 from 100: 125, 106.25, 132.8125, off a grid of five significant figures at the third move, and near {100 * 1.0625**288:.1e} after two days. A pair of {up:+.2f} and {down:+.2f}: prices of 100, 125 and 80 for ever")
+    print(f"    a block of two pairs: each coin held grows {(1 + up) * (1 + down):.4f}; the best mix at every event {event_mix:.6f}; the bar exp({dual:.9f}) = {math.exp(dual):.5f}; a half-and-half mix rebalanced at each pair {pair_mix:.6f}, {pair_mix / math.exp(dual):.5f} of the bar")
+    clocks = {"a minute": 1, "five minutes": 5, "an hour": 60, "a day": 1440}
+    minutes = 2880
+    five = pairs_market(5, minutes)
+    assert abs(bar_log(five, DAY) - 144 * dual) < 1e-6
+    reached = {name: guard_reach(five, clock, minutes) for name, clock in clocks.items()}
+    assert reached["five minutes"][1] >= 20 and all(reach < 1 for name, days in reached.items() if name != "five minutes" for reach in days.values())
+    print("    the guard as built, each rule folded over the market's events and a minute's ticks, against a bar computed from the same events' sums. A pair every five minutes, the most each clock's best mix stood over the bar at the first and second day's end: " + ", ".join(f"{name} {days[1]:.3g} and {days[2]:.3g}" for name, days in reached.items()))
+    astride = pairs_market(1, minutes, astride=True)
+    reached = {name: guard_reach(astride, clock, minutes) for name, clock in clocks.items()}
+    assert all(reach < 1 for days in reached.values() for reach in days.values())
+    print("    a pair astride every minute's end, A a millisecond before it and B a millisecond after: at every tick both coins have moved the same way since the last, and the most at either day's end is " + ", ".join(f"{name} {max(days.values()):.3g}" for name, days in reached.items()) + f"; a half-and-half mix traded between the pairs still gains {pair_mix ** 0.5 / math.exp(dual / 2):.5f} of the bar a minute. A quiet guard is not a safe record")
+
+    print(f"  GPT's notes. Half a unit at 1 paid 0.01 a unit, N times: cash is 0.5 + 0.005 N, a numerator that grows on a grid that does not. One coin with fair returns of a half up or down and a rule in cash: the bar after one rise is exp(5/12), then exp(5/6) or 1, and the rule's ratio to it has mean {(math.exp(-5 / 6) + 1) / 2:.4f} against {math.exp(-5 / 12):.4f} before: no supermartingale. Its ratio to the null's mix is one, and the bar is at least that mix")
+
 
 
 WINDOWS = (22, 28, 35, 44, 66)
@@ -966,6 +1066,8 @@ if __name__ == "__main__":
     round4()
     print("Round 5 on kernel version 2 (section 6, kernel-v2.md part C)")
     round5()
+    print("Round 6 on kernel version 2 (section 6, kernel-v2.md part D)")
+    round6()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
