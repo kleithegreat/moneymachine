@@ -45,6 +45,12 @@ retrieved 2026-11-14): "Maximum of 10 websocket connections", "Maximum of 30 new
 websocket connections"; and "The server will close any connection if it hasn't sent a message to it in the last 60
 seconds" ([heartbeats](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/timeouts-and-heartbeats)).
 
+Price grid (kernel version 2, A18; [tick and lot size](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size),
+retrieved 2026-11-15, quoted): "Prices can have up to 5 significant figures, but no more than `MAX_DECIMALS - szDecimals`
+decimal places where `MAX_DECIMALS` is 6 for perps and 8 for spot." "Integer prices are always allowed, regardless of
+the number of significant figures. E.g. `123456` is a valid price even though `12345.6` is not." Not entered in
+`rules.json`, which the frozen kernel hashes and study 1's markets read.
+
 Rolling retention means the 4h bars at the start of W drop out of the API around
 2027-01. Our first fetch is the only lasting copy, so the store is append-only.'''
 
