@@ -4,7 +4,8 @@
     python ops/jobs.py submit <run> <sweep> <digest> [node]      sweep: null | mixed | xm
     python ops/jobs.py resubmit <run>
     python ops/jobs.py collect <run>...
-    python ops/jobs.py calibrate <run> <digest>                study 1's calibration over CAL_HOSTS, from this PC
+    python ops/jobs.py calibrate <run> <digest> [source]       study 1's calibration over CAL_HOSTS, from this PC,
+                                                               starting from the complete lines of another run's
 
 `submit` and `resubmit` block until the Job completes or fails. `mm`, the betas and each Job's id list are staged by
 sha256 and checked in every pod. A task runs one campaign in local
@@ -366,10 +367,6 @@ CAL_WORKER_BYTES = 512 * 2**20
 CAL_ROUND_RETRIES = 2
 
 
-def cal_weights() -> str:
-    return ",".join(str(cores) for _, cores in CAL_HOSTS)
-
-
 def cal_effect(out: Path, k: int, mode: str, work: Path) -> None:
     """One host's part of study 1's calibration (gate/control/calibrate.py, step 5's behaviour 8): its probe, its
     share of the current set, or, with no share, the deciding run."""
@@ -378,19 +375,19 @@ def cal_effect(out: Path, k: int, mode: str, work: Path) -> None:
     from gate.control import calibrate
 
     if mode == "probe":
-        seconds, result = calibrate.timed_trial(work / "market")
+        seconds, results = calibrate.timed_trials(work / "market", CAL_HOSTS[k][1])
         tmp = out / f".probe-{k}.tmp"
-        tmp.write_text(json.dumps({"seconds": seconds, "result": result}))
+        tmp.write_text(json.dumps({"seconds": seconds, "results": results}))
         tmp.rename(out / f"probe-{k}.json")
         return
-    argv = ["--weights", cal_weights()] + (["--share", str(k)] if mode == "share" else [])
+    argv = ["--share", str(k)] if mode == "share" else []
     code = calibrate.main(
         argv,
         out=out,
         work=work,
         trial=calibrate.g100_trial,
         blind=calibrate.blind_trial,
-        probes=partial(calibrate.file_probes, out, len(CAL_HOSTS)),
+        probes=partial(calibrate.file_probes, out),
         workers=CAL_HOSTS[k][1],
     )
     if mode == "decide" and code:
@@ -483,28 +480,33 @@ def cal_step(run: str, step: str, mode: str, record: dict[str, Any]) -> bool:
     return ok
 
 
+def complete_lines(path: Path) -> str:
+    text = path.read_text()
+    return text[: text.rfind("\n") + 1]
+
+
 def merge_shares(out: Path, step: str) -> int:
     """Append every host's complete share lines to the merged log, then keep each share file under its step's name;
-    lines repeated across rounds count once (behaviour 8)."""
+    only `share-<digits>.jsonl` is this round's (behaviour 8)."""
     added = 0
     with (out / "calibration.jsonl").open("a") as merged:
         for share in sorted(out.glob("share-*.jsonl")):
-            text = share.read_text()
-            complete = text[: text.rfind("\n") + 1]
-            merged.write(complete)
-            added += complete.count("\n")
-            share.rename(out / f"{share.stem}.{step}.jsonl")
+            if re.fullmatch(r"share-\d+\.jsonl", share.name):
+                complete = complete_lines(share)
+                merged.write(complete)
+                added += complete.count("\n")
+                share.rename(out / f"{share.stem}.{step}.jsonl")
     return added
 
 
-def calibrate(run: str, digest: str) -> None:
+def calibrate(run: str, digest: str, source: str | None = None) -> None:
     """Study 1's calibration over CAL_HOSTS: probes, then rounds of shares merged here, then the deciding run.
-    Rerun with the same run name, it resumes from the merged log."""
+    Rerun with the same run name, it resumes from the merged log. A new run may start from the complete lines of
+    `source`, a run on the same kernel, which is only read."""
     from gate.control import calibrate as cal
 
     out = RESULTS / run
     if not out.exists():
-        out.mkdir()
         record = {
             "kind": "calibration",
             "image": digest,
@@ -515,7 +517,16 @@ def calibrate(run: str, digest: str) -> None:
             "hosts": CAL_HOSTS,
             "run": run,
         }
+        carried = ""
+        if source is not None:
+            record["from"] = source
+            if json.loads((RESULTS / source / "record.json").read_text())["mm"] != record["mm"]:
+                raise SystemExit(f"calibration: {source} ran another kernel")
+            logs = [RESULTS / source / "calibration.jsonl", *sorted((RESULTS / source).glob("share-*.jsonl"))]
+            carried = "".join(complete_lines(log) for log in logs if log.exists())
+        out.mkdir()
         (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
+        (out / "calibration.jsonl").write_text(carried)
     record = json.loads((out / "record.json").read_text())
     (out / "k/release").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(INPUTS / record["mm"], out / "k/release/mm")

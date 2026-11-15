@@ -1,10 +1,11 @@
 """Calibration and the model-free walls (step 5), laws L5.1 to L5.6.
 
-`python -m gate.control.calibrate --weights w0,w1,...` finds the strength at which G100 earns from the plant at
+`python -m gate.control.calibrate` finds the strength at which G100 earns from the plant at
 TARGET, checks it on fresh markets, and judges walls 2 to 5 (audit/program/briefs/1-positive-control.md, step 5).
 Every trial's result is one JSON line in `calibration.jsonl`, so a stopped run resumes without recomputing. With
-`--share k` the run evaluates only host k's share of the first set of trials the log lacks, appends it to
-`share-k.jsonl` and decides nothing; the hosts' lines are merged into the log in any order."""
+`--share k` the run evaluates only host k's share, by the hosts' measured rates, of the first set's trials that
+`calibration.jsonl` lacks, appends them to `share-k.jsonl` and decides nothing; the hosts' lines are merged into the
+log in any order. The projection is printed and stops nothing: `main` runs whatever its probes' times."""
 
 import argparse
 import hashlib
@@ -312,25 +313,29 @@ def make_report(
     }
 
 
-def projected_seconds(seconds_per_market: float, cores: int = 1) -> float:
-    """The job's time in whole markets: every strength on the search's markets, one on the check's, and wall 3's
-    and wall 5's blind markets."""
+def projected_seconds(rates: Sequence[Fraction]) -> float:
+    """The job's time at the hosts' rates (markets a second) when each gets a share in proportion to its rate: the
+    whole markets of every strength on the search's markets, one on the check's, and wall 3's and wall 5's blind
+    markets, over the sum of the rates."""
     markets: int = STRENGTHS * constants.SEARCH_MARKETS + constants.CHECK_MARKETS + BLIND_MARKETS_EQUIVALENT
-    return markets * seconds_per_market / cores
+    return markets / float(sum(rates))
 
 
-def timed_trial(work: Path) -> tuple[float, Result]:
-    """The seconds one whole cal-a market takes at the bracket's upper end, with everything a market costs
-    (generating and writing it and its pairs, each evaluator's start, G100's evaluations and the classification),
-    and the trial's whole result."""
+def timed_trials(work: Path, workers: int) -> tuple[float, list[Result]]:
+    """The first cal-a market at the bracket's upper end, run once on each of `workers` at once, each in its own
+    directory under `work`, through a pool as `evaluate` runs trials: the seconds from before the pool starts to
+    the last result, with everything a market costs (generating and writing it and its pairs, each evaluator's
+    start, G100's evaluations and the classification), and every whole result."""
     started = time.perf_counter()
-    result = g100_trial(HI, cal_a_ids()[0], work)
-    return time.perf_counter() - started, result
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(g100_trial, HI, cal_a_ids()[0], work / f"probe-{i}") for i in range(workers)]
+        results = [future.result() for future in futures]
+    return time.perf_counter() - started, results
 
 
-def timed_market() -> float:
-    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as scratch:
-        return timed_trial(Path(scratch) / "market")[0]
+def rates(probes: Sequence[tuple[float, Sequence[Result]]]) -> list[Fraction]:
+    """Each host's markets a second under load: its timed trials over their seconds."""
+    return [Fraction(len(results)) / Fraction(seconds) for seconds, results in probes]
 
 
 class Incomplete(Exception):
@@ -365,29 +370,28 @@ def next_set(known: Log) -> tuple[float, list[str], str] | None:
     return None
 
 
-def shares(ids: Sequence[str], weights: Sequence[int]) -> list[list[str]]:
-    """One contiguous run of the ordered ids a host, in proportion to the weights (the hosts' cores)."""
+def shares(ids: Sequence[str], weights: Sequence[int | Fraction]) -> list[list[str]]:
+    """One contiguous run of the ordered ids a host, in proportion to the weights."""
     total = sum(weights)
     edges = [len(ids) * sum(weights[:k]) // total for k in range(len(weights) + 1)]
     return [list(ids[edges[k] : edges[k + 1]]) for k in range(len(weights))]
 
 
-def check_probes(probes: Sequence[tuple[float, Result]]) -> None:
+def check_probes(probes: Sequence[tuple[float, Sequence[Result]]]) -> None:
     """The hosts' timed trials must be equal in every field: `generate` is numpy, whose transcendental functions
     are chosen by CPU and may differ in the last bit between hosts."""
-    first = probes[0][1]
-    if any(result != first for _, result in probes):
+    results = [result for _, runs in probes for result in runs]
+    if any(result != results[0] for result in results):
         raise RuntimeError("wall: the hosts' timed trials differ")
 
 
-def file_probes(out: Path, hosts: int) -> list[tuple[float, Result]]:
-    rows = [json.loads((out / f"probe-{k}.json").read_text()) for k in range(hosts)]
-    return [(row["seconds"], row["result"]) for row in rows]
-
-
-def effective_seconds(weights: Sequence[int], seconds: Sequence[float]) -> float:
-    """Seconds a market takes on one core, as if the hosts were one machine of the sum of their rates."""
-    return 1 / sum(cores / elapsed for cores, elapsed in zip(weights, seconds))
+def file_probes(out: Path) -> list[tuple[float, list[Result]]]:
+    """Each host's seconds and results from `probe-0.json`, `probe-1.json` and on, to the first that is missing."""
+    found: list[tuple[float, list[Result]]] = []
+    while (path := out / f"probe-{len(found)}.json").exists():
+        row = json.loads(path.read_text())
+        found.append((row["seconds"], row["results"]))
+    return found
 
 
 def mirror_rates(blinds: Sequence[Result]) -> dict[str, float]:
@@ -411,9 +415,8 @@ def decide(known: Log, strength: float | None, found: dict[str, Any]) -> dict[st
 
 def parser() -> argparse.ArgumentParser:
     arguments = argparse.ArgumentParser(prog="python -m gate.control.calibrate")
-    arguments.add_argument("--weights", required=True, help="the hosts' cores, comma separated, in host order")
     arguments.add_argument("--share", type=int, help="run only this host's share and decide nothing")
-    arguments.add_argument("--probe", action="store_true", help="time this host's market and write probe-k.json")
+    arguments.add_argument("--probe", action="store_true", help="time this host's loaded market and write probe-k.json")
     return arguments
 
 
@@ -424,35 +427,41 @@ def main(
     work: Path,
     trial: Callable[[float, str, Path], Result],
     blind: Callable[[float, str, Path], Result],
-    probes: Callable[[], Sequence[tuple[float, Result]]],
+    probes: Callable[[], Sequence[tuple[float, Sequence[Result]]]],
     workers: int = 1,
 ) -> int:
     args = parser().parse_args(argv)
-    weights = [int(w) for w in args.weights.split(",")]
     timed = probes()
     check_probes(timed)
-    each = effective_seconds(weights, [seconds for seconds, _ in timed])
-    print(f"{each:.1f} s a market on one core of the hosts together: projected {projected_seconds(each) / 3600:.1f} h")
+    host_rates = rates(timed)
+    for k, rate in enumerate(host_rates):
+        print(f"host {k}: {3600 * float(rate):.1f} markets an hour")
+    print(f"projected {projected_seconds(host_rates) / 3600:.1f} h")
     merged = out / "calibration.jsonl"
     own = merged if args.share is None else out / f"share-{args.share}.jsonl"
     if own.exists():
         with own.open("r+b") as handle:
             handle.truncate(scan(own)[1])
     known = parse([merged, own])
+    logged = known.get((HI, cal_a_ids()[0]))
+    if logged is not None and logged != json.loads(json.dumps(timed[0][1][0])):
+        raise RuntimeError("wall: the hosts' timed trials differ from the log's")
     evaluators = {"trial": trial, "blind": blind}
 
-    def run_stage(stage: tuple[float, list[str], str]) -> None:
-        strength, ids, which = stage
-        todo = ids if args.share is None else shares(ids, weights)[args.share]
+    def run_stage(stage: tuple[float, list[str], str], todo: Sequence[str]) -> None:
+        strength, _, which = stage
         evaluate(partial(in_own_dir, evaluators[which], work), strength, todo, known, own, workers)
 
     if args.share is not None:
-        stage = next_set(known)
+        lacking = parse([merged])
+        stage = next_set(lacking)
         if stage is not None:
-            run_stage(stage)
+            strength, ids, _ = stage
+            missing = [i for i in ids if (strength, i) not in lacking]
+            run_stage(stage, shares(missing, host_rates)[args.share])
         return 0
     while (stage := next_set(known)) is not None:
-        run_stage(stage)
+        run_stage(stage, stage[1])
     found = bracket(partial(rate_in, known))
     result = decide(known, found["strength"], found)
     (out / "calibration.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -468,10 +477,10 @@ def cli(argv: Sequence[str]) -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     try:
         if args.probe:
-            seconds, result = timed_trial(scratch / "market")
-            (OUT / f"probe-{args.share}.json").write_text(json.dumps({"seconds": seconds, "result": result}))
+            seconds, results = timed_trials(scratch / "market", cores)
+            (OUT / f"probe-{args.share}.json").write_text(json.dumps({"seconds": seconds, "results": results}))
             return 0
-        probes = partial(file_probes, OUT, len(args.weights.split(",")))
+        probes = partial(file_probes, OUT)
         return main(argv, out=OUT, work=scratch, trial=g100_trial, blind=blind_trial, probes=probes, workers=cores)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
