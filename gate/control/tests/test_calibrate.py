@@ -29,7 +29,7 @@ The plan fixes behaviour, not names, so these tests fix the interface they use:
   `timed_market() -> float`, the seconds one whole cal-a market takes at the bracket's upper end, everything included;
   `projected_seconds(seconds_per_market, cores=1)`, the whole job's time, in markets: 13 strengths on 1,600, one on
   10,000, and wall 3's blind markets counted as at most 1,000 market-equivalents (the plan's 250,800 evaluations are
-   765); `projection_ok(seconds_per_market, cores) -> bool`, true when the projection is at most 24 hours.
+   765); the projection is printed and stops nothing: `main` runs whatever its probes' times.
 - `shares(ids, weights) -> list[list[str]]`: one contiguous share per positive integer core count, in host order.
    Rounding is unspecified; when the proportions are integral, the lengths are exact.
 - `main(argv, *, out, work, trial, blind, probes)` is the batch entry point with injected effects for these tests;
@@ -257,13 +257,6 @@ def test_the_projection_is_linear_in_the_market_time_and_inverse_in_the_cores(
     base = calibrate.projected_seconds(seconds, cores)
     assert calibrate.projected_seconds(seconds * factor, cores) == pytest.approx(base * factor)
     assert calibrate.projected_seconds(seconds, cores * 2) == pytest.approx(base / 2)
-
-
-@given(st.floats(0.01, 20.0), st.integers(1, 200))
-def test_a_projection_above_24_hours_stops_the_job(seconds: float, cores: int) -> None:
-    projected = calibrate.projected_seconds(seconds, cores)
-    assume(abs(projected - 86400) > 1)
-    assert calibrate.projection_ok(seconds, cores) is (projected <= 86400)
 
 
 @pytest.mark.slow  # one whole market through the kernel
@@ -815,3 +808,12 @@ def test_equal_host_probes_allow_differing_times_and_project_using_the_sum_of_co
             assert stopped.value.code not in (None, 0)
         assert stub.calls == []
         assert not (tmp_path / "calibration.json").exists()
+
+
+def test_a_projection_far_above_a_day_stops_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    small_batch(monkeypatch)
+    stub = Batch(Rate(0.3), 2)
+    stub.samples = [(10.0**6, result) for _, result in stub.samples]
+    batch(stub, tmp_path, [1, 3])
+    assert stub.calls
+    assert batch_report(tmp_path)["strength"] is not None
