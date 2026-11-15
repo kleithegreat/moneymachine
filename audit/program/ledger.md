@@ -955,7 +955,7 @@ The four doubts at the end of the notes: whether CS2.3's half is a derivation; w
 ### Owed
 
 - **By the advisor:** the review of the notes and the brief by Argon and GPT; then `criteria: study 2`, alone.
-- **By the architect:** the layout of the report's rows and of the trace. `KERNEL.md`'s encodings and grammar are written (the next section).
+- **By the architect:** nothing. `KERNEL.md`'s encodings, grammar and rows are written (the next section).
 
 ### Convergence
 
@@ -963,12 +963,12 @@ The four doubts at the end of the notes: whether CS2.3's half is a derivation; w
 
 ## `KERNEL.md`: the program's grammar and the market's encoding
 
-Appended 2026-11-15 09:48 UTC (04:48 EST) by Claude Fable 5.2, session "architect: study 1's calibration wall, kernel version 2's wording, study 2's criteria (continued)". **Written:** `kernel2/KERNEL.md`, A17 (the program) and A18 (the market: header, chunk, events, the order of a millisecond, funding's lateness). **Read for it:** `kernel-v2.md` whole, brief 3, the facts, `reference/SEMANTICS.md`, `kernel/DSL.md`. **Read of the data:** the count of significant figures and decimals of best bids on five coin-days before 2026-11-01, for the grid; no price was printed. No reviewer has seen any of it.
+Appended 2026-11-15 09:48 UTC (04:48 EST) by Claude Fable 5.2, session "architect: study 1's calibration wall, kernel version 2's wording, study 2's criteria (continued)". **Written:** `kernel2/KERNEL.md`, A17 (the program), A18 (the market: header, chunk, events, the order of a millisecond, funding's lateness) and, at 09:52 UTC (04:52 EST), A19 (the report's rows, the trace, `finish`'s summary). **Read for it:** `kernel-v2.md` whole, brief 3, the facts, `reference/SEMANTICS.md`, `kernel/DSL.md`. **Read of the data:** the count of significant figures and decimals of best bids on five coin-days before 2026-11-01, for the grid; no price was printed. No reviewer has seen any of it.
 
 ### In plain words
 
 - **Most of it is layout,** and changes no rule: which bytes hold an event, which JSON field holds a slot.
-- **Twelve points pin something part A left open.** Each is marked "Pinned here" in the file or is a row below. None reverses a sentence of part A, and none touches the ledger, the fills, the bar or a claim.
+- **Sixteen points pin something part A left open.** Each is marked "Pinned here" in the file or is a row below. None reverses a sentence of part A, and none touches the ledger, the fills, the bar or a claim.
 - **Part A changed in wording at four places** to agree: a field has its scale and a source only its encoding (A2); the "policy's cap" is the venue's (A6, A7, B1), since A1 already puts the cap in the venue; `known` is never sooner than a registered `lag` (A3); A5 points at A17 and A18.
 
 ### Settled by a derivation the reviewers have not seen
@@ -987,20 +987,24 @@ Appended 2026-11-15 09:48 UTC (04:48 EST) by Claude Fable 5.2, session "architec
 | D60 | What the header's coins are | The universe, in the order every "coin order" means, each with its rules at the horizon's start. There is no coin outside it | **Yes** |
 | D61 | Three inputs' edges | A slot with no live order has `resting` of zero and no `resting_price`. A slot whose price or target is undefined is inactive. `leverage` is a whole number, as the venue takes them | **Yes** |
 | D62 | Two roundings' edges | A buy priced under the least grid price rounds to zero and is A6's to refuse like any order; no fourth condition of admission is added, so R1 stands. A bar's print at a tie rounds to the higher | **Yes** |
+| D63 | Who writes the rows | The engine, as text: a line a row, tabs, an exact number as its rational in lowest terms, a float as its bits. OCaml moves bytes and formats nothing, and `confirm` and `guard` read the same text back, so no judged row is printed or parsed outside Lean | **Yes** |
+| D64 | When a day ends, and the last span | A day's end is the midnight itself, and its rows show the world after every event before it. The last span ends at the horizon's end, so P1's "exactly one span's last row" has a row there | **Yes** |
+| D65 | A cash-flow row's price and fee rate | Not fields. They are `−(cash + fee) / units` and the fee over the notional, and a funding row's unit payment is `−cash / before`: A12 lists the cash, and a second copy could disagree with it | **Yes** |
+| D66 | A coin's stale share in the account's row | Of that day's milliseconds, with a mark for a position or an order open in any of them | **Yes** |
 
 ### Open
 
 | | Point | Why it is open | When it must close |
 |---|---|---|---|
-| O4 | **Whole-number prices above five figures.** V1's grid is five significant figures. The venue's documents are said to allow any whole-number price whatever its figures (a lead from the architect's memory, in no certificate of ours). No recorded price before 2026-11-01 sampled has more than five figures, BTC's included, so nothing has tested it | Under A18 as written, a coin quoted at six whole digits is off the grid and admission rejects the market. That is loud, and it would stop a registered forward run on the day BTC passed 100,000 | **Before study 2's registration:** the tick rule certified from the venue's documents, and the grid's definition in A18 stated to match |
-| O5 | A listing event that lowers a coin's greatest leverage under the program's | A10 gives initial margin by the header's leverage and says nothing of this | Before any levered run; study 2 takes none |
+| O6 | **Whole-number prices above five figures.** V1's grid is five significant figures. The venue's documents are said to allow any whole-number price whatever its figures (a lead from the architect's memory, in no certificate of ours). No recorded price before 2026-11-01 sampled has more than five figures, BTC's included, so nothing has tested it | Under A18 as written, a coin quoted at six whole digits is off the grid and admission rejects the market. That is loud, and it would stop a registered forward run on the day BTC passed 100,000 | **Before study 2's registration:** the tick rule certified from the venue's documents, and the grid's definition in A18 stated to match |
+| O7 | A listing event that lowers a coin's greatest leverage under the program's | A10 gives initial margin by the header's leverage and says nothing of this | Before any levered run; study 2 takes none |
 
 ### Owed
 
-- **By the advisor:** a short read of `KERNEL.md` by GPT and Argon, D51 to D62 named, in the bundle that carries study 2's criteria; O4's certificate.
-- **By the architect:** A19, the layout of the report's rows and of the trace, before step 9.
+- **By the advisor:** a short read of `KERNEL.md` by GPT and Argon, D51 to D66 named, in the bundle that carries study 2's criteria; O6's certificate.
+- **By the architect:** nothing for the build's steps 0 to 10.
 
 ### Convergence
 
-**Kernel version 2: converged as before on parts A and B.** A17 and A18 are unreviewed. They are not a round: a finding against one of D51 to D62 is answered in `KERNEL.md` alone unless it shows a rule of part A false.
+**Kernel version 2: converged as before on parts A and B.** A17 to A19 are unreviewed. They are not a round: a finding against one of D51 to D66 is answered in `KERNEL.md` alone unless it shows a rule of part A false.
 

@@ -14,9 +14,9 @@ Written 2026-11-14 07:52 UTC (02:52 EST) by Claude Fable 5.2; revised 2026-11-14
 
 **Data a builder may read.** The archive before 2026-11-01 and the vault's fills before 2026-11-01. Nothing dated in [2026-11-01, 2027-01-31). From step 3 the executable enforces it (kernel A13); before that, and for every fixture of the recorder's format, data is synthetic.
 
-**Layout.** `kernel2/lean` (Lake library `Engine`, no executable, no `IO`), `kernel2/ocaml` (dune project, executable `mm2`), `kernel2/KERNEL.md` (the spec beside the code: it holds A17, the program's grammar, and A18, the market's encoding, and at step 0 part A of `kernel-v2.md` is moved there above them, with `kernel-v2.md` keeping parts B to D and linking to it).
+**Layout.** `kernel2/lean` (Lake library `Engine`, no executable, no `IO`), `kernel2/ocaml` (dune project, executable `mm2`), `kernel2/KERNEL.md` (the spec beside the code: it holds A17, the program's grammar, A18, the market's encoding, and A19, the rows, and at step 0 part A of `kernel-v2.md` is moved there above them, with `kernel-v2.md` keeping parts B to D and linking to it).
 
-**Written by the architect, in `KERNEL.md`:** the header, the chunk's layout and the encoding of every event, the whole order of a millisecond and funding's lateness rule (A18, for step 3 on); the program's JSON grammar and the float operators that name the hour restated in ticks (A17, for step 4 on). **Still owed, before step 9:** the layout of the report's three kinds of row and of the trace (A19). A builder who meets it missing stops and asks. Nothing is owed for step 10: the test ledger rounds nothing but a trade's size, and the step states that cut.
+**Written by the architect, in `KERNEL.md`:** the header, the chunk's layout and the encoding of every event, the whole order of a millisecond and funding's lateness rule (A18, for step 3 on); the program's JSON grammar and the float operators that name the hour restated in ticks (A17, for step 4 on); the layout of the report's three kinds of row, of the trace and of `finish`'s summary, as text the engine writes and reads (A19, for step 3's summary and step 9 on). Nothing more is owed: step 10's test ledger rounds nothing but a trade's size, and the step states that cut.
 
 ## The steps
 

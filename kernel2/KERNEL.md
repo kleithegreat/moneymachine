@@ -1,6 +1,6 @@
-# Kernel version 2: the program's grammar and the market's encoding
+# Kernel version 2: the program's grammar, the market's encoding and the rows
 
-Written 2026-11-15 UTC by Claude Fable 5.2. This file is the spec beside the code. Until the build's step 0 moves part A of `audit/program/kernel-v2.md` here, A1 to A16 are there, and this file holds what continues them: **A17, the program** as JSON, and **A18, the market** as the engine receives it. The layout of the report's rows and of the trace is A19, owed before step 9 and not yet written. Nothing here decides a rule that part A leaves open without saying so: each such point is marked **Pinned here**, and listed in `audit/program/ledger.md`.
+Written 2026-11-15 UTC by Claude Fable 5.2. This file is the spec beside the code. Until the build's step 0 moves part A of `audit/program/kernel-v2.md` here, A1 to A16 are there, and this file holds what continues them: **A17, the program** as JSON, and **A18, the market** as the engine receives it. **A19** is the rows the engine writes: the report and the trace. Nothing here decides a rule that part A leaves open without saying so: each such point is marked **Pinned here**, and listed in `audit/program/ledger.md`.
 
 ## A17. The program
 
@@ -170,7 +170,7 @@ One JSON document, read as strictly as a program; a fault is `E_HEADER`. Times a
 
 - **`venue`** is A1's record, whole: the fill rule, `λ`, `δ`, `G`, the order cap and the minimum order. Part A's "policy's cap" was this cap, and is now called the venue's.
 - **`cash`** is the account's starting cash, above zero.
-- **`coins`** are the market's coins, in the order every "coin order" means. They are the universe: there is no other coin, and an event names one by its place in this list. Each has its rules at the horizon's start, which is how `start` knows that every coin is listed then. `tiers` rise in `from`, the first from zero.
+- **`coins`** are the market's coins, in the order every "coin order" means. A name is 1 to 32 printable ASCII characters with no space. They are the universe: there is no other coin, and an event names one by its place in this list. Each has its rules at the horizon's start, which is how `start` knows that every coin is listed then. `tiers` rise in `from`, the first from zero.
 - **`fees`** are the dated tiers of A8, rising in `from`, the first at or before the horizon's start. The one in force at a time is the last that began at or before it.
 - **`sources`**: `listings` and `funding` are required. A **book market** has `quotes`, and `trades` when it has them. A **bar market** has, in their place, `"bars": {"span": Δ, "half_spread": h, "depth": notional}`, with `h` one decimal or an object of one a coin (A16, B1 to B3); it has of itself the five `state` sources `bar_open`, `bar_high`, `bar_low`, `bar_close` (`usd/coin`) and `bar_volume` (`coin`), which come before the declared ones in the order of sources. Both kinds at once is `E_HEADER`.
 - **`lag`** is a source's `known` rule, at least zero: no event of it is known sooner than `lag` after its `time`. For quotes, trades and bars it is `δ` and is not declared.
@@ -251,3 +251,72 @@ An hour `H` is **due** when `w_start ≤ H` and `H + late < w_end`. A coin is **
 - The payment itself is A9's: at the event's `time`, on the position held into that time, which may differ from the position held into the hour.
 - An hour within `late` of the horizon's end is not due: its event may lie beyond the market. If it is there it is paid.
 - An event later than `late` is refused by `feed` (above) and not paid late. The registered lateness is then too short, and registering a longer one is a new identity.
+
+## A19. The rows
+
+The engine writes two texts, the **report** and the **trace** (A12), and writes every byte of them: `feed` and `finish` return the lines of the timestamps they completed, and OCaml moves those bytes to the spool and formats nothing. `confirm` and `guard` read the same texts back. So the rows a study is judged on are never printed or parsed outside Lean.
+
+- **A row is a line,** ended by a line feed, its fields separated by one tab, the first naming its kind. ASCII. No heading line: this section is the heading.
+- **Rows are in the machine's order** (A18): an event's rows, then the rows of what it caused, in the order the world did them.
+- **A field** is one of:
+
+  | Sort | Written |
+  |---|---|
+  | time, count, id | a whole number in decimal; a time in milliseconds |
+  | coin, slot, tier, a word | the name, the opaque one under aliases |
+  | exact | the rational in lowest terms: `n`, or `n/d` with `d` from 2 |
+  | float | its 64 bits as 16 hexadecimal digits, lower case |
+  | bool, mark | `1` or `0` |
+  | undefined, or not applicable | `-` |
+
+### The report
+
+**A day's end** is a UTC midnight `T` with `w_start < T ≤ w_end`. Its rows show the world after every event with `time < T`, and stand before any row of an event at `T`. **The last span ends at the horizon's end,** so every span has rows at its end, written by `finish` for the last.
+
+| Kind | Fields, after the kind | When |
+|---|---|---|
+| `flow` | `time`, `coin`, `what`, `cycle`, `units`, `cash`, `fee`, `before`, `price` | each cash flow, at its event |
+| `coin` | `time`, `coin`, `span`, `at`, `price`, `first`, `events`, `least`, `funding`, `sum1`, `sum2`, `sum3` | each of the span's coins, in coin order, at each day's end and at the span's end |
+| `account` | `time`, `equity`, `absorbed`, `funding`, `long`, `short`, `near`, then for each coin of the header `stale`, `open` | each day's end, after that day's `coin` rows |
+
+**`flow`:**
+- `what` is `fill` (an order's), `liquidation`, `settlement`, `funding` or `absorbed`. An absorption has no coin and no cycle.
+- `cycle` counts the coin's cycles from 1 (A5).
+- `units` is what the row bought, below zero for a sale, and zero for a payment. `cash` is the change in the account's cash, the fee inside it; `fee` is the fee alone. So starting cash plus the rows' `cash` is the world's cash, and a coin's `units` sum to its position (P1).
+- A fill's price is `−(cash + fee) / units`, and its fee rate `fee` over that price times the size. They are not fields: K1's ledger reads them so, and a second copy could disagree with the cash.
+- A `funding` row is written at every funding event of a held coin, a payment of zero included, and what a unit paid is `−cash / before`.
+- `before` is the coin's position before the row. `price` is the coin's price after the row's event.
+
+**`coin`:**
+- `span` counts spans from 1. `at` is `day` or `span`, the row's occasion; a span that ends at a midnight has both rows.
+- `price` is the coin's price, and `first` its first in the span: its price at the span's start, or its first after. Both are undefined before the coin's first quote.
+- `events`, `least`, `funding`, `sum1`, `sum2`, `sum3` are A12's, since the span began: the count of price events; the least of their returns and zero; the funding a unit paid; the sums of the returns, of their squares and of their cubes.
+
+**`account`:**
+- `absorbed`, `funding` and `near` are totals since the horizon's start: what was absorbed, the funding paid less that received, and A7's count of taker fills near an earlier one.
+- `long` and `short` are notionals at prices, each at least zero.
+- **Pinned here:** `stale` is the share of the day's milliseconds, those inside the horizon, in which the world held the coin stale; `open` is 1 when the coin had a position or a live order in any of them. Both are `-` for a coin whose listing ended before the day began.
+
+### The trace
+
+| Kind | Fields, after the kind | When |
+|---|---|---|
+| `print` | `time`, `coin`, `id`, `side`, `price`, `size`, `stale` | every print; `side` is the aggressor's, `stale` the world's mark (A3) |
+| `funding` | `time`, `coin`, `hour`, `unit` | every funding event; `unit` is what a unit long paid, the oracle price times the rate |
+| `end` | `time`, `coin`, `price` | every listing's end, with its settlement price |
+| `tick` | `time`, `coin`, `price`, `world`, `view`, then each probe in the program's order | every tick, for each coin in view (A17), in coin order; `world` and `view` are the two stalenesses |
+| `placed` | `time`, `coin`, `slot`, `cycle`, `side`, `tif`, `reduce`, `price`, `target`, `remainder` | an order placed; `target` is `close` for one |
+| `refused` | `time`, `coin`, `slot`, `cycle`, `reason` | `margin`, `minimum` or `cap` at admission (A6); `post_only` at arrival (A7) |
+| `cancelled` | `time`, `coin`, `slot`, `cycle`, `cause` | `replaced`, `inactive`, `ioc`, `reduce_only`, `cycle_end`, `rules`, `listing_end` or `liquidation` |
+| `fill` | `time`, `coin`, `slot`, `cycle`, `what`, `role`, `tier`, `rate`, `price`, `units`, `fee`, `print` | every fill of the three kinds; `role` is `maker` or `taker`; `print` is the id of the print that filled a resting order, else `-`; a liquidation's and a settlement's have no slot |
+| `paid` | `time`, `coin`, `position`, `cash` | a funding payment of the account |
+| `liquidated` | `time` | a liquidation, before its fills |
+| `bankrupt` | `time`, `absorbed` | a bankruptcy |
+| `cycle_end` | `time`, `coin`, `cycle` | a cycle's end |
+
+The rows from `placed` down are the effects (A1), one row for each, and every effect has one. A bar market's derived prints have the ids 1 and 2 of their bar's end.
+
+### The summary
+
+`finish` returns, with the last rows, one JSON object: `{"ok": true, "equity": exact, "report": lines, "trace": lines}`, the counts being of the whole run; or `{"error": code, "time": t, "detail": text}` for a market rejected or a run aborted. After an error OCaml writes no report and no trace, whatever the spool holds (C2, W1).
+
