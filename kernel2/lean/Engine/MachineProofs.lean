@@ -16,27 +16,38 @@ theorem Rows.append_assoc (a b c : Rows) : a ++ b ++ c = a ++ (b ++ c) := by
     | mk b1 b2 => cases c with
       | mk c1 c2 => show (⟨a1 ++ b1 ++ c1, a2 ++ b2 ++ c2⟩ : Rows) = ⟨a1 ++ (b1 ++ c1), a2 ++ (b2 ++ c2)⟩; simp [String.append_assoc]
 
-theorem tickAt_cfg (s : State) (t : Int) : (tickAt s t).1.cfg = s.cfg := by
-  simp [tickAt]
+theorem release_cfg (s : State) (t : Int) : (release s t).cfg = s.cfg := by
+  simp [release]
 
-theorem fireN_cfg (n : Nat) (s : State) (acc : Rows) : (fireN n s acc).1.cfg = s.cfg := by
-  induction n generalizing s acc with
-  | zero => simp [fireN]
+theorem tickAt_cfg (s : State) (t : Int) : (tickAt s t).1.cfg = s.cfg := by
+  simp [tickAt, release_cfg]
+
+theorem fireRec_cfg (n : Nat) (s : State) (acc : Rows) (recs : List TickRecord) :
+    (fireRec n s acc recs).1.cfg = s.cfg := by
+  induction n generalizing s acc recs with
+  | zero => simp [fireRec]
   | succ n ih =>
-    simp only [fireN]
+    simp only [fireRec]
     split
     · rename_i time ms _
       rw [ih]
-      simp [tickAt]
+      simp [tickAt_cfg]
     · rfl
+
+theorem fireN_cfg (n : Nat) (s : State) (acc : Rows) : (fireN n s acc).1.cfg = s.cfg := by
+  simp [fireN, fireRec_cfg]
+
+theorem withPending_cfg (s : State) (e : Event) (w : PView) : (withPending s e w).cfg = s.cfg := by
+  unfold withPending
+  split <;> rfl
 
 theorem applyPayload_cfg (s : State) (e : Event) : (applyPayload s e).1.cfg = s.cfg := by
   unfold applyPayload
-  split <;> simp_all
+  split <;> simp [withPending_cfg]
 
 theorem advance_cfg (s : State) (e : Event) : (advance s e).1.cfg = s.cfg := by
-  unfold advance
-  simp [fireN_cfg, applyPayload_cfg]
+  unfold advance advanceRec
+  simp [fireN_cfg, fireRec_cfg, applyPayload_cfg]
 
 theorem reject_cfg (s : State) (c : String) (t : Int) (d : String) : (s.reject c t d).cfg = s.cfg := rfl
 

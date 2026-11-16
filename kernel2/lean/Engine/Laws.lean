@@ -41,6 +41,7 @@ the corresponding Lean functions through the existing C-stub boundary;
 they do not implement a second arithmetic engine in OCaml or C.
 -/
 
+import Engine.Check
 import Engine.Exact
 import Engine.Ledger
 import Engine.Machine

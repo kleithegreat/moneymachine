@@ -2,11 +2,37 @@
 
 namespace Engine.Json
 
-/-- A JSON value, as strict as KERNEL.md's header and program: integers only, no repeated key. -/
+/-- The correctly rounded binary64 bits of `(-1)^neg · m · 10^e`, or none when it overflows. -/
+def decimalBits (neg : Bool) (m : Nat) (e : Int) : Option UInt64 :=
+  let sgn : UInt64 := if neg then 0x8000000000000000 else 0
+  if m == 0 then some sgn else
+  let (num, den) := if e ≥ 0 then (m * 10 ^ e.toNat, 1) else (m, 10 ^ (-e).toNat)
+  let lg (x : Nat) : Int := (Nat.log2 x : Int)
+  let scaled (s : Int) : Nat × Nat :=
+    if s ≥ 0 then (num * 2 ^ s.toNat, den) else (num, den * 2 ^ (-s).toNat)
+  let settle (s : Int) : Int :=
+    let (a, b) := scaled s
+    if a / b ≥ 2 ^ 53 then s - 1 else if a / b < 2 ^ 52 then s + 1 else s
+  let s := settle (settle (settle (settle (52 - (lg num - lg den)))))
+  let exp : Int := 52 - s + 1023
+  let s := if exp < 1 then s - (1 - exp) else s
+  let (a, b) := scaled s
+  let q := a / b
+  let r := a % b
+  let q := if 2 * r > b || (2 * r == b && q % 2 == 1) then q + 1 else q
+  let (q, s) := if q == 2 ^ 53 then (q / 2, s - 1) else (q, s)
+  let exp : Int := 52 - s + 1023
+  if exp ≥ 2047 then none
+  else if q < 2 ^ 52 then some (sgn ||| q.toUInt64)
+  else some (sgn ||| (exp.toNat.toUInt64 <<< 52) ||| (q - 2 ^ 52).toUInt64)
+
+/-- A JSON value, as strict as KERNEL.md's header and program: no repeated key; a number with a point or an
+exponent is a binary64 and any other an integer. -/
 inductive J where
   | null
   | bool (value : Bool)
   | int (value : Int)
+  | float (bits : UInt64)
   | str (value : String)
   | arr (items : List J)
   | obj (members : List (String × J))
@@ -33,7 +59,7 @@ def hexValue (c : Char) : Option Nat :=
 
 inductive Tok where
   | open_obj | close_obj | open_arr | close_arr | comma | colon
-  | str (value : String) | int (value : Int) | lit (value : J)
+  | str (value : String) | int (value : Int) | flt (bits : UInt64) | lit (value : J)
 
 /-- The lexer's position inside a token. -/
 inductive Lex where
@@ -42,6 +68,7 @@ inductive Lex where
   | escape (acc : List Char)
   | unicode (acc : List Char) (digits : List Nat)
   | number (negative : Bool) (value : Nat) (count : Nat)
+  | real (negative : Bool) (whole : Nat) (suffix : List Char)
   | word (rest : List Char) (value : J)
 
 structure LexState where
@@ -50,6 +77,34 @@ structure LexState where
 
 def numberToken (negative : Bool) (value : Nat) : Tok :=
   Tok.int (if negative then -(value : Int) else (value : Int))
+
+/-- The digits of a decimal fraction and exponent: `.d+`, `e[+-]?d+`, or both, after the integer part `whole`. -/
+def realToken (negative : Bool) (whole : Nat) (suffix : List Char) : Option Tok :=
+  let digits (cs : List Char) : Nat := cs.foldl (fun n c => n * 10 + (c.toNat - '0'.toNat)) 0
+  let (fraction, rest) : List Char × List Char :=
+    match suffix with
+    | '.' :: cs => cs.span isDigit
+    | cs => ([], cs)
+  let wantsFraction := suffix.head? == some '.'
+  let exponent : Option Int :=
+    match rest with
+    | [] => some 0
+    | e :: cs =>
+      if e == 'e' || e == 'E' then
+        let (sign, ds) : Int × List Char :=
+          match cs with
+          | '-' :: ds => (-1, ds)
+          | '+' :: ds => (1, ds)
+          | ds => (1, ds)
+        if ds.isEmpty || !ds.all isDigit then none else some (sign * digits ds)
+      else none
+  match exponent with
+  | none => none
+  | some x =>
+    if wantsFraction && fraction.isEmpty then none
+    else
+      let m := whole * 10 ^ fraction.length + digits fraction
+      (decimalBits negative m (x - fraction.length)).map Tok.flt
 
 /-- A character met between tokens. -/
 def between (st : List Tok) (c : Char) : Except String LexState :=
@@ -102,8 +157,15 @@ def lexStep (st : LexState) (c : Char) : Except String LexState :=
       if count == 1 && value == 0 then .error "leading zero"
       else .ok ⟨st.tokens, .number negative (value * 10 + (c.toNat - '0'.toNat)) (count + 1)⟩
     else if count == 0 then .error "bad number"
-    else if c == '.' || c == 'e' || c == 'E' then .error "not an integer"
+    else if c == '.' || c == 'e' || c == 'E' then .ok ⟨st.tokens, .real negative value [c]⟩
     else between (numberToken negative value :: st.tokens) c
+  | .real negative whole suffix =>
+    if isDigit c || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-' then
+      .ok ⟨st.tokens, .real negative whole (c :: suffix)⟩
+    else
+      match realToken negative whole suffix.reverse with
+      | none => .error "bad number"
+      | some t => between (t :: st.tokens) c
   | .word rest value =>
     match rest with
     | [] => .error "bad literal"
@@ -146,6 +208,7 @@ def readTok (r : Reader) (t : Tok) : Except String Reader :=
   match r.mode, t with
   | .value, .str s | .valueOrClose, .str s => complete r (J.str s)
   | .value, .int n | .valueOrClose, .int n => complete r (J.int n)
+  | .value, .flt b | .valueOrClose, .flt b => complete r (J.float b)
   | .value, .lit v | .valueOrClose, .lit v => complete r v
   | .value, .open_arr | .valueOrClose, .open_arr => .ok ⟨.arr [] :: r.stack, .valueOrClose, r.result⟩
   | .value, .open_obj | .valueOrClose, .open_obj => .ok ⟨.obj [] none :: r.stack, .keyOrClose, r.result⟩
@@ -198,6 +261,21 @@ def J.keysAre (j : J) (required optional : List String) : Bool :=
     required.all (fun k => ms.any (fun p => p.1 == k)) &&
       ms.all (fun p => required.contains p.1 || optional.contains p.1)
   | _ => false
+
+/-- The deepest nesting of brackets outside strings. -/
+def depth (text : String) : Nat :=
+  let step (acc : Nat × Nat × Bool × Bool) (c : Char) : Nat × Nat × Bool × Bool :=
+    let (d, mx, inString, escaped) := acc
+    if inString then
+      if escaped then (d, mx, true, false)
+      else if c == '\\' then (d, mx, true, true)
+      else if c == '"' then (d, mx, false, false)
+      else (d, mx, true, false)
+    else if c == '"' then (d, mx, true, false)
+    else if c == '{' || c == '[' then (d + 1, Nat.max mx (d + 1), false, false)
+    else if c == '}' || c == ']' then (d - 1, mx, false, false)
+    else (d, mx, false, false)
+  (text.toList.foldl step (0, 0, false, false)).2.1
 
 def escape (s : String) : String :=
   String.ofList (s.toList.flatMap fun c =>

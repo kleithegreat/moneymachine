@@ -1,11 +1,12 @@
+import Engine.Lang.Syntax
+
 namespace Engine
 
-/-- The verdict on a program's text: `ok`, or one line starting `rejected:`. Step 0 admits the header alone. -/
+/-- The verdict on a program's text (KERNEL.md A17): `{"ok":true}`, or `{"error":CODE,"at":WHERE}` for the first fault. -/
 @[export mm2_check]
 def check (program : String) : String :=
-  if (program.splitOn "\n").head? = some "mm2-program 0" then
-    "ok"
-  else
-    "rejected: the first line is not `mm2-program 0`"
+  match Lang.parseAt program with
+  | .ok _ => "{\"ok\":true}"
+  | .error (code, place) => "{\"error\":\"" ++ code ++ "\",\"at\":\"" ++ Json.escape place ++ "\"}"
 
 end Engine
