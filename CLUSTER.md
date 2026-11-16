@@ -50,6 +50,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5) | `agent` | `claude-token` | 9,000 s |
 | `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `ws` | StatefulSet | `mmrec run data/ws` (`recorder/RECORDER.md`) | `ws` | none | 30 s |
+| `vault` | CronJob, hourly at :07 | `mmvault run data/ws --user 0x53375ca9…2a06` (`recorder/VAULT.md`) | `ws` | none | 30 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
 | `mirror-verify` | CronJob, daily | section 5 | the five and `mirror`, read-only | none | 600 s |
 
