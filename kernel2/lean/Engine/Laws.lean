@@ -1002,8 +1002,8 @@ theorem L1a :
 `readBitsFast : Nat → UInt64 → Option Int`, with the same signature as
 `readBits : Nat → UInt64 → Option Int`. This equality has no scale, range or
 finite-input premise; its constant-equality form is the compiler's `csimp` form. -/
-theorem X3_readBits : @Engine.Exact.readBits = @Engine.Exact.readBitsFast := by
-  sorry
+theorem X3_readBits : @Engine.Exact.readBits = @Engine.Exact.readBitsFast :=
+  Engine.Exact.readBits_eq_readBitsFast
 
 /-- B3 X3, the integer grid. The builder supplies, in `Engine.Exact`,
 `onGridAt : Nat → Int → Nat → Int → Bool` (figures, decimals, scale, units).

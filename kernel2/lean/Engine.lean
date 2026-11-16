@@ -26,4 +26,4 @@ import Engine.MachineConcrete
 import Engine.MachineWire
 import Engine.Delivery
 import Engine.Wire
--- import Engine.Laws (blocked: N1_renaming and L1a, see the report)
+import Engine.Laws

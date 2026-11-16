@@ -1149,4 +1149,333 @@ theorem readBits_iff {d : Nat} (hd : d ≤ 12) (bits : UInt64) (n : Int) :
         omega
       rw [hfl, if_pos ⟨hn, by rw [← hq, if_neg hbits]; exact hb⟩]
 
+/-- `roundHalfEven (P / Q)` on natural numbers. -/
+def roundDiv (P Q : Nat) : Nat :=
+  let f := P / Q
+  let r := 2 * (P % Q)
+  if r < Q then f else if Q < r then f + 1 else if f % 2 = 0 then f else f + 1
+
+/-- `nearestBits (n / pw)` for `pw` a power of ten (X3), on natural numbers and integers. -/
+def nearestBitsAt (pw : Nat) (n : Int) : UInt64 :=
+  if n = 0 then 0
+  else
+    let A := n.natAbs
+    let s := Nat.log2 pw + 1
+    let e : Int := (Nat.log2 (A * 2 ^ s / pw) : Int) - s
+    let e' := max e (-1022)
+    let m := roundDiv (A * 2 ^ (52 - e').toNat) pw
+    let mag := min ((e' + 1022).toNat * 2 ^ 52 + m) infBits
+    if mag = 0 then 0 else UInt64.ofNat ((if n < 0 then 2 ^ 63 else 0) + mag)
+
+/-- A double's magnitude as a mantissa and an exponent of two. -/
+def parts (mag : Nat) : Nat × Int :=
+  if mag < 2 ^ 52 then (mag, -1074) else (mag % 2 ^ 52 + 2 ^ 52, ((mag / 2 ^ 52 : Nat) : Int) - 1075)
+
+/-- `⌊S · 2 ^ E + 1/2⌋` on integers: a numerator over a power of two, never reduced. -/
+def roundScaled (S E : Int) : Int :=
+  if 0 ≤ E then S * 2 ^ E.toNat else (2 * S + 2 ^ (-E).toNat) / 2 ^ ((-E).toNat + 1)
+
+/-- `readBits` on naturals and integers: a double is its mantissa and its exponent of two, a decimal its digits and
+its scale; nothing is reduced (X3). -/
+def readBitsFast (d : Nat) (bits : UInt64) : Option Int :=
+  let v := bits.toNat
+  let mag := v % 2 ^ 63
+  if infBits ≤ mag then none
+  else
+    let pw := 10 ^ d
+    let p := parts mag
+    let N : Int := ((p.1 * pw : Nat) : Int)
+    let n := roundScaled (if 2 ^ 63 ≤ v then -N else N) p.2
+    if n.natAbs < 10 ^ 15 ∧ nearestBitsAt pw n = (if bits = (9223372036854775808 : UInt64) then 0 else bits)
+    then some n else none
+
+theorem floor_eq_of (y : Rat) (n : Int) (h1 : (n : Rat) ≤ y) (h2 : y < (n : Rat) + 1) : y.floor = n := by
+  have a : n ≤ y.floor := Rat.le_floor_iff.2 h1
+  have b : y.floor < n + 1 := Rat.floor_lt_iff.2 (by simpa using h2)
+  omega
+
+theorem roundDiv_eq (P Q : Nat) (hQ : 0 < Q) : roundHalfEven ((P : Rat) / (Q : Rat)) = roundDiv P Q := by
+  have hQr : (0 : Rat) < (Q : Rat) := by exact_mod_cast hQ
+  have hdm : Q * (P / Q) + P % Q = P := Nat.div_add_mod P Q
+  have hmod : P % Q < Q := Nat.mod_lt P hQ
+  have hdmr : (Q : Rat) * ((P / Q : Nat) : Rat) + ((P % Q : Nat) : Rat) = (P : Rat) := by exact_mod_cast hdm
+  have hf : ((P : Rat) / (Q : Rat)).floor = ((P / Q : Nat) : Int) := by
+    apply floor_eq_of
+    · rw [← Rat.not_lt, Rat.div_lt_iff hQr]
+      intro h
+      have : ((P : Rat)) < ((P / Q : Nat) : Int) * (Q : Rat) := h
+      have h2 : (0 : Rat) ≤ ((P % Q : Nat) : Rat) := by exact_mod_cast Nat.zero_le _
+      simp only [Rat.intCast_natCast] at this
+      grind
+    · rw [Rat.div_lt_iff hQr]
+      have h2 : ((P % Q : Nat) : Rat) < (Q : Rat) := by exact_mod_cast hmod
+      simp only [Rat.intCast_natCast]
+      grind
+  have hflo : (((P : Rat) / (Q : Rat)).floor).toNat = P / Q := by rw [hf]; rfl
+  unfold roundHalfEven roundDiv
+  simp only [hflo]
+  have hq1 : ((P : Rat) / (Q : Rat)) - ((P / Q : Nat) : Rat) < 1 / 2 ↔ 2 * (P % Q) < Q := by
+    have e1 : ((P : Rat) / (Q : Rat)) - ((P / Q : Nat) : Rat) < 1 / 2 ↔ ((P : Rat) / (Q : Rat)) < 1 / 2 + ((P / Q : Nat) : Rat) :=
+      ⟨fun h => by grind, fun h => by grind⟩
+    rw [e1, Rat.div_lt_iff hQr]
+    constructor
+    · intro h
+      have : ((2 * (P % Q) : Nat) : Rat) < (Q : Rat) := by push_cast; grind
+      exact_mod_cast this
+    · intro h
+      have : ((2 * (P % Q) : Nat) : Rat) < (Q : Rat) := by exact_mod_cast h
+      push_cast at this; grind
+  have hq2 : 1 / 2 < ((P : Rat) / (Q : Rat)) - ((P / Q : Nat) : Rat) ↔ Q < 2 * (P % Q) := by
+    have e1 : 1 / 2 < ((P : Rat) / (Q : Rat)) - ((P / Q : Nat) : Rat) ↔ 1 / 2 + ((P / Q : Nat) : Rat) < ((P : Rat) / (Q : Rat)) :=
+      ⟨fun h => by grind, fun h => by grind⟩
+    rw [e1, Rat.lt_div_iff hQr]
+    constructor
+    · intro h
+      have : (Q : Rat) < ((2 * (P % Q) : Nat) : Rat) := by push_cast; grind
+      exact_mod_cast this
+    · intro h
+      have : (Q : Rat) < ((2 * (P % Q) : Nat) : Rat) := by exact_mod_cast h
+      push_cast at this; grind
+  simp only [hq1, hq2]
+
+theorem zpow_two_unique {p : Rat} {e e' : Int}
+    (h1 : (2 : Rat) ^ e ≤ p) (h2 : p < (2 : Rat) ^ (e + 1)) (h3 : (2 : Rat) ^ e' ≤ p) (h4 : p < (2 : Rat) ^ (e' + 1)) :
+    e = e' := by
+  rcases Int.lt_trichotomy e e' with h | h | h
+  · have := zpow_le_zpow (b := (2 : Rat)) (by decide) (show e + 1 ≤ e' by omega); grind
+  · exact h
+  · have := zpow_le_zpow (b := (2 : Rat)) (by decide) (show e' + 1 ≤ e by omega); grind
+
+theorem ilog_two_eq {p : Rat} {e : Int} (h1 : (2 : Rat) ^ e ≤ p) (h2 : p < (2 : Rat) ^ (e + 1)) : ilog 2 p = e := by
+  have hp : 0 < p := by
+    have : 0 < (2 : Rat) ^ e := zpow_pos' (by decide) e
+    grind
+  obtain ⟨a, b⟩ := ilog_spec 2 (by omega) p hp
+  have a' : (2 : Rat) ^ ilog 2 p ≤ p := by simpa using a
+  have b' : p < (2 : Rat) ^ (ilog 2 p + 1) := by simpa using b
+  exact zpow_two_unique a' b' h1 h2
+
+theorem ilog2_div (A B : Nat) (hA : 0 < A) (hB : 0 < B) :
+    ilog 2 ((A : Rat) / (B : Rat)) =
+      (Nat.log2 (A * 2 ^ (Nat.log2 B + 1) / B) : Int) - ((Nat.log2 B + 1 : Nat) : Int) := by
+  have hBr : (0 : Rat) < (B : Rat) := by exact_mod_cast hB
+  obtain ⟨s, hs⟩ : ∃ s, s = Nat.log2 B + 1 := ⟨_, rfl⟩
+  rw [← hs]
+  have hBs : B < 2 ^ s := by rw [hs]; exact Nat.lt_log2_self
+  have hY : 1 ≤ A * 2 ^ s / B := by
+    rw [Nat.le_div_iff_mul_le hB]
+    have : 2 ^ s ≤ A * 2 ^ s := Nat.le_mul_of_pos_left _ hA
+    omega
+  obtain ⟨Y, hYd⟩ : ∃ Y, Y = A * 2 ^ s / B := ⟨_, rfl⟩
+  rw [← hYd] at hY ⊢
+  have hY0 : Y ≠ 0 := by omega
+  obtain ⟨hj1, hj2⟩ := (Nat.log2_eq_iff hY0).1 rfl
+  generalize Nat.log2 Y = j at hj1 hj2 ⊢
+  have hYB : Y * B ≤ A * 2 ^ s := by rw [hYd]; exact Nat.div_mul_le_self _ _
+  have hYB2 : A * 2 ^ s < (Y + 1) * B := by
+    rw [hYd]
+    have := Nat.lt_div_mul_add (a := A * 2 ^ s) hB
+    rw [Nat.add_mul, Nat.one_mul]; omega
+  have hs2 : (0 : Rat) < (2 : Rat) ^ s := Rat.pow_pos (by decide)
+  have c1 : ((2 ^ j * B : Nat) : Rat) ≤ ((A * 2 ^ s : Nat) : Rat) := by
+    exact_mod_cast (Nat.le_trans (Nat.mul_le_mul_right B hj1) hYB)
+  have c2 : ((A * 2 ^ s : Nat) : Rat) < ((2 ^ (j + 1) * B : Nat) : Rat) := by
+    exact_mod_cast (Nat.lt_of_lt_of_le hYB2 (Nat.mul_le_mul_right B hj2))
+  push_cast at c1 c2
+  have t1 : (2 : Rat) ^ ((j : Int) - s) * (2 : Rat) ^ s = (2 : Rat) ^ j := by
+    rw [← zpow_natCast' 2 s, ← zpow_natCast' 2 j, ← Rat.zpow_add (by decide)]
+    congr 1; omega
+  have t2 : (2 : Rat) ^ ((j : Int) - s + 1) * (2 : Rat) ^ s = (2 : Rat) ^ (j + 1) := by
+    rw [← zpow_natCast' 2 s, ← zpow_natCast' 2 (j + 1), ← Rat.zpow_add (by decide)]
+    congr 1; omega
+  apply ilog_two_eq
+  · rw [← Rat.not_lt, Rat.div_lt_iff hBr]
+    intro h
+    have := Rat.mul_lt_mul_of_pos_right h hs2
+    have e3 : (A : Rat) * (2 : Rat) ^ s < (2 : Rat) ^ ((j : Int) - s) * (B : Rat) * (2 : Rat) ^ s := this
+    have e4 : (2 : Rat) ^ ((j : Int) - s) * (B : Rat) * (2 : Rat) ^ s = (2 : Rat) ^ j * B := by
+      rw [Rat.mul_assoc, Rat.mul_comm (B : Rat), ← Rat.mul_assoc, t1]
+    rw [e4] at e3
+    grind
+  · rw [Rat.div_lt_iff hBr]
+    refine Rat.not_le.1 ?_
+    intro h
+    have := Rat.mul_le_mul_of_nonneg_right h (Rat.le_of_lt hs2)
+    have e4 : (2 : Rat) ^ ((j : Int) - s + 1) * (B : Rat) * (2 : Rat) ^ s = (2 : Rat) ^ (j + 1) * B := by
+      rw [Rat.mul_assoc, Rat.mul_comm (B : Rat), ← Rat.mul_assoc, t2]
+    rw [e4] at this
+    grind
+
+theorem two_pow_fifty : (2 : Rat) ^ (50 : Int) = 1125899906842624 := by
+  rw [show (50 : Int) = ((50 : Nat) : Int) from rfl, zpow_natCast']
+  decide +kernel
+
+theorem nearestBitsAt_eq (d : Nat) (n : Int) (hn : n.natAbs < 10 ^ 15) :
+    nearestBitsAt (10 ^ d) n = nearestBits ((n : Rat) / (10 : Rat) ^ d) := by
+  have hB : 0 < 10 ^ d := Nat.pow_pos (by decide)
+  have hBr : (0 : Rat) < ((10 ^ d : Nat) : Rat) := by exact_mod_cast hB
+  have hBc : ((10 ^ d : Nat) : Rat) = (10 : Rat) ^ d := by rw [natCast_pow]; rfl
+  rw [← hBc]
+  obtain ⟨B, hBd⟩ : ∃ B, B = 10 ^ d := ⟨_, rfl⟩
+  rw [← hBd] at hB hBr ⊢
+  by_cases h0 : n = 0
+  · subst h0
+    have : ((0 : Int) : Rat) / (B : Rat) = 0 := by simp [Rat.div_def]
+    rw [this]
+    simp [nearestBitsAt, nearestBits_zero]
+  · have hlt : (n : Rat) / (B : Rat) < 0 ↔ n < 0 := by
+      rw [Rat.div_lt_iff hBr, Rat.zero_mul]; constructor <;> intro h <;> exact_mod_cast h
+    have hgt : 0 < (n : Rat) / (B : Rat) ↔ 0 < n := by
+      rw [Rat.lt_div_iff hBr, Rat.zero_mul]; constructor <;> intro h <;> exact_mod_cast h
+    have hq0 : ((n : Rat) / (B : Rat)) ≠ 0 := by
+      intro h
+      rcases Int.lt_trichotomy n 0 with h1 | h1 | h1
+      · have := hlt.2 h1; rw [h] at this; exact absurd this (by decide)
+      · exact h0 h1
+      · have := hgt.2 h1; rw [h] at this; exact absurd this (by decide)
+    have hA : 0 < n.natAbs := by omega
+    have hAc : (n.natAbs : Rat) = if n < 0 then -(n : Rat) else (n : Rat) := by
+      by_cases hneg : n < 0
+      · have : (n.natAbs : Int) = -n := by omega
+        have h2 : ((n.natAbs : Nat) : Rat) = ((n.natAbs : Int) : Rat) := (Rat.intCast_natCast _).symm
+        rw [if_pos hneg, h2, this]; simp
+      · have : (n.natAbs : Int) = n := by omega
+        have h2 : ((n.natAbs : Nat) : Rat) = ((n.natAbs : Int) : Rat) := (Rat.intCast_natCast _).symm
+        rw [if_neg hneg, h2, this]
+    have ha : (if (n : Rat) / (B : Rat) < 0 then -((n : Rat) / (B : Rat)) else (n : Rat) / (B : Rat)) =
+        (n.natAbs : Rat) / (B : Rat) := by
+      rw [hAc]
+      by_cases hneg : n < 0
+      · rw [if_pos (hlt.2 hneg), if_pos hneg]
+        simp only [Rat.div_def, Rat.neg_mul]
+      · rw [if_neg (fun h => hneg (hlt.1 h)), if_neg hneg]
+    obtain ⟨A, hAd⟩ : ∃ A, A = n.natAbs := ⟨_, rfl⟩
+    rw [← hAd] at hA hAc ha hn
+    have hpos : (0 : Rat) < (A : Rat) / (B : Rat) := by
+      rw [Rat.lt_div_iff hBr, Rat.zero_mul]; exact_mod_cast hA
+    have hil := ilog2_div A B hA hB
+    obtain ⟨hs1, hs2⟩ := ilog_spec 2 (by omega) ((A : Rat) / (B : Rat)) hpos
+    have hs1' : (2 : Rat) ^ ilog 2 ((A : Rat) / (B : Rat)) ≤ (A : Rat) / (B : Rat) := by simpa using hs1
+    have hpA : (A : Rat) / (B : Rat) ≤ (A : Rat) := by
+      rw [← Rat.not_lt, Rat.lt_div_iff hBr]
+      intro h
+      have : (A : Rat) * (B : Rat) ≥ (A : Rat) := by
+        have : A ≤ A * B := Nat.le_mul_of_pos_right A hB
+        exact_mod_cast this
+      grind
+    have hA15 : (A : Rat) < 1125899906842624 := by
+      have : A < 1125899906842624 := by omega
+      exact_mod_cast this
+    have he49 : ilog 2 ((A : Rat) / (B : Rat)) ≤ 49 := by
+      by_cases h : ilog 2 ((A : Rat) / (B : Rat)) ≤ 49
+      · exact h
+      · have h50 : (50 : Int) ≤ ilog 2 ((A : Rat) / (B : Rat)) := by omega
+        have := zpow_le_zpow (b := (2 : Rat)) (by decide) h50
+        have e50 := two_pow_fifty
+        grind
+    obtain ⟨e, hed⟩ : ∃ e, e = max (ilog 2 ((A : Rat) / (B : Rat))) (-1022) := ⟨_, rfl⟩
+    have he : e ≤ 49 := by omega
+    have hm : roundHalfEven ((A : Rat) / (B : Rat) / (2 : Rat) ^ (e - 52)) = roundDiv (A * 2 ^ (52 - e).toNat) B := by
+      have ht : (e - 52) = -(((52 - e).toNat : Nat) : Int) := by omega
+      rw [ht, Rat.zpow_neg, zpow_natCast', Rat.div_def (A / B : Rat), Rat.inv_inv, ← roundDiv_eq _ _ hB]
+      congr 1
+      push_cast
+      rw [Rat.div_def, Rat.div_def, Rat.mul_assoc, Rat.mul_comm (((B : Rat))⁻¹), ← Rat.mul_assoc]
+    unfold nearestBitsAt nearestBits
+    simp only [h0, hq0, ite_false]
+    rw [ha, ← hed, hm]
+    simp only [hlt]
+    subst hAd
+    rw [hil] at hed
+    rw [← hed]
+
+theorem floor_scaled (S E : Int) : ((S : Rat) * (2 : Rat) ^ E + 1 / 2).floor = roundScaled S E := by
+  unfold roundScaled
+  by_cases hE : 0 ≤ E
+  · rw [if_pos hE]
+    obtain ⟨t, ht⟩ : ∃ t : Nat, E = t := ⟨E.toNat, by omega⟩
+    have hto : E.toNat = t := by omega
+    rw [hto, ht]
+    apply floor_eq_of
+    · have : ((S * 2 ^ t : Int) : Rat) = (S : Rat) * (2 : Rat) ^ ((t : Nat) : Int) := by
+        rw [Rat.intCast_mul, zpow_natCast']; push_cast; rfl
+      rw [← this]; grind
+    · have : ((S * 2 ^ t : Int) : Rat) = (S : Rat) * (2 : Rat) ^ ((t : Nat) : Int) := by
+        rw [Rat.intCast_mul, zpow_natCast']; push_cast; rfl
+      rw [← this]; grind
+  · rw [if_neg hE]
+    obtain ⟨k, hk⟩ : ∃ k : Nat, E = -(k : Int) := ⟨(-E).toNat, by omega⟩
+    have hto : (-E).toNat = k := by omega
+    rw [hto, hk]
+    have h2k : (0 : Rat) < (2 : Rat) ^ k := Rat.pow_pos (by decide)
+    have h2k1 : (0 : Rat) < (2 : Rat) ^ (k + 1) := Rat.pow_pos (by decide)
+    have hy : ((S : Rat) * (2 : Rat) ^ (-(k : Int)) + 1 / 2) * (2 : Rat) ^ (k + 1) = (2 * S + 2 ^ k : Int) := by
+      rw [Rat.zpow_neg, zpow_natCast', Rat.pow_succ]
+      have hinv : ((2 : Rat) ^ k)⁻¹ * (2 : Rat) ^ k = 1 := Rat.inv_mul_cancel _ (by grind)
+      push_cast
+      grind
+    have hp : (0 : Int) < 2 ^ (k + 1) := by
+      have : 0 < 2 ^ (k + 1) := Nat.pow_pos (by decide)
+      exact_mod_cast this
+    have hq := Int.ediv_mul_le (2 * S + 2 ^ k) (b := 2 ^ (k + 1)) (Int.ne_of_gt hp)
+    have hq2 := Int.lt_ediv_add_one_mul_self (2 * S + 2 ^ k) (b := 2 ^ (k + 1)) hp
+    obtain ⟨q, hqd⟩ : ∃ q, q = (2 * S + 2 ^ k) / 2 ^ (k + 1) := ⟨_, rfl⟩
+    rw [← hqd] at hq hq2 ⊢
+    apply floor_eq_of
+    · refine Rat.not_lt.1 ?_
+      intro h
+      have := Rat.mul_lt_mul_of_pos_right h h2k1
+      rw [hy] at this
+      have hc : ((q * 2 ^ (k + 1) : Int) : Rat) ≤ ((2 * S + 2 ^ k : Int) : Rat) := by exact_mod_cast hq
+      push_cast at hc this
+      grind
+    · refine Rat.not_le.1 ?_
+      intro h
+      have := Rat.mul_le_mul_of_nonneg_right h (Rat.le_of_lt h2k1)
+      rw [hy] at this
+      have hc : ((2 * S + 2 ^ k : Int) : Rat) < (((q + 1) * 2 ^ (k + 1) : Int) : Rat) := by exact_mod_cast hq2
+      push_cast at hc this
+      grind
+
+theorem magValue_parts (mag : Nat) : magValue mag = ((parts mag).1 : Rat) * (2 : Rat) ^ (parts mag).2 := by
+  unfold magValue parts
+  split <;> rfl
+
+theorem readBitsFast_eq (d : Nat) (bits : UInt64) : readBitsFast d bits = readBits d bits := by
+  unfold readBitsFast readBits decode
+  by_cases hinf : infBits ≤ bits.toNat % 2 ^ 63
+  · simp [hinf]
+  · simp only [hinf, ite_false]
+    have hfloor : ((if 2 ^ 63 ≤ bits.toNat then -magValue (bits.toNat % 2 ^ 63) else magValue (bits.toNat % 2 ^ 63)) *
+          (10 : Rat) ^ d + 1 / 2).floor =
+        roundScaled (if 2 ^ 63 ≤ bits.toNat then -(((parts (bits.toNat % 2 ^ 63)).fst * 10 ^ d : Nat) : Int)
+          else (((parts (bits.toNat % 2 ^ 63)).fst * 10 ^ d : Nat) : Int)) (parts (bits.toNat % 2 ^ 63)).snd := by
+      rw [← floor_scaled, magValue_parts]
+      have h10 : (((10 ^ d : Nat) : Int) : Rat) = (10 : Rat) ^ d := by
+        rw [Rat.intCast_natCast, natCast_pow]; rfl
+      by_cases hneg : 2 ^ 63 ≤ bits.toNat
+      · simp only [hneg, ite_true]
+        congr 2
+        push_cast
+        rw [← h10]
+        push_cast
+        grind
+      · simp only [hneg, ite_false]
+        congr 2
+        push_cast
+        rw [← h10]
+        push_cast
+        grind
+    rw [hfloor]
+    generalize roundScaled (if 2 ^ 63 ≤ bits.toNat then -(((parts (bits.toNat % 2 ^ 63)).fst * 10 ^ d : Nat) : Int)
+          else (((parts (bits.toNat % 2 ^ 63)).fst * 10 ^ d : Nat) : Int)) (parts (bits.toNat % 2 ^ 63)).snd = n
+    by_cases hn : n.natAbs < 10 ^ 15
+    · rw [nearestBitsAt_eq d n hn]
+    · simp [hn]
+
+/-- X3: the twin replaces `readBits` where it is called (Lean's `@[csimp]`). -/
+@[csimp] theorem readBits_eq_readBitsFast : @readBits = @readBitsFast := by
+  funext d bits
+  exact (readBitsFast_eq d bits).symm
+
 end Engine.Exact
