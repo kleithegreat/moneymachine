@@ -78,7 +78,6 @@ module Q = struct
   let sub a b = make (a.n * b.d - b.n * a.d) (a.d * b.d)
   let mul a b = make (a.n * b.n) (a.d * b.d)
   let div a b = make (a.n * b.d) (a.d * b.n)
-  let neg a = { a with n = -a.n }
   let zero = integer 0
   let one = integer 1
 end
