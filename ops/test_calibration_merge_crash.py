@@ -16,7 +16,6 @@ def trial_line(market: str, earns: bool) -> bytes:
     return (json.dumps({"strength": calibrate.HI, "market": market, "result": {"earns": earns}}) + "\n").encode()
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 7: calibration merges are not crash-safe")
 def test_kill_after_share_rename_does_not_lose_its_completed_trial(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -50,7 +49,6 @@ def test_kill_after_share_rename_does_not_lose_its_completed_trial(
     assert (calibrate.HI, market) in calibrate.parse([merged])
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 7: calibration merges are not crash-safe")
 def test_retry_after_torn_merged_append_does_not_hide_all_new_trials(tmp_path: Path) -> None:
     first, second = calibrate.cal_a_ids()[:2]
     merged = tmp_path / "calibration.jsonl"

@@ -182,7 +182,7 @@ def calibration_source(batch: None) -> Path:
     return source
 
 
-def test_calibrate_carries_every_complete_source_line_records_from_and_leaves_the_source_unchanged(
+def test_calibrate_carries_the_merged_log_and_the_unmerged_shares_once_and_leaves_the_source_unchanged(
     calibration_source: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def cal_kernel() -> Path:
@@ -194,14 +194,7 @@ def test_calibrate_carries_every_complete_source_line_records_from_and_leaves_th
     with pytest.raises(CalibrationClusterStoppedError):
         jobs.calibrate("carried", "sha256:B", "source")
     out = jobs.RESULTS / "carried"
-    expected = [
-        b'{"market": "merged"}\n',
-        b'{"market": "kept"}\n',
-        b'{"market": "merged"}\n',
-        b'{"market": "current"}\n',
-        b'{"market": "named"}\n',
-        b'{"market": "old-renamed"}\n',
-    ]
+    expected = [b'{"market": "merged"}\n', b'{"market": "current"}\n']
     assert sorted((out / "calibration.jsonl").read_bytes().splitlines(keepends=True)) == sorted(expected)
     record: dict[str, Any] = json.loads((out / "record.json").read_text())
     original: dict[str, Any] = json.loads(before["record.json"])

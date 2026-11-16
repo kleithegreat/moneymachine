@@ -17,7 +17,6 @@ def line(market: str) -> str:
     return json.dumps({"strength": calibrate.HI, "market": market, "result": {"earns": False}}) + "\n"
 
 
-@pytest.mark.xfail(strict=True, reason="advisor's addition to hunt finding 7: a carry reads shares already merged")
 def test_carry_skips_shares_already_merged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     merged_id, unmerged_id = calibrate.cal_a_ids()[:2]
     results = tmp_path / "results"

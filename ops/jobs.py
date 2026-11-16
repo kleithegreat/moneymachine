@@ -480,22 +480,45 @@ def cal_step(run: str, step: str, mode: str, record: dict[str, Any]) -> bool:
     return ok
 
 
-def complete_lines(path: Path) -> str:
-    text = path.read_text()
-    return text[: text.rfind("\n") + 1]
+def complete_lines(path: Path) -> bytes:
+    data = path.read_bytes()
+    return data[: data.rfind(b"\n") + 1]
+
+
+def unmerged_shares(out: Path) -> list[Path]:
+    """The shares of the round in hand: `share-<digits>.jsonl`, not a share already merged and renamed."""
+    return sorted(share for share in out.glob("share-*.jsonl") if re.fullmatch(r"share-\d+\.jsonl", share.name))
 
 
 def merge_shares(out: Path, step: str) -> int:
-    """Append every host's complete share lines to the merged log, then keep each share file under its step's name;
-    only `share-<digits>.jsonl` is this round's (behaviour 8)."""
-    added = 0
-    with (out / "calibration.jsonl").open("a") as merged:
-        for share in sorted(out.glob("share-*.jsonl")):
-            if re.fullmatch(r"share-\d+\.jsonl", share.name):
-                complete = complete_lines(share)
-                merged.write(complete)
-                added += complete.count("\n")
-                share.rename(out / f"{share.stem}.{step}.jsonl")
+    """Append every host's complete share lines the merged log lacks, then keep each share file under its step's
+    name. A kill at any instant loses no line and doubles none: the merged log is cut back to its last whole line
+    and synced before any share is renamed, and a share that a kill left unrenamed is merged again without the lines
+    already there (behaviour 8)."""
+    from gate.control import calibrate as cal
+
+    merged = out / "calibration.jsonl"
+    merged.touch()
+    shares = unmerged_shares(out)
+    whole = cal.scan(merged)[1]
+    kept = merged.read_bytes()[:whole]
+    present = set(kept.splitlines())
+    with merged.open("r+b") as handle:
+        handle.truncate(whole)
+        handle.seek(whole)
+        if kept and not kept.endswith(b"\n"):
+            handle.write(b"\n")
+        added = 0
+        for share in shares:
+            for line in complete_lines(share).splitlines():
+                if line not in present:
+                    present.add(line)
+                    handle.write(line + b"\n")
+                    added += 1
+        handle.flush()
+        os.fsync(handle.fileno())
+    for share in shares:
+        share.rename(out / f"{share.stem}.{step}.jsonl")
     return added
 
 
@@ -517,16 +540,20 @@ def calibrate(run: str, digest: str, source: str | None = None) -> None:
             "hosts": CAL_HOSTS,
             "run": run,
         }
-        carried = ""
+        carried = b""
         if source is not None:
             record["from"] = source
             if json.loads((RESULTS / source / "record.json").read_text())["mm"] != record["mm"]:
                 raise SystemExit(f"calibration: {source} ran another kernel")
-            logs = [RESULTS / source / "calibration.jsonl", *sorted((RESULTS / source).glob("share-*.jsonl"))]
-            carried = "".join(complete_lines(log) for log in logs if log.exists())
-        out.mkdir()
-        (out / "record.json").write_text(json.dumps(record, indent=1) + "\n")
-        (out / "calibration.jsonl").write_text(carried)
+            logs = [RESULTS / source / "calibration.jsonl", *unmerged_shares(RESULTS / source)]
+            lines = [line for log in logs if log.exists() for line in complete_lines(log).splitlines()]
+            carried = b"".join(line + b"\n" for line in dict.fromkeys(lines))
+        staged = RESULTS / f".{run}.new"
+        shutil.rmtree(staged, ignore_errors=True)
+        staged.mkdir()
+        (staged / "record.json").write_text(json.dumps(record, indent=1) + "\n")
+        (staged / "calibration.jsonl").write_bytes(carried)
+        staged.rename(out)
     record = json.loads((out / "record.json").read_text())
     (out / "k/release").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(INPUTS / record["mm"], out / "k/release/mm")
