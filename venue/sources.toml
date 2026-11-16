@@ -51,6 +51,14 @@ decimal places where `MAX_DECIMALS` is 6 for perps and 8 for spot." "Integer pri
 the number of significant figures. E.g. `123456` is a valid price even though `12345.6` is not." Not entered in
 `rules.json`, which the frozen kernel hashes and study 1's markets read.
 
+Entry price and closed profit (kernel version 2, V20; [entry price and pnl](https://hyperliquid.gitbook.io/hyperliquid-docs/trading/entry-price-and-pnl),
+retrieved 2026-11-16, quoted): "entry price, unrealized pnl, and closed pnl are purely frontend components provided for
+user convenience" and "The fundamental accounting is based on margin (balance for spot) and trades." "For opening
+trades, the entry price is updated to an average of current entry price and trade price weighted by size." "For closing
+trades, the entry price is kept the same." The page gives "Closed pnl is `fee + side * (mark_price - entry_price) *
+position_size` for a closing trade"; the vault's 2,508 closes before 2026-11-01 match the venue's printed `closedPnl`
+with no fee in it (`audit/program/facts-kernel-v2.md` section 7), so the record, not that formula, is followed.
+
 Rolling retention means the 4h bars at the start of W drop out of the API around
 2027-01. Our first fetch is the only lasting copy, so the store is append-only.'''
 
