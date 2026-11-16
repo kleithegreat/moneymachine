@@ -11,11 +11,16 @@
 (library
  (name ledger_test_support)
  (wrapped false)
- (modules ledger_oracle))
+ (modules ledger_oracle venue_oracle))
 
 (test
  (name ledger_test)
  (modules ledger_test)
+ (libraries mm2_lean ledger_test_support))
+
+(test
+ (name venue_test)
+ (modules venue_test)
  (libraries mm2_lean ledger_test_support))
 
 (executable

@@ -43,7 +43,8 @@
    1. One lot at 100 and two at 101, closed at 102, change cash by exactly 4 and never round; `entry` is `302/3`; a partial close leaves `entry` as it was; two opposite positions' funding sums to zero.
    2. Conservation (law A1) at every event of random sequences of fills, funding and one bankruptcy, as an equality of rationals with `absorbed` in it (GPT's finding 13).
    3. Every fee is its notional times its role's rate in the tier in force at its time, across a change of tier. A schedule that holds a rate below 0 or above 1 is refused, here by the replay and from step 3 by `start`; rates of 0 and of 1 are admitted (GPT, rounds 5 and 6).
-   4. Layer 1: see layer1.ml, a local executable, deliberately NOT @runtest.
+   4. Layer 1: see layer1.ml, a local executable, deliberately NOT @runtest;
+      venue_test.ml runs the made-up whole-number arithmetic cases in @runtest.
    5. The replay is admitted like a run: a fill dated in an unreleased protected window rejects it, and its result is written through the same two ledger rows (from step 9; until then the test is marked as waiting on it).
    The existing kernel2/tests/flake-lock.sh checks the unchanged flake.lock.
 *)
