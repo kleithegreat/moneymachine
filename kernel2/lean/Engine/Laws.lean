@@ -54,6 +54,7 @@ import Engine.Ledger
 import Engine.Machine
 import Engine.MachineConcrete
 import Engine.MachineFaults
+import Engine.Delivery
 
 namespace Engine.Laws
 
@@ -921,6 +922,51 @@ theorem N1_renaming {α : Type} :
         | ok u => rfl
         | error e => rw [hb] at h7; simp at h7
 
+/-- The event of L1a's witnesses: one declared float observation at the horizon's start. -/
+def l1aSeen (bits : UInt64) : Engine.Machine.Event :=
+  { coin := 0, time := 1775174400000, known := 1775174400000, payload := .observation 0 bits }
+
+open Engine.Machine in
+/-- L1a's witnesses as one boolean, evaluated by the kernel. -/
+def l1aWitnessCheck : Bool :=
+  match start step4Vol step4Header with
+  | .error _ => false
+  | .ok initial =>
+    (finish (feed initial (pack [l1aSeen 4613937818241073152])).1).2.startsWith "{\"ok\":true" &&
+    (finish (feed initial (pack [l1aSeen 4617315517961601024])).1).2.startsWith "{\"ok\":true" &&
+    (match snapshots initial [l1aSeen 4613937818241073152], snapshots initial [l1aSeen 4617315517961601024] with
+     | some r₁, some r₂ =>
+       decide (r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"]) &&
+       decide (r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])
+     | _, _ => false)
+
+set_option maxHeartbeats 4000000 in
+theorem l1aWitnessCheck_true : l1aWitnessCheck = true := by
+  decide +kernel
+
+open Engine.Machine in
+theorem l1a_witness :
+    ∃ initial : State, start step4Vol step4Header = .ok initial ∧
+      (finish (feed initial (pack [l1aSeen 4613937818241073152])).1).2.startsWith "{\"ok\":true" = true ∧
+      (finish (feed initial (pack [l1aSeen 4617315517961601024])).1).2.startsWith "{\"ok\":true" = true ∧
+      (∃ r₁ r₂, snapshots initial [l1aSeen 4613937818241073152] = some r₁ ∧
+        snapshots initial [l1aSeen 4617315517961601024] = some r₂ ∧
+        r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"] ∧
+        r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"]) := by
+  have h := l1aWitnessCheck_true
+  unfold l1aWitnessCheck at h
+  split at h
+  · simp at h
+  · rename_i initial hstart
+    simp only [Bool.and_eq_true] at h
+    obtain ⟨⟨h1, h2⟩, h3⟩ := h
+    refine ⟨initial, hstart, h1, h2, ?_⟩
+    split at h3
+    · rename_i r₁ r₂ hs1 hs2
+      simp only [Bool.and_eq_true, decide_eq_true_eq] at h3
+      exact ⟨r₁, r₂, hs1, hs2, h3.1, h3.2⟩
+    · simp at h3
+
 open Engine.Machine in
 /-- B3 L1a ★ for the machine so far, over a common successful `start` and admitted event streams: two markets
 equal on the events known by `τ`, and on the events with `time` at most `τ − δ`, give equal ticks through `τ`:
@@ -947,7 +993,10 @@ theorem L1a :
          snapshots initial [seen 4617315517961601024] = some r₂ ∧
          r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"] ∧
           r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])) := by
-  sorry
+  refine ⟨?_, l1a_witness⟩
+  intro program header initial hs es₁ es₂ τ h1 h2 r₁ r₂ hr₁ hr₂
+  have h := Engine.Machine.delivery hs es₁ es₂ τ h1 h2 r₁ r₂ hr₁ hr₂
+  exact ⟨h, by rw [h]⟩
 
 /-- B3 X3, the reader twin. The builder supplies, in `Engine.Exact`,
 `readBitsFast : Nat → UInt64 → Option Int`, with the same signature as
