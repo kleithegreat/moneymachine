@@ -732,7 +732,7 @@ theorem N1_renaming {α : Type} :
         (∀ o ∈ cfg.observations, o.name ∈ names) →
         ∀ (coins : Nat) (ts ts' : List (Tick α)),
           ts'.length = ts.length →
-          (∀ i t t', ts[i]? = some t → ts'[i]? = some t' →
+          (∀ (i : Nat) (t t' : Tick α), ts[i]? = some t → ts'[i]? = some t' →
             t'.inView = t.inView ∧ t'.time = t.time ∧
               ∀ c s, s ∈ p.sourceNames → t'.input c (ρ s) = t.input c s) →
           (p.rename ρ).WF ∧
