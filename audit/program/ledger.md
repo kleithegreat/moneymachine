@@ -1626,3 +1626,56 @@ Appended 2026-11-16 21:14 UTC (16:14 EST) by Claude Fable 5.2, sessions "archite
 | D146 | A bar market's staleness length | `Δ < G ≤ 2Δ`, or `start` refuses: at `G ≤ Δ` every bar's prints find the coin stale, and above `2Δ` a missing bar does not make it stale. A bar's print rounds to the nearest grid price and to the least where none is below. Test 6 measures and has no wall | **Yes** (step 8; A16's B5, A18) |
 | D147 | What an identity hashes | Inputs alone, all known before the run: the readers' dropped counts are outputs, in the result row and the summary. One canonical JSON text of named fields, the windows and the build two of them. Aliases rename and do not reorder | **Yes** (step 9, walls 1 to 3; A13) |
 | D148 | K2 in Lean, and test 13's paths | The pin has no Mathlib and no input is added: K2's Lean statement is the arithmetic, and the two real inequalities stay on paper with K3, held by test 9. A null with one law an event leaves every decimal grid, so test 13's paths are rows given to `confirm` | **Yes** (step 10, walls) |
+
+### Settled by a derivation the reviewers have not seen (brief 4)
+
+Read against `kernel-v2.md` part A, `KERNEL.md` A17 to A19 and CS2.1 to CS2.3 as committed. Data read: the times and `dir` of the vault's TON fills and the stamps of the stored `fundingHistory` rows, all before 2026-11-01; no price.
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D149 | The replica's clock | `tick` of 1 s, `decide_every` of 1: with `λ` and `δ` at a second a coarser clock is a third, unregistered delay. It is the ladder's and not the fit's | **Yes** (brief 4, the venue's table) |
+| D150 | Funding's `late` and `lag`, the listings' `lag` | `late` of 3,599,999 ms, the longest admitted: an event's hour is its stamp's floor, so a shorter one catches nothing and one late stamp would end the forward test; every hour of a day run is still due within that day. `lag` of `δ`. Listings an hour, the copy's cadence. The stamps on record are at most 139 ms late (86,496 rows) | **Yes** (the venue's table; the registration holds them) |
+| D151 | Who judges the vault's chain | Lean: `chained` (law M4), from the `flow` rows the replay of given fills now writes and each fill's `startPosition`. CS2.3's "not judged" rested on an OCaml test's check | **Yes** (step 1; brief 3's replay of given fills) |
+| D152 | M1's proof | Sorted lists for one coin; an exchange lemma on the two earliest entries; an induction on the lengths. No Mathlib | **Yes** (step 1, wall 2) |
+| D153 | Where the ladder ends and the trigger begins | Two `let`s, `anchor` and `unit`. Step 2 writes the levels and the exit over them; step 3 writes the entry's slots and those two, and nothing else. A first buy filled in part is the fit's to settle | **Yes** (step 2, wall 1; step 3, wall 1) |
+| D154 | The anchor, the rounding, the kind of order | `first_price`: a fill's row holds no limit and the language no input for one. The engine's rounding: a program cannot round, and one-step misses in one direction are reported, not hidden. `gtc`: the vault's levels and exits took in 1 to 2% of their fills, which no post-only order does | **Yes** (step 2, walls 2 and 3) |
+| D155 | Refusals at a second's tick | A refused slot writes a row a tick, so a level's `when` holds the venue's minimum. Step 2's test 3 forbids `margin` and `cap` refusals and any refusal of a level or the exit; an entry's dust remainder is refused by A6 as designed. The tests enter by a declared source held for one tick; test 5's entry is a literal size and price | **Yes** (step 2, walls 4 and 5; tests 3 and 5) |
+| D156 | The fit's cost and plan (O23) | Rounds: many trials on August 2026, a quarter of an hour of admission each, then the survivors on the whole span, 7 to 17 hours each, side by side | **Yes** (step 3, wall 2) |
+| D157 | The record's holes | Stale, so nothing fills and a held position stays; the price follows prints and funding is paid. The fit and the check count the vault's entries in a hole against the match, as CS2.3 does. Step 4's table names each coin's stale days and whether it was open in them | **Yes** (step 3, wall 4; step 4, test 6) |
+| D158 | A path's arithmetic | Lean's: one pure function from the replay's rows, a pair and 730 days. The pin gives OCaml no exact rationals. The digest is `digestif`'s | **Yes** (step 5, wall 1) |
+| D159 | What `study2 forward` holds itself to | Every registered field of the header, read from the registration. The registered build is the engine's; `study2`'s own OCaml is outside it and may be fixed | **Yes** (step 6, test and wall 1) |
+| D160 | The forward universe | The vault's 17 coins, each listed at the first judged midnight by the listings copy; one that is not is named and is in no market | **Yes** (step 6, wall 2) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O21 | Whether step 3's rates are met | **Closed, met.** On one isolated core the strings day took 8.7 s of 22 and the doubles day 313 s of 470. At the measured 126 µs a quote the window's admission is 8.0 hours of the 12 allowed; the batch runs when calibration ends and is a record of time and memory, not a decision | |
+| O22 | The recorder's reader inside 22,500 a second | Open until step 6's test 11. `feed` alone takes 8.7 of the 44 µs a quote allowed there, so the reader, the prints and the ladder's ticks have 35 | Step 6's reader, if the profile shows it most of them |
+| O23 | The trigger's fit at the new wall | **Closed** by D156 | |
+| O24 | The replica's own trace at a second's tick | 311 million `tick` rows a replay, some 15 GB a run, and a billion over the forward years, rewritten monthly. Nothing judged reads them. Not derived: I have not found the form that removes them without a switch in the engine or a second kind of trace. Test 11's time with rows written, and the first whole day's bytes, decide whether it is a wall at all | The trace's `tick` rows, if a wall |
+| O25 | A position held into a hole of the record | TON's quotes stop on 2026-06-15 and the coin stays listed; every coin is silent for a week in July. If the replica holds a coin there, the replay's variance, which CS2.2 reads and the bootstrap resamples, carries a holding the rule could not sell. Step 4's table decides whether it happens | CS2.2's reading or a dated revision before any judged day, if it happens (H15) |
+
+### What a read should check
+
+1. **D150.** A stamp the longest `late` admits and a shorter one should have refused; an hour of a run's last day that is not due.
+2. **D151, D152.** A vault record that `chained` passes with a fill missing (a round trip missing whole passes: V18 says so); a pair of sorted lists on which the recursion is not the largest matching.
+3. **D153 to D155.** A ladder the two `let`s cannot say; a refusal the restated test 3 lets through that Argon's finding 4 was about.
+4. **D157, O25.** Whether TON traded after 2026-06-16, from the trade record's counts; a coin stale in a hole whose price a print moves, and what `Wᵇ` values it at.
+5. **D159.** A field of the forward header a result moves with that the registration does not hold.
+6. **The earlier rows, D131 to D148:** each against the step it names. The ones I would attack first are D133 (N1's restatement), D135 (one mark a check) and D146 (bars).
+
+### Assumptions only the human can choose
+
+| | Choice | My recommendation |
+|---|---|---|
+| H15 | Only if step 4's table shows the replica holding a coin through a hole of more than a day: whether CS2.2 is read against that replay as it stands, with the holding named as a qualification, or revised with a date before any judged day is run | Read it as it stands. A revision that picks the replay's days or coins after the table was read is a choice made after a price |
+
+### Owed
+
+- **By the advisor:** this section's rows read by GPT and Argon, D133, D135, D150 and D151 first, since each changes what a judged run does; the count of TON's rows in the trade record by day from 2026-06-16; N1's, L3's and L2's restatements by their writer before step 5's build; step 5's test list as the first report gives it; the fit's sandbox and its test (brief 4, step 3, wall 5).
+- **By the next architect:** O24 and O25 when their measurements come; the profile if step 6's rate is missed.
+
+### Convergence
+
+**Answered by derivation and not yet read.** O21 and O23 are closed. No open dispute would change what is built before step 6's test 11 (O22, O24) and brief 4's step 4 (O25).
