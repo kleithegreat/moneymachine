@@ -1066,3 +1066,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - `done.tsv` has sha256 `8c6ffa6d860ef614…`.
   - **Spend:** the downloader's meter reads $17.10 ($16.34 and $0.76). With the archive's earlier transfer, that is within the human's $20 of 2026-10-26.
   - **Reverse:** delete the directory. The files can be fetched again at about $17.
+- 2026-11-16 20:41 UTC (15:41 EST), advisor: **step 3's item 2 (the machine keeps what it reads) checked by reading `Machine.lean`, as brief 3 asks, since no test sees that a number is read once** (`kernel2-step4-wip` `7ee5eb6`, as of `0515b91`).
+  - **Admission:** `admit` returns the first fault or a `Reading`. That is every number as the integer `readBits` or `putPlaced` gave at its field's scale, a size beside the `szDecimals` it was read at, and of a quote only its best levels.
+  - **The checks are of integers:** above zero, strictly best first, not crossed (`ask ≤ bid` rejects), and on the grid by `onGridAt` at scale 8.
+  - **`applyPayload` reads nothing.** `readRat`, `crossed`, `midOf`, `levelRats` and every `getD` of a reading are gone from `Machine.lean`. A `Rat` is made only for the mid and the coin's price, a row, and the view, and the view's only when a program is present (`withPending`).
+  - **Fault codes and order are as before** for every kind of event, compared with `09e2e86`. Two textual differences evaluate alike. A funding event still checks rate, oracle, hour, lateness, repeat, then lag. An empty quote side is one check written as two patterns.
