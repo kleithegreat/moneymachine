@@ -3,6 +3,11 @@
  (modules state_test)
  (libraries mm2_lean))
 
+(test
+ (name exact_test)
+ (modules exact_test)
+ (libraries mm2_lean))
+
 (rule
  (alias runtest)
  (deps
