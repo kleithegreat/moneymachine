@@ -14,7 +14,6 @@ from gate.control.tests.fakes import FOREIGN, IDS, NOTICE, SERVED, STRENGTH, jud
 from sandbox import session
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 1: a kill keeps an unserved model's pick as the agent's")
 def test_kill_keeps_the_model_of_a_response_that_already_evaluated(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

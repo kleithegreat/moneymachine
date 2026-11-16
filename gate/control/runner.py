@@ -152,8 +152,9 @@ def market_line(
     wait_until_unnamed(ledger)
     record = read_record(workdir)
     models = model_ids(workdir / "transcript.jsonl", content["constants"]["NOTICE"])
-    is_agent = all(model in content["constants"]["SERVED"] for model, _ in models)
     evaluations = spent(ledger, market_id, workdir)
+    served = all(model in content["constants"]["SERVED"] for model, _ in models)
+    is_agent = served and (bool(models) or evaluations == 0)  # a kill loses the transcript's buffered tail
     judged = judge(market_id, content["strength"], ledger) if is_agent and evaluations > 0 else NO_PICK
     earns = bool(judged["earns"]) and judged["pick"] is not None
     searcher_earns = bool(searcher[market_id]["earns"])
@@ -188,7 +189,7 @@ def stop_for_a_person(line: Line, served: list[str]) -> None:
         causes.append("crash")
     if not line["is_agent"]:
         unnamed = [model for model, _ in line["models"] if model not in served]
-        causes.append(f"ids outside SERVED: {unnamed}")
+        causes.append(f"ids outside SERVED: {unnamed}" if unnamed else "no served model established")
     if line["decision"] == "continue" and causes:
         raise RuntimeError(f"{line['id']}: {'; '.join(causes)}")
 
