@@ -781,37 +781,50 @@ theorem L2_checker :
     | ok _ => rw [hp] at hbad; simp at hbad
 
 open Engine.Lang in
-/-- B3 L2, units: on a checked program the unit-instrumented evaluator never raises a unit or sort error at any
-tick of any run; erasing its tags gives the executable evaluator's state; every defined value carries its node's
-static type, and a defined bool is the number system's `truth` of a bool. The witness: a source read by a probe
-comes out as the number read, when it is finite. -/
+/-- B3 L2, units: erasure preserves both arrays; defined float/bool and exact
+values have their checked sort and unit. Crossings use NumOps's crossings;
+on bitsOps these are the rational a binary64 is and nearest binary64, ties
+to even, undefined when not finite. The finite-source witness is retained. -/
 theorem L2_units {α : Type} :
     (∀ (N : NumOps α) (p : Program), p.WF → ∀ (coins : Nat) (ts : List (Tick α)),
       ∃ m : UMach α,
         ts.foldlM (fun acc t => UMach.step N p t acc) (UMach.init N p coins) = .ok m ∧
         m.erase = Mach.run N p coins ts ∧
-        ∀ i, i < p.nodes.size → ∀ c x ty, m.tagged i c = some (x, ty) →
-          ty = p.types[i]! ∧ (ty = Ty.bool → ∃ b, x = N.truth b)) ∧
+         (∀ i, i < p.nodes.size → ∀ c x ty, m.tagged i c = some (x, ty) →
+           ty = p.types[i]! ∧ (∀ u, ty ≠ Ty.exact u) ∧
+             (ty = Ty.bool → ∃ b, x = N.truth b)) ∧
+         (∀ i c x u, m.exactTagged i c = some (x, u) →
+           p.types[i]? = some (.exact u) ∧ m.erase.exacts[i]![c]! = some x) ∧
+         (∀ i c x, m.erase.exacts[i]![c]! = some x →
+           ∃ u, m.exactTagged i c = some (x, u)) ∧
+         (∀ i j c, p.nodes[i]? = some (.op .exact [j]) →
+           m.erase.exacts[i]![c]! = (m.erase.vals[j]![c]!).bind N.toExact) ∧
+         (∀ i j c, p.nodes[i]? = some (.op .float [j]) →
+           m.erase.vals[i]![c]! = (m.erase.exacts[j]![c]!).bind N.ofExact)) ∧
+     (∀ bits : UInt64, bitsOps.toExact bits = Engine.Exact.decode bits) ∧
+     (∀ x : Rat, bitsOps.ofExact x =
+       let bits := Engine.Exact.nearestBits x
+       if bitsOps.finite bits then some bits else none) ∧
     (∃ p : Program, parse step4Vol = .ok p ∧ ∃ i, p.probeNodes[0]? = some i ∧
       ∀ (N : NumOps α) (x : α), N.finite x = true →
         (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[i]![0]! = some x) := by
-  refine ⟨fun N p hwf coins ts => l2_units N hwf coins ts, ?_⟩
-  refine ⟨step4VolProgram, parse_step4Vol_eq, 0, rfl, fun N x hx => step4Vol_reads N x hx⟩
+   sorry
 
 open Engine.Lang in
-/-- B3 L3 over declared sources: a rewrite of R version 1 keeps a well-formed program well formed, gives every
-original node the value of its corresponding node at every tick of every run, and so gives every probe the same
-values. Abstract numbers: the numeric obligations are `NumOps.Lawful`. The witnesses: there are twelve rules;
-and one of them rewrites the checked program `neg(neg(vol))` into a different program, where under any lawful
-number system a finite input reads out as itself from both programs' probes. -/
+/-- B3 L3: rewrites preserve vals AND exacts at corresponding nodes and probes.
+Float matches need NumOps.Lawful; an exact match needs no such premise.
+The twelve-rule and nontrivial finite-source witnesses are retained. -/
 theorem L3_rewrite {α : Type} :
-    (∀ (N : NumOps α), N.Lawful → ∀ (r : Rule) (p p' : Program) (i : Nat), p.WF → r.apply p i = some p' →
+     (∀ (N : NumOps α) (r : Rule) (p p' : Program) (i : Nat),
+       (N.Lawful ∨ ∃ u, p.types[i]? = some (.exact u)) → p.WF → r.apply p i = some p' →
       ∀ (coins : Nat) (ts : List (Tick α)),
         p'.WF ∧
         (∀ k, k < p.nodes.size →
-          (Mach.run N p' coins ts).vals[r.corr i k]! = (Mach.run N p coins ts).vals[k]!) ∧
+           (Mach.run N p' coins ts).vals[r.corr i k]! = (Mach.run N p coins ts).vals[k]! ∧
+           (Mach.run N p' coins ts).exacts[r.corr i k]! = (Mach.run N p coins ts).exacts[k]!) ∧
         (∀ j, j < p.probeNodes.size →
-          (Mach.run N p' coins ts).vals[p'.probeNodes[j]!]! = (Mach.run N p coins ts).vals[p.probeNodes[j]!]!)) ∧
+           (Mach.run N p' coins ts).vals[p'.probeNodes[j]!]! = (Mach.run N p coins ts).vals[p.probeNodes[j]!]! ∧
+           (Mach.run N p' coins ts).exacts[p'.probeNodes[j]!]! = (Mach.run N p coins ts).exacts[p.probeNodes[j]!]!)) ∧
     Rule.all.length = 12 ∧
     (∃ (r : Rule) (p p' : Program) (i : Nat), r ∈ Rule.all ∧ parse step4NegNeg = .ok p ∧ r.apply p i = some p' ∧
       p' ≠ p ∧
@@ -820,22 +833,7 @@ theorem L3_rewrite {α : Type} :
             = some x ∧
         (Mach.run N p' 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[p'.probeNodes[0]!]![0]!
             = some x) := by
-  refine ⟨fun N hL r p p' i hwf happ coins ts => ?_, rfl, ?_⟩
-  · obtain ⟨h1, h2, h3⟩ := rewrite_sound N hL r hwf happ
-    exact ⟨h1, fun k hk => h2 coins ts k hk, fun j hj => h3 coins ts j hj⟩
-  · refine ⟨.negNeg, step4NegNegProgram, step4NegNegProgram.redirect 2 0, 2, by simp [Rule.all],
-      parse_step4NegNeg_eq, rfl, ?_, fun N hL x hx => ⟨?_, ?_⟩⟩
-    · intro h
-      have := congrArg Program.probeNodes h
-      simp [Program.redirect, step4NegNegProgram] at this
-    · have h0 : step4NegNegProgram.probeNodes[0]! = 2 := by
-        simp [step4NegNegProgram]
-      rw [h0]
-      exact step4NegNeg_reads N hL x hx
-    · have h0 : (step4NegNegProgram.redirect 2 0).probeNodes[0]! = 0 := by
-        simp [Program.redirect, step4NegNegProgram]
-      rw [h0]
-      exact step4NegNeg_reads' N x hx
+   sorry
 
 open Engine.Lang Engine.Machine in
 /-- B3 L5 over declared sources: `start`'s preflight, before any event or tick, fails exactly when the program
@@ -870,8 +868,8 @@ theorem L5_binding :
     eq_error_of start_vol_refused⟩
 
 open Engine.Lang Engine.Machine in
-/-- B3 N1: a consistent renaming of the declared sources, in the program and in the header, leaves the
-preflight's verdict and every node's value at every tick of every run as they were. The renaming is one-to-one,
+/-- B3 N1: a consistent renaming of the declared sources, in the program and in the header, with equal
+exact inputs at corresponding ticks, leaves the preflight and both vals and exacts unchanged. The renaming is one-to-one,
 and what it yields a legal name that is no built-in input's, on the names it renames: every source the program declares or
 reads, and those of the header. No code selects behaviour by a source's name. The witness: `vol` renamed `vol2` meets every
 hypothesis, changes the program, and the renamed program binds to the renamed header. -/
@@ -885,11 +883,12 @@ theorem N1_renaming {α : Type} :
         ∀ (coins : Nat) (ts ts' : List (Tick α)),
           ts'.length = ts.length →
           (∀ (i : Nat) (t t' : Tick α), ts[i]? = some t → ts'[i]? = some t' →
-            t'.inView = t.inView ∧ t'.time = t.time ∧
+             t'.inView = t.inView ∧ t'.time = t.time ∧ t'.exactInput = t.exactInput ∧
               ∀ c s, s ∈ p.sourceNames → t'.input c (ρ s) = t.input c s) →
           (p.rename ρ).WF ∧
           bind (p.rename ρ) (cfg.rename ρ) = bind p cfg ∧
-          (Mach.run N (p.rename ρ) coins ts').vals = (Mach.run N p coins ts).vals) ∧
+           (Mach.run N (p.rename ρ) coins ts').vals = (Mach.run N p coins ts).vals ∧
+           (Mach.run N (p.rename ρ) coins ts').exacts = (Mach.run N p coins ts).exacts) ∧
     (∃ (p : Program) (cfg : Config),
       parse step4Vol = .ok p ∧ parseHeader step4Header = .ok cfg ∧
       (let ρ : String → String := fun s => if s = "vol" then "vol2" else s
@@ -897,30 +896,7 @@ theorem N1_renaming {α : Type} :
        (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
        (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧ (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
        p.rename ρ ≠ p ∧ bind (p.rename ρ) (cfg.rename ρ) = .ok ())) := by
-  refine ⟨?_, ?_⟩
-  · intro names ρ hinj _ N p cfg hwf hd hs ho coins ts ts' hlen hrel
-    refine ⟨wf_rename ρ hwf, bind_rename ρ names hinj p cfg hd ho, ?_⟩
-    have hrun := run_rename N ρ p coins ts ts' hlen (fun i t t' h1 h2 => by
-      obtain ⟨hv, _, hi⟩ := hrel i t t' h1 h2
-      refine ⟨hv, fun name u hmem c => hi c name ?_⟩
-      simp only [Program.sourceNames, List.mem_filterMap]
-      exact ⟨.source name u, hmem, rfl⟩)
-    rw [hrun]
-  · cases hp : parse step4Vol with
-    | error _ => have := n1_witness_holds; rw [hp] at this; simp at this
-    | ok p =>
-      cases hc : parseHeader step4Header with
-      | error _ => have := n1_witness_holds; rw [hp, hc] at this; simp at this
-      | ok cfg =>
-        have := n1_witness_holds
-        rw [hp, hc] at this
-        have hw : n1Witness p cfg := of_decide_eq_true this
-        obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hw
-        refine ⟨p, cfg, rfl, rfl, h1, h2, h3, h4, h5, h6, ?_⟩
-        cases hb : bind (p.rename fun s => if s = "vol" then "vol2" else s)
-            (cfg.rename fun s => if s = "vol" then "vol2" else s) with
-        | ok u => rfl
-        | error e => rw [hb] at h7; simp at h7
+   sorry
 
 /-- The event of L1a's witnesses: one declared float observation at the horizon's start. -/
 def l1aSeen (bits : UInt64) : Engine.Machine.Event :=
@@ -1013,5 +989,360 @@ theorem X3_onGrid (figures : Nat) (decimals : Int) (scale : Nat) (n : Int) :
     Engine.Exact.onGridAt figures decimals scale n =
       Engine.Exact.onGrid figures decimals ((n : Rat) / (10 : Rat) ^ scale) :=
   Engine.Exact.onGridAt_eq figures decimals scale n
+
+end Engine.Laws
+
+/-
+Step 5 RUNNING interface required from the builder, reachable through the
+existing import closure (no declarations, axioms or specification engine here).
+`Book` below is the order/account part of Machine.State, without the event
+queue or output buffers. The same functions are called by feed/finish. The
+records of a Run are observations of those calls, not a replay of their output.
+The instrumented runner is for proofs/tests; ordinary feed keeps no history.
+
+namespace Engine.Orders
+  inductive Side | buy | sell                         -- DecidableEq
+  structure Value where price : Rat; target : Option Rat
+    -- none = close; some = exact coin target. A notional has already been
+    -- divided by the UNROUNDED slot price, exactly, by the slot evaluator.
+  structure Wish where
+    coin slot cycle : Nat; side : Side; value : Option Value
+    sent arrives : Int; reduceOnly : Bool
+    tif : String
+    -- value = none is the one inactive wish, NOT the absence of a wish.
+  structure Order where
+    coin slot cycle : Nat; side : Side; price : Rat; target : Option Rat
+    remainder : Rat; placed : Int; reduceOnly : Bool
+    tif : String
+     -- Value, Wish and Order have DecidableEq (the numeric fixture compares them).
+  structure Book where
+    orders : List Order; coins : List Nat
+    cycle : Nat → Nat; position : Nat → Rat; filled : Nat → Nat → Rat
+     rules : Nat → Engine.Machine.Rules; ended : List Nat
+    -- Includes the actual admission inputs and account flags; not a second
+    -- account. Book has DecidableEq only if represented without functions;
+    -- the laws below need equality, not a decidability instance on Book.
+  structure Admission where
+    book : Book; order : Order
+    positionMargin equity minimum cap : Rat
+    leverage takerRate : Nat → Rat
+     -- positionMargin/equity use the world's adverse marks at this check,
+     -- one mark per coin for BOTH equity and position notional (step 5).
+  prepare : Book → Wish → Option Order
+    -- A6 rounded candidate with WORLD remainder; inactive/zero => none.
+  cancelSlot : Book → Nat → Nat → Book
+  install : Book → Order → Book
+  admission : Book → Order → Admission
+  admit : Admission → Except String Order
+    -- reasons: margin, minimum, cap; the admitted value is the candidate.
+  arrive : Book → Wish → Book × List String
+    -- running arrival transition; the second projection is its effects.
+  structure Placement where
+    order : Order; value : Value; rules : Engine.Machine.Rules; step : Nat
+    -- value is the ORIGINAL wish, not a rounded copy; rules at placement.
+  structure Arrival where before after : Book; wish : Wish; time : Int
+  inductive Trigger | fill (coin : Nat) (units : Rat) | liquidation | other
+    -- fill is an order fill or settlement. Liquidation's closes belong to
+    -- its ONE liquidation transition, not fresh cycle-ending transitions.
+  structure CycleStep where
+    before after : Book; trigger : Trigger; time : Int; ended : List Nat
+  structure OrderFill where
+    order : Order; before : Book; units : Rat; time : Int; step : Nat
+  structure Run where
+    placed : List Placement; wishes : List Wish; arrivals : List Arrival
+    admissions : List Admission             -- every attempt, refusals included
+    steps : List CycleStep; fills : List OrderFill
+    whenValues : List (Int × Nat × Nat × Option Bool)
+     exactArguments : List (Int × Nat × Nat × Option Rat)
+    -- Every evaluated when and exact argument, tick/coin/node indexed,
+    -- including undefined and values in inactive slots/unused lets/probes.
+     rows : Engine.Machine.Rows
+     tickWorlds : List (Int × Nat × List (Option Rat))
+     -- Actual delayed WORLD projections, not view/effects/rows: at each tick,
+     -- pos,equity, then filled/resting/resting_price in program-slot order.
+     -- At delta=0 sample before the tick's after-tick wish arrivals.
+   structure SlotEval where
+     wishes : List (Nat × Nat × Option Value)
+     whenValues : List (Nat × Nat × Option Bool)
+     exactArguments : List (Nat × Nat × Option Rat)
+     -- One tick's unrounded slot values (coin,slot,value), including inactive.
+end Engine.Orders
+namespace Engine.Lang
+   -- Extend the EXISTING NumOps and bitsOps, do not add a Float-only runner:
+   NumOps.toExact : NumOps α → α → Option Rat
+   NumOps.ofExact : NumOps α → Rat → Option α
+   Tick.exactInput : Tick α → Nat → String → Option Nat → Option Rat
+     -- coin, built-in input name, optional slot index; one view's exact inputs.
+     -- Keep the existing three-argument Tick constructor source-compatible
+     -- (the added input defaults to none); the frozen witnesses still use it.
+   Mach.exacts : Mach α → Array (Array (Option Rat))
+   UMach.exactTagged : UMach α → Nat → Nat → Option (Rat × Dim)
+   slotEval : NumOps α → Program → Nat → Tick α → Mach α → Engine.Orders.SlotEval
+     -- Evaluates ONE tick from that evaluator state and reads its slots.
+end Engine.Lang
+namespace Engine.Machine
+   TickRecord.exacts : TickRecord → Array (Array (Option Rat))
+   TickRecord.wishes : TickRecord → List Engine.Orders.Wish
+     -- Actual evaluator outputs and sent wishes, so L1a's equality claims both.
+   -- Config.lambda : Int, the header's order delay (Config.delta already exists).
+   inductive Move
+     | event (event : Event)
+      | offer (coin slot lots : Nat) (price : Rat) (role : Engine.Ledger.Role)
+    offer : State → Nat → Nat → Nat → Rat → Engine.Ledger.Role → State × Rows
+     -- One running world transition: coin/slot, positive lots, positive price,
+     -- role; at the last fed event's time, after it, before its tick. Least of
+      -- offered lots, remainder and reduce-only position, expressed on the
+      -- coin's lots (one lot is 10^-szDecimals units); exact ledger fee;
+     -- own exhaustion removes the order; no live order/no quote is a no-op.
+     -- Lean ONLY: no @[export], C stub, OCaml binding or mm2 command.
+   orderRun : {α : Type} → Engine.Lang.NumOps α → State → List Move → Option Engine.Orders.Run
+     -- Same machine parameterized ONLY at float arithmetic, returning none on
+     -- rejection; offers supplied here are positive and follow a fed event.
+     -- Moves call feed(pack [event]) or offer in the given order, collecting
+     -- rows and actual transition observations, then finish. No alternate cut.
+     -- The ordinary engine uses Lang.bitsOps. Records all ticks
+    -- through finish, including effects made after ticks at delta = 0.
+  orderClock : State → Int × Int        -- tick milliseconds, decide_every
+  orderHorizon : State → Int × Int      -- [start,end)
+   slotKeysAt : State → List Move → Int → List (Nat × Nat)
+    -- Checked slots × coins in VIEW at this tick, coin then program-slot order.
+end Engine.Machine
+
+No predicate named `valid`, `sameOrders` or `conditionsHold` stands for the
+law's conclusion. In particular admission's inequalities are written below.
+`prepare` is the running rounding/remainder function, characterized by X1 for
+placed values and by R1/S1 for transitions and fills. Each law also requires
+successful, nonempty, concrete running behaviour.
+-/
+
+namespace Engine.Laws
+
+def step5Header : String :=
+  r#"{"horizon":{"start":1775174400000,"end":1775174402001},"venue":{"fill":"pessimistic","lambda":0,"delta":0,"stale":60000,"cap":"10000","minimum":"0"},"cash":"10000","coins":[{"name":"A","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]}],"fees":[{"from":1775174400000,"tier":"base","maker":"0","taker":"0"}],"sources":{"listings":{"lag":0},"funding":{"encoding":"string","lag":0,"late":1000},"quotes":{"encoding":"string"},"trades":{"encoding":"string"},"observations":[]},"aliases":{"coins":{},"sources":{}}}"#
+
+def step5Program : String :=
+  r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[],"params":[],"let":[],"slots":[{"name":"entry","side":"buy","when":{"op":"gt","args":[{"exact":"1","unit":"1"},{"exact":"0","unit":"1"}]},"price":{"exact":"100.0019","unit":"usd/coin"},"size":{"exact":"1.239","unit":"coin"},"tif":"gtc","reduce_only":false},{"name":"exit","side":"sell","when":{"op":"gt","args":[{"input":"pos"},{"exact":"0","unit":"coin"}]},"price":{"exact":"110","unit":"usd/coin"},"size":"close","tif":"gtc","reduce_only":true}],"probes":[]}"#
+
+def step5Events : List Engine.Machine.Event :=
+  [{coin := 0, time := 1775174400000, known := 1775174400000,
+    payload := .quote [{price := .placed 99 0, size := .placed 10 0}]
+                      [{price := .placed 101 0, size := .placed 10 0}]},
+   {coin := 0, time := 1775174400001, known := 1775174400001,
+    payload := .quote [{price := .placed 99 0, size := .placed 10 0}]
+                      [{price := .placed 100 0, size := .placed 123 2}]},
+   {coin := 0, time := 1775174401001, known := 1775174401001,
+    payload := .quote [{price := .placed 109 0, size := .placed 10 0}]
+                      [{price := .placed 111 0, size := .placed 10 0}]},
+   {coin := 0, time := 1775174401500, known := 1775174401500,
+    payload := .trade 1 (.placed 111 0) (.placed 2 0) false}]
+
+/-- Offers, not A7 matching: both the entry and the cycle-ending close are
+given explicitly between the corresponding fed event and its tick. -/
+def step5Moves : List Engine.Machine.Move :=
+  match step5Events with
+  | [q₀, q₁, q₂, trade] =>
+    [.event q₀, .event q₁, .offer 0 0 123 100 .taker,
+     .event q₂, .event trade, .offer 0 1 200 110 .maker]
+  | _ => []
+
+open Engine.Orders Engine.Machine in
+/-- B3 X1 ★: placement rounds the wish's exact price and coin target by the
+rules in force THERE, not at evaluation; close stays close. Agreement on all
+when values and exact arguments at one tick suffices for equal wishes under
+any two NumOps, not agreement on arbitrary float probes. The numeric runner emits the
+same rows as feed/offer/finish. Witness: an admitted program really places a buy at
+100 with target 123/100 from exact values 100.0019 and 1.239. -/
+theorem X1 :
+    (∀ (program header : String) (initial : State), start program header = .ok initial →
+      ∀ {α : Type} (N : Engine.Lang.NumOps α) (moves : List Move) (run : Run),
+        orderRun N initial moves = some run →
+        ∀ p ∈ run.placed,
+          p.order.price = (match p.order.side with
+            | .buy => Engine.Exact.roundPriceBuy p.rules.figures p.rules.decimals p.value.price
+            | .sell => Engine.Exact.roundPriceSell p.rules.figures p.rules.decimals p.value.price) ∧
+          p.order.target = p.value.target.map (fun target =>
+            Engine.Exact.roundSize target (1 / (10 : Rat) ^ p.rules.szDecimals))) ∧
+    (∀ {α : Type} (N₁ N₂ : Engine.Lang.NumOps α) (p : Engine.Lang.Program), p.WF →
+      ∀ (coins : Nat) (t : Engine.Lang.Tick α) (m₁ m₂ : Engine.Lang.Mach α),
+        let a := Engine.Lang.slotEval N₁ p coins t m₁
+        let b := Engine.Lang.slotEval N₂ p coins t m₂
+        a.whenValues = b.whenValues → a.exactArguments = b.exactArguments →
+        a.wishes = b.wishes) ∧
+    (∀ (program header : String) (initial : State) (moves : List Move) (run : Run),
+      start program header = .ok initial →
+      orderRun Engine.Lang.bitsOps initial moves = some run →
+      let empty : Rows := {report := "", trace := ""}
+      let fed := moves.foldl (fun (acc : State × Rows) move =>
+        let next := match move with
+          | .event e => feed acc.1 (pack [e])
+          | .offer coin slot lots price role => offer acc.1 coin slot lots price role
+        (next.1, {report := acc.2.report ++ next.2.report,
+                  trace := acc.2.trace ++ next.2.trace})) (initial, empty)
+      let final := finish fed.1
+      run.rows.report = fed.2.report ++ final.1.report ∧
+      run.rows.trace = fed.2.trace ++ final.1.trace) ∧
+    (∃ (initial : State) (run : Run) (p : Placement),
+      start step5Program step5Header = .ok initial ∧
+      orderRun Engine.Lang.bitsOps initial step5Moves = some run ∧
+      p ∈ run.placed ∧ p.order.coin = 0 ∧ p.order.slot = 0 ∧ p.order.side = .buy ∧
+      p.value.price = 1000019 / 10000 ∧ p.value.target = some (1239 / 1000) ∧
+      p.order.price = 100 ∧ p.order.target = some (123 / 100)) := by
+  sorry
+
+/- R1 additionally uses the running functions `arrive : Book → Wish →
+Book × List String`, `prepare : Book → Wish → Option Order`,
+`cancelSlot : Book → Nat → Nat → Book`, `install : Book → Order → Book`,
+`admission : Book → Order → Admission`, `admit : Admission → Except String Order`.
+All required fields/signatures are in the interface block above. The admission
+record is taken AFTER cancelling the replaced order; its book.orders excludes
+the candidate, which the inequality adds exactly once. -/
+open Engine.Orders Engine.Machine in
+/-- B3 R1 ★: one wish per slot per deciding tick, none between; arrival at
+sent + lambda, in FIFO order. The three A6 arrival cases, idempotence of equal
+wishes without intervening events, reduction-first admission order, and the
+three admission inequalities as an iff. Witness: both ticks 0 and 1000 send
+the entry wish but only the first places its cycle-1 buy; a real fill occurs. -/
+theorem R1 :
+    (∀ (program header : String) (initial : State), start program header = .ok initial →
+      ∀ (moves : List Move) (run : Run), orderRun Engine.Lang.bitsOps initial moves = some run →
+        (∀ τ : Int,
+          (run.wishes.filter (fun w => decide (w.sent = τ))).map (fun w => (w.coin, w.slot)) =
+            (if (orderHorizon initial).1 ≤ τ ∧ τ < (orderHorizon initial).2 ∧
+                τ % ((orderClock initial).1 * (orderClock initial).2) = 0
+             then slotKeysAt initial moves τ else [])) ∧
+        (∀ w ∈ run.wishes, w.arrives = w.sent + initial.cfg.lambda) ∧
+        run.wishes.Pairwise (fun a b =>
+          a.coin = b.coin → a.slot = b.slot → a.sent < b.sent ∧ a.arrives < b.arrives) ∧
+        (∀ (coin slot : Nat),
+          (run.arrivals.filter (fun a => decide (a.wish.coin = coin ∧ a.wish.slot = slot))).map (·.wish) =
+            run.wishes.filter (fun w => decide (w.coin = coin ∧ w.slot = slot ∧
+              w.arrives < (orderHorizon initial).2))) ∧
+        (∀ a ∈ run.arrivals,
+          a.time = a.wish.arrives ∧ a.after = (arrive a.before a.wish).1) ∧
+        run.arrivals.Pairwise (fun a b => a.time ≤ b.time) ∧
+        run.admissions.Pairwise (fun a b => a.order.placed = b.order.placed →
+          (a.order.reduceOnly = true ∧ b.order.reduceOnly = false) ∨
+          (a.order.reduceOnly = b.order.reduceOnly ∧
+            (a.order.coin < b.order.coin ∨
+              (a.order.coin = b.order.coin ∧ a.order.slot < b.order.slot)))) ∧
+        run.admissions.filterMap (fun a => (admit a).toOption) = run.placed.map (·.order) ∧
+        run.placed.Pairwise (fun a b => a.order.placed = b.order.placed →
+          (a.order.reduceOnly = true ∧ b.order.reduceOnly = false) ∨
+          (a.order.reduceOnly = b.order.reduceOnly ∧
+            (a.order.coin < b.order.coin ∨
+              (a.order.coin = b.order.coin ∧ a.order.slot < b.order.slot))))) ∧
+    (∀ (b : Book) (w : Wish),
+      prepare b w = (if w.coin ∈ b.ended then none else match w.value with
+        | none => none
+        | some value =>
+          let rules := b.rules w.coin
+          let price := match w.side with
+            | .buy => Engine.Exact.roundPriceBuy rules.figures rules.decimals value.price
+            | .sell => Engine.Exact.roundPriceSell rules.figures rules.decimals value.price
+          let target := value.target.map (fun x =>
+            Engine.Exact.roundSize x (1 / (10 : Rat) ^ rules.szDecimals))
+          let remainder := match target with
+            | some x => max 0 (x - b.filled w.coin w.slot)
+            | none => match w.side with
+              | .sell => max 0 (b.position w.coin)
+              | .buy => max 0 (-b.position w.coin)
+          if remainder = 0 then none else
+            some {coin := w.coin, slot := w.slot, cycle := w.cycle, side := w.side,
+                  price := price, target := target, remainder := remainder,
+                  placed := w.arrives, reduceOnly := w.reduceOnly, tif := w.tif})) ∧
+    (∀ (b : Book) (o : Order), (admission b o).book = b ∧ (admission b o).order = o) ∧
+    (∀ (b : Book) (w : Wish), w.cycle ≤ b.cycle w.coin →
+      let same := ∃ o ∈ b.orders, o.coin = w.coin ∧ o.slot = w.slot ∧
+        ∃ candidate, prepare b w = some candidate ∧
+          o.price = candidate.price ∧ o.target = candidate.target
+      (w.coin ∈ b.ended → arrive b w = (b, [])) ∧
+      (w.cycle ≠ b.cycle w.coin → arrive b w = (b, [])) ∧
+      (w.cycle = b.cycle w.coin → same → arrive b w = (b, [])) ∧
+      (w.coin ∉ b.ended → w.cycle = b.cycle w.coin → ¬ same →
+        let cancelled := cancelSlot b w.coin w.slot
+        (arrive b w).1 = (match prepare cancelled w with
+          | none => cancelled
+          | some o => match admit (admission cancelled o) with
+            | .error _ => cancelled
+            | .ok admitted => install cancelled admitted)) ∧
+      (arrive (arrive b w).1 w).1 = (arrive b w).1) ∧
+    (∀ a : Admission,
+      let absQ := fun x : Rat => if x < 0 then -x else x
+      let signed := fun o : Order => if o.side = .buy then o.remainder else -o.remainder
+      let opens := fun o : Order =>
+        if o.reduceOnly then 0 else if a.book.position o.coin * signed o < 0
+        then max 0 (o.remainder - absQ (a.book.position o.coin)) else o.remainder
+      let all := a.book.orders ++ [a.order]
+      let requirement := a.positionMargin + all.foldl (fun total o =>
+        total + opens o * o.price * (1 / a.leverage o.coin + a.takerRate o.coin)) (0 : Rat)
+      let margin := requirement ≤ a.equity
+      let minimum := a.minimum ≤ a.order.remainder * a.order.price ∨
+        (opens a.order = 0 ∧ a.book.position a.order.coin + signed a.order = 0)
+      let cap := a.order.remainder * a.order.price ≤ a.cap
+      0 < a.order.remainder → 0 < a.leverage a.order.coin →
+        (admit a = .ok a.order ↔ margin ∧ minimum ∧ cap) ∧
+        ((∃ reason : String, admit a = .error reason) ↔ ¬ (margin ∧ minimum ∧ cap)) ∧
+        (admit a = .error "margin" → ¬ margin) ∧
+        (admit a = .error "minimum" → ¬ minimum) ∧
+        (admit a = .error "cap" → ¬ cap) ∧
+        (∀ reason : String, admit a = .error reason → reason ∈ ["margin", "minimum", "cap"])) ∧
+    (∃ (initial : State) (run : Run), start step5Program step5Header = .ok initial ∧
+      orderRun Engine.Lang.bitsOps initial step5Moves = some run ∧
+      (run.wishes.filter (fun w => decide (w.coin = 0 ∧ w.slot = 0 ∧ w.cycle = 1))).map (·.sent) =
+        [1775174400000, 1775174401000] ∧
+      (run.placed.filter (fun p => decide (p.order.slot = 0 ∧ p.order.cycle = 1))).length = 1 ∧
+      ∃ f ∈ run.fills, f.order.slot = 0 ∧ f.units = 123 / 100) := by
+  sorry
+
+/- S1 uses only `Machine.orderRun` and the actual Book/CycleStep/OrderFill
+projections in the interface above. A Run.steps index is the micro-transition
+index: ending the cycle is part of the fill, BEFORE the next fill of that same
+event. CycleStep.ended lists COINS; the ended generation is before.cycle coin.
+The liquidation transition includes all coins, even those already flat. -/
+open Engine.Orders Engine.Machine in
+/-- B3 S1 ★: exactly a return-to-flat fill or a liquidation ends a cycle.
+Ending cancels that coin's orders immediately, invalidates every old wish,
+and prevents any later old-cycle placement/fill. Numeric targets bound total
+slot fills; a sell close is bounded by the long, a buy close by the short.
+Witness: 123/100 really opens and closes; cycle 1 ends at the offer at 1500,
+not at a later tick or quote, with no surviving order of the coin. -/
+theorem S1 :
+    (∀ (program header : String) (initial : State), start program header = .ok initial →
+      ∀ (moves : List Move) (run : Run), orderRun Engine.Lang.bitsOps initial moves = some run →
+        (∀ (i : Nat) (s : CycleStep), run.steps[i]? = some s →
+          s.ended = (match s.trigger with
+            | .fill coin units =>
+              if s.before.position coin ≠ 0 ∧ s.before.position coin + units = 0 then [coin] else []
+            | .liquidation => s.before.coins
+            | .other => []) ∧
+          (∀ coin ∈ s.before.coins,
+            s.after.cycle coin = s.before.cycle coin + (if coin ∈ s.ended then 1 else 0)) ∧
+          (∀ coin ∈ s.ended,
+            s.after.position coin = 0 ∧ s.after.cycle coin = s.before.cycle coin + 1 ∧
+            (∀ slot : Nat, s.after.filled coin slot = 0) ∧
+            (∀ o ∈ s.after.orders, o.coin ≠ coin) ∧
+            (∀ p ∈ run.placed, i ≤ p.step → p.order.coin = coin →
+              p.order.cycle ≠ s.before.cycle coin) ∧
+            (∀ f ∈ run.fills, i < f.step → f.order.coin = coin →
+              f.order.cycle ≠ s.before.cycle coin) ∧
+            (∀ p ∈ run.placed, i < p.step → p.order.coin = coin →
+              s.before.cycle coin < p.order.cycle →
+              s.time + initial.cfg.delta + initial.cfg.lambda ≤ p.order.placed))) ∧
+        (∀ f ∈ run.fills,
+          let magnitude := if f.units < 0 then -f.units else f.units
+          (match f.order.target with
+            | some target => f.before.filled f.order.coin f.order.slot + magnitude ≤ target
+            | none => match f.order.side with
+              | .sell => magnitude ≤ max 0 (f.before.position f.order.coin)
+              | .buy => magnitude ≤ max 0 (-f.before.position f.order.coin)))) ∧
+    (∀ (b : Book) (w : Wish), w.cycle < b.cycle w.coin → arrive b w = (b, [])) ∧
+    (∃ (initial : State) (run : Run) (s : CycleStep),
+      start step5Program step5Header = .ok initial ∧
+      orderRun Engine.Lang.bitsOps initial step5Moves = some run ∧
+      (∃ f ∈ run.fills, f.units = 123 / 100 ∧ f.before.position 0 = 0) ∧
+      s ∈ run.steps ∧ s.time = 1775174401500 ∧ s.trigger = .fill 0 (-123 / 100) ∧
+      s.before.position 0 = 123 / 100 ∧ s.ended = [0] ∧ s.before.cycle 0 = 1 ∧
+      s.after.position 0 = 0 ∧ s.after.orders = [] ∧ s.after.cycle 0 = 2) := by
+  sorry
 
 end Engine.Laws

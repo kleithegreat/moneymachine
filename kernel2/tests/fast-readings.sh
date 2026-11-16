@@ -22,7 +22,7 @@ dune exec --root kernel2/ocaml test/b4_local.exe -- "$reference" "$audit" >"$out
 # Also hold the literal archived day, not only the sandbox's day-shaped load.
 dune exec --root kernel2/ocaml test/scale_local.exe -- --day "$archive" "$repo" "$out/day.json" >"$out/day.log" 2>&1
 sh kernel2/lean/check-proofs.sh "$repo/kernel2/lean" >"$out/axioms.log" 2>&1
-for law in X2 C1 C2 X3_readBits X3_onGrid; do
+for law in X2 C1 C2 X3_readBits X3_onGrid X1 R1 S1; do
   grep -F "Engine.Laws.$law:" "$out/axioms.log"
 done
-printf '%s\n' 'step 3 test 7: step 1, step 3 tests 1..5, all step 4 tests unchanged; X3/X2/C1/C2 listed under the admitted axioms' >"$out/passed"
+printf '%s\n' 'step 3 test 7: earlier tests unchanged, step 5 orders included; X3/X2/C1/C2/X1/R1/S1 listed under the admitted axioms' >"$out/passed"

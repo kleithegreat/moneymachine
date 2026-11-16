@@ -34,7 +34,9 @@ if ! sh "$check" "$scratch/none" >"$scratch/none.out" 2>&1; then
   cat "$scratch/none.out" >&2; echo "FAIL: the library without fixtures must pass" >&2; exit 1
 fi
 
-for law in X2 C1 C2 X3_readBits X3_onGrid; do
+# Step 5 restates only X1/R1/S1, L2_units/L3_rewrite/N1_renaming. The other
+# statements stay frozen; the builder re-proves them on the extended records.
+for law in X2 C1 C2 X3_readBits X3_onGrid L2_checker L2_units L3_rewrite L5_binding N1_renaming L1a X1 R1 S1; do
   if ! grep -F "Engine.Laws.$law:" "$scratch/none.out"; then
     echo "FAIL: checks.engine-proofs did not list Engine.Laws.$law" >&2
     exit 1

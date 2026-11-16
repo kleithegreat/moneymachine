@@ -118,3 +118,16 @@
 (alias
  (name step3-fast-readings)
  (deps (alias runtest)))
+
+(rule
+ (alias runtest)
+ (deps scripts/orders-crossings.sh fixtures/orders-crossings.lean fixtures/orders.lean
+    %{env:MM2_ENGINE_LIB=missing-engine-archive})
+ (action
+  (progn
+   (run sh scripts/orders-crossings.sh fixtures/orders-crossings.lean)
+   (run sh scripts/orders-crossings.sh fixtures/orders.lean))))
+
+(alias
+ (name step5-orders)
+ (deps (alias runtest)))
