@@ -1593,3 +1593,36 @@ The advisor's ledger. No counterexample to L1a under its premises; no finding ch
 - **Added to the test writer's work:**
   - Step 4 (GPT's A): a quote known at `τ` whose coin's `szDecimals` changes by a listing timed after the quote and before `τ`, but known after `τ`. Both markets are admitted, and the view's size is the one read at admission in both. This kills a carrier that converts with the scale in force at release.
   - Step 3 (GPT's B): an event with several faults at once, such as a trade with price zero and an unreadable size, gives the built machine's first fault (`R_MARKET`), compared in full.
+
+## The last pass
+
+Appended 2026-11-16 21:14 UTC (16:14 EST) by Claude Fable 5.2, sessions "architect: the last pass" and its continuation after a cut. Fable's last session: the architect after it is a fresh Opus 5.5 session at maximum reasoning (the human, 2026-11-16). It read brief 3's steps 5 to 10 against the machine step 4 built (`kernel2-step4-wip`: `Machine.lean`, `Laws.lean`, `Ledger.lean`, `Lang/`), named each wall a builder would meet, and answered it in the brief under its step. No market data. No reviewer has seen this.
+
+### In plain words
+
+- **The steps after 4 were written before the machine existed, and several could not be built as written.** Step 5's tests spoke of fills, and nothing fills until step 6. A law's text became false once a tick carries exact inputs. A test asked for a speed with no tick named.
+- **Each answer removes a choice and adds no mechanism.** One move by which an order fills, used by every rule. One function that applies an effect, called by the world and, `δ` later, by the view. One mark a coin in a check. An identity of inputs alone.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.**
+
+### Settled by a derivation the reviewers have not seen (brief 3)
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D131 | Where A7's cut lives, when step 5 has no fills | The cut (the least of what is offered, the remainder and, for `reduce_only`, the position) is the same at arrival and under both rules. It is one move of the world, `offer`, built at step 5; step 6 builds what is offered and when, and writes no cut. An order whose own fill took its remainder to zero is not live | **Yes** (step 5, wall 1; step 6, wall 1; A6, A7) |
+| D132 | What S1, R1 and X1 are stated of | Every sequence of events and offers from a `start`; S1's witness is a cycle an offer ends. Later steps add moves and cases, and no statement changes. Offers are given by Lean fixtures; `mm2` has no command and no export for one (B2) | **Yes** (step 5, walls 2 and 3) |
+| D133 | The exact sort in the evaluator the laws stand on | One pass in index order, exact values in a second array; the tick gives the view's exact inputs; `NumOps` gains the two crossings. N1's frozen text becomes false (two runs may differ in `bid`): its writer restates it with the ticks' exact inputs equal, and N1 and L3 claim both arrays; L2's units gain the exact half. No other frozen statement changes | **Yes** (step 5, wall 4) |
+| D134 | The view's account | The world's function, called at the effect's `known`, which is its time plus `δ` whatever its event's `known`. The view works out no remainder. Its `equity` and `free_margin` are no price inputs, so staleness leaves them defined | **Yes** (step 5, wall 5; test 10) |
+| D135 | A6's and A10's margin | A check has one mark a coin, its adverse price, for equity and every notional, maintenance's too. An order's requirement is what it opens, at its limit price, times one over the leverage plus the taker rate. What it opens is its own and not summed over its side (V11). The world keeps the latest quote's best bid and ask from step 5 | **Yes** (step 5, wall 6; step 7, wall 1; A6, A10) |
+| D136 | A listing's events and orders | A change cancels the coin's orders when lots, grid or tiers differ, and a restatement cancels nothing. A wish for an ended coin places nothing | **Yes** (step 5, wall 7; A6) |
+| D137 | What a wish is | Two rationals, or a price and `close`; a notional is divided at the tick by the slot's exact price, and a price of zero leaves the slot inactive. Arrival rounds. `first_price` is the opening order's cost over its size; the opening order is the one whose fill took the position from zero | **Yes** (step 5, wall 8) |
+| D138 | The clock's kinds of time | Ticks, arrivals at `τ + λ` and, from step 9, days' ends, in time order and in A18's order within a millisecond, before the first fed event of a later time. Step 4's fifth lemma is proved of all | **Yes** (step 5, wall 9; step 9, wall 4) |
+| D139 | What a quote's reading keeps | Every level, as integers beside the lots they were read at. The world's book is the latest quote's, and a level is made a `Rat` when an order takes from it | **Yes** (step 6, wall 2) |
+| D140 | Whether a print fills an `ioc` | Never: an `ioc` never rests. `optimistic`'s credit before arrival is of a `gtc` or an `alo` | **Yes** (step 6, wall 3; A7) |
+| D141 | V10's count | An order's taker fill at a quote that came less than `G` after an earlier quote at which an order of the account took on that coin and side. Fills at one quote are not earlier than each other; a liquidation's closes are not counted | **Yes** (step 6, wall 4; A7) |
+| D142 | Step 6's speed test's tick | One second, deciding at every tick: the replica's clock. A minute's tick would be B5's wall from the wrong run again | **Yes** (step 6, test 11) |
+| D143 | A settlement in the ledger | The ledger's own event: the whole position closed at a price at or above zero, with no fee. The fill's guard, a price above zero, stays. A1 and U1 keep their text | **Yes** (step 7, wall 2) |
+| D144 | L1a and L1 once a run can abort | `snapshots` is `none` for a run that rejects or aborts, so L1a's text stands. L1 is stated of what `feed` and `finish` return through `t`, since a run rejected later publishes no row | **Yes** (step 7, wall 3) |
+| D145 | L1a's proof for the whole machine | Step 4's five lemmas. The view's part gains the view's account and the pending effects known by `τ`; a wish's arrival after `τ − δ` is a step of one side whose effects are not known by `τ` | **Yes** (step 7, wall 4) |
+| D146 | A bar market's staleness length | `Δ < G ≤ 2Δ`, or `start` refuses: at `G ≤ Δ` every bar's prints find the coin stale, and above `2Δ` a missing bar does not make it stale. A bar's print rounds to the nearest grid price and to the least where none is below. Test 6 measures and has no wall | **Yes** (step 8; A16's B5, A18) |
+| D147 | What an identity hashes | Inputs alone, all known before the run: the readers' dropped counts are outputs, in the result row and the summary. One canonical JSON text of named fields, the windows and the build two of them. Aliases rename and do not reorder | **Yes** (step 9, walls 1 to 3; A13) |
+| D148 | K2 in Lean, and test 13's paths | The pin has no Mathlib and no input is added: K2's Lean statement is the arithmetic, and the two real inequalities stay on paper with K3, held by test 9. A null with one law an event leaves every decimal grid, so test 13's paths are rows given to `confirm` | **Yes** (step 10, walls) |
