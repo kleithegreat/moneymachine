@@ -1709,3 +1709,81 @@ Written 2026-11-16 21:28 UTC (16:28 EST) by Claude Fable 5.2, in its last sessio
 7. **Write tests for a writer who sees only the brief.** A test that needs a fill, a trigger or a first buy says where it comes from.
 8. **A wall in a committed criterion is reported.** A dated revision comes before the evidence it judges, and only where it cannot add a false discovery.
 9. **When a review's findings keep landing on patches, re-derive.** That was the thesis refreeze's fourteen rounds.
+
+## The last pass, round 1: Argon's part 1 and GPT's part 2, answered
+
+Appended 2026-11-16 22:32 UTC (17:32 EST) by the Opus 5.5 architect, session "architect: the last pass, round 1" (brief `data/builder/architect-last-pass-r1.txt`). Reviews: `audit/reviews/2026-11-16-argon-cli-last-pass-part1.md` (Argon, priorities 1 and 2) and `audit/reviews/2026-11-16-gpt-last-pass-part2.md` (GPT, priorities 3 and 4, in Argon's place), with the advisor's facts from `kernel2-step4-wip`. Commits `177428d` to `f47a137`. No market data read.
+
+### In plain words
+
+- **Three of Argon's findings had one cause: the move by which an order fills was cut too fine.** The last pass made each level of a book its own fill. So an order selling through its position ended its own cycle when a level happened to match the position's size, a `reduce_only` order cut to nothing became a fill of no units, and a print's next order could not know what the one before took. The contract already said an order's fill at an event is one fill at the levels' prices. The move now takes all an event offers an order, and the `reduce_only` bound moves into the remainder, where `close`'s already was: the cut, its cancel and its cause go.
+- **Two laws claimed the wrong thing.** L1 was restated of rows a rejected run never makes, and spoke of one horizon where the study's monthly replays each end at their own midnight: it is now of runs that complete, across horizon ends. R1's "two equal wishes do what one does" added nothing to A6 and read across events was false: it goes.
+- **The freeze had a hole.** The runner that picks the files, builds the header and hands rows to the verdicts sat outside the registered build. It is inside now, with the readers; what writes the record stays outside.
+- **The record's holes are decided now, before any replay:** the replay is read as it stands. Every other answer would choose its days or coins after a price.
+- Nothing needed a second clock, a deferred count or a stake that moves without a fill.
+
+### Who has seen what
+
+- Argon and GPT read the last pass at `59ff545`. Neither has read this section or its commits.
+- GPT's step 5 tests and laws (`kernel2-step5`, `b1689bc`) were written from the last pass's brief and report, and no other model has read them. What changes in them is in this round's report (`data/builder/architect-last-pass-r1-report.md`), item by item; brief 3's step 5 holds the tests as they now stand.
+
+### Agreed
+
+- **Conceded, each at its cause (rows below):** Argon's 1.1, 1.2 (all four parts), 1.3 (all three), 2.1 (both parts), 2.2 (the built gap, and N1 and L3 silent on the wishes) and 2.3; GPT's 1 to 5.
+- **GPT's two qualifications of Argon's part 1, accepted.** 1.1 is a defect because A7 and F0 define an order's fill at an event as one fill and the last pass's step 6 wall split it, not because the machine owes invariance to every split: across orders at one event the cycle's end still cancels the next order, as A6 means it to. 2.2's second rewrite does not break L3: every rule keeps every node, and its value, where it was.
+- **Stands as each reviewer accepted it.** Argon: the offer as a move given in Lean and no export (D131, D132, as revised by D161), the one-pass evaluator (D133), the view's account (D134), the clock's kinds of time (D138), `snapshots` of none on an abort (D144's half on L1a), L1a's proof (D145). GPT: the fee on what an order opens, an `ioc` that never rests, V10's count, bars at `Δ < G ≤ 2Δ`, an identity of inputs with counts as outputs, and no day or coin dropped after a table is read.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D161 | What an order's fill is when an event offers it several prices (Argon 1.1, 1.2b) | **One fill an order an event.** `offer` takes the list of lots and prices an event offers one order, in order, up to its remainder: one fee, one change of the position and of `filled`, one row at the fill's notional over its units, one test of the cycle's end. A7 and F0 said so; the last pass's step 6 wall offered a level at a time and so let an order's own walk end its cycle. Across orders at one event, and across events, a cycle still ends at the fill that makes the position zero | **Yes** (step 5, wall 1, tests 2 and 11; step 6, wall 1, test 12; A7, A12, F0, T1; A19's `fill` row) |
+| D162 | Where `reduce_only` is held (Argon 1.2a) | **In the remainder:** at most what of the position the order would reduce, as `close`'s is exactly that. Nothing is cut at a fill, so there is no fill of no units for the ledger to refuse, no cancel for a cut, and no `reduce_only` cause. An order that cannot reduce is not placed, or, placed, rests and takes nothing | **Yes** (A5, A6, A7, S1, V2, A19; step 5, test 11; step 6, test 5) |
+| D163 | What the move does at a stale coin | Nothing, as at a coin with no quote yet, which is the same case: a coin is stale before its first quote (A3). One guard, in the one move, for both rules | **Yes** (step 5, wall 1, test 11) |
+| D164 | Step 6's wall on `alo` and on `optimistic` at a quote (Argon 1.2c, d) | A marketable `alo` is refused and offered nothing, before any walk; under `optimistic` the quote then offers each order resting since before it, whose price its ask meets, its whole remainder (A7's table) | **Yes** (step 6, wall 1, test 12) |
+| D165 | Test 8's order of slots; R1's equal wishes (Argon 1.3a, b) | A fixture that offers sets the order itself, so the clause on the slots' written order is step 6's, through a quote; test 7 holds admission's order now. R1's "two equal wishes arriving in turn do what one does" is A6's second case when nothing comes between, and false across events at step 6 (an `ioc`'s cancel at its arrival): it is deleted | **Yes** (step 5, test 8; R1) |
+| D166 | What X1's second sentence quantifies over (Argon 1.3c) | The rational each `exact(·)` gives, not the float it reads: each evaluator's crossing is its own. So stated it is true, and not empty | **Yes** (X1; step 5, test 1) |
+| D167 | L1 (Argon 2.1) | Of two runs that **complete**, of one header **but for the horizon's end**: the rows before `t`, and a day's end's rows at `t`. A run rejected after `t` publishes nothing and, as built, never made its earlier rows, since admission is checked before the clock runs up to an event; and CS2.1's replays each end at their own midnight, which a law of one horizon did not cover | **Yes** (L1; step 7, wall 3, tests 6 and 7; step 9, test 10 and its laws) |
+| D168 | Aliases, and what N1 and L3 claim (Argon 2.2) | The sources table renames the header's observations by `Config.rename` at `parseHeader` (step 9), so an aliased run is N1's renamed run; until then it fails closed. N1 and L3 claim the wishes as well as both arrays. `Program.redirect` need not touch slots | **Yes** (step 5, wall 4; step 9, wall 3; L3, N1) |
+| D169 | L2's exact half (Argon 2.3) | Sorts and units, with a witness that an exact value is defined. The crossings are definitions (`Exact.decode`, `Exact.nearestBits`), held by test 1 and no clause of L2; `bitsOps.finite` is `decode`'s test on the bits, IEEE 754's definition, so no proof reads `Float.isFinite` | **Yes** (step 5, wall 4) |
+| D170 | What one adverse mark a check claims (GPT 1) | A choice and no bound: the venue's one mark for equity and maintenance, at a mark V6 leaves unwitnessed. Across a tier's step it can be the lenient one. Study 2's account meets that step only once funding has taken its cash below minus half its long notional | No (step 5, wall 6; V6) |
+| D171 | What the registered build holds (GPT 2; the advisor's fact on `identity/gen.ml`) | Every source compiled into what a judged run executes, the Lean engine, `mm2` with its readers and `study2`, taken from the trees as compiled and not from a list, and the store paths of what compiles them and what they call. What writes the record stays outside: the recorders, the vault's collector, and the pull of settled funding, now a collector's. The one-line fix to `gen.ml` restores D147's premise; D159 also needed the runner inside, and is replaced | **Yes** (A13; brief 4, step 6, wall 1; brief 3, step 9, test 10, and the recorders' table; architecture 6.6) |
+| D172 | The record's holes (GPT 3, 4; O25, H15) | **Decided before any replay:** the replay as it stands, holes included, for the forecast, the choice of `φ` and `d` and CS2.2's variance. After test 6's table any other answer chooses after a price; a revision now would hold a replay cleaned of its gaps against a forward run that keeps its own (CS2.3). A19's `open` is the account's exposure while stale, as A3 says | **Yes** (brief 4, step 4, wall 1, test 6; step 5, wall 2; A19) |
+| D173 | What layer 2's "no failure" covers (GPT 5) | Only the fills it judged. Its report counts the vault's maker fills judged, failed and in stale spans by role and cadence period, and a class with more in stale spans than judged goes to the architect before the trigger is fitted | **Yes** (brief 4, what it rests on; brief 3, step 10, test 15) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O25 | A position held into a hole | **Closed** by D172 | |
+
+### What the next read should attack first
+
+1. **D161 and D163:** a split of a record, across orders or events, that moves a judged number where it should not; the trace's one price for a fill at several levels.
+2. **D162:** a `reduce_only` order whose position flips and flips back inside one cycle; a statement of steps 5 to 7 whose case the remainder's bound changes.
+3. **D167:** `finish`'s rows at a horizon's end (the last span's rows, funding's due hours, the last day's stale share) against a longer run's.
+4. **D171:** anything that still turns a record into a verdict outside the build.
+5. **D172:** whether a revision fixed now, before any replay, from integrity data alone, would serve CS2.2 better than the record as it stands.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's definitions** cite L1 for "what a day's end showed stands in every later replay". L1 as frozen did not reach replays of different horizons; restated (D167), it does. The words stand; no human choice.
+- **CS2.1's registration** names "the engine's build". That build now holds `study2` and the readers (D171), so the registration names more than the words ask and nothing less. The words stand; no human choice.
+- **CS2.2** is read as committed, against the replay as it stands (D172). The alternatives were a revision after the table, which the process bars, or one now, which would treat the replay's gaps unlike the forward run's. No human choice.
+- **CS2.3** is untouched: GPT's finding 5 is of a readiness wall (D173).
+
+### Assumptions only the human can choose
+
+None new. H15 is withdrawn (D172): the one answer it could lead to without a choice after a price is the one decided now.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc`, as this round's report lists them, before step 5's build; step 7's writer restates L1 (D167).
+- **By the advisor:** `gen.ml`'s failing test and fix, the test changing a byte in each compiled directory (D171); the collector of settled funding beside `mmvault`; this section read by Argon (its queued part 2, since the design changed) and GPT, D161, D162, D167 and D171 first.
+- **By the next architect:** O22 and O24 when step 6's test 11 reports.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The design changed in D161, D162, D167, D171 and D172, so the next round is due. No open dispute would change what step 5 builds, once its tests and laws carry the changes listed in the report.
