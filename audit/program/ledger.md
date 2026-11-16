@@ -1583,3 +1583,13 @@ None new. D125 loosens no frozen threshold: B5's wall is in no criterion and no 
 ### Convergence
 
 **Answered by derivation and not yet read.** D115 and D116 are replaced, O16 is closed. No open dispute would change what is built; O21 and O22 wait on measurements.
+
+### After GPT's read of D125 to D129 (2026-11-16 14:06 UTC, 09:06 EST; `audit/reviews/2026-11-16-gpt-kernel-v2-b5-l1a.md` on `main`)
+
+The advisor's ledger. No counterexample to L1a under its premises; no finding changes what is built, so the round is converged.
+- **Agreed:** D126 to D129 as semantics. D128's proof holds by admission's `known = time + δ` for quotes and prints. Reading once keeps the built machine's values, since no tick between admission and `applyPayload` changes `s.rules`. X3's two equalities suffice for C1, C2 and X2 unchanged.
+- **D125, text:** "no run over a day" and "admission alone half of it" are choices, not derived. They change no criterion and no judged number, and they never license a shorter record or fewer trials.
+- **D128, text:** its last sentence shows only that deleting a listing need not keep admission. It does not refute a law without the second premise.
+- **Added to the test writer's work:**
+  - Step 4 (GPT's A): a quote known at `τ` whose coin's `szDecimals` changes by a listing timed after the quote and before `τ`, but known after `τ`. Both markets are admitted, and the view's size is the one read at admission in both. This kills a carrier that converts with the scale in force at release.
+  - Step 3 (GPT's B): an event with several faults at once, such as a trade with price zero and an unreadable size, gives the built machine's first fault (`R_MARKET`), compared in full.
