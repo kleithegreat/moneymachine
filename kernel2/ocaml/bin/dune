@@ -1,0 +1,4 @@
+(executable
+ (name mm2)
+ (public_name mm2)
+ (libraries mm2_lean))
