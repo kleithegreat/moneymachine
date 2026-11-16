@@ -1,8 +1,9 @@
 """Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 6 on kernel version 2), audit/program/paper-changes.md,
 audit/program/argon-paper-findings.md and the study 2 notes of audit/program/criteria-notes.md. Cited numbers carry their sources there.
 
-Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about four minutes).
-Reads one file, audit/stage3/null-v3.jsonl, for the agent's evaluation counts.
+Run from the repo root: python3 audit/program/arithmetic.py.txt [the vault's fills directory]   (numpy and scipy; about four minutes).
+Reads audit/stage3/null-v3.jsonl for the agent's evaluation counts, venue/hyperliquid/meta-2026-11-16.json for coin rules and, when its
+directory is given, the vault's fills pages dated before 2026-11-01, of which it prints counts only.
 """
 
 import functools
@@ -10,6 +11,7 @@ import hashlib
 import json
 import math
 import statistics
+import sys
 from fractions import Fraction
 from pathlib import Path
 
@@ -1494,6 +1496,110 @@ def argon_paper() -> None:
     print(f"  14. standard error {se:.2f}; a Sharpe 2 leak stays under the canary's alarm at 4 with probability {norm.cdf((4 - 2) / se):.3f}")
 
 
+def cut(whole: int, factor: float) -> int:
+    """The venue's scaling of a whole number: the double product, its fraction dropped (facts section 7)."""
+    return math.trunc(whole * factor)
+
+
+def venue_fee(notional: int, rate: Fraction) -> int:
+    return cut(notional, float(rate))
+
+
+def venue_close(entry_notional: int, lots: int, closed: int, price: int) -> tuple[int, int]:
+    """A close's printed closedPnl and the entry notional it leaves, all in millionths of a USDC and price units of 10^(szDecimals - 6)."""
+    printed = closed * (price - entry_notional // lots)
+    left = lots - closed
+    kept = cut(entry_notional, left / lots) if left else 0
+    return printed, kept
+
+
+def whole(text: str, decimals: int) -> int:
+    scale: int = 10**decimals
+    scaled = Fraction(text) * scale
+    assert scaled.denominator == 1, (text, decimals)
+    return scaled.numerator
+
+
+def venue_prints(fills_directory: Path | None) -> None:
+    """The venue's printed fee and closedPnl. Three made-up cases always; given the directory of the vault's fills pages (dated before
+    2026-11-01, untracked), counts over the whole record, and never a price."""
+    maker, taker = Fraction(15, 100_000), Fraction(45, 100_000)
+    assert venue_fee(100_000, maker) == 14 and Fraction(100_000) * maker == 15
+    assert venue_fee(100_000, taker) == 45 and venue_fee(33_333, maker) == 4
+    assert venue_close(302_000_000, 3, 3, 102_000_000) == (4_000_002, 0)
+    first, kept = venue_close(13_574, 11, 8, 2_000)
+    assert (first, kept) == (6_128, 3_701) and 13_574 * 3 % 11 == 0 and 13_574 * 3 // 11 == 3_702
+    assert venue_close(kept, 3, 3, 2_000) == (2_301, 0)
+    print("  made-up cases hold: a maker fee of exactly 15 millionths prints 14; one lot at 100 and two at 101 closed at 102 print 4.000002;")
+    print("    11 lots at 1,234 units, 8 closed, leave an entry notional of 3,701 where the exact is 3,702, and the last 3 close one unit low")
+    if fills_directory is None:
+        print("  the vault's record: not given (pass the directory of its fills pages)")
+        return
+    universe = json.loads(Path("venue/hyperliquid/meta-2026-11-16.json").read_text())["universe"]
+    size_decimals = {coin["name"]: coin["szDecimals"] for coin in universe}
+    fills: list[dict[str, object]] = []
+    seen: set[int] = set()
+    for page in sorted(fills_directory.glob("fills-*.json")):
+        for row in json.loads(page.read_text()):
+            if row["tid"] not in seen:
+                seen.add(row["tid"])
+                fills.append(row)
+    fills.sort(key=lambda row: int(str(row["time"])))
+    lots: dict[str, int] = {}
+    entry: dict[str, int] = {}
+    cost: dict[str, Fraction] = {}
+    partials: dict[str, int] = {}
+    fee_differs = fee_whole = fee_one_under = fee_outside = 0
+    closes = pnl_differs = clean_closes = clean_equal = bound_broken = below_exact = one_unit_low = partial_closes = lossy = 0
+    printed_sum = exact_sum = largest = Fraction(0)
+    for row in fills:
+        coin = str(row["coin"])
+        decimals = size_decimals[coin]
+        price, size = whole(str(row["px"]), 6 - decimals), whole(str(row["sz"]), decimals)
+        held = lots.get(coin, 0)
+        assert whole(str(row["startPosition"]), decimals) == held, "the position chain breaks"
+        notional = price * size
+        rate = taker if row["crossed"] else maker
+        printed_fee = whole(str(row["fee"]), 6)
+        exact_fee = notional * rate
+        fee_differs += venue_fee(notional, rate) != printed_fee
+        fee_outside += not 0 <= exact_fee - printed_fee <= 1
+        fee_whole += exact_fee.denominator == 1
+        fee_one_under += exact_fee - printed_fee == 1
+        if row["side"] == "B":
+            if held == 0:
+                entry[coin], cost[coin], partials[coin] = 0, Fraction(0), 0
+            entry[coin] += notional
+            cost[coin] += notional
+            lots[coin] = held + size
+            continue
+        closes += 1
+        printed = whole(str(row["closedPnl"]), 6)
+        ours, kept = venue_close(entry[coin], held, size, price)
+        exact = size * (price - cost[coin] / held)
+        pnl_differs += ours != printed
+        if partials[coin] == 0:
+            clean_closes += 1
+            clean_equal += entry[coin] == cost[coin]
+        bound_broken += not cost[coin] - partials[coin] <= entry[coin] <= cost[coin]
+        below_exact += printed < exact
+        one_unit_low += entry[coin] // held < math.floor(cost[coin] / held)
+        printed_sum += printed
+        exact_sum += exact
+        largest = max(largest, printed - exact)
+        left = held - size
+        if left:
+            partial_closes += 1
+            partials[coin] += 1
+            lossy += kept != entry[coin] * left // held
+        entry[coin], cost[coin], lots[coin] = kept, cost[coin] * left / held, left
+    print(f"  {len(fills)} fills: {fee_differs} printed fees differ from the cut; {fee_outside} outside [exact - 1, exact] millionths; {fee_whole} exact fees are whole, {fee_one_under} print one under")
+    print(f"  {closes} closes: {pnl_differs} printed closedPnl differ; {clean_equal} of {clean_closes} before any partial close have the entry notional equal to the exact cost;")
+    print(f"    {bound_broken} break cost - partial closes <= entry notional <= cost; {below_exact} print below the exact figure; {one_unit_low} have an entry one unit under the exact floor")
+    print(f"    {partial_closes} partial closes, {lossy} leave the entry notional under its exact floor")
+    print(f"    printed {float(printed_sum) / 1e6:.6f} USDC against {float(exact_sum) / 1e6:.6f} exact, {float(printed_sum - exact_sum) / 1e6:.6f} over; the most at one close {float(largest) / 1e6:.4f}")
+
+
 if __name__ == "__main__":
     print("The yardstick (section 2.1)")
     yardstick()
@@ -1517,6 +1623,8 @@ if __name__ == "__main__":
     study2_criteria()
     print("The venue's price grid (KERNEL.md A18)")
     price_grid()
+    print("The venue's printed fee and closedPnl (facts section 7; kernel V19, V20)")
+    venue_prints(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
