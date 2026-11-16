@@ -334,7 +334,7 @@ Everything that touches the world, and nothing that decides: one dune project, `
 - **X2 ★ Decimals.** On a double's bits: the reading returns `n` only if `|n| < 10¹⁵` and the binary64 nearest `n · 10⁻ᵈ` is the input; and for every such `n` and every scale from 0 to 12, reading that binary64 returns `n`. Negative zero reads as zero.
 - **X3 ★ The fast readings.** Two equalities, each on every input. `Exact.readBits` equals `Exact.readBitsFast` as functions: every scale and every 64 bits, a NaN, an infinity, a subnormal and negative zero included; stated as the equality of the two constants, the form the compiler takes. And for every `figures`, `decimals`, scale and integer `n`, zero and the negatives included, `Exact.onGridAt figures decimals scale n` is `Exact.onGrid figures decimals` of `n · 10⁻ˢᶜᵃˡᵉ`. Both right sides use natural numbers and integers alone. X2, C2 and every other law stay statements about the plain functions.
 - **L2 Units.** The instrumented machine never raises a unit or sort error; erasing them gives the executable values. Proved.
-- **L3 Rewrites, L5 Binding, N1 Renaming.** As stage 6 and 7 state them, over declared sources. Proved, abstract numbers.
+- **L3 Rewrites, L5 Binding, N1 Renaming.** As stage 6 and 7 state them, over declared sources; L3 and N1 of every node's float and exact values and of the wishes sent at every tick. Proved, abstract numbers.
 
 **Orders and fills**
 - **R1 ★ Wishes.** Each slot sends one wish at each deciding tick and none between. A wish arrives at `τ + λ` and does exactly A6's three cases. Orders are admitted in A6's order, and an order is admitted exactly when A6's three conditions hold.
