@@ -675,6 +675,29 @@ The documentation offers the archive for download, with the requester paying, an
 Hyperliquid's API, use of the read-only public data is the operator's decision: the human configured the AWS account
 and approved spending up to $20 (2026-10-26). Uploads come about once a month.'''
 
+[[hyperliquid-archive.terms]]
+host = "s3://hl-mainnet-node-data"
+url = "https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data"
+retrieved = 2026-11-16
+basis = "operator decision"
+quote = '''
+Note that the requester of the data must pay for transfer costs.
+`s3://hl-mainnet-node-data/node_fills_by_block` has fills which are streamed via `--write-fills --batch-by-block` from
+a non-validating node. Older data is in a different format at `s3://hl-mainnet-node-data/node_fills)` and
+`s3://hl-mainnet-node-data/node_trades` . `node_fills` matches the API format, while `node_trades` does not.'''
+notes = '''
+The page offers these trade prefixes and states no licence or restriction, so the basis is the human's recorded
+decision of 2026-10-26 (`audit/decisions.md`): "spending approved up to $20 in total, for Hyperliquid's requester-pays
+archives, listed and reported before any download", made the day the survey listed this bucket; and of 2026-11-11:
+"build the Hyperliquid archive reader now (`ingest/ARCHIVE.md`), spending within the $20 approved on 2026-10-26".
+Scope (advisor, 2026-11-16, after GPT and a Claude session reviewed the reading): the trade prefixes only
+(`node_trades`, `node_fills`, `node_fills_by_block`), for study 2's 17 coins (ADA AVAX BCH BNB BTC DOGE ETH HBAR HYPE
+LINK NEAR SOL SUI TON TRX XLM XRP) over UTC dates 2026-04-03 to 2026-10-31, for research replay; never
+`explorer_blocks`, `replica_cmds` or `misc_events_by_block`. Files are by hour, not by coin, so whole hours are paid for
+and filtered locally. Sizes and cost are listed and reported in `audit/decisions.md` before any download, within the
+cumulative $20; anything beyond needs the human. Data from a non-validating node with no stated guarantee: a gap is
+recorded, never backfilled.'''
+
 [bls]
 description = '''
 # U.S. Bureau of Labor Statistics: the Public Data API v2 and the release calendar (keyed data layer)
