@@ -1,6 +1,6 @@
 # Progress
 
-Current state only; history is in git. Commands: `nix develop -c python -m cli <command>` (`-h` lists them). Criteria checks are tests in `criteria/` over evidence in `audit/`.
+Current state only; history is in git. Commands: `nix develop -c python -m cli -h`. Criteria checks are tests in `criteria/` over evidence in `audit/`.
 
 ## Now
 
@@ -8,15 +8,15 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
   - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources` (delvingbitcoin.org, Snapshot; clock record: the kernel's bound, `CLUSTER.md`), `datalayer` (`venue/sources/datalayer.json`).
-  - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
+  - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. Batch Jobs: study 1's calibration (above). `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
-  - **Fable** runs one session at a time, on whichever account is logged in, never two at once.
+  - **Fable** runs one session at a time.
   - **Argon** runs through the web UI (the human) or `agy`.
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-build` (`study1-build`). Agents that edit at the same time get separate worktrees.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-build` (`study1-build`); `../mm-k2` (`kernel2-build`). Agents that edit at the same time get separate worktrees.
 
 ### Work in progress
 
@@ -31,13 +31,14 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - Wall 5 is 14 of 200.
      - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
      - **Calibration is running** as `cal-3` (`ops/jobs.py calibrate`, unit `mm-calibrate`, log `~/.cache/mm-calibration/cal-3.log`, image `sha256:1199aa3d…`, `study1-build` `f125937`), carried from `cal-2`'s 4,714 lines on kernel `e6df2244…`. Shares follow each host's rate measured under load (Fable `1530f21`): 263, 164 and 64 markets an hour on this PC, prodesk7 and gmktec, about 3.2 h a strength, 64 h at most. The PC stays on: the batch's inputs are NFS from it. Worktree test runs never share the main checkout's `kernel/target` (decisions, 2026-11-15).
-     - **Then:** calibration, G100 on the study markets, the first sessions (Cornell and TAMU).
+     - **Then:** G100 on the study markets, the first sessions (Cornell and TAMU).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
-     - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
-     - **Kernel version 2:** semantics and the Lean/OCaml split with its laws are written (`rearchitecture` `c1a4421`, `a829c07`, `audit/program/kernel-v2.md`). Tasks 2b to 5 done on TAMU in 24 minutes (`f54d3db` to `2a4cd2a`; report `data/builder/architect-kernel-v2-report-2.md`): all seven of Argon's findings conceded and re-derived; study 2's wealth measured in its own basket; an eleven-step build plan. Not yet reviewed.
-     - Data: the archive for its 17 coins, 2026-04-03 to 10-31, is on disk (26 GB raw, 3,379 coin-day snapshot tables, all readable, about $2.46; `ingest/archive.py`).
+     - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
+     - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. B5's speed wall is open: twins give about 6× of the 9.7× needed (X3 and its test parked on `b5-pending`), Fable's brief `data/builder/architect-b5-part1.txt` next. Step 4 (law statements fixed after GPT, `audit/reviews/2026-11-16-gpt-kernel-v2-step4-laws.md`) building.
+     - **Data:** the archive for its 17 coins, 2026-04-03 to 10-31 (26 GB, `ingest/archive.py`); funding history (`data/study2/funding-history/`); the vault's own fills and funding before 11-01 (`data/study2/vault/`); the trade prints (`node_fills_by_block`, V22) downloading newest day first as user unit `mm-fills` (`data/hl-archive/fills_by_block/`, log `~/.cache/mm-fills.log`, budget $16.40). The C6.4 reference streams are stored under a hash (`data/stage6/c64-reference/`, decisions 2026-11-16).
+     - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. Measured 2026-11-15 03:00 UTC (22:00 EST), sizes only: about 2.0 GB a day since the fix (fast books 70%); 385 GB free fills about April to May 2027; two years are 1.5 to 1.75 TB a copy. The fix followed the 04:17 UTC (23:17 EST) crash (`audit/decisions.md`, 05:07 UTC, 00:07 EST). Known: `check` misses the 04:17 UTC (23:17 EST) crash's gaps (both runs share pre-fix files); `events` shows it.
+   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. Measured 2026-11-15 03:00 UTC (22:00 EST), sizes only: about 2.0 GB a day since the fix (fast books 70%); 385 GB free fills about April to May 2027; two years are 1.5 to 1.75 TB a copy. The 04:17 UTC (23:17 EST) crash's gaps show in `events`, not `check` (`audit/decisions.md`).
 2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
    - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
@@ -46,8 +47,8 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`). **Kernel version 2's build** (`kernel2-build`, worktree `../mm-k2`; brief 3): steps 0 to 2 done, Lean laws proved (X2, rounding, the grid, A1, U1), layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic (Fable, D96 to D101). Step 3 building. GPT writes ◆ steps' tests and laws, Sonnet builds; local runs capped at 4 GB.
-   - **Owed by the advisor:** the trades download (certified and listed: `node_fills_by_block`, 181.5 GB, about $16.34, streamed and filtered to the 17 coins, read within $12; waits on Fable's task 0); the vault collector (fills hourly with overlap, 30-day daily re-read, funding daily, fees hourly; spec then build); the reference evaluator's streams on the C6.4 corpus under a hash. Fable's next brief answers GPT's read of layer 1 and O12.
+1. **Kernel version 2:** step 4 accepted by the advisor's own checks and the local C6.4 comparison, then steps 5 onward (brief 3; GPT writes ◆ steps' tests, including V22's additions at steps 6 and 7). B5 after Fable answers. When `mm-fills` ends, log its summary and decide the re-fetch of the early hours without O17's block counts.
+   - **Wake-up:** 2026-11-16 13:12 UTC (08:12 EST): Fable on the personal account with the B5 brief (the human, 2026-11-16).
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
