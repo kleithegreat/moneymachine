@@ -36,3 +36,36 @@
   (glob_files fixtures/*.prog))
  (action
   (run sh check.sh %{exe:../bin/mm2.exe} fixtures)))
+
+(library
+ (name events_support)
+ (modules events_support)
+ (libraries mm2_lean yojson unix))
+
+(test
+ (name events_test)
+ (modules events_test)
+ (libraries events_support))
+
+(test
+ (name archive_reader_test)
+ (modules archive_reader_test)
+ (libraries events_support mm2_archive))
+
+(test
+ (name protected_test)
+ (modules protected_test)
+ (libraries events_support mm2_identity)
+ (deps scripts/protected-build.sh)
+ (action
+  (run %{test} %{exe:../bin/mm2.exe} scripts/protected-build.sh)))
+
+(executable
+ (name archive_local)
+ (modules archive_local)
+ (libraries events_support mm2_archive))
+
+(executable
+ (name scale_local)
+ (modules scale_local)
+ (libraries events_support mm2_archive))
