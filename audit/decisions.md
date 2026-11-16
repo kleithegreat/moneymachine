@@ -1058,3 +1058,11 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - Finding 5: a session launched before `--end` is judged and counts, since a started market is never lost or rerun.
   - **Why the merge waits:** calibration runs from `../mm-s1-build` on `study1-build` at `f125937`. Its rounds import `ops/jobs.py` from that tree, and its record names that commit. G100 needs the fixes, and it comes after calibration.
   - **Reverse:** do not merge, or revert the merge.
+- 2026-11-16 20:27 UTC (15:27 EST), advisor: **study 2's trade prints are complete for 2026-04-03 to 10-31, and the block stream is continuous** (`data/hl-archive/fills_by_block/`; decisions 2026-11-16 08:33 UTC, 03:33 EST).
+  - **The download:** all 212 days × 24 hours, 5,088 files, 181.5 GB raw. No hour is missing or repeated. 506,830,274 fill events of the 17 coins are kept verbatim (24 GB). None was stamped at or after 2026-11-01.
+  - **O17's counts:** the 190 hours fetched before the counts existed (2026-10-24 to 10-31) were fetched again by `o17_refetch.py`. Each raw file's sha256 equalled the recorded one, and no kept file changed. Every hour now has its counts.
+    - The window holds 260,517,758 blocks, numbered 944,031,300 to 1,204,549,057, exactly last − first + 1.
+    - There is no step within any hour and none across any hour's boundary.
+    - `done.tsv` has sha256 `8c6ffa6d860ef614…`.
+  - **Spend:** the downloader's meter reads $17.10 ($16.34 and $0.76). With the archive's earlier transfer, that is within the human's $20 of 2026-10-26.
+  - **Reverse:** delete the directory. The files can be fetched again at about $17.
