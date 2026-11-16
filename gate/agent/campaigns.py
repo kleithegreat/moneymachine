@@ -133,12 +133,14 @@ def row_kind(entry: Record) -> str | None:
 
 
 def daemon_log(run_dir: str | Path) -> list[Record]:
-    """The daemon's calls; it writes its log at the first call, so a session that made none has no file."""
+    """The daemon's calls; it writes its log at the first call, so a session that made none has no file. A last line
+    cut short by a kill is not a call."""
     path = Path(run_dir) / "daemon.log"
     if not path.exists():
         return []
-    with open(path) as fh:
-        return [json.loads(line) for line in fh]
+    text = path.read_text()
+    complete = text[: text.rfind("\n") + 1]
+    return [json.loads(line) for line in complete.splitlines()]
 
 
 def audit_run(run_dir: str | Path, ledger: Path, campaign: str, agent: str = "A") -> Audit | None:

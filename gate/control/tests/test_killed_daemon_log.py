@@ -12,7 +12,6 @@ from gate.control.pick import pick
 from gate.control.tests.fakes import ASKED, IDS, NOTICE, SERVED, STRENGTH, judgement, transcript
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 8: a torn daemon-log line blocks judging an intact ledger")
 def test_kept_pick_is_judged_despite_a_partial_final_daemon_line(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
