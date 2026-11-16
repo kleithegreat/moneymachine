@@ -42,6 +42,7 @@ they do not implement a second arithmetic engine in OCaml or C.
 -/
 
 import Engine.Exact
+import Engine.Ledger
 
 namespace Engine.Laws
 
@@ -253,7 +254,62 @@ theorem A1 :
         state.cash = cash - notional - state.fees - state.funding + state.absorbed ∧
         state.cash = cash + state.realized - state.positions.foldl (fun total p => total + p.cost) (0 : Rat) -
           state.fees - state.funding + state.absorbed)) := by
-  sorry
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · intro cash coins
+    simp [Engine.Ledger.initial]
+  · intro s coin marks
+    refine ⟨rfl, rfl, rfl, rfl⟩
+  · intro fees s time coin units price role active hsort hrates hact hstart hmax hbank hcoin hu hp
+    have hactive := Engine.Ledger.active_eq fees time active hsort hact hstart hmax
+    simp only [Engine.Ledger.step, hbank, Bool.false_eq_true, ↓reduceIte, hactive]
+    have hcond : coin < s.positions.length ∧ units ≠ 0 ∧ 0 < price := ⟨hcoin, hu, hp⟩
+    rw [if_pos hcond]
+    refine ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, rfl, rfl, rfl, rfl, rfl⟩
+    · simp
+    · rw [Engine.Ledger.position_set _ s.positions coin _ hcoin rfl]; rfl
+    · rw [Engine.Ledger.position_set _ s.positions coin _ hcoin rfl]; rfl
+    · intro other hother hne
+      rw [Engine.Ledger.position_set_ne _ s.positions coin other _ hne rfl]
+      rfl
+  · intro fees s hrates hbank hflat hcash
+    have hcond : (∀ p ∈ s.positions, p.units = 0 ∧ p.cost = 0) ∧ s.cash ≤ 0 := ⟨hflat, hcash⟩
+    simp only [Engine.Ledger.step, hbank, Bool.false_eq_true, ↓reduceIte]
+    rw [if_pos hcond]
+    exact ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  · intro cash coins fees events ⟨tier, htier, hbad⟩
+    have hs : Engine.Ledger.scheduleOk fees = false := by
+      simp only [Engine.Ledger.scheduleOk, Bool.and_eq_false_iff, Bool.not_eq_true]
+      left
+      rw [List.all_eq_false]
+      refine ⟨tier, htier, ?_⟩
+      simp only [Engine.Ledger.rateOk, decide_eq_false_iff_not]
+      grind
+    simp [Engine.Ledger.replay, hs]
+  · intro cash coins fees events hsort hrates
+    have hs : Engine.Ledger.scheduleOk fees = true := by
+      simp only [Engine.Ledger.scheduleOk, Bool.and_eq_true, List.all_eq_true,
+        decide_eq_true_eq]
+      refine ⟨fun t ht => ?_, hsort⟩
+      simp only [Engine.Ledger.rateOk, decide_eq_true_eq]
+      exact hrates t ht
+    simp only [Engine.Ledger.replay, hs, ↓reduceIte]
+    rfl
+  · intro cash coins fees events receipts h
+    obtain ⟨_, hchain⟩ := Engine.Ledger.replay_chain h
+    obtain ⟨hlen, hk⟩ := Engine.Ledger.chain_prefix fees events _ receipts hchain
+    refine ⟨hlen, fun k hkle => ?_⟩
+    obtain ⟨b1, b2⟩ := hk k hkle
+    have hf : (fun (total : Rat) (event : Engine.Ledger.Event) => match event with
+          | .fill _ _ units price _ => total + units * price
+          | .funding _ _ _ _ _ => total
+          | .absorb => total) = fun total event => total + Engine.Ledger.flow event := by
+      funext total event
+      cases event <;> simp only [Engine.Ledger.flow] <;> grind
+    dsimp only
+    rw [hf]
+    have hz := Engine.Ledger.totalCost_replicate coins
+    simp only [Engine.Ledger.initial, Engine.Ledger.foldl_cost] at b1 b2 ⊢
+    constructor <;> grind
 
 /-- B3 U1: funding is exactly the held units' payment; missing due hours reject. -/
 theorem U1 :
@@ -281,6 +337,13 @@ theorem U1 :
       (Engine.Ledger.checkFunding start finish late held events =
         .error "R_SETTLEMENT_MISSING" ↔ missing) ∧
       (Engine.Ledger.checkFunding start finish late held events = .ok () ↔ ¬ missing)) := by
-  sorry
+  constructor
+  · intro fees s time hour coin oracle rate hrates hbank hcoin
+    simp only [Engine.Ledger.step, hbank, Bool.false_eq_true, ↓reduceIte, if_pos hcoin]
+    exact ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  · intro start finish late held events _ _ _
+    exact ⟨Engine.Ledger.checkFunding_error_iff start finish late held events,
+      Engine.Ledger.checkFunding_ok_iff start finish late held events⟩
+
 
 end Engine.Laws

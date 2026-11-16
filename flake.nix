@@ -117,7 +117,7 @@
             version = "0";
             inherit src;
             nativeBuildInputs = [ lean o.ocaml o.dune_3 o.findlib pkgs.autoPatchelfHook ];
-            buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp ];
+            buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp o.yojson ];
             dontConfigure = true;
           };
         in {
@@ -177,6 +177,7 @@
               ocamlPackages.ocaml
               ocamlPackages.dune_3
               ocamlPackages.findlib
+              ocamlPackages.yojson
               kubectl
               skopeo
               tools.claude-code

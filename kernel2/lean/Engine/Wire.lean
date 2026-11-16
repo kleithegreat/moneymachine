@@ -1,4 +1,5 @@
 import Engine.Exact
+import Engine.LedgerWire
 
 namespace Engine.Exact
 
@@ -63,7 +64,7 @@ def call (op : String) (args : String) : Option String :=
     let dec ← decimals.toInt?
     let p ← rat pn pd
     some (out (roundPriceSell f dec p))
-  | _, _ => none
+  | _, _ => Engine.LedgerWire.call op args
 
 @[export mm2_exact_call]
 def callExported (op : String) (args : String) : String :=
