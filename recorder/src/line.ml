@@ -6,6 +6,10 @@ let of_frame ~recv_ms ~conn frame =
   sprintf {|{"recv":%d,"conn":%d,"msg":%s}|} recv_ms conn (sanitize frame) ^ "\n"
 ;;
 
+let of_response ~recv_ms ~request response =
+  sprintf {|{"recv":%d,"request":%s,"msg":%s}|} recv_ms request (sanitize response) ^ "\n"
+;;
+
 let envelope line =
   let number ~from =
     let stop = ref from in

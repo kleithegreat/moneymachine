@@ -2,6 +2,16 @@
  (name mmrec)
  (public_name mmrec)
  (package mmrec)
+ (modules mmrec)
+ (libraries mmrec core core_unix async async_unix)
+ (preprocess
+  (pps ppx_jane)))
+
+(executable
+ (name mmvault)
+ (public_name mmvault)
+ (package mmrec)
+ (modules mmvault)
  (libraries mmrec core core_unix async async_unix)
  (preprocess
   (pps ppx_jane)))
