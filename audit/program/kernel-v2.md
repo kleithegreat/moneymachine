@@ -288,7 +288,7 @@ Round 2's text claimed more: that these were the classical readings of a bar, wi
 Everything that decides a number: the program's parser and checker; both evaluators; slots and reconciliation; the fill rules; the ledger, fees, funding, margin and the floor; the reading of doubles as decimals; the derivation of events from bars; the admission of dates; the trace and the report; the replay of given fills; study 2's confirmer and its guard. One Lake library, `Engine`, in a new package `kernel2/lean`, with no executable and no `IO`. Exact numbers are core Lean's `Rat`.
 
 - **The float evaluator is stage 6's semantics.** The build plan's step 4 takes the parked stage 7 files (`Ref/Source.lean`, `Ref/Resolve.lean`) if they stand alone, and otherwise writes it from `SEMANTICS.md` §1 to §5; B4 judges it either way.
-- **The engine is written as its own specification:** plain, total, pure functions, with no second fast copy. A law is then a theorem about the code that runs. Only if the wall of B5 fails does a step get a faster twin, proved equal to it.
+- **The engine is written as its own specification:** plain, total, pure functions. A law is a theorem about them. Only where the wall of B5 fails does a function get a faster twin, proved equal to it on every input, and then the compiler puts the twin where the plain function is called (Lean's `@[csimp]`, which takes exactly such an equality). So no law, no proof and no caller names a twin, and the code that runs is the code the laws are about by one more theorem. **Step 3 met the wall** (`kernel2-build` `4616aed`): `Exact.readBits` and `Exact.onGrid` carry every number through `Rat`, with a power of two to an exponent near a thousand, a greatest common divisor at each operation and a logarithm by repeated division, about 7 µs a number where the reader alone takes 0.03. Those two have twins (law X3) and nothing else has.
 - **The exported surface** is pure functions, `@[export]`ed to C:
   - `check : String → String`, a program's JSON to a verdict;
   - `start : String → String → Except String State`, a program and a market's header (horizon, venue, starting cash, coins with their rules, fee schedule, sources with their encodings and `known` rules, bar assumptions, alias map; A18);
@@ -328,6 +328,7 @@ Everything that touches the world, and nothing that decides: one dune project, `
 **Numbers and the language**
 - **X1 ★ The crossings.** A placed order's price and target are the A2 roundings of its slot's exact values by the coin's rules in force at its placement. Two float evaluators that agree on every `when` and on every argument of `exact(·)` place the same orders.
 - **X2 ★ Decimals.** On a double's bits: the reading returns `n` only if `|n| < 10¹⁵` and the binary64 nearest `n · 10⁻ᵈ` is the input; and for every such `n` and every scale from 0 to 12, reading that binary64 returns `n`. Negative zero reads as zero.
+- **X3 ★ The fast readings.** `Exact.readBits` equals `Exact.readBitsFast` and `Exact.onGrid` equals `Exact.onGridFast`, as functions, on every input: every scale and every 64 bits, a NaN, an infinity, a subnormal and negative zero included; every `figures`, `decimals` and rational, zero and the negatives included. Each is stated as the equality of the two constants, the form the compiler takes. The twins use natural numbers and integers alone, a numerator beside a denominator that is a power of two or of ten and is never reduced. X2, C2 and every other law stay statements about the plain functions.
 - **L2 Units.** The instrumented machine never raises a unit or sort error; erasing them gives the executable values. Proved.
 - **L3 Rewrites, L5 Binding, N1 Renaming.** As stage 6 and 7 state them, over declared sources. Proved, abstract numbers.
 
@@ -376,7 +377,15 @@ The ledger's oracle is not a kernel: it is 5,806 fills of a real account, each w
 
 ### B5. Scale
 
-A book market is slow and a bar market fast. The wall for books: one run of 16 coins over 212 days at every recorded snapshot (229 million quotes) finishes within one hour on one core and within 2 GB, measured at the build plan's first slice that feeds quotes and again, with trades, at the slice that fills. The rows it writes are streamed and are not in the 2 GB. A bar market has three derived events a bar, so a search at the pilot's scale runs on bars; a search over book markets is not a goal.
+A book market is slow and a bar market fast. A bar market has three derived events a bar, so a search at the pilot's scale runs on bars; a search over book markets is not a goal.
+
+**What the wall is for.** A run is one account on one clock, so it is one thread: more hosts buy more runs at once and never a faster run. The wall is that **no run a study makes takes more than a day.** Study 2's longest is the forward record at two years: 17 coins at the recorder's 0.55 s and five levels a side, about 1.95 billion quotes of 20 numbers, 39 billion numbers. The archive's whole window is 229 million quotes of 80, 18.3 billion, so the forward run is 2.1 of it, and a day allows the window 11 hours. So:
+- **the whole window, with trades and a ladder** (16 coins, 212 days, every recorded snapshot and print), runs within **8 hours on one core** and 2 GB, the three hours kept for the forward record's prints;
+- **admission alone,** with no program, has half: **4 hours,** 16,000 quotes a second.
+
+Each is measured once at its slice, on the whole window, with the time and the peak memory written to disk; the rows are streamed and are not in the 2 GB. The suite holds the rate on the densest day on record, 2026-04-03's 2,487,176 quotes of 16 coins: 150 s for admission and 300 s with trades and the ladder.
+
+**The 20 minutes and the hour of the earlier text were choices with no derivation,** and no judged number reads a time. They are replaced by what the runs need, which the engine as first built missed too: 1,700 quotes a second, 37 hours for admission alone, nine times over. At the derived wall the trigger's fit, whose trials are runs side by side, takes about 7 hours a trial on its 151 days, and a replay before the freeze is four runs at once.
 
 ## Part C. Round 5, answered
 
@@ -446,3 +455,5 @@ Brief 3, step 2, test 4, at the build (`kernel2-build` `8aee427`; the advisor's 
 | V8's measurement was tested on one size, price, rate and count, which a constant passes | 5, a note | **Conceded** | Each input moved alone, a day not held, a zero rate, and a day with no event listed as not measured (`briefs/4-study-2.md`, step 4, test 5) |
 
 **The one place a second clock could be asked for.** If the venue charges the size held at the hour when it stamps a settlement late, A9 is wrong for a fill between the two, and paying at one time on a size of another is a second clock. Nothing on the record read shows such a case, so nothing is built for it; the replay's list is where it would show, and it then comes back as a question of design.
+
+**B5's wall, met at step 3** (the builder's measurement on `kernel2-build` `4616aed`; no reviewer has seen this). Admission ran at 1,700 quotes a second against the 190,000 that 20 minutes asked. Two things were wrong and both are answered: the wall was a choice and is now derived (B5), and the two functions every number passes through compute on general rationals where a decimal needs none, so they have twins proved equal (B1, X3). No state, event or law about a number of the machine changed, and nothing here needs a second clock, a deferred count or a stake that moves without a fill.
