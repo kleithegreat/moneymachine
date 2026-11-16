@@ -34,7 +34,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
      - **Then:** G100 on the study markets, the first sessions (Cornell and TAMU).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
-     - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. B5's speed wall is open: twins give about 6× of the 9.7× needed (X3 and its test parked on `b5-pending`), Fable's brief `data/builder/architect-b5-part1.txt` next. Step 4 (law statements fixed after GPT, `audit/reviews/2026-11-16-gpt-kernel-v2-step4-laws.md`) building.
+     - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. Step 4: below.
      - **Data:** the archive for its 17 coins, 2026-04-03 to 10-31 (26 GB, `ingest/archive.py`); funding history (`data/study2/funding-history/`); the vault's own fills and funding before 11-01 (`data/study2/vault/`); the trade prints (`node_fills_by_block`, V22) downloading newest day first as user unit `mm-fills` (`data/hl-archive/fills_by_block/`, log `~/.cache/mm-fills.log`, budget $16.40). The C6.4 reference streams are stored under a hash (`data/stage6/c64-reference/`, decisions 2026-11-16).
      - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
@@ -47,9 +47,8 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2:** step 4 accepted by the advisor's own checks and the local C6.4 comparison, then steps 5 onward (brief 3; GPT writes ◆ steps' tests, including V22's additions at steps 6 and 7). B5 after Fable answers. When `mm-fills` ends, log its summary and decide the re-fetch of the early hours without O17's block counts.
-   - **Wake-up:** 2026-11-16 13:12 UTC (08:12 EST): Fable on the personal account with the B5 brief (the human, 2026-11-16).
-2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
+1. **Kernel version 2, step 4** (`kernel2-step4-wip`, `../mm-k2`): built, L1a proved, B5 settled (D125 to D130, GPT converged); rates met on an isolated core (strings 8.7 s of 22, doubles 313 s of 470). Running: B4's full C6.4 comparison, six shards on prodesk5 (`/var/tmp/mm-b4/shard-*.log`, started 18:22 UTC, 13:22 EST). Then merge into `kernel2-build`, then step 5; then the OCaml and Lean style gates (ocamlformat `janestreet`, `@fmt @check @lint`, warnings as errors, `.mli` for exposed modules; the archive reader's catch-all becomes an explicit error).
+2. **When calibration ends:** merge `s1-hunt-fixes` (accepted, decisions 2026-11-16 18:10 UTC, 13:10 EST) into `study1-build`; run step 4's whole-window batch on one idle core here; then study 1's manifest, G100, sessions. When `mm-fills` ends: log its summary, decide the re-fetch of the early hours without O17's counts.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
 ### Finished
