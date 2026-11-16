@@ -30,7 +30,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
-     - **Calibration is running** as `cal-2` (`ops/jobs.py calibrate`, unit `mm-calibrate`, log `~/.cache/mm-calibration/cal-2.log`, image `sha256:6bb979cf…`, `study1-build` `4fd8356`; started 2026-11-15 09:53 UTC, 04:53 EST) on this PC, prodesk7 and gmktec, 27 cores; projected 34 h at the most, about 25 at nine strengths. `cal-1` stopped at a 24 h projection limit that Fable found was never derived and removed (`df55e51`, decisions 2026-11-15); 346 study 1 tests pass. The PC stays on: the batch's inputs are NFS from it.
+     - **Calibration is running** as `cal-3` (`ops/jobs.py calibrate`, unit `mm-calibrate`, log `~/.cache/mm-calibration/cal-3.log`, image `sha256:1199aa3d…`, `study1-build` `f125937`), carried from `cal-2`'s 4,714 lines on kernel `e6df2244…`. Shares follow each host's rate measured under load (Fable `1530f21`): 263, 164 and 64 markets an hour on this PC, prodesk7 and gmktec, about 3.2 h a strength, 64 h at most. The PC stays on: the batch's inputs are NFS from it. Worktree test runs never share the main checkout's `kernel/target` (decisions, 2026-11-15).
      - **Then:** calibration, G100 on the study markets, the first sessions (Cornell and TAMU).
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years).
@@ -46,7 +46,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Kernel version 2 converged** (Fable, then GPT's confirming read `audit/reviews/2026-11-15-gpt-kernel-v2-r6-confirm.md`; Argon round 6). GPT's wording note closed (`05b9421`); `kernel2/KERNEL.md` written (`211bceb`). **Study 2's criteria and brief drafted** (`criteria-notes.md`, `briefs/4-study-2.md`, `bf2064d`; report `data/builder/architect-wall-and-s2-report-1.md`), under review by GPT and Argon (`~/.cache/mm-{gpt,argon}/s2-criteria-r1`). Fable's O6: certify the venue's tick rule for whole-number prices above five figures before study 2's registration.
+1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`; CS2.1 to CS2.3 from `rearchitecture` `e691341`, after GPT, Argon and the advisor's last review). Kernel version 2 and its `KERNEL.md` are converged; the price grid is certified (O6). **Next: kernel version 2's build,** brief 3's eleven steps, tests first by another model, Sonnet building.
    - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
