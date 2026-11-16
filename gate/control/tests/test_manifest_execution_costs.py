@@ -10,7 +10,6 @@ from gate.agent import campaigns
 from gate.control import manifest
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 3: execution.json is in no frozen identity")
 def test_verify_rejects_execution_costs_changed_between_arms(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "repo"
     for source in manifest.judged_path(manifest.REPO):

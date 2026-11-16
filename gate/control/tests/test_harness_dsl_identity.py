@@ -12,7 +12,6 @@ from gate.control import manifest
 from sandbox import session
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 4: kernel/DSL.md is in no frozen identity")
 def test_verify_rejects_changed_dsl_instructions_before_the_agent_reads_them(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

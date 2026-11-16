@@ -62,9 +62,47 @@ def judged_path(root: Path) -> list[Path]:
     return sorted(seen | programs | {root / "flake.lock"})
 
 
+def path_parts(node: ast.expr) -> list[str]:
+    """The string operands of a chain of `/`, in order, or the string itself; nothing for any other expression."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return [node.value]
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        return [*path_parts(node.left), *path_parts(node.right)]
+    return []
+
+
+def named(root: Path, module: Path, parts: list[str]) -> Path | None:
+    """The file that `parts` name from the repository's root or from `module`'s directory, if there is one."""
+    relative = "/".join(parts)
+    if not relative or relative.startswith("/") or ".." in relative.split("/") or len(relative) > 200:
+        return None
+    for base in (root, module.parent):
+        candidate = base / relative
+        if candidate.is_file() and candidate.resolve().is_relative_to(root.resolve()):
+            return candidate
+    return None
+
+
+def read_path(root: Path) -> set[Path]:
+    """Every other file of the repository that a file of the judged path names as a path: a string, or a chain of
+    `/` over strings, that is an existing file from the root or from the module's own directory. What an arm
+    reads from disk is in its source as such a name, so a file the arms come to read is hashed with no list to
+    keep."""
+    found: set[Path] = set()
+    for module in judged_path(root):
+        if module.suffix != ".py":
+            continue
+        for node in ast.walk(ast.parse(module.read_text())):
+            if isinstance(node, (ast.Constant, ast.BinOp)):
+                path = named(root, module, path_parts(node))
+                if path is not None:
+                    found.add(path)
+    return found - set(judged_path(root))
+
+
 def files(root: Path = REPO) -> dict[str, Path]:
     """Every hashed file by its name: the kernel binary, the funding blob, the null models' parameters, the
-    calibration, and the judged path under `root` by its path in the repository."""
+    calibration, the judged path under `root` by its path in the repository, and the files it reads (`read_path`)."""
     funding = campaigns.OUT / "inputs" / markets.null_params()["N2"]["funding"]["sha256"]
     named = {
         "kernel/mm": kernel.MM,
@@ -72,7 +110,7 @@ def files(root: Path = REPO) -> dict[str, Path]:
         "gate/nulls.json": markets.NULLS,
         "audit/control-1/calibration.json": root / "audit" / "control-1" / "calibration.json",
     }
-    judged = {path.relative_to(root).as_posix(): path for path in judged_path(root)}
+    judged = {path.relative_to(root).as_posix(): path for path in [*judged_path(root), *read_path(root)]}
     return {**named, **judged}
 
 

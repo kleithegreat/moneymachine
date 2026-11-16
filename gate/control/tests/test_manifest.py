@@ -164,13 +164,13 @@ def hashed_under(files: Mapping[str, Path], root: Path) -> set[Path]:
 def check_judged(files: Mapping[str, Path], root: Path) -> None:
     want = judged_path(root)
     got = hashed_under(files, root)
-    extra = {p for p in got - want if p.name != "__init__.py"}
+    extra = {p for p in got - want - manifest().read_path(root) if p.name != "__init__.py"}
     missing = want - got
     assert not extra and not missing, (sorted(map(str, extra)), sorted(map(str, missing)))
     assert not any("tests" in p.relative_to(root.resolve()).parts for p in got)
 
 
-def test_files_name_the_inputs_and_exactly_the_judged_path() -> None:
+def test_files_name_the_inputs_the_judged_path_and_the_files_it_names() -> None:
     files = manifest().files()
     paths = {Path(p).resolve() for p in files.values()}
     funding = campaigns.OUT / "inputs" / markets.null_params()["N2"]["funding"]["sha256"]
