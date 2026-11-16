@@ -1106,3 +1106,13 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The next read is GPT's** (Argon is out until about 2026-11-20 22:40 UTC, 17:40 EST), starting with D161, D163, D162, D167 and D171.
   - **What waits on that read:** the test writer's changes to `kernel2-step5` `b1689bc`, and then step 5's build.
   - **The architect's note for the human:** from the freeze, a defect found in `study2` or in `mm2`'s readers ends study 2, as one in the engine does. The bug hunt before the freeze covers all three.
+- 2026-11-16 23:14 UTC (18:14 EST), the human: **the paper is a free-standing work, to read like a conference or journal paper.**
+  - **What it leaves out:** references to repository files, internal labels (criterion, decision and finding ids), and cluster operations.
+  - **Findings:** synthesized as an argument, never a regurgitation of `audit/`.
+  - **Measured today:** the paper has 93 `\record{}` citations of files and about 108 internal ids, and its sections follow the project's design documents.
+  - **`CLAUDE.md`, "Where information lives":** says so. `docs/findings.md` becomes the only bridge between the paper's sections and the audit record.
+  - **The revision:**
+    - The architect sets the argument and structure.
+    - An Opus session writes the prose, which matters more here than in code.
+    - GPT referees it as a venue's reviewer would.
+    - It is scheduled after the kernel's review round converges, so it does not compete with that round for the account.

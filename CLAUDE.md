@@ -37,9 +37,9 @@ When the human asks something or proposes an idea, catch every case where it has
 ### Where information lives
 
 One authoritative home per kind of information; anything elsewhere is a summary that links to it.
-- **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is summarized there, linking its audit record. Specs and criteria say what, and cite the paper for why.
+- **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is synthesized there. The paper stands alone, written as for a conference or journal (the human, 2026-11-16): no repository paths, internal labels (criterion, decision or finding ids) or cluster operations, and findings as an argument, not a digest of `audit/`. Specs and criteria say what, and cite the paper for why.
 - **Process:** this file.
-- **Findings index:** `docs/findings.md`, one row per completed study, each linking the paper and the audit record. It holds no number of its own.
+- **Findings index:** `docs/findings.md`, one row per completed study, each linking the paper's section and the audit record: the only bridge between them, since the paper names no file. It holds no number of its own.
 - **The live system:** `CLUSTER.md`.
 - **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (the flake check `progress-cap`), leaving history to git.
 - **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
