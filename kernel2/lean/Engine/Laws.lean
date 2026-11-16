@@ -535,7 +535,7 @@ theorem C2 :
   refine ⟨?_, Engine.Machine.concrete_run⟩
   intro readNumber key program header initial state «prefix» suffix event rules hstart hstate hdec hrules
   intro priceBad sizeBad fieldsBad repeated «protected» hfault
-  have hnn : Engine.Machine.admit state event ≠ none := by
+  have hnn : Engine.Machine.Faulty (Engine.Machine.admit state event) := by
     rcases hfault with ho | he | hf | hr | hp
     · exact Engine.Machine.admit_of_order _ _ (Engine.Machine.checkOrder_ne _ _ ho)
     · exact Engine.Machine.admit_of_ended _ _ (Engine.Machine.checkEnded_ne _ _ he)
@@ -962,7 +962,7 @@ The plain side is `onGrid : Nat → Int → Rat → Bool`, the function C2 names
 There is no positivity, valid-rules, decimal-range or scale-bound premise. -/
 theorem X3_onGrid (figures : Nat) (decimals : Int) (scale : Nat) (n : Int) :
     Engine.Exact.onGridAt figures decimals scale n =
-      Engine.Exact.onGrid figures decimals ((n : Rat) / (10 : Rat) ^ scale) := by
-  sorry
+      Engine.Exact.onGrid figures decimals ((n : Rat) / (10 : Rat) ^ scale) :=
+  Engine.Exact.onGridAt_eq figures decimals scale n
 
 end Engine.Laws

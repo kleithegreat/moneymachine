@@ -358,6 +358,124 @@ theorem onGrid_iff {figures : Nat} {decimals : Int} {p : Rat} :
   unfold onGrid
   simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, mult_iff, mult_one_iff, and_assoc]
 
+/-- `10 ^ e` divides `m`; every `m` does when `e` is not above zero. -/
+def dividesTen (m : Nat) (e : Int) : Bool := decide (e ≤ 0) || m % 10 ^ e.toNat == 0
+
+theorem dividesTen_iff (m : Nat) (e : Int) :
+    dividesTen m e = true ↔ e ≤ 0 ∨ 10 ^ e.toNat ∣ m := by
+  unfold dividesTen
+  simp only [Bool.or_eq_true, decide_eq_true_eq, beq_iff_eq]
+  constructor
+  · rintro (h | h)
+    · exact Or.inl h
+    · exact Or.inr (Nat.dvd_of_mod_eq_zero h)
+  · rintro (h | h)
+    · exact Or.inl h
+    · exact Or.inr (Nat.mod_eq_zero_of_dvd h)
+
+theorem ten_natCast (s : Nat) : ten (s : Int) = (10 : Rat) ^ s := rfl
+
+theorem mult_scaled (n : Int) (s : Nat) (z : Int) :
+    Mult ((n : Rat) / (10 : Rat) ^ s) z ↔ (z + s ≤ 0 ∨ 10 ^ (z + s).toNat ∣ n.natAbs) := by
+  have hs : (10 : Rat) ^ s ≠ 0 := by
+    have : 0 < (10 : Rat) ^ s := Rat.pow_pos (by decide)
+    grind
+  have hten : ten (z + s) = ten z * (10 : Rat) ^ s := by rw [ten_add, ten_natCast]
+  have key : ∀ k : Int, (n : Rat) / (10 : Rat) ^ s = (k : Rat) * ten z ↔ (n : Rat) = (k : Rat) * ten (z + s) := by
+    intro k
+    rw [hten, ← Rat.mul_assoc]
+    constructor
+    · intro h; rw [← h, Rat.div_mul_cancel hs]
+    · intro h; rw [h, Rat.mul_div_cancel hs]
+  unfold Mult
+  simp only [key]
+  by_cases he : z + s ≤ 0
+  · simp only [he, true_or, iff_true]
+    obtain ⟨t, ht⟩ : ∃ t : Nat, -(z + s) = t := ⟨(-(z + s)).toNat, by omega⟩
+    refine ⟨n * ((10 ^ t : Nat) : Int), ?_⟩
+    have e1 : ten (z + s) * ten (-(z + s)) = 1 := by
+      rw [← ten_add, show z + s + -(z + s) = 0 by omega, ten_zero]
+    have e2 : ten (-(z + s)) = (((10 ^ t : Nat) : Int) : Rat) := by
+      rw [ht, ten_natCast, Rat.intCast_natCast, natCast_pow]
+      simp
+    rw [Rat.intCast_mul, ← e2, Rat.mul_assoc, Rat.mul_comm (ten (-(z + s))), e1]
+    simp
+  · simp only [he, false_or]
+    obtain ⟨t, ht⟩ : ∃ t : Nat, z + s = t := ⟨(z + s).toNat, by omega⟩
+    have hto : (z + s).toNat = t := by omega
+    rw [hto, ht, ten_natCast]
+    constructor
+    · rintro ⟨k, hk⟩
+      have : n = k * ((10 ^ t : Nat) : Int) := by
+        have : (n : Rat) = ((k * ((10 ^ t : Nat) : Int) : Int) : Rat) := by
+          rw [hk, Rat.intCast_mul, Rat.intCast_natCast, natCast_pow]; simp
+        exact_mod_cast this
+      rw [this, Int.natAbs_mul]
+      exact ⟨(k.natAbs), by simp [Nat.mul_comm]⟩
+    · rintro ⟨q, hq⟩
+      refine ⟨if n < 0 then -(q : Int) else q, ?_⟩
+      have hn : n = (if n < 0 then -(n.natAbs : Int) else (n.natAbs : Int)) := by omega
+      have hq' : (n.natAbs : Int) = (10 ^ t : Nat) * q := by exact_mod_cast hq
+      by_cases hneg : n < 0
+      · simp only [hneg, ite_true]
+        have : n = -((10 ^ t : Nat) * q : Int) := by omega
+        rw [this]; push_cast; grind
+      · simp only [hneg, ite_false]
+        have : n = ((10 ^ t : Nat) * q : Int) := by omega
+        rw [this]; push_cast; grind
+
+
+/-- A18's grid on a price held as whole units of `10 ^ -scale`: the same sentence as `onGrid` of that
+rational, in natural numbers and integers alone (X3). -/
+def onGridAt (figures : Nat) (decimals : Int) (scale : Nat) (n : Int) : Bool :=
+  decide (0 < n) && dividesTen n.natAbs ((scale : Int) - decimals) &&
+    (dividesTen n.natAbs ((natLog 10 n.natAbs : Int) - figures + 1) || dividesTen n.natAbs scale)
+
+theorem ilog_scaled (n : Int) (s : Nat) (hn : 0 < n) :
+    ilog 10 ((n : Rat) / (10 : Rat) ^ s) = (natLog 10 n.natAbs : Int) - s := by
+  have hs : (0 : Rat) < (10 : Rat) ^ s := Rat.pow_pos (by decide)
+  obtain ⟨h1, h2⟩ := natLog_spec 10 n.natAbs (by omega) (by omega)
+  have hna : ((n.natAbs : Nat) : Int) = n := by omega
+  have c1 : ((10 ^ natLog 10 n.natAbs : Nat) : Rat) ≤ (n : Rat) := by
+    have : ((10 ^ natLog 10 n.natAbs : Nat) : Int) ≤ n := by omega
+    exact_mod_cast this
+  have c2 : (n : Rat) < ((10 ^ (natLog 10 n.natAbs + 1) : Nat) : Rat) := by
+    have : n < ((10 ^ (natLog 10 n.natAbs + 1) : Nat) : Int) := by omega
+    exact_mod_cast this
+  rw [natCast_pow] at c1 c2
+  have t1 : ten ((natLog 10 n.natAbs : Int) - s) * (10 : Rat) ^ s = (10 : Rat) ^ natLog 10 n.natAbs := by
+    rw [← ten_natCast, ← ten_add, show (natLog 10 n.natAbs : Int) - s + s = natLog 10 n.natAbs by omega, ten_natCast]
+  have t2 : ten ((natLog 10 n.natAbs : Int) - s + 1) * (10 : Rat) ^ s = (10 : Rat) ^ (natLog 10 n.natAbs + 1) := by
+    rw [← ten_natCast, ← ten_add, show (natLog 10 n.natAbs : Int) - s + 1 + s = ((natLog 10 n.natAbs + 1 : Nat) : Int) by omega, ten_natCast]
+  apply ilog10_eq
+  · rw [← Rat.not_lt, Rat.div_lt_iff hs, t1]; intro h; have c1' : (10 : Rat) ^ natLog 10 n.natAbs ≤ n := by simpa using c1
+    exact (Rat.not_le.mpr h) c1'
+  · rw [Rat.div_lt_iff hs, Rat.mul_comm, ← Rat.mul_comm, t2]; simpa using c2
+
+theorem onGridAt_eq (figures : Nat) (decimals : Int) (scale : Nat) (n : Int) :
+    onGridAt figures decimals scale n =
+      onGrid figures decimals ((n : Rat) / (10 : Rat) ^ scale) := by
+  have hs : (0 : Rat) < (10 : Rat) ^ scale := Rat.pow_pos (by decide)
+  rw [Bool.eq_iff_iff, onGrid_iff]
+  unfold onGridAt
+  simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq, dividesTen_iff, and_assoc]
+  have hpos : 0 < (n : Rat) / (10 : Rat) ^ scale ↔ 0 < n := by
+    rw [Rat.lt_div_iff hs, Rat.zero_mul]
+    constructor
+    · intro h; exact_mod_cast h
+    · intro h; exact_mod_cast h
+  rw [hpos]
+  by_cases hn : 0 < n
+  · simp only [hn, true_and]
+    rw [ilog_scaled n scale hn, mult_scaled, mult_scaled]
+    have hk : (∃ k : Int, (n : Rat) / (10 : Rat) ^ scale = (k : Rat)) ↔ Mult ((n : Rat) / (10 : Rat) ^ scale) 0 := by
+      unfold Mult; simp [ten_zero]
+    rw [hk, mult_scaled]
+    have e1 : -decimals + (scale : Int) = (scale : Int) - decimals := by omega
+    have e2 : (natLog 10 n.natAbs : Int) - scale - figures + 1 + scale = (natLog 10 n.natAbs : Int) - figures + 1 := by omega
+    rw [e1, e2, Int.zero_add]
+  · simp [hn]
+
 theorem gridStep_pos (figures : Nat) (decimals : Int) (p : Rat) : 0 < gridStep figures decimals p :=
   ten_pos _
 

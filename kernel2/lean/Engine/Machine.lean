@@ -187,75 +187,93 @@ def State.reject (s : State) (code : String) (time : Int) (detail : String) : St
 
 /-! ### Reading numbers -/
 
-/-- A number read at its field's scale, as a rational (A2, A18). -/
-def readRat (scale : Nat) (number : Number) : Option Rat :=
-  let n := match number with
-    | .placed digits places => (Engine.Exact.putPlaced scale digits places).toOption
-    | .bits bits => Engine.Exact.readBits scale bits
-  n.map (fun digits => (digits : Rat) / (10 : Rat) ^ scale)
+/-- A number read at its field's scale: the integer `readBits` or `putPlaced` gave (A2, A18). Admission reads each
+number once and the machine keeps this integer. -/
+def readInt (scale : Nat) : Number → Option Int
+  | .placed digits places => (Engine.Exact.putPlaced scale digits places).toOption
+  | .bits bits => Engine.Exact.readBits scale bits
+
+/-- The rational an integer reading at `scale` stands for. -/
+def ofUnits (scale : Nat) (n : Int) : Rat := (n : Rat) / (10 : Rat) ^ scale
+
+/-- The mid of two readings at scale 8. -/
+def midPrice (bid ask : Int) : Rat := ((bid + ask : Int) : Rat) / ((2 * 10 ^ 8 : Nat) : Rat)
+
+/-- What admission read of an event's payload (B1): every number as its integer at its field's scale, a size
+beside the lots it was read at, and of a quote only its best levels. -/
+inductive Reading where
+  | listing (rules : Rules)
+  | ending (price : Int)
+  | funding (hour : Int) (rate : Int) (oracle : Option Int)
+  | trade (id : Int) (price size : Int) (sizeScale : Nat) (seller : Bool)
+  | quote (bid bidSize ask askSize : Int) (sizeScale : Nat)
+  | observation (source : Nat) (bits : UInt64)
+  deriving Repr, DecidableEq
 
 abbrev Found := Option (String × String)
 
 def found (code detail : String) : Found := some (code, detail)
 
+/-- A fault, or what was read. -/
+abbrev Checked (α : Type) := Except (String × String) α
+
+def fail {α : Type} (code detail : String) : Checked α := .error (code, detail)
+
 /-- A price: readable, above zero and on the coin's grid. -/
-def checkPrice (rules : Rules) (number : Number) : Found :=
-  match readRat 8 number with
-  | none => found "E_DECIMAL" "a price out of range or with too many places"
+def checkPrice (rules : Rules) (number : Number) : Checked Int :=
+  match readInt 8 number with
+  | none => fail "E_DECIMAL" "a price out of range or with too many places"
   | some price =>
-    if price ≤ 0 then found "R_MARKET" "a price that is not above zero"
-    else if Engine.Exact.onGrid rules.figures rules.decimals price = false then
-      found "R_MARKET" "a price off its coin's grid"
-    else none
+    if price ≤ 0 then fail "R_MARKET" "a price that is not above zero"
+    else if Engine.Exact.onGridAt rules.figures rules.decimals 8 price = false then
+      fail "R_MARKET" "a price off its coin's grid"
+    else .ok price
 
 /-- A size: readable at the coin's lots and above zero. A placed decimal finer than a lot is off the lot grid. -/
-def checkSize (rules : Rules) (number : Number) : Found :=
+def checkSize (rules : Rules) (number : Number) : Checked Int :=
   match number with
   | .placed _ places =>
-    if rules.szDecimals < places then found "E_DECIMAL" "a size with more places than its coin's lots"
+    if rules.szDecimals < places then fail "E_DECIMAL" "a size with more places than its coin's lots"
     else
-      match readRat rules.szDecimals number with
-      | none => found "E_DECIMAL" "a size out of range"
-      | some size => if size ≤ 0 then found "R_MARKET" "a size that is not above zero" else none
+      match readInt rules.szDecimals number with
+      | none => fail "E_DECIMAL" "a size out of range"
+      | some size => if size ≤ 0 then fail "R_MARKET" "a size that is not above zero" else .ok size
   | .bits _ =>
-    match readRat rules.szDecimals number with
-    | none => found "E_DECIMAL" "a size out of range or off its coin's lots"
-    | some size => if size ≤ 0 then found "R_MARKET" "a size that is not above zero" else none
+    match readInt rules.szDecimals number with
+    | none => fail "E_DECIMAL" "a size out of range or off its coin's lots"
+    | some size => if size ≤ 0 then fail "R_MARKET" "a size that is not above zero" else .ok size
 
-/-- One side of a quote, best first: every level a price and a size that pass, the prices strictly receding. -/
-def scanSide (rules : Rules) (descending : Bool) : List Level → Option Rat → Found
-  | [], _ => none
-  | level :: rest, previous =>
-    match readRat 8 level.price with
-    | none => found "E_DECIMAL" "a price out of range or with too many places"
-    | some price =>
-      if price ≤ 0 then found "R_MARKET" "a price that is not above zero"
-      else if Engine.Exact.onGrid rules.figures rules.decimals price = false then
-        found "R_MARKET" "a price off its coin's grid"
-      else
-        match checkSize rules level.size with
-        | some fault => some fault
-        | none =>
-          match previous with
-          | some before =>
-            if (descending && price < before) || (!descending && before < price) then
-              scanSide rules descending rest (some price)
-            else found "R_MARKET" "a quote whose levels are not strictly best first"
-          | none => scanSide rules descending rest (some price)
+/-- The levels after a side's best: every one a price and a size that pass, the prices strictly receding. -/
+def scanRest (rules : Rules) (descending : Bool) : List Level → Int → Checked Unit
+  | [], _ => .ok ()
+  | level :: rest, before =>
+    match checkPrice rules level.price with
+    | .error fault => .error fault
+    | .ok price =>
+      match checkSize rules level.size with
+      | .error fault => .error fault
+      | .ok _ =>
+        if (descending && price < before) || (!descending && before < price) then
+          scanRest rules descending rest price
+        else fail "R_MARKET" "a quote whose levels are not strictly best first"
 
-def crossed (bids asks : List Level) : Bool :=
-  match bids.head?, asks.head? with
-  | some bid, some ask =>
-    match readRat 8 bid.price, readRat 8 ask.price with
-    | some b, some a => decide (a ≤ b)
-    | _, _ => false
-  | _, _ => false
+/-- One side of a quote, best first: the readings of its best level (price, size) once every level passes. -/
+def scanSide (rules : Rules) (descending : Bool) (best : Level) (rest : List Level) : Checked (Int × Int) :=
+  match checkPrice rules best.price with
+  | .error fault => .error fault
+  | .ok price =>
+    match checkSize rules best.size with
+    | .error fault => .error fault
+    | .ok size =>
+      match scanRest rules descending rest price with
+      | .error fault => .error fault
+      | .ok _ => .ok (price, size)
 
 /-- Margin tiers: at least one, the first from zero, rising. -/
-def tiersRise : List (Number × Int) → Option Rat → Bool
+def tiersRise : List (Number × Int) → Option Int → Bool
   | [], _ => true
   | (bound, _) :: rest, previous =>
-    match readRat 2 bound with
+    match readInt 2 bound with
     | none => false
     | some b =>
       match previous with
@@ -319,90 +337,99 @@ def setAt {α : Type} : List α → Nat → α → List α
   | _ :: rest, 0, v => v :: rest
   | x :: rest, n + 1, v => x :: setAt rest n v
 
-def checkPayload (s : State) (e : Event) (rules : Rules) : Found :=
+def checkPayload (s : State) (e : Event) (rules : Rules) : Checked Reading :=
   match e.payload with
   | .listing newRules =>
     if newRules.figures = 0 || 8 < newRules.decimals || 12 < newRules.szDecimals then
-      found "R_MARKET" "rules outside A18's bounds"
+      fail "R_MARKET" "rules outside A18's bounds"
     else if tiersRise newRules.tiers none = false || newRules.tiers.isEmpty then
-      found "R_MARKET" "margin tiers that do not rise from zero"
-    else if e.known < e.time + s.cfg.listingLag then found "R_MARKET" "a known time before the source's lag"
-    else none
+      fail "R_MARKET" "margin tiers that do not rise from zero"
+    else if e.known < e.time + s.cfg.listingLag then fail "R_MARKET" "a known time before the source's lag"
+    else .ok (.listing newRules)
   | .ending price =>
-    match readRat 8 price with
-    | none => found "E_DECIMAL" "a settlement price out of range"
+    match readInt 8 price with
+    | none => fail "E_DECIMAL" "a settlement price out of range"
     | some value =>
-      if value < 0 then found "R_MARKET" "a settlement price below zero"
-      else if 0 < value && Engine.Exact.onGrid rules.figures rules.decimals value = false then
-        found "R_MARKET" "a settlement price off its coin's grid"
-      else if e.known < e.time + s.cfg.listingLag then found "R_MARKET" "a known time before the source's lag"
-      else none
+      if value < 0 then fail "R_MARKET" "a settlement price below zero"
+      else if 0 < value && Engine.Exact.onGridAt rules.figures rules.decimals 8 value = false then
+        fail "R_MARKET" "a settlement price off its coin's grid"
+      else if e.known < e.time + s.cfg.listingLag then fail "R_MARKET" "a known time before the source's lag"
+      else .ok (.ending value)
   | .funding hour rate oracle =>
-    match readRat 12 rate with
-    | none => found "E_DECIMAL" "a funding rate out of range"
-    | some _ =>
-      match oracle.bind (fun price => (readRat 8 price).map fun _ => ()) , oracle with
-      | none, some _ => found "E_DECIMAL" "an oracle price out of range"
-      | _, _ =>
-        if hour % 3600000 != 0 then found "R_MARKET" "a funding hour that is not a whole hour"
+    match readInt 12 rate with
+    | none => fail "E_DECIMAL" "a funding rate out of range"
+    | some rateUnits =>
+      let timed (oracleUnits : Option Int) : Checked Reading :=
+        if hour % 3600000 != 0 then fail "R_MARKET" "a funding hour that is not a whole hour"
         else if e.time < hour || hour + s.cfg.fundingLate < e.time then
-          found "R_MARKET" "a funding event outside its hour's lateness"
+          fail "R_MARKET" "a funding event outside its hour's lateness"
         else if (getCoin s e.coin).fundingHour.any (fun h => hour ≤ h) then
-          found "R_MARKET" "a second funding event for one coin and hour"
-        else if e.known < e.time + s.cfg.fundingLag then found "R_MARKET" "a known time before the source's lag"
-        else none
-  | .trade id price size _ =>
+          fail "R_MARKET" "a second funding event for one coin and hour"
+        else if e.known < e.time + s.cfg.fundingLag then fail "R_MARKET" "a known time before the source's lag"
+        else .ok (.funding hour rateUnits oracleUnits)
+      match oracle with
+      | none => timed none
+      | some price =>
+        match readInt 8 price with
+        | none => fail "E_DECIMAL" "an oracle price out of range"
+        | some priceUnits => timed (some priceUnits)
+  | .trade id price size seller =>
     match s.cfg.trades with
-    | none => found "R_MARKET" "a trade on a market with no trades"
+    | none => fail "R_MARKET" "a trade on a market with no trades"
     | some _ =>
       match checkPrice rules price with
-      | some fault => some fault
-      | none =>
+      | .error fault => .error fault
+      | .ok priceUnits =>
         match checkSize rules size with
-        | some fault => some fault
-        | none =>
+        | .error fault => .error fault
+        | .ok sizeUnits =>
           match checkRepeated s e id with
-          | some fault => some fault
+          | some fault => .error fault
           | none =>
-            if e.known != e.time + s.cfg.delta then found "R_MARKET" "a trade whose known time is not time plus delta"
-            else none
+            if e.known != e.time + s.cfg.delta then fail "R_MARKET" "a trade whose known time is not time plus delta"
+            else .ok (.trade id priceUnits sizeUnits rules.szDecimals seller)
   | .quote bids asks =>
     match s.cfg.quotes with
-    | none => found "R_MARKET" "a quote on a market with no quotes"
+    | none => fail "R_MARKET" "a quote on a market with no quotes"
     | some _ =>
-      if bids.isEmpty || asks.isEmpty then found "R_MARKET" "a quote with an empty side"
-      else
-        match scanSide rules true bids none with
-        | some fault => some fault
-        | none =>
-          match scanSide rules false asks none with
-          | some fault => some fault
-          | none =>
-            if crossed bids asks then found "R_MARKET" "a crossed quote"
+      match bids, asks with
+      | [], _ => fail "R_MARKET" "a quote with an empty side"
+      | _, [] => fail "R_MARKET" "a quote with an empty side"
+      | bestBid :: restBids, bestAsk :: restAsks =>
+        match scanSide rules true bestBid restBids with
+        | .error fault => .error fault
+        | .ok bid =>
+          match scanSide rules false bestAsk restAsks with
+          | .error fault => .error fault
+          | .ok ask =>
+            if ask.1 ≤ bid.1 then fail "R_MARKET" "a crossed quote"
             else if e.known != e.time + s.cfg.delta then
-              found "R_MARKET" "a quote whose known time is not time plus delta"
-            else none
-  | .observation source _ =>
+              fail "R_MARKET" "a quote whose known time is not time plus delta"
+            else .ok (.quote bid.1 bid.2 ask.1 ask.2 rules.szDecimals)
+  | .observation source bits =>
     match s.cfg.observations[source]? with
-    | none => found "R_MARKET" "an observation of an undeclared source"
-    | some o => if e.known < e.time + o.lag then found "R_MARKET" "a known time before the source's lag" else none
+    | none => fail "R_MARKET" "an observation of an undeclared source"
+    | some o =>
+      if e.known < e.time + o.lag then fail "R_MARKET" "a known time before the source's lag"
+      else .ok (.observation source bits)
 
-/-- The first fault of an event, in the order protected, horizon, A3's order, ended coin, then its fields. -/
-def admit (s : State) (e : Event) : Found :=
+/-- The first fault of an event, in the order protected, horizon, A3's order, ended coin, then its fields; else what
+it read. -/
+def admit (s : State) (e : Event) : Checked Reading :=
   match checkProtected e with
-  | some fault => some fault
+  | some fault => .error fault
   | none =>
     match checkHorizon s e with
-    | some fault => some fault
+    | some fault => .error fault
     | none =>
       match checkOrder s e with
-      | some fault => some fault
+      | some fault => .error fault
       | none =>
         match checkEnded s e with
-        | some fault => some fault
+        | some fault => .error fault
         | none =>
           match s.rules[e.coin]? with
-          | none => found "R_MARKET" "an event of a coin outside the header"
+          | none => fail "R_MARKET" "an event of a coin outside the header"
           | some rules => checkPayload s e rules
 
 /-! ### Rows -/
@@ -592,64 +619,49 @@ def ticksBefore (s : State) (bound : Int) : Nat :=
 
 /-! ### One event -/
 
-def midOf (bids asks : List Level) : Option Rat :=
-  match bids.head?, asks.head? with
-  | some bid, some ask =>
-    match readRat 8 bid.price, readRat 8 ask.price with
-    | some b, some a => some ((b + a) / 2)
-    | _, _ => none
-  | _, _ => none
-
 def sideWord (seller : Bool) : String := if seller then "sell" else "buy"
 
-/-- The view's copy of an event, to be taken at its `known`; a run with no program has no view. -/
-def withPending (s : State) (e : Event) (what : PView) : State :=
-  if s.prog.isSome then { s with pending := insertPending ⟨e.coin, e.known, what⟩ s.pending } else s
+/-- The view's copy of an event, to be taken at its `known`; a run with no program has no view and makes none. -/
+def withPending (s : State) (e : Event) (what : Unit → PView) : State :=
+  if s.prog.isSome then { s with pending := insertPending ⟨e.coin, e.known, what ()⟩ s.pending } else s
 
-def levelRats (rules : Rules) (l : Level) : Rat × Rat :=
-  ((readRat 8 l.price).getD 0, (readRat rules.szDecimals l.size).getD 0)
-
-/-- The effect of an admitted event on a coin and the trace row it writes. -/
-def applyPayload (s : State) (e : Event) : State × String :=
+/-- The effect of an admitted event on a coin and the trace row it writes, from what admission read of it. -/
+def applyPayload (s : State) (e : Event) (reading : Reading) : State × String :=
   let c := getCoin s e.coin
   let name := coinName s e.coin
-  let rules := (s.rules[e.coin]?).getD ⟨0, 1, 0, []⟩
   let clock := s.cfg.tickMs.isSome
-  match e.payload with
+  match reading with
   | .listing newRules => ({ s with rules := setAt s.rules e.coin newRules }, "")
   | .ending price =>
-    let value := (readRat 8 price).getD 0
+    let value := ofUnits 8 price
     (withPending { s with ended := e.coin :: s.ended, coins := setAt s.coins e.coin { c with price := some value } } e
-        .ending,
+        fun _ => .ending,
       "end\t" ++ toString e.time ++ "\t" ++ name ++ "\t" ++ fmtRat value ++ "\n")
   | .funding hour rate oracle =>
-    let unitPrice := match oracle.bind (readRat 8) with
+    let rateValue := ofUnits 12 rate
+    let oracleValue := oracle.map (ofUnits 8)
+    let unitPrice := match oracleValue with
       | some p => some p
       | none => c.price
-    let perUnit := match unitPrice, readRat 12 rate with
-      | some p, some r => some (p * r)
-      | _, _ => none
+    let perUnit := unitPrice.map (· * rateValue)
     (withPending { s with coins := setAt s.coins e.coin { c with fundingHour := some hour } } e
-        (.funding ((readRat 12 rate).getD 0) (oracle.bind (readRat 8))),
+        (fun _ => .funding rateValue oracleValue),
       "funding\t" ++ toString e.time ++ "\t" ++ name ++ "\t" ++ toString hour ++ "\t" ++ fmtOpt perUnit ++ "\n")
-  | .trade id price size seller =>
-    let p := (readRat 8 price).getD 0
-    let z := (readRat rules.szDecimals size).getD 0
+  | .trade id price size sizeScale seller =>
+    let p := ofUnits 8 price
+    let z := ofUnits sizeScale size
     let stale := staleAt s.cfg.gap c.lastQuote e.time
-    (withPending { s with coins := setAt s.coins e.coin { c with price := some p } } e (.trade p z),
+    (withPending { s with coins := setAt s.coins e.coin { c with price := some p } } e (fun _ => .trade p z),
       "print\t" ++ toString e.time ++ "\t" ++ name ++ "\t" ++ toString id ++ "\t" ++ sideWord seller ++ "\t" ++
         fmtRat p ++ "\t" ++ fmtRat z ++ "\t" ++ fmtBool stale ++ "\n")
-  | .quote bids asks =>
-    let mid := match midOf bids asks with
-      | some m => some m
-      | none => c.price
+  | .quote bid bidSize ask askSize sizeScale =>
     let c' : CoinState :=
-      { c with lastQuote := some e.time, quotes := if clock then e.time :: c.quotes else [], price := mid }
-    let best := match bids.head?, asks.head? with
-      | some b, some a => (levelRats rules b, levelRats rules a)
-      | _, _ => ((0, 0), (0, 0))
-    (withPending { s with coins := setAt s.coins e.coin c' } e (.quote best.1.1 best.1.2 best.2.1 best.2.2), "")
-  | .observation source bits => (withPending s e (.observation source bits), "")
+      { c with lastQuote := some e.time, quotes := if clock then e.time :: c.quotes else [],
+               price := some (midPrice bid ask) }
+    (withPending { s with coins := setAt s.coins e.coin c' } e
+        (fun _ => .quote (ofUnits 8 bid) (ofUnits sizeScale bidSize) (ofUnits 8 ask) (ofUnits sizeScale askSize)),
+      "")
+  | .observation source bits => (withPending s e (fun _ => .observation source bits), "")
 
 def newIds (s : State) (e : Event) : List (Nat × Int) :=
   let kept := match s.previous with
@@ -660,15 +672,15 @@ def newIds (s : State) (e : Event) : List (Nat × Int) :=
   | _ => kept
 
 /-- An admitted event: the ticks it completes, then its own effect and rows. -/
-def advanceRec (s : State) (e : Event) : State × Rows × List TickRecord :=
+def advanceRec (s : State) (e : Event) (reading : Reading) : State × Rows × List TickRecord :=
   let (s1, ticks, records) := fireRec (ticksBefore s e.time) s Rows.empty []
-  let (s2, row) := applyPayload s1 e
+  let (s2, row) := applyPayload s1 e reading
   let lines := if row.isEmpty then 0 else 1
   ({ s2 with count := s2.count + 1, previous := some e, ids := newIds s1 e, traceLines := s2.traceLines + lines },
     ticks ++ ⟨"", row⟩, records)
 
-def advance (s : State) (e : Event) : State × Rows :=
-  let r := advanceRec s e
+def advance (s : State) (e : Event) (reading : Reading) : State × Rows :=
+  let r := advanceRec s e reading
   (r.1, r.2.1)
 
 def step (s : State) (e : Event) : State × Rows :=
@@ -676,8 +688,8 @@ def step (s : State) (e : Event) : State × Rows :=
   | some _ => (s, Rows.empty)
   | none =>
     match admit s e with
-    | some fault => (s.reject fault.1 e.time fault.2, Rows.empty)
-    | none => advance s e
+    | .error fault => (s.reject fault.1 e.time fault.2, Rows.empty)
+    | .ok reading => advance s e reading
 
 def go : State → List Event → State × Rows
   | s, [] => (s, Rows.empty)
@@ -849,9 +861,9 @@ def snapshots (s : State) : List Event → Option (List TickRecord)
     | some _ => none
     | none =>
       match admit s e with
-      | some _ => none
-      | none =>
-        let r := advanceRec s e
+      | .error _ => none
+      | .ok reading =>
+        let r := advanceRec s e reading
         (snapshots r.1 es).map (r.2.2 ++ ·)
 
 /-! ### Writing a chunk -/

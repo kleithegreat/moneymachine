@@ -37,15 +37,15 @@ theorem fireRec_cfg (n : Nat) (s : State) (acc : Rows) (recs : List TickRecord) 
 theorem fireN_cfg (n : Nat) (s : State) (acc : Rows) : (fireN n s acc).1.cfg = s.cfg := by
   simp [fireN, fireRec_cfg]
 
-theorem withPending_cfg (s : State) (e : Event) (w : PView) : (withPending s e w).cfg = s.cfg := by
+theorem withPending_cfg (s : State) (e : Event) (w : Unit → PView) : (withPending s e w).cfg = s.cfg := by
   unfold withPending
   split <;> rfl
 
-theorem applyPayload_cfg (s : State) (e : Event) : (applyPayload s e).1.cfg = s.cfg := by
+theorem applyPayload_cfg (s : State) (e : Event) (r : Reading) : (applyPayload s e r).1.cfg = s.cfg := by
   unfold applyPayload
   split <;> simp [withPending_cfg]
 
-theorem advance_cfg (s : State) (e : Event) : (advance s e).1.cfg = s.cfg := by
+theorem advance_cfg (s : State) (e : Event) (r : Reading) : (advance s e r).1.cfg = s.cfg := by
   unfold advance advanceRec
   simp [fireN_cfg, fireRec_cfg, applyPayload_cfg]
 
@@ -57,7 +57,7 @@ theorem step_cfg (s : State) (e : Event) : (step s e).1.cfg = s.cfg := by
   · rfl
   · split
     · rfl
-    · exact advance_cfg s e
+    · exact advance_cfg s e _
 
 theorem go_cfg (es : List Event) : ∀ s : State, (go s es).1.cfg = s.cfg := by
   induction es with
