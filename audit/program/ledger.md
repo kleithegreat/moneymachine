@@ -1279,3 +1279,57 @@ Appended 2026-11-16 01:32 UTC (2026-11-15 20:32 EST) by Claude Fable 5.2, sessio
 **Whether this was patching.** No finding landed on an earlier patch. R1 was a second definition of a day's end, and it is deleted in favour of the report's. R2 and R3 were a step of the bootstrap that had been written in a sentence and never defined. R5's sentence was a leftover from before the Holdout rule was applied to this study. The converged design, the ledger, the bar, the guard's family and the two rungs, is as it was.
 
 **Kernel version 2: converged as before on parts A and B,** with B1's guard, A13 and V18 reworded and a part E for this read.
+
+## Layer 1's wall: the venue's printed arithmetic
+
+Appended 2026-11-16 03:33 UTC (2026-11-15 22:33 EST) by Claude Fable 5.2, session "architect: layer 1's closedPnl" (`c4280f1`). It answers the wall of brief 3, step 2, test 4, met at the build (`kernel2-build` `8aee427`; `audit/decisions.md`, 2026-11-16 03:10 UTC (2026-11-15 22:10 EST)). No reviewer has seen it. The vault's fills before 2026-11-01 were read whole, and nothing dated from 2026-11-01 on.
+
+### In plain words
+
+- **The test was wrong and the ledger is not.** The test asked that the venue's printed fee and `closedPnl` be one rounding of our exact value. The venue rounds nothing exact: it keeps whole numbers (lots, price units, millionths of a USDC) and, where it scales one, multiplies it by a double and drops the fraction.
+- **The fee** is that cut of the notional by the rate. It is the exact fee's floor, except that 44 of the 58 fees that are exactly a whole millionth print one millionth less.
+- **`closedPnl`** uses an entry price that is the venue's entry notional divided by the lots with the remainder dropped, and at each partial close the entry notional is cut by the fraction of lots left. That reproduces all 2,508 closes; the exact average misses 547.
+- **Both rules leave nothing over on the whole record,** and each is tied to the ledger: the printed fee is within a millionth under the ledger's fee on every fill, and the venue's entry notional is the ledger's cost on all 2,019 closes before a partial close and never above it after.
+- **The ledger keeps charging the exact fee.** It pays at most a millionth of a USDC a fill more than the venue and never less. `closedPnl` is a printed figure nothing judged reads; a long's is 0.35 USDC above its exact profit over the record.
+- **The rule to be found on the first hundred fills is withdrawn.** Those fills hold neither kind of deviation. The arithmetic was found on the whole record, so these fills no longer test it; the forward window's do, at their replay.
+- **No change needed a second clock, a deferred count or a stake that moves without a fill.** No state, law or event of the kernel changed.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D96 | What the venue's printed fee is | The double product of the notional in millionths and the double nearest the rate, its fraction dropped. 0 of 5,806 differ; the exact floor misses 44, a product from decimal doubles 31 (facts §7; `arithmetic.py.txt`, `venue_prints`) | **Yes** (layer 1's test) |
+| D97 | What `closedPnl` is | `s · (P − E div p)`, with `E` the entry notional in millionths, added to by buys and cut by the double nearest the ratio of lots left at a partial close. 0 of 2,508 differ; sixteen other ways to reduce `E` leave 14 to 107 (facts §7) | **Yes** (layer 1's test) |
+| D98 | Whether the ledger cuts its fee as the venue does | No: A8 stands, and A1's "no operation of the ledger rounds". The difference is V19's, one-sided and bounded by derivation at the base tier for notionals under 137,000 USDC. A cut in the ledger would put a double's rounding into the cash and the conservation law for a millionth a fill, and leave funding, whose cut is not on record, exact beside it | No |
+| D99 | Whether `closedPnl` moves cash | Assumed not (V20): the account moves by trades, fees and funding. The fills carry no balance, so nothing here shows it; the bound if wrong is stated, and nothing judged reads the figure | No |
+| D100 | How the test fixes its rule | Not on a sample. Rates are the base tier's and the arithmetic is facts §7's, with made-up cases that an exact floor fails. The record's own deviations begin past the first hundred fills, so the sample could not have found them | **Yes** (the discovery of modes and rates is deleted from the test) |
+| D101 | What ties the venue's figures to the ledger | The fee: `0 ≤ ledger − printed ≤ 1` millionth. The entry notional: equal to the ledger's cost until a partial close, then `cost − m ≤ E ≤ cost` after `m` of them. Both hold on every fill | **Yes** (two assertions of the test) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O10 | Whether a simulated account should pay the venue's cut fee, which `Engine.Exact`'s nearest double could express exactly | **The architect says no** (D98). A reviewer who holds otherwise must show a judged figure that a millionth a fill, always against the replica, can move | Only then |
+| O11 | V20 rests on a sentence of the venue's documents that nobody here has certified | **Owed by the advisor:** the page, quoted in `venue/sources.toml` as the price grid's was. Until then V20 is an assumption with a bound | No |
+| O12 | The stored `userFunding` rows are one a coin a day: 1,121 rows, all at a UTC midnight, each a sum of up to 24 payments with a mean size and rate. Step 5's check, "each payment is A9's from its own size and rate", has no single payment to read | **Open, for the architect before step 5.** Whether the API gives hourly rows for a shorter range is a lead for the advisor | Yes (step 5's funding test, and V8's witness) |
+
+### What a read should check
+
+1. **D96 and D97.** A fill of the record, or a made-up one, where the stated arithmetic and the printed figure differ; an order of operations that also leaves nothing over and differs on some input the record lacks.
+2. **D98.** A judged figure of study 2 that a fee a millionth higher a fill can move; whether funding should be read the same way once its hourly payments are on record.
+3. **D99.** Whether anything in the kernel, the briefs or study 2's criteria reads the venue's `closedPnl` or entry price as profit or as state.
+4. **D101.** Whether the two inequalities can hold for a ledger whose cost or fee is wrong; a short, which the record does not hold.
+5. **The withdrawn sample rule.** Whether a rule found on the whole record and then tested on it claims more than "it leaves nothing over and has no fitted number".
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the advisor:** the test writer rewrites `kernel2/ocaml/test/layer1.ml` from brief 3, step 2, test 4 as it now stands (its header quotes the old test), without reading the code; the builder changes nothing in `Engine.Ledger`; O11's certificate; O12's lead.
+- **By the architect:** O12, before step 5.
+
+### Convergence
+
+**Not a review round: a wall answered.** Nothing of the converged design changed: no state, event, law or criterion. Brief 3's step 2 has a different test 4, two rows joined A14 (V19, V20), and V4's witness is reworded. The settlements D96 to D101 are unseen by any reviewer. The architect's reading is that none can change a judged figure, so the step's test can be rewritten now and the settlements go to the reviewers with the step's build; whether that is so under `CLAUDE.md`'s Decisions rule is the advisor's to decide and log.
