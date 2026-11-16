@@ -4,10 +4,9 @@
 #   session at <when> <role> <task> [model] [stop] [flags]   a transient systemd timer runs `run` at <when> (OnCalendar)
 #   session run <role> <task> [model] [stop] [flags]         start `claude -p --name "<role>: <task>"` now, in the dev shell
 # Roles: `builder` (default model opus, blocks, retries in 30 minutes while another builder runs) and `architect`
-# (Fable 5.2 named with `[1m]`: below Claude Code 2.1.321 `fable` is 5.1, and an id a version does not know gets an
-# assumed 200k window; detaches and prints its id).
+# (Opus 5.5 named explicitly, at maximum effort; detaches and prints its id).
 # Flags: --brief FILE (the prompt; an architect's follows data/builder/architect-header.txt), --resume ID, --dir DIR (the
-# worktree it works in), --effort E (architect: xhigh).
+# worktree it works in), --effort E (architect: max).
 # <stop> is a time `date -d` reads; there the session and everything it started are stopped. A session is one scope,
 # capped so that its heaviest process dies alone (OOMPolicy=continue), never this PC's other work.
 # Every schedule, deferral, start and exit is a line of data/builder/log.tsv; output is data/builder/<id>.out.
@@ -33,7 +32,7 @@ while [ $# -gt 0 ]; do
 done
 case $role in
 builder) model=${positional[0]:-opus} ;;
-architect) model=${positional[0]:-'claude-fable-5-2[1m]'}; effort=${effort:-xhigh} ;;
+architect) model=${positional[0]:-claude-opus-5-5}; effort=${effort:-max} ;;
 *) echo "unknown role: $role" >&2; exit 2 ;;
 esac
 stop=${positional[1]:-}
