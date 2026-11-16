@@ -316,15 +316,6 @@ let trade_file ~path ~coin ~delta ~emit =
             j |> member "sz" |> to_string, j |> member "side" |> to_string ))
         rows
     in
-    let seen = Hashtbl.create 1024 in
-    let* () =
-      List.fold_left
-        (fun acc (_, id, _, _, _) ->
-          let* () = acc in
-          if Hashtbl.mem seen id then Error (Printf.sprintf "trade id %d repeats in %s" id path)
-          else (Hashtbl.add seen id (); Ok ()))
-        (Ok ()) parsed
-    in
     let place text =
       match Mm2_lean.Decimal.place text with
       | Ok (digits, places) -> Ok [ Int64.of_string digits; Int64.of_int places ]
