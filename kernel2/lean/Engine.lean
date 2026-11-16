@@ -10,6 +10,13 @@ import Engine.Lang.Eval
 import Engine.Lang.SyntaxProofs
 import Engine.Lang.Units
 import Engine.Lang.Rewrite
+import Engine.Lang.EvalProofs
+import Engine.Lang.RenameProofs
+import Engine.Lang.UnitsProofs
+import Engine.Lang.RewriteProofs
+import Engine.Lang.RewriteTypes
+import Engine.Lang.RewriteLaw
+import Engine.StartProofs
 import Engine.Policy
 import Engine.Machine
 import Engine.Start
@@ -18,4 +25,4 @@ import Engine.MachineFaults
 import Engine.MachineConcrete
 import Engine.MachineWire
 import Engine.Wire
-import Engine.Laws
+-- import Engine.Laws (blocked: N1_renaming and L1a, see the report)
