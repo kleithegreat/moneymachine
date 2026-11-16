@@ -13,7 +13,7 @@ All by REST, `POST https://api.hyperliquid.xyz/info`, public and read-only (`ven
 | Kind | Request | Item cap | Paged by |
 |---|---|---|---|
 | `fills` | `{"type": "userFillsByTime", "user", "startTime", "endTime", "aggregateByTime": false}` | 2,000 | `time` |
-| `funding` | `{"type": "userFunding", "user", "startTime", "endTime"}` | 500 | `time` |
+| `funding` | `{"type": "userFunding", "user", "startTime"}` (no `endTime`: the API reads to now) | 500 | `time` |
 | `fees` | `{"type": "userFees", "user"}` | none | not paged |
 | `orders` | `{"type": "historicalOrders", "user"}` | 2,000 | not paged (the latest 2,000) |
 
@@ -39,8 +39,8 @@ Each run, in this order:
 
 **Duplicates** are dropped by identity: a fill by `tid`, a funding row by (`coin`, `time`). A run reads only these
 identity fields and `time` of each item, to page and to deduplicate, and nothing else of any item. What a re-read adds
-(items whose identity was not stored before) is counted in its event. The set of stored identities is the collector's
-state, rebuilt from the stored files when the state file is missing.
+(items whose identity was not stored before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run; `state.json` holds only the watermark and
+the last daily re-read. A pull event's `items` counts distinct identities.
 
 **The 30 days and the hour of overlap are choices** (brief 3; GPT's R6 on study 2's criteria): nothing says how late
 the API can show a fill. Both are in each run's `start` event.
@@ -66,7 +66,7 @@ state.json                                 the watermark and the last daily re-r
 
 ## Limits
 
-A run makes at most a few dozen requests: the hourly pull's pages, two daily re-reads of at most a few pages each, and
+A run stops at its first failed pull: later pulls would meet the same failure. A run makes at most a few dozen requests: the hourly pull's pages, two daily re-reads of at most a few pages each, and
 two single requests. Requests are paced at least 1 s apart, and an HTTP 429 waits and retries with backoff up to 5
 times before it is an `error`. The weight stays far under the recorder's share of 1,200 per minute.
 
@@ -80,7 +80,7 @@ the collector, its tests' output, or any integrity check.
 
 Offline, against a fake REST server, written by a session that does not build the collector:
 
-1. **Paging:** 4,500 fills in a range come back as pages of 2,000, 2,000 and 500, each starting at the last `time`,
+1. **Paging:** 4,500 fills in a range come back as pages of 2,000, 2,000 and a shorter third (502, since each page repeats the last item of the one before), each starting at the last `time`,
    inclusive; every fill is stored once; the watermark moves to `now` only after the last page.
 2. **Overlap:** a fill dated 30 minutes before the watermark, first indexed after the last run, is stored by the next.
 3. **Late fill:** a fill first indexed 29 days after its `time` is stored by the next daily re-read, counted as new in

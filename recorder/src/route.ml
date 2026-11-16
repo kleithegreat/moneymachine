@@ -7,6 +7,7 @@ type t =
   | All_dexs_asset_ctxs
   | Events
   | Listings
+  | Dir of string
 [@@deriving sexp_of, compare, equal]
 
 let of_frame ~fast frame =
@@ -28,4 +29,5 @@ let dir = function
   | All_dexs_asset_ctxs -> "allDexsAssetCtxs"
   | Events -> "events"
   | Listings -> "listings"
+  | Dir dir -> dir
 ;;
