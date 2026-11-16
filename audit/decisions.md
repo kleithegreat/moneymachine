@@ -1095,3 +1095,14 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - `Program.redirect` ignores slots, which first matters at step 5.
     - `identity/gen.ml` does not hash `kernel2/ocaml/archive`. That one is routed as a failing test and a fix.
   - **Next:** the architect (Opus 5.5 at maximum effort, personal account, brief `data/builder/architect-last-pass-r1.txt`) answers every finding at its cause. Step 5's build waits for it, and so do its laws' read by another model. Argon's own part 2 is queued for its reset (about 2026-11-20 22:40 UTC, 17:40 EST) only if the answers change the design.
+- 2026-11-16 22:35 UTC (17:35 EST), advisor: **the first Opus architect's round 1 answers every finding on the last pass** (`rearchitecture` `177428d` to `c8449eb`, pushed; report `data/builder/architect-last-pass-r1-report.md`; ledger D161 to D173).
+  - **All findings conceded.** The design changes in five places:
+    - One fill per order per event (D161, D163).
+    - `reduce_only` lives in the remainder (D162).
+    - L1 is restated over two completing runs that differ only in the horizon's end (D167).
+    - The registered build hashes every source compiled into what a judged run executes, readers and `study2` included (D171).
+    - The replay is read as it stands, holes included, decided before any replay (D172).
+  - **O25 is closed and H15 withdrawn.** No answer needs the human. CS2.1 to CS2.3 are read as committed.
+  - **The next read is GPT's** (Argon is out until about 2026-11-20 22:40 UTC, 17:40 EST), starting with D161, D163, D162, D167 and D171.
+  - **What waits on that read:** the test writer's changes to `kernel2-step5` `b1689bc`, and then step 5's build.
+  - **The architect's note for the human:** from the freeze, a defect found in `study2` or in `mm2`'s readers ends study 2, as one in the engine does. The bug hunt before the freeze covers all three.
