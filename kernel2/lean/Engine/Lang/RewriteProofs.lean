@@ -282,4 +282,142 @@ theorem redirect_law {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : 
     apply run_row_eq N hsem
     rw [init_row_const N p coins i hi, init_row_const N p coins x (by omega)]
 
+theorem replace_nodes_size (p : Program) (i : Nat) (n : Node) : (p.replace i n).nodes.size = p.nodes.size := by
+  simp [Program.replace]
+
+theorem replace_nodes_get_eq (p : Program) {i : Nat} (n : Node) (hi : i < p.nodes.size) :
+    (p.replace i n).nodes[i]! = n := by
+  simp [Program.replace, getElem!_pos, hi]
+
+theorem replace_nodes_get_ne (p : Program) {i k : Nat} (n : Node) (hk : k < p.nodes.size) (hne : k ≠ i) :
+    (p.replace i n).nodes[k]! = p.nodes[k]! := by
+  have h1 : k < (p.nodes.set! i n).size := by simpa using hk
+  simp only [Program.replace]
+  rw [getElem!_pos (p.nodes.set! i n) k h1, getElem!_pos p.nodes k hk]
+  simp [Array.set!_eq_setIfInBounds]
+  rw [Array.getElem_setIfInBounds]
+  simp [hne.symm]
+  exact hk
+
+theorem replace_ordered {p : Program} {i : Nat} (hp : p.Ordered) (hi : i < p.nodes.size) (n : Node)
+    (hargs : ∀ a ∈ n.args, a < i) : (p.replace i n).Ordered := by
+  intro k hk a ha
+  rw [replace_nodes_size] at hk
+  by_cases hki : k = i
+  · subst hki
+    rw [replace_nodes_get_eq p n hk] at ha
+    exact hargs a ha
+  · rw [replace_nodes_get_ne p n hk hki] at ha
+    exact hp k hk a ha
+
+/-- Replacing node `i` by an operator typed as it was, over earlier nodes, keeps a program well formed. -/
+theorem replace_wf {p : Program} {i : Nat} (hwf : p.WF) (hi : i < p.nodes.size) (o : Op) (args : List Nat)
+    (hargs : ∀ a ∈ args, a < i) (hty : opTy o (args.map (p.types[·]!)) = some p.types[i]!) :
+    (p.replace i (.op o args)).WF := by
+  obtain ⟨h1, h2, h3⟩ := wf_iff.1 hwf
+  refine wf_iff.2 ⟨by simpa [Program.replace] using h1, by simpa [Program.replace] using h2, ?_⟩
+  intro k hk
+  rw [replace_nodes_size] at hk
+  have htypes : (p.replace i (.op o args)).types = p.types := rfl
+  unfold Program.nodeOkb
+  rw [htypes]
+  by_cases hki : k = i
+  · subst hki
+    rw [replace_nodes_get_eq p _ hk]
+    simp only [Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq, beq_iff_eq]
+    exact ⟨hargs, hty⟩
+  · rw [replace_nodes_get_ne p _ hk hki]
+    have := h3 k hk
+    unfold Program.nodeOkb at this
+    exact this
+
+/-- Plain nodes with equal pointwise values compute equal rows. -/
+theorem nodeFull_plain_congr (t : Tick α) {n1 n2 : Node} (h1 : n1.plain = true) (h2 : n2.plain = true)
+    (count coins : Nat) (R1 R2 : Nat → Array (Option α)) (ns : Array (NS α))
+    (hp : ∀ c, pointVal N t n1 R1 c = pointVal N t n2 R2 c) :
+    nodeFull N t n1 count coins R1 ns = nodeFull N t n2 count coins R2 ns := by
+  have e1 : (nodeCore N t n1 count coins R1 ns) =
+      (((List.range coins).map fun c => pointVal N t n1 R1 c).toArray, ns) := by
+    unfold nodeCore; split <;> simp_all [Node.plain]
+  have e2 : (nodeCore N t n2 count coins R2 ns) =
+      (((List.range coins).map fun c => pointVal N t n2 R2 c).toArray, ns) := by
+    unfold nodeCore; split <;> simp_all [Node.plain]
+  unfold nodeFull
+  simp only [e1, e2, hp]
+
+theorem replace_step {p : Program} {i : Nat} (hp : p.Ordered) (hi : i < p.nodes.size) (n : Node)
+    (hargs : ∀ a ∈ n.args, a < i)
+    (hnode : ∀ (t : Tick α) (m : Mach α),
+      nodeFull N t n m.count m.coins (argRow (Mach.step N p t m).vals n.args) m.ns[i]! =
+      nodeFull N t p.nodes[i]! m.count m.coins (argRow (Mach.step N p t m).vals (p.nodes[i]!).args) m.ns[i]!)
+    (t : Tick α) (m : Mach α) : Mach.step N (p.replace i n) t m = Mach.step N p t m := by
+  apply step_same N hp (replace_ordered hp hi n hargs) (by rw [replace_nodes_size]) t m
+  intro k hk ih
+  by_cases hki : k = i
+  · subst hki
+    rw [replace_nodes_get_eq p n hk]
+    rw [nodeFull_cells N t n m.count m.coins (argRow (Mach.step N (p.replace k n) t m).vals n.args)
+      (argRow (Mach.step N p t m).vals n.args) ?_ _]
+    · exact hnode t m
+    · intro j c
+      unfold argRow
+      cases hj : n.args[j]? with
+      | none => rfl
+      | some a =>
+        simp only []
+        rw [ih a (hargs a (List.mem_of_getElem? hj))]
+  · rw [replace_nodes_get_ne p n hk hki]
+    apply nodeFull_cells
+    intro j c
+    unfold argRow
+    cases hj : (p.nodes[k]!).args[j]? with
+    | none => rfl
+    | some a =>
+      simp only []
+      rw [ih a (hp k hk a (List.mem_of_getElem? hj))]
+
+theorem map_set_same {β γ : Type} [Inhabited β] [Inhabited γ] (f : β → γ) (a : Array β) (i : Nat)
+    (hi : i < a.size) (x : β) (h : f x = f a[i]!) : (a.set! i x).map f = a.map f := by
+  apply arr_ext (by simp)
+  intro k hk
+  have hk' : k < a.size := by simpa using hk
+  rw [array_map_get f (a.set! i x) (by simpa using hk'), array_map_get f a hk']
+  by_cases hki : k = i
+  · subst hki
+    simp [getElem!_pos, hk', Array.set!_eq_setIfInBounds]
+    simpa [getElem!_pos, hk'] using h
+  · simp [Array.set!_eq_setIfInBounds, getElem!_pos, hk', hk]
+    rw [Array.getElem_setIfInBounds]
+    simp [Ne.symm hki]
+    exact hk'
+
+theorem replace_init (p : Program) {i : Nat} (hi : i < p.nodes.size) (n : Node) (coins : Nat)
+    (hn : n.plain = true) (ho : p.nodes[i]!.plain = true) :
+    Mach.init N (p.replace i n) coins = Mach.init N p coins := by
+  have hstate : ∀ m : Node, m.plain = true → (match m with
+      | Node.op (Op.window w k) _ => NS.win (Win.new N w k)
+      | Node.op Op.ticksSince _ => NS.since none
+      | _ => (NS.stateless : NS α)) = NS.stateless := by
+    intro m hm
+    cases m with
+    | op o args => cases o <;> simp_all [Node.plain]
+    | _ => rfl
+  unfold Mach.init
+  have hnodes : (p.replace i n).nodes.map (fun _ => Array.replicate coins (none : Option α)) =
+      p.nodes.map (fun _ => Array.replicate coins none) :=
+    map_set_same _ p.nodes i hi n rfl
+  have hns : (p.replace i n).nodes.map (fun m => Array.replicate coins
+        (match m with
+         | Node.op (Op.window w k) _ => NS.win (Win.new N w k)
+         | Node.op Op.ticksSince _ => NS.since none
+         | _ => (NS.stateless : NS α))) =
+      p.nodes.map (fun m => Array.replicate coins
+        (match m with
+         | Node.op (Op.window w k) _ => NS.win (Win.new N w k)
+         | Node.op Op.ticksSince _ => NS.since none
+         | _ => (NS.stateless : NS α))) :=
+    map_set_same _ p.nodes i hi n (by rw [hstate n hn, hstate _ ho])
+  simp only [hnodes]
+  congr 1
+
 end Engine.Lang
