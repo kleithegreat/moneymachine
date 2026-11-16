@@ -1116,3 +1116,18 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - An Opus session writes the prose, which matters more here than in code.
     - GPT referees it as a venue's reviewer would.
     - It is scheduled after the kernel's review round converges, so it does not compete with that round for the account.
+- 2026-11-16 23:27 UTC (18:27 EST), advisor: **the architect's round 2 answers GPT's four points** (`rearchitecture` `635f748` to `d7a9ba2`, pushed; report `data/builder/architect-last-pass-r2-report.md`; ledger D174 to D179).
+  - **The cash grid (D174):** deleted, not repaired. The ledger is exact on no fixed grid, and the bootstrap reports its largest factor's size.
+  - **The prefix (D175, D176):**
+    - A replay reads the earliest pull's row for each hour and counts any later different row as a revision.
+    - It runs only through days every source has closed.
+    - It must reproduce every day already run byte for byte, or it publishes nothing.
+  - **The build (D177, D178):**
+    - The build is Nix's derivation hash, replacing `gen.ml`'s list.
+    - The executables refuse at start a host whose `exp` and `log` bits differ from B4's (`E_HOST`). On this pin's glibc, FMA changes `exp`'s last bit on 2,446 of 4 million arguments.
+  - **D172:** the decision stands, and its derivation is corrected (D179).
+  - **No change to step 5's tests** beyond round 1's list. CS2.1 to CS2.3 are read as committed, and no human choice is needed.
+  - **What the human may want to know:**
+    - Judged runs now run only on hosts whose `exp` and `log` match B4's host.
+    - A forward replay that cannot reproduce a day it already published ends the test at the day before.
+  - **Next:** Argon's read of rounds 1 and 2, from a self-contained bundle in the web UI.
