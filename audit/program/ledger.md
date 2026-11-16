@@ -1333,3 +1333,52 @@ None new.
 ### Convergence
 
 **Not a review round: a wall answered.** Nothing of the converged design changed: no state, event, law or criterion. Brief 3's step 2 has a different test 4, two rows joined A14 (V19, V20), and V4's witness is reworded. The settlements D96 to D101 are unseen by any reviewer. The architect's reading is that none can change a judged figure, so the step's test can be rewritten now and the settlements go to the reviewers with the step's build; whether that is so under `CLAUDE.md`'s Decisions rule is the advisor's to decide and log.
+
+## The vault's funding: O12
+
+Appended 2026-11-16 04:41 UTC (2026-11-15 23:41 EST) by Claude Fable 5.2, session "architect: the vault's funding, O12" (`7268700`). It answers O12 of "Layer 1's wall", after the advisor's check of the API (`audit/decisions.md`, 2026-11-16 03:36 UTC (2026-11-15 22:36 EST)). No reviewer has seen it. Read: the vault's fills and `userFunding` rows before 2026-11-01, and `fundingHistory` for four coins to 2026-05-31; nothing dated from 2026-11-01 on.
+
+### In plain words
+
+- **A row is a day, and a day can be tested exactly.** Its `nSamples` is the hours held, its `szi` their mean size, its `fundingRate` the hourly rates weighted by size. The fills give the first two on all 1,121 rows, and the hourly rates the third on the 104 rows whose rates were read.
+- **The claim is narrowed to the day.** The test compares those three figures and that every held day has a row. It compares no cash.
+- **The cash is measured.** `usdc` is at oracle prices no source gives for the past. The replay reports it against our run's payments, by coin and day, as V8's size.
+- **Every run pays at the coin's price, the forward run included.** `fundingHistory` has no oracle price, and the judged run does not take one from the recorder's asset contexts.
+- **Nothing needed a second clock, a deferred count or a stake that moves without a fill.** No state, law or event of the kernel changed.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D102 | What a `userFunding` row of the vault is | One coin and UTC day from the row's midnight: the count of hours held, the mean size held, the size-weighted mean of `fundingHistory`'s rates, the payments summed. 0 of 1,121 differ in count or size, 0 of 104 in rate; 1,121 held days and 1,121 rows (facts §7; `arithmetic.py.txt`, `venue_funding`) | **Yes** (step 7's test 3) |
+| D103 | What layer 1's funding tests | The day: those three figures within the print's last decimal, and a row for each held day and no other. Not one payment, which the venue does not give. It is the witness of a new row, V21: the rate, the hour, the size held into the settlement, and funding before a fill of its millisecond (one real case, DOGE, 2026-06-25) | **Yes** |
+| D104 | What witnesses the cash, V8 | Nothing tests it. `usdc` over the day's size times rate is a mean of oracle prices; the replay before the freeze and each forward replay report `usdc` against the fills' sizes times what a unit paid in the run. A measurement with no pass mark | **Yes** (brief 4, steps 4 and 7) |
+| D105 | What a funding event of a judged run carries | `fundingHistory`'s hour, stamp and rate, and no oracle price, before the freeze and after. The asset contexts' oracle price is not read: it would make the forward run pay by another rule than the replay that chose `φ` and `d`, and need a rule for an hour with no context. The basis is of the order of 0.05% of a funding that was 53 USDC in seven months | No (the kernel's rule for history, now said of every run; the recorder table's "and oracle price" was wrong) |
+| D106 | What the collector holds of the vault's funding | A daily pull of the 30 days before the last midnight, with the fills' re-read; the forward report reads the row with `nSamples` from the latest pull. No hourly pull | **Yes** (the collector, owed by the advisor) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O13 | Whether a recent day's funding comes hour by hour before the venue sums it | **Not known,** and no forward row was read to learn it. Rows without `nSamples` are counted and not interpreted, and the 30 days of re-reading pull each day again once summed (a row was summed 15 days after its day) | Only if rows are still not summed after 30 days |
+| O14 | D102's rate on the 13 coins and five months not read, and a settlement stamped late with a fill before the stamp | **For the build's test,** which reads every rate. A difference is a finding about V21 or A9's "held into", to the architect | Only then |
+
+### What a read should check
+
+1. **D102, D103.** A set of fills and rates that gives a row's three figures while the ledger pays on a wrong size at some hour; whether a size-weighted rate and a mean size together leave two hours' sizes free to trade places.
+2. **D104.** Whether any judged figure of study 2 can move by the basis; whether a day's sum can hide a basis that a single payment would show and that matters.
+3. **D105.** A judged figure that differs between the coin's price and the oracle price by more than its own reporting precision.
+4. **D106.** A forward day whose row is never on record in its summed form.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the advisor:** `fundingHistory` for the 17 coins over [2026-04-03, 2026-11-01), stored raw with its hash; the collector's daily funding pull in place of the hourly one; step 7's test 3 written from the brief as it now stands.
+- **By the architect:** nothing open.
+
+### Convergence
+
+**Not a review round: a wall answered.** O12 is closed. One assumption was made explicit (V21) and one widened to every run (V8); no state, event, law or criterion changed. D102 to D106 are unseen by any reviewer. The architect's reading is that none can change a judged figure, since no judged run reads `userFunding` and D105 keeps the rule the kernel already had; whether that is so under `CLAUDE.md`'s Decisions rule is the advisor's to decide and log.
