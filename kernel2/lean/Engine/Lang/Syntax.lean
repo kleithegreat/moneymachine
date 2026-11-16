@@ -181,6 +181,19 @@ def maxWindowTicks := 1048576
 
 /-! ### The typing rule of one operator -/
 
+def sameDim (a b : Dim) : Except String Dim := if a == b then .ok a else .error "E_UNIT"
+
+def numOf (x : Except String Dim) : Except String Ty := x.map Ty.num
+
+def boolOf (x : Except String Unit) : Except String Ty := x.map fun _ => Ty.bool
+
+/-- The type of `if`'s two branches: two bools, or two floats of one unit. -/
+def iteTy (a b : Option Ty) : Except String Ty :=
+  match a, b with
+  | some Ty.bool, some Ty.bool => .ok Ty.bool
+  | some (Ty.num x), some (Ty.num y) => numOf (sameDim x y)
+  | _, _ => .error "E_TYPE"
+
 /-- The type of an operator over its arguments' types, or the code of the fault (KERNEL.md, "The verdict"). -/
 def opTyE (o : Op) (ts : List Ty) : Except String Ty :=
   let num (k : Nat) : Except String Dim := match ts[k]? with
@@ -189,39 +202,33 @@ def opTyE (o : Op) (ts : List Ty) : Except String Ty :=
   let boolean (k : Nat) : Except String Unit := match ts[k]? with
     | some .bool => .ok ()
     | _ => .error "E_TYPE"
-  let same (a b : Dim) : Except String Dim := if a == b then .ok a else .error "E_UNIT"
+  let same := sameDim
   let one (u : Dim) : Except String Dim := if u == Dim.one then .ok u else .error "E_UNIT"
   let opt (x : Option Dim) : Except String Dim := match x with | some u => .ok u | none => .error "E_UNIT"
   match o with
-  | .add | .sub | .min | .max => do
-    let a ← num 0; let b ← num 1; return .num (← same a b)
-  | .mul => do let a ← num 0; let b ← num 1; return .num (← opt (Dim.mul a b))
-  | .div => do let a ← num 0; let b ← num 1; return .num (← opt (Dim.div a b))
-  | .neg | .abs => do return .num (← num 0)
-  | .sign => do let _ ← num 0; return .num Dim.one
-  | .log | .exp => do return .num (← one (← num 0))
-  | .sqrt => do return .num (← opt (Dim.sqrt (← num 0)))
-  | .clip => do
-    let a ← num 0; let b ← num 1; let c ← num 2; return .num (← same (← same a b) c)
-  | .gt | .ge | .lt | .le => do
-    let a ← num 0; let b ← num 1; let _ ← same a b; return .bool
-  | .and | .or => do boolean 0; boolean 1; return .bool
-  | .not => do boolean 0; return .bool
+  | .add | .sub | .min | .max => numOf (do let a ← num 0; let b ← num 1; same a b)
+  | .mul => numOf (do let a ← num 0; let b ← num 1; opt (Dim.mul a b))
+  | .div => numOf (do let a ← num 0; let b ← num 1; opt (Dim.div a b))
+  | .neg | .abs => numOf (num 0)
+  | .sign => numOf (do let _ ← num 0; pure Dim.one)
+  | .log | .exp => numOf (do one (← num 0))
+  | .sqrt => numOf (do opt (Dim.sqrt (← num 0)))
+  | .clip => numOf (do let a ← num 0; let b ← num 1; let c ← num 2; same (← same a b) c)
+  | .gt | .ge | .lt | .le => boolOf (do let a ← num 0; let b ← num 1; let _ ← same a b; pure ())
+  | .and | .or => boolOf (do boolean 0; boolean 1)
+  | .not => boolOf (boolean 0)
   | .ite => do
     boolean 0
-    match (ts[1]? : Option Ty), (ts[2]? : Option Ty) with
-    | some Ty.bool, some Ty.bool => return Ty.bool
-    | some (Ty.num a), some (Ty.num b) => return Ty.num (← same a b)
-    | _, _ => .error "E_TYPE"
-  | .convert f to => do
+    iteTy ts[1]? ts[2]?
+  | .convert f to => numOf (do
     let a ← num 0
-    if Dim.conversion a to == some f then return .num to else .error "E_UNIT"
-  | .window _ n => do
+    if Dim.conversion a to == some f then pure to else .error "E_UNIT")
+  | .window _ n => numOf (do
     let u ← num 0
-    if 1 ≤ n && n ≤ maxWindowTicks then return .num u else .error "E_WINDOW"
-  | .xsMean | .xsDemean => do return .num (← num 0)
-  | .xsRank => do return .num (← one (← num 0))
-  | .ticksSince => do boolean 0; return .num tickUnit
+    if 1 ≤ n && n ≤ maxWindowTicks then pure u else .error "E_WINDOW")
+  | .xsMean | .xsDemean => numOf (num 0)
+  | .xsRank => numOf (do one (← num 0))
+  | .ticksSince => numOf (do boolean 0; pure tickUnit)
 
 def opTy (o : Op) (ts : List Ty) : Option Ty := (opTyE o ts).toOption
 

@@ -45,6 +45,7 @@ import Engine.Check
 import Engine.Lang.SyntaxProofs
 import Engine.StartProofs
 import Engine.Lang.RenameProofs
+import Engine.Lang.UnitsProofs
 import Engine.Lang.Units
 import Engine.Lang.Rewrite
 import Engine.Exact
@@ -661,6 +662,33 @@ theorem start_vol_refused :
     isError "E_UNKNOWN_INPUT" (start step4Vol step4HeaderNoVol) = true := by
   decide +kernel
 
+open Engine.Lang in
+/-- The checked program of `step4Vol`. -/
+def step4VolProgram : Program :=
+  { tick := 1, decideEvery := 1, leverage := .all 1, sources := [("vol", Dim.one)],
+    nodes := #[.source "vol" Dim.one], types := #[.num Dim.one], probeNodes := #[0] }
+
+open Engine.Lang in
+set_option maxHeartbeats 4000000 in
+theorem parse_step4Vol_is :
+    (match parse step4Vol with | .ok p => decide (p = step4VolProgram) | .error _ => false) = true := by
+  decide +kernel
+
+open Engine.Lang in
+theorem parse_step4Vol_eq : parse step4Vol = .ok step4VolProgram := by
+  have := parse_step4Vol_is
+  cases hp : parse step4Vol with
+  | error _ => rw [hp] at this; simp at this
+  | ok p => rw [hp] at this; simp at this; rw [this]
+
+open Engine.Lang in
+theorem step4Vol_reads {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = true) :
+    (Mach.run N step4VolProgram 1
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
+  simp [Mach.run, Mach.step, build, nodeStep, nodeCore, pointVal, evalNode, step4VolProgram, Mach.init,
+    Node.args, argRow, NumOps.keep, hx]
+
+
 open Engine.Lang Engine.Machine in
 /-- N1's witness: `vol` renamed `vol2` over the step 4 program and header, as a proposition about them. -/
 def n1Witness (p : Program) (cfg : Config) : Prop :=
@@ -730,7 +758,8 @@ theorem L2_units {α : Type} :
     (∃ p : Program, parse step4Vol = .ok p ∧ ∃ i, p.probeNodes[0]? = some i ∧
       ∀ (N : NumOps α) (x : α), N.finite x = true →
         (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[i]![0]! = some x) := by
-  sorry
+  refine ⟨fun N p hwf coins ts => l2_units N hwf coins ts, ?_⟩
+  refine ⟨step4VolProgram, parse_step4Vol_eq, 0, rfl, fun N x hx => step4Vol_reads N x hx⟩
 
 open Engine.Lang in
 /-- B3 L3 over declared sources: a rewrite of R version 1 keeps a well-formed program well formed, gives every
