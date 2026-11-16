@@ -158,7 +158,7 @@ let write path text =
 let read path =
   let channel = open_in_bin path in
   Fun.protect ~finally:(fun () -> close_in channel)
-    (fun () -> really_input_string channel (in_channel_length channel))
+    (fun () -> In_channel.input_all channel)
 
 let hex bytes =
   String.init (2 * Bytes.length bytes) (fun i ->
