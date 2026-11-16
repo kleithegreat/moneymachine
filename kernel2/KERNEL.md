@@ -188,6 +188,8 @@ Each exact field has a scale `d`: **8** for a price, the coin's **`sz_decimals`*
 
 Listings and the header are always `string`.
 
+**A number is read once,** at admission, at its field's scale and by the rules in force at its event's `time`. What the world keeps of an event and what the view takes of it at its `known` are that reading; the view has no rules of its own (`kernel-v2.md` B1, L1a).
+
 ### The price grid
 
 A coin's rules hold `figures`, from 1, and `decimals` (V1). A price is **on the grid** when it is above zero, is a whole multiple of `10^−decimals`, and either has at most `figures` significant figures or is a whole number. A `p` in `[10ᵉ, 10ᵉ⁺¹)` has at most `figures` significant figures when it is a whole multiple of `10^(e − figures + 1)`, so the grid's prices there are the whole multiples of the step `10^max(min(e − figures + 1, 0), −decimals)`. The `min` is the whole numbers: without it the step from `figures` figures up would be above one (`audit/program/arithmetic.py.txt`, `price_grid`, checks the step against a count of digits on every price of a range).

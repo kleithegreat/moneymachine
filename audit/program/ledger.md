@@ -1518,3 +1518,68 @@ None new.
 ### Convergence
 
 **Both findings are conceded and re-derived, not yet re-read.** No open dispute would change what is built except O17, which can only add a check.
+
+## B5's profile and step 4's wall on L1a
+
+Appended 2026-11-16 13:55 UTC (08:55 EST) by Claude Fable 5.2, session "architect: B5's profile and L1a's wall". It answers the profile O16 asked for (`kernel2-build` `85b727d`; `~/.cache/mm-k2-tmp/profile/`) and the step 4 builder's stop before L1a (`kernel2-step4-wip` `536cc6c`). Read: the profile's flat and callgrind files, `Machine.lean`, `Exact.lean` and `Laws.lean` on that branch. No market data. No reviewer has seen this.
+
+### In plain words
+
+- **The twins were not enough, and the wall was derived wrongly.** With both readings free the day's admission is about 6 times faster where 9.7 was asked. And the 4 hours came from scaling the forward record to the archive by its count of numbers, as if both were doubles. The forward record's numbers are decimal strings: it never reads a double, and nothing had costed it.
+- **The wall is each run's own day.** Admission of the forward record at 45,000 quotes a second, of the archive's window at 5,300; half that with prints and a ladder.
+- **The machine threw away what it read.** Admission read every number, checked it and dropped it; the best prices were then read twice more, and each reading was made a fraction to be compared once. Now admission hands on what it read, as whole numbers, and nothing after it reads a number. That is one machine changed, not a second one beside it.
+- **One twin stays,** of the reading of a double, which only the archive needs.
+- **Step 4's wall needed no change to the machine.** The builder sought a lemma stronger than L1a, and it is false. L1a has a second premise, and it already gives both markets every listing a known quote was read under. The view keeps what admission read and has no rules of its own.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.** The builder's first option, a view that reads at release by the listings it knows, would have been a second clock for the rules, and is refused for that.
+
+### What the profile showed (callgrind, inclusive, `feed` as 100%; BTC's first 3,000 quotes)
+
+| Part | Share | A call |
+|---|---|---|
+| `Exact.readBits` | 75.9% | 5.3 µs |
+| `Exact.onGrid` | 12.8% | 1.9 µs |
+| The division that makes a reading a `Rat` (`readRat` less `readBits`) | 9.2% | 0.65 µs |
+| The chunk's decoding | 1.2% | |
+| Every comparison of two `Rat` | 1.0% | |
+| `lean_nat_pow`, inside the rows above | 14.1% | |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D125 | What B5's wall is (D115's figures withdrawn) | No run over a day, admission alone half of it, each kind of run by its own numbers. The forward record: 1.95 billion quotes of 20 decimal strings, 45,000 a second, 22,500 with prints and a ladder. The archive's window: 229 million quotes of 80 doubles, 5,300 and 2,650. D115 took the forward record's strings for doubles | **Yes** (step 3, test 6; step 6, test 11) |
+| D126 | How the engine meets it (D116 replaced) | The machine keeps what it reads: `admit` returns the fault or the event's readings, integers at their fields' scales; its checks are of integers; `applyPayload` reads nothing, so `readRat`, `crossed`, `midOf`, `levelRats` and every default for a failed reading go. A `Rat` is made only where arithmetic leaves the scale. Twins of the admission functions were refused: they would keep the second and third readings, which no twin removes | **Yes** (step 3, item 2) |
+| D127 | X3 | Two equalities. `readBits` equals its twin as constants, put in by `@[csimp]`. `onGridAt figures decimals scale n` equals `onGrid figures decimals (n / 10ˢᶜᵃˡᵉ)`, and admission calls it. C1's, C2's and X2's statements stand: C2 speaks of rational readings and `onGrid` and is proved through the second. Sign and order of two readings at one scale have no second form to equal | **Yes** (step 3, items 1, 2 and 4; test 8) |
+| D128 | L1a where a listing is not yet known | The law as it stands. A quote or print known by `τ` has `time ≤ τ − δ`; every listing in force at it is no later, so the second premise gives it to both markets. The proof splits an admitted stream at `τ − δ`: the prefix is shared, and in a tail no event known by `τ` is a quote or a print, so what the view takes of it is the event's own. Dropping the events not yet known is not a lemma: the market without the listing can fail admission | **Yes** (step 4: the proof's five lemmas; test 6) |
+| D129 | Whether the view reads | It does not. It holds what admission read by the world's rules at the event's time. A value does not depend on the scale it was read at (a corollary of X2, held as a property, not a law), so a listing the view has not seen can change whether a quote is admitted and never what the view holds of it | **Yes** (step 4, test 7; `KERNEL.md` A18) |
+| D130 | The order of the build | X3's statement; the machine; L1a, on the machine that item leaves; the twin; the two rates. On the tip of `kernel2-step4-wip` | **Yes** (step 3's list) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O16 | Whether the twins reach the wall | **Closed:** they do not. About 6 times of the 9.7 asked, and my 15 to 19 was wrong | |
+| O21 | Whether the rates are met | Estimates from the shares: the string day at about 12 µs a quote against the 22 allowed, the window's admission at about 4 hours against 12 with a twin at a tenth of `readBits`. Test 6 decides. A miss brings a new profile to the architect; I expect `Nat.pow` through the runtime's general routine, and the chunk's lists | A second answer, if missed |
+| O22 | The recorder's reader inside 22,500 a second | Not measured: the reader is step 6's, and step 3's string rate is on `feed` alone | Step 6's reader, if it is most of 44 µs |
+| O23 | The trigger's fit at the new wall | A trial on its 151 days may now take 17 hours where D115 gave 7. Trials run side by side, so a fit is still a day; a fit of many rounds is days | The fit's plan, if it has rounds |
+
+### What a read should check
+
+1. **D125.** A run of study 2 that is neither kind; a number of the forward record that is a double.
+2. **D126.** A value after admission that differs from reading the number again. I hold there is none: one integer, one scale.
+3. **D127.** The second equality at a `decimals` above the scale, below zero, and at `figures` of zero; that C2 as stated still binds the integer checks.
+4. **D128.** Two markets that meet both premises and differ in a view at `τ`; a field of the tick's record that reads the world; an event of a tail, known by `τ`, whose view data reads the coin's rules. I found none: an end and a funding event read at the fixed scales 8 and 12, and an observation is its bits.
+5. **D129.** Whether a program can learn of a listing before its `known` through a quote's size. It learns the size the venue published in a quote it may see.
+
+### Assumptions only the human can choose
+
+None new. D125 loosens no frozen threshold: B5's wall is in no criterion and no judged number reads a time.
+
+### Owed
+
+- **By the advisor:** X3's statement replaced by its writer, with the one parked on `b5-pending`; step 3's tests 6, 7 and 8 and step 4's tests 6 and 7 written from the brief by their test writers; the builder on `kernel2-step4-wip` in D130's order; Opus's read of `Machine.lean` against step 3's item 2; a read of D125 to D129 by an outside model, since D126 changes the machine every judged run will admit by.
+- **By the architect:** the next profile, if a rate is missed.
+
+### Convergence
+
+**Answered by derivation and not yet read.** D115 and D116 are replaced, O16 is closed. No open dispute would change what is built; O21 and O22 wait on measurements.
