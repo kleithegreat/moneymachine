@@ -1447,3 +1447,74 @@ Appended 2026-11-16 08:29 UTC (03:29 EST) by Claude Fable 5.2, session "architec
 ### Convergence
 
 **GPT's round is answered and not yet re-read.** Every finding is conceded; none asked for a redesign and none got one, so by `CLAUDE.md`'s rule a repeat is owed only if the advisor judges that a finding changed the design. D112 to D116 are new and unseen. No open dispute would change what is built except O14's late stamp, which waits on a record that does not yet show it.
+
+## GPT's read of the trades source: the vault witness and a match's identity (V22)
+
+Appended 2026-11-16 09:06 UTC (04:06 EST) by Claude Fable 5.2, session "architect: GPT's read of the trades source (V22)". It answers `audit/reviews/2026-11-16-gpt-kernel-v2-trades-b5.md`: X3 and `@[csimp]` accepted as a design, V22 not accepted on two findings. Read: the review; the three whole days of `node_fills_by_block` on disk when the session began (2026-10-29 to 31, as kept by the advisor's pull, each block's line whole for the 17 coins), counts and times only, no price printed; the vault's stored fills for the same span. The counting script is `~/.cache/mm-v22/counts.py`, not in the repo.
+
+### In plain words
+
+- **GPT is right on both findings.** The witness was weaker than its sentence, and a trade id's uniqueness over a coin-day was the wrong identity. Both are fixed at the cause, and neither by a wider version of the old check.
+- **The witness is now equality.** The stream holds the vault's own rows under its address. They are compared with the API's record of its fills, each way and in every field, time and size included. On three days: 205 and 205, nothing differing.
+- **A print's time is its block's.** Every row carries its block's time, so the reader stops on a row that does not. A pair is two rows of one block.
+- **A match is identified by its two orders,** not by its trade id: a match fills one of them whole, so the same two never meet again. That refuses a match written twice anywhere in the record. The coin-day check of trade ids is deleted: it missed a repeat on another day, and it would have refused honest records, since a trade id has only 50 bits.
+- **Nothing is repaired.** Rows equal in every field were to be counted once; now a block written twice stops the reader.
+- **What stays unseen is listed, and is not called conservative:** where the vault did not trade, a missing block, a wrong size on both rows, a wrong block time still in order, an invented pair.
+- **Nothing needed a second clock, a deferred count or a stake that moves without a fill.** The block's time is the row's own time, read twice.
+
+### What was counted (2026-10-29 to 31)
+
+| Count | Value |
+|---|---|
+| Blocks kept, rows | 1,170,976 and 11,867,966 |
+| Pairs by the derivation; rows in no pair; rows equal in every field within a block | 5,933,983; 0; 0 |
+| Rows whose `time` is not their block's time cut to the millisecond | 0 |
+| Blocks whose number does not rise, or whose time falls or equals the last in milliseconds | 0 |
+| Pairs whose two orders had already paired; trade ids paired a second time, at any time | 0; 0 |
+| Pairs whose rows differ in `hash`; pairs with one address on both sides | 0; 0 |
+| Bits of the largest `tid` | 50 |
+| The vault's fills on the API's record in the span; rows under its address in the stream; equal in every field; fields on one side only | 205; 205; 205; none |
+| Links of one address and coin from a row's `startPosition` and size to its next row's `startPosition`; links that break | 11,692,803; 18,876 |
+
+### Agreed after this round (GPT's two findings, each conceded)
+
+| | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D117 | What the vault witness establishes (finding 1) | Equality, at the vault's rows and only there: the stream's rows under its address and the API's fills are the same rows each way, equal in every field, and each is a row of a print. "A size at least the fills'" came from layer 2's join for a source with no id and was never what this record offers | **Yes** (step 6, test 10's witness; layer 2's join and step 10's test 15 take the print's time and size as equal) |
+| D118 | A print's time (finding 1) | Its block's. Block numbers ascend, block times never descend, a row's `time` is its block's: the reader stops otherwise. GPT's two rows moved together now need a block stamped wrong and still in order | **Yes** (step 6's reader; test 10) |
+| D119 | What identifies a match over the record (finding 2) | Its coin and its two orders: a match fills one order whole, so two orders meet once. No two prints of a coin share both over the days read, exactly, on disk, before `start`. A trade id is an identity only with its coin and time, where C2 holds it | **Yes** (step 6's reader and test 10; step 3's reader loses its coin-day check, `kernel2/ocaml/archive/reader.ml`'s `seen` table in `trade_file`, with its test) |
+| D120 | Rows equal in every field | Not counted once: the scope of "once" was never stated, which is finding 2 again. A block written twice stops the reader; a row twice in a block is rows in no pair | **Yes** (test 10) |
+| D121 | What V22 leaves unseen, and its direction | Listed in architecture 6.4 and V22: a block missing whole, a wrong price or size on both rows, a block time wrong and in order, a pair the chain never made, each only where the vault did not trade. None is conservative over a run (GPT) | No (words) |
+| D122 | A pair proves two parties and not a book (GPT's remark) | Prints are counted by their two rows' `dir`, beside the rows in no pair; both lists go to the architect before a run is trusted | **Yes** (a count; test 10) |
+| D123 | X3 and `@[csimp]` | Accepted by GPT as a design. A profile share of nine tenths is necessary and not enough: at exactly that the twins must be 81 times faster. Step 4's measurement decides | No (words in step 3) |
+| D124 | Where the record ends | Files are cut by the node's clock: the last block on disk for 2026-10-31 is stamped 23:59:59.659, and later blocks are in a file of the protected window, not read. The last third of a second may lack prints | No (named under V22) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O15 | The layout of a line | **Closed:** a block with `local_time`, `block_time`, `block_number` and `events`, each an address and a fill with the API's fields (brief 3's table). The classes of rows in no pair are still to be seen on the whole record; three days show none | No |
+| O17 | Whether a raw file holds every block, with numbers that rise by one | Not known: the copy on disk keeps only blocks with a fill of the 17 coins (about 4.5 of the chain's 14 a second). If it does, a block missing whole shows as a step in the numbers and V22's first unseen failure goes. It costs three numbers a file in `done.tsv` (blocks in the raw file, first and last number, steps other than one), which only the running download can write for the hours not yet fetched | **Yes**, if they rise by one: the form gains it |
+| O18 | What the venue says a `tid` is | I recall the websocket page: a 50-bit hash of the buyer's and seller's order ids, unique with the block's time and the coin. A lead until the advisor reads the page. The counts agree (50 bits, no repeat in 5.9 million). Nothing built depends on it: D119 is derived from matching | No |
+| O19 | Each party's `startPosition` as a witness of sizes for every address | Tried and not adopted: 18,876 of 11,692,803 links break, shown on rows whose `dir` is `Open Short`, `Close Short` or `Close Long` and never `Open Long`, and I have not found why. A check I cannot explain is not a witness | Only if explained |
+| O20 | A match repeated at another time in the recorder's `trades` (the forward run) | Not detected: those rows carry no order id, and a print's identity there is its coin, time and id (C2). The coin-day check that is deleted did not detect it across days either, and, if O18 holds, would have refused an honest two-year record more often than the archive's. `users` and `hash` could carry a check; none is designed, and no forward row was read | Only if one is designed |
+
+### What a read should check
+
+1. **D119.** Two orders that honestly meet twice (a modified order that keeps its id; a time-weighted order's slices), and what the check does then: it refuses, which is seen. A repeat that changes an order id is an invented pair, under D121.
+2. **D117.** A stream wrong at a vault's row that the equality passes; whether the API and the bucket are one reading and not two.
+3. **D118.** A wrong time that keeps the form.
+4. **D120.** A real stream whose blocks repeat, which now stops and once passed with a count.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the advisor:** O17's three numbers in the running download, soon, since each hour fetched without them would have to be fetched again; O18's page; step 3's reader without the coin-day check; test 10 and test 15 rewritten by their test writer from the brief as it stands; whether these settlements go back to GPT (both findings changed what is built, so by `CLAUDE.md`'s rule a repeat on another model is due).
+- **By the architect:** the two lists of D122 and the classes of O15, when the whole record is derived.
+
+### Convergence
+
+**Both findings are conceded and re-derived, not yet re-read.** No open dispute would change what is built except O17, which can only add a check.
