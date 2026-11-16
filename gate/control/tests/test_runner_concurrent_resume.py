@@ -6,13 +6,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from gate.control import runner
 from gate.control.tests.fakes import IDS, Fakes, jsonl, world
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 2: concurrent restarts count one market twice")
 def test_concurrent_restarts_record_one_market_once(tmp_path: Path) -> None:
     root = tmp_path / "study"
     world(root, [False] * len(IDS), ["earn"], room_limit=0)

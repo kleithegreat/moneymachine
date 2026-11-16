@@ -13,7 +13,6 @@ from gate.control import runner
 from gate.control.tests.fakes import IDS, Fakes, calls, child, jsonl, world
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 6: a torn result line blocks every restart")
 def test_partial_ninth_result_recovers_the_claim_without_another_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

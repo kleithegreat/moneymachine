@@ -5,6 +5,7 @@ A line is a function of files that are kept (the run record, the transcript, the
 restart writes again any line that a kill lost."""
 
 import argparse
+import fcntl
 import json
 import os
 import shutil
@@ -60,15 +61,28 @@ def model_ids(transcript: Path, notice: str | None) -> list[tuple[str, int]]:
 
 
 def read_lines(path: Path) -> list[Line]:
+    """The lines of a JSONL log; a line that is not one whole object is a write that a kill cut short."""
     if not path.exists():
         return []
-    return [json.loads(raw) for raw in path.read_bytes().split(b"\n") if raw]
+    lines = []
+    for raw in path.read_bytes().split(b"\n"):
+        try:
+            line = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(line, dict):
+            lines.append(line)
+    return lines
 
 
 def append(path: Path, line: Line) -> None:
-    """One write, never rewritten, no fsync."""
-    descriptor = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
+    """One write, no fsync. A last line that a kill cut short is dropped first: it is no line, and the write after it
+    would join it."""
+    descriptor = os.open(path, os.O_RDWR | os.O_APPEND | os.O_CREAT)
     try:
+        content = os.pread(descriptor, os.fstat(descriptor).st_size, 0)
+        if content and not content.endswith(b"\n"):
+            os.ftruncate(descriptor, content.rfind(b"\n") + 1)
         os.write(descriptor, (json.dumps(line) + "\n").encode())
     finally:
         os.close(descriptor)
@@ -79,9 +93,11 @@ def is_market_line(line: Line) -> bool:
 
 
 def ends_study(line: Line) -> bool:
-    if is_market_line(line):
-        return bool(line["decision"] in ENDING)
-    return bool(line.get("state") == ENDED_EARLY)
+    return is_market_line(line) and bool(line["decision"] in ENDING)
+
+
+def ended_early(lines: list[Line]) -> bool:
+    return any(line.get("state") == ENDED_EARLY for line in lines)
 
 
 def names(ledger: Path) -> bool:
@@ -206,13 +222,33 @@ def run(
     judge: Callable[[str, float, Path], Line] = judge_ledger,
 ) -> None:
     """Run the study from where its results leave off. Returns at an end of the study or when there is no room, and
-    raises for a person after a line that needs one."""
+    raises for a person after a line that needs one, or when another runner holds the lock: two runners would judge
+    one kept session twice. After `--end` a kept session is still judged, and no other starts."""
     content = verify()
+    work.mkdir(parents=True, exist_ok=True)
+    with open(work / "runner.lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError(f"another runner holds {work / 'runner.lock'}") from None
+        proceed(content, out, work, room, market, session, spent, judge)
+
+
+def proceed(
+    content: Mapping[str, Any],
+    out: Path,
+    work: Path,
+    room: Callable[[], object | None],
+    market: Callable[[Path, str, float], Path],
+    session: Callable[[Path, Path, str, Path], Any],
+    spent: Callable[[Path, str, Path], int],
+    judge: Callable[[str, float, Path], Line],
+) -> None:
     results = out / "results.jsonl"
     searcher = {line["id"]: line for line in read_lines(out / "searcher.jsonl")}
     while True:
         lines = read_lines(results)
-        if lines and ends_study(lines[-1]):
+        if any(ends_study(line) for line in lines):
             return
         judged = [line for line in lines if is_market_line(line)]
         if len(judged) == len(content["markets"]):
@@ -220,7 +256,7 @@ def run(
         market_id = content["markets"][len(judged)]
         own = work / "agent" / market_id
         if not (own / "launched").exists():
-            if room() is None:
+            if ended_early(lines) or room() is None:
                 return
             shutil.rmtree(own, ignore_errors=True)
             own.mkdir(parents=True)

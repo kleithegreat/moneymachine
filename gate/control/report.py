@@ -1,7 +1,6 @@
 """The report (step 9): `audit/control-1/report.md` from the manifest, `searcher.jsonl` and `results.jsonl`. It
 recounts lines and judges nothing, and reads no ledger and no kernel. `python -m gate.control.report`."""
 
-import json
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Any
 from scipy import stats
 
 from gate.control import manifest
+from gate.control.runner import ENDED_EARLY, is_market_line, read_lines
 
 Line = dict[str, Any]
 Summary = dict[str, Any]
@@ -24,19 +24,9 @@ SETS = "The sets are not arms: which ids answer a session depends on how long it
 NO_DESIGNED_END = ("crashed", "killed")
 
 
-def read_lines(path: Path) -> list[Line]:
-    return [json.loads(raw) for raw in path.read_bytes().split(b"\n") if raw]
-
-
-def is_market_line(line: Line) -> bool:
-    return "outcome" in line
-
-
-def state_of(line: Line) -> str | None:
-    """The end that a line is, or None."""
-    if is_market_line(line):
-        return str(line["decision"]) if line["decision"] != "continue" else None
-    return str(line["state"]) if line.get("state") == "ended early" else None
+def decision_of(line: Line) -> str | None:
+    """The end that a market line decides, or None."""
+    return str(line["decision"]) if is_market_line(line) and line["decision"] != "continue" else None
 
 
 def interval(earned: int, n: int) -> tuple[float, float]:
@@ -68,10 +58,11 @@ def summary(out: Path, *, verify: Callable[[], Mapping[str, Any]] = manifest.ver
     verify()
     lines = read_lines(out / "results.jsonl")
     searcher = {line["id"]: line for line in read_lines(out / "searcher.jsonl")}
-    end = next((i for i, line in enumerate(lines) if state_of(line) is not None), None)
+    end = next((i for i, line in enumerate(lines) if decision_of(line) is not None), None)
+    early = any(line.get("state") == ENDED_EARLY for line in lines)
     counted = [line for line in (lines if end is None else lines[: end + 1]) if is_market_line(line)]
     beyond = [] if end is None else [line["id"] for line in lines[end + 1 :] if is_market_line(line)]
-    state = "running" if end is None else state_of(lines[end])
+    state = ENDED_EARLY if end is None and early else "running" if end is None else decision_of(lines[end])
     n = len(counted)
     sets: dict[str, list[Line]] = {}
     for line in counted:
@@ -87,7 +78,7 @@ def summary(out: Path, *, verify: Callable[[], Mapping[str, Any]] = manifest.ver
     outcomes = [line["outcome"] for line in counted]
     return {
         "state": state,
-        "ended": end is not None,
+        "ended": end is not None or early,
         "name": NAMES.get(state) if state else None,
         "markets": n,
         "wins": outcomes.count("win"),

@@ -2,13 +2,10 @@
 
 from pathlib import Path
 
-import pytest
-
 from gate.control import runner
 from gate.control.tests.fakes import IDS, Fakes, calls, drive, is_market_line, jsonl, world
 
 
-@pytest.mark.xfail(strict=True, reason="hunt finding 5: --end discards a session that kept a pick")
 def test_end_judges_the_kept_ninth_session_before_declaring_an_early_end(tmp_path: Path) -> None:
     root = tmp_path / "study"
     world(root, [False] * len(IDS), ["earn"] * 9, kills={("session", 8)})
