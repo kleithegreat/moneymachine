@@ -1205,3 +1205,77 @@ Checks 1 to 8 of the section "After round 1" stand as written. Its check 9 is re
 **Whether this was patching.** The bid is not a case added to the ledger. The fault was in what the rungs compared, and the change is there and nowhere else: one valuation, which the kernel already had as a long's adverse price, read by `confirm` at a day's end. No law of the books changed, and K1 gained one line. The grid's change is one `min` in one formula, from a certificate.
 
 **Kernel version 2: converged as before on parts A and B,** with A12, K1, K2 and P1 reworded for the bid and V1 for the certificate. `KERNEL.md` A18's grid and A19's two fields are unreviewed.
+
+## After the confirming read of study 2's criteria
+
+Appended 2026-11-16 01:32 UTC (2026-11-15 20:32 EST) by Claude Fable 5.2, session "architect: study 2's criteria, confirming read" (`0a39b45`). It answers `audit/reviews/2026-11-15-gpt-study2-criteria-r2.md` (R1 to R6) and `2026-11-15-argon-cli-study2-criteria-r2.md` (F1 to F3, N1 to N3), and applies the human's decision of 2026-11-16 01:16 UTC (2026-11-15 20:16 EST) on R4 (`audit/decisions.md`). No outside model has seen these answers.
+
+### In plain words
+
+- **Argon said ready to commit, GPT not ready with six items, and neither asked for a redesign.** Both judged the wealth at the bid sound.
+- **CS2.2 reads the wealth at prices** (the human). The bid is in the two rungs and in the bootstrap that forecasts them, and nowhere else.
+- **The guard had a day's end of its own,** after its midnight's events. It now has the report's, before them. Both reviewers found this independently.
+- **The bootstrap was under-defined in two places.** A day's sums are now slices of the report's running sums, and a path's wealth at the bid is its wealth times that day's own share at the bid, so it is never above the wealth.
+- **The freeze reads nothing dated from 2026-11-01 on,** beyond whether the recorders run and where their gaps are. The sentence that let the vault's public record influence it is gone.
+- **The collector re-reads 30 days,** a choice, and CS2.3 is worded as of the fills on record.
+- **No change needed a second clock, a deferred count or a stake that moves without a fill.**
+
+### Agreed
+
+| | Point | How it was agreed | Where |
+|---|---|---|---|
+| A134 | CS2.2 judges the ledger's wealth at prices; the bid valuation is in the two rungs' comparisons only | The human, on GPT's R4 | `audit/decisions.md`; CS2.2 |
+| A135 | `Wᵇ` is never above `W` on any admitted market; nothing in the books, the bar or the guard reads a bid; `bid` and `quoted` have one meaning in A12, K1, K2, P1 and A19 | Both reviewers, checks 9, 10 and 12 | architecture 6.1; `KERNEL.md` A19 |
+| A136 | Round 1's findings are closed at their causes: D67 to D76, D56-v2, D64-v2, D65-v2; and the grid, D84 to D86 | Both reviewers, section 1 and checks 1 to 8 and 14 | the section "After round 1" |
+| A137 | The guard's wealth at a day's end must stand before that midnight's events, as the report's rows do | Both, independently (R1; F2) | kernel B1 |
+| A138 | The engine's build must name what compiles the sources, and the protected-windows file must be data | Both (F3; GPT's check 6) | kernel A13 |
+| A139 | A report of the months held back must not reach the trigger's fit as a tracked file | Both (N3; GPT's check 7) | brief 4, step 3 |
+| A140 | The bootstrap forecasts the rungs at the bid | Both, and the human's decision | brief 4, step 5 |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D80-v2 | What else reads a bid | The bootstrap alone. D80's half on CS2.2 is withdrawn by A134. GPT's R4 construction is run: at the bid, two records with one price and one buy "did not hold" | **Yes** (`held` reads `W`) |
+| D87 | Where the guard's day ends (R1, F2) | At the report's day's end: its books as every event and tick before the midnight left them, at that day's `day` rows' prices. Order at one timestamp: a day's end, a span's end, funding, the tick. The fault reproduced on the old oracle, 22.2 against the cut-back run's 23.0. The horizon's last day needs no tick | **Yes** (`guard`; brief 3, step 10; brief 4, step 4) |
+| D88 | What a day's sums are (R2) | A row adds its figure less the coin's previous row's in the same span; a day's slice is what the rows after the day before's `day` row, up to its own, added. Exact, since each term was rounded before it was summed. A span's row at a midnight belongs to the next day, and one after the last day adds nothing | **Yes** (the bootstrap) |
+| D89 | A path's wealth at the bid (R3) | Its `W`, the product of its days' `W` factors, times that day's own `Wᵇ / W`. Never above the path's `W`. Multiplying `Wᵇ`'s factors reached 20 on 0.197 of paths of a book that never moved | **Yes** (the bootstrap) |
+| D90 | The least return on a path | Not chained. `least` is a running minimum and has no slice. A replay with a return below minus one has no bar (K2) and makes no path: a wall for the architect | **Yes** (one wall for one chained field) |
+| D91 | Which end of a ledger `held` reads (F1) | Only one within the days it reads: the forward run's first 212, the replay's all | **Yes** (one line of `held`) |
+| D92 | What the freeze reads (R5) | Its walls, all dated before 2026-11-01, and of later recordings only whether each recorder runs and where its gaps are. No count of the vault's later fills and no page of its public record. `inspect` prints the Holdout rule's list, and that rule says where the lines go | No code. A check for the registration's reviewers |
+| D93 | The collector's re-read (R6) | 30 days, a choice: 822 fills at the vault's rate, one page, a twelfth of the retention. The overlap is an hour. CS2.3 is of the fills on record | **Yes** (the collector) |
+| D94 | What the build hashes (F3) | The sources, the windows file left out, and the store paths of the compilers and libraries. Not `flake.lock`: it moves for unrelated inputs, and a two-year test would refuse its own engine | **Yes** (brief 3, step 3) |
+| D95 | A fourth bid nobody could sell to (N1) | One a sale has taken, with a later print at or above it before the next quote. Listed in CS2.1; the claim's words already hold | No |
+
+### Disputed, still open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O9 | GPT's R5 asks for an integrity role: protected diagnostics sealed from anyone on unfrozen work until release, and a sandbox test of it | **Refuted in part, unseen by GPT.** `CLAUDE.md`'s Holdout rule lets exactly those people inspect recordings for integrity (status, sizes, hashes, gaps). Every judged day of study 2 is after the registration, so nothing known at the freeze moves a rung's 5%, CS2.2's window or CS2.3's. What the rule forbids, the vault's later fills and public record as an input to the freeze, is now written (D92) | No. It is the human's Holdout rule, not the design |
+
+### What a further read should check
+
+1. **D87.** A market on which the guard's figure at a day's end still differs between a run cut back to that midnight and a longer one; the last day of a horizon.
+2. **D88.** A layout of rows whose slices do not sum to the spans' own figures: a span ending at a midnight, two spans ending in one day, a coin first quoted inside the first day.
+3. **D89.** A record on which a path's `Wᵇ` is above its `W`, or on which the day's share at the bid forecasts the rungs worse than `W` alone would.
+4. **D90.** Whether stopping for the architect is right for a replay with a return below minus one.
+5. **CS2.2.** Whether its sentence now says what it measures, and whether anything in `held` or its tests still reads a bid.
+6. **O9 and D92.** Whether anything dated from 2026-11-01 on still reaches the decision to freeze.
+
+### Assumptions only the human can choose
+
+- **O9:** whether the Holdout rule's integrity inspection should be closed to whoever decides the freeze. I recommend leaving the rule as it is.
+- **Disk for two years:** deferred by the human, as before.
+
+### Owed
+
+- **By the advisor:** GPT's confirmation of R1 to R3, R5 and R6 on the diff `04b7d9d..0a39b45`, which is a read of the fixes and not a new round; then `criteria: study 2`, alone, before any step of brief 4.
+- **By the architect:** nothing, unless that read finds a design change.
+
+### Convergence
+
+**Study 2's criteria: converged with Argon, and one confirmation short with GPT.** No open dispute would change what is built or run: O9 is a question about the human's process rule. Ten settlements are unseen, D80-v2 and D87 to D95. R4 and R6 took GPT's own smallest fix, and R1 to R3 took its fix in substance.
+
+**Whether this was patching.** No finding landed on an earlier patch. R1 was a second definition of a day's end, and it is deleted in favour of the report's. R2 and R3 were a step of the bootstrap that had been written in a sentence and never defined. R5's sentence was a leftover from before the Holdout rule was applied to this study. The converged design, the ledger, the bar, the guard's family and the two rungs, is as it was.
+
+**Kernel version 2: converged as before on parts A and B,** with B1's guard, A13 and V18 reworded and a part E for this read.
