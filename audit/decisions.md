@@ -1026,3 +1026,21 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **GPT:** found no counterexample and accepted D126 to D129. Its two test gaps go to the test writer: a listing after a pending quote and known after `τ`, and the first of several faults.
   - **Built in D130's order** on `kernel2-step4-wip`: X3's statement, the machine, L1a, the twin, then the measurement.
   - **Reverse:** the earlier answer, D115 and D116, at `rearchitecture` `5dacf19`.
+- 2026-11-16 16:45 UTC (11:45 EST), advisor: **study 1's bug hunt: all eight findings confirmed by their failing tests, fixed before G100 and the sessions** (`audit/reviews/2026-11-16-gpt-hunt-study1.md`, tests beside it; `study1-build` `f125937`).
+  - **Findings:** the hunt was GPT's, from a clean worktree. Ranked by GPT:
+    1. A killed session can count an unserved model's pick as the agent's.
+    2. Two concurrent restarts count one market twice.
+    3. `venue/hyperliquid/execution.json` is in no frozen identity.
+    4. `kernel/DSL.md` is in no frozen identity.
+    5. `--end` can discard a session that already kept a pick.
+    6. A torn result line blocks every restart.
+    7. Calibration merges are not crash-safe.
+    8. A torn daemon-log line blocks judging an intact ledger.
+  - **The advisor's addition:** a carried run also read the source's already-merged shares. `cal-3`'s log holds 1,600 byte-identical copies of `cal-2`'s strength-0.01 lines. `parse` keys by (strength, market) and every rate reads by market id, so no number changed.
+  - **The running calibration is not affected:** its log ends on a whole line, and nothing was killed mid-merge. Its result stands.
+  - **How they are fixed:** each by its cause, from its test, by one builder on `study1-build`.
+  - **Constraints on the fix:**
+    - No file `harness_hash` covers may change: the frozen harness stays. Finding 1 is fixed in the runner's judging, not in `sandbox/session.py`.
+    - Findings 3 and 4 enter the manifest, which is not yet committed.
+  - **What waits on the fix:** G100 and the first session.
+  - **Reverse:** revert the fix commits.
