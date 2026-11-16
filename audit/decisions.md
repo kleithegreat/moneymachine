@@ -1044,3 +1044,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - Findings 3 and 4 enter the manifest, which is not yet committed.
   - **What waits on the fix:** G100 and the first session.
   - **Reverse:** revert the fix commits.
+- 2026-11-16 16:57 UTC (11:57 EST), advisor: **the paper's revision 9 (`audit/program/paper-changes.md` applied) is on `rearchitecture`** (`db71582`, `43e5998`; builder report `data/builder/builder-paper-r4-report.md`).
+  - **What the builder applied:** the list as written, except items later decisions superseded, each named in its report. Study 1 states 57 pairs and 39 of 57; study 2 the long-only ladder with its two rungs; kernel version 2 Lean and OCaml.
+  - **The advisor's checks:** the four citations the builder left unchecked (Kelly 1956, Shafer 2021, McLean and Pontiff 2016, Hou, Xue and Zhang 2020) are correct. `gate/NULLS.md`'s new kurtosis, 9 − 12λ²(1 − λ²) before truncation, is correct for unit-variance t₅ draws.
+  - **Test failures, not the paper's:** `engine-proofs` fails on `rearchitecture` because step 4's statements wait for its build. Several checks did not build because a remote builder rejected an unsigned store path. `criteria` and `progress-cap` pass.
+  - **Reverse:** revert the two commits.
