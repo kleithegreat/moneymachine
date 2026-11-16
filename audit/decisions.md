@@ -1049,3 +1049,12 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The advisor's checks:** the four citations the builder left unchecked (Kelly 1956, Shafer 2021, McLean and Pontiff 2016, Hou, Xue and Zhang 2020) are correct. `gate/NULLS.md`'s new kurtosis, 9 − 12λ²(1 − λ²) before truncation, is correct for unit-variance t₅ draws.
   - **Test failures, not the paper's:** `engine-proofs` fails on `rearchitecture` because step 4's statements wait for its build. Several checks did not build because a remote builder rejected an unsigned store path. `criteria` and `progress-cap` pass.
   - **Reverse:** revert the two commits.
+- 2026-11-16 18:10 UTC (13:10 EST), advisor: **study 1's hunt fixes accepted, merged into `study1-build` when calibration ends** (branch `s1-hunt-fixes`, `7f26508` to `952296f`, pushed; report `data/builder/builder-s1-hunt-fixes-report.md`).
+  - **Tests:** the nine tests pass unedited but for formatting and annotations. `nix run .#test` passes every flake check. Its two local failures are environmental. The sandbox test needs `TMPDIR=/tmp`, the nested-nix path limit, and passes with it. The differential test needs `data/store`, absent from worktrees, and passes in the main checkout, where the frozen kernel still hashes `e6df2244…`. No file `harness_hash` covers changed.
+  - **The advisor's read:**
+    - The runner counts a session whose served model cannot be established after evaluating as a miss. That is conservative for CS1.1.
+    - The merge cuts back to whole lines, deduplicates and fsyncs before any rename. A carry is staged and renamed whole.
+    - The manifest's `read_path` adds only tracked files (13). The `data/` names in judged code are directories, so the manifest is the same on every checkout.
+    - Finding 5: a session launched before `--end` is judged and counts, since a started market is never lost or rerun.
+  - **Why the merge waits:** calibration runs from `../mm-s1-build` on `study1-build` at `f125937`. Its rounds import `ops/jobs.py` from that tree, and its record names that commit. G100 needs the fixes, and it comes after calibration.
+  - **Reverse:** do not merge, or revert the merge.
