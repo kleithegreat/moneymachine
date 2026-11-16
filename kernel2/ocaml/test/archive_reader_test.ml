@@ -99,6 +99,68 @@ let grid_from_meta () =
     write path {|{"universe":[{"name":"TOO_FINE","szDecimals":7}]}|};
     check "reader stops for szDecimals above six" (Result.is_error (R.coin_rules path)))
 
+let with_archive_directory body =
+  with_file ".dir" (fun sentinel ->
+    let root = sentinel ^ "-files" in
+    Unix.mkdir root 0o700;
+    let rec remove_owned path =
+      match (Unix.lstat path).st_kind with
+      | Unix.S_DIR ->
+        Array.iter (fun name -> remove_owned (Filename.concat path name)) (Sys.readdir path);
+        Unix.rmdir path
+      | _ -> Unix.unlink path
+    in
+    Fun.protect ~finally:(fun () -> remove_owned root) (fun () -> body root))
+
+let short_table () =
+  with_archive_directory (fun root ->
+    let path name = Filename.concat root name in
+    List.iter (fun name -> Unix.mkdir (path name) 0o700)
+      [ "raw"; "raw/20260403"; "raw/20260403/0"; "raw/20260403/1";
+        "snapshots"; "snapshots/A" ];
+    (* Only raw-file presence is inspected by the manifest, not LZ4 contents. *)
+    write (path "raw/20260403/0/A.lz4") "";
+    write (path "raw/20260403/1/A.lz4") "";
+    write (path "missing.tsv")
+      (List.init 22 (fun i -> Printf.sprintf "market_data/20260403/%d/l2Book/A.lz4\tNotListed\n" (i + 2))
+       |> String.concat "");
+    let meta = path "meta.json" in
+    write meta {|{"universe":[{"name":"A","szDecimals":2}]}|};
+    let table = path "snapshots/A/20260403.parquet" in
+    let build hours =
+      if Sys.file_exists table then Sys.remove table;
+      let rows = List.map (fun hour ->
+        Printf.sprintf "(%Ld::BIGINT,[99.0::DOUBLE],[2.0::DOUBLE],[101.0::DOUBLE],[3.0::DOUBLE])"
+          (at (hour * 3_600_000))) hours |> String.concat "," in
+      let metadata = `List (List.map (fun hour -> `Int hour) hours) |> Yojson.Basic.to_string in
+      Mm2_archive.Duckdb.exec
+        (Printf.sprintf
+          "COPY (SELECT * FROM (VALUES %s) t(time,bid_px,bid_sz,ask_px,ask_sz)) TO %s (FORMAT PARQUET, KV_METADATA {source_hours: %s})"
+          rows (sql_string table) (sql_string metadata))
+    in
+    let readers =
+      [ (fun emit -> R.archive_day ~root ~meta ~coin:"A" ~day:"20260403" ~delta:0 ~emit);
+        (fun emit -> R.archive ~root ~meta ~coins:[ "A" ] ~first:"20260403" ~last:"20260404" ~delta:0 ~emit) ]
+    in
+    build [ 0; 1 ];
+    List.iter (fun read ->
+      let result, chunks = collect read in
+      ignore (get result);
+      same_chunk (flatten chunks)
+        (chunk (List.map (fun hour ->
+          record ~a:1 ~b:1 3 (at (hour * 3_600_000)) [] [ 99.; 2.; 101.; 3. ]) [ 0; 1 ]))) readers;
+    build [ 0 ];
+    List.iter (fun read ->
+      let result, chunks = collect read in
+      (match result with
+       | Ok _ -> failwith "short synthetic table admitted despite an additional raw hour"
+       | Error message ->
+         check "short-table error identifies the coin-day"
+           (String.starts_with ~prefix:"A 20260403:" message);
+         check "manifest flags a short table, not a generic read failure"
+           (List.mem "short" (String.split_on_char ' ' (String.lowercase_ascii message))));
+      check "short table refused before any events are emitted" (chunks = [])) readers)
+
 let () =
-  synthetic_snapshots (); disk_ids (); merge_order (); grid_from_meta ();
+  synthetic_snapshots (); disk_ids (); merge_order (); grid_from_meta (); short_table ();
   print_endline "step3 synthetic readers: passed"

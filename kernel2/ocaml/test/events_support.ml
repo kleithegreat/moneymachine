@@ -74,7 +74,7 @@ let program =
 let header ?(first = base) ?(last = at 125_000) ?(delta = 0) ?(stale = 60_000)
     ?(encoding = "string") () =
   Printf.sprintf
-    {|{"horizon":{"start":%Ld,"end":%Ld},"venue":{"fill":"optimistic","lambda":0,"delta":%d,"stale":%d,"cap":"10000","minimum":"10"},"cash":"10000","coins":[{"name":"A","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]},{"name":"B","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]}],"fees":[{"from":%Ld,"tier":"base","maker":"0.00015","taker":"0.00045"}],"sources":{"listings":{"lag":0},"funding":{"encoding":"string","lag":0,"late":1000},"quotes":{"encoding":"%s"},"trades":{"encoding":"%s"},"observations":[{"name":"vol","unit":"1","kind":"state","lag":0},{"name":"flow","unit":"1","kind":"flow","lag":0}]},"aliases":{"coins":{},"sources":{}}|}
+    {|{"horizon":{"start":%Ld,"end":%Ld},"venue":{"fill":"optimistic","lambda":0,"delta":%d,"stale":%d,"cap":"10000","minimum":"10"},"cash":"10000","coins":[{"name":"A","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]},{"name":"B","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]}],"fees":[{"from":%Ld,"tier":"base","maker":"0.00015","taker":"0.00045"}],"sources":{"listings":{"lag":0},"funding":{"encoding":"string","lag":0,"late":1000},"quotes":{"encoding":"%s"},"trades":{"encoding":"%s"},"observations":[{"name":"vol","unit":"1","kind":"state","lag":0},{"name":"flow","unit":"1","kind":"flow","lag":0}]},"aliases":{"coins":{},"sources":{}}}|}
     first last delta stale first encoding encoding
 
 type event = { record : bytes; ints : int64 list; floats : float list }
