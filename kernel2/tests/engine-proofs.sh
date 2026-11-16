@@ -34,6 +34,15 @@ if ! sh "$check" "$scratch/none" >"$scratch/none.out" 2>&1; then
   cat "$scratch/none.out" >&2; echo "FAIL: the library without fixtures must pass" >&2; exit 1
 fi
 
+# Step 3 test 7: a successful generic scan is insufficient if the fast-reading
+# laws (or the original laws they connect to) were left out of its imports.
+for law in X2 C1 C2 X3_readBits X3_onGrid; do
+  if ! grep -F "Engine.Laws.$law:" "$scratch/none.out"; then
+    echo "FAIL: checks.engine-proofs did not list Engine.Laws.$law" >&2
+    exit 1
+  fi
+done
+
 with_fixture clean Clean
 if ! sh "$check" "$scratch/clean" >"$scratch/clean.out" 2>&1; then
   cat "$scratch/clean.out" >&2; echo "FAIL: a clean theorem must pass" >&2; exit 1

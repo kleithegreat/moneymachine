@@ -36,3 +36,14 @@ let floor_scaled entry left lots =
   let quotient, _ = Z.divmod_abs
     (Z.mul (string_of_int entry) (string_of_int left)) (string_of_int lots) in
   int_of_string quotient
+
+(* Compatibility only: neither predicate characterizes an exact ledger. All
+   monetary arguments here are in millionths, without rounding a rational. *)
+let fee_compatible printed fee =
+  Q.le (Q.integer printed) fee && Q.le fee (Q.integer (printed + 1))
+
+let cost_compatible entry partials cost =
+  let e = Q.integer entry in
+  if partials = 0 then Q.equal e cost
+  else Q.lt (Q.sub cost (Q.integer (2 * partials))) e
+    && Q.lt e (Q.add cost (Q.integer partials))
