@@ -60,12 +60,13 @@ def evaluate(
     disclose: str = "sharpe_annualized",
 ) -> dict[str, Any]:
     """One `mm eval` on a market, into `ledger`; the parsed output line."""
-    path = prog
     if isinstance(prog, dict):
         folder = ledger.parent / "programs"
         folder.mkdir(exist_ok=True)
         path = folder / f"{len(list(folder.iterdir()))}.json"
         path.write_text(json.dumps(prog))
+    else:
+        path = prog
     cmd = command("eval", path, campaign, agent, ledger, market, "--disclose", disclose)
     out = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
     parsed: dict[str, Any] = json.loads((out.stdout or out.stderr).strip().splitlines()[-1])
