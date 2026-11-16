@@ -1,11 +1,12 @@
 """Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 6 on kernel version 2), audit/program/paper-changes.md,
 audit/program/argon-paper-findings.md and the study 2 notes of audit/program/criteria-notes.md. Cited numbers carry their sources there.
 
-Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about a minute).
+Run from the repo root: python3 audit/program/arithmetic.py.txt   (numpy and scipy; about four minutes).
 Reads one file, audit/stage3/null-v3.jsonl, for the agent's evaluation counts.
 """
 
 import functools
+import hashlib
 import json
 import math
 import statistics
@@ -355,6 +356,33 @@ def bar_mix(first: list[Fraction], curve: list[Fraction]) -> list[Fraction]:
     return [share / max(Fraction(1), sum(shares, Fraction(0))) for share in shares]
 
 
+def day_slices(rows: list[tuple[str, Fraction]]) -> list[Fraction]:
+    """What each day added to one of a coin's running fields (a sum, the funding a unit paid, the count of events), from the coin's rows in the
+    report's order, each (occasion, the field since its span began): KERNEL.md A19's `coin` rows. A row adds its value less that of the coin's row
+    before it in the same span, or its whole value where it is its span's first, and a day's slice is what the rows after the day before's row, up
+    to its own, added. Brief 4's step 5 chains these, never the rows themselves (GPT's R2)."""
+    slices, carried, adding = [], Fraction(0), Fraction(0)
+    for occasion, value in rows:
+        adding += value - carried
+        carried = value
+        if occasion == "span":
+            carried = Fraction(0)
+        else:
+            slices.append(adding)
+            adding = Fraction(0)
+    assert adding == 0, "a span's row after the last day's repeats that day's"
+    return slices
+
+
+def bootstrap_days(record: int, paths: int, block: int = 14, days: int = 730) -> np.ndarray:
+    """Brief 4's step 5: for each path, the record's day (from 0) at each of its `days` places. A path is blocks of `block` consecutive days, the
+    last cut, each running past the record's last day to its first; block j of path i starts at the BLAKE2b-256 digest of `study2 bootstrap i j`,
+    as one whole number, modulo the record's days."""
+    blocks = math.ceil(days / block)
+    starts = np.array([[int.from_bytes(hashlib.blake2b(f"study2 bootstrap {i} {j}".encode(), digest_size=32).digest(), "big") % record for j in range(blocks)] for i in range(paths)])
+    return ((starts[:, :, None] + np.arange(block)[None, None, :]) % record).reshape(paths, -1)[:, :days]
+
+
 GUARD_INVESTED = Fraction(24, 25)  # a guard rule keeps 1/25 in cash: the venue caps an hour's funding at 4% of the notional (rules.json)
 
 
@@ -375,7 +403,7 @@ def refused(rules: list[list[Fraction]]) -> bool:
 
 def study2_criteria() -> None:
     """The numbers of study 2's criteria notes (criteria-notes.md, CS2.1 to CS2.3), as revised after the round of 2026-11-15
-    (audit/reviews/2026-11-15-gpt-study2-criteria-r1.md, 2026-11-15-argon-cli-study2-criteria-r1.md)."""
+    (audit/reviews/2026-11-15-gpt-study2-criteria-r1.md, 2026-11-15-argon-cli-study2-criteria-r1.md) and its confirming read (`confirming_read`)."""
     hundredth, nothing = Fraction(1, 100), Fraction(0)
     flat, swing, drift = [hundredth] * 4, [hundredth, -hundredth] * 2, [3 * hundredth, hundredth] * 2
 
@@ -498,6 +526,56 @@ def study2_criteria() -> None:
     record_start, record_end, path_before = Fraction(80), Fraction(100), Fraction(7)
     assert path_before / record_start == path_before * (record_end / record_start) / record_end
     print("  The bootstrap's funding (Argon's finding 4): a day's funding scaled by the path's price over the record's is one number at the day's start and at its end, since the path's price moves by the record's own ratio")
+    confirming_read()
+
+
+def confirming_read() -> None:
+    """The constructions of the confirming read of study 2's criteria (audit/reviews/2026-11-15-gpt-study2-criteria-r2.md, R1 to R4;
+    2026-11-15-argon-cli-study2-criteria-r2.md, F2), each run against the rule that closed it."""
+    half, hundredth = Fraction(1, 2), Fraction(1, 100)
+    kept = half * GUARD_INVESTED
+    mix = {"A": kept, "B": kept}
+    one_day, _ = reach(pairs_market(5, 1440), [], mix, 5, 1440)
+    two_days, ended = reach(pairs_market(5, 2880), [(DAY, "A", Fraction(15))], mix, 5, 2880)
+    assert ended and two_days[0] == one_day[0] >= 20 and two_days[1] == 0
+    print(f"  R1, the guard's day's end: the pairs every five minutes, the bar's own mix at {kept} each, and a charge of 15 a unit of A stamped with the first midnight, more than the rule's cash. The first day's end stands before it: {two_days[0]:.3g} times over the bar, the figure of the run cut back to that midnight, and the rule ends in the second day. A fold that took the midnight's events first gave that day nothing, or with a charge the cash meets, a figure the cut-back run does not give")
+
+    record = 212
+    flat_after = [("day", hundredth)] * record
+    slices = day_slices(flat_after)
+    assert slices == [hundredth] + [Fraction(0)] * (record - 1)
+    places = bootstrap_days(record, 10_000)
+    first_day = (places == 0).sum(axis=1)
+    assert all(sum(slices[day] for day in path) == hundredth * int(count) for path, count in zip(places[:50], first_day[:50]))
+    spans = [("day", Fraction(10, 1000)), ("span", Fraction(30, 1000)), ("day", Fraction(5, 1000)), ("day", Fraction(5, 1000)), ("span", Fraction(7, 1000)), ("day", Fraction(1, 1000)), ("span", Fraction(1, 1000))]
+    assert day_slices(spans) == [Fraction(10, 1000), Fraction(25, 1000), Fraction(0), Fraction(3, 1000)] and sum(day_slices(spans)) == Fraction(38, 1000)
+    print(f"  R2, a day's slice: a coin that returns 0.01 on the first of {record} days and never moves again has a first sum of 0.01 in every day's row. Its slices are 0.01 and then nothing, and a path's sum is 0.01 for each time it holds the first day: {first_day.mean() * 0.01:.4f} on average and {first_day.max() * 0.01:.2f} at most over 10,000 paths. The rows added as they stand give {730 * 0.01:.1f} on every path. Across three spans, one ending inside a day and one at a midnight, the slices are 0.010, 0.025, 0 and 0.003, the spans' own 0.030, 0.007 and 0.001 in all")
+
+    pulled = 100
+    haircut = np.full(record, 0.9999)
+    haircut[pulled] = 0.01
+    stitched = np.log(haircut / np.roll(haircut, 1))[places].cumsum(axis=1)
+    coherent = np.log(haircut)[places]
+    manufactured = float((stitched.max(axis=1) >= LOG20).mean())
+    assert manufactured > 0.1 and coherent.max() <= 0
+    print(f"  R3, the bootstrap's wealth at the bid: one coin held whole at a constant price, its bid a hundredth of a percent under it but for one midnight at a hundredth of the price. The wealth is 1 on every day and on every path. Factors of the wealth at the bid, multiplied along a path, reach 20 on {manufactured:.3f} of 10,000 paths, wherever a block starts at the recovery with no fall before it. A path's wealth times its day's own share at the bid is never above the wealth: at most {math.exp(coherent.max()):.4f}, and no path reaches a rung")
+
+    def returns_of(wealths: list[Fraction]) -> list[Fraction]:
+        return [after / before - 1 for before, after in zip([Fraction(1)] + wealths, wealths)]
+
+    taker, price = Fraction(45, 100_000), {"A": Fraction(100)}
+    ledger = TestLedger(Fraction(1), Fraction(100))
+    ledger.buy("A", Fraction(100) / Fraction(10_001, 100), Fraction(10_001, 100), taker)
+    steady, turning = [Fraction(9_999, 100)] * record, [Fraction(9_999, 100), Fraction(9_998, 100)] * (record // 2)
+    at_prices = returns_of([ledger.wealth(price)] * record)
+    replay_bid, forward_bid = (returns_of([ledger.wealth_at_bid({"A": bid}, price) for bid in bids]) for bids in (turning, steady))
+    assert held(at_prices, at_prices) == "held" and held(replay_bid, forward_bid) == "did not hold"
+    print("  R4, CS2.2 at prices (the human, 2026-11-15): two records with one constant price and one first buy. In the replay the bid is 99.99 and 99.98 in turn, in the forward run 99.99. The wealth at prices has one list of returns in both, and 'held'; the wealth at the bid moves a basis point a day in the replay alone, and 'did not hold'. CS2.2 reads the wealth at prices")
+
+    fills, fill_days, lookback, page, retained = 5806, 212, 30, 2000, 10_000
+    a_day = fills / fill_days
+    assert lookback * a_day < page < retained / 2
+    print(f"  R6, the collector's re-read: the vault's {fills:,} fills in {fill_days} days are {a_day:.1f} a day, so {lookback} days hold {lookback * a_day:.0f}, inside one page of {page:,}, and the API's {retained:,} retained are {retained / a_day:.0f} days. The {lookback} days are a choice: nothing says how late the API can show a fill")
 
 
 def round3() -> None:
@@ -727,16 +805,16 @@ def pairs_market(period: int, minutes: int, astride: bool = False) -> list[tuple
         b_time = (pair + 1) * MINUTE + 1 if astride else pair * spacing + 3 * MINUTE // 2
         events.append((a_time, "A", Fraction(125 if a_rises else 100)))
         events.append((b_time, "B", Fraction(80 if a_rises else 100)))
-    return sorted(event for event in events if event[0] <= minutes * MINUTE)
+    return sorted(event for event in events if event[0] < minutes * MINUTE)
 
 
 def bar_log(events: list[tuple[int, str, Fraction]], until: int) -> float:
-    """The log of the bar at time `until`, from what the report's coin rows hold then (kernel A12, K2): each coin's three sums over its price events,
-    and its price over its first. One span, no funding."""
+    """The log of the bar at the day's end `until`, from what that day's coin rows hold (kernel A12, K2; KERNEL.md A19): each coin's three sums over
+    its price events before `until`, and its price over its first. One span, no funding."""
     price = {"A": Fraction(100), "B": Fraction(100)}
     sums = {coin: np.zeros(3) for coin in price}
     for time, coin, new in events:
-        if time > until:
+        if time >= until:
             break
         change = float(new / price[coin] - 1)
         sums[coin] += [change, change**2, change**3]
@@ -750,24 +828,31 @@ def guard_fold(rule: GuardRule, events: list[tuple[int, str, str, Fraction]], cl
     """Kernel B1's `guard`: the rule's books folded over the engine's price and funding events and a minute's ticks in the machine's order, a tick
     after every event of its timestamp. `events` are (time, kind, coin, value): a "price" sets the coin's price, and a "funding" is paid, as the
     ledger pays it, on the units held into it, where the first the cash cannot meet ends the rule. The rule sees prices only at ticks, and trades
-    back to its mix at those that are whole multiples of `clock` minutes. Returns its wealth at each day's end, zero once it has ended."""
+    back to its mix at those that are whole multiples of `clock` minutes. Returns its wealth at each day's end, zero once it has ended. A day's end
+    is KERNEL.md A19's, the world after every event before the midnight and before any stamped with it, so that a run cut back to a midnight gives
+    that day what the longer run gave it (GPT's R1 and Argon's F2 on study 2's criteria)."""
     price = dict(first)
     wealth_at: dict[int, Fraction] = {}
-    pending = iter(events)
-    event = next(pending, None)
-    for tick in range(0, until + 1, MINUTE):
-        while event is not None and event[0] <= tick:
-            _, kind, coin, value = event
+    folded = 0
+
+    def fold(through: int) -> None:
+        nonlocal folded
+        while folded < len(events) and events[folded][0] <= through:
+            _, kind, coin, value = events[folded]
             if kind == "price":
                 price[coin] = value
             elif not rule.ended:
                 rule.fund(coin, value)
-            event = next(pending, None)
+            folded += 1
+
+    for tick in range(0, until + 1, MINUTE):
+        if tick > 0 and tick % DAY == 0:
+            fold(tick - 1)
+            wealth_at[tick] = Fraction(0) if rule.ended else rule.wealth(price)
+        fold(tick)
         if not rule.ended and tick % (clock * MINUTE) == 0:
             rule.rebalance(price)
             assert rule.cash >= 0 and (rule.cash / CASH_GRID).denominator == 1
-        if tick > 0 and tick % DAY == 0:
-            wealth_at[tick] = Fraction(0) if rule.ended else rule.wealth(price)
     return wealth_at
 
 
@@ -797,7 +882,10 @@ def grid_step(price: Fraction, figures: int, decimals: int) -> Fraction:
 
 
 def to_grid(price: Fraction, figures: int, decimals: int, up: bool) -> Fraction:
-    """A sell's price rounds up to the grid and a buy's down (kernel A2)."""
+    """A sell's price rounds up to the grid and a buy's down (kernel A2). At or under zero there is no grid price at or below: a buy's is zero and a
+    sell's the least on the grid (KERNEL.md A18; Argon's note 2)."""
+    if price <= 0:
+        return Fraction(10) ** -decimals if up else Fraction(0)
     step = grid_step(price, figures, decimals)
     return (math.ceil(price / step) if up else math.floor(price / step)) * step
 

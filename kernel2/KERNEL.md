@@ -275,7 +275,7 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 
 ### The report
 
-**A day's end** is a UTC midnight `T` with `w_start < T ≤ w_end`. Its rows show the world after every event with `time < T`, and stand before any row of an event at `T`: the `coin` rows of the day, then the `account` row. **The last span ends at the horizon's end,** so every span has rows at its end, written by `finish` for the last, after the last day's.
+**A day's end** is a UTC midnight `T` with `w_start < T ≤ w_end`. Its rows show the world after every event with `time < T`, and stand before any row of an event at `T`: the `coin` rows of the day, then the `account` row. `confirm` and `guard` both give a day's end its wealth at these rows' prices, so neither reads an event or a tick at `T` into the day that ended there, and a run whose horizon ends at `T` gives the day what a longer run gives it. **The last span ends at the horizon's end,** so every span has rows at its end, written by `finish` for the last, after the last day's.
 
 **A span is read from one row a coin.** At a day's end the bar is a product over spans (K2): a span that ended takes its `span` rows, which stand before that day's rows, and the span open there takes that day's `day` rows. A span's `span` rows that stand after a day's rows are not that day's, at one timestamp or not, so the last span is never counted twice at the horizon's end.
 
