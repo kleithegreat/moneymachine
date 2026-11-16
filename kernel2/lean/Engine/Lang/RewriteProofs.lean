@@ -154,8 +154,7 @@ theorem redirect_ordered {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i
   | const _ _ => rw [hn] at ha; simp [Node.args] at ha
 
 theorem redirect_step {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i) (hi : i < p.nodes.size)
-    (hsem : ∀ (t : Tick α) (m : Mach α) (c : Nat),
-      ((Mach.step N p t m).vals[i]!)[c]! = ((Mach.step N p t m).vals[x]!)[c]!)
+    (hsem : ∀ (t : Tick α) (m : Mach α), (Mach.step N p t m).vals[i]! = (Mach.step N p t m).vals[x]!)
     (t : Tick α) (m : Mach α) : Mach.step N (p.redirect i x) t m = Mach.step N p t m := by
   apply step_same N hp (redirect_ordered hp hxi) (by rw [redirect_nodes_size]) t m
   intro k hk ih
@@ -178,7 +177,7 @@ theorem redirect_step {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i) (
       · have : a = i := by simpa using hai
         subst this
         simp only [hai, if_true]
-        rw [(ih x (by omega)), hsem t m c]
+        rw [(ih x (by omega)), hsem t m]
       · have hf : (a == i) = false := by simpa using hai
         simp only [hf]
         simp only [Bool.false_eq_true, if_false]
@@ -192,5 +191,95 @@ theorem redirect_step {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i) (
   | const _ _ =>
     simp only [Node.args]
     exact nodeFull_cells N t _ _ _ _ _ (fun j c => by simp [argRow]) _
+
+theorem redirect_wf {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : i < p.nodes.size)
+    (hty : p.types[x]! = p.types[i]!) : (p.redirect i x).WF := by
+  obtain ⟨h1, h2, h3⟩ := wf_iff.1 hwf
+  have hf : ∀ k, p.types[if k == i then x else k]! = p.types[k]! := by
+    intro k
+    by_cases hk : k == i
+    · have : k = i := by simpa using hk
+      subst this; simp [hty]
+    · simp [hk]
+  have hlt : ∀ k, k < p.nodes.size → (if k == i then x else k) < p.nodes.size := by
+    intro k hk
+    split <;> omega
+  refine wf_iff.2 ⟨by simpa [Program.redirect] using h1, ?_, ?_⟩
+  · intro j hj
+    simp only [Program.redirect, Array.toList_map, List.mem_map] at hj
+    obtain ⟨q, hq, rfl⟩ := hj
+    show (if q == i then x else q) < (p.redirect i x).nodes.size
+    rw [redirect_nodes_size]
+    exact hlt q (h2 q hq)
+  · intro k hk
+    rw [redirect_nodes_size] at hk
+    have htypes : (p.redirect i x).types = p.types := rfl
+    unfold Program.nodeOkb
+    rw [redirect_nodes_get p i x hk, htypes]
+    have hok := h3 k hk
+    unfold Program.nodeOkb at hok
+    cases hn : p.nodes[k]! with
+    | op o args =>
+      rw [hn] at hok
+      dsimp only
+      simp only [Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq, beq_iff_eq] at hok ⊢
+      obtain ⟨ha, ht⟩ := hok
+      refine ⟨fun a' ha' => ?_, ?_⟩
+      · obtain ⟨a, hamem, rfl⟩ := List.mem_map.1 ha'
+        have hak := ha a hamem
+        by_cases hai : a = i
+        · subst hai
+          simp only [if_true]; omega
+        · simp only [hai, if_false]; exact hak
+      · rw [List.map_map]
+        have : ((fun x => p.types[x]!) ∘ fun k => if k = i then x else k) = fun x => p.types[x]! := by
+          funext k
+          simp only [Function.comp]
+          by_cases hk : k = i
+          · subst hk; simp [hty]
+          · simp [hk]
+        rw [this]; exact ht
+    | builtin _ => rw [hn] at hok; exact hok
+    | source _ _ => rw [hn] at hok; exact hok
+    | const _ _ => rw [hn] at hok; exact hok
+
+theorem redirect_init (p : Program) (i x coins : Nat) :
+    Mach.init N (p.redirect i x) coins = Mach.init N p coins := by
+  unfold Mach.init
+  simp only [Program.redirect, Array.map_map, Function.comp_def]
+  congr 1
+  apply Array.map_congr_left
+  intro n _
+  cases n with
+  | op o args => cases o <;> simp
+  | _ => simp
+
+theorem init_row_const (p : Program) (coins k : Nat) (hk : k < p.nodes.size) :
+    (Mach.init N p coins).vals[k]! = Array.replicate coins none := by
+  simp only [Mach.init]
+  rw [getElem!_pos _ _ (by simpa using hk)]
+  simp
+
+theorem run_row_eq {p : Program} {i x : Nat}
+    (hsem : ∀ (t : Tick α) (m : Mach α), (Mach.step N p t m).vals[i]! = (Mach.step N p t m).vals[x]!)
+    (ts : List (Tick α)) : ∀ m : Mach α, m.vals[i]! = m.vals[x]! →
+    (ts.foldl (fun m t => Mach.step N p t m) m).vals[i]! = (ts.foldl (fun m t => Mach.step N p t m) m).vals[x]! := by
+  induction ts with
+  | nil => intro m h; rw [List.foldl_nil]; exact h
+  | cons t ts ih => intro m _; rw [List.foldl_cons]; exact ih _ (hsem t m)
+
+theorem redirect_law {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : i < p.nodes.size)
+    (hty : p.types[x]! = p.types[i]!)
+    (hsem : ∀ (t : Tick α) (m : Mach α), (Mach.step N p t m).vals[i]! = (Mach.step N p t m).vals[x]!) :
+    (p.redirect i x).WF ∧ (∀ (coins : Nat) (ts : List (Tick α)),
+      Mach.run N (p.redirect i x) coins ts = Mach.run N p coins ts) ∧
+    (∀ (coins : Nat) (ts : List (Tick α)),
+      (Mach.run N p coins ts).vals[i]! = (Mach.run N p coins ts).vals[x]!) := by
+  refine ⟨redirect_wf hwf hxi hi hty, fun coins ts => ?_, fun coins ts => ?_⟩
+  · exact run_eq_of_step N coins ts (fun t m => redirect_step N (wf_ordered hwf) hxi hi hsem t m)
+      (redirect_init N p i x coins)
+  · unfold Mach.run
+    apply run_row_eq N hsem
+    rw [init_row_const N p coins i hi, init_row_const N p coins x (by omega)]
 
 end Engine.Lang
