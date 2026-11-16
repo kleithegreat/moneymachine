@@ -2,6 +2,8 @@
    not just Lean. /proc VmHWM includes OCaml, DuckDB and native Lean memory. *)
 open Events_support
 
+external pin_one_core : unit -> unit = "mm2_test_pin_one_core"
+
 let coins = [ "ADA";"AVAX";"BCH";"BNB";"BTC";"DOGE";"ETH";"HBAR";
               "HYPE";"LINK";"NEAR";"SOL";"SUI";"TRX";"XLM";"XRP" ]
 
@@ -21,23 +23,22 @@ let check_one_core () =
     (not (String.contains allowed ',') && not (String.contains allowed '-'))
 
 let launch seconds arguments =
-  let core = status "Cpus_allowed_list" |> String.split_on_char ',' |> List.hd
-      |> String.split_on_char '-' |> List.hd in
+  pin_one_core ();
   let executable = if Filename.is_relative Sys.executable_name then
       Filename.concat (Sys.getcwd ()) Sys.executable_name else Sys.executable_name in
   let args = Array.of_list
     (["timeout"; "--signal=KILL"; string_of_int seconds;
-      "taskset"; "-c"; core; executable; "--worker"] @ arguments) in
+      executable; "--worker"] @ arguments) in
   let pid = Unix.create_process "timeout" args Unix.stdin Unix.stdout Unix.stderr in
   check "one-core benchmark completed within its hard deadline"
     (snd (Unix.waitpid [] pid) = Unix.WEXITED 0)
 
-let market ~last rules =
+let market ?(encoding = "double") ~last rules =
   let coin_headers = List.map (fun (name, sz, figures, decimals) ->
     `Assoc ["name", `String name; "sz_decimals", `Int sz;
       "figures", `Int figures; "decimals", `Int decimals;
       "tiers", `List [`Assoc ["from", `String "0"; "max_leverage", `Int 1]]]) rules in
-  match json (header ~last ~encoding:"double" ()) with
+  match json (header ~last ~encoding ()) with
   | `Assoc fields -> `Assoc (List.map (fun (key, value) ->
       key, if key = "coins" then `List coin_headers else value) fields)
       |> Yojson.Basic.to_string

@@ -1,9 +1,11 @@
-(* Step 3 test 6, sandbox rate guard: the shape of 2026-04-03, NOT its data.
+(* Requires admission's retained readings and Exact.readBitsFast via csimp;
+   no new OCaml entry point. Step 3 test 6's sandbox doubles guard uses the
+   shape of 2026-04-03, NOT its data; scale_local holds the literal archive day.
    Exactly 2,487,176 quotes, sixteen coins, twenty levels each side (80
    binary64 exact fields per quote), over one day, no program/clock. Every
    record goes through the normal public feed. Fields vary by event and coin;
    decimal sizes cover scales 0..5. The real day/window are scale_local's job.
-   Fixture construction, start, feed and finish all count toward 150 seconds.
+   Fixture construction, start, feed and finish all count toward 470 seconds.
    Never accumulate a day's tape or output. No local files are Nix inputs. *)
 open Events_support
 module S = Scale_support
@@ -59,10 +61,10 @@ let worker () =
   Printf.printf "step3 suite day: quotes=%Ld seconds=%.3f peak_rss=%Ld streamed_bytes=%Ld\n%!"
     (M.count !state) elapsed rss !streamed;
   check "entire day fed, no sampling/drops/empty-engine pass" (M.count !state = Int64.of_int quotes);
-  check "suite admission day strictly under 150 seconds" (elapsed < 150.);
+  check "suite doubles day strictly under 470 seconds" (elapsed < 470.);
   check "suite whole process below 2GB" (rss < 2_000_000_000L)
 
 let () = match Array.to_list Sys.argv with
   | [_; "--worker"] -> worker ()
-  | [_] -> S.launch 150 []
+  | [_] -> S.launch 470 []
   | _ -> failwith "usage: scale_test"

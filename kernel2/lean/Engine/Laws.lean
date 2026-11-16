@@ -41,11 +41,20 @@ the corresponding Lean functions through the existing C-stub boundary;
 they do not implement a second arithmetic engine in OCaml or C.
 -/
 
+import Engine.Check
+import Engine.Lang.SyntaxProofs
+import Engine.StartProofs
+import Engine.Lang.RenameProofs
+import Engine.Lang.UnitsProofs
+import Engine.Lang.RewriteLaw
+import Engine.Lang.Units
+import Engine.Lang.Rewrite
 import Engine.Exact
 import Engine.Ledger
 import Engine.Machine
 import Engine.MachineConcrete
 import Engine.MachineFaults
+import Engine.Delivery
 
 namespace Engine.Laws
 
@@ -527,7 +536,7 @@ theorem C2 :
   refine ⟨?_, Engine.Machine.concrete_run⟩
   intro readNumber key program header initial state «prefix» suffix event rules hstart hstate hdec hrules
   intro priceBad sizeBad fieldsBad repeated «protected» hfault
-  have hnn : Engine.Machine.admit state event ≠ none := by
+  have hnn : Engine.Machine.Faulty (Engine.Machine.admit state event) := by
     rcases hfault with ho | he | hf | hr | hp
     · exact Engine.Machine.admit_of_order _ _ (Engine.Machine.checkOrder_ne _ _ ho)
     · exact Engine.Machine.admit_of_ended _ _ (Engine.Machine.checkEnded_ne _ _ he)
@@ -633,6 +642,115 @@ def step4Traded : String :=
 def step4NegNeg : String :=
   r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"v","is":{"op":"neg","args":[{"op":"neg","args":[{"input":"vol"}]}]}}]}"#
 
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_vol_ok : isOk (start step4Vol step4Header) = true := by
+  decide +kernel
+
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_traded_ok : isOk (start step4Traded step4Header) = true := by
+  decide +kernel
+
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_traded_refused :
+    isError "E_UNKNOWN_INPUT" (start step4Traded step4HeaderNoTrades) = true := by
+  decide +kernel
+
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_vol_refused :
+    isError "E_UNKNOWN_INPUT" (start step4Vol step4HeaderNoVol) = true := by
+  decide +kernel
+
+open Engine.Lang in
+/-- The checked program of `step4Vol`. -/
+def step4VolProgram : Program :=
+  { tick := 1, decideEvery := 1, leverage := .all 1, sources := [("vol", Dim.one)],
+    nodes := #[.source "vol" Dim.one], types := #[.num Dim.one], probeNodes := #[0] }
+
+open Engine.Lang in
+set_option maxHeartbeats 4000000 in
+theorem parse_step4Vol_is :
+    (match parse step4Vol with | .ok p => decide (p = step4VolProgram) | .error _ => false) = true := by
+  decide +kernel
+
+open Engine.Lang in
+theorem parse_step4Vol_eq : parse step4Vol = .ok step4VolProgram := by
+  have := parse_step4Vol_is
+  cases hp : parse step4Vol with
+  | error _ => rw [hp] at this; simp at this
+  | ok p => rw [hp] at this; simp at this; rw [this]
+
+open Engine.Lang in
+theorem step4Vol_reads {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = true) :
+    (Mach.run N step4VolProgram 1
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
+  simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, step4VolProgram,
+    Mach.init, Node.args, argRow, NumOps.keep, hx]
+
+open Engine.Lang in
+/-- The checked program of `step4NegNeg`. -/
+def step4NegNegProgram : Program :=
+  { tick := 1, decideEvery := 1, leverage := .all 1, sources := [("vol", Dim.one)],
+    nodes := #[.source "vol" Dim.one, .op .neg [0], .op .neg [1]],
+    types := #[.num Dim.one, .num Dim.one, .num Dim.one], probeNodes := #[2] }
+
+open Engine.Lang in
+set_option maxHeartbeats 4000000 in
+theorem parse_step4NegNeg_is :
+    (match parse step4NegNeg with | .ok p => decide (p = step4NegNegProgram) | .error _ => false) = true := by
+  decide +kernel
+
+open Engine.Lang in
+theorem parse_step4NegNeg_eq : parse step4NegNeg = .ok step4NegNegProgram := by
+  have := parse_step4NegNeg_is
+  cases hp : parse step4NegNeg with
+  | error _ => rw [hp] at this; simp at this
+  | ok p => rw [hp] at this; simp at this; rw [this]
+
+open Engine.Lang in
+theorem step4NegNeg_reads {α : Type} (N : NumOps α) (hL : N.Lawful) (x : α) (hx : N.finite x = true) :
+    (Mach.run N step4NegNegProgram 1
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[2]![0]! = some x := by
+  simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, evalOp,
+    step4NegNegProgram, Mach.init, Node.args, argRow, NumOps.keep, hx, hL.finite_neg x hx, hL.neg_neg x hx]
+
+open Engine.Lang in
+theorem step4NegNeg_reads' {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = true) :
+    (Mach.run N ((step4NegNegProgram).redirect 2 0) 1
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
+  simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, evalOp,
+    step4NegNegProgram, Program.redirect, Mach.init, Node.args, argRow, NumOps.keep, hx]
+
+
+
+open Engine.Lang Engine.Machine in
+/-- N1's witness: `vol` renamed `vol2` over the step 4 program and header, as a proposition about them. -/
+def n1Witness (p : Program) (cfg : Config) : Prop :=
+  let ρ : String → String := fun s => if s = "vol" then "vol2" else s
+  (∀ s ∈ ["vol"], ∀ s' ∈ ["vol"], ρ s = ρ s' → s = s') ∧
+    (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
+    (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧
+    (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
+    p.rename ρ ≠ p ∧ (match bind (p.rename ρ) (cfg.rename ρ) with | .ok _ => true | .error _ => false) = true
+
+open Engine.Lang Engine.Machine in
+instance (p : Program) (cfg : Config) : Decidable (n1Witness p cfg) := by
+  unfold n1Witness
+  infer_instance
+
+open Engine.Lang Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem n1_witness_holds :
+    (match parse step4Vol, parseHeader step4Header with
+      | .ok p, .ok cfg => decide (n1Witness p cfg)
+      | _, _ => false) = true := by
+  decide +kernel
+
+
+
 open Engine.Lang in
 /-- B3 L2, the checker: its programs are well formed, and `check` is `parse`'s verdict, code for code. The
 witnesses: a legal float program is accepted and a text that is no program is refused with E_PARSE. -/
@@ -646,7 +764,21 @@ theorem L2_checker :
     ((∃ p, parse step4Vol = .ok p ∧ p.WF) ∧
       (Engine.check step4Vol).startsWith "{\"ok\":true" = true ∧
       parse "not a program" = .error "E_PARSE") := by
-  sorry
+  refine ⟨fun text p h => parseAt_wfb (parse_ok_iff.1 h), check_ok_iff, check_error, ?_⟩
+  have hvol : (match parse step4Vol with | .ok p => p.wfb | .error _ => false) = true := by decide +kernel
+  have hbad : (match parse "not a program" with | .error c => c == "E_PARSE" | .ok _ => false) = true := by
+    decide +kernel
+  refine ⟨?_, ?_, ?_⟩
+  · cases hp : parse step4Vol with
+    | ok p => rw [hp] at hvol; exact ⟨p, rfl, hvol⟩
+    | error _ => rw [hp] at hvol; simp at hvol
+  · exact (check_ok_iff step4Vol).2 (by
+      cases hp : parse step4Vol with
+      | ok p => exact ⟨p, rfl⟩
+      | error _ => rw [hp] at hvol; simp at hvol)
+  · cases hp : parse "not a program" with
+    | error c => rw [hp] at hbad; simpa using hbad
+    | ok _ => rw [hp] at hbad; simp at hbad
 
 open Engine.Lang in
 /-- B3 L2, units: on a checked program the unit-instrumented evaluator never raises a unit or sort error at any
@@ -663,7 +795,8 @@ theorem L2_units {α : Type} :
     (∃ p : Program, parse step4Vol = .ok p ∧ ∃ i, p.probeNodes[0]? = some i ∧
       ∀ (N : NumOps α) (x : α), N.finite x = true →
         (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[i]![0]! = some x) := by
-  sorry
+  refine ⟨fun N p hwf coins ts => l2_units N hwf coins ts, ?_⟩
+  refine ⟨step4VolProgram, parse_step4Vol_eq, 0, rfl, fun N x hx => step4Vol_reads N x hx⟩
 
 open Engine.Lang in
 /-- B3 L3 over declared sources: a rewrite of R version 1 keeps a well-formed program well formed, gives every
@@ -687,7 +820,22 @@ theorem L3_rewrite {α : Type} :
             = some x ∧
         (Mach.run N p' 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[p'.probeNodes[0]!]![0]!
             = some x) := by
-  sorry
+  refine ⟨fun N hL r p p' i hwf happ coins ts => ?_, rfl, ?_⟩
+  · obtain ⟨h1, h2, h3⟩ := rewrite_sound N hL r hwf happ
+    exact ⟨h1, fun k hk => h2 coins ts k hk, fun j hj => h3 coins ts j hj⟩
+  · refine ⟨.negNeg, step4NegNegProgram, step4NegNegProgram.redirect 2 0, 2, by simp [Rule.all],
+      parse_step4NegNeg_eq, rfl, ?_, fun N hL x hx => ⟨?_, ?_⟩⟩
+    · intro h
+      have := congrArg Program.probeNodes h
+      simp [Program.redirect, step4NegNegProgram] at this
+    · have h0 : step4NegNegProgram.probeNodes[0]! = 2 := by
+        simp [step4NegNegProgram]
+      rw [h0]
+      exact step4NegNeg_reads N hL x hx
+    · have h0 : (step4NegNegProgram.redirect 2 0).probeNodes[0]! = 0 := by
+        simp [Program.redirect, step4NegNegProgram]
+      rw [h0]
+      exact step4NegNeg_reads' N x hx
 
 open Engine.Lang Engine.Machine in
 /-- B3 L5 over declared sources: `start`'s preflight, before any event or tick, fails exactly when the program
@@ -715,7 +863,11 @@ theorem L5_binding :
       (∃ st, start step4Traded step4Header = .ok st) ∧
       start step4Traded step4HeaderNoTrades = .error "E_UNKNOWN_INPUT" ∧
       start step4Vol step4HeaderNoVol = .error "E_UNKNOWN_INPUT") := by
-  sorry
+  refine ⟨fun p cfg => ⟨bind_error_iff p cfg, bind_ok_iff p cfg⟩,
+    fun program header p cfg hp hc hb he => start_bind_error hp hc hb he,
+    fun program header st h => start_ok_bind h, ?_⟩
+  exact ⟨exists_ok_of start_vol_ok, exists_ok_of start_traded_ok, eq_error_of start_traded_refused,
+    eq_error_of start_vol_refused⟩
 
 open Engine.Lang Engine.Machine in
 /-- B3 N1: a consistent renaming of the declared sources, in the program and in the header, leaves the
@@ -745,7 +897,75 @@ theorem N1_renaming {α : Type} :
        (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
        (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧ (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
        p.rename ρ ≠ p ∧ bind (p.rename ρ) (cfg.rename ρ) = .ok ())) := by
-  sorry
+  refine ⟨?_, ?_⟩
+  · intro names ρ hinj _ N p cfg hwf hd hs ho coins ts ts' hlen hrel
+    refine ⟨wf_rename ρ hwf, bind_rename ρ names hinj p cfg hd ho, ?_⟩
+    have hrun := run_rename N ρ p coins ts ts' hlen (fun i t t' h1 h2 => by
+      obtain ⟨hv, _, hi⟩ := hrel i t t' h1 h2
+      refine ⟨hv, fun name u hmem c => hi c name ?_⟩
+      simp only [Program.sourceNames, List.mem_filterMap]
+      exact ⟨.source name u, hmem, rfl⟩)
+    rw [hrun]
+  · cases hp : parse step4Vol with
+    | error _ => have := n1_witness_holds; rw [hp] at this; simp at this
+    | ok p =>
+      cases hc : parseHeader step4Header with
+      | error _ => have := n1_witness_holds; rw [hp, hc] at this; simp at this
+      | ok cfg =>
+        have := n1_witness_holds
+        rw [hp, hc] at this
+        have hw : n1Witness p cfg := of_decide_eq_true this
+        obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hw
+        refine ⟨p, cfg, rfl, rfl, h1, h2, h3, h4, h5, h6, ?_⟩
+        cases hb : bind (p.rename fun s => if s = "vol" then "vol2" else s)
+            (cfg.rename fun s => if s = "vol" then "vol2" else s) with
+        | ok u => rfl
+        | error e => rw [hb] at h7; simp at h7
+
+/-- The event of L1a's witnesses: one declared float observation at the horizon's start. -/
+def l1aSeen (bits : UInt64) : Engine.Machine.Event :=
+  { coin := 0, time := 1775174400000, known := 1775174400000, payload := .observation 0 bits }
+
+open Engine.Machine in
+/-- L1a's witnesses as one boolean, evaluated by the kernel. -/
+def l1aWitnessCheck : Bool :=
+  match start step4Vol step4Header with
+  | .error _ => false
+  | .ok initial =>
+    (finish (feed initial (pack [l1aSeen 4613937818241073152])).1).2.startsWith "{\"ok\":true" &&
+    (finish (feed initial (pack [l1aSeen 4617315517961601024])).1).2.startsWith "{\"ok\":true" &&
+    (match snapshots initial [l1aSeen 4613937818241073152], snapshots initial [l1aSeen 4617315517961601024] with
+     | some r₁, some r₂ =>
+       decide (r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"]) &&
+       decide (r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])
+     | _, _ => false)
+
+set_option maxHeartbeats 4000000 in
+theorem l1aWitnessCheck_true : l1aWitnessCheck = true := by
+  decide +kernel
+
+open Engine.Machine in
+theorem l1a_witness :
+    ∃ initial : State, start step4Vol step4Header = .ok initial ∧
+      (finish (feed initial (pack [l1aSeen 4613937818241073152])).1).2.startsWith "{\"ok\":true" = true ∧
+      (finish (feed initial (pack [l1aSeen 4617315517961601024])).1).2.startsWith "{\"ok\":true" = true ∧
+      (∃ r₁ r₂, snapshots initial [l1aSeen 4613937818241073152] = some r₁ ∧
+        snapshots initial [l1aSeen 4617315517961601024] = some r₂ ∧
+        r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"] ∧
+        r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"]) := by
+  have h := l1aWitnessCheck_true
+  unfold l1aWitnessCheck at h
+  split at h
+  · simp at h
+  · rename_i initial hstart
+    simp only [Bool.and_eq_true] at h
+    obtain ⟨⟨h1, h2⟩, h3⟩ := h
+    refine ⟨initial, hstart, h1, h2, ?_⟩
+    split at h3
+    · rename_i r₁ r₂ hs1 hs2
+      simp only [Bool.and_eq_true, decide_eq_true_eq] at h3
+      exact ⟨r₁, r₂, hs1, hs2, h3.1, h3.2⟩
+    · simp at h3
 
 open Engine.Machine in
 /-- B3 L1a ★ for the machine so far, over a common successful `start` and admitted event streams: two markets
@@ -772,7 +992,26 @@ theorem L1a :
        (∃ r₁ r₂, snapshots initial [seen 4613937818241073152] = some r₁ ∧
          snapshots initial [seen 4617315517961601024] = some r₂ ∧
          r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"] ∧
-         r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])) := by
-  sorry
+          r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])) := by
+  refine ⟨?_, l1a_witness⟩
+  intro program header initial hs es₁ es₂ τ h1 h2 r₁ r₂ hr₁ hr₂
+  have h := Engine.Machine.delivery hs es₁ es₂ τ h1 h2 r₁ r₂ hr₁ hr₂
+  exact ⟨h, by rw [h]⟩
+
+/-- B3 X3, the reader twin. The builder supplies, in `Engine.Exact`,
+`readBitsFast : Nat → UInt64 → Option Int`, with the same signature as
+`readBits : Nat → UInt64 → Option Int`. This equality has no scale, range or
+finite-input premise; its constant-equality form is the compiler's `csimp` form. -/
+theorem X3_readBits : @Engine.Exact.readBits = @Engine.Exact.readBitsFast :=
+  Engine.Exact.readBits_eq_readBitsFast
+
+/-- B3 X3, the integer grid. The builder supplies, in `Engine.Exact`,
+`onGridAt : Nat → Int → Nat → Int → Bool` (figures, decimals, scale, units).
+The plain side is `onGrid : Nat → Int → Rat → Bool`, the function C2 names.
+There is no positivity, valid-rules, decimal-range or scale-bound premise. -/
+theorem X3_onGrid (figures : Nat) (decimals : Int) (scale : Nat) (n : Int) :
+    Engine.Exact.onGridAt figures decimals scale n =
+      Engine.Exact.onGrid figures decimals ((n : Rat) / (10 : Rat) ^ scale) :=
+  Engine.Exact.onGridAt_eq figures decimals scale n
 
 end Engine.Laws

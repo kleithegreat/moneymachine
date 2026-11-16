@@ -22,7 +22,8 @@ structure FinishResult where
   summary : String
 
 @[export mm2_machine_start]
-def startExported (program header : String) : Except String State := start program header
+def startExported (program header : String) : Except String State :=
+  if program.isEmpty then startAdmission header else start program header
 
 @[export mm2_machine_feed]
 def feedExported (s : State) (records integers doubles : ByteArray) : FeedResult :=

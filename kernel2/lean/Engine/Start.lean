@@ -1,4 +1,5 @@
 import Engine.Machine
+import Engine.Lang.Syntax
 
 /-!
 # `start` (KERNEL.md A17, A18)
@@ -110,7 +111,8 @@ def parseObservation (j : J) : Except String Observation := do
   let name ← strField j "name"
   let unit ← strField j "unit"
   let lag ← intField j "lag"
-  unless 0 ≤ lag do headerError
+  unless 0 ≤ lag && Engine.Lang.validName name && !Engine.Lang.inputNames.contains name &&
+      (Engine.Lang.Dim.parse unit).isSome do headerError
   let flow ← match ← strField j "kind" with
     | "state" => .ok false
     | "flow" => .ok true
@@ -184,6 +186,7 @@ def parseHeader (text : String) : Except String Config := do
     | some (.arr os) => os.mapM parseObservation
     | none => pure []
     | _ => headerError
+  unless (observations.map (·.name)).eraseDups.length == observations.length do headerError
   let aliases ← parseAliases (← need (j.field? "aliases"))
   unless (aliases.map (·.2)).eraseDups.length == aliases.length do headerError
   unless aliases.all (fun a => rawNames.contains a.1) do headerError
@@ -200,38 +203,66 @@ def parseHeader (text : String) : Except String Config := do
     fundingLate := fundingLate, quotes := quotes, trades := trades, observations := observations,
     tickMs := none }
 
-/-- The program, as far as the machine of step 3 reads it: its tick in milliseconds, or none for an
-admission-only run (the empty text). A program with sources, parameters, lets, slots or probes waits for step 4. -/
-def parseProgram (text : String) : Except String (Option Int) :=
-  if text.isEmpty then .ok none
-  else
-    match parse text with
-    | .error _ => .error "E_PARSE"
-    | .ok j =>
-      if !j.keysAre ["version", "tick", "decide_every", "leverage", "sources", "params", "let", "slots", "probes"] []
-      then .error "E_PARSE"
-      else
-        let empty (key : String) : Bool := match j.field? key with | some (.arr []) => true | _ => false
-        match j.field? "version", j.field? "tick", j.field? "decide_every" with
-        | some (.int 2), some (.int tick), some (.int every) =>
-          if 1 ≤ tick && 1 ≤ every && empty "sources" && empty "params" && empty "let" && empty "slots" &&
-              empty "probes" then .ok (some (tick * 1000))
-          else .error "E_PARSE"
-        | _, _, _ => .error "E_PARSE"
-
 def meetsProtected (cfg : Config) : Bool :=
   windows.any fun w => !w.released && decide (w.start < cfg.stop) && decide (cfg.start < w.stop)
 
-/-- A run's first state: every coin listed with its header's rules, no event admitted, the clock at its first tick. -/
-def start (program header : String) : Except String State := do
-  let tick ← parseProgram program
+/-- The header declares a source under a name and a unit, units compared canonically (A17). -/
+def Config.declaresSource (cfg : Config) (name unit : String) : Bool :=
+  cfg.observations.any fun o =>
+    o.name == name && (Engine.Lang.Dim.parse o.unit).map Engine.Lang.Dim.canon == some unit
+
+/-- The header with its declared sources renamed. -/
+def Config.rename (ρ : String → String) (cfg : Config) : Config :=
+  { cfg with observations := cfg.observations.map fun o => { o with name := ρ o.name } }
+
+/-- `start`'s preflight against the market: a source the program declares that the header does not, or `traded`
+on a market with no trade source (A5, A17). -/
+def bind (p : Engine.Lang.Program) (cfg : Config) : Except String Unit :=
+  if p.declared.any (fun d => !cfg.declaresSource d.1 d.2) || (p.readsTraded && cfg.trades.isNone) then
+    .error "E_UNKNOWN_INPUT"
+  else .ok ()
+
+def greatestLeverage (rules : Rules) : Int := rules.tiers.foldl (fun m t => max m t.2) 0
+
+/-- A program's leverage against the coins' tiers (A17): at most each coin's greatest, and by coin it names
+exactly the market's coins. -/
+def leverageOk (p : Engine.Lang.Program) (cfg : Config) : Bool :=
+  match p.leverage with
+  | .all n => cfg.initialRules.all fun r => decide ((n : Int) ≤ greatestLeverage r)
+  | .byCoin entries =>
+    entries.length == cfg.names.length && (entries.map (·.1)).eraseDups.length == entries.length &&
+      (cfg.names.zip cfg.initialRules).all fun (name, r) =>
+        match entries.find? (·.1 == name) with
+        | some (_, n) => decide ((n : Int) ≤ greatestLeverage r)
+        | none => false
+
+/-- What `start` checks of a program and a header before it binds the two. -/
+def prepare (program header : String) : Except String (Engine.Lang.Program × Config) := do
+  let p ← Engine.Lang.parse program
   let cfg ← parseHeader header
   if meetsProtected cfg then .error "R_PROTECTED"
-  else
-    let first := tick.map fun ms => (cfg.start + ms - 1) / ms * ms
-    return {
-      cfg := { cfg with tickMs := tick }, count := 0, previous := none, ids := [], ended := [],
-      rules := cfg.initialRules, coins := cfg.names.map fun _ => CoinState.fresh, nextTick := first,
-      traceLines := 0, rejected := none }
+  else if !leverageOk p cfg then .error "E_LEVERAGE"
+  else return (p, cfg)
+
+def startBeforeBind (program header : String) : Except String Unit := (prepare program header).map fun _ => ()
+
+def initialState (cfg : Config) (prog : Option Engine.Lang.Program) (tick : Option Int) : State :=
+  let first := tick.map fun ms => (cfg.start + ms - 1) / ms * ms
+  { cfg := { cfg with tickMs := tick }, count := 0, previous := none, ids := [], ended := [],
+    rules := cfg.initialRules, coins := cfg.names.map fun _ => CoinState.fresh, nextTick := first,
+    traceLines := 0, rejected := none, prog := prog, pending := [],
+    view := cfg.names.map fun _ => ViewCoin.fresh cfg.observations.length,
+    mach := Engine.Lang.Mach.init Engine.Lang.bitsOps (prog.getD default) cfg.names.length }
+
+/-- A run's first state: every coin listed with its header's rules, no event admitted, the clock at its first tick. -/
+def start (program header : String) : Except String State := do
+  let (p, cfg) ← prepare program header
+  bind p cfg
+  return initialState cfg (some p) (some ((p.tick : Int) * 1000))
+
+/-- An admission-only run: no program, no clock, no view. -/
+def startAdmission (header : String) : Except String State := do
+  let cfg ← parseHeader header
+  if meetsProtected cfg then .error "R_PROTECTED" else return initialState cfg none none
 
 end Engine.Machine

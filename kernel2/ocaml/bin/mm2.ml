@@ -14,7 +14,7 @@ let check path =
   | text ->
     let verdict = Mm2_lean.Check.program text in
     print_endline verdict;
-    if verdict = "ok" then 0 else 1
+    if String.starts_with ~prefix:"{\"ok\":true" verdict then 0 else 1
 
 let error_line code detail =
   print_endline (Yojson.Basic.to_string (`Assoc [ "error", `String code; "detail", `String detail ]));

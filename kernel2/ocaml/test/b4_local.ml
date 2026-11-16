@@ -1,11 +1,11 @@
 (* Step 4, test 1 (B4): version 2's float evaluator against the Lean reference's stored streams. LOCAL: it reads data
    the Nix sandbox cannot see, so it is an executable and not part of @runtest.
 
-     b4_local.exe REF_DIR [AUDIT_DIR [LIMIT]]
+     b4_local.exe REF_DIR [AUDIT_DIR [LIMIT [SHARD COUNT]]]
 
    REF_DIR is `data/stage6/c64-reference` (out/<N1|N2|N3>/<name>.json.zst and .bin.zst, each market's mk-*.json,
    SHA256SUMS, raw-sha256.json, manifest.json). AUDIT_DIR holds c64-corpus.jsonl and c64-manifest.json (default
-   audit/stage6). LIMIT bounds the items taken from each market (default all). Exit 0 and one summary line when every
+   audit/stage6). LIMIT bounds the items taken from each market before sharding (default all). Exit 0 and one summary line when every
    stream is bit-identical; exit 1 and the first divergence otherwise.
 
    Checked first: SHA256SUMS over REF_DIR, the corpus's hash against its manifest, and the presence of manifest.json
@@ -390,13 +390,20 @@ let compare_item ~market ~name ~nodes ~stream state =
   ignore (Unix.close_process_in ic)
 
 let () =
-  let dir, audit, limit =
-    match Array.to_list Sys.argv with
-    | [ _; dir ] -> dir, "audit/stage6", max_int
-    | [ _; dir; audit ] -> dir, audit, max_int
-    | [ _; dir; audit; limit ] -> dir, audit, int_of_string limit
-    | _ -> prerr_endline "usage: b4_local REF_DIR [AUDIT_DIR [LIMIT]]"; exit 2
+  let usage () =
+    prerr_endline "usage: b4_local.exe REF_DIR [AUDIT_DIR [LIMIT [SHARD COUNT]]]";
+    exit 2
   in
+  let dir, audit, limit, shard, count =
+    match Array.to_list Sys.argv with
+    | [ _; dir ] -> dir, "audit/stage6", max_int, 0, 1
+    | [ _; dir; audit ] -> dir, audit, max_int, 0, 1
+    | [ _; dir; audit; limit ] -> dir, audit, int_of_string limit, 0, 1
+    | [ _; dir; audit; limit; shard; count ] ->
+      dir, audit, int_of_string limit, int_of_string shard, int_of_string count
+    | _ -> usage ()
+  in
+  if count <= 0 || shard < 0 || shard >= count then usage ();
   List.iter
     (fun file -> if not (Sys.file_exists (Filename.concat dir file)) then fail "%s is missing: the reference's run is not finished" file)
     [ "SHA256SUMS"; "manifest.json"; "raw-sha256.json" ];
@@ -424,28 +431,31 @@ let () =
         (fun item ->
           let markets = List.map J.Util.to_string (items (member "markets" item)) in
           if List.mem name markets && !taken < limit then begin
+            let position = !taken in
             incr taken;
-            let item_name = J.Util.to_string (member "name" item) in
-            let compiled = compile ~present (J.Util.to_string (member "program" item)) in
-            let stream = Filename.concat out (item_name ^ ".bin.zst") in
-            let json_path = Filename.concat out (item_name ^ ".json.zst") in
-            let head = read_head json_path 9 in
-            let label = name ^ "/" ^ item_name in
-            match M.start compiled.text market.header with
-            | Error code ->
-              if head = {|{"trace":|} then fail "%s: the reference ran it and version 2's start refused it: %s" label code
-              else if not (compiled.unbound_slot && code = "E_UNKNOWN_INPUT") then
-                fail "%s: the reference did not run it (%s) and start gave %s" label
-                  (read_head json_path 80) code
-              else incr aborted
-            | Ok state ->
-              if head <> {|{"trace":|} then fail "%s: the reference did not run it and version 2 started" label;
-              compare_item ~market ~name:label ~nodes:compiled.nodes ~stream state;
-              incr compared;
-              ticks_total := !ticks_total + market.ticks
+            if position mod count = shard then begin
+              let item_name = J.Util.to_string (member "name" item) in
+              let compiled = compile ~present (J.Util.to_string (member "program" item)) in
+              let stream = Filename.concat out (item_name ^ ".bin.zst") in
+              let json_path = Filename.concat out (item_name ^ ".json.zst") in
+              let head = read_head json_path 9 in
+              let label = name ^ "/" ^ item_name in
+              match M.start compiled.text market.header with
+              | Error code ->
+                if head = {|{"trace":|} then fail "%s: the reference ran it and version 2's start refused it: %s" label code
+                else if not (compiled.unbound_slot && code = "E_UNKNOWN_INPUT") then
+                  fail "%s: the reference did not run it (%s) and start gave %s" label
+                    (read_head json_path 80) code
+                else incr aborted
+              | Ok state ->
+                if head <> {|{"trace":|} then fail "%s: the reference did not run it and version 2 started" label;
+                compare_item ~market ~name:label ~nodes:compiled.nodes ~stream state;
+                incr compared;
+                ticks_total := !ticks_total + market.ticks
+            end
           end)
         corpus;
       Printf.printf "%s: %d items taken\n%!" name !taken)
     [ "N1"; "N2"; "N3" ];
-  Printf.printf "b4: %d streams bit-identical over %d ticks, %d refused alike by start and the reference\n" !compared
-    !ticks_total !aborted
+  Printf.printf "b4: shard %d of %d: %d streams bit-identical over %d ticks, %d refused alike by start and the reference\n"
+    shard count !compared !ticks_total !aborted
