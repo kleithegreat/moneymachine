@@ -304,7 +304,7 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 **`account`:**
 - `absorbed`, `funding` and `near` are totals since the horizon's start: what was absorbed, the funding paid less that received, and A7's count of taker fills near an earlier one.
 - `long` and `short` are notionals at prices, each at least zero.
-- **Pinned here:** `stale` is the share of the day's milliseconds, those inside the horizon, in which the world held the coin stale; `open` is 1 when the coin had a position or a live order in any of them. Both are `-` for a coin whose listing ended before the day began.
+- **Pinned here:** `stale` is the share of the day's milliseconds, those inside the horizon, in which the world held the coin stale; `open` is 1 when the coin had a position or a live order in one of the milliseconds in which the world held it stale: what the account had open across the staleness, as A3 says, which a mark over the whole day could not show (GPT's finding 4, the last pass's round 1). Both are `-` for a coin whose listing ended before the day began.
 
 ### The trace
 
