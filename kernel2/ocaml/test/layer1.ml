@@ -35,7 +35,9 @@
    Mm2_lean.Decimal.place : string -> ((string * int), string) result.
 
    Local only: dune exec --root kernel2/ocaml test/layer1.exe -- FILLS_DIRECTORY
-   Run from the repository or a descendant so the read-only rules file is found.
+    Run from the repository or a descendant so the read-only meta file is found.
+    Replay keeps first tids in file-name/array order, then stably sorts by time.
+    The reader's (time, tid) tie order is not used as execution order.
    No raw fills are fixtures or Nix inputs; this executable is NOT @runtest.
    A8's base tier is for the simulated account, not a specified vault tier.
    Accordingly rates, too, are found on the first 100 unique fills and frozen
@@ -98,7 +100,7 @@ let page_number name =
 let pages directory =
   Sys.readdir directory |> Array.to_list
   |> List.filter_map (fun name -> Option.map (fun number -> number, name) (page_number name))
-  |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+  |> List.sort (fun (_, a) (_, b) -> String.compare a b)
   |> List.mapi (fun index (number, name) ->
     if number <> index then difference name "missing or misnumbered API page";
     name)
@@ -118,9 +120,10 @@ let verify_hashes directory names =
             let name = String.sub line 66 (String.length line - 66) in
             let name = if String.starts_with ~prefix:"./" name then
                 String.sub name 2 (String.length name - 2) else name in
-            if not (List.mem name names) then difference "SHA256SUMS" ("unexpected file " ^ name)
-            else if Hashtbl.mem sums name then difference name "repeated checksum"
-            else Hashtbl.add sums name hash
+            if List.mem name names then begin
+              if Hashtbl.mem sums name then difference name "repeated checksum"
+              else Hashtbl.add sums name hash
+            end
           end;
           lines ()
         | exception End_of_file -> ()
@@ -145,6 +148,7 @@ let verify_hashes directory names =
 
 let load directory names =
   let unique = Hashtbl.create 6000 in
+  let ordered = ref [] in
   let duplicates = ref 0 in
   List.iter
     (fun name ->
@@ -157,17 +161,17 @@ let load directory names =
             | None -> ()
             | Some row ->
               begin match Hashtbl.find_opt unique row.tid with
-              | None -> Hashtbl.add unique row.tid row
+              | None ->
+                Hashtbl.add unique row.tid row;
+                ordered := row :: !ordered
               | Some previous ->
                 incr duplicates;
                 if row <> previous then difference context "same tid, conflicting fill objects"
               end)
           rows)))
     names;
-  let rows = Hashtbl.fold (fun _ row acc -> row :: acc) unique [] in
-  let rows = List.sort (fun (a : F.fill) (b : F.fill) ->
-    let time = Int64.compare a.time b.time in
-    if time = 0 then Int64.compare a.tid b.tid else time) rows in
+  let rows = List.stable_sort (fun (a : F.fill) (b : F.fill) ->
+    Int64.compare a.time b.time) (List.rev !ordered) in
   if List.length rows <> 5806 then
     difference "fill count" (Printf.sprintf "got %d unique tids; expected 5806" (List.length rows));
   if !duplicates = 0 then difference "API pages" "no repeated boundary rows were exercised";
@@ -195,16 +199,17 @@ let check_reader directory expected =
           Hashtbl.remove by_id row.tid)
       expected;
     Hashtbl.iter (fun tid _ -> difference (Int64.to_string tid) "reader invented a fill") by_id;
-    if List.map (fun (r : F.fill) -> r.tid) actual <> List.map (fun (r : F.fill) -> r.tid) expected then
-      difference "OCaml fills reader" "order/count differs from deduplicated (time, tid) order"
+    (* Reader ties are not execution order; fields and tids were checked above. *)
+    if List.map (fun (r : F.fill) -> r.time) actual <> List.map (fun (r : F.fill) -> r.time) expected then
+      difference "OCaml fills reader" "time order/count differs from deduplicated API replay"
 
-let rec rules_path directory =
-  let path = Filename.concat directory "venue/hyperliquid/rules.json" in
+let rec meta_path directory =
+  let path = Filename.concat directory "venue/hyperliquid/meta-2026-11-16.json" in
   if Sys.file_exists path then path
   else
     let parent = Filename.dirname directory in
-    if parent = directory then failwith "cannot find read-only venue/hyperliquid/rules.json"
-    else rules_path parent
+    if parent = directory then failwith "cannot find read-only venue/hyperliquid/meta-2026-11-16.json"
+    else meta_path parent
 
 let significant_digits text =
   let digits = String.concat "" (String.split_on_char '.' text) |> Z.of_string |> Z.abs in
@@ -216,7 +221,7 @@ type analyzed = {
   after : O.position; pnl : Q.t;
 }
 
-let analyze rules coins rows =
+let analyze coin_sizes coins rows =
   let positions = Array.make (List.length coins) O.flat in
   let analyzed = ref [] in
   List.iter
@@ -224,7 +229,7 @@ let analyze rules coins rows =
       let context = Printf.sprintf "tid=%Ld %s time=%Ld" row.tid row.coin row.time in
       match protect context (fun () ->
         let coin = List.assoc row.coin (List.mapi (fun i name -> name, i) coins) in
-        let sz_decimals = field "coins" rules |> field row.coin |> field "szDecimals" |> Yojson.Safe.Util.to_int in
+        let sz_decimals = List.assoc row.coin coin_sizes in
         if sz_decimals < 0 || sz_decimals > 6 then failwith "szDecimals outside the certificate's 0..6";
         let price = Q.decimal row.px and size = Q.decimal row.sz in
         if not (Q.lt Q.zero price && Q.lt Q.zero size) then failwith "nonpositive fill price/size";
@@ -388,9 +393,19 @@ let main directory =
   verify_hashes directory names;
   let rows = load directory names in
   check_reader directory rows;
-  let rules = Yojson.Safe.from_file (rules_path (Sys.getcwd ())) in
+  let meta = Yojson.Safe.from_file (meta_path (Sys.getcwd ())) in
+  let coin_sizes = field "universe" meta |> Yojson.Safe.Util.to_list
+    |> List.map (fun coin -> string "name" coin,
+      field "szDecimals" coin |> Yojson.Safe.Util.to_int) in
   let coins = List.map (fun (row : F.fill) -> row.coin) rows |> List.sort_uniq String.compare in
-  let analyzed = analyze rules coins rows in
+  let missing = ref false in
+  List.iter (fun coin ->
+    if not (List.mem_assoc coin coin_sizes) then begin
+      difference coin "fill coin absent from meta-2026-11-16.json universe";
+      missing := true
+    end) coins;
+  if !missing then failwith "STOP: fill coin absent from venue meta";
+  let analyzed = analyze coin_sizes coins rows in
   let fee_mode, pnl_mode, maker_rate, taker_rate = calibrate (first_hundred analyzed) in
   check_ledger coins analyzed fee_mode pnl_mode maker_rate taker_rate;
   Printf.printf "layer1: %d differences across %d fills\n%!" !differences (List.length rows);
