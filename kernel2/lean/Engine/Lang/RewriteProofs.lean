@@ -736,4 +736,42 @@ theorem hnode_ifNot {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i nc a b cc 
   · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
     simp
 
+/-- What L3 says of one rule's result, for a redirect of node `i` to node `x`. -/
+def RewriteConclusion (N : NumOps α) (p p' : Program) : Prop :=
+  p'.WF ∧
+  (∀ (coins : Nat) (ts : List (Tick α)) (k : Nat), k < p.nodes.size →
+    (Mach.run N p' coins ts).vals[k]! = (Mach.run N p coins ts).vals[k]!) ∧
+  (∀ (coins : Nat) (ts : List (Tick α)) (j : Nat), j < p.probeNodes.size →
+    (Mach.run N p' coins ts).vals[p'.probeNodes[j]!]! = (Mach.run N p coins ts).vals[p.probeNodes[j]!]!)
+
+theorem redirect_final {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : i < p.nodes.size)
+    (hty : p.types[x]! = p.types[i]!)
+    (hsem : ∀ (t : Tick α) (m : Mach α), (Mach.step N p t m).vals[i]! = (Mach.step N p t m).vals[x]!) :
+    RewriteConclusion N p (p.redirect i x) := by
+  obtain ⟨hwf', hrun, hrow⟩ := redirect_law N hwf hxi hi hty hsem
+  refine ⟨hwf', fun coins ts k _ => by rw [hrun coins ts], fun coins ts j hj => ?_⟩
+  rw [hrun coins ts]
+  have hq : (p.redirect i x).probeNodes[j]! = if p.probeNodes[j]! == i then x else p.probeNodes[j]! :=
+    array_map_get _ p.probeNodes hj
+  rw [hq]
+  by_cases hqi : p.probeNodes[j]! == i
+  · have : p.probeNodes[j]! = i := by simpa using hqi
+    rw [if_pos hqi, this]
+    exact (hrow coins ts).symm
+  · rw [if_neg hqi]
+
+theorem replace_final {p : Program} {i : Nat} (hwf : p.WF) (hi : i < p.nodes.size) (o : Op) (args : List Nat)
+    (hargs : ∀ a ∈ args, a < i) (hty : opTy o (args.map (p.types[·]!)) = some p.types[i]!)
+    (hn : (Node.op o args).plain = true) (ho : p.nodes[i]!.plain = true)
+    (hnode : ∀ (t : Tick α) (m : Mach α),
+      nodeFull N t (.op o args) m.count m.coins (argRow (Mach.step N p t m).vals (Node.op o args).args) m.ns[i]! =
+      nodeFull N t p.nodes[i]! m.count m.coins (argRow (Mach.step N p t m).vals (p.nodes[i]!).args) m.ns[i]!) :
+    RewriteConclusion N p (p.replace i (.op o args)) := by
+  have hrun : ∀ (coins : Nat) (ts : List (Tick α)),
+      Mach.run N (p.replace i (.op o args)) coins ts = Mach.run N p coins ts := fun coins ts =>
+    run_eq_of_step N coins ts (fun t m => replace_step N (wf_ordered hwf) hi (.op o args) hargs hnode t m)
+      (replace_init N p hi (.op o args) coins hn ho)
+  exact ⟨replace_wf hwf hi o args hargs hty, fun coins ts k _ => by rw [hrun coins ts],
+    fun coins ts j _ => by rw [hrun coins ts]; rfl⟩
+
 end Engine.Lang
