@@ -76,3 +76,13 @@
  (wrapped false)
  (modules scale_support)
  (libraries events_support))
+
+(test
+ (name eval_test)
+ (modules eval_test)
+ (libraries events_support mm2_lean yojson))
+
+(executable
+ (name b4_local)
+ (modules b4_local)
+ (libraries events_support mm2_lean yojson unix))
