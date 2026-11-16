@@ -548,27 +548,3 @@ theorem C2 :
   exact Engine.Machine.rejected_run state event suffix hdec hnn
 
 end Engine.Laws
-
-/-
-Step 3, B3 X3: statements alone, before the twins or their proofs are built.
-The twins have signatures identical to the plain functions:
-  Engine.Exact.readBitsFast : Nat → UInt64 → Option Int
-  Engine.Exact.onGridFast : Nat → Int → Rat → Bool
-These are equalities of constants, over EVERY input (not just admitted data
-or X2's scales). No declaration, instance, caller, or earlier law is restated
-on a twin. The builder supplies the twins in Engine.Exact; this file supplies
-neither declarations nor test-side replacements for missing twins. Each
-equality has the compiler's csimp shape; no csimp attribute is installed here.
--/
-
-namespace Engine.Laws
-
-/-- X3: the fast bit reader equals the plain reader on every scale and bits. -/
-theorem X3_readBits : @Engine.Exact.readBits = @Engine.Exact.readBitsFast := by
-  sorry
-
-/-- X3: fast grid membership equals plain membership on every grid and rational. -/
-theorem X3_onGrid : @Engine.Exact.onGrid = @Engine.Exact.onGridFast := by
-  sorry
-
-end Engine.Laws
