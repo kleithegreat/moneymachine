@@ -46,6 +46,7 @@ import Engine.Lang.SyntaxProofs
 import Engine.StartProofs
 import Engine.Lang.RenameProofs
 import Engine.Lang.UnitsProofs
+import Engine.Lang.RewriteLaw
 import Engine.Lang.Units
 import Engine.Lang.Rewrite
 import Engine.Exact
@@ -685,8 +686,43 @@ open Engine.Lang in
 theorem step4Vol_reads {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = true) :
     (Mach.run N step4VolProgram 1
       [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
-  simp [Mach.run, Mach.step, build, nodeStep, nodeCore, pointVal, evalNode, step4VolProgram, Mach.init,
-    Node.args, argRow, NumOps.keep, hx]
+  simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, step4VolProgram,
+    Mach.init, Node.args, argRow, NumOps.keep, hx]
+
+open Engine.Lang in
+/-- The checked program of `step4NegNeg`. -/
+def step4NegNegProgram : Program :=
+  { tick := 1, decideEvery := 1, leverage := .all 1, sources := [("vol", Dim.one)],
+    nodes := #[.source "vol" Dim.one, .op .neg [0], .op .neg [1]],
+    types := #[.num Dim.one, .num Dim.one, .num Dim.one], probeNodes := #[2] }
+
+open Engine.Lang in
+set_option maxHeartbeats 4000000 in
+theorem parse_step4NegNeg_is :
+    (match parse step4NegNeg with | .ok p => decide (p = step4NegNegProgram) | .error _ => false) = true := by
+  decide +kernel
+
+open Engine.Lang in
+theorem parse_step4NegNeg_eq : parse step4NegNeg = .ok step4NegNegProgram := by
+  have := parse_step4NegNeg_is
+  cases hp : parse step4NegNeg with
+  | error _ => rw [hp] at this; simp at this
+  | ok p => rw [hp] at this; simp at this; rw [this]
+
+open Engine.Lang in
+theorem step4NegNeg_reads {α : Type} (N : NumOps α) (hL : N.Lawful) (x : α) (hx : N.finite x = true) :
+    (Mach.run N step4NegNegProgram 1
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[2]![0]! = some x := by
+  simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, evalOp,
+    step4NegNegProgram, Mach.init, Node.args, argRow, NumOps.keep, hx, hL.finite_neg x hx, hL.neg_neg x hx]
+
+open Engine.Lang in
+theorem step4NegNeg_reads' {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = true) :
+    (Mach.run N ((step4NegNegProgram).redirect 2 0) 1
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
+  simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, evalOp,
+    step4NegNegProgram, Program.redirect, Mach.init, Node.args, argRow, NumOps.keep, hx]
+
 
 
 open Engine.Lang Engine.Machine in
@@ -783,7 +819,22 @@ theorem L3_rewrite {α : Type} :
             = some x ∧
         (Mach.run N p' 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[p'.probeNodes[0]!]![0]!
             = some x) := by
-  sorry
+  refine ⟨fun N hL r p p' i hwf happ coins ts => ?_, rfl, ?_⟩
+  · obtain ⟨h1, h2, h3⟩ := rewrite_sound N hL r hwf happ
+    exact ⟨h1, fun k hk => h2 coins ts k hk, fun j hj => h3 coins ts j hj⟩
+  · refine ⟨.negNeg, step4NegNegProgram, step4NegNegProgram.redirect 2 0, 2, by simp [Rule.all],
+      parse_step4NegNeg_eq, rfl, ?_, fun N hL x hx => ⟨?_, ?_⟩⟩
+    · intro h
+      have := congrArg Program.probeNodes h
+      simp [Program.redirect, step4NegNegProgram] at this
+    · have h0 : step4NegNegProgram.probeNodes[0]! = 2 := by
+        simp [step4NegNegProgram]
+      rw [h0]
+      exact step4NegNeg_reads N hL x hx
+    · have h0 : (step4NegNegProgram.redirect 2 0).probeNodes[0]! = 0 := by
+        simp [Program.redirect, step4NegNegProgram]
+      rw [h0]
+      exact step4NegNeg_reads' N x hx
 
 open Engine.Lang Engine.Machine in
 /-- B3 L5 over declared sources: `start`'s preflight, before any event or tick, fails exactly when the program
