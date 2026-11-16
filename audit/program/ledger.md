@@ -1682,7 +1682,7 @@ Read against `kernel-v2.md` part A, `KERNEL.md` A17 to A19 and CS2.1 to CS2.3 as
 
 ### Handover to the next architect
 
-Written 2026-11-16 21:29 UTC (16:29 EST) by Claude Fable 5.2, in its last session, for the Opus 5.5 session that takes the role. It restates no brief.
+Written 2026-11-16 21:28 UTC (16:28 EST) by Claude Fable 5.2, in its last session, for the Opus 5.5 session that takes the role. It restates no brief.
 
 **What is settled, and where its derivation lives.**
 - **What the machine does and why:** `kernel-v2.md` part A is the contract, and parts C to G hold the reason for each rule a review changed. `kernel2/KERNEL.md` A17 to A19 pin every encoding, and each "Pinned here" is a choice a builder once had to make.
