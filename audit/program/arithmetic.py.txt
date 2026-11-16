@@ -1683,6 +1683,55 @@ def venue_funding(vault_directory: Path | None, rates_file: Path | None) -> None
     print(f"    stamps at most {max(stamps)} ms after their hour; |premium| median {statistics.median(premiums):.5f}, greatest {max(premiums):.5f}")
 
 
+def layer1_read() -> None:
+    """GPT's read of layer 1 and O12 (kernel-v2.md part G): what the venue's ties and a day's row leave free, on made-up numbers."""
+    maker = Fraction(15, 100_000)
+    printed_fee, exact_fee = venue_fee(100_000, maker), Fraction(100_000) * maker
+    assert printed_fee == 14 and exact_fee == 15 and 0 <= exact_fee - printed_fee <= 1
+    first, kept = venue_close(13_574, 11, 8, 2_000)
+    exact_cost_left = Fraction(13_574 * 3, 11)
+    assert kept == 3_701 and exact_cost_left == 3_702 and exact_cost_left - 1 <= kept <= exact_cost_left
+    assert 3 * 2_000 - kept == 2_299 and 3 * 2_000 - exact_cost_left == 2_298 and venue_close(kept, 3, 3, 2_000)[0] == 2_301
+    print("  a ledger that charges the printed fee (14 for 15) and one that keeps the venue's entry notional (3,701 for 3,702, realizing 2,299")
+    print("    for 2,298 under a printed 2,301) pass both ties: the ties are compatibility, and the exact tests are what reject them")
+
+    lots = 1_000_000_000
+    entry_notional = lots + 1
+    _, cut_up = venue_close(entry_notional, lots, 1, 0)
+    exact_left = Fraction(entry_notional * (lots - 1), lots)
+    assert cut_up == 1_000_000_000 and cut_up > exact_left
+    worst_under, worst_over = Fraction(0), Fraction(0)
+    rng = np.random.default_rng(47)
+    for _ in range(20_000):
+        position = int(rng.integers(2, 10 ** int(rng.integers(1, 10))))
+        cost = Fraction(position * int(rng.integers(1, 10 ** int(rng.integers(1, 7)))))
+        venue_entry, closes = int(cost), 0
+        while position > 1 and closes < 12:
+            closed = int(rng.integers(1, position))
+            _, venue_entry = venue_close(venue_entry, position, closed, 0)
+            cost = cost * (position - closed) / position
+            position -= closed
+            closes += 1
+            assert cost - 2 * closes < venue_entry < cost + closes
+            worst_under = max(worst_under, (cost - venue_entry) / closes)
+            worst_over = max(worst_over, (venue_entry - cost) / closes)
+    print(f"  the double's product can round up: {entry_notional:,} cut by 1 lot of {lots:,} leaves {cut_up:,}, above the exact cost; over 20,000")
+    print(f"    made-up chains cost - 2m < E < cost + m always, and the most a close moved E was {float(worst_under):.3f} under and {float(worst_over):.3f} over")
+
+    rates = [Fraction(1, 10_000), Fraction(2, 10_000), Fraction(3, 10_000)]
+    right, wrong, prices = [3, 3, 3], [4, 1, 4], [100, 200, 100]
+
+    def row(sizes: list[int]) -> tuple[int, Fraction, Fraction]:
+        return len(sizes), Fraction(sum(sizes), len(sizes)), sum(q * r for q, r in zip(sizes, rates)) / sum(sizes)
+
+    def paid(sizes: list[int]) -> Fraction:
+        return sum(q * p * r for q, p, r in zip(sizes, prices, rates))
+
+    assert row(right) == row(wrong) == (3, 3, Fraction(2, 10_000))
+    assert paid(right) == Fraction(24, 100) and paid(wrong) == Fraction(20, 100)
+    print(f"  a day's row does not give its hours: sizes 3, 3, 3 and 4, 1, 4 make one row and pay {float(paid(right))} and {float(paid(wrong))} at prices 100, 200, 100")
+
+
 if __name__ == "__main__":
     print("The yardstick (section 2.1)")
     yardstick()
@@ -1710,6 +1759,8 @@ if __name__ == "__main__":
     venue_prints(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
     print("The venue's daily funding rows (facts section 7; kernel V8, V21)")
     venue_funding(Path(sys.argv[1]) if len(sys.argv) > 1 else None, Path(sys.argv[2]) if len(sys.argv) > 2 else None)
+    print("GPT's read of layer 1 and O12 (kernel-v2.md part G)")
+    layer1_read()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
