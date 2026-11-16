@@ -1071,3 +1071,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The checks are of integers:** above zero, strictly best first, not crossed (`ask ≤ bid` rejects), and on the grid by `onGridAt` at scale 8.
   - **`applyPayload` reads nothing.** `readRat`, `crossed`, `midOf`, `levelRats` and every `getD` of a reading are gone from `Machine.lean`. A `Rat` is made only for the mid and the coin's price, a row, and the view, and the view's only when a program is present (`withPending`).
   - **Fault codes and order are as before** for every kind of event, compared with `09e2e86`. Two textual differences evaluate alike. A funding event still checks rate, oracle, hour, lateness, repeat, then lag. An empty quote side is one check written as two patterns.
+- 2026-11-16 21:06 UTC (16:06 EST), the human: **the architect after Fable is a fresh Claude Opus 5.5 session at maximum reasoning, reviewed adversarially by GPT and Argon.** Access to Claude Fable on the Pro accounts ends tonight.
+  - **Fable's last session:** "architect: the last pass" (`373c0944`, personal account, TAMU if needed; brief `data/builder/architect-last-pass.txt`). It pre-answers the walls a builder can foresee in brief 3's steps 5 to 10 and in brief 4, and closes O21 to O23 where it can. It leaves a one-page handover in the ledger.
+  - **`CLAUDE.md` Orchestration** names the architect's role, never the advisor's own session.
+  - **The launcher's `architect` default moves to Opus** once that session ends.
+  - **Reverse:** a later decision of the human's.

@@ -14,13 +14,13 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. Batch Jobs: study 1's calibration (above). `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
-  - **Fable** runs one session at a time.
+  - **The architect** is a fresh Opus 5.5 session at maximum reasoning after Fable's last session, 2026-11-16 (`CLAUDE.md`).
   - **Argon** runs through the web UI (the human) or `agy`.
 - **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-build` (`study1-build`); `../mm-k2` (`kernel2-build`). Agents that edit at the same time get separate worktrees.
 
 ### Work in progress
 
-Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when available) review Fable adversarially until they converge, with a plain summary for the human after each round (`CLAUDE.md`). Laws (properties for every input) come before code, written by another agent; the steps a judged number depends on get Lean proofs. New code is maximal Lean plus OCaml (the human, 2026-11-12).
+Roles: the architect designs, Opus orchestrates, Sonnet builds; GPT and Argon review the architect adversarially until they converge, with a plain summary for the human after each round (`CLAUDE.md`). Laws (properties for every input) come before code, written by another agent; the steps a judged number depends on get Lean proofs. New code is maximal Lean plus OCaml (the human, 2026-11-12).
 
 1. **The program** (`audit/program/` on `rearchitecture`; revision 4 approved by the human 2026-11-11; `ledger.md` lists what is agreed and disputed). The project is academic: no live trading, no stage 11.
    - **Study 1, the positive control of search:** does the agent find a planted edge more often than G100? At most 100 markets, on Cornell and TAMU.
@@ -62,7 +62,7 @@ None blocks the program. Source certificates that fail, with their clauses, are 
 ## Decisions awaiting the human's review
 
 - From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the research reviews' actions; the cluster runner not adopted.
-- **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending Fable.
+- **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending the architect.
 
 ## Qualifications
 
