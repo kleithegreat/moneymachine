@@ -80,7 +80,7 @@ the collector, its tests' output, or any integrity check.
 
 Offline, against a fake REST server, written by a session that does not build the collector:
 
-1. **Paging:** 4,500 fills in a range come back as pages of 2,000, 2,000 and 500, each starting at the last `time`,
+1. **Paging:** 4,500 fills in a range come back as pages of 2,000, 2,000 and a shorter third (502, since each page repeats the last item of the one before), each starting at the last `time`,
    inclusive; every fill is stored once; the watermark moves to `now` only after the last page.
 2. **Overlap:** a fill dated 30 minutes before the watermark, first indexed after the last run, is stored by the next.
 3. **Late fill:** a fill first indexed 29 days after its `time` is stored by the next daily re-read, counted as new in
