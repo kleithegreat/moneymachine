@@ -30,7 +30,6 @@ let test_1 () =
       "nonadjacent duplicate", [ trade (at 1) 17; trade (at 1) 18; trade (at 1) 17 ];
       "trade off grid", [ trade ~price:"100.001" (at 1) 1 ];
       "quote off grid", [ quote ~ask:"100.001" (at 1) ];
-      "lot off grid", [ trade ~size:"0.001" (at 1) 1 ];
       "zero trade", [ trade ~price:"0" (at 1) 1 ];
       "zero bid", [ quote ~bid:"0" (at 1) ];
       "zero ask", [ quote ~bid:"0" ~ask:"0" (at 1) ];
@@ -42,10 +41,10 @@ let test_1 () =
       "observation at end", [ ending (at 1); observation (at 1) 1. ] ]
   in
   List.iter
-    (fun (name, events) ->
+    (fun (name, expected, events) ->
       try
-        rejection "R_MARKET" [ [ q ]; events; [ quote ~coin:1 (at 100_000) ] ];
-        rejection "R_MARKET" (List.map (fun e -> [ e ]) (q :: events));
+        rejection expected [ [ q ]; events; [ quote ~coin:1 (at 100_000) ] ];
+        rejection expected (List.map (fun e -> [ e ]) (q :: events));
         let bad, prefix = match List.rev events with
           | bad :: rest -> bad, List.rev rest
           | [] -> failwith "empty rejection case"
@@ -56,7 +55,8 @@ let test_1 () =
         let _, rows = M.feed rejected (chunk [ quote ~coin:1 (at 100_000) ]) in
         check "feed after rejection emits neither kind of row" (rows = empty_rows)
       with Failure message -> failwith (name ^ ": " ^ message))
-    bad_cases;
+    (List.map (fun (name, events) -> name, "R_MARKET", events) bad_cases
+     @ [ "lot excess decimals", "E_DECIMAL", [ trade ~size:"0.001" (at 1) 1 ] ]);
   List.iter
     (fun events -> rejection "E_DECIMAL" [ [ q ]; events ])
     [ [ trade ~price:"10000000" (at 1) 1 ];
@@ -152,7 +152,7 @@ let rec cuts = function
       (cuts rest)
 
 let same_run market expected groups =
-  let reference_state, reference_rows, reference_summary = expected in
+  let reference_state, (reference_rows : M.rows), reference_summary = expected in
   let state, rows, summary = run ~market groups in
   check "C1 complete native state" (M.snapshot state = M.snapshot reference_state);
   check "C1 report bytes and order" (rows.report = reference_rows.report);

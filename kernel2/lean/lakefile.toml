@@ -1,5 +1,0 @@
-name = "engine"
-defaultTargets = ["Engine"]
-
-[[lean_lib]]
-name = "Engine"

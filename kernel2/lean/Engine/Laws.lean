@@ -43,6 +43,9 @@ they do not implement a second arithmetic engine in OCaml or C.
 
 import Engine.Exact
 import Engine.Ledger
+import Engine.Machine
+import Engine.MachineConcrete
+import Engine.MachineFaults
 
 namespace Engine.Laws
 
@@ -435,7 +438,7 @@ theorem C1 :
         next.1.count = 1 ∧ next.1 ≠ initial ∧
         final.2.startsWith "{\"ok\":true" = true ∧
         next.2.trace ++ final.1.trace = "tick\t1775174400000\tA\t100\t0\t0\n")) := by
-  sorry
+  exact ⟨fun initial parts h1 hw => Engine.Machine.c1_general initial parts h1 hw, Engine.Machine.concrete_run⟩
 
 /-- B3 C2: a local admission fault rejects permanently, publishing no final rows. -/
 theorem C2 :
@@ -460,10 +463,10 @@ theorem C2 :
          | _ => 0
        (event.time, cls, event.coin, kind, source)
      ∀ (program header : String) (initial state : Engine.Machine.State)
-       (prefix suffix : List Engine.Machine.Event) (event : Engine.Machine.Event)
+       («prefix» suffix : List Engine.Machine.Event) (event : Engine.Machine.Event)
        (rules : Engine.Machine.Rules),
        Engine.Machine.start program header = .ok initial →
-       (Engine.Machine.feed initial (Engine.Machine.pack prefix)).1 = state →
+       (Engine.Machine.feed initial (Engine.Machine.pack «prefix»)).1 = state →
        Engine.Machine.decodeChunk state (Engine.Machine.pack [event]) = .ok [event] →
        state.rules[event.coin]? = some rules →
        let priceBad := fun (number : Engine.Machine.Number) =>
@@ -496,10 +499,10 @@ theorem C2 :
            (∃ previous, state.previous = some previous ∧ previous.time = event.time) ∧
            (event.coin, id) ∈ state.ids
          | _ => False
-       let protected := ∃ window ∈ Engine.Machine.windows,
+       let «protected» := ∃ window ∈ Engine.Machine.windows,
          window.released = false ∧ window.start ≤ event.time ∧ event.time < window.stop
        ((∃ previous, state.previous = some previous ∧ compare (key event) (key previous) = .lt) ∨
-         event.coin ∈ state.ended ∨ fieldsBad ∨ repeated ∨ protected) →
+         event.coin ∈ state.ended ∨ fieldsBad ∨ repeated ∨ «protected») →
        let rejected := Engine.Machine.feed state (Engine.Machine.pack [event])
         let after := Engine.Machine.feed rejected.1 (Engine.Machine.pack suffix)
         let final := Engine.Machine.finish after.1
@@ -521,6 +524,51 @@ theorem C2 :
         next.1.count = 1 ∧ next.1 ≠ initial ∧
         final.2.startsWith "{\"ok\":true" = true ∧
         next.2.trace ++ final.1.trace = "tick\t1775174400000\tA\t100\t0\t0\n")) := by
+  refine ⟨?_, Engine.Machine.concrete_run⟩
+  intro readNumber key program header initial state «prefix» suffix event rules hstart hstate hdec hrules
+  intro priceBad sizeBad fieldsBad repeated «protected» hfault
+  have hnn : Engine.Machine.admit state event ≠ none := by
+    rcases hfault with ho | he | hf | hr | hp
+    · exact Engine.Machine.admit_of_order _ _ (Engine.Machine.checkOrder_ne _ _ ho)
+    · exact Engine.Machine.admit_of_ended _ _ (Engine.Machine.checkEnded_ne _ _ he)
+    · exact Engine.Machine.admit_of_payload _ _ rules hrules
+        (Engine.Machine.checkPayload_of_fields _ _ rules hf)
+    · cases hpl : event.payload with
+      | trade id price size seller =>
+        have hr' : (∃ p, state.previous = some p ∧ p.time = event.time) ∧ (event.coin, id) ∈ state.ids := by
+          simpa [repeated, hpl] using hr
+        exact Engine.Machine.admit_of_payload _ _ rules hrules
+          (Engine.Machine.checkPayload_of_repeated _ _ rules id hr' ⟨price, size, seller, hpl⟩)
+      | listing _ => simp [repeated, hpl] at hr
+      | ending _ => simp [repeated, hpl] at hr
+      | funding _ _ _ => simp [repeated, hpl] at hr
+      | quote _ _ => simp [repeated, hpl] at hr
+      | observation _ _ => simp [repeated, hpl] at hr
+    · exact Engine.Machine.admit_of_protected _ _ (Engine.Machine.checkProtected_ne _ hp)
+  exact Engine.Machine.rejected_run state event suffix hdec hnn
+
+end Engine.Laws
+
+/-
+Step 3, B3 X3: statements alone, before the twins or their proofs are built.
+The twins have signatures identical to the plain functions:
+  Engine.Exact.readBitsFast : Nat → UInt64 → Option Int
+  Engine.Exact.onGridFast : Nat → Int → Rat → Bool
+These are equalities of constants, over EVERY input (not just admitted data
+or X2's scales). No declaration, instance, caller, or earlier law is restated
+on a twin. The builder supplies the twins in Engine.Exact; this file supplies
+neither declarations nor test-side replacements for missing twins. Each
+equality has the compiler's csimp shape; no csimp attribute is installed here.
+-/
+
+namespace Engine.Laws
+
+/-- X3: the fast bit reader equals the plain reader on every scale and bits. -/
+theorem X3_readBits : @Engine.Exact.readBits = @Engine.Exact.readBitsFast := by
+  sorry
+
+/-- X3: fast grid membership equals plain membership on every grid and rational. -/
+theorem X3_onGrid : @Engine.Exact.onGrid = @Engine.Exact.onGridFast := by
   sorry
 
 end Engine.Laws

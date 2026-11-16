@@ -11,7 +11,7 @@
    kernel2/protected-windows.json is compiled strict JSON data, a list of
    exactly {start:integer-ms,end:integer-ms,released:bool}; no runtime override.
    Only the existing ingest.archive.parse is the foreign-language oracle;
-   the inline adapter just combines its frames and writes untouched float bits.
+   the inline adapter reads source_hours, combines frames and writes untouched float bits.
    Seven fast, six intermediate and seven slow coin-days are frozen below,
    sampled across coins/dates without opening any forward-window data. *)
 
@@ -23,16 +23,20 @@ let samples =
     "HYPE","20260519"; "XRP","20260601"; "ADA","20260610"; "AVAX","20260614";
     "BTC","20260616"; "ETH","20260616"; "SOL","20260617";
     "HYPE","20260618"; "XRP","20260619"; "ADA","20260620";
-    "BTC","20260621"; "ETH","20260701"; "SOL","20260801";
-    "HYPE","20260820"; "XRP","20260901"; "ADA","20260920"; "BNB","20261020" ]
+     "BTC","20261001"; "ETH","20260701"; "SOL","20260801";
+     "HYPE","20260820"; "XRP","20260904"; "ADA","20260920"; "BNB","20261020" ]
 
-let oracle = {|import sys, struct
+let oracle = {|import sys, struct, json
 from pathlib import Path
 import polars as pl
 from ingest.archive import parse
 root, coin, day = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 assert "20260403" <= day < "20261101"
 paths = [root / "raw" / day / str(h) / (coin + ".lz4") for h in range(24)]
+hours = json.loads(pl.read_parquet_metadata(root / "snapshots" / coin / (day + ".parquet")).get("source_hours", "[]"))
+print(json.dumps(hours), flush=True)
+if hours != [h for h, p in enumerate(paths) if p.exists()]:
+    sys.exit(0)
 frames = [parse(p) for p in paths if p.exists()]
 assert frames
 frame = pl.concat(frames).sort("time").unique("time", keep="first", maintain_order=True)
@@ -49,11 +53,24 @@ for row in frame.iter_rows(named=True):
     print("\t".join(fields))
 |}
 
-let compare_day root repo meta (coin, day) =
+let contains text part =
+  let rec search i =
+    i + String.length part <= String.length text
+    && (String.sub text i (String.length part) = part || search (i + 1))
+  in search 0
+
+let compare_day root repo meta missing (coin, day) =
   check "never open protected dated files" (day >= "20260403" && day < "20261101");
+  let expected_hours = List.init 24 Fun.id |> List.filter (fun hour ->
+    let key = Printf.sprintf "market_data/%s/%d/l2Book/%s.lz4" day hour coin in
+    let present = Sys.file_exists (Printf.sprintf "%s/raw/%s/%d/%s.lz4" root day hour coin) in
+    check ("raw hour agrees with missing.tsv: " ^ key) (present = not (List.mem key missing));
+    present) in
   let args = [| "python"; "-c"; "import sys; sys.path.insert(0, sys.argv.pop(1));\n" ^ oracle;
                 repo; root; coin; day |] in
   let input = Unix.open_process_args_in "python" args in
+  let built_hours = input_line input |> json |> Yojson.Basic.Util.to_list
+      |> List.map Yojson.Basic.Util.to_int in
   let compared = ref 0 in
   let emit (value : M.chunk) =
     check "archive has no string exact fields" (Array.length value.integers = 0);
@@ -82,17 +99,21 @@ let compare_day root repo meta (coin, day) =
     check "all double payload consumed" (!offset = Array.length value.doubles)
   in
   let result = R.archive_day ~root ~meta ~coin ~day ~delta:17 ~emit in
-  ignore (get result);
+  (if built_hours = expected_hours then begin
+     ignore (get result);
+     check "sample cannot pass vacuously" (!compared > 0)
+   end else
+     match result with
+     | Ok _ -> failwith (Printf.sprintf "%s/%s: reader admitted a table with the wrong source hours" coin day)
+     | Error message ->
+       check "manifest identifies the coin-day and hour mismatch"
+         (contains message coin && contains message day
+          && contains (String.lowercase_ascii message)
+               (if List.length built_hours < List.length expected_hours then "short" else "differs"));
+       check "manifest rejection precedes emission" (!compared = 0));
   check "no oracle events omitted" (try ignore (input_line input); false with End_of_file -> true);
   check "oracle succeeded" (Unix.close_process_in input = Unix.WEXITED 0);
-  check "sample cannot pass vacuously" (!compared > 0);
-  Printf.printf "%s %s: %d event-for-event matches\n%!" coin day !compared
-
-let contains text part =
-  let rec search i =
-    i + String.length part <= String.length text
-    && (String.sub text i (String.length part) = part || search (i + 1))
-  in search 0
+  Printf.printf "%s %s: manifest agrees, %d event-for-event matches\n%!" coin day !compared
 
 let () =
   check "usage: archive_local ARCHIVE_ROOT REPO_ROOT" (Array.length Sys.argv = 3);
@@ -106,14 +127,8 @@ let () =
   check "reader uses the named metadata's universe, not rules.json" (rules = expected_rules);
   List.iter (fun (_, sz, figures, decimals) -> check "venue grid from metadata alone" (sz <= 6 && figures = 5 && decimals = 6 - sz)) rules;
   check "twenty unique samples" (List.length (List.sort_uniq compare samples) = 20);
-  List.iter (compare_day root repo meta) samples;
-  let emitted = ref false in
-  let result = R.archive_day ~root ~meta ~coin:"BTC" ~day:"20261001" ~delta:0
-      ~emit:(fun _ -> emitted := true) in
-  (match result with
-   | Ok _ -> failwith "expected BTC/20261001 table short of its raw files (brief 3 test 5); if repaired, take this finding to the architect"
-   | Error message ->
-     check "manifest names the short table, not a generic read failure"
-       (contains message "BTC" && contains message "20261001" && contains (String.lowercase_ascii message) "short");
-     check "short table refused before any event is emitted" (not !emitted);
-     Printf.printf "%s\n%!" message)
+  let missing = lines (read (Filename.concat root "missing.tsv")) |> List.map (fun line ->
+    match String.split_on_char '\t' (String.trim line) with
+    | [ key; code ] when key <> "" && code <> "" -> key
+    | _ -> failwith "malformed missing.tsv record") |> List.sort_uniq String.compare in
+  List.iter (compare_day root repo meta missing) samples
