@@ -44,6 +44,7 @@ they do not implement a second arithmetic engine in OCaml or C.
 import Engine.Check
 import Engine.Lang.SyntaxProofs
 import Engine.StartProofs
+import Engine.Lang.RenameProofs
 import Engine.Lang.Units
 import Engine.Lang.Rewrite
 import Engine.Exact
@@ -660,6 +661,30 @@ theorem start_vol_refused :
     isError "E_UNKNOWN_INPUT" (start step4Vol step4HeaderNoVol) = true := by
   decide +kernel
 
+open Engine.Lang Engine.Machine in
+/-- N1's witness: `vol` renamed `vol2` over the step 4 program and header, as a proposition about them. -/
+def n1Witness (p : Program) (cfg : Config) : Prop :=
+  let ρ : String → String := fun s => if s = "vol" then "vol2" else s
+  (∀ s ∈ ["vol"], ∀ s' ∈ ["vol"], ρ s = ρ s' → s = s') ∧
+    (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
+    (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧
+    (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
+    p.rename ρ ≠ p ∧ (match bind (p.rename ρ) (cfg.rename ρ) with | .ok _ => true | .error _ => false) = true
+
+open Engine.Lang Engine.Machine in
+instance (p : Program) (cfg : Config) : Decidable (n1Witness p cfg) := by
+  unfold n1Witness
+  infer_instance
+
+open Engine.Lang Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem n1_witness_holds :
+    (match parse step4Vol, parseHeader step4Header with
+      | .ok p, .ok cfg => decide (n1Witness p cfg)
+      | _, _ => false) = true := by
+  decide +kernel
+
+
 
 open Engine.Lang in
 /-- B3 L2, the checker: its programs are well formed, and `check` is `parse`'s verdict, code for code. The
@@ -791,7 +816,30 @@ theorem N1_renaming {α : Type} :
        (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
        (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧ (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
        p.rename ρ ≠ p ∧ bind (p.rename ρ) (cfg.rename ρ) = .ok ())) := by
-  sorry
+  refine ⟨?_, ?_⟩
+  · intro names ρ hinj _ N p cfg hwf hd hs ho coins ts ts' hlen hrel
+    refine ⟨wf_rename ρ hwf, bind_rename ρ names hinj p cfg hd ho, ?_⟩
+    have hrun := run_rename N ρ p coins ts ts' hlen (fun i t t' h1 h2 => by
+      obtain ⟨hv, _, hi⟩ := hrel i t t' h1 h2
+      refine ⟨hv, fun name u hmem c => hi c name ?_⟩
+      simp only [Program.sourceNames, List.mem_filterMap]
+      exact ⟨.source name u, hmem, rfl⟩)
+    rw [hrun]
+  · cases hp : parse step4Vol with
+    | error _ => have := n1_witness_holds; rw [hp] at this; simp at this
+    | ok p =>
+      cases hc : parseHeader step4Header with
+      | error _ => have := n1_witness_holds; rw [hp, hc] at this; simp at this
+      | ok cfg =>
+        have := n1_witness_holds
+        rw [hp, hc] at this
+        have hw : n1Witness p cfg := of_decide_eq_true this
+        obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hw
+        refine ⟨p, cfg, rfl, rfl, h1, h2, h3, h4, h5, h6, ?_⟩
+        cases hb : bind (p.rename fun s => if s = "vol" then "vol2" else s)
+            (cfg.rename fun s => if s = "vol" then "vol2" else s) with
+        | ok u => rfl
+        | error e => rw [hb] at h7; simp at h7
 
 open Engine.Machine in
 /-- B3 L1a ★ for the machine so far, over a common successful `start` and admitted event streams: two markets

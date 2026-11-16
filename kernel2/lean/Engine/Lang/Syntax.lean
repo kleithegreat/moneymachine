@@ -227,16 +227,18 @@ def opTy (o : Op) (ts : List Ty) : Option Ty := (opTyE o ts).toOption
 
 /-! ### Well-formedness -/
 
+/-- Node `i` is typed by its rule and reads only nodes before it. -/
+def Program.nodeOkb (p : Program) (i : Nat) : Bool :=
+  match p.nodes[i]! with
+  | .builtin n => (builtinTy n).isSome && p.types[i]! == (builtinTy n).getD .bool
+  | .source _ u => p.types[i]! == .num u
+  | .const _ u => p.types[i]! == .num u
+  | .op o args => args.all (· < i) && opTy o (args.map (p.types[·]!)) == some p.types[i]!
+
 /-- Each node typed by its rule, arguments before their users, probes naming nodes. -/
 def Program.wfb (p : Program) : Bool :=
-  p.types.size == p.nodes.size &&
-  p.probeNodes.all (· < p.nodes.size) &&
-  (List.range p.nodes.size).all fun i =>
-    match p.nodes[i]! with
-    | .builtin n => p.types[i]! == (builtinTy n).getD .bool && (builtinTy n).isSome
-    | .source _ u => p.types[i]! == .num u
-    | .const _ u => p.types[i]! == .num u
-    | .op o args => args.all (· < i) && opTy o (args.map (p.types[·]!)) == some p.types[i]!
+  p.types.size == p.nodes.size && p.probeNodes.all (· < p.nodes.size) &&
+    (List.range p.nodes.size).all p.nodeOkb
 
 def Program.WF (p : Program) : Prop := p.wfb = true
 

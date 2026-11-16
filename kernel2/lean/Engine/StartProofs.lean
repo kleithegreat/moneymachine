@@ -1,5 +1,6 @@
 import Engine.Start
 import Engine.Lang.SyntaxProofs
+import Engine.Lang.RenameProofs
 
 /-!
 # `start`'s preflight (B3, L5)
@@ -114,5 +115,44 @@ theorem eq_error_of {x : Except String State} {code : String} (h : isError code 
   cases x with
   | error c => simp [isError] at h; rw [h]
   | ok _ => simp [isError] at h
+
+theorem declaresSource_rename (ρ : String → String) (names : List String)
+    (hinj : ∀ s ∈ names, ∀ s' ∈ names, ρ s = ρ s' → s = s') (cfg : Config)
+    (ho : ∀ o ∈ cfg.observations, o.name ∈ names) {n : String} (hn : n ∈ names) (u : String) :
+    (cfg.rename ρ).declaresSource (ρ n) u = cfg.declaresSource n u := by
+  rw [Bool.eq_iff_iff]
+  simp only [Config.declaresSource, Config.rename, List.any_map, List.any_eq_true, Function.comp_def,
+    Bool.and_eq_true, beq_iff_eq]
+  constructor
+  · rintro ⟨o, ho', h1, h2⟩
+    exact ⟨o, ho', hinj _ (ho o ho') _ hn h1, h2⟩
+  · rintro ⟨o, ho', h1, h2⟩
+    exact ⟨o, ho', by rw [h1], h2⟩
+
+theorem bind_rename (ρ : String → String) (names : List String)
+    (hinj : ∀ s ∈ names, ∀ s' ∈ names, ρ s = ρ s' → s = s') (p : Program) (cfg : Config)
+    (hd : ∀ d ∈ p.declared, d.1 ∈ names) (ho : ∀ o ∈ cfg.observations, o.name ∈ names) :
+    bind (p.rename ρ) (cfg.rename ρ) = bind p cfg := by
+  have hdecl : (p.rename ρ).declared = p.declared.map fun d => (ρ d.1, d.2) := by
+    simp [Program.declared, Program.rename, List.map_map, Function.comp_def]
+  have htraded : (p.rename ρ).readsTraded = p.readsTraded := by
+    unfold Program.readsTraded
+    simp only [Program.rename, Array.any_map]
+    congr 1
+    funext n
+    cases n <;> simp [Node.rename]
+    rfl
+  have hany : (p.rename ρ).declared.any (fun d => !(cfg.rename ρ).declaresSource d.1 d.2) =
+      p.declared.any (fun d => !cfg.declaresSource d.1 d.2) := by
+    rw [hdecl, Bool.eq_iff_iff]
+    simp only [List.any_map, List.any_eq_true, Function.comp_def]
+    constructor
+    · rintro ⟨d, hd', h⟩
+      exact ⟨d, hd', by rwa [declaresSource_rename ρ names hinj cfg ho (hd d hd')] at h⟩
+    · rintro ⟨d, hd', h⟩
+      exact ⟨d, hd', by rwa [declaresSource_rename ρ names hinj cfg ho (hd d hd')]⟩
+  unfold bind
+  rw [hany, htraded]
+  rfl
 
 end Engine.Machine

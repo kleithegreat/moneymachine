@@ -1,4 +1,5 @@
 import Engine.Lang.Eval
+import Engine.Lang.SyntaxProofs
 
 /-!
 # The evaluator's rows (B3, L2, L3, N1)
@@ -51,6 +52,22 @@ theorem build_get (p : Program) (t : Tick α) (m : Mach α) {j k : Nat} (h : j <
 
 /-- A program whose nodes read only earlier nodes. -/
 def Program.Ordered (p : Program) : Prop := ∀ j, j < p.nodes.size → ∀ a ∈ (p.nodes[j]!).args, a < j
+
+theorem nodeOkb_op {p : Program} {i : Nat} {o : Op} {args : List Nat} (h : p.nodes[i]! = .op o args) :
+    p.nodeOkb i = true ↔ (∀ a ∈ args, a < i) ∧ opTy o (args.map (p.types[·]!)) = some p.types[i]! := by
+  simp [Program.nodeOkb, h]
+
+theorem wf_ordered {p : Program} (h : p.WF) : p.Ordered := by
+  intro j hj a ha
+  have hok := (wf_iff.1 h).2.2 j hj
+  cases hn : p.nodes[j]! with
+  | op o args =>
+    rw [hn] at ha
+    have := (nodeOkb_op hn).1 hok
+    exact this.1 a ha
+  | builtin _ => rw [hn] at ha; simp [Node.args] at ha
+  | source _ _ => rw [hn] at ha; simp [Node.args] at ha
+  | const _ _ => rw [hn] at ha; simp [Node.args] at ha
 
 theorem step_vals (p : Program) (t : Tick α) (m : Mach α) :
     (Mach.step N p t m).vals = (build N p t m p.nodes.size).1 := by simp [Mach.step]

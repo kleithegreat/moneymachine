@@ -70,4 +70,18 @@ theorem check_error (text code : String) (h : parse text = .error code) :
   simp only [String.toList_append]
   exact ⟨",\"at\":\"".toList ++ (Engine.Json.escape place).toList ++ "\"}".toList, by simp [List.append_assoc]⟩
 
+theorem wf_iff {p : Program} :
+    p.WF ↔ p.types.size = p.nodes.size ∧ (∀ j ∈ p.probeNodes.toList, j < p.nodes.size) ∧
+      ∀ i, i < p.nodes.size → p.nodeOkb i = true := by
+  unfold Program.WF Program.wfb
+  simp [Array.all_eq, List.all_eq_true, List.mem_range]
+  simp [Array.mem_iff_getElem, and_assoc]
+  intro _ _
+  constructor
+  · intro h j i hi hij
+    subst hij
+    exact h i hi
+  · intro h i hi
+    exact h _ i hi rfl
+
 end Engine.Lang
