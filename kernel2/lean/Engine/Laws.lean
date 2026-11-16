@@ -720,15 +720,16 @@ theorem L5_binding :
 open Engine.Lang Engine.Machine in
 /-- B3 N1: a consistent renaming of the declared sources, in the program and in the header, leaves the
 preflight's verdict and every node's value at every tick of every run as they were. The renaming is one-to-one,
-and what it yields a legal name that is no built-in input's, on the names it renames: those of the program and
-of the header. No code selects behaviour by a source's name. The witness: `vol` renamed `vol2` meets every
+and what it yields a legal name that is no built-in input's, on the names it renames: every source the program declares or
+reads, and those of the header. No code selects behaviour by a source's name. The witness: `vol` renamed `vol2` meets every
 hypothesis, changes the program, and the renamed program binds to the renamed header. -/
 theorem N1_renaming {α : Type} :
     (∀ (names : List String) (ρ : String → String),
       (∀ s ∈ names, ∀ s' ∈ names, ρ s = ρ s' → s = s') →
       (∀ s ∈ names, validName (ρ s) = true ∧ ρ s ∉ inputNames) →
       ∀ (N : NumOps α) (p : Program) (cfg : Config), p.WF →
-        (∀ s ∈ p.sourceNames, s ∈ names) → (∀ o ∈ cfg.observations, o.name ∈ names) →
+        (∀ d ∈ p.declared, d.1 ∈ names) → (∀ s ∈ p.sourceNames, s ∈ names) →
+        (∀ o ∈ cfg.observations, o.name ∈ names) →
         ∀ (coins : Nat) (ts ts' : List (Tick α)),
           ts'.length = ts.length →
           (∀ i t t', ts[i]? = some t → ts'[i]? = some t' →
@@ -742,7 +743,7 @@ theorem N1_renaming {α : Type} :
       (let ρ : String → String := fun s => if s = "vol" then "vol2" else s
        (∀ s ∈ ["vol"], ∀ s' ∈ ["vol"], ρ s = ρ s' → s = s') ∧
        (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
-       (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧ (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
+       (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧ (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
        p.rename ρ ≠ p ∧ bind (p.rename ρ) (cfg.rename ρ) = .ok ())) := by
   sorry
 
