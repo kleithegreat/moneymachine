@@ -7,6 +7,9 @@ import Engine.Json
 import Engine.Windows
 import Engine.Lang.Syntax
 import Engine.Lang.Eval
+import Engine.Lang.SyntaxProofs
+import Engine.Lang.Units
+import Engine.Lang.Rewrite
 import Engine.Policy
 import Engine.Machine
 import Engine.Start
@@ -15,4 +18,4 @@ import Engine.MachineFaults
 import Engine.MachineConcrete
 import Engine.MachineWire
 import Engine.Wire
--- import Engine.Laws
+import Engine.Laws

@@ -7,6 +7,6 @@ namespace Engine
 def check (program : String) : String :=
   match Lang.parseAt program with
   | .ok _ => "{\"ok\":true}"
-  | .error (code, place) => "{\"error\":\"" ++ code ++ "\",\"at\":\"" ++ Json.escape place ++ "\"}"
+  | .error (code, place) => "{\"error\":\"" ++ code ++ "\"" ++ ",\"at\":\"" ++ Json.escape place ++ "\"}"
 
 end Engine

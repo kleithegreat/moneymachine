@@ -42,6 +42,10 @@ they do not implement a second arithmetic engine in OCaml or C.
 -/
 
 import Engine.Check
+import Engine.Lang.SyntaxProofs
+import Engine.StartProofs
+import Engine.Lang.Units
+import Engine.Lang.Rewrite
 import Engine.Exact
 import Engine.Ledger
 import Engine.Machine
@@ -634,6 +638,29 @@ def step4Traded : String :=
 def step4NegNeg : String :=
   r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"v","is":{"op":"neg","args":[{"op":"neg","args":[{"input":"vol"}]}]}}]}"#
 
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_vol_ok : isOk (start step4Vol step4Header) = true := by
+  decide +kernel
+
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_traded_ok : isOk (start step4Traded step4Header) = true := by
+  decide +kernel
+
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_traded_refused :
+    isError "E_UNKNOWN_INPUT" (start step4Traded step4HeaderNoTrades) = true := by
+  decide +kernel
+
+open Engine.Machine in
+set_option maxHeartbeats 4000000 in
+theorem start_vol_refused :
+    isError "E_UNKNOWN_INPUT" (start step4Vol step4HeaderNoVol) = true := by
+  decide +kernel
+
+
 open Engine.Lang in
 /-- B3 L2, the checker: its programs are well formed, and `check` is `parse`'s verdict, code for code. The
 witnesses: a legal float program is accepted and a text that is no program is refused with E_PARSE. -/
@@ -647,7 +674,21 @@ theorem L2_checker :
     ((∃ p, parse step4Vol = .ok p ∧ p.WF) ∧
       (Engine.check step4Vol).startsWith "{\"ok\":true" = true ∧
       parse "not a program" = .error "E_PARSE") := by
-  sorry
+  refine ⟨fun text p h => parseAt_wfb (parse_ok_iff.1 h), check_ok_iff, check_error, ?_⟩
+  have hvol : (match parse step4Vol with | .ok p => p.wfb | .error _ => false) = true := by decide +kernel
+  have hbad : (match parse "not a program" with | .error c => c == "E_PARSE" | .ok _ => false) = true := by
+    decide +kernel
+  refine ⟨?_, ?_, ?_⟩
+  · cases hp : parse step4Vol with
+    | ok p => rw [hp] at hvol; exact ⟨p, rfl, hvol⟩
+    | error _ => rw [hp] at hvol; simp at hvol
+  · exact (check_ok_iff step4Vol).2 (by
+      cases hp : parse step4Vol with
+      | ok p => exact ⟨p, rfl⟩
+      | error _ => rw [hp] at hvol; simp at hvol)
+  · cases hp : parse "not a program" with
+    | error c => rw [hp] at hbad; simpa using hbad
+    | ok _ => rw [hp] at hbad; simp at hbad
 
 open Engine.Lang in
 /-- B3 L2, units: on a checked program the unit-instrumented evaluator never raises a unit or sort error at any
@@ -716,7 +757,11 @@ theorem L5_binding :
       (∃ st, start step4Traded step4Header = .ok st) ∧
       start step4Traded step4HeaderNoTrades = .error "E_UNKNOWN_INPUT" ∧
       start step4Vol step4HeaderNoVol = .error "E_UNKNOWN_INPUT") := by
-  sorry
+  refine ⟨fun p cfg => ⟨bind_error_iff p cfg, bind_ok_iff p cfg⟩,
+    fun program header p cfg hp hc hb he => start_bind_error hp hc hb he,
+    fun program header st h => start_ok_bind h, ?_⟩
+  exact ⟨exists_ok_of start_vol_ok, exists_ok_of start_traded_ok, eq_error_of start_traded_refused,
+    eq_error_of start_vol_refused⟩
 
 open Engine.Lang Engine.Machine in
 /-- B3 N1: a consistent renaming of the declared sources, in the program and in the header, leaves the

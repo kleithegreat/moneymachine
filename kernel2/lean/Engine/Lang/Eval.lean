@@ -137,22 +137,32 @@ def rank (xs : List α) (v : α) : α :=
   let equal := (xs.filter fun x => N.eq x v).length
   N.div (N.add (N.ofNat below) (N.div (N.sub (N.ofNat equal) N.one) (N.ofNat 2))) (N.sub (N.ofNat xs.length) N.one)
 
-/-- One node's row of a tick: its value and memory for every coin. `vs` holds the rows of the nodes before it. -/
-def nodeStep (t : Tick α) (n : Node) (count coins : Nat) (vs : Array (Array (Option α))) (ns : Array (NS α)) :
+/-- The row of a node's `k`th argument, in the rows of the nodes before it. -/
+def argRow (vs : Array (Array (Option α))) (args : List Nat) (k : Nat) : Array (Option α) :=
+  match args[k]? with
+  | some a => vs[a]!
+  | none => #[]
+
+/-- The pointwise value of a node at a coin, from its arguments' rows. -/
+def pointVal (t : Tick α) (n : Node) (argRows : Nat → Array (Option α)) (c : Nat) : Option α :=
+  if t.inView c then evalNode N t c n (fun k => (argRows k)[c]!) else none
+
+/-- One node's row of a tick: its value and memory for every coin, from its arguments' rows. -/
+def nodeCore (t : Tick α) (n : Node) (count coins : Nat) (argRows : Nat → Array (Option α)) (ns : Array (NS α)) :
     Array (Option α) × Array (NS α) :=
   let coinList := List.range coins
   match n with
-  | .op .ticksSince args =>
+  | .op .ticksSince _ =>
     let cells := coinList.map fun c =>
-      let cond := vs[args[0]!]![c]!
+      let cond := (argRows 0)[c]!
       let last := match ns[c]! with | .since l => l | _ => none
       let fire := t.inView c && (match cond with | some v => !N.isZero v | none => false)
       let last' := if fire then some count else last
       let v := if t.inView c then last'.bind fun l => N.keep (N.ofInt ((count : Int) - l)) else none
       (v, NS.since last')
     ((cells.map (·.1)).toArray, (cells.map (·.2)).toArray)
-  | .op o@(.xsMean) args | .op o@(.xsDemean) args | .op o@(.xsRank) args =>
-    let xs := coinList.filterMap fun c => if t.inView c then (vs[args[0]!]![c]!).map (c, ·) else none
+  | .op o@(.xsMean) _ | .op o@(.xsDemean) _ | .op o@(.xsRank) _ =>
+    let xs := coinList.filterMap fun c => if t.inView c then ((argRows 0)[c]!).map (c, ·) else none
     let values := xs.map (·.2)
     let mean := N.div (total N values) (N.ofNat xs.length)
     let out := coinList.map fun c => match xs.find? (·.1 == c) with
@@ -162,14 +172,24 @@ def nodeStep (t : Tick α) (n : Node) (count coins : Nat) (vs : Array (Array (Op
         | .xsDemean => N.keep (N.sub v mean)
         | _ => N.keep (rank N values v)
     ((if xs.isEmpty then coinList.map fun _ => none else out).toArray, ns)
-  | _ =>
+  | .op (.window _ _) _ =>
     let cells := coinList.map fun c =>
-      let args := match n with | .op _ a => a | _ => []
-      let v := if t.inView c then evalNode N t c n (fun k => vs[args[k]!]![c]!) else none
+      let v := pointVal N t n argRows c
       match ns[c]! with
-      | .win w => if t.inView c then let (w', out) := w.push N v; (out.bind N.keep, NS.win w') else (v.bind N.keep, NS.win w)
+      | .win w =>
+        if t.inView c then let (w', out) := w.push N v; (out.bind N.keep, NS.win w') else (v.bind N.keep, NS.win w)
       | s => (v.bind N.keep, s)
     ((cells.map (·.1)).toArray, (cells.map (·.2)).toArray)
+  | _ => (((coinList.map fun c => (pointVal N t n argRows c).bind N.keep)).toArray, ns)
+
+def Node.args : Node → List Nat
+  | .op _ args => args
+  | _ => []
+
+/-- One node's row of a tick; `vs` holds the rows of the nodes before it. -/
+def nodeStep (t : Tick α) (n : Node) (count coins : Nat) (vs : Array (Array (Option α))) (ns : Array (NS α)) :
+    Array (Option α) × Array (NS α) :=
+  nodeCore N t n count coins (argRow vs n.args) ns
 
 /-- The evaluator's state: the ticks run, the coins, every node's value at the last tick and every node's memory. -/
 structure Mach (α : Type) where
