@@ -7,12 +7,13 @@ type t =
   | All_dexs_asset_ctxs
   | Events
   | Listings
+  | Dir of string  (** a directory under the root, named by the caller (the vault collector's, VAULT.md) *)
 [@@deriving sexp_of, compare, equal]
 
 (** The channel of a received frame, from its top-level [channel] field: trades, l2Book and allDexsAssetCtxs
     to their own files; subscriptionResponse, pong, error, unknown channels and unparseable text to [Events].
     [fast] is whether the frame was received on a fast connection (Behaviour: "Planning"): an [l2Book] frame
-    then goes to [L2_book_fast], else to [L2_book]; [fast] changes no other frame's file. Never [Listings]. *)
+    then goes to [L2_book_fast], else to [L2_book]; [fast] changes no other frame's file. Never [Listings] or [Dir]. *)
 val of_frame : fast:bool -> string -> t
 
 (** The directory name under the root: trades, l2Book, l2Book-fast, allDexsAssetCtxs, events, listings. *)
