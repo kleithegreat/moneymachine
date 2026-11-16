@@ -172,7 +172,7 @@ It forecasts power and chooses `φ` and `d`. It judges nothing: every pair is va
   1. **A path's arithmetic is Lean's.** A slice is a difference of exact rationals, a path's `W` a product of 730 of them, and the bar `confirm`'s own. The pin gives OCaml no exact rationals (`flake.nix`: no `zarith` among `mm2`'s inputs), and no input is added. So `Engine.Study2` holds one more pure function, from the replay's rows, a pair and a list of 730 days to that path's `W`, `Wᵇ` and, where `Wᵇ` is 20 or more, bar at each day's end. OCaml computes the digests, calls it and counts. BLAKE2b-256 is `digestif`'s, which the pin has held since brief 3's step 3.
   2. **The replay's days are the record's, its holes included** (step 4, wall 1): the forecast is of that record, held and flat through its holes, and says so beside its shares.
 - **Foreseeable walls:**
-  - 10,000 paths through `confirm`'s bar. If they do not finish within a day on one host, report the time to the architect. The count of paths is not the builder's to lower.
+  - 10,000 paths through `confirm`'s bar. If they do not finish within a day on one host, report the time to the architect. The count of paths is not the builder's to lower. A day's factor carries the ledger's denominators, which grow at its fills of several prices (kernel A12), so a path's product grows faster than the grid of half of `10⁻⁵⁰` made it: the step's report gives the largest factor's bits beside the time.
   - A replay with a return below minus one in any row has no bar from that day on (K2), and a slice does not say which day of a span held it. No path is made of such a replay: it goes to the architect.
 
 ### 6. The registration: the freeze (CS2.1 to CS2.3, "the registration")

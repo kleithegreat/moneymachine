@@ -11,7 +11,9 @@ import functools
 import hashlib
 import json
 import math
+import os
 import statistics
+import subprocess
 import sys
 from fractions import Fraction
 from pathlib import Path
@@ -1732,6 +1734,69 @@ def layer1_read() -> None:
     print(f"  a day's row does not give its hours: sizes 3, 3, 3 and 4, 1, 4 make one row and pay {float(paid(right))} and {float(paid(wrong))} at prices 100, 200, 100")
 
 
+def last_pass_r2(vault_directory: Path | None) -> None:
+    """The last pass's round 2 (kernel-v2.md A12, A13). GPT's walk takes the test ledger's cash off every fixed grid. Given the
+    directory of the vault's fills pages (dated before 2026-11-01, untracked): how often its orders took several prices at one time,
+    and what copying those adds to a denominator, counts only. And how often this host's libm gives other bits for exp and log on
+    glibc's path without FMA."""
+    test_lots = 10**30
+    bought = 3 * test_lots // 14
+    cash = 1 - Fraction(7 * bought, 3 * test_lots)
+    assert Fraction(10 * 1 + 20 * 3, 30) == Fraction(7, 3) and bought % 3 == 1 and cash.denominator % 3 == 0
+    print("  GPT's walk: 10 lots at 1 and 20 at 3 are one fill at 7/3 a unit; at phi 1/2, d 70 and no fee the ledger buys")
+    print("    N = floor(3T/14) test lots, T = 10^30, and its cash 1 - 7N/(3T) has 3 in its denominator")
+    if vault_directory is None:
+        print("  the vault's record: not given (pass the directory of its fills pages)")
+    else:
+        fills: dict[int, dict[str, object]] = {}
+        for page in sorted(vault_directory.glob("fills-*.json")):
+            for fill in json.loads(page.read_text()):
+                fills[fill["tid"]] = fill
+        walks: dict[tuple[object, int, str], list[dict[str, object]]] = {}
+        for fill in fills.values():
+            walks.setdefault((fill["oid"], int(str(fill["time"])), str(fill["coin"])), []).append(fill)
+        taking = [walk for walk in walks.values() if any(fill["crossed"] for fill in walk)]
+        several = [walk for walk in walks.values() if len({str(fill["px"]) for fill in walk}) > 1]
+        grid = 2 * 10**50
+        denominator = grid
+        for walk in several:
+            notional = sum((Fraction(str(fill["sz"])) * Fraction(str(fill["px"])) for fill in walk), Fraction(0))
+            units = sum((Fraction(str(fill["sz"])) for fill in walk), Fraction(0))
+            denominator = math.lcm(denominator, (notional / units).denominator)
+        as_taker = sum(1 for walk in several if any(fill["crossed"] for fill in walk))
+        print(f"  the vault's {len(fills)} fills: an order took liquidity {len(taking)} times, {len(several)} of them at several prices ({as_taker} as a taker);")
+        print(f"    half of 10^-50 has {grid.bit_length()} bits, and with the denominators of those fills' means {denominator.bit_length()}")
+    probe = (
+        "import math, random, struct, sys\n"
+        "draw = random.Random(5)\n"
+        "out = []\n"
+        "for _ in range(4_000_000):\n"
+        "    e = math.exp(draw.uniform(-700.0, 700.0))\n"
+        "    g = math.log(math.ldexp(1.0 + draw.random(), draw.randrange(-995, 995)))\n"
+        "    out.append(struct.pack('<dd', e, g))\n"
+        "sys.stdout.buffer.write(b''.join(out))\n"
+    )
+
+    def run(tunables: str | None) -> bytes:
+        environment = {key: value for key, value in os.environ.items() if key != "GLIBC_TUNABLES"}
+        if tunables is not None:
+            environment["GLIBC_TUNABLES"] = tunables
+        return subprocess.run([sys.executable, "-I", "-c", probe], env=environment, capture_output=True, check=True).stdout
+
+    usual = run(None)
+    without = run("glibc.cpu.hwcaps=-FMA")
+    differ = [0, 0]
+    widest = 0
+    for start in range(0, len(usual), 8):
+        a = int.from_bytes(usual[start : start + 8], "little")
+        b = int.from_bytes(without[start : start + 8], "little")
+        if a != b:
+            differ[start // 8 % 2] += 1
+            widest = max(widest, abs(a - b))
+    print(f"  this host's libm, 4,000,000 arguments each: exp differs at {differ[0]} and log at {differ[1]}, by at most {widest} unit in the")
+    print("    last place, between glibc's own choice of path and its path without FMA; on a CPU without FMA both are that path")
+
+
 if __name__ == "__main__":
     print("The yardstick (section 2.1)")
     yardstick()
@@ -1761,6 +1826,8 @@ if __name__ == "__main__":
     venue_funding(Path(sys.argv[1]) if len(sys.argv) > 1 else None, Path(sys.argv[2]) if len(sys.argv) > 2 else None)
     print("GPT's read of layer 1 and O12 (kernel-v2.md part G)")
     layer1_read()
+    print("The last pass, round 2: the test ledger's denominators and the host's libm (kernel-v2.md A12, A13)")
+    last_pass_r2(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
