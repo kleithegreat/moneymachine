@@ -1333,3 +1333,117 @@ None new.
 ### Convergence
 
 **Not a review round: a wall answered.** Nothing of the converged design changed: no state, event, law or criterion. Brief 3's step 2 has a different test 4, two rows joined A14 (V19, V20), and V4's witness is reworded. The settlements D96 to D101 are unseen by any reviewer. The architect's reading is that none can change a judged figure, so the step's test can be rewritten now and the settlements go to the reviewers with the step's build; whether that is so under `CLAUDE.md`'s Decisions rule is the advisor's to decide and log.
+
+## The vault's funding: O12
+
+Appended 2026-11-16 04:41 UTC (2026-11-15 23:41 EST) by Claude Fable 5.2, session "architect: the vault's funding, O12" (`7268700`). It answers O12 of "Layer 1's wall", after the advisor's check of the API (`audit/decisions.md`, 2026-11-16 03:36 UTC (2026-11-15 22:36 EST)). No reviewer has seen it. Read: the vault's fills and `userFunding` rows before 2026-11-01, and `fundingHistory` for four coins to 2026-05-31; nothing dated from 2026-11-01 on.
+
+### In plain words
+
+- **A row is a day, and a day can be tested exactly.** Its `nSamples` is the hours held, its `szi` their mean size, its `fundingRate` the hourly rates weighted by size. The fills give the first two on all 1,121 rows, and the hourly rates the third on the 104 rows whose rates were read.
+- **The claim is narrowed to the day.** The test compares those three figures and that every held day has a row. It compares no cash.
+- **The cash is measured.** `usdc` is at oracle prices no source gives for the past. The replay reports it against our run's payments, by coin and day, as V8's size.
+- **Every run pays at the coin's price, the forward run included.** `fundingHistory` has no oracle price, and the judged run does not take one from the recorder's asset contexts.
+- **Nothing needed a second clock, a deferred count or a stake that moves without a fill.** No state, law or event of the kernel changed.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D102 | What a `userFunding` row of the vault is | One coin and UTC day from the row's midnight: the count of hours held, the mean size held, the size-weighted mean of `fundingHistory`'s rates, the payments summed. 0 of 1,121 differ in count or size, 0 of 104 in rate; 1,121 held days and 1,121 rows (facts §7; `arithmetic.py.txt`, `venue_funding`) | **Yes** (step 7's test 3) |
+| D103 | What layer 1's funding tests | The day: those three figures within the print's last decimal, and a row for each held day and no other. Not one payment, which the venue does not give. It is the witness of a new row, V21: the rate, the hour, the size held into the settlement, and funding before a fill of its millisecond (one real case, DOGE, 2026-06-25) | **Yes** |
+| D104 | What witnesses the cash, V8 | Nothing tests it. `usdc` over the day's size times rate is a mean of oracle prices; the replay before the freeze and each forward replay report `usdc` against the fills' sizes times what a unit paid in the run. A measurement with no pass mark | **Yes** (brief 4, steps 4 and 7) |
+| D105 | What a funding event of a judged run carries | `fundingHistory`'s hour, stamp and rate, and no oracle price, before the freeze and after. The asset contexts' oracle price is not read: it would make the forward run pay by another rule than the replay that chose `φ` and `d`, and need a rule for an hour with no context. The basis is of the order of 0.05% of a funding that was 53 USDC in seven months | No (the kernel's rule for history, now said of every run; the recorder table's "and oracle price" was wrong) |
+| D106 | What the collector holds of the vault's funding | A daily pull of the 30 days before the last midnight, with the fills' re-read; the forward report reads the row with `nSamples` from the latest pull. No hourly pull | **Yes** (the collector, owed by the advisor) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O13 | Whether a recent day's funding comes hour by hour before the venue sums it | **Not known,** and no forward row was read to learn it. Rows without `nSamples` are counted and not interpreted, and the 30 days of re-reading pull each day again once summed (a row was summed 15 days after its day) | Only if rows are still not summed after 30 days |
+| O14 | D102's rate on the 13 coins and five months not read, and a settlement stamped late with a fill before the stamp | **For the build's test,** which reads every rate. A difference is a finding about V21 or A9's "held into", to the architect | Only then |
+
+### What a read should check
+
+1. **D102, D103.** A set of fills and rates that gives a row's three figures while the ledger pays on a wrong size at some hour; whether a size-weighted rate and a mean size together leave two hours' sizes free to trade places.
+2. **D104.** Whether any judged figure of study 2 can move by the basis; whether a day's sum can hide a basis that a single payment would show and that matters.
+3. **D105.** A judged figure that differs between the coin's price and the oracle price by more than its own reporting precision.
+4. **D106.** A forward day whose row is never on record in its summed form.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the advisor:** `fundingHistory` for the 17 coins over [2026-04-03, 2026-11-01), stored raw with its hash; the collector's daily funding pull in place of the hourly one; step 7's test 3 written from the brief as it now stands.
+- **By the architect:** nothing open.
+
+### Convergence
+
+**Not a review round: a wall answered.** O12 is closed. One assumption was made explicit (V21) and one widened to every run (V8); no state, event, law or criterion changed. D102 to D106 are unseen by any reviewer. The architect's reading is that none can change a judged figure, since no judged run reads `userFunding` and D105 keeps the rule the kernel already had; whether that is so under `CLAUDE.md`'s Decisions rule is the advisor's to decide and log.
+
+## GPT's read of layer 1 and O12, the trades source, and B5's wall
+
+Appended 2026-11-16 08:29 UTC (03:29 EST) by Claude Fable 5.2, session "architect: GPT's read of layer 1 and O12" (`1dd7a0c`, `107e715`, `5e0da26`). It answers `audit/reviews/2026-11-16-gpt-kernel-v2-layer1-funding.md` (not accepted, no redesign asked), decides what replaces `node_trades`, and answers the speed wall step 3 met at `kernel2-build` `4616aed`. Read: the review, the listing's sizes, and the built `Exact.lean` and `Machine.lean`. No market data, and nothing dated from 2026-11-01 on.
+
+### In plain words
+
+- **GPT is right on all five points, and no design changed.** I had said that the funding price and the exact fee could not move a judged figure. They can: a wealth just over 20, or a cash that just meets a payment, falls on the other side. Both stay as they were, now as choices of model that every claim says, and the reason given for each is one that holds.
+- **Two checks were called stronger than they are.** The two ties of the venue's figures to the ledger pass for a wrong ledger, and a day's funding row does not give its hours. Both are narrowed to what they show, and the suite gains the cases that the narrower checks miss.
+- **Trades come from fills.** The bucket's `node_trades` stops in 2025. The files that reach our dates hold every fill, and a trade is the two fills that share a trade id. They are read newest day first; the 12 USD approved reach 2026-06-08.
+- **The engine is too slow because of how two functions compute, and the 20 minutes were never derived.** Both are answered: the wall is now what a run needs (no run over a day), and the two functions get twins proved equal to them.
+- **Nothing needed a second clock, a deferred count or a stake that moves without a fill.** One case could ask for a second clock later and is named (O14).
+
+### Agreed after this round (GPT's five findings, each conceded)
+
+| | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D107 | Whether the funding price can move a judged figure (D105) | It can. D105's rule stays, the coin's price in every run, as a choice of model said with every claim (V8); the claim of invariance is withdrawn. The 5% is untouched: it is a theorem of the ledger and null as modelled. The oracle's alternative is stated and refused: two sources, and a missed context that cannot be fetched again | **Yes:** a dated revision of CS2.1's "said with every claim", drafted in `criteria-notes.md`, the advisor's to commit |
+| D108 | Whether the exact fee can move a judged figure (D98, O10) | It can, and a fee a fill bounds no run. The exact fee stays because it is the one fee that scales with a trade, which the test ledger's copy at a scale needs (A8); "conservation" was no reason. Said with every claim (V19). O10 is closed | The same revision |
+| D109 | What the two ties show (D101) | Compatibility of the venue's figures with the ledger, and no more. The suite holds two wrong ledgers, shows both ties accept them, and asserts the exact fee (15), cost (3,702) and realized profit (2,298) that reject them. The cost tie is asserted as arithmetic gives it, `c − 2m < E < c + m`; the record's narrower interval is a printed count, since a double's product can round up | **Yes** (step 2, test 4) |
+| D110 | What a day's funding row shows (D103) | The day's sums. Each hour's size is held by U1 and by three made-up days asserted payment by payment: the collision (0.24 against 0.20 on one row), equal rates, a late stamp. The replay lists every settlement with a fill between its hour and its stamp | **Yes** (step 7, test 3) |
+| D111 | The test of V8's measurement | Each input moved alone, a day not held, a zero rate; a day with no event is listed as not measured | **Yes** (brief 4, step 4, test 5) |
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D112 | What a trade print is on the archive's dates | A pair of rows of `node_fills_by_block`: one coin, `tid` and `time`, one price and size, opposite sides, one `crossed`. Its side is the crossed row's. A row in no pair is no print and is counted by class. It is the websocket's `trades` row by construction, not by a comparison | **Yes** (step 6: the reader and test 10) |
+| D113 | What is assumed of a non-validating node's stream | That an hour's file is every fill of that hour, once (V22). Witnessed where the vault traded: each of its fills in the hours read has its print. Nothing shows a block lost whole elsewhere | **Yes** (V22; the witness in test 10) |
+| D114 | Which days are read, and what a run does with the rest | Newest day first, whole days. The market before the freeze begins at the first day read; no horizon holds an hour without its file, so no rule exists for a day without prints. 11.93 USD reach 2026-06-08 | **Yes** (the advisor's download; brief 4's horizon) |
+| D115 | What B5 is for | No run takes more than a day. A run is one thread, so hosts buy runs and not speed. The forward record at two years is 2.1 of the archive's window in numbers, so the window has 8 hours with fills and 4 for admission. The 20 minutes and the hour were choices | **Yes** (step 3, test 6; step 6, test 11) |
+| D116 | How the engine meets it | Twins of `Exact.readBits` and `Exact.onGrid` on whole numbers, proved equal on every input (law X3 ★) and put in by the compiler's `@[csimp]`, so every law stays about the plain functions. The builder profiles first: the twins suffice only if the two are nine tenths of the time | **Yes** (step 3) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O13 | Whether a recent day's funding comes by the hour first | As before | Only if rows are not summed after 30 days |
+| O14 | D102's rate on the rates not read, and **a settlement stamped late with a fill before the stamp** | A9 pays on the size at the stamp. If the venue pays on the size at the hour, the fix would be a second clock; nothing on record shows the case, and the replay's list is where it would | Only then, and as a redesign |
+| O15 | The layout of a line of `node_fills_by_block`, and which rows form no pair | Not on the certified page. The builder reads the layout off one hour; a class of unpaired rows I did not expect goes to the architect | Only if a field is missing |
+| O16 | Whether the twins reach the wall | My estimate is 15 to 19 times on admission against the 9 needed, from the code and no profile. The builder's profile decides | A second profile, if not |
+
+### What a read should check
+
+1. **D107, D108.** That the 5% really does not depend on the funding price or the fee function; that the drafted words say enough.
+2. **D109.** A wrong ledger the exact assertions also pass. A chain of closes outside `c − 2m < E < c + m` with `E` under `2⁵¹`.
+3. **D112.** A book trade that is not such a pair, and a pair that is no book trade (a liquidation taken by the backstop, a deleveraging), and what each does to a `pessimistic` fill.
+4. **D114.** A run before the freeze whose horizon could hold an hour with no file.
+5. **D115.** A run of study 2 that the day does not cover: the fit's count of trials, a forward record denser than five levels at 0.55 s.
+6. **X3.** That an equality of the two constants leaves nothing for a twin to differ on, and that `@[csimp]` on it changes compiled code alone.
+
+### Assumptions only the human can choose
+
+| | Choice | The architect's recommendation |
+|---|---|---|
+| H14 | Whether to read the trades of 2026-04-03 to 06-07 as well: 4.40 USD more, 16.34 in all, of the 17.54 left under the approved 20 | **Yes.** CS2.2 is written for a replay of 212 days ("the replay's own length"), and the fit and the bootstrap were sized on them. At 12 USD the replay is 146 days, and CS2.2 then needs a dated revision before the freeze. It leaves 1.20 USD, so a failed transfer is counted before it is retried |
+
+### Owed
+
+- **By the advisor:** the dated revision of CS2.1's words (D107, D108); the download, newest day first (D114); step 2's test 4, step 7's test 3 and brief 4's step 4 test 5 rewritten by their test writers from the briefs as they stand; step 3's tests 6 and 7 and X3's statement before the twins; whether these settlements need a review round.
+- **By the architect:** nothing open.
+
+### Convergence
+
+**GPT's round is answered and not yet re-read.** Every finding is conceded; none asked for a redesign and none got one, so by `CLAUDE.md`'s rule a repeat is owed only if the advisor judges that a finding changed the design. D112 to D116 are new and unseen. No open dispute would change what is built except O14's late stamp, which waits on a record that does not yet show it.

@@ -309,7 +309,7 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 | Kind | Fields, after the kind | When |
 |---|---|---|
 | `print` | `time`, `coin`, `id`, `side`, `price`, `size`, `stale` | every print; `side` is the aggressor's, `stale` the world's mark (A3) |
-| `funding` | `time`, `coin`, `hour`, `unit` | every funding event; `unit` is what a unit long paid, the oracle price times the rate |
+| `funding` | `time`, `coin`, `hour`, `unit` | every funding event; `unit` is what a unit long paid: the rate times the event's oracle price, or with none the coin's price (A9) |
 | `end` | `time`, `coin`, `price` | every listing's end, with its settlement price |
 | `tick` | `time`, `coin`, `price`, `world`, `view`, then each probe in the program's order | every tick, for each coin in view (A17), in coin order; `world` and `view` are the two stalenesses |
 | `placed` | `time`, `coin`, `slot`, `cycle`, `side`, `tif`, `reduce`, `price`, `target`, `remainder` | an order placed; `target` is `close` for one |

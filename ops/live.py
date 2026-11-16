@@ -123,6 +123,15 @@ WORKLOADS: dict[str, Workload] = {
         30,
         {},
     ),
+    "vault": (
+        "CronJob",
+        ["mmvault", "run", "data/ws", "--user", "0x53375ca9a649f337d83d0834fec0db97640a2a06"],
+        {"ws": False},
+        False,
+        ("100m", "256Mi", "512Mi"),
+        30,
+        {"schedule": "7 * * * *"},
+    ),
     "mirror": (
         "CronJob",
         ["python", "ops/live.py", "mirror"],

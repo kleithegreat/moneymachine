@@ -21,6 +21,8 @@ for the item weight after it).
 | `fundingHistory` | settled hourly funding and premium | 20 + 1 per 20 items | 500 rows per response; continue from last `time` + 1 / same | not stated / BTC back to 2023-05-12, delisted coins included |
 | `candleSnapshot` | 1d bars (universe rule), 4h bars | 20 + 1 per 60 items | "500 elements" / one response held 5000 candles | "most recent 5000 candles" / 4h back to 2024-07-08, a rolling window; 1d back to 2023 |
 | `l2Book` | execution calibration (recorder) | 2 | none | snapshot only; 20 levels per side |
+| `userFillsByTime`, `userFunding` | study 2: the vault's fills and daily funding rows (`recorder/VAULT.md`) | 20 + 1 per 20 items | 2,000 and 500 items; continue from the last `time`, inclusive | a user's latest 10,000 fills; funding as one row a coin and UTC day |
+| `userFees`, `historicalOrders` | study 2: the vault's fee schedule and order history (`recorder/VAULT.md`) | 20, and 20 + 1 per 20 items | none; the latest 2,000 orders | current state only |
 
 Field semantics:
 - `fundingHistory.time` is the settlement stamp, usually a few ms after the hour, sometimes
@@ -674,6 +676,29 @@ notes = '''
 The documentation offers the archive for download, with the requester paying, and states no further terms. As for
 Hyperliquid's API, use of the read-only public data is the operator's decision: the human configured the AWS account
 and approved spending up to $20 (2026-10-26). Uploads come about once a month.'''
+
+[[hyperliquid-archive.terms]]
+host = "s3://hl-mainnet-node-data"
+url = "https://hyperliquid.gitbook.io/hyperliquid-docs/historical-data"
+retrieved = 2026-11-16
+basis = "operator decision"
+quote = '''
+Note that the requester of the data must pay for transfer costs.
+`s3://hl-mainnet-node-data/node_fills_by_block` has fills which are streamed via `--write-fills --batch-by-block` from
+a non-validating node. Older data is in a different format at `s3://hl-mainnet-node-data/node_fills)` and
+`s3://hl-mainnet-node-data/node_trades` . `node_fills` matches the API format, while `node_trades` does not.'''
+notes = '''
+The page offers these trade prefixes and states no licence or restriction, so the basis is the human's recorded
+decision of 2026-10-26 (`audit/decisions.md`): "spending approved up to $20 in total, for Hyperliquid's requester-pays
+archives, listed and reported before any download", made the day the survey listed this bucket; and of 2026-11-11:
+"build the Hyperliquid archive reader now (`ingest/ARCHIVE.md`), spending within the $20 approved on 2026-10-26".
+Scope (advisor, 2026-11-16, after GPT and a Claude session reviewed the reading): the trade prefixes only
+(`node_trades`, `node_fills`, `node_fills_by_block`), for study 2's 17 coins (ADA AVAX BCH BNB BTC DOGE ETH HBAR HYPE
+LINK NEAR SOL SUI TON TRX XLM XRP) over UTC dates 2026-04-03 to 2026-10-31, for research replay; never
+`explorer_blocks`, `replica_cmds` or `misc_events_by_block`. Files are by hour, not by coin, so whole hours are paid for
+and filtered locally. Sizes and cost are listed and reported in `audit/decisions.md` before any download, within the
+cumulative $20; anything beyond needs the human. Data from a non-validating node with no stated guarantee: a gap is
+recorded, never backfilled.'''
 
 [bls]
 description = '''

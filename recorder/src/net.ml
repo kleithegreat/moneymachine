@@ -180,7 +180,7 @@ let rec read_chunks reader acc =
       read_chunks reader (Bytes.to_string chunk :: acc))
 ;;
 
-let post url ~body =
+let post_status url ~body =
   let url = parse_url url in
   let%bind net = connect url in
   let request () =
@@ -202,8 +202,13 @@ let post url ~body =
         | Some "chunked" -> read_chunks net.reader []
         | _ -> Reader.contents net.reader
       in
-      if status_code status <> 200 then failwithf "rest: %s" status ();
-      response
+      status_code status, response
   in
   Monitor.protect request ~finally:net.close
+;;
+
+let post url ~body =
+  let%map status, response = post_status url ~body in
+  if status <> 200 then failwithf "rest: HTTP status %d" status ();
+  response
 ;;

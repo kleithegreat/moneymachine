@@ -1,9 +1,10 @@
 """Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 6 on kernel version 2), audit/program/paper-changes.md,
 audit/program/argon-paper-findings.md and the study 2 notes of audit/program/criteria-notes.md. Cited numbers carry their sources there.
 
-Run from the repo root: python3 audit/program/arithmetic.py.txt [the vault's fills directory]   (numpy and scipy; about four minutes).
+Run from the repo root: python3 audit/program/arithmetic.py.txt [the vault's directory [a rates file]]   (numpy and scipy; about four minutes).
 Reads audit/stage3/null-v3.jsonl for the agent's evaluation counts, venue/hyperliquid/meta-2026-11-16.json for coin rules and, when its
-directory is given, the vault's fills pages dated before 2026-11-01, of which it prints counts only.
+directory is given, the vault's fills and userFunding pages dated before 2026-11-01, of which it prints counts only. The rates file is a
+JSON object of coin to fundingHistory rows.
 """
 
 import functools
@@ -1600,6 +1601,137 @@ def venue_prints(fills_directory: Path | None) -> None:
     print(f"    printed {float(printed_sum) / 1e6:.6f} USDC against {float(exact_sum) / 1e6:.6f} exact, {float(printed_sum - exact_sum) / 1e6:.6f} over; the most at one close {float(largest) / 1e6:.4f}")
 
 
+def venue_funding(vault_directory: Path | None, rates_file: Path | None) -> None:
+    """The venue's daily userFunding rows against the fills (facts section 7; kernel V8, V21). One made-up day always; given the
+    directory of the vault's pages (dated before 2026-11-01, untracked), counts over every row; given also a JSON object of coin to
+    fundingHistory rows, the rate of each row those rates cover. Counts only, never a price."""
+    hour, unit = 3_600_000, Fraction(1, 10**10)
+    sizes = [Fraction(3)] * 10 + [Fraction(5)] * 2
+    rates = [Fraction(1, 100_000)] * 10 + [Fraction(-2, 100_000)] * 2
+    weighted = sum((size * rate for size, rate in zip(sizes, rates)), Fraction(0)) / sum(sizes)
+    assert sum(sizes) / 12 == Fraction(10, 3) and weighted == Fraction(25, 10**7) and sum(rates) / 12 == Fraction(5, 10**6)
+    print("  a made-up day: 3 held into ten hours at 0.00001 and 5 into two at -0.00002 give a mean size of 10/3 and a rate of 0.0000025, where the plain mean rate is 0.000005")
+    if vault_directory is None:
+        print("  the vault's record: not given (pass the directory of its pages)")
+        return
+    fills: dict[int, dict[str, object]] = {}
+    for page in sorted(vault_directory.glob("fills-*.json")):
+        for fill in json.loads(page.read_text()):
+            fills[fill["tid"]] = fill
+    rows: dict[tuple[int, str], dict[str, object]] = {}
+    for page in sorted(vault_directory.glob("funding-*.json")):
+        for row in json.loads(page.read_text()):
+            rows[int(row["time"]), str(row["delta"]["coin"])] = row["delta"]
+    path: dict[str, list[tuple[int, Fraction]]] = {}
+    position: dict[str, Fraction] = {}
+    for fill in sorted(fills.values(), key=lambda fill: int(str(fill["time"]))):
+        coin = str(fill["coin"])
+        signed = Fraction(str(fill["sz"])) * (1 if fill["side"] == "B" else -1)
+        position[coin] = position.get(coin, Fraction(0)) + signed
+        path.setdefault(coin, []).append((int(str(fill["time"])), position[coin]))
+
+    def held_into(coin: str, time: int) -> Fraction:
+        held = Fraction(0)
+        for at, after in path[coin]:
+            if at >= time:
+                break
+            held = after
+        return held
+
+    def held_hours(coin: str, day: int) -> list[tuple[int, Fraction]]:
+        hours = [(day + index * hour, held_into(coin, day + index * hour)) for index in range(24)]
+        return [(at, size) for at, size in hours if size != 0]
+
+    first, last = min(day for day, _ in rows) - 24 * hour, max(day for day, _ in rows)
+    held_days = {(day, coin) for coin in path for day in range(first, last + 1, 24 * hour) if held_hours(coin, day)}
+    count_differs = size_differs = 0
+    for (day, coin), row in rows.items():
+        held = held_hours(coin, day)
+        count_differs += len(held) != row["nSamples"]
+        size_differs += not held or abs(sum(size for _, size in held) / len(held) - Fraction(str(row["szi"]))) > unit / 2
+    paid = [Fraction(str(row["usdc"])) for row in rows.values()]
+    print(f"  {len(rows)} rows, every time a UTC midnight: {all(day % (24 * hour) == 0 for day, _ in rows)}; {len(held_days - set(rows))} held coin-days have no row and {len(set(rows) - held_days)} rows no held hour")
+    print(f"    {count_differs} differ in nSamples from the hours held of the day that starts at the row's time; {size_differs} in szi from the mean size held, at half of 1e-10")
+    print(f"    usdc sums to {float(sum(paid)):.2f} received, {float(sum(abs(cash) for cash in paid)):.2f} gross")
+    if rates_file is None:
+        print("  fundingHistory rates: not given")
+        return
+    rate: dict[tuple[str, int], Fraction] = {}
+    stamps: list[int] = []
+    premiums: list[float] = []
+    for coin, history in json.loads(rates_file.read_text()).items():
+        for settled in history:
+            rate[coin, int(settled["time"]) // hour * hour] = Fraction(settled["fundingRate"])
+            stamps.append(int(settled["time"]) % hour)
+            premiums.append(abs(float(settled["premium"])))
+    covered = rate_differs = one_signed = outside = 0
+    for (day, coin), row in rows.items():
+        held = held_hours(coin, day)
+        if not all((coin, at) in rate for at, _ in held):
+            continue
+        covered += 1
+        weight = sum((size * rate[coin, at] for at, size in held), Fraction(0))
+        rate_differs += abs(weight / sum(size for _, size in held) - Fraction(str(row["fundingRate"]))) > unit / 2
+        signs = {rate[coin, at] > 0 for at, _ in held}
+        if weight != 0 and len(signs) == 1:
+            one_signed += 1
+            implied = -Fraction(str(row["usdc"])) / weight
+            prices = [Fraction(str(fill["px"])) for fill in fills.values() if fill["coin"] == coin and abs(int(str(fill["time"])) - day - 12 * hour) <= 36 * hour]
+            outside += not min(prices) * Fraction(97, 100) <= implied <= max(prices) * Fraction(103, 100)
+    print(f"  {covered} rows have every held hour's rate: {rate_differs} differ in fundingRate from the size-weighted mean rate, at half of 1e-10")
+    print(f"    {one_signed} of them have rates of one sign: {outside} imply a price, -usdc over the sum of size times rate, outside the vault's fills of the three days around, widened 3%")
+    print(f"    stamps at most {max(stamps)} ms after their hour; |premium| median {statistics.median(premiums):.5f}, greatest {max(premiums):.5f}")
+
+
+def layer1_read() -> None:
+    """GPT's read of layer 1 and O12 (kernel-v2.md part G): what the venue's ties and a day's row leave free, on made-up numbers."""
+    maker = Fraction(15, 100_000)
+    printed_fee, exact_fee = venue_fee(100_000, maker), Fraction(100_000) * maker
+    assert printed_fee == 14 and exact_fee == 15 and 0 <= exact_fee - printed_fee <= 1
+    first, kept = venue_close(13_574, 11, 8, 2_000)
+    exact_cost_left = Fraction(13_574 * 3, 11)
+    assert kept == 3_701 and exact_cost_left == 3_702 and exact_cost_left - 1 <= kept <= exact_cost_left
+    assert 3 * 2_000 - kept == 2_299 and 3 * 2_000 - exact_cost_left == 2_298 and venue_close(kept, 3, 3, 2_000)[0] == 2_301
+    print("  a ledger that charges the printed fee (14 for 15) and one that keeps the venue's entry notional (3,701 for 3,702, realizing 2,299")
+    print("    for 2,298 under a printed 2,301) pass both ties: the ties are compatibility, and the exact tests are what reject them")
+
+    lots = 1_000_000_000
+    entry_notional = lots + 1
+    _, cut_up = venue_close(entry_notional, lots, 1, 0)
+    exact_left = Fraction(entry_notional * (lots - 1), lots)
+    assert cut_up == 1_000_000_000 and cut_up > exact_left
+    worst_under, worst_over = Fraction(0), Fraction(0)
+    rng = np.random.default_rng(47)
+    for _ in range(20_000):
+        position = int(rng.integers(2, 10 ** int(rng.integers(1, 10))))
+        cost = Fraction(position * int(rng.integers(1, 10 ** int(rng.integers(1, 7)))))
+        venue_entry, closes = int(cost), 0
+        while position > 1 and closes < 12:
+            closed = int(rng.integers(1, position))
+            _, venue_entry = venue_close(venue_entry, position, closed, 0)
+            cost = cost * (position - closed) / position
+            position -= closed
+            closes += 1
+            assert cost - 2 * closes < venue_entry < cost + closes
+            worst_under = max(worst_under, (cost - venue_entry) / closes)
+            worst_over = max(worst_over, (venue_entry - cost) / closes)
+    print(f"  the double's product can round up: {entry_notional:,} cut by 1 lot of {lots:,} leaves {cut_up:,}, above the exact cost; over 20,000")
+    print(f"    made-up chains cost - 2m < E < cost + m always, and the most a close moved E was {float(worst_under):.3f} under and {float(worst_over):.3f} over")
+
+    rates = [Fraction(1, 10_000), Fraction(2, 10_000), Fraction(3, 10_000)]
+    right, wrong, prices = [3, 3, 3], [4, 1, 4], [100, 200, 100]
+
+    def row(sizes: list[int]) -> tuple[int, Fraction, Fraction]:
+        return len(sizes), Fraction(sum(sizes), len(sizes)), sum(q * r for q, r in zip(sizes, rates)) / sum(sizes)
+
+    def paid(sizes: list[int]) -> Fraction:
+        return sum(q * p * r for q, p, r in zip(sizes, prices, rates))
+
+    assert row(right) == row(wrong) == (3, 3, Fraction(2, 10_000))
+    assert paid(right) == Fraction(24, 100) and paid(wrong) == Fraction(20, 100)
+    print(f"  a day's row does not give its hours: sizes 3, 3, 3 and 4, 1, 4 make one row and pay {float(paid(right))} and {float(paid(wrong))} at prices 100, 200, 100")
+
+
 if __name__ == "__main__":
     print("The yardstick (section 2.1)")
     yardstick()
@@ -1625,6 +1757,10 @@ if __name__ == "__main__":
     price_grid()
     print("The venue's printed fee and closedPnl (facts section 7; kernel V19, V20)")
     venue_prints(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
+    print("The venue's daily funding rows (facts section 7; kernel V8, V21)")
+    venue_funding(Path(sys.argv[1]) if len(sys.argv) > 1 else None, Path(sys.argv[2]) if len(sys.argv) > 2 else None)
+    print("GPT's read of layer 1 and O12 (kernel-v2.md part G)")
+    layer1_read()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
