@@ -1679,3 +1679,33 @@ Read against `kernel-v2.md` part A, `KERNEL.md` A17 to A19 and CS2.1 to CS2.3 as
 ### Convergence
 
 **Answered by derivation and not yet read.** O21 and O23 are closed. No open dispute would change what is built before step 6's test 11 (O22, O24) and brief 4's step 4 (O25).
+
+### Handover to the next architect
+
+Written 2026-11-16 21:29 UTC (16:29 EST) by Claude Fable 5.2, in its last session, for the Opus 5.5 session that takes the role. It restates no brief.
+
+**What is settled, and where its derivation lives.**
+- **What the machine does and why:** `kernel-v2.md` part A is the contract, and parts C to G hold the reason for each rule a review changed. `kernel2/KERNEL.md` A17 to A19 pin every encoding, and each "Pinned here" is a choice a builder once had to make.
+- **The laws:** their statements are `kernel2/lean/Engine/Laws.lean`, committed before their proofs; part B3 says what each is for. Proved today: steps 0 to 4.
+- **Study 2's test:** architecture 6.1 to 6.3 (why 20, the bar, the wealth at the bid, the power), 6.4 (what fidelity can be read) and 6.5 (what the freeze reads). The criteria are on `main` and are never edited.
+- **Every number:** `arithmetic.py.txt`. A number in a brief that is not computed there is a defect.
+- **The walls foreseen:** under each step of briefs 3 and 4, and rows D131 to D160 above. No reviewer has read any of them: that read is the next round, and it should start at D133, D135, D150 and D151.
+- **What the human chose:** the H rows of this ledger, and `audit/decisions.md`.
+
+**What is open, and what would decide it.**
+- **O22, O24:** brief 3's step 6, test 11, with its profile. For O24 I would first compress the spool and measure; I found no form of the trace that drops its `tick` rows without a switch in the engine, and would not build one before a measurement asks.
+- **O25, H15:** brief 4's step 4, test 6, once the trigger exists.
+- **O17 to O20:** the trade record's counts and the venue's page, the advisor's.
+- **Before step 5's build:** N1, L3 and L2's units restated by their writer (D133); the list for the test writer in the first report of this pass.
+- **Running:** B4's comparison on prodesk5; the whole-window batch after calibration.
+
+**How I would approach the next wall.**
+1. **Find the sentence the builder had to choose a reading of.** A wall shows one level below where the design is wrong. L1a's builder sought a lemma, and the answer was the law's own second premise. B5's wall came from costing the wrong record. The fix is to that sentence of part A, never to the step.
+2. **Ask what the machine already holds.** Every answer of this pass removed a choice by pointing at something already there: what admission read, the ledger's fold, the order of a millisecond, the view as the world `δ` late. An answer that needs a new state, a second clock, a deferred count or a stake that moves without a fill is wrong, and the human has said to stop there.
+3. **Read the code as built, not the brief.** `Machine.lean`'s `admit`, `advanceRec`, `staleAt` and `snapshots`; `Ledger.step`'s guards; the statements as they stand in `Laws.lean`. Two walls of this pass were a frozen statement whose text a later step makes false (N1) and a guard the brief contradicted (a settlement at zero).
+4. **Read the facts against every step that touches the record.** The archive's holes and TON's empty book were in `facts-kernel-v2.md` §6 and in no design.
+5. **Derive a number from the run that will be made.** One with no run behind it is measured and reported, and is no wall (brief 3, step 8, test 6).
+6. **For each new law, try the engine that does nothing and the one that answers a constant,** and state it over the world's moves, not over `feed` alone (S1 at step 5).
+7. **Write tests for a writer who sees only the brief.** A test that needs a fill, a trigger or a first buy says where it comes from.
+8. **A wall in a committed criterion is reported.** A dated revision comes before the evidence it judges, and only where it cannot add a false discovery.
+9. **When a review's findings keep landing on patches, re-derive.** That was the thesis refreeze's fourteen rounds.
