@@ -347,3 +347,180 @@ theorem U1 :
 
 
 end Engine.Laws
+
+/-
+Step 3 assumed RUNNING interface, reachable through the existing import closure
+(this file is append-only; no test-side declarations replace implementation):
+
+namespace Engine.Machine
+  inductive Number | placed (digits : Int) (places : Nat) | bits (bits : UInt64)
+  structure Level where price : Number; size : Number
+  structure Rules where szDecimals : Nat; figures : Nat; decimals : Int
+    -- Plus the running margin tiers.
+  inductive Payload
+    | listing (rules : Rules)
+    | ending (price : Number)
+    | funding (hour : Int) (rate : Number) (oracle : Option Number)
+    | trade (id : Int) (price size : Number) (seller : Bool)
+    | quote (bids asks : List Level)
+    | observation (source : Nat) (bits : UInt64)
+  structure Event where coin : Nat; time : Int; known : Int; payload : Payload
+  structure Window where start : Int; stop : Int; released : Bool
+  structure Rows where report : String; trace : String
+  structure State where
+    count : Nat; previous : Option Event; ids : List (Nat × Int)
+    ended : List Nat; rules : List Rules
+    -- Plus pending timestamp, clock, rejection and other running state.
+    -- ids contains ONLY the current timestamp's (coin,id) pairs.
+  windows : List Window
+  start : String → String → Except String State
+  pack : List Event → Chunk  -- A18 byte encoding, every value/bit preserved
+  decodeChunk : State → Chunk → Except String (List Event)
+    -- The running feed's structural A18 decoder, BEFORE admission. It checks
+    -- array lengths/field widths/source encodings, NOT dates, prices or order.
+  feed : State → Chunk → State × Rows
+  finish : State → Rows × String
+end Engine.Machine
+
+OCaml Mm2_lean.Machine mirrors these pure functions and A18 arrays, with
+snapshot/count/retained_bytes; see ocaml/test/events_support.ml. CLI:
+mm2 start PROGRAM HEADER STATE; feed STATE CHUNK_JSON; finish STATE OUTDIR;
+inspect HEADER CHUNK_JSON prints integrity metadata only. The OCaml reader is
+mm2_archive.Reader, DuckDB-backed, with untouched doubles, disk-wide coin-day
+id checks, and raw/snapshots manifest checks. The compiled policy file is
+kernel2/protected-windows.json, strict JSON [{start:integer-ms,end:integer-ms,
+released:bool}], no extra fields, code, or runtime overrides.
+
+Each law includes a successful quote, a changed counted state and its exact
+tick: an empty, reject-all, constant-state or empty-output engine fails each.
+Admission faults are written below, not delegated to a mutable `validEvent`.
+All projections are actual running data, not a parallel specification state.
+C1/C2's decoding premises mean only that these are representable A18 events,
+not that admission accepts them. The decoder is the one used by running feed,
+not a second parser or a mutable market-validity predicate. In particular an
+out-of-range mathematical Int cannot be packed faithfully into a wire int64.
+-/
+
+namespace Engine.Laws
+
+/-- B3 C1: every cutting preserves complete state and ordered output bytes. -/
+theorem C1 :
+    (∀ (initial : Engine.Machine.State) (parts : List (List Engine.Machine.Event)),
+      (∀ events ∈ parts,
+        Engine.Machine.decodeChunk initial (Engine.Machine.pack events) = .ok events) →
+      Engine.Machine.decodeChunk initial (Engine.Machine.pack parts.flatten) = .ok parts.flatten →
+      let empty : Engine.Machine.Rows := { report := "", trace := "" }
+      let folded := parts.foldl (fun (acc : Engine.Machine.State × Engine.Machine.Rows) events =>
+        let next := Engine.Machine.feed acc.1 (Engine.Machine.pack events)
+        (next.1, { report := acc.2.report ++ next.2.report,
+                   trace := acc.2.trace ++ next.2.trace })) (initial, empty)
+      let whole := Engine.Machine.feed initial (Engine.Machine.pack parts.flatten)
+      folded.1 = whole.1 ∧
+      (let finalParts := Engine.Machine.finish folded.1
+       let finalWhole := Engine.Machine.finish whole.1
+       finalParts.2 = finalWhole.2 ∧
+       folded.2.report ++ finalParts.1.report = whole.2.report ++ finalWhole.1.report ∧
+       folded.2.trace ++ finalParts.1.trace = whole.2.trace ++ finalWhole.1.trace)) ∧
+    (let program := "{\"version\":2,\"tick\":1,\"decide_every\":1,\"leverage\":1,\"sources\":[],\"params\":[],\"let\":[],\"slots\":[],\"probes\":[]}"
+     let header := "{\"horizon\":{\"start\":1775174400000,\"end\":1775174400001},\"venue\":{\"fill\":\"optimistic\",\"lambda\":0,\"delta\":0,\"stale\":60000,\"cap\":\"10000\",\"minimum\":\"10\"},\"cash\":\"10000\",\"coins\":[{\"name\":\"A\",\"sz_decimals\":2,\"figures\":5,\"decimals\":4,\"tiers\":[{\"from\":\"0\",\"max_leverage\":10}]}],\"fees\":[{\"from\":1775174400000,\"tier\":\"base\",\"maker\":\"0.00015\",\"taker\":\"0.00045\"}],\"sources\":{\"listings\":{\"lag\":0},\"funding\":{\"encoding\":\"string\",\"lag\":0,\"late\":1000},\"quotes\":{\"encoding\":\"string\"},\"trades\":{\"encoding\":\"string\"},\"observations\":[]},\"aliases\":{\"coins\":{},\"sources\":{}}}"
+     let quote : Engine.Machine.Event :=
+       { coin := 0, time := 1775174400000, known := 1775174400000,
+         payload := .quote [{ price := .placed 99 0, size := .placed 2 0 }]
+                           [{ price := .placed 101 0, size := .placed 3 0 }] }
+     ∃ initial : Engine.Machine.State,
+       Engine.Machine.start program header = .ok initial ∧ initial.count = 0 ∧
+       Engine.Machine.decodeChunk initial (Engine.Machine.pack [quote]) = .ok [quote] ∧
+       (let next := Engine.Machine.feed initial (Engine.Machine.pack [quote])
+        let final := Engine.Machine.finish next.1
+        next.1.count = 1 ∧ next.1 ≠ initial ∧
+        final.2.startsWith "{\"ok\":true" = true ∧
+        next.2.trace ++ final.1.trace = "tick\t1775174400000\tA\t100\t0\t0\n")) := by
+  sorry
+
+/-- B3 C2: a local admission fault rejects permanently, publishing no final rows. -/
+theorem C2 :
+    (let readNumber : Nat → Engine.Machine.Number → Option Rat := fun scale number =>
+       let n := match number with
+         | .placed digits places => (Engine.Exact.putPlaced scale digits places).toOption
+         | .bits bits => Engine.Exact.readBits scale bits
+       n.map (fun digits => (digits : Rat) / (10 : Rat) ^ scale)
+     let key := fun (event : Engine.Machine.Event) =>
+       let cls : Nat := match event.payload with
+         | .listing _ | .ending _ => 1
+         | .funding _ _ _ => 2
+         | _ => 3
+       let kind : Nat := match event.payload with
+         | .listing _ | .ending _ => 0
+         | .funding _ _ _ => 1
+         | .trade _ _ _ _ => 2
+         | .quote _ _ => 3
+         | .observation _ _ => 4
+       let source : Nat := match event.payload with
+         | .observation source _ => source
+         | _ => 0
+       (event.time, cls, event.coin, kind, source)
+     ∀ (program header : String) (initial state : Engine.Machine.State)
+       (prefix suffix : List Engine.Machine.Event) (event : Engine.Machine.Event)
+       (rules : Engine.Machine.Rules),
+       Engine.Machine.start program header = .ok initial →
+       (Engine.Machine.feed initial (Engine.Machine.pack prefix)).1 = state →
+       Engine.Machine.decodeChunk state (Engine.Machine.pack [event]) = .ok [event] →
+       state.rules[event.coin]? = some rules →
+       let priceBad := fun (number : Engine.Machine.Number) =>
+         match readNumber 8 number with
+         | none => True
+          | some price => price ≤ 0 ∨ Engine.Exact.onGrid rules.figures rules.decimals price = false
+       let sizeBad := fun (number : Engine.Machine.Number) =>
+         match readNumber rules.szDecimals number with
+         | none => True
+         | some size => size ≤ 0
+       let fieldsBad := match event.payload with
+         | .trade _ price size _ => priceBad price ∨ sizeBad size
+         | .quote bids asks =>
+           bids = [] ∨ asks = [] ∨
+           (∃ level ∈ bids ++ asks, priceBad level.price ∨ sizeBad level.size) ∨
+           (∃ bid ask, bids.head? = some bid ∧ asks.head? = some ask ∧
+             ∃ b a, readNumber 8 bid.price = some b ∧ readNumber 8 ask.price = some a ∧ a ≤ b)
+         | .ending price =>
+           match readNumber 8 price with
+           | none => True
+           | some value => value < 0 ∨ (0 < value ∧ priceBad price)
+         | .funding _ rate oracle =>
+           readNumber 12 rate = none ∨
+           (∃ price, oracle = some price ∧ readNumber 8 price = none)
+         | .listing newRules =>
+           newRules.figures = 0 ∨ 8 < newRules.decimals ∨ 12 < newRules.szDecimals
+         | .observation _ _ => False
+       let repeated := match event.payload with
+         | .trade id _ _ _ =>
+           (∃ previous, state.previous = some previous ∧ previous.time = event.time) ∧
+           (event.coin, id) ∈ state.ids
+         | _ => False
+       let protected := ∃ window ∈ Engine.Machine.windows,
+         window.released = false ∧ window.start ≤ event.time ∧ event.time < window.stop
+       ((∃ previous, state.previous = some previous ∧ compare (key event) (key previous) = .lt) ∨
+         event.coin ∈ state.ended ∨ fieldsBad ∨ repeated ∨ protected) →
+       let rejected := Engine.Machine.feed state (Engine.Machine.pack [event])
+        let after := Engine.Machine.feed rejected.1 (Engine.Machine.pack suffix)
+        let final := Engine.Machine.finish after.1
+        rejected.2.report = "" ∧ rejected.2.trace = "" ∧
+        after.2.report = "" ∧ after.2.trace = "" ∧
+       final.1.report = "" ∧ final.1.trace = "" ∧
+       final.2.startsWith "{\"error\":" = true) ∧
+    (let program := "{\"version\":2,\"tick\":1,\"decide_every\":1,\"leverage\":1,\"sources\":[],\"params\":[],\"let\":[],\"slots\":[],\"probes\":[]}"
+     let header := "{\"horizon\":{\"start\":1775174400000,\"end\":1775174400001},\"venue\":{\"fill\":\"optimistic\",\"lambda\":0,\"delta\":0,\"stale\":60000,\"cap\":\"10000\",\"minimum\":\"10\"},\"cash\":\"10000\",\"coins\":[{\"name\":\"A\",\"sz_decimals\":2,\"figures\":5,\"decimals\":4,\"tiers\":[{\"from\":\"0\",\"max_leverage\":10}]}],\"fees\":[{\"from\":1775174400000,\"tier\":\"base\",\"maker\":\"0.00015\",\"taker\":\"0.00045\"}],\"sources\":{\"listings\":{\"lag\":0},\"funding\":{\"encoding\":\"string\",\"lag\":0,\"late\":1000},\"quotes\":{\"encoding\":\"string\"},\"trades\":{\"encoding\":\"string\"},\"observations\":[]},\"aliases\":{\"coins\":{},\"sources\":{}}}"
+     let quote : Engine.Machine.Event :=
+       { coin := 0, time := 1775174400000, known := 1775174400000,
+         payload := .quote [{ price := .placed 99 0, size := .placed 2 0 }]
+                           [{ price := .placed 101 0, size := .placed 3 0 }] }
+     ∃ initial : Engine.Machine.State,
+       Engine.Machine.start program header = .ok initial ∧ initial.count = 0 ∧
+       Engine.Machine.decodeChunk initial (Engine.Machine.pack [quote]) = .ok [quote] ∧
+       (let next := Engine.Machine.feed initial (Engine.Machine.pack [quote])
+        let final := Engine.Machine.finish next.1
+        next.1.count = 1 ∧ next.1 ≠ initial ∧
+        final.2.startsWith "{\"ok\":true" = true ∧
+        next.2.trace ++ final.1.trace = "tick\t1775174400000\tA\t100\t0\t0\n")) := by
+  sorry
+
+end Engine.Laws
