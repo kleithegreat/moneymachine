@@ -24,10 +24,9 @@
    OCaml library mm2_archive: Reader.snapshot_file ~path ~coin ~delta ~emit
    emits A18 chunks with double bits untouched; Reader.trade_file ~path ~coin
    ~delta ~emit reads CANONICAL coin-day JSONL {coin,time,tid,px,sz,side}, B/A
-   aggressors, strings placed without a scale. ANY repeated id in this file
-   rejects BEFORE emit, even an identical row. A source-specific once-per-side
+    aggressors, strings placed without a scale. A source-specific once-per-side
    normalization (A3), when applicable, precedes this canonical file and counts
-   what it deduplicated; it cannot waive the canonical uniqueness check.
+    what it deduplicated.
    Reader.merge takes a list of chunk lists and returns a chunk
    list ordered by A18 (including source order). These return (value,string)
    result; reader counts have dropped/deduplicated int fields. Duckdb.exec
