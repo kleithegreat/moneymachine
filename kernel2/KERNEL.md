@@ -177,7 +177,7 @@ One JSON document, read as strictly as a program; a fault is `E_HEADER`. Times a
 - **`late`** is funding's registered lateness, below one hour.
 - **`aliases`** are A13's bijections, real name to opaque. With them the program is written in the opaque names and every row is written in them.
 
-`start` also rejects: a horizon that meets an unreleased protected window (`R_PROTECTED`); a venue whose `lambda` or `delta` is below zero, whose `stale` is below 1, whose `cap` is not above zero or whose `minimum` is below zero, a `pessimistic` venue on a book market with no trades, a bar market with `G < Δ` or a half-spread not above zero (`E_VENUE`); a fee rate outside 0 to 1, or a coin's rules that `feed` would reject in a listing (`E_HEADER`).
+`start` also rejects: a horizon that meets an unreleased protected window (`R_PROTECTED`); a venue whose `lambda` or `delta` is below zero, whose `stale` is below 1, whose `cap` is not above zero or whose `minimum` is below zero, a `pessimistic` venue on a book market with no trades, a bar market without `Δ < G ≤ 2Δ` or with a half-spread not above zero (`E_VENUE`); a fee rate outside 0 to 1, or a coin's rules that `feed` would reject in a listing (`E_HEADER`).
 
 ### An exact field
 
@@ -196,7 +196,7 @@ A coin's rules hold `figures`, from 1, and `decimals` (V1). A price is **on the 
 
 **The rule is the venue's, certified** (`venue/sources.toml`, Hyperliquid's description, "Price grid"): at most 5 significant figures, at most `6 − szDecimals` decimals for a perp, and a whole-number price whatever its figures, so `123456` is a price and `12345.6` is not. A market of the venue's perps therefore gives each coin `figures` of 5 and `decimals` of `6 − sz_decimals`, and its writer refuses a coin whose `sz_decimals` is above 6, of which the page says nothing. The engine takes the two numbers as the coin's rules and knows no venue. The certificate is of the page as read on 2026-11-15; that the venue enforced it at every time of a horizon is V1's assumption, and its witness is in the record: admission rejects a recorded price off the grid (C2), and every price of the vault's fills must be on it (brief 3, step 2). Both can show a grid too narrow and neither one too wide, which rests on the page alone.
 
-A buy's price rounds to the greatest grid price at or below it, and to zero when there is none; a sell's to the least at or above. An order at zero is A6's to admit or refuse like any other, and it buys nothing: no ask and no print is at or below it. A bar's print rounds to the nearest, a tie to the higher. A size is a whole multiple of `10^−sz_decimals`.
+A buy's price rounds to the greatest grid price at or below it, and to zero when there is none; a sell's to the least at or above. An order at zero is A6's to admit or refuse like any other, and it buys nothing: no ask and no print is at or below it. A bar's print rounds to the nearest grid price, a tie to the higher, and to the least where none is at or below it. A size is a whole multiple of `10^−sz_decimals`.
 
 ### The chunk
 
@@ -327,5 +327,5 @@ The rows from `placed` down are the effects (A1), one row for each, and every ef
 
 ### The summary
 
-`finish` returns, with the last rows, one JSON object: `{"ok": true, "equity": exact, "report": lines, "trace": lines}`, the counts being of the whole run; or `{"error": code, "time": t, "detail": text}` for a market rejected or a run aborted. After an error OCaml writes no report and no trace, whatever the spool holds (C2, W1).
+`finish` returns, with the last rows, one JSON object: `{"ok": true, "equity": exact, "report": lines, "trace": lines}`, the counts being of the whole run (OCaml adds its readers' dropped counts beside it in the result row, A13); or `{"error": code, "time": t, "detail": text}` for a market rejected or a run aborted. After an error OCaml writes no report and no trace, whatever the spool holds (C2, W1).
 
