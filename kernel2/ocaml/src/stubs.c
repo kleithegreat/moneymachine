@@ -12,6 +12,7 @@
 
 lean_object *initialize_engine_Engine(uint8_t builtin);
 lean_object *mm2_check(lean_object *program);
+lean_object *mm2_exact_call(lean_object *op, lean_object *args);
 lean_object *mm2_state_new(lean_object *unit);
 lean_object *mm2_state_bump(lean_object *state);
 uint64_t mm2_state_counter(lean_object *state);
@@ -76,4 +77,16 @@ CAMLprim value mm2_stub_check(value program) {
   verdict = caml_alloc_initialized_string(lean_string_size(res) - 1, lean_string_cstr(res));
   lean_dec(res);
   CAMLreturn(verdict);
+}
+
+CAMLprim value mm2_stub_exact(value op, value args) {
+  CAMLparam2(op, args);
+  CAMLlocal1(reply);
+  ensure_lean();
+  lean_object *lean_op = lean_mk_string_from_bytes(String_val(op), caml_string_length(op));
+  lean_object *lean_args = lean_mk_string_from_bytes(String_val(args), caml_string_length(args));
+  lean_object *res = mm2_exact_call(lean_op, lean_args);
+  reply = caml_alloc_initialized_string(lean_string_size(res) - 1, lean_string_cstr(res));
+  lean_dec(res);
+  CAMLreturn(reply);
 }

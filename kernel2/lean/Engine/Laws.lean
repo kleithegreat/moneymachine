@@ -56,7 +56,9 @@ theorem X2 (d : Nat) (hd : d ≤ 12) :
         n.natAbs < 1000000000000000 ∧
         nearestBits ((n : Rat) / (10 : Rat) ^ d) =
           (if bits = (9223372036854775808 : UInt64) then 0 else bits)) := by
-  sorry
+  refine ⟨nearestBits_zero, readBits_zero (Or.inr rfl), ?_⟩
+  intro bits n
+  exact readBits_iff hd bits n
 
 /-- Test 5: each uniform rounding is a multiple, directed, and less than a step away. -/
 theorem rounding_bounds (p step : Rat) (hstep : 0 < step) :
@@ -69,7 +71,7 @@ theorem rounding_bounds (p step : Rat) (hstep : 0 < step) :
       p - roundSize p step < step) ∧
     (p ≤ 0 → p ≤ roundSize p step ∧ roundSize p step ≤ 0 ∧
       roundSize p step - p < step) := by
-  sorry
+  exact rounding_parts p step hstep
 
 /-- A18: the fixed decimal quantum, significant-figure multiples and whole-number exception. -/
 theorem price_grid_characterization
@@ -86,7 +88,19 @@ theorem price_grid_characterization
         (∃ k : Int, p = (k : Rat) * ten (-decimals)) ∧
         ((∃ k : Int, p = (k : Rat) * ten (e - (figures : Int) + 1)) ∨
           ∃ k : Int, p = (k : Rat))) := by
-  sorry
+  intro ten h1 h2
+  have hten : ∀ z, ten z = Engine.Exact.ten z := fun z => Engine.Exact.ten_eq z
+  simp only [hten] at h1 h2 ⊢
+  have hlog : ilog 10 p = e := ilog10_eq h1 h2
+  refine ⟨?_, onGrid_iff_step hp, ?_⟩
+  · unfold gridStep
+    rw [stepExp_eq h1 h2]
+  · rw [onGrid_iff, hlog]
+    constructor
+    · rintro ⟨_, h⟩
+      exact h
+    · intro h
+      exact ⟨hp, h⟩
 
 /-- Tests 5/6: price rounding reaches the actual neighbours, including the zero sentinel. -/
 theorem price_rounding_bounds
@@ -100,6 +114,9 @@ theorem price_rounding_bounds
     p ≤ sell ∧ sell - p < gridStep figures decimals p ∧
     (∀ q : Rat, onGrid figures decimals q = true → q ≤ p → q ≤ buy) ∧
     (∀ q : Rat, onGrid figures decimals q = true → p ≤ q → sell ≤ q) := by
-  sorry
+  intro buy sell
+  obtain ⟨b1, b2, b3, b4, b5⟩ := buy_spec hfigures hp
+  obtain ⟨s1, s2, s3, s4⟩ := sell_spec hfigures hp
+  exact ⟨b1, b2, b3, b4, s1, s2, s3, b5, s4⟩
 
 end Engine.Laws
