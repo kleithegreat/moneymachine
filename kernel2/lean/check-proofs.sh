@@ -4,6 +4,10 @@
 # axiom and native_decide (Lean.ofReduceBool) all fail it.
 set -eu
 dir=${1:?usage: check-proofs.sh DIR}
+here=$(cd "$(dirname "$0")" && pwd)
+dir=$(cd "$dir" && pwd)
+# The library compiles in `../protected-windows.json` (Engine.Policy). A scratch copy of this directory has none beside it, so it gets the policy of the tree this script belongs to.
+[ -e "$dir/../protected-windows.json" ] || cp "$here/../protected-windows.json" "$dir/../protected-windows.json"
 cd "$dir"
 lake build
 script=$(mktemp -d)/Axioms.lean

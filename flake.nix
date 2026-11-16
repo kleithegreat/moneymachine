@@ -105,9 +105,8 @@
           o = pkgs.ocamlPackages;
           src = pkgs.lib.fileset.toSource {
             root = ./.;
-            fileset = pkgs.lib.fileset.unions [ ./kernel2/lean ./kernel2/ocaml ./kernel2/tests ./flake.lock ];
+            fileset = pkgs.lib.fileset.unions [ ./kernel2/lean ./kernel2/ocaml ./kernel2/tests ./kernel2/protected-windows.json ./flake.lock ];
           };
-          leanSrc = pkgs.lib.fileset.toSource { root = ./kernel2/lean; fileset = ./kernel2/lean; };
           build = ''
             export HOME=$TMPDIR DUNE_CACHE=disabled
             (cd kernel2/lean && lake build Engine:static)
@@ -117,7 +116,7 @@
             version = "0";
             inherit src;
             nativeBuildInputs = [ lean o.ocaml o.dune_3 o.findlib pkgs.autoPatchelfHook ];
-            buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp o.yojson ];
+            buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp o.yojson o.digestif pkgs.duckdb.dev pkgs.duckdb.lib ];
             dontConfigure = true;
           };
         in {
@@ -137,11 +136,11 @@
           proofs = pkgs.stdenv.mkDerivation {
             pname = "engine-proofs";
             version = "0";
-            src = leanSrc;
+            inherit src;
             nativeBuildInputs = [ lean pkgs.autoPatchelfHook ];
             buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp ];
             dontConfigure = true;
-            buildPhase = "export HOME=$TMPDIR; sh check-proofs.sh $PWD | tee proofs.txt";
+            buildPhase = "export HOME=$TMPDIR; sh kernel2/lean/check-proofs.sh $PWD/kernel2/lean | tee proofs.txt";
             installPhase = "install -D proofs.txt $out/proofs.txt";
           };
           proofsFixtures = pkgs.stdenv.mkDerivation (common // {
@@ -178,6 +177,9 @@
               ocamlPackages.dune_3
               ocamlPackages.findlib
               ocamlPackages.yojson
+              ocamlPackages.digestif
+              duckdb.dev
+              duckdb.lib
               kubectl
               skopeo
               tools.claude-code

@@ -1,4 +1,4 @@
 (executable
  (name mm2)
  (public_name mm2)
- (libraries mm2_lean))
+ (libraries mm2_lean mm2_identity yojson digestif))
