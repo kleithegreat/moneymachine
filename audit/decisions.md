@@ -1076,3 +1076,22 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **`CLAUDE.md` Orchestration** names the architect's role, never the advisor's own session.
   - **The launcher's `architect` default moves to Opus** once that session ends.
   - **Reverse:** a later decision of the human's.
+- 2026-11-16 21:57 UTC (16:57 EST), advisor: **the architect's last pass is not accepted; its findings go to the first Opus architect** (reviews `audit/reviews/2026-11-16-argon-cli-last-pass-part1.md` and `2026-11-16-gpt-last-pass-part2.md`; last pass `rearchitecture` `b3480e0` to `59ff545`).
+  - **Argon's part 1:** design defects in step 5's `offer` and the laws it rests on, which would stop steps 5 to 7.
+    - The cycle ends mid-walk when an order flips the position.
+    - A `reduce_only` cut to zero lots meets `Ledger.step`'s `E_FILL`.
+    - Test 8 sets the order of admission itself.
+    - R1 holds at step 5 and fails at step 6, and X1 is false over arbitrary `NumOps`.
+    - L1 is false after a rejection past `t`.
+    - L2's units half cannot be proved.
+  - **GPT's part 2, in Argon's place after its quota ran out:**
+    - One adverse mark is not conservative across a tier's boundary.
+    - D159's freeze leaves result-moving transformations outside every identity.
+    - O25 misses holes met while flat. They can bias CS2.2's variance and the bootstrap's choice of `φ` and `d`.
+    - The daily `stale` and `open` columns cannot show overlap.
+    - The stale exemption can leave fidelity's hardest fills unchecked.
+  - **Built defects the advisor confirmed:**
+    - `parseAliases` discards `aliases.sources`. It fails closed.
+    - `Program.redirect` ignores slots, which first matters at step 5.
+    - `identity/gen.ml` does not hash `kernel2/ocaml/archive`. That one is routed as a failing test and a fix.
+  - **Next:** the architect (Opus 5.5 at maximum effort, personal account, brief `data/builder/architect-last-pass-r1.txt`) answers every finding at its cause. Step 5's build waits for it, and so do its laws' read by another model. Argon's own part 2 is queued for its reset (about 2026-11-20 22:40 UTC, 17:40 EST) only if the answers change the design.

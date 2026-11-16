@@ -77,7 +77,7 @@ def test_a_builder_defers_while_another_builder_runs(tmp_path: Path) -> None:
     )
 
 
-def test_an_architect_detaches_with_the_explicit_fable_model_and_logs_it(tmp_path: Path) -> None:
+def test_an_architect_detaches_with_the_explicit_opus_model_and_logs_it(tmp_path: Path) -> None:
     (tmp_path / "data/builder").mkdir(parents=True)
     (tmp_path / "data/builder/architect-header.txt").write_text("HEADER\n")
     brief = tmp_path / "brief.txt"
@@ -86,8 +86,8 @@ def test_an_architect_detaches_with_the_explicit_fable_model_and_logs_it(tmp_pat
     started, exited = log(tmp_path, 2)
     assert done.stdout.strip() == started[2] == exited[2]
     assert [started[1], exited[1]] == ["start", "exit 0"]
-    assert started[3:] == ["claude-fable-5-2[1m]", "architect: design"]
+    assert started[3:] == ["claude-opus-5-5", "architect: design"]
     args = (tmp_path / "claude.args").read_text()
-    assert "--model claude-fable-5-2[1m] --effort xhigh --permission-mode auto --session-id" in args
+    assert "--model claude-opus-5-5 --effort max --permission-mode auto --session-id" in args
     assert args.endswith("HEADER BRIEF\n") or "HEADER\nBRIEF" in args
     assert not Path(f"/tmp/a{started[2][:4]}").exists()
