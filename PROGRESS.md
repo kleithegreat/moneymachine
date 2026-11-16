@@ -46,8 +46,8 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`; CS2.1 to CS2.3 from `rearchitecture` `e691341`, after GPT, Argon and the advisor's last review). Kernel version 2 and its `KERNEL.md` are converged; the price grid is certified (O6). **Next: kernel version 2's build,** brief 3's eleven steps, tests first by another model, Sonnet building.
-   - **Owed by the advisor** (ledger, round 2): the trades bucket's certificate; hourly copies of rules and fees, and an hourly overlapping pull of the vault's fills, in the recorder; before `mm` is deleted, the evaluator's streams on the C6.4 corpus under a hash.
+1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`). **Kernel version 2's build** (`kernel2-build`, worktree `../mm-k2`; brief 3): steps 0 to 2 done, Lean laws proved (X2, rounding, the grid, A1, U1), layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic (Fable, D96 to D101). Step 3 building. GPT writes ◆ steps' tests and laws, Sonnet builds; local runs capped at 4 GB.
+   - **Owed by the advisor:** the trades download (certified and listed: `node_fills_by_block`, 181.5 GB, about $16.34, streamed and filtered to the 17 coins, read within $12; waits on Fable's task 0); the vault collector (fills hourly with overlap, 30-day daily re-read, funding daily, fees hourly; spec then build); the reference evaluator's streams on the C6.4 corpus under a hash. Fable's next brief answers GPT's read of layer 1 and O12.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
 
