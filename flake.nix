@@ -181,6 +181,7 @@
               duckdb.dev
               duckdb.lib
               kubectl
+              perf
               skopeo
               tools.claude-code
             ];
