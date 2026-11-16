@@ -1131,3 +1131,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - Judged runs now run only on hosts whose `exp` and `log` match B4's host.
     - A forward replay that cannot reproduce a day it already published ends the test at the day before.
   - **Next:** Argon's read of rounds 1 and 2, from a self-contained bundle in the web UI.
+- 2026-11-16 23:33 UTC (18:33 EST), the human: **kernel version 2 computes `exp` and `log` itself, correctly rounded, in Lean.** It no longer depends on the C library's.
+  - **Why:** glibc's `exp` and `log` are within an ulp but not correctly rounded, so their bits depend on the CPU's path. With FMA, `exp` differs in the last bit on 2,446 of 4 million arguments (D178).
+  - **The two functions:** computed on rationals, refined until the rounding is decided, with a law that the result is the nearest binary64.
+  - **The other operations** (`+ − × ÷`, `sqrt`) are correctly rounded by IEEE 754 already.
+  - **D178's host check and `E_HOST` go.** The architect re-derives it, with Argon's findings on rounds 1 and 2.
+  - **B4's stored reference** used glibc. The architect states how B4 treats any item where glibc mis-rounded an argument the corpus uses.
+  - **Nothing frozen changes:** not study 1's Rust kernel, not stage 6's judged results, not the stored reference streams.
