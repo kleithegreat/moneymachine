@@ -1,0 +1,33 @@
+(test
+ (name state_test)
+ (modules state_test)
+ (libraries mm2_lean))
+
+(test
+ (name exact_test)
+ (modules exact_test)
+ (libraries mm2_lean))
+
+(library
+ (name ledger_test_support)
+ (wrapped false)
+ (modules ledger_oracle))
+
+(test
+ (name ledger_test)
+ (modules ledger_test)
+ (libraries mm2_lean ledger_test_support))
+
+(executable
+ (name layer1)
+ (modules layer1)
+ (libraries mm2_lean ledger_test_support yojson unix))
+
+(rule
+ (alias runtest)
+ (deps
+  %{exe:../bin/mm2.exe}
+  check.sh
+  (glob_files fixtures/*.prog))
+ (action
+  (run sh check.sh %{exe:../bin/mm2.exe} fixtures)))

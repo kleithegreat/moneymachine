@@ -95,6 +95,61 @@
             installPhase = "touch $out";
           };
         };
+      # Kernel version 2 (kernel2/KERNEL.md): Lean's `Engine` library, built by Lake, linked statically into the OCaml
+      # executable `mm2` by one C stub. One derivation builds both, in the source's own layout, so the dune project finds
+      # Lake's archive through MM2_ENGINE_LIB.
+      mm2For = pkgs:
+        let
+          system = pkgs.stdenv.hostPlatform.system;
+          lean = self.packages.${system}.lean;
+          o = pkgs.ocamlPackages;
+          src = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.unions [ ./kernel2/lean ./kernel2/ocaml ./kernel2/tests ./flake.lock ];
+          };
+          leanSrc = pkgs.lib.fileset.toSource { root = ./kernel2/lean; fileset = ./kernel2/lean; };
+          build = ''
+            export HOME=$TMPDIR DUNE_CACHE=disabled
+            (cd kernel2/lean && lake build Engine:static)
+            export MM2_ENGINE_LIB=$PWD/kernel2/lean/.lake/build/lib/libengine_Engine.a
+          '';
+          common = {
+            version = "0";
+            inherit src;
+            nativeBuildInputs = [ lean o.ocaml o.dune_3 o.findlib pkgs.autoPatchelfHook ];
+            buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp o.yojson ];
+            dontConfigure = true;
+          };
+        in {
+          package = pkgs.stdenv.mkDerivation (common // {
+            pname = "mm2";
+            buildPhase = build + "(cd kernel2/ocaml && dune build --root . bin/mm2.exe)";
+            installPhase = "install -D kernel2/ocaml/_build/default/bin/mm2.exe $out/bin/mm2";
+          });
+          tests = pkgs.stdenv.mkDerivation (common // {
+            pname = "mm2-tests";
+            buildPhase = build + ''
+              (cd kernel2/ocaml && dune build --root . @runtest)
+              sh kernel2/tests/flake-lock.sh
+            '';
+            installPhase = "touch $out";
+          });
+          proofs = pkgs.stdenv.mkDerivation {
+            pname = "engine-proofs";
+            version = "0";
+            src = leanSrc;
+            nativeBuildInputs = [ lean pkgs.autoPatchelfHook ];
+            buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp ];
+            dontConfigure = true;
+            buildPhase = "export HOME=$TMPDIR; sh check-proofs.sh $PWD | tee proofs.txt";
+            installPhase = "install -D proofs.txt $out/proofs.txt";
+          };
+          proofsFixtures = pkgs.stdenv.mkDerivation (common // {
+            pname = "engine-proofs-fixtures";
+            buildPhase = "export HOME=$TMPDIR; sh kernel2/tests/engine-proofs.sh";
+            installPhase = "touch $out";
+          });
+        };
     in
     {
       devShells = forAll (pkgs:
@@ -119,12 +174,19 @@
               rsync
               libnotify
               tools.lean
+              ocamlPackages.ocaml
+              ocamlPackages.dune_3
+              ocamlPackages.findlib
+              ocamlPackages.yojson
               kubectl
               skopeo
               tools.claude-code
             ];
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
-            shellHook = "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks";
+            shellHook = ''
+              git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks
+              export MM2_ENGINE_LIB=$(git rev-parse --show-toplevel 2>/dev/null)/kernel2/lean/.lake/build/lib/libengine_Engine.a
+            '';
           };
           # The HL recorder alone (`python -m cli record`), for hosts that only record (ops/oci).
           recorder = pkgs.mkShell {
@@ -214,6 +276,7 @@
           installPhase = "install -D .lake/build/bin/refmm $out/bin/refmm";
         };
         mmrec = (mmrecFor pkgs).package;
+        mm2 = (mm2For pkgs).package;
         whitepaper = pkgs.runCommand "whitepaper.pdf" {
           nativeBuildInputs = [
             (pkgs.texliveBasic.withPackages (ps: with ps; [
@@ -339,6 +402,9 @@
           sandbox = pytestCheck { name = "sandbox"; paths = "sandbox/tests"; };
           lean-proofs = self.packages.${system}.refmm;
           mmrec-tests = (mmrecFor pkgs).tests;
+          engine-proofs = (mm2For pkgs).proofs;
+          engine-proofs-fixtures = (mm2For pkgs).proofsFixtures;
+          mm2-tests = (mm2For pkgs).tests;
         };
 
       apps.x86_64-linux =
