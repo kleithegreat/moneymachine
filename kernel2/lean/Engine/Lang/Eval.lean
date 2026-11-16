@@ -147,7 +147,7 @@ def argRow (vs : Array (Array (Option α))) (args : List Nat) (k : Nat) : Array 
 def pointVal (t : Tick α) (n : Node) (argRows : Nat → Array (Option α)) (c : Nat) : Option α :=
   if t.inView c then evalNode N t c n (fun k => (argRows k)[c]!) else none
 
-/-- One node's row of a tick: its value and memory for every coin, from its arguments' rows. -/
+/-- One node's raw row of a tick, before the finiteness filter, and its memory, from its arguments' rows. -/
 def nodeCore (t : Tick α) (n : Node) (count coins : Nat) (argRows : Nat → Array (Option α)) (ns : Array (NS α)) :
     Array (Option α) × Array (NS α) :=
   let coinList := List.range coins
@@ -158,7 +158,7 @@ def nodeCore (t : Tick α) (n : Node) (count coins : Nat) (argRows : Nat → Arr
       let last := match ns[c]! with | .since l => l | _ => none
       let fire := t.inView c && (match cond with | some v => !N.isZero v | none => false)
       let last' := if fire then some count else last
-      let v := if t.inView c then last'.bind fun l => N.keep (N.ofInt ((count : Int) - l)) else none
+      let v := if t.inView c then last'.bind fun l => some (N.ofInt ((count : Int) - l)) else none
       (v, NS.since last')
     ((cells.map (·.1)).toArray, (cells.map (·.2)).toArray)
   | .op o@(.xsMean) _ | .op o@(.xsDemean) _ | .op o@(.xsRank) _ =>
@@ -168,19 +168,28 @@ def nodeCore (t : Tick α) (n : Node) (count coins : Nat) (argRows : Nat → Arr
     let out := coinList.map fun c => match xs.find? (·.1 == c) with
       | none => none
       | some (_, v) => match o with
-        | .xsMean => N.keep mean
-        | .xsDemean => N.keep (N.sub v mean)
-        | _ => N.keep (rank N values v)
+        | .xsMean => some mean
+        | .xsDemean => some (N.sub v mean)
+        | _ => some (rank N values v)
     ((if xs.isEmpty then coinList.map fun _ => none else out).toArray, ns)
   | .op (.window _ _) _ =>
     let cells := coinList.map fun c =>
       let v := pointVal N t n argRows c
       match ns[c]! with
-      | .win w =>
-        if t.inView c then let (w', out) := w.push N v; (out.bind N.keep, NS.win w') else (v.bind N.keep, NS.win w)
-      | s => (v.bind N.keep, s)
+      | .win w => if t.inView c then (let r := Win.push N w v; (r.2, NS.win r.1)) else (none, NS.win w)
+      | s => (v, s)
     ((cells.map (·.1)).toArray, (cells.map (·.2)).toArray)
-  | _ => (((coinList.map fun c => (pointVal N t n argRows c).bind N.keep)).toArray, ns)
+  | _ => ((coinList.map fun c => pointVal N t n argRows c).toArray, ns)
+
+/-- Every stored value passes the finiteness filter, and no coin out of view has one (SEMANTICS.md §1, §4). -/
+def finalize (t : Tick α) (coins : Nat) (raw : Array (Option α)) : Array (Option α) :=
+  ((List.range coins).map fun c => if t.inView c then (raw[c]!).bind N.keep else none).toArray
+
+/-- One node's row of a tick: its stored values and its memory. -/
+def nodeFull (t : Tick α) (n : Node) (count coins : Nat) (argRows : Nat → Array (Option α)) (ns : Array (NS α)) :
+    Array (Option α) × Array (NS α) :=
+  let r := nodeCore N t n count coins argRows ns
+  (finalize N t coins r.1, r.2)
 
 def Node.args : Node → List Nat
   | .op _ args => args
@@ -189,7 +198,7 @@ def Node.args : Node → List Nat
 /-- One node's row of a tick; `vs` holds the rows of the nodes before it. -/
 def nodeStep (t : Tick α) (n : Node) (count coins : Nat) (vs : Array (Array (Option α))) (ns : Array (NS α)) :
     Array (Option α) × Array (NS α) :=
-  nodeCore N t n count coins (argRow vs n.args) ns
+  nodeFull N t n count coins (argRow vs n.args) ns
 
 /-- The evaluator's state: the ticks run, the coins, every node's value at the last tick and every node's memory. -/
 structure Mach (α : Type) where

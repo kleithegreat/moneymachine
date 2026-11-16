@@ -86,10 +86,10 @@ theorem argRow_build (p : Program) (t : Tick α) (m : Mach α) {j : Nat} (hj : j
     simp only
     rw [(build_get N p t m (ha a hmem)).1, (build_get N p t m (show a < p.nodes.size by have := ha a hmem; omega)).1]
 
-/-- Every node's row of the tick is `nodeCore` over the finished rows of its arguments. -/
+/-- Every node's row of the tick is `nodeFull` over the finished rows of its arguments. -/
 theorem step_row (p : Program) (t : Tick α) (m : Mach α) (hp : p.Ordered) {j : Nat} (hj : j < p.nodes.size) :
     ((Mach.step N p t m).vals[j]!, (Mach.step N p t m).ns[j]!) =
-      nodeCore N t p.nodes[j]! m.count m.coins (argRow (Mach.step N p t m).vals (p.nodes[j]!).args) m.ns[j]! := by
+      nodeFull N t p.nodes[j]! m.count m.coins (argRow (Mach.step N p t m).vals (p.nodes[j]!).args) m.ns[j]! := by
   rw [step_vals, step_ns, (build_get N p t m hj).1, (build_get N p t m hj).2]
   have : argRow (build N p t m j).1 (p.nodes[j]!).args = argRow (build N p t m p.nodes.size).1 (p.nodes[j]!).args :=
     funext (argRow_build N p t m (by omega) (hp j hj))

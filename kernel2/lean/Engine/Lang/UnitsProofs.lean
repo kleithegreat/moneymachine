@@ -25,15 +25,21 @@ def Node.plain : Node → Bool
   | .op (.window _ _) _ => false
   | _ => true
 
-theorem nodeCore_plain_get (t : Tick α) (n : Node) (hn : n.plain = true) (count coins : Nat)
+theorem nodeFull_plain_get (t : Tick α) (n : Node) (hn : n.plain = true) (count coins : Nat)
     (argRows : Nat → Array (Option α)) (ns : Array (NS α)) (c : Nat) :
-    (nodeCore N t n count coins argRows ns).1[c]! = if c < coins then (pointVal N t n argRows c).bind N.keep else none := by
-  have : nodeCore N t n count coins argRows ns =
-      (((List.range coins).map fun c => (pointVal N t n argRows c).bind N.keep).toArray, ns) := by
+    (nodeFull N t n count coins argRows ns).1[c]! =
+      if c < coins then (if t.inView c = true then (pointVal N t n argRows c).bind N.keep else none) else none := by
+  have hraw : (nodeCore N t n count coins argRows ns).1 =
+      ((List.range coins).map fun c => pointVal N t n argRows c).toArray := by
     unfold nodeCore
     split <;> simp_all [Node.plain]
-  rw [this]
-  exact rowMap_get coins c _
+  unfold nodeFull finalize
+  simp only [hraw]
+  rw [rowMap_get]
+  by_cases hc : c < coins
+  · rw [if_pos hc, if_pos hc, rowMap_get, if_pos hc]
+  · rw [if_neg hc, if_neg hc]
+    rfl
 
 /-- Every bool-typed node's defined values are `truth` of a bool. -/
 def BoolInv (p : Program) (V : Array (Array (Option α))) : Prop :=
@@ -82,7 +88,7 @@ theorem step_boolInv {p : Program} (hwf : p.WF) (t : Tick α) (m : Mach α) :
   | _ i ih =>
   intro hi hty c x hx
   have hrow : (Mach.step N p t m).vals[i]! =
-      (nodeCore N t p.nodes[i]! m.count m.coins (argRow (Mach.step N p t m).vals (p.nodes[i]!).args) m.ns[i]!).1 :=
+      (nodeFull N t p.nodes[i]! m.count m.coins (argRow (Mach.step N p t m).vals (p.nodes[i]!).args) m.ns[i]!).1 :=
     congrArg Prod.fst (step_row N p t m (wf_ordered hwf) hi)
   have hok := (wf_iff.1 hwf).2.2 i hi
   cases hn : p.nodes[i]! with
@@ -101,15 +107,16 @@ theorem step_boolInv {p : Program} (hwf : p.WF) (t : Tick α) (m : Mach α) :
     have hplain : (Node.op o args).plain = true := by
       rcases opTy_bool hty' with h | h | h | h | h | h | h | ⟨h, _⟩ <;> subst_vars <;> simp [Node.plain]
     rw [hn] at hrow
-    rw [hrow, nodeCore_plain_get N t _ hplain] at hx
+    rw [hrow, nodeFull_plain_get N t _ hplain] at hx
     by_cases hc : c < m.coins
     · rw [if_pos hc] at hx
-      unfold pointVal at hx
       by_cases hv : t.inView c = true
       · rw [if_pos hv] at hx
         obtain ⟨y, hy, hk⟩ := Option.bind_eq_some_iff.1 hx
         have hxy := keep_some N hk
         subst hxy
+        unfold pointVal at hy
+        rw [if_pos hv] at hy
         simp only [evalNode] at hy
         rcases opTy_bool hty' with h | h | h | h | h | h | h | ⟨h, h1, h2⟩
         all_goals subst_vars
