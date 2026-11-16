@@ -316,8 +316,8 @@ The engine writes two texts, the **report** and the **trace** (A12), and writes 
 | `tick` | `time`, `coin`, `price`, `world`, `view`, then each probe in the program's order | every tick, for each coin in view (A17), in coin order; `world` and `view` are the two stalenesses |
 | `placed` | `time`, `coin`, `slot`, `cycle`, `side`, `tif`, `reduce`, `price`, `target`, `remainder` | an order placed; `target` is `close` for one |
 | `refused` | `time`, `coin`, `slot`, `cycle`, `reason` | `margin`, `minimum` or `cap` at admission (A6); `post_only` at arrival (A7) |
-| `cancelled` | `time`, `coin`, `slot`, `cycle`, `cause` | `replaced`, `inactive`, `ioc`, `reduce_only`, `cycle_end`, `rules`, `listing_end` or `liquidation` |
-| `fill` | `time`, `coin`, `slot`, `cycle`, `what`, `role`, `tier`, `rate`, `price`, `units`, `fee`, `print` | every fill of the three kinds; `role` is `maker` or `taker`; `print` is the id of the print that filled a resting order, else `-`; a liquidation's and a settlement's have no slot |
+| `cancelled` | `time`, `coin`, `slot`, `cycle`, `cause` | `replaced`, `inactive`, `ioc`, `cycle_end`, `rules`, `listing_end` or `liquidation` |
+| `fill` | `time`, `coin`, `slot`, `cycle`, `what`, `role`, `tier`, `rate`, `price`, `units`, `fee`, `print` | every fill of the three kinds, one row each however many levels it took (`kernel-v2.md` A7, A12); `price` is its notional over its units; `role` is `maker` or `taker`; `print` is the id of the print that filled a resting order, else `-`; a liquidation's and a settlement's have no slot |
 | `paid` | `time`, `coin`, `position`, `cash` | a funding payment of the account |
 | `liquidated` | `time` | a liquidation, before its fills |
 | `bankrupt` | `time`, `absorbed` | a bankruptcy |

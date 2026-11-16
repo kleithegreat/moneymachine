@@ -75,11 +75,11 @@ Strategies stay data: one JSON AST, type-checked, interpreted. Its grammar is A1
 | `price` | exact, a price | every order has one |
 | `size` | exact, a size or a notional; or `close` | the **target**: what this slot is to have filled in its cycle. `close` has no target: its order's remainder is what of the position it would reduce, a sell's the long and a buy's the short |
 | `tif` | `gtc`, `alo`, `ioc` | `alo` is post-only |
-| `reduce_only` | bool | a fill is cut to the position |
+| `reduce_only` | bool | its remainder is at most what of the position it would reduce (A6) |
 
 There is no market order. An order that must fill now is an `ioc` at a price the program states, such as `ask × 1.01`; so every buy has a largest cost, known when it is placed. A notional becomes a size by exact division by the slot's price.
 
-**A cycle** on a coin runs from one return to flat to the next: it begins flat, and ends at the event that brings the position back to zero. So the flat wait before an entry and the position it opens are one cycle. A slot's `filled` counts within the cycle. This is the whole of a ladder's memory.
+**A cycle** on a coin runs from one return to flat to the next: it begins flat, and ends at the fill that brings the position back to zero (A6). So the flat wait before an entry and the position it opens are one cycle. A slot's `filled` counts within the cycle. This is the whole of a ladder's memory.
 
 **Inputs.** All are per coin, read from the view:
 
@@ -111,7 +111,7 @@ Own-state inputs are computed from the effects the view holds, so they lag the w
 - if it equals the slot's live order in price and target, nothing changes;
 - otherwise the live order is cancelled, and the wished order is placed, if its remainder is not zero and it is admitted.
 
-Until a wish arrives the old order can still fill. The world, not the view, computes what an order may still fill: its **remainder** is its target minus the slot's fills in the cycle, never below zero, and for `close` what of the position it would reduce. An order whose own fill took its remainder to zero is done and no longer live. So a fill between a wish and its arrival is never bought twice, a target below what has filled places nothing, a take-profit follows the position without being replaced, and a `close` wished while flat places nothing.
+Until a wish arrives the old order can still fill. The world, not the view, computes what an order may still fill: its **remainder** is its target minus the slot's fills in the cycle, never below zero, and for `close` what of the position it would reduce; a `reduce_only` order's is at most that. So a `reduce_only` order that cannot reduce, its position flat or on the other side, is not placed, one already placed takes nothing while it cannot, and nothing is ever cut from a fill (A7). An order whose own fill took its remainder to zero is done and no longer live. So a fill between a wish and its arrival is never bought twice, a target below what has filled places nothing, a take-profit follows the position without being replaced, and a `close` wished while flat places nothing.
 
 **A cycle's end cancels the coin's every order,** at the fill that ends it and before any other fill of that event. A target is a quantity of a cycle, so an order has no meaning outside its own: one that outlived its cycle regained its whole target when `filled` started again (round 3). A new cycle's orders therefore come only from wishes sent after the view saw the old one end, `δ + λ` later at the soonest. A liquidation ends every coin's cycle, a flat coin's too, so no wish on its way at one places an order (Argon's finding 4, round 4). A listing event that changes a coin's rules cancels its orders; the next wish places them again on the new grid. A wish for a coin whose listing has ended places nothing: an ended coin has no rules to round it by.
 
@@ -134,7 +134,7 @@ Let a buy at `p` be placed at `ℓ`. Its **arrival** is the coin's first quote w
 
 A fill at arrival is a taker fill at the levels' prices. Orders arriving at one quote take from it in admission order, each from what the ones before left. An order meets the first book recorded after it is placed, never one the program had seen.
 
-**One cut.** At arrival and under both rules below, an order fills the least of what the record offers it, its remainder and, when `reduce_only`, the position it would reduce, and what `reduce_only` cut is cancelled. The rules differ in what is offered and when, and in nothing else (`briefs/3-kernel-v2.md`, step 5).
+**One fill an order an event.** At arrival and under both rules below, an order's fill at an event is the least of what the record offers it there and its remainder (A6), taken in the order offered: at arrival the ask levels priced at or within its own that the orders before it left, best first, at their prices; under a rule, at its own price. It is one fill however many prices it takes: one fee, one change of the position and of `filled`, one row, and one test of the cycle's end, so an order's own walk never ends its cycle part way. The rules differ in what is offered and when, and in nothing else (`briefs/3-kernel-v2.md`, step 5).
 
 **A resting order fills on flow.** An `ioc` never rests, so no print fills one, before its arrival or after. A quote shows who is standing, and the same seller stands in the next one; a print is a sale that happened once. So a quote never fills a resting order under the judged rule. The two rules differ in one thing, the burden of proof:
 
@@ -144,7 +144,7 @@ A fill at arrival is a taker fill at the levels' prices. Orders arriving at one 
 | `optimistic`: whatever the record does not exclude | after `ℓ`, any print at `x ≤ p`; after its arrival, a quote with `a ≤ p` | the whole remainder |
 
 - Before its arrival the record neither proves the order rests nor excludes it, so `optimistic` fills there and `pessimistic` does not.
-- Under `pessimistic` the order fills, as a maker at `p`, the lesser of its remainder and the lots allotted to it. A print's lots are allotted to the account's resting orders it qualifies for, best price first, then by slot, **each lot once**. A `reduce_only` fill is cut to the position, and what is cut is cancelled.
+- Under `pessimistic` the order fills, as a maker at `p`, the lesser of its remainder and the lots allotted to it. A print's lots are allotted to the account's resting orders it qualifies for, best price first, then by slot, **each lot once**: what an order took is not allotted to the next.
 - Under `optimistic` the fill is a maker's at `p`. Round 2's text had `b ≤ p` for the quote, which filled an order for joining the best bid (Argon's finding 4); what cannot be excluded is a sale at the order's price or below, and a bid standing under it is not one.
 
 **Why these.** A seller who hit a bid below `p` would have hit this order first: his lots are offered through the price. A buyer lifting an ask priced under `p` proves only that someone stood there. `optimistic` is a fiction of unlimited size, named so, and the law about recorded lots (E1) is about `pessimistic` alone. A `pessimistic` venue needs a trade source: `start` rejects one on a market without it.
@@ -184,7 +184,7 @@ After a liquidation, if equity is not positive the account is **bankrupt**: cash
 3. **Print or quote:** the coin's price moves; orders whose life starts or ends by now do so; then the fills, one at a time, arrivals before resting orders, each with its fee, each changing the position and `filled` before the next, and the one that brings a position to zero ending its cycle there; then the check and the floor. An observation changes nothing here.
 4. **Tick:** deliver, evaluate, and at a deciding tick reconcile.
 
-**A fill** is one of three kinds: an order's (A7), a liquidation's close (A10), a listing's settlement. The laws about orders speak of the first.
+**A fill** is one of three kinds: an order's at an event (A7), a liquidation's close of a coin (A10), a listing's settlement. Each is one fill, with one row, however many prices it takes. The laws about orders speak of the first.
 
 **The report is the world's own books,** written as the run goes. Equity is cash plus each position at its coin's price. Every fill, fee, funding payment and absorption is in cash at its own event and nowhere else. The report holds nothing back and normalizes nothing: three rounds of findings came from a report that kept a second account of when a fill counted and what was at stake (part C).
 - **A row for each cash flow:** every fill of the three kinds, every funding payment, every absorption. Its time, coin and kind; the coin's cycle; the units bought or sold; the cash paid or received, with the fee and beside it the fee alone; the position before it; and the coin's price after its event.
@@ -225,7 +225,7 @@ A session's count of attempts is the budget's meter, so a run killed anywhere is
 | # | Not established | Assumed | Consequence if wrong | Checked by |
 |---|---|---|---|---|
 | V1 | The price grid, as enforced and before 2026-11-15 | The page's rule as certified that day (`venue/sources.toml`, "Price grid"; `KERNEL.md` A18): 5 significant figures, at most `6 − szDecimals` decimals, and any whole number | Too narrow: a recorded price fails admission and the run ends there. Too wide: a wished price the venue would have refused or rounded | Admission, on every recorded price, and every price of the vault's fills: both see a grid too narrow, and nothing sees one too wide |
-| V2 | Order types and their rules | `gtc`, `ioc`, post-only refused when marketable, `reduce_only` cut to the position | A refused order that would have rested, or the reverse | The fills' `crossed` flag against each slot's `tif` |
+| V2 | Order types and their rules | `gtc`, `ioc`, post-only refused when marketable, a `reduce_only` order never filling past the position and resting while it cannot reduce | A refused order that would have rested, or the reverse; a `reduce_only` order kept that the venue cancelled, or the reverse | The fills' `crossed` flag against each slot's `tif` |
 | V3 | Lot sizes, the grid, leverage and tiers, and their history | The hourly copy of `meta`, and that no rule changed and changed back between two copies | An order admitted or refused wrongly inside that hour; a wrong maintenance for a levered account | Every recorded price and size on the copied grid; nothing sees a change no trade crossed (GPT's finding 12) |
 | V4 | The fee tiers and their history | The base tier, for every fill; no change and return between two copies | Fees wrong from an unseen change | Layer 1: every fill of the vault prints the venue's cut (V19) of its notional at the base tier's rate; nothing while the vault does not trade |
 | V6 | Historical mark prices | Checks at the book's adverse side and at prints | A liquidation earlier than the venue's | Nothing; the vault was never liquidated |
@@ -338,11 +338,11 @@ Everything that touches the world, and nothing that decides: one dune project, `
 
 **Orders and fills**
 - **R1 ★ Wishes.** Each slot sends one wish at each deciding tick and none between. A wish arrives at `τ + λ` and does exactly A6's three cases; two equal wishes arriving in turn do what one does. Orders are admitted in A6's order, and an order is admitted exactly when A6's three conditions hold.
-- **S1 ★ Cycles.** A cycle ends exactly at a fill that returns the position to zero, and at a liquidation. From that fill on, the coin has no order, no order of that cycle fills, and no wish of that cycle ever places one. No order fill takes a slot's fills in its cycle above the target of the order it fills; a `close` order's fill is at most the position.
-- **F0 ★ Order fills, exactly.** An arriving order's fill is A7's walk of the levels. A resting order's fill at an event is, under `pessimistic`, the least of its remainder, its allotted lots and, when `reduce_only`, the position; under `optimistic` its whole remainder, cut the same way, exactly when the event qualifies. An order has no other fill. A liquidation's closes are A10's walk exactly, and a settlement closes the position at the settlement price.
+- **S1 ★ Cycles.** A cycle ends exactly at a fill that returns the position to zero, and at a liquidation. From that fill on, the coin has no order, no order of that cycle fills, and no wish of that cycle ever places one. No order's fill exceeds its remainder (A6): a slot's fills in its cycle never pass the target of the order it fills, and a `close` or `reduce_only` order's fill is at most what of the position it would reduce.
+- **F0 ★ Order fills, exactly.** An order's fill at an event is one fill. An arriving order's is A7's walk of the levels up to its remainder. A resting order's is, under `pessimistic`, the lesser of its remainder and its allotted lots; under `optimistic` its whole remainder, exactly when the event qualifies. An order has no other fill. A liquidation's close of a coin is A10's walk exactly, and a settlement closes the position at the settlement price.
 - **E1 ★ Recorded lots, once.** Under `pessimistic`, over a whole run, the maker fills credited to a print sum to at most its size; each is to a buy priced strictly above a sell-aggressor print or to a sell priced strictly below a buy-aggressor print. At one quote the lots taken by arriving orders are, level by level, at most the level's.
 - **L4 ★ Order fills are well formed.** Every order fill belongs to one order live at its time. A maker fill is at the order's price; an order's taker fill at recorded levels' prices, each no worse than the limit. A post-only order never takes. A `reduce_only` fill never raises the position in absolute value and never flips it. No order survives a liquidation.
-- **T1 ★ No fill beats the tape.** After the event of any fill, of any of the three kinds, the fill's price is at least the coin's price if it bought and at most it if it sold, a liquidation's buying back of a short included; and its fee is at least nothing and at most its notional.
+- **T1 ★ No fill beats the tape.** After the event of any fill, of any of the three kinds, every price it bought at is at least the coin's price and every price it sold at at most it, a liquidation's buying back of a short included; and its fee is at least nothing and at most its notional.
 - **F1 The rules at one event.** From one state at one print, each resting order's `pessimistic` fill is at most its `optimistic` fill. A property test: no judged number rests on it.
 
 **The ledger**
