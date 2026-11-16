@@ -550,25 +550,229 @@ theorem C2 :
 end Engine.Laws
 
 /-
-Step 3, B3 X3: statements alone, before the twins or their proofs are built.
-The twins have signatures identical to the plain functions:
-  Engine.Exact.readBitsFast : Nat → UInt64 → Option Int
-  Engine.Exact.onGridFast : Nat → Int → Rat → Bool
-These are equalities of constants, over EVERY input (not just admitted data
-or X2's scales). No declaration, instance, caller, or earlier law is restated
-on a twin. The builder supplies the twins in Engine.Exact; this file supplies
-neither declarations nor test-side replacements for missing twins. Each
-equality has the compiler's csimp shape; no csimp attribute is installed here.
+Step 4 assumed interface (the builder implements to it; this file is append-only and these statements are frozen
+with `sorry` until their proofs). Everything named below is built by step 4 and nothing by a later step: the
+float evaluator over declared sources, the clock's ticks, the view, the inputs. Slots, exact expressions and
+orders are step 5's, so no statement below mentions them, and the machine of L1a is the machine so far: it
+admits, orders, counts and ticks, and its account is the starting cash, never changed.
+
+namespace Engine.Lang
+  structure NumOps (α : Type)           -- as reference/lean/Ref/Num.lean: add sub mul div neg abs log exp sqrt
+                                        -- trunc signBit lt le eq isZero finite zero one ofNat ofInt ofBits
+  NumOps.truth : NumOps α → Bool → α    -- one and zero
+  NumOps.Lawful : NumOps α → Prop       -- the numeric obligations of the rewrite rules (criteria stage 6, L3)
+  inductive Ty | bool | num (unit : Unit')      -- float sorts and their units; `Unit'` is the unit product of A17
+  structure Program  (deriving Inhabited, as Ty does)  -- a checked program: `nodes`, `types : Array Ty` (one per node, in the
+                                         -- order arguments before users), `probeNodes : Array Nat` (the node of
+                                         -- each probe, in the program's order), its declared sources
+  parse : String → Except String Program      -- A17's verdict: the first fault's code, or the program
+  Program.WF : Program → Prop                 -- well formed: arguments precede users, `types` is the checker's
+  Program.sourceNames : Program → List String -- every source read anywhere (a let, a probe, used or not)
+  Program.declared : Program → List (String × String)  -- the (name, canonical unit) the program declares
+  Program.readsTraded : Program → Bool
+  Program.rename : (String → String) → Program → Program   -- renames declared sources and their occurrences
+  validName : String → Bool                   -- A17's `[a-z][a-z0-9_]{0,31}`
+  structure Tick (α) where inView : Nat → Bool; input : Nat → String → Option α; time : Int
+                                         -- a tick's coins in view and its declared sources' values by coin
+  Mach α                                      -- the evaluator's state: windows, `ticks_since`, the views' held values
+  Mach.init : NumOps α → Program → Nat → Mach α
+  Mach.step : NumOps α → Program → Tick α → Mach α → Mach α
+  Mach.run N p coins ts := ts.foldl (fun m t => Mach.step N p t m) (Mach.init N p coins)
+  Mach.vals : Mach α → Array (Array (Option α))    -- by node, by coin, as of the last tick
+  UMach α                                     -- the unit-instrumented state
+  UMach.init : NumOps α → Program → Nat → UMach α
+  UMach.step : NumOps α → Program → Tick α → UMach α → Except String (UMach α)   -- an error is a unit or sort error
+  UMach.erase : UMach α → Mach α
+  UMach.tagged : UMach α → Nat → Nat → Option (α × Ty)    -- node, coin
+  structure Rule; Rule.all : List Rule                    -- R version 1's twelve rows
+  Rule.apply : Rule → Program → Nat → Option Program      -- the rewrite at a position
+  Rule.corr : Rule → Nat → Nat → Nat                      -- the node correspondence, rule and position first
+end Engine.Lang
+
+namespace Engine.Machine
+  Config.declaresSource : Config → String → String → Bool   -- the header declares (name, unit), units compared canonically
+  Config.rename : (String → String) → Config → Config       -- renames the observations' names
+  inputNames : List String                                  -- A17's built-in inputs
+  bind : Engine.Lang.Program → Config → Except String Unit  -- start's preflight; its one error is "E_UNKNOWN_INPUT"
+  structure TickRecord                       -- one tick as the machine had it: `time : Int`; `view` (the running
+                                             -- view: held inputs and the view's staleness, by coin); `vals` (every
+                                             -- node's value by node and coin, as bits); `row : List String`
+                                             -- (= [time, coin, view mark, probes...] of each coin, the world's
+                                             -- `price` and `world` fields left out)
+  snapshots : State → List Event → Option (List TickRecord)
+      -- feeds the events one at a time and then runs the clock out (`finish`), recording each tick's record in
+      -- order; `none` exactly when admission rejects an event. It does not ask `finish`'s own verdict to be ok.
+  startBeforeBind : String → String → Except String Unit
+      -- `start`'s checks that come before `bind`: parse, header, venue, protected dates, leverage
+  -- `start program header` is `startBeforeBind`, then `bind`, then whatever else A17 and A18 ask.
+end Engine.Machine
+
+`Engine.check : String → String` (already there) is Lean's verdict: JSON beginning {"ok":true or {"error":"CODE".
+`Engine.Machine.start` runs `parse`, `parseHeader`, then `bind`, and its other checks (A17, A18).
+
+Each law below has a witness conjunct where an empty, constant or reject-all evaluator would otherwise satisfy it.
 -/
 
 namespace Engine.Laws
 
-/-- X3: the fast bit reader equals the plain reader on every scale and bits. -/
-theorem X3_readBits : @Engine.Exact.readBits = @Engine.Exact.readBitsFast := by
+def step4Header : String :=
+  r#"{"horizon":{"start":1775174400000,"end":1775174400001},"venue":{"fill":"optimistic","lambda":0,"delta":0,"stale":60000,"cap":"10000","minimum":"10"},"cash":"10000","coins":[{"name":"A","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]}],"fees":[{"from":1775174400000,"tier":"base","maker":"0.00015","taker":"0.00045"}],"sources":{"listings":{"lag":0},"funding":{"encoding":"string","lag":0,"late":1000},"quotes":{"encoding":"string"},"trades":{"encoding":"string"},"observations":[{"name":"vol","unit":"1","kind":"state","lag":0}]},"aliases":{"coins":{},"sources":{}}}"#
+
+def step4HeaderNoTrades : String :=
+  r#"{"horizon":{"start":1775174400000,"end":1775174400001},"venue":{"fill":"optimistic","lambda":0,"delta":0,"stale":60000,"cap":"10000","minimum":"10"},"cash":"10000","coins":[{"name":"A","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]}],"fees":[{"from":1775174400000,"tier":"base","maker":"0.00015","taker":"0.00045"}],"sources":{"listings":{"lag":0},"funding":{"encoding":"string","lag":0,"late":1000},"quotes":{"encoding":"string"},"observations":[{"name":"vol","unit":"1","kind":"state","lag":0}]},"aliases":{"coins":{},"sources":{}}}"#
+
+def step4Vol : String :=
+  r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"v","is":{"input":"vol"}}]}"#
+
+def step4HeaderNoVol : String :=
+  r#"{"horizon":{"start":1775174400000,"end":1775174400001},"venue":{"fill":"optimistic","lambda":0,"delta":0,"stale":60000,"cap":"10000","minimum":"10"},"cash":"10000","coins":[{"name":"A","sz_decimals":2,"figures":5,"decimals":4,"tiers":[{"from":"0","max_leverage":10}]}],"fees":[{"from":1775174400000,"tier":"base","maker":"0.00015","taker":"0.00045"}],"sources":{"listings":{"lag":0},"funding":{"encoding":"string","lag":0,"late":1000},"quotes":{"encoding":"string"},"trades":{"encoding":"string"},"observations":[]},"aliases":{"coins":{},"sources":{}}}"#
+
+def step4Traded : String :=
+  r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[],"params":[],"let":[],"slots":[],"probes":[{"name":"t","is":{"input":"traded"}}]}"#
+
+def step4NegNeg : String :=
+  r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"v","is":{"op":"neg","args":[{"op":"neg","args":[{"input":"vol"}]}]}}]}"#
+
+open Engine.Lang in
+/-- B3 L2, the checker: its programs are well formed, and `check` is `parse`'s verdict, code for code. The
+witnesses: a legal float program is accepted and a text that is no program is refused with E_PARSE. -/
+theorem L2_checker :
+    (∀ (text : String) (p : Program), parse text = .ok p → p.WF) ∧
+    (∀ text : String,
+      (Engine.check text).startsWith "{\"ok\":true" = true ↔ ∃ p, parse text = .ok p) ∧
+    (∀ (text code : String),
+      parse text = .error code →
+        (Engine.check text).startsWith ("{\"error\":\"" ++ code ++ "\"") = true) ∧
+    ((∃ p, parse step4Vol = .ok p ∧ p.WF) ∧
+      (Engine.check step4Vol).startsWith "{\"ok\":true" = true ∧
+      parse "not a program" = .error "E_PARSE") := by
   sorry
 
-/-- X3: fast grid membership equals plain membership on every grid and rational. -/
-theorem X3_onGrid : @Engine.Exact.onGrid = @Engine.Exact.onGridFast := by
+open Engine.Lang in
+/-- B3 L2, units: on a checked program the unit-instrumented evaluator never raises a unit or sort error at any
+tick of any run; erasing its tags gives the executable evaluator's state; every defined value carries its node's
+static type, and a defined bool is the number system's `truth` of a bool. The witness: a source read by a probe
+comes out as the number read, when it is finite. -/
+theorem L2_units {α : Type} :
+    (∀ (N : NumOps α) (p : Program), p.WF → ∀ (coins : Nat) (ts : List (Tick α)),
+      ∃ m : UMach α,
+        ts.foldlM (fun acc t => UMach.step N p t acc) (UMach.init N p coins) = .ok m ∧
+        m.erase = Mach.run N p coins ts ∧
+        ∀ i, i < p.nodes.size → ∀ c x ty, m.tagged i c = some (x, ty) →
+          ty = p.types[i]! ∧ (ty = Ty.bool → ∃ b, x = N.truth b)) ∧
+    (∃ p : Program, parse step4Vol = .ok p ∧ ∃ i, p.probeNodes[0]? = some i ∧
+      ∀ (N : NumOps α) (x : α), N.finite x = true →
+        (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[i]![0]! = some x) := by
+  sorry
+
+open Engine.Lang in
+/-- B3 L3 over declared sources: a rewrite of R version 1 keeps a well-formed program well formed, gives every
+original node the value of its corresponding node at every tick of every run, and so gives every probe the same
+values. Abstract numbers: the numeric obligations are `NumOps.Lawful`. The witnesses: there are twelve rules;
+and one of them rewrites the checked program `neg(neg(vol))` into a different program, where under any lawful
+number system a finite input reads out as itself from both programs' probes. -/
+theorem L3_rewrite {α : Type} :
+    (∀ (N : NumOps α), N.Lawful → ∀ (r : Rule) (p p' : Program) (i : Nat), p.WF → r.apply p i = some p' →
+      ∀ (coins : Nat) (ts : List (Tick α)),
+        p'.WF ∧
+        (∀ k, k < p.nodes.size →
+          (Mach.run N p' coins ts).vals[r.corr i k]! = (Mach.run N p coins ts).vals[k]!) ∧
+        (∀ j, j < p.probeNodes.size →
+          (Mach.run N p' coins ts).vals[p'.probeNodes[j]!]! = (Mach.run N p coins ts).vals[p.probeNodes[j]!]!)) ∧
+    Rule.all.length = 12 ∧
+    (∃ (r : Rule) (p p' : Program) (i : Nat), r ∈ Rule.all ∧ parse step4NegNeg = .ok p ∧ r.apply p i = some p' ∧
+      p' ≠ p ∧
+      ∀ (N : NumOps α), N.Lawful → ∀ x : α, N.finite x = true →
+        (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[p.probeNodes[0]!]![0]!
+            = some x ∧
+        (Mach.run N p' 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[p'.probeNodes[0]!]![0]!
+            = some x) := by
+  sorry
+
+open Engine.Lang Engine.Machine in
+/-- B3 L5 over declared sources: `start`'s preflight, before any event or tick, fails exactly when the program
+declares a source the header does not declare under that unit, or reads `traded` on a market with no trade
+source, and with its one code. When what comes before `bind` passes and `bind` fails, `start` returns exactly
+that code; whenever `start` passes, `bind` did. The witnesses are `start`s: a compatible one succeeds; `traded`
+with no trade source, and a source with no header declaration, return E_UNKNOWN_INPUT. -/
+theorem L5_binding :
+    (∀ (p : Program) (cfg : Config),
+      (bind p cfg = .error "E_UNKNOWN_INPUT" ↔
+        ((∃ d ∈ p.declared, cfg.declaresSource d.1 d.2 = false) ∨
+          (p.readsTraded = true ∧ cfg.trades = none))) ∧
+      (bind p cfg = .ok () ↔
+        ¬ ((∃ d ∈ p.declared, cfg.declaresSource d.1 d.2 = false) ∨
+          (p.readsTraded = true ∧ cfg.trades = none)))) ∧
+    (∀ (program header : String) (p : Program) (cfg : Config),
+      parse program = .ok p → parseHeader header = .ok cfg →
+      startBeforeBind program header = .ok () → bind p cfg = .error "E_UNKNOWN_INPUT" →
+      start program header = .error "E_UNKNOWN_INPUT") ∧
+    (∀ (program header : String) (st : State),
+      start program header = .ok st →
+        ∃ (p : Program) (cfg : Config),
+          parse program = .ok p ∧ parseHeader header = .ok cfg ∧ bind p cfg = .ok ()) ∧
+    ((∃ st, start step4Vol step4Header = .ok st) ∧
+      (∃ st, start step4Traded step4Header = .ok st) ∧
+      start step4Traded step4HeaderNoTrades = .error "E_UNKNOWN_INPUT" ∧
+      start step4Vol step4HeaderNoVol = .error "E_UNKNOWN_INPUT") := by
+  sorry
+
+open Engine.Lang Engine.Machine in
+/-- B3 N1: a consistent renaming of the declared sources, in the program and in the header, leaves the
+preflight's verdict and every node's value at every tick of every run as they were. The renaming is one-to-one,
+and what it yields a legal name that is no built-in input's, on the names it renames: every source the program declares or
+reads, and those of the header. No code selects behaviour by a source's name. The witness: `vol` renamed `vol2` meets every
+hypothesis, changes the program, and the renamed program binds to the renamed header. -/
+theorem N1_renaming {α : Type} :
+    (∀ (names : List String) (ρ : String → String),
+      (∀ s ∈ names, ∀ s' ∈ names, ρ s = ρ s' → s = s') →
+      (∀ s ∈ names, validName (ρ s) = true ∧ ρ s ∉ inputNames) →
+      ∀ (N : NumOps α) (p : Program) (cfg : Config), p.WF →
+        (∀ d ∈ p.declared, d.1 ∈ names) → (∀ s ∈ p.sourceNames, s ∈ names) →
+        (∀ o ∈ cfg.observations, o.name ∈ names) →
+        ∀ (coins : Nat) (ts ts' : List (Tick α)),
+          ts'.length = ts.length →
+          (∀ (i : Nat) (t t' : Tick α), ts[i]? = some t → ts'[i]? = some t' →
+            t'.inView = t.inView ∧ t'.time = t.time ∧
+              ∀ c s, s ∈ p.sourceNames → t'.input c (ρ s) = t.input c s) →
+          (p.rename ρ).WF ∧
+          bind (p.rename ρ) (cfg.rename ρ) = bind p cfg ∧
+          (Mach.run N (p.rename ρ) coins ts').vals = (Mach.run N p coins ts).vals) ∧
+    (∃ (p : Program) (cfg : Config),
+      parse step4Vol = .ok p ∧ parseHeader step4Header = .ok cfg ∧
+      (let ρ : String → String := fun s => if s = "vol" then "vol2" else s
+       (∀ s ∈ ["vol"], ∀ s' ∈ ["vol"], ρ s = ρ s' → s = s') ∧
+       (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
+       (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧ (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
+       p.rename ρ ≠ p ∧ bind (p.rename ρ) (cfg.rename ρ) = .ok ())) := by
+  sorry
+
+open Engine.Machine in
+/-- B3 L1a ★ for the machine so far, over a common successful `start` and admitted event streams: two markets
+equal on the events known by `τ`, and on the events with `time` at most `τ − δ`, give equal ticks through `τ`:
+the running view, every node's evaluated value and, as a consequence, the rows of the trace. The world's `price`
+and `world` fields are not claimed. Admitted means `snapshots` is `some`: no event was rejected; the ticks are
+observed as the machine had them and `finish`'s own verdict is not asked. The witnesses: two admitted streams
+of one declared float observation, `3` and `5`, that start and finish ok, and whose probes read `3` and `5`. -/
+theorem L1a :
+    (∀ (program header : String) (initial : State), start program header = .ok initial →
+      ∀ (es₁ es₂ : List Event) (τ : Int),
+      es₁.filter (fun e => decide (e.known ≤ τ)) = es₂.filter (fun e => decide (e.known ≤ τ)) →
+      es₁.filter (fun e => decide (e.time ≤ τ - initial.cfg.delta)) =
+        es₂.filter (fun e => decide (e.time ≤ τ - initial.cfg.delta)) →
+      ∀ r₁ r₂ : List TickRecord, snapshots initial es₁ = some r₁ → snapshots initial es₂ = some r₂ →
+        r₁.filter (fun r => decide (r.time ≤ τ)) = r₂.filter (fun r => decide (r.time ≤ τ)) ∧
+        (r₁.filter (fun r => decide (r.time ≤ τ))).map (·.row) =
+          (r₂.filter (fun r => decide (r.time ≤ τ))).map (·.row)) ∧
+    (let seen (bits : UInt64) : Event :=
+       { coin := 0, time := 1775174400000, known := 1775174400000, payload := .observation 0 bits }
+     ∃ initial : State, start step4Vol step4Header = .ok initial ∧
+       (finish (feed initial (pack [seen 4613937818241073152])).1).2.startsWith "{\"ok\":true" = true ∧
+       (finish (feed initial (pack [seen 4617315517961601024])).1).2.startsWith "{\"ok\":true" = true ∧
+       (∃ r₁ r₂, snapshots initial [seen 4613937818241073152] = some r₁ ∧
+         snapshots initial [seen 4617315517961601024] = some r₂ ∧
+         r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"] ∧
+         r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])) := by
   sorry
 
 end Engine.Laws

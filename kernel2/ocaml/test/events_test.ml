@@ -3,7 +3,7 @@
    in events_support.ml. CLI: mm2 start PROGRAM HEADER STATE; feed STATE CHUNK;
    finish STATE OUTDIR; inspect HEADER CHUNK (integrity metadata only).
    Reader: mm2_archive Reader.snapshot_file/trade_file/archive_day/archive/merge,
-   raw doubles unchanged, disk-wide coin-day id check before emit; see support.
+    raw doubles unchanged; see support.
    Policy: kernel2/protected-windows.json, strict JSON list of exactly
    {start:integer-ms,end:integer-ms,released:bool}, compiled in, never overridable.
    Tests 1, 3 and 4 of brief 3, step 3; all inputs are synthetic. *)

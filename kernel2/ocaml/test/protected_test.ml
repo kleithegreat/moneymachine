@@ -2,8 +2,8 @@
    A18 arrays/A19 rows as events_support.ml; mm2 start PROGRAM HEADER STATE,
    feed STATE CHUNK_JSON, finish STATE OUTDIR, inspect HEADER CHUNK_JSON.
    inspect's only keys are size,sha256,records,stale; it never prints values.
-   Reader is mm2_archive.Reader (double-preserving archive reader and disk-wide
-   trade-id checks); protected-windows.json is compiled strict data at
+    Reader is mm2_archive.Reader (double-preserving archive reader);
+    protected-windows.json is compiled strict data at
    kernel2/protected-windows.json: [{start:integer-ms,end:integer-ms,released:bool}].
    Mm2_identity build/identity/embedded_* and compile_windows are specified in
    events_support.ml. Test 2 checks the actual CLI and compiled policy, not an

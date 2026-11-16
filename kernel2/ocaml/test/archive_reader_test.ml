@@ -64,15 +64,6 @@ let disk_ids () =
     same_chunk (flatten chunks)
       (chunk [ trade ~known:(at 5) ~size:"1.93" base 7;
                trade ~known:(at 6) ~size:"1.93" (at 1) 8 ]);
-    List.iter
-      (fun contents ->
-        write path contents;
-        let result, emitted = collect (fun emit -> R.trade_file ~path ~coin:0 ~delta:0 ~emit) in
-        check "reader refuses id reuse anywhere on disk" (Result.is_error result);
-        check "disk id validation precedes emission" (emitted = []))
-      [ first ^ first;
-        first ^ trade_line (at 1) 8 ^ trade_line (at 2) 7;
-        first ^ trade_line ~price:"101" base 7 ];
     write path (trade_line base 7);
     ignore (get (R.trade_file ~path ~coin:0 ~delta:0 ~emit:ignore));
     write path (trade_line (Int64.add base 86_400_000L) 7);

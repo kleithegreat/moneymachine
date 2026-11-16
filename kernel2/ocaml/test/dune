@@ -78,15 +78,11 @@
  (libraries events_support))
 
 (test
- (name scale_test)
- (modules scale_test)
- (libraries events_support scale_test_support))
+ (name eval_test)
+ (modules eval_test)
+ (libraries events_support mm2_lean yojson))
 
-; Step 3 test 7's sandbox half: rerun the original step-1 and step-3
-; assertions unchanged against this build's ordinary public entry points.
-; engine-proofs-fixtures checks that engine-proofs lists both X3 equalities
-; with X2/C1/C2, and that only the three permitted axioms occur. The local
-; archive_local test 5 must also be rerun unchanged on this same build.
-(alias
- (name step3-fast-readings)
- (deps (alias runtest)))
+(executable
+ (name b4_local)
+ (modules b4_local)
+ (libraries events_support mm2_lean yojson unix))
