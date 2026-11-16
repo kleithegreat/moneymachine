@@ -28,7 +28,7 @@ The one exception is the audit record (§3): pre-registered criteria, the experi
 
 The human directs the project and is sometimes present: ask when it matters. The advisor is one long-lived session; builders are fresh, self-contained sessions or subagents. Every session reads `PROGRESS.md` first, and a builder ends by updating it. Some work runs unattended (oftentimes overnight); then nobody answers, so write what you would have asked under Blockers, commit, and carry on with whatever does not depend on it.
 
-The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap sets the studies. The project is academic: no live trading (the human, 2026-11-11). If the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record that under Blockers before changing it. After a paper change, commit the rebuilt PDF (`nix build .#whitepaper`, copy `result` to `docs/whitepaper.pdf`).
+The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap sets the studies. The project is academic: a study of what can and cannot be confirmed about an agent's edge, in which the research system is an aim and not only a means; no live trading (the human, 2026-11-11). If the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record that under Blockers before changing it. After a paper change, commit the rebuilt PDF (`nix build .#whitepaper`, copy `result` to `docs/whitepaper.pdf`).
 
 ### The advisor
 
@@ -39,6 +39,7 @@ When the human asks something or proposes an idea, catch every case where it has
 One authoritative home per kind of information; anything elsewhere is a summary that links to it.
 - **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is summarized there, linking its audit record. Specs and criteria say what, and cite the paper for why.
 - **Process:** this file.
+- **Findings index:** `docs/findings.md`, one row per completed study, each linking the paper and the audit record. It holds no number of its own.
 - **The live system:** `CLUSTER.md`.
 - **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (the flake check `progress-cap`), leaving history to git.
 - **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.

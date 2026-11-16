@@ -1,0 +1,1767 @@
+"""Reproduces every derived number in audit/program/architecture.md (revision 4, section 5 as revised after Argon's rounds 4 to 6, section 6 as re-derived after rounds 2 to 6 on kernel version 2), audit/program/paper-changes.md,
+audit/program/argon-paper-findings.md and the study 2 notes of audit/program/criteria-notes.md. Cited numbers carry their sources there.
+
+Run from the repo root: python3 audit/program/arithmetic.py.txt [the vault's directory [a rates file]]   (numpy and scipy; about four minutes).
+Reads audit/stage3/null-v3.jsonl for the agent's evaluation counts, venue/hyperliquid/meta-2026-11-16.json for coin rules and, when its
+directory is given, the vault's fills and userFunding pages dated before 2026-11-01, of which it prints counts only. The rates file is a
+JSON object of coin to fundingHistory rows.
+"""
+
+import functools
+import hashlib
+import json
+import math
+import statistics
+import sys
+from fractions import Fraction
+from pathlib import Path
+
+import numpy as np
+from scipy.integrate import quad
+from scipy.optimize import brentq, minimize, minimize_scalar
+from scipy.stats import beta, binom, norm
+
+Z80 = norm.ppf(0.95) + norm.ppf(0.80)
+LOG20 = math.log(20)
+STEPS_A_YEAR = 6 * 365
+STAKE_CAP = 0.05
+SESSIONS_A_WEEK = 22  # an assumption: TAMU and Cornell together
+
+
+def yardstick() -> None:
+    """The Gaussian fixed-horizon yardstick, z = S * sqrt(T): a planning reference, not a limit on every test."""
+    print(f"z* = {Z80:.3f}, z*^2 = {Z80**2:.2f}")
+    for sharpe in (1, 1.4, 2, 2.4, 5):
+        print(f"  Sharpe {sharpe}: {Z80**2 / sharpe**2:.2f} years at 80% power")
+    for years in (91 / 365, 1, 2):
+        print(f"  T = {years:.3f} years: Sharpe {Z80 / math.sqrt(years):.2f} at 80% power")
+
+
+def crossing(drift: float, spread: float, level: float = LOG20) -> float:
+    """P(a Brownian log wealth with total drift `drift` and total standard deviation `spread` reaches `level`
+    at any time before the end): the reflection formula. The test stops there, so this is its power."""
+    reflected = math.exp(min(0.0, 2 * drift * level / spread**2 + norm.logcdf((-drift - level) / spread)))
+    return float(norm.cdf((drift - level) / spread)) + reflected
+
+
+def kelly_power(u: float) -> float:
+    """Power of an exact test staked at Kelly's fraction, where u = effect * sqrt(count)."""
+    return crossing(u * u / 2, u)
+
+
+U80 = brentq(lambda u: kelly_power(u) - 0.8, 1, 6)
+
+
+def exact_cost() -> None:
+    """Independent even bets with net edge e, staked at Kelly's fraction e: log wealth after N bets is near
+    Gaussian with mean N*e^2/2 and standard deviation e*sqrt(N)."""
+    z = norm.ppf(0.80)
+    terminal = z + math.sqrt(z * z + 2 * LOG20)
+    print(f"  stopping at 20: N = {U80**2:.2f} / e^2 for 80% power (u = {U80:.3f}; Argon wrote 8.67); the yardstick: {Z80**2:.2f} / e^2, so the exact test costs {U80**2 / Z80**2:.2f} times as much")
+    print(f"  revision 3 asked for wealth of 20 at the end: N = {terminal**2:.1f} / e^2, where the power is really {kelly_power(terminal):.3f}")
+    for edge in (0.03, 0.05, 0.08, 0.1):
+        print(f"    net edge {edge}: {U80**2 / edge**2:,.0f} independent bets")
+    print(f"  within 104 weeks: count a week * e^2 >= {U80**2 / 104:.4f}")
+    for bets in (5, 10, 15, 33, 45, 60):
+        edge = U80 / math.sqrt(104 * bets)
+        print(f"    {bets} bets a week: net edge {edge:.3f} (a hit rate of {(1 + edge) / 2:.3f} on an even bet); power at 0.03, 0.05, 0.08: " + ", ".join(f"{kelly_power(e * math.sqrt(104 * bets)):.2f}" for e in (0.03, 0.05, 0.08)))
+    for edge in (0.03, 0.05, 0.08):
+        print(f"    net edge {edge}: {U80**2 / (104 * edge**2):.0f} bets a week")
+    print(f"  discordant paired forecasts for a hit-rate gain of 0.05 (edge 0.1): {U80**2 / 0.1**2:.0f}; of 0.025: {U80**2 / 0.05**2:.0f}")
+
+
+def account(bets: int, hold: int, edge: float, fraction: float, weeks: int = 104, paths: int = 4000) -> float:
+    """A paper account in even bets with net edge `edge`: `bets` purchases a week, each staking `fraction` of the
+    cash left at that moment and paid `hold` purchases later (0: before the next purchase). Returns P(cash reaches
+    20 within `weeks`); a payout still pending at the end is not cash (Argon's round 4, finding 7)."""
+    rng = np.random.default_rng(11)
+    cash = np.ones(paths)
+    pending = np.zeros((paths, hold + 1))
+    reached = np.zeros(paths, dtype=bool)
+    for bet in range(weeks * bets):
+        slot = bet % (hold + 1)
+        cash = cash + pending[:, slot]
+        reached |= cash >= 20
+        stake = fraction * cash
+        cash = cash - stake
+        pending[:, slot] = 2 * stake * (rng.random(paths) < (1 + edge) / 2)
+    return float(reached.mean())
+
+
+def forward_account() -> None:
+    """The account's sequential rule simulated with three settlement timings: before the next purchase, a day
+    later, and a week later (revision 3's batch, which Argon's finding 2 showed starves the stake)."""
+    print(f"  no edge, 33 bets a week staking the cap, paid a day later: {account(33, 5, 0.0, STAKE_CAP, paths=20_000):.3f} of paths reach 20 (Ville's bound: 0.05 over any horizon)")
+    print("  net edge for 80% power within 104 weeks, stake min(5%, Kelly) of cash:")
+    for bets in (5, 10, 15, 33, 60):
+        found = []
+        for hold in (0, math.ceil(bets / 7), bets):
+            found.append(brentq(lambda e: account(bets, hold, e, min(STAKE_CAP, e)) - 0.8, 0.01, 0.6, xtol=0.001))
+        print(f"    {bets:2d} bets a week: paid at once {found[0]:.3f}, a day later {found[1]:.3f} (a hit rate of {(1 + found[1]) / 2:.3f}), a week later {found[2]:.3f}; closed form {U80 / math.sqrt(104 * bets):.3f}")
+    for bets in (10, 33):
+        hold = math.ceil(bets / 7)
+        print(f"    {bets} bets a week paid a day later, power at 0.03, 0.05, 0.08: " + ", ".join(f"{account(bets, hold, e, min(STAKE_CAP, e)):.2f}" for e in (0.03, 0.05, 0.08)))
+
+
+def capped_growth(mu: float, sigma: float, cap: float) -> float:
+    """Expected log growth a step of wealth bet at the constant fraction `cap`, to second order."""
+    return cap * mu - cap**2 * (sigma**2 + mu**2) / 2
+
+
+def series_power(sharpe: float, planned: tuple[float, ...], paths: int = 20_000) -> tuple[float, float]:
+    """A frozen rule's four-hour returns with annualized Sharpe `sharpe`, Gaussian. The confirmer's wealth is the
+    mean of the wealths that bet Kelly's fraction for each planned Sharpe. Returns P(wealth reaches 20) within one
+    year and within two."""
+    rng = np.random.default_rng(7)
+    dt = 1 / STEPS_A_YEAR
+    wealth = np.ones((len(planned), paths))
+    bets = np.array(planned)[:, None]
+    reached = np.zeros(paths, dtype=bool)
+    first = reached
+    for step in range(2 * STEPS_A_YEAR):
+        wealth = wealth * (1 + bets * rng.normal(sharpe * dt, math.sqrt(dt), paths))
+        reached |= wealth.mean(axis=0) >= 20
+        if step == STEPS_A_YEAR - 1:
+            first = reached.copy()
+    return float(first.mean()), float(reached.mean())
+
+
+def confirmer(sigma: float = 0.02) -> None:
+    """A frozen return series under three confirmers: the yardstick, the gate's test (bet at most 1/L, L = 2), and
+    an exact test whose loss bound is the rule's own, so that Kelly's fraction fits (Argon's finding 2)."""
+    annual = math.sqrt(STEPS_A_YEAR)
+    print("  Sharpe for 80% power: yardstick; exact test at Kelly's fraction; the gate's capped test")
+    for years in (91 / 365, 1, 2):
+        steps = round(years * STEPS_A_YEAR)
+        spread = 0.5 * sigma * math.sqrt(steps)
+        capped = brentq(lambda m: crossing(steps * capped_growth(m, sigma, 0.5), spread) - 0.8, 0, 1)
+        print(f"    {steps} steps: {Z80 / math.sqrt(years):.2f}; {U80 / math.sqrt(years):.2f}; {capped * annual / sigma:.1f}")
+    for sharpe in (1.4, 2, 2.4):
+        print(f"  Kelly's fraction fits under 1/L while the worst step loss L is at most {annual / sharpe:.1f} step standard deviations at Sharpe {sharpe}; the gate's L is {2 / sigma:.0f}")
+    print("  power within one year and two, by true Sharpe; betting Kelly's fraction for Sharpe 2 (closed form at two years), and the mean of the bets for 1, 2 and 3:")
+    for sharpe in (0, 1, 1.4, 2, 2.4, 3):
+        fixed = series_power(sharpe, (2.0,))
+        mixed = series_power(sharpe, (1.0, 2.0, 3.0))
+        closed = crossing((2 * sharpe - 2) * 2, 2 * math.sqrt(2))
+        print(f"    Sharpe {sharpe}: for 2, {fixed[0]:.2f} and {fixed[1]:.2f} ({closed:.2f}); mean of three, {mixed[0]:.2f} and {mixed[1]:.2f}; at Kelly's own fraction {kelly_power(sharpe * math.sqrt(2)) if sharpe else 0:.2f} at two years")
+    print(f"  the standard error of a Sharpe measured over two years is {1 / math.sqrt(2):.2f}")
+    for sharpe in (1.4, 2.4):
+        print(f"  years to 80% power at Sharpe {sharpe}: {U80**2 / sharpe**2:.2f} at Kelly's fraction")
+
+
+LADDER_NOTIONAL = (1.0, 0.978, 1.864, 3.607, 6.944, 13.24)  # the first buy and five levels, facts-kernel-v2.md section 7
+CYCLES_BY_BUYS = (1569, 201, 121, 77, 30, 21)  # cycles with one buy order, two, ..., six or more
+
+
+def years_to_power(sharpe: float, vol: float, power: float = 0.8) -> float:
+    """Years until an account of yearly volatility `vol` and Sharpe `sharpe`, taken as the wealth, has reached 20
+    with probability `power`. Infinite when it never does."""
+    drift = sharpe * vol - vol**2 / 2
+
+    def shortfall(years: float) -> float:
+        return crossing(drift * years, vol * math.sqrt(years)) - power
+
+    return brentq(shortfall, 0.01, 1000) if shortfall(1000) > 0 else math.inf
+
+
+def dual_bound(first: np.ndarray, second: np.ndarray, third: np.ndarray) -> float:
+    """The confirmer's bound on the log wealth of every constant mix, from three sums a coin, at the best
+    multiplier. Since log(1 + x) <= x - x^2/2 + x^3/3 for x >= -1, a mix's log wealth is at most
+    sum_c b_c S1_c - b_c^2 Q_c with Q_c = S2_c/2 - max(S3_c, 0)/3, and for any multiplier lam >= 0 the maximum
+    over mixes is at most D(lam) = lam + sum_c max over b in [0, 1] of (S1_c - lam) b - Q_c b^2, which is closed
+    form. Every coin's term is zero once lam >= S1_c - min(Q_c, 0), and D rises with lam from there, so the
+    least D lies below the largest of those (Argon's finding 4 of round 5: the search stopped at the largest S1)."""
+    curve = second / 2 - np.clip(third, 0, None) / 3
+
+    def dual(multiplier: float) -> float:
+        slope = first - multiplier
+        inner = np.where(curve > 0, np.clip(slope / (2 * np.where(curve > 0, curve, 1)), 0, 1), (slope > curve).astype(float))
+        return multiplier + float((slope * inner - curve * inner**2).sum())
+
+    top = max(0.0, float((first - np.minimum(curve, 0)).max()))
+    return float(minimize_scalar(dual, bounds=(0, top + 1), method="bounded", options={"xatol": 1e-12}).fun)
+
+
+def mix_bound(returns: np.ndarray) -> tuple[float, float]:
+    """The best constant mix in hindsight on the record's own clock, and the bound the confirmer certifies.
+    `returns` holds each coin's quote-to-quote simple returns in a column; a mix b (long only, summing to at
+    most 1) rebalances at every quote, so its log wealth is the sum over coins of sum log(1 + b_c r). Returns
+    the log wealth of the mix an optimizer found and `dual_bound` of the three sums."""
+    bound = dual_bound(returns.sum(axis=0), (returns**2).sum(axis=0), (returns**3).sum(axis=0))
+    coins = returns.shape[1]
+    found = minimize(
+        lambda b: -np.log1p(returns * b).sum(),
+        np.full(coins, 1 / (coins + 1)),
+        jac=lambda b: -(returns / (1 + returns * b)).sum(axis=0),
+        bounds=[(0, 1)] * coins,
+        constraints={"type": "ineq", "fun": lambda b: 1 - b.sum(), "jac": lambda b: -np.ones(coins)},
+        method="SLSQP",
+        options={"maxiter": 500, "ftol": 1e-13},
+    )
+    mix = np.clip(found.x, 0, None)
+    mix = mix / max(1.0, mix.sum())
+    return float(np.log1p(returns * mix).sum()), float(bound)
+
+
+def hindsight_cost(drift: float, paths: int = 200, days: int = 730, coins: int = 16, vol: float = 0.8, shared: float = 0.6) -> tuple[float, float, float]:
+    """The log wealth of the best constant mix in hindsight over two years: `coins` coins of yearly volatility
+    `vol`, a share `shared` of each one's variance common, every coin's yearly drift `drift`, one quote a coin a
+    day (assumptions, not measurements; a diffusion's best mix barely depends on the clock, see
+    `rebalancing_residual`). Returns the median and the 0.9 quantile of the certified bound, and the widest gap
+    between the bound and the mix found."""
+    rng = np.random.default_rng(13)
+    step = vol / math.sqrt(365)
+    bounds, gaps = [], []
+    for _ in range(paths):
+        common = rng.normal(0, step * math.sqrt(shared), (days, 1))
+        own = rng.normal(0, step * math.sqrt(1 - shared), (days, coins))
+        returns = np.expm1((drift - vol**2 / 2) / 365 + common + own)
+        log_wealth, bound = mix_bound(returns)
+        bounds.append(bound)
+        gaps.append(bound - log_wealth)
+    return float(np.median(bounds)), float(np.quantile(bounds, 0.9)), max(gaps)
+
+
+def rebalancing_residual(drift: float = 0.3, vol: float = 0.8) -> float:
+    """Yearly log growth of the best constant exposure rebalanced continuously, less that of the best rebalanced
+    daily, in one lognormal coin: what a daily clock hides in a diffusion. It is not a bound: `round3` shows a
+    market of jumps where it is 0.006 a day."""
+    step = vol / math.sqrt(365)
+    mean = (drift - vol**2 / 2) / 365
+
+    def daily(exposure: float) -> float:
+        return quad(lambda x: math.log1p(exposure * math.expm1(x)) * norm.pdf(x, mean, step), mean - 10 * step, mean + 10 * step)[0]
+
+    best_daily = -minimize_scalar(lambda e: -daily(e), bounds=(0, 1), method="bounded").fun * 365
+    exposure = min(1.0, max(0.0, drift / vol**2))
+    return exposure * drift - exposure**2 * vol**2 / 2 - best_daily
+
+
+def study2() -> None:
+    """Section 6 after rounds 2 to 4: the wealth is a ledger that copies the account's fills at a scale, and rung 2's
+    benchmark trades at every price event."""
+    held = np.cumsum(LADDER_NOTIONAL)
+    cycles = np.array(CYCLES_BY_BUYS)
+    mean_held = float((cycles * held).sum() / cycles.sum())
+    print(f"  a full ladder holds {held[-1]:.1f} first buys; the vault's {cycles.sum()} cycles held {mean_held:.2f} at their deepest on average; {cycles[0] / cycles.sum():.3f} never pass the first buy")
+    print("  the test's share spent after each buy, phi = 1, by the depth of a cycle it follows in full (1: the first buy only; 6: the whole ladder):")
+    for depth in range(1, len(LADDER_NOTIONAL) + 1):
+        print(f"    depth {depth}: " + ", ".join(f"{min(held[buys], held[depth - 1]) / held[depth - 1]:.3f}" for buys in range(len(LADDER_NOTIONAL))))
+
+    print("  the wealth's power within one year and two, and years to 80%, by its yearly volatility and Sharpe (rung 1)")
+    for vol in (0.1, 0.25, 0.5, 1.0, 2.0):
+        cells = []
+        for sharpe in (1.4, 2, 2.4):
+            drift = sharpe * vol - vol**2 / 2
+            one, two = crossing(drift, vol), crossing(2 * drift, vol * math.sqrt(2))
+            cells.append(f"Sharpe {sharpe}: {one:.2f}, {two:.2f}, {years_to_power(sharpe, vol):.1f} y")
+        print(f"    volatility {vol}: " + "; ".join(cells))
+
+    print("  rung 2's bar: log of the best constant mix in hindsight over two years, median and 0.9 quantile (the confirmer's bound; its widest gap above the mix an optimizer found)")
+    costs = {}
+    for drift in (0.0, 0.5):
+        costs[drift] = hindsight_cost(drift)
+        print(f"    every coin's yearly drift {drift}: {costs[drift][0]:.2f} and {costs[drift][1]:.2f} ({costs[drift][2]:.1e}); as a factor {math.exp(costs[drift][0]):.1f} and {math.exp(costs[drift][1]):.1f}")
+    print("  rung 2's power within two years with the bar raised by the driftless median, by the ratio's own volatility and Sharpe:")
+    for vol in (0.5, 1.0):
+        print(f"    volatility {vol}: " + "; ".join(f"Sharpe {sharpe}: {crossing(2 * (sharpe * vol - vol**2 / 2), vol * math.sqrt(2), LOG20 + costs[0.0][0]):.2f}" for sharpe in (1.4, 2, 2.4)))
+    print(f"  what a daily clock hides in a diffusion of volatility 0.8: {rebalancing_residual():.1e} of log growth a year (the real figure is the realized variance at the quotes' own scale, unread)")
+
+    swing = 0.1
+    print(f"  GPT's finding 1: holding a still coin against a basket half in a coin moving {swing} either way, W / B gains {-0.5 * math.log(1 - swing**2 / 4):.5f} of log a step with no skill; against the best mix it gains nothing, since cash is a mix")
+    rng = np.random.default_rng(5)
+    returns = rng.normal(0.0002, 0.01, 1_000_000)
+    exposure = (returns < 0).astype(float)
+    paired = (exposure[1:-1] - exposure[:-2]) * (returns[2:] - returns[1:-1])
+    print(f"  Argon's paired statistic for a rule that buys after any fall, on independent returns: mean {paired.mean():.5f}, {paired.mean() / paired.std() * math.sqrt(len(paired)):.0f} standard errors above zero; it is not a null statistic")
+
+    wins = math.ceil(LOG20 / math.log(2.8))
+    absorbed = sum(0.5**k * 0.8 * 2.8 ** (k - 1) for k in range(1, wins + 1))
+    print(f"  GPT's finding 5, equity 1 at twice leverage in a fair coin moving 0.9: the floored account reaches 20 with probability {0.5**wins:.4f}; the bound (1 + E[absorbed]) / 20 is {(1 + absorbed) / 20:.4f}, with E[absorbed] = {absorbed:.3f}")
+    print(f"  a simulated null of 20,000 paths at exactly 5% shows at most {int(binom.ppf(0.9999, 20_000, 0.05))} crossings with probability 0.9999 (1,000 would fail half the time)")
+
+
+def forecast_ratio(returns: np.ndarray, record: int, forward: int, block: int, draws: int, rng: np.random.Generator) -> np.ndarray:
+    """Draws of (the variance of a pseudo-forward of `forward` days) over (that of a pseudo-record of `record` days), each made of circular blocks of
+    `block` days of `returns` and each about its own mean, divided by its count: study 2's bootstrap for CS2.2."""
+    days = len(returns)
+
+    def variances(length: int) -> np.ndarray:
+        starts = rng.integers(0, days, size=(draws, math.ceil(length / block)))
+        index = ((starts[:, :, None] + np.arange(block)[None, None, :]) % days).reshape(draws, -1)[:, :length]
+        return returns[index].var(axis=1)
+
+    return variances(forward) / variances(record)
+
+
+def clustered_days(days: int, persistence: float, rng: np.random.Generator) -> np.ndarray:
+    """Daily returns whose variance follows a GARCH(1,1) of the given persistence, a tenth of it from the last
+    return's square, started from its stationary mean after a burn-in of 500 days."""
+    reaction = 0.1
+    variance, out = 1.0, np.empty(days + 500)
+    for day in range(days + 500):
+        out[day] = math.sqrt(variance) * rng.standard_normal()
+        variance = (1 - persistence) + reaction * out[day] ** 2 + (persistence - reaction) * variance
+    return out[500:]
+
+
+def held(replay: list[Fraction], forward: list[Fraction]) -> str:
+    """CS2.2's verdict from two lists of daily returns, exact: each list's variance is about its own mean and divided by its count, and the two are
+    compared by cross-multiplying. A replay of no variance has no ratio."""
+
+    def scaled(returns: list[Fraction]) -> Fraction:
+        return len(returns) * sum(r * r for r in returns) - sum(returns) ** 2
+
+    below, above = scaled(replay) * len(forward) ** 2, scaled(forward) * len(replay) ** 2
+    if below == 0:
+        return "not judged"
+    return "held" if below <= 2 * above and above <= 2 * below else "did not hold"
+
+
+def dual_share(s1: Fraction, q: Fraction, multiplier: Fraction) -> Fraction:
+    """The weight in [0, 1] at which one coin's term of the bar's bound, (s1 - multiplier) b - q b^2, is greatest; a tie goes to the lesser."""
+    if q > 0:
+        return min(Fraction(1), max(Fraction(0), (s1 - multiplier) / (2 * q)))
+    return Fraction(int(s1 - multiplier > q))
+
+
+def least_dual(first: list[Fraction], curve: list[Fraction]) -> tuple[Fraction, Fraction]:
+    """The bar's bound D at the multiplier Lean computes for it, and that multiplier (architecture 6.1, the certificate). D is convex in the
+    multiplier, and between two neighbouring points where a coin's term changes form it is a quadratic. So its least over every multiplier is its
+    least over zero, those points above zero, and between two neighbours the point where its slope is zero when there is one: a finite list of
+    rationals, each exact. Ties go to the least multiplier."""
+
+    def dual(multiplier: Fraction) -> Fraction:
+        shares = [dual_share(s1, q, multiplier) for s1, q in zip(first, curve)]
+        terms = ((s1 - multiplier) * share - q * share**2 for s1, q, share in zip(first, curve, shares))
+        return multiplier + sum(terms, Fraction(0))
+
+    coins = list(zip(first, curve))
+    changes = {point for s1, q in coins for point in ((s1, s1 - 2 * q) if q > 0 else (s1 - q,)) if point > 0}
+    points = sorted(changes | {Fraction(0)})
+    candidates = list(points)
+    for low, high in zip(points, points[1:]):
+        middle = (low + high) / 2
+        partial = [(s1, q) for s1, q in coins if q > 0 and 0 < s1 - middle < 2 * q]
+        whole = sum(1 for s1, q in coins if dual_share(s1, q, middle) == 1)
+        if partial:
+            flat = (sum((s1 / (2 * q) for s1, q in partial), Fraction(0)) + whole - 1) / sum((1 / (2 * q) for _, q in partial), Fraction(0))
+            if low < flat < high:
+                candidates.append(flat)
+    return min((dual(multiplier), multiplier) for multiplier in candidates)
+
+
+def bar_mix(first: list[Fraction], curve: list[Fraction]) -> list[Fraction]:
+    """The bar's own mix: each coin's weight where its term of the bound is greatest at the least multiplier, all divided by their sum when that is
+    above 1. It is the guard's second mix, and nothing searches for it."""
+    _, multiplier = least_dual(first, curve)
+    shares = [dual_share(s1, q, multiplier) for s1, q in zip(first, curve)]
+    return [share / max(Fraction(1), sum(shares, Fraction(0))) for share in shares]
+
+
+def day_slices(rows: list[tuple[str, Fraction]]) -> list[Fraction]:
+    """What each day added to one of a coin's running fields (a sum, the funding a unit paid, the count of events), from the coin's rows in the
+    report's order, each (occasion, the field since its span began): KERNEL.md A19's `coin` rows. A row adds its value less that of the coin's row
+    before it in the same span, or its whole value where it is its span's first, and a day's slice is what the rows after the day before's row, up
+    to its own, added. Brief 4's step 5 chains these, never the rows themselves (GPT's R2)."""
+    slices, carried, adding = [], Fraction(0), Fraction(0)
+    for occasion, value in rows:
+        adding += value - carried
+        carried = value
+        if occasion == "span":
+            carried = Fraction(0)
+        else:
+            slices.append(adding)
+            adding = Fraction(0)
+    assert adding == 0, "a span's row after the last day's repeats that day's"
+    return slices
+
+
+def bootstrap_days(record: int, paths: int, block: int = 14, days: int = 730) -> np.ndarray:
+    """Brief 4's step 5: for each path, the record's day (from 0) at each of its `days` places. A path is blocks of `block` consecutive days, the
+    last cut, each running past the record's last day to its first; block j of path i starts at the BLAKE2b-256 digest of `study2 bootstrap i j`,
+    as one whole number, modulo the record's days."""
+    blocks = math.ceil(days / block)
+    starts = np.array([[int.from_bytes(hashlib.blake2b(f"study2 bootstrap {i} {j}".encode(), digest_size=32).digest(), "big") % record for j in range(blocks)] for i in range(paths)])
+    return ((starts[:, :, None] + np.arange(block)[None, None, :]) % record).reshape(paths, -1)[:, :days]
+
+
+GUARD_INVESTED = Fraction(24, 25)  # a guard rule keeps 1/25 in cash: the venue caps an hour's funding at 4% of the notional (rules.json)
+
+
+def reach(market: list[tuple[int, str, Fraction]], funding: list[tuple[int, str, Fraction]], weights: dict[str, Fraction], clock: int, minutes: int) -> tuple[list[float], bool]:
+    """A guard rule's wealth over the bar at each day's end of a record, and whether it ended. `funding` holds (time, coin, what a unit paid); the
+    bar here is of the prices alone, which a small charge moves by its own size over the price."""
+    events = sorted([(time, "price", coin, new) for time, coin, new in market] + [(time, "funding", coin, paid) for time, coin, paid in funding])
+    rule = GuardRule(weights)
+    wealth_at = guard_fold(rule, events, clock, minutes * MINUTE, {"A": Fraction(100), "B": Fraction(100)})
+    return [float(wealth) / math.exp(bar_log(market, day_end)) for day_end, wealth in sorted(wealth_at.items())], rule.ended
+
+
+def refused(rules: list[list[Fraction]]) -> bool:
+    """CS2.1's refusal of rung 2, exact, from each guard rule's wealth over the bar at each day's end of the replay: some rule stood 20 times over
+    the bar at a day's end, or stands at the last so far over it that the same rate reaches 20 within the 730 judged days."""
+    return any(max(ratios) >= 20 or ratios[-1] ** 730 >= 20 ** len(ratios) for ratios in rules)
+
+
+def study2_criteria() -> None:
+    """The numbers of study 2's criteria notes (criteria-notes.md, CS2.1 to CS2.3), as revised after the round of 2026-11-15
+    (audit/reviews/2026-11-15-gpt-study2-criteria-r1.md, 2026-11-15-argon-cli-study2-criteria-r1.md) and its confirming read (`confirming_read`)."""
+    hundredth, nothing = Fraction(1, 100), Fraction(0)
+    flat, swing, drift = [hundredth] * 4, [hundredth, -hundredth] * 2, [3 * hundredth, hundredth] * 2
+
+    def mean_square(returns: list[Fraction]) -> Fraction:
+        return sum((r * r for r in returns), Fraction(0)) / len(returns)
+
+    assert mean_square(flat) == mean_square(swing) and held(flat, swing) == "not judged" and held(swing, flat) == "did not hold"
+    assert mean_square(drift) == 5 * mean_square(swing) and held(swing, drift) == "held"
+    assert held([nothing] * 4, [nothing] * 4) == "not judged"
+    twice, halved, beyond = [2 * hundredth, -2 * hundredth, nothing, nothing], [hundredth, -hundredth, nothing, nothing], [2 * hundredth, -2 * hundredth, hundredth, nothing]
+    assert held(swing, twice) == "held" and held(swing, halved) == "held" and held(swing, beyond) == "did not hold" and held(swing, [nothing] * 4) == "did not hold"
+    print("  CS2.2, GPT's finding 2. Replay returns of +0.01 every day and forward returns of +0.01 and -0.01 in turn have one mean square, and a replay of no variance at all; forward returns of +0.03 and +0.01 in turn against +0.01 and -0.01 have one variance, and mean squares 5 apart. The variance about the mean judges the first 'not judged' (a replay that never moved has no ratio) and the second 'held'")
+
+    window, block = 212, 14
+    naive = math.sqrt(0.5)
+    print(f"  CS2.2, two variances of {window} independent days each: an interval made of the forward draw's spread alone covers {2 * norm.cdf(norm.ppf(0.975) * naive) - 1:.3f} at a nominal 0.95, at any kurtosis; the ratio of two pseudo-records carries both spreads")
+    rng = np.random.default_rng(47)
+    trials = 400
+    for persistence in (0.0, 0.9, 0.97):
+        inside, widths, logs = 0, [], []
+        for _ in range(trials):
+            path = clustered_days(2 * window, persistence, rng) if persistence else rng.standard_normal(2 * window)
+            seen, later = path[:window], path[window:]
+            low, high = np.quantile(forecast_ratio(seen, window, window, block, 1000, rng), [0.025, 0.975])
+            realized = later.var() / seen.var()
+            inside += low <= realized <= high
+            widths.append(math.sqrt(high / low))
+            logs.append(math.log(realized))
+        logs_array = np.array(logs)
+        inside_factor = float((np.abs(logs_array) <= math.log(2)).mean())
+        caught = float((np.abs(logs_array + math.log(4)) > math.log(2)).mean())
+        print(f"    simulated, variance persistence {persistence}, {trials} records: a block bootstrap's interval at blocks of {block} days, a factor of {statistics.median(widths):.2f} from end to end in volatility, covers {inside / trials:.2f} at a nominal 0.95; the later volatility is within a factor of sqrt(2) of the earlier in {inside_factor:.2f}, and a later volatility of half the earlier is outside it in {caught:.2f}")
+    print(f"    the table's rows of volatility are a factor of 2 apart, so half the way from one to the next is sqrt(2) = {math.sqrt(2):.3f} in volatility and 2 in a variance; at a Sharpe of 2 the rows 0.5 and 1.0 have power {crossing(2 * (2 * 0.5 - 0.5**2 / 2), 0.5 * math.sqrt(2)):.2f} and {crossing(2 * (2 * 1.0 - 1.0**2 / 2), 1.0 * math.sqrt(2)):.2f} within two years")
+    day = 1.0 / math.sqrt(365)
+    print(f"    a simple daily return against a log one, at a yearly volatility of 1 ({day:.3f} a day): the two variances differ by about {day**2 * 100:.1f}% of themselves, far inside a factor of 2")
+
+    cycles, coins, days, tolerance, judged = 2022, 17, 212, 6, 61
+    rate = cycles / days / coins
+    print(f"  CS2.3: the vault opened {cycles / days:.2f} cycles a day, {rate:.3f} a coin; a tenth of its cycles end within {tolerance} minutes; an entry at a random time is within {tolerance} minutes of one of the vault's on its coin with probability {1 - math.exp(-rate * 2 * tolerance / 1440):.4f}, which is no bound for two rules that both buy falls; the first {judged} judged days hold {judged * cycles / days:.0f} cycles at that rate, as the months held back before the freeze do")
+
+    levels = np.cumsum(LADDER_NOTIONAL)
+    full = float(levels[-1]) * 1.0056
+    first_buy = 100
+    print(f"  CS2.1: the guard's refusal, 20 ** (212 / 730) = {20 ** (212 / 730):.2f}; the ladder's depths in first buys: {', '.join(f'{depth:.2f}' for depth in levels)}")
+    print(f"    the first buy's notional: level 1, {LADDER_NOTIONAL[1]} of it, meets the minimum of 10 from {10 / LADDER_NOTIONAL[1]:.2f}; a full ladder's close, {full:.2f} of it, stays under the cap of 10,000 up to {10_000 / full:.1f}. At {first_buy} the close is {first_buy * full:,.0f}, and 17 full ladders are {17 * first_buy * float(levels[-1]):,.0f}")
+    on_course, short_of = [Fraction(1)] * 211 + [Fraction(239, 100)], [Fraction(1)] * 211 + [Fraction(238, 100)]
+    fell_back = [Fraction(1)] * 9 + [Fraction(25)] + [Fraction(0)] * 202
+    assert refused([short_of, on_course]) and not refused([short_of]) and refused([fell_back]) and fell_back[-1] ** 730 < 20 ** len(fell_back)
+    print("    the refusal, exact: over 212 days a rule that ends 2.39 times over the bar refuses rung 2 and one at 2.38 does not; a rule that stood 25 times over it on day 10 and has nothing at the end refuses by its reach, and would not by its last day")
+
+    rng = np.random.default_rng(59)
+    worst = 0.0
+    for _ in range(2000):
+        size = int(rng.integers(1, 18))
+        first = [Fraction(int(v), 1000) for v in rng.integers(-3000, 6000, size)]
+        curve = [Fraction(int(v), 1000) for v in rng.integers(-2000, 4000, size)]
+        bound, multiplier = least_dual(first, curve)
+        assert multiplier >= 0
+        second = np.array([float(2 * q) if q > 0 else 0.0 for q in curve])
+        third = np.array([0.0 if q > 0 else float(-3 * q) for q in curve])
+        searched = dual_bound(np.array([float(s) for s in first]), second, third)
+        assert float(bound) <= searched + 1e-9
+        worst = max(worst, searched - float(bound))
+        mix = bar_mix(first, curve)
+        assert all(0 <= weight <= 1 for weight in mix) and sum(mix) <= 1
+    three = least_dual([Fraction(3)] * 2, [Fraction(9, 2) - Fraction(27, 3)] * 2)
+    assert three == (Fraction(15, 2), Fraction(15, 2))
+    print(f"    the bar's multiplier, computed and not proposed (GPT's finding 5, Argon's finding 1): on 2,000 random sets of sums for 1 to 17 coins the exact least of D over a finite list of rationals is never above what a bounded search finds, and under it by at most {worst:.1e}; two coins with one return of 3 each give D = {three[0]} at {three[1]}")
+
+    five = pairs_market(5, 2880)
+    up, down = PAIR_UP - 1, PAIR_DOWN - 1
+    pairs = len(five) // 4
+    sums = [pairs * (up**power + down**power) for power in (1, 2, 3)]
+    own = bar_mix([sums[0]] * 2, [sums[1] / 2 - max(sums[2], Fraction(0)) / 3] * 2)
+    half = Fraction(1, 2)
+    assert own == [half, half]
+    kept = half * GUARD_INVESTED
+    charge = [(60 * MINUTE, "A", Fraction(1, 10_000))]
+    plain, _ = reach(five, [], {"A": half, "B": half}, 5, 2880)
+    full_in, full_ended = reach(five, charge, {"A": half, "B": half}, 5, 2880)
+    reserved, reserved_ended = reach(five, charge, {"A": kept, "B": kept}, 5, 2880)
+    capped, capped_ended = reach(five, [(hour * 60 * MINUTE, "A", Fraction(4)) for hour in range(1, 48)], {"A": kept, "B": kept}, 5, 2880)
+    crossed, crossed_ended = reach(five, [(1441 * MINUTE, "A", Fraction(10))], {"A": kept, "B": kept}, 5, 2880)
+    assert full_ended and max(full_in) == 0 and not reserved_ended and reserved[0] >= 20 and not capped_ended
+    assert crossed_ended and crossed[0] >= 20 and crossed[-1] == 0
+    print(f"    the guard's rules, Argon's finding 1, on the pairs every five minutes: the bar's own mix there is {own[0]} and {own[1]}. Held whole it stands {plain[0]:.3g} times over the bar after a day; with one charge of 0.0001 a unit of A in the first hour it has no cash, ends there and stands at {max(full_in):.0f}. At {kept} each, {1 - GUARD_INVESTED} in cash, it goes on and stands {reserved[0]:.3g} times over; charged 4 a unit of A every hour, the venue's cap at a price of 100, it never ends ({capped[0]:.3g} times after a day). Charged 10 a unit a minute into the second day, it ends: {crossed[0]:.3g} times over the bar at the first day's end and nothing at the second, so its reach refuses and its last day does not")
+
+    ledger = TestLedger(Fraction(1), Fraction(first_buy))
+    limit, low_ask, taker = Fraction(101), Fraction(5), Fraction(45, 100_000)
+    ledger.buy("A", first_buy / limit, low_ask, taker)
+    never_stood = float(ledger.wealth({"A": Fraction(100)}))
+    cost, bought, scaled = -(first_buy / limit) * low_ask * (1 + taker), first_buy / limit, ledger.units["A"]
+    assert 1 - ledger.cash == -cost * scaled / bought and never_stood < 2
+    ledger.sell("A", Fraction(1), Fraction(0), Fraction(0))
+    assert ledger.units["A"] == 0 and ledger.cash > 0
+    print(f"  CS2.1, a quote that never stood: an arriving buy of {first_buy} at a limit of 101 meets a recorded ask of 5 while the coin trades at 100. Its size was fixed by its limit, so the ledger at phi = 1 and a depth of the first buy spends {float(1 - ledger.cash):.3f} of its cash and is worth {never_stood:.2f} at the next true quote: under 2 for each such quote, never 20 from one. What the ledger pays is the row's cash for each unit, so a settlement at zero is a sale for no cash and nothing divides by a notional (GPT's finding 15)")
+
+    at_prices, at_bid, bar, last_bid = construction_a(bid_follows=False)
+    assert at_prices >= 20 * bar and at_bid < 1 and at_bid <= at_prices and last_bid == 4
+    followed_prices, followed_bid, followed_bar, followed_last = construction_a(bid_follows=True)
+    assert followed_bid >= 20 * followed_bar and followed_bid <= followed_prices
+    print(f"  CS2.1, Argon's construction A, at prices the engine admits: a coin is quoted down from 100 to 4, the ledger spends its 1 at the ask there, and before a midnight 18 quotes pull the ask up while the bid stays at 4 and nothing trades. The wealth at prices is {float(at_prices):.1f} against a bar of {bar:.2f}, so a test of it says 'outgrew'; the wealth at the bid is {float(at_bid):.4f}, and the rungs compare that (the human, 2026-11-15). Where the bid rises with the ask, to {float(followed_last):,.1f}, the wealth at the bid is {float(followed_bid):.1f} against a bar of {followed_bar:.2f} and the rung is reached: a buyer stood there")
+
+    held_book = Books()
+    held_book.cash, held_book.units = Fraction(1, 2), {"A": Fraction(1, 8)}
+    four = {"A": Fraction(4)}
+    for case, price in (("a print under the bid", Fraction(3)), ("a print over it", Fraction(5)), ("a settlement under the last bid", Fraction(0))):
+        assert held_book.wealth_at_bid(four, {"A": price}) == Fraction(1, 2) + Fraction(1, 8) * min(Fraction(4), price) <= held_book.wealth({"A": price}), case
+    assert Books().wealth_at_bid({}, {}) == Books().wealth({}) == 1
+    print("    never above the wealth: with a bid of 4, a coin printed at 3 is valued at 3, one printed at 5 at 4, and one settled at 0 at 0; a ledger that holds nothing has one wealth. A stale coin's bid is its last quote's, and the same line holds")
+    moved = []
+    for gap in (0.001, 0.01):
+        level = LOG20 - math.log(1 - gap)
+        moved.append(max(abs(crossing(2 * (sharpe * vol - vol**2 / 2), vol * math.sqrt(2), level) - crossing(2 * (sharpe * vol - vol**2 / 2), vol * math.sqrt(2))) for vol in (0.25, 0.5, 1.0, 2.0) for sharpe in (1.4, 2, 2.4)))
+    assert moved[0] < 0.0005
+    print(f"    what the bid costs: the wealth at the bid is at least (1 - h) of the wealth, h the widest gap from price to bid among the coins held, so the rung is at most -log(1 - h) further off. At ten basis points that is {-math.log(1 - 0.001):.4f} of log against {LOG20:.2f}, and the two-year power of no cell of section 6.3's table moves by more than {moved[0]:.4f}; at one percent, by {moved[1]:.4f}")
+    wick = dual_bound(np.array([4 - 0.8]), np.array([16 + 0.64]), np.array([64 - 0.512]))
+    print(f"    Argon's construction B: one print five times the price and the next back, on any coin of the universe: the best mix made {1 + 3.2 * 0.5 - 3.2 * 0.25:.1f} of it and the bar is exp({wick:.2f}) = {math.exp(wick):.1e} for ever after. The bound's slack is large only at returns no book has, and one misprint is such a return")
+
+    record_start, record_end, path_before = Fraction(80), Fraction(100), Fraction(7)
+    assert path_before / record_start == path_before * (record_end / record_start) / record_end
+    print("  The bootstrap's funding (Argon's finding 4): a day's funding scaled by the path's price over the record's is one number at the day's start and at its end, since the path's price moves by the record's own ratio")
+    confirming_read()
+
+
+def confirming_read() -> None:
+    """The constructions of the confirming read of study 2's criteria (audit/reviews/2026-11-15-gpt-study2-criteria-r2.md, R1 to R4;
+    2026-11-15-argon-cli-study2-criteria-r2.md, F2), each run against the rule that closed it."""
+    half, hundredth = Fraction(1, 2), Fraction(1, 100)
+    kept = half * GUARD_INVESTED
+    mix = {"A": kept, "B": kept}
+    one_day, _ = reach(pairs_market(5, 1440), [], mix, 5, 1440)
+    two_days, ended = reach(pairs_market(5, 2880), [(DAY, "A", Fraction(15))], mix, 5, 2880)
+    assert ended and two_days[0] == one_day[0] >= 20 and two_days[1] == 0
+    print(f"  R1, the guard's day's end: the pairs every five minutes, the bar's own mix at {kept} each, and a charge of 15 a unit of A stamped with the first midnight, more than the rule's cash. The first day's end stands before it: {two_days[0]:.3g} times over the bar, the figure of the run cut back to that midnight, and the rule ends in the second day. A fold that took the midnight's events first gave that day nothing, or with a charge the cash meets, a figure the cut-back run does not give")
+
+    record = 212
+    flat_after = [("day", hundredth)] * record
+    slices = day_slices(flat_after)
+    assert slices == [hundredth] + [Fraction(0)] * (record - 1)
+    places = bootstrap_days(record, 10_000)
+    first_day = (places == 0).sum(axis=1)
+    assert all(sum(slices[day] for day in path) == hundredth * int(count) for path, count in zip(places[:50], first_day[:50]))
+    spans = [("day", Fraction(10, 1000)), ("span", Fraction(30, 1000)), ("day", Fraction(5, 1000)), ("day", Fraction(5, 1000)), ("span", Fraction(7, 1000)), ("day", Fraction(1, 1000)), ("span", Fraction(1, 1000))]
+    assert day_slices(spans) == [Fraction(10, 1000), Fraction(25, 1000), Fraction(0), Fraction(3, 1000)] and sum(day_slices(spans)) == Fraction(38, 1000)
+    print(f"  R2, a day's slice: a coin that returns 0.01 on the first of {record} days and never moves again has a first sum of 0.01 in every day's row. Its slices are 0.01 and then nothing, and a path's sum is 0.01 for each time it holds the first day: {first_day.mean() * 0.01:.4f} on average and {first_day.max() * 0.01:.2f} at most over 10,000 paths. The rows added as they stand give {730 * 0.01:.1f} on every path. Across three spans, one ending inside a day and one at a midnight, the slices are 0.010, 0.025, 0 and 0.003, the spans' own 0.030, 0.007 and 0.001 in all")
+
+    pulled = 100
+    haircut = np.full(record, 0.9999)
+    haircut[pulled] = 0.01
+    stitched = np.log(haircut / np.roll(haircut, 1))[places].cumsum(axis=1)
+    coherent = np.log(haircut)[places]
+    manufactured = float((stitched.max(axis=1) >= LOG20).mean())
+    assert manufactured > 0.1 and coherent.max() <= 0
+    print(f"  R3, the bootstrap's wealth at the bid: one coin held whole at a constant price, its bid a hundredth of a percent under it but for one midnight at a hundredth of the price. The wealth is 1 on every day and on every path. Factors of the wealth at the bid, multiplied along a path, reach 20 on {manufactured:.3f} of 10,000 paths, wherever a block starts at the recovery with no fall before it. A path's wealth times its day's own share at the bid is never above the wealth: at most {math.exp(coherent.max()):.4f}, and no path reaches a rung")
+
+    def returns_of(wealths: list[Fraction]) -> list[Fraction]:
+        return [after / before - 1 for before, after in zip([Fraction(1)] + wealths, wealths)]
+
+    taker, price = Fraction(45, 100_000), {"A": Fraction(100)}
+    ledger = TestLedger(Fraction(1), Fraction(100))
+    ledger.buy("A", Fraction(100) / Fraction(10_001, 100), Fraction(10_001, 100), taker)
+    steady, turning = [Fraction(9_999, 100)] * record, [Fraction(9_999, 100), Fraction(9_998, 100)] * (record // 2)
+    at_prices = returns_of([ledger.wealth(price)] * record)
+    replay_bid, forward_bid = (returns_of([ledger.wealth_at_bid({"A": bid}, price) for bid in bids]) for bids in (turning, steady))
+    assert held(at_prices, at_prices) == "held" and held(replay_bid, forward_bid) == "did not hold"
+    print("  R4, CS2.2 at prices (the human, 2026-11-15): two records with one constant price and one first buy. In the replay the bid is 99.99 and 99.98 in turn, in the forward run 99.99. The wealth at prices has one list of returns in both, and 'held'; the wealth at the bid moves a basis point a day in the replay alone, and 'did not hold'. CS2.2 reads the wealth at prices")
+
+    fills, fill_days, lookback, page, retained = 5806, 212, 30, 2000, 10_000
+    a_day = fills / fill_days
+    assert lookback * a_day < page < retained / 2
+    print(f"  R6, the collector's re-read: the vault's {fills:,} fills in {fill_days} days are {a_day:.1f} a day, so {lookback} days hold {lookback * a_day:.0f}, inside one page of {page:,}, and the API's {retained:,} retained are {retained / a_day:.0f} days. The {lookback} days are a choice: nothing says how late the API can show a fill")
+
+
+def round3() -> None:
+    """Round 3's constructions, and the numbers of their repairs."""
+    daily = -minimize_scalar(lambda b: -(0.25 * math.log1p(-0.75 * b) + 0.25 * math.log1p(3 * b)), bounds=(0, 1), method="bounded").fun
+    staked = math.log(9 / 8)
+    quote = -minimize_scalar(lambda b: -(math.log1p(b) + math.log1p(-b / 2)), bounds=(0, 1), method="bounded").fun
+    print(f"  GPT's finding 1, a coin doubling or halving twice a day, held and never traded, phi = 1/2: the wealth grows {staked:.5f} of log a day, the best daily mix {daily:.5f}, so V / B gains {staked - daily:.5f} a day and passes 20 in {LOG20 / (staked - daily):.0f} days with no timing; the best mix on the quotes' clock grows {quote:.5f}, and the gain is {staked - quote:.5f}")
+
+    wealth = {"UU": 2.25, "UD": 1.125, "DU": 1.0, "DD": 0.625}
+    step_mix = {"UU": 2.5, "UD": 1.0, "DU": 1.0, "DD": 0.625}
+    ratio = statistics.mean(wealth[path] / step_mix[path] for path in wealth)
+    quote_mix = {"UU": 2.25, "UD": 1.125, "DU": 1.125, "DD": 0.5625}
+    print(f"  the same coin, the benchmark moved to the step's clock (a patch I did not take): an account at phi = 1/2 that sells a quarter after the first doubling has a mean ratio to the best step mix of {ratio:.5f}, above 1 with no timing; to the best mix on the quotes' clock, {statistics.mean(wealth[path] / quote_mix[path] for path in wealth):.5f}")
+
+    print(f"  GPT's finding 2, two days of a funding factor of -2: the coin's formal wealth is {(-2) * (-2)}, the old certificate from cash bounds every mix by {max(1, -2) ** 2}; means of negative numbers bound nothing")
+
+    grid = np.concatenate([np.linspace(-0.999999, 0, 200_001), np.linspace(0, 50, 200_001)])
+    slack = grid - grid**2 / 2 + grid**3 / 3 - np.log1p(grid)
+    print(f"  log(1 + x) <= x - x^2/2 + x^3/3 on (-1, 50]: the least slack on a grid of {len(grid)} points is {slack.min():.1e}; at a quote-to-quote return of 0.001 it is {0.001**4 / 4:.1e}")
+
+    rng = np.random.default_rng(29)
+    returns = np.expm1(rng.normal(0.3 / 365 / 288, 0.8 / math.sqrt(365 * 288), (730 * 288, 4)))
+    returns[rng.random(returns.shape) < 2e-5] = -0.3
+    log_wealth, bound = mix_bound(returns)
+    print(f"  the certificate on four coins of {returns.shape[0]} five-minute quotes with crashes of 0.3 planted: the best mix found has log wealth {log_wealth:.6f}, the bound is {bound:.6f}")
+
+    held, mid, close_price, level = 2, 100, 40, 100
+    loss = held * (mid - close_price) + level
+    print(f"  GPT's finding 3: {held} units at {mid} close at {close_price}, the cycle ends, the pending buy of one at {level} regains its unit and the coin goes to zero: a loss of {loss} against an at_risk of {held * mid}. With orders ending with their cycle the pending buy places nothing, and the loss is {held * (mid - close_price)}")
+
+
+
+TAKER_FEE, MAKER_FEE = 0.00045, 0.00015
+LEVEL_GAP, TAKE_PROFIT = 0.0225, 0.0056  # an assumption for the simulation: each level this far under the first buy; the exit this far over the entry
+
+
+def ladder_without_skill(depth: int, cycles: int, share: float = 1.0, sigma: float = 2e-3, limit: int = 20_000, seed: int = 37) -> tuple[float, float, float]:
+    """The test ledger of architecture 6.1 on a ladder in a market with no memory: the mean gain of the test's wealth over one cycle, its standard error,
+    and the standard deviation of one cycle's gain.
+
+    The price is a driftless walk that prints at every instant. The account takes its first buy a taker's fee and one part in 10,000 over the print, rests
+    the ladder's levels, each filled at its own price by a print strictly under it, and rests one sale of everything over its entry, filled by a print
+    strictly over it; after `limit` instants it sells at the print. The test starts each cycle with cash 1 and a scale of `share` of it over the notional
+    of the cycle's first `depth` buys, copies those buys at that scale, each cut to its cash, and nothing after, and sells the same fraction of its units
+    as the account.
+    """
+    rng = np.random.default_rng(seed)
+    gains = []
+    for _ in range(cycles):
+        price = first = 100.0 * 1.0001
+        cash = 1.0
+        scale = share * cash / sum(LADDER_NOTIONAL[:depth])
+        spend = min(scale * LADDER_NOTIONAL[0] * (1 + TAKER_FEE), cash)
+        cash -= spend
+        test_units = spend / (first * (1 + TAKER_FEE))
+        units, cost, level = LADDER_NOTIONAL[0] / first, LADDER_NOTIONAL[0], 1
+        price = 100.0
+        for instant in range(limit):
+            price *= math.exp(sigma * rng.standard_normal())
+            while level < len(LADDER_NOTIONAL) and price < first * (1 - LEVEL_GAP * level):
+                level_price = first * (1 - LEVEL_GAP * level)
+                spend = min(scale * LADDER_NOTIONAL[level] * (1 + MAKER_FEE), cash) if level < depth else 0.0
+                cash -= spend
+                test_units += spend / (level_price * (1 + MAKER_FEE))
+                units, cost, level = units + LADDER_NOTIONAL[level] / level_price, cost + LADDER_NOTIONAL[level], level + 1
+            exit_price = cost / units * (1 + TAKE_PROFIT)
+            if price > exit_price:
+                cash += test_units * exit_price * (1 - MAKER_FEE)
+                break
+        else:
+            cash += test_units * price * (1 - TAKER_FEE)
+        gains.append(cash - 1)
+    return statistics.mean(gains), statistics.stdev(gains) / math.sqrt(cycles), statistics.stdev(gains)
+
+
+def round4() -> None:
+    """Round 4's constructions against the wealth they broke and against the test ledger of architecture 6.1, which holds only what the account's own
+    fills bought, paid from its own cash, each lot valued at its coin's latest price: a print's, or a quote's mid."""
+    held, bid_cost, bid_units, padding = 1000.0, 19.8, 0.2, 9000.0
+    stake = held + bid_cost
+    old_up, old_down = 1 + 20 / stake, 1 - 20.2 / (stake + padding)
+    new_up, new_down = (stake + 20) / stake, (stake - 20 - bid_units * (99 - 98)) / stake
+    print(f"  GPT's finding 1, ten units held at 100, a bid of {bid_units} at 99, then a print of 102 or of 98 before the quote, and a far wish of {padding:.0f} after the fill:")
+    print(f"    the old wealth multiplied by {old_up:.5f} or {old_down:.6f}, mean log {(math.log(old_up) + math.log(old_down)) / 2:+.4f} a cycle with no skill")
+    print(f"    the ledger takes the print on what it held before it, books the fill at 99 against the print's 98, and a wish moves nothing: {new_up:.5f} or {new_down:.5f}, mean log {(math.log(new_up) + math.log(new_down)) / 2:+.5f}")
+
+    lot, level_price, pad = 100.0, 99.99, 5000.0
+    stake = lot + level_price
+    old_mean = (1 / stake - (1 + 0.99) / (stake + pad)) / 2
+    new_up, new_down = (stake + 1) / stake, (stake - 1 - 0.99) / stake
+    print(f"  Argon's finding 1.1, a lot held at 100, a level resting at {level_price}, a print of 101 or 99, the next level activated after a fill: the old wealth's mean gain was {old_mean:+.5f} a cycle; the ledger's factors are {new_up:.5f} and {new_down:.5f}, mean {(new_up + new_down) / 2 - 1:+.5f}")
+
+    up, down = 0.25, -0.15
+    held_factor = {(a, b): 1 + a / 2 + b / 2 for a in (up, down) for b in (up, down)}
+    mix_factor = {(a, b): (1 + a / 2) * (1 + b / 2) for a in (up, down) for b in (up, down)}
+    following = [(up, down), (down, up)]
+    print("  Argon's finding 1.2, two coins quoted in turn, each up 0.25 or down 0.15, half of the wealth in each at the start of every pair of quotes:")
+    print(f"    when neither quote tells of the other: the mean ratio of the holder's factor to the half-and-half mix's is {statistics.mean(held_factor[k] / mix_factor[k] for k in held_factor):.5f}, and the mix's mean log {statistics.mean(math.log(mix_factor[k]) for k in mix_factor):.5f} is above the holder's {statistics.mean(math.log(held_factor[k]) for k in held_factor):.5f}")
+    best = -minimize(lambda b: -statistics.mean(math.log((1 + b[0] * a) * (1 + b[1] * c)) for a, c in following), [0.4, 0.4], bounds=[(0, 1)] * 2, constraints={"type": "ineq", "fun": lambda b: 1 - b[0] - b[1]}, method="SLSQP").fun
+    print(f"    when the second always moves against the first (Argon's market): the holder's factor is {held_factor[following[0]]:.4f} for certain and the best mix's {math.exp(best):.6f}, so the ratio grows {math.log(held_factor[following[0]]) - best:.5f} of log a pair with no forecast. Rung 2's null is false there: the second quote is known from the first. The claim narrows; no clock repairs it")
+    print(f"    an account that buys and never sells is at most the best single coin's wealth, a constant mix, on every path: {max(up, down) + 1:.2f} against {1 + up / 2 + down / 2:.2f} here")
+
+    fee = TAKER_FEE
+    cash_after = -150 + (1 + 99) * (1 - fee)
+    print(f"  GPT's finding 3, one unit each of A and B at 100, cash -150, A quoted at a bid of 1: both closes are booked at the liquidation, cash is {cash_after:.3f}, absorbed {-cash_after:.3f}, equity 0 in the world and in the report, and the day's profit before absorption is {cash_after - 50:.3f}; the test sold its units of both at 1 and 99 at that event and holds nothing")
+    print(f"  GPT's finding 2, one unit at 100 with a sale resting at 50, a print of 51: the unit is marked at 51 and sold at 50 at the print, cash rises {50 * (1 - MAKER_FEE):.4f}, and no later quote is needed")
+
+    print("  the test ledger on a ladder in a driftless market with no memory: mean gain of its wealth over a cycle (standard error), and one cycle's standard deviation, by depth followed in full")
+    for depth in (1, 2, 6):
+        mean, error, spread = ladder_without_skill(depth, 6000)
+        print(f"    depth {depth}: {mean:+.5f} ({error:.5f}), {spread:.4f}")
+
+    size = 2.0**40
+    for dual in (6.0, 2.66647e12):
+        old = "undefined: 1 - D/n is not positive" if dual >= size else f"{dual**2 / 2 / size:.1e} of log above D"
+        chosen = size * least_power(dual)
+        print(f"  the bar (1 - D/n)^-n at D = {dual:g}: with n = 2^40, {old}; with n = 2^40 times the least of 1, 2, 4, ... at or above D, {dual**2 / 2 / chosen:.1e} of log above D to first order (`round5` bounds it whole)")
+    curve = 2**2 / 2 - 2**3 / 3
+    print(f"  GPT's finding 13, one return of 2: Q = {curve:.4f}, the least dual bound is {2 - curve:.4f}, the bar exp of it {math.exp(2 - curve):.2f} against a best mix of 3; a fixture is built against the bar, and the slack is the price of three sums")
+
+
+def least_power(value: float) -> int:
+    """The least of 1, 2, 4, ... at or above `value`: 1 for every value up to 1, zero included."""
+    power = 1
+    while power < value:
+        power *= 2
+    return power
+
+
+TEST_LOT = Fraction(1, 10**30)  # the test ledger's own lot, of any coin
+CASH_GRID = TEST_LOT / (2 * 10**20)  # a price's scale of 8, a rate's of 12 (kernel A2), and a mid's half
+
+
+def whole_lots(units: Fraction) -> Fraction:
+    return (units // TEST_LOT) * TEST_LOT
+
+
+class Books:
+    """Cash, from 1, and units of coins in whole test lots, neither ever negative, valued at prices. Funding is paid from the cash, and a payment the
+    cash cannot meet ends the books. The test ledger and the guard's rules are both these books, and differ only in what makes them trade."""
+
+    def __init__(self) -> None:
+        self.cash = Fraction(1)
+        self.units: dict[str, Fraction] = {}
+        self.ended = False
+
+    def fund(self, coin: str, unit_payment: Fraction) -> None:
+        payment = self.units.get(coin, Fraction(0)) * unit_payment
+        if payment > self.cash:
+            self.ended = True
+        else:
+            self.cash -= payment
+
+    def wealth(self, prices: dict[str, Fraction]) -> Fraction:
+        return self.cash + sum((held * prices[coin] for coin, held in self.units.items()), Fraction(0))
+
+    def wealth_at_bid(self, bids: dict[str, Fraction], prices: dict[str, Fraction]) -> Fraction:
+        """What the rungs compare (architecture 6.1): each coin at its bid price, the lesser of its latest quote's best bid and its price."""
+        return self.cash + sum((held * min(bids[coin], prices[coin]) for coin, held in self.units.items()), Fraction(0))
+
+
+class TestLedger(Books):
+    """The test ledger of architecture 6.1 and kernel A12, exact. It trades only at the account's fills, at their prices and fee rates. A cycle's scale
+    is fixed at its first buy as `share` of the ledger's cash then over `depth`, a sum in the account's money; the ledger copies the cycle's first
+    `depth` of the account's buys at that scale, each cut to its cash and down to whole lots, and nothing after. No number in it is rounded but a
+    trade's size, so there is no second, approximate ledger to compare it with."""
+
+    def __init__(self, share: Fraction, depth: Fraction) -> None:
+        super().__init__()
+        self.share, self.depth = share, depth
+        self.scale: dict[str, Fraction] = {}
+        self.followed: dict[str, Fraction] = {}
+
+    def buy(self, coin: str, lots: Fraction, price: Fraction, fee: Fraction) -> None:
+        if coin not in self.scale:
+            self.scale[coin] = self.share * self.cash / self.depth
+            self.followed[coin] = Fraction(0)
+        notional = lots * price
+        within = max(Fraction(0), min(notional, self.depth - self.followed[coin]))
+        self.followed[coin] += notional
+        cost = price * (1 + fee)
+        bought = whole_lots(min(self.scale[coin] * within / price, self.cash / cost))
+        self.cash -= bought * cost
+        self.units[coin] = self.units.get(coin, Fraction(0)) + bought
+
+    def sell(self, coin: str, fraction: Fraction, price: Fraction, fee: Fraction) -> None:
+        held = self.units.get(coin, Fraction(0))
+        sold = held if fraction == 1 else whole_lots(held * fraction)
+        self.cash += sold * price * (1 - fee)
+        self.units[coin] = held - sold
+        if fraction == 1:
+            del self.scale[coin], self.followed[coin]
+
+
+class GuardRule(Books):
+    """One rule of rung 2's guard (architecture 6.1): a constant mix held in the books above and traded back to its weights at its clock's times, at
+    prices and at no cost. A trade at the price moves no wealth, so the rule is of the test ledger's kind and uses nothing."""
+
+    def __init__(self, weights: dict[str, Fraction]) -> None:
+        super().__init__()
+        assert all(weight >= 0 for weight in weights.values()) and sum(weights.values()) <= 1
+        self.weights = weights
+
+    def rebalance(self, prices: dict[str, Fraction]) -> None:
+        wealth = self.wealth(prices)
+        self.units = {coin: whole_lots(weight * wealth / prices[coin]) for coin, weight in self.weights.items()}
+        self.cash = wealth - sum((held * prices[coin] for coin, held in self.units.items()), Fraction(0))
+
+
+PAIR_UP, PAIR_DOWN = Fraction(5, 4), Fraction(4, 5)
+MINUTE = 60_000
+DAY = 1440 * MINUTE
+
+
+def pairs_market(period: int, minutes: int, astride: bool = False) -> list[tuple[int, str, Fraction]]:
+    """Two coins quoted in turn, as price events (time in ms, coin, new price) in the machine's order. In a pair A moves and then B, one up a quarter
+    and the other down a fifth, the two changing places from one pair to the next, so A's price is 100 or 125 and B's 100 or 80 for ever: on the
+    venue's grid of five significant figures and inside its range, which Argon's 0.25 and -0.15 left within three moves (GPT's finding 4, round 6).
+    A pair comes every `period` minutes, A in its first minute and B in its second; or, `astride`, every minute, A a millisecond before a tick and B
+    a millisecond after it."""
+    events = []
+    spacing = MINUTE if astride else period * MINUTE
+    for pair in range(minutes * MINUTE // spacing):
+        a_rises = pair % 2 == 0
+        a_time = (pair + 1) * MINUTE - 1 if astride else pair * spacing + MINUTE // 2
+        b_time = (pair + 1) * MINUTE + 1 if astride else pair * spacing + 3 * MINUTE // 2
+        events.append((a_time, "A", Fraction(125 if a_rises else 100)))
+        events.append((b_time, "B", Fraction(80 if a_rises else 100)))
+    return sorted(event for event in events if event[0] < minutes * MINUTE)
+
+
+def bar_log(events: list[tuple[int, str, Fraction]], until: int) -> float:
+    """The log of the bar at the day's end `until`, from what that day's coin rows hold (kernel A12, K2; KERNEL.md A19): each coin's three sums over
+    its price events before `until`, and its price over its first. One span, no funding."""
+    price = {"A": Fraction(100), "B": Fraction(100)}
+    sums = {coin: np.zeros(3) for coin in price}
+    for time, coin, new in events:
+        if time >= until:
+            break
+        change = float(new / price[coin] - 1)
+        sums[coin] += [change, change**2, change**3]
+        price[coin] = new
+    first, second, third = (np.array([sums[coin][power] for coin in "AB"]) for power in range(3))
+    alone = max(float(now) / 100 for now in price.values())
+    return max(dual_bound(first, second, third), math.log(alone))
+
+
+def guard_fold(rule: GuardRule, events: list[tuple[int, str, str, Fraction]], clock: int, until: int, first: dict[str, Fraction]) -> dict[int, Fraction]:
+    """Kernel B1's `guard`: the rule's books folded over the engine's price and funding events and a minute's ticks in the machine's order, a tick
+    after every event of its timestamp. `events` are (time, kind, coin, value): a "price" sets the coin's price, and a "funding" is paid, as the
+    ledger pays it, on the units held into it, where the first the cash cannot meet ends the rule. The rule sees prices only at ticks, and trades
+    back to its mix at those that are whole multiples of `clock` minutes. Returns its wealth at each day's end, zero once it has ended. A day's end
+    is KERNEL.md A19's, the world after every event before the midnight and before any stamped with it, so that a run cut back to a midnight gives
+    that day what the longer run gave it (GPT's R1 and Argon's F2 on study 2's criteria)."""
+    price = dict(first)
+    wealth_at: dict[int, Fraction] = {}
+    folded = 0
+
+    def fold(through: int) -> None:
+        nonlocal folded
+        while folded < len(events) and events[folded][0] <= through:
+            _, kind, coin, value = events[folded]
+            if kind == "price":
+                price[coin] = value
+            elif not rule.ended:
+                rule.fund(coin, value)
+            folded += 1
+
+    for tick in range(0, until + 1, MINUTE):
+        if tick > 0 and tick % DAY == 0:
+            fold(tick - 1)
+            wealth_at[tick] = Fraction(0) if rule.ended else rule.wealth(price)
+        fold(tick)
+        if not rule.ended and tick % (clock * MINUTE) == 0:
+            rule.rebalance(price)
+            assert rule.cash >= 0 and (rule.cash / CASH_GRID).denominator == 1
+    return wealth_at
+
+
+def guard_reach(market: list[tuple[int, str, Fraction]], clock: int, minutes: int) -> dict[int, float]:
+    """The most that a mix on a grid of tenths, rebalanced every `clock` minutes, stood over the bar at each day's end: round 6's fixtures. The
+    criteria's guard searches nothing (bar_mix, study2_criteria)."""
+    events = [(time, "price", coin, new) for time, coin, new in market]
+    most: dict[int, float] = {}
+    for tenths_a in range(11):
+        for tenths_b in range(11 - tenths_a):
+            rule = GuardRule({"A": Fraction(tenths_a, 10), "B": Fraction(tenths_b, 10)})
+            start = {"A": Fraction(100), "B": Fraction(100)}
+            for day_end, wealth in guard_fold(rule, events, clock, minutes * MINUTE, start).items():
+                over = math.exp(math.log(wealth) - bar_log(market, day_end))
+                most[day_end // DAY] = max(most.get(day_end // DAY, 0.0), over)
+    return most
+
+
+def grid_step(price: Fraction, figures: int, decimals: int) -> Fraction:
+    """The price grid's step at a price above zero (KERNEL.md A18): for a price in [10^e, 10^(e+1)) it is 10^max(min(e - figures + 1, 0), -decimals)."""
+    exponent = 0
+    while Fraction(10) ** (exponent + 1) <= price:
+        exponent += 1
+    while Fraction(10) ** exponent > price:
+        exponent -= 1
+    return Fraction(10) ** max(min(exponent - figures + 1, 0), -decimals)
+
+
+def to_grid(price: Fraction, figures: int, decimals: int, up: bool) -> Fraction:
+    """A sell's price rounds up to the grid and a buy's down (kernel A2). At or under zero there is no grid price at or below: a buy's is zero and a
+    sell's the least on the grid (KERNEL.md A18; Argon's note 2)."""
+    if price <= 0:
+        return Fraction(10) ** -decimals if up else Fraction(0)
+    step = grid_step(price, figures, decimals)
+    return (math.ceil(price / step) if up else math.floor(price / step)) * step
+
+
+def on_grid(price: Fraction, figures: int, decimals: int) -> bool:
+    """A18's grid as its sentence says it, with no step: above zero, a whole multiple of 10^-decimals, and of at most `figures` significant figures or
+    a whole number. For a decimal of at most 8 places, a price's scale."""
+    scaled = price * 10**8
+    assert scaled.denominator == 1
+    digits = str(scaled.numerator).rstrip("0")
+    multiple = (price * Fraction(10) ** decimals).denominator == 1
+    return price > 0 and multiple and (len(digits) <= figures or price.denominator == 1)
+
+
+def price_grid() -> None:
+    """The venue's certified grid (venue/sources.toml, "Price grid"): its two examples, the edge of five figures, and on every price of a range that
+    the sentence and the step are one grid and the two roundings are its neighbours."""
+    cases = {"123456": True, "12345.6": False, "99999": True, "100000": True, "100001": True, "100000.5": False, "9999.9": True, "0.5": True}
+    for text, expected in cases.items():
+        assert on_grid(Fraction(text), 5, 1) is expected, text
+    for text, down, up in (("100000.5", 100_000, 100_001), ("12345.6", 12_345, 12_346), ("99999.5", 99_999, 100_000)):
+        assert to_grid(Fraction(text), 5, 1, up=False) == down and to_grid(Fraction(text), 5, 1, up=True) == up, text
+    without_whole_numbers = Fraction(10) ** max(5 - 5 + 1, -1)
+    assert Fraction(100_001) % without_whole_numbers != 0
+    checked = 0
+    for figures, decimals_tried, top in ((1, (-1, 0, 1, 2), 12_000), (2, (-1, 0, 1, 2), 12_000), (3, (0, 1), 120_000)):
+        for decimals in decimals_tried:
+            prices = [Fraction(hundredths, 100) for hundredths in range(1, top + 1)]
+            members = [price for price in prices if on_grid(price, figures, decimals)]
+            place = 0
+            for price in prices:
+                while place < len(members) and members[place] < price:
+                    place += 1
+                step = grid_step(price, figures, decimals)
+                assert ((price / step).denominator == 1) == (place < len(members) and members[place] == price), (price, figures, decimals)
+                below = members[place] if place < len(members) and members[place] == price else members[place - 1] if place else Fraction(0)
+                assert to_grid(price, figures, decimals, up=False) == below, (price, figures, decimals)
+                if place < len(members):
+                    assert to_grid(price, figures, decimals, up=True) == members[place], (price, figures, decimals)
+                checked += 1
+    print(f"  the certificate's two examples at five figures and one decimal: 123456 is a price and 12345.6 is not, a buy there rounding to 12345 and a sell to 12346. At the edge of five figures 99,999, 100,000 and 100,001 are prices and 100,000.5 is not; the step without the whole numbers was {without_whole_numbers} from 100,000 up and refused 100,001")
+    print(f"  the sentence and the step are one grid: on {checked:,} prices in hundredths, at one to three figures and from -1 to 2 decimals, a price is a whole multiple of its step exactly when it is on the grid as the sentence says, a buy rounds to the greatest grid price at or below it (zero when there is none) and a sell to the least at or above")
+
+
+def construction_a(bid_follows: bool) -> tuple[Fraction, Fraction, float, Fraction]:
+    """Argon's construction A on study 2's criteria, at prices the engine admits (five figures, four decimals). One coin is quoted down from 100 to 4
+    in a thousand quotes. The ledger, at phi = 1 and a depth of the buy's notional, buys at the ask of 4.0002 with the taker's fee. Then 18 quotes
+    each raise the mid by two fifths with no print: the ask alone, the bid staying at 4, or with `bid_follows` both sides, the bid a thousandth under
+    the mid. Returns the wealth at prices, the wealth at the bid, the bar and the last bid, at that day's end."""
+    figures, decimals, taker = 5, 4, Fraction(45, 100_000)
+    quotes: list[tuple[Fraction, Fraction]] = []
+    for step in range(1000):
+        centre = Fraction(100 * 0.04 ** (step / 1000))
+        low = to_grid(centre, figures, decimals, up=False)
+        quotes.append((low, low + grid_step(low, figures, decimals)))
+    floor = Fraction(4)
+    quotes.append((floor, Fraction(40_002, 10_000)))
+    ledger = TestLedger(Fraction(1), Fraction(100))
+    ledger.buy("A", Fraction(100) / quotes[-1][1], quotes[-1][1], taker)
+    for pull in range(1, 19):
+        mid = floor * Fraction(7, 5) ** pull
+        if bid_follows:
+            quotes.append((to_grid(mid * Fraction(999, 1000), figures, decimals, up=False), to_grid(mid * Fraction(1001, 1000), figures, decimals, up=True)))
+        else:
+            quotes.append((floor, to_grid(2 * mid - floor, figures, decimals, up=True)))
+    assert all(0 < bid < ask and bid % grid_step(bid, figures, decimals) == 0 and ask % grid_step(ask, figures, decimals) == 0 for bid, ask in quotes)
+    mids = [(bid + ask) / 2 for bid, ask in quotes]
+    returns = np.array([float(after / before - 1) for before, after in zip(mids, mids[1:])])
+    bound = dual_bound(np.array([returns.sum()]), np.array([(returns**2).sum()]), np.array([(returns**3).sum()]))
+    bar = max(math.exp(bound), float(mids[-1] / mids[0]))
+    bid, price = quotes[-1][0], mids[-1]
+    return ledger.wealth({"A": price}), ledger.wealth_at_bid({"A": bid}, {"A": price}), bar, bid
+
+
+def round_down(value: Fraction, bits: int = 128) -> Fraction:
+    """`value` > 0 rounded down to `bits` significant bits: round 4's contract for the confirmer's stored numbers."""
+    exponent = value.numerator.bit_length() - value.denominator.bit_length() - bits
+    unit = Fraction(2) ** exponent
+    return (value // unit) * unit
+
+
+def ledger_fuzz(runs: int = 300, events: int = 400, seed: int = 41, fee_top: int = 100) -> tuple[int, int, Fraction]:
+    """Random long-only accounts on three coins under random stake rules, fills at prices no better than the tape (T1), fee rates from 0 to below
+    `fee_top` of 10^-5 (kernel A8 admits 0 to 1), funding of either sign at most a unit's price (V16). Asserts what law K1 says: scales, cash and units never negative, every number on its grid, and no fill
+    raising the wealth. Returns the events folded, the ledgers a payment ended, and the largest cash in grid units."""
+    rng = np.random.default_rng(seed)
+    cents = Fraction(1, 10**8)
+    folded = ended = 0
+    widest = Fraction(0)
+    for _ in range(runs):
+        ledger = TestLedger(Fraction(int(rng.integers(1, 11)), 10), Fraction(int(rng.integers(50, 5000))))
+        prices = {coin: Fraction(int(rng.integers(10**6, 10**12))) * cents for coin in "ABC"}
+        position = {coin: Fraction(0) for coin in "ABC"}
+        for _ in range(events):
+            coin = "ABC"[int(rng.integers(3))]
+            kind = int(rng.integers(4))
+            fee = Fraction(int(rng.integers(0, fee_top)), 10**5)
+            if kind == 0:
+                prices[coin] = max(cents, prices[coin] * Fraction(int(rng.integers(900, 1101)), 1000) // (cents / 2) * (cents / 2))
+            elif kind == 1:
+                unit_payment = prices[coin] * Fraction(int(rng.integers(-40, 41)), 1000) // (CASH_GRID / TEST_LOT) * (CASH_GRID / TEST_LOT)
+                ledger.fund(coin, unit_payment)
+            elif kind == 2:
+                before = ledger.wealth(prices)
+                lots = Fraction(int(rng.integers(1, 500)), 100)
+                fill = (prices[coin] * Fraction(int(rng.integers(1000, 1011)), 1000)) // cents * cents + cents
+                ledger.buy(coin, lots, fill, fee)
+                position[coin] += lots
+                assert ledger.scale[coin] >= 0 and ledger.wealth(prices) <= before
+            elif position[coin] > 0:
+                before = ledger.wealth(prices)
+                sold = position[coin] if rng.random() < 0.4 else Fraction(int(rng.integers(1, 100)), 100) * position[coin]
+                fill = max(cents, (prices[coin] * Fraction(int(rng.integers(990, 1001)), 1000)) // cents * cents)
+                ledger.sell(coin, sold / position[coin], fill, fee)
+                position[coin] -= sold
+                assert ledger.wealth(prices) <= before
+            if ledger.ended:
+                ended += 1
+                break
+            folded += 1
+            assert ledger.cash >= 0 and (ledger.cash / CASH_GRID).denominator == 1
+            assert all(held >= 0 and (held / TEST_LOT).denominator == 1 for held in ledger.units.values())
+            assert all(position[coin] > 0 or ledger.units.get(coin, 0) == 0 for coin in "ABC")
+            widest = max(widest, ledger.cash / CASH_GRID)
+    return folded, ended, widest
+
+
+def stale_at(events: list[tuple[int, str]], index: int, gap: int) -> bool:
+    """Kernel A3: a coin is stale at an event when its latest quote before that event, in the machine's order, is `gap` or more before the event's time,
+    or there is none. `events` is one coin's (time, kind) list in that order, a print before a quote of its millisecond."""
+    earlier = [time for time, kind in events[:index] if kind == "quote"]
+    return not earlier or events[index][0] - earlier[-1] >= gap
+
+
+def holding_fuzz(paths: int = 2000, seed: int = 43) -> tuple[int, float]:
+    """Fixed holdings of three coins, paid for from the starting cash and never traded, on random records of price moves and funding payments of either
+    sign. A holding whose cash pays every payment is, exactly, a mean of cash and of each coin held alone with its funding paid in cash, so it is at
+    most the best of those. Returns the solvent holdings checked and the largest ratio of one to the best constant mix an optimizer found."""
+    rng = np.random.default_rng(seed)
+    checked, widest = 0, 0.0
+    for _ in range(paths):
+        events = 40
+        coin_of = rng.integers(3, size=events)
+        is_funding = rng.random(events) < 0.4
+        size = np.where(is_funding, rng.uniform(-0.3, 0.3, events), rng.uniform(-0.3, 0.5, events))
+        weights = rng.dirichlet(np.ones(4))
+        price, paid = [Fraction(1)] * 3, [Fraction(0)] * 3
+        units = [Fraction(float(weight)) for weight in weights[:3]]
+        cash = 1 - sum(units)
+        solvent = True
+        returns = np.zeros((events, 3))
+        for step in range(events):
+            coin, amount = int(coin_of[step]), Fraction(float(size[step]))
+            if is_funding[step]:
+                payment = amount * price[coin]
+                paid[coin] += payment
+                cash -= units[coin] * payment
+                solvent = solvent and cash >= 0
+                returns[step, coin] = float(-amount)
+            else:
+                price[coin] *= 1 + amount
+                returns[step, coin] = float(amount)
+        if not solvent:
+            continue
+        checked += 1
+        holding = cash + sum(held * now for held, now in zip(units, price))
+        alone = [now - funding for now, funding in zip(price, paid)]
+        assert holding <= max(Fraction(1), *alone)
+        widest = max(widest, float(holding) / math.exp(mix_bound(returns)[0]))
+    return checked, widest
+
+
+def round5() -> None:
+    """Round 5's constructions, each against the rule it broke and against its repair."""
+    print("  the stake rule. GPT's finding 1, phi = 1: A's first buy spends 0.4, funding charges 0.1, and B's cycle begins:")
+    free = (1 - 0.4 - 0.1) - (1 - 0.4)
+    literal = (1 - 0.1) - free * 0.9 - free * (1 - 0.1)
+    print(f"    round 4's rule, phi of cash less the open cycles' unspent budgets: free cash {free:+.1f}, a negative scale, and taken literally a short of B that is paid funding and gains from the fall: wealth {literal:.2f} from long returns that were never positive")
+    ledger = TestLedger(Fraction(1), Fraction(10))
+    one, no_fee = Fraction(1), Fraction(0)
+    ledger.buy("A", Fraction(4), one, no_fee)
+    ledger.fund("A", Fraction(1, 4))
+    ledger.buy("B", Fraction(10), one, no_fee)
+    after_buys = (float(ledger.cash), float(ledger.units["A"]), float(ledger.units["B"]), float(ledger.scale["B"]))
+    ledger.fund("B", Fraction(9, 10))
+    print(f"    the scale as phi of cash over the depth, with no budget set aside: after both buys cash {after_buys[0]:.2f}, A {after_buys[1]:.2f}, B {after_buys[2]:.2f} at a scale of {after_buys[3]:.3f}; B's payment of 0.9 a unit is more than the cash, so the ledger {'ends' if ledger.ended else 'goes on'}, with nothing confirmed after")
+    folded, ended, widest = ledger_fuzz()
+    print(f"    {folded:,} random events folded exactly, {ended} ledgers ended by a payment: no scale, cash or unit balance negative, no fill raised the wealth, every balance on its grid, and the largest cash is {widest.numerator.bit_length()} bits of grid units")
+
+    print("  K1's rounding. Round 4 rounded each stored number down to 128 significant bits and called the result a lower bound:")
+    found = None
+    for parts in range(3, 40):
+        share = Fraction(1, parts)
+        exact = (1 - share) + share / 10
+        budget = round_down(share)
+        rounded = round_down(round_down(1 - budget) + round_down(budget / 10))
+        if rounded > exact:
+            found = (parts, rounded - exact)
+            break
+    assert found is not None
+    print(f"    GPT's finding 2, a budget of 1/{found[0]} bought at 1 and the price falls to 1/10: the rounded ledger bought less, kept more cash, and ends {float(found[1] * 2**128):.3f} of 2^-128 above the exact one")
+    exact_units = Fraction(1, 4) / (100 * (1 + Fraction(15, 10**5)))
+    lost = exact_units - round_down(exact_units)
+    gap = lost * 120 - lost * 10
+    print(f"    Argon's finding 1, a quarter spent at 100 with the maker's fee, funding of 120 a unit in all, a last price of 10: the units rounded down pay less funding than they lose in value, and the rounded ledger ends {float(gap / lost):.0f} lost units above the exact one; at the right cash it outlives it")
+    print("    the repair is no second ledger: the test's trades are in whole lots of 10^-30, which is a scale, and then every balance is exact on one grid (the fuzz above)")
+
+    print(f"  law T1. A short of one, bid 99 and ask 101, a buyer's print at 102: A10's lesser of level and price buys back at {min(101, 102)}, under the tape's 102; a short closes at the greater, {max(101, 102)}. A listing that ends at 105 with the last price at 100: the sale is {105 - 100} over a price the settlement did not move; it moves it")
+
+    up, down = 0.25, -0.15
+    first = np.array([up + down] * 2)
+    second = np.array([up**2 + down**2] * 2)
+    third = np.array([up**3 + down**3] * 2)
+    dual = dual_bound(first, second, third)
+    held, pair_mix, event_mix = (1 + up) * (1 + down), (1 + up / 2 + down / 2) ** 2, ((1 + up / 2) * (1 + down / 2)) ** 2
+    blocks = LOG20 / (math.log(pair_mix) - dual)
+    print("  rung 2's guard. GPT's finding 4, Argon's market with the pairs alternating, an even count of pairs in every hour:")
+    print(f"    a block of two pairs: each coin held grows {held:.4f}, and so does the best mix rebalanced each hour or day; the best mix at every event {event_mix:.6f}; the certified bar exp({dual:.6f}) = {math.exp(dual):.6f}; a half-and-half mix rebalanced at each pair {pair_mix:.4f}")
+    print(f"    round 4's guard, the bar above the hourly and daily mixes, passes; the pair's rebalancer is {pair_mix / math.exp(dual):.5f} of the bar a block and 20 times it after {blocks:.0f} blocks. Argon's finding 3, a pair every five minutes: the bar is {math.exp(dual / 2):.5f} a pair against the hourly mix's {math.sqrt(held):.6f}")
+    replay_days, test_days = 212, 730
+    print(f"    the guard as the test run on rules without skill: over a replay of {replay_days} days a rule on course to reach 20 in {test_days} has reached {20 ** (replay_days / test_days):.2f} times the bar; under rung 2's null a rule fixed beforehand does that with chance at most {20 ** (-replay_days / test_days):.2f}. The pair's rebalancer is refused if a registered clock is the pair's, and no finite list of clocks holds every pair's")
+
+    step = 0.01
+    print(f"  GPT's finding 5, two coins moving in turn, each up {step} at its event: every return is {step} whatever came before, yet a holder of the coin due to move grows {(1 + step) ** 2:.6f} a pair against the best mix's {(1 + step / 2) ** 2:.6f}. What came before told which coin moves")
+    rng = np.random.default_rng(47)
+    chance = rng.dirichlet(np.ones(3))
+    outcomes = np.outer([1.0, 1.5, 0.7], [-0.2, -0.1, 0.0, 0.1, 0.25])
+    best = minimize(lambda b: -float(chance @ np.log1p(outcomes * b[:, None]).mean(axis=1)), np.full(3, 0.2), bounds=[(0, 1)] * 3, constraints={"type": "ineq", "fun": lambda b: 1 - b.sum()}, method="SLSQP", options={"ftol": 1e-14}).x
+    others = rng.dirichlet(np.ones(4), 5000)[:, :3]
+    ratios = ((1 + outcomes[None] * others[:, :, None]) / (1 + outcomes * best[:, None])[None]).mean(axis=2) @ chance
+    assert ratios.max() <= 1 + 1e-9
+    print(f"    when the whole event, its coin and its return, has one law whatever came before (three coins drawn with fixed chances, five returns each): the best constant mix is {np.round(best, 3).tolist()}, and the largest mean ratio to it of 5,000 other holdings is {ratios.max():.6f}, at most 1")
+
+    received, fall = 0.1, 0.05
+    print(f"  holdings and funding. A coin pays its holder {received} and then falls {fall}: the holder has {1 + received - fall:.3f}, the best constant mix {(1 + received) * (1 - fall):.3f}. The gap is the payment times the later return, and it is not always small:")
+    hours, rate, rise = 73, 0.04, 100.0
+    units = 1 / (1 + hours * rate)
+    jump = -minimize_scalar(lambda b: -(hours * math.log1p(-rate * b) + math.log1p((rise - 1) * b)), bounds=(0, 1), method="bounded").fun
+    slow = -minimize_scalar(lambda b: -(hours * math.log1p(-rate * b) + 1000 * math.log1p((rise ** (1 / 1000) - 1) * b)), bounds=(0, 1), method="bounded").fun
+    print(f"    a coin charging {rate} of its price for {hours} hours and then rising {rise:.0f} times: a holder who kept cash for the payments ends at {units * rise:.1f}; the best constant mix at {math.exp(jump):.1f} if the rise is one event and {math.exp(slow):.1f} if it is a thousand. The coin held alone with funding paid in cash, {rise - hours * rate:.2f}, bounds the holder")
+    checked, widest = holding_fuzz()
+    print(f"    {checked} random solvent holdings of three coins with funding of either sign: each is at most the best of cash and the three coins held alone, exactly; the largest was {widest:.3f} of the best constant mix found")
+
+    threes = np.full(2, 3.0)
+    curve = float(threes[0] ** 2 / 2 - threes[0] ** 3 / 3)
+    stopped = 4 + 2 * (3 - 4 - curve)
+    print(f"  the certificate. Argon's finding 4, two coins with one return of 3 each: Q = {curve:.1f} in both, round 4's search stopped at a multiplier of 4 and a bound of {stopped:.1f}; the least bound is {dual_bound(threes, threes**2, threes**3):.4f}, at a multiplier of 7.5")
+    for dual_value in (0, Fraction(1, 2), 2, 5):
+        count = 2**40 * least_power(dual_value)
+        ratio = Fraction(dual_value) / count
+        above = sum((Fraction(dual_value) * ratio ** (k - 1) / k for k in range(2, 8)), Fraction(0))
+        tail = Fraction(dual_value) * ratio**7 / (1 - ratio)
+        print(f"    D = {dual_value}: n = 2^40 x {least_power(dual_value)}, and the bar's log is above D by {float(above):.3e}: over D / 2^41, {above > Fraction(dual_value) / 2**41}; at most D / 2^40, {above + tail <= Fraction(dual_value) / 2**40}")
+    noon = math.exp(mix_bound(np.array([[1.0]]))[1])
+    print(f"    a coin doubling between a day's end and a listing's end at noon: rows at days' ends alone leave the closing span a bar of 1; with a row at the span's end it is {noon:.2f}, above the mix's 2")
+
+    gap = 60_000
+    record = [(0, "quote"), (gap + 10, "print"), (gap + 10, "quote"), (gap + 20, "print")]
+    print(f"  layer 2's join, Argon's finding 5: a print at {gap + 10} ms sharing its millisecond with the first quote after a gap of G = {gap}: stale at the print is {stale_at(record, 1, gap)}, since the quote comes after it in the machine's order; at the next print, {stale_at(record, 3, gap)}")
+
+
+def round6() -> None:
+    """Round 6's constructions, each against the specification that admitted it and against its repair."""
+    one, none = Fraction(1), Fraction(0)
+    cash_after = {}
+    for rate in (Fraction(2), one):
+        ledger = TestLedger(one, one)
+        ledger.buy("A", one, one, none)
+        ledger.sell("A", one, one, rate)
+        cash_after[rate] = ledger.cash
+    assert cash_after[Fraction(2)] == -1 and cash_after[one] == 0
+    folded, ended, _ = ledger_fuzz(seed=53, fee_top=10**5 + 1)
+    print(f"  GPT's finding 1, phi = 1 and d = 1: one unit bought at 1 with no fee and sold at 1 under a dated tier of 2 leaves cash {cash_after[Fraction(2)]}, in books defined as never negative; at a rate of 1, the most A8 now admits, it leaves {cash_after[one]}. {folded:,} random events with rates over the whole of 0 to 1 ({ended} ledgers ended by a payment): no scale, cash or unit balance negative")
+
+    settled = {"A": none, "B": one}
+    listed = [coin for coin in settled if coin != "A"]
+    try:
+        GuardRule({"A": Fraction(1, 2)}).rebalance(settled)
+        divides = False
+    except ZeroDivisionError:
+        divides = True
+    after = GuardRule({coin: Fraction(1, 2) for coin in listed})
+    after.rebalance(settled)
+    assert divides and after.units == {"B": Fraction(1, 2)} and after.wealth(settled) == 1
+    print(f"  GPT's finding 2, A and B at 1 and A settled at zero at noon: A's return of -1 is in the closing span's row; the next span's coin held alone and a guard's weight in A both divide by a first price of {settled['A']}. With a span's coins those still listed, the next span's are {listed}, its bar is over B and cash, and a rule weighing {listed} holds {float(after.units['B'])} of B: nothing divides by zero, and no zero is tested for")
+
+    def books(a_first: bool) -> GuardRule:
+        rule = GuardRule({"A": Fraction(495, 1000), "B": Fraction(495, 1000)})
+        charge, payment = ("funding", "A", Fraction(4, 100)), ("funding", "B", Fraction(-4, 100))
+        first, second = (charge, payment) if a_first else (payment, charge)
+        guard_fold(rule, [(30_000, *first), (40_000, *second)], 1, MINUTE, {"A": one, "B": one})
+        return rule
+
+    in_x, in_y = books(True), books(False)
+    assert in_x.ended and not in_y.ended and in_y.cash == Fraction(1, 100)
+    print(f"  GPT's finding 3, cash 0.01 and 0.495 of A and of B at 1, and within one minute A charges 0.04 a unit and B pays 0.04: a tick's totals are the same in both orders; with A first the bill of {0.495 * 0.04:.4f} is more than the cash and the rule {'ends' if in_x.ended else 'goes on'}, with B first it {'ends' if in_y.ended else 'goes on'} with cash {float(in_y.cash):.2f}. The guard reads the events")
+
+    def hour(funding_first: bool) -> GuardRule:
+        rule = GuardRule({"A": Fraction(9, 10)})
+        rule.rebalance({"A": Fraction(100)})
+        if funding_first:
+            guard_fold(rule, [(59 * MINUTE, "price", "A", Fraction(400)), (60 * MINUTE, "funding", "A", Fraction(15))], 60, 60 * MINUTE, {"A": Fraction(100)})
+        else:
+            rule.rebalance({"A": Fraction(400)})
+            rule.fund("A", Fraction(15))
+        return rule
+
+    machine, swapped = hour(True), hour(False)
+    assert machine.ended and not swapped.ended
+    print(f"  Argon's finding 1, nine tenths in A at 100, A at 400 by the hour and charging 15 a unit on it: in the machine's order, funding before the tick of its timestamp, the rule owes {0.009 * 15:.3f} from cash of 0.100 and {'ends' if machine.ended else 'goes on'}; rebalanced first it {'ends' if swapped.ended else 'goes on'}, having paid on {float(swapped.units['A']):.6f} units and not the 0.009000 it held into the payment")
+
+    holder = GuardRule({"A": one})
+    saver = GuardRule({"A": Fraction(9, 10)})
+    for rule in (holder, saver):
+        guard_fold(rule, [(30_000, "funding", "A", one)], 1440, MINUTE, {"A": Fraction(100)})
+    assert holder.ended and not saver.ended
+    print(f"    a rule wholly in a coin that then charges funding has no cash to pay and ends; one that keeps a tenth in cash goes on, with cash {float(saver.cash):.3f}")
+
+    up, down = float(PAIR_UP - 1), float(PAIR_DOWN - 1)
+    sums = (np.full(2, up + down), np.full(2, up**2 + down**2), np.full(2, up**3 + down**3))
+    dual = dual_bound(*sums)
+    pair_mix = (1 + up / 2 + down / 2) ** 2
+    event_mix = ((1 + up / 2) * (1 + down / 2)) ** 2
+    print(f"  GPT's finding 4, the guard's fixtures. Argon's pair of +0.25 and -0.15 from 100: 125, 106.25, 132.8125, off a grid of five significant figures at the third move, and near {100 * 1.0625**288:.1e} after two days. A pair of {up:+.2f} and {down:+.2f}: prices of 100, 125 and 80 for ever")
+    print(f"    a block of two pairs: each coin held grows {(1 + up) * (1 + down):.4f}; the best mix at every event {event_mix:.6f}; the bar exp({dual:.9f}) = {math.exp(dual):.5f}; a half-and-half mix rebalanced at each pair {pair_mix:.6f}, {pair_mix / math.exp(dual):.5f} of the bar")
+    clocks = {"a minute": 1, "five minutes": 5, "an hour": 60, "a day": 1440}
+    minutes = 2880
+    five = pairs_market(5, minutes)
+    assert abs(bar_log(five, DAY) - 144 * dual) < 1e-6
+    reached = {name: guard_reach(five, clock, minutes) for name, clock in clocks.items()}
+    assert reached["five minutes"][1] >= 20 and all(reach < 1 for name, days in reached.items() if name != "five minutes" for reach in days.values())
+    print("    the guard as built, each rule folded over the market's events and a minute's ticks, against a bar computed from the same events' sums. A pair every five minutes, the most each clock's best mix stood over the bar at the first and second day's end: " + ", ".join(f"{name} {days[1]:.3g} and {days[2]:.3g}" for name, days in reached.items()))
+    astride = pairs_market(1, minutes, astride=True)
+    reached = {name: guard_reach(astride, clock, minutes) for name, clock in clocks.items()}
+    assert all(reach < 1 for days in reached.values() for reach in days.values())
+    print("    a pair astride every minute's end, A a millisecond before it and B a millisecond after: at every tick both coins have moved the same way since the last, and the most at either day's end is " + ", ".join(f"{name} {max(days.values()):.3g}" for name, days in reached.items()) + f"; a half-and-half mix traded between the pairs still gains {pair_mix ** 0.5 / math.exp(dual / 2):.5f} of the bar a minute. A quiet guard is not a safe record")
+
+    print(f"  GPT's notes. Half a unit at 1 paid 0.01 a unit, N times: cash is 0.5 + 0.005 N, a numerator that grows on a grid that does not. One coin with fair returns of a half up or down and a rule in cash: the bar after one rise is exp(5/12), then exp(5/6) or 1, and the rule's ratio to it has mean {(math.exp(-5 / 6) + 1) / 2:.4f} against {math.exp(-5 / 12):.4f} before: no supermartingale. Its ratio to the null's mix is one, and the bar is at least that mix")
+
+
+
+WINDOWS = (22, 28, 35, 44, 66)
+
+
+def sign_path(n_max: int, theta1: float, agent_only: float, searcher_only: float) -> tuple[float, float, float, list[str]]:
+    """Study 1: Wald's sequential sign test on discordant markets, theta <= 1/2 against theta1 at nominal errors
+    5%, ending undecided at n_max markets, when only the agent's pick earns the plant with chance `agent_only` and
+    only G100's with `searcher_only`. Exact, by enumeration over (wins, losses). Returns the chance of the claim, of
+    the futility stop, the expected markets, and the chance that the claim, and that either boundary, is reached
+    within each count of WINDOWS."""
+    upper = math.log(0.95 / 0.05)
+    lower = math.log(0.05 / 0.95)
+    win = math.log(theta1 / 0.5)
+    loss = math.log((1 - theta1) / 0.5)
+    alive = {(0, 0): 1.0}
+    up = down = expected = 0.0
+    within = []
+    for n in range(1, n_max + 1):
+        nxt: dict[tuple[int, int], float] = {}
+        for (wins, losses), mass in alive.items():
+            steps = ((1, 0, agent_only), (0, 1, searcher_only), (0, 0, 1 - agent_only - searcher_only))
+            for more_wins, more_losses, chance in steps:
+                state = (wins + more_wins, losses + more_losses)
+                ratio = state[0] * win + state[1] * loss
+                reached = mass * chance
+                if ratio >= upper:
+                    up += reached
+                    expected += n * reached
+                elif ratio <= lower:
+                    down += reached
+                    expected += n * reached
+                elif n == n_max:
+                    expected += n * reached
+                else:
+                    nxt[state] = nxt.get(state, 0.0) + reached
+        alive = nxt
+        if n in WINDOWS:
+            within.append(f"{up:.2f}/{up + down:.2f}")
+    return up, down, expected, within
+
+
+def claim_chance(agent: float, searcher: float) -> float:
+    """The chance of study 1's claim when the arms earn independently at these rates."""
+    return sign_path(100, 0.7, agent * (1 - searcher), searcher * (1 - agent))[0]
+
+
+def sign_test(n_max: int, theta1: float, cases: tuple[tuple[str, float, float], ...]) -> None:
+    """A case is (label, P(only the agent's pick earns the plant), P(only G100's does))."""
+    print(f"  theta1 = {theta1}, at most {n_max} markets")
+    for label, agent_only, searcher_only in cases:
+        up, down, expected, within = sign_path(n_max, theta1, agent_only, searcher_only)
+        theta = agent_only / (agent_only + searcher_only)
+        print(f"    {label:44s} theta {theta:.3f}: claim {up:.3f}, futility stop {down:.3f}, undecided {1 - up - down:.3f}, markets {expected:.0f}; within {WINDOWS}: {', '.join(within)}")
+
+
+def pair_rule() -> tuple[int, int]:
+    """A pick earns from the plant when it beats half the reference on at least `majority` of its market's `pairs`
+    fresh pairs: a binomial test of q, its chance on one pair. The rule is the smallest that classes a pick at
+    q = 1/2 with probability at most 0.005 and a pick at q = 3/4 with probability at least 0.9."""
+    found = next(
+        (pairs, majority)
+        for pairs in range(1, 400)
+        for majority in range(pairs + 1)
+        if binom.sf(majority - 1, pairs, 0.5) <= 0.005 and binom.sf(majority - 1, pairs, 0.75) >= 0.9
+    )
+    chances = (0.5, 0.6, 0.671, 0.75, 0.8, 0.9)
+    for pairs, majority in ((32, 24), found):
+        passes = ", ".join(f"q = {q}: {binom.sf(majority - 1, pairs, q):.4f}" for q in chances)
+        print(f"  {majority} of {pairs} pairs, the chance a pick is classed as earning: {passes}")
+    print(f"  the rule is {found[1]} of {found[0]}; with exactly opposite effects a program and its mirror win disjoint pairs, and 2 * {found[1]} > {found[0]}, so they never both earn")
+    return found
+
+
+def walls(pairs: int, majority: int) -> None:
+    """Wall 3 classifies the even part of each of 5 mirror pairs on 200 markets, each pair against its own count.
+    Wall 5 holds a program that reads no input below the bottom of G100's band. Argon's momentum: the share of the
+    reference's Sharpe that an average of past returns keeps, when the plant is an AR(1) drift."""
+    size = binom.sf(majority - 1, pairs, 0.5)
+    mirror_pairs, markets = 5, 200
+
+    def any_pair_stops(count: int) -> float:
+        return float(1 - (1 - binom.sf(count, markets, size)) ** mirror_pairs)
+
+    allowed = next(count for count in range(markets) if any_pair_stops(count) <= 0.01)
+    print(f"  wall 3: an even part at q <= 1/2 earns with probability at most {size:.4f}; more than {allowed} of {markets} for some of the {mirror_pairs} mirror pairs has probability {any_pair_stops(allowed):.4f} (at {allowed - 1}: {any_pair_stops(allowed - 1):.4f}); an even part that earns on 4.5% of markets passes with probability {binom.cdf(allowed, markets, 0.045):.3f}")
+    bottom = 0.11
+    constant = max(count for count in range(markets) if binom.cdf(count, markets, bottom) <= 0.05)
+    grey = ", ".join(f"{rate}: {binom.cdf(constant, markets, rate):.3f}" for rate in (0.03, 0.05, 0.07, 0.11, 0.15))
+    print(f"  wall 5: a constant position that earns at the bottom of G100's band, {bottom}, earns on at most {constant} of {markets} markets with probability {binom.cdf(constant, markets, bottom):.3f} (at {constant + 1}: {binom.cdf(constant + 1, markets, bottom):.3f}); the wall passes a constant by its rate, {grey}; one at q = 0.55 on a pair (a rate of {binom.sf(majority - 1, pairs, 0.55):.4f}) with probability {binom.cdf(constant, markets, binom.sf(majority - 1, pairs, 0.55)):.4f}")
+    print(f"  an agent that submits one constant on every market, with no search, claims with probability {claim_chance(0.11, 0.11):.3f} when the constant earns at G100's 0.11, and {claim_chance(0.11, 0.19):.3f} against G100's 0.19")
+    print(f"  the wall it replaces, 51 of {markets}: a constant that earns at 0.255 passes with probability {binom.cdf(51, markets, 0.255):.3f} and claims with probability {claim_chance(0.255, 0.15):.3f} against G100 at 0.15, {claim_chance(0.255, 0.12):.3f} at 0.12; one at 0.18 passes with {binom.cdf(51, markets, 0.18):.3f} and claims with {claim_chance(0.18, 0.12):.3f} at 0.12 (Argon's round 6 wrote 0.538, 0.768 and 0.284)")
+    print(f"  the DSL has one weight expression for all 12 coins: half the reference's effect is {0.5 / math.sqrt(2):.3f} of a six-coin oracle's, at equal variances")
+    phi = 1 - 1 / 42
+    for snr in (0.03, 0.06, 0.12, 0.25):
+        shares = []
+        for decay in (0.8, 0.9, 0.95, 0.98):
+            covariance = (1 - decay) * phi / (1 - decay * phi) * snr
+            variance = (1 - decay) / (1 + decay) * (1 + (1 + decay * phi) / (1 - decay * phi) * snr**2)
+            shares.append(f"{covariance / math.sqrt(variance):.2f}")
+        print(f"  a momentum average's correlation with the planted drift, at a drift of {snr} step standard deviations (persistence 1 - 1/42), by decay 0.8, 0.9, 0.95, 0.98: {', '.join(shares)}")
+
+
+def reruns(n_max: int = 100, theta1: float = 0.7) -> None:
+    """Why study 1 runs no session again, at the worst: every market discordant at one half, and a rerun that hides a
+    loss whenever hiding one raises the chance of the claim. Exact, by backward induction over (wins, losses,
+    markets, reruns)."""
+    upper = math.log(19)
+    win = math.log(theta1 / 0.5)
+    loss = math.log((1 - theta1) / 0.5)
+
+    @functools.cache
+    def claim(wins: int, losses: int, markets: int, left: int) -> float:
+        ratio = wins * win + losses * loss
+        if ratio >= upper:
+            return 1.0
+        if ratio <= -upper or markets == n_max:
+            return 0.0
+        kept = claim(wins, losses + 1, markets + 1, left)
+        hidden = claim(wins, losses, markets, left - 1) if left else 0.0
+        return 0.5 * claim(wins + 1, losses, markets + 1, left) + 0.5 * max(kept, hidden)
+
+    sizes = ", ".join(f"{count}: {claim(0, 0, 0, count):.3f}" for count in range(6))
+    print(f"  the size when up to v reruns each hide a loss, by v: {sizes}")
+    for share in (19 / 40, 89 / 128):
+        print(f"  were a session with a fallback run again (a share of {share:.3f}), a counted market would cost {1 / (1 - share):.1f} sessions: {29 / (1 - share):.0f} for 29 markets, {41 / (1 - share):.0f} for 41")
+
+
+def calibration(pairs: int) -> None:
+    """The strength is where G100's rate on `search` markets is within 0.005 of 0.15; it is accepted when the rate
+    on `check` fresh markets is within `tolerance` of 0.15. A false stop is that check failing by sampling alone."""
+    target = 0.15 * 0.85
+
+    def false_stop(search: int, check: int, tolerance: float, offset: float) -> float:
+        spread = math.sqrt(target / search + target / check)
+        return float(norm.sf((tolerance - offset) / spread) + norm.sf((tolerance + offset) / spread))
+
+    print(f"  revision 4, a search on 400 markets and a check on 2,000 within 0.02: a false stop with probability {false_stop(400, 2000, 0.02, 0):.2f}")
+    search, check, tolerance = 1600, 10_000, 0.03
+    edge = math.sqrt(0.19 * 0.81 / check)
+    print(f"  a search on {search:,} and a check on {check:,} within {tolerance}: a false stop with probability {false_stop(search, check, tolerance, 0.005):.4f}; an accepted strength has a true rate within {tolerance + 2.5 * edge:.3f} of 0.15 (2.5 standard errors of {edge:.4f} at 0.19)")
+    market = 100 + 2 * 2 * pairs
+    steps = (9, 13)
+    wall3 = 200 * 2 * pairs * (10 + 1)
+    print(f"  kernel evaluations: {3 * 2 * pairs} a study market to classify both picks and the reference, {100 * 3 * 2 * pairs:,} for 100; a calibration market at one strength, {market}; the search at {steps[0]} strengths (at most {steps[1]}) and the check: {(steps[0] * search + check) * market:,} (at most {(steps[1] * search + check) * market:,}); wall 3: {wall3:,}")
+    calibration_cost(pairs, search, check, steps)
+
+
+def calibration_cost(pairs: int, search: int, check: int, steps: tuple[int, int]) -> None:
+    """What the calibration costs in seconds of one core, from the parts of one market. Measured 2026-11-13 on this
+    PC at a3fc471, means over 8 markets: `generate`; `gate.markets.write`, which hashes each of a market's 262,812
+    rows in Python (ingest/store.py); the same market's search period written with the columns the kernel reads;
+    one `mm eval` process, which loads the market; one locked program in it; G100's 100 evaluations. The hosts are
+    run `cal-2`'s, 2026-11-15: each one's workers and the markets an hour it finished in round `r0`, all of them
+    busy."""
+    generate, start, program, g100 = 0.095, 0.18, 0.05, 0.88
+    stored, scored = (1.71, 13.3e6), (0.05, 2.9e6)
+    blind_markets, mirror_set, cores = 200, 10, 30
+
+    def hours(write: float, twins_once: bool, strengths: int) -> float:
+        one = generate + write + start + 2 * program
+        searched = generate + stored[0] + g100
+        planted = searched + pairs * one
+        twins = pairs * one
+        search_seconds = search * (strengths * planted + (1 if twins_once else strengths) * twins)
+        blind = blind_markets * pairs * 2 * (generate + write + start + (mirror_set + 1) * program)
+        return (search_seconds + check * (planted + twins) + blind) / 3600
+
+    pair = 2 * (generate + scored[0] + start + 2 * program)
+    print(f"  one fresh pair, generated, written and scored for a pick and the reference: {2 * (generate + stored[0] + start + 2 * program):.2f} s through the revision store, {pair:.2f} s with the columns the kernel reads; a calibration market at one strength, G100's search and its {pairs} pairs: {generate + stored[0] + g100 + pairs * pair:.0f} s")
+    for name, write, twins_once in (("as built, each search twin written once and kept", stored[0], True), ("each pair written for scoring, nothing kept", scored[0], False)):
+        low, high = (hours(write, twins_once, count) for count in steps)
+        print(f"  {name}: {low:,.0f} core-hours at {steps[0]} strengths, {high:,.0f} at {steps[1]}; on {cores} cores {low / cores:.1f} to {high / cores:.1f} hours, on 26 {low / 26:.1f} to {high / 26:.1f}, on 12 {low / 12:.1f} to {high / 12:.1f}")
+    print(f"  disk: the search's twins kept through the revision store, {search * pairs * stored[1] / 1e12:.2f} TB; with nothing kept, a worker holds one searched market or one pair, at most {max(stored[1], 2 * scored[1]) / 1e6:.1f} MB, so {cores} workers hold {cores * max(stored[1], 2 * scored[1]) / 1e9:.2f} GB")
+    hosts = {"this PC": (11, 279), "prodesk7": (10, 164), "gmktec": (6, 59)}
+    workers = sum(count for count, _ in hosts.values())
+    together = sum(rate for _, rate in hosts.values())
+    blind_equivalent = math.ceil(blind_markets * (mirror_set + 1) * 2 * pairs / (100 + 2 * 2 * pairs))
+    work = [count * search + check + blind_equivalent for count in (1, *steps)]
+    by_rate = [markets / together for markets in work]
+    by_cores = [max(markets * count / workers / rate for count, rate in hosts.values()) for markets in work]
+    print(f"  as measured on the hosts that run it ({', '.join(f'{name}: {rate} markets an hour on {count} workers' for name, (count, rate) in hosts.items())}): {together} an hour together, {3600 / together:.2f} s a market")
+    print(f"    a round of the search split by rates: shares {', '.join(str(round(search * rate / together)) for _, rate in hosts.values())}, {search / together:.1f} h; by workers: shares {', '.join(str(round(search * count / workers)) for count, _ in hosts.values())}, {max(search * count / workers / rate for count, rate in hosts.values()):.1f} h")
+    print(f"    the job at one strength, {steps[0]} and {steps[1]}: {', '.join(f'{h:.1f}' for h in by_rate)} h by rates; {', '.join(f'{h:.1f}' for h in by_cores)} h by workers")
+    for name, (count, rate) in hosts.items():
+        part = rate / together
+        print(f"    {name}: {part:.1%} of the rate; without it a round by rates is {search / (together - rate):.1f} h; it shortens the job while its weight's error is below {part / (1 - part):.0%}; by workers its error is {count / workers / part - 1:+.0%}")
+    bests = 5
+    print(f"  the study's arms: G100's pick, its {bests} earlier bests and the reference on a market's {pairs} pairs, {pairs * 2 * (generate + scored[0] + start + (bests + 2) * program):.0f} s; the agent's pick and the reference, {pairs * pair:.0f} s; 100 markets, both arms, {100 * pairs * (2 * (generate + scored[0] + start + (bests + 2) * program) + pair) / 3600:.1f} core-hours")
+
+
+def study1() -> None:
+    """The joint law of the two arms on one market is (agent's rate, G100's rate, both). The size holds for every
+    joint law with the agent's rate at most G100's; power depends on all three, so every row is printed."""
+    rows: list[tuple[str, float, float]] = [("null, every market discordant", 0.5, 0.5)]
+    for rate in (0.11, 0.15, 0.19):
+        rows.append((f"null {rate}, {rate}, independent", rate * (1 - rate), rate * (1 - rate)))
+    for agent in (0.5, 0.4, 0.3):
+        for searcher in (0.11, 0.15, 0.19):
+            for name, both in (("least", 0.0), ("independent", agent * searcher), ("most", searcher)):
+                rows.append((f"{agent}, {searcher}, {name} overlap", agent - both, searcher - both))
+    for lost in (0.07, 0.2):
+        agent = 0.5 * (1 - lost)
+        rows.append((f"0.5 with {lost} of sessions lost, 0.15, independent", agent * 0.85, 0.15 * (1 - agent)))
+        rows.append((f"0.5 with {lost} of sessions lost, 0.19, least", agent, 0.19))
+    rows.append(("0.5, 0.25, least overlap (revision 3's band edge)", 0.5, 0.25))
+    rows.append(("0.5, 0.3, least overlap (Argon)", 0.5, 0.3))
+    rows.append(("0.25, 0.2, both 0.1875 (Argon)", 0.0625, 0.0125))
+    sign_test(100, 0.7, tuple(rows))
+    print(f"  a discordant win adds {math.log(0.7 / 0.5):.4f}, a loss {math.log(0.3 / 0.5):.4f}; the boundaries are +-{math.log(19):.4f}: {math.ceil(math.log(19) / math.log(1.4))} straight wins claim, {math.ceil(math.log(19) / -math.log(0.6))} straight losses stop")
+    print(f"  G100 at 0.3 is {(0.3 - 0.18) / math.sqrt(0.18 * 0.82 / 10_000):.0f} standard errors above the band's 0.18; rates 0.25 and 0.2 with 0.1875 in common leave {100 * (0.0625 + 0.0125):.1f} discordant markets in 100")
+    pairs, majority = pair_rule()
+    walls(pairs, majority)
+    reruns()
+    print(f"  the pilot's 41 sessions with run records all reached a designed end: the share that does not is at most {1 - 0.05 ** (1 / 41):.3f} at 95%")
+    calibration(pairs)
+    spent = [json.loads(line)["agent_run"] for line in Path("audit/stage3/null-v3.jsonl").read_text().splitlines()]
+    counts = sorted(run["spent"] for run in spent)
+    print(f"  stage 3's {len(spent)} null campaigns: the agent spent {counts[0]} to {counts[-1]} of 100 evaluations, median {statistics.median(counts)}; stopped: {sorted({run['stopped'] for run in spent})}")
+    print(f"  at {SESSIONS_A_WEEK} sessions a week (an assumption), 100 markets take {100 / SESSIONS_A_WEEK:.1f} weeks, 41 take {41 / SESSIONS_A_WEEK:.1f}, 29 take {29 / SESSIONS_A_WEEK:.1f}")
+    print("  sessions left in a 14-day window when the first runs on day d: " + ", ".join(f"d = {day}: {SESSIONS_A_WEEK * (14 - day) / 7:.0f}" for day in (0, 3, 4, 5, 6, 7)))
+
+
+def expected_max(count: int) -> float:
+    """The expected maximum of `count` independent standard Gaussians, by quadrature."""
+    value, _ = quad(lambda x: x * count * norm.pdf(x) * norm.cdf(x) ** (count - 1), -10, 12, limit=200)
+    return float(value)
+
+
+def dsr_z(sharpe: float, threshold: float, steps: int, skew: float, kurtosis: float) -> float:
+    spread = math.sqrt(1 - skew * sharpe + (kurtosis - 1) / 4 * sharpe**2)
+    return (sharpe - threshold) * math.sqrt(steps - 1) / spread
+
+
+def argon_paper() -> None:
+    """Rechecks of Argon's findings on the paper (audit/program/argon-paper-findings.md)."""
+    print("  4. Clopper-Pearson upper bounds at 95%, no promotion in n:")
+    for n in (9, 10, 13, 21):
+        print(f"       n = {n}: {1 - 0.05 ** (1 / n):.3f}")
+    rho = 8 / math.sqrt(46.25 * 2.6)
+    print(f"  5. correlation {rho:.4f}; a null survivor at z = 3 passes the sign check with probability {norm.cdf(3 * rho / math.sqrt(1 - rho**2)):.4f}")
+    print(f"  6. Hoeffding cutoff {0.2 - math.sqrt(math.log(20) / 200):.4f}")
+    year = math.sqrt(STEPS_A_YEAR)
+    for steps in (100, 546, 5400):
+        print(f"  7. T = {steps}: the limit of the DSR's z as the Sharpe grows is under 1.645 only above kurtosis {1 + 4 * (steps - 1) / norm.ppf(0.95) ** 2:.0f}; a sample's is at most {steps}")
+    print(f"     Argon's examples at T = 546 against a threshold of 2: Sharpe 3.5 has z at most {dsr_z(3.5 / year, 2 / year, 546, 0, 1):.3f}; Sharpe 6, skewness -4, kurtosis 18 has z = {dsr_z(6 / year, 2 / year, 546, -4, 18):.3f}; the limit at kurtosis 18 is {2 * math.sqrt(545 / 17):.1f}")
+    worst = min((1 - skew * sharpe / 2) ** 2 for skew in np.linspace(-6, 6, 25) for sharpe in np.linspace(0, 3, 31))
+    print(f"     a sample's kurtosis is at least its skewness squared plus 1, so the DSR's radicand is at least (1 - skewness * Sharpe / 2)^2 >= {worst:.0f}; Argon's skewness 4 with kurtosis 10 is no sample's ({4**2 + 1} at least)")
+    for level, tolerance, inflated in ((0.05, 0.0625, 0.056), (0.01, 0.015, 0.012), (0.005, 0.01, 0.0075)):
+        suite = max(x for x in range(2000) if beta.ppf(1 - 0.05 / 99, x + 1, 20_000 - x) <= tolerance)
+        single = max(x for x in range(2000) if beta.ppf(0.95, x + 1, 20_000 - x) <= tolerance)
+        chance = binom.cdf(suite, 20_000, inflated)
+        print(f"  10. level {level}, tolerance {tolerance}: up to {suite} rejections in 20,000 pass at the suite's confidence 1 - 0.05/99 ({single} at a single cell's 95%); a true rate of {inflated} passes with probability {chance:.2f}")
+    phi, keep = 1 - 1 / 42, 5 / 6
+    whole, kept = (1 + phi) / (1 - phi), (1 + phi * keep) / (1 - phi * keep)
+    print(f"  11. a funding leg's long-run variance factor is {whole:.1f}, of which blocks of mean 6 keep {kept:.2f}")
+    for share in (0.000025, 0.001, 0.01, 0.05, 0.1, 0.25):
+        print(f"      funding at {share:g} of a step's variance: the bootstrap understates the variance of the mean by {(1 - share + share * whole) / (1 - share + share * kept):.3f}")
+    share = brentq(lambda w: (1 - w + w * whole) / (1 - w + w * kept) - 1.1, 0, 1)
+    print(f"      the understatement reaches 10% at a share of {share:.4f}: a funding standard deviation of {100 * math.sqrt(share) * 0.02:.3f}% a step beside 2% of price")
+    print("  13. expected maximum of N Gaussians against sqrt(2 log N), and the ceiling at 3, 10, 20 years:")
+    for count in (10, 1000, 100_000):
+        exact = expected_max(count)
+        ceilings = ", ".join(f"{exact / math.sqrt(years):.2f}" for years in (3, 10, 20))
+        print(f"       N = {count}: {exact:.4f} against {math.sqrt(2 * math.log(count)):.4f}; {ceilings}")
+    se = math.sqrt(365 / 550)
+    print(f"  14. standard error {se:.2f}; a Sharpe 2 leak stays under the canary's alarm at 4 with probability {norm.cdf((4 - 2) / se):.3f}")
+
+
+def cut(whole: int, factor: float) -> int:
+    """The venue's scaling of a whole number: the double product, its fraction dropped (facts section 7)."""
+    return math.trunc(whole * factor)
+
+
+def venue_fee(notional: int, rate: Fraction) -> int:
+    return cut(notional, float(rate))
+
+
+def venue_close(entry_notional: int, lots: int, closed: int, price: int) -> tuple[int, int]:
+    """A close's printed closedPnl and the entry notional it leaves, all in millionths of a USDC and price units of 10^(szDecimals - 6)."""
+    printed = closed * (price - entry_notional // lots)
+    left = lots - closed
+    kept = cut(entry_notional, left / lots) if left else 0
+    return printed, kept
+
+
+def whole(text: str, decimals: int) -> int:
+    scale: int = 10**decimals
+    scaled = Fraction(text) * scale
+    assert scaled.denominator == 1, (text, decimals)
+    return scaled.numerator
+
+
+def venue_prints(fills_directory: Path | None) -> None:
+    """The venue's printed fee and closedPnl. Three made-up cases always; given the directory of the vault's fills pages (dated before
+    2026-11-01, untracked), counts over the whole record, and never a price."""
+    maker, taker = Fraction(15, 100_000), Fraction(45, 100_000)
+    assert venue_fee(100_000, maker) == 14 and Fraction(100_000) * maker == 15
+    assert venue_fee(100_000, taker) == 45 and venue_fee(33_333, maker) == 4
+    assert venue_close(302_000_000, 3, 3, 102_000_000) == (4_000_002, 0)
+    first, kept = venue_close(13_574, 11, 8, 2_000)
+    assert (first, kept) == (6_128, 3_701) and 13_574 * 3 % 11 == 0 and 13_574 * 3 // 11 == 3_702
+    assert venue_close(kept, 3, 3, 2_000) == (2_301, 0)
+    print("  made-up cases hold: a maker fee of exactly 15 millionths prints 14; one lot at 100 and two at 101 closed at 102 print 4.000002;")
+    print("    11 lots at 1,234 units, 8 closed, leave an entry notional of 3,701 where the exact is 3,702, and the last 3 close one unit low")
+    if fills_directory is None:
+        print("  the vault's record: not given (pass the directory of its fills pages)")
+        return
+    universe = json.loads(Path("venue/hyperliquid/meta-2026-11-16.json").read_text())["universe"]
+    size_decimals = {coin["name"]: coin["szDecimals"] for coin in universe}
+    fills: list[dict[str, object]] = []
+    seen: set[int] = set()
+    for page in sorted(fills_directory.glob("fills-*.json")):
+        for row in json.loads(page.read_text()):
+            if row["tid"] not in seen:
+                seen.add(row["tid"])
+                fills.append(row)
+    fills.sort(key=lambda row: int(str(row["time"])))
+    lots: dict[str, int] = {}
+    entry: dict[str, int] = {}
+    cost: dict[str, Fraction] = {}
+    partials: dict[str, int] = {}
+    fee_differs = fee_whole = fee_one_under = fee_outside = 0
+    closes = pnl_differs = clean_closes = clean_equal = bound_broken = below_exact = one_unit_low = partial_closes = lossy = 0
+    printed_sum = exact_sum = largest = Fraction(0)
+    for row in fills:
+        coin = str(row["coin"])
+        decimals = size_decimals[coin]
+        price, size = whole(str(row["px"]), 6 - decimals), whole(str(row["sz"]), decimals)
+        held = lots.get(coin, 0)
+        assert whole(str(row["startPosition"]), decimals) == held, "the position chain breaks"
+        notional = price * size
+        rate = taker if row["crossed"] else maker
+        printed_fee = whole(str(row["fee"]), 6)
+        exact_fee = notional * rate
+        fee_differs += venue_fee(notional, rate) != printed_fee
+        fee_outside += not 0 <= exact_fee - printed_fee <= 1
+        fee_whole += exact_fee.denominator == 1
+        fee_one_under += exact_fee - printed_fee == 1
+        if row["side"] == "B":
+            if held == 0:
+                entry[coin], cost[coin], partials[coin] = 0, Fraction(0), 0
+            entry[coin] += notional
+            cost[coin] += notional
+            lots[coin] = held + size
+            continue
+        closes += 1
+        printed = whole(str(row["closedPnl"]), 6)
+        ours, kept = venue_close(entry[coin], held, size, price)
+        exact = size * (price - cost[coin] / held)
+        pnl_differs += ours != printed
+        if partials[coin] == 0:
+            clean_closes += 1
+            clean_equal += entry[coin] == cost[coin]
+        bound_broken += not cost[coin] - partials[coin] <= entry[coin] <= cost[coin]
+        below_exact += printed < exact
+        one_unit_low += entry[coin] // held < math.floor(cost[coin] / held)
+        printed_sum += printed
+        exact_sum += exact
+        largest = max(largest, printed - exact)
+        left = held - size
+        if left:
+            partial_closes += 1
+            partials[coin] += 1
+            lossy += kept != entry[coin] * left // held
+        entry[coin], cost[coin], lots[coin] = kept, cost[coin] * left / held, left
+    print(f"  {len(fills)} fills: {fee_differs} printed fees differ from the cut; {fee_outside} outside [exact - 1, exact] millionths; {fee_whole} exact fees are whole, {fee_one_under} print one under")
+    print(f"  {closes} closes: {pnl_differs} printed closedPnl differ; {clean_equal} of {clean_closes} before any partial close have the entry notional equal to the exact cost;")
+    print(f"    {bound_broken} break cost - partial closes <= entry notional <= cost; {below_exact} print below the exact figure; {one_unit_low} have an entry one unit under the exact floor")
+    print(f"    {partial_closes} partial closes, {lossy} leave the entry notional under its exact floor")
+    print(f"    printed {float(printed_sum) / 1e6:.6f} USDC against {float(exact_sum) / 1e6:.6f} exact, {float(printed_sum - exact_sum) / 1e6:.6f} over; the most at one close {float(largest) / 1e6:.4f}")
+
+
+def venue_funding(vault_directory: Path | None, rates_file: Path | None) -> None:
+    """The venue's daily userFunding rows against the fills (facts section 7; kernel V8, V21). One made-up day always; given the
+    directory of the vault's pages (dated before 2026-11-01, untracked), counts over every row; given also a JSON object of coin to
+    fundingHistory rows, the rate of each row those rates cover. Counts only, never a price."""
+    hour, unit = 3_600_000, Fraction(1, 10**10)
+    sizes = [Fraction(3)] * 10 + [Fraction(5)] * 2
+    rates = [Fraction(1, 100_000)] * 10 + [Fraction(-2, 100_000)] * 2
+    weighted = sum((size * rate for size, rate in zip(sizes, rates)), Fraction(0)) / sum(sizes)
+    assert sum(sizes) / 12 == Fraction(10, 3) and weighted == Fraction(25, 10**7) and sum(rates) / 12 == Fraction(5, 10**6)
+    print("  a made-up day: 3 held into ten hours at 0.00001 and 5 into two at -0.00002 give a mean size of 10/3 and a rate of 0.0000025, where the plain mean rate is 0.000005")
+    if vault_directory is None:
+        print("  the vault's record: not given (pass the directory of its pages)")
+        return
+    fills: dict[int, dict[str, object]] = {}
+    for page in sorted(vault_directory.glob("fills-*.json")):
+        for fill in json.loads(page.read_text()):
+            fills[fill["tid"]] = fill
+    rows: dict[tuple[int, str], dict[str, object]] = {}
+    for page in sorted(vault_directory.glob("funding-*.json")):
+        for row in json.loads(page.read_text()):
+            rows[int(row["time"]), str(row["delta"]["coin"])] = row["delta"]
+    path: dict[str, list[tuple[int, Fraction]]] = {}
+    position: dict[str, Fraction] = {}
+    for fill in sorted(fills.values(), key=lambda fill: int(str(fill["time"]))):
+        coin = str(fill["coin"])
+        signed = Fraction(str(fill["sz"])) * (1 if fill["side"] == "B" else -1)
+        position[coin] = position.get(coin, Fraction(0)) + signed
+        path.setdefault(coin, []).append((int(str(fill["time"])), position[coin]))
+
+    def held_into(coin: str, time: int) -> Fraction:
+        held = Fraction(0)
+        for at, after in path[coin]:
+            if at >= time:
+                break
+            held = after
+        return held
+
+    def held_hours(coin: str, day: int) -> list[tuple[int, Fraction]]:
+        hours = [(day + index * hour, held_into(coin, day + index * hour)) for index in range(24)]
+        return [(at, size) for at, size in hours if size != 0]
+
+    first, last = min(day for day, _ in rows) - 24 * hour, max(day for day, _ in rows)
+    held_days = {(day, coin) for coin in path for day in range(first, last + 1, 24 * hour) if held_hours(coin, day)}
+    count_differs = size_differs = 0
+    for (day, coin), row in rows.items():
+        held = held_hours(coin, day)
+        count_differs += len(held) != row["nSamples"]
+        size_differs += not held or abs(sum(size for _, size in held) / len(held) - Fraction(str(row["szi"]))) > unit / 2
+    paid = [Fraction(str(row["usdc"])) for row in rows.values()]
+    print(f"  {len(rows)} rows, every time a UTC midnight: {all(day % (24 * hour) == 0 for day, _ in rows)}; {len(held_days - set(rows))} held coin-days have no row and {len(set(rows) - held_days)} rows no held hour")
+    print(f"    {count_differs} differ in nSamples from the hours held of the day that starts at the row's time; {size_differs} in szi from the mean size held, at half of 1e-10")
+    print(f"    usdc sums to {float(sum(paid)):.2f} received, {float(sum(abs(cash) for cash in paid)):.2f} gross")
+    if rates_file is None:
+        print("  fundingHistory rates: not given")
+        return
+    rate: dict[tuple[str, int], Fraction] = {}
+    stamps: list[int] = []
+    premiums: list[float] = []
+    for coin, history in json.loads(rates_file.read_text()).items():
+        for settled in history:
+            rate[coin, int(settled["time"]) // hour * hour] = Fraction(settled["fundingRate"])
+            stamps.append(int(settled["time"]) % hour)
+            premiums.append(abs(float(settled["premium"])))
+    covered = rate_differs = one_signed = outside = 0
+    for (day, coin), row in rows.items():
+        held = held_hours(coin, day)
+        if not all((coin, at) in rate for at, _ in held):
+            continue
+        covered += 1
+        weight = sum((size * rate[coin, at] for at, size in held), Fraction(0))
+        rate_differs += abs(weight / sum(size for _, size in held) - Fraction(str(row["fundingRate"]))) > unit / 2
+        signs = {rate[coin, at] > 0 for at, _ in held}
+        if weight != 0 and len(signs) == 1:
+            one_signed += 1
+            implied = -Fraction(str(row["usdc"])) / weight
+            prices = [Fraction(str(fill["px"])) for fill in fills.values() if fill["coin"] == coin and abs(int(str(fill["time"])) - day - 12 * hour) <= 36 * hour]
+            outside += not min(prices) * Fraction(97, 100) <= implied <= max(prices) * Fraction(103, 100)
+    print(f"  {covered} rows have every held hour's rate: {rate_differs} differ in fundingRate from the size-weighted mean rate, at half of 1e-10")
+    print(f"    {one_signed} of them have rates of one sign: {outside} imply a price, -usdc over the sum of size times rate, outside the vault's fills of the three days around, widened 3%")
+    print(f"    stamps at most {max(stamps)} ms after their hour; |premium| median {statistics.median(premiums):.5f}, greatest {max(premiums):.5f}")
+
+
+def layer1_read() -> None:
+    """GPT's read of layer 1 and O12 (kernel-v2.md part G): what the venue's ties and a day's row leave free, on made-up numbers."""
+    maker = Fraction(15, 100_000)
+    printed_fee, exact_fee = venue_fee(100_000, maker), Fraction(100_000) * maker
+    assert printed_fee == 14 and exact_fee == 15 and 0 <= exact_fee - printed_fee <= 1
+    first, kept = venue_close(13_574, 11, 8, 2_000)
+    exact_cost_left = Fraction(13_574 * 3, 11)
+    assert kept == 3_701 and exact_cost_left == 3_702 and exact_cost_left - 1 <= kept <= exact_cost_left
+    assert 3 * 2_000 - kept == 2_299 and 3 * 2_000 - exact_cost_left == 2_298 and venue_close(kept, 3, 3, 2_000)[0] == 2_301
+    print("  a ledger that charges the printed fee (14 for 15) and one that keeps the venue's entry notional (3,701 for 3,702, realizing 2,299")
+    print("    for 2,298 under a printed 2,301) pass both ties: the ties are compatibility, and the exact tests are what reject them")
+
+    lots = 1_000_000_000
+    entry_notional = lots + 1
+    _, cut_up = venue_close(entry_notional, lots, 1, 0)
+    exact_left = Fraction(entry_notional * (lots - 1), lots)
+    assert cut_up == 1_000_000_000 and cut_up > exact_left
+    worst_under, worst_over = Fraction(0), Fraction(0)
+    rng = np.random.default_rng(47)
+    for _ in range(20_000):
+        position = int(rng.integers(2, 10 ** int(rng.integers(1, 10))))
+        cost = Fraction(position * int(rng.integers(1, 10 ** int(rng.integers(1, 7)))))
+        venue_entry, closes = int(cost), 0
+        while position > 1 and closes < 12:
+            closed = int(rng.integers(1, position))
+            _, venue_entry = venue_close(venue_entry, position, closed, 0)
+            cost = cost * (position - closed) / position
+            position -= closed
+            closes += 1
+            assert cost - 2 * closes < venue_entry < cost + closes
+            worst_under = max(worst_under, (cost - venue_entry) / closes)
+            worst_over = max(worst_over, (venue_entry - cost) / closes)
+    print(f"  the double's product can round up: {entry_notional:,} cut by 1 lot of {lots:,} leaves {cut_up:,}, above the exact cost; over 20,000")
+    print(f"    made-up chains cost - 2m < E < cost + m always, and the most a close moved E was {float(worst_under):.3f} under and {float(worst_over):.3f} over")
+
+    rates = [Fraction(1, 10_000), Fraction(2, 10_000), Fraction(3, 10_000)]
+    right, wrong, prices = [3, 3, 3], [4, 1, 4], [100, 200, 100]
+
+    def row(sizes: list[int]) -> tuple[int, Fraction, Fraction]:
+        return len(sizes), Fraction(sum(sizes), len(sizes)), sum(q * r for q, r in zip(sizes, rates)) / sum(sizes)
+
+    def paid(sizes: list[int]) -> Fraction:
+        return sum(q * p * r for q, p, r in zip(sizes, prices, rates))
+
+    assert row(right) == row(wrong) == (3, 3, Fraction(2, 10_000))
+    assert paid(right) == Fraction(24, 100) and paid(wrong) == Fraction(20, 100)
+    print(f"  a day's row does not give its hours: sizes 3, 3, 3 and 4, 1, 4 make one row and pay {float(paid(right))} and {float(paid(wrong))} at prices 100, 200, 100")
+
+
+if __name__ == "__main__":
+    print("The yardstick (section 2.1)")
+    yardstick()
+    print("What an exact test costs (section 2.2)")
+    exact_cost()
+    print("A frozen series under three confirmers (sections 2.2, 2.3 and 6)")
+    confirmer()
+    print("A forward account in bounded bets (section 4)")
+    forward_account()
+    print("Study 2 on kernel version 2 (section 6)")
+    study2()
+    print("Round 3 on kernel version 2 (section 6)")
+    round3()
+    print("Round 4 on kernel version 2: the test ledger (section 6)")
+    round4()
+    print("Round 5 on kernel version 2 (section 6, kernel-v2.md part C)")
+    round5()
+    print("Round 6 on kernel version 2 (section 6, kernel-v2.md part D)")
+    round6()
+    print("Study 2's criteria (criteria-notes.md)")
+    study2_criteria()
+    print("The venue's price grid (KERNEL.md A18)")
+    price_grid()
+    print("The venue's printed fee and closedPnl (facts section 7; kernel V19, V20)")
+    venue_prints(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
+    print("The venue's daily funding rows (facts section 7; kernel V8, V21)")
+    venue_funding(Path(sys.argv[1]) if len(sys.argv) > 1 else None, Path(sys.argv[2]) if len(sys.argv) > 2 else None)
+    print("GPT's read of layer 1 and O12 (kernel-v2.md part G)")
+    layer1_read()
+    print("Study 1 (section 5)")
+    study1()
+    print("Argon's findings on the paper, rechecked")
+    argon_paper()

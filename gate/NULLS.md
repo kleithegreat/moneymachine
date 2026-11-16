@@ -61,7 +61,7 @@ GARCH(1,1) per coin i: σ²_{i,t} = min(ω_i + α_i ε²_{i,t−1} + β_i σ²_{
 σ²_{i,0} = min(ω_i / (1 − α_i − β_i), 0.0625²). The cap applies to the recursion's own state.
 Innovations come from a common factor: x_i = λ z_m + √(1 − λ²) z_i, where z_m and the z_i are
 i.i.d. Student-t with ν = 5, each truncated at ±8 and then scaled to unit variance by the exact
-truncated standard deviation. (Clarified 2026-10-19 after C2.2 found both readings in use.) Funding and premium are bootstrapped as above.
+truncated standard deviation. The sum x_i is therefore a mix of two truncated t draws and is not itself Student-t: before truncation its kurtosis is 9 − 12λ²(1 − λ²). (Clarified 2026-10-19 after C2.2 found both readings in use.) Funding and premium are bootstrapped as above.
 
 Fitting uses the search part of the stage 0 store only. Synthetic coin S_i takes the
 parameters of U's i-th coin, in U order:
