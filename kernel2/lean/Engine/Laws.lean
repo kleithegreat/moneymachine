@@ -946,7 +946,23 @@ theorem L1a :
        (∃ r₁ r₂, snapshots initial [seen 4613937818241073152] = some r₁ ∧
          snapshots initial [seen 4617315517961601024] = some r₂ ∧
          r₁.map (fun r => r.row.getLast?) = [some "4008000000000000"] ∧
-         r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])) := by
+          r₂.map (fun r => r.row.getLast?) = [some "4014000000000000"])) := by
+  sorry
+
+/-- B3 X3, the reader twin. The builder supplies, in `Engine.Exact`,
+`readBitsFast : Nat → UInt64 → Option Int`, with the same signature as
+`readBits : Nat → UInt64 → Option Int`. This equality has no scale, range or
+finite-input premise; its constant-equality form is the compiler's `csimp` form. -/
+theorem X3_readBits : @Engine.Exact.readBits = @Engine.Exact.readBitsFast := by
+  sorry
+
+/-- B3 X3, the integer grid. The builder supplies, in `Engine.Exact`,
+`onGridAt : Nat → Int → Nat → Int → Bool` (figures, decimals, scale, units).
+The plain side is `onGrid : Nat → Int → Rat → Bool`, the function C2 names.
+There is no positivity, valid-rules, decimal-range or scale-bound premise. -/
+theorem X3_onGrid (figures : Nat) (decimals : Int) (scale : Nat) (n : Int) :
+    Engine.Exact.onGridAt figures decimals scale n =
+      Engine.Exact.onGrid figures decimals ((n : Rat) / (10 : Rat) ^ scale) := by
   sorry
 
 end Engine.Laws

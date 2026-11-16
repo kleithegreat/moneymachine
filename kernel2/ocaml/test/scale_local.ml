@@ -3,8 +3,9 @@
    no program/clock. --day measures the actual suite-sized day locally.
    Reader.archive, coin_rules and Duckdb.scalar_int64 have the signatures in
    events_support.ml. Read only dates before 2026-11-01, never forward data.
-   One OS core for the whole process, strictly under four hours and 2 GB for
-   the window (150 seconds for --day). Time, peak RSS, counts and verdict are
+   Requires admission's retained readings and Exact.readBitsFast via csimp;
+   no new OCaml entry point. One OS core, under twelve hours and 2 GB for
+   the window (470 seconds for --day). Time, peak RSS, counts and verdict are
    persisted to METRICS_JSON; rows stream to private .report.spool/.trace.spool
    beside it. These spools are not published reports (step 9 owns publication).
    All three paths must be new. Quote counts are independently checked on
@@ -24,8 +25,8 @@ let sql_string text = "'" ^ String.concat "''" (String.split_on_char '\'' text) 
 let worker mode root repo output =
   S.check_one_core ();
   let days, last_day, budget = match mode with
-    | "day" -> 1, "20260404", 150.
-    | "window" -> 212, "20261101", 14400.
+    | "day" -> 1, "20260404", 470.
+    | "window" -> 212, "20261101", 43200.
     | _ -> failwith "unknown benchmark mode" in
   let last = Int64.add base (Int64.mul (Int64.of_int days) 86_400_000L) in
   check "window ends at protected boundary, never beyond it" (last <= protected_start);
@@ -97,6 +98,6 @@ let worker mode root repo output =
 
 let () = match Array.to_list Sys.argv with
   | [_; "--worker"; mode; root; repo; output] -> worker mode root repo output
-  | [_; root; repo; output] -> S.launch 14400 ["window"; root; repo; output]
-  | [_; "--day"; root; repo; output] -> S.launch 150 ["day"; root; repo; output]
+  | [_; root; repo; output] -> S.launch 43200 ["window"; root; repo; output]
+  | [_; "--day"; root; repo; output] -> S.launch 470 ["day"; root; repo; output]
   | _ -> failwith "usage: scale_local [--day] ARCHIVE_ROOT REPO_ROOT METRICS_JSON"
