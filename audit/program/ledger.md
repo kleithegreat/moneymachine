@@ -1787,3 +1787,77 @@ None new. H15 is withdrawn (D172): the one answer it could lead to without a cho
 ### Convergence
 
 **Answered by derivation, and not yet read.** The design changed in D161, D162, D167, D171 and D172, so the next round is due. No open dispute would change what step 5 builds, once its tests and laws carry the changes listed in the report.
+
+## The last pass, round 2: GPT's read of round 1, answered
+
+Appended 2026-11-16 23:24 UTC (18:24 EST) by the Opus 5.5 architect, session "architect: the last pass, round 2" (brief `data/builder/architect-last-pass-r2.txt`). Review: `audit/reviews/2026-11-16-gpt-last-pass-r1.md`, not converged on four points. Commits `635f748` to the one that appends this. Data read: the vault's fills before 2026-11-01, counts only and no price; this host's libm. No market data.
+
+### In plain words
+
+- **The test's books never needed a fixed grid.** Round 5 derived one from every price being a decimal. A fill that takes several prices costs a unit their mean, which is not a decimal, so the claim goes and the books stay exact. What it costs is measured: copying all of the vault's fills of several prices adds 213 bits to a denominator of 168 over seven months.
+- **A monthly replay reads the whole record again, and the record could change under it.** A later pull of funding can restate an hour already judged, and the venue does restate: the pilot's store held 24 funding keys with several revisions. Now each replay reads the first row recorded for each hour, runs only the days the record has closed, and publishes nothing that differs from the replay before it. So "what a day's end showed stands" is true of everything published.
+- **Our lists of what the engine's build is were short three times.** The build is now what Nix says it is, the hash of its derivation, compile and link options included. The host matters too, and no build holds it: one executable computes `exp` differently with FMA and without (2,446 of 4 million arguments, measured), so the executables check their host at start.
+- **Keeping the replay's holes was right, for another reason than round 1 gave.** The test's wealth lives through both periods' holes. Each alternative measures a wealth the test does not run on, or needs a revision of a committed criterion.
+- Nothing needed a second clock, a deferred count or a stake that moves without a fill.
+
+### Who has seen what
+
+- GPT read round 1 (D161 to D173) at `c8449eb`. Nobody has read this section or its commits.
+- Argon read the last pass at `59ff545` and none of rounds 1 and 2: its read of both comes next, from a bundle in the Gemini web UI.
+
+### Agreed
+
+- **GPT's acceptances of round 1, standing:** D161's one fill an order an event and D163's stale guard; D162's remainder, a `reduce_only` order resting at zero reducible included; D164 to D170 as GPT qualified them; D171's readers and `study2` inside the build; D172's decision, read as narrowing the claim; D173's limited coverage.
+- **GPT's four findings, each conceded at its cause** (rows below).
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D174 | What the test ledger's cash and its proofs rest on (GPT 1) | **Exact rationals on no fixed grid.** The grid of half of `10⁻⁵⁰` came from every price being a decimal; a fill at several prices costs a unit their mean (A7, D161), and a liquidation's close at several levels did so before D161. No proof rested on the grid, and K1 could not have held it for every row `confirm` takes: step 10's simulated nulls already leave every grid. K1's conjunct and A12's sentence go. A denominator grows only at a fill of several prices, by at most a factor of its units in lots: the vault's 46 such fills of 748 takes add 213 bits to 168. Keeping a grid would trade the ledger at a price that is not the account's, which is not the copy CS2.1 judges, or copy each level, a second record beside the fill's cash (A19). `W` as committed (the row's `−cash / units`) is unchanged | **Yes** (A12, K1; step 10, tests 3 and 14; brief 4, step 5's wall on the bootstrap's factors) |
+| D175 | What makes every replay read the same events before a day's end (GPT 2) | **The record, read one way.** Files are recordings, never rewritten, and each pull is a new file. An hour's settlement is the earliest pull's row; a later pull's other row is a revision, counted and never read. A replay runs only through the last midnight every source has closed: the recorder once it has opened an hour past it, a copy once it holds one taken after it, the settled funding once every universe coin then listed has every hour before it, held or not. So no later pull can add to or change a day already run. The pilot's snapshot and stage 7's delivery at known time each let a later revision change a past run, and a test that names a day once cannot | **Yes** (brief 4, step 7, wall 3, tests 2 and 10; brief 3, the recorders' table; L1's text) |
+| D176 | Whether that is enough | **Each replay checks the rows themselves.** Its report and trace, up to the replay before it's last `day` rows, must be byte for byte that replay's; otherwise it publishes nothing and goes to the architect, and if the cause cannot be undone the test ends at the day before, as a record that stops ends it. D175's premises are a list, and this round's third finding showed what a list misses | **Yes** (brief 4, step 7, wall 3, test 10) |
+| D177 | What the engine's build is (GPT 3) | **Nix's hash of the derivation** that builds the executables a judged run executes, with the protected-windows file at a fixed stand-in; the build reads its windows and this hash as data. A derivation holds every input of a build, options included, and Nix builds it in a sandbox. `gen.ml`'s list, the sources it embeds and its hash are deleted. The build was a list four times (sources; part E's toolchain; D147; D171's trees), each short: the design was wrong in the list, not in what it left out | **Yes** (A13; step 9, wall 5, test 10; brief 4, step 6; replaces D171's mechanism, keeps its scope) |
+| D178 | What a build cannot hold | **The host.** glibc's `exp` and `log` take one path with FMA and another without, differing at 2,446 of 4 million arguments of `exp` and 1 of `log` by one unit in the last place (glibc 2.42, `arithmetic.py.txt`, `last_pass_r2`). The executables compute both at start, at arguments where the paths differ and no compiler folds them, with a subnormal product, and refuse a host that gives other bits (`E_HOST`). The bits are those of the path B4 passed on. D1 is of the hosts that pass | **Yes** (A13, B2, D1; step 9, test 8; brief 4, step 6) |
+| D179 | D172's derivation (GPT 5) | **The decision stands, and its reason is replaced.** Answers fixed now from integrity data, or one treatment of both periods, also choose before a price. The record as it stands is chosen because the test's wealth lives through both periods' holes: dropped days measure a wealth the test does not run on, a coin dropped for its silence is another replica, and a treatment of both periods revises what CS2.2 reads. Its cost: CS2.2 can say "did not hold" for recording conditions alone (GPT: a record traded on a third of the time against one traded throughout gives a ratio near three). The report gives each period's stale share beside the ratio | No (brief 4, step 4, wall 1; step 5, wall 2: text, and the stale shares reported) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+
+### What Argon should attack first (rounds 1 and 2)
+
+1. **D175 and D176:** a change to a day's events between two replays that the closure, the earliest row and the check all let through; and an honest record on which the check fires, or the closure never comes, and ends the test for nothing.
+2. **D177:** two executables with one build hash that compute differently: a build that reads outside its inputs, a program found on `PATH`, something the environment of a run changes. And whether the stand-in for the windows file can be given without changing what the derivation does with the real one.
+3. **D178:** a host that passes the probe and computes another `exp` or `log` elsewhere, and anything else of a host that reaches a judged number.
+4. **D174:** a proof, test or resource bound that still leans on the grid; where an exact denominator could grow past what was measured (the bootstrap's paths, the guard, step 10's simulated nulls).
+5. **Round 1, which Argon has not read:** D161 to D163 (one fill an order an event), D167 (L1 across horizons), D172 with D179.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's definitions:** "No later event changes a row of an earlier day (law L1), so what a day's end showed stands in every later replay." The inference needs replays that read the same events, which D175 makes so and D176 checks. The words stand. A replay that cannot reproduce an earlier day publishes nothing, and if the cause cannot be undone the test ends at the day before: read as "a record that stops ... ends it at the last day run". That can only end the test early, never confirm. No human choice: the alternative, results that admit revisions, would make the committed sentence false.
+- **"The last midnight the record reaches"** is now defined (D175), and "the record" is the record as first written, with revisions counted beside. The words stand. No human choice.
+- **CS2.1's registration** names the engine's build, now Nix's hash of the derivation (D177), and the executables refuse another host's libm (D178): more than the words ask, nothing less. No human choice.
+- **CS2.2:** D179 replaces a reason and keeps the decision. Read of the record, CS2.2 can fail for recording conditions; the stale shares are reported beside. No human choice.
+- **`W`:** unchanged; only a false claim about its denominators goes (D174). CS2.3 is untouched.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** nothing in `kernel2-step5` `b1689bc` beyond round 1's list. No answer of this round touches step 5's statements or fixtures.
+- **By the advisor:**
+  - step 9's wall 5 and tests 8 and 10 as failing tests, then the change: the derivation's hash in place of `gen.ml`, and the probe at start. This replaces round 1's `gen.ml` test, which becomes the first case of test 10;
+  - the sandbox checked on every host that builds a judged executable;
+  - the collector of settled funding writing each pull as a new file named by its time (D175);
+  - Argon's read of rounds 1 and 2, in the order above.
+- **By the next architect:** O22 and O24 when step 6's test 11 reports.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** D174 deletes a false claim; D175 to D178 change what the runner and the build are; D179 is text. No open dispute would change what step 5 builds.
