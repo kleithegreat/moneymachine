@@ -818,12 +818,16 @@ theorem zpow_le_zpow {b : Rat} (hb : 1 < b) {x y : Int} (h : x ≤ y) : b ^ x �
   · exact Rat.le_of_lt (zpow_lt_zpow hb h)
   · rw [h]; exact Rat.le_refl
 
-theorem magValue_normal {e : Int} {m : Nat} (he1 : -100 ≤ e) (he2 : e ≤ 99)
-    (hm1 : 2 ^ 52 ≤ m) (hm2 : m ≤ 2 ^ 53) :
+theorem magValue_normal {e : Int} {m : Nat} (he : -1022 ≤ e) (hm1 : e = -1022 ∨ 2 ^ 52 ≤ m)
+    (hm2 : m ≤ 2 ^ 53) :
     magValue ((e + 1022).toNat * 2 ^ 52 + m) = (m : Rat) * (2 : Rat) ^ (e - 52) := by
   unfold magValue
-  have hge : ¬ ((e + 1022).toNat * 2 ^ 52 + m < 2 ^ 52) := by omega
-  rw [ite_eq_right hge]
+  by_cases hsub : (e + 1022).toNat * 2 ^ 52 + m < 2 ^ 52
+  · rw [ite_eq_left hsub]
+    have h0 : (e + 1022).toNat * 2 ^ 52 + m = m := by omega
+    have h1 : e - 52 = -1074 := by omega
+    rw [h0, h1]
+  rw [ite_eq_right hsub]
   by_cases hm : m < 2 ^ 53
   · have h1 : ((e + 1022).toNat * 2 ^ 52 + m) % 2 ^ 52 + 2 ^ 52 = m := by omega
     have h2 : ((e + 1022).toNat * 2 ^ 52 + m) / 2 ^ 52 = (e + 1023).toNat := by omega
@@ -934,7 +938,7 @@ theorem nearest_spec {q : Rat} (hq : q ≠ 0)
       have : ((2 : Nat) : Rat) = 2 := rfl
       rw [this] at h'
       grind
-  have hmv := magValue_normal he1 he2 hm1 hm2
+  have hmv := magValue_normal (e := e) (m := m) (by omega) (Or.inr hm1) hm2
   rw [← hs] at hmv
   have hmag : min ((e + 1022).toNat * 2 ^ 52 + m) infBits = (e + 1022).toNat * 2 ^ 52 + m := by
     omega
