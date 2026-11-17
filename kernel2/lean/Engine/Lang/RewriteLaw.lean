@@ -12,11 +12,11 @@ variable {α : Type} (N : NumOps α)
 theorem op_typing {p : Program} (hwf : p.WF) {i : Nat} (hi : i < p.nodes.size) {o : Op} {args : List Nat}
     (hn : p.nodes[i]! = .op o args) :
     (∀ a ∈ args, a < i) ∧ opTy o (args.map (p.types[·]!)) = some p.types[i]! :=
-  (nodeOkb_op hn).1 ((wf_iff.1 hwf).2.2 i hi)
+  (nodeOkb_op hn).1 ((wf_iff.1 hwf).2.2.1 i hi)
 
 theorem const_typing {p : Program} (hwf : p.WF) {j : Nat} (hj : j < p.nodes.size) {b : UInt64} {u : Dim}
     (hn : p.nodes[j]! = .const b u) : p.types[j]! = .num u := by
-  have := (wf_iff.1 hwf).2.2 j hj
+  have := (wf_iff.1 hwf).2.2.1 j hj
   simpa [Program.nodeOkb, hn] using this
 
 theorem lt_of_op {p : Program} {i : Nat} {o : Op} {args : List Nat} (hn : p.nodes[i]! = .op o args) :

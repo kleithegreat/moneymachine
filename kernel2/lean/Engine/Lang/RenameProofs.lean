@@ -58,6 +58,8 @@ theorem build_rename (ρ : String → String) (p : Program) (t t' : Tick α) (hv
         unfold nodeFull finalize nodeCore
         simp [hp, hv]
       | builtin n => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
+      | slotIn n s => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
+      | exactConst q u => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
       | const b u => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
       | op o args => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
     rw [hcore]
@@ -113,11 +115,12 @@ theorem nodeOkb_rename (ρ : String → String) (p : Program) {i : Nat} (hi : i 
     (p.rename ρ).nodeOkb i = p.nodeOkb i := by
   unfold Program.nodeOkb
   rw [rename_nodes_get ρ p hi]
-  cases hn : p.nodes[i]! <;> simp [Node.rename, Program.rename]
+  cases hn : p.nodes[i]! <;> simp [Node.rename, Program.rename] <;> rfl
 
 theorem wf_rename (ρ : String → String) {p : Program} (h : p.WF) : (p.rename ρ).WF := by
-  obtain ⟨h1, h2, h3⟩ := wf_iff.1 h
-  refine wf_iff.2 ⟨by simpa [Program.rename] using h1, by simpa [Program.rename] using h2, ?_⟩
+  obtain ⟨h1, h2, h3, h4⟩ := wf_iff.1 h
+  refine wf_iff.2 ⟨by simpa [Program.rename] using h1, by simpa [Program.rename] using h2, ?_,
+    by simpa [Program.rename, Program.slotOkb] using h4⟩
   intro i hi
   rw [rename_nodes_size] at hi
   rw [nodeOkb_rename ρ p hi]

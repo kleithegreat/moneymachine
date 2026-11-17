@@ -34,6 +34,8 @@ def tagNode (p : Program) (vals : Array (Array (Option α))) (ts : Array (Option
     .ok (if (vals[k]!).any Option.isSome then some ty else prev)
   match p.nodes[k]! with
   | .builtin n => leaf ((builtinTy n).getD .bool)
+  | .slotIn n _ => leaf ((builtinTy n).getD .bool)
+  | .exactConst _ u => leaf (.exact u)
   | .source _ u => leaf (.num u)
   | .const _ u => leaf (.num u)
   | .op o args =>

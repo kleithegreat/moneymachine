@@ -49,6 +49,9 @@ def BoolInv (p : Program) (V : Array (Array (Option α))) : Prop :=
 theorem numOf_not_bool (x : Except String Dim) : (numOf x).toOption ≠ some Ty.bool := by
   cases x <;> simp [numOf, Except.map, Except.toOption]
 
+theorem exactOf_not_bool (x : Except String Dim) : (exactOf x).toOption ≠ some Ty.bool := by
+  cases x <;> simp [exactOf, Except.map, Except.toOption]
+
 theorem iteTy_bool {a b : Option Ty} (h : iteTy a b = .ok Ty.bool) : a = some Ty.bool ∧ b = some Ty.bool := by
   unfold iteTy at h
   split at h
@@ -58,10 +61,10 @@ theorem iteTy_bool {a b : Option Ty} (h : iteTy a b = .ok Ty.bool) : a = some Ty
 
 theorem opTy_bool {o : Op} {ts : List Ty} (h : opTy o ts = some Ty.bool) :
     o = .gt ∨ o = .ge ∨ o = .lt ∨ o = .le ∨ o = .and ∨ o = .or ∨ o = .not ∨
-      (o = .ite ∧ ts[1]? = some Ty.bool ∧ ts[2]? = some Ty.bool) := by
+      (o = .ite ∧ ts[1]? = some Ty.bool ∧ ts[2]? = some Ty.bool) ∨ o = .egt ∨ o = .ege ∨ o = .elt ∨ o = .ele := by
   unfold opTy at h
   unfold opTyE at h
-  cases o <;> first | exact absurd h (numOf_not_bool _) | skip
+  cases o <;> first | exact absurd h (numOf_not_bool _) | exact absurd h (exactOf_not_bool _) | skip
   all_goals first | simp | skip
   rcases h0 : ts[0]? with _ | _ | _ <;> simp_all [Except.toOption, bind, Except.bind]
   all_goals
@@ -90,7 +93,7 @@ theorem step_boolInv {p : Program} (hwf : p.WF) (t : Tick α) (m : Mach α) :
   have hrow : (Mach.step N p t m).vals[i]! =
       (nodeFull N t p.nodes[i]! m.count m.coins (argRow (Mach.step N p t m).vals (p.nodes[i]!).args) m.ns[i]!).1 :=
     congrArg Prod.fst (step_row N p t m (wf_ordered hwf) hi)
-  have hok := (wf_iff.1 hwf).2.2 i hi
+  have hok := (wf_iff.1 hwf).2.2.1 i hi
   cases hn : p.nodes[i]! with
   | builtin nm =>
     simp only [Program.nodeOkb, hn, hty, Bool.and_eq_true, beq_iff_eq] at hok
@@ -101,11 +104,19 @@ theorem step_boolInv {p : Program} (hwf : p.WF) (t : Tick α) (m : Mach α) :
     simp at he
   | source nm u => simp [Program.nodeOkb, hn, hty] at hok
   | const b u => simp [Program.nodeOkb, hn, hty] at hok
+  | slotIn nm s =>
+    simp only [Program.nodeOkb, hn, hty, Bool.and_eq_true, beq_iff_eq] at hok
+    obtain ⟨⟨⟨_, hs⟩, he⟩, _⟩ := hok
+    obtain ⟨t', ht'⟩ := Option.isSome_iff_exists.1 hs
+    obtain ⟨u, hu⟩ := builtinTy_exact ht'
+    rw [ht', hu] at he
+    simp at he
+  | exactConst q u => simp [Program.nodeOkb, hn, hty] at hok
   | op o args =>
     obtain ⟨hargs, hty'⟩ := (nodeOkb_op hn).1 hok
     rw [hty] at hty'
     have hplain : (Node.op o args).plain = true := by
-      rcases opTy_bool hty' with h | h | h | h | h | h | h | ⟨h, _⟩ <;> subst_vars <;> simp [Node.plain]
+      rcases opTy_bool hty' with h | h | h | h | h | h | h | ⟨h, _⟩ | h | h | h | h <;> subst_vars <;> simp [Node.plain]
     rw [hn] at hrow
     rw [hrow, nodeFull_plain_get N t _ hplain] at hx
     by_cases hc : c < m.coins
@@ -118,7 +129,7 @@ theorem step_boolInv {p : Program} (hwf : p.WF) (t : Tick α) (m : Mach α) :
         unfold pointVal at hy
         rw [ite_eq_left hv] at hy
         simp only [evalNode] at hy
-        rcases opTy_bool hty' with h | h | h | h | h | h | h | ⟨h, h1, h2⟩
+        rcases opTy_bool hty' with h | h | h | h | h | h | h | ⟨h, h1, h2⟩ | h | h | h | h
         all_goals subst_vars
         all_goals simp [evalOp] at hy
         all_goals first
@@ -167,7 +178,7 @@ theorem tagNode_ok {p : Program} (hwf : p.WF) {vals : Array (Array (Option α))}
     (hts : ∀ i, i < k → ∀ t : Ty, ts[i]! = some t → t = p.types[i]!)
     (hprev : ∀ t : Ty, prev = some t → t = p.types[k]!) :
     ∃ r, tagNode p vals ts prev k = .ok r ∧ ∀ t : Ty, r = some t → t = p.types[k]! := by
-  have hok := (wf_iff.1 hwf).2.2 k hk
+  have hok := (wf_iff.1 hwf).2.2.1 k hk
   unfold tagNode
   cases hn : p.nodes[k]! with
   | builtin nm =>
@@ -185,6 +196,20 @@ theorem tagNode_ok {p : Program} (hwf : p.WF) {vals : Array (Array (Option α))}
     · simp only [Option.some.injEq] at ht; rw [← ht, hok]
     · exact hprev t ht
   | const b u =>
+    simp only [Program.nodeOkb, hn, beq_iff_eq] at hok
+    refine ⟨_, rfl, ?_⟩
+    intro t ht
+    split at ht
+    · simp only [Option.some.injEq] at ht; rw [← ht, hok]
+    · exact hprev t ht
+  | slotIn nm s =>
+    simp only [Program.nodeOkb, hn, Bool.and_eq_true, beq_iff_eq] at hok
+    refine ⟨_, rfl, ?_⟩
+    intro t ht
+    split at ht
+    · simpa [hok.1.2] using ht.symm
+    · exact hprev t ht
+  | exactConst q u =>
     simp only [Program.nodeOkb, hn, beq_iff_eq] at hok
     refine ⟨_, rfl, ?_⟩
     intro t ht

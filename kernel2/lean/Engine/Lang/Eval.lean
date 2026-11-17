@@ -126,7 +126,7 @@ def evalOp (o : Op) (arg : Nat → Option α) : Option α :=
 /-- The pointwise value of a node at a coin. -/
 def evalNode (t : Tick α) (c : Nat) (n : Node) (arg : Nat → Option α) : Option α :=
   match n with
-  | .builtin _ => none
+  | .builtin _ | .slotIn .. | .exactConst .. => none
   | .source name _ => t.input c name
   | .const bits _ => some (N.ofBits bits)
   | .op o _ => evalOp N o arg

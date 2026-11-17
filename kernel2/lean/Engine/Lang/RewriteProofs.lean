@@ -152,6 +152,8 @@ theorem redirect_ordered {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i
   | builtin _ => rw [hn] at ha; simp [Node.args] at ha
   | source _ _ => rw [hn] at ha; simp [Node.args] at ha
   | const _ _ => rw [hn] at ha; simp [Node.args] at ha
+  | slotIn _ _ => rw [hn] at ha; simp [Node.args] at ha
+  | exactConst _ _ => rw [hn] at ha; simp [Node.args] at ha
 
 theorem redirect_step {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i) (hi : i < p.nodes.size)
     (hsem : ∀ (t : Tick α) (m : Mach α), (Mach.step N p t m).vals[i]! = (Mach.step N p t m).vals[x]!)
@@ -191,10 +193,16 @@ theorem redirect_step {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i) (
   | const _ _ =>
     simp only [Node.args]
     exact nodeFull_cells N t _ _ _ _ _ (fun j c => by simp [argRow]) _
+  | slotIn _ _ =>
+    simp only [Node.args]
+    exact nodeFull_cells N t _ _ _ _ _ (fun j c => by simp [argRow]) _
+  | exactConst _ _ =>
+    simp only [Node.args]
+    exact nodeFull_cells N t _ _ _ _ _ (fun j c => by simp [argRow]) _
 
 theorem redirect_wf {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : i < p.nodes.size)
     (hty : p.types[x]! = p.types[i]!) : (p.redirect i x).WF := by
-  obtain ⟨h1, h2, h3⟩ := wf_iff.1 hwf
+  obtain ⟨h1, h2, h3, h4⟩ := wf_iff.1 hwf
   have hf : ∀ k, p.types[if k == i then x else k]! = p.types[k]! := by
     intro k
     by_cases hk : k == i
@@ -204,7 +212,7 @@ theorem redirect_wf {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : i
   have hlt : ∀ k, k < p.nodes.size → (if k == i then x else k) < p.nodes.size := by
     intro k hk
     split <;> omega
-  refine wf_iff.2 ⟨by simpa [Program.redirect] using h1, ?_, ?_⟩
+  refine wf_iff.2 ⟨by simpa [Program.redirect] using h1, ?_, ?_, by simpa [Program.redirect, Program.slotOkb] using h4⟩
   · intro j hj
     simp only [Program.redirect, Array.toList_map, List.mem_map] at hj
     obtain ⟨q, hq, rfl⟩ := hj
@@ -242,6 +250,8 @@ theorem redirect_wf {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : i
     | builtin _ => rw [hn] at hok; exact hok
     | source _ _ => rw [hn] at hok; exact hok
     | const _ _ => rw [hn] at hok; exact hok
+    | slotIn _ _ => rw [hn] at hok; exact hok
+    | exactConst _ _ => rw [hn] at hok; exact hok
 
 theorem redirect_init (p : Program) (i x coins : Nat) :
     Mach.init N (p.redirect i x) coins = Mach.init N p coins := by
@@ -314,8 +324,9 @@ theorem replace_ordered {p : Program} {i : Nat} (hp : p.Ordered) (hi : i < p.nod
 theorem replace_wf {p : Program} {i : Nat} (hwf : p.WF) (hi : i < p.nodes.size) (o : Op) (args : List Nat)
     (hargs : ∀ a ∈ args, a < i) (hty : opTy o (args.map (p.types[·]!)) = some p.types[i]!) :
     (p.replace i (.op o args)).WF := by
-  obtain ⟨h1, h2, h3⟩ := wf_iff.1 hwf
-  refine wf_iff.2 ⟨by simpa [Program.replace] using h1, by simpa [Program.replace] using h2, ?_⟩
+  obtain ⟨h1, h2, h3, h4⟩ := wf_iff.1 hwf
+  refine wf_iff.2 ⟨by simpa [Program.replace] using h1, by simpa [Program.replace] using h2, ?_,
+    by simpa [Program.replace, Program.slotOkb] using h4⟩
   intro k hk
   rw [replace_nodes_size] at hk
   have htypes : (p.replace i (.op o args)).types = p.types := rfl

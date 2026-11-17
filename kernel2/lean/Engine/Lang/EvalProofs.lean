@@ -59,7 +59,7 @@ theorem nodeOkb_op {p : Program} {i : Nat} {o : Op} {args : List Nat} (h : p.nod
 
 theorem wf_ordered {p : Program} (h : p.WF) : p.Ordered := by
   intro j hj a ha
-  have hok := (wf_iff.1 h).2.2 j hj
+  have hok := (wf_iff.1 h).2.2.1 j hj
   cases hn : p.nodes[j]! with
   | op o args =>
     rw [hn] at ha
@@ -68,6 +68,8 @@ theorem wf_ordered {p : Program} (h : p.WF) : p.Ordered := by
   | builtin _ => rw [hn] at ha; simp [Node.args] at ha
   | source _ _ => rw [hn] at ha; simp [Node.args] at ha
   | const _ _ => rw [hn] at ha; simp [Node.args] at ha
+  | slotIn _ _ => rw [hn] at ha; simp [Node.args] at ha
+  | exactConst _ _ => rw [hn] at ha; simp [Node.args] at ha
 
 theorem step_vals (p : Program) (t : Tick α) (m : Mach α) :
     (Mach.step N p t m).vals = (build N p t m p.nodes.size).1 := by simp [Mach.step]
