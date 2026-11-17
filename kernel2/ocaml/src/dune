@@ -8,7 +8,9 @@
    :standard
    (:include c-flags.sexp)))
  (library_flags
-  (:include libs.sexp)))
+  (:include libs.sexp))
+ (lint
+  (pps ppx_js_style)))
 
 (rule
  (targets c-flags.sexp)

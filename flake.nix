@@ -133,6 +133,15 @@
             '';
             installPhase = "touch $out";
           });
+          style = pkgs.stdenv.mkDerivation (common // {
+            pname = "mm2-style";
+            nativeBuildInputs = common.nativeBuildInputs ++ [ o.ocamlformat o.ppx_js_style ];
+            buildInputs = common.buildInputs ++ [ o.ppx_js_style ];
+            buildPhase = build + ''
+              (cd kernel2/ocaml && dune build --root . @fmt @check @lint)
+            '';
+            installPhase = "touch $out";
+          });
           proofs = pkgs.stdenv.mkDerivation {
             pname = "engine-proofs";
             version = "0";
@@ -178,6 +187,8 @@
               ocamlPackages.findlib
               ocamlPackages.yojson
               ocamlPackages.digestif
+              ocamlPackages.ocamlformat
+              ocamlPackages.ppx_js_style
               duckdb.dev
               duckdb.lib
               kubectl
@@ -408,6 +419,7 @@
           engine-proofs = (mm2For pkgs).proofs;
           engine-proofs-fixtures = (mm2For pkgs).proofsFixtures;
           mm2-tests = (mm2For pkgs).tests;
+          mm2-style = (mm2For pkgs).style;
         };
 
       apps.x86_64-linux =
