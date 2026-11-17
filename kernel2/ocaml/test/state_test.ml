@@ -13,10 +13,16 @@
 
 module S = Mm2_lean.State
 
-let check name cond = if not cond then (Printf.eprintf "FAIL: %s\n" name; exit 1)
+let check name cond =
+  if not cond
+  then (
+    Printf.eprintf "FAIL: %s\n" name;
+    exit 1)
+;;
 
 let () =
-  let created0 = S.created_total () and released0 = S.released_total () in
+  let created0 = S.created_total ()
+  and released0 = S.released_total () in
   let held = S.create () in
   S.bump held;
   S.bump held;
@@ -39,3 +45,4 @@ let () =
   check "no second release" (S.released_total () = released0 + 1);
   check "held state intact at the end" (S.counter (Sys.opaque_identity held) = 3);
   print_endline "state: ok"
+;;

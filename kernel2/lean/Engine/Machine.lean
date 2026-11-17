@@ -829,13 +829,20 @@ def decodeWith (cfg : Config) (c : Chunk) : Except String (List Event) :=
 
 def decodeChunk (s : State) (c : Chunk) : Except String (List Event) := decodeWith s.cfg c
 
+/-- `go` with its rows gathered left to right in `acc`, so each event's rows are appended to a buffer nothing else holds. -/
+def goAcc : State → List Event → Rows → State × Rows
+  | s, [], acc => (s, acc)
+  | s, e :: es, acc =>
+    let first := step s e
+    goAcc first.1 es (acc ++ first.2)
+
 def feed (s : State) (c : Chunk) : State × Rows :=
   match s.rejected with
   | some _ => (s, Rows.empty)
   | none =>
     match decodeChunk s c with
     | .error code => (s.reject code 0 "a chunk that does not decode", Rows.empty)
-    | .ok events => go s events
+    | .ok events => goAcc s events Rows.empty
 
 /-! ### The end of a run -/
 

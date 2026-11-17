@@ -1,7 +1,9 @@
 (executable
  (name gen)
  (modules gen)
- (libraries unix))
+ (libraries unix)
+ (lint
+  (pps ppx_js_style)))
 
 (rule
  (targets embedded.ml)
@@ -16,4 +18,6 @@
 (library
  (name mm2_identity)
  (modules mm2_identity embedded)
- (libraries mm2_lean digestif yojson))
+ (libraries mm2_lean digestif yojson)
+ (lint
+  (pps ppx_js_style)))

@@ -44,7 +44,7 @@ theorem build_rename (ρ : String → String) (p : Program) (t t' : Tick α) (hv
         nodeStep N t' ((p.nodes[k]!).rename ρ) m.count m.coins vs ns = nodeStep N t (p.nodes[k]!) m.count m.coins vs ns := by
       intro vs ns
       have hmem : p.nodes[k]! ∈ p.nodes.toList := by
-        simpa [getElem!_pos, hk'] using Array.getElem_mem_toList (xs := p.nodes) (i := k) hk'
+        simp [getElem!_pos, hk']
       unfold nodeStep
       cases hn : p.nodes[k]! with
       | source name u =>

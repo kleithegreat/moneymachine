@@ -1,7 +1,8 @@
 import Lake
 open Lake DSL
 
-package engine
+package engine where
+  leanOptions := #[⟨`warningAsError, true⟩]
 
 /-- The tracked policy file (A13). Lake hashes it, so a release rebuilds `Engine.Policy`, which compiles it in. -/
 input_file protectedWindows where

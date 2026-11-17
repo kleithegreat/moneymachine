@@ -15,13 +15,13 @@ theorem bind_error_iff (p : Program) (cfg : Config) :
       ((∃ d ∈ p.declared, cfg.declaresSource d.1 d.2 = false) ∨ (p.readsTraded = true ∧ cfg.trades = none)) := by
   unfold bind
   by_cases h : (p.declared.any (fun d => !cfg.declaresSource d.1 d.2) || (p.readsTraded && cfg.trades.isNone)) = true
-  · rw [if_pos h]
+  · rw [ite_eq_left h]
     simp only [true_iff]
     simp only [Bool.or_eq_true, List.any_eq_true, Bool.and_eq_true, Bool.not_eq_true'] at h
     rcases h with ⟨d, hd, hdd⟩ | ⟨hr, ht⟩
     · exact Or.inl ⟨d, hd, hdd⟩
     · exact Or.inr ⟨hr, by simpa using ht⟩
-  · rw [if_neg h]
+  · rw [ite_eq_right h]
     simp only [Bool.or_eq_true, List.any_eq_true, Bool.and_eq_true, Bool.not_eq_true'] at h
     constructor
     · intro hh; simp at hh
@@ -55,9 +55,9 @@ theorem prepare_ok {program header : String} {p : Program} {cfg : Config}
   unfold startBeforeBind at hb
   rw [prepare_eq hp hc] at hb ⊢
   split at hb
-  · simp [Functor.map, Except.map] at hb
+  · simp [Except.map] at hb
   · split at hb
-    · simp [Functor.map, Except.map] at hb
+    · simp [Except.map] at hb
     · simp [*]
 
 theorem prepare_parts {program header : String} {p : Program} {cfg : Config}
