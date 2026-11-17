@@ -2019,3 +2019,84 @@ None new.
 ### Convergence
 
 **Answered by derivation, and not yet read.** The design changed in D189 (the record), D192 (X4) and D193 (B4), each a re-derivation of a part on its third fix. So the next round is due, on another model than GPT, which found them: Argon, once its quota returns, or a fresh Opus session labeled as such if it does not. No open dispute would change what step 5 builds once its tests carry this round's list.
+
+## The last pass, round 5: the record re-derived, and Argon's read of rounds 3 and 4 answered
+
+Appended 2026-11-17 20:36 UTC (15:36 EST) by the Opus 5.5 architect, session "architect: the last pass, round 5". Reviews answered: `audit/reviews/2026-11-17-gpt-cs21-revision.md` (do not commit), `audit/reviews/2026-11-17-opus-cs21-revision.md` (commit with changes) and `audit/reviews/2026-11-17-argon-web-last-pass-r3r4.md` (not converged). Commits `516bf25` to the one that appends this. No market data read. Report: `data/builder/architect-last-pass-r5-report.md`, which holds the derivation, the rejected answers and the test writer's list.
+
+### In plain words
+
+- **How a replay reads a day was on its fifth fix, so it was re-derived from the criteria, not from D189.**
+- **What CS2.1 needs:** one sequence of days' ends, never a second version of a day already shown. The committed text already says so: "what a day's end showed stands in every later replay".
+- **The four rounds tried to make the record of a day fixed.** Each added a rule (a lag, a deadline, a binding, a choice of value), and each rule let a replay read a day otherwise than the committed text reads it.
+- **Now the record is read as it is, with no lag, no cut and no choice.**
+  - A replay runs at a fixed time, to the last midnight its recorder reached.
+  - It publishes only what reproduces what was published.
+  - If the record behind a published day ever changed, the test ends before that day. That can only take a crossing away.
+  - The price: an item that late ends the test early. Under this design it takes a writer's fault, and the venue was never seen to restate a settled rate.
+- **The criteria need no revision,** and D190's draft is withdrawn.
+- **Argon's other points are answered at their causes.**
+  - X4 now states the function the engine computes (the least count of terms that decides), so step 5 needs no extra proof.
+  - The evaluator's binding is a clause of X4, not a comment.
+  - `nearestBits` is tested at every binade, and the MPFR stub subnormalizes.
+  - The floating-point check reads the control bits alone, and the re-execution runs once.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.**
+
+### Who has seen what
+
+- GPT and a fresh Opus read the drafted revision, and Argon read rounds 3 and 4 at `3f911d1`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 5. The report lists what this round changes in them.
+
+### Agreed
+
+- **Argon's acceptances, standing:** D181, D182, D186 to D188; the trusted launch (D191); X4's series, remainders and edges (D192, its 3.2); B4's full comparison (D193).
+- **The reviews' common ground, kept:** a replay must not run past a recorder that stopped (Opus 1); a day is read once (Opus); the check of the rows themselves (wall 3); D181's slice.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D194 | What a replay reads of the record (replaces D189; GPT 1 to 6, Opus 1 to 4, Argon 1.1 to 1.3) | **The record as it is, with its early ends.** A replay at 12:00 UTC (07:00 EST) on the first of each month, once the settled-funding collector has completed a pull begun after the midnight, does the following. It reads every registered writer's files as they are, every attempt of that month to its first attempt's lengths. Lines holding one event are one item, and two different items of one event both reach the engine (A18 and C2 reject) or the vault's chain (it fails). It runs to the last midnight at or before the last quote the recorder's files hold. It publishes only rows that reproduce those published. If its rows differ and a second host's run differs alike, the test ends at the last midnight before the first row that differs. The vault's fills are ordered by their chain within a millisecond, and CS2.3 and CS2.2 are judged once and stored. **Deleted:** the cut and its binding, the 31-day lag, the writers' 30-day window, the keys, the record's order, and "the venue does restate", which misread C0.3's 24 identical revisions. **Why:** each deleted rule was a way to read a day otherwise than the committed text. This design is that text read at fixed times, and is pathwise no more permissive than it: where nothing behind a published day changes the two are one run, and where something does, this one stops | **Yes** (brief 4, step 7: builds, tests 5 and 10, wall 3; step 1, wall 1; brief 3, the recorders; architecture 6.6) |
+| D195 | The criteria (replaces D190) | **No revision.** Every term the reviews found open is the committed words read at fixed times (the report, 1.7). The one consequence they leave implicit, the early end where a published day cannot be reproduced, can only remove a discovery; the report gives a sentence for it if the advisor wants it pinned. D190's draft is withdrawn | No |
+| D196 | X4's form and binding (Argon 3.1, 6.1) | **X4 states the engine's function:** the least count from `⌈2|x|⌉` (from none for `log`) to the cap at which both ends round alike, and NaN if none. The bits are the cap's, since the intervals nest and rounding is monotone. `bitsOps.exp = Exact.exp ∧ bitsOps.log = Exact.log` is a clause. (width) and (nesting) move to paper. **Why:** at the cap the engine's early stop needed a Lean proof of nesting and monotonicity, or hours of test 12 | **Yes** (X4; brief 3, step 5, wall 11; the test writer's Laws.lean) |
+| D197 | `nearestBits` beyond X2's decimals (Argon 3.1.2, 3.1.3) | **Test 12 holds it on its own** against MPFR's rounding of the same rational. It covers every binade from below `2⁻¹⁰⁷⁴` to `2¹⁰²⁴` at both signs, the midpoints (which round to even), both sides of the overflow threshold, and value order across signs. It stays a definition held by a test (D169); the gap was the test's coverage | **Yes** (brief 3, step 5, test 12) |
+| D198 | The MPFR stub and B4's printout (Argon 4.1) | The stub sets binary64's exponent range and `mpfr_subnormalize`s before `mpfr_get_d`, and is checked at subnormal results. Test 13 prints the arguments at which glibc is not MPFR at that argument, apart from the count of items that differ | **Yes** (brief 3, step 5, tests 12 and 13; B4) |
+| D199 | The floating-point check and the re-execution (Argon 5.1) | The check reads `(MXCSR & 0xFFC0) == 0x1F80`, and the sticky flags choose nothing. A process re-executes by `/proc/self/exe` unless its environment is already empty, which is what the re-execution makes. x87 is not read | **Yes** (A13; brief 3, step 9, test 8) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | **Narrowed:** step 5 has no proof fork (D196). Open for B5's rates at step 6; test 12's own time is reported at step 5 | A twin (X3's pattern), if a rate is missed |
+
+### What the next read should attack first
+
+1. **D194's pathwise claim:** a run on which this design names a crossing that the committed text, run at the same scheduled times, does not. Also any lever left in the time, the collector's wait, a month's attempts, or the second host.
+2. **D194's cost:** a source of items about a published day, written after the replay that published it, that is not a writer's fault. That is where the test would end early on an honest record.
+3. **A published replay whose host was wrong.** Its rows are wrong, and a final "outgrew" named on them stands, because every later replay only ends the test. The premise is D1's two-host determinism, and the gap is noted, not acted on.
+4. **D196:** an engine that is wrong and passes X4 as now stated, and a start for `exp`'s count at which the tail's bound fails.
+5. **D197:** a `nearestBits` that passes the extended test and is not round-to-nearest-even.
+
+### Committed criteria: reported, not edited
+
+None needs a revision (D195). D190's draft, never committed, is withdrawn.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc` the report lists, beyond rounds 1, 3 and 4.
+- **By step 7's and step 9's writers:** test 10 as now written, and test 8's two new cases.
+- **By the advisor:**
+  - this section read on a model other than GPT and Argon's last, D194 first;
+  - **withdrawn:** round 4's owed change to `mmvault`'s reach and D190's review and commit;
+  - **still owed:** the settled-funding collector, stored as `mmvault` stores its pulls (it now gates each replay's start), and the worst-case lead's certification for test 12.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The record is re-derived from the criteria, not patched a fifth time. Its design changed, so the next round is due on another model. No open dispute would change what step 5 builds once its tests carry this round's list.
