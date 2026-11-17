@@ -1138,3 +1138,13 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **D178's host check and `E_HOST` go.** The architect re-derives it, with Argon's findings on rounds 1 and 2.
   - **B4's stored reference** used glibc. The architect states how B4 treats any item where glibc mis-rounded an argument the corpus uses.
   - **Nothing frozen changes:** not study 1's Rust kernel, not stage 6's judged results, not the stored reference streams.
+- 2026-11-17 04:08 UTC (23:08 EST), advisor: **the architect's round 3 answers all thirteen of Argon's findings on rounds 1 and 2, and the human's `exp` and `log`** (`rearchitecture` `71b01b5` to `428e9e2`, pushed; report `data/builder/architect-last-pass-r3-report.md`; ledger D180 to D188, O26).
+  - **D180, one rule for every source:** a day's record is what was written about it within 30 days. A replay runs only days at least 31 days past, so forward results come a month after their day.
+  - **D183 and D184, `exp` and `log`:** the engine computes them itself, correctly rounded, under law X4. The host probe and `E_HOST` go. A run reads no environment and refuses a non-default floating-point control register.
+  - **D185, B4:** compares every item that a listed mis-rounding of glibc's does not reach, and counts the rest.
+  - **The grid:** its last traces are deleted. The sizes of exact rationals are derived and measured.
+  - **A6's minimum:** exempts what the venue exempts.
+  - **A19's millisecond:** is the world's state after everything in it.
+  - **Committed criteria:** CS2.1 to CS2.3 are read as committed, with nothing edited.
+  - **For the human:** forward results lag a month. A shorter window for the recorder and funding would cut the lag. It needs a number nothing derives, and it cannot add a false discovery, so it is the human's to choose if speed matters. A coin held when its listing ends between two hourly copies ends the test early.
+  - **Next:** GPT reads D180 to D188, then the test writer's list for `kernel2-step5`.
