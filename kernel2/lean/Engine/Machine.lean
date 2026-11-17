@@ -2,6 +2,7 @@ import Engine.Exact
 import Engine.Json
 import Engine.Policy
 import Engine.Lang.Eval
+import Engine.Rules
 
 /-!
 # The machine of step 3 (KERNEL.md A18, A19; kernel-v2.md A3, A13)
@@ -15,22 +16,9 @@ namespace Engine.Machine
 
 open Engine.Json
 
-inductive Number where
-  | placed (digits : Int) (places : Nat)
-  | bits (bits : UInt64)
-  deriving Repr, DecidableEq
-
 structure Level where
   price : Number
   size : Number
-  deriving Repr, DecidableEq
-
-/-- A coin's rules: its lots, its price grid (A18) and its margin tiers, each a bound and a greatest leverage. -/
-structure Rules where
-  szDecimals : Nat
-  figures : Nat
-  decimals : Int
-  tiers : List (Number × Int)
   deriving Repr, DecidableEq
 
 inductive Payload where
@@ -54,15 +42,6 @@ structure Chunk where
   records : ByteArray
   integers : ByteArray
   doubles : ByteArray
-
-structure Rows where
-  report : String
-  trace : String
-  deriving Repr, DecidableEq
-
-def Rows.empty : Rows := ⟨"", ""⟩
-
-instance : Append Rows := ⟨fun a b => ⟨a.report ++ b.report, a.trace ++ b.trace⟩⟩
 
 /-! ### The header -/
 
