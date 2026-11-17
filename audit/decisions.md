@@ -1229,3 +1229,12 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The fix:** `goAcc` appends left to right into a buffer nothing else holds, `feed` calls it, and `goAcc_eq_go` proves it equal to `go`, which stays the specification. No law's statement changed, and every theorem rests on the three standard axioms.
   - **Checked:** B4 at LIMIT 3 gives the same 9 streams, bit-identical before and after. One item per market went from 77 s to 41 s, about 17 s to 6 s of engine work per stream. All four flake checks pass on the merged tip, together with the archive fix.
   - **Noted, not done:** a third of each B4 run is its fixed 24 GB `SHA256SUMS` check, which could run once per host. That is a harness change, for the test writer when it is wanted.
+- 2026-11-17 17:40 UTC (12:40 EST), advisor: **kernel version 2 has style and lint gates** (`kernel2-build` `f4884e6`, `fdfcc12`, `b9492f5`, Sonnet). Agreed with the human on 2026-11-16.
+  - **OCaml:** `ocamlformat` 0.29.0 with the `janestreet` profile, and `ppx_js_style` lint, both from the locked nixpkgs. `flake.lock` is unmoved.
+  - **Warnings:** errors in every profile.
+  - **Lean:** builds with `warningAsError`. Its 168 warnings were fixed at their cause: deprecated names, unused simp arguments, one `simpa`.
+  - **The new flake check:** `mm2-style`, `dune build @fmt @check @lint`.
+  - **Checked:** every check passes, and B4 at LIMIT 3 is bit-identical.
+  - **One law,** `price_grid_characterization`, has a hypothesis its proof never uses, now an anonymous binder. Dropping it would change the statement, which is its writer's call.
+  - **Not done:** `.mli` files, a design task, and the same gates for `recorder/`, on `main`.
+  - **`CLAUDE.md` §2:** now names these checks beside Python's.
