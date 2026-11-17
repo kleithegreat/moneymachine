@@ -123,7 +123,7 @@
 (executable
  (name b4_local)
  (modules b4_local)
- (libraries events_support mm2_lean yojson unix)
+ (libraries events_support mm2_lean x4_test_oracle yojson unix)
  (lint
   (pps ppx_js_style)))
 
@@ -174,13 +174,43 @@
   scripts/orders-crossings.sh
   fixtures/orders-crossings.lean
   fixtures/orders.lean
+  fixtures/x4-specials.lean
   %{env:MM2_ENGINE_LIB=missing-engine-archive})
  (action
   (progn
    (run sh scripts/orders-crossings.sh fixtures/orders-crossings.lean)
-   (run sh scripts/orders-crossings.sh fixtures/orders.lean))))
+   (run sh scripts/orders-crossings.sh fixtures/orders.lean)
+   (run sh scripts/orders-crossings.sh fixtures/x4-specials.lean))))
 
 (alias
  (name step5-orders)
  (deps
   (alias runtest)))
+
+; The advisor exposes pinned nixpkgs MPFR/GMP to the TEST derivation only.
+; Neither mm2_lean nor mm2 gets this library as a dependency.
+
+(library
+ (name x4_test_oracle)
+ (wrapped false)
+ (modules x4_oracle)
+ (foreign_stubs
+  (language c)
+  (names x4_mpfr_stubs))
+ (c_library_flags -lmpfr -lgmp)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name x4_local)
+ (modules x4_local)
+ (libraries events_support mm2_lean x4_test_oracle unix yojson)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name x4_reference_local)
+ (modules x4_reference_local)
+ (libraries events_support unix yojson)
+ (lint
+  (pps ppx_js_style)))

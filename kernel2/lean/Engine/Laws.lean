@@ -17,7 +17,8 @@ end Engine.Exact
 readBits and putPlaced take the field scale first and return its scaled integer.
 putPlaced then takes the signed digits and the meaningful fractional places;
 its failure is "E_DECIMAL". nearestBits is binary64 nearest, ties to even,
-computed on integers, with canonical positive zero. The three uniform rounders
+computed on integers, with positive zero at rational zero and the input sign
+at nonzero underflow (X5). The three uniform rounders
 take value then positive step; roundSize truncates toward zero. Grid functions
 take figures, decimal places, then price. Decimal places are Int so the tests
 also cover arithmetic.py.txt's -1-place grids; market admission remains A18's.
@@ -782,9 +783,8 @@ theorem L2_checker :
 
 open Engine.Lang in
 /-- B3 L2, units: erasure preserves both arrays; defined float/bool and exact
-values have their checked sort and unit. Crossings use NumOps's crossings;
-on bitsOps these are the rational a binary64 is and nearest binary64, ties
-to even, undefined when not finite. The finite-source witness is retained. -/
+values have their checked sort and unit. The witnesses read a finite source
+and the rational given by its evaluator's crossing in a checked exact probe. -/
 theorem L2_units {α : Type} :
     (∀ (N : NumOps α) (p : Program), p.WF → ∀ (coins : Nat) (ts : List (Tick α)),
       ∃ m : UMach α,
@@ -796,22 +796,21 @@ theorem L2_units {α : Type} :
          (∀ i c x u, m.exactTagged i c = some (x, u) →
            p.types[i]? = some (.exact u) ∧ m.erase.exacts[i]![c]! = some x) ∧
          (∀ i c x, m.erase.exacts[i]![c]! = some x →
-           ∃ u, m.exactTagged i c = some (x, u)) ∧
-         (∀ i j c, p.nodes[i]? = some (.op .exact [j]) →
-           m.erase.exacts[i]![c]! = (m.erase.vals[j]![c]!).bind N.toExact) ∧
-         (∀ i j c, p.nodes[i]? = some (.op .float [j]) →
-           m.erase.vals[i]![c]! = (m.erase.exacts[j]![c]!).bind N.ofExact)) ∧
-     (∀ bits : UInt64, bitsOps.toExact bits = Engine.Exact.decode bits) ∧
-     (∀ x : Rat, bitsOps.ofExact x =
-       let bits := Engine.Exact.nearestBits x
-       if bitsOps.finite bits then some bits else none) ∧
+            ∃ u, m.exactTagged i c = some (x, u))) ∧
     (∃ p : Program, parse step4Vol = .ok p ∧ ∃ i, p.probeNodes[0]? = some i ∧
-      ∀ (N : NumOps α) (x : α), N.finite x = true →
-        (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[i]![0]! = some x) := by
+       ∀ (N : NumOps α) (x : α), N.finite x = true →
+         (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[i]![0]! = some x) ∧
+    (∃ p : Program,
+      parse r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"v","is":{"op":"exact","args":[{"input":"vol"}]}}]}"# = .ok p ∧
+      ∃ i, p.probeNodes[0]? = some i ∧
+        ∀ (N : NumOps α) (x : α) (r : Rat), N.finite x = true → N.toExact x = some r →
+          (Mach.run N p 1
+            [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).exacts[i]![0]! = some r) := by
    sorry
 
 open Engine.Lang in
-/-- B3 L3: rewrites preserve vals AND exacts at corresponding nodes and probes.
+/-- B3 L3: rewrites preserve vals AND exacts at corresponding nodes and probes,
+and the wishes sent at every tick.
 Float matches need NumOps.Lawful; an exact match needs no such premise.
 The twelve-rule and nontrivial finite-source witnesses are retained. -/
 theorem L3_rewrite {α : Type} :
@@ -824,7 +823,10 @@ theorem L3_rewrite {α : Type} :
            (Mach.run N p' coins ts).exacts[r.corr i k]! = (Mach.run N p coins ts).exacts[k]!) ∧
         (∀ j, j < p.probeNodes.size →
            (Mach.run N p' coins ts).vals[p'.probeNodes[j]!]! = (Mach.run N p coins ts).vals[p.probeNodes[j]!]! ∧
-           (Mach.run N p' coins ts).exacts[p'.probeNodes[j]!]! = (Mach.run N p coins ts).exacts[p.probeNodes[j]!]!)) ∧
+            (Mach.run N p' coins ts).exacts[p'.probeNodes[j]!]! = (Mach.run N p coins ts).exacts[p.probeNodes[j]!]!) ∧
+        (∀ t : Tick α,
+          (slotEval N p' coins t (Mach.run N p' coins ts)).wishes =
+            (slotEval N p coins t (Mach.run N p coins ts)).wishes)) ∧
     Rule.all.length = 12 ∧
     (∃ (r : Rule) (p p' : Program) (i : Nat), r ∈ Rule.all ∧ parse step4NegNeg = .ok p ∧ r.apply p i = some p' ∧
       p' ≠ p ∧
@@ -869,7 +871,7 @@ theorem L5_binding :
 
 open Engine.Lang Engine.Machine in
 /-- B3 N1: a consistent renaming of the declared sources, in the program and in the header, with equal
-exact inputs at corresponding ticks, leaves the preflight and both vals and exacts unchanged. The renaming is one-to-one,
+exact inputs at corresponding ticks, leaves the preflight, both arrays and wishes unchanged. The renaming is one-to-one,
 and what it yields a legal name that is no built-in input's, on the names it renames: every source the program declares or
 reads, and those of the header. No code selects behaviour by a source's name. The witness: `vol` renamed `vol2` meets every
 hypothesis, changes the program, and the renamed program binds to the renamed header. -/
@@ -888,7 +890,12 @@ theorem N1_renaming {α : Type} :
           (p.rename ρ).WF ∧
           bind (p.rename ρ) (cfg.rename ρ) = bind p cfg ∧
            (Mach.run N (p.rename ρ) coins ts').vals = (Mach.run N p coins ts).vals ∧
-           (Mach.run N (p.rename ρ) coins ts').exacts = (Mach.run N p coins ts).exacts) ∧
+            (Mach.run N (p.rename ρ) coins ts').exacts = (Mach.run N p coins ts).exacts ∧
+           (∀ (t t' : Tick α),
+             t'.inView = t.inView → t'.time = t.time → t'.exactInput = t.exactInput →
+             (∀ c s, s ∈ p.sourceNames → t'.input c (ρ s) = t.input c s) →
+             (slotEval N (p.rename ρ) coins t' (Mach.run N (p.rename ρ) coins ts')).wishes =
+               (slotEval N p coins t (Mach.run N p coins ts)).wishes)) ∧
     (∃ (p : Program) (cfg : Config),
       parse step4Vol = .ok p ∧ parseHeader step4Header = .ok cfg ∧
       (let ρ : String → String := fun s => if s = "vol" then "vol2" else s
@@ -1030,6 +1037,7 @@ namespace Engine.Orders
      -- one mark per coin for BOTH equity and position notional (step 5).
   prepare : Book → Wish → Option Order
     -- A6 rounded candidate with WORLD remainder; inactive/zero => none.
+    -- reduceOnly caps that remainder by the position the side can reduce.
   cancelSlot : Book → Nat → Nat → Book
   install : Book → Order → Book
   admission : Book → Order → Admission
@@ -1053,8 +1061,9 @@ namespace Engine.Orders
     admissions : List Admission             -- every attempt, refusals included
     steps : List CycleStep; fills : List OrderFill
     whenValues : List (Int × Nat × Nat × Option Bool)
-     exactArguments : List (Int × Nat × Nat × Option Rat)
-    -- Every evaluated when and exact argument, tick/coin/node indexed,
+     exactValues : List (Int × Nat × Nat × Option Rat)
+    -- Every evaluated when and exact(·) VALUE, tick/coin/node indexed,
+    -- the rational returned by that evaluator's crossing, not its float input;
     -- including undefined and values in inactive slots/unused lets/probes.
      rows : Engine.Machine.Rows
      tickWorlds : List (Int × Nat × List (Option Rat))
@@ -1064,13 +1073,16 @@ namespace Engine.Orders
    structure SlotEval where
      wishes : List (Nat × Nat × Option Value)
      whenValues : List (Nat × Nat × Option Bool)
-     exactArguments : List (Nat × Nat × Option Rat)
+     exactValues : List (Nat × Nat × Option Rat)
      -- One tick's unrounded slot values (coin,slot,value), including inactive.
 end Engine.Orders
 namespace Engine.Lang
    -- Extend the EXISTING NumOps and bitsOps, do not add a Float-only runner:
    NumOps.toExact : NumOps α → α → Option Rat
-   NumOps.ofExact : NumOps α → Rat → Option α
+   NumOps.ofExact : NumOps α → Rat → α
+     -- toExact is none when non-finite; float(e) applies ofExact through N.keep.
+     -- bitsOps.toExact := Exact.decode; bitsOps.ofExact := Exact.nearestBits;
+     -- bitsOps.finite b := decide (b.toNat % 2 ^ 63 < Exact.infBits).
    Tick.exactInput : Tick α → Nat → String → Option Nat → Option Rat
      -- coin, built-in input name, optional slot index; one view's exact inputs.
      -- Keep the existing three-argument Tick constructor source-compatible
@@ -1087,13 +1099,16 @@ namespace Engine.Machine
    -- Config.lambda : Int, the header's order delay (Config.delta already exists).
    inductive Move
      | event (event : Event)
-      | offer (coin slot lots : Nat) (price : Rat) (role : Engine.Ledger.Role)
-    offer : State → Nat → Nat → Nat → Rat → Engine.Ledger.Role → State × Rows
-     -- One running world transition: coin/slot, positive lots, positive price,
-     -- role; at the last fed event's time, after it, before its tick. Least of
-      -- offered lots, remainder and reduce-only position, expressed on the
-      -- coin's lots (one lot is 10^-szDecimals units); exact ledger fee;
-     -- own exhaustion removes the order; no live order/no quote is a no-op.
+      | offer (coin slot : Nat) (parts : List (Nat × Rat)) (role : Engine.Ledger.Role)
+    offer : State → Nat → Nat → List (Nat × Rat) → Engine.Ledger.Role → State × Rows
+     -- One running world transition at the last fed event, after it and before
+     -- its tick: positive lots at positive prices, taken in list order up to
+     -- the remainder, in units of 10^-szDecimals. ONE fill, fee, position/filled/
+     -- opening-order update, fill row at notional/units, and cycle-end test.
+     -- Nothing is cut or cancelled for a cut. Own exhaustion removes the order.
+     -- With no live order, zero remainder, or a coin stale at the last event
+     -- (before its first quote included), state and rows are unchanged. A
+     -- reduceOnly order whose position-dependent remainder is zero stays live.
      -- Lean ONLY: no @[export], C stub, OCaml binding or mm2 command.
    orderRun : {α : Type} → Engine.Lang.NumOps α → State → List Move → Option Engine.Orders.Run
      -- Same machine parameterized ONLY at float arithmetic, returning none on
@@ -1107,6 +1122,11 @@ namespace Engine.Machine
    slotKeysAt : State → List Move → Int → List (Nat × Nat)
     -- Checked slots × coins in VIEW at this tick, coin then program-slot order.
 end Engine.Machine
+namespace Engine.Exact
+   decode : UInt64 → Option Rat
+   exp, log : UInt64 → UInt64
+     -- X4 states the bindings, not this interface comment. No bounds API.
+end Engine.Exact
 
 No predicate named `valid`, `sameOrders` or `conditionsHold` stands for the
 law's conclusion. In particular admission's inequalities are written below.
@@ -1141,14 +1161,14 @@ given explicitly between the corresponding fed event and its tick. -/
 def step5Moves : List Engine.Machine.Move :=
   match step5Events with
   | [q₀, q₁, q₂, trade] =>
-    [.event q₀, .event q₁, .offer 0 0 123 100 .taker,
-     .event q₂, .event trade, .offer 0 1 200 110 .maker]
+    [.event q₀, .event q₁, .offer 0 0 [(123, 100)] .taker,
+     .event q₂, .event trade, .offer 0 1 [(200, 110)] .maker]
   | _ => []
 
 open Engine.Orders Engine.Machine in
 /-- B3 X1 ★: placement rounds the wish's exact price and coin target by the
 rules in force THERE, not at evaluation; close stays close. Agreement on all
-when values and exact arguments at one tick suffices for equal wishes under
+when values and the rationals every exact(·) gives at one tick suffices for equal wishes under
 any two NumOps, not agreement on arbitrary float probes. The numeric runner emits the
 same rows as feed/offer/finish. Witness: an admitted program really places a buy at
 100 with target 123/100 from exact values 100.0019 and 1.239. -/
@@ -1166,7 +1186,7 @@ theorem X1 :
       ∀ (coins : Nat) (t : Engine.Lang.Tick α) (m₁ m₂ : Engine.Lang.Mach α),
         let a := Engine.Lang.slotEval N₁ p coins t m₁
         let b := Engine.Lang.slotEval N₂ p coins t m₂
-        a.whenValues = b.whenValues → a.exactArguments = b.exactArguments →
+        a.whenValues = b.whenValues → a.exactValues = b.exactValues →
         a.wishes = b.wishes) ∧
     (∀ (program header : String) (initial : State) (moves : List Move) (run : Run),
       start program header = .ok initial →
@@ -1175,7 +1195,7 @@ theorem X1 :
       let fed := moves.foldl (fun (acc : State × Rows) move =>
         let next := match move with
           | .event e => feed acc.1 (pack [e])
-          | .offer coin slot lots price role => offer acc.1 coin slot lots price role
+          | .offer coin slot parts role => offer acc.1 coin slot parts role
         (next.1, {report := acc.2.report ++ next.2.report,
                   trace := acc.2.trace ++ next.2.trace})) (initial, empty)
       let final := finish fed.1
@@ -1198,9 +1218,10 @@ record is taken AFTER cancelling the replaced order; its book.orders excludes
 the candidate, which the inequality adds exactly once. -/
 open Engine.Orders Engine.Machine in
 /-- B3 R1 ★: one wish per slot per deciding tick, none between; arrival at
-sent + lambda, in FIFO order. The three A6 arrival cases, idempotence of equal
-wishes without intervening events, reduction-first admission order, and the
-three admission inequalities as an iff. Witness: both ticks 0 and 1000 send
+sent + lambda, in FIFO order. The three A6 arrival cases, equal live-order
+wishes changing nothing, reduction-first admission order, and the three
+admission inequalities as an iff. The minimum exemption is the venue's: an
+order that only reduces and closes the position exactly. Witness: ticks 0 and 1000 send
 the entry wish but only the first places its cycle-1 buy; a real fill occurs. -/
 theorem R1 :
     (∀ (program header : String) (initial : State), start program header = .ok initial →
@@ -1241,20 +1262,31 @@ theorem R1 :
             | .sell => Engine.Exact.roundPriceSell rules.figures rules.decimals value.price
           let target := value.target.map (fun x =>
             Engine.Exact.roundSize x (1 / (10 : Rat) ^ rules.szDecimals))
+          let reducible := match w.side with
+            | .sell => max 0 (b.position w.coin)
+            | .buy => max 0 (-b.position w.coin)
           let remainder := match target with
-            | some x => max 0 (x - b.filled w.coin w.slot)
-            | none => match w.side with
-              | .sell => max 0 (b.position w.coin)
-              | .buy => max 0 (-b.position w.coin)
+            | some x =>
+              let remaining := max 0 (x - b.filled w.coin w.slot)
+              if w.reduceOnly then min remaining reducible else remaining
+            | none => reducible
           if remainder = 0 then none else
             some {coin := w.coin, slot := w.slot, cycle := w.cycle, side := w.side,
                   price := price, target := target, remainder := remainder,
                   placed := w.arrives, reduceOnly := w.reduceOnly, tif := w.tif})) ∧
     (∀ (b : Book) (o : Order), (admission b o).book = b ∧ (admission b o).order = o) ∧
     (∀ (b : Book) (w : Wish), w.cycle ≤ b.cycle w.coin →
-      let same := ∃ o ∈ b.orders, o.coin = w.coin ∧ o.slot = w.slot ∧
-        ∃ candidate, prepare b w = some candidate ∧
-          o.price = candidate.price ∧ o.target = candidate.target
+      let same := match w.value with
+        | none => False
+        | some value =>
+          let rules := b.rules w.coin
+          let price := match w.side with
+            | .buy => Engine.Exact.roundPriceBuy rules.figures rules.decimals value.price
+            | .sell => Engine.Exact.roundPriceSell rules.figures rules.decimals value.price
+          let target := value.target.map (fun x =>
+            Engine.Exact.roundSize x (1 / (10 : Rat) ^ rules.szDecimals))
+          ∃ o ∈ b.orders, o.coin = w.coin ∧ o.slot = w.slot ∧
+            o.price = price ∧ o.target = target
       (w.coin ∈ b.ended → arrive b w = (b, [])) ∧
       (w.cycle ≠ b.cycle w.coin → arrive b w = (b, [])) ∧
       (w.cycle = b.cycle w.coin → same → arrive b w = (b, [])) ∧
@@ -1264,8 +1296,7 @@ theorem R1 :
           | none => cancelled
           | some o => match admit (admission cancelled o) with
             | .error _ => cancelled
-            | .ok admitted => install cancelled admitted)) ∧
-      (arrive (arrive b w).1 w).1 = (arrive b w).1) ∧
+            | .ok admitted => install cancelled admitted))) ∧
     (∀ a : Admission,
       let absQ := fun x : Rat => if x < 0 then -x else x
       let signed := fun o : Order => if o.side = .buy then o.remainder else -o.remainder
@@ -1277,7 +1308,8 @@ theorem R1 :
         total + opens o * o.price * (1 / a.leverage o.coin + a.takerRate o.coin)) (0 : Rat)
       let margin := requirement ≤ a.equity
       let minimum := a.minimum ≤ a.order.remainder * a.order.price ∨
-        (opens a.order = 0 ∧ a.book.position a.order.coin + signed a.order = 0)
+        ((a.order.reduceOnly = true ∨ a.order.target = none) ∧
+          a.book.position a.order.coin + signed a.order = 0)
       let cap := a.order.remainder * a.order.price ≤ a.cap
       0 < a.order.remainder → 0 < a.leverage a.order.coin →
         (admit a = .ok a.order ↔ margin ∧ minimum ∧ cap) ∧
@@ -1302,8 +1334,9 @@ The liquidation transition includes all coins, even those already flat. -/
 open Engine.Orders Engine.Machine in
 /-- B3 S1 ★: exactly a return-to-flat fill or a liquidation ends a cycle.
 Ending cancels that coin's orders immediately, invalidates every old wish,
-and prevents any later old-cycle placement/fill. Numeric targets bound total
-slot fills; a sell close is bounded by the long, a buy close by the short.
+and prevents any later old-cycle placement/fill. No order's fill exceeds its
+remainder: numeric targets bound total slot fills; close and reduceOnly fills
+are bounded by what of the position their side would reduce.
 Witness: 123/100 really opens and closes; cycle 1 ends at the offer at 1500,
 not at a later tick or quote, with no surviving order of the coin. -/
 theorem S1 :
@@ -1330,11 +1363,13 @@ theorem S1 :
               s.time + initial.cfg.delta + initial.cfg.lambda ≤ p.order.placed))) ∧
         (∀ f ∈ run.fills,
           let magnitude := if f.units < 0 then -f.units else f.units
+          let reducible := match f.order.side with
+            | .sell => max 0 (f.before.position f.order.coin)
+            | .buy => max 0 (-f.before.position f.order.coin)
           (match f.order.target with
-            | some target => f.before.filled f.order.coin f.order.slot + magnitude ≤ target
-            | none => match f.order.side with
-              | .sell => magnitude ≤ max 0 (f.before.position f.order.coin)
-              | .buy => magnitude ≤ max 0 (-f.before.position f.order.coin)))) ∧
+             | some target => f.before.filled f.order.coin f.order.slot + magnitude ≤ target
+            | none => magnitude ≤ reducible) ∧
+          (f.order.reduceOnly = true → magnitude ≤ reducible))) ∧
     (∀ (b : Book) (w : Wish), w.cycle < b.cycle w.coin → arrive b w = (b, [])) ∧
     (∃ (initial : State) (run : Run) (s : CycleStep),
       start step5Program step5Header = .ok initial ∧
@@ -1342,7 +1377,118 @@ theorem S1 :
       (∃ f ∈ run.fills, f.units = 123 / 100 ∧ f.before.position 0 = 0) ∧
       s ∈ run.steps ∧ s.time = 1775174401500 ∧ s.trigger = .fill 0 (-123 / 100) ∧
       s.before.position 0 = 123 / 100 ∧ s.ended = [0] ∧ s.before.cycle 0 = 1 ∧
-      s.after.position 0 = 0 ∧ s.after.orders = [] ∧ s.after.cycle 0 = 2) := by
+       s.after.position 0 = 0 ∧ s.after.orders = [] ∧ s.after.cycle 0 = 2) := by
+  sorry
+
+/- X4's formulas belong to the law, not to a builder-supplied bounds oracle.
+   Counts include the term at N. Only the stated function is proved here;
+   analytic enclosure/width/nesting are the paper argument, not extra laws. -/
+def x4Abs (x : Rat) : Rat := if x < 0 then -x else x
+
+def x4Factorial (n : Nat) : Nat :=
+  (List.range n).foldl (fun product k => product * (k + 1)) 1
+
+def expSum (a : Rat) (n : Nat) : Rat :=
+  (List.range (n + 1)).foldl (fun s k => s + a ^ k / (x4Factorial k : Rat)) 0
+
+def expTail (a : Rat) (n : Nat) : Rat :=
+  2 * a ^ (n + 1) / (x4Factorial (n + 1) : Rat)
+
+def expLoAt (x : Rat) (n : Nat) : Rat :=
+  let s := expSum (x4Abs x) n
+  let t := expTail (x4Abs x) n
+  if 0 ≤ x then s - t else 1 / (s + t)
+
+def expHiAt (x : Rat) (n : Nat) : Rat :=
+  let s := expSum (x4Abs x) n
+  let t := expTail (x4Abs x) n
+  if 0 ≤ x then s + t else 1 / (s - t)
+
+def expStart (x : Rat) : Nat :=
+  let a := 2 * x4Abs x
+  ((a.num + (a.den : Int) - 1) / (a.den : Int)).toNat
+
+def expTerms (x : Rat) : Nat := expStart x + 260
+
+/-- For y > 0, the unique split y = 2^e m with 3/4 ≤ m < 3/2. -/
+def logSplit (y : Rat) : Int × Rat :=
+  if y ≤ 0 then (0, 1) else
+    let guess : Int := (Nat.log2 y.num.natAbs : Int) - (Nat.log2 y.den : Int)
+    let e := if (2 : Rat) ^ guess ≤ y then guess else guess - 1
+    let m := y / (2 : Rat) ^ e
+    if m < 3 / 2 then (e, m) else (e + 1, m / 2)
+
+def atanhSum (w : Rat) (n : Nat) : Rat :=
+  2 * (List.range (n + 1)).foldl
+    (fun s j => s + w ^ (2 * j + 1) / ((2 * j + 1 : Nat) : Rat)) 0
+
+def atanhTail (w : Rat) (n : Nat) : Rat :=
+  2 * x4Abs w ^ (2 * n + 3) / (((2 * n + 3 : Nat) : Rat) * (1 - w ^ 2))
+
+def logLoAt (y : Rat) (n : Nat) : Rat :=
+  let (e, m) := logSplit y
+  let z := (m - 1) / (m + 1)
+  (e : Rat) * atanhSum (1 / 3) n + atanhSum z n -
+    (x4Abs (e : Rat) * atanhTail (1 / 3) n + atanhTail z n)
+
+def logHiAt (y : Rat) (n : Nat) : Rat :=
+  let (e, m) := logSplit y
+  let z := (m - 1) / (m + 1)
+  (e : Rat) * atanhSum (1 / 3) n + atanhSum z n +
+    (x4Abs (e : Rat) * atanhTail (1 / 3) n + atanhTail z n)
+
+def logTerms : Nat := 90
+def nanBits : UInt64 := 0x7FF8000000000000
+
+/-- Increasing enumeration makes this the least deciding N, with no free bounds. -/
+def firstDeciding (lo hi : Nat → Rat) (first last : Nat) : UInt64 :=
+  match ((List.range (last + 1)).filter (fun n => decide (first ≤ n))).find?
+      (fun n => Engine.Exact.nearestBits (lo n) == Engine.Exact.nearestBits (hi n)) with
+  | some n => Engine.Exact.nearestBits (lo n)
+  | none => nanBits
+
+/-- B3 X4 ★: the least-deciding series function, its IEEE special cases,
+nonconstant witnesses, and the evaluator's four bindings. -/
+theorem X4 :
+    (∀ (bits : UInt64) (x : Rat), Engine.Exact.decode bits = some x →
+      Engine.Exact.exp bits =
+        if 710 ≤ x then Engine.Exact.infBits.toUInt64
+        else if x ≤ -746 then 0
+        else firstDeciding (expLoAt x) (expHiAt x) (expStart x) (expTerms x)) ∧
+    (∀ (bits : UInt64) (y : Rat), Engine.Exact.decode bits = some y →
+      Engine.Exact.log bits =
+        if y < 0 then nanBits
+        else if y = 0 then 0xFFF0000000000000
+        else firstDeciding (logLoAt y) (logHiAt y) 0 logTerms) ∧
+    (∀ bits : UInt64, Engine.Exact.decode bits = none →
+      Engine.Exact.exp bits = (if bits = 0x7FF0000000000000 then 0x7FF0000000000000
+        else if bits = 0xFFF0000000000000 then 0 else nanBits) ∧
+      Engine.Exact.log bits = (if bits = 0x7FF0000000000000 then 0x7FF0000000000000
+        else nanBits)) ∧
+    Engine.Exact.exp 0 = 0x3FF0000000000000 ∧
+    Engine.Exact.exp 0x8000000000000000 = 0x3FF0000000000000 ∧
+    Engine.Exact.log 0x3FF0000000000000 = 0 ∧
+    Engine.Exact.exp 0x3FF0000000000000 = 0x4005BF0A8B145769 ∧
+    Engine.Exact.log 0x4000000000000000 = 0x3FE62E42FEFA39EF ∧
+    Engine.Lang.bitsOps.exp = Engine.Exact.exp ∧
+    Engine.Lang.bitsOps.log = Engine.Exact.log ∧
+    Engine.Lang.bitsOps.ofExact = Engine.Exact.nearestBits ∧
+    Engine.Lang.bitsOps.toExact = Engine.Exact.decode := by
+  sorry
+
+/-- B3 X5: `nearestBits` is IEEE 754's roundTiesToEven in binary64 at every rational. -/
+theorem X5 :
+    Engine.Exact.nearestBits 0 = 0 ∧
+    ∀ q : Rat, q ≠ 0 →
+      ((2 ^ 63 ≤ (Engine.Exact.nearestBits q).toNat) ↔ q < 0) ∧
+      ((2 - (2 : Rat) ^ (-53 : Int)) * (2 : Rat) ^ (1023 : Int) ≤ (if q < 0 then -q else q) →
+        (Engine.Exact.nearestBits q).toNat % 2 ^ 63 = Engine.Exact.infBits) ∧
+      ((if q < 0 then -q else q) < (2 - (2 : Rat) ^ (-53 : Int)) * (2 : Rat) ^ (1023 : Int) →
+        ∃ v, Engine.Exact.decode (Engine.Exact.nearestBits q) = some v ∧
+          ∀ (b : UInt64) (w : Rat), Engine.Exact.decode b = some w →
+            (v - q) * (v - q) ≤ (w - q) * (w - q) ∧
+            ((w - q) * (w - q) = (v - q) * (v - q) → w ≠ v →
+              (Engine.Exact.nearestBits q).toNat % 2 = 0)) := by
   sorry
 
 end Engine.Laws

@@ -7,8 +7,10 @@ Builder supplies through `import Engine.Machine`:
    NumOps.add : NumOps UInt64 → UInt64 → UInt64 → UInt64 (existing accessor).
   Run.placed : List Placement; Placement.order : Order (DecidableEq);
   Run.whenValues : List (Int × Nat × Nat × Option Bool);
-   Run.exactArguments : List (Int × Nat × Nat × Option Rat).
-    Move.event : Event → Move; Move.offer : Nat → Nat → Nat → Rat → Ledger.Role → Move.
+    Run.exactValues : List (Int × Nat × Nat × Option Rat).
+     The values are the rationals returned by each evaluator's exact(·),
+     not the floats its crossings read (including undefined values).
+     Move.event : Event → Move; Move.offer : Nat → Nat → List (Nat × Rat) → Ledger.Role → Move.
    All other records and transition contracts are in fixtures/orders.lean and
    Laws.lean. No export, C stub, OCaml binding or command is needed.
 Run is the running evaluator/slot/machine instrumentation specified above X1
@@ -66,13 +68,13 @@ def require (name : String) (ok : Bool) : IO Unit := do
     (decide (a.whenValues ≠ b.whenValues) && a.placed.isEmpty && !b.placed.isEmpty)
   let (a, b) ← runs (program yes fixed)
   require "step5_1_evaluators_agree_at_crossings"
-     (decide (a.whenValues = b.whenValues) && decide (a.exactArguments = b.exactArguments) &&
-      !a.exactArguments.isEmpty && decide (a.wishes = b.wishes) &&
+      (decide (a.whenValues = b.whenValues) && decide (a.exactValues = b.exactValues) &&
+       !a.exactValues.isEmpty && decide (a.wishes = b.wishes) &&
       !a.placed.isEmpty && decide (a.placed.map (·.order) = b.placed.map (·.order)))
   let crossed := r#"{"op":"mul","args":[{"exact":"100","unit":"usd/coin"},{"op":"exact","args":["# ++ signal ++ "]}]}"
   let (a, b) ← runs (program yes crossed)
-  require "step5_1_evaluators_disagree_exact_argument"
-    (decide (a.whenValues = b.whenValues) && decide (a.exactArguments ≠ b.exactArguments) &&
+  require "step5_1_evaluators_disagree_exact_value"
+    (decide (a.whenValues = b.whenValues) && decide (a.exactValues ≠ b.exactValues) &&
      !a.placed.isEmpty && !b.placed.isEmpty &&
      decide (a.placed.map (·.order) ≠ b.placed.map (·.order)))
 

@@ -1,18 +1,29 @@
-(* Step 4, test 1 (B4): version 2's float evaluator against the Lean reference's stored streams. LOCAL: it reads data
+(* Step 4 test 1 / step 5 test 13 (B4): every item against the MPFR reference. LOCAL: it reads data
    the Nix sandbox cannot see, so it is an executable and not part of @runtest.
 
-     b4_local.exe REF_DIR [AUDIT_DIR [LIMIT [SHARD COUNT]]]
+     b4_local.exe REF_DIR OLD_DIR [AUDIT_DIR [LIMIT [SHARD COUNT]]]
 
-   REF_DIR is `data/stage6/c64-reference` (out/<N1|N2|N3>/<name>.json.zst and .bin.zst, each market's mk-*.json,
-   SHA256SUMS, raw-sha256.json, manifest.json). AUDIT_DIR holds c64-corpus.jsonl and c64-manifest.json (default
+   REF_DIR is the NEW MPFR reference (out/<N1|N2|N3>/<name>.json.zst and .bin.zst, each market's mk-*.json,
+   SHA256SUMS, raw-sha256.json, manifest.json); OLD_DIR is stage 6's stored glibc reference, never rerun.
+   manifest.json must say numeric_policy="mpfr-binary64", reference_source_sha256
+   (the frozen source tree), and oracle_stub_sha256 (test 12's actual C stub).
+   The advisor builds/stores the new streams under a hash with scripts/x4-reference.sh;
+   the manifest's old_reference_sha256 pins OLD_DIR/SHA256SUMS, so old evidence cannot move.
+   AUDIT_DIR holds c64-corpus.jsonl and c64-manifest.json (default
    audit/stage6). LIMIT bounds the items taken from each market before sharding (default all). Exit 0 and one summary line when every
-   stream is bit-identical; exit 1 and the first divergence otherwise.
+   stream is bit-identical; exit 1 and the first divergence otherwise. Separately
+   prints the count of OLD/NEW stream ITEMS differing, and each old exp/log
+   argument whose stored glibc result is not MPFR's AT THAT SAME ARGUMENT.
+   Arguments are read from OLD_DIR's argument-node streams, never new-engine
+   values. No taint/reach marking or exception from B4's comparison remains.
 
    Checked first: SHA256SUMS over REF_DIR, the corpus's hash against its manifest, and the presence of manifest.json
    and raw-sha256.json.
 
-   Assumed interface, supplied by the builder (as eval_test.ml's header says): Mm2_lean.Machine.start takes the A17
-   program and A18's header; the trace's tick rows carry one probe each, in the program's order.
+   Builder supplies Mm2_lean.Machine.start : string -> string -> (state,string) result,
+   feed : state -> chunk -> state * rows; finish : state -> rows * string,
+   chunk/rows as events_support.ml; trace ticks carry probes in program order.
+   No new engine export. X4_oracle.eval : int -> int64 -> int64 is TEST-OWNED.
 
    The conversion of a stage 6 program (DSL version 1, reference/SEMANTICS.md) into a version 2 program is the test's:
    - nodes are the reference's, in its order: the program's lets in order, then the weight, then the prediction's
@@ -127,6 +138,7 @@ type compiled =
   { text : string
   ; nodes : int
   ; unbound_slot : bool
+  ; transcendentals : (int * int * int) list
   }
 
 let compile ~present program_text =
@@ -136,6 +148,7 @@ let compile ~present program_text =
   let count = ref 0 in
   let lets : (string * int) list ref = ref [] in
   let used : string list ref = ref [] in
+  let transcendentals = ref [] in
   let intern key expression =
     match Hashtbl.find_opt table key with
     | Some i -> i
@@ -192,9 +205,18 @@ let compile ~present program_text =
             (Printf.sprintf "o:%s:to%s:%s" op (canonical_unit target) numbers)
             (Printf.sprintf {|{"op":"%s","args":[%s],"to":"%s"}|} op arguments target)
         | _ ->
-          intern
-            (Printf.sprintf "o:%s:%s" op numbers)
-            (Printf.sprintf {|{"op":"%s","args":[%s]}|} op arguments))
+          let i =
+            intern
+              (Printf.sprintf "o:%s:%s" op numbers)
+              (Printf.sprintf {|{"op":"%s","args":[%s]}|} op arguments)
+          in
+          (match op, args with
+           | ("exp" | "log"), [ argument ] ->
+             let item = i, (if op = "exp" then 0 else 1), argument in
+             if not (List.mem item !transcendentals)
+             then transcendentals := item :: !transcendentals
+           | _ -> ());
+          i)
     | _ -> failwith "expected an expression"
   in
   let params =
@@ -260,7 +282,11 @@ let compile ~present program_text =
       (String.concat "," lets_json)
       (String.concat "," probes)
   in
-  { text; nodes = List.length nodes; unbound_slot }
+  { text
+  ; nodes = List.length nodes
+  ; unbound_slot
+  ; transcendentals = List.rev !transcendentals
+  }
 ;;
 
 type market =
@@ -509,18 +535,71 @@ let compare_item ~market ~name ~nodes ~stream state =
   ignore (Unix.close_process_in ic : Unix.process_status)
 ;;
 
+let reference_difference ~market ~name ~compiled ~old_stream ~new_stream =
+  let open_stream path = Unix.open_process_args_in "zstd" [| "zstd"; "-dc"; path |] in
+  let old_input = open_stream old_stream in
+  let new_input = open_stream new_stream in
+  let different = ref 0 in
+  for tick = 0 to market.ticks - 1 do
+    let old_values =
+      Array.init compiled.nodes (fun _ ->
+        Array.init market.coins (fun _ -> read_entry old_input))
+    in
+    for node = 0 to compiled.nodes - 1 do
+      for coin = 0 to market.coins - 1 do
+        if old_values.(node).(coin) <> read_entry new_input then incr different
+      done
+    done;
+    List.iter
+      (fun (node, op, argument) ->
+         for coin = 0 to market.coins - 1 do
+           match old_values.(argument).(coin) with
+           | None -> ()
+           | Some bits ->
+             let rounded = X4_oracle.eval op bits in
+             let expected =
+               if Int64.logand rounded 0x7FF0000000000000L = 0x7FF0000000000000L
+               then None
+               else Some rounded
+             in
+             let glibc = old_values.(node).(coin) in
+             if glibc <> expected
+             then
+               Printf.printf
+                 "glibc-argument\t%s\t%d\t%d\t%d\t%s\t%016Lx\t%s\t%s\n%!"
+                 name
+                 tick
+                 coin
+                 node
+                 (if op = 0 then "exp" else "log")
+                 bits
+                 (show glibc)
+                 (show expected)
+         done)
+      compiled.transcendentals
+  done;
+  List.iter
+    (fun ic ->
+       (match input_char ic with
+        | exception End_of_file -> ()
+        | _ -> fail "%s: reference stream longer than its tick/node/coin shape" name);
+       check "reference decompression succeeds" (Unix.close_process_in ic = Unix.WEXITED 0))
+    [ old_input; new_input ];
+  !different
+;;
+
 let () =
   let usage () =
-    prerr_endline "usage: b4_local.exe REF_DIR [AUDIT_DIR [LIMIT [SHARD COUNT]]]";
+    prerr_endline "usage: b4_local.exe REF_DIR OLD_DIR [AUDIT_DIR [LIMIT [SHARD COUNT]]]";
     exit 2
   in
-  let dir, audit, limit, shard, count =
+  let dir, old_dir, audit, limit, shard, count =
     match Array.to_list Sys.argv with
-    | [ _; dir ] -> dir, "audit/stage6", max_int, 0, 1
-    | [ _; dir; audit ] -> dir, audit, max_int, 0, 1
-    | [ _; dir; audit; limit ] -> dir, audit, int_of_string limit, 0, 1
-    | [ _; dir; audit; limit; shard; count ] ->
-      dir, audit, int_of_string limit, int_of_string shard, int_of_string count
+    | [ _; dir; old_dir ] -> dir, old_dir, "audit/stage6", max_int, 0, 1
+    | [ _; dir; old_dir; audit ] -> dir, old_dir, audit, max_int, 0, 1
+    | [ _; dir; old_dir; audit; limit ] -> dir, old_dir, audit, int_of_string limit, 0, 1
+    | [ _; dir; old_dir; audit; limit; shard; count ] ->
+      dir, old_dir, audit, int_of_string limit, int_of_string shard, int_of_string count
     | _ -> usage ()
   in
   if count <= 0 || shard < 0 || shard >= count then usage ();
@@ -534,6 +613,30 @@ let () =
       (Printf.sprintf "cd %s && sha256sum -c --quiet SHA256SUMS" (shell_quote dir))
   in
   if status <> 0 then fail "SHA256SUMS does not hold over %s" dir;
+  let status =
+    Sys.command
+      (Printf.sprintf "cd %s && sha256sum -c --quiet SHA256SUMS" (shell_quote old_dir))
+  in
+  check "stored stage-6 reference hashes" (status = 0);
+  let provenance = J.from_file (Filename.concat dir "manifest.json") in
+  check
+    "B4 requires the MPFR reference, not the old glibc streams"
+    (J.Util.to_string (member "numeric_policy" provenance) = "mpfr-binary64");
+  List.iter
+    (fun key ->
+       check
+         ("missing provenance: " ^ key)
+         (String.length (J.Util.to_string (member key provenance)) = 64))
+    [ "reference_source_sha256"; "oracle_stub_sha256" ];
+  check
+    "test-12 stub is the reference oracle"
+    (J.Util.to_string (member "oracle_stub_sha256" provenance)
+     = sha256_of "kernel2/ocaml/test/x4_mpfr_stubs.c");
+  check
+    "stage-6 evidence is pinned"
+    (J.Util.to_string (member "old_reference_sha256" provenance)
+     = sha256_of (Filename.concat old_dir "SHA256SUMS"));
+  X4_oracle.selfcheck ();
   let corpus_path = Filename.concat audit "c64-corpus.jsonl" in
   let manifest = J.from_file (Filename.concat audit "c64-manifest.json") in
   if sha256_of corpus_path <> J.Util.to_string (member "corpus_sha256" manifest)
@@ -541,7 +644,8 @@ let () =
   let corpus = List.map (fun line -> J.from_string line) (lines (read corpus_path)) in
   let compared = ref 0
   and aborted = ref 0
-  and ticks_total = ref 0 in
+  and ticks_total = ref 0
+  and changed_items = ref 0 in
   List.iter
     (fun name ->
        let out = Filename.concat (Filename.concat dir "out") name in
@@ -593,6 +697,19 @@ let () =
                   if head <> {|{"trace":|}
                   then fail "%s: the reference did not run it and version 2 started" label;
                   compare_item ~market ~name:label ~nodes:compiled.nodes ~stream state;
+                  let old_stream =
+                    Filename.concat
+                      (Filename.concat (Filename.concat old_dir "out") name)
+                      (item_name ^ ".bin.zst")
+                  in
+                  changed_items
+                  := !changed_items
+                     + reference_difference
+                         ~market
+                         ~name:label
+                         ~compiled
+                         ~old_stream
+                         ~new_stream:stream;
                   incr compared;
                   ticks_total := !ticks_total + market.ticks)))
          corpus;
@@ -605,5 +722,8 @@ let () =
     count
     !compared
     !ticks_total
-    !aborted
+    !aborted;
+  Printf.printf
+    "stage6-vs-MPFR: %d stream items differ (reported separately from arguments)\n"
+    !changed_items
 ;;

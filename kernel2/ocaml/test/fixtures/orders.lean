@@ -6,8 +6,8 @@
    existing records; Rows.report/trace : String are the engine's A19 bytes.
 
    Machine.Move.event : Event → Move
-   Machine.Move.offer : Nat → Nat → Nat → Rat → Ledger.Role → Move
-   Machine.offer : State → Nat → Nat → Nat → Rat → Ledger.Role → State × Rows
+   Machine.Move.offer : Nat → Nat → List (Nat × Rat) → Ledger.Role → Move
+   Machine.offer : State → Nat → Nat → List (Nat × Rat) → Ledger.Role → State × Rows
    Machine.orderRun : {α : Type} → Lang.NumOps α → State → List Move → Option Orders.Run
    Run.rows : Rows; Run.wishes : List Wish; Run.placed : List Placement;
    Run.admissions : List Admission; Run.fills : List OrderFill;
@@ -23,9 +23,15 @@
    are in orders-crossings.lean. Value/Wish/Order and State have DecidableEq.
 
    orderRun OBSERVES calls to the SAME feed/offer/finish, never a test venue.
-   Each offer below has positive LOT COUNTS and positive price; the engine
-   converts lots by the rules in force. It acts at the last fed event's time,
-   after that event and before its tick. No fixture calls the step-2 ledger
+   Each part has positive LOT COUNTS and price. Parts are taken in order up to
+   the remainder (already capped by reduce_only), as ONE fill: one fee, one
+   position/filled/opening-order update, one row at notional/units, one test
+   of cycle end. Nothing is cut or cancelled for a cut. Own exhaustion removes
+   the order; a position-dependent zero remainder stays live. No live order,
+   zero remainder, or stale coin at the last event (before its first quote
+   included) leaves state unchanged and writes no row. Lots use the current
+   rules. Offers act after the last fed event and before its tick.
+   No fixture calls the step-2 ledger
    to supply a fill. No offer is exported to C, OCaml or mm2.
    tickWorlds samples the ACTUAL world delta earlier: pos,equity, then each
    slot's filled/resting/resting_price. Not the view or a fold of output rows.
@@ -114,7 +120,9 @@ def rules (t : Int) (sz : Nat := 3) (lev : Int := 10) :=
   event t (.listing {szDecimals := sz, figures := 5, decimals := (6 : Int) - sz,
     tiers := [(number "0", lev)]})
 def offer (slot lots : Nat) (p : Rat := 100) (role := Engine.Ledger.Role.maker)
-    (coin := 0) : Move := .offer coin slot lots p role
+    (coin := 0) : Move := .offer coin slot [(lots, p)] role
+def sweep (slot : Nat) (parts : List (Nat × Rat)) (role := Engine.Ledger.Role.taker)
+    (coin := 0) : Move := .offer coin slot parts role
 
 def require (name : String) (ok : Bool) : IO Unit := do
   unless ok do throw (IO.userError name)
@@ -133,7 +141,7 @@ def run (p : String) (h : Market) (moves : List Move) : IO Run := do
     let (world, output) := moves.foldl (fun (acc : State × Rows) move =>
       let next := match move with
         | .event e => feed acc.1 (pack [e])
-        | .offer coin slot lots price role => Engine.Machine.offer acc.1 coin slot lots price role
+        | .offer coin slot parts role => Engine.Machine.offer acc.1 coin slot parts role
       (next.1, {report := acc.2.report ++ next.2.report,
                 trace := acc.2.trace ++ next.2.trace})) (s, {report := "", trace := ""})
     let (last, summary) := finish world
@@ -239,8 +247,18 @@ def test2 : IO Unit := do
         event 1 (.quote [{price := number "9.9", size := number "10"}]
           [{price := number "10", size := number "0.1"},
            {price := number "11", size := number "0.9"}]),
-        offer 0 10 10 .taker, offer 0 90 11 .taker, signal 500 0]
-    require "two opening-order fills" ((fills "first" r).length == 2)
+        sweep 0 [(10, 10), (90, 11)], signal 500 0]
+    require "one opening-order sweep fill" ((fills "first" r).length == 1)
+    value "sweep units" (fills "first" r) 10 1
+    value "sweep mean price" (fills "first" r) 9 (109/10)
+    require "size-weighted mean is 10.9" (tick 1000 r == ["1", "109/10"])
+  test "step5_2_two_fills_one_order" do
+    let ps := [probe "size" (inp "first_size"), probe "price" (inp "first_price")]
+    let r ← run (program [slot "first" (ex "11" "usd/coin") (ex "1" "coin") (phase 1)] ps)
+      {stop := 1001} [book 0 "9.9" "10", signal 0 1, book 1 "9.9" "10",
+        offer 0 10 10 .taker, print 500 "10.99", offer 0 90 11 .maker, signal 500 0]
+    require "two fills of one opening order" ((fills "first" r).length == 2 &&
+      (placed "first" r).length == 1)
     require "size-weighted mean is 10.9" (tick 1000 r == ["1", "109/10"])
 
 def test3 : IO Unit := test "step5_3_replacement_not_twice" do
@@ -400,6 +418,20 @@ def test7 : IO Unit := do
         book 1 "9.9" "10", offer 0 150 10, signal 1000 2.1]
     require "minimum is checked on remainder" ((kind "refused" (rows r)).any
       (fun row => time row == 1000 && field row 5 == "minimum"))
+  test "step5_7_venue_minimum_exemption" do
+    for (size, reduce, admitted) in
+        [(ex "0.05" "coin", false, false), (ex "0.05" "coin", true, true),
+         (ex "10" "coin", true, true), (js "close", false, true)] do
+      let r ← run (program [slot "entry" price (ex "1" "coin") (phase 1),
+        slot "exit" price size positive "sell" "gtc" reduce])
+        {stop := 1001, minimum := "10"}
+        [book 0, signal 0 1, book 1, offer 0 5, signal 500 0]
+      equal "long is exactly five hundredths" (sum 10 (fills "entry" r)) (1/20)
+      require "only reduce_only or close gets the venue exemption"
+        (((placed "exit" r).length == 1) == admitted)
+      if admitted then value "exempt remainder is position, not target" (placed "exit" r) 10 (1/20)
+      else require "numeric non-reduce_only full close is below minimum"
+        ((named "exit" (kind "refused" (rows r))).any (fun row => field row 5 == "minimum"))
 
 def endAtFill (buyFirst : Bool) (matching := false) : IO Unit := do
   let entry := slot "entry" price (ex "1" "coin") (phase 1)
@@ -452,8 +484,7 @@ def test8 : IO Unit := do
     let next := (placed "entry" r).filter (fun row => field row 4 == "2")
     require "new cycle begins at first eligible tick plus lambda"
       (!next.isEmpty && time (next.headD []) == 6500 && next.all (fun row => time row >= 6000))
-  test "step5_8_argon_end_at_fill_buy_first" (endAtFill true)
-  test "step5_8_argon_end_at_fill_sell_first" (endAtFill false)
+  test "step5_8_argon_end_at_fill" (endAtFill true)
   skip "step5_8_argon_nine_of_ten_prints" "waiting on step 6: rerun later offers as A7 prints" do
     let q := event 1 (.quote [{price := number "99", size := number "100"}]
       [{price := number "100", size := number "9"}]) 2000
@@ -465,9 +496,9 @@ def test8 : IO Unit := do
     equal "nine, not ten, and no later print buys" (sum 10 (fills "level" r)) 9
     require "buy cancelled at ending print" ((kind "cancelled" (rows r)).any
       (fun row => time row == 4500 && field row 3 == "level" && field row 5 == "cycle_end"))
-  skip "step5_8_argon_end_at_fill_quote_buy_first" "waiting on step 6: quote offers in A6 order"
+  skip "step5_8_argon_end_at_fill_quote_buy_first" "waiting on step 6: a quote offers in A6's order, which a fixture's offers cannot show"
     (endAtFill true true)
-  skip "step5_8_argon_end_at_fill_quote_sell_first" "waiting on step 6: quote offers in A6 order"
+  skip "step5_8_argon_end_at_fill_quote_sell_first" "waiting on step 6: a quote offers in A6's order, which a fixture's offers cannot show"
     (endAtFill false true)
 
 def test9 : IO Unit := test "step5_9_gpt_wish_new_grid" do
@@ -626,20 +657,45 @@ def test11 : IO Unit := do
     let r ← run (program [slot "entry" price (ex "10" "coin")]) {stop := 1001, sz := 0}
       [book 0, book 1, offer 0 15]
     equal "15 offered, ten filled" (sum 10 (fills "entry" r)) 10
-  test "step5_11_reduce_only_cap_and_cancel" do
+  test "step5_11_reduce_only_in_remainder" do
     let r ← run (program [slot "entry" price (ex "3" "coin") (phase 1),
       slot "exit" price (ex "5" "coin") positive "sell" "gtc" true]) {stop := 2001, sz := 0}
       [book 0, signal 0 1, book 1, offer 0 3, signal 500 0, book 1001, offer 1 5]
     equal "reduce-only fills only long three" (sum 10 (fills "exit" r)) (-3)
-    require "cut remainder cancelled as reduce_only" ((kind "cancelled" (rows r)).any
-      (fun row => field row 3 == "exit" && field row 5 == "reduce_only"))
+    value "reduce_only remainder is three on placement" (placed "exit" r) 10 3
+    require "one cycle end at the fill" ((kind "cycle_end" (rows r)).map time == [1001])
+    require "own fill finishes exit without cancellation"
+      ((named "exit" (kind "cancelled" (rows r))).isEmpty)
+    let r ← run (program [slot "entry" price (ex "3" "coin") (phase 1),
+      slot "wrong" price (ex "5" "coin") positive "buy" "gtc" true])
+      {stop := 1001, sz := 0} [book 0, signal 0 1, book 1, offer 0 3, signal 500 0]
+    require "reduce_only buy on long places nothing" ((placed "wrong" r).isEmpty)
+    let p := program [slot "entry" price (ex "3" "coin") (phase 1),
+      slot "flip" price (ex "5" "coin") (phase 2) "sell",
+      slot "exit" price (ex "5" "coin") (phase 2) "sell" "gtc" true,
+      slot "back" price (ex "3" "coin") (phase 2)]
+      [probe "pos" (inp "pos"), probe "rest" (own "resting" "exit")]
+    let r ← run p {stop := 3001, sz := 0}
+      [book 0, signal 0 1, book 1, offer 0 3, signal 500 2,
+       print 1001 "99", offer 1 5, offer 2 4,
+       print 2001 "99", offer 3 3, offer 2 4]
+    require "zero reducible position makes the live exit rest at zero" (tick 2000 r == ["-2", "0"])
+    require "zero-remainder offer writes no fill" ((during 1001 (fills "exit" r)).isEmpty)
+    require "zero-remainder offer writes no row" ((named "exit" (during 1001 (rows r))).isEmpty)
+    require "zero remainder does not cancel live exit"
+      ((named "exit" (kind "cancelled" (rows r))).isEmpty)
+    require "no cycle ends on either nonzero reversal"
+      ((during 1001 (kind "cycle_end" (rows r))).isEmpty)
+    require "same reduce_only order resumes without replacement" ((placed "exit" r).length == 1)
+    value "resumed offer takes only new long one" (fills "exit" r) 10 (-1)
+    require "resumed reduction ends cycle" ((kind "cycle_end" (rows r)).map time == [2001])
   test "step5_11_offer_no_live_order" do
     let initial ← match start (program [slot "entry" price (ex "1" "coin") (phase 1)]) (header {}) with
       | .ok s => pure s
       | .error e => throw (IO.userError e)
     let s := (feed initial (pack [{coin := 0, time := base, known := base,
       payload := .observation 0 (0 : Float).toBits}])).1
-    let (s', output) := Engine.Machine.offer s 0 0 100 100 .maker
+    let (s', output) := Engine.Machine.offer s 0 0 [(100, 100)] .maker
     require "absent live order changes no state and writes no row"
       (decide (s' = s) && output.report == "" && output.trace == "")
   test "step5_11_offer_before_first_quote" do
@@ -650,11 +706,42 @@ def test11 : IO Unit := do
     let obs := fun t => {coin := 0, time := at t, known := at t,
       payload := Payload.observation 0 (1 : Float).toBits : Event}
     let s := (feed initial (pack [obs 0, obs 1])).1
-    let (s', output) := Engine.Machine.offer s 0 0 100 100 .maker
+    let (s', output) := Engine.Machine.offer s 0 0 [(100, 100)] .maker
     require "live order before any quote changes nothing and writes no row"
       (decide (s' = s) && output.report == "" && output.trace == "")
     let r ← run p {stop := 1001} [.event (obs 0), .event (obs 1), offer 0 100]
     require "the no-quote fixture did have a live order" ((placed "entry" r).length == 1)
+  test "step5_11_offer_stale_after_gap" do
+    let p := program [slot "entry"]
+    let initial ← match start p (header {stale := 1000}) with
+      | .ok s => pure s
+      | .error e => throw (IO.userError e)
+    let moves := [book 0, print 1500 "99"]
+    let s := moves.foldl (fun acc move => match move with
+      | .event e => (feed acc (pack [e])).1
+      | .offer coin slot parts role => (Engine.Machine.offer acc coin slot parts role).1) initial
+    let (s', output) := Engine.Machine.offer s 0 0 [(100, 100)] .maker
+    require "stale print's offer changes no state and writes no row"
+      (decide (s' = s) && output.report == "" && output.trace == "")
+    let r ← run p {stop := 2001, stale := 1000} (moves ++ [offer 0 100])
+    require "stale fixture has a live entry" ((placed "entry" r).length == 1 && (fills "entry" r).isEmpty)
+  test "step5_11_one_fill_an_order_an_event" do
+    let p := program [slot "entry" price (ex "3" "coin") (phase 1),
+      slot "flip" (ex "99" "usd/coin") (ex "10" "coin") (phase 2) "sell"]
+      [probe "pos" (inp "pos")]
+    let prefix := [book 0, signal 0 1, book 1, offer 0 3, signal 500 2, print 1001 "99"]
+    let r ← run p {stop := 2001, sz := 0} (prefix ++ [sweep 1 [(3, 101), (7, 100)]])
+    require "one event is one fill" ((fills "flip" r).length == 1)
+    value "sweep signed size" (fills "flip" r) 10 (-10)
+    value "sweep weighted price" (fills "flip" r) 9 (1003/10)
+    require "sweep flips without ending cycle" (tick 2000 r == ["-7"] &&
+      (kind "cycle_end" (rows r)).isEmpty)
+    let r ← run p {stop := 2001, sz := 0}
+      (prefix ++ [offer 1 3 101, print 1500 "99", offer 1 7 100])
+    require "two events end cycle at the first" ((kind "cycle_end" (rows r)).map time == [1001])
+    require "second event finds no old order" ((fills "flip" r).length == 1 &&
+      (during 1500 (kind "fill" (rows r))).isEmpty)
+    value "first event closes only three" (fills "flip" r) 10 (-3)
   test "step5_11_own_exhaustion_clears_resting" do
     let p := program [slot "entry" (op "mul" [price, op "exact" [inp "vol"]])]
       [probe "rest" (own "resting" "entry"), probe "price" (own "resting_price" "entry")]
