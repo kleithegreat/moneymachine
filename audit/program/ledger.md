@@ -1861,3 +1861,78 @@ None new.
 ### Convergence
 
 **Answered by derivation, and not yet read.** D174 deletes a false claim; D175 to D178 change what the runner and the build are; D179 is text. No open dispute would change what step 5 builds.
+
+## The last pass, round 3: Argon's read of rounds 1 and 2, answered
+
+Appended 2026-11-17 04:04 UTC (2026-11-16 23:04 EST) by the Opus 5.5 architect, session "architect: the last pass, round 3" (brief `data/builder/architect-last-pass-r3.txt`). Review: `audit/reviews/2026-11-16-argon-web-last-pass-r1r2.md` (Argon in the web UI, on rounds 1 and 2 at `d7a9ba2`), not converged on D162, D167 with D176, D172, D174, D175, D177 and D178; and the human's decision of 2026-11-16 23:33 UTC (18:33 EST) that the engine computes `exp` and `log` itself (`audit/decisions.md`). Commits `71b01b5` to the one that appends this. No market data read; this host's libm against Python's decimal module (`arithmetic.py.txt`, `last_pass_r3`).
+
+### In plain words
+
+- **Round 2's closure of the forward record was wrong in kind.** It asked each source to show that it was complete, which none can: a coin with no settlement wedged every later day, a print received just after a midnight was read by one replay and not the one before, and a fill indexed late fell outside the copy that closed its day. Now a day's record is what was written by 30 days after it, the first of each key's items, and a replay runs only the days 31 days past. Nothing waits, every replay of a day reads the same events, and each result comes a month after its day.
+- **The engine computes `exp` and `log` itself (the human's decision), so the probe of the host goes.** What no build holds is the environment a run starts in: a loader variable can change what the executable runs, and the floating-point control register can change every float operation. So each executable re-executes itself with an empty environment, and the stub that calls the engine checks the control register at every call.
+- **Two premises of the build's hash are now tested:** that the windows file and the hash enter the derivation as data alone, and that one derivation gives one output.
+- **B4 lists every argument at which glibc was not the nearest** (about 720 a million for `exp` on this host, none of 200,000 for `log`) and compares every item such an argument does not reach.
+- **The rest was text,** now exact: A6's exemption is the venue's, an offer to an order of remainder zero does nothing, a millisecond's staleness is the world's after everything in it, L1 and the check name the account row, and step 10's tests lose the grid. The exact rationals were sized: no stall.
+- **Nothing needed a second clock, a deferred count or a stake that moves without a fill.** The 30 days delay when a replay runs a day; the engine's clock, counts and stakes are untouched.
+
+### Who has seen what
+
+- Argon read rounds 1 and 2 at `d7a9ba2`. GPT read round 1 at `c8449eb`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 3; what changes in them beyond round 1's list is in this round's report (`data/builder/architect-last-pass-r3-report.md`).
+
+### Agreed
+
+- **Argon's acceptances, standing:** D161, D163 to D166, D168 to D171 (scope), D173 and D179, with GPT's two qualifications of its part 1; and, in the points it disputed, D175's append-only pulls and first row of a key, D176's fail-closed check, D177's derivation in place of a list, D174's deletion of the grid and D162's remainder.
+- **Argon's thirteen findings, each answered at its cause** (rows below): 1.1 to 1.4, 2.1, 2.2, 3.1, 3.2, 4.1 and 5.1 to 5.3 conceded; 4.2 conceded as a measurement and refuted as a stall.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D180 | What the forward record is, and which days a replay runs (Argon 1.1 to 1.3) | **A day's record is what was written by 30 days after it ends, and a replay runs the days that ended 31 days or more before it starts.** An item is a recorder's line, by its `recv`, or a pull's or a copy's file, by the time it was finished, written whole before it is named. Of one key's items the first written is read; a later one is a revision, and one written after the 30 days is late, each counted and neither read. Every collector re-reads its last 30 days daily. Nothing waits for a source to be complete: a silent source leaves its day as it is (a recorder's gap is staleness, a held coin's hour with no settlement aborts every replay at that hour and ends the test, an hour of a coin not held is read by nothing). 30 days are V18's, one window for every source. Round 2 closed each source by a rule of its own, and Argon's three findings land on those three rules: the design was wrong in asking for completeness, so the rules are deleted, and D175's file rule and first-of-a-key stay | **Yes** (brief 4, step 7, builds, wall 3, tests 5 and 10; step 1, wall 1; brief 3, the recorders; architecture 6.6) |
+| D181 | The check's slice and L1's day's end (Argon 1.4, 5.2) | At a midnight `T`: the report's rows of a time before `T` and, at `T`, the day's `coin` rows and its `account` row (A19); the trace's rows of a time before `T`; the vault's replay's report likewise. A run's `span` rows and summary at its horizon's end, and rows of events at `T`, are not among them. L1 names the same rows | **Yes** (L1; brief 3, step 7, wall 3; step 9, test 10; brief 4, step 7, wall 3, test 10) |
+| D182 | Whether the derivation's hash is the build (Argon 2.1) | **Two premises, each tested.** The real derivation, with the windows file and the hash put back at their stand-ins, is the stand-in byte for byte, which a flake that reads either as more than data fails; and the executables built on two hosts, each in its sandbox, are one output, since a hash names a build's inputs and not its output. D177 stands | **Yes** (A13; brief 3, step 9, wall 5, test 10) |
+| D183 | What fixes a run's environment, the floating-point one included (Argon 2.2, 3.2) | **A run reads no environment:** each executable re-executes itself with an empty one before it reads anything, and gives one to what it calls. **The control register is the default, and checked:** a process starts there, nothing in the build sets it, and the stub reads it before and after every call into the engine and aborts (`E_FPENV`) unless it rounds to nearest with no flush to zero, no denormals as zero and every exception masked. `leanc` compiles with `-ffp-contract=off` and no fast-math option, in the derivation. Then `+ − × ÷` and `sqrt` are IEEE 754's on every host | **Yes** (A13, B2, D1; brief 3, step 9, test 8) |
+| D184 | D178, under the human's decision (Argon 3.1) | **`exp` and `log` are the engine's own** (the human, 2026-11-16 23:33 UTC, 18:33 EST): of the rational a double is, by a series' bounds at 64, 128 and then 256 bits, the result the bounds' one nearest binary64, and where none decides the lower bound's nearest (X4 ★, total and pinned to the bit, so a constant engine fails it). The probe and `E_HOST` are deleted: one argument of each function tells two of glibc's paths apart and no more, and a probe cannot see the control register. The probe was a list again, of hosts, and its cause is gone. D1 holds on every host | **Yes** (A2, A13, B1, B2, D1, X4; `KERNEL.md` A17; brief 3, step 5, wall 11, tests 12 and 13; step 9; brief 4, step 6) |
+| D185 | How B4 treats an argument glibc rounded wrong (the human's question) | **It is listed, and what it reaches is counted and not compared.** At every `exp` and `log` node and tick whose argument is the reference's, the engine's result is the reference's, or the argument is listed with both results, the engine's equal to MPFR's and one unit in the last place from glibc's. Every other item is bit-identical, but those that read a listed result through A17's windows. Step 4's run with glibc, on hosts of the reference's path, is the evaluator's check in full before the change, and no second entry into the engine gives it glibc's results. Stage 6's results stand as computed | **Yes** (B4; brief 3, step 4, test 1; step 5, test 13) |
+| D186 | A6's minimum, and an offer at remainder zero (Argon 5.1) | **The exemption is the venue's:** an order that only reduces (`reduce_only`, or of size `close`) and whose remainder closes the position exactly (`venue/hyperliquid/rules.json`). "Opens nothing" was wider than that and "closes dust with `close`" narrower. An offer to an order of remainder zero does nothing and writes no row; a `reduce_only` order there stays live and takes again once the position gives it something | **Yes** (A6; brief 3, step 5, wall 1, test 7; R1's statement) |
+| D187 | A millisecond's staleness; the guard through the holes (Argon 5.3) | A millisecond's state is the world's after everything in it: the millisecond of the quote that ends a gap is not stale, and `open` reads positions and orders at the end of stale milliseconds. The guard's rules trade through holes at the trace's prices, as CS2.1 commits them; that is disclosed beside its figures | **Yes** (`KERNEL.md` A19; brief 4, step 4, test 6 and wall 1) |
+| D188 | The grid's traces, and the sizes of exact rationals (Argon 4.1, 4.2) | Step 10's test 14 loses the grid of the guard's cash and test 3 its rule of divisibility: neither holds a judged number, and the second fails where a listing changes lots. **No stall, derived and measured:** a sum's denominator is an lcm, about 900 bits after two years at the vault's rate of fills of several prices and at most 5,540; `held`'s variance is 378,000 bits at 900, under a minute in Python's own integers; a bootstrap path telescopes within its blocks, 48,000 bits; step 10's null is drawn on the lattice of 5/4, where a path's denominators grow with its farthest power, at most 3,081 bits | **Yes** (A12; brief 3, step 10, tests 3, 13 and 14; brief 4, steps 1 and 5) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open until step 5's build measures them. The ladder takes neither; a trigger that takes them at every tick and coin is the fit's to cost (brief 4, step 3) | A twin proved equal (X3's pattern), if a rate is missed |
+
+### What GPT should attack first
+
+1. **D180:** a change to a day's events between two replays that the rule lets through (a file named before it was whole, a clock that steps, a key that two sources share); an honest record on which the check still fires; whether the first of a key's items, rather than the last within the window, can move a judged number; the 31 days against CS2.2's and CS2.3's "first replay after".
+2. **D183:** anything else of a host or a process that reaches a judged number with an empty environment and the default control register (a thread that calls the engine outside the checked stub, a library's own choice of path in an exact function).
+3. **D184:** X4's statement against an engine that is wrong and passes it; the paper half's claim that a precision always decides; IEEE's special cases at overflow and underflow.
+4. **D185:** an item the reach does not cover that differs, or a reach so wide that the evaluator's check compares nothing that matters.
+5. **D186, D187:** a case where the venue's exemption and A6 still differ; a staleness boundary in a millisecond with a liquidation.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's definitions:** "the last midnight the record reaches" is now the last 31 days or more before the replay starts, and "the record" each day's items written by 30 days after it, the first of a key (D180). The words stand. No human choice: the alternatives were round 2's closure, which wedges on a silent source and trips on an honest one, or each replay's own snapshot, which makes the record depend on when the operator ran it.
+- **CS2.1's monthly replay:** "each time the end of every day run so far is examined" holds, and every result comes a month after its day. The words stand.
+- **CS2.3:** the vault's fills of the 61 days are closed when it is judged, since the 61st day is run 31 days after it ends; "shown more than 30 days late, or after the judging" now names one case. The words stand. No human choice.
+- **CS2.1's registration:** the build as before; brief 4's test of a host on another path is deleted with the probe (D184). No human choice.
+- **CS2.1's guard:** as committed; its trading through holes is disclosed (D187). No human choice. **CS2.2** is untouched.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc` this round's report lists beyond round 1's, before step 5's build.
+- **By the advisor:** the funding collector's 30-day re-read and whole-then-named files (D180); step 9's tests 8 and 10 as failing tests, then the re-execution, the stub's check and the derivation's two checks (D182, D183); MPFR into the test stub's inputs only, which moves no lock; the worst-case lead for X4's paper half certified; this section read by GPT, D180 and D183 first.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The design changed in D180 (the record), D183 (the environment) and D184 (the human's `exp` and `log`), so the next round is due, on GPT, since Argon read these points' earlier forms. No open dispute would change what step 5 builds once its tests carry this round's list.
