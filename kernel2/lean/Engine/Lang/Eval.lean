@@ -287,9 +287,10 @@ def Mach.run (p : Program) (coins : Nat) (ts : List (Tick α)) : Mach α :=
 def Mach.whenAt (m : Mach α) (c : Nat) (s : Slot) : Option Bool :=
   (m.vals[s.when]![c]!).map fun x => !N.isZero x
 
-/-- A slot's price and target at a coin in a stepped machine, undefined when either is. A notional is divided by the
-slot's unrounded price, and a price of zero leaves it undefined (A6). -/
-def Mach.slotValue (p : Program) (m : Mach α) (c : Nat) (s : Slot) : Option Engine.Orders.Value :=
+/-- A slot's price and target at a coin in a stepped machine, undefined when either is. A notional, a target whose
+node is typed in `types` as money, is divided by the slot's unrounded price, and a price of zero leaves it undefined
+(A6). -/
+def Mach.slotValue (types : Array Ty) (m : Mach α) (c : Nat) (s : Slot) : Option Engine.Orders.Value :=
   match m.exacts[s.price]![c]! with
   | none => none
   | some price =>
@@ -299,7 +300,7 @@ def Mach.slotValue (p : Program) (m : Mach α) (c : Nat) (s : Slot) : Option Eng
       match m.exacts[n]![c]! with
       | none => none
       | some x =>
-        if p.types[n]! == .exact moneyUnit then
+        if types[n]! == .exact moneyUnit then
           if price = 0 then none else some ⟨price, some (x / price)⟩
         else some ⟨price, some x⟩
 
@@ -318,7 +319,7 @@ def slotEval (p : Program) (coins : Nat) (t : Tick α) (m : Mach α) : Engine.Or
   { wishes := (List.range coins).flatMap fun c =>
       if t.inView c then
         slotIds.map fun i =>
-          (c, i, if m'.whenAt N c p.slots[i]! = some true then m'.slotValue p c p.slots[i]! else none)
+          (c, i, if m'.whenAt N c p.slots[i]! = some true then m'.slotValue p.types c p.slots[i]! else none)
       else []
     whenValues := (List.range coins).flatMap fun c => slotIds.map fun i => (c, i, m'.whenAt N c p.slots[i]!)
     exactValues := crossings.flatMap fun j => (List.range coins).map fun c => (c, j, m'.exacts[j]![c]!) }

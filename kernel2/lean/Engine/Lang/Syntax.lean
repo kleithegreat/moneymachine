@@ -159,7 +159,7 @@ structure Program where
   nodes : Array Node
   types : Array Ty
   probeNodes : Array Nat
-  slots : Array Slot
+  slots : Array Slot := #[]
   deriving DecidableEq, Repr, Inhabited
 
 def priceUnit : Dim := ⟨[1, -1, 0, 0, 0, 0, 0]⟩
