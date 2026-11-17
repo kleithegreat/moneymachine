@@ -1155,3 +1155,14 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The engine:** still calls glibc's `exp` and `log`. Under the human's decision of 2026-11-16 23:33 UTC (18:33 EST), the next build's B4 follows round 3's D185.
   - **What is left before step 4 merges into `kernel2-build`:** the flake checks run by the advisor once calibration frees the remote builders. The rate tests failed only under calibration's load, and passed on an isolated core.
   - **Also:** prodesk5's six-shard run of the same build was stopped at about 46%, with no divergence in N1 or in N2 so far, to free the host (the human, 2026-11-17).
+- 2026-11-17 09:01 UTC (04:01 EST), advisor: **the architect's round 4 answers GPT's nine disputes on round 3** (`rearchitecture` `ba9ffd5` to `3f911d1`, pushed; report `data/builder/architect-last-pass-r4-report.md`; ledger D189 to D193). Three were answered by re-derivation.
+  - **D189, a day is read once:** the first attempt of a replay that reaches a day records each file's length and hash, and every later replay reads that day so. The last midnight a replay reaches is 31 days or more before it starts.
+  - **D190, CS2.1:** a dated revision beneath CS2.1's shared definitions, drafted in the report. It is to be reviewed, then committed alone.
+  - **D191:** a judged launch is trusted. The re-execution removes what an honest launch carries.
+  - **D192:** `exp` and `log` are formulas the law writes out. They are NaN where a 256-bit cap does not decide, which the published worst cases put no nearer than about 2⁻¹²⁰, except possibly `exp`'s subnormal results.
+  - **D193:** B4's reference computes the human's `exp` and `log`, and every item is compared.
+  - **Next:**
+    - the next read on a model other than GPT: Argon (web) or a fresh Opus session, labelled as such;
+    - the criteria revision reviewed by a fresh Claude session and GPT;
+    - the advisor certifies the worst-case citation;
+    - the advisor runs and stores B4's new reference.
