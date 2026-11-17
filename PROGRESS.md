@@ -16,7 +16,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **The architect** is a fresh Opus 5.5 session at maximum reasoning after Fable's last session, 2026-11-16 (`CLAUDE.md`).
   - **Argon** runs through the web UI (the human) or `agy`.
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-build` (`study1-build`); `../mm-k2` (`kernel2-build`). Agents that edit at the same time get separate worktrees.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); a builder's own while it runs. Agents that edit at the same time get separate worktrees.
 
 ### Work in progress
 
