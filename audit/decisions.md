@@ -1220,3 +1220,21 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - The weekly window resets to zero on 2026-11-21 04:00 UTC (11-20 23:00 EST) however much TAMU is used before then.
   - Only the 5-hour window at the start matters. Heavy TAMU use in the five hours before the reset can delay the first session by a few hours.
   - TAMU may be used freely until about 2026-11-20 23:00 UTC (18:00 EST).
+- 2026-11-17 16:14 UTC (11:14 EST), the human: **the paper's academic rewrite is deferred until the human says to start it.**
+  - **When it runs:** an Opus session writes it.
+  - **The review** checks correctness and accuracy only, not prose. This replaces the referee-style review planned on 2026-11-16 23:14 UTC (18:14 EST).
+- 2026-11-17 16:31 UTC (11:31 EST), advisor: **the archive reader's manifest check no longer swallows an unreadable `source_hours`** (`kernel2-build` `de8b618`, `9bcc66b`). Before, a missing or malformed value read as no hours: a misleading "short of" error, or a table admitted unverified when no raw file existed. GPT's three tests came first, and two of them failed for exactly that reason. Sonnet's fix parses the value explicitly and fails with an error naming it. `@runtest` and `mm2-tests`, `engine-proofs` and `mm2` pass.
+- 2026-11-17 17:18 UTC (12:18 EST), advisor: **kernel version 2's `feed` no longer copies a chunk's rows quadratically** (`kernel2-build` `37f0afd`, merged at `687826a`).
+  - **The cause, measured by Sonnet:** the right-nested append in `Machine.go` (`first.2 ++ rest.2` at each event) copied every later row of the chunk. That was the `memmove` in B4's profile, about a quarter of its samples. It was not the trace's growth or the test's reading.
+  - **The fix:** `goAcc` appends left to right into a buffer nothing else holds, `feed` calls it, and `goAcc_eq_go` proves it equal to `go`, which stays the specification. No law's statement changed, and every theorem rests on the three standard axioms.
+  - **Checked:** B4 at LIMIT 3 gives the same 9 streams, bit-identical before and after. One item per market went from 77 s to 41 s, about 17 s to 6 s of engine work per stream. All four flake checks pass on the merged tip, together with the archive fix.
+  - **Noted, not done:** a third of each B4 run is its fixed 24 GB `SHA256SUMS` check, which could run once per host. That is a harness change, for the test writer when it is wanted.
+- 2026-11-17 17:40 UTC (12:40 EST), advisor: **kernel version 2 has style and lint gates** (`kernel2-build` `f4884e6`, `fdfcc12`, `b9492f5`, Sonnet). Agreed with the human on 2026-11-16.
+  - **OCaml:** `ocamlformat` 0.29.0 with the `janestreet` profile, and `ppx_js_style` lint, both from the locked nixpkgs. `flake.lock` is unmoved.
+  - **Warnings:** errors in every profile.
+  - **Lean:** builds with `warningAsError`. Its 168 warnings were fixed at their cause: deprecated names, unused simp arguments, one `simpa`.
+  - **The new flake check:** `mm2-style`, `dune build @fmt @check @lint`.
+  - **Checked:** every check passes, and B4 at LIMIT 3 is bit-identical.
+  - **One law,** `price_grid_characterization`, has a hypothesis its proof never uses, now an anonymous binder. Dropping it would change the statement, which is its writer's call.
+  - **Not done:** `.mli` files, a design task, and the same gates for `recorder/`, on `main`.
+  - **`CLAUDE.md` §2:** now names these checks beside Python's.
