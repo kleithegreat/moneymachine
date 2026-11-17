@@ -89,7 +89,7 @@ theorem rounding_bounds (p step : Rat) (hstep : 0 < step) :
 /-- A18: the fixed decimal quantum, significant-figure multiples and whole-number exception. -/
 theorem price_grid_characterization
     (figures : Nat) (decimals e : Int) (p : Rat)
-    (hfigures : 1 ≤ figures) (hp : 0 < p) :
+    (_ : 1 ≤ figures) (hp : 0 < p) :
     let ten : Int → Rat := fun z =>
       if 0 ≤ z then (10 : Rat) ^ z.toNat else 1 / (10 : Rat) ^ (-z).toNat
     ten e ≤ p → p < ten (e + 1) →
@@ -275,7 +275,7 @@ theorem A1 :
     have hactive := Engine.Ledger.active_eq fees time active hsort hact hstart hmax
     simp only [Engine.Ledger.step, hbank, Bool.false_eq_true, ↓reduceIte, hactive]
     have hcond : coin < s.positions.length ∧ units ≠ 0 ∧ 0 < price := ⟨hcoin, hu, hp⟩
-    rw [if_pos hcond]
+    rw [ite_eq_left hcond]
     refine ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, rfl, rfl, rfl, rfl, rfl⟩
     · simp
     · rw [Engine.Ledger.position_set _ s.positions coin _ hcoin rfl]; rfl
@@ -286,15 +286,15 @@ theorem A1 :
   · intro fees s hrates hbank hflat hcash
     have hcond : (∀ p ∈ s.positions, p.units = 0 ∧ p.cost = 0) ∧ s.cash ≤ 0 := ⟨hflat, hcash⟩
     simp only [Engine.Ledger.step, hbank, Bool.false_eq_true, ↓reduceIte]
-    rw [if_pos hcond]
+    rw [ite_eq_left hcond]
     exact ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   · intro cash coins fees events ⟨tier, htier, hbad⟩
     have hs : Engine.Ledger.scheduleOk fees = false := by
-      simp only [Engine.Ledger.scheduleOk, Bool.and_eq_false_iff, Bool.not_eq_true]
+      simp only [Engine.Ledger.scheduleOk, Bool.and_eq_false_iff]
       left
       rw [List.all_eq_false]
       refine ⟨tier, htier, ?_⟩
-      simp only [Engine.Ledger.rateOk, decide_eq_false_iff_not]
+      simp only [Engine.Ledger.rateOk]
       grind
     simp [Engine.Ledger.replay, hs]
   · intro cash coins fees events hsort hrates
@@ -351,7 +351,7 @@ theorem U1 :
       (Engine.Ledger.checkFunding start finish late held events = .ok () ↔ ¬ missing)) := by
   constructor
   · intro fees s time hour coin oracle rate hrates hbank hcoin
-    simp only [Engine.Ledger.step, hbank, Bool.false_eq_true, ↓reduceIte, if_pos hcoin]
+    simp only [Engine.Ledger.step, hbank, Bool.false_eq_true, ↓reduceIte, ite_eq_left hcoin]
     exact ⟨_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
   · intro start finish late held events _ _ _
     exact ⟨Engine.Ledger.checkFunding_error_iff start finish late held events,
@@ -688,7 +688,7 @@ theorem step4Vol_reads {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = t
     (Mach.run N step4VolProgram 1
       [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
   simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, step4VolProgram,
-    Mach.init, Node.args, argRow, NumOps.keep, hx]
+    Mach.init, NumOps.keep, hx]
 
 open Engine.Lang in
 /-- The checked program of `step4NegNeg`. -/

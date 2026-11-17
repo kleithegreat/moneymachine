@@ -215,7 +215,8 @@ let verify_hashes directory names =
               if status <> Unix.WEXITED 0
               then difference name "sha256sum failed"
               else if String.length line < 64 || String.sub line 0 64 <> expected
-              then difference name "SHA256 differs from SHA256SUMS")))
+              then difference name "SHA256 differs from SHA256SUMS")
+            : unit option))
     names
 ;;
 
@@ -245,7 +246,8 @@ let load directory names =
                       incr duplicates;
                       if row <> previous
                       then difference context "same tid, conflicting fill objects"))
-              rows)))
+              rows)
+          : unit option))
     names;
   let rows =
     List.stable_sort
@@ -605,7 +607,8 @@ let check_ledger coins rows =
               then difference context "wrong entry";
               compare_q (context ^ " cash") (Q.of_wire view.cash) !expected_cash;
               state := receipt.state;
-              snapshots := view :: !snapshots)))
+              snapshots := view :: !snapshots)
+          : unit option))
     rows;
   Printf.printf
     "layer1: %d of %d whole exact fees printed one under; %d of %d partial closes left E \
@@ -655,7 +658,8 @@ let main directory =
   ignore
     (protect
        "synthetic compatibility countermodels and exact engine assertions"
-       Wrong_ledgers.check_cases);
+       Wrong_ledgers.check_cases
+     : unit option);
   let names = pages directory in
   if names = [] then failwith "no fills-NNN.json pages";
   verify_hashes directory names;

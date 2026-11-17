@@ -207,7 +207,7 @@ theorem scanRest_ne (rules : Rules) (descending : Bool) :
           · exact ⟨level, hr, hbad⟩
         by_cases hc : (descending && decide (price < before) || !descending && decide (before < price)) = true
         · simp only [hc, ite_true]; exact ih _ hrest
-        · simp only [hc, ite_false]; exact ⟨_, rfl⟩
+        · simp only [hc]; exact ⟨_, rfl⟩
 
 theorem scanSide_ne (rules : Rules) (descending : Bool) (best : Level) (rest : List Level)
     (h : ∃ level ∈ best :: rest, priceBadP rules level.price ∨ sizeBadP rules level.size) :
@@ -303,7 +303,7 @@ theorem checkPayload_of_fields (s : State) (e : Event) (rules : Rules) (h : fiel
             rcases hb with hb | hb
             · exact absurd ((ofUnits_le_zero 8 n).1 hb) (by omega)
             · rw [← onGrid_ofUnits]; exact hb
-          simp only [h0, ite_false, hn, hg, decide_true, Bool.true_and, Bool.false_eq_true]
+          simp only [h0, ite_false, hn, hg, decide_true, Bool.true_and]
           exact ⟨_, rfl⟩
   | funding hour rate oracle =>
     rw [hpl] at h

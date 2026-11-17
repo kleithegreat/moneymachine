@@ -287,7 +287,7 @@ let raw_hours root coin day =
 ;;
 
 let ints text = String.concat "," (List.map string_of_int text)
-let ( let* ) = Result.bind
+let ( >>= ) = Result.bind
 
 (* The table's `source_hours` metadata is a JSON list of integers; absent or malformed is an error, since the table cannot then be verified. *)
 let source_hours ~coin ~day recorded =
@@ -332,7 +332,8 @@ let manifest root coin day =
             'source_hours'"
            table)
     in
-    let* hours = source_hours ~coin ~day recorded in
+    source_hours ~coin ~day recorded
+    >>= fun hours ->
     if hours = raw
     then Ok (Some table)
     else (
@@ -367,34 +368,40 @@ let day_start day =
 
 let archive ~root ~meta ~coins ~first ~last ~delta ~emit =
   guard (fun () ->
-    let* rules = coin_rules meta in
-    let* days = days_between first last in
-    let* () = refuse_protected days in
-    let* () =
+    coin_rules meta
+    >>= fun rules ->
+    days_between first last
+    >>= fun days ->
+    refuse_protected days
+    >>= fun () ->
+    let known =
       match
         List.find_opt (fun c -> not (List.exists (fun (n, _, _, _) -> n = c) rules)) coins
       with
       | Some c -> Error (Printf.sprintf "%s is not in the metadata's universe" c)
       | None -> Ok ()
     in
+    known
+    >>= fun () ->
     let rec tables = function
       | [] -> Ok []
       | coin :: rest ->
         let rec per_day = function
           | [] -> Ok []
           | day :: more ->
-            let* found = manifest root coin day in
-            let* tail = per_day more in
+            manifest root coin day
+            >>= fun found ->
+            per_day more
+            >>= fun tail ->
             Ok
               (match found with
                | Some path -> path :: tail
                | None -> tail)
         in
-        let* paths = per_day days in
-        let* others = tables rest in
-        Ok (paths :: others)
+        per_day days >>= fun paths -> tables rest >>= fun others -> Ok (paths :: others)
     in
-    let* paths = tables coins in
+    tables coins
+    >>= fun paths ->
     let streams = List.mapi (fun i p -> stream i p) paths in
     let lo = day_start first
     and hi = day_start last in
@@ -403,14 +410,19 @@ let archive ~root ~meta ~coins ~first ~last ~delta ~emit =
 
 let archive_day ~root ~meta ~coin ~day ~delta ~emit =
   guard (fun () ->
-    let* rules = coin_rules meta in
-    let* () =
+    coin_rules meta
+    >>= fun rules ->
+    let known =
       if List.exists (fun (n, _, _, _) -> n = coin) rules
       then Ok ()
       else Error (Printf.sprintf "%s is not in the metadata's universe" coin)
     in
-    let* () = refuse_protected [ day ] in
-    let* found = manifest root coin day in
+    known
+    >>= fun () ->
+    refuse_protected [ day ]
+    >>= fun () ->
+    manifest root coin day
+    >>= fun found ->
     match found with
     | None -> Error (Printf.sprintf "%s %s: no table and no raw files" coin day)
     | Some path -> run_streams [ stream 0 [ path ] ] ~lo:min_int ~hi:max_int ~delta ~emit)
@@ -441,14 +453,18 @@ let trade_file ~path ~coin ~delta ~emit =
       | Error e -> Error e
     in
     let encode (time, id, px, sz, side) =
-      let* px = place px in
-      let* sz = place sz in
-      let* seller =
+      place px
+      >>= fun px ->
+      place sz
+      >>= fun sz ->
+      let side_bit =
         match side with
         | "A" -> Ok 1
         | "B" -> Ok 0
         | s -> Error ("unknown side " ^ s)
       in
+      side_bit
+      >>= fun seller ->
       let record = Bytes.make 24 '\000' in
       Bytes.set_uint8 record 0 2;
       Bytes.set_uint8 record 1 seller;
@@ -457,15 +473,14 @@ let trade_file ~path ~coin ~delta ~emit =
       Bytes.set_int64_le record 16 (Int64.of_int (time + delta));
       Ok (record, Int64.of_int id :: (px @ sz))
     in
-    let* encoded =
+    let folded =
       List.fold_left
-        (fun acc row ->
-           let* rest = acc in
-           let* e = encode row in
-           Ok (e :: rest))
+        (fun acc row -> acc >>= fun rest -> encode row >>= fun e -> Ok (e :: rest))
         (Ok [])
         parsed
     in
+    folded
+    >>= fun encoded ->
     let encoded = List.rev encoded in
     let rec cut = function
       | [] -> ()

@@ -267,7 +267,7 @@ theorem recsPairs_fire (s : State) (hms : ∀ ms, s.cfg.tickMs = some ms → 0 �
     simp [fireR_cfg]
   | cons p rest =>
     rw [recsPairs_cons, recsPairs_cons, fireR_split s b p.1.time hb hms]
-    simp [fireR_cfg]
+    simp []
 
 
 /-! ### What two markets share at `τ` -/
@@ -305,7 +305,7 @@ theorem find_filter (m seen : Int) (h : seen ≤ m) (l : List Int) :
       · simp [hs]
       · simp [hs, ih]
     · have : ¬ x ≤ seen := by omega
-      simp only [List.filter_cons, hx, decide_false, ite_false, List.find?_cons]
+      simp only [List.filter_cons, hx, decide_false, List.find?_cons]
       simp [this, ih]
 
 theorem keepThrough_filter (m t : Int) (h : t ≤ m) (l : List Int) :
@@ -315,10 +315,10 @@ theorem keepThrough_filter (m t : Int) (h : t ≤ m) (l : List Int) :
   | cons x rest ih =>
     by_cases hx : x ≤ m
     · by_cases ht : x ≤ t
-      · simp [keepThrough, hx, ht, List.filter_cons]
-      · simp [keepThrough, hx, ht, List.filter_cons, ih]
+      · simp [keepThrough, hx, ht]
+      · simp [keepThrough, hx, ht, ih]
     · have ht : ¬ x ≤ t := by omega
-      simp [keepThrough, hx, ht, List.filter_cons, ih]
+      simp [keepThrough, hx, ht, ih]
 
 
 theorem span_loop {α : Type} (p : α → Bool) (l : List α) : ∀ acc : List α,
@@ -571,7 +571,7 @@ theorem fireR_agree (τ : Int) (n : Nat) : ∀ s u : State, TickOk s → Agree �
             rw [List.filter_eq_nil_iff]; intro r hr; have := d2 r hr; simp; omega
           have hu0 : (fireR n { (tickAt u t).1 with nextTick := some (t + ms) }).2.filter (fun r => decide (r.time ≤ τ)) = [] := by
             rw [List.filter_eq_nil_iff]; intro r hr; have := e2 r hr; simp; omega
-          simp [List.filter_cons, tickAt_time, htau, hs0, hu0]
+          simp [tickAt_time, htau, hs0, hu0]
 
 /-! ### The pending list -/
 
@@ -626,7 +626,7 @@ theorem filter_insert_le (τ : Int) (p : Pending) (hp : p.known ≤ τ) : ∀ l 
     (insertPending p l).filter (knownBy τ) = insertPending p (l.filter (knownBy τ)) := by
   intro l
   induction l with
-  | nil => intro _; simp [insertPending, List.filter_cons, knownBy, hp]
+  | nil => intro _; simp [insertPending, knownBy, hp]
   | cons q rest ih =>
     intro h
     have h' := h
@@ -635,15 +635,15 @@ theorem filter_insert_le (τ : Int) (p : Pending) (hp : p.known ≤ τ) : ∀ l 
     by_cases hpq : p.known < q.known
     · simp only [hpq, ite_true, List.filter_cons]
       by_cases hq : q.known ≤ τ
-      · simp [knownBy, hp, hq, insertPending, hpq]
+      · simp [knownBy, hp, hq, hpq]
       · have hrest : rest.filter (knownBy τ) = [] := filter_known_eq_nil τ rest (fun x hx => by have := h'.1 x hx; omega)
-        simp [knownBy, hp, hq, hrest, insertPending]
+        simp [knownBy, hp, hq, hrest]
     · have hq : q.known ≤ τ := by omega
       simp only [hpq, ite_false, List.filter_cons]
-      simp only [knownBy, hq, decide_true, ite_true, List.filter_cons]
+      simp only [knownBy, hq, decide_true, ite_true]
       have := ih h'.2
       rw [this]
-      simp [hq, knownBy, insertPending, hpq]
+      simp [hpq]
 
 theorem filter_insert_gt (τ : Int) (p : Pending) (hp : τ < p.known) : ∀ l : List Pending,
     l.Pairwise (fun a b => a.known ≤ b.known) →
@@ -916,7 +916,7 @@ theorem recs_filterK (τ δ : Int) : ∀ (ps : List Pair) (s : State), s.cfg.del
     have hmono' := List.pairwise_cons.1 hmono
     by_cases hk : p.1.known ≤ τ
     · have e : (p :: rest).filter (fun p => decide (p.1.known ≤ τ)) =
-          p :: rest.filter (fun p => decide (p.1.known ≤ τ)) := by simp [List.filter_cons, hk]
+          p :: rest.filter (fun p => decide (p.1.known ≤ τ)) := by simp [hk]
       rw [e, recsPairs_cons, recsPairs_cons, List.filter_append, List.filter_append]
       congr 1
       apply ih
@@ -928,7 +928,7 @@ theorem recs_filterK (τ δ : Int) : ∀ (ps : List Pair) (s : State), s.cfg.del
       · exact hmono'.2
       · intro q hq; rw [afterFire_cfg]; exact hbound q (List.mem_cons_of_mem _ hq)
     · have e : (p :: rest).filter (fun p => decide (p.1.known ≤ τ)) = rest.filter (fun p => decide (p.1.known ≤ τ)) := by
-        simp [List.filter_cons, hk]
+        simp [hk]
       rw [e, recsPairs_cons, List.filter_append]
       have hQ : ∀ q ∈ rest.filter (fun p => decide (p.1.known ≤ τ)), τ - δ < q.1.time :=
         fun q hq => hp q (List.mem_cons_of_mem _ ((List.mem_filter.1 hq).1))

@@ -38,13 +38,13 @@ theorem nodeFull_defined (t : Tick α) (n : Node) (count coins : Nat) (R : Nat �
   simp only [] at h
   rw [rowMap_get] at h
   by_cases hc : c < coins
-  · rw [if_pos hc] at h
+  · rw [ite_eq_left hc] at h
     split at h
     · rename_i hv
       obtain ⟨z, _, hz⟩ := Option.bind_eq_some_iff.1 h
       exact ⟨hc, hv, keep_finite N hz⟩
     · simp at h
-  · rw [if_neg hc] at h
+  · rw [ite_eq_right hc] at h
     simp at h
 
 theorem row_ext {a b : Array (Option α)} (hs : a.size = b.size) (h : ∀ c : Nat, a[c]! = b[c]!) : a = b := by
@@ -145,7 +145,7 @@ theorem redirect_ordered {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i
     obtain ⟨b, hb, rfl⟩ := ha
     have hbk := hpk b (by rw [hn]; exact hb)
     by_cases hbi : b == i
-    · simp only [hbi, if_true]
+    · simp only [hbi, ite_true]
       have : b = i := by simpa using hbi
       subst this; omega
     · simp only [hbi]; exact hbk
@@ -176,11 +176,11 @@ theorem redirect_step {p : Program} {i x : Nat} (hp : p.Ordered) (hxi : x < i) (
       by_cases hai : a == i
       · have : a = i := by simpa using hai
         subst this
-        simp only [hai, if_true]
+        simp only [hai, ite_true]
         rw [(ih x (by omega)), hsem t m]
       · have hf : (a == i) = false := by simpa using hai
         simp only [hf]
-        simp only [Bool.false_eq_true, if_false]
+        simp only [Bool.false_eq_true, ite_false]
         rw [ih a hak]
   | builtin _ =>
     simp only [Node.args]
@@ -229,8 +229,8 @@ theorem redirect_wf {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi : i
         have hak := ha a hamem
         by_cases hai : a = i
         · subst hai
-          simp only [if_true]; omega
-        · simp only [hai, if_false]; exact hak
+          simp only [ite_true]; omega
+        · simp only [hai, ite_false]; exact hak
       · rw [List.map_map]
         have : ((fun x => p.types[x]!) ∘ fun k => if k = i then x else k) = fun x => p.types[x]! := by
           funext k
@@ -386,7 +386,7 @@ theorem map_set_same {β γ : Type} [Inhabited β] [Inhabited γ] (f : β → γ
   · subst hki
     simp [getElem!_pos, hk', Array.set!_eq_setIfInBounds]
     simpa [getElem!_pos, hk'] using h
-  · simp [Array.set!_eq_setIfInBounds, getElem!_pos, hk', hk]
+  · simp [Array.set!_eq_setIfInBounds, getElem!_pos, hk']
     rw [Array.getElem_setIfInBounds]
     simp [Ne.symm hki]
     exact hk'
@@ -487,16 +487,16 @@ theorem sem_negNeg {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i a x : Nat} 
   intro c
   rw [plain_cell N hp t m hi hn (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv, evalOp_neg]
-    simp only [argRow, List.getElem?_cons_zero, Option.map_some]
-    rw [plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c, if_pos hcv, evalOp_neg]
+  · rw [ite_eq_left hcv, evalOp_neg]
+    simp only [argRow, List.getElem?_cons_zero]
+    rw [plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c, ite_eq_left hcv, evalOp_neg]
     simp only [argRow, List.getElem?_cons_zero]
     cases hw : ((Mach.step N p t m).vals[x]!)[c]! with
     | none => simp
     | some y =>
       have hfin := (cell_defined N hp t m (by omega) hw).2.2
       simp [keep_of_finite N (hL.finite_neg y hfin), hL.neg_neg y hfin, keep_of_finite N hfin]
-  · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
+  · rw [ite_eq_right hcv, cell_none N hp t m (by omega) hcv]
 
 theorem const_cell {p : Program} (hp : p.Ordered) (t : Tick α) (m : Mach α) {j : Nat} (hj : j < p.nodes.size)
     {bits : UInt64} {u : Dim} (hn : p.nodes[j]! = .const bits u) (c : Nat) :
@@ -517,16 +517,16 @@ theorem sem_absAbs {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i a y : Nat} 
   intro c
   rw [plain_cell N hp t m hi hn (by simp [Node.plain]) c, plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv, if_pos hcv, evalOp_abs, evalOp_abs]
+  · rw [ite_eq_left hcv, ite_eq_left hcv, evalOp_abs, evalOp_abs]
     simp only [argRow, List.getElem?_cons_zero]
-    rw [plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c, if_pos hcv, evalOp_abs]
+    rw [plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c, ite_eq_left hcv, evalOp_abs]
     simp only [argRow, List.getElem?_cons_zero]
     cases hw : ((Mach.step N p t m).vals[y]!)[c]! with
     | none => simp
     | some w =>
       have hfin := (cell_defined N hp t m (by omega) hw).2.2
       simp [keep_of_finite N (hL.finite_abs w hfin), hL.abs_abs w hfin]
-  · rw [if_neg hcv, if_neg hcv]
+  · rw [ite_eq_right hcv, ite_eq_right hcv]
 
 theorem sem_mulOne {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i x cc : Nat} (hi : i < p.nodes.size)
     (hn : p.nodes[i]! = .op .mul [x, cc]) (hc : p.nodes[cc]! = .const 0x3FF0000000000000 Dim.one)
@@ -537,16 +537,16 @@ theorem sem_mulOne {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i x cc : Nat}
   intro c
   rw [plain_cell N hp t m hi hn (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv, evalOp_mul]
+  · rw [ite_eq_left hcv, evalOp_mul]
     simp only [argRow, List.getElem?_cons_zero, List.getElem?_cons_succ]
-    rw [const_cell N hp t m (by omega) hc c, if_pos hcv]
+    rw [const_cell N hp t m (by omega) hc c, ite_eq_left hcv]
     simp only [Option.bind_some, keep_of_finite N hL.finite_one]
     cases hw : ((Mach.step N p t m).vals[x]!)[c]! with
     | none => simp
     | some w =>
       have hfin := (cell_defined N hp t m (by omega) hw).2.2
       simp [hL.mul_one w hfin, keep_of_finite N hfin]
-  · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
+  · rw [ite_eq_right hcv, cell_none N hp t m (by omega) hcv]
 
 theorem sem_subZero {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i x cc : Nat} {u : Dim}
     (hi : i < p.nodes.size) (hn : p.nodes[i]! = .op .sub [x, cc]) (hc : p.nodes[cc]! = .const 0 u)
@@ -557,16 +557,16 @@ theorem sem_subZero {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i x cc : Nat
   intro c
   rw [plain_cell N hp t m hi hn (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv, evalOp_sub]
+  · rw [ite_eq_left hcv, evalOp_sub]
     simp only [argRow, List.getElem?_cons_zero, List.getElem?_cons_succ]
-    rw [const_cell N hp t m (by omega) hc c, if_pos hcv]
+    rw [const_cell N hp t m (by omega) hc c, ite_eq_left hcv]
     simp only [Option.bind_some, keep_of_finite N hL.finite_zero]
     cases hw : ((Mach.step N p t m).vals[x]!)[c]! with
     | none => simp
     | some w =>
       have hfin := (cell_defined N hp t m (by omega) hw).2.2
       simp [hL.sub_zero w hfin, keep_of_finite N hfin]
-  · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
+  · rw [ite_eq_right hcv, cell_none N hp t m (by omega) hcv]
 
 theorem sem_divOne {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i x cc : Nat} (hi : i < p.nodes.size)
     (hn : p.nodes[i]! = .op .div [x, cc]) (hc : p.nodes[cc]! = .const 0x3FF0000000000000 Dim.one)
@@ -577,17 +577,17 @@ theorem sem_divOne {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i x cc : Nat}
   intro c
   rw [plain_cell N hp t m hi hn (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv]
+  · rw [ite_eq_left hcv]
     unfold evalOp
     simp only [argRow, List.getElem?_cons_zero, List.getElem?_cons_succ]
-    rw [const_cell N hp t m (by omega) hc c, if_pos hcv]
-    simp only [Option.bind_some, keep_of_finite N hL.finite_one, hL.one_ne_zero]
+    rw [const_cell N hp t m (by omega) hc c, ite_eq_left hcv]
+    simp only [Option.bind_some, keep_of_finite N hL.finite_one]
     cases hw : ((Mach.step N p t m).vals[x]!)[c]! with
     | none => simp
     | some w =>
       have hfin := (cell_defined N hp t m (by omega) hw).2.2
       simp [hL.one_ne_zero, hL.div_one w hfin, keep_of_finite N hfin]
-  · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
+  · rw [ite_eq_right hcv, cell_none N hp t m (by omega) hcv]
 
 theorem sem_notNot {p : Program} (hwf : p.WF) (hL : N.Lawful) {i a cc : Nat} (hi : i < p.nodes.size)
     (hn : p.nodes[i]! = .op .not [a]) (hna : p.nodes[a]! = .op .not [cc]) (hbool : p.types[cc]! = Ty.bool)
@@ -599,17 +599,17 @@ theorem sem_notNot {p : Program} (hwf : p.WF) (hL : N.Lawful) {i a cc : Nat} (hi
   intro c
   rw [plain_cell N hp t m hi hn (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv, evalOp_not]
-    simp only [argRow, List.getElem?_cons_zero, Option.map_some]
-    rw [plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c, if_pos hcv, evalOp_not]
+  · rw [ite_eq_left hcv, evalOp_not]
+    simp only [argRow, List.getElem?_cons_zero]
+    rw [plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c, ite_eq_left hcv, evalOp_not]
     simp only [argRow, List.getElem?_cons_zero]
     cases hw : ((Mach.step N p t m).vals[cc]!)[c]! with
     | none => simp
     | some w =>
       obtain ⟨b, hb⟩ := step_boolInv N hwf t m cc (by omega) hbool c w hw
       subst hb
-      simp [keep_of_finite N (hL.finite_truth _), hL.truth_zero, keep_of_finite N (hL.finite_truth b)]
-  · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
+      simp [keep_of_finite N (hL.finite_truth _), hL.truth_zero]
+  · rw [ite_eq_right hcv, cell_none N hp t m (by omega) hcv]
 
 theorem hnode_of_evalOp (t : Tick α) {o' o : Op} {args' args : List Nat} (count coins : Nat)
     (V : Array (Array (Option α))) (ns : Array (NS α))
@@ -622,7 +622,7 @@ theorem hnode_of_evalOp (t : Tick α) {o' o : Op} {args' args : List Nat} (count
   intro c
   unfold pointVal
   by_cases hv : t.inView c = true
-  · simp only [hv, if_true, evalNode, Node.args]
+  · simp only [hv, ite_true, evalNode, Node.args]
     exact h c hv
   · simp [hv]
 
@@ -685,7 +685,7 @@ theorem hnode_cmp (t : Tick α) (o' o : Op) (a b : Nat) (count coins : Nat)
   intro c
   unfold pointVal
   by_cases hv : t.inView c = true
-  · simp only [hv, if_true, evalNode]
+  · simp only [hv, ite_true, evalNode]
     rcases hs with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
       (simp only [evalOp, Node.args, argRow, List.getElem?_cons_zero, List.getElem?_cons_succ];
        cases (V[a]!)[c]! <;> cases (V[b]!)[c]! <;> simp)
@@ -704,14 +704,14 @@ theorem hnode_absNeg {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i a x : Nat
   simp only [argRow, List.getElem?_cons_zero]
   rw [plain_cell N hp t m (by omega) hna (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv, evalOp_neg]
+  · rw [ite_eq_left hcv, evalOp_neg]
     simp only [argRow, List.getElem?_cons_zero]
     cases hw : ((Mach.step N p t m).vals[x]!)[c]! with
     | none => simp
     | some w =>
       have hfin := (cell_defined N hp t m (by omega) hw).2.2
       simp [keep_of_finite N (hL.finite_neg w hfin), hL.abs_neg w hfin]
-  · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
+  · rw [ite_eq_right hcv, cell_none N hp t m (by omega) hcv]
 
 theorem hnode_ifNot {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i nc a b cc : Nat} (hi : i < p.nodes.size)
     (hn : p.nodes[i]! = .op .ite [nc, a, b]) (hnn : p.nodes[nc]! = .op .not [cc]) (t : Tick α) (m : Mach α) :
@@ -726,14 +726,14 @@ theorem hnode_ifNot {p : Program} (hp : p.Ordered) (hL : N.Lawful) {i nc a b cc 
   simp only [evalOp, argRow, List.getElem?_cons_zero, List.getElem?_cons_succ]
   rw [plain_cell N hp t m (by omega) hnn (by simp [Node.plain]) c]
   by_cases hcv : c < m.coins ∧ t.inView c = true
-  · rw [if_pos hcv, evalOp_not]
+  · rw [ite_eq_left hcv, evalOp_not]
     simp only [argRow, List.getElem?_cons_zero]
     cases hw : ((Mach.step N p t m).vals[cc]!)[c]! with
     | none => simp
     | some w =>
       simp [keep_of_finite N (hL.finite_truth _), hL.truth_zero]
       cases hz : N.isZero w <;> simp
-  · rw [if_neg hcv, cell_none N hp t m (by omega) hcv]
+  · rw [ite_eq_right hcv, cell_none N hp t m (by omega) hcv]
     simp
 
 /-- What L3 says of one rule's result, for a redirect of node `i` to node `x`. -/
@@ -756,9 +756,9 @@ theorem redirect_final {p : Program} {i x : Nat} (hwf : p.WF) (hxi : x < i) (hi 
   rw [hq]
   by_cases hqi : p.probeNodes[j]! == i
   · have : p.probeNodes[j]! = i := by simpa using hqi
-    rw [if_pos hqi, this]
+    rw [ite_eq_left hqi, this]
     exact (hrow coins ts).symm
-  · rw [if_neg hqi]
+  · rw [ite_eq_right hqi]
 
 theorem replace_final {p : Program} {i : Nat} (hwf : p.WF) (hi : i < p.nodes.size) (o : Op) (args : List Nat)
     (hargs : ∀ a ∈ args, a < i) (hty : opTy o (args.map (p.types[·]!)) = some p.types[i]!)

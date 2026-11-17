@@ -56,7 +56,7 @@ let policy_and_identity () =
     ; base, Int64.add protected_end 1L
     ];
   List.iter
-    (fun (first, last) -> ignore (get (M.start program (header ~first ~last ()))))
+    (fun (first, last) -> ignore (get (M.start program (header ~first ~last ())) : M.t))
     [ Int64.sub protected_start 1000L, protected_start
     ; protected_end, Int64.add protected_end 1000L
     ];
@@ -90,7 +90,7 @@ let policy_and_identity () =
       protected_start
       protected_end
   in
-  ignore (get (I.compile_windows valid));
+  ignore (get (I.compile_windows valid) : string);
   List.iter
     (fun invalid ->
        check "strict build-time window data" (Result.is_error (I.compile_windows invalid)))

@@ -180,7 +180,8 @@ let encoding_and_lateness () =
          (get
             (M.start
                program
-               (replace [ "fees" ] fees (json (header ())) |> Yojson.Basic.to_string))))
+               (replace [ "fees" ] fees (json (header ())) |> Yojson.Basic.to_string))
+          : M.t))
     [ "0"; "1" ];
   let too_late =
     replace [ "sources"; "funding"; "late" ] (`Int 3_600_000) (json (header ()))

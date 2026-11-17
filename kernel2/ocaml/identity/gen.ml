@@ -54,7 +54,7 @@ let store_paths text =
 let run command =
   let input = Unix.open_process_in command in
   let text = In_channel.input_all input in
-  ignore (Unix.close_process_in input);
+  ignore (Unix.close_process_in input : Unix.process_status);
   text
 ;;
 

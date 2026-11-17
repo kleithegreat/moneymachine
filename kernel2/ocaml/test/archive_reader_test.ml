@@ -108,9 +108,9 @@ let disk_ids () =
          ; trade ~known:(at 6) ~size:"1.93" (at 1) 8
          ]);
     write path (trade_line base 7);
-    ignore (get (R.trade_file ~path ~coin:0 ~delta:0 ~emit:ignore));
+    ignore (get (R.trade_file ~path ~coin:0 ~delta:0 ~emit:ignore) : R.counts);
     write path (trade_line (Int64.add base 86_400_000L) 7);
-    ignore (get (R.trade_file ~path ~coin:0 ~delta:0 ~emit:ignore)))
+    ignore (get (R.trade_file ~path ~coin:0 ~delta:0 ~emit:ignore) : R.counts))
 ;;
 
 let merge_order () =
@@ -241,7 +241,7 @@ let short_table () =
     List.iter
       (fun read ->
          let result, chunks = collect read in
-         ignore (get result);
+         ignore (get result : R.counts);
          same_chunk
            (flatten chunks)
            (chunk

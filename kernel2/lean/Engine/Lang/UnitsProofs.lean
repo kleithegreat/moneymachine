@@ -12,9 +12,9 @@ variable {α : Type} (N : NumOps α)
 theorem rowMap_get {β : Type} [Inhabited β] (n c : Nat) (f : Nat → β) :
     (((List.range n).map f).toArray)[c]! = if c < n then f c else default := by
   by_cases h : c < n
-  · rw [if_pos h, getElem!_pos _ _ (by simpa using h)]
+  · rw [ite_eq_left h, getElem!_pos _ _ (by simpa using h)]
     simp
-  · rw [if_neg h, getElem!_neg _ _ (by simpa using h)]
+  · rw [ite_eq_right h, getElem!_neg _ _ (by simpa using h)]
 
 /-- A node with no memory of its own: `nodeCore` computes it pointwise. -/
 def Node.plain : Node → Bool
@@ -37,8 +37,8 @@ theorem nodeFull_plain_get (t : Tick α) (n : Node) (hn : n.plain = true) (count
   simp only [hraw]
   rw [rowMap_get]
   by_cases hc : c < coins
-  · rw [if_pos hc, if_pos hc, rowMap_get, if_pos hc]
-  · rw [if_neg hc, if_neg hc]
+  · rw [ite_eq_left hc, ite_eq_left hc, rowMap_get, ite_eq_left hc]
+  · rw [ite_eq_right hc, ite_eq_right hc]
     rfl
 
 /-- Every bool-typed node's defined values are `truth` of a bool. -/
@@ -63,7 +63,7 @@ theorem opTy_bool {o : Op} {ts : List Ty} (h : opTy o ts = some Ty.bool) :
   unfold opTyE at h
   cases o <;> first | exact absurd h (numOf_not_bool _) | skip
   all_goals first | simp | skip
-  rcases h0 : ts[0]? with _ | _ | _ <;> simp_all [Except.toOption, bind, Except.bind, pure, Except.pure]
+  rcases h0 : ts[0]? with _ | _ | _ <;> simp_all [Except.toOption, bind, Except.bind]
   all_goals
     refine iteTy_bool ?_
     revert h
@@ -109,14 +109,14 @@ theorem step_boolInv {p : Program} (hwf : p.WF) (t : Tick α) (m : Mach α) :
     rw [hn] at hrow
     rw [hrow, nodeFull_plain_get N t _ hplain] at hx
     by_cases hc : c < m.coins
-    · rw [if_pos hc] at hx
+    · rw [ite_eq_left hc] at hx
       by_cases hv : t.inView c = true
-      · rw [if_pos hv] at hx
+      · rw [ite_eq_left hv] at hx
         obtain ⟨y, hy, hk⟩ := Option.bind_eq_some_iff.1 hx
         have hxy := keep_some N hk
         subst hxy
         unfold pointVal at hy
-        rw [if_pos hv] at hy
+        rw [ite_eq_left hv] at hy
         simp only [evalNode] at hy
         rcases opTy_bool hty' with h | h | h | h | h | h | h | ⟨h, h1, h2⟩
         all_goals subst_vars
@@ -142,8 +142,8 @@ theorem step_boolInv {p : Program} (hwf : p.WF) (t : Tick α) (m : Mach α) :
         split at hy2
         · exact hbranch 1 (by omega) (by omega) h1 hy2
         · exact hbranch 2 (by omega) (by omega) h2 hy2
-      · rw [if_neg hv] at hx; simp at hx
-    · rw [if_neg hc] at hx; simp at hx
+      · rw [ite_eq_right hv] at hx; simp at hx
+    · rw [ite_eq_right hc] at hx; simp at hx
 
 /-- Remembered types are the checker's. -/
 def TagsOk (p : Program) (tags : Array (Option Ty)) : Prop :=
@@ -195,7 +195,7 @@ theorem tagNode_ok {p : Program} (hwf : p.WF) {vals : Array (Array (Option α))}
     obtain ⟨hargs, hty⟩ := (nodeOkb_op hn).1 hok
     simp only []
     by_cases hall : (args.map (ts[·]!)).all Option.isSome = true
-    · rw [if_pos hall]
+    · rw [ite_eq_left hall]
       have hmap := filterMap_tags p ts args (fun a ha t h => hts a (hargs a ha) t h) hall
       rw [hmap]
       have hE : opTyE o (args.map (p.types[·]!)) = .ok p.types[k]! := by
@@ -206,9 +206,9 @@ theorem tagNode_ok {p : Program} (hwf : p.WF) {vals : Array (Array (Option α))}
       rw [hE]
       refine ⟨_, rfl, ?_⟩
       intro t ht
-      simp [Except.map] at ht
+      simp [] at ht
       exact ht.symm
-    · rw [if_neg hall]
+    · rw [ite_eq_right hall]
       exact ⟨_, rfl, hprev⟩
 
 theorem tagBuild_ok {p : Program} (hwf : p.WF) (vals : Array (Array (Option α))) {prev : Array (Option Ty)}

@@ -433,7 +433,7 @@ theorem position_set (st : State) (ps : List Position) (coin : Nat) (p : Positio
 theorem position_set_ne (st : State) (ps : List Position) (coin other : Nat) (p : Position)
     (hne : other ≠ coin) (hst : st.positions = ps.set coin p) :
     position st other = position { st with positions := ps } other := by
-  simp [position, hst, List.getElem?_set, hne.symm]
+  simp [position, hst, hne.symm]
 
 theorem supplied_iff (late : Int) (o : Nat × Int) (events : List Event) :
     (events.any fun

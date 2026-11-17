@@ -149,7 +149,7 @@ let compare_day root repo meta missing (coin, day) =
   let result = R.archive_day ~root ~meta ~coin ~day ~delta:17 ~emit in
   if built_hours = expected_hours
   then (
-    ignore (get result);
+    ignore (get result : R.counts);
     check "sample cannot pass vacuously" (!compared > 0))
   else (
     match result with
@@ -173,7 +173,7 @@ let compare_day root repo meta missing (coin, day) =
   check
     "no oracle events omitted"
     (try
-       ignore (input_line input);
+       ignore (input_line input : string);
        false
      with
      | End_of_file -> true);

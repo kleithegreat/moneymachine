@@ -12,11 +12,11 @@ theorem natLog_spec (b n : Nat) (hb : 2 ≤ b) (hn : 0 < n) :
   | _ n ih =>
     rw [natLog]
     by_cases h : b ≤ 1 ∨ n < b
-    · rw [dif_pos h]
+    · rw [dite_eq_left h]
       have : n < b := by omega
       simp only [Nat.pow_zero, Nat.zero_add, Nat.pow_one]
       omega
-    · rw [dif_neg h]
+    · rw [dite_eq_right h]
       have hlt : n / b < n := Nat.div_lt_self hn (by omega)
       have hpos : 0 < n / b := Nat.div_pos (by omega) (by omega)
       obtain ⟨h1, h2⟩ := ih (n / b) hlt hpos
@@ -78,7 +78,7 @@ theorem ilog_spec (b : Nat) (hb : 2 ≤ b) (p : Rat) (hp : 0 < p) :
   have hb0 : (0 : Rat) < b := pos_of_natCast_pos (by omega)
   unfold ilog
   by_cases h1 : 1 ≤ p
-  · rw [if_pos h1]
+  · rw [ite_eq_left h1]
     have hf : 1 ≤ p.floor := Rat.le_floor_iff.2 (by simpa using h1)
     have hn : 0 < p.floor.toNat := by omega
     obtain ⟨s1, s2⟩ := natLog_spec b _ hb hn
@@ -93,7 +93,7 @@ theorem ilog_spec (b : Nat) (hb : 2 ≤ b) (p : Rat) (hp : 0 < p) :
     have e1 : ((p.floor + 1 : Int) : Rat) = (p.floor : Rat) + 1 := by simp
     rw [zpow_natCast', ← Int.natCast_add_one, zpow_natCast']
     constructor <;> grind
-  · rw [if_neg h1]
+  · rw [ite_eq_right h1]
     have hp1 : p < 1 := Rat.not_le.1 h1
     have hx : 1 < p⁻¹ := by
       have hpi : 0 < p⁻¹ := Rat.inv_pos.2 hp
@@ -205,7 +205,7 @@ theorem rounding_parts (p step : Rat) (hstep : 0 < step) :
     · exact up
   · intro hp
     unfold roundSize
-    rw [if_pos hp]
+    rw [ite_eq_left hp]
     unfold roundDown
     exact ⟨hfl hp, d1, by grind⟩
   · intro hp
@@ -214,13 +214,13 @@ theorem rounding_parts (p step : Rat) (hstep : 0 < step) :
     · have hp0 : p = 0 := Rat.le_antisymm hp h0
       subst hp0
       have h00 : (0 : Rat) / step = 0 := by simp [Rat.div_def]
-      rw [if_pos (Rat.le_refl)]
+      rw [ite_eq_left (Rat.le_refl)]
       unfold roundDown
       rw [h00]
       have : (((0 : Rat).floor : Int) : Rat) = 0 := by rfl
       simp only [this]
       grind
-    · rw [if_neg h0]
+    · rw [ite_eq_right h0]
       unfold roundUp
       exact ⟨u1, hce hp, by grind⟩
 
@@ -484,7 +484,7 @@ theorem stepExp_eq {figures : Nat} {decimals : Int} {p : Rat} {e : Int}
     stepExp figures decimals p = max (min (e - figures + 1) 0) (-decimals) := by
   have hp : 0 < p := by have := ten_pos e; grind
   unfold stepExp
-  rw [if_pos hp, ilog10_eq h1 h2]
+  rw [ite_eq_left hp, ilog10_eq h1 h2]
 
 theorem mult_combine (p : Rat) (a c : Int) :
     (Mult p a ∧ (Mult p c ∨ Mult p 0)) ↔ Mult p (max (min c 0) a) := by
@@ -623,7 +623,7 @@ theorem buy_spec {figures : Nat} {decimals : Int} {p : Rat} (hf : 1 ≤ figures)
   obtain ⟨e, g, h1, h2, hg, hgs, hdec⟩ := price_setup (figures := figures) (decimals := decimals) hp
   have hs : 0 < ten g := ten_pos g
   unfold roundPriceBuy
-  rw [if_pos hp, hgs]
+  rw [ite_eq_left hp, hgs]
   obtain ⟨d1, d2⟩ := floor_mul_bounds p (ten g) hs
   have hb0 : 0 ≤ roundDown p (ten g) := roundDown_nonneg hs (Rat.le_of_lt hp)
   have hbp : roundDown p (ten g) ≤ p := d1
@@ -678,7 +678,7 @@ theorem sell_spec {figures : Nat} {decimals : Int} {p : Rat} (hf : 1 ≤ figures
   obtain ⟨e, g, h1, h2, hg, hgs, hdec⟩ := price_setup (figures := figures) (decimals := decimals) hp
   have hs : 0 < ten g := ten_pos g
   unfold roundPriceSell
-  rw [if_pos hp, hgs]
+  rw [ite_eq_left hp, hgs]
   obtain ⟨u1, u2⟩ := ceil_mul_bounds p (ten g) hs
   have hup : p ≤ roundUp p (ten g) := u1
   have hus : roundUp p (ten g) - p < ten g := by unfold roundUp; grind
@@ -822,7 +822,7 @@ theorem magValue_normal {e : Int} {m : Nat} (he1 : -100 ≤ e) (he2 : e ≤ 99)
     magValue ((e + 1022).toNat * 2 ^ 52 + m) = (m : Rat) * (2 : Rat) ^ (e - 52) := by
   unfold magValue
   have hge : ¬ ((e + 1022).toNat * 2 ^ 52 + m < 2 ^ 52) := by omega
-  rw [if_neg hge]
+  rw [ite_eq_right hge]
   by_cases hm : m < 2 ^ 53
   · have h1 : ((e + 1022).toNat * 2 ^ 52 + m) % 2 ^ 52 + 2 ^ 52 = m := by omega
     have h2 : ((e + 1022).toNat * 2 ^ 52 + m) / 2 ^ 52 = (e + 1023).toNat := by omega
@@ -847,7 +847,7 @@ theorem decode_pos (mag : Nat) (hm : mag < infBits) :
     UInt64.toNat_ofNat_of_lt' (by unfold UInt64.size; omega)
   unfold decode
   simp only [hv]
-  rw [Nat.mod_eq_of_lt (by omega), if_neg (by omega), if_neg (by omega)]
+  rw [Nat.mod_eq_of_lt (by omega), ite_eq_right (by omega), ite_eq_right (by omega)]
 
 theorem decode_neg (mag : Nat) (hm : mag < infBits) :
     decode (UInt64.ofNat (2 ^ 63 + mag)) = some (-magValue mag) := by
@@ -857,7 +857,7 @@ theorem decode_neg (mag : Nat) (hm : mag < infBits) :
   unfold decode
   simp only [hv]
   have h1 : (2 ^ 63 + mag) % 2 ^ 63 = mag := by omega
-  rw [h1, if_neg (by omega), if_pos (by omega)]
+  rw [h1, ite_eq_right (by omega), ite_eq_left (by omega)]
 
 theorem nearest_spec {q : Rat} (hq : q ≠ 0)
     (hlo : (2 : Rat) ^ (-100 : Int) ≤ (if q < 0 then -q else q))
@@ -940,17 +940,17 @@ theorem nearest_spec {q : Rat} (hq : q ≠ 0)
   have hmag0 : (e + 1022).toNat * 2 ^ 52 + m ≠ 0 := by omega
   have hnb : nearestBits q = UInt64.ofNat ((if q < 0 then 2 ^ 63 else 0) + ((e + 1022).toNat * 2 ^ 52 + m)) := by
     unfold nearestBits
-    rw [if_neg hq]
+    rw [ite_eq_right hq]
     dsimp only
-    rw [← ha, ← he, hmax, ← hs, ← ht, ← hm, hmag, if_neg hmag0]
+    rw [← ha, ← he, hmax, ← hs, ← ht, ← hm, hmag, ite_eq_right hmag0]
   have d1 := hm1
   refine ⟨if q < 0 then -magValue ((e + 1022).toNat * 2 ^ 52 + m)
       else magValue ((e + 1022).toNat * 2 ^ 52 + m), ?_, ?_, ?_⟩
   · rw [hnb]
     by_cases hneg : q < 0
-    · rw [if_pos hneg, decode_neg _ (by omega)]
+    · rw [ite_eq_left hneg, decode_neg _ (by omega)]
       simp [hneg]
-    · rw [if_neg hneg, Nat.zero_add, decode_pos _ (by omega)]
+    · rw [ite_eq_right hneg, Nat.zero_add, decode_pos _ (by omega)]
       simp [hneg]
   · rw [hnb]
     intro h
@@ -962,12 +962,12 @@ theorem nearest_spec {q : Rat} (hq : q ≠ 0)
     rw [hmv]
     by_cases hneg : q < 0
     · have hqa : q = -a := by
-        rw [ha, if_pos hneg]; grind
-      simp only [if_pos hneg]
+        rw [ha, ite_eq_left hneg]; grind
+      simp only [ite_eq_left hneg]
       rw [hqa]
       constructor <;> grind
-    · have hqa : q = a := by rw [ha, if_neg hneg]
-      simp only [if_neg hneg]
+    · have hqa : q = a := by rw [ha, ite_eq_right hneg]
+      simp only [ite_eq_right hneg]
       rw [hqa]
       constructor <;> grind
 
@@ -976,10 +976,10 @@ theorem decode_zero : decode 0 = some 0 := by
   unfold decode
   simp only [this]
   have h : ¬ infBits ≤ 0 % 2 ^ 63 := by unfold infBits; omega
-  rw [if_neg h, if_neg (by omega)]
+  rw [ite_eq_right h, ite_eq_right (by omega)]
   unfold magValue
-  simp only [Nat.zero_mod, Nat.pow_pos, Nat.lt_irrefl]
-  rw [if_pos (by omega)]
+  simp only [Nat.zero_mod]
+  rw [ite_eq_left (by omega)]
   have : ((0 : Nat) : Rat) = 0 := rfl
   rw [this, Rat.zero_mul]
 
@@ -988,16 +988,16 @@ theorem decode_negZero : decode 9223372036854775808 = some 0 := by
   unfold decode
   simp only [this]
   have h : ¬ infBits ≤ 2 ^ 63 % 2 ^ 63 := by unfold infBits; omega
-  rw [if_neg h, if_pos (by omega)]
+  rw [ite_eq_right h, ite_eq_left (by omega)]
   unfold magValue
-  rw [show 2 ^ 63 % 2 ^ 63 = 0 by omega, if_pos (by omega)]
+  rw [show 2 ^ 63 % 2 ^ 63 = 0 by omega, ite_eq_left (by omega)]
   have : ((0 : Nat) : Rat) = 0 := rfl
   rw [this, Rat.zero_mul]
   rfl
 
 theorem nearestBits_zero : nearestBits 0 = 0 := by
   unfold nearestBits
-  rw [if_pos rfl]
+  rw [ite_eq_left rfl]
 
 theorem floor_half : ((1 : Rat) / 2).floor = 0 := by
   have h1 : 0 ≤ ((1 : Rat) / 2).floor := Rat.le_floor_iff.2 (by grind)
@@ -1075,11 +1075,11 @@ theorem readBits_iff {d : Nat} (hd : d ≤ 12) (bits : UInt64) (n : Int) :
       by_cases hc : (x * (10 : Rat) ^ d + 1 / 2).floor.natAbs < 10 ^ 15 ∧
           nearestBits (((x * (10 : Rat) ^ d + 1 / 2).floor : Int) / (10 : Rat) ^ d) =
             (if bits = (9223372036854775808 : UInt64) then 0 else bits)
-      · rw [if_pos hc] at h
+      · rw [ite_eq_left hc] at h
         injection h with h
         subst h
         exact hc
-      · rw [if_neg hc] at h
+      · rw [ite_eq_right hc] at h
         simp at h
   · rintro ⟨hn, hb⟩
     by_cases hn0 : n = 0
@@ -1091,7 +1091,7 @@ theorem readBits_iff {d : Nat} (hd : d ≤ 12) (bits : UInt64) (n : Int) :
       apply readBits_zero
       by_cases h : bits = 9223372036854775808
       · exact Or.inr h
-      · rw [if_neg h] at hb
+      · rw [ite_eq_right h] at hb
         exact Or.inl hb.symm
     · have hD : 0 < (10 : Rat) ^ d := Rat.pow_pos (by decide)
       obtain ⟨q, hq⟩ : ∃ q, q = (n : Rat) / (10 : Rat) ^ d := ⟨_, rfl⟩
@@ -1110,7 +1110,7 @@ theorem readBits_iff {d : Nat} (hd : d ≤ 12) (bits : UInt64) (n : Int) :
             intro hlt
             have := Rat.mul_le_mul_of_nonneg_right (show q ≤ 0 by grind) (Rat.le_of_lt hD)
             grind
-          refine ⟨n, q, c1, c2, hqD, by rw [if_neg hq0], by grind, fun h => absurd h hq0, fun _ => rfl⟩
+          refine ⟨n, q, c1, c2, hqD, by rw [ite_eq_right hq0], by grind, fun h => absurd h hq0, fun _ => rfl⟩
         · have h1 : n ≤ -1 := by omega
           have h2 : -1000000000000000 < n := by omega
           have c1 : (n : Rat) ≤ -1 := Rat.intCast_le_intCast.2 h1
@@ -1120,7 +1120,7 @@ theorem readBits_iff {d : Nat} (hd : d ≤ 12) (bits : UInt64) (n : Int) :
             · exact hlt
             · have := Rat.mul_le_mul_of_nonneg_right (show 0 ≤ q by grind) (Rat.le_of_lt hD)
               grind
-          refine ⟨-(n : Rat), -q, by grind, by grind, by grind, by rw [if_pos hq0], by grind,
+          refine ⟨-(n : Rat), -q, by grind, by grind, by grind, by rw [ite_eq_left hq0], by grind,
             fun _ => by grind, fun h => absurd hq0 h⟩
       obtain ⟨hqne, hbn⟩ := hnN
       obtain ⟨hlo, hhi⟩ := scaled_bounds hd hN1 hN2 hA
@@ -1128,9 +1128,9 @@ theorem readBits_iff {d : Nat} (hd : d ≤ 12) (bits : UInt64) (n : Int) :
       obtain ⟨x, hx, hne, e1, e2⟩ := nearest_spec hqne hlo hhi
       have hbits : bits ≠ 9223372036854775808 := by
         intro h
-        rw [if_pos h] at hb
+        rw [ite_eq_left h] at hb
         exact hne hb
-      rw [if_neg hbits] at hb
+      rw [ite_eq_right hbits] at hb
       rw [hb] at hx
       unfold readBits
       rw [hx]
@@ -1147,7 +1147,7 @@ theorem readBits_iff {d : Nat} (hd : d ≤ 12) (bits : UInt64) (n : Int) :
         have h1 := Rat.le_floor_iff.2 hle
         have h2 := Rat.floor_lt_iff.2 hlt
         omega
-      rw [hfl, if_pos ⟨hn, by rw [← hq, if_neg hbits]; exact hb⟩]
+      rw [hfl, ite_eq_left ⟨hn, by rw [← hq, ite_eq_right hbits]; exact hb⟩]
 
 /-- `roundHalfEven (P / Q)` on natural numbers. -/
 def roundDiv (P Q : Nat) : Nat :=
@@ -1338,17 +1338,17 @@ theorem nearestBitsAt_eq (d : Nat) (n : Int) (hn : n.natAbs < 10 ^ 15) :
       by_cases hneg : n < 0
       · have : (n.natAbs : Int) = -n := by omega
         have h2 : ((n.natAbs : Nat) : Rat) = ((n.natAbs : Int) : Rat) := (Rat.intCast_natCast _).symm
-        rw [if_pos hneg, h2, this]; simp
+        rw [ite_eq_left hneg, h2, this]; simp
       · have : (n.natAbs : Int) = n := by omega
         have h2 : ((n.natAbs : Nat) : Rat) = ((n.natAbs : Int) : Rat) := (Rat.intCast_natCast _).symm
-        rw [if_neg hneg, h2, this]
+        rw [ite_eq_right hneg, h2, this]
     have ha : (if (n : Rat) / (B : Rat) < 0 then -((n : Rat) / (B : Rat)) else (n : Rat) / (B : Rat)) =
         (n.natAbs : Rat) / (B : Rat) := by
       rw [hAc]
       by_cases hneg : n < 0
-      · rw [if_pos (hlt.2 hneg), if_pos hneg]
+      · rw [ite_eq_left (hlt.2 hneg), ite_eq_left hneg]
         simp only [Rat.div_def, Rat.neg_mul]
-      · rw [if_neg (fun h => hneg (hlt.1 h)), if_neg hneg]
+      · rw [ite_eq_right (fun h => hneg (hlt.1 h)), ite_eq_right hneg]
     obtain ⟨A, hAd⟩ : ∃ A, A = n.natAbs := ⟨_, rfl⟩
     rw [← hAd] at hA hAc ha hn
     have hpos : (0 : Rat) < (A : Rat) / (B : Rat) := by
@@ -1392,7 +1392,7 @@ theorem nearestBitsAt_eq (d : Nat) (n : Int) (hn : n.natAbs < 10 ^ 15) :
 theorem floor_scaled (S E : Int) : ((S : Rat) * (2 : Rat) ^ E + 1 / 2).floor = roundScaled S E := by
   unfold roundScaled
   by_cases hE : 0 ≤ E
-  · rw [if_pos hE]
+  · rw [ite_eq_left hE]
     obtain ⟨t, ht⟩ : ∃ t : Nat, E = t := ⟨E.toNat, by omega⟩
     have hto : E.toNat = t := by omega
     rw [hto, ht]
@@ -1403,7 +1403,7 @@ theorem floor_scaled (S E : Int) : ((S : Rat) * (2 : Rat) ^ E + 1 / 2).floor = r
     · have : ((S * 2 ^ t : Int) : Rat) = (S : Rat) * (2 : Rat) ^ ((t : Nat) : Int) := by
         rw [Rat.intCast_mul, zpow_natCast']; push_cast; rfl
       rw [← this]; grind
-  · rw [if_neg hE]
+  · rw [ite_eq_right hE]
     obtain ⟨k, hk⟩ : ∃ k : Nat, E = -(k : Int) := ⟨(-E).toNat, by omega⟩
     have hto : (-E).toNat = k := by omega
     rw [hto, hk]

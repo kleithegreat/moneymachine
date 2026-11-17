@@ -216,9 +216,9 @@ let compile ~present program_text =
        (fun (name, expression) -> lets := (name, walk expression) :: !lets)
        entries
    | _ -> ());
-  ignore (walk (member "weight" program));
+  ignore (walk (member "weight" program) : int);
   (match member "prediction" program with
-   | `Assoc _ as prediction -> ignore (walk (member "condition" prediction))
+   | `Assoc _ as prediction -> ignore (walk (member "condition" prediction) : int)
    | _ -> ());
   let nodes = List.rev !nodes in
   let slot_of name =
@@ -408,7 +408,7 @@ let read_head path wanted =
       if n = 0 then got else fill (got + n))
   in
   let got = fill 0 in
-  ignore (Unix.close_process_in ic);
+  ignore (Unix.close_process_in ic : Unix.process_status);
   Bytes.sub_string buffer 0 got
 ;;
 
@@ -506,7 +506,7 @@ let compare_item ~market ~name ~nodes ~stream state =
   (match input_char ic with
    | exception End_of_file -> ()
    | _ -> fail "%s: the reference's stream is longer than version 2's" name);
-  ignore (Unix.close_process_in ic)
+  ignore (Unix.close_process_in ic : Unix.process_status)
 ;;
 
 let () =

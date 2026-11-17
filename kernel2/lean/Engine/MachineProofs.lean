@@ -47,7 +47,7 @@ theorem applyPayload_cfg (s : State) (e : Event) (r : Reading) : (applyPayload s
 
 theorem advance_cfg (s : State) (e : Event) (r : Reading) : (advance s e r).1.cfg = s.cfg := by
   unfold advance advanceRec
-  simp [fireN_cfg, fireRec_cfg, applyPayload_cfg]
+  simp [fireRec_cfg, applyPayload_cfg]
 
 theorem reject_cfg (s : State) (c : String) (t : Int) (d : String) : (s.reject c t d).cfg = s.cfg := rfl
 

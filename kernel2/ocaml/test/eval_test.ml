@@ -267,7 +267,7 @@ let test_5 () =
        "start refuses traded on a market with no trade source"
        (code = "E_UNKNOWN_INPUT")
    | Ok _ -> failwith "traded was read from a market with no trades");
-  ignore (get (M.start reads_traded (header ())));
+  ignore (get (M.start reads_traded (header ())) : M.t);
   let unknown = prog ~sources:[ source "nope" "1" ] [ probe "p" (input "nope") ] in
   check
     "check accepts a declared source"
