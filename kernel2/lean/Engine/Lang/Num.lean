@@ -1,3 +1,5 @@
+import Engine.Exact
+
 /-!
 # The numbers the float language is stated over (reference/SEMANTICS.md §1, §5)
 
@@ -29,6 +31,8 @@ structure NumOps (α : Type) where
   ofNat : Nat → α
   ofInt : Int → α
   ofBits : UInt64 → α
+  toExact : α → Option Rat
+  ofExact : Rat → α
 
 namespace NumOps
 variable {α : Type} (N : NumOps α)
@@ -61,7 +65,8 @@ structure Lawful : Prop where
 
 end NumOps
 
-/-- Binary64 carried as its bits, with the C library's `log`, `exp` and `sqrt`. -/
+/-- Binary64 carried as its bits: `exp` and `log` are X4's, the crossings are `Exact.decode` and `Exact.nearestBits`, and
+`finite` is `decode`'s own test, a magnitude under `infBits`. -/
 def bitsOps : NumOps UInt64 where
   add a b := (Float.ofBits a + Float.ofBits b).toBits
   sub a b := (Float.ofBits a - Float.ofBits b).toBits
@@ -69,8 +74,8 @@ def bitsOps : NumOps UInt64 where
   div a b := (Float.ofBits a / Float.ofBits b).toBits
   neg a := (-Float.ofBits a).toBits
   abs a := (Float.abs (Float.ofBits a)).toBits
-  log a := (Float.log (Float.ofBits a)).toBits
-  exp a := (Float.exp (Float.ofBits a)).toBits
+  log := Engine.Exact.log
+  exp := Engine.Exact.exp
   sqrt a := (Float.sqrt (Float.ofBits a)).toBits
   trunc a := (let x := Float.ofBits a; if x ≥ 0 then x.floor else x.ceil).toBits
   signBit a := a >>> 63 == 1
@@ -78,11 +83,13 @@ def bitsOps : NumOps UInt64 where
   le a b := Float.ofBits a ≤ Float.ofBits b
   eq a b := Float.ofBits a == Float.ofBits b
   isZero a := Float.ofBits a == 0
-  finite a := (Float.ofBits a).isFinite
+  finite a := decide (a.toNat % 2 ^ 63 < Engine.Exact.infBits)
   zero := (0 : Float).toBits
   one := (1 : Float).toBits
   ofNat n := (Float.ofNat n).toBits
   ofInt n := (Float.ofInt n).toBits
   ofBits b := b
+  toExact := Engine.Exact.decode
+  ofExact := Engine.Exact.nearestBits
 
 end Engine.Lang
